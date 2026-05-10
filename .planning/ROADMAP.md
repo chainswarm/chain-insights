@@ -12,7 +12,7 @@ From empty repo to working AML investigation toolkit in five phases: lay the fou
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation & Distribution** - CLI scaffold, DuckDB, Hono server, config system, npm installer
+- [x] **Phase 1: Foundation & Distribution** - CLI scaffold, DuckDB, Hono server, config system, npm installer (completed 2026-05-10)
 - [ ] **Phase 2: MCP Connection & Payments** - x402 integration, schema discovery, free-form MCP queries
 - [ ] **Phase 3: Case Management** - Case lifecycle, evidence store, dossiers, investigation memory
 - [ ] **Phase 4: Money Flow Visualization** - D3.js graphs, self-contained HTML, browser auto-open
@@ -38,7 +38,7 @@ Plans:
 - [x] 01-01-PLAN.md — Walking Skeleton: package scaffold, build pipeline, CLI (Commander), DuckDB, Hono server, config system, test infrastructure
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 01-02-PLAN.md — Installer and skill registration: bin/install.js --claude, skills/ci-status, skills/ci-case
+- [x] 01-02-PLAN.md — Installer and skill registration: bin/install.js --claude, skills/ci-status, skills/ci-case
 
 ### Phase 2: MCP Connection & Payments
 **Goal**: Investigator can query the Chain Insights MCP through their AI agent, paying per-call via x402 micropayments, and discover what tools the MCP offers
@@ -106,7 +106,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 1. Foundation & Distribution | 1/2 | In Progress|  |
+| 1. Foundation & Distribution | 2/2 | Complete   | 2026-05-10 |
 | 2. MCP Connection & Payments | 0/2 | Not started | - |
 | 3. Case Management | 0/2 | Not started | - |
 | 4. Money Flow Visualization | 0/1 | Not started | - |

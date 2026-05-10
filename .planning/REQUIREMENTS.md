@@ -9,7 +9,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Foundation & Distribution
 
-- [ ] **FOUND-01**: User can install globally via `npx chain-insights --claude`
+- [x] **FOUND-01**: User can install globally via `npx chain-insights --claude`
 - [x] **FOUND-02**: CLI scaffold with Commander.js and skill registration system
 - [x] **FOUND-03**: DuckDB embedded database initialization with postinstall health check
 - [x] **FOUND-04**: Local Hono server (localhost-only, on-demand) for visualization and state API
@@ -90,7 +90,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | Phase 1 | Pending |
+| FOUND-01 | Phase 1 | Complete |
 | FOUND-02 | Phase 1 | Complete |
 | FOUND-03 | Phase 1 | Complete |
 | FOUND-04 | Phase 1 | Complete |
