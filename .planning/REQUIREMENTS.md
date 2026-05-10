@@ -10,10 +10,10 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Foundation & Distribution
 
 - [ ] **FOUND-01**: User can install globally via `npx chain-insights --claude`
-- [ ] **FOUND-02**: CLI scaffold with Commander.js and skill registration system
-- [ ] **FOUND-03**: DuckDB embedded database initialization with postinstall health check
-- [ ] **FOUND-04**: Local Hono server (localhost-only, on-demand) for visualization and state API
-- [ ] **FOUND-05**: Configuration system in `.chain-insights/` directory with MCP endpoint and wallet settings
+- [x] **FOUND-02**: CLI scaffold with Commander.js and skill registration system
+- [x] **FOUND-03**: DuckDB embedded database initialization with postinstall health check
+- [x] **FOUND-04**: Local Hono server (localhost-only, on-demand) for visualization and state API
+- [x] **FOUND-05**: Configuration system in `.chain-insights/` directory with MCP endpoint and wallet settings
 
 ### MCP & Payments
 
@@ -91,10 +91,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | FOUND-01 | Phase 1 | Pending |
-| FOUND-02 | Phase 1 | Pending |
-| FOUND-03 | Phase 1 | Pending |
-| FOUND-04 | Phase 1 | Pending |
-| FOUND-05 | Phase 1 | Pending |
+| FOUND-02 | Phase 1 | Complete |
+| FOUND-03 | Phase 1 | Complete |
+| FOUND-04 | Phase 1 | Complete |
+| FOUND-05 | Phase 1 | Complete |
 | MCP-01 | Phase 2 | Pending |
 | MCP-02 | Phase 2 | Pending |
 | MCP-03 | Phase 2 | Pending |

@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 **Wave 1**
-- [ ] 01-01-PLAN.md — Walking Skeleton: package scaffold, build pipeline, CLI (Commander), DuckDB, Hono server, config system, test infrastructure
+- [x] 01-01-PLAN.md — Walking Skeleton: package scaffold, build pipeline, CLI (Commander), DuckDB, Hono server, config system, test infrastructure
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 01-02-PLAN.md — Installer and skill registration: bin/install.js --claude, skills/ci-status, skills/ci-case
@@ -106,7 +106,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 1. Foundation & Distribution | 0/2 | Not started | - |
+| 1. Foundation & Distribution | 1/2 | In Progress|  |
 | 2. MCP Connection & Payments | 0/2 | Not started | - |
 | 3. Case Management | 0/2 | Not started | - |
 | 4. Money Flow Visualization | 0/1 | Not started | - |
