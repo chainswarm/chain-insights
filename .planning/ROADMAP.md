@@ -31,11 +31,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. DuckDB database initializes on first run and passes postinstall health check
   4. Local Hono server starts on demand, serves responses on localhost, and stops cleanly
   5. Configuration directory `.chain-insights/` exists with MCP endpoint and wallet settings
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md — Walking Skeleton: package scaffold, build pipeline, CLI (Commander), DuckDB, Hono server, config system, test infrastructure
+- [ ] 01-02-PLAN.md — Installer and skill registration: bin/install.js --claude, skills/ci-status, skills/ci-case
 
 ### Phase 2: MCP Connection & Payments
 **Goal**: Investigator can query the Chain Insights MCP through their AI agent, paying per-call via x402 micropayments, and discover what tools the MCP offers
