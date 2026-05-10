@@ -640,7 +640,7 @@ export const DEFAULT_CONFIG = ConfigSchema.parse({})
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Default MCP endpoint for dev**
    - What we know: MCP auth uses Bearer token `chainswarm-m2m-2026`. Private endpoint is currently localhost.
