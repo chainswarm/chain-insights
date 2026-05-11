@@ -552,17 +552,17 @@ interface CaseContext {
 | A2 | The `cases` directory is created at first `case open` — not pre-created by postinstall | Standard Stack | No functional risk; `mkdir -p` handles it either way |
 | A3 | `session.md` naming uses sequence numbers (`session_001.md`) matching the rolling window sort logic | Code Examples | If sessions use UUID names, sort-by-sequence logic breaks; use timestamp ISO sort instead |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **`case activate` — should it deactivate any currently-active case?**
    - What we know: The lifecycle is open → active → suspended → closed; no constraint on simultaneous active cases stated.
    - What's unclear: Can two cases be `active` at once? The CONTEXT.md does not restrict this.
-   - Recommendation: Allow multiple active cases (simpler, less surprising); display a warning if activating when another case is already active.
+   - RESOLVED: Allow multiple active cases (simpler, less surprising); display a warning if activating when another case is already active.
 
 2. **Evidence capture hooks in `src/mcp/proxy.ts`**
    - What we know: CONTEXT.md lists `src/mcp/proxy.ts` as an integration point for evidence capture.
    - What's unclear: Phase 3 scope says "via slash commands" — so should evidence capture be automatic-on-MCP-call or manual-via-command?
-   - Recommendation: Manual for Phase 3 (agent explicitly calls `case evidence add`). Automatic hook integration is Phase 3+ scope; keep the hook point in proxy.ts as a stub comment for now.
+   - RESOLVED: Manual for Phase 3 (agent explicitly calls `case evidence add`). Automatic hook integration is Phase 3+ scope; keep the hook point in proxy.ts as a stub comment for now.
 
 ## Environment Availability
 

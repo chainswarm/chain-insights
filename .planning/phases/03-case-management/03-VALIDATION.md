@@ -39,9 +39,9 @@ created: 2026-05-11
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
 | 03-01-01 | 01 | 1 | CASE-01 | — | Case state file created with 0o600 permissions | unit | `npx vitest run tests/cases-store.test.ts` | ❌ W0 | ⬜ pending |
-| 03-01-02 | 01 | 1 | CASE-02 | — | SHA-256 manifest append-only, verified on load | unit | `npx vitest run tests/cases-evidence.test.ts` | ❌ W0 | ⬜ pending |
-| 03-01-03 | 01 | 1 | CASE-03 | — | Dossier dedup by content hash | unit | `npx vitest run tests/cases-dossier.test.ts` | ❌ W0 | ⬜ pending |
-| 03-01-04 | 01 | 1 | CASE-04 | — | Session context restore from flat files | unit | `npx vitest run tests/cases-session.test.ts` | ❌ W0 | ⬜ pending |
+| 03-02-01 | 02 | 2 | CASE-02 | — | SHA-256 manifest append-only, verified on load | unit | `npx vitest run tests/cases-evidence.test.ts` | ❌ W0 | ⬜ pending |
+| 03-02-02 | 02 | 2 | CASE-03 | — | Dossier dedup by content hash | unit | `npx vitest run tests/cases-dossier.test.ts` | ❌ W0 | ⬜ pending |
+| 03-02-03 | 02 | 2 | CASE-04 | — | Session context restore from flat files | unit | `npx vitest run tests/cases-session.test.ts` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
