@@ -555,22 +555,25 @@ function deriveKey(): Buffer {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Remote MCP transport type**
    - What we know: The Chain Insights MCP is described as "an HTTP API." Streamable HTTP is the modern MCP transport.
    - What's unclear: Whether it exposes MCP's streamable HTTP endpoint or only SSE.
    - Recommendation: Default to `StreamableHTTPClientTransport` with a fallback to `SSEClientTransport` if the connection fails. This matches the SDK's own recommendation pattern.
+   - **RESOLVED (02-02):** Plan 02-02 implements `StreamableHTTPClientTransport` with automatic `SSEClientTransport` fallback in `src/mcp/proxy.ts`. Both transports are handled transparently — assumption A1 is addressed at runtime.
 
 2. **Proxy binary path when globally installed via npx**
    - What we know: The installer writes the proxy path into `~/.claude.json`. The path must be absolute and stable after global install.
    - What's unclear: The exact npm global bin path layout when installed via `npx chain-insights --claude`.
    - Recommendation: In `install.cjs`, resolve the proxy path as `path.resolve(__dirname, '..', 'dist', 'mcp-proxy.mjs')`. When globally installed, `__dirname` resolves to the npm global package directory. Test this during Wave 0.
+   - **RESOLVED (02-03):** Plan 02-03/Task 2 uses `path.resolve(__dirname, '..', 'dist', 'mcp-proxy.mjs')` in `bin/install.cjs`. `__dirname` is a CJS global that resolves to the bin/ directory at both dev and global npm install time.
 
 3. **Schema cache invalidation on MCP version bump**
    - What we know: The 24h TTL handles staleness. There is no explicit versioning in the cache format.
    - What's unclear: Whether the remote MCP will return a version field that could force invalidation.
    - Recommendation: Cache structure should include a `cachedAt` timestamp and optionally a `serverVersion` field. Keep it simple for v1.
+   - **RESOLVED (02-02):** Plan 02-02/Task 1 implements `{ tools, cachedAt: Date.now() }` cache format with 24h TTL. No `serverVersion` field in v1 — deferred to v2 alongside query caching (MCPOPT-01). The `--refresh` flag on `chain-insights mcp tools` provides manual invalidation.
 
 ---
 

@@ -2,8 +2,8 @@
 phase: 02
 slug: mcp-connection-payments
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-05-11
 ---
 
@@ -40,9 +40,10 @@ created: 2026-05-11
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
 | 02-01-01 | 01 | 1 | MCP-01 | — | Wallet private key encrypted at rest | unit | `npx vitest run tests/wallet` | ❌ W0 | ⬜ pending |
 | 02-01-02 | 01 | 1 | MCP-01 | — | x402 fetch wrapper signs payments | unit | `npx vitest run tests/mcp-client` | ❌ W0 | ⬜ pending |
-| 02-01-03 | 01 | 1 | MCP-02 | — | MCP proxy starts and lists tools | integration | `npx vitest run tests/mcp-proxy` | ❌ W0 | ⬜ pending |
-| 02-02-01 | 02 | 2 | MCP-02 | — | CLI mcp tools command lists tools | integration | `npx vitest run tests/cli-mcp` | ❌ W0 | ⬜ pending |
-| 02-02-02 | 02 | 2 | MCP-03 | — | Installer registers MCP proxy in Claude Code | integration | `npx vitest run tests/installer` | ❌ W0 | ⬜ pending |
+| 02-02-01 | 02 | 2 | MCP-02 | — | MCP proxy starts and lists tools | integration | `npx vitest run tests/mcp-proxy` | ❌ W0 | ⬜ pending |
+| 02-02-02 | 02 | 2 | MCP-02 | — | Schema cache TTL and round-trip | unit | `npx vitest run tests/mcp-schema-cache` | ❌ W0 | ⬜ pending |
+| 02-03-01 | 03 | 3 | MCP-02 | — | CLI mcp tools command lists tools; walletPrivateKey interceptor routes to encryptKey() | integration | `npx vitest run tests/cli-mcp` | ❌ W0 | ⬜ pending |
+| 02-03-02 | 03 | 3 | MCP-03 | — | Installer registers MCP proxy in Claude Code | integration | `npx vitest run tests/installer` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -50,11 +51,14 @@ created: 2026-05-11
 
 ## Wave 0 Requirements
 
-- [ ] `tests/wallet.test.ts` — stubs for wallet encryption/decryption
-- [ ] `tests/mcp-client.test.ts` — stubs for x402 fetch wrapper
-- [ ] `tests/mcp-proxy.test.ts` — stubs for MCP proxy server
-- [ ] `tests/cli-mcp.test.ts` — stubs for CLI mcp subcommand
-- [ ] `tests/installer.test.ts` — extend existing installer tests for MCP registration
+Wave 0 test files are created **inline** during task execution (TDD-within-task pattern) — no separate Wave 0 plan needed.
+
+- [x] `tests/wallet.test.ts` — created inline in 02-01/Task 1 (wallet encryption module)
+- [x] `tests/mcp-client.test.ts` — created inline in 02-01/Task 2 (x402 fetch client)
+- [x] `tests/mcp-schema-cache.test.ts` — created inline in 02-02/Task 1 (schema cache + formatter)
+- [x] `tests/mcp-proxy.test.ts` — created inline in 02-02/Task 2 (stdio proxy)
+- [x] `tests/cli-mcp.test.ts` — created inline in 02-03/Task 1 (CLI mcp subcommand + walletPrivateKey interceptor)
+- [x] `tests/installer.test.ts` — extended inline in 02-03/Task 2 (MCP registration)
 
 ---
 
@@ -69,11 +73,11 @@ created: 2026-05-11
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references (created inline via TDD-within-task)
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
