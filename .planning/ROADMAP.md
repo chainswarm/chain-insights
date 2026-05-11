@@ -105,10 +105,14 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. User can execute a playbook by name and the runner steps through each declared investigation step in sequence
   2. Built-in starter playbooks (trace-funds, risk-check, entity-profile) are available out of the box and produce structured output
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 05-01: TBD
+**Wave 1**
+- [ ] 05-01-PLAN.md — Playbook engine core: Zod schemas, markdown parser, name resolver, sequential runner with retry/resume/dry-run (PLAY-01)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 05-02-PLAN.md — Built-in playbook definitions (TypeScript string constants) + CLI playbook subcommand (run/list/show) (PLAY-01, PLAY-02)
 
 ## Progress
 
@@ -121,4 +125,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 2. MCP Connection & Payments | 0/3 | Not started | - |
 | 3. Case Management | 1/2 | In Progress|  |
 | 4. Money Flow Visualization | 0/2 | Not started | - |
-| 5. Playbooks | 0/1 | Not started | - |
+| 5. Playbooks | 0/2 | Not started | - |
