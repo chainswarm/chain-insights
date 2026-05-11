@@ -43,6 +43,11 @@ vi.mock('../src/mcp/client.js', () => ({
   createMcpFetchClient: vi.fn().mockReturnValue(fetch),
 }))
 
+vi.mock('../src/wallet/index.js', () => ({
+  isWalletConfigured: vi.fn().mockResolvedValue(true),
+  decryptKey: vi.fn().mockResolvedValue('0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'),
+}))
+
 const SAMPLE_PLAYBOOK: PlaybookDefinition = {
   name: 'test-playbook',
   description: 'Test',
@@ -296,7 +301,7 @@ describe('PlaybookRunner', () => {
   it('process.stdin.isTTY falsy → payment failure aborts instead of prompting readline', async () => {
     const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
 
-    const paymentError = new Error('Payment failed: insufficient funds')
+    const paymentError = new Error('HTTP 402 Payment Required')
 
     const payClient = {
       connect: vi.fn().mockResolvedValue(undefined),
