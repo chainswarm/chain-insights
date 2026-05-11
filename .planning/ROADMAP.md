@@ -95,7 +95,7 @@ Plans:
 - [x] 04-01-PLAN.md — End-to-end viz slice: graph data model (Zod), theme/CSS, D3 viz-logic template, HTML generator, Hono /viz/:id route, CLI viz command, standalone --data mode (VIZ-01, VIZ-02, VIZ-03)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 04-02-PLAN.md — Case-based data extraction: evidence JSON parser, dossier entity enrichment, CLI integration test (VIZ-01, VIZ-02, VIZ-03)
+- [x] 04-02-PLAN.md — Case-based data extraction: evidence JSON parser, dossier entity enrichment, CLI integration test (VIZ-01, VIZ-02, VIZ-03)
 
 ### Phase 5: Playbooks
 **Goal**: Investigator can run repeatable, multi-step investigation workflows from markdown-declared playbooks -- turning common patterns (trace funds, risk check, entity profile) into one-command operations
