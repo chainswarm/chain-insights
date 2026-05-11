@@ -24,7 +24,7 @@
     "skills"
   ],
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && cp -r src/viz/templates dist/templates",
     "dev": "tsx src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest",

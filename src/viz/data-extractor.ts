@@ -5,6 +5,7 @@ import { GraphData, GraphNode, GraphEdge } from './graph-model.js'
 import { parseFrontmatter } from '../cases/frontmatter.js'
 
 function caseDir(caseId: string): string {
+  if (/[/\\]|^\.\.?$/.test(caseId)) throw new Error(`Invalid case ID: ${caseId}`)
   return path.join(os.homedir(), '.chain-insights', 'cases', caseId)
 }
 

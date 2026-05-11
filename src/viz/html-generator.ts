@@ -73,16 +73,21 @@ export function transformToGraphHtml(data: GraphData): GraphHtmlData {
 
 export function generateHtml(data: GraphData, _title: string): string {
   const graphHtmlData = transformToGraphHtml(data)
-  const dataJson = JSON.stringify(graphHtmlData)
+  const dataJson = JSON.stringify(graphHtmlData).replaceAll('</script>', '<\\/script>')
   const inlineScript = `<script>var INLINE_DATA = ${dataJson};</script>`
 
   return template.replace('</body>', `${inlineScript}\n</body>`)
 }
 
+function sanitizePathSegment(segment: string): string {
+  if (/[/\\]|^\.\.?$/.test(segment)) throw new Error(`Invalid path segment: ${segment}`)
+  return segment
+}
+
 export async function writeVizHtml(vizId: string, html: string, caseId?: string): Promise<string> {
   let vizDir: string
   if (caseId) {
-    vizDir = path.join(os.homedir(), '.chain-insights', 'cases', caseId, 'viz')
+    vizDir = path.join(os.homedir(), '.chain-insights', 'cases', sanitizePathSegment(caseId), 'viz')
   } else {
     vizDir = path.join(os.homedir(), '.chain-insights', 'viz')
   }
