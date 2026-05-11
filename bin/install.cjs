@@ -105,12 +105,13 @@ if (!fs.existsSync(configPath)) {
 
 // ─── 4. Register MCP proxy in Claude Code ─────────────────────────────────
 
-const proxyBinPath = path.resolve(__dirname, '..', 'dist', 'mcp-proxy.mjs');
-const { execSync } = require('child_process');
+const proxyBinPath = path.resolve(__dirname, 'mcp-proxy.cjs');
+const { execFileSync } = require('child_process');
 
 try {
-  execSync(
-    'claude mcp add chain-insights-proxy --scope user -- node ' + proxyBinPath,
+  execFileSync(
+    'claude',
+    ['mcp', 'add', 'chain-insights-proxy', '--scope', 'user', '--', 'node', proxyBinPath],
     { stdio: 'pipe' }
   );
   console.log(`  ${cyan}MCP proxy:${reset} registered (chain-insights-proxy) at ${proxyBinPath}`);
