@@ -109,10 +109,10 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 05-01-PLAN.md — Playbook engine core: Zod schemas, markdown parser, name resolver, sequential runner with retry/resume/dry-run (PLAY-01)
+- [x] 05-01-PLAN.md — Playbook engine core: Zod schemas, markdown parser, name resolver, sequential runner with retry/resume/dry-run (PLAY-01)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 05-02-PLAN.md — Built-in playbook definitions (TypeScript string constants) + CLI playbook subcommand (run/list/show) (PLAY-01, PLAY-02)
+- [x] 05-02-PLAN.md — Built-in playbook definitions (TypeScript string constants) + CLI playbook subcommand (run/list/show) (PLAY-01, PLAY-02)
 
 ## Progress
 
