@@ -1,0 +1,157 @@
+import * as z from "zod";
+import { DuckDBConnection } from "@duckdb/node-api";
+import { Hono } from "hono";
+
+//#region src/config/schema.d.ts
+declare const ConfigSchema: z.ZodObject<{
+  mcpEndpoint: z.ZodDefault<z.ZodString>;
+  mcpAuthToken: z.ZodOptional<z.ZodString>;
+  walletAddress: z.ZodOptional<z.ZodString>;
+  serverPort: z.ZodDefault<z.ZodNumber>;
+  dataDir: z.ZodDefault<z.ZodString>;
+  version: z.ZodDefault<z.ZodString>;
+}, z.core.$strip>;
+type InvestigatorConfig = z.infer<typeof ConfigSchema>;
+//#endregion
+//#region src/config/index.d.ts
+declare function loadConfig(): Promise<InvestigatorConfig>;
+declare function saveConfig(updates: Partial<InvestigatorConfig>): Promise<void>;
+declare function resetConfigCache(): Promise<void>;
+//#endregion
+//#region src/db/init.d.ts
+declare function getDb(): Promise<DuckDBConnection>;
+declare function initSchema(conn: DuckDBConnection): Promise<void>;
+declare function healthCheck(): Promise<{
+  ok: boolean;
+  error?: string;
+}>;
+//#endregion
+//#region src/server/app.d.ts
+declare function createApp(): Hono;
+//#endregion
+//#region src/server/index.d.ts
+declare function startServer(port?: number): () => void;
+//#endregion
+//#region src/wallet/index.d.ts
+/**
+ * Encrypts a private key and writes it to ~/.chain-insights/wallet.json.
+ * Uses AES-256-GCM with a machine-identity-derived key and a random per-wallet salt.
+ * File is written with 0o600 permissions (owner read/write only).
+ *
+ * @param privateKey - The EVM private key to encrypt (0x-prefixed)
+ */
+declare function encryptKey(privateKey: string): Promise<void>;
+/**
+ * Reads and decrypts the private key from ~/.chain-insights/wallet.json.
+ * Throws a human-readable error if wallet is absent or decryption fails.
+ *
+ * @returns The decrypted EVM private key string
+ */
+declare function decryptKey(): Promise<string>;
+/**
+ * Returns true if wallet.json exists, false if absent.
+ * Does not validate the wallet contents.
+ */
+declare function isWalletConfigured(): Promise<boolean>;
+//#endregion
+//#region src/mcp/client.d.ts
+/**
+ * Creates an x402-payment-wrapped fetch function for the Chain Insights MCP.
+ * Payments are made in USDC on Base Mainnet (eip155:8453).
+ *
+ * The factory is pure — no side effects, no state, no caching.
+ * If called with an invalid private key format, viem throws — the error propagates.
+ *
+ * @param privateKey - 0x-prefixed EVM private key (decrypted from wallet.json)
+ * @returns A fetch-compatible function that auto-handles HTTP 402 payment challenges
+ */
+declare function createMcpFetchClient(privateKey: `0x${string}`): (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+//#endregion
+//#region src/viz/graph-model.d.ts
+declare const GraphNode: z.ZodObject<{
+  id: z.ZodString;
+  label: z.ZodOptional<z.ZodString>;
+  entityType: z.ZodDefault<z.ZodEnum<{
+    eoa: "eoa";
+    contract: "contract";
+    exchange: "exchange";
+    mixer: "mixer";
+    unknown: "unknown";
+  }>>;
+  riskLevel: z.ZodDefault<z.ZodEnum<{
+    unknown: "unknown";
+    low: "low";
+    medium: "medium";
+    high: "high";
+    critical: "critical";
+  }>>;
+  totalIn: z.ZodDefault<z.ZodNumber>;
+  totalOut: z.ZodDefault<z.ZodNumber>;
+  txCount: z.ZodDefault<z.ZodNumber>;
+  firstSeen: z.ZodOptional<z.ZodString>;
+  lastSeen: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+type GraphNode = z.infer<typeof GraphNode>;
+declare const GraphEdge: z.ZodObject<{
+  source: z.ZodString;
+  target: z.ZodString;
+  value: z.ZodNumber;
+  txHash: z.ZodOptional<z.ZodString>;
+  blockNumber: z.ZodOptional<z.ZodNumber>;
+  timestamp: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+type GraphEdge = z.infer<typeof GraphEdge>;
+declare const GraphData: z.ZodObject<{
+  nodes: z.ZodArray<z.ZodObject<{
+    id: z.ZodString;
+    label: z.ZodOptional<z.ZodString>;
+    entityType: z.ZodDefault<z.ZodEnum<{
+      eoa: "eoa";
+      contract: "contract";
+      exchange: "exchange";
+      mixer: "mixer";
+      unknown: "unknown";
+    }>>;
+    riskLevel: z.ZodDefault<z.ZodEnum<{
+      unknown: "unknown";
+      low: "low";
+      medium: "medium";
+      high: "high";
+      critical: "critical";
+    }>>;
+    totalIn: z.ZodDefault<z.ZodNumber>;
+    totalOut: z.ZodDefault<z.ZodNumber>;
+    txCount: z.ZodDefault<z.ZodNumber>;
+    firstSeen: z.ZodOptional<z.ZodString>;
+    lastSeen: z.ZodOptional<z.ZodString>;
+  }, z.core.$strip>>;
+  edges: z.ZodArray<z.ZodObject<{
+    source: z.ZodString;
+    target: z.ZodString;
+    value: z.ZodNumber;
+    txHash: z.ZodOptional<z.ZodString>;
+    blockNumber: z.ZodOptional<z.ZodNumber>;
+    timestamp: z.ZodOptional<z.ZodString>;
+  }, z.core.$strip>>;
+  metadata: z.ZodObject<{
+    caseId: z.ZodOptional<z.ZodString>;
+    title: z.ZodDefault<z.ZodString>;
+    generatedAt: z.ZodString;
+    truncated: z.ZodDefault<z.ZodBoolean>;
+    totalNodes: z.ZodOptional<z.ZodNumber>;
+    hiddenNodes: z.ZodOptional<z.ZodNumber>;
+  }, z.core.$strip>;
+}, z.core.$strip>;
+type GraphData = z.infer<typeof GraphData>;
+//#endregion
+//#region src/viz/index.d.ts
+declare function generateVisualization(opts: {
+  caseId?: string;
+  dataFile?: string;
+}): Promise<{
+  vizId: string;
+  htmlPath: string;
+}>;
+//#endregion
+export { type GraphData as GraphDataType, type GraphEdge as GraphEdgeType, type GraphNode as GraphNodeType, type InvestigatorConfig, createApp, createMcpFetchClient, decryptKey, encryptKey, generateVisualization, getDb, healthCheck, initSchema, isWalletConfigured, loadConfig, resetConfigCache, saveConfig, startServer };
+//# sourceMappingURL=index.d.cts.map
