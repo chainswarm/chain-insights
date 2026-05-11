@@ -547,22 +547,19 @@ app.get('/viz/:id', async (c) => {
 | A3 | Evidence files from case store contain parseable transaction data in JSON code blocks | Pitfall 7 | Case-based viz produces empty graphs; standalone `--data` mode still works |
 | A4 | Full D3 bundle (~240KB min) is acceptable for self-contained HTML | Pitfall 4 | Large file size; mitigate with custom bundle later |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Evidence-to-Graph Data Extraction Format**
+1. **RESOLVED: Evidence-to-Graph Data Extraction Format**
    - What we know: Evidence files are free-form markdown. The `--data <file.json>` standalone mode accepts structured JSON.
-   - What's unclear: What format should agents produce when saving transaction evidence? Do we need a convention for embedding structured transaction data in evidence files?
-   - Recommendation: Define a JSON schema for transaction data and document it. For MVP, prioritize `--data <file.json>` and attempt best-effort extraction from evidence. The agent (Claude) can be instructed to save evidence in the expected format.
+   - Resolution: The data extractor (`src/viz/data-extractor.ts`) looks for ```json code blocks within evidence markdown. For MVP, `--data <file.json>` is the primary reliable path. Case-based extraction does best-effort JSON block parsing from evidence files. Agents are expected to save evidence with structured JSON code blocks.
 
-2. **Viz File Storage Location**
+2. **RESOLVED: Viz File Storage Location**
    - What we know: CONTEXT.md says `~/.chain-insights/cases/<case-id>/viz/`. But the Hono route needs to look up by viz ID across all cases.
-   - What's unclear: Should viz files live per-case or in a central `~/.chain-insights/viz/` directory with case ID in the filename?
-   - Recommendation: Store HTML files in `~/.chain-insights/viz/<viz-id>.html` (central directory) with case ID embedded in the viz ID (e.g., `<case-id>_<timestamp>`). The case directory gets a symlink or reference. This simplifies the Hono route lookup.
+   - Resolution: Dual-path storage honoring CONTEXT.md locked decision. Case-based visualizations stored at `~/.chain-insights/cases/<case-id>/viz/<viz-id>.html` (per CONTEXT.md). Standalone/ad-hoc visualizations stored at `~/.chain-insights/viz/<viz-id>.html`. The Hono route `findVizHtml` helper searches both locations: central dir first, then per-case dir (using caseId prefix extracted from vizId), then fallback scan of all case dirs.
 
-3. **Server Lifecycle for Single-Use Viz**
+3. **RESOLVED: Server Lifecycle for Single-Use Viz**
    - What we know: The CLI starts a server, opens the browser, but the server keeps running (blocking the terminal).
-   - What's unclear: Should the server auto-shutdown after some timeout, or stay running until Ctrl+C?
-   - Recommendation: Keep the server running (same behavior as `chain-insights serve`). The user already has Ctrl+C. A "press any key to stop" prompt would be a nice touch.
+   - Resolution: Server stays running until Ctrl+C (same behavior as `chain-insights serve`). No auto-shutdown -- the user controls the lifecycle.
 
 ## Environment Availability
 
