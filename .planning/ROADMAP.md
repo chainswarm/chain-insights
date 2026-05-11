@@ -87,11 +87,15 @@ Plans:
   1. D3.js renders force-directed and tree layout money flow graphs from transaction data
   2. Visualization is a self-contained HTML file served from the local Hono server (no external dependencies)
   3. Generated visualization auto-opens in the user's default browser
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 04-01: TBD
+**Wave 1**
+- [ ] 04-01-PLAN.md — End-to-end viz slice: graph data model (Zod), theme/CSS, D3 viz-logic template, HTML generator, Hono /viz/:id route, CLI viz command, standalone --data mode (VIZ-01, VIZ-02, VIZ-03)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 04-02-PLAN.md — Case-based data extraction: evidence JSON parser, dossier entity enrichment, CLI integration test (VIZ-01, VIZ-02, VIZ-03)
 
 ### Phase 5: Playbooks
 **Goal**: Investigator can run repeatable, multi-step investigation workflows from markdown-declared playbooks -- turning common patterns (trace funds, risk check, entity profile) into one-command operations
@@ -116,5 +120,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 1. Foundation & Distribution | 2/2 | Complete   | 2026-05-10 |
 | 2. MCP Connection & Payments | 0/3 | Not started | - |
 | 3. Case Management | 1/2 | In Progress|  |
-| 4. Money Flow Visualization | 0/1 | Not started | - |
+| 4. Money Flow Visualization | 0/2 | Not started | - |
 | 5. Playbooks | 0/1 | Not started | - |
