@@ -447,4 +447,31 @@ program
       })
   )
 
+program
+  .command('viz')
+  .description('Generate money flow visualization')
+  .argument('[case-id]', 'Case ID to visualize')
+  .option('--data <file>', 'Raw transaction JSON file for ad-hoc visualization')
+  .option('-p, --port <number>', 'Server port', '4321')
+  .action(async (caseId: string | undefined, opts: { data?: string; port: string }) => {
+    try {
+      if (!caseId && !opts.data) {
+        console.error('Provide either a case ID or --data <file.json>')
+        process.exit(1)
+      }
+      const { generateVisualization } = await import('./viz/index.js')
+      const result = await generateVisualization({ caseId, dataFile: opts.data })
+      const { startServer } = await import('./server/index.js')
+      const port = parseInt(opts.port, 10)
+      startServer(port)
+      const url = `http://127.0.0.1:${port}/viz/${result.vizId}`
+      console.log(`Visualization: ${url}`)
+      const open = (await import('open')).default
+      await open(url)
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
 program.parse(process.argv)
