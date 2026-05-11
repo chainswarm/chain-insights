@@ -53,4 +53,25 @@ describe('Installer (FOUND-01)', () => {
     const parsed = JSON.parse(raw) as { serverPort: number }
     expect(parsed.serverPort).toBe(4321)
   })
+
+  it('--claude does not throw even when claude CLI registration step fails', () => {
+    // The installer must complete successfully even when claude mcp add fails
+    // (claude CLI may not be on PATH in CI environments)
+    expect(() => {
+      execSync(`HOME=${fakeHome} node bin/install.cjs --claude`, { stdio: 'pipe' })
+    }).not.toThrow()
+  })
+
+  it('--claude outputs MCP proxy registration result containing chain-insights-proxy', () => {
+    const result = execSync(`HOME=${fakeHome} node bin/install.cjs --claude`, { stdio: 'pipe' })
+    const output = result.toString()
+    // Either registered successfully or printed the manual instruction
+    expect(output).toContain('chain-insights-proxy')
+  })
+
+  it('--claude proxy bin path in output contains dist/mcp-proxy.mjs', () => {
+    const result = execSync(`HOME=${fakeHome} node bin/install.cjs --claude`, { stdio: 'pipe' })
+    const output = result.toString()
+    expect(output).toContain('mcp-proxy.mjs')
+  })
 })

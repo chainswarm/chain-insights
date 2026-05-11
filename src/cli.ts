@@ -76,6 +76,19 @@ program
       .argument('<key>', 'Config key to write')
       .argument('<value>', 'Value to set')
       .action(async (key: string, value: string) => {
+        // D-01: walletPrivateKey is intercepted before saveConfig — the raw private key
+        // must NEVER be written to config.json.
+        if (key === 'walletPrivateKey') {
+          try {
+            const { encryptKey } = await import('./wallet/index.js')
+            await encryptKey(value)
+            console.log('Wallet private key encrypted and stored in ~/.chain-insights/wallet.json')
+          } catch (err) {
+            console.error((err as Error).message)
+            process.exit(1)
+          }
+          return // MUST return — walletPrivateKey must never reach saveConfig or config.json
+        }
         const { loadConfig, saveConfig } = await import('./config/index.js')
         const current = await loadConfig()
         const existing = (current as Record<string, unknown>)[key]
@@ -86,6 +99,88 @@ program
         const coerced = typeof existing === 'number' ? Number(value) : value
         await saveConfig({ [key]: coerced } as Parameters<typeof saveConfig>[0])
         console.log(`Set ${key} = ${coerced}`)
+      })
+  )
+
+program
+  .command('mcp')
+  .description('Interact with the Chain Insights MCP endpoint')
+  .addCommand(
+    new Command('tools')
+      .description('List available MCP tools (cached 24h)')
+      .option('--refresh', 'Force refresh schema cache')
+      .action(async (opts: { refresh?: boolean }) => {
+        try {
+          const { loadSchema, saveSchema } = await import('./mcp/schema-cache.js')
+          const { formatToolsTable } = await import('./mcp/format.js')
+          const { loadConfig } = await import('./config/index.js')
+          let tools = opts.refresh ? null : await loadSchema()
+          if (!tools) {
+            const { isWalletConfigured, decryptKey } = await import('./wallet/index.js')
+            if (!(await isWalletConfigured())) {
+              console.error('Wallet not configured. Run `chain-insights config set walletPrivateKey <key>` to enable paid MCP calls')
+              process.exit(1)
+            }
+            const config = await loadConfig()
+            const { createMcpFetchClient } = await import('./mcp/client.js')
+            const privateKey = await decryptKey()
+            const paymentFetch = createMcpFetchClient(privateKey as `0x${string}`)
+            const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+            const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
+            const client = new Client({ name: 'chain-insights-cli', version: '0.1.0' })
+            await client.connect(new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }))
+            const result = await client.listTools()
+            tools = result.tools as Array<{ name: string; description?: string }>
+            await saveSchema(tools)
+            await client.close()
+          }
+          console.log(formatToolsTable(tools))
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
+    new Command('call')
+      .description('Call an MCP tool directly (debug)')
+      .argument('<tool>', 'Tool name to call')
+      .argument('[args...]', 'Key=value arguments (e.g. address=0x1234 chain=ethereum)')
+      .action(async (tool: string, rawArgs: string[]) => {
+        try {
+          const args: Record<string, string> = {}
+          for (const pair of rawArgs) {
+            const eqIdx = pair.indexOf('=')
+            if (eqIdx === -1) {
+              console.error(`Invalid arg format: ${pair} (expected key=value)`)
+              process.exit(1)
+            }
+            args[pair.slice(0, eqIdx)] = pair.slice(eqIdx + 1)
+          }
+          const { isWalletConfigured, decryptKey } = await import('./wallet/index.js')
+          if (!(await isWalletConfigured())) {
+            console.error('Wallet not configured. Run `chain-insights config set walletPrivateKey <key>` to enable paid MCP calls')
+            process.exit(1)
+          }
+          const { loadConfig } = await import('./config/index.js')
+          const config = await loadConfig()
+          const { createMcpFetchClient } = await import('./mcp/client.js')
+          const privateKey = await decryptKey()
+          const paymentFetch = createMcpFetchClient(privateKey as `0x${string}`)
+          const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+          const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
+          const client = new Client({ name: 'chain-insights-cli-call', version: '0.1.0' })
+          await client.connect(new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }))
+          const result = await client.callTool({ name: tool, arguments: args })
+          const content = result.content as Array<{ type: string; text?: string }>
+          for (const item of content) {
+            if (item.type === 'text') console.log(item.text)
+          }
+          await client.close()
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
       })
   )
 
