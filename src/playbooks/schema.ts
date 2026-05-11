@@ -11,7 +11,7 @@ export const StepSchema = z.object({
   index:  z.number().int().positive(),
   label:  z.string(),
   tool:   z.string().min(1),
-  params: z.record(z.string()),
+  params: z.record(z.string(), z.string()),
 })
 
 export const PlaybookSchema = z.object({

@@ -25,11 +25,11 @@ vi.mock('../src/viz/index.js', () => ({
 }))
 
 vi.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
-  Client: vi.fn(),
+  Client: vi.fn().mockImplementation(function() { return this }),
 }))
 
 vi.mock('@modelcontextprotocol/sdk/client/streamableHttp.js', () => ({
-  StreamableHTTPClientTransport: vi.fn(),
+  StreamableHTTPClientTransport: vi.fn().mockImplementation(function() { return this }),
 }))
 
 vi.mock('../src/config/index.js', () => ({
@@ -83,7 +83,11 @@ describe('PlaybookRunner', () => {
     }
 
     const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
-    vi.mocked(Client).mockImplementation(() => mockClient as ReturnType<typeof vi.mocked<typeof Client>>)
+    vi.mocked(Client).mockImplementation(function(this: typeof mockClient) {
+      this.connect = mockClient.connect
+      this.callTool = mockClient.callTool
+      this.close = mockClient.close
+    } as unknown as typeof Client)
 
     const { getDb } = await import('../src/db/init.js')
     const mockConn = { closeSync: vi.fn() }
@@ -209,7 +213,11 @@ describe('PlaybookRunner', () => {
         .mockResolvedValue({ content: [{ type: 'text', text: 'success after retry' }] }),
       close: vi.fn().mockResolvedValue(undefined),
     }
-    vi.mocked(Client).mockImplementation(() => retryClient as ReturnType<typeof vi.mocked<typeof Client>>)
+    vi.mocked(Client).mockImplementation(function(this: typeof retryClient) {
+      this.connect = retryClient.connect
+      this.callTool = retryClient.callTool
+      this.close = retryClient.close
+    } as unknown as typeof Client)
 
     const { PlaybookRunner } = await import('../src/playbooks/runner.js')
     vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -230,7 +238,11 @@ describe('PlaybookRunner', () => {
       callTool: vi.fn().mockRejectedValue(mcpError),
       close: vi.fn().mockResolvedValue(undefined),
     }
-    vi.mocked(Client).mockImplementation(() => errClient as ReturnType<typeof vi.mocked<typeof Client>>)
+    vi.mocked(Client).mockImplementation(function(this: typeof errClient) {
+      this.connect = errClient.connect
+      this.callTool = errClient.callTool
+      this.close = errClient.close
+    } as unknown as typeof Client)
 
     const { PlaybookRunner } = await import('../src/playbooks/runner.js')
     const output: string[] = []
@@ -291,7 +303,11 @@ describe('PlaybookRunner', () => {
       callTool: vi.fn().mockRejectedValue(paymentError),
       close: vi.fn().mockResolvedValue(undefined),
     }
-    vi.mocked(Client).mockImplementation(() => payClient as ReturnType<typeof vi.mocked<typeof Client>>)
+    vi.mocked(Client).mockImplementation(function(this: typeof payClient) {
+      this.connect = payClient.connect
+      this.callTool = payClient.callTool
+      this.close = payClient.close
+    } as unknown as typeof Client)
 
     // Simulate non-TTY environment
     const originalIsTTY = process.stdin.isTTY
