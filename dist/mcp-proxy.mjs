@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 import * as z from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -11,6 +14,45 @@ const LOCAL_TOOL_NAMES = new Set([
 	"help"
 ]);
 const TOPUP_RESOURCE_URI = "ui://chain-insights/topup.html";
+const GRAPH_RESOURCE_URI = "ui://chain-insights/graph";
+const GRAPH_APP_TOOL_NAMES = new Set([
+	"address_risk",
+	"track_funds",
+	"money_flows_between_exchanges",
+	"address_connection_risk"
+]);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+function readGraphAppHtml() {
+	const candidates = [
+		path.resolve(__dirname, "templates", "graph.html"),
+		path.resolve(__dirname, "..", "templates", "graph.html"),
+		path.resolve(__dirname, "..", "viz", "templates", "graph.html")
+	];
+	for (const candidate of candidates) try {
+		return readFileSync(candidate, "utf8");
+	} catch (err) {
+		if (err.code !== "ENOENT") throw err;
+	}
+	throw new Error(`Graph MCP app template not found. Tried: ${candidates.join(", ")}`);
+}
+function hasGraphApp(tool) {
+	const configuredUri = tool._meta?.ui;
+	if (configuredUri && typeof configuredUri === "object" && "resourceUri" in configuredUri && configuredUri.resourceUri === GRAPH_RESOURCE_URI) return true;
+	if (tool._meta?.["ui/resourceUri"] === GRAPH_RESOURCE_URI) return true;
+	if (GRAPH_APP_TOOL_NAMES.has(tool.name)) return true;
+	return JSON.stringify(tool.outputSchema ?? {}).includes("\"app_data\"");
+}
+function graphToolMeta(tool) {
+	const meta = { ...tool._meta ?? {} };
+	const ui = meta.ui && typeof meta.ui === "object" && !Array.isArray(meta.ui) ? { ...meta.ui } : {};
+	return {
+		...meta,
+		ui: {
+			...ui,
+			resourceUri: GRAPH_RESOURCE_URI
+		}
+	};
+}
 /**
 * Core proxy logic — exported so tests can inject dependencies directly.
 * The IIFE at the bottom calls this with real dependencies.
@@ -98,6 +140,11 @@ async function createProxy() {
 			} } }
 		}] };
 	});
+	registerAppResource(server, "Fund Flow Graph", GRAPH_RESOURCE_URI, { description: "Interactive D3 force-directed graph for fund flow and pattern visualization." }, async () => ({ contents: [{
+		uri: GRAPH_RESOURCE_URI,
+		mimeType: RESOURCE_MIME_TYPE,
+		text: readGraphAppHtml()
+	}] }));
 	registerAppTool(server, "topup", {
 		description: "Fund your Chain Insights wallet with USDC via MetaMask. Does NOT check balance.",
 		_meta: { ui: { resourceUri: TOPUP_RESOURCE_URI } }
@@ -153,10 +200,7 @@ async function createProxy() {
 	}));
 	for (const tool of tools ?? []) {
 		if (LOCAL_TOOL_NAMES.has(tool.name)) continue;
-		server.registerTool(tool.name, {
-			description: tool.description ?? tool.name,
-			inputSchema: z.object({}).passthrough()
-		}, async (args) => {
+		const handler = async (args) => {
 			try {
 				const result = await remoteClient.callTool({
 					name: tool.name,
@@ -175,7 +219,17 @@ async function createProxy() {
 					isError: true
 				};
 			}
-		});
+		};
+		const toolConfig = {
+			title: tool.title,
+			description: tool.description ?? tool.name,
+			inputSchema: z.object({}).passthrough()
+		};
+		if (hasGraphApp(tool)) registerAppTool(server, tool.name, {
+			...toolConfig,
+			_meta: graphToolMeta(tool)
+		}, handler);
+		else server.registerTool(tool.name, toolConfig, handler);
 	}
 	const transport = new StdioServerTransport();
 	await server.connect(transport);

@@ -6,8 +6,11 @@ const TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 export interface McpTool {
   name: string
+  title?: string
   description?: string
   inputSchema?: Record<string, unknown>
+  outputSchema?: Record<string, unknown>
+  _meta?: Record<string, unknown>
 }
 
 interface SchemaCache {

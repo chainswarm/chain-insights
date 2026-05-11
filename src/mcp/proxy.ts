@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
@@ -8,6 +11,64 @@ import type { McpTool } from './schema-cache.js'
 
 const LOCAL_TOOL_NAMES = new Set(['balance', 'topup', 'help'])
 const TOPUP_RESOURCE_URI = 'ui://chain-insights/topup.html'
+const GRAPH_RESOURCE_URI = 'ui://chain-insights/graph'
+const GRAPH_APP_TOOL_NAMES = new Set([
+  'address_risk',
+  'track_funds',
+  'money_flows_between_exchanges',
+  'address_connection_risk',
+])
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+function readGraphAppHtml(): string {
+  const candidates = [
+    path.resolve(__dirname, 'templates', 'graph.html'),
+    path.resolve(__dirname, '..', 'templates', 'graph.html'),
+    path.resolve(__dirname, '..', 'viz', 'templates', 'graph.html'),
+  ]
+
+  for (const candidate of candidates) {
+    try {
+      return readFileSync(candidate, 'utf8')
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
+    }
+  }
+
+  throw new Error(`Graph MCP app template not found. Tried: ${candidates.join(', ')}`)
+}
+
+function hasGraphApp(tool: McpTool): boolean {
+  const configuredUri = tool._meta?.ui
+  if (
+    configuredUri &&
+    typeof configuredUri === 'object' &&
+    'resourceUri' in configuredUri &&
+    configuredUri.resourceUri === GRAPH_RESOURCE_URI
+  ) {
+    return true
+  }
+
+  if (tool._meta?.['ui/resourceUri'] === GRAPH_RESOURCE_URI) return true
+  if (GRAPH_APP_TOOL_NAMES.has(tool.name)) return true
+  return JSON.stringify(tool.outputSchema ?? {}).includes('"app_data"')
+}
+
+function graphToolMeta(tool: McpTool): Record<string, unknown> & { ui: { resourceUri: string } } {
+  const meta = { ...(tool._meta ?? {}) }
+  const ui =
+    meta.ui && typeof meta.ui === 'object' && !Array.isArray(meta.ui)
+      ? { ...(meta.ui as Record<string, unknown>) }
+      : {}
+
+  return {
+    ...meta,
+    ui: {
+      ...ui,
+      resourceUri: GRAPH_RESOURCE_URI,
+    },
+  }
+}
 
 /**
  * Core proxy logic — exported so tests can inject dependencies directly.
@@ -129,6 +190,24 @@ export async function createProxy(): Promise<void> {
     },
   )
 
+  registerAppResource(
+    server,
+    'Fund Flow Graph',
+    GRAPH_RESOURCE_URI,
+    {
+      description: 'Interactive D3 force-directed graph for fund flow and pattern visualization.',
+    },
+    async () => ({
+      contents: [
+        {
+          uri: GRAPH_RESOURCE_URI,
+          mimeType: RESOURCE_MIME_TYPE,
+          text: readGraphAppHtml(),
+        },
+      ],
+    }),
+  )
+
   registerAppTool(
     server,
     'topup',
@@ -201,30 +280,42 @@ export async function createProxy(): Promise<void> {
   // Register each remote tool locally — passthrough proxy pattern
   for (const tool of tools ?? []) {
     if (LOCAL_TOOL_NAMES.has(tool.name)) continue
-    server.registerTool(
-      tool.name,
-      {
-        description: tool.description ?? tool.name,
-        inputSchema: z.object({}).passthrough(),
-      },
-      async (args) => {
-        try {
-          const result = await remoteClient.callTool({
-            name: tool.name,
-            arguments: args as Record<string, unknown>,
-          })
-          return {
-            content: result.content as Array<{ type: 'text'; text: string }>,
-            isError: result.isError as boolean | undefined,
-          }
-        } catch (err) {
-          return {
-            content: [{ type: 'text' as const, text: `MCP call failed: ${(err as Error).message}` }],
-            isError: true,
-          }
+    const handler = async (args: unknown) => {
+      try {
+        const result = await remoteClient.callTool({
+          name: tool.name,
+          arguments: args as Record<string, unknown>,
+        })
+        return {
+          content: result.content as Array<{ type: 'text'; text: string }>,
+          isError: result.isError as boolean | undefined,
         }
-      },
-    )
+      } catch (err) {
+        return {
+          content: [{ type: 'text' as const, text: `MCP call failed: ${(err as Error).message}` }],
+          isError: true,
+        }
+      }
+    }
+    const toolConfig = {
+      title: tool.title,
+      description: tool.description ?? tool.name,
+      inputSchema: z.object({}).passthrough(),
+    }
+
+    if (hasGraphApp(tool)) {
+      registerAppTool(
+        server,
+        tool.name,
+        {
+          ...toolConfig,
+          _meta: graphToolMeta(tool),
+        },
+        handler,
+      )
+    } else {
+      server.registerTool(tool.name, toolConfig, handler)
+    }
   }
 
   // Connect to stdio transport — after this line, stdout belongs to MCP

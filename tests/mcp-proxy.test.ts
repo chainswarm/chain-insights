@@ -287,6 +287,66 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     )
   })
 
+  it('registers graph MCP app resource and preserves graph-backed remote tools', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      {
+        name: 'address_risk',
+        title: 'Address Risk',
+        description: 'Risk report with app_data',
+        outputSchema: {
+          type: 'object',
+          properties: {
+            app_data: { type: 'object' },
+          },
+        },
+        _meta: {
+          ui: { resourceUri: 'ui://chain-insights/graph' },
+          fastmcp: { tags: [] },
+        },
+      },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { registerAppResource, registerAppTool } = await import('@modelcontextprotocol/ext-apps/server')
+
+    await createProxy()
+
+    expect(registerAppResource).toHaveBeenCalledWith(
+      expect.anything(),
+      'Fund Flow Graph',
+      'ui://chain-insights/graph',
+      expect.objectContaining({
+        description: expect.stringContaining('D3 force-directed graph'),
+      }),
+      expect.any(Function),
+    )
+    expect(registerAppTool).toHaveBeenCalledWith(
+      expect.anything(),
+      'address_risk',
+      expect.objectContaining({
+        title: 'Address Risk',
+        _meta: expect.objectContaining({
+          fastmcp: { tags: [] },
+          ui: {
+            resourceUri: 'ui://chain-insights/graph',
+          },
+        }),
+      }),
+      expect.any(Function),
+    )
+
+    const graphCall = vi
+      .mocked(registerAppResource)
+      .mock.calls.find((entry) => entry[2] === 'ui://chain-insights/graph')
+    expect(graphCall).toBeDefined()
+
+    const result = await graphCall![4](new URL('ui://chain-insights/graph'), {} as never)
+    expect(result.contents[0].mimeType).toBe('text/html;profile=mcp-app')
+    expect(result.contents[0].text).toContain('bgPatternImg')
+    expect(result.contents[0].text).toContain('data:image/png;base64')
+  })
+
   it('registers a local help tool that explains proxy-local tools', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)
