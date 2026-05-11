@@ -56,7 +56,7 @@ Plans:
 - [x] 02-01-PLAN.md — Wallet encryption (AES-256-GCM) + x402 payment-wrapped fetch client + dependencies
 
 **Wave 2** *(blocked on Wave 1 completion; 02-02 and 02-03 run in parallel)*
-- [ ] 02-02-PLAN.md — MCP schema cache (24h TTL) + tool table formatter + stdio MCP proxy
+- [x] 02-02-PLAN.md — MCP schema cache (24h TTL) + tool table formatter + stdio MCP proxy
 - [ ] 02-03-PLAN.md — CLI mcp subcommand + build wiring (tsdown entry) + bin shim + installer MCP registration
 
 ### Phase 3: Case Management
