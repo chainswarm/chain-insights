@@ -7,7 +7,11 @@ let _modelcontextprotocol_sdk_server_stdio_js = require("@modelcontextprotocol/s
 let _modelcontextprotocol_sdk_client_index_js = require("@modelcontextprotocol/sdk/client/index.js");
 let _modelcontextprotocol_sdk_client_streamableHttp_js = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
 //#region src/mcp/proxy.ts
-const LOCAL_TOOL_NAMES = new Set(["balance", "topup"]);
+const LOCAL_TOOL_NAMES = new Set([
+	"balance",
+	"topup",
+	"help"
+]);
 /**
 * Core proxy logic — exported so tests can inject dependencies directly.
 * The IIFE at the bottom calls this with real dependencies.
@@ -99,6 +103,32 @@ async function createProxy() {
 			};
 		}
 	});
+	server.registerTool("help", {
+		description: "Show Chain Insights overview, available local tools, and getting-started commands.",
+		inputSchema: zod.object({}).passthrough()
+	}, async () => ({
+		content: [{
+			type: "text",
+			text: [
+				"Chain Insights - local AML investigation toolkit for AI agents.",
+				"",
+				"Remote GraphRAG tools are proxied from the configured MCP endpoint.",
+				"Known public GraphRAG tools include address_risk, track_funds, money_flows_between_exchanges, address_connection_risk, and graph_query.",
+				"",
+				"Local tools:",
+				"- balance: show the encrypted local payment wallet address and Base USDC balance.",
+				"- topup: start a local browser page for funding the payment wallet with Base USDC.",
+				"- help: show this overview.",
+				"",
+				"Useful CLI commands:",
+				"- chain-insights mcp tools --refresh",
+				"- chain-insights wallet balance",
+				"- chain-insights wallet topup",
+				"- chain-insights playbook list"
+			].join("\n")
+		}],
+		isError: false
+	}));
 	for (const tool of tools ?? []) {
 		if (LOCAL_TOOL_NAMES.has(tool.name)) continue;
 		server.registerTool(tool.name, {

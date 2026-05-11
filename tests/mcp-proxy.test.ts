@@ -245,4 +245,25 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('http://127.0.0.1:4500')
     expect(result.content[0].text).toContain('0x0000000000000000000000000000000000000001')
   })
+
+  it('registers a local help tool that explains proxy-local tools', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'help')
+    const result = await handler({})
+
+    expect(result.isError).toBe(false)
+    expect(result.content[0].text).toContain('Remote GraphRAG tools')
+    expect(result.content[0].text).toContain('balance')
+    expect(result.content[0].text).toContain('topup')
+  })
 })

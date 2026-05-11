@@ -203,6 +203,7 @@ The local MCP proxy also exposes:
 | --- | --- |
 | `balance` | Return local Chain Insights wallet address and Base USDC balance |
 | `topup` | Start the local browser top-up server and return the URL |
+| `help` | Explain Chain Insights, remote GraphRAG tools, and local wallet commands |
 
 These local tools are available through `chain-insights-mcp-proxy`, not through the remote GraphRAG endpoint.
 
