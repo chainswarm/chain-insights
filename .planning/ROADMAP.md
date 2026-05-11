@@ -76,7 +76,7 @@ Plans:
 - [x] 03-01-PLAN.md — Case lifecycle: schemas, frontmatter parser, CaseStore (open/activate/suspend/close/list), DuckDB migration, CLI case subcommand group (CASE-01)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 03-02-PLAN.md — Evidence + dossier + session stores: EvidenceStore (SHA-256 manifest), DossierStore (content-hash dedup), SessionStore (rolling archive), CaseStore.loadContext, CLI evidence/dossier/session/resume subcommands (CASE-02, CASE-03, CASE-04)
+- [x] 03-02-PLAN.md — Evidence + dossier + session stores: EvidenceStore (SHA-256 manifest), DossierStore (content-hash dedup), SessionStore (rolling archive), CaseStore.loadContext, CLI evidence/dossier/session/resume subcommands (CASE-02, CASE-03, CASE-04)
 
 ### Phase 4: Money Flow Visualization
 **Goal**: Investigator can generate interactive money flow graphs from on-chain data and view them in the browser -- making fund flows visually traceable

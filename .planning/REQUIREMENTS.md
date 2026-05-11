@@ -24,9 +24,9 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Case Management
 
 - [x] **CASE-01**: Case lifecycle — user can open, activate, suspend, and close investigation cases via slash commands
-- [ ] **CASE-02**: Evidence store — investigation findings saved as append-only evidence files with SHA-256 integrity manifest
-- [ ] **CASE-03**: Dossier system — per-entity (address/wallet/actor) findings accumulated across sessions in markdown files
-- [ ] **CASE-04**: Investigation memory — per-case context persistence across conversations, restored on case resume
+- [x] **CASE-02**: Evidence store — investigation findings saved as append-only evidence files with SHA-256 integrity manifest
+- [x] **CASE-03**: Dossier system — per-entity (address/wallet/actor) findings accumulated across sessions in markdown files
+- [x] **CASE-04**: Investigation memory — per-case context persistence across conversations, restored on case resume
 
 ### Visualization
 
@@ -99,9 +99,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MCP-02 | Phase 2 | Pending |
 | MCP-03 | Phase 2 | Pending |
 | CASE-01 | Phase 3 | Complete |
-| CASE-02 | Phase 3 | Pending |
-| CASE-03 | Phase 3 | Pending |
-| CASE-04 | Phase 3 | Pending |
+| CASE-02 | Phase 3 | Complete |
+| CASE-03 | Phase 3 | Complete |
+| CASE-04 | Phase 3 | Complete |
 | VIZ-01 | Phase 4 | Pending |
 | VIZ-02 | Phase 4 | Pending |
 | VIZ-03 | Phase 4 | Pending |
