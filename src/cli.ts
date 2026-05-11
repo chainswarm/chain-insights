@@ -190,4 +190,115 @@ program
       })
   )
 
+program
+  .command('case')
+  .description('Manage investigation cases')
+  .addCommand(
+    new Command('open')
+      .description('Open a new investigation case')
+      .argument('<name>', 'Case name (e.g. "Tornado Mixer Investigation")')
+      .option('--tags <tags>', 'Comma-separated tags (e.g. aml,mixer,defi)', '')
+      .option('--description <desc>', 'Brief description of the investigation', '')
+      .action(async (name: string, opts: { tags: string; description: string }) => {
+        try {
+          const { getDb, initSchema } = await import('./db/init.js')
+          const { CaseStore } = await import('./cases/index.js')
+          const conn = await getDb()
+          await initSchema(conn)
+          conn.closeSync()
+          const tags = opts.tags ? opts.tags.split(',').map(t => t.trim()).filter(Boolean) : []
+          const c = await CaseStore.create({ name, tags, description: opts.description })
+          console.log(`Case opened: ${c.id}`)
+          console.log(`Directory:   ~/.chain-insights/cases/${c.id}/`)
+          console.log(`Status:      ${c.status}`)
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
+    new Command('activate')
+      .description('Activate a case (set status to active)')
+      .argument('<case-id>', 'Case ID to activate')
+      .action(async (caseId: string) => {
+        try {
+          const { getDb, initSchema } = await import('./db/init.js')
+          const { CaseStore } = await import('./cases/index.js')
+          const conn = await getDb()
+          await initSchema(conn)
+          conn.closeSync()
+          const c = await CaseStore.setStatus(caseId, 'active')
+          console.log(`Case ${c.id} is now: active`)
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
+    new Command('suspend')
+      .description('Suspend a case (set status to suspended)')
+      .argument('<case-id>', 'Case ID to suspend')
+      .action(async (caseId: string) => {
+        try {
+          const { getDb, initSchema } = await import('./db/init.js')
+          const { CaseStore } = await import('./cases/index.js')
+          const conn = await getDb()
+          await initSchema(conn)
+          conn.closeSync()
+          const c = await CaseStore.setStatus(caseId, 'suspended')
+          console.log(`Case ${c.id} is now: suspended`)
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
+    new Command('close')
+      .description('Close a case permanently')
+      .argument('<case-id>', 'Case ID to close')
+      .action(async (caseId: string) => {
+        try {
+          const { getDb, initSchema } = await import('./db/init.js')
+          const { CaseStore } = await import('./cases/index.js')
+          const conn = await getDb()
+          await initSchema(conn)
+          conn.closeSync()
+          const c = await CaseStore.setStatus(caseId, 'closed')
+          console.log(`Case ${c.id} is now: closed`)
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
+    new Command('list')
+      .description('List all investigation cases')
+      .option('--status <status>', 'Filter by status (open|active|suspended|closed)')
+      .action(async (opts: { status?: string }) => {
+        try {
+          const { getDb, initSchema } = await import('./db/init.js')
+          const { CaseStore } = await import('./cases/index.js')
+          const conn = await getDb()
+          await initSchema(conn)
+          conn.closeSync()
+          const cases = await CaseStore.list()
+          const filtered = opts.status ? cases.filter(c => c.status === opts.status) : cases
+          if (filtered.length === 0) {
+            console.log('No cases found.')
+            return
+          }
+          for (const c of filtered) {
+            console.log(`${c.id}  [${c.status}]  ${c.name}`)
+          }
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+
 program.parse(process.argv)
