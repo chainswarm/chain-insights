@@ -129,10 +129,13 @@ program
             const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
             const client = new Client({ name: 'chain-insights-cli', version: '0.1.0' })
             await client.connect(new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }))
-            const result = await client.listTools()
-            tools = result.tools as Array<{ name: string; description?: string }>
-            await saveSchema(tools)
-            await client.close()
+            try {
+              const result = await client.listTools()
+              tools = result.tools as Array<{ name: string; description?: string }>
+              await saveSchema(tools)
+            } finally {
+              await client.close()
+            }
           }
           console.log(formatToolsTable(tools))
         } catch (err) {
@@ -171,12 +174,15 @@ program
           const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
           const client = new Client({ name: 'chain-insights-cli-call', version: '0.1.0' })
           await client.connect(new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }))
-          const result = await client.callTool({ name: tool, arguments: args })
-          const content = result.content as Array<{ type: string; text?: string }>
-          for (const item of content) {
-            if (item.type === 'text') console.log(item.text)
+          try {
+            const result = await client.callTool({ name: tool, arguments: args })
+            const content = result.content as Array<{ type: string; text?: string }>
+            for (const item of content) {
+              if (item.type === 'text') console.log(item.text)
+            }
+          } finally {
+            await client.close()
           }
-          await client.close()
         } catch (err) {
           console.error((err as Error).message)
           process.exit(1)
