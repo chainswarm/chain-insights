@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_plan
+status: executing
 stopped_at: Phase 4 planned, ready to execute (2 plans in 2 waves)
-last_updated: "2026-05-11T09:28:24.068Z"
-last_activity: 2026-05-11 -- Phase 04 execution started
+last_updated: "2026-05-11T10:31:24.956Z"
+last_activity: 2026-05-11 -- Phase 05 execution started
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 9
-  completed_plans: 8
-  percent: 80
+  total_plans: 11
+  completed_plans: 9
+  percent: 82
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-10)
 
 **Core value:** An investigator can install the toolkit, connect to the Chain Insights MCP, and run a complete investigation -- from querying on-chain data to producing a money flow visualization -- entirely through their AI agent.
-**Current focus:** Phase 04 — money-flow-visualization
+**Current focus:** Phase 05 — playbooks
 
 ## Current Position
 
-Phase: 5
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-05-11
+Phase: 05 (playbooks) — EXECUTING
+Plan: 1 of 2
+Status: Executing Phase 05
+Last activity: 2026-05-11 -- Phase 05 execution started
 
 Progress: [██████████] 100%
 
