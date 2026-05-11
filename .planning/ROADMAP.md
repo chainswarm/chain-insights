@@ -53,7 +53,7 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 02-01-PLAN.md — Wallet encryption (AES-256-GCM) + x402 payment-wrapped fetch client + dependencies
+- [x] 02-01-PLAN.md — Wallet encryption (AES-256-GCM) + x402 payment-wrapped fetch client + dependencies
 
 **Wave 2** *(blocked on Wave 1 completion; 02-02 and 02-03 run in parallel)*
 - [ ] 02-02-PLAN.md — MCP schema cache (24h TTL) + tool table formatter + stdio MCP proxy
