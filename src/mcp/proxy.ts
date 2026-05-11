@@ -32,41 +32,37 @@ export async function createProxy(): Promise<void> {
   // Note: createMcpFetchClient expects 0x-prefixed key
   const paymentFetch = createMcpFetchClient(privateKey as `0x${string}`)
 
-  // Schema cache check — avoid remote connection on cache hit
-  let tools: McpTool[] | null = await loadSchema()
-
-  // Build remote MCP client (may not connect if cache hit)
+  // Build remote MCP client — always connect before registering tool handlers
+  // so tool call forwarding works regardless of whether schema is cached.
   const remoteClient = new Client({ name: 'chain-insights-proxy-client', version: '0.1.0' })
 
-  if (!tools) {
-    // Cache miss — connect to remote and fetch tools
-    let connected = false
+  try {
+    await remoteClient.connect(
+      new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }),
+    )
+  } catch {
+    // StreamableHTTP failed — try SSE fallback (assumption A1 from RESEARCH.md)
     try {
+      const { SSEClientTransport } = await import('@modelcontextprotocol/sdk/client/sse.js')
       await remoteClient.connect(
-        new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }),
+        new SSEClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }),
       )
-      connected = true
-    } catch {
-      // StreamableHTTP failed — try SSE fallback (assumption A1 from RESEARCH.md)
-      try {
-        const { SSEClientTransport } = await import('@modelcontextprotocol/sdk/client/sse.js')
-        await remoteClient.connect(
-          new SSEClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }),
-        )
-        connected = true
-      } catch (err2) {
-        process.stderr.write(
-          `Chain Insights MCP unreachable at ${config.mcpEndpoint}: ${(err2 as Error).message}\n`,
-        )
-        process.exit(1)
-      }
+    } catch (err2) {
+      process.stderr.write(
+        `Chain Insights MCP unreachable at ${config.mcpEndpoint}: ${(err2 as Error).message}\n`,
+      )
+      process.exit(1)
     }
+  }
 
-    if (connected) {
-      const result = await remoteClient.listTools()
-      tools = result.tools as McpTool[]
-      await saveSchema(tools)
-    }
+  // Schema cache check — skip remote listTools call on cache hit
+  let tools: McpTool[] | null = await loadSchema()
+
+  if (!tools) {
+    // Cache miss — fetch tools from remote (client is already connected above)
+    const result = await remoteClient.listTools()
+    tools = result.tools as McpTool[]
+    await saveSchema(tools)
   }
 
   // Build local stdio proxy server
