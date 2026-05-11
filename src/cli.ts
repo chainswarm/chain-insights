@@ -448,6 +448,106 @@ program
   )
 
 program
+  .command('playbook')
+  .description('Run and manage investigation playbooks')
+  .addCommand(
+    new Command('run')
+      .description('Execute a playbook by name')
+      .argument('<name>', 'Playbook name (e.g. trace-funds, risk-check, entity-profile)')
+      .option('--case <id>', 'Case ID to attach evidence to (auto-created if omitted)')
+      .option('--from <n>', 'Resume from step N (1-based)', '1')
+      .option('--dry-run', 'Show steps without executing')
+      .option('-p, --param <kv...>', 'Parameters as key=value pairs (repeatable, e.g. -p address=0x1 -p hops=3)')
+      .action(async (name: string, opts: { case?: string; from: string; dryRun?: boolean; param?: string[] }) => {
+        try {
+          // 1. Parse --param key=value pairs into Record<string,string> — split on first '=' only (T-05-06)
+          const resolvedParams: Record<string, string> = {}
+          for (const kv of (opts.param ?? [])) {
+            const eq = kv.indexOf('=')
+            if (eq === -1) {
+              console.error(`Invalid param format: "${kv}". Use key=value`)
+              process.exit(1)
+            }
+            const key = kv.slice(0, eq)
+            if (!key) {
+              console.error(`Invalid param format: "${kv}". Key must be non-empty`)
+              process.exit(1)
+            }
+            resolvedParams[key] = kv.slice(eq + 1)
+          }
+          // 2. Resolve playbook content (user-dir first, built-in fallback)
+          const { resolvePlaybookContent } = await import('./playbooks/resolver.js')
+          const markdown = await resolvePlaybookContent(name)
+          // 3. Parse markdown → PlaybookDefinition
+          const { PlaybookParser } = await import('./playbooks/parser.js')
+          const definition = PlaybookParser.parse(markdown, resolvedParams)
+          // 4. Validate required params are provided
+          for (const spec of definition.params) {
+            if (spec.required && !resolvedParams[spec.name] && !spec.default) {
+              console.error(`Missing required param: ${spec.name}. Pass with: -p ${spec.name}=<value>`)
+              process.exit(1)
+            }
+          }
+          // 5. Run
+          const { PlaybookRunner } = await import('./playbooks/runner.js')
+          await PlaybookRunner.run(definition, {
+            caseId:  opts.case,
+            from:    parseInt(opts.from, 10),
+            dryRun:  opts.dryRun,
+            params:  resolvedParams,
+          })
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
+    new Command('list')
+      .description('List available playbooks (built-in and user-defined)')
+      .action(async () => {
+        try {
+          const { listPlaybooks } = await import('./playbooks/resolver.js')
+          const playbooks = await listPlaybooks()
+          if (playbooks.length === 0) { console.log('No playbooks found.'); return }
+          for (const p of playbooks) {
+            console.log(`  ${p.name.padEnd(20)} [${p.source}]`)
+          }
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
+    new Command('show')
+      .description('Show steps for a playbook without executing')
+      .argument('<name>', 'Playbook name')
+      .action(async (name: string) => {
+        try {
+          const { resolvePlaybookContent } = await import('./playbooks/resolver.js')
+          const { PlaybookParser } = await import('./playbooks/parser.js')
+          const markdown = await resolvePlaybookContent(name)
+          const definition = PlaybookParser.parse(markdown, {})
+          console.log(`Playbook: ${definition.name} v${definition.version}`)
+          console.log(`${definition.description}\n`)
+          console.log(`Parameters:`)
+          for (const p of definition.params) {
+            const req = p.required ? '(required)' : `(optional, default: ${p.default ?? 'none'})`
+            console.log(`  ${p.name}: ${p.type} ${req}`)
+          }
+          console.log(`\nSteps:`)
+          for (const step of definition.steps) {
+            console.log(`  ${step.index}. ${step.label} → tool: ${step.tool}`)
+          }
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+
+program
   .command('viz')
   .description('Generate money flow visualization')
   .argument('[case-id]', 'Case ID to visualize')
