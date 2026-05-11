@@ -69,11 +69,14 @@ Plans:
   2. Investigation findings are saved as append-only evidence files with SHA-256 integrity verification
   3. Per-entity dossier files accumulate findings across multiple sessions and are human-readable markdown
   4. Resuming a case in a new conversation restores investigation context from the previous session
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+**Wave 1**
+- [ ] 03-01-PLAN.md — Case lifecycle: schemas, frontmatter parser, CaseStore (open/activate/suspend/close/list), DuckDB migration, CLI case subcommand group (CASE-01)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 03-02-PLAN.md — Evidence + dossier + session stores: EvidenceStore (SHA-256 manifest), DossierStore (content-hash dedup), SessionStore (rolling archive), CaseStore.loadContext, CLI evidence/dossier/session/resume subcommands (CASE-02, CASE-03, CASE-04)
 
 ### Phase 4: Money Flow Visualization
 **Goal**: Investigator can generate interactive money flow graphs from on-chain data and view them in the browser -- making fund flows visually traceable
