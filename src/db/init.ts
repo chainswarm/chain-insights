@@ -25,6 +25,24 @@ export async function getDb(): Promise<DuckDBConnection> {
   return _instance.connect()
 }
 
+export async function migrateCasesTable(conn: DuckDBConnection): Promise<void> {
+  const r = await conn.runAndReadAll(
+    "SELECT column_name FROM information_schema.columns WHERE table_name='cases'"
+  )
+  const existing = new Set(r.getRows().map((row: unknown[]) => row[0] as string))
+  const additions: Array<[string, string]> = [
+    ['updated_at', 'TIMESTAMPTZ'],
+    ['tags', 'VARCHAR'],
+    ['description', 'VARCHAR'],
+    ['slug', 'VARCHAR'],
+  ]
+  for (const [col, type] of additions) {
+    if (!existing.has(col)) {
+      await conn.run(`ALTER TABLE cases ADD COLUMN ${col} ${type}`)
+    }
+  }
+}
+
 export async function initSchema(conn: DuckDBConnection): Promise<void> {
   await conn.run(`
     CREATE TABLE IF NOT EXISTS cases (
@@ -34,6 +52,7 @@ export async function initSchema(conn: DuckDBConnection): Promise<void> {
       created_at TIMESTAMPTZ DEFAULT now()
     )
   `)
+  await migrateCasesTable(conn)
 }
 
 export async function healthCheck(): Promise<{ ok: boolean; error?: string }> {
