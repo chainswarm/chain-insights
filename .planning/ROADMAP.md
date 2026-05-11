@@ -92,7 +92,7 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 04-01-PLAN.md — End-to-end viz slice: graph data model (Zod), theme/CSS, D3 viz-logic template, HTML generator, Hono /viz/:id route, CLI viz command, standalone --data mode (VIZ-01, VIZ-02, VIZ-03)
+- [x] 04-01-PLAN.md — End-to-end viz slice: graph data model (Zod), theme/CSS, D3 viz-logic template, HTML generator, Hono /viz/:id route, CLI viz command, standalone --data mode (VIZ-01, VIZ-02, VIZ-03)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 04-02-PLAN.md — Case-based data extraction: evidence JSON parser, dossier entity enrichment, CLI integration test (VIZ-01, VIZ-02, VIZ-03)
