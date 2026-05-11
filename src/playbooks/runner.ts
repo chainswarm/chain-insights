@@ -110,7 +110,14 @@ export const PlaybookRunner = {
 
     // --- MCP CONNECTION ---
     const config = await loadConfig()
-    const paymentFetch = createMcpFetchClient(config.mcpEndpoint as `0x${string}`)
+    const { isWalletConfigured, decryptKey } = await import('../wallet/index.js')
+    if (!(await isWalletConfigured())) {
+      throw new Error(
+        'Wallet not configured. Run `chain-insights config set walletPrivateKey <key>` to enable paid MCP calls.'
+      )
+    }
+    const privateKey = await decryptKey()
+    const paymentFetch = createMcpFetchClient(privateKey as `0x${string}`)
     const client = new Client({ name: 'chain-insights-playbook', version: '0.1.0' })
     await client.connect(
       new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch })
