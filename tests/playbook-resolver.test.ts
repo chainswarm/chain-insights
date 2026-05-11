@@ -9,6 +9,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
     ...actual,
     access: vi.fn(),
     readdir: vi.fn(),
+    readFile: vi.fn(),
   }
 })
 
@@ -139,5 +140,67 @@ describe('listPlaybooks', () => {
     const userPlaybooks = result.filter(p => p.source === 'user')
     expect(userPlaybooks[0]?.source).toBe('user')
     expect(userPlaybooks[0]?.name).toBe('my-custom')
+  })
+})
+
+describe('resolvePlaybookContent', () => {
+  beforeEach(() => {
+    vi.resetModules()
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('resolvePlaybookContent returns user file content when user file exists', async () => {
+    const fsMock = await import('node:fs/promises')
+    const readFileMock = vi.mocked(fsMock.readFile)
+
+    // User file exists — readFile returns markdown content
+    readFileMock.mockResolvedValueOnce('# User Playbook\n## Step 1\nContent here' as unknown as Buffer)
+
+    const { resolvePlaybookContent } = await import('../src/playbooks/resolver.js')
+    const result = await resolvePlaybookContent('my-custom')
+
+    expect(result).toBe('# User Playbook\n## Step 1\nContent here')
+    expect(readFileMock).toHaveBeenCalledWith(
+      path.join(os.homedir(), '.chain-insights', 'playbooks', 'my-custom.md'),
+      'utf8'
+    )
+  })
+
+  it('resolvePlaybookContent falls back to built-in when user file ENOENT', async () => {
+    const fsMock = await import('node:fs/promises')
+    const readFileMock = vi.mocked(fsMock.readFile)
+
+    // User file does not exist — fall through to built-in map
+    const enoentErr = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    readFileMock.mockRejectedValueOnce(enoentErr)
+
+    const { resolvePlaybookContent } = await import('../src/playbooks/resolver.js')
+    // trace-funds is a known built-in
+    const result = await resolvePlaybookContent('trace-funds')
+
+    expect(typeof result).toBe('string')
+    expect(result.length).toBeGreaterThan(0)
+    // Should contain the built-in playbook's frontmatter marker
+    expect(result).toContain('trace-funds')
+  })
+
+  it('resolvePlaybookContent throws Playbook not found for unknown name after ENOENT', async () => {
+    const fsMock = await import('node:fs/promises')
+    const readFileMock = vi.mocked(fsMock.readFile)
+
+    // User file does not exist
+    const enoentErr = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    readFileMock.mockRejectedValueOnce(enoentErr)
+
+    const { resolvePlaybookContent } = await import('../src/playbooks/resolver.js')
+    await expect(resolvePlaybookContent('nonexistent-playbook')).rejects.toThrow(/Playbook not found/)
+  })
+
+  it('resolvePlaybookContent throws Invalid playbook name for empty/special-char names', async () => {
+    const { resolvePlaybookContent } = await import('../src/playbooks/resolver.js')
+    await expect(resolvePlaybookContent('...')).rejects.toThrow(/Invalid playbook name/)
   })
 })
