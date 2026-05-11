@@ -300,5 +300,151 @@ program
         }
       })
   )
+  .addCommand(
+    new Command('evidence')
+      .description('Manage case evidence')
+      .addCommand(
+        new Command('add')
+          .description('Add evidence to a case from an MCP query result')
+          .argument('<case-id>', 'Case ID to add evidence to')
+          .option('--source <tool>', 'MCP tool name that produced this evidence', 'manual')
+          .option('--content <text>', 'Evidence content (MCP response or notes)', '')
+          .option('--query-params <params>', 'Query parameters used (e.g. address=0x1234)', '')
+          .action(async (caseId: string, opts: { source: string; content: string; queryParams: string }) => {
+            try {
+              const { EvidenceStore } = await import('./cases/index.js')
+              const result = await EvidenceStore.append(caseId, {
+                source: opts.source,
+                content: opts.content,
+                queryParams: opts.queryParams,
+              })
+              console.log(`Evidence saved: ${result.filename}`)
+              console.log(`SHA-256: ${result.sha256}`)
+            } catch (err) {
+              console.error((err as Error).message)
+              process.exit(1)
+            }
+          })
+      )
+      .addCommand(
+        new Command('verify')
+          .description('Verify evidence manifest integrity for a case')
+          .argument('<case-id>', 'Case ID to verify')
+          .action(async (caseId: string) => {
+            try {
+              const { EvidenceStore } = await import('./cases/index.js')
+              const result = await EvidenceStore.verifyManifest(caseId)
+              if (result.ok) {
+                console.log(`Manifest OK — ${result.count} evidence file(s) verified`)
+              } else {
+                console.error(`Manifest FAILED — tampered files: ${(result.tampered ?? []).join(', ')}`)
+                process.exit(1)
+              }
+            } catch (err) {
+              console.error((err as Error).message)
+              process.exit(1)
+            }
+          })
+      )
+  )
+  .addCommand(
+    new Command('dossier')
+      .description('Manage entity dossiers for a case')
+      .addCommand(
+        new Command('update')
+          .description('Append a finding to an entity dossier')
+          .argument('<case-id>', 'Case ID')
+          .argument('<address>', 'Entity address or identifier')
+          .option('--finding <text>', 'Finding to append to the dossier', '')
+          .option('--type <type>', 'Entity type (eoa|contract|exchange|mixer|unknown)', 'unknown')
+          .action(async (caseId: string, address: string, opts: { finding: string; type: string }) => {
+            try {
+              const { DossierStore } = await import('./cases/index.js')
+              const validTypes = ['eoa', 'contract', 'exchange', 'mixer', 'unknown'] as const
+              const entityType = validTypes.includes(opts.type as typeof validTypes[number])
+                ? (opts.type as typeof validTypes[number])
+                : 'unknown'
+              await DossierStore.appendFinding(caseId, address, opts.finding, entityType)
+              console.log(`Dossier updated for ${address}`)
+            } catch (err) {
+              console.error((err as Error).message)
+              process.exit(1)
+            }
+          })
+      )
+  )
+  .addCommand(
+    new Command('session')
+      .description('Manage investigation sessions')
+      .addCommand(
+        new Command('start')
+          .description('Start a new investigation session for a case')
+          .argument('<case-id>', 'Case ID')
+          .action(async (caseId: string) => {
+            try {
+              const { SessionStore } = await import('./cases/index.js')
+              const s = await SessionStore.start(caseId)
+              console.log(`Session started: ${s.sessionId}`)
+            } catch (err) {
+              console.error((err as Error).message)
+              process.exit(1)
+            }
+          })
+      )
+      .addCommand(
+        new Command('end')
+          .description('End the current session with findings and next steps')
+          .argument('<case-id>', 'Case ID')
+          .option('--findings <text>', 'Key findings from this session', '')
+          .option('--next-steps <text>', 'Next steps for the investigation', '')
+          .action(async (caseId: string, opts: { findings: string; nextSteps: string }) => {
+            try {
+              const { SessionStore } = await import('./cases/index.js')
+              await SessionStore.end(caseId, { findings: opts.findings, nextSteps: opts.nextSteps })
+              await SessionStore.archiveOldSessions(caseId)
+              console.log(`Session ended for case ${caseId}`)
+            } catch (err) {
+              console.error((err as Error).message)
+              process.exit(1)
+            }
+          })
+      )
+  )
+  .addCommand(
+    new Command('resume')
+      .description('Resume a case — restore investigation context for agent injection')
+      .argument('<case-id>', 'Case ID to resume')
+      .action(async (caseId: string) => {
+        try {
+          const { getDb, initSchema } = await import('./db/init.js')
+          const { CaseStore } = await import('./cases/index.js')
+          const conn = await getDb()
+          await initSchema(conn)
+          conn.closeSync()
+          const ctx = await CaseStore.loadContext(caseId)
+          console.log(`\n=== Case Resume: ${ctx.case.id} ===`)
+          console.log(`Name:   ${ctx.case.name}`)
+          console.log(`Status: ${ctx.case.status}`)
+          console.log(`Tags:   ${ctx.case.tags.join(', ') || 'none'}`)
+          console.log(`Evidence files: ${ctx.evidenceCount}`)
+          console.log(`Dossiers: ${ctx.dossierSummaries.length}`)
+          if (ctx.lastSession) {
+            console.log(`\n--- Last Session (${ctx.lastSession.sessionId}) ---`)
+            console.log(ctx.lastSession.body.slice(0, 500))
+          } else {
+            console.log('\nNo previous sessions.')
+          }
+          if (ctx.dossierSummaries.length > 0) {
+            console.log('\n--- Entity Dossiers ---')
+            for (const d of ctx.dossierSummaries) {
+              console.log(`  ${d.address} [${d.type}] tags: ${d.riskTags || 'none'}`)
+            }
+          }
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
 
 program.parse(process.argv)
