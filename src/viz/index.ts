@@ -1,9 +1,10 @@
 export { GraphData, GraphNode, GraphEdge, EntityType, RiskLevel, truncateGraph } from './graph-model.js'
 export type { GraphData as GraphDataType, GraphNode as GraphNodeType, GraphEdge as GraphEdgeType } from './graph-model.js'
 export { generateHtml, writeVizHtml, transformToGraphHtml } from './html-generator.js'
+export { DataExtractor, extractGraphFromCase, extractGraphFromJson } from './data-extractor.js'
 
 import { readFile } from 'node:fs/promises'
-import { GraphData, truncateGraph } from './graph-model.js'
+import { truncateGraph } from './graph-model.js'
 import { generateHtml, writeVizHtml } from './html-generator.js'
 
 export async function generateVisualization(opts: {
@@ -14,19 +15,26 @@ export async function generateVisualization(opts: {
 
   if (opts.dataFile) {
     const content = await readFile(opts.dataFile, 'utf-8')
+    let parsed: unknown
     try {
-      rawData = JSON.parse(content)
+      parsed = JSON.parse(content)
     } catch {
       throw new Error('Invalid transaction data. The input file must contain a JSON array of transaction objects with `from`, `to`, and `value` fields.')
     }
+    const { extractGraphFromJson } = await import('./data-extractor.js')
+    rawData = extractGraphFromJson(parsed)
   } else if (opts.caseId) {
-    throw new Error('Case not found. Run `chain-insights case list` to see available cases.')
+    const { extractGraphFromCase } = await import('./data-extractor.js')
+    const extracted = await extractGraphFromCase(opts.caseId)
+    if (extracted.nodes.length === 0) {
+      throw new Error('No Transaction Data. This case has no evidence with transaction data. Add evidence using `chain-insights evidence add` or provide a JSON file with `chain-insights viz --data <file.json>`.')
+    }
+    rawData = extracted
   } else {
     throw new Error('Provide either a case ID or --data <file.json>')
   }
 
-  const parsed = GraphData.parse(rawData)
-  const data = truncateGraph(parsed)
+  const data = truncateGraph(rawData as Parameters<typeof truncateGraph>[0])
 
   const vizId = opts.caseId
     ? `${opts.caseId}_${Date.now()}`
