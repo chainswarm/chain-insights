@@ -6,11 +6,13 @@ describe('wallet top-up browser page', () => {
     const html = generateTopupPage('0x0000000000000000000000000000000000000001')
 
     expect(html).toContain('0x0000000000000000000000000000000000000001')
+    expect(html).toContain('qrcode-generator')
     expect(html).toContain('/api/balance')
     expect(html).toContain('Current balance')
     expect(html).toContain('Base Network')
     expect(html).toContain('0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913')
     expect(html).toContain('wallet_switchEthereumChain')
     expect(html).toContain('eth_sendTransaction')
+    expect(html).toContain('Each tool call costs $0.01 - $0.05 USDC')
   })
 })

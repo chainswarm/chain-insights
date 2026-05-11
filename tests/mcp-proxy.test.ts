@@ -20,9 +20,10 @@ vi.mock('../src/wallet/tools.js', () => ({
     privateKey: '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
   }),
   getWalletBalanceText: vi.fn().mockResolvedValue([
-    'Wallet: 0x0000000000000000000000000000000000000001',
+    'Balance: 4.200000 USDC',
     'Network: Base',
-    'Base USDC: 4.200000',
+    'Address: 0x0000000000000000000000000000000000000001',
+    'Capacity: ~420 standard tool calls',
   ].join('\n')),
 }))
 
@@ -223,7 +224,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const result = await handler({})
 
     expect(result.isError).toBe(false)
-    expect(result.content[0].text).toContain('Base USDC: 4.200000')
+    expect(result.content[0].text).toContain('Balance: 4.200000 USDC')
   })
 
   it('registers a local topup tool that returns a browser URL', async () => {

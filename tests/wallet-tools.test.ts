@@ -64,8 +64,9 @@ describe('wallet tools', () => {
   it('renders operator-friendly balance text', async () => {
     const { formatWalletBalance } = await import('../src/wallet/tools.js')
 
-    expect(formatWalletBalance('0xabc', '2.500000')).toContain('Base USDC: 2.500000')
-    expect(formatWalletBalance('0xabc', '2.500000')).toContain('Wallet: 0xabc')
+    expect(formatWalletBalance('0xabc', '2.500000')).toContain('Balance: 2.500000 USDC')
+    expect(formatWalletBalance('0xabc', '2.500000')).toContain('Address: 0xabc')
+    expect(formatWalletBalance('0xabc', '2.500000')).toContain('Capacity: ~250 standard tool calls')
   })
 
   it('builds top-up metadata for MCP and CLI output', async () => {

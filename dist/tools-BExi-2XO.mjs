@@ -18,7 +18,7 @@ var tools_exports = /* @__PURE__ */ __exportAll({
 const BASE_CHAIN_ID = 8453;
 const BASE_CHAIN_HEX = "0x2105";
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-const DEFAULT_BASE_RPC_URL = "https://mainnet.base.org";
+const DEFAULT_BASE_RPC_URL = "https://base.llamarpc.com";
 const USDC_ABI = [{
 	type: "function",
 	name: "balanceOf",
@@ -43,24 +43,29 @@ async function getWalletAccount() {
 		privateKey
 	};
 }
-async function getBalanceUsdc(address, rpcUrl = process.env["BASE_RPC_URL"] ?? "https://mainnet.base.org") {
-	return formatUnits(await createPublicClient({
-		chain: base,
-		transport: http(rpcUrl)
-	}).readContract({
-		address: USDC_ADDRESS,
-		abi: USDC_ABI,
-		functionName: "balanceOf",
-		args: [address]
-	}), 6);
+async function getBalanceUsdc(address, rpcUrl = process.env["BASE_RPC_URL"] ?? "https://base.llamarpc.com") {
+	try {
+		return formatUnits(await createPublicClient({
+			chain: base,
+			transport: http(rpcUrl)
+		}).readContract({
+			address: USDC_ADDRESS,
+			abi: USDC_ABI,
+			functionName: "balanceOf",
+			args: [address]
+		}), 6);
+	} catch {
+		return "unknown";
+	}
 }
 function formatWalletBalance(address, balanceUsdc) {
+	const capacity = balanceUsdc !== "unknown" ? `Capacity: ~${Math.floor(parseFloat(balanceUsdc) * 100)} standard tool calls` : "";
 	return [
-		`Wallet: ${address}`,
+		`Balance: ${balanceUsdc} USDC`,
 		"Network: Base",
-		`USDC contract: ${USDC_ADDRESS}`,
-		`Base USDC: ${balanceUsdc}`
-	].join("\n");
+		`Address: ${address}`,
+		capacity
+	].filter(Boolean).join("\n");
 }
 async function getWalletBalanceText(account) {
 	const wallet = account ?? await getWalletAccount();
@@ -80,4 +85,4 @@ function buildTopupInfo(address, topupUrl) {
 //#endregion
 export { getBalanceUsdc as a, tools_exports as c, formatWalletBalance as i, USDC_ADDRESS as n, getWalletAccount as o, buildTopupInfo as r, getWalletBalanceText as s, BASE_CHAIN_HEX as t };
 
-//# sourceMappingURL=tools-DlfsacMx.mjs.map
+//# sourceMappingURL=tools-BExi-2XO.mjs.map

@@ -1,56 +1,35 @@
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
-import {
-  BASE_CHAIN_HEX,
-  buildTopupInfo,
-  getBalanceUsdc,
-  type PaymentWalletAccount,
-  USDC_ADDRESS,
-} from './tools.js'
-
-interface ActiveTopupServer {
-  address: string
-  server: Server
-  url: string
+import { t as __exportAll } from "./rolldown-runtime-wcPFST8Q.mjs";
+import { a as getBalanceUsdc, n as USDC_ADDRESS, r as buildTopupInfo, t as BASE_CHAIN_HEX } from "./tools-BExi-2XO.mjs";
+import { createServer } from "node:http";
+//#region src/wallet/topup-server.ts
+var topup_server_exports = /* @__PURE__ */ __exportAll({
+	generateTopupPage: () => generateTopupPage,
+	startTopupServer: () => startTopupServer,
+	stopTopupServer: () => stopTopupServer
+});
+let activeServer = null;
+function send(res, status, body, contentType) {
+	res.writeHead(status, {
+		"content-type": contentType,
+		"cache-control": "no-store",
+		"access-control-allow-origin": "*"
+	});
+	res.end(body);
 }
-
-let activeServer: ActiveTopupServer | null = null
-
-function send(res: ServerResponse, status: number, body: string, contentType: string): void {
-  res.writeHead(status, {
-    'content-type': contentType,
-    'cache-control': 'no-store',
-    'access-control-allow-origin': '*',
-  })
-  res.end(body)
+function sendJson(res, status, body) {
+	send(res, status, JSON.stringify(body, null, 2) + "\n", "application/json; charset=utf-8");
 }
-
-function sendJson(res: ServerResponse, status: number, body: unknown): void {
-  send(res, status, JSON.stringify(body, null, 2) + '\n', 'application/json; charset=utf-8')
+function escapeHtml(value) {
+	return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\"", "&quot;").replaceAll("'", "&#39;");
 }
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
-}
-
-// Adapted from rbmk/repos/infra/mcp-proxy/src/topup-server.ts.
-export function generateTopupPage(walletAddress: string): string {
-  const address = escapeHtml(walletAddress)
-  const walletJson = JSON.stringify(walletAddress)
-  const usdcJson = JSON.stringify(USDC_ADDRESS)
-  const chainIdJson = JSON.stringify(BASE_CHAIN_HEX)
-
-  return `<!doctype html>
+function generateTopupPage(walletAddress) {
+	return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Chain Insights - Fund Wallet</title>
-<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"><\/script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -250,7 +229,7 @@ export function generateTopupPage(walletAddress: string): string {
     <div class="qr-container" id="qr" aria-label="Wallet address QR code"></div>
 
     <div class="address-box">
-      <code id="address">${address}</code>
+      <code id="address">${escapeHtml(walletAddress)}</code>
       <button class="copy-btn" onclick="copyAddress()" id="copyBtn" title="Copy address" type="button">&#x2398;</button>
     </div>
 
@@ -295,9 +274,9 @@ export function generateTopupPage(walletAddress: string): string {
 </div>
 
 <script>
-const WALLET = ${walletJson};
-const USDC = ${usdcJson};
-const CHAIN_ID = ${chainIdJson};
+const WALLET = ${JSON.stringify(walletAddress)};
+const USDC = ${JSON.stringify(USDC_ADDRESS)};
+const CHAIN_ID = ${JSON.stringify(BASE_CHAIN_HEX)};
 
 (function() {
   var qr = qrcode(0, 'M');
@@ -417,80 +396,69 @@ async function sendWithMetaMask() {
 
   btn.disabled = false;
 }
-</script>
+<\/script>
 </body>
-</html>`
+</html>`;
 }
-
-function resolveAddress(account: PaymentWalletAccount | string): string {
-  return typeof account === 'string' ? account : account.address
+function resolveAddress(account) {
+	return typeof account === "string" ? account : account.address;
 }
-
-async function handleRequest(req: IncomingMessage, res: ServerResponse, address: string, url: string): Promise<void> {
-  const parsedUrl = new URL(req.url ?? '/', url)
-
-  if (parsedUrl.pathname === '/') {
-    send(res, 200, generateTopupPage(address), 'text/html; charset=utf-8')
-    return
-  }
-
-  if (parsedUrl.pathname === '/api/wallet') {
-    sendJson(res, 200, { address })
-    return
-  }
-
-  if (parsedUrl.pathname === '/api/balance') {
-    sendJson(res, 200, { balance_usdc: await getBalanceUsdc(address) })
-    return
-  }
-
-  if (parsedUrl.pathname === '/api/topup') {
-    sendJson(res, 200, buildTopupInfo(address, url))
-    return
-  }
-
-  sendJson(res, 404, { error: 'Not found' })
+async function handleRequest(req, res, address, url) {
+	const parsedUrl = new URL(req.url ?? "/", url);
+	if (parsedUrl.pathname === "/") {
+		send(res, 200, generateTopupPage(address), "text/html; charset=utf-8");
+		return;
+	}
+	if (parsedUrl.pathname === "/api/wallet") {
+		sendJson(res, 200, { address });
+		return;
+	}
+	if (parsedUrl.pathname === "/api/balance") {
+		sendJson(res, 200, { balance_usdc: await getBalanceUsdc(address) });
+		return;
+	}
+	if (parsedUrl.pathname === "/api/topup") {
+		sendJson(res, 200, buildTopupInfo(address, url));
+		return;
+	}
+	sendJson(res, 404, { error: "Not found" });
 }
-
-export async function startTopupServer(
-  account: PaymentWalletAccount | string,
-  options: { port?: number } = {},
-): Promise<string> {
-  const address = resolveAddress(account)
-
-  if (activeServer && activeServer.address.toLowerCase() === address.toLowerCase()) {
-    return activeServer.url
-  }
-
-  if (activeServer) {
-    await new Promise<void>((resolve) => activeServer?.server.close(() => resolve()))
-    activeServer = null
-  }
-
-  const server = createServer((req, res) => {
-    void handleRequest(req, res, address, activeServer?.url ?? 'http://localhost')
-  })
-
-  const url = await new Promise<string>((resolve, reject) => {
-    server.once('error', reject)
-    server.listen(options.port ?? 0, '127.0.0.1', () => {
-      const addressInfo = server.address()
-      if (!addressInfo || typeof addressInfo === 'string') {
-        reject(new Error('Failed to start topup server'))
-        return
-      }
-      resolve(`http://localhost:${addressInfo.port}`)
-    })
-  })
-
-  activeServer = { address, server, url }
-  process.stderr.write(`[chain-insights] Topup server running at ${url}\n`)
-  return url
+async function startTopupServer(account, options = {}) {
+	const address = resolveAddress(account);
+	if (activeServer && activeServer.address.toLowerCase() === address.toLowerCase()) return activeServer.url;
+	if (activeServer) {
+		await new Promise((resolve) => activeServer?.server.close(() => resolve()));
+		activeServer = null;
+	}
+	const server = createServer((req, res) => {
+		handleRequest(req, res, address, activeServer?.url ?? "http://localhost");
+	});
+	const url = await new Promise((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(options.port ?? 0, "127.0.0.1", () => {
+			const addressInfo = server.address();
+			if (!addressInfo || typeof addressInfo === "string") {
+				reject(/* @__PURE__ */ new Error("Failed to start topup server"));
+				return;
+			}
+			resolve(`http://localhost:${addressInfo.port}`);
+		});
+	});
+	activeServer = {
+		address,
+		server,
+		url
+	};
+	process.stderr.write(`[chain-insights] Topup server running at ${url}\n`);
+	return url;
 }
-
-export async function stopTopupServer(): Promise<void> {
-  if (!activeServer) return
-  const server = activeServer.server
-  activeServer = null
-  await new Promise<void>((resolve) => server.close(() => resolve()))
+async function stopTopupServer() {
+	if (!activeServer) return;
+	const server = activeServer.server;
+	activeServer = null;
+	await new Promise((resolve) => server.close(() => resolve()));
 }
+//#endregion
+export { topup_server_exports as i, startTopupServer as n, stopTopupServer as r, generateTopupPage as t };
+
+//# sourceMappingURL=topup-server-fBlfhhcj.mjs.map

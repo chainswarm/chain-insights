@@ -127,10 +127,10 @@ Supported config keys:
 Optional environment variable:
 
 ```bash
-BASE_RPC_URL=https://mainnet.base.org
+BASE_RPC_URL=https://base.llamarpc.com
 ```
 
-`BASE_RPC_URL` is used by wallet balance and top-up balance refresh. If unset, the toolkit uses `https://mainnet.base.org`.
+`BASE_RPC_URL` is used by wallet balance and top-up balance refresh. If unset, the toolkit uses `https://base.llamarpc.com`.
 
 ## GraphRAG MCP Usage
 
@@ -195,7 +195,7 @@ Machine-readable output:
 chain-insights wallet topup --json --no-open
 ```
 
-The top-up page binds to `127.0.0.1` on a random local port, displays the payment wallet address and current Base USDC balance, and includes a MetaMask-compatible USDC transfer flow. It sends Base USDC to the Chain Insights payment wallet; it does not request or store browser wallet private keys.
+The top-up page binds to `127.0.0.1` on a random local port, displays the payment wallet address, QR code, current Base USDC balance, and includes the MetaMask-compatible USDC transfer flow from the existing `infra/mcp-proxy` wallet surface. It sends Base USDC to the Chain Insights payment wallet; it does not request or store browser wallet private keys.
 
 The local MCP proxy also exposes:
 
@@ -476,7 +476,7 @@ chain-insights mcp tools --refresh
 Set a reliable Base RPC URL:
 
 ```bash
-BASE_RPC_URL=https://mainnet.base.org chain-insights wallet balance
+BASE_RPC_URL=https://base.llamarpc.com chain-insights wallet balance
 ```
 
 ### Top-up page opens but MetaMask cannot send

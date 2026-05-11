@@ -51,7 +51,7 @@ async function createProxy() {
 		inputSchema: z.object({}).passthrough()
 	}, async () => {
 		try {
-			const { getWalletAccount, getWalletBalanceText } = await import("./tools-DlfsacMx.mjs").then((n) => n.c);
+			const { getWalletAccount, getWalletBalanceText } = await import("./tools-BExi-2XO.mjs").then((n) => n.c);
 			return {
 				content: [{
 					type: "text",
@@ -74,8 +74,8 @@ async function createProxy() {
 		inputSchema: z.object({}).passthrough()
 	}, async () => {
 		try {
-			const { getWalletAccount } = await import("./tools-DlfsacMx.mjs").then((n) => n.c);
-			const { startTopupServer } = await import("./topup-server-CDA6HQQs.mjs").then((n) => n.i);
+			const { getWalletAccount } = await import("./tools-BExi-2XO.mjs").then((n) => n.c);
+			const { startTopupServer } = await import("./topup-server-fBlfhhcj.mjs").then((n) => n.i);
 			const account = await getWalletAccount();
 			const topupUrl = await startTopupServer(account);
 			return {

@@ -54,7 +54,7 @@ async function createProxy() {
 		inputSchema: zod.object({}).passthrough()
 	}, async () => {
 		try {
-			const { getWalletAccount, getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-DrbPv7M1.cjs")).then((n) => n.tools_exports);
+			const { getWalletAccount, getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-keOvDHi8.cjs")).then((n) => n.tools_exports);
 			return {
 				content: [{
 					type: "text",
@@ -77,8 +77,8 @@ async function createProxy() {
 		inputSchema: zod.object({}).passthrough()
 	}, async () => {
 		try {
-			const { getWalletAccount } = await Promise.resolve().then(() => require("./tools-DrbPv7M1.cjs")).then((n) => n.tools_exports);
-			const { startTopupServer } = await Promise.resolve().then(() => require("./topup-server-C9TI_QnV.cjs")).then((n) => n.topup_server_exports);
+			const { getWalletAccount } = await Promise.resolve().then(() => require("./tools-keOvDHi8.cjs")).then((n) => n.tools_exports);
+			const { startTopupServer } = await Promise.resolve().then(() => require("./topup-server-BGSx99wW.cjs")).then((n) => n.topup_server_exports);
 			const account = await getWalletAccount();
 			const topupUrl = await startTopupServer(account);
 			return {
