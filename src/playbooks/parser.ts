@@ -189,7 +189,7 @@ export const PlaybookParser = {
         name:     raw['name'] ?? '',
         type:     raw['type'] ?? 'string',
         required: raw['required'] !== undefined
-          ? raw['required'] !== 'false'
+          ? raw['required'].toLowerCase() !== 'false'
           : true,
       }
       if (raw['default'] !== undefined) coerced['default'] = raw['default']
