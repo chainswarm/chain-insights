@@ -88,7 +88,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 })).addCommand(new commander.Command("topup").description("Open a local browser page to top up the payment wallet").option("--no-open", "Print the top-up URL without opening a browser").option("--json", "Print machine-readable top-up metadata").action(async (opts) => {
 	try {
 		const { buildTopupInfo, getWalletAccount } = await Promise.resolve().then(() => require("./tools-BrbjS0-j.cjs")).then((n) => n.tools_exports);
-		const { startTopupServer } = await Promise.resolve().then(() => require("./topup-server-BYdgkSW_.cjs")).then((n) => n.topup_server_exports);
+		const { startTopupServer } = await Promise.resolve().then(() => require("./topup-server-DBETwQ6w.cjs")).then((n) => n.topup_server_exports);
 		const account = await getWalletAccount();
 		const url = await startTopupServer(account);
 		const info = buildTopupInfo(account.address, url);

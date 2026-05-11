@@ -77,10 +77,10 @@ declare function getWalletBalanceText(account?: PaymentWalletAccount): Promise<s
 declare function buildTopupInfo(address: string, topupUrl?: string): TopupInfo;
 //#endregion
 //#region src/wallet/mcp-proxy/topup-server.d.ts
-declare function getTopupUrl(): string | null;
 declare function generateArtifactHtml(walletAddress: string, topupUrl: string): string;
 //#endregion
 //#region src/wallet/topup-server.d.ts
+declare function getTopupUrl(): string | null;
 declare function startTopupServer(account: PaymentWalletAccount | string): Promise<string>;
 //#endregion
 //#region src/mcp/client.d.ts

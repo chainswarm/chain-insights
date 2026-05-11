@@ -223,7 +223,7 @@ const logoPng = loadAsset("logo.png");
 const bgPatternPng = loadAsset("bg-pattern.png");
 let server = null;
 let serverPort = null;
-function getTopupUrl() {
+function getTopupUrl$1() {
 	return serverPort ? `http://localhost:${serverPort}` : null;
 }
 async function startTopupServer$1(wallet) {
@@ -888,9 +888,12 @@ async function sendWithMetaMask() {
 //#region src/wallet/topup-server.ts
 var topup_server_exports = /* @__PURE__ */ require_chunk.__exportAll({
 	generateArtifactHtml: () => generateArtifactHtml,
+	getTopupArtifactUrl: () => getTopupArtifactUrl,
+	getTopupUrl: () => getTopupUrl,
 	startTopupServer: () => startTopupServer
 });
 const FALLBACK_PRIVATE_KEY = "0x0000000000000000000000000000000000000000000000000000000000000001";
+let artifactServerState = null;
 function toWalletData(account) {
 	if (typeof account === "string") return {
 		address: account,
@@ -903,8 +906,69 @@ function toWalletData(account) {
 		createdAt: (/* @__PURE__ */ new Date(0)).toISOString()
 	};
 }
+function send(res, status, body, contentType) {
+	res.writeHead(status, {
+		"content-type": contentType,
+		"cache-control": "no-store",
+		"access-control-allow-origin": "*"
+	});
+	res.end(body);
+}
+async function proxyToCopiedServer(reqUrl, res, assetServerUrl) {
+	const upstreamUrl = new URL(reqUrl, assetServerUrl);
+	const upstream = await fetch(upstreamUrl);
+	const contentType = upstream.headers.get("content-type") ?? "application/octet-stream";
+	const body = Buffer.from(await upstream.arrayBuffer());
+	send(res, upstream.status, body, contentType);
+}
+function getTopupArtifactUrl() {
+	return artifactServerState?.url ?? null;
+}
+function getTopupUrl() {
+	return getTopupArtifactUrl() ?? getTopupUrl$1();
+}
 async function startTopupServer(account) {
-	return startTopupServer$1(toWalletData(account));
+	const wallet = toWalletData(account);
+	if (artifactServerState && artifactServerState.address.toLowerCase() === wallet.address.toLowerCase()) return artifactServerState.url;
+	const assetServerUrl = await startTopupServer$1(wallet);
+	if (artifactServerState) {
+		await new Promise((resolve) => artifactServerState?.server.close(() => resolve()));
+		artifactServerState = null;
+	}
+	const server = (0, node_http.createServer)((req, res) => {
+		const reqUrl = req.url ?? "/";
+		const pathname = new URL(reqUrl, "http://localhost").pathname;
+		if (pathname === "/" || pathname === "/index.html") {
+			const artifactUrl = artifactServerState?.url ?? assetServerUrl;
+			send(res, 200, generateArtifactHtml(wallet.address, artifactUrl), "text/html; charset=utf-8");
+			return;
+		}
+		if (pathname.startsWith("/assets/") || pathname.startsWith("/api/")) {
+			proxyToCopiedServer(reqUrl, res, assetServerUrl).catch((err) => {
+				send(res, 502, JSON.stringify({ error: err.message }) + "\n", "application/json; charset=utf-8");
+			});
+			return;
+		}
+		send(res, 404, JSON.stringify({ error: "Not found" }) + "\n", "application/json; charset=utf-8");
+	});
+	const url = await new Promise((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(0, "127.0.0.1", () => {
+			const addressInfo = server.address();
+			if (!addressInfo || typeof addressInfo === "string") {
+				reject(/* @__PURE__ */ new Error("Failed to start topup artifact server"));
+				return;
+			}
+			resolve(`http://localhost:${addressInfo.port}`);
+		});
+	});
+	artifactServerState = {
+		address: wallet.address,
+		assetServerUrl,
+		server,
+		url
+	};
+	return url;
 }
 //#endregion
 Object.defineProperty(exports, "generateArtifactHtml", {

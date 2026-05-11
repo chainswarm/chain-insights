@@ -52,7 +52,7 @@ async function createProxy() {
 	const getTopupState = async () => {
 		topupState ??= (async () => {
 			const { getWalletAccount } = await import("./tools-BcPMw4c6.mjs").then((n) => n.o);
-			const { startTopupServer } = await import("./topup-server-hEBczLVA.mjs").then((n) => n.n);
+			const { startTopupServer } = await import("./topup-server-Cthbn1Bg.mjs").then((n) => n.r);
 			const account = await getWalletAccount();
 			const url = await startTopupServer(account);
 			return {
@@ -87,7 +87,7 @@ async function createProxy() {
 	});
 	registerAppResource(server, "Chain Insights Wallet Topup", TOPUP_RESOURCE_URI, { description: "Chain Insights wallet funding page with QR code and MetaMask link" }, async () => {
 		const { address, url } = await getTopupState();
-		const { generateArtifactHtml } = await import("./topup-server-hEBczLVA.mjs").then((n) => n.n);
+		const { generateArtifactHtml } = await import("./topup-server-Cthbn1Bg.mjs").then((n) => n.r);
 		return { contents: [{
 			uri: TOPUP_RESOURCE_URI,
 			mimeType: RESOURCE_MIME_TYPE,
