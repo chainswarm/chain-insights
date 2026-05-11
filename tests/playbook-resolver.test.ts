@@ -21,20 +21,18 @@ describe('resolvePlaybook', () => {
     vi.clearAllMocks()
   })
 
-  it("resolvePlaybook('trace-funds') resolves to built-in path when user dir absent", async () => {
+  it("resolvePlaybook('trace-funds') resolves to builtin sentinel when user dir absent", async () => {
     const fsMock = await import('node:fs/promises')
     const accessMock = vi.mocked(fsMock.access)
 
-    // User dir access fails, built-in dir access succeeds
-    accessMock
-      .mockRejectedValueOnce(new Error('ENOENT'))  // user path fails
-      .mockResolvedValueOnce(undefined)              // builtin path succeeds
+    // User dir access fails; built-ins are now in BUILTIN_PLAYBOOKS map (no fs access needed)
+    accessMock.mockRejectedValueOnce(new Error('ENOENT'))
 
     const { resolvePlaybook } = await import('../src/playbooks/resolver.js')
     const result = await resolvePlaybook('trace-funds')
 
-    // Should end with trace-funds.md (built-in path)
-    expect(result).toMatch(/trace-funds\.md$/)
+    // Should return the builtin sentinel
+    expect(result).toBe('builtin:trace-funds')
     // Should not be in user's home dir
     expect(result).not.toContain(path.join(os.homedir(), '.chain-insights', 'playbooks'))
   })
@@ -66,10 +64,8 @@ describe('resolvePlaybook', () => {
   it('resolvePlaybook sanitizes path traversal attempts (no ../ in resolved path)', async () => {
     const fsMock = await import('node:fs/promises')
     const accessMock = vi.mocked(fsMock.access)
-    // etcpasswd.md — both user and builtin not found, so throws Playbook not found
-    accessMock
-      .mockRejectedValueOnce(new Error('ENOENT'))
-      .mockRejectedValueOnce(new Error('ENOENT'))
+    // etcpasswd — user dir fails; not in BUILTIN_PLAYBOOKS map → throws Playbook not found
+    accessMock.mockRejectedValueOnce(new Error('ENOENT'))
     const { resolvePlaybook } = await import('../src/playbooks/resolver.js')
     // The attempt is sanitized to 'etcpasswd' — no path traversal possible
     await expect(resolvePlaybook('../../etc/passwd')).rejects.toThrow(/Playbook not found/)
@@ -102,10 +98,8 @@ describe('listPlaybooks', () => {
     const fsMock = await import('node:fs/promises')
     const readdirMock = vi.mocked(fsMock.readdir)
 
-    // Built-in dir has these files, user dir throws (not found)
-    readdirMock
-      .mockRejectedValueOnce(new Error('ENOENT')) // user dir fails
-      .mockResolvedValueOnce(['trace-funds.md', 'risk-check.md', 'entity-profile.md'] as unknown as Awaited<ReturnType<typeof fsMock.readdir>>)
+    // User dir throws (not found); built-ins come from BUILTIN_PLAYBOOKS map
+    readdirMock.mockRejectedValueOnce(new Error('ENOENT'))
 
     const { listPlaybooks } = await import('../src/playbooks/resolver.js')
     const result = await listPlaybooks()
@@ -120,29 +114,30 @@ describe('listPlaybooks', () => {
     const fsMock = await import('node:fs/promises')
     const readdirMock = vi.mocked(fsMock.readdir)
 
-    readdirMock
-      .mockRejectedValueOnce(new Error('ENOENT'))
-      .mockResolvedValueOnce(['trace-funds.md'] as unknown as Awaited<ReturnType<typeof fsMock.readdir>>)
+    // User dir does not exist — built-ins come from BUILTIN_PLAYBOOKS map (not filesystem)
+    readdirMock.mockRejectedValueOnce(new Error('ENOENT'))
 
     const { listPlaybooks } = await import('../src/playbooks/resolver.js')
     const result = await listPlaybooks()
 
-    expect(result[0]?.source).toBe('builtin')
+    // Built-ins from BUILTIN_PLAYBOOKS map should all be source 'builtin'
+    const builtins = result.filter(p => p.source === 'builtin')
+    expect(builtins.length).toBeGreaterThanOrEqual(3)
+    expect(builtins.map(p => p.name)).toContain('trace-funds')
   })
 
   it("listPlaybooks() marks user playbooks with source 'user'", async () => {
     const fsMock = await import('node:fs/promises')
     const readdirMock = vi.mocked(fsMock.readdir)
 
-    // User dir succeeds, builtin dir returns nothing
-    readdirMock
-      .mockResolvedValueOnce(['my-custom.md'] as unknown as Awaited<ReturnType<typeof fsMock.readdir>>)
-      .mockResolvedValueOnce([] as unknown as Awaited<ReturnType<typeof fsMock.readdir>>)
+    // User dir returns a custom playbook (built-ins come from BUILTIN_PLAYBOOKS map)
+    readdirMock.mockResolvedValueOnce(['my-custom.md'] as unknown as Awaited<ReturnType<typeof fsMock.readdir>>)
 
     const { listPlaybooks } = await import('../src/playbooks/resolver.js')
     const result = await listPlaybooks()
 
-    expect(result[0]?.source).toBe('user')
-    expect(result[0]?.name).toBe('my-custom')
+    const userPlaybooks = result.filter(p => p.source === 'user')
+    expect(userPlaybooks[0]?.source).toBe('user')
+    expect(userPlaybooks[0]?.name).toBe('my-custom')
   })
 })
