@@ -69,9 +69,9 @@ describe('Installer (FOUND-01)', () => {
     expect(output).toContain('chain-insights-proxy')
   })
 
-  it('--claude proxy bin path in output contains dist/mcp-proxy.mjs', () => {
+  it('--claude proxy bin path in output contains mcp-proxy.cjs (CR-03: CJS shim, not raw .mjs)', () => {
     const result = execSync(`HOME=${fakeHome} node bin/install.cjs --claude`, { stdio: 'pipe' })
     const output = result.toString()
-    expect(output).toContain('mcp-proxy.mjs')
+    expect(output).toContain('mcp-proxy.cjs')
   })
 })

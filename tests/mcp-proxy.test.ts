@@ -158,7 +158,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('Payment failed')
   })
 
-  it('does not call remoteClient.connect when schema cache has tools', async () => {
+  it('calls remoteClient.connect but not listTools when schema cache has tools (WR-01: always connect)', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       { name: 'cached_tool', description: 'From cache' },
@@ -169,12 +169,13 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     await createProxy()
 
-    // remoteClient.connect should NOT be called — cache was hit
+    // remoteClient.connect MUST be called even on cache hit — required for tool call forwarding
+    // remoteClient.listTools should NOT be called — schema is served from cache
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       connect: ReturnType<typeof vi.fn>
       listTools: ReturnType<typeof vi.fn>
     }
-    expect(clientInstance.connect).not.toHaveBeenCalled()
+    expect(clientInstance.connect).toHaveBeenCalledOnce()
     expect(clientInstance.listTools).not.toHaveBeenCalled()
   })
 })
