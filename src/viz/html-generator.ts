@@ -3,68 +3,87 @@ import { writeFile, mkdir } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import os from 'node:os'
-import { buildCssVariables, buildLayoutCss } from './theme.js'
-import { buildVizLogic } from './templates/viz-logic.js'
 import type { GraphData } from './graph-model.js'
 
-// Resolve d3 bundle path relative to this module's location.
-// We compute it via the d3 package.json location to avoid "exports" field restrictions.
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const d3BundlePath = path.resolve(__dirname, '..', '..', 'node_modules', 'd3', 'dist', 'd3.min.js')
-const d3Script = readFileSync(d3BundlePath, 'utf-8')
+const templatePath = path.resolve(__dirname, 'templates', 'graph.html')
+const template = readFileSync(templatePath, 'utf-8')
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
+interface GraphHtmlNode {
+  address: string
+  address_type: string
+  labels: string[]
+  flow_in_usd: number
+  flow_out_usd: number
+  role: string | null
+  risk_level: string | null
+  pattern_flags: string[]
 }
 
-export function generateHtml(data: GraphData, title: string): string {
-  const cssVars = buildCssVariables()
-  const layoutCss = buildLayoutCss()
-  const graphJson = JSON.stringify(data)
-  const vizLogic = buildVizLogic()
+interface GraphHtmlEdge {
+  from_address: string
+  to_address: string
+  usd_amount: number
+  tx_count: number
+  type: string
+}
 
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(title)}</title>
-  <style>${cssVars}\n${layoutCss}</style>
-</head>
-<body>
-  <div id="viz-root">
-    <div id="truncation-banner"></div>
-    <div id="control-bar">
-      <button class="layout-btn active" data-layout="force" aria-label="Switch graph layout">Force</button>
-      <button class="layout-btn" data-layout="tree" aria-label="Switch graph layout">Tree</button>
-      <button id="zoom-reset" aria-label="Fit to view"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 3h7V1H1v9h2V3zm11-2v2h7v7h2V1h-9zM3 14H1v9h9v-2H3v-7zm18 0h-2v7h-7v2h9v-9z"/></svg></button>
-    </div>
-    <svg id="graph" xmlns="http://www.w3.org/2000/svg"></svg>
-    <div id="legend-panel" class="collapsed">
-      <button id="legend-toggle" aria-label="Toggle legend panel">?</button>
-      <div id="legend-content"></div>
-    </div>
-    <div id="tooltip"></div>
-  </div>
-  <script>${d3Script}</script>
-  <script>const GRAPH_DATA = ${graphJson};</script>
-  <script>${vizLogic}</script>
-</body>
-</html>`
+interface GraphHtmlData {
+  nodes: GraphHtmlNode[]
+  edges: GraphHtmlEdge[]
+  metadata?: { seed_address?: string; title?: string }
+}
+
+const ENTITY_TO_ROLE: Record<string, string | null> = {
+  eoa: 'search',
+  contract: 'intermediary',
+  exchange: 'exchange',
+  mixer: 'intermediary',
+  unknown: null,
+}
+
+export function transformToGraphHtml(data: GraphData): GraphHtmlData {
+  const nodes: GraphHtmlNode[] = data.nodes.map((n) => ({
+    address: n.id,
+    address_type: n.entityType === 'exchange' ? 'exchange' : 'wallet',
+    labels: n.label ? [n.label] : [],
+    flow_in_usd: n.totalIn,
+    flow_out_usd: n.totalOut,
+    role: ENTITY_TO_ROLE[n.entityType] ?? null,
+    risk_level: n.riskLevel === 'unknown' ? null : n.riskLevel,
+    pattern_flags: [],
+  }))
+
+  const edges: GraphHtmlEdge[] = data.edges.map((e) => ({
+    from_address: e.source,
+    to_address: e.target,
+    usd_amount: e.value,
+    tx_count: 1,
+    type: 'FLOWS_TO',
+  }))
+
+  return {
+    nodes,
+    edges,
+    metadata: {
+      title: data.metadata.title,
+    },
+  }
+}
+
+export function generateHtml(data: GraphData, _title: string): string {
+  const graphHtmlData = transformToGraphHtml(data)
+  const dataJson = JSON.stringify(graphHtmlData)
+  const inlineScript = `<script>var INLINE_DATA = ${dataJson};</script>`
+
+  return template.replace('</body>', `${inlineScript}\n</body>`)
 }
 
 export async function writeVizHtml(vizId: string, html: string, caseId?: string): Promise<string> {
   let vizDir: string
   if (caseId) {
-    // Case-based: store alongside case data per CONTEXT.md locked decision
     vizDir = path.join(os.homedir(), '.chain-insights', 'cases', caseId, 'viz')
   } else {
-    // Standalone/ad-hoc: store in central directory
     vizDir = path.join(os.homedir(), '.chain-insights', 'viz')
   }
   await mkdir(vizDir, { recursive: true })
