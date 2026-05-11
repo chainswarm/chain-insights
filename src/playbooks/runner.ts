@@ -4,7 +4,7 @@ import { getDb, initSchema } from '../db/init.js'
 import { CaseStore } from '../cases/store.js'
 import { EvidenceStore } from '../cases/evidence.js'
 import { loadConfig } from '../config/index.js'
-import { createMcpFetchClient } from '../mcp/client.js'
+import { createConfiguredMcpFetch } from '../mcp/client.js'
 import { generateVisualization } from '../viz/index.js'
 import type { PlaybookDefinition } from './schema.js'
 
@@ -67,6 +67,19 @@ async function callWithRetry(
   throw lastErr
 }
 
+async function validateStepTools(client: Client, steps: PlaybookDefinition['steps']): Promise<void> {
+  const result = await client.listTools()
+  const available = new Set(result.tools.map(tool => tool.name))
+  const missing = [...new Set(steps.map(step => step.tool).filter(tool => !available.has(tool)))]
+  if (missing.length === 0) return
+
+  const availableList = [...available].sort().join(', ') || 'none'
+  throw new Error(
+    `Unknown MCP tool(s) in playbook: ${missing.join(', ')}. ` +
+    `Available tools: ${availableList}. Run \`chain-insights mcp tools --refresh\` to inspect the live MCP schema.`
+  )
+}
+
 export const PlaybookRunner = {
   /**
    * Execute a playbook definition step-by-step against the live MCP.
@@ -92,15 +105,9 @@ export const PlaybookRunner = {
       return
     }
 
-    // --- WALLET CHECK (before case creation to avoid orphan cases) ---
+    // --- MCP AUTH CHECK (before case creation to avoid orphan cases) ---
     const config = await loadConfig()
-    const { isWalletConfigured, decryptKey } = await import('../wallet/index.js')
-    if (!(await isWalletConfigured())) {
-      throw new Error(
-        'Wallet not configured. Run `chain-insights config set walletPrivateKey <key>` to enable paid MCP calls.'
-      )
-    }
-    const privateKey = await decryptKey()
+    const mcpFetch = await createConfiguredMcpFetch(config)
 
     // --- INIT DB SCHEMA ---
     const conn = await getDb()
@@ -123,15 +130,16 @@ export const PlaybookRunner = {
     }
 
     // --- MCP CONNECTION ---
-    const paymentFetch = createMcpFetchClient(privateKey as `0x${string}`)
     const client = new Client({ name: 'chain-insights-playbook', version: '0.1.0' })
     await client.connect(
-      new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch })
+      new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: mcpFetch })
     )
 
     let evidenceCount = 0
 
     try {
+      await validateStepTools(client, stepsToRun)
+
       // --- STEP LOOP ---
       for (const step of stepsToRun) {
         console.log(`Step ${step.index}/${totalSteps}: ${step.label}...`)

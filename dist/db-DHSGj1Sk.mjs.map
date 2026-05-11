@@ -1,1 +1,0 @@
-{"version":3,"file":"db-DHSGj1Sk.mjs","names":[],"sources":["../src/db/index.ts"],"sourcesContent":["// Stable import surface for the DB module. Keeps init.ts focused on lifecycle.\n// Phase 3 adds typed query helpers here.\nexport { getDb, initSchema, healthCheck, resetDbInstance } from './init.js'\n"],"mappings":""}

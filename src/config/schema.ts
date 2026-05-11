@@ -13,3 +13,14 @@ export const ConfigSchema = z.object({
 
 export type InvestigatorConfig = z.infer<typeof ConfigSchema>
 export const DEFAULT_CONFIG: InvestigatorConfig = ConfigSchema.parse({})
+
+export const CONFIG_KEYS = [
+  'mcpEndpoint',
+  'mcpAuthToken',
+  'walletAddress',
+  'serverPort',
+  'dataDir',
+  'version',
+] as const
+
+export type ConfigKey = typeof CONFIG_KEYS[number]

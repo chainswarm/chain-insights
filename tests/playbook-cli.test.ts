@@ -23,11 +23,12 @@ describe('CLI playbook subcommand', () => {
     expect(out).toContain('show')
   })
 
-  it('playbook list outputs trace-funds, risk-check, query', () => {
+  it('playbook list outputs trace-funds, risk-check, entity-profile', () => {
     const out = execSync('node bin/cli.js playbook list', { encoding: 'utf8' })
     expect(out).toContain('trace-funds')
     expect(out).toContain('risk-check')
-    expect(out).toContain('query')
+    expect(out).toContain('entity-profile')
+    expect(out).not.toContain('query')
   })
 
   it('playbook list marks built-ins with [builtin]', () => {
@@ -39,7 +40,9 @@ describe('CLI playbook subcommand', () => {
     const out = execSync('node bin/cli.js playbook show trace-funds', { encoding: 'utf8' })
     expect(out).toContain('trace-funds')
     expect(out).toContain('Steps:')
-    expect(out).toContain('probe')
+    expect(out).toContain('address_risk')
+    expect(out).toContain('track_funds')
+    expect(out).not.toContain('probe')
   })
 
   it('playbook show trace-funds prints parameter spec', () => {
@@ -53,7 +56,10 @@ describe('CLI playbook subcommand', () => {
       encoding: 'utf8',
     })
     expect(out).toContain('dry run')
-    expect(out).toContain('probe')
+    expect(out).toContain('address_risk')
+    expect(out).toContain('track_funds')
+    expect(out).not.toContain('probe')
+    expect(out).toContain('"network":"bittensor"')
     expect(out).not.toContain('Error')
   })
 

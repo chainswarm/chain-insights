@@ -58,6 +58,39 @@ describe('PlaybookParser', () => {
     expect(result.steps[0]!.params['address']).toBe('{{address}}')
   })
 
+  it('applies frontmatter default params before step template substitution', () => {
+    const markdown = `---
+name: defaults
+params:
+  - name: address
+    type: string
+    required: true
+  - name: network
+    type: string
+    required: false
+    default: bittensor
+---
+
+## Step 1: Risk
+
+\`\`\`tool
+address_risk
+\`\`\`
+
+\`\`\`params
+address: {{address}}
+network: {{network}}
+\`\`\`
+`
+
+    const result = PlaybookParser.parse(markdown, { address: '0xabc' })
+
+    expect(result.steps[0]!.params).toEqual({
+      address: '0xabc',
+      network: 'bittensor',
+    })
+  })
+
   it('parse() throws ZodError when a step has empty tool name', () => {
     const badPlaybook = `---
 name: bad-playbook

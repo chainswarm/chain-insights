@@ -1,6 +1,7 @@
 import * as z from "zod";
 import { DuckDBConnection } from "@duckdb/node-api";
 import { Hono } from "hono";
+import { Address, Hex } from "viem";
 
 //#region src/config/schema.d.ts
 declare const ConfigSchema: z.ZodObject<{
@@ -54,6 +55,34 @@ declare function decryptKey(): Promise<string>;
  */
 declare function isWalletConfigured(): Promise<boolean>;
 //#endregion
+//#region src/wallet/tools.d.ts
+declare const BASE_CHAIN_ID = 8453;
+declare const USDC_ADDRESS: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+interface PaymentWalletAccount {
+  address: Address;
+  privateKey: Hex;
+}
+interface TopupInfo {
+  wallet_address: string;
+  network: 'Base';
+  chain_id: typeof BASE_CHAIN_ID;
+  token: 'USDC';
+  token_contract: typeof USDC_ADDRESS;
+  topup_url?: string;
+}
+declare function getWalletAccount(): Promise<PaymentWalletAccount>;
+declare function getBalanceUsdc(address: Address | string, rpcUrl?: string): Promise<string>;
+declare function formatWalletBalance(address: string, balanceUsdc: string): string;
+declare function getWalletBalanceText(account?: PaymentWalletAccount): Promise<string>;
+declare function buildTopupInfo(address: string, topupUrl?: string): TopupInfo;
+//#endregion
+//#region src/wallet/topup-server.d.ts
+declare function generateTopupPage(walletAddress: string): string;
+declare function startTopupServer(account: PaymentWalletAccount | string, options?: {
+  port?: number;
+}): Promise<string>;
+declare function stopTopupServer(): Promise<void>;
+//#endregion
 //#region src/mcp/client.d.ts
 /**
  * Creates an x402-payment-wrapped fetch function for the Chain Insights MCP.
@@ -65,7 +94,7 @@ declare function isWalletConfigured(): Promise<boolean>;
  * @param privateKey - 0x-prefixed EVM private key (decrypted from wallet.json)
  * @returns A fetch-compatible function that auto-handles HTTP 402 payment challenges
  */
-declare function createMcpFetchClient(privateKey: `0x${string}`): (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+declare function createMcpFetchClient(privateKey: `0x${string}`, authToken?: string): typeof fetch;
 //#endregion
 //#region src/viz/graph-model.d.ts
 declare const GraphNode: z.ZodObject<{
@@ -153,5 +182,5 @@ declare function generateVisualization(opts: {
   htmlPath: string;
 }>;
 //#endregion
-export { type GraphData as GraphDataType, type GraphEdge as GraphEdgeType, type GraphNode as GraphNodeType, type InvestigatorConfig, createApp, createMcpFetchClient, decryptKey, encryptKey, generateVisualization, getDb, healthCheck, initSchema, isWalletConfigured, loadConfig, resetConfigCache, saveConfig, startServer };
+export { type GraphData as GraphDataType, type GraphEdge as GraphEdgeType, type GraphNode as GraphNodeType, type InvestigatorConfig, buildTopupInfo, createApp, createMcpFetchClient, decryptKey, encryptKey, formatWalletBalance, generateTopupPage, generateVisualization, getBalanceUsdc, getDb, getWalletAccount, getWalletBalanceText, healthCheck, initSchema, isWalletConfigured, loadConfig, resetConfigCache, saveConfig, startServer, startTopupServer, stopTopupServer };
 //# sourceMappingURL=index.d.cts.map

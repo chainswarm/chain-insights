@@ -5,6 +5,8 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import * as z from 'zod'
 import type { McpTool } from './schema-cache.js'
 
+const LOCAL_TOOL_NAMES = new Set(['balance', 'topup'])
+
 /**
  * Core proxy logic — exported so tests can inject dependencies directly.
  * The IIFE at the bottom calls this with real dependencies.
@@ -15,22 +17,11 @@ import type { McpTool } from './schema-cache.js'
 export async function createProxy(): Promise<void> {
   // Lazy imports to avoid module-load side effects (critical for stdio proxy)
   const { loadConfig } = await import('../config/index.js')
-  const { isWalletConfigured, decryptKey } = await import('../wallet/index.js')
-  const { createMcpFetchClient } = await import('./client.js')
+  const { createConfiguredMcpFetch } = await import('./client.js')
   const { loadSchema, saveSchema } = await import('./schema-cache.js')
 
   const config = await loadConfig()
-
-  if (!(await isWalletConfigured())) {
-    process.stderr.write(
-      'Wallet not configured. Run `chain-insights config set walletPrivateKey <key>` to enable paid MCP calls\n',
-    )
-    process.exit(1)
-  }
-
-  const privateKey = await decryptKey()
-  // Note: createMcpFetchClient expects 0x-prefixed key
-  const paymentFetch = createMcpFetchClient(privateKey as `0x${string}`)
+  const mcpFetch = await createConfiguredMcpFetch(config)
 
   // Build remote MCP client — always connect before registering tool handlers
   // so tool call forwarding works regardless of whether schema is cached.
@@ -38,14 +29,14 @@ export async function createProxy(): Promise<void> {
 
   try {
     await remoteClient.connect(
-      new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }),
+      new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: mcpFetch }),
     )
   } catch {
     // StreamableHTTP failed — try SSE fallback (assumption A1 from RESEARCH.md)
     try {
       const { SSEClientTransport } = await import('@modelcontextprotocol/sdk/client/sse.js')
       await remoteClient.connect(
-        new SSEClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }),
+        new SSEClientTransport(new URL(config.mcpEndpoint), { fetch: mcpFetch }),
       )
     } catch (err2) {
       process.stderr.write(
@@ -71,8 +62,67 @@ export async function createProxy(): Promise<void> {
     { instructions: 'Chain Insights AML investigation tools. Pay-per-call via x402 on Base.' },
   )
 
+  server.registerTool(
+    'balance',
+    {
+      description: 'Show the local Chain Insights payment wallet address and Base USDC balance.',
+      inputSchema: z.object({}).passthrough(),
+    },
+    async () => {
+      try {
+        const { getWalletAccount, getWalletBalanceText } = await import('../wallet/tools.js')
+        const account = await getWalletAccount()
+        return {
+          content: [{ type: 'text' as const, text: await getWalletBalanceText(account) }],
+          isError: false,
+        }
+      } catch (err) {
+        return {
+          content: [{ type: 'text' as const, text: `Balance failed: ${(err as Error).message}` }],
+          isError: true,
+        }
+      }
+    },
+  )
+
+  server.registerTool(
+    'topup',
+    {
+      description: 'Start a local browser page for topping up the Chain Insights payment wallet with Base USDC.',
+      inputSchema: z.object({}).passthrough(),
+    },
+    async () => {
+      try {
+        const { getWalletAccount } = await import('../wallet/tools.js')
+        const { startTopupServer } = await import('../wallet/topup-server.js')
+        const account = await getWalletAccount()
+        const topupUrl = await startTopupServer(account)
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                wallet_address: account.address,
+                network: 'Base',
+                token: 'USDC',
+                topup_url: topupUrl,
+              }, null, 2),
+            },
+          ],
+          isError: false,
+        }
+      } catch (err) {
+        return {
+          content: [{ type: 'text' as const, text: `Top-up failed: ${(err as Error).message}` }],
+          isError: true,
+        }
+      }
+    },
+  )
+
   // Register each remote tool locally — passthrough proxy pattern
   for (const tool of tools ?? []) {
+    if (LOCAL_TOOL_NAMES.has(tool.name)) continue
     server.registerTool(
       tool.name,
       {

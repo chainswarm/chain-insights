@@ -14,8 +14,25 @@ vi.mock('../src/wallet/index.js', () => ({
   decryptKey: vi.fn().mockResolvedValue('0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'),
 }))
 
+vi.mock('../src/wallet/tools.js', () => ({
+  getWalletAccount: vi.fn().mockResolvedValue({
+    address: '0x0000000000000000000000000000000000000001',
+    privateKey: '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
+  }),
+  getWalletBalanceText: vi.fn().mockResolvedValue([
+    'Wallet: 0x0000000000000000000000000000000000000001',
+    'Network: Base',
+    'Base USDC: 4.200000',
+  ].join('\n')),
+}))
+
+vi.mock('../src/wallet/topup-server.js', () => ({
+  startTopupServer: vi.fn().mockResolvedValue('http://127.0.0.1:4500'),
+}))
+
 vi.mock('../src/mcp/client.js', () => ({
   createMcpFetchClient: vi.fn().mockReturnValue(fetch),
+  createConfiguredMcpFetch: vi.fn().mockResolvedValue(fetch),
 }))
 
 vi.mock('../src/mcp/schema-cache.js', () => ({
@@ -68,6 +85,17 @@ vi.mock('@modelcontextprotocol/sdk/client/streamableHttp.js', () => ({
   }),
 }))
 
+function findToolHandler(
+  serverInstance: { registerTool: ReturnType<typeof vi.fn> },
+  name: string,
+): Function {
+  const call = serverInstance.registerTool.mock.calls.find((entry) => entry[0] === name)
+  if (!call) {
+    throw new Error(`Tool was not registered: ${name}`)
+  }
+  return call[2] as Function
+}
+
 describe('MCP proxy (MCP-02, MCP-03)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -119,7 +147,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
 
     // Call the registered handler
-    const handler = serverInstance.registerTool.mock.calls[0]?.[2] as Function
+    const handler = findToolHandler(serverInstance, 'trace_address')
     const args = { address: '0xabc123' }
     const result = await handler(args)
 
@@ -149,7 +177,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
-    const handler = serverInstance.registerTool.mock.calls[0]?.[2] as Function
+    const handler = findToolHandler(serverInstance, 'trace_address')
     const result = await handler({ address: '0xabc' })
 
     expect(result.isError).toBe(true)
@@ -177,5 +205,44 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
     expect(clientInstance.connect).toHaveBeenCalledOnce()
     expect(clientInstance.listTools).not.toHaveBeenCalled()
+  })
+
+  it('registers a local balance tool backed by the encrypted payment wallet', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'balance')
+    const result = await handler({})
+
+    expect(result.isError).toBe(false)
+    expect(result.content[0].text).toContain('Base USDC: 4.200000')
+  })
+
+  it('registers a local topup tool that returns a browser URL', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'topup')
+    const result = await handler({})
+
+    expect(result.isError).toBe(false)
+    expect(result.content[0].text).toContain('http://127.0.0.1:4500')
+    expect(result.content[0].text).toContain('0x0000000000000000000000000000000000000001')
   })
 })

@@ -4,6 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 //#region src/mcp/proxy.ts
+const LOCAL_TOOL_NAMES = new Set(["balance", "topup"]);
 /**
 * Core proxy logic — exported so tests can inject dependencies directly.
 * The IIFE at the bottom calls this with real dependencies.
@@ -12,26 +13,21 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 * All diagnostic output goes to console.error() or process.stderr.write().
 */
 async function createProxy() {
-	const { loadConfig } = await import("./config-Da25ufmy.mjs").then((n) => n.t);
-	const { isWalletConfigured, decryptKey } = await import("./wallet-CKG61Aoq.mjs").then((n) => n.i);
-	const { createMcpFetchClient } = await import("./client-DPA33paN.mjs").then((n) => n.t);
-	const { loadSchema, saveSchema } = await import("./schema-cache-BGlMtvMk.mjs");
+	const { loadConfig } = await import("./config-DTfloQyC.mjs").then((n) => n.t);
+	const { createConfiguredMcpFetch } = await import("./client-B2wqOxU5.mjs").then((n) => n.t);
+	const { loadSchema, saveSchema } = await import("./schema-cache-DdbxwSjc.mjs");
 	const config = await loadConfig();
-	if (!await isWalletConfigured()) {
-		process.stderr.write("Wallet not configured. Run `chain-insights config set walletPrivateKey <key>` to enable paid MCP calls\n");
-		process.exit(1);
-	}
-	const paymentFetch = createMcpFetchClient(await decryptKey());
+	const mcpFetch = await createConfiguredMcpFetch(config);
 	const remoteClient = new Client({
 		name: "chain-insights-proxy-client",
 		version: "0.1.0"
 	});
 	try {
-		await remoteClient.connect(new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }));
+		await remoteClient.connect(new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: mcpFetch }));
 	} catch {
 		try {
 			const { SSEClientTransport } = await import("@modelcontextprotocol/sdk/client/sse.js");
-			await remoteClient.connect(new SSEClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }));
+			await remoteClient.connect(new SSEClientTransport(new URL(config.mcpEndpoint), { fetch: mcpFetch }));
 		} catch (err2) {
 			process.stderr.write(`Chain Insights MCP unreachable at ${config.mcpEndpoint}: ${err2.message}\n`);
 			process.exit(1);
@@ -46,29 +42,86 @@ async function createProxy() {
 		name: "chain-insights-proxy",
 		version: "0.1.0"
 	}, { instructions: "Chain Insights AML investigation tools. Pay-per-call via x402 on Base." });
-	for (const tool of tools ?? []) server.registerTool(tool.name, {
-		description: tool.description ?? tool.name,
+	server.registerTool("balance", {
+		description: "Show the local Chain Insights payment wallet address and Base USDC balance.",
 		inputSchema: z.object({}).passthrough()
-	}, async (args) => {
+	}, async () => {
 		try {
-			const result = await remoteClient.callTool({
-				name: tool.name,
-				arguments: args
-			});
+			const { getWalletAccount, getWalletBalanceText } = await import("./tools-DlfsacMx.mjs").then((n) => n.c);
 			return {
-				content: result.content,
-				isError: result.isError
+				content: [{
+					type: "text",
+					text: await getWalletBalanceText(await getWalletAccount())
+				}],
+				isError: false
 			};
 		} catch (err) {
 			return {
 				content: [{
 					type: "text",
-					text: `MCP call failed: ${err.message}`
+					text: `Balance failed: ${err.message}`
 				}],
 				isError: true
 			};
 		}
 	});
+	server.registerTool("topup", {
+		description: "Start a local browser page for topping up the Chain Insights payment wallet with Base USDC.",
+		inputSchema: z.object({}).passthrough()
+	}, async () => {
+		try {
+			const { getWalletAccount } = await import("./tools-DlfsacMx.mjs").then((n) => n.c);
+			const { startTopupServer } = await import("./topup-server-CDA6HQQs.mjs").then((n) => n.i);
+			const account = await getWalletAccount();
+			const topupUrl = await startTopupServer(account);
+			return {
+				content: [{
+					type: "text",
+					text: JSON.stringify({
+						wallet_address: account.address,
+						network: "Base",
+						token: "USDC",
+						topup_url: topupUrl
+					}, null, 2)
+				}],
+				isError: false
+			};
+		} catch (err) {
+			return {
+				content: [{
+					type: "text",
+					text: `Top-up failed: ${err.message}`
+				}],
+				isError: true
+			};
+		}
+	});
+	for (const tool of tools ?? []) {
+		if (LOCAL_TOOL_NAMES.has(tool.name)) continue;
+		server.registerTool(tool.name, {
+			description: tool.description ?? tool.name,
+			inputSchema: z.object({}).passthrough()
+		}, async (args) => {
+			try {
+				const result = await remoteClient.callTool({
+					name: tool.name,
+					arguments: args
+				});
+				return {
+					content: result.content,
+					isError: result.isError
+				};
+			} catch (err) {
+				return {
+					content: [{
+						type: "text",
+						text: `MCP call failed: ${err.message}`
+					}],
+					isError: true
+				};
+			}
+		});
+	}
 	const transport = new StdioServerTransport();
 	await server.connect(transport);
 	const shutdown = () => {

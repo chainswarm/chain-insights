@@ -63,4 +63,24 @@ describe('MCP client (02-01)', () => {
     createMcpFetchClient(testKey)
     expect(vi.mocked(privateKeyToAccount)).toHaveBeenCalledWith(testKey)
   })
+
+  it('createMcpAuthFetchClient injects GraphRAG debug bypass and bearer headers', async () => {
+    const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = []
+    const baseFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ input, init })
+      return new Response('{}')
+    })
+
+    const { createMcpAuthFetchClient } = await import('../src/mcp/client.js')
+    const authedFetch = createMcpAuthFetchClient('debug-secret', baseFetch)
+
+    await authedFetch('http://localhost:8011/mcp', {
+      headers: { Accept: 'application/json' },
+    })
+
+    const headers = new Headers(calls[0]?.init?.headers)
+    expect(headers.get('Accept')).toBe('application/json')
+    expect(headers.get('X-MCP-Debug-Token')).toBe('debug-secret')
+    expect(headers.get('Authorization')).toBe('Bearer debug-secret')
+  })
 })

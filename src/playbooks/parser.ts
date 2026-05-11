@@ -140,48 +140,8 @@ export const PlaybookParser = {
     const frontmatterBlock = fmMatch ? fmMatch[1]! : ''
     const frontmatter = parseFlatFrontmatter(frontmatterBlock)
 
-    // 2. Extract body (everything after closing ---)
-    let body = markdown
-    if (fmMatch) {
-      body = markdown.slice(fmMatch.index + fmMatch[0].length)
-    }
-
-    // 3. Split body on H2 sections (## heading)
-    const sections = body.split(/^## /m)
-    // First element is content before first ##, skip it
-    const stepSections = sections.slice(1)
-
-    // 4. Parse each step section
-    const steps = stepSections.map((section, i) => {
-      // First line is the label (the H2 heading content)
-      const firstNewline = section.indexOf('\n')
-      const label = firstNewline === -1
-        ? section.trim()
-        : section.slice(0, firstNewline).trim()
-
-      // Extract tool name from ```tool block
-      const rawTool = extractFencedBlock(section, 'tool') ?? ''
-      const tool = applyTemplate(rawTool, resolvedParams)
-
-      // Extract params from ```params block
-      const rawParamsBlock = extractFencedBlock(section, 'params') ?? ''
-      const rawParams = parseParamsBlock(rawParamsBlock)
-
-      // Apply template substitution to all param values
-      const params: Record<string, string> = {}
-      for (const [k, v] of Object.entries(rawParams)) {
-        params[applyTemplate(k, resolvedParams)] = applyTemplate(v, resolvedParams)
-      }
-
-      return {
-        index: i + 1,
-        label,
-        tool,
-        params,
-      }
-    })
-
-    // 5. Parse params spec from frontmatter YAML array
+    // 2. Parse params spec from frontmatter YAML array before step parsing so
+    // defaults are available for {{param}} substitution.
     const rawParamItems = parseFrontmatterParamsArray(frontmatterBlock)
     const params = rawParamItems.map(raw => {
       // Coerce required/default fields
@@ -194,6 +154,53 @@ export const PlaybookParser = {
       }
       if (raw['default'] !== undefined) coerced['default'] = raw['default']
       return ParamSpecSchema.parse(coerced)
+    })
+
+    const templateParams: Record<string, string> = {}
+    for (const spec of params) {
+      if (spec.default !== undefined) templateParams[spec.name] = spec.default
+    }
+    Object.assign(templateParams, resolvedParams)
+
+    // 3. Extract body (everything after closing ---)
+    let body = markdown
+    if (fmMatch) {
+      body = markdown.slice(fmMatch.index + fmMatch[0].length)
+    }
+
+    // 4. Split body on H2 sections (## heading)
+    const sections = body.split(/^## /m)
+    // First element is content before first ##, skip it
+    const stepSections = sections.slice(1)
+
+    // 5. Parse each step section
+    const steps = stepSections.map((section, i) => {
+      // First line is the label (the H2 heading content)
+      const firstNewline = section.indexOf('\n')
+      const label = firstNewline === -1
+        ? section.trim()
+        : section.slice(0, firstNewline).trim()
+
+      // Extract tool name from ```tool block
+      const rawTool = extractFencedBlock(section, 'tool') ?? ''
+      const tool = applyTemplate(rawTool, templateParams)
+
+      // Extract params from ```params block
+      const rawParamsBlock = extractFencedBlock(section, 'params') ?? ''
+      const rawParams = parseParamsBlock(rawParamsBlock)
+
+      // Apply template substitution to all param values
+      const params: Record<string, string> = {}
+      for (const [k, v] of Object.entries(rawParams)) {
+        params[applyTemplate(k, templateParams)] = applyTemplate(v, templateParams)
+      }
+
+      return {
+        index: i + 1,
+        label,
+        tool,
+        params,
+      }
     })
 
     // 6. Build and validate the playbook definition

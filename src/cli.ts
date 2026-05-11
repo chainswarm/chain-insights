@@ -62,13 +62,14 @@ program
       .argument('<key>', 'Config key to read')
       .action(async (key: string) => {
         const { loadConfig } = await import('./config/index.js')
-        const config = await loadConfig()
-        const value = (config as Record<string, unknown>)[key]
-        if (value === undefined) {
+        const { CONFIG_KEYS } = await import('./config/schema.js')
+        if (!CONFIG_KEYS.includes(key as typeof CONFIG_KEYS[number])) {
           console.error(`Unknown config key: ${key}`)
           process.exit(1)
         }
-        console.log(value)
+        const config = await loadConfig()
+        const value = (config as Record<string, unknown>)[key]
+        console.log(value ?? '')
       })
   )
   .addCommand(
@@ -90,15 +91,82 @@ program
           return // MUST return — walletPrivateKey must never reach saveConfig or config.json
         }
         const { loadConfig, saveConfig } = await import('./config/index.js')
+        const { CONFIG_KEYS, DEFAULT_CONFIG } = await import('./config/schema.js')
         const current = await loadConfig()
-        const existing = (current as Record<string, unknown>)[key]
-        if (existing === undefined) {
+        if (!CONFIG_KEYS.includes(key as typeof CONFIG_KEYS[number])) {
           console.error(`Unknown config key: ${key}`)
           process.exit(1)
         }
-        const coerced = typeof existing === 'number' ? Number(value) : value
+        const existing = (current as Record<string, unknown>)[key]
+        const defaultValue = (DEFAULT_CONFIG as Record<string, unknown>)[key]
+        const coerced = typeof existing === 'number' || typeof defaultValue === 'number' ? Number(value) : value
         await saveConfig({ [key]: coerced } as Parameters<typeof saveConfig>[0])
-        console.log(`Set ${key} = ${coerced}`)
+        const displayed = key.toLowerCase().includes('token') ? '[redacted]' : coerced
+        console.log(`Set ${key} = ${displayed}`)
+      })
+  )
+
+program
+  .command('wallet')
+  .description('Manage the local Base USDC payment wallet')
+  .addCommand(
+    new Command('address')
+      .description('Print the local payment wallet address')
+      .action(async () => {
+        try {
+          const { getWalletAccount } = await import('./wallet/tools.js')
+          const account = await getWalletAccount()
+          console.log(account.address)
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
+    new Command('balance')
+      .description('Show the local payment wallet Base USDC balance')
+      .action(async () => {
+        try {
+          const { getWalletBalanceText } = await import('./wallet/tools.js')
+          console.log(await getWalletBalanceText())
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
+    new Command('topup')
+      .description('Open a local browser page to top up the payment wallet')
+      .option('--no-open', 'Print the top-up URL without opening a browser')
+      .option('--json', 'Print machine-readable top-up metadata')
+      .action(async (opts: { open?: boolean; json?: boolean }) => {
+        try {
+          const { buildTopupInfo, getWalletAccount } = await import('./wallet/tools.js')
+          const { startTopupServer } = await import('./wallet/topup-server.js')
+          const account = await getWalletAccount()
+          const url = await startTopupServer(account)
+          const info = buildTopupInfo(account.address, url)
+
+          if (opts.json) {
+            console.log(JSON.stringify(info, null, 2))
+          } else {
+            console.log(`Top-up URL: ${url}`)
+            console.log(`Wallet:     ${account.address}`)
+            console.log('Network:    Base')
+            console.log('Token:      USDC')
+            console.log('Press Ctrl+C to stop the top-up server.')
+          }
+
+          if (opts.open !== false) {
+            const open = (await import('open')).default
+            await open(url)
+          }
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
       })
   )
 
@@ -116,15 +184,9 @@ program
           const { loadConfig } = await import('./config/index.js')
           let tools = opts.refresh ? null : await loadSchema()
           if (!tools) {
-            const { isWalletConfigured, decryptKey } = await import('./wallet/index.js')
-            if (!(await isWalletConfigured())) {
-              console.error('Wallet not configured. Run `chain-insights config set walletPrivateKey <key>` to enable paid MCP calls')
-              process.exit(1)
-            }
             const config = await loadConfig()
-            const { createMcpFetchClient } = await import('./mcp/client.js')
-            const privateKey = await decryptKey()
-            const paymentFetch = createMcpFetchClient(privateKey as `0x${string}`)
+            const { createConfiguredMcpFetch } = await import('./mcp/client.js')
+            const paymentFetch = await createConfiguredMcpFetch(config)
             const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
             const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
             const client = new Client({ name: 'chain-insights-cli', version: '0.1.0' })
@@ -160,16 +222,10 @@ program
             }
             args[pair.slice(0, eqIdx)] = pair.slice(eqIdx + 1)
           }
-          const { isWalletConfigured, decryptKey } = await import('./wallet/index.js')
-          if (!(await isWalletConfigured())) {
-            console.error('Wallet not configured. Run `chain-insights config set walletPrivateKey <key>` to enable paid MCP calls')
-            process.exit(1)
-          }
           const { loadConfig } = await import('./config/index.js')
           const config = await loadConfig()
-          const { createMcpFetchClient } = await import('./mcp/client.js')
-          const privateKey = await decryptKey()
-          const paymentFetch = createMcpFetchClient(privateKey as `0x${string}`)
+          const { createConfiguredMcpFetch } = await import('./mcp/client.js')
+          const paymentFetch = await createConfiguredMcpFetch(config)
           const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
           const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
           const client = new Client({ name: 'chain-insights-cli-call', version: '0.1.0' })

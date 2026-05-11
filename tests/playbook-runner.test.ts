@@ -35,12 +35,14 @@ vi.mock('@modelcontextprotocol/sdk/client/streamableHttp.js', () => ({
 vi.mock('../src/config/index.js', () => ({
   loadConfig: vi.fn().mockResolvedValue({
     mcpEndpoint: 'http://localhost:3000/mcp',
+    mcpAuthToken: '',
     walletPrivateKey: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
   }),
 }))
 
 vi.mock('../src/mcp/client.js', () => ({
   createMcpFetchClient: vi.fn().mockReturnValue(fetch),
+  createConfiguredMcpFetch: vi.fn().mockResolvedValue(fetch),
 }))
 
 vi.mock('../src/wallet/index.js', () => ({
@@ -72,6 +74,7 @@ const TRACE_FUNDS_PLAYBOOK: PlaybookDefinition = {
 describe('PlaybookRunner', () => {
   let mockClient: {
     connect: ReturnType<typeof vi.fn>
+    listTools: ReturnType<typeof vi.fn>
     callTool: ReturnType<typeof vi.fn>
     close: ReturnType<typeof vi.fn>
   }
@@ -81,6 +84,13 @@ describe('PlaybookRunner', () => {
 
     mockClient = {
       connect: vi.fn().mockResolvedValue(undefined),
+      listTools: vi.fn().mockResolvedValue({
+        tools: [
+          { name: 'blockchain_query' },
+          { name: 'risk_score' },
+          { name: 'trace_funds' },
+        ],
+      }),
       callTool: vi.fn().mockResolvedValue({
         content: [{ type: 'text', text: 'query result' }],
       }),
@@ -90,6 +100,7 @@ describe('PlaybookRunner', () => {
     const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
     vi.mocked(Client).mockImplementation(function(this: typeof mockClient) {
       this.connect = mockClient.connect
+      this.listTools = mockClient.listTools
       this.callTool = mockClient.callTool
       this.close = mockClient.close
     } as unknown as typeof Client)
@@ -212,6 +223,7 @@ describe('PlaybookRunner', () => {
 
     const retryClient = {
       connect: vi.fn().mockResolvedValue(undefined),
+      listTools: vi.fn().mockResolvedValue({ tools: [{ name: 'blockchain_query' }] }),
       callTool: vi.fn()
         .mockRejectedValueOnce(abortError)
         .mockRejectedValueOnce(abortError)
@@ -220,6 +232,7 @@ describe('PlaybookRunner', () => {
     }
     vi.mocked(Client).mockImplementation(function(this: typeof retryClient) {
       this.connect = retryClient.connect
+      this.listTools = retryClient.listTools
       this.callTool = retryClient.callTool
       this.close = retryClient.close
     } as unknown as typeof Client)
@@ -240,11 +253,13 @@ describe('PlaybookRunner', () => {
 
     const errClient = {
       connect: vi.fn().mockResolvedValue(undefined),
+      listTools: vi.fn().mockResolvedValue({ tools: [{ name: 'blockchain_query' }] }),
       callTool: vi.fn().mockRejectedValue(mcpError),
       close: vi.fn().mockResolvedValue(undefined),
     }
     vi.mocked(Client).mockImplementation(function(this: typeof errClient) {
       this.connect = errClient.connect
+      this.listTools = errClient.listTools
       this.callTool = errClient.callTool
       this.close = errClient.close
     } as unknown as typeof Client)
@@ -257,6 +272,58 @@ describe('PlaybookRunner', () => {
     await expect(PlaybookRunner.run({ ...SAMPLE_PLAYBOOK, steps: [SAMPLE_PLAYBOOK.steps[0]!] }, {})).rejects.toThrow()
     const outputStr = output.join('\n')
     expect(outputStr).toMatch(/Step 1 failed/)
+    vi.restoreAllMocks()
+  })
+
+  it('run() validates step tools against MCP list before executing', async () => {
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+
+    const validationClient = {
+      connect: vi.fn().mockResolvedValue(undefined),
+      listTools: vi.fn().mockResolvedValue({ tools: [{ name: 'address_risk' }] }),
+      callTool: vi.fn().mockResolvedValue({
+        content: [{ type: 'text', text: 'should not run' }],
+      }),
+      close: vi.fn().mockResolvedValue(undefined),
+    }
+    vi.mocked(Client).mockImplementation(function(this: typeof validationClient) {
+      this.connect = validationClient.connect
+      this.listTools = validationClient.listTools
+      this.callTool = validationClient.callTool
+      this.close = validationClient.close
+    } as unknown as typeof Client)
+
+    const { PlaybookRunner } = await import('../src/playbooks/runner.js')
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await expect(PlaybookRunner.run(SAMPLE_PLAYBOOK, {})).rejects.toThrow(/Unknown MCP tool/)
+    expect(validationClient.callTool).not.toHaveBeenCalled()
+
+    const { EvidenceStore } = await import('../src/cases/evidence.js')
+    expect(EvidenceStore.append).not.toHaveBeenCalled()
+    vi.restoreAllMocks()
+  })
+
+  it('run() delegates auth selection to createConfiguredMcpFetch so debug-token configs can skip wallet flow', async () => {
+    const { loadConfig } = await import('../src/config/index.js')
+    vi.mocked(loadConfig).mockResolvedValueOnce({
+      mcpEndpoint: 'http://localhost:8011/mcp',
+      mcpAuthToken: 'debug-secret',
+      serverPort: 4321,
+      dataDir: '/tmp/chain-insights',
+      version: '1',
+    })
+
+    const { PlaybookRunner } = await import('../src/playbooks/runner.js')
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await PlaybookRunner.run({ ...SAMPLE_PLAYBOOK, steps: [SAMPLE_PLAYBOOK.steps[0]!] }, {})
+
+    const { createConfiguredMcpFetch } = await import('../src/mcp/client.js')
+    expect(createConfiguredMcpFetch).toHaveBeenCalledWith(expect.objectContaining({
+      mcpEndpoint: 'http://localhost:8011/mcp',
+      mcpAuthToken: 'debug-secret',
+    }))
     vi.restoreAllMocks()
   })
 
@@ -305,11 +372,13 @@ describe('PlaybookRunner', () => {
 
     const payClient = {
       connect: vi.fn().mockResolvedValue(undefined),
+      listTools: vi.fn().mockResolvedValue({ tools: [{ name: 'blockchain_query' }] }),
       callTool: vi.fn().mockRejectedValue(paymentError),
       close: vi.fn().mockResolvedValue(undefined),
     }
     vi.mocked(Client).mockImplementation(function(this: typeof payClient) {
       this.connect = payClient.connect
+      this.listTools = payClient.listTools
       this.callTool = payClient.callTool
       this.close = payClient.close
     } as unknown as typeof Client)

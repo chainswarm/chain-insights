@@ -1,92 +1,105 @@
-// Built-in playbook definitions.
-// Tool names must match what the Chain Insights MCP exposes.
-// Run `chain-insights mcp tools` to verify available tools.
+// Built-in playbook definitions tied to the current GraphRAG public MCP tools.
+// Source of truth inspected in rbmk/repos/ml/graphrag/src/mcp_server/tools.
+
+export const KNOWN_GRAPHRAG_PUBLIC_TOOLS = [
+  'address_risk',
+  'track_funds',
+  'money_flows_between_exchanges',
+  'address_connection_risk',
+  'graph_query',
+] as const
 
 export const TRACE_FUNDS_PLAYBOOK = `---
 name: trace-funds
-description: Trace fund flows from a target address and generate a money flow visualization
+description: Trace stolen funds from a victim address to exchange deposits using Chain Insights GraphRAG
 version: 1.0.0
 params:
   - name: address
     type: string
     required: true
+  - name: network
+    type: string
+    required: false
+    default: bittensor
 ---
 
-## Step 1: Trace Fund Flows
+## Step 1: Screen Victim Address
 
 \`\`\`tool
-probe
+address_risk
 \`\`\`
 
 \`\`\`params
-query: Trace all fund flows for address {{address}}. Show inbound and outbound transfers with amounts, counterparties, and timestamps.
+address: {{address}}
+network: {{network}}
 \`\`\`
 
-## Step 2: Visualize Money Flow
+## Step 2: Trace Funds To Exchanges
 
 \`\`\`tool
-probe
+track_funds
 \`\`\`
 
 \`\`\`params
-query: Generate a money flow graph for address {{address}} showing the transaction relationships and fund movements identified in the previous trace.
+trusted_addresses: {{address}}
+network: {{network}}
 \`\`\`
 `
 
 export const RISK_CHECK_PLAYBOOK = `---
 name: risk-check
-description: Check risk exposure and sanctions screening for an address
+description: Screen an address for Chain Insights risk, behavior, counterparties, exchange connections, and AML patterns
 version: 1.0.0
 params:
   - name: address
     type: string
     required: true
+  - name: network
+    type: string
+    required: false
+    default: bittensor
 ---
 
-## Step 1: Risk Assessment
+## Step 1: Address Risk
 
 \`\`\`tool
-probe
+address_risk
 \`\`\`
 
 \`\`\`params
-query: Assess the risk exposure for address {{address}}. Check for sanctions matches, known illicit entity associations, and suspicious activity patterns.
-\`\`\`
-
-## Step 2: Counterparty Risk
-
-\`\`\`tool
-probe
-\`\`\`
-
-\`\`\`params
-query: Analyze the counterparties of address {{address}} for risk signals. Identify any high-risk entities, mixers, or flagged addresses in the transaction history.
+address: {{address}}
+network: {{network}}
 \`\`\`
 `
 
-export const QUERY_PLAYBOOK = `---
-name: query
-description: Run a free-form investigation query against the Chain Insights MCP
+export const ENTITY_PROFILE_PLAYBOOK = `---
+name: entity-profile
+description: Build an entity profile from Chain Insights address identity, metrics, risk, counterparties, and labels
 version: 1.0.0
 params:
-  - name: question
+  - name: address
     type: string
     required: true
+  - name: network
+    type: string
+    required: false
+    default: bittensor
 ---
 
-## Step 1: Query
+## Step 1: Entity Profile
 
 \`\`\`tool
-probe
+address_risk
 \`\`\`
 
 \`\`\`params
-query: {{question}}
+address: {{address}}
+network: {{network}}
 \`\`\`
 `
 
 export const BUILTIN_PLAYBOOKS: Record<string, string> = {
-  'trace-funds': TRACE_FUNDS_PLAYBOOK,
-  'risk-check':  RISK_CHECK_PLAYBOOK,
-  'query':       QUERY_PLAYBOOK,
+  'trace-funds':    TRACE_FUNDS_PLAYBOOK,
+  'risk-check':     RISK_CHECK_PLAYBOOK,
+  'entity-profile': ENTITY_PROFILE_PLAYBOOK,
 }

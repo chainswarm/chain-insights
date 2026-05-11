@@ -17,6 +17,17 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('status')
   })
 
+  it('--help lists wallet subcommand', () => {
+    const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
+    expect(out).toContain('wallet')
+  })
+
+  it('wallet --help lists balance and topup subcommands', () => {
+    const out = execSync('node bin/cli.js wallet --help', { encoding: 'utf8' })
+    expect(out).toContain('balance')
+    expect(out).toContain('topup')
+  })
+
   it('--version prints version from package.json', () => {
     const out = execSync('node bin/cli.js --version', { encoding: 'utf8' })
     expect(out.trim()).toMatch(/^\d+\.\d+\.\d+$/)
