@@ -95,7 +95,7 @@ describe('listPlaybooks', () => {
     vi.clearAllMocks()
   })
 
-  it("listPlaybooks() returns array including 'trace-funds', 'risk-check', 'entity-profile'", async () => {
+  it("listPlaybooks() returns array including 'trace-funds', 'risk-check', 'query'", async () => {
     const fsMock = await import('node:fs/promises')
     const readdirMock = vi.mocked(fsMock.readdir)
 
@@ -108,7 +108,7 @@ describe('listPlaybooks', () => {
     const names = result.map(p => p.name)
     expect(names).toContain('trace-funds')
     expect(names).toContain('risk-check')
-    expect(names).toContain('entity-profile')
+    expect(names).toContain('query')
   })
 
   it("listPlaybooks() marks built-in playbooks with source 'builtin'", async () => {

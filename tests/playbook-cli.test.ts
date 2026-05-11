@@ -23,11 +23,11 @@ describe('CLI playbook subcommand', () => {
     expect(out).toContain('show')
   })
 
-  it('playbook list outputs trace-funds, risk-check, entity-profile', () => {
+  it('playbook list outputs trace-funds, risk-check, query', () => {
     const out = execSync('node bin/cli.js playbook list', { encoding: 'utf8' })
     expect(out).toContain('trace-funds')
     expect(out).toContain('risk-check')
-    expect(out).toContain('entity-profile')
+    expect(out).toContain('query')
   })
 
   it('playbook list marks built-ins with [builtin]', () => {
@@ -39,7 +39,7 @@ describe('CLI playbook subcommand', () => {
     const out = execSync('node bin/cli.js playbook show trace-funds', { encoding: 'utf8' })
     expect(out).toContain('trace-funds')
     expect(out).toContain('Steps:')
-    expect(out).toContain('trace_funds')
+    expect(out).toContain('probe')
   })
 
   it('playbook show trace-funds prints parameter spec', () => {
@@ -53,7 +53,7 @@ describe('CLI playbook subcommand', () => {
       encoding: 'utf8',
     })
     expect(out).toContain('dry run')
-    expect(out).toContain('trace_funds')
+    expect(out).toContain('probe')
     expect(out).not.toContain('Error')
   })
 

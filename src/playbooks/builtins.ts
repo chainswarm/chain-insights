@@ -1,41 +1,35 @@
-// NOTE: MCP tool names in these playbooks are placeholders.
-// Verify actual tool names with: chain-insights mcp tools
-// Then update tool: lines in each playbook definition accordingly.
+// Built-in playbook definitions.
+// Tool names must match what the Chain Insights MCP exposes.
+// Run `chain-insights mcp tools` to verify available tools.
 
 export const TRACE_FUNDS_PLAYBOOK = `---
 name: trace-funds
-description: Trace fund flows from a target address — follows hops and auto-generates a money flow visualization
+description: Trace fund flows from a target address and generate a money flow visualization
 version: 1.0.0
 params:
   - name: address
     type: string
     required: true
-  - name: hops
-    type: number
-    required: false
-    default: "2"
 ---
 
-## Step 1: Trace Funds
+## Step 1: Trace Fund Flows
 
 \`\`\`tool
-trace_funds
+probe
 \`\`\`
 
 \`\`\`params
-address: {{address}}
-hops: {{hops}}
+query: Trace all fund flows for address {{address}}. Show inbound and outbound transfers with amounts, counterparties, and timestamps.
 \`\`\`
 
-## Step 2: Get Transaction Graph
+## Step 2: Visualize Money Flow
 
 \`\`\`tool
-get_transaction_graph
+probe
 \`\`\`
 
 \`\`\`params
-root: {{address}}
-depth: {{hops}}
+query: Generate a money flow graph for address {{address}} showing the transaction relationships and fund movements identified in the previous trace.
 \`\`\`
 `
 
@@ -49,70 +43,50 @@ params:
     required: true
 ---
 
-## Step 1: Check Risk Exposure
+## Step 1: Risk Assessment
 
 \`\`\`tool
-check_risk_exposure
+probe
 \`\`\`
 
 \`\`\`params
-address: {{address}}
+query: Assess the risk exposure for address {{address}}. Check for sanctions matches, known illicit entity associations, and suspicious activity patterns.
 \`\`\`
 
-## Step 2: Get Entity Details
+## Step 2: Counterparty Risk
 
 \`\`\`tool
-get_entity_details
+probe
 \`\`\`
 
 \`\`\`params
-address: {{address}}
+query: Analyze the counterparties of address {{address}} for risk signals. Identify any high-risk entities, mixers, or flagged addresses in the transaction history.
 \`\`\`
 `
 
-export const ENTITY_PROFILE_PLAYBOOK = `---
-name: entity-profile
-description: Build a comprehensive entity profile — transaction history, counterparties, and risk signals
+export const QUERY_PLAYBOOK = `---
+name: query
+description: Run a free-form investigation query against the Chain Insights MCP
 version: 1.0.0
 params:
-  - name: address
+  - name: question
     type: string
     required: true
 ---
 
-## Step 1: Get Transaction History
+## Step 1: Query
 
 \`\`\`tool
-get_transaction_history
+probe
 \`\`\`
 
 \`\`\`params
-address: {{address}}
-\`\`\`
-
-## Step 2: Get Counterparties
-
-\`\`\`tool
-get_counterparties
-\`\`\`
-
-\`\`\`params
-address: {{address}}
-\`\`\`
-
-## Step 3: Check Risk Signals
-
-\`\`\`tool
-check_risk_exposure
-\`\`\`
-
-\`\`\`params
-address: {{address}}
+query: {{question}}
 \`\`\`
 `
 
 export const BUILTIN_PLAYBOOKS: Record<string, string> = {
-  'trace-funds':    TRACE_FUNDS_PLAYBOOK,
-  'risk-check':     RISK_CHECK_PLAYBOOK,
-  'entity-profile': ENTITY_PROFILE_PLAYBOOK,
+  'trace-funds': TRACE_FUNDS_PLAYBOOK,
+  'risk-check':  RISK_CHECK_PLAYBOOK,
+  'query':       QUERY_PLAYBOOK,
 }

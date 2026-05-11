@@ -162,7 +162,7 @@ parse(markdown, resolvedParams) {
 		const coerced = {
 			name: raw["name"] ?? "",
 			type: raw["type"] ?? "string",
-			required: raw["required"] !== void 0 ? raw["required"] !== "false" : true
+			required: raw["required"] !== void 0 ? raw["required"].toLowerCase() !== "false" : true
 		};
 		if (raw["default"] !== void 0) coerced["default"] = raw["default"];
 		return ParamSpecSchema.parse(coerced);

@@ -20,7 +20,7 @@ function isTimeoutError(err) {
 function isPaymentError(err) {
 	if (!(err instanceof Error)) return false;
 	const msg = err.message.toLowerCase();
-	return msg.includes("insufficient") || msg.includes("402") || msg.includes("payment");
+	return msg.includes("http 402") || msg.includes("status 402") || msg.includes("payment required") || msg.includes("x402");
 }
 /**
 * Call an MCP tool with retry logic on timeout (up to 3 total attempts).
@@ -64,6 +64,10 @@ async run(playbook, opts) {
 		console.log("Cost: unknown (MCP pricing not available without live connection)");
 		return;
 	}
+	const config = await require_config.loadConfig();
+	const { isWalletConfigured, decryptKey } = await Promise.resolve().then(() => require("./wallet-CTI6OveK.cjs")).then((n) => n.wallet_exports);
+	if (!await isWalletConfigured()) throw new Error("Wallet not configured. Run `chain-insights config set walletPrivateKey <key>` to enable paid MCP calls.");
+	const privateKey = await decryptKey();
 	const conn = await require_init.getDb();
 	await require_init.initSchema(conn);
 	conn.closeSync();
@@ -81,8 +85,7 @@ async run(playbook, opts) {
 		})).id;
 		console.log(`Created quick case: ${caseId}`);
 	}
-	const config = await require_config.loadConfig();
-	const paymentFetch = require_client.createMcpFetchClient(config.mcpEndpoint);
+	const paymentFetch = require_client.createMcpFetchClient(privateKey);
 	const client = new _modelcontextprotocol_sdk_client_index_js.Client({
 		name: "chain-insights-playbook",
 		version: "0.1.0"
@@ -113,8 +116,8 @@ async run(playbook, opts) {
 					} else throw new Error(`Aborted at step ${step.index} due to payment failure.`);
 				} else throw new Error(`Payment required for step ${step.index} but no interactive terminal available. Configure wallet with \`chain-insights config set walletPrivateKey <key>\`. Aborting.`);
 				else {
-					step.index - (startIndex + 1);
-					console.error(`Step ${step.index} failed: ${err.message}. Completed: steps ${startIndex + 1}..${step.index - 1}. Run with --from ${step.index} to resume.`);
+					const completedMsg = step.index - 1 - startIndex > 0 ? `Completed: steps ${startIndex + 1}..${step.index - 1}.` : "No steps completed before failure.";
+					console.error(`Step ${step.index} failed: ${err.message}. ${completedMsg} Run with --from ${step.index} to resume.`);
 					throw err;
 				}
 			}

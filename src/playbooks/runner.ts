@@ -92,6 +92,16 @@ export const PlaybookRunner = {
       return
     }
 
+    // --- WALLET CHECK (before case creation to avoid orphan cases) ---
+    const config = await loadConfig()
+    const { isWalletConfigured, decryptKey } = await import('../wallet/index.js')
+    if (!(await isWalletConfigured())) {
+      throw new Error(
+        'Wallet not configured. Run `chain-insights config set walletPrivateKey <key>` to enable paid MCP calls.'
+      )
+    }
+    const privateKey = await decryptKey()
+
     // --- INIT DB SCHEMA ---
     const conn = await getDb()
     await initSchema(conn)
@@ -113,14 +123,6 @@ export const PlaybookRunner = {
     }
 
     // --- MCP CONNECTION ---
-    const config = await loadConfig()
-    const { isWalletConfigured, decryptKey } = await import('../wallet/index.js')
-    if (!(await isWalletConfigured())) {
-      throw new Error(
-        'Wallet not configured. Run `chain-insights config set walletPrivateKey <key>` to enable paid MCP calls.'
-      )
-    }
-    const privateKey = await decryptKey()
     const paymentFetch = createMcpFetchClient(privateKey as `0x${string}`)
     const client = new Client({ name: 'chain-insights-playbook', version: '0.1.0' })
     await client.connect(

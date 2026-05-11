@@ -321,18 +321,23 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			}
 			resolvedParams[key] = kv.slice(eq + 1);
 		}
-		const { resolvePlaybookContent } = await import("./resolver-2gNVc8Ag.mjs");
+		const { resolvePlaybookContent } = await import("./resolver-BrkbZKqN.mjs");
 		const markdown = await resolvePlaybookContent(name);
-		const { PlaybookParser } = await import("./parser-CIuGQU63.mjs");
+		const { PlaybookParser } = await import("./parser-DulHcIo4.mjs");
 		const definition = PlaybookParser.parse(markdown, resolvedParams);
 		for (const spec of definition.params) if (spec.required && !resolvedParams[spec.name] && !spec.default) {
 			console.error(`Missing required param: ${spec.name}. Pass with: -p ${spec.name}=<value>`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await import("./runner-GNbKrHSf.mjs");
+		const fromN = parseInt(opts.from, 10);
+		if (isNaN(fromN) || fromN < 1) {
+			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
+			process.exit(1);
+		}
+		const { PlaybookRunner } = await import("./runner-BisrKffC.mjs");
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
-			from: parseInt(opts.from, 10),
+			from: fromN,
 			dryRun: opts.dryRun,
 			params: resolvedParams
 		});
@@ -342,7 +347,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new Command("list").description("List available playbooks (built-in and user-defined)").action(async () => {
 	try {
-		const { listPlaybooks } = await import("./resolver-2gNVc8Ag.mjs");
+		const { listPlaybooks } = await import("./resolver-BrkbZKqN.mjs");
 		const playbooks = await listPlaybooks();
 		if (playbooks.length === 0) {
 			console.log("No playbooks found.");
@@ -355,8 +360,8 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new Command("show").description("Show steps for a playbook without executing").argument("<name>", "Playbook name").action(async (name) => {
 	try {
-		const { resolvePlaybookContent } = await import("./resolver-2gNVc8Ag.mjs");
-		const { PlaybookParser } = await import("./parser-CIuGQU63.mjs");
+		const { resolvePlaybookContent } = await import("./resolver-BrkbZKqN.mjs");
+		const { PlaybookParser } = await import("./parser-DulHcIo4.mjs");
 		const markdown = await resolvePlaybookContent(name);
 		const definition = PlaybookParser.parse(markdown, {});
 		console.log(`Playbook: ${definition.name} v${definition.version}`);

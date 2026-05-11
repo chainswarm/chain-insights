@@ -4,38 +4,32 @@ import os from "node:os";
 const BUILTIN_PLAYBOOKS = {
 	"trace-funds": `---
 name: trace-funds
-description: Trace fund flows from a target address — follows hops and auto-generates a money flow visualization
+description: Trace fund flows from a target address and generate a money flow visualization
 version: 1.0.0
 params:
   - name: address
     type: string
     required: true
-  - name: hops
-    type: number
-    required: false
-    default: "2"
 ---
 
-## Step 1: Trace Funds
+## Step 1: Trace Fund Flows
 
 \`\`\`tool
-trace_funds
+probe
 \`\`\`
 
 \`\`\`params
-address: {{address}}
-hops: {{hops}}
+query: Trace all fund flows for address {{address}}. Show inbound and outbound transfers with amounts, counterparties, and timestamps.
 \`\`\`
 
-## Step 2: Get Transaction Graph
+## Step 2: Visualize Money Flow
 
 \`\`\`tool
-get_transaction_graph
+probe
 \`\`\`
 
 \`\`\`params
-root: {{address}}
-depth: {{hops}}
+query: Generate a money flow graph for address {{address}} showing the transaction relationships and fund movements identified in the previous trace.
 \`\`\`
 `,
 	"risk-check": `---
@@ -48,64 +42,44 @@ params:
     required: true
 ---
 
-## Step 1: Check Risk Exposure
+## Step 1: Risk Assessment
 
 \`\`\`tool
-check_risk_exposure
+probe
 \`\`\`
 
 \`\`\`params
-address: {{address}}
+query: Assess the risk exposure for address {{address}}. Check for sanctions matches, known illicit entity associations, and suspicious activity patterns.
 \`\`\`
 
-## Step 2: Get Entity Details
+## Step 2: Counterparty Risk
 
 \`\`\`tool
-get_entity_details
+probe
 \`\`\`
 
 \`\`\`params
-address: {{address}}
+query: Analyze the counterparties of address {{address}} for risk signals. Identify any high-risk entities, mixers, or flagged addresses in the transaction history.
 \`\`\`
 `,
-	"entity-profile": `---
-name: entity-profile
-description: Build a comprehensive entity profile — transaction history, counterparties, and risk signals
+	"query": `---
+name: query
+description: Run a free-form investigation query against the Chain Insights MCP
 version: 1.0.0
 params:
-  - name: address
+  - name: question
     type: string
     required: true
 ---
 
-## Step 1: Get Transaction History
+## Step 1: Query
 
 \`\`\`tool
-get_transaction_history
+probe
 \`\`\`
 
 \`\`\`params
-address: {{address}}
-\`\`\`
-
-## Step 2: Get Counterparties
-
-\`\`\`tool
-get_counterparties
-\`\`\`
-
-\`\`\`params
-address: {{address}}
-\`\`\`
-
-## Step 3: Check Risk Signals
-
-\`\`\`tool
-check_risk_exposure
-\`\`\`
-
-\`\`\`params
-address: {{address}}
+query: {{question}}
 \`\`\`
 `
 };
@@ -162,4 +136,4 @@ async function listPlaybooks() {
 //#endregion
 export { listPlaybooks, resolvePlaybookContent };
 
-//# sourceMappingURL=resolver-2gNVc8Ag.mjs.map
+//# sourceMappingURL=resolver-BrkbZKqN.mjs.map

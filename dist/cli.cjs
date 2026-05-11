@@ -323,18 +323,23 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			}
 			resolvedParams[key] = kv.slice(eq + 1);
 		}
-		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-CiE9Cp62.cjs"));
+		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-ri5X8uOJ.cjs"));
 		const markdown = await resolvePlaybookContent(name);
-		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-_3-XnHIB.cjs"));
+		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-ggN4fWmY.cjs"));
 		const definition = PlaybookParser.parse(markdown, resolvedParams);
 		for (const spec of definition.params) if (spec.required && !resolvedParams[spec.name] && !spec.default) {
 			console.error(`Missing required param: ${spec.name}. Pass with: -p ${spec.name}=<value>`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-B_XAsbRr.cjs"));
+		const fromN = parseInt(opts.from, 10);
+		if (isNaN(fromN) || fromN < 1) {
+			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
+			process.exit(1);
+		}
+		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-C4CO1mKF.cjs"));
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
-			from: parseInt(opts.from, 10),
+			from: fromN,
 			dryRun: opts.dryRun,
 			params: resolvedParams
 		});
@@ -344,7 +349,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new commander.Command("list").description("List available playbooks (built-in and user-defined)").action(async () => {
 	try {
-		const { listPlaybooks } = await Promise.resolve().then(() => require("./resolver-CiE9Cp62.cjs"));
+		const { listPlaybooks } = await Promise.resolve().then(() => require("./resolver-ri5X8uOJ.cjs"));
 		const playbooks = await listPlaybooks();
 		if (playbooks.length === 0) {
 			console.log("No playbooks found.");
@@ -357,8 +362,8 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new commander.Command("show").description("Show steps for a playbook without executing").argument("<name>", "Playbook name").action(async (name) => {
 	try {
-		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-CiE9Cp62.cjs"));
-		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-_3-XnHIB.cjs"));
+		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-ri5X8uOJ.cjs"));
+		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-ggN4fWmY.cjs"));
 		const markdown = await resolvePlaybookContent(name);
 		const definition = PlaybookParser.parse(markdown, {});
 		console.log(`Playbook: ${definition.name} v${definition.version}`);
