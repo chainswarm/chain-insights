@@ -103,7 +103,22 @@ if (!fs.existsSync(configPath)) {
   fs.chmodSync(configPath, 0o600);
 }
 
-// ─── 4. Print installation summary ────────────────────────────────────────
+// ─── 4. Register MCP proxy in Claude Code ─────────────────────────────────
+
+const proxyBinPath = path.resolve(__dirname, '..', 'dist', 'mcp-proxy.mjs');
+const { execSync } = require('child_process');
+
+try {
+  execSync(
+    'claude mcp add chain-insights-proxy --scope user -- node ' + proxyBinPath,
+    { stdio: 'pipe' }
+  );
+  console.log(`  ${cyan}MCP proxy:${reset} registered (chain-insights-proxy) at ${proxyBinPath}`);
+} catch {
+  console.log(`  ${dim}MCP proxy:${reset} run manually: claude mcp add chain-insights-proxy --scope user -- node ${proxyBinPath}`);
+}
+
+// ─── 5. Print installation summary ────────────────────────────────────────
 
 console.log(`\n${bold}${green}Chain Insights installed${reset}`);
 console.log(`  ${cyan}Skills:${reset}   ${skillsDir}`);
