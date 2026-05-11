@@ -131,4 +131,55 @@ export const CaseStore = {
       description: frontmatter['description'] ?? '',
     })
   },
+
+  async loadContext(id: string): Promise<{
+    case: { id: string; name: string; status: string; created: string; updated: string; tags: string[] };
+    lastSession: { sessionId: string; startTime: string; endTime?: string; body: string } | null;
+    dossierSummaries: Array<{ address: string; type: string; riskTags: string; firstSeen: string; lastSeen: string }>;
+    evidenceCount: number;
+  }> {
+    const dir = caseDir(id)
+
+    // Read case.md
+    const raw = await readFile(path.join(dir, 'case.md'), 'utf8')
+    const { frontmatter } = parseFrontmatter(raw)
+    const tags = (frontmatter['tags'] ?? '').split(',').filter(Boolean)
+
+    // Lazy imports to avoid circular deps
+    const { SessionStore } = await import('./session.js')
+    const { DossierStore } = await import('./dossier.js')
+
+    const [latestSession, dossierSummaries, manifest] = await Promise.all([
+      SessionStore.getLatest(id),
+      DossierStore.listSummaries(id),
+      readFile(path.join(dir, 'manifest.json'), 'utf8').catch(() => '{"entries":[]}'),
+    ])
+
+    const manifestData = JSON.parse(manifest) as { entries: unknown[] }
+    const evidenceCount = manifestData.entries.length
+
+    const lastSession = latestSession
+      ? {
+          sessionId: latestSession.frontmatter['sessionId'] ?? '',
+          startTime: latestSession.frontmatter['startTime'] ?? '',
+          endTime: latestSession.frontmatter['endTime'] || undefined,
+          body: latestSession.body,
+        }
+      : null
+
+    return {
+      case: {
+        id,
+        name: frontmatter['name'] ?? '',
+        status: frontmatter['status'] ?? 'open',
+        created: frontmatter['created'] ?? '',
+        updated: frontmatter['updated'] ?? '',
+        tags,
+      },
+      lastSession,
+      dossierSummaries,
+      evidenceCount,
+    }
+  },
 }
+
