@@ -49,11 +49,15 @@ Plans:
   1. User can configure an EVM wallet and the toolkit automatically handles x402 payment for MCP calls
   2. Agent can introspect the MCP and list available tools/endpoints with descriptions
   3. User can describe an investigation query in natural language and the agent translates it into MCP calls and returns results
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+**Wave 1**
+- [ ] 02-01-PLAN.md — Wallet encryption (AES-256-GCM) + x402 payment-wrapped fetch client + dependencies
+
+**Wave 2** *(blocked on Wave 1 completion; 02-02 and 02-03 run in parallel)*
+- [ ] 02-02-PLAN.md — MCP schema cache (24h TTL) + tool table formatter + stdio MCP proxy
+- [ ] 02-03-PLAN.md — CLI mcp subcommand + build wiring (tsdown entry) + bin shim + installer MCP registration
 
 ### Phase 3: Case Management
 **Goal**: Investigator can open cases, accumulate evidence and dossiers across sessions, and resume investigations with full context -- the persistent state layer for all investigation work
@@ -107,7 +111,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 1. Foundation & Distribution | 2/2 | Complete   | 2026-05-10 |
-| 2. MCP Connection & Payments | 0/2 | Not started | - |
+| 2. MCP Connection & Payments | 0/3 | Not started | - |
 | 3. Case Management | 0/2 | Not started | - |
 | 4. Money Flow Visualization | 0/1 | Not started | - |
 | 5. Playbooks | 0/1 | Not started | - |
