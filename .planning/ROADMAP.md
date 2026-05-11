@@ -13,10 +13,10 @@ From empty repo to working AML investigation toolkit in five phases: lay the fou
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation & Distribution** - CLI scaffold, DuckDB, Hono server, config system, npm installer (completed 2026-05-10)
-- [ ] **Phase 2: MCP Connection & Payments** - x402 integration, schema discovery, free-form MCP queries
-- [ ] **Phase 3: Case Management** - Case lifecycle, evidence store, dossiers, investigation memory
-- [ ] **Phase 4: Money Flow Visualization** - D3.js graphs, self-contained HTML, browser auto-open
-- [ ] **Phase 5: Playbooks** - Playbook engine and built-in starter playbooks
+- [x] **Phase 2: MCP Connection & Payments** - x402 integration, schema discovery, free-form MCP queries (completed 2026-05-11)
+- [x] **Phase 3: Case Management** - Case lifecycle, evidence store, dossiers, investigation memory (completed 2026-05-11)
+- [x] **Phase 4: Money Flow Visualization** - D3.js graphs, self-contained HTML, browser auto-open (completed 2026-05-11)
+- [x] **Phase 5: Playbooks** - Playbook engine and built-in starter playbooks (completed 2026-05-11)
 
 ## Phase Details
 
@@ -122,7 +122,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 1. Foundation & Distribution | 2/2 | Complete   | 2026-05-10 |
-| 2. MCP Connection & Payments | 0/3 | Not started | - |
-| 3. Case Management | 1/2 | In Progress|  |
-| 4. Money Flow Visualization | 0/2 | Not started | - |
-| 5. Playbooks | 0/2 | Not started | - |
+| 2. MCP Connection & Payments | 3/3 | Complete | 2026-05-11 |
+| 3. Case Management | 2/2 | Complete | 2026-05-11 |
+| 4. Money Flow Visualization | 2/2 | Complete | 2026-05-11 |
+| 5. Playbooks | 2/2 | Complete | 2026-05-11 |

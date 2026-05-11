@@ -12,22 +12,21 @@ An investigator can install the toolkit, connect to the Chain Insights MCP, and 
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] npm-based installation and distribution (GSD-style global install) — Phase 1
+- [x] Local JS server with embedded database (DuckDB) for case data, monitoring results, and query caching — Phase 1
+- [x] x402 payment gateway integration for MCP access — Phase 2
+- [x] MCP schema skill — agents know what tools/endpoints are available — Phase 2
+- [x] Quick prompt execution against Chain Insights MCP (like GSD's /gsd-fast) — Phase 2
+- [x] Case management — open, close, tag, track investigation state — Phase 3
+- [x] Dossier system — accumulate evidence, notes, findings per entity/case (flat files, human-readable) — Phase 3
+- [x] Investigation memory — persistent context across sessions per case — Phase 3
+- [x] D3.js money flow visualizations (force/tree graphs) served from local server, reusing rbmk viz code — Phase 4
+- [x] Playbook system — reusable investigation workflows (trace funds, risk check, entity profiling) — Phase 5
 
 ### Active
 
-- [ ] npm-based installation and distribution (GSD-style global install)
-- [ ] Local JS server with embedded database (DuckDB) for case data, monitoring results, and query caching
-- [ ] x402 payment gateway integration for MCP access
-- [ ] D3.js money flow visualizations (force/tree graphs) served from local server, reusing rbmk viz code
 - [ ] Claude Code skills and hooks (slash commands for investigation workflows)
-- [ ] MCP schema skill — agents know what tools/endpoints are available
-- [ ] Quick prompt execution against Chain Insights MCP (like GSD's /gsd-fast)
-- [ ] Case management — open, close, tag, track investigation state
-- [ ] Dossier system — accumulate evidence, notes, findings per entity/case (flat files, human-readable)
 - [ ] Watcher system — monitor addresses/wallets/transactions for new activity
-- [ ] Playbook system — reusable investigation workflows (trace funds, risk check, entity profiling)
-- [ ] Investigation memory — persistent context across sessions per case
 - [ ] Multi-runtime support architecture (Claude Code first, then Codex, Open Claw)
 
 ### Out of Scope
@@ -64,6 +63,9 @@ An investigator can install the toolkit, connect to the Chain Insights MCP, and 
 | Claude Code first | Primary user base, GSD proves the model, skills/hooks system is mature | — Pending |
 | Reuse rbmk viz code | D3.js force/tree graphs already built and tested, no need to rebuild | — Pending |
 | x402 for monetization | Aligns with crypto-native user base, per-call pricing, no subscription friction | — Pending |
+| Playbook definitions as TypeScript constants | Avoids asset-copy drift for built-in playbooks in npm distribution | Adopted in Phase 5 |
+| Validate playbook tools against live MCP schema before execution | Prevents hallucinated playbooks from running against nonexistent tools | Adopted in Phase 5 |
+| Use GraphRAG debug bearer for local UAT | Exercises the real public MCP tool surface without requiring production x402 spend in tests | Adopted in Phase 5 |
 
 ## Evolution
 
@@ -83,4 +85,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-10 after initialization*
+*Last updated: 2026-05-11 after milestone v1.0 verification*

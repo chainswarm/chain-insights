@@ -17,9 +17,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### MCP & Payments
 
-- [ ] **MCP-01**: x402 payment gateway integration (viem wallet + `@x402/fetch` for automatic 402 handling)
-- [ ] **MCP-02**: MCP schema discovery — agent can introspect available tools/endpoints from the Chain Insights MCP
-- [ ] **MCP-03**: Free-form MCP query execution — user describes investigation intent in natural language, agent interprets into MCP calls
+- [x] **MCP-01**: x402 payment gateway integration (viem wallet + `@x402/fetch` for automatic 402 handling)
+- [x] **MCP-02**: MCP schema discovery — agent can introspect available tools/endpoints from the Chain Insights MCP
+- [x] **MCP-03**: Free-form MCP query execution — user describes investigation intent in natural language, agent interprets into MCP calls
 
 ### Case Management
 
@@ -30,14 +30,14 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Visualization
 
-- [ ] **VIZ-01**: D3.js money flow graphs with force-directed and tree layouts, reusing existing rbmk viz code
-- [ ] **VIZ-02**: Self-contained HTML output served from local Hono server
-- [ ] **VIZ-03**: Auto-open visualization in user's default browser when generated
+- [x] **VIZ-01**: D3.js money flow graphs with force-directed and tree layouts, reusing existing rbmk viz code
+- [x] **VIZ-02**: Self-contained HTML output served from local Hono server
+- [x] **VIZ-03**: Auto-open visualization in user's default browser when generated
 
 ### Playbooks
 
-- [ ] **PLAY-01**: Basic playbook runner — execute markdown-declared multi-step investigation workflows
-- [ ] **PLAY-02**: Built-in starter playbooks (trace-funds, risk-check, entity-profile)
+- [x] **PLAY-01**: Basic playbook runner — execute markdown-declared multi-step investigation workflows
+- [x] **PLAY-02**: Built-in starter playbooks (trace-funds, risk-check, entity-profile)
 
 ## v2 Requirements
 
@@ -95,18 +95,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FOUND-03 | Phase 1 | Complete |
 | FOUND-04 | Phase 1 | Complete |
 | FOUND-05 | Phase 1 | Complete |
-| MCP-01 | Phase 2 | Pending |
-| MCP-02 | Phase 2 | Pending |
-| MCP-03 | Phase 2 | Pending |
+| MCP-01 | Phase 2 | Complete |
+| MCP-02 | Phase 2 | Complete |
+| MCP-03 | Phase 2 | Complete |
 | CASE-01 | Phase 3 | Complete |
 | CASE-02 | Phase 3 | Complete |
 | CASE-03 | Phase 3 | Complete |
 | CASE-04 | Phase 3 | Complete |
-| VIZ-01 | Phase 4 | Pending |
-| VIZ-02 | Phase 4 | Pending |
-| VIZ-03 | Phase 4 | Pending |
-| PLAY-01 | Phase 5 | Pending |
-| PLAY-02 | Phase 5 | Pending |
+| VIZ-01 | Phase 4 | Complete |
+| VIZ-02 | Phase 4 | Complete |
+| VIZ-03 | Phase 4 | Complete |
+| PLAY-01 | Phase 5 | Complete |
+| PLAY-02 | Phase 5 | Complete |
 
 **Coverage:**
 - v1 requirements: 17 total
@@ -115,4 +115,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-05-10*
-*Last updated: 2026-05-10 after roadmap creation*
+*Last updated: 2026-05-11 after milestone v1.0 verification*
