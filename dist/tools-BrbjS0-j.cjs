@@ -5,7 +5,6 @@ let viem_chains = require("viem/chains");
 let viem_accounts = require("viem/accounts");
 //#region src/wallet/tools.ts
 var tools_exports = /* @__PURE__ */ require_chunk.__exportAll({
-	BASE_CHAIN_HEX: () => BASE_CHAIN_HEX,
 	BASE_CHAIN_ID: () => BASE_CHAIN_ID,
 	DEFAULT_BASE_RPC_URL: () => DEFAULT_BASE_RPC_URL,
 	USDC_ADDRESS: () => USDC_ADDRESS,
@@ -16,7 +15,6 @@ var tools_exports = /* @__PURE__ */ require_chunk.__exportAll({
 	getWalletBalanceText: () => getWalletBalanceText
 });
 const BASE_CHAIN_ID = 8453;
-const BASE_CHAIN_HEX = "0x2105";
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 const DEFAULT_BASE_RPC_URL = "https://base.llamarpc.com";
 const USDC_ABI = [{
@@ -83,18 +81,6 @@ function buildTopupInfo(address, topupUrl) {
 	};
 }
 //#endregion
-Object.defineProperty(exports, "BASE_CHAIN_HEX", {
-	enumerable: true,
-	get: function() {
-		return BASE_CHAIN_HEX;
-	}
-});
-Object.defineProperty(exports, "USDC_ADDRESS", {
-	enumerable: true,
-	get: function() {
-		return USDC_ADDRESS;
-	}
-});
 Object.defineProperty(exports, "buildTopupInfo", {
 	enumerable: true,
 	get: function() {

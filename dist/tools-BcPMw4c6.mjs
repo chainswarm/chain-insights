@@ -5,7 +5,6 @@ import { base } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 //#region src/wallet/tools.ts
 var tools_exports = /* @__PURE__ */ __exportAll({
-	BASE_CHAIN_HEX: () => BASE_CHAIN_HEX,
 	BASE_CHAIN_ID: () => BASE_CHAIN_ID,
 	DEFAULT_BASE_RPC_URL: () => DEFAULT_BASE_RPC_URL,
 	USDC_ADDRESS: () => USDC_ADDRESS,
@@ -16,7 +15,6 @@ var tools_exports = /* @__PURE__ */ __exportAll({
 	getWalletBalanceText: () => getWalletBalanceText
 });
 const BASE_CHAIN_ID = 8453;
-const BASE_CHAIN_HEX = "0x2105";
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 const DEFAULT_BASE_RPC_URL = "https://base.llamarpc.com";
 const USDC_ABI = [{
@@ -83,6 +81,6 @@ function buildTopupInfo(address, topupUrl) {
 	};
 }
 //#endregion
-export { getBalanceUsdc as a, tools_exports as c, formatWalletBalance as i, USDC_ADDRESS as n, getWalletAccount as o, buildTopupInfo as r, getWalletBalanceText as s, BASE_CHAIN_HEX as t };
+export { getWalletBalanceText as a, getWalletAccount as i, formatWalletBalance as n, tools_exports as o, getBalanceUsdc as r, buildTopupInfo as t };
 
-//# sourceMappingURL=tools-BExi-2XO.mjs.map
+//# sourceMappingURL=tools-BcPMw4c6.mjs.map

@@ -76,12 +76,12 @@ declare function formatWalletBalance(address: string, balanceUsdc: string): stri
 declare function getWalletBalanceText(account?: PaymentWalletAccount): Promise<string>;
 declare function buildTopupInfo(address: string, topupUrl?: string): TopupInfo;
 //#endregion
+//#region src/wallet/mcp-proxy/topup-server.d.ts
+declare function getTopupUrl(): string | null;
+declare function generateArtifactHtml(walletAddress: string, topupUrl: string): string;
+//#endregion
 //#region src/wallet/topup-server.d.ts
-declare function generateTopupPage(walletAddress: string): string;
-declare function startTopupServer(account: PaymentWalletAccount | string, options?: {
-  port?: number;
-}): Promise<string>;
-declare function stopTopupServer(): Promise<void>;
+declare function startTopupServer(account: PaymentWalletAccount | string): Promise<string>;
 //#endregion
 //#region src/mcp/client.d.ts
 /**
@@ -182,5 +182,5 @@ declare function generateVisualization(opts: {
   htmlPath: string;
 }>;
 //#endregion
-export { type GraphData as GraphDataType, type GraphEdge as GraphEdgeType, type GraphNode as GraphNodeType, type InvestigatorConfig, buildTopupInfo, createApp, createMcpFetchClient, decryptKey, encryptKey, formatWalletBalance, generateTopupPage, generateVisualization, getBalanceUsdc, getDb, getWalletAccount, getWalletBalanceText, healthCheck, initSchema, isWalletConfigured, loadConfig, resetConfigCache, saveConfig, startServer, startTopupServer, stopTopupServer };
+export { type GraphData as GraphDataType, type GraphEdge as GraphEdgeType, type GraphNode as GraphNodeType, type InvestigatorConfig, buildTopupInfo, createApp, createMcpFetchClient, decryptKey, encryptKey, formatWalletBalance, generateArtifactHtml, generateVisualization, getBalanceUsdc, getDb, getTopupUrl, getWalletAccount, getWalletBalanceText, healthCheck, initSchema, isWalletConfigured, loadConfig, resetConfigCache, saveConfig, startServer, startTopupServer };
 //# sourceMappingURL=index.d.cts.map

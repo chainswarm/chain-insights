@@ -6,12 +6,14 @@ let _modelcontextprotocol_sdk_server_mcp_js = require("@modelcontextprotocol/sdk
 let _modelcontextprotocol_sdk_server_stdio_js = require("@modelcontextprotocol/sdk/server/stdio.js");
 let _modelcontextprotocol_sdk_client_index_js = require("@modelcontextprotocol/sdk/client/index.js");
 let _modelcontextprotocol_sdk_client_streamableHttp_js = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
+let _modelcontextprotocol_ext_apps_server = require("@modelcontextprotocol/ext-apps/server");
 //#region src/mcp/proxy.ts
 const LOCAL_TOOL_NAMES = new Set([
 	"balance",
 	"topup",
 	"help"
 ]);
+const TOPUP_RESOURCE_URI = "ui://chain-insights/topup.html";
 /**
 * Core proxy logic — exported so tests can inject dependencies directly.
 * The IIFE at the bottom calls this with real dependencies.
@@ -49,12 +51,26 @@ async function createProxy() {
 		name: "chain-insights-proxy",
 		version: "0.1.0"
 	}, { instructions: "Chain Insights AML investigation tools. Pay-per-call via x402 on Base." });
+	let topupState = null;
+	const getTopupState = async () => {
+		topupState ??= (async () => {
+			const { getWalletAccount } = await Promise.resolve().then(() => require("./tools-BrbjS0-j.cjs")).then((n) => n.tools_exports);
+			const { startTopupServer } = await Promise.resolve().then(() => require("./topup-server-BYdgkSW_.cjs")).then((n) => n.topup_server_exports);
+			const account = await getWalletAccount();
+			const url = await startTopupServer(account);
+			return {
+				address: account.address,
+				url
+			};
+		})();
+		return topupState;
+	};
 	server.registerTool("balance", {
 		description: "Show the local Chain Insights payment wallet address and Base USDC balance.",
 		inputSchema: zod.object({}).passthrough()
 	}, async () => {
 		try {
-			const { getWalletAccount, getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-keOvDHi8.cjs")).then((n) => n.tools_exports);
+			const { getWalletAccount, getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-BrbjS0-j.cjs")).then((n) => n.tools_exports);
 			return {
 				content: [{
 					type: "text",
@@ -72,23 +88,32 @@ async function createProxy() {
 			};
 		}
 	});
-	server.registerTool("topup", {
-		description: "Start a local browser page for topping up the Chain Insights payment wallet with Base USDC.",
-		inputSchema: zod.object({}).passthrough()
+	(0, _modelcontextprotocol_ext_apps_server.registerAppResource)(server, "Chain Insights Wallet Topup", TOPUP_RESOURCE_URI, { description: "Chain Insights wallet funding page with QR code and MetaMask link" }, async () => {
+		const { address, url } = await getTopupState();
+		const { generateArtifactHtml } = await Promise.resolve().then(() => require("./topup-server-BYdgkSW_.cjs")).then((n) => n.topup_server_exports);
+		return { contents: [{
+			uri: TOPUP_RESOURCE_URI,
+			mimeType: _modelcontextprotocol_ext_apps_server.RESOURCE_MIME_TYPE,
+			text: generateArtifactHtml(address, url),
+			_meta: { ui: { csp: {
+				resourceDomains: [url],
+				connectDomains: [url]
+			} } }
+		}] };
+	});
+	(0, _modelcontextprotocol_ext_apps_server.registerAppTool)(server, "topup", {
+		description: "Fund your Chain Insights wallet with USDC via MetaMask. Does NOT check balance.",
+		_meta: { ui: { resourceUri: TOPUP_RESOURCE_URI } }
 	}, async () => {
 		try {
-			const { getWalletAccount } = await Promise.resolve().then(() => require("./tools-keOvDHi8.cjs")).then((n) => n.tools_exports);
-			const { startTopupServer } = await Promise.resolve().then(() => require("./topup-server-BGSx99wW.cjs")).then((n) => n.topup_server_exports);
-			const account = await getWalletAccount();
-			const topupUrl = await startTopupServer(account);
+			const { address, url } = await getTopupState();
 			return {
 				content: [{
 					type: "text",
 					text: JSON.stringify({
-						wallet_address: account.address,
-						network: "Base",
-						token: "USDC",
-						topup_url: topupUrl
+						wallet_address: address,
+						topup_url: url,
+						message: `Open ${url} in your browser to send USDC via MetaMask.`
 					}, null, 2)
 				}],
 				isError: false

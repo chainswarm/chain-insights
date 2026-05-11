@@ -2,10 +2,12 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server'
 import * as z from 'zod'
 import type { McpTool } from './schema-cache.js'
 
 const LOCAL_TOOL_NAMES = new Set(['balance', 'topup', 'help'])
+const TOPUP_RESOURCE_URI = 'ui://chain-insights/topup.html'
 
 /**
  * Core proxy logic — exported so tests can inject dependencies directly.
@@ -62,6 +64,18 @@ export async function createProxy(): Promise<void> {
     { instructions: 'Chain Insights AML investigation tools. Pay-per-call via x402 on Base.' },
   )
 
+  let topupState: Promise<{ address: string; url: string }> | null = null
+  const getTopupState = async (): Promise<{ address: string; url: string }> => {
+    topupState ??= (async () => {
+      const { getWalletAccount } = await import('../wallet/tools.js')
+      const { startTopupServer } = await import('../wallet/topup-server.js')
+      const account = await getWalletAccount()
+      const url = await startTopupServer(account)
+      return { address: account.address, url }
+    })()
+    return topupState
+  }
+
   server.registerTool(
     'balance',
     {
@@ -85,27 +99,58 @@ export async function createProxy(): Promise<void> {
     },
   )
 
-  server.registerTool(
+  registerAppResource(
+    server,
+    'Chain Insights Wallet Topup',
+    TOPUP_RESOURCE_URI,
+    {
+      description: 'Chain Insights wallet funding page with QR code and MetaMask link',
+    },
+    async () => {
+      const { address, url } = await getTopupState()
+      const { generateArtifactHtml } = await import('../wallet/topup-server.js')
+      return {
+        contents: [
+          {
+            uri: TOPUP_RESOURCE_URI,
+            mimeType: RESOURCE_MIME_TYPE,
+            text: generateArtifactHtml(address, url),
+            _meta: {
+              ui: {
+                csp: {
+                  resourceDomains: [url],
+                  connectDomains: [url],
+                },
+              },
+            },
+          },
+        ],
+      }
+    },
+  )
+
+  registerAppTool(
+    server,
     'topup',
     {
-      description: 'Start a local browser page for topping up the Chain Insights payment wallet with Base USDC.',
-      inputSchema: z.object({}).passthrough(),
+      description: 'Fund your Chain Insights wallet with USDC via MetaMask. Does NOT check balance.',
+      _meta: {
+        ui: {
+          resourceUri: TOPUP_RESOURCE_URI,
+        },
+      },
     },
     async () => {
       try {
-        const { getWalletAccount } = await import('../wallet/tools.js')
-        const { startTopupServer } = await import('../wallet/topup-server.js')
-        const account = await getWalletAccount()
-        const topupUrl = await startTopupServer(account)
+        const { address, url } = await getTopupState()
         return {
           content: [
             {
               type: 'text' as const,
               text: JSON.stringify({
-                wallet_address: account.address,
-                network: 'Base',
-                token: 'USDC',
-                topup_url: topupUrl,
+                wallet_address: address,
+                topup_url: url,
+                message: `Open ${url} in your browser to send USDC via MetaMask.`,
               }, null, 2),
             },
           ],

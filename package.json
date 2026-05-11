@@ -24,7 +24,7 @@
     "skills"
   ],
   "scripts": {
-    "build": "tsdown && cp -r src/viz/templates dist/templates",
+    "build": "tsdown && cp -r src/viz/templates dist/templates && mkdir -p dist/assets && cp -r src/wallet/mcp-proxy/assets/* dist/assets/",
     "dev": "tsx src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -33,6 +33,7 @@
   "dependencies": {
     "@duckdb/node-api": ">=1.5.0-r.1",
     "@hono/node-server": "^2.0.2",
+    "@modelcontextprotocol/ext-apps": "^1.7.1",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@x402/evm": "^2.11.0",
     "@x402/fetch": "^2.11.0",

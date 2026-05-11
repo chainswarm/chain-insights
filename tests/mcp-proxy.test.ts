@@ -29,6 +29,13 @@ vi.mock('../src/wallet/tools.js', () => ({
 
 vi.mock('../src/wallet/topup-server.js', () => ({
   startTopupServer: vi.fn().mockResolvedValue('http://127.0.0.1:4500'),
+  generateArtifactHtml: vi.fn().mockReturnValue('<html>copied topup component</html>'),
+}))
+
+vi.mock('@modelcontextprotocol/ext-apps/server', () => ({
+  RESOURCE_MIME_TYPE: 'text/html;profile=mcp-app',
+  registerAppResource: vi.fn((_server, _name, _uri, _config, _handler) => ({})),
+  registerAppTool: vi.fn((server, name, config, handler) => server.registerTool(name, config, handler)),
 }))
 
 vi.mock('../src/mcp/client.js', () => ({
@@ -49,6 +56,7 @@ vi.mock('@modelcontextprotocol/sdk/server/mcp.js', () => {
       registerTool: vi.fn(function (name: string, _opts: unknown, handler: Function) {
         registeredTools.set(name, handler)
       }),
+      registerResource: vi.fn(),
       connect: vi.fn().mockResolvedValue(undefined),
       _registeredTools: registeredTools,
     }
@@ -245,6 +253,38 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.isError).toBe(false)
     expect(result.content[0].text).toContain('http://127.0.0.1:4500')
     expect(result.content[0].text).toContain('0x0000000000000000000000000000000000000001')
+  })
+
+  it('registers topup as an MCP Apps tool/resource using the copied component', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { registerAppResource, registerAppTool } = await import('@modelcontextprotocol/ext-apps/server')
+
+    await createProxy()
+
+    expect(registerAppResource).toHaveBeenCalledWith(
+      expect.anything(),
+      'Chain Insights Wallet Topup',
+      'ui://chain-insights/topup.html',
+      expect.objectContaining({
+        description: expect.stringContaining('wallet funding page'),
+      }),
+      expect.any(Function),
+    )
+    expect(registerAppTool).toHaveBeenCalledWith(
+      expect.anything(),
+      'topup',
+      expect.objectContaining({
+        _meta: {
+          ui: {
+            resourceUri: 'ui://chain-insights/topup.html',
+          },
+        },
+      }),
+      expect.any(Function),
+    )
   })
 
   it('registers a local help tool that explains proxy-local tools', async () => {

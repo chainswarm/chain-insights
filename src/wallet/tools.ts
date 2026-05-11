@@ -4,7 +4,6 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { decryptKey } from './index.js'
 
 export const BASE_CHAIN_ID = 8453
-export const BASE_CHAIN_HEX = '0x2105'
 export const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as const
 export const DEFAULT_BASE_RPC_URL = 'https://base.llamarpc.com'
 

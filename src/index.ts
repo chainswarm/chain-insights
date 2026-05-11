@@ -13,7 +13,7 @@ export {
   getWalletAccount,
   getWalletBalanceText,
 } from './wallet/tools.js'
-export { generateTopupPage, startTopupServer, stopTopupServer } from './wallet/topup-server.js'
+export { generateArtifactHtml, getTopupUrl, startTopupServer } from './wallet/topup-server.js'
 export { createMcpFetchClient } from './mcp/client.js'
 export { generateVisualization } from './viz/index.js'
 export type { GraphDataType, GraphNodeType, GraphEdgeType } from './viz/index.js'
