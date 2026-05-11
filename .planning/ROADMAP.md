@@ -73,7 +73,7 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 03-01-PLAN.md — Case lifecycle: schemas, frontmatter parser, CaseStore (open/activate/suspend/close/list), DuckDB migration, CLI case subcommand group (CASE-01)
+- [x] 03-01-PLAN.md — Case lifecycle: schemas, frontmatter parser, CaseStore (open/activate/suspend/close/list), DuckDB migration, CLI case subcommand group (CASE-01)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 03-02-PLAN.md — Evidence + dossier + session stores: EvidenceStore (SHA-256 manifest), DossierStore (content-hash dedup), SessionStore (rolling archive), CaseStore.loadContext, CLI evidence/dossier/session/resume subcommands (CASE-02, CASE-03, CASE-04)
@@ -115,6 +115,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 |-------|---------------|--------|-----------|
 | 1. Foundation & Distribution | 2/2 | Complete   | 2026-05-10 |
 | 2. MCP Connection & Payments | 0/3 | Not started | - |
-| 3. Case Management | 0/2 | Not started | - |
+| 3. Case Management | 1/2 | In Progress|  |
 | 4. Money Flow Visualization | 0/1 | Not started | - |
 | 5. Playbooks | 0/1 | Not started | - |
