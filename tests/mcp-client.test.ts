@@ -8,7 +8,9 @@ vi.mock('@x402/fetch', () => ({
 }))
 
 vi.mock('@x402/evm', () => ({
-  ExactEvmScheme: vi.fn().mockImplementation((account) => ({ account, _isExactEvmScheme: true })),
+  ExactEvmScheme: vi.fn(function (account) {
+    return { account, _isExactEvmScheme: true }
+  }),
 }))
 
 vi.mock('viem/accounts', () => ({
