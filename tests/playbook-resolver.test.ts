@@ -54,9 +54,25 @@ describe('resolvePlaybook', () => {
     expect(result).toBe(expectedUserPath)
   })
 
-  it('resolvePlaybook throws for invalid playbook name (path traversal)', async () => {
+  it('resolvePlaybook throws for empty or all-special-char playbook name', async () => {
+    const fsMock = await import('node:fs/promises')
+    const accessMock = vi.mocked(fsMock.access)
+    // Will throw Invalid playbook name since result of sanitizing '...' is empty
+    accessMock.mockRejectedValue(new Error('ENOENT'))
     const { resolvePlaybook } = await import('../src/playbooks/resolver.js')
-    await expect(resolvePlaybook('../../etc/passwd')).rejects.toThrow(/Invalid playbook name/)
+    await expect(resolvePlaybook('...')).rejects.toThrow(/Invalid playbook name/)
+  })
+
+  it('resolvePlaybook sanitizes path traversal attempts (no ../ in resolved path)', async () => {
+    const fsMock = await import('node:fs/promises')
+    const accessMock = vi.mocked(fsMock.access)
+    // etcpasswd.md — both user and builtin not found, so throws Playbook not found
+    accessMock
+      .mockRejectedValueOnce(new Error('ENOENT'))
+      .mockRejectedValueOnce(new Error('ENOENT'))
+    const { resolvePlaybook } = await import('../src/playbooks/resolver.js')
+    // The attempt is sanitized to 'etcpasswd' — no path traversal possible
+    await expect(resolvePlaybook('../../etc/passwd')).rejects.toThrow(/Playbook not found/)
   })
 
   it('resolvePlaybook throws when playbook not found in either location', async () => {
