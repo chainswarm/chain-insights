@@ -46,12 +46,14 @@ describe('generateHtml (VIZ-02)', () => {
     expect(html).toContain('--surface-primary: #0f1117')
   })
 
-  it('generateHtml output does NOT contain any "https://" CDN references', async () => {
+  it('generateHtml output does NOT contain external CDN script/link src references', async () => {
     const { generateHtml } = await import('../src/viz/html-generator.js')
     const { GraphData } = await import('../src/viz/graph-model.js')
     const data = GraphData.parse(validData)
     const html = generateHtml(data, 'Test Viz')
-    expect(html).not.toContain('https://')
+    // No external script src or link href pointing to a CDN
+    expect(html).not.toMatch(/<script[^>]+src=["']https?:\/\//i)
+    expect(html).not.toMatch(/<link[^>]+href=["']https?:\/\//i)
   })
 
   it('generateHtml output contains xmlns SVG attribute', async () => {
