@@ -25,37 +25,47 @@ vi.mock('../src/mcp/schema-cache.js', () => ({
 
 vi.mock('@modelcontextprotocol/sdk/server/mcp.js', () => {
   const registeredTools: Map<string, Function> = new Map()
-  const McpServer = vi.fn().mockImplementation(() => ({
-    registerTool: vi.fn((name: string, _opts: unknown, handler: Function) => {
-      registeredTools.set(name, handler)
-    }),
-    connect: vi.fn().mockResolvedValue(undefined),
-    _registeredTools: registeredTools,
-  }))
+  // Must use regular function (not arrow) so `new McpServer()` works
+  const McpServer = vi.fn(function () {
+    return {
+      registerTool: vi.fn(function (name: string, _opts: unknown, handler: Function) {
+        registeredTools.set(name, handler)
+      }),
+      connect: vi.fn().mockResolvedValue(undefined),
+      _registeredTools: registeredTools,
+    }
+  })
   return { McpServer, _registeredTools: registeredTools }
 })
 
 vi.mock('@modelcontextprotocol/sdk/server/stdio.js', () => ({
-  StdioServerTransport: vi.fn().mockImplementation(() => ({
-    close: vi.fn(),
-  })),
+  // Must use regular function (not arrow) so `new StdioServerTransport()` works
+  StdioServerTransport: vi.fn(function () {
+    return { close: vi.fn() }
+  }),
 }))
 
 vi.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
-  Client: vi.fn().mockImplementation(() => ({
-    connect: vi.fn().mockResolvedValue(undefined),
-    listTools: vi.fn().mockResolvedValue({
-      tools: [{ name: 'trace_address', description: 'Trace address on-chain' }],
-    }),
-    callTool: vi.fn().mockResolvedValue({
-      content: [{ type: 'text', text: 'result' }],
-      isError: false,
-    }),
-  })),
+  // Must use regular function (not arrow) so `new Client()` works
+  Client: vi.fn(function () {
+    return {
+      connect: vi.fn().mockResolvedValue(undefined),
+      listTools: vi.fn().mockResolvedValue({
+        tools: [{ name: 'trace_address', description: 'Trace address on-chain' }],
+      }),
+      callTool: vi.fn().mockResolvedValue({
+        content: [{ type: 'text', text: 'result' }],
+        isError: false,
+      }),
+    }
+  }),
 }))
 
 vi.mock('@modelcontextprotocol/sdk/client/streamableHttp.js', () => ({
-  StreamableHTTPClientTransport: vi.fn().mockImplementation(() => ({})),
+  // Must use regular function (not arrow) so `new StreamableHTTPClientTransport()` works
+  StreamableHTTPClientTransport: vi.fn(function () {
+    return {}
+  }),
 }))
 
 describe('MCP proxy (MCP-02, MCP-03)', () => {
