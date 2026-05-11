@@ -8,17 +8,18 @@ export function walletPath(): string {
   return path.join(os.homedir(), '.chain-insights', 'wallet.json')
 }
 
-// Derive a 32-byte key from the machine identity (hostname + username).
-// Binds the encrypted wallet to this machine — decryption fails if identity changes.
-function deriveKey(): Buffer {
+// Derive a 32-byte key from the machine identity (hostname + username) and a
+// random per-wallet salt. The salt prevents precomputation attacks across wallets.
+function deriveKey(salt: Buffer): Buffer {
   return crypto.scryptSync(
     `${os.hostname()}:${os.userInfo().username}`,
-    'chain-insights-wallet-v1',
+    salt,
     32,
   )
 }
 
 interface WalletData {
+  salt: string
   iv: string
   tag: string
   data: string
@@ -26,13 +27,14 @@ interface WalletData {
 
 /**
  * Encrypts a private key and writes it to ~/.chain-insights/wallet.json.
- * Uses AES-256-GCM with a machine-identity-derived key.
+ * Uses AES-256-GCM with a machine-identity-derived key and a random per-wallet salt.
  * File is written with 0o600 permissions (owner read/write only).
  *
  * @param privateKey - The EVM private key to encrypt (0x-prefixed)
  */
 export async function encryptKey(privateKey: string): Promise<void> {
-  const key = deriveKey()
+  const salt = crypto.randomBytes(16)
+  const key = deriveKey(salt)
   const iv = crypto.randomBytes(12)
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
 
@@ -45,6 +47,7 @@ export async function encryptKey(privateKey: string): Promise<void> {
   const tag = cipher.getAuthTag()
 
   const walletData: WalletData = {
+    salt: salt.toString('hex'),
     iv: iv.toString('hex'),
     tag: tag.toString('hex'),
     data: encrypted.toString('hex'),
@@ -77,7 +80,8 @@ export async function decryptKey(): Promise<string> {
 
   try {
     const stored = JSON.parse(raw) as WalletData
-    const key = deriveKey()
+    const salt = Buffer.from(stored.salt, 'hex')
+    const key = deriveKey(salt)
     const iv = Buffer.from(stored.iv, 'hex')
     const tag = Buffer.from(stored.tag, 'hex')
     const encrypted = Buffer.from(stored.data, 'hex')
