@@ -488,11 +488,17 @@ program
               process.exit(1)
             }
           }
-          // 5. Run
+          // 5. Validate --from value
+          const fromN = parseInt(opts.from, 10)
+          if (isNaN(fromN) || fromN < 1) {
+            console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`)
+            process.exit(1)
+          }
+          // 6. Run
           const { PlaybookRunner } = await import('./playbooks/runner.js')
           await PlaybookRunner.run(definition, {
             caseId:  opts.case,
-            from:    parseInt(opts.from, 10),
+            from:    fromN,
             dryRun:  opts.dryRun,
             params:  resolvedParams,
           })
