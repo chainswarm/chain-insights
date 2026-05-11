@@ -30,7 +30,11 @@ function isTimeoutError(err: unknown): boolean {
 function isPaymentError(err: unknown): boolean {
   if (!(err instanceof Error)) return false
   const msg = err.message.toLowerCase()
-  return msg.includes('insufficient') || msg.includes('402') || msg.includes('payment')
+  // Match HTTP 402 status more precisely, or x402-specific error signals
+  return msg.includes('http 402') ||
+         msg.includes('status 402') ||
+         msg.includes('payment required') ||
+         msg.includes('x402')
 }
 
 /**
