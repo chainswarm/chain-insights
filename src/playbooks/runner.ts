@@ -161,11 +161,13 @@ export const PlaybookRunner = {
             }
           } else {
             // Non-payment, non-timeout MCP error — stop and report
-            const completedCount = step.index - (startIndex + 1)
+            const completedSteps = step.index - 1 - startIndex
+            const completedMsg = completedSteps > 0
+              ? `Completed: steps ${startIndex + 1}..${step.index - 1}.`
+              : 'No steps completed before failure.'
             console.error(
               `Step ${step.index} failed: ${(err as Error).message}. ` +
-              `Completed: steps ${startIndex + 1}..${step.index - 1}. ` +
-              `Run with --from ${step.index} to resume.`
+              `${completedMsg} Run with --from ${step.index} to resume.`
             )
             throw err
           }
