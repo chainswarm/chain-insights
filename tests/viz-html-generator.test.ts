@@ -74,6 +74,22 @@ describe('generateHtml (VIZ-02) — graph.html template', () => {
     const html = generateHtml(data, 'Test Viz')
     expect(html).toContain('<canvas id="c"')
   })
+
+  it('generateHtml exposes GraphRAG layout and edge controls', async () => {
+    const { generateHtml } = await import('../src/viz/html-generator.js')
+    const { GraphData } = await import('../src/viz/graph-model.js')
+    const data = GraphData.parse(validData)
+    const html = generateHtml(data, 'Test Viz')
+
+    expect(html).toContain('data-layout="force"')
+    expect(html).toContain('>Force</button>')
+    expect(html).toContain('data-layout="tree"')
+    expect(html).toContain('>Tree</button>')
+    expect(html).toContain('data-edges="aggregated"')
+    expect(html).toContain('data-edges="individual"')
+    expect(html).not.toContain('data-layout="force" style="display:none"')
+    expect(html).not.toContain('data-layout="tree" style="display:none"')
+  })
 })
 
 describe('transformToGraphHtml (data schema mapping)', () => {

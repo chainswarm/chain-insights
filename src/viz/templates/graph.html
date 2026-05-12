@@ -163,10 +163,12 @@
 <canvas id="c"></canvas>
 <div id="open-in-browser" style="display:none"><a id="browser-link" href="#" target="_blank">Open in browser ↗</a></div>
 <div id="controls">
-  <button class="ctrl-btn layout-btn" data-layout="force" style="display:none">Force</button>
-  <button class="ctrl-btn layout-btn active" data-layout="tree" style="display:none">Tree</button>
-  <button class="ctrl-btn edge-btn active" data-edges="aggregated" style="display:none">Aggregated</button>
-  <button class="ctrl-btn edge-btn" data-edges="individual" id="individual-btn" style="display:none">Individual</button>
+  <button class="ctrl-btn layout-btn" data-layout="force" title="Gravity / force-directed layout">Force</button>
+  <button class="ctrl-btn layout-btn active" data-layout="tree">Tree</button>
+  <span style="width:1px;height:20px;background:var(--white-100);margin:0 4px"></span>
+  <button class="ctrl-btn edge-btn active" data-edges="aggregated">Aggregated</button>
+  <button class="ctrl-btn edge-btn" data-edges="individual" id="individual-btn" title="Available when transaction data is present">Individual</button>
+  <span style="width:1px;height:20px;background:var(--white-100);margin:0 4px"></span>
   <button class="ctrl-btn" id="reset-btn" title="Reset node positions">Reset</button>
 </div>
 <div id="legend"></div>
