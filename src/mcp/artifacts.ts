@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import * as z from 'zod'
 import type { InvestigatorConfig } from '../config/schema.js'
@@ -27,6 +27,11 @@ function graphPayloadSchema(graphData: unknown): string {
     : 'unknown'
 }
 
+async function ensurePrivateDirectory(dir: string): Promise<void> {
+  await mkdir(dir, { recursive: true, mode: 0o700 })
+  await chmod(dir, 0o700)
+}
+
 export async function writeGraphArtifact(
   graphData: unknown,
   config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
@@ -44,9 +49,9 @@ export async function writeGraphArtifact(
   const id = randomUUID()
   const artifactDir = path.join(config.dataDir, 'artifacts', id)
   const filePath = path.join(artifactDir, 'graph.json')
-  await mkdir(config.dataDir, { recursive: true, mode: 0o700 })
-  await mkdir(path.join(config.dataDir, 'artifacts'), { recursive: true, mode: 0o700 })
-  await mkdir(artifactDir, { recursive: true, mode: 0o700 })
+  await ensurePrivateDirectory(config.dataDir)
+  await ensurePrivateDirectory(path.join(config.dataDir, 'artifacts'))
+  await ensurePrivateDirectory(artifactDir)
   await writeFile(filePath, JSON.stringify(parsed.data, null, 2) + '\n', { mode: 0o600 })
 
   return {

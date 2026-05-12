@@ -85,4 +85,35 @@ describe('MCP graph artifact store', () => {
       serverPort: 4567,
     })).rejects.toThrow('Invalid graph payload')
   })
+
+  it('hardens existing artifact parent directories', async () => {
+    if (process.platform === 'win32') {
+      return
+    }
+
+    const { writeGraphArtifact } = await import('../src/mcp/artifacts.js')
+    const dataDir = join(fakeHome, '.chain-insights')
+    const artifactsDir = join(dataDir, 'artifacts')
+
+    await mkdir(artifactsDir, { recursive: true, mode: 0o755 })
+
+    const artifact = await writeGraphArtifact({
+      schema: 'chain-insights.graph.v1',
+      nodes: [],
+      edges: [],
+      flows: [],
+      edge_anchors: [],
+    }, {
+      dataDir,
+      serverPort: 4567,
+    })
+
+    const dataDirStat = await stat(dataDir)
+    const artifactsDirStat = await stat(artifactsDir)
+    const artifactDirStat = await stat(join(artifactsDir, artifact.id))
+
+    expect(dataDirStat.mode & 0o777).toBe(0o700)
+    expect(artifactsDirStat.mode & 0o777).toBe(0o700)
+    expect(artifactDirStat.mode & 0o777).toBe(0o700)
+  })
 })
