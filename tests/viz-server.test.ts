@@ -76,6 +76,41 @@ describe('Hono viz routes (VIZ-03)', () => {
     expect(body).toContain('<html>case test</html>')
   })
 
+  it('GET /artifacts/:artifactId/graph.json serves stored graph JSON', async () => {
+    const artifactDir = join(fakeHome, '.chain-insights', 'artifacts', 'artifact_123')
+    const graph = {
+      schema: 'chain-insights.graph.v1',
+      nodes: [{ address: '5Test' }],
+      edges: [],
+      flows: [],
+      edge_anchors: [],
+    }
+    await mkdir(artifactDir, { recursive: true })
+    await writeFile(join(artifactDir, 'graph.json'), JSON.stringify(graph))
+
+    stop = await startTestServer(14405)
+    const res = await fetch('http://127.0.0.1:14405/artifacts/artifact_123/graph.json')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('application/json')
+    expect(await res.json()).toEqual(graph)
+  })
+
+  it('GET /artifacts/:artifactId/graph.json returns 400 for invalid artifact ID', async () => {
+    stop = await startTestServer(14406)
+    const res = await fetch('http://127.0.0.1:14406/artifacts/test..attempt/graph.json')
+    expect(res.status).toBe(400)
+    const body = await res.json() as { error: string }
+    expect(body.error).toBe('Invalid artifact ID')
+  })
+
+  it('GET /artifacts/:artifactId/graph.json returns 404 for missing graph artifact', async () => {
+    stop = await startTestServer(14407)
+    const res = await fetch('http://127.0.0.1:14407/artifacts/missing/graph.json')
+    expect(res.status).toBe(404)
+    const body = await res.json() as { error: string }
+    expect(body.error).toBe('Graph artifact not found')
+  })
+
   it('GET /health still works after adding viz route', async () => {
     stop = await startTestServer(14404)
     const res = await fetch('http://127.0.0.1:14404/health')
