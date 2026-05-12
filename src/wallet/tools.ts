@@ -5,7 +5,13 @@ import { decryptKey } from './index.js'
 
 export const BASE_CHAIN_ID = 8453
 export const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as const
-export const DEFAULT_BASE_RPC_URL = 'https://base.llamarpc.com'
+export const DEFAULT_BASE_RPC_URL = 'https://mainnet.base.org'
+export const FALLBACK_BASE_RPC_URLS = [
+  DEFAULT_BASE_RPC_URL,
+  'https://base-rpc.publicnode.com',
+  'https://base.drpc.org',
+  'https://1rpc.io/base',
+] as const
 
 const USDC_ABI = [
   {
@@ -46,34 +52,39 @@ export async function getWalletAccount(): Promise<PaymentWalletAccount> {
 
 export async function getBalanceUsdc(
   address: Address | string,
-  rpcUrl = process.env['BASE_RPC_URL'] ?? DEFAULT_BASE_RPC_URL,
+  rpcUrl = process.env['BASE_RPC_URL'],
 ): Promise<string> {
-  try {
-    const client = createPublicClient({
-      chain: base,
-      transport: http(rpcUrl),
-    })
-    const balance = await client.readContract({
-      address: USDC_ADDRESS,
-      abi: USDC_ABI,
-      functionName: 'balanceOf',
-      args: [address as Address],
-    })
-    return formatUnits(balance, 6)
-  } catch {
-    return 'unknown'
+  const rpcUrls = [
+    ...(rpcUrl ? [rpcUrl] : []),
+    ...FALLBACK_BASE_RPC_URLS.filter((fallbackUrl) => fallbackUrl !== rpcUrl),
+  ]
+
+  for (const url of rpcUrls) {
+    try {
+      const client = createPublicClient({
+        chain: base,
+        transport: http(url),
+      })
+      const balance = await client.readContract({
+        address: USDC_ADDRESS,
+        abi: USDC_ABI,
+        functionName: 'balanceOf',
+        args: [address as Address],
+      })
+      return formatUnits(balance, 6)
+    } catch {
+      // Try the next public Base RPC endpoint.
+    }
   }
+
+  return 'unknown'
 }
 
 export function formatWalletBalance(address: string, balanceUsdc: string): string {
-  const capacity = balanceUsdc !== 'unknown'
-    ? `Capacity: ~${Math.floor(parseFloat(balanceUsdc) * 100)} standard tool calls`
-    : ''
   return [
     `Balance: ${balanceUsdc} USDC`,
     'Network: Base',
     `Address: ${address}`,
-    capacity,
   ].filter(Boolean).join('\n')
 }
 

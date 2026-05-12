@@ -71,7 +71,7 @@ interface TopupInfo {
   topup_url?: string;
 }
 declare function getWalletAccount(): Promise<PaymentWalletAccount>;
-declare function getBalanceUsdc(address: Address | string, rpcUrl?: string): Promise<string>;
+declare function getBalanceUsdc(address: Address | string, rpcUrl?: string | undefined): Promise<string>;
 declare function formatWalletBalance(address: string, balanceUsdc: string): string;
 declare function getWalletBalanceText(account?: PaymentWalletAccount): Promise<string>;
 declare function buildTopupInfo(address: string, topupUrl?: string): TopupInfo;

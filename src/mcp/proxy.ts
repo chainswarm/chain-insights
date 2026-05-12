@@ -11,7 +11,19 @@ import * as z from 'zod'
 import type { InvestigatorConfig } from '../config/schema.js'
 import type { McpTool } from './schema-cache.js'
 
-const LOCAL_TOOL_NAMES = new Set(['balance', 'topup', 'help'])
+const LOCAL_TOOL_NAMES = new Set([
+  'balance',
+  'topup',
+  'help',
+  'case_open',
+  'case_list',
+  'case_resume',
+  'case_add_evidence',
+  'case_verify_evidence',
+  'case_update_dossier',
+  'case_start_session',
+  'case_end_session',
+])
 const PUBLIC_GRAPHRAG_PROMPT_NAMES = new Set(['address-risk', 'track-funds'])
 const TOPUP_RESOURCE_URI = 'ui://chain-insights/topup.html'
 const GRAPH_RESOURCE_URI = 'ui://chain-insights/graph'
@@ -23,6 +35,22 @@ const GRAPH_APP_TOOL_NAMES = new Set([
 ])
 const GRAPH_ARRAY_KEYS = ['nodes', 'edges', 'flows', 'edge_anchors'] as const
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+const COMMA_SEPARATED_ADDRESS_FIELDS = new Set([
+  'addresses',
+  'trusted_addresses',
+  'untrusted_addresses',
+])
+
+const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
+  address_risk: ['address', 'network'],
+  track_funds: ['trusted_addresses', 'network'],
+  money_flows_between_exchanges: ['addresses', 'network'],
+  address_connection_risk: ['from_address', 'to_address', 'network'],
+  graph_query: ['query', 'network'],
+}
+
+type ToolInputShape = Record<string, z.ZodTypeAny>
 
 function readGraphAppHtml(): string {
   const candidates = [
@@ -74,6 +102,89 @@ function graphToolMeta(tool: McpTool): Record<string, unknown> & { ui: { resourc
   }
 }
 
+function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
+  switch (toolName) {
+    case 'address_risk':
+      return {
+        address: z.string().min(1).describe('Full blockchain address to screen'),
+        network: z.string().min(1).describe('Network to query: bittensor, ethereum, or base'),
+        compare_address: z.string().optional().describe('Optional second full address for comparison'),
+        include_attachments: z.boolean().optional().describe('Include graph app artifact metadata'),
+      }
+    case 'track_funds':
+      return {
+        trusted_addresses: z.string().min(1).describe('Comma-separated full trusted victim addresses. Min 1, max 5.'),
+        network: z.string().min(1).describe('Network to query: bittensor, ethereum, or base'),
+        untrusted_addresses: z.string().optional().describe('Comma-separated full untrusted/scammer addresses. Max 5.'),
+        include_attachments: z.boolean().optional().describe('Include graph app artifact metadata'),
+      }
+    case 'money_flows_between_exchanges':
+      return {
+        addresses: z.string().min(1).describe('Comma-separated full addresses to trace. Min 1, max 5.'),
+        network: z.string().min(1).describe('Network to query: bittensor, ethereum, or base'),
+        include_attachments: z.boolean().optional().describe('Include graph app artifact metadata'),
+      }
+    case 'address_connection_risk':
+      return {
+        from_address: z.string().min(1).describe('Full source blockchain address'),
+        to_address: z.string().min(1).describe('Full target blockchain address'),
+        network: z.string().min(1).describe('Network to query: bittensor, ethereum, or base'),
+        include_attachments: z.boolean().optional().describe('Include graph app artifact metadata'),
+      }
+    case 'graph_query':
+      return {
+        query: z.string().min(1).describe('Read-only Cypher query'),
+        network: z.string().min(1).describe('Network to query: bittensor, ethereum, or base'),
+      }
+    default:
+      return null
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isBlankArgument(value: unknown): boolean {
+  if (value === undefined || value === null) return true
+  if (typeof value === 'string') return value.trim() === ''
+  if (Array.isArray(value)) return value.length === 0 || value.every(isBlankArgument)
+  return false
+}
+
+function normalizeRemoteToolArguments(toolName: string, args: unknown): Record<string, unknown> {
+  const normalized = isRecord(args) ? { ...args } : {}
+  if (!(toolName in KNOWN_PUBLIC_TOOL_REQUIRED_ARGS)) return normalized
+
+  for (const fieldName of COMMA_SEPARATED_ADDRESS_FIELDS) {
+    const value = normalized[fieldName]
+    if (Array.isArray(value)) {
+      normalized[fieldName] = value
+        .map((entry) => String(entry).trim())
+        .filter(Boolean)
+        .join(',')
+    }
+  }
+
+  return normalized
+}
+
+function validateKnownPublicToolArguments(
+  toolName: string,
+  args: Record<string, unknown>,
+): string | null {
+  const requiredArgs = KNOWN_PUBLIC_TOOL_REQUIRED_ARGS[toolName]
+  if (!requiredArgs) return null
+
+  for (const argName of requiredArgs) {
+    if (isBlankArgument(args[argName])) {
+      return `Missing required argument: ${argName}`
+    }
+  }
+
+  return null
+}
+
 type RemoteToolResult = {
   content?: ContentBlock[]
   structuredContent?: Record<string, unknown>
@@ -108,15 +219,18 @@ function compactPromptArguments(args: PromptArgs): Record<string, string> {
   return compact
 }
 
-function promptArgumentSchema(argument: NonNullable<Prompt['arguments']>[number]) {
+function promptArgumentSchema(promptName: string, argument: NonNullable<Prompt['arguments']>[number]) {
   const schema = z.string().describe(argument.description ?? argument.name)
+  if (PUBLIC_GRAPHRAG_PROMPT_NAMES.has(promptName) && argument.name === 'network') {
+    return schema
+  }
   return argument.required === false ? schema.optional() : schema
 }
 
 function registerRemotePrompt(server: McpServer, remoteClient: Client, prompt: Prompt): void {
   const argsSchema: Record<string, z.ZodTypeAny> = {}
   for (const argument of prompt.arguments ?? []) {
-    argsSchema[argument.name] = promptArgumentSchema(argument)
+    argsSchema[argument.name] = promptArgumentSchema(prompt.name, argument)
   }
 
   server.registerPrompt(
@@ -142,12 +256,12 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
         description: 'Screen an address for AML risk, behavioral patterns, neighborhood profile, and exchange links.',
         argsSchema: {
           address: z.string().describe('Full blockchain address to screen'),
-          network: z.string().optional().describe('Network: bittensor, base, or ethereum'),
+          network: z.string().describe('Network: bittensor, base, or ethereum'),
         },
       },
       async ({ address, network }) => promptResult(
         [
-          `Use Chain Insights address_risk on ${network ?? 'bittensor'} for:`,
+          `Use Chain Insights address_risk on ${network} for:`,
           '',
           `\`${address}\``,
           '',
@@ -167,7 +281,7 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
         argsSchema: {
           trusted_addresses: z.string().describe('Victim/trusted addresses, comma-separated full addresses'),
           untrusted_addresses: z.string().optional().describe('Known scammer/untrusted addresses, comma-separated full addresses'),
-          network: z.string().optional().describe('Network: bittensor, base, or ethereum'),
+          network: z.string().describe('Network: bittensor, base, or ethereum'),
         },
       },
       async ({ trusted_addresses, untrusted_addresses, network }) => {
@@ -176,7 +290,7 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
           : ''
         return promptResult(
           [
-            `Use Chain Insights track_funds on ${network ?? 'bittensor'}.`,
+            `Use Chain Insights track_funds on ${network}.`,
             '',
             'Trusted victim addresses:',
             trusted_addresses,
@@ -196,12 +310,12 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
       description: 'Find exchange deposits, withdrawals, and bidirectional fund-flow paths for one or more addresses.',
       argsSchema: {
         addresses: z.string().describe('One or more full blockchain addresses, comma-separated'),
-        network: z.string().optional().describe('Network: bittensor, base, or ethereum'),
+        network: z.string().describe('Network: bittensor, base, or ethereum'),
       },
     },
     async ({ addresses, network }) => promptResult(
       [
-        `Use Chain Insights money_flows_between_exchanges on ${network ?? 'bittensor'} for these addresses:`,
+        `Use Chain Insights money_flows_between_exchanges on ${network} for these addresses:`,
         '',
         addresses,
         '',
@@ -217,17 +331,17 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
       title: 'Address Connection Risk',
       description: 'Assess whether two addresses are connected and whether that connection is risky.',
       argsSchema: {
-        source: z.string().describe('Full source blockchain address'),
-        target: z.string().describe('Full target blockchain address'),
-        network: z.string().optional().describe('Network: bittensor, base, or ethereum'),
+        from_address: z.string().describe('Full source blockchain address'),
+        to_address: z.string().describe('Full target blockchain address'),
+        network: z.string().describe('Network: bittensor, base, or ethereum'),
       },
     },
-    async ({ source, target, network }) => promptResult(
+    async ({ from_address, to_address, network }) => promptResult(
       [
-        `Use Chain Insights address_connection_risk on ${network ?? 'bittensor'}.`,
+        `Use Chain Insights address_connection_risk on ${network}.`,
         '',
-        `Source: \`${source}\``,
-        `Target: \`${target}\``,
+        `from_address: \`${from_address}\``,
+        `to_address: \`${to_address}\``,
         '',
         'Present the summary as-is. Do not add analysis, verdicts, or risk assessments.',
       ].join('\n'),
@@ -242,12 +356,12 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
       description: 'Run a read-only Cypher query against the Chain Insights graph database.',
       argsSchema: {
         query: z.string().describe('Read-only Cypher query'),
-        network: z.string().optional().describe('Network: bittensor, base, or ethereum'),
+        network: z.string().describe('Network: bittensor, base, or ethereum'),
       },
     },
     async ({ query, network }) => promptResult(
       [
-        `Use Chain Insights graph_query on ${network ?? 'bittensor'} with this read-only Cypher query:`,
+        `Use Chain Insights graph_query on ${network} with this read-only Cypher query:`,
         '',
         '```cypher',
         query,
@@ -267,7 +381,7 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
       argsSchema: {},
     },
     async () => promptResult(
-      'Use Chain Insights balance. Show the wallet address, network, token, balance, and capacity exactly as returned.',
+      'Use Chain Insights balance. Show the wallet address, network, token, and balance exactly as returned.',
       'Wallet balance',
     ),
   )
@@ -280,7 +394,7 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
       argsSchema: {},
     },
     async () => promptResult(
-      'Use Chain Insights topup. Open the wallet top-up app if the MCP client supports apps, and show the top-up URL and wallet address.',
+      'Use Chain Insights topup. Show the top-up URL and wallet address.',
       'Wallet top-up',
     ),
   )
@@ -289,12 +403,72 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
     'help',
     {
       title: 'Chain Insights Help',
-      description: 'Show available Chain Insights tools and getting-started commands.',
+      description: 'Show available Chain Insights tools and investigation case workflow.',
       argsSchema: {},
     },
     async () => promptResult(
-      'Use Chain Insights help. Summarize the available local and remote tools without inventing capabilities.',
+      'Use Chain Insights help. Summarize the available tools and investigation case workflow without inventing capabilities.',
       'Chain Insights help',
+    ),
+  )
+
+  server.registerPrompt(
+    'open-investigation-case',
+    {
+      title: 'Open Investigation Case',
+      description: 'Create a local Chain Insights case for an investigation.',
+      argsSchema: {
+        name: z.string().describe('Case name'),
+        tags: z.string().optional().describe('Comma-separated tags'),
+        description: z.string().optional().describe('Brief investigation description'),
+      },
+    },
+    async ({ name, tags, description }) => promptResult(
+      [
+        'Use Chain Insights case_open to create a local investigation case.',
+        '',
+        `name: \`${name}\``,
+        tags ? `tags: \`${tags}\`` : '',
+        description ? `description: ${description}` : '',
+      ].filter(Boolean).join('\n'),
+      'Open investigation case',
+    ),
+  )
+
+  server.registerPrompt(
+    'resume-investigation-case',
+    {
+      title: 'Resume Investigation Case',
+      description: 'Load local Chain Insights case context, evidence count, dossiers, and latest session.',
+      argsSchema: {
+        case_id: z.string().describe('Chain Insights case ID'),
+      },
+    },
+    async ({ case_id }) => promptResult(
+      `Use Chain Insights case_resume for case_id: \`${case_id}\`. Continue from the returned context.`,
+      'Resume investigation case',
+    ),
+  )
+
+  server.registerPrompt(
+    'save-investigation-evidence',
+    {
+      title: 'Save Investigation Evidence',
+      description: 'Append a tool result or analyst note to a local Chain Insights case evidence manifest.',
+      argsSchema: {
+        case_id: z.string().describe('Chain Insights case ID'),
+        source: z.string().describe('Tool or source name'),
+      },
+    },
+    async ({ case_id, source }) => promptResult(
+      [
+        'Use Chain Insights case_add_evidence after the next relevant tool result.',
+        '',
+        `case_id: \`${case_id}\``,
+        `source: \`${source}\``,
+        'content: use the exact report or note that should become evidence.',
+      ].join('\n'),
+      'Save investigation evidence',
     ),
   )
 }
@@ -467,6 +641,27 @@ export async function createProxy(): Promise<void> {
     return topupState
   }
 
+  const initCasesDb = async (): Promise<void> => {
+    const { getDb, initSchema } = await import('../db/init.js')
+    const conn = await getDb()
+    try {
+      await initSchema(conn)
+    } finally {
+      conn.closeSync()
+    }
+  }
+
+  const caseToolError = (label: string, err: unknown) => ({
+    content: [{ type: 'text' as const, text: `${label} failed: ${(err as Error).message}` }],
+    isError: true,
+  })
+
+  const parseTags = (tags: string | string[] | undefined): string[] => {
+    if (Array.isArray(tags)) return tags.map((tag) => tag.trim()).filter(Boolean)
+    if (typeof tags === 'string') return tags.split(',').map((tag) => tag.trim()).filter(Boolean)
+    return []
+  }
+
   server.registerTool(
     'balance',
     {
@@ -495,7 +690,7 @@ export async function createProxy(): Promise<void> {
     'Chain Insights Wallet Topup',
     TOPUP_RESOURCE_URI,
     {
-      description: 'Chain Insights wallet funding page with QR code and MetaMask link',
+      description: 'Chain Insights wallet funding page with QR code and copyable address',
     },
     async () => {
       const { address, url } = await getTopupState()
@@ -542,7 +737,7 @@ export async function createProxy(): Promise<void> {
     server,
     'topup',
     {
-      description: 'Fund your Chain Insights wallet with USDC via MetaMask. Does NOT check balance.',
+      description: 'Open the local Chain Insights wallet funding page for Base USDC.',
       _meta: {
         ui: {
           resourceUri: TOPUP_RESOURCE_URI,
@@ -559,7 +754,7 @@ export async function createProxy(): Promise<void> {
               text: JSON.stringify({
                 wallet_address: address,
                 topup_url: url,
-                message: `Open ${url} in your browser to send USDC via MetaMask.`,
+                message: `Open ${url} in your browser to fund the Chain Insights wallet with Base USDC.`,
               }, null, 2),
             },
           ],
@@ -575,9 +770,268 @@ export async function createProxy(): Promise<void> {
   )
 
   server.registerTool(
+    'case_open',
+    {
+      description: 'Create a local Chain Insights investigation case. Use this before saving evidence, dossiers, or session notes for a new investigation.',
+      inputSchema: {
+        name: z.string().min(1).describe('Case name'),
+        tags: z.union([z.string(), z.array(z.string())]).optional().describe('Comma-separated tags or string array'),
+        description: z.string().optional().describe('Brief investigation description'),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ name, tags, description }) => {
+      try {
+        await initCasesDb()
+        const { CaseStore } = await import('../cases/index.js')
+        const created = await CaseStore.create({
+          name,
+          tags: parseTags(tags),
+          description: description ?? '',
+        })
+        return {
+          content: [{
+            type: 'text' as const,
+            text: JSON.stringify({
+              case_id: created.id,
+              name: created.name,
+              status: created.status,
+              tags: created.tags,
+              directory: `~/.chain-insights/cases/${created.id}/`,
+            }, null, 2),
+          }],
+          isError: false,
+        }
+      } catch (err) {
+        return caseToolError('Case open', err)
+      }
+    },
+  )
+
+  server.registerTool(
+    'case_list',
+    {
+      description: 'List local Chain Insights investigation cases. Use before resuming when the user does not provide a case ID.',
+      inputSchema: {
+        status: z.enum(['open', 'active', 'suspended', 'closed']).optional().describe('Optional status filter'),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ status }) => {
+      try {
+        await initCasesDb()
+        const { CaseStore } = await import('../cases/index.js')
+        const cases = await CaseStore.list()
+        const filtered = status ? cases.filter((entry) => entry.status === status) : cases
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify({ cases: filtered }, null, 2) }],
+          isError: false,
+        }
+      } catch (err) {
+        return caseToolError('Case list', err)
+      }
+    },
+  )
+
+  server.registerTool(
+    'case_resume',
+    {
+      description: 'Load local Chain Insights case context: metadata, evidence count, dossier summaries, and latest session notes.',
+      inputSchema: {
+        case_id: z.string().min(1).describe('Chain Insights case ID'),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ case_id }) => {
+      try {
+        await initCasesDb()
+        const { CaseStore } = await import('../cases/index.js')
+        const context = await CaseStore.loadContext(case_id)
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify(context, null, 2) }],
+          isError: false,
+        }
+      } catch (err) {
+        return caseToolError('Case resume', err)
+      }
+    },
+  )
+
+  server.registerTool(
+    'case_add_evidence',
+    {
+      description: 'Append a tool result or analyst note to a local case evidence manifest. Use after address_risk, track_funds, graph_query, or manual findings that should be preserved.',
+      inputSchema: {
+        case_id: z.string().min(1).describe('Chain Insights case ID'),
+        source: z.string().min(1).describe('Source tool or evidence origin'),
+        content: z.string().min(1).describe('Evidence markdown/text to store'),
+        query_params: z.string().optional().describe('Original query parameters, for example "network=bittensor address=..."'),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ case_id, source, content, query_params }) => {
+      try {
+        const { EvidenceStore } = await import('../cases/index.js')
+        const saved = await EvidenceStore.append(case_id, {
+          source,
+          content,
+          queryParams: query_params ?? '',
+        })
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify(saved, null, 2) }],
+          isError: false,
+        }
+      } catch (err) {
+        return caseToolError('Evidence append', err)
+      }
+    },
+  )
+
+  server.registerTool(
+    'case_verify_evidence',
+    {
+      description: 'Verify a local case evidence manifest and report tampered or missing evidence files.',
+      inputSchema: {
+        case_id: z.string().min(1).describe('Chain Insights case ID'),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ case_id }) => {
+      try {
+        const { EvidenceStore } = await import('../cases/index.js')
+        const result = await EvidenceStore.verifyManifest(case_id)
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+          isError: false,
+        }
+      } catch (err) {
+        return caseToolError('Evidence verify', err)
+      }
+    },
+  )
+
+  server.registerTool(
+    'case_update_dossier',
+    {
+      description: 'Append a finding to an address/entity dossier inside a local Chain Insights case.',
+      inputSchema: {
+        case_id: z.string().min(1).describe('Chain Insights case ID'),
+        address: z.string().min(1).describe('Full address or entity identifier'),
+        finding: z.string().min(1).describe('Finding to append'),
+        entity_type: z.enum(['eoa', 'contract', 'exchange', 'mixer', 'unknown']).optional().describe('Entity type'),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ case_id, address, finding, entity_type }) => {
+      try {
+        const { DossierStore } = await import('../cases/index.js')
+        await DossierStore.appendFinding(case_id, address, finding, entity_type ?? 'unknown')
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify({ case_id, address, updated: true }, null, 2) }],
+          isError: false,
+        }
+      } catch (err) {
+        return caseToolError('Dossier update', err)
+      }
+    },
+  )
+
+  server.registerTool(
+    'case_start_session',
+    {
+      description: 'Start a local investigation session file for a Chain Insights case.',
+      inputSchema: {
+        case_id: z.string().min(1).describe('Chain Insights case ID'),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ case_id }) => {
+      try {
+        const { SessionStore } = await import('../cases/index.js')
+        const session = await SessionStore.start(case_id)
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify(session, null, 2) }],
+          isError: false,
+        }
+      } catch (err) {
+        return caseToolError('Session start', err)
+      }
+    },
+  )
+
+  server.registerTool(
+    'case_end_session',
+    {
+      description: 'End the latest local investigation session for a Chain Insights case with findings and next steps.',
+      inputSchema: {
+        case_id: z.string().min(1).describe('Chain Insights case ID'),
+        findings: z.string().optional().describe('Key findings from this session'),
+        next_steps: z.string().optional().describe('Next investigation steps'),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ case_id, findings, next_steps }) => {
+      try {
+        const { SessionStore } = await import('../cases/index.js')
+        await SessionStore.end(case_id, {
+          findings: findings ?? '',
+          nextSteps: next_steps ?? '',
+        })
+        await SessionStore.archiveOldSessions(case_id)
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify({ case_id, ended: true }, null, 2) }],
+          isError: false,
+        }
+      } catch (err) {
+        return caseToolError('Session end', err)
+      }
+    },
+  )
+
+  server.registerTool(
     'help',
     {
-      description: 'Show Chain Insights overview, available local tools, and getting-started commands.',
+      description: 'Show Chain Insights overview, available tools, and investigation workflow.',
       inputSchema: z.object({}).passthrough(),
     },
     async () => ({
@@ -585,21 +1039,28 @@ export async function createProxy(): Promise<void> {
         {
           type: 'text' as const,
           text: [
-            'Chain Insights - local AML investigation toolkit for AI agents.',
+            'Chain Insights AML investigation workspace for AI agents.',
             '',
-            'Remote GraphRAG tools are proxied from the configured MCP endpoint.',
-            'Known public GraphRAG tools include address_risk, track_funds, money_flows_between_exchanges, address_connection_risk, and graph_query.',
+            'Investigation tools:',
+            '- address_risk: screen a full address for AML risk, behavior, neighborhood, and exchange exposure.',
+            '- track_funds: trace victim funds through intermediaries to exchange deposit addresses.',
+            '- money_flows_between_exchanges: inspect exchange deposits and withdrawals for addresses.',
+            '- address_connection_risk: assess whether from_address and to_address are connected through risky paths.',
+            '- graph_query: run read-only Cypher against the investigation graph.',
             '',
-            'Local tools:',
-            '- balance: show the encrypted local payment wallet address and Base USDC balance.',
-            '- topup: start a local browser page for funding the payment wallet with Base USDC.',
+            'Case workflow tools:',
+            '- case_open: create a local case before preserving evidence.',
+            '- case_list: list local cases.',
+            '- case_resume: load case context, evidence count, dossiers, and latest session.',
+            '- case_add_evidence: append a report or note to the case evidence manifest.',
+            '- case_verify_evidence: verify saved evidence integrity.',
+            '- case_update_dossier: add a finding to an address/entity dossier.',
+            '- case_start_session and case_end_session: record session notes.',
+            '',
+            'Wallet tools:',
+            '- balance: show the local payment wallet address and Base USDC balance.',
+            '- topup: open the local wallet funding page for Base USDC.',
             '- help: show this overview.',
-            '',
-            'Useful CLI commands:',
-            '- chain-insights mcp tools --refresh',
-            '- chain-insights wallet balance',
-            '- chain-insights wallet topup',
-            '- chain-insights playbook list',
           ].join('\n'),
         },
       ],
@@ -610,11 +1071,20 @@ export async function createProxy(): Promise<void> {
   // Register each remote tool locally — passthrough proxy pattern
   for (const tool of tools ?? []) {
     if (LOCAL_TOOL_NAMES.has(tool.name)) continue
+    const inputSchema = knownPublicToolInputSchema(tool.name) ?? z.object({}).passthrough()
     const handler = async (args: unknown) => {
       try {
+        const normalizedArgs = normalizeRemoteToolArguments(tool.name, args)
+        const validationError = validateKnownPublicToolArguments(tool.name, normalizedArgs)
+        if (validationError) {
+          return {
+            content: [{ type: 'text' as const, text: validationError }],
+            isError: true,
+          }
+        }
         const result = await remoteClient.callTool({
           name: tool.name,
-          arguments: args as Record<string, unknown>,
+          arguments: normalizedArgs,
         })
         return await normalizeRemoteToolResult(result as RemoteToolResult, config)
       } catch (err) {
@@ -627,7 +1097,7 @@ export async function createProxy(): Promise<void> {
     const toolConfig = {
       title: tool.title,
       description: tool.description ?? tool.name,
-      inputSchema: z.object({}).passthrough(),
+      inputSchema,
     }
 
     if (hasGraphApp(tool)) {

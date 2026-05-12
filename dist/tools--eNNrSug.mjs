@@ -7,6 +7,7 @@ import { privateKeyToAccount } from "viem/accounts";
 var tools_exports = /* @__PURE__ */ __exportAll({
 	BASE_CHAIN_ID: () => BASE_CHAIN_ID,
 	DEFAULT_BASE_RPC_URL: () => DEFAULT_BASE_RPC_URL,
+	FALLBACK_BASE_RPC_URLS: () => FALLBACK_BASE_RPC_URLS,
 	USDC_ADDRESS: () => USDC_ADDRESS,
 	buildTopupInfo: () => buildTopupInfo,
 	formatWalletBalance: () => formatWalletBalance,
@@ -16,7 +17,13 @@ var tools_exports = /* @__PURE__ */ __exportAll({
 });
 const BASE_CHAIN_ID = 8453;
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-const DEFAULT_BASE_RPC_URL = "https://base.llamarpc.com";
+const DEFAULT_BASE_RPC_URL = "https://mainnet.base.org";
+const FALLBACK_BASE_RPC_URLS = [
+	DEFAULT_BASE_RPC_URL,
+	"https://base-rpc.publicnode.com",
+	"https://base.drpc.org",
+	"https://1rpc.io/base"
+];
 const USDC_ABI = [{
 	type: "function",
 	name: "balanceOf",
@@ -41,28 +48,26 @@ async function getWalletAccount() {
 		privateKey
 	};
 }
-async function getBalanceUsdc(address, rpcUrl = process.env["BASE_RPC_URL"] ?? "https://base.llamarpc.com") {
-	try {
+async function getBalanceUsdc(address, rpcUrl = process.env["BASE_RPC_URL"]) {
+	const rpcUrls = [...rpcUrl ? [rpcUrl] : [], ...FALLBACK_BASE_RPC_URLS.filter((fallbackUrl) => fallbackUrl !== rpcUrl)];
+	for (const url of rpcUrls) try {
 		return formatUnits(await createPublicClient({
 			chain: base,
-			transport: http(rpcUrl)
+			transport: http(url)
 		}).readContract({
 			address: USDC_ADDRESS,
 			abi: USDC_ABI,
 			functionName: "balanceOf",
 			args: [address]
 		}), 6);
-	} catch {
-		return "unknown";
-	}
+	} catch {}
+	return "unknown";
 }
 function formatWalletBalance(address, balanceUsdc) {
-	const capacity = balanceUsdc !== "unknown" ? `Capacity: ~${Math.floor(parseFloat(balanceUsdc) * 100)} standard tool calls` : "";
 	return [
 		`Balance: ${balanceUsdc} USDC`,
 		"Network: Base",
-		`Address: ${address}`,
-		capacity
+		`Address: ${address}`
 	].filter(Boolean).join("\n");
 }
 async function getWalletBalanceText(account) {
@@ -83,4 +88,4 @@ function buildTopupInfo(address, topupUrl) {
 //#endregion
 export { getWalletBalanceText as a, getWalletAccount as i, formatWalletBalance as n, tools_exports as o, getBalanceUsdc as r, buildTopupInfo as t };
 
-//# sourceMappingURL=tools-BcPMw4c6.mjs.map
+//# sourceMappingURL=tools--eNNrSug.mjs.map

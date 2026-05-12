@@ -178,6 +178,12 @@ function generateQrSvg(text, opts = 4) {
 //#endregion
 //#region src/wallet/mcp-proxy/tools.ts
 const USDC_ADDRESS$1 = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+const FALLBACK_BASE_RPC_URLS = [
+	"https://mainnet.base.org",
+	"https://base-rpc.publicnode.com",
+	"https://base.drpc.org",
+	"https://1rpc.io/base"
+];
 const USDC_ABI = [{
 	name: "balanceOf",
 	type: "function",
@@ -192,19 +198,20 @@ const USDC_ABI = [{
 	}]
 }];
 async function getBalanceUsdc(wallet) {
-	try {
+	const envRpcUrl = process.env.BASE_RPC_URL;
+	const rpcUrls = [...envRpcUrl ? [envRpcUrl] : [], ...FALLBACK_BASE_RPC_URLS.filter((url) => url !== envRpcUrl)];
+	for (const rpcUrl of rpcUrls) try {
 		return (0, viem.formatUnits)(await (0, viem.createPublicClient)({
 			chain: viem_chains.base,
-			transport: (0, viem.http)(process.env.BASE_RPC_URL ?? "https://base.llamarpc.com")
+			transport: (0, viem.http)(rpcUrl)
 		}).readContract({
 			address: USDC_ADDRESS$1,
 			abi: USDC_ABI,
 			functionName: "balanceOf",
 			args: [wallet.address]
 		}), 6);
-	} catch {
-		return "unknown";
-	}
+	} catch {}
+	return "unknown";
 }
 //#endregion
 //#region src/wallet/mcp-proxy/topup-server.ts
@@ -378,7 +385,6 @@ function generateArtifactHtml(walletAddress, topupUrl) {
   </div>
   <div class="badge"><span class="dot"></span>Base Network &middot; USDC</div>
   <p class="balance-line" id="balLine">Current balance: <span class="amount" id="bal">--</span> USDC<br>Fund your wallet to use blockchain intelligence tools.</p>
-  <p class="hint">$1.00 USDC = ~100 tool calls.</p>
 </div>
 <script>
 // MCP Apps protocol handshake (matches @modelcontextprotocol/ext-apps App.connect())
@@ -716,34 +722,10 @@ function generatePage(walletAddress) {
       <span class="balance-value" id="balance">—<span class="currency">USDC</span></span>
     </div>
 
-    <label class="amount-label">Amount (USDC)</label>
-    <input type="number" class="amount-input" id="amount" value="1" min="0.01" step="0.01" placeholder="1.00">
-
-    <button class="metamask-btn" id="sendBtn" onclick="sendWithMetaMask()">
-      <svg viewBox="0 0 35 33" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M32.96 1L19.7 10.89l2.45-5.81L32.96 1z" fill="#E17726" stroke="#E17726" stroke-width=".25"/>
-        <path d="M2.66 1l13.11 9.98-2.3-5.9L2.66 1zM28.23 23.53l-3.52 5.39 7.53 2.07 2.16-7.33-6.17-.13zM.98 23.66l2.15 7.33 7.52-2.07-3.52-5.39-6.15.13z" fill="#E27625" stroke="#E27625" stroke-width=".25"/>
-        <path d="M10.28 14.51l-2.1 3.18 7.49.34-.26-8.07-5.13 4.55zM25.34 14.51l-5.2-4.64-.17 8.16 7.48-.34-2.11-3.18zM10.65 28.92l4.5-2.19-3.89-3.03-.61 5.22zM20.47 26.73l4.5 2.19-.62-5.22-3.88 3.03z" fill="#E27625" stroke="#E27625" stroke-width=".25"/>
-        <path d="M24.97 28.92l-4.5-2.19.36 2.94-.04 1.24 4.18-1.99zM10.65 28.92l4.18 1.99-.03-1.24.35-2.94-4.5 2.19z" fill="#D5BFB2" stroke="#D5BFB2" stroke-width=".25"/>
-        <path d="M14.91 21.84l-3.75-1.1 2.65-1.22 1.1 2.32zM20.71 21.84l1.1-2.32 2.66 1.22-3.76 1.1z" fill="#233447" stroke="#233447" stroke-width=".25"/>
-        <path d="M10.65 28.92l.64-5.39-4.16.13 3.52 5.26zM24.33 23.53l.64 5.39 3.52-5.26-4.16-.13zM27.45 17.69l-7.48.34.7 3.81 1.1-2.32 2.66 1.22 3.02-3.05zM11.16 20.74l2.65-1.22 1.1 2.32.7-3.81-7.49-.34 3.04 3.05z" fill="#CC6228" stroke="#CC6228" stroke-width=".25"/>
-        <path d="M8.12 17.69l3.15 6.13-.11-3.08-3.04-3.05zM24.43 20.74l-.12 3.08 3.14-6.13-3.02 3.05zM15.61 18.03l-.7 3.81.87 4.52.2-5.96-.37-2.37zM19.97 18.03l-.36 2.36.18 5.97.88-4.52-.7-3.81z" fill="#E27525" stroke="#E27525" stroke-width=".25"/>
-        <path d="M20.67 21.84l-.88 4.52.63.44 3.88-3.03.12-3.08-3.75 1.15zM11.16 20.74l.11 3.03 3.89 3.03.63-.44-.88-4.52-3.75-1.1z" fill="#F5841F" stroke="#F5841F" stroke-width=".25"/>
-        <path d="M20.75 30.91l.04-1.24-.34-.29h-5.28l-.33.29.03 1.24-4.18-1.99 1.46 1.2 2.96 2.04h5.36l2.97-2.04 1.46-1.2-4.15 1.99z" fill="#C0AC9D" stroke="#C0AC9D" stroke-width=".25"/>
-        <path d="M20.47 26.73l-.63-.44h-3.67l-.63.44-.35 2.94.33-.29h5.28l.34.29-.67-2.94z" fill="#161616" stroke="#161616" stroke-width=".25"/>
-        <path d="M33.52 11.35l1.12-5.44L32.96 1l-12.5 9.26 4.81 4.07 6.79 1.98 1.5-1.75-.65-.47 1.04-.94-.8-.62 1.04-.79-.68-.52zM.98 5.91l1.13 5.44-.72.53 1.04.79-.8.62 1.04.94-.65.47 1.49 1.75 6.8-1.98 4.8-4.07L2.66 1 .98 5.91z" fill="#763E1A" stroke="#763E1A" stroke-width=".25"/>
-        <path d="M32.06 16.87l-6.79-1.98 2.06 3.18-3.14 6.13 4.14-.05h6.17l-2.44-7.28zM10.28 14.89l-6.8 1.98-2.27 7.28h6.17l4.13.05-3.14-6.13 1.91-3.18zM19.97 18.03l.43-7.51 1.97-5.32h-8.74l1.96 5.32.44 7.51.16 2.38.02 5.95h3.67l.01-5.95.08-2.38z" fill="#F5841F" stroke="#F5841F" stroke-width=".25"/>
-      </svg>
-      Send with MetaMask
-    </button>
-
     <div class="status" id="status"></div>
   </div>
 
-  <p class="info">
-    Each tool call costs $0.01 &ndash; $0.05 USDC<br>
-    $1.00 is enough for ~100 standard calls
-  </p>
+  <p class="info">Send Base USDC to the wallet address above.</p>
 </div>
 
 <script>
@@ -788,20 +770,10 @@ function copyAddress() {
 // Fetch balance
 async function fetchBalance() {
   try {
-    var resp = await fetch('https://base.llamarpc.com', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0', id: 1, method: 'eth_call',
-        params: [{
-          to: USDC,
-          data: '0x70a08231000000000000000000000000' + WALLET.slice(2).toLowerCase()
-        }, 'latest']
-      })
-    });
+    var resp = await fetch('/api/balance');
     var json = await resp.json();
-    var raw = BigInt(json.result || '0x0');
-    var balance = (Number(raw) / 1e6).toFixed(2);
+    if (json.balance_usdc === 'unknown') throw new Error('balance unavailable');
+    var balance = Number(json.balance_usdc || 0).toFixed(2);
     document.getElementById('balance').innerHTML = balance + '<span class="currency">USDC</span>';
   } catch(e) {
     document.getElementById('balance').innerHTML = '—<span class="currency">USDC</span>';
@@ -810,76 +782,6 @@ async function fetchBalance() {
 fetchBalance();
 setInterval(fetchBalance, 15000);
 
-// MetaMask
-function setStatus(msg, type) {
-  var el = document.getElementById('status');
-  el.textContent = msg;
-  el.className = 'status ' + type;
-}
-
-async function sendWithMetaMask() {
-  if (!window.ethereum) {
-    setStatus('MetaMask not found. Install it or send USDC manually to the address above.', 'error');
-    return;
-  }
-
-  var btn = document.getElementById('sendBtn');
-  btn.disabled = true;
-
-  try {
-    var accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-
-    // Switch to Base
-    try {
-      await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_ID }] });
-    } catch (switchErr) {
-      if (switchErr.code === 4902) {
-        await window.ethereum.request({
-          method: 'wallet_addEthereumChain',
-          params: [{
-            chainId: CHAIN_ID,
-            chainName: 'Base',
-            nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-            rpcUrls: ['https://mainnet.base.org'],
-            blockExplorerUrls: ['https://basescan.org']
-          }]
-        });
-      } else { throw switchErr; }
-    }
-
-    var amount = parseFloat(document.getElementById('amount').value);
-    if (isNaN(amount) || amount <= 0) { setStatus('Enter a valid amount', 'error'); btn.disabled = false; return; }
-
-    // USDC has 6 decimals
-    var rawAmount = BigInt(Math.round(amount * 1e6));
-    var amountHex = '0x' + rawAmount.toString(16).padStart(64, '0');
-    var toHex = '000000000000000000000000' + WALLET.slice(2).toLowerCase();
-    var data = '0xa9059cbb' + toHex + amountHex;
-
-    setStatus('Confirm the transaction in MetaMask...', 'pending');
-
-    var txHash = await window.ethereum.request({
-      method: 'eth_sendTransaction',
-      params: [{
-        from: accounts[0],
-        to: USDC,
-        data: data,
-      }]
-    });
-
-    setStatus('Transaction sent! ' + txHash.slice(0, 10) + '...', 'success');
-    setTimeout(fetchBalance, 5000);
-
-  } catch (err) {
-    if (err.code === 4001) {
-      setStatus('Transaction cancelled', 'error');
-    } else {
-      setStatus('Error: ' + (err.message || err), 'error');
-    }
-  }
-
-  btn.disabled = false;
-}
 <\/script>
 </body>
 </html>`;

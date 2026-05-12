@@ -147,10 +147,10 @@ Supported config keys:
 Optional environment variable:
 
 ```bash
-BASE_RPC_URL=https://base.llamarpc.com
+BASE_RPC_URL=https://mainnet.base.org
 ```
 
-`BASE_RPC_URL` is used by wallet balance and top-up balance refresh. If unset, the toolkit uses `https://base.llamarpc.com`.
+`BASE_RPC_URL` is used by wallet balance and top-up balance refresh. If unset, the toolkit tries public Base RPC endpoints starting with `https://mainnet.base.org`.
 
 ## GraphRAG MCP Usage
 
@@ -237,17 +237,25 @@ Machine-readable output:
 chain-insights wallet topup --json --no-open
 ```
 
-The top-up page binds to `127.0.0.1` on a random local port, displays the payment wallet address, QR code, current Base USDC balance, and includes the MetaMask-compatible USDC transfer flow from the existing `infra/mcp-proxy` wallet surface. It sends Base USDC to the Chain Insights payment wallet; it does not request or store browser wallet private keys.
+The top-up page binds to `127.0.0.1` on a random local port and displays the payment wallet address, QR code, and current Base USDC balance. It does not request or store browser wallet private keys.
 
-The local MCP proxy also exposes:
+The Chain Insights MCP server also exposes local tools:
 
 | Local Tool | Meaning |
 | --- | --- |
 | `balance` | Return local Chain Insights wallet address and Base USDC balance |
 | `topup` | Start the local browser top-up server and return the URL |
-| `help` | Explain Chain Insights, remote GraphRAG tools, and local wallet commands |
+| `case_open` | Create a local investigation case |
+| `case_list` | List local investigation cases |
+| `case_resume` | Load case context, evidence count, dossiers, and latest session |
+| `case_add_evidence` | Append a report or note to the case evidence manifest |
+| `case_verify_evidence` | Verify saved evidence integrity |
+| `case_update_dossier` | Append a finding to an address/entity dossier |
+| `case_start_session` | Start a local investigation session |
+| `case_end_session` | End a session with findings and next steps |
+| `help` | Show the Claude-facing Chain Insights tool surface |
 
-These local tools are available through `chain-insights-mcp-proxy`, not through the remote GraphRAG endpoint.
+These local tools are available to Claude Desktop and other MCP clients through the Chain Insights MCP server.
 
 ## Cases, Evidence, Dossiers, and Sessions
 
@@ -373,8 +381,8 @@ The proxy:
 - Connects to the configured remote GraphRAG MCP endpoint.
 - Uses debug bearer auth or x402 payment auth according to local config.
 - Caches remote tool schemas for 24 hours.
-- Re-exposes remote GraphRAG tools.
-- Adds local `balance` and `topup` tools for wallet operations.
+- Exposes public Chain Insights investigation tools to the local MCP client.
+- Adds local wallet and case workflow tools.
 
 The proxy also normalizes GraphRAG tool results before local agents see them:
 
@@ -464,7 +472,10 @@ Claude Desktop prompt shortcuts:
 | `graph-query` | Run a read-only Cypher query against the investigation graph |
 | `balance` | Show the local Base USDC payment wallet balance |
 | `topup` | Open the wallet top-up page |
-| `help` | Show Chain Insights tools and commands |
+| `open-investigation-case` | Create a local case |
+| `resume-investigation-case` | Load local case context |
+| `save-investigation-evidence` | Save a tool result or note as case evidence |
+| `help` | Show Chain Insights tools and case workflow |
 
 Useful Claude Desktop prompts:
 
@@ -477,12 +488,24 @@ Use Chain Insights to open the wallet top-up page.
 ```
 
 ```text
+Use Chain Insights to open an investigation case named "Exchange deposit clustering" with tags aml,bittensor.
+```
+
+```text
 Use Chain Insights to run address_risk on network bittensor for 5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6. Show the report exactly and open the graph visualization if available.
+```
+
+```text
+Use Chain Insights address_connection_risk on network bittensor with from_address 5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5 and to_address 5Df97gT4omdxrwckBKs2AekbBB66fDNA6VRKR46J2iSmJGgd.
 ```
 
 ```text
 Use Chain Insights graph_query on network bittensor with:
 MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, n.address AS address LIMIT 10
+```
+
+```text
+Use Chain Insights to save the last address_risk report as evidence in case 20260512_001_exchange-deposit-clustering.
 ```
 
 Claude Desktop should see the markdown report as tool content and render the app iframe from the tool's `ui.resourceUri`. For graph-backed tools, Chain Insights stores the raw graph payload locally and sends the iframe only a local artifact URL in `_meta.chainInsights.graph.url`.
@@ -673,12 +696,16 @@ chain-insights mcp tools --refresh
 Set a reliable Base RPC URL:
 
 ```bash
-BASE_RPC_URL=https://base.llamarpc.com chain-insights wallet balance
+BASE_RPC_URL=https://mainnet.base.org chain-insights wallet balance
 ```
 
-### Top-up page opens but MetaMask cannot send
+### Top-up page balance is unavailable
 
-Check that the browser wallet is connected, switched to Base, and has enough USDC and ETH for gas. The page sends a Base USDC ERC-20 transfer to the Chain Insights payment wallet.
+The page reads balance through the local top-up server. If it shows an unavailable balance, retry with a reliable Base RPC URL:
+
+```bash
+BASE_RPC_URL=https://base-rpc.publicnode.com chain-insights wallet topup
+```
 
 ### Playbook refuses to run because a tool is unavailable
 

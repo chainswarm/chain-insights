@@ -47,11 +47,13 @@ describe('wallet tools', () => {
 
   it('reads and formats the Base USDC balance', async () => {
     const { getBalanceUsdc } = await import('../src/wallet/tools.js')
+    const { http } = await import('viem')
     readContractMock.mockResolvedValueOnce(1_234_567n)
 
     const balance = await getBalanceUsdc('0x0000000000000000000000000000000000000001')
 
     expect(balance).toBe('1.234567')
+    expect(http).toHaveBeenCalledWith('https://mainnet.base.org')
     expect(readContractMock).toHaveBeenCalledWith(
       expect.objectContaining({
         address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
@@ -61,12 +63,27 @@ describe('wallet tools', () => {
     )
   })
 
+  it('falls back across public Base RPC endpoints before returning unknown', async () => {
+    const { getBalanceUsdc } = await import('../src/wallet/tools.js')
+    const { http } = await import('viem')
+    readContractMock
+      .mockRejectedValueOnce(new Error('forbidden'))
+      .mockResolvedValueOnce(2_000_000n)
+
+    const balance = await getBalanceUsdc('0x0000000000000000000000000000000000000001')
+
+    expect(balance).toBe('2')
+    expect(http).toHaveBeenNthCalledWith(1, 'https://mainnet.base.org')
+    expect(http).toHaveBeenNthCalledWith(2, 'https://base-rpc.publicnode.com')
+  })
+
   it('renders operator-friendly balance text', async () => {
     const { formatWalletBalance } = await import('../src/wallet/tools.js')
 
     expect(formatWalletBalance('0xabc', '2.500000')).toContain('Balance: 2.500000 USDC')
     expect(formatWalletBalance('0xabc', '2.500000')).toContain('Address: 0xabc')
-    expect(formatWalletBalance('0xabc', '2.500000')).toContain('Capacity: ~250 standard tool calls')
+    expect(formatWalletBalance('0xabc', '2.500000')).not.toContain('Capacity:')
+    expect(formatWalletBalance('0xabc', '2.500000')).not.toContain('tool calls')
   })
 
   it('builds top-up metadata for MCP and CLI output', async () => {

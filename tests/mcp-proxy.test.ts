@@ -4,6 +4,46 @@ import { join } from 'node:path'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 const testDataDir = vi.hoisted(() => `/tmp/chain-insights-mcp-proxy-test-${process.pid}`)
+const mockCase = vi.hoisted(() => ({
+  id: '20260512_001_exchange-deposit-clustering',
+  name: 'Exchange deposit clustering',
+  status: 'open',
+  created: '2026-05-12T20:00:00.000Z',
+  updated: '2026-05-12T20:00:00.000Z',
+  tags: ['aml'],
+  description: 'Claude Desktop case',
+}))
+const caseStoreCreateMock = vi.hoisted(() => vi.fn().mockResolvedValue(mockCase))
+const caseStoreListMock = vi.hoisted(() => vi.fn().mockResolvedValue([
+  { id: mockCase.id, name: mockCase.name, status: mockCase.status },
+]))
+const caseStoreLoadContextMock = vi.hoisted(() => vi.fn().mockResolvedValue({
+  case: {
+    id: mockCase.id,
+    name: mockCase.name,
+    status: mockCase.status,
+    created: mockCase.created,
+    updated: mockCase.updated,
+    tags: mockCase.tags,
+  },
+  lastSession: null,
+  dossierSummaries: [],
+  evidenceCount: 0,
+}))
+const evidenceAppendMock = vi.hoisted(() => vi.fn().mockResolvedValue({
+  filename: '001_address_risk_20260512T200000.md',
+  sha256: 'abc123',
+}))
+const evidenceVerifyMock = vi.hoisted(() => vi.fn().mockResolvedValue({ ok: true, count: 1 }))
+const dossierAppendFindingMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+const sessionStartMock = vi.hoisted(() => vi.fn().mockResolvedValue({
+  sessionId: `${mockCase.id}_s001`,
+  caseId: mockCase.id,
+  startTime: '2026-05-12T20:00:00.000Z',
+  status: 'active',
+}))
+const sessionEndMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+const sessionArchiveOldMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 
 // Mock all external dependencies before importing proxy
 vi.mock('../src/config/index.js', () => ({
@@ -29,7 +69,6 @@ vi.mock('../src/wallet/tools.js', () => ({
     'Balance: 4.200000 USDC',
     'Network: Base',
     'Address: 0x0000000000000000000000000000000000000001',
-    'Capacity: ~420 standard tool calls',
   ].join('\n')),
 }))
 
@@ -52,6 +91,31 @@ vi.mock('../src/mcp/client.js', () => ({
 vi.mock('../src/mcp/schema-cache.js', () => ({
   loadSchema: vi.fn().mockResolvedValue(null), // default: cache miss
   saveSchema: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('../src/db/init.js', () => ({
+  getDb: vi.fn().mockResolvedValue({ closeSync: vi.fn() }),
+  initSchema: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('../src/cases/index.js', () => ({
+  CaseStore: {
+    create: caseStoreCreateMock,
+    list: caseStoreListMock,
+    loadContext: caseStoreLoadContextMock,
+  },
+  EvidenceStore: {
+    append: evidenceAppendMock,
+    verifyManifest: evidenceVerifyMock,
+  },
+  DossierStore: {
+    appendFinding: dossierAppendFindingMock,
+  },
+  SessionStore: {
+    start: sessionStartMock,
+    end: sessionEndMock,
+    archiveOldSessions: sessionArchiveOldMock,
+  },
 }))
 
 vi.mock('@modelcontextprotocol/sdk/server/mcp.js', () => {
@@ -155,6 +219,17 @@ function findToolHandler(
     throw new Error(`Tool was not registered: ${name}`)
   }
   return call[2] as Function
+}
+
+function findToolConfig(
+  serverInstance: { registerTool: ReturnType<typeof vi.fn> },
+  name: string,
+): Record<string, unknown> {
+  const call = serverInstance.registerTool.mock.calls.find((entry) => entry[0] === name)
+  if (!call) {
+    throw new Error(`Tool was not registered: ${name}`)
+  }
+  return call[1] as Record<string, unknown>
 }
 
 function findPromptHandler(
@@ -335,6 +410,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.isError).toBe(false)
     expect(result.content[0].text).toContain('http://127.0.0.1:4500')
     expect(result.content[0].text).toContain('0x0000000000000000000000000000000000000001')
+    expect(result.content[0].text).not.toContain('MetaMask')
+    expect(result.content[0].text).not.toContain('tool calls')
   })
 
   it('registers topup as an MCP Apps tool/resource using the copied component', async () => {
@@ -429,7 +506,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.contents[0].text).toContain('data:image/png;base64')
   })
 
-  it('exposes GraphRAG public prompts and product prompts for public Chain Insights tools', async () => {
+  it('exposes public investigation prompts for Chain Insights tools and cases', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)
 
@@ -458,8 +535,16 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       'balance',
       'topup',
       'help',
+      'open-investigation-case',
+      'resume-investigation-case',
+      'save-investigation-evidence',
     ]))
     expect(promptNames).not.toContain('address-poisoning-funding-probe')
+
+    const addressRiskPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'address-risk')
+    const trackFundsPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'track-funds')
+    expect(addressRiskPrompt?.[1].argsSchema.network.safeParse(undefined).success).toBe(false)
+    expect(trackFundsPrompt?.[1].argsSchema.network.safeParse(undefined).success).toBe(false)
   })
 
   it('forwards GraphRAG prompt requests to the remote MCP prompt implementation', async () => {
@@ -494,6 +579,130 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       },
     })
     expect(result.messages[0].content.text).toBe('remote prompt text')
+  })
+
+  it('uses the GraphRAG address_connection_risk argument names in the Claude prompt', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerPrompt: ReturnType<typeof vi.fn>
+    }
+
+    const handler = findPromptHandler(serverInstance, 'address-connection-risk')
+    const result = await handler({
+      from_address: '5FromAddress',
+      to_address: '5ToAddress',
+      network: 'bittensor',
+    })
+    const text = result.messages[0].content.text
+
+    expect(text).toContain('from_address: `5FromAddress`')
+    expect(text).toContain('to_address: `5ToAddress`')
+    expect(text).not.toContain('Source:')
+    expect(text).not.toContain('Target:')
+  })
+
+  it('registers known public tools with required Claude-facing schemas', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      {
+        name: 'address_risk',
+        title: 'Address Risk',
+        description: 'Risk report',
+        _meta: { ui: { resourceUri: 'ui://chain-insights/graph' } },
+      },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const config = findToolConfig(serverInstance, 'address_risk')
+    const inputSchema = config.inputSchema as Record<string, unknown>
+
+    expect(inputSchema.address).toBeDefined()
+    expect(inputSchema.network).toBeDefined()
+  })
+
+  it('rejects known public tool calls with missing required arguments before remote forwarding', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      {
+        name: 'address_risk',
+        title: 'Address Risk',
+        description: 'Risk report',
+        _meta: { ui: { resourceUri: 'ui://chain-insights/graph' } },
+      },
+    ])
+
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'address_risk')
+    const result = await handler({ address: '5Addr' })
+
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text).toContain('Missing required argument: network')
+    expect(clientInstance.callTool).not.toHaveBeenCalled()
+  })
+
+  it('normalizes array address inputs for comma-separated GraphRAG tool fields', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      {
+        name: 'track_funds',
+        title: 'Track Funds',
+        description: 'Fund tracing',
+        _meta: { ui: { resourceUri: 'ui://chain-insights/graph' } },
+      },
+    ])
+
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'track_funds')
+    await handler({
+      trusted_addresses: ['5VictimA', '5VictimB'],
+      untrusted_addresses: ['5Scammer'],
+      network: 'bittensor',
+    })
+
+    expect(clientInstance.callTool).toHaveBeenCalledWith({
+      name: 'track_funds',
+      arguments: {
+        trusted_addresses: '5VictimA,5VictimB',
+        untrusted_addresses: '5Scammer',
+        network: 'bittensor',
+      },
+    })
   })
 
   it('persists remote graph _meta and returns only local artifact pointer', async () => {
@@ -846,7 +1055,52 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('Invalid remote graph payload')
   })
 
-  it('registers a local help tool that explains proxy-local tools', async () => {
+  it('registers local case workflow tools for Claude Desktop investigations', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+
+    const caseOpen = findToolHandler(serverInstance, 'case_open')
+    const openResult = await caseOpen({
+      name: 'Exchange deposit clustering',
+      tags: 'aml,exchange',
+      description: 'Claude Desktop case',
+    })
+
+    expect(openResult.isError).toBe(false)
+    expect(openResult.content[0].text).toContain(mockCase.id)
+    expect(caseStoreCreateMock).toHaveBeenCalledWith({
+      name: 'Exchange deposit clustering',
+      tags: ['aml', 'exchange'],
+      description: 'Claude Desktop case',
+    })
+
+    const addEvidence = findToolHandler(serverInstance, 'case_add_evidence')
+    const evidenceResult = await addEvidence({
+      case_id: mockCase.id,
+      source: 'address_risk',
+      content: 'Risk summary',
+      query_params: 'network=bittensor address=5Addr',
+    })
+
+    expect(evidenceResult.isError).toBe(false)
+    expect(evidenceResult.content[0].text).toContain('001_address_risk_20260512T200000.md')
+    expect(evidenceAppendMock).toHaveBeenCalledWith(mockCase.id, {
+      source: 'address_risk',
+      content: 'Risk summary',
+      queryParams: 'network=bittensor address=5Addr',
+    })
+  })
+
+  it('registers a local help tool that explains the Claude-facing product surface', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)
 
@@ -862,8 +1116,15 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const result = await handler({})
 
     expect(result.isError).toBe(false)
-    expect(result.content[0].text).toContain('Remote GraphRAG tools')
+    expect(result.content[0].text).toContain('Chain Insights AML investigation workspace')
+    expect(result.content[0].text).toContain('address_risk')
     expect(result.content[0].text).toContain('balance')
     expect(result.content[0].text).toContain('topup')
+    expect(result.content[0].text).toContain('case_open')
+    expect(result.content[0].text).toContain('case_add_evidence')
+    expect(result.content[0].text).not.toContain('GraphRAG')
+    expect(result.content[0].text).not.toContain('prox')
+    expect(result.content[0].text).not.toContain('chain-insights mcp')
+    expect(result.content[0].text).not.toContain('Useful CLI commands')
   })
 })
