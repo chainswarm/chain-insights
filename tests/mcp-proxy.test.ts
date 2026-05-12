@@ -438,6 +438,81 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(JSON.parse(raw)).toEqual(remoteGraphData)
   })
 
+  it('sanitizes structured graph data when remote graph _meta is persisted', async () => {
+    const remoteGraphData = {
+      schema: 'chain-insights.graph.v1',
+      nodes: [{ id: 'a' }],
+      edges: [{ source: 'a', target: 'b' }],
+      flows: [{ from: 'a', to: 'b' }],
+      edge_anchors: [{ edge_id: 'a-b' }],
+    }
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      {
+        name: 'address_risk',
+        title: 'Address Risk',
+        description: 'Risk report',
+        outputSchema: {
+          type: 'object',
+          properties: { schema: { type: 'string' }, facts: { type: 'object' } },
+        },
+        _meta: { ui: { resourceUri: 'ui://chain-insights/graph' } },
+      },
+    ])
+
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool.mockResolvedValueOnce({
+      content: [{ type: 'text', text: '## Risk Report' }],
+      structuredContent: {
+        schema: 'chain-insights.result.v1',
+        tool: 'address_risk',
+        hint: 'review graph artifact',
+        facts: { risk: { level: 'critical' } },
+        app_data: remoteGraphData,
+        nodes: remoteGraphData.nodes,
+        edges: remoteGraphData.edges,
+        flows: remoteGraphData.flows,
+        edge_anchors: remoteGraphData.edge_anchors,
+      },
+      _meta: {
+        chainInsights: {
+          graph: {
+            schema: 'chain-insights.graph.v1',
+            data: remoteGraphData,
+          },
+        },
+      },
+      isError: false,
+    })
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'address_risk')
+    const result = await handler({ address: '5Addr', network: 'bittensor' })
+
+    expect(result.structuredContent).toEqual({
+      schema: 'chain-insights.result.v1',
+      tool: 'address_risk',
+      hint: 'review graph artifact',
+      facts: { risk: { level: 'critical' } },
+    })
+    expect(result.structuredContent).not.toHaveProperty('app_data')
+    expect(result.structuredContent).not.toHaveProperty('nodes')
+    expect(result.structuredContent).not.toHaveProperty('edges')
+    expect(result.structuredContent).not.toHaveProperty('flows')
+    expect(result.structuredContent).not.toHaveProperty('edge_anchors')
+    expect(result._meta.chainInsights.graph.data).toBeUndefined()
+  })
+
   it('fails closed when remote graph data is present but invalid', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
@@ -469,6 +544,57 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
           graph: {
             schema: 'chain-insights.graph.v1',
             data: [],
+          },
+        },
+      },
+      isError: false,
+    })
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'address_risk')
+    const result = await handler({ address: '5Addr', network: 'bittensor' })
+
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text).toContain('MCP call failed')
+    expect(result.content[0].text).toContain('Invalid remote graph payload')
+  })
+
+  it('fails closed when remote graph arrays are present without data', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      {
+        name: 'address_risk',
+        title: 'Address Risk',
+        description: 'Risk report',
+        outputSchema: {
+          type: 'object',
+          properties: { schema: { type: 'string' }, facts: { type: 'object' } },
+        },
+        _meta: { ui: { resourceUri: 'ui://chain-insights/graph' } },
+      },
+    ])
+
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool.mockResolvedValueOnce({
+      content: [{ type: 'text', text: '## Risk Report' }],
+      _meta: {
+        chainInsights: {
+          graph: {
+            schema: 'chain-insights.graph.v1',
+            nodes: [],
+            edges: [],
+            flows: [],
+            edge_anchors: [],
           },
         },
       },

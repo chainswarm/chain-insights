@@ -20,6 +20,7 @@ const GRAPH_APP_TOOL_NAMES = new Set([
   'money_flows_between_exchanges',
   'address_connection_risk',
 ])
+const GRAPH_ARRAY_KEYS = ['nodes', 'edges', 'flows', 'edge_anchors'] as const
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 function readGraphAppHtml(): string {
@@ -79,6 +80,34 @@ type RemoteToolResult = {
   isError?: boolean
 }
 
+function hasGraphArrayFields(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const record = value as Record<string, unknown>
+  return GRAPH_ARRAY_KEYS.some((key) => Array.isArray(record[key]))
+}
+
+function sanitizeStructuredContentForGraphPayload(
+  structuredContent: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!structuredContent) return undefined
+  return sanitizeStructuredValue(structuredContent) as Record<string, unknown>
+}
+
+function sanitizeStructuredValue(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+
+  const sanitized: Record<string, unknown> = {}
+  for (const [key, childValue] of Object.entries(value)) {
+    if (key === 'app_data') continue
+    if (GRAPH_ARRAY_KEYS.includes(key as (typeof GRAPH_ARRAY_KEYS)[number]) && Array.isArray(childValue)) {
+      continue
+    }
+    sanitized[key] = sanitizeStructuredValue(childValue)
+  }
+
+  return sanitized
+}
+
 function getRemoteGraphPayload(result: RemoteToolResult): Record<string, unknown> | null {
   const chainInsights = result._meta?.chainInsights
   if (!chainInsights || typeof chainInsights !== 'object' || Array.isArray(chainInsights)) return null
@@ -89,7 +118,12 @@ function getRemoteGraphPayload(result: RemoteToolResult): Record<string, unknown
   }
 
   const graphRecord = graph as Record<string, unknown>
-  if (!('data' in graphRecord)) return null
+  if (!('data' in graphRecord)) {
+    if (hasGraphArrayFields(graphRecord)) {
+      throw new Error('Invalid remote graph payload')
+    }
+    return null
+  }
 
   const data = graphRecord.data
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
@@ -121,7 +155,9 @@ async function normalizeRemoteToolResult(
 
   return {
     content: result.content ?? [],
-    structuredContent: result.structuredContent,
+    structuredContent: graphPayload
+      ? sanitizeStructuredContentForGraphPayload(result.structuredContent)
+      : result.structuredContent,
     _meta: Object.keys(meta).length > 0 ? meta : undefined,
     isError: result.isError,
   }
