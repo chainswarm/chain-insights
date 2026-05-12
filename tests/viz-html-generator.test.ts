@@ -40,6 +40,18 @@ describe('generateHtml (VIZ-02) — graph.html template', () => {
     expect(html).toContain('"from_address":"0x1234"')
   })
 
+  it('graph app reads local graph artifact URL from tool result _meta', async () => {
+    const { generateHtml } = await import('../src/viz/html-generator.js')
+    const { GraphData } = await import('../src/viz/graph-model.js')
+    const data = GraphData.parse(validData)
+    const html = generateHtml(data, 'Test Viz')
+
+    expect(html).toContain('chainInsights')
+    expect(html).toContain('graph.url')
+    expect(html).toContain('fetch(graphUrl)')
+    expect(html).not.toContain('toolResult.app_data')
+  })
+
   it('generateHtml output uses Chain Insights brand CSS variables', async () => {
     const { generateHtml } = await import('../src/viz/html-generator.js')
     const { GraphData } = await import('../src/viz/graph-model.js')
