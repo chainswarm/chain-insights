@@ -397,6 +397,20 @@ The setup command updates only the `mcpServers.chain-insights` entry in `claude_
 
 Claude Desktop does not hot-reload this file. Fully quit and reopen Claude Desktop after running setup. If the desktop UI still shows `/home/aphex5/.local/bin/chain-insights-mcp start`, the app is still using the old in-memory server entry from before setup.
 
+On Linux, restart Claude Desktop from the terminal:
+
+```bash
+pkill -f claude-desktop
+nohup /usr/bin/claude-desktop >/tmp/claude-desktop.log 2>&1 &
+```
+
+Then confirm Claude Desktop relaunched and check the Chain Insights MCP log:
+
+```bash
+pgrep -af claude-desktop
+tail -80 ~/.config/Claude/logs/mcp-server-chain-insights.log
+```
+
 Equivalent manual config shape:
 
 ```json
@@ -426,11 +440,10 @@ npx @modelcontextprotocol/inspector \
   --method resources/list
 ```
 
-On Linux, this shows whether a desktop process was already running before setup and therefore needs a restart:
+To check whether a desktop process was already running before setup:
 
 ```bash
 pgrep -af claude-desktop
-tail -80 ~/.config/Claude/logs/mcp-server-chain-insights.log
 ```
 
 Expected MCP app resources:
