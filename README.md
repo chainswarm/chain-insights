@@ -334,6 +334,14 @@ The proxy:
 - Re-exposes remote GraphRAG tools.
 - Adds local `balance` and `topup` tools for wallet operations.
 
+The proxy also normalizes GraphRAG tool results before local agents see them:
+
+- LLM-visible `content` remains markdown/text only.
+- `structuredContent` carries compact `chain-insights.result.v1` facts.
+- Graph widget data is extracted from remote `_meta.chainInsights.graph.data`.
+- Graph data is written to `~/.chain-insights/artifacts/<id>/graph.json`.
+- The returned tool result contains only `_meta.chainInsights.graph.url` for the local graph app.
+
 ## Human UAT Smoke Test
 
 Use this sequence after a fresh build or install:

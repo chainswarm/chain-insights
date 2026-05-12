@@ -300,6 +300,24 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Risk score: 72')
   })
 
+  it('mcp call prints model-visible content only', async () => {
+    mockLoadConfig.mockResolvedValue({ mcpEndpoint: 'http://localhost:4000' })
+    mockCreateConfiguredMcpFetch.mockResolvedValue(fetch)
+    mockClientConnect.mockResolvedValue(undefined)
+    mockClientCallTool.mockResolvedValueOnce({
+      content: [{ type: 'text', text: '## Risk Report' }],
+      structuredContent: { facts: { risk: { level: 'critical' } } },
+      _meta: { chainInsights: { graph: { url: 'http://127.0.0.1:4321/artifacts/a/graph.json' } } },
+    })
+    mockClientClose.mockResolvedValue(undefined)
+
+    await runMcpCallAction('address_risk', ['network=bittensor', 'address=5Addr'])
+
+    expect(consoleLogSpy).toHaveBeenCalledWith('## Risk Report')
+    expect(JSON.stringify(consoleLogSpy.mock.calls)).not.toContain('graph.json')
+    expect(JSON.stringify(consoleLogSpy.mock.calls)).not.toContain('critical')
+  })
+
   // ─── mcp call — invalid arg format ────────────────────────────────────────
 
   it('mcp call — invalid arg format: exits 1 with Invalid arg format', async () => {
