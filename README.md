@@ -383,6 +383,7 @@ The proxy:
 - Caches remote tool schemas for 24 hours.
 - Exposes public Chain Insights investigation tools to the local MCP client.
 - Adds local wallet and case workflow tools.
+- Provides MCP server instructions with the investigation workflow, required argument rules, and graph query schema hints.
 
 The proxy also normalizes GraphRAG tool results before local agents see them:
 
@@ -476,6 +477,121 @@ Claude Desktop prompt shortcuts:
 | `resume-investigation-case` | Load local case context |
 | `save-investigation-evidence` | Save a tool result or note as case evidence |
 | `help` | Show Chain Insights tools and case workflow |
+
+### Claude Desktop Investigation Workflow
+
+Use this flow when Claude Desktop is driving an investigation:
+
+1. Start with a case.
+   - New investigation: ask Claude to use `case_open`.
+   - Existing investigation: ask Claude to use `case_list`, then `case_resume` with the selected `case_id`.
+2. Provide the network explicitly. Public investigation tools require `network`; supported values are `bittensor`, `ethereum`, and `base`. If the user omits it, Claude should ask instead of guessing.
+3. Pick the tool by question:
+   - Single address risk: `address_risk`.
+   - Victim/source fund tracing: `track_funds`.
+   - Exchange deposits and withdrawals without a victim/scammer distinction: `money_flows_between_exchanges`.
+   - Two-address connection/path risk: `address_connection_risk`.
+   - Custom read-only Cypher or aggregate counts: `graph_query`.
+4. Preserve material results:
+   - Use `case_add_evidence` after reports, traces, graph queries, or analyst notes that should remain in the case record.
+   - Use `case_update_dossier` for durable findings about an address or entity.
+   - Use `case_start_session` and `case_end_session` for investigation session notes and next steps.
+5. Use `balance` to check the local payment wallet and `topup` to open the Base USDC funding page.
+
+The Chain Insights MCP server publishes this workflow in its server instructions, so Claude receives it when the server starts. Required arguments are also present in tool schemas; if a client still calls a public tool without `network`, Chain Insights rejects the call before execution.
+
+### Graph Query Schema Hints
+
+These hints were verified with `graph_query` against `network=bittensor` on 2026-05-12. Treat them as a starting point and use the schema discovery queries below when writing custom Cypher.
+
+Common node labels:
+
+```text
+Address
+Miner
+Validator
+Hotkey
+Exchange
+```
+
+Common `Address` properties:
+
+```text
+address
+network
+address_type
+total_volume_usd
+total_in_usd
+total_out_usd
+net_flow_usd
+degree_in
+degree_out
+tx_in_count
+tx_out_count
+first_activity_timestamp
+last_activity_timestamp
+```
+
+Risk and graph-science properties may include:
+
+```text
+ml_risk_score
+ml_risk_level
+ml_top_drivers
+ml_pattern_summary
+ml_pagerank
+ml_betweenness
+ml_community_id
+```
+
+Common relationship types:
+
+```text
+FLOWS_TO
+OPERATED_FROM
+SERVED_FROM
+REGISTERED_NEURON
+BELONGS_TO
+SYBIL_CLUSTER
+LAYERING_HOP
+BURST_ACTIVITY
+CYCLE_PARTICIPANT
+SMURFING_CLUSTER
+```
+
+`FLOWS_TO` is aggregated and commonly carries:
+
+```text
+amount_sum
+amount_usd_sum
+tx_count
+dominant_asset
+first_seen_timestamp
+last_seen_timestamp
+first_tx_id
+last_tx_id
+```
+
+Node schema discovery:
+
+```cypher
+MATCH (n)
+WHERE n.address IS NOT NULL
+RETURN labels(n) AS labels, keys(n) AS properties, count(*) AS count
+ORDER BY count DESC
+LIMIT 20
+```
+
+Relationship schema discovery:
+
+```cypher
+MATCH ()-[r]->()
+RETURN type(r) AS relationship, keys(r) AS properties, count(*) AS count
+ORDER BY count DESC
+LIMIT 20
+```
+
+`graph_query` is read-only. Do not use `CREATE`, `MERGE`, `SET`, `DELETE`, `REMOVE`, `DROP`, or `DETACH`.
 
 Useful Claude Desktop prompts:
 

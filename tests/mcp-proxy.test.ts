@@ -294,6 +294,30 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     )
   })
 
+  it('publishes investigation workflow and live graph schema hints as server instructions', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    expect(McpServer).toHaveBeenCalledWith(
+      { name: 'chain-insights', version: '0.1.0' },
+      expect.objectContaining({
+        instructions: expect.stringContaining('Workflow:'),
+      }),
+    )
+    const instructions = vi.mocked(McpServer).mock.calls[0]?.[1]?.instructions
+    expect(instructions).toContain('case_open')
+    expect(instructions).toContain('case_add_evidence')
+    expect(instructions).toContain('Network is required')
+    expect(instructions).toContain('FLOWS_TO')
+    expect(instructions).toContain('first_tx_id')
+    expect(instructions).toContain('schema discovery')
+  })
+
   it('forwards tool call arguments to remoteClient.callTool', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)
@@ -545,6 +569,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const trackFundsPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'track-funds')
     expect(addressRiskPrompt?.[1].argsSchema.network.safeParse(undefined).success).toBe(false)
     expect(trackFundsPrompt?.[1].argsSchema.network.safeParse(undefined).success).toBe(false)
+    expect(addressRiskPrompt?.[1].argsSchema.network.description).toContain('Do not guess')
+    expect(trackFundsPrompt?.[1].argsSchema.network.description).toContain('Do not guess')
   })
 
   it('forwards GraphRAG prompt requests to the remote MCP prompt implementation', async () => {
@@ -632,6 +658,35 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     expect(inputSchema.address).toBeDefined()
     expect(inputSchema.network).toBeDefined()
+    expect((inputSchema.network as { description?: string }).description).toContain('Do not guess')
+    expect(config.description).toContain('Required arguments: address, network.')
+    expect(config.description).toContain('Do not guess a default network')
+  })
+
+  it('uses Chain Insights-owned descriptions for known public tools', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      {
+        name: 'money_flows_between_exchanges',
+        title: 'Money Flows Between Exchanges',
+        description: 'Upstream stale description. Use money_flows_of_stolen_funds instead.',
+        _meta: { ui: { resourceUri: 'ui://chain-insights/graph' } },
+      },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const config = findToolConfig(serverInstance, 'money_flows_between_exchanges')
+
+    expect(config.description).toContain('there is no victim/scammer trust distinction')
+    expect(config.description).toContain('Required arguments: addresses, network.')
+    expect(config.description).not.toContain('money_flows_of_stolen_funds')
   })
 
   it('rejects known public tool calls with missing required arguments before remote forwarding', async () => {
@@ -1117,11 +1172,17 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     expect(result.isError).toBe(false)
     expect(result.content[0].text).toContain('Chain Insights AML investigation workspace')
+    expect(result.content[0].text).toContain('Workflow:')
+    expect(result.content[0].text).toContain('Network is required')
     expect(result.content[0].text).toContain('address_risk')
     expect(result.content[0].text).toContain('balance')
     expect(result.content[0].text).toContain('topup')
     expect(result.content[0].text).toContain('case_open')
     expect(result.content[0].text).toContain('case_add_evidence')
+    expect(result.content[0].text).toContain('Graph query hints for network=bittensor')
+    expect(result.content[0].text).toContain('FLOWS_TO')
+    expect(result.content[0].text).toContain('first_tx_id')
+    expect(result.content[0].text).toContain('schema discovery')
     expect(result.content[0].text).not.toContain('GraphRAG')
     expect(result.content[0].text).not.toContain('prox')
     expect(result.content[0].text).not.toContain('chain-insights mcp')

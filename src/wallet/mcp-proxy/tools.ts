@@ -4,7 +4,7 @@ import { base } from "viem/chains";
 
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 const DEFAULT_BASE_RPC_URL = "https://mainnet.base.org";
-const FALLBACK_BASE_RPC_URLS = [
+const PUBLIC_BASE_RPC_URLS = [
   DEFAULT_BASE_RPC_URL,
   "https://base-rpc.publicnode.com",
   "https://base.drpc.org",
@@ -24,7 +24,7 @@ export async function getBalanceUsdc(wallet: WalletData): Promise<string> {
   const envRpcUrl = process.env.BASE_RPC_URL;
   const rpcUrls = [
     ...(envRpcUrl ? [envRpcUrl] : []),
-    ...FALLBACK_BASE_RPC_URLS.filter((url) => url !== envRpcUrl),
+    ...PUBLIC_BASE_RPC_URLS.filter((url) => url !== envRpcUrl),
   ];
 
   for (const rpcUrl of rpcUrls) {

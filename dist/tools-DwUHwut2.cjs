@@ -7,7 +7,7 @@ let viem_accounts = require("viem/accounts");
 var tools_exports = /* @__PURE__ */ require_chunk.__exportAll({
 	BASE_CHAIN_ID: () => BASE_CHAIN_ID,
 	DEFAULT_BASE_RPC_URL: () => DEFAULT_BASE_RPC_URL,
-	FALLBACK_BASE_RPC_URLS: () => FALLBACK_BASE_RPC_URLS,
+	PUBLIC_BASE_RPC_URLS: () => PUBLIC_BASE_RPC_URLS,
 	USDC_ADDRESS: () => USDC_ADDRESS,
 	buildTopupInfo: () => buildTopupInfo,
 	formatWalletBalance: () => formatWalletBalance,
@@ -18,7 +18,7 @@ var tools_exports = /* @__PURE__ */ require_chunk.__exportAll({
 const BASE_CHAIN_ID = 8453;
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 const DEFAULT_BASE_RPC_URL = "https://mainnet.base.org";
-const FALLBACK_BASE_RPC_URLS = [
+const PUBLIC_BASE_RPC_URLS = [
 	DEFAULT_BASE_RPC_URL,
 	"https://base-rpc.publicnode.com",
 	"https://base.drpc.org",
@@ -49,7 +49,7 @@ async function getWalletAccount() {
 	};
 }
 async function getBalanceUsdc(address, rpcUrl = process.env["BASE_RPC_URL"]) {
-	const rpcUrls = [...rpcUrl ? [rpcUrl] : [], ...FALLBACK_BASE_RPC_URLS.filter((fallbackUrl) => fallbackUrl !== rpcUrl)];
+	const rpcUrls = [...rpcUrl ? [rpcUrl] : [], ...PUBLIC_BASE_RPC_URLS.filter((fallbackUrl) => fallbackUrl !== rpcUrl)];
 	for (const url of rpcUrls) try {
 		return (0, viem.formatUnits)(await (0, viem.createPublicClient)({
 			chain: viem_chains.base,

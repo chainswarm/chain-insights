@@ -50,7 +50,45 @@ const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
   graph_query: ['query', 'network'],
 }
 
+const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
+  address_risk: 'Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. Use this as the first tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.',
+  track_funds: 'Trace funds from trusted victim/source addresses through intermediaries to exchange deposit addresses. Use this when the user has a victim/source address or known untrusted/scammer addresses. The tool returns an investigator-ready fund-flow report and recommended next actions.',
+  money_flows_between_exchanges: 'Inspect exchange deposits, withdrawals, and bidirectional fund-flow paths for one or more addresses. Use this when all supplied addresses should be treated equally and there is no victim/scammer trust distinction. The tool returns an investigator-ready exchange contact report.',
+  address_connection_risk: 'Assess whether two full blockchain addresses are connected through risky paths and whether that connection matters for AML review. Use this when the user provides a source address and target address. The tool returns an investigator-ready connection-risk summary.',
+  graph_query: 'Run a read-only Cypher query against the Chain Insights graph database for schema discovery, aggregate counts, or custom graph inspection. Use only read-only queries and return full address strings exactly.',
+}
+
 type ToolInputShape = Record<string, z.ZodTypeAny>
+
+const NETWORK_DESCRIPTION = 'Required network to query: bittensor, ethereum, or base. Do not guess; ask the user if missing.'
+
+const CHAIN_INSIGHTS_WORKFLOW = [
+  'Workflow:',
+  '1. If the user is starting or continuing an investigation, use case_open or case_list/case_resume first.',
+  '2. Do not call investigation tools until required arguments are known. Network is required; ask for bittensor, ethereum, or base if missing.',
+  '3. Use address_risk first for a single address. Use track_funds for victim/source fund tracing. Use money_flows_between_exchanges when no victim/scammer trust distinction is known. Use address_connection_risk when the user gives two addresses. Use graph_query only for explicit read-only Cypher or custom aggregates.',
+  '4. After a material result, preserve it with case_add_evidence when a case is active or ask whether to create/select a case.',
+  '5. Use case_update_dossier for durable address/entity findings and case_start_session/case_end_session for session notes.',
+].join('\n')
+
+const GRAPH_SCHEMA_HINTS = [
+  'Graph query hints for network=bittensor:',
+  '- Common node labels: Address, Miner, Validator, Hotkey, Exchange.',
+  '- Address properties commonly include address, network, address_type, total_volume_usd, total_in_usd, total_out_usd, net_flow_usd, degree_in, degree_out, tx_in_count, tx_out_count, first_activity_timestamp, last_activity_timestamp.',
+  '- Risk and ML properties may include ml_risk_score, ml_risk_level, ml_top_drivers, ml_pattern_summary, ml_pagerank, ml_betweenness, ml_community_id.',
+  '- Common relationships include FLOWS_TO, OPERATED_FROM, SERVED_FROM, REGISTERED_NEURON, BELONGS_TO, SYBIL_CLUSTER, LAYERING_HOP, BURST_ACTIVITY, CYCLE_PARTICIPANT, SMURFING_CLUSTER.',
+  '- FLOWS_TO is aggregated and commonly carries amount_sum, amount_usd_sum, tx_count, dominant_asset, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id.',
+  '- Start schema discovery with: MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, keys(n) AS properties, count(*) AS count ORDER BY count DESC LIMIT 20',
+  '- Relationship discovery: MATCH ()-[r]->() RETURN type(r) AS relationship, keys(r) AS properties, count(*) AS count ORDER BY count DESC LIMIT 20',
+  '- All graph_query calls are read-only. Never use CREATE, MERGE, SET, DELETE, REMOVE, DROP, or DETACH.',
+].join('\n')
+
+const SERVER_INSTRUCTIONS = [
+  'Chain Insights is a local AML investigation workspace for AI agents.',
+  CHAIN_INSIGHTS_WORKFLOW,
+  GRAPH_SCHEMA_HINTS,
+  'Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses; use case tools to preserve evidence when a case exists.',
+].join('\n\n')
 
 function readGraphAppHtml(): string {
   const candidates = [
@@ -107,34 +145,34 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
     case 'address_risk':
       return {
         address: z.string().min(1).describe('Full blockchain address to screen'),
-        network: z.string().min(1).describe('Network to query: bittensor, ethereum, or base'),
+        network: z.string().min(1).describe(NETWORK_DESCRIPTION),
         compare_address: z.string().optional().describe('Optional second full address for comparison'),
         include_attachments: z.boolean().optional().describe('Include graph app artifact metadata'),
       }
     case 'track_funds':
       return {
         trusted_addresses: z.string().min(1).describe('Comma-separated full trusted victim addresses. Min 1, max 5.'),
-        network: z.string().min(1).describe('Network to query: bittensor, ethereum, or base'),
+        network: z.string().min(1).describe(NETWORK_DESCRIPTION),
         untrusted_addresses: z.string().optional().describe('Comma-separated full untrusted/scammer addresses. Max 5.'),
         include_attachments: z.boolean().optional().describe('Include graph app artifact metadata'),
       }
     case 'money_flows_between_exchanges':
       return {
         addresses: z.string().min(1).describe('Comma-separated full addresses to trace. Min 1, max 5.'),
-        network: z.string().min(1).describe('Network to query: bittensor, ethereum, or base'),
+        network: z.string().min(1).describe(NETWORK_DESCRIPTION),
         include_attachments: z.boolean().optional().describe('Include graph app artifact metadata'),
       }
     case 'address_connection_risk':
       return {
         from_address: z.string().min(1).describe('Full source blockchain address'),
         to_address: z.string().min(1).describe('Full target blockchain address'),
-        network: z.string().min(1).describe('Network to query: bittensor, ethereum, or base'),
+        network: z.string().min(1).describe(NETWORK_DESCRIPTION),
         include_attachments: z.boolean().optional().describe('Include graph app artifact metadata'),
       }
     case 'graph_query':
       return {
         query: z.string().min(1).describe('Read-only Cypher query'),
-        network: z.string().min(1).describe('Network to query: bittensor, ethereum, or base'),
+        network: z.string().min(1).describe(NETWORK_DESCRIPTION),
       }
     default:
       return null
@@ -185,6 +223,18 @@ function validateKnownPublicToolArguments(
   return null
 }
 
+function claudeFacingToolDescription(tool: McpTool): string {
+  const baseDescription = KNOWN_PUBLIC_TOOL_DESCRIPTIONS[tool.name] ?? tool.description ?? tool.name
+  const requiredArgs = KNOWN_PUBLIC_TOOL_REQUIRED_ARGS[tool.name]
+  if (!requiredArgs) return baseDescription
+  return [
+    baseDescription,
+    '',
+    `Required arguments: ${requiredArgs.join(', ')}.`,
+    'If the user did not provide the network, ask for it before calling this tool. Do not guess a default network.',
+  ].join('\n')
+}
+
 type RemoteToolResult = {
   content?: ContentBlock[]
   structuredContent?: Record<string, unknown>
@@ -220,7 +270,10 @@ function compactPromptArguments(args: PromptArgs): Record<string, string> {
 }
 
 function promptArgumentSchema(promptName: string, argument: NonNullable<Prompt['arguments']>[number]) {
-  const schema = z.string().describe(argument.description ?? argument.name)
+  const description = PUBLIC_GRAPHRAG_PROMPT_NAMES.has(promptName) && argument.name === 'network'
+    ? NETWORK_DESCRIPTION
+    : argument.description ?? argument.name
+  const schema = z.string().describe(description)
   if (PUBLIC_GRAPHRAG_PROMPT_NAMES.has(promptName) && argument.name === 'network') {
     return schema
   }
@@ -256,7 +309,7 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
         description: 'Screen an address for AML risk, behavioral patterns, neighborhood profile, and exchange links.',
         argsSchema: {
           address: z.string().describe('Full blockchain address to screen'),
-          network: z.string().describe('Network: bittensor, base, or ethereum'),
+          network: z.string().describe(NETWORK_DESCRIPTION),
         },
       },
       async ({ address, network }) => promptResult(
@@ -281,7 +334,7 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
         argsSchema: {
           trusted_addresses: z.string().describe('Victim/trusted addresses, comma-separated full addresses'),
           untrusted_addresses: z.string().optional().describe('Known scammer/untrusted addresses, comma-separated full addresses'),
-          network: z.string().describe('Network: bittensor, base, or ethereum'),
+          network: z.string().describe(NETWORK_DESCRIPTION),
         },
       },
       async ({ trusted_addresses, untrusted_addresses, network }) => {
@@ -310,7 +363,7 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
       description: 'Find exchange deposits, withdrawals, and bidirectional fund-flow paths for one or more addresses.',
       argsSchema: {
         addresses: z.string().describe('One or more full blockchain addresses, comma-separated'),
-        network: z.string().describe('Network: bittensor, base, or ethereum'),
+        network: z.string().describe(NETWORK_DESCRIPTION),
       },
     },
     async ({ addresses, network }) => promptResult(
@@ -333,7 +386,7 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
       argsSchema: {
         from_address: z.string().describe('Full source blockchain address'),
         to_address: z.string().describe('Full target blockchain address'),
-        network: z.string().describe('Network: bittensor, base, or ethereum'),
+        network: z.string().describe(NETWORK_DESCRIPTION),
       },
     },
     async ({ from_address, to_address, network }) => promptResult(
@@ -356,7 +409,7 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
       description: 'Run a read-only Cypher query against the Chain Insights graph database.',
       argsSchema: {
         query: z.string().describe('Read-only Cypher query'),
-        network: z.string().describe('Network: bittensor, base, or ethereum'),
+        network: z.string().describe(NETWORK_DESCRIPTION),
       },
     },
     async ({ query, network }) => promptResult(
@@ -605,8 +658,8 @@ export async function createProxy(): Promise<void> {
 
   // Build local stdio proxy server
   const server = new McpServer(
-    { name: 'chain-insights-proxy', version: '0.1.0' },
-    { instructions: 'Chain Insights AML investigation tools. Pay-per-call via x402 on Base.' },
+    { name: 'chain-insights', version: '0.1.0' },
+    { instructions: SERVER_INSTRUCTIONS },
   )
 
   const remotePrompts: Prompt[] = []
@@ -1041,6 +1094,8 @@ export async function createProxy(): Promise<void> {
           text: [
             'Chain Insights AML investigation workspace for AI agents.',
             '',
+            CHAIN_INSIGHTS_WORKFLOW,
+            '',
             'Investigation tools:',
             '- address_risk: screen a full address for AML risk, behavior, neighborhood, and exchange exposure.',
             '- track_funds: trace victim funds through intermediaries to exchange deposit addresses.',
@@ -1061,6 +1116,8 @@ export async function createProxy(): Promise<void> {
             '- balance: show the local payment wallet address and Base USDC balance.',
             '- topup: open the local wallet funding page for Base USDC.',
             '- help: show this overview.',
+            '',
+            GRAPH_SCHEMA_HINTS,
           ].join('\n'),
         },
       ],
@@ -1096,7 +1153,7 @@ export async function createProxy(): Promise<void> {
     }
     const toolConfig = {
       title: tool.title,
-      description: tool.description ?? tool.name,
+      description: claudeFacingToolDescription(tool),
       inputSchema,
     }
 

@@ -178,7 +178,7 @@ function generateQrSvg(text, opts = 4) {
 //#endregion
 //#region src/wallet/mcp-proxy/tools.ts
 const USDC_ADDRESS$1 = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-const FALLBACK_BASE_RPC_URLS = [
+const PUBLIC_BASE_RPC_URLS = [
 	"https://mainnet.base.org",
 	"https://base-rpc.publicnode.com",
 	"https://base.drpc.org",
@@ -199,7 +199,7 @@ const USDC_ABI = [{
 }];
 async function getBalanceUsdc(wallet) {
 	const envRpcUrl = process.env.BASE_RPC_URL;
-	const rpcUrls = [...envRpcUrl ? [envRpcUrl] : [], ...FALLBACK_BASE_RPC_URLS.filter((url) => url !== envRpcUrl)];
+	const rpcUrls = [...envRpcUrl ? [envRpcUrl] : [], ...PUBLIC_BASE_RPC_URLS.filter((url) => url !== envRpcUrl)];
 	for (const rpcUrl of rpcUrls) try {
 		return (0, viem.formatUnits)(await (0, viem.createPublicClient)({
 			chain: viem_chains.base,

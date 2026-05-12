@@ -6,7 +6,7 @@ import { decryptKey } from './index.js'
 export const BASE_CHAIN_ID = 8453
 export const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as const
 export const DEFAULT_BASE_RPC_URL = 'https://mainnet.base.org'
-export const FALLBACK_BASE_RPC_URLS = [
+export const PUBLIC_BASE_RPC_URLS = [
   DEFAULT_BASE_RPC_URL,
   'https://base-rpc.publicnode.com',
   'https://base.drpc.org',
@@ -56,7 +56,7 @@ export async function getBalanceUsdc(
 ): Promise<string> {
   const rpcUrls = [
     ...(rpcUrl ? [rpcUrl] : []),
-    ...FALLBACK_BASE_RPC_URLS.filter((fallbackUrl) => fallbackUrl !== rpcUrl),
+    ...PUBLIC_BASE_RPC_URLS.filter((fallbackUrl) => fallbackUrl !== rpcUrl),
   ]
 
   for (const url of rpcUrls) {

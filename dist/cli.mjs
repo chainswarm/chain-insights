@@ -90,7 +90,7 @@ program.command("config").description("Read or write configuration values").addC
 }));
 program.command("wallet").description("Manage the local Base USDC payment wallet").addCommand(new Command("address").description("Print the local payment wallet address").action(async () => {
 	try {
-		const { getWalletAccount } = await import("./tools--eNNrSug.mjs").then((n) => n.o);
+		const { getWalletAccount } = await import("./tools-DL7x8LWA.mjs").then((n) => n.o);
 		const account = await getWalletAccount();
 		console.log(account.address);
 	} catch (err) {
@@ -99,7 +99,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new Command("balance").description("Show the local payment wallet Base USDC balance").action(async () => {
 	try {
-		const { getWalletBalanceText } = await import("./tools--eNNrSug.mjs").then((n) => n.o);
+		const { getWalletBalanceText } = await import("./tools-DL7x8LWA.mjs").then((n) => n.o);
 		console.log(await getWalletBalanceText());
 	} catch (err) {
 		console.error(err.message);
@@ -107,8 +107,8 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new Command("topup").description("Open a local browser page to top up the payment wallet").option("--no-open", "Print the top-up URL without opening a browser").option("--json", "Print machine-readable top-up metadata").action(async (opts) => {
 	try {
-		const { buildTopupInfo, getWalletAccount } = await import("./tools--eNNrSug.mjs").then((n) => n.o);
-		const { startTopupServer } = await import("./topup-server-DV1aDI20.mjs").then((n) => n.r);
+		const { buildTopupInfo, getWalletAccount } = await import("./tools-DL7x8LWA.mjs").then((n) => n.o);
+		const { startTopupServer } = await import("./topup-server-D60FaKVY.mjs").then((n) => n.r);
 		const account = await getWalletAccount();
 		const url = await startTopupServer(account);
 		const info = buildTopupInfo(account.address, url);
