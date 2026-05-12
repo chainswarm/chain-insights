@@ -2,7 +2,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 const require_config = require("./config-CIJ9gahy.cjs");
 const require_init = require("./init-b2b3GEFH.cjs");
 require("./db-UbTrO2bk.cjs");
-const require_server = require("./server-Bh8gwnnF.cjs");
+const require_server = require("./server-D-6VVAth.cjs");
 const require_wallet = require("./wallet-D6lq6MOc.cjs");
 const require_tools = require("./tools-BrbjS0-j.cjs");
 const require_topup_server = require("./topup-server-DBETwQ6w.cjs");

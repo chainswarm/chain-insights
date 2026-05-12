@@ -53,6 +53,19 @@ function createApp() {
 		if (!html) return c.json({ error: "Visualization not found" }, 404);
 		return c.html(html);
 	});
+	app.get("/artifacts/:artifactId/graph.json", async (c) => {
+		const artifactId = c.req.param("artifactId");
+		if (!/^[a-zA-Z0-9_-]+$/.test(artifactId)) return c.json({ error: "Invalid artifact ID" }, 400);
+		const { loadConfig } = await import("./config-DTfloQyC.mjs").then((n) => n.t);
+		const config = await loadConfig();
+		const graphPath = path.join(config.dataDir, "artifacts", artifactId, "graph.json");
+		try {
+			const graph = await readFile(graphPath, "utf-8");
+			return c.body(graph, 200, { "Content-Type": "application/json" });
+		} catch {
+			return c.json({ error: "Graph artifact not found" }, 404);
+		}
+	});
 	app.onError((err, c) => {
 		console.error(err);
 		return c.json({ error: "Internal server error" }, 500);
@@ -81,4 +94,4 @@ function startServer(port = 4321) {
 //#endregion
 export { startServer as n, createApp as r, server_exports as t };
 
-//# sourceMappingURL=server-3n-TT-1e.mjs.map
+//# sourceMappingURL=server-DJ2d61ug.mjs.map

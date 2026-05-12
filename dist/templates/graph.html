@@ -627,7 +627,7 @@ function loadGraph(data) {
   seed = data.metadata ? data.metadata.seed_address : null;
 
   // Extract storageId from data_url query param for localStorage; fall back
-  // to a deterministic graph hash so inline MCP/CLI app_data also persists.
+  // to a deterministic graph hash so inline CLI data also persists.
   var params = new URLSearchParams(window.location.search);
   var dataUrl = params.get('data_url');
   if (dataUrl) {
@@ -1066,9 +1066,6 @@ function fitView() {
    Public API
    ─────────────────────────────────────────────────────────── */
 async function loadVisualizationData(toolResult) {
-    // Prefer inline app_data (injected by mcp-proxy) over fetching data_url
-    // to avoid sandbox CSP issues in Claude Desktop
-    if (toolResult && toolResult.app_data) return toolResult.app_data;
     var dataUrl = toolResult && toolResult.data_url;
     if (!dataUrl) return toolResult;
 
@@ -1126,8 +1123,7 @@ async function loadVisualizationData(toolResult) {
         loadingEl.classList.add('error');
         loadingEl.classList.remove('hidden');
     }
-    // Fall back to inline data if available
-    return (toolResult && toolResult.app_data) || toolResult || null;
+    return toolResult || null;
 }
 
 function showBrowserLink(dataUrl) {
@@ -1140,10 +1136,54 @@ function showBrowserLink(dataUrl) {
   } catch(e) {}
 }
 
+function showLoadError(error) {
+  var message = error && error.message ? error.message : String(error);
+  var loadingEl = document.getElementById('loading');
+  if (loadingEl) {
+    loadingEl.textContent = message;
+    loadingEl.classList.add('error');
+    loadingEl.classList.remove('hidden');
+  }
+  console.error(error);
+}
+
+function isLocalGraphArtifactUrl(graphUrl) {
+  try {
+    var parsed = new URL(graphUrl);
+    if (parsed.protocol !== 'http:') return false;
+    if (parsed.hostname !== '127.0.0.1' && parsed.hostname !== 'localhost') return false;
+    return /^\/artifacts\/[A-Za-z0-9_-]+\/graph\.json$/.test(parsed.pathname);
+  } catch (e) {
+    return false;
+  }
+}
+
+async function loadFromToolResultParams(params) {
+  var graphUrl = params && params._meta && params._meta.chainInsights && params._meta.chainInsights.graph && params._meta.chainInsights.graph.url;
+
+  if (graphUrl) {
+    try {
+      if (!isLocalGraphArtifactUrl(graphUrl)) throw new Error('Graph artifact URL is not local');
+      var resp = await fetch(graphUrl);
+      if (!resp.ok) throw new Error('Graph artifact fetch failed: ' + resp.status);
+      var graphData = await resp.json();
+      window.loadData(graphData);
+      return true;
+    } catch (error) {
+      if (error && error.message && error.message.indexOf('Graph artifact fetch failed:') === 0) throw error;
+      throw new Error('Graph artifact fetch failed: ' + (error && error.message ? error.message : 'network error'));
+    }
+  }
+
+  return false;
+}
+
 window.loadData = function(data) {
   document.getElementById('loading').classList.add('hidden');
   if (data && data.data_url) showBrowserLink(data.data_url);
-  loadVisualizationData(data).then(function(graphData) { loadGraph(graphData); });
+  loadVisualizationData(data).then(function(graphData) {
+    if (graphData) loadGraph(graphData);
+  }).catch(showLoadError);
 };
 
 /* ───────────────────────────────────────────────────────────
@@ -1173,14 +1213,9 @@ window.loadData = function(data) {
         params:{width:800, height:800}}, '*');
     }
 
-    // Tool result — receive graph data from MCP tool call
+    // Tool result — receive graph artifact URL from MCP tool call
     if (data.method === 'ui/notifications/tool-result' && data.params) {
-      var c = data.params.content || [];
-      for (var i=0; i<c.length; i++) {
-        if (c[i].type==='text' && c[i].text) {
-          try { var p=JSON.parse(c[i].text); if(p.nodes||p.data_url){window.loadData(p);return;} } catch(e){}
-        }
-      }
+      loadFromToolResultParams(data.params).catch(showLoadError);
     }
 
     // Respond to pings

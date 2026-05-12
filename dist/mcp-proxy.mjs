@@ -21,6 +21,12 @@ const GRAPH_APP_TOOL_NAMES = new Set([
 	"money_flows_between_exchanges",
 	"address_connection_risk"
 ]);
+const GRAPH_ARRAY_KEYS = [
+	"nodes",
+	"edges",
+	"flows",
+	"edge_anchors"
+];
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 function readGraphAppHtml() {
 	const candidates = [
@@ -53,6 +59,62 @@ function graphToolMeta(tool) {
 		}
 	};
 }
+function hasGraphArrayFields(value) {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+	const record = value;
+	return GRAPH_ARRAY_KEYS.some((key) => Array.isArray(record[key]));
+}
+function sanitizeStructuredContentForGraphPayload(structuredContent) {
+	if (!structuredContent) return void 0;
+	return sanitizeStructuredValue(structuredContent);
+}
+function sanitizeStructuredValue(value) {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+	const sanitized = {};
+	for (const [key, childValue] of Object.entries(value)) {
+		if (key === "app_data") continue;
+		if (GRAPH_ARRAY_KEYS.includes(key) && Array.isArray(childValue)) continue;
+		sanitized[key] = sanitizeStructuredValue(childValue);
+	}
+	return sanitized;
+}
+function getRemoteGraphPayload(result) {
+	const chainInsights = result._meta?.chainInsights;
+	if (!chainInsights || typeof chainInsights !== "object" || Array.isArray(chainInsights)) return null;
+	const graph = chainInsights.graph;
+	if (graph === void 0) return null;
+	if (!graph || typeof graph !== "object" || Array.isArray(graph)) throw new Error("Invalid remote graph payload");
+	const graphRecord = graph;
+	if (!("data" in graphRecord)) {
+		if ("url" in graphRecord || hasGraphArrayFields(graphRecord)) throw new Error("Invalid remote graph payload");
+		return null;
+	}
+	const data = graphRecord.data;
+	if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("Invalid remote graph payload");
+	return data;
+}
+async function normalizeRemoteToolResult(result, config) {
+	const graphPayload = getRemoteGraphPayload(result);
+	const meta = { ...result._meta ?? {} };
+	if (graphPayload) {
+		const { writeGraphArtifact } = await import("./artifacts-B_8bJm5j.mjs");
+		const artifact = await writeGraphArtifact(graphPayload, config);
+		meta.chainInsights = {
+			...meta.chainInsights ?? {},
+			graph: {
+				schema: artifact.schema,
+				id: artifact.id,
+				url: artifact.url
+			}
+		};
+	}
+	return {
+		content: result.content ?? [],
+		structuredContent: sanitizeStructuredContentForGraphPayload(result.structuredContent),
+		_meta: Object.keys(meta).length > 0 ? meta : void 0,
+		isError: result.isError
+	};
+}
 /**
 * Core proxy logic — exported so tests can inject dependencies directly.
 * The IIFE at the bottom calls this with real dependencies.
@@ -63,7 +125,7 @@ function graphToolMeta(tool) {
 async function createProxy() {
 	const { loadConfig } = await import("./config-DTfloQyC.mjs").then((n) => n.t);
 	const { createConfiguredMcpFetch } = await import("./client-B2wqOxU5.mjs").then((n) => n.t);
-	const { loadSchema, saveSchema } = await import("./schema-cache-DdbxwSjc.mjs");
+	const { loadSchema, saveSchema } = await import("./schema-cache-BoQTZ5FL.mjs");
 	const config = await loadConfig();
 	const mcpFetch = await createConfiguredMcpFetch(config);
 	const remoteClient = new Client({
@@ -202,14 +264,10 @@ async function createProxy() {
 		if (LOCAL_TOOL_NAMES.has(tool.name)) continue;
 		const handler = async (args) => {
 			try {
-				const result = await remoteClient.callTool({
+				return await normalizeRemoteToolResult(await remoteClient.callTool({
 					name: tool.name,
 					arguments: args
-				});
-				return {
-					content: result.content,
-					isError: result.isError
-				};
+				}), config);
 			} catch (err) {
 				return {
 					content: [{

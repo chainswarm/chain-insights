@@ -22,7 +22,7 @@ if (rawArgs.includes("--claude") && !rawArgs.some((a) => !a.startsWith("-"))) {
 	process.exit(0);
 }
 program.command("serve").description("Start local visualization server").option("-p, --port <number>", "Port to bind (default: 4321)", "4321").action(async (opts) => {
-	const { startServer } = await Promise.resolve().then(() => require("./server-Bh8gwnnF.cjs")).then((n) => n.server_exports);
+	const { startServer } = await Promise.resolve().then(() => require("./server-D-6VVAth.cjs")).then((n) => n.server_exports);
 	startServer(parseInt(opts.port, 10));
 });
 program.command("status").description("Show toolkit status and database health").action(async () => {
@@ -111,8 +111,8 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 }));
 program.command("mcp").description("Interact with the Chain Insights MCP endpoint").addCommand(new commander.Command("tools").description("List available MCP tools (cached 24h)").option("--refresh", "Force refresh schema cache").action(async (opts) => {
 	try {
-		const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-WtvFQM6K.cjs"));
-		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-Cub6pGz1.cjs"));
+		const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-C3O8_1Iu.cjs"));
+		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-XMxwlWKI.cjs"));
 		const { loadConfig } = await Promise.resolve().then(() => require("./config-CIJ9gahy.cjs")).then((n) => n.config_exports);
 		let tools = opts.refresh ? null : await loadSchema();
 		if (!tools) {
@@ -359,9 +359,9 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			}
 			resolvedParams[key] = kv.slice(eq + 1);
 		}
-		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-DAQAesmS.cjs"));
+		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-1cUF34Yq.cjs"));
 		const markdown = await resolvePlaybookContent(name);
-		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-OcMAy_md.cjs"));
+		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-B0DSfQfM.cjs"));
 		const definition = PlaybookParser.parse(markdown, resolvedParams);
 		for (const spec of definition.params) if (spec.required && !resolvedParams[spec.name] && !spec.default) {
 			console.error(`Missing required param: ${spec.name}. Pass with: -p ${spec.name}=<value>`);
@@ -372,7 +372,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-D68Mezaf.cjs"));
+		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-C6w_gz7M.cjs"));
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,
@@ -385,7 +385,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new commander.Command("list").description("List available playbooks (built-in and user-defined)").action(async () => {
 	try {
-		const { listPlaybooks } = await Promise.resolve().then(() => require("./resolver-DAQAesmS.cjs"));
+		const { listPlaybooks } = await Promise.resolve().then(() => require("./resolver-1cUF34Yq.cjs"));
 		const playbooks = await listPlaybooks();
 		if (playbooks.length === 0) {
 			console.log("No playbooks found.");
@@ -398,8 +398,8 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new commander.Command("show").description("Show steps for a playbook without executing").argument("<name>", "Playbook name").action(async (name) => {
 	try {
-		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-DAQAesmS.cjs"));
-		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-OcMAy_md.cjs"));
+		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-1cUF34Yq.cjs"));
+		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-B0DSfQfM.cjs"));
 		const markdown = await resolvePlaybookContent(name);
 		const definition = PlaybookParser.parse(markdown, {});
 		console.log(`Playbook: ${definition.name} v${definition.version}`);
@@ -427,7 +427,7 @@ program.command("viz").description("Generate money flow visualization").argument
 			caseId,
 			dataFile: opts.data
 		});
-		const { startServer } = await Promise.resolve().then(() => require("./server-Bh8gwnnF.cjs")).then((n) => n.server_exports);
+		const { startServer } = await Promise.resolve().then(() => require("./server-D-6VVAth.cjs")).then((n) => n.server_exports);
 		const port = parseInt(opts.port, 10);
 		startServer(port);
 		const url = `http://127.0.0.1:${port}/viz/${result.vizId}`;

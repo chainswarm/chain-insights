@@ -20,7 +20,7 @@ if (rawArgs.includes("--claude") && !rawArgs.some((a) => !a.startsWith("-"))) {
 	process.exit(0);
 }
 program.command("serve").description("Start local visualization server").option("-p, --port <number>", "Port to bind (default: 4321)", "4321").action(async (opts) => {
-	const { startServer } = await import("./server-3n-TT-1e.mjs").then((n) => n.t);
+	const { startServer } = await import("./server-DJ2d61ug.mjs").then((n) => n.t);
 	startServer(parseInt(opts.port, 10));
 });
 program.command("status").description("Show toolkit status and database health").action(async () => {
@@ -109,8 +109,8 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 }));
 program.command("mcp").description("Interact with the Chain Insights MCP endpoint").addCommand(new Command("tools").description("List available MCP tools (cached 24h)").option("--refresh", "Force refresh schema cache").action(async (opts) => {
 	try {
-		const { loadSchema, saveSchema } = await import("./schema-cache-DdbxwSjc.mjs");
-		const { formatToolsTable } = await import("./format-Df47YyFL.mjs");
+		const { loadSchema, saveSchema } = await import("./schema-cache-BoQTZ5FL.mjs");
+		const { formatToolsTable } = await import("./format-BxocL1ya.mjs");
 		const { loadConfig } = await import("./config-DTfloQyC.mjs").then((n) => n.t);
 		let tools = opts.refresh ? null : await loadSchema();
 		if (!tools) {
@@ -357,9 +357,9 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			}
 			resolvedParams[key] = kv.slice(eq + 1);
 		}
-		const { resolvePlaybookContent } = await import("./resolver-BU9_ytjj.mjs");
+		const { resolvePlaybookContent } = await import("./resolver-jqjThooT.mjs");
 		const markdown = await resolvePlaybookContent(name);
-		const { PlaybookParser } = await import("./parser-BG7CpkSK.mjs");
+		const { PlaybookParser } = await import("./parser-CcBowVk1.mjs");
 		const definition = PlaybookParser.parse(markdown, resolvedParams);
 		for (const spec of definition.params) if (spec.required && !resolvedParams[spec.name] && !spec.default) {
 			console.error(`Missing required param: ${spec.name}. Pass with: -p ${spec.name}=<value>`);
@@ -370,7 +370,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await import("./runner-B7G-PFZL.mjs");
+		const { PlaybookRunner } = await import("./runner-BrtUbZQP.mjs");
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,
@@ -383,7 +383,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new Command("list").description("List available playbooks (built-in and user-defined)").action(async () => {
 	try {
-		const { listPlaybooks } = await import("./resolver-BU9_ytjj.mjs");
+		const { listPlaybooks } = await import("./resolver-jqjThooT.mjs");
 		const playbooks = await listPlaybooks();
 		if (playbooks.length === 0) {
 			console.log("No playbooks found.");
@@ -396,8 +396,8 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new Command("show").description("Show steps for a playbook without executing").argument("<name>", "Playbook name").action(async (name) => {
 	try {
-		const { resolvePlaybookContent } = await import("./resolver-BU9_ytjj.mjs");
-		const { PlaybookParser } = await import("./parser-BG7CpkSK.mjs");
+		const { resolvePlaybookContent } = await import("./resolver-jqjThooT.mjs");
+		const { PlaybookParser } = await import("./parser-CcBowVk1.mjs");
 		const markdown = await resolvePlaybookContent(name);
 		const definition = PlaybookParser.parse(markdown, {});
 		console.log(`Playbook: ${definition.name} v${definition.version}`);
@@ -425,7 +425,7 @@ program.command("viz").description("Generate money flow visualization").argument
 			caseId,
 			dataFile: opts.data
 		});
-		const { startServer } = await import("./server-3n-TT-1e.mjs").then((n) => n.t);
+		const { startServer } = await import("./server-DJ2d61ug.mjs").then((n) => n.t);
 		const port = parseInt(opts.port, 10);
 		startServer(port);
 		const url = `http://127.0.0.1:${port}/viz/${result.vizId}`;

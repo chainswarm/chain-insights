@@ -55,6 +55,19 @@ function createApp() {
 		if (!html) return c.json({ error: "Visualization not found" }, 404);
 		return c.html(html);
 	});
+	app.get("/artifacts/:artifactId/graph.json", async (c) => {
+		const artifactId = c.req.param("artifactId");
+		if (!/^[a-zA-Z0-9_-]+$/.test(artifactId)) return c.json({ error: "Invalid artifact ID" }, 400);
+		const { loadConfig } = await Promise.resolve().then(() => require("./config-CIJ9gahy.cjs")).then((n) => n.config_exports);
+		const config = await loadConfig();
+		const graphPath = node_path.default.join(config.dataDir, "artifacts", artifactId, "graph.json");
+		try {
+			const graph = await (0, node_fs_promises.readFile)(graphPath, "utf-8");
+			return c.body(graph, 200, { "Content-Type": "application/json" });
+		} catch {
+			return c.json({ error: "Graph artifact not found" }, 404);
+		}
+	});
 	app.onError((err, c) => {
 		console.error(err);
 		return c.json({ error: "Internal server error" }, 500);
