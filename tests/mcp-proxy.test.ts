@@ -1,10 +1,14 @@
+import { rmSync } from 'node:fs'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+const testDataDir = vi.hoisted(() => `/tmp/chain-insights-mcp-proxy-test-${process.pid}`)
 
 // Mock all external dependencies before importing proxy
 vi.mock('../src/config/index.js', () => ({
   loadConfig: vi.fn().mockResolvedValue({
     mcpEndpoint: 'http://localhost:8080/mcp',
     serverPort: 4321,
+    dataDir: testDataDir,
     version: '1',
   }),
 }))
@@ -108,6 +112,7 @@ function findToolHandler(
 describe('MCP proxy (MCP-02, MCP-03)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    rmSync(testDataDir, { recursive: true, force: true })
   })
 
   it('registers remote tool on the local server by name', async () => {
@@ -345,6 +350,61 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.contents[0].mimeType).toBe('text/html;profile=mcp-app')
     expect(result.contents[0].text).toContain('bgPatternImg')
     expect(result.contents[0].text).toContain('data:image/png;base64')
+  })
+
+  it('persists remote graph _meta and returns only local artifact pointer', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      {
+        name: 'address_risk',
+        title: 'Address Risk',
+        description: 'Risk report',
+        outputSchema: {
+          type: 'object',
+          properties: { schema: { type: 'string' }, facts: { type: 'object' } },
+        },
+        _meta: { ui: { resourceUri: 'ui://chain-insights/graph' } },
+      },
+    ])
+
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool.mockResolvedValueOnce({
+      content: [{ type: 'text', text: '## Risk Report' }],
+      structuredContent: {
+        schema: 'chain-insights.result.v1',
+        tool: 'address_risk',
+        facts: { risk: { level: 'critical' } },
+      },
+      _meta: {
+        chainInsights: {
+          graph: {
+            schema: 'chain-insights.graph.v1',
+            data: { schema: 'chain-insights.graph.v1', nodes: [], edges: [], flows: [], edge_anchors: [] },
+          },
+        },
+      },
+      isError: false,
+    })
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'address_risk')
+    const result = await handler({ address: '5Addr', network: 'bittensor' })
+
+    expect(result.content).toEqual([{ type: 'text', text: '## Risk Report' }])
+    expect(result.structuredContent.facts.risk.level).toBe('critical')
+    expect(result.structuredContent).not.toHaveProperty('app_data')
+    expect(result._meta.chainInsights.graph.data).toBeUndefined()
+    expect(result._meta.chainInsights.graph.url).toMatch(/^http:\/\/127\.0\.0\.1:4321\/artifacts\/.+\/graph\.json$/)
   })
 
   it('registers a local help tool that explains proxy-local tools', async () => {

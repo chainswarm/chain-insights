@@ -7,6 +7,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server'
 import * as z from 'zod'
+import type { InvestigatorConfig } from '../config/schema.js'
 import type { McpTool } from './schema-cache.js'
 
 const LOCAL_TOOL_NAMES = new Set(['balance', 'topup', 'help'])
@@ -67,6 +68,51 @@ function graphToolMeta(tool: McpTool): Record<string, unknown> & { ui: { resourc
       ...ui,
       resourceUri: GRAPH_RESOURCE_URI,
     },
+  }
+}
+
+type RemoteToolResult = {
+  content?: Array<{ type: string; text?: string }>
+  structuredContent?: Record<string, unknown>
+  _meta?: Record<string, unknown>
+  isError?: boolean
+}
+
+function getRemoteGraphPayload(result: RemoteToolResult): Record<string, unknown> | null {
+  const chainInsights = result._meta?.chainInsights
+  if (!chainInsights || typeof chainInsights !== 'object' || Array.isArray(chainInsights)) return null
+  const graph = (chainInsights as Record<string, unknown>).graph
+  if (!graph || typeof graph !== 'object' || Array.isArray(graph)) return null
+  const data = (graph as Record<string, unknown>).data
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null
+  return data as Record<string, unknown>
+}
+
+async function normalizeRemoteToolResult(
+  result: RemoteToolResult,
+  config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
+) {
+  const graphPayload = getRemoteGraphPayload(result)
+  const meta = { ...(result._meta ?? {}) }
+
+  if (graphPayload) {
+    const { writeGraphArtifact } = await import('./artifacts.js')
+    const artifact = await writeGraphArtifact(graphPayload as never, config)
+    meta.chainInsights = {
+      ...((meta.chainInsights as Record<string, unknown>) ?? {}),
+      graph: {
+        schema: artifact.schema,
+        id: artifact.id,
+        url: artifact.url,
+      },
+    }
+  }
+
+  return {
+    content: result.content ?? [],
+    structuredContent: result.structuredContent,
+    _meta: Object.keys(meta).length > 0 ? meta : undefined,
+    isError: result.isError,
   }
 }
 
@@ -286,10 +332,7 @@ export async function createProxy(): Promise<void> {
           name: tool.name,
           arguments: args as Record<string, unknown>,
         })
-        return {
-          content: result.content as Array<{ type: 'text'; text: string }>,
-          isError: result.isError as boolean | undefined,
-        }
+        return await normalizeRemoteToolResult(result as RemoteToolResult, config)
       } catch (err) {
         return {
           content: [{ type: 'text' as const, text: `MCP call failed: ${(err as Error).message}` }],
