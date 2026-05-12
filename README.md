@@ -109,7 +109,7 @@ Wallet top-up page, served by the copied `infra/mcp-proxy` wallet UI:
 
 ![Chain Insights wallet top-up page](docs/images/topup-page.png)
 
-Graph visualization loaded from a local MCP graph artifact:
+Graph visualization loaded from a visible subset of a local UAT graph artifact:
 
 ![Chain Insights graph visualization](docs/images/graph-visualization.png)
 
@@ -393,7 +393,9 @@ chain-insights setup claude-desktop --dry-run
 chain-insights setup claude-desktop
 ```
 
-The setup command updates only the `mcpServers.chain-insights` entry in `claude_desktop_config.json`, preserves existing preferences and other MCP servers, and writes a backup before changing an existing config. Restart Claude Desktop after running it.
+The setup command updates only the `mcpServers.chain-insights` entry in `claude_desktop_config.json`, preserves existing preferences and other MCP servers, and writes a backup before changing an existing config.
+
+Claude Desktop does not hot-reload this file. Fully quit and reopen Claude Desktop after running setup. If the desktop UI still shows `/home/aphex5/.local/bin/chain-insights-mcp start`, the app is still using the old in-memory server entry from before setup.
 
 Equivalent manual config shape:
 
@@ -422,6 +424,13 @@ npx @modelcontextprotocol/inspector \
   --config ~/.config/Claude/claude_desktop_config.json \
   --server chain-insights \
   --method resources/list
+```
+
+On Linux, this shows whether a desktop process was already running before setup and therefore needs a restart:
+
+```bash
+pgrep -af claude-desktop
+tail -80 ~/.config/Claude/logs/mcp-server-chain-insights.log
 ```
 
 Expected MCP app resources:

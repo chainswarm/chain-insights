@@ -116,6 +116,17 @@ describe('generateHtml (VIZ-02) — graph.html template', () => {
     expect(html).toContain("localStorage.setItem('graph_view_' + storageId")
     expect(html).not.toContain("edgeMode")
   })
+
+  it('graph template keeps risk score and visible adjacent-node role colors', async () => {
+    const { generateHtml } = await import('../src/viz/html-generator.js')
+    const { GraphData } = await import('../src/viz/graph-model.js')
+    const data = GraphData.parse(validData)
+    const html = generateHtml(data, 'Test Viz')
+
+    expect(html).toContain("counterparty: '#8fb3ff'")
+    expect(html).toContain("intermediary: '#b38cff'")
+    expect(html).toContain("risk_score: typeof n.risk_score === 'number' ? n.risk_score : null")
+  })
 })
 
 describe('transformToGraphHtml (data schema mapping)', () => {

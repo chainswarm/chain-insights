@@ -46,8 +46,8 @@ program.command("setup").description("Configure external MCP clients").addComman
 		else if (result.changed) {
 			console.log(`Updated:               yes`);
 			if (result.backupPath) console.log(`Backup:                ${result.backupPath}`);
-			console.log("Restart Claude Desktop to reload MCP servers.");
 		} else console.log("Updated:               already up to date");
+		console.log("Reload required:       quit and reopen Claude Desktop; it does not hot-reload MCP config.");
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);

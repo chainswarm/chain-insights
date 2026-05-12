@@ -221,8 +221,8 @@ var ROLE_FILLS = {
   scammer:      '#ff0055',  // neon red — danger
   exchange:     '#0066ff',  // strong neon blue — institutional
   deposit:      '#00ffcc',  // neon cyan — deposit
-  intermediary: null,
-  counterparty: null,
+  intermediary: '#b38cff',  // violet — routed intermediary
+  counterparty: '#8fb3ff',  // blue — adjacent counterparty
 };
 // Risk indicators — drawn as ! inside node, not borders
 var RISK_COLORS = {
@@ -667,6 +667,7 @@ function applyDataMode() {
     var o = {address:n.address, address_type:n.address_type||'wallet', labels:n.labels||[],
              flow_in_usd:n.flow_in_usd, flow_out_usd:n.flow_out_usd,
              role:n.role||null, risk_level:n.risk_level||null,
+             risk_score: typeof n.risk_score === 'number' ? n.risk_score : null,
              pattern_flags:n.pattern_flags||[], x:0, y:0, r:DEF_R};
     nodeMap[o.address] = o;
     return o;
