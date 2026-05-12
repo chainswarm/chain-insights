@@ -166,9 +166,6 @@
   <button class="ctrl-btn layout-btn" data-layout="force" title="Gravity / force-directed layout">Force</button>
   <button class="ctrl-btn layout-btn active" data-layout="tree">Tree</button>
   <span style="width:1px;height:20px;background:var(--white-100);margin:0 4px"></span>
-  <button class="ctrl-btn edge-btn active" data-edges="aggregated">Aggregated</button>
-  <button class="ctrl-btn edge-btn" data-edges="individual" id="individual-btn" title="Available when transaction data is present">Individual</button>
-  <span style="width:1px;height:20px;background:var(--white-100);margin:0 4px"></span>
   <button class="ctrl-btn" id="reset-btn" title="Reset node positions">Reset</button>
 </div>
 <div id="legend"></div>
@@ -327,11 +324,7 @@ function switchPalette(name) {
    State
    ─────────────────────────────────────────────────────────── */
 var graphData = null;
-var rawNodes  = null;  // original data.nodes (never mutated)
-var rawEdges  = null;  // original data.edges (never mutated)
-var rawTransactions = null; // original data.transactions (individual transfers)
-var edgeMode  = 'aggregated'; // 'aggregated' or 'individual'
-var storageId = null;  // extracted from data_url for localStorage key
+var storageId = null;  // stable graph id for localStorage keys
 var depositExchange = {}; // address → exchange name for deposit nodes
 var nodes     = [];    // {address, x, y, r, ...}
 var links     = [];    // {source:nodeRef, target:nodeRef, ...}
@@ -356,9 +349,35 @@ function fmtDate(ts) {
   var d = new Date(ts);
   return d.toISOString().slice(0,10) + ' ' + d.toISOString().slice(11,16);
 }
+function hashString(s) {
+  var h = 2166136261;
+  for (var i=0; i<s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+function storageIdFromData(data) {
+  if (!data) return null;
+  var meta = data.metadata || {};
+  var explicit = meta.storage_id || meta.storageId || meta.trace_id || meta.traceId || meta.job_id || meta.jobId || meta.case_id || meta.caseId;
+  if (explicit) return String(explicit).replace(/[^a-zA-Z0-9_.-]/g, '_');
+
+  var nodeIds = (data.nodes || []).map(function(n){ return n.address || n.id || ''; }).sort();
+  var edgeIds = (data.edges || []).map(function(e){
+    return [e.from_address || e.from || '', e.to_address || e.to || '', e.type || 'FLOWS_TO'].join('>');
+  }).sort();
+  var basis = JSON.stringify({
+    network: meta.network || '',
+    seed: meta.seed_address || meta.seedAddress || '',
+    nodes: nodeIds,
+    edges: edgeIds,
+  });
+  return 'inline_' + hashString(basis);
+}
 function posStorageKey() {
   if (!storageId) return null;
-  return 'graph_pos_' + storageId + '_' + layout + '_' + edgeMode;
+  return 'graph_pos_' + storageId + '_' + layout;
 }
 function savePositions() {
   var key = posStorageKey();
@@ -399,7 +418,7 @@ function clearPositions() {
 }
 function saveViewState() {
   if (!storageId) return;
-  try { localStorage.setItem('graph_view_' + storageId, JSON.stringify({layout:layout, edgeMode:edgeMode})); } catch(e) {}
+  try { localStorage.setItem('graph_view_' + storageId, JSON.stringify({layout:layout})); } catch(e) {}
 }
 function loadViewState() {
   if (!storageId) return;
@@ -408,9 +427,7 @@ function loadViewState() {
     if (!s) return;
     var v = JSON.parse(s);
     if (v.layout) layout = v.layout;
-    if (v.edgeMode && rawTransactions && rawTransactions.length) edgeMode = v.edgeMode;
     document.querySelectorAll('.layout-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.layout===layout); });
-    document.querySelectorAll('.edge-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.edges===edgeMode); });
   } catch(e) {}
 }
 function fmtUSD(v) {
@@ -607,18 +624,17 @@ function applyPos(wn) {
    ─────────────────────────────────────────────────────────── */
 function loadGraph(data) {
   graphData = data;
-  rawNodes = data.nodes;
-  rawEdges = data.edges;
-  rawTransactions = data.transactions || null;
   seed = data.metadata ? data.metadata.seed_address : null;
 
-  // Extract storageId from data_url query param for localStorage
+  // Extract storageId from data_url query param for localStorage; fall back
+  // to a deterministic graph hash so inline MCP/CLI app_data also persists.
   var params = new URLSearchParams(window.location.search);
   var dataUrl = params.get('data_url');
   if (dataUrl) {
     var m = dataUrl.match(/results\/([^/]+\/[^/]+)/);
     storageId = m ? m[1].replace(/\//g, '_') : null;
   }
+  if (!storageId) storageId = storageIdFromData(data);
 
   // Build deposit→exchange name mapping
   depositExchange = {};
@@ -636,11 +652,7 @@ function loadGraph(data) {
     if (exMap[dt]) depositExchange[df] = exMap[dt];
   }
 
-  // Individual button is always clickable — if there are no transactions
-  // the click is a no-op (setEdgeMode guards against it) rather than
-  // pre-disabling the control.
-
-  // Restore view state from localStorage (layout + edge mode)
+  // Restore view state from localStorage (layout only).
   loadViewState();
 
   applyDataMode();
@@ -651,124 +663,38 @@ function applyDataMode() {
 
   nodeMap = {};
 
-  if (edgeMode === 'individual' && rawTransactions && rawTransactions.length) {
-    // Timeline mode: one node per address, individual transfer edges
-    var txSorted = rawTransactions.slice().sort(function(a,b){ return a.timestamp - b.timestamp; });
+  nodes = graphData.nodes.map(function(n) {
+    var o = {address:n.address, address_type:n.address_type||'wallet', labels:n.labels||[],
+             flow_in_usd:n.flow_in_usd, flow_out_usd:n.flow_out_usd,
+             role:n.role||null, risk_level:n.risk_level||null,
+             pattern_flags:n.pattern_flags||[], x:0, y:0, r:DEF_R};
+    nodeMap[o.address] = o;
+    return o;
+  });
 
-    // Build main-path edge lookup so individual-mode transfers crossing
-    // a main-path (from,to) pair render in green like aggregated mode.
-    var mainPathPairs = {};
-    if (rawEdges) {
-      for (var mpi=0; mpi<rawEdges.length; mpi++) {
-        var ee = rawEdges[mpi];
-        if (ee.is_main_path) {
-          var mpF = ee.from_address || ee.from;
-          var mpT = ee.to_address || ee.to;
-          if (mpF && mpT) mainPathPairs[mpF + '>' + mpT] = true;
-        }
-      }
-    }
-
-    // Collect unique addresses + first block/timestamp per address
-    var addrSet = {};
-    var firstBlock = {};  // address → earliest timestamp (for tree ordering)
-    for (var ti=0; ti<txSorted.length; ti++) {
-      var txf = txSorted[ti];
-      addrSet[txf.from] = true;
-      addrSet[txf.to] = true;
-      if (!(txf.from in firstBlock)) firstBlock[txf.from] = txf.timestamp;
-      if (!(txf.to in firstBlock)) firstBlock[txf.to] = txf.timestamp;
-    }
-
-    // Build nodes from unique addresses (reuse original node metadata)
-    var rawNodeMap = {};
-    for (var ni=0; ni<rawNodes.length; ni++) rawNodeMap[rawNodes[ni].address] = rawNodes[ni];
-
-    nodes = [];
-    var addrs = Object.keys(addrSet);
-    for (var ai=0; ai<addrs.length; ai++) {
-      var addr = addrs[ai];
-      var orig = rawNodeMap[addr];
-      var o;
-      if (orig) {
-        o = {address:orig.address, address_type:orig.address_type||'wallet', labels:orig.labels||[],
-             flow_in_usd:orig.flow_in_usd, flow_out_usd:orig.flow_out_usd,
-             role:orig.role||null, risk_level:orig.risk_level||null,
-             pattern_flags:orig.pattern_flags||[], x:0, y:0, r:DEF_R};
-      } else {
-        o = {address:addr, address_type:'wallet', labels:[],
-             flow_in_usd:0, flow_out_usd:0, role:null, risk_level:null,
-             pattern_flags:[], x:0, y:0, r:DEF_R};
-      }
-      nodeMap[o.address] = o;
-      nodes.push(o);
-    }
-
-    // Build individual transfer edges (multiple edges between same pair)
-    var amts = [];
-    links = [];
-    for (var ei=0; ei<txSorted.length; ei++) {
-      var tx = txSorted[ei];
-      var src = nodeMap[tx.from];
-      var tgt = nodeMap[tx.to];
-      if (!src || !tgt) continue;
-      var l = {source:src, target:tgt, usd_amount:tx.amount_usd, tx_count:1,
-               type:'TRANSFER', tx_id:tx.tx_id, timestamp:tx.timestamp, asset:tx.asset,
-               is_main_path: !!mainPathPairs[tx.from + '>' + tx.to]};
-      links.push(l);
-      if (l.usd_amount > 0) amts.push(l.usd_amount);
-    }
-    amtExt = amts.length >= 2 ? d3.extent(amts) : null;
-    amtRange = amtExt ? amtExt[1]-amtExt[0] : 0;
-
-    // Use worker for layout — include firstBlock + role for tree root selection
-    var workerNodes = nodes.map(function(n) {
-      return {address:n.address, flow_in_usd:n.flow_in_usd, flow_out_usd:n.flow_out_usd,
-              firstBlock:firstBlock[n.address]||0, role:n.role||null};
-    });
-    var workerEdges = txSorted.map(function(tx) {
-      return {from_address:tx.from, to_address:tx.to, usd_amount:tx.amount_usd};
-    }).filter(function(e) { return nodeMap[e.from_address] && nodeMap[e.to_address]; });
-
-    needFit = true;
-    worker.postMessage({type:'init', nodes:workerNodes, edges:workerEdges,
-      layout:layout, width:W, height:H, seed:seed});
-
-  } else {
-    // Topology mode: original behavior
-    nodes = graphData.nodes.map(function(n) {
-      var o = {address:n.address, address_type:n.address_type||'wallet', labels:n.labels||[],
-               flow_in_usd:n.flow_in_usd, flow_out_usd:n.flow_out_usd,
-               role:n.role||null, risk_level:n.risk_level||null,
-               pattern_flags:n.pattern_flags||[], x:0, y:0, r:DEF_R};
-      nodeMap[o.address] = o;
-      return o;
-    });
-
-    var amts = [];
-    links = [];
-    for (var i=0; i<graphData.edges.length; i++) {
-      var e = graphData.edges[i];
-      var eType = e.type||'FLOWS_TO';
-      if (eType !== 'FLOWS_TO') continue;  // skip pattern edges
-      var src = nodeMap[e.from_address||e.from];
-      var tgt = nodeMap[e.to_address||e.to];
-      if (!src || !tgt) continue;
-      var l = {source:src, target:tgt, usd_amount:e.usd_amount||e.amount_usd, tx_count:e.tx_count, type:eType, is_main_path:!!e.is_main_path, is_mixer_path:!!e.is_mixer_path};
-      links.push(l);
-      if (l.usd_amount > 0) amts.push(l.usd_amount);
-    }
-    amtExt = amts.length >= 2 ? d3.extent(amts) : null;
-    amtRange = amtExt ? amtExt[1]-amtExt[0] : 0;
-
-    var validEdges = graphData.edges.filter(function(e) {
-      return nodeMap[e.from_address||e.from] && nodeMap[e.to_address||e.to];
-    });
-
-    needFit = true;
-    worker.postMessage({type:'init', nodes:graphData.nodes.slice(), edges:validEdges,
-      layout:layout, width:W, height:H, seed:seed});
+  var amts = [];
+  links = [];
+  for (var i=0; i<graphData.edges.length; i++) {
+    var e = graphData.edges[i];
+    var eType = e.type||'FLOWS_TO';
+    if (eType !== 'FLOWS_TO') continue;  // skip pattern edges
+    var src = nodeMap[e.from_address||e.from];
+    var tgt = nodeMap[e.to_address||e.to];
+    if (!src || !tgt) continue;
+    var l = {source:src, target:tgt, usd_amount:e.usd_amount||e.amount_usd, tx_count:e.tx_count, type:eType, is_main_path:!!e.is_main_path, is_mixer_path:!!e.is_mixer_path};
+    links.push(l);
+    if (l.usd_amount > 0) amts.push(l.usd_amount);
   }
+  amtExt = amts.length >= 2 ? d3.extent(amts) : null;
+  amtRange = amtExt ? amtExt[1]-amtExt[0] : 0;
+
+  var validEdges = graphData.edges.filter(function(e) {
+    return nodeMap[e.from_address||e.from] && nodeMap[e.to_address||e.to];
+  });
+
+  needFit = true;
+  worker.postMessage({type:'init', nodes:graphData.nodes.slice(), edges:validEdges,
+    layout:layout, width:W, height:H, seed:seed});
   buildLegend();
 }
 
@@ -1108,18 +1034,6 @@ function initInteraction() {
 /* ───────────────────────────────────────────────────────────
    Layout toggle
    ─────────────────────────────────────────────────────────── */
-function setEdgeMode(m) {
-  if (m === 'individual' && (!rawTransactions || !rawTransactions.length)) return;
-  edgeMode = m;
-  document.querySelectorAll('.edge-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.edges===m); });
-  if (!graphData) return;
-  needFit = true;
-  tf = d3.zoomIdentity;
-  d3.select(canvas).call(zoomB.transform, tf);
-  saveViewState();
-  applyDataMode();
-}
-
 function setLayout(m) {
   layout = m;
   document.querySelectorAll('.layout-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.layout===m); });
@@ -1315,9 +1229,6 @@ function boot() {
 
   document.querySelectorAll('.layout-btn').forEach(function(b){
     b.addEventListener('click', function(){ setLayout(b.dataset.layout); });
-  });
-  document.querySelectorAll('.edge-btn').forEach(function(b){
-    b.addEventListener('click', function(){ setEdgeMode(b.dataset.edges); });
   });
   document.getElementById('reset-btn').addEventListener('click', function(){
     clearPositions();

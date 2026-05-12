@@ -75,7 +75,7 @@ describe('generateHtml (VIZ-02) — graph.html template', () => {
     expect(html).toContain('<canvas id="c"')
   })
 
-  it('generateHtml exposes GraphRAG layout and edge controls', async () => {
+  it('generateHtml exposes Tree/Force controls and hides deprecated edge mode controls', async () => {
     const { generateHtml } = await import('../src/viz/html-generator.js')
     const { GraphData } = await import('../src/viz/graph-model.js')
     const data = GraphData.parse(validData)
@@ -85,10 +85,22 @@ describe('generateHtml (VIZ-02) — graph.html template', () => {
     expect(html).toContain('>Force</button>')
     expect(html).toContain('data-layout="tree"')
     expect(html).toContain('>Tree</button>')
-    expect(html).toContain('data-edges="aggregated"')
-    expect(html).toContain('data-edges="individual"')
+    expect(html).not.toContain('data-edges="aggregated"')
+    expect(html).not.toContain('data-edges="individual"')
     expect(html).not.toContain('data-layout="force" style="display:none"')
     expect(html).not.toContain('data-layout="tree" style="display:none"')
+  })
+
+  it('generateHtml persists graph positions in browser localStorage by graph and layout', async () => {
+    const { generateHtml } = await import('../src/viz/html-generator.js')
+    const { GraphData } = await import('../src/viz/graph-model.js')
+    const data = GraphData.parse(validData)
+    const html = generateHtml(data, 'Test Viz')
+
+    expect(html).toContain('localStorage.setItem(key, JSON.stringify(pos))')
+    expect(html).toContain("return 'graph_pos_' + storageId + '_' + layout")
+    expect(html).toContain("localStorage.setItem('graph_view_' + storageId")
+    expect(html).not.toContain("edgeMode")
   })
 })
 
