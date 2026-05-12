@@ -95,7 +95,7 @@ chain-insights mcp call graph_query \
   "query=MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, n.address AS address LIMIT 10"
 ```
 
-Example Bittensor address from a local Memgraph UAT dataset:
+Example Bittensor address:
 
 ```text
 5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6
@@ -103,17 +103,17 @@ Example Bittensor address from a local Memgraph UAT dataset:
 
 ## Visual Examples
 
-The screenshots below are captured from the local Chain Insights components used during UAT.
+Chain Insights keeps wallet funding and graph exploration inside the local operator workflow.
 
-Wallet top-up page, served by the copied `infra/mcp-proxy` wallet UI:
+Wallet top-up page:
 
 ![Chain Insights wallet top-up page](docs/images/topup-page.png)
 
-Graph visualization loaded from a visible subset of a local UAT graph artifact:
+Interactive money-flow graph with Force, Tree, and Reset controls:
 
 ![Chain Insights graph visualization](docs/images/graph-visualization.png)
 
-Claude-style iframe harness receiving the graph URL through an MCP Apps tool-result message:
+MCP client view of the same graph application:
 
 ![Chain Insights graph MCP iframe](docs/images/graph-mcp-iframe.png)
 
@@ -437,8 +437,21 @@ Expected MCP app resources:
 
 | Resource | Purpose |
 | --- | --- |
-| `ui://chain-insights/topup.html` | Wallet top-up iframe |
-| `ui://chain-insights/graph` | D3 graph iframe for GraphRAG artifacts |
+| `ui://chain-insights/topup.html` | Wallet top-up app |
+| `ui://chain-insights/graph` | Interactive money-flow graph |
+
+Claude Desktop prompt shortcuts:
+
+| Prompt | Use |
+| --- | --- |
+| `address-risk` | Screen an address for AML risk and neighborhood context |
+| `track-funds` | Trace victim funds through intermediaries to exchanges |
+| `money-flows-between-exchanges` | Find exchange deposits and withdrawals for addresses |
+| `address-connection-risk` | Assess whether two addresses are connected through risky paths |
+| `graph-query` | Run a read-only Cypher query against the investigation graph |
+| `balance` | Show the local Base USDC payment wallet balance |
+| `topup` | Open the wallet top-up page |
+| `help` | Show Chain Insights tools and commands |
 
 Useful Claude Desktop prompts:
 
@@ -523,7 +536,7 @@ Expected checks:
 | `debug mcp` | Remote endpoint reachability, auth mode, `tools/list`, local proxy `tools/list`, local proxy `resources/list` |
 | `debug claude-desktop` | Claude config path, `chain-insights` server entry, command/args existence, Inspector smoke test |
 | `debug artifacts <id>` | Artifact file exists, schema is `chain-insights.graph.v1`, node/edge/flow counts, local server fetch works |
-| `debug browser --artifact <id>` | Opens a local iframe harness and verifies the graph app can load `_meta.chainInsights.graph.url` |
+| `debug browser --artifact <id>` | Opens the local graph app and verifies it can load `_meta.chainInsights.graph.url` |
 
 Rules for the debug CLI:
 

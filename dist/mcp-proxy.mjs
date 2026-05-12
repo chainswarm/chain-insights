@@ -13,6 +13,7 @@ const LOCAL_TOOL_NAMES = new Set([
 	"topup",
 	"help"
 ]);
+const PUBLIC_GRAPHRAG_PROMPT_NAMES = new Set(["address-risk", "track-funds"]);
 const TOPUP_RESOURCE_URI = "ui://chain-insights/topup.html";
 const GRAPH_RESOURCE_URI = "ui://chain-insights/graph";
 const GRAPH_APP_TOOL_NAMES = new Set([
@@ -58,6 +59,135 @@ function graphToolMeta(tool) {
 			resourceUri: GRAPH_RESOURCE_URI
 		}
 	};
+}
+function promptResult(text, description) {
+	return {
+		description,
+		messages: [{
+			role: "user",
+			content: {
+				type: "text",
+				text
+			}
+		}]
+	};
+}
+function compactPromptArguments(args) {
+	const compact = {};
+	for (const [key, value] of Object.entries(args)) if (typeof value === "string" && value.trim() !== "") compact[key] = value;
+	return compact;
+}
+function promptArgumentSchema(argument) {
+	const schema = z.string().describe(argument.description ?? argument.name);
+	return argument.required === false ? schema.optional() : schema;
+}
+function registerRemotePrompt(server, remoteClient, prompt) {
+	const argsSchema = {};
+	for (const argument of prompt.arguments ?? []) argsSchema[argument.name] = promptArgumentSchema(argument);
+	server.registerPrompt(prompt.name, {
+		title: prompt.title,
+		description: prompt.description,
+		argsSchema
+	}, async (args) => remoteClient.getPrompt({
+		name: prompt.name,
+		arguments: compactPromptArguments(args)
+	}));
+}
+function registerLocalPrompts(server, remotePromptNames) {
+	if (!remotePromptNames.has("address-risk")) server.registerPrompt("address-risk", {
+		title: "Address Risk",
+		description: "Screen an address for AML risk, behavioral patterns, neighborhood profile, and exchange links.",
+		argsSchema: {
+			address: z.string().describe("Full blockchain address to screen"),
+			network: z.string().optional().describe("Network: bittensor, base, or ethereum")
+		}
+	}, async ({ address, network }) => promptResult([
+		`Use Chain Insights address_risk on ${network ?? "bittensor"} for:`,
+		"",
+		`\`${address}\``,
+		"",
+		"Present the summary as-is. Do not add analysis, verdicts, or risk assessments; the tool output already contains the risk assessment."
+	].join("\n"), "Address risk screening"));
+	if (!remotePromptNames.has("track-funds")) server.registerPrompt("track-funds", {
+		title: "Track Funds",
+		description: "Trace stolen funds from victim addresses through intermediaries to exchange deposit addresses.",
+		argsSchema: {
+			trusted_addresses: z.string().describe("Victim/trusted addresses, comma-separated full addresses"),
+			untrusted_addresses: z.string().optional().describe("Known scammer/untrusted addresses, comma-separated full addresses"),
+			network: z.string().optional().describe("Network: bittensor, base, or ethereum")
+		}
+	}, async ({ trusted_addresses, untrusted_addresses, network }) => {
+		const untrusted = untrusted_addresses?.trim() ? `\nKnown untrusted addresses:\n${untrusted_addresses}\n` : "";
+		return promptResult([
+			`Use Chain Insights track_funds on ${network ?? "bittensor"}.`,
+			"",
+			"Trusted victim addresses:",
+			trusted_addresses,
+			untrusted,
+			"Present the summary as-is and include recommended next actions exactly as returned."
+		].join("\n"), "Trace stolen funds");
+	});
+	server.registerPrompt("money-flows-between-exchanges", {
+		title: "Money Flows Between Exchanges",
+		description: "Find exchange deposits, withdrawals, and bidirectional fund-flow paths for one or more addresses.",
+		argsSchema: {
+			addresses: z.string().describe("One or more full blockchain addresses, comma-separated"),
+			network: z.string().optional().describe("Network: bittensor, base, or ethereum")
+		}
+	}, async ({ addresses, network }) => promptResult([
+		`Use Chain Insights money_flows_between_exchanges on ${network ?? "bittensor"} for these addresses:`,
+		"",
+		addresses,
+		"",
+		"Present the exchange contact table as-is. Show every blockchain address as the full exact string."
+	].join("\n"), "Exchange flow tracing"));
+	server.registerPrompt("address-connection-risk", {
+		title: "Address Connection Risk",
+		description: "Assess whether two addresses are connected and whether that connection is risky.",
+		argsSchema: {
+			source: z.string().describe("Full source blockchain address"),
+			target: z.string().describe("Full target blockchain address"),
+			network: z.string().optional().describe("Network: bittensor, base, or ethereum")
+		}
+	}, async ({ source, target, network }) => promptResult([
+		`Use Chain Insights address_connection_risk on ${network ?? "bittensor"}.`,
+		"",
+		`Source: \`${source}\``,
+		`Target: \`${target}\``,
+		"",
+		"Present the summary as-is. Do not add analysis, verdicts, or risk assessments."
+	].join("\n"), "Address connection risk"));
+	server.registerPrompt("graph-query", {
+		title: "Cypher Graph Query",
+		description: "Run a read-only Cypher query against the Chain Insights graph database.",
+		argsSchema: {
+			query: z.string().describe("Read-only Cypher query"),
+			network: z.string().optional().describe("Network: bittensor, base, or ethereum")
+		}
+	}, async ({ query, network }) => promptResult([
+		`Use Chain Insights graph_query on ${network ?? "bittensor"} with this read-only Cypher query:`,
+		"",
+		"```cypher",
+		query,
+		"```",
+		"",
+		"Return full address properties; never shorten addresses with ellipses."
+	].join("\n"), "Graph database query"));
+	server.registerPrompt("balance", {
+		title: "Wallet Balance",
+		description: "Show the local Chain Insights payment wallet address and Base USDC balance.",
+		argsSchema: {}
+	}, async () => promptResult("Use Chain Insights balance. Show the wallet address, network, token, balance, and capacity exactly as returned.", "Wallet balance"));
+	server.registerPrompt("topup", {
+		title: "Wallet Top-Up",
+		description: "Open the local wallet funding page for Base USDC.",
+		argsSchema: {}
+	}, async () => promptResult("Use Chain Insights topup. Open the wallet top-up app if the MCP client supports apps, and show the top-up URL and wallet address.", "Wallet top-up"));
+	server.registerPrompt("help", {
+		title: "Chain Insights Help",
+		description: "Show available Chain Insights tools and getting-started commands.",
+		argsSchema: {}
+	}, async () => promptResult("Use Chain Insights help. Summarize the available local and remote tools without inventing capabilities.", "Chain Insights help"));
 }
 function hasGraphArrayFields(value) {
 	if (!value || typeof value !== "object" || Array.isArray(value)) return false;
@@ -152,6 +282,16 @@ async function createProxy() {
 		name: "chain-insights-proxy",
 		version: "0.1.0"
 	}, { instructions: "Chain Insights AML investigation tools. Pay-per-call via x402 on Base." });
+	const remotePrompts = [];
+	try {
+		const promptResult = await remoteClient.listPrompts();
+		for (const prompt of promptResult.prompts) if (PUBLIC_GRAPHRAG_PROMPT_NAMES.has(prompt.name)) remotePrompts.push(prompt);
+	} catch (err) {
+		process.stderr.write(`Chain Insights MCP prompt passthrough unavailable at ${config.mcpEndpoint}: ${err.message}\n`);
+	}
+	const remotePromptNames = new Set(remotePrompts.map((prompt) => prompt.name));
+	for (const prompt of remotePrompts) registerRemotePrompt(server, remoteClient, prompt);
+	registerLocalPrompts(server, remotePromptNames);
 	let topupState = null;
 	const getTopupState = async () => {
 		topupState ??= (async () => {

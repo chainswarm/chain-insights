@@ -56,18 +56,23 @@ vi.mock('../src/mcp/schema-cache.js', () => ({
 
 vi.mock('@modelcontextprotocol/sdk/server/mcp.js', () => {
   const registeredTools: Map<string, Function> = new Map()
+  const registeredPrompts: Map<string, Function> = new Map()
   // Must use regular function (not arrow) so `new McpServer()` works
   const McpServer = vi.fn(function () {
     return {
       registerTool: vi.fn(function (name: string, _opts: unknown, handler: Function) {
         registeredTools.set(name, handler)
       }),
+      registerPrompt: vi.fn(function (name: string, _opts: unknown, handler: Function) {
+        registeredPrompts.set(name, handler)
+      }),
       registerResource: vi.fn(),
       connect: vi.fn().mockResolvedValue(undefined),
       _registeredTools: registeredTools,
+      _registeredPrompts: registeredPrompts,
     }
   })
-  return { McpServer, _registeredTools: registeredTools }
+  return { McpServer, _registeredTools: registeredTools, _registeredPrompts: registeredPrompts }
 })
 
 vi.mock('@modelcontextprotocol/sdk/server/stdio.js', () => ({
@@ -83,7 +88,48 @@ vi.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
     return {
       connect: vi.fn().mockResolvedValue(undefined),
       listTools: vi.fn().mockResolvedValue({
-        tools: [{ name: 'trace_address', description: 'Trace address on-chain' }],
+        tools: [
+          { name: 'trace_address', description: 'Trace address on-chain' },
+          { name: 'money_flows_between_exchanges', description: 'Exchange flow tracing' },
+          { name: 'address_connection_risk', description: 'Connection risk' },
+          { name: 'graph_query', description: 'Cypher graph query' },
+        ],
+      }),
+      listPrompts: vi.fn().mockResolvedValue({
+        prompts: [
+          {
+            name: 'address-risk',
+            title: 'Address Risk',
+            description: 'Full address screening',
+            arguments: [
+              { name: 'address', description: 'Blockchain address', required: true },
+              { name: 'network', description: 'Network', required: false },
+            ],
+          },
+          {
+            name: 'track-funds',
+            title: 'Track Funds',
+            description: 'Trace stolen funds',
+            arguments: [
+              { name: 'trusted_addresses', description: 'Victim addresses', required: true },
+              { name: 'network', description: 'Network', required: false },
+            ],
+          },
+          {
+            name: 'address-poisoning-funding-probe',
+            title: 'Address Poisoning Funding Probe',
+            description: 'Private probe prompt',
+            arguments: [{ name: 'seed_address', required: true }],
+          },
+        ],
+      }),
+      getPrompt: vi.fn().mockResolvedValue({
+        messages: [
+          {
+            role: 'user',
+            content: { type: 'text', text: 'remote prompt text' },
+          },
+        ],
       }),
       callTool: vi.fn().mockResolvedValue({
         content: [{ type: 'text', text: 'result' }],
@@ -107,6 +153,17 @@ function findToolHandler(
   const call = serverInstance.registerTool.mock.calls.find((entry) => entry[0] === name)
   if (!call) {
     throw new Error(`Tool was not registered: ${name}`)
+  }
+  return call[2] as Function
+}
+
+function findPromptHandler(
+  serverInstance: { registerPrompt: ReturnType<typeof vi.fn> },
+  name: string,
+): Function {
+  const call = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === name)
+  if (!call) {
+    throw new Error(`Prompt was not registered: ${name}`)
   }
   return call[2] as Function
 }
@@ -370,6 +427,73 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.contents[0].mimeType).toBe('text/html;profile=mcp-app')
     expect(result.contents[0].text).toContain('bgPatternImg')
     expect(result.contents[0].text).toContain('data:image/png;base64')
+  })
+
+  it('exposes GraphRAG public prompts and product prompts for public Chain Insights tools', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      listPrompts: ReturnType<typeof vi.fn>
+    }
+    expect(clientInstance.listPrompts).toHaveBeenCalled()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerPrompt: ReturnType<typeof vi.fn>
+    }
+    const promptNames = serverInstance.registerPrompt.mock.calls.map((entry) => entry[0])
+
+    expect(promptNames).toEqual(expect.arrayContaining([
+      'address-risk',
+      'track-funds',
+      'money-flows-between-exchanges',
+      'address-connection-risk',
+      'graph-query',
+      'balance',
+      'topup',
+      'help',
+    ]))
+    expect(promptNames).not.toContain('address-poisoning-funding-probe')
+  })
+
+  it('forwards GraphRAG prompt requests to the remote MCP prompt implementation', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerPrompt: ReturnType<typeof vi.fn>
+    }
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      getPrompt: ReturnType<typeof vi.fn>
+    }
+
+    const handler = findPromptHandler(serverInstance, 'address-risk')
+    const result = await handler({
+      address: '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6',
+      network: 'bittensor',
+      empty_optional: '',
+    })
+
+    expect(clientInstance.getPrompt).toHaveBeenCalledWith({
+      name: 'address-risk',
+      arguments: {
+        address: '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6',
+        network: 'bittensor',
+      },
+    })
+    expect(result.messages[0].content.text).toBe('remote prompt text')
   })
 
   it('persists remote graph _meta and returns only local artifact pointer', async () => {
