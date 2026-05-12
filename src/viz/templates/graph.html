@@ -1147,11 +1147,23 @@ function showLoadError(error) {
   console.error(error);
 }
 
+function isLocalGraphArtifactUrl(graphUrl) {
+  try {
+    var parsed = new URL(graphUrl);
+    if (parsed.protocol !== 'http:') return false;
+    if (parsed.hostname !== '127.0.0.1' && parsed.hostname !== 'localhost') return false;
+    return /^\/artifacts\/[A-Za-z0-9_-]+\/graph\.json$/.test(parsed.pathname);
+  } catch (e) {
+    return false;
+  }
+}
+
 async function loadFromToolResultParams(params) {
   var graphUrl = params && params._meta && params._meta.chainInsights && params._meta.chainInsights.graph && params._meta.chainInsights.graph.url;
 
   if (graphUrl) {
     try {
+      if (!isLocalGraphArtifactUrl(graphUrl)) throw new Error('Graph artifact URL is not local');
       var resp = await fetch(graphUrl);
       if (!resp.ok) throw new Error('Graph artifact fetch failed: ' + resp.status);
       var graphData = await resp.json();

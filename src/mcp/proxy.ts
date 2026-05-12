@@ -119,7 +119,7 @@ function getRemoteGraphPayload(result: RemoteToolResult): Record<string, unknown
 
   const graphRecord = graph as Record<string, unknown>
   if (!('data' in graphRecord)) {
-    if (hasGraphArrayFields(graphRecord)) {
+    if ('url' in graphRecord || hasGraphArrayFields(graphRecord)) {
       throw new Error('Invalid remote graph payload')
     }
     return null
@@ -155,9 +155,7 @@ async function normalizeRemoteToolResult(
 
   return {
     content: result.content ?? [],
-    structuredContent: graphPayload
-      ? sanitizeStructuredContentForGraphPayload(result.structuredContent)
-      : result.structuredContent,
+    structuredContent: sanitizeStructuredContentForGraphPayload(result.structuredContent),
     _meta: Object.keys(meta).length > 0 ? meta : undefined,
     isError: result.isError,
   }
