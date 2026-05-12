@@ -97,7 +97,7 @@ async function normalizeRemoteToolResult(result, config) {
 	const graphPayload = getRemoteGraphPayload(result);
 	const meta = { ...result._meta ?? {} };
 	if (graphPayload) {
-		const { writeGraphArtifact } = await import("./artifacts-B_8bJm5j.mjs");
+		const { writeGraphArtifact } = await import("./artifacts-DZqbNrfC.mjs");
 		const artifact = await writeGraphArtifact(graphPayload, config);
 		meta.chainInsights = {
 			...meta.chainInsights ?? {},
@@ -125,7 +125,7 @@ async function normalizeRemoteToolResult(result, config) {
 async function createProxy() {
 	const { loadConfig } = await import("./config-DTfloQyC.mjs").then((n) => n.t);
 	const { createConfiguredMcpFetch } = await import("./client-B2wqOxU5.mjs").then((n) => n.t);
-	const { loadSchema, saveSchema } = await import("./schema-cache-BoQTZ5FL.mjs");
+	const { loadSchema, saveSchema } = await import("./schema-cache-ChsPSz7X.mjs");
 	const config = await loadConfig();
 	const mcpFetch = await createConfiguredMcpFetch(config);
 	const remoteClient = new Client({

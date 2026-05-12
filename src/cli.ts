@@ -55,6 +55,43 @@ program
   })
 
 program
+  .command('setup')
+  .description('Configure external MCP clients')
+  .addCommand(
+    new Command('claude-desktop')
+      .alias('claude')
+      .description('Install or update the Claude Desktop MCP server entry')
+      .option('--config <path>', 'Path to claude_desktop_config.json')
+      .option('--dry-run', 'Print the intended change without writing files')
+      .action(async (opts: { config?: string; dryRun?: boolean }) => {
+        try {
+          const { setupClaudeDesktop } = await import('./claude-desktop/setup.js')
+          const result = await setupClaudeDesktop({
+            configPath: opts.config,
+            dryRun: opts.dryRun,
+          })
+
+          console.log(`Claude Desktop config: ${result.configPath}`)
+          console.log('MCP server:            chain-insights')
+          console.log(`Command:               ${result.command}`)
+          console.log(`Args:                  ${result.args.join(' ')}`)
+          if (result.dryRun) {
+            console.log(`Dry run:               ${result.changed ? 'would update config' : 'already up to date'}`)
+          } else if (result.changed) {
+            console.log(`Updated:               yes`)
+            if (result.backupPath) console.log(`Backup:                ${result.backupPath}`)
+            console.log('Restart Claude Desktop to reload MCP servers.')
+          } else {
+            console.log('Updated:               already up to date')
+          }
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+
+program
   .command('config')
   .description('Read or write configuration values')
   .addCommand(

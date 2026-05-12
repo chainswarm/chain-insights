@@ -17,6 +17,16 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('status')
   })
 
+  it('--help lists setup subcommand', () => {
+    const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
+    expect(out).toContain('setup')
+  })
+
+  it('setup --help lists claude-desktop subcommand', () => {
+    const out = execSync('node bin/cli.js setup --help', { encoding: 'utf8' })
+    expect(out).toContain('claude-desktop')
+  })
+
   it('--help lists wallet subcommand', () => {
     const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
     expect(out).toContain('wallet')

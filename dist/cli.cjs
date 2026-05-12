@@ -33,6 +33,28 @@ program.command("status").description("Show toolkit status and database health")
 	console.log("Config: ", config.dataDir);
 	console.log("Server: ", `http://127.0.0.1:${config.serverPort}`);
 });
+program.command("setup").description("Configure external MCP clients").addCommand(new commander.Command("claude-desktop").alias("claude").description("Install or update the Claude Desktop MCP server entry").option("--config <path>", "Path to claude_desktop_config.json").option("--dry-run", "Print the intended change without writing files").action(async (opts) => {
+	try {
+		const { setupClaudeDesktop } = await Promise.resolve().then(() => require("./setup-Cw_GgO9I.cjs"));
+		const result = await setupClaudeDesktop({
+			configPath: opts.config,
+			dryRun: opts.dryRun
+		});
+		console.log(`Claude Desktop config: ${result.configPath}`);
+		console.log("MCP server:            chain-insights");
+		console.log(`Command:               ${result.command}`);
+		console.log(`Args:                  ${result.args.join(" ")}`);
+		if (result.dryRun) console.log(`Dry run:               ${result.changed ? "would update config" : "already up to date"}`);
+		else if (result.changed) {
+			console.log(`Updated:               yes`);
+			if (result.backupPath) console.log(`Backup:                ${result.backupPath}`);
+			console.log("Restart Claude Desktop to reload MCP servers.");
+		} else console.log("Updated:               already up to date");
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
+}));
 program.command("config").description("Read or write configuration values").addCommand(new commander.Command("get").argument("<key>", "Config key to read").action(async (key) => {
 	const { loadConfig } = await Promise.resolve().then(() => require("./config-CIJ9gahy.cjs")).then((n) => n.config_exports);
 	const { CONFIG_KEYS } = await Promise.resolve().then(() => require("./schema-DRvul__x.cjs")).then((n) => n.schema_exports);
@@ -111,8 +133,8 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 }));
 program.command("mcp").description("Interact with the Chain Insights MCP endpoint").addCommand(new commander.Command("tools").description("List available MCP tools (cached 24h)").option("--refresh", "Force refresh schema cache").action(async (opts) => {
 	try {
-		const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-C3O8_1Iu.cjs"));
-		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-XMxwlWKI.cjs"));
+		const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-C6HyTRp1.cjs"));
+		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-BIve8N94.cjs"));
 		const { loadConfig } = await Promise.resolve().then(() => require("./config-CIJ9gahy.cjs")).then((n) => n.config_exports);
 		let tools = opts.refresh ? null : await loadSchema();
 		if (!tools) {
@@ -359,9 +381,9 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			}
 			resolvedParams[key] = kv.slice(eq + 1);
 		}
-		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-1cUF34Yq.cjs"));
+		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-DTj550hP.cjs"));
 		const markdown = await resolvePlaybookContent(name);
-		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-B0DSfQfM.cjs"));
+		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-3yKUHymY.cjs"));
 		const definition = PlaybookParser.parse(markdown, resolvedParams);
 		for (const spec of definition.params) if (spec.required && !resolvedParams[spec.name] && !spec.default) {
 			console.error(`Missing required param: ${spec.name}. Pass with: -p ${spec.name}=<value>`);
@@ -372,7 +394,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-C6w_gz7M.cjs"));
+		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-Cc8XVWnc.cjs"));
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,
@@ -385,7 +407,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new commander.Command("list").description("List available playbooks (built-in and user-defined)").action(async () => {
 	try {
-		const { listPlaybooks } = await Promise.resolve().then(() => require("./resolver-1cUF34Yq.cjs"));
+		const { listPlaybooks } = await Promise.resolve().then(() => require("./resolver-DTj550hP.cjs"));
 		const playbooks = await listPlaybooks();
 		if (playbooks.length === 0) {
 			console.log("No playbooks found.");
@@ -398,8 +420,8 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new commander.Command("show").description("Show steps for a playbook without executing").argument("<name>", "Playbook name").action(async (name) => {
 	try {
-		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-1cUF34Yq.cjs"));
-		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-B0DSfQfM.cjs"));
+		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-DTj550hP.cjs"));
+		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-3yKUHymY.cjs"));
 		const markdown = await resolvePlaybookContent(name);
 		const definition = PlaybookParser.parse(markdown, {});
 		console.log(`Playbook: ${definition.name} v${definition.version}`);

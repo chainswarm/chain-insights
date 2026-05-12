@@ -60,22 +60,29 @@ function copyCommandsAsClaudeSkills(srcDir, targetDir) {
     }
   }
 
-  // Recurse into skills/ directory; each subdirectory becomes a skill dir
+  const copyTree = (src, dest) => {
+    const stat = fs.statSync(src);
+    if (stat.isDirectory()) {
+      fs.mkdirSync(dest, { recursive: true });
+      for (const child of fs.readdirSync(src)) {
+        copyTree(path.join(src, child), path.join(dest, child));
+      }
+      return;
+    }
+    if (stat.isFile()) {
+      fs.copyFileSync(src, dest);
+    }
+  };
+
+  // Recurse into skills/ directory; each subdirectory becomes a skill dir.
   const skillDirs = fs.readdirSync(srcDir, { withFileTypes: true })
     .filter(e => e.isDirectory());
 
   for (const skillDir of skillDirs) {
     const skillSrc  = path.join(srcDir, skillDir.name);
     const skillDest = path.join(targetDir, skillDir.name);
-    fs.mkdirSync(skillDest, { recursive: true });
-
-    const files = fs.readdirSync(skillSrc);
-    for (const file of files) {
-      const srcFile  = path.join(skillSrc, file);
-      const destFile = path.join(skillDest, file);
-      const content  = fs.readFileSync(srcFile, 'utf8');
-      fs.writeFileSync(destFile, content, 'utf8');
-    }
+    fs.rmSync(skillDest, { recursive: true, force: true });
+    copyTree(skillSrc, skillDest);
   }
 }
 

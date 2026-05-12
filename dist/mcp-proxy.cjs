@@ -101,7 +101,7 @@ async function normalizeRemoteToolResult(result, config) {
 	const graphPayload = getRemoteGraphPayload(result);
 	const meta = { ...result._meta ?? {} };
 	if (graphPayload) {
-		const { writeGraphArtifact } = await Promise.resolve().then(() => require("./artifacts-DC9tEERi.cjs"));
+		const { writeGraphArtifact } = await Promise.resolve().then(() => require("./artifacts-CKv_0rEN.cjs"));
 		const artifact = await writeGraphArtifact(graphPayload, config);
 		meta.chainInsights = {
 			...meta.chainInsights ?? {},
@@ -129,7 +129,7 @@ async function normalizeRemoteToolResult(result, config) {
 async function createProxy() {
 	const { loadConfig } = await Promise.resolve().then(() => require("./config-CIJ9gahy.cjs")).then((n) => n.config_exports);
 	const { createConfiguredMcpFetch } = await Promise.resolve().then(() => require("./client-DqAQco0O.cjs")).then((n) => n.client_exports);
-	const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-C3O8_1Iu.cjs"));
+	const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-C6HyTRp1.cjs"));
 	const config = await loadConfig();
 	const mcpFetch = await createConfiguredMcpFetch(config);
 	const remoteClient = new _modelcontextprotocol_sdk_client_index_js.Client({

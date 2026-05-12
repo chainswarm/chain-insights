@@ -10,17 +10,20 @@ The toolkit is intentionally small at the edge: Node.js CLI, embedded DuckDB, fl
 2. [Current Capabilities](#current-capabilities)
 3. [Quick Start](#quick-start)
 4. [Configuration](#configuration)
-5. [GraphRAG MCP Usage](#graphrag-mcp-usage)
-6. [Wallet Balance and Top-Up](#wallet-balance-and-top-up)
-7. [Cases, Evidence, Dossiers, and Sessions](#cases-evidence-dossiers-and-sessions)
-8. [Playbooks](#playbooks)
-9. [Money Flow Visualization](#money-flow-visualization)
-10. [Agent MCP Proxy](#agent-mcp-proxy)
-11. [Human UAT Smoke Test](#human-uat-smoke-test)
-12. [Architecture](#architecture)
-13. [Local Data and Security](#local-data-and-security)
-14. [Development](#development)
-15. [Troubleshooting](#troubleshooting)
+5. [Visual Examples](#visual-examples)
+6. [GraphRAG MCP Usage](#graphrag-mcp-usage)
+7. [Wallet Balance and Top-Up](#wallet-balance-and-top-up)
+8. [Cases, Evidence, Dossiers, and Sessions](#cases-evidence-dossiers-and-sessions)
+9. [Playbooks](#playbooks)
+10. [Money Flow Visualization](#money-flow-visualization)
+11. [Agent MCP Proxy](#agent-mcp-proxy)
+12. [Claude Desktop Setup](#claude-desktop-setup)
+13. [Human UAT Smoke Test](#human-uat-smoke-test)
+14. [Debug CLI Sketch](#debug-cli-sketch)
+15. [Architecture](#architecture)
+16. [Local Data and Security](#local-data-and-security)
+17. [Development](#development)
+18. [Troubleshooting](#troubleshooting)
 
 ## What This Is
 
@@ -39,6 +42,7 @@ The v1 scope is a local operator toolkit. It is not a hosted SaaS app, wallet cu
 | Area | Status | Entry Points |
 | --- | --- | --- |
 | CLI and local server | Working | `chain-insights --help`, `chain-insights serve` |
+| Claude Desktop setup | Working | `chain-insights setup claude-desktop` |
 | MCP discovery and direct calls | Working | `chain-insights mcp tools`, `chain-insights mcp call` |
 | x402/debug-token MCP auth | Working | `walletPrivateKey` or `mcpAuthToken` config |
 | Local wallet balance and browser top-up | Working | `chain-insights wallet balance`, `chain-insights wallet topup` |
@@ -97,6 +101,22 @@ Example Bittensor address from a local Memgraph UAT dataset:
 5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6
 ```
 
+## Visual Examples
+
+The screenshots below are captured from the local Chain Insights components used during UAT.
+
+Wallet top-up page, served by the copied `infra/mcp-proxy` wallet UI:
+
+![Chain Insights wallet top-up page](docs/images/topup-page.png)
+
+Graph visualization loaded from a local MCP graph artifact:
+
+![Chain Insights graph visualization](docs/images/graph-visualization.png)
+
+Claude-style iframe harness receiving the graph URL through an MCP Apps tool-result message:
+
+![Chain Insights graph MCP iframe](docs/images/graph-mcp-iframe.png)
+
 ## Configuration
 
 Configuration is stored in `~/.chain-insights/config.json` with `0600` permissions.
@@ -139,6 +159,28 @@ List live remote tools:
 ```bash
 chain-insights mcp tools --refresh
 ```
+
+This prints the CLI tool table:
+
+```text
+Tool                            Description
+------------------------------  ------------------------------------------------------------
+address_risk                    Screens a blockchain address for risk: risk score with risk
+track_funds                     Traces stolen funds from trusted (victim) addresses through
+money_flows_between_exchanges   Traces fund flows between exchanges for one or more blockcha
+address_connection_risk         Assesses the risk of a connection between two blockchain add
+graph_query                     Execute a read-only Cypher query against the Memgraph graph
+```
+
+Table surfaces in this project:
+
+| Table | Where it appears |
+| --- | --- |
+| README capability/tool/config tables | This README |
+| Live MCP tool table | `chain-insights mcp tools --refresh` |
+| MCP Inspector JSON tool list | `npx @modelcontextprotocol/inspector --cli ... --method tools/list` |
+
+The live CLI table is intentionally a terminal view. The MCP proxy itself exposes the richer MCP tool metadata to Claude Desktop and other clients.
 
 Call a tool directly:
 
@@ -342,6 +384,74 @@ The proxy also normalizes GraphRAG tool results before local agents see them:
 - Graph data is written to `~/.chain-insights/artifacts/<id>/graph.json`.
 - The returned tool result contains only `_meta.chainInsights.graph.url` for the local graph app.
 
+## Claude Desktop Setup
+
+Configure Claude Desktop from the Chain Insights CLI:
+
+```bash
+chain-insights setup claude-desktop --dry-run
+chain-insights setup claude-desktop
+```
+
+The setup command updates only the `mcpServers.chain-insights` entry in `claude_desktop_config.json`, preserves existing preferences and other MCP servers, and writes a backup before changing an existing config. Restart Claude Desktop after running it.
+
+Equivalent manual config shape:
+
+```json
+{
+  "mcpServers": {
+    "chain-insights": {
+      "command": "/absolute/path/to/node",
+      "args": ["/absolute/path/to/chain-insights/bin/mcp-proxy.cjs"]
+    }
+  }
+}
+```
+
+Validate the configured Claude Desktop entry without opening Claude:
+
+```bash
+npx @modelcontextprotocol/inspector \
+  --cli \
+  --config ~/.config/Claude/claude_desktop_config.json \
+  --server chain-insights \
+  --method tools/list
+
+npx @modelcontextprotocol/inspector \
+  --cli \
+  --config ~/.config/Claude/claude_desktop_config.json \
+  --server chain-insights \
+  --method resources/list
+```
+
+Expected MCP app resources:
+
+| Resource | Purpose |
+| --- | --- |
+| `ui://chain-insights/topup.html` | Wallet top-up iframe |
+| `ui://chain-insights/graph` | D3 graph iframe for GraphRAG artifacts |
+
+Useful Claude Desktop prompts:
+
+```text
+Use Chain Insights to show my payment wallet balance.
+```
+
+```text
+Use Chain Insights to open the wallet top-up page.
+```
+
+```text
+Use Chain Insights to run address_risk on network bittensor for 5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6. Show the report exactly and open the graph visualization if available.
+```
+
+```text
+Use Chain Insights graph_query on network bittensor with:
+MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, n.address AS address LIMIT 10
+```
+
+Claude Desktop should see the markdown report as tool content and render the app iframe from the tool's `ui.resourceUri`. For graph-backed tools, Chain Insights stores the raw graph payload locally and sends the iframe only a local artifact URL in `_meta.chainInsights.graph.url`.
+
 ## Human UAT Smoke Test
 
 Use this sequence after a fresh build or install:
@@ -363,11 +473,55 @@ node bin/cli.js wallet topup --no-open
 
 Expected results:
 
-- CLI help lists `status`, `config`, `mcp`, `wallet`, `case`, `playbook`, and `viz`.
+- CLI help lists `status`, `setup`, `config`, `mcp`, `wallet`, `case`, `playbook`, and `viz`.
 - `mcp tools --refresh` lists the live GraphRAG tools.
 - `graph_query` returns real Memgraph rows.
 - `wallet balance` prints the local payment wallet and Base USDC balance.
 - `wallet topup --no-open` prints a `127.0.0.1` URL and keeps the top-up server running until `Ctrl+C`.
+
+GraphRAG/Chain Insights UAT skill:
+
+```bash
+skills/test-chain-insights-graphrag-mcp/scripts/run-uat.sh
+```
+
+The skill builds or reuses local artifacts, calls the real GraphRAG MCP endpoint, runs the Chain Insights proxy, verifies graph artifacts are stored under `~/.chain-insights/artifacts/<id>/graph.json`, and writes a timestamped report under `.tmp/uat/`.
+
+## Debug CLI Sketch
+
+Implemented today:
+
+```bash
+chain-insights setup claude-desktop --dry-run
+chain-insights setup claude-desktop
+```
+
+Proposed next diagnostic surface:
+
+```bash
+chain-insights debug
+chain-insights debug mcp
+chain-insights debug claude-desktop
+chain-insights debug artifacts <artifact-id>
+chain-insights debug browser --artifact <artifact-id>
+```
+
+Expected checks:
+
+| Command | Checks |
+| --- | --- |
+| `debug` | Config path, data dir, wallet presence, schema cache age, local server URL |
+| `debug mcp` | Remote endpoint reachability, auth mode, `tools/list`, local proxy `tools/list`, local proxy `resources/list` |
+| `debug claude-desktop` | Claude config path, `chain-insights` server entry, command/args existence, Inspector smoke test |
+| `debug artifacts <id>` | Artifact file exists, schema is `chain-insights.graph.v1`, node/edge/flow counts, local server fetch works |
+| `debug browser --artifact <id>` | Opens a local iframe harness and verifies the graph app can load `_meta.chainInsights.graph.url` |
+
+Rules for the debug CLI:
+
+- Redact `mcpAuthToken` and never print wallet private keys.
+- Do not perform paid production MCP calls unless the operator passes an explicit `--live-call` flag.
+- Default output should be human-readable; add `--json` for CI and scripted UAT.
+- Prefer exact failure causes over generic health summaries.
 
 ## Architecture
 
