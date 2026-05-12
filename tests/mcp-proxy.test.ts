@@ -1,5 +1,7 @@
 import { rmSync } from 'node:fs'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 const testDataDir = vi.hoisted(() => `/tmp/chain-insights-mcp-proxy-test-${process.pid}`)
 
@@ -109,10 +111,28 @@ function findToolHandler(
   return call[2] as Function
 }
 
+let originalSigintListeners: NodeJS.SignalsListener[] = []
+let originalSigtermListeners: NodeJS.SignalsListener[] = []
+
+function removeAddedSignalListeners(signal: NodeJS.Signals, original: NodeJS.SignalsListener[]): void {
+  for (const listener of process.listeners(signal)) {
+    if (!original.includes(listener)) {
+      process.removeListener(signal, listener)
+    }
+  }
+}
+
 describe('MCP proxy (MCP-02, MCP-03)', () => {
   beforeEach(() => {
+    originalSigintListeners = process.listeners('SIGINT')
+    originalSigtermListeners = process.listeners('SIGTERM')
     vi.clearAllMocks()
     rmSync(testDataDir, { recursive: true, force: true })
+  })
+
+  afterEach(() => {
+    removeAddedSignalListeners('SIGINT', originalSigintListeners)
+    removeAddedSignalListeners('SIGTERM', originalSigtermListeners)
   })
 
   it('registers remote tool on the local server by name', async () => {
@@ -353,6 +373,13 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
   })
 
   it('persists remote graph _meta and returns only local artifact pointer', async () => {
+    const remoteGraphData = {
+      schema: 'chain-insights.graph.v1',
+      nodes: [],
+      edges: [],
+      flows: [],
+      edge_anchors: [],
+    }
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       {
@@ -387,7 +414,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         chainInsights: {
           graph: {
             schema: 'chain-insights.graph.v1',
-            data: { schema: 'chain-insights.graph.v1', nodes: [], edges: [], flows: [], edge_anchors: [] },
+            data: remoteGraphData,
           },
         },
       },
@@ -405,6 +432,58 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.structuredContent).not.toHaveProperty('app_data')
     expect(result._meta.chainInsights.graph.data).toBeUndefined()
     expect(result._meta.chainInsights.graph.url).toMatch(/^http:\/\/127\.0\.0\.1:4321\/artifacts\/.+\/graph\.json$/)
+
+    const artifactId = result._meta.chainInsights.graph.id
+    const raw = await readFile(join(testDataDir, 'artifacts', artifactId, 'graph.json'), 'utf8')
+    expect(JSON.parse(raw)).toEqual(remoteGraphData)
+  })
+
+  it('fails closed when remote graph data is present but invalid', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      {
+        name: 'address_risk',
+        title: 'Address Risk',
+        description: 'Risk report',
+        outputSchema: {
+          type: 'object',
+          properties: { schema: { type: 'string' }, facts: { type: 'object' } },
+        },
+        _meta: { ui: { resourceUri: 'ui://chain-insights/graph' } },
+      },
+    ])
+
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool.mockResolvedValueOnce({
+      content: [{ type: 'text', text: '## Risk Report' }],
+      _meta: {
+        chainInsights: {
+          graph: {
+            schema: 'chain-insights.graph.v1',
+            data: [],
+          },
+        },
+      },
+      isError: false,
+    })
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'address_risk')
+    const result = await handler({ address: '5Addr', network: 'bittensor' })
+
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text).toContain('MCP call failed')
+    expect(result.content[0].text).toContain('Invalid remote graph payload')
   })
 
   it('registers a local help tool that explains proxy-local tools', async () => {

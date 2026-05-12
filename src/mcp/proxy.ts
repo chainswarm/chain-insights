@@ -5,6 +5,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server'
 import * as z from 'zod'
 import type { InvestigatorConfig } from '../config/schema.js'
@@ -72,7 +73,7 @@ function graphToolMeta(tool: McpTool): Record<string, unknown> & { ui: { resourc
 }
 
 type RemoteToolResult = {
-  content?: Array<{ type: string; text?: string }>
+  content?: ContentBlock[]
   structuredContent?: Record<string, unknown>
   _meta?: Record<string, unknown>
   isError?: boolean
@@ -82,9 +83,19 @@ function getRemoteGraphPayload(result: RemoteToolResult): Record<string, unknown
   const chainInsights = result._meta?.chainInsights
   if (!chainInsights || typeof chainInsights !== 'object' || Array.isArray(chainInsights)) return null
   const graph = (chainInsights as Record<string, unknown>).graph
-  if (!graph || typeof graph !== 'object' || Array.isArray(graph)) return null
-  const data = (graph as Record<string, unknown>).data
-  if (!data || typeof data !== 'object' || Array.isArray(data)) return null
+  if (graph === undefined) return null
+  if (!graph || typeof graph !== 'object' || Array.isArray(graph)) {
+    throw new Error('Invalid remote graph payload')
+  }
+
+  const graphRecord = graph as Record<string, unknown>
+  if (!('data' in graphRecord)) return null
+
+  const data = graphRecord.data
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('Invalid remote graph payload')
+  }
+
   return data as Record<string, unknown>
 }
 
