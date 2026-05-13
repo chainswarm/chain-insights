@@ -515,6 +515,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       .mocked(registerAppResource)
       .mock.calls.find((entry) => entry[2] === 'ui://chain-insights/graph')?.[3]
     expect(graphResourceConfig?.description).toContain('_meta.chainInsights.graph.url')
+    expect(graphResourceConfig?._meta?.ui?.csp?.connectDomains).toContain('http://127.0.0.1:4321')
+    expect(graphResourceConfig?._meta?.ui?.csp?.connectDomains).toContain('http://localhost:4321')
     expect(registerAppTool).toHaveBeenCalledWith(
       expect.anything(),
       'address_risk',
@@ -540,6 +542,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.contents[0].text).toContain('bgPatternImg')
     expect(result.contents[0].text).toContain('data:image/png;base64')
     expect(result.contents[0]._meta.ui.csp.connectDomains).toContain('http://127.0.0.1:4321')
+    expect(result.contents[0]._meta.ui.csp.connectDomains).toContain('http://localhost:4321')
   })
 
   it('exposes public investigation prompts for Chain Insights tools and cases', async () => {

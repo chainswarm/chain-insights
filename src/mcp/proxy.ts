@@ -117,6 +117,13 @@ function readGraphAppHtml(): string {
   throw new Error(`Graph MCP app template not found. Tried: ${candidates.join(', ')}`)
 }
 
+function graphArtifactOrigins(config: Pick<InvestigatorConfig, 'serverPort'>): string[] {
+  return [
+    `http://127.0.0.1:${config.serverPort}`,
+    `http://localhost:${config.serverPort}`,
+  ]
+}
+
 function hasGraphApp(tool: McpTool): boolean {
   const configuredUri = tool._meta?.ui
   if (
@@ -785,6 +792,14 @@ export async function createProxy(): Promise<void> {
     GRAPH_RESOURCE_URI,
     {
       description: 'Interactive D3 force-directed graph for fund flow and pattern visualization. It loads local graph artifact URLs returned in _meta.chainInsights.graph.url.',
+      _meta: {
+        ui: {
+          csp: {
+            resourceDomains: graphArtifactOrigins(config),
+            connectDomains: graphArtifactOrigins(config),
+          },
+        },
+      },
     },
     async () => ({
       contents: [
@@ -795,8 +810,8 @@ export async function createProxy(): Promise<void> {
           _meta: {
             ui: {
               csp: {
-                resourceDomains: [`http://127.0.0.1:${config.serverPort}`],
-                connectDomains: [`http://127.0.0.1:${config.serverPort}`],
+                resourceDomains: graphArtifactOrigins(config),
+                connectDomains: graphArtifactOrigins(config),
               },
             },
           },
