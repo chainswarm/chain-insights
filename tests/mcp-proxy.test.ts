@@ -318,6 +318,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).toContain('case_open')
     expect(instructions).toContain('case_add_evidence')
     expect(instructions).toContain('Network is required')
+    expect(instructions).toContain('Graph visualization behavior')
+    expect(instructions).toContain('local graph artifact server is started automatically')
     expect(instructions).toContain('FLOWS_TO')
     expect(instructions).toContain('first_tx_id')
     expect(instructions).toContain('schema discovery')
@@ -509,6 +511,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       }),
       expect.any(Function),
     )
+    const graphResourceConfig = vi
+      .mocked(registerAppResource)
+      .mock.calls.find((entry) => entry[2] === 'ui://chain-insights/graph')?.[3]
+    expect(graphResourceConfig?.description).toContain('_meta.chainInsights.graph.url')
     expect(registerAppTool).toHaveBeenCalledWith(
       expect.anything(),
       'address_risk',
@@ -1186,6 +1192,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('topup')
     expect(result.content[0].text).toContain('case_open')
     expect(result.content[0].text).toContain('case_add_evidence')
+    expect(result.content[0].text).toContain('Graph visualization behavior')
+    expect(result.content[0].text).toContain('local graph artifact server is started automatically')
     expect(result.content[0].text).toContain('Graph query hints for network=bittensor')
     expect(result.content[0].text).toContain('FLOWS_TO')
     expect(result.content[0].text).toContain('first_tx_id')

@@ -499,7 +499,7 @@ Use this flow when Claude Desktop is driving an investigation:
    - Use `case_start_session` and `case_end_session` for investigation session notes and next steps.
 5. Use `balance` to check the local payment wallet and `topup` to open the Base USDC funding page.
 
-The Chain Insights MCP server publishes this workflow in its server instructions, so Claude receives it when the server starts. Required arguments are also present in tool schemas; if a client still calls a public tool without `network`, Chain Insights rejects the call before execution.
+The Chain Insights MCP server publishes this workflow, graph artifact behavior, and graph schema hints in its server instructions, so Claude receives them when the server starts. Required arguments are also present in tool schemas; if a client still calls a public tool without `network`, Chain Insights rejects the call before execution.
 
 ### Graph Query Schema Hints
 
@@ -625,7 +625,7 @@ MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, n.address AS a
 Use Chain Insights to save the last address_risk report as evidence in case 20260512_001_exchange-deposit-clustering.
 ```
 
-Claude Desktop should see the markdown report as tool content and render the app iframe from the tool's `ui.resourceUri`. For graph-backed tools, Chain Insights stores the raw graph payload locally and sends the iframe only a local artifact URL in `_meta.chainInsights.graph.url`.
+Claude Desktop should see the markdown report as tool content and render the app iframe from the tool's `ui.resourceUri`. For graph-backed tools, Chain Insights stores the raw graph payload locally and sends the iframe only a local artifact URL in `_meta.chainInsights.graph.url`. The MCP server starts the local graph artifact server automatically when such a URL is returned, so Claude Desktop graph iframes do not require a separate `chain-insights serve` process.
 
 ## Human UAT Smoke Test
 

@@ -83,9 +83,18 @@ const GRAPH_SCHEMA_HINTS = [
   '- All graph_query calls are read-only. Never use CREATE, MERGE, SET, DELETE, REMOVE, DROP, or DETACH.',
 ].join('\n')
 
+const GRAPH_ARTIFACT_HINTS = [
+  'Graph visualization behavior:',
+  '- Graph-backed tools return the investigator report as text content and keep raw graph data out of LLM-visible structuredContent.',
+  '- Raw graph data is stored locally under Chain Insights artifacts and exposed to the graph app as _meta.chainInsights.graph.url.',
+  '- The local graph artifact server is started automatically by the MCP server when a graph-backed tool returns an artifact URL; do not ask the user to run chain-insights serve for Claude Desktop graph iframes.',
+  '- If an iframe reports that a graph artifact fetch failed, retry the graph-backed tool call so Chain Insights can recreate the artifact URL and ensure the local artifact server is running.',
+].join('\n')
+
 const SERVER_INSTRUCTIONS = [
   'Chain Insights is a local AML investigation workspace for AI agents.',
   CHAIN_INSIGHTS_WORKFLOW,
+  GRAPH_ARTIFACT_HINTS,
   GRAPH_SCHEMA_HINTS,
   'Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses; use case tools to preserve evidence when a case exists.',
 ].join('\n\n')
@@ -775,7 +784,7 @@ export async function createProxy(): Promise<void> {
     'Fund Flow Graph',
     GRAPH_RESOURCE_URI,
     {
-      description: 'Interactive D3 force-directed graph for fund flow and pattern visualization.',
+      description: 'Interactive D3 force-directed graph for fund flow and pattern visualization. It loads local graph artifact URLs returned in _meta.chainInsights.graph.url.',
     },
     async () => ({
       contents: [
@@ -1126,6 +1135,8 @@ export async function createProxy(): Promise<void> {
             '- balance: show the local payment wallet address and Base USDC balance.',
             '- topup: open the local wallet funding page for Base USDC.',
             '- help: show this overview.',
+            '',
+            GRAPH_ARTIFACT_HINTS,
             '',
             GRAPH_SCHEMA_HINTS,
           ].join('\n'),
