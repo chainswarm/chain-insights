@@ -407,18 +407,47 @@ The setup command updates only the `mcpServers.chain-insights` entry in `claude_
 
 Claude Desktop does not hot-reload this file. Fully quit and reopen Claude Desktop after running setup. If the desktop UI still shows `/home/aphex5/.local/bin/chain-insights-mcp start`, the app is still using the old in-memory server entry from before setup.
 
-On Linux, restart Claude Desktop from the terminal:
+On Linux, do not use `nohup /usr/bin/claude-desktop ... &` as the restart command. In this environment it can leave Electron processes in `T` stopped state and Claude Desktop may appear to hang. Prefer launching Claude Desktop from the desktop app menu after the hard-stop command below. If you must launch from a terminal, use `setsid -f` so the Electron process is detached from the controlling terminal.
+
+Hard-stop Claude Desktop and Chain Insights MCP processes:
 
 ```bash
-pkill -f claude-desktop
-nohup /usr/bin/claude-desktop >/tmp/claude-desktop.log 2>&1 &
+mapfile -t claude_pids < <(
+  pgrep -f '/home/aphex5/work/chain-insights/bin/mcp-proxy[.]cjs|chain-insights-mcp-prox[y]|claude-d[e]sktop|/usr/lib/claude-d[e]sktop|electron.*app[.]asar' || true
+)
+if ((${#claude_pids[@]})); then
+  kill -TERM "${claude_pids[@]}" 2>/dev/null || true
+fi
+sleep 2
+if ((${#claude_pids[@]})); then
+  kill -KILL "${claude_pids[@]}" 2>/dev/null || true
+fi
 ```
 
-Then confirm Claude Desktop relaunched and check the Chain Insights MCP log:
+After no Claude/Electron processes remain, remove stale Chromium singleton locks if they still exist:
 
 ```bash
-pgrep -af claude-desktop
+pgrep -af 'claude-desktop|/usr/lib/claude-desktop|electron.*app.asar' || true
+rm -f ~/.config/Claude/SingletonLock ~/.config/Claude/SingletonSocket ~/.config/Claude/SingletonCookie
+```
+
+Start Claude Desktop from the desktop app launcher, or from terminal:
+
+```bash
+setsid -f /usr/bin/claude-desktop >/tmp/claude-desktop.log 2>&1 </dev/null
+```
+
+Then confirm Claude Desktop relaunched and check the Chain Insights MCP process/log:
+
+```bash
+pgrep -af 'claude-desktop|mcp-proxy.cjs|chain-insights-mcp-proxy'
 tail -80 ~/.config/Claude/logs/mcp-server-chain-insights.log
+```
+
+If `ps` shows Claude/Electron rows with `STAT` containing `T`, the process is stopped and should be killed before relaunch:
+
+```bash
+ps -eo pid,ppid,lstart,stat,cmd | rg 'claude-desktop|electron.*app.asar|mcp-proxy.cjs'
 ```
 
 Equivalent manual config shape:
