@@ -392,6 +392,7 @@ The proxy also normalizes GraphRAG tool results before local agents see them:
 - Graph widget data is extracted from remote `_meta.chainInsights.graph.data`.
 - Graph data is written to `~/.chain-insights/artifacts/<id>/graph.json`.
 - The returned tool result contains only `_meta.chainInsights.graph.url` for the local graph app.
+- The local artifact server is started automatically when a graph-backed MCP result returns an artifact URL.
 
 ## Claude Desktop Setup
 

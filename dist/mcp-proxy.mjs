@@ -387,8 +387,10 @@ async function normalizeRemoteToolResult(result, config) {
 	const graphPayload = getRemoteGraphPayload(result);
 	const meta = { ...result._meta ?? {} };
 	if (graphPayload) {
-		const { writeGraphArtifact } = await import("./artifacts-DZqbNrfC.mjs");
+		const { writeGraphArtifact } = await import("./artifacts-DzzrztFo.mjs");
+		const { ensureArtifactServer } = await import("./artifact-server-B2uW8CuD.mjs");
 		const artifact = await writeGraphArtifact(graphPayload, config);
+		await ensureArtifactServer(config.serverPort);
 		meta.chainInsights = {
 			...meta.chainInsights ?? {},
 			graph: {
@@ -414,8 +416,8 @@ async function normalizeRemoteToolResult(result, config) {
 */
 async function createProxy() {
 	const { loadConfig } = await import("./config-DTfloQyC.mjs").then((n) => n.t);
-	const { createConfiguredMcpFetch } = await import("./client-B2wqOxU5.mjs").then((n) => n.t);
-	const { loadSchema, saveSchema } = await import("./schema-cache-ChsPSz7X.mjs");
+	const { createConfiguredMcpFetch } = await import("./client-dWOHBPXj.mjs").then((n) => n.t);
+	const { loadSchema, saveSchema } = await import("./schema-cache-Br5pYS6A.mjs");
 	const config = await loadConfig();
 	const mcpFetch = await createConfiguredMcpFetch(config);
 	const remoteClient = new Client({
@@ -455,8 +457,8 @@ async function createProxy() {
 	let topupState = null;
 	const getTopupState = async () => {
 		topupState ??= (async () => {
-			const { getWalletAccount } = await import("./tools-DL7x8LWA.mjs").then((n) => n.o);
-			const { startTopupServer } = await import("./topup-server-D60FaKVY.mjs").then((n) => n.r);
+			const { getWalletAccount } = await import("./tools-DeEsNjOl.mjs").then((n) => n.o);
+			const { startTopupServer } = await import("./topup-server-B3N96RgA.mjs").then((n) => n.r);
 			const account = await getWalletAccount();
 			const url = await startTopupServer(account);
 			return {
@@ -492,7 +494,7 @@ async function createProxy() {
 		inputSchema: z.object({}).passthrough()
 	}, async () => {
 		try {
-			const { getWalletAccount, getWalletBalanceText } = await import("./tools-DL7x8LWA.mjs").then((n) => n.o);
+			const { getWalletAccount, getWalletBalanceText } = await import("./tools-DeEsNjOl.mjs").then((n) => n.o);
 			return {
 				content: [{
 					type: "text",
@@ -512,7 +514,7 @@ async function createProxy() {
 	});
 	registerAppResource(server, "Chain Insights Wallet Topup", TOPUP_RESOURCE_URI, { description: "Chain Insights wallet funding page with QR code and copyable address" }, async () => {
 		const { address, url } = await getTopupState();
-		const { generateArtifactHtml } = await import("./topup-server-D60FaKVY.mjs").then((n) => n.r);
+		const { generateArtifactHtml } = await import("./topup-server-B3N96RgA.mjs").then((n) => n.r);
 		return { contents: [{
 			uri: TOPUP_RESOURCE_URI,
 			mimeType: RESOURCE_MIME_TYPE,
@@ -526,7 +528,11 @@ async function createProxy() {
 	registerAppResource(server, "Fund Flow Graph", GRAPH_RESOURCE_URI, { description: "Interactive D3 force-directed graph for fund flow and pattern visualization." }, async () => ({ contents: [{
 		uri: GRAPH_RESOURCE_URI,
 		mimeType: RESOURCE_MIME_TYPE,
-		text: readGraphAppHtml()
+		text: readGraphAppHtml(),
+		_meta: { ui: { csp: {
+			resourceDomains: [`http://127.0.0.1:${config.serverPort}`],
+			connectDomains: [`http://127.0.0.1:${config.serverPort}`]
+		} } }
 	}] }));
 	registerAppTool(server, "topup", {
 		description: "Open the local Chain Insights wallet funding page for Base USDC.",
@@ -571,7 +577,7 @@ async function createProxy() {
 	}, async ({ name, tags, description }) => {
 		try {
 			await initCasesDb();
-			const { CaseStore } = await import("./cases-DbOQEh5p.mjs");
+			const { CaseStore } = await import("./cases-DCpu_hK2.mjs");
 			const created = await CaseStore.create({
 				name,
 				tags: parseTags(tags),
@@ -611,7 +617,7 @@ async function createProxy() {
 	}, async ({ status }) => {
 		try {
 			await initCasesDb();
-			const { CaseStore } = await import("./cases-DbOQEh5p.mjs");
+			const { CaseStore } = await import("./cases-DCpu_hK2.mjs");
 			const cases = await CaseStore.list();
 			const filtered = status ? cases.filter((entry) => entry.status === status) : cases;
 			return {
@@ -637,7 +643,7 @@ async function createProxy() {
 	}, async ({ case_id }) => {
 		try {
 			await initCasesDb();
-			const { CaseStore } = await import("./cases-DbOQEh5p.mjs");
+			const { CaseStore } = await import("./cases-DCpu_hK2.mjs");
 			const context = await CaseStore.loadContext(case_id);
 			return {
 				content: [{
@@ -666,7 +672,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, source, content, query_params }) => {
 		try {
-			const { EvidenceStore } = await import("./cases-DbOQEh5p.mjs");
+			const { EvidenceStore } = await import("./cases-DCpu_hK2.mjs");
 			const saved = await EvidenceStore.append(case_id, {
 				source,
 				content,
@@ -694,7 +700,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { EvidenceStore } = await import("./cases-DbOQEh5p.mjs");
+			const { EvidenceStore } = await import("./cases-DCpu_hK2.mjs");
 			const result = await EvidenceStore.verifyManifest(case_id);
 			return {
 				content: [{
@@ -729,7 +735,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, address, finding, entity_type }) => {
 		try {
-			const { DossierStore } = await import("./cases-DbOQEh5p.mjs");
+			const { DossierStore } = await import("./cases-DCpu_hK2.mjs");
 			await DossierStore.appendFinding(case_id, address, finding, entity_type ?? "unknown");
 			return {
 				content: [{
@@ -757,7 +763,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { SessionStore } = await import("./cases-DbOQEh5p.mjs");
+			const { SessionStore } = await import("./cases-DCpu_hK2.mjs");
 			const session = await SessionStore.start(case_id);
 			return {
 				content: [{
@@ -785,7 +791,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, findings, next_steps }) => {
 		try {
-			const { SessionStore } = await import("./cases-DbOQEh5p.mjs");
+			const { SessionStore } = await import("./cases-DCpu_hK2.mjs");
 			await SessionStore.end(case_id, {
 				findings: findings ?? "",
 				nextSteps: next_steps ?? ""

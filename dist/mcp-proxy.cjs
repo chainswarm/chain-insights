@@ -391,8 +391,10 @@ async function normalizeRemoteToolResult(result, config) {
 	const graphPayload = getRemoteGraphPayload(result);
 	const meta = { ...result._meta ?? {} };
 	if (graphPayload) {
-		const { writeGraphArtifact } = await Promise.resolve().then(() => require("./artifacts-CKv_0rEN.cjs"));
+		const { writeGraphArtifact } = await Promise.resolve().then(() => require("./artifacts-BjQf6oTb.cjs"));
+		const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-CevJxD-9.cjs"));
 		const artifact = await writeGraphArtifact(graphPayload, config);
+		await ensureArtifactServer(config.serverPort);
 		meta.chainInsights = {
 			...meta.chainInsights ?? {},
 			graph: {
@@ -418,8 +420,8 @@ async function normalizeRemoteToolResult(result, config) {
 */
 async function createProxy() {
 	const { loadConfig } = await Promise.resolve().then(() => require("./config-CIJ9gahy.cjs")).then((n) => n.config_exports);
-	const { createConfiguredMcpFetch } = await Promise.resolve().then(() => require("./client-DqAQco0O.cjs")).then((n) => n.client_exports);
-	const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-C6HyTRp1.cjs"));
+	const { createConfiguredMcpFetch } = await Promise.resolve().then(() => require("./client-0ZHYy2Dm.cjs")).then((n) => n.client_exports);
+	const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-D08gQMsP.cjs"));
 	const config = await loadConfig();
 	const mcpFetch = await createConfiguredMcpFetch(config);
 	const remoteClient = new _modelcontextprotocol_sdk_client_index_js.Client({
@@ -459,8 +461,8 @@ async function createProxy() {
 	let topupState = null;
 	const getTopupState = async () => {
 		topupState ??= (async () => {
-			const { getWalletAccount } = await Promise.resolve().then(() => require("./tools-DwUHwut2.cjs")).then((n) => n.tools_exports);
-			const { startTopupServer } = await Promise.resolve().then(() => require("./topup-server-BtSOY0aZ.cjs")).then((n) => n.topup_server_exports);
+			const { getWalletAccount } = await Promise.resolve().then(() => require("./tools-BBWDw-v_.cjs")).then((n) => n.tools_exports);
+			const { startTopupServer } = await Promise.resolve().then(() => require("./topup-server-D1pfHJQi.cjs")).then((n) => n.topup_server_exports);
 			const account = await getWalletAccount();
 			const url = await startTopupServer(account);
 			return {
@@ -496,7 +498,7 @@ async function createProxy() {
 		inputSchema: zod.object({}).passthrough()
 	}, async () => {
 		try {
-			const { getWalletAccount, getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-DwUHwut2.cjs")).then((n) => n.tools_exports);
+			const { getWalletAccount, getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-BBWDw-v_.cjs")).then((n) => n.tools_exports);
 			return {
 				content: [{
 					type: "text",
@@ -516,7 +518,7 @@ async function createProxy() {
 	});
 	(0, _modelcontextprotocol_ext_apps_server.registerAppResource)(server, "Chain Insights Wallet Topup", TOPUP_RESOURCE_URI, { description: "Chain Insights wallet funding page with QR code and copyable address" }, async () => {
 		const { address, url } = await getTopupState();
-		const { generateArtifactHtml } = await Promise.resolve().then(() => require("./topup-server-BtSOY0aZ.cjs")).then((n) => n.topup_server_exports);
+		const { generateArtifactHtml } = await Promise.resolve().then(() => require("./topup-server-D1pfHJQi.cjs")).then((n) => n.topup_server_exports);
 		return { contents: [{
 			uri: TOPUP_RESOURCE_URI,
 			mimeType: _modelcontextprotocol_ext_apps_server.RESOURCE_MIME_TYPE,
@@ -530,7 +532,11 @@ async function createProxy() {
 	(0, _modelcontextprotocol_ext_apps_server.registerAppResource)(server, "Fund Flow Graph", GRAPH_RESOURCE_URI, { description: "Interactive D3 force-directed graph for fund flow and pattern visualization." }, async () => ({ contents: [{
 		uri: GRAPH_RESOURCE_URI,
 		mimeType: _modelcontextprotocol_ext_apps_server.RESOURCE_MIME_TYPE,
-		text: readGraphAppHtml()
+		text: readGraphAppHtml(),
+		_meta: { ui: { csp: {
+			resourceDomains: [`http://127.0.0.1:${config.serverPort}`],
+			connectDomains: [`http://127.0.0.1:${config.serverPort}`]
+		} } }
 	}] }));
 	(0, _modelcontextprotocol_ext_apps_server.registerAppTool)(server, "topup", {
 		description: "Open the local Chain Insights wallet funding page for Base USDC.",
@@ -575,7 +581,7 @@ async function createProxy() {
 	}, async ({ name, tags, description }) => {
 		try {
 			await initCasesDb();
-			const { CaseStore } = await Promise.resolve().then(() => require("./cases-D252I91v.cjs"));
+			const { CaseStore } = await Promise.resolve().then(() => require("./cases-BTjEvF0-.cjs"));
 			const created = await CaseStore.create({
 				name,
 				tags: parseTags(tags),
@@ -615,7 +621,7 @@ async function createProxy() {
 	}, async ({ status }) => {
 		try {
 			await initCasesDb();
-			const { CaseStore } = await Promise.resolve().then(() => require("./cases-D252I91v.cjs"));
+			const { CaseStore } = await Promise.resolve().then(() => require("./cases-BTjEvF0-.cjs"));
 			const cases = await CaseStore.list();
 			const filtered = status ? cases.filter((entry) => entry.status === status) : cases;
 			return {
@@ -641,7 +647,7 @@ async function createProxy() {
 	}, async ({ case_id }) => {
 		try {
 			await initCasesDb();
-			const { CaseStore } = await Promise.resolve().then(() => require("./cases-D252I91v.cjs"));
+			const { CaseStore } = await Promise.resolve().then(() => require("./cases-BTjEvF0-.cjs"));
 			const context = await CaseStore.loadContext(case_id);
 			return {
 				content: [{
@@ -670,7 +676,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, source, content, query_params }) => {
 		try {
-			const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-D252I91v.cjs"));
+			const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-BTjEvF0-.cjs"));
 			const saved = await EvidenceStore.append(case_id, {
 				source,
 				content,
@@ -698,7 +704,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-D252I91v.cjs"));
+			const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-BTjEvF0-.cjs"));
 			const result = await EvidenceStore.verifyManifest(case_id);
 			return {
 				content: [{
@@ -733,7 +739,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, address, finding, entity_type }) => {
 		try {
-			const { DossierStore } = await Promise.resolve().then(() => require("./cases-D252I91v.cjs"));
+			const { DossierStore } = await Promise.resolve().then(() => require("./cases-BTjEvF0-.cjs"));
 			await DossierStore.appendFinding(case_id, address, finding, entity_type ?? "unknown");
 			return {
 				content: [{
@@ -761,7 +767,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { SessionStore } = await Promise.resolve().then(() => require("./cases-D252I91v.cjs"));
+			const { SessionStore } = await Promise.resolve().then(() => require("./cases-BTjEvF0-.cjs"));
 			const session = await SessionStore.start(case_id);
 			return {
 				content: [{
@@ -789,7 +795,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, findings, next_steps }) => {
 		try {
-			const { SessionStore } = await Promise.resolve().then(() => require("./cases-D252I91v.cjs"));
+			const { SessionStore } = await Promise.resolve().then(() => require("./cases-BTjEvF0-.cjs"));
 			await SessionStore.end(case_id, {
 				findings: findings ?? "",
 				nextSteps: next_steps ?? ""

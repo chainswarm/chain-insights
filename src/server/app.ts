@@ -78,7 +78,10 @@ export function createApp(): Hono {
 
     try {
       const graph = await readFile(graphPath, 'utf-8')
-      return c.body(graph, 200, { 'Content-Type': 'application/json' })
+      return c.body(graph, 200, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      })
     } catch {
       return c.json({ error: 'Graph artifact not found' }, 404)
     }

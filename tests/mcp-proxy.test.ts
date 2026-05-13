@@ -44,6 +44,7 @@ const sessionStartMock = vi.hoisted(() => vi.fn().mockResolvedValue({
 }))
 const sessionEndMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const sessionArchiveOldMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+const ensureArtifactServerMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 
 // Mock all external dependencies before importing proxy
 vi.mock('../src/config/index.js', () => ({
@@ -91,6 +92,10 @@ vi.mock('../src/mcp/client.js', () => ({
 vi.mock('../src/mcp/schema-cache.js', () => ({
   loadSchema: vi.fn().mockResolvedValue(null), // default: cache miss
   saveSchema: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('../src/mcp/artifact-server.js', () => ({
+  ensureArtifactServer: ensureArtifactServerMock,
 }))
 
 vi.mock('../src/db/init.js', () => ({
@@ -528,6 +533,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.contents[0].mimeType).toBe('text/html;profile=mcp-app')
     expect(result.contents[0].text).toContain('bgPatternImg')
     expect(result.contents[0].text).toContain('data:image/png;base64')
+    expect(result.contents[0]._meta.ui.csp.connectDomains).toContain('http://127.0.0.1:4321')
   })
 
   it('exposes public investigation prompts for Chain Insights tools and cases', async () => {
@@ -815,6 +821,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const handler = findToolHandler(serverInstance, 'address_risk')
     const result = await handler({ address: '5Addr', network: 'bittensor' })
 
+    expect(ensureArtifactServerMock).toHaveBeenCalledWith(4321)
     expect(result.content).toEqual([{ type: 'text', text: '## Risk Report' }])
     expect(result.structuredContent.facts.risk.level).toBe('critical')
     expect(result.structuredContent).not.toHaveProperty('app_data')

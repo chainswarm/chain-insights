@@ -588,7 +588,9 @@ async function normalizeRemoteToolResult(
 
   if (graphPayload) {
     const { writeGraphArtifact } = await import('./artifacts.js')
+    const { ensureArtifactServer } = await import('./artifact-server.js')
     const artifact = await writeGraphArtifact(graphPayload as never, config)
+    await ensureArtifactServer(config.serverPort)
     meta.chainInsights = {
       ...((meta.chainInsights as Record<string, unknown>) ?? {}),
       graph: {
@@ -781,6 +783,14 @@ export async function createProxy(): Promise<void> {
           uri: GRAPH_RESOURCE_URI,
           mimeType: RESOURCE_MIME_TYPE,
           text: readGraphAppHtml(),
+          _meta: {
+            ui: {
+              csp: {
+                resourceDomains: [`http://127.0.0.1:${config.serverPort}`],
+                connectDomains: [`http://127.0.0.1:${config.serverPort}`],
+              },
+            },
+          },
         },
       ],
     }),

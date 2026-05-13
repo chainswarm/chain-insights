@@ -92,6 +92,7 @@ describe('Hono viz routes (VIZ-03)', () => {
     const res = await fetch('http://127.0.0.1:14405/artifacts/artifact_123/graph.json')
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('application/json')
+    expect(res.headers.get('access-control-allow-origin')).toBe('*')
     expect(await res.json()).toEqual(graph)
   })
 
