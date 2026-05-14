@@ -1,5 +1,5 @@
 require("./chunk-CZWwpsFl.cjs");
-const require_app = require("./app-CTsgmkbA.cjs");
+const require_app = require("./app-CkE9LjLi.cjs");
 let _hono_node_server = require("@hono/node-server");
 let node_timers_promises = require("node:timers/promises");
 //#region src/mcp/artifact-server.ts

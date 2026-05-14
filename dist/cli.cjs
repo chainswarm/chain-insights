@@ -22,12 +22,12 @@ if (rawArgs.includes("--claude") && !rawArgs.some((a) => !a.startsWith("-"))) {
 	process.exit(0);
 }
 program.command("serve").description("Start local visualization server").option("-p, --port <number>", "Port to bind (default: 4321)", "4321").action(async (opts) => {
-	const { startServer } = await Promise.resolve().then(() => require("./server-MJlQc8TC.cjs")).then((n) => n.server_exports);
+	const { startServer } = await Promise.resolve().then(() => require("./server-DiVAFuoC.cjs")).then((n) => n.server_exports);
 	startServer(parseInt(opts.port, 10));
 });
 program.command("status").description("Show toolkit status and database health").action(async () => {
 	const { healthCheck } = await Promise.resolve().then(() => require("./db-UbTrO2bk.cjs")).then((n) => n.db_exports);
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-CIJ9gahy.cjs")).then((n) => n.config_exports);
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-BqUfTfTk.cjs")).then((n) => n.config_exports);
 	const [db, config] = await Promise.all([healthCheck(), loadConfig()]);
 	console.log("DB:     ", db.ok ? "healthy" : `error — ${db.error ?? "unknown"}`);
 	console.log("Config: ", config.dataDir);
@@ -56,8 +56,8 @@ program.command("setup").description("Configure external MCP clients").addComman
 	}
 }));
 program.command("config").description("Read or write configuration values").addCommand(new commander.Command("get").argument("<key>", "Config key to read").action(async (key) => {
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-CIJ9gahy.cjs")).then((n) => n.config_exports);
-	const { CONFIG_KEYS } = await Promise.resolve().then(() => require("./schema-DRvul__x.cjs")).then((n) => n.schema_exports);
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-BqUfTfTk.cjs")).then((n) => n.config_exports);
+	const { CONFIG_KEYS } = await Promise.resolve().then(() => require("./schema-DykRpLD0.cjs")).then((n) => n.schema_exports);
 	if (!CONFIG_KEYS.includes(key)) {
 		console.error(`Unknown config key: ${key}`);
 		process.exit(1);
@@ -76,8 +76,8 @@ program.command("config").description("Read or write configuration values").addC
 		}
 		return;
 	}
-	const { loadConfig, saveConfig } = await Promise.resolve().then(() => require("./config-CIJ9gahy.cjs")).then((n) => n.config_exports);
-	const { CONFIG_KEYS, DEFAULT_CONFIG } = await Promise.resolve().then(() => require("./schema-DRvul__x.cjs")).then((n) => n.schema_exports);
+	const { loadConfig, saveConfig } = await Promise.resolve().then(() => require("./config-BqUfTfTk.cjs")).then((n) => n.config_exports);
+	const { CONFIG_KEYS, DEFAULT_CONFIG } = await Promise.resolve().then(() => require("./schema-DykRpLD0.cjs")).then((n) => n.schema_exports);
 	const current = await loadConfig();
 	if (!CONFIG_KEYS.includes(key)) {
 		console.error(`Unknown config key: ${key}`);
@@ -133,24 +133,25 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 }));
 program.command("mcp").description("Interact with the Chain Insights MCP endpoint").addCommand(new commander.Command("tools").description("List available MCP tools (cached 24h)").option("--refresh", "Force refresh schema cache").action(async (opts) => {
 	try {
-		const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-D08gQMsP.cjs"));
-		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-C4xXjwTs.cjs"));
-		const { loadConfig } = await Promise.resolve().then(() => require("./config-CIJ9gahy.cjs")).then((n) => n.config_exports);
-		let tools = opts.refresh ? null : await loadSchema();
+		const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-RttUc_NN.cjs"));
+		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-DK7VLnhE.cjs"));
+		const { loadConfig } = await Promise.resolve().then(() => require("./config-BqUfTfTk.cjs")).then((n) => n.config_exports);
+		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-Cbn7gr0g.cjs")).then((n) => n.client_exports);
+		const config = await loadConfig();
+		const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
+		let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint);
 		if (!tools) {
-			const config = await loadConfig();
-			const { createConfiguredMcpFetch } = await Promise.resolve().then(() => require("./client-0ZHYy2Dm.cjs")).then((n) => n.client_exports);
-			const paymentFetch = await createConfiguredMcpFetch(config);
+			const paymentFetch = await createConfiguredGraphMcpFetch(config);
 			const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
 			const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
 			const client = new Client({
 				name: "chain-insights-cli",
 				version: "0.1.0"
 			});
-			await client.connect(new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }));
+			await client.connect(new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: paymentFetch }));
 			try {
 				tools = (await client.listTools()).tools;
-				await saveSchema(tools);
+				await saveSchema(tools, graphMcpEndpoint);
 			} finally {
 				await client.close();
 			}
@@ -162,26 +163,19 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 	}
 })).addCommand(new commander.Command("call").description("Call an MCP tool directly (debug)").argument("<tool>", "Tool name to call").argument("[args...]", "Key=value arguments (e.g. address=0x1234 chain=ethereum)").action(async (tool, rawArgs) => {
 	try {
-		const args = {};
-		for (const pair of rawArgs) {
-			const eqIdx = pair.indexOf("=");
-			if (eqIdx === -1) {
-				console.error(`Invalid arg format: ${pair} (expected key=value)`);
-				process.exit(1);
-			}
-			args[pair.slice(0, eqIdx)] = pair.slice(eqIdx + 1);
-		}
-		const { loadConfig } = await Promise.resolve().then(() => require("./config-CIJ9gahy.cjs")).then((n) => n.config_exports);
+		const { parseMcpCallArgs } = await Promise.resolve().then(() => require("./call-args-BPCHlhv9.cjs"));
+		const args = parseMcpCallArgs(rawArgs);
+		const { loadConfig } = await Promise.resolve().then(() => require("./config-BqUfTfTk.cjs")).then((n) => n.config_exports);
 		const config = await loadConfig();
-		const { createConfiguredMcpFetch } = await Promise.resolve().then(() => require("./client-0ZHYy2Dm.cjs")).then((n) => n.client_exports);
-		const paymentFetch = await createConfiguredMcpFetch(config);
+		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-Cbn7gr0g.cjs")).then((n) => n.client_exports);
+		const paymentFetch = await createConfiguredGraphMcpFetch(config);
 		const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
 		const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
 		const client = new Client({
 			name: "chain-insights-cli-call",
 			version: "0.1.0"
 		});
-		await client.connect(new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }));
+		await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }));
 		try {
 			const content = (await client.callTool({
 				name: tool,
@@ -381,9 +375,9 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			}
 			resolvedParams[key] = kv.slice(eq + 1);
 		}
-		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-YLEIv1J4.cjs"));
+		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-BJQaBNuq.cjs"));
 		const markdown = await resolvePlaybookContent(name);
-		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-CRQfdWVO.cjs"));
+		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-bLNhVVMC.cjs"));
 		const definition = PlaybookParser.parse(markdown, resolvedParams);
 		for (const spec of definition.params) if (spec.required && !resolvedParams[spec.name] && !spec.default) {
 			console.error(`Missing required param: ${spec.name}. Pass with: -p ${spec.name}=<value>`);
@@ -394,7 +388,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-C9z1I3vy.cjs"));
+		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-yWqRMp7C.cjs"));
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,
@@ -407,7 +401,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new commander.Command("list").description("List available playbooks (built-in and user-defined)").action(async () => {
 	try {
-		const { listPlaybooks } = await Promise.resolve().then(() => require("./resolver-YLEIv1J4.cjs"));
+		const { listPlaybooks } = await Promise.resolve().then(() => require("./resolver-BJQaBNuq.cjs"));
 		const playbooks = await listPlaybooks();
 		if (playbooks.length === 0) {
 			console.log("No playbooks found.");
@@ -420,8 +414,8 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new commander.Command("show").description("Show steps for a playbook without executing").argument("<name>", "Playbook name").action(async (name) => {
 	try {
-		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-YLEIv1J4.cjs"));
-		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-CRQfdWVO.cjs"));
+		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-BJQaBNuq.cjs"));
+		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-bLNhVVMC.cjs"));
 		const markdown = await resolvePlaybookContent(name);
 		const definition = PlaybookParser.parse(markdown, {});
 		console.log(`Playbook: ${definition.name} v${definition.version}`);
@@ -449,7 +443,7 @@ program.command("viz").description("Generate money flow visualization").argument
 			caseId,
 			dataFile: opts.data
 		});
-		const { startServer } = await Promise.resolve().then(() => require("./server-MJlQc8TC.cjs")).then((n) => n.server_exports);
+		const { startServer } = await Promise.resolve().then(() => require("./server-DiVAFuoC.cjs")).then((n) => n.server_exports);
 		const port = parseInt(opts.port, 10);
 		startServer(port);
 		const url = `http://127.0.0.1:${port}/viz/${result.vizId}`;

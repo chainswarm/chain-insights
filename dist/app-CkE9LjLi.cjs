@@ -57,7 +57,7 @@ function createApp() {
 	app.get("/artifacts/:artifactId/graph.json", async (c) => {
 		const artifactId = c.req.param("artifactId");
 		if (!/^[a-zA-Z0-9_-]+$/.test(artifactId)) return c.json({ error: "Invalid artifact ID" }, 400);
-		const { loadConfig } = await Promise.resolve().then(() => require("./config-CIJ9gahy.cjs")).then((n) => n.config_exports);
+		const { loadConfig } = await Promise.resolve().then(() => require("./config-BqUfTfTk.cjs")).then((n) => n.config_exports);
 		const config = await loadConfig();
 		const graphPath = node_path.default.join(config.dataDir, "artifacts", artifactId, "graph.json");
 		try {

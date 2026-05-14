@@ -14,6 +14,8 @@ var schema_exports = /* @__PURE__ */ require_chunk.__exportAll({
 const ConfigSchema = zod.object({
 	mcpEndpoint: zod.string().url().default("http://localhost:4000"),
 	mcpAuthToken: zod.string().optional(),
+	graphMcpEndpoint: zod.string().default("http://localhost:8012/mcp"),
+	graphMcpAuthToken: zod.string().optional(),
 	walletAddress: zod.string().optional(),
 	serverPort: zod.number().int().min(1024).max(65535).default(4321),
 	dataDir: zod.string().default(node_path.default.join(node_os.default.homedir(), ".chain-insights")),
@@ -23,6 +25,8 @@ const DEFAULT_CONFIG = ConfigSchema.parse({});
 const CONFIG_KEYS = [
 	"mcpEndpoint",
 	"mcpAuthToken",
+	"graphMcpEndpoint",
+	"graphMcpAuthToken",
 	"walletAddress",
 	"serverPort",
 	"dataDir",

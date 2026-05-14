@@ -1,5 +1,5 @@
 const require_chunk = require("./chunk-CZWwpsFl.cjs");
-const require_app = require("./app-CTsgmkbA.cjs");
+const require_app = require("./app-CkE9LjLi.cjs");
 let _hono_node_server = require("@hono/node-server");
 //#region src/server/index.ts
 var server_exports = /* @__PURE__ */ require_chunk.__exportAll({ startServer: () => startServer });

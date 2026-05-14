@@ -20,12 +20,12 @@ if (rawArgs.includes("--claude") && !rawArgs.some((a) => !a.startsWith("-"))) {
 	process.exit(0);
 }
 program.command("serve").description("Start local visualization server").option("-p, --port <number>", "Port to bind (default: 4321)", "4321").action(async (opts) => {
-	const { startServer } = await import("./server-B4JAMBwy.mjs").then((n) => n.t);
+	const { startServer } = await import("./server-CWyFwViy.mjs").then((n) => n.t);
 	startServer(parseInt(opts.port, 10));
 });
 program.command("status").description("Show toolkit status and database health").action(async () => {
 	const { healthCheck } = await import("./db--42Bc9og.mjs").then((n) => n.t);
-	const { loadConfig } = await import("./config-DTfloQyC.mjs").then((n) => n.t);
+	const { loadConfig } = await import("./config-DNBuk81n.mjs").then((n) => n.t);
 	const [db, config] = await Promise.all([healthCheck(), loadConfig()]);
 	console.log("DB:     ", db.ok ? "healthy" : `error — ${db.error ?? "unknown"}`);
 	console.log("Config: ", config.dataDir);
@@ -54,8 +54,8 @@ program.command("setup").description("Configure external MCP clients").addComman
 	}
 }));
 program.command("config").description("Read or write configuration values").addCommand(new Command("get").argument("<key>", "Config key to read").action(async (key) => {
-	const { loadConfig } = await import("./config-DTfloQyC.mjs").then((n) => n.t);
-	const { CONFIG_KEYS } = await import("./schema-C9S7hl_q.mjs").then((n) => n.r);
+	const { loadConfig } = await import("./config-DNBuk81n.mjs").then((n) => n.t);
+	const { CONFIG_KEYS } = await import("./schema-DcbCREaV.mjs").then((n) => n.r);
 	if (!CONFIG_KEYS.includes(key)) {
 		console.error(`Unknown config key: ${key}`);
 		process.exit(1);
@@ -74,8 +74,8 @@ program.command("config").description("Read or write configuration values").addC
 		}
 		return;
 	}
-	const { loadConfig, saveConfig } = await import("./config-DTfloQyC.mjs").then((n) => n.t);
-	const { CONFIG_KEYS, DEFAULT_CONFIG } = await import("./schema-C9S7hl_q.mjs").then((n) => n.r);
+	const { loadConfig, saveConfig } = await import("./config-DNBuk81n.mjs").then((n) => n.t);
+	const { CONFIG_KEYS, DEFAULT_CONFIG } = await import("./schema-DcbCREaV.mjs").then((n) => n.r);
 	const current = await loadConfig();
 	if (!CONFIG_KEYS.includes(key)) {
 		console.error(`Unknown config key: ${key}`);
@@ -131,24 +131,25 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 }));
 program.command("mcp").description("Interact with the Chain Insights MCP endpoint").addCommand(new Command("tools").description("List available MCP tools (cached 24h)").option("--refresh", "Force refresh schema cache").action(async (opts) => {
 	try {
-		const { loadSchema, saveSchema } = await import("./schema-cache-Br5pYS6A.mjs");
-		const { formatToolsTable } = await import("./format-B3OYcWgK.mjs");
-		const { loadConfig } = await import("./config-DTfloQyC.mjs").then((n) => n.t);
-		let tools = opts.refresh ? null : await loadSchema();
+		const { loadSchema, saveSchema } = await import("./schema-cache-3TSYn3Ou.mjs");
+		const { formatToolsTable } = await import("./format-B8NJCIEA.mjs");
+		const { loadConfig } = await import("./config-DNBuk81n.mjs").then((n) => n.t);
+		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-x1mQeHRi.mjs").then((n) => n.t);
+		const config = await loadConfig();
+		const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
+		let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint);
 		if (!tools) {
-			const config = await loadConfig();
-			const { createConfiguredMcpFetch } = await import("./client-dWOHBPXj.mjs").then((n) => n.t);
-			const paymentFetch = await createConfiguredMcpFetch(config);
+			const paymentFetch = await createConfiguredGraphMcpFetch(config);
 			const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
 			const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
 			const client = new Client({
 				name: "chain-insights-cli",
 				version: "0.1.0"
 			});
-			await client.connect(new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }));
+			await client.connect(new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: paymentFetch }));
 			try {
 				tools = (await client.listTools()).tools;
-				await saveSchema(tools);
+				await saveSchema(tools, graphMcpEndpoint);
 			} finally {
 				await client.close();
 			}
@@ -160,26 +161,19 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 	}
 })).addCommand(new Command("call").description("Call an MCP tool directly (debug)").argument("<tool>", "Tool name to call").argument("[args...]", "Key=value arguments (e.g. address=0x1234 chain=ethereum)").action(async (tool, rawArgs) => {
 	try {
-		const args = {};
-		for (const pair of rawArgs) {
-			const eqIdx = pair.indexOf("=");
-			if (eqIdx === -1) {
-				console.error(`Invalid arg format: ${pair} (expected key=value)`);
-				process.exit(1);
-			}
-			args[pair.slice(0, eqIdx)] = pair.slice(eqIdx + 1);
-		}
-		const { loadConfig } = await import("./config-DTfloQyC.mjs").then((n) => n.t);
+		const { parseMcpCallArgs } = await import("./call-args-B8y036Jh.mjs");
+		const args = parseMcpCallArgs(rawArgs);
+		const { loadConfig } = await import("./config-DNBuk81n.mjs").then((n) => n.t);
 		const config = await loadConfig();
-		const { createConfiguredMcpFetch } = await import("./client-dWOHBPXj.mjs").then((n) => n.t);
-		const paymentFetch = await createConfiguredMcpFetch(config);
+		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-x1mQeHRi.mjs").then((n) => n.t);
+		const paymentFetch = await createConfiguredGraphMcpFetch(config);
 		const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
 		const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
 		const client = new Client({
 			name: "chain-insights-cli-call",
 			version: "0.1.0"
 		});
-		await client.connect(new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }));
+		await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }));
 		try {
 			const content = (await client.callTool({
 				name: tool,
@@ -379,9 +373,9 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			}
 			resolvedParams[key] = kv.slice(eq + 1);
 		}
-		const { resolvePlaybookContent } = await import("./resolver-DFNCI8NN.mjs");
+		const { resolvePlaybookContent } = await import("./resolver-CtONzrRc.mjs");
 		const markdown = await resolvePlaybookContent(name);
-		const { PlaybookParser } = await import("./parser-CT1HeBLk.mjs");
+		const { PlaybookParser } = await import("./parser-CofRHFFH.mjs");
 		const definition = PlaybookParser.parse(markdown, resolvedParams);
 		for (const spec of definition.params) if (spec.required && !resolvedParams[spec.name] && !spec.default) {
 			console.error(`Missing required param: ${spec.name}. Pass with: -p ${spec.name}=<value>`);
@@ -392,7 +386,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await import("./runner-hfajN0lL.mjs");
+		const { PlaybookRunner } = await import("./runner-ChAvTeG1.mjs");
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,
@@ -405,7 +399,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new Command("list").description("List available playbooks (built-in and user-defined)").action(async () => {
 	try {
-		const { listPlaybooks } = await import("./resolver-DFNCI8NN.mjs");
+		const { listPlaybooks } = await import("./resolver-CtONzrRc.mjs");
 		const playbooks = await listPlaybooks();
 		if (playbooks.length === 0) {
 			console.log("No playbooks found.");
@@ -418,8 +412,8 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new Command("show").description("Show steps for a playbook without executing").argument("<name>", "Playbook name").action(async (name) => {
 	try {
-		const { resolvePlaybookContent } = await import("./resolver-DFNCI8NN.mjs");
-		const { PlaybookParser } = await import("./parser-CT1HeBLk.mjs");
+		const { resolvePlaybookContent } = await import("./resolver-CtONzrRc.mjs");
+		const { PlaybookParser } = await import("./parser-CofRHFFH.mjs");
 		const markdown = await resolvePlaybookContent(name);
 		const definition = PlaybookParser.parse(markdown, {});
 		console.log(`Playbook: ${definition.name} v${definition.version}`);
@@ -447,7 +441,7 @@ program.command("viz").description("Generate money flow visualization").argument
 			caseId,
 			dataFile: opts.data
 		});
-		const { startServer } = await import("./server-B4JAMBwy.mjs").then((n) => n.t);
+		const { startServer } = await import("./server-CWyFwViy.mjs").then((n) => n.t);
 		const port = parseInt(opts.port, 10);
 		startServer(port);
 		const url = `http://127.0.0.1:${port}/viz/${result.vizId}`;

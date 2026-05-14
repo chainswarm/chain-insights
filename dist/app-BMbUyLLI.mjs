@@ -54,7 +54,7 @@ function createApp() {
 	app.get("/artifacts/:artifactId/graph.json", async (c) => {
 		const artifactId = c.req.param("artifactId");
 		if (!/^[a-zA-Z0-9_-]+$/.test(artifactId)) return c.json({ error: "Invalid artifact ID" }, 400);
-		const { loadConfig } = await import("./config-DTfloQyC.mjs").then((n) => n.t);
+		const { loadConfig } = await import("./config-DNBuk81n.mjs").then((n) => n.t);
 		const config = await loadConfig();
 		const graphPath = path.join(config.dataDir, "artifacts", artifactId, "graph.json");
 		try {
@@ -76,4 +76,4 @@ function createApp() {
 //#endregion
 export { createApp as t };
 
-//# sourceMappingURL=app-qVzsIlR6.mjs.map
+//# sourceMappingURL=app-BMbUyLLI.mjs.map

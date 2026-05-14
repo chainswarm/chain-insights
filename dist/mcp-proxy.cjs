@@ -14,7 +14,6 @@ let _modelcontextprotocol_ext_apps_server = require("@modelcontextprotocol/ext-a
 //#region src/mcp/proxy.ts
 const LOCAL_TOOL_NAMES = new Set([
 	"balance",
-	"topup",
 	"help",
 	"case_open",
 	"case_list",
@@ -25,8 +24,8 @@ const LOCAL_TOOL_NAMES = new Set([
 	"case_start_session",
 	"case_end_session"
 ]);
+const HIDDEN_REMOTE_TOOL_NAMES = new Set(["topup"]);
 const PUBLIC_GRAPHRAG_PROMPT_NAMES = new Set(["address-risk", "track-funds"]);
-const TOPUP_RESOURCE_URI = "ui://chain-insights/topup.html";
 const GRAPH_RESOURCE_URI = "ui://chain-insights/graph";
 const GRAPH_APP_TOOL_NAMES = new Set([
 	"address_risk",
@@ -55,21 +54,23 @@ const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS = {
 		"to_address",
 		"network"
 	],
-	graph_query: ["query", "network"]
+	graph_query: ["query", "network"],
+	graph_query_batch: ["network", "queries"]
 };
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS = {
 	address_risk: "Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. Use this as the first tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.",
 	track_funds: "Trace funds from trusted victim/source addresses through intermediaries to exchange deposit addresses. Use this when the user has a victim/source address or known untrusted/scammer addresses. The tool returns an investigator-ready fund-flow report and recommended next actions.",
 	money_flows_between_exchanges: "Inspect exchange deposits, withdrawals, and bidirectional fund-flow paths for one or more addresses. Use this when all supplied addresses should be treated equally and there is no victim/scammer trust distinction. The tool returns an investigator-ready exchange contact report.",
 	address_connection_risk: "Assess whether two full blockchain addresses are connected through risky paths and whether that connection matters for AML review. Use this when the user provides a source address and target address. The tool returns an investigator-ready connection-risk summary.",
-	graph_query: "Run a read-only Cypher query against the Chain Insights graph database for schema discovery, aggregate counts, or custom graph inspection. Use only read-only queries and return full address strings exactly."
+	graph_query: "Run a read-only Cypher query against the Chain Insights graph database for schema discovery, aggregate counts, or custom graph inspection. Use only read-only queries and return full address strings exactly.",
+	graph_query_batch: "Run multiple read-only Cypher queries against the Chain Insights graph database through the paid graph primitive. Each query has a 10-second per-query timeout, and related queries should be grouped into one batch."
 };
 const NETWORK_DESCRIPTION = "Required network to query: bittensor, ethereum, or base. Do not guess; ask the user if missing.";
 const CHAIN_INSIGHTS_WORKFLOW = [
 	"Workflow:",
 	"1. If the user is starting or continuing an investigation, use case_open or case_list/case_resume first.",
 	"2. Do not call investigation tools until required arguments are known. Network is required; ask for bittensor, ethereum, or base if missing.",
-	"3. Use address_risk first for a single address. Use track_funds for victim/source fund tracing. Use money_flows_between_exchanges when no victim/scammer trust distinction is known. Use address_connection_risk when the user gives two addresses. Use graph_query only for explicit read-only Cypher or custom aggregates.",
+	"3. Use address_risk first for a single address. Use track_funds for victim/source fund tracing. Use money_flows_between_exchanges when no victim/scammer trust distinction is known. Use address_connection_risk when the user gives two addresses. Use graph_query only for explicit read-only Cypher or custom aggregates; use graph_query_batch for related custom reads that should share one paid call.",
 	"4. After a material result, preserve it with case_add_evidence when a case is active or ask whether to create/select a case.",
 	"5. Use case_update_dossier for durable address/entity findings and case_start_session/case_end_session for session notes."
 ].join("\n");
@@ -160,6 +161,14 @@ function knownPublicToolInputSchema(toolName) {
 		case "graph_query": return {
 			query: zod.string().min(1).describe("Read-only Cypher query"),
 			network: zod.string().min(1).describe(NETWORK_DESCRIPTION)
+		};
+		case "graph_query_batch": return {
+			network: zod.string().min(1).describe(NETWORK_DESCRIPTION),
+			queries: zod.array(zod.object({
+				id: zod.string().optional(),
+				query: zod.string().min(1).describe("Read-only Cypher query")
+			})).min(1).max(20),
+			per_query_timeout_seconds: zod.number().int().min(1).max(10).optional()
 		};
 		default: return null;
 	}
@@ -314,16 +323,29 @@ function registerLocalPrompts(server, remotePromptNames) {
 		"",
 		"Return full address properties; never shorten addresses with ellipses."
 	].join("\n"), "Graph database query"));
+	server.registerPrompt("graph-query-batch", {
+		title: "Cypher Graph Query Batch",
+		description: "Run related read-only Cypher queries against the Chain Insights graph database in one paid batch.",
+		argsSchema: {
+			queries: zod.string().describe("JSON array of query objects with optional id and required query fields"),
+			network: zod.string().describe(NETWORK_DESCRIPTION),
+			per_query_timeout_seconds: zod.string().optional().describe("Optional integer timeout per query, 1-10 seconds")
+		}
+	}, async ({ queries, network, per_query_timeout_seconds }) => promptResult([
+		`Use Chain Insights graph_query_batch on ${network} with these read-only Cypher queries:`,
+		"",
+		"```json",
+		queries,
+		"```",
+		per_query_timeout_seconds ? `per_query_timeout_seconds: ${per_query_timeout_seconds}` : "",
+		"",
+		"Return full address properties; never shorten addresses with ellipses."
+	].filter(Boolean).join("\n"), "Graph database batch query"));
 	server.registerPrompt("balance", {
 		title: "Wallet Balance",
 		description: "Show the local Chain Insights payment wallet address and Base USDC balance.",
 		argsSchema: {}
 	}, async () => promptResult("Use Chain Insights balance. Show the wallet address, network, token, and balance exactly as returned.", "Wallet balance"));
-	server.registerPrompt("topup", {
-		title: "Wallet Top-Up",
-		description: "Open the local wallet funding page for Base USDC.",
-		argsSchema: {}
-	}, async () => promptResult("Use Chain Insights topup. Show the top-up URL and wallet address.", "Wallet top-up"));
 	server.registerPrompt("help", {
 		title: "Chain Insights Help",
 		description: "Show available Chain Insights tools and investigation case workflow.",
@@ -403,7 +425,7 @@ async function normalizeRemoteToolResult(result, config) {
 	const meta = { ...result._meta ?? {} };
 	if (graphPayload) {
 		const { writeGraphArtifact } = await Promise.resolve().then(() => require("./artifacts-BjQf6oTb.cjs"));
-		const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-CevJxD-9.cjs"));
+		const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-GI07NANp.cjs"));
 		const artifact = await writeGraphArtifact(graphPayload, config);
 		await ensureArtifactServer(config.serverPort);
 		meta.chainInsights = {
@@ -430,30 +452,31 @@ async function normalizeRemoteToolResult(result, config) {
 * All diagnostic output goes to console.error() or process.stderr.write().
 */
 async function createProxy() {
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-CIJ9gahy.cjs")).then((n) => n.config_exports);
-	const { createConfiguredMcpFetch } = await Promise.resolve().then(() => require("./client-0ZHYy2Dm.cjs")).then((n) => n.client_exports);
-	const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-D08gQMsP.cjs"));
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-BqUfTfTk.cjs")).then((n) => n.config_exports);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-Cbn7gr0g.cjs")).then((n) => n.client_exports);
+	const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-RttUc_NN.cjs"));
 	const config = await loadConfig();
-	const mcpFetch = await createConfiguredMcpFetch(config);
+	const mcpFetch = await createConfiguredGraphMcpFetch(config);
+	const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
 	const remoteClient = new _modelcontextprotocol_sdk_client_index_js.Client({
 		name: "chain-insights-proxy-client",
 		version: "0.1.0"
 	});
 	try {
-		await remoteClient.connect(new _modelcontextprotocol_sdk_client_streamableHttp_js.StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: mcpFetch }));
+		await remoteClient.connect(new _modelcontextprotocol_sdk_client_streamableHttp_js.StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: mcpFetch }));
 	} catch {
 		try {
 			const { SSEClientTransport } = await import("@modelcontextprotocol/sdk/client/sse.js");
-			await remoteClient.connect(new SSEClientTransport(new URL(config.mcpEndpoint), { fetch: mcpFetch }));
+			await remoteClient.connect(new SSEClientTransport(new URL(graphMcpEndpoint), { fetch: mcpFetch }));
 		} catch (err2) {
-			process.stderr.write(`Chain Insights MCP unreachable at ${config.mcpEndpoint}: ${err2.message}\n`);
+			process.stderr.write(`Chain Insights MCP unreachable at ${graphMcpEndpoint}: ${err2.message}\n`);
 			process.exit(1);
 		}
 	}
-	let tools = await loadSchema();
+	let tools = await loadSchema(graphMcpEndpoint);
 	if (!tools) {
 		tools = (await remoteClient.listTools()).tools;
-		await saveSchema(tools);
+		await saveSchema(tools, graphMcpEndpoint);
 	}
 	const server = new _modelcontextprotocol_sdk_server_mcp_js.McpServer({
 		name: "chain-insights",
@@ -464,25 +487,11 @@ async function createProxy() {
 		const promptResult = await remoteClient.listPrompts();
 		for (const prompt of promptResult.prompts) if (PUBLIC_GRAPHRAG_PROMPT_NAMES.has(prompt.name)) remotePrompts.push(prompt);
 	} catch (err) {
-		process.stderr.write(`Chain Insights MCP prompt passthrough unavailable at ${config.mcpEndpoint}: ${err.message}\n`);
+		process.stderr.write(`Chain Insights MCP prompt passthrough unavailable at ${graphMcpEndpoint}: ${err.message}\n`);
 	}
 	const remotePromptNames = new Set(remotePrompts.map((prompt) => prompt.name));
 	for (const prompt of remotePrompts) registerRemotePrompt(server, remoteClient, prompt);
 	registerLocalPrompts(server, remotePromptNames);
-	let topupState = null;
-	const getTopupState = async () => {
-		topupState ??= (async () => {
-			const { getWalletAccount } = await Promise.resolve().then(() => require("./tools-BBWDw-v_.cjs")).then((n) => n.tools_exports);
-			const { startTopupServer } = await Promise.resolve().then(() => require("./topup-server-D1pfHJQi.cjs")).then((n) => n.topup_server_exports);
-			const account = await getWalletAccount();
-			const url = await startTopupServer(account);
-			return {
-				address: account.address,
-				url
-			};
-		})();
-		return topupState;
-	};
 	const initCasesDb = async () => {
 		const { getDb, initSchema } = await Promise.resolve().then(() => require("./init-b2b3GEFH.cjs")).then((n) => n.init_exports);
 		const conn = await getDb();
@@ -527,19 +536,6 @@ async function createProxy() {
 			};
 		}
 	});
-	(0, _modelcontextprotocol_ext_apps_server.registerAppResource)(server, "Chain Insights Wallet Topup", TOPUP_RESOURCE_URI, { description: "Chain Insights wallet funding page with QR code and copyable address" }, async () => {
-		const { address, url } = await getTopupState();
-		const { generateArtifactHtml } = await Promise.resolve().then(() => require("./topup-server-D1pfHJQi.cjs")).then((n) => n.topup_server_exports);
-		return { contents: [{
-			uri: TOPUP_RESOURCE_URI,
-			mimeType: _modelcontextprotocol_ext_apps_server.RESOURCE_MIME_TYPE,
-			text: generateArtifactHtml(address, url),
-			_meta: { ui: { csp: {
-				resourceDomains: [url],
-				connectDomains: [url]
-			} } }
-		}] };
-	});
 	(0, _modelcontextprotocol_ext_apps_server.registerAppResource)(server, "Fund Flow Graph", GRAPH_RESOURCE_URI, {
 		description: "Interactive D3 force-directed graph for fund flow and pattern visualization. It loads local graph artifact URLs returned in _meta.chainInsights.graph.url.",
 		_meta: { ui: { csp: {
@@ -555,33 +551,6 @@ async function createProxy() {
 			connectDomains: graphArtifactOrigins(config)
 		} } }
 	}] }));
-	(0, _modelcontextprotocol_ext_apps_server.registerAppTool)(server, "topup", {
-		description: "Open the local Chain Insights wallet funding page for Base USDC.",
-		_meta: { ui: { resourceUri: TOPUP_RESOURCE_URI } }
-	}, async () => {
-		try {
-			const { address, url } = await getTopupState();
-			return {
-				content: [{
-					type: "text",
-					text: JSON.stringify({
-						wallet_address: address,
-						topup_url: url,
-						message: `Open ${url} in your browser to fund the Chain Insights wallet with Base USDC.`
-					}, null, 2)
-				}],
-				isError: false
-			};
-		} catch (err) {
-			return {
-				content: [{
-					type: "text",
-					text: `Top-up failed: ${err.message}`
-				}],
-				isError: true
-			};
-		}
-	});
 	server.registerTool("case_open", {
 		description: "Create a local Chain Insights investigation case. Use this before saving evidence, dossiers, or session notes for a new investigation.",
 		inputSchema: {
@@ -849,6 +818,7 @@ async function createProxy() {
 				"- money_flows_between_exchanges: inspect exchange deposits and withdrawals for addresses.",
 				"- address_connection_risk: assess whether from_address and to_address are connected through risky paths.",
 				"- graph_query: run read-only Cypher against the investigation graph.",
+				"- graph_query_batch: run related read-only Cypher queries through one paid graph call.",
 				"",
 				"Case workflow tools:",
 				"- case_open: create a local case before preserving evidence.",
@@ -861,7 +831,6 @@ async function createProxy() {
 				"",
 				"Wallet tools:",
 				"- balance: show the local payment wallet address and Base USDC balance.",
-				"- topup: open the local wallet funding page for Base USDC.",
 				"- help: show this overview.",
 				"",
 				GRAPH_ARTIFACT_HINTS,
@@ -872,6 +841,7 @@ async function createProxy() {
 		isError: false
 	}));
 	for (const tool of tools ?? []) {
+		if (HIDDEN_REMOTE_TOOL_NAMES.has(tool.name)) continue;
 		if (LOCAL_TOOL_NAMES.has(tool.name)) continue;
 		const inputSchema = knownPublicToolInputSchema(tool.name) ?? zod.object({}).passthrough();
 		const handler = async (args) => {

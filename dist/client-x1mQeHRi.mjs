@@ -4,9 +4,11 @@ import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
 import { ExactEvmScheme } from "@x402/evm";
 //#region src/mcp/client.ts
 var client_exports = /* @__PURE__ */ __exportAll({
+	createConfiguredGraphMcpFetch: () => createConfiguredGraphMcpFetch,
 	createConfiguredMcpFetch: () => createConfiguredMcpFetch,
 	createMcpAuthFetchClient: () => createMcpAuthFetchClient,
-	createMcpFetchClient: () => createMcpFetchClient
+	createMcpFetchClient: () => createMcpFetchClient,
+	resolveGraphMcpEndpoint: () => resolveGraphMcpEndpoint
 });
 function createHeaderFetch(authToken, baseFetch) {
 	return (async (input, init) => {
@@ -39,23 +41,32 @@ function createMcpFetchClient(privateKey, authToken) {
 	return authToken ? createHeaderFetch(authToken, paymentFetch) : paymentFetch;
 }
 /**
-* Creates a bearer/debug-token fetch for local GraphRAG MCP testing.
+* Creates a bearer/debug-token fetch for local Graph MCP testing.
 *
-* GraphRAG public x402 debug bypass expects X-MCP-Debug-Token.
-* The private endpoint expects Authorization: Bearer <token>.
+* The public x402 debug bypass expects X-MCP-Debug-Token.
+* Private endpoints commonly expect Authorization: Bearer <token>.
 * Sending both lets one config value work for public debug and private M2M endpoints.
 */
 function createMcpAuthFetchClient(authToken, baseFetch = fetch) {
 	return createHeaderFetch(authToken, baseFetch);
 }
-async function createConfiguredMcpFetch(config) {
-	const authToken = config.mcpAuthToken?.trim();
-	if (authToken) return createMcpAuthFetchClient(authToken);
+function resolveGraphMcpEndpoint(config) {
+	return config.graphMcpEndpoint?.trim() || config.mcpEndpoint;
+}
+async function createConfiguredFetchWithToken(authToken, missingTokenName) {
+	const normalizedAuthToken = authToken?.trim();
+	if (normalizedAuthToken) return createMcpAuthFetchClient(normalizedAuthToken);
 	const { isWalletConfigured, decryptKey } = await import("./wallet-CrWZrB8c.mjs").then((n) => n.i);
-	if (!await isWalletConfigured()) throw new Error("Wallet not configured and mcpAuthToken is empty. Run `chain-insights config set mcpAuthToken <token>` for local GraphRAG debug bypass, or `chain-insights config set walletPrivateKey <key>` to enable paid x402 MCP calls.");
+	if (!await isWalletConfigured()) throw new Error(`Wallet not configured and ${missingTokenName} is empty. Run \`chain-insights config set ${missingTokenName} <token>\` for local MCP debug bypass, or \`chain-insights config set walletPrivateKey <key>\` to enable paid x402 MCP calls.`);
 	return createMcpFetchClient(await decryptKey());
+}
+async function createConfiguredMcpFetch(config) {
+	return createConfiguredFetchWithToken(config.mcpAuthToken, "mcpAuthToken");
+}
+async function createConfiguredGraphMcpFetch(config) {
+	return createConfiguredFetchWithToken(config.graphMcpAuthToken?.trim() || config.mcpAuthToken?.trim(), "graphMcpAuthToken");
 }
 //#endregion
 export { createConfiguredMcpFetch as n, createMcpFetchClient as r, client_exports as t };
 
-//# sourceMappingURL=client-dWOHBPXj.mjs.map
+//# sourceMappingURL=client-x1mQeHRi.mjs.map

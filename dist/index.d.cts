@@ -7,6 +7,8 @@ import { Address, Hex } from "viem";
 declare const ConfigSchema: z.ZodObject<{
   mcpEndpoint: z.ZodDefault<z.ZodString>;
   mcpAuthToken: z.ZodOptional<z.ZodString>;
+  graphMcpEndpoint: z.ZodDefault<z.ZodString>;
+  graphMcpAuthToken: z.ZodOptional<z.ZodString>;
   walletAddress: z.ZodOptional<z.ZodString>;
   serverPort: z.ZodDefault<z.ZodNumber>;
   dataDir: z.ZodDefault<z.ZodString>;
