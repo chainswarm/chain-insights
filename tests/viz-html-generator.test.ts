@@ -47,6 +47,8 @@ describe('generateHtml (VIZ-02) — graph.html template', () => {
     const html = generateHtml(data, 'Test Viz')
 
     expect(html).toContain('chainInsights')
+    expect(html).toContain('getGraphArtifactUrl')
+    expect(html).toContain('params._meta.chainInsights.graph.url')
     expect(html).toContain('graph.url')
     expect(html).toContain('isLocalGraphArtifactUrl')
     expect(html).toContain('/^\\/artifacts\\/[A-Za-z0-9_-]+\\/graph\\.json$/')

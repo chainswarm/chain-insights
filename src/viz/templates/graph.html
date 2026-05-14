@@ -1159,8 +1159,13 @@ function isLocalGraphArtifactUrl(graphUrl) {
   }
 }
 
+function getGraphArtifactUrl(params) {
+  if (!params || !params._meta || !params._meta.chainInsights || !params._meta.chainInsights.graph) return null;
+  return params._meta.chainInsights.graph.url || null;
+}
+
 async function loadFromToolResultParams(params) {
-  var graphUrl = params && params._meta && params._meta.chainInsights && params._meta.chainInsights.graph && params._meta.chainInsights.graph.url;
+  var graphUrl = getGraphArtifactUrl(params);
 
   if (graphUrl) {
     try {
