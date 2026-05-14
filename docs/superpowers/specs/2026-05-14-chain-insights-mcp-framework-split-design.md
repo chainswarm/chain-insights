@@ -4,16 +4,16 @@
 
 Chain Insights now has two distinct jobs that should not be collapsed into one product surface.
 
-The first job is a thin MCP connector: connect GraphRAG MCP to clients, pay with x402, hold an encrypted local wallet, expose a working balance widget, and keep tool schemas/prompts stable across Claude Desktop, Claude Code, Codex, and generic MCP clients.
+The first job is an MCP connector: connect the paid GraphRAG `graph_query` primitive to clients, pay with x402, hold an encrypted local wallet, expose a working balance widget, and keep Chain Insights tool schemas/prompts stable across Claude Desktop, Claude Code, Codex, and generic MCP clients.
 
 The second job is an investigation framework: create visible case workspaces, store claims/evidence/dossiers/sessions/reports as files, generate local graph HTML/JSON, serve the workspace from localhost, and let Codex, Claude Code, Hermes, or another agent operate over those files.
 
-Claude Desktop remains supported for the thin MCP connector. It is not the primary target for the investigation framework. Memgraph Lab is a developer debugging aid, not an operator workflow dependency.
+Claude Desktop remains supported for the MCP connector. It is not the primary target for the investigation framework. Memgraph Lab is a developer debugging aid, not an operator workflow dependency.
 
 ## Goals
 
-- Split Chain Insights into a thin `mcp` layer and a richer case/framework layer.
-- Keep GraphRAG MCP proxied into multiple clients: Claude Desktop, Claude Code, Codex, and other MCP clients.
+- Split Chain Insights into an `mcp` layer and a richer case/framework layer.
+- Keep GraphRAG `graph_query` proxied into multiple clients: Claude Desktop, Claude Code, Codex, and other MCP clients.
 - Keep x402 payment and the local encrypted wallet in the `mcp` layer.
 - Keep the working `balance` widget/tool.
 - Stop advertising `topup` as a happy-path tool because it is not a reliable working flow.
@@ -42,12 +42,12 @@ The `mcp` surface is the universal connector and payment layer.
 
 Responsibilities:
 
-- GraphRAG MCP proxy.
+- GraphRAG `graph_query` proxy.
 - x402 payment fetch.
 - encrypted local wallet.
 - `balance` widget/tool.
 - public tool schemas and descriptions.
-- public prompts for GraphRAG investigation tools.
+- public prompts for Chain Insights investigation tools built on `graph_query`.
 - basic graph MCP app compatibility through `_meta`.
 - setup docs for Claude Desktop, Claude Code, Codex, and other MCP clients.
 
@@ -66,6 +66,58 @@ graph_query
 `topup` is not part of the advertised happy path. Funding should be handled through the wallet address / QR / balance surface until a separate top-up flow is implemented and verified.
 
 The `mcp` surface does not own claims, dossiers, hardening workflows, reports, or case workspace UX.
+
+## GraphRAG Public Boundary
+
+GraphRAG MCP is the paid graph primitive. It should expose `graph_query` only on both public and private MCP surfaces.
+
+GraphRAG owns:
+
+- StarRocks-to-Memgraph sync.
+- Memgraph schema and graph model.
+- read-only Cypher execution.
+- x402 price enforcement for `graph_query`.
+- debug bearer bypass for local testing.
+- network routing and graph health.
+
+GraphRAG does not own:
+
+- `address_risk`.
+- `track_funds`.
+- `money_flows_between_exchanges`.
+- `address_connection_risk`.
+- private probe workflows.
+- investigation narratives.
+- case workspaces.
+- claims, dossiers, sessions, or reports.
+- graph visualization artifacts for high-level investigations.
+
+The high-level Python tool code can remain in GraphRAG as reference code while Chain Insights ports the behavior. It must not be registered as active GraphRAG MCP tools.
+
+## High-Level Tool Migration
+
+Chain Insights should re-implement high-level AML tools as local recipes over `graph_query`.
+
+Migration target:
+
+```text
+address_risk                      -> Chain Insights recipe over graph_query
+track_funds                       -> Chain Insights recipe over graph_query
+money_flows_between_exchanges     -> Chain Insights recipe over graph_query
+address_connection_risk           -> Chain Insights recipe over graph_query
+private probes                    -> Chain Insights recipes or framework workflows
+```
+
+Definition of done for each ported tool:
+
+- Uses one or more bounded `graph_query` calls.
+- Produces the Chain Insights MCP result envelope.
+- Writes framework evidence and visualization artifacts when a case is active.
+- Does not depend on raw `core_transfers` rows that may expire by TTL.
+- Uses aggregated flow edges and durable first/last transaction anchors.
+- Has parity tests against the old GraphRAG reference implementation before the reference is deleted.
+
+This creates a hard product line: GraphRAG charges for graph access; Chain Insights is the open investigation intelligence layer that the community can extend.
 
 ### `chain-insights case` / Framework
 
@@ -375,6 +427,7 @@ MCP and wallet commands:
 ```bash
 chain-insights mcp tools
 chain-insights mcp call address_risk network=bittensor address=...
+chain-insights mcp call graph_query network=bittensor query='MATCH (n) RETURN labels(n), n.address LIMIT 10'
 chain-insights mcp setup claude-desktop
 chain-insights mcp setup codex
 chain-insights wallet balance
@@ -421,10 +474,11 @@ The exported workspace should preserve evidence hashes, dossiers, sessions, case
 
 Required verification for `mcp`:
 
-- MCP client tests for `help`, `balance`, and GraphRAG proxied tools.
+- MCP client tests for `help`, `balance`, Chain Insights investigation tools, and GraphRAG `graph_query`.
 - x402 payment path test with debug bearer token support.
 - Claude Desktop smoke test for tool listing and text tool calls.
 - MCP graph app compatibility test for `_meta.chainInsights.graph.url`.
+- Parity tests proving each ported Chain Insights tool matches the old GraphRAG reference behavior before deleting reference code.
 - Documentation confirms `topup` is not advertised as a working happy-path tool.
 
 Required verification for framework:
