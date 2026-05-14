@@ -4,7 +4,7 @@
 
 Chain Insights now has two distinct jobs that should not be collapsed into one product surface.
 
-The first job is an MCP connector: connect the paid GraphRAG `graph_query` primitive to clients, pay with x402, hold an encrypted local wallet, expose a working balance widget, and keep Chain Insights tool schemas/prompts stable across Claude Desktop, Claude Code, Codex, and generic MCP clients.
+The first job is an MCP connector: connect the paid GraphRAG `graph_query` and `graph_query_batch` primitives to clients, pay with x402, hold an encrypted local wallet, expose a working balance widget, and keep Chain Insights tool schemas/prompts stable across Claude Desktop, Claude Code, Codex, and generic MCP clients.
 
 The second job is an investigation framework: create visible case workspaces, store claims/evidence/dossiers/sessions/reports as files, generate local graph HTML/JSON, serve the workspace from localhost, and let Codex, Claude Code, Hermes, or another agent operate over those files.
 
@@ -13,7 +13,7 @@ Claude Desktop remains supported for the MCP connector. It is not the primary ta
 ## Goals
 
 - Split Chain Insights into an `mcp` layer and a richer case/framework layer.
-- Keep GraphRAG `graph_query` proxied into multiple clients: Claude Desktop, Claude Code, Codex, and other MCP clients.
+- Keep GraphRAG `graph_query` and `graph_query_batch` proxied into multiple clients: Claude Desktop, Claude Code, Codex, and other MCP clients.
 - Keep x402 payment and the local encrypted wallet in the `mcp` layer.
 - Keep the working `balance` widget/tool.
 - Stop advertising `topup` as a happy-path tool because it is not a reliable working flow.
@@ -42,12 +42,12 @@ The `mcp` surface is the universal connector and payment layer.
 
 Responsibilities:
 
-- GraphRAG `graph_query` proxy.
+- GraphRAG `graph_query` / `graph_query_batch` proxy.
 - x402 payment fetch.
 - encrypted local wallet.
 - `balance` widget/tool.
 - public tool schemas and descriptions.
-- public prompts for Chain Insights investigation tools built on `graph_query`.
+- public prompts for Chain Insights investigation tools built on `graph_query_batch`.
 - basic graph MCP app compatibility through `_meta`.
 - setup docs for Claude Desktop, Claude Code, Codex, and other MCP clients.
 
@@ -56,11 +56,8 @@ Advertised MCP tools:
 ```text
 help
 balance
-address_risk
-track_funds
-money_flows_between_exchanges
-address_connection_risk
 graph_query
+graph_query_batch
 ```
 
 `topup` is not part of the advertised happy path. Funding should be handled through the wallet address / QR / balance surface until a separate top-up flow is implemented and verified.
@@ -69,14 +66,15 @@ The `mcp` surface does not own claims, dossiers, hardening workflows, reports, o
 
 ## GraphRAG Public Boundary
 
-GraphRAG MCP is the paid graph primitive. It should expose `graph_query` only on both public and private MCP surfaces.
+GraphRAG MCP is the paid graph primitive. The Go Graph MCP runtime exposes `graph_query` and `graph_query_batch`.
 
 GraphRAG owns:
 
 - StarRocks-to-Memgraph sync.
 - Memgraph schema and graph model.
 - read-only Cypher execution.
-- x402 price enforcement for `graph_query`.
+- x402 price enforcement for `graph_query` and `graph_query_batch`.
+- query metering at `0.01 USDC` per started query-second with a 10-second per-query cap.
 - debug bearer bypass for local testing.
 - network routing and graph health.
 
@@ -96,21 +94,21 @@ The high-level Python tool code can remain in GraphRAG as reference code while C
 
 ## High-Level Tool Migration
 
-Chain Insights should re-implement high-level AML tools as local recipes over `graph_query`.
+Chain Insights should re-implement high-level AML tools as local recipes over `graph_query_batch`.
 
 Migration target:
 
 ```text
-address_risk                      -> Chain Insights recipe over graph_query
-track_funds                       -> Chain Insights recipe over graph_query
-money_flows_between_exchanges     -> Chain Insights recipe over graph_query
-address_connection_risk           -> Chain Insights recipe over graph_query
+address_risk                      -> Chain Insights recipe over graph_query_batch
+track_funds                       -> Chain Insights recipe over graph_query_batch
+money_flows_between_exchanges     -> Chain Insights recipe over graph_query_batch
+address_connection_risk           -> Chain Insights recipe over graph_query_batch
 private probes                    -> Chain Insights recipes or framework workflows
 ```
 
 Definition of done for each ported tool:
 
-- Uses one or more bounded `graph_query` calls.
+- Uses one bounded `graph_query_batch` call when possible.
 - Produces the Chain Insights MCP result envelope.
 - Writes framework evidence and visualization artifacts when a case is active.
 - Does not depend on raw `core_transfers` rows that may expire by TTL.
@@ -305,7 +303,7 @@ Expected behavior in a framework workspace:
 
 1. Read `.chain-insights/workspace.json`, `README.md`, `case.md`, active claims, and latest session.
 2. Create or update an initial claim from the user assertion.
-3. Call the correct Chain Insights tool, usually `track_funds` or `address_risk`.
+3. Call the correct Chain Insights tool. Before high-level recipes are ported, use `graph_query_batch` probes; after a recipe is ported, use the recipe.
 4. Save the result under `evidence/`.
 5. Save graph HTML/JSON under `visualizations/` when graph data is available.
 6. Create follow-up claims for uncertain trace findings.
@@ -426,10 +424,9 @@ MCP and wallet commands:
 
 ```bash
 chain-insights mcp tools
-chain-insights mcp call address_risk network=bittensor address=...
 chain-insights mcp call graph_query network=bittensor query='MATCH (n) RETURN labels(n), n.address LIMIT 10'
-chain-insights mcp setup claude-desktop
-chain-insights mcp setup codex
+chain-insights mcp call graph_query_batch network=bittensor 'queries=[{"id":"count","query":"MATCH (n) RETURN count(n) AS count LIMIT 1"}]'
+chain-insights setup claude-desktop
 chain-insights wallet balance
 ```
 
@@ -474,7 +471,7 @@ The exported workspace should preserve evidence hashes, dossiers, sessions, case
 
 Required verification for `mcp`:
 
-- MCP client tests for `help`, `balance`, Chain Insights investigation tools, and GraphRAG `graph_query`.
+- MCP client tests for `help`, `balance`, `graph_query`, and `graph_query_batch`.
 - x402 payment path test with debug bearer token support.
 - Claude Desktop smoke test for tool listing and text tool calls.
 - MCP graph app compatibility test for `_meta.chainInsights.graph.url`.
