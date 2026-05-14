@@ -48,9 +48,14 @@ vi.mock('../src/config/index.js', () => ({
 // Mock mcp/client
 const mockCreateMcpFetchClient = vi.fn()
 const mockCreateConfiguredMcpFetch = vi.fn()
+const mockCreateConfiguredGraphMcpFetch = vi.fn()
 vi.mock('../src/mcp/client.js', () => ({
   createMcpFetchClient: mockCreateMcpFetchClient,
   createConfiguredMcpFetch: mockCreateConfiguredMcpFetch,
+  createConfiguredGraphMcpFetch: mockCreateConfiguredGraphMcpFetch,
+  resolveGraphMcpEndpoint: vi.fn((config: { graphMcpEndpoint?: string; mcpEndpoint: string }) => (
+    config.graphMcpEndpoint?.trim() || config.mcpEndpoint
+  )),
 }))
 
 // Mock MCP SDK Client
@@ -86,18 +91,19 @@ async function runMcpToolsAction(opts: { refresh?: boolean } = {}): Promise<void
   const { loadSchema, saveSchema } = await import('../src/mcp/schema-cache.js')
   const { formatToolsTable } = await import('../src/mcp/format.js')
   const { loadConfig } = await import('../src/config/index.js')
-  let tools = opts.refresh ? null : await loadSchema()
+  const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import('../src/mcp/client.js')
+  const config = await loadConfig()
+  const graphMcpEndpoint = resolveGraphMcpEndpoint(config)
+  let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint)
   if (!tools) {
-    const config = await loadConfig()
-    const { createConfiguredMcpFetch } = await import('../src/mcp/client.js')
-    const paymentFetch = await createConfiguredMcpFetch(config)
+    const paymentFetch = await createConfiguredGraphMcpFetch(config)
     const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
     const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
     const client = new Client({ name: 'chain-insights-cli', version: '0.1.0' })
-    await client.connect(new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }))
+    await client.connect(new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: paymentFetch }))
     const result = await client.listTools()
     tools = result.tools as Array<{ name: string; description?: string }>
-    await saveSchema(tools)
+    await saveSchema(tools, graphMcpEndpoint)
     await client.close()
   }
   console.log(formatToolsTable(tools))
@@ -107,23 +113,22 @@ async function runMcpToolsAction(opts: { refresh?: boolean } = {}): Promise<void
  * Simulate the `mcp call` action handler logic extracted from cli.ts.
  */
 async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> {
-  const args: Record<string, string> = {}
-  for (const pair of rawArgs) {
-    const eqIdx = pair.indexOf('=')
-    if (eqIdx === -1) {
-      console.error(`Invalid arg format: ${pair} (expected key=value)`)
-      process.exit(1)
-    }
-    args[pair.slice(0, eqIdx)] = pair.slice(eqIdx + 1)
+  let args: Record<string, unknown>
+  try {
+    const { parseMcpCallArgs } = await import('../src/mcp/call-args.js')
+    args = parseMcpCallArgs(rawArgs)
+  } catch (err) {
+    console.error((err as Error).message)
+    process.exit(1)
   }
   const { loadConfig } = await import('../src/config/index.js')
   const config = await loadConfig()
-  const { createConfiguredMcpFetch } = await import('../src/mcp/client.js')
-  const paymentFetch = await createConfiguredMcpFetch(config)
+  const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import('../src/mcp/client.js')
+  const paymentFetch = await createConfiguredGraphMcpFetch(config)
   const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
   const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
   const client = new Client({ name: 'chain-insights-cli-call', version: '0.1.0' })
-  await client.connect(new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }))
+  await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }))
   const result = await client.callTool({ name: tool, arguments: args })
   const content = result.content as Array<{ type: string; text?: string }>
   for (const item of content) {
@@ -171,6 +176,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockLoadConfig.mockResolvedValue({ mcpEndpoint: 'http://localhost:4000' })
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     exitSpy = vi.spyOn(process, 'exit').mockImplementation((_code?: number) => {
@@ -192,6 +198,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     await runMcpToolsAction()
 
     expect(mockLoadSchema).toHaveBeenCalledOnce()
+    expect(mockLoadSchema).toHaveBeenCalledWith('http://localhost:4000')
     expect(mockFormatToolsTable).toHaveBeenCalledWith(cachedTools)
     expect(consoleLogSpy).toHaveBeenCalledWith('wallet-risk  Score wallet risk')
     // No network calls
@@ -206,9 +213,8 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     mockLoadSchema.mockResolvedValue(null) // cache miss
     mockIsWalletConfigured.mockResolvedValue(true)
     mockDecryptKey.mockResolvedValue('0xdeadbeef')
-    mockLoadConfig.mockResolvedValue({ mcpEndpoint: 'http://localhost:4000' })
     mockCreateMcpFetchClient.mockReturnValue(fetch)
-    mockCreateConfiguredMcpFetch.mockResolvedValue(fetch)
+    mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
     mockClientConnect.mockResolvedValue(undefined)
     mockClientListTools.mockResolvedValue({ tools: remoteTools })
     mockSaveSchema.mockResolvedValue(undefined)
@@ -218,10 +224,11 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     await runMcpToolsAction()
 
     expect(mockLoadSchema).toHaveBeenCalledOnce()
-    expect(mockCreateConfiguredMcpFetch).toHaveBeenCalledWith({ mcpEndpoint: 'http://localhost:4000' })
+    expect(mockLoadSchema).toHaveBeenCalledWith('http://localhost:4000')
+    expect(mockCreateConfiguredGraphMcpFetch).toHaveBeenCalledWith({ mcpEndpoint: 'http://localhost:4000' })
     expect(mockClientConnect).toHaveBeenCalledOnce()
     expect(mockClientListTools).toHaveBeenCalledOnce()
-    expect(mockSaveSchema).toHaveBeenCalledWith(remoteTools)
+    expect(mockSaveSchema).toHaveBeenCalledWith(remoteTools, 'http://localhost:4000')
     expect(mockClientClose).toHaveBeenCalledOnce()
     expect(mockFormatToolsTable).toHaveBeenCalledWith(remoteTools)
     expect(consoleLogSpy).toHaveBeenCalledWith('trace-funds  Trace money flows')
@@ -229,14 +236,16 @@ describe('CLI mcp subcommand (MCP-02)', () => {
 
   // ─── mcp tools — missing wallet ───────────────────────────────────────────
 
-  it('mcp tools — configured auth token: skips direct wallet checks', async () => {
+  it('mcp tools — configured graph auth token: skips direct wallet checks and uses graph endpoint', async () => {
     const remoteTools = [{ name: 'address_risk', description: 'Screen address risk' }]
     mockLoadSchema.mockResolvedValue(null) // cache miss
     mockLoadConfig.mockResolvedValue({
       mcpEndpoint: 'http://localhost:8011/mcp',
-      mcpAuthToken: 'debug-secret',
+      mcpAuthToken: 'legacy-debug-secret',
+      graphMcpEndpoint: 'http://localhost:8012/mcp',
+      graphMcpAuthToken: 'debug-secret',
     })
-    mockCreateConfiguredMcpFetch.mockResolvedValue(fetch)
+    mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
     mockClientConnect.mockResolvedValue(undefined)
     mockClientListTools.mockResolvedValue({ tools: remoteTools })
     mockSaveSchema.mockResolvedValue(undefined)
@@ -247,10 +256,16 @@ describe('CLI mcp subcommand (MCP-02)', () => {
 
     expect(mockIsWalletConfigured).not.toHaveBeenCalled()
     expect(mockDecryptKey).not.toHaveBeenCalled()
-    expect(mockCreateConfiguredMcpFetch).toHaveBeenCalledWith({
+    expect(mockCreateConfiguredGraphMcpFetch).toHaveBeenCalledWith({
       mcpEndpoint: 'http://localhost:8011/mcp',
-      mcpAuthToken: 'debug-secret',
+      mcpAuthToken: 'legacy-debug-secret',
+      graphMcpEndpoint: 'http://localhost:8012/mcp',
+      graphMcpAuthToken: 'debug-secret',
     })
+    expect(MockStreamableHTTPClientTransport).toHaveBeenCalledWith(
+      new URL('http://localhost:8012/mcp'),
+      { fetch },
+    )
   })
 
   // ─── mcp tools — --refresh flag ───────────────────────────────────────────
@@ -260,9 +275,8 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     mockLoadSchema.mockResolvedValue([{ name: 'old-tool' }]) // stale cache (should be skipped)
     mockIsWalletConfigured.mockResolvedValue(true)
     mockDecryptKey.mockResolvedValue('0xdeadbeef')
-    mockLoadConfig.mockResolvedValue({ mcpEndpoint: 'http://localhost:4000' })
     mockCreateMcpFetchClient.mockReturnValue(fetch)
-    mockCreateConfiguredMcpFetch.mockResolvedValue(fetch)
+    mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
     mockClientConnect.mockResolvedValue(undefined)
     mockClientListTools.mockResolvedValue({ tools: remoteTools })
     mockSaveSchema.mockResolvedValue(undefined)
@@ -274,7 +288,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     // loadSchema should not be consulted when refresh=true
     expect(mockLoadSchema).not.toHaveBeenCalled()
     expect(mockClientListTools).toHaveBeenCalledOnce()
-    expect(mockSaveSchema).toHaveBeenCalledWith(remoteTools)
+    expect(mockSaveSchema).toHaveBeenCalledWith(remoteTools, 'http://localhost:4000')
   })
 
   // ─── mcp call — key=value args ────────────────────────────────────────────
@@ -282,9 +296,8 @@ describe('CLI mcp subcommand (MCP-02)', () => {
   it('mcp call — callTool called with correct name and parsed args', async () => {
     mockIsWalletConfigured.mockResolvedValue(true)
     mockDecryptKey.mockResolvedValue('0xdeadbeef')
-    mockLoadConfig.mockResolvedValue({ mcpEndpoint: 'http://localhost:4000' })
     mockCreateMcpFetchClient.mockReturnValue(fetch)
-    mockCreateConfiguredMcpFetch.mockResolvedValue(fetch)
+    mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
     mockClientConnect.mockResolvedValue(undefined)
     mockClientCallTool.mockResolvedValue({
       content: [{ type: 'text', text: 'Risk score: 72' }],
@@ -300,9 +313,53 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Risk score: 72')
   })
 
+  it('mcp call parses JSON arrays and numeric args for graph_query_batch', async () => {
+    mockLoadConfig.mockResolvedValue({
+      mcpEndpoint: 'http://localhost:8011/mcp',
+      graphMcpEndpoint: 'http://localhost:8012/mcp',
+      graphMcpAuthToken: 'debug-secret',
+    })
+    mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
+    mockClientConnect.mockResolvedValue(undefined)
+    mockClientCallTool.mockResolvedValue({
+      content: [{ type: 'text', text: '{"completed":1}' }],
+    })
+    mockClientClose.mockResolvedValue(undefined)
+
+    await runMcpCallAction('graph_query_batch', [
+      'network=bittensor',
+      'queries=[{"id":"count","query":"MATCH (n) RETURN count(n) AS count LIMIT 1"}]',
+      'per_query_timeout_seconds=10',
+    ])
+
+    expect(mockClientCallTool).toHaveBeenCalledWith({
+      name: 'graph_query_batch',
+      arguments: {
+        network: 'bittensor',
+        queries: [{ id: 'count', query: 'MATCH (n) RETURN count(n) AS count LIMIT 1' }],
+        per_query_timeout_seconds: 10,
+      },
+    })
+  })
+
+  it('mcp call preserves number-like scalar strings', async () => {
+    mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
+    mockClientConnect.mockResolvedValue(undefined)
+    mockClientCallTool.mockResolvedValue({
+      content: [{ type: 'text', text: 'ok' }],
+    })
+    mockClientClose.mockResolvedValue(undefined)
+
+    await runMcpCallAction('wallet-risk', ['id=001', 'amount=10'])
+
+    expect(mockClientCallTool).toHaveBeenCalledWith({
+      name: 'wallet-risk',
+      arguments: { id: '001', amount: '10' },
+    })
+  })
+
   it('mcp call prints model-visible content only', async () => {
-    mockLoadConfig.mockResolvedValue({ mcpEndpoint: 'http://localhost:4000' })
-    mockCreateConfiguredMcpFetch.mockResolvedValue(fetch)
+    mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
     mockClientConnect.mockResolvedValue(undefined)
     mockClientCallTool.mockResolvedValueOnce({
       content: [{ type: 'text', text: '## Risk Report' }],
@@ -329,12 +386,14 @@ describe('CLI mcp subcommand (MCP-02)', () => {
 
   // ─── mcp call — missing wallet ────────────────────────────────────────────
 
-  it('mcp call — configured auth token: skips direct wallet checks', async () => {
+  it('mcp call — configured graph auth token: skips direct wallet checks and uses graph endpoint', async () => {
     mockLoadConfig.mockResolvedValue({
       mcpEndpoint: 'http://localhost:8011/mcp',
-      mcpAuthToken: 'debug-secret',
+      mcpAuthToken: 'legacy-debug-secret',
+      graphMcpEndpoint: 'http://localhost:8012/mcp',
+      graphMcpAuthToken: 'debug-secret',
     })
-    mockCreateConfiguredMcpFetch.mockResolvedValue(fetch)
+    mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
     mockClientConnect.mockResolvedValue(undefined)
     mockClientCallTool.mockResolvedValue({
       content: [{ type: 'text', text: '{"ok":true}' }],
@@ -345,6 +404,10 @@ describe('CLI mcp subcommand (MCP-02)', () => {
 
     expect(mockIsWalletConfigured).not.toHaveBeenCalled()
     expect(mockDecryptKey).not.toHaveBeenCalled()
+    expect(MockStreamableHTTPClientTransport).toHaveBeenCalledWith(
+      new URL('http://localhost:8012/mcp'),
+      { fetch },
+    )
     expect(mockClientCallTool).toHaveBeenCalledWith({
       name: 'address_risk',
       arguments: { address: '5abc', network: 'bittensor' },

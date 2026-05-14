@@ -45,29 +45,48 @@ export function createMcpFetchClient(privateKey: `0x${string}`, authToken?: stri
 }
 
 /**
- * Creates a bearer/debug-token fetch for local GraphRAG MCP testing.
+ * Creates a bearer/debug-token fetch for local Graph MCP testing.
  *
- * GraphRAG public x402 debug bypass expects X-MCP-Debug-Token.
- * The private endpoint expects Authorization: Bearer <token>.
+ * The public x402 debug bypass expects X-MCP-Debug-Token.
+ * Private endpoints commonly expect Authorization: Bearer <token>.
  * Sending both lets one config value work for public debug and private M2M endpoints.
  */
 export function createMcpAuthFetchClient(authToken: string, baseFetch: FetchLike = fetch): FetchLike {
   return createHeaderFetch(authToken, baseFetch)
 }
 
-export async function createConfiguredMcpFetch(config: Pick<InvestigatorConfig, 'mcpAuthToken'>): Promise<FetchLike> {
-  const authToken = config.mcpAuthToken?.trim()
-  if (authToken) return createMcpAuthFetchClient(authToken)
+export function resolveGraphMcpEndpoint(config: Pick<InvestigatorConfig, 'graphMcpEndpoint' | 'mcpEndpoint'>): string {
+  const graphEndpoint = config.graphMcpEndpoint?.trim()
+  return graphEndpoint || config.mcpEndpoint
+}
+
+async function createConfiguredFetchWithToken(
+  authToken: string | undefined,
+  missingTokenName: string,
+): Promise<FetchLike> {
+  const normalizedAuthToken = authToken?.trim()
+  if (normalizedAuthToken) return createMcpAuthFetchClient(normalizedAuthToken)
 
   const { isWalletConfigured, decryptKey } = await import('../wallet/index.js')
   if (!(await isWalletConfigured())) {
     throw new Error(
-      'Wallet not configured and mcpAuthToken is empty. ' +
-      'Run `chain-insights config set mcpAuthToken <token>` for local GraphRAG debug bypass, ' +
+      `Wallet not configured and ${missingTokenName} is empty. ` +
+      `Run \`chain-insights config set ${missingTokenName} <token>\` for local MCP debug bypass, ` +
       'or `chain-insights config set walletPrivateKey <key>` to enable paid x402 MCP calls.',
     )
   }
 
   const privateKey = await decryptKey()
   return createMcpFetchClient(privateKey as `0x${string}`)
+}
+
+export async function createConfiguredMcpFetch(config: Pick<InvestigatorConfig, 'mcpAuthToken'>): Promise<FetchLike> {
+  return createConfiguredFetchWithToken(config.mcpAuthToken, 'mcpAuthToken')
+}
+
+export async function createConfiguredGraphMcpFetch(
+  config: Pick<InvestigatorConfig, 'mcpAuthToken' | 'graphMcpAuthToken'>,
+): Promise<FetchLike> {
+  const authToken = config.graphMcpAuthToken?.trim() || config.mcpAuthToken?.trim()
+  return createConfiguredFetchWithToken(authToken, 'graphMcpAuthToken')
 }

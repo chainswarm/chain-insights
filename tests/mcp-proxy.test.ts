@@ -2,6 +2,7 @@ import { rmSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import * as z from 'zod'
 
 const testDataDir = vi.hoisted(() => `/tmp/chain-insights-mcp-proxy-test-${process.pid}`)
 const mockCase = vi.hoisted(() => ({
@@ -50,6 +51,8 @@ const ensureArtifactServerMock = vi.hoisted(() => vi.fn().mockResolvedValue(unde
 vi.mock('../src/config/index.js', () => ({
   loadConfig: vi.fn().mockResolvedValue({
     mcpEndpoint: 'http://localhost:8080/mcp',
+    graphMcpEndpoint: 'http://localhost:8012/mcp',
+    graphMcpAuthToken: 'graph-debug-token',
     serverPort: 4321,
     dataDir: testDataDir,
     version: '1',
@@ -87,6 +90,10 @@ vi.mock('@modelcontextprotocol/ext-apps/server', () => ({
 vi.mock('../src/mcp/client.js', () => ({
   createMcpFetchClient: vi.fn().mockReturnValue(fetch),
   createConfiguredMcpFetch: vi.fn().mockResolvedValue(fetch),
+  createConfiguredGraphMcpFetch: vi.fn().mockResolvedValue(fetch),
+  resolveGraphMcpEndpoint: vi.fn((config: { graphMcpEndpoint?: string; mcpEndpoint: string }) => (
+    config.graphMcpEndpoint?.trim() || config.mcpEndpoint
+  )),
 }))
 
 vi.mock('../src/mcp/schema-cache.js', () => ({
@@ -162,6 +169,8 @@ vi.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
           { name: 'money_flows_between_exchanges', description: 'Exchange flow tracing' },
           { name: 'address_connection_risk', description: 'Connection risk' },
           { name: 'graph_query', description: 'Cypher graph query' },
+          { name: 'graph_query_batch', description: 'Cypher graph query batch' },
+          { name: 'topup', description: 'Unsupported top-up tool from stale remote schema' },
         ],
       }),
       listPrompts: vi.fn().mockResolvedValue({
@@ -423,9 +432,13 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('Balance: 4.200000 USDC')
   })
 
-  it('registers a local topup tool that returns a browser URL', async () => {
+  it('advertises graph query tools and balance but not topup', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
-    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query', description: 'Cypher graph query' },
+      { name: 'graph_query_batch', description: 'Cypher graph query batch' },
+      { name: 'topup', description: 'Unsupported remote top-up tool' },
+    ])
 
     const { createProxy } = await import('../src/mcp/proxy.js')
     const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
@@ -435,46 +448,20 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
-    const handler = findToolHandler(serverInstance, 'topup')
-    const result = await handler({})
+    const toolNames = serverInstance.registerTool.mock.calls.map((entry) => entry[0])
 
-    expect(result.isError).toBe(false)
-    expect(result.content[0].text).toContain('http://127.0.0.1:4500')
-    expect(result.content[0].text).toContain('0x0000000000000000000000000000000000000001')
-    expect(result.content[0].text).not.toContain('MetaMask')
-    expect(result.content[0].text).not.toContain('tool calls')
-  })
+    expect(toolNames).toContain('graph_query')
+    expect(toolNames).toContain('graph_query_batch')
+    expect(toolNames).toContain('balance')
+    expect(toolNames).not.toContain('topup')
 
-  it('registers topup as an MCP Apps tool/resource using the copied component', async () => {
-    const { loadSchema } = await import('../src/mcp/schema-cache.js')
-    vi.mocked(loadSchema).mockResolvedValueOnce(null)
-
-    const { createProxy } = await import('../src/mcp/proxy.js')
-    const { registerAppResource, registerAppTool } = await import('@modelcontextprotocol/ext-apps/server')
-
-    await createProxy()
-
-    expect(registerAppResource).toHaveBeenCalledWith(
-      expect.anything(),
-      'Chain Insights Wallet Topup',
-      'ui://chain-insights/topup.html',
-      expect.objectContaining({
-        description: expect.stringContaining('wallet funding page'),
-      }),
-      expect.any(Function),
-    )
-    expect(registerAppTool).toHaveBeenCalledWith(
-      expect.anything(),
-      'topup',
-      expect.objectContaining({
-        _meta: {
-          ui: {
-            resourceUri: 'ui://chain-insights/topup.html',
-          },
-        },
-      }),
-      expect.any(Function),
-    )
+    const graphQueryBatch = findToolConfig(serverInstance, 'graph_query_batch')
+    const jsonSchema = z.toJSONSchema(
+      z.object(graphQueryBatch.inputSchema as z.ZodRawShape),
+    ) as Record<string, unknown>
+    const properties = jsonSchema.properties as Record<string, Record<string, unknown>>
+    expect(jsonSchema.required).toEqual(['network', 'queries'])
+    expect(properties.per_query_timeout_seconds.maximum).toBe(10)
   })
 
   it('registers graph MCP app resource and preserves graph-backed remote tools', async () => {
@@ -571,8 +558,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       'money-flows-between-exchanges',
       'address-connection-risk',
       'graph-query',
+      'graph-query-batch',
       'balance',
-      'topup',
       'help',
       'open-investigation-case',
       'resume-investigation-case',
@@ -1191,8 +1178,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('Workflow:')
     expect(result.content[0].text).toContain('Network is required')
     expect(result.content[0].text).toContain('address_risk')
+    expect(result.content[0].text).toContain('graph_query_batch')
     expect(result.content[0].text).toContain('balance')
-    expect(result.content[0].text).toContain('topup')
+    expect(result.content[0].text).not.toContain('topup')
     expect(result.content[0].text).toContain('case_open')
     expect(result.content[0].text).toContain('case_add_evidence')
     expect(result.content[0].text).toContain('Graph visualization behavior')

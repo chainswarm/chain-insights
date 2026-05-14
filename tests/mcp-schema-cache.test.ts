@@ -36,6 +36,28 @@ describe('MCP schema cache (MCP-02)', () => {
     expect(result![0]!.name).toBe('trace_address')
   })
 
+  it('loadSchema(endpoint) returns null for cache without matching endpoint', async () => {
+    const schemaPath = join(fakeHome, '.chain-insights', 'mcp-schema.json')
+    const tools = [{ name: 'address_risk' }]
+    await writeFile(schemaPath, JSON.stringify({ tools, cachedAt: Date.now() }), { mode: 0o600 })
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    const result = await loadSchema('http://localhost:8012/mcp')
+    expect(result).toBeNull()
+  })
+
+  it('loadSchema(endpoint) returns null when cached endpoint differs', async () => {
+    const schemaPath = join(fakeHome, '.chain-insights', 'mcp-schema.json')
+    const tools = [{ name: 'address_risk' }]
+    await writeFile(schemaPath, JSON.stringify({
+      tools,
+      cachedAt: Date.now(),
+      endpoint: 'http://localhost:8011/mcp',
+    }), { mode: 0o600 })
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    const result = await loadSchema('http://localhost:8012/mcp')
+    expect(result).toBeNull()
+  })
+
   it('loadSchema() returns null when cachedAt is 25 hours old (TTL expired)', async () => {
     const schemaPath = join(fakeHome, '.chain-insights', 'mcp-schema.json')
     const tools = [{ name: 'trace_address' }]
@@ -59,6 +81,18 @@ describe('MCP schema cache (MCP-02)', () => {
     expect(result![0]!.name).toBe('trace_address')
     expect(result![1]!.name).toBe('risk_score')
     expect(result![1]!.inputSchema).toEqual({ type: 'object' })
+  })
+
+  it('saveSchema(tools, endpoint) scopes the cache to that endpoint', async () => {
+    const { saveSchema, loadSchema } = await import('../src/mcp/schema-cache.js')
+    const tools = [
+      { name: 'graph_query' },
+      { name: 'graph_query_batch' },
+    ]
+    await saveSchema(tools, 'http://localhost:8012/mcp')
+
+    expect(await loadSchema('http://localhost:8012/mcp')).toEqual(tools)
+    expect(await loadSchema('http://localhost:8011/mcp')).toBeNull()
   })
 
   it('saveSchema writes file with 0o600 permissions', async () => {

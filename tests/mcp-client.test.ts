@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
 
 vi.mock('@x402/fetch', () => ({
   wrapFetchWithPaymentFromConfig: vi.fn((fetch, config) => {
@@ -17,7 +17,18 @@ vi.mock('viem/accounts', () => ({
   privateKeyToAccount: vi.fn((key) => ({ address: '0xmock', key })),
 }))
 
+const mockIsWalletConfigured = vi.hoisted(() => vi.fn())
+const mockDecryptKey = vi.hoisted(() => vi.fn())
+vi.mock('../src/wallet/index.js', () => ({
+  isWalletConfigured: mockIsWalletConfigured,
+  decryptKey: mockDecryptKey,
+}))
+
 describe('MCP client (02-01)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('createMcpFetchClient returns a function', async () => {
     const { createMcpFetchClient } = await import('../src/mcp/client.js')
     const testKey = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as const
@@ -64,7 +75,7 @@ describe('MCP client (02-01)', () => {
     expect(vi.mocked(privateKeyToAccount)).toHaveBeenCalledWith(testKey)
   })
 
-  it('createMcpAuthFetchClient injects GraphRAG debug bypass and bearer headers', async () => {
+  it('createMcpAuthFetchClient injects debug bypass and bearer headers', async () => {
     const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = []
     const baseFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       calls.push({ input, init })
@@ -82,5 +93,67 @@ describe('MCP client (02-01)', () => {
     expect(headers.get('Accept')).toBe('application/json')
     expect(headers.get('X-MCP-Debug-Token')).toBe('debug-secret')
     expect(headers.get('Authorization')).toBe('Bearer debug-secret')
+  })
+
+  it('resolveGraphMcpEndpoint prefers graphMcpEndpoint over legacy mcpEndpoint', async () => {
+    const { resolveGraphMcpEndpoint } = await import('../src/mcp/client.js')
+
+    expect(resolveGraphMcpEndpoint({
+      mcpEndpoint: 'http://localhost:8011/mcp',
+      graphMcpEndpoint: 'http://localhost:8012/mcp',
+    })).toBe('http://localhost:8012/mcp')
+  })
+
+  it('createConfiguredMcpFetch uses legacy mcpAuthToken even when graph token is present', async () => {
+    const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = []
+    const baseFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ input, init })
+      return new Response('{}')
+    })
+    vi.stubGlobal('fetch', baseFetch)
+
+    try {
+      const { createConfiguredMcpFetch } = await import('../src/mcp/client.js')
+      const config = {
+        mcpAuthToken: 'legacy-debug-token',
+        graphMcpAuthToken: 'graph-debug-token',
+      }
+      const authedFetch = await createConfiguredMcpFetch(config)
+      await authedFetch('http://localhost:8011/mcp')
+
+      const headers = new Headers(calls[0]?.init?.headers)
+      expect(headers.get('X-MCP-Debug-Token')).toBe('legacy-debug-token')
+      expect(headers.get('Authorization')).toBe('Bearer legacy-debug-token')
+      expect(mockIsWalletConfigured).not.toHaveBeenCalled()
+      expect(mockDecryptKey).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('createConfiguredGraphMcpFetch prefers graphMcpAuthToken over legacy mcpAuthToken', async () => {
+    const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = []
+    const baseFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ input, init })
+      return new Response('{}')
+    })
+    vi.stubGlobal('fetch', baseFetch)
+
+    try {
+      const { createConfiguredGraphMcpFetch } = await import('../src/mcp/client.js')
+      const authedFetch = await createConfiguredGraphMcpFetch({
+        mcpAuthToken: 'legacy-debug-token',
+        graphMcpAuthToken: 'graph-debug-token',
+      })
+      await authedFetch('http://localhost:8012/mcp')
+
+      const headers = new Headers(calls[0]?.init?.headers)
+      expect(headers.get('X-MCP-Debug-Token')).toBe('graph-debug-token')
+      expect(headers.get('Authorization')).toBe('Bearer graph-debug-token')
+      expect(mockIsWalletConfigured).not.toHaveBeenCalled()
+      expect(mockDecryptKey).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

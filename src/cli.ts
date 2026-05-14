@@ -219,19 +219,20 @@ program
           const { loadSchema, saveSchema } = await import('./mcp/schema-cache.js')
           const { formatToolsTable } = await import('./mcp/format.js')
           const { loadConfig } = await import('./config/index.js')
-          let tools = opts.refresh ? null : await loadSchema()
+          const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import('./mcp/client.js')
+          const config = await loadConfig()
+          const graphMcpEndpoint = resolveGraphMcpEndpoint(config)
+          let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint)
           if (!tools) {
-            const config = await loadConfig()
-            const { createConfiguredMcpFetch } = await import('./mcp/client.js')
-            const paymentFetch = await createConfiguredMcpFetch(config)
+            const paymentFetch = await createConfiguredGraphMcpFetch(config)
             const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
             const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
             const client = new Client({ name: 'chain-insights-cli', version: '0.1.0' })
-            await client.connect(new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }))
+            await client.connect(new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: paymentFetch }))
             try {
               const result = await client.listTools()
               tools = result.tools as Array<{ name: string; description?: string }>
-              await saveSchema(tools)
+              await saveSchema(tools, graphMcpEndpoint)
             } finally {
               await client.close()
             }
@@ -250,23 +251,16 @@ program
       .argument('[args...]', 'Key=value arguments (e.g. address=0x1234 chain=ethereum)')
       .action(async (tool: string, rawArgs: string[]) => {
         try {
-          const args: Record<string, string> = {}
-          for (const pair of rawArgs) {
-            const eqIdx = pair.indexOf('=')
-            if (eqIdx === -1) {
-              console.error(`Invalid arg format: ${pair} (expected key=value)`)
-              process.exit(1)
-            }
-            args[pair.slice(0, eqIdx)] = pair.slice(eqIdx + 1)
-          }
+          const { parseMcpCallArgs } = await import('./mcp/call-args.js')
+          const args = parseMcpCallArgs(rawArgs)
           const { loadConfig } = await import('./config/index.js')
           const config = await loadConfig()
-          const { createConfiguredMcpFetch } = await import('./mcp/client.js')
-          const paymentFetch = await createConfiguredMcpFetch(config)
+          const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import('./mcp/client.js')
+          const paymentFetch = await createConfiguredGraphMcpFetch(config)
           const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
           const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
           const client = new Client({ name: 'chain-insights-cli-call', version: '0.1.0' })
-          await client.connect(new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: paymentFetch }))
+          await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }))
           try {
             const result = await client.callTool({ name: tool, arguments: args })
             const content = result.content as Array<{ type: string; text?: string }>
