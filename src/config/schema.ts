@@ -3,12 +3,14 @@ import os from 'node:os'
 import path from 'node:path'
 
 export const ConfigSchema = z.object({
-  mcpEndpoint:   z.string().url().default('http://localhost:4000'),
-  mcpAuthToken:  z.string().optional(),
-  walletAddress: z.string().optional(),
-  serverPort:    z.number().int().min(1024).max(65535).default(4321),
-  dataDir:       z.string().default(path.join(os.homedir(), '.chain-insights')),
-  version:       z.string().default('1'),
+  mcpEndpoint:       z.string().url().default('http://localhost:4000'),
+  mcpAuthToken:      z.string().optional(),
+  graphMcpEndpoint:  z.string().default('http://localhost:8012/mcp'),
+  graphMcpAuthToken: z.string().optional(),
+  walletAddress:     z.string().optional(),
+  serverPort:        z.number().int().min(1024).max(65535).default(4321),
+  dataDir:           z.string().default(path.join(os.homedir(), '.chain-insights')),
+  version:           z.string().default('1'),
 })
 
 export type InvestigatorConfig = z.infer<typeof ConfigSchema>
@@ -17,6 +19,8 @@ export const DEFAULT_CONFIG: InvestigatorConfig = ConfigSchema.parse({})
 export const CONFIG_KEYS = [
   'mcpEndpoint',
   'mcpAuthToken',
+  'graphMcpEndpoint',
+  'graphMcpAuthToken',
   'walletAddress',
   'serverPort',
   'dataDir',
