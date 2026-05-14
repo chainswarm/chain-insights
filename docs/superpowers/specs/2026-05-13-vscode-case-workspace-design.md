@@ -1,5 +1,9 @@
 # VS Code Case Workspace Design
 
+> Superseded by `docs/superpowers/specs/2026-05-14-chain-insights-mcp-framework-split-design.md`.
+> The current design keeps Claude Desktop supported through the thin `chain-insights mcp`
+> layer while moving the rich investigation framework to editor/terminal workspaces.
+
 ## Context
 
 Chain Insights started by optimizing the Claude Desktop MCP Apps path: tools returned MCP app metadata, Claude rendered iframes, and the graph app fetched local Hono artifacts. That path works but creates friction for real investigations:
