@@ -1,0 +1,159 @@
+const require_chunk = require("./chunk-CZWwpsFl.cjs");
+let node_path = require("node:path");
+node_path = require_chunk.__toESM(node_path, 1);
+let node_fs_promises = require("node:fs/promises");
+//#region src/workspace/init.ts
+const WORKSPACE_DIRS = [
+	".chain-insights",
+	".chain-insights/schema",
+	".chain-insights/runtime-skill",
+	"cases",
+	"imports",
+	"reports",
+	"reports/graphs",
+	"reports/tables",
+	"templates"
+];
+function todayIso() {
+	return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+}
+function workspaceJson(workspaceRoot) {
+	return JSON.stringify({
+		schema: "chain-insights.workspace.v1",
+		name: "Chain Insights Investigations",
+		workspace_root: workspaceRoot,
+		default_network: "bittensor",
+		graph_mcp_endpoint: "http://localhost:8012/mcp",
+		cases_dir: "cases",
+		imports_dir: "imports",
+		reports_dir: "reports",
+		templates_dir: "templates",
+		created_at: todayIso()
+	}, null, 2) + "\n";
+}
+const README = `# Chain Insights Investigations
+
+This is a workspace for Chain Insights AML investigations.
+
+## Start
+
+\`\`\`bash
+chain-insights mcp tools --refresh
+chain-insights wallet balance
+\`\`\`
+
+## Layout
+
+\`\`\`text
+.chain-insights/   Workspace metadata
+cases/             Case exports and notes
+imports/           External reports, CSVs, screenshots, raw notes
+reports/           Final or interim analyst reports
+reports/graphs/    Graph JSON for visualization
+reports/tables/    Compact tabular extracts
+templates/         Reusable case/report templates
+.chain-insights/schema/         Runtime graph schema captures
+.chain-insights/runtime-skill/  Workspace-specific agent schema notes
+\`\`\`
+`;
+const AGENTS = `# Agent Instructions
+
+You are operating inside a Chain Insights investigation workspace.
+
+- Read README.md first.
+- Read .chain-insights/runtime-skill/SKILL.md before graph queries.
+- Preserve full blockchain addresses exactly.
+- Do not guess the network for graph queries.
+- Capture or refresh graph schema before the first case query.
+- Save compact evidence with original graph field names.
+- Put graph JSON and analyst tables in reports/, not in dossiers.
+- Keep theories lightweight until evidence supports them.
+`;
+const CLAUDE = AGENTS;
+const CASE_BRIEF = `# Case Brief
+
+## Summary
+
+## Known Addresses
+
+## Claims To Validate
+
+## Evidence
+
+## Next Steps
+`;
+const RUNTIME_SKILL = `---
+name: chain-insights-runtime-schema
+description: Workspace-local Chain Insights runtime schema notes. Refresh this after connecting to a graph MCP endpoint.
+---
+
+# Runtime Graph Schema
+
+Before the first investigation query, capture the live graph schema into:
+
+\`\`\`text
+.chain-insights/schema/<network>.graph-schema.json
+\`\`\`
+
+Then update this file with observed labels, relationship types, and allowed
+property names for the active network.
+
+Rules:
+
+- Preserve source schema field names in evidence and generated data files.
+- Do not rename, reinterpret, or add unit labels to graph fields unless the
+  schema or query result explicitly supports that interpretation.
+- Keep evidence compact: select only the fields needed to support the claim.
+  Avoid storing whole node or relationship property blobs in evidence unless
+  the purpose of the query is schema discovery or debugging.
+- Keep analysis products separate from evidence: graph JSON belongs under
+  \`reports/graphs/\`, tabular extracts under \`reports/tables/\`, and analyst
+  narrative under \`reports/\`.
+`;
+const SCHEMA_README = `# Runtime Schema Captures
+
+Store graph schema captures here, for example:
+
+\`\`\`text
+bittensor.graph-schema.json
+\`\`\`
+
+Schema captures should be generated before the first case query in a fresh
+workspace, then referenced by evidence, reports, and runtime skill notes.
+`;
+function workspaceFiles(workspaceRoot) {
+	return [
+		[".chain-insights/workspace.json", workspaceJson(workspaceRoot)],
+		["README.md", README],
+		["AGENTS.md", AGENTS],
+		["CLAUDE.md", CLAUDE],
+		["templates/case-brief.md", CASE_BRIEF],
+		[".chain-insights/runtime-skill/SKILL.md", RUNTIME_SKILL],
+		[".chain-insights/schema/README.md", SCHEMA_README]
+	];
+}
+async function initWorkspace(options) {
+	const workspaceRoot = node_path.default.resolve(options.targetDir);
+	for (const dir of WORKSPACE_DIRS) await (0, node_fs_promises.mkdir)(node_path.default.join(workspaceRoot, dir), { recursive: true });
+	const filesWritten = [];
+	const flag = options.force ? "w" : "wx";
+	for (const [relativePath, content] of workspaceFiles(workspaceRoot)) {
+		const filePath = node_path.default.join(workspaceRoot, relativePath);
+		try {
+			await (0, node_fs_promises.writeFile)(filePath, content, {
+				mode: 384,
+				flag
+			});
+			filesWritten.push(relativePath);
+		} catch (err) {
+			if (err.code === "EEXIST") throw new Error(`Refusing to overwrite ${filePath}. Re-run with --force to replace workspace files.`);
+			throw err;
+		}
+	}
+	return {
+		workspaceRoot,
+		filesWritten
+	};
+}
+//#endregion
+exports.initWorkspace = initWorkspace;

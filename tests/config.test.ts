@@ -26,6 +26,7 @@ describe('Config system (FOUND-05)', () => {
     const config = await loadConfig()
     expect(config.serverPort).toBe(4321)
     expect(config.version).toBe('1')
+    expect(config.graphMcpMode).toBe('paid')
   })
 
   it('loads config values from config.json on disk', async () => {

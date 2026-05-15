@@ -21,21 +21,99 @@ if (rawArgs.includes("--claude") && !rawArgs.some((a) => !a.startsWith("-"))) {
 	}
 	process.exit(0);
 }
+async function resolveCaseSelector(input) {
+	const { resolveCaseSelector } = await Promise.resolve().then(() => require("./selector-Wco06ykv.cjs"));
+	return resolveCaseSelector(input);
+}
+async function showCaseContext(caseSelector) {
+	const { CaseStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+	const caseId = await resolveCaseSelector(caseSelector);
+	const ctx = await CaseStore.loadContext(caseId);
+	console.log(`\n=== Case: ${ctx.case.id} ===`);
+	console.log(`Name:   ${ctx.case.name}`);
+	console.log(`Status: ${ctx.case.status}`);
+	console.log(`Tags:   ${ctx.case.tags.join(", ") || "none"}`);
+	console.log(`Evidence files: ${ctx.evidenceCount}`);
+	console.log(`Dossiers: ${ctx.dossierSummaries.length}`);
+	if (ctx.lastSession) {
+		console.log(`\n--- Last Session (${ctx.lastSession.sessionId}) ---`);
+		console.log(ctx.lastSession.body.slice(0, 500));
+	} else console.log("\nNo previous sessions.");
+	if (ctx.dossierSummaries.length > 0) {
+		console.log("\n--- Entity Dossiers ---");
+		for (const d of ctx.dossierSummaries) console.log(`  ${d.address} [${d.type}] tags: ${d.riskTags || "none"}`);
+	}
+}
 program.command("serve").description("Start local visualization server").option("-p, --port <number>", "Port to bind (default: 4321)", "4321").action(async (opts) => {
-	const { startServer } = await Promise.resolve().then(() => require("./server-DiVAFuoC.cjs")).then((n) => n.server_exports);
+	const { startServer } = await Promise.resolve().then(() => require("./server-Dji2ikEc.cjs")).then((n) => n.server_exports);
 	startServer(parseInt(opts.port, 10));
 });
-program.command("status").description("Show toolkit status and database health").action(async () => {
-	const { healthCheck } = await Promise.resolve().then(() => require("./db-UbTrO2bk.cjs")).then((n) => n.db_exports);
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-BqUfTfTk.cjs")).then((n) => n.config_exports);
-	const [db, config] = await Promise.all([healthCheck(), loadConfig()]);
-	console.log("DB:     ", db.ok ? "healthy" : `error — ${db.error ?? "unknown"}`);
+program.command("status").description("Show toolkit status and configuration").action(async () => {
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
+	const config = await loadConfig();
 	console.log("Config: ", config.dataDir);
 	console.log("Server: ", `http://127.0.0.1:${config.serverPort}`);
+	console.log("Graph MCP:", `${config.graphMcpMode} mode`);
+	console.log("Graph endpoint:", config.graphMcpEndpoint);
+});
+program.command("debug").description("Configure Graph MCP debug mode").addCommand(new commander.Command("on").description("Enable Graph MCP debug mode without x402 payments").requiredOption("--token <token>", "Debug bearer token").option("--endpoint <url>", "Graph MCP endpoint").action(async (opts) => {
+	try {
+		const { saveConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
+		await saveConfig({
+			graphMcpMode: "debug",
+			graphMcpAuthToken: opts.token,
+			...opts.endpoint ? { graphMcpEndpoint: opts.endpoint } : {}
+		});
+		console.log("Graph MCP debug mode enabled");
+		if (opts.endpoint) console.log(`Graph endpoint: ${opts.endpoint}`);
+		console.log("Payments: disabled for Graph MCP calls");
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
+})).addCommand(new commander.Command("off").description("Disable Graph MCP debug mode and use paid x402 calls").action(async () => {
+	try {
+		const { saveConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
+		await saveConfig({
+			graphMcpMode: "paid",
+			graphMcpAuthToken: ""
+		});
+		console.log("Graph MCP debug mode disabled");
+		console.log("Payments: enabled for Graph MCP calls");
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
+})).addCommand(new commander.Command("status").description("Show Graph MCP payment/debug mode").action(async () => {
+	try {
+		const { loadConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
+		const config = await loadConfig();
+		console.log(`Graph MCP mode: ${config.graphMcpMode}`);
+		console.log(`Graph endpoint: ${config.graphMcpEndpoint}`);
+		console.log(`Debug token:    ${config.graphMcpAuthToken?.trim() ? "configured" : "not configured"}`);
+		console.log(`Payments:       ${config.graphMcpMode === "debug" ? "disabled" : "enabled"}`);
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
+}));
+program.command("init").description("Initialize an investigation workspace").argument("[dir]", "Workspace directory to initialize", ".").option("--force", "Overwrite existing workspace files").action(async (dir, opts) => {
+	try {
+		const { initWorkspace } = await Promise.resolve().then(() => require("./init-9K_CIxg4.cjs"));
+		const result = await initWorkspace({
+			targetDir: dir,
+			force: opts.force
+		});
+		console.log(`Workspace initialized: ${result.workspaceRoot}`);
+		console.log(`Files written: ${result.filesWritten.length}`);
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
 });
 program.command("setup").description("Configure external MCP clients").addCommand(new commander.Command("claude-desktop").alias("claude").description("Install or update the Claude Desktop MCP server entry").option("--config <path>", "Path to claude_desktop_config.json").option("--dry-run", "Print the intended change without writing files").action(async (opts) => {
 	try {
-		const { setupClaudeDesktop } = await Promise.resolve().then(() => require("./setup-BpYVkVxu.cjs"));
+		const { setupClaudeDesktop } = await Promise.resolve().then(() => require("./setup-VlVy5IVU.cjs"));
 		const result = await setupClaudeDesktop({
 			configPath: opts.config,
 			dryRun: opts.dryRun
@@ -56,8 +134,8 @@ program.command("setup").description("Configure external MCP clients").addComman
 	}
 }));
 program.command("config").description("Read or write configuration values").addCommand(new commander.Command("get").argument("<key>", "Config key to read").action(async (key) => {
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-BqUfTfTk.cjs")).then((n) => n.config_exports);
-	const { CONFIG_KEYS } = await Promise.resolve().then(() => require("./schema-DykRpLD0.cjs")).then((n) => n.schema_exports);
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
+	const { CONFIG_KEYS } = await Promise.resolve().then(() => require("./schema-DF5bW_O2.cjs")).then((n) => n.schema_exports);
 	if (!CONFIG_KEYS.includes(key)) {
 		console.error(`Unknown config key: ${key}`);
 		process.exit(1);
@@ -67,7 +145,7 @@ program.command("config").description("Read or write configuration values").addC
 })).addCommand(new commander.Command("set").argument("<key>", "Config key to write").argument("<value>", "Value to set").action(async (key, value) => {
 	if (key === "walletPrivateKey") {
 		try {
-			const { encryptKey } = await Promise.resolve().then(() => require("./wallet-r_MCk2yn.cjs")).then((n) => n.wallet_exports);
+			const { encryptKey } = await Promise.resolve().then(() => require("./wallet-CTI6OveK.cjs")).then((n) => n.wallet_exports);
 			await encryptKey(value);
 			console.log("Wallet private key encrypted and stored in ~/.chain-insights/wallet.json");
 		} catch (err) {
@@ -76,8 +154,8 @@ program.command("config").description("Read or write configuration values").addC
 		}
 		return;
 	}
-	const { loadConfig, saveConfig } = await Promise.resolve().then(() => require("./config-BqUfTfTk.cjs")).then((n) => n.config_exports);
-	const { CONFIG_KEYS, DEFAULT_CONFIG } = await Promise.resolve().then(() => require("./schema-DykRpLD0.cjs")).then((n) => n.schema_exports);
+	const { loadConfig, saveConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
+	const { CONFIG_KEYS, DEFAULT_CONFIG } = await Promise.resolve().then(() => require("./schema-DF5bW_O2.cjs")).then((n) => n.schema_exports);
 	const current = await loadConfig();
 	if (!CONFIG_KEYS.includes(key)) {
 		console.error(`Unknown config key: ${key}`);
@@ -92,7 +170,7 @@ program.command("config").description("Read or write configuration values").addC
 }));
 program.command("wallet").description("Manage the local Base USDC payment wallet").addCommand(new commander.Command("address").description("Print the local payment wallet address").action(async () => {
 	try {
-		const { getWalletAccount } = await Promise.resolve().then(() => require("./tools-BBWDw-v_.cjs")).then((n) => n.tools_exports);
+		const { getWalletAccount } = await Promise.resolve().then(() => require("./tools-DfVeGWxy.cjs")).then((n) => n.tools_exports);
 		const account = await getWalletAccount();
 		console.log(account.address);
 	} catch (err) {
@@ -101,7 +179,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new commander.Command("balance").description("Show the local payment wallet Base USDC balance").action(async () => {
 	try {
-		const { getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-BBWDw-v_.cjs")).then((n) => n.tools_exports);
+		const { getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-DfVeGWxy.cjs")).then((n) => n.tools_exports);
 		console.log(await getWalletBalanceText());
 	} catch (err) {
 		console.error(err.message);
@@ -109,8 +187,8 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new commander.Command("topup").description("Open a local browser page to top up the payment wallet").option("--no-open", "Print the top-up URL without opening a browser").option("--json", "Print machine-readable top-up metadata").action(async (opts) => {
 	try {
-		const { buildTopupInfo, getWalletAccount } = await Promise.resolve().then(() => require("./tools-BBWDw-v_.cjs")).then((n) => n.tools_exports);
-		const { startTopupServer } = await Promise.resolve().then(() => require("./topup-server-D1pfHJQi.cjs")).then((n) => n.topup_server_exports);
+		const { buildTopupInfo, getWalletAccount } = await Promise.resolve().then(() => require("./tools-DfVeGWxy.cjs")).then((n) => n.tools_exports);
+		const { startTopupServer } = await Promise.resolve().then(() => require("./topup-server-BV1XhXu9.cjs")).then((n) => n.topup_server_exports);
 		const account = await getWalletAccount();
 		const url = await startTopupServer(account);
 		const info = buildTopupInfo(account.address, url);
@@ -133,10 +211,10 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 }));
 program.command("mcp").description("Interact with the Chain Insights MCP endpoint").addCommand(new commander.Command("tools").description("List available MCP tools (cached 24h)").option("--refresh", "Force refresh schema cache").action(async (opts) => {
 	try {
-		const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-RttUc_NN.cjs"));
-		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-DK7VLnhE.cjs"));
-		const { loadConfig } = await Promise.resolve().then(() => require("./config-BqUfTfTk.cjs")).then((n) => n.config_exports);
-		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-Cbn7gr0g.cjs")).then((n) => n.client_exports);
+		const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-bX1Oq8MM.cjs"));
+		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-GrzU0yxd.cjs"));
+		const { loadConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
+		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-CUnXT4FK.cjs")).then((n) => n.client_exports);
 		const config = await loadConfig();
 		const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
 		let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint);
@@ -163,11 +241,11 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 	}
 })).addCommand(new commander.Command("call").description("Call an MCP tool directly (debug)").argument("<tool>", "Tool name to call").argument("[args...]", "Key=value arguments (e.g. address=0x1234 chain=ethereum)").action(async (tool, rawArgs) => {
 	try {
-		const { parseMcpCallArgs } = await Promise.resolve().then(() => require("./call-args-BPCHlhv9.cjs"));
+		const { parseMcpCallArgs } = await Promise.resolve().then(() => require("./call-args-B0iS9_Ag.cjs"));
 		const args = parseMcpCallArgs(rawArgs);
-		const { loadConfig } = await Promise.resolve().then(() => require("./config-BqUfTfTk.cjs")).then((n) => n.config_exports);
+		const { loadConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
 		const config = await loadConfig();
-		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-Cbn7gr0g.cjs")).then((n) => n.client_exports);
+		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-CUnXT4FK.cjs")).then((n) => n.client_exports);
 		const paymentFetch = await createConfiguredGraphMcpFetch(config);
 		const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
 		const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
@@ -192,57 +270,46 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 }));
 program.command("case").description("Manage investigation cases").addCommand(new commander.Command("open").description("Open a new investigation case").argument("<name>", "Case name (e.g. \"Tornado Mixer Investigation\")").option("--tags <tags>", "Comma-separated tags (e.g. aml,mixer,defi)", "").option("--description <desc>", "Brief description of the investigation", "").action(async (name, opts) => {
 	try {
-		const { getDb, initSchema } = await Promise.resolve().then(() => require("./init-b2b3GEFH.cjs")).then((n) => n.init_exports);
-		const { CaseStore } = await Promise.resolve().then(() => require("./cases-BTjEvF0-.cjs"));
-		const conn = await getDb();
-		await initSchema(conn);
-		conn.closeSync();
+		if (/^[1-9]\d*$/.test(name.trim())) throw new Error("Numeric case names look like list selectors. Use a descriptive case name, e.g. `cia case open \"Tracking stolen funds from <address>\"`.");
+		const { CaseStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
 		const tags = opts.tags ? opts.tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
 		const c = await CaseStore.create({
 			name,
 			tags,
 			description: opts.description
 		});
+		const { casesRoot } = await Promise.resolve().then(() => require("./store-B6wwxdXB.cjs"));
 		console.log(`Case opened: ${c.id}`);
-		console.log(`Directory:   ~/.chain-insights/cases/${c.id}/`);
+		console.log(`Directory:   ${node_path.default.join(casesRoot(), c.id)}/`);
 		console.log(`Status:      ${c.status}`);
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new commander.Command("activate").description("Activate a case (set status to active)").argument("<case-id>", "Case ID to activate").action(async (caseId) => {
+})).addCommand(new commander.Command("activate").description("Activate a case (set status to active)").argument("<case-id>", "Case ID to activate").action(async (caseSelector) => {
 	try {
-		const { getDb, initSchema } = await Promise.resolve().then(() => require("./init-b2b3GEFH.cjs")).then((n) => n.init_exports);
-		const { CaseStore } = await Promise.resolve().then(() => require("./cases-BTjEvF0-.cjs"));
-		const conn = await getDb();
-		await initSchema(conn);
-		conn.closeSync();
+		const { CaseStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+		const caseId = await resolveCaseSelector(caseSelector);
 		const c = await CaseStore.setStatus(caseId, "active");
 		console.log(`Case ${c.id} is now: active`);
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new commander.Command("suspend").description("Suspend a case (set status to suspended)").argument("<case-id>", "Case ID to suspend").action(async (caseId) => {
+})).addCommand(new commander.Command("suspend").description("Suspend a case (set status to suspended)").argument("<case-id>", "Case ID to suspend").action(async (caseSelector) => {
 	try {
-		const { getDb, initSchema } = await Promise.resolve().then(() => require("./init-b2b3GEFH.cjs")).then((n) => n.init_exports);
-		const { CaseStore } = await Promise.resolve().then(() => require("./cases-BTjEvF0-.cjs"));
-		const conn = await getDb();
-		await initSchema(conn);
-		conn.closeSync();
+		const { CaseStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+		const caseId = await resolveCaseSelector(caseSelector);
 		const c = await CaseStore.setStatus(caseId, "suspended");
 		console.log(`Case ${c.id} is now: suspended`);
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new commander.Command("close").description("Close a case permanently").argument("<case-id>", "Case ID to close").action(async (caseId) => {
+})).addCommand(new commander.Command("close").description("Close a case permanently").argument("<case-id>", "Case ID to close").action(async (caseSelector) => {
 	try {
-		const { getDb, initSchema } = await Promise.resolve().then(() => require("./init-b2b3GEFH.cjs")).then((n) => n.init_exports);
-		const { CaseStore } = await Promise.resolve().then(() => require("./cases-BTjEvF0-.cjs"));
-		const conn = await getDb();
-		await initSchema(conn);
-		conn.closeSync();
+		const { CaseStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+		const caseId = await resolveCaseSelector(caseSelector);
 		const c = await CaseStore.setStatus(caseId, "closed");
 		console.log(`Case ${c.id} is now: closed`);
 	} catch (err) {
@@ -251,25 +318,22 @@ program.command("case").description("Manage investigation cases").addCommand(new
 	}
 })).addCommand(new commander.Command("list").description("List all investigation cases").option("--status <status>", "Filter by status (open|active|suspended|closed)").action(async (opts) => {
 	try {
-		const { getDb, initSchema } = await Promise.resolve().then(() => require("./init-b2b3GEFH.cjs")).then((n) => n.init_exports);
-		const { CaseStore } = await Promise.resolve().then(() => require("./cases-BTjEvF0-.cjs"));
-		const conn = await getDb();
-		await initSchema(conn);
-		conn.closeSync();
+		const { CaseStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
 		const cases = await CaseStore.list();
 		const filtered = opts.status ? cases.filter((c) => c.status === opts.status) : cases;
 		if (filtered.length === 0) {
 			console.log("No cases found.");
 			return;
 		}
-		for (const c of filtered) console.log(`${c.id}  [${c.status}]  ${c.name}`);
+		for (const [index, c] of filtered.entries()) console.log(`${index + 1}. ${c.id}  [${c.status}]  ${c.name}`);
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new commander.Command("evidence").description("Manage case evidence").addCommand(new commander.Command("add").description("Add evidence to a case from an MCP query result").argument("<case-id>", "Case ID to add evidence to").option("--source <tool>", "MCP tool name that produced this evidence", "manual").option("--content <text>", "Evidence content (MCP response or notes)", "").option("--query-params <params>", "Query parameters used (e.g. address=0x1234)", "").action(async (caseId, opts) => {
+})).addCommand(new commander.Command("evidence").description("Manage case evidence").addCommand(new commander.Command("add").description("Add evidence to a case from an MCP query result").argument("<case-id>", "Case ID to add evidence to").option("--source <tool>", "MCP tool name that produced this evidence", "manual").option("--content <text>", "Evidence content (MCP response or notes)", "").option("--query-params <params>", "Query parameters used (e.g. address=0x1234)", "").action(async (caseSelector, opts) => {
 	try {
-		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-BTjEvF0-.cjs"));
+		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+		const caseId = await resolveCaseSelector(caseSelector);
 		const result = await EvidenceStore.append(caseId, {
 			source: opts.source,
 			content: opts.content,
@@ -281,9 +345,10 @@ program.command("case").description("Manage investigation cases").addCommand(new
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new commander.Command("verify").description("Verify evidence manifest integrity for a case").argument("<case-id>", "Case ID to verify").action(async (caseId) => {
+})).addCommand(new commander.Command("verify").description("Verify evidence manifest integrity for a case").argument("<case-id>", "Case ID to verify").action(async (caseSelector) => {
 	try {
-		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-BTjEvF0-.cjs"));
+		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+		const caseId = await resolveCaseSelector(caseSelector);
 		const result = await EvidenceStore.verifyManifest(caseId);
 		if (result.ok) console.log(`Manifest OK — ${result.count} evidence file(s) verified`);
 		else {
@@ -294,9 +359,10 @@ program.command("case").description("Manage investigation cases").addCommand(new
 		console.error(err.message);
 		process.exit(1);
 	}
-}))).addCommand(new commander.Command("dossier").description("Manage entity dossiers for a case").addCommand(new commander.Command("update").description("Append a finding to an entity dossier").argument("<case-id>", "Case ID").argument("<address>", "Entity address or identifier").option("--finding <text>", "Finding to append to the dossier", "").option("--type <type>", "Entity type (eoa|contract|exchange|mixer|unknown)", "unknown").action(async (caseId, address, opts) => {
+}))).addCommand(new commander.Command("dossier").description("Manage entity dossiers for a case").addCommand(new commander.Command("update").description("Append a finding to an entity dossier").argument("<case-id>", "Case ID").argument("<address>", "Entity address or identifier").option("--finding <text>", "Finding to append to the dossier", "").option("--type <type>", "Entity type (eoa|contract|exchange|mixer|unknown)", "unknown").action(async (caseSelector, address, opts) => {
 	try {
-		const { DossierStore } = await Promise.resolve().then(() => require("./cases-BTjEvF0-.cjs"));
+		const { DossierStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+		const caseId = await resolveCaseSelector(caseSelector);
 		const entityType = [
 			"eoa",
 			"contract",
@@ -310,18 +376,21 @@ program.command("case").description("Manage investigation cases").addCommand(new
 		console.error(err.message);
 		process.exit(1);
 	}
-}))).addCommand(new commander.Command("session").description("Manage investigation sessions").addCommand(new commander.Command("start").description("Start a new investigation session for a case").argument("<case-id>", "Case ID").action(async (caseId) => {
+}))).addCommand(new commander.Command("session").description("Manage investigation sessions").addCommand(new commander.Command("start").description("Start a new investigation session for a case").argument("<case-id>", "Case ID").argument("[title...]", "Optional session title").action(async (caseSelector, titleParts) => {
 	try {
-		const { SessionStore } = await Promise.resolve().then(() => require("./cases-BTjEvF0-.cjs"));
-		const s = await SessionStore.start(caseId);
+		const { SessionStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+		const caseId = await resolveCaseSelector(caseSelector);
+		const title = titleParts.join(" ").trim();
+		const s = await SessionStore.start(caseId, title ? { title } : {});
 		console.log(`Session started: ${s.sessionId}`);
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new commander.Command("end").description("End the current session with findings and next steps").argument("<case-id>", "Case ID").option("--findings <text>", "Key findings from this session", "").option("--next-steps <text>", "Next steps for the investigation", "").action(async (caseId, opts) => {
+})).addCommand(new commander.Command("end").description("End the current session with findings and next steps").argument("<case-id>", "Case ID").option("--findings <text>", "Key findings from this session", "").option("--next-steps <text>", "Next steps for the investigation", "").action(async (caseSelector, opts) => {
 	try {
-		const { SessionStore } = await Promise.resolve().then(() => require("./cases-BTjEvF0-.cjs"));
+		const { SessionStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+		const caseId = await resolveCaseSelector(caseSelector);
 		await SessionStore.end(caseId, {
 			findings: opts.findings,
 			nextSteps: opts.nextSteps
@@ -332,28 +401,9 @@ program.command("case").description("Manage investigation cases").addCommand(new
 		console.error(err.message);
 		process.exit(1);
 	}
-}))).addCommand(new commander.Command("resume").description("Resume a case — restore investigation context for agent injection").argument("<case-id>", "Case ID to resume").action(async (caseId) => {
+}))).addCommand(new commander.Command("show").description("Show saved case context").argument("<case-id>", "Case ID or case list number to show").action(async (caseSelector) => {
 	try {
-		const { getDb, initSchema } = await Promise.resolve().then(() => require("./init-b2b3GEFH.cjs")).then((n) => n.init_exports);
-		const { CaseStore } = await Promise.resolve().then(() => require("./cases-BTjEvF0-.cjs"));
-		const conn = await getDb();
-		await initSchema(conn);
-		conn.closeSync();
-		const ctx = await CaseStore.loadContext(caseId);
-		console.log(`\n=== Case Resume: ${ctx.case.id} ===`);
-		console.log(`Name:   ${ctx.case.name}`);
-		console.log(`Status: ${ctx.case.status}`);
-		console.log(`Tags:   ${ctx.case.tags.join(", ") || "none"}`);
-		console.log(`Evidence files: ${ctx.evidenceCount}`);
-		console.log(`Dossiers: ${ctx.dossierSummaries.length}`);
-		if (ctx.lastSession) {
-			console.log(`\n--- Last Session (${ctx.lastSession.sessionId}) ---`);
-			console.log(ctx.lastSession.body.slice(0, 500));
-		} else console.log("\nNo previous sessions.");
-		if (ctx.dossierSummaries.length > 0) {
-			console.log("\n--- Entity Dossiers ---");
-			for (const d of ctx.dossierSummaries) console.log(`  ${d.address} [${d.type}] tags: ${d.riskTags || "none"}`);
-		}
+		await showCaseContext(caseSelector);
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);
@@ -375,9 +425,9 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			}
 			resolvedParams[key] = kv.slice(eq + 1);
 		}
-		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-BJQaBNuq.cjs"));
+		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-J1uK9rs6.cjs"));
 		const markdown = await resolvePlaybookContent(name);
-		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-bLNhVVMC.cjs"));
+		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-VXTz3gG9.cjs"));
 		const definition = PlaybookParser.parse(markdown, resolvedParams);
 		for (const spec of definition.params) if (spec.required && !resolvedParams[spec.name] && !spec.default) {
 			console.error(`Missing required param: ${spec.name}. Pass with: -p ${spec.name}=<value>`);
@@ -388,7 +438,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-yWqRMp7C.cjs"));
+		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-V5bBvNxd.cjs"));
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,
@@ -401,7 +451,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new commander.Command("list").description("List available playbooks (built-in and user-defined)").action(async () => {
 	try {
-		const { listPlaybooks } = await Promise.resolve().then(() => require("./resolver-BJQaBNuq.cjs"));
+		const { listPlaybooks } = await Promise.resolve().then(() => require("./resolver-J1uK9rs6.cjs"));
 		const playbooks = await listPlaybooks();
 		if (playbooks.length === 0) {
 			console.log("No playbooks found.");
@@ -414,8 +464,8 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new commander.Command("show").description("Show steps for a playbook without executing").argument("<name>", "Playbook name").action(async (name) => {
 	try {
-		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-BJQaBNuq.cjs"));
-		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-bLNhVVMC.cjs"));
+		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-J1uK9rs6.cjs"));
+		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-VXTz3gG9.cjs"));
 		const markdown = await resolvePlaybookContent(name);
 		const definition = PlaybookParser.parse(markdown, {});
 		console.log(`Playbook: ${definition.name} v${definition.version}`);
@@ -438,12 +488,12 @@ program.command("viz").description("Generate money flow visualization").argument
 			console.error("Provide either a case ID or --data <file.json>");
 			process.exit(1);
 		}
-		const { generateVisualization } = await Promise.resolve().then(() => require("./viz-Kg_94ow_.cjs")).then((n) => n.viz_exports);
+		const { generateVisualization } = await Promise.resolve().then(() => require("./viz-DLsjmwKl.cjs")).then((n) => n.viz_exports);
 		const result = await generateVisualization({
 			caseId,
 			dataFile: opts.data
 		});
-		const { startServer } = await Promise.resolve().then(() => require("./server-DiVAFuoC.cjs")).then((n) => n.server_exports);
+		const { startServer } = await Promise.resolve().then(() => require("./server-Dji2ikEc.cjs")).then((n) => n.server_exports);
 		const port = parseInt(opts.port, 10);
 		startServer(port);
 		const url = `http://127.0.0.1:${port}/viz/${result.vizId}`;

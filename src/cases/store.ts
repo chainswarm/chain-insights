@@ -1,13 +1,11 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises'
 import path from 'node:path'
-import os from 'node:os'
-import { getDb } from '../db/init.js'
+import { activeCasesRoot } from '../workspace/active.js'
 import { parseFrontmatter, serializeFrontmatter } from './frontmatter.js'
 import { CaseSchema, type Case, type CaseStatus } from './schema.js'
 
-function casesRoot(): string {
-  return path.join(os.homedir(), '.chain-insights', 'cases')
-}
+export const casesRoot = activeCasesRoot
+
 function caseDir(id: string): string {
   return path.join(casesRoot(), id)
 }
@@ -28,46 +26,35 @@ export function generateCaseId(name: string, existingIds: string[]): string {
 
 export const CaseStore = {
   async create(input: { name: string; tags: string[]; description: string }): Promise<Case> {
-    const conn = await getDb()
-    try {
-      const r = await conn.runAndReadAll('SELECT id FROM cases')
-      const existingIds = r.getRows().map((row: unknown[]) => row[0] as string)
-      const id = generateCaseId(input.name, existingIds)
-      const slug = id.split('_').slice(2).join('_')
-      const now = new Date().toISOString()
-      const tags = input.tags
+    const root = casesRoot()
+    await mkdir(root, { recursive: true })
+    const existingIds = await readdir(root).catch(() => [])
+    const id = generateCaseId(input.name, existingIds)
+    const slug = id.split('_').slice(2).join('_')
+    const now = new Date().toISOString()
+    const tags = input.tags
 
-      const dir = caseDir(id)
-      await mkdir(path.join(dir, 'evidence'), { recursive: true })
-      await mkdir(path.join(dir, 'dossiers'), { recursive: true })
+    const dir = caseDir(id)
+    await mkdir(path.join(dir, 'evidence'), { recursive: true })
+    await mkdir(path.join(dir, 'dossiers'), { recursive: true })
 
-      const fm: Record<string, string> = {
-        id,
-        name: input.name,
-        status: 'open',
-        created: now,
-        updated: now,
-        tags: tags.join(','),
-        description: input.description,
-        slug,
-      }
-      const body = `# ${input.name}\n\n*Opened: ${now}*\n\nInvestigation notes added here by agent.\n`
-      await writeFile(path.join(dir, 'case.md'), serializeFrontmatter(fm, body), { mode: 0o600 })
-
-      const manifest = JSON.stringify({ caseId: id, entries: [] }, null, 2) + '\n'
-      await writeFile(path.join(dir, 'manifest.json'), manifest, { mode: 0o600 })
-
-      const stmt = await conn.prepare(
-        'INSERT INTO cases (id, name, status, created_at, updated_at, tags, description, slug) VALUES ($id, $name, $status, $created_at, $updated_at, $tags, $description, $slug)'
-      )
-      await stmt.bind({ id, name: input.name, status: 'open', created_at: now, updated_at: now, tags: tags.join(','), description: input.description, slug })
-      await stmt.run()
-      stmt.destroySync()
-
-      return CaseSchema.parse({ id, name: input.name, status: 'open', created: now, updated: now, tags, description: input.description, slug })
-    } finally {
-      conn.closeSync()
+    const fm: Record<string, string> = {
+      id,
+      name: input.name,
+      status: 'open',
+      created: now,
+      updated: now,
+      tags: tags.join(','),
+      description: input.description,
+      slug,
     }
+    const body = `# ${input.name}\n\n*Opened: ${now}*\n\nInvestigation notes added here by agent.\n`
+    await writeFile(path.join(dir, 'case.md'), serializeFrontmatter(fm, body), { mode: 0o600 })
+
+    const manifest = JSON.stringify({ caseId: id, entries: [] }, null, 2) + '\n'
+    await writeFile(path.join(dir, 'manifest.json'), manifest, { mode: 0o600 })
+
+    return CaseSchema.parse({ id, name: input.name, status: 'open', created: now, updated: now, tags, description: input.description, slug })
   },
 
   async setStatus(id: string, status: CaseStatus): Promise<Case> {
@@ -79,16 +66,6 @@ export const CaseStore = {
     frontmatter['status'] = status
     frontmatter['updated'] = now
     await writeFile(filePath, serializeFrontmatter(frontmatter, body), { mode: 0o600 })
-
-    const conn = await getDb()
-    try {
-      const stmt = await conn.prepare('UPDATE cases SET status=$status, updated_at=$updated_at WHERE id=$id')
-      await stmt.bind({ status, updated_at: now, id })
-      await stmt.run()
-      stmt.destroySync()
-    } finally {
-      conn.closeSync()
-    }
 
     const tags = (frontmatter['tags'] ?? '').split(',').filter(Boolean)
     return CaseSchema.parse({
@@ -103,16 +80,32 @@ export const CaseStore = {
   },
 
   async list(): Promise<Array<{ id: string; name: string; status: string }>> {
-    const conn = await getDb()
+    const root = casesRoot()
     try {
-      const r = await conn.runAndReadAll('SELECT id, name, status FROM cases ORDER BY created_at DESC')
-      return r.getRows().map((row: unknown[]) => ({
-        id: row[0] as string,
-        name: row[1] as string,
-        status: row[2] as string,
-      }))
-    } finally {
-      conn.closeSync()
+      const ids = await readdir(root)
+      const cases: Array<{ id: string; name: string; status: string; created: string }> = []
+      for (const id of ids) {
+        try {
+          const raw = await readFile(path.join(caseDir(id), 'case.md'), 'utf8')
+          const { frontmatter } = parseFrontmatter(raw)
+          cases.push({
+            id,
+            name: frontmatter['name'] ?? id,
+            status: frontmatter['status'] ?? 'open',
+            created: frontmatter['created'] ?? '',
+          })
+        } catch (err: unknown) {
+          const nodeErr = err as NodeJS.ErrnoException
+          if (nodeErr.code !== 'ENOENT' && nodeErr.code !== 'ENOTDIR') throw err
+        }
+      }
+      return cases
+        .sort((a, b) => b.created.localeCompare(a.created) || b.id.localeCompare(a.id))
+        .map(({ id, name, status }) => ({ id, name, status }))
+    } catch (err: unknown) {
+      const nodeErr = err as NodeJS.ErrnoException
+      if (nodeErr.code === 'ENOENT') return []
+      throw err
     }
   },
 
@@ -182,4 +175,3 @@ export const CaseStore = {
     }
   },
 }
-

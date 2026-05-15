@@ -14,11 +14,7 @@ describe('DossierStore (CASE-03)', () => {
     await mkdir(join(fakeHome, '.chain-insights'), { recursive: true })
     prevHome = process.env['HOME']
     process.env['HOME'] = fakeHome
-    const { getDb, initSchema } = await import('../src/db/init.js')
     const { CaseStore } = await import('../src/cases/index.js')
-    const conn = await getDb()
-    await initSchema(conn)
-    conn.closeSync()
     const c = await CaseStore.create({ name: 'Dossier Test', tags: [], description: '' })
     testCaseId = c.id
     vi.resetModules()

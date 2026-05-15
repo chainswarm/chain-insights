@@ -37,10 +37,6 @@ describe('CaseStore (CASE-01)', () => {
 
   it('CaseStore.create() creates directory structure', async () => {
     const { CaseStore } = await import('../src/cases/index.js')
-    const { getDb, initSchema } = await import('../src/db/init.js')
-    const conn = await getDb()
-    await initSchema(conn)
-    conn.closeSync()
 
     const c = await CaseStore.create({ name: 'Test Case', tags: [], description: '' })
     const caseDir = join(fakeHome, '.chain-insights', 'cases', c.id)
@@ -53,10 +49,6 @@ describe('CaseStore (CASE-01)', () => {
 
   it('case.md has correct YAML frontmatter', async () => {
     const { CaseStore } = await import('../src/cases/index.js')
-    const { getDb, initSchema } = await import('../src/db/init.js')
-    const conn = await getDb()
-    await initSchema(conn)
-    conn.closeSync()
 
     const c = await CaseStore.create({ name: 'AML Test', tags: ['aml', 'defi'], description: 'Test investigation' })
     const caseDir = join(fakeHome, '.chain-insights', 'cases', c.id)
@@ -70,10 +62,6 @@ describe('CaseStore (CASE-01)', () => {
 
   it('case.md has 0o600 permissions', async () => {
     const { CaseStore } = await import('../src/cases/index.js')
-    const { getDb, initSchema } = await import('../src/db/init.js')
-    const conn = await getDb()
-    await initSchema(conn)
-    conn.closeSync()
 
     const c = await CaseStore.create({ name: 'Perm Test', tags: [], description: '' })
     const caseDir = join(fakeHome, '.chain-insights', 'cases', c.id)
@@ -83,10 +71,6 @@ describe('CaseStore (CASE-01)', () => {
 
   it('CaseStore.setStatus() updates case.md and returns updated case', async () => {
     const { CaseStore } = await import('../src/cases/index.js')
-    const { getDb, initSchema } = await import('../src/db/init.js')
-    const conn = await getDb()
-    await initSchema(conn)
-    conn.closeSync()
 
     const c = await CaseStore.create({ name: 'Status Test', tags: [], description: '' })
     const updated = await CaseStore.setStatus(c.id, 'active')
@@ -97,12 +81,8 @@ describe('CaseStore (CASE-01)', () => {
     expect(content).toContain('status: active')
   })
 
-  it('CaseStore.list() returns cases from DuckDB', async () => {
+  it('CaseStore.list() returns filesystem-backed cases', async () => {
     const { CaseStore } = await import('../src/cases/index.js')
-    const { getDb, initSchema } = await import('../src/db/init.js')
-    const conn = await getDb()
-    await initSchema(conn)
-    conn.closeSync()
 
     await CaseStore.create({ name: 'Case Alpha', tags: [], description: '' })
     await CaseStore.create({ name: 'Case Beta', tags: [], description: '' })
@@ -113,11 +93,4 @@ describe('CaseStore (CASE-01)', () => {
     expect(names).toContain('Case Beta')
   })
 
-  it('migrateCasesTable is idempotent (no throw on double call)', async () => {
-    const { getDb, initSchema } = await import('../src/db/init.js')
-    const conn = await getDb()
-    await expect(initSchema(conn)).resolves.not.toThrow()
-    await expect(initSchema(conn)).resolves.not.toThrow()
-    conn.closeSync()
-  })
 })

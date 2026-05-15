@@ -1,5 +1,4 @@
 import * as z from "zod";
-import { DuckDBConnection } from "@duckdb/node-api";
 import { Hono } from "hono";
 import { Address, Hex } from "viem";
 
@@ -9,6 +8,10 @@ declare const ConfigSchema: z.ZodObject<{
   mcpAuthToken: z.ZodOptional<z.ZodString>;
   graphMcpEndpoint: z.ZodDefault<z.ZodString>;
   graphMcpAuthToken: z.ZodOptional<z.ZodString>;
+  graphMcpMode: z.ZodDefault<z.ZodEnum<{
+    paid: "paid";
+    debug: "debug";
+  }>>;
   walletAddress: z.ZodOptional<z.ZodString>;
   serverPort: z.ZodDefault<z.ZodNumber>;
   dataDir: z.ZodDefault<z.ZodString>;
@@ -20,14 +23,6 @@ type InvestigatorConfig = z.infer<typeof ConfigSchema>;
 declare function loadConfig(): Promise<InvestigatorConfig>;
 declare function saveConfig(updates: Partial<InvestigatorConfig>): Promise<void>;
 declare function resetConfigCache(): Promise<void>;
-//#endregion
-//#region src/db/init.d.ts
-declare function getDb(): Promise<DuckDBConnection>;
-declare function initSchema(conn: DuckDBConnection): Promise<void>;
-declare function healthCheck(): Promise<{
-  ok: boolean;
-  error?: string;
-}>;
 //#endregion
 //#region src/server/app.d.ts
 declare function createApp(): Hono;
@@ -184,5 +179,5 @@ declare function generateVisualization(opts: {
   htmlPath: string;
 }>;
 //#endregion
-export { type GraphData as GraphDataType, type GraphEdge as GraphEdgeType, type GraphNode as GraphNodeType, type InvestigatorConfig, buildTopupInfo, createApp, createMcpFetchClient, decryptKey, encryptKey, formatWalletBalance, generateArtifactHtml, generateVisualization, getBalanceUsdc, getDb, getTopupUrl, getWalletAccount, getWalletBalanceText, healthCheck, initSchema, isWalletConfigured, loadConfig, resetConfigCache, saveConfig, startServer, startTopupServer };
+export { type GraphData as GraphDataType, type GraphEdge as GraphEdgeType, type GraphNode as GraphNodeType, type InvestigatorConfig, buildTopupInfo, createApp, createMcpFetchClient, decryptKey, encryptKey, formatWalletBalance, generateArtifactHtml, generateVisualization, getBalanceUsdc, getTopupUrl, getWalletAccount, getWalletBalanceText, isWalletConfigured, loadConfig, resetConfigCache, saveConfig, startServer, startTopupServer };
 //# sourceMappingURL=index.d.cts.map

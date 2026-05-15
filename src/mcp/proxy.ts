@@ -22,6 +22,7 @@ const LOCAL_TOOL_NAMES = new Set([
   'case_update_dossier',
   'case_start_session',
   'case_end_session',
+  'trace_funds',
 ])
 const HIDDEN_REMOTE_TOOL_NAMES = new Set(['topup'])
 const PUBLIC_GRAPHRAG_PROMPT_NAMES = new Set(['address-risk', 'track-funds'])
@@ -57,6 +58,7 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   address_connection_risk: 'Assess whether two full blockchain addresses are connected through risky paths and whether that connection matters for AML review. Use this when the user provides a source address and target address. The tool returns an investigator-ready connection-risk summary.',
   graph_query: 'Run a read-only Cypher query against the Chain Insights graph database for schema discovery, aggregate counts, or custom graph inspection. Use only read-only queries and return full address strings exactly.',
   graph_query_batch: 'Run multiple read-only Cypher queries against the Chain Insights graph database through the paid graph primitive. Each query has a 10-second per-query timeout, and related queries should be grouped into one batch.',
+  trace_funds: 'Trace outbound FLOWS_TO paths from a seed address to exchange deposit candidates. Stops one hop before Exchange-labeled nodes, never traverses through exchanges, writes compact evidence plus graph/table/report artifacts, and returns deposit candidates plus continuation hints.',
 }
 
 type ToolInputShape = Record<string, z.ZodTypeAny>
@@ -78,7 +80,7 @@ const GRAPH_SCHEMA_HINTS = [
   '- Address properties commonly include address, network, address_type, total_volume_usd, total_in_usd, total_out_usd, net_flow_usd, degree_in, degree_out, tx_in_count, tx_out_count, first_activity_timestamp, last_activity_timestamp.',
   '- Risk and ML properties may include ml_risk_score, ml_risk_level, ml_top_drivers, ml_pattern_summary, ml_pagerank, ml_betweenness, ml_community_id.',
   '- Common relationships include FLOWS_TO, OPERATED_FROM, SERVED_FROM, REGISTERED_NEURON, BELONGS_TO, SYBIL_CLUSTER, LAYERING_HOP, BURST_ACTIVITY, CYCLE_PARTICIPANT, SMURFING_CLUSTER.',
-  '- FLOWS_TO is aggregated and commonly carries amount_sum, amount_usd_sum, tx_count, dominant_asset, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id.',
+  '- FLOWS_TO is aggregated and commonly carries amount_sum, amount_usd_sum, tx_count, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id. Confirm available fields through runtime schema before relying on them.',
   '- Start schema discovery with: MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, keys(n) AS properties, count(*) AS count ORDER BY count DESC LIMIT 20',
   '- Relationship discovery: MATCH ()-[r]->() RETURN type(r) AS relationship, keys(r) AS properties, count(*) AS count ORDER BY count DESC LIMIT 20',
   '- All graph_query calls are read-only. Never use CREATE, MERGE, SET, DELETE, REMOVE, DROP, or DETACH.',
@@ -724,16 +726,6 @@ export async function createProxy(): Promise<void> {
   }
   registerLocalPrompts(server, remotePromptNames)
 
-  const initCasesDb = async (): Promise<void> => {
-    const { getDb, initSchema } = await import('../db/init.js')
-    const conn = await getDb()
-    try {
-      await initSchema(conn)
-    } finally {
-      conn.closeSync()
-    }
-  }
-
   const caseToolError = (label: string, err: unknown) => ({
     content: [{ type: 'text' as const, text: `${label} failed: ${(err as Error).message}` }],
     isError: true,
@@ -820,7 +812,6 @@ export async function createProxy(): Promise<void> {
     },
     async ({ name, tags, description }) => {
       try {
-        await initCasesDb()
         const { CaseStore } = await import('../cases/index.js')
         const created = await CaseStore.create({
           name,
@@ -862,7 +853,6 @@ export async function createProxy(): Promise<void> {
     },
     async ({ status }) => {
       try {
-        await initCasesDb()
         const { CaseStore } = await import('../cases/index.js')
         const cases = await CaseStore.list()
         const filtered = status ? cases.filter((entry) => entry.status === status) : cases
@@ -892,7 +882,6 @@ export async function createProxy(): Promise<void> {
     },
     async ({ case_id }) => {
       try {
-        await initCasesDb()
         const { CaseStore } = await import('../cases/index.js')
         const context = await CaseStore.loadContext(case_id)
         return {
@@ -1061,6 +1050,78 @@ export async function createProxy(): Promise<void> {
     },
   )
 
+  registerAppTool(
+    server,
+    'trace_funds',
+    {
+      title: 'Trace Funds',
+      description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.trace_funds,
+      inputSchema: {
+        seed_address: z.string().min(1).describe('Full source/victim/scammer address to trace from'),
+        network: z.string().min(1).describe(NETWORK_DESCRIPTION),
+        case_id: z.string().optional().describe('Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest.'),
+        max_hops: z.number().int().min(1).max(5).optional().describe('Maximum outbound FLOWS_TO hops to search for exchange deposit candidates. Default 3, max 5.'),
+        per_address_limit: z.number().int().min(1).max(10).optional().describe('Maximum outgoing flows to keep per frontier address. Default 5, max 10.'),
+        min_amount_sum: z.number().min(0).optional().describe('Optional minimum r.amount_sum threshold for each traced FLOWS_TO edge.'),
+      },
+      _meta: {
+        ui: {
+          resourceUri: GRAPH_RESOURCE_URI,
+        },
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+    },
+    async ({ seed_address, network, case_id, max_hops, per_address_limit, min_amount_sum }) => {
+      try {
+        const { traceFunds } = await import('../investigation/trace-funds.js')
+        const { writeGraphArtifact } = await import('./artifacts.js')
+        const { ensureArtifactServer } = await import('./artifact-server.js')
+        const trace = await traceFunds(remoteClient, config, {
+          seedAddress: seed_address,
+          network,
+          caseId: case_id,
+          maxHops: max_hops,
+          perAddressLimit: per_address_limit,
+          minAmountSum: min_amount_sum,
+        })
+        const artifact = await writeGraphArtifact(trace.graphData as never, config)
+        await ensureArtifactServer(config.serverPort)
+        return {
+          content: [{ type: 'text' as const, text: trace.summaryText }],
+          structuredContent: {
+            files: trace.files,
+            continuation: trace.continuation,
+            facts: {
+              flow_count: Array.isArray((trace.compactEvidence as { outgoing_flows?: unknown[] }).outgoing_flows)
+                ? (trace.compactEvidence as { outgoing_flows: unknown[] }).outgoing_flows.length
+                : 0,
+            },
+          },
+          _meta: {
+            chainInsights: {
+              graph: {
+                schema: artifact.schema,
+                id: artifact.id,
+                url: artifact.url,
+              },
+            },
+          },
+          isError: false,
+        }
+      } catch (err) {
+        return {
+          content: [{ type: 'text' as const, text: `Trace funds failed: ${(err as Error).message}` }],
+          isError: true,
+        }
+      }
+    },
+  )
+
   server.registerTool(
     'help',
     {
@@ -1083,6 +1144,7 @@ export async function createProxy(): Promise<void> {
             '- address_connection_risk: assess whether from_address and to_address are connected through risky paths.',
             '- graph_query: run read-only Cypher against the investigation graph.',
             '- graph_query_batch: run related read-only Cypher queries through one paid graph call.',
+            '- trace_funds: trace outbound FLOWS_TO paths to exchange deposit candidates, write graph/report artifacts, and return continuation hints.',
             '',
             'Case workflow tools:',
             '- case_open: create a local case before preserving evidence.',

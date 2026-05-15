@@ -101,6 +101,7 @@ if (!fs.existsSync(configPath)) {
     mcpEndpoint:   'http://localhost:4000',
     mcpAuthToken:  '',
     walletAddress: '',
+    graphMcpMode:  'paid',
     serverPort:    4321,
     dataDir:       dataDir,
     version:       '1',

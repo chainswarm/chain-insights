@@ -1,6 +1,5 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
-import { getDb, initSchema } from '../db/init.js'
 import { CaseStore } from '../cases/store.js'
 import { EvidenceStore } from '../cases/evidence.js'
 import { loadConfig } from '../config/index.js'
@@ -108,11 +107,6 @@ export const PlaybookRunner = {
     // --- MCP AUTH CHECK (before case creation to avoid orphan cases) ---
     const config = await loadConfig()
     const mcpFetch = await createConfiguredMcpFetch(config)
-
-    // --- INIT DB SCHEMA ---
-    const conn = await getDb()
-    await initSchema(conn)
-    conn.closeSync()
 
     // --- CASE RESOLUTION ---
     let caseId: string

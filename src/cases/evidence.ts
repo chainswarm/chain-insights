@@ -1,11 +1,11 @@
 import { readFile, writeFile, readdir, mkdir } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import path from 'node:path'
-import os from 'node:os'
+import { activeCasesRoot } from '../workspace/active.js'
 import { serializeFrontmatter } from './frontmatter.js'
 
 function caseDir(caseId: string): string {
-  return path.join(os.homedir(), '.chain-insights', 'cases', caseId)
+  return path.join(activeCasesRoot(), caseId)
 }
 
 function sanitizeSource(source: string): string {
@@ -15,6 +15,17 @@ function sanitizeSource(source: string): string {
 function formatTimestamp(): string {
   // Returns timestamp like 20260511T142300 (no colons, no dots)
   return new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '').slice(0, 15)
+}
+
+function formatEvidenceContent(content: string): string {
+  const trimmed = content.trim()
+  if (
+    (trimmed.startsWith('{') || trimmed.startsWith('[')) &&
+    !trimmed.startsWith('```')
+  ) {
+    return `\`\`\`json\n${trimmed}\n\`\`\``
+  }
+  return content
 }
 
 export function hashContent(content: string): string {
@@ -64,7 +75,7 @@ export const EvidenceStore = {
       timestamp: now,
       queryParams: input.queryParams,
     }
-    const body = `## Evidence: ${input.source}\n\n**Source:** ${input.source}\n**Captured:** ${now}\n\n${input.content}\n`
+    const body = `## Evidence: ${input.source}\n\n**Source:** ${input.source}\n**Captured:** ${now}\n\n${formatEvidenceContent(input.content)}\n`
     const fileContent = serializeFrontmatter(fm, body)
 
     // Write with exclusive flag to prevent sequence collision (Pitfall 4)

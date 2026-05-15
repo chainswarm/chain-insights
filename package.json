@@ -8,6 +8,7 @@
   },
   "bin": {
     "chain-insights": "./bin/cli.js",
+    "cia": "./bin/cli.js",
     "chain-insights-mcp-proxy": "./bin/mcp-proxy.cjs"
   },
   "main": "./dist/index.cjs",
@@ -31,7 +32,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@duckdb/node-api": ">=1.5.0-r.1",
     "@hono/node-server": "^2.0.2",
     "@modelcontextprotocol/ext-apps": "^1.7.1",
     "@modelcontextprotocol/sdk": "^1.29.0",

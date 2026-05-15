@@ -34,6 +34,18 @@ describe('parseEvidenceJson (VIZ-01)', () => {
     expect(items[0]).toMatchObject({ from: '0xaaa', to: '0xbbb', value: 100 })
   })
 
+  it('extracts an unfenced JSON object from evidence body', () => {
+    const { parseEvidenceJson } = extractors
+    const md = [
+      '## Evidence',
+      '',
+      '{"schema":"chain-insights.compact_evidence.v1","outgoing_flows":[]}',
+    ].join('\n')
+    expect(parseEvidenceJson(md)).toEqual([
+      { schema: 'chain-insights.compact_evidence.v1', outgoing_flows: [] },
+    ])
+  })
+
   it('ignores non-JSON code blocks (```typescript)', () => {
     const { parseEvidenceJson } = extractors
     const md = '```typescript\nconst x = 1\n```'
@@ -98,6 +110,23 @@ describe('extractGraphFromJson (VIZ-01)', () => {
     const input = [{ from: '0xaaa', to: '0xbbb', value: 100, txHash: '0xdeadbeef' }]
     const result = extractGraphFromJson(input)
     expect(result.edges[0]!.txHash).toBe('0xdeadbeef')
+  })
+
+  it('maps compact evidence outgoing_flows using original amount_sum field', () => {
+    const { extractGraphFromJson } = extractors
+    const input = [{
+      schema: 'chain-insights.compact_evidence.v1',
+      outgoing_flows: [{
+        src: '5src',
+        dst: '5dst',
+        amount_sum: 42,
+        tx_count: 1,
+        first_tx_id: '294-1',
+      }],
+    }]
+    const result = extractGraphFromJson(input)
+    expect(result.edges).toHaveLength(1)
+    expect(result.edges[0]).toMatchObject({ source: '5src', target: '5dst', value: 42, txHash: '294-1' })
   })
 
   it('throws "Invalid transaction data" for non-array non-GraphData input', () => {

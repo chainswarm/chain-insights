@@ -131,7 +131,7 @@ describe('MCP client (02-01)', () => {
     }
   })
 
-  it('createConfiguredGraphMcpFetch prefers graphMcpAuthToken over legacy mcpAuthToken', async () => {
+  it('createConfiguredGraphMcpFetch in debug mode requires and uses graphMcpAuthToken without wallet', async () => {
     const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = []
     const baseFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       calls.push({ input, init })
@@ -144,6 +144,7 @@ describe('MCP client (02-01)', () => {
       const authedFetch = await createConfiguredGraphMcpFetch({
         mcpAuthToken: 'legacy-debug-token',
         graphMcpAuthToken: 'graph-debug-token',
+        graphMcpMode: 'debug',
       })
       await authedFetch('http://localhost:8012/mcp')
 
@@ -155,5 +156,33 @@ describe('MCP client (02-01)', () => {
     } finally {
       vi.unstubAllGlobals()
     }
+  })
+
+  it('createConfiguredGraphMcpFetch in debug mode errors when no debug token is configured', async () => {
+    const { createConfiguredGraphMcpFetch } = await import('../src/mcp/client.js')
+    await expect(createConfiguredGraphMcpFetch({
+      mcpAuthToken: '',
+      graphMcpAuthToken: '',
+      graphMcpMode: 'debug',
+    })).rejects.toThrow('Graph MCP debug mode requires graphMcpAuthToken')
+    expect(mockIsWalletConfigured).not.toHaveBeenCalled()
+    expect(mockDecryptKey).not.toHaveBeenCalled()
+  })
+
+  it('createConfiguredGraphMcpFetch in paid mode ignores debug tokens and uses wallet/x402', async () => {
+    mockIsWalletConfigured.mockResolvedValue(true)
+    mockDecryptKey.mockResolvedValue('0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef')
+
+    const { createConfiguredGraphMcpFetch } = await import('../src/mcp/client.js')
+    const paymentFetch = await createConfiguredGraphMcpFetch({
+      mcpAuthToken: 'legacy-debug-token',
+      graphMcpAuthToken: 'graph-debug-token',
+      graphMcpMode: 'paid',
+    })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((paymentFetch as any)._isMockWrapped).toBe(true)
+    expect(mockIsWalletConfigured).toHaveBeenCalledOnce()
+    expect(mockDecryptKey).toHaveBeenCalledOnce()
   })
 })

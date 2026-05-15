@@ -46,10 +46,11 @@ export function createApp(): Hono {
   app.get('/health', (c) => c.json({ ok: true, ts: Date.now() }))
 
   app.get('/status', async (c) => {
-    const { healthCheck } = await import('../db/index.js')
-    const db = await healthCheck()
+    const { loadConfig } = await import('../config/index.js')
+    const config = await loadConfig()
     return c.json({
-      database: db.ok ? 'healthy' : 'error',
+      dataDir: config.dataDir,
+      graphMcpMode: config.graphMcpMode,
       server: 'running',
     })
   })

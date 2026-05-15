@@ -105,11 +105,6 @@ vi.mock('../src/mcp/artifact-server.js', () => ({
   ensureArtifactServer: ensureArtifactServerMock,
 }))
 
-vi.mock('../src/db/init.js', () => ({
-  getDb: vi.fn().mockResolvedValue({ closeSync: vi.fn() }),
-  initSchema: vi.fn().mockResolvedValue(undefined),
-}))
-
 vi.mock('../src/cases/index.js', () => ({
   CaseStore: {
     create: caseStoreCreateMock,
@@ -462,6 +457,187 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const properties = jsonSchema.properties as Record<string, Record<string, unknown>>
     expect(jsonSchema.required).toEqual(['network', 'queries'])
     expect(properties.per_query_timeout_seconds.maximum).toBe(10)
+  })
+
+  it('registers trace_funds and writes graph artifacts from graph_query_batch results', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query_batch', description: 'Cypher graph query batch' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    const textResult = (queries: unknown[]) => ({
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          schema: 'chain-insights.result.v1',
+          tool: 'graph_query_batch',
+          facts: { queries },
+        }),
+      }],
+      isError: false,
+    })
+    clientInstance.callTool
+      .mockResolvedValueOnce(textResult([
+        { id: 'node_labels', ok: true, results: [{ label: 'Address', count: 10 }] },
+        { id: 'relationship_types', ok: true, results: [{ relationship_type: 'FLOWS_TO', count: 4 }] },
+        { id: 'address_property_keys', ok: true, results: [{ property_key: 'address', sample_count: 10 }] },
+        { id: 'flows_to_property_keys', ok: true, results: [{ property_key: 'amount_sum', sample_count: 4 }] },
+      ]))
+      .mockResolvedValueOnce(textResult([
+        {
+          id: 'hop_1_1',
+          ok: true,
+          results: [{
+            src: '5Seed',
+            dst: '5Hop',
+            amount_sum: 123,
+            amount_usd_sum: 456,
+            tx_count: 1,
+            first_tx_id: '1-1',
+            last_tx_id: '1-1',
+            src_labels: ['Address'],
+            dst_labels: ['Address'],
+            dst_degree_in: 1,
+            dst_degree_out: 0,
+            terminal_exchange: false,
+          }],
+        },
+      ]))
+      .mockResolvedValueOnce(textResult([
+        { id: 'hop_2_1', ok: true, results: [] },
+      ]))
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'trace_funds')
+    const result = await handler({
+      seed_address: '5Seed',
+      network: 'bittensor',
+      case_id: mockCase.id,
+      max_hops: 2,
+      per_address_limit: 3,
+    })
+
+    expect(result.isError).toBe(false)
+    expect(result.content[0].text).toContain('Trace complete for bittensor:5Seed')
+    expect(result.content[0].text).toContain('amount_sum')
+    expect(result.structuredContent.files.graph).toContain('/reports/graphs/')
+    expect(result.structuredContent.continuation.nextHopAddresses).toEqual(['5Hop'])
+    expect(result._meta.chainInsights.graph.url).toContain('/artifacts/')
+    expect(evidenceAppendMock).toHaveBeenCalledWith(mockCase.id, expect.objectContaining({
+      source: 'trace_funds',
+      content: expect.stringContaining('"amount_sum": 123'),
+    }))
+    expect(ensureArtifactServerMock).toHaveBeenCalledWith(4321)
+
+    const graphRaw = await readFile(result.structuredContent.files.graph, 'utf8')
+    const graph = JSON.parse(graphRaw) as { edges: Array<{ amount_sum?: number; from_address?: string }> }
+    expect(graph.edges[0]).toMatchObject({ from_address: '5Seed', amount_sum: 123 })
+  })
+
+  it('trace_funds reports deposit candidates and does not continue through Exchange nodes', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query_batch', description: 'Cypher graph query batch' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    const textResult = (queries: unknown[]) => ({
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          schema: 'chain-insights.result.v1',
+          tool: 'graph_query_batch',
+          facts: { queries },
+        }),
+      }],
+      isError: false,
+    })
+    clientInstance.callTool
+      .mockResolvedValueOnce(textResult([
+        { id: 'node_labels', ok: true, results: [{ label: 'Address', count: 10 }, { label: 'Exchange', count: 1 }] },
+        { id: 'relationship_types', ok: true, results: [{ relationship_type: 'FLOWS_TO', count: 4 }] },
+        { id: 'address_property_keys', ok: true, results: [{ property_key: 'address', sample_count: 10 }] },
+        { id: 'flows_to_property_keys', ok: true, results: [{ property_key: 'amount_sum', sample_count: 4 }] },
+      ]))
+      .mockResolvedValueOnce(textResult([
+        {
+          id: 'hop_1_1',
+          ok: true,
+          results: [{
+            src: '5Seed',
+            src_labels: ['Address'],
+            dst: '5Deposit',
+            dst_labels: ['Address'],
+            amount_sum: 50,
+            amount_usd_sum: 100,
+            tx_count: 1,
+            first_tx_id: '1-1',
+            terminal_exchange: false,
+          }],
+        },
+      ]))
+      .mockResolvedValueOnce(textResult([
+        {
+          id: 'hop_2_1',
+          ok: true,
+          results: [{
+            src: '5Deposit',
+            src_labels: ['Address'],
+            dst: '5Exchange',
+            dst_labels: ['Address', 'Exchange'],
+            amount_sum: 49,
+            amount_usd_sum: 98,
+            tx_count: 1,
+            first_tx_id: '2-1',
+            terminal_exchange: true,
+          }],
+        },
+      ]))
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'trace_funds')
+    const result = await handler({
+      seed_address: '5Seed',
+      network: 'bittensor',
+      max_hops: 5,
+      per_address_limit: 3,
+    })
+
+    expect(result.isError).toBe(false)
+    expect(result.structuredContent.continuation.depositAddresses).toEqual(['5Deposit'])
+    expect(result.structuredContent.continuation.exchangeAddresses).toEqual(['5Exchange'])
+    expect(result.structuredContent.continuation.nextHopAddresses).toEqual([])
+    expect(result.content[0].text).toContain('Deposit candidates: 5Deposit')
+    expect(clientInstance.callTool).toHaveBeenCalledTimes(3)
+
+    const graphRaw = await readFile(result.structuredContent.files.graph, 'utf8')
+    const graph = JSON.parse(graphRaw) as {
+      nodes: Array<{ address: string; role?: string }>
+      edges: Array<{ to_address: string; terminal_exchange?: boolean }>
+    }
+    expect(graph.nodes.find((node) => node.address === '5Exchange')?.role).toBe('exchange')
+    expect(graph.edges.find((edge) => edge.to_address === '5Exchange')?.terminal_exchange).toBe(true)
   })
 
   it('registers graph MCP app resource and preserves graph-backed remote tools', async () => {

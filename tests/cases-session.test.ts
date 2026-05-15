@@ -14,11 +14,7 @@ describe('SessionStore (CASE-04)', () => {
     await mkdir(join(fakeHome, '.chain-insights'), { recursive: true })
     prevHome = process.env['HOME']
     process.env['HOME'] = fakeHome
-    const { getDb, initSchema } = await import('../src/db/init.js')
     const { CaseStore } = await import('../src/cases/index.js')
-    const conn = await getDb()
-    await initSchema(conn)
-    conn.closeSync()
     const c = await CaseStore.create({ name: 'Session Test', tags: [], description: '' })
     testCaseId = c.id
     vi.resetModules()
@@ -40,12 +36,33 @@ describe('SessionStore (CASE-04)', () => {
     expect(s.status).toBe('active')
   })
 
-  it('start() second call creates session_002.md', async () => {
+  it('start() second call returns existing active session instead of creating session_002.md', async () => {
+    const { SessionStore } = await import('../src/cases/index.js')
+    const first = await SessionStore.start(testCaseId)
+    const second = await SessionStore.start(testCaseId)
+    expect(second.sessionId).toBe(first.sessionId)
+    const caseDir = join(fakeHome, '.chain-insights', 'cases', testCaseId)
+    const files = await readdir(caseDir)
+    expect(files.filter(f => f.match(/^session_\d+\.md$/))).toEqual(['session_001.md'])
+  })
+
+  it('start() after ending the active session creates session_002.md', async () => {
     const { SessionStore } = await import('../src/cases/index.js')
     await SessionStore.start(testCaseId)
-    await SessionStore.start(testCaseId)
+    await SessionStore.end(testCaseId, { findings: 'done', nextSteps: '' })
+    const second = await SessionStore.start(testCaseId)
+    expect(second.sessionId).toContain('_s002')
     const caseDir = join(fakeHome, '.chain-insights', 'cases', testCaseId)
     await expect(stat(join(caseDir, 'session_002.md'))).resolves.toBeTruthy()
+  })
+
+  it('start() can record an optional title', async () => {
+    const { SessionStore } = await import('../src/cases/index.js')
+    await SessionStore.start(testCaseId, { title: 'Initial graph reads' })
+    const caseDir = join(fakeHome, '.chain-insights', 'cases', testCaseId)
+    const content = await readFile(join(caseDir, 'session_001.md'), 'utf8')
+    expect(content).toContain('title: Initial graph reads')
+    expect(content).toContain('# Session 1: Initial graph reads')
   })
 
   it('end() updates session file with endTime and findings', async () => {
@@ -121,11 +138,7 @@ describe('CaseStore.loadContext (CASE-04)', () => {
     await mkdir(join(fakeHome, '.chain-insights'), { recursive: true })
     prevHome = process.env['HOME']
     process.env['HOME'] = fakeHome
-    const { getDb, initSchema } = await import('../src/db/init.js')
     const { CaseStore } = await import('../src/cases/index.js')
-    const conn = await getDb()
-    await initSchema(conn)
-    conn.closeSync()
     const c = await CaseStore.create({ name: 'Context Test', tags: ['aml'], description: 'Test' })
     testCaseId = c.id
     vi.resetModules()

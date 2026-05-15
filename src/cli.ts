@@ -33,6 +33,35 @@ if (rawArgs.includes('--claude') && !rawArgs.some(a => !a.startsWith('-'))) {
   process.exit(0)
 }
 
+async function resolveCaseSelector(input: string): Promise<string> {
+  const { resolveCaseSelector } = await import('./cases/selector.js')
+  return resolveCaseSelector(input)
+}
+
+async function showCaseContext(caseSelector: string): Promise<void> {
+  const { CaseStore } = await import('./cases/index.js')
+  const caseId = await resolveCaseSelector(caseSelector)
+  const ctx = await CaseStore.loadContext(caseId)
+  console.log(`\n=== Case: ${ctx.case.id} ===`)
+  console.log(`Name:   ${ctx.case.name}`)
+  console.log(`Status: ${ctx.case.status}`)
+  console.log(`Tags:   ${ctx.case.tags.join(', ') || 'none'}`)
+  console.log(`Evidence files: ${ctx.evidenceCount}`)
+  console.log(`Dossiers: ${ctx.dossierSummaries.length}`)
+  if (ctx.lastSession) {
+    console.log(`\n--- Last Session (${ctx.lastSession.sessionId}) ---`)
+    console.log(ctx.lastSession.body.slice(0, 500))
+  } else {
+    console.log('\nNo previous sessions.')
+  }
+  if (ctx.dossierSummaries.length > 0) {
+    console.log('\n--- Entity Dossiers ---')
+    for (const d of ctx.dossierSummaries) {
+      console.log(`  ${d.address} [${d.type}] tags: ${d.riskTags || 'none'}`)
+    }
+  }
+}
+
 program
   .command('serve')
   .description('Start local visualization server')
@@ -44,14 +73,89 @@ program
 
 program
   .command('status')
-  .description('Show toolkit status and database health')
+  .description('Show toolkit status and configuration')
   .action(async () => {
-    const { healthCheck } = await import('./db/index.js')
     const { loadConfig } = await import('./config/index.js')
-    const [db, config] = await Promise.all([healthCheck(), loadConfig()])
-    console.log('DB:     ', db.ok ? 'healthy' : `error — ${db.error ?? 'unknown'}`)
+    const config = await loadConfig()
     console.log('Config: ', config.dataDir)
     console.log('Server: ', `http://127.0.0.1:${config.serverPort}`)
+    console.log('Graph MCP:', `${config.graphMcpMode} mode`)
+    console.log('Graph endpoint:', config.graphMcpEndpoint)
+  })
+
+program
+  .command('debug')
+  .description('Configure Graph MCP debug mode')
+  .addCommand(
+    new Command('on')
+      .description('Enable Graph MCP debug mode without x402 payments')
+      .requiredOption('--token <token>', 'Debug bearer token')
+      .option('--endpoint <url>', 'Graph MCP endpoint')
+      .action(async (opts: { token: string; endpoint?: string }) => {
+        try {
+          const { saveConfig } = await import('./config/index.js')
+          await saveConfig({
+            graphMcpMode: 'debug',
+            graphMcpAuthToken: opts.token,
+            ...(opts.endpoint ? { graphMcpEndpoint: opts.endpoint } : {}),
+          })
+          console.log('Graph MCP debug mode enabled')
+          if (opts.endpoint) console.log(`Graph endpoint: ${opts.endpoint}`)
+          console.log('Payments: disabled for Graph MCP calls')
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
+    new Command('off')
+      .description('Disable Graph MCP debug mode and use paid x402 calls')
+      .action(async () => {
+        try {
+          const { saveConfig } = await import('./config/index.js')
+          await saveConfig({ graphMcpMode: 'paid', graphMcpAuthToken: '' })
+          console.log('Graph MCP debug mode disabled')
+          console.log('Payments: enabled for Graph MCP calls')
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
+    new Command('status')
+      .description('Show Graph MCP payment/debug mode')
+      .action(async () => {
+        try {
+          const { loadConfig } = await import('./config/index.js')
+          const config = await loadConfig()
+          console.log(`Graph MCP mode: ${config.graphMcpMode}`)
+          console.log(`Graph endpoint: ${config.graphMcpEndpoint}`)
+          console.log(`Debug token:    ${config.graphMcpAuthToken?.trim() ? 'configured' : 'not configured'}`)
+          console.log(`Payments:       ${config.graphMcpMode === 'debug' ? 'disabled' : 'enabled'}`)
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+
+program
+  .command('init')
+  .description('Initialize an investigation workspace')
+  .argument('[dir]', 'Workspace directory to initialize', '.')
+  .option('--force', 'Overwrite existing workspace files')
+  .action(async (dir: string, opts: { force?: boolean }) => {
+    try {
+      const { initWorkspace } = await import('./workspace/init.js')
+      const result = await initWorkspace({ targetDir: dir, force: opts.force })
+      console.log(`Workspace initialized: ${result.workspaceRoot}`)
+      console.log(`Files written: ${result.filesWritten.length}`)
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
   })
 
 program
@@ -288,15 +392,15 @@ program
       .option('--description <desc>', 'Brief description of the investigation', '')
       .action(async (name: string, opts: { tags: string; description: string }) => {
         try {
-          const { getDb, initSchema } = await import('./db/init.js')
+          if (/^[1-9]\d*$/.test(name.trim())) {
+            throw new Error('Numeric case names look like list selectors. Use a descriptive case name, e.g. `cia case open "Tracking stolen funds from <address>"`.')
+          }
           const { CaseStore } = await import('./cases/index.js')
-          const conn = await getDb()
-          await initSchema(conn)
-          conn.closeSync()
           const tags = opts.tags ? opts.tags.split(',').map(t => t.trim()).filter(Boolean) : []
           const c = await CaseStore.create({ name, tags, description: opts.description })
+          const { casesRoot } = await import('./cases/store.js')
           console.log(`Case opened: ${c.id}`)
-          console.log(`Directory:   ~/.chain-insights/cases/${c.id}/`)
+          console.log(`Directory:   ${path.join(casesRoot(), c.id)}/`)
           console.log(`Status:      ${c.status}`)
         } catch (err) {
           console.error((err as Error).message)
@@ -308,13 +412,10 @@ program
     new Command('activate')
       .description('Activate a case (set status to active)')
       .argument('<case-id>', 'Case ID to activate')
-      .action(async (caseId: string) => {
+      .action(async (caseSelector: string) => {
         try {
-          const { getDb, initSchema } = await import('./db/init.js')
           const { CaseStore } = await import('./cases/index.js')
-          const conn = await getDb()
-          await initSchema(conn)
-          conn.closeSync()
+          const caseId = await resolveCaseSelector(caseSelector)
           const c = await CaseStore.setStatus(caseId, 'active')
           console.log(`Case ${c.id} is now: active`)
         } catch (err) {
@@ -327,13 +428,10 @@ program
     new Command('suspend')
       .description('Suspend a case (set status to suspended)')
       .argument('<case-id>', 'Case ID to suspend')
-      .action(async (caseId: string) => {
+      .action(async (caseSelector: string) => {
         try {
-          const { getDb, initSchema } = await import('./db/init.js')
           const { CaseStore } = await import('./cases/index.js')
-          const conn = await getDb()
-          await initSchema(conn)
-          conn.closeSync()
+          const caseId = await resolveCaseSelector(caseSelector)
           const c = await CaseStore.setStatus(caseId, 'suspended')
           console.log(`Case ${c.id} is now: suspended`)
         } catch (err) {
@@ -346,13 +444,10 @@ program
     new Command('close')
       .description('Close a case permanently')
       .argument('<case-id>', 'Case ID to close')
-      .action(async (caseId: string) => {
+      .action(async (caseSelector: string) => {
         try {
-          const { getDb, initSchema } = await import('./db/init.js')
           const { CaseStore } = await import('./cases/index.js')
-          const conn = await getDb()
-          await initSchema(conn)
-          conn.closeSync()
+          const caseId = await resolveCaseSelector(caseSelector)
           const c = await CaseStore.setStatus(caseId, 'closed')
           console.log(`Case ${c.id} is now: closed`)
         } catch (err) {
@@ -367,19 +462,15 @@ program
       .option('--status <status>', 'Filter by status (open|active|suspended|closed)')
       .action(async (opts: { status?: string }) => {
         try {
-          const { getDb, initSchema } = await import('./db/init.js')
           const { CaseStore } = await import('./cases/index.js')
-          const conn = await getDb()
-          await initSchema(conn)
-          conn.closeSync()
           const cases = await CaseStore.list()
           const filtered = opts.status ? cases.filter(c => c.status === opts.status) : cases
           if (filtered.length === 0) {
             console.log('No cases found.')
             return
           }
-          for (const c of filtered) {
-            console.log(`${c.id}  [${c.status}]  ${c.name}`)
+          for (const [index, c] of filtered.entries()) {
+            console.log(`${index + 1}. ${c.id}  [${c.status}]  ${c.name}`)
           }
         } catch (err) {
           console.error((err as Error).message)
@@ -397,9 +488,10 @@ program
           .option('--source <tool>', 'MCP tool name that produced this evidence', 'manual')
           .option('--content <text>', 'Evidence content (MCP response or notes)', '')
           .option('--query-params <params>', 'Query parameters used (e.g. address=0x1234)', '')
-          .action(async (caseId: string, opts: { source: string; content: string; queryParams: string }) => {
+          .action(async (caseSelector: string, opts: { source: string; content: string; queryParams: string }) => {
             try {
               const { EvidenceStore } = await import('./cases/index.js')
+              const caseId = await resolveCaseSelector(caseSelector)
               const result = await EvidenceStore.append(caseId, {
                 source: opts.source,
                 content: opts.content,
@@ -417,9 +509,10 @@ program
         new Command('verify')
           .description('Verify evidence manifest integrity for a case')
           .argument('<case-id>', 'Case ID to verify')
-          .action(async (caseId: string) => {
+          .action(async (caseSelector: string) => {
             try {
               const { EvidenceStore } = await import('./cases/index.js')
+              const caseId = await resolveCaseSelector(caseSelector)
               const result = await EvidenceStore.verifyManifest(caseId)
               if (result.ok) {
                 console.log(`Manifest OK — ${result.count} evidence file(s) verified`)
@@ -444,9 +537,10 @@ program
           .argument('<address>', 'Entity address or identifier')
           .option('--finding <text>', 'Finding to append to the dossier', '')
           .option('--type <type>', 'Entity type (eoa|contract|exchange|mixer|unknown)', 'unknown')
-          .action(async (caseId: string, address: string, opts: { finding: string; type: string }) => {
+          .action(async (caseSelector: string, address: string, opts: { finding: string; type: string }) => {
             try {
               const { DossierStore } = await import('./cases/index.js')
+              const caseId = await resolveCaseSelector(caseSelector)
               const validTypes = ['eoa', 'contract', 'exchange', 'mixer', 'unknown'] as const
               const entityType = validTypes.includes(opts.type as typeof validTypes[number])
                 ? (opts.type as typeof validTypes[number])
@@ -467,10 +561,13 @@ program
         new Command('start')
           .description('Start a new investigation session for a case')
           .argument('<case-id>', 'Case ID')
-          .action(async (caseId: string) => {
+          .argument('[title...]', 'Optional session title')
+          .action(async (caseSelector: string, titleParts: string[]) => {
             try {
               const { SessionStore } = await import('./cases/index.js')
-              const s = await SessionStore.start(caseId)
+              const caseId = await resolveCaseSelector(caseSelector)
+              const title = titleParts.join(' ').trim()
+              const s = await SessionStore.start(caseId, title ? { title } : {})
               console.log(`Session started: ${s.sessionId}`)
             } catch (err) {
               console.error((err as Error).message)
@@ -484,9 +581,10 @@ program
           .argument('<case-id>', 'Case ID')
           .option('--findings <text>', 'Key findings from this session', '')
           .option('--next-steps <text>', 'Next steps for the investigation', '')
-          .action(async (caseId: string, opts: { findings: string; nextSteps: string }) => {
+          .action(async (caseSelector: string, opts: { findings: string; nextSteps: string }) => {
             try {
               const { SessionStore } = await import('./cases/index.js')
+              const caseId = await resolveCaseSelector(caseSelector)
               await SessionStore.end(caseId, { findings: opts.findings, nextSteps: opts.nextSteps })
               await SessionStore.archiveOldSessions(caseId)
               console.log(`Session ended for case ${caseId}`)
@@ -498,35 +596,12 @@ program
       )
   )
   .addCommand(
-    new Command('resume')
-      .description('Resume a case — restore investigation context for agent injection')
-      .argument('<case-id>', 'Case ID to resume')
-      .action(async (caseId: string) => {
+    new Command('show')
+      .description('Show saved case context')
+      .argument('<case-id>', 'Case ID or case list number to show')
+      .action(async (caseSelector: string) => {
         try {
-          const { getDb, initSchema } = await import('./db/init.js')
-          const { CaseStore } = await import('./cases/index.js')
-          const conn = await getDb()
-          await initSchema(conn)
-          conn.closeSync()
-          const ctx = await CaseStore.loadContext(caseId)
-          console.log(`\n=== Case Resume: ${ctx.case.id} ===`)
-          console.log(`Name:   ${ctx.case.name}`)
-          console.log(`Status: ${ctx.case.status}`)
-          console.log(`Tags:   ${ctx.case.tags.join(', ') || 'none'}`)
-          console.log(`Evidence files: ${ctx.evidenceCount}`)
-          console.log(`Dossiers: ${ctx.dossierSummaries.length}`)
-          if (ctx.lastSession) {
-            console.log(`\n--- Last Session (${ctx.lastSession.sessionId}) ---`)
-            console.log(ctx.lastSession.body.slice(0, 500))
-          } else {
-            console.log('\nNo previous sessions.')
-          }
-          if (ctx.dossierSummaries.length > 0) {
-            console.log('\n--- Entity Dossiers ---')
-            for (const d of ctx.dossierSummaries) {
-              console.log(`  ${d.address} [${d.type}] tags: ${d.riskTags || 'none'}`)
-            }
-          }
+          await showCaseContext(caseSelector)
         } catch (err) {
           console.error((err as Error).message)
           process.exit(1)

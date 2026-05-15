@@ -1,12 +1,12 @@
 import { readFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
-import os from 'node:os'
 import { GraphData, GraphNode, GraphEdge } from './graph-model.js'
 import { parseFrontmatter } from '../cases/frontmatter.js'
+import { activeCasesRoot } from '../workspace/active.js'
 
 function caseDir(caseId: string): string {
   if (/[/\\]|^\.\.?$/.test(caseId)) throw new Error(`Invalid case ID: ${caseId}`)
-  return path.join(os.homedir(), '.chain-insights', 'cases', caseId)
+  return path.join(activeCasesRoot(), caseId)
 }
 
 /**
@@ -40,10 +40,42 @@ export function parseEvidenceJson(markdown: string): unknown[] {
       // Malformed JSON in evidence — skip gracefully (T-04-06: no crash)
     }
   }
+  if (results.length > 0) return results
+
+  const rawJson = extractEmbeddedJson(markdown)
+  if (rawJson) {
+    try {
+      const parsed: unknown = JSON.parse(rawJson)
+      if (Array.isArray(parsed)) return parsed
+      if (parsed !== null && typeof parsed === 'object') return [parsed]
+    } catch {
+      // Ignore non-JSON evidence bodies.
+    }
+  }
   return results
 }
 
+function extractEmbeddedJson(text: string): string | null {
+  const trimmed = text.trim()
+  const start = [...trimmed]
+    .map((char, index) => (char === '{' || char === '[' ? index : -1))
+    .find(index => index >= 0)
+  if (start === undefined) return null
+  return trimmed.slice(start)
+}
+
 type SimpleTx = { from: string; to: string; value: number; txHash?: string; blockNumber?: number; timestamp?: string }
+
+type CompactEvidence = {
+  schema?: string
+  outgoing_flows?: Array<{
+    src?: string
+    dst?: string
+    amount_sum?: number
+    tx_count?: number
+    first_tx_id?: string
+  }>
+}
 
 function isSimpleTx(item: unknown): item is SimpleTx {
   return (
@@ -62,6 +94,27 @@ function isGraphDataLike(input: unknown): input is { nodes: unknown[]; edges: un
     Array.isArray((input as Record<string, unknown>)['nodes']) &&
     Array.isArray((input as Record<string, unknown>)['edges'])
   )
+}
+
+function compactEvidenceToSimpleTxs(item: unknown): SimpleTx[] {
+  const compact = item as CompactEvidence
+  if (
+    !compact ||
+    typeof compact !== 'object' ||
+    compact.schema !== 'chain-insights.compact_evidence.v1' ||
+    !Array.isArray(compact.outgoing_flows)
+  ) {
+    return []
+  }
+
+  return compact.outgoing_flows
+    .filter(flow => typeof flow.src === 'string' && typeof flow.dst === 'string' && typeof flow.amount_sum === 'number')
+    .map(flow => ({
+      from: flow.src!,
+      to: flow.dst!,
+      value: flow.amount_sum!,
+      txHash: flow.first_tx_id,
+    }))
 }
 
 /**
@@ -136,6 +189,8 @@ export function extractGraphFromJson(input: unknown): GraphData {
     for (const item of input) {
       if (isSimpleTx(item)) {
         simpleTxs.push(item)
+      } else {
+        simpleTxs.push(...compactEvidenceToSimpleTxs(item))
       }
     }
     const { nodes, edges } = buildGraphFromSimpleTxs(simpleTxs)
@@ -246,7 +301,10 @@ export async function extractGraphFromCase(caseId: string): Promise<GraphData> {
 
     // Check if items contain a full GraphData object
     const graphDataItems = items.filter(item => isGraphDataLike(item))
-    const simpleTxItems = items.filter(item => isSimpleTx(item)) as SimpleTx[]
+    const simpleTxItems = items.flatMap(item => {
+      if (isSimpleTx(item)) return [item]
+      return compactEvidenceToSimpleTxs(item)
+    }) as SimpleTx[]
 
     if (graphDataItems.length > 0) {
       // Merge full GraphData objects

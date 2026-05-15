@@ -85,8 +85,15 @@ export async function createConfiguredMcpFetch(config: Pick<InvestigatorConfig, 
 }
 
 export async function createConfiguredGraphMcpFetch(
-  config: Pick<InvestigatorConfig, 'mcpAuthToken' | 'graphMcpAuthToken'>,
+  config: Pick<InvestigatorConfig, 'mcpAuthToken' | 'graphMcpAuthToken' | 'graphMcpMode'>,
 ): Promise<FetchLike> {
-  const authToken = config.graphMcpAuthToken?.trim() || config.mcpAuthToken?.trim()
-  return createConfiguredFetchWithToken(authToken, 'graphMcpAuthToken')
+  if (config.graphMcpMode === 'debug') {
+    const authToken = config.graphMcpAuthToken?.trim() || config.mcpAuthToken?.trim()
+    if (!authToken) {
+      throw new Error('Graph MCP debug mode requires graphMcpAuthToken. Run `cia debug on --token <token>`.')
+    }
+    return createMcpAuthFetchClient(authToken)
+  }
+
+  return createConfiguredFetchWithToken(undefined, 'walletPrivateKey')
 }

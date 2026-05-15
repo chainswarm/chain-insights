@@ -15,13 +15,7 @@ describe('EvidenceStore (CASE-02)', () => {
     await mkdir(join(fakeHome, '.chain-insights'), { recursive: true })
     prevHome = process.env['HOME']
     process.env['HOME'] = fakeHome
-
-    // Create a test case directory structure
-    const { getDb, initSchema } = await import('../src/db/init.js')
     const { CaseStore } = await import('../src/cases/index.js')
-    const conn = await getDb()
-    await initSchema(conn)
-    conn.closeSync()
     const c = await CaseStore.create({ name: 'Evidence Test', tags: [], description: '' })
     testCaseId = c.id
     vi.resetModules()
@@ -73,6 +67,19 @@ describe('EvidenceStore (CASE-02)', () => {
     const content = await readFile(evidencePath, 'utf8')
     const expected = createHash('sha256').update(content).digest('hex')
     expect(manifest.entries[0]!.sha256).toBe(expected)
+  })
+
+  it('append() wraps JSON content in a json code fence for visualization extraction', async () => {
+    const { EvidenceStore } = await import('../src/cases/index.js')
+    const result = await EvidenceStore.append(testCaseId, {
+      source: 'graph_query_batch_compact',
+      content: '{"schema":"chain-insights.compact_evidence.v1","outgoing_flows":[]}',
+      queryParams: 'network=bittensor',
+    })
+    const evidencePath = join(fakeHome, '.chain-insights', 'cases', testCaseId, 'evidence', result.filename)
+    const content = await readFile(evidencePath, 'utf8')
+    expect(content).toContain('```json')
+    expect(content).toContain('"chain-insights.compact_evidence.v1"')
   })
 
   it('append() twice produces two manifest entries', async () => {

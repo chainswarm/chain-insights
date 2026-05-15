@@ -1,12 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { PlaybookDefinition } from '../src/playbooks/schema.js'
 
-// Mock all infrastructure dependencies
-vi.mock('../src/db/init.js', () => ({
-  getDb: vi.fn(),
-  initSchema: vi.fn().mockResolvedValue(undefined),
-}))
-
 vi.mock('../src/cases/store.js', () => ({
   CaseStore: {
     create: vi.fn(),
@@ -104,10 +98,6 @@ describe('PlaybookRunner', () => {
       this.callTool = mockClient.callTool
       this.close = mockClient.close
     } as unknown as typeof Client)
-
-    const { getDb } = await import('../src/db/init.js')
-    const mockConn = { closeSync: vi.fn() }
-    vi.mocked(getDb).mockResolvedValue(mockConn as unknown as Awaited<ReturnType<typeof import('../src/db/init.js').getDb>>)
 
     const { CaseStore } = await import('../src/cases/store.js')
     vi.mocked(CaseStore.create).mockResolvedValue({
