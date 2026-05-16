@@ -1,6 +1,6 @@
 ---
 name: test-chain-insights-graphrag-mcp
-description: Run real local UAT for Chain Insights against the GraphRAG MCP server. Use when validating Chain Insights MCP proxy compatibility with GraphRAG MCP, debug bearer auth, graph artifact storage, TTL-safe graph payloads, local Hono artifact serving, CLI graph_query, balance/topup tool registration, or before claiming Chain Insights and GraphRAG MCP are integrated.
+description: Run real local UAT for Chain Insights against the GraphRAG MCP server. Use when validating Chain Insights MCP proxy compatibility with GraphRAG MCP, debug bearer auth, graph artifact storage, TTL-safe graph payloads, local Hono artifact serving, CLI graph_query, public proxy tool registration, or before claiming Chain Insights and GraphRAG MCP are integrated.
 ---
 
 <objective>
@@ -15,6 +15,8 @@ skills/test-chain-insights-graphrag-mcp/scripts/run-uat.sh
 ```
 
 The script writes raw MCP responses and a summary under `chain-insights/.tmp/uat/`.
+It creates and uses a temporary initialized Chain Insights workspace for all
+investigation-producing commands.
 </quick_start>
 
 <defaults>
@@ -52,12 +54,13 @@ The UAT must verify all of these facts:
 - GraphRAG direct MCP does not expose `app_data`, `nodes`, `edges`, `flows`, `edge_anchors`, or `transfers` in `structuredContent`.
 - GraphRAG direct MCP puts graph data only in `_meta.chainInsights.graph.data`.
 - GraphRAG graph data has schema `chain-insights.graph.v1` and keys `schema`, `nodes`, `edges`, `flows`, `edge_anchors`; it must not include `transfers`.
-- Chain Insights proxy `tools/list` exposes local `balance`, `topup`, and `help`, plus proxied GraphRAG tools.
+- Chain Insights proxy `tools/list` exposes local `balance` and `help`, plus public proxied GraphRAG tools.
 - Chain Insights proxy tool descriptions must not contain stale `app_data` wording after schema refresh.
 - Chain Insights proxy `address_risk` returns only a local graph artifact pointer in `_meta.chainInsights.graph = { schema, id, url }`.
 - Chain Insights proxy response must not include `_meta.chainInsights.graph.data`.
 - The local artifact URL must be served by the Chain Insights Hono server and return `chain-insights.graph.v1` JSON without `transfers`.
 - `chain-insights mcp call graph_query` must hit the real GraphRAG/Memgraph path and return the UAT address.
+- No investigation output is created under `~/.chain-insights/reports`, `~/.chain-insights/artifacts`, or `~/.chain-insights/cases`.
 </uat_contract>
 
 <process>

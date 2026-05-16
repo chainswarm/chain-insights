@@ -3,7 +3,27 @@ name: chain-insights-trace-funds
 description: Use when tracing stolen funds to exchange deposit candidates in Chain Insights. Explains the public track_funds workflow, traceback/source discovery, address aliases, compact evidence pointers, and graph/report artifacts.
 ---
 
-# Chain Insights Track Funds
+# Chain Insights Fund Flow Tracking
+
+This compatibility skill file documents the public Chain Insights fund-flow
+workflow. Use the `track_funds` MCP tool for stolen-fund tracing, victim/source
+fund-flow analysis, and exchange-deposit candidate discovery.
+
+Before running investigation-producing commands, confirm the current directory
+is an initialized Chain Insights workspace:
+
+```bash
+test -f .chain-insights/workspace.json && cat .chain-insights/workspace.json
+```
+
+If that file is missing, stop and tell the user to run:
+
+```bash
+cia init .
+```
+
+No investigation output belongs under `~/.chain-insights`; that global location
+is for config, cache, wallet, and installed skills only.
 
 Use `track_funds` when the investigation has victim/source addresses and may
 also include known scammer addresses. It accepts up to five
@@ -11,12 +31,11 @@ also include known scammer addresses. It accepts up to five
 roles, and runs the local tracing engine per address.
 
 Use `track_funds` for a single address by passing that address as the only
-`trusted_addresses` value. Do not call `trace_funds`; that name is private
-implementation detail, not a public agent tool. The workflow is a TypeScript
-port of the Python probe workflow, not a simple top-K hop walker. The goal is to
-find all reachable exchange-deposit paths the graph can return within query
-limits, then traceback those deposits toward source exchanges and enrich the
-result with reverse 1-hop leads.
+`trusted_addresses` value. The workflow is a TypeScript port of the Python probe
+workflow, not a simple top-K hop walker. The goal is to find all reachable
+exchange-deposit paths the graph can return within query limits, then traceback
+those deposits toward source exchanges and enrich the result with reverse 1-hop
+leads.
 
 This tool exists so the agent does not lose the investigation in chat context.
 It executes the repeatable tracing loop, stores machine-readable files for
@@ -92,6 +111,7 @@ The tool:
    - `reports/tables/*.flows.csv`
    - `reports/*.table.html`
    - `reports/*.trace-report.md`
+   - `artifacts/<artifact-id>/graph.json`
 6. Returns:
    - concise facts,
    - `address_map` alias-to-address mapping,

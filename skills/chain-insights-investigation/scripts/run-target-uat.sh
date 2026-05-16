@@ -6,6 +6,12 @@ NETWORK="${NETWORK:-bittensor}"
 GRAPH_MCP_ENDPOINT="${GRAPH_MCP_ENDPOINT:-http://localhost:8012/mcp}"
 GRAPH_MCP_DEBUG_TOKEN="${GRAPH_MCP_DEBUG_TOKEN:-chain-insights-dev-debug}"
 WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(mktemp -d /tmp/chain-insights-investigation-uat.XXXXXX)}"
+GLOBAL_REPORTS="${HOME}/.chain-insights/reports"
+GLOBAL_ARTIFACTS="${HOME}/.chain-insights/artifacts"
+GLOBAL_CASES="${HOME}/.chain-insights/cases"
+GLOBAL_SNAPSHOT_BEFORE="$(mktemp /tmp/chain-insights-global-before.XXXXXX)"
+GLOBAL_SNAPSHOT_AFTER="$(mktemp /tmp/chain-insights-global-after.XXXXXX)"
+CONFIG_SNAPSHOT_READY=0
 
 log() {
   printf '[chain-insights-investigation-uat] %s\n' "$*"
@@ -18,7 +24,41 @@ require_cmd() {
   fi
 }
 
+snapshot_global_outputs() {
+  local output_file="$1"
+  : >"${output_file}"
+  for dir in "${GLOBAL_REPORTS}" "${GLOBAL_ARTIFACTS}" "${GLOBAL_CASES}"; do
+    {
+      printf '[%s]\n' "${dir}"
+      if [[ -d "${dir}" ]]; then
+        (
+          cd "${dir}"
+          find . -mindepth 1 -type d -print | LC_ALL=C sort | sed 's/^/dir /'
+          find . -mindepth 1 -type f -print0 \
+            | LC_ALL=C sort -z \
+            | xargs -0 -r sha256sum \
+            | sed 's/^/file /'
+        )
+      else
+        printf '<missing>\n'
+      fi
+    } >>"${output_file}"
+  done
+}
+
+assert_no_global_outputs_changed() {
+  snapshot_global_outputs "${GLOBAL_SNAPSHOT_AFTER}"
+  if ! cmp -s "${GLOBAL_SNAPSHOT_BEFORE}" "${GLOBAL_SNAPSHOT_AFTER}"; then
+    log "global investigation output roots changed; reports/artifacts/cases must stay workspace-local"
+    diff -u "${GLOBAL_SNAPSHOT_BEFORE}" "${GLOBAL_SNAPSHOT_AFTER}" >&2 || true
+    return 1
+  fi
+}
+
 restore_mode() {
+  if [[ "${CONFIG_SNAPSHOT_READY}" != "1" ]]; then
+    return
+  fi
   if [[ -n "${OLD_GRAPH_MCP_MODE:-}" ]]; then
     cia config set graphMcpMode "${OLD_GRAPH_MCP_MODE}" >/dev/null || true
   fi
@@ -27,15 +67,30 @@ restore_mode() {
   fi
   cia config set graphMcpAuthToken "${OLD_GRAPH_MCP_AUTH_TOKEN:-}" >/dev/null || true
 }
-trap restore_mode EXIT
+
+finish() {
+  local status="$?"
+  set +e
+  if [[ -f "${GLOBAL_SNAPSHOT_BEFORE}" ]]; then
+    assert_no_global_outputs_changed || status=1
+  fi
+  restore_mode
+  rm -f "${GLOBAL_SNAPSHOT_BEFORE}" "${GLOBAL_SNAPSHOT_AFTER}"
+  exit "${status}"
+}
+trap finish EXIT
 
 require_cmd cia
 require_cmd node
 require_cmd jq
+require_cmd sha256sum
+
+snapshot_global_outputs "${GLOBAL_SNAPSHOT_BEFORE}"
 
 OLD_GRAPH_MCP_MODE="$(cia config get graphMcpMode || true)"
 OLD_GRAPH_MCP_ENDPOINT="$(cia config get graphMcpEndpoint || true)"
 OLD_GRAPH_MCP_AUTH_TOKEN="$(cia config get graphMcpAuthToken || true)"
+CONFIG_SNAPSHOT_READY=1
 
 log "workspace: ${WORKSPACE_ROOT}"
 log "target: ${NETWORK}:${TARGET_ADDRESS}"
@@ -54,7 +109,7 @@ if [[ -z "${CASE_ID}" ]]; then
   exit 1
 fi
 
-cia case session start 1 "UAT graph evidence for ${TARGET_ADDRESS}" >/dev/null
+cia case session start "${CASE_ID}" "UAT graph evidence for ${TARGET_ADDRESS}" >/dev/null
 mkdir -p reports/uat reports/graphs .chain-insights/schema
 
 SCHEMA_RAW=".chain-insights/schema/${NETWORK}.graph-schema.raw.json"
@@ -104,13 +159,13 @@ jq --arg network "${NETWORK}" '{
   addresses:(.facts.queries[]|select(.id=="address_exists")|.results)
 }' "${RESULT_FILE}" > "${COMPACT_FILE}"
 
-EVIDENCE_OUT="$(cia case evidence add 1 \
+EVIDENCE_OUT="$(cia case evidence add "${CASE_ID}" \
   --source graph_query_batch_compact \
   --query-params "network=${NETWORK} address=${TARGET_ADDRESS} query=address_exists compact=true schema=${SCHEMA_FILE}" \
   --content "$(cat "${COMPACT_FILE}")")"
 printf '%s\n' "${EVIDENCE_OUT}" > reports/uat/evidence-add.txt
 
-SHOW_OUT="$(cia case show 1)"
+SHOW_OUT="$(cia case show "${CASE_ID}")"
 printf '%s\n' "${SHOW_OUT}" > reports/uat/case-show.txt
 if ! printf '%s\n' "${SHOW_OUT}" | grep -q 'Evidence files: 1'; then
   log "case show did not report one evidence file"
@@ -118,15 +173,15 @@ if ! printf '%s\n' "${SHOW_OUT}" | grep -q 'Evidence files: 1'; then
   exit 1
 fi
 
-cia case dossier update 1 "${TARGET_ADDRESS}" \
+cia case dossier update "${CASE_ID}" "${TARGET_ADDRESS}" \
   --type unknown \
   --finding "UAT confirmed the target address exists in ${NETWORK}; see compact address_exists evidence and ${SCHEMA_FILE}." >/dev/null
 
-cia case session end 1 \
+cia case session end "${CASE_ID}" \
   --findings "UAT confirmed schema capture and compact graph_query_batch evidence for the target address." \
   --next-steps "Run narrow FLOWS_TO projections and save graph JSON under reports/graphs/." >/dev/null
 
-FINAL_SHOW="$(cia case show 1)"
+FINAL_SHOW="$(cia case show "${CASE_ID}")"
 printf '%s\n' "${FINAL_SHOW}" > reports/uat/final-case-show.txt
 if ! printf '%s\n' "${FINAL_SHOW}" | grep -q 'Dossiers: 1'; then
   log "case show did not report one dossier"

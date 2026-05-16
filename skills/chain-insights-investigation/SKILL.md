@@ -26,10 +26,15 @@ cia debug off
 
 ## First Moves
 
-1. Confirm workspace:
+1. Confirm the current directory is an initialized Chain Insights workspace:
    ```bash
    test -f .chain-insights/workspace.json && cat .chain-insights/workspace.json
    ```
+   If this fails, stop and tell the user to run:
+   ```bash
+   cia init .
+   ```
+   No investigation output belongs under ~/.chain-insights.
 2. Read workspace runtime schema notes:
    ```bash
    test -f .chain-insights/runtime-skill/SKILL.md && sed -n '1,220p' .chain-insights/runtime-skill/SKILL.md
@@ -67,7 +72,7 @@ cia debug off
 - Never treat user claims as facts until tool output supports them.
 - Never leave material tool output only in chat. Save it as evidence.
 - Keep evidence compact and use original graph field names.
-- Store visualization data in `reports/graphs/` and analyst tables in `reports/tables/`.
+- Store visualization data in `reports/graphs/` and analyst tables in `reports/tables/` under the initialized workspace.
 - Prefer Mermaid/table reports over long prose dossiers.
 - Prefer `cia` commands over direct file edits.
 - Do not use `cia case resume`; use `cia case show`.
@@ -80,22 +85,20 @@ cia debug off
 
 Use `address_risk` first for ordinary address screening. It measures risk,
 neighborhood context, and exchange behavior together, including exchange inflow
-and outflow paths. Do not use `money_flows_between_exchanges` as a separate
-primary workflow; that behavior belongs in `address_risk`.
+and outflow paths. Do not use retired separate exchange-flow tools as a primary
+workflow; that behavior belongs in `address_risk`.
 
 Use `address_risk` with `compare_address` when the user asks whether two
-addresses are connected or whether a relationship is risky. Do not use
-`address_connection_risk` as a separate primary workflow; compare mode is the
-unified connection-risk path.
+addresses are connected or whether a relationship is risky. Use compare mode
+as the unified connection-risk path.
 
 Use `track_funds` when the user has victim/source addresses and may also have
 known scammer addresses. It accepts up to five `trusted_addresses` and up to
 five `untrusted_addresses`, preserves those roles, and traces each through the
 local tracing engine.
 
-Use `track_funds` for single-address fund-flow tracing by passing one address
-as `trusted_addresses`. Do not call `trace_funds`; that name is private
-implementation detail, not a public agent tool.
+Use `track_funds` for stolen-fund and fund-flow work, including single-address
+fund-flow tracing by passing one address as the only `trusted_addresses` value.
 
 Use manual `graph_query_batch` only for custom questions or fallback.
 

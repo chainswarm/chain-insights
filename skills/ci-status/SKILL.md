@@ -8,7 +8,20 @@ allowed-tools:
 
 # /ci-status
 
-Shows toolkit status: database health, active case (if any), and MCP endpoint connectivity.
+Shows Chain Insights status for the current workspace: workspace metadata,
+configured MCP endpoints, local server health, and case/session context when
+available.
+
+Run from an initialized workspace. If `.chain-insights/workspace.json` is
+missing, run:
+
+```bash
+cia init .
+```
+
+The workspace is the investigation root. `~/.chain-insights` is only for global
+configuration, cache, wallet, and installed skills; do not treat it as the case,
+report, artifact, schema, or log root.
 
 ## Usage
 
@@ -16,14 +29,17 @@ Shows toolkit status: database health, active case (if any), and MCP endpoint co
 
 ## What it does
 
-1. Runs `chain-insights status` via Bash to check database health
-2. Reads `.chain-insights/config.json` to show MCP endpoint configuration
-3. Reports the active case name if a case is open (Phase 3)
+1. Confirms `.chain-insights/workspace.json` exists in the workspace.
+2. Runs `cia status` or `chain-insights status` via Bash.
+3. Reads workspace `.chain-insights/` metadata and runtime files when present.
+4. Lists workspace cases with `cia case list`.
+5. Reports server and MCP endpoint configuration without writing investigation output globally.
 
 ## Example output
 
 ```
-DB:      healthy
-Config:  /home/user/.chain-insights
-Server:  http://127.0.0.1:4321
+Workspace: /home/user/investigations/case-42
+Cases:     /home/user/investigations/case-42/cases
+Reports:   /home/user/investigations/case-42/reports
+Server:    http://127.0.0.1:4321
 ```

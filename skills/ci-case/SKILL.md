@@ -11,13 +11,33 @@ allowed-tools:
 
 Manage investigation cases. Open new cases, switch active cases, suspend work-in-progress, or close completed investigations.
 
+Run case commands from an initialized Chain Insights workspace. If
+`.chain-insights/workspace.json` is missing, initialize the current project
+folder first:
+
+```bash
+cia init .
+```
+
+Cases live under the workspace `cases/` directory. Global `~/.chain-insights`
+is reserved for config, cache, wallet, and installed skills; it is not the
+investigation root.
+
 ## Usage
 
-`/ci-case open <name>` — open a new investigation case
-`/ci-case status` — show the active case and all open cases
-`/ci-case suspend` — suspend the active case
-`/ci-case close <name>` — close a case
+- `/ci-case open <name>`: open a new workspace-local investigation case.
+- `/ci-case status`: show active and open cases in the current workspace.
+- `/ci-case suspend`: suspend the active workspace case.
+- `/ci-case close <name>`: close a workspace case.
 
-## Note
+## CLI Equivalents
 
-Case management is implemented in Phase 3. This skill file is a placeholder registered during installation so the slash command is discoverable from day one.
+```bash
+cia case open "<name>" --tags "<network-or-topic>"
+cia case list
+cia case show <case-number>
+cia case session start <case-number> "session title"
+cia case session end <case-number> --findings "..." --next-steps "..."
+```
+
+Use numbered selectors from `cia case list` when a command accepts a case.

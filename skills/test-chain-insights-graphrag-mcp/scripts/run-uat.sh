@@ -12,7 +12,16 @@ UAT_ADDRESS="${UAT_ADDRESS:-5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6}"
 REPORT_DIR="${REPORT_DIR:-${CHAIN_INSIGHTS_DIR}/.tmp/uat}"
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
 RUN_DIR="${REPORT_DIR}/${RUN_ID}"
+WORKSPACE_ROOT="${WORKSPACE_ROOT:-${RUN_DIR}/workspace}"
+CHAIN_INSIGHTS_CLI="${CHAIN_INSIGHTS_DIR}/bin/cli.js"
+CHAIN_INSIGHTS_PROXY="${CHAIN_INSIGHTS_DIR}/bin/mcp-proxy.cjs"
+GLOBAL_REPORTS="${HOME}/.chain-insights/reports"
+GLOBAL_ARTIFACTS="${HOME}/.chain-insights/artifacts"
+GLOBAL_CASES="${HOME}/.chain-insights/cases"
+GLOBAL_SNAPSHOT_BEFORE="${RUN_DIR}/global-output-before.txt"
+GLOBAL_SNAPSHOT_AFTER="${RUN_DIR}/global-output-after.txt"
 SERVER_PID=""
+CONFIG_SNAPSHOT_READY=0
 
 mkdir -p "${RUN_DIR}"
 
@@ -27,19 +36,78 @@ require_cmd() {
   fi
 }
 
+snapshot_global_outputs() {
+  local output_file="$1"
+  : >"${output_file}"
+  for dir in "${GLOBAL_REPORTS}" "${GLOBAL_ARTIFACTS}" "${GLOBAL_CASES}"; do
+    {
+      printf '[%s]\n' "${dir}"
+      if [[ -d "${dir}" ]]; then
+        (
+          cd "${dir}"
+          find . -mindepth 1 -type d -print | LC_ALL=C sort | sed 's/^/dir /'
+          find . -mindepth 1 -type f -print0 \
+            | LC_ALL=C sort -z \
+            | xargs -0 -r sha256sum \
+            | sed 's/^/file /'
+        )
+      else
+        printf '<missing>\n'
+      fi
+    } >>"${output_file}"
+  done
+}
+
+assert_no_global_outputs_changed() {
+  snapshot_global_outputs "${GLOBAL_SNAPSHOT_AFTER}"
+  if ! cmp -s "${GLOBAL_SNAPSHOT_BEFORE}" "${GLOBAL_SNAPSHOT_AFTER}"; then
+    log "global investigation output roots changed; reports/artifacts/cases must stay workspace-local"
+    diff -u "${GLOBAL_SNAPSHOT_BEFORE}" "${GLOBAL_SNAPSHOT_AFTER}" >&2 || true
+    return 1
+  fi
+}
+
 cleanup() {
   if [[ -n "${SERVER_PID}" ]]; then
     kill "${SERVER_PID}" >/dev/null 2>&1 || true
     wait "${SERVER_PID}" >/dev/null 2>&1 || true
   fi
 }
-trap cleanup EXIT
+
+restore_config() {
+  if [[ "${CONFIG_SNAPSHOT_READY}" != "1" ]]; then
+    return
+  fi
+  if [[ -n "${OLD_GRAPH_MCP_MODE:-}" ]]; then
+    node "${CHAIN_INSIGHTS_CLI}" config set graphMcpMode "${OLD_GRAPH_MCP_MODE}" >/dev/null || true
+  fi
+  if [[ -n "${OLD_GRAPH_MCP_ENDPOINT:-}" ]]; then
+    node "${CHAIN_INSIGHTS_CLI}" config set graphMcpEndpoint "${OLD_GRAPH_MCP_ENDPOINT}" >/dev/null || true
+  fi
+  node "${CHAIN_INSIGHTS_CLI}" config set graphMcpAuthToken "${OLD_GRAPH_MCP_AUTH_TOKEN:-}" >/dev/null || true
+  if [[ -n "${OLD_SERVER_PORT:-}" ]]; then
+    node "${CHAIN_INSIGHTS_CLI}" config set serverPort "${OLD_SERVER_PORT}" >/dev/null || true
+  fi
+}
+
+finish() {
+  local status="$?"
+  set +e
+  cleanup
+  if [[ -f "${GLOBAL_SNAPSHOT_BEFORE}" ]]; then
+    assert_no_global_outputs_changed || status=1
+  fi
+  restore_config
+  exit "${status}"
+}
+trap finish EXIT
 
 require_cmd node
 require_cmd npm
 require_cmd npx
 require_cmd docker
 require_cmd curl
+require_cmd sha256sum
 
 if [[ ! -d "${CHAIN_INSIGHTS_DIR}" ]]; then
   log "missing Chain Insights repo: ${CHAIN_INSIGHTS_DIR}"
@@ -57,6 +125,12 @@ if [[ ! -d "${GRAPHRAG_DIR}" ]]; then
 fi
 
 log "report directory: ${RUN_DIR}"
+snapshot_global_outputs "${GLOBAL_SNAPSHOT_BEFORE}"
+OLD_GRAPH_MCP_MODE="$(node "${CHAIN_INSIGHTS_CLI}" config get graphMcpMode || true)"
+OLD_GRAPH_MCP_ENDPOINT="$(node "${CHAIN_INSIGHTS_CLI}" config get graphMcpEndpoint || true)"
+OLD_GRAPH_MCP_AUTH_TOKEN="$(node "${CHAIN_INSIGHTS_CLI}" config get graphMcpAuthToken || true)"
+OLD_SERVER_PORT="$(node "${CHAIN_INSIGHTS_CLI}" config get serverPort || true)"
+CONFIG_SNAPSHOT_READY=1
 log "starting GraphRAG MCP container"
 (cd "${GRAPHRAG_ML_DIR}" && docker compose --env-file .env -f compose/shared.yml -f compose/bittensor.yml up -d graphrag-mcp)
 
@@ -67,16 +141,25 @@ if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
   npm run build
 fi
 
+log "initializing Chain Insights UAT workspace: ${WORKSPACE_ROOT}"
+node "${CHAIN_INSIGHTS_CLI}" init "${WORKSPACE_ROOT}" --force >/dev/null
+export CHAIN_INSIGHTS_WORKSPACE="${WORKSPACE_ROOT}"
+
 log "configuring Chain Insights MCP endpoint and debug bearer token"
-node bin/cli.js config set mcpEndpoint "${MCP_ENDPOINT}" >/dev/null
-node bin/cli.js config set mcpAuthToken "${DEBUG_TOKEN}" >/dev/null
-node bin/cli.js config set serverPort "${SERVER_PORT}" >/dev/null
+(
+  cd "${WORKSPACE_ROOT}"
+  node "${CHAIN_INSIGHTS_CLI}" debug on --token "${DEBUG_TOKEN}" --endpoint "${MCP_ENDPOINT}" >/dev/null
+  node "${CHAIN_INSIGHTS_CLI}" config set serverPort "${SERVER_PORT}" >/dev/null
+)
 
 if curl -sf "http://127.0.0.1:${SERVER_PORT}/health" >/dev/null 2>&1; then
   log "reusing healthy Chain Insights server on port ${SERVER_PORT}"
 else
   log "starting Chain Insights server on port ${SERVER_PORT}"
-  node bin/cli.js serve -p "${SERVER_PORT}" >"${RUN_DIR}/chain-insights-server.log" 2>&1 &
+  (
+    cd "${WORKSPACE_ROOT}"
+    CHAIN_INSIGHTS_WORKSPACE="${WORKSPACE_ROOT}" node "${CHAIN_INSIGHTS_CLI}" serve -p "${SERVER_PORT}"
+  ) >"${RUN_DIR}/chain-insights-server.log" 2>&1 &
   SERVER_PID="$!"
   for _ in $(seq 1 30); do
     if curl -sf "http://127.0.0.1:${SERVER_PORT}/health" >/dev/null 2>&1; then
@@ -88,7 +171,10 @@ else
 fi
 
 log "refreshing Chain Insights remote tool schema cache"
-node bin/cli.js mcp tools --refresh >"${RUN_DIR}/chain-insights-tools.txt"
+(
+  cd "${WORKSPACE_ROOT}"
+  node "${CHAIN_INSIGHTS_CLI}" mcp tools --refresh
+) >"${RUN_DIR}/chain-insights-tools.txt"
 
 DIRECT_TOOLS_JSON="${RUN_DIR}/direct-tools-list.json"
 log "checking direct GraphRAG tools/list"
@@ -105,7 +191,7 @@ const file = process.argv[2]
 const data = JSON.parse(fs.readFileSync(file, 'utf8'))
 const tools = data.tools || []
 const names = new Set(tools.map((tool) => tool.name))
-const required = ['address_risk', 'track_funds', 'money_flows_between_exchanges', 'address_connection_risk', 'graph_query']
+const required = ['address_risk', 'track_funds', 'graph_query', 'graph_query_batch']
 const missing = required.filter((name) => !names.has(name))
 if (missing.length) throw new Error(`direct tools/list missing tools: ${missing.join(', ')}`)
 if (JSON.stringify(tools).includes('app_data')) throw new Error('direct tools/list still contains app_data')
@@ -153,7 +239,7 @@ NODE
 PROXY_TOOLS_JSON="${RUN_DIR}/proxy-tools-list.json"
 log "checking Chain Insights proxy tools/list"
 npx @modelcontextprotocol/inspector \
-  --cli node bin/mcp-proxy.cjs \
+  --cli node "${CHAIN_INSIGHTS_PROXY}" \
   --transport stdio \
   --method tools/list >"${PROXY_TOOLS_JSON}"
 
@@ -163,12 +249,15 @@ const file = process.argv[2]
 const data = JSON.parse(fs.readFileSync(file, 'utf8'))
 const tools = data.tools || []
 const names = new Set(tools.map((tool) => tool.name))
-const required = ['balance', 'topup', 'help', 'address_risk', 'track_funds', 'money_flows_between_exchanges', 'address_connection_risk', 'graph_query']
+const required = ['balance', 'help', 'address_risk', 'track_funds', 'graph_query', 'graph_query_batch']
 const missing = required.filter((name) => !names.has(name))
 if (missing.length) throw new Error(`proxy tools/list missing tools: ${missing.join(', ')}`)
+for (const hidden of ['topup', 'trace_funds', 'money_flows_between_exchanges', 'address_connection_risk']) {
+  if (names.has(hidden)) throw new Error(`proxy tools/list exposed hidden tool: ${hidden}`)
+}
 if (JSON.stringify(tools).includes('app_data')) throw new Error('proxy tools/list still contains app_data')
 const graphTools = tools.filter((tool) => tool._meta?.ui?.resourceUri === 'ui://chain-insights/graph').map((tool) => tool.name)
-for (const name of ['address_risk', 'track_funds', 'money_flows_between_exchanges', 'address_connection_risk']) {
+for (const name of ['address_risk', 'track_funds']) {
   if (!graphTools.includes(name)) throw new Error(`proxy graph app metadata missing for ${name}`)
 }
 console.log(`[uat] proxy tools/list ok: ${tools.length} tools`)
@@ -177,7 +266,7 @@ NODE
 PROXY_JSON="${RUN_DIR}/proxy-address-risk.json"
 log "calling Chain Insights proxy address_risk"
 npx @modelcontextprotocol/inspector \
-  --cli node bin/mcp-proxy.cjs \
+  --cli node "${CHAIN_INSIGHTS_PROXY}" \
   --transport stdio \
   --method tools/call \
   --tool-name address_risk \
@@ -234,10 +323,12 @@ NODE
 
 GRAPH_QUERY_TEXT="${RUN_DIR}/graph-query-address.txt"
 log "calling Chain Insights CLI graph_query against real MCP"
-node bin/cli.js mcp call graph_query \
-  "network=${NETWORK}" \
-  "query=MATCH (n) WHERE n.address = '${UAT_ADDRESS}' RETURN labels(n) AS labels, n.address AS address LIMIT 1" \
-  >"${GRAPH_QUERY_TEXT}"
+(
+  cd "${WORKSPACE_ROOT}"
+  node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
+    "network=${NETWORK}" \
+    "query=MATCH (n) WHERE n.address = '${UAT_ADDRESS}' RETURN labels(n) AS labels, n.address AS address LIMIT 1"
+) >"${GRAPH_QUERY_TEXT}"
 
 node - "${GRAPH_QUERY_TEXT}" "${UAT_ADDRESS}" <<'NODE'
 const fs = require('node:fs')
@@ -268,6 +359,9 @@ Raw outputs:
 - ${PROXY_JSON}
 - ${ARTIFACT_JSON}
 - ${GRAPH_QUERY_TEXT}
+
+Workspace:
+- ${WORKSPACE_ROOT}
 EOF
 
 log "PASS"
