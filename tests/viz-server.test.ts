@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -118,12 +118,97 @@ describe('Hono viz routes (VIZ-03)', () => {
     expect(body.error).toBe('Invalid artifact ID')
   })
 
+  it('GET /artifacts/:artifactId/graph.json rejects encoded path traversal', async () => {
+    stop = await startTestServer(14408)
+    const res = await fetch('http://127.0.0.1:14408/artifacts/..%2Fsecret/graph.json')
+    expect(res.status).toBe(400)
+    const body = await res.json() as { error: string }
+    expect(body.error).toBe('Invalid artifact ID')
+  })
+
+  it('GET /artifacts/:artifactId/graph.json does not follow symlink escapes', async () => {
+    const outside = join(tmpdir(), `ci-viz-server-outside-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    await mkdir(outside, { recursive: true })
+    await writeFile(join(outside, 'graph.json'), '{"leaked":true}\n')
+    await mkdir(join(workspace, 'artifacts'), { recursive: true })
+    await symlink(outside, join(workspace, 'artifacts', 'artifact_link'))
+
+    stop = await startTestServer(14410)
+    const res = await fetch('http://127.0.0.1:14410/artifacts/artifact_link/graph.json')
+    expect(res.status).toBe(404)
+
+    await rm(outside, { recursive: true, force: true })
+  })
+
   it('GET /artifacts/:artifactId/graph.json returns 404 for missing graph artifact', async () => {
     stop = await startTestServer(14407)
     const res = await fetch('http://127.0.0.1:14407/artifacts/missing/graph.json')
     expect(res.status).toBe(404)
     const body = await res.json() as { error: string }
     expect(body.error).toBe('Graph artifact not found')
+  })
+
+  it('GET /workspace/tree returns confined workspace entries', async () => {
+    await mkdir(join(workspace, 'cases', 'case-001'), { recursive: true })
+    await mkdir(join(workspace, 'reports'), { recursive: true })
+    await mkdir(join(workspace, 'artifacts', 'artifact-001'), { recursive: true })
+    await mkdir(join(workspace, '.chain-insights', 'schema'), { recursive: true })
+    await writeFile(join(workspace, 'cases', 'case-001', 'case.md'), 'case body\n')
+    await writeFile(join(workspace, 'reports', 'summary.md'), 'summary\n')
+    await writeFile(join(workspace, 'artifacts', 'artifact-001', 'graph.json'), '{"nodes":[]}\n')
+    await writeFile(join(workspace, '.chain-insights', 'schema', 'graph.json'), '{"schema":"test"}\n')
+    await writeFile(join(workspace, '..', 'outside-secret.txt'), 'outside\n')
+
+    stop = await startTestServer(14409)
+    const res = await fetch('http://127.0.0.1:14409/workspace/tree')
+    expect(res.status).toBe(200)
+    const body = await res.json() as {
+      schema: string
+      root: string
+      entries: Array<{ path: string; type: string; size?: number }>
+    }
+
+    expect(body.schema).toBe('chain-insights.workspace-tree.v1')
+    expect(body.root).toBe(workspace)
+    expect(body.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: 'cases', type: 'directory' }),
+        expect.objectContaining({ path: 'cases/case-001/case.md', type: 'file' }),
+        expect.objectContaining({ path: 'reports/summary.md', type: 'file' }),
+        expect.objectContaining({ path: 'artifacts/artifact-001/graph.json', type: 'file' }),
+        expect.objectContaining({ path: '.chain-insights/schema/graph.json', type: 'file' }),
+      ])
+    )
+    expect(body.entries.every(entry => !entry.path.includes('outside-secret'))).toBe(true)
+    expect(body.entries.every(entry => !entry.path.startsWith('..'))).toBe(true)
+  })
+
+  it('GET /workspace/tree does not descend into symlink escapes', async () => {
+    const outside = join(tmpdir(), `ci-viz-tree-outside-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    await mkdir(outside, { recursive: true })
+    await writeFile(join(outside, 'secret.txt'), 'outside\n')
+    await mkdir(join(workspace, 'cases'), { recursive: true })
+    await symlink(outside, join(workspace, 'cases', 'case_link'))
+
+    stop = await startTestServer(14411)
+    const res = await fetch('http://127.0.0.1:14411/workspace/tree')
+    expect(res.status).toBe(200)
+    const body = await res.json() as {
+      entries: Array<{ path: string; type: string }>
+    }
+
+    expect(body.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: 'cases/case_link', type: 'symlink' }),
+      ])
+    )
+    expect(body.entries).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: 'cases/case_link/secret.txt' }),
+      ])
+    )
+
+    await rm(outside, { recursive: true, force: true })
   })
 
   it('GET /health still works after adding viz route', async () => {

@@ -4,6 +4,9 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+const srcCli = join(process.cwd(), 'src', 'cli.ts')
+const tsxLoader = join(process.cwd(), 'node_modules', 'tsx', 'dist', 'loader.mjs')
+
 describe('CLI scaffold (FOUND-02)', () => {
   it('--help prints chain-insights name', () => {
     const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
@@ -124,11 +127,22 @@ describe('CLI scaffold (FOUND-02)', () => {
     const script = `
       const http = require('node:http');
       const { spawnSync } = require('node:child_process');
+      const { mkdtempSync } = require('node:fs');
+      const { tmpdir } = require('node:os');
+      const { join } = require('node:path');
+      const srcCli = ${JSON.stringify(srcCli)};
+      const tsxLoader = ${JSON.stringify(tsxLoader)};
       const server = http.createServer((_req, res) => res.end('busy'));
       server.listen(0, '127.0.0.1', () => {
         const port = server.address().port;
-        const result = spawnSync(process.execPath, ['bin/cli.js', 'serve', '--port', String(port)], {
+        const parent = mkdtempSync(join(tmpdir(), 'chain-insights-serve-'));
+        const workspace = join(parent, 'workspace');
+        spawnSync(process.execPath, ['--import', tsxLoader, srcCli, 'init', workspace], {
           cwd: process.cwd(),
+          encoding: 'utf8',
+        });
+        const result = spawnSync(process.execPath, ['--import', tsxLoader, srcCli, 'serve', '--port', String(port)], {
+          cwd: workspace,
           encoding: 'utf8',
           timeout: 2000,
         });
@@ -147,6 +161,24 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(result.stderr).toContain('Port already in use: 127.0.0.1:')
     expect(result.stderr).not.toContain("Unhandled 'error' event")
     expect(result.stdout).not.toContain('Chain Insights server running')
+  })
+
+  it('serve requires an initialized workspace', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
+    const fakeHome = mkdtempSync(join(tmpdir(), 'chain-insights-home-'))
+    const env = { ...process.env, HOME: fakeHome, CHAIN_INSIGHTS_WORKSPACE: '' }
+    try {
+      expect(() => execFileSync(process.execPath, ['--import', tsxLoader, srcCli, 'serve', '--port', '14501'], {
+        cwd: parent,
+        encoding: 'utf8',
+        env,
+        stdio: 'pipe',
+        timeout: 2000,
+      })).toThrow(/No Chain Insights workspace found\. Run: cia init \./)
+    } finally {
+      rmSync(parent, { recursive: true, force: true })
+      rmSync(fakeHome, { recursive: true, force: true })
+    }
   })
 
   it('case list inside a workspace does not show global cases', () => {

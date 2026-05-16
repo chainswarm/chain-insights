@@ -109,8 +109,16 @@ program
   .description('Start local visualization server')
   .option('-p, --port <number>', 'Port to bind (default: 4321)', '4321')
   .action(async (opts: { port: string }) => {
-    const { startServer } = await import('./server/index.js')
-    startServer(parseInt(opts.port, 10))
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const workspaceRoot = requireWorkspaceRoot()
+      const { startServer } = await import('./server/index.js')
+      console.log(`Workspace: ${workspaceRoot}`)
+      startServer(parseInt(opts.port, 10))
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
   })
 
 program

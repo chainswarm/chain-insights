@@ -1,7 +1,86 @@
 import { Hono } from 'hono'
-import { readFile, readdir } from 'node:fs/promises'
+import { lstat, readFile, readdir, realpath } from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
+
+const WORKSPACE_TREE_ROOTS = ['cases', 'reports', 'artifacts', '.chain-insights/schema']
+const WORKSPACE_TREE_MAX_DEPTH = 4
+
+interface WorkspaceTreeEntry {
+  path: string
+  type: 'file' | 'directory' | 'symlink'
+  size?: number
+}
+
+function withinRoot(root: string, target: string): boolean {
+  const relative = path.relative(path.resolve(root), path.resolve(target))
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
+}
+
+async function realPathWithinRoot(root: string, target: string): Promise<boolean> {
+  try {
+    const [realRoot, realTarget] = await Promise.all([realpath(root), realpath(target)])
+    return withinRoot(realRoot, realTarget)
+  } catch {
+    return false
+  }
+}
+
+function toWorkspaceRelative(root: string, target: string): string {
+  return path.relative(root, target).split(path.sep).join('/')
+}
+
+async function listWorkspaceEntries(
+  workspaceRoot: string,
+  roots = WORKSPACE_TREE_ROOTS,
+  maxDepth = WORKSPACE_TREE_MAX_DEPTH
+): Promise<WorkspaceTreeEntry[]> {
+  const entries: WorkspaceTreeEntry[] = []
+  const root = path.resolve(workspaceRoot)
+
+  async function visit(target: string, depth: number): Promise<void> {
+    const resolved = path.resolve(target)
+    if (!withinRoot(root, resolved)) return
+
+    let info: Awaited<ReturnType<typeof lstat>>
+    try {
+      info = await lstat(resolved)
+    } catch {
+      return
+    }
+
+    const type = info.isSymbolicLink() ? 'symlink' : info.isDirectory() ? 'directory' : info.isFile() ? 'file' : null
+    if (!type) return
+
+    const entry: WorkspaceTreeEntry = {
+      path: toWorkspaceRelative(root, resolved),
+      type,
+    }
+    if (type === 'file') entry.size = info.size
+    entries.push(entry)
+
+    if (type !== 'directory' || depth >= maxDepth) return
+    if (!await realPathWithinRoot(root, resolved)) return
+
+    let children: string[]
+    try {
+      children = await readdir(resolved)
+    } catch {
+      return
+    }
+
+    for (const child of children.sort()) {
+      await visit(path.join(resolved, child), depth + 1)
+    }
+  }
+
+  for (const rootName of roots) {
+    const target = path.resolve(root, rootName)
+    if (withinRoot(root, target)) await visit(target, 0)
+  }
+
+  return entries
+}
 
 async function findVizHtml(vizId: string): Promise<string | null> {
   const home = os.homedir()
@@ -75,7 +154,13 @@ export function createApp(): Hono {
 
     const { workspaceOutputPaths } = await import('../workspace/output-root.js')
     const paths = workspaceOutputPaths()
-    const graphPath = path.join(paths.artifactsRoot, artifactId, 'graph.json')
+    const graphPath = path.resolve(paths.artifactsRoot, artifactId, 'graph.json')
+    if (!withinRoot(paths.artifactsRoot, graphPath)) {
+      return c.json({ error: 'Invalid artifact ID' }, 400)
+    }
+    if (!await realPathWithinRoot(paths.artifactsRoot, graphPath)) {
+      return c.json({ error: 'Graph artifact not found' }, 404)
+    }
 
     try {
       const graph = await readFile(graphPath, 'utf-8')
@@ -86,6 +171,17 @@ export function createApp(): Hono {
     } catch {
       return c.json({ error: 'Graph artifact not found' }, 404)
     }
+  })
+
+  app.get('/workspace/tree', async (c) => {
+    const { workspaceOutputPaths } = await import('../workspace/output-root.js')
+    const paths = workspaceOutputPaths()
+    const entries = await listWorkspaceEntries(paths.root, WORKSPACE_TREE_ROOTS)
+    return c.json({
+      schema: 'chain-insights.workspace-tree.v1',
+      root: paths.root,
+      entries,
+    })
   })
 
   app.onError((err, c) => {
