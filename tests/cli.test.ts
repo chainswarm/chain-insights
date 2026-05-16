@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { execFileSync, execSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -55,6 +55,12 @@ describe('CLI scaffold (FOUND-02)', () => {
   })
 
   it('mcp --help lists track-funds and hides trace-funds', () => {
+    const out = execSync('node bin/cli.js mcp --help', { encoding: 'utf8' })
+    expect(out).toContain('track-funds')
+    expect(out).not.toContain('trace-funds')
+  })
+
+  it('fund-flow CLI help exposes only track-funds', () => {
     const out = execSync('node bin/cli.js mcp --help', { encoding: 'utf8' })
     expect(out).toContain('track-funds')
     expect(out).not.toContain('trace-funds')
@@ -178,6 +184,39 @@ describe('CLI scaffold (FOUND-02)', () => {
     } finally {
       rmSync(parent, { recursive: true, force: true })
       rmSync(fakeHome, { recursive: true, force: true })
+    }
+  })
+
+  it('mcp track-funds fails before workspace init and writes nothing', () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'chain-insights-home-'))
+    const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
+    const target = join(parent, 'stolen')
+    const env = { ...process.env, HOME: fakeHome, CHAIN_INSIGHTS_WORKSPACE: '' }
+    try {
+      mkdirSync(target, { recursive: true })
+      expect(() => execFileSync(process.execPath, [
+        '--import',
+        tsxLoader,
+        srcCli,
+        'mcp',
+        'track-funds',
+        '--trusted-addresses',
+        '5GT',
+        '--network',
+        'bittensor',
+      ], {
+        cwd: target,
+        encoding: 'utf8',
+        env,
+        stdio: 'pipe',
+      })).toThrow(/No Chain Insights workspace found\. Run: cia init \./)
+      expect(existsSync(join(target, 'reports'))).toBe(false)
+      expect(existsSync(join(fakeHome, '.chain-insights', 'reports'))).toBe(false)
+      expect(existsSync(join(fakeHome, '.chain-insights', 'artifacts'))).toBe(false)
+      expect(existsSync(join(fakeHome, '.chain-insights', 'cases'))).toBe(false)
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true })
+      rmSync(parent, { recursive: true, force: true })
     }
   })
 

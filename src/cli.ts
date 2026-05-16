@@ -461,6 +461,8 @@ program
         remote?: boolean
       }) => {
         try {
+          const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+          requireWorkspaceRoot()
           await withGraphMcpClient('chain-insights-cli-track-funds', async (client, config) => {
             if (opts.remote) {
               const result = await client.callTool({
