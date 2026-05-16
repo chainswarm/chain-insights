@@ -14,9 +14,12 @@ export interface InitWorkspaceResult {
 const WORKSPACE_DIRS = [
   '.chain-insights',
   '.chain-insights/schema',
+  '.chain-insights/runtime',
   '.chain-insights/runtime-skill',
+  'artifacts',
   'cases',
   'imports',
+  'logs',
   'reports',
   'reports/graphs',
   'reports/tables',
@@ -57,13 +60,16 @@ chain-insights wallet balance
 
 \`\`\`text
 .chain-insights/   Workspace metadata
+artifacts/         Workspace-local graph app artifacts
 cases/             Case exports and notes
 imports/           External reports, CSVs, screenshots, raw notes
+logs/              Workspace-local investigation and preview logs
 reports/           Final or interim analyst reports
 reports/graphs/    Graph JSON for visualization
 reports/tables/    Compact tabular extracts
 templates/         Reusable case/report templates
 .chain-insights/schema/         Runtime graph schema captures
+.chain-insights/runtime/        Workspace-local runtime process state
 .chain-insights/runtime-skill/  Workspace-specific agent schema notes
 \`\`\`
 `
@@ -73,12 +79,16 @@ const AGENTS = `# Agent Instructions
 You are operating inside a Chain Insights investigation workspace.
 
 - Read README.md first.
+- If this directory is not initialized, run \`cia init .\` before investigation-producing commands.
+- Do not rerun init in an existing workspace unless replacing scaffolding with \`--force\`.
 - Read .chain-insights/runtime-skill/SKILL.md before graph queries.
 - Preserve full blockchain addresses exactly.
 - Do not guess the network for graph queries.
 - Capture or refresh graph schema before the first case query.
 - Save compact evidence with original graph field names.
 - Put graph JSON and analyst tables in reports/, not in dossiers.
+- Investigation output must stay in this initialized workspace.
+- Never write cases, evidence, reports, graph JSON, HTML, artifacts, schema captures, or logs to ~/.chain-insights.
 - Keep theories lightweight until evidence supports them.
 `
 
@@ -147,6 +157,9 @@ function workspaceFiles(workspaceRoot: string): Array<[string, string]> {
     ['templates/case-brief.md', CASE_BRIEF],
     ['.chain-insights/runtime-skill/SKILL.md', RUNTIME_SKILL],
     ['.chain-insights/schema/README.md', SCHEMA_README],
+    ['.chain-insights/runtime/.keep', ''],
+    ['artifacts/.keep', ''],
+    ['logs/.keep', ''],
   ]
 }
 

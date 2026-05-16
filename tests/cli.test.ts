@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { execFileSync, execSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -70,10 +70,25 @@ describe('CLI scaffold (FOUND-02)', () => {
       expect(readFileSync(join(target, '.chain-insights', 'workspace.json'), 'utf8')).toContain(
         `"workspace_root": "${target}"`
       )
-      expect(readFileSync(join(target, 'README.md'), 'utf8')).toContain('Chain Insights Investigations')
+      const readme = readFileSync(join(target, 'README.md'), 'utf8')
+      expect(readme).toContain('Chain Insights Investigations')
+      expect(readme).toContain('artifacts/         Workspace-local graph app artifacts')
+      expect(readme).toContain('logs/              Workspace-local investigation and preview logs')
+      expect(readme).toContain('.chain-insights/runtime/        Workspace-local runtime process state')
+      const agents = readFileSync(join(target, 'AGENTS.md'), 'utf8')
+      const claude = readFileSync(join(target, 'CLAUDE.md'), 'utf8')
+      for (const body of [agents, claude]) {
+        expect(body).toContain('If this directory is not initialized, run `cia init .` before investigation-producing commands.')
+        expect(body).toContain('Do not rerun init in an existing workspace unless replacing scaffolding with `--force`.')
+        expect(body).toContain('Investigation output must stay in this initialized workspace.')
+        expect(body).toContain('Never write cases, evidence, reports, graph JSON, HTML, artifacts, schema captures, or logs to ~/.chain-insights.')
+      }
       expect(readFileSync(join(target, 'templates', 'case-brief.md'), 'utf8')).toContain('# Case Brief')
       expect(readFileSync(join(target, '.chain-insights', 'runtime-skill', 'SKILL.md'), 'utf8')).toContain('Runtime Graph Schema')
       expect(readFileSync(join(target, '.chain-insights', 'schema', 'README.md'), 'utf8')).toContain('Runtime Schema Captures')
+      expect(existsSync(join(target, 'artifacts', '.keep'))).toBe(true)
+      expect(existsSync(join(target, 'logs', '.keep'))).toBe(true)
+      expect(existsSync(join(target, '.chain-insights', 'runtime', '.keep'))).toBe(true)
     } finally {
       rmSync(parent, { recursive: true, force: true })
     }
