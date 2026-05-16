@@ -7,23 +7,40 @@ import { createHash } from 'node:crypto'
 describe('EvidenceStore (CASE-02)', () => {
   let fakeHome: string
   let prevHome: string | undefined
+  let prevWorkspace: string | undefined
+  let prevCasesRoot: string | undefined
   let testCaseId: string
 
   beforeEach(async () => {
     vi.resetModules()
     fakeHome = join(tmpdir(), `ci-evidence-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
     await mkdir(join(fakeHome, '.chain-insights'), { recursive: true })
+    await writeFile(join(fakeHome, '.chain-insights', 'workspace.json'), JSON.stringify({
+      schema: 'chain-insights.workspace.v1',
+      workspace_root: fakeHome,
+      cases_dir: 'cases',
+    }) + '\n')
     prevHome = process.env['HOME']
+    prevWorkspace = process.env['CHAIN_INSIGHTS_WORKSPACE']
+    prevCasesRoot = process.env['CHAIN_INSIGHTS_CASES_ROOT']
     process.env['HOME'] = fakeHome
+    process.env['CHAIN_INSIGHTS_WORKSPACE'] = fakeHome
+    delete process.env['CHAIN_INSIGHTS_CASES_ROOT']
     const { CaseStore } = await import('../src/cases/index.js')
     const c = await CaseStore.create({ name: 'Evidence Test', tags: [], description: '' })
     testCaseId = c.id
     vi.resetModules()
-    process.env['HOME'] = fakeHome // re-set after resetModules
+    process.env['HOME'] = fakeHome
+    process.env['CHAIN_INSIGHTS_WORKSPACE'] = fakeHome
+    delete process.env['CHAIN_INSIGHTS_CASES_ROOT']
   })
 
   afterEach(async () => {
     process.env['HOME'] = prevHome
+    if (prevWorkspace === undefined) delete process.env['CHAIN_INSIGHTS_WORKSPACE']
+    else process.env['CHAIN_INSIGHTS_WORKSPACE'] = prevWorkspace
+    if (prevCasesRoot === undefined) delete process.env['CHAIN_INSIGHTS_CASES_ROOT']
+    else process.env['CHAIN_INSIGHTS_CASES_ROOT'] = prevCasesRoot
     await rm(fakeHome, { recursive: true, force: true })
     vi.resetModules()
   })
@@ -35,7 +52,7 @@ describe('EvidenceStore (CASE-02)', () => {
       content: 'Transaction data here',
       queryParams: 'address=0x1234 chain=ethereum',
     })
-    const evidenceDir = join(fakeHome, '.chain-insights', 'cases', testCaseId, 'evidence')
+    const evidenceDir = join(fakeHome, 'cases', testCaseId, 'evidence')
     const st = await stat(join(evidenceDir, result.filename))
     expect(st).toBeTruthy()
     expect(result.filename).toMatch(/^\d{3}_get_transaction_details_\d+T\d+\.md$/)
@@ -46,7 +63,7 @@ describe('EvidenceStore (CASE-02)', () => {
     const result = await EvidenceStore.append(testCaseId, {
       source: 'get_tx', content: 'data', queryParams: '',
     })
-    const evidencePath = join(fakeHome, '.chain-insights', 'cases', testCaseId, 'evidence', result.filename)
+    const evidencePath = join(fakeHome, 'cases', testCaseId, 'evidence', result.filename)
     const st = await stat(evidencePath)
     expect((st.mode & 0o777).toString(8)).toBe('600')
   })
@@ -56,14 +73,14 @@ describe('EvidenceStore (CASE-02)', () => {
     const result = await EvidenceStore.append(testCaseId, {
       source: 'get_tx', content: 'some content', queryParams: 'addr=0xabc',
     })
-    const manifestPath = join(fakeHome, '.chain-insights', 'cases', testCaseId, 'manifest.json')
+    const manifestPath = join(fakeHome, 'cases', testCaseId, 'manifest.json')
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as { entries: Array<{ file: string; sha256: string }> }
     expect(manifest.entries).toHaveLength(1)
     expect(manifest.entries[0]!.file).toBe(result.filename)
     expect(manifest.entries[0]!.sha256).toHaveLength(64)
 
     // Verify SHA-256 matches actual file content
-    const evidencePath = join(fakeHome, '.chain-insights', 'cases', testCaseId, 'evidence', result.filename)
+    const evidencePath = join(fakeHome, 'cases', testCaseId, 'evidence', result.filename)
     const content = await readFile(evidencePath, 'utf8')
     const expected = createHash('sha256').update(content).digest('hex')
     expect(manifest.entries[0]!.sha256).toBe(expected)
@@ -76,7 +93,7 @@ describe('EvidenceStore (CASE-02)', () => {
       content: '{"schema":"chain-insights.compact_evidence.v1","outgoing_flows":[]}',
       queryParams: 'network=bittensor',
     })
-    const evidencePath = join(fakeHome, '.chain-insights', 'cases', testCaseId, 'evidence', result.filename)
+    const evidencePath = join(fakeHome, 'cases', testCaseId, 'evidence', result.filename)
     const content = await readFile(evidencePath, 'utf8')
     expect(content).toContain('```json')
     expect(content).toContain('"chain-insights.compact_evidence.v1"')
@@ -86,7 +103,7 @@ describe('EvidenceStore (CASE-02)', () => {
     const { EvidenceStore } = await import('../src/cases/index.js')
     await EvidenceStore.append(testCaseId, { source: 'tool_a', content: 'data 1', queryParams: '' })
     await EvidenceStore.append(testCaseId, { source: 'tool_b', content: 'data 2', queryParams: '' })
-    const manifestPath = join(fakeHome, '.chain-insights', 'cases', testCaseId, 'manifest.json')
+    const manifestPath = join(fakeHome, 'cases', testCaseId, 'manifest.json')
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as { entries: unknown[] }
     expect(manifest.entries).toHaveLength(2)
   })
@@ -102,7 +119,7 @@ describe('EvidenceStore (CASE-02)', () => {
   it('verifyManifest() returns ok:false when file is tampered', async () => {
     const { EvidenceStore } = await import('../src/cases/index.js')
     const appended = await EvidenceStore.append(testCaseId, { source: 'get_tx', content: 'original', queryParams: '' })
-    const evidencePath = join(fakeHome, '.chain-insights', 'cases', testCaseId, 'evidence', appended.filename)
+    const evidencePath = join(fakeHome, 'cases', testCaseId, 'evidence', appended.filename)
     // Tamper with the file after it was appended
     await writeFile(evidencePath, 'TAMPERED CONTENT', { mode: 0o600 })
     const result = await EvidenceStore.verifyManifest(testCaseId)

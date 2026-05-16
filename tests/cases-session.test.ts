@@ -1,28 +1,45 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { mkdir, stat, rm, readFile, readdir } from 'node:fs/promises'
+import { mkdir, stat, rm, readFile, readdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
 describe('SessionStore (CASE-04)', () => {
   let fakeHome: string
   let prevHome: string | undefined
+  let prevWorkspace: string | undefined
+  let prevCasesRoot: string | undefined
   let testCaseId: string
 
   beforeEach(async () => {
     vi.resetModules()
     fakeHome = join(tmpdir(), `ci-session-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
     await mkdir(join(fakeHome, '.chain-insights'), { recursive: true })
+    await writeFile(join(fakeHome, '.chain-insights', 'workspace.json'), JSON.stringify({
+      schema: 'chain-insights.workspace.v1',
+      workspace_root: fakeHome,
+      cases_dir: 'cases',
+    }) + '\n')
     prevHome = process.env['HOME']
+    prevWorkspace = process.env['CHAIN_INSIGHTS_WORKSPACE']
+    prevCasesRoot = process.env['CHAIN_INSIGHTS_CASES_ROOT']
     process.env['HOME'] = fakeHome
+    process.env['CHAIN_INSIGHTS_WORKSPACE'] = fakeHome
+    delete process.env['CHAIN_INSIGHTS_CASES_ROOT']
     const { CaseStore } = await import('../src/cases/index.js')
     const c = await CaseStore.create({ name: 'Session Test', tags: [], description: '' })
     testCaseId = c.id
     vi.resetModules()
     process.env['HOME'] = fakeHome
+    process.env['CHAIN_INSIGHTS_WORKSPACE'] = fakeHome
+    delete process.env['CHAIN_INSIGHTS_CASES_ROOT']
   })
 
   afterEach(async () => {
     process.env['HOME'] = prevHome
+    if (prevWorkspace === undefined) delete process.env['CHAIN_INSIGHTS_WORKSPACE']
+    else process.env['CHAIN_INSIGHTS_WORKSPACE'] = prevWorkspace
+    if (prevCasesRoot === undefined) delete process.env['CHAIN_INSIGHTS_CASES_ROOT']
+    else process.env['CHAIN_INSIGHTS_CASES_ROOT'] = prevCasesRoot
     await rm(fakeHome, { recursive: true, force: true })
     vi.resetModules()
   })
@@ -30,7 +47,7 @@ describe('SessionStore (CASE-04)', () => {
   it('start() creates session_001.md with YAML frontmatter', async () => {
     const { SessionStore } = await import('../src/cases/index.js')
     const s = await SessionStore.start(testCaseId)
-    const caseDir = join(fakeHome, '.chain-insights', 'cases', testCaseId)
+    const caseDir = join(fakeHome, 'cases', testCaseId)
     await expect(stat(join(caseDir, 'session_001.md'))).resolves.toBeTruthy()
     expect(s.sessionId).toContain(testCaseId)
     expect(s.status).toBe('active')
@@ -41,7 +58,7 @@ describe('SessionStore (CASE-04)', () => {
     const first = await SessionStore.start(testCaseId)
     const second = await SessionStore.start(testCaseId)
     expect(second.sessionId).toBe(first.sessionId)
-    const caseDir = join(fakeHome, '.chain-insights', 'cases', testCaseId)
+    const caseDir = join(fakeHome, 'cases', testCaseId)
     const files = await readdir(caseDir)
     expect(files.filter(f => f.match(/^session_\d+\.md$/))).toEqual(['session_001.md'])
   })
@@ -52,14 +69,14 @@ describe('SessionStore (CASE-04)', () => {
     await SessionStore.end(testCaseId, { findings: 'done', nextSteps: '' })
     const second = await SessionStore.start(testCaseId)
     expect(second.sessionId).toContain('_s002')
-    const caseDir = join(fakeHome, '.chain-insights', 'cases', testCaseId)
+    const caseDir = join(fakeHome, 'cases', testCaseId)
     await expect(stat(join(caseDir, 'session_002.md'))).resolves.toBeTruthy()
   })
 
   it('start() can record an optional title', async () => {
     const { SessionStore } = await import('../src/cases/index.js')
     await SessionStore.start(testCaseId, { title: 'Initial graph reads' })
-    const caseDir = join(fakeHome, '.chain-insights', 'cases', testCaseId)
+    const caseDir = join(fakeHome, 'cases', testCaseId)
     const content = await readFile(join(caseDir, 'session_001.md'), 'utf8')
     expect(content).toContain('title: Initial graph reads')
     expect(content).toContain('# Session 1: Initial graph reads')
@@ -72,7 +89,7 @@ describe('SessionStore (CASE-04)', () => {
       findings: 'Found mixer interaction at 0xabc',
       nextSteps: 'Trace funds to exchange',
     })
-    const caseDir = join(fakeHome, '.chain-insights', 'cases', testCaseId)
+    const caseDir = join(fakeHome, 'cases', testCaseId)
     const content = await readFile(join(caseDir, 'session_001.md'), 'utf8')
     expect(content).toContain('status: ended')
     expect(content).toContain('endTime:')
@@ -104,7 +121,7 @@ describe('SessionStore (CASE-04)', () => {
       await SessionStore.end(testCaseId, { findings: `Session ${i + 1} findings`, nextSteps: '' })
     }
     await SessionStore.archiveOldSessions(testCaseId)
-    const caseDir = join(fakeHome, '.chain-insights', 'cases', testCaseId)
+    const caseDir = join(fakeHome, 'cases', testCaseId)
     // Only 5 session files should remain
     const files = await readdir(caseDir)
     const sessionFiles = files.filter(f => f.match(/^session_\d+\.md$/))
@@ -130,23 +147,40 @@ describe('SessionStore (CASE-04)', () => {
 describe('CaseStore.loadContext (CASE-04)', () => {
   let fakeHome: string
   let prevHome: string | undefined
+  let prevWorkspace: string | undefined
+  let prevCasesRoot: string | undefined
   let testCaseId: string
 
   beforeEach(async () => {
     vi.resetModules()
     fakeHome = join(tmpdir(), `ci-context-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
     await mkdir(join(fakeHome, '.chain-insights'), { recursive: true })
+    await writeFile(join(fakeHome, '.chain-insights', 'workspace.json'), JSON.stringify({
+      schema: 'chain-insights.workspace.v1',
+      workspace_root: fakeHome,
+      cases_dir: 'cases',
+    }) + '\n')
     prevHome = process.env['HOME']
+    prevWorkspace = process.env['CHAIN_INSIGHTS_WORKSPACE']
+    prevCasesRoot = process.env['CHAIN_INSIGHTS_CASES_ROOT']
     process.env['HOME'] = fakeHome
+    process.env['CHAIN_INSIGHTS_WORKSPACE'] = fakeHome
+    delete process.env['CHAIN_INSIGHTS_CASES_ROOT']
     const { CaseStore } = await import('../src/cases/index.js')
     const c = await CaseStore.create({ name: 'Context Test', tags: ['aml'], description: 'Test' })
     testCaseId = c.id
     vi.resetModules()
     process.env['HOME'] = fakeHome
+    process.env['CHAIN_INSIGHTS_WORKSPACE'] = fakeHome
+    delete process.env['CHAIN_INSIGHTS_CASES_ROOT']
   })
 
   afterEach(async () => {
     process.env['HOME'] = prevHome
+    if (prevWorkspace === undefined) delete process.env['CHAIN_INSIGHTS_WORKSPACE']
+    else process.env['CHAIN_INSIGHTS_WORKSPACE'] = prevWorkspace
+    if (prevCasesRoot === undefined) delete process.env['CHAIN_INSIGHTS_CASES_ROOT']
+    else process.env['CHAIN_INSIGHTS_CASES_ROOT'] = prevCasesRoot
     await rm(fakeHome, { recursive: true, force: true })
     vi.resetModules()
   })

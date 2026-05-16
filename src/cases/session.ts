@@ -1,11 +1,11 @@
 import { readFile, writeFile, readdir, rm } from 'node:fs/promises'
 import path from 'node:path'
-import { activeCasesRoot } from '../workspace/active.js'
+import { workspaceOutputPaths } from '../workspace/output-root.js'
 import { parseFrontmatter, serializeFrontmatter } from './frontmatter.js'
 import { type Session } from './schema.js'
 
 function caseDir(caseId: string): string {
-  return path.join(activeCasesRoot(), caseId)
+  return path.join(workspaceOutputPaths().casesRoot, caseId)
 }
 
 const MAX_SESSIONS = 5

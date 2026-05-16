@@ -1,10 +1,10 @@
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises'
 import path from 'node:path'
-import { activeCasesRoot } from '../workspace/active.js'
+import { workspaceOutputPaths } from '../workspace/output-root.js'
 import { parseFrontmatter, serializeFrontmatter } from './frontmatter.js'
 import { CaseSchema, type Case, type CaseStatus } from './schema.js'
 
-export const casesRoot = activeCasesRoot
+export const casesRoot = () => workspaceOutputPaths().casesRoot
 
 function caseDir(id: string): string {
   return path.join(casesRoot(), id)

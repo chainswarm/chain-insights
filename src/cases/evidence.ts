@@ -1,11 +1,11 @@
 import { readFile, writeFile, readdir, mkdir } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import path from 'node:path'
-import { activeCasesRoot } from '../workspace/active.js'
+import { workspaceOutputPaths } from '../workspace/output-root.js'
 import { serializeFrontmatter } from './frontmatter.js'
 
 function caseDir(caseId: string): string {
-  return path.join(activeCasesRoot(), caseId)
+  return path.join(workspaceOutputPaths().casesRoot, caseId)
 }
 
 function sanitizeSource(source: string): string {
