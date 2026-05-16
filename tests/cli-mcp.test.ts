@@ -90,6 +90,7 @@ vi.mock('@modelcontextprotocol/sdk/client/streamableHttp.js', () => ({
 async function runMcpToolsAction(opts: { refresh?: boolean } = {}): Promise<void> {
   const { loadSchema, saveSchema } = await import('../src/mcp/schema-cache.js')
   const { formatToolsTable } = await import('../src/mcp/format.js')
+  const { visibleRemoteTools } = await import('../src/mcp/tool-visibility.js')
   const { loadConfig } = await import('../src/config/index.js')
   const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import('../src/mcp/client.js')
   const config = await loadConfig()
@@ -106,7 +107,7 @@ async function runMcpToolsAction(opts: { refresh?: boolean } = {}): Promise<void
     await saveSchema(tools, graphMcpEndpoint)
     await client.close()
   }
-  console.log(formatToolsTable(tools))
+  console.log(formatToolsTable(visibleRemoteTools(tools)))
 }
 
 /**
@@ -116,7 +117,9 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
   let args: Record<string, unknown>
   try {
     const { parseMcpCallArgs } = await import('../src/mcp/call-args.js')
+    const { assertPublicMcpToolName } = await import('../src/mcp/tool-visibility.js')
     args = parseMcpCallArgs(rawArgs)
+    assertPublicMcpToolName(tool)
   } catch (err) {
     console.error((err as Error).message)
     process.exit(1)
@@ -206,10 +209,33 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     expect(mockClientListTools).not.toHaveBeenCalled()
   })
 
+  it('mcp tools — cache hit: hides stale trace_funds from public output', async () => {
+    const cachedTools = [
+      { name: 'trace_funds', description: 'Stale fund tracing tool' },
+      { name: 'money_flows_between_exchanges', description: 'Deprecated exchange flow tool' },
+      { name: 'address_connection_risk', description: 'Deprecated connection risk tool' },
+      { name: 'track_funds', description: 'Trace money flows' },
+    ]
+    mockLoadSchema.mockResolvedValue(cachedTools)
+    mockFormatToolsTable.mockReturnValue('track_funds  Trace money flows')
+
+    await runMcpToolsAction()
+
+    expect(mockFormatToolsTable).toHaveBeenCalledWith([
+      { name: 'track_funds', description: 'Trace money flows' },
+    ])
+    expect(consoleLogSpy).toHaveBeenCalledWith('track_funds  Trace money flows')
+  })
+
   // ─── mcp tools — cache miss + wallet configured ────────────────────────────
 
   it('mcp tools — cache miss: fetches schema from remote, saves to cache, prints', async () => {
-    const remoteTools = [{ name: 'trace-funds', description: 'Trace money flows' }]
+    const remoteTools = [
+      { name: 'trace_funds', description: 'Stale fund tracing tool' },
+      { name: 'money_flows_between_exchanges', description: 'Deprecated exchange flow tool' },
+      { name: 'address_connection_risk', description: 'Deprecated connection risk tool' },
+      { name: 'track_funds', description: 'Trace money flows' },
+    ]
     mockLoadSchema.mockResolvedValue(null) // cache miss
     mockIsWalletConfigured.mockResolvedValue(true)
     mockDecryptKey.mockResolvedValue('0xdeadbeef')
@@ -219,7 +245,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     mockClientListTools.mockResolvedValue({ tools: remoteTools })
     mockSaveSchema.mockResolvedValue(undefined)
     mockClientClose.mockResolvedValue(undefined)
-    mockFormatToolsTable.mockReturnValue('trace-funds  Trace money flows')
+    mockFormatToolsTable.mockReturnValue('track_funds  Trace money flows')
 
     await runMcpToolsAction()
 
@@ -230,8 +256,10 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     expect(mockClientListTools).toHaveBeenCalledOnce()
     expect(mockSaveSchema).toHaveBeenCalledWith(remoteTools, 'http://localhost:4000')
     expect(mockClientClose).toHaveBeenCalledOnce()
-    expect(mockFormatToolsTable).toHaveBeenCalledWith(remoteTools)
-    expect(consoleLogSpy).toHaveBeenCalledWith('trace-funds  Trace money flows')
+    expect(mockFormatToolsTable).toHaveBeenCalledWith([
+      { name: 'track_funds', description: 'Trace money flows' },
+    ])
+    expect(consoleLogSpy).toHaveBeenCalledWith('track_funds  Trace money flows')
   })
 
   // ─── mcp tools — missing wallet ───────────────────────────────────────────
@@ -356,6 +384,35 @@ describe('CLI mcp subcommand (MCP-02)', () => {
       name: 'wallet-risk',
       arguments: { id: '001', amount: '10' },
     })
+  })
+
+  it('mcp call parses track_funds numeric controls', async () => {
+    const { parseMcpCallArgs } = await import('../src/mcp/call-args.js')
+
+    expect(parseMcpCallArgs([
+      'trusted_addresses=5Seed',
+      'network=bittensor',
+      'max_hops=8',
+      'per_address_limit=10',
+      'min_amount_sum=1.5',
+    ])).toEqual({
+      trusted_addresses: '5Seed',
+      network: 'bittensor',
+      max_hops: 8,
+      per_address_limit: 10,
+      min_amount_sum: 1.5,
+    })
+  })
+
+  it('mcp call rejects stale trace_funds before remote passthrough', async () => {
+    await expect(runMcpCallAction('trace_funds', ['trusted_addresses=5Seed', 'network=bittensor']))
+      .rejects.toThrow('process.exit(1)')
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "MCP tool 'trace_funds' is not exposed by Chain Insights. Use track_funds instead.",
+    )
+    expect(mockClientConnect).not.toHaveBeenCalled()
+    expect(mockClientCallTool).not.toHaveBeenCalled()
   })
 
   it('mcp call prints model-visible content only', async () => {

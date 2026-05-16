@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { appendFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -10,6 +11,7 @@ import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from '@model
 import * as z from 'zod'
 import type { InvestigatorConfig } from '../config/schema.js'
 import type { McpTool } from './schema-cache.js'
+import { HIDDEN_REMOTE_TOOL_NAMES } from './tool-visibility.js'
 
 const LOCAL_TOOL_NAMES = new Set([
   'balance',
@@ -22,22 +24,17 @@ const LOCAL_TOOL_NAMES = new Set([
   'case_update_dossier',
   'case_start_session',
   'case_end_session',
-  'trace_funds',
 ])
-const HIDDEN_REMOTE_TOOL_NAMES = new Set(['topup'])
 const PUBLIC_GRAPHRAG_PROMPT_NAMES = new Set(['address-risk', 'track-funds'])
 const GRAPH_RESOURCE_URI = 'ui://chain-insights/graph'
 const GRAPH_APP_TOOL_NAMES = new Set([
   'address_risk',
   'track_funds',
-  'money_flows_between_exchanges',
-  'address_connection_risk',
 ])
 const GRAPH_ARRAY_KEYS = ['nodes', 'edges', 'flows', 'edge_anchors'] as const
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const COMMA_SEPARATED_ADDRESS_FIELDS = new Set([
-  'addresses',
   'trusted_addresses',
   'untrusted_addresses',
 ])
@@ -45,23 +42,24 @@ const COMMA_SEPARATED_ADDRESS_FIELDS = new Set([
 const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
   address_risk: ['address', 'network'],
   track_funds: ['trusted_addresses', 'network'],
-  money_flows_between_exchanges: ['addresses', 'network'],
-  address_connection_risk: ['from_address', 'to_address', 'network'],
   graph_query: ['query', 'network'],
   graph_query_batch: ['network', 'queries'],
 }
 
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
-  address_risk: 'Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. Use this as the first tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.',
+  address_risk: 'Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. This includes the exchange-behavior analysis formerly covered by money_flows_between_exchanges. Use this as the first tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.',
   track_funds: 'Trace funds from trusted victim/source addresses through intermediaries to exchange deposit addresses. Use this when the user has a victim/source address or known untrusted/scammer addresses. The tool returns an investigator-ready fund-flow report and recommended next actions.',
-  money_flows_between_exchanges: 'Inspect exchange deposits, withdrawals, and bidirectional fund-flow paths for one or more addresses. Use this when all supplied addresses should be treated equally and there is no victim/scammer trust distinction. The tool returns an investigator-ready exchange contact report.',
-  address_connection_risk: 'Assess whether two full blockchain addresses are connected through risky paths and whether that connection matters for AML review. Use this when the user provides a source address and target address. The tool returns an investigator-ready connection-risk summary.',
   graph_query: 'Run a read-only Cypher query against the Chain Insights graph database for schema discovery, aggregate counts, or custom graph inspection. Use only read-only queries and return full address strings exactly.',
   graph_query_batch: 'Run multiple read-only Cypher queries against the Chain Insights graph database through the paid graph primitive. Each query has a 10-second per-query timeout, and related queries should be grouped into one batch.',
-  trace_funds: 'Trace outbound FLOWS_TO paths from a seed address to exchange deposit candidates. Stops one hop before Exchange-labeled nodes, never traverses through exchanges, writes compact evidence plus graph/table/report artifacts, and returns deposit candidates plus continuation hints.',
 }
 
 type ToolInputShape = Record<string, z.ZodTypeAny>
+type ToolHandler = (args: unknown, extra?: unknown) => Promise<unknown> | unknown
+type ToolRegistrationConfig = Parameters<McpServer['registerTool']>[1]
+type ToolCallInput = { name: string; arguments?: Record<string, unknown> }
+type RemoteToolCaller = {
+  callTool(input: ToolCallInput): Promise<unknown>
+}
 
 const NETWORK_DESCRIPTION = 'Required network to query: bittensor, ethereum, or base. Do not guess; ask the user if missing.'
 
@@ -69,7 +67,7 @@ const CHAIN_INSIGHTS_WORKFLOW = [
   'Workflow:',
   '1. If the user is starting or continuing an investigation, use case_open or case_list/case_resume first.',
   '2. Do not call investigation tools until required arguments are known. Network is required; ask for bittensor, ethereum, or base if missing.',
-  '3. Use address_risk first for a single address. Use track_funds for victim/source fund tracing. Use money_flows_between_exchanges when no victim/scammer trust distinction is known. Use address_connection_risk when the user gives two addresses. Use graph_query only for explicit read-only Cypher or custom aggregates; use graph_query_batch for related custom reads that should share one paid call.',
+  '3. Use address_risk first for a single address, including exchange-behavior analysis. Use address_risk with compare_address when the user gives two addresses. Use track_funds for victim/source fund tracing with optional known scammer addresses. Use graph_query only for explicit read-only Cypher or custom aggregates; use graph_query_batch for related custom reads that should share one paid call.',
   '4. After a material result, preserve it with case_add_evidence when a case is active or ask whether to create/select a case.',
   '5. Use case_update_dossier for durable address/entity findings and case_start_session/case_end_session for session notes.',
 ].join('\n')
@@ -175,19 +173,6 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
         untrusted_addresses: z.string().optional().describe('Comma-separated full untrusted/scammer addresses. Max 5.'),
         include_attachments: z.boolean().optional().describe('Include graph app artifact metadata'),
       }
-    case 'money_flows_between_exchanges':
-      return {
-        addresses: z.string().min(1).describe('Comma-separated full addresses to trace. Min 1, max 5.'),
-        network: z.string().min(1).describe(NETWORK_DESCRIPTION),
-        include_attachments: z.boolean().optional().describe('Include graph app artifact metadata'),
-      }
-    case 'address_connection_risk':
-      return {
-        from_address: z.string().min(1).describe('Full source blockchain address'),
-        to_address: z.string().min(1).describe('Full target blockchain address'),
-        network: z.string().min(1).describe(NETWORK_DESCRIPTION),
-        include_attachments: z.boolean().optional().describe('Include graph app artifact metadata'),
-      }
     case 'graph_query':
       return {
         query: z.string().min(1).describe('Read-only Cypher query'),
@@ -209,6 +194,153 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function redactLogValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactLogValue)
+  if (!isRecord(value)) return value
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => {
+    if (/token|secret|password|private.?key|authorization/i.test(key)) return [key, '[redacted]']
+    return [key, redactLogValue(entry)]
+  }))
+}
+
+function errorForLog(err: unknown): Record<string, unknown> {
+  const error = err as Error
+  return {
+    name: error.name ?? 'Error',
+    message: error.message ?? String(err),
+  }
+}
+
+function sanitizeCypher(query: string): string {
+  return query.replace(/\s+/g, ' ').trim()
+}
+
+function cypherLogPayload(tool: string, args: unknown): Record<string, unknown> | null {
+  if (!isRecord(args)) return null
+  if (tool === 'graph_query') {
+    return {
+      network: args.network,
+      queries: [{
+        id: 'graph_query',
+        query: typeof args.query === 'string' ? sanitizeCypher(args.query) : args.query,
+      }],
+    }
+  }
+  if (tool === 'graph_query_batch') {
+    const queries = Array.isArray(args.queries) ? args.queries : []
+    return {
+      network: args.network,
+      per_query_timeout_seconds: args.per_query_timeout_seconds,
+      query_count: queries.length,
+      queries: queries.map((entry, index) => isRecord(entry)
+        ? {
+            id: typeof entry.id === 'string' ? entry.id : `q${index + 1}`,
+            query: typeof entry.query === 'string' ? sanitizeCypher(entry.query) : entry.query,
+          }
+        : { id: `q${index + 1}`, query: entry }),
+    }
+  }
+  return null
+}
+
+function createMcpLogger(config: Pick<InvestigatorConfig, 'dataDir'>) {
+  const disabled = process.env.CHAIN_INSIGHTS_MCP_LOG === '0'
+  const filePath = process.env.CHAIN_INSIGHTS_MCP_LOG_PATH?.trim() || path.join(config.dataDir, 'logs', 'mcp-proxy.jsonl')
+
+  async function write(level: 'info' | 'error', event: string, fields: Record<string, unknown> = {}): Promise<void> {
+    if (disabled) return
+    try {
+      await mkdir(path.dirname(filePath), { recursive: true })
+      await appendFile(filePath, JSON.stringify({
+        ts: new Date().toISOString(),
+        level,
+        event,
+        pid: process.pid,
+        ...fields,
+      }) + '\n', { mode: 0o600 })
+    } catch {
+      // Logging must never break the stdio MCP server.
+    }
+  }
+
+  return {
+    filePath,
+    info: (event: string, fields?: Record<string, unknown>) => write('info', event, fields),
+    error: (event: string, fields?: Record<string, unknown>) => write('error', event, fields),
+  }
+}
+
+function installToolLogging(server: McpServer, logger: ReturnType<typeof createMcpLogger>): void {
+  const existingRegisterTool = server.registerTool
+  const originalRegisterTool = existingRegisterTool.bind(server)
+  const wrappedRegisterTool = ((name: string, config: ToolRegistrationConfig, handler: ToolHandler) => {
+    const wrapped: ToolHandler = async (args, extra) => {
+      const startedAt = Date.now()
+      await logger.info('tool.start', {
+        tool: name,
+        args: redactLogValue(args),
+      })
+      try {
+        const result = await handler(args, extra)
+        const isError = isRecord(result) && result.isError === true
+        await logger.info('tool.end', {
+          tool: name,
+          duration_ms: Date.now() - startedAt,
+          is_error: isError,
+        })
+        return result
+      } catch (err) {
+        await logger.error('tool.throw', {
+          tool: name,
+          duration_ms: Date.now() - startedAt,
+          error: errorForLog(err),
+        })
+        throw err
+      }
+    }
+    return originalRegisterTool(name, config, wrapped as never)
+  }) as typeof server.registerTool
+  Object.assign(wrappedRegisterTool, existingRegisterTool)
+  server.registerTool = wrappedRegisterTool
+}
+
+function installRemoteCypherLogging(remoteClient: RemoteToolCaller, logger: ReturnType<typeof createMcpLogger>): void {
+  const existingCallTool = remoteClient.callTool
+  const originalCallTool = existingCallTool.bind(remoteClient)
+  const wrappedCallTool = (async (input: ToolCallInput) => {
+    const queryPayload = cypherLogPayload(input.name, input.arguments)
+    const startedAt = Date.now()
+    if (queryPayload) {
+      await logger.info('cypher.start', {
+        tool: input.name,
+        ...queryPayload,
+      })
+    }
+    try {
+      const result = await originalCallTool(input)
+      if (queryPayload) {
+        await logger.info('cypher.end', {
+          tool: input.name,
+          duration_ms: Date.now() - startedAt,
+          is_error: isRecord(result) && result.isError === true,
+        })
+      }
+      return result
+    } catch (err) {
+      if (queryPayload) {
+        await logger.error('cypher.throw', {
+          tool: input.name,
+          duration_ms: Date.now() - startedAt,
+          error: errorForLog(err),
+        })
+      }
+      throw err
+    }
+  }) as typeof remoteClient.callTool
+  Object.assign(wrappedCallTool, existingCallTool)
+  remoteClient.callTool = wrappedCallTool
 }
 
 function isBlankArgument(value: unknown): boolean {
@@ -383,52 +515,6 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
       },
     )
   }
-
-  server.registerPrompt(
-    'money-flows-between-exchanges',
-    {
-      title: 'Money Flows Between Exchanges',
-      description: 'Find exchange deposits, withdrawals, and bidirectional fund-flow paths for one or more addresses.',
-      argsSchema: {
-        addresses: z.string().describe('One or more full blockchain addresses, comma-separated'),
-        network: z.string().describe(NETWORK_DESCRIPTION),
-      },
-    },
-    async ({ addresses, network }) => promptResult(
-      [
-        `Use Chain Insights money_flows_between_exchanges on ${network} for these addresses:`,
-        '',
-        addresses,
-        '',
-        'Present the exchange contact table as-is. Show every blockchain address as the full exact string.',
-      ].join('\n'),
-      'Exchange flow tracing',
-    ),
-  )
-
-  server.registerPrompt(
-    'address-connection-risk',
-    {
-      title: 'Address Connection Risk',
-      description: 'Assess whether two addresses are connected and whether that connection is risky.',
-      argsSchema: {
-        from_address: z.string().describe('Full source blockchain address'),
-        to_address: z.string().describe('Full target blockchain address'),
-        network: z.string().describe(NETWORK_DESCRIPTION),
-      },
-    },
-    async ({ from_address, to_address, network }) => promptResult(
-      [
-        `Use Chain Insights address_connection_risk on ${network}.`,
-        '',
-        `from_address: \`${from_address}\``,
-        `to_address: \`${to_address}\``,
-        '',
-        'Present the summary as-is. Do not add analysis, verdicts, or risk assessments.',
-      ].join('\n'),
-      'Address connection risk',
-    ),
-  )
 
   server.registerPrompt(
     'graph-query',
@@ -660,10 +746,24 @@ async function normalizeRemoteToolResult(
 export async function createProxy(): Promise<void> {
   // Lazy imports to avoid module-load side effects (critical for stdio proxy)
   const { loadConfig } = await import('../config/index.js')
+  const { activeDataDir, findActiveWorkspace } = await import('../workspace/active.js')
   const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import('./client.js')
   const { loadSchema, saveSchema } = await import('./schema-cache.js')
 
-  const config = await loadConfig()
+  const loadedConfig = await loadConfig()
+  const activeWorkspace = findActiveWorkspace()
+  const config = {
+    ...loadedConfig,
+    dataDir: activeDataDir(loadedConfig.dataDir),
+  }
+  const logger = createMcpLogger(config)
+  await logger.info('proxy.start', {
+    data_dir: config.dataDir,
+    workspace_root: activeWorkspace?.root,
+    graph_mcp_mode: config.graphMcpMode,
+    graph_mcp_endpoint: resolveGraphMcpEndpoint(config),
+    log_path: logger.filePath,
+  })
   const mcpFetch = await createConfiguredGraphMcpFetch(config)
   const graphMcpEndpoint = resolveGraphMcpEndpoint(config)
 
@@ -675,20 +775,38 @@ export async function createProxy(): Promise<void> {
     await remoteClient.connect(
       new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: mcpFetch }),
     )
+    await logger.info('remote.connect', {
+      transport: 'streamable_http',
+      endpoint: graphMcpEndpoint,
+    })
   } catch {
+    await logger.error('remote.connect_failed', {
+      transport: 'streamable_http',
+      endpoint: graphMcpEndpoint,
+    })
     // StreamableHTTP failed — try SSE fallback (assumption A1 from RESEARCH.md)
     try {
       const { SSEClientTransport } = await import('@modelcontextprotocol/sdk/client/sse.js')
       await remoteClient.connect(
         new SSEClientTransport(new URL(graphMcpEndpoint), { fetch: mcpFetch }),
       )
+      await logger.info('remote.connect', {
+        transport: 'sse',
+        endpoint: graphMcpEndpoint,
+      })
     } catch (err2) {
+      await logger.error('remote.connect_failed', {
+        transport: 'sse',
+        endpoint: graphMcpEndpoint,
+        error: errorForLog(err2),
+      })
       process.stderr.write(
         `Chain Insights MCP unreachable at ${graphMcpEndpoint}: ${(err2 as Error).message}\n`,
       )
       process.exit(1)
     }
   }
+  installRemoteCypherLogging(remoteClient as unknown as RemoteToolCaller, logger)
 
   // Schema cache check — skip remote listTools call on cache hit
   let tools: McpTool[] | null = await loadSchema(graphMcpEndpoint)
@@ -698,13 +816,24 @@ export async function createProxy(): Promise<void> {
     const result = await remoteClient.listTools()
     tools = result.tools as McpTool[]
     await saveSchema(tools, graphMcpEndpoint)
+    await logger.info('schema.tools_loaded', {
+      source: 'remote',
+      count: tools.length,
+    })
+  } else {
+    await logger.info('schema.tools_loaded', {
+      source: 'cache',
+      count: tools.length,
+    })
   }
+  const remoteToolNames = new Set((tools ?? []).map((tool) => tool.name))
 
   // Build local stdio proxy server
   const server = new McpServer(
     { name: 'chain-insights', version: '0.1.0' },
     { instructions: SERVER_INSTRUCTIONS },
   )
+  installToolLogging(server, logger)
 
   const remotePrompts: Prompt[] = []
   try {
@@ -715,6 +844,10 @@ export async function createProxy(): Promise<void> {
       }
     }
   } catch (err) {
+    await logger.error('remote.prompts_failed', {
+      endpoint: graphMcpEndpoint,
+      error: errorForLog(err),
+    })
     process.stderr.write(
       `Chain Insights MCP prompt passthrough unavailable at ${graphMcpEndpoint}: ${(err as Error).message}\n`,
     )
@@ -818,6 +951,7 @@ export async function createProxy(): Promise<void> {
           tags: parseTags(tags),
           description: description ?? '',
         })
+        const { casesRoot } = await import('../cases/store.js')
         return {
           content: [{
             type: 'text' as const,
@@ -826,7 +960,7 @@ export async function createProxy(): Promise<void> {
               name: created.name,
               status: created.status,
               tags: created.tags,
-              directory: `~/.chain-insights/cases/${created.id}/`,
+              directory: `${path.join(casesRoot(), created.id)}/`,
             }, null, 2),
           }],
           isError: false,
@@ -1050,77 +1184,135 @@ export async function createProxy(): Promise<void> {
     },
   )
 
-  registerAppTool(
-    server,
-    'trace_funds',
-    {
-      title: 'Trace Funds',
-      description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.trace_funds,
-      inputSchema: {
-        seed_address: z.string().min(1).describe('Full source/victim/scammer address to trace from'),
-        network: z.string().min(1).describe(NETWORK_DESCRIPTION),
-        case_id: z.string().optional().describe('Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest.'),
-        max_hops: z.number().int().min(1).max(5).optional().describe('Maximum outbound FLOWS_TO hops to search for exchange deposit candidates. Default 3, max 5.'),
-        per_address_limit: z.number().int().min(1).max(10).optional().describe('Maximum outgoing flows to keep per frontier address. Default 5, max 10.'),
-        min_amount_sum: z.number().min(0).optional().describe('Optional minimum r.amount_sum threshold for each traced FLOWS_TO edge.'),
-      },
-      _meta: {
-        ui: {
-          resourceUri: GRAPH_RESOURCE_URI,
+  if (!remoteToolNames.has('address_risk')) {
+    registerAppTool(
+      server,
+      'address_risk',
+      {
+        title: 'Address Risk',
+        description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.address_risk,
+        inputSchema: {
+          address: z.string().min(1).describe('Full blockchain address to screen'),
+          network: z.string().min(1).describe(NETWORK_DESCRIPTION),
+          compare_address: z.string().optional().describe('Optional second full address for comparison'),
+          include_attachments: z.boolean().optional().describe('Include graph app artifact metadata'),
+        },
+        _meta: {
+          ui: {
+            resourceUri: GRAPH_RESOURCE_URI,
+          },
+        },
+        annotations: {
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: true,
         },
       },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: false,
-        openWorldHint: true,
-      },
-    },
-    async ({ seed_address, network, case_id, max_hops, per_address_limit, min_amount_sum }) => {
-      try {
-        const { traceFunds } = await import('../investigation/trace-funds.js')
-        const { writeGraphArtifact } = await import('./artifacts.js')
-        const { ensureArtifactServer } = await import('./artifact-server.js')
-        const trace = await traceFunds(remoteClient, config, {
-          seedAddress: seed_address,
-          network,
-          caseId: case_id,
-          maxHops: max_hops,
-          perAddressLimit: per_address_limit,
-          minAmountSum: min_amount_sum,
-        })
-        const artifact = await writeGraphArtifact(trace.graphData as never, config)
-        await ensureArtifactServer(config.serverPort)
-        return {
-          content: [{ type: 'text' as const, text: trace.summaryText }],
-          structuredContent: {
-            files: trace.files,
-            continuation: trace.continuation,
-            facts: {
-              flow_count: Array.isArray((trace.compactEvidence as { outgoing_flows?: unknown[] }).outgoing_flows)
-                ? (trace.compactEvidence as { outgoing_flows: unknown[] }).outgoing_flows.length
-                : 0,
-            },
-          },
-          _meta: {
-            chainInsights: {
-              graph: {
-                schema: artifact.schema,
-                id: artifact.id,
-                url: artifact.url,
+      async ({ address, network, compare_address }) => {
+        try {
+          const { addressRisk } = await import('../investigation/public-tools.js')
+          const { writeGraphArtifact } = await import('./artifacts.js')
+          const { ensureArtifactServer } = await import('./artifact-server.js')
+          const result = await addressRisk(remoteClient, {
+            address,
+            network,
+            compareAddress: compare_address,
+          })
+          const artifact = await writeGraphArtifact(result.graphData as never, config)
+          await ensureArtifactServer(config.serverPort)
+          return {
+            content: [{ type: 'text' as const, text: result.summaryText }],
+            structuredContent: result.structuredContent,
+            _meta: {
+              chainInsights: {
+                graph: {
+                  schema: artifact.schema,
+                  id: artifact.id,
+                  url: artifact.url,
+                },
               },
             },
+            isError: false,
+          }
+        } catch (err) {
+          return {
+            content: [{ type: 'text' as const, text: `Address risk failed: ${(err as Error).message}` }],
+            isError: true,
+          }
+        }
+      },
+    )
+  }
+
+  if (!remoteToolNames.has('track_funds')) {
+    registerAppTool(
+      server,
+      'track_funds',
+      {
+        title: 'Track Funds',
+        description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.track_funds,
+        inputSchema: {
+          trusted_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe('Comma-separated full trusted victim addresses, or an array. Min 1, max 5.'),
+          network: z.string().min(1).describe(NETWORK_DESCRIPTION),
+          untrusted_addresses: z.union([z.string(), z.array(z.string())]).optional().describe('Known scammer/untrusted addresses. Max 5.'),
+          include_attachments: z.boolean().optional().describe('Include graph app artifact metadata'),
+          case_id: z.string().optional().describe('Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest.'),
+          max_hops: z.number().int().min(1).max(5).optional(),
+          per_address_limit: z.number().int().min(1).max(10).optional(),
+          min_amount_sum: z.number().min(0).optional(),
+        },
+        _meta: {
+          ui: {
+            resourceUri: GRAPH_RESOURCE_URI,
           },
-          isError: false,
+        },
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          idempotentHint: false,
+          openWorldHint: true,
+        },
+      },
+      async ({ trusted_addresses, untrusted_addresses, network, case_id, max_hops, per_address_limit, min_amount_sum }) => {
+        try {
+          const { trackFunds } = await import('../investigation/public-tools.js')
+          const { writeGraphArtifact } = await import('./artifacts.js')
+          const { ensureArtifactServer } = await import('./artifact-server.js')
+          const result = await trackFunds(remoteClient, config, {
+            trustedAddresses: trusted_addresses,
+            untrustedAddresses: untrusted_addresses,
+            network,
+            caseId: case_id,
+            maxHops: max_hops,
+            perAddressLimit: per_address_limit,
+            minAmountSum: min_amount_sum,
+          })
+          const artifact = await writeGraphArtifact(result.graphData as never, config)
+          await ensureArtifactServer(config.serverPort)
+          return {
+            content: [{ type: 'text' as const, text: result.summaryText }],
+            structuredContent: result.structuredContent,
+            _meta: {
+              chainInsights: {
+                graph: {
+                  schema: artifact.schema,
+                  id: artifact.id,
+                  url: artifact.url,
+                },
+              },
+            },
+            isError: false,
+          }
+        } catch (err) {
+          return {
+            content: [{ type: 'text' as const, text: `Track funds failed: ${(err as Error).message}` }],
+            isError: true,
+          }
         }
-      } catch (err) {
-        return {
-          content: [{ type: 'text' as const, text: `Trace funds failed: ${(err as Error).message}` }],
-          isError: true,
-        }
-      }
-    },
-  )
+      },
+    )
+  }
 
   server.registerTool(
     'help',
@@ -1138,13 +1330,10 @@ export async function createProxy(): Promise<void> {
             CHAIN_INSIGHTS_WORKFLOW,
             '',
             'Investigation tools:',
-            '- address_risk: screen a full address for AML risk, behavior, neighborhood, and exchange exposure.',
-            '- track_funds: trace victim funds through intermediaries to exchange deposit addresses.',
-            '- money_flows_between_exchanges: inspect exchange deposits and withdrawals for addresses.',
-            '- address_connection_risk: assess whether from_address and to_address are connected through risky paths.',
+            '- address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.',
+            '- track_funds: trace up to five trusted/victim addresses plus up to five known untrusted/scammer addresses through intermediaries to exchange deposit addresses.',
             '- graph_query: run read-only Cypher against the investigation graph.',
             '- graph_query_batch: run related read-only Cypher queries through one paid graph call.',
-            '- trace_funds: trace outbound FLOWS_TO paths to exchange deposit candidates, write graph/report artifacts, and return continuation hints.',
             '',
             'Case workflow tools:',
             '- case_open: create a local case before preserving evidence.',
@@ -1220,14 +1409,21 @@ export async function createProxy(): Promise<void> {
   // Connect to stdio transport — after this line, stdout belongs to MCP
   const transport = new StdioServerTransport()
   await server.connect(transport)
+  await logger.info('proxy.ready', {
+    tools: [
+      ...LOCAL_TOOL_NAMES,
+      ...(tools ?? []).map((tool) => tool.name).filter((name) => !HIDDEN_REMOTE_TOOL_NAMES.has(name) && !LOCAL_TOOL_NAMES.has(name)),
+    ].length,
+  })
 
   // Signal handling — clean shutdown
-  const shutdown = () => {
+  const shutdown = async () => {
+    await logger.info('proxy.shutdown')
     transport.close()
     process.exit(0)
   }
-  process.on('SIGINT', shutdown)
-  process.on('SIGTERM', shutdown)
+  process.on('SIGINT', () => { void shutdown() })
+  process.on('SIGTERM', () => { void shutdown() })
 }
 
 // Entry point — only execute when run as the main module (not when imported by tests)

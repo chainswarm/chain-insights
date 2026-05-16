@@ -1,4 +1,9 @@
-const NUMERIC_ARG_KEYS = new Set(['per_query_timeout_seconds'])
+const NUMERIC_ARG_KEYS = new Set([
+  'per_query_timeout_seconds',
+  'max_hops',
+  'per_address_limit',
+  'min_amount_sum',
+])
 
 function parseMcpArgValue(key: string, value: string): unknown {
   const trimmed = value.trim()

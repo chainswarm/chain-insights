@@ -61,7 +61,7 @@ const TRACE_FUNDS_PLAYBOOK: PlaybookDefinition = {
   version: '1.0.0',
   params: [],
   steps: [
-    { index: 1, label: 'Step 1: Trace', tool: 'trace_funds', params: { address: '0xabc' } },
+    { index: 1, label: 'Step 1: Trace', tool: 'track_funds', params: { trusted_addresses: '0xabc' } },
   ],
 }
 
@@ -82,7 +82,7 @@ describe('PlaybookRunner', () => {
         tools: [
           { name: 'blockchain_query' },
           { name: 'risk_score' },
-          { name: 'trace_funds' },
+          { name: 'track_funds' },
         ],
       }),
       callTool: vi.fn().mockResolvedValue({

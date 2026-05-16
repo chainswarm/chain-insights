@@ -76,13 +76,30 @@ cia debug off
 - Use read-only Cypher only: no `CREATE`, `MERGE`, `SET`, `DELETE`, `REMOVE`, `DROP`, or `DETACH`.
 - Bound graph reads with `LIMIT`.
 
-## Query And Evidence Loop
+## Tool Selection
 
-For stolen-funds tracing or ordinary outbound money movement, prefer the
-`trace_funds` tool from the `chain-insights-trace-funds` skill. It
-captures schema, follows bounded `FLOWS_TO` hops, writes graph/table/report
-files, saves compact evidence when given a case, and returns continuation
-addresses. Use manual `graph_query_batch` only for custom questions or fallback.
+Use `address_risk` first for ordinary address screening. It measures risk,
+neighborhood context, and exchange behavior together, including exchange inflow
+and outflow paths. Do not use `money_flows_between_exchanges` as a separate
+primary workflow; that behavior belongs in `address_risk`.
+
+Use `address_risk` with `compare_address` when the user asks whether two
+addresses are connected or whether a relationship is risky. Do not use
+`address_connection_risk` as a separate primary workflow; compare mode is the
+unified connection-risk path.
+
+Use `track_funds` when the user has victim/source addresses and may also have
+known scammer addresses. It accepts up to five `trusted_addresses` and up to
+five `untrusted_addresses`, preserves those roles, and traces each through the
+local tracing engine.
+
+Use `track_funds` for single-address fund-flow tracing by passing one address
+as `trusted_addresses`. Do not call `trace_funds`; that name is private
+implementation detail, not a public agent tool.
+
+Use manual `graph_query_batch` only for custom questions or fallback.
+
+## Query And Evidence Loop
 
 Default to compact evidence. Preserve source schema field names and avoid adding
 derived aliases or unit labels unless the schema or query result explicitly

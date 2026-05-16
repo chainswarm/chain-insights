@@ -20,12 +20,14 @@ program
   .description('AML investigation toolkit for blockchain analysis')
   .version(pkg.version)
   .option('--claude', 'Install Claude Code skills globally to ~/.claude/skills/')
+  .option('--codex', 'Install Codex skills globally to ~/.codex/skills/ and register MCP')
 
-// Handle --claude when invoked with no subcommand (bare `chain-insights --claude`)
+// Handle installer flags when invoked with no subcommand (bare `chain-insights --claude`)
 const rawArgs = process.argv.slice(2)
-if (rawArgs.includes('--claude') && !rawArgs.some(a => !a.startsWith('-'))) {
+const installerFlags = rawArgs.filter(a => a === '--claude' || a === '--codex')
+if (installerFlags.length > 0 && !rawArgs.some(a => !a.startsWith('-'))) {
   try {
-    execFileSync(process.execPath, [installerPath, '--claude'], { stdio: 'inherit' })
+    execFileSync(process.execPath, [installerPath, ...installerFlags], { stdio: 'inherit' })
   } catch (err) {
     console.error('Installation failed:', (err as Error).message)
     process.exit(1)
@@ -33,9 +35,20 @@ if (rawArgs.includes('--claude') && !rawArgs.some(a => !a.startsWith('-'))) {
   process.exit(0)
 }
 
+if (rawArgs[0] === 'mcp' && rawArgs[1] === 'trace-funds') {
+  console.error("error: unknown command 'trace-funds'")
+  process.exit(1)
+}
+
 async function resolveCaseSelector(input: string): Promise<string> {
   const { resolveCaseSelector } = await import('./cases/selector.js')
   return resolveCaseSelector(input)
+}
+
+async function scopeCasesToInvocationDir(): Promise<void> {
+  if (process.env['CHAIN_INSIGHTS_CASES_ROOT']?.trim()) return
+  const { activeCasesRoot } = await import('./workspace/active.js')
+  process.env['CHAIN_INSIGHTS_CASES_ROOT'] = activeCasesRoot()
 }
 
 async function showCaseContext(caseSelector: string): Promise<void> {
@@ -62,6 +75,35 @@ async function showCaseContext(caseSelector: string): Promise<void> {
   }
 }
 
+function optionalNumber(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) throw new Error(`Invalid number: ${value}`)
+  return parsed
+}
+
+async function withGraphMcpClient<T>(name: string, fn: (client: import('@modelcontextprotocol/sdk/client/index.js').Client, config: Awaited<ReturnType<typeof import('./config/index.js').loadConfig>>) => Promise<T>): Promise<T> {
+  const { loadConfig } = await import('./config/index.js')
+  const config = await loadConfig()
+  const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import('./mcp/client.js')
+  const paymentFetch = await createConfiguredGraphMcpFetch(config)
+  const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+  const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
+  const client = new Client({ name, version: '0.1.0' })
+  await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }))
+  try {
+    return await fn(client, config)
+  } finally {
+    await client.close()
+  }
+}
+
+function printMcpTextContent(result: { content?: Array<{ type: string; text?: string }> }): void {
+  for (const item of result.content ?? []) {
+    if (item.type === 'text') console.log(item.text)
+  }
+}
+
 program
   .command('serve')
   .description('Start local visualization server')
@@ -76,8 +118,11 @@ program
   .description('Show toolkit status and configuration')
   .action(async () => {
     const { loadConfig } = await import('./config/index.js')
+    const { findActiveWorkspace, activeDataDir } = await import('./workspace/active.js')
     const config = await loadConfig()
-    console.log('Config: ', config.dataDir)
+    const workspace = findActiveWorkspace()
+    console.log('Config: ', activeDataDir(config.dataDir))
+    if (workspace) console.log('Workspace:', workspace.root)
     console.log('Server: ', `http://127.0.0.1:${config.serverPort}`)
     console.log('Graph MCP:', `${config.graphMcpMode} mode`)
     console.log('Graph endpoint:', config.graphMcpEndpoint)
@@ -314,6 +359,7 @@ program
 program
   .command('mcp')
   .description('Interact with the Chain Insights MCP endpoint')
+  .allowExcessArguments(false)
   .addCommand(
     new Command('tools')
       .description('List available MCP tools (cached 24h)')
@@ -322,6 +368,7 @@ program
         try {
           const { loadSchema, saveSchema } = await import('./mcp/schema-cache.js')
           const { formatToolsTable } = await import('./mcp/format.js')
+          const { visibleRemoteTools } = await import('./mcp/tool-visibility.js')
           const { loadConfig } = await import('./config/index.js')
           const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import('./mcp/client.js')
           const config = await loadConfig()
@@ -341,7 +388,97 @@ program
               await client.close()
             }
           }
-          console.log(formatToolsTable(tools))
+          console.log(formatToolsTable(visibleRemoteTools(tools)))
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
+    new Command('address-risk')
+      .description('Screen an address for risk, exchange behavior, and optional compare_address connection risk')
+      .requiredOption('--address <address>', 'Full blockchain address to screen')
+      .requiredOption('--network <network>', 'Network to query: bittensor, ethereum, or base')
+      .option('--compare-address <address>', 'Optional second address for connection-risk compare mode')
+      .option('--remote', 'Force remote MCP tool call instead of local fallback')
+      .action(async (opts: { address: string; network: string; compareAddress?: string; remote?: boolean }) => {
+        try {
+          await withGraphMcpClient('chain-insights-cli-address-risk', async (client) => {
+            if (opts.remote) {
+              const result = await client.callTool({
+                name: 'address_risk',
+                arguments: {
+                  address: opts.address,
+                  network: opts.network,
+                  ...(opts.compareAddress ? { compare_address: opts.compareAddress } : {}),
+                },
+              })
+              printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
+              return
+            }
+            const { addressRisk } = await import('./investigation/public-tools.js')
+            const result = await addressRisk(client, {
+              address: opts.address,
+              network: opts.network,
+              compareAddress: opts.compareAddress,
+            })
+            console.log(result.summaryText)
+          })
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
+    new Command('track-funds')
+      .description('Trace trusted/victim addresses and optional known untrusted/scammer addresses')
+      .requiredOption('--trusted-addresses <addresses>', 'Comma-separated full trusted/victim addresses, max 5')
+      .requiredOption('--network <network>', 'Network to query: bittensor, ethereum, or base')
+      .option('--untrusted-addresses <addresses>', 'Comma-separated full known untrusted/scammer addresses, max 5')
+      .option('--case <id>', 'Case ID to attach compact evidence pointers')
+      .option('--max-hops <number>', 'Maximum trace hops, 1-5')
+      .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, 1-10')
+      .option('--min-amount-sum <number>', 'Minimum r.amount_sum for traced edges')
+      .option('--remote', 'Force remote MCP tool call instead of local fallback')
+      .action(async (opts: {
+        trustedAddresses: string
+        network: string
+        untrustedAddresses?: string
+        case?: string
+        maxHops?: string
+        perAddressLimit?: string
+        minAmountSum?: string
+        remote?: boolean
+      }) => {
+        try {
+          await withGraphMcpClient('chain-insights-cli-track-funds', async (client, config) => {
+            if (opts.remote) {
+              const result = await client.callTool({
+                name: 'track_funds',
+                arguments: {
+                  trusted_addresses: opts.trustedAddresses,
+                  network: opts.network,
+                  ...(opts.untrustedAddresses ? { untrusted_addresses: opts.untrustedAddresses } : {}),
+                },
+              })
+              printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
+              return
+            }
+            const { trackFunds } = await import('./investigation/public-tools.js')
+            const result = await trackFunds(client, config, {
+              trustedAddresses: opts.trustedAddresses,
+              untrustedAddresses: opts.untrustedAddresses,
+              network: opts.network,
+              caseId: opts.case,
+              maxHops: optionalNumber(opts.maxHops),
+              perAddressLimit: optionalNumber(opts.perAddressLimit),
+              minAmountSum: optionalNumber(opts.minAmountSum),
+            })
+            console.log(result.summaryText)
+            console.log(JSON.stringify(result.structuredContent, null, 2))
+          })
         } catch (err) {
           console.error((err as Error).message)
           process.exit(1)
@@ -356,24 +493,38 @@ program
       .action(async (tool: string, rawArgs: string[]) => {
         try {
           const { parseMcpCallArgs } = await import('./mcp/call-args.js')
+          const { assertPublicMcpToolName } = await import('./mcp/tool-visibility.js')
           const args = parseMcpCallArgs(rawArgs)
-          const { loadConfig } = await import('./config/index.js')
-          const config = await loadConfig()
-          const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import('./mcp/client.js')
-          const paymentFetch = await createConfiguredGraphMcpFetch(config)
-          const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
-          const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
-          const client = new Client({ name: 'chain-insights-cli-call', version: '0.1.0' })
-          await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }))
-          try {
-            const result = await client.callTool({ name: tool, arguments: args })
-            const content = result.content as Array<{ type: string; text?: string }>
-            for (const item of content) {
-              if (item.type === 'text') console.log(item.text)
+          assertPublicMcpToolName(tool)
+          await withGraphMcpClient('chain-insights-cli-call', async (client, config) => {
+            if (tool === 'address_risk') {
+              const { addressRisk } = await import('./investigation/public-tools.js')
+              const result = await addressRisk(client, {
+                address: String(args['address'] ?? ''),
+                network: String(args['network'] ?? ''),
+                compareAddress: args['compare_address'] === undefined ? undefined : String(args['compare_address']),
+              })
+              console.log(result.summaryText)
+              return
             }
-          } finally {
-            await client.close()
-          }
+            if (tool === 'track_funds') {
+              const { trackFunds } = await import('./investigation/public-tools.js')
+              const result = await trackFunds(client, config, {
+                trustedAddresses: args['trusted_addresses'] as string | string[] | undefined ?? '',
+                untrustedAddresses: args['untrusted_addresses'] as string | string[] | undefined,
+                network: String(args['network'] ?? ''),
+                caseId: args['case_id'] === undefined ? undefined : String(args['case_id']),
+                maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
+                perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
+                minAmountSum: typeof args['min_amount_sum'] === 'number' ? args['min_amount_sum'] : undefined,
+              })
+              console.log(result.summaryText)
+              console.log(JSON.stringify(result.structuredContent, null, 2))
+              return
+            }
+            const result = await client.callTool({ name: tool, arguments: args })
+            printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
+          })
         } catch (err) {
           console.error((err as Error).message)
           process.exit(1)
@@ -381,9 +532,11 @@ program
       })
   )
 
-program
-  .command('case')
+const caseCommand = new Command('case')
   .description('Manage investigation cases')
+  .hook('preAction', async () => {
+    await scopeCasesToInvocationDir()
+  })
   .addCommand(
     new Command('open')
       .description('Open a new investigation case')
@@ -608,6 +761,8 @@ program
         }
       })
   )
+
+program.addCommand(caseCommand)
 
 program
   .command('playbook')

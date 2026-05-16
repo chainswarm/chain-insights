@@ -51,6 +51,19 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('topup')
   })
 
+  it('mcp --help lists track-funds and hides trace-funds', () => {
+    const out = execSync('node bin/cli.js mcp --help', { encoding: 'utf8' })
+    expect(out).toContain('track-funds')
+    expect(out).not.toContain('trace-funds')
+  })
+
+  it('mcp trace-funds is not registered', () => {
+    expect(() => execSync('node bin/cli.js mcp trace-funds --help', {
+      encoding: 'utf8',
+      stdio: 'pipe',
+    })).toThrow()
+  })
+
   it('--version prints version from package.json', () => {
     const out = execSync('node bin/cli.js --version', { encoding: 'utf8' })
     expect(out.trim()).toMatch(/^\d+\.\d+\.\d+$/)

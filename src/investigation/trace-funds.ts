@@ -3,6 +3,7 @@ import path from 'node:path'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import type { InvestigatorConfig } from '../config/schema.js'
+import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 import { findActiveWorkspace } from '../workspace/active.js'
 
 type RemoteToolResult = {
@@ -43,7 +44,9 @@ export interface TraceFundsResult {
     schema: string
     compactEvidence: string
     graph: string
+    graphHtml: string
     table: string
+    tableHtml: string
     report: string
   }
   continuation: {
@@ -51,6 +54,76 @@ export interface TraceFundsResult {
     depositAddresses: string[]
     exchangeAddresses: string[]
     hint: string
+  }
+  addressMap: Record<string, string>
+}
+
+interface TraceDeposit {
+  address: string
+  exchangeAddress: string
+  exchangeLabels?: string[]
+  amount_sum?: number
+  amount_usd_sum?: number
+  hops: number
+  path: string[]
+}
+
+interface SourceMatch {
+  deposit_address: string
+  source_exchange: string
+  source_labels?: string[]
+  hops: number
+  path: string[]
+}
+
+interface ReverseLead {
+  address: string
+  labels?: string[]
+  deposit_address: string
+  amount_usd?: number
+  degree_in?: number
+  degree_out?: number
+  total_volume_usd?: number
+  reason: string
+}
+
+class AliasTracker {
+  private readonly byAddress = new Map<string, string>()
+  private readonly byAlias = new Map<string, string>()
+  private readonly counters = new Map<string, number>()
+
+  assign(address: string, prefix: string): string {
+    const existing = this.byAddress.get(address)
+    if (existing) return existing
+    const next = (this.counters.get(prefix) ?? 0) + 1
+    this.counters.set(prefix, next)
+    const alias = `${prefix}${next}`
+    this.byAddress.set(address, alias)
+    this.byAlias.set(alias, address)
+    return alias
+  }
+
+  alias(address: string): string | undefined {
+    return this.byAddress.get(address)
+  }
+
+  addressMap(): Record<string, string> {
+    return Object.fromEntries([...this.byAlias.entries()].sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })))
+  }
+
+  compactAddressMap(maxIntermediaries = 20, maxSourceExchanges = 20, maxLeads = 20): Record<string, string> {
+    const counts = new Map<string, number>()
+    const entries = [...this.byAlias.entries()].filter(([alias]) => {
+      const prefix = alias.slice(0, 1)
+      if (['V', 'D', 'E'].includes(prefix)) return true
+      const next = (counts.get(prefix) ?? 0) + 1
+      counts.set(prefix, next)
+      if (prefix === 'I') return next <= maxIntermediaries
+      if (prefix === 'X') return next <= maxSourceExchanges
+      if (prefix === 'L') return next <= maxLeads
+      return true
+    })
+    return Object.fromEntries(entries.sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })))
   }
 }
 
@@ -189,16 +262,66 @@ async function loadOrCaptureSchema(
   return { schema, filePath }
 }
 
-function flowQuery(id: string, address: string, limit: number, minAmountSum: number): { id: string; query: string } {
-  const minFilter = minAmountSum > 0 ? ` AND r.amount_sum >= ${minAmountSum}` : ''
+function forwardExchangeQuery(address: string, limit: number, minAmountSum: number, maxHops: number): { id: string; query: string } {
+  const amountFilter = minAmountSum > 0 ? ` AND e.amount_sum >= ${minAmountSum}` : ''
+  return {
+    id: 'forward_exchange_paths',
+    query: [
+      `MATCH p = (s:Address {address: "${escapeCypherString(address)}"})-[:FLOWS_TO *BFS (e, v | e.amount_sum IS NOT NULL${amountFilter})]->(t:Exchange)`,
+      `WHERE s <> t AND size(nodes(p)) - 1 <= ${maxHops} AND NOT any(n IN nodes(p)[1..-1] WHERE "Exchange" IN labels(n))`,
+      'WITH p, t, [n IN nodes(p) | n.address] AS addresses, [n IN nodes(p) | labels(n)] AS node_labels, [r IN relationships(p) | {amount_sum: r.amount_sum, amount_usd_sum: r.amount_usd_sum, tx_count: r.tx_count, first_tx_id: r.first_tx_id, last_tx_id: r.last_tx_id}] AS edge_props',
+      'RETURN addresses, node_labels, edge_props, t.address AS exchange_address, labels(t) AS exchange_labels, size(nodes(p)) - 1 AS hops',
+      'ORDER BY hops ASC',
+      `LIMIT ${limit}`,
+    ].join(' '),
+  }
+}
+
+function backwardSourceQuery(id: string, depositAddress: string): { id: string; query: string } {
   return {
     id,
     query: [
-      `MATCH (src:Address {address: "${escapeCypherString(address)}"})-[r:FLOWS_TO]->(dst)`,
-      `WHERE r.amount_sum IS NOT NULL${minFilter} AND NOT ('Exchange' IN labels(src))`,
-      "RETURN src.address AS src, labels(src) AS src_labels, dst.address AS dst, labels(dst) AS dst_labels, r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count, r.first_tx_id AS first_tx_id, r.last_tx_id AS last_tx_id, dst.degree_in AS dst_degree_in, dst.degree_out AS dst_degree_out, ('Exchange' IN labels(dst)) AS terminal_exchange",
-      'ORDER BY r.amount_usd_sum DESC, r.amount_sum DESC',
-      `LIMIT ${limit}`,
+      `MATCH (dep:Address {address: "${escapeCypherString(depositAddress)}"})`,
+      'MATCH path=(dep)<-[:FLOWS_TO *BFS (e, v | true)]-(source:Exchange)',
+      'WHERE source <> dep AND NOT any(n IN nodes(path)[1..-1] WHERE "Exchange" IN labels(n))',
+      'RETURN dep.address AS deposit_address, source.address AS source_exchange, labels(source) AS source_labels, size(nodes(path)) - 1 AS hops, [n IN nodes(path) | n.address] AS addresses, [n IN nodes(path) | labels(n)] AS node_labels',
+      'LIMIT 20',
+    ].join(' '),
+  }
+}
+
+function reverseLeadsQuery(depositAddresses: string[]): { id: string; query: string } {
+  const addrList = depositAddresses.map((address) => `"${escapeCypherString(address)}"`).join(', ')
+  return {
+    id: 'reverse_1hop',
+    query: [
+      `UNWIND [${addrList}] AS dep_addr`,
+      'MATCH (sender:Address)-[r:FLOWS_TO]->(deposit:Address {address: dep_addr})',
+      'WHERE NOT ("Exchange" IN labels(sender)) AND sender.address <> dep_addr',
+      'RETURN DISTINCT sender.address AS address, labels(sender) AS labels, coalesce(sender.degree_in, 0) AS degree_in, coalesce(sender.degree_out, 0) AS degree_out, coalesce(sender.total_volume_usd, 0) AS total_volume_usd, dep_addr AS deposit_address, r.amount_usd_sum AS amount_usd',
+      'ORDER BY r.amount_usd_sum DESC',
+      `LIMIT ${Math.max(50, depositAddresses.length * 50)}`,
+    ].join(' '),
+  }
+}
+
+function edgeKey(src: string, dst: string): string {
+  return `${src}\u0000${dst}`
+}
+
+function directEdgePropsQuery(flows: TraceFlow[]): { id: string; query: string } | null {
+  const pairs = [...new Map(flows.map((flow) => [edgeKey(flow.src, flow.dst), { src: flow.src, dst: flow.dst }])).values()]
+  if (pairs.length === 0) return null
+  const predicates = pairs.map((pair) =>
+    `(a.address = "${escapeCypherString(pair.src)}" AND b.address = "${escapeCypherString(pair.dst)}")`
+  )
+  return {
+    id: 'direct_edge_props',
+    query: [
+      'MATCH (a:Address)-[r:FLOWS_TO]->(b:Address)',
+      `WHERE ${predicates.join(' OR ')}`,
+      'RETURN a.address AS src, b.address AS dst, r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count, r.first_tx_id AS first_tx_id, r.last_tx_id AS last_tx_id',
+      `LIMIT ${pairs.length}`,
     ].join(' '),
   }
 }
@@ -211,91 +334,229 @@ function stringArrayValue(value: unknown): string[] | undefined {
   return Array.isArray(value) ? value.map(String) : undefined
 }
 
-function flowFromRow(hop: number, row: Record<string, unknown>): TraceFlow | null {
-  const src = typeof row['src'] === 'string' ? row['src'] : null
-  const dst = typeof row['dst'] === 'string' ? row['dst'] : null
-  const amount = numberValue(row['amount_sum'])
-  if (!src || !dst || amount === undefined) return null
-  return {
-    hop,
-    src,
-    dst,
-    amount_sum: amount,
-    amount_usd_sum: numberValue(row['amount_usd_sum']),
-    tx_count: numberValue(row['tx_count']),
-    first_tx_id: typeof row['first_tx_id'] === 'string' ? row['first_tx_id'] : undefined,
-    last_tx_id: typeof row['last_tx_id'] === 'string' ? row['last_tx_id'] : undefined,
-    src_labels: stringArrayValue(row['src_labels']),
-    dst_labels: stringArrayValue(row['dst_labels']),
-    dst_degree_in: numberValue(row['dst_degree_in']),
-    dst_degree_out: numberValue(row['dst_degree_out']),
-    terminal_exchange: row['terminal_exchange'] === true || stringArrayValue(row['dst_labels'])?.includes('Exchange') === true,
-  }
+function uniqueStrings(values: string[] | undefined): string[] {
+  return [...new Set(values ?? [])]
 }
 
 function isExchangeFlow(flow: TraceFlow): boolean {
   return flow.terminal_exchange || flow.dst_labels?.includes('Exchange') === true
 }
 
-async function collectFlows(
-  remoteClient: Client,
-  options: Required<Pick<TraceFundsOptions, 'seedAddress' | 'network' | 'maxHops' | 'perAddressLimit' | 'minAmountSum'>>,
-): Promise<TraceFlow[]> {
-  const flows: TraceFlow[] = []
-  const visited = new Set<string>([options.seedAddress])
-  let frontier = [options.seedAddress]
-
-  for (let hop = 1; hop <= options.maxHops && frontier.length > 0; hop += 1) {
-    const queries = frontier.slice(0, 20).map((address, index) =>
-      flowQuery(`hop_${hop}_${index + 1}`, address, options.perAddressLimit, options.minAmountSum)
-    )
-    const batch = await callGraphBatch(remoteClient, options.network, queries)
-    const next = new Set<string>()
-    for (const query of batch.facts?.queries ?? []) {
-      for (const row of query.results ?? []) {
-        const flow = flowFromRow(hop, row)
-        if (!flow) continue
-        flows.push(flow)
-        if (!isExchangeFlow(flow) && !visited.has(flow.dst)) next.add(flow.dst)
-      }
-    }
-    for (const address of next) visited.add(address)
-    frontier = [...next]
+function depositFromRow(row: Record<string, unknown>): TraceDeposit | null {
+  const pathAddresses = stringArrayValue(row['addresses']) ?? []
+  if (pathAddresses.length < 2) return null
+  const exchangeAddress = typeof row['exchange_address'] === 'string' ? row['exchange_address'] : pathAddresses[pathAddresses.length - 1]
+  const edgeProps = Array.isArray(row['edge_props']) ? row['edge_props'] as Array<Record<string, unknown>> : []
+  const terminalEdge = edgeProps[edgeProps.length - 1] ?? {}
+  return {
+    address: pathAddresses[pathAddresses.length - 2]!,
+    exchangeAddress,
+    exchangeLabels: stringArrayValue(row['exchange_labels']),
+    amount_sum: numberValue(terminalEdge['amount_sum']),
+    amount_usd_sum: numberValue(terminalEdge['amount_usd_sum']),
+    hops: numberValue(row['hops']) ?? pathAddresses.length - 1,
+    path: pathAddresses,
   }
-
-  return flows
 }
 
-function buildGraph(seedAddress: string, network: string, flows: TraceFlow[]): Record<string, unknown> {
-  const totals = new Map<string, { in: number; out: number; labels: string[]; role: string | null }>()
-  const ensure = (address: string) => {
-    if (!totals.has(address)) {
-      totals.set(address, { in: 0, out: 0, labels: [], role: address === seedAddress ? 'victim' : null })
+function flowsFromForwardRows(rows: Array<Record<string, unknown>>): { flows: TraceFlow[]; deposits: TraceDeposit[] } {
+  const flows: TraceFlow[] = []
+  const deposits: TraceDeposit[] = []
+  const seenEdges = new Set<string>()
+  for (const row of rows) {
+    const pathAddresses = stringArrayValue(row['addresses']) ?? []
+    const nodeLabels = Array.isArray(row['node_labels']) ? row['node_labels'].map((labels) => stringArrayValue(labels) ?? []) : []
+    const edgeProps = Array.isArray(row['edge_props']) ? row['edge_props'] as Array<Record<string, unknown>> : []
+    const deposit = depositFromRow(row)
+    if (deposit) deposits.push(deposit)
+    for (let index = 0; index < pathAddresses.length - 1; index += 1) {
+      const src = pathAddresses[index]!
+      const dst = pathAddresses[index + 1]!
+      const edge = edgeProps[index] ?? {}
+      const amount = numberValue(edge['amount_sum']) ?? numberValue(edge['amount_usd_sum']) ?? 0
+      const terminal = index === pathAddresses.length - 2
+      const key = `${src}->${dst}`
+      if (seenEdges.has(key)) continue
+      seenEdges.add(key)
+      flows.push({
+        hop: index + 1,
+        src,
+        dst,
+        amount_sum: amount,
+        amount_usd_sum: numberValue(edge['amount_usd_sum']),
+        tx_count: numberValue(edge['tx_count']),
+        first_tx_id: typeof edge['first_tx_id'] === 'string' ? edge['first_tx_id'] : undefined,
+        last_tx_id: typeof edge['last_tx_id'] === 'string' ? edge['last_tx_id'] : undefined,
+        src_labels: nodeLabels[index],
+        dst_labels: nodeLabels[index + 1],
+        terminal_exchange: terminal,
+      })
     }
-    return totals.get(address)!
+  }
+  return { flows, deposits }
+}
+
+async function hydrateDirectEdgeProps(remoteClient: Client, network: string, flows: TraceFlow[], deposits: TraceDeposit[]): Promise<void> {
+  const query = directEdgePropsQuery(flows)
+  if (!query) return
+
+  const batch = await callGraphBatch(remoteClient, network, [query])
+  const edgeProps = new Map<string, Record<string, unknown>>()
+  for (const row of resultsFor(batch, 'direct_edge_props')) {
+    const src = typeof row['src'] === 'string' ? row['src'] : ''
+    const dst = typeof row['dst'] === 'string' ? row['dst'] : ''
+    if (!src || !dst) continue
+    edgeProps.set(edgeKey(src, dst), row)
   }
 
   for (const flow of flows) {
-    ensure(flow.src).out += flow.amount_usd_sum ?? flow.amount_sum
-    const dst = ensure(flow.dst)
-    dst.in += flow.amount_usd_sum ?? flow.amount_sum
-    dst.labels = flow.dst_labels ?? []
-    if (isExchangeFlow(flow)) dst.role = 'exchange'
+    const props = edgeProps.get(edgeKey(flow.src, flow.dst))
+    if (!props) continue
+    flow.amount_sum = numberValue(props['amount_sum']) ?? flow.amount_sum
+    flow.amount_usd_sum = numberValue(props['amount_usd_sum'])
+    flow.tx_count = numberValue(props['tx_count'])
+    flow.first_tx_id = typeof props['first_tx_id'] === 'string' ? props['first_tx_id'] : undefined
+    flow.last_tx_id = typeof props['last_tx_id'] === 'string' ? props['last_tx_id'] : undefined
   }
 
-  return {
+  for (const deposit of deposits) {
+    const props = edgeProps.get(edgeKey(deposit.address, deposit.exchangeAddress))
+    if (!props) continue
+    deposit.amount_sum = numberValue(props['amount_sum'])
+    deposit.amount_usd_sum = numberValue(props['amount_usd_sum'])
+  }
+}
+
+async function collectProbeTrace(
+  remoteClient: Client,
+  options: Required<Pick<TraceFundsOptions, 'seedAddress' | 'network' | 'maxHops' | 'perAddressLimit' | 'minAmountSum'>>,
+): Promise<{ flows: TraceFlow[]; deposits: TraceDeposit[]; sourceMatches: SourceMatch[]; reverseLeads: ReverseLead[] }> {
+  const forwardBatch = await callGraphBatch(remoteClient, options.network, [
+    forwardExchangeQuery(options.seedAddress, Math.max(options.perAddressLimit * 20, 200), options.minAmountSum, options.maxHops),
+  ])
+  const { flows, deposits } = flowsFromForwardRows(resultsFor(forwardBatch, 'forward_exchange_paths'))
+  await hydrateDirectEdgeProps(remoteClient, options.network, flows, deposits)
+  const uniqueDepositAddresses = [...new Set(deposits.map((deposit) => deposit.address))]
+
+  const sourceMatches: SourceMatch[] = []
+  if (uniqueDepositAddresses.length > 0) {
+    const backwardBatch = await callGraphBatch(
+      remoteClient,
+      options.network,
+      uniqueDepositAddresses.slice(0, 20).map((address, index) => backwardSourceQuery(`backward_from_deposit_${index + 1}`, address)),
+    )
+    for (const query of backwardBatch.facts?.queries ?? []) {
+      for (const row of query.results ?? []) {
+        const pathAddresses = stringArrayValue(row['addresses']) ?? []
+        const depositAddress = typeof row['deposit_address'] === 'string' ? row['deposit_address'] : pathAddresses[0]
+        const sourceExchange = typeof row['source_exchange'] === 'string' ? row['source_exchange'] : pathAddresses[pathAddresses.length - 1]
+        if (!depositAddress || !sourceExchange) continue
+        sourceMatches.push({
+          deposit_address: depositAddress,
+          source_exchange: sourceExchange,
+          source_labels: stringArrayValue(row['source_labels']),
+          hops: numberValue(row['hops']) ?? Math.max(pathAddresses.length - 1, 0),
+          path: pathAddresses,
+        })
+      }
+    }
+  }
+
+  const reverseLeads: ReverseLead[] = []
+  if (uniqueDepositAddresses.length > 0) {
+    const reverseBatch = await callGraphBatch(remoteClient, options.network, [reverseLeadsQuery(uniqueDepositAddresses)])
+    for (const row of resultsFor(reverseBatch, 'reverse_1hop')) {
+      const address = typeof row['address'] === 'string' ? row['address'] : ''
+      const depositAddress = typeof row['deposit_address'] === 'string' ? row['deposit_address'] : ''
+      if (!address || !depositAddress) continue
+      const labels = stringArrayValue(row['labels']) ?? []
+      const degreeIn = numberValue(row['degree_in']) ?? 0
+      const totalVolume = numberValue(row['total_volume_usd']) ?? 0
+      const reason = labels.length > 0 ? 'labeled_entity' : degreeIn > 50 ? 'fan_in_hub' : totalVolume > 100000 ? 'high_volume_sender' : ''
+      if (!reason) continue
+      reverseLeads.push({
+        address,
+        labels,
+        degree_in: degreeIn,
+        degree_out: numberValue(row['degree_out']),
+        total_volume_usd: totalVolume,
+        deposit_address: depositAddress,
+        amount_usd: numberValue(row['amount_usd']),
+        reason,
+      })
+    }
+  }
+
+  return { flows, deposits, sourceMatches, reverseLeads }
+}
+
+function buildAliases(seedAddress: string, deposits: TraceDeposit[], sourceMatches: SourceMatch[], reverseLeads: ReverseLead[]): AliasTracker {
+  const aliases = new AliasTracker()
+  aliases.assign(seedAddress, 'V')
+  for (const deposit of deposits) {
+    for (const address of deposit.path.slice(1, -2)) aliases.assign(address, 'I')
+    aliases.assign(deposit.address, 'D')
+    aliases.assign(deposit.exchangeAddress, 'E')
+  }
+  for (const source of sourceMatches) {
+    aliases.assign(source.source_exchange, 'X')
+    for (const address of source.path.slice(1, -1)) aliases.assign(address, 'I')
+  }
+  for (const lead of reverseLeads) aliases.assign(lead.address, 'L')
+  return aliases
+}
+
+function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], deposits: TraceDeposit[], sourceMatches: SourceMatch[], reverseLeads: ReverseLead[]): Record<string, unknown> {
+  const totals = new Map<string, { in: number; out: number; rawLabels: string[]; role: string | null }>()
+  const ensure = (address: string) => {
+    if (!totals.has(address)) {
+      totals.set(address, { in: 0, out: 0, rawLabels: [], role: address === seedAddress ? 'seed' : null })
+    }
+    return totals.get(address)!
+  }
+  const mergeLabels = (address: string, labels: string[] | undefined) => {
+    const node = ensure(address)
+    node.rawLabels = uniqueStrings([...node.rawLabels, ...(labels ?? [])])
+    return node
+  }
+
+  for (const flow of flows) {
+    const src = mergeLabels(flow.src, flow.src_labels)
+    src.out += flow.amount_usd_sum ?? flow.amount_sum
+    const dst = mergeLabels(flow.dst, flow.dst_labels)
+    dst.in += flow.amount_usd_sum ?? flow.amount_sum
+    if (isExchangeFlow(flow)) dst.role = 'exchange'
+  }
+  for (const deposit of deposits) {
+    const node = ensure(deposit.address)
+    node.role = 'deposit_candidate'
+    mergeLabels(deposit.exchangeAddress, deposit.exchangeLabels)
+  }
+  for (const source of sourceMatches) {
+    const node = mergeLabels(source.source_exchange, source.source_labels)
+    node.role = 'source_exchange'
+  }
+  for (const lead of reverseLeads) {
+    const node = mergeLabels(lead.address, lead.labels)
+    node.role = 'lead'
+    const deposit = ensure(lead.deposit_address)
+    deposit.in += lead.amount_usd ?? 0
+  }
+
+  return normalizeGraphPayload({
     schema: 'chain-insights.graph.v1',
-    nodes: [...totals.entries()].map(([address, data]) => ({
-      address,
-      labels: data.labels,
-      address_type: data.role === 'exchange' ? 'exchange' : 'wallet',
-      role: data.role,
-      flow_in_usd: data.in,
-      flow_out_usd: data.out,
-      risk_level: null,
-      pattern_flags: [],
-    })),
-    edges: flows.map((flow) => ({
+    nodes: [...totals.entries()].map(([address, data]) => {
+      const rawLabels = uniqueStrings(data.rawLabels)
+      return {
+        address,
+        role: data.role,
+        labels: rawLabels,
+        flow_in_usd: data.in,
+        flow_out_usd: data.out,
+      }
+    }),
+    edges: [
+      ...flows.map((flow) => ({
       from_address: flow.src,
       to_address: flow.dst,
       usd_amount: flow.amount_usd_sum ?? flow.amount_sum,
@@ -305,24 +566,53 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[]): R
       last_tx_id: flow.last_tx_id,
       type: 'FLOWS_TO',
       terminal_exchange: flow.terminal_exchange,
-    })),
+      })),
+      ...sourceMatches.map((source) => ({
+        from_address: source.source_exchange,
+        to_address: source.deposit_address,
+        usd_amount: 0,
+        amount_sum: 0,
+        tx_count: 0,
+        type: 'FLOWS_TO',
+        direction: 'traceback',
+      })),
+      ...reverseLeads.map((lead) => ({
+        from_address: lead.address,
+        to_address: lead.deposit_address,
+        usd_amount: lead.amount_usd ?? 0,
+        amount_sum: lead.amount_usd ?? 0,
+        tx_count: 0,
+        type: 'FLOWS_TO',
+        direction: 'reverse_1hop_lead',
+      })),
+    ],
     flows,
+    deposits,
+    source_matches: sourceMatches,
+    reverse_leads: reverseLeads,
     edge_anchors: [],
     metadata: {
       seed_address: seedAddress,
       network,
       generated_at: new Date().toISOString(),
     },
-  }
+  })
 }
 
-function buildMarkdownReport(seedAddress: string, network: string, flows: TraceFlow[], graphPath: string, schemaPath: string): string {
+function buildMarkdownReport(seedAddress: string, network: string, flows: TraceFlow[], deposits: TraceDeposit[], sourceMatches: SourceMatch[], reverseLeads: ReverseLead[], aliases: AliasTracker, graphPath: string, schemaPath: string): string {
   const lines = [
     `# Trace Funds: ${seedAddress}`,
     '',
     `Network: \`${network}\``,
     `Schema: \`${schemaPath}\``,
     `Graph: \`${graphPath}\``,
+    '',
+    '## Probe Summary',
+    '',
+    `- Exchange endpoint(s): ${[...new Set(deposits.map((deposit) => aliases.alias(deposit.exchangeAddress) ?? deposit.exchangeAddress))].join(', ') || 'none'}`,
+    `- Deposit candidate(s): ${[...new Set(deposits.map((deposit) => aliases.alias(deposit.address) ?? deposit.address))].join(', ') || 'none'}`,
+    `- Traceback source exchange path(s): ${sourceMatches.length}`,
+    `- Reverse 1-hop lead(s): ${reverseLeads.length}`,
     '',
     '## Flow Table',
     '',
@@ -351,26 +641,51 @@ function buildMarkdownReport(seedAddress: string, network: string, flows: TraceF
   return lines.join('\n') + '\n'
 }
 
-function compactEvidence(seedAddress: string, network: string, flows: TraceFlow[], schemaPath: string): Record<string, unknown> {
+function probeEvidence(seedAddress: string, network: string, schemaPath: string, aliases: AliasTracker, flows: TraceFlow[], deposits: TraceDeposit[], sourceMatches: SourceMatch[], reverseLeads: ReverseLead[]): Record<string, unknown> {
   return {
-    schema: 'chain-insights.compact_evidence.v1',
-    source: 'trace_funds',
+    schema: 'chain-insights.probe_evidence.v1',
+    source: 'track_funds',
     network,
     seed_address: seedAddress,
     schema_ref: schemaPath,
+    address_map: aliases.addressMap(),
+    fund_flows: [
+      ...deposits.map((deposit, index) => ({
+        id: `F${index + 1}`,
+        type: 'deposit',
+        path: deposit.path.map((address) => aliases.alias(address) ?? address),
+        deposit: aliases.alias(deposit.address),
+        exchange: aliases.alias(deposit.exchangeAddress),
+        amount_sum: deposit.amount_sum,
+        amount_usd_sum: deposit.amount_usd_sum,
+        hops: deposit.hops,
+      })),
+      ...sourceMatches.map((source, index) => ({
+        id: `S${index + 1}`,
+        type: 'source',
+        path: [...source.path].reverse().map((address) => aliases.alias(address) ?? address),
+        source_exchange: aliases.alias(source.source_exchange),
+        deposit: aliases.alias(source.deposit_address),
+        hops: source.hops,
+      })),
+    ],
+    reverse_leads: reverseLeads.map((lead) => ({
+      alias: aliases.alias(lead.address),
+      address: lead.address,
+      reason: lead.reason,
+      labels: lead.labels,
+      deposit: aliases.alias(lead.deposit_address),
+      amount_usd: lead.amount_usd,
+    })),
     outgoing_flows: flows.map((flow) => ({
       hop: flow.hop,
-      src: flow.src,
-      dst: flow.dst,
+      src: aliases.alias(flow.src) ?? flow.src,
+      dst: aliases.alias(flow.dst) ?? flow.dst,
       amount_sum: flow.amount_sum,
       amount_usd_sum: flow.amount_usd_sum,
       tx_count: flow.tx_count,
       first_tx_id: flow.first_tx_id,
       last_tx_id: flow.last_tx_id,
-      src_labels: flow.src_labels,
-      dst_labels: flow.dst_labels,
-      dst_degree_in: flow.dst_degree_in,
-      dst_degree_out: flow.dst_degree_out,
       terminal_exchange: flow.terminal_exchange,
     })),
   }
@@ -394,7 +709,97 @@ function tableCsv(flows: TraceFlow[]): string {
   return rows.join('\n') + '\n'
 }
 
-function summarize(seedAddress: string, network: string, flows: TraceFlow[], files: TraceFundsResult['files'], continuation: TraceFundsResult['continuation']): string {
+function htmlEscape(value: unknown): string {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
+function buildTableHtml(seedAddress: string, network: string, flows: TraceFlow[], deposits: TraceDeposit[], sourceMatches: SourceMatch[], reverseLeads: ReverseLead[]): string {
+  const headers = [
+    'hop',
+    'src',
+    'dst',
+    'amount_sum',
+    'amount_usd_sum',
+    'tx_count',
+    'first_tx_id',
+    'last_tx_id',
+    'terminal_exchange_display',
+  ] as const
+  const headerLabels: Record<typeof headers[number], string> = {
+    hop: 'Hop',
+    src: 'Source',
+    dst: 'Destination',
+    amount_sum: 'amount_sum',
+    amount_usd_sum: 'amount_usd_sum',
+    tx_count: 'tx_count',
+    first_tx_id: 'first_tx_id',
+    last_tx_id: 'last_tx_id',
+    terminal_exchange_display: 'terminal_exchange',
+  }
+  const rows = flows.map((flow) => {
+    const values: Record<string, unknown> = {
+      ...flow,
+      terminal_exchange_display: flow.terminal_exchange ? 'yes' : 'no',
+    }
+    return `<tr>${headers.map((header) => `<td>${htmlEscape(values[header])}</td>`).join('')}</tr>`
+  }).join('\n')
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trace Funds Table - ${htmlEscape(seedAddress)}</title>
+<style>
+  :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0b0d12; color: #f4f2ea; }
+  body { margin: 0; background: #0b0d12; color: #f4f2ea; }
+  main { padding: 24px; }
+  h1 { font-size: 20px; margin: 0 0 8px; font-weight: 650; }
+  .meta { display: grid; gap: 6px; margin: 0 0 20px; color: rgba(244,242,234,.72); font-size: 13px; }
+  .summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; }
+  .pill { border: 1px solid rgba(242,221,166,.25); background: rgba(242,221,166,.08); border-radius: 999px; padding: 6px 10px; font-size: 12px; color: #f2dda6; }
+  .table-wrap { overflow: auto; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; background: #10131b; }
+  table { border-collapse: collapse; width: 100%; min-width: 1180px; font-size: 12px; }
+  th, td { border-bottom: 1px solid rgba(255,255,255,.08); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { position: sticky; top: 0; background: #161a24; color: #f2dda6; font-weight: 600; z-index: 1; }
+  td { color: rgba(244,242,234,.86); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  tr:hover td { background: rgba(242,221,166,.045); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Trace Funds Table</h1>
+  <div class="meta">
+    <div>Network: <strong>${htmlEscape(network)}</strong></div>
+    <div>Seed: <strong>${htmlEscape(seedAddress)}</strong></div>
+    <div>Generated: <strong>${htmlEscape(new Date().toISOString())}</strong></div>
+  </div>
+  <div class="summary">
+    <span class="pill">${flows.length} FLOWS_TO edges</span>
+    <span class="pill">${deposits.length} deposit candidates</span>
+    <span class="pill">${sourceMatches.length} traceback source paths</span>
+    <span class="pill">${reverseLeads.length} reverse 1-hop leads</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>${headers.map((header) => `<th>${htmlEscape(headerLabels[header])}</th>`).join('')}</tr></thead>
+      <tbody>
+${rows}
+      </tbody>
+    </table>
+  </div>
+</main>
+</body>
+</html>
+`
+}
+
+function summarize(seedAddress: string, network: string, flows: TraceFlow[], sourceMatches: SourceMatch[], reverseLeads: ReverseLead[], aliases: AliasTracker, files: TraceFundsResult['files'], continuation: TraceFundsResult['continuation']): string {
   const totalAmount = flows.reduce((sum, flow) => sum + flow.amount_sum, 0)
   const byHop = new Map<number, number>()
   for (const flow of flows) byHop.set(flow.hop, (byHop.get(flow.hop) ?? 0) + 1)
@@ -406,17 +811,20 @@ function summarize(seedAddress: string, network: string, flows: TraceFlow[], fil
     `Facts: ${flows.length} FLOWS_TO edge(s), sum of traced edge amount_sum values ${Number(totalAmount.toFixed(8))}.`,
     `By hop: ${[...byHop.entries()].map(([hop, count]) => `hop ${hop}: ${count}`).join(', ') || 'none'}.`,
     `Exchange endpoints reached: ${exchangeCount}. Deposit candidate address(es): ${depositCount}.`,
+    `Traceback source path(s): ${sourceMatches.length}. Reverse 1-hop lead(s): ${reverseLeads.length}.`,
     '',
     'Files written:',
     `- schema: ${files.schema}`,
     `- compact evidence JSON: ${files.compactEvidence}`,
     `- graph JSON: ${files.graph}`,
+    `- graph HTML: ${files.graphHtml}`,
     `- table CSV: ${files.table}`,
+    `- table HTML: ${files.tableHtml}`,
     `- report: ${files.report}`,
     '',
     `Continuation hint: ${continuation.hint}`,
     continuation.depositAddresses.length > 0
-      ? `Deposit candidates: ${continuation.depositAddresses.join(', ')}`
+      ? `Deposit candidates: ${continuation.depositAddresses.map((address) => aliases.alias(address) ?? address).join(', ')}`
       : 'Deposit candidates: none reached in this bounded trace.',
     continuation.nextHopAddresses.length > 0
       ? `Next addresses: ${continuation.nextHopAddresses.join(', ')}`
@@ -424,7 +832,7 @@ function summarize(seedAddress: string, network: string, flows: TraceFlow[], fil
   ].join('\n')
 }
 
-export async function traceFunds(
+export async function runFundFlowProbe(
   remoteClient: Client,
   config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
   options: TraceFundsOptions,
@@ -441,38 +849,60 @@ export async function traceFunds(
   await ensureDirs(root)
 
   const schemaResult = await loadOrCaptureSchema(remoteClient, root, network)
-  const flows = await collectFlows(remoteClient, { seedAddress, network, maxHops, perAddressLimit, minAmountSum })
+  const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, { seedAddress, network, maxHops, perAddressLimit, minAmountSum })
+  const aliases = buildAliases(seedAddress, deposits, sourceMatches, reverseLeads)
   const slug = `${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}_${sanitizeSegment(seedAddress.slice(0, 16))}`
-  const compact = compactEvidence(seedAddress, network, flows, schemaResult.filePath)
-  const graph = buildGraph(seedAddress, network, flows)
+  const compact = probeEvidence(seedAddress, network, schemaResult.filePath, aliases, flows, deposits, sourceMatches, reverseLeads)
+  const graph = buildGraph(seedAddress, network, flows, deposits, sourceMatches, reverseLeads)
 
   const compactPath = path.join(root, 'reports', 'tables', `${slug}.compact-evidence.json`)
   const graphPath = path.join(root, 'reports', 'graphs', `${slug}.graph.json`)
+  const graphHtmlPath = path.join(root, 'reports', `${slug}.graph.html`)
   const tablePath = path.join(root, 'reports', 'tables', `${slug}.flows.csv`)
+  const tableHtmlPath = path.join(root, 'reports', `${slug}.table.html`)
   const reportPath = path.join(root, 'reports', `${slug}.trace-report.md`)
+  const { generateInlineGraphHtml } = await import('../viz/html-generator.js')
 
   await writeFile(compactPath, JSON.stringify(compact, null, 2) + '\n', { mode: 0o600 })
   await writeFile(graphPath, JSON.stringify(graph, null, 2) + '\n', { mode: 0o600 })
+  await writeFile(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 0o600 })
   await writeFile(tablePath, tableCsv(flows), { mode: 0o600 })
-  await writeFile(reportPath, buildMarkdownReport(seedAddress, network, flows, graphPath, schemaResult.filePath), { mode: 0o600 })
+  await writeFile(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 0o600 })
+  await writeFile(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 0o600 })
 
   if (options.caseId) {
     const { EvidenceStore } = await import('../cases/index.js')
     await EvidenceStore.append(options.caseId, {
-      source: 'trace_funds',
+      source: 'track_funds',
       queryParams: `network=${network} seed_address=${seedAddress} max_hops=${maxHops} per_address_limit=${perAddressLimit} min_amount_sum=${minAmountSum}`,
-      content: JSON.stringify(compact, null, 2),
+      content: JSON.stringify({
+        schema: 'chain-insights.evidence_pointer.v1',
+        source: 'track_funds',
+        network,
+        seed_address: seedAddress,
+        address_map: aliases.compactAddressMap(),
+        files: {
+          compactEvidence: compactPath,
+          graph: graphPath,
+          graphHtml: graphHtmlPath,
+          table: tablePath,
+          tableHtml: tableHtmlPath,
+          report: reportPath,
+        },
+        facts: {
+          flow_count: flows.length,
+          deposit_candidates: [...new Set(deposits.map((deposit) => aliases.alias(deposit.address) ?? deposit.address))],
+          exchange_endpoints: [...new Set(deposits.map((deposit) => aliases.alias(deposit.exchangeAddress) ?? deposit.exchangeAddress))],
+          traceback_source_paths: sourceMatches.length,
+          reverse_leads: reverseLeads.length,
+        },
+      }, null, 2),
     })
   }
 
-  const exchangeFlows = flows.filter(isExchangeFlow)
-  const depositAddresses = [...new Set(exchangeFlows.map((flow) => flow.src))]
-  const exchangeAddresses = [...new Set(exchangeFlows.map((flow) => flow.dst))]
-  const outgoingSources = new Set(flows.map((flow) => flow.src))
-  const leaves = [...new Set(flows
-    .filter((flow) => !isExchangeFlow(flow))
-    .map((flow) => flow.dst)
-    .filter((address) => !outgoingSources.has(address)))]
+  const depositAddresses = [...new Set(deposits.map((deposit) => deposit.address))]
+  const exchangeAddresses = [...new Set(deposits.map((deposit) => deposit.exchangeAddress))]
+  const leaves: string[] = []
   const continuation = {
     nextHopAddresses: leaves.slice(0, 20),
     depositAddresses,
@@ -480,22 +910,25 @@ export async function traceFunds(
     hint: depositAddresses.length > 0
       ? `Found ${depositAddresses.length} deposit candidate(s), defined as the address one hop before an Exchange-labeled node. Do not continue through exchange nodes.`
       : leaves.length > 0
-        ? `No exchange endpoint reached yet. Continue from ${leaves.length} non-exchange leaf destination(s) with the same tool, or raise max_hops if the current trace stopped early.`
+        ? `No exchange endpoint reached yet. Continue from ${leaves.length} non-exchange leaf destination(s) with the same tool, or raise the result budget if the current trace stopped early.`
         : 'No exchange endpoint or non-exchange leaf destinations found; inspect graph/report files or lower min_amount_sum.',
   }
   const files = {
     schema: schemaResult.filePath,
     compactEvidence: compactPath,
     graph: graphPath,
+    graphHtml: graphHtmlPath,
     table: tablePath,
+    tableHtml: tableHtmlPath,
     report: reportPath,
   }
 
   return {
-    summaryText: summarize(seedAddress, network, flows, files, continuation),
+    summaryText: summarize(seedAddress, network, flows, sourceMatches, reverseLeads, aliases, files, continuation),
     compactEvidence: compact,
     graphData: graph,
     files,
     continuation,
+    addressMap: aliases.compactAddressMap(),
   }
 }

@@ -4,8 +4,6 @@
 export const KNOWN_GRAPHRAG_PUBLIC_TOOLS = [
   'address_risk',
   'track_funds',
-  'money_flows_between_exchanges',
-  'address_connection_risk',
   'graph_query',
 ] as const
 
