@@ -73,7 +73,11 @@ export function transformToGraphHtml(data: GraphData): GraphHtmlData {
 
 export function generateHtml(data: GraphData, _title: string): string {
   const graphHtmlData = transformToGraphHtml(data)
-  const dataJson = JSON.stringify(graphHtmlData).replaceAll('</script>', '<\\/script>')
+  return generateInlineGraphHtml(graphHtmlData)
+}
+
+export function generateInlineGraphHtml(data: unknown): string {
+  const dataJson = JSON.stringify(data).replaceAll('</script>', '<\\/script>')
   const inlineScript = `<script>var INLINE_DATA = ${dataJson};</script>`
 
   return template.replace('</body>', `${inlineScript}\n</body>`)

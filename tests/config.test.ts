@@ -6,16 +6,21 @@ import { tmpdir } from 'node:os'
 describe('Config system (FOUND-05)', () => {
   let fakeHome: string
   let prevHome: string | undefined
+  let prevWorkspace: string | undefined
 
   beforeEach(async () => {
     fakeHome = join(tmpdir(), `ci-config-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
     await mkdir(join(fakeHome, '.chain-insights'), { recursive: true })
     prevHome = process.env['HOME']
+    prevWorkspace = process.env['CHAIN_INSIGHTS_WORKSPACE']
     process.env['HOME'] = fakeHome
+    delete process.env['CHAIN_INSIGHTS_WORKSPACE']
   })
 
   afterEach(async () => {
     process.env['HOME'] = prevHome
+    if (prevWorkspace === undefined) delete process.env['CHAIN_INSIGHTS_WORKSPACE']
+    else process.env['CHAIN_INSIGHTS_WORKSPACE'] = prevWorkspace
     await rm(fakeHome, { recursive: true, force: true })
   })
 
@@ -45,5 +50,19 @@ describe('Config system (FOUND-05)', () => {
     const { stat } = await import('node:fs/promises')
     const st = await stat(join(fakeHome, '.chain-insights', 'config.json'))
     expect((st.mode & 0o777).toString(8)).toBe('600')
+  })
+
+  it('activeDataDir prefers CHAIN_INSIGHTS_WORKSPACE over global dataDir', async () => {
+    const workspace = join(tmpdir(), `ci-workspace-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    const globalDataDir = join(fakeHome, '.chain-insights-global')
+    try {
+      const { initWorkspace } = await import('../src/workspace/init.js')
+      const { activeDataDir } = await import('../src/workspace/active.js')
+      await initWorkspace({ targetDir: workspace })
+      process.env['CHAIN_INSIGHTS_WORKSPACE'] = workspace
+      expect(activeDataDir(globalDataDir)).toBe(workspace)
+    } finally {
+      await rm(workspace, { recursive: true, force: true })
+    }
   })
 })

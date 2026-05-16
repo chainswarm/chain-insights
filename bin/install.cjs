@@ -21,12 +21,14 @@ const reset = '\x1b[0m';
 // Parse args
 const args      = process.argv.slice(2);
 const hasClaude = args.includes('--claude');
+const hasCodex  = args.includes('--codex');
 const hasLocal  = args.includes('--local');
 
-if (!hasClaude && !hasLocal) {
+if (!hasClaude && !hasCodex && !hasLocal) {
   console.log(`\n${bold}chain-insights installer${reset}`);
-  console.log(`\nUsage: node bin/install.cjs --claude`);
+  console.log(`\nUsage: node bin/install.cjs --claude | --codex`);
   console.log(`  ${cyan}--claude${reset}  Install Claude Code skills globally to ~/.claude/skills/`);
+  console.log(`  ${cyan}--codex${reset}   Install Codex skills globally to ~/.codex/skills/ and register MCP`);
   console.log(`  ${cyan}--local${reset}   Install skills locally to ./.claude/commands/chain-insights/`);
   console.log('');
   process.exit(0);
@@ -37,12 +39,13 @@ const dataDir    = path.join(homeDir, '.chain-insights');
 const configPath = path.join(dataDir, 'config.json');
 const srcSkillsDir = path.join(__dirname, '..', 'skills');
 
-// Determine skills target
-const skillsDir = hasLocal
-  ? path.join(process.cwd(), '.claude', 'commands', 'chain-insights')
-  : path.join(homeDir, '.claude', 'skills');
+// Determine skills targets
+const skillsTargets = [];
+if (hasClaude) skillsTargets.push({ name: 'Claude Code', dir: path.join(homeDir, '.claude', 'skills') });
+if (hasCodex) skillsTargets.push({ name: 'Codex', dir: path.join(homeDir, '.codex', 'skills') });
+if (hasLocal) skillsTargets.push({ name: 'Local Claude commands', dir: path.join(process.cwd(), '.claude', 'commands', 'chain-insights') });
 
-// ─── 1. Copy Claude Code skills ───────────────────────────────────────────
+// ─── 1. Copy agent skills ─────────────────────────────────────────────────
 
 function copyCommandsAsClaudeSkills(srcDir, targetDir) {
   if (!fs.existsSync(srcDir)) {
@@ -86,7 +89,9 @@ function copyCommandsAsClaudeSkills(srcDir, targetDir) {
   }
 }
 
-copyCommandsAsClaudeSkills(srcSkillsDir, skillsDir);
+for (const target of skillsTargets) {
+  copyCommandsAsClaudeSkills(srcSkillsDir, target.dir);
+}
 
 // ─── 2. Create ~/.chain-insights/ config directory ────────────────────────
 
@@ -111,26 +116,66 @@ if (!fs.existsSync(configPath)) {
   fs.chmodSync(configPath, 0o600);
 }
 
-// ─── 4. Register MCP proxy in Claude Code ─────────────────────────────────
+// ─── 4. Register MCP proxy in supported clients ───────────────────────────
 
 const proxyBinPath = path.resolve(__dirname, 'mcp-proxy.cjs');
 const { execFileSync } = require('child_process');
 
-try {
-  execFileSync(
-    'claude',
-    ['mcp', 'add', 'chain-insights-proxy', '--scope', 'user', '--', 'node', proxyBinPath],
-    { stdio: 'pipe' }
-  );
-  console.log(`  ${cyan}MCP proxy:${reset} registered (chain-insights-proxy) at ${proxyBinPath}`);
-} catch {
-  console.log(`  ${dim}MCP proxy:${reset} run manually: claude mcp add chain-insights-proxy --scope user -- node ${proxyBinPath}`);
+if (hasClaude) {
+  try {
+    execFileSync(
+      'claude',
+      ['mcp', 'add', 'chain-insights-proxy', '--scope', 'user', '--', 'node', proxyBinPath],
+      { stdio: 'pipe' }
+    );
+    console.log(`  ${cyan}Claude MCP:${reset} registered (chain-insights-proxy) at ${proxyBinPath}`);
+  } catch {
+    console.log(`  ${dim}Claude MCP:${reset} run manually: claude mcp add chain-insights-proxy --scope user -- node ${proxyBinPath}`);
+  }
+}
+
+function tomlQuoted(value) {
+  return JSON.stringify(value);
+}
+
+function installCodexMcp(configFile, proxyPath) {
+  fs.mkdirSync(path.dirname(configFile), { recursive: true });
+  let content = fs.existsSync(configFile) ? fs.readFileSync(configFile, 'utf8') : '';
+  const block = [
+    '[mcp_servers.chain-insights]',
+    'command = "node"',
+    `args = [${tomlQuoted(proxyPath)}]`,
+    '',
+  ].join('\n');
+
+  const heading = '[mcp_servers.chain-insights]';
+  const start = content.indexOf(heading);
+  if (start >= 0) {
+    let end = content.length;
+    const rest = content.slice(start + heading.length);
+    const nextSection = rest.search(/\n\[/);
+    if (nextSection >= 0) end = start + heading.length + nextSection + 1;
+    content = `${content.slice(0, start)}${block}${content.slice(end)}`;
+  } else {
+    const separator = content.endsWith('\n') || content.length === 0 ? '' : '\n';
+    content = `${content}${separator}\n${block}`;
+  }
+
+  fs.writeFileSync(configFile, content, 'utf8');
+}
+
+if (hasCodex) {
+  const codexConfig = path.join(homeDir, '.codex', 'config.toml');
+  installCodexMcp(codexConfig, proxyBinPath);
+  console.log(`  ${cyan}Codex MCP:${reset} registered in ${codexConfig}`);
 }
 
 // ─── 5. Print installation summary ────────────────────────────────────────
 
 console.log(`\n${bold}${green}Chain Insights installed${reset}`);
-console.log(`  ${cyan}Skills:${reset}   ${skillsDir}`);
+for (const target of skillsTargets) {
+  console.log(`  ${cyan}${target.name} skills:${reset} ${target.dir}`);
+}
 console.log(`  ${cyan}Config:${reset}   ${configPath}`);
 console.log(`  ${cyan}Data dir:${reset} ${dataDir}`);
 console.log(`\n${dim}Run ${reset}${cyan}chain-insights status${reset}${dim} to verify the installation.${reset}\n`);

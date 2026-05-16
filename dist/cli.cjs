@@ -10,23 +10,33 @@ const pkg = JSON.parse((0, node_fs.readFileSync)(new URL("../package.json", requ
 const __dirname$1 = node_path.default.dirname((0, node_url.fileURLToPath)(require("url").pathToFileURL(__filename).href));
 const installerPath = node_path.default.resolve(__dirname$1, "..", "bin", "install.cjs");
 const program = new commander.Command();
-program.name("chain-insights").description("AML investigation toolkit for blockchain analysis").version(pkg.version).option("--claude", "Install Claude Code skills globally to ~/.claude/skills/");
+program.name("chain-insights").description("AML investigation toolkit for blockchain analysis").version(pkg.version).option("--claude", "Install Claude Code skills globally to ~/.claude/skills/").option("--codex", "Install Codex skills globally to ~/.codex/skills/ and register MCP");
 const rawArgs = process.argv.slice(2);
-if (rawArgs.includes("--claude") && !rawArgs.some((a) => !a.startsWith("-"))) {
+const installerFlags = rawArgs.filter((a) => a === "--claude" || a === "--codex");
+if (installerFlags.length > 0 && !rawArgs.some((a) => !a.startsWith("-"))) {
 	try {
-		(0, node_child_process.execFileSync)(process.execPath, [installerPath, "--claude"], { stdio: "inherit" });
+		(0, node_child_process.execFileSync)(process.execPath, [installerPath, ...installerFlags], { stdio: "inherit" });
 	} catch (err) {
 		console.error("Installation failed:", err.message);
 		process.exit(1);
 	}
 	process.exit(0);
 }
+if (rawArgs[0] === "mcp" && rawArgs[1] === "trace-funds") {
+	console.error("error: unknown command 'trace-funds'");
+	process.exit(1);
+}
 async function resolveCaseSelector(input) {
-	const { resolveCaseSelector } = await Promise.resolve().then(() => require("./selector-Wco06ykv.cjs"));
+	const { resolveCaseSelector } = await Promise.resolve().then(() => require("./selector-C8u7RTq_.cjs"));
 	return resolveCaseSelector(input);
 }
+async function scopeCasesToInvocationDir() {
+	if (process.env["CHAIN_INSIGHTS_CASES_ROOT"]?.trim()) return;
+	const { activeCasesRoot } = await Promise.resolve().then(() => require("./active-CT1lamd7.cjs")).then((n) => n.active_exports);
+	process.env["CHAIN_INSIGHTS_CASES_ROOT"] = activeCasesRoot();
+}
 async function showCaseContext(caseSelector) {
-	const { CaseStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+	const { CaseStore } = await Promise.resolve().then(() => require("./cases-D8HCXUWD.cjs"));
 	const caseId = await resolveCaseSelector(caseSelector);
 	const ctx = await CaseStore.loadContext(caseId);
 	console.log(`\n=== Case: ${ctx.case.id} ===`);
@@ -44,14 +54,52 @@ async function showCaseContext(caseSelector) {
 		for (const d of ctx.dossierSummaries) console.log(`  ${d.address} [${d.type}] tags: ${d.riskTags || "none"}`);
 	}
 }
+function optionalNumber(value) {
+	if (value === void 0) return void 0;
+	const parsed = Number(value);
+	if (!Number.isFinite(parsed)) throw new Error(`Invalid number: ${value}`);
+	return parsed;
+}
+async function withGraphMcpClient(name, fn) {
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
+	const config = await loadConfig();
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-CUnXT4FK.cjs")).then((n) => n.client_exports);
+	const paymentFetch = await createConfiguredGraphMcpFetch(config);
+	const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+	const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
+	const client = new Client({
+		name,
+		version: "0.1.0"
+	});
+	await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }));
+	try {
+		return await fn(client, config);
+	} finally {
+		await client.close();
+	}
+}
+function printMcpTextContent(result) {
+	for (const item of result.content ?? []) if (item.type === "text") console.log(item.text);
+}
 program.command("serve").description("Start local visualization server").option("-p, --port <number>", "Port to bind (default: 4321)", "4321").action(async (opts) => {
-	const { startServer } = await Promise.resolve().then(() => require("./server-Dji2ikEc.cjs")).then((n) => n.server_exports);
-	startServer(parseInt(opts.port, 10));
+	try {
+		const { requireWorkspaceRoot } = await Promise.resolve().then(() => require("./output-root-BtL2lJgv.cjs")).then((n) => n.output_root_exports);
+		const workspaceRoot = requireWorkspaceRoot();
+		const { startServer } = await Promise.resolve().then(() => require("./server-DkdUrRmb.cjs")).then((n) => n.server_exports);
+		console.log(`Workspace: ${workspaceRoot}`);
+		startServer(parseInt(opts.port, 10));
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
 });
 program.command("status").description("Show toolkit status and configuration").action(async () => {
 	const { loadConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
+	const { findActiveWorkspace, activeDataDir } = await Promise.resolve().then(() => require("./active-CT1lamd7.cjs")).then((n) => n.active_exports);
 	const config = await loadConfig();
-	console.log("Config: ", config.dataDir);
+	const workspace = findActiveWorkspace();
+	console.log("Config: ", activeDataDir(config.dataDir));
+	if (workspace) console.log("Workspace:", workspace.root);
 	console.log("Server: ", `http://127.0.0.1:${config.serverPort}`);
 	console.log("Graph MCP:", `${config.graphMcpMode} mode`);
 	console.log("Graph endpoint:", config.graphMcpEndpoint);
@@ -99,7 +147,7 @@ program.command("debug").description("Configure Graph MCP debug mode").addComman
 }));
 program.command("init").description("Initialize an investigation workspace").argument("[dir]", "Workspace directory to initialize", ".").option("--force", "Overwrite existing workspace files").action(async (dir, opts) => {
 	try {
-		const { initWorkspace } = await Promise.resolve().then(() => require("./init-9K_CIxg4.cjs"));
+		const { initWorkspace } = await Promise.resolve().then(() => require("./init-CEylkf6J.cjs"));
 		const result = await initWorkspace({
 			targetDir: dir,
 			force: opts.force
@@ -113,7 +161,7 @@ program.command("init").description("Initialize an investigation workspace").arg
 });
 program.command("setup").description("Configure external MCP clients").addCommand(new commander.Command("claude-desktop").alias("claude").description("Install or update the Claude Desktop MCP server entry").option("--config <path>", "Path to claude_desktop_config.json").option("--dry-run", "Print the intended change without writing files").action(async (opts) => {
 	try {
-		const { setupClaudeDesktop } = await Promise.resolve().then(() => require("./setup-VlVy5IVU.cjs"));
+		const { setupClaudeDesktop } = await Promise.resolve().then(() => require("./setup-CobmM7C6.cjs"));
 		const result = await setupClaudeDesktop({
 			configPath: opts.config,
 			dryRun: opts.dryRun
@@ -209,10 +257,11 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 		process.exit(1);
 	}
 }));
-program.command("mcp").description("Interact with the Chain Insights MCP endpoint").addCommand(new commander.Command("tools").description("List available MCP tools (cached 24h)").option("--refresh", "Force refresh schema cache").action(async (opts) => {
+program.command("mcp").description("Interact with the Chain Insights MCP endpoint").allowExcessArguments(false).addCommand(new commander.Command("tools").description("List available MCP tools (cached 24h)").option("--refresh", "Force refresh schema cache").action(async (opts) => {
 	try {
-		const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-bX1Oq8MM.cjs"));
-		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-GrzU0yxd.cjs"));
+		const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-DDG5jmBe.cjs"));
+		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-D380-zF5.cjs"));
+		const { visibleRemoteTools } = await Promise.resolve().then(() => require("./tool-visibility-KFJ5Jk4K.cjs")).then((n) => n.tool_visibility_exports);
 		const { loadConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
 		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-CUnXT4FK.cjs")).then((n) => n.client_exports);
 		const config = await loadConfig();
@@ -234,51 +283,125 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				await client.close();
 			}
 		}
-		console.log(formatToolsTable(tools));
+		console.log(formatToolsTable(visibleRemoteTools(tools)));
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
+})).addCommand(new commander.Command("address-risk").description("Screen an address for risk, exchange behavior, and optional compare_address connection risk").requiredOption("--address <address>", "Full blockchain address to screen").requiredOption("--network <network>", "Network to query: bittensor, ethereum, or base").option("--compare-address <address>", "Optional second address for connection-risk compare mode").option("--remote", "Force remote MCP tool call instead of local fallback").action(async (opts) => {
+	try {
+		await withGraphMcpClient("chain-insights-cli-address-risk", async (client) => {
+			if (opts.remote) {
+				printMcpTextContent(await client.callTool({
+					name: "address_risk",
+					arguments: {
+						address: opts.address,
+						network: opts.network,
+						...opts.compareAddress ? { compare_address: opts.compareAddress } : {}
+					}
+				}));
+				return;
+			}
+			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-CeHzn9W2.cjs"));
+			const result = await addressRisk(client, {
+				address: opts.address,
+				network: opts.network,
+				compareAddress: opts.compareAddress
+			});
+			console.log(result.summaryText);
+		});
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
+})).addCommand(new commander.Command("track-funds").description("Trace trusted/victim addresses and optional known untrusted/scammer addresses").requiredOption("--trusted-addresses <addresses>", "Comma-separated full trusted/victim addresses, max 5").requiredOption("--network <network>", "Network to query: bittensor, ethereum, or base").option("--untrusted-addresses <addresses>", "Comma-separated full known untrusted/scammer addresses, max 5").option("--case <id>", "Case ID to attach compact evidence pointers").option("--max-hops <number>", "Maximum trace hops, 1-5").option("--per-address-limit <number>", "Maximum exchange paths/results per address, 1-10").option("--min-amount-sum <number>", "Minimum r.amount_sum for traced edges").option("--remote", "Force remote MCP tool call instead of local fallback").action(async (opts) => {
+	try {
+		const { requireWorkspaceRoot } = await Promise.resolve().then(() => require("./output-root-BtL2lJgv.cjs")).then((n) => n.output_root_exports);
+		requireWorkspaceRoot();
+		await withGraphMcpClient("chain-insights-cli-track-funds", async (client, config) => {
+			if (opts.remote) {
+				printMcpTextContent(await client.callTool({
+					name: "track_funds",
+					arguments: {
+						trusted_addresses: opts.trustedAddresses,
+						network: opts.network,
+						...opts.untrustedAddresses ? { untrusted_addresses: opts.untrustedAddresses } : {}
+					}
+				}));
+				return;
+			}
+			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-CeHzn9W2.cjs"));
+			const result = await trackFunds(client, config, {
+				trustedAddresses: opts.trustedAddresses,
+				untrustedAddresses: opts.untrustedAddresses,
+				network: opts.network,
+				caseId: opts.case,
+				maxHops: optionalNumber(opts.maxHops),
+				perAddressLimit: optionalNumber(opts.perAddressLimit),
+				minAmountSum: optionalNumber(opts.minAmountSum)
+			});
+			console.log(result.summaryText);
+			console.log(JSON.stringify(result.structuredContent, null, 2));
+		});
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);
 	}
 })).addCommand(new commander.Command("call").description("Call an MCP tool directly (debug)").argument("<tool>", "Tool name to call").argument("[args...]", "Key=value arguments (e.g. address=0x1234 chain=ethereum)").action(async (tool, rawArgs) => {
 	try {
-		const { parseMcpCallArgs } = await Promise.resolve().then(() => require("./call-args-B0iS9_Ag.cjs"));
+		const { parseMcpCallArgs } = await Promise.resolve().then(() => require("./call-args-BvG9lcQ_.cjs"));
+		const { assertPublicMcpToolName } = await Promise.resolve().then(() => require("./tool-visibility-KFJ5Jk4K.cjs")).then((n) => n.tool_visibility_exports);
 		const args = parseMcpCallArgs(rawArgs);
-		const { loadConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
-		const config = await loadConfig();
-		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-CUnXT4FK.cjs")).then((n) => n.client_exports);
-		const paymentFetch = await createConfiguredGraphMcpFetch(config);
-		const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
-		const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
-		const client = new Client({
-			name: "chain-insights-cli-call",
-			version: "0.1.0"
-		});
-		await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }));
-		try {
-			const content = (await client.callTool({
+		assertPublicMcpToolName(tool);
+		await withGraphMcpClient("chain-insights-cli-call", async (client, config) => {
+			if (tool === "address_risk") {
+				const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-CeHzn9W2.cjs"));
+				const result = await addressRisk(client, {
+					address: String(args["address"] ?? ""),
+					network: String(args["network"] ?? ""),
+					compareAddress: args["compare_address"] === void 0 ? void 0 : String(args["compare_address"])
+				});
+				console.log(result.summaryText);
+				return;
+			}
+			if (tool === "track_funds") {
+				const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-CeHzn9W2.cjs"));
+				const result = await trackFunds(client, config, {
+					trustedAddresses: args["trusted_addresses"] ?? "",
+					untrustedAddresses: args["untrusted_addresses"],
+					network: String(args["network"] ?? ""),
+					caseId: args["case_id"] === void 0 ? void 0 : String(args["case_id"]),
+					maxHops: typeof args["max_hops"] === "number" ? args["max_hops"] : void 0,
+					perAddressLimit: typeof args["per_address_limit"] === "number" ? args["per_address_limit"] : void 0,
+					minAmountSum: typeof args["min_amount_sum"] === "number" ? args["min_amount_sum"] : void 0
+				});
+				console.log(result.summaryText);
+				console.log(JSON.stringify(result.structuredContent, null, 2));
+				return;
+			}
+			printMcpTextContent(await client.callTool({
 				name: tool,
 				arguments: args
-			})).content;
-			for (const item of content) if (item.type === "text") console.log(item.text);
-		} finally {
-			await client.close();
-		}
+			}));
+		});
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);
 	}
 }));
-program.command("case").description("Manage investigation cases").addCommand(new commander.Command("open").description("Open a new investigation case").argument("<name>", "Case name (e.g. \"Tornado Mixer Investigation\")").option("--tags <tags>", "Comma-separated tags (e.g. aml,mixer,defi)", "").option("--description <desc>", "Brief description of the investigation", "").action(async (name, opts) => {
+const caseCommand = new commander.Command("case").description("Manage investigation cases").hook("preAction", async () => {
+	await scopeCasesToInvocationDir();
+}).addCommand(new commander.Command("open").description("Open a new investigation case").argument("<name>", "Case name (e.g. \"Tornado Mixer Investigation\")").option("--tags <tags>", "Comma-separated tags (e.g. aml,mixer,defi)", "").option("--description <desc>", "Brief description of the investigation", "").action(async (name, opts) => {
 	try {
 		if (/^[1-9]\d*$/.test(name.trim())) throw new Error("Numeric case names look like list selectors. Use a descriptive case name, e.g. `cia case open \"Tracking stolen funds from <address>\"`.");
-		const { CaseStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+		const { CaseStore } = await Promise.resolve().then(() => require("./cases-D8HCXUWD.cjs"));
 		const tags = opts.tags ? opts.tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
 		const c = await CaseStore.create({
 			name,
 			tags,
 			description: opts.description
 		});
-		const { casesRoot } = await Promise.resolve().then(() => require("./store-B6wwxdXB.cjs"));
+		const { casesRoot } = await Promise.resolve().then(() => require("./store-QWfqLQXO.cjs"));
 		console.log(`Case opened: ${c.id}`);
 		console.log(`Directory:   ${node_path.default.join(casesRoot(), c.id)}/`);
 		console.log(`Status:      ${c.status}`);
@@ -288,7 +411,7 @@ program.command("case").description("Manage investigation cases").addCommand(new
 	}
 })).addCommand(new commander.Command("activate").description("Activate a case (set status to active)").argument("<case-id>", "Case ID to activate").action(async (caseSelector) => {
 	try {
-		const { CaseStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+		const { CaseStore } = await Promise.resolve().then(() => require("./cases-D8HCXUWD.cjs"));
 		const caseId = await resolveCaseSelector(caseSelector);
 		const c = await CaseStore.setStatus(caseId, "active");
 		console.log(`Case ${c.id} is now: active`);
@@ -298,7 +421,7 @@ program.command("case").description("Manage investigation cases").addCommand(new
 	}
 })).addCommand(new commander.Command("suspend").description("Suspend a case (set status to suspended)").argument("<case-id>", "Case ID to suspend").action(async (caseSelector) => {
 	try {
-		const { CaseStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+		const { CaseStore } = await Promise.resolve().then(() => require("./cases-D8HCXUWD.cjs"));
 		const caseId = await resolveCaseSelector(caseSelector);
 		const c = await CaseStore.setStatus(caseId, "suspended");
 		console.log(`Case ${c.id} is now: suspended`);
@@ -308,7 +431,7 @@ program.command("case").description("Manage investigation cases").addCommand(new
 	}
 })).addCommand(new commander.Command("close").description("Close a case permanently").argument("<case-id>", "Case ID to close").action(async (caseSelector) => {
 	try {
-		const { CaseStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+		const { CaseStore } = await Promise.resolve().then(() => require("./cases-D8HCXUWD.cjs"));
 		const caseId = await resolveCaseSelector(caseSelector);
 		const c = await CaseStore.setStatus(caseId, "closed");
 		console.log(`Case ${c.id} is now: closed`);
@@ -318,7 +441,7 @@ program.command("case").description("Manage investigation cases").addCommand(new
 	}
 })).addCommand(new commander.Command("list").description("List all investigation cases").option("--status <status>", "Filter by status (open|active|suspended|closed)").action(async (opts) => {
 	try {
-		const { CaseStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+		const { CaseStore } = await Promise.resolve().then(() => require("./cases-D8HCXUWD.cjs"));
 		const cases = await CaseStore.list();
 		const filtered = opts.status ? cases.filter((c) => c.status === opts.status) : cases;
 		if (filtered.length === 0) {
@@ -332,7 +455,7 @@ program.command("case").description("Manage investigation cases").addCommand(new
 	}
 })).addCommand(new commander.Command("evidence").description("Manage case evidence").addCommand(new commander.Command("add").description("Add evidence to a case from an MCP query result").argument("<case-id>", "Case ID to add evidence to").option("--source <tool>", "MCP tool name that produced this evidence", "manual").option("--content <text>", "Evidence content (MCP response or notes)", "").option("--query-params <params>", "Query parameters used (e.g. address=0x1234)", "").action(async (caseSelector, opts) => {
 	try {
-		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-D8HCXUWD.cjs"));
 		const caseId = await resolveCaseSelector(caseSelector);
 		const result = await EvidenceStore.append(caseId, {
 			source: opts.source,
@@ -347,7 +470,7 @@ program.command("case").description("Manage investigation cases").addCommand(new
 	}
 })).addCommand(new commander.Command("verify").description("Verify evidence manifest integrity for a case").argument("<case-id>", "Case ID to verify").action(async (caseSelector) => {
 	try {
-		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-D8HCXUWD.cjs"));
 		const caseId = await resolveCaseSelector(caseSelector);
 		const result = await EvidenceStore.verifyManifest(caseId);
 		if (result.ok) console.log(`Manifest OK — ${result.count} evidence file(s) verified`);
@@ -361,7 +484,7 @@ program.command("case").description("Manage investigation cases").addCommand(new
 	}
 }))).addCommand(new commander.Command("dossier").description("Manage entity dossiers for a case").addCommand(new commander.Command("update").description("Append a finding to an entity dossier").argument("<case-id>", "Case ID").argument("<address>", "Entity address or identifier").option("--finding <text>", "Finding to append to the dossier", "").option("--type <type>", "Entity type (eoa|contract|exchange|mixer|unknown)", "unknown").action(async (caseSelector, address, opts) => {
 	try {
-		const { DossierStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+		const { DossierStore } = await Promise.resolve().then(() => require("./cases-D8HCXUWD.cjs"));
 		const caseId = await resolveCaseSelector(caseSelector);
 		const entityType = [
 			"eoa",
@@ -378,7 +501,7 @@ program.command("case").description("Manage investigation cases").addCommand(new
 	}
 }))).addCommand(new commander.Command("session").description("Manage investigation sessions").addCommand(new commander.Command("start").description("Start a new investigation session for a case").argument("<case-id>", "Case ID").argument("[title...]", "Optional session title").action(async (caseSelector, titleParts) => {
 	try {
-		const { SessionStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+		const { SessionStore } = await Promise.resolve().then(() => require("./cases-D8HCXUWD.cjs"));
 		const caseId = await resolveCaseSelector(caseSelector);
 		const title = titleParts.join(" ").trim();
 		const s = await SessionStore.start(caseId, title ? { title } : {});
@@ -389,7 +512,7 @@ program.command("case").description("Manage investigation cases").addCommand(new
 	}
 })).addCommand(new commander.Command("end").description("End the current session with findings and next steps").argument("<case-id>", "Case ID").option("--findings <text>", "Key findings from this session", "").option("--next-steps <text>", "Next steps for the investigation", "").action(async (caseSelector, opts) => {
 	try {
-		const { SessionStore } = await Promise.resolve().then(() => require("./cases-C9JmWEjR.cjs"));
+		const { SessionStore } = await Promise.resolve().then(() => require("./cases-D8HCXUWD.cjs"));
 		const caseId = await resolveCaseSelector(caseSelector);
 		await SessionStore.end(caseId, {
 			findings: opts.findings,
@@ -409,6 +532,7 @@ program.command("case").description("Manage investigation cases").addCommand(new
 		process.exit(1);
 	}
 }));
+program.addCommand(caseCommand);
 program.command("playbook").description("Run and manage investigation playbooks").addCommand(new commander.Command("run").description("Execute a playbook by name").argument("<name>", "Playbook name (e.g. trace-funds, risk-check, entity-profile)").option("--case <id>", "Case ID to attach evidence to (auto-created if omitted)").option("--from <n>", "Resume from step N (1-based)", "1").option("--dry-run", "Show steps without executing").option("-p, --param <kv...>", "Parameters as key=value pairs (repeatable, e.g. -p address=0x1 -p hops=3)").action(async (name, opts) => {
 	try {
 		const resolvedParams = {};
@@ -425,9 +549,9 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			}
 			resolvedParams[key] = kv.slice(eq + 1);
 		}
-		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-J1uK9rs6.cjs"));
+		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-BtectVQB.cjs"));
 		const markdown = await resolvePlaybookContent(name);
-		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-VXTz3gG9.cjs"));
+		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-CKf6hiG4.cjs"));
 		const definition = PlaybookParser.parse(markdown, resolvedParams);
 		for (const spec of definition.params) if (spec.required && !resolvedParams[spec.name] && !spec.default) {
 			console.error(`Missing required param: ${spec.name}. Pass with: -p ${spec.name}=<value>`);
@@ -438,7 +562,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-V5bBvNxd.cjs"));
+		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-Cb_NCx08.cjs"));
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,
@@ -451,7 +575,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new commander.Command("list").description("List available playbooks (built-in and user-defined)").action(async () => {
 	try {
-		const { listPlaybooks } = await Promise.resolve().then(() => require("./resolver-J1uK9rs6.cjs"));
+		const { listPlaybooks } = await Promise.resolve().then(() => require("./resolver-BtectVQB.cjs"));
 		const playbooks = await listPlaybooks();
 		if (playbooks.length === 0) {
 			console.log("No playbooks found.");
@@ -464,8 +588,8 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new commander.Command("show").description("Show steps for a playbook without executing").argument("<name>", "Playbook name").action(async (name) => {
 	try {
-		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-J1uK9rs6.cjs"));
-		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-VXTz3gG9.cjs"));
+		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-BtectVQB.cjs"));
+		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-CKf6hiG4.cjs"));
 		const markdown = await resolvePlaybookContent(name);
 		const definition = PlaybookParser.parse(markdown, {});
 		console.log(`Playbook: ${definition.name} v${definition.version}`);
@@ -488,12 +612,12 @@ program.command("viz").description("Generate money flow visualization").argument
 			console.error("Provide either a case ID or --data <file.json>");
 			process.exit(1);
 		}
-		const { generateVisualization } = await Promise.resolve().then(() => require("./viz-DLsjmwKl.cjs")).then((n) => n.viz_exports);
+		const { generateVisualization } = await Promise.resolve().then(() => require("./viz-CvNrXlhl.cjs")).then((n) => n.viz_exports);
 		const result = await generateVisualization({
 			caseId,
 			dataFile: opts.data
 		});
-		const { startServer } = await Promise.resolve().then(() => require("./server-Dji2ikEc.cjs")).then((n) => n.server_exports);
+		const { startServer } = await Promise.resolve().then(() => require("./server-DkdUrRmb.cjs")).then((n) => n.server_exports);
 		const port = parseInt(opts.port, 10);
 		startServer(port);
 		const url = `http://127.0.0.1:${port}/viz/${result.vizId}`;
