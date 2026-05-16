@@ -3,6 +3,8 @@ import { chmod, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import * as z from 'zod'
 import type { InvestigatorConfig } from '../config/schema.js'
+import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
+import { workspaceOutputPaths } from '../workspace/output-root.js'
 
 const GraphArtifactInputSchema = z.object({
   schema: z.literal('chain-insights.graph.v1'),
@@ -34,7 +36,7 @@ async function ensurePrivateDirectory(dir: string): Promise<void> {
 
 export async function writeGraphArtifact(
   graphData: unknown,
-  config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
+  config: Pick<InvestigatorConfig, 'serverPort'>,
 ): Promise<GraphArtifactRef> {
   const parsed = GraphArtifactInputSchema.safeParse(graphData)
   if (!parsed.success) {
@@ -46,16 +48,17 @@ export async function writeGraphArtifact(
     throw new Error('Invalid graph payload: nodes, edges, flows, and edge_anchors must be arrays')
   }
 
+  const normalized = normalizeGraphPayload(graphData)
   const id = randomUUID()
-  const artifactDir = path.join(config.dataDir, 'artifacts', id)
+  const paths = workspaceOutputPaths()
+  const artifactDir = path.join(paths.artifactsRoot, id)
   const filePath = path.join(artifactDir, 'graph.json')
-  await ensurePrivateDirectory(config.dataDir)
-  await ensurePrivateDirectory(path.join(config.dataDir, 'artifacts'))
+  await ensurePrivateDirectory(paths.artifactsRoot)
   await ensurePrivateDirectory(artifactDir)
-  await writeFile(filePath, JSON.stringify(parsed.data, null, 2) + '\n', { mode: 0o600 })
+  await writeFile(filePath, JSON.stringify(normalized, null, 2) + '\n', { mode: 0o600 })
 
   return {
-    schema: parsed.data.schema,
+    schema: normalized.schema,
     id,
     path: filePath,
     url: `http://127.0.0.1:${config.serverPort}/artifacts/${id}/graph.json`,

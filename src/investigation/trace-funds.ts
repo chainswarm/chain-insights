@@ -4,7 +4,7 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import type { InvestigatorConfig } from '../config/schema.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
-import { findActiveWorkspace } from '../workspace/active.js'
+import { workspaceOutputPaths, type WorkspaceOutputPaths } from '../workspace/output-root.js'
 
 type RemoteToolResult = {
   content?: ContentBlock[]
@@ -171,14 +171,13 @@ function sanitizeSegment(value: string): string {
   return sanitized || 'trace'
 }
 
-function outputRoot(config: Pick<InvestigatorConfig, 'dataDir'>): string {
-  return findActiveWorkspace()?.root ?? config.dataDir
-}
-
-async function ensureDirs(root: string): Promise<void> {
-  await mkdir(path.join(root, '.chain-insights', 'schema'), { recursive: true, mode: 0o700 })
-  await mkdir(path.join(root, 'reports', 'graphs'), { recursive: true, mode: 0o700 })
-  await mkdir(path.join(root, 'reports', 'tables'), { recursive: true, mode: 0o700 })
+async function ensureDirs(paths: WorkspaceOutputPaths): Promise<void> {
+  await mkdir(paths.schemaDir, { recursive: true, mode: 0o700 })
+  await mkdir(paths.reportsRoot, { recursive: true, mode: 0o700 })
+  await mkdir(paths.reportGraphsRoot, { recursive: true, mode: 0o700 })
+  await mkdir(paths.reportTablesRoot, { recursive: true, mode: 0o700 })
+  await mkdir(paths.artifactsRoot, { recursive: true, mode: 0o700 })
+  await mkdir(paths.logsRoot, { recursive: true, mode: 0o700 })
 }
 
 function textFromToolResult(result: RemoteToolResult): string {
@@ -246,10 +245,10 @@ function schemaFromBatch(network: string, batch: ParsedBatch): Record<string, un
 
 async function loadOrCaptureSchema(
   remoteClient: Client,
-  root: string,
+  paths: WorkspaceOutputPaths,
   network: string,
 ): Promise<{ schema: Record<string, unknown>; filePath: string }> {
-  const filePath = path.join(root, '.chain-insights', 'schema', `${sanitizeSegment(network)}.graph-schema.json`)
+  const filePath = path.join(paths.schemaDir, `${sanitizeSegment(network)}.graph-schema.json`)
   try {
     return { schema: JSON.parse(await readFile(filePath, 'utf8')) as Record<string, unknown>, filePath }
   } catch (err) {
@@ -834,7 +833,7 @@ function summarize(seedAddress: string, network: string, flows: TraceFlow[], sou
 
 export async function runFundFlowProbe(
   remoteClient: Client,
-  config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
+  _config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
   options: TraceFundsOptions,
 ): Promise<TraceFundsResult> {
   const seedAddress = options.seedAddress.trim()
@@ -845,22 +844,22 @@ export async function runFundFlowProbe(
   const maxHops = clampInt(options.maxHops, 3, 1, 5)
   const perAddressLimit = clampInt(options.perAddressLimit, 5, 1, 10)
   const minAmountSum = Math.max(0, options.minAmountSum ?? 0)
-  const root = outputRoot(config)
-  await ensureDirs(root)
+  const paths = workspaceOutputPaths()
+  await ensureDirs(paths)
 
-  const schemaResult = await loadOrCaptureSchema(remoteClient, root, network)
+  const schemaResult = await loadOrCaptureSchema(remoteClient, paths, network)
   const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, { seedAddress, network, maxHops, perAddressLimit, minAmountSum })
   const aliases = buildAliases(seedAddress, deposits, sourceMatches, reverseLeads)
   const slug = `${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}_${sanitizeSegment(seedAddress.slice(0, 16))}`
   const compact = probeEvidence(seedAddress, network, schemaResult.filePath, aliases, flows, deposits, sourceMatches, reverseLeads)
   const graph = buildGraph(seedAddress, network, flows, deposits, sourceMatches, reverseLeads)
 
-  const compactPath = path.join(root, 'reports', 'tables', `${slug}.compact-evidence.json`)
-  const graphPath = path.join(root, 'reports', 'graphs', `${slug}.graph.json`)
-  const graphHtmlPath = path.join(root, 'reports', `${slug}.graph.html`)
-  const tablePath = path.join(root, 'reports', 'tables', `${slug}.flows.csv`)
-  const tableHtmlPath = path.join(root, 'reports', `${slug}.table.html`)
-  const reportPath = path.join(root, 'reports', `${slug}.trace-report.md`)
+  const compactPath = path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`)
+  const graphPath = path.join(paths.reportGraphsRoot, `${slug}.graph.json`)
+  const graphHtmlPath = path.join(paths.reportsRoot, `${slug}.graph.html`)
+  const tablePath = path.join(paths.reportTablesRoot, `${slug}.flows.csv`)
+  const tableHtmlPath = path.join(paths.reportsRoot, `${slug}.table.html`)
+  const reportPath = path.join(paths.reportsRoot, `${slug}.trace-report.md`)
   const { generateInlineGraphHtml } = await import('../viz/html-generator.js')
 
   await writeFile(compactPath, JSON.stringify(compact, null, 2) + '\n', { mode: 0o600 })

@@ -6,20 +6,34 @@ import { tmpdir } from 'node:os'
 describe('Hono viz routes (VIZ-03)', () => {
   let stop: (() => void) | null = null
   let fakeHome: string
+  let workspace: string
   let prevHome: string | undefined
+  let prevWorkspace: string | undefined
 
   beforeEach(async () => {
     vi.resetModules()
     fakeHome = join(tmpdir(), `ci-viz-server-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    workspace = join(tmpdir(), `ci-viz-server-workspace-${Date.now()}-${Math.random().toString(36).slice(2)}`)
     await mkdir(join(fakeHome, '.chain-insights'), { recursive: true })
+    await mkdir(join(workspace, '.chain-insights'), { recursive: true })
+    await writeFile(join(workspace, '.chain-insights', 'workspace.json'), JSON.stringify({
+      schema: 'chain-insights.workspace.v1',
+      workspace_root: workspace,
+      cases_dir: 'cases',
+    }) + '\n')
     prevHome = process.env['HOME']
+    prevWorkspace = process.env['CHAIN_INSIGHTS_WORKSPACE']
     process.env['HOME'] = fakeHome
+    process.env['CHAIN_INSIGHTS_WORKSPACE'] = workspace
   })
 
   afterEach(async () => {
     if (stop) { stop(); stop = null }
     process.env['HOME'] = prevHome
+    if (prevWorkspace === undefined) delete process.env['CHAIN_INSIGHTS_WORKSPACE']
+    else process.env['CHAIN_INSIGHTS_WORKSPACE'] = prevWorkspace
     await rm(fakeHome, { recursive: true, force: true })
+    await rm(workspace, { recursive: true, force: true })
     vi.resetModules()
   })
 
@@ -77,7 +91,7 @@ describe('Hono viz routes (VIZ-03)', () => {
   })
 
   it('GET /artifacts/:artifactId/graph.json serves stored graph JSON', async () => {
-    const artifactDir = join(fakeHome, '.chain-insights', 'artifacts', 'artifact_123')
+    const artifactDir = join(workspace, 'artifacts', 'artifact_123')
     const graph = {
       schema: 'chain-insights.graph.v1',
       nodes: [{ address: '5Test' }],

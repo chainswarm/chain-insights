@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -674,6 +674,112 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(exchangeNode).not.toHaveProperty('risk_level')
     expect(exchangeNode).not.toHaveProperty('pattern_flags')
     expect(graph.edges[0]).toMatchObject({ from_address: '5Seed', amount_sum: 123 })
+  })
+
+  it('routes track_funds reports and artifacts to workspace without creating home outputs', async () => {
+    const fakeHome = `/tmp/chain-insights-fake-home-${process.pid}-${Date.now()}`
+    const workspace = `/tmp/chain-insights-workspace-${process.pid}-${Date.now()}`
+    const previousHome = process.env['HOME']
+    mkdirSync(join(workspace, '.chain-insights'), { recursive: true })
+    writeFileSync(join(workspace, '.chain-insights', 'workspace.json'), JSON.stringify({
+      schema: 'chain-insights.workspace.v1',
+      workspace_root: workspace,
+      cases_dir: 'cases',
+    }) + '\n')
+    mkdirSync(fakeHome, { recursive: true })
+    process.env['HOME'] = fakeHome
+    process.env['CHAIN_INSIGHTS_WORKSPACE'] = workspace
+
+    try {
+      const { loadSchema } = await import('../src/mcp/schema-cache.js')
+      vi.mocked(loadSchema).mockResolvedValueOnce([
+        { name: 'graph_query_batch', description: 'Cypher graph query batch' },
+      ])
+
+      const { createProxy } = await import('../src/mcp/proxy.js')
+      const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+      const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+      await createProxy()
+
+      const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+        callTool: ReturnType<typeof vi.fn>
+      }
+      const textResult = (queries: unknown[]) => ({
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            schema: 'chain-insights.result.v1',
+            tool: 'graph_query_batch',
+            facts: { queries },
+          }),
+        }],
+        isError: false,
+      })
+      clientInstance.callTool
+        .mockResolvedValueOnce(textResult([
+          { id: 'node_labels', ok: true, results: [{ label: 'Address', count: 10 }] },
+          { id: 'relationship_types', ok: true, results: [{ relationship_type: 'FLOWS_TO', count: 4 }] },
+          { id: 'address_property_keys', ok: true, results: [{ property_key: 'address', sample_count: 10 }] },
+          { id: 'flows_to_property_keys', ok: true, results: [{ property_key: 'amount_sum', sample_count: 4 }] },
+        ]))
+        .mockResolvedValueOnce(textResult([
+          {
+            id: 'forward_exchange_paths',
+            ok: true,
+            results: [{
+              addresses: ['5Seed', '5Deposit', '5Exchange'],
+              edge_props: [
+                { amount_sum: 50, amount_usd_sum: 100, tx_count: 1, first_tx_id: '1-1' },
+                { amount_sum: 49, amount_usd_sum: 98, tx_count: 1, first_tx_id: '2-1' },
+              ],
+              node_labels: [['Address'], ['Address'], ['Address', 'Exchange']],
+              exchange_address: '5Exchange',
+              exchange_labels: ['Exchange'],
+              hops: 2,
+            }],
+          },
+        ]))
+        .mockResolvedValueOnce(textResult([
+          {
+            id: 'direct_edge_props',
+            ok: true,
+            results: [
+              { src: '5Seed', dst: '5Deposit', amount_sum: 50, amount_usd_sum: 100, tx_count: 1, first_tx_id: '1-1' },
+              { src: '5Deposit', dst: '5Exchange', amount_sum: 49, amount_usd_sum: 98, tx_count: 1, first_tx_id: '2-1' },
+            ],
+          },
+        ]))
+        .mockResolvedValueOnce(textResult([
+          { id: 'backward_from_deposit_1', ok: true, results: [] },
+        ]))
+        .mockResolvedValueOnce(textResult([
+          { id: 'reverse_1hop', ok: true, results: [] },
+        ]))
+
+      const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+        registerTool: ReturnType<typeof vi.fn>
+      }
+      const handler = findToolHandler(serverInstance, 'track_funds')
+      const result = await handler({
+        trusted_addresses: '5Seed',
+        network: 'bittensor',
+      })
+      const run = result.structuredContent.facts.runs[0]
+
+      expect(result.isError).toBe(false)
+      expect(run.files.graph).toContain(`${workspace}/reports/graphs/`)
+      expect(result._meta.chainInsights.graph.url).toContain('/artifacts/')
+      expect(existsSync(join(workspace, 'artifacts'))).toBe(true)
+      expect(existsSync(join(fakeHome, '.chain-insights', 'reports'))).toBe(false)
+      expect(existsSync(join(fakeHome, '.chain-insights', 'artifacts'))).toBe(false)
+      expect(existsSync(join(fakeHome, '.chain-insights', 'cases'))).toBe(false)
+    } finally {
+      if (previousHome === undefined) delete process.env['HOME']
+      else process.env['HOME'] = previousHome
+      rmSync(fakeHome, { recursive: true, force: true })
+      rmSync(workspace, { recursive: true, force: true })
+    }
   })
 
   it('track_funds reports deposit candidates and does not continue through Exchange nodes', async () => {

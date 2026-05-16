@@ -73,9 +73,9 @@ export function createApp(): Hono {
       return c.json({ error: 'Invalid artifact ID' }, 400)
     }
 
-    const { loadConfig } = await import('../config/index.js')
-    const config = await loadConfig()
-    const graphPath = path.join(config.dataDir, 'artifacts', artifactId, 'graph.json')
+    const { workspaceOutputPaths } = await import('../workspace/output-root.js')
+    const paths = workspaceOutputPaths()
+    const graphPath = path.join(paths.artifactsRoot, artifactId, 'graph.json')
 
     try {
       const graph = await readFile(graphPath, 'utf-8')

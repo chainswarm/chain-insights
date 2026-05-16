@@ -142,30 +142,48 @@ describe('extractGraphFromJson (VIZ-01)', () => {
 
 describe('extractGraphFromCase (VIZ-01)', () => {
   let fakeHome: string
+  let workspace: string
   let prevHome: string | undefined
+  let prevCasesRoot: string | undefined
+  let prevWorkspace: string | undefined
 
   beforeEach(async () => {
     vi.resetModules()
     fakeHome = join(tmpdir(), `ci-viz-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
-    await mkdir(join(fakeHome, '.chain-insights'), { recursive: true })
+    workspace = join(tmpdir(), `ci-viz-workspace-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    await mkdir(join(workspace, '.chain-insights'), { recursive: true })
+    await writeFile(join(workspace, '.chain-insights', 'workspace.json'), JSON.stringify({
+      schema: 'chain-insights.workspace.v1',
+      workspace_root: workspace,
+      cases_dir: 'cases',
+    }) + '\n')
     prevHome = process.env['HOME']
+    prevCasesRoot = process.env['CHAIN_INSIGHTS_CASES_ROOT']
+    prevWorkspace = process.env['CHAIN_INSIGHTS_WORKSPACE']
     process.env['HOME'] = fakeHome
+    process.env['CHAIN_INSIGHTS_CASES_ROOT'] = join(workspace, 'cases')
+    process.env['CHAIN_INSIGHTS_WORKSPACE'] = workspace
   })
 
   afterEach(async () => {
     process.env['HOME'] = prevHome
+    if (prevCasesRoot === undefined) delete process.env['CHAIN_INSIGHTS_CASES_ROOT']
+    else process.env['CHAIN_INSIGHTS_CASES_ROOT'] = prevCasesRoot
+    if (prevWorkspace === undefined) delete process.env['CHAIN_INSIGHTS_WORKSPACE']
+    else process.env['CHAIN_INSIGHTS_WORKSPACE'] = prevWorkspace
     await rm(fakeHome, { recursive: true, force: true })
+    await rm(workspace, { recursive: true, force: true })
     vi.resetModules()
   })
 
   async function createEvidenceFile(caseId: string, filename: string, content: string) {
-    const evidenceDir = join(fakeHome, '.chain-insights', 'cases', caseId, 'evidence')
+    const evidenceDir = join(workspace, 'cases', caseId, 'evidence')
     await mkdir(evidenceDir, { recursive: true })
     await writeFile(join(evidenceDir, filename), content)
   }
 
   async function createDossierFile(caseId: string, address: string, entityType: string) {
-    const dossierDir = join(fakeHome, '.chain-insights', 'cases', caseId, 'dossiers')
+    const dossierDir = join(workspace, 'cases', caseId, 'dossiers')
     await mkdir(dossierDir, { recursive: true })
     const safeAddr = address.replace(/[^a-zA-Z0-9]/g, '').slice(0, 66)
     const fm: Record<string, string> = {
