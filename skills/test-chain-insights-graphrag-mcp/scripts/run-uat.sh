@@ -201,6 +201,7 @@ console.log(`[uat] direct tools/list ok: ${tools.length} tools (${hasHighLevel ?
 NODE
 
 DIRECT_JSON="${RUN_DIR}/direct-address-risk.json"
+DIRECT_ADDRESS_RISK_SUMMARY="- direct address_risk skipped: direct endpoint is primitive-only"
 if [[ "$(cat "${RUN_DIR}/direct-high-level-tools.txt")" == "yes" ]]; then
   log "calling direct GraphRAG address_risk"
   npx @modelcontextprotocol/inspector \
@@ -238,6 +239,7 @@ if (Object.prototype.hasOwnProperty.call(graphData || {}, 'transfers')) errors.p
 if (errors.length) throw new Error(errors.join('; '))
 console.log(`[uat] direct address_risk ok: nodes=${graphData.nodes.length} edges=${graphData.edges.length} flows=${graphData.flows.length} edge_anchors=${graphData.edge_anchors.length}`)
 NODE
+  DIRECT_ADDRESS_RISK_SUMMARY="- ${DIRECT_JSON}"
 else
   log "direct GraphRAG high-level tools absent; primitive-only endpoint, skipping direct address_risk check"
 fi
@@ -360,7 +362,7 @@ Graph report URL: ${GRAPH_REPORT_URL}
 
 Raw outputs:
 - ${DIRECT_TOOLS_JSON}
-- ${DIRECT_JSON}
+${DIRECT_ADDRESS_RISK_SUMMARY}
 - ${PROXY_TOOLS_JSON}
 - ${PROXY_JSON}
 - ${GRAPH_REPORT_JSON}
