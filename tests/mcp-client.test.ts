@@ -131,6 +131,30 @@ describe('MCP client (02-01)', () => {
     )
   })
 
+  it('createMcpFetchClient explains Permit2 allowance failures need Base ETH gas', async () => {
+    const paymentRequired = Buffer.from(JSON.stringify({
+      x402Version: 2,
+      error: 'invalid_exact_evm_permit2_payload_allowance_required: simulation failed',
+      accepts: [{
+        scheme: 'upto',
+        network: 'eip155:8453',
+        amount: '2000000',
+      }],
+    })).toString('base64')
+    mockWrappedFetch.mockResolvedValue(new Response('null', {
+      status: 402,
+      headers: { 'payment-required': paymentRequired },
+    }))
+
+    const { createMcpFetchClient } = await import('../src/mcp/client.js')
+    const testKey = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as const
+    const client = createMcpFetchClient(testKey)
+
+    await expect(client('https://staging-mcp.chain-insights.ai/mcp')).rejects.toThrow(
+      'Base ETH is required for approval gas',
+    )
+  })
+
   it('createMcpFetchClient explains when the payer wallet matches the MCP payTo address', async () => {
     const paymentRequired = Buffer.from(JSON.stringify({
       x402Version: 2,

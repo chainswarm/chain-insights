@@ -1,4 +1,4 @@
-import { createPublicClient, formatUnits, http, type Address, type Hex } from 'viem'
+import { createPublicClient, formatEther, formatUnits, http, type Address, type Hex } from 'viem'
 import { base } from 'viem/chains'
 import { privateKeyToAccount } from 'viem/accounts'
 import { decryptKey, normalizeWalletPrivateKey } from './index.js'
@@ -73,18 +73,48 @@ export async function getBalanceUsdc(
   return 'unknown'
 }
 
-export function formatWalletBalance(address: string, balanceUsdc: string): string {
+export async function getBalanceEth(
+  address: Address | string,
+  rpcUrl = process.env['BASE_RPC_URL'],
+): Promise<string> {
+  const rpcUrls = [
+    ...(rpcUrl ? [rpcUrl] : []),
+    ...PUBLIC_BASE_RPC_URLS.filter((fallbackUrl) => fallbackUrl !== rpcUrl),
+  ]
+
+  for (const url of rpcUrls) {
+    try {
+      const client = createPublicClient({
+        chain: base,
+        transport: http(url),
+      })
+      const balance = await client.getBalance({ address: address as Address })
+      return formatEther(balance)
+    } catch {
+      // Try the next public Base RPC endpoint.
+    }
+  }
+
+  return 'unknown'
+}
+
+export function formatWalletBalance(address: string, balanceUsdc: string, balanceEth?: string): string {
   return [
     `Balance: ${balanceUsdc} USDC`,
+    balanceEth === undefined ? undefined : `Gas: ${balanceEth} ETH on Base`,
     'Network: Base',
+    'Base ETH is required for one-time USDC Permit2 approval gas.',
     `Address: ${address}`,
   ].filter(Boolean).join('\n')
 }
 
 export async function getWalletBalanceText(account?: PaymentWalletAccount): Promise<string> {
   const wallet = account ?? await getWalletAccount()
-  const balance = await getBalanceUsdc(wallet.address)
-  return formatWalletBalance(wallet.address, balance)
+  const [balanceUsdc, balanceEth] = await Promise.all([
+    getBalanceUsdc(wallet.address),
+    getBalanceEth(wallet.address),
+  ])
+  return formatWalletBalance(wallet.address, balanceUsdc, balanceEth)
 }
 
 export function buildTopupInfo(address: string, topupUrl?: string): TopupInfo {

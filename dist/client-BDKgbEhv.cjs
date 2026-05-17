@@ -1,10 +1,10 @@
-import { t as __exportAll } from "./rolldown-runtime-wcPFST8Q.mjs";
-import { privateKeyToAccount } from "viem/accounts";
-import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
-import { ExactEvmScheme } from "@x402/evm";
-import { UptoEvmScheme } from "@x402/evm/upto/client";
+const require_chunk = require("./chunk-CZWwpsFl.cjs");
+let viem_accounts = require("viem/accounts");
+let _x402_fetch = require("@x402/fetch");
+let _x402_evm = require("@x402/evm");
+let _x402_evm_upto_client = require("@x402/evm/upto/client");
 //#region src/mcp/client.ts
-var client_exports = /* @__PURE__ */ __exportAll({
+var client_exports = /* @__PURE__ */ require_chunk.__exportAll({
 	createConfiguredGraphMcpFetch: () => createConfiguredGraphMcpFetch,
 	createConfiguredMcpFetch: () => createConfiguredMcpFetch,
 	createMcpAuthFetchClient: () => createMcpAuthFetchClient,
@@ -38,7 +38,9 @@ function describePaymentRequiredResponse(response, payerAddress) {
 			typeof firstRequirement?.network === "string" ? `network=${firstRequirement.network}` : void 0,
 			typeof firstRequirement?.amount === "string" ? `amount=${firstRequirement.amount}` : void 0
 		].filter(Boolean).join(" ");
-		return details ? `x402 payment failed: ${reason} (${details})` : `x402 payment failed: ${reason}`;
+		const message = details ? `x402 payment failed: ${reason} (${details})` : `x402 payment failed: ${reason}`;
+		if (reason.includes("allowance_required")) return `${message}. This wallet needs a one-time USDC Permit2 approval before paid MCP calls can settle. Base ETH is required for approval gas.`;
+		return message;
 	} catch {
 		return "x402 payment failed: payment_required";
 	}
@@ -62,13 +64,13 @@ function createPaymentFailureReportingFetch(baseFetch, payerAddress) {
 * @returns A fetch-compatible function that auto-handles HTTP 402 payment challenges
 */
 function createMcpFetchClient(privateKey, authToken) {
-	const account = privateKeyToAccount(privateKey);
-	const reportingFetch = createPaymentFailureReportingFetch(wrapFetchWithPaymentFromConfig(fetch, { schemes: [{
+	const account = (0, viem_accounts.privateKeyToAccount)(privateKey);
+	const reportingFetch = createPaymentFailureReportingFetch((0, _x402_fetch.wrapFetchWithPaymentFromConfig)(fetch, { schemes: [{
 		network: "eip155:8453",
-		client: new UptoEvmScheme(account)
+		client: new _x402_evm_upto_client.UptoEvmScheme(account)
 	}, {
 		network: "eip155:8453",
-		client: new ExactEvmScheme(account)
+		client: new _x402_evm.ExactEvmScheme(account)
 	}] }), account.address);
 	return authToken ? createHeaderFetch(authToken, reportingFetch) : reportingFetch;
 }
@@ -88,7 +90,7 @@ function resolveGraphMcpEndpoint(config) {
 async function createConfiguredFetchWithToken(authToken, missingTokenName) {
 	const normalizedAuthToken = authToken?.trim();
 	if (normalizedAuthToken) return createMcpAuthFetchClient(normalizedAuthToken);
-	const { isWalletConfigured, decryptKey } = await import("./wallet-CY4AHZew.mjs").then((n) => n.s);
+	const { isWalletConfigured, decryptKey } = await Promise.resolve().then(() => require("./wallet-Cxq4zv9u.cjs")).then((n) => n.wallet_exports);
 	if (!await isWalletConfigured()) throw new Error(`Wallet not configured and ${missingTokenName} is empty. Run \`chain-insights config set ${missingTokenName} <token>\` for local MCP debug bypass, or \`chain-insights config set walletPrivateKey <key>\` to enable paid x402 MCP calls.`);
 	return createMcpFetchClient(await decryptKey());
 }
@@ -104,6 +106,21 @@ async function createConfiguredGraphMcpFetch(config) {
 	return createConfiguredFetchWithToken(void 0, "walletPrivateKey");
 }
 //#endregion
-export { createConfiguredMcpFetch as n, createMcpFetchClient as r, client_exports as t };
-
-//# sourceMappingURL=client-DeFe-o0t.mjs.map
+Object.defineProperty(exports, "client_exports", {
+	enumerable: true,
+	get: function() {
+		return client_exports;
+	}
+});
+Object.defineProperty(exports, "createConfiguredMcpFetch", {
+	enumerable: true,
+	get: function() {
+		return createConfiguredMcpFetch;
+	}
+});
+Object.defineProperty(exports, "createMcpFetchClient", {
+	enumerable: true,
+	get: function() {
+		return createMcpFetchClient;
+	}
+});

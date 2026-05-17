@@ -43,7 +43,11 @@ function describePaymentRequiredResponse(response: Response, payerAddress?: stri
       typeof firstRequirement?.network === 'string' ? `network=${firstRequirement.network}` : undefined,
       typeof firstRequirement?.amount === 'string' ? `amount=${firstRequirement.amount}` : undefined,
     ].filter(Boolean).join(' ')
-    return details ? `x402 payment failed: ${reason} (${details})` : `x402 payment failed: ${reason}`
+    const message = details ? `x402 payment failed: ${reason} (${details})` : `x402 payment failed: ${reason}`
+    if (reason.includes('allowance_required')) {
+      return `${message}. This wallet needs a one-time USDC Permit2 approval before paid MCP calls can settle. Base ETH is required for approval gas.`
+    }
+    return message
   } catch {
     return 'x402 payment failed: payment_required'
   }

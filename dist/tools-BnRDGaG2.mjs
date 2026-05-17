@@ -1,7 +1,7 @@
 import { t as __exportAll } from "./rolldown-runtime-wcPFST8Q.mjs";
 import { i as normalizeWalletPrivateKey, t as decryptKey } from "./wallet-CY4AHZew.mjs";
 import { privateKeyToAccount } from "viem/accounts";
-import { createPublicClient, formatUnits, http } from "viem";
+import { createPublicClient, formatEther, formatUnits, http } from "viem";
 import { base } from "viem/chains";
 //#region src/wallet/tools.ts
 var tools_exports = /* @__PURE__ */ __exportAll({
@@ -11,6 +11,7 @@ var tools_exports = /* @__PURE__ */ __exportAll({
 	USDC_ADDRESS: () => USDC_ADDRESS,
 	buildTopupInfo: () => buildTopupInfo,
 	formatWalletBalance: () => formatWalletBalance,
+	getBalanceEth: () => getBalanceEth,
 	getBalanceUsdc: () => getBalanceUsdc,
 	getWalletAccount: () => getWalletAccount,
 	getWalletBalanceText: () => getWalletBalanceText
@@ -59,17 +60,29 @@ async function getBalanceUsdc(address, rpcUrl = process.env["BASE_RPC_URL"]) {
 	} catch {}
 	return "unknown";
 }
-function formatWalletBalance(address, balanceUsdc) {
+async function getBalanceEth(address, rpcUrl = process.env["BASE_RPC_URL"]) {
+	const rpcUrls = [...rpcUrl ? [rpcUrl] : [], ...PUBLIC_BASE_RPC_URLS.filter((fallbackUrl) => fallbackUrl !== rpcUrl)];
+	for (const url of rpcUrls) try {
+		return formatEther(await createPublicClient({
+			chain: base,
+			transport: http(url)
+		}).getBalance({ address }));
+	} catch {}
+	return "unknown";
+}
+function formatWalletBalance(address, balanceUsdc, balanceEth) {
 	return [
 		`Balance: ${balanceUsdc} USDC`,
+		balanceEth === void 0 ? void 0 : `Gas: ${balanceEth} ETH on Base`,
 		"Network: Base",
+		"Base ETH is required for one-time USDC Permit2 approval gas.",
 		`Address: ${address}`
 	].filter(Boolean).join("\n");
 }
 async function getWalletBalanceText(account) {
 	const wallet = account ?? await getWalletAccount();
-	const balance = await getBalanceUsdc(wallet.address);
-	return formatWalletBalance(wallet.address, balance);
+	const [balanceUsdc, balanceEth] = await Promise.all([getBalanceUsdc(wallet.address), getBalanceEth(wallet.address)]);
+	return formatWalletBalance(wallet.address, balanceUsdc, balanceEth);
 }
 function buildTopupInfo(address, topupUrl) {
 	return {
@@ -82,6 +95,6 @@ function buildTopupInfo(address, topupUrl) {
 	};
 }
 //#endregion
-export { getWalletBalanceText as a, getWalletAccount as i, formatWalletBalance as n, tools_exports as o, getBalanceUsdc as r, buildTopupInfo as t };
+export { getWalletAccount as a, getBalanceUsdc as i, formatWalletBalance as n, getWalletBalanceText as o, getBalanceEth as r, tools_exports as s, buildTopupInfo as t };
 
-//# sourceMappingURL=tools-DHdOU70e.mjs.map
+//# sourceMappingURL=tools-BnRDGaG2.mjs.map

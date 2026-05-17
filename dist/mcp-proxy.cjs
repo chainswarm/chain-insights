@@ -528,7 +528,7 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 async function createProxy() {
 	const { loadConfig } = await Promise.resolve().then(() => require("./config-DZLKT7fl.cjs")).then((n) => n.config_exports);
 	const { activeDataDir, findActiveWorkspace } = await Promise.resolve().then(() => require("./active-CT1lamd7.cjs")).then((n) => n.active_exports);
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-Bf03S2wM.cjs")).then((n) => n.client_exports);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-BDKgbEhv.cjs")).then((n) => n.client_exports);
 	const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-DDG5jmBe.cjs"));
 	const loadedConfig = await loadConfig();
 	const activeWorkspace = findActiveWorkspace();
@@ -628,7 +628,7 @@ async function createProxy() {
 		inputSchema: zod.object({}).passthrough()
 	}, async () => {
 		try {
-			const { getWalletAccount, getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-PaDKcRac.cjs")).then((n) => n.tools_exports);
+			const { getWalletAccount, getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-dIaqPTbd.cjs")).then((n) => n.tools_exports);
 			return {
 				content: [{
 					type: "text",

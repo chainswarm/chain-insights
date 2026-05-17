@@ -11,6 +11,7 @@ var tools_exports = /* @__PURE__ */ require_chunk.__exportAll({
 	USDC_ADDRESS: () => USDC_ADDRESS,
 	buildTopupInfo: () => buildTopupInfo,
 	formatWalletBalance: () => formatWalletBalance,
+	getBalanceEth: () => getBalanceEth,
 	getBalanceUsdc: () => getBalanceUsdc,
 	getWalletAccount: () => getWalletAccount,
 	getWalletBalanceText: () => getWalletBalanceText
@@ -59,17 +60,29 @@ async function getBalanceUsdc(address, rpcUrl = process.env["BASE_RPC_URL"]) {
 	} catch {}
 	return "unknown";
 }
-function formatWalletBalance(address, balanceUsdc) {
+async function getBalanceEth(address, rpcUrl = process.env["BASE_RPC_URL"]) {
+	const rpcUrls = [...rpcUrl ? [rpcUrl] : [], ...PUBLIC_BASE_RPC_URLS.filter((fallbackUrl) => fallbackUrl !== rpcUrl)];
+	for (const url of rpcUrls) try {
+		return (0, viem.formatEther)(await (0, viem.createPublicClient)({
+			chain: viem_chains.base,
+			transport: (0, viem.http)(url)
+		}).getBalance({ address }));
+	} catch {}
+	return "unknown";
+}
+function formatWalletBalance(address, balanceUsdc, balanceEth) {
 	return [
 		`Balance: ${balanceUsdc} USDC`,
+		balanceEth === void 0 ? void 0 : `Gas: ${balanceEth} ETH on Base`,
 		"Network: Base",
+		"Base ETH is required for one-time USDC Permit2 approval gas.",
 		`Address: ${address}`
 	].filter(Boolean).join("\n");
 }
 async function getWalletBalanceText(account) {
 	const wallet = account ?? await getWalletAccount();
-	const balance = await getBalanceUsdc(wallet.address);
-	return formatWalletBalance(wallet.address, balance);
+	const [balanceUsdc, balanceEth] = await Promise.all([getBalanceUsdc(wallet.address), getBalanceEth(wallet.address)]);
+	return formatWalletBalance(wallet.address, balanceUsdc, balanceEth);
 }
 function buildTopupInfo(address, topupUrl) {
 	return {
@@ -92,6 +105,12 @@ Object.defineProperty(exports, "formatWalletBalance", {
 	enumerable: true,
 	get: function() {
 		return formatWalletBalance;
+	}
+});
+Object.defineProperty(exports, "getBalanceEth", {
+	enumerable: true,
+	get: function() {
+		return getBalanceEth;
 	}
 });
 Object.defineProperty(exports, "getBalanceUsdc", {

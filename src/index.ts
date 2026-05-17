@@ -15,6 +15,7 @@ export {
 export {
   buildTopupInfo,
   formatWalletBalance,
+  getBalanceEth,
   getBalanceUsdc,
   getWalletAccount,
   getWalletBalanceText,

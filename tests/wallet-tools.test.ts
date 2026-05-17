@@ -5,12 +5,13 @@ import { tmpdir } from 'node:os'
 import { privateKeyToAccount } from 'viem/accounts'
 
 const readContractMock = vi.hoisted(() => vi.fn())
+const getBalanceMock = vi.hoisted(() => vi.fn())
 
 vi.mock('viem', async (importOriginal) => {
   const actual = await importOriginal<typeof import('viem')>()
   return {
     ...actual,
-    createPublicClient: vi.fn(() => ({ readContract: readContractMock })),
+    createPublicClient: vi.fn(() => ({ readContract: readContractMock, getBalance: getBalanceMock })),
     http: vi.fn((url: string) => ({ url })),
   }
 })
@@ -63,6 +64,18 @@ describe('wallet tools', () => {
     )
   })
 
+  it('reads and formats the Base ETH balance for gas', async () => {
+    const { getBalanceEth } = await import('../src/wallet/tools.js')
+    getBalanceMock.mockResolvedValueOnce(100_000_000_000_000n)
+
+    const balance = await getBalanceEth('0x0000000000000000000000000000000000000001')
+
+    expect(balance).toBe('0.0001')
+    expect(getBalanceMock).toHaveBeenCalledWith({
+      address: '0x0000000000000000000000000000000000000001',
+    })
+  })
+
   it('falls back across public Base RPC endpoints before returning unknown', async () => {
     const { getBalanceUsdc } = await import('../src/wallet/tools.js')
     const { http } = await import('viem')
@@ -80,10 +93,12 @@ describe('wallet tools', () => {
   it('renders operator-friendly balance text', async () => {
     const { formatWalletBalance } = await import('../src/wallet/tools.js')
 
-    expect(formatWalletBalance('0xabc', '2.500000')).toContain('Balance: 2.500000 USDC')
-    expect(formatWalletBalance('0xabc', '2.500000')).toContain('Address: 0xabc')
-    expect(formatWalletBalance('0xabc', '2.500000')).not.toContain('Capacity:')
-    expect(formatWalletBalance('0xabc', '2.500000')).not.toContain('tool calls')
+    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Balance: 2.500000 USDC')
+    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Gas: 0.0001 ETH on Base')
+    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Base ETH is required for one-time USDC Permit2 approval gas.')
+    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Address: 0xabc')
+    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).not.toContain('Capacity:')
+    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).not.toContain('tool calls')
   })
 
   it('builds top-up metadata for MCP and CLI output', async () => {
