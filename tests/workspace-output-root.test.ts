@@ -79,7 +79,6 @@ describe('workspace output root', () => {
       reportsRoot: join(root, 'reports'),
       reportGraphsRoot: join(root, 'reports', 'graphs'),
       reportTablesRoot: join(root, 'reports', 'tables'),
-      artifactsRoot: join(root, 'artifacts'),
       logsRoot: join(root, 'logs'),
     })
   })

@@ -28,12 +28,12 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('track_funds')
     expect(skill).toContain('single address')
     expect(skill).toContain('reports/graphs/*.graph.json')
+    expect(skill).toContain('/graph-reports/<filename>.graph.json')
     expect(skill).toContain('reports/*.graph.html')
     expect(skill).toContain('reports/tables/*.compact-evidence.json')
     expect(skill).toContain('reports/tables/*.flows.csv')
     expect(skill).toContain('reports/*.table.html')
     expect(skill).toContain('reports/*.trace-report.md')
-    expect(skill).toContain('artifacts/<artifact-id>/graph.json')
     expect(skill).toContain('No investigation output belongs under `~/.chain-insights`')
     expect(skill).not.toContain('trace_funds')
   })
@@ -61,12 +61,10 @@ describe('shipped Chain Insights skills contract', () => {
 
     expect(skill).toContain('temporary initialized Chain Insights workspace')
     expect(skill).toContain('~/.chain-insights/reports')
-    expect(skill).toContain('~/.chain-insights/artifacts')
     expect(skill).toContain('~/.chain-insights/cases')
 
     for (const script of [investigationUat, graphragUat]) {
       expect(script).toContain('GLOBAL_REPORTS="${HOME}/.chain-insights/reports"')
-      expect(script).toContain('GLOBAL_ARTIFACTS="${HOME}/.chain-insights/artifacts"')
       expect(script).toContain('GLOBAL_CASES="${HOME}/.chain-insights/cases"')
       expect(script).toContain('CONFIG_SNAPSHOT_READY=0')
       expect(script).toContain('snapshot_global_outputs')

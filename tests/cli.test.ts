@@ -94,7 +94,7 @@ describe('CLI scaffold (FOUND-02)', () => {
       )
       const readme = readFileSync(join(target, 'README.md'), 'utf8')
       expect(readme).toContain('Chain Insights Investigations')
-      expect(readme).toContain('artifacts/         Workspace-local graph app artifacts')
+      expect(readme).toContain('reports/graphs/    Graph JSON for visualization')
       expect(readme).toContain('logs/              Workspace-local investigation and preview logs')
       expect(readme).toContain('.chain-insights/runtime/        Workspace-local runtime process state')
       const agents = readFileSync(join(target, 'AGENTS.md'), 'utf8')
@@ -103,12 +103,12 @@ describe('CLI scaffold (FOUND-02)', () => {
         expect(body).toContain('If this directory is not initialized, run `cia init .` before investigation-producing commands.')
         expect(body).toContain('Do not rerun init in an existing workspace unless replacing scaffolding with `--force`.')
         expect(body).toContain('Investigation output must stay in this initialized workspace.')
-        expect(body).toContain('Never write cases, evidence, reports, graph JSON, HTML, artifacts, schema captures, or logs to ~/.chain-insights.')
+        expect(body).toContain('Never write cases, evidence, reports, graph JSON, HTML, schema captures, or logs to ~/.chain-insights.')
       }
       expect(readFileSync(join(target, 'templates', 'case-brief.md'), 'utf8')).toContain('# Case Brief')
       expect(readFileSync(join(target, '.chain-insights', 'runtime-skill', 'SKILL.md'), 'utf8')).toContain('Runtime Graph Schema')
       expect(readFileSync(join(target, '.chain-insights', 'schema', 'README.md'), 'utf8')).toContain('Runtime Schema Captures')
-      expect(existsSync(join(target, 'artifacts', '.keep'))).toBe(true)
+      expect(existsSync(join(target, 'artifacts'))).toBe(false)
       expect(existsSync(join(target, 'logs', '.keep'))).toBe(true)
       expect(existsSync(join(target, '.chain-insights', 'runtime', '.keep'))).toBe(true)
     } finally {

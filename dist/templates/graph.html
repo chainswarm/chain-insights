@@ -479,6 +479,11 @@ D3_HIERARCHY,
 '  });',
 '}',
 '',
+'function nodeDisplayRole(n){',
+'  if(Array.isArray(n.roles)&&n.roles.length)return n.roles[0];',
+'  return n.role||null;',
+'}',
+'',
 'function treeLayout(nodes,edges,w,h){',
 '  // Pick root: victim > scammer > seed > earliest firstBlock > first node',
 '  var fb=new Map();nodes.forEach(function(n){if(n.firstBlock)fb.set(n.address,n.firstBlock);});',
@@ -566,7 +571,7 @@ D3_HIERARCHY,
 'function doLayout(ly){',
 '  if(sim){sim.stop();sim=null;}',
 '  // Always start from CLEAN node copies with NO x/y so d3 spreads them',
-'  var ns=rawN.map(function(n){return{address:n.address,flow_in_usd:n.flow_in_usd,flow_out_usd:n.flow_out_usd,role:n.role||null,firstBlock:n.firstBlock||0};});',
+'  var ns=rawN.map(function(n){return{address:n.address,flow_in_usd:n.flow_in_usd,flow_out_usd:n.flow_out_usd,role:nodeDisplayRole(n),firstBlock:n.firstBlock||0};});',
 '  radii(ns,rawE);',
 '  if(ly==="tree"){',
 '    treeLayout(ns,rawE,W,H);',
@@ -619,6 +624,11 @@ function applyPos(wn) {
   }
 }
 
+function nodeDisplayRole(n) {
+  if (Array.isArray(n.roles) && n.roles.length) return n.roles[0];
+  return n.role || null;
+}
+
 /* ───────────────────────────────────────────────────────────
    Data processing
    ─────────────────────────────────────────────────────────── */
@@ -641,7 +651,7 @@ function loadGraph(data) {
   var exMap = {};
   for (var ei2=0; ei2<data.nodes.length; ei2++) {
     var en = data.nodes[ei2];
-    if (en.role === 'exchange' && en.labels && en.labels.length) {
+    if (nodeDisplayRole(en) === 'exchange' && en.labels && en.labels.length) {
       exMap[en.address] = en.labels[0].replace(/, ?exchange$/i, '');
     }
   }
@@ -666,7 +676,7 @@ function applyDataMode() {
   nodes = graphData.nodes.map(function(n) {
     var o = {address:n.address, address_type:n.address_type||'wallet', labels:n.labels||[],
              flow_in_usd:n.flow_in_usd, flow_out_usd:n.flow_out_usd,
-             role:n.role||null, risk_level:n.risk_level||null,
+             role:nodeDisplayRole(n), risk_level:n.risk_level||null,
              risk_score: typeof n.risk_score === 'number' ? n.risk_score : null,
              pattern_flags:n.pattern_flags||[], x:0, y:0, r:DEF_R};
     nodeMap[o.address] = o;
@@ -944,10 +954,10 @@ function drawNodes() {
       ctx.fillText(n.tx_id, n.x, ly);
       ly += 12;
     } else {
-      if (n.role && n.role !== 'intermediary' && n.role !== 'counterparty') {
+      if (role && role !== 'intermediary' && role !== 'counterparty') {
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        var roleLabel = n.role;
-        if (n.role === 'deposit' && depositExchange[n.address]) {
+        var roleLabel = role;
+        if (role === 'deposit' && depositExchange[n.address]) {
           roleLabel = depositExchange[n.address] + ' deposit';
         }
         ctx.fillText(roleLabel, n.x, ly);
@@ -1069,6 +1079,7 @@ function fitView() {
 async function loadVisualizationData(toolResult) {
     var dataUrl = toolResult && toolResult.data_url;
     if (!dataUrl) return toolResult;
+    if (!isLocalGraphReportUrl(dataUrl)) throw new Error('Graph report URL is not local');
 
     var MAX_RETRIES = 10;
     var BASE_DELAY_MS = 2000;
@@ -1148,36 +1159,39 @@ function showLoadError(error) {
   console.error(error);
 }
 
-function isLocalGraphArtifactUrl(graphUrl) {
+var GRAPH_REPORT_PATH_PREFIX = '/graph-reports/';
+
+function isLocalGraphReportUrl(graphUrl) {
   try {
     var parsed = new URL(graphUrl);
     if (parsed.protocol !== 'http:') return false;
     if (parsed.hostname !== '127.0.0.1' && parsed.hostname !== 'localhost') return false;
-    return /^\/artifacts\/[A-Za-z0-9_-]+\/graph\.json$/.test(parsed.pathname);
+    return parsed.pathname.indexOf(GRAPH_REPORT_PATH_PREFIX) === 0 &&
+      /^\/graph-reports\/[A-Za-z0-9_-][A-Za-z0-9._-]*\.graph\.json$/.test(parsed.pathname);
   } catch (e) {
     return false;
   }
 }
 
-function getGraphArtifactUrl(params) {
+function getGraphReportUrl(params) {
   if (!params || !params._meta || !params._meta.chainInsights || !params._meta.chainInsights.graph) return null;
   return params._meta.chainInsights.graph.url || null;
 }
 
 async function loadFromToolResultParams(params) {
-  var graphUrl = getGraphArtifactUrl(params);
+  var graphUrl = getGraphReportUrl(params);
 
   if (graphUrl) {
     try {
-      if (!isLocalGraphArtifactUrl(graphUrl)) throw new Error('Graph artifact URL is not local');
+      if (!isLocalGraphReportUrl(graphUrl)) throw new Error('Graph report URL is not local');
       var resp = await fetch(graphUrl);
-      if (!resp.ok) throw new Error('Graph artifact fetch failed: ' + resp.status);
+      if (!resp.ok) throw new Error('Graph report fetch failed: ' + resp.status);
       var graphData = await resp.json();
       window.loadData(graphData);
       return true;
     } catch (error) {
-      if (error && error.message && error.message.indexOf('Graph artifact fetch failed:') === 0) throw error;
-      throw new Error('Graph artifact fetch failed: ' + (error && error.message ? error.message : 'network error'));
+      if (error && error.message && error.message.indexOf('Graph report fetch failed:') === 0) throw error;
+      throw new Error('Graph report fetch failed: ' + (error && error.message ? error.message : 'network error'));
     }
   }
 
@@ -1219,7 +1233,7 @@ window.loadData = function(data) {
         params:{width:800, height:800}}, '*');
     }
 
-    // Tool result — receive graph artifact URL from MCP tool call
+    // Tool result — receive graph report URL from MCP tool call
     if (data.method === 'ui/notifications/tool-result' && data.params) {
       loadFromToolResultParams(data.params).catch(showLoadError);
     }
@@ -1307,6 +1321,8 @@ function boot() {
   var dataUrlParam = params.get('data_url');
   if (dataUrlParam) {
     (async function() {
+      if (!isLocalGraphReportUrl(dataUrlParam)) throw new Error('Graph report URL is not local');
+
       var MAX_RETRIES = 10;
       var BASE_DELAY_MS = 2000;
       var MAX_DELAY_MS = 15000;
@@ -1362,7 +1378,7 @@ function boot() {
         showBrowserLink(dataUrlParam);
         loadGraph(graphData);
       }
-    })();
+    })().catch(showLoadError);
   }
 }
 

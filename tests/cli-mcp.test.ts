@@ -421,7 +421,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     mockClientCallTool.mockResolvedValueOnce({
       content: [{ type: 'text', text: '## Risk Report' }],
       structuredContent: { facts: { risk: { level: 'critical' } } },
-      _meta: { chainInsights: { graph: { url: 'http://127.0.0.1:4321/artifacts/a/graph.json' } } },
+      _meta: { chainInsights: { graph: { url: 'http://127.0.0.1:4321/graph-reports/a.graph.json' } } },
     })
     mockClientClose.mockResolvedValue(undefined)
 

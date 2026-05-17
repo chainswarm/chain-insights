@@ -7,7 +7,6 @@ GRAPH_MCP_ENDPOINT="${GRAPH_MCP_ENDPOINT:-http://localhost:8012/mcp}"
 GRAPH_MCP_DEBUG_TOKEN="${GRAPH_MCP_DEBUG_TOKEN:-chain-insights-dev-debug}"
 WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(mktemp -d /tmp/chain-insights-investigation-uat.XXXXXX)}"
 GLOBAL_REPORTS="${HOME}/.chain-insights/reports"
-GLOBAL_ARTIFACTS="${HOME}/.chain-insights/artifacts"
 GLOBAL_CASES="${HOME}/.chain-insights/cases"
 GLOBAL_SNAPSHOT_BEFORE="$(mktemp /tmp/chain-insights-global-before.XXXXXX)"
 GLOBAL_SNAPSHOT_AFTER="$(mktemp /tmp/chain-insights-global-after.XXXXXX)"
@@ -27,7 +26,7 @@ require_cmd() {
 snapshot_global_outputs() {
   local output_file="$1"
   : >"${output_file}"
-  for dir in "${GLOBAL_REPORTS}" "${GLOBAL_ARTIFACTS}" "${GLOBAL_CASES}"; do
+  for dir in "${GLOBAL_REPORTS}" "${GLOBAL_CASES}"; do
     {
       printf '[%s]\n' "${dir}"
       if [[ -d "${dir}" ]]; then
@@ -49,7 +48,7 @@ snapshot_global_outputs() {
 assert_no_global_outputs_changed() {
   snapshot_global_outputs "${GLOBAL_SNAPSHOT_AFTER}"
   if ! cmp -s "${GLOBAL_SNAPSHOT_BEFORE}" "${GLOBAL_SNAPSHOT_AFTER}"; then
-    log "global investigation output roots changed; reports/artifacts/cases must stay workspace-local"
+    log "global investigation output roots changed; reports/cases must stay workspace-local"
     diff -u "${GLOBAL_SNAPSHOT_BEFORE}" "${GLOBAL_SNAPSHOT_AFTER}" >&2 || true
     return 1
   fi

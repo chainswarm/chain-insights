@@ -354,7 +354,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).toContain('case_add_evidence')
     expect(instructions).toContain('Network is required')
     expect(instructions).toContain('Graph visualization behavior')
-    expect(instructions).toContain('local graph artifact server is started automatically')
+    expect(instructions).toContain('local graph report server is started automatically')
     expect(instructions).toContain('FLOWS_TO')
     expect(instructions).toContain('first_tx_id')
     expect(instructions).toContain('schema discovery')
@@ -653,7 +653,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       E1: '5Exchange',
     })
     expect(result._meta.chainInsights.graph.url).toContain('/graph-reports/')
-    expect(result._meta.chainInsights.graph.id).toBeUndefined()
+    expect(result._meta.chainInsights.graph).not.toHaveProperty('id')
     expect(result._meta.chainInsights.graph.data).toBeUndefined()
     expect(evidenceAppendMock).toHaveBeenCalledWith(mockCase.id, expect.objectContaining({
       source: 'track_funds',
@@ -786,7 +786,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       expect(result.isError).toBe(false)
       expect(run.files.graph).toContain(`${workspace}/reports/graphs/`)
       expect(result._meta.chainInsights.graph.url).toContain('/graph-reports/')
-      expect(result._meta.chainInsights.graph.id).toBeUndefined()
+      expect(result._meta.chainInsights.graph).not.toHaveProperty('id')
       expect(result._meta.chainInsights.graph.data).toBeUndefined()
       const graphUrl = result._meta.chainInsights.graph.url as string
       const filename = graphUrl.split('/graph-reports/')[1]
@@ -953,7 +953,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(clientInstance.callTool).toHaveBeenCalledTimes(5)
 
     expect(result._meta.chainInsights.graph.url).toContain('/graph-reports/')
-    expect(result._meta.chainInsights.graph.id).toBeUndefined()
+    expect(result._meta.chainInsights.graph).not.toHaveProperty('id')
     expect(result._meta.chainInsights.graph.data).toBeUndefined()
     const graphUrl = result._meta.chainInsights.graph.url as string
     const filename = graphUrl.split('/graph-reports/')[1]
@@ -1543,7 +1543,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     })
   })
 
-  it('persists remote graph _meta and returns only local artifact pointer', async () => {
+  it('persists remote graph _meta and returns only local graph report pointer', async () => {
     const remoteGraphData = {
       schema: 'chain-insights.graph.v1',
       nodes: [],
@@ -1603,7 +1603,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.structuredContent.facts.risk.level).toBe('critical')
     expect(result.structuredContent).not.toHaveProperty('app_data')
     expect(result._meta.chainInsights.graph.data).toBeUndefined()
-    expect(result._meta.chainInsights.graph.id).toBeUndefined()
+    expect(result._meta.chainInsights.graph).not.toHaveProperty('id')
     expect(result._meta.chainInsights.graph.url).toMatch(/^http:\/\/127\.0\.0\.1:4321\/graph-reports\/.+\.graph\.json$/)
 
     const graphUrl = result._meta.chainInsights.graph.url as string
@@ -1649,7 +1649,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       structuredContent: {
         schema: 'chain-insights.result.v1',
         tool: 'address_risk',
-        hint: 'review graph artifact',
+        hint: 'review graph report',
         facts: { risk: { level: 'critical' } },
         app_data: remoteGraphData,
         nodes: remoteGraphData.nodes,
@@ -1677,7 +1677,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.structuredContent).toEqual({
       schema: 'chain-insights.result.v1',
       tool: 'address_risk',
-      hint: 'review graph artifact',
+      hint: 'review graph report',
       facts: { risk: { level: 'critical' } },
     })
     expect(result.structuredContent).not.toHaveProperty('app_data')
@@ -1686,7 +1686,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.structuredContent).not.toHaveProperty('flows')
     expect(result.structuredContent).not.toHaveProperty('edge_anchors')
     expect(result._meta.chainInsights.graph.url).toContain('/graph-reports/')
-    expect(result._meta.chainInsights.graph.id).toBeUndefined()
+    expect(result._meta.chainInsights.graph).not.toHaveProperty('id')
     expect(result._meta.chainInsights.graph.data).toBeUndefined()
   })
 
@@ -1970,7 +1970,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('case_open')
     expect(result.content[0].text).toContain('case_add_evidence')
     expect(result.content[0].text).toContain('Graph visualization behavior')
-    expect(result.content[0].text).toContain('local graph artifact server is started automatically')
+    expect(result.content[0].text).toContain('local graph report server is started automatically')
     expect(result.content[0].text).toContain('Graph query hints for network=bittensor')
     expect(result.content[0].text).toContain('FLOWS_TO')
     expect(result.content[0].text).toContain('first_tx_id')

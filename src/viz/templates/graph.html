@@ -1079,7 +1079,7 @@ function fitView() {
 async function loadVisualizationData(toolResult) {
     var dataUrl = toolResult && toolResult.data_url;
     if (!dataUrl) return toolResult;
-    if (!isLocalGraphArtifactUrl(dataUrl)) throw new Error('Graph report URL is not local');
+    if (!isLocalGraphReportUrl(dataUrl)) throw new Error('Graph report URL is not local');
 
     var MAX_RETRIES = 10;
     var BASE_DELAY_MS = 2000;
@@ -1161,7 +1161,7 @@ function showLoadError(error) {
 
 var GRAPH_REPORT_PATH_PREFIX = '/graph-reports/';
 
-function isLocalGraphArtifactUrl(graphUrl) {
+function isLocalGraphReportUrl(graphUrl) {
   try {
     var parsed = new URL(graphUrl);
     if (parsed.protocol !== 'http:') return false;
@@ -1173,17 +1173,17 @@ function isLocalGraphArtifactUrl(graphUrl) {
   }
 }
 
-function getGraphArtifactUrl(params) {
+function getGraphReportUrl(params) {
   if (!params || !params._meta || !params._meta.chainInsights || !params._meta.chainInsights.graph) return null;
   return params._meta.chainInsights.graph.url || null;
 }
 
 async function loadFromToolResultParams(params) {
-  var graphUrl = getGraphArtifactUrl(params);
+  var graphUrl = getGraphReportUrl(params);
 
   if (graphUrl) {
     try {
-      if (!isLocalGraphArtifactUrl(graphUrl)) throw new Error('Graph report URL is not local');
+      if (!isLocalGraphReportUrl(graphUrl)) throw new Error('Graph report URL is not local');
       var resp = await fetch(graphUrl);
       if (!resp.ok) throw new Error('Graph report fetch failed: ' + resp.status);
       var graphData = await resp.json();
@@ -1321,7 +1321,7 @@ function boot() {
   var dataUrlParam = params.get('data_url');
   if (dataUrlParam) {
     (async function() {
-      if (!isLocalGraphArtifactUrl(dataUrlParam)) throw new Error('Graph report URL is not local');
+      if (!isLocalGraphReportUrl(dataUrlParam)) throw new Error('Graph report URL is not local');
 
       var MAX_RETRIES = 10;
       var BASE_DELAY_MS = 2000;

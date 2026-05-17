@@ -16,7 +16,6 @@ WORKSPACE_ROOT="${WORKSPACE_ROOT:-${RUN_DIR}/workspace}"
 CHAIN_INSIGHTS_CLI="${CHAIN_INSIGHTS_DIR}/bin/cli.js"
 CHAIN_INSIGHTS_PROXY="${CHAIN_INSIGHTS_DIR}/bin/mcp-proxy.cjs"
 GLOBAL_REPORTS="${HOME}/.chain-insights/reports"
-GLOBAL_ARTIFACTS="${HOME}/.chain-insights/artifacts"
 GLOBAL_CASES="${HOME}/.chain-insights/cases"
 GLOBAL_SNAPSHOT_BEFORE="${RUN_DIR}/global-output-before.txt"
 GLOBAL_SNAPSHOT_AFTER="${RUN_DIR}/global-output-after.txt"
@@ -39,7 +38,7 @@ require_cmd() {
 snapshot_global_outputs() {
   local output_file="$1"
   : >"${output_file}"
-  for dir in "${GLOBAL_REPORTS}" "${GLOBAL_ARTIFACTS}" "${GLOBAL_CASES}"; do
+  for dir in "${GLOBAL_REPORTS}" "${GLOBAL_CASES}"; do
     {
       printf '[%s]\n' "${dir}"
       if [[ -d "${dir}" ]]; then
@@ -61,7 +60,7 @@ snapshot_global_outputs() {
 assert_no_global_outputs_changed() {
   snapshot_global_outputs "${GLOBAL_SNAPSHOT_AFTER}"
   if ! cmp -s "${GLOBAL_SNAPSHOT_BEFORE}" "${GLOBAL_SNAPSHOT_AFTER}"; then
-    log "global investigation output roots changed; reports/artifacts/cases must stay workspace-local"
+    log "global investigation output roots changed; reports/cases must stay workspace-local"
     diff -u "${GLOBAL_SNAPSHOT_BEFORE}" "${GLOBAL_SNAPSHOT_AFTER}" >&2 || true
     return 1
   fi
@@ -274,7 +273,7 @@ npx @modelcontextprotocol/inspector \
   --tool-arg "address=${UAT_ADDRESS}" \
   --tool-arg include_attachments=true >"${PROXY_JSON}"
 
-ARTIFACT_URL="$(
+GRAPH_REPORT_URL="$(
 node - "${PROXY_JSON}" <<'NODE'
 const fs = require('node:fs')
 const file = process.argv[2]
@@ -292,33 +291,33 @@ for (const key of ['app_data', 'nodes', 'edges', 'flows', 'edge_anchors', 'trans
 if (!graph) errors.push('proxy _meta.chainInsights.graph missing')
 if (graph?.data) errors.push('proxy _meta.chainInsights.graph.data leaked')
 if (graph?.schema !== 'chain-insights.graph.v1') errors.push(`proxy graph schema mismatch: ${graph?.schema}`)
-if (!graph?.id) errors.push('proxy graph id missing')
-if (!/^http:\/\/127\.0\.0\.1:\d+\/artifacts\/[A-Za-z0-9_-]+\/graph\.json$/.test(graph?.url || '')) {
-  errors.push(`proxy graph url is not a local artifact URL: ${graph?.url}`)
+if (graph?.id) errors.push('proxy graph id should not be returned')
+if (!/^http:\/\/127\.0\.0\.1:\d+\/graph-reports\/[A-Za-z0-9._-]+\.graph\.json$/.test(graph?.url || '')) {
+  errors.push(`proxy graph url is not a local graph report URL: ${graph?.url}`)
 }
 if (errors.length) throw new Error(errors.join('; '))
-console.error(`[uat] proxy address_risk ok: artifact=${graph.url}`)
+console.error(`[uat] proxy address_risk ok: graph_report=${graph.url}`)
 process.stdout.write(graph.url)
 NODE
 )"
-printf '%s\n' "${ARTIFACT_URL}" >"${RUN_DIR}/artifact-url.txt"
+printf '%s\n' "${GRAPH_REPORT_URL}" >"${RUN_DIR}/graph-report-url.txt"
 
-ARTIFACT_JSON="${RUN_DIR}/artifact-graph.json"
-log "fetching local graph artifact"
-curl -sf "${ARTIFACT_URL}" >"${ARTIFACT_JSON}"
+GRAPH_REPORT_JSON="${RUN_DIR}/graph-report.json"
+log "fetching local graph report"
+curl -sf "${GRAPH_REPORT_URL}" >"${GRAPH_REPORT_JSON}"
 
-node - "${ARTIFACT_JSON}" <<'NODE'
+node - "${GRAPH_REPORT_JSON}" <<'NODE'
 const fs = require('node:fs')
 const file = process.argv[2]
 const data = JSON.parse(fs.readFileSync(file, 'utf8'))
 const errors = []
-if (data.schema !== 'chain-insights.graph.v1') errors.push(`artifact schema mismatch: ${data.schema}`)
+if (data.schema !== 'chain-insights.graph.v1') errors.push(`graph report schema mismatch: ${data.schema}`)
 for (const key of ['nodes', 'edges', 'flows', 'edge_anchors']) {
-  if (!Array.isArray(data[key])) errors.push(`artifact ${key} is not an array`)
+  if (!Array.isArray(data[key])) errors.push(`graph report ${key} is not an array`)
 }
-if (Object.prototype.hasOwnProperty.call(data, 'transfers')) errors.push('artifact includes transfers')
+if (Object.prototype.hasOwnProperty.call(data, 'transfers')) errors.push('graph report includes transfers')
 if (errors.length) throw new Error(errors.join('; '))
-console.log(`[uat] artifact ok: nodes=${data.nodes.length} edges=${data.edges.length} flows=${data.flows.length} edge_anchors=${data.edge_anchors.length}`)
+console.log(`[uat] graph report ok: nodes=${data.nodes.length} edges=${data.edges.length} flows=${data.flows.length} edge_anchors=${data.edge_anchors.length}`)
 NODE
 
 GRAPH_QUERY_TEXT="${RUN_DIR}/graph-query-address.txt"
@@ -350,14 +349,14 @@ Chain Insights vs GraphRAG MCP UAT PASS
 Endpoint: ${MCP_ENDPOINT}
 Network: ${NETWORK}
 Address: ${UAT_ADDRESS}
-Artifact URL: ${ARTIFACT_URL}
+Graph report URL: ${GRAPH_REPORT_URL}
 
 Raw outputs:
 - ${DIRECT_TOOLS_JSON}
 - ${DIRECT_JSON}
 - ${PROXY_TOOLS_JSON}
 - ${PROXY_JSON}
-- ${ARTIFACT_JSON}
+- ${GRAPH_REPORT_JSON}
 - ${GRAPH_QUERY_TEXT}
 
 Workspace:

@@ -26,7 +26,7 @@ async function waitUntilHealthy(port: number): Promise<void> {
     if (await isHealthy(port)) return
     await delay(50)
   }
-  throw new Error(`Graph artifact server did not become healthy on 127.0.0.1:${port}`)
+  throw new Error(`Graph report server did not become healthy on 127.0.0.1:${port}`)
 }
 
 export async function ensureArtifactServer(port: number): Promise<void> {
@@ -42,7 +42,7 @@ export async function ensureArtifactServer(port: number): Promise<void> {
   servers.set(port, server)
   server.on('error', (err) => {
     servers.delete(port)
-    process.stderr.write(`Chain Insights graph artifact server failed on 127.0.0.1:${port}: ${(err as Error).message}\n`)
+    process.stderr.write(`Chain Insights graph report server failed on 127.0.0.1:${port}: ${(err as Error).message}\n`)
   })
 
   try {

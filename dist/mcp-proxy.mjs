@@ -65,17 +65,17 @@ const GRAPH_SCHEMA_HINTS = [
 	"- Relationship discovery: MATCH ()-[r]->() RETURN type(r) AS relationship, keys(r) AS properties, count(*) AS count ORDER BY count DESC LIMIT 20",
 	"- All graph_query calls are read-only. Never use CREATE, MERGE, SET, DELETE, REMOVE, DROP, or DETACH."
 ].join("\n");
-const GRAPH_ARTIFACT_HINTS = [
+const GRAPH_REPORT_HINTS = [
 	"Graph visualization behavior:",
 	"- Graph-backed tools return the investigator report as text content and keep raw graph data out of LLM-visible structuredContent.",
-	"- Raw graph data is stored locally under Chain Insights artifacts and exposed to the graph app as _meta.chainInsights.graph.url.",
-	"- The local graph artifact server is started automatically by the MCP server when a graph-backed tool returns an artifact URL; do not ask the user to run chain-insights serve for Claude Desktop graph iframes.",
-	"- If an iframe reports that a graph artifact fetch failed, retry the graph-backed tool call so Chain Insights can recreate the artifact URL and ensure the local artifact server is running."
+	"- Raw graph data is stored locally under Chain Insights reports/graphs and exposed to the graph app as _meta.chainInsights.graph.url.",
+	"- The local graph report server is started automatically by the MCP server when a graph-backed tool returns a report URL; do not ask the user to run chain-insights serve for Claude Desktop graph iframes.",
+	"- If an iframe reports that a graph report fetch failed, retry the graph-backed tool call so Chain Insights can recreate the report URL and ensure the local report server is running."
 ].join("\n");
 const SERVER_INSTRUCTIONS = [
 	"Chain Insights is a local AML investigation workspace for AI agents.",
 	CHAIN_INSIGHTS_WORKFLOW,
-	GRAPH_ARTIFACT_HINTS,
+	GRAPH_REPORT_HINTS,
 	GRAPH_SCHEMA_HINTS,
 	"Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses; use case tools to preserve evidence when a case exists."
 ].join("\n\n");
@@ -119,13 +119,13 @@ function knownPublicToolInputSchema(toolName) {
 			address: z.string().min(1).describe("Full blockchain address to screen"),
 			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
 			compare_address: z.string().optional().describe("Optional second full address for comparison"),
-			include_attachments: z.boolean().optional().describe("Include graph app artifact metadata")
+			include_attachments: z.boolean().optional().describe("Include graph app report metadata")
 		};
 		case "track_funds": return {
 			trusted_addresses: z.string().min(1).describe("Comma-separated full trusted victim addresses. Min 1, max 5."),
 			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
 			untrusted_addresses: z.string().optional().describe("Comma-separated full untrusted/scammer addresses. Max 5."),
-			include_attachments: z.boolean().optional().describe("Include graph app artifact metadata")
+			include_attachments: z.boolean().optional().describe("Include graph app report metadata")
 		};
 		case "graph_query": return {
 			query: z.string().min(1).describe("Read-only Cypher query"),
@@ -488,20 +488,22 @@ function getRemoteGraphPayload(result) {
 	if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("Invalid remote graph payload");
 	return data;
 }
-async function normalizeRemoteToolResult(result, config) {
+async function normalizeRemoteToolResult(result, config, toolName = "remote-graph") {
 	const graphPayload = getRemoteGraphPayload(result);
 	const meta = { ...result._meta ?? {} };
 	if (graphPayload) {
-		const { writeGraphArtifact } = await import("./artifacts-CDs29NQX.mjs");
-		const { ensureArtifactServer } = await import("./artifact-server-I3Iu5C1F.mjs");
-		const artifact = await writeGraphArtifact(graphPayload, config);
+		const { writeGraphReport } = await import("./graph-reports-Be4Rnz-V.mjs");
+		const { ensureArtifactServer } = await import("./artifact-server-CvScucme.mjs");
+		const report = await writeGraphReport(graphPayload, {
+			serverPort: config.serverPort,
+			slug: toolName || "remote-graph"
+		});
 		await ensureArtifactServer(config.serverPort);
 		meta.chainInsights = {
 			...meta.chainInsights ?? {},
 			graph: {
-				schema: artifact.schema,
-				id: artifact.id,
-				url: artifact.url
+				schema: report.schema,
+				url: report.url
 			}
 		};
 	}
@@ -641,7 +643,7 @@ async function createProxy() {
 		}
 	});
 	registerAppResource(server, "Fund Flow Graph", GRAPH_RESOURCE_URI, {
-		description: "Interactive D3 force-directed graph for fund flow and pattern visualization. It loads local graph artifact URLs returned in _meta.chainInsights.graph.url.",
+		description: "Interactive D3 force-directed graph for fund flow and pattern visualization. It loads local graph report URLs returned in _meta.chainInsights.graph.url.",
 		_meta: { ui: { csp: {
 			resourceDomains: graphArtifactOrigins(config),
 			connectDomains: graphArtifactOrigins(config)
@@ -670,13 +672,13 @@ async function createProxy() {
 		}
 	}, async ({ name, tags, description }) => {
 		try {
-			const { CaseStore } = await import("./cases-B--jPjef.mjs");
+			const { CaseStore } = await import("./cases-BPDhz2C6.mjs");
 			const created = await CaseStore.create({
 				name,
 				tags: parseTags(tags),
 				description: description ?? ""
 			});
-			const { casesRoot } = await import("./store-DknSGWOT.mjs");
+			const { casesRoot } = await import("./store-DKzwHXyY.mjs");
 			return {
 				content: [{
 					type: "text",
@@ -710,7 +712,7 @@ async function createProxy() {
 		}
 	}, async ({ status }) => {
 		try {
-			const { CaseStore } = await import("./cases-B--jPjef.mjs");
+			const { CaseStore } = await import("./cases-BPDhz2C6.mjs");
 			const cases = await CaseStore.list();
 			const filtered = status ? cases.filter((entry) => entry.status === status) : cases;
 			return {
@@ -735,7 +737,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { CaseStore } = await import("./cases-B--jPjef.mjs");
+			const { CaseStore } = await import("./cases-BPDhz2C6.mjs");
 			const context = await CaseStore.loadContext(case_id);
 			return {
 				content: [{
@@ -764,7 +766,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, source, content, query_params }) => {
 		try {
-			const { EvidenceStore } = await import("./cases-B--jPjef.mjs");
+			const { EvidenceStore } = await import("./cases-BPDhz2C6.mjs");
 			const saved = await EvidenceStore.append(case_id, {
 				source,
 				content,
@@ -792,7 +794,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { EvidenceStore } = await import("./cases-B--jPjef.mjs");
+			const { EvidenceStore } = await import("./cases-BPDhz2C6.mjs");
 			const result = await EvidenceStore.verifyManifest(case_id);
 			return {
 				content: [{
@@ -827,7 +829,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, address, finding, entity_type }) => {
 		try {
-			const { DossierStore } = await import("./cases-B--jPjef.mjs");
+			const { DossierStore } = await import("./cases-BPDhz2C6.mjs");
 			await DossierStore.appendFinding(case_id, address, finding, entity_type ?? "unknown");
 			return {
 				content: [{
@@ -855,7 +857,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { SessionStore } = await import("./cases-B--jPjef.mjs");
+			const { SessionStore } = await import("./cases-BPDhz2C6.mjs");
 			const session = await SessionStore.start(case_id);
 			return {
 				content: [{
@@ -883,7 +885,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, findings, next_steps }) => {
 		try {
-			const { SessionStore } = await import("./cases-B--jPjef.mjs");
+			const { SessionStore } = await import("./cases-BPDhz2C6.mjs");
 			await SessionStore.end(case_id, {
 				findings: findings ?? "",
 				nextSteps: next_steps ?? ""
@@ -910,7 +912,7 @@ async function createProxy() {
 			address: z.string().min(1).describe("Full blockchain address to screen"),
 			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
 			compare_address: z.string().optional().describe("Optional second full address for comparison"),
-			include_attachments: z.boolean().optional().describe("Include graph app artifact metadata")
+			include_attachments: z.boolean().optional().describe("Include graph app report metadata")
 		},
 		_meta: { ui: { resourceUri: GRAPH_RESOURCE_URI } },
 		annotations: {
@@ -921,15 +923,18 @@ async function createProxy() {
 		}
 	}, async ({ address, network, compare_address }) => {
 		try {
-			const { addressRisk } = await import("./public-tools-yU2V_vju.mjs");
-			const { writeGraphArtifact } = await import("./artifacts-CDs29NQX.mjs");
-			const { ensureArtifactServer } = await import("./artifact-server-I3Iu5C1F.mjs");
+			const { addressRisk } = await import("./public-tools-W8q69hp-.mjs");
+			const { writeGraphReport } = await import("./graph-reports-Be4Rnz-V.mjs");
+			const { ensureArtifactServer } = await import("./artifact-server-CvScucme.mjs");
 			const result = await addressRisk(remoteClient, {
 				address,
 				network,
 				compareAddress: compare_address
 			});
-			const artifact = await writeGraphArtifact(result.graphData, config);
+			const report = await writeGraphReport(result.graphData, {
+				serverPort: config.serverPort,
+				slug: `address-risk-${network}-${address}`
+			});
 			await ensureArtifactServer(config.serverPort);
 			return {
 				content: [{
@@ -938,9 +943,8 @@ async function createProxy() {
 				}],
 				structuredContent: result.structuredContent,
 				_meta: { chainInsights: { graph: {
-					schema: artifact.schema,
-					id: artifact.id,
-					url: artifact.url
+					schema: report.schema,
+					url: report.url
 				} } },
 				isError: false
 			};
@@ -961,7 +965,7 @@ async function createProxy() {
 			trusted_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe("Comma-separated full trusted victim addresses, or an array. Min 1, max 5."),
 			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
 			untrusted_addresses: z.union([z.string(), z.array(z.string())]).optional().describe("Known scammer/untrusted addresses. Max 5."),
-			include_attachments: z.boolean().optional().describe("Include graph app artifact metadata"),
+			include_attachments: z.boolean().optional().describe("Include graph app report metadata"),
 			case_id: z.string().optional().describe("Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest."),
 			max_hops: z.number().int().min(1).max(5).optional(),
 			per_address_limit: z.number().int().min(1).max(10).optional(),
@@ -976,9 +980,9 @@ async function createProxy() {
 		}
 	}, async ({ trusted_addresses, untrusted_addresses, network, case_id, max_hops, per_address_limit, min_amount_sum }) => {
 		try {
-			const { trackFunds } = await import("./public-tools-yU2V_vju.mjs");
-			const { writeGraphArtifact } = await import("./artifacts-CDs29NQX.mjs");
-			const { ensureArtifactServer } = await import("./artifact-server-I3Iu5C1F.mjs");
+			const { trackFunds } = await import("./public-tools-W8q69hp-.mjs");
+			const { writeGraphReport } = await import("./graph-reports-Be4Rnz-V.mjs");
+			const { ensureArtifactServer } = await import("./artifact-server-CvScucme.mjs");
 			const result = await trackFunds(remoteClient, config, {
 				trustedAddresses: trusted_addresses,
 				untrustedAddresses: untrusted_addresses,
@@ -988,7 +992,10 @@ async function createProxy() {
 				perAddressLimit: per_address_limit,
 				minAmountSum: min_amount_sum
 			});
-			const artifact = await writeGraphArtifact(result.graphData, config);
+			const report = await writeGraphReport(result.graphData, {
+				serverPort: config.serverPort,
+				slug: `track-funds-${network}`
+			});
 			await ensureArtifactServer(config.serverPort);
 			return {
 				content: [{
@@ -997,9 +1004,8 @@ async function createProxy() {
 				}],
 				structuredContent: result.structuredContent,
 				_meta: { chainInsights: { graph: {
-					schema: artifact.schema,
-					id: artifact.id,
-					url: artifact.url
+					schema: report.schema,
+					url: report.url
 				} } },
 				isError: false
 			};
@@ -1043,7 +1049,7 @@ async function createProxy() {
 				"- balance: show the local payment wallet address and Base USDC balance.",
 				"- help: show this overview.",
 				"",
-				GRAPH_ARTIFACT_HINTS,
+				GRAPH_REPORT_HINTS,
 				"",
 				GRAPH_SCHEMA_HINTS
 			].join("\n")
@@ -1068,7 +1074,7 @@ async function createProxy() {
 				return await normalizeRemoteToolResult(await remoteClient.callTool({
 					name: tool.name,
 					arguments: normalizedArgs
-				}), config);
+				}), config, tool.name);
 			} catch (err) {
 				return {
 					content: [{

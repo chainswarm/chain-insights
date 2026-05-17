@@ -12,7 +12,6 @@ export interface WorkspaceOutputPaths {
   reportsRoot: string
   reportGraphsRoot: string
   reportTablesRoot: string
-  artifactsRoot: string
   logsRoot: string
 }
 
@@ -33,7 +32,6 @@ export function workspaceOutputPaths(workspaceRoot = requireWorkspaceRoot()): Wo
     reportsRoot: path.join(root, 'reports'),
     reportGraphsRoot: path.join(root, 'reports', 'graphs'),
     reportTablesRoot: path.join(root, 'reports', 'tables'),
-    artifactsRoot: path.join(root, 'artifacts'),
     logsRoot: path.join(root, 'logs'),
   }
 }

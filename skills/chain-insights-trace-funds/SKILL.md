@@ -1,6 +1,6 @@
 ---
 name: chain-insights-trace-funds
-description: Use when tracing stolen funds to exchange deposit candidates in Chain Insights. Explains the public track_funds workflow, traceback/source discovery, address aliases, compact evidence pointers, and graph/report artifacts.
+description: Use when tracing stolen funds to exchange deposit candidates in Chain Insights. Explains the public track_funds workflow, traceback/source discovery, address aliases, compact evidence pointers, and graph/report outputs.
 ---
 
 # Chain Insights Fund Flow Tracking
@@ -31,7 +31,7 @@ also include known scammer addresses. It accepts up to five
 roles, and runs the local tracing engine per address.
 
 Use `track_funds` for a single address by passing that address as the only
-`trusted_addresses` value. The workflow is a TypeScript port of the Python probe
+`trusted_addresses` value. The workflow is a TypeScript port of the probe
 workflow, not a simple top-K hop walker. The goal is to find all reachable
 exchange-deposit paths the graph can return within query limits, then traceback
 those deposits toward source exchanges and enrich the result with reverse 1-hop
@@ -59,7 +59,7 @@ Required inputs:
 Optional inputs:
 
 - `untrusted_addresses`: comma-separated full known scammer addresses, max 5.
-- `case_id`: when present, per-address evidence stores compact pointers to artifacts.
+- `case_id`: when present, per-address evidence stores compact pointers to reports.
 - `max_hops`, `per_address_limit`, `min_amount_sum`: forwarded to the single-seed tracing engine.
 
 Single-address call:
@@ -77,7 +77,7 @@ Required inputs:
 
 Optional inputs:
 
-- `case_id`: when present, evidence stores a compact pointer to report/table/graph artifacts.
+- `case_id`: when present, evidence stores a compact pointer to report/table/graph files.
 - `max_hops`: legacy compatibility knob; probe-style exchange search is bounded primarily by query timeout and result limits.
 - `per_address_limit`: controls the forward exchange path result budget.
 - `min_amount_sum`: optional minimum original graph `r.amount_sum`.
@@ -104,14 +104,14 @@ The tool:
    - `X*` traceback source exchanges,
    - `L*` reverse 1-hop leads,
    - `I*` intermediaries.
-5. Writes artifacts:
+5. Writes workspace-local reports:
    - `reports/graphs/*.graph.json`
+   - served by the local Hono server at `/graph-reports/<filename>.graph.json`
    - `reports/*.graph.html`
    - `reports/tables/*.compact-evidence.json`
    - `reports/tables/*.flows.csv`
    - `reports/*.table.html`
    - `reports/*.trace-report.md`
-   - `artifacts/<artifact-id>/graph.json`
 6. Returns:
    - concise facts,
    - `address_map` alias-to-address mapping,
@@ -119,9 +119,9 @@ The tool:
    - graph app metadata,
    - deposit, exchange, traceback, and lead summaries.
 
-Case evidence should stay compact. It should point to artifact files and include
+Case evidence should stay compact. It should point to report files and include
 hashable provenance/facts, not paste the full graph/table JSON into markdown.
-The JSON/CSV/report artifacts carry the investigation structure.
+The JSON/CSV/Markdown reports carry the investigation structure.
 
 ## Field Discipline
 

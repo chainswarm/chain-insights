@@ -152,12 +152,11 @@ describe('Hono viz routes (VIZ-03)', () => {
 
   it('GET /workspace/tree returns confined workspace entries', async () => {
     await mkdir(join(workspace, 'cases', 'case-001'), { recursive: true })
-    await mkdir(join(workspace, 'reports'), { recursive: true })
-    await mkdir(join(workspace, 'artifacts', 'artifact-001'), { recursive: true })
+    await mkdir(join(workspace, 'reports', 'graphs'), { recursive: true })
     await mkdir(join(workspace, '.chain-insights', 'schema'), { recursive: true })
     await writeFile(join(workspace, 'cases', 'case-001', 'case.md'), 'case body\n')
     await writeFile(join(workspace, 'reports', 'summary.md'), 'summary\n')
-    await writeFile(join(workspace, 'artifacts', 'artifact-001', 'graph.json'), '{"nodes":[]}\n')
+    await writeFile(join(workspace, 'reports', 'graphs', 'sample.graph.json'), '{"nodes":[]}\n')
     await writeFile(join(workspace, '.chain-insights', 'schema', 'graph.json'), '{"schema":"test"}\n')
     await writeFile(join(workspace, '..', 'outside-secret.txt'), 'outside\n')
 
@@ -177,7 +176,7 @@ describe('Hono viz routes (VIZ-03)', () => {
         expect.objectContaining({ path: 'cases', type: 'directory' }),
         expect.objectContaining({ path: 'cases/case-001/case.md', type: 'file' }),
         expect.objectContaining({ path: 'reports/summary.md', type: 'file' }),
-        expect.objectContaining({ path: 'artifacts/artifact-001/graph.json', type: 'file' }),
+        expect.objectContaining({ path: 'reports/graphs/sample.graph.json', type: 'file' }),
         expect.objectContaining({ path: '.chain-insights/schema/graph.json', type: 'file' }),
       ])
     )

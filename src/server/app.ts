@@ -3,7 +3,7 @@ import { lstat, readFile, readdir, realpath } from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
 
-const WORKSPACE_TREE_ROOTS = ['cases', 'reports', 'artifacts', '.chain-insights/schema']
+const WORKSPACE_TREE_ROOTS = ['cases', 'reports', '.chain-insights/schema']
 const WORKSPACE_TREE_MAX_DEPTH = 4
 
 interface WorkspaceTreeEntry {
@@ -185,33 +185,6 @@ export function createApp(): Hono {
 
   app.get('/graph-reports/*', (c) => {
     return c.json({ error: 'Invalid graph report filename' }, 400)
-  })
-
-  app.get('/artifacts/:artifactId/graph.json', async (c) => {
-    const artifactId = c.req.param('artifactId')
-    if (!/^[a-zA-Z0-9_-]+$/.test(artifactId)) {
-      return c.json({ error: 'Invalid artifact ID' }, 400)
-    }
-
-    const { workspaceOutputPaths } = await import('../workspace/output-root.js')
-    const paths = workspaceOutputPaths()
-    const graphPath = path.resolve(paths.artifactsRoot, artifactId, 'graph.json')
-    if (!withinRoot(paths.artifactsRoot, graphPath)) {
-      return c.json({ error: 'Invalid artifact ID' }, 400)
-    }
-    if (!await realPathWithinRoot(paths.artifactsRoot, graphPath)) {
-      return c.json({ error: 'Graph artifact not found' }, 404)
-    }
-
-    try {
-      const graph = await readFile(graphPath, 'utf-8')
-      return c.body(graph, 200, {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      })
-    } catch {
-      return c.json({ error: 'Graph artifact not found' }, 404)
-    }
   })
 
   app.get('/workspace/tree', async (c) => {

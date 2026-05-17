@@ -84,18 +84,18 @@ const GRAPH_SCHEMA_HINTS = [
   '- All graph_query calls are read-only. Never use CREATE, MERGE, SET, DELETE, REMOVE, DROP, or DETACH.',
 ].join('\n')
 
-const GRAPH_ARTIFACT_HINTS = [
+const GRAPH_REPORT_HINTS = [
   'Graph visualization behavior:',
   '- Graph-backed tools return the investigator report as text content and keep raw graph data out of LLM-visible structuredContent.',
   '- Raw graph data is stored locally under Chain Insights reports/graphs and exposed to the graph app as _meta.chainInsights.graph.url.',
-  '- The local graph artifact server is started automatically by the MCP server when a graph-backed tool returns a report URL; do not ask the user to run chain-insights serve for Claude Desktop graph iframes.',
-  '- If an iframe reports that a graph report fetch failed, retry the graph-backed tool call so Chain Insights can recreate the report URL and ensure the local artifact server is running.',
+  '- The local graph report server is started automatically by the MCP server when a graph-backed tool returns a report URL; do not ask the user to run chain-insights serve for Claude Desktop graph iframes.',
+  '- If an iframe reports that a graph report fetch failed, retry the graph-backed tool call so Chain Insights can recreate the report URL and ensure the local report server is running.',
 ].join('\n')
 
 const SERVER_INSTRUCTIONS = [
   'Chain Insights is a local AML investigation workspace for AI agents.',
   CHAIN_INSIGHTS_WORKFLOW,
-  GRAPH_ARTIFACT_HINTS,
+  GRAPH_REPORT_HINTS,
   GRAPH_SCHEMA_HINTS,
   'Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses; use case tools to preserve evidence when a case exists.',
 ].join('\n\n')
@@ -164,14 +164,14 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
         address: z.string().min(1).describe('Full blockchain address to screen'),
         network: z.string().min(1).describe(NETWORK_DESCRIPTION),
         compare_address: z.string().optional().describe('Optional second full address for comparison'),
-        include_attachments: z.boolean().optional().describe('Include graph app artifact metadata'),
+        include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
       }
     case 'track_funds':
       return {
         trusted_addresses: z.string().min(1).describe('Comma-separated full trusted victim addresses. Min 1, max 5.'),
         network: z.string().min(1).describe(NETWORK_DESCRIPTION),
         untrusted_addresses: z.string().optional().describe('Comma-separated full untrusted/scammer addresses. Max 5.'),
-        include_attachments: z.boolean().optional().describe('Include graph app artifact metadata'),
+        include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
       }
     case 'graph_query':
       return {
@@ -1198,7 +1198,7 @@ export async function createProxy(): Promise<void> {
           address: z.string().min(1).describe('Full blockchain address to screen'),
           network: z.string().min(1).describe(NETWORK_DESCRIPTION),
           compare_address: z.string().optional().describe('Optional second full address for comparison'),
-          include_attachments: z.boolean().optional().describe('Include graph app artifact metadata'),
+          include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
         },
         _meta: {
           ui: {
@@ -1261,7 +1261,7 @@ export async function createProxy(): Promise<void> {
           trusted_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe('Comma-separated full trusted victim addresses, or an array. Min 1, max 5.'),
           network: z.string().min(1).describe(NETWORK_DESCRIPTION),
           untrusted_addresses: z.union([z.string(), z.array(z.string())]).optional().describe('Known scammer/untrusted addresses. Max 5.'),
-          include_attachments: z.boolean().optional().describe('Include graph app artifact metadata'),
+          include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
           case_id: z.string().optional().describe('Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest.'),
           max_hops: z.number().int().min(1).max(5).optional(),
           per_address_limit: z.number().int().min(1).max(10).optional(),
@@ -1355,7 +1355,7 @@ export async function createProxy(): Promise<void> {
             '- balance: show the local payment wallet address and Base USDC balance.',
             '- help: show this overview.',
             '',
-            GRAPH_ARTIFACT_HINTS,
+            GRAPH_REPORT_HINTS,
             '',
             GRAPH_SCHEMA_HINTS,
           ].join('\n'),

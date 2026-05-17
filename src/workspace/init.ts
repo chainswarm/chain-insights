@@ -16,7 +16,6 @@ const WORKSPACE_DIRS = [
   '.chain-insights/schema',
   '.chain-insights/runtime',
   '.chain-insights/runtime-skill',
-  'artifacts',
   'cases',
   'imports',
   'logs',
@@ -60,7 +59,6 @@ chain-insights wallet balance
 
 \`\`\`text
 .chain-insights/   Workspace metadata
-artifacts/         Workspace-local graph app artifacts
 cases/             Case exports and notes
 imports/           External reports, CSVs, screenshots, raw notes
 logs/              Workspace-local investigation and preview logs
@@ -88,7 +86,7 @@ You are operating inside a Chain Insights investigation workspace.
 - Save compact evidence with original graph field names.
 - Put graph JSON and analyst tables in reports/, not in dossiers.
 - Investigation output must stay in this initialized workspace.
-- Never write cases, evidence, reports, graph JSON, HTML, artifacts, schema captures, or logs to ~/.chain-insights.
+- Never write cases, evidence, reports, graph JSON, HTML, schema captures, or logs to ~/.chain-insights.
 - Keep theories lightweight until evidence supports them.
 `
 
@@ -158,7 +156,6 @@ function workspaceFiles(workspaceRoot: string): Array<[string, string]> {
     ['.chain-insights/runtime-skill/SKILL.md', RUNTIME_SKILL],
     ['.chain-insights/schema/README.md', SCHEMA_README],
     ['.chain-insights/runtime/.keep', ''],
-    ['artifacts/.keep', ''],
     ['logs/.keep', ''],
   ]
 }

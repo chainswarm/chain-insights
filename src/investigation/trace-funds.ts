@@ -191,7 +191,6 @@ async function ensureDirs(paths: WorkspaceOutputPaths): Promise<void> {
   await mkdir(paths.reportsRoot, { recursive: true, mode: 0o700 })
   await mkdir(paths.reportGraphsRoot, { recursive: true, mode: 0o700 })
   await mkdir(paths.reportTablesRoot, { recursive: true, mode: 0o700 })
-  await mkdir(paths.artifactsRoot, { recursive: true, mode: 0o700 })
   await mkdir(paths.logsRoot, { recursive: true, mode: 0o700 })
 }
 

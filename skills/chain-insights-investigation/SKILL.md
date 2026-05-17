@@ -133,7 +133,7 @@ For every material graph/tool query:
      --content "$(cat /tmp/<stable_id>.compact.json)"
    ```
 4. Only after evidence is saved, summarize what the output supports and what remains unknown.
-5. Write graph/table/report artifacts when the query describes fund movement:
+5. Write graph/table/report outputs when the query describes fund movement:
    ```bash
    mkdir -p reports/graphs reports/tables
    ```

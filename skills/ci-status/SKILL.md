@@ -21,7 +21,7 @@ cia init .
 
 The workspace is the investigation root. `~/.chain-insights` is only for global
 configuration, cache, wallet, and installed skills; do not treat it as the case,
-report, artifact, schema, or log root.
+report, schema, or log root.
 
 ## Usage
 

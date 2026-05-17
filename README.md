@@ -5,7 +5,7 @@ Local-first AML investigation tooling for AI agents and human operators. Chain I
 The product has two layers:
 
 1. `chain-insights mcp` connects clients to the paid Go Graph MCP primitive, handles x402/debug-token auth, and exposes local wallet/case tools.
-2. `chain-insights case` is the investigation framework: Markdown/JSON workspaces, claims, evidence, dossiers, sessions, reports, and local HTML graph artifacts.
+2. `chain-insights case` is the investigation framework: Markdown/JSON workspaces, claims, evidence, dossiers, sessions, reports, and local graph report files.
 
 ## Table of Contents
 
@@ -53,7 +53,7 @@ It is not a hosted SaaS app, wallet custodian, chain indexer, or replacement for
 | Case lifecycle | Working | `chain-insights case open/list/activate/suspend/close` |
 | Evidence and dossiers | Working | `chain-insights case evidence`, `chain-insights case dossier` |
 | Session resume context | Working | `chain-insights case session`, `chain-insights case resume` |
-| Graph visualization | Working | `chain-insights viz`, local artifact server |
+| Graph visualization | Working | `chain-insights viz`, local graph report server |
 | Claude Desktop setup | Basic MCP setup | `chain-insights setup claude-desktop` |
 
 The current Go Graph MCP public surface is:
@@ -143,7 +143,7 @@ Supported config keys:
 | `mcpEndpoint` | Legacy endpoint fallback |
 | `mcpAuthToken` | Legacy debug token fallback |
 | `walletAddress` | Optional wallet metadata |
-| `serverPort` | Local visualization/artifact server port |
+| `serverPort` | Local visualization and graph report server port |
 | `dataDir` | Local Chain Insights data directory |
 | `version` | Config schema version |
 
@@ -305,9 +305,9 @@ The CLI writes self-contained HTML under `~/.chain-insights/viz/` or `~/.chain-i
 MCP compatibility path:
 
 - Graph-backed upstream tools may return raw graph data in `_meta.chainInsights.graph.data`.
-- Chain Insights stores that graph data under `~/.chain-insights/artifacts/<id>/graph.json`.
-- Chain Insights returns `_meta.chainInsights.graph.url` to the app iframe.
-- The local artifact server starts automatically when an artifact URL is returned.
+- Chain Insights stores that graph data under `reports/graphs/*.graph.json`.
+- Chain Insights returns `_meta.chainInsights.graph.url` pointing to `/graph-reports/<filename>.graph.json` for the app iframe.
+- The local graph report server starts automatically when a graph report URL is returned.
 
 The preferred framework path is a case-local HTML file plus adjacent JSON, served from localhost and visible in the editor workspace.
 
@@ -332,7 +332,7 @@ The proxy:
 - Caches remote tool schemas per endpoint for 24 hours.
 - Exposes graph tools returned by the endpoint.
 - Adds local `balance`, `help`, and case workflow tools.
-- Publishes server instructions with required argument rules, workflow guidance, graph artifact behavior, and schema hints.
+- Publishes server instructions with required argument rules, workflow guidance, graph report behavior, and schema hints.
 
 Local MCP tools:
 
@@ -473,7 +473,7 @@ GraphRAG/Chain Insights UAT skill:
 skills/test-chain-insights-graphrag-mcp/scripts/run-uat.sh
 ```
 
-The skill builds or reuses local artifacts, calls the real graph MCP endpoint, runs the Chain Insights proxy, verifies graph artifacts under `~/.chain-insights/artifacts/<id>/graph.json`, and writes a timestamped report under `.tmp/uat/`.
+The skill builds or reuses local build outputs, calls the real graph MCP endpoint, runs the Chain Insights proxy, verifies graph reports served from `/graph-reports/<filename>.graph.json`, and writes a timestamped report under `.tmp/uat/`.
 
 ## Debug CLI Sketch
 
@@ -490,8 +490,8 @@ Proposed diagnostic surface:
 chain-insights debug
 chain-insights debug mcp
 chain-insights debug clients
-chain-insights debug artifacts <artifact-id>
-chain-insights debug browser --artifact <artifact-id>
+chain-insights debug graph-report <filename.graph.json>
+chain-insights debug browser --graph-report <filename.graph.json>
 ```
 
 Expected checks:
@@ -501,8 +501,8 @@ Expected checks:
 | `debug` | Config path, data dir, wallet presence, schema cache age, local server URL |
 | `debug mcp` | `graphMcpEndpoint`, auth mode, `tools/list`, proxy `tools/list`, proxy `resources/list` |
 | `debug clients` | Known client config files, command paths, Inspector smoke tests |
-| `debug artifacts <id>` | Artifact file exists, graph schema, node/edge/flow counts, local server fetch works |
-| `debug browser --artifact <id>` | Opens the graph app and verifies `_meta.chainInsights.graph.url` loading |
+| `debug graph-report <filename.graph.json>` | Report file exists, graph schema, node/edge/flow counts, local server fetch works |
+| `debug browser --graph-report <filename.graph.json>` | Opens the graph app and verifies `_meta.chainInsights.graph.url` loading |
 
 Rules:
 
@@ -520,7 +520,7 @@ flowchart LR
   CLI --> Config[~/.chain-insights/config.json]
   CLI --> Wallet[encrypted wallet.json]
   CLI --> Cases[case files, evidence, dossiers, sessions]
-  CLI --> Viz[local HTML and JSON artifacts]
+  CLI --> Viz[local HTML and graph report JSON]
   Proxy --> GraphMCP[Go Graph MCP]
   CLI --> GraphMCP
   GraphMCP --> Memgraph[(Memgraph)]
@@ -539,7 +539,7 @@ Primary modules:
 | `src/cases/` | Case state, evidence, dossiers, sessions |
 | `src/playbooks/` | Existing playbook runner; migrate away from stale tool assumptions |
 | `src/viz/` | Graph data model and self-contained HTML generation |
-| `src/server/` | Local Hono server for visualization artifacts |
+| `src/server/` | Local Hono server for visualization and graph reports |
 
 ## Local Data and Security
 
@@ -551,7 +551,6 @@ Default data directory:
   wallet.json
   mcp-schema-*.json
   chain-insights.duckdb
-  artifacts/
   cases/
   viz/
 ```
@@ -562,7 +561,7 @@ Security rules:
 - Wallet private keys are encrypted with AES-256-GCM.
 - Debug bearer tokens are redacted in CLI output.
 - Production x402 should use a hot wallet with limited funds.
-- Graph artifacts are local files served from `127.0.0.1`.
+- Graph report JSON is stored under `reports/graphs/*.graph.json` in the active workspace and served from `127.0.0.1` at `/graph-reports/<filename>.graph.json`.
 - Chain Insights does not custody user funds.
 
 ## Development
@@ -593,8 +592,8 @@ npm test -- \
   tests/wallet.test.ts \
   tests/wallet-tools.test.ts \
   tests/viz-html-generator.test.ts \
-  tests/mcp-artifacts.test.ts \
-  tests/mcp-artifact-server.test.ts
+  tests/mcp-graph-reports.test.ts \
+  tests/viz-server.test.ts
 ```
 
 ## Troubleshooting
@@ -626,12 +625,12 @@ Set a known Base RPC endpoint:
 BASE_RPC_URL=https://mainnet.base.org chain-insights wallet balance
 ```
 
-### Graph artifact fetch failed
+### Graph report fetch failed
 
-Re-run the graph-backed tool so Chain Insights can recreate the local artifact URL and start the artifact server. Then inspect the stored files:
+Re-run the graph-backed tool so Chain Insights can recreate the local graph report URL and start the report server. Then inspect the stored files:
 
 ```bash
-find ~/.chain-insights/artifacts -maxdepth 2 -type f -name graph.json | tail
+find reports/graphs -maxdepth 1 -type f -name '*.graph.json' | tail
 ```
 
 ### Claude Desktop server disconnected
