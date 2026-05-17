@@ -1,5 +1,13 @@
 //#region src/viz/graph-normalizer.ts
-const PLACEHOLDER_GRAPH_LABELS = new Set(["Address"]);
+const GRAPH_TYPE_LABELS = new Set([
+	"Address",
+	"Exchange",
+	"Miner",
+	"Validator",
+	"Hotkey",
+	"Subnet",
+	"IPAddress"
+]);
 function isRecord(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -9,8 +17,8 @@ function stringArray(value) {
 function unique(values) {
 	return [...new Set(values)];
 }
-function displayLabels(rawLabels, currentLabels) {
-	return unique(currentLabels.length > 0 ? currentLabels : rawLabels).filter((label) => !PLACEHOLDER_GRAPH_LABELS.has(label));
+function displayLabels(currentLabels) {
+	return unique(currentLabels).filter((label) => !GRAPH_TYPE_LABELS.has(label));
 }
 function hasLabel(labels, expected) {
 	return labels.some((label) => label.toLowerCase() === expected);
@@ -25,7 +33,7 @@ function normalizeRole(role, labels, addressType) {
 }
 function normalizeNode(node) {
 	if (!isRecord(node)) return {};
-	const rawLabels = unique([...stringArray(node["raw_labels"]), ...stringArray(node["labels"])]);
+	const labels = stringArray(node["labels"]);
 	const normalized = {};
 	for (const [key, value] of Object.entries(node)) {
 		if ([
@@ -41,8 +49,8 @@ function normalizeNode(node) {
 	}
 	const address = normalized["address"] ?? normalized["id"];
 	if (typeof address === "string") normalized["address"] = address;
-	normalized["labels"] = displayLabels(rawLabels, stringArray(node["labels"]));
-	const role = normalizeRole(node["role"], rawLabels, node["address_type"]);
+	normalized["labels"] = displayLabels(labels);
+	const role = normalizeRole(node["role"], labels, node["address_type"]);
 	if (role) normalized["role"] = role;
 	if (typeof node["risk_level"] === "string") normalized["risk_level"] = node["risk_level"];
 	if (!Array.isArray(node["flags"]) && Array.isArray(node["pattern_flags"]) && node["pattern_flags"].length > 0) normalized["flags"] = node["pattern_flags"].map(String);
@@ -69,4 +77,4 @@ function normalizeGraphPayload(payload) {
 //#endregion
 export { normalizeGraphPayload as t };
 
-//# sourceMappingURL=graph-normalizer-3WY8L4Ld.mjs.map
+//# sourceMappingURL=graph-normalizer-LK1f6Ho_.mjs.map

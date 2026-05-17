@@ -1,5 +1,5 @@
 import { n as workspaceOutputPaths } from "./output-root-DWVOkjAR.mjs";
-import { t as normalizeGraphPayload } from "./graph-normalizer-3WY8L4Ld.mjs";
+import { t as normalizeGraphPayload } from "./graph-normalizer-LK1f6Ho_.mjs";
 import path from "node:path";
 import { chmod, mkdir, writeFile } from "node:fs/promises";
 import * as z from "zod";
@@ -46,4 +46,4 @@ async function writeGraphArtifact(graphData, config) {
 //#endregion
 export { writeGraphArtifact };
 
-//# sourceMappingURL=artifacts-NqMwqL5E.mjs.map
+//# sourceMappingURL=artifacts-CDs29NQX.mjs.map

@@ -1,4 +1,4 @@
-const PLACEHOLDER_GRAPH_LABELS = new Set(['Address'])
+const GRAPH_TYPE_LABELS = new Set(['Address', 'Exchange', 'Miner', 'Validator', 'Hotkey', 'Subnet', 'IPAddress'])
 
 type GraphRecord = Record<string, unknown>
 
@@ -23,9 +23,8 @@ function unique(values: string[]): string[] {
   return [...new Set(values)]
 }
 
-function displayLabels(rawLabels: string[], currentLabels: string[]): string[] {
-  const candidates = currentLabels.length > 0 ? currentLabels : rawLabels
-  return unique(candidates).filter((label) => !PLACEHOLDER_GRAPH_LABELS.has(label))
+function displayLabels(currentLabels: string[]): string[] {
+  return unique(currentLabels).filter((label) => !GRAPH_TYPE_LABELS.has(label))
 }
 
 function hasLabel(labels: string[], expected: string): boolean {
@@ -44,10 +43,7 @@ function normalizeRole(role: unknown, labels: string[], addressType: unknown): s
 function normalizeNode(node: unknown): GraphRecord {
   if (!isRecord(node)) return {}
 
-  const rawLabels = unique([
-    ...stringArray(node['raw_labels']),
-    ...stringArray(node['labels']),
-  ])
+  const labels = stringArray(node['labels'])
   const normalized: GraphRecord = {}
   for (const [key, value] of Object.entries(node)) {
     if ([
@@ -64,8 +60,8 @@ function normalizeNode(node: unknown): GraphRecord {
 
   const address = normalized['address'] ?? normalized['id']
   if (typeof address === 'string') normalized['address'] = address
-  normalized['labels'] = displayLabels(rawLabels, stringArray(node['labels']))
-  const role = normalizeRole(node['role'], rawLabels, node['address_type'])
+  normalized['labels'] = displayLabels(labels)
+  const role = normalizeRole(node['role'], labels, node['address_type'])
   if (role) normalized['role'] = role
 
   if (typeof node['risk_level'] === 'string') normalized['risk_level'] = node['risk_level']

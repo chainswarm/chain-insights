@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 describe('normalizeGraphPayload', () => {
-  it('matches the Python graph payload contract and removes placeholder fields', async () => {
+  it('uses MCP graph labels as source of truth and removes local compatibility fields', async () => {
     const { normalizeGraphPayload } = await import('../src/viz/graph-normalizer.js')
 
     const result = normalizeGraphPayload({
@@ -26,6 +26,11 @@ describe('normalizeGraphPayload', () => {
           labels: ['Address', 'Exchange', 'Binance'],
           address_type: 'exchange',
         },
+        {
+          address: '5OldArtifact',
+          labels: [],
+          raw_labels: ['Address', 'Exchange', 'Binance'],
+        },
       ],
       edges: [{ source: '5Wallet', target: '5Binance', amount_usd_sum: 10 }],
       flows: [],
@@ -44,7 +49,7 @@ describe('normalizeGraphPayload', () => {
     expect(result.nodes[0]).not.toHaveProperty('pattern_flags')
 
     expect(result.nodes[1]).toMatchObject({
-      labels: ['Miner', 'Exchange', 'Subnet'],
+      labels: [],
       role: 'exchange',
     })
     expect(result.nodes[1]).not.toHaveProperty('entity_kind')
@@ -52,9 +57,15 @@ describe('normalizeGraphPayload', () => {
 
     expect(result.nodes[2]).toMatchObject({
       address: '5Binance',
-      labels: ['Exchange', 'Binance'],
+      labels: ['Binance'],
       role: 'exchange',
     })
+    expect(result.nodes[3]).toMatchObject({
+      address: '5OldArtifact',
+      labels: [],
+    })
+    expect(result.nodes[3]).not.toHaveProperty('role')
+    expect(result.nodes[3]).not.toHaveProperty('raw_labels')
     expect(result.edges[0]).toMatchObject({
       from_address: '5Wallet',
       to_address: '5Binance',

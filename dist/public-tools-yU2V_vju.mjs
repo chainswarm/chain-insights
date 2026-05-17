@@ -1,9 +1,7 @@
-const require_chunk = require("./chunk-CZWwpsFl.cjs");
-const require_output_root = require("./output-root-BtL2lJgv.cjs");
-const require_graph_normalizer = require("./graph-normalizer-CmuMr1s3.cjs");
-let node_path = require("node:path");
-node_path = require_chunk.__toESM(node_path, 1);
-let node_fs_promises = require("node:fs/promises");
+import { n as workspaceOutputPaths } from "./output-root-DWVOkjAR.mjs";
+import { t as normalizeGraphPayload } from "./graph-normalizer-LK1f6Ho_.mjs";
+import path from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 //#region src/investigation/trace-funds.ts
 var AliasTracker = class {
 	byAddress = /* @__PURE__ */ new Map();
@@ -73,27 +71,27 @@ function sanitizeSegment(value) {
 	return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "trace";
 }
 async function ensureDirs(paths) {
-	await (0, node_fs_promises.mkdir)(paths.schemaDir, {
+	await mkdir(paths.schemaDir, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportsRoot, {
+	await mkdir(paths.reportsRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportGraphsRoot, {
+	await mkdir(paths.reportGraphsRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportTablesRoot, {
+	await mkdir(paths.reportTablesRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.artifactsRoot, {
+	await mkdir(paths.artifactsRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.logsRoot, {
+	await mkdir(paths.logsRoot, {
 		recursive: true,
 		mode: 448
 	});
@@ -150,17 +148,17 @@ function schemaFromBatch(network, batch) {
 	};
 }
 async function loadOrCaptureSchema(remoteClient, paths, network) {
-	const filePath = node_path.default.join(paths.schemaDir, `${sanitizeSegment(network)}.graph-schema.json`);
+	const filePath = path.join(paths.schemaDir, `${sanitizeSegment(network)}.graph-schema.json`);
 	try {
 		return {
-			schema: JSON.parse(await (0, node_fs_promises.readFile)(filePath, "utf8")),
+			schema: JSON.parse(await readFile(filePath, "utf8")),
 			filePath
 		};
 	} catch (err) {
 		if (err.code !== "ENOENT") throw err;
 	}
 	const schema = schemaFromBatch(network, await callGraphBatch$1(remoteClient, network, SCHEMA_QUERY_SET));
-	await (0, node_fs_promises.writeFile)(filePath, JSON.stringify(schema, null, 2) + "\n", { mode: 384 });
+	await writeFile(filePath, JSON.stringify(schema, null, 2) + "\n", { mode: 384 });
 	return {
 		schema,
 		filePath
@@ -423,7 +421,7 @@ function buildGraph(seedAddress, network, flows, deposits, sourceMatches, revers
 		const deposit = ensure(lead.deposit_address);
 		deposit.in += lead.amount_usd ?? 0;
 	}
-	return require_graph_normalizer.normalizeGraphPayload({
+	return normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: [...totals.entries()].map(([address, data]) => {
 			const rawLabels = uniqueStrings(data.rawLabels);
@@ -695,7 +693,7 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	const maxHops = clampInt(options.maxHops, 3, 1, 5);
 	const perAddressLimit = clampInt(options.perAddressLimit, 5, 1, 10);
 	const minAmountSum = Math.max(0, options.minAmountSum ?? 0);
-	const paths = require_output_root.workspaceOutputPaths();
+	const paths = workspaceOutputPaths();
 	await ensureDirs(paths);
 	const schemaResult = await loadOrCaptureSchema(remoteClient, paths, network);
 	const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, {
@@ -709,21 +707,21 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	const slug = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}_${sanitizeSegment(seedAddress.slice(0, 16))}`;
 	const compact = probeEvidence(seedAddress, network, schemaResult.filePath, aliases, flows, deposits, sourceMatches, reverseLeads);
 	const graph = buildGraph(seedAddress, network, flows, deposits, sourceMatches, reverseLeads);
-	const compactPath = node_path.default.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
-	const graphPath = node_path.default.join(paths.reportGraphsRoot, `${slug}.graph.json`);
-	const graphHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.graph.html`);
-	const tablePath = node_path.default.join(paths.reportTablesRoot, `${slug}.flows.csv`);
-	const tableHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.table.html`);
-	const reportPath = node_path.default.join(paths.reportsRoot, `${slug}.trace-report.md`);
-	const { generateInlineGraphHtml } = await Promise.resolve().then(() => require("./html-generator-DgzOxSFq.cjs")).then((n) => n.html_generator_exports);
-	await (0, node_fs_promises.writeFile)(compactPath, JSON.stringify(compact, null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(graphPath, JSON.stringify(graph, null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(tablePath, tableCsv(flows), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 384 });
+	const compactPath = path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
+	const graphPath = path.join(paths.reportGraphsRoot, `${slug}.graph.json`);
+	const graphHtmlPath = path.join(paths.reportsRoot, `${slug}.graph.html`);
+	const tablePath = path.join(paths.reportTablesRoot, `${slug}.flows.csv`);
+	const tableHtmlPath = path.join(paths.reportsRoot, `${slug}.table.html`);
+	const reportPath = path.join(paths.reportsRoot, `${slug}.trace-report.md`);
+	const { generateInlineGraphHtml } = await import("./html-generator-BrlZCf3u.mjs").then((n) => n.n);
+	await writeFile(compactPath, JSON.stringify(compact, null, 2) + "\n", { mode: 384 });
+	await writeFile(graphPath, JSON.stringify(graph, null, 2) + "\n", { mode: 384 });
+	await writeFile(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 384 });
+	await writeFile(tablePath, tableCsv(flows), { mode: 384 });
+	await writeFile(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 384 });
+	await writeFile(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 384 });
 	if (options.caseId) {
-		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-D8HCXUWD.cjs"));
+		const { EvidenceStore } = await import("./cases-B--jPjef.mjs");
 		await EvidenceStore.append(options.caseId, {
 			source: "track_funds",
 			queryParams: `network=${network} seed_address=${seedAddress} max_hops=${maxHops} per_address_limit=${perAddressLimit} min_amount_sum=${minAmountSum}`,
@@ -905,7 +903,7 @@ function buildRiskGraph(address, rows, network) {
 			direction: row["direction"]
 		});
 	}
-	return require_graph_normalizer.normalizeGraphPayload({
+	return normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: [...nodes.values()],
 		edges,
@@ -1011,7 +1009,7 @@ async function trackFunds(remoteClient, config, options) {
 			minAmountSum: options.minAmountSum
 		})
 	});
-	const graphData = require_graph_normalizer.normalizeGraphPayload({
+	const graphData = normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: runs.flatMap((run) => Array.isArray(run.result.graphData.nodes) ? run.result.graphData.nodes : []),
 		edges: runs.flatMap((run) => Array.isArray(run.result.graphData.edges) ? run.result.graphData.edges : []),
@@ -1053,5 +1051,6 @@ async function trackFunds(remoteClient, config, options) {
 	};
 }
 //#endregion
-exports.addressRisk = addressRisk;
-exports.trackFunds = trackFunds;
+export { addressRisk, trackFunds };
+
+//# sourceMappingURL=public-tools-yU2V_vju.mjs.map

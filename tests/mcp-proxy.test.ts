@@ -666,7 +666,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
     const exchangeNode = graph.nodes.find((node) => node.address === '5Exchange')
     expect(exchangeNode).toMatchObject({
-      labels: ['Exchange'],
+      labels: [],
       role: 'exchange',
     })
     expect(exchangeNode).not.toHaveProperty('address_type')
@@ -923,7 +923,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       edges: Array<{ to_address: string; terminal_exchange?: boolean }>
     }
     expect(graph.nodes.find((node) => node.address === '5Exchange')?.role).toBe('exchange')
-    expect(graph.nodes.find((node) => node.address === '5Exchange')?.labels).toEqual(['Exchange'])
+    expect(graph.nodes.find((node) => node.address === '5Exchange')?.labels).toEqual([])
     expect(graph.nodes.find((node) => node.address === '5Exchange')).not.toHaveProperty('raw_labels')
     expect(graph.edges.find((edge) => edge.to_address === '5Exchange')?.terminal_exchange).toBe(true)
     expect(graph.nodes.find((node) => node.address === '5SourceExchange')?.role).toBe('exchange')

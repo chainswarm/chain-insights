@@ -107,7 +107,7 @@ describe('MCP graph artifact store', () => {
     expect(graph.nodes[0]).toMatchObject({
       id: '5Exchange',
       address: '5Exchange',
-      labels: ['Exchange', 'Kraken'],
+      labels: ['Kraken'],
       role: 'exchange',
     })
     expect(graph.nodes[0]).not.toHaveProperty('address_type')

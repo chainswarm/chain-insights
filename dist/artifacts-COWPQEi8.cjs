@@ -1,6 +1,6 @@
 const require_chunk = require("./chunk-CZWwpsFl.cjs");
 const require_output_root = require("./output-root-BtL2lJgv.cjs");
-const require_graph_normalizer = require("./graph-normalizer-CmuMr1s3.cjs");
+const require_graph_normalizer = require("./graph-normalizer-D9FzM8IZ.cjs");
 let node_path = require("node:path");
 node_path = require_chunk.__toESM(node_path, 1);
 let node_fs_promises = require("node:fs/promises");
