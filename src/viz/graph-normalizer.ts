@@ -1,4 +1,4 @@
-const GRAPH_TYPE_LABELS = new Set(['address', 'exchange', 'miner', 'validator', 'hotkey', 'subnet', 'ipaddress'])
+const GRAPH_TYPE_LABELS = new Set(['Address', 'Exchange', 'Miner', 'Validator', 'Hotkey', 'Subnet', 'IPAddress'])
 const SOURCE_ADDRESS_TYPES = new Set(['substrate', 'evm'])
 const FLOW_EDGE_TYPES = new Set(['flows_to', 'transfer', 'transfer_to', 'transfers_to'])
 
@@ -35,7 +35,7 @@ function lowerSnake(value: string): string {
 }
 
 function isGraphTypeLabel(label: string): boolean {
-  return GRAPH_TYPE_LABELS.has(lowerSnake(label).replaceAll('_', ''))
+  return GRAPH_TYPE_LABELS.has(label)
 }
 
 function displayLabels(node: GraphRecord): string[] {

@@ -78,7 +78,7 @@ describe('normalizeGraphPayload', () => {
       address: '5Exchange',
       node_type: 'address',
       address_type: 'substrate',
-      labels: ['Binance'],
+      labels: ['Binance', 'exchange'],
       roles: ['exchange'],
       flags: ['layering'],
     })
@@ -139,13 +139,13 @@ describe('normalizeGraphPayload', () => {
       id: '5Validator',
       address: '5Validator',
       node_type: 'address',
-      labels: [],
+      labels: ['validator'],
       address_type: 'substrate',
       address_subtypes: ['validator_hotkey'],
     })
   })
 
-  it('strips all system labels while preserving display labels', async () => {
+  it('strips exact system labels while preserving lowercase and domain display labels', async () => {
     const { normalizeGraphPayload } = await import('../src/viz/graph-normalizer.js')
 
     const result = normalizeGraphPayload({
@@ -153,8 +153,13 @@ describe('normalizeGraphPayload', () => {
       nodes: [
         {
           address: '5MinerHotkey',
-          labels: ['Miner', 'Hotkey', 'Subnet', 'IPAddress', 'Alpha Pool', 'Observed Cohort'],
-          system_labels: ['Miner', 'Hotkey', 'Subnet', 'IPAddress'],
+          labels: ['Miner', 'Hotkey', 'Subnet', 'Alpha Pool', 'miner subnet 27'],
+          system_labels: ['Miner', 'Hotkey', 'Subnet'],
+        },
+        {
+          address: '5ExchangeValidator',
+          labels: ['Address', 'Exchange', 'Binance', 'exchange', 'validator', 'miner subnet 27', 'IPAddress'],
+          system_labels: ['Address', 'Exchange', 'IPAddress'],
         },
       ],
       edges: [],
@@ -166,7 +171,13 @@ describe('normalizeGraphPayload', () => {
       id: '5MinerHotkey',
       address: '5MinerHotkey',
       node_type: 'address',
-      labels: ['Alpha Pool', 'Observed Cohort'],
+      labels: ['Alpha Pool', 'miner subnet 27'],
+    })
+    expect(result.nodes[1]).toMatchObject({
+      id: '5ExchangeValidator',
+      address: '5ExchangeValidator',
+      node_type: 'address',
+      labels: ['Binance', 'exchange', 'validator', 'miner subnet 27'],
     })
   })
 })
