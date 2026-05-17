@@ -119,6 +119,16 @@ async function findVizHtml(vizId: string): Promise<string | null> {
   return null
 }
 
+function isSafeGraphReportFilename(filename: string): boolean {
+  return (
+    filename.endsWith('.graph.json') &&
+    /^[A-Za-z0-9._-]+$/.test(filename) &&
+    !filename.includes('..') &&
+    !filename.includes('/') &&
+    !filename.includes('\\')
+  )
+}
+
 export function createApp(): Hono {
   const app = new Hono()
 
@@ -144,6 +154,37 @@ export function createApp(): Hono {
       return c.json({ error: 'Visualization not found' }, 404)
     }
     return c.html(html)
+  })
+
+  app.get('/graph-reports/:filename', async (c) => {
+    const filename = c.req.param('filename')
+    if (!isSafeGraphReportFilename(filename)) {
+      return c.json({ error: 'Invalid graph report filename' }, 400)
+    }
+
+    const { workspaceOutputPaths } = await import('../workspace/output-root.js')
+    const paths = workspaceOutputPaths()
+    const graphPath = path.resolve(paths.reportGraphsRoot, filename)
+    if (!withinRoot(paths.reportGraphsRoot, graphPath)) {
+      return c.json({ error: 'Invalid graph report filename' }, 400)
+    }
+    if (!await realPathWithinRoot(paths.reportGraphsRoot, graphPath)) {
+      return c.json({ error: 'Graph report not found' }, 404)
+    }
+
+    try {
+      const graph = await readFile(graphPath, 'utf-8')
+      return c.body(graph, 200, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      })
+    } catch {
+      return c.json({ error: 'Graph report not found' }, 404)
+    }
+  })
+
+  app.get('/graph-reports/*', (c) => {
+    return c.json({ error: 'Invalid graph report filename' }, 400)
   })
 
   app.get('/artifacts/:artifactId/graph.json', async (c) => {

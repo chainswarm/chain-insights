@@ -90,8 +90,8 @@ describe('Hono viz routes (VIZ-03)', () => {
     expect(body).toContain('<html>case test</html>')
   })
 
-  it('GET /artifacts/:artifactId/graph.json serves stored graph JSON', async () => {
-    const artifactDir = join(workspace, 'artifacts', 'artifact_123')
+  it('GET /graph-reports/:filename serves stored graph JSON', async () => {
+    const graphsDir = join(workspace, 'reports', 'graphs')
     const graph = {
       schema: 'chain-insights.graph.v1',
       nodes: [{ address: '5Test' }],
@@ -99,53 +99,55 @@ describe('Hono viz routes (VIZ-03)', () => {
       flows: [],
       edge_anchors: [],
     }
-    await mkdir(artifactDir, { recursive: true })
-    await writeFile(join(artifactDir, 'graph.json'), JSON.stringify(graph))
+    await mkdir(graphsDir, { recursive: true })
+    await writeFile(join(graphsDir, 'sample.graph.json'), JSON.stringify(graph))
 
     stop = await startTestServer(14405)
-    const res = await fetch('http://127.0.0.1:14405/artifacts/artifact_123/graph.json')
+    const res = await fetch('http://127.0.0.1:14405/graph-reports/sample.graph.json')
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('application/json')
     expect(res.headers.get('access-control-allow-origin')).toBe('*')
     expect(await res.json()).toEqual(graph)
   })
 
-  it('GET /artifacts/:artifactId/graph.json returns 400 for invalid artifact ID', async () => {
+  it('GET /graph-reports/:filename returns 400 for invalid filename', async () => {
     stop = await startTestServer(14406)
-    const res = await fetch('http://127.0.0.1:14406/artifacts/test..attempt/graph.json')
+    const res = await fetch('http://127.0.0.1:14406/graph-reports/test..attempt.graph.json')
     expect(res.status).toBe(400)
     const body = await res.json() as { error: string }
-    expect(body.error).toBe('Invalid artifact ID')
+    expect(body.error).toBe('Invalid graph report filename')
   })
 
-  it('GET /artifacts/:artifactId/graph.json rejects encoded path traversal', async () => {
+  it('GET /graph-reports/:filename rejects encoded path traversal', async () => {
     stop = await startTestServer(14408)
-    const res = await fetch('http://127.0.0.1:14408/artifacts/..%2Fsecret/graph.json')
+    const res = await fetch('http://127.0.0.1:14408/graph-reports/..%2Fsecret.graph.json')
     expect(res.status).toBe(400)
     const body = await res.json() as { error: string }
-    expect(body.error).toBe('Invalid artifact ID')
+    expect(body.error).toBe('Invalid graph report filename')
   })
 
-  it('GET /artifacts/:artifactId/graph.json does not follow symlink escapes', async () => {
+  it('GET /graph-reports/:filename does not follow symlink escapes', async () => {
     const outside = join(tmpdir(), `ci-viz-server-outside-${Date.now()}-${Math.random().toString(36).slice(2)}`)
     await mkdir(outside, { recursive: true })
-    await writeFile(join(outside, 'graph.json'), '{"leaked":true}\n')
-    await mkdir(join(workspace, 'artifacts'), { recursive: true })
-    await symlink(outside, join(workspace, 'artifacts', 'artifact_link'))
+    await writeFile(join(outside, 'leak.graph.json'), '{"leaked":true}\n')
+    await mkdir(join(workspace, 'reports', 'graphs'), { recursive: true })
+    await symlink(join(outside, 'leak.graph.json'), join(workspace, 'reports', 'graphs', 'link.graph.json'))
 
     stop = await startTestServer(14410)
-    const res = await fetch('http://127.0.0.1:14410/artifacts/artifact_link/graph.json')
+    const res = await fetch('http://127.0.0.1:14410/graph-reports/link.graph.json')
     expect(res.status).toBe(404)
+    const body = await res.json() as { error: string }
+    expect(body.error).toBe('Graph report not found')
 
     await rm(outside, { recursive: true, force: true })
   })
 
-  it('GET /artifacts/:artifactId/graph.json returns 404 for missing graph artifact', async () => {
+  it('GET /graph-reports/:filename returns 404 for missing graph report', async () => {
     stop = await startTestServer(14407)
-    const res = await fetch('http://127.0.0.1:14407/artifacts/missing/graph.json')
+    const res = await fetch('http://127.0.0.1:14407/graph-reports/missing.graph.json')
     expect(res.status).toBe(404)
     const body = await res.json() as { error: string }
-    expect(body.error).toBe('Graph artifact not found')
+    expect(body.error).toBe('Graph report not found')
   })
 
   it('GET /workspace/tree returns confined workspace entries', async () => {
