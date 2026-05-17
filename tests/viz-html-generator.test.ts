@@ -3,6 +3,32 @@ import { mkdir, rm, writeFile, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
+function extractFunctionSource(source: string, functionName: string): string {
+  const start = source.indexOf(`function ${functionName}(`)
+  if (start < 0) throw new Error(`Function not found: ${functionName}`)
+
+  const bodyStart = source.indexOf('{', start)
+  if (bodyStart < 0) throw new Error(`Function body not found: ${functionName}`)
+
+  let depth = 0
+  for (let index = bodyStart; index < source.length; index += 1) {
+    const char = source[index]
+    if (char === '{') depth += 1
+    if (char === '}') depth -= 1
+    if (depth === 0) return source.slice(start, index + 1)
+  }
+
+  throw new Error(`Function body not closed: ${functionName}`)
+}
+
+function extractGraphUrlValidator(html: string): (graphUrl: string) => boolean {
+  const prefixDeclaration = html.match(/var GRAPH_REPORT_PATH_PREFIX = '[^']+';/)?.[0]
+  if (!prefixDeclaration) throw new Error('GRAPH_REPORT_PATH_PREFIX declaration not found')
+
+  const validatorSource = extractFunctionSource(html, 'isLocalGraphArtifactUrl')
+  return new Function('URL', `${prefixDeclaration}\n${validatorSource}\nreturn isLocalGraphArtifactUrl;`)(URL) as (graphUrl: string) => boolean
+}
+
 describe('generateHtml (VIZ-02) — graph.html template', () => {
   const validData = {
     nodes: [
@@ -88,6 +114,24 @@ describe('generateHtml (VIZ-02) — graph.html template', () => {
     expect(fetchIndex).toBeGreaterThan(-1)
     expect(validatorIndex).toBeLessThan(fetchIndex)
     expect(html).not.toContain('/artifacts/')
+  })
+
+  it('graph app URL validator only accepts local graph report JSON URLs', async () => {
+    const { generateHtml } = await import('../src/viz/html-generator.js')
+    const { GraphData } = await import('../src/viz/graph-model.js')
+    const data = GraphData.parse(validData)
+    const html = generateHtml(data, 'Test Viz')
+    const isLocalGraphArtifactUrl = extractGraphUrlValidator(html)
+
+    expect(isLocalGraphArtifactUrl('http://127.0.0.1:4321/graph-reports/sample.graph.json')).toBe(true)
+    expect(isLocalGraphArtifactUrl('http://localhost:4321/graph-reports/20260517T010203Z_slug-abc.graph.json')).toBe(true)
+
+    expect(isLocalGraphArtifactUrl('http://127.0.0.1:4321/artifacts/a/graph.json')).toBe(false)
+    expect(isLocalGraphArtifactUrl('http://example.com:4321/graph-reports/sample.graph.json')).toBe(false)
+    expect(isLocalGraphArtifactUrl('https://127.0.0.1:4321/graph-reports/sample.graph.json')).toBe(false)
+    expect(isLocalGraphArtifactUrl('http://127.0.0.1:4321/graph-reports/../x.graph.json')).toBe(false)
+    expect(isLocalGraphArtifactUrl('http://127.0.0.1:4321/graph-reports/bad.json')).toBe(false)
+    expect(isLocalGraphArtifactUrl('http://127.0.0.1:4321/graph-reports/.graph.json')).toBe(false)
   })
 
   it('generateHtml output uses Chain Insights brand CSS variables', async () => {
