@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -26,6 +26,7 @@ describe('MCP graph report store', () => {
   })
 
   afterEach(async () => {
+    vi.useRealTimers()
     process.env['HOME'] = previousHome
     if (previousWorkspace === undefined) delete process.env['CHAIN_INSIGHTS_WORKSPACE']
     else process.env['CHAIN_INSIGHTS_WORKSPACE'] = previousWorkspace
@@ -52,7 +53,7 @@ describe('MCP graph report store', () => {
     })
 
     expect(report.schema).toBe('chain-insights.graph.v1')
-    expect(report.filename).toMatch(/^\d{8}T\d{6}Z-address-risk-5seed\.graph\.json$/)
+    expect(report.filename).toMatch(/^\d{8}T\d{6}\d{3}Z-address-risk-5seed-[a-z0-9-]+\.graph\.json$/)
     expect(report.path).toBe(join(workspace, 'reports', 'graphs', report.filename))
     expect(report.url).toBe(`http://127.0.0.1:4567/graph-reports/${report.filename}`)
 
@@ -121,10 +122,45 @@ describe('MCP graph report store', () => {
       slug: '...///',
     })
 
-    expect(unsafe.filename).toMatch(/-a-weird-report\.graph\.json$/)
-    expect(fallback.filename).toMatch(/-graph\.graph\.json$/)
+    expect(unsafe.filename).toMatch(/-a-weird-report-[a-z0-9-]+\.graph\.json$/)
+    expect(fallback.filename).toMatch(/-graph-[a-z0-9-]+\.graph\.json$/)
     expect(unsafe.path).toBe(join(workspace, 'reports', 'graphs', unsafe.filename))
     expect(fallback.path).toBe(join(workspace, 'reports', 'graphs', fallback.filename))
+  })
+
+  it('keeps same-slug rapid writes separate without overwriting', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-05-17T08:30:45.123Z'))
+
+    const { writeGraphReport } = await import('../src/mcp/graph-reports.js')
+
+    const first = await writeGraphReport({
+      schema: 'chain-insights.graph.v1',
+      nodes: [{ id: 'first' }],
+      edges: [],
+    }, {
+      serverPort: 4567,
+      slug: 'same slug',
+    })
+    const second = await writeGraphReport({
+      schema: 'chain-insights.graph.v1',
+      nodes: [{ id: 'second' }],
+      edges: [],
+    }, {
+      serverPort: 4567,
+      slug: 'same slug',
+    })
+
+    expect(first.filename).not.toBe(second.filename)
+    expect(first.path).not.toBe(second.path)
+    expect(first.filename).toMatch(/^20260517T083045123Z-same-slug-[a-z0-9-]+\.graph\.json$/)
+    expect(second.filename).toMatch(/^20260517T083045123Z-same-slug-[a-z0-9-]+\.graph\.json$/)
+
+    const firstGraph = JSON.parse(await readFile(first.path, 'utf8')) as { nodes: Array<{ id: string }> }
+    const secondGraph = JSON.parse(await readFile(second.path, 'utf8')) as { nodes: Array<{ id: string }> }
+
+    expect(firstGraph.nodes[0]?.id).toBe('first')
+    expect(secondGraph.nodes[0]?.id).toBe('second')
   })
 
   it('rejects malformed graph arrays before writing a report file', async () => {

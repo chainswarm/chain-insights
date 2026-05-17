@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { chmod, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import * as z from 'zod'
@@ -40,7 +41,12 @@ function sanitizeSlug(slug: string): string {
 }
 
 function timestampSegment(date = new Date()): string {
-  return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')
+  return date.toISOString().replace(/[-:.]/g, '')
+}
+
+function uniqueFilename(slug: string): string {
+  const suffix = randomUUID().replace(/-/g, '').slice(0, 12)
+  return `${timestampSegment()}-${sanitizeSlug(slug)}-${suffix}.graph.json`
 }
 
 async function ensurePrivateDirectory(dir: string): Promise<void> {
@@ -68,7 +74,7 @@ export async function writeGraphReport(
     edge_anchors: parsed.data.edge_anchors ?? [],
   })
   const paths = workspaceOutputPaths()
-  const filename = `${timestampSegment()}-${sanitizeSlug(options.slug)}.graph.json`
+  const filename = uniqueFilename(options.slug)
   const filePath = path.join(paths.reportGraphsRoot, filename)
 
   await ensurePrivateDirectory(paths.reportsRoot)
