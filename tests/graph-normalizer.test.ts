@@ -144,4 +144,29 @@ describe('normalizeGraphPayload', () => {
       address_subtypes: ['validator_hotkey'],
     })
   })
+
+  it('strips all system labels while preserving display labels', async () => {
+    const { normalizeGraphPayload } = await import('../src/viz/graph-normalizer.js')
+
+    const result = normalizeGraphPayload({
+      schema: 'chain-insights.graph.v1',
+      nodes: [
+        {
+          address: '5MinerHotkey',
+          labels: ['Miner', 'Hotkey', 'Subnet', 'IPAddress', 'Alpha Pool', 'Observed Cohort'],
+          system_labels: ['Miner', 'Hotkey', 'Subnet', 'IPAddress'],
+        },
+      ],
+      edges: [],
+      flows: [],
+      edge_anchors: [],
+    })
+
+    expect(result.nodes[0]).toMatchObject({
+      id: '5MinerHotkey',
+      address: '5MinerHotkey',
+      node_type: 'address',
+      labels: ['Alpha Pool', 'Observed Cohort'],
+    })
+  })
 })
