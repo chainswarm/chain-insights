@@ -61,7 +61,7 @@ function optionalNumber(value) {
 async function withGraphMcpClient(name, fn) {
 	const { loadConfig } = await import("./config-BJRFmZc7.mjs").then((n) => n.t);
 	const config = await loadConfig();
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-9hziiwUT.mjs").then((n) => n.t);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-C7xAKvqC.mjs").then((n) => n.t);
 	const paymentFetch = await createConfiguredGraphMcpFetch(config);
 	const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
 	const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
@@ -261,7 +261,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { formatToolsTable } = await import("./format-TsKe-chT.mjs");
 		const { visibleRemoteTools } = await import("./tool-visibility-B-nSHuFy.mjs").then((n) => n.n);
 		const { loadConfig } = await import("./config-BJRFmZc7.mjs").then((n) => n.t);
-		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-9hziiwUT.mjs").then((n) => n.t);
+		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-C7xAKvqC.mjs").then((n) => n.t);
 		const config = await loadConfig();
 		const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
 		let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint);
@@ -560,7 +560,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await import("./runner-Z2oXpa9F.mjs");
+		const { PlaybookRunner } = await import("./runner-CSwMv9ab.mjs");
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,

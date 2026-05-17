@@ -23,7 +23,7 @@ function createHeaderFetch(authToken, baseFetch) {
 		});
 	});
 }
-function describePaymentRequiredResponse(response) {
+function describePaymentRequiredResponse(response, payerAddress) {
 	const encoded = response.headers.get("payment-required");
 	if (!encoded) return "x402 payment failed: payment_required";
 	try {
@@ -31,6 +31,8 @@ function describePaymentRequiredResponse(response) {
 		const parsed = JSON.parse(decoded);
 		const reason = typeof parsed.error === "string" && parsed.error.trim() ? parsed.error.trim() : "payment_required";
 		const firstRequirement = Array.isArray(parsed.accepts) ? parsed.accepts[0] : void 0;
+		const payTo = typeof firstRequirement?.payTo === "string" ? firstRequirement.payTo.trim() : "";
+		if (payerAddress && payTo && payerAddress.toLowerCase() === payTo.toLowerCase()) return "Local payment wallet matches the MCP payTo address. Configure a separate payer wallet with USDC on Base; do not use the service recipient wallet as the client payment wallet.";
 		const details = [
 			typeof firstRequirement?.scheme === "string" ? `scheme=${firstRequirement.scheme}` : void 0,
 			typeof firstRequirement?.network === "string" ? `network=${firstRequirement.network}` : void 0,
@@ -41,11 +43,11 @@ function describePaymentRequiredResponse(response) {
 		return "x402 payment failed: payment_required";
 	}
 }
-function createPaymentFailureReportingFetch(baseFetch) {
+function createPaymentFailureReportingFetch(baseFetch, payerAddress) {
 	const reportingFetch = (async (input, init) => {
 		const response = await baseFetch(input, init);
 		if (response.status !== 402) return response;
-		throw new Error(describePaymentRequiredResponse(response));
+		throw new Error(describePaymentRequiredResponse(response, payerAddress));
 	});
 	return Object.assign(reportingFetch, baseFetch);
 }
@@ -67,7 +69,7 @@ function createMcpFetchClient(privateKey, authToken) {
 	}, {
 		network: "eip155:8453",
 		client: new _x402_evm.ExactEvmScheme(account)
-	}] }));
+	}] }), account.address);
 	return authToken ? createHeaderFetch(authToken, reportingFetch) : reportingFetch;
 }
 /**

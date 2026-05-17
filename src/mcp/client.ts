@@ -22,7 +22,7 @@ function createHeaderFetch(authToken: string, baseFetch: FetchLike): FetchLike {
   }) as FetchLike
 }
 
-function describePaymentRequiredResponse(response: Response): string {
+function describePaymentRequiredResponse(response: Response, payerAddress?: string): string {
   const encoded = response.headers.get('payment-required')
   if (!encoded) return 'x402 payment failed: payment_required'
 
@@ -30,10 +30,14 @@ function describePaymentRequiredResponse(response: Response): string {
     const decoded = Buffer.from(encoded, 'base64').toString('utf8')
     const parsed = JSON.parse(decoded) as {
       error?: unknown
-      accepts?: Array<{ scheme?: unknown; network?: unknown; amount?: unknown }>
+      accepts?: Array<{ scheme?: unknown; network?: unknown; amount?: unknown; payTo?: unknown }>
     }
     const reason = typeof parsed.error === 'string' && parsed.error.trim() ? parsed.error.trim() : 'payment_required'
     const firstRequirement = Array.isArray(parsed.accepts) ? parsed.accepts[0] : undefined
+    const payTo = typeof firstRequirement?.payTo === 'string' ? firstRequirement.payTo.trim() : ''
+    if (payerAddress && payTo && payerAddress.toLowerCase() === payTo.toLowerCase()) {
+      return 'Local payment wallet matches the MCP payTo address. Configure a separate payer wallet with USDC on Base; do not use the service recipient wallet as the client payment wallet.'
+    }
     const details = [
       typeof firstRequirement?.scheme === 'string' ? `scheme=${firstRequirement.scheme}` : undefined,
       typeof firstRequirement?.network === 'string' ? `network=${firstRequirement.network}` : undefined,
@@ -45,11 +49,11 @@ function describePaymentRequiredResponse(response: Response): string {
   }
 }
 
-function createPaymentFailureReportingFetch(baseFetch: FetchLike): FetchLike {
+function createPaymentFailureReportingFetch(baseFetch: FetchLike, payerAddress?: string): FetchLike {
   const reportingFetch = (async (input: FetchInput, init?: FetchInit) => {
     const response = await baseFetch(input, init)
     if (response.status !== 402) return response
-    throw new Error(describePaymentRequiredResponse(response))
+    throw new Error(describePaymentRequiredResponse(response, payerAddress))
   }) as FetchLike
   return Object.assign(reportingFetch, baseFetch)
 }
@@ -78,7 +82,7 @@ export function createMcpFetchClient(privateKey: `0x${string}`, authToken?: stri
       },
     ],
   })
-  const reportingFetch = createPaymentFailureReportingFetch(paymentFetch)
+  const reportingFetch = createPaymentFailureReportingFetch(paymentFetch, account.address)
   return authToken ? createHeaderFetch(authToken, reportingFetch) : reportingFetch
 }
 
