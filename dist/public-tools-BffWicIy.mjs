@@ -1,5 +1,5 @@
 import { n as workspaceOutputPaths } from "./output-root-DWVOkjAR.mjs";
-import { t as normalizeGraphPayload } from "./graph-normalizer-P1QS2eOC.mjs";
+import { t as normalizeGraphPayload } from "./graph-normalizer-3WY8L4Ld.mjs";
 import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 //#region src/investigation/trace-funds.ts
@@ -413,7 +413,7 @@ function buildGraph(seedAddress, network, flows, deposits, sourceMatches, revers
 	}
 	for (const source of sourceMatches) {
 		const node = mergeLabels(source.source_exchange, source.source_labels);
-		node.role = "source_exchange";
+		node.role = "exchange";
 	}
 	for (const lead of reverseLeads) {
 		const node = mergeLabels(lead.address, lead.labels);
@@ -1053,4 +1053,4 @@ async function trackFunds(remoteClient, config, options) {
 //#endregion
 export { addressRisk, trackFunds };
 
-//# sourceMappingURL=public-tools-D_gD3Sne.mjs.map
+//# sourceMappingURL=public-tools-BffWicIy.mjs.map

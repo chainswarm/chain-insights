@@ -496,7 +496,7 @@ async function normalizeRemoteToolResult(result, config) {
 	const graphPayload = getRemoteGraphPayload(result);
 	const meta = { ...result._meta ?? {} };
 	if (graphPayload) {
-		const { writeGraphArtifact } = await Promise.resolve().then(() => require("./artifacts--6tWPMJX.cjs"));
+		const { writeGraphArtifact } = await Promise.resolve().then(() => require("./artifacts-BMLf7ACs.cjs"));
 		const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-CrRSlnml.cjs"));
 		const artifact = await writeGraphArtifact(graphPayload, config);
 		await ensureArtifactServer(config.serverPort);
@@ -925,8 +925,8 @@ async function createProxy() {
 		}
 	}, async ({ address, network, compare_address }) => {
 		try {
-			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-CeHzn9W2.cjs"));
-			const { writeGraphArtifact } = await Promise.resolve().then(() => require("./artifacts--6tWPMJX.cjs"));
+			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-COj15im4.cjs"));
+			const { writeGraphArtifact } = await Promise.resolve().then(() => require("./artifacts-BMLf7ACs.cjs"));
 			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-CrRSlnml.cjs"));
 			const result = await addressRisk(remoteClient, {
 				address,
@@ -980,8 +980,8 @@ async function createProxy() {
 		}
 	}, async ({ trusted_addresses, untrusted_addresses, network, case_id, max_hops, per_address_limit, min_amount_sum }) => {
 		try {
-			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-CeHzn9W2.cjs"));
-			const { writeGraphArtifact } = await Promise.resolve().then(() => require("./artifacts--6tWPMJX.cjs"));
+			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-COj15im4.cjs"));
+			const { writeGraphArtifact } = await Promise.resolve().then(() => require("./artifacts-BMLf7ACs.cjs"));
 			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-CrRSlnml.cjs"));
 			const result = await trackFunds(remoteClient, config, {
 				trustedAddresses: trusted_addresses,

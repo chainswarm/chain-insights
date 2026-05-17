@@ -60,9 +60,7 @@ describe('MCP graph artifact server', () => {
       nodes: [{
         id: 'a',
         address: 'a',
-        entity_kind: 'address',
         labels: [],
-        raw_labels: [],
       }],
     })
     await expect(stat(join(fakeHome, '.chain-insights', 'artifacts'))).rejects.toThrow()

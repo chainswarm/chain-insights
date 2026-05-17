@@ -492,7 +492,7 @@ async function normalizeRemoteToolResult(result, config) {
 	const graphPayload = getRemoteGraphPayload(result);
 	const meta = { ...result._meta ?? {} };
 	if (graphPayload) {
-		const { writeGraphArtifact } = await import("./artifacts-im5bHRkf.mjs");
+		const { writeGraphArtifact } = await import("./artifacts-NqMwqL5E.mjs");
 		const { ensureArtifactServer } = await import("./artifact-server-I3Iu5C1F.mjs");
 		const artifact = await writeGraphArtifact(graphPayload, config);
 		await ensureArtifactServer(config.serverPort);
@@ -921,8 +921,8 @@ async function createProxy() {
 		}
 	}, async ({ address, network, compare_address }) => {
 		try {
-			const { addressRisk } = await import("./public-tools-D_gD3Sne.mjs");
-			const { writeGraphArtifact } = await import("./artifacts-im5bHRkf.mjs");
+			const { addressRisk } = await import("./public-tools-BffWicIy.mjs");
+			const { writeGraphArtifact } = await import("./artifacts-NqMwqL5E.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-I3Iu5C1F.mjs");
 			const result = await addressRisk(remoteClient, {
 				address,
@@ -976,8 +976,8 @@ async function createProxy() {
 		}
 	}, async ({ trusted_addresses, untrusted_addresses, network, case_id, max_hops, per_address_limit, min_amount_sum }) => {
 		try {
-			const { trackFunds } = await import("./public-tools-D_gD3Sne.mjs");
-			const { writeGraphArtifact } = await import("./artifacts-im5bHRkf.mjs");
+			const { trackFunds } = await import("./public-tools-BffWicIy.mjs");
+			const { writeGraphArtifact } = await import("./artifacts-NqMwqL5E.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-I3Iu5C1F.mjs");
 			const result = await trackFunds(remoteClient, config, {
 				trustedAddresses: trusted_addresses,

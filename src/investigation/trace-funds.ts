@@ -533,7 +533,7 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], de
   }
   for (const source of sourceMatches) {
     const node = mergeLabels(source.source_exchange, source.source_labels)
-    node.role = 'source_exchange'
+    node.role = 'exchange'
   }
   for (const lead of reverseLeads) {
     const node = mergeLabels(lead.address, lead.labels)

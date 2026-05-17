@@ -1,4 +1,4 @@
-const GENERIC_GRAPH_LABELS = new Set(['Address', 'Exchange', 'Miner', 'Validator', 'Hotkey', 'Subnet', 'IPAddress'])
+const PLACEHOLDER_GRAPH_LABELS = new Set(['Address'])
 
 type GraphRecord = Record<string, unknown>
 
@@ -25,16 +25,20 @@ function unique(values: string[]): string[] {
 
 function displayLabels(rawLabels: string[], currentLabels: string[]): string[] {
   const candidates = currentLabels.length > 0 ? currentLabels : rawLabels
-  return unique(candidates).filter((label) => !GENERIC_GRAPH_LABELS.has(label))
+  return unique(candidates).filter((label) => !PLACEHOLDER_GRAPH_LABELS.has(label))
 }
 
-function entityKind(rawLabels: string[], addressType: unknown): string {
-  if (rawLabels.includes('Exchange') || addressType === 'exchange') return 'exchange_labeled_address'
-  if (rawLabels.includes('Validator')) return 'validator_address'
-  if (rawLabels.includes('Miner')) return 'miner_address'
-  if (rawLabels.includes('Hotkey')) return 'hotkey_address'
-  if (rawLabels.includes('Subnet')) return 'subnet_address'
-  return 'address'
+function hasLabel(labels: string[], expected: string): boolean {
+  return labels.some((label) => label.toLowerCase() === expected)
+}
+
+function normalizeRole(role: unknown, labels: string[], addressType: unknown): string | null {
+  if (role === 'source_exchange') return 'exchange'
+  if (role === 'deposit_candidate') return 'deposit'
+  if (typeof role === 'string' && role.length > 0) return role
+  if (hasLabel(labels, 'exchange') || addressType === 'exchange') return 'exchange'
+  if (addressType === 'deposit') return 'deposit'
+  return null
 }
 
 function normalizeNode(node: unknown): GraphRecord {
@@ -46,21 +50,27 @@ function normalizeNode(node: unknown): GraphRecord {
   ])
   const normalized: GraphRecord = {}
   for (const [key, value] of Object.entries(node)) {
-    if (['address_type', 'risk_level', 'pattern_flags', 'raw_labels', 'labels'].includes(key)) continue
+    if ([
+      'address_type',
+      'risk_level',
+      'pattern_flags',
+      'raw_labels',
+      'labels',
+      'entity_kind',
+      'role',
+    ].includes(key)) continue
     normalized[key] = value
   }
 
   const address = normalized['address'] ?? normalized['id']
   if (typeof address === 'string') normalized['address'] = address
-  normalized['entity_kind'] = typeof node['entity_kind'] === 'string'
-    ? node['entity_kind']
-    : entityKind(rawLabels, node['address_type'])
   normalized['labels'] = displayLabels(rawLabels, stringArray(node['labels']))
-  normalized['raw_labels'] = rawLabels
+  const role = normalizeRole(node['role'], rawLabels, node['address_type'])
+  if (role) normalized['role'] = role
 
   if (typeof node['risk_level'] === 'string') normalized['risk_level'] = node['risk_level']
-  if (Array.isArray(node['pattern_flags']) && node['pattern_flags'].length > 0) {
-    normalized['pattern_flags'] = node['pattern_flags'].map(String)
+  if (!Array.isArray(node['flags']) && Array.isArray(node['pattern_flags']) && node['pattern_flags'].length > 0) {
+    normalized['flags'] = node['pattern_flags'].map(String)
   }
 
   return normalized

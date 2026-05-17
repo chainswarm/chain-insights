@@ -1,13 +1,5 @@
 //#region src/viz/graph-normalizer.ts
-const GENERIC_GRAPH_LABELS = new Set([
-	"Address",
-	"Exchange",
-	"Miner",
-	"Validator",
-	"Hotkey",
-	"Subnet",
-	"IPAddress"
-]);
+const PLACEHOLDER_GRAPH_LABELS = new Set(["Address"]);
 function isRecord(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -18,15 +10,18 @@ function unique(values) {
 	return [...new Set(values)];
 }
 function displayLabels(rawLabels, currentLabels) {
-	return unique(currentLabels.length > 0 ? currentLabels : rawLabels).filter((label) => !GENERIC_GRAPH_LABELS.has(label));
+	return unique(currentLabels.length > 0 ? currentLabels : rawLabels).filter((label) => !PLACEHOLDER_GRAPH_LABELS.has(label));
 }
-function entityKind(rawLabels, addressType) {
-	if (rawLabels.includes("Exchange") || addressType === "exchange") return "exchange_labeled_address";
-	if (rawLabels.includes("Validator")) return "validator_address";
-	if (rawLabels.includes("Miner")) return "miner_address";
-	if (rawLabels.includes("Hotkey")) return "hotkey_address";
-	if (rawLabels.includes("Subnet")) return "subnet_address";
-	return "address";
+function hasLabel(labels, expected) {
+	return labels.some((label) => label.toLowerCase() === expected);
+}
+function normalizeRole(role, labels, addressType) {
+	if (role === "source_exchange") return "exchange";
+	if (role === "deposit_candidate") return "deposit";
+	if (typeof role === "string" && role.length > 0) return role;
+	if (hasLabel(labels, "exchange") || addressType === "exchange") return "exchange";
+	if (addressType === "deposit") return "deposit";
+	return null;
 }
 function normalizeNode(node) {
 	if (!isRecord(node)) return {};
@@ -38,17 +33,19 @@ function normalizeNode(node) {
 			"risk_level",
 			"pattern_flags",
 			"raw_labels",
-			"labels"
+			"labels",
+			"entity_kind",
+			"role"
 		].includes(key)) continue;
 		normalized[key] = value;
 	}
 	const address = normalized["address"] ?? normalized["id"];
 	if (typeof address === "string") normalized["address"] = address;
-	normalized["entity_kind"] = typeof node["entity_kind"] === "string" ? node["entity_kind"] : entityKind(rawLabels, node["address_type"]);
 	normalized["labels"] = displayLabels(rawLabels, stringArray(node["labels"]));
-	normalized["raw_labels"] = rawLabels;
+	const role = normalizeRole(node["role"], rawLabels, node["address_type"]);
+	if (role) normalized["role"] = role;
 	if (typeof node["risk_level"] === "string") normalized["risk_level"] = node["risk_level"];
-	if (Array.isArray(node["pattern_flags"]) && node["pattern_flags"].length > 0) normalized["pattern_flags"] = node["pattern_flags"].map(String);
+	if (!Array.isArray(node["flags"]) && Array.isArray(node["pattern_flags"]) && node["pattern_flags"].length > 0) normalized["flags"] = node["pattern_flags"].map(String);
 	return normalized;
 }
 function normalizeEdge(edge) {

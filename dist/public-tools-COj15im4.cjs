@@ -1,6 +1,6 @@
 const require_chunk = require("./chunk-CZWwpsFl.cjs");
 const require_output_root = require("./output-root-BtL2lJgv.cjs");
-const require_graph_normalizer = require("./graph-normalizer-D0jk4HtQ.cjs");
+const require_graph_normalizer = require("./graph-normalizer-CmuMr1s3.cjs");
 let node_path = require("node:path");
 node_path = require_chunk.__toESM(node_path, 1);
 let node_fs_promises = require("node:fs/promises");
@@ -415,7 +415,7 @@ function buildGraph(seedAddress, network, flows, deposits, sourceMatches, revers
 	}
 	for (const source of sourceMatches) {
 		const node = mergeLabels(source.source_exchange, source.source_labels);
-		node.role = "source_exchange";
+		node.role = "exchange";
 	}
 	for (const lead of reverseLeads) {
 		const node = mergeLabels(lead.address, lead.labels);

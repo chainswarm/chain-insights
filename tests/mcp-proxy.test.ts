@@ -661,16 +661,17 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     const graphRaw = await readFile(run.files.graph, 'utf8')
     const graph = JSON.parse(graphRaw) as {
-      nodes: Array<Record<string, unknown> & { address: string; labels?: string[]; raw_labels?: string[] }>
+      nodes: Array<Record<string, unknown> & { address: string; labels?: string[]; role?: string }>
       edges: Array<{ amount_sum?: number; from_address?: string }>
     }
     const exchangeNode = graph.nodes.find((node) => node.address === '5Exchange')
     expect(exchangeNode).toMatchObject({
-      entity_kind: 'exchange_labeled_address',
-      labels: [],
-      raw_labels: ['Address', 'Exchange'],
+      labels: ['Exchange'],
+      role: 'exchange',
     })
     expect(exchangeNode).not.toHaveProperty('address_type')
+    expect(exchangeNode).not.toHaveProperty('entity_kind')
+    expect(exchangeNode).not.toHaveProperty('raw_labels')
     expect(exchangeNode).not.toHaveProperty('risk_level')
     expect(exchangeNode).not.toHaveProperty('pattern_flags')
     expect(graph.edges[0]).toMatchObject({ from_address: '5Seed', amount_sum: 123 })
@@ -918,14 +919,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     const graphRaw = await readFile(run.files.graph, 'utf8')
     const graph = JSON.parse(graphRaw) as {
-      nodes: Array<Record<string, unknown> & { address: string; role?: string; labels?: string[]; raw_labels?: string[] }>
+      nodes: Array<Record<string, unknown> & { address: string; role?: string; labels?: string[] }>
       edges: Array<{ to_address: string; terminal_exchange?: boolean }>
     }
     expect(graph.nodes.find((node) => node.address === '5Exchange')?.role).toBe('exchange')
-    expect(graph.nodes.find((node) => node.address === '5Exchange')?.labels).toEqual([])
-    expect(graph.nodes.find((node) => node.address === '5Exchange')?.raw_labels).toEqual(['Address', 'Exchange'])
+    expect(graph.nodes.find((node) => node.address === '5Exchange')?.labels).toEqual(['Exchange'])
+    expect(graph.nodes.find((node) => node.address === '5Exchange')).not.toHaveProperty('raw_labels')
     expect(graph.edges.find((edge) => edge.to_address === '5Exchange')?.terminal_exchange).toBe(true)
-    expect(graph.nodes.find((node) => node.address === '5SourceExchange')?.role).toBe('source_exchange')
+    expect(graph.nodes.find((node) => node.address === '5SourceExchange')?.role).toBe('exchange')
     expect(graph.nodes.find((node) => node.address === '5Lead')?.role).toBe('lead')
   })
 

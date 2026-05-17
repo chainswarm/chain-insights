@@ -59,9 +59,7 @@ describe('MCP graph artifact store', () => {
       ...graphData,
       nodes: [{
         address: '5Addr',
-        entity_kind: 'address',
         labels: [],
-        raw_labels: [],
       }],
     })
 
@@ -109,11 +107,12 @@ describe('MCP graph artifact store', () => {
     expect(graph.nodes[0]).toMatchObject({
       id: '5Exchange',
       address: '5Exchange',
-      entity_kind: 'exchange_labeled_address',
-      labels: ['Kraken'],
-      raw_labels: ['Address', 'Exchange', 'Kraken'],
+      labels: ['Exchange', 'Kraken'],
+      role: 'exchange',
     })
     expect(graph.nodes[0]).not.toHaveProperty('address_type')
+    expect(graph.nodes[0]).not.toHaveProperty('entity_kind')
+    expect(graph.nodes[0]).not.toHaveProperty('raw_labels')
     expect(graph.nodes[0]).not.toHaveProperty('risk_level')
     expect(graph.nodes[0]).not.toHaveProperty('pattern_flags')
     expect(graph.edges[0]).toMatchObject({
