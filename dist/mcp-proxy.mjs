@@ -524,7 +524,7 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 async function createProxy() {
 	const { loadConfig } = await import("./config-BJRFmZc7.mjs").then((n) => n.t);
 	const { activeDataDir, findActiveWorkspace } = await import("./active-DhZAbOKJ.mjs").then((n) => n.n);
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-Bl03JHUH.mjs").then((n) => n.t);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-9hziiwUT.mjs").then((n) => n.t);
 	const { loadSchema, saveSchema } = await import("./schema-cache--gKWCySz.mjs");
 	const loadedConfig = await loadConfig();
 	const activeWorkspace = findActiveWorkspace();

@@ -1,15 +1,23 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 
+const mockWrappedFetch = vi.hoisted(() => vi.fn(async () => new Response('{}')))
+
 vi.mock('@x402/fetch', () => ({
   wrapFetchWithPaymentFromConfig: vi.fn((fetch, config) => {
     // Return a tagged mock fetch to verify it was called with right args
-    return Object.assign(vi.fn(), { _config: config, _isMockWrapped: true })
+    return Object.assign(mockWrappedFetch, { _config: config, _isMockWrapped: true })
   }),
 }))
 
 vi.mock('@x402/evm', () => ({
   ExactEvmScheme: vi.fn(function (account) {
     return { account, _isExactEvmScheme: true }
+  }),
+}))
+
+vi.mock('@x402/evm/upto/client', () => ({
+  UptoEvmScheme: vi.fn(function (account) {
+    return { account, _isUptoEvmScheme: true }
   }),
 }))
 
@@ -27,6 +35,7 @@ vi.mock('../src/wallet/index.js', () => ({
 describe('MCP client (02-01)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockWrappedFetch.mockResolvedValue(new Response('{}'))
   })
 
   it('createMcpFetchClient returns a function', async () => {
@@ -57,6 +66,27 @@ describe('MCP client (02-01)', () => {
     expect(config.schemes[0].network).toBe('eip155:8453')
   })
 
+  it('registers upto before exact so dynamic x402 pricing is supported', async () => {
+    const { wrapFetchWithPaymentFromConfig } = await import('@x402/fetch')
+    const { createMcpFetchClient } = await import('../src/mcp/client.js')
+    const testKey = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as const
+    createMcpFetchClient(testKey)
+
+    const mockFn = vi.mocked(wrapFetchWithPaymentFromConfig)
+    const config = mockFn.mock.calls[0][1] as {
+      schemes: Array<{ network: string; client: { _isUptoEvmScheme?: boolean; _isExactEvmScheme?: boolean } }>
+    }
+    expect(config.schemes).toHaveLength(2)
+    expect(config.schemes[0]).toMatchObject({
+      network: 'eip155:8453',
+      client: { _isUptoEvmScheme: true },
+    })
+    expect(config.schemes[1]).toMatchObject({
+      network: 'eip155:8453',
+      client: { _isExactEvmScheme: true },
+    })
+  })
+
   it('ExactEvmScheme constructed with the viem account from privateKeyToAccount', async () => {
     const { ExactEvmScheme } = await import('@x402/evm')
     const { privateKeyToAccount } = await import('viem/accounts')
@@ -65,6 +95,40 @@ describe('MCP client (02-01)', () => {
     createMcpFetchClient(testKey)
     const account = vi.mocked(privateKeyToAccount).mock.results[0].value
     expect(vi.mocked(ExactEvmScheme)).toHaveBeenCalledWith(account)
+  })
+
+  it('UptoEvmScheme constructed with the viem account from privateKeyToAccount', async () => {
+    const { UptoEvmScheme } = await import('@x402/evm/upto/client')
+    const { privateKeyToAccount } = await import('viem/accounts')
+    const { createMcpFetchClient } = await import('../src/mcp/client.js')
+    const testKey = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as const
+    createMcpFetchClient(testKey)
+    const account = vi.mocked(privateKeyToAccount).mock.results[0].value
+    expect(vi.mocked(UptoEvmScheme)).toHaveBeenCalledWith(account)
+  })
+
+  it('createMcpFetchClient surfaces x402 payment-required errors from final 402 responses', async () => {
+    const paymentRequired = Buffer.from(JSON.stringify({
+      x402Version: 2,
+      error: 'invalid_payload',
+      accepts: [{
+        scheme: 'upto',
+        network: 'eip155:8453',
+        amount: '2000000',
+      }],
+    })).toString('base64')
+    mockWrappedFetch.mockResolvedValue(new Response('null', {
+      status: 402,
+      headers: { 'payment-required': paymentRequired },
+    }))
+
+    const { createMcpFetchClient } = await import('../src/mcp/client.js')
+    const testKey = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as const
+    const client = createMcpFetchClient(testKey)
+
+    await expect(client('https://staging-mcp.chain-insights.ai/mcp')).rejects.toThrow(
+      'x402 payment failed: invalid_payload',
+    )
   })
 
   it('privateKeyToAccount called with the provided private key', async () => {

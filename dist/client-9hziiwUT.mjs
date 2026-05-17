@@ -2,6 +2,7 @@ import { t as __exportAll } from "./rolldown-runtime-wcPFST8Q.mjs";
 import { privateKeyToAccount } from "viem/accounts";
 import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
 import { ExactEvmScheme } from "@x402/evm";
+import { UptoEvmScheme } from "@x402/evm/upto/client";
 //#region src/mcp/client.ts
 var client_exports = /* @__PURE__ */ __exportAll({
 	createConfiguredGraphMcpFetch: () => createConfiguredGraphMcpFetch,
@@ -22,6 +23,32 @@ function createHeaderFetch(authToken, baseFetch) {
 		});
 	});
 }
+function describePaymentRequiredResponse(response) {
+	const encoded = response.headers.get("payment-required");
+	if (!encoded) return "x402 payment failed: payment_required";
+	try {
+		const decoded = Buffer.from(encoded, "base64").toString("utf8");
+		const parsed = JSON.parse(decoded);
+		const reason = typeof parsed.error === "string" && parsed.error.trim() ? parsed.error.trim() : "payment_required";
+		const firstRequirement = Array.isArray(parsed.accepts) ? parsed.accepts[0] : void 0;
+		const details = [
+			typeof firstRequirement?.scheme === "string" ? `scheme=${firstRequirement.scheme}` : void 0,
+			typeof firstRequirement?.network === "string" ? `network=${firstRequirement.network}` : void 0,
+			typeof firstRequirement?.amount === "string" ? `amount=${firstRequirement.amount}` : void 0
+		].filter(Boolean).join(" ");
+		return details ? `x402 payment failed: ${reason} (${details})` : `x402 payment failed: ${reason}`;
+	} catch {
+		return "x402 payment failed: payment_required";
+	}
+}
+function createPaymentFailureReportingFetch(baseFetch) {
+	const reportingFetch = (async (input, init) => {
+		const response = await baseFetch(input, init);
+		if (response.status !== 402) return response;
+		throw new Error(describePaymentRequiredResponse(response));
+	});
+	return Object.assign(reportingFetch, baseFetch);
+}
 /**
 * Creates an x402-payment-wrapped fetch function for the Chain Insights MCP.
 * Payments are made in USDC on Base Mainnet (eip155:8453).
@@ -34,11 +61,14 @@ function createHeaderFetch(authToken, baseFetch) {
 */
 function createMcpFetchClient(privateKey, authToken) {
 	const account = privateKeyToAccount(privateKey);
-	const paymentFetch = wrapFetchWithPaymentFromConfig(fetch, { schemes: [{
+	const reportingFetch = createPaymentFailureReportingFetch(wrapFetchWithPaymentFromConfig(fetch, { schemes: [{
+		network: "eip155:8453",
+		client: new UptoEvmScheme(account)
+	}, {
 		network: "eip155:8453",
 		client: new ExactEvmScheme(account)
-	}] });
-	return authToken ? createHeaderFetch(authToken, paymentFetch) : paymentFetch;
+	}] }));
+	return authToken ? createHeaderFetch(authToken, reportingFetch) : reportingFetch;
 }
 /**
 * Creates a bearer/debug-token fetch for local Graph MCP testing.
@@ -74,4 +104,4 @@ async function createConfiguredGraphMcpFetch(config) {
 //#endregion
 export { createConfiguredMcpFetch as n, createMcpFetchClient as r, client_exports as t };
 
-//# sourceMappingURL=client-Bl03JHUH.mjs.map
+//# sourceMappingURL=client-9hziiwUT.mjs.map

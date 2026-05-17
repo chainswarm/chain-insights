@@ -1,5 +1,6 @@
 import { wrapFetchWithPaymentFromConfig } from '@x402/fetch'
 import { ExactEvmScheme } from '@x402/evm'
+import { UptoEvmScheme } from '@x402/evm/upto/client'
 import { privateKeyToAccount } from 'viem/accounts'
 import type { InvestigatorConfig } from '../config/schema.js'
 
@@ -21,6 +22,38 @@ function createHeaderFetch(authToken: string, baseFetch: FetchLike): FetchLike {
   }) as FetchLike
 }
 
+function describePaymentRequiredResponse(response: Response): string {
+  const encoded = response.headers.get('payment-required')
+  if (!encoded) return 'x402 payment failed: payment_required'
+
+  try {
+    const decoded = Buffer.from(encoded, 'base64').toString('utf8')
+    const parsed = JSON.parse(decoded) as {
+      error?: unknown
+      accepts?: Array<{ scheme?: unknown; network?: unknown; amount?: unknown }>
+    }
+    const reason = typeof parsed.error === 'string' && parsed.error.trim() ? parsed.error.trim() : 'payment_required'
+    const firstRequirement = Array.isArray(parsed.accepts) ? parsed.accepts[0] : undefined
+    const details = [
+      typeof firstRequirement?.scheme === 'string' ? `scheme=${firstRequirement.scheme}` : undefined,
+      typeof firstRequirement?.network === 'string' ? `network=${firstRequirement.network}` : undefined,
+      typeof firstRequirement?.amount === 'string' ? `amount=${firstRequirement.amount}` : undefined,
+    ].filter(Boolean).join(' ')
+    return details ? `x402 payment failed: ${reason} (${details})` : `x402 payment failed: ${reason}`
+  } catch {
+    return 'x402 payment failed: payment_required'
+  }
+}
+
+function createPaymentFailureReportingFetch(baseFetch: FetchLike): FetchLike {
+  const reportingFetch = (async (input: FetchInput, init?: FetchInit) => {
+    const response = await baseFetch(input, init)
+    if (response.status !== 402) return response
+    throw new Error(describePaymentRequiredResponse(response))
+  }) as FetchLike
+  return Object.assign(reportingFetch, baseFetch)
+}
+
 /**
  * Creates an x402-payment-wrapped fetch function for the Chain Insights MCP.
  * Payments are made in USDC on Base Mainnet (eip155:8453).
@@ -36,12 +69,17 @@ export function createMcpFetchClient(privateKey: `0x${string}`, authToken?: stri
   const paymentFetch = wrapFetchWithPaymentFromConfig(fetch, {
     schemes: [
       {
+        network: 'eip155:8453', // Base Mainnet — dynamic MCP pricing uses the x402 upto scheme
+        client: new UptoEvmScheme(account),
+      },
+      {
         network: 'eip155:8453', // Base Mainnet — only supported chain in v1
         client: new ExactEvmScheme(account),
       },
     ],
   })
-  return authToken ? createHeaderFetch(authToken, paymentFetch) : paymentFetch
+  const reportingFetch = createPaymentFailureReportingFetch(paymentFetch)
+  return authToken ? createHeaderFetch(authToken, reportingFetch) : reportingFetch
 }
 
 /**
