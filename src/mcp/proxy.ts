@@ -87,9 +87,9 @@ const GRAPH_SCHEMA_HINTS = [
 const GRAPH_ARTIFACT_HINTS = [
   'Graph visualization behavior:',
   '- Graph-backed tools return the investigator report as text content and keep raw graph data out of LLM-visible structuredContent.',
-  '- Raw graph data is stored locally under Chain Insights artifacts and exposed to the graph app as _meta.chainInsights.graph.url.',
-  '- The local graph artifact server is started automatically by the MCP server when a graph-backed tool returns an artifact URL; do not ask the user to run chain-insights serve for Claude Desktop graph iframes.',
-  '- If an iframe reports that a graph artifact fetch failed, retry the graph-backed tool call so Chain Insights can recreate the artifact URL and ensure the local artifact server is running.',
+  '- Raw graph data is stored locally under Chain Insights reports/graphs and exposed to the graph app as _meta.chainInsights.graph.url.',
+  '- The local graph artifact server is started automatically by the MCP server when a graph-backed tool returns a report URL; do not ask the user to run chain-insights serve for Claude Desktop graph iframes.',
+  '- If an iframe reports that a graph report fetch failed, retry the graph-backed tool call so Chain Insights can recreate the report URL and ensure the local artifact server is running.',
 ].join('\n')
 
 const SERVER_INSTRUCTIONS = [
@@ -709,21 +709,24 @@ function getRemoteGraphPayload(result: RemoteToolResult): Record<string, unknown
 async function normalizeRemoteToolResult(
   result: RemoteToolResult,
   config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
+  toolName = 'remote-graph',
 ) {
   const graphPayload = getRemoteGraphPayload(result)
   const meta = { ...(result._meta ?? {}) }
 
   if (graphPayload) {
-    const { writeGraphArtifact } = await import('./artifacts.js')
+    const { writeGraphReport } = await import('./graph-reports.js')
     const { ensureArtifactServer } = await import('./artifact-server.js')
-    const artifact = await writeGraphArtifact(graphPayload as never, config)
+    const report = await writeGraphReport(graphPayload as never, {
+      serverPort: config.serverPort,
+      slug: toolName || 'remote-graph',
+    })
     await ensureArtifactServer(config.serverPort)
     meta.chainInsights = {
       ...((meta.chainInsights as Record<string, unknown>) ?? {}),
       graph: {
-        schema: artifact.schema,
-        id: artifact.id,
-        url: artifact.url,
+        schema: report.schema,
+        url: report.url,
       },
     }
   }
@@ -898,7 +901,7 @@ export async function createProxy(): Promise<void> {
     'Fund Flow Graph',
     GRAPH_RESOURCE_URI,
     {
-      description: 'Interactive D3 force-directed graph for fund flow and pattern visualization. It loads local graph artifact URLs returned in _meta.chainInsights.graph.url.',
+      description: 'Interactive D3 force-directed graph for fund flow and pattern visualization. It loads local graph report URLs returned in _meta.chainInsights.graph.url.',
       _meta: {
         ui: {
           csp: {
@@ -1212,14 +1215,17 @@ export async function createProxy(): Promise<void> {
       async ({ address, network, compare_address }) => {
         try {
           const { addressRisk } = await import('../investigation/public-tools.js')
-          const { writeGraphArtifact } = await import('./artifacts.js')
+          const { writeGraphReport } = await import('./graph-reports.js')
           const { ensureArtifactServer } = await import('./artifact-server.js')
           const result = await addressRisk(remoteClient, {
             address,
             network,
             compareAddress: compare_address,
           })
-          const artifact = await writeGraphArtifact(result.graphData as never, config)
+          const report = await writeGraphReport(result.graphData as never, {
+            serverPort: config.serverPort,
+            slug: `address-risk-${network}-${address}`,
+          })
           await ensureArtifactServer(config.serverPort)
           return {
             content: [{ type: 'text' as const, text: result.summaryText }],
@@ -1227,9 +1233,8 @@ export async function createProxy(): Promise<void> {
             _meta: {
               chainInsights: {
                 graph: {
-                  schema: artifact.schema,
-                  id: artifact.id,
-                  url: artifact.url,
+                  schema: report.schema,
+                  url: report.url,
                 },
               },
             },
@@ -1277,7 +1282,7 @@ export async function createProxy(): Promise<void> {
       async ({ trusted_addresses, untrusted_addresses, network, case_id, max_hops, per_address_limit, min_amount_sum }) => {
         try {
           const { trackFunds } = await import('../investigation/public-tools.js')
-          const { writeGraphArtifact } = await import('./artifacts.js')
+          const { writeGraphReport } = await import('./graph-reports.js')
           const { ensureArtifactServer } = await import('./artifact-server.js')
           const result = await trackFunds(remoteClient, config, {
             trustedAddresses: trusted_addresses,
@@ -1288,7 +1293,10 @@ export async function createProxy(): Promise<void> {
             perAddressLimit: per_address_limit,
             minAmountSum: min_amount_sum,
           })
-          const artifact = await writeGraphArtifact(result.graphData as never, config)
+          const report = await writeGraphReport(result.graphData as never, {
+            serverPort: config.serverPort,
+            slug: `track-funds-${network}`,
+          })
           await ensureArtifactServer(config.serverPort)
           return {
             content: [{ type: 'text' as const, text: result.summaryText }],
@@ -1296,9 +1304,8 @@ export async function createProxy(): Promise<void> {
             _meta: {
               chainInsights: {
                 graph: {
-                  schema: artifact.schema,
-                  id: artifact.id,
-                  url: artifact.url,
+                  schema: report.schema,
+                  url: report.url,
                 },
               },
             },
@@ -1377,7 +1384,7 @@ export async function createProxy(): Promise<void> {
           name: tool.name,
           arguments: normalizedArgs,
         })
-        return await normalizeRemoteToolResult(result as RemoteToolResult, config)
+        return await normalizeRemoteToolResult(result as RemoteToolResult, config, tool.name)
       } catch (err) {
         return {
           content: [{ type: 'text' as const, text: `MCP call failed: ${(err as Error).message}` }],

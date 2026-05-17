@@ -1158,12 +1158,15 @@ function showLoadError(error) {
   console.error(error);
 }
 
+var GRAPH_REPORT_PATH_PREFIX = '/graph-reports/';
+
 function isLocalGraphArtifactUrl(graphUrl) {
   try {
     var parsed = new URL(graphUrl);
     if (parsed.protocol !== 'http:') return false;
     if (parsed.hostname !== '127.0.0.1' && parsed.hostname !== 'localhost') return false;
-    return /^\/artifacts\/[A-Za-z0-9_-]+\/graph\.json$/.test(parsed.pathname);
+    return parsed.pathname.indexOf(GRAPH_REPORT_PATH_PREFIX) === 0 &&
+      /^\/graph-reports\/[A-Za-z0-9_-][A-Za-z0-9._-]*\.graph\.json$/.test(parsed.pathname);
   } catch (e) {
     return false;
   }
@@ -1179,15 +1182,15 @@ async function loadFromToolResultParams(params) {
 
   if (graphUrl) {
     try {
-      if (!isLocalGraphArtifactUrl(graphUrl)) throw new Error('Graph artifact URL is not local');
+      if (!isLocalGraphArtifactUrl(graphUrl)) throw new Error('Graph report URL is not local');
       var resp = await fetch(graphUrl);
-      if (!resp.ok) throw new Error('Graph artifact fetch failed: ' + resp.status);
+      if (!resp.ok) throw new Error('Graph report fetch failed: ' + resp.status);
       var graphData = await resp.json();
       window.loadData(graphData);
       return true;
     } catch (error) {
-      if (error && error.message && error.message.indexOf('Graph artifact fetch failed:') === 0) throw error;
-      throw new Error('Graph artifact fetch failed: ' + (error && error.message ? error.message : 'network error'));
+      if (error && error.message && error.message.indexOf('Graph report fetch failed:') === 0) throw error;
+      throw new Error('Graph report fetch failed: ' + (error && error.message ? error.message : 'network error'));
     }
   }
 
@@ -1229,7 +1232,7 @@ window.loadData = function(data) {
         params:{width:800, height:800}}, '*');
     }
 
-    // Tool result — receive graph artifact URL from MCP tool call
+    // Tool result — receive graph report URL from MCP tool call
     if (data.method === 'ui/notifications/tool-result' && data.params) {
       loadFromToolResultParams(data.params).catch(showLoadError);
     }

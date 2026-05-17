@@ -40,7 +40,7 @@ describe('generateHtml (VIZ-02) — graph.html template', () => {
     expect(html).toContain('"from_address":"0x1234"')
   })
 
-  it('graph app reads local graph artifact URL from tool result _meta', async () => {
+  it('graph app reads local graph report URL from tool result _meta', async () => {
     const { generateHtml } = await import('../src/viz/html-generator.js')
     const { GraphData } = await import('../src/viz/graph-model.js')
     const data = GraphData.parse(validData)
@@ -51,7 +51,9 @@ describe('generateHtml (VIZ-02) — graph.html template', () => {
     expect(html).toContain('params._meta.chainInsights.graph.url')
     expect(html).toContain('graph.url')
     expect(html).toContain('isLocalGraphArtifactUrl')
-    expect(html).toContain('/^\\/artifacts\\/[A-Za-z0-9_-]+\\/graph\\.json$/')
+    expect(html).toContain('/graph-reports/')
+    expect(html).toContain('/^\\/graph-reports\\/[A-Za-z0-9_-][A-Za-z0-9._-]*\\.graph\\.json$/')
+    expect(html).not.toContain('/artifacts/')
     expect(html).toContain('fetch(graphUrl)')
     expect(html).not.toContain('toolResult.app_data')
   })

@@ -557,7 +557,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(toolNames).not.toContain('trace_funds')
   })
 
-  it('registers track_funds and writes graph artifacts from graph_query_batch results', async () => {
+  it('registers track_funds and writes graph reports from graph_query_batch results', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       { name: 'graph_query_batch', description: 'Cypher graph query batch' },
@@ -650,7 +650,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       D1: '5Deposit',
       E1: '5Exchange',
     })
-    expect(result._meta.chainInsights.graph.url).toContain('/artifacts/')
+    expect(result._meta.chainInsights.graph.url).toContain('/graph-reports/')
+    expect(result._meta.chainInsights.graph.id).toBeUndefined()
+    expect(result._meta.chainInsights.graph.data).toBeUndefined()
     expect(evidenceAppendMock).toHaveBeenCalledWith(mockCase.id, expect.objectContaining({
       source: 'track_funds',
       content: expect.stringContaining('"compactEvidence"'),
@@ -659,25 +661,29 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(clientInstance.callTool.mock.calls[1][0].arguments.queries[0].query).toContain('*BFS')
     expect(clientInstance.callTool.mock.calls[1][0].arguments.queries[0].query).toContain('size(nodes(p)) - 1 <= 2')
 
-    const graphRaw = await readFile(run.files.graph, 'utf8')
+    const graphUrl = result._meta.chainInsights.graph.url as string
+    const filename = graphUrl.split('/graph-reports/')[1]
+    expect(filename).toMatch(/\.graph\.json$/)
+    const graphRaw = await readFile(join(testDataDir, 'reports', 'graphs', filename), 'utf8')
     const graph = JSON.parse(graphRaw) as {
-      nodes: Array<Record<string, unknown> & { address: string; labels?: string[]; role?: string }>
-      edges: Array<{ amount_sum?: number; from_address?: string }>
+      nodes: Array<Record<string, unknown> & { address: string; labels?: string[]; roles?: string[] }>
+      edges: Array<{ amount_sum?: number; source?: string }>
     }
+    expect(graph.schema).toBe('chain-insights.graph.v1')
     const exchangeNode = graph.nodes.find((node) => node.address === '5Exchange')
     expect(exchangeNode).toMatchObject({
       labels: [],
-      role: 'exchange',
+      roles: ['exchange'],
     })
     expect(exchangeNode).not.toHaveProperty('address_type')
     expect(exchangeNode).not.toHaveProperty('entity_kind')
     expect(exchangeNode).not.toHaveProperty('raw_labels')
     expect(exchangeNode).not.toHaveProperty('risk_level')
     expect(exchangeNode).not.toHaveProperty('pattern_flags')
-    expect(graph.edges[0]).toMatchObject({ from_address: '5Seed', amount_sum: 123 })
+    expect(graph.edges[0]).toMatchObject({ source: '5Seed', amount_sum: 123 })
   })
 
-  it('routes track_funds reports and artifacts to workspace without creating home outputs', async () => {
+  it('routes track_funds reports to workspace without creating home outputs', async () => {
     const fakeHome = `/tmp/chain-insights-fake-home-${process.pid}-${Date.now()}`
     const workspace = `/tmp/chain-insights-workspace-${process.pid}-${Date.now()}`
     const previousHome = process.env['HOME']
@@ -770,8 +776,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
       expect(result.isError).toBe(false)
       expect(run.files.graph).toContain(`${workspace}/reports/graphs/`)
-      expect(result._meta.chainInsights.graph.url).toContain('/artifacts/')
-      expect(existsSync(join(workspace, 'artifacts'))).toBe(true)
+      expect(result._meta.chainInsights.graph.url).toContain('/graph-reports/')
+      expect(result._meta.chainInsights.graph.id).toBeUndefined()
+      expect(result._meta.chainInsights.graph.data).toBeUndefined()
+      const graphUrl = result._meta.chainInsights.graph.url as string
+      const filename = graphUrl.split('/graph-reports/')[1]
+      expect(filename).toMatch(/\.graph\.json$/)
+      const graph = JSON.parse(await readFile(join(workspace, 'reports', 'graphs', filename), 'utf8')) as { schema: string }
+      expect(graph.schema).toBe('chain-insights.graph.v1')
       expect(existsSync(join(fakeHome, '.chain-insights', 'reports'))).toBe(false)
       expect(existsSync(join(fakeHome, '.chain-insights', 'artifacts'))).toBe(false)
       expect(existsSync(join(fakeHome, '.chain-insights', 'cases'))).toBe(false)
@@ -917,17 +929,23 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('Deposit candidates: D1, D2')
     expect(clientInstance.callTool).toHaveBeenCalledTimes(5)
 
-    const graphRaw = await readFile(run.files.graph, 'utf8')
+    expect(result._meta.chainInsights.graph.url).toContain('/graph-reports/')
+    expect(result._meta.chainInsights.graph.id).toBeUndefined()
+    expect(result._meta.chainInsights.graph.data).toBeUndefined()
+    const graphUrl = result._meta.chainInsights.graph.url as string
+    const filename = graphUrl.split('/graph-reports/')[1]
+    expect(filename).toMatch(/\.graph\.json$/)
+    const graphRaw = await readFile(join(testDataDir, 'reports', 'graphs', filename), 'utf8')
     const graph = JSON.parse(graphRaw) as {
-      nodes: Array<Record<string, unknown> & { address: string; role?: string; labels?: string[] }>
-      edges: Array<{ to_address: string; terminal_exchange?: boolean }>
+      nodes: Array<Record<string, unknown> & { address: string; roles?: string[]; labels?: string[] }>
+      edges: Array<{ target: string; terminal_exchange?: boolean }>
     }
-    expect(graph.nodes.find((node) => node.address === '5Exchange')?.role).toBe('exchange')
+    expect(graph.nodes.find((node) => node.address === '5Exchange')?.roles).toContain('exchange')
     expect(graph.nodes.find((node) => node.address === '5Exchange')?.labels).toEqual([])
     expect(graph.nodes.find((node) => node.address === '5Exchange')).not.toHaveProperty('raw_labels')
-    expect(graph.edges.find((edge) => edge.to_address === '5Exchange')?.terminal_exchange).toBe(true)
-    expect(graph.nodes.find((node) => node.address === '5SourceExchange')?.role).toBe('exchange')
-    expect(graph.nodes.find((node) => node.address === '5Lead')?.role).toBe('lead')
+    expect(graph.edges.find((edge) => edge.target === '5Exchange')?.terminal_exchange).toBe(true)
+    expect(graph.nodes.find((node) => node.address === '5SourceExchange')?.roles).toContain('exchange')
+    expect(graph.nodes.find((node) => node.address === '5Lead')?.roles).toContain('lead')
   })
 
   it('registers local address_risk fallback with incorporated exchange behavior when remote is graph-query-only', async () => {
@@ -1417,10 +1435,13 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.structuredContent.facts.risk.level).toBe('critical')
     expect(result.structuredContent).not.toHaveProperty('app_data')
     expect(result._meta.chainInsights.graph.data).toBeUndefined()
-    expect(result._meta.chainInsights.graph.url).toMatch(/^http:\/\/127\.0\.0\.1:4321\/artifacts\/.+\/graph\.json$/)
+    expect(result._meta.chainInsights.graph.id).toBeUndefined()
+    expect(result._meta.chainInsights.graph.url).toMatch(/^http:\/\/127\.0\.0\.1:4321\/graph-reports\/.+\.graph\.json$/)
 
-    const artifactId = result._meta.chainInsights.graph.id
-    const raw = await readFile(join(testDataDir, 'artifacts', artifactId, 'graph.json'), 'utf8')
+    const graphUrl = result._meta.chainInsights.graph.url as string
+    const filename = graphUrl.split('/graph-reports/')[1]
+    expect(filename).toMatch(/\.graph\.json$/)
+    const raw = await readFile(join(testDataDir, 'reports', 'graphs', filename), 'utf8')
     expect(JSON.parse(raw)).toEqual(remoteGraphData)
   })
 
@@ -1496,6 +1517,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.structuredContent).not.toHaveProperty('edges')
     expect(result.structuredContent).not.toHaveProperty('flows')
     expect(result.structuredContent).not.toHaveProperty('edge_anchors')
+    expect(result._meta.chainInsights.graph.url).toContain('/graph-reports/')
+    expect(result._meta.chainInsights.graph.id).toBeUndefined()
     expect(result._meta.chainInsights.graph.data).toBeUndefined()
   })
 
