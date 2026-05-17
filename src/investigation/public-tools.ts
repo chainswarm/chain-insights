@@ -92,7 +92,7 @@ function addressProfileQuery(address: string): { id: string; query: string } {
     id: 'address_profile',
     query: [
       `MATCH (a:Address {address: "${escapeCypherString(address)}"})`,
-      'RETURN a.address AS address, labels(a) AS labels, a.confluence_score AS confluence_score, a.ml_risk_level AS ml_risk_level, a.degree_in AS degree_in, a.degree_out AS degree_out, a.total_volume_usd AS total_volume_usd',
+      'RETURN a.address AS address, a.labels AS display_labels, labels(a) AS system_labels, a.address_type AS address_type, a.address_subtypes AS address_subtypes, a.confluence_score AS confluence_score, a.ml_risk_level AS ml_risk_level, a.degree_in AS degree_in, a.degree_out AS degree_out, a.total_volume_usd AS total_volume_usd',
       'LIMIT 1',
     ].join(' '),
   }
@@ -104,9 +104,9 @@ function exchangeOutflowsQuery(address: string): { id: string; query: string } {
     query: [
       `MATCH p = (a:Address {address: "${escapeCypherString(address)}"})-[:FLOWS_TO *BFS (e, v | true)]->(exchange:Exchange)`,
       'WHERE a <> exchange AND NOT any(n IN nodes(p)[1..-1] WHERE "Exchange" IN labels(n))',
-      'WITH p, exchange, [n IN nodes(p) | n.address] AS path, relationships(p) AS rels',
-      'WITH p, exchange, path, rels, rels[size(rels)-1] AS terminal',
-      'RETURN "outflow" AS direction, exchange.address AS exchange_address, labels(exchange) AS exchange_labels, path[size(path)-2] AS deposit_address, size(path)-1 AS hops, terminal.amount_sum AS amount_sum, terminal.amount_usd_sum AS amount_usd_sum, terminal.tx_count AS tx_count, path',
+      'WITH p, exchange, [n IN nodes(p) | n.address] AS path, [n IN nodes(p) | {address: n.address, labels: n.labels, system_labels: labels(n), address_type: n.address_type, address_subtypes: n.address_subtypes}] AS path_nodes, relationships(p) AS rels',
+      'WITH p, exchange, path, path_nodes, rels, rels[size(rels)-1] AS terminal',
+      'RETURN "outflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, labels(exchange) AS exchange_system_labels, exchange.address_type AS exchange_address_type, exchange.address_subtypes AS exchange_address_subtypes, path[size(path)-2] AS deposit_address, size(path)-1 AS hops, terminal.amount_sum AS amount_sum, terminal.amount_usd_sum AS amount_usd_sum, terminal.tx_count AS tx_count, path, path_nodes',
       'ORDER BY amount_usd_sum DESC, amount_sum DESC',
       'LIMIT 10',
     ].join(' '),
@@ -119,9 +119,9 @@ function exchangeInflowsQuery(address: string): { id: string; query: string } {
     query: [
       `MATCH p = (exchange:Exchange)-[:FLOWS_TO *BFS (e, v | true)]->(a:Address {address: "${escapeCypherString(address)}"})`,
       'WHERE a <> exchange AND NOT any(n IN nodes(p)[1..-1] WHERE "Exchange" IN labels(n))',
-      'WITH p, exchange, [n IN nodes(p) | n.address] AS path, relationships(p) AS rels',
-      'WITH p, exchange, path, rels, rels[size(rels)-1] AS terminal',
-      'RETURN "inflow" AS direction, exchange.address AS exchange_address, labels(exchange) AS exchange_labels, path[1] AS withdrawal_address, size(path)-1 AS hops, terminal.amount_sum AS amount_sum, terminal.amount_usd_sum AS amount_usd_sum, terminal.tx_count AS tx_count, path',
+      'WITH p, exchange, [n IN nodes(p) | n.address] AS path, [n IN nodes(p) | {address: n.address, labels: n.labels, system_labels: labels(n), address_type: n.address_type, address_subtypes: n.address_subtypes}] AS path_nodes, relationships(p) AS rels',
+      'WITH p, exchange, path, path_nodes, rels, rels[size(rels)-1] AS terminal',
+      'RETURN "inflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, labels(exchange) AS exchange_system_labels, exchange.address_type AS exchange_address_type, exchange.address_subtypes AS exchange_address_subtypes, path[1] AS withdrawal_address, size(path)-1 AS hops, terminal.amount_sum AS amount_sum, terminal.amount_usd_sum AS amount_usd_sum, terminal.tx_count AS tx_count, path, path_nodes',
       'ORDER BY amount_usd_sum DESC, amount_sum DESC',
       'LIMIT 10',
     ].join(' '),
@@ -150,25 +150,60 @@ function formatExchangeRows(rows: Array<Record<string, unknown>>): string[] {
   })
 }
 
+function stringArrayValue(value: unknown): string[] | undefined {
+  if (Array.isArray(value)) return value.map(String)
+  if (typeof value === 'string' && value.trim()) return [value]
+  return undefined
+}
+
 function buildRiskGraph(address: string, rows: Array<Record<string, unknown>>, network: string): Record<string, unknown> {
   const nodes = new Map<string, Record<string, unknown>>()
-  nodes.set(address, { address, role: 'subject', labels: ['Address'], address_type: 'wallet' })
+  nodes.set(address, { id: address, address, node_type: 'address', labels: [], roles: ['subject'] })
   const edges: Array<Record<string, unknown>> = []
+  const mergeNode = (entry: string, metadata?: Record<string, unknown>) => {
+    const existing = nodes.get(entry) ?? { id: entry, address: entry, node_type: 'address', labels: [] }
+    const labels = stringArrayValue(metadata?.['labels']) ?? existing['labels']
+    const systemLabels = stringArrayValue(metadata?.['system_labels']) ?? existing['system_labels']
+    const addressType = typeof metadata?.['address_type'] === 'string' ? metadata['address_type'] : existing['address_type']
+    const addressSubtypes = stringArrayValue(metadata?.['address_subtypes']) ?? existing['address_subtypes']
+    nodes.set(entry, {
+      ...existing,
+      labels,
+      ...(systemLabels ? { system_labels: systemLabels } : {}),
+      ...(addressType ? { address_type: addressType } : {}),
+      ...(addressSubtypes ? { address_subtypes: addressSubtypes } : {}),
+    })
+  }
   for (const row of rows) {
     const path = Array.isArray(row['path']) ? row['path'].map(String) : []
-    for (const entry of path) {
-      if (!nodes.has(entry)) nodes.set(entry, { address: entry, role: null, labels: [], address_type: 'wallet' })
+    const pathNodes = Array.isArray(row['path_nodes']) ? row['path_nodes'] as Array<Record<string, unknown>> : []
+    for (let index = 0; index < path.length; index += 1) {
+      const entry = path[index]!
+      mergeNode(entry, pathNodes[index])
     }
     const exchange = typeof row['exchange_address'] === 'string' ? row['exchange_address'] : ''
-    if (exchange) nodes.set(exchange, { address: exchange, role: 'exchange', labels: row['exchange_labels'] ?? ['Exchange'], address_type: 'exchange' })
+    if (exchange) {
+      const displayLabels = stringArrayValue(row['exchange_display_labels']) ?? []
+      const systemLabels = stringArrayValue(row['exchange_system_labels']) ?? stringArrayValue(row['exchange_labels']) ?? []
+      nodes.set(exchange, {
+        id: exchange,
+        address: exchange,
+        node_type: 'address',
+        labels: displayLabels,
+        ...(systemLabels.length > 0 ? { system_labels: systemLabels } : {}),
+        ...(typeof row['exchange_address_type'] === 'string' ? { address_type: row['exchange_address_type'] } : {}),
+        ...(stringArrayValue(row['exchange_address_subtypes']) ? { address_subtypes: stringArrayValue(row['exchange_address_subtypes']) } : {}),
+        roles: ['exchange'],
+      })
+    }
     for (let index = 0; index < path.length - 1; index += 1) {
       edges.push({
-        from_address: path[index],
-        to_address: path[index + 1],
+        source: path[index],
+        target: path[index + 1],
+        edge_type: 'flows_to',
         usd_amount: row['amount_usd_sum'] ?? row['amount_sum'] ?? 0,
         amount_sum: row['amount_sum'] ?? 0,
         tx_count: row['tx_count'] ?? 0,
-        type: 'FLOWS_TO',
         direction: row['direction'],
       })
     }

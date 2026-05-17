@@ -604,6 +604,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
             node_labels: [['Address'], ['Address'], ['Address'], ['Address', 'Exchange']],
             exchange_address: '5Exchange',
             exchange_labels: ['Exchange'],
+            exchange_display_labels: ['Binance'],
+            exchange_address_type: 'substrate',
             hops: 3,
           }],
         },
@@ -666,21 +668,28 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(filename).toMatch(/\.graph\.json$/)
     const graphRaw = await readFile(join(testDataDir, 'reports', 'graphs', filename), 'utf8')
     const graph = JSON.parse(graphRaw) as {
-      nodes: Array<Record<string, unknown> & { address: string; labels?: string[]; roles?: string[] }>
-      edges: Array<{ amount_sum?: number; source?: string }>
+      nodes: Array<Record<string, unknown> & { address: string; labels?: string[]; roles?: string[]; address_type?: string }>
+      edges: Array<Record<string, unknown> & { amount_sum?: number; source?: string; edge_type?: string }>
     }
     expect(graph.schema).toBe('chain-insights.graph.v1')
+    expect(graph.nodes[0]).toHaveProperty('node_type', 'address')
+    expect(graph.nodes[0]).not.toHaveProperty('entity_kind')
+    expect(graph.nodes[0]).not.toHaveProperty('raw_labels')
+    expect(graph.nodes[0]).not.toHaveProperty('address_type', 'wallet')
     const exchangeNode = graph.nodes.find((node) => node.address === '5Exchange')
     expect(exchangeNode).toMatchObject({
-      labels: [],
+      labels: ['Binance'],
       roles: ['exchange'],
+      address_type: 'substrate',
     })
-    expect(exchangeNode).not.toHaveProperty('address_type')
     expect(exchangeNode).not.toHaveProperty('entity_kind')
     expect(exchangeNode).not.toHaveProperty('raw_labels')
     expect(exchangeNode).not.toHaveProperty('risk_level')
     expect(exchangeNode).not.toHaveProperty('pattern_flags')
-    expect(graph.edges[0]).toMatchObject({ source: '5Seed', amount_sum: 123 })
+    expect(graph.edges[0]).toMatchObject({ source: '5Seed', amount_sum: 123, edge_type: 'flows_to' })
+    expect(graph.edges[0]).not.toHaveProperty('from_address')
+    expect(graph.edges[0]).not.toHaveProperty('to_address')
+    expect(graph.edges[0]).not.toHaveProperty('type')
   })
 
   it('routes track_funds reports to workspace without creating home outputs', async () => {
@@ -842,6 +851,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
               node_labels: [['Address'], ['Address'], ['Address', 'Exchange']],
               exchange_address: '5Exchange',
               exchange_labels: ['Exchange'],
+              exchange_display_labels: ['Binance'],
+              exchange_address_type: 'substrate',
               hops: 2,
             },
             {
@@ -853,6 +864,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
               node_labels: [['Address'], ['Address'], ['Address', 'Exchange']],
               exchange_address: '5OtherExchange',
               exchange_labels: ['Exchange'],
+              exchange_display_labels: ['Kraken'],
+              exchange_address_type: 'substrate',
               hops: 2,
             },
           ],
@@ -878,6 +891,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
             deposit_address: '5Deposit',
             source_exchange: '5SourceExchange',
             source_labels: ['Exchange'],
+            source_display_labels: ['Bitget'],
+            source_address_type: 'substrate',
             hops: 1,
             addresses: ['5Deposit', '5SourceExchange'],
             node_labels: [['Address'], ['Address', 'Exchange']],
@@ -892,6 +907,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
           results: [{
             address: '5Lead',
             labels: ['KnownEntity'],
+            system_labels: ['Address'],
+            address_type: 'substrate',
             degree_in: 10,
             degree_out: 1,
             total_volume_usd: 200000,
@@ -937,14 +954,25 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(filename).toMatch(/\.graph\.json$/)
     const graphRaw = await readFile(join(testDataDir, 'reports', 'graphs', filename), 'utf8')
     const graph = JSON.parse(graphRaw) as {
-      nodes: Array<Record<string, unknown> & { address: string; roles?: string[]; labels?: string[] }>
-      edges: Array<{ target: string; terminal_exchange?: boolean }>
+      nodes: Array<Record<string, unknown> & { address: string; roles?: string[]; labels?: string[]; address_type?: string }>
+      edges: Array<Record<string, unknown> & { target: string; terminal_exchange?: boolean; edge_type?: string }>
     }
+    expect(graph.nodes[0]).toHaveProperty('node_type', 'address')
+    expect(graph.nodes[0]).not.toHaveProperty('entity_kind')
+    expect(graph.nodes[0]).not.toHaveProperty('raw_labels')
+    expect(graph.nodes[0]).not.toHaveProperty('address_type', 'wallet')
     expect(graph.nodes.find((node) => node.address === '5Exchange')?.roles).toContain('exchange')
-    expect(graph.nodes.find((node) => node.address === '5Exchange')?.labels).toEqual([])
+    expect(graph.nodes.find((node) => node.address === '5Exchange')?.labels).toEqual(['Binance'])
+    expect(graph.nodes.find((node) => node.address === '5Exchange')?.address_type).toBe('substrate')
     expect(graph.nodes.find((node) => node.address === '5Exchange')).not.toHaveProperty('raw_labels')
     expect(graph.edges.find((edge) => edge.target === '5Exchange')?.terminal_exchange).toBe(true)
+    expect(graph.edges.find((edge) => edge.target === '5Exchange')?.edge_type).toBe('flows_to')
+    expect(graph.edges[0]).not.toHaveProperty('from_address')
+    expect(graph.edges[0]).not.toHaveProperty('to_address')
+    expect(graph.edges[0]).not.toHaveProperty('type')
     expect(graph.nodes.find((node) => node.address === '5SourceExchange')?.roles).toContain('exchange')
+    expect(graph.nodes.find((node) => node.address === '5SourceExchange')?.labels).toEqual(['Bitget'])
+    expect(graph.nodes.find((node) => node.address === '5SourceExchange')?.address_type).toBe('substrate')
     expect(graph.nodes.find((node) => node.address === '5Lead')?.roles).toContain('lead')
   })
 
@@ -989,7 +1017,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                 results: [{
                   direction: 'outflow',
                   exchange_address: '5Exchange',
-                  exchange_labels: ['Exchange', 'Binance'],
+                  exchange_labels: ['Address', 'Exchange'],
+                  exchange_display_labels: ['Binance'],
+                  exchange_address_type: 'substrate',
                   deposit_address: '5Deposit',
                   hops: 2,
                   amount_sum: 44,
@@ -1017,6 +1047,27 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('Exchange behavior')
     expect(result.content[0].text).toContain('5Exchange')
     expect(result.structuredContent.facts.exchange_behavior.outflows[0].exchange_address).toBe('5Exchange')
+    expect(result._meta.chainInsights.graph.url).toContain('/graph-reports/')
+    const graphUrl = result._meta.chainInsights.graph.url as string
+    const filename = graphUrl.split('/graph-reports/')[1]
+    expect(filename).toMatch(/\.graph\.json$/)
+    const graphRaw = await readFile(join(testDataDir, 'reports', 'graphs', filename), 'utf8')
+    const graph = JSON.parse(graphRaw) as {
+      nodes: Array<Record<string, unknown> & { address: string; labels?: string[]; roles?: string[]; address_type?: string }>
+      edges: Array<Record<string, unknown> & { source?: string; target?: string; edge_type?: string }>
+    }
+    expect(graph.nodes[0]).toHaveProperty('node_type', 'address')
+    expect(graph.nodes[0]).not.toHaveProperty('entity_kind')
+    expect(graph.nodes[0]).not.toHaveProperty('raw_labels')
+    expect(graph.nodes[0]).not.toHaveProperty('address_type', 'wallet')
+    const exchangeNode = graph.nodes.find((node) => node.address === '5Exchange')
+    expect(exchangeNode?.roles).toContain('exchange')
+    expect(exchangeNode?.labels).toEqual(['Binance'])
+    expect(exchangeNode?.address_type).toBe('substrate')
+    expect(graph.edges[0]).toHaveProperty('edge_type', 'flows_to')
+    expect(graph.edges[0]).not.toHaveProperty('from_address')
+    expect(graph.edges[0]).not.toHaveProperty('to_address')
+    expect(graph.edges[0]).not.toHaveProperty('type')
     expect(clientInstance.callTool).toHaveBeenCalledWith({
       name: 'graph_query_batch',
       arguments: expect.objectContaining({

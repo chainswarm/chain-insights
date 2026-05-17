@@ -31,6 +31,8 @@ export interface TraceFlow {
   last_tx_id?: string
   src_labels?: string[]
   dst_labels?: string[]
+  src_node?: GraphNodeMetadata
+  dst_node?: GraphNodeMetadata
   dst_degree_in?: number
   dst_degree_out?: number
   terminal_exchange: boolean
@@ -62,29 +64,42 @@ interface TraceDeposit {
   address: string
   exchangeAddress: string
   exchangeLabels?: string[]
+  exchangeNode?: GraphNodeMetadata
   amount_sum?: number
   amount_usd_sum?: number
   hops: number
   path: string[]
+  pathNodes?: GraphNodeMetadata[]
 }
 
 interface SourceMatch {
   deposit_address: string
   source_exchange: string
   source_labels?: string[]
+  sourceNode?: GraphNodeMetadata
   hops: number
   path: string[]
+  pathNodes?: GraphNodeMetadata[]
 }
 
 interface ReverseLead {
   address: string
   labels?: string[]
+  node?: GraphNodeMetadata
   deposit_address: string
   amount_usd?: number
   degree_in?: number
   degree_out?: number
   total_volume_usd?: number
   reason: string
+}
+
+interface GraphNodeMetadata {
+  address: string
+  labels?: string[]
+  system_labels?: string[]
+  address_type?: string
+  address_subtypes?: string[]
 }
 
 class AliasTracker {
@@ -268,8 +283,8 @@ function forwardExchangeQuery(address: string, limit: number, minAmountSum: numb
     query: [
       `MATCH p = (s:Address {address: "${escapeCypherString(address)}"})-[:FLOWS_TO *BFS (e, v | e.amount_sum IS NOT NULL${amountFilter})]->(t:Exchange)`,
       `WHERE s <> t AND size(nodes(p)) - 1 <= ${maxHops} AND NOT any(n IN nodes(p)[1..-1] WHERE "Exchange" IN labels(n))`,
-      'WITH p, t, [n IN nodes(p) | n.address] AS addresses, [n IN nodes(p) | labels(n)] AS node_labels, [r IN relationships(p) | {amount_sum: r.amount_sum, amount_usd_sum: r.amount_usd_sum, tx_count: r.tx_count, first_tx_id: r.first_tx_id, last_tx_id: r.last_tx_id}] AS edge_props',
-      'RETURN addresses, node_labels, edge_props, t.address AS exchange_address, labels(t) AS exchange_labels, size(nodes(p)) - 1 AS hops',
+      'WITH p, t, [n IN nodes(p) | n.address] AS addresses, [n IN nodes(p) | labels(n)] AS node_labels, [n IN nodes(p) | {address: n.address, labels: n.labels, system_labels: labels(n), address_type: n.address_type, address_subtypes: n.address_subtypes}] AS path_nodes, [r IN relationships(p) | {amount_sum: r.amount_sum, amount_usd_sum: r.amount_usd_sum, tx_count: r.tx_count, first_tx_id: r.first_tx_id, last_tx_id: r.last_tx_id}] AS edge_props',
+      'RETURN addresses, node_labels, path_nodes, edge_props, t.address AS exchange_address, t.labels AS exchange_display_labels, labels(t) AS exchange_labels, t.address_type AS exchange_address_type, t.address_subtypes AS exchange_address_subtypes, size(nodes(p)) - 1 AS hops',
       'ORDER BY hops ASC',
       `LIMIT ${limit}`,
     ].join(' '),
@@ -283,7 +298,7 @@ function backwardSourceQuery(id: string, depositAddress: string): { id: string; 
       `MATCH (dep:Address {address: "${escapeCypherString(depositAddress)}"})`,
       'MATCH path=(dep)<-[:FLOWS_TO *BFS (e, v | true)]-(source:Exchange)',
       'WHERE source <> dep AND NOT any(n IN nodes(path)[1..-1] WHERE "Exchange" IN labels(n))',
-      'RETURN dep.address AS deposit_address, source.address AS source_exchange, labels(source) AS source_labels, size(nodes(path)) - 1 AS hops, [n IN nodes(path) | n.address] AS addresses, [n IN nodes(path) | labels(n)] AS node_labels',
+      'RETURN dep.address AS deposit_address, source.address AS source_exchange, source.labels AS source_display_labels, labels(source) AS source_labels, source.address_type AS source_address_type, source.address_subtypes AS source_address_subtypes, size(nodes(path)) - 1 AS hops, [n IN nodes(path) | n.address] AS addresses, [n IN nodes(path) | labels(n)] AS node_labels, [n IN nodes(path) | {address: n.address, labels: n.labels, system_labels: labels(n), address_type: n.address_type, address_subtypes: n.address_subtypes}] AS path_nodes',
       'LIMIT 20',
     ].join(' '),
   }
@@ -297,7 +312,7 @@ function reverseLeadsQuery(depositAddresses: string[]): { id: string; query: str
       `UNWIND [${addrList}] AS dep_addr`,
       'MATCH (sender:Address)-[r:FLOWS_TO]->(deposit:Address {address: dep_addr})',
       'WHERE NOT ("Exchange" IN labels(sender)) AND sender.address <> dep_addr',
-      'RETURN DISTINCT sender.address AS address, labels(sender) AS labels, coalesce(sender.degree_in, 0) AS degree_in, coalesce(sender.degree_out, 0) AS degree_out, coalesce(sender.total_volume_usd, 0) AS total_volume_usd, dep_addr AS deposit_address, r.amount_usd_sum AS amount_usd',
+      'RETURN DISTINCT sender.address AS address, sender.labels AS display_labels, labels(sender) AS system_labels, sender.address_type AS address_type, sender.address_subtypes AS address_subtypes, coalesce(sender.degree_in, 0) AS degree_in, coalesce(sender.degree_out, 0) AS degree_out, coalesce(sender.total_volume_usd, 0) AS total_volume_usd, dep_addr AS deposit_address, r.amount_usd_sum AS amount_usd',
       'ORDER BY r.amount_usd_sum DESC',
       `LIMIT ${Math.max(50, depositAddresses.length * 50)}`,
     ].join(' '),
@@ -330,15 +345,33 @@ function numberValue(value: unknown): number | undefined {
 }
 
 function stringArrayValue(value: unknown): string[] | undefined {
-  return Array.isArray(value) ? value.map(String) : undefined
+  if (Array.isArray(value)) return value.map(String)
+  if (typeof value === 'string' && value.trim()) return [value]
+  return undefined
 }
 
 function uniqueStrings(values: string[] | undefined): string[] {
   return [...new Set(values ?? [])]
 }
 
+function nodeMetadataFromValue(value: unknown, fallbackAddress?: string): GraphNodeMetadata | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return fallbackAddress ? { address: fallbackAddress } : undefined
+  }
+  const record = value as Record<string, unknown>
+  const address = typeof record['address'] === 'string' ? record['address'] : fallbackAddress
+  if (!address) return undefined
+  return {
+    address,
+    labels: stringArrayValue(record['labels']),
+    system_labels: stringArrayValue(record['system_labels']),
+    address_type: typeof record['address_type'] === 'string' ? record['address_type'] : undefined,
+    address_subtypes: stringArrayValue(record['address_subtypes']),
+  }
+}
+
 function isExchangeFlow(flow: TraceFlow): boolean {
-  return flow.terminal_exchange || flow.dst_labels?.includes('Exchange') === true
+  return flow.terminal_exchange || flow.dst_labels?.includes('Exchange') === true || flow.dst_node?.system_labels?.includes('Exchange') === true
 }
 
 function depositFromRow(row: Record<string, unknown>): TraceDeposit | null {
@@ -347,14 +380,26 @@ function depositFromRow(row: Record<string, unknown>): TraceDeposit | null {
   const exchangeAddress = typeof row['exchange_address'] === 'string' ? row['exchange_address'] : pathAddresses[pathAddresses.length - 1]
   const edgeProps = Array.isArray(row['edge_props']) ? row['edge_props'] as Array<Record<string, unknown>> : []
   const terminalEdge = edgeProps[edgeProps.length - 1] ?? {}
+  const pathNodes = Array.isArray(row['path_nodes'])
+    ? row['path_nodes'].map((node, index) => nodeMetadataFromValue(node, pathAddresses[index])).filter((node): node is GraphNodeMetadata => Boolean(node))
+    : undefined
+  const exchangeNode = {
+    address: exchangeAddress,
+    labels: stringArrayValue(row['exchange_display_labels']),
+    system_labels: stringArrayValue(row['exchange_system_labels']) ?? stringArrayValue(row['exchange_labels']),
+    address_type: typeof row['exchange_address_type'] === 'string' ? row['exchange_address_type'] : undefined,
+    address_subtypes: stringArrayValue(row['exchange_address_subtypes']),
+  }
   return {
     address: pathAddresses[pathAddresses.length - 2]!,
     exchangeAddress,
     exchangeLabels: stringArrayValue(row['exchange_labels']),
+    exchangeNode,
     amount_sum: numberValue(terminalEdge['amount_sum']),
     amount_usd_sum: numberValue(terminalEdge['amount_usd_sum']),
     hops: numberValue(row['hops']) ?? pathAddresses.length - 1,
     path: pathAddresses,
+    pathNodes,
   }
 }
 
@@ -365,6 +410,9 @@ function flowsFromForwardRows(rows: Array<Record<string, unknown>>): { flows: Tr
   for (const row of rows) {
     const pathAddresses = stringArrayValue(row['addresses']) ?? []
     const nodeLabels = Array.isArray(row['node_labels']) ? row['node_labels'].map((labels) => stringArrayValue(labels) ?? []) : []
+    const pathNodes = Array.isArray(row['path_nodes'])
+      ? row['path_nodes'].map((node, index) => nodeMetadataFromValue(node, pathAddresses[index]))
+      : []
     const edgeProps = Array.isArray(row['edge_props']) ? row['edge_props'] as Array<Record<string, unknown>> : []
     const deposit = depositFromRow(row)
     if (deposit) deposits.push(deposit)
@@ -388,6 +436,8 @@ function flowsFromForwardRows(rows: Array<Record<string, unknown>>): { flows: Tr
         last_tx_id: typeof edge['last_tx_id'] === 'string' ? edge['last_tx_id'] : undefined,
         src_labels: nodeLabels[index],
         dst_labels: nodeLabels[index + 1],
+        src_node: pathNodes[index],
+        dst_node: pathNodes[index + 1],
         terminal_exchange: terminal,
       })
     }
@@ -447,15 +497,27 @@ async function collectProbeTrace(
     for (const query of backwardBatch.facts?.queries ?? []) {
       for (const row of query.results ?? []) {
         const pathAddresses = stringArrayValue(row['addresses']) ?? []
+        const pathNodes = Array.isArray(row['path_nodes'])
+          ? row['path_nodes'].map((node, index) => nodeMetadataFromValue(node, pathAddresses[index])).filter((node): node is GraphNodeMetadata => Boolean(node))
+          : undefined
         const depositAddress = typeof row['deposit_address'] === 'string' ? row['deposit_address'] : pathAddresses[0]
         const sourceExchange = typeof row['source_exchange'] === 'string' ? row['source_exchange'] : pathAddresses[pathAddresses.length - 1]
         if (!depositAddress || !sourceExchange) continue
+        const sourceNode = {
+          address: sourceExchange,
+          labels: stringArrayValue(row['source_display_labels']),
+          system_labels: stringArrayValue(row['source_system_labels']) ?? stringArrayValue(row['source_labels']),
+          address_type: typeof row['source_address_type'] === 'string' ? row['source_address_type'] : undefined,
+          address_subtypes: stringArrayValue(row['source_address_subtypes']),
+        }
         sourceMatches.push({
           deposit_address: depositAddress,
           source_exchange: sourceExchange,
           source_labels: stringArrayValue(row['source_labels']),
+          sourceNode,
           hops: numberValue(row['hops']) ?? Math.max(pathAddresses.length - 1, 0),
           path: pathAddresses,
+          pathNodes,
         })
       }
     }
@@ -468,7 +530,7 @@ async function collectProbeTrace(
       const address = typeof row['address'] === 'string' ? row['address'] : ''
       const depositAddress = typeof row['deposit_address'] === 'string' ? row['deposit_address'] : ''
       if (!address || !depositAddress) continue
-      const labels = stringArrayValue(row['labels']) ?? []
+      const labels = stringArrayValue(row['display_labels']) ?? stringArrayValue(row['labels']) ?? []
       const degreeIn = numberValue(row['degree_in']) ?? 0
       const totalVolume = numberValue(row['total_volume_usd']) ?? 0
       const reason = labels.length > 0 ? 'labeled_entity' : degreeIn > 50 ? 'fan_in_hub' : totalVolume > 100000 ? 'high_volume_sender' : ''
@@ -476,6 +538,13 @@ async function collectProbeTrace(
       reverseLeads.push({
         address,
         labels,
+        node: {
+          address,
+          labels,
+          system_labels: stringArrayValue(row['system_labels']),
+          address_type: typeof row['address_type'] === 'string' ? row['address_type'] : undefined,
+          address_subtypes: stringArrayValue(row['address_subtypes']),
+        },
         degree_in: degreeIn,
         degree_out: numberValue(row['degree_out']),
         total_volume_usd: totalVolume,
@@ -506,82 +575,104 @@ function buildAliases(seedAddress: string, deposits: TraceDeposit[], sourceMatch
 }
 
 function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], deposits: TraceDeposit[], sourceMatches: SourceMatch[], reverseLeads: ReverseLead[]): Record<string, unknown> {
-  const totals = new Map<string, { in: number; out: number; rawLabels: string[]; role: string | null }>()
+  type NodeAccumulator = {
+    in: number
+    out: number
+    labels: string[]
+    systemLabels: string[]
+    addressType?: string
+    addressSubtypes: string[]
+    roles: Set<string>
+  }
+
+  const totals = new Map<string, NodeAccumulator>()
   const ensure = (address: string) => {
     if (!totals.has(address)) {
-      totals.set(address, { in: 0, out: 0, rawLabels: [], role: address === seedAddress ? 'seed' : null })
+      totals.set(address, {
+        in: 0,
+        out: 0,
+        labels: [],
+        systemLabels: [],
+        addressSubtypes: [],
+        roles: new Set(address === seedAddress ? ['seed'] : []),
+      })
     }
     return totals.get(address)!
   }
-  const mergeLabels = (address: string, labels: string[] | undefined) => {
+  const mergeNode = (address: string, metadata?: GraphNodeMetadata, role?: string, systemLabelsFallback?: string[]) => {
     const node = ensure(address)
-    node.rawLabels = uniqueStrings([...node.rawLabels, ...(labels ?? [])])
+    node.labels = uniqueStrings([...node.labels, ...(metadata?.labels ?? [])])
+    node.systemLabels = uniqueStrings([...node.systemLabels, ...(metadata?.system_labels ?? []), ...(systemLabelsFallback ?? [])])
+    if (metadata?.address_type) node.addressType = metadata.address_type
+    node.addressSubtypes = uniqueStrings([...node.addressSubtypes, ...(metadata?.address_subtypes ?? [])])
+    if (role) node.roles.add(role)
     return node
   }
 
   for (const flow of flows) {
-    const src = mergeLabels(flow.src, flow.src_labels)
+    const src = mergeNode(flow.src, flow.src_node, undefined, flow.src_labels)
     src.out += flow.amount_usd_sum ?? flow.amount_sum
-    const dst = mergeLabels(flow.dst, flow.dst_labels)
+    const dst = mergeNode(flow.dst, flow.dst_node, undefined, flow.dst_labels)
     dst.in += flow.amount_usd_sum ?? flow.amount_sum
-    if (isExchangeFlow(flow)) dst.role = 'exchange'
+    if (isExchangeFlow(flow)) dst.roles.add('exchange')
   }
   for (const deposit of deposits) {
-    const node = ensure(deposit.address)
-    node.role = 'deposit_candidate'
-    mergeLabels(deposit.exchangeAddress, deposit.exchangeLabels)
+    for (const node of deposit.pathNodes ?? []) mergeNode(node.address, node)
+    mergeNode(deposit.address, deposit.pathNodes?.find((node) => node.address === deposit.address), 'deposit_candidate')
+    mergeNode(deposit.exchangeAddress, deposit.exchangeNode, 'exchange', deposit.exchangeLabels)
   }
   for (const source of sourceMatches) {
-    const node = mergeLabels(source.source_exchange, source.source_labels)
-    node.role = 'exchange'
+    for (const node of source.pathNodes ?? []) mergeNode(node.address, node)
+    mergeNode(source.source_exchange, source.sourceNode, 'exchange', source.source_labels)
   }
   for (const lead of reverseLeads) {
-    const node = mergeLabels(lead.address, lead.labels)
-    node.role = 'lead'
+    mergeNode(lead.address, lead.node ?? { address: lead.address, labels: lead.labels }, 'lead')
     const deposit = ensure(lead.deposit_address)
     deposit.in += lead.amount_usd ?? 0
   }
 
   return normalizeGraphPayload({
     schema: 'chain-insights.graph.v1',
-    nodes: [...totals.entries()].map(([address, data]) => {
-      const rawLabels = uniqueStrings(data.rawLabels)
-      return {
-        address,
-        role: data.role,
-        labels: rawLabels,
-        flow_in_usd: data.in,
-        flow_out_usd: data.out,
-      }
-    }),
+    nodes: [...totals.entries()].map(([address, data]) => ({
+      id: address,
+      address,
+      node_type: 'address',
+      labels: uniqueStrings(data.labels),
+      ...(data.systemLabels.length > 0 ? { system_labels: uniqueStrings(data.systemLabels) } : {}),
+      ...(data.addressType ? { address_type: data.addressType } : {}),
+      ...(data.addressSubtypes.length > 0 ? { address_subtypes: uniqueStrings(data.addressSubtypes) } : {}),
+      ...(data.roles.size > 0 ? { roles: [...data.roles] } : {}),
+      flow_in_usd: data.in,
+      flow_out_usd: data.out,
+    })),
     edges: [
       ...flows.map((flow) => ({
-      from_address: flow.src,
-      to_address: flow.dst,
-      usd_amount: flow.amount_usd_sum ?? flow.amount_sum,
-      amount_sum: flow.amount_sum,
-      tx_count: flow.tx_count ?? 0,
-      first_tx_id: flow.first_tx_id,
-      last_tx_id: flow.last_tx_id,
-      type: 'FLOWS_TO',
-      terminal_exchange: flow.terminal_exchange,
+        source: flow.src,
+        target: flow.dst,
+        edge_type: 'flows_to',
+        usd_amount: flow.amount_usd_sum ?? flow.amount_sum,
+        amount_sum: flow.amount_sum,
+        tx_count: flow.tx_count ?? 0,
+        first_tx_id: flow.first_tx_id,
+        last_tx_id: flow.last_tx_id,
+        terminal_exchange: flow.terminal_exchange,
       })),
       ...sourceMatches.map((source) => ({
-        from_address: source.source_exchange,
-        to_address: source.deposit_address,
+        source: source.source_exchange,
+        target: source.deposit_address,
+        edge_type: 'flows_to',
         usd_amount: 0,
         amount_sum: 0,
         tx_count: 0,
-        type: 'FLOWS_TO',
         direction: 'traceback',
       })),
       ...reverseLeads.map((lead) => ({
-        from_address: lead.address,
-        to_address: lead.deposit_address,
+        source: lead.address,
+        target: lead.deposit_address,
+        edge_type: 'flows_to',
         usd_amount: lead.amount_usd ?? 0,
         amount_sum: lead.amount_usd ?? 0,
         tx_count: 0,
-        type: 'FLOWS_TO',
         direction: 'reverse_1hop_lead',
       })),
     ],
