@@ -59,7 +59,7 @@ function optionalNumber(value) {
 	return parsed;
 }
 async function withGraphMcpClient(name, fn) {
-	const { loadConfig } = await import("./config-DapwbWWu.mjs").then((n) => n.t);
+	const { loadConfig } = await import("./config-BJRFmZc7.mjs").then((n) => n.t);
 	const config = await loadConfig();
 	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-Bl03JHUH.mjs").then((n) => n.t);
 	const paymentFetch = await createConfiguredGraphMcpFetch(config);
@@ -83,7 +83,7 @@ program.command("serve").description("Start local visualization server").option(
 	try {
 		const { requireWorkspaceRoot } = await import("./output-root-DSl0xFAF.mjs").then((n) => n.t);
 		const workspaceRoot = requireWorkspaceRoot();
-		const { startServer } = await import("./server-lqbGlp_4.mjs").then((n) => n.t);
+		const { startServer } = await import("./server-DMYSFala.mjs").then((n) => n.t);
 		console.log(`Workspace: ${workspaceRoot}`);
 		startServer(parseInt(opts.port, 10));
 	} catch (err) {
@@ -92,7 +92,7 @@ program.command("serve").description("Start local visualization server").option(
 	}
 });
 program.command("status").description("Show toolkit status and configuration").action(async () => {
-	const { loadConfig } = await import("./config-DapwbWWu.mjs").then((n) => n.t);
+	const { loadConfig } = await import("./config-BJRFmZc7.mjs").then((n) => n.t);
 	const { findActiveWorkspace, activeDataDir } = await import("./active-DhZAbOKJ.mjs").then((n) => n.n);
 	const config = await loadConfig();
 	const workspace = findActiveWorkspace();
@@ -104,7 +104,7 @@ program.command("status").description("Show toolkit status and configuration").a
 });
 program.command("debug").description("Configure Graph MCP debug mode").addCommand(new Command("on").description("Enable Graph MCP debug mode without x402 payments").requiredOption("--token <token>", "Debug bearer token").option("--endpoint <url>", "Graph MCP endpoint").action(async (opts) => {
 	try {
-		const { saveConfig } = await import("./config-DapwbWWu.mjs").then((n) => n.t);
+		const { saveConfig } = await import("./config-BJRFmZc7.mjs").then((n) => n.t);
 		await saveConfig({
 			graphMcpMode: "debug",
 			graphMcpAuthToken: opts.token,
@@ -119,7 +119,7 @@ program.command("debug").description("Configure Graph MCP debug mode").addComman
 	}
 })).addCommand(new Command("off").description("Disable Graph MCP debug mode and use paid x402 calls").action(async () => {
 	try {
-		const { saveConfig } = await import("./config-DapwbWWu.mjs").then((n) => n.t);
+		const { saveConfig } = await import("./config-BJRFmZc7.mjs").then((n) => n.t);
 		await saveConfig({
 			graphMcpMode: "paid",
 			graphMcpAuthToken: ""
@@ -132,7 +132,7 @@ program.command("debug").description("Configure Graph MCP debug mode").addComman
 	}
 })).addCommand(new Command("status").description("Show Graph MCP payment/debug mode").action(async () => {
 	try {
-		const { loadConfig } = await import("./config-DapwbWWu.mjs").then((n) => n.t);
+		const { loadConfig } = await import("./config-BJRFmZc7.mjs").then((n) => n.t);
 		const config = await loadConfig();
 		console.log(`Graph MCP mode: ${config.graphMcpMode}`);
 		console.log(`Graph endpoint: ${config.graphMcpEndpoint}`);
@@ -145,7 +145,7 @@ program.command("debug").description("Configure Graph MCP debug mode").addComman
 }));
 program.command("init").description("Initialize an investigation workspace").argument("[dir]", "Workspace directory to initialize", ".").option("--force", "Overwrite existing workspace files").action(async (dir, opts) => {
 	try {
-		const { initWorkspace } = await import("./init-DG13T6uj.mjs");
+		const { initWorkspace } = await import("./init-BsTWw4pA.mjs");
 		const result = await initWorkspace({
 			targetDir: dir,
 			force: opts.force
@@ -180,8 +180,8 @@ program.command("setup").description("Configure external MCP clients").addComman
 	}
 }));
 program.command("config").description("Read or write configuration values").addCommand(new Command("get").argument("<key>", "Config key to read").action(async (key) => {
-	const { loadConfig } = await import("./config-DapwbWWu.mjs").then((n) => n.t);
-	const { CONFIG_KEYS } = await import("./schema-2A9z9f1Q.mjs").then((n) => n.r);
+	const { loadConfig } = await import("./config-BJRFmZc7.mjs").then((n) => n.t);
+	const { CONFIG_KEYS } = await import("./schema-CQgoVtvM.mjs").then((n) => n.r);
 	if (!CONFIG_KEYS.includes(key)) {
 		console.error(`Unknown config key: ${key}`);
 		process.exit(1);
@@ -200,8 +200,8 @@ program.command("config").description("Read or write configuration values").addC
 		}
 		return;
 	}
-	const { loadConfig, saveConfig } = await import("./config-DapwbWWu.mjs").then((n) => n.t);
-	const { CONFIG_KEYS, DEFAULT_CONFIG } = await import("./schema-2A9z9f1Q.mjs").then((n) => n.r);
+	const { loadConfig, saveConfig } = await import("./config-BJRFmZc7.mjs").then((n) => n.t);
+	const { CONFIG_KEYS, DEFAULT_CONFIG } = await import("./schema-CQgoVtvM.mjs").then((n) => n.r);
 	const current = await loadConfig();
 	if (!CONFIG_KEYS.includes(key)) {
 		console.error(`Unknown config key: ${key}`);
@@ -260,7 +260,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { loadSchema, saveSchema } = await import("./schema-cache--gKWCySz.mjs");
 		const { formatToolsTable } = await import("./format-TsKe-chT.mjs");
 		const { visibleRemoteTools } = await import("./tool-visibility-B-nSHuFy.mjs").then((n) => n.n);
-		const { loadConfig } = await import("./config-DapwbWWu.mjs").then((n) => n.t);
+		const { loadConfig } = await import("./config-BJRFmZc7.mjs").then((n) => n.t);
 		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-Bl03JHUH.mjs").then((n) => n.t);
 		const config = await loadConfig();
 		const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
@@ -560,7 +560,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await import("./runner-DHKHd4P8.mjs");
+		const { PlaybookRunner } = await import("./runner-B0carfSk.mjs");
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,
@@ -615,7 +615,7 @@ program.command("viz").description("Generate money flow visualization").argument
 			caseId,
 			dataFile: opts.data
 		});
-		const { startServer } = await import("./server-lqbGlp_4.mjs").then((n) => n.t);
+		const { startServer } = await import("./server-DMYSFala.mjs").then((n) => n.t);
 		const port = parseInt(opts.port, 10);
 		startServer(port);
 		const url = `http://127.0.0.1:${port}/viz/${result.vizId}`;

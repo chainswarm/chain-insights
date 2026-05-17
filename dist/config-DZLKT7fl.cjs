@@ -1,5 +1,5 @@
 const require_chunk = require("./chunk-CZWwpsFl.cjs");
-const require_schema = require("./schema-DF5bW_O2.cjs");
+const require_schema = require("./schema-CZl6vNKB.cjs");
 let node_path = require("node:path");
 node_path = require_chunk.__toESM(node_path, 1);
 let node_fs_promises = require("node:fs/promises");

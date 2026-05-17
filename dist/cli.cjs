@@ -61,7 +61,7 @@ function optionalNumber(value) {
 	return parsed;
 }
 async function withGraphMcpClient(name, fn) {
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-DZLKT7fl.cjs")).then((n) => n.config_exports);
 	const config = await loadConfig();
 	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-CUnXT4FK.cjs")).then((n) => n.client_exports);
 	const paymentFetch = await createConfiguredGraphMcpFetch(config);
@@ -85,7 +85,7 @@ program.command("serve").description("Start local visualization server").option(
 	try {
 		const { requireWorkspaceRoot } = await Promise.resolve().then(() => require("./output-root-DZV1UJDb.cjs")).then((n) => n.output_root_exports);
 		const workspaceRoot = requireWorkspaceRoot();
-		const { startServer } = await Promise.resolve().then(() => require("./server-CO6A4qEk.cjs")).then((n) => n.server_exports);
+		const { startServer } = await Promise.resolve().then(() => require("./server-BaopdILY.cjs")).then((n) => n.server_exports);
 		console.log(`Workspace: ${workspaceRoot}`);
 		startServer(parseInt(opts.port, 10));
 	} catch (err) {
@@ -94,7 +94,7 @@ program.command("serve").description("Start local visualization server").option(
 	}
 });
 program.command("status").description("Show toolkit status and configuration").action(async () => {
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-DZLKT7fl.cjs")).then((n) => n.config_exports);
 	const { findActiveWorkspace, activeDataDir } = await Promise.resolve().then(() => require("./active-CT1lamd7.cjs")).then((n) => n.active_exports);
 	const config = await loadConfig();
 	const workspace = findActiveWorkspace();
@@ -106,7 +106,7 @@ program.command("status").description("Show toolkit status and configuration").a
 });
 program.command("debug").description("Configure Graph MCP debug mode").addCommand(new commander.Command("on").description("Enable Graph MCP debug mode without x402 payments").requiredOption("--token <token>", "Debug bearer token").option("--endpoint <url>", "Graph MCP endpoint").action(async (opts) => {
 	try {
-		const { saveConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
+		const { saveConfig } = await Promise.resolve().then(() => require("./config-DZLKT7fl.cjs")).then((n) => n.config_exports);
 		await saveConfig({
 			graphMcpMode: "debug",
 			graphMcpAuthToken: opts.token,
@@ -121,7 +121,7 @@ program.command("debug").description("Configure Graph MCP debug mode").addComman
 	}
 })).addCommand(new commander.Command("off").description("Disable Graph MCP debug mode and use paid x402 calls").action(async () => {
 	try {
-		const { saveConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
+		const { saveConfig } = await Promise.resolve().then(() => require("./config-DZLKT7fl.cjs")).then((n) => n.config_exports);
 		await saveConfig({
 			graphMcpMode: "paid",
 			graphMcpAuthToken: ""
@@ -134,7 +134,7 @@ program.command("debug").description("Configure Graph MCP debug mode").addComman
 	}
 })).addCommand(new commander.Command("status").description("Show Graph MCP payment/debug mode").action(async () => {
 	try {
-		const { loadConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
+		const { loadConfig } = await Promise.resolve().then(() => require("./config-DZLKT7fl.cjs")).then((n) => n.config_exports);
 		const config = await loadConfig();
 		console.log(`Graph MCP mode: ${config.graphMcpMode}`);
 		console.log(`Graph endpoint: ${config.graphMcpEndpoint}`);
@@ -147,7 +147,7 @@ program.command("debug").description("Configure Graph MCP debug mode").addComman
 }));
 program.command("init").description("Initialize an investigation workspace").argument("[dir]", "Workspace directory to initialize", ".").option("--force", "Overwrite existing workspace files").action(async (dir, opts) => {
 	try {
-		const { initWorkspace } = await Promise.resolve().then(() => require("./init-CSx0gwdt.cjs"));
+		const { initWorkspace } = await Promise.resolve().then(() => require("./init-CRvQ0vkV.cjs"));
 		const result = await initWorkspace({
 			targetDir: dir,
 			force: opts.force
@@ -182,8 +182,8 @@ program.command("setup").description("Configure external MCP clients").addComman
 	}
 }));
 program.command("config").description("Read or write configuration values").addCommand(new commander.Command("get").argument("<key>", "Config key to read").action(async (key) => {
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
-	const { CONFIG_KEYS } = await Promise.resolve().then(() => require("./schema-DF5bW_O2.cjs")).then((n) => n.schema_exports);
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-DZLKT7fl.cjs")).then((n) => n.config_exports);
+	const { CONFIG_KEYS } = await Promise.resolve().then(() => require("./schema-CZl6vNKB.cjs")).then((n) => n.schema_exports);
 	if (!CONFIG_KEYS.includes(key)) {
 		console.error(`Unknown config key: ${key}`);
 		process.exit(1);
@@ -202,8 +202,8 @@ program.command("config").description("Read or write configuration values").addC
 		}
 		return;
 	}
-	const { loadConfig, saveConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
-	const { CONFIG_KEYS, DEFAULT_CONFIG } = await Promise.resolve().then(() => require("./schema-DF5bW_O2.cjs")).then((n) => n.schema_exports);
+	const { loadConfig, saveConfig } = await Promise.resolve().then(() => require("./config-DZLKT7fl.cjs")).then((n) => n.config_exports);
+	const { CONFIG_KEYS, DEFAULT_CONFIG } = await Promise.resolve().then(() => require("./schema-CZl6vNKB.cjs")).then((n) => n.schema_exports);
 	const current = await loadConfig();
 	if (!CONFIG_KEYS.includes(key)) {
 		console.error(`Unknown config key: ${key}`);
@@ -262,7 +262,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-DDG5jmBe.cjs"));
 		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-C7zhT4mN.cjs"));
 		const { visibleRemoteTools } = await Promise.resolve().then(() => require("./tool-visibility-KFJ5Jk4K.cjs")).then((n) => n.tool_visibility_exports);
-		const { loadConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
+		const { loadConfig } = await Promise.resolve().then(() => require("./config-DZLKT7fl.cjs")).then((n) => n.config_exports);
 		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-CUnXT4FK.cjs")).then((n) => n.client_exports);
 		const config = await loadConfig();
 		const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
@@ -562,7 +562,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-BK76KEoa.cjs"));
+		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-BioQztMY.cjs"));
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,
@@ -617,7 +617,7 @@ program.command("viz").description("Generate money flow visualization").argument
 			caseId,
 			dataFile: opts.data
 		});
-		const { startServer } = await Promise.resolve().then(() => require("./server-CO6A4qEk.cjs")).then((n) => n.server_exports);
+		const { startServer } = await Promise.resolve().then(() => require("./server-BaopdILY.cjs")).then((n) => n.server_exports);
 		const port = parseInt(opts.port, 10);
 		startServer(port);
 		const url = `http://127.0.0.1:${port}/viz/${result.vizId}`;

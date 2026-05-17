@@ -97,7 +97,7 @@ function createApp() {
 		ts: Date.now()
 	}));
 	app.get("/status", async (c) => {
-		const { loadConfig } = await import("./config-DapwbWWu.mjs").then((n) => n.t);
+		const { loadConfig } = await import("./config-BJRFmZc7.mjs").then((n) => n.t);
 		const config = await loadConfig();
 		return c.json({
 			dataDir: config.dataDir,
@@ -152,4 +152,4 @@ function createApp() {
 //#endregion
 export { createApp as t };
 
-//# sourceMappingURL=app-CSJl_fxT.mjs.map
+//# sourceMappingURL=app-CweuGvzM.mjs.map

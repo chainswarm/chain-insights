@@ -92,6 +92,9 @@ describe('CLI scaffold (FOUND-02)', () => {
       expect(readFileSync(join(target, '.chain-insights', 'workspace.json'), 'utf8')).toContain(
         `"workspace_root": "${target}"`
       )
+      expect(readFileSync(join(target, '.chain-insights', 'workspace.json'), 'utf8')).toContain(
+        '"graph_mcp_endpoint": "https://staging-mcp.chain-insights.ai/mcp"'
+      )
       const readme = readFileSync(join(target, 'README.md'), 'utf8')
       expect(readme).toContain('Chain Insights Investigations')
       expect(readme).toContain('reports/graphs/    Graph JSON for visualization')

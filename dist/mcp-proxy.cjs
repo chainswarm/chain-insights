@@ -497,7 +497,7 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 	const meta = { ...result._meta ?? {} };
 	if (graphPayload) {
 		const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-ywoQKv6s.cjs"));
-		const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-MBmhep2j.cjs"));
+		const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-BIlzHkYl.cjs"));
 		const report = await writeGraphReport(graphPayload, {
 			serverPort: config.serverPort,
 			slug: toolName || "remote-graph"
@@ -526,7 +526,7 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 * All diagnostic output goes to console.error() or process.stderr.write().
 */
 async function createProxy() {
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-DZLKT7fl.cjs")).then((n) => n.config_exports);
 	const { activeDataDir, findActiveWorkspace } = await Promise.resolve().then(() => require("./active-CT1lamd7.cjs")).then((n) => n.active_exports);
 	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-CUnXT4FK.cjs")).then((n) => n.client_exports);
 	const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-DDG5jmBe.cjs"));
@@ -929,7 +929,7 @@ async function createProxy() {
 		try {
 			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-BYYMcaY6.cjs"));
 			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-ywoQKv6s.cjs"));
-			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-MBmhep2j.cjs"));
+			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-BIlzHkYl.cjs"));
 			const result = await addressRisk(remoteClient, {
 				address,
 				network,
@@ -986,7 +986,7 @@ async function createProxy() {
 		try {
 			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-BYYMcaY6.cjs"));
 			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-ywoQKv6s.cjs"));
-			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-MBmhep2j.cjs"));
+			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-BIlzHkYl.cjs"));
 			const result = await trackFunds(remoteClient, config, {
 				trustedAddresses: trusted_addresses,
 				untrustedAddresses: untrusted_addresses,

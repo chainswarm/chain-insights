@@ -14,7 +14,7 @@ var schema_exports = /* @__PURE__ */ require_chunk.__exportAll({
 const ConfigSchema = zod.object({
 	mcpEndpoint: zod.string().url().default("http://localhost:4000"),
 	mcpAuthToken: zod.string().optional(),
-	graphMcpEndpoint: zod.string().default("http://localhost:8012/mcp"),
+	graphMcpEndpoint: zod.string().default("https://staging-mcp.chain-insights.ai/mcp"),
 	graphMcpAuthToken: zod.string().optional(),
 	graphMcpMode: zod.enum(["paid", "debug"]).default("paid"),
 	walletAddress: zod.string().optional(),

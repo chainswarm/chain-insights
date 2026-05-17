@@ -11,7 +11,7 @@ var schema_exports = /* @__PURE__ */ __exportAll({
 const ConfigSchema = z.object({
 	mcpEndpoint: z.string().url().default("http://localhost:4000"),
 	mcpAuthToken: z.string().optional(),
-	graphMcpEndpoint: z.string().default("http://localhost:8012/mcp"),
+	graphMcpEndpoint: z.string().default("https://staging-mcp.chain-insights.ai/mcp"),
 	graphMcpAuthToken: z.string().optional(),
 	graphMcpMode: z.enum(["paid", "debug"]).default("paid"),
 	walletAddress: z.string().optional(),
@@ -34,4 +34,4 @@ const CONFIG_KEYS = [
 //#endregion
 export { DEFAULT_CONFIG as n, schema_exports as r, ConfigSchema as t };
 
-//# sourceMappingURL=schema-2A9z9f1Q.mjs.map
+//# sourceMappingURL=schema-CQgoVtvM.mjs.map

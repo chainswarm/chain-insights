@@ -25,7 +25,7 @@ function workspaceJson(workspaceRoot) {
 		name: "Chain Insights Investigations",
 		workspace_root: workspaceRoot,
 		default_network: "bittensor",
-		graph_mcp_endpoint: "http://localhost:8012/mcp",
+		graph_mcp_endpoint: "https://staging-mcp.chain-insights.ai/mcp",
 		cases_dir: "cases",
 		imports_dir: "imports",
 		reports_dir: "reports",

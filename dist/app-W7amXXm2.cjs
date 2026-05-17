@@ -100,7 +100,7 @@ function createApp() {
 		ts: Date.now()
 	}));
 	app.get("/status", async (c) => {
-		const { loadConfig } = await Promise.resolve().then(() => require("./config-B7R1hdJ8.cjs")).then((n) => n.config_exports);
+		const { loadConfig } = await Promise.resolve().then(() => require("./config-DZLKT7fl.cjs")).then((n) => n.config_exports);
 		const config = await loadConfig();
 		return c.json({
 			dataDir: config.dataDir,

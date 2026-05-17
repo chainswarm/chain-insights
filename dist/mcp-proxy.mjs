@@ -493,7 +493,7 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 	const meta = { ...result._meta ?? {} };
 	if (graphPayload) {
 		const { writeGraphReport } = await import("./graph-reports-Be4Rnz-V.mjs");
-		const { ensureArtifactServer } = await import("./artifact-server-CvScucme.mjs");
+		const { ensureArtifactServer } = await import("./artifact-server-eqhDc8xf.mjs");
 		const report = await writeGraphReport(graphPayload, {
 			serverPort: config.serverPort,
 			slug: toolName || "remote-graph"
@@ -522,7 +522,7 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 * All diagnostic output goes to console.error() or process.stderr.write().
 */
 async function createProxy() {
-	const { loadConfig } = await import("./config-DapwbWWu.mjs").then((n) => n.t);
+	const { loadConfig } = await import("./config-BJRFmZc7.mjs").then((n) => n.t);
 	const { activeDataDir, findActiveWorkspace } = await import("./active-DhZAbOKJ.mjs").then((n) => n.n);
 	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-Bl03JHUH.mjs").then((n) => n.t);
 	const { loadSchema, saveSchema } = await import("./schema-cache--gKWCySz.mjs");
@@ -925,7 +925,7 @@ async function createProxy() {
 		try {
 			const { addressRisk } = await import("./public-tools-W8q69hp-.mjs");
 			const { writeGraphReport } = await import("./graph-reports-Be4Rnz-V.mjs");
-			const { ensureArtifactServer } = await import("./artifact-server-CvScucme.mjs");
+			const { ensureArtifactServer } = await import("./artifact-server-eqhDc8xf.mjs");
 			const result = await addressRisk(remoteClient, {
 				address,
 				network,
@@ -982,7 +982,7 @@ async function createProxy() {
 		try {
 			const { trackFunds } = await import("./public-tools-W8q69hp-.mjs");
 			const { writeGraphReport } = await import("./graph-reports-Be4Rnz-V.mjs");
-			const { ensureArtifactServer } = await import("./artifact-server-CvScucme.mjs");
+			const { ensureArtifactServer } = await import("./artifact-server-eqhDc8xf.mjs");
 			const result = await trackFunds(remoteClient, config, {
 				trustedAddresses: trusted_addresses,
 				untrustedAddresses: untrusted_addresses,

@@ -1,5 +1,5 @@
 import { t as __exportAll } from "./rolldown-runtime-wcPFST8Q.mjs";
-import { n as DEFAULT_CONFIG, t as ConfigSchema } from "./schema-2A9z9f1Q.mjs";
+import { n as DEFAULT_CONFIG, t as ConfigSchema } from "./schema-CQgoVtvM.mjs";
 import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -41,4 +41,4 @@ async function resetConfigCache() {
 //#endregion
 export { saveConfig as i, loadConfig as n, resetConfigCache as r, config_exports as t };
 
-//# sourceMappingURL=config-DapwbWWu.mjs.map
+//# sourceMappingURL=config-BJRFmZc7.mjs.map

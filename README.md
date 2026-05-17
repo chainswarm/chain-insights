@@ -84,11 +84,25 @@ chain-insights --help
 chain-insights status
 ```
 
-Configure local debug UAT against Go Graph MCP:
+By default Chain Insights uses the staging production Graph MCP:
 
 ```bash
-chain-insights config set graphMcpEndpoint http://localhost:8012/mcp
-chain-insights config set graphMcpAuthToken chain-insights-dev-debug
+chain-insights config get graphMcpEndpoint
+chain-insights mcp tools --refresh
+```
+
+Switch to a local Go Graph MCP for debug UAT:
+
+```bash
+chain-insights debug on --token chain-insights-dev-debug --endpoint http://localhost:8012/mcp
+chain-insights mcp tools --refresh
+```
+
+Switch back to the staging production endpoint:
+
+```bash
+chain-insights config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
+chain-insights debug off
 chain-insights mcp tools --refresh
 ```
 
@@ -122,14 +136,21 @@ Primary graph MCP config:
 
 ```bash
 chain-insights config get graphMcpEndpoint
-chain-insights config set graphMcpEndpoint http://localhost:8012/mcp
-chain-insights config set graphMcpAuthToken chain-insights-dev-debug
+chain-insights config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
+```
+
+Local debug mode without x402 payments:
+
+```bash
+chain-insights debug on --token chain-insights-dev-debug --endpoint http://localhost:8012/mcp
+chain-insights debug status
 ```
 
 Paid mode for production endpoints that support x402:
 
 ```bash
-chain-insights config set graphMcpEndpoint https://<paid-graph-mcp-host>/mcp
+chain-insights config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
+chain-insights debug off
 chain-insights config set walletPrivateKey 0xYOUR_EVM_PRIVATE_KEY
 chain-insights wallet balance
 ```
@@ -356,8 +377,8 @@ Local MCP tools:
 Use Chain Insights from the repository or from an installed binary:
 
 ```bash
-chain-insights config set graphMcpEndpoint http://localhost:8012/mcp
-chain-insights config set graphMcpAuthToken chain-insights-dev-debug
+chain-insights config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
+chain-insights debug off
 chain-insights mcp tools --refresh
 ```
 
@@ -450,8 +471,7 @@ Run Chain Insights smoke checks:
 ```bash
 cd /home/aphex5/work/chain-insights
 npm run build
-node bin/cli.js config set graphMcpEndpoint http://localhost:8012/mcp
-node bin/cli.js config set graphMcpAuthToken chain-insights-dev-debug
+node bin/cli.js debug on --token chain-insights-dev-debug --endpoint http://localhost:8012/mcp
 node bin/cli.js mcp tools --refresh
 node bin/cli.js mcp call graph_query_batch \
   network=bittensor \
