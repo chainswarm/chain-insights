@@ -1079,6 +1079,7 @@ function fitView() {
 async function loadVisualizationData(toolResult) {
     var dataUrl = toolResult && toolResult.data_url;
     if (!dataUrl) return toolResult;
+    if (!isLocalGraphArtifactUrl(dataUrl)) throw new Error('Graph report URL is not local');
 
     var MAX_RETRIES = 10;
     var BASE_DELAY_MS = 2000;
@@ -1320,6 +1321,8 @@ function boot() {
   var dataUrlParam = params.get('data_url');
   if (dataUrlParam) {
     (async function() {
+      if (!isLocalGraphArtifactUrl(dataUrlParam)) throw new Error('Graph report URL is not local');
+
       var MAX_RETRIES = 10;
       var BASE_DELAY_MS = 2000;
       var MAX_DELAY_MS = 15000;
@@ -1375,7 +1378,7 @@ function boot() {
         showBrowserLink(dataUrlParam);
         loadGraph(graphData);
       }
-    })();
+    })().catch(showLoadError);
   }
 }
 

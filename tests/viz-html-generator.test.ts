@@ -58,6 +58,38 @@ describe('generateHtml (VIZ-02) — graph.html template', () => {
     expect(html).not.toContain('toolResult.app_data')
   })
 
+  it('graph app validates tool result data_url before fetching graph JSON', async () => {
+    const { generateHtml } = await import('../src/viz/html-generator.js')
+    const { GraphData } = await import('../src/viz/graph-model.js')
+    const data = GraphData.parse(validData)
+    const html = generateHtml(data, 'Test Viz')
+
+    const validatorIndex = html.indexOf('if (!isLocalGraphArtifactUrl(dataUrl)) throw new Error')
+    const fetchIndex = html.indexOf('fetch(dataUrl)')
+
+    expect(validatorIndex).toBeGreaterThan(-1)
+    expect(fetchIndex).toBeGreaterThan(-1)
+    expect(validatorIndex).toBeLessThan(fetchIndex)
+    expect(html).not.toContain('/^\\/artifacts\\/[A-Za-z0-9_-]+\\/graph\\.json$/')
+  })
+
+  it('graph app validates query param data_url before fetching graph JSON', async () => {
+    const { generateHtml } = await import('../src/viz/html-generator.js')
+    const { GraphData } = await import('../src/viz/graph-model.js')
+    const data = GraphData.parse(validData)
+    const html = generateHtml(data, 'Test Viz')
+
+    const paramIndex = html.indexOf("var dataUrlParam = params.get('data_url')")
+    const validatorIndex = html.indexOf('if (!isLocalGraphArtifactUrl(dataUrlParam)) throw new Error')
+    const fetchIndex = html.indexOf('fetch(dataUrlParam)')
+
+    expect(paramIndex).toBeGreaterThan(-1)
+    expect(validatorIndex).toBeGreaterThan(paramIndex)
+    expect(fetchIndex).toBeGreaterThan(-1)
+    expect(validatorIndex).toBeLessThan(fetchIndex)
+    expect(html).not.toContain('/artifacts/')
+  })
+
   it('generateHtml output uses Chain Insights brand CSS variables', async () => {
     const { generateHtml } = await import('../src/viz/html-generator.js')
     const { GraphData } = await import('../src/viz/graph-model.js')
