@@ -31,6 +31,8 @@ declare function createApp(): Hono;
 declare function startServer(port?: number): () => void;
 //#endregion
 //#region src/wallet/index.d.ts
+declare function normalizeWalletPrivateKey(value: string): Hex;
+declare function walletAddressFromPrivateKey(privateKey: string): Address;
 /**
  * Encrypts a private key and writes it to ~/.chain-insights/wallet.json.
  * Uses AES-256-GCM with a machine-identity-derived key and a random per-wallet salt.
@@ -39,6 +41,7 @@ declare function startServer(port?: number): () => void;
  * @param privateKey - The EVM private key to encrypt (0x-prefixed)
  */
 declare function encryptKey(privateKey: string): Promise<void>;
+declare function setWalletPrivateKey(privateKey: string): Promise<Address>;
 /**
  * Reads and decrypts the private key from ~/.chain-insights/wallet.json.
  * Throws a human-readable error if wallet is absent or decryption fails.
@@ -179,5 +182,5 @@ declare function generateVisualization(opts: {
   htmlPath: string;
 }>;
 //#endregion
-export { type GraphData as GraphDataType, type GraphEdge as GraphEdgeType, type GraphNode as GraphNodeType, type InvestigatorConfig, buildTopupInfo, createApp, createMcpFetchClient, decryptKey, encryptKey, formatWalletBalance, generateArtifactHtml, generateVisualization, getBalanceUsdc, getTopupUrl, getWalletAccount, getWalletBalanceText, isWalletConfigured, loadConfig, resetConfigCache, saveConfig, startServer, startTopupServer };
+export { type GraphData as GraphDataType, type GraphEdge as GraphEdgeType, type GraphNode as GraphNodeType, type InvestigatorConfig, buildTopupInfo, createApp, createMcpFetchClient, decryptKey, encryptKey, formatWalletBalance, generateArtifactHtml, generateVisualization, getBalanceUsdc, getTopupUrl, getWalletAccount, getWalletBalanceText, isWalletConfigured, loadConfig, normalizeWalletPrivateKey, resetConfigCache, saveConfig, setWalletPrivateKey, startServer, startTopupServer, walletAddressFromPrivateKey };
 //# sourceMappingURL=index.d.mts.map

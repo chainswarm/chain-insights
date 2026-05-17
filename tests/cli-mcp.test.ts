@@ -30,10 +30,12 @@ vi.mock('../src/mcp/format.js', () => ({
 const mockIsWalletConfigured = vi.fn()
 const mockDecryptKey = vi.fn()
 const mockEncryptKey = vi.fn()
+const mockSetWalletPrivateKey = vi.fn()
 vi.mock('../src/wallet/index.js', () => ({
   isWalletConfigured: mockIsWalletConfigured,
   decryptKey: mockDecryptKey,
   encryptKey: mockEncryptKey,
+  setWalletPrivateKey: mockSetWalletPrivateKey,
 }))
 
 // Mock config
@@ -146,9 +148,10 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
 async function runConfigSetAction(key: string, value: string): Promise<void> {
   if (key === 'walletPrivateKey') {
     try {
-      const { encryptKey } = await import('../src/wallet/index.js')
-      await encryptKey(value)
+      const { setWalletPrivateKey } = await import('../src/wallet/index.js')
+      const address = await setWalletPrivateKey(value)
       console.log('Wallet private key encrypted and stored in ~/.chain-insights/wallet.json')
+      console.log(`Wallet address: ${address}`)
     } catch (err) {
       console.error((err as Error).message)
       process.exit(1)
@@ -490,24 +493,25 @@ describe('config set walletPrivateKey interceptor (D-01)', () => {
     vi.restoreAllMocks()
   })
 
-  it('config set walletPrivateKey — calls encryptKey, does NOT call saveConfig', async () => {
-    mockEncryptKey.mockResolvedValue(undefined)
+  it('config set walletPrivateKey — stores key, prints derived address, and does NOT call saveConfig', async () => {
+    mockSetWalletPrivateKey.mockResolvedValue('0xC96aAa54E2d44c299564da76e1cD3184A2386B8D')
 
-    await runConfigSetAction('walletPrivateKey', '0xmyprivatekey')
+    await runConfigSetAction('walletPrivateKey', '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef')
 
-    expect(mockEncryptKey).toHaveBeenCalledWith('0xmyprivatekey')
+    expect(mockSetWalletPrivateKey).toHaveBeenCalledWith('0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef')
     // Critical per D-01: saveConfig must NEVER be called for walletPrivateKey
     expect(mockSaveConfig).not.toHaveBeenCalled()
     expect(consoleLogSpy).toHaveBeenCalledWith(
       expect.stringContaining('encrypted and stored')
     )
+    expect(consoleLogSpy).toHaveBeenCalledWith('Wallet address: 0xC96aAa54E2d44c299564da76e1cD3184A2386B8D')
   })
 
-  it('config set walletPrivateKey — encryptKey throws: exits 1 with error message', async () => {
-    mockEncryptKey.mockRejectedValue(new Error('Encryption failed'))
+  it('config set walletPrivateKey — setWalletPrivateKey throws: exits 1 with error message', async () => {
+    mockSetWalletPrivateKey.mockRejectedValue(new Error('Stored wallet private key is not a valid 0x-prefixed EVM private key'))
 
     await expect(runConfigSetAction('walletPrivateKey', '0xbadkey')).rejects.toThrow('process.exit(1)')
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Encryption failed')
+    expect(consoleErrorSpy).toHaveBeenCalledWith('Stored wallet private key is not a valid 0x-prefixed EVM private key')
     expect(mockSaveConfig).not.toHaveBeenCalled()
   })
 

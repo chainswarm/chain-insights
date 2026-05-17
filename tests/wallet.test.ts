@@ -33,6 +33,21 @@ describe('Wallet module (MCP-01)', () => {
     expect(recovered).toBe(testKey)
   })
 
+  it('encryptKey rejects invalid EVM private keys before writing wallet.json', async () => {
+    const { encryptKey, isWalletConfigured } = await import('../src/wallet/index.js')
+    await expect(encryptKey('0xbadkey')).rejects.toThrow('valid 0x-prefixed EVM private key')
+    await expect(isWalletConfigured()).resolves.toBe(false)
+  })
+
+  it('setWalletPrivateKey stores the key and returns the derived payer address', async () => {
+    const { setWalletPrivateKey, decryptKey } = await import('../src/wallet/index.js')
+    const testKey = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+    const address = await setWalletPrivateKey(testKey)
+    const recovered = await decryptKey()
+    expect(address).toBe('0xC96aAa54E2d44c299564da76e1cD3184A2386B8D')
+    expect(recovered).toBe(testKey)
+  })
+
   it('wallet.json is written with 0o600 permissions', async () => {
     const { encryptKey, walletPath } = await import('../src/wallet/index.js')
     const { stat } = await import('node:fs/promises')

@@ -6,11 +6,15 @@ let node_os = require("node:os");
 node_os = require_chunk.__toESM(node_os, 1);
 let node_crypto = require("node:crypto");
 node_crypto = require_chunk.__toESM(node_crypto, 1);
+let viem_accounts = require("viem/accounts");
 //#region src/wallet/index.ts
 var wallet_exports = /* @__PURE__ */ require_chunk.__exportAll({
 	decryptKey: () => decryptKey,
 	encryptKey: () => encryptKey,
 	isWalletConfigured: () => isWalletConfigured,
+	normalizeWalletPrivateKey: () => normalizeWalletPrivateKey,
+	setWalletPrivateKey: () => setWalletPrivateKey,
+	walletAddressFromPrivateKey: () => walletAddressFromPrivateKey,
 	walletPath: () => walletPath
 });
 function walletPath() {
@@ -18,6 +22,13 @@ function walletPath() {
 }
 function deriveKey(salt) {
 	return node_crypto.default.scryptSync(`${node_os.default.hostname()}:${node_os.default.userInfo().username}`, salt, 32);
+}
+function normalizeWalletPrivateKey(value) {
+	if (!/^0x[0-9a-fA-F]{64}$/.test(value)) throw new Error("Stored wallet private key is not a valid 0x-prefixed EVM private key");
+	return value;
+}
+function walletAddressFromPrivateKey(privateKey) {
+	return (0, viem_accounts.privateKeyToAccount)(normalizeWalletPrivateKey(privateKey)).address;
 }
 /**
 * Encrypts a private key and writes it to ~/.chain-insights/wallet.json.
@@ -27,11 +38,12 @@ function deriveKey(salt) {
 * @param privateKey - The EVM private key to encrypt (0x-prefixed)
 */
 async function encryptKey(privateKey) {
+	const normalizedPrivateKey = normalizeWalletPrivateKey(privateKey);
 	const salt = node_crypto.default.randomBytes(16);
 	const key = deriveKey(salt);
 	const iv = node_crypto.default.randomBytes(12);
 	const cipher = node_crypto.default.createCipheriv("aes-256-gcm", key, iv);
-	const encrypted = Buffer.concat([cipher.update(privateKey, "utf8"), cipher.final()]);
+	const encrypted = Buffer.concat([cipher.update(normalizedPrivateKey, "utf8"), cipher.final()]);
 	const tag = cipher.getAuthTag();
 	const walletData = {
 		salt: salt.toString("hex"),
@@ -42,6 +54,12 @@ async function encryptKey(privateKey) {
 	const p = walletPath();
 	await (0, node_fs_promises.mkdir)(node_path.default.dirname(p), { recursive: true });
 	await (0, node_fs_promises.writeFile)(p, JSON.stringify(walletData, null, 2) + "\n", { mode: 384 });
+}
+async function setWalletPrivateKey(privateKey) {
+	const normalizedPrivateKey = normalizeWalletPrivateKey(privateKey);
+	const address = walletAddressFromPrivateKey(normalizedPrivateKey);
+	await encryptKey(normalizedPrivateKey);
+	return address;
 }
 /**
 * Reads and decrypts the private key from ~/.chain-insights/wallet.json.
@@ -100,6 +118,24 @@ Object.defineProperty(exports, "isWalletConfigured", {
 	enumerable: true,
 	get: function() {
 		return isWalletConfigured;
+	}
+});
+Object.defineProperty(exports, "normalizeWalletPrivateKey", {
+	enumerable: true,
+	get: function() {
+		return normalizeWalletPrivateKey;
+	}
+});
+Object.defineProperty(exports, "setWalletPrivateKey", {
+	enumerable: true,
+	get: function() {
+		return setWalletPrivateKey;
+	}
+});
+Object.defineProperty(exports, "walletAddressFromPrivateKey", {
+	enumerable: true,
+	get: function() {
+		return walletAddressFromPrivateKey;
 	}
 });
 Object.defineProperty(exports, "wallet_exports", {

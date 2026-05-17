@@ -1,10 +1,10 @@
-import { t as __exportAll } from "./rolldown-runtime-wcPFST8Q.mjs";
-import { t as decryptKey } from "./wallet-CKG61Aoq.mjs";
-import { createPublicClient, formatUnits, http } from "viem";
-import { base } from "viem/chains";
-import { privateKeyToAccount } from "viem/accounts";
+const require_chunk = require("./chunk-CZWwpsFl.cjs");
+const require_wallet = require("./wallet-Cxq4zv9u.cjs");
+let viem_accounts = require("viem/accounts");
+let viem = require("viem");
+let viem_chains = require("viem/chains");
 //#region src/wallet/tools.ts
-var tools_exports = /* @__PURE__ */ __exportAll({
+var tools_exports = /* @__PURE__ */ require_chunk.__exportAll({
 	BASE_CHAIN_ID: () => BASE_CHAIN_ID,
 	DEFAULT_BASE_RPC_URL: () => DEFAULT_BASE_RPC_URL,
 	PUBLIC_BASE_RPC_URLS: () => PUBLIC_BASE_RPC_URLS,
@@ -37,23 +37,19 @@ const USDC_ABI = [{
 		type: "uint256"
 	}]
 }];
-function normalizePrivateKey(value) {
-	if (!/^0x[0-9a-fA-F]{64}$/.test(value)) throw new Error("Stored wallet private key is not a valid 0x-prefixed EVM private key");
-	return value;
-}
 async function getWalletAccount() {
-	const privateKey = normalizePrivateKey(await decryptKey());
+	const privateKey = require_wallet.normalizeWalletPrivateKey(await require_wallet.decryptKey());
 	return {
-		address: privateKeyToAccount(privateKey).address,
+		address: (0, viem_accounts.privateKeyToAccount)(privateKey).address,
 		privateKey
 	};
 }
 async function getBalanceUsdc(address, rpcUrl = process.env["BASE_RPC_URL"]) {
 	const rpcUrls = [...rpcUrl ? [rpcUrl] : [], ...PUBLIC_BASE_RPC_URLS.filter((fallbackUrl) => fallbackUrl !== rpcUrl)];
 	for (const url of rpcUrls) try {
-		return formatUnits(await createPublicClient({
-			chain: base,
-			transport: http(url)
+		return (0, viem.formatUnits)(await (0, viem.createPublicClient)({
+			chain: viem_chains.base,
+			transport: (0, viem.http)(url)
 		}).readContract({
 			address: USDC_ADDRESS,
 			abi: USDC_ABI,
@@ -86,6 +82,39 @@ function buildTopupInfo(address, topupUrl) {
 	};
 }
 //#endregion
-export { getWalletBalanceText as a, getWalletAccount as i, formatWalletBalance as n, tools_exports as o, getBalanceUsdc as r, buildTopupInfo as t };
-
-//# sourceMappingURL=tools-ByWZGszy.mjs.map
+Object.defineProperty(exports, "buildTopupInfo", {
+	enumerable: true,
+	get: function() {
+		return buildTopupInfo;
+	}
+});
+Object.defineProperty(exports, "formatWalletBalance", {
+	enumerable: true,
+	get: function() {
+		return formatWalletBalance;
+	}
+});
+Object.defineProperty(exports, "getBalanceUsdc", {
+	enumerable: true,
+	get: function() {
+		return getBalanceUsdc;
+	}
+});
+Object.defineProperty(exports, "getWalletAccount", {
+	enumerable: true,
+	get: function() {
+		return getWalletAccount;
+	}
+});
+Object.defineProperty(exports, "getWalletBalanceText", {
+	enumerable: true,
+	get: function() {
+		return getWalletBalanceText;
+	}
+});
+Object.defineProperty(exports, "tools_exports", {
+	enumerable: true,
+	get: function() {
+		return tools_exports;
+	}
+});

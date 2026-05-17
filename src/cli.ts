@@ -275,9 +275,10 @@ program
         // must NEVER be written to config.json.
         if (key === 'walletPrivateKey') {
           try {
-            const { encryptKey } = await import('./wallet/index.js')
-            await encryptKey(value)
+            const { setWalletPrivateKey } = await import('./wallet/index.js')
+            const address = await setWalletPrivateKey(value)
             console.log('Wallet private key encrypted and stored in ~/.chain-insights/wallet.json')
+            console.log(`Wallet address: ${address}`)
           } catch (err) {
             console.error((err as Error).message)
             process.exit(1)

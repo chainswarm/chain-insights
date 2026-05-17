@@ -2,6 +2,8 @@ import crypto from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { readFile, writeFile, mkdir, stat } from 'node:fs/promises'
+import type { Address, Hex } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 
 // Path derived at call time so tests can override HOME.
 export function walletPath(): string {
@@ -25,6 +27,17 @@ interface WalletData {
   data: string
 }
 
+export function normalizeWalletPrivateKey(value: string): Hex {
+  if (!/^0x[0-9a-fA-F]{64}$/.test(value)) {
+    throw new Error('Stored wallet private key is not a valid 0x-prefixed EVM private key')
+  }
+  return value as Hex
+}
+
+export function walletAddressFromPrivateKey(privateKey: string): Address {
+  return privateKeyToAccount(normalizeWalletPrivateKey(privateKey)).address
+}
+
 /**
  * Encrypts a private key and writes it to ~/.chain-insights/wallet.json.
  * Uses AES-256-GCM with a machine-identity-derived key and a random per-wallet salt.
@@ -33,13 +46,14 @@ interface WalletData {
  * @param privateKey - The EVM private key to encrypt (0x-prefixed)
  */
 export async function encryptKey(privateKey: string): Promise<void> {
+  const normalizedPrivateKey = normalizeWalletPrivateKey(privateKey)
   const salt = crypto.randomBytes(16)
   const key = deriveKey(salt)
   const iv = crypto.randomBytes(12)
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
 
   const encrypted = Buffer.concat([
-    cipher.update(privateKey, 'utf8'),
+    cipher.update(normalizedPrivateKey, 'utf8'),
     cipher.final(),
   ])
 
@@ -56,6 +70,13 @@ export async function encryptKey(privateKey: string): Promise<void> {
   const p = walletPath()
   await mkdir(path.dirname(p), { recursive: true })
   await writeFile(p, JSON.stringify(walletData, null, 2) + '\n', { mode: 0o600 })
+}
+
+export async function setWalletPrivateKey(privateKey: string): Promise<Address> {
+  const normalizedPrivateKey = normalizeWalletPrivateKey(privateKey)
+  const address = walletAddressFromPrivateKey(normalizedPrivateKey)
+  await encryptKey(normalizedPrivateKey)
+  return address
 }
 
 /**

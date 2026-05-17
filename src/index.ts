@@ -4,7 +4,14 @@ export { loadConfig, saveConfig, resetConfigCache } from './config/index.js'
 export { createApp } from './server/app.js'
 export { startServer } from './server/index.js'
 export type { InvestigatorConfig } from './config/schema.js'
-export { encryptKey, decryptKey, isWalletConfigured } from './wallet/index.js'
+export {
+  encryptKey,
+  decryptKey,
+  isWalletConfigured,
+  normalizeWalletPrivateKey,
+  setWalletPrivateKey,
+  walletAddressFromPrivateKey,
+} from './wallet/index.js'
 export {
   buildTopupInfo,
   formatWalletBalance,

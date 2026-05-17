@@ -61,7 +61,7 @@ function optionalNumber(value) {
 async function withGraphMcpClient(name, fn) {
 	const { loadConfig } = await import("./config-BJRFmZc7.mjs").then((n) => n.t);
 	const config = await loadConfig();
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-C7xAKvqC.mjs").then((n) => n.t);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-DeFe-o0t.mjs").then((n) => n.t);
 	const paymentFetch = await createConfiguredGraphMcpFetch(config);
 	const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
 	const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
@@ -191,9 +191,10 @@ program.command("config").description("Read or write configuration values").addC
 })).addCommand(new Command("set").argument("<key>", "Config key to write").argument("<value>", "Value to set").action(async (key, value) => {
 	if (key === "walletPrivateKey") {
 		try {
-			const { encryptKey } = await import("./wallet-CKG61Aoq.mjs").then((n) => n.i);
-			await encryptKey(value);
+			const { setWalletPrivateKey } = await import("./wallet-CY4AHZew.mjs").then((n) => n.s);
+			const address = await setWalletPrivateKey(value);
 			console.log("Wallet private key encrypted and stored in ~/.chain-insights/wallet.json");
+			console.log(`Wallet address: ${address}`);
 		} catch (err) {
 			console.error(err.message);
 			process.exit(1);
@@ -216,7 +217,7 @@ program.command("config").description("Read or write configuration values").addC
 }));
 program.command("wallet").description("Manage the local Base USDC payment wallet").addCommand(new Command("address").description("Print the local payment wallet address").action(async () => {
 	try {
-		const { getWalletAccount } = await import("./tools-ByWZGszy.mjs").then((n) => n.o);
+		const { getWalletAccount } = await import("./tools-DHdOU70e.mjs").then((n) => n.o);
 		const account = await getWalletAccount();
 		console.log(account.address);
 	} catch (err) {
@@ -225,7 +226,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new Command("balance").description("Show the local payment wallet Base USDC balance").action(async () => {
 	try {
-		const { getWalletBalanceText } = await import("./tools-ByWZGszy.mjs").then((n) => n.o);
+		const { getWalletBalanceText } = await import("./tools-DHdOU70e.mjs").then((n) => n.o);
 		console.log(await getWalletBalanceText());
 	} catch (err) {
 		console.error(err.message);
@@ -233,7 +234,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new Command("topup").description("Open a local browser page to top up the payment wallet").option("--no-open", "Print the top-up URL without opening a browser").option("--json", "Print machine-readable top-up metadata").action(async (opts) => {
 	try {
-		const { buildTopupInfo, getWalletAccount } = await import("./tools-ByWZGszy.mjs").then((n) => n.o);
+		const { buildTopupInfo, getWalletAccount } = await import("./tools-DHdOU70e.mjs").then((n) => n.o);
 		const { startTopupServer } = await import("./topup-server-WM-OiJzV.mjs").then((n) => n.r);
 		const account = await getWalletAccount();
 		const url = await startTopupServer(account);
@@ -261,7 +262,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { formatToolsTable } = await import("./format-TsKe-chT.mjs");
 		const { visibleRemoteTools } = await import("./tool-visibility-B-nSHuFy.mjs").then((n) => n.n);
 		const { loadConfig } = await import("./config-BJRFmZc7.mjs").then((n) => n.t);
-		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-C7xAKvqC.mjs").then((n) => n.t);
+		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-DeFe-o0t.mjs").then((n) => n.t);
 		const config = await loadConfig();
 		const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
 		let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint);
@@ -560,7 +561,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await import("./runner-CSwMv9ab.mjs");
+		const { PlaybookRunner } = await import("./runner-DKIS1TBe.mjs");
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,

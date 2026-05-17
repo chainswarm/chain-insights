@@ -1,7 +1,7 @@
 import { createPublicClient, formatUnits, http, type Address, type Hex } from 'viem'
 import { base } from 'viem/chains'
 import { privateKeyToAccount } from 'viem/accounts'
-import { decryptKey } from './index.js'
+import { decryptKey, normalizeWalletPrivateKey } from './index.js'
 
 export const BASE_CHAIN_ID = 8453
 export const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as const
@@ -37,15 +37,8 @@ export interface TopupInfo {
   topup_url?: string
 }
 
-function normalizePrivateKey(value: string): Hex {
-  if (!/^0x[0-9a-fA-F]{64}$/.test(value)) {
-    throw new Error('Stored wallet private key is not a valid 0x-prefixed EVM private key')
-  }
-  return value as Hex
-}
-
 export async function getWalletAccount(): Promise<PaymentWalletAccount> {
-  const privateKey = normalizePrivateKey(await decryptKey())
+  const privateKey = normalizeWalletPrivateKey(await decryptKey()) as Hex
   const account = privateKeyToAccount(privateKey)
   return { address: account.address, privateKey }
 }
