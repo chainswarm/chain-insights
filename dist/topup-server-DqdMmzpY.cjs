@@ -213,6 +213,17 @@ async function getBalanceUsdc(wallet) {
 	} catch {}
 	return "unknown";
 }
+async function getBalanceEth(wallet) {
+	const envRpcUrl = process.env.BASE_RPC_URL;
+	const rpcUrls = [...envRpcUrl ? [envRpcUrl] : [], ...PUBLIC_BASE_RPC_URLS.filter((url) => url !== envRpcUrl)];
+	for (const rpcUrl of rpcUrls) try {
+		return (0, viem.formatEther)(await (0, viem.createPublicClient)({
+			chain: viem_chains.base,
+			transport: (0, viem.http)(rpcUrl)
+		}).getBalance({ address: wallet.address }));
+	} catch {}
+	return "unknown";
+}
 //#endregion
 //#region src/wallet/mcp-proxy/topup-server.ts
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
@@ -246,18 +257,24 @@ async function startTopupServer$1(wallet) {
 				return;
 			}
 			if (req.url === "/api/balance") {
-				getBalanceUsdc(wallet).then((balance) => {
+				Promise.all([getBalanceUsdc(wallet), getBalanceEth(wallet)]).then(([balanceUsdc, balanceEth]) => {
 					res.writeHead(200, {
 						"Content-Type": "application/json",
 						"Access-Control-Allow-Origin": "*"
 					});
-					res.end(JSON.stringify({ balance_usdc: balance }));
+					res.end(JSON.stringify({
+						balance_usdc: balanceUsdc,
+						balance_eth: balanceEth
+					}));
 				}).catch(() => {
 					res.writeHead(200, {
 						"Content-Type": "application/json",
 						"Access-Control-Allow-Origin": "*"
 					});
-					res.end(JSON.stringify({ balance_usdc: "unknown" }));
+					res.end(JSON.stringify({
+						balance_usdc: "unknown",
+						balance_eth: "unknown"
+					}));
 				});
 				return;
 			}
@@ -365,6 +382,10 @@ function generateArtifactHtml(walletAddress, topupUrl) {
     color: #4feb69;
     font-weight: 600;
   }
+  .balance-line .gas {
+    color: #f2dda6;
+    font-weight: 600;
+  }
   @keyframes flash { 0%{opacity:0.4} 100%{opacity:1} }
   .balance-line.flash .amount { animation: flash 1s ease-out; }
   .hint {
@@ -384,7 +405,7 @@ function generateArtifactHtml(walletAddress, topupUrl) {
     <div class="address-hint" id="addrHint">Click to copy address</div>
   </div>
   <div class="badge"><span class="dot"></span>Base Network &middot; USDC</div>
-  <p class="balance-line" id="balLine">Current balance: <span class="amount" id="bal">--</span> USDC<br>Fund your wallet to use blockchain intelligence tools.</p>
+  <p class="balance-line" id="balLine">Current balance: <span class="amount" id="bal">--</span> USDC<br>Gas balance: <span class="gas" id="gas">--</span> ETH<br>Base ETH is used for one-time approval gas.</p>
 </div>
 <script>
 // MCP Apps protocol handshake (matches @modelcontextprotocol/ext-apps App.connect())
@@ -444,10 +465,13 @@ function fetchBal() {
     .then(function(r) { return r.json(); })
     .then(function(d) {
       var el = document.getElementById('bal');
+      var gas = document.getElementById('gas');
       var line = document.getElementById('balLine');
       var val = parseFloat(d.balance_usdc || '0').toFixed(2);
-      if (d.balance_usdc === 'unknown') { el.textContent = '--'; return; }
+      var gasVal = d.balance_eth === 'unknown' ? '--' : parseFloat(d.balance_eth || '0').toFixed(6);
+      if (d.balance_usdc === 'unknown') { el.textContent = '--'; gas.textContent = gasVal; return; }
       el.textContent = val;
+      gas.textContent = gasVal;
       if (lastBal !== null && val !== lastBal) {
         line.classList.remove('flash');
         void line.offsetWidth;
@@ -631,6 +655,15 @@ function generatePage(walletAddress) {
     margin-left: 4px;
   }
 
+  .gas-note {
+    margin-top: -8px;
+    margin-bottom: 16px;
+    color: rgba(255,255,255,0.45);
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: left;
+  }
+
   .metamask-btn {
     width: 100%;
     padding: 14px;
@@ -721,6 +754,11 @@ function generatePage(walletAddress) {
       <span class="balance-label">Current balance</span>
       <span class="balance-value" id="balance">—<span class="currency">USDC</span></span>
     </div>
+    <div class="balance-row">
+      <span class="balance-label">Gas balance</span>
+      <span class="balance-value" id="gasBalance">—<span class="currency">ETH</span></span>
+    </div>
+    <p class="gas-note">Base ETH is used for one-time approval gas.</p>
 
     <div class="status" id="status"></div>
   </div>
@@ -775,8 +813,11 @@ async function fetchBalance() {
     if (json.balance_usdc === 'unknown') throw new Error('balance unavailable');
     var balance = Number(json.balance_usdc || 0).toFixed(2);
     document.getElementById('balance').innerHTML = balance + '<span class="currency">USDC</span>';
+    var gasBalance = json.balance_eth === 'unknown' ? '—' : Number(json.balance_eth || 0).toFixed(6);
+    document.getElementById('gasBalance').innerHTML = gasBalance + '<span class="currency">ETH</span>';
   } catch(e) {
     document.getElementById('balance').innerHTML = '—<span class="currency">USDC</span>';
+    document.getElementById('gasBalance').innerHTML = '—<span class="currency">ETH</span>';
   }
 }
 fetchBalance();
