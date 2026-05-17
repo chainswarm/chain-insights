@@ -49,11 +49,9 @@ Set `SKIP_BUILD=1` only when deliberately reusing an existing Chain Insights `di
 <uat_contract>
 The UAT must verify all of these facts:
 
-- GraphRAG direct MCP `address_risk` succeeds through debug bearer auth.
-- GraphRAG direct MCP returns `content` text and `structuredContent.schema = chain-insights.result.v1`.
-- GraphRAG direct MCP does not expose `app_data`, `nodes`, `edges`, `flows`, `edge_anchors`, or `transfers` in `structuredContent`.
-- GraphRAG direct MCP puts graph data only in `_meta.chainInsights.graph.data`.
-- GraphRAG graph data has schema `chain-insights.graph.v1` and keys `schema`, `nodes`, `edges`, `flows`, `edge_anchors`; it must not include `transfers`.
+- GraphRAG direct MCP exposes graph primitives `graph_query` and `graph_query_batch` through debug bearer auth.
+- If GraphRAG direct MCP also exposes high-level `address_risk`, that direct tool succeeds, returns `content` text and `structuredContent.schema = chain-insights.result.v1`, does not expose `app_data`, `nodes`, `edges`, `flows`, `edge_anchors`, or `transfers` in `structuredContent`, and puts graph data only in `_meta.chainInsights.graph.data`.
+- If GraphRAG direct MCP is primitive-only, Chain Insights proxy high-level tools are still mandatory and must build their graph reports from the primitive graph path.
 - Chain Insights proxy `tools/list` exposes local `balance` and `help`, plus public proxied GraphRAG tools.
 - Chain Insights proxy tool descriptions must not contain stale `app_data` wording after schema refresh.
 - Chain Insights proxy `address_risk` returns only local graph report metadata in `_meta.chainInsights.graph = { schema, url }`.

@@ -184,33 +184,37 @@ npx @modelcontextprotocol/inspector \
   --header "X-MCP-Debug-Token: ${DEBUG_TOKEN}" \
   --method tools/list >"${DIRECT_TOOLS_JSON}"
 
-node - "${DIRECT_TOOLS_JSON}" <<'NODE'
+node - "${DIRECT_TOOLS_JSON}" "${RUN_DIR}/direct-high-level-tools.txt" <<'NODE'
 const fs = require('node:fs')
 const file = process.argv[2]
+const highLevelFile = process.argv[3]
 const data = JSON.parse(fs.readFileSync(file, 'utf8'))
 const tools = data.tools || []
 const names = new Set(tools.map((tool) => tool.name))
-const required = ['address_risk', 'track_funds', 'graph_query', 'graph_query_batch']
+const required = ['graph_query', 'graph_query_batch']
 const missing = required.filter((name) => !names.has(name))
 if (missing.length) throw new Error(`direct tools/list missing tools: ${missing.join(', ')}`)
 if (JSON.stringify(tools).includes('app_data')) throw new Error('direct tools/list still contains app_data')
-console.log(`[uat] direct tools/list ok: ${tools.length} tools`)
+const hasHighLevel = ['address_risk', 'track_funds'].every((name) => names.has(name))
+fs.writeFileSync(highLevelFile, hasHighLevel ? 'yes\n' : 'no\n')
+console.log(`[uat] direct tools/list ok: ${tools.length} tools (${hasHighLevel ? 'high-level' : 'primitive-only'})`)
 NODE
 
 DIRECT_JSON="${RUN_DIR}/direct-address-risk.json"
-log "calling direct GraphRAG address_risk"
-npx @modelcontextprotocol/inspector \
-  --cli "${MCP_ENDPOINT}" \
-  --transport http \
-  --header "Authorization: Bearer ${DEBUG_TOKEN}" \
-  --header "X-MCP-Debug-Token: ${DEBUG_TOKEN}" \
-  --method tools/call \
-  --tool-name address_risk \
-  --tool-arg "network=${NETWORK}" \
-  --tool-arg "address=${UAT_ADDRESS}" \
-  --tool-arg include_attachments=true >"${DIRECT_JSON}"
+if [[ "$(cat "${RUN_DIR}/direct-high-level-tools.txt")" == "yes" ]]; then
+  log "calling direct GraphRAG address_risk"
+  npx @modelcontextprotocol/inspector \
+    --cli "${MCP_ENDPOINT}" \
+    --transport http \
+    --header "Authorization: Bearer ${DEBUG_TOKEN}" \
+    --header "X-MCP-Debug-Token: ${DEBUG_TOKEN}" \
+    --method tools/call \
+    --tool-name address_risk \
+    --tool-arg "network=${NETWORK}" \
+    --tool-arg "address=${UAT_ADDRESS}" \
+    --tool-arg include_attachments=true >"${DIRECT_JSON}"
 
-node - "${DIRECT_JSON}" <<'NODE'
+  node - "${DIRECT_JSON}" <<'NODE'
 const fs = require('node:fs')
 const file = process.argv[2]
 const data = JSON.parse(fs.readFileSync(file, 'utf8'))
@@ -234,6 +238,9 @@ if (Object.prototype.hasOwnProperty.call(graphData || {}, 'transfers')) errors.p
 if (errors.length) throw new Error(errors.join('; '))
 console.log(`[uat] direct address_risk ok: nodes=${graphData.nodes.length} edges=${graphData.edges.length} flows=${graphData.flows.length} edge_anchors=${graphData.edge_anchors.length}`)
 NODE
+else
+  log "direct GraphRAG high-level tools absent; primitive-only endpoint, skipping direct address_risk check"
+fi
 
 PROXY_TOOLS_JSON="${RUN_DIR}/proxy-tools-list.json"
 log "checking Chain Insights proxy tools/list"
