@@ -342,7 +342,7 @@ const file = process.argv[2]
 const address = process.argv[3]
 const text = fs.readFileSync(file, 'utf8').trim()
 const data = JSON.parse(text)
-const first = data.results?.[0]
+const first = data.facts?.query?.results?.[0] || data.results?.[0]
 if (!first || first.address !== address) {
   throw new Error(`graph_query did not return expected address ${address}`)
 }
