@@ -630,6 +630,22 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], de
     const deposit = ensure(lead.deposit_address)
     deposit.in += lead.amount_usd ?? 0
   }
+  const sourceMatchEdges = sourceMatches.flatMap((source) => {
+    const path = source.path.length >= 2 ? source.path : [source.deposit_address, source.source_exchange]
+    const edges: Array<Record<string, unknown>> = []
+    for (let index = path.length - 1; index > 0; index -= 1) {
+      edges.push({
+        source: path[index],
+        target: path[index - 1],
+        edge_type: 'flows_to',
+        usd_amount: 0,
+        amount_sum: 0,
+        tx_count: 0,
+        direction: 'traceback',
+      })
+    }
+    return edges
+  })
 
   return normalizeGraphPayload({
     schema: 'chain-insights.graph.v1',
@@ -657,15 +673,7 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], de
         last_tx_id: flow.last_tx_id,
         terminal_exchange: flow.terminal_exchange,
       })),
-      ...sourceMatches.map((source) => ({
-        source: source.source_exchange,
-        target: source.deposit_address,
-        edge_type: 'flows_to',
-        usd_amount: 0,
-        amount_sum: 0,
-        tx_count: 0,
-        direction: 'traceback',
-      })),
+      ...sourceMatchEdges,
       ...reverseLeads.map((lead) => ({
         source: lead.address,
         target: lead.deposit_address,

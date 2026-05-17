@@ -87,6 +87,11 @@ function parseAddressList(value: string | string[] | undefined): string[] {
     .filter(Boolean)
 }
 
+function graphArray(graphData: Record<string, unknown>, key: string): Array<Record<string, unknown>> {
+  const value = graphData[key]
+  return Array.isArray(value) ? value.filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null && !Array.isArray(item)) : []
+}
+
 function addressProfileQuery(address: string): { id: string; query: string } {
   return {
     id: 'address_profile',
@@ -104,9 +109,9 @@ function exchangeOutflowsQuery(address: string): { id: string; query: string } {
     query: [
       `MATCH p = (a:Address {address: "${escapeCypherString(address)}"})-[:FLOWS_TO *BFS (e, v | true)]->(exchange:Exchange)`,
       'WHERE a <> exchange AND NOT any(n IN nodes(p)[1..-1] WHERE "Exchange" IN labels(n))',
-      'WITH p, exchange, [n IN nodes(p) | n.address] AS path, [n IN nodes(p) | {address: n.address, labels: n.labels, system_labels: labels(n), address_type: n.address_type, address_subtypes: n.address_subtypes}] AS path_nodes, relationships(p) AS rels',
-      'WITH p, exchange, path, path_nodes, rels, rels[size(rels)-1] AS terminal',
-      'RETURN "outflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, labels(exchange) AS exchange_system_labels, exchange.address_type AS exchange_address_type, exchange.address_subtypes AS exchange_address_subtypes, path[size(path)-2] AS deposit_address, size(path)-1 AS hops, terminal.amount_sum AS amount_sum, terminal.amount_usd_sum AS amount_usd_sum, terminal.tx_count AS tx_count, path, path_nodes',
+      'WITH p, exchange, [n IN nodes(p) | n.address] AS path, [n IN nodes(p) | {address: n.address, labels: n.labels, system_labels: labels(n), address_type: n.address_type, address_subtypes: n.address_subtypes}] AS path_nodes, [r IN relationships(p) | {amount_sum: r.amount_sum, amount_usd_sum: r.amount_usd_sum, tx_count: r.tx_count, first_tx_id: r.first_tx_id, last_tx_id: r.last_tx_id}] AS edge_props',
+      'WITH p, exchange, path, path_nodes, edge_props, edge_props[size(edge_props)-1] AS terminal',
+      'RETURN "outflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, labels(exchange) AS exchange_system_labels, exchange.address_type AS exchange_address_type, exchange.address_subtypes AS exchange_address_subtypes, path[size(path)-2] AS deposit_address, size(path)-1 AS hops, terminal.amount_sum AS amount_sum, terminal.amount_usd_sum AS amount_usd_sum, terminal.tx_count AS tx_count, path, path_nodes, edge_props',
       'ORDER BY amount_usd_sum DESC, amount_sum DESC',
       'LIMIT 10',
     ].join(' '),
@@ -119,9 +124,9 @@ function exchangeInflowsQuery(address: string): { id: string; query: string } {
     query: [
       `MATCH p = (exchange:Exchange)-[:FLOWS_TO *BFS (e, v | true)]->(a:Address {address: "${escapeCypherString(address)}"})`,
       'WHERE a <> exchange AND NOT any(n IN nodes(p)[1..-1] WHERE "Exchange" IN labels(n))',
-      'WITH p, exchange, [n IN nodes(p) | n.address] AS path, [n IN nodes(p) | {address: n.address, labels: n.labels, system_labels: labels(n), address_type: n.address_type, address_subtypes: n.address_subtypes}] AS path_nodes, relationships(p) AS rels',
-      'WITH p, exchange, path, path_nodes, rels, rels[size(rels)-1] AS terminal',
-      'RETURN "inflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, labels(exchange) AS exchange_system_labels, exchange.address_type AS exchange_address_type, exchange.address_subtypes AS exchange_address_subtypes, path[1] AS withdrawal_address, size(path)-1 AS hops, terminal.amount_sum AS amount_sum, terminal.amount_usd_sum AS amount_usd_sum, terminal.tx_count AS tx_count, path, path_nodes',
+      'WITH p, exchange, [n IN nodes(p) | n.address] AS path, [n IN nodes(p) | {address: n.address, labels: n.labels, system_labels: labels(n), address_type: n.address_type, address_subtypes: n.address_subtypes}] AS path_nodes, [r IN relationships(p) | {amount_sum: r.amount_sum, amount_usd_sum: r.amount_usd_sum, tx_count: r.tx_count, first_tx_id: r.first_tx_id, last_tx_id: r.last_tx_id}] AS edge_props',
+      'WITH p, exchange, path, path_nodes, edge_props, edge_props[size(edge_props)-1] AS terminal',
+      'RETURN "inflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, labels(exchange) AS exchange_system_labels, exchange.address_type AS exchange_address_type, exchange.address_subtypes AS exchange_address_subtypes, path[1] AS withdrawal_address, size(path)-1 AS hops, terminal.amount_sum AS amount_sum, terminal.amount_usd_sum AS amount_usd_sum, terminal.tx_count AS tx_count, path, path_nodes, edge_props',
       'ORDER BY amount_usd_sum DESC, amount_sum DESC',
       'LIMIT 10',
     ].join(' '),
@@ -156,9 +161,35 @@ function stringArrayValue(value: unknown): string[] | undefined {
   return undefined
 }
 
-function buildRiskGraph(address: string, rows: Array<Record<string, unknown>>, network: string): Record<string, unknown> {
+function restoreSystemLabels(graph: Record<string, unknown>, rawNodes: Array<Record<string, unknown>>): Record<string, unknown> {
+  if (!Array.isArray(graph['nodes'])) return graph
+  const labelsByAddress = new Map(rawNodes
+    .map((node) => [typeof node['address'] === 'string' ? node['address'] : typeof node['id'] === 'string' ? node['id'] : '', stringArrayValue(node['system_labels'])] as const)
+    .filter((entry): entry is readonly [string, string[]] => Boolean(entry[0]) && Array.isArray(entry[1]) && entry[1].length > 0))
+  return {
+    ...graph,
+    nodes: graph['nodes'].map((node) => {
+      if (typeof node !== 'object' || node === null || Array.isArray(node)) return node
+      const record = node as Record<string, unknown>
+      const address = typeof record['address'] === 'string' ? record['address'] : typeof record['id'] === 'string' ? record['id'] : ''
+      const systemLabels = labelsByAddress.get(address)
+      return systemLabels ? { ...record, system_labels: systemLabels } : record
+    }),
+  }
+}
+
+function buildRiskGraph(address: string, profile: Record<string, unknown>, rows: Array<Record<string, unknown>>, network: string): Record<string, unknown> {
   const nodes = new Map<string, Record<string, unknown>>()
-  nodes.set(address, { id: address, address, node_type: 'address', labels: [], roles: ['subject'] })
+  nodes.set(address, {
+    id: address,
+    address,
+    node_type: 'address',
+    labels: stringArrayValue(profile['display_labels']) ?? [],
+    ...(stringArrayValue(profile['system_labels']) ? { system_labels: stringArrayValue(profile['system_labels']) } : {}),
+    ...(typeof profile['address_type'] === 'string' ? { address_type: profile['address_type'] } : {}),
+    ...(stringArrayValue(profile['address_subtypes']) ? { address_subtypes: stringArrayValue(profile['address_subtypes']) } : {}),
+    roles: ['subject'],
+  })
   const edges: Array<Record<string, unknown>> = []
   const mergeNode = (entry: string, metadata?: Record<string, unknown>) => {
     const existing = nodes.get(entry) ?? { id: entry, address: entry, node_type: 'address', labels: [] }
@@ -197,25 +228,30 @@ function buildRiskGraph(address: string, rows: Array<Record<string, unknown>>, n
       })
     }
     for (let index = 0; index < path.length - 1; index += 1) {
+      const edgeProps = Array.isArray(row['edge_props']) ? row['edge_props'] as Array<Record<string, unknown>> : []
+      const edge = edgeProps[index] ?? row
       edges.push({
         source: path[index],
         target: path[index + 1],
         edge_type: 'flows_to',
-        usd_amount: row['amount_usd_sum'] ?? row['amount_sum'] ?? 0,
-        amount_sum: row['amount_sum'] ?? 0,
-        tx_count: row['tx_count'] ?? 0,
+        usd_amount: edge['amount_usd_sum'] ?? edge['amount_sum'] ?? 0,
+        amount_sum: edge['amount_sum'] ?? 0,
+        tx_count: edge['tx_count'] ?? 0,
+        first_tx_id: edge['first_tx_id'],
+        last_tx_id: edge['last_tx_id'],
         direction: row['direction'],
       })
     }
   }
-  return normalizeGraphPayload({
+  const rawNodes = [...nodes.values()]
+  return restoreSystemLabels(normalizeGraphPayload({
     schema: 'chain-insights.graph.v1',
-    nodes: [...nodes.values()],
+    nodes: rawNodes,
     edges,
     flows: [],
     edge_anchors: [],
     metadata: { address, network, generated_at: new Date().toISOString() },
-  })
+  }), rawNodes)
 }
 
 export async function addressRisk(remoteClient: Client, options: AddressRiskOptions): Promise<{
@@ -241,7 +277,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   const inflows = resultsFor(batch, 'exchange_inflows')
   const connections = compareAddress ? resultsFor(batch, 'connection_probe') : []
   const exchangeRows = [...outflows, ...inflows]
-  const graphData = buildRiskGraph(address, exchangeRows, network)
+  const graphData = buildRiskGraph(address, profile, exchangeRows, network)
 
   const lines = [
     `Address risk for ${network}:${address}`,
@@ -332,6 +368,9 @@ export async function trackFunds(
     nodes: runs.flatMap((run) => Array.isArray(run.result.graphData.nodes) ? run.result.graphData.nodes : []),
     edges: runs.flatMap((run) => Array.isArray(run.result.graphData.edges) ? run.result.graphData.edges : []),
     flows: runs.flatMap((run) => Array.isArray(run.result.graphData.flows) ? run.result.graphData.flows : []),
+    deposits: runs.flatMap((run) => graphArray(run.result.graphData, 'deposits').map((item) => ({ ...item, run_role: run.role, run_address: run.address }))),
+    source_matches: runs.flatMap((run) => graphArray(run.result.graphData, 'source_matches').map((item) => ({ ...item, run_role: run.role, run_address: run.address }))),
+    reverse_leads: runs.flatMap((run) => graphArray(run.result.graphData, 'reverse_leads').map((item) => ({ ...item, run_role: run.role, run_address: run.address }))),
     edge_anchors: [],
     metadata: { network, trusted_addresses: trusted, untrusted_addresses: untrusted, generated_at: new Date().toISOString() },
   })

@@ -893,9 +893,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
             source_labels: ['Exchange'],
             source_display_labels: ['Bitget'],
             source_address_type: 'substrate',
-            hops: 1,
-            addresses: ['5Deposit', '5SourceExchange'],
-            node_labels: [['Address'], ['Address', 'Exchange']],
+            hops: 2,
+            addresses: ['5Deposit', '5SourceMid', '5SourceExchange'],
+            node_labels: [['Address'], ['Address'], ['Address', 'Exchange']],
+            path_nodes: [
+              { address: '5Deposit', labels: ['deposit'], system_labels: ['Address'], address_type: 'substrate' },
+              { address: '5SourceMid', labels: ['source bridge'], system_labels: ['Address'], address_type: 'substrate' },
+              { address: '5SourceExchange', labels: ['Bitget'], system_labels: ['Address', 'Exchange'], address_type: 'substrate' },
+            ],
           }],
         },
         { id: 'backward_from_deposit_2', ok: true, results: [] },
@@ -941,6 +946,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       D2: '5OtherDeposit',
       E2: '5OtherExchange',
       X1: '5SourceExchange',
+      I1: '5SourceMid',
       L1: '5Lead',
     })
     expect(result.content[0].text).toContain('Deposit candidates: D1, D2')
@@ -955,7 +961,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const graphRaw = await readFile(join(testDataDir, 'reports', 'graphs', filename), 'utf8')
     const graph = JSON.parse(graphRaw) as {
       nodes: Array<Record<string, unknown> & { address: string; roles?: string[]; labels?: string[]; address_type?: string }>
-      edges: Array<Record<string, unknown> & { target: string; terminal_exchange?: boolean; edge_type?: string }>
+      edges: Array<Record<string, unknown> & { source?: string; target: string; terminal_exchange?: boolean; edge_type?: string; direction?: string }>
     }
     expect(graph.nodes[0]).toHaveProperty('node_type', 'address')
     expect(graph.nodes[0]).not.toHaveProperty('entity_kind')
@@ -973,6 +979,16 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(graph.nodes.find((node) => node.address === '5SourceExchange')?.roles).toContain('exchange')
     expect(graph.nodes.find((node) => node.address === '5SourceExchange')?.labels).toEqual(['Bitget'])
     expect(graph.nodes.find((node) => node.address === '5SourceExchange')?.address_type).toBe('substrate')
+    expect(graph.nodes.find((node) => node.address === '5SourceMid')?.labels).toEqual(['source bridge'])
+    expect(graph.edges.find((edge) => edge.source === '5SourceExchange' && edge.target === '5Deposit')).toBeUndefined()
+    expect(graph.edges.find((edge) => edge.source === '5SourceExchange' && edge.target === '5SourceMid')).toMatchObject({
+      edge_type: 'flows_to',
+      direction: 'traceback',
+    })
+    expect(graph.edges.find((edge) => edge.source === '5SourceMid' && edge.target === '5Deposit')).toMatchObject({
+      edge_type: 'flows_to',
+      direction: 'traceback',
+    })
     expect(graph.nodes.find((node) => node.address === '5Lead')?.roles).toContain('lead')
   })
 
@@ -1004,7 +1020,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                 ok: true,
                 results: [{
                   address: '5Addr',
-                  labels: ['Address'],
+                  display_labels: ['validator'],
+                  system_labels: ['Address', 'Validator'],
+                  address_type: 'substrate',
+                  address_subtypes: ['validator_hotkey'],
                   confluence_score: 0.82,
                   ml_risk_level: 'high',
                   degree_in: 3,
@@ -1024,6 +1043,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                   hops: 2,
                   amount_sum: 44,
                   amount_usd_sum: 88,
+                  edge_props: [
+                    { amount_sum: 11, amount_usd_sum: 22, tx_count: 1, first_tx_id: 'risk-1', last_tx_id: 'risk-1' },
+                    { amount_sum: 44, amount_usd_sum: 88, tx_count: 2, first_tx_id: 'risk-2', last_tx_id: 'risk-2' },
+                  ],
                   path: ['5Addr', '5Deposit', '5Exchange'],
                 }],
               },
@@ -1060,10 +1083,31 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(graph.nodes[0]).not.toHaveProperty('entity_kind')
     expect(graph.nodes[0]).not.toHaveProperty('raw_labels')
     expect(graph.nodes[0]).not.toHaveProperty('address_type', 'wallet')
+    const subjectNode = graph.nodes.find((node) => node.address === '5Addr')
+    expect(subjectNode).toMatchObject({
+      labels: ['validator'],
+      address_type: 'substrate',
+      address_subtypes: ['validator_hotkey'],
+    })
+    expect(subjectNode?.roles).toContain('subject')
     const exchangeNode = graph.nodes.find((node) => node.address === '5Exchange')
     expect(exchangeNode?.roles).toContain('exchange')
     expect(exchangeNode?.labels).toEqual(['Binance'])
     expect(exchangeNode?.address_type).toBe('substrate')
+    expect(graph.edges.find((edge) => edge.source === '5Addr' && edge.target === '5Deposit')).toMatchObject({
+      amount_sum: 11,
+      usd_amount: 22,
+      tx_count: 1,
+      first_tx_id: 'risk-1',
+      last_tx_id: 'risk-1',
+    })
+    expect(graph.edges.find((edge) => edge.source === '5Deposit' && edge.target === '5Exchange')).toMatchObject({
+      amount_sum: 44,
+      usd_amount: 88,
+      tx_count: 2,
+      first_tx_id: 'risk-2',
+      last_tx_id: 'risk-2',
+    })
     expect(graph.edges[0]).toHaveProperty('edge_type', 'flows_to')
     expect(graph.edges[0]).not.toHaveProperty('from_address')
     expect(graph.edges[0]).not.toHaveProperty('to_address')
@@ -1080,11 +1124,61 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     })
   })
 
+  it('address_risk graphData preserves subject profile metadata before report normalization', async () => {
+    const { addressRisk } = await import('../src/investigation/public-tools.js')
+    const remoteClient = {
+      callTool: vi.fn().mockResolvedValueOnce({
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            facts: {
+              queries: [
+                {
+                  id: 'address_profile',
+                  ok: true,
+                  results: [{
+                    address: '5Addr',
+                    display_labels: ['validator'],
+                    system_labels: ['Address', 'Validator'],
+                    address_type: 'substrate',
+                    address_subtypes: ['validator_hotkey'],
+                  }],
+                },
+                { id: 'exchange_outflows', ok: true, results: [] },
+                { id: 'exchange_inflows', ok: true, results: [] },
+                { id: 'connection_probe', ok: true, results: [] },
+              ],
+            },
+          }),
+        }],
+        isError: false,
+      }),
+    }
+
+    const result = await addressRisk(remoteClient as never, { address: '5Addr', network: 'bittensor' })
+    const subjectNode = (result.graphData.nodes as Array<Record<string, unknown>>).find((node) => node['address'] === '5Addr')
+
+    expect(subjectNode).toMatchObject({
+      labels: ['validator'],
+      system_labels: ['Address', 'Validator'],
+      address_type: 'substrate',
+      address_subtypes: ['validator_hotkey'],
+      roles: ['subject'],
+    })
+  })
+
   it('registers local track_funds fallback that preserves up to five trusted and untrusted addresses', async () => {
     runFundFlowProbeMock.mockResolvedValue({
       summaryText: 'Trace complete for bittensor:5Victim',
       compactEvidence: {},
-      graphData: { schema: 'chain-insights.graph.v1', nodes: [], edges: [] },
+      graphData: {
+        schema: 'chain-insights.graph.v1',
+        nodes: [],
+        edges: [],
+        deposits: [{ address: '5Deposit', exchangeAddress: '5Exchange' }],
+        source_matches: [{ deposit_address: '5Deposit', source_exchange: '5SourceExchange' }],
+        reverse_leads: [{ address: '5Lead', deposit_address: '5Deposit' }],
+      },
       files: {
         schema: '/tmp/schema.json',
         compactEvidence: '/tmp/compact.json',
@@ -1134,6 +1228,29 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }))
     expect(result.structuredContent.facts.trusted_addresses).toEqual(['5Victim', '5Victim2'])
     expect(result.structuredContent.facts.untrusted_addresses).toEqual(['5Scammer'])
+    const graphUrl = result._meta.chainInsights.graph.url as string
+    const filename = graphUrl.split('/graph-reports/')[1]
+    expect(filename).toMatch(/\.graph\.json$/)
+    const graph = JSON.parse(await readFile(join(testDataDir, 'reports', 'graphs', filename), 'utf8')) as {
+      deposits?: Array<Record<string, unknown>>
+      source_matches?: Array<Record<string, unknown>>
+      reverse_leads?: Array<Record<string, unknown>>
+    }
+    expect(graph.deposits).toEqual([
+      expect.objectContaining({ address: '5Deposit', run_role: 'trusted', run_address: '5Victim' }),
+      expect.objectContaining({ address: '5Deposit', run_role: 'trusted', run_address: '5Victim2' }),
+      expect.objectContaining({ address: '5Deposit', run_role: 'untrusted', run_address: '5Scammer' }),
+    ])
+    expect(graph.source_matches).toEqual([
+      expect.objectContaining({ source_exchange: '5SourceExchange', run_role: 'trusted', run_address: '5Victim' }),
+      expect.objectContaining({ source_exchange: '5SourceExchange', run_role: 'trusted', run_address: '5Victim2' }),
+      expect.objectContaining({ source_exchange: '5SourceExchange', run_role: 'untrusted', run_address: '5Scammer' }),
+    ])
+    expect(graph.reverse_leads).toEqual([
+      expect.objectContaining({ address: '5Lead', run_role: 'trusted', run_address: '5Victim' }),
+      expect.objectContaining({ address: '5Lead', run_role: 'trusted', run_address: '5Victim2' }),
+      expect.objectContaining({ address: '5Lead', run_role: 'untrusted', run_address: '5Scammer' }),
+    ])
   })
 
   it('registers graph MCP app resource and preserves graph-backed remote tools', async () => {
