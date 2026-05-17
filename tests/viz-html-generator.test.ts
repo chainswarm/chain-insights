@@ -129,6 +129,21 @@ describe('generateHtml (VIZ-02) — graph.html template', () => {
     expect(html).toContain("intermediary: '#b38cff'")
     expect(html).toContain("risk_score: typeof n.risk_score === 'number' ? n.risk_score : null")
   })
+
+  it('graph template reads canonical node roles with legacy role fallback', async () => {
+    const { generateHtml } = await import('../src/viz/html-generator.js')
+    const { GraphData } = await import('../src/viz/graph-model.js')
+    const data = GraphData.parse(validData)
+    const html = generateHtml(data, 'Test Viz')
+
+    expect(html).toContain('function nodeDisplayRole(n)')
+    expect(html).toContain('Array.isArray(n.roles) && n.roles.length')
+    expect(html).toContain('return n.roles[0]')
+    expect(html).toContain('return n.role || null')
+    expect(html).toContain('role:nodeDisplayRole(n)')
+    expect(html).toContain('nodeDisplayRole(en) ===')
+    expect(html).not.toContain('role:n.role||null')
+  })
 })
 
 describe('transformToGraphHtml (data schema mapping)', () => {

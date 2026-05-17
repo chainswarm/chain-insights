@@ -479,6 +479,11 @@ D3_HIERARCHY,
 '  });',
 '}',
 '',
+'function nodeDisplayRole(n){',
+'  if(Array.isArray(n.roles)&&n.roles.length)return n.roles[0];',
+'  return n.role||null;',
+'}',
+'',
 'function treeLayout(nodes,edges,w,h){',
 '  // Pick root: victim > scammer > seed > earliest firstBlock > first node',
 '  var fb=new Map();nodes.forEach(function(n){if(n.firstBlock)fb.set(n.address,n.firstBlock);});',
@@ -566,7 +571,7 @@ D3_HIERARCHY,
 'function doLayout(ly){',
 '  if(sim){sim.stop();sim=null;}',
 '  // Always start from CLEAN node copies with NO x/y so d3 spreads them',
-'  var ns=rawN.map(function(n){return{address:n.address,flow_in_usd:n.flow_in_usd,flow_out_usd:n.flow_out_usd,role:n.role||null,firstBlock:n.firstBlock||0};});',
+'  var ns=rawN.map(function(n){return{address:n.address,flow_in_usd:n.flow_in_usd,flow_out_usd:n.flow_out_usd,role:nodeDisplayRole(n),firstBlock:n.firstBlock||0};});',
 '  radii(ns,rawE);',
 '  if(ly==="tree"){',
 '    treeLayout(ns,rawE,W,H);',
@@ -619,6 +624,11 @@ function applyPos(wn) {
   }
 }
 
+function nodeDisplayRole(n) {
+  if (Array.isArray(n.roles) && n.roles.length) return n.roles[0];
+  return n.role || null;
+}
+
 /* ───────────────────────────────────────────────────────────
    Data processing
    ─────────────────────────────────────────────────────────── */
@@ -641,7 +651,7 @@ function loadGraph(data) {
   var exMap = {};
   for (var ei2=0; ei2<data.nodes.length; ei2++) {
     var en = data.nodes[ei2];
-    if (en.role === 'exchange' && en.labels && en.labels.length) {
+    if (nodeDisplayRole(en) === 'exchange' && en.labels && en.labels.length) {
       exMap[en.address] = en.labels[0].replace(/, ?exchange$/i, '');
     }
   }
@@ -666,7 +676,7 @@ function applyDataMode() {
   nodes = graphData.nodes.map(function(n) {
     var o = {address:n.address, address_type:n.address_type||'wallet', labels:n.labels||[],
              flow_in_usd:n.flow_in_usd, flow_out_usd:n.flow_out_usd,
-             role:n.role||null, risk_level:n.risk_level||null,
+             role:nodeDisplayRole(n), risk_level:n.risk_level||null,
              risk_score: typeof n.risk_score === 'number' ? n.risk_score : null,
              pattern_flags:n.pattern_flags||[], x:0, y:0, r:DEF_R};
     nodeMap[o.address] = o;
@@ -944,10 +954,10 @@ function drawNodes() {
       ctx.fillText(n.tx_id, n.x, ly);
       ly += 12;
     } else {
-      if (n.role && n.role !== 'intermediary' && n.role !== 'counterparty') {
+      if (role && role !== 'intermediary' && role !== 'counterparty') {
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        var roleLabel = n.role;
-        if (n.role === 'deposit' && depositExchange[n.address]) {
+        var roleLabel = role;
+        if (role === 'deposit' && depositExchange[n.address]) {
           roleLabel = depositExchange[n.address] + ' deposit';
         }
         ctx.fillText(roleLabel, n.x, ly);
