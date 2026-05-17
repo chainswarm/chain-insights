@@ -21,8 +21,22 @@ export function startServer(port = 4321): () => void {
     process.exitCode = 1
   })
 
-  process.on('SIGINT',  () => { server.close(); process.exit(0) })
-  process.on('SIGTERM', () => { server.close(() => process.exit(0)) })
+  let stopped = false
+  const stop = (callback?: () => void): void => {
+    if (stopped) {
+      callback?.()
+      return
+    }
+    stopped = true
+    process.off('SIGINT', onSigint)
+    process.off('SIGTERM', onSigterm)
+    server.close(callback)
+  }
+  const onSigint = () => { stop(); process.exit(0) }
+  const onSigterm = () => { stop(() => process.exit(0)) }
 
-  return () => server.close()
+  process.on('SIGINT', onSigint)
+  process.on('SIGTERM', onSigterm)
+
+  return stop
 }

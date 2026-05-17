@@ -26,4 +26,23 @@ describe('Hono server (FOUND-04)', () => {
     const res = await fetch('http://127.0.0.1:14322/health')
     expect(res.status).toBe(200)
   })
+
+  it('stop removes signal handlers and is idempotent', async () => {
+    const beforeSigint = process.listenerCount('SIGINT')
+    const beforeSigterm = process.listenerCount('SIGTERM')
+    const { startServer } = await import('../src/server/index.js')
+
+    stop = startServer(14323)
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    expect(process.listenerCount('SIGINT')).toBe(beforeSigint + 1)
+    expect(process.listenerCount('SIGTERM')).toBe(beforeSigterm + 1)
+
+    stop()
+    stop()
+    stop = null
+
+    expect(process.listenerCount('SIGINT')).toBe(beforeSigint)
+    expect(process.listenerCount('SIGTERM')).toBe(beforeSigterm)
+  })
 })
