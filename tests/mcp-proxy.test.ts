@@ -344,7 +344,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     await createProxy()
 
     expect(McpServer).toHaveBeenCalledWith(
-      { name: 'chain-insights', version: '0.1.0' },
+      { name: 'chain-insights', version: '0.2.0' },
       expect.objectContaining({
         instructions: expect.stringContaining('Workflow:'),
       }),

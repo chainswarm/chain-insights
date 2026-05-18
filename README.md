@@ -607,6 +607,17 @@ npm run typecheck
 npm run build
 ```
 
+Release discipline:
+
+- Work on PR branches only. GitHub blocks direct pushes to `main`.
+- Every PR to `main` must bump `package.json` and `package-lock.json` with a higher semver version.
+- Every PR to `main` must add a matching `CHANGELOG.md` entry, for example `## [0.2.0] - 2026-05-18`.
+- The release gate runs in Verify on pull requests and can be run locally with:
+
+```bash
+npm run release:check
+```
+
 Focused tests for MCP and wallet work:
 
 ```bash

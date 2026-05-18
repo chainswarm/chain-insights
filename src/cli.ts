@@ -1,13 +1,8 @@
 import { Command } from 'commander'
-import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-
-// ESM-safe package.json read — use import.meta.url, not __dirname.
-const pkg = JSON.parse(
-  readFileSync(new URL('../package.json', import.meta.url), 'utf8')
-) as { version: string; name: string }
+import { PACKAGE_INFO, PACKAGE_VERSION } from './version.js'
 
 // Resolve bin/install.cjs relative to this file's location in dist/
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -18,7 +13,7 @@ const program = new Command()
 program
   .name('chain-insights')
   .description('AML investigation toolkit for blockchain analysis')
-  .version(pkg.version)
+  .version(PACKAGE_INFO.version)
   .option('--claude', 'Install Claude Code skills globally to ~/.claude/skills/')
   .option('--codex', 'Install Codex skills globally to ~/.codex/skills/ and register MCP')
 
@@ -89,7 +84,7 @@ async function withGraphMcpClient<T>(name: string, fn: (client: import('@modelco
   const paymentFetch = await createConfiguredGraphMcpFetch(config)
   const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
   const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
-  const client = new Client({ name, version: '0.1.0' })
+  const client = new Client({ name, version: PACKAGE_VERSION })
   await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }))
   try {
     return await fn(client, config)
@@ -387,7 +382,7 @@ program
             const paymentFetch = await createConfiguredGraphMcpFetch(config)
             const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
             const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
-            const client = new Client({ name: 'chain-insights-cli', version: '0.1.0' })
+            const client = new Client({ name: 'chain-insights-cli', version: PACKAGE_VERSION })
             await client.connect(new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: paymentFetch }))
             try {
               const result = await client.listTools()

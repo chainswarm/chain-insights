@@ -1,6 +1,6 @@
 {
   "name": "chain-insights",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "AML investigation toolkit for blockchain analysis",
   "type": "module",
   "engines": {
@@ -27,6 +27,7 @@
   "scripts": {
     "build": "tsdown && cp -r src/viz/templates dist/templates && mkdir -p dist/assets && cp -r src/wallet/mcp-proxy/assets/* dist/assets/",
     "dev": "tsx src/cli.ts",
+    "release:check": "node scripts/check-release-gate.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
