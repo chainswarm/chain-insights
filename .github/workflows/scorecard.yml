@@ -8,11 +8,7 @@ on:
     - cron: "37 5 * * 2"
   workflow_dispatch:
 
-permissions:
-  actions: read
-  contents: read
-  id-token: write
-  security-events: write
+permissions: read-all
 
 concurrency:
   group: scorecard-${{ github.ref }}
@@ -23,6 +19,11 @@ jobs:
     name: OpenSSF Scorecard
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      security-events: write
 
     steps:
       - name: Checkout
