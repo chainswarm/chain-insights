@@ -6,6 +6,8 @@ import { join } from 'node:path'
 
 const srcCli = join(process.cwd(), 'src', 'cli.ts')
 const tsxLoader = join(process.cwd(), 'node_modules', 'tsx', 'dist', 'loader.mjs')
+const cliBin = join(process.cwd(), 'bin', 'cli.js')
+const cli = `node ${JSON.stringify(cliBin)}`
 
 describe('CLI scaffold (FOUND-02)', () => {
   it('--help prints chain-insights name', () => {
@@ -226,12 +228,14 @@ describe('CLI scaffold (FOUND-02)', () => {
   it('case list inside a workspace does not show global cases', () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'chain-insights-home-'))
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
+    const sourceWorkspace = join(parent, 'source')
     const target = join(parent, 'investigations')
     const env = { ...process.env, HOME: fakeHome }
     try {
-      execSync('node bin/cli.js case open "Global Case"', { encoding: 'utf8', env })
+      execSync(`node bin/cli.js init ${sourceWorkspace}`, { encoding: 'utf8', env })
+      execSync(`${cli} case open "Global Case"`, { cwd: sourceWorkspace, encoding: 'utf8', env })
       execSync(`node bin/cli.js init ${target}`, { encoding: 'utf8', env })
-      const out = execSync('node /home/aphex5/work/chain-insights/bin/cli.js case list', {
+      const out = execSync(`${cli} case list`, {
         cwd: target,
         encoding: 'utf8',
         env,
@@ -251,7 +255,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     const env = { ...process.env, HOME: fakeHome }
     try {
       execSync(`node bin/cli.js init ${target}`, { encoding: 'utf8', env })
-      const out = execSync('node /home/aphex5/work/chain-insights/bin/cli.js case open "Workspace Case"', {
+      const out = execSync(`${cli} case open "Workspace Case"`, {
         cwd: target,
         encoding: 'utf8',
         env,
@@ -273,12 +277,12 @@ describe('CLI scaffold (FOUND-02)', () => {
     const env = { ...process.env, HOME: fakeHome }
     try {
       execSync(`node bin/cli.js init ${target}`, { encoding: 'utf8', env })
-      execSync('node /home/aphex5/work/chain-insights/bin/cli.js case open "Selectable Case"', {
+      execSync(`${cli} case open "Selectable Case"`, {
         cwd: target,
         encoding: 'utf8',
         env,
       })
-      const out = execSync('node /home/aphex5/work/chain-insights/bin/cli.js case list', {
+      const out = execSync(`${cli} case list`, {
         cwd: target,
         encoding: 'utf8',
         env,
@@ -297,12 +301,12 @@ describe('CLI scaffold (FOUND-02)', () => {
     const env = { ...process.env, HOME: fakeHome }
     try {
       execSync(`node bin/cli.js init ${target}`, { encoding: 'utf8', env })
-      execSync('node /home/aphex5/work/chain-insights/bin/cli.js case open "Selectable Case"', {
+      execSync(`${cli} case open "Selectable Case"`, {
         cwd: target,
         encoding: 'utf8',
         env,
       })
-      const out = execSync('node /home/aphex5/work/chain-insights/bin/cli.js case show 1', {
+      const out = execSync(`${cli} case show 1`, {
         cwd: target,
         encoding: 'utf8',
         env,
@@ -325,7 +329,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     const env = { ...process.env, HOME: fakeHome }
     try {
       execSync(`node bin/cli.js init ${target}`, { encoding: 'utf8', env })
-      expect(() => execSync('node /home/aphex5/work/chain-insights/bin/cli.js case open 1', {
+      expect(() => execSync(`${cli} case open 1`, {
         cwd: target,
         encoding: 'utf8',
         env,
@@ -344,7 +348,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     const env = { ...process.env, HOME: fakeHome }
     try {
       execSync(`node bin/cli.js init ${target}`, { encoding: 'utf8', env })
-      const opened = execSync('node /home/aphex5/work/chain-insights/bin/cli.js case open "Cleanup Case"', {
+      const opened = execSync(`${cli} case open "Cleanup Case"`, {
         cwd: target,
         encoding: 'utf8',
         env,
@@ -352,7 +356,7 @@ describe('CLI scaffold (FOUND-02)', () => {
       const caseId = opened.match(/Case opened: (.+)/)?.[1]?.trim()
       expect(caseId).toBeTruthy()
       rmSync(join(target, 'cases', caseId!), { recursive: true, force: true })
-      const out = execSync('node /home/aphex5/work/chain-insights/bin/cli.js case list', {
+      const out = execSync(`${cli} case list`, {
         cwd: target,
         encoding: 'utf8',
         env,
@@ -372,19 +376,19 @@ describe('CLI scaffold (FOUND-02)', () => {
     const env = { ...process.env, HOME: fakeHome }
     try {
       execSync(`node bin/cli.js init ${target}`, { encoding: 'utf8', env })
-      const opened = execSync('node /home/aphex5/work/chain-insights/bin/cli.js case open "Session CLI Case"', {
+      const opened = execSync(`${cli} case open "Session CLI Case"`, {
         cwd: target,
         encoding: 'utf8',
         env,
       })
       const caseId = opened.match(/Case opened: (.+)/)?.[1]?.trim()
       expect(caseId).toBeTruthy()
-      const first = execSync('node /home/aphex5/work/chain-insights/bin/cli.js case session start 1 "some desc"', {
+      const first = execSync(`${cli} case session start 1 "some desc"`, {
         cwd: target,
         encoding: 'utf8',
         env,
       })
-      const second = execSync('node /home/aphex5/work/chain-insights/bin/cli.js case session start 1', {
+      const second = execSync(`${cli} case session start 1`, {
         cwd: target,
         encoding: 'utf8',
         env,
