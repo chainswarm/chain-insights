@@ -2,6 +2,10 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.2] - 2026-05-18
+
+- Updated x402/viem dependencies and pinned `ws` override to clear production npm audit.
+
 ## [0.2.1] - 2026-05-18
 
 - Added `chain-insights access-key set|clear|status` for simple invited tester setup without exposing x402 details.
