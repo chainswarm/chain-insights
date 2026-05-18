@@ -165,7 +165,7 @@ Test access key mode for invited users without x402 payment:
 ```bash
 chain-insights access-key set ci_test_REDACTED --endpoint https://staging-mcp.chain-insights.ai/mcp
 chain-insights access-key status
-chain-insights mcp call graph_query -p network=bittensor -p query='MATCH (n) RETURN n LIMIT 1'
+chain-insights mcp call graph_query network=bittensor query='MATCH (n) RETURN n LIMIT 1'
 ```
 
 The Go Graph MCP treats a valid test access key as a server-side x402 bypass. Operators configure the server with `MCP_TEST_ACCESS_KEY_HASHES`, a comma-separated list of `key_id:sha256(full_key)` entries:
