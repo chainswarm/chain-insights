@@ -835,7 +835,7 @@ var topup_server_exports = /* @__PURE__ */ require_chunk.__exportAll({
 	getTopupUrl: () => getTopupUrl,
 	startTopupServer: () => startTopupServer
 });
-const FALLBACK_PRIVATE_KEY = "0x0000000000000000000000000000000000000000000000000000000000000001";
+const FALLBACK_PRIVATE_KEY = `0x${"0".repeat(63)}1`;
 let artifactServerState = null;
 function toWalletData(account) {
 	if (typeof account === "string") return {

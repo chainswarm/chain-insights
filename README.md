@@ -1,5 +1,10 @@
 # Chain Insights
 
+[![Verify](https://github.com/chainswarm/chain-insights/actions/workflows/verify.yml/badge.svg?branch=main)](https://github.com/chainswarm/chain-insights/actions/workflows/verify.yml)
+[![Security](https://github.com/chainswarm/chain-insights/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/chainswarm/chain-insights/actions/workflows/security.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/chainswarm/chain-insights/badge)](https://scorecard.dev/viewer/?uri=github.com/chainswarm/chain-insights)
+[![npm](https://img.shields.io/npm/v/chain-insights.svg)](https://www.npmjs.com/package/chain-insights)
+
 Local-first AML investigation tooling for AI agents and human operators. Chain Insights gives Codex, Claude Code, Claude Desktop, and other MCP clients a local workspace for paid graph access, wallet status, case files, evidence, dossiers, sessions, and browser visualizations.
 
 The product has two layers:
@@ -583,6 +588,7 @@ Security rules:
 - Production x402 should use a hot wallet with limited funds.
 - Graph report JSON is stored under `reports/graphs/*.graph.json` in the active workspace and served from `127.0.0.1` at `/graph-reports/<filename>.graph.json`.
 - Chain Insights does not custody user funds.
+- CI runs typecheck, tests, build, npm package packing, npm vulnerability audit, npm registry signature verification, secret-pattern scanning, CodeQL, OpenSSF Scorecard, and Dependabot updates for npm and GitHub Actions.
 
 ## Development
 

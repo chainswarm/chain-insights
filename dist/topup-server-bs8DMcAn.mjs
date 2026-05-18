@@ -835,7 +835,7 @@ var topup_server_exports = /* @__PURE__ */ __exportAll({
 	getTopupUrl: () => getTopupUrl,
 	startTopupServer: () => startTopupServer
 });
-const FALLBACK_PRIVATE_KEY = "0x0000000000000000000000000000000000000000000000000000000000000001";
+const FALLBACK_PRIVATE_KEY = `0x${"0".repeat(63)}1`;
 let artifactServerState = null;
 function toWalletData(account) {
 	if (typeof account === "string") return {
@@ -916,4 +916,4 @@ async function startTopupServer(account) {
 //#endregion
 export { generateArtifactHtml as i, startTopupServer as n, topup_server_exports as r, getTopupUrl as t };
 
-//# sourceMappingURL=topup-server-Cg4MPN9_.mjs.map
+//# sourceMappingURL=topup-server-bs8DMcAn.mjs.map

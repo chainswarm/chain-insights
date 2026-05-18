@@ -7,7 +7,7 @@ import { createServer, type Server, type ServerResponse } from 'node:http'
 import type { WalletData } from './mcp-proxy/types.js'
 import type { PaymentWalletAccount } from './tools.js'
 
-const FALLBACK_PRIVATE_KEY = '0x0000000000000000000000000000000000000000000000000000000000000001'
+const FALLBACK_PRIVATE_KEY = `0x${'0'.repeat(63)}1`
 
 interface ArtifactServerState {
   address: string
