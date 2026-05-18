@@ -38,6 +38,14 @@ function git(args) {
   return execFileSync('git', args, { encoding: 'utf8' }).trimEnd()
 }
 
+function gitOrNull(args) {
+  try {
+    return git(args)
+  } catch {
+    return null
+  }
+}
+
 function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'))
 }
@@ -63,8 +71,10 @@ function ensureBaseRef(baseRef) {
 }
 
 function fileChanged(baseRef, path) {
+  const committedDiff = gitOrNull(['diff', '--name-only', `${baseRef}...HEAD`])
+    ?? git(['diff', '--name-only', baseRef, 'HEAD'])
   const changedFiles = [
-    ...git(['diff', '--name-only', `${baseRef}...HEAD`]).split('\n').filter(Boolean),
+    ...committedDiff.split('\n').filter(Boolean),
     ...git(['diff', '--name-only']).split('\n').filter(Boolean),
     ...git(['diff', '--name-only', '--cached']).split('\n').filter(Boolean),
     ...git(['ls-files', '--others', '--exclude-standard']).split('\n').filter(Boolean),
