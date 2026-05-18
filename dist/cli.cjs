@@ -62,7 +62,7 @@ function optionalNumber(value) {
 async function withGraphMcpClient(name, fn) {
 	const { loadConfig } = await Promise.resolve().then(() => require("./config-Bmdl5hdk.cjs")).then((n) => n.config_exports);
 	const config = await loadConfig();
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-35PgrKFh.cjs")).then((n) => n.client_exports);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-Dc0MXuij.cjs")).then((n) => n.client_exports);
 	const paymentFetch = await createConfiguredGraphMcpFetch(config);
 	const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
 	const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
@@ -97,10 +97,11 @@ program.command("status").description("Show toolkit status and configuration").a
 	const { findActiveWorkspace, activeDataDir } = await Promise.resolve().then(() => require("./active-Dv7Tu-O4.cjs")).then((n) => n.active_exports);
 	const config = await loadConfig();
 	const workspace = findActiveWorkspace();
+	const graphMcpStatus = config.graphMcpMode === "debug" && config.graphMcpAuthToken?.trim() ? "bearer access mode" : `${config.graphMcpMode} mode`;
 	console.log("Config: ", activeDataDir(config.dataDir));
 	if (workspace) console.log("Workspace:", workspace.root);
 	console.log("Server: ", `http://127.0.0.1:${config.serverPort}`);
-	console.log("Graph MCP:", `${config.graphMcpMode} mode`);
+	console.log("Graph MCP:", graphMcpStatus);
 	console.log("Graph endpoint:", config.graphMcpEndpoint);
 });
 program.command("debug").description("Configure Graph MCP debug mode").addCommand(new commander.Command("on").description("Enable Graph MCP debug mode without x402 payments").requiredOption("--token <token>", "Debug bearer token").option("--endpoint <url>", "Graph MCP endpoint").action(async (opts) => {
@@ -139,6 +140,48 @@ program.command("debug").description("Configure Graph MCP debug mode").addComman
 		console.log(`Graph endpoint: ${config.graphMcpEndpoint}`);
 		console.log(`Debug token:    ${config.graphMcpAuthToken?.trim() ? "configured" : "not configured"}`);
 		console.log(`Payments:       ${config.graphMcpMode === "debug" ? "disabled" : "enabled"}`);
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
+}));
+program.command("access-key").description("Configure Graph MCP test access key mode").addCommand(new commander.Command("set").description("Use a Graph MCP test access key without x402 payments").argument("<key>", "Test access key").option("--endpoint <url>", "Graph MCP endpoint").action(async (key, opts) => {
+	try {
+		const normalizedKey = key.trim();
+		if (!normalizedKey) throw new Error("Test access key is required");
+		const { saveConfig } = await Promise.resolve().then(() => require("./config-Bmdl5hdk.cjs")).then((n) => n.config_exports);
+		await saveConfig({
+			graphMcpMode: "debug",
+			graphMcpAuthToken: normalizedKey,
+			...opts.endpoint ? { graphMcpEndpoint: opts.endpoint } : {}
+		});
+		console.log("Graph MCP test access key configured");
+		if (opts.endpoint) console.log(`Graph endpoint: ${opts.endpoint}`);
+		console.log("Payments: disabled when the server accepts this key");
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
+})).addCommand(new commander.Command("clear").description("Remove the Graph MCP test access key and use paid x402 calls").action(async () => {
+	try {
+		const { saveConfig } = await Promise.resolve().then(() => require("./config-Bmdl5hdk.cjs")).then((n) => n.config_exports);
+		await saveConfig({
+			graphMcpMode: "paid",
+			graphMcpAuthToken: ""
+		});
+		console.log("Graph MCP test access key cleared");
+		console.log("Payments: enabled for Graph MCP calls");
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
+})).addCommand(new commander.Command("status").description("Show Graph MCP test access key status").action(async () => {
+	try {
+		const { loadConfig } = await Promise.resolve().then(() => require("./config-Bmdl5hdk.cjs")).then((n) => n.config_exports);
+		const config = await loadConfig();
+		console.log(`Graph endpoint: ${config.graphMcpEndpoint}`);
+		console.log(`Access key:     ${config.graphMcpAuthToken?.trim() ? "configured" : "not configured"}`);
+		console.log(`Payments:       ${config.graphMcpAuthToken?.trim() ? "disabled when accepted by server" : "enabled"}`);
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);
@@ -263,7 +306,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-D380-zF5.cjs"));
 		const { visibleRemoteTools } = await Promise.resolve().then(() => require("./tool-visibility-CwgY205r.cjs")).then((n) => n.tool_visibility_exports);
 		const { loadConfig } = await Promise.resolve().then(() => require("./config-Bmdl5hdk.cjs")).then((n) => n.config_exports);
-		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-35PgrKFh.cjs")).then((n) => n.client_exports);
+		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-Dc0MXuij.cjs")).then((n) => n.client_exports);
 		const config = await loadConfig();
 		const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
 		let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint);
@@ -562,7 +605,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-fA0ekDGM.cjs"));
+		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-CUcvZ1qt.cjs"));
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,

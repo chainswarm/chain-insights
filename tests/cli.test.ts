@@ -50,6 +50,11 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('debug')
   })
 
+  it('--help lists access-key subcommand', () => {
+    const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
+    expect(out).toContain('access-key')
+  })
+
   it('wallet --help lists balance and topup subcommands', () => {
     const out = execSync('node bin/cli.js wallet --help', { encoding: 'utf8' })
     expect(out).toContain('balance')
@@ -422,6 +427,33 @@ describe('CLI scaffold (FOUND-02)', () => {
       const statusAfter = execSync('node bin/cli.js debug status', { encoding: 'utf8', env })
       expect(statusAfter).toContain('Graph MCP mode: paid')
       expect(statusAfter).toContain('Debug token:    not configured')
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true })
+    }
+  })
+
+  it('access-key set/clear/status configures Graph MCP test access without exposing key', () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'chain-insights-home-'))
+    const env = { ...process.env, HOME: fakeHome }
+    try {
+      const set = execSync('node bin/cli.js access-key set ci_test_secret_123456789012345678 --endpoint https://staging-mcp.chain-insights.ai/mcp', {
+        encoding: 'utf8',
+        env,
+      })
+      expect(set).toContain('Graph MCP test access key configured')
+      expect(set).toContain('Graph endpoint: https://staging-mcp.chain-insights.ai/mcp')
+      expect(set).not.toContain('ci_test_secret')
+
+      const status = execSync('node bin/cli.js access-key status', { encoding: 'utf8', env })
+      expect(status).toContain('Graph endpoint: https://staging-mcp.chain-insights.ai/mcp')
+      expect(status).toContain('Access key:     configured')
+      expect(status).not.toContain('ci_test_secret')
+
+      const clear = execSync('node bin/cli.js access-key clear', { encoding: 'utf8', env })
+      expect(clear).toContain('Graph MCP test access key cleared')
+      const statusAfter = execSync('node bin/cli.js access-key status', { encoding: 'utf8', env })
+      expect(statusAfter).toContain('Payments:       enabled')
+      expect(statusAfter).toContain('Access key:     not configured')
     } finally {
       rmSync(fakeHome, { recursive: true, force: true })
     }

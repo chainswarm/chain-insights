@@ -117,7 +117,7 @@ async function createConfiguredFetchWithToken(
   if (!(await isWalletConfigured())) {
     throw new Error(
       `Wallet not configured and ${missingTokenName} is empty. ` +
-      `Run \`chain-insights config set ${missingTokenName} <token>\` for local MCP debug bypass, ` +
+      `Run \`chain-insights access-key set <key>\` for invited test access or \`chain-insights config set ${missingTokenName} <token>\` for local MCP debug bypass, ` +
       'or `chain-insights config set walletPrivateKey <key>` to enable paid x402 MCP calls.',
     )
   }
@@ -136,7 +136,7 @@ export async function createConfiguredGraphMcpFetch(
   if (config.graphMcpMode === 'debug') {
     const authToken = config.graphMcpAuthToken?.trim() || config.mcpAuthToken?.trim()
     if (!authToken) {
-      throw new Error('Graph MCP debug mode requires graphMcpAuthToken. Run `cia debug on --token <token>`.')
+      throw new Error('Graph MCP debug mode requires graphMcpAuthToken. Run `cia access-key set <key>` or `cia debug on --token <token>`.')
     }
     return createMcpAuthFetchClient(authToken)
   }

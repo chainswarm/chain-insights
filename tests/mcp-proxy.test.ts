@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import * as z from 'zod'
+import { PACKAGE_VERSION } from '../src/version.js'
 
 const testDataDir = vi.hoisted(() => `/tmp/chain-insights-mcp-proxy-test-${process.pid}`)
 const mockCase = vi.hoisted(() => ({
@@ -344,7 +345,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     await createProxy()
 
     expect(McpServer).toHaveBeenCalledWith(
-      { name: 'chain-insights', version: '0.2.0' },
+      { name: 'chain-insights', version: PACKAGE_VERSION },
       expect.objectContaining({
         instructions: expect.stringContaining('Workflow:'),
       }),
