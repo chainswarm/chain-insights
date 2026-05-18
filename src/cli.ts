@@ -124,10 +124,13 @@ program
     const { findActiveWorkspace, activeDataDir } = await import('./workspace/active.js')
     const config = await loadConfig()
     const workspace = findActiveWorkspace()
+    const graphMcpStatus = config.graphMcpMode === 'debug' && config.graphMcpAuthToken?.trim()
+      ? 'bearer access mode'
+      : `${config.graphMcpMode} mode`
     console.log('Config: ', activeDataDir(config.dataDir))
     if (workspace) console.log('Workspace:', workspace.root)
     console.log('Server: ', `http://127.0.0.1:${config.serverPort}`)
-    console.log('Graph MCP:', `${config.graphMcpMode} mode`)
+    console.log('Graph MCP:', graphMcpStatus)
     console.log('Graph endpoint:', config.graphMcpEndpoint)
   })
 
@@ -182,6 +185,65 @@ program
           console.log(`Graph endpoint: ${config.graphMcpEndpoint}`)
           console.log(`Debug token:    ${config.graphMcpAuthToken?.trim() ? 'configured' : 'not configured'}`)
           console.log(`Payments:       ${config.graphMcpMode === 'debug' ? 'disabled' : 'enabled'}`)
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+
+program
+  .command('access-key')
+  .description('Configure Graph MCP test access key mode')
+  .addCommand(
+    new Command('set')
+      .description('Use a Graph MCP test access key without x402 payments')
+      .argument('<key>', 'Test access key')
+      .option('--endpoint <url>', 'Graph MCP endpoint')
+      .action(async (key: string, opts: { endpoint?: string }) => {
+        try {
+          const normalizedKey = key.trim()
+          if (!normalizedKey) throw new Error('Test access key is required')
+          const { saveConfig } = await import('./config/index.js')
+          await saveConfig({
+            graphMcpMode: 'debug',
+            graphMcpAuthToken: normalizedKey,
+            ...(opts.endpoint ? { graphMcpEndpoint: opts.endpoint } : {}),
+          })
+          console.log('Graph MCP test access key configured')
+          if (opts.endpoint) console.log(`Graph endpoint: ${opts.endpoint}`)
+          console.log('Payments: disabled when the server accepts this key')
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
+    new Command('clear')
+      .description('Remove the Graph MCP test access key and use paid x402 calls')
+      .action(async () => {
+        try {
+          const { saveConfig } = await import('./config/index.js')
+          await saveConfig({ graphMcpMode: 'paid', graphMcpAuthToken: '' })
+          console.log('Graph MCP test access key cleared')
+          console.log('Payments: enabled for Graph MCP calls')
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
+    new Command('status')
+      .description('Show Graph MCP test access key status')
+      .action(async () => {
+        try {
+          const { loadConfig } = await import('./config/index.js')
+          const config = await loadConfig()
+          console.log(`Graph endpoint: ${config.graphMcpEndpoint}`)
+          console.log(`Access key:     ${config.graphMcpAuthToken?.trim() ? 'configured' : 'not configured'}`)
+          console.log(`Payments:       ${config.graphMcpAuthToken?.trim() ? 'disabled when accepted by server' : 'enabled'}`)
         } catch (err) {
           console.error((err as Error).message)
           process.exit(1)

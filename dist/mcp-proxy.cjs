@@ -529,7 +529,7 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 async function createProxy() {
 	const { loadConfig } = await Promise.resolve().then(() => require("./config-Bmdl5hdk.cjs")).then((n) => n.config_exports);
 	const { activeDataDir, findActiveWorkspace } = await Promise.resolve().then(() => require("./active-Dv7Tu-O4.cjs")).then((n) => n.active_exports);
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-35PgrKFh.cjs")).then((n) => n.client_exports);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-Dc0MXuij.cjs")).then((n) => n.client_exports);
 	const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-BIely23-.cjs"));
 	const loadedConfig = await loadConfig();
 	const activeWorkspace = findActiveWorkspace();

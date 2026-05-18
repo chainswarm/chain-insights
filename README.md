@@ -160,12 +160,30 @@ chain-insights config set walletPrivateKey 0xYOUR_EVM_PRIVATE_KEY
 chain-insights wallet balance
 ```
 
+Test access key mode for invited users without x402 payment:
+
+```bash
+chain-insights access-key set ci_test_REDACTED --endpoint https://staging-mcp.chain-insights.ai/mcp
+chain-insights access-key status
+chain-insights mcp call graph_query network=bittensor query='MATCH (n) RETURN n LIMIT 1'
+```
+
+The Go Graph MCP treats a valid test access key as a server-side x402 bypass. Operators configure the server with `MCP_TEST_ACCESS_KEY_HASHES`, a comma-separated list of `key_id:sha256(full_key)` entries:
+
+```bash
+export TEST_KEY="ci_test_$(openssl rand -hex 24)"
+printf '%s' "$TEST_KEY" | sha256sum
+export MCP_TEST_ACCESS_KEY_HASHES="partner-a:<sha256-from-command>"
+```
+
+Share the raw `ci_test_...` key once. Store only its SHA-256 hash in deployment config. Revoke by removing the entry and redeploying the Graph MCP.
+
 Supported config keys:
 
 | Key | Purpose |
 | --- | --- |
 | `graphMcpEndpoint` | Go Graph MCP endpoint used by CLI and proxy |
-| `graphMcpAuthToken` | Debug bearer token for local graph MCP UAT |
+| `graphMcpAuthToken` | Graph MCP bearer credential for test access keys or local debug UAT |
 | `mcpEndpoint` | Legacy endpoint fallback |
 | `mcpAuthToken` | Legacy debug token fallback |
 | `walletAddress` | Optional wallet metadata |
@@ -211,7 +229,9 @@ npx @modelcontextprotocol/inspector \
 Auth behavior:
 
 - If `graphMcpAuthToken` is set, Chain Insights sends both `X-MCP-Debug-Token` and `Authorization: Bearer <token>`.
+- A staging/public Graph MCP may accept a valid `ci_test_...` access key through the same config path and skip x402 for that request.
 - If `graphMcpAuthToken` is empty, Chain Insights uses the encrypted wallet private key with x402 payment handling.
+- Prefer `chain-insights access-key set <key>` for invited tester setup. Keep `chain-insights debug on --token <token>` for local/internal debug bypasses.
 - The graph schema cache is scoped by endpoint and expires after 24 hours. Use `--refresh` for a live schema fetch.
 
 Graph query rules:
@@ -585,6 +605,7 @@ Security rules:
 - `wallet.json`, `config.json`, and schema cache files use owner-only permissions.
 - Wallet private keys are encrypted with AES-256-GCM.
 - Debug bearer tokens are redacted in CLI output.
+- Test access keys are payment bypass credentials. Generate high-entropy `ci_test_...` values, store only hashes server-side, scope distribution to invited testers, and rotate by removing the hash from Graph MCP deployment config.
 - Production x402 should use a hot wallet with limited funds.
 - Graph report JSON is stored under `reports/graphs/*.graph.json` in the active workspace and served from `127.0.0.1` at `/graph-reports/<filename>.graph.json`.
 - Chain Insights does not custody user funds.
@@ -647,7 +668,7 @@ Check current config:
 
 ```bash
 chain-insights config get graphMcpEndpoint
-chain-insights config get graphMcpAuthToken
+chain-insights access-key status
 ```
 
 ### Missing required argument

@@ -2,6 +2,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.1] - 2026-05-18
+
+- Added `chain-insights access-key set|clear|status` for simple invited tester setup without exposing x402 details.
+- Documented Graph MCP test access key mode for invited users who should bypass x402 payment.
+- Documented server-side test key hash configuration and rotation guidance.
+
 ## [0.2.0] - 2026-05-18
 
 - Added GitHub release discipline: PR release gate, semver bump enforcement, and changelog enforcement.
