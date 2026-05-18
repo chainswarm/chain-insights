@@ -46,6 +46,22 @@ function readBaseFile(baseRef, path) {
   return git(['show', `${baseRef}:${path}`])
 }
 
+function ensureBaseRef(baseRef) {
+  try {
+    git(['cat-file', '-e', `${baseRef}:package.json`])
+    return
+  } catch {
+    // GitHub pull_request checkouts may only have the synthetic merge ref.
+  }
+
+  if (!baseRef.startsWith('origin/')) {
+    throw new Error(`Base ref is not available locally: ${baseRef}`)
+  }
+
+  const branch = baseRef.slice('origin/'.length)
+  git(['fetch', '--no-tags', '--depth=1', 'origin', `${branch}:refs/remotes/${baseRef}`])
+}
+
 function fileChanged(baseRef, path) {
   const changedFiles = [
     ...git(['diff', '--name-only', `${baseRef}...HEAD`]).split('\n').filter(Boolean),
@@ -65,6 +81,8 @@ function resolveBaseRef() {
 }
 
 export function runReleaseGate({ baseRef = resolveBaseRef() } = {}) {
+  ensureBaseRef(baseRef)
+
   const pkg = readJson('package.json')
   const lock = readJson('package-lock.json')
   const basePkg = JSON.parse(readBaseFile(baseRef, 'package.json'))
