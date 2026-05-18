@@ -102,7 +102,7 @@ async function runMcpToolsAction(opts: { refresh?: boolean } = {}): Promise<void
     const paymentFetch = await createConfiguredGraphMcpFetch(config)
     const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
     const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
-    const client = new Client({ name: 'chain-insights-cli', version: '0.1.0' })
+    const client = new Client({ name: 'chain-insights-cli', version: '0.2.0' })
     await client.connect(new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: paymentFetch }))
     const result = await client.listTools()
     tools = result.tools as Array<{ name: string; description?: string }>
@@ -132,7 +132,7 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
   const paymentFetch = await createConfiguredGraphMcpFetch(config)
   const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
   const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
-  const client = new Client({ name: 'chain-insights-cli-call', version: '0.1.0' })
+  const client = new Client({ name: 'chain-insights-cli-call', version: '0.2.0' })
   await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }))
   const result = await client.callTool({ name: tool, arguments: args })
   const content = result.content as Array<{ type: string; text?: string }>

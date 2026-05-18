@@ -10,6 +10,7 @@ import type { ContentBlock, GetPromptResult, Prompt } from '@modelcontextprotoco
 import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server'
 import * as z from 'zod'
 import type { InvestigatorConfig } from '../config/schema.js'
+import { PACKAGE_VERSION } from '../version.js'
 import type { McpTool } from './schema-cache.js'
 import { HIDDEN_REMOTE_TOOL_NAMES } from './tool-visibility.js'
 
@@ -772,7 +773,7 @@ export async function createProxy(): Promise<void> {
 
   // Build remote MCP client — always connect before registering tool handlers
   // so tool call forwarding works regardless of whether schema is cached.
-  const remoteClient = new Client({ name: 'chain-insights-proxy-client', version: '0.1.0' })
+  const remoteClient = new Client({ name: 'chain-insights-proxy-client', version: PACKAGE_VERSION })
 
   try {
     await remoteClient.connect(
@@ -833,7 +834,7 @@ export async function createProxy(): Promise<void> {
 
   // Build local stdio proxy server
   const server = new McpServer(
-    { name: 'chain-insights', version: '0.1.0' },
+    { name: 'chain-insights', version: PACKAGE_VERSION },
     { instructions: SERVER_INSTRUCTIONS },
   )
   installToolLogging(server, logger)

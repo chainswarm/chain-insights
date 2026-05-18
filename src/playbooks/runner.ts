@@ -5,6 +5,7 @@ import { EvidenceStore } from '../cases/evidence.js'
 import { loadConfig } from '../config/index.js'
 import { createConfiguredMcpFetch } from '../mcp/client.js'
 import { generateVisualization } from '../viz/index.js'
+import { PACKAGE_VERSION } from '../version.js'
 import type { PlaybookDefinition } from './schema.js'
 
 export interface RunnerOptions {
@@ -124,7 +125,7 @@ export const PlaybookRunner = {
     }
 
     // --- MCP CONNECTION ---
-    const client = new Client({ name: 'chain-insights-playbook', version: '0.1.0' })
+    const client = new Client({ name: 'chain-insights-playbook', version: PACKAGE_VERSION })
     await client.connect(
       new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: mcpFetch })
     )
