@@ -105,8 +105,8 @@ describe('CLI scaffold (FOUND-02)', () => {
       const readme = readFileSync(join(target, 'README.md'), 'utf8')
       expect(readme).toContain('Chain Insights Investigations')
       expect(readme).toContain('reports/graphs/    Graph JSON for visualization')
-      expect(readme).toContain('logs/              Workspace-local investigation and preview logs')
-      expect(readme).toContain('.chain-insights/runtime/        Workspace-local runtime process state')
+      expect(readme).not.toContain('logs/              Workspace-local investigation and preview logs')
+      expect(readme).toContain('.chain-insights/runtime/        Workspace-local runtime process state and debug logs')
       const agents = readFileSync(join(target, 'AGENTS.md'), 'utf8')
       const claude = readFileSync(join(target, 'CLAUDE.md'), 'utf8')
       for (const body of [agents, claude]) {
@@ -119,7 +119,8 @@ describe('CLI scaffold (FOUND-02)', () => {
       expect(readFileSync(join(target, '.chain-insights', 'runtime-skill', 'SKILL.md'), 'utf8')).toContain('Runtime Graph Schema')
       expect(readFileSync(join(target, '.chain-insights', 'schema', 'README.md'), 'utf8')).toContain('Runtime Schema Captures')
       expect(existsSync(join(target, 'artifacts'))).toBe(false)
-      expect(existsSync(join(target, 'logs', '.keep'))).toBe(true)
+      expect(existsSync(join(target, 'logs'))).toBe(false)
+      expect(existsSync(join(target, '.chain-insights', 'runtime', 'logs', '.keep'))).toBe(true)
       expect(existsSync(join(target, '.chain-insights', 'runtime', '.keep'))).toBe(true)
     } finally {
       rmSync(parent, { recursive: true, force: true })

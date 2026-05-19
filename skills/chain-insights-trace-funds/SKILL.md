@@ -37,6 +37,24 @@ exchange-deposit paths the graph can return within query limits, then traceback
 those deposits toward source exchanges and enrich the result with reverse 1-hop
 leads.
 
+Python GraphRAG MCP is the golden implementation. Do not degrade this workflow
+into a simplified `graph_query_batch` recipe. When Chain Insights runs against
+the Go Graph MCP, it should still reproduce Python `BFSOps` and
+`StolenFundsProbe` semantics by issuing the right read-only Cypher through
+`graph_query` or `graph_query_batch`.
+
+For exchange-deposit discovery, the golden traversal is Memgraph BFS over
+`FLOWS_TO`:
+
+```cypher
+MATCH p = (s:Address {address: $address})
+  -[:FLOWS_TO *BFS (e, v | <python-compatible-filter>)]->(t:Exchange)
+```
+
+Do not replace that with plain variable-length `FLOWS_TO *1..N` enumeration as
+the production tool behavior. Use non-BFS enumeration only for explicit
+diagnostic comparisons or user-requested custom graph queries.
+
 This tool exists so the agent does not lose the investigation in chat context.
 It executes the repeatable tracing loop, stores machine-readable files for
 visualization, writes a human report, and returns compact facts plus an

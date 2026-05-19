@@ -276,14 +276,15 @@ async function loadOrCaptureSchema(
 }
 
 function forwardExchangeQuery(address: string, limit: number, minAmountSum: number, maxHops: number): { id: string; query: string } {
+  void maxHops
   const amountFilter = minAmountSum > 0 ? ` AND e.amount_sum >= ${minAmountSum}` : ''
   return {
     id: 'forward_exchange_paths',
     query: [
       `MATCH p = (s:Address {address: "${escapeCypherString(address)}"})-[:FLOWS_TO *BFS (e, v | e.amount_sum IS NOT NULL${amountFilter})]->(t:Exchange)`,
-      `WHERE s <> t AND size(nodes(p)) - 1 <= ${maxHops} AND NOT any(n IN nodes(p)[1..-1] WHERE "Exchange" IN labels(n))`,
+      'WHERE s <> t AND NOT any(n IN nodes(p)[1..-1] WHERE "Exchange" IN labels(n))',
       'WITH p, t, [n IN nodes(p) | n.address] AS addresses, [n IN nodes(p) | labels(n)] AS node_labels, [n IN nodes(p) | {address: n.address, labels: n.labels, system_labels: labels(n), address_type: n.address_type, address_subtypes: n.address_subtypes}] AS path_nodes, [r IN relationships(p) | {amount_sum: r.amount_sum, amount_usd_sum: r.amount_usd_sum, tx_count: r.tx_count, first_tx_id: r.first_tx_id, last_tx_id: r.last_tx_id}] AS edge_props',
-      'RETURN addresses, node_labels, path_nodes, edge_props, t.address AS exchange_address, t.labels AS exchange_display_labels, labels(t) AS exchange_labels, t.address_type AS exchange_address_type, t.address_subtypes AS exchange_address_subtypes, size(nodes(p)) - 1 AS hops',
+      'RETURN addresses, node_labels, path_nodes, edge_props, t.address AS exchange_address, t.labels AS exchange_display_labels, labels(t) AS exchange_labels, t.address_type AS exchange_address_type, t.address_subtypes AS exchange_address_subtypes, nodes(p)[size(nodes(p))-2].address AS deposit_address, size(nodes(p)) - 1 AS hops',
       'ORDER BY hops ASC',
       `LIMIT ${limit}`,
     ].join(' '),

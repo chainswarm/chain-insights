@@ -86,17 +86,50 @@ describe('EvidenceStore (CASE-02)', () => {
     expect(manifest.entries[0]!.sha256).toBe(expected)
   })
 
-  it('append() wraps JSON content in a json code fence for visualization extraction', async () => {
+  it('append() wraps small JSON content in a pretty json code fence', async () => {
     const { EvidenceStore } = await import('../src/cases/index.js')
     const result = await EvidenceStore.append(testCaseId, {
       source: 'graph_query_batch_compact',
-      content: '{"schema":"chain-insights.compact_evidence.v1","outgoing_flows":[]}',
+      content: '{"schema":"chain-insights.compact_evidence.v1","unused":null,"outgoing_flows":[]}',
       queryParams: 'network=bittensor',
     })
     const evidencePath = join(fakeHome, 'cases', testCaseId, 'evidence', result.filename)
     const content = await readFile(evidencePath, 'utf8')
     expect(content).toContain('```json')
     expect(content).toContain('"chain-insights.compact_evidence.v1"')
+    expect(content).toContain('{\n  "schema"')
+    expect(content).not.toContain('"unused"')
+  })
+
+  it('append() stores large JSON in reports/tables and keeps evidence markdown compact', async () => {
+    const { EvidenceStore } = await import('../src/cases/index.js')
+    const largeRows = Array.from({ length: 250 }, (_, index) => ({
+      address: `5Address${index}`,
+      degree_in: null,
+      amount_sum: index,
+    }))
+    const result = await EvidenceStore.append(testCaseId, {
+      source: 'graph_query_batch_compact',
+      content: JSON.stringify({
+        schema: 'chain-insights.compact_evidence.v1',
+        network: 'bittensor',
+        results: largeRows,
+      }),
+      queryParams: 'network=bittensor',
+    })
+
+    const evidencePath = join(fakeHome, 'cases', testCaseId, 'evidence', result.filename)
+    const evidence = await readFile(evidencePath, 'utf8')
+    expect(evidence).toContain('Large JSON evidence was stored')
+    expect(evidence).toContain('reports/tables/')
+    expect(evidence.length).toBeLessThan(4000)
+    expect(evidence).not.toContain('5Address249')
+
+    const match = evidence.match(/Stored JSON: `([^`]+)`/)
+    expect(match?.[1]).toBeTruthy()
+    const storedJson = await readFile(join(fakeHome, match![1]!), 'utf8')
+    expect(storedJson).toContain('5Address249')
+    expect(storedJson).not.toContain('degree_in')
   })
 
   it('append() twice produces two manifest entries', async () => {

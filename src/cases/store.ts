@@ -48,7 +48,32 @@ export const CaseStore = {
       description: input.description,
       slug,
     }
-    const body = `# ${input.name}\n\n*Opened: ${now}*\n\nInvestigation notes added here by agent.\n`
+    const body = [
+      `# ${input.name}`,
+      '',
+      `Opened: ${now}`,
+      `Status: open`,
+      '',
+      '## Question',
+      '',
+      input.description || 'TBD',
+      '',
+      '## Current Assessment',
+      '',
+      'TBD',
+      '',
+      '## Top Findings',
+      '',
+      '| Finding | Confidence | Evidence |',
+      '|---|---:|---|',
+      '',
+      '## Next Actions',
+      '',
+      '- TBD',
+      '',
+      '## Reports',
+      '',
+    ].join('\n')
     await writeFile(path.join(dir, 'case.md'), serializeFrontmatter(fm, body), { mode: 0o600 })
 
     const manifest = JSON.stringify({ caseId: id, entries: [] }, null, 2) + '\n'

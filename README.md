@@ -295,8 +295,12 @@ Append evidence:
 chain-insights case evidence add <case-id> \
   --source graph_query_batch \
   --query-params "network=bittensor" \
-  --content "$(cat result.json)"
+  --content "$(cat compact-result.json)"
 ```
+
+Evidence Markdown is a provenance record, not a raw-data dump. Small JSON is
+pretty-printed inline with null fields removed. Large JSON is written under
+`reports/tables/` and the evidence file stores a summary plus a pointer.
 
 Verify evidence integrity:
 
@@ -354,6 +358,7 @@ MCP compatibility path:
 - Chain Insights stores that graph data under `reports/graphs/*.graph.json`.
 - Chain Insights returns `_meta.chainInsights.graph.url` pointing to `/graph-reports/<filename>.graph.json` for the app iframe.
 - The local graph report server starts automatically when a graph report URL is returned.
+- Chain Insights does not create duplicated `artifacts/` graph payloads; `reports/graphs/` is canonical.
 
 The preferred framework path is a case-local HTML file plus adjacent JSON, served from localhost and visible in the editor workspace.
 

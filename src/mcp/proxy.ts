@@ -248,7 +248,7 @@ function cypherLogPayload(tool: string, args: unknown): Record<string, unknown> 
 
 function createMcpLogger(config: Pick<InvestigatorConfig, 'dataDir'>) {
   const disabled = process.env.CHAIN_INSIGHTS_MCP_LOG === '0'
-  const filePath = process.env.CHAIN_INSIGHTS_MCP_LOG_PATH?.trim() || path.join(config.dataDir, 'logs', 'mcp-proxy.jsonl')
+  const filePath = process.env.CHAIN_INSIGHTS_MCP_LOG_PATH?.trim() || path.join(config.dataDir, '.chain-insights', 'runtime', 'logs', 'mcp-proxy.jsonl')
 
   async function write(level: 'info' | 'error', event: string, fields: Record<string, unknown> = {}): Promise<void> {
     if (disabled) return

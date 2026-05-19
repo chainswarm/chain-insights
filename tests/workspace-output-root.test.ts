@@ -79,7 +79,7 @@ describe('workspace output root', () => {
       reportsRoot: join(root, 'reports'),
       reportGraphsRoot: join(root, 'reports', 'graphs'),
       reportTablesRoot: join(root, 'reports', 'tables'),
-      logsRoot: join(root, 'logs'),
+      logsRoot: join(root, '.chain-insights', 'runtime', 'logs'),
     })
   })
 })

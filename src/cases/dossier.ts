@@ -45,7 +45,14 @@ export const DossierStore = {
         lastSeen: now,
         riskTags: '',
       }
-      const body = `# Entity: ${address}\n\n## Summary\n\nEntity observed in case ${caseId}.\n\n## Findings\n\n## Links to Evidence\n\n## Related Entities\n\n`
+      const summary = entityType === 'exchange'
+        ? 'Exchange-labeled entity observed in this case.'
+        : entityType === 'contract'
+          ? 'Contract entity observed in this case.'
+          : entityType === 'mixer'
+            ? 'Mixer-labeled entity observed in this case.'
+            : 'Address/entity observed in this case.'
+      const body = `# Entity: ${address}\n\n## Summary\n\n${summary}\n\n## Findings\n\n`
       raw = serializeFrontmatter(fm, body)
       isNew = true
     }

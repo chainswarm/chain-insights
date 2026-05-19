@@ -1,0 +1,26 @@
+node_modules/
+
+# Local Chain Insights runtime/investigation output.
+.chain-insights/
+cases/
+logs/
+reports/
+artifacts/
+.tmp/
+
+# Agent/editor local state.
+.serena/
+.superpowers/
+.codex/
+
+# Local environment files. Keep the example committed.
+.env
+.env.*
+!.env.example
+
+# Misc local output directories created by init/debug workflows.
+modules/
+references/
+refrences/
+
+*.log

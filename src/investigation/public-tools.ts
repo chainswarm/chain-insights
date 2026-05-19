@@ -97,7 +97,7 @@ function addressProfileQuery(address: string): { id: string; query: string } {
     id: 'address_profile',
     query: [
       `MATCH (a:Address {address: "${escapeCypherString(address)}"})`,
-      'RETURN a.address AS address, a.labels AS display_labels, labels(a) AS system_labels, a.address_type AS address_type, a.address_subtypes AS address_subtypes, a.confluence_score AS confluence_score, a.ml_risk_level AS ml_risk_level, a.degree_in AS degree_in, a.degree_out AS degree_out, a.total_volume_usd AS total_volume_usd',
+      'RETURN a.address AS address, a.labels AS display_labels, labels(a) AS system_labels, a.address_type AS address_type, a.address_subtypes AS address_subtypes, a.confluence_score AS confluence_score, a.ml_risk_score AS ml_risk_score, a.ml_risk_level AS ml_risk_level, a.ml_top_drivers AS ml_top_drivers, a.ml_pattern_summary AS ml_pattern_summary, a.risk_score AS risk_score, a.risk_level AS risk_level, a.pattern_flags AS pattern_flags, a.degree_in AS degree_in, a.degree_out AS degree_out, a.total_volume_usd AS total_volume_usd, a.total_in_usd AS total_in_usd, a.total_out_usd AS total_out_usd, a.net_flow_usd AS net_flow_usd, a.tx_in_count AS tx_in_count, a.tx_out_count AS tx_out_count, a.tx_total_count AS tx_total_count, a.first_activity_timestamp AS first_activity_timestamp, a.last_activity_timestamp AS last_activity_timestamp, a.activity_span_days AS activity_span_days, a.ml_pagerank AS ml_pagerank, a.ml_betweenness AS ml_betweenness, a.ml_community_id AS ml_community_id',
       'LIMIT 1',
     ].join(' '),
   }
@@ -112,8 +112,8 @@ function exchangeOutflowsQuery(address: string): { id: string; query: string } {
       'WITH p, exchange, [n IN nodes(p) | n.address] AS path, [n IN nodes(p) | {address: n.address, labels: n.labels, system_labels: labels(n), address_type: n.address_type, address_subtypes: n.address_subtypes}] AS path_nodes, [r IN relationships(p) | {amount_sum: r.amount_sum, amount_usd_sum: r.amount_usd_sum, tx_count: r.tx_count, first_tx_id: r.first_tx_id, last_tx_id: r.last_tx_id}] AS edge_props',
       'WITH p, exchange, path, path_nodes, edge_props, edge_props[size(edge_props)-1] AS terminal',
       'RETURN "outflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, labels(exchange) AS exchange_system_labels, exchange.address_type AS exchange_address_type, exchange.address_subtypes AS exchange_address_subtypes, path[size(path)-2] AS deposit_address, size(path)-1 AS hops, terminal.amount_sum AS amount_sum, terminal.amount_usd_sum AS amount_usd_sum, terminal.tx_count AS tx_count, path, path_nodes, edge_props',
-      'ORDER BY amount_usd_sum DESC, amount_sum DESC',
-      'LIMIT 10',
+      'ORDER BY hops ASC',
+      'LIMIT 200',
     ].join(' '),
   }
 }
@@ -127,8 +127,8 @@ function exchangeInflowsQuery(address: string): { id: string; query: string } {
       'WITH p, exchange, [n IN nodes(p) | n.address] AS path, [n IN nodes(p) | {address: n.address, labels: n.labels, system_labels: labels(n), address_type: n.address_type, address_subtypes: n.address_subtypes}] AS path_nodes, [r IN relationships(p) | {amount_sum: r.amount_sum, amount_usd_sum: r.amount_usd_sum, tx_count: r.tx_count, first_tx_id: r.first_tx_id, last_tx_id: r.last_tx_id}] AS edge_props',
       'WITH p, exchange, path, path_nodes, edge_props, edge_props[size(edge_props)-1] AS terminal',
       'RETURN "inflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, labels(exchange) AS exchange_system_labels, exchange.address_type AS exchange_address_type, exchange.address_subtypes AS exchange_address_subtypes, path[1] AS withdrawal_address, size(path)-1 AS hops, terminal.amount_sum AS amount_sum, terminal.amount_usd_sum AS amount_usd_sum, terminal.tx_count AS tx_count, path, path_nodes, edge_props',
-      'ORDER BY amount_usd_sum DESC, amount_sum DESC',
-      'LIMIT 10',
+      'ORDER BY hops ASC',
+      'LIMIT 200',
     ].join(' '),
   }
 }
@@ -153,6 +153,79 @@ function formatExchangeRows(rows: Array<Record<string, unknown>>): string[] {
     const hops = row['hops'] ?? ''
     return `- ${direction}: ${exchange} (${hops} hop(s), amount ${amount})`
   })
+}
+
+function numberValue(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : undefined
+  }
+  return undefined
+}
+
+function firstNumber(...values: unknown[]): number | undefined {
+  for (const value of values) {
+    const parsed = numberValue(value)
+    if (parsed !== undefined) return parsed
+  }
+  return undefined
+}
+
+function firstString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return undefined
+}
+
+function riskLevelFromScore(score: number): string {
+  if (score >= 0.85) return 'critical'
+  if (score >= 0.7) return 'high'
+  if (score >= 0.4) return 'medium'
+  return 'low'
+}
+
+function riskRecommendation(level: string): string {
+  if (level === 'critical' || level === 'high') return 'Escalate for manual review.'
+  if (level === 'medium') return 'Review exchange exposure and counterparties before clearing.'
+  return 'No stored risk signal found; continue with normal monitoring.'
+}
+
+function riskDrivers(profile: Record<string, unknown>, exchangeRows: Array<Record<string, unknown>>): string[] {
+  const drivers: string[] = []
+  const storedDrivers = stringArrayValue(profile['ml_top_drivers'])
+  if (storedDrivers?.length) drivers.push(...storedDrivers)
+
+  const patternFlags = stringArrayValue(profile['pattern_flags'])
+  if (patternFlags?.length) drivers.push(`Pattern flags: ${patternFlags.join(', ')}`)
+
+  const outflowCount = exchangeRows.filter((row) => row['direction'] === 'outflow').length
+  const inflowCount = exchangeRows.filter((row) => row['direction'] === 'inflow').length
+  if (outflowCount > 0) drivers.push(`Forward BFS reached ${outflowCount} exchange path(s).`)
+  if (inflowCount > 0) drivers.push(`Backward BFS found ${inflowCount} source exchange path(s).`)
+
+  return [...new Set(drivers)]
+}
+
+function riskAssessment(profile: Record<string, unknown>, exchangeRows: Array<Record<string, unknown>>): Record<string, unknown> {
+  const storedScore = firstNumber(profile['confluence_score'], profile['ml_risk_score'], profile['risk_score'])
+  const score = storedScore ?? (exchangeRows.length > 0 ? 0.4 : 0)
+  const level = firstString(profile['ml_risk_level'], profile['risk_level']) ?? riskLevelFromScore(score)
+  const drivers = riskDrivers(profile, exchangeRows)
+  return {
+    level,
+    score,
+    confidence: storedScore !== undefined || firstString(profile['ml_risk_level'], profile['risk_level']) ? 'high' : exchangeRows.length > 0 ? 'medium' : 'low',
+    recommendation: riskRecommendation(level),
+    drivers,
+  }
+}
+
+function formatRiskScore(score: unknown): string {
+  const parsed = numberValue(score)
+  if (parsed === undefined) return String(score ?? 'unknown')
+  return Number.isInteger(parsed) ? parsed.toString() : parsed.toFixed(2)
 }
 
 function stringArrayValue(value: unknown): string[] | undefined {
@@ -278,16 +351,22 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   const connections = compareAddress ? resultsFor(batch, 'connection_probe') : []
   const exchangeRows = [...outflows, ...inflows]
   const graphData = buildRiskGraph(address, profile, exchangeRows, network)
+  const risk = riskAssessment(profile, exchangeRows)
 
   const lines = [
     `Address risk for ${network}:${address}`,
     '',
-    `Risk: ${profile['ml_risk_level'] ?? 'unknown'}${profile['confluence_score'] !== undefined ? ` (${profile['confluence_score']})` : ''}`,
+    `Risk: ${risk['level']} (${formatRiskScore(risk['score'])})`,
+    `Confidence: ${risk['confidence']}`,
+    `Recommendation: ${risk['recommendation']}`,
     `Graph degree: in ${profile['degree_in'] ?? 'unknown'}, out ${profile['degree_out'] ?? 'unknown'}.`,
     '',
     'Exchange behavior',
     exchangeRows.length > 0 ? formatExchangeRows(exchangeRows).join('\n') : '- No exchange inflow/outflow paths found in bounded search.',
   ]
+  if (Array.isArray(risk['drivers']) && risk['drivers'].length > 0) {
+    lines.push('', 'Risk drivers', risk['drivers'].map((driver) => `- ${driver}`).join('\n'))
+  }
   if (compareAddress) {
     lines.push('', `Connection compare target: ${compareAddress}`, connections.length > 0 ? `Connection paths found: ${connections.length}` : 'Connection paths found: 0')
   }
@@ -299,10 +378,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
       tool: 'address_risk',
       facts: {
         subject: { network, addresses: compareAddress ? [address, compareAddress] : [address] },
-        risk: {
-          level: profile['ml_risk_level'] ?? null,
-          score: profile['confluence_score'] ?? null,
-        },
+        risk,
         exchange_behavior: {
           outflows,
           inflows,
