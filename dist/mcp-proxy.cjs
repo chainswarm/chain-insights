@@ -196,7 +196,7 @@ function cypherLogPayload(tool, args) {
 }
 function createMcpLogger(config) {
 	const disabled = process.env.CHAIN_INSIGHTS_MCP_LOG === "0";
-	const filePath = process.env.CHAIN_INSIGHTS_MCP_LOG_PATH?.trim() || node_path.default.join(config.dataDir, "logs", "mcp-proxy.jsonl");
+	const filePath = process.env.CHAIN_INSIGHTS_MCP_LOG_PATH?.trim() || node_path.default.join(config.dataDir, ".chain-insights", "runtime", "logs", "mcp-proxy.jsonl");
 	async function write(level, event, fields = {}) {
 		if (disabled) return;
 		try {
@@ -497,8 +497,8 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 	const graphPayload = getRemoteGraphPayload(result);
 	const meta = { ...result._meta ?? {} };
 	if (graphPayload) {
-		const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-C9M5Rma0.cjs"));
-		const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-BT38qyUf.cjs"));
+		const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-C0ik49Z3.cjs"));
+		const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-DoxJ7fCx.cjs"));
 		const report = await writeGraphReport(graphPayload, {
 			serverPort: config.serverPort,
 			slug: toolName || "remote-graph"
@@ -677,13 +677,13 @@ async function createProxy() {
 		}
 	}, async ({ name, tags, description }) => {
 		try {
-			const { CaseStore } = await Promise.resolve().then(() => require("./cases-F4U7q3l8.cjs"));
+			const { CaseStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
 			const created = await CaseStore.create({
 				name,
 				tags: parseTags(tags),
 				description: description ?? ""
 			});
-			const { casesRoot } = await Promise.resolve().then(() => require("./store-DdzrPrNM.cjs"));
+			const { casesRoot } = await Promise.resolve().then(() => require("./store-BiUhQOIf.cjs"));
 			return {
 				content: [{
 					type: "text",
@@ -717,7 +717,7 @@ async function createProxy() {
 		}
 	}, async ({ status }) => {
 		try {
-			const { CaseStore } = await Promise.resolve().then(() => require("./cases-F4U7q3l8.cjs"));
+			const { CaseStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
 			const cases = await CaseStore.list();
 			const filtered = status ? cases.filter((entry) => entry.status === status) : cases;
 			return {
@@ -742,7 +742,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { CaseStore } = await Promise.resolve().then(() => require("./cases-F4U7q3l8.cjs"));
+			const { CaseStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
 			const context = await CaseStore.loadContext(case_id);
 			return {
 				content: [{
@@ -771,7 +771,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, source, content, query_params }) => {
 		try {
-			const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-F4U7q3l8.cjs"));
+			const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
 			const saved = await EvidenceStore.append(case_id, {
 				source,
 				content,
@@ -799,7 +799,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-F4U7q3l8.cjs"));
+			const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
 			const result = await EvidenceStore.verifyManifest(case_id);
 			return {
 				content: [{
@@ -834,7 +834,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, address, finding, entity_type }) => {
 		try {
-			const { DossierStore } = await Promise.resolve().then(() => require("./cases-F4U7q3l8.cjs"));
+			const { DossierStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
 			await DossierStore.appendFinding(case_id, address, finding, entity_type ?? "unknown");
 			return {
 				content: [{
@@ -862,7 +862,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { SessionStore } = await Promise.resolve().then(() => require("./cases-F4U7q3l8.cjs"));
+			const { SessionStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
 			const session = await SessionStore.start(case_id);
 			return {
 				content: [{
@@ -890,7 +890,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, findings, next_steps }) => {
 		try {
-			const { SessionStore } = await Promise.resolve().then(() => require("./cases-F4U7q3l8.cjs"));
+			const { SessionStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
 			await SessionStore.end(case_id, {
 				findings: findings ?? "",
 				nextSteps: next_steps ?? ""
@@ -928,9 +928,9 @@ async function createProxy() {
 		}
 	}, async ({ address, network, compare_address }) => {
 		try {
-			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-hPj0U1JL.cjs"));
-			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-C9M5Rma0.cjs"));
-			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-BT38qyUf.cjs"));
+			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-CUCN9d69.cjs"));
+			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-C0ik49Z3.cjs"));
+			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-DoxJ7fCx.cjs"));
 			const result = await addressRisk(remoteClient, {
 				address,
 				network,
@@ -985,9 +985,9 @@ async function createProxy() {
 		}
 	}, async ({ trusted_addresses, untrusted_addresses, network, case_id, max_hops, per_address_limit, min_amount_sum }) => {
 		try {
-			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-hPj0U1JL.cjs"));
-			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-C9M5Rma0.cjs"));
-			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-BT38qyUf.cjs"));
+			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-CUCN9d69.cjs"));
+			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-C0ik49Z3.cjs"));
+			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-DoxJ7fCx.cjs"));
 			const result = await trackFunds(remoteClient, config, {
 				trustedAddresses: trusted_addresses,
 				untrustedAddresses: untrusted_addresses,

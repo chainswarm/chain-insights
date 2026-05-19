@@ -420,7 +420,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       ],
     })
 
-    const entries = await readJsonl(join(testDataDir, 'logs', 'mcp-proxy.jsonl'))
+    const entries = await readJsonl(join(testDataDir, '.chain-insights', 'runtime', 'logs', 'mcp-proxy.jsonl'))
     expect(entries.some((entry) => entry.event === 'proxy.start')).toBe(true)
     expect(entries.some((entry) => entry.event === 'tool.start' && entry.tool === 'graph_query_batch')).toBe(true)
     expect(entries.some((entry) => entry.event === 'tool.end' && entry.tool === 'graph_query_batch')).toBe(true)
@@ -662,7 +662,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }))
     expect(ensureArtifactServerMock).toHaveBeenCalledWith(4321)
     expect(clientInstance.callTool.mock.calls[1][0].arguments.queries[0].query).toContain('*BFS')
-    expect(clientInstance.callTool.mock.calls[1][0].arguments.queries[0].query).toContain('size(nodes(p)) - 1 <= 2')
+    expect(clientInstance.callTool.mock.calls[1][0].arguments.queries[0].query).toContain('e.amount_sum IS NOT NULL')
+    expect(clientInstance.callTool.mock.calls[1][0].arguments.queries[0].query).not.toContain('*1..2')
 
     const graphUrl = result._meta.chainInsights.graph.url as string
     const filename = graphUrl.split('/graph-reports/')[1]
@@ -1068,8 +1069,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     expect(result.isError).toBe(false)
     expect(result.content[0].text).toContain('Address risk for bittensor:5Addr')
+    expect(result.content[0].text).toContain('Risk: high (0.82)')
     expect(result.content[0].text).toContain('Exchange behavior')
     expect(result.content[0].text).toContain('5Exchange')
+    expect(result.structuredContent.facts.risk).toMatchObject({
+      level: 'high',
+      score: 0.82,
+      confidence: 'high',
+    })
     expect(result.structuredContent.facts.exchange_behavior.outflows[0].exchange_address).toBe('5Exchange')
     expect(result._meta.chainInsights.graph.url).toContain('/graph-reports/')
     const graphUrl = result._meta.chainInsights.graph.url as string
@@ -1123,6 +1130,15 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         ]),
       }),
     })
+    const riskQueries = clientInstance.callTool.mock.calls[0][0].arguments.queries as Array<{ id: string; query: string }>
+    const outflowQuery = riskQueries.find((query) => query.id === 'exchange_outflows')?.query ?? ''
+    const inflowQuery = riskQueries.find((query) => query.id === 'exchange_inflows')?.query ?? ''
+    expect(outflowQuery).toContain('*BFS')
+    expect(inflowQuery).toContain('*BFS')
+    expect(outflowQuery).toContain('LIMIT 200')
+    expect(inflowQuery).toContain('LIMIT 200')
+    expect(outflowQuery).not.toContain('*1..5')
+    expect(inflowQuery).not.toContain('*1..5')
   })
 
   it('address_risk graphData preserves subject profile metadata before report normalization', async () => {
@@ -1159,6 +1175,12 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const result = await addressRisk(remoteClient as never, { address: '5Addr', network: 'bittensor' })
     const subjectNode = (result.graphData.nodes as Array<Record<string, unknown>>).find((node) => node['address'] === '5Addr')
 
+    expect(result.summaryText).toContain('Risk: low (0)')
+    expect(result.structuredContent.facts.risk).toMatchObject({
+      level: 'low',
+      score: 0,
+      confidence: 'low',
+    })
     expect(subjectNode).toMatchObject({
       labels: ['validator'],
       system_labels: ['Address', 'Validator'],

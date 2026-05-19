@@ -4,6 +4,8 @@ import path from 'node:path'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
 import { serializeFrontmatter } from './frontmatter.js'
 
+const MAX_INLINE_JSON_BYTES = 8 * 1024
+
 function caseDir(caseId: string): string {
   return path.join(workspaceOutputPaths().casesRoot, caseId)
 }
@@ -17,15 +19,100 @@ function formatTimestamp(): string {
   return new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '').slice(0, 15)
 }
 
-function formatEvidenceContent(content: string): string {
+function parseJsonContent(content: string): unknown | null {
   const trimmed = content.trim()
-  if (
-    (trimmed.startsWith('{') || trimmed.startsWith('[')) &&
-    !trimmed.startsWith('```')
-  ) {
-    return `\`\`\`json\n${trimmed}\n\`\`\``
+  if (trimmed.startsWith('```')) return null
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    return null
   }
-  return content
+}
+
+function compactJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(compactJsonValue)
+  if (!value || typeof value !== 'object') return value
+
+  const compact: Record<string, unknown> = {}
+  for (const [key, entry] of Object.entries(value)) {
+    if (entry === null || entry === undefined) continue
+    compact[key] = compactJsonValue(entry)
+  }
+  return compact
+}
+
+function summarizeJsonValue(value: unknown): Record<string, unknown> {
+  if (Array.isArray(value)) {
+    return {
+      kind: 'array',
+      count: value.length,
+      sample: value.slice(0, 3).map(compactJsonValue),
+    }
+  }
+
+  if (!value || typeof value !== 'object') {
+    return { kind: typeof value, value }
+  }
+
+  const record = compactJsonValue(value) as Record<string, unknown>
+  const summary: Record<string, unknown> = {
+    kind: 'object',
+    keys: Object.keys(record).slice(0, 50),
+  }
+  for (const key of ['schema', 'source', 'tool', 'network', 'seed_address', 'address']) {
+    if (typeof record[key] === 'string') summary[key] = record[key]
+  }
+  for (const key of ['files', 'outputs', 'facts']) {
+    const entry = record[key]
+    if (entry && typeof entry === 'object' && !Array.isArray(entry)) summary[key] = compactJsonValue(entry)
+  }
+  const counts = Object.fromEntries(
+    Object.entries(record)
+      .filter(([, entry]) => Array.isArray(entry))
+      .map(([key, entry]) => [key, (entry as unknown[]).length]),
+  )
+  if (Object.keys(counts).length > 0) summary['array_counts'] = counts
+  return summary
+}
+
+async function formatEvidenceContent(
+  evidenceId: string,
+  source: string,
+  timestamp: string,
+  content: string,
+): Promise<string> {
+  const parsedJson = parseJsonContent(content)
+  if (parsedJson === null) return content
+
+  const compactJson = compactJsonValue(parsedJson)
+  const prettyJson = JSON.stringify(compactJson, null, 2)
+  if (Buffer.byteLength(prettyJson, 'utf8') <= MAX_INLINE_JSON_BYTES) {
+    return `\`\`\`json\n${prettyJson}\n\`\`\``
+  }
+
+  const paths = workspaceOutputPaths()
+  await mkdir(paths.reportTablesRoot, { recursive: true, mode: 0o700 })
+  const safeSource = sanitizeSource(source) || 'evidence'
+  const tableFilename = `${evidenceId}_${safeSource}_${timestamp}_${Math.random().toString(36).slice(2, 8)}.json`
+  const tablePath = path.join(paths.reportTablesRoot, tableFilename)
+  await writeFile(tablePath, prettyJson + '\n', { mode: 0o600, flag: 'wx' })
+  const relativeTablePath = path.relative(paths.root, tablePath)
+  const summary = {
+    schema: 'chain-insights.evidence_summary.v1',
+    omitted_inline_json: true,
+    stored_json: relativeTablePath,
+    summary: summarizeJsonValue(compactJson),
+  }
+  return [
+    'Large JSON evidence was stored as an analyst table extract instead of inline Markdown.',
+    '',
+    `Stored JSON: \`${relativeTablePath}\``,
+    '',
+    '```json',
+    JSON.stringify(summary, null, 2),
+    '```',
+  ].join('\n')
 }
 
 export function hashContent(content: string): string {
@@ -75,7 +162,17 @@ export const EvidenceStore = {
       timestamp: now,
       queryParams: input.queryParams,
     }
-    const body = `## Evidence: ${input.source}\n\n**Source:** ${input.source}\n**Captured:** ${now}\n\n${formatEvidenceContent(input.content)}\n`
+    const evidenceId = `${caseId}_ev${seqStr}`
+    const formattedContent = await formatEvidenceContent(evidenceId, input.source, timestamp, input.content)
+    const body = [
+      `## Evidence: ${input.source}`,
+      '',
+      `**Source:** ${input.source}`,
+      `**Captured:** ${now}`,
+      '',
+      formattedContent,
+      '',
+    ].join('\n')
     const fileContent = serializeFrontmatter(fm, body)
 
     // Write with exclusive flag to prevent sequence collision (Pitfall 4)

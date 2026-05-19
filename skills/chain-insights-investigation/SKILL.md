@@ -68,10 +68,29 @@ cia debug off
 ## Hard Rules
 
 - Always preserve full blockchain addresses exactly.
+- Python GraphRAG MCP is the golden behavior for `address_risk` and
+  `track_funds`. Chain Insights MCP may expose its own high-level tools, but
+  their graph semantics must be a faithful port of the Python tools.
+- When the upstream server is Go Graph MCP, high-level Chain Insights tools
+  must implement Python-compatible orchestration by calling `graph_query` or
+  `graph_query_batch`. Do not replace Python probe semantics with simplified
+  local recipes.
+- For exchange-deposit discovery, use Python `BFSOps`/`StolenFundsProbe`
+  semantics: forward `FLOWS_TO *BFS` to `Exchange`, stop at exchange nodes,
+  treat `path[-2]` as the deposit candidate, then run backward/source and
+  reverse-lead stages. Do not replace this with plain variable-length
+  `FLOWS_TO *1..N` path enumeration unless the user explicitly asks for a
+  custom non-golden diagnostic query.
+- For `address_risk`, Python `GraphRAGQueryEngine.check_address_risk` is the
+  golden behavior: bounded neighborhood expansion with exchange-stopped waves,
+  risk/scoring fields, lookalikes, forward `BFSOps.bfs_forward` exchange
+  discovery, and backward `BFSOps.bfs_backward` source-exchange discovery.
+  Chain Insights may call Go MCP primitives, but it must not reduce
+  `address_risk` to only a profile lookup or a bounded `FLOWS_TO *1..N` recipe.
 - Never call graph tools without an explicit `network`.
 - Never treat user claims as facts until tool output supports them.
 - Never leave material tool output only in chat. Save it as evidence.
-- Keep evidence compact and use original graph field names.
+- Keep evidence compact and use original graph field names. Evidence Markdown should summarize and point to files; large JSON belongs in `reports/tables/`.
 - Store visualization data in `reports/graphs/` and analyst tables in `reports/tables/` under the initialized workspace.
 - Prefer Mermaid/table reports over long prose dossiers.
 - Prefer `cia` commands over direct file edits.
@@ -125,7 +144,7 @@ For every material graph/tool query:
    jq '{schema:"chain-insights.compact_evidence.v1", facts:<selected-fields>}' \
      /tmp/<stable_id>.json > /tmp/<stable_id>.compact.json
    ```
-3. Save the compact output as evidence:
+3. Save the compact output as evidence. If the JSON is large, Chain Insights stores it under `reports/tables/` and keeps the evidence Markdown as a summary plus pointer:
    ```bash
    cia case evidence add <case-number> \
      --source graph_query_batch_compact \

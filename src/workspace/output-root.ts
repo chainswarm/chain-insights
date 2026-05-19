@@ -32,6 +32,6 @@ export function workspaceOutputPaths(workspaceRoot = requireWorkspaceRoot()): Wo
     reportsRoot: path.join(root, 'reports'),
     reportGraphsRoot: path.join(root, 'reports', 'graphs'),
     reportTablesRoot: path.join(root, 'reports', 'tables'),
-    logsRoot: path.join(root, 'logs'),
+    logsRoot: path.join(root, '.chain-insights', 'runtime', 'logs'),
   }
 }

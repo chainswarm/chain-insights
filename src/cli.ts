@@ -535,11 +535,12 @@ program
               return
             }
             const { trackFunds } = await import('./investigation/public-tools.js')
+            const caseId = opts.case ? await resolveCaseSelector(opts.case) : undefined
             const result = await trackFunds(client, config, {
               trustedAddresses: opts.trustedAddresses,
               untrustedAddresses: opts.untrustedAddresses,
               network: opts.network,
-              caseId: opts.case,
+              caseId,
               maxHops: optionalNumber(opts.maxHops),
               perAddressLimit: optionalNumber(opts.perAddressLimit),
               minAmountSum: optionalNumber(opts.minAmountSum),

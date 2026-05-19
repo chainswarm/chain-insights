@@ -73,6 +73,10 @@ describe('CaseStore (CASE-01)', () => {
     expect(content).toContain('status: open')
     expect(content).toContain('tags: aml,defi')
     expect(content).toContain('description: Test investigation')
+    expect(content).toContain('## Question')
+    expect(content).toContain('## Current Assessment')
+    expect(content).toContain('## Top Findings')
+    expect(content).not.toContain('Investigation notes added here by agent')
   })
 
   it('case.md has 0o600 permissions', async () => {

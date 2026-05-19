@@ -192,7 +192,7 @@ function cypherLogPayload(tool, args) {
 }
 function createMcpLogger(config) {
 	const disabled = process.env.CHAIN_INSIGHTS_MCP_LOG === "0";
-	const filePath = process.env.CHAIN_INSIGHTS_MCP_LOG_PATH?.trim() || path.join(config.dataDir, "logs", "mcp-proxy.jsonl");
+	const filePath = process.env.CHAIN_INSIGHTS_MCP_LOG_PATH?.trim() || path.join(config.dataDir, ".chain-insights", "runtime", "logs", "mcp-proxy.jsonl");
 	async function write(level, event, fields = {}) {
 		if (disabled) return;
 		try {
@@ -493,8 +493,8 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 	const graphPayload = getRemoteGraphPayload(result);
 	const meta = { ...result._meta ?? {} };
 	if (graphPayload) {
-		const { writeGraphReport } = await import("./graph-reports-B-M57iWA.mjs");
-		const { ensureArtifactServer } = await import("./artifact-server-DZPfikXc.mjs");
+		const { writeGraphReport } = await import("./graph-reports-BuUw1m0e.mjs");
+		const { ensureArtifactServer } = await import("./artifact-server-Dxz5YbuQ.mjs");
 		const report = await writeGraphReport(graphPayload, {
 			serverPort: config.serverPort,
 			slug: toolName || "remote-graph"
@@ -673,13 +673,13 @@ async function createProxy() {
 		}
 	}, async ({ name, tags, description }) => {
 		try {
-			const { CaseStore } = await import("./cases-DV4Ji3KH.mjs");
+			const { CaseStore } = await import("./cases-By7INiOa.mjs");
 			const created = await CaseStore.create({
 				name,
 				tags: parseTags(tags),
 				description: description ?? ""
 			});
-			const { casesRoot } = await import("./store-odRosT2m.mjs");
+			const { casesRoot } = await import("./store-BoWE-Gtl.mjs");
 			return {
 				content: [{
 					type: "text",
@@ -713,7 +713,7 @@ async function createProxy() {
 		}
 	}, async ({ status }) => {
 		try {
-			const { CaseStore } = await import("./cases-DV4Ji3KH.mjs");
+			const { CaseStore } = await import("./cases-By7INiOa.mjs");
 			const cases = await CaseStore.list();
 			const filtered = status ? cases.filter((entry) => entry.status === status) : cases;
 			return {
@@ -738,7 +738,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { CaseStore } = await import("./cases-DV4Ji3KH.mjs");
+			const { CaseStore } = await import("./cases-By7INiOa.mjs");
 			const context = await CaseStore.loadContext(case_id);
 			return {
 				content: [{
@@ -767,7 +767,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, source, content, query_params }) => {
 		try {
-			const { EvidenceStore } = await import("./cases-DV4Ji3KH.mjs");
+			const { EvidenceStore } = await import("./cases-By7INiOa.mjs");
 			const saved = await EvidenceStore.append(case_id, {
 				source,
 				content,
@@ -795,7 +795,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { EvidenceStore } = await import("./cases-DV4Ji3KH.mjs");
+			const { EvidenceStore } = await import("./cases-By7INiOa.mjs");
 			const result = await EvidenceStore.verifyManifest(case_id);
 			return {
 				content: [{
@@ -830,7 +830,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, address, finding, entity_type }) => {
 		try {
-			const { DossierStore } = await import("./cases-DV4Ji3KH.mjs");
+			const { DossierStore } = await import("./cases-By7INiOa.mjs");
 			await DossierStore.appendFinding(case_id, address, finding, entity_type ?? "unknown");
 			return {
 				content: [{
@@ -858,7 +858,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { SessionStore } = await import("./cases-DV4Ji3KH.mjs");
+			const { SessionStore } = await import("./cases-By7INiOa.mjs");
 			const session = await SessionStore.start(case_id);
 			return {
 				content: [{
@@ -886,7 +886,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, findings, next_steps }) => {
 		try {
-			const { SessionStore } = await import("./cases-DV4Ji3KH.mjs");
+			const { SessionStore } = await import("./cases-By7INiOa.mjs");
 			await SessionStore.end(case_id, {
 				findings: findings ?? "",
 				nextSteps: next_steps ?? ""
@@ -924,9 +924,9 @@ async function createProxy() {
 		}
 	}, async ({ address, network, compare_address }) => {
 		try {
-			const { addressRisk } = await import("./public-tools-xRwz5UZg.mjs");
-			const { writeGraphReport } = await import("./graph-reports-B-M57iWA.mjs");
-			const { ensureArtifactServer } = await import("./artifact-server-DZPfikXc.mjs");
+			const { addressRisk } = await import("./public-tools-kLNjjdom.mjs");
+			const { writeGraphReport } = await import("./graph-reports-BuUw1m0e.mjs");
+			const { ensureArtifactServer } = await import("./artifact-server-Dxz5YbuQ.mjs");
 			const result = await addressRisk(remoteClient, {
 				address,
 				network,
@@ -981,9 +981,9 @@ async function createProxy() {
 		}
 	}, async ({ trusted_addresses, untrusted_addresses, network, case_id, max_hops, per_address_limit, min_amount_sum }) => {
 		try {
-			const { trackFunds } = await import("./public-tools-xRwz5UZg.mjs");
-			const { writeGraphReport } = await import("./graph-reports-B-M57iWA.mjs");
-			const { ensureArtifactServer } = await import("./artifact-server-DZPfikXc.mjs");
+			const { trackFunds } = await import("./public-tools-kLNjjdom.mjs");
+			const { writeGraphReport } = await import("./graph-reports-BuUw1m0e.mjs");
+			const { ensureArtifactServer } = await import("./artifact-server-Dxz5YbuQ.mjs");
 			const result = await trackFunds(remoteClient, config, {
 				trustedAddresses: trusted_addresses,
 				untrustedAddresses: untrusted_addresses,

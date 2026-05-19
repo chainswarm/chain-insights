@@ -81,6 +81,17 @@ describe('DossierStore (CASE-03)', () => {
     expect(content).toContain('Received 5 ETH from Tornado')
   })
 
+  it('appendFinding() omits empty placeholder sections from new dossiers', async () => {
+    const { DossierStore } = await import('../src/cases/index.js')
+    await DossierStore.appendFinding(testCaseId, '0xclean', 'First finding', 'exchange')
+    const safe = '0xclean'.replace(/[^a-zA-Z0-9]/g, '')
+    const dossierDir = join(fakeHome, 'cases', testCaseId, 'dossiers')
+    const content = await readFile(join(dossierDir, `${safe}.md`), 'utf8')
+    expect(content).toContain('Exchange-labeled entity observed')
+    expect(content).not.toContain('## Links to Evidence')
+    expect(content).not.toContain('## Related Entities')
+  })
+
   it('appendFinding() second call appends new finding', async () => {
     const { DossierStore } = await import('../src/cases/index.js')
     await DossierStore.appendFinding(testCaseId, '0xaddr', 'First finding', 'eoa')

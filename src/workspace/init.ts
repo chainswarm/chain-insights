@@ -15,10 +15,10 @@ const WORKSPACE_DIRS = [
   '.chain-insights',
   '.chain-insights/schema',
   '.chain-insights/runtime',
+  '.chain-insights/runtime/logs',
   '.chain-insights/runtime-skill',
   'cases',
   'imports',
-  'logs',
   'reports',
   'reports/graphs',
   'reports/tables',
@@ -61,13 +61,12 @@ chain-insights wallet balance
 .chain-insights/   Workspace metadata
 cases/             Case exports and notes
 imports/           External reports, CSVs, screenshots, raw notes
-logs/              Workspace-local investigation and preview logs
 reports/           Final or interim analyst reports
 reports/graphs/    Graph JSON for visualization
 reports/tables/    Compact tabular extracts
 templates/         Reusable case/report templates
 .chain-insights/schema/         Runtime graph schema captures
-.chain-insights/runtime/        Workspace-local runtime process state
+.chain-insights/runtime/        Workspace-local runtime process state and debug logs
 .chain-insights/runtime-skill/  Workspace-specific agent schema notes
 \`\`\`
 `
@@ -84,7 +83,8 @@ You are operating inside a Chain Insights investigation workspace.
 - Do not guess the network for graph queries.
 - Capture or refresh graph schema before the first case query.
 - Save compact evidence with original graph field names.
-- Put graph JSON and analyst tables in reports/, not in dossiers.
+- Put canonical graph JSON in reports/graphs/ and analyst tables in reports/tables/.
+- Evidence files should summarize and point to graph/table outputs; do not paste large raw JSON blobs into evidence Markdown.
 - Investigation output must stay in this initialized workspace.
 - Never write cases, evidence, reports, graph JSON, HTML, schema captures, or logs to ~/.chain-insights.
 - Keep theories lightweight until evidence supports them.
@@ -95,6 +95,10 @@ const CLAUDE = AGENTS
 const CASE_BRIEF = `# Case Brief
 
 ## Summary
+
+Status:
+Network:
+Current Assessment:
 
 ## Known Addresses
 
@@ -132,6 +136,8 @@ Rules:
 - Keep analysis products separate from evidence: graph JSON belongs under
   \`reports/graphs/\`, tabular extracts under \`reports/tables/\`, and analyst
   narrative under \`reports/\`.
+- Evidence Markdown should be a short provenance record with key facts and
+  pointers. Large JSON belongs in \`reports/tables/\`, not inline in evidence.
 `
 
 const SCHEMA_README = `# Runtime Schema Captures
@@ -156,7 +162,7 @@ function workspaceFiles(workspaceRoot: string): Array<[string, string]> {
     ['.chain-insights/runtime-skill/SKILL.md', RUNTIME_SKILL],
     ['.chain-insights/schema/README.md', SCHEMA_README],
     ['.chain-insights/runtime/.keep', ''],
-    ['logs/.keep', ''],
+    ['.chain-insights/runtime/logs/.keep', ''],
   ]
 }
 

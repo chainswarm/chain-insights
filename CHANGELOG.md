@@ -2,6 +2,14 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.3] - 2026-05-19
+
+- Tightened investigation workspace output: large JSON evidence is stored under `reports/tables/` with compact evidence pointers, case briefs are more actionable, dossiers omit empty placeholder sections, and runtime logs now live under `.chain-insights/runtime/logs/`.
+- Clarified that `reports/graphs/` is the canonical graph payload location and duplicated graph artifacts are not created.
+- Fixed `cia mcp track-funds --case <number>` so numeric case selectors resolve to the real case ID before evidence is attached.
+- Restored Python GraphRAG MCP golden semantics for local `track_funds` forward exchange discovery: Chain Insights now issues Memgraph `FLOWS_TO *BFS` through the Go Graph MCP primitive instead of replacing the probe with plain variable-length path enumeration.
+- Restored Python GraphRAG MCP golden semantics for local `address_risk` exchange discovery: exchange outflow/inflow checks use Memgraph `FLOWS_TO *BFS` with Python-style result budgets instead of bounded `FLOWS_TO *1..N` recipes, and missing stored risk fields now produce deterministic risk facts instead of `unknown/null`.
+
 ## [0.2.2] - 2026-05-18
 
 - Updated x402/viem dependencies and pinned `ws` override to clear production npm audit.
