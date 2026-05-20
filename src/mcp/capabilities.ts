@@ -28,6 +28,8 @@ export interface NetworkCapability {
   coverage?: {
     from_block?: number
     to_block?: number
+    from_timestamp?: string
+    to_timestamp?: string
     chain_tip_block?: number
     blocks_behind_tip?: number
   }
@@ -87,10 +89,28 @@ function availableToolsLabel(network: NetworkCapability): string {
   return tools.length > 0 ? tools.join(', ') : 'none'
 }
 
+function shortDate(value?: string): string {
+  if (!value) return ''
+  return value.slice(0, 10)
+}
+
+function datasetLabel(network: NetworkCapability): string {
+  const coverage = network.coverage
+  if (!coverage) return 'unknown'
+  const blockRange = coverage.from_block !== undefined && coverage.to_block !== undefined
+    ? `${coverage.from_block}..${coverage.to_block}`
+    : ''
+  const dateRange = coverage.from_timestamp && coverage.to_timestamp
+    ? `${shortDate(coverage.from_timestamp)}..${shortDate(coverage.to_timestamp)}`
+    : ''
+  if (blockRange && dateRange) return `${blockRange} / ${dateRange}`
+  return blockRange || dateRange || 'unknown'
+}
+
 export function formatNetworkCapabilities(document: NetworkCapabilitiesDocument): string {
   if (document.networks.length === 0) return 'No supported networks advertised.'
-  const headers = ['Network', 'Topology', 'Risk', 'Available tools']
-  const widths = [14, 10, 10, 54]
+  const headers = ['Network', 'Topology', 'Risk', 'Dataset', 'Available tools']
+  const widths = [14, 10, 10, 38, 54]
   const row = (values: string[]) => values.map((value, index) => value.padEnd(widths[index]!)).join('  ')
   return [
     row(headers),
@@ -99,6 +119,7 @@ export function formatNetworkCapabilities(document: NetworkCapabilitiesDocument)
       network.display_name || network.network,
       layerValue(network, 'topology_labels'),
       layerValue(network, 'risk_intelligence'),
+      datasetLabel(network),
       availableToolsLabel(network),
     ])),
   ].join('\n')

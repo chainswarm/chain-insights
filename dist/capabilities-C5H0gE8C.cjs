@@ -1,4 +1,4 @@
-import { i as resolveGraphMcpEndpoint } from "./client-D4Bq0rp9.mjs";
+const require_client = require("./client-D4fZgIaO.cjs");
 //#region src/mcp/capabilities.ts
 function metadataNetworksUrl(endpoint) {
 	const url = new URL(endpoint);
@@ -8,7 +8,7 @@ function metadataNetworksUrl(endpoint) {
 	return url;
 }
 async function fetchNetworkCapabilities(config) {
-	const request = metadataNetworksUrl(resolveGraphMcpEndpoint(config));
+	const request = metadataNetworksUrl(require_client.resolveGraphMcpEndpoint(config));
 	const headers = new Headers();
 	const token = config.graphMcpAuthToken?.trim() || config.mcpAuthToken?.trim();
 	if (token) {
@@ -29,18 +29,32 @@ function availableToolsLabel(network) {
 	const tools = Object.entries(network.tools ?? {}).filter(([, status]) => status === "available").map(([name]) => name);
 	return tools.length > 0 ? tools.join(", ") : "none";
 }
+function shortDate(value) {
+	if (!value) return "";
+	return value.slice(0, 10);
+}
+function datasetLabel(network) {
+	const coverage = network.coverage;
+	if (!coverage) return "unknown";
+	const blockRange = coverage.from_block !== void 0 && coverage.to_block !== void 0 ? `${coverage.from_block}..${coverage.to_block}` : "";
+	const dateRange = coverage.from_timestamp && coverage.to_timestamp ? `${shortDate(coverage.from_timestamp)}..${shortDate(coverage.to_timestamp)}` : "";
+	if (blockRange && dateRange) return `${blockRange} / ${dateRange}`;
+	return blockRange || dateRange || "unknown";
+}
 function formatNetworkCapabilities(document) {
 	if (document.networks.length === 0) return "No supported networks advertised.";
 	const headers = [
 		"Network",
 		"Topology",
 		"Risk",
+		"Dataset",
 		"Available tools"
 	];
 	const widths = [
 		14,
 		10,
 		10,
+		38,
 		54
 	];
 	const row = (values) => values.map((value, index) => value.padEnd(widths[index])).join("  ");
@@ -51,11 +65,11 @@ function formatNetworkCapabilities(document) {
 			network.display_name || network.network,
 			layerValue(network, "topology_labels"),
 			layerValue(network, "risk_intelligence"),
+			datasetLabel(network),
 			availableToolsLabel(network)
 		]))
 	].join("\n");
 }
 //#endregion
-export { fetchNetworkCapabilities, formatNetworkCapabilities };
-
-//# sourceMappingURL=capabilities-88_IwmIE.mjs.map
+exports.fetchNetworkCapabilities = fetchNetworkCapabilities;
+exports.formatNetworkCapabilities = formatNetworkCapabilities;

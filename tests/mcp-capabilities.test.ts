@@ -16,6 +16,12 @@ describe('MCP network capabilities', () => {
           topology_labels: { enabled: true, retention: { mode: 'rolling_window', window_days: 365 } },
           risk_intelligence: { enabled: false },
         },
+        coverage: {
+          from_block: 84,
+          to_block: 7440268,
+          from_timestamp: '2023-03-20T22:25:48Z',
+          to_timestamp: '2026-01-31T04:26:00Z',
+        },
         tools: {
           graph_query: 'available',
           graph_query_batch: 'available',
@@ -55,6 +61,12 @@ describe('MCP network capabilities', () => {
           topology_labels: { enabled: true, retention: { mode: 'rolling_window', window_days: 365 } },
           risk_intelligence: { enabled: false },
         },
+        coverage: {
+          from_block: 84,
+          to_block: 7440268,
+          from_timestamp: '2023-03-20T22:25:48Z',
+          to_timestamp: '2026-01-31T04:26:00Z',
+        },
         tools: {
           graph_query: 'available',
           graph_query_batch: 'available',
@@ -66,6 +78,7 @@ describe('MCP network capabilities', () => {
 
     expect(output).toContain('TRON')
     expect(output).toContain('yes')
+    expect(output).toContain('84..7440268 / 2023-03-20..2026-01-31')
     expect(output).toContain('graph_query, graph_query_batch, track_funds')
   })
 
