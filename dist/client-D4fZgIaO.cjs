@@ -124,3 +124,9 @@ Object.defineProperty(exports, "createMcpFetchClient", {
 		return createMcpFetchClient;
 	}
 });
+Object.defineProperty(exports, "resolveGraphMcpEndpoint", {
+	enumerable: true,
+	get: function() {
+		return resolveGraphMcpEndpoint;
+	}
+});

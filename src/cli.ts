@@ -427,6 +427,26 @@ program
   .description('Interact with the Chain Insights MCP endpoint')
   .allowExcessArguments(false)
   .addCommand(
+    new Command('networks')
+      .description('List supported graph networks, capability layers, retention, and freshness')
+      .option('--json', 'Print raw capability JSON')
+      .action(async (opts: { json?: boolean }) => {
+        try {
+          const { loadConfig } = await import('./config/index.js')
+          const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import('./mcp/capabilities.js')
+          const document = await fetchNetworkCapabilities(await loadConfig())
+          if (opts.json) {
+            console.log(JSON.stringify(document, null, 2))
+          } else {
+            console.log(formatNetworkCapabilities(document))
+          }
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
     new Command('tools')
       .description('List available MCP tools (cached 24h)')
       .option('--refresh', 'Force refresh schema cache')
@@ -465,7 +485,7 @@ program
     new Command('address-risk')
       .description('Screen an address for risk, exchange behavior, and optional compare_address connection risk')
       .requiredOption('--address <address>', 'Full blockchain address to screen')
-      .requiredOption('--network <network>', 'Network to query: bittensor, ethereum, or base')
+      .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
       .option('--compare-address <address>', 'Optional second address for connection-risk compare mode')
       .option('--remote', 'Force remote MCP tool call instead of local fallback')
       .action(async (opts: { address: string; network: string; compareAddress?: string; remote?: boolean }) => {
@@ -501,7 +521,7 @@ program
     new Command('track-funds')
       .description('Trace trusted/victim addresses and optional known untrusted/scammer addresses')
       .requiredOption('--trusted-addresses <addresses>', 'Comma-separated full trusted/victim addresses, max 5')
-      .requiredOption('--network <network>', 'Network to query: bittensor, ethereum, or base')
+      .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
       .option('--untrusted-addresses <addresses>', 'Comma-separated full known untrusted/scammer addresses, max 5')
       .option('--case <id>', 'Case ID to attach compact evidence pointers')
       .option('--max-hops <number>', 'Maximum trace hops, 1-5')

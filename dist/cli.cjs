@@ -62,7 +62,7 @@ function optionalNumber(value) {
 async function withGraphMcpClient(name, fn) {
 	const { loadConfig } = await Promise.resolve().then(() => require("./config-Bmdl5hdk.cjs")).then((n) => n.config_exports);
 	const config = await loadConfig();
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-Dc0MXuij.cjs")).then((n) => n.client_exports);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-D4fZgIaO.cjs")).then((n) => n.client_exports);
 	const paymentFetch = await createConfiguredGraphMcpFetch(config);
 	const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
 	const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
@@ -189,7 +189,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 }));
 program.command("init").description("Initialize an investigation workspace").argument("[dir]", "Workspace directory to initialize", ".").option("--force", "Overwrite existing workspace files").action(async (dir, opts) => {
 	try {
-		const { initWorkspace } = await Promise.resolve().then(() => require("./init-Ds6HDB6w.cjs"));
+		const { initWorkspace } = await Promise.resolve().then(() => require("./init-BKxGkarh.cjs"));
 		const result = await initWorkspace({
 			targetDir: dir,
 			force: opts.force
@@ -300,13 +300,24 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 		process.exit(1);
 	}
 }));
-program.command("mcp").description("Interact with the Chain Insights MCP endpoint").allowExcessArguments(false).addCommand(new commander.Command("tools").description("List available MCP tools (cached 24h)").option("--refresh", "Force refresh schema cache").action(async (opts) => {
+program.command("mcp").description("Interact with the Chain Insights MCP endpoint").allowExcessArguments(false).addCommand(new commander.Command("networks").description("List supported graph networks, capability layers, retention, and freshness").option("--json", "Print raw capability JSON").action(async (opts) => {
 	try {
-		const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-BIely23-.cjs"));
-		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-D380-zF5.cjs"));
+		const { loadConfig } = await Promise.resolve().then(() => require("./config-Bmdl5hdk.cjs")).then((n) => n.config_exports);
+		const { fetchNetworkCapabilities, formatNetworkCapabilities } = await Promise.resolve().then(() => require("./capabilities-C8HwplF7.cjs"));
+		const document = await fetchNetworkCapabilities(await loadConfig());
+		if (opts.json) console.log(JSON.stringify(document, null, 2));
+		else console.log(formatNetworkCapabilities(document));
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
+})).addCommand(new commander.Command("tools").description("List available MCP tools (cached 24h)").option("--refresh", "Force refresh schema cache").action(async (opts) => {
+	try {
+		const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-CgWRCN2N.cjs"));
+		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-DOrPvXEr.cjs"));
 		const { visibleRemoteTools } = await Promise.resolve().then(() => require("./tool-visibility-CwgY205r.cjs")).then((n) => n.tool_visibility_exports);
 		const { loadConfig } = await Promise.resolve().then(() => require("./config-Bmdl5hdk.cjs")).then((n) => n.config_exports);
-		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-Dc0MXuij.cjs")).then((n) => n.client_exports);
+		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-D4fZgIaO.cjs")).then((n) => n.client_exports);
 		const config = await loadConfig();
 		const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
 		let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint);
@@ -331,7 +342,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new commander.Command("address-risk").description("Screen an address for risk, exchange behavior, and optional compare_address connection risk").requiredOption("--address <address>", "Full blockchain address to screen").requiredOption("--network <network>", "Network to query: bittensor, ethereum, or base").option("--compare-address <address>", "Optional second address for connection-risk compare mode").option("--remote", "Force remote MCP tool call instead of local fallback").action(async (opts) => {
+})).addCommand(new commander.Command("address-risk").description("Screen an address for risk, exchange behavior, and optional compare_address connection risk").requiredOption("--address <address>", "Full blockchain address to screen").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--compare-address <address>", "Optional second address for connection-risk compare mode").option("--remote", "Force remote MCP tool call instead of local fallback").action(async (opts) => {
 	try {
 		await withGraphMcpClient("chain-insights-cli-address-risk", async (client) => {
 			if (opts.remote) {
@@ -357,7 +368,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new commander.Command("track-funds").description("Trace trusted/victim addresses and optional known untrusted/scammer addresses").requiredOption("--trusted-addresses <addresses>", "Comma-separated full trusted/victim addresses, max 5").requiredOption("--network <network>", "Network to query: bittensor, ethereum, or base").option("--untrusted-addresses <addresses>", "Comma-separated full known untrusted/scammer addresses, max 5").option("--case <id>", "Case ID to attach compact evidence pointers").option("--max-hops <number>", "Maximum trace hops, 1-5").option("--per-address-limit <number>", "Maximum exchange paths/results per address, 1-10").option("--min-amount-sum <number>", "Minimum r.amount_sum for traced edges").option("--remote", "Force remote MCP tool call instead of local fallback").action(async (opts) => {
+})).addCommand(new commander.Command("track-funds").description("Trace trusted/victim addresses and optional known untrusted/scammer addresses").requiredOption("--trusted-addresses <addresses>", "Comma-separated full trusted/victim addresses, max 5").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--untrusted-addresses <addresses>", "Comma-separated full known untrusted/scammer addresses, max 5").option("--case <id>", "Case ID to attach compact evidence pointers").option("--max-hops <number>", "Maximum trace hops, 1-5").option("--per-address-limit <number>", "Maximum exchange paths/results per address, 1-10").option("--min-amount-sum <number>", "Minimum r.amount_sum for traced edges").option("--remote", "Force remote MCP tool call instead of local fallback").action(async (opts) => {
 	try {
 		const { requireWorkspaceRoot } = await Promise.resolve().then(() => require("./output-root-CFYms3ad.cjs")).then((n) => n.output_root_exports);
 		requireWorkspaceRoot();
@@ -593,9 +604,9 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			}
 			resolvedParams[key] = kv.slice(eq + 1);
 		}
-		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-cdsIBBH5.cjs"));
+		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-Bvc7T1Jf.cjs"));
 		const markdown = await resolvePlaybookContent(name);
-		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser--sL50jHE.cjs"));
+		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-BUIWW1OH.cjs"));
 		const definition = PlaybookParser.parse(markdown, resolvedParams);
 		for (const spec of definition.params) if (spec.required && !resolvedParams[spec.name] && !spec.default) {
 			console.error(`Missing required param: ${spec.name}. Pass with: -p ${spec.name}=<value>`);
@@ -606,7 +617,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-DXubtgeg.cjs"));
+		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-8QujXShK.cjs"));
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,
@@ -619,7 +630,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new commander.Command("list").description("List available playbooks (built-in and user-defined)").action(async () => {
 	try {
-		const { listPlaybooks } = await Promise.resolve().then(() => require("./resolver-cdsIBBH5.cjs"));
+		const { listPlaybooks } = await Promise.resolve().then(() => require("./resolver-Bvc7T1Jf.cjs"));
 		const playbooks = await listPlaybooks();
 		if (playbooks.length === 0) {
 			console.log("No playbooks found.");
@@ -632,8 +643,8 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new commander.Command("show").description("Show steps for a playbook without executing").argument("<name>", "Playbook name").action(async (name) => {
 	try {
-		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-cdsIBBH5.cjs"));
-		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser--sL50jHE.cjs"));
+		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-Bvc7T1Jf.cjs"));
+		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-BUIWW1OH.cjs"));
 		const markdown = await resolvePlaybookContent(name);
 		const definition = PlaybookParser.parse(markdown, {});
 		console.log(`Playbook: ${definition.name} v${definition.version}`);

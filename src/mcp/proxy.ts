@@ -48,6 +48,7 @@ const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
 }
 
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
+  network_capabilities: 'Return supported Chain Insights networks, capability layers, tool availability, data retention windows, and freshness. Use this before choosing network-specific tools.',
   address_risk: 'Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. This includes the exchange-behavior analysis formerly covered by money_flows_between_exchanges. Use this as the first tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.',
   track_funds: 'Trace funds from trusted victim/source addresses through intermediaries to exchange deposit addresses. Use this when the user has a victim/source address or known untrusted/scammer addresses. The tool returns an investigator-ready fund-flow report and recommended next actions.',
   graph_query: 'Run a read-only Cypher query against the Chain Insights graph database for schema discovery, aggregate counts, or custom graph inspection. Use only read-only queries and return full address strings exactly.',
@@ -62,13 +63,13 @@ type RemoteToolCaller = {
   callTool(input: ToolCallInput): Promise<unknown>
 }
 
-const NETWORK_DESCRIPTION = 'Required network to query: bittensor, ethereum, or base. Do not guess; ask the user if missing.'
+const NETWORK_DESCRIPTION = 'Required network to query. Do not guess; use network_capabilities or ask the user if missing.'
 
 const CHAIN_INSIGHTS_WORKFLOW = [
   'Workflow:',
   '1. If the user is starting or continuing an investigation, use case_open or case_list/case_resume first.',
-  '2. Do not call investigation tools until required arguments are known. Network is required; ask for bittensor, ethereum, or base if missing.',
-  '3. Use address_risk first for a single address, including exchange-behavior analysis. Use address_risk with compare_address when the user gives two addresses. Use track_funds for victim/source fund tracing with optional known scammer addresses. Use graph_query only for explicit read-only Cypher or custom aggregates; use graph_query_batch for related custom reads that should share one paid call.',
+  '2. Do not call investigation tools until required arguments are known. Network is required; use network_capabilities to check supported networks, data layers, retention, and freshness, or ask the user if missing.',
+  '3. Use address_risk first for a single address only when the selected network advertises risk_intelligence support. Use track_funds for victim/source fund tracing when topology is available. Use graph_query only for explicit read-only Cypher or custom aggregates; use graph_query_batch for related custom reads that should share one paid call.',
   '4. After a material result, preserve it with case_add_evidence when a case is active or ask whether to create/select a case.',
   '5. Use case_update_dossier for durable address/entity findings and case_start_session/case_end_session for session notes.',
 ].join('\n')
@@ -1338,6 +1339,7 @@ export async function createProxy(): Promise<void> {
             CHAIN_INSIGHTS_WORKFLOW,
             '',
             'Investigation tools:',
+            '- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.',
             '- address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.',
             '- track_funds: trace up to five trusted/victim addresses plus up to five known untrusted/scammer addresses through intermediaries to exchange deposit addresses.',
             '- graph_query: run read-only Cypher against the investigation graph.',

@@ -60,7 +60,7 @@ function optionalNumber(value) {
 async function withGraphMcpClient(name, fn) {
 	const { loadConfig } = await import("./config-BwrBYmiC.mjs").then((n) => n.t);
 	const config = await loadConfig();
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-DrzaRU81.mjs").then((n) => n.t);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-D4Bq0rp9.mjs").then((n) => n.t);
 	const paymentFetch = await createConfiguredGraphMcpFetch(config);
 	const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
 	const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
@@ -187,7 +187,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 }));
 program.command("init").description("Initialize an investigation workspace").argument("[dir]", "Workspace directory to initialize", ".").option("--force", "Overwrite existing workspace files").action(async (dir, opts) => {
 	try {
-		const { initWorkspace } = await import("./init-DrfEm2L4.mjs");
+		const { initWorkspace } = await import("./init-CSYbHQFo.mjs");
 		const result = await initWorkspace({
 			targetDir: dir,
 			force: opts.force
@@ -298,13 +298,24 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 		process.exit(1);
 	}
 }));
-program.command("mcp").description("Interact with the Chain Insights MCP endpoint").allowExcessArguments(false).addCommand(new Command("tools").description("List available MCP tools (cached 24h)").option("--refresh", "Force refresh schema cache").action(async (opts) => {
+program.command("mcp").description("Interact with the Chain Insights MCP endpoint").allowExcessArguments(false).addCommand(new Command("networks").description("List supported graph networks, capability layers, retention, and freshness").option("--json", "Print raw capability JSON").action(async (opts) => {
 	try {
-		const { loadSchema, saveSchema } = await import("./schema-cache-lfNylxL4.mjs");
-		const { formatToolsTable } = await import("./format-B9rRaquy.mjs");
+		const { loadConfig } = await import("./config-BwrBYmiC.mjs").then((n) => n.t);
+		const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import("./capabilities-Un9uE2UE.mjs");
+		const document = await fetchNetworkCapabilities(await loadConfig());
+		if (opts.json) console.log(JSON.stringify(document, null, 2));
+		else console.log(formatNetworkCapabilities(document));
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
+})).addCommand(new Command("tools").description("List available MCP tools (cached 24h)").option("--refresh", "Force refresh schema cache").action(async (opts) => {
+	try {
+		const { loadSchema, saveSchema } = await import("./schema-cache-9CksD7tX.mjs");
+		const { formatToolsTable } = await import("./format-Ce1RObVl.mjs");
 		const { visibleRemoteTools } = await import("./tool-visibility-3Z_KvO9Q.mjs").then((n) => n.n);
 		const { loadConfig } = await import("./config-BwrBYmiC.mjs").then((n) => n.t);
-		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-DrzaRU81.mjs").then((n) => n.t);
+		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-D4Bq0rp9.mjs").then((n) => n.t);
 		const config = await loadConfig();
 		const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
 		let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint);
@@ -329,7 +340,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new Command("address-risk").description("Screen an address for risk, exchange behavior, and optional compare_address connection risk").requiredOption("--address <address>", "Full blockchain address to screen").requiredOption("--network <network>", "Network to query: bittensor, ethereum, or base").option("--compare-address <address>", "Optional second address for connection-risk compare mode").option("--remote", "Force remote MCP tool call instead of local fallback").action(async (opts) => {
+})).addCommand(new Command("address-risk").description("Screen an address for risk, exchange behavior, and optional compare_address connection risk").requiredOption("--address <address>", "Full blockchain address to screen").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--compare-address <address>", "Optional second address for connection-risk compare mode").option("--remote", "Force remote MCP tool call instead of local fallback").action(async (opts) => {
 	try {
 		await withGraphMcpClient("chain-insights-cli-address-risk", async (client) => {
 			if (opts.remote) {
@@ -355,7 +366,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new Command("track-funds").description("Trace trusted/victim addresses and optional known untrusted/scammer addresses").requiredOption("--trusted-addresses <addresses>", "Comma-separated full trusted/victim addresses, max 5").requiredOption("--network <network>", "Network to query: bittensor, ethereum, or base").option("--untrusted-addresses <addresses>", "Comma-separated full known untrusted/scammer addresses, max 5").option("--case <id>", "Case ID to attach compact evidence pointers").option("--max-hops <number>", "Maximum trace hops, 1-5").option("--per-address-limit <number>", "Maximum exchange paths/results per address, 1-10").option("--min-amount-sum <number>", "Minimum r.amount_sum for traced edges").option("--remote", "Force remote MCP tool call instead of local fallback").action(async (opts) => {
+})).addCommand(new Command("track-funds").description("Trace trusted/victim addresses and optional known untrusted/scammer addresses").requiredOption("--trusted-addresses <addresses>", "Comma-separated full trusted/victim addresses, max 5").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--untrusted-addresses <addresses>", "Comma-separated full known untrusted/scammer addresses, max 5").option("--case <id>", "Case ID to attach compact evidence pointers").option("--max-hops <number>", "Maximum trace hops, 1-5").option("--per-address-limit <number>", "Maximum exchange paths/results per address, 1-10").option("--min-amount-sum <number>", "Minimum r.amount_sum for traced edges").option("--remote", "Force remote MCP tool call instead of local fallback").action(async (opts) => {
 	try {
 		const { requireWorkspaceRoot } = await import("./output-root-CmWM7aV2.mjs").then((n) => n.t);
 		requireWorkspaceRoot();
@@ -591,9 +602,9 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			}
 			resolvedParams[key] = kv.slice(eq + 1);
 		}
-		const { resolvePlaybookContent } = await import("./resolver-ClIiQaiR.mjs");
+		const { resolvePlaybookContent } = await import("./resolver-C6aTzSr_.mjs");
 		const markdown = await resolvePlaybookContent(name);
-		const { PlaybookParser } = await import("./parser-DRBE2MFL.mjs");
+		const { PlaybookParser } = await import("./parser-DO0_SssG.mjs");
 		const definition = PlaybookParser.parse(markdown, resolvedParams);
 		for (const spec of definition.params) if (spec.required && !resolvedParams[spec.name] && !spec.default) {
 			console.error(`Missing required param: ${spec.name}. Pass with: -p ${spec.name}=<value>`);
@@ -604,7 +615,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await import("./runner-BPTjTjov.mjs");
+		const { PlaybookRunner } = await import("./runner-CX5vzdXF.mjs");
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,
@@ -617,7 +628,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new Command("list").description("List available playbooks (built-in and user-defined)").action(async () => {
 	try {
-		const { listPlaybooks } = await import("./resolver-ClIiQaiR.mjs");
+		const { listPlaybooks } = await import("./resolver-C6aTzSr_.mjs");
 		const playbooks = await listPlaybooks();
 		if (playbooks.length === 0) {
 			console.log("No playbooks found.");
@@ -630,8 +641,8 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new Command("show").description("Show steps for a playbook without executing").argument("<name>", "Playbook name").action(async (name) => {
 	try {
-		const { resolvePlaybookContent } = await import("./resolver-ClIiQaiR.mjs");
-		const { PlaybookParser } = await import("./parser-DRBE2MFL.mjs");
+		const { resolvePlaybookContent } = await import("./resolver-C6aTzSr_.mjs");
+		const { PlaybookParser } = await import("./parser-DO0_SssG.mjs");
 		const markdown = await resolvePlaybookContent(name);
 		const definition = PlaybookParser.parse(markdown, {});
 		console.log(`Playbook: ${definition.name} v${definition.version}`);

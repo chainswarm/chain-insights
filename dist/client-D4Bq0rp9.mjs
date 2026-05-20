@@ -106,6 +106,6 @@ async function createConfiguredGraphMcpFetch(config) {
 	return createConfiguredFetchWithToken(void 0, "walletPrivateKey");
 }
 //#endregion
-export { createConfiguredMcpFetch as n, createMcpFetchClient as r, client_exports as t };
+export { resolveGraphMcpEndpoint as i, createConfiguredMcpFetch as n, createMcpFetchClient as r, client_exports as t };
 
-//# sourceMappingURL=client-DrzaRU81.mjs.map
+//# sourceMappingURL=client-D4Bq0rp9.mjs.map
