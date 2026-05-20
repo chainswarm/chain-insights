@@ -99,12 +99,12 @@ function datasetLabel(network: NetworkCapability): string {
   if (!coverage) return 'unknown'
   const blockRange = coverage.from_block !== undefined && coverage.to_block !== undefined
     ? `${coverage.from_block}..${coverage.to_block}`
-    : ''
+    : 'blocks unknown'
   const dateRange = coverage.from_timestamp && coverage.to_timestamp
     ? `${shortDate(coverage.from_timestamp)}..${shortDate(coverage.to_timestamp)}`
-    : ''
-  if (blockRange && dateRange) return `${blockRange} / ${dateRange}`
-  return blockRange || dateRange || 'unknown'
+    : 'dates unknown'
+  if (blockRange === 'blocks unknown' && dateRange === 'dates unknown') return 'unknown'
+  return `${blockRange} / ${dateRange}`
 }
 
 export function formatNetworkCapabilities(document: NetworkCapabilitiesDocument): string {

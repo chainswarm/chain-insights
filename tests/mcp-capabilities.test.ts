@@ -108,6 +108,35 @@ describe('MCP network capabilities', () => {
     expect(output).toContain('none')
   })
 
+  it('formats partial dataset coverage without hiding missing heights', async () => {
+    const { formatNetworkCapabilities } = await import('../src/mcp/capabilities.js')
+
+    const output = formatNetworkCapabilities({
+      schema: 'chain-insights.network-capabilities.v1',
+      networks: [{
+        network: 'tron',
+        display_name: 'TRON',
+        status: 'live',
+        layers: {
+          topology_labels: { enabled: true },
+          risk_intelligence: { enabled: false },
+        },
+        coverage: {
+          from_timestamp: '2026-05-19T00:00:00Z',
+          to_timestamp: '2026-05-20T00:00:00Z',
+        },
+        tools: {
+          graph_query: 'available',
+          graph_query_batch: 'available',
+          track_funds: 'available',
+          address_risk: 'unavailable',
+        },
+      }],
+    })
+
+    expect(output).toContain('blocks unknown / 2026-05-19..2026-05-20')
+  })
+
   it('does not expose StarRocks storage materializations in CLI output', async () => {
     const { formatNetworkCapabilities } = await import('../src/mcp/capabilities.js')
 

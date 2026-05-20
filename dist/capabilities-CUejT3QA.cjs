@@ -36,10 +36,10 @@ function shortDate(value) {
 function datasetLabel(network) {
 	const coverage = network.coverage;
 	if (!coverage) return "unknown";
-	const blockRange = coverage.from_block !== void 0 && coverage.to_block !== void 0 ? `${coverage.from_block}..${coverage.to_block}` : "";
-	const dateRange = coverage.from_timestamp && coverage.to_timestamp ? `${shortDate(coverage.from_timestamp)}..${shortDate(coverage.to_timestamp)}` : "";
-	if (blockRange && dateRange) return `${blockRange} / ${dateRange}`;
-	return blockRange || dateRange || "unknown";
+	const blockRange = coverage.from_block !== void 0 && coverage.to_block !== void 0 ? `${coverage.from_block}..${coverage.to_block}` : "blocks unknown";
+	const dateRange = coverage.from_timestamp && coverage.to_timestamp ? `${shortDate(coverage.from_timestamp)}..${shortDate(coverage.to_timestamp)}` : "dates unknown";
+	if (blockRange === "blocks unknown" && dateRange === "dates unknown") return "unknown";
+	return `${blockRange} / ${dateRange}`;
 }
 function formatNetworkCapabilities(document) {
 	if (document.networks.length === 0) return "No supported networks advertised.";
