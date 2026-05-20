@@ -18,27 +18,6 @@ export interface NetworkLayerCapability {
   retention?: NetworkRetention | null
 }
 
-export interface NetworkAggregationMaterialization {
-  level: 'raw' | 'daily' | 'monthly' | 'yearly' | string
-  source?: string
-  grain?: string
-  derived_from?: string
-  enabled: boolean
-  retention?: NetworkRetention | null
-  coverage?: {
-    from_block?: number
-    to_block?: number
-    chain_tip_block?: number
-    blocks_behind_tip?: number
-  }
-  freshness?: {
-    last_processed_at?: string
-    last_successful_sync_at?: string
-    max_data_age_seconds?: number
-    last_processing_duration_seconds?: number
-  }
-}
-
 export interface NetworkCapability {
   network: string
   display_name?: string
@@ -46,7 +25,6 @@ export interface NetworkCapability {
   default?: boolean
   layers: Record<string, NetworkLayerCapability>
   tools: Record<string, string>
-  aggregations?: Record<string, NetworkAggregationMaterialization[]>
   coverage?: {
     from_block?: number
     to_block?: number
@@ -102,47 +80,17 @@ function layerValue(network: NetworkCapability, layer: string): string {
   return 'yes'
 }
 
-function retentionLabel(network: NetworkCapability): string {
-  const topology = network.layers['topology_labels']
-  const retention = topology?.retention
-  if (!retention) return 'unknown'
-  if (retention.mode === 'rolling_window' && retention.window_days) {
-    if (retention.window_days % 365 === 0) return `${retention.window_days / 365}y rolling`
-    return `${retention.window_days}d rolling`
-  }
-  if (retention.mode === 'expanding_then_rolling' && retention.window_days) {
-    if (retention.window_days % 365 === 0) return `growing to ${retention.window_days / 365}y`
-    return `growing to ${retention.window_days}d`
-  }
-  if (retention.mode === 'full_history') return 'full history'
-  if (retention.mode === 'bounded_range') return 'bounded'
-  return retention.mode || 'unknown'
-}
-
-function freshnessLabel(network: NetworkCapability): string {
-  const blocksBehind = network.coverage?.blocks_behind_tip
-  if (typeof blocksBehind === 'number') return `${blocksBehind} blocks behind`
-  const maxAge = network.freshness?.max_data_age_seconds
-  if (typeof maxAge === 'number') return `${Math.round(maxAge / 60)} min old`
-  return 'unknown'
-}
-
-function aggregationLabel(network: NetworkCapability): string {
-  const materializations = network.aggregations?.['transfers']?.filter((materialization) => materialization.enabled) ?? []
-  if (materializations.length === 0) return 'unknown'
-  const labels = materializations.map((materialization) => {
-    if (materialization.level === 'daily') return 'day'
-    if (materialization.level === 'monthly') return 'month'
-    if (materialization.level === 'yearly') return 'year'
-    return materialization.level
-  })
-  return labels.join('/')
+function availableToolsLabel(network: NetworkCapability): string {
+  const tools = Object.entries(network.tools ?? {})
+    .filter(([, status]) => status === 'available')
+    .map(([name]) => name)
+  return tools.length > 0 ? tools.join(', ') : 'none'
 }
 
 export function formatNetworkCapabilities(document: NetworkCapabilitiesDocument): string {
   if (document.networks.length === 0) return 'No supported networks advertised.'
-  const headers = ['Network', 'Topology', 'Risk', 'Retention', 'Transfers', 'Freshness']
-  const widths = [14, 10, 10, 14, 19, 18]
+  const headers = ['Network', 'Topology', 'Risk', 'Available tools']
+  const widths = [14, 10, 10, 54]
   const row = (values: string[]) => values.map((value, index) => value.padEnd(widths[index]!)).join('  ')
   return [
     row(headers),
@@ -151,9 +99,7 @@ export function formatNetworkCapabilities(document: NetworkCapabilitiesDocument)
       network.display_name || network.network,
       layerValue(network, 'topology_labels'),
       layerValue(network, 'risk_intelligence'),
-      retentionLabel(network),
-      aggregationLabel(network),
-      freshnessLabel(network),
+      availableToolsLabel(network),
     ])),
   ].join('\n')
 }

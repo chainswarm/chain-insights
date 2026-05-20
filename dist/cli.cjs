@@ -303,7 +303,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 program.command("mcp").description("Interact with the Chain Insights MCP endpoint").allowExcessArguments(false).addCommand(new commander.Command("networks").description("List supported graph networks, capability layers, retention, and freshness").option("--json", "Print raw capability JSON").action(async (opts) => {
 	try {
 		const { loadConfig } = await Promise.resolve().then(() => require("./config-Bmdl5hdk.cjs")).then((n) => n.config_exports);
-		const { fetchNetworkCapabilities, formatNetworkCapabilities } = await Promise.resolve().then(() => require("./capabilities-C8HwplF7.cjs"));
+		const { fetchNetworkCapabilities, formatNetworkCapabilities } = await Promise.resolve().then(() => require("./capabilities-T1Y2UoxL.cjs"));
 		const document = await fetchNetworkCapabilities(await loadConfig());
 		if (opts.json) console.log(JSON.stringify(document, null, 2));
 		else console.log(formatNetworkCapabilities(document));

@@ -301,7 +301,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 program.command("mcp").description("Interact with the Chain Insights MCP endpoint").allowExcessArguments(false).addCommand(new Command("networks").description("List supported graph networks, capability layers, retention, and freshness").option("--json", "Print raw capability JSON").action(async (opts) => {
 	try {
 		const { loadConfig } = await import("./config-BwrBYmiC.mjs").then((n) => n.t);
-		const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import("./capabilities-Un9uE2UE.mjs");
+		const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import("./capabilities-88_IwmIE.mjs");
 		const document = await fetchNetworkCapabilities(await loadConfig());
 		if (opts.json) console.log(JSON.stringify(document, null, 2));
 		else console.log(formatNetworkCapabilities(document));

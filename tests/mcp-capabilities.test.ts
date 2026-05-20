@@ -42,7 +42,7 @@ describe('MCP network capabilities', () => {
     expect(result.networks[0]?.network).toBe('tron')
   })
 
-  it('formats retention and layer support for CLI output', async () => {
+  it('formats layer support and available tools for CLI output', async () => {
     const { formatNetworkCapabilities } = await import('../src/mcp/capabilities.js')
 
     const output = formatNetworkCapabilities({
@@ -55,45 +55,47 @@ describe('MCP network capabilities', () => {
           topology_labels: { enabled: true, retention: { mode: 'rolling_window', window_days: 365 } },
           risk_intelligence: { enabled: false },
         },
-        tools: {},
-        coverage: { blocks_behind_tip: 12 },
+        tools: {
+          graph_query: 'available',
+          graph_query_batch: 'available',
+          track_funds: 'available',
+          address_risk: 'unavailable',
+        },
       }],
     })
 
     expect(output).toContain('TRON')
-    expect(output).toContain('1y rolling')
-    expect(output).toContain('12 blocks behind')
+    expect(output).toContain('yes')
+    expect(output).toContain('graph_query, graph_query_batch, track_funds')
   })
 
-  it('formats expanding-then-rolling retention for new network rollouts', async () => {
+  it('formats no available tools for unsupported networks', async () => {
     const { formatNetworkCapabilities } = await import('../src/mcp/capabilities.js')
 
     const output = formatNetworkCapabilities({
       schema: 'chain-insights.network-capabilities.v1',
       networks: [{
-        network: 'tron',
-        display_name: 'TRON',
-        status: 'live',
+        network: 'base',
+        display_name: 'Base',
+        status: 'unavailable',
         layers: {
-          topology_labels: {
-            enabled: true,
-            retention: {
-              mode: 'expanding_then_rolling',
-              window_days: 730,
-              started_at: '2026-05-20T00:00:00Z',
-              rolls_after_at: '2028-05-19T00:00:00Z',
-            },
-          },
+          topology_labels: { enabled: false },
           risk_intelligence: { enabled: false },
         },
-        tools: {},
+        tools: {
+          graph_query: 'unavailable',
+          graph_query_batch: 'unavailable',
+          track_funds: 'unavailable',
+          address_risk: 'unavailable',
+        },
       }],
     })
 
-    expect(output).toContain('growing to 2y')
+    expect(output).toContain('Base')
+    expect(output).toContain('none')
   })
 
-  it('formats transfer aggregation materializations for CLI output', async () => {
+  it('does not expose StarRocks storage materializations in CLI output', async () => {
     const { formatNetworkCapabilities } = await import('../src/mcp/capabilities.js')
 
     const output = formatNetworkCapabilities({
@@ -107,17 +109,10 @@ describe('MCP network capabilities', () => {
           risk_intelligence: { enabled: false },
         },
         tools: {},
-        aggregations: {
-          transfers: [
-            { level: 'raw', source: 'core_transfers', grain: 'event', enabled: true },
-            { level: 'daily', source: 'core_money_flows_daily', grain: 'day', enabled: true, derived_from: 'raw' },
-            { level: 'monthly', source: 'core_money_flows_monthly', grain: 'month', enabled: true, derived_from: 'daily' },
-            { level: 'yearly', source: 'core_money_flows_yearly', grain: 'year', enabled: true, derived_from: 'monthly' },
-          ],
-        },
       }],
     })
 
-    expect(output).toContain('raw/day/month/year')
+    expect(output).not.toContain('Transfers')
+    expect(output).not.toContain('raw/day/month/year')
   })
 })

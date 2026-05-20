@@ -25,37 +25,9 @@ function layerValue(network, layer) {
 	if (!network.layers[layer]?.enabled) return "no";
 	return "yes";
 }
-function retentionLabel(network) {
-	const retention = network.layers["topology_labels"]?.retention;
-	if (!retention) return "unknown";
-	if (retention.mode === "rolling_window" && retention.window_days) {
-		if (retention.window_days % 365 === 0) return `${retention.window_days / 365}y rolling`;
-		return `${retention.window_days}d rolling`;
-	}
-	if (retention.mode === "expanding_then_rolling" && retention.window_days) {
-		if (retention.window_days % 365 === 0) return `growing to ${retention.window_days / 365}y`;
-		return `growing to ${retention.window_days}d`;
-	}
-	if (retention.mode === "full_history") return "full history";
-	if (retention.mode === "bounded_range") return "bounded";
-	return retention.mode || "unknown";
-}
-function freshnessLabel(network) {
-	const blocksBehind = network.coverage?.blocks_behind_tip;
-	if (typeof blocksBehind === "number") return `${blocksBehind} blocks behind`;
-	const maxAge = network.freshness?.max_data_age_seconds;
-	if (typeof maxAge === "number") return `${Math.round(maxAge / 60)} min old`;
-	return "unknown";
-}
-function aggregationLabel(network) {
-	const materializations = network.aggregations?.["transfers"]?.filter((materialization) => materialization.enabled) ?? [];
-	if (materializations.length === 0) return "unknown";
-	return materializations.map((materialization) => {
-		if (materialization.level === "daily") return "day";
-		if (materialization.level === "monthly") return "month";
-		if (materialization.level === "yearly") return "year";
-		return materialization.level;
-	}).join("/");
+function availableToolsLabel(network) {
+	const tools = Object.entries(network.tools ?? {}).filter(([, status]) => status === "available").map(([name]) => name);
+	return tools.length > 0 ? tools.join(", ") : "none";
 }
 function formatNetworkCapabilities(document) {
 	if (document.networks.length === 0) return "No supported networks advertised.";
@@ -63,17 +35,13 @@ function formatNetworkCapabilities(document) {
 		"Network",
 		"Topology",
 		"Risk",
-		"Retention",
-		"Transfers",
-		"Freshness"
+		"Available tools"
 	];
 	const widths = [
 		14,
 		10,
 		10,
-		14,
-		19,
-		18
+		54
 	];
 	const row = (values) => values.map((value, index) => value.padEnd(widths[index])).join("  ");
 	return [
@@ -83,9 +51,7 @@ function formatNetworkCapabilities(document) {
 			network.display_name || network.network,
 			layerValue(network, "topology_labels"),
 			layerValue(network, "risk_intelligence"),
-			retentionLabel(network),
-			aggregationLabel(network),
-			freshnessLabel(network)
+			availableToolsLabel(network)
 		]))
 	].join("\n");
 }
