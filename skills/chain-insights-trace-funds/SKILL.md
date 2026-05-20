@@ -25,6 +25,23 @@ cia init .
 No investigation output belongs under `~/.chain-insights`; that global location
 is for config, cache, wallet, and installed skills only.
 
+Before selecting a tracing method, inspect the live GraphRAG network matrix:
+
+```bash
+cia mcp networks
+```
+
+Use the output as the source of truth:
+
+- `Topology: yes` is required for fund-flow tracing.
+- `Available tools` must include `track_funds`; otherwise use available
+  `graph_query`/`graph_query_batch` only as a manual fallback.
+- `Dataset` gives the graph coverage range as
+  `<first_height>..<last_height> / <first_date>..<last_date>`. State this range
+  in the investigation scope, and do not claim tracing coverage outside it.
+- `Risk: yes` is not required for `track_funds`, but it determines whether
+  downstream `address_risk` enrichment is available on the same network.
+
 Use `track_funds` when the investigation has victim/source addresses and may
 also include known scammer addresses. It accepts up to five
 `trusted_addresses` and up to five `untrusted_addresses`, preserves those

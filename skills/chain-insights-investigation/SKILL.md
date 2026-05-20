@@ -35,30 +35,43 @@ cia debug off
    cia init .
    ```
    No investigation output belongs under ~/.chain-insights.
-2. Read workspace runtime schema notes:
+2. Inspect live network support before choosing tools:
+   ```bash
+   cia mcp networks
+   ```
+   Use the advertised `Topology`, `Risk`, `Dataset`, and `Available tools`
+   columns as the source of truth for the current GraphRAG endpoint. The
+   `Dataset` column is the graph coverage range, usually
+   `<first_height>..<last_height> / <first_date>..<last_date>`. If an incident,
+   address activity, or requested chain falls outside that range, state that
+   limitation before querying. Do not call `address_risk` unless the selected
+   network advertises risk support and `address_risk` is available. If only
+   topology is available, use `track_funds`, `graph_query`, or
+   `graph_query_batch` as appropriate.
+3. Read workspace runtime schema notes:
    ```bash
    test -f .chain-insights/runtime-skill/SKILL.md && sed -n '1,220p' .chain-insights/runtime-skill/SKILL.md
    ```
-3. If `.chain-insights/schema/<network>.graph-schema.json` does not exist, capture schema before case queries:
+4. If `.chain-insights/schema/<network>.graph-schema.json` does not exist, capture schema before case queries:
    ```bash
    mkdir -p .chain-insights/schema
    cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"MATCH (n) UNWIND labels(n) AS label RETURN label, count(*) AS count ORDER BY count DESC LIMIT 100"},{"id":"relationship_types","query":"MATCH ()-[r]->() RETURN type(r) AS relationship_type, count(*) AS count ORDER BY count DESC LIMIT 100"},{"id":"address_property_keys","query":"MATCH (n:Address) WITH keys(n) AS keys LIMIT 1000 UNWIND keys AS property_key RETURN property_key, count(*) AS sample_count ORDER BY sample_count DESC, property_key LIMIT 200"},{"id":"flows_to_property_keys","query":"MATCH ()-[r:FLOWS_TO]->() WITH keys(r) AS keys LIMIT 1000 UNWIND keys AS property_key RETURN property_key, count(*) AS sample_count ORDER BY sample_count DESC, property_key LIMIT 200"}]' > .chain-insights/schema/<network>.graph-schema.raw.json
    ```
    Reduce the raw schema into `.chain-insights/schema/<network>.graph-schema.json` and update `.chain-insights/runtime-skill/SKILL.md` with the observed fields.
-4. List cases:
+5. List cases:
    ```bash
    cia case list
    ```
-5. If a case exists and the user did not choose one, ask which numbered case to use.
-6. If no case exists but the user gave an address/topic, create one with a descriptive name:
+6. If a case exists and the user did not choose one, ask which numbered case to use.
+7. If no case exists but the user gave an address/topic, create one with a descriptive name:
    ```bash
    cia case open "Tracking stolen funds from <full-address>" --tags <network-or-domain>
    ```
-7. Show selected case before investigating:
+8. Show selected case before investigating:
    ```bash
    cia case show <case-number>
    ```
-8. Start or reuse the active session:
+9. Start or reuse the active session:
    ```bash
    cia case session start <case-number> "short session title"
    ```
@@ -88,6 +101,8 @@ cia debug off
   Chain Insights may call Go MCP primitives, but it must not reduce
   `address_risk` to only a profile lookup or a bounded `FLOWS_TO *1..N` recipe.
 - Never call graph tools without an explicit `network`.
+- Never assume network support. Run `cia mcp networks` first and respect the
+  advertised `Available tools` plus the `Dataset` height/date range.
 - Never treat user claims as facts until tool output supports them.
 - Never leave material tool output only in chat. Save it as evidence.
 - Keep evidence compact and use original graph field names. Evidence Markdown should summarize and point to files; large JSON belongs in `reports/tables/`.
@@ -101,6 +116,17 @@ cia debug off
 - Bound graph reads with `LIMIT`.
 
 ## Tool Selection
+
+Tool selection is network-dependent:
+
+- `Topology: yes` means graph topology tools can run for that network.
+- `Risk: yes` means risk-aware tools such as `address_risk` can be used.
+- `Dataset` defines the graph coverage window. Use it to qualify conclusions;
+  do not imply coverage before the first advertised height/date or after the
+  last advertised height/date.
+- `Available tools` is authoritative. If a tool is not listed as available,
+  fall back to the available lower-level graph tools or tell the user the
+  network is not supported for that workflow yet.
 
 Use `address_risk` first for ordinary address screening. It measures risk,
 neighborhood context, and exchange behavior together, including exchange inflow
