@@ -65,7 +65,12 @@ export async function fetchNetworkCapabilities(
     headers.set('X-MCP-Debug-Token', token)
     headers.set('Authorization', `Bearer ${token}`)
   }
-  const response = await fetch(request, { headers })
+  let response: Response
+  try {
+    response = await fetch(request, { headers })
+  } catch (err) {
+    throw new Error(`network capabilities unavailable at ${request}: ${(err as Error).message}`)
+  }
   if (!response.ok) {
     throw new Error(`network capabilities unavailable at ${request}: HTTP ${response.status}`)
   }
@@ -109,16 +114,17 @@ function datasetLabel(network: NetworkCapability): string {
 
 export function formatNetworkCapabilities(document: NetworkCapabilitiesDocument): string {
   if (document.networks.length === 0) return 'No supported networks advertised.'
-  const headers = ['Network', 'Topology', 'Risk', 'Dataset', 'Available tools']
-  const widths = [14, 10, 10, 38, 54]
+  const headers = ['Network', 'Topology', 'Facts', 'Risk', 'Dataset', 'Available tools']
+  const widths = [14, 10, 8, 8, 38, 64]
   const row = (values: string[]) => values.map((value, index) => value.padEnd(widths[index]!)).join('  ')
   return [
     row(headers),
     widths.map((width) => '-'.repeat(width)).join('  '),
     ...document.networks.map((network) => row([
       network.display_name || network.network,
-      layerValue(network, 'topology_labels'),
-      layerValue(network, 'risk_intelligence'),
+      layerValue(network, 'topology'),
+      layerValue(network, 'facts'),
+      layerValue(network, 'risk'),
       datasetLabel(network),
       availableToolsLabel(network),
     ])),

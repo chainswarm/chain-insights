@@ -9,7 +9,7 @@ type RemoteToolResult = {
   isError?: boolean
 }
 
-interface ParsedBatch {
+interface ParsedTopologyBatch {
   facts?: {
     queries?: Array<{
       id?: string
@@ -47,36 +47,36 @@ function textFromToolResult(result: RemoteToolResult): string {
     .join('\n')
 }
 
-function parseBatchResult(result: RemoteToolResult): ParsedBatch {
+function parseTopologyBatchResult(result: RemoteToolResult): ParsedTopologyBatch {
   const text = textFromToolResult(result).trim()
-  if (!text) throw new Error('graph_query_batch returned no text content')
-  const parsed = JSON.parse(text) as ParsedBatch
-  if (!parsed.facts?.queries) throw new Error('graph_query_batch response did not include facts.queries')
+  if (!text) throw new Error('topology_query_batch returned no text content')
+  const parsed = JSON.parse(text) as ParsedTopologyBatch
+  if (!parsed.facts?.queries) throw new Error('topology_query_batch response did not include facts.queries')
   return parsed
 }
 
-function resultsFor(batch: ParsedBatch, id: string): Array<Record<string, unknown>> {
+function resultsFor(batch: ParsedTopologyBatch, id: string): Array<Record<string, unknown>> {
   const query = batch.facts?.queries?.find((entry) => entry.id === id)
   if (!query) return []
   if (query.ok === false) throw new Error(query.error || `Query failed: ${id}`)
   return query.results ?? []
 }
 
-async function callGraphBatch(
+async function callTopologyBatch(
   remoteClient: Client,
   network: string,
   queries: Array<{ id: string; query: string }>,
-): Promise<ParsedBatch> {
+): Promise<ParsedTopologyBatch> {
   const result = await remoteClient.callTool({
-    name: 'graph_query_batch',
+    name: 'topology_query_batch',
     arguments: {
       network,
       queries,
       per_query_timeout_seconds: 10,
     },
   }) as RemoteToolResult
-  if (result.isError) throw new Error(textFromToolResult(result) || 'graph_query_batch failed')
-  return parseBatchResult(result)
+  if (result.isError) throw new Error(textFromToolResult(result) || 'topology_query_batch failed')
+  return parseTopologyBatchResult(result)
 }
 
 function parseAddressList(value: string | string[] | undefined): string[] {
@@ -344,7 +344,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     exchangeInflowsQuery(address),
     ...(compareAddress ? [connectionProbeQuery(address, compareAddress)] : [{ id: 'connection_probe', query: 'RETURN [] AS path LIMIT 0' }]),
   ]
-  const batch = await callGraphBatch(remoteClient, network, queries)
+  const batch = await callTopologyBatch(remoteClient, network, queries)
   const profile = resultsFor(batch, 'address_profile')[0] ?? { address }
   const outflows = resultsFor(batch, 'exchange_outflows')
   const inflows = resultsFor(batch, 'exchange_inflows')

@@ -55,6 +55,21 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('access-key')
   })
 
+  it('--help lists networks top-level alias command', () => {
+    const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
+    expect(out).toContain('networks')
+  })
+
+  it('network --help works as a top-level alias for network capabilities', () => {
+    const out = execSync('node bin/cli.js network --help', { encoding: 'utf8' })
+    expect(out).toContain('List supported graph networks')
+  })
+
+  it('--help lists Hermes installer flag', () => {
+    const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
+    expect(out).toContain('--hermes')
+  })
+
   it('wallet --help lists balance and topup subcommands', () => {
     const out = execSync('node bin/cli.js wallet --help', { encoding: 'utf8' })
     expect(out).toContain('balance')

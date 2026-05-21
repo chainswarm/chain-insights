@@ -114,7 +114,7 @@ mkdir -p reports/uat reports/graphs .chain-insights/schema
 SCHEMA_RAW=".chain-insights/schema/${NETWORK}.graph-schema.raw.json"
 SCHEMA_FILE=".chain-insights/schema/${NETWORK}.graph-schema.json"
 log "capturing ${NETWORK} graph schema"
-cia mcp call graph_query_batch \
+cia mcp call topology_query_batch \
   network="${NETWORK}" \
   'queries=[{"id":"node_labels","query":"MATCH (n) UNWIND labels(n) AS label RETURN label, count(*) AS count ORDER BY count DESC LIMIT 100"},{"id":"relationship_types","query":"MATCH ()-[r]->() RETURN type(r) AS relationship_type, count(*) AS count ORDER BY count DESC LIMIT 100"},{"id":"address_property_keys","query":"MATCH (n:Address) WITH keys(n) AS keys LIMIT 1000 UNWIND keys AS property_key RETURN property_key, count(*) AS sample_count ORDER BY sample_count DESC, property_key LIMIT 200"},{"id":"flows_to_property_keys","query":"MATCH ()-[r:FLOWS_TO]->() WITH keys(r) AS keys LIMIT 1000 UNWIND keys AS property_key RETURN property_key, count(*) AS sample_count ORDER BY sample_count DESC, property_key LIMIT 200"}]' \
   > "${SCHEMA_RAW}"
@@ -122,7 +122,7 @@ cia mcp call graph_query_batch \
 jq --arg network "${NETWORK}" '{
   schema:"chain-insights.runtime_graph_schema.v1",
   network:$network,
-  source:"graph_query_batch",
+  source:"topology_query_batch",
   node_labels:(.facts.queries[]|select(.id=="node_labels")|.results),
   relationship_types:(.facts.queries[]|select(.id=="relationship_types")|.results),
   address_property_keys:(.facts.queries[]|select(.id=="address_property_keys")|.results|map(.property_key)),
@@ -138,8 +138,8 @@ fi
 RESULT_FILE="reports/uat/address_exists.json"
 COMPACT_FILE="reports/uat/address_exists.compact.json"
 
-log "running graph_query_batch address_exists"
-cia mcp call graph_query_batch \
+log "running topology_query_batch address_exists"
+cia mcp call topology_query_batch \
   network="${NETWORK}" \
   "queries=[{\"id\":\"address_exists\",\"query\":\"MATCH (n:Address {address: \\\"${TARGET_ADDRESS}\\\"}) RETURN n.address AS address, labels(n) AS labels, n.degree_in AS degree_in, n.degree_out AS degree_out, n.tx_total_count AS tx_total_count, n.total_volume_usd AS total_volume_usd LIMIT 1\"}]" \
   > "${RESULT_FILE}"
@@ -152,14 +152,14 @@ fi
 
 jq --arg network "${NETWORK}" '{
   schema:"chain-insights.compact_evidence.v1",
-  source:"graph_query_batch",
+  source:"topology_query_batch",
   network:$network,
   query_ids:["address_exists"],
   addresses:(.facts.queries[]|select(.id=="address_exists")|.results)
 }' "${RESULT_FILE}" > "${COMPACT_FILE}"
 
 EVIDENCE_OUT="$(cia case evidence add "${CASE_ID}" \
-  --source graph_query_batch_compact \
+  --source topology_query_batch_compact \
   --query-params "network=${NETWORK} address=${TARGET_ADDRESS} query=address_exists compact=true schema=${SCHEMA_FILE}" \
   --content "$(cat "${COMPACT_FILE}")")"
 printf '%s\n' "${EVIDENCE_OUT}" > reports/uat/evidence-add.txt
@@ -177,7 +177,7 @@ cia case dossier update "${CASE_ID}" "${TARGET_ADDRESS}" \
   --finding "UAT confirmed the target address exists in ${NETWORK}; see compact address_exists evidence and ${SCHEMA_FILE}." >/dev/null
 
 cia case session end "${CASE_ID}" \
-  --findings "UAT confirmed schema capture and compact graph_query_batch evidence for the target address." \
+  --findings "UAT confirmed schema capture and compact topology_query_batch evidence for the target address." \
   --next-steps "Run narrow FLOWS_TO projections and save graph JSON under reports/graphs/." >/dev/null
 
 FINAL_SHOW="$(cia case show "${CASE_ID}")"

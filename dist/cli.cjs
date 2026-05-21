@@ -9,9 +9,9 @@ node_path = require_chunk.__toESM(node_path, 1);
 const __dirname$1 = node_path.default.dirname((0, node_url.fileURLToPath)(require("url").pathToFileURL(__filename).href));
 const installerPath = node_path.default.resolve(__dirname$1, "..", "bin", "install.cjs");
 const program = new commander.Command();
-program.name("chain-insights").description("AML investigation toolkit for blockchain analysis").version(require_version.PACKAGE_INFO.version).option("--claude", "Install Claude Code skills globally to ~/.claude/skills/").option("--codex", "Install Codex skills globally to ~/.codex/skills/ and register MCP");
+program.name("chain-insights").description("AML investigation toolkit for blockchain analysis").version(require_version.PACKAGE_INFO.version).option("--claude", "Install Claude Code skills globally to ~/.claude/skills/").option("--codex", "Install Codex skills globally to ~/.codex/skills/ and register MCP").option("--hermes", "Install Hermes skills globally to ~/.hermes/skills/chain-insights/ and register MCP");
 const rawArgs = process.argv.slice(2);
-const installerFlags = rawArgs.filter((a) => a === "--claude" || a === "--codex");
+const installerFlags = rawArgs.filter((a) => a === "--claude" || a === "--codex" || a === "--hermes");
 if (installerFlags.length > 0 && !rawArgs.some((a) => !a.startsWith("-"))) {
 	try {
 		(0, node_child_process.execFileSync)(process.execPath, [installerPath, ...installerFlags], { stdio: "inherit" });
@@ -80,6 +80,21 @@ async function withGraphMcpClient(name, fn) {
 function printMcpTextContent(result) {
 	for (const item of result.content ?? []) if (item.type === "text") console.log(item.text);
 }
+async function printNetworkCapabilities(opts) {
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-Bmdl5hdk.cjs")).then((n) => n.config_exports);
+	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await Promise.resolve().then(() => require("./capabilities-CB97WMA5.cjs"));
+	const document = await fetchNetworkCapabilities(await loadConfig());
+	if (opts.json) console.log(JSON.stringify(document, null, 2));
+	else console.log(formatNetworkCapabilities(document));
+}
+program.command("networks").alias("network").description("List supported graph networks, capability layers, retention, and freshness").option("--json", "Print raw capability JSON").action(async (opts) => {
+	try {
+		await printNetworkCapabilities(opts);
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
+});
 program.command("serve").description("Start local visualization server").option("-p, --port <number>", "Port to bind (default: 4321)", "4321").action(async (opts) => {
 	try {
 		const { requireWorkspaceRoot } = await Promise.resolve().then(() => require("./output-root-CFYms3ad.cjs")).then((n) => n.output_root_exports);
@@ -302,11 +317,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 }));
 program.command("mcp").description("Interact with the Chain Insights MCP endpoint").allowExcessArguments(false).addCommand(new commander.Command("networks").description("List supported graph networks, capability layers, retention, and freshness").option("--json", "Print raw capability JSON").action(async (opts) => {
 	try {
-		const { loadConfig } = await Promise.resolve().then(() => require("./config-Bmdl5hdk.cjs")).then((n) => n.config_exports);
-		const { fetchNetworkCapabilities, formatNetworkCapabilities } = await Promise.resolve().then(() => require("./capabilities-CUejT3QA.cjs"));
-		const document = await fetchNetworkCapabilities(await loadConfig());
-		if (opts.json) console.log(JSON.stringify(document, null, 2));
-		else console.log(formatNetworkCapabilities(document));
+		await printNetworkCapabilities(opts);
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);
@@ -315,7 +326,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 	try {
 		const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-CgWRCN2N.cjs"));
 		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-DOrPvXEr.cjs"));
-		const { visibleRemoteTools } = await Promise.resolve().then(() => require("./tool-visibility-CwgY205r.cjs")).then((n) => n.tool_visibility_exports);
+		const { visibleRemoteTools } = await Promise.resolve().then(() => require("./tool-visibility-4IqLWqAj.cjs")).then((n) => n.tool_visibility_exports);
 		const { loadConfig } = await Promise.resolve().then(() => require("./config-Bmdl5hdk.cjs")).then((n) => n.config_exports);
 		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-D4fZgIaO.cjs")).then((n) => n.client_exports);
 		const config = await loadConfig();
@@ -342,7 +353,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new commander.Command("address-risk").description("Screen an address for risk, exchange behavior, and optional compare_address connection risk").requiredOption("--address <address>", "Full blockchain address to screen").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--compare-address <address>", "Optional second address for connection-risk compare mode").option("--remote", "Force remote MCP tool call instead of local fallback").action(async (opts) => {
+})).addCommand(new commander.Command("address-risk").description("Screen an address for risk, exchange behavior, and optional compare_address connection risk").requiredOption("--address <address>", "Full blockchain address to screen").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--compare-address <address>", "Optional second address for connection-risk compare mode").option("--remote", "Force remote MCP tool call instead of local Chain Insights recipe").action(async (opts) => {
 	try {
 		await withGraphMcpClient("chain-insights-cli-address-risk", async (client) => {
 			if (opts.remote) {
@@ -356,7 +367,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-CUCN9d69.cjs"));
+			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-DA6wjSnz.cjs"));
 			const result = await addressRisk(client, {
 				address: opts.address,
 				network: opts.network,
@@ -368,7 +379,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new commander.Command("track-funds").description("Trace trusted/victim addresses and optional known untrusted/scammer addresses").requiredOption("--trusted-addresses <addresses>", "Comma-separated full trusted/victim addresses, max 5").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--untrusted-addresses <addresses>", "Comma-separated full known untrusted/scammer addresses, max 5").option("--case <id>", "Case ID to attach compact evidence pointers").option("--max-hops <number>", "Maximum trace hops, 1-5").option("--per-address-limit <number>", "Maximum exchange paths/results per address, 1-10").option("--min-amount-sum <number>", "Minimum r.amount_sum for traced edges").option("--remote", "Force remote MCP tool call instead of local fallback").action(async (opts) => {
+})).addCommand(new commander.Command("track-funds").description("Trace trusted/victim addresses and optional known untrusted/scammer addresses").requiredOption("--trusted-addresses <addresses>", "Comma-separated full trusted/victim addresses, max 5").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--untrusted-addresses <addresses>", "Comma-separated full known untrusted/scammer addresses, max 5").option("--case <id>", "Case ID to attach compact evidence pointers").option("--max-hops <number>", "Maximum trace hops, 1-5").option("--per-address-limit <number>", "Maximum exchange paths/results per address, 1-10").option("--min-amount-sum <number>", "Minimum r.amount_sum for traced edges").option("--remote", "Force remote MCP tool call instead of local Chain Insights recipe").action(async (opts) => {
 	try {
 		const { requireWorkspaceRoot } = await Promise.resolve().then(() => require("./output-root-CFYms3ad.cjs")).then((n) => n.output_root_exports);
 		requireWorkspaceRoot();
@@ -384,7 +395,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-CUCN9d69.cjs"));
+			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-DA6wjSnz.cjs"));
 			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
 			const result = await trackFunds(client, config, {
 				trustedAddresses: opts.trustedAddresses,
@@ -405,12 +416,12 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 })).addCommand(new commander.Command("call").description("Call an MCP tool directly (debug)").argument("<tool>", "Tool name to call").argument("[args...]", "Key=value arguments (e.g. address=0x1234 chain=ethereum)").action(async (tool, rawArgs) => {
 	try {
 		const { parseMcpCallArgs } = await Promise.resolve().then(() => require("./call-args-BvG9lcQ_.cjs"));
-		const { assertPublicMcpToolName } = await Promise.resolve().then(() => require("./tool-visibility-CwgY205r.cjs")).then((n) => n.tool_visibility_exports);
+		const { assertPublicMcpToolName } = await Promise.resolve().then(() => require("./tool-visibility-4IqLWqAj.cjs")).then((n) => n.tool_visibility_exports);
 		const args = parseMcpCallArgs(rawArgs);
 		assertPublicMcpToolName(tool);
 		await withGraphMcpClient("chain-insights-cli-call", async (client, config) => {
 			if (tool === "address_risk") {
-				const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-CUCN9d69.cjs"));
+				const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-DA6wjSnz.cjs"));
 				const result = await addressRisk(client, {
 					address: String(args["address"] ?? ""),
 					network: String(args["network"] ?? ""),
@@ -420,7 +431,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "track_funds") {
-				const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-CUCN9d69.cjs"));
+				const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-DA6wjSnz.cjs"));
 				const result = await trackFunds(client, config, {
 					trustedAddresses: args["trusted_addresses"] ?? "",
 					untrustedAddresses: args["untrusted_addresses"],

@@ -4,7 +4,7 @@
 export const KNOWN_GRAPHRAG_PUBLIC_TOOLS = [
   'address_risk',
   'track_funds',
-  'graph_query',
+  'topology_query',
 ] as const
 
 export const TRACE_FUNDS_PLAYBOOK = `---

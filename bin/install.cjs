@@ -22,13 +22,15 @@ const reset = '\x1b[0m';
 const args      = process.argv.slice(2);
 const hasClaude = args.includes('--claude');
 const hasCodex  = args.includes('--codex');
+const hasHermes = args.includes('--hermes');
 const hasLocal  = args.includes('--local');
 
-if (!hasClaude && !hasCodex && !hasLocal) {
+if (!hasClaude && !hasCodex && !hasHermes && !hasLocal) {
   console.log(`\n${bold}chain-insights installer${reset}`);
-  console.log(`\nUsage: node bin/install.cjs --claude | --codex`);
+  console.log(`\nUsage: node bin/install.cjs --claude | --codex | --hermes`);
   console.log(`  ${cyan}--claude${reset}  Install Claude Code skills globally to ~/.claude/skills/`);
   console.log(`  ${cyan}--codex${reset}   Install Codex skills globally to ~/.codex/skills/ and register MCP`);
+  console.log(`  ${cyan}--hermes${reset}  Install Hermes skills globally to ~/.hermes/skills/chain-insights/ and register MCP`);
   console.log(`  ${cyan}--local${reset}   Install skills locally to ./.claude/commands/chain-insights/`);
   console.log('');
   process.exit(0);
@@ -43,6 +45,7 @@ const srcSkillsDir = path.join(__dirname, '..', 'skills');
 const skillsTargets = [];
 if (hasClaude) skillsTargets.push({ name: 'Claude Code', dir: path.join(homeDir, '.claude', 'skills') });
 if (hasCodex) skillsTargets.push({ name: 'Codex', dir: path.join(homeDir, '.codex', 'skills') });
+if (hasHermes) skillsTargets.push({ name: 'Hermes', dir: path.join(homeDir, '.hermes', 'skills', 'chain-insights') });
 if (hasLocal) skillsTargets.push({ name: 'Local Claude commands', dir: path.join(process.cwd(), '.claude', 'commands', 'chain-insights') });
 
 // ─── 1. Copy agent skills ─────────────────────────────────────────────────
@@ -168,6 +171,74 @@ if (hasCodex) {
   const codexConfig = path.join(homeDir, '.codex', 'config.toml');
   installCodexMcp(codexConfig, proxyBinPath);
   console.log(`  ${cyan}Codex MCP:${reset} registered in ${codexConfig}`);
+}
+
+function yamlQuoted(value) {
+  return JSON.stringify(value);
+}
+
+function findTopLevelSectionEnd(lines, start) {
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim() === '') continue;
+    if (!line.startsWith(' ') && !line.startsWith('\t')) return i;
+  }
+  return lines.length;
+}
+
+function findHermesServerEnd(lines, start, sectionEnd) {
+  for (let i = start + 1; i < sectionEnd; i++) {
+    const line = lines[i];
+    if (/^  [^ ].*:/.test(line)) return i;
+  }
+  return sectionEnd;
+}
+
+function installHermesMcp(configFile, proxyPath) {
+  fs.mkdirSync(path.dirname(configFile), { recursive: true });
+
+  const serverBlock = [
+    '  chain-insights:',
+    '    command: "node"',
+    '    args:',
+    `    - ${yamlQuoted(proxyPath)}`,
+    '    enabled: true',
+  ];
+
+  let content = fs.existsSync(configFile) ? fs.readFileSync(configFile, 'utf8') : '';
+  if (/^mcp_servers:\s*\{\s*\}\s*$/m.test(content)) {
+    content = content.replace(/^mcp_servers:\s*\{\s*\}\s*$/m, ['mcp_servers:', ...serverBlock].join('\n'));
+    fs.writeFileSync(configFile, content.endsWith('\n') ? content : `${content}\n`, 'utf8');
+    return;
+  }
+
+  const lines = content.length ? content.split(/\r?\n/) : [];
+  if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+
+  const sectionStart = lines.findIndex(line => line === 'mcp_servers:');
+  if (sectionStart < 0) {
+    if (lines.length > 0) lines.push('');
+    lines.push('mcp_servers:', ...serverBlock);
+    fs.writeFileSync(configFile, `${lines.join('\n')}\n`, 'utf8');
+    return;
+  }
+
+  const sectionEnd = findTopLevelSectionEnd(lines, sectionStart);
+  const serverStart = lines.findIndex((line, index) => index > sectionStart && index < sectionEnd && line === '  chain-insights:');
+  if (serverStart >= 0) {
+    const serverEnd = findHermesServerEnd(lines, serverStart, sectionEnd);
+    lines.splice(serverStart, serverEnd - serverStart, ...serverBlock);
+  } else {
+    lines.splice(sectionStart + 1, 0, ...serverBlock);
+  }
+
+  fs.writeFileSync(configFile, `${lines.join('\n')}\n`, 'utf8');
+}
+
+if (hasHermes) {
+  const hermesConfig = path.join(homeDir, '.hermes', 'config.yaml');
+  installHermesMcp(hermesConfig, proxyBinPath);
+  console.log(`  ${cyan}Hermes MCP:${reset} registered in ${hermesConfig}`);
 }
 
 // ─── 5. Print installation summary ────────────────────────────────────────

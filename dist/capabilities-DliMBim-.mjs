@@ -1,4 +1,4 @@
-const require_client = require("./client-D4fZgIaO.cjs");
+import { i as resolveGraphMcpEndpoint } from "./client-D4Bq0rp9.mjs";
 //#region src/mcp/capabilities.ts
 function metadataNetworksUrl(endpoint) {
 	const url = new URL(endpoint);
@@ -8,14 +8,19 @@ function metadataNetworksUrl(endpoint) {
 	return url;
 }
 async function fetchNetworkCapabilities(config) {
-	const request = metadataNetworksUrl(require_client.resolveGraphMcpEndpoint(config));
+	const request = metadataNetworksUrl(resolveGraphMcpEndpoint(config));
 	const headers = new Headers();
 	const token = config.graphMcpAuthToken?.trim() || config.mcpAuthToken?.trim();
 	if (token) {
 		headers.set("X-MCP-Debug-Token", token);
 		headers.set("Authorization", `Bearer ${token}`);
 	}
-	const response = await fetch(request, { headers });
+	let response;
+	try {
+		response = await fetch(request, { headers });
+	} catch (err) {
+		throw new Error(`network capabilities unavailable at ${request}: ${err.message}`);
+	}
 	if (!response.ok) throw new Error(`network capabilities unavailable at ${request}: HTTP ${response.status}`);
 	const parsed = await response.json();
 	if (parsed.schema !== "chain-insights.network-capabilities.v1" || !Array.isArray(parsed.networks)) throw new Error("network capabilities response has unsupported schema");
@@ -46,6 +51,7 @@ function formatNetworkCapabilities(document) {
 	const headers = [
 		"Network",
 		"Topology",
+		"Facts",
 		"Risk",
 		"Dataset",
 		"Available tools"
@@ -53,9 +59,10 @@ function formatNetworkCapabilities(document) {
 	const widths = [
 		14,
 		10,
-		10,
+		8,
+		8,
 		38,
-		54
+		64
 	];
 	const row = (values) => values.map((value, index) => value.padEnd(widths[index])).join("  ");
 	return [
@@ -63,13 +70,15 @@ function formatNetworkCapabilities(document) {
 		widths.map((width) => "-".repeat(width)).join("  "),
 		...document.networks.map((network) => row([
 			network.display_name || network.network,
-			layerValue(network, "topology_labels"),
-			layerValue(network, "risk_intelligence"),
+			layerValue(network, "topology"),
+			layerValue(network, "facts"),
+			layerValue(network, "risk"),
 			datasetLabel(network),
 			availableToolsLabel(network)
 		]))
 	].join("\n");
 }
 //#endregion
-exports.fetchNetworkCapabilities = fetchNetworkCapabilities;
-exports.formatNetworkCapabilities = formatNetworkCapabilities;
+export { fetchNetworkCapabilities, formatNetworkCapabilities };
+
+//# sourceMappingURL=capabilities-DliMBim-.mjs.map

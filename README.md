@@ -44,7 +44,7 @@ It is responsible for:
 - Creating case workspaces with evidence, dossiers, sessions, and reports.
 - Writing graph data to local JSON files and serving HTML graph views from localhost.
 
-It is not a hosted SaaS app, wallet custodian, chain indexer, or replacement for GraphRAG sync. GraphRAG owns StarRocks-to-Memgraph sync and the paid graph query primitive.
+It is not a hosted SaaS app, wallet custodian, chain indexer, or replacement for GraphRAG sync. GraphRAG owns StarRocks-to-Memgraph sync and the paid topology query primitive.
 
 ## Current Capabilities
 
@@ -59,16 +59,17 @@ It is not a hosted SaaS app, wallet custodian, chain indexer, or replacement for
 | Evidence and dossiers | Working | `chain-insights case evidence`, `chain-insights case dossier` |
 | Session resume context | Working | `chain-insights case session`, `chain-insights case resume` |
 | Graph visualization | Working | `chain-insights viz`, local graph report server |
+| Agent installers | Working | `chain-insights --claude`, `chain-insights --codex`, `chain-insights --hermes` |
 | Claude Desktop setup | Basic MCP setup | `chain-insights setup claude-desktop` |
 
 The current Go Graph MCP public surface is:
 
 | Tool | Purpose |
 | --- | --- |
-| `graph_query` | Run one read-only Cypher query against the graph |
-| `graph_query_batch` | Run related read-only Cypher queries as one MCP call |
+| `topology_query` | Run one read-only Cypher query against the graph |
+| `topology_query_batch` | Run related read-only Cypher queries as one MCP call |
 
-High-level AML tools such as `address_risk`, `track_funds`, `money_flows_between_exchanges`, and `address_connection_risk` are migration targets for Chain Insights recipes over `graph_query_batch`. They should not be assumed to exist on the Go Graph MCP endpoint.
+High-level AML tools such as `address_risk`, `track_funds`, `money_flows_between_exchanges`, and `address_connection_risk` are migration targets for Chain Insights recipes over `topology_query_batch`. They should not be assumed to exist on the Go Graph MCP endpoint.
 
 `topup` is not advertised as a supported MCP happy path. The supported wallet surface is `balance` plus the wallet address returned by CLI/MCP.
 
@@ -111,10 +112,10 @@ chain-insights debug off
 chain-insights mcp tools --refresh
 ```
 
-Run a real graph query:
+Run a real topology query:
 
 ```bash
-chain-insights mcp call graph_query \
+chain-insights mcp call topology_query \
   network=bittensor \
   "query=MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, n.address AS address LIMIT 10"
 ```
@@ -122,7 +123,7 @@ chain-insights mcp call graph_query \
 Run a paid-primitive batch call:
 
 ```bash
-chain-insights mcp call graph_query_batch \
+chain-insights mcp call topology_query_batch \
   network=bittensor \
   'queries=[{"id":"count","query":"MATCH (n) RETURN count(n) AS count LIMIT 1"},{"id":"sample","query":"MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, n.address AS address LIMIT 3"}]'
 ```
@@ -165,7 +166,7 @@ Test access key mode for invited users without x402 payment:
 ```bash
 chain-insights access-key set ci_test_REDACTED --endpoint https://staging-mcp.chain-insights.ai/mcp
 chain-insights access-key status
-chain-insights mcp call graph_query network=bittensor query='MATCH (n) RETURN n LIMIT 1'
+chain-insights mcp call topology_query network=bittensor query='MATCH (n) RETURN n LIMIT 1'
 ```
 
 The Go Graph MCP treats a valid test access key as a server-side x402 bypass. Operators configure the server with `MCP_TEST_ACCESS_KEY_HASHES`, a comma-separated list of `key_id:sha256(full_key)` entries:
@@ -212,8 +213,8 @@ chain-insights mcp tools --refresh
 Expected Go Graph MCP tools:
 
 ```text
-graph_query
-graph_query_batch
+topology_query
+topology_query_batch
 ```
 
 Inspect the graph MCP endpoint without Chain Insights:
@@ -234,11 +235,11 @@ Auth behavior:
 - Prefer `chain-insights access-key set <key>` for invited tester setup. Keep `chain-insights debug on --token <token>` for local/internal debug bypasses.
 - The graph schema cache is scoped by endpoint and expires after 24 hours. Use `--refresh` for a live schema fetch.
 
-Graph query rules:
+Topology query rules:
 
 - `network` is required. Do not guess it in agent workflows.
 - Cypher must be read-only.
-- Use `graph_query_batch` for related reads that should share one paid call.
+- Use `topology_query_batch` for related reads that should share one paid call.
 - `per_query_timeout_seconds` is optional and capped at `10`.
 - Returned rows live in `structuredContent.facts`.
 
@@ -293,7 +294,7 @@ Append evidence:
 
 ```bash
 chain-insights case evidence add <case-id> \
-  --source graph_query_batch \
+  --source topology_query_batch \
   --query-params "network=bittensor" \
   --content "$(cat compact-result.json)"
 ```
@@ -321,8 +322,8 @@ Manage sessions and restore context:
 ```bash
 chain-insights case session start <case-id>
 chain-insights case session end <case-id> \
-  --findings "Initial graph query returned miner and address nodes." \
-  --next-steps "Run focused graph_query_batch probes."
+  --findings "Initial topology query returned miner and address nodes." \
+  --next-steps "Run focused topology_query_batch probes."
 chain-insights case resume <case-id>
 ```
 
@@ -402,7 +403,7 @@ Local MCP tools:
 
 ## Client Setup
 
-### Codex and Claude Code
+### Codex, Claude Code, and Hermes
 
 Use Chain Insights from the repository or from an installed binary:
 
@@ -413,6 +414,16 @@ chain-insights mcp tools --refresh
 ```
 
 Then open the case workspace in VS Code, Codex, Claude Code, Hermes, or another agent and operate over the files.
+
+Install agent skills and MCP registration:
+
+```bash
+chain-insights --claude
+chain-insights --codex
+chain-insights --hermes
+```
+
+The Hermes installer writes Chain Insights skills under `~/.hermes/skills/chain-insights/` and registers the stdio MCP proxy in `~/.hermes/config.yaml`.
 
 ### Claude Desktop
 
@@ -466,12 +477,12 @@ Use Chain Insights to show my payment wallet balance.
 ```
 
 ```text
-Use Chain Insights graph_query on network bittensor with:
+Use Chain Insights topology_query on network bittensor with:
 MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, n.address AS address LIMIT 10
 ```
 
 ```text
-Use Chain Insights graph_query_batch on network bittensor with these read-only Cypher queries:
+Use Chain Insights topology_query_batch on network bittensor with these read-only Cypher queries:
 1. MATCH (n) RETURN count(n) AS count LIMIT 1
 2. MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, n.address AS address LIMIT 3
 ```
@@ -481,7 +492,7 @@ Use Chain Insights to open an investigation case named "Exchange deposit cluster
 ```
 
 ```text
-Use Chain Insights to save the last graph_query_batch result as evidence in case <case-id>.
+Use Chain Insights to save the last topology_query_batch result as evidence in case <case-id>.
 ```
 
 ## Human UAT
@@ -503,7 +514,7 @@ cd /home/aphex5/work/chain-insights
 npm run build
 node bin/cli.js debug on --token chain-insights-dev-debug --endpoint http://localhost:8012/mcp
 node bin/cli.js mcp tools --refresh
-node bin/cli.js mcp call graph_query_batch \
+node bin/cli.js mcp call topology_query_batch \
   network=bittensor \
   'queries=[{"id":"count","query":"MATCH (n) RETURN count(n) AS count LIMIT 1"},{"id":"sample","query":"MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, n.address AS address LIMIT 3"}]'
 node bin/cli.js wallet address
@@ -512,8 +523,8 @@ node bin/cli.js wallet balance
 
 Expected results:
 
-- `mcp tools --refresh` lists `graph_query` and `graph_query_batch`.
-- `graph_query_batch` returns `structuredContent.facts.batch.billable_seconds`.
+- `mcp tools --refresh` lists `topology_query` and `topology_query_batch`.
+- `topology_query_batch` returns `structuredContent.facts.batch.billable_seconds`.
 - No high-level AML tools are served by Go Graph MCP.
 - `wallet balance` prints the local wallet and Base USDC balance.
 
@@ -678,7 +689,7 @@ chain-insights access-key status
 
 ### Missing required argument
 
-Public graph tools require `network`. `graph_query` also requires `query`; `graph_query_batch` requires `queries`. Agents should ask for missing arguments instead of guessing.
+Public graph tools require `network`. `topology_query` also requires `query`; `topology_query_batch` requires `queries`. Agents should ask for missing arguments instead of guessing.
 
 ### Wallet balance cannot reach Base RPC
 

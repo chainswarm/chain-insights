@@ -1,9 +1,7 @@
-const require_chunk = require("./chunk-CZWwpsFl.cjs");
-const require_output_root = require("./output-root-CFYms3ad.cjs");
-const require_graph_normalizer = require("./graph-normalizer-DeIj6Ses.cjs");
-let node_path = require("node:path");
-node_path = require_chunk.__toESM(node_path, 1);
-let node_fs_promises = require("node:fs/promises");
+import { n as workspaceOutputPaths } from "./output-root-CmWM7aV2.mjs";
+import { t as normalizeGraphPayload } from "./graph-normalizer-Cv9yK9Pg.mjs";
+import path from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 //#region src/investigation/trace-funds.ts
 var AliasTracker = class {
 	byAddress = /* @__PURE__ */ new Map();
@@ -73,23 +71,23 @@ function sanitizeSegment(value) {
 	return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "trace";
 }
 async function ensureDirs(paths) {
-	await (0, node_fs_promises.mkdir)(paths.schemaDir, {
+	await mkdir(paths.schemaDir, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportsRoot, {
+	await mkdir(paths.reportsRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportGraphsRoot, {
+	await mkdir(paths.reportGraphsRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportTablesRoot, {
+	await mkdir(paths.reportTablesRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.logsRoot, {
+	await mkdir(paths.logsRoot, {
 		recursive: true,
 		mode: 448
 	});
@@ -97,24 +95,24 @@ async function ensureDirs(paths) {
 function textFromToolResult$1(result) {
 	return (result.content ?? []).filter((item) => item.type === "text").map((item) => item.text).join("\n");
 }
-function parseBatchResult$1(result) {
+function parseTopologyBatchResult$1(result) {
 	const text = textFromToolResult$1(result).trim();
-	if (!text) throw new Error("graph_query_batch returned no text content");
+	if (!text) throw new Error("topology_query_batch returned no text content");
 	const parsed = JSON.parse(text);
-	if (!parsed.facts?.queries) throw new Error("graph_query_batch response did not include facts.queries");
+	if (!parsed.facts?.queries) throw new Error("topology_query_batch response did not include facts.queries");
 	return parsed;
 }
-async function callGraphBatch$1(remoteClient, network, queries) {
+async function callTopologyBatch$1(remoteClient, network, queries) {
 	const result = await remoteClient.callTool({
-		name: "graph_query_batch",
+		name: "topology_query_batch",
 		arguments: {
 			network,
 			queries,
 			per_query_timeout_seconds: 10
 		}
 	});
-	if (result.isError) throw new Error(textFromToolResult$1(result) || "graph_query_batch failed");
-	return parseBatchResult$1(result);
+	if (result.isError) throw new Error(textFromToolResult$1(result) || "topology_query_batch failed");
+	return parseTopologyBatchResult$1(result);
 }
 function resultsFor$1(batch, id) {
 	const query = batch.facts?.queries?.find((entry) => entry.id === id);
@@ -122,11 +120,11 @@ function resultsFor$1(batch, id) {
 	if (query.ok === false) throw new Error(query.error || `Query failed: ${id}`);
 	return query.results ?? [];
 }
-function schemaFromBatch(network, batch) {
+function schemaFromTopologyBatch(network, batch) {
 	return {
 		schema: "chain-insights.runtime_graph_schema.v1",
 		network,
-		source: "graph_query_batch",
+		source: "topology_query_batch",
 		node_labels: resultsFor$1(batch, "node_labels"),
 		relationship_types: resultsFor$1(batch, "relationship_types"),
 		address_property_keys: resultsFor$1(batch, "address_property_keys").map((row) => row["property_key"]),
@@ -145,18 +143,18 @@ function schemaFromBatch(network, batch) {
 		]
 	};
 }
-async function loadOrCaptureSchema(remoteClient, paths, network) {
-	const filePath = node_path.default.join(paths.schemaDir, `${sanitizeSegment(network)}.graph-schema.json`);
+async function loadOrCaptureTopologySchema(remoteClient, paths, network) {
+	const filePath = path.join(paths.schemaDir, `${sanitizeSegment(network)}.graph-schema.json`);
 	try {
 		return {
-			schema: JSON.parse(await (0, node_fs_promises.readFile)(filePath, "utf8")),
+			schema: JSON.parse(await readFile(filePath, "utf8")),
 			filePath
 		};
 	} catch (err) {
 		if (err.code !== "ENOENT") throw err;
 	}
-	const schema = schemaFromBatch(network, await callGraphBatch$1(remoteClient, network, SCHEMA_QUERY_SET));
-	await (0, node_fs_promises.writeFile)(filePath, JSON.stringify(schema, null, 2) + "\n", { mode: 384 });
+	const schema = schemaFromTopologyBatch(network, await callTopologyBatch$1(remoteClient, network, SCHEMA_QUERY_SET));
+	await writeFile(filePath, JSON.stringify(schema, null, 2) + "\n", { mode: 384 });
 	return {
 		schema,
 		filePath
@@ -317,7 +315,7 @@ function flowsFromForwardRows(rows) {
 async function hydrateDirectEdgeProps(remoteClient, network, flows, deposits) {
 	const query = directEdgePropsQuery(flows);
 	if (!query) return;
-	const batch = await callGraphBatch$1(remoteClient, network, [query]);
+	const batch = await callTopologyBatch$1(remoteClient, network, [query]);
 	const edgeProps = /* @__PURE__ */ new Map();
 	for (const row of resultsFor$1(batch, "direct_edge_props")) {
 		const src = typeof row["src"] === "string" ? row["src"] : "";
@@ -342,12 +340,12 @@ async function hydrateDirectEdgeProps(remoteClient, network, flows, deposits) {
 	}
 }
 async function collectProbeTrace(remoteClient, options) {
-	const { flows, deposits } = flowsFromForwardRows(resultsFor$1(await callGraphBatch$1(remoteClient, options.network, [forwardExchangeQuery(options.seedAddress, Math.max(options.perAddressLimit * 20, 200), options.minAmountSum, options.maxHops)]), "forward_exchange_paths"));
+	const { flows, deposits } = flowsFromForwardRows(resultsFor$1(await callTopologyBatch$1(remoteClient, options.network, [forwardExchangeQuery(options.seedAddress, Math.max(options.perAddressLimit * 20, 200), options.minAmountSum, options.maxHops)]), "forward_exchange_paths"));
 	await hydrateDirectEdgeProps(remoteClient, options.network, flows, deposits);
 	const uniqueDepositAddresses = [...new Set(deposits.map((deposit) => deposit.address))];
 	const sourceMatches = [];
 	if (uniqueDepositAddresses.length > 0) {
-		const backwardBatch = await callGraphBatch$1(remoteClient, options.network, uniqueDepositAddresses.slice(0, 20).map((address, index) => backwardSourceQuery(`backward_from_deposit_${index + 1}`, address)));
+		const backwardBatch = await callTopologyBatch$1(remoteClient, options.network, uniqueDepositAddresses.slice(0, 20).map((address, index) => backwardSourceQuery(`backward_from_deposit_${index + 1}`, address)));
 		for (const query of backwardBatch.facts?.queries ?? []) for (const row of query.results ?? []) {
 			const pathAddresses = stringArrayValue$1(row["addresses"]) ?? [];
 			const pathNodes = Array.isArray(row["path_nodes"]) ? row["path_nodes"].map((node, index) => nodeMetadataFromValue(node, pathAddresses[index])).filter((node) => Boolean(node)) : void 0;
@@ -374,7 +372,7 @@ async function collectProbeTrace(remoteClient, options) {
 	}
 	const reverseLeads = [];
 	if (uniqueDepositAddresses.length > 0) {
-		const reverseBatch = await callGraphBatch$1(remoteClient, options.network, [reverseLeadsQuery(uniqueDepositAddresses)]);
+		const reverseBatch = await callTopologyBatch$1(remoteClient, options.network, [reverseLeadsQuery(uniqueDepositAddresses)]);
 		for (const row of resultsFor$1(reverseBatch, "reverse_1hop")) {
 			const address = typeof row["address"] === "string" ? row["address"] : "";
 			const depositAddress = typeof row["deposit_address"] === "string" ? row["deposit_address"] : "";
@@ -489,7 +487,7 @@ function buildGraph(seedAddress, network, flows, deposits, sourceMatches, revers
 		});
 		return edges;
 	});
-	return require_graph_normalizer.normalizeGraphPayload({
+	return normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: [...totals.entries()].map(([address, data]) => ({
 			id: address,
@@ -755,9 +753,9 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	const maxHops = clampInt(options.maxHops, 3, 1, 5);
 	const perAddressLimit = clampInt(options.perAddressLimit, 5, 1, 10);
 	const minAmountSum = Math.max(0, options.minAmountSum ?? 0);
-	const paths = require_output_root.workspaceOutputPaths();
+	const paths = workspaceOutputPaths();
 	await ensureDirs(paths);
-	const schemaResult = await loadOrCaptureSchema(remoteClient, paths, network);
+	const schemaResult = await loadOrCaptureTopologySchema(remoteClient, paths, network);
 	const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, {
 		seedAddress,
 		network,
@@ -769,21 +767,21 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	const slug = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}_${sanitizeSegment(seedAddress.slice(0, 16))}`;
 	const compact = probeEvidence(seedAddress, network, schemaResult.filePath, aliases, flows, deposits, sourceMatches, reverseLeads);
 	const graph = buildGraph(seedAddress, network, flows, deposits, sourceMatches, reverseLeads);
-	const compactPath = node_path.default.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
-	const graphPath = node_path.default.join(paths.reportGraphsRoot, `${slug}.graph.json`);
-	const graphHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.graph.html`);
-	const tablePath = node_path.default.join(paths.reportTablesRoot, `${slug}.flows.csv`);
-	const tableHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.table.html`);
-	const reportPath = node_path.default.join(paths.reportsRoot, `${slug}.trace-report.md`);
-	const { generateInlineGraphHtml } = await Promise.resolve().then(() => require("./html-generator-9xvA43R8.cjs")).then((n) => n.html_generator_exports);
-	await (0, node_fs_promises.writeFile)(compactPath, JSON.stringify(compact, null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(graphPath, JSON.stringify(graph, null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(tablePath, tableCsv(flows), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 384 });
+	const compactPath = path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
+	const graphPath = path.join(paths.reportGraphsRoot, `${slug}.graph.json`);
+	const graphHtmlPath = path.join(paths.reportsRoot, `${slug}.graph.html`);
+	const tablePath = path.join(paths.reportTablesRoot, `${slug}.flows.csv`);
+	const tableHtmlPath = path.join(paths.reportsRoot, `${slug}.table.html`);
+	const reportPath = path.join(paths.reportsRoot, `${slug}.trace-report.md`);
+	const { generateInlineGraphHtml } = await import("./html-generator-DazwHVyW.mjs").then((n) => n.n);
+	await writeFile(compactPath, JSON.stringify(compact, null, 2) + "\n", { mode: 384 });
+	await writeFile(graphPath, JSON.stringify(graph, null, 2) + "\n", { mode: 384 });
+	await writeFile(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 384 });
+	await writeFile(tablePath, tableCsv(flows), { mode: 384 });
+	await writeFile(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 384 });
+	await writeFile(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 384 });
 	if (options.caseId) {
-		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
+		const { EvidenceStore } = await import("./cases-By7INiOa.mjs");
 		await EvidenceStore.append(options.caseId, {
 			source: "track_funds",
 			queryParams: `network=${network} seed_address=${seedAddress} max_hops=${maxHops} per_address_limit=${perAddressLimit} min_amount_sum=${minAmountSum}`,
@@ -846,11 +844,11 @@ function escapeCypherString(value) {
 function textFromToolResult(result) {
 	return (result.content ?? []).filter((item) => item.type === "text").map((item) => item.text).join("\n");
 }
-function parseBatchResult(result) {
+function parseTopologyBatchResult(result) {
 	const text = textFromToolResult(result).trim();
-	if (!text) throw new Error("graph_query_batch returned no text content");
+	if (!text) throw new Error("topology_query_batch returned no text content");
 	const parsed = JSON.parse(text);
-	if (!parsed.facts?.queries) throw new Error("graph_query_batch response did not include facts.queries");
+	if (!parsed.facts?.queries) throw new Error("topology_query_batch response did not include facts.queries");
 	return parsed;
 }
 function resultsFor(batch, id) {
@@ -859,17 +857,17 @@ function resultsFor(batch, id) {
 	if (query.ok === false) throw new Error(query.error || `Query failed: ${id}`);
 	return query.results ?? [];
 }
-async function callGraphBatch(remoteClient, network, queries) {
+async function callTopologyBatch(remoteClient, network, queries) {
 	const result = await remoteClient.callTool({
-		name: "graph_query_batch",
+		name: "topology_query_batch",
 		arguments: {
 			network,
 			queries,
 			per_query_timeout_seconds: 10
 		}
 	});
-	if (result.isError) throw new Error(textFromToolResult(result) || "graph_query_batch failed");
-	return parseBatchResult(result);
+	if (result.isError) throw new Error(textFromToolResult(result) || "topology_query_batch failed");
+	return parseTopologyBatchResult(result);
 }
 function parseAddressList(value) {
 	return (Array.isArray(value) ? value.join(",") : value ?? "").split(",").map((entry) => entry.trim()).filter(Boolean);
@@ -1083,7 +1081,7 @@ function buildRiskGraph(address, profile, rows, network) {
 		}
 	}
 	const rawNodes = [...nodes.values()];
-	return restoreSystemLabels(require_graph_normalizer.normalizeGraphPayload({
+	return restoreSystemLabels(normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: rawNodes,
 		edges,
@@ -1102,7 +1100,7 @@ async function addressRisk(remoteClient, options) {
 	const compareAddress = options.compareAddress?.trim() ?? "";
 	if (!address) throw new Error("address is required");
 	if (!network) throw new Error("network is required");
-	const batch = await callGraphBatch(remoteClient, network, [
+	const batch = await callTopologyBatch(remoteClient, network, [
 		addressProfileQuery(address),
 		exchangeOutflowsQuery(address),
 		exchangeInflowsQuery(address),
@@ -1190,7 +1188,7 @@ async function trackFunds(remoteClient, config, options) {
 			minAmountSum: options.minAmountSum
 		})
 	});
-	const graphData = require_graph_normalizer.normalizeGraphPayload({
+	const graphData = normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: runs.flatMap((run) => Array.isArray(run.result.graphData.nodes) ? run.result.graphData.nodes : []),
 		edges: runs.flatMap((run) => Array.isArray(run.result.graphData.edges) ? run.result.graphData.edges : []),
@@ -1247,5 +1245,6 @@ async function trackFunds(remoteClient, config, options) {
 	};
 }
 //#endregion
-exports.addressRisk = addressRisk;
-exports.trackFunds = trackFunds;
+export { addressRisk, trackFunds };
+
+//# sourceMappingURL=public-tools--CCLyR2a.mjs.map

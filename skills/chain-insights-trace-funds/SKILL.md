@@ -35,7 +35,7 @@ Use the output as the source of truth:
 
 - `Topology: yes` is required for fund-flow tracing.
 - `Available tools` must include `track_funds`; otherwise use available
-  `graph_query`/`graph_query_batch` only as a manual fallback.
+  `topology_query`/`topology_query_batch` only for manual topology diagnostics.
 - `Dataset` gives the graph coverage range as
   `<first_height>..<last_height> / <first_date>..<last_date>`. State this range
   in the investigation scope, and do not claim tracing coverage outside it.
@@ -55,10 +55,10 @@ those deposits toward source exchanges and enrich the result with reverse 1-hop
 leads.
 
 Python GraphRAG MCP is the golden implementation. Do not degrade this workflow
-into a simplified `graph_query_batch` recipe. When Chain Insights runs against
+into a simplified `topology_query_batch` recipe. When Chain Insights runs against
 the Go Graph MCP, it should still reproduce Python `BFSOps` and
 `StolenFundsProbe` semantics by issuing the right read-only Cypher through
-`graph_query` or `graph_query_batch`.
+`topology_query` or `topology_query_batch`.
 
 For exchange-deposit discovery, the golden traversal is Memgraph BFS over
 `FLOWS_TO`:
@@ -190,9 +190,9 @@ Do not expand dossiers with long prose. Dossiers should contain short pointers
 to the report and evidence files. The report and graph JSON carry the actual
 investigation structure.
 
-## Manual Fallback
+## Manual Topology Query
 
-Only hand-write `graph_query_batch` when the tool is unavailable or a custom
+Only hand-write `topology_query_batch` when the tool is unavailable or a custom
 question is outside simple outbound fund tracing.
 
 Manual forward exchange path pattern:

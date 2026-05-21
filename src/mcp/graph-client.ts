@@ -2,7 +2,7 @@ export type ToolCaller = {
   callTool(input: { name: string; arguments: Record<string, unknown> }): Promise<unknown>
 }
 
-export type GraphBatchQuery = {
+export type TopologyBatchQuery = {
   id?: string
   query: string
 }
@@ -14,10 +14,10 @@ export type ChainInsightsResult = {
   hint: string | null
 }
 
-type CallGraphQueryBatchInput = {
+type CallTopologyQueryBatchInput = {
   client: ToolCaller
   network: string
-  queries: GraphBatchQuery[]
+  queries: TopologyBatchQuery[]
   perQueryTimeoutSeconds?: number
 }
 
@@ -27,31 +27,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function normalizeChainInsightsResult(value: unknown): ChainInsightsResult {
   if (!isRecord(value)) {
-    throw new Error('graph_query_batch returned invalid response envelope')
+    throw new Error('topology_query_batch returned invalid response envelope')
   }
 
   const structuredContent = value['structuredContent']
   if (!isRecord(structuredContent)) {
-    throw new Error('graph_query_batch returned invalid structuredContent')
+    throw new Error('topology_query_batch returned invalid structuredContent')
   }
 
   if (structuredContent['schema'] !== 'chain-insights.result.v1') {
-    throw new Error('graph_query_batch returned unsupported schema')
+    throw new Error('topology_query_batch returned unsupported schema')
   }
 
   const tool = structuredContent['tool']
   if (typeof tool !== 'string') {
-    throw new Error('graph_query_batch returned invalid tool')
+    throw new Error('topology_query_batch returned invalid tool')
   }
 
   const facts = structuredContent['facts']
   if (!isRecord(facts)) {
-    throw new Error('graph_query_batch returned invalid facts')
+    throw new Error('topology_query_batch returned invalid facts')
   }
 
   const hint = structuredContent['hint']
   if (hint !== null && typeof hint !== 'string') {
-    throw new Error('graph_query_batch returned invalid hint')
+    throw new Error('topology_query_batch returned invalid hint')
   }
 
   return {
@@ -62,7 +62,7 @@ function normalizeChainInsightsResult(value: unknown): ChainInsightsResult {
   }
 }
 
-export async function callGraphQueryBatch(input: CallGraphQueryBatchInput): Promise<ChainInsightsResult> {
+export async function callTopologyQueryBatch(input: CallTopologyQueryBatchInput): Promise<ChainInsightsResult> {
   const network = input.network.trim()
   if (!network) {
     throw new Error('network is required')
@@ -82,7 +82,7 @@ export async function callGraphQueryBatch(input: CallGraphQueryBatchInput): Prom
   }
 
   const response = await input.client.callTool({
-    name: 'graph_query_batch',
+    name: 'topology_query_batch',
     arguments: args,
   })
 

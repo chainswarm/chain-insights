@@ -142,7 +142,7 @@ class AliasTracker {
   }
 }
 
-interface ParsedBatch {
+interface ParsedTopologyBatch {
   facts?: {
     queries?: Array<{
       id?: string
@@ -201,43 +201,43 @@ function textFromToolResult(result: RemoteToolResult): string {
     .join('\n')
 }
 
-function parseBatchResult(result: RemoteToolResult): ParsedBatch {
+function parseTopologyBatchResult(result: RemoteToolResult): ParsedTopologyBatch {
   const text = textFromToolResult(result).trim()
-  if (!text) throw new Error('graph_query_batch returned no text content')
-  const parsed = JSON.parse(text) as ParsedBatch
-  if (!parsed.facts?.queries) throw new Error('graph_query_batch response did not include facts.queries')
+  if (!text) throw new Error('topology_query_batch returned no text content')
+  const parsed = JSON.parse(text) as ParsedTopologyBatch
+  if (!parsed.facts?.queries) throw new Error('topology_query_batch response did not include facts.queries')
   return parsed
 }
 
-async function callGraphBatch(
+async function callTopologyBatch(
   remoteClient: Client,
   network: string,
   queries: Array<{ id: string; query: string }>,
-): Promise<ParsedBatch> {
+): Promise<ParsedTopologyBatch> {
   const result = await remoteClient.callTool({
-    name: 'graph_query_batch',
+    name: 'topology_query_batch',
     arguments: {
       network,
       queries,
       per_query_timeout_seconds: 10,
     },
   }) as RemoteToolResult
-  if (result.isError) throw new Error(textFromToolResult(result) || 'graph_query_batch failed')
-  return parseBatchResult(result)
+  if (result.isError) throw new Error(textFromToolResult(result) || 'topology_query_batch failed')
+  return parseTopologyBatchResult(result)
 }
 
-function resultsFor(batch: ParsedBatch, id: string): Array<Record<string, unknown>> {
+function resultsFor(batch: ParsedTopologyBatch, id: string): Array<Record<string, unknown>> {
   const query = batch.facts?.queries?.find((entry) => entry.id === id)
   if (!query) return []
   if (query.ok === false) throw new Error(query.error || `Query failed: ${id}`)
   return query.results ?? []
 }
 
-function schemaFromBatch(network: string, batch: ParsedBatch): Record<string, unknown> {
+function schemaFromTopologyBatch(network: string, batch: ParsedTopologyBatch): Record<string, unknown> {
   return {
     schema: 'chain-insights.runtime_graph_schema.v1',
     network,
-    source: 'graph_query_batch',
+    source: 'topology_query_batch',
     node_labels: resultsFor(batch, 'node_labels'),
     relationship_types: resultsFor(batch, 'relationship_types'),
     address_property_keys: resultsFor(batch, 'address_property_keys').map((row) => row['property_key']),
@@ -257,7 +257,7 @@ function schemaFromBatch(network: string, batch: ParsedBatch): Record<string, un
   }
 }
 
-async function loadOrCaptureSchema(
+async function loadOrCaptureTopologySchema(
   remoteClient: Client,
   paths: WorkspaceOutputPaths,
   network: string,
@@ -269,8 +269,8 @@ async function loadOrCaptureSchema(
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
   }
 
-  const batch = await callGraphBatch(remoteClient, network, SCHEMA_QUERY_SET)
-  const schema = schemaFromBatch(network, batch)
+  const batch = await callTopologyBatch(remoteClient, network, SCHEMA_QUERY_SET)
+  const schema = schemaFromTopologyBatch(network, batch)
   await writeFile(filePath, JSON.stringify(schema, null, 2) + '\n', { mode: 0o600 })
   return { schema, filePath }
 }
@@ -449,7 +449,7 @@ async function hydrateDirectEdgeProps(remoteClient: Client, network: string, flo
   const query = directEdgePropsQuery(flows)
   if (!query) return
 
-  const batch = await callGraphBatch(remoteClient, network, [query])
+  const batch = await callTopologyBatch(remoteClient, network, [query])
   const edgeProps = new Map<string, Record<string, unknown>>()
   for (const row of resultsFor(batch, 'direct_edge_props')) {
     const src = typeof row['src'] === 'string' ? row['src'] : ''
@@ -480,7 +480,7 @@ async function collectProbeTrace(
   remoteClient: Client,
   options: Required<Pick<TraceFundsOptions, 'seedAddress' | 'network' | 'maxHops' | 'perAddressLimit' | 'minAmountSum'>>,
 ): Promise<{ flows: TraceFlow[]; deposits: TraceDeposit[]; sourceMatches: SourceMatch[]; reverseLeads: ReverseLead[] }> {
-  const forwardBatch = await callGraphBatch(remoteClient, options.network, [
+  const forwardBatch = await callTopologyBatch(remoteClient, options.network, [
     forwardExchangeQuery(options.seedAddress, Math.max(options.perAddressLimit * 20, 200), options.minAmountSum, options.maxHops),
   ])
   const { flows, deposits } = flowsFromForwardRows(resultsFor(forwardBatch, 'forward_exchange_paths'))
@@ -489,7 +489,7 @@ async function collectProbeTrace(
 
   const sourceMatches: SourceMatch[] = []
   if (uniqueDepositAddresses.length > 0) {
-    const backwardBatch = await callGraphBatch(
+    const backwardBatch = await callTopologyBatch(
       remoteClient,
       options.network,
       uniqueDepositAddresses.slice(0, 20).map((address, index) => backwardSourceQuery(`backward_from_deposit_${index + 1}`, address)),
@@ -525,7 +525,7 @@ async function collectProbeTrace(
 
   const reverseLeads: ReverseLead[] = []
   if (uniqueDepositAddresses.length > 0) {
-    const reverseBatch = await callGraphBatch(remoteClient, options.network, [reverseLeadsQuery(uniqueDepositAddresses)])
+    const reverseBatch = await callTopologyBatch(remoteClient, options.network, [reverseLeadsQuery(uniqueDepositAddresses)])
     for (const row of resultsFor(reverseBatch, 'reverse_1hop')) {
       const address = typeof row['address'] === 'string' ? row['address'] : ''
       const depositAddress = typeof row['deposit_address'] === 'string' ? row['deposit_address'] : ''
@@ -946,7 +946,7 @@ export async function runFundFlowProbe(
   const paths = workspaceOutputPaths()
   await ensureDirs(paths)
 
-  const schemaResult = await loadOrCaptureSchema(remoteClient, paths, network)
+  const schemaResult = await loadOrCaptureTopologySchema(remoteClient, paths, network)
   const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, { seedAddress, network, maxHops, perAddressLimit, minAmountSum })
   const aliases = buildAliases(seedAddress, deposits, sourceMatches, reverseLeads)
   const slug = `${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}_${sanitizeSegment(seedAddress.slice(0, 16))}`

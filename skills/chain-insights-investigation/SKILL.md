@@ -1,6 +1,6 @@
 ---
 name: chain-insights-investigation
-description: Use when operating in a Chain Insights investigation workspace or when the user asks to investigate blockchain activity, trace funds, analyze AML risk, use the cia/chain-insights CLI, work with cases, sessions, evidence, dossiers, graph_query, graph_query_batch, Bittensor, Ethereum, or Base investigation data. This skill is mandatory for Codex-led Chain Insights investigations.
+description: Use when operating in a Chain Insights investigation workspace or when the user asks to investigate blockchain activity, trace funds, analyze AML risk, use the cia/chain-insights CLI, work with cases, sessions, evidence, dossiers, topology_query, topology_query_batch, fact_query, fact_query_batch, Bittensor, Ethereum, or Base investigation data. This skill is mandatory for Codex-led Chain Insights investigations.
 ---
 
 # Chain Insights Investigation
@@ -46,8 +46,10 @@ cia debug off
    address activity, or requested chain falls outside that range, state that
    limitation before querying. Do not call `address_risk` unless the selected
    network advertises risk support and `address_risk` is available. If only
-   topology is available, use `track_funds`, `graph_query`, or
-   `graph_query_batch` as appropriate.
+   topology is available, use `track_funds`, `topology_query`, or
+   `topology_query_batch` as appropriate. Use `fact_query` or
+   `fact_query_batch` for read-only StarRocks facts exposed through
+   `facts_*_view`.
 3. Read workspace runtime schema notes:
    ```bash
    test -f .chain-insights/runtime-skill/SKILL.md && sed -n '1,220p' .chain-insights/runtime-skill/SKILL.md
@@ -55,7 +57,7 @@ cia debug off
 4. If `.chain-insights/schema/<network>.graph-schema.json` does not exist, capture schema before case queries:
    ```bash
    mkdir -p .chain-insights/schema
-   cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"MATCH (n) UNWIND labels(n) AS label RETURN label, count(*) AS count ORDER BY count DESC LIMIT 100"},{"id":"relationship_types","query":"MATCH ()-[r]->() RETURN type(r) AS relationship_type, count(*) AS count ORDER BY count DESC LIMIT 100"},{"id":"address_property_keys","query":"MATCH (n:Address) WITH keys(n) AS keys LIMIT 1000 UNWIND keys AS property_key RETURN property_key, count(*) AS sample_count ORDER BY sample_count DESC, property_key LIMIT 200"},{"id":"flows_to_property_keys","query":"MATCH ()-[r:FLOWS_TO]->() WITH keys(r) AS keys LIMIT 1000 UNWIND keys AS property_key RETURN property_key, count(*) AS sample_count ORDER BY sample_count DESC, property_key LIMIT 200"}]' > .chain-insights/schema/<network>.graph-schema.raw.json
+   cia mcp call topology_query_batch network=<network> 'queries=[{"id":"node_labels","query":"MATCH (n) UNWIND labels(n) AS label RETURN label, count(*) AS count ORDER BY count DESC LIMIT 100"},{"id":"relationship_types","query":"MATCH ()-[r]->() RETURN type(r) AS relationship_type, count(*) AS count ORDER BY count DESC LIMIT 100"},{"id":"address_property_keys","query":"MATCH (n:Address) WITH keys(n) AS keys LIMIT 1000 UNWIND keys AS property_key RETURN property_key, count(*) AS sample_count ORDER BY sample_count DESC, property_key LIMIT 200"},{"id":"flows_to_property_keys","query":"MATCH ()-[r:FLOWS_TO]->() WITH keys(r) AS keys LIMIT 1000 UNWIND keys AS property_key RETURN property_key, count(*) AS sample_count ORDER BY sample_count DESC, property_key LIMIT 200"}]' > .chain-insights/schema/<network>.graph-schema.raw.json
    ```
    Reduce the raw schema into `.chain-insights/schema/<network>.graph-schema.json` and update `.chain-insights/runtime-skill/SKILL.md` with the observed fields.
 5. List cases:
@@ -85,8 +87,8 @@ cia debug off
   `track_funds`. Chain Insights MCP may expose its own high-level tools, but
   their graph semantics must be a faithful port of the Python tools.
 - When the upstream server is Go Graph MCP, high-level Chain Insights tools
-  must implement Python-compatible orchestration by calling `graph_query` or
-  `graph_query_batch`. Do not replace Python probe semantics with simplified
+  must implement Python-compatible orchestration by calling `topology_query` or
+  `topology_query_batch`. Do not replace Python probe semantics with simplified
   local recipes.
 - For exchange-deposit discovery, use Python `BFSOps`/`StolenFundsProbe`
   semantics: forward `FLOWS_TO *BFS` to `Exchange`, stop at exchange nodes,
@@ -111,7 +113,7 @@ cia debug off
 - Prefer `cia` commands over direct file edits.
 - Do not use `cia case resume`; use `cia case show`.
 - Use numbered case selectors from `cia case list`.
-- Use `graph_query_batch` for related graph reads.
+- Use `topology_query_batch` for related graph reads.
 - Use read-only Cypher only: no `CREATE`, `MERGE`, `SET`, `DELETE`, `REMOVE`, `DROP`, or `DETACH`.
 - Bound graph reads with `LIMIT`.
 
@@ -145,7 +147,8 @@ local tracing engine.
 Use `track_funds` for stolen-fund and fund-flow work, including single-address
 fund-flow tracing by passing one address as the only `trusted_addresses` value.
 
-Use manual `graph_query_batch` only for custom questions or fallback.
+Use manual `topology_query_batch` only for custom topology questions. Use
+`fact_query_batch` for read-only fact questions against `facts_*_view`.
 
 ## Query And Evidence Loop
 
@@ -160,7 +163,7 @@ For every material graph/tool query:
 
 1. Write output to a temp file with narrow Cypher projections:
    ```bash
-   cia mcp call graph_query_batch \
+   cia mcp call topology_query_batch \
      network=<network> \
      'queries=[{"id":"<stable_id>","query":"<read-only Cypher with LIMIT>"}]' \
      > /tmp/<stable_id>.json
@@ -173,7 +176,7 @@ For every material graph/tool query:
 3. Save the compact output as evidence. If the JSON is large, Chain Insights stores it under `reports/tables/` and keeps the evidence Markdown as a summary plus pointer:
    ```bash
    cia case evidence add <case-number> \
-     --source graph_query_batch_compact \
+     --source topology_query_batch_compact \
      --query-params "network=<network> id=<stable_id> ..." \
      --content "$(cat /tmp/<stable_id>.compact.json)"
    ```
@@ -196,7 +199,7 @@ Keep MCP JSON arguments on one shell line. Raw newlines inside JSON strings brea
 
 Good:
 ```bash
-cia mcp call graph_query_batch network=bittensor 'queries=[{"id":"address_exists","query":"MATCH (n:Address {address: \"5...\"}) RETURN n.address AS address, labels(n) AS labels, n.degree_in AS degree_in, n.degree_out AS degree_out, n.tx_total_count AS tx_total_count LIMIT 1"}]'
+cia mcp call topology_query_batch network=bittensor 'queries=[{"id":"address_exists","query":"MATCH (n:Address {address: \"5...\"}) RETURN n.address AS address, labels(n) AS labels, n.degree_in AS degree_in, n.degree_out AS degree_out, n.tx_total_count AS tx_total_count LIMIT 1"}]'
 ```
 
 Bad:
@@ -223,7 +226,7 @@ cia case show <case-number>
 
 ## When Asked "What Next?"
 
-Give one concrete next command, not a broad menu. Prefer the next graph query or the next evidence-save step.
+Give one concrete next command, not a broad menu. Prefer the next topology or fact query, or the next evidence-save step.
 
 ## Fresh Workspace UAT
 
@@ -233,7 +236,7 @@ When validating the skill or Chain Insights investigation flow, run the bundled 
 skills/chain-insights-investigation/scripts/run-target-uat.sh
 ```
 
-The script creates a fresh investigation workspace, enables debug mode, captures runtime graph schema, opens a case for `5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5`, starts a session, runs `graph_query_batch`, saves compact evidence with original field names, updates a lightweight dossier pointer, ends the session, and verifies the resulting case state.
+The script creates a fresh investigation workspace, enables debug mode, captures runtime graph schema, opens a case for `5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5`, starts a session, runs `topology_query_batch`, saves compact evidence with original field names, updates a lightweight dossier pointer, ends the session, and verifies the resulting case state.
 
 Environment overrides:
 

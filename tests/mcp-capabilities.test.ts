@@ -13,8 +13,9 @@ describe('MCP network capabilities', () => {
         display_name: 'TRON',
         status: 'live',
         layers: {
-          topology_labels: { enabled: true, retention: { mode: 'rolling_window', window_days: 365 } },
-          risk_intelligence: { enabled: false },
+          topology: { enabled: true, retention: { mode: 'rolling_window', window_days: 365 } },
+          facts: { enabled: true },
+          risk: { enabled: false },
         },
         coverage: {
           from_block: 84,
@@ -23,10 +24,10 @@ describe('MCP network capabilities', () => {
           to_timestamp: '2026-01-31T04:26:00Z',
         },
         tools: {
-          graph_query: 'available',
-          graph_query_batch: 'available',
-          track_funds: 'available',
-          address_risk: 'unavailable',
+          topology_query: 'available',
+          topology_query_batch: 'available',
+          fact_query: 'available',
+          fact_query_batch: 'available',
         },
       }],
     }), { status: 200 }))
@@ -48,6 +49,20 @@ describe('MCP network capabilities', () => {
     expect(result.networks[0]?.network).toBe('tron')
   })
 
+  it('includes the metadata URL when network capability fetch fails', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new TypeError('fetch failed'))
+
+    const { fetchNetworkCapabilities } = await import('../src/mcp/capabilities.js')
+
+    await expect(fetchNetworkCapabilities({
+      mcpEndpoint: 'https://legacy.example.test/mcp',
+      graphMcpEndpoint: 'http://localhost:8012/mcp',
+      graphMcpMode: 'debug',
+      graphMcpAuthToken: 'debug-token',
+      mcpAuthToken: '',
+    })).rejects.toThrow('network capabilities unavailable at http://localhost:8012/metadata/networks: fetch failed')
+  })
+
   it('formats layer support and available tools for CLI output', async () => {
     const { formatNetworkCapabilities } = await import('../src/mcp/capabilities.js')
 
@@ -58,8 +73,9 @@ describe('MCP network capabilities', () => {
         display_name: 'TRON',
         status: 'live',
         layers: {
-          topology_labels: { enabled: true, retention: { mode: 'rolling_window', window_days: 365 } },
-          risk_intelligence: { enabled: false },
+          topology: { enabled: true, retention: { mode: 'rolling_window', window_days: 365 } },
+          facts: { enabled: true },
+          risk: { enabled: false },
         },
         coverage: {
           from_block: 84,
@@ -68,10 +84,10 @@ describe('MCP network capabilities', () => {
           to_timestamp: '2026-01-31T04:26:00Z',
         },
         tools: {
-          graph_query: 'available',
-          graph_query_batch: 'available',
-          track_funds: 'available',
-          address_risk: 'unavailable',
+          topology_query: 'available',
+          topology_query_batch: 'available',
+          fact_query: 'available',
+          fact_query_batch: 'available',
         },
       }],
     })
@@ -79,7 +95,7 @@ describe('MCP network capabilities', () => {
     expect(output).toContain('TRON')
     expect(output).toContain('yes')
     expect(output).toContain('84..7440268 / 2023-03-20..2026-01-31')
-    expect(output).toContain('graph_query, graph_query_batch, track_funds')
+    expect(output).toContain('topology_query, topology_query_batch, fact_query, fact_query_batch')
   })
 
   it('formats no available tools for unsupported networks', async () => {
@@ -92,14 +108,15 @@ describe('MCP network capabilities', () => {
         display_name: 'Base',
         status: 'unavailable',
         layers: {
-          topology_labels: { enabled: false },
-          risk_intelligence: { enabled: false },
+          topology: { enabled: false },
+          facts: { enabled: false },
+          risk: { enabled: false },
         },
         tools: {
-          graph_query: 'unavailable',
-          graph_query_batch: 'unavailable',
-          track_funds: 'unavailable',
-          address_risk: 'unavailable',
+          topology_query: 'unavailable',
+          topology_query_batch: 'unavailable',
+          fact_query: 'unavailable',
+          fact_query_batch: 'unavailable',
         },
       }],
     })
@@ -118,18 +135,19 @@ describe('MCP network capabilities', () => {
         display_name: 'TRON',
         status: 'live',
         layers: {
-          topology_labels: { enabled: true },
-          risk_intelligence: { enabled: false },
+          topology: { enabled: true },
+          facts: { enabled: true },
+          risk: { enabled: false },
         },
         coverage: {
           from_timestamp: '2026-05-19T00:00:00Z',
           to_timestamp: '2026-05-20T00:00:00Z',
         },
         tools: {
-          graph_query: 'available',
-          graph_query_batch: 'available',
-          track_funds: 'available',
-          address_risk: 'unavailable',
+          topology_query: 'available',
+          topology_query_batch: 'available',
+          fact_query: 'available',
+          fact_query_batch: 'available',
         },
       }],
     })
@@ -147,8 +165,9 @@ describe('MCP network capabilities', () => {
         display_name: 'TRON',
         status: 'live',
         layers: {
-          topology_labels: { enabled: true, retention: { mode: 'unknown' } },
-          risk_intelligence: { enabled: false },
+          topology: { enabled: true, retention: { mode: 'unknown' } },
+          facts: { enabled: true },
+          risk: { enabled: false },
         },
         tools: {},
       }],

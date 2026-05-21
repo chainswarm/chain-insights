@@ -16,10 +16,11 @@ program
   .version(PACKAGE_INFO.version)
   .option('--claude', 'Install Claude Code skills globally to ~/.claude/skills/')
   .option('--codex', 'Install Codex skills globally to ~/.codex/skills/ and register MCP')
+  .option('--hermes', 'Install Hermes skills globally to ~/.hermes/skills/chain-insights/ and register MCP')
 
 // Handle installer flags when invoked with no subcommand (bare `chain-insights --claude`)
 const rawArgs = process.argv.slice(2)
-const installerFlags = rawArgs.filter(a => a === '--claude' || a === '--codex')
+const installerFlags = rawArgs.filter(a => a === '--claude' || a === '--codex' || a === '--hermes')
 if (installerFlags.length > 0 && !rawArgs.some(a => !a.startsWith('-'))) {
   try {
     execFileSync(process.execPath, [installerPath, ...installerFlags], { stdio: 'inherit' })
@@ -98,6 +99,31 @@ function printMcpTextContent(result: { content?: Array<{ type: string; text?: st
     if (item.type === 'text') console.log(item.text)
   }
 }
+
+async function printNetworkCapabilities(opts: { json?: boolean }): Promise<void> {
+  const { loadConfig } = await import('./config/index.js')
+  const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import('./mcp/capabilities.js')
+  const document = await fetchNetworkCapabilities(await loadConfig())
+  if (opts.json) {
+    console.log(JSON.stringify(document, null, 2))
+  } else {
+    console.log(formatNetworkCapabilities(document))
+  }
+}
+
+program
+  .command('networks')
+  .alias('network')
+  .description('List supported graph networks, capability layers, retention, and freshness')
+  .option('--json', 'Print raw capability JSON')
+  .action(async (opts: { json?: boolean }) => {
+    try {
+      await printNetworkCapabilities(opts)
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
 
 program
   .command('serve')
@@ -432,14 +458,7 @@ program
       .option('--json', 'Print raw capability JSON')
       .action(async (opts: { json?: boolean }) => {
         try {
-          const { loadConfig } = await import('./config/index.js')
-          const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import('./mcp/capabilities.js')
-          const document = await fetchNetworkCapabilities(await loadConfig())
-          if (opts.json) {
-            console.log(JSON.stringify(document, null, 2))
-          } else {
-            console.log(formatNetworkCapabilities(document))
-          }
+          await printNetworkCapabilities(opts)
         } catch (err) {
           console.error((err as Error).message)
           process.exit(1)
@@ -487,7 +506,7 @@ program
       .requiredOption('--address <address>', 'Full blockchain address to screen')
       .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
       .option('--compare-address <address>', 'Optional second address for connection-risk compare mode')
-      .option('--remote', 'Force remote MCP tool call instead of local fallback')
+      .option('--remote', 'Force remote MCP tool call instead of local Chain Insights recipe')
       .action(async (opts: { address: string; network: string; compareAddress?: string; remote?: boolean }) => {
         try {
           await withGraphMcpClient('chain-insights-cli-address-risk', async (client) => {
@@ -527,7 +546,7 @@ program
       .option('--max-hops <number>', 'Maximum trace hops, 1-5')
       .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, 1-10')
       .option('--min-amount-sum <number>', 'Minimum r.amount_sum for traced edges')
-      .option('--remote', 'Force remote MCP tool call instead of local fallback')
+      .option('--remote', 'Force remote MCP tool call instead of local Chain Insights recipe')
       .action(async (opts: {
         trustedAddresses: string
         network: string
