@@ -2,6 +2,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.4] - 2026-05-21
+
+- Added backend-aware Chain Insights probes for PuppyGraph topology: `track_funds` and `address_risk` now select Memgraph BFS or PuppyGraph `shortestPath` queries from `network_capabilities`.
+- Added PuppyGraph-safe schema discovery, backend-specific schema cache files, and current-edge filtering so probe pathfinding does not traverse archival rollup edges.
+- Added numeric-string handling and reverse-lead degree checks so PuppyGraph and Memgraph trace reports match for Bittensor exchange-path probes.
+
 ## [0.2.3] - 2026-05-19
 
 - Tightened investigation workspace output: large JSON evidence is stored under `reports/tables/` with compact evidence pointers, case briefs are more actionable, dossiers omit empty placeholder sections, and runtime logs now live under `.chain-insights/runtime/logs/`.
