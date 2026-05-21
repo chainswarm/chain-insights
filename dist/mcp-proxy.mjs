@@ -994,7 +994,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { addressRisk } = await import("./public-tools--CCLyR2a.mjs");
+			const { addressRisk } = await import("./public-tools-9KYVvbZN.mjs");
 			const { writeGraphReport } = await import("./graph-reports-C4TBjCkM.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-Dxz5YbuQ.mjs");
 			const result = await addressRisk(remoteClient, {
@@ -1058,7 +1058,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { trackFunds } = await import("./public-tools--CCLyR2a.mjs");
+			const { trackFunds } = await import("./public-tools-9KYVvbZN.mjs");
 			const { writeGraphReport } = await import("./graph-reports-C4TBjCkM.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-Dxz5YbuQ.mjs");
 			const result = await trackFunds(remoteClient, config, {

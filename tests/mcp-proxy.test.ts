@@ -272,6 +272,29 @@ async function readJsonl(path: string): Promise<Array<Record<string, unknown>>> 
   return text.trim().split('\n').filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>)
 }
 
+function networkCapabilitiesResult(backend: 'memgraph' | 'puppygraph' = 'memgraph') {
+  return {
+    content: [{
+      type: 'text',
+      text: JSON.stringify({
+        schema: 'chain-insights.result.v1',
+        tool: 'network_capabilities',
+        facts: {
+          capabilities: {
+            networks: [{
+              network: 'bittensor',
+              layers: {
+                topology: { enabled: true, backend },
+              },
+            }],
+          },
+        },
+      }),
+    }],
+    isError: false,
+  }
+}
+
 let originalSigintListeners: NodeJS.SignalsListener[] = []
 let originalSigtermListeners: NodeJS.SignalsListener[] = []
 let originalWorkspace: string | undefined
@@ -618,6 +641,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       isError: false,
     })
     clientInstance.callTool
+      .mockResolvedValueOnce(networkCapabilitiesResult())
       .mockResolvedValueOnce(textResult([
         { id: 'node_labels', ok: true, results: [{ label: 'Address', count: 10 }] },
         { id: 'relationship_types', ok: true, results: [{ relationship_type: 'FLOWS_TO', count: 4 }] },
@@ -694,9 +718,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       content: expect.stringContaining('"compactEvidence"'),
     }))
     expect(ensureArtifactServerMock).toHaveBeenCalledWith(4321)
-    expect(clientInstance.callTool.mock.calls[1][0].arguments.queries[0].query).toContain('*BFS')
-    expect(clientInstance.callTool.mock.calls[1][0].arguments.queries[0].query).toContain('e.amount_sum IS NOT NULL')
-    expect(clientInstance.callTool.mock.calls[1][0].arguments.queries[0].query).not.toContain('*1..2')
+    const forwardCall = clientInstance.callTool.mock.calls.find((call) => {
+      const queries = call[0].arguments?.queries as Array<{ id?: string }> | undefined
+      return queries?.some((query) => query.id === 'forward_exchange_paths')
+    })
+    const forwardQuery = forwardCall?.[0].arguments.queries[0].query as string
+    expect(forwardQuery).toContain('*BFS')
+    expect(forwardQuery).toContain('e.amount_sum IS NOT NULL')
+    expect(forwardQuery).not.toContain('*1..2')
 
     const graphUrl = result._meta.chainInsights.graph.url as string
     const filename = graphUrl.split('/graph-reports/')[1]
@@ -768,6 +797,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         isError: false,
       })
       clientInstance.callTool
+        .mockResolvedValueOnce(networkCapabilitiesResult())
         .mockResolvedValueOnce(textResult([
           { id: 'node_labels', ok: true, results: [{ label: 'Address', count: 10 }] },
           { id: 'relationship_types', ok: true, results: [{ relationship_type: 'FLOWS_TO', count: 4 }] },
@@ -866,6 +896,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       isError: false,
     })
     clientInstance.callTool
+      .mockResolvedValueOnce(networkCapabilitiesResult())
       .mockResolvedValueOnce(textResult([
         { id: 'node_labels', ok: true, results: [{ label: 'Address', count: 10 }, { label: 'Exchange', count: 1 }] },
         { id: 'relationship_types', ok: true, results: [{ relationship_type: 'FLOWS_TO', count: 4 }] },
@@ -985,7 +1016,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       L1: '5Lead',
     })
     expect(result.content[0].text).toContain('Deposit candidates: D1, D2')
-    expect(clientInstance.callTool).toHaveBeenCalledTimes(5)
+    expect(clientInstance.callTool).toHaveBeenCalledTimes(6)
 
     expect(result._meta.chainInsights.graph.url).toContain('/graph-reports/')
     expect(result._meta.chainInsights.graph).not.toHaveProperty('id')
@@ -1042,57 +1073,59 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       callTool: ReturnType<typeof vi.fn>
     }
-    clientInstance.callTool.mockResolvedValueOnce({
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          schema: 'chain-insights.result.v1',
-          tool: 'topology_query_batch',
-          facts: {
-            queries: [
-              {
-                id: 'address_profile',
-                ok: true,
-                results: [{
-                  address: '5Addr',
-                  display_labels: ['validator'],
-                  system_labels: ['Address', 'Validator'],
-                  address_type: 'substrate',
-                  address_subtypes: ['validator_hotkey'],
-                  confluence_score: 0.82,
-                  ml_risk_level: 'high',
-                  degree_in: 3,
-                  degree_out: 4,
-                }],
-              },
-              {
-                id: 'exchange_outflows',
-                ok: true,
-                results: [{
-                  direction: 'outflow',
-                  exchange_address: '5Exchange',
-                  exchange_labels: ['Address', 'Exchange'],
-                  exchange_display_labels: ['Binance'],
-                  exchange_address_type: 'substrate',
-                  deposit_address: '5Deposit',
-                  hops: 2,
-                  amount_sum: 44,
-                  amount_usd_sum: 88,
-                  edge_props: [
-                    { amount_sum: 11, amount_usd_sum: 22, tx_count: 1, first_tx_id: 'risk-1', last_tx_id: 'risk-1' },
-                    { amount_sum: 44, amount_usd_sum: 88, tx_count: 2, first_tx_id: 'risk-2', last_tx_id: 'risk-2' },
-                  ],
-                  path: ['5Addr', '5Deposit', '5Exchange'],
-                }],
-              },
-              { id: 'exchange_inflows', ok: true, results: [] },
-              { id: 'connection_probe', ok: true, results: [] },
-            ],
-          },
-        }),
-      }],
-      isError: false,
-    })
+    clientInstance.callTool
+      .mockResolvedValueOnce(networkCapabilitiesResult())
+      .mockResolvedValueOnce({
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            schema: 'chain-insights.result.v1',
+            tool: 'topology_query_batch',
+            facts: {
+              queries: [
+                {
+                  id: 'address_profile',
+                  ok: true,
+                  results: [{
+                    address: '5Addr',
+                    display_labels: ['validator'],
+                    system_labels: ['Address', 'Validator'],
+                    address_type: 'substrate',
+                    address_subtypes: ['validator_hotkey'],
+                    confluence_score: 0.82,
+                    ml_risk_level: 'high',
+                    degree_in: 3,
+                    degree_out: 4,
+                  }],
+                },
+                {
+                  id: 'exchange_outflows',
+                  ok: true,
+                  results: [{
+                    direction: 'outflow',
+                    exchange_address: '5Exchange',
+                    exchange_labels: ['Address', 'Exchange'],
+                    exchange_display_labels: ['Binance'],
+                    exchange_address_type: 'substrate',
+                    deposit_address: '5Deposit',
+                    hops: 2,
+                    amount_sum: 44,
+                    amount_usd_sum: 88,
+                    edge_props: [
+                      { amount_sum: 11, amount_usd_sum: 22, tx_count: 1, first_tx_id: 'risk-1', last_tx_id: 'risk-1' },
+                      { amount_sum: 44, amount_usd_sum: 88, tx_count: 2, first_tx_id: 'risk-2', last_tx_id: 'risk-2' },
+                    ],
+                    path: ['5Addr', '5Deposit', '5Exchange'],
+                  }],
+                },
+                { id: 'exchange_inflows', ok: true, results: [] },
+                { id: 'connection_probe', ok: true, results: [] },
+              ],
+            },
+          }),
+        }],
+        isError: false,
+      })
 
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
@@ -1163,7 +1196,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         ]),
       }),
     })
-    const riskQueries = clientInstance.callTool.mock.calls[0][0].arguments.queries as Array<{ id: string; query: string }>
+    const riskQueries = clientInstance.callTool.mock.calls[1][0].arguments.queries as Array<{ id: string; query: string }>
     const outflowQuery = riskQueries.find((query) => query.id === 'exchange_outflows')?.query ?? ''
     const inflowQuery = riskQueries.find((query) => query.id === 'exchange_inflows')?.query ?? ''
     expect(outflowQuery).toContain('*BFS')
@@ -1177,32 +1210,34 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
   it('address_risk graphData preserves subject profile metadata before report normalization', async () => {
     const { addressRisk } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
-      callTool: vi.fn().mockResolvedValueOnce({
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            facts: {
-              queries: [
-                {
-                  id: 'address_profile',
-                  ok: true,
-                  results: [{
-                    address: '5Addr',
-                    display_labels: ['validator'],
-                    system_labels: ['Address', 'Validator'],
-                    address_type: 'substrate',
-                    address_subtypes: ['validator_hotkey'],
-                  }],
-                },
-                { id: 'exchange_outflows', ok: true, results: [] },
-                { id: 'exchange_inflows', ok: true, results: [] },
-                { id: 'connection_probe', ok: true, results: [] },
-              ],
-            },
-          }),
-        }],
-        isError: false,
-      }),
+      callTool: vi.fn()
+        .mockResolvedValueOnce(networkCapabilitiesResult())
+        .mockResolvedValueOnce({
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              facts: {
+                queries: [
+                  {
+                    id: 'address_profile',
+                    ok: true,
+                    results: [{
+                      address: '5Addr',
+                      display_labels: ['validator'],
+                      system_labels: ['Address', 'Validator'],
+                      address_type: 'substrate',
+                      address_subtypes: ['validator_hotkey'],
+                    }],
+                  },
+                  { id: 'exchange_outflows', ok: true, results: [] },
+                  { id: 'exchange_inflows', ok: true, results: [] },
+                  { id: 'connection_probe', ok: true, results: [] },
+                ],
+              },
+            }),
+          }],
+          isError: false,
+        }),
     }
 
     const result = await addressRisk(remoteClient as never, { address: '5Addr', network: 'bittensor' })

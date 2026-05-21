@@ -998,7 +998,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-DA6wjSnz.cjs"));
+			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-CG0R8v4B.cjs"));
 			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-DU05YCei.cjs"));
 			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-DoxJ7fCx.cjs"));
 			const result = await addressRisk(remoteClient, {
@@ -1062,7 +1062,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-DA6wjSnz.cjs"));
+			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-CG0R8v4B.cjs"));
 			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-DU05YCei.cjs"));
 			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-DoxJ7fCx.cjs"));
 			const result = await trackFunds(remoteClient, config, {
