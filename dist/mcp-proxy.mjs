@@ -1,5 +1,5 @@
 import { n as PACKAGE_VERSION } from "./version-1gP19Lhi.mjs";
-import { t as HIDDEN_REMOTE_TOOL_NAMES } from "./tool-visibility-3Z_KvO9Q.mjs";
+import { t as HIDDEN_REMOTE_TOOL_NAMES } from "./tool-visibility-mwdNUjfI.mjs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { readFileSync } from "node:fs";
@@ -37,26 +37,31 @@ const COMMA_SEPARATED_ADDRESS_FIELDS = new Set(["trusted_addresses", "untrusted_
 const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS = {
 	address_risk: ["address", "network"],
 	track_funds: ["trusted_addresses", "network"],
-	graph_query: ["query", "network"],
-	graph_query_batch: ["network", "queries"]
+	topology_query: ["query", "network"],
+	topology_query_batch: ["network", "queries"],
+	fact_query: ["query", "network"],
+	fact_query_batch: ["network", "queries"]
 };
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS = {
+	network_capabilities: "Return supported Chain Insights networks, capability layers, tool availability, data retention windows, and freshness. Use this before choosing network-specific tools.",
 	address_risk: "Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. This includes the exchange-behavior analysis formerly covered by money_flows_between_exchanges. Use this as the first tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.",
 	track_funds: "Trace funds from trusted victim/source addresses through intermediaries to exchange deposit addresses. Use this when the user has a victim/source address or known untrusted/scammer addresses. The tool returns an investigator-ready fund-flow report and recommended next actions.",
-	graph_query: "Run a read-only Cypher query against the Chain Insights graph database for schema discovery, aggregate counts, or custom graph inspection. Use only read-only queries and return full address strings exactly.",
-	graph_query_batch: "Run multiple read-only Cypher queries against the Chain Insights graph database through the paid graph primitive. Each query has a 10-second per-query timeout, and related queries should be grouped into one batch."
+	topology_query: "Run a read-only Cypher query against the Chain Insights graph database for schema discovery, aggregate counts, or custom graph inspection. Use only read-only queries and return full address strings exactly.",
+	topology_query_batch: "Run multiple read-only Cypher queries against the Chain Insights graph database through the paid topology primitive. Each query has a 10-second per-query timeout, and related queries should be grouped into one batch.",
+	fact_query: "Run a read-only SQL query against Chain Insights facts_*_view warehouse views for money-flow, transfer, label, asset, and risk facts. Use only SELECT/WITH queries and preserve full addresses exactly.",
+	fact_query_batch: "Run multiple read-only SQL queries against Chain Insights facts_*_view warehouse views. Related warehouse fact reads should be grouped into one batch."
 };
-const NETWORK_DESCRIPTION = "Required network to query: bittensor, ethereum, or base. Do not guess; ask the user if missing.";
+const NETWORK_DESCRIPTION = "Required network to query. Do not guess; use network_capabilities or ask the user if missing.";
 const CHAIN_INSIGHTS_WORKFLOW = [
 	"Workflow:",
 	"1. If the user is starting or continuing an investigation, use case_open or case_list/case_resume first.",
-	"2. Do not call investigation tools until required arguments are known. Network is required; ask for bittensor, ethereum, or base if missing.",
-	"3. Use address_risk first for a single address, including exchange-behavior analysis. Use address_risk with compare_address when the user gives two addresses. Use track_funds for victim/source fund tracing with optional known scammer addresses. Use graph_query only for explicit read-only Cypher or custom aggregates; use graph_query_batch for related custom reads that should share one paid call.",
+	"2. Do not call investigation tools until required arguments are known. Network is required; use network_capabilities to check supported networks, data layers, retention, and freshness, or ask the user if missing.",
+	"3. Use address_risk first for a single address when facts and topology are available. Use track_funds for victim/source fund tracing when topology is available. Use topology_query(_batch) for traversal/topology Cypher. Use fact_query(_batch) for warehouse facts such as rollups, transfers, labels, assets, and risk scores.",
 	"4. After a material result, preserve it with case_add_evidence when a case is active or ask whether to create/select a case.",
 	"5. Use case_update_dossier for durable address/entity findings and case_start_session/case_end_session for session notes."
 ].join("\n");
 const GRAPH_SCHEMA_HINTS = [
-	"Graph query hints for network=bittensor:",
+	"Topology query hints for network=bittensor:",
 	"- Common node labels: Address, Miner, Validator, Hotkey, Exchange.",
 	"- Address properties commonly include address, network, address_type, total_volume_usd, total_in_usd, total_out_usd, net_flow_usd, degree_in, degree_out, tx_in_count, tx_out_count, first_activity_timestamp, last_activity_timestamp.",
 	"- Risk and ML properties may include ml_risk_score, ml_risk_level, ml_top_drivers, ml_pattern_summary, ml_pagerank, ml_betweenness, ml_community_id.",
@@ -64,7 +69,8 @@ const GRAPH_SCHEMA_HINTS = [
 	"- FLOWS_TO is aggregated and commonly carries amount_sum, amount_usd_sum, tx_count, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id. Confirm available fields through runtime schema before relying on them.",
 	"- Start schema discovery with: MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, keys(n) AS properties, count(*) AS count ORDER BY count DESC LIMIT 20",
 	"- Relationship discovery: MATCH ()-[r]->() RETURN type(r) AS relationship, keys(r) AS properties, count(*) AS count ORDER BY count DESC LIMIT 20",
-	"- All graph_query calls are read-only. Never use CREATE, MERGE, SET, DELETE, REMOVE, DROP, or DETACH."
+	"- All topology_query calls are read-only. Never use CREATE, MERGE, SET, DELETE, REMOVE, DROP, or DETACH.",
+	"- Warehouse facts live behind facts_*_view StarRocks views. Use fact_query for SELECT/WITH SQL against those views; do not query core_*, ml_*, analyzers_*, synthetics_*, or _* tables directly."
 ].join("\n");
 const GRAPH_REPORT_HINTS = [
 	"Graph visualization behavior:",
@@ -128,15 +134,27 @@ function knownPublicToolInputSchema(toolName) {
 			untrusted_addresses: z.string().optional().describe("Comma-separated full untrusted/scammer addresses. Max 5."),
 			include_attachments: z.boolean().optional().describe("Include graph app report metadata")
 		};
-		case "graph_query": return {
+		case "topology_query": return {
 			query: z.string().min(1).describe("Read-only Cypher query"),
 			network: z.string().min(1).describe(NETWORK_DESCRIPTION)
 		};
-		case "graph_query_batch": return {
+		case "topology_query_batch": return {
 			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
 			queries: z.array(z.object({
 				id: z.string().optional(),
 				query: z.string().min(1).describe("Read-only Cypher query")
+			})).min(1).max(20),
+			per_query_timeout_seconds: z.number().int().min(1).max(10).optional()
+		};
+		case "fact_query": return {
+			query: z.string().min(1).describe("Read-only SQL SELECT/WITH query against facts_*_view views"),
+			network: z.string().min(1).describe(NETWORK_DESCRIPTION)
+		};
+		case "fact_query_batch": return {
+			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
+			queries: z.array(z.object({
+				id: z.string().optional(),
+				query: z.string().min(1).describe("Read-only SQL SELECT/WITH query against facts_*_view views")
 			})).min(1).max(20),
 			per_query_timeout_seconds: z.number().int().min(1).max(10).optional()
 		};
@@ -166,14 +184,14 @@ function sanitizeCypher(query) {
 }
 function cypherLogPayload(tool, args) {
 	if (!isRecord(args)) return null;
-	if (tool === "graph_query") return {
+	if (tool === "topology_query") return {
 		network: args.network,
 		queries: [{
-			id: "graph_query",
+			id: "topology_query",
 			query: typeof args.query === "string" ? sanitizeCypher(args.query) : args.query
 		}]
 	};
-	if (tool === "graph_query_batch") {
+	if (tool === "topology_query_batch") {
 		const queries = Array.isArray(args.queries) ? args.queries : [];
 		return {
 			network: args.network,
@@ -251,13 +269,13 @@ function installRemoteCypherLogging(remoteClient, logger) {
 	const wrappedCallTool = (async (input) => {
 		const queryPayload = cypherLogPayload(input.name, input.arguments);
 		const startedAt = Date.now();
-		if (queryPayload) await logger.info("cypher.start", {
+		if (queryPayload) await logger.info("topology.start", {
 			tool: input.name,
 			...queryPayload
 		});
 		try {
 			const result = await originalCallTool(input);
-			if (queryPayload) await logger.info("cypher.end", {
+			if (queryPayload) await logger.info("topology.end", {
 				tool: input.name,
 				duration_ms: Date.now() - startedAt,
 				is_error: isRecord(result) && result.isError === true
@@ -376,15 +394,15 @@ function registerLocalPrompts(server, remotePromptNames) {
 			"Present the summary as-is and include recommended next actions exactly as returned."
 		].join("\n"), "Trace stolen funds");
 	});
-	server.registerPrompt("graph-query", {
-		title: "Cypher Graph Query",
+	server.registerPrompt("topology-query", {
+		title: "Cypher Topology Query",
 		description: "Run a read-only Cypher query against the Chain Insights graph database.",
 		argsSchema: {
 			query: z.string().describe("Read-only Cypher query"),
 			network: z.string().describe(NETWORK_DESCRIPTION)
 		}
 	}, async ({ query, network }) => promptResult([
-		`Use Chain Insights graph_query on ${network} with this read-only Cypher query:`,
+		`Use Chain Insights topology_query on ${network} with this read-only Cypher query:`,
 		"",
 		"```cypher",
 		query,
@@ -392,8 +410,8 @@ function registerLocalPrompts(server, remotePromptNames) {
 		"",
 		"Return full address properties; never shorten addresses with ellipses."
 	].join("\n"), "Graph database query"));
-	server.registerPrompt("graph-query-batch", {
-		title: "Cypher Graph Query Batch",
+	server.registerPrompt("topology-query-batch", {
+		title: "Cypher Topology Query Batch",
 		description: "Run related read-only Cypher queries against the Chain Insights graph database in one paid batch.",
 		argsSchema: {
 			queries: z.string().describe("JSON array of query objects with optional id and required query fields"),
@@ -401,7 +419,7 @@ function registerLocalPrompts(server, remotePromptNames) {
 			per_query_timeout_seconds: z.string().optional().describe("Optional integer timeout per query, 1-10 seconds")
 		}
 	}, async ({ queries, network, per_query_timeout_seconds }) => promptResult([
-		`Use Chain Insights graph_query_batch on ${network} with these read-only Cypher queries:`,
+		`Use Chain Insights topology_query_batch on ${network} with these read-only Cypher queries:`,
 		"",
 		"```json",
 		queries,
@@ -410,6 +428,40 @@ function registerLocalPrompts(server, remotePromptNames) {
 		"",
 		"Return full address properties; never shorten addresses with ellipses."
 	].filter(Boolean).join("\n"), "Graph database batch query"));
+	server.registerPrompt("fact-query", {
+		title: "Warehouse Fact Query",
+		description: "Run a read-only SQL query against Chain Insights facts_*_view warehouse views.",
+		argsSchema: {
+			query: z.string().describe("Read-only SQL SELECT/WITH query against facts_*_view views"),
+			network: z.string().describe(NETWORK_DESCRIPTION)
+		}
+	}, async ({ query, network }) => promptResult([
+		`Use Chain Insights fact_query on ${network} with this read-only SQL query:`,
+		"",
+		"```sql",
+		query,
+		"```",
+		"",
+		"Query only facts_*_view views; never query source tables directly."
+	].join("\n"), "Warehouse fact query"));
+	server.registerPrompt("fact-query-batch", {
+		title: "Warehouse Fact Query Batch",
+		description: "Run related read-only SQL queries against Chain Insights facts_*_view warehouse views in one paid batch.",
+		argsSchema: {
+			queries: z.string().describe("JSON array of query objects with optional id and required query fields"),
+			network: z.string().describe(NETWORK_DESCRIPTION),
+			per_query_timeout_seconds: z.string().optional().describe("Optional integer timeout per query, 1-10 seconds")
+		}
+	}, async ({ queries, network, per_query_timeout_seconds }) => promptResult([
+		`Use Chain Insights fact_query_batch on ${network} with these read-only SQL queries:`,
+		"",
+		"```json",
+		queries,
+		"```",
+		per_query_timeout_seconds ? `per_query_timeout_seconds: ${per_query_timeout_seconds}` : "",
+		"",
+		"Query only facts_*_view views; never query source tables directly."
+	].filter(Boolean).join("\n"), "Warehouse fact query batch"));
 	server.registerPrompt("balance", {
 		title: "Wallet Balance",
 		description: "Show the local Chain Insights payment wallet address and Base USDC balance.",
@@ -493,7 +545,7 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 	const graphPayload = getRemoteGraphPayload(result);
 	const meta = { ...result._meta ?? {} };
 	if (graphPayload) {
-		const { writeGraphReport } = await import("./graph-reports-BuUw1m0e.mjs");
+		const { writeGraphReport } = await import("./graph-reports-C4TBjCkM.mjs");
 		const { ensureArtifactServer } = await import("./artifact-server-Dxz5YbuQ.mjs");
 		const report = await writeGraphReport(graphPayload, {
 			serverPort: config.serverPort,
@@ -525,8 +577,8 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 async function createProxy() {
 	const { loadConfig } = await import("./config-BwrBYmiC.mjs").then((n) => n.t);
 	const { activeDataDir, findActiveWorkspace } = await import("./active-BSrxLKwn.mjs").then((n) => n.n);
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-DrzaRU81.mjs").then((n) => n.t);
-	const { loadSchema, saveSchema } = await import("./schema-cache-lfNylxL4.mjs");
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-D4Bq0rp9.mjs").then((n) => n.t);
+	const { loadSchema, saveSchema } = await import("./schema-cache-9CksD7tX.mjs");
 	const loadedConfig = await loadConfig();
 	const activeWorkspace = findActiveWorkspace();
 	const config = {
@@ -547,8 +599,11 @@ async function createProxy() {
 		name: "chain-insights-proxy-client",
 		version: PACKAGE_VERSION
 	});
+	let remoteConnected = false;
+	let remoteUnavailableMessage;
 	try {
 		await remoteClient.connect(new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: mcpFetch }));
+		remoteConnected = true;
 		await logger.info("remote.connect", {
 			transport: "streamable_http",
 			endpoint: graphMcpEndpoint
@@ -561,6 +616,7 @@ async function createProxy() {
 		try {
 			const { SSEClientTransport } = await import("@modelcontextprotocol/sdk/client/sse.js");
 			await remoteClient.connect(new SSEClientTransport(new URL(graphMcpEndpoint), { fetch: mcpFetch }));
+			remoteConnected = true;
 			await logger.info("remote.connect", {
 				transport: "sse",
 				endpoint: graphMcpEndpoint
@@ -571,23 +627,30 @@ async function createProxy() {
 				endpoint: graphMcpEndpoint,
 				error: errorForLog(err2)
 			});
-			process.stderr.write(`Chain Insights MCP unreachable at ${graphMcpEndpoint}: ${err2.message}\n`);
-			process.exit(1);
+			remoteUnavailableMessage = `Graph MCP unreachable at ${graphMcpEndpoint}: ${err2.message}`;
+			process.stderr.write(`Chain Insights MCP graph tools unavailable: ${remoteUnavailableMessage}. Local Chain Insights tools are still available.\n`);
 		}
 	}
-	installRemoteCypherLogging(remoteClient, logger);
+	if (remoteConnected) installRemoteCypherLogging(remoteClient, logger);
 	let tools = await loadSchema(graphMcpEndpoint);
-	if (!tools) {
+	if (!tools && remoteConnected) {
 		tools = (await remoteClient.listTools()).tools;
 		await saveSchema(tools, graphMcpEndpoint);
 		await logger.info("schema.tools_loaded", {
 			source: "remote",
 			count: tools.length
 		});
-	} else await logger.info("schema.tools_loaded", {
+	} else if (tools) await logger.info("schema.tools_loaded", {
 		source: "cache",
 		count: tools.length
 	});
+	else {
+		tools = [];
+		await logger.info("schema.tools_loaded", {
+			source: "unavailable",
+			count: 0
+		});
+	}
 	const remoteToolNames = new Set((tools ?? []).map((tool) => tool.name));
 	const server = new McpServer({
 		name: "chain-insights",
@@ -595,7 +658,7 @@ async function createProxy() {
 	}, { instructions: SERVER_INSTRUCTIONS });
 	installToolLogging(server, logger);
 	const remotePrompts = [];
-	try {
+	if (remoteConnected) try {
 		const promptResult = await remoteClient.listPrompts();
 		for (const prompt of promptResult.prompts) if (PUBLIC_GRAPHRAG_PROMPT_NAMES.has(prompt.name)) remotePrompts.push(prompt);
 	} catch (err) {
@@ -752,7 +815,7 @@ async function createProxy() {
 		}
 	});
 	server.registerTool("case_add_evidence", {
-		description: "Append a tool result or analyst note to a local case evidence manifest. Use after address_risk, track_funds, graph_query, or manual findings that should be preserved.",
+		description: "Append a tool result or analyst note to a local case evidence manifest. Use after address_risk, track_funds, topology_query, or manual findings that should be preserved.",
 		inputSchema: {
 			case_id: z.string().min(1).describe("Chain Insights case ID"),
 			source: z.string().min(1).describe("Source tool or evidence origin"),
@@ -924,8 +987,15 @@ async function createProxy() {
 		}
 	}, async ({ address, network, compare_address }) => {
 		try {
-			const { addressRisk } = await import("./public-tools-kLNjjdom.mjs");
-			const { writeGraphReport } = await import("./graph-reports-BuUw1m0e.mjs");
+			if (!remoteConnected) return {
+				content: [{
+					type: "text",
+					text: `${remoteUnavailableMessage ?? `Graph MCP is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`
+				}],
+				isError: true
+			};
+			const { addressRisk } = await import("./public-tools-9KYVvbZN.mjs");
+			const { writeGraphReport } = await import("./graph-reports-C4TBjCkM.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-Dxz5YbuQ.mjs");
 			const result = await addressRisk(remoteClient, {
 				address,
@@ -981,8 +1051,15 @@ async function createProxy() {
 		}
 	}, async ({ trusted_addresses, untrusted_addresses, network, case_id, max_hops, per_address_limit, min_amount_sum }) => {
 		try {
-			const { trackFunds } = await import("./public-tools-kLNjjdom.mjs");
-			const { writeGraphReport } = await import("./graph-reports-BuUw1m0e.mjs");
+			if (!remoteConnected) return {
+				content: [{
+					type: "text",
+					text: `${remoteUnavailableMessage ?? `Graph MCP is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`
+				}],
+				isError: true
+			};
+			const { trackFunds } = await import("./public-tools-9KYVvbZN.mjs");
+			const { writeGraphReport } = await import("./graph-reports-C4TBjCkM.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-Dxz5YbuQ.mjs");
 			const result = await trackFunds(remoteClient, config, {
 				trustedAddresses: trusted_addresses,
@@ -1032,10 +1109,13 @@ async function createProxy() {
 				CHAIN_INSIGHTS_WORKFLOW,
 				"",
 				"Investigation tools:",
+				"- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.",
 				"- address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.",
 				"- track_funds: trace up to five trusted/victim addresses plus up to five known untrusted/scammer addresses through intermediaries to exchange deposit addresses.",
-				"- graph_query: run read-only Cypher against the investigation graph.",
-				"- graph_query_batch: run related read-only Cypher queries through one paid graph call.",
+				"- topology_query: run read-only Cypher against the investigation graph.",
+				"- topology_query_batch: run related read-only Cypher queries through one paid topology call.",
+				"- fact_query: run read-only SQL against facts_*_view warehouse views.",
+				"- fact_query_batch: run related read-only SQL fact queries through one paid warehouse call.",
 				"",
 				"Case workflow tools:",
 				"- case_open: create a local case before preserving evidence.",
@@ -1063,6 +1143,13 @@ async function createProxy() {
 		const inputSchema = knownPublicToolInputSchema(tool.name) ?? z.object({}).passthrough();
 		const handler = async (args) => {
 			try {
+				if (!remoteConnected) return {
+					content: [{
+						type: "text",
+						text: `${remoteUnavailableMessage ?? `Graph MCP is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`
+					}],
+					isError: true
+				};
 				const normalizedArgs = normalizeRemoteToolArguments(tool.name, args);
 				const validationError = validateKnownPublicToolArguments(tool.name, normalizedArgs);
 				if (validationError) return {

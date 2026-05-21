@@ -344,7 +344,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Risk score: 72')
   })
 
-  it('mcp call parses JSON arrays and numeric args for graph_query_batch', async () => {
+  it('mcp call parses JSON arrays and numeric args for topology_query_batch', async () => {
     mockLoadConfig.mockResolvedValue({
       mcpEndpoint: 'http://localhost:8011/mcp',
       graphMcpEndpoint: 'http://localhost:8012/mcp',
@@ -357,14 +357,14 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
     mockClientClose.mockResolvedValue(undefined)
 
-    await runMcpCallAction('graph_query_batch', [
+    await runMcpCallAction('topology_query_batch', [
       'network=bittensor',
       'queries=[{"id":"count","query":"MATCH (n) RETURN count(n) AS count LIMIT 1"}]',
       'per_query_timeout_seconds=10',
     ])
 
     expect(mockClientCallTool).toHaveBeenCalledWith({
-      name: 'graph_query_batch',
+      name: 'topology_query_batch',
       arguments: {
         network: 'bittensor',
         queries: [{ id: 'count', query: 'MATCH (n) RETURN count(n) AS count LIMIT 1' }],

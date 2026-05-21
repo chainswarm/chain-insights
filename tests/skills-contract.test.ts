@@ -19,7 +19,11 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('trusted_addresses')
     expect(skill).toContain('Python GraphRAG MCP is the golden behavior')
     expect(skill).toContain('GraphRAGQueryEngine.check_address_risk')
-    expect(skill).toContain('graph_query_batch')
+    expect(skill).toContain('topology_query_batch')
+    expect(skill).toContain('cia mcp networks')
+    expect(skill).toContain('Dataset')
+    expect(skill).toContain('<first_height>..<last_height> / <first_date>..<last_date>')
+    expect(skill).toContain('Available tools')
     expect(skill).toContain('FLOWS_TO *BFS')
     expect(skill).toContain('Do not replace this with plain variable-length')
     expect(skill).not.toContain('Use `trace_funds`')
@@ -40,6 +44,9 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('reports/*.table.html')
     expect(skill).toContain('reports/*.trace-report.md')
     expect(skill).toContain('No investigation output belongs under `~/.chain-insights`')
+    expect(skill).toContain('cia mcp networks')
+    expect(skill).toContain('Topology: yes')
+    expect(skill).toContain('<first_height>..<last_height> / <first_date>..<last_date>')
     expect(skill).toContain('Python GraphRAG MCP is the golden implementation')
     expect(skill).toContain('StolenFundsProbe')
     expect(skill).toContain('FLOWS_TO *BFS')
@@ -69,6 +76,8 @@ describe('shipped Chain Insights skills contract', () => {
     const graphragUat = read('skills/test-chain-insights-graphrag-mcp/scripts/run-uat.sh')
 
     expect(skill).toContain('temporary initialized Chain Insights workspace')
+    expect(skill).toContain('chain-insights mcp networks')
+    expect(skill).toContain('dataset height/date coverage')
     expect(skill).toContain('~/.chain-insights/reports')
     expect(skill).toContain('~/.chain-insights/cases')
 
@@ -99,12 +108,14 @@ describe('shipped Chain Insights skills contract', () => {
     const proxySection = script.slice(script.indexOf('PROXY_TOOLS_JSON='))
 
     expect(proxySection).toContain(
-      "const required = ['balance', 'help', 'address_risk', 'track_funds', 'graph_query', 'graph_query_batch']",
+      "const required = ['balance', 'help', 'address_risk', 'track_funds', 'topology_query', 'topology_query_batch', 'fact_query', 'fact_query_batch']",
     )
-    expect(proxySection).toContain("for (const hidden of ['topup', 'trace_funds', 'money_flows_between_exchanges', 'address_connection_risk'])")
+    expect(proxySection).toContain(
+      "for (const hidden of ['topup', 'trace_funds', 'money_flows_between_exchanges', 'address_connection_risk', 'graph_query', 'graph_query_batch'])",
+    )
     expect(proxySection).toContain("for (const name of ['address_risk', 'track_funds'])")
     expect(proxySection).not.toContain("const required = ['balance', 'topup'")
-    expect(proxySection).not.toContain("'money_flows_between_exchanges', 'address_connection_risk', 'graph_query']")
+    expect(proxySection).not.toContain("'money_flows_between_exchanges', 'address_connection_risk', 'topology_query']")
     expect(proxySection).not.toContain("for (const name of ['address_risk', 'track_funds', 'money_flows_between_exchanges'")
   })
 })

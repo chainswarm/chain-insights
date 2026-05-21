@@ -89,7 +89,7 @@ describe('EvidenceStore (CASE-02)', () => {
   it('append() wraps small JSON content in a pretty json code fence', async () => {
     const { EvidenceStore } = await import('../src/cases/index.js')
     const result = await EvidenceStore.append(testCaseId, {
-      source: 'graph_query_batch_compact',
+      source: 'topology_query_batch_compact',
       content: '{"schema":"chain-insights.compact_evidence.v1","unused":null,"outgoing_flows":[]}',
       queryParams: 'network=bittensor',
     })
@@ -109,7 +109,7 @@ describe('EvidenceStore (CASE-02)', () => {
       amount_sum: index,
     }))
     const result = await EvidenceStore.append(testCaseId, {
-      source: 'graph_query_batch_compact',
+      source: 'topology_query_batch_compact',
       content: JSON.stringify({
         schema: 'chain-insights.compact_evidence.v1',
         network: 'bittensor',

@@ -9,7 +9,9 @@ type RemoteToolResult = {
   isError?: boolean
 }
 
-interface ParsedBatch {
+type TopologyBackend = 'memgraph' | 'puppygraph'
+
+interface ParsedTopologyBatch {
   facts?: {
     queries?: Array<{
       id?: string
@@ -17,6 +19,17 @@ interface ParsedBatch {
       results?: Array<Record<string, unknown>>
       error?: string
     }>
+  }
+}
+
+interface ParsedNetworkCapabilities {
+  facts?: {
+    capabilities?: {
+      networks?: Array<{
+        network?: string
+        layers?: Record<string, { backend?: string; enabled?: boolean }>
+      }>
+    }
   }
 }
 
@@ -47,36 +60,53 @@ function textFromToolResult(result: RemoteToolResult): string {
     .join('\n')
 }
 
-function parseBatchResult(result: RemoteToolResult): ParsedBatch {
+function parseTopologyBatchResult(result: RemoteToolResult): ParsedTopologyBatch {
   const text = textFromToolResult(result).trim()
-  if (!text) throw new Error('graph_query_batch returned no text content')
-  const parsed = JSON.parse(text) as ParsedBatch
-  if (!parsed.facts?.queries) throw new Error('graph_query_batch response did not include facts.queries')
+  if (!text) throw new Error('topology_query_batch returned no text content')
+  const parsed = JSON.parse(text) as ParsedTopologyBatch
+  if (!parsed.facts?.queries) throw new Error('topology_query_batch response did not include facts.queries')
   return parsed
 }
 
-function resultsFor(batch: ParsedBatch, id: string): Array<Record<string, unknown>> {
+function parseNetworkCapabilitiesResult(result: RemoteToolResult): ParsedNetworkCapabilities {
+  const text = textFromToolResult(result).trim()
+  if (!text) throw new Error('network_capabilities returned no text content')
+  return JSON.parse(text) as ParsedNetworkCapabilities
+}
+
+async function topologyBackendFor(remoteClient: Client, network: string): Promise<TopologyBackend> {
+  const result = await remoteClient.callTool({
+    name: 'network_capabilities',
+    arguments: {},
+  }) as RemoteToolResult
+  if (result.isError) throw new Error(textFromToolResult(result) || 'network_capabilities failed')
+  const capabilities = parseNetworkCapabilitiesResult(result)
+  const networkCapabilities = capabilities.facts?.capabilities?.networks?.find((entry) => entry.network === network)
+  return networkCapabilities?.layers?.['topology']?.backend === 'puppygraph' ? 'puppygraph' : 'memgraph'
+}
+
+function resultsFor(batch: ParsedTopologyBatch, id: string): Array<Record<string, unknown>> {
   const query = batch.facts?.queries?.find((entry) => entry.id === id)
   if (!query) return []
   if (query.ok === false) throw new Error(query.error || `Query failed: ${id}`)
   return query.results ?? []
 }
 
-async function callGraphBatch(
+async function callTopologyBatch(
   remoteClient: Client,
   network: string,
   queries: Array<{ id: string; query: string }>,
-): Promise<ParsedBatch> {
+): Promise<ParsedTopologyBatch> {
   const result = await remoteClient.callTool({
-    name: 'graph_query_batch',
+    name: 'topology_query_batch',
     arguments: {
       network,
       queries,
       per_query_timeout_seconds: 10,
     },
   }) as RemoteToolResult
-  if (result.isError) throw new Error(textFromToolResult(result) || 'graph_query_batch failed')
-  return parseBatchResult(result)
+  if (result.isError) throw new Error(textFromToolResult(result) || 'topology_query_batch failed')
+  return parseTopologyBatchResult(result)
 }
 
 function parseAddressList(value: string | string[] | undefined): string[] {
@@ -103,7 +133,20 @@ function addressProfileQuery(address: string): { id: string; query: string } {
   }
 }
 
-function exchangeOutflowsQuery(address: string): { id: string; query: string } {
+function exchangeOutflowsQuery(address: string, topologyBackend: TopologyBackend): { id: string; query: string } {
+  if (topologyBackend === 'puppygraph') {
+    return {
+      id: 'exchange_outflows',
+      query: [
+        'MATCH (a:Address), (exchange:Address)',
+        `WHERE a.address = "${escapeCypherString(address)}" AND exchange.is_exchange = 1`,
+        'MATCH p = shortestPath((a)-[:FLOWS_TO*1..3]->(exchange))',
+        'WHERE all(n IN nodes(p) WHERE n.address = a.address OR n.address = exchange.address OR coalesce(n.is_exchange, 0) <> 1)',
+        'RETURN "outflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, ["Address", "Exchange"] AS exchange_system_labels, exchange.address_type AS exchange_address_type, exchange.address_subtypes AS exchange_address_subtypes, "" AS deposit_address, length(p) AS hops, [n IN nodes(p) | n.address] AS path, [n IN nodes(p) | {address: n.address, labels: n.labels, system_labels: ["Address"], address_type: n.address_type, address_subtypes: n.address_subtypes}] AS path_nodes, [r IN relationships(p) | {amount_sum: r.amount_sum, amount_usd_sum: r.amount_usd_sum, tx_count: r.tx_count, first_tx_id: r.first_tx_id, last_tx_id: r.last_tx_id}] AS edge_props',
+        'LIMIT 200',
+      ].join(' '),
+    }
+  }
   return {
     id: 'exchange_outflows',
     query: [
@@ -118,7 +161,20 @@ function exchangeOutflowsQuery(address: string): { id: string; query: string } {
   }
 }
 
-function exchangeInflowsQuery(address: string): { id: string; query: string } {
+function exchangeInflowsQuery(address: string, topologyBackend: TopologyBackend): { id: string; query: string } {
+  if (topologyBackend === 'puppygraph') {
+    return {
+      id: 'exchange_inflows',
+      query: [
+        'MATCH (exchange:Address), (a:Address)',
+        `WHERE a.address = "${escapeCypherString(address)}" AND exchange.is_exchange = 1`,
+        'MATCH p = shortestPath((exchange)-[:FLOWS_TO*1..3]->(a))',
+        'WHERE all(n IN nodes(p) WHERE n.address = a.address OR n.address = exchange.address OR coalesce(n.is_exchange, 0) <> 1)',
+        'RETURN "inflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, ["Address", "Exchange"] AS exchange_system_labels, exchange.address_type AS exchange_address_type, exchange.address_subtypes AS exchange_address_subtypes, "" AS withdrawal_address, length(p) AS hops, [n IN nodes(p) | n.address] AS path, [n IN nodes(p) | {address: n.address, labels: n.labels, system_labels: ["Address"], address_type: n.address_type, address_subtypes: n.address_subtypes}] AS path_nodes, [r IN relationships(p) | {amount_sum: r.amount_sum, amount_usd_sum: r.amount_usd_sum, tx_count: r.tx_count, first_tx_id: r.first_tx_id, last_tx_id: r.last_tx_id}] AS edge_props',
+        'LIMIT 200',
+      ].join(' '),
+    }
+  }
   return {
     id: 'exchange_inflows',
     query: [
@@ -133,7 +189,18 @@ function exchangeInflowsQuery(address: string): { id: string; query: string } {
   }
 }
 
-function connectionProbeQuery(address: string, compareAddress: string): { id: string; query: string } {
+function connectionProbeQuery(address: string, compareAddress: string, topologyBackend: TopologyBackend): { id: string; query: string } {
+  if (topologyBackend === 'puppygraph') {
+    return {
+      id: 'connection_probe',
+      query: [
+        `MATCH (a:Address), (b:Address) WHERE a.address = "${escapeCypherString(address)}" AND b.address = "${escapeCypherString(compareAddress)}"`,
+        'MATCH p = shortestPath((a)-[:FLOWS_TO*1..5]-(b))',
+        'RETURN [n IN nodes(p) | n.address] AS path, length(p) AS hops',
+        'LIMIT 5',
+      ].join(' '),
+    }
+  }
   return {
     id: 'connection_probe',
     query: [
@@ -206,6 +273,26 @@ function riskDrivers(profile: Record<string, unknown>, exchangeRows: Array<Recor
   if (inflowCount > 0) drivers.push(`Backward BFS found ${inflowCount} source exchange path(s).`)
 
   return [...new Set(drivers)]
+}
+
+function terminalEdgeProperties(row: Record<string, unknown>): Record<string, unknown> | undefined {
+  const edgeProps = Array.isArray(row['edge_props']) ? row['edge_props'] as Array<Record<string, unknown>> : []
+  return edgeProps[edgeProps.length - 1]
+}
+
+function enrichExchangeRows(rows: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  return rows.map((row) => {
+    const terminal = terminalEdgeProperties(row)
+    if (!terminal) return row
+    return {
+      ...row,
+      amount_sum: row['amount_sum'] ?? terminal['amount_sum'],
+      amount_usd_sum: row['amount_usd_sum'] ?? terminal['amount_usd_sum'],
+      tx_count: row['tx_count'] ?? terminal['tx_count'],
+      first_tx_id: row['first_tx_id'] ?? terminal['first_tx_id'],
+      last_tx_id: row['last_tx_id'] ?? terminal['last_tx_id'],
+    }
+  })
 }
 
 function riskAssessment(profile: Record<string, unknown>, exchangeRows: Array<Record<string, unknown>>): Record<string, unknown> {
@@ -338,16 +425,17 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   if (!address) throw new Error('address is required')
   if (!network) throw new Error('network is required')
 
+  const topologyBackend = await topologyBackendFor(remoteClient, network)
   const queries = [
     addressProfileQuery(address),
-    exchangeOutflowsQuery(address),
-    exchangeInflowsQuery(address),
-    ...(compareAddress ? [connectionProbeQuery(address, compareAddress)] : [{ id: 'connection_probe', query: 'RETURN [] AS path LIMIT 0' }]),
+    exchangeOutflowsQuery(address, topologyBackend),
+    exchangeInflowsQuery(address, topologyBackend),
+    ...(compareAddress ? [connectionProbeQuery(address, compareAddress, topologyBackend)] : [{ id: 'connection_probe', query: 'RETURN [] AS path LIMIT 0' }]),
   ]
-  const batch = await callGraphBatch(remoteClient, network, queries)
+  const batch = await callTopologyBatch(remoteClient, network, queries)
   const profile = resultsFor(batch, 'address_profile')[0] ?? { address }
-  const outflows = resultsFor(batch, 'exchange_outflows')
-  const inflows = resultsFor(batch, 'exchange_inflows')
+  const outflows = enrichExchangeRows(resultsFor(batch, 'exchange_outflows'))
+  const inflows = enrichExchangeRows(resultsFor(batch, 'exchange_inflows'))
   const connections = compareAddress ? resultsFor(batch, 'connection_probe') : []
   const exchangeRows = [...outflows, ...inflows]
   const graphData = buildRiskGraph(address, profile, exchangeRows, network)

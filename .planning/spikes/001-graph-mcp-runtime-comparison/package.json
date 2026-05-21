@@ -1,0 +1,23 @@
+{
+  "name": "chain-insights-graph-mcp-runtime-spike",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "server": "tsx src/server.ts",
+    "bench": "tsx src/bench.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.2",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "hono": "^4.12.18",
+    "neo4j-driver": "^6.0.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
+  }
+}

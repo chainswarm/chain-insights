@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
-import { callGraphQueryBatch, type ToolCaller } from '../src/mcp/graph-client.js'
+import { callTopologyQueryBatch, type ToolCaller } from '../src/mcp/graph-client.js'
 
 function resultEnvelope(facts: Record<string, unknown> = { rows: [] }) {
   return {
     structuredContent: {
       schema: 'chain-insights.result.v1',
-      tool: 'graph_query_batch',
+      tool: 'topology_query_batch',
       facts,
       hint: null,
     },
@@ -13,7 +13,7 @@ function resultEnvelope(facts: Record<string, unknown> = { rows: [] }) {
 }
 
 describe('MCP graph batch client', () => {
-  it('calls graph_query_batch with network and query list', async () => {
+  it('calls topology_query_batch with network and query list', async () => {
     const client: ToolCaller = {
       callTool: vi.fn(async () => resultEnvelope({ count: 2 })),
     }
@@ -22,10 +22,10 @@ describe('MCP graph batch client', () => {
       { id: 'relationships', query: 'MATCH (a)-[r]->(b) RETURN type(r) AS type' },
     ]
 
-    const result = await callGraphQueryBatch({ client, network: ' ethereum ', queries })
+    const result = await callTopologyQueryBatch({ client, network: ' ethereum ', queries })
 
     expect(client.callTool).toHaveBeenCalledWith({
-      name: 'graph_query_batch',
+      name: 'topology_query_batch',
       arguments: {
         network: 'ethereum',
         queries,
@@ -33,7 +33,7 @@ describe('MCP graph batch client', () => {
     })
     expect(result).toEqual({
       schema: 'chain-insights.result.v1',
-      tool: 'graph_query_batch',
+      tool: 'topology_query_batch',
       facts: { count: 2 },
       hint: null,
     })
@@ -44,7 +44,7 @@ describe('MCP graph batch client', () => {
       callTool: vi.fn(async () => resultEnvelope()),
     }
 
-    await expect(callGraphQueryBatch({
+    await expect(callTopologyQueryBatch({
       client,
       network: '  ',
       queries: [{ query: 'MATCH (n) RETURN n LIMIT 1' }],
@@ -57,7 +57,7 @@ describe('MCP graph batch client', () => {
       callTool: vi.fn(async () => resultEnvelope()),
     }
 
-    await expect(callGraphQueryBatch({
+    await expect(callTopologyQueryBatch({
       client,
       network: 'base',
       queries: [],
@@ -71,7 +71,7 @@ describe('MCP graph batch client', () => {
     }
     const queries = [{ query: 'MATCH (n) RETURN n LIMIT 1' }]
 
-    await callGraphQueryBatch({
+    await callTopologyQueryBatch({
       client,
       network: 'base',
       queries,
@@ -79,7 +79,7 @@ describe('MCP graph batch client', () => {
     })
 
     expect(client.callTool).toHaveBeenCalledWith({
-      name: 'graph_query_batch',
+      name: 'topology_query_batch',
       arguments: {
         network: 'base',
         queries,
@@ -93,14 +93,14 @@ describe('MCP graph batch client', () => {
       callTool: vi.fn(async () => ({
         structuredContent: {
           schema: 'chain-insights.result.v1',
-          tool: 'graph_query_batch',
+          tool: 'topology_query_batch',
           facts: [],
           hint: null,
         },
       })),
     }
 
-    await expect(callGraphQueryBatch({
+    await expect(callTopologyQueryBatch({
       client,
       network: 'ethereum',
       queries: [{ query: 'MATCH (n) RETURN n LIMIT 1' }],

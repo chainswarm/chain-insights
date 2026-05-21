@@ -178,8 +178,8 @@ vi.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
           { name: 'trace_address', description: 'Trace address on-chain' },
           { name: 'money_flows_between_exchanges', description: 'Exchange flow tracing' },
           { name: 'address_connection_risk', description: 'Connection risk' },
-          { name: 'graph_query', description: 'Cypher graph query' },
-          { name: 'graph_query_batch', description: 'Cypher graph query batch' },
+          { name: 'topology_query', description: 'Cypher topology query' },
+          { name: 'topology_query_batch', description: 'Cypher topology query batch' },
           { name: 'topup', description: 'Unsupported top-up tool from stale remote schema' },
         ],
       }),
@@ -272,6 +272,29 @@ async function readJsonl(path: string): Promise<Array<Record<string, unknown>>> 
   return text.trim().split('\n').filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>)
 }
 
+function networkCapabilitiesResult(backend: 'memgraph' | 'puppygraph' = 'memgraph') {
+  return {
+    content: [{
+      type: 'text',
+      text: JSON.stringify({
+        schema: 'chain-insights.result.v1',
+        tool: 'network_capabilities',
+        facts: {
+          capabilities: {
+            networks: [{
+              network: 'bittensor',
+              layers: {
+                topology: { enabled: true, backend },
+              },
+            }],
+          },
+        },
+      }),
+    }],
+    isError: false,
+  }
+}
+
 let originalSigintListeners: NodeJS.SignalsListener[] = []
 let originalSigtermListeners: NodeJS.SignalsListener[] = []
 let originalWorkspace: string | undefined
@@ -333,6 +356,39 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       expect.objectContaining({ description: 'Trace address on-chain' }),
       expect.any(Function),
     )
+  })
+
+  it('starts local Chain Insights tools when the graph MCP endpoint is unavailable', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    vi.mocked(Client).mockImplementationOnce(function () {
+      return {
+        connect: vi.fn().mockRejectedValue(new Error('connection refused')),
+        listTools: vi.fn(),
+        listPrompts: vi.fn(),
+        getPrompt: vi.fn(),
+        callTool: vi.fn(),
+      }
+    } as never)
+
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+    stderrSpy.mockRestore()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+      connect: ReturnType<typeof vi.fn>
+    }
+    const toolNames = serverInstance.registerTool.mock.calls.map((entry) => entry[0])
+    expect(toolNames).toContain('balance')
+    expect(toolNames).toContain('help')
+    expect(toolNames).toContain('case_list')
+    expect(serverInstance.connect).toHaveBeenCalled()
   })
 
   it('publishes investigation workflow and live graph schema hints as server instructions', async () => {
@@ -404,7 +460,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
-    const handler = findToolHandler(serverInstance, 'graph_query_batch')
+    const handler = findToolHandler(serverInstance, 'topology_query_batch')
     await handler({
       network: 'bittensor',
       graphMcpAuthToken: 'should-not-leak',
@@ -422,10 +478,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     const entries = await readJsonl(join(testDataDir, '.chain-insights', 'runtime', 'logs', 'mcp-proxy.jsonl'))
     expect(entries.some((entry) => entry.event === 'proxy.start')).toBe(true)
-    expect(entries.some((entry) => entry.event === 'tool.start' && entry.tool === 'graph_query_batch')).toBe(true)
-    expect(entries.some((entry) => entry.event === 'tool.end' && entry.tool === 'graph_query_batch')).toBe(true)
+    expect(entries.some((entry) => entry.event === 'tool.start' && entry.tool === 'topology_query_batch')).toBe(true)
+    expect(entries.some((entry) => entry.event === 'tool.end' && entry.tool === 'topology_query_batch')).toBe(true)
 
-    const cypherStart = entries.find((entry) => entry.event === 'cypher.start' && entry.tool === 'graph_query_batch')
+    const cypherStart = entries.find((entry) => entry.event === 'topology.start' && entry.tool === 'topology_query_batch')
     expect(cypherStart).toBeTruthy()
     expect(cypherStart?.network).toBe('bittensor')
     expect(cypherStart?.query_count).toBe(1)
@@ -502,11 +558,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('Balance: 4.200000 USDC')
   })
 
-  it('advertises graph query tools and balance but not hidden remote tools', async () => {
+  it('advertises topology query tools and balance but not hidden remote tools', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
-      { name: 'graph_query', description: 'Cypher graph query' },
-      { name: 'graph_query_batch', description: 'Cypher graph query batch' },
+      { name: 'topology_query', description: 'Cypher topology query' },
+      { name: 'topology_query_batch', description: 'Cypher topology query batch' },
       { name: 'topup', description: 'Unsupported remote top-up tool' },
       { name: 'money_flows_between_exchanges', description: 'Deprecated exchange flow tool' },
       { name: 'address_connection_risk', description: 'Deprecated connection risk tool' },
@@ -522,16 +578,16 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
     const toolNames = serverInstance.registerTool.mock.calls.map((entry) => entry[0])
 
-    expect(toolNames).toContain('graph_query')
-    expect(toolNames).toContain('graph_query_batch')
+    expect(toolNames).toContain('topology_query')
+    expect(toolNames).toContain('topology_query_batch')
     expect(toolNames).toContain('balance')
     expect(toolNames).not.toContain('topup')
     expect(toolNames).not.toContain('money_flows_between_exchanges')
     expect(toolNames).not.toContain('address_connection_risk')
 
-    const graphQueryBatch = findToolConfig(serverInstance, 'graph_query_batch')
+    const topologyQueryBatch = findToolConfig(serverInstance, 'topology_query_batch')
     const jsonSchema = z.toJSONSchema(
-      z.object(graphQueryBatch.inputSchema as z.ZodRawShape),
+      z.object(topologyQueryBatch.inputSchema as z.ZodRawShape),
     ) as Record<string, unknown>
     const properties = jsonSchema.properties as Record<string, Record<string, unknown>>
     expect(jsonSchema.required).toEqual(['network', 'queries'])
@@ -541,7 +597,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
   it('does not register trace_funds as a public MCP tool', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
-      { name: 'graph_query_batch', description: 'Cypher graph query batch' },
+      { name: 'topology_query_batch', description: 'Cypher topology query batch' },
       { name: 'trace_funds', description: 'Stale remote trace funds tool' },
     ])
 
@@ -558,10 +614,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(toolNames).not.toContain('trace_funds')
   })
 
-  it('registers track_funds and writes graph reports from graph_query_batch results', async () => {
+  it('registers track_funds and writes graph reports from topology_query_batch results', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
-      { name: 'graph_query_batch', description: 'Cypher graph query batch' },
+      { name: 'topology_query_batch', description: 'Cypher topology query batch' },
     ])
 
     const { createProxy } = await import('../src/mcp/proxy.js')
@@ -578,13 +634,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         type: 'text',
         text: JSON.stringify({
           schema: 'chain-insights.result.v1',
-          tool: 'graph_query_batch',
+          tool: 'topology_query_batch',
           facts: { queries },
         }),
       }],
       isError: false,
     })
     clientInstance.callTool
+      .mockResolvedValueOnce(networkCapabilitiesResult())
       .mockResolvedValueOnce(textResult([
         { id: 'node_labels', ok: true, results: [{ label: 'Address', count: 10 }] },
         { id: 'relationship_types', ok: true, results: [{ relationship_type: 'FLOWS_TO', count: 4 }] },
@@ -661,9 +718,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       content: expect.stringContaining('"compactEvidence"'),
     }))
     expect(ensureArtifactServerMock).toHaveBeenCalledWith(4321)
-    expect(clientInstance.callTool.mock.calls[1][0].arguments.queries[0].query).toContain('*BFS')
-    expect(clientInstance.callTool.mock.calls[1][0].arguments.queries[0].query).toContain('e.amount_sum IS NOT NULL')
-    expect(clientInstance.callTool.mock.calls[1][0].arguments.queries[0].query).not.toContain('*1..2')
+    const forwardCall = clientInstance.callTool.mock.calls.find((call) => {
+      const queries = call[0].arguments?.queries as Array<{ id?: string }> | undefined
+      return queries?.some((query) => query.id === 'forward_exchange_paths')
+    })
+    const forwardQuery = forwardCall?.[0].arguments.queries[0].query as string
+    expect(forwardQuery).toContain('*BFS')
+    expect(forwardQuery).toContain('e.amount_sum IS NOT NULL')
+    expect(forwardQuery).not.toContain('*1..2')
 
     const graphUrl = result._meta.chainInsights.graph.url as string
     const filename = graphUrl.split('/graph-reports/')[1]
@@ -711,7 +773,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     try {
       const { loadSchema } = await import('../src/mcp/schema-cache.js')
       vi.mocked(loadSchema).mockResolvedValueOnce([
-        { name: 'graph_query_batch', description: 'Cypher graph query batch' },
+        { name: 'topology_query_batch', description: 'Cypher topology query batch' },
       ])
 
       const { createProxy } = await import('../src/mcp/proxy.js')
@@ -728,13 +790,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
           type: 'text',
           text: JSON.stringify({
             schema: 'chain-insights.result.v1',
-            tool: 'graph_query_batch',
+            tool: 'topology_query_batch',
             facts: { queries },
           }),
         }],
         isError: false,
       })
       clientInstance.callTool
+        .mockResolvedValueOnce(networkCapabilitiesResult())
         .mockResolvedValueOnce(textResult([
           { id: 'node_labels', ok: true, results: [{ label: 'Address', count: 10 }] },
           { id: 'relationship_types', ok: true, results: [{ relationship_type: 'FLOWS_TO', count: 4 }] },
@@ -809,7 +872,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
   it('track_funds reports deposit candidates and does not continue through Exchange nodes', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
-      { name: 'graph_query_batch', description: 'Cypher graph query batch' },
+      { name: 'topology_query_batch', description: 'Cypher topology query batch' },
     ])
 
     const { createProxy } = await import('../src/mcp/proxy.js')
@@ -826,13 +889,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         type: 'text',
         text: JSON.stringify({
           schema: 'chain-insights.result.v1',
-          tool: 'graph_query_batch',
+          tool: 'topology_query_batch',
           facts: { queries },
         }),
       }],
       isError: false,
     })
     clientInstance.callTool
+      .mockResolvedValueOnce(networkCapabilitiesResult())
       .mockResolvedValueOnce(textResult([
         { id: 'node_labels', ok: true, results: [{ label: 'Address', count: 10 }, { label: 'Exchange', count: 1 }] },
         { id: 'relationship_types', ok: true, results: [{ relationship_type: 'FLOWS_TO', count: 4 }] },
@@ -952,7 +1016,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       L1: '5Lead',
     })
     expect(result.content[0].text).toContain('Deposit candidates: D1, D2')
-    expect(clientInstance.callTool).toHaveBeenCalledTimes(5)
+    expect(clientInstance.callTool).toHaveBeenCalledTimes(6)
 
     expect(result._meta.chainInsights.graph.url).toContain('/graph-reports/')
     expect(result._meta.chainInsights.graph).not.toHaveProperty('id')
@@ -994,10 +1058,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(graph.nodes.find((node) => node.address === '5Lead')?.roles).toContain('lead')
   })
 
-  it('registers local address_risk fallback with incorporated exchange behavior when remote is graph-query-only', async () => {
+  it('registers local address_risk recipe with incorporated exchange behavior when remote is topology-query-only', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
-      { name: 'graph_query_batch', description: 'Cypher graph query batch' },
+      { name: 'topology_query_batch', description: 'Cypher topology query batch' },
     ])
 
     const { createProxy } = await import('../src/mcp/proxy.js')
@@ -1009,57 +1073,59 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       callTool: ReturnType<typeof vi.fn>
     }
-    clientInstance.callTool.mockResolvedValueOnce({
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          schema: 'chain-insights.result.v1',
-          tool: 'graph_query_batch',
-          facts: {
-            queries: [
-              {
-                id: 'address_profile',
-                ok: true,
-                results: [{
-                  address: '5Addr',
-                  display_labels: ['validator'],
-                  system_labels: ['Address', 'Validator'],
-                  address_type: 'substrate',
-                  address_subtypes: ['validator_hotkey'],
-                  confluence_score: 0.82,
-                  ml_risk_level: 'high',
-                  degree_in: 3,
-                  degree_out: 4,
-                }],
-              },
-              {
-                id: 'exchange_outflows',
-                ok: true,
-                results: [{
-                  direction: 'outflow',
-                  exchange_address: '5Exchange',
-                  exchange_labels: ['Address', 'Exchange'],
-                  exchange_display_labels: ['Binance'],
-                  exchange_address_type: 'substrate',
-                  deposit_address: '5Deposit',
-                  hops: 2,
-                  amount_sum: 44,
-                  amount_usd_sum: 88,
-                  edge_props: [
-                    { amount_sum: 11, amount_usd_sum: 22, tx_count: 1, first_tx_id: 'risk-1', last_tx_id: 'risk-1' },
-                    { amount_sum: 44, amount_usd_sum: 88, tx_count: 2, first_tx_id: 'risk-2', last_tx_id: 'risk-2' },
-                  ],
-                  path: ['5Addr', '5Deposit', '5Exchange'],
-                }],
-              },
-              { id: 'exchange_inflows', ok: true, results: [] },
-              { id: 'connection_probe', ok: true, results: [] },
-            ],
-          },
-        }),
-      }],
-      isError: false,
-    })
+    clientInstance.callTool
+      .mockResolvedValueOnce(networkCapabilitiesResult())
+      .mockResolvedValueOnce({
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            schema: 'chain-insights.result.v1',
+            tool: 'topology_query_batch',
+            facts: {
+              queries: [
+                {
+                  id: 'address_profile',
+                  ok: true,
+                  results: [{
+                    address: '5Addr',
+                    display_labels: ['validator'],
+                    system_labels: ['Address', 'Validator'],
+                    address_type: 'substrate',
+                    address_subtypes: ['validator_hotkey'],
+                    confluence_score: 0.82,
+                    ml_risk_level: 'high',
+                    degree_in: 3,
+                    degree_out: 4,
+                  }],
+                },
+                {
+                  id: 'exchange_outflows',
+                  ok: true,
+                  results: [{
+                    direction: 'outflow',
+                    exchange_address: '5Exchange',
+                    exchange_labels: ['Address', 'Exchange'],
+                    exchange_display_labels: ['Binance'],
+                    exchange_address_type: 'substrate',
+                    deposit_address: '5Deposit',
+                    hops: 2,
+                    amount_sum: 44,
+                    amount_usd_sum: 88,
+                    edge_props: [
+                      { amount_sum: 11, amount_usd_sum: 22, tx_count: 1, first_tx_id: 'risk-1', last_tx_id: 'risk-1' },
+                      { amount_sum: 44, amount_usd_sum: 88, tx_count: 2, first_tx_id: 'risk-2', last_tx_id: 'risk-2' },
+                    ],
+                    path: ['5Addr', '5Deposit', '5Exchange'],
+                  }],
+                },
+                { id: 'exchange_inflows', ok: true, results: [] },
+                { id: 'connection_probe', ok: true, results: [] },
+              ],
+            },
+          }),
+        }],
+        isError: false,
+      })
 
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
@@ -1121,7 +1187,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(graph.edges[0]).not.toHaveProperty('to_address')
     expect(graph.edges[0]).not.toHaveProperty('type')
     expect(clientInstance.callTool).toHaveBeenCalledWith({
-      name: 'graph_query_batch',
+      name: 'topology_query_batch',
       arguments: expect.objectContaining({
         network: 'bittensor',
         queries: expect.arrayContaining([
@@ -1130,7 +1196,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         ]),
       }),
     })
-    const riskQueries = clientInstance.callTool.mock.calls[0][0].arguments.queries as Array<{ id: string; query: string }>
+    const riskQueries = clientInstance.callTool.mock.calls[1][0].arguments.queries as Array<{ id: string; query: string }>
     const outflowQuery = riskQueries.find((query) => query.id === 'exchange_outflows')?.query ?? ''
     const inflowQuery = riskQueries.find((query) => query.id === 'exchange_inflows')?.query ?? ''
     expect(outflowQuery).toContain('*BFS')
@@ -1144,32 +1210,34 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
   it('address_risk graphData preserves subject profile metadata before report normalization', async () => {
     const { addressRisk } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
-      callTool: vi.fn().mockResolvedValueOnce({
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            facts: {
-              queries: [
-                {
-                  id: 'address_profile',
-                  ok: true,
-                  results: [{
-                    address: '5Addr',
-                    display_labels: ['validator'],
-                    system_labels: ['Address', 'Validator'],
-                    address_type: 'substrate',
-                    address_subtypes: ['validator_hotkey'],
-                  }],
-                },
-                { id: 'exchange_outflows', ok: true, results: [] },
-                { id: 'exchange_inflows', ok: true, results: [] },
-                { id: 'connection_probe', ok: true, results: [] },
-              ],
-            },
-          }),
-        }],
-        isError: false,
-      }),
+      callTool: vi.fn()
+        .mockResolvedValueOnce(networkCapabilitiesResult())
+        .mockResolvedValueOnce({
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              facts: {
+                queries: [
+                  {
+                    id: 'address_profile',
+                    ok: true,
+                    results: [{
+                      address: '5Addr',
+                      display_labels: ['validator'],
+                      system_labels: ['Address', 'Validator'],
+                      address_type: 'substrate',
+                      address_subtypes: ['validator_hotkey'],
+                    }],
+                  },
+                  { id: 'exchange_outflows', ok: true, results: [] },
+                  { id: 'exchange_inflows', ok: true, results: [] },
+                  { id: 'connection_probe', ok: true, results: [] },
+                ],
+              },
+            }),
+          }],
+          isError: false,
+        }),
     }
 
     const result = await addressRisk(remoteClient as never, { address: '5Addr', network: 'bittensor' })
@@ -1190,7 +1258,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     })
   })
 
-  it('registers local track_funds fallback that preserves up to five trusted and untrusted addresses', async () => {
+  it('registers local track_funds recipe that preserves up to five trusted and untrusted addresses', async () => {
     runFundFlowProbeMock.mockResolvedValue({
       summaryText: 'Trace complete for bittensor:5Victim',
       compactEvidence: {},
@@ -1222,7 +1290,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
-      { name: 'graph_query_batch', description: 'Cypher graph query batch' },
+      { name: 'topology_query_batch', description: 'Cypher topology query batch' },
     ])
 
     const { createProxy } = await import('../src/mcp/proxy.js')
@@ -1367,8 +1435,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(promptNames).toEqual(expect.arrayContaining([
       'address-risk',
       'track-funds',
-      'graph-query',
-      'graph-query-batch',
+      'topology-query',
+      'topology-query-batch',
       'balance',
       'help',
       'open-investigation-case',
@@ -1987,14 +2055,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('Workflow:')
     expect(result.content[0].text).toContain('Network is required')
     expect(result.content[0].text).toContain('address_risk')
-    expect(result.content[0].text).toContain('graph_query_batch')
+    expect(result.content[0].text).toContain('topology_query_batch')
     expect(result.content[0].text).toContain('balance')
     expect(result.content[0].text).not.toContain('topup')
     expect(result.content[0].text).toContain('case_open')
     expect(result.content[0].text).toContain('case_add_evidence')
     expect(result.content[0].text).toContain('Graph visualization behavior')
     expect(result.content[0].text).toContain('local graph report server is started automatically')
-    expect(result.content[0].text).toContain('Graph query hints for network=bittensor')
+    expect(result.content[0].text).toContain('Topology query hints for network=bittensor')
     expect(result.content[0].text).toContain('FLOWS_TO')
     expect(result.content[0].text).toContain('first_tx_id')
     expect(result.content[0].text).toContain('schema discovery')

@@ -1,0 +1,4342 @@
+{
+  "generatedAt": "2026-05-14T16:04:33.582Z",
+  "network": "bittensor",
+  "iterations": 50,
+  "sampleAddress": "5Gj4RmnTz6BjH1JV3pbQmo61EfGQxUGxNBVbfkn6Pf2FTqKC",
+  "summaries": [
+    {
+      "target": "python-fastmcp",
+      "queryName": "address_sample_10",
+      "ok": 50,
+      "failed": 0,
+      "count": 10,
+      "p50_ms": 4.52,
+      "p95_ms": 5.34,
+      "min_ms": 3.4863110000000006,
+      "max_ms": 5.522969999999987
+    },
+    {
+      "target": "python-fastmcp",
+      "queryName": "node_count",
+      "ok": 50,
+      "failed": 0,
+      "count": 1,
+      "p50_ms": 21.14,
+      "p95_ms": 31.57,
+      "min_ms": 19.062722000000008,
+      "max_ms": 32.35020200000008
+    },
+    {
+      "target": "python-fastmcp",
+      "queryName": "one_hop_expand_50",
+      "ok": 50,
+      "failed": 0,
+      "count": 1,
+      "p50_ms": 52.09,
+      "p95_ms": 76,
+      "min_ms": 50.92286000000013,
+      "max_ms": 77.82660399999986
+    },
+    {
+      "target": "ts-hono-mcp",
+      "queryName": "address_sample_10",
+      "ok": 50,
+      "failed": 0,
+      "count": 10,
+      "p50_ms": 2.84,
+      "p95_ms": 3.39,
+      "min_ms": 1.9398280000004888,
+      "max_ms": 5.772265999999945
+    },
+    {
+      "target": "ts-hono-mcp",
+      "queryName": "node_count",
+      "ok": 50,
+      "failed": 0,
+      "count": 1,
+      "p50_ms": 19.11,
+      "p95_ms": 25.31,
+      "min_ms": 17.839600999999675,
+      "max_ms": 32.30303499999991
+    },
+    {
+      "target": "ts-hono-mcp",
+      "queryName": "one_hop_expand_50",
+      "ok": 50,
+      "failed": 0,
+      "count": 1,
+      "p50_ms": 51.02,
+      "p95_ms": 79.49,
+      "min_ms": 48.8527439999998,
+      "max_ms": 83.40792699999929
+    },
+    {
+      "target": "go-mcp",
+      "queryName": "address_sample_10",
+      "ok": 50,
+      "failed": 0,
+      "count": 10,
+      "p50_ms": 1.29,
+      "p95_ms": 2,
+      "min_ms": 0.4690730000002077,
+      "max_ms": 2.084499999999025
+    },
+    {
+      "target": "go-mcp",
+      "queryName": "node_count",
+      "ok": 50,
+      "failed": 0,
+      "count": 1,
+      "p50_ms": 17.46,
+      "p95_ms": 26.94,
+      "min_ms": 16.420556999999462,
+      "max_ms": 28.962468999998237
+    },
+    {
+      "target": "go-mcp",
+      "queryName": "one_hop_expand_50",
+      "ok": 50,
+      "failed": 0,
+      "count": 1,
+      "p50_ms": 49.13,
+      "p95_ms": 56.97,
+      "min_ms": 48.07365600000048,
+      "max_ms": 73.93349400000079
+    },
+    {
+      "target": "direct-memgraph",
+      "queryName": "address_sample_10",
+      "ok": 50,
+      "failed": 0,
+      "count": 10,
+      "p50_ms": 0.54,
+      "p95_ms": 1.62,
+      "min_ms": 0.1769609999992099,
+      "max_ms": 1.8613640000003215
+    },
+    {
+      "target": "direct-memgraph",
+      "queryName": "node_count",
+      "ok": 50,
+      "failed": 0,
+      "count": 1,
+      "p50_ms": 16.38,
+      "p95_ms": 28.33,
+      "min_ms": 15.495275999999649,
+      "max_ms": 29.373748999998497
+    },
+    {
+      "target": "direct-memgraph",
+      "queryName": "one_hop_expand_50",
+      "ok": 50,
+      "failed": 0,
+      "count": 1,
+      "p50_ms": 48.16,
+      "p95_ms": 48.63,
+      "min_ms": 47.17736599999989,
+      "max_ms": 48.75407300000006
+    }
+  ],
+  "samples": [
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.622279999999989,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 5.294778000000008,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.122390999999993,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 3.702022999999997,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 5.15912899999995,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 3.50542999999999,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 3.5791909999999802,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.61256800000001,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.368920000000003,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.1750639999999635,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 3.721141999999986,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.107256000000007,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.369111999999973,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.160566999999958,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.6378010000000245,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 5.338712999999984,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.585161000000028,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.617624000000035,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.879400999999973,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.417127999999991,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.556632000000036,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.397655999999984,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 5.522969999999987,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.233064000000013,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.743448000000001,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.3922640000000115,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.430903999999998,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.6194810000000075,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.749463999999989,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.402344000000028,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 3.4863110000000006,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 3.5801500000000033,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.505047999999988,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.524472000000003,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 5.326889999999992,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 5.1563130000000115,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 5.273482000000001,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.101239000000021,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.0342319999999745,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 5.041673000000003,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 5.475865999999996,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 5.215097000000014,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.379847999999981,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 5.016296999999952,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 5.187898000000018,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 5.047673000000032,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 5.062008999999989,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 5.253800999999953,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 4.342280000000073,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "python-fastmcp",
+      "ms": 3.7921830000000227,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 20.816373,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 21.024215000000027,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 20.789285000000064,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 20.019988000000012,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 22.32741699999997,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 21.27179799999999,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 20.985493999999903,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 23.73421899999994,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 23.353578999999968,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 30.888375999999994,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 20.92883699999993,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 20.574342,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 24.416940000000068,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 30.556151,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 20.956069999999954,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 22.083608000000027,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 21.139174000000025,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 20.63702999999998,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 19.281266999999957,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 19.062722000000008,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 31.96293800000001,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 19.831988000000138,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 19.447875000000067,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 20.080613000000085,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 25.27820500000007,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 20.176676999999927,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 20.242117000000007,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 22.385463999999956,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 25.940878999999995,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 31.56864900000005,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 19.66059599999994,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 19.36645099999987,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 22.465273000000025,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 29.3477969999999,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 24.384155999999848,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 23.42513000000008,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 25.640494999999873,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 20.65691700000002,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 20.083059999999932,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 20.3091730000001,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 29.102276999999958,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 23.56297100000006,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 19.762066999999888,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 23.778106999999864,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 30.16207099999997,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 20.36912499999994,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 21.106854000000112,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 24.719965000000002,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 31.411289000000124,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "python-fastmcp",
+      "ms": 32.35020200000008,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.71807899999999,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.527263000000175,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 76.38868200000002,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.59032000000002,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.49123099999997,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.129437999999936,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.51963100000012,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 51.636798,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 51.69766100000015,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 76.00367400000005,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 53.260095999999976,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.8808640000002,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 61.998463999999785,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 51.055757000000085,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 51.47866900000008,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 57.172807999999804,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 77.82660399999986,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.556736,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 51.52321299999994,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 50.92286000000013,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 54.409987,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 51.15567599999986,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 57.45271200000025,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.09393500000033,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.21711800000003,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 51.38345299999992,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 58.34436199999982,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 51.022763999999825,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.85622400000011,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.83246400000007,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 51.28566099999989,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 51.47321299999976,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 51.11833299999989,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.02750200000037,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 54.44948999999997,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 51.592749999999796,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.09214199999997,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.046542000000045,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 51.460493999999926,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 51.52812499999982,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.08812599999965,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 51.66262199999983,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 51.49092500000006,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 51.98249399999986,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 51.9260460000005,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 51.86215799999991,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.72252800000024,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.515503000000535,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.88966399999936,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "python-fastmcp",
+      "ms": 52.8676319999995,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 5.772265999999945,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 3.251893999999993,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.251556000000164,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.167284000000109,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.332339999999931,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.2333479999997508,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.214356000000407,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.148580000000038,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 1.9398280000004888,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.4055560000006153,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.9386130000002595,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 3.287589999999909,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.9232700000002296,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.89158899999984,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.5686930000001666,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.6145800000003874,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.2051080000001093,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 3.134806000000026,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.8073969999995825,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.4458760000006805,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.630036999999902,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 3.09298200000012,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 3.389797999999246,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.899156999999832,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 3.2474780000002283,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.776165000000219,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.869684999999663,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.4795249999997395,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 3.346853999999439,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.911348999999973,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.948902000000089,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.821476999999504,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 3.2107089999999516,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 3.024341999999706,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.6899890000004234,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.3812040000002526,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.0421159999996235,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.480532000000494,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 3.269157999999152,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.9067099999992934,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 3.4736540000003515,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.8633810000001176,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.934885000000577,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.488180999999713,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 3.1274139999995896,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.5777799999996205,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.671092999999928,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.934277000000293,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 2.8392699999994875,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "ts-hono-mcp",
+      "ms": 3.328741999999693,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 18.47016100000019,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 24.518589000000247,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 18.329776999999922,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 18.12068900000031,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 19.287443000000167,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 18.50648100000035,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 18.8424500000001,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 18.339200999999775,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 18.07907300000079,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 24.42220400000042,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 18.168768999999884,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 25.31009399999948,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 17.839600999999675,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 22.61050400000022,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 17.91052899999977,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 18.29275299999972,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 18.031441000000086,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 17.92119999999977,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 25.012925999999425,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 19.90651600000001,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 20.934854000000087,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 21.082949999999983,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 19.247282999999697,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 18.975138000000698,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 19.10877099999925,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 19.02780999999959,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 21.08303000000069,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 19.318435000000136,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 19.222530999999435,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 20.76990999999998,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 21.701222999999118,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 21.87237600000026,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 20.474788999999873,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 23.627787000000353,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 17.934000000000196,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 18.2246410000007,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 18.46899399999984,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 31.131255999999667,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 19.122755000000325,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 18.921730000000025,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 19.21665899999971,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 21.285542000000532,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 18.27556999999979,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 18.13689599999998,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 18.11761700000079,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 18.409537999999884,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 18.593409000000065,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 32.30303499999991,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 19.123521999999866,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "ts-hono-mcp",
+      "ms": 23.03125799999998,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 53.38635299999987,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 51.27615700000024,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.87826800000039,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.44775600000048,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 83.40792699999929,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 79.48536000000058,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 76.21524199999931,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 76.83863500000007,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.99927699999989,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 51.28106899999966,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 75.21967200000017,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.31210699999974,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 51.43818900000042,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 51.96451100000013,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 51.278252000000066,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 51.710893999999826,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 77.18213999999989,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.87185200000022,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 81.74877199999992,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.8403330000001,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.915116000000125,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 53.768065000000206,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 55.69931700000052,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 53.937057999999524,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 51.02052499999991,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.714796000000206,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 51.026428000000124,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.36753099999987,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 53.03700800000024,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.44831599999998,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.12943499999983,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.11573899999985,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 58.886553999999705,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 51.30558099999962,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.78222000000005,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 56.27256599999964,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 53.70337800000016,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 48.8527439999998,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 49.23425000000043,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 49.47712899999988,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 49.0500090000005,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.206490999999914,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.90532499999972,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.897227999998904,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.866651999998794,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.82973999999922,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.641020000000935,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 50.32373899999948,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 56.86482299999989,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "ts-hono-mcp",
+      "ms": 51.35143699999935,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.7790269999986776,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.293762000001152,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.0240180000000692,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.3509149999990768,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.768802999999025,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.2319539999989502,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 0.7966259999993781,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 0.6719209999992017,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.1737780000003113,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.717330999999831,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.7148350000006758,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 2.000899999999092,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.562723000000915,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.4043860000001587,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 0.9157939999986411,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 0.8076650000002701,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 0.4690730000002077,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 0.7061929999999847,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 0.7131859999990411,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.170561999999336,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.0460980000007112,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 0.9899380000006204,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.16584199999852,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 0.7446250000011787,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 0.9904019999994489,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.30841799999871,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 2.0049480000016047,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.7279550000002928,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.6252350000013394,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.9318750000002183,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.6843549999994138,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.6103390000007494,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.6475869999994757,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.5354590000006283,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.5232190000006085,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.5482429999992746,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.882114999998521,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.4310270000005403,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.5439229999992676,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.4942580000006274,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.2140510000008362,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 0.5341760000010254,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 0.5094730000000709,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 0.7418420000012702,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 0.8356329999987793,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 0.6878730000007636,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.291890999998941,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 2.084499999999025,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 1.2331219999996392,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "go-mcp",
+      "ms": 0.8381129999997938,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 16.771982000000207,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 16.627533999999287,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 28.962468999998237,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.129535000000033,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.22446299999865,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 16.782046000000264,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.51268799999889,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 19.79227600000013,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 16.818991000000096,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 26.93801600000006,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 25.497278999999253,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 16.81582200000048,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 16.97174300000006,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 24.706700999999157,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.886752000000342,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 16.99963099999877,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 18.62945800000125,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.721183999999994,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 19.636883000001035,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 16.96795099999872,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 16.808462999999392,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 16.718461999998908,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 22.922921999999744,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.007837999999538,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 16.832479000000603,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 16.844734999998764,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 16.420556999999462,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.287679999999455,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.396366999999373,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 24.492268999998487,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 22.04130400000031,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.45835099999931,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.10129500000039,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 27.866371000000072,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.31116699999984,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.73513599999933,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 18.104112999999415,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 21.589974999998958,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 19.696452000000136,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.529167999999117,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.17439899999954,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.570592000000033,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 21.65709500000048,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.856144999999742,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.379726999999548,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.39100800000051,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.771951999999146,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 19.795396000001347,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 17.15943899999911,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "go-mcp",
+      "ms": 26.38537600000018,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.53319200000078,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.51211999999941,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 52.64043099999981,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.74440799999866,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.745497000001706,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.09637499999917,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 49.39351399999941,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.85867999999937,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 49.20471399999951,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 49.280776999999944,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 73.88997399999971,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 53.31291300000157,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.48130400000082,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 49.00978500000019,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 73.93349400000079,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 52.00695799999994,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 49.255465000000186,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.64213700000073,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 52.553759000000355,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 49.37143300000025,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.38594400000147,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.45480799999859,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 56.96898299999884,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.07365600000048,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 49.79919400000108,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.304471999999805,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 49.01906499999859,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 50.3305390000005,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.59972000000016,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.29228000000148,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.694743999998536,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 50.92562800000087,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 49.45597799999996,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.949337000000014,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.45704800000021,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 51.507596999999805,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.5875759999999,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.90637699999934,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 49.721354000001156,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 49.06296900000052,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 49.356410000000324,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 49.63487400000122,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 49.5975299999991,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.76147999999921,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 49.29378600000018,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 48.44866399999955,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 49.176729000000705,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 49.90079399999922,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 49.21021699999983,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "go-mcp",
+      "ms": 49.13308099999995,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 1.7183069999991858,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 1.8613640000003215,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 1.6228510000000824,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 1.2237459999996645,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.6925289999999222,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.6389770000005228,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.5626250000004802,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.725746000000072,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 1.0362089999998716,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.680129999998826,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.7517289999996137,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.6517130000011093,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.7629300000007788,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.7489289999994071,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.4668330000004062,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.542368999998871,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.521457000000737,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.49561699999867415,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.4627520000012737,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.507169000000431,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.2735050000010233,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.2328319999996893,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.4752010000011069,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.45836899999994785,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.37856099999953585,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.7541609999989305,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 1.4319070000001375,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.797009000001708,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.7277770000000601,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.9040659999991476,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 1.0340020000003278,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 1.328113999999914,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 1.089986000000863,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.4402410000002419,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.3442090000007738,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.3132640000003448,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.1769609999992099,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.17790400000012596,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.17916800000057265,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.3346250000013242,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.6174730000002455,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.7477770000004966,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.7303219999994326,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.487025000000358,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.3387039999997796,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.45795299999917916,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.4348489999993035,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.46321699999862176,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.4272639999999228,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "address_sample_10",
+      "target": "direct-memgraph",
+      "ms": 0.3551690000003873,
+      "ok": true,
+      "count": 10
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 15.840893000000506,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.237821000000622,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 25.01697400000012,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.243085000000065,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.376462000000174,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 20.999525999999605,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 15.495275999999649,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.0865730000005,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 28.325667999999496,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.748654000000897,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.576446000000942,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.267549999998664,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 22.263112000000547,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 15.949613000000681,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 15.812189000000217,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 15.725131999999576,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 15.512844999999288,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 15.561979999998584,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 29.373748999998497,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 17.118302999999287,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 15.974093000000721,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 15.896397000000434,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 15.98564499999884,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 15.772541000000274,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 15.857724000001326,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.357437999999092,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.45772599999873,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.071517000000313,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 26.81385699999919,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.959246999998868,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.806430000000546,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.91742300000078,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 15.845197000000553,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 15.761964000001171,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 29.142805000001317,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.591981999999916,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.277869999999893,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.51882999999907,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 21.17750999999953,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.65796600000067,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 18.658817999999883,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 15.992157000000589,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.111966000000393,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.791549999999916,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.9733269999997,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.82538999999997,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.468269999999393,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.30127800000082,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 16.70771000000059,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "node_count",
+      "target": "direct-memgraph",
+      "ms": 23.692842999998902,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.235735000000204,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 47.58942999999999,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.31955999999991,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.23927199999889,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.396183999999266,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.39568700000018,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 47.9157180000002,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.13461599999937,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 47.96253500000057,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.55213599999843,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.6365679999999,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 47.996774999999616,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.75407300000006,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.63224799999989,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.38523999999961,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.1990799999985,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.096903000001475,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.43876000000091,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.2656709999992,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.046824000000925,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 47.958566999999675,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.449415999999474,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.30213499999991,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.30973599999925,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.1244229999993,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.35941600000115,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.11584799999946,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.12738300000092,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 47.809911000000284,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.16011900000012,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 47.97647099999995,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 47.97263100000055,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.39173599999958,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 47.98127100000056,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.15623199999936,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.344984000001205,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.46716000000015,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 47.70087000000058,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 47.39715799999976,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.16792800000076,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.486807999999655,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.412248000000545,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.33773499999916,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 47.99683999999979,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.12923899999987,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.083575000000565,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 47.856854999999996,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 48.04970300000059,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 47.17736599999989,
+      "ok": true,
+      "count": 1
+    },
+    {
+      "queryName": "one_hop_expand_50",
+      "target": "direct-memgraph",
+      "ms": 47.736055000001215,
+      "ok": true,
+      "count": 1
+    }
+  ]
+}

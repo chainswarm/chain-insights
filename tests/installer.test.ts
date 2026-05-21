@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdir, rm, stat } from 'node:fs/promises'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { execSync } from 'node:child_process'
@@ -73,5 +73,50 @@ describe('Installer (FOUND-01)', () => {
     const result = execSync(`HOME=${fakeHome} node bin/install.cjs --claude`, { stdio: 'pipe' })
     const output = result.toString()
     expect(output).toContain('mcp-proxy.cjs')
+  })
+
+  it('--hermes copies Chain Insights skills to ~/.hermes/skills/chain-insights/', () => {
+    execSync(`HOME=${fakeHome} node bin/install.cjs --hermes`, { stdio: 'pipe' })
+    const skillPath = join(fakeHome, '.hermes', 'skills', 'chain-insights', 'chain-insights-investigation', 'SKILL.md')
+    expect(existsSync(skillPath)).toBe(true)
+  })
+
+  it('--hermes registers Chain Insights MCP in ~/.hermes/config.yaml', () => {
+    execSync(`HOME=${fakeHome} node bin/install.cjs --hermes`, { stdio: 'pipe' })
+    const configPath = join(fakeHome, '.hermes', 'config.yaml')
+    const raw = readFileSync(configPath, 'utf8')
+    expect(raw).toContain('mcp_servers:')
+    expect(raw).toContain('  chain-insights:')
+    expect(raw).toContain('    command: "node"')
+    expect(raw).toContain('    enabled: true')
+    expect(raw).toContain('mcp-proxy.cjs')
+  })
+
+  it('--hermes replaces an existing chain-insights MCP entry without removing other servers', () => {
+    const hermesDir = join(fakeHome, '.hermes')
+    mkdirSync(hermesDir, { recursive: true })
+    const configPath = join(hermesDir, 'config.yaml')
+    writeFileSync(configPath, [
+      'mcp_servers:',
+      '  other:',
+      '    command: "npx"',
+      '    args:',
+      '    - "other-server"',
+      '  chain-insights:',
+      '    command: "old"',
+      '    args:',
+      '    - "old.js"',
+      '    enabled: false',
+      '',
+    ].join('\n'), 'utf8')
+
+    execSync(`HOME=${fakeHome} node bin/install.cjs --hermes`, { stdio: 'pipe' })
+
+    const raw = readFileSync(configPath, 'utf8')
+    expect(raw).toContain('  other:')
+    expect(raw).toContain('    - "other-server"')
+    expect(raw).toContain('    command: "node"')
+    expect(raw).toContain('    enabled: true')
+    expect(raw).not.toContain('old.js')
   })
 })
