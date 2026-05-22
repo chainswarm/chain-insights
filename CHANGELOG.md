@@ -2,6 +2,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.6] - 2026-05-22
+
+- Switched Chain Insights graph recipes to MemGQL-native `live_topology`, `archive_topology`, and `facts` queries.
+- Reworked `track_funds` to avoid MemGQL-unsupported BFS, variable-length paths, `labels()`, reserved aliases, and top-level `UNWIND`.
+- Updated GraphRAG MCP UAT guidance for the primitive `graph_query` and `graph_query_batch` endpoint.
+
 ## [0.2.5] - 2026-05-21
 
 - Removed the experimental archival topology backend path and kept local investigation recipes on Memgraph BFS.

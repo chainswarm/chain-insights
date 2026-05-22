@@ -35,7 +35,7 @@ Use the output as the source of truth:
 
 - `Topology: yes` is required for fund-flow tracing.
 - `Available tools` must include `track_funds`; otherwise use `graph_query` or
-  `graph_query_batch` with `USE topology` for manual topology diagnostics.
+  `graph_query_batch` with `USE live_topology` for manual topology diagnostics.
 - `Dataset` gives the graph coverage range as
   `<first_height>..<last_height> / <first_date>..<last_date>`. State this range
   in the investigation scope, and do not claim tracing coverage outside it.
@@ -55,22 +55,15 @@ those deposits toward source exchanges and enrich the result with reverse 1-hop
 leads.
 
 Python GraphRAG MCP is the golden implementation. Do not degrade this workflow
-into a simplified `graph_query_batch` recipe. When Chain Insights runs against
-the Go Graph MCP, it should still reproduce Python `BFSOps` and
-`StolenFundsProbe` semantics by issuing the right read-only Cypher through
-`graph_query` or `graph_query_batch` with `USE topology`.
+into a simple top-K neighbor recipe. When Chain Insights runs against the Go
+Graph MCP, it should still reproduce Python `BFSOps` and `StolenFundsProbe`
+semantics by issuing read-only `graph_query_batch` calls with `USE live_topology`.
 
-For exchange-deposit discovery, the golden traversal is Memgraph BFS over
-`FLOWS_TO`:
-
-```cypher
-MATCH p = (s:Address {address: $address})
-  -[:FLOWS_TO *BFS (e, v | <python-compatible-filter>)]->(t:Exchange)
-```
-
-Do not replace that with plain variable-length `FLOWS_TO *1..N` enumeration as
-the production tool behavior. Use non-BFS enumeration only for explicit
-diagnostic comparisons or user-requested custom graph queries.
+Current MemGQL does not parse Memgraph `*BFS` or variable-length relationship
+syntax. Against Go Graph MCP, exchange-deposit discovery therefore uses
+generated fixed-depth `FLOWS_TO` query batches up to the requested hop limit,
+requires `t.is_exchange IS NOT NULL`, prevents intermediate exchange hops, and
+treats the penultimate address as the deposit candidate.
 
 This tool exists so the agent does not lose the investigation in chat context.
 It executes the repeatable tracing loop, stores machine-readable files for
@@ -123,13 +116,14 @@ The tool:
 
 1. Captures runtime graph schema if missing:
    - `.chain-insights/schema/<network>.graph-schema.json`
-2. Runs the Python-probe-style forward exchange path query:
-   - `MATCH p = (s:Address {address: ...})-[:FLOWS_TO *BFS ...]->(t:Exchange)`
-   - excludes paths that traverse through an intermediate `Exchange`,
-   - records `nodes(p)` and `relationships(p)` projections,
+2. Runs Python-probe-style forward exchange path query batches:
+   - generated fixed-depth `MATCH (s)-[r1:FLOWS_TO]->...->(t)` queries
+     because current MemGQL rejects `*BFS` and `*1..N` syntax,
+   - excludes paths that traverse through an intermediate exchange,
+   - records node and relationship projections,
    - treats `path[-2]` as the exchange deposit candidate.
 3. Runs traceback/source discovery:
-   - backward BFS from each deposit toward source `Exchange` nodes,
+   - generated fixed-depth backward reads from each deposit toward source exchanges,
    - reverse 1-hop from deposits to surface leads,
    - lead reasons include labeled entity, fan-in hub, or high-volume sender.
 4. Assigns aliases:
@@ -194,29 +188,29 @@ investigation structure.
 
 Only hand-write `graph_query_batch` when the tool is unavailable or a custom
 question is outside simple outbound fund tracing. Prefix topology queries with
-`USE topology`.
+`USE live_topology`.
 
 Manual forward exchange path pattern:
 
 ```cypher
-MATCH p = (s:Address {address: "<full-address>"})
-  -[:FLOWS_TO *BFS (e, v | e.amount_sum IS NOT NULL)]->
-  (t:Exchange)
-WHERE s <> t
-  AND NOT any(n IN nodes(p)[1..-1] WHERE "Exchange" IN labels(n))
+MATCH (s:Address {address: "<full-address>"})
+  -[r1:FLOWS_TO]->(n1:Address)
+  -[r2:FLOWS_TO]->(t:Address)
+WHERE t.is_exchange IS NOT NULL
+  AND s <> t
+  AND n1.is_exchange IS NULL
+  AND r1.amount_sum IS NOT NULL
+  AND r2.amount_sum IS NOT NULL
 RETURN
-  [n IN nodes(p) | n.address] AS addresses,
-  [n IN nodes(p) | labels(n)] AS node_labels,
-  [r IN relationships(p) | {
-    amount_sum: r.amount_sum,
-    amount_usd_sum: r.amount_usd_sum,
-    tx_count: r.tx_count,
-    first_tx_id: r.first_tx_id,
-    last_tx_id: r.last_tx_id
-  }] AS edge_props,
+  [s.address, n1.address, t.address] AS addresses,
+  [s.labels, n1.labels, t.labels] AS node_labels,
+  [
+    {amount_sum: r1.amount_sum, amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count},
+    {amount_sum: r2.amount_sum, amount_usd_sum: r2.amount_usd_sum, tx_count: r2.tx_count}
+  ] AS edge_props,
   t.address AS exchange_address,
-  labels(t) AS exchange_labels,
-  size(nodes(p)) - 1 AS hops
+  t.labels AS exchange_labels,
+  2 AS hops
 ORDER BY hops ASC
 LIMIT 200
 ```

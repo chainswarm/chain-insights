@@ -44,7 +44,7 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS = {
 	network_capabilities: "Return supported Chain Insights networks, capability layers, tool availability, data retention windows, and freshness. Use this before choosing network-specific tools.",
 	address_risk: "Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. This includes the exchange-behavior analysis formerly covered by money_flows_between_exchanges. Use this as the first tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.",
 	track_funds: "Trace funds from trusted victim/source addresses through intermediaries to exchange deposit addresses. Use this when the user has a victim/source address or known untrusted/scammer addresses. The tool returns an investigator-ready fund-flow report and recommended next actions.",
-	graph_query: "Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE topology for Memgraph topology and USE facts for StarRocks facts. Cross-backend correlated joins are limited by current MemGQL behavior; preserve full addresses exactly.",
+	graph_query: "Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE live_topology for Memgraph RAM topology, USE archive_topology for StarRocks historical topology, and USE facts for StarRocks facts. Cross-backend correlated joins are limited by current MemGQL behavior; preserve full addresses exactly.",
 	graph_query_batch: "Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads."
 };
 const NETWORK_DESCRIPTION = "Required network to query. Do not guess; use network_capabilities or ask the user if missing.";
@@ -58,15 +58,16 @@ const CHAIN_INSIGHTS_WORKFLOW = [
 ].join("\n");
 const GRAPH_SCHEMA_HINTS = [
 	"Graph query hints for network=bittensor:",
-	"- Common node labels: Address, Miner, Validator, Hotkey, Exchange.",
+	"- Common live topology node labels include Address and may include legacy enrichment labels. Do not depend on Exchange/Miner graph labels for correctness; use address properties such as is_exchange when available.",
 	"- Address properties commonly include address, network, address_type, total_volume_usd, total_in_usd, total_out_usd, net_flow_usd, degree_in, degree_out, tx_in_count, tx_out_count, first_activity_timestamp, last_activity_timestamp.",
 	"- Risk and ML properties may include ml_risk_score, ml_risk_level, ml_top_drivers, ml_pattern_summary, ml_pagerank, ml_betweenness, ml_community_id.",
 	"- Common relationships include FLOWS_TO, OPERATED_FROM, SERVED_FROM, REGISTERED_NEURON, BELONGS_TO, SYBIL_CLUSTER, LAYERING_HOP, BURST_ACTIVITY, CYCLE_PARTICIPANT, SMURFING_CLUSTER.",
 	"- FLOWS_TO is aggregated and commonly carries amount_sum, amount_usd_sum, tx_count, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id. Confirm available fields through runtime schema before relying on them.",
-	"- Start schema discovery with: MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, keys(n) AS properties, count(*) AS count ORDER BY count DESC LIMIT 20",
-	"- Relationship discovery: MATCH ()-[r]->() RETURN type(r) AS relationship, keys(r) AS properties, count(*) AS count ORDER BY count DESC LIMIT 20",
-	"- graph_query uses Memgraph Zero / MemGQL when available. Use USE topology for Memgraph topology and USE facts for StarRocks facts.",
-	"- Facts graph labels include Address, AddressFeatureFact, RiskScoreFact, and AssetFact. Archived money-flow topology is represented as (:Address)-[:FLOWS_TO]->(:Address) relationships with period_granularity, period_start_date, and period_end_date.",
+	"- Start schema discovery with MemGQL-safe property reads: MATCH (n:Address) WHERE n.address IS NOT NULL RETURN n.labels AS labels, n.address AS address LIMIT 20",
+	"- Relationship discovery: MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum LIMIT 20",
+	"- graph_query uses Memgraph Zero / MemGQL when available. Use USE live_topology for Memgraph RAM topology, USE archive_topology for StarRocks historical topology, and USE facts for StarRocks facts.",
+	"- Archive topology labels include Address and TopologySnapshot. Archived money-flow topology is represented as (:Address)-[:FLOWS_TO]->(:Address) relationships with period_granularity, period_start_date, and period_end_date.",
+	"- Facts graph labels include AddressLabelFact, AddressFeatureFact, RiskScoreFact, and AssetFact.",
 	"- All graph_query calls are read-only. Never use CREATE, INSERT, MERGE, SET, DELETE, REMOVE, DROP, DETACH, ADD, CONNECT, DISCONNECT, ALTER, TRUNCATE, GRANT, or REVOKE.",
 	"- Warehouse facts live behind facts_*_view StarRocks views and are reached through USE facts graph patterns. Do not query core_*, ml_*, analyzers_*, synthetics_*, or _* tables directly."
 ].join("\n");
@@ -133,7 +134,7 @@ function knownPublicToolInputSchema(toolName) {
 			include_attachments: z.boolean().optional().describe("Include graph app report metadata")
 		};
 		case "graph_query": return {
-			query: z.string().min(1).describe("Read-only GQL/Cypher query. Use USE topology for Memgraph topology and USE facts for StarRocks facts."),
+			query: z.string().min(1).describe("Read-only GQL/Cypher query. Use USE live_topology for Memgraph RAM topology, USE archive_topology for StarRocks historical topology, and USE facts for StarRocks facts."),
 			network: z.string().min(1).describe(NETWORK_DESCRIPTION)
 		};
 		case "graph_query_batch": return {
@@ -394,7 +395,7 @@ function registerLocalPrompts(server, remotePromptNames) {
 		query,
 		"```",
 		"",
-		"Use USE topology for Memgraph topology and USE facts for StarRocks facts. Return full address properties; never shorten addresses with ellipses."
+		"Use USE live_topology for Memgraph RAM topology, USE archive_topology for StarRocks historical topology, and USE facts for StarRocks facts. Return full address properties; never shorten addresses with ellipses."
 	].join("\n"), "Federated graph query"));
 	server.registerPrompt("graph-query-batch", {
 		title: "Federated Graph Query Batch",
@@ -412,7 +413,7 @@ function registerLocalPrompts(server, remotePromptNames) {
 		"```",
 		per_query_timeout_seconds ? `per_query_timeout_seconds: ${per_query_timeout_seconds}` : "",
 		"",
-		"Use USE topology for Memgraph topology and USE facts for StarRocks facts. Return full address properties; never shorten addresses with ellipses."
+		"Use USE live_topology for Memgraph RAM topology, USE archive_topology for StarRocks historical topology, and USE facts for StarRocks facts. Return full address properties; never shorten addresses with ellipses."
 	].filter(Boolean).join("\n"), "Federated graph batch query"));
 	server.registerPrompt("balance", {
 		title: "Wallet Balance",
@@ -946,7 +947,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { addressRisk } = await import("./public-tools-7myJCH3N.mjs");
+			const { addressRisk } = await import("./public-tools-BtHKVzvE.mjs");
 			const { writeGraphReport } = await import("./graph-reports-C4TBjCkM.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-Dxz5YbuQ.mjs");
 			const result = await addressRisk(remoteClient, {
@@ -1010,7 +1011,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { trackFunds } = await import("./public-tools-7myJCH3N.mjs");
+			const { trackFunds } = await import("./public-tools-BtHKVzvE.mjs");
 			const { writeGraphReport } = await import("./graph-reports-C4TBjCkM.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-Dxz5YbuQ.mjs");
 			const result = await trackFunds(remoteClient, config, {
@@ -1064,7 +1065,7 @@ async function createProxy() {
 				"- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.",
 				"- address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.",
 				"- track_funds: trace up to five trusted/victim addresses plus up to five known untrusted/scammer addresses through intermediaries to exchange deposit addresses.",
-				"- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.",
+				"- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE live_topology, USE archive_topology, or USE facts.",
 				"- graph_query_batch: run related read-only graph-language queries through one paid graph call.",
 				"",
 				"Case workflow tools:",

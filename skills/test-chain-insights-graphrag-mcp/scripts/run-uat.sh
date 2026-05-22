@@ -335,7 +335,7 @@ log "calling Chain Insights CLI graph_query against real MCP"
   cd "${WORKSPACE_ROOT}"
   node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
     "network=${NETWORK}" \
-    "query=USE topology MATCH (n) WHERE n.address = '${UAT_ADDRESS}' RETURN labels(n) AS labels, n.address AS address LIMIT 1"
+    "query=USE live_topology MATCH (n) WHERE n.address = '${UAT_ADDRESS}' RETURN n.labels AS labels, n.address AS address LIMIT 1"
 ) >"${GRAPH_QUERY_TEXT}"
 
 node - "${GRAPH_QUERY_TEXT}" "${UAT_ADDRESS}" <<'NODE'
