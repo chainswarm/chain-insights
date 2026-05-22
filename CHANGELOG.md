@@ -2,11 +2,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.5] - 2026-05-21
+
+- Removed the experimental archival topology backend path and kept local investigation recipes on Memgraph BFS.
+- Simplified graph schema caching to one runtime schema file per network.
+
 ## [0.2.4] - 2026-05-21
 
-- Added backend-aware Chain Insights probes for PuppyGraph topology: `track_funds` and `address_risk` now select Memgraph BFS or PuppyGraph `shortestPath` queries from `network_capabilities`.
-- Added PuppyGraph-safe schema discovery, backend-specific schema cache files, and current-edge filtering so probe pathfinding does not traverse archival rollup edges.
-- Added numeric-string handling and reverse-lead degree checks so PuppyGraph and Memgraph trace reports match for Bittensor exchange-path probes.
+- Kept Chain Insights probes on graph-language reads: `track_funds` and `address_risk` use bounded Memgraph BFS recipes over `graph_query_batch`.
+- Added schema discovery for runtime graph reports and compact evidence files.
+- Added numeric-string handling and reverse-lead degree checks so trace reports stay stable for Bittensor exchange-path probes.
 
 ## [0.2.3] - 2026-05-19
 

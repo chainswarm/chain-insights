@@ -43,20 +43,16 @@ const COMMA_SEPARATED_ADDRESS_FIELDS = new Set([
 const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
   address_risk: ['address', 'network'],
   track_funds: ['trusted_addresses', 'network'],
-  topology_query: ['query', 'network'],
-  topology_query_batch: ['network', 'queries'],
-  fact_query: ['query', 'network'],
-  fact_query_batch: ['network', 'queries'],
+  graph_query: ['query', 'network'],
+  graph_query_batch: ['network', 'queries'],
 }
 
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   network_capabilities: 'Return supported Chain Insights networks, capability layers, tool availability, data retention windows, and freshness. Use this before choosing network-specific tools.',
   address_risk: 'Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. This includes the exchange-behavior analysis formerly covered by money_flows_between_exchanges. Use this as the first tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.',
   track_funds: 'Trace funds from trusted victim/source addresses through intermediaries to exchange deposit addresses. Use this when the user has a victim/source address or known untrusted/scammer addresses. The tool returns an investigator-ready fund-flow report and recommended next actions.',
-  topology_query: 'Run a read-only Cypher query against the Chain Insights graph database for schema discovery, aggregate counts, or custom graph inspection. Use only read-only queries and return full address strings exactly.',
-  topology_query_batch: 'Run multiple read-only Cypher queries against the Chain Insights graph database through the paid topology primitive. Each query has a 10-second per-query timeout, and related queries should be grouped into one batch.',
-  fact_query: 'Run a read-only SQL query against Chain Insights facts_*_view warehouse views for money-flow, transfer, label, asset, and risk facts. Use only SELECT/WITH queries and preserve full addresses exactly.',
-  fact_query_batch: 'Run multiple read-only SQL queries against Chain Insights facts_*_view warehouse views. Related warehouse fact reads should be grouped into one batch.',
+  graph_query: 'Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE topology for Memgraph topology and USE facts for StarRocks facts. Cross-backend correlated joins are limited by current MemGQL behavior; preserve full addresses exactly.',
+  graph_query_batch: 'Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads.',
 }
 
 type ToolInputShape = Record<string, z.ZodTypeAny>
@@ -73,13 +69,13 @@ const CHAIN_INSIGHTS_WORKFLOW = [
   'Workflow:',
   '1. If the user is starting or continuing an investigation, use case_open or case_list/case_resume first.',
   '2. Do not call investigation tools until required arguments are known. Network is required; use network_capabilities to check supported networks, data layers, retention, and freshness, or ask the user if missing.',
-  '3. Use address_risk first for a single address when facts and topology are available. Use track_funds for victim/source fund tracing when topology is available. Use topology_query(_batch) for traversal/topology Cypher. Use fact_query(_batch) for warehouse facts such as rollups, transfers, labels, assets, and risk scores.',
+  '3. Use address_risk first for a single address when facts and topology are available. Use track_funds for victim/source fund tracing when topology is available. Use graph_query(_batch) for the universal graph-language path over topology and facts.',
   '4. After a material result, preserve it with case_add_evidence when a case is active or ask whether to create/select a case.',
   '5. Use case_update_dossier for durable address/entity findings and case_start_session/case_end_session for session notes.',
 ].join('\n')
 
 const GRAPH_SCHEMA_HINTS = [
-  'Topology query hints for network=bittensor:',
+  'Graph query hints for network=bittensor:',
   '- Common node labels: Address, Miner, Validator, Hotkey, Exchange.',
   '- Address properties commonly include address, network, address_type, total_volume_usd, total_in_usd, total_out_usd, net_flow_usd, degree_in, degree_out, tx_in_count, tx_out_count, first_activity_timestamp, last_activity_timestamp.',
   '- Risk and ML properties may include ml_risk_score, ml_risk_level, ml_top_drivers, ml_pattern_summary, ml_pagerank, ml_betweenness, ml_community_id.',
@@ -87,8 +83,10 @@ const GRAPH_SCHEMA_HINTS = [
   '- FLOWS_TO is aggregated and commonly carries amount_sum, amount_usd_sum, tx_count, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id. Confirm available fields through runtime schema before relying on them.',
   '- Start schema discovery with: MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, keys(n) AS properties, count(*) AS count ORDER BY count DESC LIMIT 20',
   '- Relationship discovery: MATCH ()-[r]->() RETURN type(r) AS relationship, keys(r) AS properties, count(*) AS count ORDER BY count DESC LIMIT 20',
-  '- All topology_query calls are read-only. Never use CREATE, MERGE, SET, DELETE, REMOVE, DROP, or DETACH.',
-  '- Warehouse facts live behind facts_*_view StarRocks views. Use fact_query for SELECT/WITH SQL against those views; do not query core_*, ml_*, analyzers_*, synthetics_*, or _* tables directly.',
+  '- graph_query uses Memgraph Zero / MemGQL when available. Use USE topology for Memgraph topology and USE facts for StarRocks facts.',
+  '- Facts graph labels include Address, AddressFeatureFact, RiskScoreFact, and AssetFact. Archived money-flow topology is represented as (:Address)-[:FLOWS_TO]->(:Address) relationships with period_granularity, period_start_date, and period_end_date.',
+  '- All graph_query calls are read-only. Never use CREATE, INSERT, MERGE, SET, DELETE, REMOVE, DROP, DETACH, ADD, CONNECT, DISCONNECT, ALTER, TRUNCATE, GRANT, or REVOKE.',
+  '- Warehouse facts live behind facts_*_view StarRocks views and are reached through USE facts graph patterns. Do not query core_*, ml_*, analyzers_*, synthetics_*, or _* tables directly.',
 ].join('\n')
 
 const GRAPH_REPORT_HINTS = [
@@ -180,31 +178,17 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
         untrusted_addresses: z.string().optional().describe('Comma-separated full untrusted/scammer addresses. Max 5.'),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
       }
-    case 'topology_query':
+    case 'graph_query':
       return {
-        query: z.string().min(1).describe('Read-only Cypher query'),
+        query: z.string().min(1).describe('Read-only GQL/Cypher query. Use USE topology for Memgraph topology and USE facts for StarRocks facts.'),
         network: z.string().min(1).describe(NETWORK_DESCRIPTION),
       }
-    case 'topology_query_batch':
+    case 'graph_query_batch':
       return {
         network: z.string().min(1).describe(NETWORK_DESCRIPTION),
         queries: z.array(z.object({
           id: z.string().optional(),
-          query: z.string().min(1).describe('Read-only Cypher query'),
-        })).min(1).max(20),
-        per_query_timeout_seconds: z.number().int().min(1).max(10).optional(),
-      }
-    case 'fact_query':
-      return {
-        query: z.string().min(1).describe('Read-only SQL SELECT/WITH query against facts_*_view views'),
-        network: z.string().min(1).describe(NETWORK_DESCRIPTION),
-      }
-    case 'fact_query_batch':
-      return {
-        network: z.string().min(1).describe(NETWORK_DESCRIPTION),
-        queries: z.array(z.object({
-          id: z.string().optional(),
-          query: z.string().min(1).describe('Read-only SQL SELECT/WITH query against facts_*_view views'),
+          query: z.string().min(1).describe('Read-only GQL/Cypher query'),
         })).min(1).max(20),
         per_query_timeout_seconds: z.number().int().min(1).max(10).optional(),
       }
@@ -240,16 +224,16 @@ function sanitizeCypher(query: string): string {
 
 function cypherLogPayload(tool: string, args: unknown): Record<string, unknown> | null {
   if (!isRecord(args)) return null
-  if (tool === 'topology_query') {
+  if (tool === 'graph_query') {
     return {
       network: args.network,
       queries: [{
-        id: 'topology_query',
+        id: tool,
         query: typeof args.query === 'string' ? sanitizeCypher(args.query) : args.query,
       }],
     }
   }
-  if (tool === 'topology_query_batch') {
+  if (tool === 'graph_query_batch') {
     const queries = Array.isArray(args.queries) ? args.queries : []
     return {
       network: args.network,
@@ -538,34 +522,34 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
   }
 
   server.registerPrompt(
-    'topology-query',
+    'graph-query',
     {
-      title: 'Cypher Topology Query',
-      description: 'Run a read-only Cypher query against the Chain Insights graph database.',
+      title: 'Federated Graph Query',
+      description: 'Run a read-only GQL/Cypher query through Chain Insights Memgraph Zero.',
       argsSchema: {
-        query: z.string().describe('Read-only Cypher query'),
+        query: z.string().describe('Read-only GQL/Cypher query'),
         network: z.string().describe(NETWORK_DESCRIPTION),
       },
     },
     async ({ query, network }) => promptResult(
       [
-        `Use Chain Insights topology_query on ${network} with this read-only Cypher query:`,
+        `Use Chain Insights graph_query on ${network} with this read-only GQL/Cypher query:`,
         '',
-        '```cypher',
+        '```gql',
         query,
         '```',
         '',
-        'Return full address properties; never shorten addresses with ellipses.',
+        'Use USE topology for Memgraph topology and USE facts for StarRocks facts. Return full address properties; never shorten addresses with ellipses.',
       ].join('\n'),
-      'Graph database query',
+      'Federated graph query',
     ),
   )
 
   server.registerPrompt(
-    'topology-query-batch',
+    'graph-query-batch',
     {
-      title: 'Cypher Topology Query Batch',
-      description: 'Run related read-only Cypher queries against the Chain Insights graph database in one paid batch.',
+      title: 'Federated Graph Query Batch',
+      description: 'Run related read-only GQL/Cypher queries through Chain Insights Memgraph Zero in one paid batch.',
       argsSchema: {
         queries: z.string().describe('JSON array of query objects with optional id and required query fields'),
         network: z.string().describe(NETWORK_DESCRIPTION),
@@ -574,66 +558,16 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
     },
     async ({ queries, network, per_query_timeout_seconds }) => promptResult(
       [
-        `Use Chain Insights topology_query_batch on ${network} with these read-only Cypher queries:`,
+        `Use Chain Insights graph_query_batch on ${network} with these read-only GQL/Cypher queries:`,
         '',
         '```json',
         queries,
         '```',
         per_query_timeout_seconds ? `per_query_timeout_seconds: ${per_query_timeout_seconds}` : '',
         '',
-        'Return full address properties; never shorten addresses with ellipses.',
+        'Use USE topology for Memgraph topology and USE facts for StarRocks facts. Return full address properties; never shorten addresses with ellipses.',
       ].filter(Boolean).join('\n'),
-      'Graph database batch query',
-    ),
-  )
-
-  server.registerPrompt(
-    'fact-query',
-    {
-      title: 'Warehouse Fact Query',
-      description: 'Run a read-only SQL query against Chain Insights facts_*_view warehouse views.',
-      argsSchema: {
-        query: z.string().describe('Read-only SQL SELECT/WITH query against facts_*_view views'),
-        network: z.string().describe(NETWORK_DESCRIPTION),
-      },
-    },
-    async ({ query, network }) => promptResult(
-      [
-        `Use Chain Insights fact_query on ${network} with this read-only SQL query:`,
-        '',
-        '```sql',
-        query,
-        '```',
-        '',
-        'Query only facts_*_view views; never query source tables directly.',
-      ].join('\n'),
-      'Warehouse fact query',
-    ),
-  )
-
-  server.registerPrompt(
-    'fact-query-batch',
-    {
-      title: 'Warehouse Fact Query Batch',
-      description: 'Run related read-only SQL queries against Chain Insights facts_*_view warehouse views in one paid batch.',
-      argsSchema: {
-        queries: z.string().describe('JSON array of query objects with optional id and required query fields'),
-        network: z.string().describe(NETWORK_DESCRIPTION),
-        per_query_timeout_seconds: z.string().optional().describe('Optional integer timeout per query, 1-10 seconds'),
-      },
-    },
-    async ({ queries, network, per_query_timeout_seconds }) => promptResult(
-      [
-        `Use Chain Insights fact_query_batch on ${network} with these read-only SQL queries:`,
-        '',
-        '```json',
-        queries,
-        '```',
-        per_query_timeout_seconds ? `per_query_timeout_seconds: ${per_query_timeout_seconds}` : '',
-        '',
-        'Query only facts_*_view views; never query source tables directly.',
-      ].filter(Boolean).join('\n'),
-      'Warehouse fact query batch',
+      'Federated graph batch query',
     ),
   )
 
@@ -1118,7 +1052,7 @@ export async function createProxy(): Promise<void> {
   server.registerTool(
     'case_add_evidence',
     {
-      description: 'Append a tool result or analyst note to a local case evidence manifest. Use after address_risk, track_funds, topology_query, or manual findings that should be preserved.',
+      description: 'Append a tool result or analyst note to a local case evidence manifest. Use after address_risk, track_funds, graph_query, or manual findings that should be preserved.',
       inputSchema: {
         case_id: z.string().min(1).describe('Chain Insights case ID'),
         source: z.string().min(1).describe('Source tool or evidence origin'),
@@ -1442,10 +1376,8 @@ export async function createProxy(): Promise<void> {
             '- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.',
             '- address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.',
             '- track_funds: trace up to five trusted/victim addresses plus up to five known untrusted/scammer addresses through intermediaries to exchange deposit addresses.',
-            '- topology_query: run read-only Cypher against the investigation graph.',
-            '- topology_query_batch: run related read-only Cypher queries through one paid topology call.',
-            '- fact_query: run read-only SQL against facts_*_view warehouse views.',
-            '- fact_query_batch: run related read-only SQL fact queries through one paid warehouse call.',
+            '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
+            '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
             '',
             'Case workflow tools:',
             '- case_open: create a local case before preserving evidence.',

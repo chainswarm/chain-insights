@@ -16,4 +16,3 @@ Evaluate whether the graph-query MCP runtime should move from the current Python
 | # | Name | Type | Validates | Verdict | Tags |
 |---|------|------|-----------|---------|------|
 | 001 | graph-mcp-runtime-comparison | comparison | Given the current GraphRAG `graph_query` boundary, when Python/FastMCP, TS/Hono/MCP, and Go/MCP execute the same read-only Cypher workload against local Memgraph, then we can decide whether a runtime port is worth the maintenance cost. | VALIDATED | mcp, graphrag, hono, go, typescript, performance |
-| 002 | puppygraph-archival-cypher-fallback | plan | Given StarRocks money-flow rollups and Memgraph RAM limits, when PuppyGraph exposes Cypher over read-only facts views, then we can compare `track_funds` probe quality against the current Memgraph path for archival cases. | PLANNED | puppygraph, starrocks, cypher, archival, track-funds |

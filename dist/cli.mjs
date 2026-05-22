@@ -202,7 +202,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 }));
 program.command("init").description("Initialize an investigation workspace").argument("[dir]", "Workspace directory to initialize", ".").option("--force", "Overwrite existing workspace files").action(async (dir, opts) => {
 	try {
-		const { initWorkspace } = await import("./init-CSYbHQFo.mjs");
+		const { initWorkspace } = await import("./init-BpZR9lQo.mjs");
 		const result = await initWorkspace({
 			targetDir: dir,
 			force: opts.force
@@ -324,7 +324,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 	try {
 		const { loadSchema, saveSchema } = await import("./schema-cache-9CksD7tX.mjs");
 		const { formatToolsTable } = await import("./format-Ce1RObVl.mjs");
-		const { visibleRemoteTools } = await import("./tool-visibility-mwdNUjfI.mjs").then((n) => n.n);
+		const { visibleRemoteTools } = await import("./tool-visibility-3Z_KvO9Q.mjs").then((n) => n.n);
 		const { loadConfig } = await import("./config-BwrBYmiC.mjs").then((n) => n.t);
 		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-D4Bq0rp9.mjs").then((n) => n.t);
 		const config = await loadConfig();
@@ -365,7 +365,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { addressRisk } = await import("./public-tools-9KYVvbZN.mjs");
+			const { addressRisk } = await import("./public-tools-7myJCH3N.mjs");
 			const result = await addressRisk(client, {
 				address: opts.address,
 				network: opts.network,
@@ -393,7 +393,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { trackFunds } = await import("./public-tools-9KYVvbZN.mjs");
+			const { trackFunds } = await import("./public-tools-7myJCH3N.mjs");
 			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
 			const result = await trackFunds(client, config, {
 				trustedAddresses: opts.trustedAddresses,
@@ -414,12 +414,12 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 })).addCommand(new Command("call").description("Call an MCP tool directly (debug)").argument("<tool>", "Tool name to call").argument("[args...]", "Key=value arguments (e.g. address=0x1234 chain=ethereum)").action(async (tool, rawArgs) => {
 	try {
 		const { parseMcpCallArgs } = await import("./call-args-Bb5CkQqy.mjs");
-		const { assertPublicMcpToolName } = await import("./tool-visibility-mwdNUjfI.mjs").then((n) => n.n);
+		const { assertPublicMcpToolName } = await import("./tool-visibility-3Z_KvO9Q.mjs").then((n) => n.n);
 		const args = parseMcpCallArgs(rawArgs);
 		assertPublicMcpToolName(tool);
 		await withGraphMcpClient("chain-insights-cli-call", async (client, config) => {
 			if (tool === "address_risk") {
-				const { addressRisk } = await import("./public-tools-9KYVvbZN.mjs");
+				const { addressRisk } = await import("./public-tools-7myJCH3N.mjs");
 				const result = await addressRisk(client, {
 					address: String(args["address"] ?? ""),
 					network: String(args["network"] ?? ""),
@@ -429,7 +429,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "track_funds") {
-				const { trackFunds } = await import("./public-tools-9KYVvbZN.mjs");
+				const { trackFunds } = await import("./public-tools-7myJCH3N.mjs");
 				const result = await trackFunds(client, config, {
 					trustedAddresses: args["trusted_addresses"] ?? "",
 					untrustedAddresses: args["untrusted_addresses"],

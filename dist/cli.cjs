@@ -204,7 +204,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 }));
 program.command("init").description("Initialize an investigation workspace").argument("[dir]", "Workspace directory to initialize", ".").option("--force", "Overwrite existing workspace files").action(async (dir, opts) => {
 	try {
-		const { initWorkspace } = await Promise.resolve().then(() => require("./init-BKxGkarh.cjs"));
+		const { initWorkspace } = await Promise.resolve().then(() => require("./init-BKT6Vhyw.cjs"));
 		const result = await initWorkspace({
 			targetDir: dir,
 			force: opts.force
@@ -326,7 +326,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 	try {
 		const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-CgWRCN2N.cjs"));
 		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-DOrPvXEr.cjs"));
-		const { visibleRemoteTools } = await Promise.resolve().then(() => require("./tool-visibility-4IqLWqAj.cjs")).then((n) => n.tool_visibility_exports);
+		const { visibleRemoteTools } = await Promise.resolve().then(() => require("./tool-visibility-CwgY205r.cjs")).then((n) => n.tool_visibility_exports);
 		const { loadConfig } = await Promise.resolve().then(() => require("./config-Bmdl5hdk.cjs")).then((n) => n.config_exports);
 		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-D4fZgIaO.cjs")).then((n) => n.client_exports);
 		const config = await loadConfig();
@@ -367,7 +367,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-CG0R8v4B.cjs"));
+			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-MGlhdDnw.cjs"));
 			const result = await addressRisk(client, {
 				address: opts.address,
 				network: opts.network,
@@ -395,7 +395,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-CG0R8v4B.cjs"));
+			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-MGlhdDnw.cjs"));
 			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
 			const result = await trackFunds(client, config, {
 				trustedAddresses: opts.trustedAddresses,
@@ -416,12 +416,12 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 })).addCommand(new commander.Command("call").description("Call an MCP tool directly (debug)").argument("<tool>", "Tool name to call").argument("[args...]", "Key=value arguments (e.g. address=0x1234 chain=ethereum)").action(async (tool, rawArgs) => {
 	try {
 		const { parseMcpCallArgs } = await Promise.resolve().then(() => require("./call-args-BvG9lcQ_.cjs"));
-		const { assertPublicMcpToolName } = await Promise.resolve().then(() => require("./tool-visibility-4IqLWqAj.cjs")).then((n) => n.tool_visibility_exports);
+		const { assertPublicMcpToolName } = await Promise.resolve().then(() => require("./tool-visibility-CwgY205r.cjs")).then((n) => n.tool_visibility_exports);
 		const args = parseMcpCallArgs(rawArgs);
 		assertPublicMcpToolName(tool);
 		await withGraphMcpClient("chain-insights-cli-call", async (client, config) => {
 			if (tool === "address_risk") {
-				const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-CG0R8v4B.cjs"));
+				const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-MGlhdDnw.cjs"));
 				const result = await addressRisk(client, {
 					address: String(args["address"] ?? ""),
 					network: String(args["network"] ?? ""),
@@ -431,7 +431,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "track_funds") {
-				const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-CG0R8v4B.cjs"));
+				const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-MGlhdDnw.cjs"));
 				const result = await trackFunds(client, config, {
 					trustedAddresses: args["trusted_addresses"] ?? "",
 					untrustedAddresses: args["untrusted_addresses"],

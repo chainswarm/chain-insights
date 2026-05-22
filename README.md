@@ -66,10 +66,10 @@ The current Go Graph MCP public surface is:
 
 | Tool | Purpose |
 | --- | --- |
-| `topology_query` | Run one read-only Cypher query against the graph |
-| `topology_query_batch` | Run related read-only Cypher queries as one MCP call |
+| `graph_query` | Run one read-only GQL/Cypher query through the universal graph endpoint |
+| `graph_query_batch` | Run related read-only graph-language queries as one MCP call |
 
-High-level AML tools such as `address_risk`, `track_funds`, `money_flows_between_exchanges`, and `address_connection_risk` are migration targets for Chain Insights recipes over `topology_query_batch`. They should not be assumed to exist on the Go Graph MCP endpoint.
+High-level AML tools such as `address_risk`, `track_funds`, `money_flows_between_exchanges`, and `address_connection_risk` are migration targets for Chain Insights recipes over `graph_query_batch`. They should not be assumed to exist on the Go Graph MCP endpoint.
 
 `topup` is not advertised as a supported MCP happy path. The supported wallet surface is `balance` plus the wallet address returned by CLI/MCP.
 
@@ -112,20 +112,20 @@ chain-insights debug off
 chain-insights mcp tools --refresh
 ```
 
-Run a real topology query:
+Run a real federated graph query:
 
 ```bash
-chain-insights mcp call topology_query \
+chain-insights mcp call graph_query \
   network=bittensor \
-  "query=MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, n.address AS address LIMIT 10"
+  "query=USE topology MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, n.address AS address LIMIT 10"
 ```
 
 Run a paid-primitive batch call:
 
 ```bash
-chain-insights mcp call topology_query_batch \
+chain-insights mcp call graph_query_batch \
   network=bittensor \
-  'queries=[{"id":"count","query":"MATCH (n) RETURN count(n) AS count LIMIT 1"},{"id":"sample","query":"MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, n.address AS address LIMIT 3"}]'
+  'queries=[{"id":"count","query":"USE topology MATCH (n) RETURN count(n) AS count LIMIT 1"},{"id":"archive_flows","query":"USE facts MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN f.period_granularity AS granularity, f.period_start_date AS period_start_date, src.address AS from_address, dst.address AS to_address LIMIT 3"}]'
 ```
 
 Example Bittensor address from local Memgraph:
@@ -166,7 +166,7 @@ Test access key mode for invited users without x402 payment:
 ```bash
 chain-insights access-key set ci_test_REDACTED --endpoint https://staging-mcp.chain-insights.ai/mcp
 chain-insights access-key status
-chain-insights mcp call topology_query network=bittensor query='MATCH (n) RETURN n LIMIT 1'
+chain-insights mcp call graph_query network=bittensor query='USE topology MATCH (n) RETURN n LIMIT 1'
 ```
 
 The Go Graph MCP treats a valid test access key as a server-side x402 bypass. Operators configure the server with `MCP_TEST_ACCESS_KEY_HASHES`, a comma-separated list of `key_id:sha256(full_key)` entries:
@@ -213,8 +213,8 @@ chain-insights mcp tools --refresh
 Expected Go Graph MCP tools:
 
 ```text
-topology_query
-topology_query_batch
+graph_query
+graph_query_batch
 ```
 
 Inspect the graph MCP endpoint without Chain Insights:
@@ -235,11 +235,12 @@ Auth behavior:
 - Prefer `chain-insights access-key set <key>` for invited tester setup. Keep `chain-insights debug on --token <token>` for local/internal debug bypasses.
 - The graph schema cache is scoped by endpoint and expires after 24 hours. Use `--refresh` for a live schema fetch.
 
-Topology query rules:
+Graph query rules:
 
 - `network` is required. Do not guess it in agent workflows.
-- Cypher must be read-only.
-- Use `topology_query_batch` for related reads that should share one paid call.
+- GQL/Cypher must be read-only.
+- Use `USE topology` for Memgraph topology and `USE facts` for StarRocks facts.
+- Use `graph_query_batch` for related reads that should share one paid call.
 - `per_query_timeout_seconds` is optional and capped at `10`.
 - Returned rows live in `structuredContent.facts`.
 
@@ -294,7 +295,7 @@ Append evidence:
 
 ```bash
 chain-insights case evidence add <case-id> \
-  --source topology_query_batch \
+  --source graph_query_batch \
   --query-params "network=bittensor" \
   --content "$(cat compact-result.json)"
 ```
@@ -323,7 +324,7 @@ Manage sessions and restore context:
 chain-insights case session start <case-id>
 chain-insights case session end <case-id> \
   --findings "Initial topology query returned miner and address nodes." \
-  --next-steps "Run focused topology_query_batch probes."
+  --next-steps "Run focused graph_query_batch probes."
 chain-insights case resume <case-id>
 ```
 
@@ -477,12 +478,12 @@ Use Chain Insights to show my payment wallet balance.
 ```
 
 ```text
-Use Chain Insights topology_query on network bittensor with:
+Use Chain Insights graph_query on network bittensor with:
 MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, n.address AS address LIMIT 10
 ```
 
 ```text
-Use Chain Insights topology_query_batch on network bittensor with these read-only Cypher queries:
+Use Chain Insights graph_query_batch on network bittensor with these read-only Cypher queries:
 1. MATCH (n) RETURN count(n) AS count LIMIT 1
 2. MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, n.address AS address LIMIT 3
 ```
@@ -492,7 +493,7 @@ Use Chain Insights to open an investigation case named "Exchange deposit cluster
 ```
 
 ```text
-Use Chain Insights to save the last topology_query_batch result as evidence in case <case-id>.
+Use Chain Insights to save the last graph_query_batch result as evidence in case <case-id>.
 ```
 
 ## Human UAT
@@ -514,17 +515,17 @@ cd /home/aphex5/work/chain-insights
 npm run build
 node bin/cli.js debug on --token chain-insights-dev-debug --endpoint http://localhost:8012/mcp
 node bin/cli.js mcp tools --refresh
-node bin/cli.js mcp call topology_query_batch \
+node bin/cli.js mcp call graph_query_batch \
   network=bittensor \
-  'queries=[{"id":"count","query":"MATCH (n) RETURN count(n) AS count LIMIT 1"},{"id":"sample","query":"MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, n.address AS address LIMIT 3"}]'
+  'queries=[{"id":"count","query":"USE topology MATCH (n) RETURN count(n) AS count LIMIT 1"},{"id":"sample","query":"USE topology MATCH (n) WHERE n.address IS NOT NULL RETURN labels(n) AS labels, n.address AS address LIMIT 3"}]'
 node bin/cli.js wallet address
 node bin/cli.js wallet balance
 ```
 
 Expected results:
 
-- `mcp tools --refresh` lists `topology_query` and `topology_query_batch`.
-- `topology_query_batch` returns `structuredContent.facts.batch.billable_seconds`.
+- `mcp tools --refresh` lists `graph_query` and `graph_query_batch`.
+- `graph_query_batch` returns `structuredContent.facts.batch.billable_seconds`.
 - No high-level AML tools are served by Go Graph MCP.
 - `wallet balance` prints the local wallet and Base USDC balance.
 
@@ -689,7 +690,7 @@ chain-insights access-key status
 
 ### Missing required argument
 
-Public graph tools require `network`. `topology_query` also requires `query`; `topology_query_batch` requires `queries`. Agents should ask for missing arguments instead of guessing.
+Public graph tools require `network`. `graph_query` also requires `query`; `graph_query_batch` requires `queries`. Agents should ask for missing arguments instead of guessing.
 
 ### Wallet balance cannot reach Base RPC
 

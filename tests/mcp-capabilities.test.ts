@@ -24,10 +24,8 @@ describe('MCP network capabilities', () => {
           to_timestamp: '2026-01-31T04:26:00Z',
         },
         tools: {
-          topology_query: 'available',
-          topology_query_batch: 'available',
-          fact_query: 'available',
-          fact_query_batch: 'available',
+          graph_query: 'available',
+          graph_query_batch: 'available',
         },
       }],
     }), { status: 200 }))
@@ -84,10 +82,8 @@ describe('MCP network capabilities', () => {
           to_timestamp: '2026-01-31T04:26:00Z',
         },
         tools: {
-          topology_query: 'available',
-          topology_query_batch: 'available',
-          fact_query: 'available',
-          fact_query_batch: 'available',
+          graph_query: 'available',
+          graph_query_batch: 'available',
         },
       }],
     })
@@ -95,7 +91,7 @@ describe('MCP network capabilities', () => {
     expect(output).toContain('TRON')
     expect(output).toContain('yes')
     expect(output).toContain('84..7440268 / 2023-03-20..2026-01-31')
-    expect(output).toContain('topology_query, topology_query_batch, fact_query, fact_query_batch')
+    expect(output).toContain('graph_query, graph_query_batch')
   })
 
   it('formats no available tools for unsupported networks', async () => {
@@ -113,10 +109,8 @@ describe('MCP network capabilities', () => {
           risk: { enabled: false },
         },
         tools: {
-          topology_query: 'unavailable',
-          topology_query_batch: 'unavailable',
-          fact_query: 'unavailable',
-          fact_query_batch: 'unavailable',
+          graph_query: 'unavailable',
+          graph_query_batch: 'unavailable',
         },
       }],
     })
@@ -144,10 +138,8 @@ describe('MCP network capabilities', () => {
           to_timestamp: '2026-05-20T00:00:00Z',
         },
         tools: {
-          topology_query: 'available',
-          topology_query_batch: 'available',
-          fact_query: 'available',
-          fact_query_batch: 'available',
+          graph_query: 'available',
+          graph_query_batch: 'available',
         },
       }],
     })
