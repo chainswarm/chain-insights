@@ -74,7 +74,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- [ ] Research and plan PuppyGraph as an archival Cypher fallback over StarRocks `facts_*_view` money-flow rollups. PuppyGraph documents StarRocks access through the MySQL-compatible JDBC path and openCypher/Bolt querying, so the spike should validate schema mapping, read-only `mcp_readonly` grants, query limits, and whether CIA should route archival topology questions to PuppyGraph when data has rolled out of Memgraph.
+None.
 
 ### Blockers/Concerns
 
@@ -86,7 +86,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| Graph Query | PuppyGraph archival Cypher fallback over StarRocks facts views | Pending task | 2026-05-21 |
 
 ## Session Continuity
 

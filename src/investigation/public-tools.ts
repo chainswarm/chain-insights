@@ -9,9 +9,7 @@ type RemoteToolResult = {
   isError?: boolean
 }
 
-type TopologyBackend = 'memgraph' | 'puppygraph'
-
-interface ParsedTopologyBatch {
+interface ParsedGraphBatch {
   facts?: {
     queries?: Array<{
       id?: string
@@ -19,17 +17,6 @@ interface ParsedTopologyBatch {
       results?: Array<Record<string, unknown>>
       error?: string
     }>
-  }
-}
-
-interface ParsedNetworkCapabilities {
-  facts?: {
-    capabilities?: {
-      networks?: Array<{
-        network?: string
-        layers?: Record<string, { backend?: string; enabled?: boolean }>
-      }>
-    }
   }
 }
 
@@ -60,53 +47,45 @@ function textFromToolResult(result: RemoteToolResult): string {
     .join('\n')
 }
 
-function parseTopologyBatchResult(result: RemoteToolResult): ParsedTopologyBatch {
+function parseGraphBatchResult(result: RemoteToolResult): ParsedGraphBatch {
   const text = textFromToolResult(result).trim()
-  if (!text) throw new Error('topology_query_batch returned no text content')
-  const parsed = JSON.parse(text) as ParsedTopologyBatch
-  if (!parsed.facts?.queries) throw new Error('topology_query_batch response did not include facts.queries')
+  if (!text) throw new Error('graph_query_batch returned no text content')
+  const parsed = JSON.parse(text) as ParsedGraphBatch
+  if (!parsed.facts?.queries) throw new Error('graph_query_batch response did not include facts.queries')
   return parsed
 }
 
-function parseNetworkCapabilitiesResult(result: RemoteToolResult): ParsedNetworkCapabilities {
-  const text = textFromToolResult(result).trim()
-  if (!text) throw new Error('network_capabilities returned no text content')
-  return JSON.parse(text) as ParsedNetworkCapabilities
+function topologyGraphQuery(query: string): string {
+  const trimmed = query.trim()
+  if (/^USE\s+/i.test(trimmed)) return trimmed
+  return `USE topology ${trimmed}`
 }
 
-async function topologyBackendFor(remoteClient: Client, network: string): Promise<TopologyBackend> {
-  const result = await remoteClient.callTool({
-    name: 'network_capabilities',
-    arguments: {},
-  }) as RemoteToolResult
-  if (result.isError) throw new Error(textFromToolResult(result) || 'network_capabilities failed')
-  const capabilities = parseNetworkCapabilitiesResult(result)
-  const networkCapabilities = capabilities.facts?.capabilities?.networks?.find((entry) => entry.network === network)
-  return networkCapabilities?.layers?.['topology']?.backend === 'puppygraph' ? 'puppygraph' : 'memgraph'
-}
-
-function resultsFor(batch: ParsedTopologyBatch, id: string): Array<Record<string, unknown>> {
+function resultsFor(batch: ParsedGraphBatch, id: string): Array<Record<string, unknown>> {
   const query = batch.facts?.queries?.find((entry) => entry.id === id)
   if (!query) return []
   if (query.ok === false) throw new Error(query.error || `Query failed: ${id}`)
   return query.results ?? []
 }
 
-async function callTopologyBatch(
+async function callGraphBatch(
   remoteClient: Client,
   network: string,
   queries: Array<{ id: string; query: string }>,
-): Promise<ParsedTopologyBatch> {
+): Promise<ParsedGraphBatch> {
   const result = await remoteClient.callTool({
-    name: 'topology_query_batch',
+    name: 'graph_query_batch',
     arguments: {
       network,
-      queries,
+      queries: queries.map((query) => ({
+        ...query,
+        query: topologyGraphQuery(query.query),
+      })),
       per_query_timeout_seconds: 10,
     },
   }) as RemoteToolResult
-  if (result.isError) throw new Error(textFromToolResult(result) || 'topology_query_batch failed')
-  return parseTopologyBatchResult(result)
+  if (result.isError) throw new Error(textFromToolResult(result) || 'graph_query_batch failed')
+  return parseGraphBatchResult(result)
 }
 
 function parseAddressList(value: string | string[] | undefined): string[] {
@@ -133,20 +112,7 @@ function addressProfileQuery(address: string): { id: string; query: string } {
   }
 }
 
-function exchangeOutflowsQuery(address: string, topologyBackend: TopologyBackend): { id: string; query: string } {
-  if (topologyBackend === 'puppygraph') {
-    return {
-      id: 'exchange_outflows',
-      query: [
-        'MATCH (a:Address), (exchange:Address)',
-        `WHERE a.address = "${escapeCypherString(address)}" AND exchange.is_exchange = 1`,
-        'MATCH p = shortestPath((a)-[:FLOWS_TO*1..3]->(exchange))',
-        'WHERE all(n IN nodes(p) WHERE n.address = a.address OR n.address = exchange.address OR coalesce(n.is_exchange, 0) <> 1)',
-        'RETURN "outflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, ["Address", "Exchange"] AS exchange_system_labels, exchange.address_type AS exchange_address_type, exchange.address_subtypes AS exchange_address_subtypes, "" AS deposit_address, length(p) AS hops, [n IN nodes(p) | n.address] AS path, [n IN nodes(p) | {address: n.address, labels: n.labels, system_labels: ["Address"], address_type: n.address_type, address_subtypes: n.address_subtypes}] AS path_nodes, [r IN relationships(p) | {amount_sum: r.amount_sum, amount_usd_sum: r.amount_usd_sum, tx_count: r.tx_count, first_tx_id: r.first_tx_id, last_tx_id: r.last_tx_id}] AS edge_props',
-        'LIMIT 200',
-      ].join(' '),
-    }
-  }
+function exchangeOutflowsQuery(address: string): { id: string; query: string } {
   return {
     id: 'exchange_outflows',
     query: [
@@ -161,20 +127,7 @@ function exchangeOutflowsQuery(address: string, topologyBackend: TopologyBackend
   }
 }
 
-function exchangeInflowsQuery(address: string, topologyBackend: TopologyBackend): { id: string; query: string } {
-  if (topologyBackend === 'puppygraph') {
-    return {
-      id: 'exchange_inflows',
-      query: [
-        'MATCH (exchange:Address), (a:Address)',
-        `WHERE a.address = "${escapeCypherString(address)}" AND exchange.is_exchange = 1`,
-        'MATCH p = shortestPath((exchange)-[:FLOWS_TO*1..3]->(a))',
-        'WHERE all(n IN nodes(p) WHERE n.address = a.address OR n.address = exchange.address OR coalesce(n.is_exchange, 0) <> 1)',
-        'RETURN "inflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, ["Address", "Exchange"] AS exchange_system_labels, exchange.address_type AS exchange_address_type, exchange.address_subtypes AS exchange_address_subtypes, "" AS withdrawal_address, length(p) AS hops, [n IN nodes(p) | n.address] AS path, [n IN nodes(p) | {address: n.address, labels: n.labels, system_labels: ["Address"], address_type: n.address_type, address_subtypes: n.address_subtypes}] AS path_nodes, [r IN relationships(p) | {amount_sum: r.amount_sum, amount_usd_sum: r.amount_usd_sum, tx_count: r.tx_count, first_tx_id: r.first_tx_id, last_tx_id: r.last_tx_id}] AS edge_props',
-        'LIMIT 200',
-      ].join(' '),
-    }
-  }
+function exchangeInflowsQuery(address: string): { id: string; query: string } {
   return {
     id: 'exchange_inflows',
     query: [
@@ -189,18 +142,7 @@ function exchangeInflowsQuery(address: string, topologyBackend: TopologyBackend)
   }
 }
 
-function connectionProbeQuery(address: string, compareAddress: string, topologyBackend: TopologyBackend): { id: string; query: string } {
-  if (topologyBackend === 'puppygraph') {
-    return {
-      id: 'connection_probe',
-      query: [
-        `MATCH (a:Address), (b:Address) WHERE a.address = "${escapeCypherString(address)}" AND b.address = "${escapeCypherString(compareAddress)}"`,
-        'MATCH p = shortestPath((a)-[:FLOWS_TO*1..5]-(b))',
-        'RETURN [n IN nodes(p) | n.address] AS path, length(p) AS hops',
-        'LIMIT 5',
-      ].join(' '),
-    }
-  }
+function connectionProbeQuery(address: string, compareAddress: string): { id: string; query: string } {
   return {
     id: 'connection_probe',
     query: [
@@ -425,14 +367,13 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   if (!address) throw new Error('address is required')
   if (!network) throw new Error('network is required')
 
-  const topologyBackend = await topologyBackendFor(remoteClient, network)
   const queries = [
     addressProfileQuery(address),
-    exchangeOutflowsQuery(address, topologyBackend),
-    exchangeInflowsQuery(address, topologyBackend),
-    ...(compareAddress ? [connectionProbeQuery(address, compareAddress, topologyBackend)] : [{ id: 'connection_probe', query: 'RETURN [] AS path LIMIT 0' }]),
+    exchangeOutflowsQuery(address),
+    exchangeInflowsQuery(address),
+    ...(compareAddress ? [connectionProbeQuery(address, compareAddress)] : [{ id: 'connection_probe', query: 'RETURN [] AS path LIMIT 0' }]),
   ]
-  const batch = await callTopologyBatch(remoteClient, network, queries)
+  const batch = await callGraphBatch(remoteClient, network, queries)
   const profile = resultsFor(batch, 'address_profile')[0] ?? { address }
   const outflows = enrichExchangeRows(resultsFor(batch, 'exchange_outflows'))
   const inflows = enrichExchangeRows(resultsFor(batch, 'exchange_inflows'))

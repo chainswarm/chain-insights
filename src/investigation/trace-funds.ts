@@ -11,8 +11,6 @@ type RemoteToolResult = {
   isError?: boolean
 }
 
-type TopologyBackend = 'memgraph' | 'puppygraph'
-
 export interface TraceFundsOptions {
   seedAddress: string
   network: string
@@ -144,7 +142,7 @@ class AliasTracker {
   }
 }
 
-interface ParsedTopologyBatch {
+interface ParsedGraphBatch {
   facts?: {
     queries?: Array<{
       id?: string
@@ -152,17 +150,6 @@ interface ParsedTopologyBatch {
       results?: Array<Record<string, unknown>>
       error?: string
     }>
-  }
-}
-
-interface ParsedNetworkCapabilities {
-  facts?: {
-    capabilities?: {
-      networks?: Array<{
-        network?: string
-        layers?: Record<string, { backend?: string; enabled?: boolean }>
-      }>
-    }
   }
 }
 
@@ -174,25 +161,6 @@ const SCHEMA_QUERY_SET = [
   {
     id: 'relationship_types',
     query: 'MATCH ()-[r]->() RETURN type(r) AS relationship_type, count(*) AS count ORDER BY count DESC LIMIT 100',
-  },
-  {
-    id: 'address_property_keys',
-    query: 'MATCH (n:Address) WITH keys(n) AS keys LIMIT 1000 UNWIND keys AS property_key RETURN property_key, count(*) AS sample_count ORDER BY sample_count DESC, property_key LIMIT 200',
-  },
-  {
-    id: 'flows_to_property_keys',
-    query: 'MATCH ()-[r:FLOWS_TO]->() WITH keys(r) AS keys LIMIT 1000 UNWIND keys AS property_key RETURN property_key, count(*) AS sample_count ORDER BY sample_count DESC, property_key LIMIT 200',
-  },
-]
-
-const PUPPYGRAPH_SCHEMA_QUERY_SET = [
-  {
-    id: 'node_labels',
-    query: 'MATCH (n:Address) RETURN "Address" AS label, count(n) AS count LIMIT 100',
-  },
-  {
-    id: 'relationship_types',
-    query: 'MATCH ()-[r:FLOWS_TO]->() RETURN "FLOWS_TO" AS relationship_type, count(r) AS count UNION ALL MATCH ()-[r:FLOWS_TO_ROLLUP]->() RETURN "FLOWS_TO_ROLLUP" AS relationship_type, count(r) AS count',
   },
   {
     id: 'address_property_keys',
@@ -233,62 +201,52 @@ function textFromToolResult(result: RemoteToolResult): string {
     .join('\n')
 }
 
-function parseTopologyBatchResult(result: RemoteToolResult): ParsedTopologyBatch {
+function parseGraphBatchResult(result: RemoteToolResult): ParsedGraphBatch {
   const text = textFromToolResult(result).trim()
-  if (!text) throw new Error('topology_query_batch returned no text content')
-  const parsed = JSON.parse(text) as ParsedTopologyBatch
-  if (!parsed.facts?.queries) throw new Error('topology_query_batch response did not include facts.queries')
+  if (!text) throw new Error('graph_query_batch returned no text content')
+  const parsed = JSON.parse(text) as ParsedGraphBatch
+  if (!parsed.facts?.queries) throw new Error('graph_query_batch response did not include facts.queries')
   return parsed
 }
 
-function parseNetworkCapabilitiesResult(result: RemoteToolResult): ParsedNetworkCapabilities {
-  const text = textFromToolResult(result).trim()
-  if (!text) throw new Error('network_capabilities returned no text content')
-  return JSON.parse(text) as ParsedNetworkCapabilities
+function topologyGraphQuery(query: string): string {
+  const trimmed = query.trim()
+  if (/^USE\s+/i.test(trimmed)) return trimmed
+  return `USE topology ${trimmed}`
 }
 
-async function topologyBackendFor(remoteClient: Client, network: string): Promise<TopologyBackend> {
-  const result = await remoteClient.callTool({
-    name: 'network_capabilities',
-    arguments: {},
-  }) as RemoteToolResult
-  if (result.isError) throw new Error(textFromToolResult(result) || 'network_capabilities failed')
-  const capabilities = parseNetworkCapabilitiesResult(result)
-  const networkCapabilities = capabilities.facts?.capabilities?.networks?.find((entry) => entry.network === network)
-  const backend = networkCapabilities?.layers?.['topology']?.backend
-  if (backend === 'puppygraph') return 'puppygraph'
-  return 'memgraph'
-}
-
-async function callTopologyBatch(
+async function callGraphBatch(
   remoteClient: Client,
   network: string,
   queries: Array<{ id: string; query: string }>,
-): Promise<ParsedTopologyBatch> {
+): Promise<ParsedGraphBatch> {
   const result = await remoteClient.callTool({
-    name: 'topology_query_batch',
+    name: 'graph_query_batch',
     arguments: {
       network,
-      queries,
+      queries: queries.map((query) => ({
+        ...query,
+        query: topologyGraphQuery(query.query),
+      })),
       per_query_timeout_seconds: 10,
     },
   }) as RemoteToolResult
-  if (result.isError) throw new Error(textFromToolResult(result) || 'topology_query_batch failed')
-  return parseTopologyBatchResult(result)
+  if (result.isError) throw new Error(textFromToolResult(result) || 'graph_query_batch failed')
+  return parseGraphBatchResult(result)
 }
 
-function resultsFor(batch: ParsedTopologyBatch, id: string): Array<Record<string, unknown>> {
+function resultsFor(batch: ParsedGraphBatch, id: string): Array<Record<string, unknown>> {
   const query = batch.facts?.queries?.find((entry) => entry.id === id)
   if (!query) return []
   if (query.ok === false) throw new Error(query.error || `Query failed: ${id}`)
   return query.results ?? []
 }
 
-function schemaFromTopologyBatch(network: string, batch: ParsedTopologyBatch): Record<string, unknown> {
+function schemaFromGraphBatch(network: string, batch: ParsedGraphBatch): Record<string, unknown> {
   return {
     schema: 'chain-insights.runtime_graph_schema.v1',
     network,
-    source: 'topology_query_batch',
+    source: 'graph_query_batch',
     node_labels: resultsFor(batch, 'node_labels'),
     relationship_types: resultsFor(batch, 'relationship_types'),
     address_property_keys: resultsFor(batch, 'address_property_keys').map((row) => row['property_key']),
@@ -312,21 +270,20 @@ async function loadOrCaptureTopologySchema(
   remoteClient: Client,
   paths: WorkspaceOutputPaths,
   network: string,
-  topologyBackend: TopologyBackend,
 ): Promise<{ schema: Record<string, unknown>; filePath: string }> {
-  const filePath = path.join(paths.schemaDir, `${sanitizeSegment(network)}.${topologyBackend}.graph-schema.json`)
+  const filePath = path.join(paths.schemaDir, `${sanitizeSegment(network)}.graph-schema.json`)
   try {
     return { schema: JSON.parse(await readFile(filePath, 'utf8')) as Record<string, unknown>, filePath }
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
   }
 
-  const batch = await callTopologyBatch(
+  const batch = await callGraphBatch(
     remoteClient,
     network,
-    topologyBackend === 'puppygraph' ? PUPPYGRAPH_SCHEMA_QUERY_SET : SCHEMA_QUERY_SET,
+    SCHEMA_QUERY_SET,
   )
-  const schema = schemaFromTopologyBatch(network, batch)
+  const schema = schemaFromGraphBatch(network, batch)
   await writeFile(filePath, JSON.stringify(schema, null, 2) + '\n', { mode: 0o600 })
   return { schema, filePath }
 }
@@ -347,70 +304,6 @@ function forwardExchangeQuery(address: string, limit: number, minAmountSum: numb
   }
 }
 
-function puppyEdgeFilter(edgeAlias: string, minAmountSum = 0): string {
-  const amountFilter = minAmountSum > 0 ? ` AND ${edgeAlias}.amount_sum >= ${minAmountSum}` : ''
-  return `${edgeAlias}.period_granularity = "current" AND ${edgeAlias}.amount_sum IS NOT NULL${amountFilter}`
-}
-
-function puppyDistinctNodeFilters(nodeAliases: string[]): string[] {
-  const filters: string[] = []
-  for (let left = 0; left < nodeAliases.length; left += 1) {
-    for (let right = left + 1; right < nodeAliases.length; right += 1) {
-      filters.push(`${nodeAliases[left]}.address <> ${nodeAliases[right]}.address`)
-    }
-  }
-  return filters
-}
-
-function puppyNodeMetadataExpression(nodeAlias: string, systemLabels: string): string {
-  return `{address: ${nodeAlias}.address, labels: ${nodeAlias}.labels, system_labels: ${systemLabels}, address_type: ${nodeAlias}.address_type, address_subtypes: ${nodeAlias}.address_subtypes}`
-}
-
-function puppyEdgeMetadataExpression(edgeAlias: string): string {
-  return `{amount_sum: ${edgeAlias}.amount_sum, amount_usd_sum: ${edgeAlias}.amount_usd_sum, tx_count: ${edgeAlias}.tx_count, first_tx_id: ${edgeAlias}.first_tx_id, last_tx_id: ${edgeAlias}.last_tx_id}`
-}
-
-function puppyForwardExchangeSubquery(address: string, minAmountSum: number, hops: number): string {
-  const nodeAliases = Array.from({ length: hops + 1 }, (_, index) => `n${index}`)
-  const edgeAliases = Array.from({ length: hops }, (_, index) => `r${index}`)
-  const pattern = [
-    `(n0:Address {address: "${escapeCypherString(address)}"})`,
-    ...edgeAliases.flatMap((edgeAlias, index) => [`-[${edgeAlias}:FLOWS_TO]->`, `(${nodeAliases[index + 1]}:Address)`]),
-  ].join('')
-  const terminal = nodeAliases[hops]!
-  const deposit = nodeAliases[hops - 1]!
-  const filters = [
-    ...edgeAliases.map((edgeAlias) => puppyEdgeFilter(edgeAlias, minAmountSum)),
-    `${terminal}.is_exchange = 1`,
-    ...nodeAliases.slice(1, -1).map((nodeAlias) => `coalesce(${nodeAlias}.is_exchange, 0) <> 1`),
-    ...puppyDistinctNodeFilters(nodeAliases),
-  ]
-  const nodeLabels = nodeAliases.map((_, index) => (index === hops ? '["Address", "Exchange"]' : '["Address"]')).join(', ')
-  const pathNodes = nodeAliases
-    .map((nodeAlias, index) => puppyNodeMetadataExpression(nodeAlias, index === hops ? '["Address", "Exchange"]' : '["Address"]'))
-    .join(', ')
-  return [
-    `MATCH ${pattern}`,
-    `WHERE ${filters.join(' AND ')}`,
-    `RETURN [${nodeAliases.map((nodeAlias) => `${nodeAlias}.address`).join(', ')}] AS addresses, [${nodeLabels}] AS node_labels, [${pathNodes}] AS path_nodes, [${edgeAliases.map(puppyEdgeMetadataExpression).join(', ')}] AS edge_props, ${terminal}.address AS exchange_address, ${terminal}.labels AS exchange_display_labels, ["Address", "Exchange"] AS exchange_labels, ${terminal}.address_type AS exchange_address_type, ${terminal}.address_subtypes AS exchange_address_subtypes, ${deposit}.address AS deposit_address, ${hops} AS hops`,
-  ].join(' ')
-}
-
-function puppyForwardExchangeQuery(address: string, limit: number, minAmountSum: number, maxHops: number): { id: string; query: string } {
-  void minAmountSum
-  return {
-    id: 'forward_exchange_paths',
-    query: [
-      'MATCH (s:Address), (t:Address)',
-      `WHERE s.address = "${escapeCypherString(address)}" AND t.is_exchange = 1`,
-      `MATCH p = shortestPath((s)-[:FLOWS_TO*1..${maxHops}]->(t))`,
-      'WHERE all(n IN nodes(p) WHERE n.address = s.address OR n.address = t.address OR coalesce(n.is_exchange, 0) <> 1)',
-      'RETURN [n IN nodes(p) | n.address] AS addresses, [] AS node_labels, [n IN nodes(p) | {address: n.address, labels: n.labels, system_labels: ["Address"], address_type: n.address_type, address_subtypes: n.address_subtypes}] AS path_nodes, [r IN relationships(p) | {amount_sum: r.amount_sum, amount_usd_sum: r.amount_usd_sum, tx_count: r.tx_count, first_tx_id: r.first_tx_id, last_tx_id: r.last_tx_id}] AS edge_props, t.address AS exchange_address, t.labels AS exchange_display_labels, ["Address", "Exchange"] AS exchange_labels, t.address_type AS exchange_address_type, t.address_subtypes AS exchange_address_subtypes, "" AS deposit_address, length(p) AS hops',
-      `LIMIT ${limit}`,
-    ].join(' '),
-  }
-}
-
 function backwardSourceQuery(id: string, depositAddress: string): { id: string; query: string } {
   return {
     id,
@@ -424,71 +317,8 @@ function backwardSourceQuery(id: string, depositAddress: string): { id: string; 
   }
 }
 
-function puppyBackwardSourceSubquery(depositAddress: string, hops: number): string {
-  const intermediateAliases = Array.from({ length: Math.max(0, hops - 1) }, (_, index) => `m${index + 1}`)
-  const edgeAliases = Array.from({ length: hops }, (_, index) => `r${index}`)
-  const sourceToDepositNodes = ['source', ...intermediateAliases, 'dep']
-  const pattern = [
-    '(source:Address)',
-    ...edgeAliases.flatMap((edgeAlias, index) => {
-      const nextNode = sourceToDepositNodes[index + 1]!
-      const nodePattern = nextNode === 'dep'
-        ? `(dep:Address {address: "${escapeCypherString(depositAddress)}"})`
-        : `(${nextNode}:Address)`
-      return [`-[${edgeAlias}:FLOWS_TO]->`, nodePattern]
-    }),
-  ].join('')
-  const depToSourceNodes = [...sourceToDepositNodes].reverse()
-  const filters = [
-    'source.is_exchange = 1',
-    ...intermediateAliases.map((nodeAlias) => `coalesce(${nodeAlias}.is_exchange, 0) <> 1`),
-    ...edgeAliases.map((edgeAlias) => puppyEdgeFilter(edgeAlias)),
-    ...puppyDistinctNodeFilters(sourceToDepositNodes),
-  ]
-  const nodeLabels = depToSourceNodes.map((nodeAlias) => (nodeAlias === 'source' ? '["Address", "Exchange"]' : '["Address"]')).join(', ')
-  const pathNodes = depToSourceNodes
-    .map((nodeAlias) => puppyNodeMetadataExpression(nodeAlias, nodeAlias === 'source' ? '["Address", "Exchange"]' : '["Address"]'))
-    .join(', ')
-  return [
-    `MATCH ${pattern}`,
-    `WHERE ${filters.join(' AND ')}`,
-    `RETURN dep.address AS deposit_address, source.address AS source_exchange, source.labels AS source_display_labels, ["Address", "Exchange"] AS source_labels, source.address_type AS source_address_type, source.address_subtypes AS source_address_subtypes, ${hops} AS hops, [${depToSourceNodes.map((nodeAlias) => `${nodeAlias}.address`).join(', ')}] AS addresses, [${nodeLabels}] AS node_labels, [${pathNodes}] AS path_nodes`,
-  ].join(' ')
-}
-
-function puppyBackwardSourceQuery(id: string, depositAddress: string, maxHops: number): { id: string; query: string } {
-  return {
-    id,
-    query: [
-      'MATCH (dep:Address), (source:Address)',
-      `WHERE dep.address = "${escapeCypherString(depositAddress)}" AND source.is_exchange = 1`,
-      `MATCH path = shortestPath((dep)<-[:FLOWS_TO*1..${maxHops}]-(source))`,
-      'WHERE all(n IN nodes(path) WHERE n.address = dep.address OR n.address = source.address OR coalesce(n.is_exchange, 0) <> 1)',
-      'RETURN dep.address AS deposit_address, source.address AS source_exchange, source.labels AS source_display_labels, ["Address", "Exchange"] AS source_labels, source.address_type AS source_address_type, source.address_subtypes AS source_address_subtypes, length(path) AS hops, [n IN nodes(path) | n.address] AS addresses, [] AS node_labels, [n IN nodes(path) | {address: n.address, labels: n.labels, system_labels: ["Address"], address_type: n.address_type, address_subtypes: n.address_subtypes}] AS path_nodes',
-      'LIMIT 20',
-    ].join(' '),
-  }
-}
-
-function reverseLeadsQuery(depositAddresses: string[], topologyBackend: TopologyBackend): { id: string; query: string } {
+function reverseLeadsQuery(depositAddresses: string[]): { id: string; query: string } {
   const addrList = depositAddresses.map((address) => `"${escapeCypherString(address)}"`).join(', ')
-  if (topologyBackend === 'puppygraph') {
-    return {
-      id: 'reverse_1hop',
-      query: [
-        `UNWIND [${addrList}] AS dep_addr`,
-        'MATCH (sender:Address)-[r:FLOWS_TO]->(deposit:Address {address: dep_addr})',
-        'WHERE r.period_granularity = "current" AND coalesce(sender.is_exchange, 0) <> 1 AND sender.address <> dep_addr',
-        'WITH DISTINCT sender, dep_addr, r',
-        'OPTIONAL MATCH (inbound:Address)-[:FLOWS_TO]->(sender)',
-        'WITH sender, dep_addr, r, count(inbound) AS degree_in',
-        'OPTIONAL MATCH (sender)-[:FLOWS_TO]->(outbound:Address)',
-        'RETURN sender.address AS address, sender.labels AS display_labels, ["Address"] AS system_labels, sender.address_type AS address_type, sender.address_subtypes AS address_subtypes, degree_in AS degree_in, count(outbound) AS degree_out, 0 AS total_volume_usd, dep_addr AS deposit_address, r.amount_usd_sum AS amount_usd',
-        'ORDER BY r.amount_usd_sum DESC',
-        `LIMIT ${Math.max(50, depositAddresses.length * 50)}`,
-      ].join(' '),
-    }
-  }
   return {
     id: 'reverse_1hop',
     query: [
@@ -506,18 +336,17 @@ function edgeKey(src: string, dst: string): string {
   return `${src}\u0000${dst}`
 }
 
-function directEdgePropsQuery(flows: TraceFlow[], topologyBackend: TopologyBackend): { id: string; query: string } | null {
+function directEdgePropsQuery(flows: TraceFlow[]): { id: string; query: string } | null {
   const pairs = [...new Map(flows.map((flow) => [edgeKey(flow.src, flow.dst), { src: flow.src, dst: flow.dst }])).values()]
   if (pairs.length === 0) return null
   const predicates = pairs.map((pair) =>
     `(a.address = "${escapeCypherString(pair.src)}" AND b.address = "${escapeCypherString(pair.dst)}")`
   )
-  const currentFilter = topologyBackend === 'puppygraph' ? ' AND r.period_granularity = "current"' : ''
   return {
     id: 'direct_edge_props',
     query: [
       'MATCH (a:Address)-[r:FLOWS_TO]->(b:Address)',
-      `WHERE (${predicates.join(' OR ')})${currentFilter}`,
+      `WHERE (${predicates.join(' OR ')})`,
       'RETURN a.address AS src, b.address AS dst, r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count, r.first_tx_id AS first_tx_id, r.last_tx_id AS last_tx_id',
       `LIMIT ${pairs.length}`,
     ].join(' '),
@@ -646,11 +475,11 @@ function flowsFromForwardRows(rows: Array<Record<string, unknown>>): { flows: Tr
   return { flows, deposits }
 }
 
-async function hydrateDirectEdgeProps(remoteClient: Client, network: string, topologyBackend: TopologyBackend, flows: TraceFlow[], deposits: TraceDeposit[]): Promise<void> {
-  const query = directEdgePropsQuery(flows, topologyBackend)
+async function hydrateDirectEdgeProps(remoteClient: Client, network: string, flows: TraceFlow[], deposits: TraceDeposit[]): Promise<void> {
+  const query = directEdgePropsQuery(flows)
   if (!query) return
 
-  const batch = await callTopologyBatch(remoteClient, network, [query])
+  const batch = await callGraphBatch(remoteClient, network, [query])
   const edgeProps = new Map<string, Record<string, unknown>>()
   for (const row of resultsFor(batch, 'direct_edge_props')) {
     const src = typeof row['src'] === 'string' ? row['src'] : ''
@@ -680,28 +509,21 @@ async function hydrateDirectEdgeProps(remoteClient: Client, network: string, top
 async function collectProbeTrace(
   remoteClient: Client,
   options: Required<Pick<TraceFundsOptions, 'seedAddress' | 'network' | 'maxHops' | 'perAddressLimit' | 'minAmountSum'>>,
-  topologyBackend: TopologyBackend,
 ): Promise<{ flows: TraceFlow[]; deposits: TraceDeposit[]; sourceMatches: SourceMatch[]; reverseLeads: ReverseLead[] }> {
-  const forwardBatch = await callTopologyBatch(remoteClient, options.network, [
-    topologyBackend === 'puppygraph'
-      ? puppyForwardExchangeQuery(options.seedAddress, Math.max(options.perAddressLimit * 20, 200), options.minAmountSum, options.maxHops)
-      : forwardExchangeQuery(options.seedAddress, Math.max(options.perAddressLimit * 20, 200), options.minAmountSum, options.maxHops),
+  const forwardBatch = await callGraphBatch(remoteClient, options.network, [
+    forwardExchangeQuery(options.seedAddress, Math.max(options.perAddressLimit * 20, 200), options.minAmountSum, options.maxHops),
   ])
   const forwardRows = rowsMatchingMinimumAmount(resultsFor(forwardBatch, 'forward_exchange_paths'), options.minAmountSum)
   const { flows, deposits } = flowsFromForwardRows(forwardRows)
-  await hydrateDirectEdgeProps(remoteClient, options.network, topologyBackend, flows, deposits)
+  await hydrateDirectEdgeProps(remoteClient, options.network, flows, deposits)
   const uniqueDepositAddresses = [...new Set(deposits.map((deposit) => deposit.address))]
 
   const sourceMatches: SourceMatch[] = []
   if (uniqueDepositAddresses.length > 0) {
-    const backwardBatch = await callTopologyBatch(
+    const backwardBatch = await callGraphBatch(
       remoteClient,
       options.network,
-      uniqueDepositAddresses.slice(0, 20).map((address, index) => (
-        topologyBackend === 'puppygraph'
-          ? puppyBackwardSourceQuery(`backward_from_deposit_${index + 1}`, address, options.maxHops)
-          : backwardSourceQuery(`backward_from_deposit_${index + 1}`, address)
-      )),
+      uniqueDepositAddresses.slice(0, 20).map((address, index) => backwardSourceQuery(`backward_from_deposit_${index + 1}`, address)),
     )
     for (const query of backwardBatch.facts?.queries ?? []) {
       for (const row of query.results ?? []) {
@@ -734,7 +556,7 @@ async function collectProbeTrace(
 
   const reverseLeads: ReverseLead[] = []
   if (uniqueDepositAddresses.length > 0) {
-    const reverseBatch = await callTopologyBatch(remoteClient, options.network, [reverseLeadsQuery(uniqueDepositAddresses, topologyBackend)])
+    const reverseBatch = await callGraphBatch(remoteClient, options.network, [reverseLeadsQuery(uniqueDepositAddresses)])
     for (const row of resultsFor(reverseBatch, 'reverse_1hop')) {
       const address = typeof row['address'] === 'string' ? row['address'] : ''
       const depositAddress = typeof row['deposit_address'] === 'string' ? row['deposit_address'] : ''
@@ -1156,9 +978,8 @@ export async function runFundFlowProbe(
   const paths = workspaceOutputPaths()
   await ensureDirs(paths)
 
-  const topologyBackend = await topologyBackendFor(remoteClient, network)
-  const schemaResult = await loadOrCaptureTopologySchema(remoteClient, paths, network, topologyBackend)
-  const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, { seedAddress, network, maxHops, perAddressLimit, minAmountSum }, topologyBackend)
+  const schemaResult = await loadOrCaptureTopologySchema(remoteClient, paths, network)
+  const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, { seedAddress, network, maxHops, perAddressLimit, minAmountSum })
   const aliases = buildAliases(seedAddress, deposits, sourceMatches, reverseLeads)
   const slug = `${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}_${sanitizeSegment(seedAddress.slice(0, 16))}`
   const compact = probeEvidence(seedAddress, network, schemaResult.filePath, aliases, flows, deposits, sourceMatches, reverseLeads)

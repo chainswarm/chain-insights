@@ -86,8 +86,8 @@ describe('MCP schema cache (MCP-02)', () => {
   it('saveSchema(tools, endpoint) scopes the cache to that endpoint', async () => {
     const { saveSchema, loadSchema } = await import('../src/mcp/schema-cache.js')
     const tools = [
-      { name: 'topology_query' },
-      { name: 'topology_query_batch' },
+      { name: 'graph_query' },
+      { name: 'graph_query_batch' },
     ]
     await saveSchema(tools, 'http://localhost:8012/mcp')
 

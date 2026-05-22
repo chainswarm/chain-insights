@@ -122,11 +122,24 @@ Before the first investigation query, capture the live graph schema into:
 .chain-insights/schema/<network>.graph-schema.json
 \`\`\`
 
+Use \`graph_query_batch\` for schema capture. Prefix topology reads with
+\`USE topology\` and fact reads with \`USE facts\`, for example:
+
+\`\`\`bash
+cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE topology MATCH (n) UNWIND labels(n) AS label RETURN label, count(*) AS count ORDER BY count DESC LIMIT 100"},{"id":"archive_flow_edge_keys","query":"USE facts MATCH (:Address)-[f:FLOWS_TO]->(:Address) WITH keys(f) AS keys LIMIT 1000 UNWIND keys AS property_key RETURN property_key, count(*) AS sample_count ORDER BY sample_count DESC, property_key LIMIT 200"}]'
+\`\`\`
+
 Then update this file with observed labels, relationship types, and allowed
 property names for the active network.
 
 Rules:
 
+- Prefer \`graph_query\` and \`graph_query_batch\` for graph-language reads.
+- Use \`USE topology\` for Memgraph topology and \`USE facts\` for StarRocks
+  fact labels such as \`Address\`, \`AddressFeatureFact\`, \`RiskScoreFact\`,
+  and \`AssetFact\`. Archived money-flow topology is exposed as
+  \`(:Address)-[:FLOWS_TO]->(:Address)\` with \`period_granularity\`,
+  \`period_start_date\`, and \`period_end_date\` on the relationship.
 - Preserve source schema field names in evidence and generated data files.
 - Do not rename, reinterpret, or add unit labels to graph fields unless the
   schema or query result explicitly supports that interpretation.

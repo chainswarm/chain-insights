@@ -191,7 +191,7 @@ const highLevelFile = process.argv[3]
 const data = JSON.parse(fs.readFileSync(file, 'utf8'))
 const tools = data.tools || []
 const names = new Set(tools.map((tool) => tool.name))
-const required = ['topology_query', 'topology_query_batch', 'fact_query', 'fact_query_batch']
+const required = ['network_capabilities', 'graph_query', 'graph_query_batch']
 const missing = required.filter((name) => !names.has(name))
 if (missing.length) throw new Error(`direct tools/list missing tools: ${missing.join(', ')}`)
 if (JSON.stringify(tools).includes('app_data')) throw new Error('direct tools/list still contains app_data')
@@ -257,10 +257,10 @@ const file = process.argv[2]
 const data = JSON.parse(fs.readFileSync(file, 'utf8'))
 const tools = data.tools || []
 const names = new Set(tools.map((tool) => tool.name))
-const required = ['balance', 'help', 'address_risk', 'track_funds', 'topology_query', 'topology_query_batch', 'fact_query', 'fact_query_batch']
+const required = ['balance', 'help', 'address_risk', 'track_funds', 'network_capabilities', 'graph_query', 'graph_query_batch']
 const missing = required.filter((name) => !names.has(name))
 if (missing.length) throw new Error(`proxy tools/list missing tools: ${missing.join(', ')}`)
-for (const hidden of ['topup', 'trace_funds', 'money_flows_between_exchanges', 'address_connection_risk', 'graph_query', 'graph_query_batch']) {
+for (const hidden of ['topup', 'trace_funds', 'money_flows_between_exchanges', 'address_connection_risk']) {
   if (names.has(hidden)) throw new Error(`proxy tools/list exposed hidden tool: ${hidden}`)
 }
 if (JSON.stringify(tools).includes('app_data')) throw new Error('proxy tools/list still contains app_data')
@@ -329,13 +329,13 @@ if (errors.length) throw new Error(errors.join('; '))
 console.log(`[uat] graph report ok: nodes=${data.nodes.length} edges=${data.edges.length} flows=${data.flows.length} edge_anchors=${data.edge_anchors.length}`)
 NODE
 
-GRAPH_QUERY_TEXT="${RUN_DIR}/topology-query-address.txt"
-log "calling Chain Insights CLI topology_query against real MCP"
+GRAPH_QUERY_TEXT="${RUN_DIR}/graph-query-address.txt"
+log "calling Chain Insights CLI graph_query against real MCP"
 (
   cd "${WORKSPACE_ROOT}"
-  node "${CHAIN_INSIGHTS_CLI}" mcp call topology_query \
+  node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
     "network=${NETWORK}" \
-    "query=MATCH (n) WHERE n.address = '${UAT_ADDRESS}' RETURN labels(n) AS labels, n.address AS address LIMIT 1"
+    "query=USE topology MATCH (n) WHERE n.address = '${UAT_ADDRESS}' RETURN labels(n) AS labels, n.address AS address LIMIT 1"
 ) >"${GRAPH_QUERY_TEXT}"
 
 node - "${GRAPH_QUERY_TEXT}" "${UAT_ADDRESS}" <<'NODE'
@@ -346,9 +346,9 @@ const text = fs.readFileSync(file, 'utf8').trim()
 const data = JSON.parse(text)
 const first = data.facts?.query?.results?.[0] || data.results?.[0]
 if (!first || first.address !== address) {
-  throw new Error(`topology_query did not return expected address ${address}`)
+  throw new Error(`graph_query did not return expected address ${address}`)
 }
-console.log(`[uat] topology_query ok: ${first.address}`)
+console.log(`[uat] graph_query ok: ${first.address}`)
 NODE
 
 SUMMARY="${RUN_DIR}/summary.txt"
