@@ -202,7 +202,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 }));
 program.command("init").description("Initialize an investigation workspace").argument("[dir]", "Workspace directory to initialize", ".").option("--force", "Overwrite existing workspace files").action(async (dir, opts) => {
 	try {
-		const { initWorkspace } = await import("./init-BpZR9lQo.mjs");
+		const { initWorkspace } = await import("./init-BmU3Sb28.mjs");
 		const result = await initWorkspace({
 			targetDir: dir,
 			force: opts.force
@@ -365,7 +365,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { addressRisk } = await import("./public-tools-7myJCH3N.mjs");
+			const { addressRisk } = await import("./public-tools-BtHKVzvE.mjs");
 			const result = await addressRisk(client, {
 				address: opts.address,
 				network: opts.network,
@@ -393,7 +393,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { trackFunds } = await import("./public-tools-7myJCH3N.mjs");
+			const { trackFunds } = await import("./public-tools-BtHKVzvE.mjs");
 			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
 			const result = await trackFunds(client, config, {
 				trustedAddresses: opts.trustedAddresses,
@@ -419,7 +419,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		assertPublicMcpToolName(tool);
 		await withGraphMcpClient("chain-insights-cli-call", async (client, config) => {
 			if (tool === "address_risk") {
-				const { addressRisk } = await import("./public-tools-7myJCH3N.mjs");
+				const { addressRisk } = await import("./public-tools-BtHKVzvE.mjs");
 				const result = await addressRisk(client, {
 					address: String(args["address"] ?? ""),
 					network: String(args["network"] ?? ""),
@@ -429,7 +429,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "track_funds") {
-				const { trackFunds } = await import("./public-tools-7myJCH3N.mjs");
+				const { trackFunds } = await import("./public-tools-BtHKVzvE.mjs");
 				const result = await trackFunds(client, config, {
 					trustedAddresses: args["trusted_addresses"] ?? "",
 					untrustedAddresses: args["untrusted_addresses"],

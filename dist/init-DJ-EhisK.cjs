@@ -1,5 +1,7 @@
-import path from "node:path";
-import { mkdir, writeFile } from "node:fs/promises";
+const require_chunk = require("./chunk-CZWwpsFl.cjs");
+let node_path = require("node:path");
+node_path = require_chunk.__toESM(node_path, 1);
+let node_fs_promises = require("node:fs/promises");
 //#region src/workspace/init.ts
 const WORKSPACE_DIRS = [
 	".chain-insights",
@@ -105,11 +107,12 @@ Before the first investigation query, capture the live graph schema into:
 .chain-insights/schema/<network>.graph-schema.json
 \`\`\`
 
-Use \`graph_query_batch\` for schema capture. Prefix topology reads with
-\`USE topology\` and fact reads with \`USE facts\`, for example:
+Use \`graph_query_batch\` for schema capture. Prefix current topology reads
+with \`USE live_topology\`, historical topology reads with
+\`USE archive_topology\`, and fact reads with \`USE facts\`, for example:
 
 \`\`\`bash
-cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE topology MATCH (n) UNWIND labels(n) AS label RETURN label, count(*) AS count ORDER BY count DESC LIMIT 100"},{"id":"archive_flow_edge_keys","query":"USE facts MATCH (:Address)-[f:FLOWS_TO]->(:Address) WITH keys(f) AS keys LIMIT 1000 UNWIND keys AS property_key RETURN property_key, count(*) AS sample_count ORDER BY sample_count DESC, property_key LIMIT 200"}]'
+cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE live_topology MATCH (n:Address) RETURN \"Address\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.period_granularity AS granularity, f.amount_sum AS amount_sum LIMIT 20"}]'
 \`\`\`
 
 Then update this file with observed labels, relationship types, and allowed
@@ -118,9 +121,10 @@ property names for the active network.
 Rules:
 
 - Prefer \`graph_query\` and \`graph_query_batch\` for graph-language reads.
-- Use \`USE topology\` for Memgraph topology and \`USE facts\` for StarRocks
-  fact labels such as \`Address\`, \`AddressFeatureFact\`, \`RiskScoreFact\`,
-  and \`AssetFact\`. Archived money-flow topology is exposed as
+- Use \`USE live_topology\` for Memgraph RAM topology, \`USE archive_topology\`
+  for StarRocks historical topology, and \`USE facts\` for StarRocks fact
+  labels such as \`AddressLabelFact\`, \`AddressFeatureFact\`,
+  \`RiskScoreFact\`, and \`AssetFact\`. Archived money-flow topology is exposed as
   \`(:Address)-[:FLOWS_TO]->(:Address)\` with \`period_granularity\`,
   \`period_start_date\`, and \`period_end_date\` on the relationship.
 - Preserve source schema field names in evidence and generated data files.
@@ -160,14 +164,14 @@ function workspaceFiles(workspaceRoot) {
 	];
 }
 async function initWorkspace(options) {
-	const workspaceRoot = path.resolve(options.targetDir);
-	for (const dir of WORKSPACE_DIRS) await mkdir(path.join(workspaceRoot, dir), { recursive: true });
+	const workspaceRoot = node_path.default.resolve(options.targetDir);
+	for (const dir of WORKSPACE_DIRS) await (0, node_fs_promises.mkdir)(node_path.default.join(workspaceRoot, dir), { recursive: true });
 	const filesWritten = [];
 	const flag = options.force ? "w" : "wx";
 	for (const [relativePath, content] of workspaceFiles(workspaceRoot)) {
-		const filePath = path.join(workspaceRoot, relativePath);
+		const filePath = node_path.default.join(workspaceRoot, relativePath);
 		try {
-			await writeFile(filePath, content, {
+			await (0, node_fs_promises.writeFile)(filePath, content, {
 				mode: 384,
 				flag
 			});
@@ -183,6 +187,4 @@ async function initWorkspace(options) {
 	};
 }
 //#endregion
-export { initWorkspace };
-
-//# sourceMappingURL=init-BpZR9lQo.mjs.map
+exports.initWorkspace = initWorkspace;

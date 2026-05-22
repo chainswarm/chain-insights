@@ -58,7 +58,7 @@ The UAT must verify all of these facts:
 - Chain Insights proxy `address_risk` returns only local graph report metadata in `_meta.chainInsights.graph = { schema, url }`.
 - Chain Insights proxy response must not include `_meta.chainInsights.graph.data`.
 - The local graph report URL must be served by the Chain Insights Hono server at `/graph-reports/<filename>.graph.json` and return `chain-insights.graph.v1` JSON without `transfers`.
-- `chain-insights mcp call graph_query` with `USE topology` must hit the real GraphRAG/MemGQL path and return the UAT address.
+- `chain-insights mcp call graph_query` with `USE live_topology` must hit the real GraphRAG/MemGQL path and return the UAT address.
 - No investigation output is created under `~/.chain-insights/reports` or `~/.chain-insights/cases`.
 </uat_contract>
 

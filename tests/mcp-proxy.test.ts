@@ -446,7 +446,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
           id: 'address_exists',
           query: [
             'MATCH (n {address: "5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5"})',
-            'RETURN labels(n) AS labels',
+            'RETURN n.labels AS labels',
             'LIMIT 1',
           ].join('\n'),
         },
@@ -619,14 +619,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     })
     clientInstance.callTool
       .mockResolvedValueOnce(textResult([
-        { id: 'node_labels', ok: true, results: [{ label: 'Address', count: 10 }] },
-        { id: 'relationship_types', ok: true, results: [{ relationship_type: 'FLOWS_TO', count: 4 }] },
+        { id: 'node_labels', ok: true, results: [{ node_label: 'Address', sample_count: 10 }] },
+        { id: 'relationship_types', ok: true, results: [{ rel_name: 'FLOWS_TO', sample_count: 4 }] },
         { id: 'address_property_keys', ok: true, results: [{ property_key: 'address', sample_count: 10 }] },
         { id: 'flows_to_property_keys', ok: true, results: [{ property_key: 'amount_sum', sample_count: 4 }] },
       ]))
       .mockResolvedValueOnce(textResult([
         {
-          id: 'forward_exchange_paths',
+          id: 'forward_exchange_paths_2',
           ok: true,
           results: [{
             addresses: ['5Seed', '5Hop', '5Deposit', '5Exchange'],
@@ -694,14 +694,33 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       content: expect.stringContaining('"compactEvidence"'),
     }))
     expect(ensureArtifactServerMock).toHaveBeenCalledWith(4321)
+    const schemaCall = clientInstance.callTool.mock.calls.find((call) => {
+      const queries = call[0].arguments?.queries as Array<{ id?: string }> | undefined
+      return queries?.some((query) => query.id === 'node_labels')
+    })
+    const schemaQueries = schemaCall?.[0].arguments.queries as Array<{ id: string; query: string }>
+    expect(schemaQueries.find((query) => query.id === 'node_labels')?.query).toContain('AS node_label')
+    expect(schemaQueries.find((query) => query.id === 'relationship_types')?.query).toContain('AS rel_name')
     const forwardCall = clientInstance.callTool.mock.calls.find((call) => {
       const queries = call[0].arguments?.queries as Array<{ id?: string }> | undefined
-      return queries?.some((query) => query.id === 'forward_exchange_paths')
+      return queries?.some((query) => query.id?.startsWith('forward_exchange_paths_'))
     })
-    const forwardQuery = forwardCall?.[0].arguments.queries[0].query as string
-    expect(forwardQuery).toContain('*BFS')
-    expect(forwardQuery).toContain('e.amount_sum IS NOT NULL')
-    expect(forwardQuery).not.toContain('*1..2')
+    const forwardQueries = forwardCall?.[0].arguments.queries as Array<{ id: string; query: string }>
+    const forwardQuery = forwardQueries.find((query) => query.id === 'forward_exchange_paths_2')?.query ?? ''
+    expect(forwardQuery).toContain('USE live_topology MATCH')
+    expect(forwardQuery).toContain('r1.amount_sum IS NOT NULL')
+    expect(forwardQuery).toContain('r2.amount_sum IS NOT NULL')
+    expect(forwardQuery).toContain('t.is_exchange IS NOT NULL')
+    expect(forwardQuery).not.toContain('*BFS')
+    const reverseCall = clientInstance.callTool.mock.calls.find((call) => {
+      const queries = call[0].arguments?.queries as Array<{ id?: string }> | undefined
+      return queries?.some((query) => query.id === 'reverse_1hop')
+    })
+    const reverseQuery = (reverseCall?.[0].arguments.queries as Array<{ id: string; query: string }>)
+      .find((query) => query.id === 'reverse_1hop')?.query ?? ''
+    expect(reverseQuery).toContain('MATCH (sender:Address)-[r:FLOWS_TO]->(deposit:Address)')
+    expect(reverseQuery).toContain('deposit.address = "5Deposit"')
+    expect(reverseQuery).not.toContain('UNWIND')
 
     const graphUrl = result._meta.chainInsights.graph.url as string
     const filename = graphUrl.split('/graph-reports/')[1]
@@ -774,8 +793,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       })
       clientInstance.callTool
         .mockResolvedValueOnce(textResult([
-          { id: 'node_labels', ok: true, results: [{ label: 'Address', count: 10 }] },
-          { id: 'relationship_types', ok: true, results: [{ relationship_type: 'FLOWS_TO', count: 4 }] },
+          { id: 'node_labels', ok: true, results: [{ node_label: 'Address', sample_count: 10 }] },
+          { id: 'relationship_types', ok: true, results: [{ rel_name: 'FLOWS_TO', sample_count: 4 }] },
           { id: 'address_property_keys', ok: true, results: [{ property_key: 'address', sample_count: 10 }] },
           { id: 'flows_to_property_keys', ok: true, results: [{ property_key: 'amount_sum', sample_count: 4 }] },
         ]))
@@ -872,14 +891,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     })
     clientInstance.callTool
       .mockResolvedValueOnce(textResult([
-        { id: 'node_labels', ok: true, results: [{ label: 'Address', count: 10 }, { label: 'Exchange', count: 1 }] },
-        { id: 'relationship_types', ok: true, results: [{ relationship_type: 'FLOWS_TO', count: 4 }] },
+        { id: 'node_labels', ok: true, results: [{ node_label: 'Address', sample_count: 10 }, { node_label: 'Exchange', sample_count: 1 }] },
+        { id: 'relationship_types', ok: true, results: [{ rel_name: 'FLOWS_TO', sample_count: 4 }] },
         { id: 'address_property_keys', ok: true, results: [{ property_key: 'address', sample_count: 10 }] },
         { id: 'flows_to_property_keys', ok: true, results: [{ property_key: 'amount_sum', sample_count: 4 }] },
       ]))
       .mockResolvedValueOnce(textResult([
         {
-          id: 'forward_exchange_paths',
+          id: 'forward_exchange_paths_2',
           ok: true,
           results: [
             {
@@ -1072,7 +1091,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                   }],
                 },
                 {
-                  id: 'exchange_outflows',
+                  id: 'exchange_outflows_2',
                   ok: true,
                   results: [{
                     direction: 'outflow',
@@ -1091,7 +1110,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                     path: ['5Addr', '5Deposit', '5Exchange'],
                   }],
                 },
-                { id: 'exchange_inflows', ok: true, results: [] },
+                { id: 'exchange_inflows_1', ok: true, results: [] },
                 { id: 'connection_probe', ok: true, results: [] },
               ],
             },
@@ -1164,20 +1183,20 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       arguments: expect.objectContaining({
         network: 'bittensor',
         queries: expect.arrayContaining([
-          expect.objectContaining({ id: 'exchange_outflows' }),
-          expect.objectContaining({ id: 'exchange_inflows' }),
+          expect.objectContaining({ id: 'exchange_outflows_1' }),
+          expect.objectContaining({ id: 'exchange_inflows_1' }),
         ]),
       }),
     })
     const riskQueries = clientInstance.callTool.mock.calls[0][0].arguments.queries as Array<{ id: string; query: string }>
-    const outflowQuery = riskQueries.find((query) => query.id === 'exchange_outflows')?.query ?? ''
-    const inflowQuery = riskQueries.find((query) => query.id === 'exchange_inflows')?.query ?? ''
-    expect(outflowQuery).toContain('*BFS')
-    expect(inflowQuery).toContain('*BFS')
+    const outflowQuery = riskQueries.find((query) => query.id === 'exchange_outflows_2')?.query ?? ''
+    const inflowQuery = riskQueries.find((query) => query.id === 'exchange_inflows_2')?.query ?? ''
+    expect(outflowQuery).toContain('exchange.is_exchange IS NOT NULL')
+    expect(inflowQuery).toContain('exchange.is_exchange IS NOT NULL')
+    expect(outflowQuery).not.toContain('*BFS')
+    expect(inflowQuery).not.toContain('*BFS')
     expect(outflowQuery).toContain('LIMIT 200')
     expect(inflowQuery).toContain('LIMIT 200')
-    expect(outflowQuery).not.toContain('*1..5')
-    expect(inflowQuery).not.toContain('*1..5')
   })
 
   it('address_risk graphData preserves subject profile metadata before report normalization', async () => {

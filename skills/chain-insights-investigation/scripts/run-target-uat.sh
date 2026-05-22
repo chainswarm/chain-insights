@@ -116,7 +116,7 @@ SCHEMA_FILE=".chain-insights/schema/${NETWORK}.graph-schema.json"
 log "capturing ${NETWORK} graph schema"
 cia mcp call graph_query_batch \
   network="${NETWORK}" \
-  'queries=[{"id":"node_labels","query":"USE topology MATCH (n) UNWIND labels(n) AS label RETURN label, count(*) AS count ORDER BY count DESC LIMIT 100"},{"id":"relationship_types","query":"USE topology MATCH ()-[r]->() RETURN type(r) AS relationship_type, count(*) AS count ORDER BY count DESC LIMIT 100"},{"id":"address_property_keys","query":"USE topology MATCH (n:Address) WITH keys(n) AS keys LIMIT 1000 UNWIND keys AS property_key RETURN property_key, count(*) AS sample_count ORDER BY sample_count DESC, property_key LIMIT 200"},{"id":"flows_to_property_keys","query":"USE topology MATCH ()-[r:FLOWS_TO]->() WITH keys(r) AS keys LIMIT 1000 UNWIND keys AS property_key RETURN property_key, count(*) AS sample_count ORDER BY sample_count DESC, property_key LIMIT 200"}]' \
+  'queries=[{"id":"node_labels","query":"USE live_topology MATCH (n:Address) RETURN \"Address\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"relationship_types","query":"USE live_topology MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN \"FLOWS_TO\" AS rel_name, count(r) AS sample_count LIMIT 1"},{"id":"address_sample","query":"USE live_topology MATCH (n:Address) RETURN n.address AS address, n.labels AS labels LIMIT 20"},{"id":"flow_sample","query":"USE live_topology MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum LIMIT 20"}]' \
   > "${SCHEMA_RAW}"
 
 jq --arg network "${NETWORK}" '{
@@ -141,7 +141,7 @@ COMPACT_FILE="reports/uat/address_exists.compact.json"
 log "running graph_query_batch address_exists"
 cia mcp call graph_query_batch \
   network="${NETWORK}" \
-  "queries=[{\"id\":\"address_exists\",\"query\":\"USE topology MATCH (n:Address {address: \\\"${TARGET_ADDRESS}\\\"}) RETURN n.address AS address, labels(n) AS labels, n.degree_in AS degree_in, n.degree_out AS degree_out, n.tx_total_count AS tx_total_count, n.total_volume_usd AS total_volume_usd LIMIT 1\"}]" \
+  "queries=[{\"id\":\"address_exists\",\"query\":\"USE live_topology MATCH (n:Address {address: \\\"${TARGET_ADDRESS}\\\"}) RETURN n.address AS address, n.labels AS labels, n.degree_in AS degree_in, n.degree_out AS degree_out, n.tx_total_count AS tx_total_count, n.total_volume_usd AS total_volume_usd LIMIT 1\"}]" \
   > "${RESULT_FILE}"
 
 if ! grep -q "${TARGET_ADDRESS}" "${RESULT_FILE}"; then
