@@ -203,7 +203,7 @@ Keep MCP JSON arguments on one shell line. Raw newlines inside JSON strings brea
 
 Good:
 ```bash
-cia mcp call graph_query_batch network=bittensor 'queries=[{"id":"address_exists","query":"USE live_topology MATCH (n:Address {address: \"5...\"}) RETURN n.address AS address, n.labels AS labels, n.degree_in AS degree_in, n.degree_out AS degree_out, n.tx_total_count AS tx_total_count LIMIT 1"}]'
+cia mcp call graph_query_batch network=bittensor 'queries=[{"id":"address_exists","query":"USE live_topology MATCH (n:Address {address: \"5...\"}) RETURN n.address AS address, n.labels AS labels LIMIT 1"},{"id":"address_feature","query":"USE facts MATCH (:Address {address: \"5...\"})-[:HAS_FEATURE]->(feature:AddressFeature) RETURN feature.degree_in AS degree_in, feature.degree_out AS degree_out, feature.tx_total_count AS tx_total_count LIMIT 1"}]'
 ```
 
 Bad:

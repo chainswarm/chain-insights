@@ -260,8 +260,8 @@ function schemaFromGraphBatch(network: string, batch: ParsedGraphBatch): Record<
       'r.first_tx_id AS first_tx_id',
       'r.last_tx_id AS last_tx_id',
       'dst.labels AS dst_labels',
-      'dst.degree_in AS dst_degree_in',
-      'dst.degree_out AS dst_degree_out',
+      'dst.lifetime_degree_in AS dst_degree_in',
+      'dst.lifetime_degree_out AS dst_degree_out',
     ],
   }
 }
@@ -356,7 +356,7 @@ function reverseLeadsQuery(depositAddresses: string[]): { id: string; query: str
     query: [
       'MATCH (sender:Address)-[r:FLOWS_TO]->(deposit:Address)',
       `WHERE (${depositPredicates.join(' OR ')}) AND sender.is_exchange IS NULL AND sender.address <> deposit.address`,
-      'RETURN DISTINCT sender.address AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.address_subtypes AS address_subtypes, coalesce(sender.degree_in, 0) AS degree_in, coalesce(sender.degree_out, 0) AS degree_out, coalesce(sender.total_volume_usd, 0) AS total_volume_usd, deposit.address AS deposit_address, r.amount_usd_sum AS amount_usd',
+      'RETURN DISTINCT sender.address AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.address_subtypes AS address_subtypes, coalesce(sender.lifetime_degree_in, 0) AS degree_in, coalesce(sender.lifetime_degree_out, 0) AS degree_out, coalesce(sender.total_volume_usd, 0) AS total_volume_usd, deposit.address AS deposit_address, r.amount_usd_sum AS amount_usd',
       'ORDER BY r.amount_usd_sum DESC',
       `LIMIT ${Math.max(50, depositAddresses.length * 50)}`,
     ].join(' '),

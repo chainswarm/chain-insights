@@ -1,9 +1,7 @@
-const require_chunk = require("./chunk-CZWwpsFl.cjs");
-const require_output_root = require("./output-root-CFYms3ad.cjs");
-const require_graph_normalizer = require("./graph-normalizer-DeIj6Ses.cjs");
-let node_path = require("node:path");
-node_path = require_chunk.__toESM(node_path, 1);
-let node_fs_promises = require("node:fs/promises");
+import { n as workspaceOutputPaths } from "./output-root-CmWM7aV2.mjs";
+import { t as normalizeGraphPayload } from "./graph-normalizer-Cv9yK9Pg.mjs";
+import path from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 //#region src/investigation/trace-funds.ts
 var AliasTracker = class {
 	byAddress = /* @__PURE__ */ new Map();
@@ -73,23 +71,23 @@ function sanitizeSegment(value) {
 	return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "trace";
 }
 async function ensureDirs(paths) {
-	await (0, node_fs_promises.mkdir)(paths.schemaDir, {
+	await mkdir(paths.schemaDir, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportsRoot, {
+	await mkdir(paths.reportsRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportGraphsRoot, {
+	await mkdir(paths.reportGraphsRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportTablesRoot, {
+	await mkdir(paths.reportTablesRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.logsRoot, {
+	await mkdir(paths.logsRoot, {
 		recursive: true,
 		mode: 448
 	});
@@ -148,23 +146,23 @@ function schemaFromGraphBatch(network, batch) {
 			"r.first_tx_id AS first_tx_id",
 			"r.last_tx_id AS last_tx_id",
 			"dst.labels AS dst_labels",
-			"dst.degree_in AS dst_degree_in",
-			"dst.degree_out AS dst_degree_out"
+			"dst.lifetime_degree_in AS dst_degree_in",
+			"dst.lifetime_degree_out AS dst_degree_out"
 		]
 	};
 }
 async function loadOrCaptureTopologySchema(remoteClient, paths, network) {
-	const filePath = node_path.default.join(paths.schemaDir, `${sanitizeSegment(network)}.graph-schema.json`);
+	const filePath = path.join(paths.schemaDir, `${sanitizeSegment(network)}.graph-schema.json`);
 	try {
 		return {
-			schema: JSON.parse(await (0, node_fs_promises.readFile)(filePath, "utf8")),
+			schema: JSON.parse(await readFile(filePath, "utf8")),
 			filePath
 		};
 	} catch (err) {
 		if (err.code !== "ENOENT") throw err;
 	}
 	const schema = schemaFromGraphBatch(network, await callGraphBatch$1(remoteClient, network, SCHEMA_QUERY_SET));
-	await (0, node_fs_promises.writeFile)(filePath, JSON.stringify(schema, null, 2) + "\n", { mode: 384 });
+	await writeFile(filePath, JSON.stringify(schema, null, 2) + "\n", { mode: 384 });
 	return {
 		schema,
 		filePath
@@ -241,7 +239,7 @@ function reverseLeadsQuery(depositAddresses) {
 		query: [
 			"MATCH (sender:Address)-[r:FLOWS_TO]->(deposit:Address)",
 			`WHERE (${depositAddresses.map((address) => `deposit.address = "${escapeCypherString$1(address)}"`).join(" OR ")}) AND sender.is_exchange IS NULL AND sender.address <> deposit.address`,
-			"RETURN DISTINCT sender.address AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.address_subtypes AS address_subtypes, coalesce(sender.degree_in, 0) AS degree_in, coalesce(sender.degree_out, 0) AS degree_out, coalesce(sender.total_volume_usd, 0) AS total_volume_usd, deposit.address AS deposit_address, r.amount_usd_sum AS amount_usd",
+			"RETURN DISTINCT sender.address AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.address_subtypes AS address_subtypes, coalesce(sender.lifetime_degree_in, 0) AS degree_in, coalesce(sender.lifetime_degree_out, 0) AS degree_out, coalesce(sender.total_volume_usd, 0) AS total_volume_usd, deposit.address AS deposit_address, r.amount_usd_sum AS amount_usd",
 			"ORDER BY r.amount_usd_sum DESC",
 			`LIMIT ${Math.max(50, depositAddresses.length * 50)}`
 		].join(" ")
@@ -553,7 +551,7 @@ function buildGraph(seedAddress, network, flows, deposits, sourceMatches, revers
 		});
 		return edges;
 	});
-	return require_graph_normalizer.normalizeGraphPayload({
+	return normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: [...totals.entries()].map(([address, data]) => ({
 			id: address,
@@ -819,7 +817,7 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	const maxHops = clampInt(options.maxHops, 3, 1, 5);
 	const perAddressLimit = clampInt(options.perAddressLimit, 5, 1, 10);
 	const minAmountSum = Math.max(0, options.minAmountSum ?? 0);
-	const paths = require_output_root.workspaceOutputPaths();
+	const paths = workspaceOutputPaths();
 	await ensureDirs(paths);
 	const schemaResult = await loadOrCaptureTopologySchema(remoteClient, paths, network);
 	const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, {
@@ -833,21 +831,21 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	const slug = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}_${sanitizeSegment(seedAddress.slice(0, 16))}`;
 	const compact = probeEvidence(seedAddress, network, schemaResult.filePath, aliases, flows, deposits, sourceMatches, reverseLeads);
 	const graph = buildGraph(seedAddress, network, flows, deposits, sourceMatches, reverseLeads);
-	const compactPath = node_path.default.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
-	const graphPath = node_path.default.join(paths.reportGraphsRoot, `${slug}.graph.json`);
-	const graphHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.graph.html`);
-	const tablePath = node_path.default.join(paths.reportTablesRoot, `${slug}.flows.csv`);
-	const tableHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.table.html`);
-	const reportPath = node_path.default.join(paths.reportsRoot, `${slug}.trace-report.md`);
-	const { generateInlineGraphHtml } = await Promise.resolve().then(() => require("./html-generator-9xvA43R8.cjs")).then((n) => n.html_generator_exports);
-	await (0, node_fs_promises.writeFile)(compactPath, JSON.stringify(compact, null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(graphPath, JSON.stringify(graph, null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(tablePath, tableCsv(flows), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 384 });
+	const compactPath = path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
+	const graphPath = path.join(paths.reportGraphsRoot, `${slug}.graph.json`);
+	const graphHtmlPath = path.join(paths.reportsRoot, `${slug}.graph.html`);
+	const tablePath = path.join(paths.reportTablesRoot, `${slug}.flows.csv`);
+	const tableHtmlPath = path.join(paths.reportsRoot, `${slug}.table.html`);
+	const reportPath = path.join(paths.reportsRoot, `${slug}.trace-report.md`);
+	const { generateInlineGraphHtml } = await import("./html-generator-DazwHVyW.mjs").then((n) => n.n);
+	await writeFile(compactPath, JSON.stringify(compact, null, 2) + "\n", { mode: 384 });
+	await writeFile(graphPath, JSON.stringify(graph, null, 2) + "\n", { mode: 384 });
+	await writeFile(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 384 });
+	await writeFile(tablePath, tableCsv(flows), { mode: 384 });
+	await writeFile(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 384 });
+	await writeFile(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 384 });
 	if (options.caseId) {
-		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
+		const { EvidenceStore } = await import("./cases-By7INiOa.mjs");
 		await EvidenceStore.append(options.caseId, {
 			source: "track_funds",
 			queryParams: `network=${network} seed_address=${seedAddress} max_hops=${maxHops} per_address_limit=${perAddressLimit} min_amount_sum=${minAmountSum}`,
@@ -961,7 +959,29 @@ function addressProfileQuery(address) {
 		id: "address_profile",
 		query: [
 			`MATCH (a:Address {address: "${escapeCypherString(address)}"})`,
-			"RETURN a.address AS address, a.labels AS display_labels, a.labels AS system_labels, a.address_type AS address_type, a.address_subtypes AS address_subtypes, a.confluence_score AS confluence_score, a.ml_risk_score AS ml_risk_score, a.ml_risk_level AS ml_risk_level, a.ml_top_drivers AS ml_top_drivers, a.ml_pattern_summary AS ml_pattern_summary, a.risk_score AS risk_score, a.risk_level AS risk_level, a.pattern_flags AS pattern_flags, a.degree_in AS degree_in, a.degree_out AS degree_out, a.total_volume_usd AS total_volume_usd, a.total_in_usd AS total_in_usd, a.total_out_usd AS total_out_usd, a.net_flow_usd AS net_flow_usd, a.tx_in_count AS tx_in_count, a.tx_out_count AS tx_out_count, a.tx_total_count AS tx_total_count, a.first_activity_timestamp AS first_activity_timestamp, a.last_activity_timestamp AS last_activity_timestamp, a.activity_span_days AS activity_span_days, a.ml_pagerank AS ml_pagerank, a.ml_betweenness AS ml_betweenness, a.ml_community_id AS ml_community_id",
+			"RETURN a.address AS address, a.labels AS display_labels, a.labels AS system_labels, a.address_type AS address_type, a.address_subtypes AS address_subtypes, a.is_exchange AS is_exchange, a.confluence_score AS confluence_score, a.ml_risk_score AS ml_risk_score, a.ml_risk_level AS ml_risk_level, a.ml_top_drivers AS ml_top_drivers, a.ml_pattern_summary AS ml_pattern_summary, a.risk_score AS risk_score, a.risk_level AS risk_level, a.pattern_flags AS pattern_flags, a.ml_pagerank AS ml_pagerank, a.ml_betweenness AS ml_betweenness, a.ml_community_id AS ml_community_id",
+			"LIMIT 1"
+		].join(" ")
+	};
+}
+function addressFeatureQuery(address) {
+	return {
+		id: "address_feature",
+		query: [
+			"USE facts",
+			`MATCH (a:Address {address: "${escapeCypherString(address)}"})-[:HAS_FEATURE]->(feature:AddressFeature)`,
+			"RETURN feature.degree_in AS degree_in, feature.degree_out AS degree_out, feature.degree_total AS degree_total, feature.tx_in_count AS tx_in_count, feature.tx_out_count AS tx_out_count, feature.tx_total_count AS tx_total_count, feature.total_volume_usd AS total_volume_usd, feature.total_in_usd AS total_in_usd, feature.total_out_usd AS total_out_usd, feature.net_flow_usd AS net_flow_usd, feature.first_activity_timestamp AS first_activity_timestamp, feature.last_activity_timestamp AS last_activity_timestamp, feature.activity_span_days AS activity_span_days, feature.active_days AS active_days",
+			"LIMIT 1"
+		].join(" ")
+	};
+}
+function addressRiskScoreQuery(address) {
+	return {
+		id: "address_risk_score",
+		query: [
+			"USE facts",
+			`MATCH (a:Address {address: "${escapeCypherString(address)}"})-[:HAS_RISK_SCORE]->(risk:RiskScore)`,
+			"RETURN risk.risk_score AS risk_score, risk.window_days AS risk_window_days, risk.processing_date AS risk_processing_date, risk.shap_top_features AS shap_top_features",
 			"LIMIT 1"
 		].join(" ")
 	};
@@ -1213,7 +1233,7 @@ function buildRiskGraph(address, profile, rows, network) {
 		}
 	}
 	const rawNodes = [...nodes.values()];
-	return restoreSystemLabels(require_graph_normalizer.normalizeGraphPayload({
+	return restoreSystemLabels(normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: rawNodes,
 		edges,
@@ -1234,6 +1254,8 @@ async function addressRisk(remoteClient, options) {
 	if (!network) throw new Error("network is required");
 	const batch = await callGraphBatch(remoteClient, network, [
 		addressProfileQuery(address),
+		addressFeatureQuery(address),
+		addressRiskScoreQuery(address),
 		...exchangeOutflowQueries(address),
 		...exchangeInflowQueries(address),
 		...compareAddress ? [connectionProbeQuery(address, compareAddress)] : [{
@@ -1241,7 +1263,12 @@ async function addressRisk(remoteClient, options) {
 			query: "MATCH (n:Address {address: \"__chain_insights_noop__\"}) RETURN n.address AS noop LIMIT 0"
 		}]
 	]);
-	const profile = resultsFor(batch, "address_profile")[0] ?? { address };
+	const profile = {
+		address,
+		...resultsFor(batch, "address_profile")[0] ?? {},
+		...resultsFor(batch, "address_feature")[0] ?? {},
+		...resultsFor(batch, "address_risk_score")[0] ?? {}
+	};
 	const outflows = enrichExchangeRows(resultsWithPrefix(batch, "exchange_outflows_"));
 	const inflows = enrichExchangeRows(resultsWithPrefix(batch, "exchange_inflows_"));
 	const connections = compareAddress ? resultsFor(batch, "connection_probe") : [];
@@ -1320,7 +1347,7 @@ async function trackFunds(remoteClient, config, options) {
 			minAmountSum: options.minAmountSum
 		})
 	});
-	const graphData = require_graph_normalizer.normalizeGraphPayload({
+	const graphData = normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: runs.flatMap((run) => Array.isArray(run.result.graphData.nodes) ? run.result.graphData.nodes : []),
 		edges: runs.flatMap((run) => Array.isArray(run.result.graphData.edges) ? run.result.graphData.edges : []),
@@ -1377,5 +1404,6 @@ async function trackFunds(remoteClient, config, options) {
 	};
 }
 //#endregion
-exports.addressRisk = addressRisk;
-exports.trackFunds = trackFunds;
+export { addressRisk, trackFunds };
+
+//# sourceMappingURL=public-tools-iQTqxZ6V.mjs.map

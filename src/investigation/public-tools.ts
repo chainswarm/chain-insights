@@ -115,7 +115,31 @@ function addressProfileQuery(address: string): { id: string; query: string } {
     id: 'address_profile',
     query: [
       `MATCH (a:Address {address: "${escapeCypherString(address)}"})`,
-      'RETURN a.address AS address, a.labels AS display_labels, a.labels AS system_labels, a.address_type AS address_type, a.address_subtypes AS address_subtypes, a.confluence_score AS confluence_score, a.ml_risk_score AS ml_risk_score, a.ml_risk_level AS ml_risk_level, a.ml_top_drivers AS ml_top_drivers, a.ml_pattern_summary AS ml_pattern_summary, a.risk_score AS risk_score, a.risk_level AS risk_level, a.pattern_flags AS pattern_flags, a.degree_in AS degree_in, a.degree_out AS degree_out, a.total_volume_usd AS total_volume_usd, a.total_in_usd AS total_in_usd, a.total_out_usd AS total_out_usd, a.net_flow_usd AS net_flow_usd, a.tx_in_count AS tx_in_count, a.tx_out_count AS tx_out_count, a.tx_total_count AS tx_total_count, a.first_activity_timestamp AS first_activity_timestamp, a.last_activity_timestamp AS last_activity_timestamp, a.activity_span_days AS activity_span_days, a.ml_pagerank AS ml_pagerank, a.ml_betweenness AS ml_betweenness, a.ml_community_id AS ml_community_id',
+      'RETURN a.address AS address, a.labels AS display_labels, a.labels AS system_labels, a.address_type AS address_type, a.address_subtypes AS address_subtypes, a.is_exchange AS is_exchange, a.confluence_score AS confluence_score, a.ml_risk_score AS ml_risk_score, a.ml_risk_level AS ml_risk_level, a.ml_top_drivers AS ml_top_drivers, a.ml_pattern_summary AS ml_pattern_summary, a.risk_score AS risk_score, a.risk_level AS risk_level, a.pattern_flags AS pattern_flags, a.ml_pagerank AS ml_pagerank, a.ml_betweenness AS ml_betweenness, a.ml_community_id AS ml_community_id',
+      'LIMIT 1',
+    ].join(' '),
+  }
+}
+
+function addressFeatureQuery(address: string): { id: string; query: string } {
+  return {
+    id: 'address_feature',
+    query: [
+      'USE facts',
+      `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[:HAS_FEATURE]->(feature:AddressFeature)`,
+      'RETURN feature.degree_in AS degree_in, feature.degree_out AS degree_out, feature.degree_total AS degree_total, feature.tx_in_count AS tx_in_count, feature.tx_out_count AS tx_out_count, feature.tx_total_count AS tx_total_count, feature.total_volume_usd AS total_volume_usd, feature.total_in_usd AS total_in_usd, feature.total_out_usd AS total_out_usd, feature.net_flow_usd AS net_flow_usd, feature.first_activity_timestamp AS first_activity_timestamp, feature.last_activity_timestamp AS last_activity_timestamp, feature.activity_span_days AS activity_span_days, feature.active_days AS active_days',
+      'LIMIT 1',
+    ].join(' '),
+  }
+}
+
+function addressRiskScoreQuery(address: string): { id: string; query: string } {
+  return {
+    id: 'address_risk_score',
+    query: [
+      'USE facts',
+      `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[:HAS_RISK_SCORE]->(risk:RiskScore)`,
+      'RETURN risk.risk_score AS risk_score, risk.window_days AS risk_window_days, risk.processing_date AS risk_processing_date, risk.shap_top_features AS shap_top_features',
       'LIMIT 1',
     ].join(' '),
   }
@@ -410,12 +434,19 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
 
   const queries = [
     addressProfileQuery(address),
+    addressFeatureQuery(address),
+    addressRiskScoreQuery(address),
     ...exchangeOutflowQueries(address),
     ...exchangeInflowQueries(address),
     ...(compareAddress ? [connectionProbeQuery(address, compareAddress)] : [{ id: 'connection_probe', query: 'MATCH (n:Address {address: "__chain_insights_noop__"}) RETURN n.address AS noop LIMIT 0' }]),
   ]
   const batch = await callGraphBatch(remoteClient, network, queries)
-  const profile = resultsFor(batch, 'address_profile')[0] ?? { address }
+  const profile: Record<string, unknown> = {
+    address,
+    ...(resultsFor(batch, 'address_profile')[0] ?? {}),
+    ...(resultsFor(batch, 'address_feature')[0] ?? {}),
+    ...(resultsFor(batch, 'address_risk_score')[0] ?? {}),
+  }
   const outflows = enrichExchangeRows(resultsWithPrefix(batch, 'exchange_outflows_'))
   const inflows = enrichExchangeRows(resultsWithPrefix(batch, 'exchange_inflows_'))
   const connections = compareAddress ? resultsFor(batch, 'connection_probe') : []

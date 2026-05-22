@@ -62,16 +62,17 @@ const CHAIN_INSIGHTS_WORKFLOW = [
 ].join("\n");
 const GRAPH_SCHEMA_HINTS = [
 	"Graph query hints for network=bittensor:",
-	"- Common live topology node labels include Address and may include legacy enrichment labels. Do not depend on Exchange/Miner graph labels for correctness; use address properties such as is_exchange when available.",
-	"- Address properties commonly include address, network, address_type, total_volume_usd, total_in_usd, total_out_usd, net_flow_usd, degree_in, degree_out, tx_in_count, tx_out_count, first_activity_timestamp, last_activity_timestamp.",
-	"- Risk and ML properties may include ml_risk_score, ml_risk_level, ml_top_drivers, ml_pattern_summary, ml_pagerank, ml_betweenness, ml_community_id.",
+	"- Common live topology node labels include Address and may include legacy enrichment labels. Do not depend on Exchange/Miner graph labels for correctness; use address properties such as labels and is_exchange when available.",
+	"- Address nodes are identity plus traversal hints. Lifetime/global address metrics live in USE facts as AddressFeature, not as topology semantics.",
+	"- Facts graph labels include Address, AddressLabel, AddressFeature, RiskScore, and Asset.",
+	"- Facts graph relationships include (:Address)-[:HAS_FEATURE]->(:AddressFeature), (:Address)-[:HAS_LABEL]->(:AddressLabel), and (:Address)-[:HAS_RISK_SCORE]->(:RiskScore).",
+	"- Risk and ML properties may appear as live hints, but source-of-truth risk rows are RiskScore facts.",
 	"- Common relationships include FLOWS_TO, OPERATED_FROM, SERVED_FROM, REGISTERED_NEURON, BELONGS_TO, SYBIL_CLUSTER, LAYERING_HOP, BURST_ACTIVITY, CYCLE_PARTICIPANT, SMURFING_CLUSTER.",
-	"- FLOWS_TO is aggregated and commonly carries amount_sum, amount_usd_sum, tx_count, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id. Confirm available fields through runtime schema before relying on them.",
+	"- FLOWS_TO properties are scoped to the selected topology graph and commonly carry amount_sum, amount_usd_sum, tx_count, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id. Confirm available fields through runtime schema before relying on them.",
 	"- Start schema discovery with MemGQL-safe property reads: MATCH (n:Address) WHERE n.address IS NOT NULL RETURN n.labels AS labels, n.address AS address LIMIT 20",
 	"- Relationship discovery: MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum LIMIT 20",
 	"- graph_query uses Memgraph Zero / MemGQL when available. Use USE live_topology for Memgraph RAM topology, USE archive_topology for StarRocks historical topology, and USE facts for StarRocks facts.",
 	"- Archive topology labels include Address and TopologySnapshot. Archived money-flow topology is represented as (:Address)-[:FLOWS_TO]->(:Address) relationships with period_granularity, period_start_date, and period_end_date.",
-	"- Facts graph labels include AddressLabelFact, AddressFeatureFact, RiskScoreFact, and AssetFact.",
 	"- All graph_query calls are read-only. Never use CREATE, INSERT, MERGE, SET, DELETE, REMOVE, DROP, DETACH, ADD, CONNECT, DISCONNECT, ALTER, TRUNCATE, GRANT, or REVOKE.",
 	"- Warehouse facts live behind facts_*_view StarRocks views and are reached through USE facts graph patterns. Do not query core_*, ml_*, analyzers_*, synthetics_*, or _* tables directly."
 ].join("\n");
@@ -951,7 +952,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-DRXesysW.cjs"));
+			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-BVend798.cjs"));
 			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-DU05YCei.cjs"));
 			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-DoxJ7fCx.cjs"));
 			const result = await addressRisk(remoteClient, {
@@ -1015,7 +1016,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-DRXesysW.cjs"));
+			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-BVend798.cjs"));
 			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-DU05YCei.cjs"));
 			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-DoxJ7fCx.cjs"));
 			const result = await trackFunds(remoteClient, config, {

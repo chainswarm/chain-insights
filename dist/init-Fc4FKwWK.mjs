@@ -121,8 +121,10 @@ Rules:
 - Prefer \`graph_query\` and \`graph_query_batch\` for graph-language reads.
 - Use \`USE live_topology\` for Memgraph RAM topology, \`USE archive_topology\`
   for StarRocks historical topology, and \`USE facts\` for StarRocks fact
-  labels such as \`AddressLabelFact\`, \`AddressFeatureFact\`,
-  \`RiskScoreFact\`, and \`AssetFact\`. Archived money-flow topology is exposed as
+  labels such as \`AddressLabel\`, \`AddressFeature\`,
+  \`RiskScore\`, and \`Asset\`. Address facts can be reached through
+  relationships such as \`(:Address)-[:HAS_FEATURE]->(:AddressFeature)\`.
+  Archived money-flow topology is exposed as
   \`(:Address)-[:FLOWS_TO]->(:Address)\` with \`period_granularity\`,
   \`period_start_date\`, and \`period_end_date\` on the relationship.
 - Preserve source schema field names in evidence and generated data files.
@@ -187,4 +189,4 @@ async function initWorkspace(options) {
 //#endregion
 export { initWorkspace };
 
-//# sourceMappingURL=init-BmU3Sb28.mjs.map
+//# sourceMappingURL=init-Fc4FKwWK.mjs.map
