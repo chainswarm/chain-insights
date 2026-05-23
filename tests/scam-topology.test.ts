@@ -37,6 +37,14 @@ function graphBatchResult(queries: Array<{ id: string; ok: boolean; results: Arr
   }
 }
 
+function emptyGraphBatchResult(queryCount: number) {
+  return graphBatchResult(Array.from({ length: queryCount }, (_, index) => ({
+    id: `empty_${index + 1}`,
+    ok: true,
+    results: [],
+  })))
+}
+
 function topologyRow(src: string, dst: string, extra: Record<string, unknown> = {}) {
   return {
     src,
@@ -423,6 +431,32 @@ describe('scamTopology', () => {
     expect(queries[0]?.query).toContain('LIMIT 1')
     expect(queries[1]?.query).toContain('src.address = "5SeedB"')
     expect(queries[1]?.query).toContain('LIMIT 1')
+  })
+
+  it('chunks frontier queries to stay within graph_query_batch limits', async () => {
+    const seedAddresses = ['5SeedA', '5SeedB', '5SeedC']
+    vi.mocked(client.callTool)
+      .mockResolvedValueOnce(graphBatchResult(seedAddresses.map((seedAddress, seedIndex) => ({
+        id: `incident_hop_1_source_${seedIndex + 1}`,
+        ok: true,
+        results: Array.from({ length: 7 }, (_, resultIndex) => (
+          topologyRow(seedAddress, `5Frontier${seedIndex}${resultIndex}`)
+        )),
+      }))))
+      .mockResolvedValueOnce(emptyGraphBatchResult(20))
+      .mockResolvedValueOnce(emptyGraphBatchResult(1))
+    const { scamTopology } = await import('../src/investigation/scam-topology.js')
+
+    await scamTopology(client, config, {
+      network: 'bittensor',
+      scammerAddresses: seedAddresses,
+      maxHops: 2,
+      perAddressLimit: 10,
+    })
+
+    expect(vi.mocked(client.callTool)).toHaveBeenCalledTimes(3)
+    expect(vi.mocked(client.callTool).mock.calls[1]?.[0]?.arguments?.queries).toHaveLength(20)
+    expect(vi.mocked(client.callTool).mock.calls[2]?.[0]?.arguments?.queries).toHaveLength(1)
   })
 
   it('preserves seed attribution when multiple seeds share a downstream frontier', async () => {

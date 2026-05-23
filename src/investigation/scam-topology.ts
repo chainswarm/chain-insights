@@ -141,6 +141,7 @@ type TraversalRun = {
 }
 
 const SCAM_TOPOLOGY_GRAPH_QUERY_TIMEOUT_SECONDS = 600
+const SCAM_TOPOLOGY_MAX_BATCH_QUERIES = 20
 
 function parseAddressList(value: string | string[] | undefined): string[] {
   const raw = Array.isArray(value) ? value.join(',') : value ?? ''
@@ -183,6 +184,14 @@ function numberValue(value: unknown): number | undefined {
 function clampInt(value: number | undefined, fallback: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return fallback
   return Math.max(min, Math.min(max, Math.trunc(value as number)))
+}
+
+function chunks<T>(values: T[], size: number): T[][] {
+  const result: T[][] = []
+  for (let index = 0; index < values.length; index += size) {
+    result.push(values.slice(index, index + size))
+  }
+  return result
 }
 
 function escapeCypherString(value: string): string {
@@ -396,30 +405,32 @@ async function runDirectedTraversal(
       minAmountSum,
       sinceTimestampMs,
     ))
-    const batch = await callGraphBatch(remoteClient, network, queries)
     const nextByKey = new Map<string, FrontierEntry>()
 
-    for (const queryResult of batch.facts?.queries ?? []) {
-      if (queryResult.ok === false) throw new Error(queryResult.error || `Query failed: ${queryResult.id}`)
-      for (const row of queryResult.results ?? []) {
-        const src = stringValue(row['src']) ?? stringValue(row['from_address'])
-        if (!src) continue
-        const contexts = frontierByAddress.get(src) ?? []
-        for (const context of contexts) {
-          const edge = edgeFromRow(row, graphScope, hop, context)
-          if (!edge || edgesByKey.has(edgeKey(edge))) continue
-          edgesByKey.set(edgeKey(edge), edge)
+    for (const queryChunk of chunks(queries, SCAM_TOPOLOGY_MAX_BATCH_QUERIES)) {
+      const batch = await callGraphBatch(remoteClient, network, queryChunk)
+      for (const queryResult of batch.facts?.queries ?? []) {
+        if (queryResult.ok === false) throw new Error(queryResult.error || `Query failed: ${queryResult.id}`)
+        for (const row of queryResult.results ?? []) {
+          const src = stringValue(row['src']) ?? stringValue(row['from_address'])
+          if (!src) continue
+          const contexts = frontierByAddress.get(src) ?? []
+          for (const context of contexts) {
+            const edge = edgeFromRow(row, graphScope, hop, context)
+            if (!edge || edgesByKey.has(edgeKey(edge))) continue
+            edgesByKey.set(edgeKey(edge), edge)
 
-          if (edge.relation === 'terminal_exchange' || edge.relation === 'context_boundary') continue
-          const nextEntry: FrontierEntry = {
-            address: edge.dst,
-            seedAddress: context.seedAddress,
-            seedRole: context.seedRole,
-          }
-          const key = frontierKey(nextEntry)
-          if (!visited.has(key)) {
-            visited.add(key)
-            nextByKey.set(key, nextEntry)
+            if (edge.relation === 'terminal_exchange' || edge.relation === 'context_boundary') continue
+            const nextEntry: FrontierEntry = {
+              address: edge.dst,
+              seedAddress: context.seedAddress,
+              seedRole: context.seedRole,
+            }
+            const key = frontierKey(nextEntry)
+            if (!visited.has(key)) {
+              visited.add(key)
+              nextByKey.set(key, nextEntry)
+            }
           }
         }
       }
