@@ -83,10 +83,14 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).not.toContain('trace-funds')
   })
 
-  it('mcp scam-topology help exposes scope and since timestamp controls', () => {
+  it('mcp scam-topology help exposes victim incident controls', () => {
     const out = execFileSync('node', ['--import', 'tsx', srcCli, 'mcp', 'scam-topology', '--help'], { encoding: 'utf8' })
-    expect(out).toContain('--scope <history|incident|compare>')
-    expect(out).toContain('--since-timestamp-ms <milliseconds>')
+    expect(out).toContain('--victim-address <address>')
+    expect(out).toContain('--incident-timestamp-ms <milliseconds>')
+    expect(out).toContain('--max-hops <number>')
+    expect(out).not.toContain('--scope <history|incident|compare>')
+    expect(out).not.toContain('--since-timestamp-ms <milliseconds>')
+    expect(out).not.toContain('--scammer-addresses')
   })
 
   it('fund-flow CLI help exposes only track-funds', () => {

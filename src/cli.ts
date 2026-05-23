@@ -602,43 +602,29 @@ program
   )
   .addCommand(
     new Command('scam-topology')
-      .description('Build scam-case laundering topology and evidence-backed label candidates')
+      .description('Build victim-incident scam topology and ML-ready scam labels')
       .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
-      .option('--victim-addresses <addresses>', 'Comma-separated full victim/source addresses, max 5')
-      .option('--scammer-addresses <addresses>', 'Comma-separated full known scammer/attacker addresses, max 5')
-      .option('--case <id>', 'Case ID to attach compact evidence pointers')
-      .option('--max-hops <number>', 'Maximum trace hops, 1-5')
-      .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, 1-10')
-      .option('--min-amount-sum <number>', 'Minimum r.amount_sum for traced edges')
-      .option('--scope <history|incident|compare>', 'Traversal scope: history, incident, or compare')
-      .option('--since-timestamp-ms <milliseconds>', 'Incident start timestamp in milliseconds')
+      .requiredOption('--victim-address <address>', 'Full victim/source address that anchors the incident')
+      .requiredOption('--incident-timestamp-ms <milliseconds>', 'Earliest known incident transfer timestamp in milliseconds')
+      .option('--max-hops <number>', 'Maximum trace hops, default 16, max 64')
       .action(async (opts: {
         network: string
-        victimAddresses?: string
-        scammerAddresses?: string
-        case?: string
+        victimAddress: string
+        incidentTimestampMs: string
         maxHops?: string
-        perAddressLimit?: string
-        minAmountSum?: string
-        scope?: 'history' | 'incident' | 'compare'
-        sinceTimestampMs?: string
       }) => {
         try {
           const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
           requireWorkspaceRoot()
           await withGraphMcpClient('chain-insights-cli-scam-topology', async (client, config) => {
             const { scamTopology } = await import('./investigation/public-tools.js')
-            const caseId = opts.case ? await resolveCaseSelector(opts.case) : undefined
+            const incidentTimestampMs = optionalNumber(opts.incidentTimestampMs)
+            if (incidentTimestampMs === undefined) throw new Error('incident-timestamp-ms is required')
             const result = await scamTopology(client, config, {
-              victimAddresses: opts.victimAddresses,
-              scammerAddresses: opts.scammerAddresses,
+              victimAddress: opts.victimAddress,
               network: opts.network,
-              caseId,
               maxHops: optionalNumber(opts.maxHops),
-              perAddressLimit: optionalNumber(opts.perAddressLimit),
-              minAmountSum: optionalNumber(opts.minAmountSum),
-              scope: opts.scope,
-              sinceTimestampMs: optionalNumber(opts.sinceTimestampMs),
+              incidentTimestampMs,
             })
             console.log(result.summaryText)
             console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -688,16 +674,15 @@ program
             }
             if (tool === 'scam_topology') {
               const { scamTopology } = await import('./investigation/public-tools.js')
+              const victimAddress = String(args['victim_address'] ?? '').trim()
+              if (!victimAddress) throw new Error('victim_address is required')
+              const incidentTimestampMs = optionalNumberArg(args['incident_timestamp_ms'], 'incident_timestamp_ms')
+              if (incidentTimestampMs === undefined) throw new Error('incident_timestamp_ms is required')
               const result = await scamTopology(client, config, {
-                victimAddresses: args['victim_addresses'] as string | string[] | undefined,
-                scammerAddresses: args['scammer_addresses'] as string | string[] | undefined,
+                victimAddress,
                 network: String(args['network'] ?? ''),
-                caseId: args['case_id'] === undefined ? undefined : String(args['case_id']),
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
-                perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
-                minAmountSum: typeof args['min_amount_sum'] === 'number' ? args['min_amount_sum'] : undefined,
-                scope: args['scope'] === undefined ? undefined : String(args['scope']) as 'history' | 'incident' | 'compare',
-                sinceTimestampMs: optionalNumberArg(args['since_timestamp_ms'], 'since_timestamp_ms'),
+                incidentTimestampMs,
               })
               console.log(result.summaryText)
               console.log(JSON.stringify(result.structuredContent, null, 2))

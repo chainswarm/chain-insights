@@ -40,10 +40,13 @@ network: {{network}}
 `,
 	"scam-topology": `---
 name: scam-topology
-description: Build laundering topology and label candidates from a known scam address
+description: Build laundering topology and scam labels from a victim incident
 version: 1.0.0
 params:
   - name: address
+    type: string
+    required: true
+  - name: incident_timestamp_ms
     type: string
     required: true
   - name: network
@@ -65,19 +68,21 @@ network: {{network}}
 
 ## Step 2: Build Scam Topology
 
-Use scope=history|incident|compare. The victim-only traversal is outward from
-victim/source funds, exchange terminal safety stops exchange endpoints, and
-label candidates are reviewable, not automatic writes.
-Contract summary: victim-only traversal is outward from victim/source funds; scope=history|incident|compare; exchange terminal safety.
+The victim-only traversal is outward from victim/source funds. The
+incident_timestamp_ms anchors only the first victim outflow; downstream
+traversal can enter older scam infrastructure. Exchange terminal safety stops
+exchange endpoints, and label candidates are reviewable, not automatic writes.
+Contract summary: victim-only traversal is outward from victim/source funds;
+exchange terminal safety; scam_labels are ML-ready flags.
 
 \`\`\`tool
 scam_topology
 \`\`\`
 
 \`\`\`params
-scammer_addresses: {{address}}
+victim_address: {{address}}
+incident_timestamp_ms: {{incident_timestamp_ms}}
 network: {{network}}
-scope: history
 \`\`\`
 `,
 	"risk-check": `---
@@ -184,4 +189,4 @@ async function listPlaybooks() {
 //#endregion
 export { listPlaybooks, resolvePlaybookContent };
 
-//# sourceMappingURL=resolver-DhXkBbkU.mjs.map
+//# sourceMappingURL=resolver-CRi0elfd.mjs.map

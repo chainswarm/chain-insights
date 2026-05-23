@@ -61,7 +61,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).not.toContain('trace_funds')
   })
 
-  it('documents scam topology scope, outward victim traversal, and review-only labels', () => {
+  it('documents scam topology victim incident traversal and review-only labels', () => {
     const readme = read('README.md')
     const traceFundsSkill = read('skills/chain-insights-trace-funds/SKILL.md')
     const investigationSkill = read('skills/chain-insights-investigation/SKILL.md')
@@ -69,11 +69,10 @@ describe('shipped Chain Insights skills contract', () => {
 
     expect(combined).toContain('scam_topology')
     expect(combined).toContain('victim-only traversal is outward from victim/source funds')
-    expect(combined).toContain('scope=history|incident|compare')
+    expect(combined).toContain('incident_timestamp_ms')
     expect(combined).toContain('exchange terminal safety')
     expect(combined).toContain('reviewable, not automatic writes')
-    expect(combined).toContain('cia mcp scam-topology --network bittensor --victim-addresses 5... --scope history --max-hops 5')
-    expect(combined).toContain('cia mcp scam-topology --network bittensor --victim-addresses 5... --scope incident --since-timestamp-ms 1715532228001 --max-hops 5')
+    expect(combined).toContain('cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --max-hops 16')
   })
 
   it('replaces ci-case and ci-status placeholders with workspace guidance', () => {
