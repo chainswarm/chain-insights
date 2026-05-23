@@ -65,6 +65,11 @@ network: {{network}}
 
 ## Step 2: Build Scam Topology
 
+Use scope=history|incident|compare. The victim-only traversal is outward from
+victim/source funds, exchange terminal safety stops exchange endpoints, and
+label candidates are reviewable, not automatic writes.
+Contract summary: victim-only traversal is outward from victim/source funds; scope=history|incident|compare; exchange terminal safety.
+
 \`\`\`tool
 scam_topology
 \`\`\`
@@ -72,6 +77,7 @@ scam_topology
 \`\`\`params
 scammer_addresses: {{address}}
 network: {{network}}
+scope: history
 \`\`\`
 `,
 	"risk-check": `---
@@ -178,4 +184,4 @@ async function listPlaybooks() {
 //#endregion
 export { listPlaybooks, resolvePlaybookContent };
 
-//# sourceMappingURL=resolver-DIB0ZUdg.mjs.map
+//# sourceMappingURL=resolver-DhXkBbkU.mjs.map
