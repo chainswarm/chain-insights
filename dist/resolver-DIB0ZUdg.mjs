@@ -38,6 +38,42 @@ trusted_addresses: {{address}}
 network: {{network}}
 \`\`\`
 `,
+	"scam-topology": `---
+name: scam-topology
+description: Build laundering topology and label candidates from a known scam address
+version: 1.0.0
+params:
+  - name: address
+    type: string
+    required: true
+  - name: network
+    type: string
+    required: false
+    default: bittensor
+---
+
+## Step 1: Screen Known Scam Address
+
+\`\`\`tool
+address_risk
+\`\`\`
+
+\`\`\`params
+address: {{address}}
+network: {{network}}
+\`\`\`
+
+## Step 2: Build Scam Topology
+
+\`\`\`tool
+scam_topology
+\`\`\`
+
+\`\`\`params
+scammer_addresses: {{address}}
+network: {{network}}
+\`\`\`
+`,
 	"risk-check": `---
 name: risk-check
 description: Screen an address for Chain Insights risk, behavior, counterparties, exchange connections, and AML patterns
@@ -142,4 +178,4 @@ async function listPlaybooks() {
 //#endregion
 export { listPlaybooks, resolvePlaybookContent };
 
-//# sourceMappingURL=resolver-C6aTzSr_.mjs.map
+//# sourceMappingURL=resolver-DIB0ZUdg.mjs.map

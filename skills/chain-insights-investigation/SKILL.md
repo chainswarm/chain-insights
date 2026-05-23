@@ -46,8 +46,9 @@ cia debug off
    address activity, or requested chain falls outside that range, state that
    limitation before querying. Do not call `address_risk` unless the selected
    network advertises risk support and `address_risk` is available. If only
-   topology is available, use `track_funds` or `graph_query_batch` with
-   `USE live_topology` as appropriate. Use `graph_query_batch` with `USE archive_topology`
+   topology is available, use `track_funds`, `scam_topology`, or
+   `graph_query_batch` with `USE live_topology` as appropriate. Use
+   `graph_query_batch` with `USE archive_topology`
    for historical money-flow topology, and `USE facts`
    for graph-language StarRocks facts exposed through `facts_*_view`.
 3. Read workspace runtime schema notes:
@@ -149,6 +150,12 @@ local tracing engine.
 Use `track_funds` for stolen-fund and fund-flow work, including single-address
 fund-flow tracing by passing one address as the only `trusted_addresses` value.
 
+Use `scam_topology` when known scam ground truth should become laundering-role
+evidence, live fan-in/fan-out infrastructure context, and reviewable label
+candidates. Victim/source addresses are not risky labels; known scammer seeds
+can become confirmed-risk candidates, while laundering intermediates and
+exchange deposit candidates require review before promotion.
+
 Use manual `graph_query_batch` for custom topology or fact questions. Use
 `USE live_topology` for Memgraph RAM topology, `USE archive_topology` for
 StarRocks historical topology, and `USE facts` for StarRocks facts.
@@ -203,7 +210,7 @@ Keep MCP JSON arguments on one shell line. Raw newlines inside JSON strings brea
 
 Good:
 ```bash
-cia mcp call graph_query_batch network=bittensor 'queries=[{"id":"address_exists","query":"USE live_topology MATCH (n:Address {address: \"5...\"}) RETURN n.address AS address, n.labels AS labels, n.degree_in AS degree_in, n.degree_out AS degree_out, n.tx_total_count AS tx_total_count LIMIT 1"}]'
+cia mcp call graph_query_batch network=bittensor 'queries=[{"id":"address_exists","query":"USE live_topology MATCH (n:Address {address: \"5...\"}) RETURN n.address AS address, n.labels AS labels LIMIT 1"},{"id":"address_feature","query":"USE facts MATCH (:Address {address: \"5...\"})-[:HAS_FEATURE]->(feature:AddressFeature) RETURN feature.degree_in AS degree_in, feature.degree_out AS degree_out, feature.tx_total_count AS tx_total_count LIMIT 1"}]'
 ```
 
 Bad:

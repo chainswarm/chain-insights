@@ -60,6 +60,11 @@ vi.mock('../src/mcp/client.js', () => ({
   )),
 }))
 
+const mockScamTopology = vi.fn()
+vi.mock('../src/investigation/public-tools.js', () => ({
+  scamTopology: mockScamTopology,
+}))
+
 // Mock MCP SDK Client
 const mockClientConnect = vi.fn()
 const mockClientListTools = vi.fn()
@@ -134,6 +139,22 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
   const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
   const client = new Client({ name: 'chain-insights-cli-call', version: '0.2.0' })
   await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }))
+  if (tool === 'scam_topology') {
+    const { scamTopology } = await import('../src/investigation/public-tools.js')
+    const result = await scamTopology(client, config, {
+      victimAddresses: args['victim_addresses'] as string | string[] | undefined,
+      scammerAddresses: args['scammer_addresses'] as string | string[] | undefined,
+      network: String(args['network'] ?? ''),
+      caseId: args['case_id'] === undefined ? undefined : String(args['case_id']),
+      maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
+      perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
+      minAmountSum: typeof args['min_amount_sum'] === 'number' ? args['min_amount_sum'] : undefined,
+    })
+    console.log(result.summaryText)
+    console.log(JSON.stringify(result.structuredContent, null, 2))
+    await client.close()
+    return
+  }
   const result = await client.callTool({ name: tool, arguments: args })
   const content = result.content as Array<{ type: string; text?: string }>
   for (const item of content) {
@@ -405,6 +426,37 @@ describe('CLI mcp subcommand (MCP-02)', () => {
       per_address_limit: 10,
       min_amount_sum: 1.5,
     })
+  })
+
+  it('mcp call routes scam_topology through the local recipe', async () => {
+    mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
+    mockClientConnect.mockResolvedValue(undefined)
+    mockClientClose.mockResolvedValue(undefined)
+    mockScamTopology.mockResolvedValueOnce({
+      summaryText: 'Scam topology complete for bittensor',
+      structuredContent: {
+        schema: 'chain-insights.result.v1',
+        tool: 'scam_topology',
+        facts: { label_candidates: [] },
+      },
+      graphData: { schema: 'chain-insights.graph.v1', nodes: [], edges: [], flows: [], edge_anchors: [] },
+    })
+
+    await runMcpCallAction('scam_topology', [
+      'network=bittensor',
+      'victim_addresses=5Victim',
+      'scammer_addresses=["5Scammer"]',
+      'max_hops=2',
+    ])
+
+    expect(mockScamTopology).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
+      network: 'bittensor',
+      victimAddresses: '5Victim',
+      scammerAddresses: ['5Scammer'],
+      maxHops: 2,
+    }))
+    expect(mockClientCallTool).not.toHaveBeenCalled()
+    expect(consoleLogSpy).toHaveBeenCalledWith('Scam topology complete for bittensor')
   })
 
   it('mcp call rejects stale trace_funds before remote passthrough', async () => {

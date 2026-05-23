@@ -6,6 +6,7 @@ import {
   ENTITY_PROFILE_PLAYBOOK,
   BUILTIN_PLAYBOOKS,
   KNOWN_GRAPHRAG_PUBLIC_TOOLS,
+  SCAM_TOPOLOGY_PLAYBOOK,
 } from '../src/playbooks/builtins.js'
 
 describe('BUILTIN_PLAYBOOKS map', () => {
@@ -19,6 +20,10 @@ describe('BUILTIN_PLAYBOOKS map', () => {
 
   it("contains key 'entity-profile'", () => {
     expect(BUILTIN_PLAYBOOKS).toHaveProperty('entity-profile')
+  })
+
+  it("contains key 'scam-topology'", () => {
+    expect(BUILTIN_PLAYBOOKS).toHaveProperty('scam-topology')
   })
 
   it('does not ship the obsolete free-form probe playbook', () => {
@@ -36,6 +41,23 @@ describe('BUILTIN_PLAYBOOKS map', () => {
         expect(KNOWN_GRAPHRAG_PUBLIC_TOOLS).toContain(step.tool)
       }
     }
+  })
+})
+
+describe('SCAM_TOPOLOGY_PLAYBOOK', () => {
+  it('parses to PlaybookDefinition with name=scam-topology', () => {
+    const def = PlaybookParser.parse(SCAM_TOPOLOGY_PLAYBOOK, { address: '0x1' })
+    expect(def.name).toBe('scam-topology')
+  })
+
+  it('uses address_risk and scam_topology', () => {
+    const def = PlaybookParser.parse(SCAM_TOPOLOGY_PLAYBOOK, { address: '0x1' })
+    expect(def.steps.map(step => step.tool)).toEqual(['address_risk', 'scam_topology'])
+  })
+
+  it('maps address to scammer_addresses by default', () => {
+    const def = PlaybookParser.parse(SCAM_TOPOLOGY_PLAYBOOK, { address: '0x1' })
+    expect(def.steps[1].params).toMatchObject({ scammer_addresses: '0x1', network: 'bittensor' })
   })
 })
 

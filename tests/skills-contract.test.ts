@@ -15,6 +15,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('cia init .')
     expect(skill).toContain('No investigation output belongs under ~/.chain-insights')
     expect(skill).toContain('track_funds')
+    expect(skill).toContain('scam_topology')
     expect(skill).toContain('single-address')
     expect(skill).toContain('trusted_addresses')
     expect(skill).toContain('Python GraphRAG MCP is the golden behavior')
@@ -38,6 +39,9 @@ describe('shipped Chain Insights skills contract', () => {
 
     expect(skill).toContain('# Chain Insights Fund Flow Tracking')
     expect(skill).toContain('track_funds')
+    expect(skill).toContain('scam_topology')
+    expect(skill).toContain('label_candidates')
+    expect(skill).toContain('Victim/source addresses are not risky labels')
     expect(skill).toContain('single address')
     expect(skill).toContain('reports/graphs/*.graph.json')
     expect(skill).toContain('/graph-reports/<filename>.graph.json')
@@ -114,12 +118,12 @@ describe('shipped Chain Insights skills contract', () => {
     const proxySection = script.slice(script.indexOf('PROXY_TOOLS_JSON='))
 
     expect(proxySection).toContain(
-      "const required = ['balance', 'help', 'address_risk', 'track_funds', 'network_capabilities', 'graph_query', 'graph_query_batch']",
+      "const required = ['balance', 'help', 'address_risk', 'track_funds', 'scam_topology', 'network_capabilities', 'graph_query', 'graph_query_batch']",
     )
     expect(proxySection).toContain(
       "for (const hidden of ['topup', 'trace_funds', 'money_flows_between_exchanges', 'address_connection_risk'])",
     )
-    expect(proxySection).toContain("for (const name of ['address_risk', 'track_funds'])")
+    expect(proxySection).toContain("for (const name of ['address_risk', 'track_funds', 'scam_topology'])")
     expect(proxySection).not.toContain("const required = ['balance', 'topup'")
     expect(proxySection).not.toContain("'money_flows_between_exchanges', 'address_connection_risk', 'graph_query']")
     expect(proxySection).not.toContain("for (const name of ['address_risk', 'track_funds', 'money_flows_between_exchanges'")

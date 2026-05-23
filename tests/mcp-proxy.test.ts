@@ -568,7 +568,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     ) as Record<string, unknown>
     const properties = jsonSchema.properties as Record<string, Record<string, unknown>>
     expect(jsonSchema.required).toEqual(['network', 'queries'])
-    expect(properties.per_query_timeout_seconds.maximum).toBe(10)
+    expect(properties.per_query_timeout_seconds.maximum).toBe(600)
   })
 
   it('does not register trace_funds as a public MCP tool', async () => {
@@ -580,6 +580,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     const { createProxy } = await import('../src/mcp/proxy.js')
     const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
 
     await createProxy()
 
@@ -1335,6 +1336,113 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     ])
   })
 
+  it('registers scam_topology and writes graph reports with label candidates', async () => {
+    runFundFlowProbeMock.mockResolvedValue({
+      summaryText: 'Trace complete for bittensor:5Scammer',
+      compactEvidence: {},
+      graphData: {
+        schema: 'chain-insights.graph.v1',
+        nodes: [
+          { id: '5Scammer', address: '5Scammer', node_type: 'address', roles: ['seed'] },
+          { id: '5Hop', address: '5Hop', node_type: 'address' },
+          { id: '5Deposit', address: '5Deposit', node_type: 'address', roles: ['deposit_candidate'] },
+          { id: '5Exchange', address: '5Exchange', node_type: 'address', roles: ['exchange'] },
+        ],
+        edges: [
+          { source: '5Scammer', target: '5Hop', edge_type: 'flows_to', amount_sum: 10 },
+          { source: '5Hop', target: '5Deposit', edge_type: 'flows_to', amount_sum: 9 },
+          { source: '5Deposit', target: '5Exchange', edge_type: 'flows_to', amount_sum: 8, terminal_exchange: true },
+        ],
+        flows: [
+          { hop: 1, src: '5Scammer', dst: '5Hop', amount_sum: 10, terminal_exchange: false },
+          { hop: 2, src: '5Hop', dst: '5Deposit', amount_sum: 9, terminal_exchange: false },
+          { hop: 3, src: '5Deposit', dst: '5Exchange', amount_sum: 8, terminal_exchange: true },
+        ],
+        deposits: [{
+          address: '5Deposit',
+          exchangeAddress: '5Exchange',
+          amount_sum: 8,
+          hops: 3,
+          path: ['5Scammer', '5Hop', '5Deposit', '5Exchange'],
+        }],
+        reverse_leads: [],
+        edge_anchors: [],
+      },
+      files: {
+        schema: '/tmp/schema.json',
+        compactEvidence: '/tmp/compact.json',
+        graph: '/tmp/graph.json',
+        graphHtml: '/tmp/graph.html',
+        table: '/tmp/table.csv',
+        tableHtml: '/tmp/table.html',
+        report: '/tmp/report.md',
+      },
+      continuation: {
+        nextHopAddresses: [],
+        depositAddresses: ['5Deposit'],
+        exchangeAddresses: ['5Exchange'],
+        hint: 'Found deposit candidates',
+      },
+      addressMap: { S1: '5Scammer', D1: '5Deposit', E1: '5Exchange' },
+    })
+
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query_batch', description: 'Cypher topology query batch' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool.mockResolvedValueOnce({
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          schema: 'chain-insights.result.v1',
+          tool: 'graph_query_batch',
+          facts: { queries: [] },
+        }),
+      }],
+      isError: false,
+    })
+    const toolNames = serverInstance.registerTool.mock.calls.map((entry) => entry[0])
+    expect(toolNames).toContain('scam_topology')
+
+    const handler = findToolHandler(serverInstance, 'scam_topology')
+    const result = await handler({
+      scammer_addresses: ['5Scammer'],
+      network: 'bittensor',
+      case_id: mockCase.id,
+    })
+
+    expect(result.isError).toBe(false)
+    expect(result.content[0].text).toContain('Scam topology complete for bittensor')
+    expect(result.structuredContent.tool).toBe('scam_topology')
+    expect(result.structuredContent.facts.label_candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ address: '5Scammer', address_subtype: 'scam_seed' }),
+      expect.objectContaining({ address: '5Hop', address_subtype: 'laundering_intermediate' }),
+      expect.objectContaining({ address: '5Deposit', address_subtype: 'exchange_deposit_candidate' }),
+    ]))
+    const graphUrl = result._meta.chainInsights.graph.url as string
+    const filename = graphUrl.split('/graph-reports/')[1]
+    expect(filename).toMatch(/\.graph\.json$/)
+    const graph = JSON.parse(await readFile(join(testDataDir, 'reports', 'graphs', filename), 'utf8')) as {
+      scam_topology?: { label_candidates?: Array<Record<string, unknown>> }
+    }
+    expect(graph.scam_topology?.label_candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ address: '5Scammer', address_subtype: 'scam_seed' }),
+    ]))
+  })
+
   it('registers graph MCP app resource and preserves graph-backed remote tools', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
@@ -2056,6 +2164,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('Graph query hints for network=bittensor')
     expect(result.content[0].text).toContain('FLOWS_TO')
     expect(result.content[0].text).toContain('first_tx_id')
+    expect(result.content[0].text).toContain('AddressFeature')
+    expect(result.content[0].text).toContain('HAS_FEATURE')
+    expect(result.content[0].text).not.toContain('AddressFeatureFact')
     expect(result.content[0].text).toContain('schema discovery')
     expect(result.content[0].text).not.toContain('GraphRAG')
     expect(result.content[0].text).not.toContain('prox')

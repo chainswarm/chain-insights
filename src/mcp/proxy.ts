@@ -30,18 +30,22 @@ const PUBLIC_GRAPHRAG_PROMPT_NAMES = new Set(['address-risk', 'track-funds'])
 const GRAPH_RESOURCE_URI = 'ui://chain-insights/graph'
 const GRAPH_APP_TOOL_NAMES = new Set([
   'address_risk',
+  'scam_topology',
   'track_funds',
 ])
 const GRAPH_ARRAY_KEYS = ['nodes', 'edges', 'flows', 'edge_anchors'] as const
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const COMMA_SEPARATED_ADDRESS_FIELDS = new Set([
+  'scammer_addresses',
   'trusted_addresses',
   'untrusted_addresses',
+  'victim_addresses',
 ])
 
 const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
   address_risk: ['address', 'network'],
+  scam_topology: ['network'],
   track_funds: ['trusted_addresses', 'network'],
   graph_query: ['query', 'network'],
   graph_query_batch: ['network', 'queries'],
@@ -50,6 +54,7 @@ const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   network_capabilities: 'Return supported Chain Insights networks, capability layers, tool availability, data retention windows, and freshness. Use this before choosing network-specific tools.',
   address_risk: 'Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. This includes the exchange-behavior analysis formerly covered by money_flows_between_exchanges. Use this as the first tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.',
+  scam_topology: 'Build scam-case laundering topology from explicit victim/source and known scammer seed addresses. Use this when the user has known scam ground truth and needs evidence-backed label candidates for review. Victim addresses are case roles, not risky labels; preserve full addresses exactly.',
   track_funds: 'Trace funds from trusted victim/source addresses through intermediaries to exchange deposit addresses. Use this when the user has a victim/source address or known untrusted/scammer addresses. The tool returns an investigator-ready fund-flow report and recommended next actions.',
   graph_query: 'Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE live_topology for Memgraph RAM topology, USE archive_topology for StarRocks historical topology, and USE facts for StarRocks facts. Cross-backend correlated joins are limited by current MemGQL behavior; preserve full addresses exactly.',
   graph_query_batch: 'Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads.',
@@ -69,23 +74,24 @@ const CHAIN_INSIGHTS_WORKFLOW = [
   'Workflow:',
   '1. If the user is starting or continuing an investigation, use case_open or case_list/case_resume first.',
   '2. Do not call investigation tools until required arguments are known. Network is required; use network_capabilities to check supported networks, data layers, retention, and freshness, or ask the user if missing.',
-  '3. Use address_risk first for a single address when facts and topology are available. Use track_funds for victim/source fund tracing when topology is available. Use graph_query(_batch) for the universal graph-language path over topology and facts.',
+  '3. Use address_risk first for a single address when facts and topology are available. Use track_funds for victim/source fund tracing when topology is available. Use scam_topology when known scam ground truth should become evidence-backed label candidates. Use graph_query(_batch) for the universal graph-language path over topology and facts.',
   '4. After a material result, preserve it with case_add_evidence when a case is active or ask whether to create/select a case.',
   '5. Use case_update_dossier for durable address/entity findings and case_start_session/case_end_session for session notes.',
 ].join('\n')
 
 const GRAPH_SCHEMA_HINTS = [
   'Graph query hints for network=bittensor:',
-  '- Common live topology node labels include Address and may include legacy enrichment labels. Do not depend on Exchange/Miner graph labels for correctness; use address properties such as is_exchange when available.',
-  '- Address properties commonly include address, network, address_type, total_volume_usd, total_in_usd, total_out_usd, net_flow_usd, degree_in, degree_out, tx_in_count, tx_out_count, first_activity_timestamp, last_activity_timestamp.',
-  '- Risk and ML properties may include ml_risk_score, ml_risk_level, ml_top_drivers, ml_pattern_summary, ml_pagerank, ml_betweenness, ml_community_id.',
+  '- Common live topology node labels include Address and may include legacy enrichment labels. Do not depend on Exchange/Miner graph labels for correctness; use address properties such as labels and is_exchange when available.',
+  '- Address nodes are identity plus traversal hints. Lifetime/global address metrics live in USE facts as AddressFeature, not as topology semantics.',
+  '- Facts graph labels include Address, AddressLabel, AddressFeature, RiskScore, and Asset.',
+  '- Facts graph relationships include (:Address)-[:HAS_FEATURE]->(:AddressFeature), (:Address)-[:HAS_LABEL]->(:AddressLabel), and (:Address)-[:HAS_RISK_SCORE]->(:RiskScore).',
+  '- Risk and ML properties may appear as live hints, but source-of-truth risk rows are RiskScore facts.',
   '- Common relationships include FLOWS_TO, OPERATED_FROM, SERVED_FROM, REGISTERED_NEURON, BELONGS_TO, SYBIL_CLUSTER, LAYERING_HOP, BURST_ACTIVITY, CYCLE_PARTICIPANT, SMURFING_CLUSTER.',
-  '- FLOWS_TO is aggregated and commonly carries amount_sum, amount_usd_sum, tx_count, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id. Confirm available fields through runtime schema before relying on them.',
+  '- FLOWS_TO properties are scoped to the selected topology graph and commonly carry amount_sum, amount_usd_sum, tx_count, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id. Confirm available fields through runtime schema before relying on them.',
   '- Start schema discovery with MemGQL-safe property reads: MATCH (n:Address) WHERE n.address IS NOT NULL RETURN n.labels AS labels, n.address AS address LIMIT 20',
   '- Relationship discovery: MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum LIMIT 20',
   '- graph_query uses Memgraph Zero / MemGQL when available. Use USE live_topology for Memgraph RAM topology, USE archive_topology for StarRocks historical topology, and USE facts for StarRocks facts.',
   '- Archive topology labels include Address and TopologySnapshot. Archived money-flow topology is represented as (:Address)-[:FLOWS_TO]->(:Address) relationships with period_granularity, period_start_date, and period_end_date.',
-  '- Facts graph labels include AddressLabelFact, AddressFeatureFact, RiskScoreFact, and AssetFact.',
   '- All graph_query calls are read-only. Never use CREATE, INSERT, MERGE, SET, DELETE, REMOVE, DROP, DETACH, ADD, CONNECT, DISCONNECT, ALTER, TRUNCATE, GRANT, or REVOKE.',
   '- Warehouse facts live behind facts_*_view StarRocks views and are reached through USE facts graph patterns. Do not query core_*, ml_*, analyzers_*, synthetics_*, or _* tables directly.',
 ].join('\n')
@@ -179,6 +185,13 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
         untrusted_addresses: z.string().optional().describe('Comma-separated full untrusted/scammer addresses. Max 5.'),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
       }
+    case 'scam_topology':
+      return {
+        network: z.string().min(1).describe(NETWORK_DESCRIPTION),
+        victim_addresses: z.union([z.string(), z.array(z.string())]).optional().describe('Known victim/source addresses, comma-separated or array. Max 5. Victims are not risky labels.'),
+        scammer_addresses: z.union([z.string(), z.array(z.string())]).optional().describe('Known scammer/attacker seed addresses, comma-separated or array. Max 5.'),
+        include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
+      }
     case 'graph_query':
       return {
         query: z.string().min(1).describe('Read-only GQL/Cypher query. Use USE live_topology for Memgraph RAM topology, USE archive_topology for StarRocks historical topology, and USE facts for StarRocks facts.'),
@@ -191,7 +204,7 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
           id: z.string().optional(),
           query: z.string().min(1).describe('Read-only GQL/Cypher query'),
         })).min(1).max(20),
-        per_query_timeout_seconds: z.number().int().min(1).max(10).optional(),
+        per_query_timeout_seconds: z.number().int().min(1).max(600).optional(),
       }
     default:
       return null
@@ -554,7 +567,7 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
       argsSchema: {
         queries: z.string().describe('JSON array of query objects with optional id and required query fields'),
         network: z.string().describe(NETWORK_DESCRIPTION),
-        per_query_timeout_seconds: z.string().optional().describe('Optional integer timeout per query, 1-10 seconds'),
+        per_query_timeout_seconds: z.string().optional().describe('Optional integer timeout per query, 1-600 seconds'),
       },
     },
     async ({ queries, network, per_query_timeout_seconds }) => promptResult(
@@ -1358,6 +1371,86 @@ export async function createProxy(): Promise<void> {
     )
   }
 
+  if (!remoteToolNames.has('scam_topology')) {
+    registerAppTool(
+      server,
+      'scam_topology',
+      {
+        title: 'Scam Topology',
+        description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.scam_topology,
+        inputSchema: {
+          network: z.string().min(1).describe(NETWORK_DESCRIPTION),
+          victim_addresses: z.union([z.string(), z.array(z.string())]).optional().describe('Known victim/source addresses. Max 5. Victims are not risky labels.'),
+          scammer_addresses: z.union([z.string(), z.array(z.string())]).optional().describe('Known scammer/attacker seed addresses. Max 5.'),
+          include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
+          case_id: z.string().optional().describe('Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest.'),
+          max_hops: z.number().int().min(1).max(5).optional(),
+          per_address_limit: z.number().int().min(1).max(10).optional(),
+          min_amount_sum: z.number().min(0).optional(),
+        },
+        _meta: {
+          ui: {
+            resourceUri: GRAPH_RESOURCE_URI,
+          },
+        },
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          idempotentHint: false,
+          openWorldHint: true,
+        },
+      },
+      async ({ victim_addresses, scammer_addresses, network, case_id, max_hops, per_address_limit, min_amount_sum }) => {
+        try {
+          if (!remoteConnected) {
+            return {
+              content: [{
+                type: 'text' as const,
+                text: `${remoteUnavailableMessage ?? `Graph MCP is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
+              }],
+              isError: true,
+            }
+          }
+          const { scamTopology } = await import('../investigation/public-tools.js')
+          const { writeGraphReport } = await import('./graph-reports.js')
+          const { ensureArtifactServer } = await import('./artifact-server.js')
+          const result = await scamTopology(remoteClient, config, {
+            victimAddresses: victim_addresses,
+            scammerAddresses: scammer_addresses,
+            network,
+            caseId: case_id,
+            maxHops: max_hops,
+            perAddressLimit: per_address_limit,
+            minAmountSum: min_amount_sum,
+          })
+          const report = await writeGraphReport(result.graphData as never, {
+            serverPort: config.serverPort,
+            slug: `scam-topology-${network}`,
+          })
+          await ensureArtifactServer(config.serverPort)
+          return {
+            content: [{ type: 'text' as const, text: result.summaryText }],
+            structuredContent: result.structuredContent,
+            _meta: {
+              chainInsights: {
+                graph: {
+                  schema: report.schema,
+                  url: report.url,
+                },
+              },
+            },
+            isError: false,
+          }
+        } catch (err) {
+          return {
+            content: [{ type: 'text' as const, text: `Scam topology failed: ${(err as Error).message}` }],
+            isError: true,
+          }
+        }
+      },
+    )
+  }
+
   server.registerTool(
     'help',
     {
@@ -1377,6 +1470,7 @@ export async function createProxy(): Promise<void> {
             '- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.',
             '- address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.',
             '- track_funds: trace up to five trusted/victim addresses plus up to five known untrusted/scammer addresses through intermediaries to exchange deposit addresses.',
+            '- scam_topology: derive laundering roles and reviewable label candidates from known scam victim/scammer seed addresses.',
             '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE live_topology, USE archive_topology, or USE facts.',
             '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
             '',
