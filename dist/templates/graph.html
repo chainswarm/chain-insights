@@ -357,6 +357,18 @@ function hashString(s) {
   }
   return (h >>> 0).toString(36);
 }
+function edgeSourceId(e) {
+  return e.source || e.from_address || e.from || '';
+}
+function edgeTargetId(e) {
+  return e.target || e.to_address || e.to || '';
+}
+function edgeType(e) {
+  return String(e.edge_type || e.type || 'flows_to').toUpperCase();
+}
+function edgeUsdAmount(e) {
+  return e.usd_amount || e.amount_usd || e.amount_usd_sum || 0;
+}
 function storageIdFromData(data) {
   if (!data) return null;
   var meta = data.metadata || {};
@@ -365,7 +377,7 @@ function storageIdFromData(data) {
 
   var nodeIds = (data.nodes || []).map(function(n){ return n.address || n.id || ''; }).sort();
   var edgeIds = (data.edges || []).map(function(e){
-    return [e.from_address || e.from || '', e.to_address || e.to || '', e.type || 'FLOWS_TO'].join('>');
+    return [edgeSourceId(e), edgeTargetId(e), edgeType(e)].join('>');
   }).sort();
   var basis = JSON.stringify({
     network: meta.network || '',
@@ -458,6 +470,9 @@ D3_HIERARCHY,
 '',
 'var sim=null, rawN=null, rawE=null, W=0, H=0, seedAddr=null;',
 '',
+'function edgeSourceId(e){return e.source||e.from_address||e.from||"";}',
+'function edgeTargetId(e){return e.target||e.to_address||e.to||"";}',
+'',
 'function radii(nodes,edges){',
 '  // Try flow volume first, fall back to degree centrality',
 '  var f=nodes.map(function(n){return(n.flow_in_usd||0)+(n.flow_out_usd||0)});',
@@ -466,7 +481,7 @@ D3_HIERARCHY,
 '    // Use degree centrality from edges',
 '    var deg={};',
 '    edges.forEach(function(e){',
-'      var s=e.from_address||e.from,t=e.to_address||e.to;',
+'      var s=edgeSourceId(e),t=edgeTargetId(e);',
 '      deg[s]=(deg[s]||0)+1; deg[t]=(deg[t]||0)+1;',
 '    });',
 '    f=nodes.map(function(n){return deg[n.address]||0});',
@@ -501,7 +516,7 @@ D3_HIERARCHY,
 '  // Build DIRECTED adjacency (from→to) so tree follows money flow',
 '  var fwd=new Map();',
 '  edges.forEach(function(e){',
-'    var s=e.from_address||e.from,t=e.to_address||e.to;',
+'    var s=edgeSourceId(e),t=edgeTargetId(e);',
 '    if(!fwd.has(s))fwd.set(s,[]);',
 '    fwd.get(s).push(t);',
 '  });',
@@ -513,7 +528,7 @@ D3_HIERARCHY,
 '  // Fallback: unreached nodes via undirected edges (reverse flows, disconnected)',
 '  var adj=new Map();',
 '  edges.forEach(function(e){',
-'    var s=e.from_address||e.from,t=e.to_address||e.to;',
+'    var s=edgeSourceId(e),t=edgeTargetId(e);',
 '    if(!adj.has(s))adj.set(s,[]);if(!adj.has(t))adj.set(t,[]);',
 '    adj.get(s).push(t);adj.get(t).push(s);',
 '  });',
@@ -554,7 +569,7 @@ D3_HIERARCHY,
 '',
 'function runForce(nodes,edges,w,h){',
 '  if(sim){sim.stop();sim=null;}',
-'  var ld=edges.map(function(e){return{source:e.from_address||e.from,target:e.to_address||e.to};});',
+'  var ld=edges.map(function(e){return{source:edgeSourceId(e),target:edgeTargetId(e)};});',
 '  sim=d3.forceSimulation(nodes)',
 '    .force("link",d3.forceLink(ld).id(function(d){return d.address;})',
 '      .distance(function(l){return((l.source._r||15)+(l.target._r||15)+60)*1.8;}))',
@@ -657,8 +672,8 @@ function loadGraph(data) {
   }
   for (var di=0; di<data.edges.length; di++) {
     var de = data.edges[di];
-    var df = de.from_address || de.from;
-    var dt = de.to_address || de.to;
+    var df = edgeSourceId(de);
+    var dt = edgeTargetId(de);
     if (exMap[dt]) depositExchange[df] = exMap[dt];
   }
 
@@ -687,12 +702,12 @@ function applyDataMode() {
   links = [];
   for (var i=0; i<graphData.edges.length; i++) {
     var e = graphData.edges[i];
-    var eType = e.type||'FLOWS_TO';
+    var eType = edgeType(e);
     if (eType !== 'FLOWS_TO') continue;  // skip pattern edges
-    var src = nodeMap[e.from_address||e.from];
-    var tgt = nodeMap[e.to_address||e.to];
+    var src = nodeMap[edgeSourceId(e)];
+    var tgt = nodeMap[edgeTargetId(e)];
     if (!src || !tgt) continue;
-    var l = {source:src, target:tgt, usd_amount:e.usd_amount||e.amount_usd, tx_count:e.tx_count, type:eType, is_main_path:!!e.is_main_path, is_mixer_path:!!e.is_mixer_path};
+    var l = {source:src, target:tgt, usd_amount:edgeUsdAmount(e), tx_count:e.tx_count, type:eType, is_main_path:!!e.is_main_path, is_mixer_path:!!e.is_mixer_path};
     links.push(l);
     if (l.usd_amount > 0) amts.push(l.usd_amount);
   }
@@ -700,7 +715,7 @@ function applyDataMode() {
   amtRange = amtExt ? amtExt[1]-amtExt[0] : 0;
 
   var validEdges = graphData.edges.filter(function(e) {
-    return nodeMap[e.from_address||e.from] && nodeMap[e.to_address||e.to];
+    return nodeMap[edgeSourceId(e)] && nodeMap[edgeTargetId(e)];
   });
 
   needFit = true;
@@ -1263,14 +1278,14 @@ var MOCK={nodes:[
   {address:"5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc",address_type:"exchange",labels:["Kraken"],flow_in_usd:95000,flow_out_usd:90000},
   {address:"5Ew3MyB15VprZrjQVkpQFj8okmc9xLDSEdNhqMMS5cXsqxoW",address_type:"wallet",labels:[],flow_in_usd:1500,flow_out_usd:1400,pattern_flags:["structuring","rapid_consolidation"]},
 ],edges:[
-  {from_address:"5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",to_address:"5HGjWAeFDfFCWPsjFQdVV2Msvz2XtMktvgocEZcCj68kUMaw",usd_amount:5000,tx_count:3,type:"FLOWS_TO"},
-  {from_address:"5HGjWAeFDfFCWPsjFQdVV2Msvz2XtMktvgocEZcCj68kUMaw",to_address:"5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy",usd_amount:4500,tx_count:2,type:"FLOWS_TO"},
-  {from_address:"5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy",to_address:"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",usd_amount:4000,tx_count:1,type:"FLOWS_TO"},
-  {from_address:"5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",to_address:"5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSneWj6VLHPF",usd_amount:15000,tx_count:5,type:"FLOWS_TO"},
-  {from_address:"5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSneWj6VLHPF",to_address:"5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc",usd_amount:12000,tx_count:4,type:"FLOWS_TO"},
-  {from_address:"5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSneWj6VLHPF",to_address:"5Ew3MyB15VprZrjQVkpQFj8okmc9xLDSEdNhqMMS5cXsqxoW",usd_amount:2000,tx_count:8,type:"FLOWS_TO"},
-  {from_address:"5Ew3MyB15VprZrjQVkpQFj8okmc9xLDSEdNhqMMS5cXsqxoW",to_address:"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",usd_amount:1200,tx_count:6,type:"FLOWS_TO"},
-  {from_address:"5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy",to_address:"5Ew3MyB15VprZrjQVkpQFj8okmc9xLDSEdNhqMMS5cXsqxoW",usd_amount:800,tx_count:2,type:"LAYERING"},
+  {source:"5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",target:"5HGjWAeFDfFCWPsjFQdVV2Msvz2XtMktvgocEZcCj68kUMaw",usd_amount:5000,tx_count:3,edge_type:"flows_to"},
+  {source:"5HGjWAeFDfFCWPsjFQdVV2Msvz2XtMktvgocEZcCj68kUMaw",target:"5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy",usd_amount:4500,tx_count:2,edge_type:"flows_to"},
+  {source:"5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy",target:"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",usd_amount:4000,tx_count:1,edge_type:"flows_to"},
+  {source:"5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",target:"5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSneWj6VLHPF",usd_amount:15000,tx_count:5,edge_type:"flows_to"},
+  {source:"5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSneWj6VLHPF",target:"5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc",usd_amount:12000,tx_count:4,edge_type:"flows_to"},
+  {source:"5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSneWj6VLHPF",target:"5Ew3MyB15VprZrjQVkpQFj8okmc9xLDSEdNhqMMS5cXsqxoW",usd_amount:2000,tx_count:8,edge_type:"flows_to"},
+  {source:"5Ew3MyB15VprZrjQVkpQFj8okmc9xLDSEdNhqMMS5cXsqxoW",target:"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",usd_amount:1200,tx_count:6,edge_type:"flows_to"},
+  {source:"5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy",target:"5Ew3MyB15VprZrjQVkpQFj8okmc9xLDSEdNhqMMS5cXsqxoW",usd_amount:800,tx_count:2,edge_type:"layering"},
 ],metadata:{seed_address:"5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",mode:"bfs",network:"bittensor",node_count:7,edge_count:8}};
 
 /* ───────────────────────────────────────────────────────────

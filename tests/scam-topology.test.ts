@@ -216,19 +216,19 @@ describe('scamTopology', () => {
     })).rejects.toThrow('scammer_addresses is no longer accepted')
   })
 
-  it('anchors incident timestamp only on victim outflow and follows legacy downstream infrastructure', async () => {
+  it('applies activity timestamps on every wave and follows only active downstream infrastructure', async () => {
     vi.mocked(client.callTool)
       .mockResolvedValueOnce(graphBatchResult([
-        { id: 'incident_hop_1', ok: true, results: [topologyRow('5Victim', '5LegacyHop', { last_seen_timestamp: 1715532229000 })] },
+        { id: 'incident_hop_1', ok: true, results: [topologyRow('5Victim', '5LegacyHop', { first_seen_timestamp: 1715532229000, last_seen_timestamp: 1715532229000 })] },
       ]))
       .mockResolvedValueOnce(graphBatchResult([
-        { id: 'incident_hop_2', ok: true, results: [topologyRow('5LegacyHop', '5OldMixer', { last_seen_timestamp: 1500000000000 })] },
+        { id: 'incident_hop_2', ok: true, results: [topologyRow('5LegacyHop', '5ActiveMixer', { first_seen_timestamp: 1715532230000, last_seen_timestamp: 1715532230000 })] },
       ]))
       .mockResolvedValueOnce(graphBatchResult([
-        { id: 'incident_hop_3', ok: true, results: [topologyRow('5OldMixer', '5Deposit', { last_seen_timestamp: 1500000000001 })] },
+        { id: 'incident_hop_3', ok: true, results: [topologyRow('5ActiveMixer', '5Deposit', { first_seen_timestamp: 1715532231000, last_seen_timestamp: 1715532231000 })] },
       ]))
       .mockResolvedValueOnce(graphBatchResult([
-        { id: 'incident_hop_4', ok: true, results: [topologyRow('5Deposit', '5Exchange', { dst_labels: ['exchange'], dst_is_exchange: true, last_seen_timestamp: 1500000000002 })] },
+        { id: 'incident_hop_4', ok: true, results: [topologyRow('5Deposit', '5Exchange', { dst_labels: ['exchange'], dst_is_exchange: true, first_seen_timestamp: 1715532232000, last_seen_timestamp: 1715532232000 })] },
       ]))
       .mockResolvedValueOnce(graphBatchResult([
         { id: 'incident_deposit_cluster_1', ok: true, results: [topologyRow('5LegacyCluster', '5Deposit', { last_seen_timestamp: 1499999999999 })] },
@@ -247,14 +247,14 @@ describe('scamTopology', () => {
     expect(queries.find((query) => query.id === 'incident_hop_1')?.query)
       .toContain('r.last_seen_timestamp >= 1715532228001')
     expect(queries.find((query) => query.id === 'incident_hop_2')?.query)
-      .not.toContain('r.last_seen_timestamp >= 1715532228001')
+      .toContain('r.last_seen_timestamp >= 1715532229000')
     expect(queries.find((query) => query.id === 'incident_hop_3')?.query)
-      .not.toContain('r.last_seen_timestamp >= 1715532228001')
+      .toContain('r.last_seen_timestamp >= 1715532230000')
     expect(queries.find((query) => query.id === 'incident_deposit_cluster_1')?.query)
       .not.toContain('r.last_seen_timestamp >= 1715532228001')
     expect(result.structuredContent.facts.scam_labels).toEqual(expect.arrayContaining([
       expect.objectContaining({ address: '5LegacyHop', scam: true }),
-      expect.objectContaining({ address: '5OldMixer', scam: true }),
+      expect.objectContaining({ address: '5ActiveMixer', scam: true }),
       expect.objectContaining({ address: '5LegacyCluster', scam: true }),
     ]))
   })
@@ -298,6 +298,213 @@ describe('scamTopology', () => {
     expect(result.graphData.edges).toEqual(expect.arrayContaining([
       expect.objectContaining({ source: '5Victim', target: '5Hop', relation: 'seed_outflow' }),
       expect.objectContaining({ source: '5Deposit', target: '5Exchange', relation: 'terminal_exchange' }),
+    ]))
+  })
+
+  it('keeps repeated targets as non-expanding convergence edges', async () => {
+    vi.mocked(client.callTool).mockImplementation(async (request) => {
+      const queries = request.arguments?.queries as Array<{ id: string; query: string }>
+      return graphBatchResult(queries.map((query) => {
+        const source = query.query.match(/address: "([^"]+)"/)?.[1]
+        const resultsBySource: Record<string, Array<Record<string, unknown>>> = {
+          '5Victim': [
+            topologyRow('5Victim', '5A', { first_seen_timestamp: 100, last_seen_timestamp: 100 }),
+            topologyRow('5Victim', '5B', { first_seen_timestamp: 101, last_seen_timestamp: 101 }),
+          ],
+          '5A': [topologyRow('5A', '5C', { first_seen_timestamp: 110, last_seen_timestamp: 110 })],
+          '5B': [topologyRow('5B', '5C', { first_seen_timestamp: 111, last_seen_timestamp: 111 })],
+          '5C': [topologyRow('5C', '5D', { first_seen_timestamp: 120, last_seen_timestamp: 120 })],
+        }
+        return {
+          id: query.id,
+          ok: true,
+          results: source ? resultsBySource[source] ?? [] : [],
+        }
+      }))
+    })
+    const { scamTopology } = await import('../src/investigation/scam-topology.js')
+
+    const result = await scamTopology(client, config, {
+      network: 'bittensor',
+      victimAddress: '5Victim',
+      incidentTimestampMs: 100,
+      maxHops: 3,
+    })
+
+    expect(result.structuredContent.facts.topology_edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        src: '5A',
+        dst: '5C',
+        relation: 'traversal_edge',
+        wave_index: 2,
+        expands_frontier: true,
+      }),
+      expect.objectContaining({
+        src: '5B',
+        dst: '5C',
+        relation: 'convergence_edge',
+        wave_index: 2,
+        expands_frontier: false,
+      }),
+      expect.objectContaining({
+        src: '5C',
+        dst: '5D',
+        relation: 'traversal_edge',
+        wave_index: 3,
+        expands_frontier: true,
+      }),
+    ]))
+    const cExpansionQueries = vi.mocked(client.callTool).mock.calls
+      .flatMap((call) => call[0]?.arguments?.queries as Array<{ query: string }> ?? [])
+      .filter((query) => query.query.includes('address: "5C"'))
+    expect(cExpansionQueries.length).toBeGreaterThan(0)
+    expect(cExpansionQueries.length).toBeLessThanOrEqual(2)
+  })
+
+  it('runs only the primary node-relative activity policy by default', async () => {
+    vi.mocked(client.callTool).mockImplementation(async (request) => {
+      const queries = request.arguments?.queries as Array<{ id: string; query: string }>
+      return graphBatchResult(queries.map((query) => {
+        const source = query.query.match(/address: "([^"]+)"/)?.[1]
+        return {
+          id: query.id,
+          ok: true,
+          results: source === '5Victim'
+            ? [topologyRow('5Victim', '5A', { first_seen_timestamp: 150, last_seen_timestamp: 150 })]
+            : [],
+        }
+      }))
+    })
+    const { scamTopology } = await import('../src/investigation/scam-topology.js')
+
+    const result = await scamTopology(client, config, {
+      network: 'bittensor',
+      victimAddress: '5Victim',
+      incidentTimestampMs: 100,
+      maxHops: 2,
+    })
+
+    const sourceAQueries = vi.mocked(client.callTool).mock.calls
+      .flatMap((call) => call[0]?.arguments?.queries as Array<{ id: string; query: string }> ?? [])
+      .filter((query) => query.query.includes('address: "5A"'))
+    expect(sourceAQueries.map((query) => query.query)).toEqual([
+      expect.stringContaining('r.first_seen_timestamp >= 150 OR r.last_seen_timestamp >= 150'),
+    ])
+    expect(result.structuredContent.facts.runs).toEqual([
+      expect.objectContaining({ activity_policy: 'node_relative', primary: true }),
+    ])
+    expect(result.structuredContent.facts.activity_policy_mode).toBe('node_relative_only')
+  })
+
+  it('runs only the global incident activity policy when requested', async () => {
+    vi.mocked(client.callTool).mockImplementation(async (request) => {
+      const queries = request.arguments?.queries as Array<{ id: string; query: string }>
+      return graphBatchResult(queries.map((query) => {
+        const source = query.query.match(/address: "([^"]+)"/)?.[1]
+        return {
+          id: query.id,
+          ok: true,
+          results: source === '5Victim'
+            ? [topologyRow('5Victim', '5A', { first_seen_timestamp: 150, last_seen_timestamp: 150 })]
+            : [],
+        }
+      }))
+    })
+    const { scamTopology } = await import('../src/investigation/scam-topology.js')
+
+    const result = await scamTopology(client, config, {
+      network: 'bittensor',
+      victimAddress: '5Victim',
+      incidentTimestampMs: 100,
+      maxHops: 2,
+      activityPolicyMode: 'global_incident_only',
+    })
+
+    const sourceAQueries = vi.mocked(client.callTool).mock.calls
+      .flatMap((call) => call[0]?.arguments?.queries as Array<{ id: string; query: string }> ?? [])
+      .filter((query) => query.query.includes('address: "5A"'))
+    expect(sourceAQueries.map((query) => query.query)).toEqual([
+      expect.stringContaining('r.first_seen_timestamp >= 100 OR r.last_seen_timestamp >= 100'),
+    ])
+    expect(result.structuredContent.facts.runs).toEqual([
+      expect.objectContaining({ activity_policy: 'global_incident', primary: true }),
+    ])
+    expect(result.structuredContent.facts.primary_activity_policy).toBe('global_incident')
+    expect(result.structuredContent.facts.activity_policy_mode).toBe('global_incident_only')
+  })
+
+  it('returns a track_funds-compatible graph payload and keeps cluster enrichment out of primary flows', async () => {
+    vi.mocked(client.callTool)
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_1', ok: true, results: [topologyRow('5Victim', '5Hop')] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_2', ok: true, results: [topologyRow('5Hop', '5Deposit')] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_3', ok: true, results: [topologyRow('5Deposit', '5Exchange', { dst_labels: ['exchange'], dst_is_exchange: true })] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_deposit_cluster_1', ok: true, results: [
+          topologyRow('5ClusterPeer', '5Deposit', {
+            amount_sum: 42,
+            amount_usd_sum: 420,
+            tx_count: 2,
+            src_labels: ['miner subnet 63'],
+            first_seen_timestamp: 1700000000000,
+            last_seen_timestamp: 1710000000000,
+          }),
+        ] },
+      ]))
+    const { scamTopology } = await import('../src/investigation/scam-topology.js')
+
+    const result = await scamTopology(client, config, {
+      network: 'bittensor',
+      victimAddress: '5Victim',
+      incidentTimestampMs: 1715532228001,
+      maxHops: 3,
+    })
+
+    expect(result.graphData).toMatchObject({
+      schema: 'chain-insights.graph.v1',
+      nodes: expect.any(Array),
+      edges: expect.any(Array),
+      flows: expect.any(Array),
+      deposits: expect.any(Array),
+      source_matches: expect.any(Array),
+      reverse_leads: expect.any(Array),
+      edge_anchors: [],
+    })
+    expect(result.graphData).not.toHaveProperty('topology_edges')
+    expect(result.graphData).not.toHaveProperty('scam_topology')
+    expect(result.graphData.flows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ src: '5Victim', dst: '5Hop', terminal_exchange: false }),
+      expect.objectContaining({ src: '5Hop', dst: '5Deposit', terminal_exchange: false }),
+      expect.objectContaining({ src: '5Deposit', dst: '5Exchange', terminal_exchange: true }),
+    ]))
+    expect(result.graphData.flows).not.toContainEqual(expect.objectContaining({
+      src: '5ClusterPeer',
+      dst: '5Deposit',
+    }))
+    expect(result.graphData.deposits).toEqual([
+      expect.objectContaining({
+        address: '5Deposit',
+        exchangeAddress: '5Exchange',
+        hops: 3,
+        path: ['5Victim', '5Hop', '5Deposit', '5Exchange'],
+      }),
+    ])
+    expect(result.graphData.reverse_leads).toEqual([
+      expect.objectContaining({
+        address: '5ClusterPeer',
+        deposit_address: '5Deposit',
+        amount_usd: 420,
+        labels: ['miner subnet 63'],
+        reason: 'deposit_cluster_inflow',
+      }),
+    ])
+    expect(result.graphData.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: '5ClusterPeer', target: '5Deposit', direction: 'reverse_1hop_lead' }),
     ]))
   })
 
@@ -378,7 +585,7 @@ describe('scamTopology', () => {
         { id: 'incident_hop_1', ok: true, results: [topologyRow('5Victim', '5Deposit')] },
       ]))
       .mockResolvedValueOnce(graphBatchResult([
-        { id: 'incident_hop_2', ok: true, results: [topologyRow('5Deposit', '5Exchange', { dst_labels: ['exchange'], dst_is_exchange: true })] },
+        { id: 'incident_hop_2', ok: true, results: [topologyRow('5Deposit', '5Exchange', { dst_labels: ['Binance', 'exchange', 'miner subnet 5', 'subnet 5 owner'], dst_is_exchange: true })] },
       ]))
     const { scamTopology } = await import('../src/investigation/scam-topology.js')
 
@@ -397,8 +604,36 @@ describe('scamTopology', () => {
       expect.objectContaining({ address: '5Exchange', role: 'exchange_endpoint' }),
       expect.objectContaining({ address: '5Deposit', role: 'exchange_deposit_candidate' }),
     ]))
+    expect(result.structuredContent.facts.terminal_points).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        address: '5Exchange',
+        terminal_type: 'exchange_endpoint',
+        exchange_address: '5Exchange',
+        exchange_names: ['Binance'],
+        deposit_address: '5Deposit',
+        source_address: '5Deposit',
+      }),
+    ]))
     expect(result.structuredContent.facts.label_candidates).toEqual(expect.arrayContaining([
-      expect.objectContaining({ address: '5Deposit', address_subtype: 'exchange_deposit_candidate', promotion_status: 'review_required' }),
+      expect.objectContaining({
+        address: '5Deposit',
+        address_subtype: 'exchange_deposit_candidate',
+        promotion_status: 'review_required',
+        evidence: expect.arrayContaining([
+          expect.objectContaining({
+            deposit_address: '5Deposit',
+            exchange_address: '5Exchange',
+            exchange_names: ['Binance'],
+          }),
+        ]),
+      }),
+    ]))
+    expect(result.graphData.deposits).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        address: '5Deposit',
+        exchangeAddress: '5Exchange',
+        exchangeNames: ['Binance'],
+      }),
     ]))
     expect(result.structuredContent.facts.scam_labels).toEqual(expect.arrayContaining([
       expect.objectContaining({ address: '5Deposit', scam: true, source_victim_address: '5Victim' }),

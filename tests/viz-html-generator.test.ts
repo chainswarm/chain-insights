@@ -63,7 +63,10 @@ describe('generateHtml (VIZ-02) — graph.html template', () => {
     const html = generateHtml(data, 'Test Viz')
     expect(html).toContain('INLINE_DATA')
     expect(html).toContain('"address":"0x1234"')
-    expect(html).toContain('"from_address":"0x1234"')
+    expect(html).toContain('"source":"0x1234"')
+    expect(html).toContain('"target":"0xabcd"')
+    expect(html).not.toContain('"from_address":"0x1234"')
+    expect(html).not.toContain('"to_address":"0xabcd"')
   })
 
   it('graph app reads local graph report URL from tool result _meta', async () => {
@@ -222,6 +225,20 @@ describe('generateHtml (VIZ-02) — graph.html template', () => {
     expect(html).toContain('nodeDisplayRole(en) ===')
     expect(html).not.toContain('role:n.role||null')
   })
+
+  it('graph template reads canonical source/target edge endpoints with legacy fallback', async () => {
+    const { generateHtml } = await import('../src/viz/html-generator.js')
+    const { GraphData } = await import('../src/viz/graph-model.js')
+    const data = GraphData.parse(validData)
+    const html = generateHtml(data, 'Test Viz')
+
+    expect(html).toContain('function edgeSourceId(e)')
+    expect(html).toContain('return e.source || e.from_address || e.from')
+    expect(html).toContain('function edgeTargetId(e)')
+    expect(html).toContain('return e.target || e.to_address || e.to')
+    expect(html).toContain('function edgeType(e)')
+    expect(html).toContain("return String(e.edge_type || e.type || 'flows_to').toUpperCase()")
+  })
 })
 
 describe('transformToGraphHtml (data schema mapping)', () => {
@@ -244,10 +261,13 @@ describe('transformToGraphHtml (data schema mapping)', () => {
     expect(result.nodes[0].flow_in_usd).toBe(500)
     expect(result.nodes[1].role).toBe('intermediary')
     expect(result.nodes[1].risk_level).toBe('critical')
-    expect(result.edges[0].from_address).toBe('0x1234')
-    expect(result.edges[0].to_address).toBe('0xabcd')
+    expect(result.edges[0].source).toBe('0x1234')
+    expect(result.edges[0].target).toBe('0xabcd')
     expect(result.edges[0].usd_amount).toBe(200)
-    expect(result.edges[0].type).toBe('FLOWS_TO')
+    expect(result.edges[0].edge_type).toBe('flows_to')
+    expect(result.edges[0]).not.toHaveProperty('from_address')
+    expect(result.edges[0]).not.toHaveProperty('to_address')
+    expect(result.edges[0]).not.toHaveProperty('type')
   })
 
   it('maps unknown riskLevel to null', async () => {

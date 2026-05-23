@@ -52,7 +52,7 @@ const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   network_capabilities: 'Return supported Chain Insights networks, capability layers, tool availability, data retention windows, and freshness. Use this before choosing network-specific tools.',
   address_risk: 'Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. This includes the exchange-behavior analysis formerly covered by money_flows_between_exchanges. Use this as the first tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.',
-  scam_topology: 'Build victim-incident laundering topology from one victim/source address and the earliest known incident timestamp. The timestamp anchors the victim outflow only; downstream traversal may enter older scam infrastructure. Returns ML-ready scam_labels plus review context. Victims, exchange endpoints, and generic labeled context nodes are not automatic scam labels; preserve full addresses exactly.',
+  scam_topology: 'Build victim-incident laundering topology from one victim/source address and the earliest known incident timestamp. Traversal uses one explicit activity policy: node_relative_only by default, or global_incident_only when requested. Repeated targets are kept as non-expanding convergence edges. Returns ML-ready scam_labels plus review context and a track_funds-compatible graph report: primary flows, deposits, reverse_leads. Victims, exchange endpoints, and generic labeled context nodes are not automatic scam labels; preserve full addresses exactly.',
   track_funds: 'Trace funds from trusted victim/source addresses through intermediaries to exchange deposit addresses. Use this when the user has a victim/source address or known untrusted/scammer addresses. The tool returns an investigator-ready fund-flow report and recommended next actions.',
   graph_query: 'Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE live_topology for Memgraph RAM topology, USE archive_topology for StarRocks historical topology, and USE facts for StarRocks facts. Cross-backend correlated joins are limited by current MemGQL behavior; preserve full addresses exactly.',
   graph_query_batch: 'Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads.',
@@ -187,8 +187,9 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
       return {
         network: z.string().min(1).describe(NETWORK_DESCRIPTION),
         victim_address: z.string().min(1).describe('Full victim/source address that anchors the scam incident. Victims are not risky labels.'),
-        incident_timestamp_ms: z.number().min(0).describe('Earliest known incident transfer timestamp in milliseconds. Applied only to the first victim outflow.'),
+        incident_timestamp_ms: z.number().min(0).describe('Earliest known incident transfer timestamp in milliseconds. Primary traversal uses node-relative wave-arrival filtering.'),
         max_hops: z.number().int().min(1).max(64).optional().describe('Maximum forward expansion depth. Default 16.'),
+        activity_policy: z.enum(['node_relative_only', 'global_incident_only']).optional().describe('Traversal activity policy. Default node_relative_only.'),
       }
     case 'graph_query':
       return {
@@ -1379,8 +1380,9 @@ export async function createProxy(): Promise<void> {
         inputSchema: {
           network: z.string().min(1).describe(NETWORK_DESCRIPTION),
           victim_address: z.string().min(1).describe('Full victim/source address that anchors the scam incident. Victims are not risky labels.'),
-          incident_timestamp_ms: z.number().min(0).describe('Earliest known incident transfer timestamp in milliseconds. Applied only to the first victim outflow.'),
+          incident_timestamp_ms: z.number().min(0).describe('Earliest known incident transfer timestamp in milliseconds. Primary traversal uses node-relative wave-arrival filtering.'),
           max_hops: z.number().int().min(1).max(64).optional().describe('Maximum forward expansion depth. Default 16.'),
+          activity_policy: z.enum(['node_relative_only', 'global_incident_only']).optional().describe('Traversal activity policy. Default node_relative_only.'),
         },
         _meta: {
           ui: {
@@ -1394,7 +1396,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ victim_address, incident_timestamp_ms, network, max_hops }) => {
+      async ({ victim_address, incident_timestamp_ms, network, max_hops, activity_policy }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1413,6 +1415,7 @@ export async function createProxy(): Promise<void> {
             network,
             maxHops: max_hops,
             incidentTimestampMs: incident_timestamp_ms,
+            activityPolicyMode: activity_policy,
           })
           const report = await writeGraphReport(result.graphData as never, {
             serverPort: config.serverPort,

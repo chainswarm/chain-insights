@@ -1403,6 +1403,17 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       callTool: ReturnType<typeof vi.fn>
     }
+    clientInstance.callTool.mockResolvedValue({
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          schema: 'chain-insights.result.v1',
+          tool: 'graph_query_batch',
+          facts: { queries: [] },
+        }),
+      }],
+      isError: false,
+    })
     clientInstance.callTool.mockResolvedValueOnce({
       content: [{
         type: 'text',
@@ -1473,6 +1484,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(inputSchema.incident_timestamp_ms.safeParse(-1).success).toBe(false)
     expect(inputSchema.max_hops.safeParse(16).success).toBe(true)
     expect(inputSchema.max_hops.safeParse(65).success).toBe(false)
+    expect(inputSchema.activity_policy.safeParse('node_relative_only').success).toBe(true)
+    expect(inputSchema.activity_policy.safeParse('global_incident_only').success).toBe(true)
+    expect(inputSchema.activity_policy.safeParse('compare').success).toBe(false)
+    expect(inputSchema.compare_activity_policies).toBeUndefined()
     expect(inputSchema.scope).toBeUndefined()
     expect(inputSchema.since_timestamp_ms).toBeUndefined()
     expect(inputSchema.scammer_addresses).toBeUndefined()
@@ -1483,6 +1498,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       network: 'bittensor',
       incident_timestamp_ms: 1715532228001,
       max_hops: 4,
+      activity_policy: 'global_incident_only',
     })
 
     expect(result.isError).toBe(false)
@@ -1494,6 +1510,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.structuredContent.facts.label_candidates).toEqual(expect.arrayContaining([
       expect.objectContaining({ address: '5Deposit', address_subtype: 'exchange_deposit_candidate' }),
     ]))
+    expect(result.structuredContent.facts.runs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ activity_policy: 'global_incident', primary: true }),
+    ]))
     expect(clientInstance.callTool.mock.calls[0]?.[0].arguments.queries[0].query)
       .toContain('r.last_seen_timestamp >= 1715532228001')
     expect(clientInstance.callTool.mock.calls[2]?.[0].arguments.queries[0].id)
@@ -1502,10 +1521,26 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const filename = graphUrl.split('/graph-reports/')[1]
     expect(filename).toMatch(/\.graph\.json$/)
     const graph = JSON.parse(await readFile(join(testDataDir, 'reports', 'graphs', filename), 'utf8')) as {
-      scam_topology?: { scam_labels?: Array<Record<string, unknown>> }
+      nodes?: Array<Record<string, unknown>>
+      flows?: Array<Record<string, unknown>>
+      deposits?: Array<Record<string, unknown>>
+      source_matches?: Array<Record<string, unknown>>
+      reverse_leads?: Array<Record<string, unknown>>
+      scam_topology?: unknown
+      topology_edges?: unknown
     }
-    expect(graph.scam_topology?.scam_labels).toEqual(expect.arrayContaining([
-      expect.objectContaining({ address: '5Deposit', scam: true }),
+    expect(graph.scam_topology).toBeUndefined()
+    expect(graph.topology_edges).toBeUndefined()
+    expect(graph.source_matches).toEqual([])
+    expect(graph.reverse_leads).toEqual([])
+    expect(graph.deposits).toEqual([
+      expect.objectContaining({ address: '5Deposit', exchangeAddress: '5Exchange', path: ['5Victim', '5Deposit', '5Exchange'] }),
+    ])
+    expect(graph.flows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ src: '5Deposit', dst: '5Exchange', terminal_exchange: true }),
+    ]))
+    expect(graph.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ address: '5Deposit', scam: true, scam_confidence: 0.68 }),
     ]))
   })
 

@@ -153,16 +153,25 @@ fund-flow tracing by passing one address as the only `trusted_addresses` value.
 Use `scam_topology` when known victim incident ground truth should become
 ML-ready `scam_labels` plus reviewable laundering context. The victim-only
 traversal is outward from victim/source funds, so do not query or promote
-victim inbound transfers as scam infrastructure. `incident_timestamp_ms` anchors
-only the first victim outflow; downstream traversal can enter older scam
-infrastructure. Exchange terminal safety is the only hard-coded terminal
-behavior; other labels are generic context hints. Victim/source addresses,
+victim inbound transfers as scam infrastructure. The primary traversal is a
+node-relative novelty wave: each new node expands only once, repeated targets
+are retained as non-expanding `convergence_edge` context, and downstream edges
+must have `first_seen_timestamp` or `last_seen_timestamp` greater than or equal
+to the current node's wave-arrival timestamp. The tool can instead use
+`activity_policy=global_incident_only`, where every wave is filtered against
+`incident_timestamp_ms`. Exchange terminal safety is the only hard-coded
+terminal behavior; other labels are generic context hints. The graph report follows the
+same `chain-insights.graph.v1` layout as
+`track_funds`: primary victim-flow edges are `flows`, exchange deposits are
+`deposits`, and deposit-cluster enrichment is `reverse_leads`.
+Victim/source addresses,
 exchange endpoints, and generic labeled context nodes are not automatic scam
 labels; laundering intermediates and exchange deposit candidates are reviewable,
 not automatic writes to `core_address_labels`.
 
 ```bash
 cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --max-hops 16
+cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --max-hops 16 --activity-policy global_incident_only
 ```
 
 Use manual `graph_query_batch` for custom topology or fact questions. Use
