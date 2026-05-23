@@ -2,6 +2,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.9] - 2026-05-23
+
+- Expanded `scam_topology` label discovery around exchange-deposit clusters reached from known scam victim/scammer seeds.
+- Added `deposit_cluster_inflow` topology edges so shared deposit senders become review-required laundering candidates instead of being omitted from the scam cluster.
+- Preserved generic address labels as review context while keeping victims and exchange endpoints out of risky label candidates.
+
 ## [0.2.8] - 2026-05-23
 
 - Reworked `scam_topology` into outward victim/scammer traversal with `history`, `incident`, and `compare` scopes.
