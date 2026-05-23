@@ -6,12 +6,15 @@ import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 export type ScamTopologyScope = 'history' | 'incident' | 'compare'
 export type ScamTopologyGraphScope = 'history' | 'incident'
 export type ScamTopologyScopeMembership = 'history_only' | 'incident_only' | 'overlap'
+export type ScamTopologyActivityPolicy = 'global_incident' | 'node_relative'
+export type ScamTopologyActivityPolicyMode = 'node_relative_only' | 'global_incident_only'
 
 export interface ScamTopologyOptions {
   network: string
   victimAddress: string
   incidentTimestampMs: number
   maxHops?: number
+  activityPolicyMode?: ScamTopologyActivityPolicyMode
 }
 
 export type ScamTopologySeedRole = 'victim' | 'scammer'
@@ -54,6 +57,7 @@ export interface ScamTopologyCaseRole {
 export type ScamTopologyEdgeRelation =
   | 'seed_outflow'
   | 'traversal_edge'
+  | 'convergence_edge'
   | 'deposit_cluster_inflow'
   | 'terminal_exchange'
   | 'context_boundary'
@@ -65,6 +69,13 @@ export interface ScamTopologyTopologyEdge {
   hop: number
   graph_scope: ScamTopologyGraphScope
   topology_graph: 'archive_topology' | 'live_topology'
+  activity_policy?: ScamTopologyActivityPolicy
+  wave_index?: number
+  expands_frontier?: boolean
+  converges_to_seen_node?: boolean
+  activity_threshold_timestamp?: number
+  src_arrival_timestamp?: number
+  dst_arrival_timestamp?: number
   scope_membership?: ScamTopologyScopeMembership
   graph_scopes?: ScamTopologyGraphScope[]
   seed_address?: string
@@ -98,9 +109,12 @@ export interface ScamTopologyResult {
       victim_address: string
       incident_timestamp_ms: number
       topology_graphs: Array<'archive_topology' | 'live_topology'>
+      primary_activity_policy: ScamTopologyActivityPolicy
+      activity_policy_mode: ScamTopologyActivityPolicyMode
       topology_edges: ScamTopologyTopologyEdge[]
       intermediaries: string[]
       terminal_points: Array<Record<string, unknown>>
+      exchange_deposits: Array<Record<string, unknown>>
       investigation_hints: Array<Record<string, unknown>>
       scam_labels: ScamTopologyScamLabel[]
       label_candidates: ScamTopologyLabelCandidate[]
@@ -140,11 +154,14 @@ type FrontierEntry = {
   address: string
   seedAddress: string
   seedRole: ScamTopologySeedRole
+  arrivalTimestamp?: number
+  waveIndex: number
 }
 
 type TraversalRun = {
   graphScope: ScamTopologyGraphScope
   topologyGraph: 'archive_topology' | 'live_topology'
+  activityPolicy: ScamTopologyActivityPolicy
   edges: ScamTopologyTopologyEdge[]
   skippedQueryErrors: Array<Record<string, unknown>>
 }
@@ -276,6 +293,20 @@ function isExchangeEndpoint(labels: string[], isExchange: unknown, roles: string
   return isExchangeFlag(isExchange) || hasExchangeLabel(labels) || roles.some((role) => role.toLowerCase().includes('exchange'))
 }
 
+function isGenericContextLabel(label: string): boolean {
+  const normalized = label.trim().toLowerCase()
+  return normalized === 'exchange' ||
+    normalized === 'validator' ||
+    /^miner subnet \d+$/.test(normalized) ||
+    /^subnet \d+(?: owner)?$/.test(normalized)
+}
+
+function exchangeNamesFromLabels(labels: string[]): string[] {
+  return [...new Set(labels
+    .map((label) => label.trim().replace(/,\s*exchange$/i, '').trim())
+    .filter((label) => label.length > 0 && !isGenericContextLabel(label)))]
+}
+
 function addressPredicate(addresses: string[]): string {
   return addresses
     .map((address) => `src.address = "${escapeCypherString(address)}"`)
@@ -307,14 +338,14 @@ function frontierQuery(
   sourceIndex: number | undefined,
   perAddressLimit: number,
   minAmountSum: number | undefined,
-  incidentTimestampMs: number | undefined,
+  activityThresholdTimestamp: number | undefined,
 ): { id: string; query: string } {
   const where = [
     'src.address <> dst.address',
   ]
   if (minAmountSum !== undefined) where.push(`r.amount_sum >= ${minAmountSum}`)
-  if (graphScope === 'incident' && hop === 1 && incidentTimestampMs !== undefined) {
-    where.push(`r.last_seen_timestamp >= ${incidentTimestampMs}`)
+  if (graphScope === 'incident' && activityThresholdTimestamp !== undefined) {
+    where.push(`(r.first_seen_timestamp >= ${activityThresholdTimestamp} OR r.last_seen_timestamp >= ${activityThresholdTimestamp})`)
   }
 
   return {
@@ -328,6 +359,22 @@ function frontierQuery(
       `LIMIT ${perAddressLimit}`,
     ].join(' '),
   }
+}
+
+function activityThresholdFor(
+  policy: ScamTopologyActivityPolicy,
+  incidentTimestampMs: number | undefined,
+  entry: FrontierEntry,
+): number | undefined {
+  if (policy === 'global_incident') return incidentTimestampMs
+  return entry.arrivalTimestamp ?? incidentTimestampMs
+}
+
+function edgeArrivalTimestamp(edge: ScamTopologyTopologyEdge, threshold: number | undefined): number | undefined {
+  if (threshold === undefined) return edge.first_seen_timestamp ?? edge.last_seen_timestamp
+  if (edge.first_seen_timestamp !== undefined && edge.first_seen_timestamp >= threshold) return edge.first_seen_timestamp
+  if (edge.last_seen_timestamp !== undefined && edge.last_seen_timestamp >= threshold) return threshold
+  return edge.first_seen_timestamp ?? edge.last_seen_timestamp ?? threshold
 }
 
 function depositClusterQuery(
@@ -420,6 +467,7 @@ async function runDirectedTraversal(
   network: string,
   seeds: Seed[],
   graphScope: ScamTopologyGraphScope,
+  activityPolicy: ScamTopologyActivityPolicy,
   maxHops: number,
   perAddressLimit: number,
   minAmountSum: number | undefined,
@@ -431,6 +479,8 @@ async function runDirectedTraversal(
     address: seed.address,
     seedAddress: seed.address,
     seedRole: seed.role,
+    arrivalTimestamp: incidentTimestampMs,
+    waveIndex: 0,
   }))
   const visited = new Set(frontier.map(frontierKey))
 
@@ -442,15 +492,18 @@ async function runDirectedTraversal(
       frontierByAddress.set(entry.address, entries)
     }
     const frontierAddresses = [...frontierByAddress.keys()]
-    const queries = frontierAddresses.map((address, index) => frontierQuery(
-      graphScope,
-      address,
-      hop,
-      frontierAddresses.length === 1 ? undefined : index + 1,
-      perAddressLimit,
-      minAmountSum,
-      incidentTimestampMs,
-    ))
+    const queries = frontierAddresses.map((address, index) => {
+      const entry = frontierByAddress.get(address)?.[0]
+      return frontierQuery(
+        graphScope,
+        address,
+        hop,
+        frontierAddresses.length === 1 ? undefined : index + 1,
+        perAddressLimit,
+        minAmountSum,
+        entry ? activityThresholdFor(activityPolicy, incidentTimestampMs, entry) : incidentTimestampMs,
+      )
+    })
     const nextByKey = new Map<string, FrontierEntry>()
 
     const maxBatchQueries = graphScope === 'history'
@@ -488,21 +541,43 @@ async function runDirectedTraversal(
           if (!src) continue
           const contexts = frontierByAddress.get(src) ?? []
           for (const context of contexts) {
-            const edge = edgeFromRow(row, graphScope, hop, context)
-            if (!edge || edgesByKey.has(edgeKey(edge))) continue
+            const baseEdge = edgeFromRow(row, graphScope, hop, context)
+            if (!baseEdge || edgesByKey.has(edgeKey(baseEdge))) continue
+            const threshold = activityThresholdFor(activityPolicy, incidentTimestampMs, context)
+            const targetEntry: FrontierEntry = {
+              address: baseEdge.dst,
+              seedAddress: context.seedAddress,
+              seedRole: context.seedRole,
+              arrivalTimestamp: edgeArrivalTimestamp(baseEdge, threshold),
+              waveIndex: hop,
+            }
+            const targetKey = frontierKey(targetEntry)
+            const seenBefore = visited.has(targetKey)
+            const terminal = baseEdge.relation === 'terminal_exchange' || baseEdge.relation === 'context_boundary'
+            const expandsFrontier = !seenBefore && !terminal
+            const edge: ScamTopologyTopologyEdge = {
+              ...baseEdge,
+              relation: seenBefore && baseEdge.relation === 'traversal_edge' ? 'convergence_edge' : baseEdge.relation,
+              activity_policy: activityPolicy,
+              wave_index: hop,
+              expands_frontier: expandsFrontier,
+              converges_to_seen_node: seenBefore,
+              activity_threshold_timestamp: threshold,
+              src_arrival_timestamp: context.arrivalTimestamp,
+              dst_arrival_timestamp: targetEntry.arrivalTimestamp,
+            }
             edgesByKey.set(edgeKey(edge), edge)
 
-            if (edge.relation === 'terminal_exchange' || edge.relation === 'context_boundary') continue
+            if (!seenBefore) visited.add(targetKey)
+            if (!expandsFrontier) continue
             const nextEntry: FrontierEntry = {
               address: edge.dst,
               seedAddress: context.seedAddress,
               seedRole: context.seedRole,
+              arrivalTimestamp: edge.dst_arrival_timestamp,
+              waveIndex: hop,
             }
-            const key = frontierKey(nextEntry)
-            if (!visited.has(key)) {
-              visited.add(key)
-              nextByKey.set(key, nextEntry)
-            }
+            nextByKey.set(targetKey, nextEntry)
           }
         }
       }
@@ -514,6 +589,7 @@ async function runDirectedTraversal(
   return {
     graphScope,
     topologyGraph: graphForScope(graphScope),
+    activityPolicy,
     edges: [...edgesByKey.values()],
     skippedQueryErrors,
   }
@@ -576,6 +652,8 @@ async function expandDepositClusters(
         address: terminalEdge.src,
         seedAddress: terminalEdge.seed_address ?? terminalEdge.src,
         seedRole: terminalEdge.seed_role ?? 'victim',
+        arrivalTimestamp: terminalEdge.src_arrival_timestamp ?? terminalEdge.first_seen_timestamp ?? terminalEdge.last_seen_timestamp,
+        waveIndex: Math.max(0, terminalEdge.hop - 1),
       }
       for (const row of queryResult.results ?? []) {
         const edge = edgeFromRow(row, run.graphScope, Math.max(1, terminalEdge.hop - 1), context)
@@ -585,6 +663,13 @@ async function expandDepositClusters(
           relation: 'deposit_cluster_inflow',
           seed_address: terminalEdge.seed_address,
           seed_role: terminalEdge.seed_role,
+          activity_policy: run.activityPolicy,
+          wave_index: Math.max(1, terminalEdge.hop - 1),
+          expands_frontier: false,
+          converges_to_seen_node: true,
+          activity_threshold_timestamp: terminalEdge.activity_threshold_timestamp,
+          src_arrival_timestamp: edge.first_seen_timestamp ?? edge.last_seen_timestamp,
+          dst_arrival_timestamp: terminalEdge.dst_arrival_timestamp,
         }
         if (!edgesByKey.has(edgeKey(clusterEdge))) {
           edgesByKey.set(edgeKey(clusterEdge), clusterEdge)
@@ -729,6 +814,12 @@ function edgeEvidence(edge: ScamTopologyTopologyEdge, reason: string): Record<st
     amount_sum: edge.amount_sum,
     amount_usd_sum: edge.amount_usd_sum,
     tx_count: edge.tx_count,
+    ...(edge.relation === 'terminal_exchange' ? {
+      deposit_address: edge.src,
+      exchange_address: edge.dst,
+      exchange_names: exchangeNamesFromLabels(edge.dst_labels),
+      exchange_labels: edge.dst_labels,
+    } : {}),
     reason,
   }
 }
@@ -743,6 +834,7 @@ function classifyTopology(
   rolesByAddress: Map<string, Set<string>>
   intermediaries: string[]
   terminalPoints: Array<Record<string, unknown>>
+  exchangeDeposits: Array<Record<string, unknown>>
   investigationHints: Array<Record<string, unknown>>
 } {
   const candidates = new Map<string, ScamTopologyLabelCandidate>()
@@ -756,6 +848,7 @@ function classifyTopology(
     .map((edge) => edge.src)
     .filter((address) => !seedAddresses.has(address) && !victimAddresses.has(address)))
   const terminalPoints: Array<Record<string, unknown>> = []
+  const exchangeDeposits: Array<Record<string, unknown>> = []
   const investigationHints: Array<Record<string, unknown>> = []
 
   for (const seed of seeds) {
@@ -827,6 +920,26 @@ function classifyTopology(
     }
 
     if (edge.relation === 'terminal_exchange') {
+      const exchangeNames = exchangeNamesFromLabels(edge.dst_labels)
+      const exchangeDeposit = {
+        deposit_address: edge.src,
+        exchange_address: edge.dst,
+        exchange_names: exchangeNames,
+        exchange_labels: edge.dst_labels,
+        amount_sum: edge.amount_sum,
+        amount_usd_sum: edge.amount_usd_sum,
+        tx_count: edge.tx_count,
+        hop: edge.hop,
+        graph_scope: edge.graph_scope,
+        topology_graph: edge.topology_graph,
+        scope_membership: edge.scope_membership,
+        seed_address: edge.seed_address,
+        seed_role: edge.seed_role,
+        first_seen_timestamp: edge.first_seen_timestamp,
+        last_seen_timestamp: edge.last_seen_timestamp,
+        first_tx_id: edge.first_tx_id,
+        last_tx_id: edge.last_tx_id,
+      }
       pushCaseRole(caseRoles, {
         address: edge.dst,
         role: 'exchange_endpoint',
@@ -838,10 +951,23 @@ function classifyTopology(
         address: edge.dst,
         terminal_type: 'exchange_endpoint',
         source_address: edge.src,
+        deposit_address: edge.src,
+        exchange_address: edge.dst,
+        exchange_names: exchangeNames,
+        exchange_labels: edge.dst_labels,
         seed_address: edge.seed_address,
         graph_scope: edge.graph_scope,
+        topology_graph: edge.topology_graph,
         scope_membership: edge.scope_membership,
       })
+      if (!exchangeDeposits.some((deposit) => (
+        deposit.deposit_address === exchangeDeposit.deposit_address &&
+        deposit.exchange_address === exchangeDeposit.exchange_address &&
+        deposit.seed_address === exchangeDeposit.seed_address &&
+        deposit.seed_role === exchangeDeposit.seed_role
+      ))) {
+        exchangeDeposits.push(exchangeDeposit)
+      }
       pushSafetyDecision(safetyDecisions, {
         address: edge.dst,
         decision: 'do_not_label_exchange_endpoint',
@@ -930,12 +1056,74 @@ function classifyTopology(
       .filter((role) => role.role === 'laundering_intermediate')
       .map((role) => role.address))],
     terminalPoints,
+    exchangeDeposits,
     investigationHints,
   }
 }
 
 function mergeLabels(existing: unknown, next: string[]): string[] {
   return [...new Set([...stringArray(existing), ...next])]
+}
+
+function primaryFlowEdges(edges: ScamTopologyTopologyEdge[]): ScamTopologyTopologyEdge[] {
+  return edges.filter((edge) => edge.relation !== 'deposit_cluster_inflow')
+}
+
+function depositClusterEdges(edges: ScamTopologyTopologyEdge[]): ScamTopologyTopologyEdge[] {
+  return edges.filter((edge) => edge.relation === 'deposit_cluster_inflow')
+}
+
+function shortestPathFromSeed(seedAddress: string, targetAddress: string, edges: ScamTopologyTopologyEdge[]): string[] {
+  if (seedAddress === targetAddress) return [seedAddress]
+  const adjacency = new Map<string, string[]>()
+  for (const edge of edges) {
+    const destinations = adjacency.get(edge.src) ?? []
+    destinations.push(edge.dst)
+    adjacency.set(edge.src, destinations)
+  }
+
+  const queue = [seedAddress]
+  const parent = new Map<string, string | null>([[seedAddress, null]])
+  for (let index = 0; index < queue.length; index += 1) {
+    const current = queue[index]!
+    for (const next of adjacency.get(current) ?? []) {
+      if (parent.has(next)) continue
+      parent.set(next, current)
+      if (next === targetAddress) {
+        const path = [targetAddress]
+        let cursor: string | null | undefined = current
+        while (cursor) {
+          path.push(cursor)
+          cursor = parent.get(cursor)
+        }
+        return path.reverse()
+      }
+      queue.push(next)
+    }
+  }
+
+  return [seedAddress, targetAddress]
+}
+
+function scamLabelsByAddress(facts: Record<string, unknown>): Map<string, ScamTopologyScamLabel> {
+  const labels = Array.isArray(facts['scam_labels']) ? facts['scam_labels'] : []
+  const result = new Map<string, ScamTopologyScamLabel>()
+  for (const label of labels) {
+    if (!label || typeof label !== 'object' || Array.isArray(label)) continue
+    const record = label as Record<string, unknown>
+    const address = stringValue(record['address'])
+    const confidence = numberValue(record['confidence'])
+    if (!address || confidence === undefined) continue
+    result.set(address, {
+      address,
+      scam: true,
+      confidence,
+      source: 'scam_topology',
+      source_victim_address: stringValue(record['source_victim_address']) ?? '',
+      source_incident_timestamp_ms: numberValue(record['source_incident_timestamp_ms']) ?? 0,
+    })
+  }
+  return result
 }
 
 function buildGraph(
@@ -945,6 +1133,9 @@ function buildGraph(
   facts: Record<string, unknown>,
 ): Record<string, unknown> {
   const nodesById = new Map<string, Record<string, unknown>>()
+  const primaryEdges = primaryFlowEdges(edges)
+  const clusterEdges = depositClusterEdges(edges)
+  const scamLabels = scamLabelsByAddress(facts)
 
   for (const seed of seeds) {
     nodesById.set(seed.address, {
@@ -952,81 +1143,173 @@ function buildGraph(
       address: seed.address,
       node_type: 'address',
       roles: [...(rolesByAddress.get(seed.address) ?? new Set([seed.role]))],
+      flow_in_usd: 0,
+      flow_out_usd: 0,
     })
   }
 
-  for (const edge of edges) {
-    const src = nodesById.get(edge.src) ?? { id: edge.src, address: edge.src, node_type: 'address' }
-    const dst = nodesById.get(edge.dst) ?? { id: edge.dst, address: edge.dst, node_type: 'address' }
-    nodesById.set(edge.src, {
-      ...src,
-      labels: mergeLabels(src['labels'], edge.src_labels),
-      roles: [...new Set([...stringArray(src['roles']), ...[...(rolesByAddress.get(edge.src) ?? [])]])],
-      is_exchange: edge.src_is_exchange || src['is_exchange'] === true,
+  const mergeNode = (address: string, labels: string[], roles: string[] = []) => {
+    const existing = nodesById.get(address) ?? {
+      id: address,
+      address,
+      node_type: 'address',
+      flow_in_usd: 0,
+      flow_out_usd: 0,
+    }
+    const addressRoles = [...new Set([
+      ...stringArray(existing['roles']),
+      ...[...(rolesByAddress.get(address) ?? [])],
+      ...roles,
+    ])]
+    const scamLabel = scamLabels.get(address)
+    nodesById.set(address, {
+      ...existing,
+      labels: mergeLabels(existing['labels'], labels),
+      roles: addressRoles,
+      ...(scamLabel ? {
+        scam: true,
+        scam_confidence: scamLabel.confidence,
+        scam_source: scamLabel.source,
+      } : {}),
     })
-    nodesById.set(edge.dst, {
-      ...dst,
-      labels: mergeLabels(dst['labels'], edge.dst_labels),
-      roles: [...new Set([...stringArray(dst['roles']), ...[...(rolesByAddress.get(edge.dst) ?? [])]])],
-      is_exchange: edge.dst_is_exchange || dst['is_exchange'] === true,
-    })
+    return nodesById.get(address)!
   }
+
+  const addFlowTotals = (address: string, direction: 'in' | 'out', amount: number) => {
+    const node = nodesById.get(address) ?? mergeNode(address, [])
+    const key = direction === 'in' ? 'flow_in_usd' : 'flow_out_usd'
+    const existing = numberValue(node[key]) ?? 0
+    node[key] = existing + amount
+    nodesById.set(address, node)
+  }
+
+  for (const edge of edges) {
+    const src = mergeNode(edge.src, edge.src_labels, edge.relation === 'deposit_cluster_inflow' ? ['lead'] : [])
+    const dstRoles = edge.relation === 'terminal_exchange'
+      ? ['exchange']
+      : edge.relation === 'context_boundary'
+        ? ['context_boundary']
+        : []
+    const dst = mergeNode(edge.dst, edge.dst_labels, dstRoles)
+    if (edge.src_is_exchange) src['is_exchange'] = true
+    if (edge.dst_is_exchange) dst['is_exchange'] = true
+    const amount = edge.amount_usd_sum ?? edge.amount_sum ?? 0
+    addFlowTotals(edge.src, 'out', amount)
+    addFlowTotals(edge.dst, 'in', amount)
+  }
+
+  const terminalEdges = primaryEdges.filter((edge) => edge.relation === 'terminal_exchange')
+  const deposits = terminalEdges.map((edge) => ({
+    address: edge.src,
+    exchangeAddress: edge.dst,
+    exchangeLabels: edge.dst_labels,
+    exchangeNames: exchangeNamesFromLabels(edge.dst_labels),
+    amount_sum: edge.amount_sum,
+    amount_usd_sum: edge.amount_usd_sum,
+    hops: edge.hop,
+    path: shortestPathFromSeed(edge.seed_address ?? seeds[0]?.address ?? edge.src, edge.dst, primaryEdges),
+    seed_role: edge.seed_role,
+    seed_address: edge.seed_address,
+  }))
+  const reverseLeads = clusterEdges.map((edge) => ({
+    address: edge.src,
+    labels: edge.src_labels,
+    deposit_address: edge.dst,
+    amount_usd: edge.amount_usd_sum ?? edge.amount_sum,
+    degree_in: undefined,
+    degree_out: undefined,
+    total_volume_usd: edge.amount_usd_sum,
+    reason: 'deposit_cluster_inflow',
+    seed_role: edge.seed_role,
+    seed_address: edge.seed_address,
+    first_seen_timestamp: edge.first_seen_timestamp,
+    last_seen_timestamp: edge.last_seen_timestamp,
+    tx_count: edge.tx_count,
+  }))
 
   return normalizeGraphPayload({
     schema: 'chain-insights.graph.v1',
     nodes: [...nodesById.values()],
-    edges: edges.map((edge) => ({
-      source: edge.src,
-      target: edge.dst,
-      edge_type: 'flows_to',
-      relation: edge.relation,
-      direction: 'outward_scam_topology',
-      hop: edge.hop,
-      graph_scope: edge.graph_scope,
-      topology_graph: edge.topology_graph,
-      scope_membership: edge.scope_membership,
-      seed_address: edge.seed_address,
-      seed_role: edge.seed_role,
-      amount_sum: edge.amount_sum,
-      amount_usd_sum: edge.amount_usd_sum,
-      tx_count: edge.tx_count,
-      first_tx_id: edge.first_tx_id,
-      last_tx_id: edge.last_tx_id,
-      terminal_exchange: edge.relation === 'terminal_exchange',
-      context_boundary: edge.relation === 'context_boundary',
-    })),
-    flows: edges.map((edge) => ({
+    edges: [
+      ...primaryEdges.map((edge) => ({
+        source: edge.src,
+        target: edge.dst,
+        edge_type: 'flows_to',
+        relation: edge.relation,
+        hop: edge.hop,
+        wave_index: edge.wave_index,
+        graph_scope: edge.graph_scope,
+        topology_graph: edge.topology_graph,
+        activity_policy: edge.activity_policy,
+        scope_membership: edge.scope_membership,
+        seed_address: edge.seed_address,
+        seed_role: edge.seed_role,
+        usd_amount: edge.amount_usd_sum ?? edge.amount_sum,
+        amount_sum: edge.amount_sum,
+        amount_usd_sum: edge.amount_usd_sum,
+        tx_count: edge.tx_count ?? 0,
+        first_seen_timestamp: edge.first_seen_timestamp,
+        last_seen_timestamp: edge.last_seen_timestamp,
+        first_tx_id: edge.first_tx_id,
+        last_tx_id: edge.last_tx_id,
+        expands_frontier: edge.expands_frontier,
+        converges_to_seen_node: edge.converges_to_seen_node,
+        activity_threshold_timestamp: edge.activity_threshold_timestamp,
+        src_arrival_timestamp: edge.src_arrival_timestamp,
+        dst_arrival_timestamp: edge.dst_arrival_timestamp,
+        terminal_exchange: edge.relation === 'terminal_exchange',
+        context_boundary: edge.relation === 'context_boundary',
+      })),
+      ...reverseLeads.map((lead) => ({
+        source: lead.address,
+        target: lead.deposit_address,
+        edge_type: 'flows_to',
+        relation: 'deposit_cluster_inflow',
+        usd_amount: lead.amount_usd ?? 0,
+        amount_sum: lead.amount_usd ?? 0,
+        tx_count: lead.tx_count ?? 0,
+        direction: 'reverse_1hop_lead',
+      })),
+    ],
+    flows: primaryEdges.map((edge) => ({
       hop: edge.hop,
       src: edge.src,
       dst: edge.dst,
       relation: edge.relation,
       graph_scope: edge.graph_scope,
+      topology_graph: edge.topology_graph,
+      activity_policy: edge.activity_policy,
+      wave_index: edge.wave_index,
       scope_membership: edge.scope_membership,
       seed_address: edge.seed_address,
       seed_role: edge.seed_role,
       amount_sum: edge.amount_sum,
       amount_usd_sum: edge.amount_usd_sum,
       tx_count: edge.tx_count,
+      first_seen_timestamp: edge.first_seen_timestamp,
+      last_seen_timestamp: edge.last_seen_timestamp,
+      first_tx_id: edge.first_tx_id,
+      last_tx_id: edge.last_tx_id,
+      expands_frontier: edge.expands_frontier,
+      converges_to_seen_node: edge.converges_to_seen_node,
       terminal_exchange: edge.relation === 'terminal_exchange',
+      context_boundary: edge.relation === 'context_boundary',
     })),
-    topology_edges: edges,
-    infrastructure_flows: [],
-    deposits: edges
-      .filter((edge) => edge.relation === 'terminal_exchange')
-      .map((edge) => ({
-        address: edge.src,
-        exchangeAddress: edge.dst,
-        seed_role: edge.seed_role,
-        seed_address: edge.seed_address,
-        amount_sum: edge.amount_sum,
-        amount_usd_sum: edge.amount_usd_sum,
-        hops: edge.hop,
-      })),
-    reverse_leads: [],
+    deposits,
+    source_matches: [],
+    reverse_leads: reverseLeads,
     edge_anchors: [],
-    scam_topology: facts,
     metadata: {
       source: 'scam_topology',
+      network: facts['network'],
+      victim_address: facts['victim_address'],
+      incident_timestamp_ms: facts['incident_timestamp_ms'],
+      scam_label_count: Array.isArray(facts['scam_labels']) ? facts['scam_labels'].length : 0,
+      label_candidate_count: Array.isArray(facts['label_candidates']) ? facts['label_candidates'].length : 0,
+      topology_edge_count: edges.length,
+      primary_flow_count: primaryEdges.length,
+      reverse_lead_count: reverseLeads.length,
+      primary_activity_policy: 'node_relative',
       generated_at: new Date().toISOString(),
     },
   })
@@ -1094,6 +1377,16 @@ function topologyGraphsForScope(scope: ScamTopologyScope): Array<'archive_topolo
   return ['archive_topology', 'live_topology']
 }
 
+function validateActivityPolicyMode(value: unknown): ScamTopologyActivityPolicyMode {
+  if (value === undefined || value === null || value === '') return 'node_relative_only'
+  if (value === 'node_relative_only' || value === 'global_incident_only') return value
+  throw new Error('activity_policy must be one of: node_relative_only, global_incident_only')
+}
+
+function activityPolicyForMode(mode: ScamTopologyActivityPolicyMode): ScamTopologyActivityPolicy {
+  return mode === 'global_incident_only' ? 'global_incident' : 'node_relative'
+}
+
 export async function scamTopology(
   remoteClient: Client,
   config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
@@ -1116,6 +1409,8 @@ export async function scamTopology(
   const maxHops = clampInt(options.maxHops, SCAM_TOPOLOGY_DEFAULT_MAX_HOPS, 1, SCAM_TOPOLOGY_MAX_HOPS)
   const perAddressLimit = SCAM_TOPOLOGY_FRONTIER_LIMIT
   const minAmountSum = undefined
+  const activityPolicyMode = validateActivityPolicyMode(options.activityPolicyMode)
+  const primaryActivityPolicy = activityPolicyForMode(activityPolicyMode)
 
   if (!network) throw new Error('network is required')
   if (legacyOptions.scope !== undefined) throw new Error('scope is no longer accepted; scam_topology always runs the victim incident topology')
@@ -1132,11 +1427,11 @@ export async function scamTopology(
     { address: victimAddress, role: 'victim' as const },
   ]
 
-  const runs: TraversalRun[] = []
-  const incidentRun = await runDirectedTraversal(remoteClient, network, seeds, 'incident', maxHops, perAddressLimit, minAmountSum, incidentTimestampMs)
-  runs.push(await expandDepositClusters(remoteClient, network, incidentRun, minAmountSum))
+  const primaryRun = await runDirectedTraversal(remoteClient, network, seeds, 'incident', primaryActivityPolicy, maxHops, perAddressLimit, minAmountSum, incidentTimestampMs)
+  const primaryRunWithClusters = await expandDepositClusters(remoteClient, network, primaryRun, minAmountSum)
+  const runs: TraversalRun[] = [primaryRunWithClusters]
 
-  const topologyEdges = runs.flatMap((run) => run.edges)
+  const topologyEdges = primaryRunWithClusters.edges
 
   const classification = classifyTopology(seeds, topologyEdges)
   const labelCandidates = classification.labelCandidates
@@ -1146,9 +1441,12 @@ export async function scamTopology(
     victim_address: victimAddress,
     incident_timestamp_ms: incidentTimestampMs,
     topology_graphs: ['live_topology' as const],
+    primary_activity_policy: primaryActivityPolicy,
+    activity_policy_mode: activityPolicyMode,
     topology_edges: topologyEdges,
     intermediaries: classification.intermediaries,
     terminal_points: classification.terminalPoints,
+    exchange_deposits: classification.exchangeDeposits,
     investigation_hints: classification.investigationHints,
     scam_labels: scamLabels,
     label_candidates: labelCandidates,
@@ -1159,7 +1457,9 @@ export async function scamTopology(
     runs: runs.map((run) => ({
       graph_scope: run.graphScope,
       topology_graph: run.topologyGraph,
+      activity_policy: run.activityPolicy,
       edge_count: run.edges.length,
+      primary: run.activityPolicy === primaryActivityPolicy,
       max_hops: maxHops,
       frontier_limit: perAddressLimit,
       frontier_source_limit_per_hop: SCAM_TOPOLOGY_MAX_FRONTIER_SOURCES_PER_HOP,
@@ -1187,6 +1487,7 @@ export async function scamTopology(
         topology_graphs: ['live_topology'],
         topology_edge_count: topologyEdges.length,
         terminal_points: classification.terminalPoints,
+        exchange_deposits: classification.exchangeDeposits,
         scam_labels: scamLabels,
         label_candidates: labelCandidates,
         safety_decisions: classification.safetyDecisions,

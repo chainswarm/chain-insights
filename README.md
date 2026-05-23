@@ -73,19 +73,68 @@ High-level AML tools such as `address_risk`, `track_funds`, and
 `scam_topology` are Chain Insights recipes over `graph_query_batch`. They
 should not be assumed to exist on the Go Graph MCP endpoint. `scam_topology`
 starts from one victim/source address and `incident_timestamp_ms`, then runs
-directed `FLOWS_TO` traversal outward from that victim incident. The incident
-timestamp anchors only the first victim outflow; downstream traversal can enter
-older scam infrastructure. Exchange terminal safety is the only hard-coded
+directed `FLOWS_TO` traversal outward from that victim incident. The primary
+traversal is a node-relative novelty wave: each new node expands only once,
+repeated targets are retained as non-expanding `convergence_edge` context, and
+downstream edges must have `first_seen_timestamp` or `last_seen_timestamp`
+greater than or equal to the current node's wave-arrival timestamp. The result
+can instead use `global_incident_only`, where every wave is filtered against
+`incident_timestamp_ms`. Exchange terminal safety is the only hard-coded
 terminal class; other labels are generic context hints. Victim/source
 addresses, exchange endpoints, and generic labeled context nodes are not
 automatic scam labels. The tool returns ML-ready `scam_labels` plus
 `label_candidates` for analyst review before any write to `core_address_labels`.
+Its graph report uses the same `chain-insights.graph.v1` shape as
+`track_funds`: primary victim-flow edges live in `flows`, exchange deposit
+candidates live in `deposits`, and deposit-cluster enrichment lives in
+`reverse_leads` rather than as primary victim-flow topology.
 
 ```bash
 cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --max-hops 16
+cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --max-hops 16 --activity-policy global_incident_only
 ```
 
-Contract summary: victim-only traversal is outward from victim/source funds; `incident_timestamp_ms` filters only the first victim outflow; exchange terminal safety; `scam_labels` are ML-ready flags; label candidates are reviewable, not automatic writes.
+Contract summary: victim-only traversal is outward from victim/source funds; the primary graph is a node-relative novelty wave with non-expanding convergence edges; exchange terminal safety; `scam_labels` are ML-ready flags; label candidates are reviewable, not automatic writes.
+
+`scam_topology` returns `chain-insights.result.v1` JSON with this stable
+top-level shape:
+
+```json
+{
+  "schema": "chain-insights.result.v1",
+  "tool": "scam_topology",
+  "facts": {
+    "network": "bittensor",
+    "victim_address": "5...",
+    "incident_timestamp_ms": 1715532228001,
+    "topology_graphs": ["live_topology"],
+    "primary_activity_policy": "node_relative",
+    "activity_policy_mode": "node_relative_only",
+    "topology_edges": [],
+    "intermediaries": [],
+    "terminal_points": [],
+    "exchange_deposits": [],
+    "investigation_hints": [],
+    "scam_labels": [],
+    "label_candidates": [],
+    "case_roles": [],
+    "safety_decisions": [],
+    "runs": [
+      {
+        "graph_scope": "incident",
+        "topology_graph": "live_topology",
+        "activity_policy": "node_relative",
+        "primary": true
+      }
+    ]
+  }
+}
+```
+
+Graph reports use `chain-insights.graph.v1` JSON. For `scam_topology`, primary
+victim-flow edges are emitted in `flows`, exchange deposit candidates in
+`deposits`, deposit-cluster enrichment in `reverse_leads`, and visual edges use
+the canonical `source` / `target` convention.
 
 `topup` is not advertised as a supported MCP happy path. The supported wallet surface is `balance` plus the wallet address returned by CLI/MCP.
 

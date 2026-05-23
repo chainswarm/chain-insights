@@ -54,15 +54,23 @@ victim incident topology, laundering intermediates, exchange deposit
 candidates, exchange endpoints, and generic context boundaries were observed.
 The victim-only traversal is outward from victim/source funds; it does not
 query or promote victim inbound transfers as scam infrastructure.
-`incident_timestamp_ms` anchors only the first victim outflow; downstream
-traversal can enter older scam infrastructure. Exchange terminal safety is the
-only hard-coded terminal behavior; non-exchange labels are context hints.
+The primary traversal is a node-relative novelty wave: each new node expands
+only once, repeated targets are retained as non-expanding `convergence_edge`
+context, and downstream edges must have `first_seen_timestamp` or
+`last_seen_timestamp` greater than or equal to the current node's wave-arrival
+timestamp. The tool can instead use `activity_policy=global_incident_only`,
+where every wave is filtered against `incident_timestamp_ms`. Exchange terminal safety
+is the only hard-coded terminal behavior; non-exchange labels are context hints.
 Victim/source addresses are not risky labels. The tool returns `label_candidates`
 for analyst review; candidates are reviewable, not automatic writes to
-`core_address_labels`.
+`core_address_labels`. Its graph report uses the same `chain-insights.graph.v1`
+layout as `track_funds`: primary victim-flow edges are `flows`, exchange
+deposits are `deposits`, and deposit-cluster enrichment is represented as
+`reverse_leads`.
 
 ```bash
 cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --max-hops 16
+cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --max-hops 16 --activity-policy global_incident_only
 ```
 
 Use `track_funds` for a single address by passing that address as the only

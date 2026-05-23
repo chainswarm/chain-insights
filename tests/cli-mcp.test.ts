@@ -149,6 +149,7 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
       network: String(args['network'] ?? ''),
       maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
       incidentTimestampMs: Number.isFinite(incidentTimestampMs) ? incidentTimestampMs : undefined,
+      activityPolicyMode: args['activity_policy'] === undefined ? undefined : String(args['activity_policy']),
     })
     console.log(result.summaryText)
     console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -428,6 +429,22 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
   })
 
+  it('mcp call parses scam_topology activity policy mode', async () => {
+    const { parseMcpCallArgs } = await import('../src/mcp/call-args.js')
+
+    expect(parseMcpCallArgs([
+      'victim_address=5Victim',
+      'network=bittensor',
+      'incident_timestamp_ms=1715532228001',
+      'activity_policy=global_incident_only',
+    ])).toEqual({
+      victim_address: '5Victim',
+      network: 'bittensor',
+      incident_timestamp_ms: 1715532228001,
+      activity_policy: 'global_incident_only',
+    })
+  })
+
   it('mcp call routes scam_topology through the local recipe', async () => {
     mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
     mockClientConnect.mockResolvedValue(undefined)
@@ -447,6 +464,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
       'victim_address=5Victim',
       'incident_timestamp_ms=1715532228001',
       'max_hops=2',
+      'activity_policy=global_incident_only',
     ])
 
     expect(mockScamTopology).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
@@ -454,6 +472,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
       victimAddress: '5Victim',
       incidentTimestampMs: 1715532228001,
       maxHops: 2,
+      activityPolicyMode: 'global_incident_only',
     }))
     expect(mockClientCallTool).not.toHaveBeenCalled()
     expect(consoleLogSpy).toHaveBeenCalledWith('Scam topology complete for bittensor')

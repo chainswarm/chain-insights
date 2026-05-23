@@ -85,6 +85,14 @@ function optionalNumberArg(value: unknown, name: string): number | undefined {
   throw new Error(`Invalid number for ${name}: ${String(value)}`)
 }
 
+type ScamTopologyActivityPolicyModeArg = 'node_relative_only' | 'global_incident_only'
+
+function optionalScamTopologyActivityPolicy(value: unknown): ScamTopologyActivityPolicyModeArg | undefined {
+  if (value === undefined || value === null || value === '') return undefined
+  if (value === 'node_relative_only' || value === 'global_incident_only') return value
+  throw new Error('activity_policy must be one of: node_relative_only, global_incident_only')
+}
+
 async function withGraphMcpClient<T>(name: string, fn: (client: import('@modelcontextprotocol/sdk/client/index.js').Client, config: Awaited<ReturnType<typeof import('./config/index.js').loadConfig>>) => Promise<T>): Promise<T> {
   const { loadConfig } = await import('./config/index.js')
   const config = await loadConfig()
@@ -607,11 +615,13 @@ program
       .requiredOption('--victim-address <address>', 'Full victim/source address that anchors the incident')
       .requiredOption('--incident-timestamp-ms <milliseconds>', 'Earliest known incident transfer timestamp in milliseconds')
       .option('--max-hops <number>', 'Maximum trace hops, default 16, max 64')
+      .option('--activity-policy <mode>', 'Traversal activity policy: node_relative_only or global_incident_only', 'node_relative_only')
       .action(async (opts: {
         network: string
         victimAddress: string
         incidentTimestampMs: string
         maxHops?: string
+        activityPolicy?: string
       }) => {
         try {
           const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
@@ -625,6 +635,7 @@ program
               network: opts.network,
               maxHops: optionalNumber(opts.maxHops),
               incidentTimestampMs,
+              activityPolicyMode: optionalScamTopologyActivityPolicy(opts.activityPolicy),
             })
             console.log(result.summaryText)
             console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -683,6 +694,7 @@ program
                 network: String(args['network'] ?? ''),
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
                 incidentTimestampMs,
+                activityPolicyMode: optionalScamTopologyActivityPolicy(args['activity_policy']),
               })
               console.log(result.summaryText)
               console.log(JSON.stringify(result.structuredContent, null, 2))

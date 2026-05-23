@@ -61,6 +61,18 @@ describe('SCAM_TOPOLOGY_PLAYBOOK', () => {
       victim_address: '0x1',
       incident_timestamp_ms: '1715532228001',
       network: 'bittensor',
+      activity_policy: 'node_relative_only',
+    })
+  })
+
+  it('allows overriding the scam topology activity policy', () => {
+    const def = PlaybookParser.parse(SCAM_TOPOLOGY_PLAYBOOK, {
+      address: '0x1',
+      incident_timestamp_ms: '1715532228001',
+      activity_policy: 'global_incident_only',
+    })
+    expect(def.steps[1].params).toMatchObject({
+      activity_policy: 'global_incident_only',
     })
   })
 
@@ -68,6 +80,8 @@ describe('SCAM_TOPOLOGY_PLAYBOOK', () => {
     expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('victim_address')
     expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('incident_timestamp_ms')
     expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('victim-only traversal is outward from victim/source funds')
+    expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('node-relative novelty wave')
+    expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('global_incident_only')
     expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('exchange terminal safety')
   })
 })

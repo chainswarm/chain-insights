@@ -21,11 +21,11 @@ interface GraphHtmlNode {
 }
 
 interface GraphHtmlEdge {
-  from_address: string
-  to_address: string
+  source: string
+  target: string
   usd_amount: number
   tx_count: number
-  type: string
+  edge_type: string
 }
 
 interface GraphHtmlData {
@@ -55,11 +55,11 @@ export function transformToGraphHtml(data: GraphData): GraphHtmlData {
   }))
 
   const edges: GraphHtmlEdge[] = data.edges.map((e) => ({
-    from_address: e.source,
-    to_address: e.target,
+    source: e.source,
+    target: e.target,
     usd_amount: e.value,
     tx_count: 1,
-    type: 'FLOWS_TO',
+    edge_type: 'flows_to',
   }))
 
   return {

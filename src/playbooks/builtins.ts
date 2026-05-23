@@ -113,6 +113,10 @@ params:
     type: string
     required: false
     default: bittensor
+  - name: activity_policy
+    type: string
+    required: false
+    default: node_relative_only
 ---
 
 ## Step 1: Screen Known Scam Address
@@ -129,10 +133,14 @@ network: {{network}}
 ## Step 2: Build Scam Topology
 
 The victim-only traversal is outward from victim/source funds. The
-incident_timestamp_ms anchors only the first victim outflow; downstream
-traversal can enter older scam infrastructure. Exchange terminal safety stops
-exchange endpoints, and label candidates are reviewable, not automatic writes.
+primary traversal is a node-relative novelty wave: each new node expands only
+once, repeated targets remain as non-expanding convergence context, and
+downstream edges must be active at or after the current node's wave-arrival
+timestamp. Set activity_policy to global_incident_only to filter every wave
+against incident_timestamp_ms instead. Exchange terminal safety stops exchange
+endpoints, and label candidates are reviewable, not automatic writes.
 Contract summary: victim-only traversal is outward from victim/source funds;
+node-relative novelty wave by default; global_incident_only is available;
 exchange terminal safety; scam_labels are ML-ready flags.
 
 \`\`\`tool
@@ -143,6 +151,7 @@ scam_topology
 victim_address: {{address}}
 incident_timestamp_ms: {{incident_timestamp_ms}}
 network: {{network}}
+activity_policy: {{activity_policy}}
 \`\`\`
 `
 
