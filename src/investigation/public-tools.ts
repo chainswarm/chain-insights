@@ -4,6 +4,8 @@ import type { InvestigatorConfig } from '../config/schema.js'
 import { runFundFlowProbe, type TraceFundsResult } from './trace-funds.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 
+export { scamTopology, type ScamTopologyOptions, type ScamTopologyResult } from './scam-topology.js'
+
 type RemoteToolResult = {
   content?: ContentBlock[]
   isError?: boolean
@@ -19,6 +21,8 @@ interface ParsedGraphBatch {
     }>
   }
 }
+
+const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 30
 
 export interface AddressRiskOptions {
   address: string
@@ -90,7 +94,7 @@ async function callGraphBatch(
         ...query,
         query: topologyGraphQuery(query.query),
       })),
-      per_query_timeout_seconds: 10,
+      per_query_timeout_seconds: GRAPH_QUERY_BATCH_TIMEOUT_SECONDS,
     },
   }) as RemoteToolResult
   if (result.isError) throw new Error(textFromToolResult(result) || 'graph_query_batch failed')

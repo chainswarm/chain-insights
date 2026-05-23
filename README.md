@@ -69,7 +69,15 @@ The current Go Graph MCP public surface is:
 | `graph_query` | Run one read-only GQL/Cypher query through the universal graph endpoint |
 | `graph_query_batch` | Run related read-only graph-language queries as one MCP call |
 
-High-level AML tools such as `address_risk`, `track_funds`, `money_flows_between_exchanges`, and `address_connection_risk` are migration targets for Chain Insights recipes over `graph_query_batch`. They should not be assumed to exist on the Go Graph MCP endpoint.
+High-level AML tools such as `address_risk`, `track_funds`, and
+`scam_topology` are Chain Insights recipes over `graph_query_batch`. They
+should not be assumed to exist on the Go Graph MCP endpoint. `scam_topology`
+starts from explicit victim/source and known scammer seed addresses, builds the
+laundering topology, expands live topology fan-in/fan-out context around traced
+anchors, and returns reviewable `label_candidates` for ML labeling.
+Victim/source addresses are case roles, not risky actor labels; derived
+laundering and deposit candidates require analyst review before promotion into
+`core_address_labels`.
 
 `topup` is not advertised as a supported MCP happy path. The supported wallet surface is `balance` plus the wallet address returned by CLI/MCP.
 
@@ -242,7 +250,7 @@ Graph query rules:
 - Use `USE live_topology` for Memgraph RAM topology, `USE archive_topology`
   for StarRocks historical topology, and `USE facts` for StarRocks facts.
 - Use `graph_query_batch` for related reads that should share one paid call.
-- `per_query_timeout_seconds` is optional and capped at `10`.
+- `per_query_timeout_seconds` is optional and capped at `600`.
 - Returned rows live in `structuredContent.facts`.
 
 Batch result facts include:
@@ -253,7 +261,7 @@ Batch result facts include:
     "count": 2,
     "completed": 2,
     "failed": 0,
-    "per_query_timeout_seconds": 10,
+    "per_query_timeout_seconds": 600,
     "total_query_elapsed_ms": 1345,
     "billable_seconds": 2,
     "estimated_usdc": "0.02"

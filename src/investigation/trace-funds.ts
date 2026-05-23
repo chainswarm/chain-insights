@@ -153,6 +153,8 @@ interface ParsedGraphBatch {
   }
 }
 
+const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 30
+
 const SCHEMA_QUERY_SET = [
   {
     id: 'node_labels',
@@ -228,7 +230,7 @@ async function callGraphBatch(
         ...query,
         query: topologyGraphQuery(query.query),
       })),
-      per_query_timeout_seconds: 10,
+      per_query_timeout_seconds: GRAPH_QUERY_BATCH_TIMEOUT_SECONDS,
     },
   }) as RemoteToolResult
   if (result.isError) throw new Error(textFromToolResult(result) || 'graph_query_batch failed')

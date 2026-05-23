@@ -79,6 +79,7 @@ describe('CLI scaffold (FOUND-02)', () => {
   it('mcp --help lists track-funds and hides trace-funds', () => {
     const out = execSync('node bin/cli.js mcp --help', { encoding: 'utf8' })
     expect(out).toContain('track-funds')
+    expect(out).toContain('scam-topology')
     expect(out).not.toContain('trace-funds')
   })
 

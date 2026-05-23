@@ -1,6 +1,6 @@
 {
   "name": "chain-insights",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "AML investigation toolkit for blockchain analysis",
   "type": "module",
   "engines": {

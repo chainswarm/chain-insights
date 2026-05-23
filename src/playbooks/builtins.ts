@@ -3,6 +3,7 @@
 
 export const KNOWN_GRAPHRAG_PUBLIC_TOOLS = [
   'address_risk',
+  'scam_topology',
   'track_funds',
   'graph_query',
   'graph_query_batch',
@@ -97,8 +98,46 @@ network: {{network}}
 \`\`\`
 `
 
+export const SCAM_TOPOLOGY_PLAYBOOK = `---
+name: scam-topology
+description: Build laundering topology and label candidates from a known scam address
+version: 1.0.0
+params:
+  - name: address
+    type: string
+    required: true
+  - name: network
+    type: string
+    required: false
+    default: bittensor
+---
+
+## Step 1: Screen Known Scam Address
+
+\`\`\`tool
+address_risk
+\`\`\`
+
+\`\`\`params
+address: {{address}}
+network: {{network}}
+\`\`\`
+
+## Step 2: Build Scam Topology
+
+\`\`\`tool
+scam_topology
+\`\`\`
+
+\`\`\`params
+scammer_addresses: {{address}}
+network: {{network}}
+\`\`\`
+`
+
 export const BUILTIN_PLAYBOOKS: Record<string, string> = {
   'trace-funds':    TRACE_FUNDS_PLAYBOOK,
+  'scam-topology':  SCAM_TOPOLOGY_PLAYBOOK,
   'risk-check':     RISK_CHECK_PLAYBOOK,
   'entity-profile': ENTITY_PROFILE_PLAYBOOK,
 }

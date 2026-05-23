@@ -26,6 +26,7 @@ describe('CLI playbook subcommand', () => {
   it('playbook list outputs trace-funds, risk-check, entity-profile', () => {
     const out = execSync('node bin/cli.js playbook list', { encoding: 'utf8' })
     expect(out).toContain('trace-funds')
+    expect(out).toContain('scam-topology')
     expect(out).toContain('risk-check')
     expect(out).toContain('entity-profile')
     expect(out).not.toContain('query')
@@ -49,6 +50,13 @@ describe('CLI playbook subcommand', () => {
     const out = execSync('node bin/cli.js playbook show trace-funds', { encoding: 'utf8' })
     expect(out).toContain('address')
     expect(out).toContain('required')
+  })
+
+  it('playbook show scam-topology prints step list', () => {
+    const out = execSync('node bin/cli.js playbook show scam-topology', { encoding: 'utf8' })
+    expect(out).toContain('scam-topology')
+    expect(out).toContain('address_risk')
+    expect(out).toContain('scam_topology')
   })
 
   it('playbook run trace-funds --dry-run -p address=0x1 prints step plan without MCP calls', () => {
