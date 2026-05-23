@@ -1,9 +1,7 @@
-const require_chunk = require("./chunk-CZWwpsFl.cjs");
-const require_output_root = require("./output-root-CFYms3ad.cjs");
-const require_graph_normalizer = require("./graph-normalizer-DeIj6Ses.cjs");
-let node_path = require("node:path");
-node_path = require_chunk.__toESM(node_path, 1);
-let node_fs_promises = require("node:fs/promises");
+import { n as workspaceOutputPaths } from "./output-root-CmWM7aV2.mjs";
+import { t as normalizeGraphPayload } from "./graph-normalizer-Cv9yK9Pg.mjs";
+import path from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 //#region src/investigation/trace-funds.ts
 var AliasTracker = class {
 	byAddress = /* @__PURE__ */ new Map();
@@ -74,23 +72,23 @@ function sanitizeSegment(value) {
 	return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "trace";
 }
 async function ensureDirs(paths) {
-	await (0, node_fs_promises.mkdir)(paths.schemaDir, {
+	await mkdir(paths.schemaDir, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportsRoot, {
+	await mkdir(paths.reportsRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportGraphsRoot, {
+	await mkdir(paths.reportGraphsRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportTablesRoot, {
+	await mkdir(paths.reportTablesRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.logsRoot, {
+	await mkdir(paths.logsRoot, {
 		recursive: true,
 		mode: 448
 	});
@@ -105,7 +103,7 @@ function parseGraphBatchResult$2(result) {
 	if (!parsed.facts?.queries) throw new Error("graph_query_batch response did not include facts.queries");
 	return parsed;
 }
-function topologyGraphQuery$2(query) {
+function topologyGraphQuery$1(query) {
 	const trimmed = query.trim();
 	if (/^USE\s+/i.test(trimmed)) return trimmed;
 	return `USE live_topology ${trimmed}`;
@@ -117,7 +115,7 @@ async function callGraphBatch$2(remoteClient, network, queries) {
 			network,
 			queries: queries.map((query) => ({
 				...query,
-				query: topologyGraphQuery$2(query.query)
+				query: topologyGraphQuery$1(query.query)
 			})),
 			per_query_timeout_seconds: GRAPH_QUERY_BATCH_TIMEOUT_SECONDS$1
 		}
@@ -155,17 +153,17 @@ function schemaFromGraphBatch(network, batch) {
 	};
 }
 async function loadOrCaptureTopologySchema(remoteClient, paths, network) {
-	const filePath = node_path.default.join(paths.schemaDir, `${sanitizeSegment(network)}.graph-schema.json`);
+	const filePath = path.join(paths.schemaDir, `${sanitizeSegment(network)}.graph-schema.json`);
 	try {
 		return {
-			schema: JSON.parse(await (0, node_fs_promises.readFile)(filePath, "utf8")),
+			schema: JSON.parse(await readFile(filePath, "utf8")),
 			filePath
 		};
 	} catch (err) {
 		if (err.code !== "ENOENT") throw err;
 	}
 	const schema = schemaFromGraphBatch(network, await callGraphBatch$2(remoteClient, network, SCHEMA_QUERY_SET));
-	await (0, node_fs_promises.writeFile)(filePath, JSON.stringify(schema, null, 2) + "\n", { mode: 384 });
+	await writeFile(filePath, JSON.stringify(schema, null, 2) + "\n", { mode: 384 });
 	return {
 		schema,
 		filePath
@@ -248,11 +246,11 @@ function reverseLeadsQuery(depositAddresses) {
 		].join(" ")
 	};
 }
-function edgeKey(src, dst) {
+function edgeKey$1(src, dst) {
 	return `${src}\u0000${dst}`;
 }
 function directEdgePropsQuery(flows) {
-	const pairs = [...new Map(flows.map((flow) => [edgeKey(flow.src, flow.dst), {
+	const pairs = [...new Map(flows.map((flow) => [edgeKey$1(flow.src, flow.dst), {
 		src: flow.src,
 		dst: flow.dst
 	}])).values()];
@@ -384,10 +382,10 @@ async function hydrateDirectEdgeProps(remoteClient, network, flows, deposits) {
 		const src = typeof row["src"] === "string" ? row["src"] : "";
 		const dst = typeof row["dst"] === "string" ? row["dst"] : "";
 		if (!src || !dst) continue;
-		edgeProps.set(edgeKey(src, dst), row);
+		edgeProps.set(edgeKey$1(src, dst), row);
 	}
 	for (const flow of flows) {
-		const props = edgeProps.get(edgeKey(flow.src, flow.dst));
+		const props = edgeProps.get(edgeKey$1(flow.src, flow.dst));
 		if (!props) continue;
 		flow.amount_sum = numberValue$2(props["amount_sum"]) ?? flow.amount_sum;
 		flow.amount_usd_sum = numberValue$2(props["amount_usd_sum"]);
@@ -396,7 +394,7 @@ async function hydrateDirectEdgeProps(remoteClient, network, flows, deposits) {
 		flow.last_tx_id = typeof props["last_tx_id"] === "string" ? props["last_tx_id"] : void 0;
 	}
 	for (const deposit of deposits) {
-		const props = edgeProps.get(edgeKey(deposit.address, deposit.exchangeAddress));
+		const props = edgeProps.get(edgeKey$1(deposit.address, deposit.exchangeAddress));
 		if (!props) continue;
 		deposit.amount_sum = numberValue$2(props["amount_sum"]);
 		deposit.amount_usd_sum = numberValue$2(props["amount_usd_sum"]);
@@ -554,7 +552,7 @@ function buildGraph$1(seedAddress, network, flows, deposits, sourceMatches, reve
 		});
 		return edges;
 	});
-	return require_graph_normalizer.normalizeGraphPayload({
+	return normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: [...totals.entries()].map(([address, data]) => ({
 			id: address,
@@ -820,7 +818,7 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	const maxHops = clampInt$1(options.maxHops, 3, 1, 5);
 	const perAddressLimit = clampInt$1(options.perAddressLimit, 5, 1, 10);
 	const minAmountSum = Math.max(0, options.minAmountSum ?? 0);
-	const paths = require_output_root.workspaceOutputPaths();
+	const paths = workspaceOutputPaths();
 	await ensureDirs(paths);
 	const schemaResult = await loadOrCaptureTopologySchema(remoteClient, paths, network);
 	const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, {
@@ -834,21 +832,21 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	const slug = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}_${sanitizeSegment(seedAddress.slice(0, 16))}`;
 	const compact = probeEvidence(seedAddress, network, schemaResult.filePath, aliases, flows, deposits, sourceMatches, reverseLeads);
 	const graph = buildGraph$1(seedAddress, network, flows, deposits, sourceMatches, reverseLeads);
-	const compactPath = node_path.default.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
-	const graphPath = node_path.default.join(paths.reportGraphsRoot, `${slug}.graph.json`);
-	const graphHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.graph.html`);
-	const tablePath = node_path.default.join(paths.reportTablesRoot, `${slug}.flows.csv`);
-	const tableHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.table.html`);
-	const reportPath = node_path.default.join(paths.reportsRoot, `${slug}.trace-report.md`);
-	const { generateInlineGraphHtml } = await Promise.resolve().then(() => require("./html-generator-9xvA43R8.cjs")).then((n) => n.html_generator_exports);
-	await (0, node_fs_promises.writeFile)(compactPath, JSON.stringify(compact, null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(graphPath, JSON.stringify(graph, null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(tablePath, tableCsv(flows), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 384 });
+	const compactPath = path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
+	const graphPath = path.join(paths.reportGraphsRoot, `${slug}.graph.json`);
+	const graphHtmlPath = path.join(paths.reportsRoot, `${slug}.graph.html`);
+	const tablePath = path.join(paths.reportTablesRoot, `${slug}.flows.csv`);
+	const tableHtmlPath = path.join(paths.reportsRoot, `${slug}.table.html`);
+	const reportPath = path.join(paths.reportsRoot, `${slug}.trace-report.md`);
+	const { generateInlineGraphHtml } = await import("./html-generator-DazwHVyW.mjs").then((n) => n.n);
+	await writeFile(compactPath, JSON.stringify(compact, null, 2) + "\n", { mode: 384 });
+	await writeFile(graphPath, JSON.stringify(graph, null, 2) + "\n", { mode: 384 });
+	await writeFile(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 384 });
+	await writeFile(tablePath, tableCsv(flows), { mode: 384 });
+	await writeFile(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 384 });
+	await writeFile(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 384 });
 	if (options.caseId) {
-		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
+		const { EvidenceStore } = await import("./cases-By7INiOa.mjs");
 		await EvidenceStore.append(options.caseId, {
 			source: "track_funds",
 			queryParams: `network=${network} seed_address=${seedAddress} max_hops=${maxHops} per_address_limit=${perAddressLimit} min_amount_sum=${minAmountSum}`,
@@ -906,20 +904,27 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 //#endregion
 //#region src/investigation/scam-topology.ts
 const SCAM_TOPOLOGY_GRAPH_QUERY_TIMEOUT_SECONDS = 600;
-const INFRASTRUCTURE_ANCHOR_LIMIT = 40;
+const SCAM_TOPOLOGY_GRAPH_BATCH_REQUEST_TIMEOUT_MS = 900 * 1e3;
+const SCAM_TOPOLOGY_MAX_BATCH_QUERIES = 20;
+const SCAM_TOPOLOGY_ARCHIVE_BATCH_QUERIES = 1;
 function parseAddressList$1(value) {
 	const raw = Array.isArray(value) ? value.join(",") : value ?? "";
 	return [...new Set(raw.split(",").map((entry) => entry.trim()).filter(Boolean))];
 }
-function graphArray$1(graphData, key) {
-	const value = graphData[key];
-	return Array.isArray(value) ? value.filter((item) => typeof item === "object" && item !== null && !Array.isArray(item)) : [];
-}
 function stringArray(value) {
-	return Array.isArray(value) ? value.map(String).filter(Boolean) : [];
+	if (Array.isArray(value)) return value.map(String).map((entry) => entry.trim()).filter(Boolean);
+	if (typeof value === "string" && value.trim()) {
+		const trimmed = value.trim();
+		if (trimmed.startsWith("[")) try {
+			const parsed = JSON.parse(trimmed);
+			if (Array.isArray(parsed)) return parsed.map(String).map((entry) => entry.trim()).filter(Boolean);
+		} catch {}
+		return trimmed.split(",").map((entry) => entry.trim()).filter(Boolean);
+	}
+	return [];
 }
 function stringValue(value) {
-	return typeof value === "string" && value.trim() ? value : void 0;
+	return typeof value === "string" && value.trim() ? value.trim() : void 0;
 }
 function numberValue$1(value) {
 	if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -931,6 +936,11 @@ function numberValue$1(value) {
 function clampInt(value, fallback, min, max) {
 	if (!Number.isFinite(value)) return fallback;
 	return Math.max(min, Math.min(max, Math.trunc(value)));
+}
+function chunks(values, size) {
+	const result = [];
+	for (let index = 0; index < values.length; index += size) result.push(values.slice(index, index + size));
+	return result;
 }
 function escapeCypherString$1(value) {
 	return value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
@@ -945,183 +955,197 @@ function parseGraphBatchResult$1(result) {
 	if (!parsed.facts?.queries) throw new Error("graph_query_batch response did not include facts.queries");
 	return parsed;
 }
-function topologyGraphQuery$1(query) {
-	const trimmed = query.trim();
-	if (/^USE\s+/i.test(trimmed)) return trimmed;
-	return `USE live_topology ${trimmed}`;
-}
 async function callGraphBatch$1(remoteClient, network, queries) {
 	const result = await remoteClient.callTool({
 		name: "graph_query_batch",
 		arguments: {
 			network,
-			queries: queries.map((query) => ({
-				...query,
-				query: topologyGraphQuery$1(query.query)
-			})),
+			queries,
 			per_query_timeout_seconds: SCAM_TOPOLOGY_GRAPH_QUERY_TIMEOUT_SECONDS
 		}
+	}, void 0, {
+		timeout: SCAM_TOPOLOGY_GRAPH_BATCH_REQUEST_TIMEOUT_MS,
+		maxTotalTimeout: SCAM_TOPOLOGY_GRAPH_BATCH_REQUEST_TIMEOUT_MS
 	});
 	if (result.isError) throw new Error(textFromToolResult$1(result) || "graph_query_batch failed");
 	return parseGraphBatchResult$1(result);
 }
-function addressPredicate(variableName, addresses) {
-	return addresses.map((address) => `${variableName}.address = "${escapeCypherString$1(address)}"`).join(" OR ");
+function graphForScope(graphScope) {
+	return graphScope === "history" ? "archive_topology" : "live_topology";
 }
-function flowProjection(relation, sourceVariable = "src", targetVariable = "dst") {
+function isExchangeFlag(value) {
+	if (value === true) return true;
+	if (value === false || value === null || value === void 0) return false;
+	if (typeof value === "string") {
+		const normalized = value.trim().toLowerCase();
+		return normalized === "true" || normalized === "1";
+	}
+	if (typeof value === "number") return value === 1;
+	return false;
+}
+function hasExchangeLabel(labels) {
+	return labels.some((label) => label.toLowerCase() === "exchange" || label.toLowerCase().includes("exchange"));
+}
+function isExchangeEndpoint(labels, isExchange, roles) {
+	return isExchangeFlag(isExchange) || hasExchangeLabel(labels) || roles.some((role) => role.toLowerCase().includes("exchange"));
+}
+function addressPredicate(addresses) {
+	return addresses.map((address) => `src.address = "${escapeCypherString$1(address)}"`).join(" OR ");
+}
+function traversalProjection() {
 	return [
-		`"${relation}" AS relation`,
-		`${sourceVariable}.address AS src`,
-		`${targetVariable}.address AS dst`,
-		`${sourceVariable}.labels AS src_labels`,
-		`${targetVariable}.labels AS dst_labels`,
-		`r.amount_sum AS amount_sum`,
-		`r.amount_usd_sum AS amount_usd_sum`,
-		`r.tx_count AS tx_count`,
-		`r.first_tx_id AS first_tx_id`,
-		`r.last_tx_id AS last_tx_id`
+		"src.address AS src",
+		"dst.address AS dst",
+		"src.labels AS src_labels",
+		"dst.labels AS dst_labels",
+		"src.is_exchange AS src_is_exchange",
+		"dst.is_exchange AS dst_is_exchange",
+		"r.amount_sum AS amount_sum",
+		"r.amount_usd_sum AS amount_usd_sum",
+		"r.tx_count AS tx_count",
+		"r.first_seen_timestamp AS first_seen_timestamp",
+		"r.last_seen_timestamp AS last_seen_timestamp",
+		"r.first_tx_id AS first_tx_id",
+		"r.last_tx_id AS last_tx_id"
 	].join(", ");
 }
-function seedIncidentQueries(run, index, limit) {
-	const address = escapeCypherString$1(run.address);
-	return [{
-		id: `seed_in_${index}`,
-		query: [
-			`MATCH (src:Address)-[r:FLOWS_TO]->(dst:Address {address: "${address}"})`,
-			"WHERE src.address <> dst.address",
-			`RETURN ${flowProjection("seed_funding_input")}, dst.address AS anchor_address`,
-			"ORDER BY r.amount_sum DESC",
-			`LIMIT ${limit}`
-		].join(" ")
-	}, {
-		id: `seed_out_${index}`,
-		query: [
-			`MATCH (src:Address {address: "${address}"})-[r:FLOWS_TO]->(dst:Address)`,
-			"WHERE src.address <> dst.address",
-			`RETURN ${flowProjection("seed_sweep")}, src.address AS anchor_address`,
-			"ORDER BY r.amount_sum DESC",
-			`LIMIT ${limit}`
-		].join(" ")
-	}];
-}
-function anchorFanQueries(anchors, limit) {
-	if (anchors.length === 0) return [];
-	const dstPredicate = addressPredicate("dst", anchors);
-	const srcPredicate = addressPredicate("src", anchors);
-	return [{
-		id: "anchor_fan_in_1",
-		query: [
-			"MATCH (src:Address)-[r:FLOWS_TO]->(dst:Address)",
-			`WHERE (${dstPredicate}) AND src.address <> dst.address`,
-			`RETURN ${flowProjection("anchor_fan_in")}, dst.address AS anchor_address`,
-			"ORDER BY r.amount_sum DESC",
-			`LIMIT ${limit}`
-		].join(" ")
-	}, {
-		id: "anchor_fan_out_1",
-		query: [
-			"MATCH (src:Address)-[r:FLOWS_TO]->(dst:Address)",
-			`WHERE (${srcPredicate}) AND src.address <> dst.address`,
-			`RETURN ${flowProjection("anchor_fan_out")}, src.address AS anchor_address`,
-			"ORDER BY r.amount_sum DESC",
-			`LIMIT ${limit}`
-		].join(" ")
-	}];
-}
-function isExchangeLikeNode(node) {
-	const labels = stringArray(node["labels"]).map((label) => label.toLowerCase());
-	const roles = stringArray(node["roles"]).map((role) => role.toLowerCase());
-	return labels.includes("exchange") || roles.includes("exchange") || node["is_exchange"] === true;
-}
-function collectInfrastructureAnchors(runs) {
-	const anchors = /* @__PURE__ */ new Set();
-	const exchanges = /* @__PURE__ */ new Set();
-	for (const run of runs) {
-		for (const deposit of graphArray$1(run.result.graphData, "deposits")) {
-			const exchangeAddress = stringValue(deposit["exchangeAddress"]) ?? stringValue(deposit["exchange_address"]);
-			if (exchangeAddress) exchanges.add(exchangeAddress);
-		}
-		for (const node of graphArray$1(run.result.graphData, "nodes")) {
-			const address = stringValue(node["address"]) ?? stringValue(node["id"]);
-			if (address && isExchangeLikeNode(node)) exchanges.add(address);
-		}
-	}
-	for (const run of runs) {
-		for (const flow of graphArray$1(run.result.graphData, "flows")) for (const key of ["src", "dst"]) {
-			const address = stringValue(flow[key]);
-			if (address && address !== run.address && !exchanges.has(address)) anchors.add(address);
-		}
-		for (const deposit of graphArray$1(run.result.graphData, "deposits")) {
-			const address = stringValue(deposit["address"]);
-			if (address && address !== run.address && !exchanges.has(address)) anchors.add(address);
-		}
-		for (const lead of graphArray$1(run.result.graphData, "reverse_leads")) {
-			const address = stringValue(lead["address"]);
-			if (address && address !== run.address && !exchanges.has(address)) anchors.add(address);
-		}
-	}
-	return [...anchors].slice(0, INFRASTRUCTURE_ANCHOR_LIMIT);
-}
-function infrastructureFlowFromRow(row, context) {
-	const relation = stringValue(row["relation"]);
-	const src = stringValue(row["src"]);
-	const dst = stringValue(row["dst"]);
-	if (!relation || !src || !dst) return null;
+function frontierQuery(graphScope, sourceAddress, hop, sourceIndex, perAddressLimit, minAmountSum, sinceTimestampMs) {
+	const where = [`(${addressPredicate([sourceAddress])})`, "src.address <> dst.address"];
+	if (minAmountSum !== void 0) where.push(`r.amount_sum >= ${minAmountSum}`);
+	if (graphScope === "incident" && sinceTimestampMs !== void 0) where.push(`r.last_seen_timestamp >= ${sinceTimestampMs}`);
 	return {
-		relation,
+		id: sourceIndex === void 0 ? `${graphScope}_hop_${hop}` : `${graphScope}_hop_${hop}_source_${sourceIndex}`,
+		query: [
+			`USE ${graphForScope(graphScope)}`,
+			"MATCH (src:Address)-[r:FLOWS_TO]->(dst:Address)",
+			`WHERE ${where.join(" AND ")}`,
+			`RETURN ${traversalProjection()}`,
+			"ORDER BY r.amount_sum DESC",
+			`LIMIT ${perAddressLimit}`
+		].join(" ")
+	};
+}
+function edgeFromRow(row, graphScope, hop, context) {
+	const src = stringValue(row["src"]) ?? stringValue(row["from_address"]);
+	const dst = stringValue(row["dst"]) ?? stringValue(row["to_address"]);
+	if (!src || !dst || src === dst) return null;
+	const srcLabels = stringArray(row["src_labels"]);
+	const dstLabels = stringArray(row["dst_labels"]);
+	const srcRoles = stringArray(row["src_roles"]);
+	const dstRoles = stringArray(row["dst_roles"]);
+	const srcIsExchange = isExchangeEndpoint(srcLabels, row["src_is_exchange"], srcRoles);
+	const dstIsExchange = isExchangeEndpoint(dstLabels, row["dst_is_exchange"], dstRoles);
+	const genericLabeledBoundary = dstLabels.length > 0 && !dstIsExchange;
+	return {
+		relation: dstIsExchange ? "terminal_exchange" : genericLabeledBoundary ? "context_boundary" : hop === 1 ? "seed_outflow" : "traversal_edge",
 		src,
 		dst,
+		hop,
+		graph_scope: graphScope,
+		topology_graph: graphForScope(graphScope),
+		seed_address: context.seedAddress,
+		seed_role: context.seedRole,
 		amount_sum: numberValue$1(row["amount_sum"]),
 		amount_usd_sum: numberValue$1(row["amount_usd_sum"]),
 		tx_count: numberValue$1(row["tx_count"]),
+		first_seen_timestamp: numberValue$1(row["first_seen_timestamp"]),
+		last_seen_timestamp: numberValue$1(row["last_seen_timestamp"]),
 		first_tx_id: stringValue(row["first_tx_id"]),
 		last_tx_id: stringValue(row["last_tx_id"]),
-		src_labels: stringArray(row["src_labels"]),
-		dst_labels: stringArray(row["dst_labels"]),
-		seed_address: context?.seed_address,
-		seed_role: context?.seed_role,
-		anchor_address: stringValue(row["anchor_address"])
+		src_labels: srcLabels,
+		dst_labels: dstLabels,
+		src_is_exchange: srcIsExchange,
+		dst_is_exchange: dstIsExchange
 	};
 }
-function infrastructureFlowKey(flow) {
-	return `${flow.relation}\u0000${flow.src}\u0000${flow.dst}`;
+function edgeKey(edge) {
+	return `${edge.graph_scope}\u0000${edge.seed_role ?? ""}\u0000${edge.seed_address ?? ""}\u0000${edge.src}\u0000${edge.dst}`;
 }
-async function collectLiveScamInfrastructure(remoteClient, network, runs, perAddressLimitOption) {
-	const perAddressLimit = clampInt(perAddressLimitOption, 5, 1, 10);
-	const seedLimit = Math.max(25, perAddressLimit * 25);
-	const fanLimit = Math.min(1e3, Math.max(200, perAddressLimit * 100));
-	const anchors = collectInfrastructureAnchors(runs);
-	const queryContexts = /* @__PURE__ */ new Map();
-	const queries = [];
-	runs.forEach((run, index) => {
-		const queryIndex = index + 1;
-		for (const query of seedIncidentQueries(run, queryIndex, seedLimit)) {
-			queries.push(query);
-			queryContexts.set(query.id, {
-				seed_address: run.address,
-				seed_role: run.seedRole
-			});
+function mergedEdgeKey(edge) {
+	return `${edge.seed_role ?? ""}\u0000${edge.seed_address ?? ""}\u0000${edge.src}\u0000${edge.dst}`;
+}
+function frontierKey(entry) {
+	return `${entry.seedRole}\u0000${entry.seedAddress}\u0000${entry.address}`;
+}
+async function runDirectedTraversal(remoteClient, network, seeds, graphScope, maxHops, perAddressLimit, minAmountSum, sinceTimestampMs) {
+	const edgesByKey = /* @__PURE__ */ new Map();
+	let frontier = seeds.map((seed) => ({
+		address: seed.address,
+		seedAddress: seed.address,
+		seedRole: seed.role
+	}));
+	const visited = new Set(frontier.map(frontierKey));
+	for (let hop = 1; hop <= maxHops && frontier.length > 0; hop += 1) {
+		const frontierByAddress = /* @__PURE__ */ new Map();
+		for (const entry of frontier) {
+			const entries = frontierByAddress.get(entry.address) ?? [];
+			entries.push(entry);
+			frontierByAddress.set(entry.address, entries);
 		}
-	});
-	queries.push(...anchorFanQueries(anchors, fanLimit));
-	if (queries.length === 0) return {
-		anchors,
-		flows: []
-	};
-	const batch = await callGraphBatch$1(remoteClient, network, queries);
-	const flowsByKey = /* @__PURE__ */ new Map();
-	for (const query of batch.facts?.queries ?? []) {
-		if (query.ok === false) throw new Error(query.error || `Query failed: ${query.id}`);
-		const context = query.id ? queryContexts.get(query.id) : void 0;
-		for (const row of query.results ?? []) {
-			const flow = infrastructureFlowFromRow(row, context);
-			if (flow) flowsByKey.set(infrastructureFlowKey(flow), flow);
+		const frontierAddresses = [...frontierByAddress.keys()];
+		const queries = frontierAddresses.map((address, index) => frontierQuery(graphScope, address, hop, frontierAddresses.length === 1 ? void 0 : index + 1, perAddressLimit, minAmountSum, sinceTimestampMs));
+		const nextByKey = /* @__PURE__ */ new Map();
+		const maxBatchQueries = graphScope === "history" ? SCAM_TOPOLOGY_ARCHIVE_BATCH_QUERIES : SCAM_TOPOLOGY_MAX_BATCH_QUERIES;
+		for (const queryChunk of chunks(queries, maxBatchQueries)) {
+			const batch = await callGraphBatch$1(remoteClient, network, queryChunk);
+			for (const queryResult of batch.facts?.queries ?? []) {
+				if (queryResult.ok === false) throw new Error(queryResult.error || `Query failed: ${queryResult.id}`);
+				for (const row of queryResult.results ?? []) {
+					const src = stringValue(row["src"]) ?? stringValue(row["from_address"]);
+					if (!src) continue;
+					const contexts = frontierByAddress.get(src) ?? [];
+					for (const context of contexts) {
+						const edge = edgeFromRow(row, graphScope, hop, context);
+						if (!edge || edgesByKey.has(edgeKey(edge))) continue;
+						edgesByKey.set(edgeKey(edge), edge);
+						if (edge.relation === "terminal_exchange" || edge.relation === "context_boundary") continue;
+						const nextEntry = {
+							address: edge.dst,
+							seedAddress: context.seedAddress,
+							seedRole: context.seedRole
+						};
+						const key = frontierKey(nextEntry);
+						if (!visited.has(key)) {
+							visited.add(key);
+							nextByKey.set(key, nextEntry);
+						}
+					}
+				}
+			}
 		}
+		frontier = [...nextByKey.values()];
 	}
 	return {
-		anchors,
-		flows: [...flowsByKey.values()]
+		graphScope,
+		topologyGraph: graphForScope(graphScope),
+		edges: [...edgesByKey.values()]
 	};
+}
+function mergeCompareRuns(history, incident) {
+	const buckets = /* @__PURE__ */ new Map();
+	for (const edge of history.edges) {
+		const bucket = buckets.get(mergedEdgeKey(edge)) ?? {};
+		bucket.history = edge;
+		buckets.set(mergedEdgeKey(edge), bucket);
+	}
+	for (const edge of incident.edges) {
+		const bucket = buckets.get(mergedEdgeKey(edge)) ?? {};
+		bucket.incident = edge;
+		buckets.set(mergedEdgeKey(edge), bucket);
+	}
+	return [...buckets.values()].map((bucket) => {
+		const base = bucket.incident ?? bucket.history;
+		if (!base) throw new Error("empty compare bucket");
+		const graphScopes = [...bucket.history ? ["history"] : [], ...bucket.incident ? ["incident"] : []];
+		const scopeMembership = bucket.history && bucket.incident ? "overlap" : bucket.history ? "history_only" : "incident_only";
+		const relation = bucket.history?.relation === "terminal_exchange" || bucket.incident?.relation === "terminal_exchange" ? "terminal_exchange" : bucket.history?.relation === "context_boundary" || bucket.incident?.relation === "context_boundary" ? "context_boundary" : base.relation;
+		return {
+			...base,
+			relation,
+			scope_membership: scopeMembership,
+			graph_scopes: graphScopes
+		};
+	});
 }
 function candidateKey(candidate) {
 	return `${candidate.address}\u0000${candidate.address_subtype}`;
@@ -1140,20 +1164,6 @@ function mergeCandidate(candidates, candidate) {
 		existing.trust_level = "blacklisted";
 		existing.risk_level = "critical";
 	}
-}
-function addRole(rolesByAddress, address, role) {
-	if (!address) return;
-	const roles = rolesByAddress.get(address) ?? /* @__PURE__ */ new Set();
-	roles.add(role);
-	rolesByAddress.set(address, roles);
-}
-function buildEvidence(run, fields) {
-	return {
-		seed_address: run.address,
-		seed_role: run.seedRole,
-		network_source: "track_funds",
-		...fields
-	};
 }
 function labelForSubtype(subtype) {
 	switch (subtype) {
@@ -1176,191 +1186,234 @@ function makeCandidate(address, subtype, evidence, confidence, promotionStatus) 
 		evidence: [evidence]
 	};
 }
-function classifyRun(run, candidates, caseRoles, safetyDecisions, rolesByAddress) {
-	caseRoles.push({
-		address: run.address,
-		role: run.seedRole
-	});
-	addRole(rolesByAddress, run.address, run.seedRole);
-	if (run.seedRole === "victim") safetyDecisions.push({
-		address: run.address,
-		decision: "do_not_label_victim_seed",
-		reason: "Victim/source addresses are not risky actors by default."
-	});
-	else mergeCandidate(candidates, makeCandidate(run.address, "scam_seed", buildEvidence(run, {
-		role: "scammer",
-		reason: "Operator supplied this address as a known scammer seed."
-	}), 1, "promote_confirmed"));
-	for (const deposit of graphArray$1(run.result.graphData, "deposits")) {
-		const depositAddress = stringValue(deposit["address"]);
-		const exchangeAddress = stringValue(deposit["exchangeAddress"]) ?? stringValue(deposit["exchange_address"]);
-		const path = stringArray(deposit["path"]);
-		const hopCount = numberValue$1(deposit["hops"]) ?? Math.max(path.length - 1, 0);
-		const amountSum = numberValue$1(deposit["amount_sum"]);
-		const amountUsdSum = numberValue$1(deposit["amount_usd_sum"]);
-		if (exchangeAddress) {
-			addRole(rolesByAddress, exchangeAddress, "exchange");
-			caseRoles.push({
-				address: exchangeAddress,
-				role: "exchange_endpoint",
-				seed_address: run.address,
-				seed_role: run.seedRole
-			});
-			safetyDecisions.push({
-				address: exchangeAddress,
-				decision: "do_not_label_exchange_endpoint",
-				reason: "Exchange/service endpoints are terminal service context, not automatically scam actors.",
-				seed_address: run.address
-			});
-		}
-		for (const intermediate of path.slice(1, -2)) {
-			if (!intermediate || intermediate === run.address || intermediate === exchangeAddress) continue;
-			addRole(rolesByAddress, intermediate, "laundering_intermediate");
-			caseRoles.push({
-				address: intermediate,
-				role: "laundering_intermediate",
-				seed_address: run.address,
-				seed_role: run.seedRole
-			});
-			mergeCandidate(candidates, makeCandidate(intermediate, "laundering_intermediate", buildEvidence(run, {
-				path_addresses: path,
-				endpoint_address: exchangeAddress,
-				endpoint_type: exchangeAddress ? "exchange" : void 0,
-				hop_count: hopCount,
-				amount_sum: amountSum,
-				amount_usd_sum: amountUsdSum,
-				reason: "Address appears as an intermediate laundering hop in a known scam topology."
-			}), run.seedRole === "scammer" ? .85 : .72, "review_required"));
-		}
-		if (depositAddress && depositAddress !== run.address && depositAddress !== exchangeAddress) {
-			addRole(rolesByAddress, depositAddress, "deposit_candidate");
-			caseRoles.push({
-				address: depositAddress,
-				role: "exchange_deposit_candidate",
-				seed_address: run.address,
-				seed_role: run.seedRole
-			});
-			mergeCandidate(candidates, makeCandidate(depositAddress, "exchange_deposit_candidate", buildEvidence(run, {
-				path_addresses: path,
-				endpoint_address: exchangeAddress,
-				endpoint_type: exchangeAddress ? "exchange" : void 0,
-				hop_count: hopCount,
-				amount_sum: amountSum,
-				amount_usd_sum: amountUsdSum,
-				reason: "Address is the penultimate hop before an exchange/service endpoint."
-			}), run.seedRole === "scammer" ? .8 : .68, "review_required"));
-		}
-	}
-	for (const lead of graphArray$1(run.result.graphData, "reverse_leads")) {
-		const address = stringValue(lead["address"]);
-		if (!address) continue;
-		addRole(rolesByAddress, address, "reverse_lead");
-		caseRoles.push({
-			address,
-			role: "reverse_lead",
-			seed_address: run.address,
-			seed_role: run.seedRole
-		});
-		safetyDecisions.push({
-			address,
-			decision: "context_only_reverse_lead",
-			reason: "Reverse leads are useful context but are not automatically risky labels.",
-			seed_address: run.address,
-			deposit_address: lead["deposit_address"]
-		});
-	}
+function addRole(rolesByAddress, address, role) {
+	if (!address) return;
+	const roles = rolesByAddress.get(address) ?? /* @__PURE__ */ new Set();
+	roles.add(role);
+	rolesByAddress.set(address, roles);
 }
-function addFlowRoles(rolesByAddress, flow) {
-	switch (flow.relation) {
-		case "seed_funding_input":
-			addRole(rolesByAddress, flow.src, "funding_source");
-			addRole(rolesByAddress, flow.dst, "seed");
-			return;
-		case "seed_sweep":
-			addRole(rolesByAddress, flow.src, "seed");
-			addRole(rolesByAddress, flow.dst, "sweep_recipient");
-			return;
-		case "anchor_fan_in":
-			addRole(rolesByAddress, flow.src, "fan_in_context");
-			addRole(rolesByAddress, flow.dst, "infrastructure_anchor");
-			return;
-		case "anchor_fan_out":
-			addRole(rolesByAddress, flow.src, "infrastructure_anchor");
-			addRole(rolesByAddress, flow.dst, "fan_out_context");
-			return;
-	}
+function pushCaseRole(caseRoles, role) {
+	if (caseRoles.some((entry) => entry.address === role.address && entry.role === role.role && entry.seed_address === role.seed_address && entry.seed_role === role.seed_role)) return;
+	caseRoles.push(role);
 }
-function mergeInfrastructureNode(nodesById, address, labels, rolesByAddress) {
-	const existing = nodesById.get(address) ?? {
-		id: address,
-		address,
-		node_type: "address"
+function pushSafetyDecision(safetyDecisions, decision) {
+	if (safetyDecisions.some((entry) => JSON.stringify(entry) === JSON.stringify(decision))) return;
+	safetyDecisions.push(decision);
+}
+function edgeEvidence(edge, reason) {
+	return {
+		seed_address: edge.seed_address,
+		seed_role: edge.seed_role,
+		graph_scope: edge.graph_scope,
+		scope_membership: edge.scope_membership,
+		hop: edge.hop,
+		src: edge.src,
+		dst: edge.dst,
+		amount_sum: edge.amount_sum,
+		amount_usd_sum: edge.amount_usd_sum,
+		tx_count: edge.tx_count,
+		reason
 	};
-	nodesById.set(address, {
-		...existing,
-		labels: [...new Set([...stringArray(existing["labels"]), ...labels ?? []])],
-		roles: [...new Set([...stringArray(existing["roles"]), ...[...rolesByAddress.get(address) ?? []]])]
-	});
 }
-function buildGraph(runs, infrastructureFlows, rolesByAddress, facts) {
-	const nodesById = /* @__PURE__ */ new Map();
-	for (const run of runs) for (const node of graphArray$1(run.result.graphData, "nodes")) {
-		const id = stringValue(node["id"]) ?? stringValue(node["address"]);
-		if (!id) continue;
-		const existing = nodesById.get(id) ?? { ...node };
-		const roles = new Set([...stringArray(existing["roles"]), ...stringArray(node["roles"])]);
-		for (const role of rolesByAddress.get(id) ?? []) roles.add(role);
-		nodesById.set(id, {
-			...existing,
-			...node,
-			roles: [...roles]
+function classifyTopology(seeds, edges) {
+	const candidates = /* @__PURE__ */ new Map();
+	const caseRoles = [];
+	const safetyDecisions = [];
+	const rolesByAddress = /* @__PURE__ */ new Map();
+	const seedAddresses = new Set(seeds.map((seed) => seed.address));
+	const victimAddresses = new Set(seeds.filter((seed) => seed.role === "victim").map((seed) => seed.address));
+	const exchangeDepositAddresses = new Set(edges.filter((edge) => edge.relation === "terminal_exchange").map((edge) => edge.src).filter((address) => !seedAddresses.has(address) && !victimAddresses.has(address)));
+	const terminalPoints = [];
+	const investigationHints = [];
+	for (const seed of seeds) {
+		pushCaseRole(caseRoles, {
+			address: seed.address,
+			role: seed.role
 		});
+		addRole(rolesByAddress, seed.address, seed.role);
+		if (seed.role === "victim") pushSafetyDecision(safetyDecisions, {
+			address: seed.address,
+			decision: "do_not_label_victim_seed",
+			reason: "Victim/source addresses are protected case roles, not risky actors by default."
+		});
+		else mergeCandidate(candidates, makeCandidate(seed.address, "scam_seed", {
+			seed_address: seed.address,
+			seed_role: seed.role,
+			reason: "Operator supplied this address as a known scammer seed."
+		}, 1, "promote_confirmed"));
 	}
-	for (const [address, roles] of rolesByAddress.entries()) {
-		const existing = nodesById.get(address) ?? {
-			id: address,
-			address,
+	for (const edge of edges) {
+		if (edge.relation === "terminal_exchange") {
+			pushCaseRole(caseRoles, {
+				address: edge.dst,
+				role: "exchange_endpoint",
+				seed_address: edge.seed_address,
+				seed_role: edge.seed_role
+			});
+			addRole(rolesByAddress, edge.dst, "exchange_endpoint");
+			terminalPoints.push({
+				address: edge.dst,
+				terminal_type: "exchange_endpoint",
+				source_address: edge.src,
+				seed_address: edge.seed_address,
+				graph_scope: edge.graph_scope,
+				scope_membership: edge.scope_membership
+			});
+			pushSafetyDecision(safetyDecisions, {
+				address: edge.dst,
+				decision: "do_not_label_exchange_endpoint",
+				reason: "Exchange endpoints are terminal service context, not scam label candidates.",
+				seed_address: edge.seed_address
+			});
+			if (!seedAddresses.has(edge.src) && !victimAddresses.has(edge.src)) {
+				pushCaseRole(caseRoles, {
+					address: edge.src,
+					role: "exchange_deposit_candidate",
+					seed_address: edge.seed_address,
+					seed_role: edge.seed_role
+				});
+				addRole(rolesByAddress, edge.src, "exchange_deposit_candidate");
+				mergeCandidate(candidates, makeCandidate(edge.src, "exchange_deposit_candidate", edgeEvidence(edge, "Address is the penultimate hop before an exchange endpoint."), edge.seed_role === "scammer" ? .8 : .68, "review_required"));
+			}
+			continue;
+		}
+		if (edge.relation === "context_boundary") {
+			pushCaseRole(caseRoles, {
+				address: edge.dst,
+				role: "context_boundary",
+				seed_address: edge.seed_address,
+				seed_role: edge.seed_role
+			});
+			addRole(rolesByAddress, edge.dst, "context_boundary");
+			terminalPoints.push({
+				address: edge.dst,
+				terminal_type: "context_boundary",
+				source_address: edge.src,
+				labels: edge.dst_labels,
+				seed_address: edge.seed_address,
+				graph_scope: edge.graph_scope,
+				scope_membership: edge.scope_membership
+			});
+			investigationHints.push({
+				address: edge.dst,
+				hint_type: "generic_labeled_context",
+				labels: edge.dst_labels,
+				reason: "Non-exchange labels are context hints only and stop automatic scam traversal.",
+				seed_address: edge.seed_address
+			});
+			pushSafetyDecision(safetyDecisions, {
+				address: edge.dst,
+				decision: "context_only_generic_labeled_node",
+				reason: "Generic non-exchange labels are not hard-coded scam infrastructure classes.",
+				labels: edge.dst_labels,
+				seed_address: edge.seed_address
+			});
+			continue;
+		}
+		if (seedAddresses.has(edge.dst) || victimAddresses.has(edge.dst) || exchangeDepositAddresses.has(edge.dst)) continue;
+		pushCaseRole(caseRoles, {
+			address: edge.dst,
+			role: "laundering_intermediate",
+			seed_address: edge.seed_address,
+			seed_role: edge.seed_role
+		});
+		addRole(rolesByAddress, edge.dst, "laundering_intermediate");
+		mergeCandidate(candidates, makeCandidate(edge.dst, "laundering_intermediate", edgeEvidence(edge, "Address appears on an outward path from a known scam topology seed."), edge.seed_role === "scammer" ? .85 : .72, "review_required"));
+	}
+	return {
+		labelCandidates: [...candidates.values()].sort((a, b) => b.confidence_score - a.confidence_score || a.address.localeCompare(b.address)),
+		caseRoles,
+		safetyDecisions,
+		rolesByAddress,
+		intermediaries: [...new Set(caseRoles.filter((role) => role.role === "laundering_intermediate").map((role) => role.address))],
+		terminalPoints,
+		investigationHints
+	};
+}
+function mergeLabels(existing, next) {
+	return [...new Set([...stringArray(existing), ...next])];
+}
+function buildGraph(seeds, edges, rolesByAddress, facts) {
+	const nodesById = /* @__PURE__ */ new Map();
+	for (const seed of seeds) nodesById.set(seed.address, {
+		id: seed.address,
+		address: seed.address,
+		node_type: "address",
+		roles: [...rolesByAddress.get(seed.address) ?? new Set([seed.role])]
+	});
+	for (const edge of edges) {
+		const src = nodesById.get(edge.src) ?? {
+			id: edge.src,
+			address: edge.src,
 			node_type: "address"
 		};
-		nodesById.set(address, {
-			...existing,
-			roles: [...new Set([...stringArray(existing["roles"]), ...roles])]
+		const dst = nodesById.get(edge.dst) ?? {
+			id: edge.dst,
+			address: edge.dst,
+			node_type: "address"
+		};
+		nodesById.set(edge.src, {
+			...src,
+			labels: mergeLabels(src["labels"], edge.src_labels),
+			roles: [...new Set([...stringArray(src["roles"]), ...[...rolesByAddress.get(edge.src) ?? []]])],
+			is_exchange: edge.src_is_exchange || src["is_exchange"] === true
+		});
+		nodesById.set(edge.dst, {
+			...dst,
+			labels: mergeLabels(dst["labels"], edge.dst_labels),
+			roles: [...new Set([...stringArray(dst["roles"]), ...[...rolesByAddress.get(edge.dst) ?? []]])],
+			is_exchange: edge.dst_is_exchange || dst["is_exchange"] === true
 		});
 	}
-	for (const flow of infrastructureFlows) {
-		mergeInfrastructureNode(nodesById, flow.src, flow.src_labels, rolesByAddress);
-		mergeInfrastructureNode(nodesById, flow.dst, flow.dst_labels, rolesByAddress);
-	}
-	return require_graph_normalizer.normalizeGraphPayload({
+	return normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: [...nodesById.values()],
-		edges: [...runs.flatMap((run) => graphArray$1(run.result.graphData, "edges")), ...infrastructureFlows.map((flow) => ({
-			source: flow.src,
-			target: flow.dst,
+		edges: edges.map((edge) => ({
+			source: edge.src,
+			target: edge.dst,
 			edge_type: "flows_to",
-			relation: flow.relation,
-			direction: "scam_infrastructure_context",
-			amount_sum: flow.amount_sum,
-			amount_usd_sum: flow.amount_usd_sum,
-			tx_count: flow.tx_count,
-			first_tx_id: flow.first_tx_id,
-			last_tx_id: flow.last_tx_id,
-			seed_address: flow.seed_address,
-			seed_role: flow.seed_role,
-			anchor_address: flow.anchor_address
-		}))],
-		flows: runs.flatMap((run) => Array.isArray(run.result.graphData.flows) ? run.result.graphData.flows : []),
-		infrastructure_flows: infrastructureFlows,
-		deposits: runs.flatMap((run) => graphArray$1(run.result.graphData, "deposits").map((deposit) => ({
-			...deposit,
-			seed_role: run.seedRole,
-			seed_address: run.address
-		}))),
-		reverse_leads: runs.flatMap((run) => graphArray$1(run.result.graphData, "reverse_leads").map((lead) => ({
-			...lead,
-			seed_role: run.seedRole,
-			seed_address: run.address
-		}))),
+			relation: edge.relation,
+			direction: "outward_scam_topology",
+			hop: edge.hop,
+			graph_scope: edge.graph_scope,
+			topology_graph: edge.topology_graph,
+			scope_membership: edge.scope_membership,
+			seed_address: edge.seed_address,
+			seed_role: edge.seed_role,
+			amount_sum: edge.amount_sum,
+			amount_usd_sum: edge.amount_usd_sum,
+			tx_count: edge.tx_count,
+			first_tx_id: edge.first_tx_id,
+			last_tx_id: edge.last_tx_id,
+			terminal_exchange: edge.relation === "terminal_exchange",
+			context_boundary: edge.relation === "context_boundary"
+		})),
+		flows: edges.map((edge) => ({
+			hop: edge.hop,
+			src: edge.src,
+			dst: edge.dst,
+			relation: edge.relation,
+			graph_scope: edge.graph_scope,
+			scope_membership: edge.scope_membership,
+			seed_address: edge.seed_address,
+			seed_role: edge.seed_role,
+			amount_sum: edge.amount_sum,
+			amount_usd_sum: edge.amount_usd_sum,
+			tx_count: edge.tx_count,
+			terminal_exchange: edge.relation === "terminal_exchange"
+		})),
+		topology_edges: edges,
+		infrastructure_flows: [],
+		deposits: edges.filter((edge) => edge.relation === "terminal_exchange").map((edge) => ({
+			address: edge.src,
+			exchangeAddress: edge.dst,
+			seed_role: edge.seed_role,
+			seed_address: edge.seed_address,
+			amount_sum: edge.amount_sum,
+			amount_usd_sum: edge.amount_usd_sum,
+			hops: edge.hop
+		})),
+		reverse_leads: [],
 		edge_anchors: [],
 		scam_topology: facts,
 		metadata: {
@@ -1369,100 +1422,124 @@ function buildGraph(runs, infrastructureFlows, rolesByAddress, facts) {
 		}
 	});
 }
-function summarize(network, victimAddresses, scammerAddresses, candidates, safetyDecisions, infrastructureFlows) {
+function summarize(network, scope, victimAddresses, scammerAddresses, candidates, safetyDecisions, topologyEdges, terminalPoints) {
 	const confirmed = candidates.filter((candidate) => candidate.promotion_status === "promote_confirmed").length;
 	const review = candidates.filter((candidate) => candidate.promotion_status === "review_required").length;
-	const infrastructureCounts = /* @__PURE__ */ new Map();
-	for (const flow of infrastructureFlows) infrastructureCounts.set(flow.relation, (infrastructureCounts.get(flow.relation) ?? 0) + 1);
 	return [
 		`Scam topology complete for ${network}`,
 		"",
+		`Scope: ${scope}`,
 		`Victim/source seed(s): ${victimAddresses.join(", ") || "none"}`,
 		`Known scammer seed(s): ${scammerAddresses.join(", ") || "none"}`,
+		`Topology edges: ${topologyEdges.length}.`,
+		`Terminal points: ${terminalPoints.length}.`,
 		`Label candidates: ${candidates.length} (${confirmed} promote_confirmed, ${review} review_required).`,
-		`Infrastructure context: ${infrastructureFlows.length} live topology edge(s) (${infrastructureCounts.get("seed_funding_input") ?? 0} funding input, ${infrastructureCounts.get("seed_sweep") ?? 0} seed sweep, ${infrastructureCounts.get("anchor_fan_in") ?? 0} fan-in, ${infrastructureCounts.get("anchor_fan_out") ?? 0} fan-out).`,
 		`Safety decisions: ${safetyDecisions.length}.`,
 		"",
-		"Policy: victims, exchange endpoints, and reverse leads are not automatically risky labels."
+		"Policy: victims, exchange endpoints, and generic labeled context nodes are not automatically risky labels."
 	].join("\n");
+}
+function validateScope(value) {
+	const scope = value ?? "incident";
+	if (scope === "history" || scope === "incident" || scope === "compare") return scope;
+	throw new Error("scope must be one of: history, incident, compare");
+}
+function validateNonNegativeNumber(value, name) {
+	if (value === void 0) return void 0;
+	if (!Number.isFinite(value) || value < 0) throw new Error(`${name} must be a non-negative number`);
+	return value;
+}
+function topologyGraphsForScope(scope) {
+	if (scope === "history") return ["archive_topology"];
+	if (scope === "incident") return ["live_topology"];
+	return ["archive_topology", "live_topology"];
 }
 async function scamTopology(remoteClient, config, options) {
 	const network = options.network.trim();
 	const victimAddresses = parseAddressList$1(options.victimAddresses);
 	const scammerAddresses = parseAddressList$1(options.scammerAddresses);
+	const scope = validateScope(options.scope);
+	const sinceTimestampMs = validateNonNegativeNumber(options.sinceTimestampMs, "sinceTimestampMs");
+	const maxHops = clampInt(options.maxHops, 3, 1, 5);
+	const perAddressLimit = clampInt(options.perAddressLimit, 5, 1, 10);
+	const minAmountSum = validateNonNegativeNumber(options.minAmountSum, "minAmountSum");
 	if (!network) throw new Error("network is required");
 	if (victimAddresses.length + scammerAddresses.length === 0) throw new Error("victim_addresses or scammer_addresses is required");
 	if (victimAddresses.length > 5) throw new Error("victim_addresses cannot exceed 5 addresses");
 	if (scammerAddresses.length > 5) throw new Error("scammer_addresses cannot exceed 5 addresses");
 	const overlap = victimAddresses.filter((address) => scammerAddresses.includes(address));
 	if (overlap.length > 0) throw new Error(`Address(es) appear in both victim and scammer lists: ${overlap.join(", ")}`);
+	const seeds = [...victimAddresses.map((address) => ({
+		address,
+		role: "victim"
+	})), ...scammerAddresses.map((address) => ({
+		address,
+		role: "scammer"
+	}))];
 	const runs = [];
-	for (const address of victimAddresses) runs.push({
-		seedRole: "victim",
-		address,
-		result: await runFundFlowProbe(remoteClient, config, {
-			seedAddress: address,
-			network,
-			caseId: options.caseId,
-			maxHops: options.maxHops,
-			perAddressLimit: options.perAddressLimit,
-			minAmountSum: options.minAmountSum
-		})
-	});
-	for (const address of scammerAddresses) runs.push({
-		seedRole: "scammer",
-		address,
-		result: await runFundFlowProbe(remoteClient, config, {
-			seedAddress: address,
-			network,
-			caseId: options.caseId,
-			maxHops: options.maxHops,
-			perAddressLimit: options.perAddressLimit,
-			minAmountSum: options.minAmountSum
-		})
-	});
-	const candidates = /* @__PURE__ */ new Map();
-	const caseRoles = [];
-	const safetyDecisions = [];
-	const rolesByAddress = /* @__PURE__ */ new Map();
-	for (const run of runs) classifyRun(run, candidates, caseRoles, safetyDecisions, rolesByAddress);
-	const infrastructure = await collectLiveScamInfrastructure(remoteClient, network, runs, options.perAddressLimit);
-	for (const flow of infrastructure.flows) addFlowRoles(rolesByAddress, flow);
-	const labelCandidates = [...candidates.values()].sort((a, b) => b.confidence_score - a.confidence_score || a.address.localeCompare(b.address));
+	if (scope === "history" || scope === "compare") runs.push(await runDirectedTraversal(remoteClient, network, seeds, "history", maxHops, perAddressLimit, minAmountSum, sinceTimestampMs));
+	if (scope === "incident" || scope === "compare") runs.push(await runDirectedTraversal(remoteClient, network, seeds, "incident", maxHops, perAddressLimit, minAmountSum, sinceTimestampMs));
+	const topologyEdges = scope === "compare" ? mergeCompareRuns(runs.find((run) => run.graphScope === "history") ?? {
+		graphScope: "history",
+		topologyGraph: "archive_topology",
+		edges: []
+	}, runs.find((run) => run.graphScope === "incident") ?? {
+		graphScope: "incident",
+		topologyGraph: "live_topology",
+		edges: []
+	}) : runs.flatMap((run) => run.edges);
+	const classification = classifyTopology(seeds, topologyEdges);
+	const labelCandidates = classification.labelCandidates;
 	const facts = {
 		network,
 		victim_addresses: victimAddresses,
 		scammer_addresses: scammerAddresses,
+		scope,
+		...sinceTimestampMs !== void 0 ? { since_timestamp_ms: sinceTimestampMs } : {},
+		topology_graphs: topologyGraphsForScope(scope),
+		topology_edges: topologyEdges,
+		intermediaries: classification.intermediaries,
+		terminal_points: classification.terminalPoints,
+		investigation_hints: classification.investigationHints,
 		label_candidates: labelCandidates,
-		case_roles: caseRoles,
-		safety_decisions: safetyDecisions,
-		infrastructure_anchors: infrastructure.anchors,
-		infrastructure_flows: infrastructure.flows,
+		case_roles: classification.caseRoles,
+		safety_decisions: classification.safetyDecisions,
+		infrastructure_anchors: [],
+		infrastructure_flows: [],
 		runs: runs.map((run) => ({
-			seed_role: run.seedRole,
-			address: run.address,
-			files: run.result.files,
-			continuation: run.result.continuation,
-			address_map: run.result.addressMap
+			graph_scope: run.graphScope,
+			topology_graph: run.topologyGraph,
+			edge_count: run.edges.length,
+			max_hops: maxHops,
+			per_address_limit: perAddressLimit
 		}))
 	};
-	const graphData = buildGraph(runs, infrastructure.flows, rolesByAddress, facts);
-	const summaryText = summarize(network, victimAddresses, scammerAddresses, labelCandidates, safetyDecisions, infrastructure.flows);
+	const graphData = buildGraph(seeds, topologyEdges, classification.rolesByAddress, facts);
+	const summaryText = summarize(network, scope, victimAddresses, scammerAddresses, labelCandidates, classification.safetyDecisions, topologyEdges, classification.terminalPoints);
 	if (options.caseId) {
-		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
+		const { EvidenceStore } = await import("./cases-By7INiOa.mjs");
 		await EvidenceStore.append(options.caseId, {
 			source: "scam_topology",
-			queryParams: `network=${network} victim_addresses=${victimAddresses.join(",")} scammer_addresses=${scammerAddresses.join(",")}`,
+			queryParams: [
+				`network=${network}`,
+				`victim_addresses=${victimAddresses.join(",")}`,
+				`scammer_addresses=${scammerAddresses.join(",")}`,
+				`scope=${scope}`,
+				sinceTimestampMs !== void 0 ? `since_timestamp_ms=${sinceTimestampMs}` : ""
+			].filter(Boolean).join(" "),
 			content: JSON.stringify({
 				schema: "chain-insights.scam_topology_evidence.v1",
 				source: "scam_topology",
 				network,
 				victim_addresses: victimAddresses,
 				scammer_addresses: scammerAddresses,
+				scope,
+				since_timestamp_ms: sinceTimestampMs,
+				topology_graphs: topologyGraphsForScope(scope),
+				topology_edge_count: topologyEdges.length,
+				terminal_points: classification.terminalPoints,
 				label_candidates: labelCandidates,
-				infrastructure_anchors: infrastructure.anchors,
-				infrastructure_flow_count: infrastructure.flows.length,
-				safety_decisions: safetyDecisions
+				safety_decisions: classification.safetyDecisions
 			}, null, 2)
 		});
 	}
@@ -1811,7 +1888,7 @@ function buildRiskGraph(address, profile, rows, network) {
 		}
 	}
 	const rawNodes = [...nodes.values()];
-	return restoreSystemLabels(require_graph_normalizer.normalizeGraphPayload({
+	return restoreSystemLabels(normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: rawNodes,
 		edges,
@@ -1925,7 +2002,7 @@ async function trackFunds(remoteClient, config, options) {
 			minAmountSum: options.minAmountSum
 		})
 	});
-	const graphData = require_graph_normalizer.normalizeGraphPayload({
+	const graphData = normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: runs.flatMap((run) => Array.isArray(run.result.graphData.nodes) ? run.result.graphData.nodes : []),
 		edges: runs.flatMap((run) => Array.isArray(run.result.graphData.edges) ? run.result.graphData.edges : []),
@@ -1982,6 +2059,6 @@ async function trackFunds(remoteClient, config, options) {
 	};
 }
 //#endregion
-exports.addressRisk = addressRisk;
-exports.scamTopology = scamTopology;
-exports.trackFunds = trackFunds;
+export { addressRisk, scamTopology, trackFunds };
+
+//# sourceMappingURL=public-tools-pqIuRX2W.mjs.map

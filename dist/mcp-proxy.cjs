@@ -57,7 +57,7 @@ const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS = {
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS = {
 	network_capabilities: "Return supported Chain Insights networks, capability layers, tool availability, data retention windows, and freshness. Use this before choosing network-specific tools.",
 	address_risk: "Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. This includes the exchange-behavior analysis formerly covered by money_flows_between_exchanges. Use this as the first tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.",
-	scam_topology: "Build scam-case laundering topology from explicit victim/source and known scammer seed addresses. Use this when the user has known scam ground truth and needs evidence-backed label candidates for review. Victim addresses are case roles, not risky labels; preserve full addresses exactly.",
+	scam_topology: "Build scam-case laundering topology from explicit victim/source and known scammer seed addresses. Victim traversal is directed outward from victim/source funds; victim addresses are case roles, not risky labels. Use scope=history for archive topology, scope=incident for live topology with optional since_timestamp_ms filtering, and scope=compare for history/live membership. Exchange endpoints are terminal safety context; preserve full addresses exactly.",
 	track_funds: "Trace funds from trusted victim/source addresses through intermediaries to exchange deposit addresses. Use this when the user has a victim/source address or known untrusted/scammer addresses. The tool returns an investigator-ready fund-flow report and recommended next actions.",
 	graph_query: "Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE live_topology for Memgraph RAM topology, USE archive_topology for StarRocks historical topology, and USE facts for StarRocks facts. Cross-backend correlated joins are limited by current MemGQL behavior; preserve full addresses exactly.",
 	graph_query_batch: "Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads."
@@ -153,6 +153,12 @@ function knownPublicToolInputSchema(toolName) {
 			network: zod.string().min(1).describe(NETWORK_DESCRIPTION),
 			victim_addresses: zod.union([zod.string(), zod.array(zod.string())]).optional().describe("Known victim/source addresses, comma-separated or array. Max 5. Victims are not risky labels."),
 			scammer_addresses: zod.union([zod.string(), zod.array(zod.string())]).optional().describe("Known scammer/attacker seed addresses, comma-separated or array. Max 5."),
+			scope: zod.enum([
+				"history",
+				"incident",
+				"compare"
+			]).optional().describe("Traversal scope: history uses archive topology; incident uses live topology; compare returns history/live membership."),
+			since_timestamp_ms: zod.number().min(0).optional().describe("Optional incident start timestamp in milliseconds. Applied to incident live topology as r.last_seen_timestamp >= since_timestamp_ms."),
 			include_attachments: zod.boolean().optional().describe("Include graph app report metadata")
 		};
 		case "graph_query": return {
@@ -969,7 +975,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-BmwLGi7q.cjs"));
+			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-Bi1mJtEH.cjs"));
 			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-DU05YCei.cjs"));
 			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-DoxJ7fCx.cjs"));
 			const result = await addressRisk(remoteClient, {
@@ -1033,7 +1039,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-BmwLGi7q.cjs"));
+			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-Bi1mJtEH.cjs"));
 			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-DU05YCei.cjs"));
 			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-DoxJ7fCx.cjs"));
 			const result = await trackFunds(remoteClient, config, {
@@ -1079,6 +1085,12 @@ async function createProxy() {
 			network: zod.string().min(1).describe(NETWORK_DESCRIPTION),
 			victim_addresses: zod.union([zod.string(), zod.array(zod.string())]).optional().describe("Known victim/source addresses. Max 5. Victims are not risky labels."),
 			scammer_addresses: zod.union([zod.string(), zod.array(zod.string())]).optional().describe("Known scammer/attacker seed addresses. Max 5."),
+			scope: zod.enum([
+				"history",
+				"incident",
+				"compare"
+			]).optional().describe("Traversal scope. history uses archive_topology; incident uses live_topology with optional since_timestamp_ms; compare annotates history/live membership."),
+			since_timestamp_ms: zod.number().min(0).optional().describe("Optional incident start timestamp in milliseconds. Applied as r.last_seen_timestamp >= since_timestamp_ms."),
 			include_attachments: zod.boolean().optional().describe("Include graph app report metadata"),
 			case_id: zod.string().optional().describe("Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest."),
 			max_hops: zod.number().int().min(1).max(5).optional(),
@@ -1092,7 +1104,7 @@ async function createProxy() {
 			idempotentHint: false,
 			openWorldHint: true
 		}
-	}, async ({ victim_addresses, scammer_addresses, network, case_id, max_hops, per_address_limit, min_amount_sum }) => {
+	}, async ({ victim_addresses, scammer_addresses, network, case_id, max_hops, per_address_limit, min_amount_sum, scope, since_timestamp_ms }) => {
 		try {
 			if (!remoteConnected) return {
 				content: [{
@@ -1101,7 +1113,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { scamTopology } = await Promise.resolve().then(() => require("./public-tools-BmwLGi7q.cjs"));
+			const { scamTopology } = await Promise.resolve().then(() => require("./public-tools-Bi1mJtEH.cjs"));
 			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-DU05YCei.cjs"));
 			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-DoxJ7fCx.cjs"));
 			const result = await scamTopology(remoteClient, config, {
@@ -1111,7 +1123,9 @@ async function createProxy() {
 				caseId: case_id,
 				maxHops: max_hops,
 				perAddressLimit: per_address_limit,
-				minAmountSum: min_amount_sum
+				minAmountSum: min_amount_sum,
+				scope,
+				sinceTimestampMs: since_timestamp_ms
 			});
 			const report = await writeGraphReport(result.graphData, {
 				serverPort: config.serverPort,

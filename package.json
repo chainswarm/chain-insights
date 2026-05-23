@@ -1,6 +1,6 @@
 {
   "name": "chain-insights",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "AML investigation toolkit for blockchain analysis",
   "type": "module",
   "engines": {
@@ -12,10 +12,10 @@
     "chain-insights-mcp-proxy": "./bin/mcp-proxy.cjs"
   },
   "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
+  "module": "./dist/index.mjs",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
+      "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     }
   },

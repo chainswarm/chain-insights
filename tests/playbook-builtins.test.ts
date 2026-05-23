@@ -59,6 +59,12 @@ describe('SCAM_TOPOLOGY_PLAYBOOK', () => {
     const def = PlaybookParser.parse(SCAM_TOPOLOGY_PLAYBOOK, { address: '0x1' })
     expect(def.steps[1].params).toMatchObject({ scammer_addresses: '0x1', network: 'bittensor' })
   })
+
+  it('documents history incident compare scope semantics', () => {
+    expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('scope=history|incident|compare')
+    expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('victim-only traversal is outward from victim/source funds')
+    expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('exchange terminal safety')
+  })
 })
 
 describe('TRACE_FUNDS_PLAYBOOK', () => {

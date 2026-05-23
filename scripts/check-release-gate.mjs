@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 
 export function parseSemver(version) {
   const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/.exec(version)
@@ -32,6 +32,32 @@ export function compareSemver(a, b) {
 export function changelogHasVersionEntry(changelog, version) {
   const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return new RegExp(`^## \\[?${escaped}\\]?\\b`, 'm').test(changelog)
+}
+
+export function packageEntrypointPaths(pkg) {
+  const paths = new Set()
+  const addPath = (value) => {
+    if (typeof value === 'string' && value.startsWith('./')) {
+      paths.add(value.slice(2))
+    }
+  }
+  const visit = (value) => {
+    if (typeof value === 'string') {
+      addPath(value)
+      return
+    }
+    if (!value || typeof value !== 'object') return
+    for (const child of Object.values(value)) visit(child)
+  }
+
+  addPath(pkg.main)
+  addPath(pkg.module)
+  visit(pkg.exports)
+  return [...paths].sort()
+}
+
+export function missingPackageEntrypoints(pkg, exists = existsSync) {
+  return packageEntrypointPaths(pkg).filter((path) => !exists(path))
 }
 
 function git(args) {
@@ -121,6 +147,11 @@ export function runReleaseGate({ baseRef = resolveBaseRef() } = {}) {
 
   if (lock.packages?.['']?.version !== version) {
     failures.push(`package-lock.json packages[""].version ${lock.packages?.['']?.version} does not match package.json ${version}`)
+  }
+
+  const missingEntrypoints = missingPackageEntrypoints(pkg)
+  if (missingEntrypoints.length > 0) {
+    failures.push(`package.json entrypoints are missing from the built package: ${missingEntrypoints.join(', ')}`)
   }
 
   if (!fileChanged(baseRef, 'CHANGELOG.md')) {

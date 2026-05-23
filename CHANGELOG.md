@@ -2,6 +2,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.8] - 2026-05-23
+
+- Reworked `scam_topology` into outward victim/scammer traversal with `history`, `incident`, and `compare` scopes.
+- Added review-safe label candidate semantics: victims, exchange endpoints, and generic labeled context nodes are not automatic scam labels.
+- Added `scope` and `since_timestamp_ms` support to the CIA CLI and MCP proxy.
+
 ## [0.2.7] - 2026-05-23
 
 - Added `scam_topology` live infrastructure expansion: seed funding inputs, seed sweeps, and fan-in/fan-out context around traced laundering anchors.

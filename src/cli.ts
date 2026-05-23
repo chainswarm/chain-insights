@@ -78,6 +78,13 @@ function optionalNumber(value: string | undefined): number | undefined {
   return parsed
 }
 
+function optionalNumberArg(value: unknown, name: string): number | undefined {
+  if (value === undefined) return undefined
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') return optionalNumber(value)
+  throw new Error(`Invalid number for ${name}: ${String(value)}`)
+}
+
 async function withGraphMcpClient<T>(name: string, fn: (client: import('@modelcontextprotocol/sdk/client/index.js').Client, config: Awaited<ReturnType<typeof import('./config/index.js').loadConfig>>) => Promise<T>): Promise<T> {
   const { loadConfig } = await import('./config/index.js')
   const config = await loadConfig()
@@ -603,6 +610,8 @@ program
       .option('--max-hops <number>', 'Maximum trace hops, 1-5')
       .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, 1-10')
       .option('--min-amount-sum <number>', 'Minimum r.amount_sum for traced edges')
+      .option('--scope <history|incident|compare>', 'Traversal scope: history, incident, or compare')
+      .option('--since-timestamp-ms <milliseconds>', 'Incident start timestamp in milliseconds')
       .action(async (opts: {
         network: string
         victimAddresses?: string
@@ -611,6 +620,8 @@ program
         maxHops?: string
         perAddressLimit?: string
         minAmountSum?: string
+        scope?: 'history' | 'incident' | 'compare'
+        sinceTimestampMs?: string
       }) => {
         try {
           const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
@@ -626,6 +637,8 @@ program
               maxHops: optionalNumber(opts.maxHops),
               perAddressLimit: optionalNumber(opts.perAddressLimit),
               minAmountSum: optionalNumber(opts.minAmountSum),
+              scope: opts.scope,
+              sinceTimestampMs: optionalNumber(opts.sinceTimestampMs),
             })
             console.log(result.summaryText)
             console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -683,6 +696,8 @@ program
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
                 perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
                 minAmountSum: typeof args['min_amount_sum'] === 'number' ? args['min_amount_sum'] : undefined,
+                scope: args['scope'] === undefined ? undefined : String(args['scope']) as 'history' | 'incident' | 'compare',
+                sinceTimestampMs: optionalNumberArg(args['since_timestamp_ms'], 'since_timestamp_ms'),
               })
               console.log(result.summaryText)
               console.log(JSON.stringify(result.structuredContent, null, 2))

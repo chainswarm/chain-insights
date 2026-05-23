@@ -1409,7 +1409,41 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         text: JSON.stringify({
           schema: 'chain-insights.result.v1',
           tool: 'graph_query_batch',
-          facts: { queries: [] },
+          facts: { queries: [{
+            id: 'incident_hop_1',
+            ok: true,
+            results: [{
+              src: '5Scammer',
+              dst: '5Deposit',
+              amount_sum: 10,
+              tx_count: 1,
+              src_labels: [],
+              dst_labels: [],
+            }],
+          }] },
+        }),
+      }],
+      isError: false,
+    })
+    clientInstance.callTool.mockResolvedValueOnce({
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          schema: 'chain-insights.result.v1',
+          tool: 'graph_query_batch',
+          facts: { queries: [{
+            id: 'incident_hop_2',
+            ok: true,
+            results: [{
+              src: '5Deposit',
+              dst: '5Exchange',
+              amount_sum: 8,
+              tx_count: 1,
+              src_labels: [],
+              dst_labels: ['exchange'],
+              dst_is_exchange: true,
+            }],
+          }] },
         }),
       }],
       isError: false,
@@ -1417,11 +1451,23 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const toolNames = serverInstance.registerTool.mock.calls.map((entry) => entry[0])
     expect(toolNames).toContain('scam_topology')
 
+    const toolConfig = findToolConfig(serverInstance, 'scam_topology')
+    const inputSchema = toolConfig.inputSchema as Record<string, z.ZodTypeAny>
+    expect(inputSchema.scope.safeParse('history').success).toBe(true)
+    expect(inputSchema.scope.safeParse('incident').success).toBe(true)
+    expect(inputSchema.scope.safeParse('compare').success).toBe(true)
+    expect(inputSchema.scope.safeParse('all').success).toBe(false)
+    expect(inputSchema.since_timestamp_ms.safeParse(1715532228001).success).toBe(true)
+    expect(inputSchema.since_timestamp_ms.safeParse(-1).success).toBe(false)
+
     const handler = findToolHandler(serverInstance, 'scam_topology')
     const result = await handler({
       scammer_addresses: ['5Scammer'],
       network: 'bittensor',
       case_id: mockCase.id,
+      scope: 'incident',
+      since_timestamp_ms: 1715532228001,
+      max_hops: 3,
     })
 
     expect(result.isError).toBe(false)
@@ -1429,9 +1475,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.structuredContent.tool).toBe('scam_topology')
     expect(result.structuredContent.facts.label_candidates).toEqual(expect.arrayContaining([
       expect.objectContaining({ address: '5Scammer', address_subtype: 'scam_seed' }),
-      expect.objectContaining({ address: '5Hop', address_subtype: 'laundering_intermediate' }),
       expect.objectContaining({ address: '5Deposit', address_subtype: 'exchange_deposit_candidate' }),
     ]))
+    expect(clientInstance.callTool.mock.calls[0]?.[0].arguments.queries[0].query)
+      .toContain('r.last_seen_timestamp >= 1715532228001')
     const graphUrl = result._meta.chainInsights.graph.url as string
     const filename = graphUrl.split('/graph-reports/')[1]
     expect(filename).toMatch(/\.graph\.json$/)

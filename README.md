@@ -72,12 +72,23 @@ The current Go Graph MCP public surface is:
 High-level AML tools such as `address_risk`, `track_funds`, and
 `scam_topology` are Chain Insights recipes over `graph_query_batch`. They
 should not be assumed to exist on the Go Graph MCP endpoint. `scam_topology`
-starts from explicit victim/source and known scammer seed addresses, builds the
-laundering topology, expands live topology fan-in/fan-out context around traced
-anchors, and returns reviewable `label_candidates` for ML labeling.
-Victim/source addresses are case roles, not risky actor labels; derived
-laundering and deposit candidates require analyst review before promotion into
-`core_address_labels`.
+starts from explicit victim/source and known scammer seed addresses, then runs
+directed `FLOWS_TO` traversal outward from those seeds. The victim-only
+traversal is outward from victim/source funds; it never treats victim inbound
+funding as scam infrastructure. Use `scope=history|incident|compare`: history
+uses `USE archive_topology`, incident uses `USE live_topology` with optional
+`since_timestamp_ms`, and compare annotates history/live membership. Exchange
+terminal safety is the only hard-coded terminal class; other labels are generic
+context hints. Victim/source addresses are case roles, not risky actor labels;
+derived laundering and deposit candidates are reviewable, not automatic writes
+to `core_address_labels`.
+
+```bash
+cia mcp scam-topology --network bittensor --victim-addresses 5... --scope history --max-hops 5
+cia mcp scam-topology --network bittensor --victim-addresses 5... --scope incident --since-timestamp-ms 1715532228001 --max-hops 5
+```
+
+Contract summary: victim-only traversal is outward from victim/source funds; scope=history|incident|compare; exchange terminal safety; label candidates are reviewable, not automatic writes.
 
 `topup` is not advertised as a supported MCP happy path. The supported wallet surface is `balance` plus the wallet address returned by CLI/MCP.
 

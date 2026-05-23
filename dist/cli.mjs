@@ -57,6 +57,12 @@ function optionalNumber(value) {
 	if (!Number.isFinite(parsed)) throw new Error(`Invalid number: ${value}`);
 	return parsed;
 }
+function optionalNumberArg(value, name) {
+	if (value === void 0) return void 0;
+	if (typeof value === "number" && Number.isFinite(value)) return value;
+	if (typeof value === "string") return optionalNumber(value);
+	throw new Error(`Invalid number for ${name}: ${String(value)}`);
+}
 async function withGraphMcpClient(name, fn) {
 	const { loadConfig } = await import("./config-BwrBYmiC.mjs").then((n) => n.t);
 	const config = await loadConfig();
@@ -365,7 +371,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { addressRisk } = await import("./public-tools-CmT34wOu.mjs");
+			const { addressRisk } = await import("./public-tools-pqIuRX2W.mjs");
 			const result = await addressRisk(client, {
 				address: opts.address,
 				network: opts.network,
@@ -393,7 +399,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { trackFunds } = await import("./public-tools-CmT34wOu.mjs");
+			const { trackFunds } = await import("./public-tools-pqIuRX2W.mjs");
 			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
 			const result = await trackFunds(client, config, {
 				trustedAddresses: opts.trustedAddresses,
@@ -411,12 +417,12 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new Command("scam-topology").description("Build scam-case laundering topology and evidence-backed label candidates").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--victim-addresses <addresses>", "Comma-separated full victim/source addresses, max 5").option("--scammer-addresses <addresses>", "Comma-separated full known scammer/attacker addresses, max 5").option("--case <id>", "Case ID to attach compact evidence pointers").option("--max-hops <number>", "Maximum trace hops, 1-5").option("--per-address-limit <number>", "Maximum exchange paths/results per address, 1-10").option("--min-amount-sum <number>", "Minimum r.amount_sum for traced edges").action(async (opts) => {
+})).addCommand(new Command("scam-topology").description("Build scam-case laundering topology and evidence-backed label candidates").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--victim-addresses <addresses>", "Comma-separated full victim/source addresses, max 5").option("--scammer-addresses <addresses>", "Comma-separated full known scammer/attacker addresses, max 5").option("--case <id>", "Case ID to attach compact evidence pointers").option("--max-hops <number>", "Maximum trace hops, 1-5").option("--per-address-limit <number>", "Maximum exchange paths/results per address, 1-10").option("--min-amount-sum <number>", "Minimum r.amount_sum for traced edges").option("--scope <history|incident|compare>", "Traversal scope: history, incident, or compare").option("--since-timestamp-ms <milliseconds>", "Incident start timestamp in milliseconds").action(async (opts) => {
 	try {
 		const { requireWorkspaceRoot } = await import("./output-root-CmWM7aV2.mjs").then((n) => n.t);
 		requireWorkspaceRoot();
 		await withGraphMcpClient("chain-insights-cli-scam-topology", async (client, config) => {
-			const { scamTopology } = await import("./public-tools-CmT34wOu.mjs");
+			const { scamTopology } = await import("./public-tools-pqIuRX2W.mjs");
 			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
 			const result = await scamTopology(client, config, {
 				victimAddresses: opts.victimAddresses,
@@ -425,7 +431,9 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				caseId,
 				maxHops: optionalNumber(opts.maxHops),
 				perAddressLimit: optionalNumber(opts.perAddressLimit),
-				minAmountSum: optionalNumber(opts.minAmountSum)
+				minAmountSum: optionalNumber(opts.minAmountSum),
+				scope: opts.scope,
+				sinceTimestampMs: optionalNumber(opts.sinceTimestampMs)
 			});
 			console.log(result.summaryText);
 			console.log(JSON.stringify(result.structuredContent, null, 2));
@@ -442,7 +450,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		assertPublicMcpToolName(tool);
 		await withGraphMcpClient("chain-insights-cli-call", async (client, config) => {
 			if (tool === "address_risk") {
-				const { addressRisk } = await import("./public-tools-CmT34wOu.mjs");
+				const { addressRisk } = await import("./public-tools-pqIuRX2W.mjs");
 				const result = await addressRisk(client, {
 					address: String(args["address"] ?? ""),
 					network: String(args["network"] ?? ""),
@@ -452,7 +460,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "track_funds") {
-				const { trackFunds } = await import("./public-tools-CmT34wOu.mjs");
+				const { trackFunds } = await import("./public-tools-pqIuRX2W.mjs");
 				const result = await trackFunds(client, config, {
 					trustedAddresses: args["trusted_addresses"] ?? "",
 					untrustedAddresses: args["untrusted_addresses"],
@@ -467,7 +475,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "scam_topology") {
-				const { scamTopology } = await import("./public-tools-CmT34wOu.mjs");
+				const { scamTopology } = await import("./public-tools-pqIuRX2W.mjs");
 				const result = await scamTopology(client, config, {
 					victimAddresses: args["victim_addresses"],
 					scammerAddresses: args["scammer_addresses"],
@@ -475,7 +483,9 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 					caseId: args["case_id"] === void 0 ? void 0 : String(args["case_id"]),
 					maxHops: typeof args["max_hops"] === "number" ? args["max_hops"] : void 0,
 					perAddressLimit: typeof args["per_address_limit"] === "number" ? args["per_address_limit"] : void 0,
-					minAmountSum: typeof args["min_amount_sum"] === "number" ? args["min_amount_sum"] : void 0
+					minAmountSum: typeof args["min_amount_sum"] === "number" ? args["min_amount_sum"] : void 0,
+					scope: args["scope"] === void 0 ? void 0 : String(args["scope"]),
+					sinceTimestampMs: optionalNumberArg(args["since_timestamp_ms"], "since_timestamp_ms")
 				});
 				console.log(result.summaryText);
 				console.log(JSON.stringify(result.structuredContent, null, 2));
@@ -651,7 +661,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			}
 			resolvedParams[key] = kv.slice(eq + 1);
 		}
-		const { resolvePlaybookContent } = await import("./resolver-DIB0ZUdg.mjs");
+		const { resolvePlaybookContent } = await import("./resolver-DhXkBbkU.mjs");
 		const markdown = await resolvePlaybookContent(name);
 		const { PlaybookParser } = await import("./parser-DO0_SssG.mjs");
 		const definition = PlaybookParser.parse(markdown, resolvedParams);
@@ -677,7 +687,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new Command("list").description("List available playbooks (built-in and user-defined)").action(async () => {
 	try {
-		const { listPlaybooks } = await import("./resolver-DIB0ZUdg.mjs");
+		const { listPlaybooks } = await import("./resolver-DhXkBbkU.mjs");
 		const playbooks = await listPlaybooks();
 		if (playbooks.length === 0) {
 			console.log("No playbooks found.");
@@ -690,7 +700,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new Command("show").description("Show steps for a playbook without executing").argument("<name>", "Playbook name").action(async (name) => {
 	try {
-		const { resolvePlaybookContent } = await import("./resolver-DIB0ZUdg.mjs");
+		const { resolvePlaybookContent } = await import("./resolver-DhXkBbkU.mjs");
 		const { PlaybookParser } = await import("./parser-DO0_SssG.mjs");
 		const markdown = await resolvePlaybookContent(name);
 		const definition = PlaybookParser.parse(markdown, {});
