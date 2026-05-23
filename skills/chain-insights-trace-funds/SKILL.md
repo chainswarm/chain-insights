@@ -57,8 +57,8 @@ scam infrastructure. Use `scope=history|incident|compare`: history reads
 `USE archive_topology`, incident reads `USE live_topology` and may apply
 `since_timestamp_ms`, and compare marks history-only, incident-only, or overlap
 membership. Exchange terminal safety is the only hard-coded terminal behavior;
-non-exchange labels are context hints. Victim/source addresses are not risky
-labels. The tool returns `label_candidates` for analyst review; candidates are
+non-exchange labels are context hints. Victim/source addresses are not risky labels.
+The tool returns `label_candidates` for analyst review; candidates are
 reviewable, not automatic writes to `core_address_labels`.
 
 ```bash
