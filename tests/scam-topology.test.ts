@@ -390,7 +390,10 @@ describe('scamTopology', () => {
       maxHops: 3,
     })
 
-    expect(vi.mocked(client.callTool)).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(client.callTool)).toHaveBeenCalledTimes(3)
+    const queries = vi.mocked(client.callTool).mock.calls
+      .flatMap((call) => call[0]?.arguments?.queries as Array<{ id: string }> ?? [])
+    expect(queries.map((query) => query.id)).toContain('incident_deposit_cluster_1')
     expect(result.structuredContent.facts.case_roles).toEqual(expect.arrayContaining([
       expect.objectContaining({ address: '5Exchange', role: 'exchange_endpoint' }),
       expect.objectContaining({ address: '5Deposit', role: 'exchange_deposit_candidate' }),
@@ -402,6 +405,65 @@ describe('scamTopology', () => {
     expect(result.structuredContent.facts.label_candidates).not.toContainEqual(expect.objectContaining({ address: '5Exchange' }))
     expect(result.structuredContent.facts.safety_decisions).toEqual(expect.arrayContaining([
       expect.objectContaining({ address: '5Exchange', decision: 'do_not_label_exchange_endpoint' }),
+    ]))
+  })
+
+  it('expands exchange-deposit inflow clusters into reviewable laundering candidates', async () => {
+    vi.mocked(client.callTool)
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_1', ok: true, results: [topologyRow('5Victim', '5Hop')] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_2', ok: true, results: [topologyRow('5Hop', '5Deposit')] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_3', ok: true, results: [topologyRow('5Deposit', '5Exchange', { dst_labels: ['exchange'], dst_is_exchange: true })] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_deposit_cluster_1', ok: true, results: [
+          topologyRow('5SiblingMixer', '5Deposit', { amount_sum: 42 }),
+          topologyRow('5GenericLabeledMixer', '5Deposit', { amount_sum: 21, src_labels: ['miner subnet 9'] }),
+        ] },
+      ]))
+    const { scamTopology } = await import('../src/investigation/scam-topology.js')
+
+    const result = await scamTopology(client, config, {
+      network: 'bittensor',
+      victimAddresses: '5Victim',
+      maxHops: 3,
+      sinceTimestampMs: 1715532228001,
+    })
+
+    const queries = vi.mocked(client.callTool).mock.calls
+      .flatMap((call) => call[0]?.arguments?.queries as Array<{ id: string; query: string }> ?? [])
+    expect(queries.map((query) => query.id)).toContain('incident_deposit_cluster_1')
+    expect(queries.find((query) => query.id === 'incident_deposit_cluster_1')?.query)
+      .toContain('MATCH (src:Address)-[r:FLOWS_TO]->(dst:Address {address: "5Deposit"})')
+
+    expect(result.structuredContent.facts.topology_edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        src: '5SiblingMixer',
+        dst: '5Deposit',
+        relation: 'deposit_cluster_inflow',
+      }),
+      expect.objectContaining({
+        src: '5GenericLabeledMixer',
+        dst: '5Deposit',
+        relation: 'deposit_cluster_inflow',
+        src_labels: ['miner subnet 9'],
+      }),
+    ]))
+    expect(result.structuredContent.facts.label_candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        address: '5SiblingMixer',
+        address_subtype: 'laundering_intermediate',
+        promotion_status: 'review_required',
+      }),
+      expect.objectContaining({
+        address: '5GenericLabeledMixer',
+        address_subtype: 'laundering_intermediate',
+        promotion_status: 'review_required',
+      }),
     ]))
   })
 

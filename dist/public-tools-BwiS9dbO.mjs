@@ -907,6 +907,7 @@ const SCAM_TOPOLOGY_GRAPH_QUERY_TIMEOUT_SECONDS = 600;
 const SCAM_TOPOLOGY_GRAPH_BATCH_REQUEST_TIMEOUT_MS = 900 * 1e3;
 const SCAM_TOPOLOGY_MAX_BATCH_QUERIES = 20;
 const SCAM_TOPOLOGY_ARCHIVE_BATCH_QUERIES = 1;
+const SCAM_TOPOLOGY_DEPOSIT_CLUSTER_LIMIT = 200;
 function parseAddressList$1(value) {
 	const raw = Array.isArray(value) ? value.join(",") : value ?? "";
 	return [...new Set(raw.split(",").map((entry) => entry.trim()).filter(Boolean))];
@@ -1025,6 +1026,22 @@ function frontierQuery(graphScope, sourceAddress, hop, sourceIndex, perAddressLi
 		].join(" ")
 	};
 }
+function depositClusterQuery(graphScope, depositAddress, index, minAmountSum, sinceTimestampMs) {
+	const where = ["src.address <> dst.address", "src.is_exchange IS NULL"];
+	if (minAmountSum !== void 0) where.push(`r.amount_sum >= ${minAmountSum}`);
+	if (graphScope === "incident" && sinceTimestampMs !== void 0) where.push(`r.last_seen_timestamp >= ${sinceTimestampMs}`);
+	return {
+		id: `${graphScope}_deposit_cluster_${index}`,
+		query: [
+			`USE ${graphForScope(graphScope)}`,
+			`MATCH (src:Address)-[r:FLOWS_TO]->(dst:Address {address: "${escapeCypherString$1(depositAddress)}"})`,
+			`WHERE ${where.join(" AND ")}`,
+			`RETURN ${traversalProjection()}`,
+			"ORDER BY r.amount_sum DESC",
+			`LIMIT ${SCAM_TOPOLOGY_DEPOSIT_CLUSTER_LIMIT}`
+		].join(" ")
+	};
+}
 function edgeFromRow(row, graphScope, hop, context) {
 	const src = stringValue(row["src"]) ?? stringValue(row["from_address"]);
 	const dst = stringValue(row["dst"]) ?? stringValue(row["to_address"]);
@@ -1118,6 +1135,47 @@ async function runDirectedTraversal(remoteClient, network, seeds, graphScope, ma
 	return {
 		graphScope,
 		topologyGraph: graphForScope(graphScope),
+		edges: [...edgesByKey.values()]
+	};
+}
+async function expandDepositClusters(remoteClient, network, run, minAmountSum, sinceTimestampMs) {
+	const edgesByKey = new Map(run.edges.map((edge) => [edgeKey(edge), edge]));
+	const terminalDepositsByKey = /* @__PURE__ */ new Map();
+	for (const edge of run.edges) {
+		if (edge.relation !== "terminal_exchange") continue;
+		const key = `${edge.seed_role ?? ""}\u0000${edge.seed_address ?? ""}\u0000${edge.src}`;
+		if (!terminalDepositsByKey.has(key)) terminalDepositsByKey.set(key, edge);
+	}
+	const terminalDeposits = [...terminalDepositsByKey.values()];
+	if (terminalDeposits.length === 0) return run;
+	const queries = terminalDeposits.map((edge, index) => depositClusterQuery(run.graphScope, edge.src, index + 1, minAmountSum, sinceTimestampMs));
+	const maxBatchQueries = run.graphScope === "history" ? SCAM_TOPOLOGY_ARCHIVE_BATCH_QUERIES : SCAM_TOPOLOGY_MAX_BATCH_QUERIES;
+	for (const queryChunk of chunks(queries, maxBatchQueries)) {
+		const batch = await callGraphBatch$1(remoteClient, network, queryChunk);
+		for (const queryResult of batch.facts?.queries ?? []) {
+			if (queryResult.ok === false) throw new Error(queryResult.error || `Query failed: ${queryResult.id}`);
+			const terminalEdge = terminalDeposits[queries.findIndex((query) => query.id === queryResult.id)];
+			if (!terminalEdge) continue;
+			const context = {
+				address: terminalEdge.src,
+				seedAddress: terminalEdge.seed_address ?? terminalEdge.src,
+				seedRole: terminalEdge.seed_role ?? "victim"
+			};
+			for (const row of queryResult.results ?? []) {
+				const edge = edgeFromRow(row, run.graphScope, Math.max(1, terminalEdge.hop - 1), context);
+				if (!edge || edge.dst !== terminalEdge.src || edge.src === terminalEdge.dst) continue;
+				const clusterEdge = {
+					...edge,
+					relation: "deposit_cluster_inflow",
+					seed_address: terminalEdge.seed_address,
+					seed_role: terminalEdge.seed_role
+				};
+				if (!edgesByKey.has(edgeKey(clusterEdge))) edgesByKey.set(edgeKey(clusterEdge), clusterEdge);
+			}
+		}
+	}
+	return {
+		...run,
 		edges: [...edgesByKey.values()]
 	};
 }
@@ -1243,6 +1301,25 @@ function classifyTopology(seeds, edges) {
 		}, 1, "promote_confirmed"));
 	}
 	for (const edge of edges) {
+		if (edge.relation === "deposit_cluster_inflow") {
+			if (seedAddresses.has(edge.src) || victimAddresses.has(edge.src) || exchangeDepositAddresses.has(edge.src)) continue;
+			pushCaseRole(caseRoles, {
+				address: edge.src,
+				role: "laundering_intermediate",
+				seed_address: edge.seed_address,
+				seed_role: edge.seed_role
+			});
+			addRole(rolesByAddress, edge.src, "laundering_intermediate");
+			if (edge.src_labels.length > 0) investigationHints.push({
+				address: edge.src,
+				hint_type: "generic_labeled_cluster_member",
+				labels: edge.src_labels,
+				reason: "Generic labels are preserved as context, but the address shares an exchange-deposit inflow cluster with the scam topology.",
+				seed_address: edge.seed_address
+			});
+			mergeCandidate(candidates, makeCandidate(edge.src, "laundering_intermediate", edgeEvidence(edge, "Address sends into an exchange-deposit cluster reached from a known scam topology seed."), edge.seed_role === "scammer" ? .78 : .64, "review_required"));
+			continue;
+		}
 		if (edge.relation === "terminal_exchange") {
 			pushCaseRole(caseRoles, {
 				address: edge.dst,
@@ -1436,7 +1513,7 @@ function summarize(network, scope, victimAddresses, scammerAddresses, candidates
 		`Label candidates: ${candidates.length} (${confirmed} promote_confirmed, ${review} review_required).`,
 		`Safety decisions: ${safetyDecisions.length}.`,
 		"",
-		"Policy: victims, exchange endpoints, and generic labeled context nodes are not automatically risky labels."
+		"Policy: victims and exchange endpoints are not risky labels; generic address labels are preserved as review context."
 	].join("\n");
 }
 function validateScope(value) {
@@ -1477,8 +1554,14 @@ async function scamTopology(remoteClient, config, options) {
 		role: "scammer"
 	}))];
 	const runs = [];
-	if (scope === "history" || scope === "compare") runs.push(await runDirectedTraversal(remoteClient, network, seeds, "history", maxHops, perAddressLimit, minAmountSum, sinceTimestampMs));
-	if (scope === "incident" || scope === "compare") runs.push(await runDirectedTraversal(remoteClient, network, seeds, "incident", maxHops, perAddressLimit, minAmountSum, sinceTimestampMs));
+	if (scope === "history" || scope === "compare") {
+		const historyRun = await runDirectedTraversal(remoteClient, network, seeds, "history", maxHops, perAddressLimit, minAmountSum, sinceTimestampMs);
+		runs.push(await expandDepositClusters(remoteClient, network, historyRun, minAmountSum, sinceTimestampMs));
+	}
+	if (scope === "incident" || scope === "compare") {
+		const incidentRun = await runDirectedTraversal(remoteClient, network, seeds, "incident", maxHops, perAddressLimit, minAmountSum, sinceTimestampMs);
+		runs.push(await expandDepositClusters(remoteClient, network, incidentRun, minAmountSum, sinceTimestampMs));
+	}
 	const topologyEdges = scope === "compare" ? mergeCompareRuns(runs.find((run) => run.graphScope === "history") ?? {
 		graphScope: "history",
 		topologyGraph: "archive_topology",
@@ -2061,4 +2144,4 @@ async function trackFunds(remoteClient, config, options) {
 //#endregion
 export { addressRisk, scamTopology, trackFunds };
 
-//# sourceMappingURL=public-tools-pqIuRX2W.mjs.map
+//# sourceMappingURL=public-tools-BwiS9dbO.mjs.map

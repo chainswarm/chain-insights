@@ -1448,6 +1448,21 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       }],
       isError: false,
     })
+    clientInstance.callTool.mockResolvedValueOnce({
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          schema: 'chain-insights.result.v1',
+          tool: 'graph_query_batch',
+          facts: { queries: [{
+            id: 'incident_deposit_cluster_1',
+            ok: true,
+            results: [],
+          }] },
+        }),
+      }],
+      isError: false,
+    })
     const toolNames = serverInstance.registerTool.mock.calls.map((entry) => entry[0])
     expect(toolNames).toContain('scam_topology')
 
@@ -1479,6 +1494,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     ]))
     expect(clientInstance.callTool.mock.calls[0]?.[0].arguments.queries[0].query)
       .toContain('r.last_seen_timestamp >= 1715532228001')
+    expect(clientInstance.callTool.mock.calls[2]?.[0].arguments.queries[0].id)
+      .toBe('incident_deposit_cluster_1')
     const graphUrl = result._meta.chainInsights.graph.url as string
     const filename = graphUrl.split('/graph-reports/')[1]
     expect(filename).toMatch(/\.graph\.json$/)
