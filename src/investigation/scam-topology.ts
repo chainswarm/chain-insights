@@ -141,7 +141,9 @@ type TraversalRun = {
 }
 
 const SCAM_TOPOLOGY_GRAPH_QUERY_TIMEOUT_SECONDS = 600
+const SCAM_TOPOLOGY_GRAPH_BATCH_REQUEST_TIMEOUT_MS = 15 * 60 * 1000
 const SCAM_TOPOLOGY_MAX_BATCH_QUERIES = 20
+const SCAM_TOPOLOGY_ARCHIVE_BATCH_QUERIES = 1
 
 function parseAddressList(value: string | string[] | undefined): string[] {
   const raw = Array.isArray(value) ? value.join(',') : value ?? ''
@@ -218,14 +220,21 @@ async function callGraphBatch(
   network: string,
   queries: Array<{ id: string; query: string }>,
 ): Promise<ParsedGraphBatch> {
-  const result = await remoteClient.callTool({
-    name: 'graph_query_batch',
-    arguments: {
-      network,
-      queries,
-      per_query_timeout_seconds: SCAM_TOPOLOGY_GRAPH_QUERY_TIMEOUT_SECONDS,
+  const result = await remoteClient.callTool(
+    {
+      name: 'graph_query_batch',
+      arguments: {
+        network,
+        queries,
+        per_query_timeout_seconds: SCAM_TOPOLOGY_GRAPH_QUERY_TIMEOUT_SECONDS,
+      },
     },
-  }) as RemoteToolResult
+    undefined,
+    {
+      timeout: SCAM_TOPOLOGY_GRAPH_BATCH_REQUEST_TIMEOUT_MS,
+      maxTotalTimeout: SCAM_TOPOLOGY_GRAPH_BATCH_REQUEST_TIMEOUT_MS,
+    },
+  ) as RemoteToolResult
   if (result.isError) throw new Error(textFromToolResult(result) || 'graph_query_batch failed')
   return parseGraphBatchResult(result)
 }
@@ -265,8 +274,6 @@ function traversalProjection(): string {
     'dst.address AS dst',
     'src.labels AS src_labels',
     'dst.labels AS dst_labels',
-    'src.roles AS src_roles',
-    'dst.roles AS dst_roles',
     'src.is_exchange AS src_is_exchange',
     'dst.is_exchange AS dst_is_exchange',
     'r.amount_sum AS amount_sum',
@@ -407,7 +414,10 @@ async function runDirectedTraversal(
     ))
     const nextByKey = new Map<string, FrontierEntry>()
 
-    for (const queryChunk of chunks(queries, SCAM_TOPOLOGY_MAX_BATCH_QUERIES)) {
+    const maxBatchQueries = graphScope === 'history'
+      ? SCAM_TOPOLOGY_ARCHIVE_BATCH_QUERIES
+      : SCAM_TOPOLOGY_MAX_BATCH_QUERIES
+    for (const queryChunk of chunks(queries, maxBatchQueries)) {
       const batch = await callGraphBatch(remoteClient, network, queryChunk)
       for (const queryResult of batch.facts?.queries ?? []) {
         if (queryResult.ok === false) throw new Error(queryResult.error || `Query failed: ${queryResult.id}`)

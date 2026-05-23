@@ -268,6 +268,29 @@ describe('scamTopology', () => {
 
     const queries = vi.mocked(client.callTool).mock.calls[0]?.[0]?.arguments?.queries as Array<{ query: string }>
     expect(queries[0]?.query).toMatch(/^USE archive_topology MATCH/)
+    expect(queries[0]?.query).not.toContain('.roles')
+    expect(vi.mocked(client.callTool).mock.calls[0]?.[2]).toMatchObject({
+      timeout: 900000,
+      maxTotalTimeout: 900000,
+    })
+  })
+
+  it('runs archive frontier queries one at a time to avoid long MemGQL sessions', async () => {
+    vi.mocked(client.callTool)
+      .mockResolvedValueOnce(emptyGraphBatchResult(1))
+      .mockResolvedValueOnce(emptyGraphBatchResult(1))
+    const { scamTopology } = await import('../src/investigation/scam-topology.js')
+
+    await scamTopology(client, config, {
+      network: 'bittensor',
+      victimAddresses: ['5VictimA', '5VictimB'],
+      scope: 'history',
+      maxHops: 1,
+    })
+
+    expect(vi.mocked(client.callTool)).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(client.callTool).mock.calls[0]?.[0]?.arguments?.queries).toHaveLength(1)
+    expect(vi.mocked(client.callTool).mock.calls[1]?.[0]?.arguments?.queries).toHaveLength(1)
   })
 
   it('filters incident traversal by sinceTimestampMs when provided', async () => {
