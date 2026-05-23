@@ -1,8 +1,21 @@
+import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { InvestigatorConfig } from '../src/config/schema.js'
 
 const runFundFlowProbeMock = vi.hoisted(() => vi.fn())
+const testOutputRoot = vi.hoisted(() => `/tmp/chain-insights-scam-topology-test-${process.pid}`)
+const testOutputPaths = vi.hoisted(() => ({
+  root: `/tmp/chain-insights-scam-topology-test-${process.pid}`,
+  metadataDir: `/tmp/chain-insights-scam-topology-test-${process.pid}/.chain-insights`,
+  schemaDir: `/tmp/chain-insights-scam-topology-test-${process.pid}/.chain-insights/schema`,
+  runtimeDir: `/tmp/chain-insights-scam-topology-test-${process.pid}/.chain-insights/runtime`,
+  casesRoot: `/tmp/chain-insights-scam-topology-test-${process.pid}/cases`,
+  reportsRoot: `/tmp/chain-insights-scam-topology-test-${process.pid}/reports`,
+  reportGraphsRoot: `/tmp/chain-insights-scam-topology-test-${process.pid}/reports/graphs`,
+  reportTablesRoot: `/tmp/chain-insights-scam-topology-test-${process.pid}/reports/tables`,
+  logsRoot: `/tmp/chain-insights-scam-topology-test-${process.pid}/.chain-insights/runtime/logs`,
+}))
 const evidenceAppendMock = vi.hoisted(() => vi.fn().mockResolvedValue({
   filename: '001_scam_topology_20260523T120000.md',
   sha256: 'abc123',
@@ -18,9 +31,13 @@ vi.mock('../src/cases/index.js', () => ({
   },
 }))
 
+vi.mock('../src/workspace/output-root.js', () => ({
+  workspaceOutputPaths: vi.fn(() => testOutputPaths),
+}))
+
 const client = { callTool: vi.fn() } as unknown as Client
 const config = {
-  dataDir: '/tmp/chain-insights-scam-topology-test',
+  dataDir: testOutputRoot,
   serverPort: 4321,
 } as InvestigatorConfig
 
@@ -116,6 +133,7 @@ function probeResult(seed: string, path: string[]) {
 
 describe('scamTopology', () => {
   beforeEach(() => {
+    rmSync(testOutputRoot, { recursive: true, force: true })
     runFundFlowProbeMock.mockReset()
     evidenceAppendMock.mockClear()
     vi.mocked(client.callTool).mockReset()
@@ -506,6 +524,78 @@ describe('scamTopology', () => {
     expect(result.graphData.edges).toEqual(expect.arrayContaining([
       expect.objectContaining({ source: '5ClusterPeer', target: '5Deposit', direction: 'reverse_1hop_lead' }),
     ]))
+  })
+
+  it('attaches track_funds-style case evidence pointers and workspace artifacts', async () => {
+    vi.mocked(client.callTool)
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_1', ok: true, results: [topologyRow('5Victim', '5Deposit')] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_2', ok: true, results: [topologyRow('5Deposit', '5Exchange', { dst_labels: ['Binance', 'exchange'], dst_is_exchange: true })] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_deposit_cluster_1', ok: true, results: [] },
+      ]))
+    const { scamTopology } = await import('../src/investigation/scam-topology.js')
+
+    await scamTopology(client, config, {
+      network: 'bittensor',
+      victimAddress: '5Victim',
+      incidentTimestampMs: 1715532228001,
+      maxHops: 2,
+      caseId: 'case-123',
+    })
+
+    expect(evidenceAppendMock).toHaveBeenCalledTimes(1)
+    expect(evidenceAppendMock).toHaveBeenCalledWith(
+      'case-123',
+      expect.objectContaining({
+        source: 'scam_topology',
+        queryParams: expect.stringContaining('network=bittensor'),
+      }),
+    )
+    const evidence = JSON.parse(evidenceAppendMock.mock.calls[0]?.[1].content) as {
+      schema: string
+      files: Record<string, string>
+      facts: Record<string, unknown>
+    }
+    expect(evidence.schema).toBe('chain-insights.evidence_pointer.v1')
+    expect(evidence.files.compactEvidence).toContain(`${testOutputPaths.reportTablesRoot}/`)
+    expect(evidence.files.graph).toContain(`${testOutputPaths.reportGraphsRoot}/`)
+    expect(evidence.files.graphHtml).toContain(`${testOutputPaths.reportsRoot}/`)
+    expect(evidence.files.labelCandidates).toContain(`${testOutputPaths.reportTablesRoot}/`)
+    expect(evidence.files.report).toContain(`${testOutputPaths.reportsRoot}/`)
+    for (const filePath of Object.values(evidence.files)) {
+      expect(existsSync(filePath)).toBe(true)
+    }
+    expect(evidence.facts).toEqual(expect.objectContaining({
+      topology_edges: 2,
+      terminal_points: 1,
+      exchange_deposits: 1,
+      scam_labels: 1,
+      label_candidates: 1,
+    }))
+
+    const graph = JSON.parse(readFileSync(evidence.files.graph, 'utf8')) as {
+      schema: string
+      edges: Array<Record<string, unknown>>
+    }
+    expect(graph.schema).toBe('chain-insights.graph.v1')
+    expect(graph.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: '5Victim', target: '5Deposit' }),
+      expect.objectContaining({ source: '5Deposit', target: '5Exchange', terminal_exchange: true }),
+    ]))
+    expect(graph.edges).not.toContainEqual(expect.objectContaining({ from: expect.any(String) }))
+
+    const compact = JSON.parse(readFileSync(evidence.files.compactEvidence, 'utf8')) as Record<string, unknown>
+    expect(compact).toEqual(expect.objectContaining({
+      schema: 'chain-insights.scam_topology_evidence.v1',
+      source: 'scam_topology',
+      network: 'bittensor',
+      victim_address: '5Victim',
+      incident_timestamp_ms: 1715532228001,
+    }))
   })
 
   it('rejects removed history and compare scope controls', async () => {

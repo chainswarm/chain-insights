@@ -70,7 +70,7 @@ function clampInt$1(value, fallback, min, max) {
 function escapeCypherString$2(value) {
 	return value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
 }
-function sanitizeSegment(value) {
+function sanitizeSegment$1(value) {
 	return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "trace";
 }
 async function ensureDirs(paths) {
@@ -155,7 +155,7 @@ function schemaFromGraphBatch(network, batch) {
 	};
 }
 async function loadOrCaptureTopologySchema(remoteClient, paths, network) {
-	const filePath = node_path.default.join(paths.schemaDir, `${sanitizeSegment(network)}.graph-schema.json`);
+	const filePath = node_path.default.join(paths.schemaDir, `${sanitizeSegment$1(network)}.graph-schema.json`);
 	try {
 		return {
 			schema: JSON.parse(await (0, node_fs_promises.readFile)(filePath, "utf8")),
@@ -831,7 +831,7 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 		minAmountSum
 	});
 	const aliases = buildAliases(seedAddress, deposits, sourceMatches, reverseLeads);
-	const slug = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}_${sanitizeSegment(seedAddress.slice(0, 16))}`;
+	const slug = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}_${sanitizeSegment$1(seedAddress.slice(0, 16))}`;
 	const compact = probeEvidence(seedAddress, network, schemaResult.filePath, aliases, flows, deposits, sourceMatches, reverseLeads);
 	const graph = buildGraph$1(seedAddress, network, flows, deposits, sourceMatches, reverseLeads);
 	const compactPath = node_path.default.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
@@ -948,6 +948,23 @@ function chunks(values, size) {
 	const result = [];
 	for (let index = 0; index < values.length; index += size) result.push(values.slice(index, index + size));
 	return result;
+}
+function sanitizeSegment(value) {
+	return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "scam-topology";
+}
+async function ensureScamTopologyDirs(paths) {
+	await (0, node_fs_promises.mkdir)(paths.reportsRoot, {
+		recursive: true,
+		mode: 448
+	});
+	await (0, node_fs_promises.mkdir)(paths.reportGraphsRoot, {
+		recursive: true,
+		mode: 448
+	});
+	await (0, node_fs_promises.mkdir)(paths.reportTablesRoot, {
+		recursive: true,
+		mode: 448
+	});
 }
 function escapeCypherString$1(value) {
 	return value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
@@ -1776,6 +1793,115 @@ function summarize(network, victimAddress, incidentTimestampMs, candidates, scam
 		"Policy: victims, exchange endpoints, and generic labeled context nodes are not automatic scam labels."
 	].join("\n");
 }
+function csvCell(value) {
+	if (value === void 0 || value === null) return "\"\"";
+	if (Array.isArray(value) || typeof value === "object" && value !== null) return JSON.stringify(JSON.stringify(value));
+	return JSON.stringify(String(value));
+}
+function labelCandidatesCsv(candidates) {
+	const rows = [[
+		"address",
+		"label",
+		"address_type",
+		"address_subtype",
+		"trust_level",
+		"risk_level",
+		"confidence_score",
+		"promotion_status",
+		"source",
+		"evidence_count"
+	].join(",")];
+	for (const candidate of candidates) rows.push([
+		candidate.address,
+		candidate.label,
+		candidate.address_type,
+		candidate.address_subtype,
+		candidate.trust_level,
+		candidate.risk_level,
+		candidate.confidence_score,
+		candidate.promotion_status,
+		candidate.source,
+		candidate.evidence.length
+	].map(csvCell).join(","));
+	return rows.join("\n") + "\n";
+}
+function buildScamTopologyReport(facts, files) {
+	return [
+		`# Scam Topology: ${facts.victim_address}`,
+		"",
+		`Network: \`${facts.network}\``,
+		`Incident timestamp ms: \`${facts.incident_timestamp_ms}\``,
+		`Activity policy: \`${facts.activity_policy_mode}\``,
+		`Graph: \`${files.graph}\``,
+		`Label candidates CSV: \`${files.labelCandidates}\``,
+		"",
+		"## Summary",
+		"",
+		`- Topology edges: ${facts.topology_edges.length}`,
+		`- Terminal points: ${facts.terminal_points.length}`,
+		`- Exchange deposits: ${facts.exchange_deposits.length}`,
+		`- Scam labels: ${facts.scam_labels.length}`,
+		`- Review candidates: ${facts.label_candidates.length}`,
+		`- Safety decisions: ${facts.safety_decisions.length}`,
+		"",
+		"## Exchange Deposits",
+		"",
+		"| Deposit | Exchange | Names | Hop | amount_sum | tx_count |",
+		"|---|---|---|---:|---:|---:|",
+		...facts.exchange_deposits.map((entry) => {
+			return `| \`${stringValue(entry["deposit_address"]) ?? ""}\` | \`${stringValue(entry["exchange_address"]) ?? ""}\` | ${stringArray(entry["exchange_names"]).join(", ") || ""} | ${entry["hop"] ?? ""} | ${entry["amount_sum"] ?? ""} | ${entry["tx_count"] ?? ""} |`;
+		}),
+		"",
+		"## Label Candidates",
+		"",
+		"| Address | Subtype | Confidence | Status |",
+		"|---|---|---:|---|",
+		...facts.label_candidates.map((candidate) => `| \`${candidate.address}\` | ${candidate.address_subtype} | ${candidate.confidence_score} | ${candidate.promotion_status} |`),
+		""
+	].join("\n") + "\n";
+}
+function scamTopologyCompactEvidence(facts) {
+	return {
+		schema: "chain-insights.scam_topology_evidence.v1",
+		source: "scam_topology",
+		network: facts.network,
+		victim_address: facts.victim_address,
+		incident_timestamp_ms: facts.incident_timestamp_ms,
+		topology_graphs: facts.topology_graphs,
+		primary_activity_policy: facts.primary_activity_policy,
+		activity_policy_mode: facts.activity_policy_mode,
+		topology_edge_count: facts.topology_edges.length,
+		terminal_points: facts.terminal_points,
+		exchange_deposits: facts.exchange_deposits,
+		scam_labels: facts.scam_labels,
+		label_candidates: facts.label_candidates,
+		safety_decisions: facts.safety_decisions
+	};
+}
+async function writeScamTopologyCaseArtifacts(facts, graphData) {
+	const paths = require_output_root.workspaceOutputPaths();
+	await ensureScamTopologyDirs(paths);
+	const slug = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}_scam-topology_${sanitizeSegment(facts.victim_address.slice(0, 16))}`;
+	const compactEvidencePath = node_path.default.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
+	const graphPath = node_path.default.join(paths.reportGraphsRoot, `${slug}.graph.json`);
+	const graphHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.graph.html`);
+	const labelCandidatesPath = node_path.default.join(paths.reportTablesRoot, `${slug}.label-candidates.csv`);
+	const reportPath = node_path.default.join(paths.reportsRoot, `${slug}.scam-topology-report.md`);
+	const { generateInlineGraphHtml } = await Promise.resolve().then(() => require("./html-generator-CAv81IWH.cjs")).then((n) => n.html_generator_exports);
+	const files = {
+		compactEvidence: compactEvidencePath,
+		graph: graphPath,
+		graphHtml: graphHtmlPath,
+		labelCandidates: labelCandidatesPath,
+		report: reportPath
+	};
+	await (0, node_fs_promises.writeFile)(compactEvidencePath, JSON.stringify(scamTopologyCompactEvidence(facts), null, 2) + "\n", { mode: 384 });
+	await (0, node_fs_promises.writeFile)(graphPath, JSON.stringify(graphData, null, 2) + "\n", { mode: 384 });
+	await (0, node_fs_promises.writeFile)(graphHtmlPath, generateInlineGraphHtml(graphData), { mode: 384 });
+	await (0, node_fs_promises.writeFile)(labelCandidatesPath, labelCandidatesCsv(facts.label_candidates), { mode: 384 });
+	await (0, node_fs_promises.writeFile)(reportPath, buildScamTopologyReport(facts, files), { mode: 384 });
+	return files;
+}
 function validateNonNegativeNumber(value, name) {
 	if (value === void 0) return void 0;
 	if (!Number.isFinite(value) || value < 0) throw new Error(`${name} must be a non-negative number`);
@@ -1800,6 +1926,7 @@ async function scamTopology(remoteClient, config, options) {
 	const minAmountSum = void 0;
 	const activityPolicyMode = validateActivityPolicyMode(options.activityPolicyMode);
 	const primaryActivityPolicy = activityPolicyForMode(activityPolicyMode);
+	const caseId = options.caseId ?? legacyOptions.caseId;
 	if (!network) throw new Error("network is required");
 	if (legacyOptions.scope !== void 0) throw new Error("scope is no longer accepted; scam_topology always runs the victim incident topology");
 	if (legacyOptions.sinceTimestampMs !== void 0) throw new Error("since_timestamp_ms is no longer accepted; use incident_timestamp_ms");
@@ -1852,28 +1979,36 @@ async function scamTopology(remoteClient, config, options) {
 	};
 	const graphData = buildGraph(seeds, topologyEdges, classification.rolesByAddress, facts);
 	const summaryText = summarize(network, victimAddress, incidentTimestampMs, labelCandidates, scamLabels, classification.safetyDecisions, topologyEdges, classification.terminalPoints);
-	if (legacyOptions.caseId) {
+	if (caseId) {
+		const files = await writeScamTopologyCaseArtifacts(facts, graphData);
 		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
-		await EvidenceStore.append(legacyOptions.caseId, {
+		await EvidenceStore.append(caseId, {
 			source: "scam_topology",
 			queryParams: [
 				`network=${network}`,
 				`victim_address=${victimAddress}`,
-				`incident_timestamp_ms=${incidentTimestampMs}`
+				`incident_timestamp_ms=${incidentTimestampMs}`,
+				`max_hops=${maxHops}`,
+				`activity_policy=${activityPolicyMode}`
 			].filter(Boolean).join(" "),
 			content: JSON.stringify({
-				schema: "chain-insights.scam_topology_evidence.v1",
+				schema: "chain-insights.evidence_pointer.v1",
 				source: "scam_topology",
 				network,
 				victim_address: victimAddress,
 				incident_timestamp_ms: incidentTimestampMs,
-				topology_graphs: ["live_topology"],
-				topology_edge_count: topologyEdges.length,
-				terminal_points: classification.terminalPoints,
-				exchange_deposits: classification.exchangeDeposits,
-				scam_labels: scamLabels,
-				label_candidates: labelCandidates,
-				safety_decisions: classification.safetyDecisions
+				topology_graphs: facts.topology_graphs,
+				primary_activity_policy: primaryActivityPolicy,
+				activity_policy_mode: activityPolicyMode,
+				files,
+				facts: {
+					topology_edges: topologyEdges.length,
+					terminal_points: classification.terminalPoints.length,
+					exchange_deposits: classification.exchangeDeposits.length,
+					scam_labels: scamLabels.length,
+					label_candidates: labelCandidates.length,
+					safety_decisions: classification.safetyDecisions.length
+				}
 			}, null, 2)
 		});
 	}

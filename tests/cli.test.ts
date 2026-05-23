@@ -89,6 +89,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('--incident-timestamp-ms <milliseconds>')
     expect(out).toContain('--max-hops <number>')
     expect(out).toContain('--activity-policy <mode>')
+    expect(out).toContain('--case <id>')
     expect(out).not.toContain('--compare-activity-policies')
     expect(out).not.toContain('--scope <history|incident|compare>')
     expect(out).not.toContain('--since-timestamp-ms <milliseconds>')

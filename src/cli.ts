@@ -616,12 +616,14 @@ program
       .requiredOption('--incident-timestamp-ms <milliseconds>', 'Earliest known incident transfer timestamp in milliseconds')
       .option('--max-hops <number>', 'Maximum trace hops, default 16, max 64')
       .option('--activity-policy <mode>', 'Traversal activity policy: node_relative_only or global_incident_only', 'node_relative_only')
+      .option('--case <id>', 'Case ID to attach compact evidence pointers')
       .action(async (opts: {
         network: string
         victimAddress: string
         incidentTimestampMs: string
         maxHops?: string
         activityPolicy?: string
+        case?: string
       }) => {
         try {
           const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
@@ -630,12 +632,14 @@ program
             const { scamTopology } = await import('./investigation/public-tools.js')
             const incidentTimestampMs = optionalNumber(opts.incidentTimestampMs)
             if (incidentTimestampMs === undefined) throw new Error('incident-timestamp-ms is required')
+            const caseId = opts.case ? await resolveCaseSelector(opts.case) : undefined
             const result = await scamTopology(client, config, {
               victimAddress: opts.victimAddress,
               network: opts.network,
               maxHops: optionalNumber(opts.maxHops),
               incidentTimestampMs,
               activityPolicyMode: optionalScamTopologyActivityPolicy(opts.activityPolicy),
+              caseId,
             })
             console.log(result.summaryText)
             console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -692,6 +696,7 @@ program
               const result = await scamTopology(client, config, {
                 victimAddress,
                 network: String(args['network'] ?? ''),
+                caseId: args['case_id'] === undefined ? undefined : String(args['case_id']),
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
                 incidentTimestampMs,
                 activityPolicyMode: optionalScamTopologyActivityPolicy(args['activity_policy']),

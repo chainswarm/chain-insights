@@ -92,6 +92,7 @@ candidates live in `deposits`, and deposit-cluster enrichment lives in
 ```bash
 cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --max-hops 16
 cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --max-hops 16 --activity-policy global_incident_only
+cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --case 1
 ```
 
 Contract summary: victim-only traversal is outward from victim/source funds; the primary graph is a node-relative novelty wave with non-expanding convergence edges; exchange terminal safety; `scam_labels` are ML-ready flags; label candidates are reviewable, not automatic writes.
@@ -135,6 +136,11 @@ Graph reports use `chain-insights.graph.v1` JSON. For `scam_topology`, primary
 victim-flow edges are emitted in `flows`, exchange deposit candidates in
 `deposits`, deposit-cluster enrichment in `reverse_leads`, and visual edges use
 the canonical `source` / `target` convention.
+
+When `case_id` or CLI `--case` is provided, `scam_topology` stores a
+`chain-insights.evidence_pointer.v1` evidence entry, matching `track_funds`.
+The pointer references workspace-local compact evidence JSON, graph JSON,
+graph HTML, label-candidate CSV, and Markdown report files.
 
 `topup` is not advertised as a supported MCP happy path. The supported wallet surface is `balance` plus the wallet address returned by CLI/MCP.
 

@@ -149,7 +149,8 @@ function knownPublicToolInputSchema(toolName) {
 			victim_address: z.string().min(1).describe("Full victim/source address that anchors the scam incident. Victims are not risky labels."),
 			incident_timestamp_ms: z.number().min(0).describe("Earliest known incident transfer timestamp in milliseconds. Primary traversal uses node-relative wave-arrival filtering."),
 			max_hops: z.number().int().min(1).max(64).optional().describe("Maximum forward expansion depth. Default 16."),
-			activity_policy: z.enum(["node_relative_only", "global_incident_only"]).optional().describe("Traversal activity policy. Default node_relative_only.")
+			activity_policy: z.enum(["node_relative_only", "global_incident_only"]).optional().describe("Traversal activity policy. Default node_relative_only."),
+			case_id: z.string().optional().describe("Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest.")
 		};
 		case "graph_query": return {
 			query: z.string().min(1).describe("Read-only GQL/Cypher query. Use USE live_topology for Memgraph RAM topology, USE archive_topology for StarRocks historical topology, and USE facts for StarRocks facts."),
@@ -965,7 +966,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { addressRisk } = await import("./public-tools-DI2g7lss.mjs");
+			const { addressRisk } = await import("./public-tools-B4r4eFxY.mjs");
 			const { writeGraphReport } = await import("./graph-reports-C4TBjCkM.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-Dxz5YbuQ.mjs");
 			const result = await addressRisk(remoteClient, {
@@ -1029,7 +1030,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { trackFunds } = await import("./public-tools-DI2g7lss.mjs");
+			const { trackFunds } = await import("./public-tools-B4r4eFxY.mjs");
 			const { writeGraphReport } = await import("./graph-reports-C4TBjCkM.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-Dxz5YbuQ.mjs");
 			const result = await trackFunds(remoteClient, config, {
@@ -1076,7 +1077,8 @@ async function createProxy() {
 			victim_address: z.string().min(1).describe("Full victim/source address that anchors the scam incident. Victims are not risky labels."),
 			incident_timestamp_ms: z.number().min(0).describe("Earliest known incident transfer timestamp in milliseconds. Primary traversal uses node-relative wave-arrival filtering."),
 			max_hops: z.number().int().min(1).max(64).optional().describe("Maximum forward expansion depth. Default 16."),
-			activity_policy: z.enum(["node_relative_only", "global_incident_only"]).optional().describe("Traversal activity policy. Default node_relative_only.")
+			activity_policy: z.enum(["node_relative_only", "global_incident_only"]).optional().describe("Traversal activity policy. Default node_relative_only."),
+			case_id: z.string().optional().describe("Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest.")
 		},
 		_meta: { ui: { resourceUri: GRAPH_RESOURCE_URI } },
 		annotations: {
@@ -1085,7 +1087,7 @@ async function createProxy() {
 			idempotentHint: false,
 			openWorldHint: true
 		}
-	}, async ({ victim_address, incident_timestamp_ms, network, max_hops, activity_policy }) => {
+	}, async ({ victim_address, incident_timestamp_ms, network, max_hops, activity_policy, case_id }) => {
 		try {
 			if (!remoteConnected) return {
 				content: [{
@@ -1094,7 +1096,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { scamTopology } = await import("./public-tools-DI2g7lss.mjs");
+			const { scamTopology } = await import("./public-tools-B4r4eFxY.mjs");
 			const { writeGraphReport } = await import("./graph-reports-C4TBjCkM.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-Dxz5YbuQ.mjs");
 			const result = await scamTopology(remoteClient, config, {
@@ -1102,7 +1104,8 @@ async function createProxy() {
 				network,
 				maxHops: max_hops,
 				incidentTimestampMs: incident_timestamp_ms,
-				activityPolicyMode: activity_policy
+				activityPolicyMode: activity_policy,
+				caseId: case_id
 			});
 			const report = await writeGraphReport(result.graphData, {
 				serverPort: config.serverPort,

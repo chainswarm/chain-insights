@@ -172,7 +172,13 @@ not automatic writes to `core_address_labels`.
 ```bash
 cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --max-hops 16
 cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --max-hops 16 --activity-policy global_incident_only
+cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --case 1
 ```
+
+If `case_id` or CLI `--case` is provided, `scam_topology` writes a compact
+`chain-insights.evidence_pointer.v1` entry to the case. The pointer references
+workspace-local compact evidence JSON, graph JSON, graph HTML,
+label-candidate CSV, and Markdown report files under `reports/`.
 
 Use manual `graph_query_batch` for custom topology or fact questions. Use
 `USE live_topology` for Memgraph RAM topology, `USE archive_topology` for
