@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { changelogHasVersionEntry, compareSemver, parseSemver } from '../scripts/check-release-gate.mjs'
+import {
+  changelogHasVersionEntry,
+  compareSemver,
+  missingPackageEntrypoints,
+  packageEntrypointPaths,
+  parseSemver,
+} from '../scripts/check-release-gate.mjs'
 
 describe('release gate helpers', () => {
   it('parses plain semver versions', () => {
@@ -21,5 +27,26 @@ describe('release gate helpers', () => {
     expect(changelogHasVersionEntry('## [0.2.0] - 2026-05-18\n', '0.2.0')).toBe(true)
     expect(changelogHasVersionEntry('## 0.2.0\n', '0.2.0')).toBe(true)
     expect(changelogHasVersionEntry('## [0.1.0] - 2026-05-18\n', '0.2.0')).toBe(false)
+  })
+
+  it('collects package entrypoint paths from main, module, and exports', () => {
+    expect(packageEntrypointPaths({
+      main: './dist/index.cjs',
+      module: './dist/index.mjs',
+      exports: {
+        '.': {
+          import: './dist/index.mjs',
+          require: './dist/index.cjs',
+        },
+        './cli': './dist/cli.mjs',
+      },
+    })).toEqual(['dist/cli.mjs', 'dist/index.cjs', 'dist/index.mjs'])
+  })
+
+  it('reports missing package entrypoints', () => {
+    expect(missingPackageEntrypoints({
+      main: './dist/index.cjs',
+      module: './dist/index.mjs',
+    }, (path: string) => path === 'dist/index.cjs')).toEqual(['dist/index.mjs'])
   })
 })
