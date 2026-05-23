@@ -374,6 +374,90 @@ describe('scamTopology', () => {
     ]))
   })
 
+  it('treats string zero exchange flags as false and continues traversal', async () => {
+    vi.mocked(client.callTool)
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_1', ok: true, results: [topologyRow('5Victim', '5StringZero', { dst_is_exchange: '0' })] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_2', ok: true, results: [topologyRow('5StringZero', '5NextHop')] },
+      ]))
+    const { scamTopology } = await import('../src/investigation/scam-topology.js')
+
+    const result = await scamTopology(client, config, {
+      network: 'bittensor',
+      victimAddresses: '5Victim',
+      maxHops: 2,
+    })
+
+    expect(vi.mocked(client.callTool)).toHaveBeenCalledTimes(2)
+    expect(result.structuredContent.facts.case_roles).toEqual(expect.arrayContaining([
+      expect.objectContaining({ address: '5StringZero', role: 'laundering_intermediate' }),
+    ]))
+    expect(result.structuredContent.facts.case_roles).not.toContainEqual(expect.objectContaining({
+      address: '5StringZero',
+      role: 'exchange_endpoint',
+    }))
+    expect(result.structuredContent.facts.topology_edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ src: '5StringZero', dst: '5NextHop', relation: 'traversal_edge' }),
+    ]))
+  })
+
+  it('enforces per-address limits with one bounded query per frontier source', async () => {
+    vi.mocked(client.callTool).mockResolvedValueOnce(graphBatchResult([
+      { id: 'incident_hop_1_source_1', ok: true, results: [topologyRow('5SeedA', '5AOut')] },
+      { id: 'incident_hop_1_source_2', ok: true, results: [topologyRow('5SeedB', '5BOut')] },
+    ]))
+    const { scamTopology } = await import('../src/investigation/scam-topology.js')
+
+    await scamTopology(client, config, {
+      network: 'bittensor',
+      scammerAddresses: ['5SeedA', '5SeedB'],
+      maxHops: 1,
+      perAddressLimit: 1,
+    })
+
+    const queries = vi.mocked(client.callTool).mock.calls[0]?.[0]?.arguments?.queries as Array<{ id: string; query: string }>
+    expect(queries).toHaveLength(2)
+    expect(queries[0]?.query).toContain('src.address = "5SeedA"')
+    expect(queries[0]?.query).toContain('LIMIT 1')
+    expect(queries[1]?.query).toContain('src.address = "5SeedB"')
+    expect(queries[1]?.query).toContain('LIMIT 1')
+  })
+
+  it('preserves seed attribution when multiple seeds share a downstream frontier', async () => {
+    vi.mocked(client.callTool)
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_1_source_1', ok: true, results: [topologyRow('5Victim', '5Shared')] },
+        { id: 'incident_hop_1_source_2', ok: true, results: [topologyRow('5Scammer', '5Shared')] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_2', ok: true, results: [topologyRow('5Shared', '5Exit')] },
+      ]))
+    const { scamTopology } = await import('../src/investigation/scam-topology.js')
+
+    const result = await scamTopology(client, config, {
+      network: 'bittensor',
+      victimAddresses: '5Victim',
+      scammerAddresses: '5Scammer',
+      maxHops: 2,
+    })
+
+    expect(result.structuredContent.facts.topology_edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ src: '5Shared', dst: '5Exit', seed_address: '5Victim', seed_role: 'victim' }),
+      expect.objectContaining({ src: '5Shared', dst: '5Exit', seed_address: '5Scammer', seed_role: 'scammer' }),
+    ]))
+    expect(result.structuredContent.facts.label_candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        address: '5Exit',
+        evidence: expect.arrayContaining([
+          expect.objectContaining({ seed_address: '5Victim', seed_role: 'victim' }),
+          expect.objectContaining({ seed_address: '5Scammer', seed_role: 'scammer' }),
+        ]),
+      }),
+    ]))
+  })
+
   it('does not preserve legacy seed funding input infrastructure roles', async () => {
     vi.mocked(client.callTool).mockResolvedValueOnce(graphBatchResult([]))
     const { scamTopology } = await import('../src/investigation/scam-topology.js')

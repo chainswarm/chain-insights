@@ -228,8 +228,11 @@ function graphForScope(graphScope: ScamTopologyGraphScope): 'archive_topology' |
 function isExchangeFlag(value: unknown): boolean {
   if (value === true) return true
   if (value === false || value === null || value === undefined) return false
-  if (typeof value === 'string') return value.trim().length > 0 && value.trim().toLowerCase() !== 'false'
-  if (typeof value === 'number') return value !== 0
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    return normalized === 'true' || normalized === '1'
+  }
+  if (typeof value === 'number') return value === 1
   return false
 }
 
@@ -269,14 +272,15 @@ function traversalProjection(): string {
 
 function frontierQuery(
   graphScope: ScamTopologyGraphScope,
-  frontier: string[],
+  sourceAddress: string,
   hop: number,
+  sourceIndex: number | undefined,
   perAddressLimit: number,
   minAmountSum: number | undefined,
   sinceTimestampMs: number | undefined,
 ): { id: string; query: string } {
   const where = [
-    `(${addressPredicate(frontier)})`,
+    `(${addressPredicate([sourceAddress])})`,
     'src.address <> dst.address',
   ]
   if (minAmountSum !== undefined) where.push(`r.amount_sum >= ${minAmountSum}`)
@@ -285,14 +289,14 @@ function frontierQuery(
   }
 
   return {
-    id: `${graphScope}_hop_${hop}`,
+    id: sourceIndex === undefined ? `${graphScope}_hop_${hop}` : `${graphScope}_hop_${hop}_source_${sourceIndex}`,
     query: [
       `USE ${graphForScope(graphScope)}`,
       'MATCH (src:Address)-[r:FLOWS_TO]->(dst:Address)',
       `WHERE ${where.join(' AND ')}`,
       `RETURN ${traversalProjection()}`,
       'ORDER BY r.amount_sum DESC',
-      `LIMIT ${Math.max(1, frontier.length) * perAddressLimit}`,
+      `LIMIT ${perAddressLimit}`,
     ].join(' '),
   }
 }
@@ -345,12 +349,12 @@ function edgeFromRow(
   }
 }
 
-function edgeKey(edge: Pick<ScamTopologyTopologyEdge, 'src' | 'dst' | 'graph_scope'>): string {
-  return `${edge.graph_scope}\u0000${edge.src}\u0000${edge.dst}`
+function edgeKey(edge: Pick<ScamTopologyTopologyEdge, 'src' | 'dst' | 'graph_scope' | 'seed_address' | 'seed_role'>): string {
+  return `${edge.graph_scope}\u0000${edge.seed_role ?? ''}\u0000${edge.seed_address ?? ''}\u0000${edge.src}\u0000${edge.dst}`
 }
 
-function mergedEdgeKey(edge: Pick<ScamTopologyTopologyEdge, 'src' | 'dst'>): string {
-  return `${edge.src}\u0000${edge.dst}`
+function mergedEdgeKey(edge: Pick<ScamTopologyTopologyEdge, 'src' | 'dst' | 'seed_address' | 'seed_role'>): string {
+  return `${edge.seed_role ?? ''}\u0000${edge.seed_address ?? ''}\u0000${edge.src}\u0000${edge.dst}`
 }
 
 function frontierKey(entry: FrontierEntry): string {
@@ -376,12 +380,23 @@ async function runDirectedTraversal(
   const visited = new Set(frontier.map(frontierKey))
 
   for (let hop = 1; hop <= maxHops && frontier.length > 0; hop += 1) {
-    const frontierByAddress = new Map<string, FrontierEntry>()
+    const frontierByAddress = new Map<string, FrontierEntry[]>()
     for (const entry of frontier) {
-      if (!frontierByAddress.has(entry.address)) frontierByAddress.set(entry.address, entry)
+      const entries = frontierByAddress.get(entry.address) ?? []
+      entries.push(entry)
+      frontierByAddress.set(entry.address, entries)
     }
-    const query = frontierQuery(graphScope, [...frontierByAddress.keys()], hop, perAddressLimit, minAmountSum, sinceTimestampMs)
-    const batch = await callGraphBatch(remoteClient, network, [query])
+    const frontierAddresses = [...frontierByAddress.keys()]
+    const queries = frontierAddresses.map((address, index) => frontierQuery(
+      graphScope,
+      address,
+      hop,
+      frontierAddresses.length === 1 ? undefined : index + 1,
+      perAddressLimit,
+      minAmountSum,
+      sinceTimestampMs,
+    ))
+    const batch = await callGraphBatch(remoteClient, network, queries)
     const nextByKey = new Map<string, FrontierEntry>()
 
     for (const queryResult of batch.facts?.queries ?? []) {
@@ -389,22 +404,23 @@ async function runDirectedTraversal(
       for (const row of queryResult.results ?? []) {
         const src = stringValue(row['src']) ?? stringValue(row['from_address'])
         if (!src) continue
-        const context = frontierByAddress.get(src)
-        if (!context) continue
-        const edge = edgeFromRow(row, graphScope, hop, context)
-        if (!edge || edgesByKey.has(edgeKey(edge))) continue
-        edgesByKey.set(edgeKey(edge), edge)
+        const contexts = frontierByAddress.get(src) ?? []
+        for (const context of contexts) {
+          const edge = edgeFromRow(row, graphScope, hop, context)
+          if (!edge || edgesByKey.has(edgeKey(edge))) continue
+          edgesByKey.set(edgeKey(edge), edge)
 
-        if (edge.relation === 'terminal_exchange' || edge.relation === 'context_boundary') continue
-        const nextEntry: FrontierEntry = {
-          address: edge.dst,
-          seedAddress: context.seedAddress,
-          seedRole: context.seedRole,
-        }
-        const key = frontierKey(nextEntry)
-        if (!visited.has(key)) {
-          visited.add(key)
-          nextByKey.set(key, nextEntry)
+          if (edge.relation === 'terminal_exchange' || edge.relation === 'context_boundary') continue
+          const nextEntry: FrontierEntry = {
+            address: edge.dst,
+            seedAddress: context.seedAddress,
+            seedRole: context.seedRole,
+          }
+          const key = frontierKey(nextEntry)
+          if (!visited.has(key)) {
+            visited.add(key)
+            nextByKey.set(key, nextEntry)
+          }
         }
       }
     }
