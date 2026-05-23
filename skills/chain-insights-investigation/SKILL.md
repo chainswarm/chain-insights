@@ -150,21 +150,19 @@ local tracing engine.
 Use `track_funds` for stolen-fund and fund-flow work, including single-address
 fund-flow tracing by passing one address as the only `trusted_addresses` value.
 
-Use `scam_topology` when known scam ground truth should become laundering-role
-evidence and reviewable label candidates. The victim-only traversal is outward
-from victim/source funds, so do not query or promote victim inbound transfers as
-scam infrastructure. Use `scope=history|incident|compare`: history reads
-`USE archive_topology`, incident reads `USE live_topology` with optional
-`since_timestamp_ms`, and compare marks history-only, incident-only, or overlap
-membership. Exchange terminal safety is the only hard-coded terminal behavior;
-other labels are generic context hints. Victim/source addresses are not risky
-labels; known scammer seeds can become confirmed-risk candidates, while
-laundering intermediates and exchange deposit candidates are reviewable, not
-automatic writes to `core_address_labels`.
+Use `scam_topology` when known victim incident ground truth should become
+ML-ready `scam_labels` plus reviewable laundering context. The victim-only
+traversal is outward from victim/source funds, so do not query or promote
+victim inbound transfers as scam infrastructure. `incident_timestamp_ms` anchors
+only the first victim outflow; downstream traversal can enter older scam
+infrastructure. Exchange terminal safety is the only hard-coded terminal
+behavior; other labels are generic context hints. Victim/source addresses,
+exchange endpoints, and generic labeled context nodes are not automatic scam
+labels; laundering intermediates and exchange deposit candidates are reviewable,
+not automatic writes to `core_address_labels`.
 
 ```bash
-cia mcp scam-topology --network bittensor --victim-addresses 5... --scope history --max-hops 5
-cia mcp scam-topology --network bittensor --victim-addresses 5... --scope incident --since-timestamp-ms 1715532228001 --max-hops 5
+cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --max-hops 16
 ```
 
 Use manual `graph_query_batch` for custom topology or fact questions. Use

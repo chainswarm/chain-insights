@@ -1336,25 +1336,25 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     ])
   })
 
-  it('registers scam_topology and writes graph reports with label candidates', async () => {
+  it('registers scam_topology and writes graph reports with scam labels', async () => {
     runFundFlowProbeMock.mockResolvedValue({
-      summaryText: 'Trace complete for bittensor:5Scammer',
+      summaryText: 'Trace complete for bittensor:5Victim',
       compactEvidence: {},
       graphData: {
         schema: 'chain-insights.graph.v1',
         nodes: [
-          { id: '5Scammer', address: '5Scammer', node_type: 'address', roles: ['seed'] },
+          { id: '5Victim', address: '5Victim', node_type: 'address', roles: ['seed'] },
           { id: '5Hop', address: '5Hop', node_type: 'address' },
           { id: '5Deposit', address: '5Deposit', node_type: 'address', roles: ['deposit_candidate'] },
           { id: '5Exchange', address: '5Exchange', node_type: 'address', roles: ['exchange'] },
         ],
         edges: [
-          { source: '5Scammer', target: '5Hop', edge_type: 'flows_to', amount_sum: 10 },
+          { source: '5Victim', target: '5Hop', edge_type: 'flows_to', amount_sum: 10 },
           { source: '5Hop', target: '5Deposit', edge_type: 'flows_to', amount_sum: 9 },
           { source: '5Deposit', target: '5Exchange', edge_type: 'flows_to', amount_sum: 8, terminal_exchange: true },
         ],
         flows: [
-          { hop: 1, src: '5Scammer', dst: '5Hop', amount_sum: 10, terminal_exchange: false },
+          { hop: 1, src: '5Victim', dst: '5Hop', amount_sum: 10, terminal_exchange: false },
           { hop: 2, src: '5Hop', dst: '5Deposit', amount_sum: 9, terminal_exchange: false },
           { hop: 3, src: '5Deposit', dst: '5Exchange', amount_sum: 8, terminal_exchange: true },
         ],
@@ -1363,7 +1363,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
           exchangeAddress: '5Exchange',
           amount_sum: 8,
           hops: 3,
-          path: ['5Scammer', '5Hop', '5Deposit', '5Exchange'],
+          path: ['5Victim', '5Hop', '5Deposit', '5Exchange'],
         }],
         reverse_leads: [],
         edge_anchors: [],
@@ -1383,7 +1383,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         exchangeAddresses: ['5Exchange'],
         hint: 'Found deposit candidates',
       },
-      addressMap: { S1: '5Scammer', D1: '5Deposit', E1: '5Exchange' },
+      addressMap: { S1: '5Victim', D1: '5Deposit', E1: '5Exchange' },
     })
 
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
@@ -1413,7 +1413,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
             id: 'incident_hop_1',
             ok: true,
             results: [{
-              src: '5Scammer',
+              src: '5Victim',
               dst: '5Deposit',
               amount_sum: 10,
               tx_count: 1,
@@ -1468,28 +1468,30 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     const toolConfig = findToolConfig(serverInstance, 'scam_topology')
     const inputSchema = toolConfig.inputSchema as Record<string, z.ZodTypeAny>
-    expect(inputSchema.scope.safeParse('history').success).toBe(true)
-    expect(inputSchema.scope.safeParse('incident').success).toBe(true)
-    expect(inputSchema.scope.safeParse('compare').success).toBe(true)
-    expect(inputSchema.scope.safeParse('all').success).toBe(false)
-    expect(inputSchema.since_timestamp_ms.safeParse(1715532228001).success).toBe(true)
-    expect(inputSchema.since_timestamp_ms.safeParse(-1).success).toBe(false)
+    expect(inputSchema.victim_address.safeParse('5Victim').success).toBe(true)
+    expect(inputSchema.incident_timestamp_ms.safeParse(1715532228001).success).toBe(true)
+    expect(inputSchema.incident_timestamp_ms.safeParse(-1).success).toBe(false)
+    expect(inputSchema.max_hops.safeParse(16).success).toBe(true)
+    expect(inputSchema.max_hops.safeParse(65).success).toBe(false)
+    expect(inputSchema.scope).toBeUndefined()
+    expect(inputSchema.since_timestamp_ms).toBeUndefined()
+    expect(inputSchema.scammer_addresses).toBeUndefined()
 
     const handler = findToolHandler(serverInstance, 'scam_topology')
     const result = await handler({
-      scammer_addresses: ['5Scammer'],
+      victim_address: '5Victim',
       network: 'bittensor',
-      case_id: mockCase.id,
-      scope: 'incident',
-      since_timestamp_ms: 1715532228001,
-      max_hops: 3,
+      incident_timestamp_ms: 1715532228001,
+      max_hops: 4,
     })
 
     expect(result.isError).toBe(false)
     expect(result.content[0].text).toContain('Scam topology complete for bittensor')
     expect(result.structuredContent.tool).toBe('scam_topology')
+    expect(result.structuredContent.facts.scam_labels).toEqual(expect.arrayContaining([
+      expect.objectContaining({ address: '5Deposit', scam: true, source_victim_address: '5Victim' }),
+    ]))
     expect(result.structuredContent.facts.label_candidates).toEqual(expect.arrayContaining([
-      expect.objectContaining({ address: '5Scammer', address_subtype: 'scam_seed' }),
       expect.objectContaining({ address: '5Deposit', address_subtype: 'exchange_deposit_candidate' }),
     ]))
     expect(clientInstance.callTool.mock.calls[0]?.[0].arguments.queries[0].query)
@@ -1500,10 +1502,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const filename = graphUrl.split('/graph-reports/')[1]
     expect(filename).toMatch(/\.graph\.json$/)
     const graph = JSON.parse(await readFile(join(testDataDir, 'reports', 'graphs', filename), 'utf8')) as {
-      scam_topology?: { label_candidates?: Array<Record<string, unknown>> }
+      scam_topology?: { scam_labels?: Array<Record<string, unknown>> }
     }
-    expect(graph.scam_topology?.label_candidates).toEqual(expect.arrayContaining([
-      expect.objectContaining({ address: '5Scammer', address_subtype: 'scam_seed' }),
+    expect(graph.scam_topology?.scam_labels).toEqual(expect.arrayContaining([
+      expect.objectContaining({ address: '5Deposit', scam: true }),
     ]))
   })
 

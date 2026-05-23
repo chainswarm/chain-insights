@@ -141,19 +141,14 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
   await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }))
   if (tool === 'scam_topology') {
     const { scamTopology } = await import('../src/investigation/public-tools.js')
-    const sinceTimestampMs = args['since_timestamp_ms'] === undefined
+    const incidentTimestampMs = args['incident_timestamp_ms'] === undefined
       ? undefined
-      : Number(args['since_timestamp_ms'])
+      : Number(args['incident_timestamp_ms'])
     const result = await scamTopology(client, config, {
-      victimAddresses: args['victim_addresses'] as string | string[] | undefined,
-      scammerAddresses: args['scammer_addresses'] as string | string[] | undefined,
+      victimAddress: args['victim_address'] === undefined ? undefined : String(args['victim_address']),
       network: String(args['network'] ?? ''),
-      caseId: args['case_id'] === undefined ? undefined : String(args['case_id']),
       maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
-      perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
-      minAmountSum: typeof args['min_amount_sum'] === 'number' ? args['min_amount_sum'] : undefined,
-      scope: args['scope'] === undefined ? undefined : String(args['scope']) as 'history' | 'incident' | 'compare',
-      sinceTimestampMs: Number.isFinite(sinceTimestampMs) ? sinceTimestampMs : undefined,
+      incidentTimestampMs: Number.isFinite(incidentTimestampMs) ? incidentTimestampMs : undefined,
     })
     console.log(result.summaryText)
     console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -449,20 +444,16 @@ describe('CLI mcp subcommand (MCP-02)', () => {
 
     await runMcpCallAction('scam_topology', [
       'network=bittensor',
-      'victim_addresses=5Victim',
-      'scammer_addresses=["5Scammer"]',
+      'victim_address=5Victim',
+      'incident_timestamp_ms=1715532228001',
       'max_hops=2',
-      'scope=incident',
-      'since_timestamp_ms=1715532228001',
     ])
 
     expect(mockScamTopology).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
       network: 'bittensor',
-      victimAddresses: '5Victim',
-      scammerAddresses: ['5Scammer'],
+      victimAddress: '5Victim',
+      incidentTimestampMs: 1715532228001,
       maxHops: 2,
-      scope: 'incident',
-      sinceTimestampMs: 1715532228001,
     }))
     expect(mockClientCallTool).not.toHaveBeenCalled()
     expect(consoleLogSpy).toHaveBeenCalledWith('Scam topology complete for bittensor')

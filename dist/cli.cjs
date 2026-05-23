@@ -373,7 +373,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-DBStJ5mW.cjs"));
+			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-BMHqEhEL.cjs"));
 			const result = await addressRisk(client, {
 				address: opts.address,
 				network: opts.network,
@@ -401,7 +401,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-DBStJ5mW.cjs"));
+			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-BMHqEhEL.cjs"));
 			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
 			const result = await trackFunds(client, config, {
 				trustedAddresses: opts.trustedAddresses,
@@ -419,23 +419,19 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new commander.Command("scam-topology").description("Build scam-case laundering topology and evidence-backed label candidates").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--victim-addresses <addresses>", "Comma-separated full victim/source addresses, max 5").option("--scammer-addresses <addresses>", "Comma-separated full known scammer/attacker addresses, max 5").option("--case <id>", "Case ID to attach compact evidence pointers").option("--max-hops <number>", "Maximum trace hops, 1-5").option("--per-address-limit <number>", "Maximum exchange paths/results per address, 1-10").option("--min-amount-sum <number>", "Minimum r.amount_sum for traced edges").option("--scope <history|incident|compare>", "Traversal scope: history, incident, or compare").option("--since-timestamp-ms <milliseconds>", "Incident start timestamp in milliseconds").action(async (opts) => {
+})).addCommand(new commander.Command("scam-topology").description("Build victim-incident scam topology and ML-ready scam labels").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").requiredOption("--victim-address <address>", "Full victim/source address that anchors the incident").requiredOption("--incident-timestamp-ms <milliseconds>", "Earliest known incident transfer timestamp in milliseconds").option("--max-hops <number>", "Maximum trace hops, default 16, max 64").action(async (opts) => {
 	try {
 		const { requireWorkspaceRoot } = await Promise.resolve().then(() => require("./output-root-CFYms3ad.cjs")).then((n) => n.output_root_exports);
 		requireWorkspaceRoot();
 		await withGraphMcpClient("chain-insights-cli-scam-topology", async (client, config) => {
-			const { scamTopology } = await Promise.resolve().then(() => require("./public-tools-DBStJ5mW.cjs"));
-			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
+			const { scamTopology } = await Promise.resolve().then(() => require("./public-tools-BMHqEhEL.cjs"));
+			const incidentTimestampMs = optionalNumber(opts.incidentTimestampMs);
+			if (incidentTimestampMs === void 0) throw new Error("incident-timestamp-ms is required");
 			const result = await scamTopology(client, config, {
-				victimAddresses: opts.victimAddresses,
-				scammerAddresses: opts.scammerAddresses,
+				victimAddress: opts.victimAddress,
 				network: opts.network,
-				caseId,
 				maxHops: optionalNumber(opts.maxHops),
-				perAddressLimit: optionalNumber(opts.perAddressLimit),
-				minAmountSum: optionalNumber(opts.minAmountSum),
-				scope: opts.scope,
-				sinceTimestampMs: optionalNumber(opts.sinceTimestampMs)
+				incidentTimestampMs
 			});
 			console.log(result.summaryText);
 			console.log(JSON.stringify(result.structuredContent, null, 2));
@@ -452,7 +448,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		assertPublicMcpToolName(tool);
 		await withGraphMcpClient("chain-insights-cli-call", async (client, config) => {
 			if (tool === "address_risk") {
-				const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-DBStJ5mW.cjs"));
+				const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-BMHqEhEL.cjs"));
 				const result = await addressRisk(client, {
 					address: String(args["address"] ?? ""),
 					network: String(args["network"] ?? ""),
@@ -462,7 +458,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "track_funds") {
-				const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-DBStJ5mW.cjs"));
+				const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-BMHqEhEL.cjs"));
 				const result = await trackFunds(client, config, {
 					trustedAddresses: args["trusted_addresses"] ?? "",
 					untrustedAddresses: args["untrusted_addresses"],
@@ -477,17 +473,16 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "scam_topology") {
-				const { scamTopology } = await Promise.resolve().then(() => require("./public-tools-DBStJ5mW.cjs"));
+				const { scamTopology } = await Promise.resolve().then(() => require("./public-tools-BMHqEhEL.cjs"));
+				const victimAddress = String(args["victim_address"] ?? "").trim();
+				if (!victimAddress) throw new Error("victim_address is required");
+				const incidentTimestampMs = optionalNumberArg(args["incident_timestamp_ms"], "incident_timestamp_ms");
+				if (incidentTimestampMs === void 0) throw new Error("incident_timestamp_ms is required");
 				const result = await scamTopology(client, config, {
-					victimAddresses: args["victim_addresses"],
-					scammerAddresses: args["scammer_addresses"],
+					victimAddress,
 					network: String(args["network"] ?? ""),
-					caseId: args["case_id"] === void 0 ? void 0 : String(args["case_id"]),
 					maxHops: typeof args["max_hops"] === "number" ? args["max_hops"] : void 0,
-					perAddressLimit: typeof args["per_address_limit"] === "number" ? args["per_address_limit"] : void 0,
-					minAmountSum: typeof args["min_amount_sum"] === "number" ? args["min_amount_sum"] : void 0,
-					scope: args["scope"] === void 0 ? void 0 : String(args["scope"]),
-					sinceTimestampMs: optionalNumberArg(args["since_timestamp_ms"], "since_timestamp_ms")
+					incidentTimestampMs
 				});
 				console.log(result.summaryText);
 				console.log(JSON.stringify(result.structuredContent, null, 2));
@@ -663,7 +658,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			}
 			resolvedParams[key] = kv.slice(eq + 1);
 		}
-		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-CZDik9T2.cjs"));
+		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-WWtvrS7i.cjs"));
 		const markdown = await resolvePlaybookContent(name);
 		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-BUIWW1OH.cjs"));
 		const definition = PlaybookParser.parse(markdown, resolvedParams);
@@ -689,7 +684,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new commander.Command("list").description("List available playbooks (built-in and user-defined)").action(async () => {
 	try {
-		const { listPlaybooks } = await Promise.resolve().then(() => require("./resolver-CZDik9T2.cjs"));
+		const { listPlaybooks } = await Promise.resolve().then(() => require("./resolver-WWtvrS7i.cjs"));
 		const playbooks = await listPlaybooks();
 		if (playbooks.length === 0) {
 			console.log("No playbooks found.");
@@ -702,7 +697,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new commander.Command("show").description("Show steps for a playbook without executing").argument("<name>", "Playbook name").action(async (name) => {
 	try {
-		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-CZDik9T2.cjs"));
+		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-WWtvrS7i.cjs"));
 		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-BUIWW1OH.cjs"));
 		const markdown = await resolvePlaybookContent(name);
 		const definition = PlaybookParser.parse(markdown, {});

@@ -55,13 +55,18 @@ describe('SCAM_TOPOLOGY_PLAYBOOK', () => {
     expect(def.steps.map(step => step.tool)).toEqual(['address_risk', 'scam_topology'])
   })
 
-  it('maps address to scammer_addresses by default', () => {
-    const def = PlaybookParser.parse(SCAM_TOPOLOGY_PLAYBOOK, { address: '0x1' })
-    expect(def.steps[1].params).toMatchObject({ scammer_addresses: '0x1', network: 'bittensor' })
+  it('maps victim address and incident timestamp by default', () => {
+    const def = PlaybookParser.parse(SCAM_TOPOLOGY_PLAYBOOK, { address: '0x1', incident_timestamp_ms: '1715532228001' })
+    expect(def.steps[1].params).toMatchObject({
+      victim_address: '0x1',
+      incident_timestamp_ms: '1715532228001',
+      network: 'bittensor',
+    })
   })
 
-  it('documents history incident compare scope semantics', () => {
-    expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('scope=history|incident|compare')
+  it('documents victim incident topology semantics', () => {
+    expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('victim_address')
+    expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('incident_timestamp_ms')
     expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('victim-only traversal is outward from victim/source funds')
     expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('exchange terminal safety')
   })

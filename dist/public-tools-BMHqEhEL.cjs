@@ -1,7 +1,9 @@
-import { n as workspaceOutputPaths } from "./output-root-CmWM7aV2.mjs";
-import { t as normalizeGraphPayload } from "./graph-normalizer-Cv9yK9Pg.mjs";
-import path from "node:path";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+const require_chunk = require("./chunk-CZWwpsFl.cjs");
+const require_output_root = require("./output-root-CFYms3ad.cjs");
+const require_graph_normalizer = require("./graph-normalizer-DeIj6Ses.cjs");
+let node_path = require("node:path");
+node_path = require_chunk.__toESM(node_path, 1);
+let node_fs_promises = require("node:fs/promises");
 //#region src/investigation/trace-funds.ts
 var AliasTracker = class {
 	byAddress = /* @__PURE__ */ new Map();
@@ -72,23 +74,23 @@ function sanitizeSegment(value) {
 	return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "trace";
 }
 async function ensureDirs(paths) {
-	await mkdir(paths.schemaDir, {
+	await (0, node_fs_promises.mkdir)(paths.schemaDir, {
 		recursive: true,
 		mode: 448
 	});
-	await mkdir(paths.reportsRoot, {
+	await (0, node_fs_promises.mkdir)(paths.reportsRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await mkdir(paths.reportGraphsRoot, {
+	await (0, node_fs_promises.mkdir)(paths.reportGraphsRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await mkdir(paths.reportTablesRoot, {
+	await (0, node_fs_promises.mkdir)(paths.reportTablesRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await mkdir(paths.logsRoot, {
+	await (0, node_fs_promises.mkdir)(paths.logsRoot, {
 		recursive: true,
 		mode: 448
 	});
@@ -153,17 +155,17 @@ function schemaFromGraphBatch(network, batch) {
 	};
 }
 async function loadOrCaptureTopologySchema(remoteClient, paths, network) {
-	const filePath = path.join(paths.schemaDir, `${sanitizeSegment(network)}.graph-schema.json`);
+	const filePath = node_path.default.join(paths.schemaDir, `${sanitizeSegment(network)}.graph-schema.json`);
 	try {
 		return {
-			schema: JSON.parse(await readFile(filePath, "utf8")),
+			schema: JSON.parse(await (0, node_fs_promises.readFile)(filePath, "utf8")),
 			filePath
 		};
 	} catch (err) {
 		if (err.code !== "ENOENT") throw err;
 	}
 	const schema = schemaFromGraphBatch(network, await callGraphBatch$2(remoteClient, network, SCHEMA_QUERY_SET));
-	await writeFile(filePath, JSON.stringify(schema, null, 2) + "\n", { mode: 384 });
+	await (0, node_fs_promises.writeFile)(filePath, JSON.stringify(schema, null, 2) + "\n", { mode: 384 });
 	return {
 		schema,
 		filePath
@@ -552,7 +554,7 @@ function buildGraph$1(seedAddress, network, flows, deposits, sourceMatches, reve
 		});
 		return edges;
 	});
-	return normalizeGraphPayload({
+	return require_graph_normalizer.normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: [...totals.entries()].map(([address, data]) => ({
 			id: address,
@@ -818,7 +820,7 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	const maxHops = clampInt$1(options.maxHops, 3, 1, 5);
 	const perAddressLimit = clampInt$1(options.perAddressLimit, 5, 1, 10);
 	const minAmountSum = Math.max(0, options.minAmountSum ?? 0);
-	const paths = workspaceOutputPaths();
+	const paths = require_output_root.workspaceOutputPaths();
 	await ensureDirs(paths);
 	const schemaResult = await loadOrCaptureTopologySchema(remoteClient, paths, network);
 	const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, {
@@ -832,21 +834,21 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	const slug = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}_${sanitizeSegment(seedAddress.slice(0, 16))}`;
 	const compact = probeEvidence(seedAddress, network, schemaResult.filePath, aliases, flows, deposits, sourceMatches, reverseLeads);
 	const graph = buildGraph$1(seedAddress, network, flows, deposits, sourceMatches, reverseLeads);
-	const compactPath = path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
-	const graphPath = path.join(paths.reportGraphsRoot, `${slug}.graph.json`);
-	const graphHtmlPath = path.join(paths.reportsRoot, `${slug}.graph.html`);
-	const tablePath = path.join(paths.reportTablesRoot, `${slug}.flows.csv`);
-	const tableHtmlPath = path.join(paths.reportsRoot, `${slug}.table.html`);
-	const reportPath = path.join(paths.reportsRoot, `${slug}.trace-report.md`);
-	const { generateInlineGraphHtml } = await import("./html-generator-DazwHVyW.mjs").then((n) => n.n);
-	await writeFile(compactPath, JSON.stringify(compact, null, 2) + "\n", { mode: 384 });
-	await writeFile(graphPath, JSON.stringify(graph, null, 2) + "\n", { mode: 384 });
-	await writeFile(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 384 });
-	await writeFile(tablePath, tableCsv(flows), { mode: 384 });
-	await writeFile(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 384 });
-	await writeFile(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 384 });
+	const compactPath = node_path.default.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
+	const graphPath = node_path.default.join(paths.reportGraphsRoot, `${slug}.graph.json`);
+	const graphHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.graph.html`);
+	const tablePath = node_path.default.join(paths.reportTablesRoot, `${slug}.flows.csv`);
+	const tableHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.table.html`);
+	const reportPath = node_path.default.join(paths.reportsRoot, `${slug}.trace-report.md`);
+	const { generateInlineGraphHtml } = await Promise.resolve().then(() => require("./html-generator-9xvA43R8.cjs")).then((n) => n.html_generator_exports);
+	await (0, node_fs_promises.writeFile)(compactPath, JSON.stringify(compact, null, 2) + "\n", { mode: 384 });
+	await (0, node_fs_promises.writeFile)(graphPath, JSON.stringify(graph, null, 2) + "\n", { mode: 384 });
+	await (0, node_fs_promises.writeFile)(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 384 });
+	await (0, node_fs_promises.writeFile)(tablePath, tableCsv(flows), { mode: 384 });
+	await (0, node_fs_promises.writeFile)(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 384 });
+	await (0, node_fs_promises.writeFile)(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 384 });
 	if (options.caseId) {
-		const { EvidenceStore } = await import("./cases-By7INiOa.mjs");
+		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
 		await EvidenceStore.append(options.caseId, {
 			source: "track_funds",
 			queryParams: `network=${network} seed_address=${seedAddress} max_hops=${maxHops} per_address_limit=${perAddressLimit} min_amount_sum=${minAmountSum}`,
@@ -903,11 +905,15 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 }
 //#endregion
 //#region src/investigation/scam-topology.ts
-const SCAM_TOPOLOGY_GRAPH_QUERY_TIMEOUT_SECONDS = 600;
+const SCAM_TOPOLOGY_GRAPH_QUERY_TIMEOUT_SECONDS = 15;
 const SCAM_TOPOLOGY_GRAPH_BATCH_REQUEST_TIMEOUT_MS = 900 * 1e3;
 const SCAM_TOPOLOGY_MAX_BATCH_QUERIES = 20;
 const SCAM_TOPOLOGY_ARCHIVE_BATCH_QUERIES = 1;
 const SCAM_TOPOLOGY_DEPOSIT_CLUSTER_LIMIT = 200;
+const SCAM_TOPOLOGY_DEFAULT_MAX_HOPS = 16;
+const SCAM_TOPOLOGY_MAX_HOPS = 64;
+const SCAM_TOPOLOGY_FRONTIER_LIMIT = 10;
+const SCAM_TOPOLOGY_MAX_FRONTIER_SOURCES_PER_HOP = 50;
 function parseAddressList$1(value) {
 	const raw = Array.isArray(value) ? value.join(",") : value ?? "";
 	return [...new Set(raw.split(",").map((entry) => entry.trim()).filter(Boolean))];
@@ -990,9 +996,6 @@ function hasExchangeLabel(labels) {
 function isExchangeEndpoint(labels, isExchange, roles) {
 	return isExchangeFlag(isExchange) || hasExchangeLabel(labels) || roles.some((role) => role.toLowerCase().includes("exchange"));
 }
-function addressPredicate(addresses) {
-	return addresses.map((address) => `src.address = "${escapeCypherString$1(address)}"`).join(" OR ");
-}
 function traversalProjection() {
 	return [
 		"src.address AS src",
@@ -1010,15 +1013,15 @@ function traversalProjection() {
 		"r.last_tx_id AS last_tx_id"
 	].join(", ");
 }
-function frontierQuery(graphScope, sourceAddress, hop, sourceIndex, perAddressLimit, minAmountSum, sinceTimestampMs) {
-	const where = [`(${addressPredicate([sourceAddress])})`, "src.address <> dst.address"];
+function frontierQuery(graphScope, sourceAddress, hop, sourceIndex, perAddressLimit, minAmountSum, incidentTimestampMs) {
+	const where = ["src.address <> dst.address"];
 	if (minAmountSum !== void 0) where.push(`r.amount_sum >= ${minAmountSum}`);
-	if (graphScope === "incident" && sinceTimestampMs !== void 0) where.push(`r.last_seen_timestamp >= ${sinceTimestampMs}`);
+	if (graphScope === "incident" && hop === 1 && incidentTimestampMs !== void 0) where.push(`r.last_seen_timestamp >= ${incidentTimestampMs}`);
 	return {
 		id: sourceIndex === void 0 ? `${graphScope}_hop_${hop}` : `${graphScope}_hop_${hop}_source_${sourceIndex}`,
 		query: [
 			`USE ${graphForScope(graphScope)}`,
-			"MATCH (src:Address)-[r:FLOWS_TO]->(dst:Address)",
+			`MATCH (src:Address {address: "${escapeCypherString$1(sourceAddress)}"})-[r:FLOWS_TO]->(dst:Address)`,
 			`WHERE ${where.join(" AND ")}`,
 			`RETURN ${traversalProjection()}`,
 			"ORDER BY r.amount_sum DESC",
@@ -1026,10 +1029,9 @@ function frontierQuery(graphScope, sourceAddress, hop, sourceIndex, perAddressLi
 		].join(" ")
 	};
 }
-function depositClusterQuery(graphScope, depositAddress, index, minAmountSum, sinceTimestampMs) {
+function depositClusterQuery(graphScope, depositAddress, index, minAmountSum) {
 	const where = ["src.address <> dst.address", "src.is_exchange IS NULL"];
 	if (minAmountSum !== void 0) where.push(`r.amount_sum >= ${minAmountSum}`);
-	if (graphScope === "incident" && sinceTimestampMs !== void 0) where.push(`r.last_seen_timestamp >= ${sinceTimestampMs}`);
 	return {
 		id: `${graphScope}_deposit_cluster_${index}`,
 		query: [
@@ -1078,14 +1080,12 @@ function edgeFromRow(row, graphScope, hop, context) {
 function edgeKey(edge) {
 	return `${edge.graph_scope}\u0000${edge.seed_role ?? ""}\u0000${edge.seed_address ?? ""}\u0000${edge.src}\u0000${edge.dst}`;
 }
-function mergedEdgeKey(edge) {
-	return `${edge.seed_role ?? ""}\u0000${edge.seed_address ?? ""}\u0000${edge.src}\u0000${edge.dst}`;
-}
 function frontierKey(entry) {
 	return `${entry.seedRole}\u0000${entry.seedAddress}\u0000${entry.address}`;
 }
-async function runDirectedTraversal(remoteClient, network, seeds, graphScope, maxHops, perAddressLimit, minAmountSum, sinceTimestampMs) {
+async function runDirectedTraversal(remoteClient, network, seeds, graphScope, maxHops, perAddressLimit, minAmountSum, incidentTimestampMs) {
 	const edgesByKey = /* @__PURE__ */ new Map();
+	const skippedQueryErrors = [];
 	let frontier = seeds.map((seed) => ({
 		address: seed.address,
 		seedAddress: seed.address,
@@ -1100,13 +1100,34 @@ async function runDirectedTraversal(remoteClient, network, seeds, graphScope, ma
 			frontierByAddress.set(entry.address, entries);
 		}
 		const frontierAddresses = [...frontierByAddress.keys()];
-		const queries = frontierAddresses.map((address, index) => frontierQuery(graphScope, address, hop, frontierAddresses.length === 1 ? void 0 : index + 1, perAddressLimit, minAmountSum, sinceTimestampMs));
+		const queries = frontierAddresses.map((address, index) => frontierQuery(graphScope, address, hop, frontierAddresses.length === 1 ? void 0 : index + 1, perAddressLimit, minAmountSum, incidentTimestampMs));
 		const nextByKey = /* @__PURE__ */ new Map();
 		const maxBatchQueries = graphScope === "history" ? SCAM_TOPOLOGY_ARCHIVE_BATCH_QUERIES : SCAM_TOPOLOGY_MAX_BATCH_QUERIES;
 		for (const queryChunk of chunks(queries, maxBatchQueries)) {
-			const batch = await callGraphBatch$1(remoteClient, network, queryChunk);
+			let batch;
+			try {
+				batch = await callGraphBatch$1(remoteClient, network, queryChunk);
+			} catch (err) {
+				if (hop === 1) throw err;
+				for (const query of queryChunk) skippedQueryErrors.push({
+					id: query.id,
+					hop,
+					graph_scope: graphScope,
+					error: err.message
+				});
+				continue;
+			}
 			for (const queryResult of batch.facts?.queries ?? []) {
-				if (queryResult.ok === false) throw new Error(queryResult.error || `Query failed: ${queryResult.id}`);
+				if (queryResult.ok === false) {
+					if (hop === 1) throw new Error(queryResult.error || `Query failed: ${queryResult.id}`);
+					skippedQueryErrors.push({
+						id: queryResult.id,
+						hop,
+						graph_scope: graphScope,
+						error: queryResult.error || `Query failed: ${queryResult.id}`
+					});
+					continue;
+				}
 				for (const row of queryResult.results ?? []) {
 					const src = stringValue(row["src"]) ?? stringValue(row["from_address"]);
 					if (!src) continue;
@@ -1130,15 +1151,16 @@ async function runDirectedTraversal(remoteClient, network, seeds, graphScope, ma
 				}
 			}
 		}
-		frontier = [...nextByKey.values()];
+		frontier = [...nextByKey.values()].slice(0, SCAM_TOPOLOGY_MAX_FRONTIER_SOURCES_PER_HOP);
 	}
 	return {
 		graphScope,
 		topologyGraph: graphForScope(graphScope),
-		edges: [...edgesByKey.values()]
+		edges: [...edgesByKey.values()],
+		skippedQueryErrors
 	};
 }
-async function expandDepositClusters(remoteClient, network, run, minAmountSum, sinceTimestampMs) {
+async function expandDepositClusters(remoteClient, network, run, minAmountSum) {
 	const edgesByKey = new Map(run.edges.map((edge) => [edgeKey(edge), edge]));
 	const terminalDepositsByKey = /* @__PURE__ */ new Map();
 	for (const edge of run.edges) {
@@ -1148,12 +1170,29 @@ async function expandDepositClusters(remoteClient, network, run, minAmountSum, s
 	}
 	const terminalDeposits = [...terminalDepositsByKey.values()];
 	if (terminalDeposits.length === 0) return run;
-	const queries = terminalDeposits.map((edge, index) => depositClusterQuery(run.graphScope, edge.src, index + 1, minAmountSum, sinceTimestampMs));
+	const queries = terminalDeposits.map((edge, index) => depositClusterQuery(run.graphScope, edge.src, index + 1, minAmountSum));
 	const maxBatchQueries = run.graphScope === "history" ? SCAM_TOPOLOGY_ARCHIVE_BATCH_QUERIES : SCAM_TOPOLOGY_MAX_BATCH_QUERIES;
 	for (const queryChunk of chunks(queries, maxBatchQueries)) {
-		const batch = await callGraphBatch$1(remoteClient, network, queryChunk);
+		let batch;
+		try {
+			batch = await callGraphBatch$1(remoteClient, network, queryChunk);
+		} catch (err) {
+			for (const query of queryChunk) run.skippedQueryErrors.push({
+				id: query.id,
+				graph_scope: run.graphScope,
+				error: err.message
+			});
+			continue;
+		}
 		for (const queryResult of batch.facts?.queries ?? []) {
-			if (queryResult.ok === false) throw new Error(queryResult.error || `Query failed: ${queryResult.id}`);
+			if (queryResult.ok === false) {
+				run.skippedQueryErrors.push({
+					id: queryResult.id,
+					graph_scope: run.graphScope,
+					error: queryResult.error || `Query failed: ${queryResult.id}`
+				});
+				continue;
+			}
 			const terminalEdge = terminalDeposits[queries.findIndex((query) => query.id === queryResult.id)];
 			if (!terminalEdge) continue;
 			const context = {
@@ -1178,32 +1217,6 @@ async function expandDepositClusters(remoteClient, network, run, minAmountSum, s
 		...run,
 		edges: [...edgesByKey.values()]
 	};
-}
-function mergeCompareRuns(history, incident) {
-	const buckets = /* @__PURE__ */ new Map();
-	for (const edge of history.edges) {
-		const bucket = buckets.get(mergedEdgeKey(edge)) ?? {};
-		bucket.history = edge;
-		buckets.set(mergedEdgeKey(edge), bucket);
-	}
-	for (const edge of incident.edges) {
-		const bucket = buckets.get(mergedEdgeKey(edge)) ?? {};
-		bucket.incident = edge;
-		buckets.set(mergedEdgeKey(edge), bucket);
-	}
-	return [...buckets.values()].map((bucket) => {
-		const base = bucket.incident ?? bucket.history;
-		if (!base) throw new Error("empty compare bucket");
-		const graphScopes = [...bucket.history ? ["history"] : [], ...bucket.incident ? ["incident"] : []];
-		const scopeMembership = bucket.history && bucket.incident ? "overlap" : bucket.history ? "history_only" : "incident_only";
-		const relation = bucket.history?.relation === "terminal_exchange" || bucket.incident?.relation === "terminal_exchange" ? "terminal_exchange" : bucket.history?.relation === "context_boundary" || bucket.incident?.relation === "context_boundary" ? "context_boundary" : base.relation;
-		return {
-			...base,
-			relation,
-			scope_membership: scopeMembership,
-			graph_scopes: graphScopes
-		};
-	});
 }
 function candidateKey(candidate) {
 	return `${candidate.address}\u0000${candidate.address_subtype}`;
@@ -1303,6 +1316,30 @@ function classifyTopology(seeds, edges) {
 	for (const edge of edges) {
 		if (edge.relation === "deposit_cluster_inflow") {
 			if (seedAddresses.has(edge.src) || victimAddresses.has(edge.src) || exchangeDepositAddresses.has(edge.src)) continue;
+			if (edge.src_labels.length > 0) {
+				pushCaseRole(caseRoles, {
+					address: edge.src,
+					role: "continue_from_address",
+					seed_address: edge.seed_address,
+					seed_role: edge.seed_role
+				});
+				addRole(rolesByAddress, edge.src, "continue_from_address");
+				investigationHints.push({
+					address: edge.src,
+					hint_type: "generic_labeled_cluster_member",
+					labels: edge.src_labels,
+					reason: "Generic labels are preserved as context, but the address shares an exchange-deposit inflow cluster with the scam topology.",
+					seed_address: edge.seed_address
+				});
+				pushSafetyDecision(safetyDecisions, {
+					address: edge.src,
+					decision: "context_only_generic_labeled_cluster_member",
+					reason: "Generic non-exchange labels stop automatic scam labeling; investigate manually if this context should continue.",
+					labels: edge.src_labels,
+					seed_address: edge.seed_address
+				});
+				continue;
+			}
 			pushCaseRole(caseRoles, {
 				address: edge.src,
 				role: "laundering_intermediate",
@@ -1310,13 +1347,6 @@ function classifyTopology(seeds, edges) {
 				seed_role: edge.seed_role
 			});
 			addRole(rolesByAddress, edge.src, "laundering_intermediate");
-			if (edge.src_labels.length > 0) investigationHints.push({
-				address: edge.src,
-				hint_type: "generic_labeled_cluster_member",
-				labels: edge.src_labels,
-				reason: "Generic labels are preserved as context, but the address shares an exchange-deposit inflow cluster with the scam topology.",
-				seed_address: edge.seed_address
-			});
 			mergeCandidate(candidates, makeCandidate(edge.src, "laundering_intermediate", edgeEvidence(edge, "Address sends into an exchange-deposit cluster reached from a known scam topology seed."), edge.seed_role === "scammer" ? .78 : .64, "review_required"));
 			continue;
 		}
@@ -1442,7 +1472,7 @@ function buildGraph(seeds, edges, rolesByAddress, facts) {
 			is_exchange: edge.dst_is_exchange || dst["is_exchange"] === true
 		});
 	}
-	return normalizeGraphPayload({
+	return require_graph_normalizer.normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: [...nodesById.values()],
 		edges: edges.map((edge) => ({
@@ -1499,91 +1529,78 @@ function buildGraph(seeds, edges, rolesByAddress, facts) {
 		}
 	});
 }
-function summarize(network, scope, victimAddresses, scammerAddresses, candidates, safetyDecisions, topologyEdges, terminalPoints) {
-	const confirmed = candidates.filter((candidate) => candidate.promotion_status === "promote_confirmed").length;
+function makeScamLabels(candidates, victimAddress, incidentTimestampMs) {
+	return candidates.filter((candidate) => candidate.address_subtype !== "scam_seed").map((candidate) => ({
+		address: candidate.address,
+		scam: true,
+		confidence: candidate.confidence_score,
+		source: "scam_topology",
+		source_victim_address: victimAddress,
+		source_incident_timestamp_ms: incidentTimestampMs
+	}));
+}
+function summarize(network, victimAddress, incidentTimestampMs, candidates, scamLabels, safetyDecisions, topologyEdges, terminalPoints) {
 	const review = candidates.filter((candidate) => candidate.promotion_status === "review_required").length;
 	return [
 		`Scam topology complete for ${network}`,
 		"",
-		`Scope: ${scope}`,
-		`Victim/source seed(s): ${victimAddresses.join(", ") || "none"}`,
-		`Known scammer seed(s): ${scammerAddresses.join(", ") || "none"}`,
+		"Topology graph: live_topology",
+		`Victim/source seed: ${victimAddress}`,
+		`Incident timestamp ms: ${incidentTimestampMs}`,
 		`Topology edges: ${topologyEdges.length}.`,
 		`Terminal points: ${terminalPoints.length}.`,
-		`Label candidates: ${candidates.length} (${confirmed} promote_confirmed, ${review} review_required).`,
+		`Scam labels: ${scamLabels.length}.`,
+		`Review candidates: ${candidates.length} (${review} review_required).`,
 		`Safety decisions: ${safetyDecisions.length}.`,
 		"",
-		"Policy: victims and exchange endpoints are not risky labels; generic address labels are preserved as review context."
+		"Policy: victims, exchange endpoints, and generic labeled context nodes are not automatic scam labels."
 	].join("\n");
-}
-function validateScope(value) {
-	const scope = value ?? "incident";
-	if (scope === "history" || scope === "incident" || scope === "compare") return scope;
-	throw new Error("scope must be one of: history, incident, compare");
 }
 function validateNonNegativeNumber(value, name) {
 	if (value === void 0) return void 0;
 	if (!Number.isFinite(value) || value < 0) throw new Error(`${name} must be a non-negative number`);
 	return value;
 }
-function topologyGraphsForScope(scope) {
-	if (scope === "history") return ["archive_topology"];
-	if (scope === "incident") return ["live_topology"];
-	return ["archive_topology", "live_topology"];
-}
 async function scamTopology(remoteClient, config, options) {
 	const network = options.network.trim();
-	const victimAddresses = parseAddressList$1(options.victimAddresses);
-	const scammerAddresses = parseAddressList$1(options.scammerAddresses);
-	const scope = validateScope(options.scope);
-	const sinceTimestampMs = validateNonNegativeNumber(options.sinceTimestampMs, "sinceTimestampMs");
-	const maxHops = clampInt(options.maxHops, 3, 1, 5);
-	const perAddressLimit = clampInt(options.perAddressLimit, 5, 1, 10);
-	const minAmountSum = validateNonNegativeNumber(options.minAmountSum, "minAmountSum");
+	const legacyOptions = options;
+	const victimAddresses = parseAddressList$1(options.victimAddress ?? legacyOptions.victimAddresses);
+	const scammerAddresses = parseAddressList$1(legacyOptions.scammerAddresses);
+	const incidentTimestampMs = validateNonNegativeNumber(options.incidentTimestampMs, "incident_timestamp_ms");
+	const maxHops = clampInt(options.maxHops, SCAM_TOPOLOGY_DEFAULT_MAX_HOPS, 1, SCAM_TOPOLOGY_MAX_HOPS);
+	const perAddressLimit = SCAM_TOPOLOGY_FRONTIER_LIMIT;
+	const minAmountSum = void 0;
 	if (!network) throw new Error("network is required");
-	if (victimAddresses.length + scammerAddresses.length === 0) throw new Error("victim_addresses or scammer_addresses is required");
-	if (victimAddresses.length > 5) throw new Error("victim_addresses cannot exceed 5 addresses");
-	if (scammerAddresses.length > 5) throw new Error("scammer_addresses cannot exceed 5 addresses");
-	const overlap = victimAddresses.filter((address) => scammerAddresses.includes(address));
-	if (overlap.length > 0) throw new Error(`Address(es) appear in both victim and scammer lists: ${overlap.join(", ")}`);
-	const seeds = [...victimAddresses.map((address) => ({
-		address,
+	if (legacyOptions.scope !== void 0) throw new Error("scope is no longer accepted; scam_topology always runs the victim incident topology");
+	if (legacyOptions.sinceTimestampMs !== void 0) throw new Error("since_timestamp_ms is no longer accepted; use incident_timestamp_ms");
+	if (legacyOptions.perAddressLimit !== void 0) throw new Error("per_address_limit is no longer accepted; scam_topology uses its internal bounded frontier");
+	if (legacyOptions.minAmountSum !== void 0) throw new Error("min_amount_sum is no longer accepted; scam_topology does not amount-filter scam topology expansion");
+	if (scammerAddresses.length > 0) throw new Error("scammer_addresses is no longer accepted; scam_topology starts from a victim incident");
+	if (victimAddresses.length === 0) throw new Error("victim_address is required");
+	if (victimAddresses.length !== 1) throw new Error("victim_address must contain exactly one address");
+	if (incidentTimestampMs === void 0) throw new Error("incident_timestamp_ms is required");
+	const victimAddress = victimAddresses[0];
+	const seeds = [{
+		address: victimAddress,
 		role: "victim"
-	})), ...scammerAddresses.map((address) => ({
-		address,
-		role: "scammer"
-	}))];
+	}];
 	const runs = [];
-	if (scope === "history" || scope === "compare") {
-		const historyRun = await runDirectedTraversal(remoteClient, network, seeds, "history", maxHops, perAddressLimit, minAmountSum, sinceTimestampMs);
-		runs.push(await expandDepositClusters(remoteClient, network, historyRun, minAmountSum, sinceTimestampMs));
-	}
-	if (scope === "incident" || scope === "compare") {
-		const incidentRun = await runDirectedTraversal(remoteClient, network, seeds, "incident", maxHops, perAddressLimit, minAmountSum, sinceTimestampMs);
-		runs.push(await expandDepositClusters(remoteClient, network, incidentRun, minAmountSum, sinceTimestampMs));
-	}
-	const topologyEdges = scope === "compare" ? mergeCompareRuns(runs.find((run) => run.graphScope === "history") ?? {
-		graphScope: "history",
-		topologyGraph: "archive_topology",
-		edges: []
-	}, runs.find((run) => run.graphScope === "incident") ?? {
-		graphScope: "incident",
-		topologyGraph: "live_topology",
-		edges: []
-	}) : runs.flatMap((run) => run.edges);
+	const incidentRun = await runDirectedTraversal(remoteClient, network, seeds, "incident", maxHops, perAddressLimit, minAmountSum, incidentTimestampMs);
+	runs.push(await expandDepositClusters(remoteClient, network, incidentRun, minAmountSum));
+	const topologyEdges = runs.flatMap((run) => run.edges);
 	const classification = classifyTopology(seeds, topologyEdges);
 	const labelCandidates = classification.labelCandidates;
+	const scamLabels = makeScamLabels(labelCandidates, victimAddress, incidentTimestampMs);
 	const facts = {
 		network,
-		victim_addresses: victimAddresses,
-		scammer_addresses: scammerAddresses,
-		scope,
-		...sinceTimestampMs !== void 0 ? { since_timestamp_ms: sinceTimestampMs } : {},
-		topology_graphs: topologyGraphsForScope(scope),
+		victim_address: victimAddress,
+		incident_timestamp_ms: incidentTimestampMs,
+		topology_graphs: ["live_topology"],
 		topology_edges: topologyEdges,
 		intermediaries: classification.intermediaries,
 		terminal_points: classification.terminalPoints,
 		investigation_hints: classification.investigationHints,
+		scam_labels: scamLabels,
 		label_candidates: labelCandidates,
 		case_roles: classification.caseRoles,
 		safety_decisions: classification.safetyDecisions,
@@ -1594,33 +1611,32 @@ async function scamTopology(remoteClient, config, options) {
 			topology_graph: run.topologyGraph,
 			edge_count: run.edges.length,
 			max_hops: maxHops,
-			per_address_limit: perAddressLimit
+			frontier_limit: perAddressLimit,
+			frontier_source_limit_per_hop: SCAM_TOPOLOGY_MAX_FRONTIER_SOURCES_PER_HOP,
+			skipped_query_errors: run.skippedQueryErrors
 		}))
 	};
 	const graphData = buildGraph(seeds, topologyEdges, classification.rolesByAddress, facts);
-	const summaryText = summarize(network, scope, victimAddresses, scammerAddresses, labelCandidates, classification.safetyDecisions, topologyEdges, classification.terminalPoints);
-	if (options.caseId) {
-		const { EvidenceStore } = await import("./cases-By7INiOa.mjs");
-		await EvidenceStore.append(options.caseId, {
+	const summaryText = summarize(network, victimAddress, incidentTimestampMs, labelCandidates, scamLabels, classification.safetyDecisions, topologyEdges, classification.terminalPoints);
+	if (legacyOptions.caseId) {
+		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
+		await EvidenceStore.append(legacyOptions.caseId, {
 			source: "scam_topology",
 			queryParams: [
 				`network=${network}`,
-				`victim_addresses=${victimAddresses.join(",")}`,
-				`scammer_addresses=${scammerAddresses.join(",")}`,
-				`scope=${scope}`,
-				sinceTimestampMs !== void 0 ? `since_timestamp_ms=${sinceTimestampMs}` : ""
+				`victim_address=${victimAddress}`,
+				`incident_timestamp_ms=${incidentTimestampMs}`
 			].filter(Boolean).join(" "),
 			content: JSON.stringify({
 				schema: "chain-insights.scam_topology_evidence.v1",
 				source: "scam_topology",
 				network,
-				victim_addresses: victimAddresses,
-				scammer_addresses: scammerAddresses,
-				scope,
-				since_timestamp_ms: sinceTimestampMs,
-				topology_graphs: topologyGraphsForScope(scope),
+				victim_address: victimAddress,
+				incident_timestamp_ms: incidentTimestampMs,
+				topology_graphs: ["live_topology"],
 				topology_edge_count: topologyEdges.length,
 				terminal_points: classification.terminalPoints,
+				scam_labels: scamLabels,
 				label_candidates: labelCandidates,
 				safety_decisions: classification.safetyDecisions
 			}, null, 2)
@@ -1632,7 +1648,7 @@ async function scamTopology(remoteClient, config, options) {
 			schema: "chain-insights.result.v1",
 			tool: "scam_topology",
 			facts,
-			hint: "Review label_candidates before promoting derived addresses into core_address_labels."
+			hint: "Use scam_labels as ML-ready scam flags. Review label_candidates and safety_decisions before promoting addresses into core_address_labels."
 		},
 		graphData
 	};
@@ -1971,7 +1987,7 @@ function buildRiskGraph(address, profile, rows, network) {
 		}
 	}
 	const rawNodes = [...nodes.values()];
-	return restoreSystemLabels(normalizeGraphPayload({
+	return restoreSystemLabels(require_graph_normalizer.normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: rawNodes,
 		edges,
@@ -2085,7 +2101,7 @@ async function trackFunds(remoteClient, config, options) {
 			minAmountSum: options.minAmountSum
 		})
 	});
-	const graphData = normalizeGraphPayload({
+	const graphData = require_graph_normalizer.normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: runs.flatMap((run) => Array.isArray(run.result.graphData.nodes) ? run.result.graphData.nodes : []),
 		edges: runs.flatMap((run) => Array.isArray(run.result.graphData.edges) ? run.result.graphData.edges : []),
@@ -2142,6 +2158,6 @@ async function trackFunds(remoteClient, config, options) {
 	};
 }
 //#endregion
-export { addressRisk, scamTopology, trackFunds };
-
-//# sourceMappingURL=public-tools-BwiS9dbO.mjs.map
+exports.addressRisk = addressRisk;
+exports.scamTopology = scamTopology;
+exports.trackFunds = trackFunds;

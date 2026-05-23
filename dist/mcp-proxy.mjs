@@ -37,15 +37,14 @@ const GRAPH_ARRAY_KEYS = [
 	"edge_anchors"
 ];
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const COMMA_SEPARATED_ADDRESS_FIELDS = new Set([
-	"scammer_addresses",
-	"trusted_addresses",
-	"untrusted_addresses",
-	"victim_addresses"
-]);
+const COMMA_SEPARATED_ADDRESS_FIELDS = new Set(["trusted_addresses", "untrusted_addresses"]);
 const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS = {
 	address_risk: ["address", "network"],
-	scam_topology: ["network"],
+	scam_topology: [
+		"victim_address",
+		"incident_timestamp_ms",
+		"network"
+	],
 	track_funds: ["trusted_addresses", "network"],
 	graph_query: ["query", "network"],
 	graph_query_batch: ["network", "queries"]
@@ -53,7 +52,7 @@ const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS = {
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS = {
 	network_capabilities: "Return supported Chain Insights networks, capability layers, tool availability, data retention windows, and freshness. Use this before choosing network-specific tools.",
 	address_risk: "Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. This includes the exchange-behavior analysis formerly covered by money_flows_between_exchanges. Use this as the first tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.",
-	scam_topology: "Build scam-case laundering topology from explicit victim/source and known scammer seed addresses. Victim traversal is directed outward from victim/source funds; victim addresses are case roles, not risky labels. Use scope=history for archive topology, scope=incident for live topology with optional since_timestamp_ms filtering, and scope=compare for history/live membership. Exchange endpoints are terminal safety context; preserve full addresses exactly.",
+	scam_topology: "Build victim-incident laundering topology from one victim/source address and the earliest known incident timestamp. The timestamp anchors the victim outflow only; downstream traversal may enter older scam infrastructure. Returns ML-ready scam_labels plus review context. Victims, exchange endpoints, and generic labeled context nodes are not automatic scam labels; preserve full addresses exactly.",
 	track_funds: "Trace funds from trusted victim/source addresses through intermediaries to exchange deposit addresses. Use this when the user has a victim/source address or known untrusted/scammer addresses. The tool returns an investigator-ready fund-flow report and recommended next actions.",
 	graph_query: "Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE live_topology for Memgraph RAM topology, USE archive_topology for StarRocks historical topology, and USE facts for StarRocks facts. Cross-backend correlated joins are limited by current MemGQL behavior; preserve full addresses exactly.",
 	graph_query_batch: "Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads."
@@ -63,7 +62,7 @@ const CHAIN_INSIGHTS_WORKFLOW = [
 	"Workflow:",
 	"1. If the user is starting or continuing an investigation, use case_open or case_list/case_resume first.",
 	"2. Do not call investigation tools until required arguments are known. Network is required; use network_capabilities to check supported networks, data layers, retention, and freshness, or ask the user if missing.",
-	"3. Use address_risk first for a single address when facts and topology are available. Use track_funds for victim/source fund tracing when topology is available. Use scam_topology when known scam ground truth should become evidence-backed label candidates. Use graph_query(_batch) for the universal graph-language path over topology and facts.",
+	"3. Use address_risk first for a single address when facts and topology are available. Use track_funds for victim/source fund tracing when topology is available. Use scam_topology when known victim incident ground truth should become ML-ready scam labels. Use graph_query(_batch) for the universal graph-language path over topology and facts.",
 	"4. After a material result, preserve it with case_add_evidence when a case is active or ask whether to create/select a case.",
 	"5. Use case_update_dossier for durable address/entity findings and case_start_session/case_end_session for session notes."
 ].join("\n");
@@ -147,15 +146,9 @@ function knownPublicToolInputSchema(toolName) {
 		};
 		case "scam_topology": return {
 			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
-			victim_addresses: z.union([z.string(), z.array(z.string())]).optional().describe("Known victim/source addresses, comma-separated or array. Max 5. Victims are not risky labels."),
-			scammer_addresses: z.union([z.string(), z.array(z.string())]).optional().describe("Known scammer/attacker seed addresses, comma-separated or array. Max 5."),
-			scope: z.enum([
-				"history",
-				"incident",
-				"compare"
-			]).optional().describe("Traversal scope: history uses archive topology; incident uses live topology; compare returns history/live membership."),
-			since_timestamp_ms: z.number().min(0).optional().describe("Optional incident start timestamp in milliseconds. Applied to incident live topology as r.last_seen_timestamp >= since_timestamp_ms."),
-			include_attachments: z.boolean().optional().describe("Include graph app report metadata")
+			victim_address: z.string().min(1).describe("Full victim/source address that anchors the scam incident. Victims are not risky labels."),
+			incident_timestamp_ms: z.number().min(0).describe("Earliest known incident transfer timestamp in milliseconds. Applied only to the first victim outflow."),
+			max_hops: z.number().int().min(1).max(64).optional().describe("Maximum forward expansion depth. Default 16.")
 		};
 		case "graph_query": return {
 			query: z.string().min(1).describe("Read-only GQL/Cypher query. Use USE live_topology for Memgraph RAM topology, USE archive_topology for StarRocks historical topology, and USE facts for StarRocks facts."),
@@ -971,7 +964,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { addressRisk } = await import("./public-tools-BwiS9dbO.mjs");
+			const { addressRisk } = await import("./public-tools-D42TwgVf.mjs");
 			const { writeGraphReport } = await import("./graph-reports-C4TBjCkM.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-Dxz5YbuQ.mjs");
 			const result = await addressRisk(remoteClient, {
@@ -1035,7 +1028,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { trackFunds } = await import("./public-tools-BwiS9dbO.mjs");
+			const { trackFunds } = await import("./public-tools-D42TwgVf.mjs");
 			const { writeGraphReport } = await import("./graph-reports-C4TBjCkM.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-Dxz5YbuQ.mjs");
 			const result = await trackFunds(remoteClient, config, {
@@ -1079,19 +1072,9 @@ async function createProxy() {
 		description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.scam_topology,
 		inputSchema: {
 			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
-			victim_addresses: z.union([z.string(), z.array(z.string())]).optional().describe("Known victim/source addresses. Max 5. Victims are not risky labels."),
-			scammer_addresses: z.union([z.string(), z.array(z.string())]).optional().describe("Known scammer/attacker seed addresses. Max 5."),
-			scope: z.enum([
-				"history",
-				"incident",
-				"compare"
-			]).optional().describe("Traversal scope. history uses archive_topology; incident uses live_topology with optional since_timestamp_ms; compare annotates history/live membership."),
-			since_timestamp_ms: z.number().min(0).optional().describe("Optional incident start timestamp in milliseconds. Applied as r.last_seen_timestamp >= since_timestamp_ms."),
-			include_attachments: z.boolean().optional().describe("Include graph app report metadata"),
-			case_id: z.string().optional().describe("Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest."),
-			max_hops: z.number().int().min(1).max(5).optional(),
-			per_address_limit: z.number().int().min(1).max(10).optional(),
-			min_amount_sum: z.number().min(0).optional()
+			victim_address: z.string().min(1).describe("Full victim/source address that anchors the scam incident. Victims are not risky labels."),
+			incident_timestamp_ms: z.number().min(0).describe("Earliest known incident transfer timestamp in milliseconds. Applied only to the first victim outflow."),
+			max_hops: z.number().int().min(1).max(64).optional().describe("Maximum forward expansion depth. Default 16.")
 		},
 		_meta: { ui: { resourceUri: GRAPH_RESOURCE_URI } },
 		annotations: {
@@ -1100,7 +1083,7 @@ async function createProxy() {
 			idempotentHint: false,
 			openWorldHint: true
 		}
-	}, async ({ victim_addresses, scammer_addresses, network, case_id, max_hops, per_address_limit, min_amount_sum, scope, since_timestamp_ms }) => {
+	}, async ({ victim_address, incident_timestamp_ms, network, max_hops }) => {
 		try {
 			if (!remoteConnected) return {
 				content: [{
@@ -1109,19 +1092,14 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { scamTopology } = await import("./public-tools-BwiS9dbO.mjs");
+			const { scamTopology } = await import("./public-tools-D42TwgVf.mjs");
 			const { writeGraphReport } = await import("./graph-reports-C4TBjCkM.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-Dxz5YbuQ.mjs");
 			const result = await scamTopology(remoteClient, config, {
-				victimAddresses: victim_addresses,
-				scammerAddresses: scammer_addresses,
+				victimAddress: victim_address,
 				network,
-				caseId: case_id,
 				maxHops: max_hops,
-				perAddressLimit: per_address_limit,
-				minAmountSum: min_amount_sum,
-				scope,
-				sinceTimestampMs: since_timestamp_ms
+				incidentTimestampMs: incident_timestamp_ms
 			});
 			const report = await writeGraphReport(result.graphData, {
 				serverPort: config.serverPort,
@@ -1165,7 +1143,7 @@ async function createProxy() {
 				"- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.",
 				"- address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.",
 				"- track_funds: trace up to five trusted/victim addresses plus up to five known untrusted/scammer addresses through intermediaries to exchange deposit addresses.",
-				"- scam_topology: derive laundering roles and reviewable label candidates from known scam victim/scammer seed addresses.",
+				"- scam_topology: derive ML-ready scam_labels from one victim incident address and incident_timestamp_ms.",
 				"- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE live_topology, USE archive_topology, or USE facts.",
 				"- graph_query_batch: run related read-only graph-language queries through one paid graph call.",
 				"",
