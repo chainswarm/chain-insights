@@ -147,6 +147,7 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
     const result = await scamTopology(client, config, {
       victimAddress: args['victim_address'] === undefined ? undefined : String(args['victim_address']),
       network: String(args['network'] ?? ''),
+      caseId: args['case_id'] === undefined ? undefined : String(args['case_id']),
       maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
       incidentTimestampMs: Number.isFinite(incidentTimestampMs) ? incidentTimestampMs : undefined,
       activityPolicyMode: args['activity_policy'] === undefined ? undefined : String(args['activity_policy']),
@@ -465,6 +466,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
       'incident_timestamp_ms=1715532228001',
       'max_hops=2',
       'activity_policy=global_incident_only',
+      'case_id=case-123',
     ])
 
     expect(mockScamTopology).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
@@ -473,6 +475,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
       incidentTimestampMs: 1715532228001,
       maxHops: 2,
       activityPolicyMode: 'global_incident_only',
+      caseId: 'case-123',
     }))
     expect(mockClientCallTool).not.toHaveBeenCalled()
     expect(consoleLogSpy).toHaveBeenCalledWith('Scam topology complete for bittensor')

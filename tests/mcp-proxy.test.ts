@@ -1487,6 +1487,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(inputSchema.activity_policy.safeParse('node_relative_only').success).toBe(true)
     expect(inputSchema.activity_policy.safeParse('global_incident_only').success).toBe(true)
     expect(inputSchema.activity_policy.safeParse('compare').success).toBe(false)
+    expect(inputSchema.case_id.safeParse(mockCase.id).success).toBe(true)
     expect(inputSchema.compare_activity_policies).toBeUndefined()
     expect(inputSchema.scope).toBeUndefined()
     expect(inputSchema.since_timestamp_ms).toBeUndefined()
@@ -1499,6 +1500,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       incident_timestamp_ms: 1715532228001,
       max_hops: 4,
       activity_policy: 'global_incident_only',
+      case_id: mockCase.id,
     })
 
     expect(result.isError).toBe(false)
@@ -1517,6 +1519,13 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       .toContain('r.last_seen_timestamp >= 1715532228001')
     expect(clientInstance.callTool.mock.calls[2]?.[0].arguments.queries[0].id)
       .toBe('incident_deposit_cluster_1')
+    expect(evidenceAppendMock).toHaveBeenCalledWith(
+      mockCase.id,
+      expect.objectContaining({
+        source: 'scam_topology',
+        content: expect.stringContaining('"schema": "chain-insights.evidence_pointer.v1"'),
+      }),
+    )
     const graphUrl = result._meta.chainInsights.graph.url as string
     const filename = graphUrl.split('/graph-reports/')[1]
     expect(filename).toMatch(/\.graph\.json$/)

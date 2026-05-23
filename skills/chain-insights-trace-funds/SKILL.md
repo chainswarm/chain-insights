@@ -71,7 +71,14 @@ deposits are `deposits`, and deposit-cluster enrichment is represented as
 ```bash
 cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --max-hops 16
 cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --max-hops 16 --activity-policy global_incident_only
+cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --case 1
 ```
+
+When `case_id` or CLI `--case` is present, `scam_topology` mirrors
+`track_funds` case behavior: it appends a compact
+`chain-insights.evidence_pointer.v1` entry that points at workspace-local
+compact evidence JSON, graph JSON, graph HTML, label-candidate CSV, and
+Markdown report files.
 
 Use `track_funds` for a single address by passing that address as the only
 `trusted_addresses` value. The workflow is a TypeScript port of the probe
