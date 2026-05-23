@@ -2,7 +2,10 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import type { InvestigatorConfig } from '../config/schema.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
-import { runFundFlowProbe, type TraceFundsResult } from './trace-funds.js'
+
+export type ScamTopologyScope = 'history' | 'incident' | 'compare'
+export type ScamTopologyGraphScope = 'history' | 'incident'
+export type ScamTopologyScopeMembership = 'history_only' | 'incident_only' | 'overlap'
 
 export interface ScamTopologyOptions {
   network: string
@@ -12,6 +15,8 @@ export interface ScamTopologyOptions {
   maxHops?: number
   perAddressLimit?: number
   minAmountSum?: number
+  scope?: ScamTopologyScope
+  sinceTimestampMs?: number
 }
 
 export type ScamTopologySeedRole = 'victim' | 'scammer'
@@ -31,9 +36,47 @@ export interface ScamTopologyLabelCandidate {
 
 export interface ScamTopologyCaseRole {
   address: string
-  role: ScamTopologySeedRole | 'laundering_intermediate' | 'exchange_deposit_candidate' | 'exchange_endpoint' | 'reverse_lead'
+  role:
+    | ScamTopologySeedRole
+    | 'laundering_intermediate'
+    | 'exchange_deposit_candidate'
+    | 'exchange_endpoint'
+    | 'context_boundary'
+    | 'continue_from_address'
   seed_address?: string
   seed_role?: ScamTopologySeedRole
+}
+
+export type ScamTopologyEdgeRelation = 'seed_outflow' | 'traversal_edge' | 'terminal_exchange' | 'context_boundary'
+
+export interface ScamTopologyTopologyEdge {
+  relation: ScamTopologyEdgeRelation
+  src: string
+  dst: string
+  hop: number
+  graph_scope: ScamTopologyGraphScope
+  topology_graph: 'archive_topology' | 'live_topology'
+  scope_membership?: ScamTopologyScopeMembership
+  graph_scopes?: ScamTopologyGraphScope[]
+  seed_address?: string
+  seed_role?: ScamTopologySeedRole
+  amount_sum?: number
+  amount_usd_sum?: number
+  tx_count?: number
+  first_seen_timestamp?: number
+  last_seen_timestamp?: number
+  first_tx_id?: string
+  last_tx_id?: string
+  src_labels: string[]
+  dst_labels: string[]
+  src_is_exchange: boolean
+  dst_is_exchange: boolean
+}
+
+export interface ScamTopologyInfrastructureFlow {
+  relation: never
+  src: string
+  dst: string
 }
 
 export interface ScamTopologyResult {
@@ -45,6 +88,13 @@ export interface ScamTopologyResult {
       network: string
       victim_addresses: string[]
       scammer_addresses: string[]
+      scope: ScamTopologyScope
+      since_timestamp_ms?: number
+      topology_graphs: Array<'archive_topology' | 'live_topology'>
+      topology_edges: ScamTopologyTopologyEdge[]
+      intermediaries: string[]
+      terminal_points: Array<Record<string, unknown>>
+      investigation_hints: Array<Record<string, unknown>>
       label_candidates: ScamTopologyLabelCandidate[]
       case_roles: ScamTopologyCaseRole[]
       safety_decisions: Array<Record<string, unknown>>
@@ -55,12 +105,6 @@ export interface ScamTopologyResult {
     hint: string
   }
   graphData: Record<string, unknown>
-}
-
-type ScamTopologyRun = {
-  seedRole: ScamTopologySeedRole
-  address: string
-  result: TraceFundsResult
 }
 
 type RemoteToolResult = {
@@ -79,26 +123,24 @@ type ParsedGraphBatch = {
   }
 }
 
-type ScamTopologyInfrastructureRelation = 'seed_funding_input' | 'seed_sweep' | 'anchor_fan_in' | 'anchor_fan_out'
+type Seed = {
+  address: string
+  role: ScamTopologySeedRole
+}
 
-export interface ScamTopologyInfrastructureFlow {
-  relation: ScamTopologyInfrastructureRelation
-  src: string
-  dst: string
-  amount_sum?: number
-  amount_usd_sum?: number
-  tx_count?: number
-  first_tx_id?: string
-  last_tx_id?: string
-  src_labels?: string[]
-  dst_labels?: string[]
-  seed_address?: string
-  seed_role?: ScamTopologySeedRole
-  anchor_address?: string
+type FrontierEntry = {
+  address: string
+  seedAddress: string
+  seedRole: ScamTopologySeedRole
+}
+
+type TraversalRun = {
+  graphScope: ScamTopologyGraphScope
+  topologyGraph: 'archive_topology' | 'live_topology'
+  edges: ScamTopologyTopologyEdge[]
 }
 
 const SCAM_TOPOLOGY_GRAPH_QUERY_TIMEOUT_SECONDS = 600
-const INFRASTRUCTURE_ANCHOR_LIMIT = 40
 
 function parseAddressList(value: string | string[] | undefined): string[] {
   const raw = Array.isArray(value) ? value.join(',') : value ?? ''
@@ -108,17 +150,25 @@ function parseAddressList(value: string | string[] | undefined): string[] {
     .filter(Boolean))]
 }
 
-function graphArray(graphData: Record<string, unknown>, key: string): Array<Record<string, unknown>> {
-  const value = graphData[key]
-  return Array.isArray(value) ? value.filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null && !Array.isArray(item)) : []
-}
-
 function stringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.map(String).filter(Boolean) : []
+  if (Array.isArray(value)) return value.map(String).map((entry) => entry.trim()).filter(Boolean)
+  if (typeof value === 'string' && value.trim()) {
+    const trimmed = value.trim()
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown
+        if (Array.isArray(parsed)) return parsed.map(String).map((entry) => entry.trim()).filter(Boolean)
+      } catch {
+        // Fall back to comma splitting below.
+      }
+    }
+    return trimmed.split(',').map((entry) => entry.trim()).filter(Boolean)
+  }
+  return []
 }
 
 function stringValue(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim() ? value : undefined
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }
 
 function numberValue(value: unknown): number | undefined {
@@ -154,12 +204,6 @@ function parseGraphBatchResult(result: RemoteToolResult): ParsedGraphBatch {
   return parsed
 }
 
-function topologyGraphQuery(query: string): string {
-  const trimmed = query.trim()
-  if (/^USE\s+/i.test(trimmed)) return trimmed
-  return `USE live_topology ${trimmed}`
-}
-
 async function callGraphBatch(
   remoteClient: Client,
   network: string,
@@ -169,10 +213,7 @@ async function callGraphBatch(
     name: 'graph_query_batch',
     arguments: {
       network,
-      queries: queries.map((query) => ({
-        ...query,
-        query: topologyGraphQuery(query.query),
-      })),
+      queries,
       per_query_timeout_seconds: SCAM_TOPOLOGY_GRAPH_QUERY_TIMEOUT_SECONDS,
     },
   }) as RemoteToolResult
@@ -180,187 +221,242 @@ async function callGraphBatch(
   return parseGraphBatchResult(result)
 }
 
-function addressPredicate(variableName: string, addresses: string[]): string {
+function graphForScope(graphScope: ScamTopologyGraphScope): 'archive_topology' | 'live_topology' {
+  return graphScope === 'history' ? 'archive_topology' : 'live_topology'
+}
+
+function isExchangeFlag(value: unknown): boolean {
+  if (value === true) return true
+  if (value === false || value === null || value === undefined) return false
+  if (typeof value === 'string') return value.trim().length > 0 && value.trim().toLowerCase() !== 'false'
+  if (typeof value === 'number') return value !== 0
+  return false
+}
+
+function hasExchangeLabel(labels: string[]): boolean {
+  return labels.some((label) => label.toLowerCase() === 'exchange' || label.toLowerCase().includes('exchange'))
+}
+
+function isExchangeEndpoint(labels: string[], isExchange: unknown, roles: string[]): boolean {
+  return isExchangeFlag(isExchange) || hasExchangeLabel(labels) || roles.some((role) => role.toLowerCase().includes('exchange'))
+}
+
+function addressPredicate(addresses: string[]): string {
   return addresses
-    .map((address) => `${variableName}.address = "${escapeCypherString(address)}"`)
+    .map((address) => `src.address = "${escapeCypherString(address)}"`)
     .join(' OR ')
 }
 
-function flowProjection(relation: ScamTopologyInfrastructureRelation, sourceVariable = 'src', targetVariable = 'dst'): string {
+function traversalProjection(): string {
   return [
-    `"${relation}" AS relation`,
-    `${sourceVariable}.address AS src`,
-    `${targetVariable}.address AS dst`,
-    `${sourceVariable}.labels AS src_labels`,
-    `${targetVariable}.labels AS dst_labels`,
-    `r.amount_sum AS amount_sum`,
-    `r.amount_usd_sum AS amount_usd_sum`,
-    `r.tx_count AS tx_count`,
-    `r.first_tx_id AS first_tx_id`,
-    `r.last_tx_id AS last_tx_id`,
+    'src.address AS src',
+    'dst.address AS dst',
+    'src.labels AS src_labels',
+    'dst.labels AS dst_labels',
+    'src.roles AS src_roles',
+    'dst.roles AS dst_roles',
+    'src.is_exchange AS src_is_exchange',
+    'dst.is_exchange AS dst_is_exchange',
+    'r.amount_sum AS amount_sum',
+    'r.amount_usd_sum AS amount_usd_sum',
+    'r.tx_count AS tx_count',
+    'r.first_seen_timestamp AS first_seen_timestamp',
+    'r.last_seen_timestamp AS last_seen_timestamp',
+    'r.first_tx_id AS first_tx_id',
+    'r.last_tx_id AS last_tx_id',
   ].join(', ')
 }
 
-function seedIncidentQueries(run: ScamTopologyRun, index: number, limit: number): Array<{ id: string; query: string }> {
-  const address = escapeCypherString(run.address)
-  return [
-    {
-      id: `seed_in_${index}`,
-      query: [
-        `MATCH (src:Address)-[r:FLOWS_TO]->(dst:Address {address: "${address}"})`,
-        'WHERE src.address <> dst.address',
-        `RETURN ${flowProjection('seed_funding_input')}, dst.address AS anchor_address`,
-        'ORDER BY r.amount_sum DESC',
-        `LIMIT ${limit}`,
-      ].join(' '),
-    },
-    {
-      id: `seed_out_${index}`,
-      query: [
-        `MATCH (src:Address {address: "${address}"})-[r:FLOWS_TO]->(dst:Address)`,
-        'WHERE src.address <> dst.address',
-        `RETURN ${flowProjection('seed_sweep')}, src.address AS anchor_address`,
-        'ORDER BY r.amount_sum DESC',
-        `LIMIT ${limit}`,
-      ].join(' '),
-    },
+function frontierQuery(
+  graphScope: ScamTopologyGraphScope,
+  frontier: string[],
+  hop: number,
+  perAddressLimit: number,
+  minAmountSum: number | undefined,
+  sinceTimestampMs: number | undefined,
+): { id: string; query: string } {
+  const where = [
+    `(${addressPredicate(frontier)})`,
+    'src.address <> dst.address',
   ]
-}
-
-function anchorFanQueries(anchors: string[], limit: number): Array<{ id: string; query: string }> {
-  if (anchors.length === 0) return []
-  const dstPredicate = addressPredicate('dst', anchors)
-  const srcPredicate = addressPredicate('src', anchors)
-  return [
-    {
-      id: 'anchor_fan_in_1',
-      query: [
-        'MATCH (src:Address)-[r:FLOWS_TO]->(dst:Address)',
-        `WHERE (${dstPredicate}) AND src.address <> dst.address`,
-        `RETURN ${flowProjection('anchor_fan_in')}, dst.address AS anchor_address`,
-        'ORDER BY r.amount_sum DESC',
-        `LIMIT ${limit}`,
-      ].join(' '),
-    },
-    {
-      id: 'anchor_fan_out_1',
-      query: [
-        'MATCH (src:Address)-[r:FLOWS_TO]->(dst:Address)',
-        `WHERE (${srcPredicate}) AND src.address <> dst.address`,
-        `RETURN ${flowProjection('anchor_fan_out')}, src.address AS anchor_address`,
-        'ORDER BY r.amount_sum DESC',
-        `LIMIT ${limit}`,
-      ].join(' '),
-    },
-  ]
-}
-
-function isExchangeLikeNode(node: Record<string, unknown>): boolean {
-  const labels = stringArray(node['labels']).map((label) => label.toLowerCase())
-  const roles = stringArray(node['roles']).map((role) => role.toLowerCase())
-  return labels.includes('exchange') || roles.includes('exchange') || node['is_exchange'] === true
-}
-
-function collectInfrastructureAnchors(runs: ScamTopologyRun[]): string[] {
-  const anchors = new Set<string>()
-  const exchanges = new Set<string>()
-
-  for (const run of runs) {
-    for (const deposit of graphArray(run.result.graphData, 'deposits')) {
-      const exchangeAddress = stringValue(deposit['exchangeAddress']) ?? stringValue(deposit['exchange_address'])
-      if (exchangeAddress) exchanges.add(exchangeAddress)
-    }
-    for (const node of graphArray(run.result.graphData, 'nodes')) {
-      const address = stringValue(node['address']) ?? stringValue(node['id'])
-      if (address && isExchangeLikeNode(node)) exchanges.add(address)
-    }
+  if (minAmountSum !== undefined) where.push(`r.amount_sum >= ${minAmountSum}`)
+  if (graphScope === 'incident' && sinceTimestampMs !== undefined) {
+    where.push(`r.last_seen_timestamp >= ${sinceTimestampMs}`)
   }
 
-  for (const run of runs) {
-    for (const flow of graphArray(run.result.graphData, 'flows')) {
-      for (const key of ['src', 'dst']) {
-        const address = stringValue(flow[key])
-        if (address && address !== run.address && !exchanges.has(address)) anchors.add(address)
-      }
-    }
-    for (const deposit of graphArray(run.result.graphData, 'deposits')) {
-      const address = stringValue(deposit['address'])
-      if (address && address !== run.address && !exchanges.has(address)) anchors.add(address)
-    }
-    for (const lead of graphArray(run.result.graphData, 'reverse_leads')) {
-      const address = stringValue(lead['address'])
-      if (address && address !== run.address && !exchanges.has(address)) anchors.add(address)
-    }
+  return {
+    id: `${graphScope}_hop_${hop}`,
+    query: [
+      `USE ${graphForScope(graphScope)}`,
+      'MATCH (src:Address)-[r:FLOWS_TO]->(dst:Address)',
+      `WHERE ${where.join(' AND ')}`,
+      `RETURN ${traversalProjection()}`,
+      'ORDER BY r.amount_sum DESC',
+      `LIMIT ${Math.max(1, frontier.length) * perAddressLimit}`,
+    ].join(' '),
   }
-
-  return [...anchors].slice(0, INFRASTRUCTURE_ANCHOR_LIMIT)
 }
 
-function infrastructureFlowFromRow(
+function edgeFromRow(
   row: Record<string, unknown>,
-  context?: Pick<ScamTopologyInfrastructureFlow, 'seed_address' | 'seed_role'>,
-): ScamTopologyInfrastructureFlow | null {
-  const relation = stringValue(row['relation']) as ScamTopologyInfrastructureRelation | undefined
-  const src = stringValue(row['src'])
-  const dst = stringValue(row['dst'])
-  if (!relation || !src || !dst) return null
+  graphScope: ScamTopologyGraphScope,
+  hop: number,
+  context: FrontierEntry,
+): ScamTopologyTopologyEdge | null {
+  const src = stringValue(row['src']) ?? stringValue(row['from_address'])
+  const dst = stringValue(row['dst']) ?? stringValue(row['to_address'])
+  if (!src || !dst || src === dst) return null
+
+  const srcLabels = stringArray(row['src_labels'])
+  const dstLabels = stringArray(row['dst_labels'])
+  const srcRoles = stringArray(row['src_roles'])
+  const dstRoles = stringArray(row['dst_roles'])
+  const srcIsExchange = isExchangeEndpoint(srcLabels, row['src_is_exchange'], srcRoles)
+  const dstIsExchange = isExchangeEndpoint(dstLabels, row['dst_is_exchange'], dstRoles)
+  const genericLabeledBoundary = dstLabels.length > 0 && !dstIsExchange
+  const relation: ScamTopologyEdgeRelation = dstIsExchange
+    ? 'terminal_exchange'
+    : genericLabeledBoundary
+      ? 'context_boundary'
+      : hop === 1
+        ? 'seed_outflow'
+        : 'traversal_edge'
+
   return {
     relation,
     src,
     dst,
+    hop,
+    graph_scope: graphScope,
+    topology_graph: graphForScope(graphScope),
+    seed_address: context.seedAddress,
+    seed_role: context.seedRole,
     amount_sum: numberValue(row['amount_sum']),
     amount_usd_sum: numberValue(row['amount_usd_sum']),
     tx_count: numberValue(row['tx_count']),
+    first_seen_timestamp: numberValue(row['first_seen_timestamp']),
+    last_seen_timestamp: numberValue(row['last_seen_timestamp']),
     first_tx_id: stringValue(row['first_tx_id']),
     last_tx_id: stringValue(row['last_tx_id']),
-    src_labels: stringArray(row['src_labels']),
-    dst_labels: stringArray(row['dst_labels']),
-    seed_address: context?.seed_address,
-    seed_role: context?.seed_role,
-    anchor_address: stringValue(row['anchor_address']),
+    src_labels: srcLabels,
+    dst_labels: dstLabels,
+    src_is_exchange: srcIsExchange,
+    dst_is_exchange: dstIsExchange,
   }
 }
 
-function infrastructureFlowKey(flow: ScamTopologyInfrastructureFlow): string {
-  return `${flow.relation}\u0000${flow.src}\u0000${flow.dst}`
+function edgeKey(edge: Pick<ScamTopologyTopologyEdge, 'src' | 'dst' | 'graph_scope'>): string {
+  return `${edge.graph_scope}\u0000${edge.src}\u0000${edge.dst}`
 }
 
-async function collectLiveScamInfrastructure(
+function mergedEdgeKey(edge: Pick<ScamTopologyTopologyEdge, 'src' | 'dst'>): string {
+  return `${edge.src}\u0000${edge.dst}`
+}
+
+function frontierKey(entry: FrontierEntry): string {
+  return `${entry.seedRole}\u0000${entry.seedAddress}\u0000${entry.address}`
+}
+
+async function runDirectedTraversal(
   remoteClient: Client,
   network: string,
-  runs: ScamTopologyRun[],
-  perAddressLimitOption: number | undefined,
-): Promise<{ anchors: string[]; flows: ScamTopologyInfrastructureFlow[] }> {
-  const perAddressLimit = clampInt(perAddressLimitOption, 5, 1, 10)
-  const seedLimit = Math.max(25, perAddressLimit * 25)
-  const fanLimit = Math.min(1000, Math.max(200, perAddressLimit * 100))
-  const anchors = collectInfrastructureAnchors(runs)
-  const queryContexts = new Map<string, Pick<ScamTopologyInfrastructureFlow, 'seed_address' | 'seed_role'>>()
-  const queries: Array<{ id: string; query: string }> = []
+  seeds: Seed[],
+  graphScope: ScamTopologyGraphScope,
+  maxHops: number,
+  perAddressLimit: number,
+  minAmountSum: number | undefined,
+  sinceTimestampMs: number | undefined,
+): Promise<TraversalRun> {
+  const edgesByKey = new Map<string, ScamTopologyTopologyEdge>()
+  let frontier: FrontierEntry[] = seeds.map((seed) => ({
+    address: seed.address,
+    seedAddress: seed.address,
+    seedRole: seed.role,
+  }))
+  const visited = new Set(frontier.map(frontierKey))
 
-  runs.forEach((run, index) => {
-    const queryIndex = index + 1
-    for (const query of seedIncidentQueries(run, queryIndex, seedLimit)) {
-      queries.push(query)
-      queryContexts.set(query.id, { seed_address: run.address, seed_role: run.seedRole })
+  for (let hop = 1; hop <= maxHops && frontier.length > 0; hop += 1) {
+    const frontierByAddress = new Map<string, FrontierEntry>()
+    for (const entry of frontier) {
+      if (!frontierByAddress.has(entry.address)) frontierByAddress.set(entry.address, entry)
     }
-  })
-  queries.push(...anchorFanQueries(anchors, fanLimit))
+    const query = frontierQuery(graphScope, [...frontierByAddress.keys()], hop, perAddressLimit, minAmountSum, sinceTimestampMs)
+    const batch = await callGraphBatch(remoteClient, network, [query])
+    const nextByKey = new Map<string, FrontierEntry>()
 
-  if (queries.length === 0) return { anchors, flows: [] }
+    for (const queryResult of batch.facts?.queries ?? []) {
+      if (queryResult.ok === false) throw new Error(queryResult.error || `Query failed: ${queryResult.id}`)
+      for (const row of queryResult.results ?? []) {
+        const src = stringValue(row['src']) ?? stringValue(row['from_address'])
+        if (!src) continue
+        const context = frontierByAddress.get(src)
+        if (!context) continue
+        const edge = edgeFromRow(row, graphScope, hop, context)
+        if (!edge || edgesByKey.has(edgeKey(edge))) continue
+        edgesByKey.set(edgeKey(edge), edge)
 
-  const batch = await callGraphBatch(remoteClient, network, queries)
-  const flowsByKey = new Map<string, ScamTopologyInfrastructureFlow>()
-  for (const query of batch.facts?.queries ?? []) {
-    if (query.ok === false) throw new Error(query.error || `Query failed: ${query.id}`)
-    const context = query.id ? queryContexts.get(query.id) : undefined
-    for (const row of query.results ?? []) {
-      const flow = infrastructureFlowFromRow(row, context)
-      if (flow) flowsByKey.set(infrastructureFlowKey(flow), flow)
+        if (edge.relation === 'terminal_exchange' || edge.relation === 'context_boundary') continue
+        const nextEntry: FrontierEntry = {
+          address: edge.dst,
+          seedAddress: context.seedAddress,
+          seedRole: context.seedRole,
+        }
+        const key = frontierKey(nextEntry)
+        if (!visited.has(key)) {
+          visited.add(key)
+          nextByKey.set(key, nextEntry)
+        }
+      }
     }
+
+    frontier = [...nextByKey.values()]
   }
 
-  return { anchors, flows: [...flowsByKey.values()] }
+  return {
+    graphScope,
+    topologyGraph: graphForScope(graphScope),
+    edges: [...edgesByKey.values()],
+  }
+}
+
+function mergeCompareRuns(history: TraversalRun, incident: TraversalRun): ScamTopologyTopologyEdge[] {
+  const buckets = new Map<string, { history?: ScamTopologyTopologyEdge; incident?: ScamTopologyTopologyEdge }>()
+  for (const edge of history.edges) {
+    const bucket = buckets.get(mergedEdgeKey(edge)) ?? {}
+    bucket.history = edge
+    buckets.set(mergedEdgeKey(edge), bucket)
+  }
+  for (const edge of incident.edges) {
+    const bucket = buckets.get(mergedEdgeKey(edge)) ?? {}
+    bucket.incident = edge
+    buckets.set(mergedEdgeKey(edge), bucket)
+  }
+
+  return [...buckets.values()].map((bucket) => {
+    const base = bucket.incident ?? bucket.history
+    if (!base) throw new Error('empty compare bucket')
+    const graphScopes: ScamTopologyGraphScope[] = [
+      ...(bucket.history ? ['history' as const] : []),
+      ...(bucket.incident ? ['incident' as const] : []),
+    ]
+    const scopeMembership: ScamTopologyScopeMembership = bucket.history && bucket.incident
+      ? 'overlap'
+      : bucket.history
+        ? 'history_only'
+        : 'incident_only'
+    const relation: ScamTopologyEdgeRelation = bucket.history?.relation === 'terminal_exchange' || bucket.incident?.relation === 'terminal_exchange'
+      ? 'terminal_exchange'
+      : bucket.history?.relation === 'context_boundary' || bucket.incident?.relation === 'context_boundary'
+        ? 'context_boundary'
+        : base.relation
+
+    return {
+      ...base,
+      relation,
+      scope_membership: scopeMembership,
+      graph_scopes: graphScopes,
+    }
+  })
 }
 
 function candidateKey(candidate: Pick<ScamTopologyLabelCandidate, 'address' | 'address_subtype'>): string {
@@ -384,25 +480,6 @@ function mergeCandidate(
     existing.promotion_status = 'promote_confirmed'
     existing.trust_level = 'blacklisted'
     existing.risk_level = 'critical'
-  }
-}
-
-function addRole(rolesByAddress: Map<string, Set<string>>, address: string, role: string): void {
-  if (!address) return
-  const roles = rolesByAddress.get(address) ?? new Set<string>()
-  roles.add(role)
-  rolesByAddress.set(address, roles)
-}
-
-function buildEvidence(
-  run: ScamTopologyRun,
-  fields: Record<string, unknown>,
-): Record<string, unknown> {
-  return {
-    seed_address: run.address,
-    seed_role: run.seedRole,
-    network_source: 'track_funds',
-    ...fields,
   }
 }
 
@@ -438,218 +515,291 @@ function makeCandidate(
   }
 }
 
-function classifyRun(
-  run: ScamTopologyRun,
-  candidates: Map<string, ScamTopologyLabelCandidate>,
-  caseRoles: ScamTopologyCaseRole[],
-  safetyDecisions: Array<Record<string, unknown>>,
-  rolesByAddress: Map<string, Set<string>>,
-): void {
-  caseRoles.push({ address: run.address, role: run.seedRole })
-  addRole(rolesByAddress, run.address, run.seedRole)
+function addRole(rolesByAddress: Map<string, Set<string>>, address: string, role: string): void {
+  if (!address) return
+  const roles = rolesByAddress.get(address) ?? new Set<string>()
+  roles.add(role)
+  rolesByAddress.set(address, roles)
+}
 
-  if (run.seedRole === 'victim') {
-    safetyDecisions.push({
-      address: run.address,
-      decision: 'do_not_label_victim_seed',
-      reason: 'Victim/source addresses are not risky actors by default.',
+function pushCaseRole(caseRoles: ScamTopologyCaseRole[], role: ScamTopologyCaseRole): void {
+  if (caseRoles.some((entry) => (
+    entry.address === role.address &&
+    entry.role === role.role &&
+    entry.seed_address === role.seed_address &&
+    entry.seed_role === role.seed_role
+  ))) return
+  caseRoles.push(role)
+}
+
+function pushSafetyDecision(safetyDecisions: Array<Record<string, unknown>>, decision: Record<string, unknown>): void {
+  if (safetyDecisions.some((entry) => JSON.stringify(entry) === JSON.stringify(decision))) return
+  safetyDecisions.push(decision)
+}
+
+function edgeEvidence(edge: ScamTopologyTopologyEdge, reason: string): Record<string, unknown> {
+  return {
+    seed_address: edge.seed_address,
+    seed_role: edge.seed_role,
+    graph_scope: edge.graph_scope,
+    scope_membership: edge.scope_membership,
+    hop: edge.hop,
+    src: edge.src,
+    dst: edge.dst,
+    amount_sum: edge.amount_sum,
+    amount_usd_sum: edge.amount_usd_sum,
+    tx_count: edge.tx_count,
+    reason,
+  }
+}
+
+function classifyTopology(
+  seeds: Seed[],
+  edges: ScamTopologyTopologyEdge[],
+): {
+  labelCandidates: ScamTopologyLabelCandidate[]
+  caseRoles: ScamTopologyCaseRole[]
+  safetyDecisions: Array<Record<string, unknown>>
+  rolesByAddress: Map<string, Set<string>>
+  intermediaries: string[]
+  terminalPoints: Array<Record<string, unknown>>
+  investigationHints: Array<Record<string, unknown>>
+} {
+  const candidates = new Map<string, ScamTopologyLabelCandidate>()
+  const caseRoles: ScamTopologyCaseRole[] = []
+  const safetyDecisions: Array<Record<string, unknown>> = []
+  const rolesByAddress = new Map<string, Set<string>>()
+  const seedAddresses = new Set(seeds.map((seed) => seed.address))
+  const victimAddresses = new Set(seeds.filter((seed) => seed.role === 'victim').map((seed) => seed.address))
+  const exchangeDepositAddresses = new Set(edges
+    .filter((edge) => edge.relation === 'terminal_exchange')
+    .map((edge) => edge.src)
+    .filter((address) => !seedAddresses.has(address) && !victimAddresses.has(address)))
+  const terminalPoints: Array<Record<string, unknown>> = []
+  const investigationHints: Array<Record<string, unknown>> = []
+
+  for (const seed of seeds) {
+    pushCaseRole(caseRoles, { address: seed.address, role: seed.role })
+    addRole(rolesByAddress, seed.address, seed.role)
+    if (seed.role === 'victim') {
+      pushSafetyDecision(safetyDecisions, {
+        address: seed.address,
+        decision: 'do_not_label_victim_seed',
+        reason: 'Victim/source addresses are protected case roles, not risky actors by default.',
+      })
+    } else {
+      mergeCandidate(candidates, makeCandidate(
+        seed.address,
+        'scam_seed',
+        {
+          seed_address: seed.address,
+          seed_role: seed.role,
+          reason: 'Operator supplied this address as a known scammer seed.',
+        },
+        1,
+        'promote_confirmed',
+      ))
+    }
+  }
+
+  for (const edge of edges) {
+    if (edge.relation === 'terminal_exchange') {
+      pushCaseRole(caseRoles, {
+        address: edge.dst,
+        role: 'exchange_endpoint',
+        seed_address: edge.seed_address,
+        seed_role: edge.seed_role,
+      })
+      addRole(rolesByAddress, edge.dst, 'exchange_endpoint')
+      terminalPoints.push({
+        address: edge.dst,
+        terminal_type: 'exchange_endpoint',
+        source_address: edge.src,
+        seed_address: edge.seed_address,
+        graph_scope: edge.graph_scope,
+        scope_membership: edge.scope_membership,
+      })
+      pushSafetyDecision(safetyDecisions, {
+        address: edge.dst,
+        decision: 'do_not_label_exchange_endpoint',
+        reason: 'Exchange endpoints are terminal service context, not scam label candidates.',
+        seed_address: edge.seed_address,
+      })
+
+      if (!seedAddresses.has(edge.src) && !victimAddresses.has(edge.src)) {
+        pushCaseRole(caseRoles, {
+          address: edge.src,
+          role: 'exchange_deposit_candidate',
+          seed_address: edge.seed_address,
+          seed_role: edge.seed_role,
+        })
+        addRole(rolesByAddress, edge.src, 'exchange_deposit_candidate')
+        mergeCandidate(candidates, makeCandidate(
+          edge.src,
+          'exchange_deposit_candidate',
+          edgeEvidence(edge, 'Address is the penultimate hop before an exchange endpoint.'),
+          edge.seed_role === 'scammer' ? 0.8 : 0.68,
+          'review_required',
+        ))
+      }
+      continue
+    }
+
+    if (edge.relation === 'context_boundary') {
+      pushCaseRole(caseRoles, {
+        address: edge.dst,
+        role: 'context_boundary',
+        seed_address: edge.seed_address,
+        seed_role: edge.seed_role,
+      })
+      addRole(rolesByAddress, edge.dst, 'context_boundary')
+      terminalPoints.push({
+        address: edge.dst,
+        terminal_type: 'context_boundary',
+        source_address: edge.src,
+        labels: edge.dst_labels,
+        seed_address: edge.seed_address,
+        graph_scope: edge.graph_scope,
+        scope_membership: edge.scope_membership,
+      })
+      investigationHints.push({
+        address: edge.dst,
+        hint_type: 'generic_labeled_context',
+        labels: edge.dst_labels,
+        reason: 'Non-exchange labels are context hints only and stop automatic scam traversal.',
+        seed_address: edge.seed_address,
+      })
+      pushSafetyDecision(safetyDecisions, {
+        address: edge.dst,
+        decision: 'context_only_generic_labeled_node',
+        reason: 'Generic non-exchange labels are not hard-coded scam infrastructure classes.',
+        labels: edge.dst_labels,
+        seed_address: edge.seed_address,
+      })
+      continue
+    }
+
+    if (seedAddresses.has(edge.dst) || victimAddresses.has(edge.dst) || exchangeDepositAddresses.has(edge.dst)) continue
+    pushCaseRole(caseRoles, {
+      address: edge.dst,
+      role: 'laundering_intermediate',
+      seed_address: edge.seed_address,
+      seed_role: edge.seed_role,
     })
-  } else {
+    addRole(rolesByAddress, edge.dst, 'laundering_intermediate')
     mergeCandidate(candidates, makeCandidate(
-      run.address,
-      'scam_seed',
-      buildEvidence(run, {
-        role: 'scammer',
-        reason: 'Operator supplied this address as a known scammer seed.',
-      }),
-      1,
-      'promote_confirmed',
+      edge.dst,
+      'laundering_intermediate',
+      edgeEvidence(edge, 'Address appears on an outward path from a known scam topology seed.'),
+      edge.seed_role === 'scammer' ? 0.85 : 0.72,
+      'review_required',
     ))
   }
 
-  for (const deposit of graphArray(run.result.graphData, 'deposits')) {
-    const depositAddress = stringValue(deposit['address'])
-    const exchangeAddress = stringValue(deposit['exchangeAddress']) ?? stringValue(deposit['exchange_address'])
-    const path = stringArray(deposit['path'])
-    const hopCount = numberValue(deposit['hops']) ?? Math.max(path.length - 1, 0)
-    const amountSum = numberValue(deposit['amount_sum'])
-    const amountUsdSum = numberValue(deposit['amount_usd_sum'])
-
-    if (exchangeAddress) {
-      addRole(rolesByAddress, exchangeAddress, 'exchange')
-      caseRoles.push({
-        address: exchangeAddress,
-        role: 'exchange_endpoint',
-        seed_address: run.address,
-        seed_role: run.seedRole,
-      })
-      safetyDecisions.push({
-        address: exchangeAddress,
-        decision: 'do_not_label_exchange_endpoint',
-        reason: 'Exchange/service endpoints are terminal service context, not automatically scam actors.',
-        seed_address: run.address,
-      })
-    }
-
-    for (const intermediate of path.slice(1, -2)) {
-      if (!intermediate || intermediate === run.address || intermediate === exchangeAddress) continue
-      addRole(rolesByAddress, intermediate, 'laundering_intermediate')
-      caseRoles.push({
-        address: intermediate,
-        role: 'laundering_intermediate',
-        seed_address: run.address,
-        seed_role: run.seedRole,
-      })
-      mergeCandidate(candidates, makeCandidate(
-        intermediate,
-        'laundering_intermediate',
-        buildEvidence(run, {
-          path_addresses: path,
-          endpoint_address: exchangeAddress,
-          endpoint_type: exchangeAddress ? 'exchange' : undefined,
-          hop_count: hopCount,
-          amount_sum: amountSum,
-          amount_usd_sum: amountUsdSum,
-          reason: 'Address appears as an intermediate laundering hop in a known scam topology.',
-        }),
-        run.seedRole === 'scammer' ? 0.85 : 0.72,
-        'review_required',
-      ))
-    }
-
-    if (depositAddress && depositAddress !== run.address && depositAddress !== exchangeAddress) {
-      addRole(rolesByAddress, depositAddress, 'deposit_candidate')
-      caseRoles.push({
-        address: depositAddress,
-        role: 'exchange_deposit_candidate',
-        seed_address: run.address,
-        seed_role: run.seedRole,
-      })
-      mergeCandidate(candidates, makeCandidate(
-        depositAddress,
-        'exchange_deposit_candidate',
-        buildEvidence(run, {
-          path_addresses: path,
-          endpoint_address: exchangeAddress,
-          endpoint_type: exchangeAddress ? 'exchange' : undefined,
-          hop_count: hopCount,
-          amount_sum: amountSum,
-          amount_usd_sum: amountUsdSum,
-          reason: 'Address is the penultimate hop before an exchange/service endpoint.',
-        }),
-        run.seedRole === 'scammer' ? 0.8 : 0.68,
-        'review_required',
-      ))
-    }
-  }
-
-  for (const lead of graphArray(run.result.graphData, 'reverse_leads')) {
-    const address = stringValue(lead['address'])
-    if (!address) continue
-    addRole(rolesByAddress, address, 'reverse_lead')
-    caseRoles.push({
-      address,
-      role: 'reverse_lead',
-      seed_address: run.address,
-      seed_role: run.seedRole,
-    })
-    safetyDecisions.push({
-      address,
-      decision: 'context_only_reverse_lead',
-      reason: 'Reverse leads are useful context but are not automatically risky labels.',
-      seed_address: run.address,
-      deposit_address: lead['deposit_address'],
-    })
+  const labelCandidates = [...candidates.values()]
+    .sort((a, b) => b.confidence_score - a.confidence_score || a.address.localeCompare(b.address))
+  return {
+    labelCandidates,
+    caseRoles,
+    safetyDecisions,
+    rolesByAddress,
+    intermediaries: [...new Set(caseRoles
+      .filter((role) => role.role === 'laundering_intermediate')
+      .map((role) => role.address))],
+    terminalPoints,
+    investigationHints,
   }
 }
 
-function addFlowRoles(rolesByAddress: Map<string, Set<string>>, flow: ScamTopologyInfrastructureFlow): void {
-  switch (flow.relation) {
-    case 'seed_funding_input':
-      addRole(rolesByAddress, flow.src, 'funding_source')
-      addRole(rolesByAddress, flow.dst, 'seed')
-      return
-    case 'seed_sweep':
-      addRole(rolesByAddress, flow.src, 'seed')
-      addRole(rolesByAddress, flow.dst, 'sweep_recipient')
-      return
-    case 'anchor_fan_in':
-      addRole(rolesByAddress, flow.src, 'fan_in_context')
-      addRole(rolesByAddress, flow.dst, 'infrastructure_anchor')
-      return
-    case 'anchor_fan_out':
-      addRole(rolesByAddress, flow.src, 'infrastructure_anchor')
-      addRole(rolesByAddress, flow.dst, 'fan_out_context')
-      return
-  }
+function mergeLabels(existing: unknown, next: string[]): string[] {
+  return [...new Set([...stringArray(existing), ...next])]
 }
 
-function mergeInfrastructureNode(
-  nodesById: Map<string, Record<string, unknown>>,
-  address: string,
-  labels: string[] | undefined,
+function buildGraph(
+  seeds: Seed[],
+  edges: ScamTopologyTopologyEdge[],
   rolesByAddress: Map<string, Set<string>>,
-): void {
-  const existing = nodesById.get(address) ?? { id: address, address, node_type: 'address' }
-  nodesById.set(address, {
-    ...existing,
-    labels: [...new Set([...stringArray(existing['labels']), ...(labels ?? [])])],
-    roles: [...new Set([...stringArray(existing['roles']), ...[...(rolesByAddress.get(address) ?? [])]])],
-  })
-}
-
-function buildGraph(runs: ScamTopologyRun[], infrastructureFlows: ScamTopologyInfrastructureFlow[], rolesByAddress: Map<string, Set<string>>, facts: Record<string, unknown>): Record<string, unknown> {
+  facts: Record<string, unknown>,
+): Record<string, unknown> {
   const nodesById = new Map<string, Record<string, unknown>>()
 
-  for (const run of runs) {
-    for (const node of graphArray(run.result.graphData, 'nodes')) {
-      const id = stringValue(node['id']) ?? stringValue(node['address'])
-      if (!id) continue
-      const existing = nodesById.get(id) ?? { ...node }
-      const roles = new Set([...stringArray(existing['roles']), ...stringArray(node['roles'])])
-      for (const role of rolesByAddress.get(id) ?? []) roles.add(role)
-      nodesById.set(id, { ...existing, ...node, roles: [...roles] })
-    }
-  }
-
-  for (const [address, roles] of rolesByAddress.entries()) {
-    const existing = nodesById.get(address) ?? { id: address, address, node_type: 'address' }
-    nodesById.set(address, {
-      ...existing,
-      roles: [...new Set([...stringArray(existing['roles']), ...roles])],
+  for (const seed of seeds) {
+    nodesById.set(seed.address, {
+      id: seed.address,
+      address: seed.address,
+      node_type: 'address',
+      roles: [...(rolesByAddress.get(seed.address) ?? new Set([seed.role]))],
     })
   }
 
-  for (const flow of infrastructureFlows) {
-    mergeInfrastructureNode(nodesById, flow.src, flow.src_labels, rolesByAddress)
-    mergeInfrastructureNode(nodesById, flow.dst, flow.dst_labels, rolesByAddress)
+  for (const edge of edges) {
+    const src = nodesById.get(edge.src) ?? { id: edge.src, address: edge.src, node_type: 'address' }
+    const dst = nodesById.get(edge.dst) ?? { id: edge.dst, address: edge.dst, node_type: 'address' }
+    nodesById.set(edge.src, {
+      ...src,
+      labels: mergeLabels(src['labels'], edge.src_labels),
+      roles: [...new Set([...stringArray(src['roles']), ...[...(rolesByAddress.get(edge.src) ?? [])]])],
+      is_exchange: edge.src_is_exchange || src['is_exchange'] === true,
+    })
+    nodesById.set(edge.dst, {
+      ...dst,
+      labels: mergeLabels(dst['labels'], edge.dst_labels),
+      roles: [...new Set([...stringArray(dst['roles']), ...[...(rolesByAddress.get(edge.dst) ?? [])]])],
+      is_exchange: edge.dst_is_exchange || dst['is_exchange'] === true,
+    })
   }
 
   return normalizeGraphPayload({
     schema: 'chain-insights.graph.v1',
     nodes: [...nodesById.values()],
-    edges: [
-      ...runs.flatMap((run) => graphArray(run.result.graphData, 'edges')),
-      ...infrastructureFlows.map((flow) => ({
-        source: flow.src,
-        target: flow.dst,
-        edge_type: 'flows_to',
-        relation: flow.relation,
-        direction: 'scam_infrastructure_context',
-        amount_sum: flow.amount_sum,
-        amount_usd_sum: flow.amount_usd_sum,
-        tx_count: flow.tx_count,
-        first_tx_id: flow.first_tx_id,
-        last_tx_id: flow.last_tx_id,
-        seed_address: flow.seed_address,
-        seed_role: flow.seed_role,
-        anchor_address: flow.anchor_address,
+    edges: edges.map((edge) => ({
+      source: edge.src,
+      target: edge.dst,
+      edge_type: 'flows_to',
+      relation: edge.relation,
+      direction: 'outward_scam_topology',
+      hop: edge.hop,
+      graph_scope: edge.graph_scope,
+      topology_graph: edge.topology_graph,
+      scope_membership: edge.scope_membership,
+      seed_address: edge.seed_address,
+      seed_role: edge.seed_role,
+      amount_sum: edge.amount_sum,
+      amount_usd_sum: edge.amount_usd_sum,
+      tx_count: edge.tx_count,
+      first_tx_id: edge.first_tx_id,
+      last_tx_id: edge.last_tx_id,
+      terminal_exchange: edge.relation === 'terminal_exchange',
+      context_boundary: edge.relation === 'context_boundary',
+    })),
+    flows: edges.map((edge) => ({
+      hop: edge.hop,
+      src: edge.src,
+      dst: edge.dst,
+      relation: edge.relation,
+      graph_scope: edge.graph_scope,
+      scope_membership: edge.scope_membership,
+      seed_address: edge.seed_address,
+      seed_role: edge.seed_role,
+      amount_sum: edge.amount_sum,
+      amount_usd_sum: edge.amount_usd_sum,
+      tx_count: edge.tx_count,
+      terminal_exchange: edge.relation === 'terminal_exchange',
+    })),
+    topology_edges: edges,
+    infrastructure_flows: [],
+    deposits: edges
+      .filter((edge) => edge.relation === 'terminal_exchange')
+      .map((edge) => ({
+        address: edge.src,
+        exchangeAddress: edge.dst,
+        seed_role: edge.seed_role,
+        seed_address: edge.seed_address,
+        amount_sum: edge.amount_sum,
+        amount_usd_sum: edge.amount_usd_sum,
+        hops: edge.hop,
       })),
-    ],
-    flows: runs.flatMap((run) => Array.isArray(run.result.graphData.flows) ? run.result.graphData.flows : []),
-    infrastructure_flows: infrastructureFlows,
-    deposits: runs.flatMap((run) => graphArray(run.result.graphData, 'deposits').map((deposit) => ({ ...deposit, seed_role: run.seedRole, seed_address: run.address }))),
-    reverse_leads: runs.flatMap((run) => graphArray(run.result.graphData, 'reverse_leads').map((lead) => ({ ...lead, seed_role: run.seedRole, seed_address: run.address }))),
+    reverse_leads: [],
     edge_anchors: [],
     scam_topology: facts,
     metadata: {
@@ -659,22 +809,49 @@ function buildGraph(runs: ScamTopologyRun[], infrastructureFlows: ScamTopologyIn
   })
 }
 
-function summarize(network: string, victimAddresses: string[], scammerAddresses: string[], candidates: ScamTopologyLabelCandidate[], safetyDecisions: Array<Record<string, unknown>>, infrastructureFlows: ScamTopologyInfrastructureFlow[]): string {
+function summarize(
+  network: string,
+  scope: ScamTopologyScope,
+  victimAddresses: string[],
+  scammerAddresses: string[],
+  candidates: ScamTopologyLabelCandidate[],
+  safetyDecisions: Array<Record<string, unknown>>,
+  topologyEdges: ScamTopologyTopologyEdge[],
+  terminalPoints: Array<Record<string, unknown>>,
+): string {
   const confirmed = candidates.filter((candidate) => candidate.promotion_status === 'promote_confirmed').length
   const review = candidates.filter((candidate) => candidate.promotion_status === 'review_required').length
-  const infrastructureCounts = new Map<ScamTopologyInfrastructureRelation, number>()
-  for (const flow of infrastructureFlows) infrastructureCounts.set(flow.relation, (infrastructureCounts.get(flow.relation) ?? 0) + 1)
   return [
     `Scam topology complete for ${network}`,
     '',
+    `Scope: ${scope}`,
     `Victim/source seed(s): ${victimAddresses.join(', ') || 'none'}`,
     `Known scammer seed(s): ${scammerAddresses.join(', ') || 'none'}`,
+    `Topology edges: ${topologyEdges.length}.`,
+    `Terminal points: ${terminalPoints.length}.`,
     `Label candidates: ${candidates.length} (${confirmed} promote_confirmed, ${review} review_required).`,
-    `Infrastructure context: ${infrastructureFlows.length} live topology edge(s) (${infrastructureCounts.get('seed_funding_input') ?? 0} funding input, ${infrastructureCounts.get('seed_sweep') ?? 0} seed sweep, ${infrastructureCounts.get('anchor_fan_in') ?? 0} fan-in, ${infrastructureCounts.get('anchor_fan_out') ?? 0} fan-out).`,
     `Safety decisions: ${safetyDecisions.length}.`,
     '',
-    'Policy: victims, exchange endpoints, and reverse leads are not automatically risky labels.',
+    'Policy: victims, exchange endpoints, and generic labeled context nodes are not automatically risky labels.',
   ].join('\n')
+}
+
+function validateScope(value: unknown): ScamTopologyScope {
+  const scope = value ?? 'incident'
+  if (scope === 'history' || scope === 'incident' || scope === 'compare') return scope
+  throw new Error('scope must be one of: history, incident, compare')
+}
+
+function validateNonNegativeNumber(value: number | undefined, name: string): number | undefined {
+  if (value === undefined) return undefined
+  if (!Number.isFinite(value) || value < 0) throw new Error(`${name} must be a non-negative number`)
+  return value
+}
+
+function topologyGraphsForScope(scope: ScamTopologyScope): Array<'archive_topology' | 'live_topology'> {
+  if (scope === 'history') return ['archive_topology']
+  if (scope === 'incident') return ['live_topology']
+  return ['archive_topology', 'live_topology']
 }
 
 export async function scamTopology(
@@ -682,9 +859,16 @@ export async function scamTopology(
   config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
   options: ScamTopologyOptions,
 ): Promise<ScamTopologyResult> {
+  void config
   const network = options.network.trim()
   const victimAddresses = parseAddressList(options.victimAddresses)
   const scammerAddresses = parseAddressList(options.scammerAddresses)
+  const scope = validateScope(options.scope)
+  const sinceTimestampMs = validateNonNegativeNumber(options.sinceTimestampMs, 'sinceTimestampMs')
+  const maxHops = clampInt(options.maxHops, 3, 1, 5)
+  const perAddressLimit = clampInt(options.perAddressLimit, 5, 1, 10)
+  const minAmountSum = validateNonNegativeNumber(options.minAmountSum, 'minAmountSum')
+
   if (!network) throw new Error('network is required')
   if (victimAddresses.length + scammerAddresses.length === 0) {
     throw new Error('victim_addresses or scammer_addresses is required')
@@ -694,80 +878,79 @@ export async function scamTopology(
   const overlap = victimAddresses.filter((address) => scammerAddresses.includes(address))
   if (overlap.length > 0) throw new Error(`Address(es) appear in both victim and scammer lists: ${overlap.join(', ')}`)
 
-  const runs: ScamTopologyRun[] = []
-  for (const address of victimAddresses) {
-    runs.push({
-      seedRole: 'victim',
-      address,
-      result: await runFundFlowProbe(remoteClient, config, {
-        seedAddress: address,
-        network,
-        caseId: options.caseId,
-        maxHops: options.maxHops,
-        perAddressLimit: options.perAddressLimit,
-        minAmountSum: options.minAmountSum,
-      }),
-    })
+  const seeds: Seed[] = [
+    ...victimAddresses.map((address) => ({ address, role: 'victim' as const })),
+    ...scammerAddresses.map((address) => ({ address, role: 'scammer' as const })),
+  ]
+
+  const runs: TraversalRun[] = []
+  if (scope === 'history' || scope === 'compare') {
+    runs.push(await runDirectedTraversal(remoteClient, network, seeds, 'history', maxHops, perAddressLimit, minAmountSum, sinceTimestampMs))
   }
-  for (const address of scammerAddresses) {
-    runs.push({
-      seedRole: 'scammer',
-      address,
-      result: await runFundFlowProbe(remoteClient, config, {
-        seedAddress: address,
-        network,
-        caseId: options.caseId,
-        maxHops: options.maxHops,
-        perAddressLimit: options.perAddressLimit,
-        minAmountSum: options.minAmountSum,
-      }),
-    })
+  if (scope === 'incident' || scope === 'compare') {
+    runs.push(await runDirectedTraversal(remoteClient, network, seeds, 'incident', maxHops, perAddressLimit, minAmountSum, sinceTimestampMs))
   }
 
-  const candidates = new Map<string, ScamTopologyLabelCandidate>()
-  const caseRoles: ScamTopologyCaseRole[] = []
-  const safetyDecisions: Array<Record<string, unknown>> = []
-  const rolesByAddress = new Map<string, Set<string>>()
-  for (const run of runs) classifyRun(run, candidates, caseRoles, safetyDecisions, rolesByAddress)
-  const infrastructure = await collectLiveScamInfrastructure(remoteClient, network, runs, options.perAddressLimit)
-  for (const flow of infrastructure.flows) addFlowRoles(rolesByAddress, flow)
+  const topologyEdges = scope === 'compare'
+    ? mergeCompareRuns(
+      runs.find((run) => run.graphScope === 'history') ?? { graphScope: 'history', topologyGraph: 'archive_topology', edges: [] },
+      runs.find((run) => run.graphScope === 'incident') ?? { graphScope: 'incident', topologyGraph: 'live_topology', edges: [] },
+    )
+    : runs.flatMap((run) => run.edges)
 
-  const labelCandidates = [...candidates.values()].sort((a, b) => b.confidence_score - a.confidence_score || a.address.localeCompare(b.address))
+  const classification = classifyTopology(seeds, topologyEdges)
+  const labelCandidates = classification.labelCandidates
   const facts = {
     network,
     victim_addresses: victimAddresses,
     scammer_addresses: scammerAddresses,
+    scope,
+    ...(sinceTimestampMs !== undefined ? { since_timestamp_ms: sinceTimestampMs } : {}),
+    topology_graphs: topologyGraphsForScope(scope),
+    topology_edges: topologyEdges,
+    intermediaries: classification.intermediaries,
+    terminal_points: classification.terminalPoints,
+    investigation_hints: classification.investigationHints,
     label_candidates: labelCandidates,
-    case_roles: caseRoles,
-    safety_decisions: safetyDecisions,
-    infrastructure_anchors: infrastructure.anchors,
-    infrastructure_flows: infrastructure.flows,
+    case_roles: classification.caseRoles,
+    safety_decisions: classification.safetyDecisions,
+    infrastructure_anchors: [],
+    infrastructure_flows: [],
     runs: runs.map((run) => ({
-      seed_role: run.seedRole,
-      address: run.address,
-      files: run.result.files,
-      continuation: run.result.continuation,
-      address_map: run.result.addressMap,
+      graph_scope: run.graphScope,
+      topology_graph: run.topologyGraph,
+      edge_count: run.edges.length,
+      max_hops: maxHops,
+      per_address_limit: perAddressLimit,
     })),
   }
-  const graphData = buildGraph(runs, infrastructure.flows, rolesByAddress, facts)
-  const summaryText = summarize(network, victimAddresses, scammerAddresses, labelCandidates, safetyDecisions, infrastructure.flows)
+  const graphData = buildGraph(seeds, topologyEdges, classification.rolesByAddress, facts)
+  const summaryText = summarize(network, scope, victimAddresses, scammerAddresses, labelCandidates, classification.safetyDecisions, topologyEdges, classification.terminalPoints)
 
   if (options.caseId) {
     const { EvidenceStore } = await import('../cases/index.js')
     await EvidenceStore.append(options.caseId, {
       source: 'scam_topology',
-      queryParams: `network=${network} victim_addresses=${victimAddresses.join(',')} scammer_addresses=${scammerAddresses.join(',')}`,
+      queryParams: [
+        `network=${network}`,
+        `victim_addresses=${victimAddresses.join(',')}`,
+        `scammer_addresses=${scammerAddresses.join(',')}`,
+        `scope=${scope}`,
+        sinceTimestampMs !== undefined ? `since_timestamp_ms=${sinceTimestampMs}` : '',
+      ].filter(Boolean).join(' '),
       content: JSON.stringify({
         schema: 'chain-insights.scam_topology_evidence.v1',
         source: 'scam_topology',
         network,
         victim_addresses: victimAddresses,
         scammer_addresses: scammerAddresses,
+        scope,
+        since_timestamp_ms: sinceTimestampMs,
+        topology_graphs: topologyGraphsForScope(scope),
+        topology_edge_count: topologyEdges.length,
+        terminal_points: classification.terminalPoints,
         label_candidates: labelCandidates,
-        infrastructure_anchors: infrastructure.anchors,
-        infrastructure_flow_count: infrastructure.flows.length,
-        safety_decisions: safetyDecisions,
+        safety_decisions: classification.safetyDecisions,
       }, null, 2),
     })
   }

@@ -141,6 +141,9 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
   await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }))
   if (tool === 'scam_topology') {
     const { scamTopology } = await import('../src/investigation/public-tools.js')
+    const sinceTimestampMs = args['since_timestamp_ms'] === undefined
+      ? undefined
+      : Number(args['since_timestamp_ms'])
     const result = await scamTopology(client, config, {
       victimAddresses: args['victim_addresses'] as string | string[] | undefined,
       scammerAddresses: args['scammer_addresses'] as string | string[] | undefined,
@@ -149,6 +152,8 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
       maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
       perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
       minAmountSum: typeof args['min_amount_sum'] === 'number' ? args['min_amount_sum'] : undefined,
+      scope: args['scope'] === undefined ? undefined : String(args['scope']) as 'history' | 'incident' | 'compare',
+      sinceTimestampMs: Number.isFinite(sinceTimestampMs) ? sinceTimestampMs : undefined,
     })
     console.log(result.summaryText)
     console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -447,6 +452,8 @@ describe('CLI mcp subcommand (MCP-02)', () => {
       'victim_addresses=5Victim',
       'scammer_addresses=["5Scammer"]',
       'max_hops=2',
+      'scope=incident',
+      'since_timestamp_ms=1715532228001',
     ])
 
     expect(mockScamTopology).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
@@ -454,6 +461,8 @@ describe('CLI mcp subcommand (MCP-02)', () => {
       victimAddresses: '5Victim',
       scammerAddresses: ['5Scammer'],
       maxHops: 2,
+      scope: 'incident',
+      sinceTimestampMs: 1715532228001,
     }))
     expect(mockClientCallTool).not.toHaveBeenCalled()
     expect(consoleLogSpy).toHaveBeenCalledWith('Scam topology complete for bittensor')

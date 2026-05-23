@@ -50,12 +50,21 @@ roles, and runs the local tracing engine per address.
 Use `scam_topology` when the user has known scam ground truth and wants to
 derive laundering roles plus reviewable labels from that case. `track_funds`
 answers where funds went; `scam_topology` answers which victim, scammer,
-laundering intermediate, deposit candidate, exchange endpoint, and reverse lead
-roles were observed, and expands live topology fan-in/fan-out context around
-the traced infrastructure. Victim/source addresses are not risky labels. The
-tool returns `label_candidates` for analyst review; do not treat every reachable
-address as a confirmed scam actor and do not promote candidates into
-`core_address_labels` without approval.
+laundering intermediate, deposit candidate, exchange endpoint, and generic
+context boundary roles were observed. The victim-only traversal is outward from
+victim/source funds; it does not query or promote victim inbound transfers as
+scam infrastructure. Use `scope=history|incident|compare`: history reads
+`USE archive_topology`, incident reads `USE live_topology` and may apply
+`since_timestamp_ms`, and compare marks history-only, incident-only, or overlap
+membership. Exchange terminal safety is the only hard-coded terminal behavior;
+non-exchange labels are context hints. Victim/source addresses are not risky
+labels. The tool returns `label_candidates` for analyst review; candidates are
+reviewable, not automatic writes to `core_address_labels`.
+
+```bash
+cia mcp scam-topology --network bittensor --victim-addresses 5... --scope history --max-hops 5
+cia mcp scam-topology --network bittensor --victim-addresses 5... --scope incident --since-timestamp-ms 1715532228001 --max-hops 5
+```
 
 Use `track_funds` for a single address by passing that address as the only
 `trusted_addresses` value. The workflow is a TypeScript port of the probe
