@@ -90,3 +90,44 @@ cases/20260524_001_readme-dx-dogfood-victim-address/manifest.json
 - Decide whether `cia case resume` should be implemented, aliased to an existing case-inspection command, or removed from docs and plans.
 - Improve MCP fetch failures with actionable remediation, for example endpoint URL, debug/access-key mode hints, and the command to configure the endpoint.
 - Consider documenting stderr capture in dogfood instructions when `tee` artifacts are expected for failed commands.
+
+## Final Smoke Notes
+
+- Workspace: `/home/aphex5/work/chain-insights-dx-dogfood-final`
+- CLI version after rebuild and global install: `0.2.14`
+- Global binary: `/home/aphex5/.local/bin/cia`
+- Date: 2026-05-24
+
+### Commands That Passed
+
+```bash
+cd /home/aphex5/work/chain-insights
+npm run build
+npm install -g .
+cia --version
+rm -rf /home/aphex5/work/chain-insights-dx-dogfood-final
+mkdir -p /home/aphex5/work/chain-insights-dx-dogfood-final
+cd /home/aphex5/work/chain-insights-dx-dogfood-final
+cia init .
+find . -maxdepth 3 -type f | sort
+cia config get graphMcpEndpoint
+cia case open "README DX final smoke victim address" --tags dogfood,bittensor,readme --description "Final clean workspace smoke for Chain Insights README and AML tool workflow"
+cia case list
+cia case show 1
+```
+
+- `npm run build` completed successfully for package version `0.2.14`.
+- `npm install -g .` completed successfully.
+- `cia --version` printed `0.2.14`.
+- `cia init .` initialized the final workspace and reported `Files written: 11`.
+- The initialized workspace contained `.chain-insights/workspace.json`, `.chain-insights/runtime-skill/SKILL.md`, `.chain-insights/schema/README.md`, `AGENTS.md`, `CLAUDE.md`, `README.md`, `imports/README.md`, `templates/README.md`, and `templates/case-brief.md`.
+- `cia config get graphMcpEndpoint` printed `http://localhost:8012/mcp`.
+- `cia case open ...` created case `20260524_001_readme-dx-final-smoke-victim-address`.
+- `cia case list` displayed the new case as selector `1`.
+- `cia case show 1` displayed the case metadata, tags, zero evidence files, zero dossiers, and `No previous sessions.`
+
+### Endpoint Failure
+
+- `cia mcp networks` exited non-zero and printed `network capabilities unavailable at http://localhost:8012/metadata/networks: fetch failed`.
+- `cia mcp tools --refresh` exited non-zero and printed `fetch failed`.
+- The track-funds example was not run because the configured GraphRAG MCP endpoint was not reachable during preflight. No success was inferred or faked.
