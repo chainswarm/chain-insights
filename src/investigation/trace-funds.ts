@@ -153,7 +153,8 @@ interface ParsedGraphBatch {
   }
 }
 
-const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 30
+const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 120
+const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS = 5 * 60 * 1000
 
 const SCHEMA_QUERY_SET = [
   {
@@ -222,17 +223,24 @@ async function callGraphBatch(
   network: string,
   queries: Array<{ id: string; query: string }>,
 ): Promise<ParsedGraphBatch> {
-  const result = await remoteClient.callTool({
-    name: 'graph_query_batch',
-    arguments: {
-      network,
-      queries: queries.map((query) => ({
-        ...query,
-        query: topologyGraphQuery(query.query),
-      })),
-      per_query_timeout_seconds: GRAPH_QUERY_BATCH_TIMEOUT_SECONDS,
+  const result = await remoteClient.callTool(
+    {
+      name: 'graph_query_batch',
+      arguments: {
+        network,
+        queries: queries.map((query) => ({
+          ...query,
+          query: topologyGraphQuery(query.query),
+        })),
+        per_query_timeout_seconds: GRAPH_QUERY_BATCH_TIMEOUT_SECONDS,
+      },
     },
-  }) as RemoteToolResult
+    undefined,
+    {
+      timeout: GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS,
+      maxTotalTimeout: GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS,
+    },
+  ) as RemoteToolResult
   if (result.isError) throw new Error(textFromToolResult(result) || 'graph_query_batch failed')
   return parseGraphBatchResult(result)
 }

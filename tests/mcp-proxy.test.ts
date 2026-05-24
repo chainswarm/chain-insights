@@ -425,6 +425,43 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content).toEqual([{ type: 'text', text: 'result' }])
   })
 
+  it('uses extended request timeout for proxied graph_query_batch calls', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'graph_query_batch')
+
+    await handler({
+      network: 'bittensor',
+      per_query_timeout_seconds: 120,
+      queries: [{ id: 'slow_facts', query: 'USE facts MATCH (n) RETURN n LIMIT 1' }],
+    })
+
+    expect(clientInstance.callTool).toHaveBeenCalledWith({
+      name: 'graph_query_batch',
+      arguments: expect.objectContaining({
+        network: 'bittensor',
+        per_query_timeout_seconds: 120,
+      }),
+    }, undefined, expect.objectContaining({
+      timeout: expect.any(Number),
+      maxTotalTimeout: expect.any(Number),
+    }))
+    expect(clientInstance.callTool.mock.calls[0]?.[2]?.timeout).toBeGreaterThan(60_000)
+  })
+
   it('writes MCP tool and Cypher query logs as JSONL', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)
@@ -1188,7 +1225,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
           expect.objectContaining({ id: 'exchange_inflows_1' }),
         ]),
       }),
-    })
+    }, undefined, expect.objectContaining({
+      timeout: 300_000,
+      maxTotalTimeout: 300_000,
+    }))
     const riskQueries = clientInstance.callTool.mock.calls[0][0].arguments.queries as Array<{ id: string; query: string }>
     const outflowQuery = riskQueries.find((query) => query.id === 'exchange_outflows_2')?.query ?? ''
     const inflowQuery = riskQueries.find((query) => query.id === 'exchange_inflows_2')?.query ?? ''
@@ -1248,6 +1288,52 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       address_subtypes: ['validator_hotkey'],
       roles: ['subject'],
     })
+  })
+
+  it('address_risk reports partial enrichment query failures without failing screening', async () => {
+    const { addressRisk } = await import('../src/investigation/public-tools.js')
+    const remoteClient = {
+      callTool: vi.fn().mockResolvedValueOnce({
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            facts: {
+              queries: [
+                {
+                  id: 'address_profile',
+                  ok: true,
+                  results: [{ address: '5Addr', display_labels: ['subject'] }],
+                },
+                {
+                  id: 'address_risk_score',
+                  ok: false,
+                  error: 'An unexpected error occurred executing the query',
+                  results: [],
+                },
+                { id: 'exchange_outflows_1', ok: true, results: [] },
+                { id: 'exchange_inflows_1', ok: true, results: [] },
+              ],
+            },
+          }),
+        }],
+        isError: false,
+      }),
+    }
+
+    const result = await addressRisk(remoteClient as never, {
+      address: '5Addr',
+      network: 'bittensor',
+    })
+
+    expect(result.summaryText).toContain('Partial query failures')
+    expect(result.summaryText).toContain('address_risk_score')
+    expect(result.structuredContent.facts.partial_query_errors).toEqual([
+      {
+        id: 'address_risk_score',
+        error: 'An unexpected error occurred executing the query',
+      },
+    ])
+    expect(result.graphData).toHaveProperty('schema', 'chain-insights.graph.v1')
   })
 
   it('registers local track_funds recipe that preserves up to five trusted and untrusted addresses', async () => {

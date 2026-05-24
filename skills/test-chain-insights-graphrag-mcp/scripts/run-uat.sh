@@ -4,7 +4,8 @@ set -Eeuo pipefail
 CHAIN_INSIGHTS_DIR="${CHAIN_INSIGHTS_DIR:-/home/aphex5/work/chain-insights}"
 GRAPHRAG_ML_DIR="${GRAPHRAG_ML_DIR:-/home/aphex5/work/rbmk/repos/ml}"
 GRAPHRAG_DIR="${GRAPHRAG_DIR:-${GRAPHRAG_ML_DIR}/graphrag}"
-MCP_ENDPOINT="${GRAPHRAG_MCP_ENDPOINT:-http://localhost:8011/mcp}"
+RBMK_DIR="${RBMK_DIR:-$(cd "${GRAPHRAG_ML_DIR}/../.." && pwd)}"
+MCP_ENDPOINT="${GRAPHRAG_MCP_ENDPOINT:-http://localhost:8012/mcp}"
 DEBUG_TOKEN="${GRAPHRAG_DEBUG_TOKEN:-chain-insights-dev-debug}"
 SERVER_PORT="${CHAIN_INSIGHTS_SERVER_PORT:-4321}"
 NETWORK="${NETWORK:-bittensor}"
@@ -118,6 +119,11 @@ if [[ ! -d "${GRAPHRAG_ML_DIR}" ]]; then
   exit 1
 fi
 
+if [[ ! -d "${RBMK_DIR}" ]]; then
+  log "missing RBMK dev stack root: ${RBMK_DIR}"
+  exit 1
+fi
+
 if [[ ! -d "${GRAPHRAG_DIR}" ]]; then
   log "missing GraphRAG repo: ${GRAPHRAG_DIR}"
   exit 1
@@ -130,8 +136,8 @@ OLD_GRAPH_MCP_ENDPOINT="$(node "${CHAIN_INSIGHTS_CLI}" config get graphMcpEndpoi
 OLD_GRAPH_MCP_AUTH_TOKEN="$(node "${CHAIN_INSIGHTS_CLI}" config get graphMcpAuthToken || true)"
 OLD_SERVER_PORT="$(node "${CHAIN_INSIGHTS_CLI}" config get serverPort || true)"
 CONFIG_SNAPSHOT_READY=1
-log "starting GraphRAG MCP container"
-(cd "${GRAPHRAG_ML_DIR}" && docker compose --env-file .env -f compose/shared.yml -f compose/bittensor.yml up -d graphrag-mcp)
+log "starting RBMK dev stack"
+(cd "${RBMK_DIR}" && bash dev.sh --bg)
 
 cd "${CHAIN_INSIGHTS_DIR}"
 
@@ -273,14 +279,46 @@ NODE
 
 PROXY_JSON="${RUN_DIR}/proxy-address-risk.json"
 log "calling Chain Insights proxy address_risk"
-npx @modelcontextprotocol/inspector \
-  --cli node "${CHAIN_INSIGHTS_PROXY}" \
-  --transport stdio \
-  --method tools/call \
-  --tool-name address_risk \
-  --tool-arg "network=${NETWORK}" \
-  --tool-arg "address=${UAT_ADDRESS}" \
-  --tool-arg include_attachments=true >"${PROXY_JSON}"
+node --input-type=module - "${CHAIN_INSIGHTS_PROXY}" "${NETWORK}" "${UAT_ADDRESS}" "${PROXY_JSON}" <<'NODE'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
+import fs from 'node:fs'
+
+const proxy = process.argv[2]
+const network = process.argv[3]
+const address = process.argv[4]
+const outputFile = process.argv[5]
+const requestTimeoutMs = 5 * 60 * 1000
+
+const client = new Client({ name: 'chain-insights-uat', version: '0.0.0' })
+const transport = new StdioClientTransport({
+  command: process.execPath,
+  args: [proxy],
+  env: process.env,
+})
+
+try {
+  await client.connect(transport)
+  const result = await client.callTool(
+    {
+      name: 'address_risk',
+      arguments: {
+        network,
+        address,
+        include_attachments: true,
+      },
+    },
+    undefined,
+    {
+      timeout: requestTimeoutMs,
+      maxTotalTimeout: requestTimeoutMs,
+    },
+  )
+  fs.writeFileSync(outputFile, `${JSON.stringify(result, null, 2)}\n`)
+} finally {
+  await client.close()
+}
+NODE
 
 GRAPH_REPORT_URL="$(
 node - "${PROXY_JSON}" <<'NODE'

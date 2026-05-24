@@ -22,7 +22,13 @@ interface ParsedGraphBatch {
   }
 }
 
-const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 30
+type QueryFailure = {
+  id: string
+  error: string
+}
+
+const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 120
+const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS = 5 * 60 * 1000
 
 export interface AddressRiskOptions {
   address: string
@@ -65,18 +71,28 @@ function topologyGraphQuery(query: string): string {
   return `USE live_topology ${trimmed}`
 }
 
-function resultsFor(batch: ParsedGraphBatch, id: string): Array<Record<string, unknown>> {
+function collectQueryFailure(failures: QueryFailure[], id: string, error: string | undefined): void {
+  failures.push({ id, error: error || 'unknown error' })
+}
+
+function optionalResultsFor(batch: ParsedGraphBatch, id: string, failures: QueryFailure[]): Array<Record<string, unknown>> {
   const query = batch.facts?.queries?.find((entry) => entry.id === id)
   if (!query) return []
-  if (query.ok === false) throw new Error(query.error || `Query failed: ${id}`)
+  if (query.ok === false) {
+    collectQueryFailure(failures, id, query.error)
+    return []
+  }
   return query.results ?? []
 }
 
-function resultsWithPrefix(batch: ParsedGraphBatch, prefix: string): Array<Record<string, unknown>> {
+function optionalResultsWithPrefix(batch: ParsedGraphBatch, prefix: string, failures: QueryFailure[]): Array<Record<string, unknown>> {
   return (batch.facts?.queries ?? [])
     .filter((entry) => entry.id?.startsWith(prefix))
     .flatMap((entry) => {
-      if (entry.ok === false) throw new Error(entry.error || `Query failed: ${entry.id}`)
+      if (entry.ok === false) {
+        collectQueryFailure(failures, entry.id ?? prefix, entry.error)
+        return []
+      }
       return entry.results ?? []
     })
 }
@@ -86,17 +102,24 @@ async function callGraphBatch(
   network: string,
   queries: Array<{ id: string; query: string }>,
 ): Promise<ParsedGraphBatch> {
-  const result = await remoteClient.callTool({
-    name: 'graph_query_batch',
-    arguments: {
-      network,
-      queries: queries.map((query) => ({
-        ...query,
-        query: topologyGraphQuery(query.query),
-      })),
-      per_query_timeout_seconds: GRAPH_QUERY_BATCH_TIMEOUT_SECONDS,
+  const result = await remoteClient.callTool(
+    {
+      name: 'graph_query_batch',
+      arguments: {
+        network,
+        queries: queries.map((query) => ({
+          ...query,
+          query: topologyGraphQuery(query.query),
+        })),
+        per_query_timeout_seconds: GRAPH_QUERY_BATCH_TIMEOUT_SECONDS,
+      },
     },
-  }) as RemoteToolResult
+    undefined,
+    {
+      timeout: GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS,
+      maxTotalTimeout: GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS,
+    },
+  ) as RemoteToolResult
   if (result.isError) throw new Error(textFromToolResult(result) || 'graph_query_batch failed')
   return parseGraphBatchResult(result)
 }
@@ -445,15 +468,16 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     ...(compareAddress ? [connectionProbeQuery(address, compareAddress)] : [{ id: 'connection_probe', query: 'MATCH (n:Address {address: "__chain_insights_noop__"}) RETURN n.address AS noop LIMIT 0' }]),
   ]
   const batch = await callGraphBatch(remoteClient, network, queries)
+  const partialQueryFailures: QueryFailure[] = []
   const profile: Record<string, unknown> = {
     address,
-    ...(resultsFor(batch, 'address_profile')[0] ?? {}),
-    ...(resultsFor(batch, 'address_feature')[0] ?? {}),
-    ...(resultsFor(batch, 'address_risk_score')[0] ?? {}),
+    ...(optionalResultsFor(batch, 'address_profile', partialQueryFailures)[0] ?? {}),
+    ...(optionalResultsFor(batch, 'address_feature', partialQueryFailures)[0] ?? {}),
+    ...(optionalResultsFor(batch, 'address_risk_score', partialQueryFailures)[0] ?? {}),
   }
-  const outflows = enrichExchangeRows(resultsWithPrefix(batch, 'exchange_outflows_'))
-  const inflows = enrichExchangeRows(resultsWithPrefix(batch, 'exchange_inflows_'))
-  const connections = compareAddress ? resultsFor(batch, 'connection_probe') : []
+  const outflows = enrichExchangeRows(optionalResultsWithPrefix(batch, 'exchange_outflows_', partialQueryFailures))
+  const inflows = enrichExchangeRows(optionalResultsWithPrefix(batch, 'exchange_inflows_', partialQueryFailures))
+  const connections = compareAddress ? optionalResultsFor(batch, 'connection_probe', partialQueryFailures) : []
   const exchangeRows = [...outflows, ...inflows]
   const graphData = buildRiskGraph(address, profile, exchangeRows, network)
   const risk = riskAssessment(profile, exchangeRows)
@@ -475,6 +499,9 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   if (compareAddress) {
     lines.push('', `Connection compare target: ${compareAddress}`, connections.length > 0 ? `Connection paths found: ${connections.length}` : 'Connection paths found: 0')
   }
+  if (partialQueryFailures.length > 0) {
+    lines.push('', 'Partial query failures', partialQueryFailures.map((failure) => `- ${failure.id}: ${failure.error}`).join('\n'))
+  }
 
   return {
     summaryText: lines.join('\n'),
@@ -489,6 +516,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
           inflows,
         },
         connection: compareAddress ? { compare_address: compareAddress, paths: connections } : undefined,
+        partial_query_errors: partialQueryFailures.length > 0 ? partialQueryFailures : undefined,
       },
     },
     graphData,

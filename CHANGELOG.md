@@ -2,6 +2,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.15] - 2026-05-24
+
+- Fixed the Chain Insights MCP proxy so graph query timeout options survive runtime query logging and slow `graph_query_batch` calls do not fall back to the SDK default timeout.
+- Made `address_risk` report partial enrichment query failures without failing the whole screening or graph report.
+- Updated the GraphRAG MCP UAT skill to start the intended RBMK dev stack and validate the Go GraphRAG MCP endpoint on port 8012.
+
 ## [0.2.14] - 2026-05-24
 
 - Reworked README into a product-first Chain Insights overview with a cleaner quick start, AML tool showcase, GraphRAG MCP layering, and live/archive/facts topology guidance.

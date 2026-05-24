@@ -58,6 +58,7 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS = {
 	graph_query_batch: "Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads."
 };
 const NETWORK_DESCRIPTION = "Required network to query. Do not guess; use network_capabilities or ask the user if missing.";
+const REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS = 900 * 1e3;
 const CHAIN_INSIGHTS_WORKFLOW = [
 	"Workflow:",
 	"1. If the user is starting or continuing an investigation, use case_open or case_list/case_resume first.",
@@ -272,7 +273,8 @@ function installToolLogging(server, logger) {
 function installRemoteCypherLogging(remoteClient, logger) {
 	const existingCallTool = remoteClient.callTool;
 	const originalCallTool = existingCallTool.bind(remoteClient);
-	const wrappedCallTool = (async (input) => {
+	const wrappedCallTool = (async (...args) => {
+		const input = args[0];
 		const queryPayload = cypherLogPayload(input.name, input.arguments);
 		const startedAt = Date.now();
 		if (queryPayload) await logger.info("topology.start", {
@@ -280,7 +282,7 @@ function installRemoteCypherLogging(remoteClient, logger) {
 			...queryPayload
 		});
 		try {
-			const result = await originalCallTool(input);
+			const result = await originalCallTool(...args);
 			if (queryPayload) await logger.info("topology.end", {
 				tool: input.name,
 				duration_ms: Date.now() - startedAt,
@@ -298,6 +300,12 @@ function installRemoteCypherLogging(remoteClient, logger) {
 	});
 	Object.assign(wrappedCallTool, existingCallTool);
 	remoteClient.callTool = wrappedCallTool;
+}
+function remoteToolRequestOptions(toolName) {
+	if (toolName === "graph_query" || toolName === "graph_query_batch") return {
+		timeout: REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS,
+		maxTotalTimeout: REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS
+	};
 }
 function isBlankArgument(value) {
 	if (value === void 0 || value === null) return true;
@@ -966,7 +974,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { addressRisk } = await import("./public-tools-B4r4eFxY.mjs");
+			const { addressRisk } = await import("./public-tools-D4UI-Zb0.mjs");
 			const { writeGraphReport } = await import("./graph-reports-C4TBjCkM.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-Dxz5YbuQ.mjs");
 			const result = await addressRisk(remoteClient, {
@@ -1030,7 +1038,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { trackFunds } = await import("./public-tools-B4r4eFxY.mjs");
+			const { trackFunds } = await import("./public-tools-D4UI-Zb0.mjs");
 			const { writeGraphReport } = await import("./graph-reports-C4TBjCkM.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-Dxz5YbuQ.mjs");
 			const result = await trackFunds(remoteClient, config, {
@@ -1096,7 +1104,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { scamTopology } = await import("./public-tools-B4r4eFxY.mjs");
+			const { scamTopology } = await import("./public-tools-D4UI-Zb0.mjs");
 			const { writeGraphReport } = await import("./graph-reports-C4TBjCkM.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-Dxz5YbuQ.mjs");
 			const result = await scamTopology(remoteClient, config, {
@@ -1195,10 +1203,12 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				return await normalizeRemoteToolResult(await remoteClient.callTool({
+				const request = {
 					name: tool.name,
 					arguments: normalizedArgs
-				}), config, tool.name);
+				};
+				const requestOptions = remoteToolRequestOptions(tool.name);
+				return await normalizeRemoteToolResult(requestOptions ? await remoteClient.callTool(request, void 0, requestOptions) : await remoteClient.callTool(request), config, tool.name);
 			} catch (err) {
 				return {
 					content: [{

@@ -63,10 +63,11 @@ type ToolHandler = (args: unknown, extra?: unknown) => Promise<unknown> | unknow
 type ToolRegistrationConfig = Parameters<McpServer['registerTool']>[1]
 type ToolCallInput = { name: string; arguments?: Record<string, unknown> }
 type RemoteToolCaller = {
-  callTool(input: ToolCallInput): Promise<unknown>
+  callTool: Client['callTool']
 }
 
 const NETWORK_DESCRIPTION = 'Required network to query. Do not guess; use network_capabilities or ask the user if missing.'
+const REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS = 15 * 60 * 1000
 
 const CHAIN_INSIGHTS_WORKFLOW = [
   'Workflow:',
@@ -328,7 +329,8 @@ function installToolLogging(server: McpServer, logger: ReturnType<typeof createM
 function installRemoteCypherLogging(remoteClient: RemoteToolCaller, logger: ReturnType<typeof createMcpLogger>): void {
   const existingCallTool = remoteClient.callTool
   const originalCallTool = existingCallTool.bind(remoteClient)
-  const wrappedCallTool = (async (input: ToolCallInput) => {
+  const wrappedCallTool = (async (...args: Parameters<Client['callTool']>) => {
+    const input = args[0] as ToolCallInput
     const queryPayload = cypherLogPayload(input.name, input.arguments)
     const startedAt = Date.now()
     if (queryPayload) {
@@ -338,7 +340,7 @@ function installRemoteCypherLogging(remoteClient: RemoteToolCaller, logger: Retu
       })
     }
     try {
-      const result = await originalCallTool(input)
+      const result = await originalCallTool(...args)
       if (queryPayload) {
         await logger.info('topology.end', {
           tool: input.name,
@@ -360,6 +362,16 @@ function installRemoteCypherLogging(remoteClient: RemoteToolCaller, logger: Retu
   }) as typeof remoteClient.callTool
   Object.assign(wrappedCallTool, existingCallTool)
   remoteClient.callTool = wrappedCallTool
+}
+
+function remoteToolRequestOptions(toolName: string): Parameters<Client['callTool']>[2] | undefined {
+  if (toolName === 'graph_query' || toolName === 'graph_query_batch') {
+    return {
+      timeout: REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS,
+      maxTotalTimeout: REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS,
+    }
+  }
+  return undefined
 }
 
 function isBlankArgument(value: unknown): boolean {
@@ -1518,10 +1530,14 @@ export async function createProxy(): Promise<void> {
             isError: true,
           }
         }
-        const result = await remoteClient.callTool({
+        const request = {
           name: tool.name,
           arguments: normalizedArgs,
-        })
+        }
+        const requestOptions = remoteToolRequestOptions(tool.name)
+        const result = requestOptions
+          ? await remoteClient.callTool(request, undefined, requestOptions)
+          : await remoteClient.callTool(request)
         return await normalizeRemoteToolResult(result as RemoteToolResult, config, tool.name)
       } catch (err) {
         return {
