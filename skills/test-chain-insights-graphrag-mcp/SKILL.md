@@ -23,7 +23,7 @@ investigation-producing commands.
 - Chain Insights repo: `/home/aphex5/work/chain-insights`
 - GraphRAG compose root: `/home/aphex5/work/rbmk/repos/ml`
 - GraphRAG repo: `/home/aphex5/work/rbmk/repos/ml/graphrag`
-- MCP endpoint: `http://localhost:8011/mcp`
+- MCP endpoint: `http://localhost:8012/mcp`
 - Debug bearer token: `chain-insights-dev-debug`
 - Chain Insights local server port: `4321`
 - UAT address: `5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6`
@@ -36,7 +36,7 @@ Override defaults with environment variables:
 CHAIN_INSIGHTS_DIR=/path/to/chain-insights \
 GRAPHRAG_ML_DIR=/path/to/rbmk/repos/ml \
 GRAPHRAG_DIR=/path/to/rbmk/repos/ml/graphrag \
-GRAPHRAG_MCP_ENDPOINT=http://localhost:8011/mcp \
+GRAPHRAG_MCP_ENDPOINT=http://localhost:8012/mcp \
 GRAPHRAG_DEBUG_TOKEN=chain-insights-dev-debug \
 CHAIN_INSIGHTS_SERVER_PORT=4321 \
 UAT_ADDRESS=5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6 \

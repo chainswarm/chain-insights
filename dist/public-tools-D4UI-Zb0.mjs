@@ -1,9 +1,7 @@
-const require_chunk = require("./chunk-CZWwpsFl.cjs");
-const require_output_root = require("./output-root-CFYms3ad.cjs");
-const require_graph_normalizer = require("./graph-normalizer-DeIj6Ses.cjs");
-let node_path = require("node:path");
-node_path = require_chunk.__toESM(node_path, 1);
-let node_fs_promises = require("node:fs/promises");
+import { n as workspaceOutputPaths } from "./output-root-CmWM7aV2.mjs";
+import { t as normalizeGraphPayload } from "./graph-normalizer-Cv9yK9Pg.mjs";
+import path from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 //#region src/investigation/trace-funds.ts
 var AliasTracker = class {
 	byAddress = /* @__PURE__ */ new Map();
@@ -44,7 +42,8 @@ var AliasTracker = class {
 		return Object.fromEntries(entries.sort(([a], [b]) => a.localeCompare(b, void 0, { numeric: true })));
 	}
 };
-const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS$1 = 30;
+const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS$1 = 120;
+const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS$1 = 300 * 1e3;
 const SCHEMA_QUERY_SET = [
 	{
 		id: "node_labels",
@@ -74,23 +73,23 @@ function sanitizeSegment$1(value) {
 	return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "trace";
 }
 async function ensureDirs(paths) {
-	await (0, node_fs_promises.mkdir)(paths.schemaDir, {
+	await mkdir(paths.schemaDir, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportsRoot, {
+	await mkdir(paths.reportsRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportGraphsRoot, {
+	await mkdir(paths.reportGraphsRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportTablesRoot, {
+	await mkdir(paths.reportTablesRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.logsRoot, {
+	await mkdir(paths.logsRoot, {
 		recursive: true,
 		mode: 448
 	});
@@ -121,11 +120,14 @@ async function callGraphBatch$2(remoteClient, network, queries) {
 			})),
 			per_query_timeout_seconds: GRAPH_QUERY_BATCH_TIMEOUT_SECONDS$1
 		}
+	}, void 0, {
+		timeout: GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS$1,
+		maxTotalTimeout: GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS$1
 	});
 	if (result.isError) throw new Error(textFromToolResult$2(result) || "graph_query_batch failed");
 	return parseGraphBatchResult$2(result);
 }
-function resultsFor$1(batch, id) {
+function resultsFor(batch, id) {
 	const query = batch.facts?.queries?.find((entry) => entry.id === id);
 	if (!query) return [];
 	if (query.ok === false) throw new Error(query.error || `Query failed: ${id}`);
@@ -136,10 +138,10 @@ function schemaFromGraphBatch(network, batch) {
 		schema: "chain-insights.runtime_graph_schema.v1",
 		network,
 		source: "graph_query_batch",
-		node_labels: resultsFor$1(batch, "node_labels"),
-		relationship_types: resultsFor$1(batch, "relationship_types"),
-		address_property_keys: resultsFor$1(batch, "address_property_keys").map((row) => row["property_key"]),
-		flows_to_property_keys: resultsFor$1(batch, "flows_to_property_keys").map((row) => row["property_key"]),
+		node_labels: resultsFor(batch, "node_labels"),
+		relationship_types: resultsFor(batch, "relationship_types"),
+		address_property_keys: resultsFor(batch, "address_property_keys").map((row) => row["property_key"]),
+		flows_to_property_keys: resultsFor(batch, "flows_to_property_keys").map((row) => row["property_key"]),
 		recommended_flow_projection: [
 			"src.address AS src",
 			"dst.address AS dst",
@@ -155,17 +157,17 @@ function schemaFromGraphBatch(network, batch) {
 	};
 }
 async function loadOrCaptureTopologySchema(remoteClient, paths, network) {
-	const filePath = node_path.default.join(paths.schemaDir, `${sanitizeSegment$1(network)}.graph-schema.json`);
+	const filePath = path.join(paths.schemaDir, `${sanitizeSegment$1(network)}.graph-schema.json`);
 	try {
 		return {
-			schema: JSON.parse(await (0, node_fs_promises.readFile)(filePath, "utf8")),
+			schema: JSON.parse(await readFile(filePath, "utf8")),
 			filePath
 		};
 	} catch (err) {
 		if (err.code !== "ENOENT") throw err;
 	}
 	const schema = schemaFromGraphBatch(network, await callGraphBatch$2(remoteClient, network, SCHEMA_QUERY_SET));
-	await (0, node_fs_promises.writeFile)(filePath, JSON.stringify(schema, null, 2) + "\n", { mode: 384 });
+	await writeFile(filePath, JSON.stringify(schema, null, 2) + "\n", { mode: 384 });
 	return {
 		schema,
 		filePath
@@ -380,7 +382,7 @@ async function hydrateDirectEdgeProps(remoteClient, network, flows, deposits) {
 	if (!query) return;
 	const batch = await callGraphBatch$2(remoteClient, network, [query]);
 	const edgeProps = /* @__PURE__ */ new Map();
-	for (const row of resultsFor$1(batch, "direct_edge_props")) {
+	for (const row of resultsFor(batch, "direct_edge_props")) {
 		const src = typeof row["src"] === "string" ? row["src"] : "";
 		const dst = typeof row["dst"] === "string" ? row["dst"] : "";
 		if (!src || !dst) continue;
@@ -439,7 +441,7 @@ async function collectProbeTrace(remoteClient, options) {
 	const reverseLeads = [];
 	if (uniqueDepositAddresses.length > 0) {
 		const reverseBatch = await callGraphBatch$2(remoteClient, options.network, [reverseLeadsQuery(uniqueDepositAddresses)]);
-		for (const row of resultsFor$1(reverseBatch, "reverse_1hop")) {
+		for (const row of resultsFor(reverseBatch, "reverse_1hop")) {
 			const address = typeof row["address"] === "string" ? row["address"] : "";
 			const depositAddress = typeof row["deposit_address"] === "string" ? row["deposit_address"] : "";
 			if (!address || !depositAddress) continue;
@@ -554,7 +556,7 @@ function buildGraph$1(seedAddress, network, flows, deposits, sourceMatches, reve
 		});
 		return edges;
 	});
-	return require_graph_normalizer.normalizeGraphPayload({
+	return normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: [...totals.entries()].map(([address, data]) => ({
 			id: address,
@@ -820,7 +822,7 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	const maxHops = clampInt$1(options.maxHops, 3, 1, 5);
 	const perAddressLimit = clampInt$1(options.perAddressLimit, 5, 1, 10);
 	const minAmountSum = Math.max(0, options.minAmountSum ?? 0);
-	const paths = require_output_root.workspaceOutputPaths();
+	const paths = workspaceOutputPaths();
 	await ensureDirs(paths);
 	const schemaResult = await loadOrCaptureTopologySchema(remoteClient, paths, network);
 	const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, {
@@ -834,21 +836,21 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	const slug = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}_${sanitizeSegment$1(seedAddress.slice(0, 16))}`;
 	const compact = probeEvidence(seedAddress, network, schemaResult.filePath, aliases, flows, deposits, sourceMatches, reverseLeads);
 	const graph = buildGraph$1(seedAddress, network, flows, deposits, sourceMatches, reverseLeads);
-	const compactPath = node_path.default.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
-	const graphPath = node_path.default.join(paths.reportGraphsRoot, `${slug}.graph.json`);
-	const graphHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.graph.html`);
-	const tablePath = node_path.default.join(paths.reportTablesRoot, `${slug}.flows.csv`);
-	const tableHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.table.html`);
-	const reportPath = node_path.default.join(paths.reportsRoot, `${slug}.trace-report.md`);
-	const { generateInlineGraphHtml } = await Promise.resolve().then(() => require("./html-generator-CAv81IWH.cjs")).then((n) => n.html_generator_exports);
-	await (0, node_fs_promises.writeFile)(compactPath, JSON.stringify(compact, null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(graphPath, JSON.stringify(graph, null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(tablePath, tableCsv(flows), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 384 });
+	const compactPath = path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
+	const graphPath = path.join(paths.reportGraphsRoot, `${slug}.graph.json`);
+	const graphHtmlPath = path.join(paths.reportsRoot, `${slug}.graph.html`);
+	const tablePath = path.join(paths.reportTablesRoot, `${slug}.flows.csv`);
+	const tableHtmlPath = path.join(paths.reportsRoot, `${slug}.table.html`);
+	const reportPath = path.join(paths.reportsRoot, `${slug}.trace-report.md`);
+	const { generateInlineGraphHtml } = await import("./html-generator-V6Bp0uRb.mjs").then((n) => n.n);
+	await writeFile(compactPath, JSON.stringify(compact, null, 2) + "\n", { mode: 384 });
+	await writeFile(graphPath, JSON.stringify(graph, null, 2) + "\n", { mode: 384 });
+	await writeFile(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 384 });
+	await writeFile(tablePath, tableCsv(flows), { mode: 384 });
+	await writeFile(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 384 });
+	await writeFile(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 384 });
 	if (options.caseId) {
-		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
+		const { EvidenceStore } = await import("./cases-By7INiOa.mjs");
 		await EvidenceStore.append(options.caseId, {
 			source: "track_funds",
 			queryParams: `network=${network} seed_address=${seedAddress} max_hops=${maxHops} per_address_limit=${perAddressLimit} min_amount_sum=${minAmountSum}`,
@@ -953,15 +955,15 @@ function sanitizeSegment(value) {
 	return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "scam-topology";
 }
 async function ensureScamTopologyDirs(paths) {
-	await (0, node_fs_promises.mkdir)(paths.reportsRoot, {
+	await mkdir(paths.reportsRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportGraphsRoot, {
+	await mkdir(paths.reportGraphsRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportTablesRoot, {
+	await mkdir(paths.reportTablesRoot, {
 		recursive: true,
 		mode: 448
 	});
@@ -1682,7 +1684,7 @@ function buildGraph(seeds, edges, rolesByAddress, facts) {
 		last_seen_timestamp: edge.last_seen_timestamp,
 		tx_count: edge.tx_count
 	}));
-	return require_graph_normalizer.normalizeGraphPayload({
+	return normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: [...nodesById.values()],
 		edges: [...primaryEdges.map((edge) => ({
@@ -1879,15 +1881,15 @@ function scamTopologyCompactEvidence(facts) {
 	};
 }
 async function writeScamTopologyCaseArtifacts(facts, graphData) {
-	const paths = require_output_root.workspaceOutputPaths();
+	const paths = workspaceOutputPaths();
 	await ensureScamTopologyDirs(paths);
 	const slug = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}_scam-topology_${sanitizeSegment(facts.victim_address.slice(0, 16))}`;
-	const compactEvidencePath = node_path.default.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
-	const graphPath = node_path.default.join(paths.reportGraphsRoot, `${slug}.graph.json`);
-	const graphHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.graph.html`);
-	const labelCandidatesPath = node_path.default.join(paths.reportTablesRoot, `${slug}.label-candidates.csv`);
-	const reportPath = node_path.default.join(paths.reportsRoot, `${slug}.scam-topology-report.md`);
-	const { generateInlineGraphHtml } = await Promise.resolve().then(() => require("./html-generator-CAv81IWH.cjs")).then((n) => n.html_generator_exports);
+	const compactEvidencePath = path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
+	const graphPath = path.join(paths.reportGraphsRoot, `${slug}.graph.json`);
+	const graphHtmlPath = path.join(paths.reportsRoot, `${slug}.graph.html`);
+	const labelCandidatesPath = path.join(paths.reportTablesRoot, `${slug}.label-candidates.csv`);
+	const reportPath = path.join(paths.reportsRoot, `${slug}.scam-topology-report.md`);
+	const { generateInlineGraphHtml } = await import("./html-generator-V6Bp0uRb.mjs").then((n) => n.n);
 	const files = {
 		compactEvidence: compactEvidencePath,
 		graph: graphPath,
@@ -1895,11 +1897,11 @@ async function writeScamTopologyCaseArtifacts(facts, graphData) {
 		labelCandidates: labelCandidatesPath,
 		report: reportPath
 	};
-	await (0, node_fs_promises.writeFile)(compactEvidencePath, JSON.stringify(scamTopologyCompactEvidence(facts), null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(graphPath, JSON.stringify(graphData, null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(graphHtmlPath, generateInlineGraphHtml(graphData), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(labelCandidatesPath, labelCandidatesCsv(facts.label_candidates), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(reportPath, buildScamTopologyReport(facts, files), { mode: 384 });
+	await writeFile(compactEvidencePath, JSON.stringify(scamTopologyCompactEvidence(facts), null, 2) + "\n", { mode: 384 });
+	await writeFile(graphPath, JSON.stringify(graphData, null, 2) + "\n", { mode: 384 });
+	await writeFile(graphHtmlPath, generateInlineGraphHtml(graphData), { mode: 384 });
+	await writeFile(labelCandidatesPath, labelCandidatesCsv(facts.label_candidates), { mode: 384 });
+	await writeFile(reportPath, buildScamTopologyReport(facts, files), { mode: 384 });
 	return files;
 }
 function validateNonNegativeNumber(value, name) {
@@ -1981,7 +1983,7 @@ async function scamTopology(remoteClient, config, options) {
 	const summaryText = summarize(network, victimAddress, incidentTimestampMs, labelCandidates, scamLabels, classification.safetyDecisions, topologyEdges, classification.terminalPoints);
 	if (caseId) {
 		const files = await writeScamTopologyCaseArtifacts(facts, graphData);
-		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
+		const { EvidenceStore } = await import("./cases-By7INiOa.mjs");
 		await EvidenceStore.append(caseId, {
 			source: "scam_topology",
 			queryParams: [
@@ -2025,7 +2027,8 @@ async function scamTopology(remoteClient, config, options) {
 }
 //#endregion
 //#region src/investigation/public-tools.ts
-const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 30;
+const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 120;
+const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS = 300 * 1e3;
 function escapeCypherString(value) {
 	return value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
 }
@@ -2044,15 +2047,27 @@ function topologyGraphQuery(query) {
 	if (/^USE\s+/i.test(trimmed)) return trimmed;
 	return `USE live_topology ${trimmed}`;
 }
-function resultsFor(batch, id) {
+function collectQueryFailure(failures, id, error) {
+	failures.push({
+		id,
+		error: error || "unknown error"
+	});
+}
+function optionalResultsFor(batch, id, failures) {
 	const query = batch.facts?.queries?.find((entry) => entry.id === id);
 	if (!query) return [];
-	if (query.ok === false) throw new Error(query.error || `Query failed: ${id}`);
+	if (query.ok === false) {
+		collectQueryFailure(failures, id, query.error);
+		return [];
+	}
 	return query.results ?? [];
 }
-function resultsWithPrefix(batch, prefix) {
+function optionalResultsWithPrefix(batch, prefix, failures) {
 	return (batch.facts?.queries ?? []).filter((entry) => entry.id?.startsWith(prefix)).flatMap((entry) => {
-		if (entry.ok === false) throw new Error(entry.error || `Query failed: ${entry.id}`);
+		if (entry.ok === false) {
+			collectQueryFailure(failures, entry.id ?? prefix, entry.error);
+			return [];
+		}
 		return entry.results ?? [];
 	});
 }
@@ -2067,6 +2082,9 @@ async function callGraphBatch(remoteClient, network, queries) {
 			})),
 			per_query_timeout_seconds: GRAPH_QUERY_BATCH_TIMEOUT_SECONDS
 		}
+	}, void 0, {
+		timeout: GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS,
+		maxTotalTimeout: GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS
 	});
 	if (result.isError) throw new Error(textFromToolResult(result) || "graph_query_batch failed");
 	return parseGraphBatchResult(result);
@@ -2357,7 +2375,7 @@ function buildRiskGraph(address, profile, rows, network) {
 		}
 	}
 	const rawNodes = [...nodes.values()];
-	return restoreSystemLabels(require_graph_normalizer.normalizeGraphPayload({
+	return restoreSystemLabels(normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: rawNodes,
 		edges,
@@ -2387,15 +2405,16 @@ async function addressRisk(remoteClient, options) {
 			query: "MATCH (n:Address {address: \"__chain_insights_noop__\"}) RETURN n.address AS noop LIMIT 0"
 		}]
 	]);
+	const partialQueryFailures = [];
 	const profile = {
 		address,
-		...resultsFor(batch, "address_profile")[0] ?? {},
-		...resultsFor(batch, "address_feature")[0] ?? {},
-		...resultsFor(batch, "address_risk_score")[0] ?? {}
+		...optionalResultsFor(batch, "address_profile", partialQueryFailures)[0] ?? {},
+		...optionalResultsFor(batch, "address_feature", partialQueryFailures)[0] ?? {},
+		...optionalResultsFor(batch, "address_risk_score", partialQueryFailures)[0] ?? {}
 	};
-	const outflows = enrichExchangeRows(resultsWithPrefix(batch, "exchange_outflows_"));
-	const inflows = enrichExchangeRows(resultsWithPrefix(batch, "exchange_inflows_"));
-	const connections = compareAddress ? resultsFor(batch, "connection_probe") : [];
+	const outflows = enrichExchangeRows(optionalResultsWithPrefix(batch, "exchange_outflows_", partialQueryFailures));
+	const inflows = enrichExchangeRows(optionalResultsWithPrefix(batch, "exchange_inflows_", partialQueryFailures));
+	const connections = compareAddress ? optionalResultsFor(batch, "connection_probe", partialQueryFailures) : [];
 	const exchangeRows = [...outflows, ...inflows];
 	const graphData = buildRiskGraph(address, profile, exchangeRows, network);
 	const risk = riskAssessment(profile, exchangeRows);
@@ -2412,6 +2431,7 @@ async function addressRisk(remoteClient, options) {
 	];
 	if (Array.isArray(risk["drivers"]) && risk["drivers"].length > 0) lines.push("", "Risk drivers", risk["drivers"].map((driver) => `- ${driver}`).join("\n"));
 	if (compareAddress) lines.push("", `Connection compare target: ${compareAddress}`, connections.length > 0 ? `Connection paths found: ${connections.length}` : "Connection paths found: 0");
+	if (partialQueryFailures.length > 0) lines.push("", "Partial query failures", partialQueryFailures.map((failure) => `- ${failure.id}: ${failure.error}`).join("\n"));
 	return {
 		summaryText: lines.join("\n"),
 		structuredContent: {
@@ -2430,7 +2450,8 @@ async function addressRisk(remoteClient, options) {
 				connection: compareAddress ? {
 					compare_address: compareAddress,
 					paths: connections
-				} : void 0
+				} : void 0,
+				partial_query_errors: partialQueryFailures.length > 0 ? partialQueryFailures : void 0
 			}
 		},
 		graphData
@@ -2471,7 +2492,7 @@ async function trackFunds(remoteClient, config, options) {
 			minAmountSum: options.minAmountSum
 		})
 	});
-	const graphData = require_graph_normalizer.normalizeGraphPayload({
+	const graphData = normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: runs.flatMap((run) => Array.isArray(run.result.graphData.nodes) ? run.result.graphData.nodes : []),
 		edges: runs.flatMap((run) => Array.isArray(run.result.graphData.edges) ? run.result.graphData.edges : []),
@@ -2528,6 +2549,6 @@ async function trackFunds(remoteClient, config, options) {
 	};
 }
 //#endregion
-exports.addressRisk = addressRisk;
-exports.scamTopology = scamTopology;
-exports.trackFunds = trackFunds;
+export { addressRisk, scamTopology, trackFunds };
+
+//# sourceMappingURL=public-tools-D4UI-Zb0.mjs.map
