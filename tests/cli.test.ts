@@ -136,6 +136,8 @@ describe('CLI scaffold (FOUND-02)', () => {
       expect(readme).toContain('reports/graphs/    Graph JSON for visualization')
       expect(readme).not.toContain('logs/              Workspace-local investigation and preview logs')
       expect(readme).toContain('.chain-insights/runtime/        Workspace-local runtime process state and debug logs')
+      expect(readFileSync(join(target, 'imports', 'README.md'), 'utf8')).toContain('External Investigation Inputs')
+      expect(readFileSync(join(target, 'templates', 'README.md'), 'utf8')).toContain('Reusable Workspace Templates')
       const agents = readFileSync(join(target, 'AGENTS.md'), 'utf8')
       const claude = readFileSync(join(target, 'CLAUDE.md'), 'utf8')
       for (const body of [agents, claude]) {
@@ -164,6 +166,22 @@ describe('CLI scaffold (FOUND-02)', () => {
       writeFileSync(join(target, 'README.md'), 'custom notes\n')
       expect(() => execSync(`node bin/cli.js init ${target}`, { encoding: 'utf8', stdio: 'pipe' })).toThrow()
       expect(readFileSync(join(target, 'README.md'), 'utf8')).toBe('custom notes\n')
+    } finally {
+      rmSync(parent, { recursive: true, force: true })
+    }
+  })
+
+  it('init preflights existing files before creating a partial workspace', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
+    const target = join(parent, 'investigations')
+    try {
+      mkdirSync(target, { recursive: true })
+      writeFileSync(join(target, 'README.md'), 'existing notes\n')
+      expect(() => execSync(`node bin/cli.js init ${target}`, { encoding: 'utf8', stdio: 'pipe' })).toThrow()
+      expect(readFileSync(join(target, 'README.md'), 'utf8')).toBe('existing notes\n')
+      expect(existsSync(join(target, '.chain-insights', 'workspace.json'))).toBe(false)
+      expect(existsSync(join(target, 'templates'))).toBe(false)
+      expect(existsSync(join(target, 'imports'))).toBe(false)
     } finally {
       rmSync(parent, { recursive: true, force: true })
     }

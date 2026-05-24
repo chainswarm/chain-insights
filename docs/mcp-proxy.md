@@ -1,0 +1,181 @@
+# MCP Proxy
+
+The Chain Insights stdio proxy lets AI agents consume local Chain Insights
+tools as an MCP server. It wraps the configured Go Graph MCP endpoint with
+local auth, wallet status, case workflows, graph report handling, and tool
+instructions.
+
+## Basic Configuration
+
+Use this MCP server configuration:
+
+```json
+{
+  "mcpServers": {
+    "chain-insights": {
+      "command": "chain-insights-mcp-proxy"
+    }
+  }
+}
+```
+
+The proxy reads the same local Chain Insights config as the CLI.
+
+## Behavior
+
+The proxy:
+
+- Connects to `graphMcpEndpoint`.
+- Uses debug bearer auth, test access key auth, or x402 payment auth according
+  to local config.
+- Caches remote tool schemas per endpoint for 24 hours.
+- Exposes graph tools returned by the endpoint.
+- Adds local `balance`, `help`, and case workflow tools.
+- Starts the local graph report server when graph report URLs are returned.
+- Publishes instructions with required argument rules, workflow guidance, graph
+  report behavior, and schema hints.
+
+## Local Tools
+
+| Tool | Purpose |
+| --- | --- |
+| `balance` | Show the local Base USDC payment wallet balance |
+| `help` | Show Chain Insights tool and workflow guidance |
+| `case_open` | Create a local investigation case |
+| `case_list` | List local investigation cases |
+| `case_resume` | Load case context, evidence count, dossiers, and latest session |
+| `case_add_evidence` | Append a report or note to the evidence manifest |
+| `case_verify_evidence` | Verify saved evidence integrity |
+| `case_update_dossier` | Add a durable finding to an address/entity dossier |
+| `case_start_session` | Start an investigation session |
+| `case_end_session` | End a session with findings and next steps |
+
+Remote graph tools are discovered from the configured Graph MCP endpoint. The
+expected primitive graph tools are `graph_query` and `graph_query_batch`.
+
+## Auth Modes
+
+Local debug mode:
+
+```bash
+chain-insights debug on --token chain-insights-dev-debug --endpoint http://localhost:8012/mcp
+chain-insights mcp tools --refresh
+```
+
+Invited tester access key mode:
+
+```bash
+chain-insights access-key set ci_test_REDACTED --endpoint https://staging-mcp.chain-insights.ai/mcp
+chain-insights access-key status
+```
+
+Paid x402 mode:
+
+```bash
+chain-insights config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
+chain-insights debug off
+chain-insights config set walletPrivateKey 0xYOUR_EVM_PRIVATE_KEY
+chain-insights wallet balance
+```
+
+If `graphMcpAuthToken` is set, Chain Insights sends both
+`X-MCP-Debug-Token` and `Authorization: Bearer <token>`. If it is empty,
+Chain Insights uses the encrypted wallet private key with x402 payment
+handling.
+
+## Agent Installers
+
+Install skills and MCP registration:
+
+```bash
+chain-insights --claude
+chain-insights --codex
+chain-insights --hermes
+```
+
+The Hermes installer writes Chain Insights skills under the Hermes skills
+directory and registers the stdio MCP proxy in the Hermes config.
+
+After installing, open an initialized investigation workspace in the agent and
+operate over the workspace files.
+
+## Claude Desktop
+
+Claude Desktop is supported for basic MCP calls. It is not the primary
+framework UI.
+
+Configure it:
+
+```bash
+chain-insights setup claude-desktop --dry-run
+chain-insights setup claude-desktop
+```
+
+Validate without opening Claude:
+
+```bash
+npx @modelcontextprotocol/inspector \
+  --cli \
+  --config ~/.config/Claude/claude_desktop_config.json \
+  --server chain-insights \
+  --method tools/list
+```
+
+Claude Desktop does not hot-reload its MCP config. Fully quit and reopen it
+after setup.
+
+Useful MCP prompts:
+
+```text
+Use Chain Insights to show my payment wallet balance.
+```
+
+```text
+Use Chain Insights graph_query on network bittensor with:
+USE live_topology MATCH (n) WHERE n.address IS NOT NULL RETURN n.labels AS labels, n.address AS address LIMIT 10
+```
+
+```text
+Use Chain Insights graph_query_batch on network bittensor with these read-only Cypher queries:
+1. USE live_topology MATCH (n) RETURN count(n) AS count LIMIT 1
+2. USE live_topology MATCH (n) WHERE n.address IS NOT NULL RETURN n.labels AS labels, n.address AS address LIMIT 3
+```
+
+```text
+Use Chain Insights to open an investigation case named "Exchange deposit clustering" with tags aml,bittensor.
+```
+
+```text
+Use Chain Insights to save the last graph_query_batch result as evidence in case <case-id>.
+```
+
+## Inspector Validation
+
+Inspect a local Graph MCP endpoint directly:
+
+```bash
+npx @modelcontextprotocol/inspector \
+  --cli http://localhost:8012/mcp \
+  --transport http \
+  --method tools/list \
+  --header "X-MCP-Debug-Token: chain-insights-dev-debug"
+```
+
+Inspect the local Chain Insights proxy:
+
+```bash
+npx @modelcontextprotocol/inspector \
+  --cli chain-insights-mcp-proxy \
+  --method tools/list
+```
+
+## Graph Reports
+
+Graph-backed tools may return raw graph data in
+`_meta.chainInsights.graph.data`. Chain Insights stores that graph data under
+`reports/graphs/*.graph.json` in the active workspace and returns
+`_meta.chainInsights.graph.url` pointing to
+`/graph-reports/<filename>.graph.json`.
+
+The local graph report server binds to localhost. Chain Insights does not
+create duplicated `artifacts/` graph payloads; `reports/graphs/` is canonical.
