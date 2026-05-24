@@ -1,9 +1,8 @@
 # MCP Proxy
 
-The Chain Insights stdio proxy lets AI agents consume local Chain Insights
-tools as an MCP server. It wraps the configured Go Graph MCP endpoint with
-local auth, wallet status, case workflows, graph report handling, and tool
-instructions.
+The Chain Insights stdio proxy lets AI agents consume Chain Insights tools as
+an MCP server. It connects to the configured GraphRAG MCP endpoint and adds
+local wallet, case, evidence, and graph-report behavior.
 
 ## Basic Configuration
 
@@ -50,7 +49,7 @@ The proxy:
 | `case_start_session` | Start an investigation session |
 | `case_end_session` | End a session with findings and next steps |
 
-Remote graph tools are discovered from the configured Graph MCP endpoint. The
+Remote graph tools are discovered from the configured GraphRAG MCP endpoint. The
 expected primitive graph tools are `graph_query` and `graph_query_batch`.
 
 ## Auth Modes

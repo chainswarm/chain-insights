@@ -74,8 +74,8 @@ cia case suspend <case-id>
 cia case close <case-id>
 ```
 
-Use `cia case resume <case-id>` to load case metadata, evidence count, dossier
-summaries, and recent session notes.
+Use `cia case show <case-id>` to show saved case context, evidence count,
+dossier summaries, and recent session notes.
 
 ## Evidence
 

@@ -5,16 +5,16 @@ agents should rely on during investigations.
 
 ## Graph MCP Surface
 
-The Go Graph MCP public graph surface is intentionally small:
+The GraphRAG MCP public graph surface is intentionally small:
 
 | Tool | Purpose |
 | --- | --- |
 | `graph_query` | Run one read-only GQL/Cypher query through the universal graph endpoint |
 | `graph_query_batch` | Run related read-only graph-language queries as one MCP call |
 
-High-level AML tools such as `address_risk`, `track_funds`, and
-`scam_topology` are Chain Insights recipes built over `graph_query_batch`.
-They are not assumed to exist on the Go Graph MCP endpoint.
+Chain Insights AML tools such as `address_risk`, `track_funds`, and
+`scam_topology` are recipes built over `graph_query_batch`. They are not
+assumed to exist on the GraphRAG MCP endpoint.
 
 ## Query Rules
 

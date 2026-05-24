@@ -1,136 +1,96 @@
 # Chain Insights
 
-Local-first AML investigation tooling for AI agents and human operators. Chain
-Insights gives Codex, Claude Code, Claude Desktop, Hermes, and CLI users a
-workspace for graph access, wallet status, case files, evidence, dossiers,
-sessions, and browser visualizations.
+Chain Insights is an AML investigation framework on top of GraphRAG MCP. It
+turns graph access into analyst-ready workflows: address screening, fund-flow
+tracing, scam topology discovery, case files, evidence, dossiers, reports, and
+graph visualizations.
 
-Chain Insights has two product layers: a CLI and workspace framework for local
-investigations, plus an MCP proxy that lets AI agents call tools through the
-same local framework.
+GraphRAG MCP exposes generic graph tools. Chain Insights adds AML tools and
+investigation workflow around them.
 
-The Go Graph MCP endpoint remains the graph execution backend. Chain Insights
-adds investigation workflow, payment/debug auth, report files, graph rendering,
-and case evidence around that backend.
+## What You Can Do Today
 
-## Documentation
-
-| Doc | Use it for |
+| Tool | Use it for |
 | --- | --- |
-| [Graph tools](docs/graph-tools.md) | `graph_query`, `graph_query_batch`, `address_risk`, `track_funds`, `scam_topology`, schemas, result contracts, evidence pointer behavior |
-| [Investigation workspaces](docs/investigation-workspaces.md) | `cia init`, case layout, `cases/`, `evidence/`, `dossiers/`, `imports/`, `templates/`, reports, sessions |
-| [MCP proxy](docs/mcp-proxy.md) | Codex, Claude Code, Hermes, Claude Desktop, local stdio proxy, graph report server |
-| [Development](docs/development.md) | Install, build, test, release gate, UAT, global install |
-| [Architecture](docs/architecture.md) | Product layers, data flow, local storage, security model, config keys |
-
-## Current Capabilities
-
-| Area | Entry points |
-| --- | --- |
-| CLI and local server | `chain-insights --help`, `chain-insights serve` |
-| Graph MCP client | `chain-insights mcp tools`, `chain-insights mcp call` |
-| Debug-token MCP auth | `chain-insights debug on` |
-| Test access keys | `chain-insights access-key set` |
-| x402 client fetch | encrypted local payment wallet |
-| Wallet status | `chain-insights wallet address`, `chain-insights wallet balance`, MCP `balance` |
-| Case lifecycle | `chain-insights case open/list/activate/suspend/close` |
-| Evidence and dossiers | `chain-insights case evidence`, `chain-insights case dossier` |
-| Session resume context | `chain-insights case session`, `chain-insights case resume` |
-| Graph visualization | `chain-insights viz`, local graph report server |
-| Agent installers | `chain-insights --claude`, `chain-insights --codex`, `chain-insights --hermes` |
-| Claude Desktop setup | `chain-insights setup claude-desktop` |
-
-Expected Go Graph MCP primitive tools:
-
-| Tool | Purpose |
-| --- | --- |
-| `graph_query` | Run one read-only GQL/Cypher query through the universal graph endpoint |
-| `graph_query_batch` | Run related read-only graph-language queries as one MCP call |
-
-High-level AML tools such as `address_risk`, `track_funds`, and
-`scam_topology` are Chain Insights recipes over `graph_query_batch`. Do not
-assume they exist on the Go Graph MCP endpoint.
+| `address_risk` | Screen one address for risk, behavior, neighborhood context, and exchange exposure |
+| `track_funds` | Trace victim/source funds through intermediaries to exchange deposit candidates |
+| `scam_topology` | Expand a known victim incident into reviewable scam infrastructure and label candidates |
+| `graph_query` | Run one read-only GQL/Cypher query against a GraphRAG MCP graph layer |
+| `graph_query_batch` | Run related read-only graph queries as one MCP call |
 
 ## Quick Start
 
-From this repository:
+From an installed package:
+
+```bash
+cia --version
+```
+
+From a local checkout:
 
 ```bash
 npm install
 npm run build
-node bin/cli.js --help
+npm install -g .
+cia --version
 ```
 
-Installed package usage:
+Create an investigation workspace:
 
 ```bash
-chain-insights --help
-chain-insights status
+mkdir -p ./chain-insights-investigations
+cd ./chain-insights-investigations
+cia init .
 ```
 
-By default Chain Insights uses the staging production Graph MCP:
+Check the configured endpoint and current GraphRAG MCP capabilities:
 
 ```bash
-chain-insights config get graphMcpEndpoint
-chain-insights mcp tools --refresh
+cia config get graphMcpEndpoint
+cia mcp networks
+cia mcp tools --refresh
 ```
 
-Switch to a local Go Graph MCP for debug UAT:
+If network or tool discovery fails, fix endpoint/auth first; the CLI can still
+initialize workspaces and manage cases without a reachable GraphRAG MCP
+endpoint.
+
+Open a case and run a small investigation:
 
 ```bash
-chain-insights debug on --token chain-insights-dev-debug --endpoint http://localhost:8012/mcp
-chain-insights mcp tools --refresh
+cia case open "First Chain Insights investigation" \
+  --tags aml,bittensor \
+  --description "Screen and trace a known source address"
+
+cia mcp track-funds \
+  --network bittensor \
+  --trusted-addresses 5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5 \
+  --case 1
 ```
 
-Switch back to staging:
+Then inspect:
 
 ```bash
-chain-insights config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
-chain-insights debug off
-chain-insights mcp tools --refresh
+cia case show 1
+find reports cases -maxdepth 3 -type f | sort
 ```
 
-Run a live topology query:
+## Demo
+
+Run a direct live topology query:
 
 ```bash
-chain-insights mcp call graph_query \
+cia mcp call graph_query \
   network=bittensor \
   "query=USE live_topology MATCH (n) WHERE n.address IS NOT NULL RETURN n.labels AS labels, n.address AS address LIMIT 10"
 ```
 
-Run a batch query:
+Run a batch across graph layers:
 
 ```bash
-chain-insights mcp call graph_query_batch \
+cia mcp call graph_query_batch \
   network=bittensor \
-  'queries=[{"id":"count","query":"USE live_topology MATCH (n) RETURN count(n) AS count LIMIT 1"},{"id":"archive_flows","query":"USE archive_topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN f.period_granularity AS granularity, src.address AS source, dst.address AS target LIMIT 3"}]'
-```
-
-## Investigation Workspace
-
-Create a workspace before producing investigation outputs:
-
-```bash
-mkdir -p ~/work/chain-insights-investigations
-cd ~/work/chain-insights-investigations
-cia init .
-```
-
-Open a case:
-
-```bash
-cia case open "Exchange deposit clustering" \
-  --tags aml,bittensor \
-  --description "Trace high-risk source funds into exchange entities"
-```
-
-Run a high-level trace and attach evidence to a case:
-
-```bash
-cia mcp track-funds \
-  --network bittensor \
-  --trusted-addresses 5... \
-  --case 1
+  'queries=[{"id":"count","query":"USE live_topology MATCH (n) RETURN count(n) AS count LIMIT 1"},{"id":"archive_flows","query":"USE archive_topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN f.period_granularity AS granularity, src.address AS source, dst.address AS target LIMIT 3"},{"id":"facts_sample","query":"USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.sent_count AS sent_count LIMIT 3"}]'
 ```
 
 Run victim incident topology:
@@ -144,76 +104,62 @@ cia mcp scam-topology \
   --case 1
 ```
 
-`scam_topology` performs victim-only traversal outward from victim/source funds.
-Its detailed contract, activity policies, exchange terminal safety rules, and
-reviewable label outputs are documented in [Graph tools](docs/graph-tools.md).
+## How It Fits Together
 
-## MCP Proxy
-
-Use `chain-insights-mcp-proxy` when an AI agent should consume Chain Insights
-as an MCP server.
-
-Install agent skills and MCP registration:
-
-```bash
-chain-insights --claude
-chain-insights --codex
-chain-insights --hermes
+```text
+Agent or CLI user
+  -> Chain Insights CLI / MCP proxy
+  -> local config, wallet, workspace, cases, evidence, reports
+  -> GraphRAG MCP
+  -> live_topology, archive_topology, facts
 ```
 
-Claude Desktop setup:
+Chain Insights stores investigation outputs in initialized local workspaces.
+GraphRAG MCP performs graph-language reads against network-specific graph
+layers.
 
-```bash
-chain-insights setup claude-desktop --dry-run
-chain-insights setup claude-desktop
-```
+## Topology And Facts
 
-See [MCP proxy](docs/mcp-proxy.md) for the config JSON, local tools,
-Inspector validation, and client-specific notes.
+Graph queries must choose a layer explicitly:
 
-## Development
+| Layer | Backing data |
+| --- | --- |
+| `live_topology` | Memgraph RAM topology for current graph traversal |
+| `archive_topology` | StarRocks historical topology for warehouse-scale flow reads |
+| `facts` | StarRocks facts for feature and enrichment reads |
 
-Common local checks:
+Use `graph_query_batch` when related reads should share one call and one
+result envelope.
 
-```bash
-npm install
-npm run typecheck
-npm test
-npm run build
-npm run release:check
-```
+## AML Tools
 
-Release rules:
+The high-level AML tools are Chain Insights workflows built around graph access
+and local case state:
 
-- Work on PR branches.
-- Every PR to `main` bumps `package.json` and `package-lock.json`.
-- Every PR to `main` adds a matching `CHANGELOG.md` entry.
-- Run the release gate locally with `npm run release:check`.
+- `address_risk` starts a single-address screen with risk, behavior,
+  neighborhood context, and exchange exposure.
+- `track_funds` traces trusted victim/source funds through intermediaries to
+  exchange deposit candidates.
+- `scam_topology` expands from a known victim incident into reviewable
+  topology, safety decisions, and ML-ready label candidates.
 
-See [Development](docs/development.md) for focused test sets, UAT, and global
-install commands.
+When a case is provided, tools can save compact evidence pointers and graph
+reports under the workspace instead of embedding large payloads in case notes.
 
-## Troubleshooting
+## Docs Map
 
-Refresh stale graph tool schemas:
+| Doc | Use it for |
+| --- | --- |
+| [Graph tools](docs/graph-tools.md) | GraphRAG MCP layers, `graph_query`, `graph_query_batch`, AML tool contracts, graph reports, evidence pointers |
+| [Investigation workspaces](docs/investigation-workspaces.md) | `cia init`, case layout, evidence, dossiers, imports, templates, sessions, reports |
+| [MCP proxy](docs/mcp-proxy.md) | Stdio proxy behavior, agent installers, local tools, auth modes, Inspector validation |
+| [Architecture](docs/architecture.md) | Product layers, data flow, local storage, security model, config keys |
+| [Development](docs/development.md) | Build, test, and local install commands |
+| [Contributing](docs/contributing.md) | Development workflow, pull requests, release expectations |
+| [Debugging](docs/debugging.md) | Local troubleshooting, diagnostics, debug workflows |
 
-```bash
-chain-insights mcp tools --refresh
-```
+## What It Is Not
 
-Check current endpoint and auth mode:
-
-```bash
-chain-insights config get graphMcpEndpoint
-chain-insights access-key status
-chain-insights debug status
-```
-
-If `wallet balance` cannot reach Base RPC:
-
-```bash
-BASE_RPC_URL=https://mainnet.base.org chain-insights wallet balance
-```
-
-If a graph report URL fails, rerun the graph-backed tool so Chain Insights can
-recreate the local report and start the report server.
+Chain Insights is not a custodial wallet, hosted case database, or replacement
+for analyst review. It does not write risk labels automatically. Investigation
+data stays in the local workspace unless the operator exports or shares it.
