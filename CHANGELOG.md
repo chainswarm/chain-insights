@@ -2,6 +2,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.14] - 2026-05-24
+
+- Reworked README into a product-first Chain Insights overview with a cleaner quick start, AML tool showcase, GraphRAG MCP layering, and live/archive/facts topology guidance.
+- Added Chain Insights developer-experience guidance plus focused contributing and debugging docs.
+- Dogfooded the installed `cia` workflow from a clean workspace and documented the resulting README/CLI feedback.
+
 ## [0.2.13] - 2026-05-24
 
 - Split the overloaded README into focused graph tools, workspace, MCP proxy, architecture, and development docs while keeping README as the operator entry point.
