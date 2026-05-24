@@ -1,6 +1,6 @@
 {
   "name": "chain-insights",
-  "version": "0.2.12",
+  "version": "0.2.13",
   "description": "AML investigation toolkit for blockchain analysis",
   "type": "module",
   "engines": {
@@ -22,7 +22,9 @@
   "files": [
     "bin",
     "dist",
-    "skills"
+    "skills",
+    "docs/*.md",
+    "docs/images"
   ],
   "scripts": {
     "build": "tsdown && cp -r src/viz/templates dist/templates && mkdir -p dist/assets && cp -r src/wallet/mcp-proxy/assets/* dist/assets/",

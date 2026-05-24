@@ -63,9 +63,10 @@ describe('shipped Chain Insights skills contract', () => {
 
   it('documents scam topology victim incident traversal and review-only labels', () => {
     const readme = read('README.md')
+    const graphToolsDoc = read('docs/graph-tools.md')
     const traceFundsSkill = read('skills/chain-insights-trace-funds/SKILL.md')
     const investigationSkill = read('skills/chain-insights-investigation/SKILL.md')
-    const combined = [readme, traceFundsSkill, investigationSkill].join('\n')
+    const combined = [readme, graphToolsDoc, traceFundsSkill, investigationSkill].join('\n')
 
     expect(combined).toContain('scam_topology')
     expect(combined).toContain('victim-only traversal is outward from victim/source funds')

@@ -1,5 +1,7 @@
-import path from "node:path";
-import { mkdir, writeFile } from "node:fs/promises";
+const require_chunk = require("./chunk-CZWwpsFl.cjs");
+let node_path = require("node:path");
+node_path = require_chunk.__toESM(node_path, 1);
+let node_fs_promises = require("node:fs/promises");
 //#region src/workspace/init.ts
 const WORKSPACE_DIRS = [
 	".chain-insights",
@@ -92,6 +94,31 @@ Current Assessment:
 
 ## Next Steps
 `;
+const IMPORTS_README = `# External Investigation Inputs
+
+Put user-provided or third-party investigation material here before turning it
+into case evidence.
+
+Examples:
+
+- Exchange support exports
+- CSV extracts
+- Screenshots
+- Raw notes
+- Partner reports
+
+Files in this directory are inputs, not verified evidence. When an import
+supports a claim, summarize it into the case evidence manifest and reference
+the original file path.
+`;
+const TEMPLATES_README = `# Reusable Workspace Templates
+
+Store local report, case, prompt, and evidence templates here.
+
+Templates are optional workspace helpers. They are not evidence and should not
+be treated as case state until copied into a case, evidence file, dossier, or
+report.
+`;
 const RUNTIME_SKILL = `---
 name: chain-insights-runtime-schema
 description: Workspace-local Chain Insights runtime schema notes. Refresh this after connecting to a graph MCP endpoint.
@@ -156,6 +183,8 @@ function workspaceFiles(workspaceRoot) {
 		["README.md", README],
 		["AGENTS.md", AGENTS],
 		["CLAUDE.md", CLAUDE],
+		["imports/README.md", IMPORTS_README],
+		["templates/README.md", TEMPLATES_README],
 		["templates/case-brief.md", CASE_BRIEF],
 		[".chain-insights/runtime-skill/SKILL.md", RUNTIME_SKILL],
 		[".chain-insights/schema/README.md", SCHEMA_README],
@@ -163,15 +192,28 @@ function workspaceFiles(workspaceRoot) {
 		[".chain-insights/runtime/logs/.keep", ""]
 	];
 }
+async function assertNoFileCollisions(workspaceRoot) {
+	for (const [relativePath] of workspaceFiles(workspaceRoot)) {
+		const filePath = node_path.default.join(workspaceRoot, relativePath);
+		try {
+			await (0, node_fs_promises.access)(filePath);
+			throw new Error(`Refusing to overwrite ${filePath}. Re-run with --force to replace workspace files.`);
+		} catch (err) {
+			if (err.code === "ENOENT") continue;
+			throw err;
+		}
+	}
+}
 async function initWorkspace(options) {
-	const workspaceRoot = path.resolve(options.targetDir);
-	for (const dir of WORKSPACE_DIRS) await mkdir(path.join(workspaceRoot, dir), { recursive: true });
+	const workspaceRoot = node_path.default.resolve(options.targetDir);
+	if (!options.force) await assertNoFileCollisions(workspaceRoot);
+	for (const dir of WORKSPACE_DIRS) await (0, node_fs_promises.mkdir)(node_path.default.join(workspaceRoot, dir), { recursive: true });
 	const filesWritten = [];
 	const flag = options.force ? "w" : "wx";
 	for (const [relativePath, content] of workspaceFiles(workspaceRoot)) {
-		const filePath = path.join(workspaceRoot, relativePath);
+		const filePath = node_path.default.join(workspaceRoot, relativePath);
 		try {
-			await writeFile(filePath, content, {
+			await (0, node_fs_promises.writeFile)(filePath, content, {
 				mode: 384,
 				flag
 			});
@@ -187,6 +229,4 @@ async function initWorkspace(options) {
 	};
 }
 //#endregion
-export { initWorkspace };
-
-//# sourceMappingURL=init-Fc4FKwWK.mjs.map
+exports.initWorkspace = initWorkspace;

@@ -2,6 +2,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.13] - 2026-05-24
+
+- Split the overloaded README into focused graph tools, workspace, MCP proxy, architecture, and development docs while keeping README as the operator entry point.
+- Added scaffolded `imports/README.md` and `templates/README.md` files so fresh investigation workspaces explain how to use empty input/template directories.
+- Made `cia init` preflight all scaffold file collisions before writing directories or files, avoiding partial workspaces when a target already contains files such as `README.md`.
+
 ## [0.2.12] - 2026-05-23
 
 - Added `case_id` / `--case` support to `scam_topology` across direct CLI, generic `mcp call`, and the Chain Insights MCP proxy.

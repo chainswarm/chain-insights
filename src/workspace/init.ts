@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { access, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 export interface InitWorkspaceOptions {
@@ -109,6 +109,33 @@ Current Assessment:
 ## Next Steps
 `
 
+const IMPORTS_README = `# External Investigation Inputs
+
+Put user-provided or third-party investigation material here before turning it
+into case evidence.
+
+Examples:
+
+- Exchange support exports
+- CSV extracts
+- Screenshots
+- Raw notes
+- Partner reports
+
+Files in this directory are inputs, not verified evidence. When an import
+supports a claim, summarize it into the case evidence manifest and reference
+the original file path.
+`
+
+const TEMPLATES_README = `# Reusable Workspace Templates
+
+Store local report, case, prompt, and evidence templates here.
+
+Templates are optional workspace helpers. They are not evidence and should not
+be treated as case state until copied into a case, evidence file, dossier, or
+report.
+`
+
 const RUNTIME_SKILL = `---
 name: chain-insights-runtime-schema
 description: Workspace-local Chain Insights runtime schema notes. Refresh this after connecting to a graph MCP endpoint.
@@ -175,6 +202,8 @@ function workspaceFiles(workspaceRoot: string): Array<[string, string]> {
     ['README.md', README],
     ['AGENTS.md', AGENTS],
     ['CLAUDE.md', CLAUDE],
+    ['imports/README.md', IMPORTS_README],
+    ['templates/README.md', TEMPLATES_README],
     ['templates/case-brief.md', CASE_BRIEF],
     ['.chain-insights/runtime-skill/SKILL.md', RUNTIME_SKILL],
     ['.chain-insights/schema/README.md', SCHEMA_README],
@@ -183,8 +212,27 @@ function workspaceFiles(workspaceRoot: string): Array<[string, string]> {
   ]
 }
 
+async function assertNoFileCollisions(workspaceRoot: string): Promise<void> {
+  for (const [relativePath] of workspaceFiles(workspaceRoot)) {
+    const filePath = path.join(workspaceRoot, relativePath)
+    try {
+      await access(filePath)
+      throw new Error(`Refusing to overwrite ${filePath}. Re-run with --force to replace workspace files.`)
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        continue
+      }
+      throw err
+    }
+  }
+}
+
 export async function initWorkspace(options: InitWorkspaceOptions): Promise<InitWorkspaceResult> {
   const workspaceRoot = path.resolve(options.targetDir)
+  if (!options.force) {
+    await assertNoFileCollisions(workspaceRoot)
+  }
+
   for (const dir of WORKSPACE_DIRS) {
     await mkdir(path.join(workspaceRoot, dir), { recursive: true })
   }
