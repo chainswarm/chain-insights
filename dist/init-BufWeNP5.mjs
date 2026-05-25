@@ -1,7 +1,5 @@
-const require_chunk = require("./chunk-CZWwpsFl.cjs");
-let node_path = require("node:path");
-node_path = require_chunk.__toESM(node_path, 1);
-let node_fs_promises = require("node:fs/promises");
+import path from "node:path";
+import { access, mkdir, writeFile } from "node:fs/promises";
 //#region src/workspace/init.ts
 const WORKSPACE_DIRS = [
 	".chain-insights",
@@ -146,10 +144,9 @@ property names for the active network.
 Rules:
 
 - Prefer \`graph_query\` and \`graph_query_batch\` for graph-language reads.
-- Use \`USE live_topology\` for Memgraph RAM topology, \`USE archive_topology\`
-  for StarRocks historical topology, and \`USE facts\` for StarRocks fact
-  labels such as \`AddressLabel\`, \`AddressFeature\`,
-  \`RiskScore\`, and \`Asset\`. Address facts can be reached through
+- Use \`USE live_topology\` for recent topology, \`USE archive_topology\`
+  for historical topology, and \`USE facts\` for labels, features,
+  risk scores, assets, and enrichment. Address facts can be reached through
   relationships such as \`(:Address)-[:HAS_FEATURE]->(:AddressFeature)\`.
   Archived money-flow topology is exposed as
   \`(:Address)-[:FLOWS_TO]->(:Address)\` with \`period_granularity\`,
@@ -194,9 +191,9 @@ function workspaceFiles(workspaceRoot) {
 }
 async function assertNoFileCollisions(workspaceRoot) {
 	for (const [relativePath] of workspaceFiles(workspaceRoot)) {
-		const filePath = node_path.default.join(workspaceRoot, relativePath);
+		const filePath = path.join(workspaceRoot, relativePath);
 		try {
-			await (0, node_fs_promises.access)(filePath);
+			await access(filePath);
 			throw new Error(`Refusing to overwrite ${filePath}. Re-run with --force to replace workspace files.`);
 		} catch (err) {
 			if (err.code === "ENOENT") continue;
@@ -205,15 +202,15 @@ async function assertNoFileCollisions(workspaceRoot) {
 	}
 }
 async function initWorkspace(options) {
-	const workspaceRoot = node_path.default.resolve(options.targetDir);
+	const workspaceRoot = path.resolve(options.targetDir);
 	if (!options.force) await assertNoFileCollisions(workspaceRoot);
-	for (const dir of WORKSPACE_DIRS) await (0, node_fs_promises.mkdir)(node_path.default.join(workspaceRoot, dir), { recursive: true });
+	for (const dir of WORKSPACE_DIRS) await mkdir(path.join(workspaceRoot, dir), { recursive: true });
 	const filesWritten = [];
 	const flag = options.force ? "w" : "wx";
 	for (const [relativePath, content] of workspaceFiles(workspaceRoot)) {
-		const filePath = node_path.default.join(workspaceRoot, relativePath);
+		const filePath = path.join(workspaceRoot, relativePath);
 		try {
-			await (0, node_fs_promises.writeFile)(filePath, content, {
+			await writeFile(filePath, content, {
 				mode: 384,
 				flag
 			});
@@ -229,4 +226,6 @@ async function initWorkspace(options) {
 	};
 }
 //#endregion
-exports.initWorkspace = initWorkspace;
+export { initWorkspace };
+
+//# sourceMappingURL=init-BufWeNP5.mjs.map

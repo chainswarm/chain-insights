@@ -215,7 +215,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 }));
 program.command("init").description("Initialize an investigation workspace").argument("[dir]", "Workspace directory to initialize", ".").option("--force", "Overwrite existing workspace files").action(async (dir, opts) => {
 	try {
-		const { initWorkspace } = await Promise.resolve().then(() => require("./init-BjuFt54X.cjs"));
+		const { initWorkspace } = await Promise.resolve().then(() => require("./init-BxDVuX6v.cjs"));
 		const result = await initWorkspace({
 			targetDir: dir,
 			force: opts.force

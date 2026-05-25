@@ -50,7 +50,7 @@ cia debug off
    `graph_query_batch` with `USE live_topology` as appropriate. Use
    `graph_query_batch` with `USE archive_topology`
    for historical money-flow topology, and `USE facts`
-   for graph-language StarRocks facts exposed through `facts_*_view`.
+   for graph-language facts and enrichment.
 3. Read workspace runtime schema notes:
    ```bash
    test -f .chain-insights/runtime-skill/SKILL.md && sed -n '1,220p' .chain-insights/runtime-skill/SKILL.md
@@ -89,16 +89,16 @@ cia debug off
   their graph semantics must be a faithful port of the Python tools.
 - When the upstream server is Go Graph MCP, high-level Chain Insights tools
   must implement Python-compatible orchestration by calling `graph_query` or
-  `graph_query_batch`. Prefer `USE live_topology` for Memgraph RAM topology,
-  `USE archive_topology` for StarRocks historical topology, and `USE facts`
-  for StarRocks facts. Do not replace Python probe semantics with
+  `graph_query_batch`. Prefer `USE live_topology` for recent topology,
+  `USE archive_topology` for historical topology, and `USE facts`
+  for facts and enrichment. Do not replace Python probe semantics with
   simplified local recipes.
 - For exchange-deposit discovery, preserve Python `BFSOps`/`StolenFundsProbe`
   semantics: forward search to `Address` nodes where `is_exchange IS NOT NULL`,
   stop at exchange nodes, treat `path[-2]` as the deposit candidate, then run
-  backward/source and reverse-lead stages. Current MemGQL does not parse
-  Memgraph `*BFS` or variable-length relationship syntax, so Go Graph MCP
-  deployments reproduce this with generated fixed-depth `FLOWS_TO` query batches.
+  backward/source and reverse-lead stages. Some Graph MCP deployments do not
+  parse backend-specific BFS or variable-length relationship syntax, so they
+  reproduce this with generated fixed-depth `FLOWS_TO` query batches.
 - For `address_risk`, Python `GraphRAGQueryEngine.check_address_risk` is the
   golden behavior: bounded neighborhood expansion with exchange-stopped waves,
   risk/scoring fields, lookalikes, forward exchange
@@ -181,8 +181,8 @@ workspace-local compact evidence JSON, graph JSON, graph HTML,
 label-candidate CSV, and Markdown report files under `reports/`.
 
 Use manual `graph_query_batch` for custom topology or fact questions. Use
-`USE live_topology` for Memgraph RAM topology, `USE archive_topology` for
-StarRocks historical topology, and `USE facts` for StarRocks facts.
+`USE live_topology` for recent topology, `USE archive_topology` for historical
+topology, and `USE facts` for facts and enrichment.
 Use `graph_query` or `graph_query_batch` for all graph-language reads.
 
 ## Query And Evidence Loop
