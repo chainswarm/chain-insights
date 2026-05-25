@@ -2,6 +2,10 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.16] - 2026-05-25
+
+- Added GitHub Actions workflow for automated npm publishing on release or manual dispatch.
+
 ## [0.2.15] - 2026-05-24
 
 - Fixed the Chain Insights MCP proxy so graph query timeout options survive runtime query logging and slow `graph_query_batch` calls do not fall back to the SDK default timeout.
