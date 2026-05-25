@@ -92,8 +92,8 @@ into a simple top-K neighbor recipe. When Chain Insights runs against the Go
 Graph MCP, it should still reproduce Python `BFSOps` and `StolenFundsProbe`
 semantics by issuing read-only `graph_query_batch` calls with `USE live_topology`.
 
-Current MemGQL does not parse Memgraph `*BFS` or variable-length relationship
-syntax. Against Go Graph MCP, exchange-deposit discovery therefore uses
+Some Graph MCP deployments do not parse backend-specific BFS or variable-length
+relationship syntax. Against Go Graph MCP, exchange-deposit discovery therefore uses
 generated fixed-depth `FLOWS_TO` query batches up to the requested hop limit,
 requires `t.is_exchange IS NOT NULL`, prevents intermediate exchange hops, and
 treats the penultimate address as the deposit candidate.
@@ -151,7 +151,7 @@ The tool:
    - `.chain-insights/schema/<network>.graph-schema.json`
 2. Runs Python-probe-style forward exchange path query batches:
    - generated fixed-depth `MATCH (s)-[r1:FLOWS_TO]->...->(t)` queries
-     because current MemGQL rejects `*BFS` and `*1..N` syntax,
+     because some graph endpoints reject backend-specific BFS or variable-length syntax,
    - excludes paths that traverse through an intermediate exchange,
    - records node and relationship projections,
    - treats `path[-2]` as the exchange deposit candidate.

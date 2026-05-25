@@ -28,7 +28,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('Dataset')
     expect(skill).toContain('<first_height>..<last_height> / <first_date>..<last_date>')
     expect(skill).toContain('Available tools')
-    expect(skill).toContain('Current MemGQL does not parse')
+    expect(skill).toContain('Some Graph MCP deployments do not')
     expect(skill).toContain('generated fixed-depth `FLOWS_TO` query batches')
     expect(skill).not.toContain('Use `trace_funds`')
     expect(skill).not.toContain('trace_funds')
@@ -56,7 +56,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('<first_height>..<last_height> / <first_date>..<last_date>')
     expect(skill).toContain('Python GraphRAG MCP is the golden implementation')
     expect(skill).toContain('StolenFundsProbe')
-    expect(skill).toContain('Current MemGQL does not parse')
+    expect(skill).toContain('Some Graph MCP deployments do not')
     expect(skill).toContain('generated fixed-depth `FLOWS_TO` query batches')
     expect(skill).not.toContain('trace_funds')
   })
@@ -149,7 +149,10 @@ describe('shipped Chain Insights skills contract', () => {
   it('keeps README product-first and moves debug/client detail to focused docs', () => {
     const readme = read('README.md')
 
-    expect(readme).toContain('AML investigation framework')
+    expect(readme).toContain('open-source AML investigation toolkit')
+    expect(readme).toContain('https://chain-insights.ai')
+    expect(readme).toContain('https://github.com/chainswarm/chain-insights')
+    expect(readme).toContain('x402')
     expect(readme).toContain('GraphRAG MCP')
     expect(readme).toContain('address_risk')
     expect(readme).toContain('track_funds')
@@ -166,6 +169,8 @@ describe('shipped Chain Insights skills contract', () => {
 
     expect(readme).not.toContain('Claude Desktop')
     expect(readme).not.toContain('Go Graph MCP')
+    expect(readme).not.toContain('Memgraph')
+    expect(readme).not.toContain('StarRocks')
     expect(readme).not.toContain('chain-insights debug on')
     expect(readme).not.toContain('GRAPH_MCP_GO_DEBUG_BYPASS')
     expect(readme).not.toContain('Release rules:')

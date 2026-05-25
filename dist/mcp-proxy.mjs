@@ -54,7 +54,7 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS = {
 	address_risk: "Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. This includes the exchange-behavior analysis formerly covered by money_flows_between_exchanges. Use this as the first tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.",
 	scam_topology: "Build victim-incident laundering topology from one victim/source address and the earliest known incident timestamp. Traversal uses one explicit activity policy: node_relative_only by default, or global_incident_only when requested. Repeated targets are kept as non-expanding convergence edges. Returns ML-ready scam_labels plus review context and a track_funds-compatible graph report: primary flows, deposits, reverse_leads. Victims, exchange endpoints, and generic labeled context nodes are not automatic scam labels; preserve full addresses exactly.",
 	track_funds: "Trace funds from trusted victim/source addresses through intermediaries to exchange deposit addresses. Use this when the user has a victim/source address or known untrusted/scammer addresses. The tool returns an investigator-ready fund-flow report and recommended next actions.",
-	graph_query: "Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE live_topology for Memgraph RAM topology, USE archive_topology for StarRocks historical topology, and USE facts for StarRocks facts. Cross-backend correlated joins are limited by current MemGQL behavior; preserve full addresses exactly.",
+	graph_query: "Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment. Cross-layer correlated joins may be limited by the active graph endpoint; preserve full addresses exactly.",
 	graph_query_batch: "Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads."
 };
 const NETWORK_DESCRIPTION = "Required network to query. Do not guess; use network_capabilities or ask the user if missing.";
@@ -76,12 +76,12 @@ const GRAPH_SCHEMA_HINTS = [
 	"- Risk and ML properties may appear as live hints, but source-of-truth risk rows are RiskScore facts.",
 	"- Common relationships include FLOWS_TO, OPERATED_FROM, SERVED_FROM, REGISTERED_NEURON, BELONGS_TO, SYBIL_CLUSTER, LAYERING_HOP, BURST_ACTIVITY, CYCLE_PARTICIPANT, SMURFING_CLUSTER.",
 	"- FLOWS_TO properties are scoped to the selected topology graph and commonly carry amount_sum, amount_usd_sum, tx_count, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id. Confirm available fields through runtime schema before relying on them.",
-	"- Start schema discovery with MemGQL-safe property reads: MATCH (n:Address) WHERE n.address IS NOT NULL RETURN n.labels AS labels, n.address AS address LIMIT 20",
+	"- Start schema discovery with endpoint-safe property reads: MATCH (n:Address) WHERE n.address IS NOT NULL RETURN n.labels AS labels, n.address AS address LIMIT 20",
 	"- Relationship discovery: MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum LIMIT 20",
-	"- graph_query uses Memgraph Zero / MemGQL when available. Use USE live_topology for Memgraph RAM topology, USE archive_topology for StarRocks historical topology, and USE facts for StarRocks facts.",
+	"- graph_query uses the active Chain Insights graph endpoint. Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment.",
 	"- Archive topology labels include Address and TopologySnapshot. Archived money-flow topology is represented as (:Address)-[:FLOWS_TO]->(:Address) relationships with period_granularity, period_start_date, and period_end_date.",
 	"- All graph_query calls are read-only. Never use CREATE, INSERT, MERGE, SET, DELETE, REMOVE, DROP, DETACH, ADD, CONNECT, DISCONNECT, ALTER, TRUNCATE, GRANT, or REVOKE.",
-	"- Warehouse facts live behind facts_*_view StarRocks views and are reached through USE facts graph patterns. Do not query core_*, ml_*, analyzers_*, synthetics_*, or _* tables directly."
+	"- Use USE facts graph patterns for fact and enrichment reads. Do not query internal table namespaces directly."
 ].join("\n");
 const GRAPH_REPORT_HINTS = [
 	"Graph visualization behavior:",
@@ -154,7 +154,7 @@ function knownPublicToolInputSchema(toolName) {
 			case_id: z.string().optional().describe("Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest.")
 		};
 		case "graph_query": return {
-			query: z.string().min(1).describe("Read-only GQL/Cypher query. Use USE live_topology for Memgraph RAM topology, USE archive_topology for StarRocks historical topology, and USE facts for StarRocks facts."),
+			query: z.string().min(1).describe("Read-only GQL/Cypher query. Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment."),
 			network: z.string().min(1).describe(NETWORK_DESCRIPTION)
 		};
 		case "graph_query_batch": return {
@@ -410,7 +410,7 @@ function registerLocalPrompts(server, remotePromptNames) {
 	});
 	server.registerPrompt("graph-query", {
 		title: "Federated Graph Query",
-		description: "Run a read-only GQL/Cypher query through Chain Insights Memgraph Zero.",
+		description: "Run a read-only GQL/Cypher query through the Chain Insights graph endpoint.",
 		argsSchema: {
 			query: z.string().describe("Read-only GQL/Cypher query"),
 			network: z.string().describe(NETWORK_DESCRIPTION)
@@ -422,11 +422,11 @@ function registerLocalPrompts(server, remotePromptNames) {
 		query,
 		"```",
 		"",
-		"Use USE live_topology for Memgraph RAM topology, USE archive_topology for StarRocks historical topology, and USE facts for StarRocks facts. Return full address properties; never shorten addresses with ellipses."
+		"Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment. Return full address properties; never shorten addresses with ellipses."
 	].join("\n"), "Federated graph query"));
 	server.registerPrompt("graph-query-batch", {
 		title: "Federated Graph Query Batch",
-		description: "Run related read-only GQL/Cypher queries through Chain Insights Memgraph Zero in one paid batch.",
+		description: "Run related read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch.",
 		argsSchema: {
 			queries: z.string().describe("JSON array of query objects with optional id and required query fields"),
 			network: z.string().describe(NETWORK_DESCRIPTION),
@@ -440,7 +440,7 @@ function registerLocalPrompts(server, remotePromptNames) {
 		"```",
 		per_query_timeout_seconds ? `per_query_timeout_seconds: ${per_query_timeout_seconds}` : "",
 		"",
-		"Use USE live_topology for Memgraph RAM topology, USE archive_topology for StarRocks historical topology, and USE facts for StarRocks facts. Return full address properties; never shorten addresses with ellipses."
+		"Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment. Return full address properties; never shorten addresses with ellipses."
 	].filter(Boolean).join("\n"), "Federated graph batch query"));
 	server.registerPrompt("balance", {
 		title: "Wallet Balance",

@@ -20,9 +20,9 @@ assumed to exist on the GraphRAG MCP endpoint.
 
 - `network` is required. Do not guess it in agent workflows.
 - GQL/Cypher must be read-only.
-- Use `USE live_topology` for Memgraph RAM topology.
-- Use `USE archive_topology` for StarRocks historical topology.
-- Use `USE facts` for StarRocks facts.
+- Use `USE live_topology` for recent topology.
+- Use `USE archive_topology` for historical topology.
+- Use `USE facts` for labels, features, risk scores, assets, and enrichment.
 - Use `graph_query_batch` for related reads that should share one paid call.
 - `per_query_timeout_seconds` is optional and capped at `600`.
 - Returned rows live in `structuredContent.facts`.

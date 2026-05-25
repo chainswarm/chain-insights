@@ -1,12 +1,15 @@
 # Chain Insights
 
-Chain Insights is an AML investigation framework on top of GraphRAG MCP. It
-turns graph access into analyst-ready workflows: address screening, fund-flow
-tracing, scam topology discovery, case files, evidence, dossiers, reports, and
-graph visualizations.
+[Website](https://chain-insights.ai) | [GitHub](https://github.com/chainswarm/chain-insights) | [npm](https://www.npmjs.com/package/chain-insights)
 
-GraphRAG MCP exposes generic graph tools. Chain Insights adds AML tools and
-investigation workflow around them.
+Chain Insights is an open-source AML investigation toolkit for AI agents and
+analysts. Install it from npm to screen blockchain addresses, trace funds,
+expand scam topologies, manage case evidence, and generate graph reports from
+Chain Insights graph intelligence.
+
+The hosted GraphRAG MCP access path is paid through x402. The CLI and MCP proxy
+handle local wallet status, paid graph calls, approved test access, case files,
+evidence pointers, dossiers, and reports.
 
 ## What You Can Do Today
 
@@ -20,7 +23,13 @@ investigation workflow around them.
 
 ## Quick Start
 
-From an installed package:
+Install from npm:
+
+```bash
+npm install -g chain-insights
+```
+
+Check the CLI:
 
 ```bash
 cia --version
@@ -47,13 +56,15 @@ Check the configured endpoint and current GraphRAG MCP capabilities:
 
 ```bash
 cia config get graphMcpEndpoint
+cia wallet balance
 cia mcp networks
 cia mcp tools --refresh
 ```
 
-If network or tool discovery fails, fix endpoint/auth first; the CLI can still
-initialize workspaces and manage cases without a reachable GraphRAG MCP
-endpoint.
+GraphRAG MCP calls use x402 paid mode by default unless you configure approved
+test access or local debug access. If network or tool discovery fails, fix
+endpoint/auth/payment first; the CLI can still initialize workspaces and manage
+cases without a reachable GraphRAG MCP endpoint.
 
 Open a case and run a small investigation:
 
@@ -111,25 +122,25 @@ Agent or CLI user
   -> Chain Insights CLI / MCP proxy
   -> local config, wallet, workspace, cases, evidence, reports
   -> GraphRAG MCP
-  -> live_topology, archive_topology, facts
+  -> graph intelligence for AML workflows
 ```
 
 Chain Insights stores investigation outputs in initialized local workspaces.
 GraphRAG MCP performs graph-language reads against network-specific graph
 layers.
 
-## Topology And Facts
+## Graph Access
 
-Graph queries must choose a layer explicitly:
+Graph queries must choose the right read layer explicitly:
 
-| Layer | Backing data |
+| Layer | Use it for |
 | --- | --- |
-| `live_topology` | Memgraph RAM topology for current graph traversal |
-| `archive_topology` | StarRocks historical topology for warehouse-scale flow reads |
-| `facts` | StarRocks facts for feature and enrichment reads |
+| `live_topology` | Recent topology and fast traversal |
+| `archive_topology` | Historical fund-flow context |
+| `facts` | Labels, features, risk scores, assets, and enrichment |
 
 Use `graph_query_batch` when related reads should share one call and one
-result envelope.
+result envelope. Paid hosted calls are settled through x402.
 
 ## AML Tools
 

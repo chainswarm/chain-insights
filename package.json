@@ -1,7 +1,27 @@
 {
   "name": "chain-insights",
-  "version": "0.2.16",
-  "description": "AML investigation toolkit for blockchain analysis",
+  "version": "0.2.17",
+  "description": "AML investigation CLI and MCP proxy for blockchain risk, fund-flow tracing, case reports, and x402-paid GraphRAG MCP access",
+  "homepage": "https://chain-insights.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chainswarm/chain-insights.git"
+  },
+  "bugs": {
+    "url": "https://github.com/chainswarm/chain-insights/issues"
+  },
+  "keywords": [
+    "aml",
+    "blockchain",
+    "crypto-compliance",
+    "chain-insights",
+    "mcp",
+    "graphrag",
+    "x402",
+    "fund-flow",
+    "risk-scoring",
+    "investigations"
+  ],
   "type": "module",
   "engines": {
     "node": ">=22.0.0"

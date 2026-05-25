@@ -163,10 +163,9 @@ property names for the active network.
 Rules:
 
 - Prefer \`graph_query\` and \`graph_query_batch\` for graph-language reads.
-- Use \`USE live_topology\` for Memgraph RAM topology, \`USE archive_topology\`
-  for StarRocks historical topology, and \`USE facts\` for StarRocks fact
-  labels such as \`AddressLabel\`, \`AddressFeature\`,
-  \`RiskScore\`, and \`Asset\`. Address facts can be reached through
+- Use \`USE live_topology\` for recent topology, \`USE archive_topology\`
+  for historical topology, and \`USE facts\` for labels, features,
+  risk scores, assets, and enrichment. Address facts can be reached through
   relationships such as \`(:Address)-[:HAS_FEATURE]->(:AddressFeature)\`.
   Archived money-flow topology is exposed as
   \`(:Address)-[:FLOWS_TO]->(:Address)\` with \`period_granularity\`,

@@ -2,6 +2,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.17] - 2026-05-25
+
+- Reworked npm package positioning with growth-friendly description, homepage, repository, issue tracker, and keywords.
+- Updated the npm-facing README to link the website, GitHub, and npm package, and to explain x402-paid GraphRAG MCP access without exposing backend infrastructure names.
+- Removed backend infrastructure names from public package docs, shipped skills, MCP tool copy, and generated workspace runtime guidance.
+
 ## [0.2.16] - 2026-05-25
 
 - Added GitHub Actions workflow for automated npm publishing on release or manual dispatch.

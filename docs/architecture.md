@@ -15,8 +15,7 @@ flowchart LR
   CLI --> Workspace[Investigation workspace]
   Proxy --> GraphMCP[GraphRAG MCP]
   CLI --> GraphMCP
-  GraphMCP --> Memgraph[(Memgraph)]
-  GraphMCP --> StarRocks[(StarRocks)]
+  GraphMCP --> GraphData[(Graph intelligence)]
   Wallet --> Base[Base RPC]
   Workspace --> Browser[Local browser reports]
 ```
