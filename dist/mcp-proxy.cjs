@@ -1,6 +1,7 @@
 Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 const require_chunk = require("./chunk-CZWwpsFl.cjs");
 const require_version = require("./version-BNGtdpmH.cjs");
+const require_client = require("./client-Dr53wTb9.cjs");
 const require_tool_visibility = require("./tool-visibility-CwgY205r.cjs");
 let node_url = require("node:url");
 let node_path = require("node:path");
@@ -561,7 +562,7 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 async function createProxy() {
 	const { loadConfig } = await Promise.resolve().then(() => require("./config-Bmdl5hdk.cjs")).then((n) => n.config_exports);
 	const { activeDataDir, findActiveWorkspace } = await Promise.resolve().then(() => require("./active-Dv7Tu-O4.cjs")).then((n) => n.active_exports);
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-D4fZgIaO.cjs")).then((n) => n.client_exports);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-Dr53wTb9.cjs")).then((n) => n.client_exports);
 	const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-CgWRCN2N.cjs"));
 	const loadedConfig = await loadConfig();
 	const activeWorkspace = findActiveWorkspace();
@@ -1004,6 +1005,13 @@ async function createProxy() {
 				isError: false
 			};
 		} catch (err) {
+			if (err instanceof require_client.PaymentRequiredError) return {
+				content: [{
+					type: "text",
+					text: err.message
+				}],
+				isError: true
+			};
 			return {
 				content: [{
 					type: "text",
@@ -1072,6 +1080,13 @@ async function createProxy() {
 				isError: false
 			};
 		} catch (err) {
+			if (err instanceof require_client.PaymentRequiredError) return {
+				content: [{
+					type: "text",
+					text: err.message
+				}],
+				isError: true
+			};
 			return {
 				content: [{
 					type: "text",
@@ -1137,6 +1152,13 @@ async function createProxy() {
 				isError: false
 			};
 		} catch (err) {
+			if (err instanceof require_client.PaymentRequiredError) return {
+				content: [{
+					type: "text",
+					text: err.message
+				}],
+				isError: true
+			};
 			return {
 				content: [{
 					type: "text",
@@ -1214,10 +1236,25 @@ async function createProxy() {
 				const requestOptions = remoteToolRequestOptions(tool.name);
 				return await normalizeRemoteToolResult(requestOptions ? await remoteClient.callTool(request, void 0, requestOptions) : await remoteClient.callTool(request), config, tool.name);
 			} catch (err) {
+				if (err instanceof require_client.PaymentRequiredError) return {
+					content: [{
+						type: "text",
+						text: err.message
+					}],
+					isError: true
+				};
+				const msg = err.message ?? String(err);
+				if (/\b402\b/.test(msg) || msg.toLowerCase().includes("payment")) return {
+					content: [{
+						type: "text",
+						text: `Payment required for ${tool.name}. This tool costs USDC on Base via x402 micropayments. Next steps: run \`chain-insights wallet topup\` to fund your wallet with USDC on Base, or \`chain-insights access-key set <key>\` if you have been given test access.`
+					}],
+					isError: true
+				};
 				return {
 					content: [{
 						type: "text",
-						text: `MCP call failed: ${err.message}`
+						text: `MCP call failed: ${msg}`
 					}],
 					isError: true
 				};

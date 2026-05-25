@@ -1,4 +1,4 @@
-import { i as resolveGraphMcpEndpoint } from "./client-D4Bq0rp9.mjs";
+const require_client = require("./client-Dr53wTb9.cjs");
 //#region src/mcp/capabilities.ts
 function metadataNetworksUrl(endpoint) {
 	const url = new URL(endpoint);
@@ -8,7 +8,7 @@ function metadataNetworksUrl(endpoint) {
 	return url;
 }
 async function fetchNetworkCapabilities(config) {
-	const request = metadataNetworksUrl(resolveGraphMcpEndpoint(config));
+	const request = metadataNetworksUrl(require_client.resolveGraphMcpEndpoint(config));
 	const headers = new Headers();
 	const token = config.graphMcpAuthToken?.trim() || config.mcpAuthToken?.trim();
 	if (token) {
@@ -79,6 +79,5 @@ function formatNetworkCapabilities(document) {
 	].join("\n");
 }
 //#endregion
-export { fetchNetworkCapabilities, formatNetworkCapabilities };
-
-//# sourceMappingURL=capabilities-DliMBim-.mjs.map
+exports.fetchNetworkCapabilities = fetchNetworkCapabilities;
+exports.formatNetworkCapabilities = formatNetworkCapabilities;

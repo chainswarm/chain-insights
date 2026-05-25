@@ -1,7 +1,7 @@
 require("./chunk-CZWwpsFl.cjs");
 const require_version = require("./version-BNGtdpmH.cjs");
 const require_config = require("./config-Bmdl5hdk.cjs");
-const require_client = require("./client-D4fZgIaO.cjs");
+const require_client = require("./client-Dr53wTb9.cjs");
 const require_viz = require("./viz-ClezVXrJ.cjs");
 const require_store = require("./store-BiUhQOIf.cjs");
 const require_evidence = require("./evidence-BGcdKxuV.cjs");

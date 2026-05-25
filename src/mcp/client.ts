@@ -8,6 +8,13 @@ type FetchLike = typeof fetch
 type FetchInput = Parameters<FetchLike>[0]
 type FetchInit = Parameters<FetchLike>[1]
 
+export class PaymentRequiredError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'PaymentRequiredError'
+  }
+}
+
 function createHeaderFetch(authToken: string, baseFetch: FetchLike): FetchLike {
   return (async (input: FetchInput, init?: FetchInit) => {
     const requestHeaders = input instanceof Request ? input.headers : undefined
@@ -22,9 +29,13 @@ function createHeaderFetch(authToken: string, baseFetch: FetchLike): FetchLike {
   }) as FetchLike
 }
 
+export const PAYMENT_NEXT_STEPS =
+  'Next steps: run `chain-insights wallet topup` to fund your wallet with USDC on Base (required for paid queries), ' +
+  'or `chain-insights access-key set <key>` if you have been given test access.'
+
 function describePaymentRequiredResponse(response: Response, payerAddress?: string): string {
   const encoded = response.headers.get('payment-required')
-  if (!encoded) return 'x402 payment failed: payment_required'
+  if (!encoded) return `Payment required — this tool costs USDC on Base via x402 micropayments. ${PAYMENT_NEXT_STEPS}`
 
   try {
     const decoded = Buffer.from(encoded, 'base64').toString('utf8')
@@ -47,9 +58,12 @@ function describePaymentRequiredResponse(response: Response, payerAddress?: stri
     if (reason.includes('allowance_required')) {
       return `${message}. This wallet needs a one-time USDC Permit2 approval before paid MCP calls can settle. Base ETH is required for approval gas.`
     }
-    return message
+    if (reason === 'payment_required') {
+      return `${message}. ${PAYMENT_NEXT_STEPS}`
+    }
+    return `${message}. ${PAYMENT_NEXT_STEPS}`
   } catch {
-    return 'x402 payment failed: payment_required'
+    return `Payment required — this tool costs USDC on Base via x402 micropayments. ${PAYMENT_NEXT_STEPS}`
   }
 }
 
@@ -57,7 +71,7 @@ function createPaymentFailureReportingFetch(baseFetch: FetchLike, payerAddress?:
   const reportingFetch = (async (input: FetchInput, init?: FetchInit) => {
     const response = await baseFetch(input, init)
     if (response.status !== 402) return response
-    throw new Error(describePaymentRequiredResponse(response, payerAddress))
+    throw new PaymentRequiredError(describePaymentRequiredResponse(response, payerAddress))
   }) as FetchLike
   return Object.assign(reportingFetch, baseFetch)
 }
@@ -96,9 +110,14 @@ export function createMcpFetchClient(privateKey: `0x${string}`, authToken?: stri
  * The public x402 debug bypass expects X-MCP-Debug-Token.
  * Private endpoints commonly expect Authorization: Bearer <token>.
  * Sending both lets one config value work for public debug and private M2M endpoints.
+ *
+ * Wraps with 402 interception so that if the server still requires payment
+ * (e.g. token not accepted for paid tools), the user sees actionable guidance
+ * instead of a generic transport error.
  */
 export function createMcpAuthFetchClient(authToken: string, baseFetch: FetchLike = fetch): FetchLike {
-  return createHeaderFetch(authToken, baseFetch)
+  const headerFetch = createHeaderFetch(authToken, baseFetch)
+  return createPaymentFailureReportingFetch(headerFetch)
 }
 
 export function resolveGraphMcpEndpoint(config: Pick<InvestigatorConfig, 'graphMcpEndpoint' | 'mcpEndpoint'>): string {

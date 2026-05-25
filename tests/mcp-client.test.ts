@@ -127,7 +127,45 @@ describe('MCP client (02-01)', () => {
     const client = createMcpFetchClient(testKey)
 
     await expect(client('https://staging-mcp.chain-insights.ai/mcp')).rejects.toThrow(
-      'x402 payment failed: invalid_payload',
+      'x402 payment failed: invalid_payload (scheme=upto network=eip155:8453 amount=2000000)',
+    )
+  })
+
+  it('createMcpFetchClient throws PaymentRequiredError (not generic Error)', async () => {
+    const paymentRequired = Buffer.from(JSON.stringify({
+      x402Version: 2,
+      error: 'payment_required',
+      accepts: [{ scheme: 'upto', network: 'eip155:8453', amount: '300000' }],
+    })).toString('base64')
+    mockWrappedFetch.mockResolvedValue(new Response('null', {
+      status: 402,
+      headers: { 'payment-required': paymentRequired },
+    }))
+
+    const { createMcpFetchClient, PaymentRequiredError } = await import('../src/mcp/client.js')
+    const testKey = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as const
+    const client = createMcpFetchClient(testKey)
+
+    await expect(client('https://staging-mcp.chain-insights.ai/mcp')).rejects.toBeInstanceOf(PaymentRequiredError)
+  })
+
+  it('createMcpFetchClient includes next-step wallet guidance for generic payment_required', async () => {
+    const paymentRequired = Buffer.from(JSON.stringify({
+      x402Version: 2,
+      error: 'payment_required',
+      accepts: [{ scheme: 'upto', network: 'eip155:8453', amount: '300000' }],
+    })).toString('base64')
+    mockWrappedFetch.mockResolvedValue(new Response('null', {
+      status: 402,
+      headers: { 'payment-required': paymentRequired },
+    }))
+
+    const { createMcpFetchClient } = await import('../src/mcp/client.js')
+    const testKey = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as const
+    const client = createMcpFetchClient(testKey)
+
+    await expect(client('https://staging-mcp.chain-insights.ai/mcp')).rejects.toThrow(
+      'chain-insights wallet topup',
     )
   })
 
@@ -206,6 +244,41 @@ describe('MCP client (02-01)', () => {
     expect(headers.get('Accept')).toBe('application/json')
     expect(headers.get('X-MCP-Debug-Token')).toBe('debug-secret')
     expect(headers.get('Authorization')).toBe('Bearer debug-secret')
+  })
+
+  it('createMcpAuthFetchClient intercepts 402 with actionable guidance instead of generic transport error', async () => {
+    const paymentRequired = Buffer.from(JSON.stringify({
+      x402Version: 2,
+      error: 'payment_required',
+      accepts: [{
+        scheme: 'upto',
+        network: 'eip155:8453',
+        amount: '300000',
+      }],
+    })).toString('base64')
+    const baseFetch = vi.fn(async () => new Response('null', {
+      status: 402,
+      headers: { 'payment-required': paymentRequired },
+    }))
+
+    const { createMcpAuthFetchClient, PaymentRequiredError } = await import('../src/mcp/client.js')
+    const authedFetch = createMcpAuthFetchClient('debug-secret', baseFetch)
+
+    await expect(authedFetch('http://localhost:8011/mcp')).rejects.toBeInstanceOf(PaymentRequiredError)
+    await expect(authedFetch('http://localhost:8011/mcp')).rejects.toThrow(
+      'chain-insights wallet topup',
+    )
+  })
+
+  it('createMcpAuthFetchClient gives guidance even for 402 without x402 header', async () => {
+    const baseFetch = vi.fn(async () => new Response('', { status: 402 }))
+
+    const { createMcpAuthFetchClient } = await import('../src/mcp/client.js')
+    const authedFetch = createMcpAuthFetchClient('debug-secret', baseFetch)
+
+    await expect(authedFetch('http://localhost:8011/mcp')).rejects.toThrow(
+      'chain-insights wallet topup',
+    )
   })
 
   it('resolveGraphMcpEndpoint prefers graphMcpEndpoint over legacy mcpEndpoint', async () => {

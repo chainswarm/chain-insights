@@ -1,4 +1,5 @@
 import { n as PACKAGE_VERSION } from "./version-1gP19Lhi.mjs";
+import { t as PaymentRequiredError } from "./client-f0mqPifi.mjs";
 import { t as HIDDEN_REMOTE_TOOL_NAMES } from "./tool-visibility-3Z_KvO9Q.mjs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -557,7 +558,7 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 async function createProxy() {
 	const { loadConfig } = await import("./config-BwrBYmiC.mjs").then((n) => n.t);
 	const { activeDataDir, findActiveWorkspace } = await import("./active-BSrxLKwn.mjs").then((n) => n.n);
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-D4Bq0rp9.mjs").then((n) => n.t);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-f0mqPifi.mjs").then((n) => n.n);
 	const { loadSchema, saveSchema } = await import("./schema-cache-9CksD7tX.mjs");
 	const loadedConfig = await loadConfig();
 	const activeWorkspace = findActiveWorkspace();
@@ -1000,6 +1001,13 @@ async function createProxy() {
 				isError: false
 			};
 		} catch (err) {
+			if (err instanceof PaymentRequiredError) return {
+				content: [{
+					type: "text",
+					text: err.message
+				}],
+				isError: true
+			};
 			return {
 				content: [{
 					type: "text",
@@ -1068,6 +1076,13 @@ async function createProxy() {
 				isError: false
 			};
 		} catch (err) {
+			if (err instanceof PaymentRequiredError) return {
+				content: [{
+					type: "text",
+					text: err.message
+				}],
+				isError: true
+			};
 			return {
 				content: [{
 					type: "text",
@@ -1133,6 +1148,13 @@ async function createProxy() {
 				isError: false
 			};
 		} catch (err) {
+			if (err instanceof PaymentRequiredError) return {
+				content: [{
+					type: "text",
+					text: err.message
+				}],
+				isError: true
+			};
 			return {
 				content: [{
 					type: "text",
@@ -1210,10 +1232,25 @@ async function createProxy() {
 				const requestOptions = remoteToolRequestOptions(tool.name);
 				return await normalizeRemoteToolResult(requestOptions ? await remoteClient.callTool(request, void 0, requestOptions) : await remoteClient.callTool(request), config, tool.name);
 			} catch (err) {
+				if (err instanceof PaymentRequiredError) return {
+					content: [{
+						type: "text",
+						text: err.message
+					}],
+					isError: true
+				};
+				const msg = err.message ?? String(err);
+				if (/\b402\b/.test(msg) || msg.toLowerCase().includes("payment")) return {
+					content: [{
+						type: "text",
+						text: `Payment required for ${tool.name}. This tool costs USDC on Base via x402 micropayments. Next steps: run \`chain-insights wallet topup\` to fund your wallet with USDC on Base, or \`chain-insights access-key set <key>\` if you have been given test access.`
+					}],
+					isError: true
+				};
 				return {
 					content: [{
 						type: "text",
-						text: `MCP call failed: ${err.message}`
+						text: `MCP call failed: ${msg}`
 					}],
 					isError: true
 				};
