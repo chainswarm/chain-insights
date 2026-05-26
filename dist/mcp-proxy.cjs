@@ -1,8 +1,8 @@
 Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-const require_chunk = require("./chunk-DakpK96I.cjs");
-const require_version = require("./version-CO9Or_YV.cjs");
-const require_client = require("./client-DPc2eyVN.cjs");
-const require_tool_visibility = require("./tool-visibility-iAVQV3t0.cjs");
+const require_chunk = require("./chunk-CZWwpsFl.cjs");
+const require_version = require("./version-BNGtdpmH.cjs");
+const require_client = require("./client-Dr53wTb9.cjs");
+const require_tool_visibility = require("./tool-visibility-CwgY205r.cjs");
 let node_url = require("node:url");
 let node_path = require("node:path");
 node_path = require_chunk.__toESM(node_path, 1);
@@ -530,8 +530,8 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 	const graphPayload = getRemoteGraphPayload(result);
 	const meta = { ...result._meta ?? {} };
 	if (graphPayload) {
-		const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-B3mkLP8Z.cjs"));
-		const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-B-3ho4bk.cjs"));
+		const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-DU05YCei.cjs"));
+		const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-DjSY9q-J.cjs"));
 		const report = await writeGraphReport(graphPayload, {
 			serverPort: config.serverPort,
 			slug: toolName || "remote-graph"
@@ -560,10 +560,10 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 * All diagnostic output goes to console.error() or process.stderr.write().
 */
 async function createProxy() {
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-BhYbhLDI.cjs")).then((n) => n.config_exports);
-	const { activeDataDir, findActiveWorkspace } = await Promise.resolve().then(() => require("./active-BVr55kvW.cjs")).then((n) => n.active_exports);
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-DPc2eyVN.cjs")).then((n) => n.client_exports);
-	const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-CJk1EL3L.cjs"));
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-B9ZTUEUS.cjs")).then((n) => n.config_exports);
+	const { activeDataDir, findActiveWorkspace } = await Promise.resolve().then(() => require("./active-Dv7Tu-O4.cjs")).then((n) => n.active_exports);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-Dr53wTb9.cjs")).then((n) => n.client_exports);
+	const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-CgWRCN2N.cjs"));
 	const loadedConfig = await loadConfig();
 	const activeWorkspace = findActiveWorkspace();
 	const config = {
@@ -673,7 +673,7 @@ async function createProxy() {
 		inputSchema: zod.object({}).passthrough()
 	}, async () => {
 		try {
-			const { getWalletAccount, getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-DY8h0WbE.cjs")).then((n) => n.tools_exports);
+			const { getWalletAccount, getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-f_vJUZAF.cjs")).then((n) => n.tools_exports);
 			return {
 				content: [{
 					type: "text",
@@ -721,13 +721,13 @@ async function createProxy() {
 		}
 	}, async ({ name, tags, description }) => {
 		try {
-			const { CaseStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+			const { CaseStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
 			const created = await CaseStore.create({
 				name,
 				tags: parseTags(tags),
 				description: description ?? ""
 			});
-			const { casesRoot } = await Promise.resolve().then(() => require("./store-DogLawSj.cjs"));
+			const { casesRoot } = await Promise.resolve().then(() => require("./store-BiUhQOIf.cjs"));
 			return {
 				content: [{
 					type: "text",
@@ -761,7 +761,7 @@ async function createProxy() {
 		}
 	}, async ({ status }) => {
 		try {
-			const { CaseStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+			const { CaseStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
 			const cases = await CaseStore.list();
 			const filtered = status ? cases.filter((entry) => entry.status === status) : cases;
 			return {
@@ -786,7 +786,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { CaseStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+			const { CaseStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
 			const context = await CaseStore.loadContext(case_id);
 			return {
 				content: [{
@@ -815,7 +815,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, source, content, query_params }) => {
 		try {
-			const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+			const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
 			const saved = await EvidenceStore.append(case_id, {
 				source,
 				content,
@@ -843,7 +843,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+			const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
 			const result = await EvidenceStore.verifyManifest(case_id);
 			return {
 				content: [{
@@ -878,7 +878,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, address, finding, entity_type }) => {
 		try {
-			const { DossierStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+			const { DossierStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
 			await DossierStore.appendFinding(case_id, address, finding, entity_type ?? "unknown");
 			return {
 				content: [{
@@ -906,7 +906,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { SessionStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+			const { SessionStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
 			const session = await SessionStore.start(case_id);
 			return {
 				content: [{
@@ -934,7 +934,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, findings, next_steps }) => {
 		try {
-			const { SessionStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+			const { SessionStore } = await Promise.resolve().then(() => require("./cases-CDcNU91B.cjs"));
 			await SessionStore.end(case_id, {
 				findings: findings ?? "",
 				nextSteps: next_steps ?? ""
@@ -979,9 +979,9 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-V7ON7goq.cjs"));
-			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-B3mkLP8Z.cjs"));
-			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-B-3ho4bk.cjs"));
+			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-XSpkz2ky.cjs"));
+			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-DU05YCei.cjs"));
+			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-DjSY9q-J.cjs"));
 			const result = await addressRisk(remoteClient, {
 				address,
 				network,
@@ -1050,9 +1050,9 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-V7ON7goq.cjs"));
-			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-B3mkLP8Z.cjs"));
-			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-B-3ho4bk.cjs"));
+			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-XSpkz2ky.cjs"));
+			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-DU05YCei.cjs"));
+			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-DjSY9q-J.cjs"));
 			const result = await trackFunds(remoteClient, config, {
 				trustedAddresses: trusted_addresses,
 				untrustedAddresses: untrusted_addresses,
@@ -1123,9 +1123,9 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { scamTopology } = await Promise.resolve().then(() => require("./public-tools-V7ON7goq.cjs"));
-			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-B3mkLP8Z.cjs"));
-			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-B-3ho4bk.cjs"));
+			const { scamTopology } = await Promise.resolve().then(() => require("./public-tools-XSpkz2ky.cjs"));
+			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-DU05YCei.cjs"));
+			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-DjSY9q-J.cjs"));
 			const result = await scamTopology(remoteClient, config, {
 				victimAddress: victim_address,
 				network,

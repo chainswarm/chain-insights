@@ -1,4 +1,9 @@
+import { readdirSync, readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+
+const REPO_ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 
 describe('wallet top-up browser page', () => {
   it('renders the copied infra MCP Apps top-up component', async () => {
@@ -57,5 +62,42 @@ describe('wallet top-up browser page', () => {
     await expect(startTopupServer('not-an-evm-address')).rejects.toThrow(
       'Wallet address must be a valid 0x-prefixed 20-byte EVM address',
     )
+  })
+
+  it('keeps packaged topup runtime artifacts free of fallback keys and raw interpolation', () => {
+    const distDir = join(REPO_ROOT, 'dist')
+    const topupArtifacts = readdirSync(distDir)
+      .filter((name) => /^topup-server-.*\.(cjs|mjs|mjs\.map)$/.test(name))
+      .sort()
+    expect(topupArtifacts.length).toBeGreaterThan(0)
+
+    const unsafePatterns = [
+      /FALLBACK_PRIVATE_KEY/,
+      /0x0{63}1/,
+      /\$\{walletAddress\}/,
+      /\$\{topupUrl\}/,
+      /const WALLET = '\$\{walletAddress\}'/,
+    ]
+    const unsafeMatches = topupArtifacts.flatMap((name) => {
+      const body = readFileSync(join(distDir, name), 'utf8')
+      return unsafePatterns
+        .filter((pattern) => pattern.test(body))
+        .map((pattern) => `${name}: ${pattern.source}`)
+    })
+
+    expect(unsafeMatches).toEqual([])
+  })
+
+  it('points package entry artifacts at the scanned topup runtime chunk', () => {
+    const distDir = join(REPO_ROOT, 'dist')
+    const topupArtifacts = new Set(readdirSync(distDir).filter((name) => /^topup-server-.*\.(cjs|mjs)$/.test(name)))
+    const entryFiles = ['cli.cjs', 'cli.mjs', 'index.cjs', 'index.mjs']
+    const missingReferences = entryFiles.flatMap((entryFile) => {
+      const body = readFileSync(join(distDir, entryFile), 'utf8')
+      const references = [...body.matchAll(/\.\/(topup-server-[^'"]+\.(?:cjs|mjs))/g)].map((match) => match[1]!)
+      return references.filter((reference) => !topupArtifacts.has(reference)).map((reference) => `${entryFile}: ${reference}`)
+    })
+
+    expect(missingReferences).toEqual([])
   })
 })

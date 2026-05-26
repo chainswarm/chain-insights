@@ -2,6 +2,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [Unreleased]
+
+- Removed synthetic fallback private-key generation from wallet topup startup; topup servers now require valid EVM wallet addresses at runtime entry points.
+- Hardened topup HTML generation by validating wallet addresses and escaping or script-serializing dynamic values before embedding them in HTML/JS.
+- Added topup regression tests for invalid wallet-address rejection and package artifact safety.
+
 ## [0.2.18] - 2026-05-26
 
 - Updated GitHub Actions dependencies for checkout, Node setup, CodeQL, and OpenSSF Scorecard so CI runs on current pinned action releases.

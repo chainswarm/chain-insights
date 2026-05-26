@@ -78,7 +78,7 @@ declare function getWalletBalanceText(account?: PaymentWalletAccount): Promise<s
 declare function buildTopupInfo(address: string, topupUrl?: string): TopupInfo;
 //#endregion
 //#region src/wallet/mcp-proxy/topup-server.d.ts
-declare function generateArtifactHtml(walletAddress: string, topupUrl: string): string;
+declare function generateArtifactHtml(walletAddressInput: string, topupUrl: string): string;
 //#endregion
 //#region src/wallet/topup-server.d.ts
 declare function getTopupUrl(): string | null;
