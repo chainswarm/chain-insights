@@ -13,6 +13,7 @@ import type { InvestigatorConfig } from '../config/schema.js'
 import { PACKAGE_VERSION } from '../version.js'
 import type { McpTool } from './schema-cache.js'
 import { HIDDEN_REMOTE_TOOL_NAMES } from './tool-visibility.js'
+import { PaymentRequiredError } from './client.js'
 
 const LOCAL_TOOL_NAMES = new Set([
   'balance',
@@ -1294,6 +1295,9 @@ export async function createProxy(): Promise<void> {
             isError: false,
           }
         } catch (err) {
+          if (err instanceof PaymentRequiredError) {
+            return { content: [{ type: 'text' as const, text: err.message }], isError: true }
+          }
           return {
             content: [{ type: 'text' as const, text: `Address risk failed: ${(err as Error).message}` }],
             isError: true,
@@ -1374,6 +1378,9 @@ export async function createProxy(): Promise<void> {
             isError: false,
           }
         } catch (err) {
+          if (err instanceof PaymentRequiredError) {
+            return { content: [{ type: 'text' as const, text: err.message }], isError: true }
+          }
           return {
             content: [{ type: 'text' as const, text: `Track funds failed: ${(err as Error).message}` }],
             isError: true,
@@ -1451,6 +1458,9 @@ export async function createProxy(): Promise<void> {
             isError: false,
           }
         } catch (err) {
+          if (err instanceof PaymentRequiredError) {
+            return { content: [{ type: 'text' as const, text: err.message }], isError: true }
+          }
           return {
             content: [{ type: 'text' as const, text: `Scam topology failed: ${(err as Error).message}` }],
             isError: true,
@@ -1540,8 +1550,27 @@ export async function createProxy(): Promise<void> {
           : await remoteClient.callTool(request)
         return await normalizeRemoteToolResult(result as RemoteToolResult, config, tool.name)
       } catch (err) {
+        if (err instanceof PaymentRequiredError) {
+          return {
+            content: [{ type: 'text' as const, text: err.message }],
+            isError: true,
+          }
+        }
+        const msg = (err as Error).message ?? String(err)
+        const isTransport402 = /\b402\b/.test(msg) || msg.toLowerCase().includes('payment')
+        if (isTransport402) {
+          return {
+            content: [{
+              type: 'text' as const,
+              text: `Payment required for ${tool.name}. This tool costs USDC on Base via x402 micropayments. ` +
+                'Next steps: run `chain-insights wallet topup` to fund your wallet with USDC on Base, ' +
+                'or `chain-insights access-key set <key>` if you have been given test access.',
+            }],
+            isError: true,
+          }
+        }
         return {
-          content: [{ type: 'text' as const, text: `MCP call failed: ${(err as Error).message}` }],
+          content: [{ type: 'text' as const, text: `MCP call failed: ${msg}` }],
           isError: true,
         }
       }

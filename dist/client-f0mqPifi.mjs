@@ -1,16 +1,24 @@
-const require_chunk = require("./chunk-CZWwpsFl.cjs");
-let viem_accounts = require("viem/accounts");
-let _x402_fetch = require("@x402/fetch");
-let _x402_evm = require("@x402/evm");
-let _x402_evm_upto_client = require("@x402/evm/upto/client");
+import { t as __exportAll } from "./rolldown-runtime-wcPFST8Q.mjs";
+import { privateKeyToAccount } from "viem/accounts";
+import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
+import { ExactEvmScheme } from "@x402/evm";
+import { UptoEvmScheme } from "@x402/evm/upto/client";
 //#region src/mcp/client.ts
-var client_exports = /* @__PURE__ */ require_chunk.__exportAll({
+var client_exports = /* @__PURE__ */ __exportAll({
+	PAYMENT_NEXT_STEPS: () => PAYMENT_NEXT_STEPS,
+	PaymentRequiredError: () => PaymentRequiredError,
 	createConfiguredGraphMcpFetch: () => createConfiguredGraphMcpFetch,
 	createConfiguredMcpFetch: () => createConfiguredMcpFetch,
 	createMcpAuthFetchClient: () => createMcpAuthFetchClient,
 	createMcpFetchClient: () => createMcpFetchClient,
 	resolveGraphMcpEndpoint: () => resolveGraphMcpEndpoint
 });
+var PaymentRequiredError = class extends Error {
+	constructor(message) {
+		super(message);
+		this.name = "PaymentRequiredError";
+	}
+};
 function createHeaderFetch(authToken, baseFetch) {
 	return (async (input, init) => {
 		const requestHeaders = input instanceof Request ? input.headers : void 0;
@@ -23,9 +31,10 @@ function createHeaderFetch(authToken, baseFetch) {
 		});
 	});
 }
+const PAYMENT_NEXT_STEPS = "Next steps: run `chain-insights wallet topup` to fund your wallet with USDC on Base (required for paid queries), or `chain-insights access-key set <key>` if you have been given test access.";
 function describePaymentRequiredResponse(response, payerAddress) {
 	const encoded = response.headers.get("payment-required");
-	if (!encoded) return "x402 payment failed: payment_required";
+	if (!encoded) return `Payment required — this tool costs USDC on Base via x402 micropayments. ${PAYMENT_NEXT_STEPS}`;
 	try {
 		const decoded = Buffer.from(encoded, "base64").toString("utf8");
 		const parsed = JSON.parse(decoded);
@@ -40,16 +49,17 @@ function describePaymentRequiredResponse(response, payerAddress) {
 		].filter(Boolean).join(" ");
 		const message = details ? `x402 payment failed: ${reason} (${details})` : `x402 payment failed: ${reason}`;
 		if (reason.includes("allowance_required")) return `${message}. This wallet needs a one-time USDC Permit2 approval before paid MCP calls can settle. Base ETH is required for approval gas.`;
-		return message;
+		if (reason === "payment_required") return `${message}. ${PAYMENT_NEXT_STEPS}`;
+		return `${message}. ${PAYMENT_NEXT_STEPS}`;
 	} catch {
-		return "x402 payment failed: payment_required";
+		return `Payment required — this tool costs USDC on Base via x402 micropayments. ${PAYMENT_NEXT_STEPS}`;
 	}
 }
 function createPaymentFailureReportingFetch(baseFetch, payerAddress) {
 	const reportingFetch = (async (input, init) => {
 		const response = await baseFetch(input, init);
 		if (response.status !== 402) return response;
-		throw new Error(describePaymentRequiredResponse(response, payerAddress));
+		throw new PaymentRequiredError(describePaymentRequiredResponse(response, payerAddress));
 	});
 	return Object.assign(reportingFetch, baseFetch);
 }
@@ -64,13 +74,13 @@ function createPaymentFailureReportingFetch(baseFetch, payerAddress) {
 * @returns A fetch-compatible function that auto-handles HTTP 402 payment challenges
 */
 function createMcpFetchClient(privateKey, authToken) {
-	const account = (0, viem_accounts.privateKeyToAccount)(privateKey);
-	const reportingFetch = createPaymentFailureReportingFetch((0, _x402_fetch.wrapFetchWithPaymentFromConfig)(fetch, { schemes: [{
+	const account = privateKeyToAccount(privateKey);
+	const reportingFetch = createPaymentFailureReportingFetch(wrapFetchWithPaymentFromConfig(fetch, { schemes: [{
 		network: "eip155:8453",
-		client: new _x402_evm_upto_client.UptoEvmScheme(account)
+		client: new UptoEvmScheme(account)
 	}, {
 		network: "eip155:8453",
-		client: new _x402_evm.ExactEvmScheme(account)
+		client: new ExactEvmScheme(account)
 	}] }), account.address);
 	return authToken ? createHeaderFetch(authToken, reportingFetch) : reportingFetch;
 }
@@ -80,9 +90,13 @@ function createMcpFetchClient(privateKey, authToken) {
 * The public x402 debug bypass expects X-MCP-Debug-Token.
 * Private endpoints commonly expect Authorization: Bearer <token>.
 * Sending both lets one config value work for public debug and private M2M endpoints.
+*
+* Wraps with 402 interception so that if the server still requires payment
+* (e.g. token not accepted for paid tools), the user sees actionable guidance
+* instead of a generic transport error.
 */
 function createMcpAuthFetchClient(authToken, baseFetch = fetch) {
-	return createHeaderFetch(authToken, baseFetch);
+	return createPaymentFailureReportingFetch(createHeaderFetch(authToken, baseFetch));
 }
 function resolveGraphMcpEndpoint(config) {
 	return config.graphMcpEndpoint?.trim() || config.mcpEndpoint;
@@ -90,7 +104,7 @@ function resolveGraphMcpEndpoint(config) {
 async function createConfiguredFetchWithToken(authToken, missingTokenName) {
 	const normalizedAuthToken = authToken?.trim();
 	if (normalizedAuthToken) return createMcpAuthFetchClient(normalizedAuthToken);
-	const { isWalletConfigured, decryptKey } = await Promise.resolve().then(() => require("./wallet-RnvvSpV2.cjs")).then((n) => n.wallet_exports);
+	const { isWalletConfigured, decryptKey } = await import("./wallet-BMelXBYP.mjs").then((n) => n.s);
 	if (!await isWalletConfigured()) throw new Error(`Wallet not configured and ${missingTokenName} is empty. Run \`chain-insights access-key set <key>\` for invited test access or \`chain-insights config set ${missingTokenName} <token>\` for local MCP debug bypass, or \`chain-insights config set walletPrivateKey <key>\` to enable paid x402 MCP calls.`);
 	return createMcpFetchClient(await decryptKey());
 }
@@ -106,27 +120,6 @@ async function createConfiguredGraphMcpFetch(config) {
 	return createConfiguredFetchWithToken(void 0, "walletPrivateKey");
 }
 //#endregion
-Object.defineProperty(exports, "client_exports", {
-	enumerable: true,
-	get: function() {
-		return client_exports;
-	}
-});
-Object.defineProperty(exports, "createConfiguredMcpFetch", {
-	enumerable: true,
-	get: function() {
-		return createConfiguredMcpFetch;
-	}
-});
-Object.defineProperty(exports, "createMcpFetchClient", {
-	enumerable: true,
-	get: function() {
-		return createMcpFetchClient;
-	}
-});
-Object.defineProperty(exports, "resolveGraphMcpEndpoint", {
-	enumerable: true,
-	get: function() {
-		return resolveGraphMcpEndpoint;
-	}
-});
+export { resolveGraphMcpEndpoint as a, createMcpFetchClient as i, client_exports as n, createConfiguredMcpFetch as r, PaymentRequiredError as t };
+
+//# sourceMappingURL=client-f0mqPifi.mjs.map

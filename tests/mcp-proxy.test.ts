@@ -89,14 +89,18 @@ vi.mock('@modelcontextprotocol/ext-apps/server', () => ({
   registerAppTool: vi.fn((server, name, config, handler) => server.registerTool(name, config, handler)),
 }))
 
-vi.mock('../src/mcp/client.js', () => ({
-  createMcpFetchClient: vi.fn().mockReturnValue(fetch),
-  createConfiguredMcpFetch: vi.fn().mockResolvedValue(fetch),
-  createConfiguredGraphMcpFetch: vi.fn().mockResolvedValue(fetch),
-  resolveGraphMcpEndpoint: vi.fn((config: { graphMcpEndpoint?: string; mcpEndpoint: string }) => (
-    config.graphMcpEndpoint?.trim() || config.mcpEndpoint
-  )),
-}))
+vi.mock('../src/mcp/client.js', async (importOriginal) => {
+  const actual = await importOriginal() as Record<string, unknown>
+  return {
+    ...actual,
+    createMcpFetchClient: vi.fn().mockReturnValue(fetch),
+    createConfiguredMcpFetch: vi.fn().mockResolvedValue(fetch),
+    createConfiguredGraphMcpFetch: vi.fn().mockResolvedValue(fetch),
+    resolveGraphMcpEndpoint: vi.fn((config: { graphMcpEndpoint?: string; mcpEndpoint: string }) => (
+      config.graphMcpEndpoint?.trim() || config.mcpEndpoint
+    )),
+  }
+})
 
 vi.mock('../src/mcp/schema-cache.js', () => ({
   loadSchema: vi.fn().mockResolvedValue(null), // default: cache miss
@@ -528,8 +532,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     expect(result.isError).toBe(true)
     expect(result.content[0].type).toBe('text')
-    expect(result.content[0].text).toContain('MCP call failed')
-    expect(result.content[0].text).toContain('Payment failed')
+    expect(result.content[0].text).toContain('Payment required for trace_address')
+    expect(result.content[0].text).toContain('chain-insights wallet topup')
   })
 
   it('calls remoteClient.connect but not listTools when schema cache has tools (WR-01: always connect)', async () => {
