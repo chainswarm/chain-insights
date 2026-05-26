@@ -22,6 +22,8 @@ names in debugging or contributor docs when the detail is necessary.
 
 - `address_risk`: screen one address for risk, behavior, neighborhood context,
   and exchange exposure.
+- `stake_insights`: explain Bittensor coldkey-hotkey-netuid staking behavior,
+  net stake movement, counterparties, activity range, and source backend.
 - `track_funds`: trace victim/source funds through intermediaries to exchange
   deposit candidates.
 - `scam_topology`: expand known victim incident topology into reviewable scam

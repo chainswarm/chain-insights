@@ -4,6 +4,7 @@ All notable changes to Chain Insights are recorded here.
 
 ## [0.2.18] - 2026-05-26
 
+- Added the Chain Insights `stake_insights` recipe over GraphRAG `STAKES_IN` live/archive topology queries, including MCP proxy and CLI exposure, graph report metadata, and explicit backend-unavailable failures.
 - Removed the hardcoded hosted GraphRAG MCP default from runtime config and workspace scaffold paths; local defaults now point to loopback.
 - Added MCP endpoint validation for operator config (`graphMcpEndpoint` / `mcpEndpoint`) with explicit errors for malformed URLs, remote `http://`, credentials, and query/fragment usage.
 - Added README operator guidance for MCP server address configuration across local, staging, and production environments, including precedence and validation rules.

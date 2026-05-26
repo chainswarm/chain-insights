@@ -80,7 +80,19 @@ describe('CLI scaffold (FOUND-02)', () => {
     const out = execSync('node bin/cli.js mcp --help', { encoding: 'utf8' })
     expect(out).toContain('track-funds')
     expect(out).toContain('scam-topology')
+    expect(out).toContain('stake-insights')
     expect(out).not.toContain('trace-funds')
+  })
+
+  it('mcp stake-insights help exposes staking controls', () => {
+    const out = execFileSync('node', ['--import', 'tsx', srcCli, 'mcp', 'stake-insights', '--help'], { encoding: 'utf8' })
+    expect(out).toContain('--address <address>')
+    expect(out).toContain('--coldkey <address>')
+    expect(out).toContain('--hotkey <address>')
+    expect(out).toContain('--netuid <number>')
+    expect(out).toContain('--start-timestamp-ms <milliseconds>')
+    expect(out).toContain('--end-timestamp-ms <milliseconds>')
+    expect(out).toContain('--depth <number>')
   })
 
   it('mcp scam-topology help exposes victim incident controls', () => {

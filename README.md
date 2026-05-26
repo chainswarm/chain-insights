@@ -16,6 +16,7 @@ evidence pointers, dossiers, and reports.
 | Tool | Use it for |
 | --- | --- |
 | `address_risk` | Screen one address for risk, behavior, neighborhood context, and exchange exposure |
+| `stake_insights` | Explain Bittensor staking relationships, net stake movement, and counterparties |
 | `track_funds` | Trace victim/source funds through intermediaries to exchange deposit candidates |
 | `scam_topology` | Expand a known victim incident into reviewable scam infrastructure and label candidates |
 | `graph_query` | Run one read-only GQL/Cypher query against a GraphRAG MCP graph layer |
@@ -183,6 +184,9 @@ and local case state:
 
 - `address_risk` starts a single-address screen with risk, behavior,
   neighborhood context, and exchange exposure.
+- `stake_insights` explains Bittensor coldkey-hotkey-netuid staking
+  relationships, aggregate stake movement amounts, top counterparties, first
+  and last activity, and source backend evidence.
 - `track_funds` traces trusted victim/source funds through intermediaries to
   exchange deposit candidates.
 - `scam_topology` expands from a known victim incident into reviewable

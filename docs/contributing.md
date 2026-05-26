@@ -17,6 +17,7 @@ node bin/cli.js --help
 Current AML tools live in the Chain Insights layer:
 
 - `address_risk`
+- `stake_insights`
 - `track_funds`
 - `scam_topology`
 

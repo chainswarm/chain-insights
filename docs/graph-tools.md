@@ -12,8 +12,9 @@ The GraphRAG MCP public graph surface is intentionally small:
 | `graph_query` | Run one read-only GQL/Cypher query through the universal graph endpoint |
 | `graph_query_batch` | Run related read-only graph-language queries as one MCP call |
 
-Chain Insights AML tools such as `address_risk`, `track_funds`, and
-`scam_topology` are recipes built over `graph_query_batch`. They are not
+Chain Insights AML tools such as `address_risk`, `stake_insights`,
+`track_funds`, and `scam_topology` are recipes built over
+`graph_query_batch`. They are not
 assumed to exist on the GraphRAG MCP endpoint.
 
 ## Query Rules
@@ -109,6 +110,63 @@ cia mcp track-funds \
   --network bittensor \
   --trusted-addresses 5... \
   --case 1
+```
+
+## Stake Insights
+
+`stake_insights` explains Bittensor staking behavior around one address,
+coldkey, or hotkey. It keeps stake semantics separate from generic money-flow
+semantics and reads direct `STAKES_IN` relationships from the graph endpoint.
+
+Required input:
+
+- `network`
+- exactly one of `address`, `coldkey`, or `hotkey`
+
+Optional input:
+
+- `netuid`
+- `start_timestamp_ms`
+- `end_timestamp_ms`
+- `start_block`
+- `end_block`
+- `depth`
+- `include_attachments`
+
+The first release returns direct coldkey-hotkey-netuid stake relationships. The
+current GraphRAG stake parity surface supports timestamp windows; block windows
+are accepted by the tool contract but fail explicitly until the backend exposes
+block-range fields.
+
+Result facts include:
+
+- `stake_totals`: total staked, total unstaked, moved-in/out amounts, net
+  staked, first activity, and last activity.
+- `active_relationships`: coldkey-hotkey-netuid relationships with amount,
+  event counts, first/last activity, transaction ids when present, topology
+  graph, and source backend.
+- `stake_movements`: aggregate `stake_added`, `stake_removed`,
+  `stake_moved_in`, and `stake_moved_out` movement rows.
+- `top_counterparties`: counterparties ranked by stake amount.
+- `query_evidence`: `graph_query_batch` query ids, topology graph, row counts,
+  source backends, and partial errors.
+
+CLI examples:
+
+```bash
+cia mcp stake-insights \
+  --network bittensor \
+  --coldkey 5... \
+  --netuid 19
+```
+
+```bash
+cia mcp call stake_insights \
+  network=bittensor \
+  address=5... \
+  netuid=19 \
+  start_timestamp_ms=1769126300000 \
+  end_timestamp_ms=1769126600000
 ```
 
 ## Scam Topology

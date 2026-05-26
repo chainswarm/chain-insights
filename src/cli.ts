@@ -651,6 +651,55 @@ program
       })
   )
   .addCommand(
+    new Command('stake-insights')
+      .description('Explain Bittensor staking behavior around an address, coldkey, or hotkey')
+      .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
+      .option('--address <address>', 'Full Bittensor address to inspect as either coldkey or hotkey')
+      .option('--coldkey <address>', 'Full Bittensor coldkey address to inspect')
+      .option('--hotkey <address>', 'Full Bittensor hotkey address to inspect')
+      .option('--netuid <number>', 'Optional subnet netuid filter')
+      .option('--start-timestamp-ms <milliseconds>', 'Optional inclusive lower activity timestamp bound')
+      .option('--end-timestamp-ms <milliseconds>', 'Optional inclusive upper activity timestamp bound')
+      .option('--start-block <number>', 'Optional start block. Current stake graph parity may require timestamp windows instead.')
+      .option('--end-block <number>', 'Optional end block. Current stake graph parity may require timestamp windows instead.')
+      .option('--depth <number>', 'Optional expansion depth limit, default 1, max 3')
+      .action(async (opts: {
+        network: string
+        address?: string
+        coldkey?: string
+        hotkey?: string
+        netuid?: string
+        startTimestampMs?: string
+        endTimestampMs?: string
+        startBlock?: string
+        endBlock?: string
+        depth?: string
+      }) => {
+        try {
+          await withGraphMcpClient('chain-insights-cli-stake-insights', async (client) => {
+            const { stakeInsights } = await import('./investigation/public-tools.js')
+            const result = await stakeInsights(client, {
+              network: opts.network,
+              address: opts.address,
+              coldkey: opts.coldkey,
+              hotkey: opts.hotkey,
+              netuid: optionalNumber(opts.netuid),
+              startTimestampMs: optionalNumber(opts.startTimestampMs),
+              endTimestampMs: optionalNumber(opts.endTimestampMs),
+              startBlock: optionalNumber(opts.startBlock),
+              endBlock: optionalNumber(opts.endBlock),
+              depth: optionalNumber(opts.depth),
+            })
+            console.log(result.summaryText)
+            console.log(JSON.stringify(result.structuredContent, null, 2))
+          })
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
     new Command('call')
       .description('Call an MCP tool directly (debug)')
       .argument('<tool>', 'Tool name to call')
@@ -700,6 +749,24 @@ program
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
                 incidentTimestampMs,
                 activityPolicyMode: optionalScamTopologyActivityPolicy(args['activity_policy']),
+              })
+              console.log(result.summaryText)
+              console.log(JSON.stringify(result.structuredContent, null, 2))
+              return
+            }
+            if (tool === 'stake_insights') {
+              const { stakeInsights } = await import('./investigation/public-tools.js')
+              const result = await stakeInsights(client, {
+                network: String(args['network'] ?? ''),
+                address: args['address'] === undefined ? undefined : String(args['address']),
+                coldkey: args['coldkey'] === undefined ? undefined : String(args['coldkey']),
+                hotkey: args['hotkey'] === undefined ? undefined : String(args['hotkey']),
+                netuid: optionalNumberArg(args['netuid'], 'netuid'),
+                startTimestampMs: optionalNumberArg(args['start_timestamp_ms'], 'start_timestamp_ms'),
+                endTimestampMs: optionalNumberArg(args['end_timestamp_ms'], 'end_timestamp_ms'),
+                startBlock: optionalNumberArg(args['start_block'], 'start_block'),
+                endBlock: optionalNumberArg(args['end_block'], 'end_block'),
+                depth: optionalNumberArg(args['depth'] ?? args['max_hops'], 'depth'),
               })
               console.log(result.summaryText)
               console.log(JSON.stringify(result.structuredContent, null, 2))

@@ -378,7 +378,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-DdC3T8_p.cjs"));
+			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-D1mQbxW4.cjs"));
 			const result = await addressRisk(client, {
 				address: opts.address,
 				network: opts.network,
@@ -406,7 +406,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-DdC3T8_p.cjs"));
+			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-D1mQbxW4.cjs"));
 			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
 			const result = await trackFunds(client, config, {
 				trustedAddresses: opts.trustedAddresses,
@@ -429,7 +429,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { requireWorkspaceRoot } = await Promise.resolve().then(() => require("./output-root-HDoO9jk5.cjs")).then((n) => n.output_root_exports);
 		requireWorkspaceRoot();
 		await withGraphMcpClient("chain-insights-cli-scam-topology", async (client, config) => {
-			const { scamTopology } = await Promise.resolve().then(() => require("./public-tools-DdC3T8_p.cjs"));
+			const { scamTopology } = await Promise.resolve().then(() => require("./public-tools-D1mQbxW4.cjs"));
 			const incidentTimestampMs = optionalNumber(opts.incidentTimestampMs);
 			if (incidentTimestampMs === void 0) throw new Error("incident-timestamp-ms is required");
 			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
@@ -448,6 +448,29 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		console.error(err.message);
 		process.exit(1);
 	}
+})).addCommand(new commander.Command("stake-insights").description("Explain Bittensor staking behavior around an address, coldkey, or hotkey").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--address <address>", "Full Bittensor address to inspect as either coldkey or hotkey").option("--coldkey <address>", "Full Bittensor coldkey address to inspect").option("--hotkey <address>", "Full Bittensor hotkey address to inspect").option("--netuid <number>", "Optional subnet netuid filter").option("--start-timestamp-ms <milliseconds>", "Optional inclusive lower activity timestamp bound").option("--end-timestamp-ms <milliseconds>", "Optional inclusive upper activity timestamp bound").option("--start-block <number>", "Optional start block. Current stake graph parity may require timestamp windows instead.").option("--end-block <number>", "Optional end block. Current stake graph parity may require timestamp windows instead.").option("--depth <number>", "Optional expansion depth limit, default 1, max 3").action(async (opts) => {
+	try {
+		await withGraphMcpClient("chain-insights-cli-stake-insights", async (client) => {
+			const { stakeInsights } = await Promise.resolve().then(() => require("./public-tools-D1mQbxW4.cjs"));
+			const result = await stakeInsights(client, {
+				network: opts.network,
+				address: opts.address,
+				coldkey: opts.coldkey,
+				hotkey: opts.hotkey,
+				netuid: optionalNumber(opts.netuid),
+				startTimestampMs: optionalNumber(opts.startTimestampMs),
+				endTimestampMs: optionalNumber(opts.endTimestampMs),
+				startBlock: optionalNumber(opts.startBlock),
+				endBlock: optionalNumber(opts.endBlock),
+				depth: optionalNumber(opts.depth)
+			});
+			console.log(result.summaryText);
+			console.log(JSON.stringify(result.structuredContent, null, 2));
+		});
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
 })).addCommand(new commander.Command("call").description("Call an MCP tool directly (debug)").argument("<tool>", "Tool name to call").argument("[args...]", "Key=value arguments (e.g. address=0x1234 chain=ethereum)").action(async (tool, rawArgs) => {
 	try {
 		const { parseMcpCallArgs } = await Promise.resolve().then(() => require("./call-args-Ivo_mXUd.cjs"));
@@ -456,7 +479,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		assertPublicMcpToolName(tool);
 		await withGraphMcpClient("chain-insights-cli-call", async (client, config) => {
 			if (tool === "address_risk") {
-				const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-DdC3T8_p.cjs"));
+				const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-D1mQbxW4.cjs"));
 				const result = await addressRisk(client, {
 					address: String(args["address"] ?? ""),
 					network: String(args["network"] ?? ""),
@@ -466,7 +489,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "track_funds") {
-				const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-DdC3T8_p.cjs"));
+				const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-D1mQbxW4.cjs"));
 				const result = await trackFunds(client, config, {
 					trustedAddresses: args["trusted_addresses"] ?? "",
 					untrustedAddresses: args["untrusted_addresses"],
@@ -481,7 +504,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "scam_topology") {
-				const { scamTopology } = await Promise.resolve().then(() => require("./public-tools-DdC3T8_p.cjs"));
+				const { scamTopology } = await Promise.resolve().then(() => require("./public-tools-D1mQbxW4.cjs"));
 				const victimAddress = String(args["victim_address"] ?? "").trim();
 				if (!victimAddress) throw new Error("victim_address is required");
 				const incidentTimestampMs = optionalNumberArg(args["incident_timestamp_ms"], "incident_timestamp_ms");
@@ -493,6 +516,24 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 					maxHops: typeof args["max_hops"] === "number" ? args["max_hops"] : void 0,
 					incidentTimestampMs,
 					activityPolicyMode: optionalScamTopologyActivityPolicy(args["activity_policy"])
+				});
+				console.log(result.summaryText);
+				console.log(JSON.stringify(result.structuredContent, null, 2));
+				return;
+			}
+			if (tool === "stake_insights") {
+				const { stakeInsights } = await Promise.resolve().then(() => require("./public-tools-D1mQbxW4.cjs"));
+				const result = await stakeInsights(client, {
+					network: String(args["network"] ?? ""),
+					address: args["address"] === void 0 ? void 0 : String(args["address"]),
+					coldkey: args["coldkey"] === void 0 ? void 0 : String(args["coldkey"]),
+					hotkey: args["hotkey"] === void 0 ? void 0 : String(args["hotkey"]),
+					netuid: optionalNumberArg(args["netuid"], "netuid"),
+					startTimestampMs: optionalNumberArg(args["start_timestamp_ms"], "start_timestamp_ms"),
+					endTimestampMs: optionalNumberArg(args["end_timestamp_ms"], "end_timestamp_ms"),
+					startBlock: optionalNumberArg(args["start_block"], "start_block"),
+					endBlock: optionalNumberArg(args["end_block"], "end_block"),
+					depth: optionalNumberArg(args["depth"] ?? args["max_hops"], "depth")
 				});
 				console.log(result.summaryText);
 				console.log(JSON.stringify(result.structuredContent, null, 2));

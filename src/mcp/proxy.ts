@@ -32,6 +32,7 @@ const GRAPH_RESOURCE_URI = 'ui://chain-insights/graph'
 const GRAPH_APP_TOOL_NAMES = new Set([
   'address_risk',
   'scam_topology',
+  'stake_insights',
   'track_funds',
 ])
 const GRAPH_ARRAY_KEYS = ['nodes', 'edges', 'flows', 'edge_anchors'] as const
@@ -45,6 +46,7 @@ const COMMA_SEPARATED_ADDRESS_FIELDS = new Set([
 const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
   address_risk: ['address', 'network'],
   scam_topology: ['victim_address', 'incident_timestamp_ms', 'network'],
+  stake_insights: ['network'],
   track_funds: ['trusted_addresses', 'network'],
   graph_query: ['query', 'network'],
   graph_query_batch: ['network', 'queries'],
@@ -54,6 +56,7 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   network_capabilities: 'Return supported Chain Insights networks, capability layers, tool availability, data retention windows, and freshness. Use this before choosing network-specific tools.',
   address_risk: 'Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. This includes the exchange-behavior analysis formerly covered by money_flows_between_exchanges. Use this as the first tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.',
   scam_topology: 'Build victim-incident laundering topology from one victim/source address and the earliest known incident timestamp. Traversal uses one explicit activity policy: node_relative_only by default, or global_incident_only when requested. Repeated targets are kept as non-expanding convergence edges. Returns ML-ready scam_labels plus review context and a track_funds-compatible graph report: primary flows, deposits, reverse_leads. Victims, exchange endpoints, and generic labeled context nodes are not automatic scam labels; preserve full addresses exactly.',
+  stake_insights: 'Explain Bittensor staking behavior around one full address, coldkey, or hotkey. Requires network plus exactly one of address, coldkey, or hotkey. Returns net staked/unstaked amounts, active coldkey-hotkey-netuid relationships, aggregate stake movement amounts, top counterparties, first/last activity, source backend, query evidence, and optional graph report metadata.',
   track_funds: 'Trace funds from trusted victim/source addresses through intermediaries to exchange deposit addresses. Use this when the user has a victim/source address or known untrusted/scammer addresses. The tool returns an investigator-ready fund-flow report and recommended next actions.',
   graph_query: 'Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment. Cross-layer correlated joins may be limited by the active graph endpoint; preserve full addresses exactly.',
   graph_query_batch: 'Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads.',
@@ -74,7 +77,7 @@ const CHAIN_INSIGHTS_WORKFLOW = [
   'Workflow:',
   '1. If the user is starting or continuing an investigation, use case_open or case_list/case_resume first.',
   '2. Do not call investigation tools until required arguments are known. Network is required; use network_capabilities to check supported networks, data layers, retention, and freshness, or ask the user if missing.',
-  '3. Use address_risk first for a single address when facts and topology are available. Use track_funds for victim/source fund tracing when topology is available. Use scam_topology when known victim incident ground truth should become ML-ready scam labels. Use graph_query(_batch) for the universal graph-language path over topology and facts.',
+  '3. Use address_risk first for a single address when facts and topology are available. Use stake_insights for Bittensor coldkey/hotkey staking behavior. Use track_funds for victim/source fund tracing when topology is available. Use scam_topology when known victim incident ground truth should become ML-ready scam labels. Use graph_query(_batch) for the universal graph-language path over topology and facts.',
   '4. After a material result, preserve it with case_add_evidence when a case is active or ask whether to create/select a case.',
   '5. Use case_update_dossier for durable address/entity findings and case_start_session/case_end_session for session notes.',
 ].join('\n')
@@ -193,6 +196,20 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
         max_hops: z.number().int().min(1).max(64).optional().describe('Maximum forward expansion depth. Default 16.'),
         activity_policy: z.enum(['node_relative_only', 'global_incident_only']).optional().describe('Traversal activity policy. Default node_relative_only.'),
         case_id: z.string().optional().describe('Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest.'),
+      }
+    case 'stake_insights':
+      return {
+        network: z.string().min(1).describe(NETWORK_DESCRIPTION),
+        address: z.string().optional().describe('Full Bittensor address to inspect as either coldkey or hotkey. Provide exactly one of address, coldkey, or hotkey.'),
+        coldkey: z.string().optional().describe('Full Bittensor coldkey address to inspect. Provide exactly one of address, coldkey, or hotkey.'),
+        hotkey: z.string().optional().describe('Full Bittensor hotkey address to inspect. Provide exactly one of address, coldkey, or hotkey.'),
+        netuid: z.number().int().min(0).optional().describe('Optional subnet netuid filter.'),
+        start_timestamp_ms: z.number().min(0).optional().describe('Optional inclusive lower activity timestamp bound in milliseconds.'),
+        end_timestamp_ms: z.number().min(0).optional().describe('Optional inclusive upper activity timestamp bound in milliseconds.'),
+        start_block: z.number().int().min(0).optional().describe('Optional start block. Current stake graph parity may require timestamp windows instead.'),
+        end_block: z.number().int().min(0).optional().describe('Optional end block. Current stake graph parity may require timestamp windows instead.'),
+        depth: z.number().int().min(1).max(3).optional().describe('Optional expansion depth limit. First release returns direct STAKES_IN relationships; default 1, max 3.'),
+        include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
       }
     case 'graph_query':
       return {
@@ -1470,6 +1487,96 @@ export async function createProxy(): Promise<void> {
     )
   }
 
+  if (!remoteToolNames.has('stake_insights')) {
+    registerAppTool(
+      server,
+      'stake_insights',
+      {
+        title: 'Stake Insights',
+        description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.stake_insights,
+        inputSchema: {
+          network: z.string().min(1).describe(NETWORK_DESCRIPTION),
+          address: z.string().optional().describe('Full Bittensor address to inspect as either coldkey or hotkey. Provide exactly one of address, coldkey, or hotkey.'),
+          coldkey: z.string().optional().describe('Full Bittensor coldkey address to inspect. Provide exactly one of address, coldkey, or hotkey.'),
+          hotkey: z.string().optional().describe('Full Bittensor hotkey address to inspect. Provide exactly one of address, coldkey, or hotkey.'),
+          netuid: z.number().int().min(0).optional().describe('Optional subnet netuid filter.'),
+          start_timestamp_ms: z.number().min(0).optional().describe('Optional inclusive lower activity timestamp bound in milliseconds.'),
+          end_timestamp_ms: z.number().min(0).optional().describe('Optional inclusive upper activity timestamp bound in milliseconds.'),
+          start_block: z.number().int().min(0).optional().describe('Optional start block. Current stake graph parity may require timestamp windows instead.'),
+          end_block: z.number().int().min(0).optional().describe('Optional end block. Current stake graph parity may require timestamp windows instead.'),
+          depth: z.number().int().min(1).max(3).optional().describe('Optional expansion depth limit. First release returns direct STAKES_IN relationships; default 1, max 3.'),
+          include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
+        },
+        _meta: {
+          ui: {
+            resourceUri: GRAPH_RESOURCE_URI,
+          },
+        },
+        annotations: {
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: true,
+        },
+      },
+      async ({ network, address, coldkey, hotkey, netuid, start_timestamp_ms, end_timestamp_ms, start_block, end_block, depth }) => {
+        try {
+          if (!remoteConnected) {
+            return {
+              content: [{
+                type: 'text' as const,
+                text: `${remoteUnavailableMessage ?? `Graph MCP is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
+              }],
+              isError: true,
+            }
+          }
+          const { stakeInsights } = await import('../investigation/public-tools.js')
+          const { writeGraphReport } = await import('./graph-reports.js')
+          const { ensureArtifactServer } = await import('./artifact-server.js')
+          const result = await stakeInsights(remoteClient, {
+            network,
+            address,
+            coldkey,
+            hotkey,
+            netuid,
+            startTimestampMs: start_timestamp_ms,
+            endTimestampMs: end_timestamp_ms,
+            startBlock: start_block,
+            endBlock: end_block,
+            depth,
+          })
+          const subject = address ?? coldkey ?? hotkey ?? 'subject'
+          const report = await writeGraphReport(result.graphData as never, {
+            serverPort: config.serverPort,
+            slug: `stake-insights-${network}-${subject}`,
+          })
+          await ensureArtifactServer(config.serverPort)
+          return {
+            content: [{ type: 'text' as const, text: result.summaryText }],
+            structuredContent: result.structuredContent,
+            _meta: {
+              chainInsights: {
+                graph: {
+                  schema: report.schema,
+                  url: report.url,
+                },
+              },
+            },
+            isError: false,
+          }
+        } catch (err) {
+          if (err instanceof PaymentRequiredError) {
+            return { content: [{ type: 'text' as const, text: err.message }], isError: true }
+          }
+          return {
+            content: [{ type: 'text' as const, text: `Stake insights failed: ${(err as Error).message}` }],
+            isError: true,
+          }
+        }
+      },
+    )
+  }
+
   server.registerTool(
     'help',
     {
@@ -1488,6 +1595,7 @@ export async function createProxy(): Promise<void> {
             'Investigation tools:',
             '- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.',
             '- address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.',
+            '- stake_insights: explain Bittensor staking around one address, coldkey, or hotkey with net stake, movement amounts, counterparties, backend, and query evidence.',
             '- track_funds: trace up to five trusted/victim addresses plus up to five known untrusted/scammer addresses through intermediaries to exchange deposit addresses.',
             '- scam_topology: derive ML-ready scam_labels from one victim incident address and incident_timestamp_ms.',
             '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE live_topology, USE archive_topology, or USE facts.',
