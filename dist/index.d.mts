@@ -4,9 +4,9 @@ import { Address, Hex } from "viem";
 
 //#region src/config/schema.d.ts
 declare const ConfigSchema: z.ZodObject<{
-  mcpEndpoint: z.ZodDefault<z.ZodString>;
+  mcpEndpoint: z.ZodDefault<z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>>;
   mcpAuthToken: z.ZodOptional<z.ZodString>;
-  graphMcpEndpoint: z.ZodDefault<z.ZodString>;
+  graphMcpEndpoint: z.ZodDefault<z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>>;
   graphMcpAuthToken: z.ZodOptional<z.ZodString>;
   graphMcpMode: z.ZodDefault<z.ZodEnum<{
     paid: "paid";

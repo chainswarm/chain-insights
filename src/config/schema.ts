@@ -1,11 +1,26 @@
 import * as z from 'zod'
 import os from 'node:os'
 import path from 'node:path'
+import { LOCAL_GRAPH_MCP_ENDPOINT, LOCAL_LEGACY_MCP_ENDPOINT, validateMcpEndpoint } from './mcp-endpoint.js'
+
+function endpointSchema(key: 'mcpEndpoint' | 'graphMcpEndpoint') {
+  return z.string().transform((value, ctx) => {
+    try {
+      return validateMcpEndpoint(value, key)
+    } catch (err) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: (err as Error).message,
+      })
+      return z.NEVER
+    }
+  })
+}
 
 export const ConfigSchema = z.object({
-  mcpEndpoint:       z.string().url().default('http://localhost:4000'),
+  mcpEndpoint:       endpointSchema('mcpEndpoint').default(LOCAL_LEGACY_MCP_ENDPOINT),
   mcpAuthToken:      z.string().optional(),
-  graphMcpEndpoint:  z.string().default(process.env.GRAPH_MCP_ENDPOINT ?? 'https://staging-mcp.chain-insights.ai/mcp'),
+  graphMcpEndpoint:  endpointSchema('graphMcpEndpoint').default(LOCAL_GRAPH_MCP_ENDPOINT),
   graphMcpAuthToken: z.string().optional(),
   graphMcpMode:      z.enum(['paid', 'debug']).default('paid'),
   walletAddress:     z.string().optional(),
@@ -15,7 +30,18 @@ export const ConfigSchema = z.object({
 })
 
 export type InvestigatorConfig = z.infer<typeof ConfigSchema>
-export const DEFAULT_CONFIG: InvestigatorConfig = ConfigSchema.parse({})
+
+function formatConfigValidationError(error: z.ZodError): string {
+  return error.issues.map((issue) => issue.message).join('\n')
+}
+
+export function parseInvestigatorConfig(input: unknown): InvestigatorConfig {
+  const parsed = ConfigSchema.safeParse(input)
+  if (parsed.success) return parsed.data
+  throw new Error(formatConfigValidationError(parsed.error))
+}
+
+export const DEFAULT_CONFIG: InvestigatorConfig = parseInvestigatorConfig({})
 
 export const CONFIG_KEYS = [
   'mcpEndpoint',

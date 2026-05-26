@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { execFileSync, execSync } from 'node:child_process'
+import { execFileSync, execSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -129,7 +129,7 @@ describe('CLI scaffold (FOUND-02)', () => {
         `"workspace_root": "${target}"`
       )
       expect(readFileSync(join(target, '.chain-insights', 'workspace.json'), 'utf8')).toContain(
-        '"graph_mcp_endpoint": "https://staging-mcp.chain-insights.ai/mcp"'
+        '"graph_mcp_endpoint": "http://127.0.0.1:8012/mcp"'
       )
       const readme = readFileSync(join(target, 'README.md'), 'utf8')
       expect(readme).toContain('Chain Insights Investigations')
@@ -475,6 +475,21 @@ describe('CLI scaffold (FOUND-02)', () => {
       const statusAfter = execSync('node bin/cli.js debug status', { encoding: 'utf8', env })
       expect(statusAfter).toContain('Graph MCP mode: paid')
       expect(statusAfter).toContain('Debug token:    not configured')
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true })
+    }
+  })
+
+  it('debug on rejects remote http endpoints', () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'chain-insights-home-'))
+    const env = { ...process.env, HOME: fakeHome }
+    try {
+      const result = spawnSync('node', ['bin/cli.js', 'debug', 'on', '--token', 'test-debug-token', '--endpoint', 'http://staging-mcp.chain-insights.ai/mcp'], {
+        encoding: 'utf8',
+        env,
+      })
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain('graphMcpEndpoint must use https:// for remote hosts')
     } finally {
       rmSync(fakeHome, { recursive: true, force: true })
     }
