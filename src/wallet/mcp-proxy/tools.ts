@@ -20,7 +20,11 @@ const USDC_ABI = [
   },
 ] as const;
 
-export async function getBalanceUsdc(wallet: WalletData): Promise<string> {
+function walletAddress(wallet: WalletData | string): `0x${string}` {
+  return (typeof wallet === "string" ? wallet : wallet.address) as `0x${string}`;
+}
+
+export async function getBalanceUsdc(wallet: WalletData | string): Promise<string> {
   const envRpcUrl = process.env.BASE_RPC_URL;
   const rpcUrls = [
     ...(envRpcUrl ? [envRpcUrl] : []),
@@ -34,7 +38,7 @@ export async function getBalanceUsdc(wallet: WalletData): Promise<string> {
         address: USDC_ADDRESS,
         abi: USDC_ABI,
         functionName: "balanceOf",
-        args: [wallet.address as `0x${string}`],
+        args: [walletAddress(wallet)],
       });
       return formatUnits(balance, 6);
     } catch {
@@ -45,7 +49,7 @@ export async function getBalanceUsdc(wallet: WalletData): Promise<string> {
   return "unknown";
 }
 
-export async function getBalanceEth(wallet: WalletData): Promise<string> {
+export async function getBalanceEth(wallet: WalletData | string): Promise<string> {
   const envRpcUrl = process.env.BASE_RPC_URL;
   const rpcUrls = [
     ...(envRpcUrl ? [envRpcUrl] : []),
@@ -55,7 +59,7 @@ export async function getBalanceEth(wallet: WalletData): Promise<string> {
   for (const rpcUrl of rpcUrls) {
     try {
       const client = createPublicClient({ chain: base, transport: http(rpcUrl) });
-      const balance = await client.getBalance({ address: wallet.address as `0x${string}` });
+      const balance = await client.getBalance({ address: walletAddress(wallet) });
       return formatEther(balance);
     } catch {
       // Try the next public Base RPC endpoint.

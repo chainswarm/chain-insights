@@ -4,10 +4,8 @@ import {
   startTopupServer as startCopiedTopupServer,
 } from './mcp-proxy/topup-server.js'
 import { createServer, type Server, type ServerResponse } from 'node:http'
-import type { WalletData } from './mcp-proxy/types.js'
+import { isAddress } from 'viem'
 import type { PaymentWalletAccount } from './tools.js'
-
-const FALLBACK_PRIVATE_KEY = `0x${'0'.repeat(63)}1`
 
 interface ArtifactServerState {
   address: string
@@ -34,20 +32,12 @@ interface NormalizedProxyTarget {
   pathname: string
 }
 
-function toWalletData(account: PaymentWalletAccount | string): WalletData {
-  if (typeof account === 'string') {
-    return {
-      address: account,
-      privateKey: FALLBACK_PRIVATE_KEY,
-      createdAt: new Date(0).toISOString(),
-    }
+function toWalletAddress(account: PaymentWalletAccount | string): string {
+  const address = typeof account === 'string' ? account : account.address
+  if (!isAddress(address)) {
+    throw new Error('Wallet address must be a valid 0x-prefixed 20-byte EVM address')
   }
-
-  return {
-    address: account.address,
-    privateKey: account.privateKey,
-    createdAt: new Date(0).toISOString(),
-  }
+  return address
 }
 
 function send(res: ServerResponse, status: number, body: string | Buffer, contentType: string): void {
@@ -124,13 +114,13 @@ export async function stopTopupServer(): Promise<void> {
 }
 
 export async function startTopupServer(account: PaymentWalletAccount | string): Promise<string> {
-  const wallet = toWalletData(account)
+  const walletAddress = toWalletAddress(account)
 
-  if (artifactServerState && artifactServerState.address.toLowerCase() === wallet.address.toLowerCase()) {
+  if (artifactServerState && artifactServerState.address.toLowerCase() === walletAddress.toLowerCase()) {
     return artifactServerState.url
   }
 
-  const assetServerUrl = await startCopiedTopupServer(wallet)
+  const assetServerUrl = await startCopiedTopupServer(walletAddress)
 
   if (artifactServerState) {
     await stopTopupServer()
@@ -153,7 +143,7 @@ export async function startTopupServer(account: PaymentWalletAccount | string): 
 
     if (pathname === '/' || pathname === '/index.html') {
       const artifactUrl = artifactServerState?.url ?? assetServerUrl
-      send(res, 200, generateArtifactHtml(wallet.address, artifactUrl), 'text/html; charset=utf-8')
+      send(res, 200, generateArtifactHtml(walletAddress, artifactUrl), 'text/html; charset=utf-8')
       return
     }
 
@@ -184,7 +174,7 @@ export async function startTopupServer(account: PaymentWalletAccount | string): 
   })
 
   artifactServerState = {
-    address: wallet.address,
+    address: walletAddress,
     assetServerUrl,
     server,
     url,
