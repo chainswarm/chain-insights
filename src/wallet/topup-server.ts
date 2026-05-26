@@ -17,6 +17,22 @@ interface ArtifactServerState {
 }
 
 let artifactServerState: ArtifactServerState | null = null
+const REQUEST_TARGET_BASE = 'http://localhost'
+
+class ProxyRequestError extends Error {
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'ProxyRequestError'
+    this.status = status
+  }
+}
+
+interface NormalizedProxyTarget {
+  pathAndSearch: string
+  pathname: string
+}
 
 function toWalletData(account: PaymentWalletAccount | string): WalletData {
   if (typeof account === 'string') {
@@ -43,8 +59,44 @@ function send(res: ServerResponse, status: number, body: string | Buffer, conten
   res.end(body)
 }
 
-async function proxyToCopiedServer(reqUrl: string, res: ServerResponse, assetServerUrl: string): Promise<void> {
-  const upstreamUrl = new URL(reqUrl, assetServerUrl)
+function normalizeProxyTarget(reqUrl: string): NormalizedProxyTarget {
+  if (!reqUrl.startsWith('/') || reqUrl.startsWith('//')) {
+    throw new ProxyRequestError(400, 'Proxy request target must be an origin-form path')
+  }
+
+  const parsed = new URL(reqUrl, REQUEST_TARGET_BASE)
+  if (parsed.origin !== REQUEST_TARGET_BASE) {
+    throw new ProxyRequestError(400, 'Absolute and protocol-relative proxy targets are not allowed')
+  }
+
+  let decodedPathname: string
+  try {
+    decodedPathname = decodeURIComponent(parsed.pathname)
+  } catch {
+    throw new ProxyRequestError(400, 'Proxy request target contains invalid encoding')
+  }
+
+  if (decodedPathname.startsWith('//') || /^\/[a-z][a-z0-9+.-]*:\/\//i.test(decodedPathname)) {
+    throw new ProxyRequestError(400, 'Encoded host override targets are not allowed')
+  }
+
+  return {
+    pathAndSearch: `${parsed.pathname}${parsed.search}`,
+    pathname: parsed.pathname,
+  }
+}
+
+async function proxyToCopiedServer(
+  proxyTarget: NormalizedProxyTarget,
+  res: ServerResponse,
+  assetServerUrl: string,
+): Promise<void> {
+  const allowedOrigin = new URL(assetServerUrl).origin
+  const upstreamUrl = new URL(proxyTarget.pathAndSearch, assetServerUrl)
+  if (upstreamUrl.origin !== allowedOrigin) {
+    throw new ProxyRequestError(403, 'Upstream origin is not allowed')
+  }
+
   const upstream = await fetch(upstreamUrl)
   const contentType = upstream.headers.get('content-type') ?? 'application/octet-stream'
   const body = Buffer.from(await upstream.arrayBuffer())
@@ -61,6 +113,16 @@ export function getTopupUrl(): string | null {
   return getTopupArtifactUrl() ?? getCopiedTopupUrl()
 }
 
+export async function stopTopupServer(): Promise<void> {
+  if (!artifactServerState) {
+    return
+  }
+
+  const { server } = artifactServerState
+  artifactServerState = null
+  await new Promise<void>((resolve) => server.close(() => resolve()))
+}
+
 export async function startTopupServer(account: PaymentWalletAccount | string): Promise<string> {
   const wallet = toWalletData(account)
 
@@ -71,13 +133,23 @@ export async function startTopupServer(account: PaymentWalletAccount | string): 
   const assetServerUrl = await startCopiedTopupServer(wallet)
 
   if (artifactServerState) {
-    await new Promise<void>((resolve) => artifactServerState?.server.close(() => resolve()))
-    artifactServerState = null
+    await stopTopupServer()
   }
 
   const server = createServer((req, res) => {
     const reqUrl = req.url ?? '/'
-    const pathname = new URL(reqUrl, 'http://localhost').pathname
+    let proxyTarget: NormalizedProxyTarget
+    try {
+      proxyTarget = normalizeProxyTarget(reqUrl)
+    } catch (err) {
+      if (err instanceof ProxyRequestError) {
+        send(res, err.status, JSON.stringify({ error: err.message }) + '\n', 'application/json; charset=utf-8')
+        return
+      }
+      send(res, 400, JSON.stringify({ error: 'Invalid request target' }) + '\n', 'application/json; charset=utf-8')
+      return
+    }
+    const { pathname } = proxyTarget
 
     if (pathname === '/' || pathname === '/index.html') {
       const artifactUrl = artifactServerState?.url ?? assetServerUrl
@@ -86,7 +158,11 @@ export async function startTopupServer(account: PaymentWalletAccount | string): 
     }
 
     if (pathname.startsWith('/assets/') || pathname.startsWith('/api/')) {
-      void proxyToCopiedServer(reqUrl, res, assetServerUrl).catch((err) => {
+      void proxyToCopiedServer(proxyTarget, res, assetServerUrl).catch((err) => {
+        if (err instanceof ProxyRequestError) {
+          send(res, err.status, JSON.stringify({ error: err.message }) + '\n', 'application/json; charset=utf-8')
+          return
+        }
         send(res, 502, JSON.stringify({ error: (err as Error).message }) + '\n', 'application/json; charset=utf-8')
       })
       return
