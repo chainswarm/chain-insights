@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   changelogHasVersionEntry,
+  committedPackageTarballs,
   compareSemver,
   missingPackageEntrypoints,
   packageEntrypointPaths,
@@ -48,5 +49,13 @@ describe('release gate helpers', () => {
       main: './dist/index.cjs',
       module: './dist/index.mjs',
     }, (path: string) => path === 'dist/index.cjs')).toEqual(['dist/index.mjs'])
+  })
+
+  it('finds committed npm package tarballs', () => {
+    expect(committedPackageTarballs([
+      'chain-insights-0.2.17.tgz',
+      'docs/archive.tgz',
+      'package-lock.json',
+    ])).toEqual(['chain-insights-0.2.17.tgz', 'docs/archive.tgz'])
   })
 })
