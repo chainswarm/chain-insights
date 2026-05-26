@@ -2,6 +2,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.18] - 2026-05-26
+
+- Updated GitHub Actions dependencies for checkout, Node setup, CodeQL, and OpenSSF Scorecard so CI runs on current pinned action releases.
+- Updated tooling, MCP/payment, Hono, and Node server dependency locks for the release.
+- Replaced generic Streamable HTTP payment failures with actionable Chain Insights access guidance.
+
 ## [0.2.17] - 2026-05-25
 
 - Reworked npm package positioning with growth-friendly description, homepage, repository, issue tracker, and keywords.
