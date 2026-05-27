@@ -6,25 +6,21 @@ here.
 
 ## Local GraphRAG MCP Debug
 
-Start GraphRAG MCP with debug bypass from the RBMK ML repo:
+Start your local GraphRAG MCP development endpoint with debug bearer auth
+enabled. The exact startup command depends on your GraphRAG MCP checkout or
+deployment.
 
 ```bash
-cd /home/aphex5/work/rbmk/repos/ml
-test -f .env || cp .env.example .env
-set -a
-. ./.env
-set +a
-docker compose -f compose/shared.yml build graphrag-mcp-go
-MCP_DEBUG_BYPASS_ENABLED=true \
-MCP_DEBUG_BYPASS_TOKEN=chain-insights-dev-debug \
-docker compose -f compose/shared.yml up -d graphrag-mcp-go
+export GRAPHRAG_MCP_ENDPOINT=http://localhost:8012/mcp
+export GRAPHRAG_DEBUG_TOKEN=chain-insights-dev-debug
 ```
 
 Point Chain Insights at the local endpoint:
 
 ```bash
-cd /home/aphex5/work/chain-insights
-node bin/cli.js debug on --token chain-insights-dev-debug --endpoint http://localhost:8012/mcp
+node bin/cli.js debug on \
+  --token "${GRAPHRAG_DEBUG_TOKEN}" \
+  --endpoint "${GRAPHRAG_MCP_ENDPOINT}"
 node bin/cli.js mcp tools --refresh
 ```
 
@@ -34,10 +30,10 @@ Inspect the GraphRAG MCP endpoint directly:
 
 ```bash
 npx @modelcontextprotocol/inspector \
-  --cli http://localhost:8012/mcp \
+  --cli "${GRAPHRAG_MCP_ENDPOINT:-http://localhost:8012/mcp}" \
   --transport http \
   --method tools/list \
-  --header "X-MCP-Debug-Token: chain-insights-dev-debug"
+  --header "X-MCP-Debug-Token: ${GRAPHRAG_DEBUG_TOKEN:-chain-insights-dev-debug}"
 ```
 
 Inspect the Chain Insights proxy:

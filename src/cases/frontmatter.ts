@@ -1,4 +1,4 @@
-// Hand-rolled YAML frontmatter parser — GSD pattern (no gray-matter dependency).
+// Hand-rolled YAML frontmatter parser with no gray-matter dependency.
 // Only supports flat key: value pairs. Arrays must be stored as comma-separated strings.
 const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/
 

@@ -2,6 +2,11 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.20] - 2026-05-27
+
+- Removed internal planning artifacts from the public repository and ignored the local planning catalog path.
+- Cleaned public docs, shipped skills, and agent guidance so they use product-facing Chain Insights and GraphRAG MCP language.
+
 ## [0.2.19] - 2026-05-27
 
 - Added the Chain Insights `stake_insights` recipe over GraphRAG `STAKES_IN` live/archive topology queries, including MCP proxy and CLI exposure, graph report metadata, and explicit backend-unavailable failures.
@@ -32,7 +37,7 @@ All notable changes to Chain Insights are recorded here.
 
 - Fixed the Chain Insights MCP proxy so graph query timeout options survive runtime query logging and slow `graph_query_batch` calls do not fall back to the SDK default timeout.
 - Made `address_risk` report partial enrichment query failures without failing the whole screening or graph report.
-- Updated the GraphRAG MCP UAT skill to start the intended RBMK dev stack and validate the Go GraphRAG MCP endpoint on port 8012.
+- Updated the GraphRAG MCP UAT skill to validate a local GraphRAG MCP endpoint on port 8012.
 
 ## [0.2.14] - 2026-05-24
 

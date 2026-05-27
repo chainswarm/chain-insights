@@ -12,6 +12,7 @@ artifacts/
 .serena/
 .superpowers/
 .codex/
+docs/superpowers/
 
 # Local environment files. Keep the example committed.
 .env

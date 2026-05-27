@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-CHAIN_INSIGHTS_DIR="${CHAIN_INSIGHTS_DIR:-/home/aphex5/work/chain-insights}"
-GRAPHRAG_ML_DIR="${GRAPHRAG_ML_DIR:-/home/aphex5/work/rbmk/repos/ml}"
-GRAPHRAG_DIR="${GRAPHRAG_DIR:-${GRAPHRAG_ML_DIR}/graphrag}"
-RBMK_DIR="${RBMK_DIR:-$(cd "${GRAPHRAG_ML_DIR}/../.." && pwd)}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CHAIN_INSIGHTS_DIR="${CHAIN_INSIGHTS_DIR:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 MCP_ENDPOINT="${GRAPHRAG_MCP_ENDPOINT:-http://localhost:8012/mcp}"
 DEBUG_TOKEN="${GRAPHRAG_DEBUG_TOKEN:-chain-insights-dev-debug}"
 SERVER_PORT="${CHAIN_INSIGHTS_SERVER_PORT:-4321}"
@@ -105,27 +103,11 @@ trap finish EXIT
 require_cmd node
 require_cmd npm
 require_cmd npx
-require_cmd docker
 require_cmd curl
 require_cmd sha256sum
 
 if [[ ! -d "${CHAIN_INSIGHTS_DIR}" ]]; then
   log "missing Chain Insights repo: ${CHAIN_INSIGHTS_DIR}"
-  exit 1
-fi
-
-if [[ ! -d "${GRAPHRAG_ML_DIR}" ]]; then
-  log "missing GraphRAG compose root: ${GRAPHRAG_ML_DIR}"
-  exit 1
-fi
-
-if [[ ! -d "${RBMK_DIR}" ]]; then
-  log "missing RBMK dev stack root: ${RBMK_DIR}"
-  exit 1
-fi
-
-if [[ ! -d "${GRAPHRAG_DIR}" ]]; then
-  log "missing GraphRAG repo: ${GRAPHRAG_DIR}"
   exit 1
 fi
 
@@ -136,8 +118,7 @@ OLD_GRAPH_MCP_ENDPOINT="$(node "${CHAIN_INSIGHTS_CLI}" config get graphMcpEndpoi
 OLD_GRAPH_MCP_AUTH_TOKEN="$(node "${CHAIN_INSIGHTS_CLI}" config get graphMcpAuthToken || true)"
 OLD_SERVER_PORT="$(node "${CHAIN_INSIGHTS_CLI}" config get serverPort || true)"
 CONFIG_SNAPSHOT_READY=1
-log "starting RBMK dev stack"
-(cd "${RBMK_DIR}" && bash dev.sh --bg)
+log "using GraphRAG MCP endpoint: ${MCP_ENDPOINT}"
 
 cd "${CHAIN_INSIGHTS_DIR}"
 

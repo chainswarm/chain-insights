@@ -91,8 +91,8 @@ Before claiming the developer experience is good, run from a clean directory
 outside this repository:
 
 ```bash
-mkdir -p /home/aphex5/work/chain-insights-dx-dogfood
-cd /home/aphex5/work/chain-insights-dx-dogfood
+mkdir -p /tmp/chain-insights-dx-dogfood
+cd /tmp/chain-insights-dx-dogfood
 cia --version
 cia init .
 cia mcp networks
