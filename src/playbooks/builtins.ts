@@ -4,6 +4,7 @@
 export const KNOWN_GRAPHRAG_PUBLIC_TOOLS = [
   'address_risk',
   'scam_topology',
+  'stake_insights',
   'track_funds',
   'graph_query',
   'graph_query_batch',

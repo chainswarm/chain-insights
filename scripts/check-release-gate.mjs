@@ -60,6 +60,13 @@ export function missingPackageEntrypoints(pkg, exists = existsSync) {
   return packageEntrypointPaths(pkg).filter((path) => !exists(path))
 }
 
+export function committedPackageTarballs(trackedFiles) {
+  return trackedFiles
+    .map((path) => path.trim())
+    .filter((path) => path.endsWith('.tgz'))
+    .sort()
+}
+
 function git(args) {
   return execFileSync('git', args, { encoding: 'utf8' }).trimEnd()
 }
@@ -152,6 +159,11 @@ export function runReleaseGate({ baseRef = resolveBaseRef() } = {}) {
   const missingEntrypoints = missingPackageEntrypoints(pkg)
   if (missingEntrypoints.length > 0) {
     failures.push(`package.json entrypoints are missing from the built package: ${missingEntrypoints.join(', ')}`)
+  }
+
+  const trackedTarballs = committedPackageTarballs(git(['ls-files', '*.tgz']).split('\n'))
+  if (trackedTarballs.length > 0) {
+    failures.push(`Committed npm package tarballs are not allowed: ${trackedTarballs.join(', ')}`)
   }
 
   if (!fileChanged(baseRef, 'CHANGELOG.md')) {

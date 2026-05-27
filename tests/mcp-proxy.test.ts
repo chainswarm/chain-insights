@@ -1643,6 +1643,117 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     ]))
   })
 
+  it('registers stake_insights and writes graph reports from STAKES_IN rows', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query_batch', description: 'Cypher topology query batch' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool.mockResolvedValue({
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          schema: 'chain-insights.result.v1',
+          tool: 'graph_query_batch',
+          facts: {
+            queries: [
+              {
+                id: 'live_stake_relationships',
+                ok: true,
+                results: [{
+                  coldkey: '5Cold',
+                  hotkey: '5Hot',
+                  netuid: 19,
+                  amount: 8.75,
+                  stake_added_amount: 10.5,
+                  stake_removed_amount: 2.25,
+                  net_stake_change: 8.75,
+                  stake_event_count: 4,
+                  first_activity_timestamp: 1769126400000,
+                  last_activity_timestamp: 1769126500000,
+                  source_backend: 'memgraph_live',
+                }],
+              },
+              {
+                id: 'archive_stake_relationships',
+                ok: true,
+                results: [{
+                  coldkey: '5Cold',
+                  hotkey: '5Hot',
+                  netuid: 19,
+                  amount: 8.75,
+                  stake_added_amount: 10.5,
+                  stake_removed_amount: 2.25,
+                  net_stake_change: 8.75,
+                  stake_event_count: 4,
+                  first_activity_timestamp: 1769126400000,
+                  last_activity_timestamp: 1769126500000,
+                  source_backend: 'starrocks_archive',
+                }],
+              },
+            ],
+          },
+        }),
+      }],
+      isError: false,
+    })
+
+    const toolNames = serverInstance.registerTool.mock.calls.map((entry) => entry[0])
+    expect(toolNames).toContain('stake_insights')
+
+    const toolConfig = findToolConfig(serverInstance, 'stake_insights')
+    const inputSchema = toolConfig.inputSchema as Record<string, z.ZodTypeAny>
+    expect(inputSchema.network.safeParse('bittensor').success).toBe(true)
+    expect(inputSchema.address.safeParse('5Cold').success).toBe(true)
+    expect(inputSchema.coldkey.safeParse('5Cold').success).toBe(true)
+    expect(inputSchema.hotkey.safeParse('5Hot').success).toBe(true)
+    expect(inputSchema.netuid.safeParse(19).success).toBe(true)
+    expect(inputSchema.start_timestamp_ms.safeParse(1769126300000).success).toBe(true)
+    expect(inputSchema.end_timestamp_ms.safeParse(1769126600000).success).toBe(true)
+    expect(inputSchema.depth.safeParse(2).success).toBe(true)
+    expect(inputSchema.depth.safeParse(4).success).toBe(false)
+
+    const handler = findToolHandler(serverInstance, 'stake_insights')
+    const result = await handler({
+      network: 'bittensor',
+      address: '5Cold',
+      netuid: 19,
+      start_timestamp_ms: 1769126300000,
+      end_timestamp_ms: 1769126600000,
+      depth: 2,
+    })
+
+    expect(result.isError).toBe(false)
+    expect(result.content[0].text).toContain('Stake insights for bittensor:5Cold')
+    expect(result.structuredContent.tool).toBe('stake_insights')
+    expect(result.structuredContent.facts.stake_totals.net_staked).toBe(8.75)
+    expect(result.structuredContent.facts.query_evidence).toEqual(expect.arrayContaining([
+      expect.objectContaining({ topology_graph: 'live_topology', row_count: 1 }),
+      expect.objectContaining({ topology_graph: 'archive_topology', row_count: 1 }),
+    ]))
+    const graphUrl = result._meta.chainInsights.graph.url as string
+    const filename = graphUrl.split('/graph-reports/')[1]
+    expect(filename).toMatch(/\.graph\.json$/)
+    const graph = JSON.parse(await readFile(join(testDataDir, 'reports', 'graphs', filename), 'utf8')) as {
+      edges?: Array<Record<string, unknown>>
+    }
+    expect(graph.edges).toEqual([
+      expect.objectContaining({ source: '5Cold', target: '5Hot', edge_type: 'stakes_in', amount: 8.75 }),
+    ])
+  })
+
   it('registers graph MCP app resource and preserves graph-backed remote tools', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([

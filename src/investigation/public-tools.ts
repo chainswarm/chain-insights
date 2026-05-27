@@ -5,6 +5,7 @@ import { runFundFlowProbe, type TraceFundsResult } from './trace-funds.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 
 export { scamTopology, type ScamTopologyOptions, type ScamTopologyResult } from './scam-topology.js'
+export { stakeInsights, type StakeInsightsOptions, type StakeInsightsResult } from './stake-insights.js'
 
 type RemoteToolResult = {
   content?: ContentBlock[]

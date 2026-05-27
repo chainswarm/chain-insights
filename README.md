@@ -16,6 +16,7 @@ evidence pointers, dossiers, and reports.
 | Tool | Use it for |
 | --- | --- |
 | `address_risk` | Screen one address for risk, behavior, neighborhood context, and exchange exposure |
+| `stake_insights` | Explain Bittensor staking relationships, net stake movement, and counterparties |
 | `track_funds` | Trace victim/source funds through intermediaries to exchange deposit candidates |
 | `scam_topology` | Expand a known victim incident into reviewable scam infrastructure and label candidates |
 | `graph_query` | Run one read-only GQL/Cypher query against a GraphRAG MCP graph layer |
@@ -51,6 +52,40 @@ mkdir -p ./chain-insights-investigations
 cd ./chain-insights-investigations
 cia init .
 ```
+
+## Configure MCP server address
+
+`cia` uses `graphMcpEndpoint` for all GraphRAG MCP calls. Configure it explicitly per environment.
+
+1. Local GraphRAG MCP (loopback HTTP allowed):
+
+```bash
+cia config set graphMcpEndpoint http://127.0.0.1:8012/mcp
+```
+
+2. Hosted staging/production GraphRAG MCP (HTTPS required):
+
+```bash
+cia config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
+```
+
+3. Optional one-shot override from environment (highest precedence for that process):
+
+```bash
+export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://prod-mcp.example.com/mcp
+```
+
+Validation rules:
+
+- `http://` is accepted only for `localhost` / loopback addresses.
+- Remote hosts must use `https://`.
+- Endpoint URLs with credentials, query strings, or fragments are rejected.
+
+Configuration precedence for `graphMcpEndpoint`:
+
+1. `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` env var (`GRAPH_MCP_ENDPOINT` legacy alias also supported)
+2. `cia config set graphMcpEndpoint ...` saved value
+3. Local default `http://127.0.0.1:8012/mcp`
 
 Check the configured endpoint and current GraphRAG MCP capabilities:
 
@@ -149,6 +184,9 @@ and local case state:
 
 - `address_risk` starts a single-address screen with risk, behavior,
   neighborhood context, and exchange exposure.
+- `stake_insights` explains Bittensor coldkey-hotkey-netuid staking
+  relationships, aggregate stake movement amounts, top counterparties, first
+  and last activity, and source backend evidence.
 - `track_funds` traces trusted victim/source funds through intermediaries to
   exchange deposit candidates.
 - `scam_topology` expands from a known victim incident into reviewable

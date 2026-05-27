@@ -46,7 +46,7 @@ cia debug off
    address activity, or requested chain falls outside that range, state that
    limitation before querying. Do not call `address_risk` unless the selected
    network advertises risk support and `address_risk` is available. If only
-   topology is available, use `track_funds`, `scam_topology`, or
+   topology is available, use `stake_insights`, `track_funds`, `scam_topology`, or
    `graph_query_batch` with `USE live_topology` as appropriate. Use
    `graph_query_batch` with `USE archive_topology`
    for historical money-flow topology, and `USE facts`

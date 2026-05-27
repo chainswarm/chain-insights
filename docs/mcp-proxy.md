@@ -51,6 +51,9 @@ The proxy:
 
 Remote graph tools are discovered from the configured GraphRAG MCP endpoint. The
 expected primitive graph tools are `graph_query` and `graph_query_batch`.
+Chain Insights adds high-level local graph recipes such as `address_risk`,
+`stake_insights`, `track_funds`, and `scam_topology` when the remote endpoint
+only exposes primitives.
 
 ## Auth Modes
 
