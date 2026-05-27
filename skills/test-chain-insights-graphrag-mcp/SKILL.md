@@ -17,12 +17,13 @@ skills/test-chain-insights-graphrag-mcp/scripts/run-uat.sh
 The script writes raw MCP responses and a summary under `chain-insights/.tmp/uat/`.
 It creates and uses a temporary initialized Chain Insights workspace for all
 investigation-producing commands.
+
+Before running it, start or configure a GraphRAG MCP endpoint that accepts the
+debug bearer token used by the script.
 </quick_start>
 
 <defaults>
-- Chain Insights repo: `/home/aphex5/work/chain-insights`
-- GraphRAG compose root: `/home/aphex5/work/rbmk/repos/ml`
-- GraphRAG repo: `/home/aphex5/work/rbmk/repos/ml/graphrag`
+- Chain Insights repo: auto-detected from this package checkout
 - MCP endpoint: `http://localhost:8012/mcp`
 - Debug bearer token: `chain-insights-dev-debug`
 - Chain Insights local server port: `4321`
@@ -34,8 +35,6 @@ Override defaults with environment variables:
 
 ```bash
 CHAIN_INSIGHTS_DIR=/path/to/chain-insights \
-GRAPHRAG_ML_DIR=/path/to/rbmk/repos/ml \
-GRAPHRAG_DIR=/path/to/rbmk/repos/ml/graphrag \
 GRAPHRAG_MCP_ENDPOINT=http://localhost:8012/mcp \
 GRAPHRAG_DEBUG_TOKEN=chain-insights-dev-debug \
 CHAIN_INSIGHTS_SERVER_PORT=4321 \

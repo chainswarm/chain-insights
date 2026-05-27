@@ -5,7 +5,6 @@
 // Runs before node_modules exists; zero npm imports allowed.
 // Extension is .cjs (not .js) because package.json has "type": "module" —
 // a .js file would be treated as ESM and require() calls would crash.
-// Adapted from GSD reference: references/get-shit-done/bin/install.js
 
 const fs   = require('fs');
 const path = require('path');

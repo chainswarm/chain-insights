@@ -60,8 +60,7 @@ jobs:
           if git grep -n -I -E "$pattern" -- \
             . \
             ':(exclude)package-lock.json' \
-            ':(exclude)tests/**' \
-            ':(exclude)docs/superpowers/**'; then
+            ':(exclude)tests/**'; then
             echo "::error::High-confidence secret-looking value found in tracked files."
             exit 1
           fi
