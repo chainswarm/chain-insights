@@ -2,7 +2,7 @@
 
 All notable changes to Chain Insights are recorded here.
 
-## [0.2.18] - 2026-05-26
+## [0.2.19] - 2026-05-27
 
 - Added the Chain Insights `stake_insights` recipe over GraphRAG `STAKES_IN` live/archive topology queries, including MCP proxy and CLI exposure, graph report metadata, and explicit backend-unavailable failures.
 - Removed the hardcoded hosted GraphRAG MCP default from runtime config and workspace scaffold paths; local defaults now point to loopback.
