@@ -20,6 +20,47 @@ Use this MCP server configuration:
 
 The proxy reads the same local Chain Insights config as the CLI.
 
+## GraphRAG MCP Endpoint Configuration
+
+The endpoint lives in Chain Insights config, not in the MCP client registration.
+The npm package default is the local development endpoint
+`http://127.0.0.1:8012/mcp`; hosted endpoints must be set explicitly.
+
+Set local development:
+
+```bash
+chain-insights config set graphMcpEndpoint http://127.0.0.1:8012/mcp
+```
+
+Set hosted staging for approved testers:
+
+```bash
+chain-insights config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
+```
+
+Use a one-shot environment override:
+
+```bash
+export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://staging-mcp.chain-insights.ai/mcp
+```
+
+Configuration precedence:
+
+1. `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT`
+2. `GRAPH_MCP_ENDPOINT` legacy alias
+3. saved `graphMcpEndpoint`
+4. local default `http://127.0.0.1:8012/mcp`
+
+Validation rules:
+
+- local `http://` is accepted only for localhost and loopback addresses
+- remote endpoints must use `https://`
+- endpoint URLs with credentials, query strings, or fragments are rejected
+
+Keep hosted endpoint values in operator config or environment variables. Do not
+bake hosted endpoint URLs into MCP client JSON, source code, or workspace
+templates.
+
 ## Behavior
 
 The proxy:

@@ -8,6 +8,10 @@ function read(path: string): string {
   return readFileSync(join(root, path), 'utf8')
 }
 
+function expectNoRetiredHostedMcpHost(content: string): void {
+  expect(content).not.toMatch(/(^|[^a-z0-9-])mcp\.chain-insights\.ai(?=\/|[\s`'")\]}]|$)/i)
+}
+
 describe('shipped Chain Insights skills contract', () => {
   it('keeps investigation guidance on initialized workspaces and public fund-flow tools', () => {
     const skill = read('skills/chain-insights-investigation/SKILL.md')
@@ -148,12 +152,19 @@ describe('shipped Chain Insights skills contract', () => {
 
   it('keeps README product-first and moves debug/client detail to focused docs', () => {
     const readme = read('README.md')
+    const mcpProxy = read('docs/mcp-proxy.md')
+    const packageJson = read('package.json')
 
     expect(readme).toContain('open-source AML investigation toolkit')
     expect(readme).toContain('https://chain-insights.ai')
     expect(readme).toContain('https://github.com/chainswarm/chain-insights')
-    expect(readme).toContain('x402')
     expect(readme).toContain('GraphRAG MCP')
+    expect(readme).toContain('cia config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp')
+    expect(readme).toContain('CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://staging-mcp.chain-insights.ai/mcp')
+    expect(readme).toContain('http://127.0.0.1:8012/mcp')
+    expect(readme).toContain('approved access key')
+    expect(readme).toContain('prepared wallet')
+    expect(readme).toContain('[MCP proxy](docs/mcp-proxy.md)')
     expect(readme).toContain('address_risk')
     expect(readme).toContain('track_funds')
     expect(readme).toContain('scam_topology')
@@ -169,11 +180,36 @@ describe('shipped Chain Insights skills contract', () => {
 
     expect(readme).not.toContain('Claude Desktop')
     expect(readme).not.toContain('Go Graph MCP')
+    expect(readme).not.toContain('x402')
+    expect(readme).not.toContain('Base USDC')
+    expect(readme).not.toContain('USDC on Base')
+    expect(readme).not.toContain('paid hosted')
     expect(readme).not.toContain('Memgraph')
     expect(readme).not.toContain('StarRocks')
     expect(readme).not.toContain('chain-insights debug on')
     expect(readme).not.toContain('GRAPH_MCP_GO_DEBUG_BYPASS')
     expect(readme).not.toContain('Release rules:')
+
+    expect(packageJson).not.toContain('x402-paid')
+    expect(mcpProxy).toContain('https://staging-mcp.chain-insights.ai/mcp')
+    expect(mcpProxy).toContain('The endpoint lives in Chain Insights config, not in the MCP client registration.')
+    expect(mcpProxy).toContain('Do not')
+    expect(mcpProxy).toContain('bake hosted endpoint URLs into MCP client JSON, source code, or workspace')
+    expect(mcpProxy).toContain('x402')
+    expectNoRetiredHostedMcpHost(readme + mcpProxy + read('docs/architecture.md'))
+  })
+
+  it('does not hardcode hosted GraphRAG MCP endpoints in runtime source defaults', () => {
+    const runtimeSources = [
+      'src/config/mcp-endpoint.ts',
+      'src/config/schema.ts',
+      'src/config/index.ts',
+      'src/workspace/init.ts',
+    ].map(read).join('\n')
+
+    expect(runtimeSources).toContain("http://127.0.0.1:8012/mcp")
+    expect(runtimeSources).not.toContain('staging-mcp.chain-insights.ai')
+    expectNoRetiredHostedMcpHost(runtimeSources)
   })
 
   it('ships Chain Insights developer experience guidance for AML tool contributors', () => {
