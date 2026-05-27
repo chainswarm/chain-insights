@@ -2,6 +2,10 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.21] - 2026-05-27
+
+- Clarified npm-facing endpoint configuration: local loopback remains the package default, hosted staging is an explicit operator setting, hosted access requires an approved access key or prepared wallet, and payment/chain details stay in focused MCP docs.
+
 ## [0.2.20] - 2026-05-27
 
 - Removed internal planning artifacts from the public repository and ignored the local planning catalog path.

@@ -4,12 +4,11 @@
 
 Chain Insights is an open-source AML investigation toolkit for AI agents and
 analysts. Install it from npm to screen blockchain addresses, trace funds,
-expand scam topologies, manage case evidence, and generate graph reports from
-Chain Insights graph intelligence.
+expand scam topologies, manage case evidence, and generate graph reports.
 
-The hosted GraphRAG MCP access path is paid through x402. The CLI and MCP proxy
-handle local wallet status, paid graph calls, approved test access, case files,
-evidence pointers, dossiers, and reports.
+Graph access is configuration-driven. The package defaults to a local GraphRAG
+MCP endpoint for development; hosted endpoints are set explicitly with
+`graphMcpEndpoint` or `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT`.
 
 ## What You Can Do Today
 
@@ -53,26 +52,32 @@ cd ./chain-insights-investigations
 cia init .
 ```
 
-## Configure MCP server address
+## Configure GraphRAG MCP Endpoint
 
-`cia` uses `graphMcpEndpoint` for all GraphRAG MCP calls. Configure it explicitly per environment.
+`cia` uses `graphMcpEndpoint` for all GraphRAG MCP calls. The npm package does
+not hardcode a hosted endpoint. Configure the endpoint explicitly for the
+environment you intend to use.
 
-1. Local GraphRAG MCP (loopback HTTP allowed):
+Local development endpoint (default):
 
 ```bash
 cia config set graphMcpEndpoint http://127.0.0.1:8012/mcp
 ```
 
-2. Hosted staging/production GraphRAG MCP (HTTPS required):
+Hosted staging endpoint for approved testers:
 
 ```bash
 cia config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
 ```
 
-3. Optional one-shot override from environment (highest precedence for that process):
+Hosted access also needs an access mode, such as an approved access key or a
+prepared wallet. Keep those credentials out of README examples; setup commands
+live in [MCP proxy](docs/mcp-proxy.md).
+
+Optional one-shot override from the environment:
 
 ```bash
-export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://prod-mcp.example.com/mcp
+export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://staging-mcp.chain-insights.ai/mcp
 ```
 
 Validation rules:
@@ -91,15 +96,13 @@ Check the configured endpoint and current GraphRAG MCP capabilities:
 
 ```bash
 cia config get graphMcpEndpoint
-cia wallet balance
 cia mcp networks
 cia mcp tools --refresh
 ```
 
-GraphRAG MCP calls use x402 paid mode by default unless you configure approved
-test access or local debug access. If network or tool discovery fails, fix
-endpoint/auth/payment first; the CLI can still initialize workspaces and manage
-cases without a reachable GraphRAG MCP endpoint.
+If network or tool discovery fails, check the endpoint and access mode first.
+The CLI can still initialize workspaces and manage cases without a reachable
+GraphRAG MCP endpoint.
 
 Open a case and run a small investigation:
 
@@ -175,7 +178,8 @@ Graph queries must choose the right read layer explicitly:
 | `facts` | Labels, features, risk scores, assets, and enrichment |
 
 Use `graph_query_batch` when related reads should share one call and one
-result envelope. Paid hosted calls are settled through x402.
+result envelope. Endpoint access and authentication are configured separately;
+see [MCP proxy](docs/mcp-proxy.md).
 
 ## AML Tools
 
@@ -201,7 +205,7 @@ reports under the workspace instead of embedding large payloads in case notes.
 | --- | --- |
 | [Graph tools](docs/graph-tools.md) | GraphRAG MCP layers, `graph_query`, `graph_query_batch`, AML tool contracts, graph reports, evidence pointers |
 | [Investigation workspaces](docs/investigation-workspaces.md) | `cia init`, case layout, evidence, dossiers, imports, templates, sessions, reports |
-| [MCP proxy](docs/mcp-proxy.md) | Stdio proxy behavior, agent installers, local tools, auth modes, Inspector validation |
+| [MCP proxy](docs/mcp-proxy.md) | Stdio proxy behavior, endpoint configuration, agent installers, local tools, auth modes, Inspector validation |
 | [Architecture](docs/architecture.md) | Product layers, data flow, local storage, security model, config keys |
 | [Development](docs/development.md) | Build, test, and local install commands |
 | [Contributing](docs/contributing.md) | Development workflow, pull requests, release expectations |

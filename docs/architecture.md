@@ -59,7 +59,11 @@ Primary GraphRAG MCP config:
 ```bash
 chain-insights config get graphMcpEndpoint
 chain-insights config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
+export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://staging-mcp.chain-insights.ai/mcp
 ```
+
+The runtime default is local loopback: `http://127.0.0.1:8012/mcp`. Hosted
+endpoints are operator configuration, not hardcoded package defaults.
 
 Supported config keys:
 
