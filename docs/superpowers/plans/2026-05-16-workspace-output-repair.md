@@ -55,7 +55,7 @@ Do not stage:
 - `node_modules/`
 - local `cases/`
 - `.superpowers/brainstorm/`
-- unrelated `.planning/` artifacts
+- unrelated `docs/superpowers/` artifacts
 
 ---
 
@@ -1395,7 +1395,7 @@ Stage code, tests, skills, docs, and intentional `dist/` only:
 git add src tests skills docs/superpowers/specs/2026-05-16-workspace-output-repair-design.md docs/superpowers/plans/2026-05-16-workspace-output-repair.md bin dist package.json
 ```
 
-Do not stage `.tmp/`, `.serena/`, `node_modules/`, local `cases/`, `.superpowers/brainstorm/`, or unrelated `.planning/` files.
+Do not stage `.tmp/`, `.serena/`, `node_modules/`, local `cases/`, `.superpowers/brainstorm/`, or unrelated `docs/superpowers/` files.
 
 - [ ] **Step 9: Commit final implementation remainder if needed**
 

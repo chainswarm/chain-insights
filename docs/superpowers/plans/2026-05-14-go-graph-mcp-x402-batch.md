@@ -35,7 +35,7 @@
 Spike artifact:
 
 ```text
-/home/aphex5/work/chain-insights/.planning/spikes/001-graph-mcp-runtime-comparison/
+/home/aphex5/work/chain-insights/docs/superpowers/spikes/001-graph-mcp-runtime-comparison/
 ```
 
 Latest benchmark evidence:

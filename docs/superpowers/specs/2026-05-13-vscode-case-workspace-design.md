@@ -26,7 +26,7 @@ The product pivot is to make Chain Insights a local investigation framework for 
 - Save graph visualizations as case-local HTML/JSON files and serve them from localhost.
 - Keep GraphRAG MCP as the graph/risk analysis engine.
 - Keep Hono as the local case browser and artifact server.
-- Use Superpowers/GSD-style skills as workflow guidance for agents, not as hidden state.
+- Use Superpowers/RBMK workflow-style skills as workflow guidance for agents, not as hidden state.
 
 ## Non-Goals
 
@@ -200,7 +200,7 @@ Expected agent behavior:
 
 ## Prompt and Skill Model
 
-MCP prompts and Superpowers/GSD-style skills should act as workflow routers.
+MCP prompts and Superpowers/RBMK workflow-style skills should act as workflow routers.
 
 They should teach agents procedures such as:
 

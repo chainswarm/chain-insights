@@ -22,7 +22,7 @@ Claude Desktop remains supported for the MCP connector. It is not the primary ta
 - Store durable investigation state as Markdown/JSON files.
 - Support lightweight claims/theories without rigid categorization.
 - Generate local HTML/JSON graph visualizations for framework workspaces.
-- Use Superpowers/GSD-style skills and workspace instructions as agent workflow guidance.
+- Use Superpowers/RBMK workflow-style skills and workspace instructions as agent workflow guidance.
 
 ## Non-Goals
 
@@ -326,7 +326,7 @@ Expected behavior:
 
 ## Prompt and Skill Model
 
-MCP prompts and Superpowers/GSD-style skills act as workflow routers. They guide Codex, Claude Code, and other agents; they do not store durable state.
+MCP prompts and Superpowers/RBMK workflow-style skills act as workflow routers. They guide Codex, Claude Code, and other agents; they do not store durable state.
 
 Recommended workflows:
 
