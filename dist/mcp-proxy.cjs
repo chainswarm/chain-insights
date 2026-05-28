@@ -995,7 +995,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-REuvYPsp.cjs"));
+			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-BdkPc9sv.cjs"));
 			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-CZY8m-7S.cjs"));
 			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-YhIJAsNZ.cjs"));
 			const result = await addressRisk(remoteClient, {
@@ -1066,7 +1066,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-REuvYPsp.cjs"));
+			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-BdkPc9sv.cjs"));
 			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-CZY8m-7S.cjs"));
 			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-YhIJAsNZ.cjs"));
 			const result = await trackFunds(remoteClient, config, {
@@ -1139,7 +1139,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { scamTopology } = await Promise.resolve().then(() => require("./public-tools-REuvYPsp.cjs"));
+			const { scamTopology } = await Promise.resolve().then(() => require("./public-tools-BdkPc9sv.cjs"));
 			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-CZY8m-7S.cjs"));
 			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-YhIJAsNZ.cjs"));
 			const result = await scamTopology(remoteClient, config, {
@@ -1216,7 +1216,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { stakeInsights } = await Promise.resolve().then(() => require("./public-tools-REuvYPsp.cjs"));
+			const { stakeInsights } = await Promise.resolve().then(() => require("./public-tools-BdkPc9sv.cjs"));
 			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-CZY8m-7S.cjs"));
 			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-YhIJAsNZ.cjs"));
 			const result = await stakeInsights(remoteClient, {

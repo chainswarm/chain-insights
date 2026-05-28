@@ -909,12 +909,19 @@ const SCAM_TOPOLOGY_VALUE_WEIGHT = 0.5
 
 /**
  * Confidence threshold at or above which a close-hop candidate is auto-promoted
- * to `promote_confirmed` instead of `review_required`. Tuned so that only a
- * near-full-value, close-hop core reaches it: a hop-1 edge carrying
- * incident-scale value retains its full base confidence (victim-seeded base is
- * 0.72), while dust or deeper edges fall below the bar and stay review-only.
+ * to `promote_confirmed` instead of `review_required`.
+ *
+ * Calibrated to the decayed-confidence scale, not to a raw base. Carried value
+ * is scored from the native token amount (see {@link reliableScoringValue}),
+ * whose magnitudes (hundreds–thousands of TAO) sit well below the USD-scale
+ * {@link SCAM_TOPOLOGY_VALUE_SATURATION}, so even a hop-1 incident-scale edge
+ * decays to roughly 0.5–0.6. A 0.72 bar was therefore unreachable on
+ * victim-anchored traces and nothing ever promoted. At 0.5, combined with the
+ * `hop <= 2` gate, only the close-hop, real-value core promotes while dust and
+ * deeper edges stay review-only. (Deeper fix tracked: make value scaling
+ * asset-relative so the native/USD unit split no longer compresses scores.)
  */
-const SCAM_TOPOLOGY_PROMOTE_CONFIDENCE = 0.72
+const SCAM_TOPOLOGY_PROMOTE_CONFIDENCE = 0.5
 
 /**
  * Maximum hop distance eligible for auto-promotion. Only the close-hop core of

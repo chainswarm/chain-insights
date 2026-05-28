@@ -2,6 +2,11 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.25] - 2026-05-28
+
+- `scam_topology` auto-promotion now uses a decay-calibrated confidence threshold (0.5) instead of 0.72. Because carried value is scored from native token amounts — whose magnitudes sit far below the USD-scale value saturation — even a hop-1 incident-scale edge decays to ~0.5-0.6, so the old 0.72 bar was unreachable on victim-anchored traces and nothing ever auto-promoted. Combined with the `hop <= 2` gate, the close-hop real-value core now promotes while dust and deeper edges stay review-only.
+
+
 ## [0.2.24] - 2026-05-28
 
 - Added `chain-insights wallet ready` to check Base USDC, Base ETH gas, and one-time payment approval readiness in one user-facing command before paid GraphRAG MCP calls.

@@ -1155,6 +1155,36 @@ describe('scamTopology', () => {
     expect(badPrice!.confidence_score).toBeCloseTo(trusted!.confidence_score, 5)
   })
 
+  it('auto-promotes a realistic native-value hop-1 core and not a hop-1 dust edge', async () => {
+    // Native token amounts (hundreds-thousands of TAO) sit far below the USD
+    // value saturation, so even a hop-1 incident-scale edge decays to ~0.55.
+    // The promote threshold must recognise this close-hop, real-value core.
+    vi.mocked(client.callTool)
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_1', ok: true, results: [
+          topologyRow('5Victim', '5BigMule', { amount_sum: 1000, amount_usd_sum: 1000 }),
+          topologyRow('5Victim', '5DustHop', { amount_sum: 1, amount_usd_sum: 1 }),
+        ] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([{ id: 'incident_hop_2', ok: true, results: [] }]))
+    const { scamTopology } = await import('../src/investigation/scam-topology.js')
+
+    const result = await scamTopology(client, config, {
+      network: 'bittensor',
+      victimAddress: '5Victim',
+      incidentTimestampMs: 1715532228001,
+      maxHops: 4,
+    })
+
+    const candidates = result.structuredContent.facts.label_candidates
+    const big = candidates.find((candidate) => candidate.address === '5BigMule')
+    const dust = candidates.find((candidate) => candidate.address === '5DustHop')
+    expect(big).toBeDefined()
+    expect(dust).toBeDefined()
+    expect(big!.promotion_status).toBe('promote_confirmed')
+    expect(dust!.promotion_status).toBe('review_required')
+  })
+
   it('auto-promotes a close-hop high-value laundering core and leaves the diluted tail for review', async () => {
     vi.mocked(client.callTool)
       .mockResolvedValueOnce(graphBatchResult([
