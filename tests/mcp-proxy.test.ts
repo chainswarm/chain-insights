@@ -1638,9 +1638,13 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(graph.flows).toEqual(expect.arrayContaining([
       expect.objectContaining({ src: '5Deposit', dst: '5Exchange', terminal_exchange: true }),
     ]))
-    expect(graph.nodes).toEqual(expect.arrayContaining([
-      expect.objectContaining({ address: '5Deposit', scam: true, scam_confidence: 0.68 }),
-    ]))
+    const depositNode = graph.nodes?.find((node) => node['address'] === '5Deposit')
+    expect(depositNode).toEqual(expect.objectContaining({ address: '5Deposit', scam: true }))
+    // Confidence is hop-and-value decayed and bounded by the deposit base (0.68).
+    const depositConfidence = depositNode?.['scam_confidence']
+    expect(typeof depositConfidence).toBe('number')
+    expect(depositConfidence as number).toBeGreaterThan(0)
+    expect(depositConfidence as number).toBeLessThanOrEqual(0.68)
   })
 
   it('registers stake_insights and writes graph reports from STAKES_IN rows', async () => {
