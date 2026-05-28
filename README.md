@@ -72,7 +72,8 @@ cia config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
 
 Hosted access also needs an access mode, such as an approved access key or a
 prepared wallet. Keep those credentials out of README examples; setup commands
-live in [MCP proxy](docs/mcp-proxy.md).
+live in [MCP proxy](docs/mcp-proxy.md). For paid access, run
+`cia wallet ready`; it checks funding and finishes one-time payment setup.
 
 Optional one-shot override from the environment:
 

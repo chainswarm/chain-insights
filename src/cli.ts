@@ -430,6 +430,35 @@ program
       })
   )
   .addCommand(
+    new Command('ready')
+      .description('Check and prepare the wallet for paid GraphRAG MCP calls')
+      .option('--no-approve', 'Only check readiness; do not submit the one-time payment approval')
+      .option('--approval-usdc <amount>', 'USDC approval cap to prepare for paid calls', '1')
+      .option('--json', 'Print machine-readable readiness metadata')
+      .action(async (opts: { approve?: boolean; approvalUsdc?: string; json?: boolean }) => {
+        try {
+          const { formatWalletReadiness, parsePaymentApprovalUnits, prepareWalletForPaidCalls } = await import('./wallet/tools.js')
+          const minimumApprovalUnits = parsePaymentApprovalUnits(opts.approvalUsdc ?? '1')
+          const result = await prepareWalletForPaidCalls({
+            minimumApprovalUnits,
+            approve: opts.approve !== false,
+          })
+
+          if (opts.json) {
+            console.log(JSON.stringify(result, (_key, value) => (
+              typeof value === 'bigint' ? value.toString() : value
+            ), 2))
+            return
+          }
+
+          console.log(formatWalletReadiness(result.readiness, result.approval))
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
     new Command('topup')
       .description('Open a local browser page to top up the payment wallet')
       .option('--no-open', 'Print the top-up URL without opening a browser')

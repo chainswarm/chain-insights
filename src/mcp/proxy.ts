@@ -1671,7 +1671,8 @@ export async function createProxy(): Promise<void> {
             content: [{
               type: 'text' as const,
               text: `Payment required for ${tool.name}. This tool costs USDC on Base via x402 micropayments. ` +
-                'Next steps: run `chain-insights wallet topup` to fund your wallet with USDC on Base, ' +
+                'Next steps: run `chain-insights wallet ready` to check funding and finish one-time payment setup, ' +
+                'run `chain-insights wallet topup` if it says the wallet needs USDC, ' +
                 'or `chain-insights access-key set <key>` if you have been given test access.',
             }],
             isError: true,

@@ -53,7 +53,7 @@ This is a workspace for Chain Insights AML investigations.
 
 \`\`\`bash
 chain-insights mcp tools --refresh
-chain-insights wallet balance
+chain-insights wallet ready --no-approve
 \`\`\`
 
 ## Layout

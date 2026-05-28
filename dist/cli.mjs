@@ -1,4 +1,4 @@
-import { n as PACKAGE_VERSION, t as PACKAGE_INFO } from "./version-BA3J8hu4.mjs";
+import { n as PACKAGE_VERSION, t as PACKAGE_INFO } from "./version-1gP19Lhi.mjs";
 import { Command } from "commander";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -24,16 +24,16 @@ if (rawArgs[0] === "mcp" && rawArgs[1] === "trace-funds") {
 	process.exit(1);
 }
 async function resolveCaseSelector(input) {
-	const { resolveCaseSelector } = await import("./selector-CTUiQrzI.mjs");
+	const { resolveCaseSelector } = await import("./selector-D0GYZk_Q.mjs");
 	return resolveCaseSelector(input);
 }
 async function scopeCasesToInvocationDir() {
 	if (process.env["CHAIN_INSIGHTS_CASES_ROOT"]?.trim()) return;
-	const { activeCasesRoot } = await import("./active-ByNgjuAg.mjs").then((n) => n.n);
+	const { activeCasesRoot } = await import("./active-CcrbWsFC.mjs").then((n) => n.n);
 	process.env["CHAIN_INSIGHTS_CASES_ROOT"] = activeCasesRoot();
 }
 async function showCaseContext(caseSelector) {
-	const { CaseStore } = await import("./cases-qjPtbnUd.mjs");
+	const { CaseStore } = await import("./cases-DfLz-kgf.mjs");
 	const caseId = await resolveCaseSelector(caseSelector);
 	const ctx = await CaseStore.loadContext(caseId);
 	console.log(`\n=== Case: ${ctx.case.id} ===`);
@@ -69,9 +69,9 @@ function optionalScamTopologyActivityPolicy(value) {
 	throw new Error("activity_policy must be one of: node_relative_only, global_incident_only");
 }
 async function withGraphMcpClient(name, fn) {
-	const { loadConfig } = await import("./config-Drgc2HuF.mjs").then((n) => n.t);
+	const { loadConfig } = await import("./config-DvPLEixE.mjs").then((n) => n.t);
 	const config = await loadConfig();
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-D4_hd4AP.mjs").then((n) => n.n);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-VlCrxmPU.mjs").then((n) => n.n);
 	const paymentFetch = await createConfiguredGraphMcpFetch(config);
 	const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
 	const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
@@ -90,8 +90,8 @@ function printMcpTextContent(result) {
 	for (const item of result.content ?? []) if (item.type === "text") console.log(item.text);
 }
 async function printNetworkCapabilities(opts) {
-	const { loadConfig } = await import("./config-Drgc2HuF.mjs").then((n) => n.t);
-	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import("./capabilities-BShqspb-.mjs");
+	const { loadConfig } = await import("./config-DvPLEixE.mjs").then((n) => n.t);
+	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import("./capabilities-Ctz5iorb.mjs");
 	const document = await fetchNetworkCapabilities(await loadConfig());
 	if (opts.json) console.log(JSON.stringify(document, null, 2));
 	else console.log(formatNetworkCapabilities(document));
@@ -106,9 +106,9 @@ program.command("networks").alias("network").description("List supported graph n
 });
 program.command("serve").description("Start local visualization server").option("-p, --port <number>", "Port to bind (default: 4321)", "4321").action(async (opts) => {
 	try {
-		const { requireWorkspaceRoot } = await import("./output-root-BRhzhhXZ.mjs").then((n) => n.t);
+		const { requireWorkspaceRoot } = await import("./output-root-B3iHs14J.mjs").then((n) => n.t);
 		const workspaceRoot = requireWorkspaceRoot();
-		const { startServer } = await import("./server-BXLX2j_A.mjs").then((n) => n.t);
+		const { startServer } = await import("./server-D8ygWFYi.mjs").then((n) => n.t);
 		console.log(`Workspace: ${workspaceRoot}`);
 		startServer(parseInt(opts.port, 10));
 	} catch (err) {
@@ -117,8 +117,8 @@ program.command("serve").description("Start local visualization server").option(
 	}
 });
 program.command("status").description("Show toolkit status and configuration").action(async () => {
-	const { loadConfig } = await import("./config-Drgc2HuF.mjs").then((n) => n.t);
-	const { findActiveWorkspace, activeDataDir } = await import("./active-ByNgjuAg.mjs").then((n) => n.n);
+	const { loadConfig } = await import("./config-DvPLEixE.mjs").then((n) => n.t);
+	const { findActiveWorkspace, activeDataDir } = await import("./active-CcrbWsFC.mjs").then((n) => n.n);
 	const config = await loadConfig();
 	const workspace = findActiveWorkspace();
 	const graphMcpStatus = config.graphMcpMode === "debug" && config.graphMcpAuthToken?.trim() ? "bearer access mode" : `${config.graphMcpMode} mode`;
@@ -130,7 +130,7 @@ program.command("status").description("Show toolkit status and configuration").a
 });
 program.command("debug").description("Configure Graph MCP debug mode").addCommand(new Command("on").description("Enable Graph MCP debug mode without x402 payments").requiredOption("--token <token>", "Debug bearer token").option("--endpoint <url>", "Graph MCP endpoint").action(async (opts) => {
 	try {
-		const { saveConfig } = await import("./config-Drgc2HuF.mjs").then((n) => n.t);
+		const { saveConfig } = await import("./config-DvPLEixE.mjs").then((n) => n.t);
 		await saveConfig({
 			graphMcpMode: "debug",
 			graphMcpAuthToken: opts.token,
@@ -145,7 +145,7 @@ program.command("debug").description("Configure Graph MCP debug mode").addComman
 	}
 })).addCommand(new Command("off").description("Disable Graph MCP debug mode and use paid x402 calls").action(async () => {
 	try {
-		const { saveConfig } = await import("./config-Drgc2HuF.mjs").then((n) => n.t);
+		const { saveConfig } = await import("./config-DvPLEixE.mjs").then((n) => n.t);
 		await saveConfig({
 			graphMcpMode: "paid",
 			graphMcpAuthToken: ""
@@ -158,7 +158,7 @@ program.command("debug").description("Configure Graph MCP debug mode").addComman
 	}
 })).addCommand(new Command("status").description("Show Graph MCP payment/debug mode").action(async () => {
 	try {
-		const { loadConfig } = await import("./config-Drgc2HuF.mjs").then((n) => n.t);
+		const { loadConfig } = await import("./config-DvPLEixE.mjs").then((n) => n.t);
 		const config = await loadConfig();
 		console.log(`Graph MCP mode: ${config.graphMcpMode}`);
 		console.log(`Graph endpoint: ${config.graphMcpEndpoint}`);
@@ -173,7 +173,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 	try {
 		const normalizedKey = key.trim();
 		if (!normalizedKey) throw new Error("Test access key is required");
-		const { saveConfig } = await import("./config-Drgc2HuF.mjs").then((n) => n.t);
+		const { saveConfig } = await import("./config-DvPLEixE.mjs").then((n) => n.t);
 		await saveConfig({
 			graphMcpMode: "debug",
 			graphMcpAuthToken: normalizedKey,
@@ -188,7 +188,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 	}
 })).addCommand(new Command("clear").description("Remove the Graph MCP test access key and use paid x402 calls").action(async () => {
 	try {
-		const { saveConfig } = await import("./config-Drgc2HuF.mjs").then((n) => n.t);
+		const { saveConfig } = await import("./config-DvPLEixE.mjs").then((n) => n.t);
 		await saveConfig({
 			graphMcpMode: "paid",
 			graphMcpAuthToken: ""
@@ -201,7 +201,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 	}
 })).addCommand(new Command("status").description("Show Graph MCP test access key status").action(async () => {
 	try {
-		const { loadConfig } = await import("./config-Drgc2HuF.mjs").then((n) => n.t);
+		const { loadConfig } = await import("./config-DvPLEixE.mjs").then((n) => n.t);
 		const config = await loadConfig();
 		console.log(`Graph endpoint: ${config.graphMcpEndpoint}`);
 		console.log(`Access key:     ${config.graphMcpAuthToken?.trim() ? "configured" : "not configured"}`);
@@ -213,7 +213,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 }));
 program.command("init").description("Initialize an investigation workspace").argument("[dir]", "Workspace directory to initialize", ".").option("--force", "Overwrite existing workspace files").action(async (dir, opts) => {
 	try {
-		const { initWorkspace } = await import("./init-4tn7jfhN.mjs");
+		const { initWorkspace } = await import("./init-C5mnUxQu.mjs");
 		const result = await initWorkspace({
 			targetDir: dir,
 			force: opts.force
@@ -227,7 +227,7 @@ program.command("init").description("Initialize an investigation workspace").arg
 });
 program.command("setup").description("Configure external MCP clients").addCommand(new Command("claude-desktop").alias("claude").description("Install or update the Claude Desktop MCP server entry").option("--config <path>", "Path to claude_desktop_config.json").option("--dry-run", "Print the intended change without writing files").action(async (opts) => {
 	try {
-		const { setupClaudeDesktop } = await import("./setup-yXK8agdn.mjs");
+		const { setupClaudeDesktop } = await import("./setup-D316tR0e.mjs");
 		const result = await setupClaudeDesktop({
 			configPath: opts.config,
 			dryRun: opts.dryRun
@@ -248,8 +248,8 @@ program.command("setup").description("Configure external MCP clients").addComman
 	}
 }));
 program.command("config").description("Read or write configuration values").addCommand(new Command("get").argument("<key>", "Config key to read").action(async (key) => {
-	const { loadConfig } = await import("./config-Drgc2HuF.mjs").then((n) => n.t);
-	const { CONFIG_KEYS } = await import("./schema-BFEWhzg7.mjs").then((n) => n.r);
+	const { loadConfig } = await import("./config-DvPLEixE.mjs").then((n) => n.t);
+	const { CONFIG_KEYS } = await import("./schema-CPHf6UhQ.mjs").then((n) => n.r);
 	if (!CONFIG_KEYS.includes(key)) {
 		console.error(`Unknown config key: ${key}`);
 		process.exit(1);
@@ -259,7 +259,7 @@ program.command("config").description("Read or write configuration values").addC
 })).addCommand(new Command("set").argument("<key>", "Config key to write").argument("<value>", "Value to set").action(async (key, value) => {
 	if (key === "walletPrivateKey") {
 		try {
-			const { setWalletPrivateKey } = await import("./wallet-D8IqFRKY.mjs").then((n) => n.s);
+			const { setWalletPrivateKey } = await import("./wallet-B6NNdnWH.mjs").then((n) => n.s);
 			const address = await setWalletPrivateKey(value);
 			console.log("Wallet private key encrypted and stored in ~/.chain-insights/wallet.json");
 			console.log(`Wallet address: ${address}`);
@@ -269,8 +269,8 @@ program.command("config").description("Read or write configuration values").addC
 		}
 		return;
 	}
-	const { loadConfig, saveConfig } = await import("./config-Drgc2HuF.mjs").then((n) => n.t);
-	const { CONFIG_KEYS, DEFAULT_CONFIG } = await import("./schema-BFEWhzg7.mjs").then((n) => n.r);
+	const { loadConfig, saveConfig } = await import("./config-DvPLEixE.mjs").then((n) => n.t);
+	const { CONFIG_KEYS, DEFAULT_CONFIG } = await import("./schema-CPHf6UhQ.mjs").then((n) => n.r);
 	const current = await loadConfig();
 	if (!CONFIG_KEYS.includes(key)) {
 		console.error(`Unknown config key: ${key}`);
@@ -285,7 +285,7 @@ program.command("config").description("Read or write configuration values").addC
 }));
 program.command("wallet").description("Manage the local Base USDC payment wallet").addCommand(new Command("address").description("Print the local payment wallet address").action(async () => {
 	try {
-		const { getWalletAccount } = await import("./tools-Py6SXg6J.mjs").then((n) => n.s);
+		const { getWalletAccount } = await import("./tools-BJrDqTlw.mjs").then((n) => n.c);
 		const account = await getWalletAccount();
 		console.log(account.address);
 	} catch (err) {
@@ -294,16 +294,32 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new Command("balance").description("Show the local payment wallet Base USDC balance").action(async () => {
 	try {
-		const { getWalletBalanceText } = await import("./tools-Py6SXg6J.mjs").then((n) => n.s);
+		const { getWalletBalanceText } = await import("./tools-BJrDqTlw.mjs").then((n) => n.c);
 		console.log(await getWalletBalanceText());
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
+})).addCommand(new Command("ready").description("Check and prepare the wallet for paid GraphRAG MCP calls").option("--no-approve", "Only check readiness; do not submit the one-time payment approval").option("--approval-usdc <amount>", "USDC approval cap to prepare for paid calls", "1").option("--json", "Print machine-readable readiness metadata").action(async (opts) => {
+	try {
+		const { formatWalletReadiness, parsePaymentApprovalUnits, prepareWalletForPaidCalls } = await import("./tools-BJrDqTlw.mjs").then((n) => n.c);
+		const result = await prepareWalletForPaidCalls({
+			minimumApprovalUnits: parsePaymentApprovalUnits(opts.approvalUsdc ?? "1"),
+			approve: opts.approve !== false
+		});
+		if (opts.json) {
+			console.log(JSON.stringify(result, (_key, value) => typeof value === "bigint" ? value.toString() : value, 2));
+			return;
+		}
+		console.log(formatWalletReadiness(result.readiness, result.approval));
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);
 	}
 })).addCommand(new Command("topup").description("Open a local browser page to top up the payment wallet").option("--no-open", "Print the top-up URL without opening a browser").option("--json", "Print machine-readable top-up metadata").action(async (opts) => {
 	try {
-		const { buildTopupInfo, getWalletAccount } = await import("./tools-Py6SXg6J.mjs").then((n) => n.s);
-		const { startTopupServer } = await import("./topup-server-BJgVw6Jt.mjs").then((n) => n.r);
+		const { buildTopupInfo, getWalletAccount } = await import("./tools-BJrDqTlw.mjs").then((n) => n.c);
+		const { startTopupServer } = await import("./topup-server-DOnI0kfI.mjs").then((n) => n.r);
 		const account = await getWalletAccount();
 		const url = await startTopupServer(account);
 		const info = buildTopupInfo(account.address, url);
@@ -333,11 +349,11 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 	}
 })).addCommand(new Command("tools").description("List available MCP tools (cached 24h)").option("--refresh", "Force refresh schema cache").action(async (opts) => {
 	try {
-		const { loadSchema, saveSchema } = await import("./schema-cache-DwDvPy4e.mjs");
-		const { formatToolsTable } = await import("./format-Bq94jSyw.mjs");
-		const { visibleRemoteTools } = await import("./tool-visibility-BHRFLXuU.mjs").then((n) => n.n);
-		const { loadConfig } = await import("./config-Drgc2HuF.mjs").then((n) => n.t);
-		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-D4_hd4AP.mjs").then((n) => n.n);
+		const { loadSchema, saveSchema } = await import("./schema-cache-DE6TTr76.mjs");
+		const { formatToolsTable } = await import("./format-CBsTuN6f.mjs");
+		const { visibleRemoteTools } = await import("./tool-visibility-CiMX9WlU.mjs").then((n) => n.n);
+		const { loadConfig } = await import("./config-DvPLEixE.mjs").then((n) => n.t);
+		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-VlCrxmPU.mjs").then((n) => n.n);
 		const config = await loadConfig();
 		const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
 		let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint);
@@ -376,7 +392,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { addressRisk } = await import("./public-tools-w7En2m3q.mjs");
+			const { addressRisk } = await import("./public-tools-D8W54YSA.mjs");
 			const result = await addressRisk(client, {
 				address: opts.address,
 				network: opts.network,
@@ -390,7 +406,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 	}
 })).addCommand(new Command("track-funds").description("Trace trusted/victim addresses and optional known untrusted/scammer addresses").requiredOption("--trusted-addresses <addresses>", "Comma-separated full trusted/victim addresses, max 5").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--untrusted-addresses <addresses>", "Comma-separated full known untrusted/scammer addresses, max 5").option("--case <id>", "Case ID to attach compact evidence pointers").option("--max-hops <number>", "Maximum trace hops, 1-5").option("--per-address-limit <number>", "Maximum exchange paths/results per address, 1-10").option("--min-amount-sum <number>", "Minimum r.amount_sum for traced edges").option("--remote", "Force remote MCP tool call instead of local Chain Insights recipe").action(async (opts) => {
 	try {
-		const { requireWorkspaceRoot } = await import("./output-root-BRhzhhXZ.mjs").then((n) => n.t);
+		const { requireWorkspaceRoot } = await import("./output-root-B3iHs14J.mjs").then((n) => n.t);
 		requireWorkspaceRoot();
 		await withGraphMcpClient("chain-insights-cli-track-funds", async (client, config) => {
 			if (opts.remote) {
@@ -404,7 +420,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { trackFunds } = await import("./public-tools-w7En2m3q.mjs");
+			const { trackFunds } = await import("./public-tools-D8W54YSA.mjs");
 			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
 			const result = await trackFunds(client, config, {
 				trustedAddresses: opts.trustedAddresses,
@@ -424,10 +440,10 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 	}
 })).addCommand(new Command("scam-topology").description("Build victim-incident scam topology and ML-ready scam labels").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").requiredOption("--victim-address <address>", "Full victim/source address that anchors the incident").requiredOption("--incident-timestamp-ms <milliseconds>", "Earliest known incident transfer timestamp in milliseconds").option("--max-hops <number>", "Maximum trace hops, default 16, max 64").option("--activity-policy <mode>", "Traversal activity policy: node_relative_only or global_incident_only", "node_relative_only").option("--case <id>", "Case ID to attach compact evidence pointers").action(async (opts) => {
 	try {
-		const { requireWorkspaceRoot } = await import("./output-root-BRhzhhXZ.mjs").then((n) => n.t);
+		const { requireWorkspaceRoot } = await import("./output-root-B3iHs14J.mjs").then((n) => n.t);
 		requireWorkspaceRoot();
 		await withGraphMcpClient("chain-insights-cli-scam-topology", async (client, config) => {
-			const { scamTopology } = await import("./public-tools-w7En2m3q.mjs");
+			const { scamTopology } = await import("./public-tools-D8W54YSA.mjs");
 			const incidentTimestampMs = optionalNumber(opts.incidentTimestampMs);
 			if (incidentTimestampMs === void 0) throw new Error("incident-timestamp-ms is required");
 			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
@@ -449,7 +465,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 })).addCommand(new Command("stake-insights").description("Explain Bittensor staking behavior around an address, coldkey, or hotkey").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--address <address>", "Full Bittensor address to inspect as either coldkey or hotkey").option("--coldkey <address>", "Full Bittensor coldkey address to inspect").option("--hotkey <address>", "Full Bittensor hotkey address to inspect").option("--netuid <number>", "Optional subnet netuid filter").option("--start-timestamp-ms <milliseconds>", "Optional inclusive lower activity timestamp bound").option("--end-timestamp-ms <milliseconds>", "Optional inclusive upper activity timestamp bound").option("--start-block <number>", "Optional start block. Current stake graph parity may require timestamp windows instead.").option("--end-block <number>", "Optional end block. Current stake graph parity may require timestamp windows instead.").option("--depth <number>", "Optional expansion depth limit, default 1, max 3").action(async (opts) => {
 	try {
 		await withGraphMcpClient("chain-insights-cli-stake-insights", async (client) => {
-			const { stakeInsights } = await import("./public-tools-w7En2m3q.mjs");
+			const { stakeInsights } = await import("./public-tools-D8W54YSA.mjs");
 			const result = await stakeInsights(client, {
 				network: opts.network,
 				address: opts.address,
@@ -471,13 +487,13 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 	}
 })).addCommand(new Command("call").description("Call an MCP tool directly (debug)").argument("<tool>", "Tool name to call").argument("[args...]", "Key=value arguments (e.g. address=0x1234 chain=ethereum)").action(async (tool, rawArgs) => {
 	try {
-		const { parseMcpCallArgs } = await import("./call-args-DPXdX3_D.mjs");
-		const { assertPublicMcpToolName } = await import("./tool-visibility-BHRFLXuU.mjs").then((n) => n.n);
+		const { parseMcpCallArgs } = await import("./call-args-DVHfocVJ.mjs");
+		const { assertPublicMcpToolName } = await import("./tool-visibility-CiMX9WlU.mjs").then((n) => n.n);
 		const args = parseMcpCallArgs(rawArgs);
 		assertPublicMcpToolName(tool);
 		await withGraphMcpClient("chain-insights-cli-call", async (client, config) => {
 			if (tool === "address_risk") {
-				const { addressRisk } = await import("./public-tools-w7En2m3q.mjs");
+				const { addressRisk } = await import("./public-tools-D8W54YSA.mjs");
 				const result = await addressRisk(client, {
 					address: String(args["address"] ?? ""),
 					network: String(args["network"] ?? ""),
@@ -487,7 +503,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "track_funds") {
-				const { trackFunds } = await import("./public-tools-w7En2m3q.mjs");
+				const { trackFunds } = await import("./public-tools-D8W54YSA.mjs");
 				const result = await trackFunds(client, config, {
 					trustedAddresses: args["trusted_addresses"] ?? "",
 					untrustedAddresses: args["untrusted_addresses"],
@@ -502,7 +518,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "scam_topology") {
-				const { scamTopology } = await import("./public-tools-w7En2m3q.mjs");
+				const { scamTopology } = await import("./public-tools-D8W54YSA.mjs");
 				const victimAddress = String(args["victim_address"] ?? "").trim();
 				if (!victimAddress) throw new Error("victim_address is required");
 				const incidentTimestampMs = optionalNumberArg(args["incident_timestamp_ms"], "incident_timestamp_ms");
@@ -520,7 +536,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "stake_insights") {
-				const { stakeInsights } = await import("./public-tools-w7En2m3q.mjs");
+				const { stakeInsights } = await import("./public-tools-D8W54YSA.mjs");
 				const result = await stakeInsights(client, {
 					network: String(args["network"] ?? ""),
 					address: args["address"] === void 0 ? void 0 : String(args["address"]),
@@ -552,14 +568,14 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 }).addCommand(new Command("open").description("Open a new investigation case").argument("<name>", "Case name (e.g. \"Tornado Mixer Investigation\")").option("--tags <tags>", "Comma-separated tags (e.g. aml,mixer,defi)", "").option("--description <desc>", "Brief description of the investigation", "").action(async (name, opts) => {
 	try {
 		if (/^[1-9]\d*$/.test(name.trim())) throw new Error("Numeric case names look like list selectors. Use a descriptive case name, e.g. `cia case open \"Tracking stolen funds from <address>\"`.");
-		const { CaseStore } = await import("./cases-qjPtbnUd.mjs");
+		const { CaseStore } = await import("./cases-DfLz-kgf.mjs");
 		const tags = opts.tags ? opts.tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
 		const c = await CaseStore.create({
 			name,
 			tags,
 			description: opts.description
 		});
-		const { casesRoot } = await import("./store-BT2SCcQr.mjs");
+		const { casesRoot } = await import("./store-C7GN0z_m.mjs");
 		console.log(`Case opened: ${c.id}`);
 		console.log(`Directory:   ${path.join(casesRoot(), c.id)}/`);
 		console.log(`Status:      ${c.status}`);
@@ -569,7 +585,7 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 	}
 })).addCommand(new Command("activate").description("Activate a case (set status to active)").argument("<case-id>", "Case ID to activate").action(async (caseSelector) => {
 	try {
-		const { CaseStore } = await import("./cases-qjPtbnUd.mjs");
+		const { CaseStore } = await import("./cases-DfLz-kgf.mjs");
 		const caseId = await resolveCaseSelector(caseSelector);
 		const c = await CaseStore.setStatus(caseId, "active");
 		console.log(`Case ${c.id} is now: active`);
@@ -579,7 +595,7 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 	}
 })).addCommand(new Command("suspend").description("Suspend a case (set status to suspended)").argument("<case-id>", "Case ID to suspend").action(async (caseSelector) => {
 	try {
-		const { CaseStore } = await import("./cases-qjPtbnUd.mjs");
+		const { CaseStore } = await import("./cases-DfLz-kgf.mjs");
 		const caseId = await resolveCaseSelector(caseSelector);
 		const c = await CaseStore.setStatus(caseId, "suspended");
 		console.log(`Case ${c.id} is now: suspended`);
@@ -589,7 +605,7 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 	}
 })).addCommand(new Command("close").description("Close a case permanently").argument("<case-id>", "Case ID to close").action(async (caseSelector) => {
 	try {
-		const { CaseStore } = await import("./cases-qjPtbnUd.mjs");
+		const { CaseStore } = await import("./cases-DfLz-kgf.mjs");
 		const caseId = await resolveCaseSelector(caseSelector);
 		const c = await CaseStore.setStatus(caseId, "closed");
 		console.log(`Case ${c.id} is now: closed`);
@@ -599,7 +615,7 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 	}
 })).addCommand(new Command("list").description("List all investigation cases").option("--status <status>", "Filter by status (open|active|suspended|closed)").action(async (opts) => {
 	try {
-		const { CaseStore } = await import("./cases-qjPtbnUd.mjs");
+		const { CaseStore } = await import("./cases-DfLz-kgf.mjs");
 		const cases = await CaseStore.list();
 		const filtered = opts.status ? cases.filter((c) => c.status === opts.status) : cases;
 		if (filtered.length === 0) {
@@ -613,7 +629,7 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 	}
 })).addCommand(new Command("evidence").description("Manage case evidence").addCommand(new Command("add").description("Add evidence to a case from an MCP query result").argument("<case-id>", "Case ID to add evidence to").option("--source <tool>", "MCP tool name that produced this evidence", "manual").option("--content <text>", "Evidence content (MCP response or notes)", "").option("--query-params <params>", "Query parameters used (e.g. address=0x1234)", "").action(async (caseSelector, opts) => {
 	try {
-		const { EvidenceStore } = await import("./cases-qjPtbnUd.mjs");
+		const { EvidenceStore } = await import("./cases-DfLz-kgf.mjs");
 		const caseId = await resolveCaseSelector(caseSelector);
 		const result = await EvidenceStore.append(caseId, {
 			source: opts.source,
@@ -628,7 +644,7 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 	}
 })).addCommand(new Command("verify").description("Verify evidence manifest integrity for a case").argument("<case-id>", "Case ID to verify").action(async (caseSelector) => {
 	try {
-		const { EvidenceStore } = await import("./cases-qjPtbnUd.mjs");
+		const { EvidenceStore } = await import("./cases-DfLz-kgf.mjs");
 		const caseId = await resolveCaseSelector(caseSelector);
 		const result = await EvidenceStore.verifyManifest(caseId);
 		if (result.ok) console.log(`Manifest OK — ${result.count} evidence file(s) verified`);
@@ -642,7 +658,7 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 	}
 }))).addCommand(new Command("dossier").description("Manage entity dossiers for a case").addCommand(new Command("update").description("Append a finding to an entity dossier").argument("<case-id>", "Case ID").argument("<address>", "Entity address or identifier").option("--finding <text>", "Finding to append to the dossier", "").option("--type <type>", "Entity type (eoa|contract|exchange|mixer|unknown)", "unknown").action(async (caseSelector, address, opts) => {
 	try {
-		const { DossierStore } = await import("./cases-qjPtbnUd.mjs");
+		const { DossierStore } = await import("./cases-DfLz-kgf.mjs");
 		const caseId = await resolveCaseSelector(caseSelector);
 		const entityType = [
 			"eoa",
@@ -659,7 +675,7 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 	}
 }))).addCommand(new Command("session").description("Manage investigation sessions").addCommand(new Command("start").description("Start a new investigation session for a case").argument("<case-id>", "Case ID").argument("[title...]", "Optional session title").action(async (caseSelector, titleParts) => {
 	try {
-		const { SessionStore } = await import("./cases-qjPtbnUd.mjs");
+		const { SessionStore } = await import("./cases-DfLz-kgf.mjs");
 		const caseId = await resolveCaseSelector(caseSelector);
 		const title = titleParts.join(" ").trim();
 		const s = await SessionStore.start(caseId, title ? { title } : {});
@@ -670,7 +686,7 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 	}
 })).addCommand(new Command("end").description("End the current session with findings and next steps").argument("<case-id>", "Case ID").option("--findings <text>", "Key findings from this session", "").option("--next-steps <text>", "Next steps for the investigation", "").action(async (caseSelector, opts) => {
 	try {
-		const { SessionStore } = await import("./cases-qjPtbnUd.mjs");
+		const { SessionStore } = await import("./cases-DfLz-kgf.mjs");
 		const caseId = await resolveCaseSelector(caseSelector);
 		await SessionStore.end(caseId, {
 			findings: opts.findings,
@@ -707,9 +723,9 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			}
 			resolvedParams[key] = kv.slice(eq + 1);
 		}
-		const { resolvePlaybookContent } = await import("./resolver-D7VBb0uB.mjs");
+		const { resolvePlaybookContent } = await import("./resolver-DTmWBURZ.mjs");
 		const markdown = await resolvePlaybookContent(name);
-		const { PlaybookParser } = await import("./parser-CJfMsOl6.mjs");
+		const { PlaybookParser } = await import("./parser-Bl0SzgVe.mjs");
 		const definition = PlaybookParser.parse(markdown, resolvedParams);
 		for (const spec of definition.params) if (spec.required && !resolvedParams[spec.name] && !spec.default) {
 			console.error(`Missing required param: ${spec.name}. Pass with: -p ${spec.name}=<value>`);
@@ -720,7 +736,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await import("./runner-DIs04IhN.mjs");
+		const { PlaybookRunner } = await import("./runner-CORo7tqv.mjs");
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,
@@ -733,7 +749,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new Command("list").description("List available playbooks (built-in and user-defined)").action(async () => {
 	try {
-		const { listPlaybooks } = await import("./resolver-D7VBb0uB.mjs");
+		const { listPlaybooks } = await import("./resolver-DTmWBURZ.mjs");
 		const playbooks = await listPlaybooks();
 		if (playbooks.length === 0) {
 			console.log("No playbooks found.");
@@ -746,8 +762,8 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new Command("show").description("Show steps for a playbook without executing").argument("<name>", "Playbook name").action(async (name) => {
 	try {
-		const { resolvePlaybookContent } = await import("./resolver-D7VBb0uB.mjs");
-		const { PlaybookParser } = await import("./parser-CJfMsOl6.mjs");
+		const { resolvePlaybookContent } = await import("./resolver-DTmWBURZ.mjs");
+		const { PlaybookParser } = await import("./parser-Bl0SzgVe.mjs");
 		const markdown = await resolvePlaybookContent(name);
 		const definition = PlaybookParser.parse(markdown, {});
 		console.log(`Playbook: ${definition.name} v${definition.version}`);
@@ -770,12 +786,12 @@ program.command("viz").description("Generate money flow visualization").argument
 			console.error("Provide either a case ID or --data <file.json>");
 			process.exit(1);
 		}
-		const { generateVisualization } = await import("./viz-DkJyqlUu.mjs").then((n) => n.n);
+		const { generateVisualization } = await import("./viz-CJBDZpB3.mjs").then((n) => n.n);
 		const result = await generateVisualization({
 			caseId,
 			dataFile: opts.data
 		});
-		const { startServer } = await import("./server-BXLX2j_A.mjs").then((n) => n.t);
+		const { startServer } = await import("./server-D8ygWFYi.mjs").then((n) => n.t);
 		const port = parseInt(opts.port, 10);
 		startServer(port);
 		const url = `http://127.0.0.1:${port}/viz/${result.vizId}`;

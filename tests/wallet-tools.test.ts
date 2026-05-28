@@ -6,12 +6,19 @@ import { privateKeyToAccount } from 'viem/accounts'
 
 const readContractMock = vi.hoisted(() => vi.fn())
 const getBalanceMock = vi.hoisted(() => vi.fn())
+const writeContractMock = vi.hoisted(() => vi.fn())
+const waitForTransactionReceiptMock = vi.hoisted(() => vi.fn())
 
 vi.mock('viem', async (importOriginal) => {
   const actual = await importOriginal<typeof import('viem')>()
   return {
     ...actual,
-    createPublicClient: vi.fn(() => ({ readContract: readContractMock, getBalance: getBalanceMock })),
+    createPublicClient: vi.fn(() => ({
+      readContract: readContractMock,
+      getBalance: getBalanceMock,
+      waitForTransactionReceipt: waitForTransactionReceiptMock,
+    })),
+    createWalletClient: vi.fn(() => ({ writeContract: writeContractMock })),
     http: vi.fn((url: string) => ({ url })),
   }
 })
@@ -22,6 +29,8 @@ describe('wallet tools', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks()
+    waitForTransactionReceiptMock.mockResolvedValue({ status: 'success' })
+    writeContractMock.mockResolvedValue('0xapproval')
     fakeHome = join(tmpdir(), `ci-wallet-tools-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
     await mkdir(join(fakeHome, '.chain-insights'), { recursive: true })
     prevHome = process.env['HOME']
@@ -95,10 +104,79 @@ describe('wallet tools', () => {
 
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Balance: 2.500000 USDC')
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Gas: 0.0001 ETH on Base')
-    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Base ETH is required for one-time USDC Permit2 approval gas.')
+    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Base ETH is required only for one-time payment approval gas.')
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Address: 0xabc')
+    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).not.toContain('Permit2')
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).not.toContain('Capacity:')
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).not.toContain('tool calls')
+  })
+
+  it('reads and formats the Base USDC payment approval allowance', async () => {
+    const { getPaymentApprovalUsdc } = await import('../src/wallet/tools.js')
+    readContractMock.mockResolvedValueOnce(1_000_000n)
+
+    const approval = await getPaymentApprovalUsdc('0x0000000000000000000000000000000000000001')
+
+    expect(approval).toBe('1')
+    expect(readContractMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+        functionName: 'allowance',
+        args: [
+          '0x0000000000000000000000000000000000000001',
+          '0x000000000022D473030F116dDEE9F6B43aC78BA3',
+        ],
+      }),
+    )
+  })
+
+  it('prepares the wallet by sending one capped payment approval when needed', async () => {
+    const { prepareWalletForPaidCalls } = await import('../src/wallet/tools.js')
+    const account = {
+      address: '0x0000000000000000000000000000000000000001' as const,
+      privateKey: '0x0000000000000000000000000000000000000000000000000000000000000001' as const,
+    }
+    readContractMock
+      .mockResolvedValueOnce(2_000_000n)
+      .mockResolvedValueOnce(0n)
+      .mockResolvedValueOnce(0n)
+      .mockResolvedValueOnce(1_000_000n)
+    getBalanceMock.mockResolvedValueOnce(100_000_000_000_000n)
+
+    const result = await prepareWalletForPaidCalls({ account })
+
+    expect(result.approval).toMatchObject({ status: 'approved', txHash: '0xapproval' })
+    expect(result.readiness.ready).toBe(true)
+    expect(writeContractMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+        functionName: 'approve',
+        args: ['0x000000000022D473030F116dDEE9F6B43aC78BA3', 1_000_000n],
+      }),
+    )
+  })
+
+  it('renders a ready wallet without exposing low-level permit mechanics', async () => {
+    const { formatWalletReadiness } = await import('../src/wallet/tools.js')
+
+    const text = formatWalletReadiness({
+      address: '0x0000000000000000000000000000000000000001',
+      balanceUsdc: '2',
+      balanceEth: '0.0001',
+      paymentApprovalUsdc: '1',
+      paymentApprovalUnits: 1_000_000n,
+      minimumApprovalUnits: 1_000_000n,
+      hasUsdc: true,
+      hasGas: true,
+      hasPaymentApproval: true,
+      needsPaymentApproval: false,
+      ready: true,
+      nextSteps: [],
+    })
+
+    expect(text).toContain('Ready for paid GraphRAG MCP calls')
+    expect(text).toContain('Payment setup: ready')
+    expect(text).not.toContain('Permit2')
   })
 
   it('builds top-up metadata for MCP and CLI output', async () => {

@@ -70,9 +70,10 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('--hermes')
   })
 
-  it('wallet --help lists balance and topup subcommands', () => {
+  it('wallet --help lists balance, ready, and topup subcommands', () => {
     const out = execSync('node bin/cli.js wallet --help', { encoding: 'utf8' })
     expect(out).toContain('balance')
+    expect(out).toContain('ready')
     expect(out).toContain('topup')
   })
 
