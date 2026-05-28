@@ -95,6 +95,10 @@ export interface ScamTopologyTopologyEdge {
   dst_labels: string[]
   src_is_exchange: boolean
   dst_is_exchange: boolean
+  src_address_type?: string
+  dst_address_type?: string
+  src_address_subtypes?: string[]
+  dst_address_subtypes?: string[]
 }
 
 export interface ScamTopologyInfrastructureFlow {
@@ -300,12 +304,66 @@ function isExchangeFlag(value: unknown): boolean {
   return false
 }
 
-function hasExchangeLabel(labels: string[]): boolean {
-  return labels.some((label) => label.toLowerCase() === 'exchange' || label.toLowerCase().includes('exchange'))
+/**
+ * Address-type values that mark a node as part of the scam topology itself
+ * (a written scam label or the protected victim role). Such nodes must never be
+ * read back as exchange infrastructure, even when their label text contains a
+ * brand or the word "exchange" — that text is our own output syncing back into
+ * the graph, not authoritative exchange signal.
+ */
+const NON_EXCHANGE_ADDRESS_TYPES = new Set(['scam', 'victim'])
+
+/**
+ * Determine whether a node's `address_type` marks it as scam- or victim-typed,
+ * which disqualifies it from being treated as an exchange endpoint.
+ *
+ * @param addressType - The node's `address_type` property, if present.
+ * @returns `true` when the type is a scam/victim role.
+ */
+function isScamOrVictimType(addressType: string | undefined): boolean {
+  if (addressType === undefined) return false
+  return NON_EXCHANGE_ADDRESS_TYPES.has(addressType.trim().toLowerCase())
 }
 
-function isExchangeEndpoint(labels: string[], isExchange: unknown, roles: string[]): boolean {
-  return isExchangeFlag(isExchange) || hasExchangeLabel(labels) || roles.some((role) => role.toLowerCase().includes('exchange'))
+/**
+ * Detect an authoritative exchange label.
+ *
+ * Only an exact `exchange` token or a trailing `, exchange` registry suffix
+ * (e.g. `"Binance, exchange"`) counts. Loose substring matching such as
+ * `includes('exchange')` is deliberately rejected because scam labels written
+ * by this tool (e.g. `"... -> Kucoin"`, subtype text containing "exchange")
+ * sync back into the graph and would otherwise be mis-read as exchanges.
+ *
+ * @param labels - Node label strings from the graph.
+ * @returns `true` when at least one label is an authoritative exchange marker.
+ */
+function hasExchangeLabel(labels: string[]): boolean {
+  return labels.some((label) => {
+    const normalized = label.trim().toLowerCase()
+    return normalized === 'exchange' || /(^|,)\s*exchange$/.test(normalized)
+  })
+}
+
+/**
+ * Decide whether a node is an exchange endpoint that terminates traversal.
+ *
+ * Exchange status keys off the authoritative `is_exchange` flag first, then an
+ * exact `exchange` registry label. A node whose `address_type` is SCAM or
+ * VICTIM is never an exchange endpoint, regardless of its label or role text,
+ * because that signal originates from this tool's own labels rather than from
+ * exchange enrichment.
+ *
+ * @param labels - Destination node label strings.
+ * @param isExchange - The node's authoritative `is_exchange` property.
+ * @param roles - Enrichment role strings for the node.
+ * @param addressType - The node's `address_type` property, if present.
+ * @returns `true` when the node should be treated as an exchange endpoint.
+ */
+function isExchangeEndpoint(labels: string[], isExchange: unknown, roles: string[], addressType: string | undefined): boolean {
+  if (isScamOrVictimType(addressType)) return false
+  return isExchangeFlag(isExchange) ||
+    hasExchangeLabel(labels) ||
+    roles.some((role) => role.trim().toLowerCase() === 'exchange')
 }
 
 /**
@@ -368,6 +426,10 @@ function traversalProjection(): string {
     'dst.labels AS dst_labels',
     'src.is_exchange AS src_is_exchange',
     'dst.is_exchange AS dst_is_exchange',
+    'src.address_type AS src_address_type',
+    'dst.address_type AS dst_address_type',
+    'src.address_subtypes AS src_address_subtypes',
+    'dst.address_subtypes AS dst_address_subtypes',
     'r.amount_sum AS amount_sum',
     'r.amount_usd_sum AS amount_usd_sum',
     'r.tx_count AS tx_count',
@@ -463,9 +525,17 @@ function edgeFromRow(
   const dstLabels = stringArray(row['dst_labels'])
   const srcRoles = stringArray(row['src_roles'])
   const dstRoles = stringArray(row['dst_roles'])
-  const srcIsExchange = isExchangeEndpoint(srcLabels, row['src_is_exchange'], srcRoles)
-  const dstIsExchange = isExchangeEndpoint(dstLabels, row['dst_is_exchange'], dstRoles)
-  const genericLabeledBoundary = dstLabels.length > 0 && !dstIsExchange
+  const srcAddressType = stringValue(row['src_address_type'])
+  const dstAddressType = stringValue(row['dst_address_type'])
+  const srcAddressSubtypes = stringArray(row['src_address_subtypes'])
+  const dstAddressSubtypes = stringArray(row['dst_address_subtypes'])
+  const srcIsExchange = isExchangeEndpoint(srcLabels, row['src_is_exchange'], srcRoles, srcAddressType)
+  const dstIsExchange = isExchangeEndpoint(dstLabels, row['dst_is_exchange'], dstRoles, dstAddressType)
+  // A scam-typed node's labels are this tool's own output synced back into the
+  // graph, not third-party generic context labels, so they must not stop
+  // traversal as a context boundary.
+  const dstIsScamTyped = isScamOrVictimType(dstAddressType)
+  const genericLabeledBoundary = dstLabels.length > 0 && !dstIsExchange && !dstIsScamTyped
   const relation: ScamTopologyEdgeRelation = dstIsExchange
     ? 'terminal_exchange'
     : genericLabeledBoundary
@@ -494,6 +564,10 @@ function edgeFromRow(
     dst_labels: dstLabels,
     src_is_exchange: srcIsExchange,
     dst_is_exchange: dstIsExchange,
+    ...(srcAddressType !== undefined ? { src_address_type: srcAddressType } : {}),
+    ...(dstAddressType !== undefined ? { dst_address_type: dstAddressType } : {}),
+    ...(srcAddressSubtypes.length > 0 ? { src_address_subtypes: srcAddressSubtypes } : {}),
+    ...(dstAddressSubtypes.length > 0 ? { dst_address_subtypes: dstAddressSubtypes } : {}),
   }
 }
 
@@ -806,6 +880,147 @@ function labelForSubtype(subtype: ScamTopologyLabelCandidate['address_subtype'])
   }
 }
 
+/**
+ * Per-hop multiplicative decay applied to a candidate's base confidence. Each
+ * additional hop from the seed multiplies confidence by this factor, so deeper
+ * addresses score strictly lower than closer ones at equal value.
+ */
+const SCAM_TOPOLOGY_HOP_DECAY = 0.85
+
+/**
+ * Floor on the hop-decay multiplier so very deep chains do not collapse to
+ * zero; keeps confidence bounded and positive while still ranking deep edges
+ * below shallow ones.
+ */
+const SCAM_TOPOLOGY_MIN_HOP_FACTOR = 0.25
+
+/**
+ * Native/USD value at or above which the value factor saturates to its maximum
+ * contribution. Chosen so a large incident-scale transfer earns full value
+ * weight while small dust transfers earn little.
+ */
+const SCAM_TOPOLOGY_VALUE_SATURATION = 100_000
+
+/**
+ * Fraction of confidence governed by carried value (the remainder is the fixed
+ * base). A high-value edge keeps near-base confidence; a dust edge is damped.
+ */
+const SCAM_TOPOLOGY_VALUE_WEIGHT = 0.5
+
+/**
+ * Confidence threshold at or above which a close-hop candidate is auto-promoted
+ * to `promote_confirmed` instead of `review_required`. Tuned so that only a
+ * near-full-value, close-hop core reaches it: a hop-1 edge carrying
+ * incident-scale value retains its full base confidence (victim-seeded base is
+ * 0.72), while dust or deeper edges fall below the bar and stay review-only.
+ */
+const SCAM_TOPOLOGY_PROMOTE_CONFIDENCE = 0.72
+
+/**
+ * Maximum hop distance eligible for auto-promotion. Only the close-hop core of
+ * a topology can promote automatically; the diluted tail stays review-only.
+ */
+const SCAM_TOPOLOGY_PROMOTE_MAX_HOP = 2
+
+/**
+ * Choose the value used for confidence scoring.
+ *
+ * Deep-hop `amount_usd_sum` is frequently inconsistent with the native amount
+ * (e.g. hundreds of tokens reported as a few dollars) because price coverage is
+ * missing at depth or the price join is wrong. Trusting such USD would deflate
+ * confidence for genuinely high-value transfers, so the native `amount_sum` is
+ * always preferred when present and positive. USD is used only as a fallback
+ * when no usable native amount exists. Native units are consistent within a
+ * single asset's topology, so value comparisons across edges remain meaningful.
+ *
+ * @param amountSum - Native transferred amount on the edge, if present.
+ * @param amountUsdSum - Reported USD value on the edge, if present.
+ * @returns A positive scoring value, or `undefined` when neither amount is
+ *   usable.
+ */
+function reliableScoringValue(amountSum: number | undefined, amountUsdSum: number | undefined): number | undefined {
+  const native = amountSum !== undefined && Number.isFinite(amountSum) && amountSum > 0 ? amountSum : undefined
+  if (native !== undefined) return native
+  const usd = amountUsdSum !== undefined && Number.isFinite(amountUsdSum) && amountUsdSum > 0 ? amountUsdSum : undefined
+  return usd
+}
+
+/**
+ * Compute a bounded [0, 1] value factor from a reliable scoring value using a
+ * logarithmic scale, so confidence increases monotonically with carried value
+ * and saturates for incident-scale transfers.
+ *
+ * @param value - A non-negative scoring value, or `undefined`.
+ * @returns A factor in [0, 1]; `0` when no value is available.
+ */
+function valueFactor(value: number | undefined): number {
+  if (value === undefined || value <= 0) return 0
+  const capped = Math.min(value, SCAM_TOPOLOGY_VALUE_SATURATION)
+  return Math.log10(1 + capped) / Math.log10(1 + SCAM_TOPOLOGY_VALUE_SATURATION)
+}
+
+/**
+ * Confidence model for a topology edge: a base confidence that decays
+ * multiplicatively with hop distance and scales with carried value.
+ *
+ * The result is `base * hopFactor * (1 - VALUE_WEIGHT + VALUE_WEIGHT * valueFactor)`,
+ * where `hopFactor = max(MIN_HOP_FACTOR, HOP_DECAY^(hop - 1))`. It is bounded in
+ * `(0, base]`, strictly decreasing in `hop`, and increasing in carried value, so
+ * a hop-1 high-value edge always outranks a deeper low-value edge. Carried value
+ * is read from the native amount when available (see {@link reliableScoringValue}),
+ * so unreliable deep-hop USD pricing cannot distort the score.
+ *
+ * @param edge - The topology edge being scored.
+ * @param baseConfidence - The relation-and-role base confidence in `(0, 1]`.
+ * @returns A confidence score in `(0, 1]`.
+ */
+function decayedConfidence(edge: ScamTopologyTopologyEdge, baseConfidence: number): number {
+  const hop = Number.isFinite(edge.hop) && edge.hop > 0 ? edge.hop : 1
+  const hopFactor = Math.max(SCAM_TOPOLOGY_MIN_HOP_FACTOR, Math.pow(SCAM_TOPOLOGY_HOP_DECAY, hop - 1))
+  const value = reliableScoringValue(edge.amount_sum, edge.amount_usd_sum)
+  const valueScale = 1 - SCAM_TOPOLOGY_VALUE_WEIGHT + SCAM_TOPOLOGY_VALUE_WEIGHT * valueFactor(value)
+  const confidence = baseConfidence * hopFactor * valueScale
+  return Math.min(baseConfidence, Math.max(0, confidence))
+}
+
+/**
+ * Decide the promotion tier for a scored candidate. Only a close-hop,
+ * high-confidence core auto-promotes to `promote_confirmed`; everything else
+ * stays `review_required` for human triage.
+ *
+ * @param edge - The topology edge backing the candidate.
+ * @param confidence - The candidate's decayed confidence score.
+ * @returns The promotion status for the candidate.
+ */
+function promotionTier(edge: ScamTopologyTopologyEdge, confidence: number): ScamTopologyLabelCandidate['promotion_status'] {
+  const hop = Number.isFinite(edge.hop) && edge.hop > 0 ? edge.hop : 1
+  return confidence >= SCAM_TOPOLOGY_PROMOTE_CONFIDENCE && hop <= SCAM_TOPOLOGY_PROMOTE_MAX_HOP
+    ? 'promote_confirmed'
+    : 'review_required'
+}
+
+/**
+ * Build a scam label candidate from a topology edge with hop-and-value decayed
+ * confidence and an automatic promotion tier.
+ *
+ * @param address - The candidate address.
+ * @param subtype - The candidate scam subtype.
+ * @param evidence - Structured evidence for the candidate.
+ * @param edge - The topology edge backing the candidate.
+ * @param baseConfidence - The relation-and-role base confidence in `(0, 1]`.
+ * @returns A scored label candidate.
+ */
+function makeScoredCandidate(
+  address: string,
+  subtype: ScamTopologyLabelCandidate['address_subtype'],
+  evidence: Record<string, unknown>,
+  edge: ScamTopologyTopologyEdge,
+  baseConfidence: number,
+): ScamTopologyLabelCandidate {
+  const confidence = decayedConfidence(edge, baseConfidence)
+  return makeCandidate(address, subtype, evidence, confidence, promotionTier(edge, confidence))
+}
+
 function makeCandidate(
   address: string,
   subtype: ScamTopologyLabelCandidate['address_subtype'],
@@ -956,12 +1171,12 @@ function classifyTopology(
         seed_role: edge.seed_role,
       })
       addRole(rolesByAddress, edge.src, 'laundering_intermediate')
-      mergeCandidate(candidates, makeCandidate(
+      mergeCandidate(candidates, makeScoredCandidate(
         edge.src,
         'laundering_intermediate',
         edgeEvidence(edge, 'Address sends into an exchange-deposit cluster reached from a known scam topology seed.'),
+        edge,
         edge.seed_role === 'scammer' ? 0.78 : 0.64,
-        'review_required',
       ))
       continue
     }
@@ -1040,12 +1255,12 @@ function classifyTopology(
             seed_address: edge.seed_address,
           })
         } else {
-          mergeCandidate(candidates, makeCandidate(
+          mergeCandidate(candidates, makeScoredCandidate(
             edge.src,
             'exchange_deposit_candidate',
             edgeEvidence(edge, 'Address is the penultimate hop before an exchange endpoint.'),
+            edge,
             edge.seed_role === 'scammer' ? 0.8 : 0.68,
-            'review_required',
           ))
         }
       }
@@ -1094,12 +1309,12 @@ function classifyTopology(
       seed_role: edge.seed_role,
     })
     addRole(rolesByAddress, edge.dst, 'laundering_intermediate')
-    mergeCandidate(candidates, makeCandidate(
+    mergeCandidate(candidates, makeScoredCandidate(
       edge.dst,
       'laundering_intermediate',
       edgeEvidence(edge, 'Address appears on an outward path from a known scam topology seed.'),
+      edge,
       edge.seed_role === 'scammer' ? 0.85 : 0.72,
-      'review_required',
     ))
   }
 

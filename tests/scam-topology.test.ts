@@ -205,22 +205,29 @@ describe('scamTopology', () => {
       expect.objectContaining({ address: '5Hop', address_subtype: 'laundering_intermediate', promotion_status: 'review_required' }),
       expect.objectContaining({ address: '5Deposit', address_subtype: 'exchange_deposit_candidate', promotion_status: 'review_required' }),
     ]))
-    expect(result.structuredContent.facts.scam_labels).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        address: '5Hop',
-        scam: true,
-        confidence: 0.72,
-        source: 'scam_topology',
-        source_victim_address: '5Victim',
-        source_incident_timestamp_ms: 1715532228001,
-      }),
-      expect.objectContaining({
-        address: '5Deposit',
-        scam: true,
-        confidence: 0.68,
-        source_victim_address: '5Victim',
-      }),
-    ]))
+    const labelsByAddress = new Map(result.structuredContent.facts.scam_labels.map((label) => [label.address, label]))
+    const hopLabel = labelsByAddress.get('5Hop')
+    const depositLabel = labelsByAddress.get('5Deposit')
+    expect(hopLabel).toEqual(expect.objectContaining({
+      address: '5Hop',
+      scam: true,
+      source: 'scam_topology',
+      source_victim_address: '5Victim',
+      source_incident_timestamp_ms: 1715532228001,
+    }))
+    expect(depositLabel).toEqual(expect.objectContaining({
+      address: '5Deposit',
+      scam: true,
+      source_victim_address: '5Victim',
+    }))
+    // Confidence is hop-and-value decayed and bounded by the relation base
+    // (laundering victim base 0.72, deposit victim base 0.68); the closer hop
+    // outranks the deeper one at equal value.
+    expect(hopLabel!.confidence).toBeGreaterThan(0)
+    expect(hopLabel!.confidence).toBeLessThanOrEqual(0.72)
+    expect(depositLabel!.confidence).toBeGreaterThan(0)
+    expect(depositLabel!.confidence).toBeLessThanOrEqual(0.68)
+    expect(hopLabel!.confidence).toBeGreaterThan(depositLabel!.confidence)
   })
 
   it('does not scam-label shared exchange-deposit infrastructure', async () => {
@@ -988,5 +995,204 @@ describe('scamTopology', () => {
       address: '5FundingA',
       roles: expect.arrayContaining(['funding_source']),
     }))
+  })
+
+  it('does not treat a scam-typed node with exchange-like label text as an exchange endpoint', async () => {
+    // A previously written scam label syncs back into the graph as a node whose
+    // label text contains a brand/"exchange" token and whose address_type is
+    // SCAM. Exchange detection must ignore that loose text and the SCAM type,
+    // so traversal continues instead of terminating at a fake exchange.
+    vi.mocked(client.callTool)
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_1', ok: true, results: [topologyRow('5Victim', '5ScamCashout', {
+          dst_labels: ['Scam cashout -> Kucoin', 'scam_cashout_deposit'],
+          dst_is_exchange: false,
+          dst_address_type: 'SCAM',
+          dst_address_subtypes: ['scam_cashout_deposit'],
+        })] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_2', ok: true, results: [topologyRow('5ScamCashout', '5NextHop')] },
+      ]))
+    const { scamTopology } = await import('../src/investigation/scam-topology.js')
+
+    const result = await scamTopology(client, config, {
+      network: 'bittensor',
+      victimAddress: '5Victim',
+      incidentTimestampMs: 1715532228001,
+      maxHops: 2,
+    })
+
+    // The scam-typed node is NOT a terminal exchange endpoint; traversal continues.
+    expect(result.structuredContent.facts.case_roles).not.toContainEqual(expect.objectContaining({
+      address: '5ScamCashout',
+      role: 'exchange_endpoint',
+    }))
+    expect(result.structuredContent.facts.exchange_deposits).toEqual([])
+    expect(result.structuredContent.facts.topology_edges).not.toContainEqual(expect.objectContaining({
+      dst: '5ScamCashout',
+      relation: 'terminal_exchange',
+    }))
+    expect(result.structuredContent.facts.topology_edges).toContainEqual(expect.objectContaining({
+      src: '5ScamCashout',
+      dst: '5NextHop',
+      relation: 'traversal_edge',
+    }))
+  })
+
+  it('still terminates at a node flagged is_exchange even when its labels are plain', async () => {
+    vi.mocked(client.callTool)
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_1', ok: true, results: [topologyRow('5Victim', '5Deposit')] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_2', ok: true, results: [topologyRow('5Deposit', '5RealExchange', {
+          dst_labels: ['Binance'],
+          dst_is_exchange: true,
+        })] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_deposit_cluster_1', ok: true, results: [] },
+      ]))
+    const { scamTopology } = await import('../src/investigation/scam-topology.js')
+
+    const result = await scamTopology(client, config, {
+      network: 'bittensor',
+      victimAddress: '5Victim',
+      incidentTimestampMs: 1715532228001,
+      maxHops: 3,
+    })
+
+    expect(result.structuredContent.facts.case_roles).toContainEqual(expect.objectContaining({
+      address: '5RealExchange',
+      role: 'exchange_endpoint',
+    }))
+    expect(result.structuredContent.facts.topology_edges).toContainEqual(expect.objectContaining({
+      src: '5Deposit',
+      dst: '5RealExchange',
+      relation: 'terminal_exchange',
+    }))
+  })
+
+  it('decays laundering confidence with hop distance and scales it with traced value', async () => {
+    vi.mocked(client.callTool)
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_1', ok: true, results: [topologyRow('5Victim', '5HighValueHop', {
+          amount_sum: 563_000,
+          amount_usd_sum: 563_000,
+        })] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_2', ok: true, results: [topologyRow('5HighValueHop', '5DeepLowValueHop', {
+          amount_sum: 30,
+          amount_usd_sum: 30,
+        })] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_3', ok: true, results: [] },
+      ]))
+    const { scamTopology } = await import('../src/investigation/scam-topology.js')
+
+    const result = await scamTopology(client, config, {
+      network: 'bittensor',
+      victimAddress: '5Victim',
+      incidentTimestampMs: 1715532228001,
+      maxHops: 3,
+    })
+
+    const candidates = result.structuredContent.facts.label_candidates
+    const hopOne = candidates.find((candidate) => candidate.address === '5HighValueHop')
+    const deepHop = candidates.find((candidate) => candidate.address === '5DeepLowValueHop')
+    expect(hopOne).toBeDefined()
+    expect(deepHop).toBeDefined()
+    // A hop-1 high-value edge must outrank a deeper low-value edge.
+    expect(hopOne!.confidence_score).toBeGreaterThan(deepHop!.confidence_score)
+    // Confidence stays bounded in (0, 1].
+    expect(hopOne!.confidence_score).toBeLessThanOrEqual(1)
+    expect(deepHop!.confidence_score).toBeGreaterThan(0)
+  })
+
+  it('does not inflate confidence from implausible deep-hop USD pricing', async () => {
+    // Hop 1: native 249 with a plausible USD of 24900 (full traced value).
+    // Hop 2: native 200 but USD reported as a tiny implausible 3 (bad price);
+    // scoring must fall back to native and not collapse confidence to the floor.
+    vi.mocked(client.callTool)
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_1', ok: true, results: [topologyRow('5Victim', '5Hop', {
+          amount_sum: 249,
+          amount_usd_sum: 24_900,
+        })] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_2', ok: true, results: [
+          topologyRow('5Hop', '5BadPriceHop', { amount_sum: 200, amount_usd_sum: 3 }),
+          topologyRow('5Hop', '5GoodTrustedUsdHop', { amount_sum: 200, amount_usd_sum: 20_000 }),
+        ] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_3_source_1', ok: true, results: [] },
+        { id: 'incident_hop_3_source_2', ok: true, results: [] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_4', ok: true, results: [] },
+      ]))
+    const { scamTopology } = await import('../src/investigation/scam-topology.js')
+
+    const result = await scamTopology(client, config, {
+      network: 'bittensor',
+      victimAddress: '5Victim',
+      incidentTimestampMs: 1715532228001,
+      maxHops: 4,
+    })
+
+    const candidates = result.structuredContent.facts.label_candidates
+    const badPrice = candidates.find((candidate) => candidate.address === '5BadPriceHop')
+    const trusted = candidates.find((candidate) => candidate.address === '5GoodTrustedUsdHop')
+    expect(badPrice).toBeDefined()
+    expect(trusted).toBeDefined()
+    // Both edges are hop 2 with the same native value; implausible USD on one
+    // must not push its confidence below the trusted-USD sibling.
+    expect(badPrice!.confidence_score).toBeCloseTo(trusted!.confidence_score, 5)
+  })
+
+  it('auto-promotes a close-hop high-value laundering core and leaves the diluted tail for review', async () => {
+    vi.mocked(client.callTool)
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_1', ok: true, results: [topologyRow('5Victim', '5CoreMule', {
+          amount_sum: 563_000,
+          amount_usd_sum: 563_000,
+        })] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_2', ok: true, results: [topologyRow('5CoreMule', '5MidHop', {
+          amount_sum: 6,
+          amount_usd_sum: 6,
+        })] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_3', ok: true, results: [topologyRow('5MidHop', '5DeepTail', {
+          amount_sum: 1,
+          amount_usd_sum: 1,
+        })] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_4', ok: true, results: [] },
+      ]))
+    const { scamTopology } = await import('../src/investigation/scam-topology.js')
+
+    const result = await scamTopology(client, config, {
+      network: 'bittensor',
+      victimAddress: '5Victim',
+      incidentTimestampMs: 1715532228001,
+      maxHops: 4,
+    })
+
+    const candidates = result.structuredContent.facts.label_candidates
+    const core = candidates.find((candidate) => candidate.address === '5CoreMule')
+    const tail = candidates.find((candidate) => candidate.address === '5DeepTail')
+    expect(core).toBeDefined()
+    expect(tail).toBeDefined()
+    expect(core!.promotion_status).toBe('promote_confirmed')
+    expect(tail!.promotion_status).toBe('review_required')
   })
 })
