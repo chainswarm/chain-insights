@@ -78,7 +78,7 @@ export async function getBalance(wallet: WalletData): Promise<string> {
     `Balance: ${balanceUsdc} USDC`,
     `Gas: ${balanceEth} ETH on Base`,
     `Network: Base`,
-    `Base ETH is required for one-time USDC Permit2 approval gas.`,
+    `Base ETH is required only for one-time payment approval gas.`,
     `Address: ${wallet.address}`,
   ].filter(Boolean).join("\n");
 }

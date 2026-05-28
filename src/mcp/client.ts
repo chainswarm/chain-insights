@@ -3,6 +3,7 @@ import { ExactEvmScheme } from '@x402/evm'
 import { UptoEvmScheme } from '@x402/evm/upto/client'
 import { privateKeyToAccount } from 'viem/accounts'
 import type { InvestigatorConfig } from '../config/schema.js'
+import { prepareWalletForPaidCalls } from '../wallet/tools.js'
 
 type FetchLike = typeof fetch
 type FetchInput = Parameters<FetchLike>[0]
@@ -30,12 +31,22 @@ function createHeaderFetch(authToken: string, baseFetch: FetchLike): FetchLike {
 }
 
 export const PAYMENT_NEXT_STEPS =
-  'Next steps: run `chain-insights wallet topup` to fund your wallet with USDC on Base (required for paid queries), ' +
+  'Next steps: run `chain-insights wallet ready` to check funding and finish one-time payment setup, ' +
+  'run `chain-insights wallet topup` if it says the wallet needs USDC, ' +
   'or `chain-insights access-key set <key>` if you have been given test access.'
 
-function describePaymentRequiredResponse(response: Response, payerAddress?: string): string {
+interface PaymentRequirementDetails {
+  reason: string
+  scheme?: string
+  network?: string
+  amount?: string
+  amountUnits?: bigint
+  payTo?: string
+}
+
+function paymentRequirementFromResponse(response: Response): PaymentRequirementDetails | null {
   const encoded = response.headers.get('payment-required')
-  if (!encoded) return `Payment required — this tool costs USDC on Base via x402 micropayments. ${PAYMENT_NEXT_STEPS}`
+  if (!encoded) return null
 
   try {
     const decoded = Buffer.from(encoded, 'base64').toString('utf8')
@@ -45,18 +56,37 @@ function describePaymentRequiredResponse(response: Response, payerAddress?: stri
     }
     const reason = typeof parsed.error === 'string' && parsed.error.trim() ? parsed.error.trim() : 'payment_required'
     const firstRequirement = Array.isArray(parsed.accepts) ? parsed.accepts[0] : undefined
-    const payTo = typeof firstRequirement?.payTo === 'string' ? firstRequirement.payTo.trim() : ''
+    const amount = typeof firstRequirement?.amount === 'string' ? firstRequirement.amount.trim() : undefined
+    return {
+      reason,
+      scheme: typeof firstRequirement?.scheme === 'string' ? firstRequirement.scheme : undefined,
+      network: typeof firstRequirement?.network === 'string' ? firstRequirement.network : undefined,
+      amount,
+      amountUnits: amount && /^\d+$/.test(amount) ? BigInt(amount) : undefined,
+      payTo: typeof firstRequirement?.payTo === 'string' ? firstRequirement.payTo.trim() : undefined,
+    }
+  } catch {
+    return null
+  }
+}
+
+function describePaymentRequiredResponse(response: Response, payerAddress?: string): string {
+  const requirement = paymentRequirementFromResponse(response)
+  if (!requirement) return `Payment required — this tool costs USDC on Base via x402 micropayments. ${PAYMENT_NEXT_STEPS}`
+
+  try {
+    const { reason, payTo } = requirement
     if (payerAddress && payTo && payerAddress.toLowerCase() === payTo.toLowerCase()) {
       return 'Local payment wallet matches the MCP payTo address. Configure a separate payer wallet with USDC on Base; do not use the service recipient wallet as the client payment wallet.'
     }
     const details = [
-      typeof firstRequirement?.scheme === 'string' ? `scheme=${firstRequirement.scheme}` : undefined,
-      typeof firstRequirement?.network === 'string' ? `network=${firstRequirement.network}` : undefined,
-      typeof firstRequirement?.amount === 'string' ? `amount=${firstRequirement.amount}` : undefined,
+      requirement.scheme ? `scheme=${requirement.scheme}` : undefined,
+      requirement.network ? `network=${requirement.network}` : undefined,
+      requirement.amount ? `amount=${requirement.amount}` : undefined,
     ].filter(Boolean).join(' ')
     const message = details ? `x402 payment failed: ${reason} (${details})` : `x402 payment failed: ${reason}`
     if (reason.includes('allowance_required')) {
-      return `${message}. This wallet needs a one-time USDC Permit2 approval before paid MCP calls can settle. Base ETH is required for approval gas.`
+      return `${message}. The payment wallet needs one-time setup before paid MCP calls can settle. Run \`chain-insights wallet ready\`; Base ETH is required for the approval gas.`
     }
     if (reason === 'payment_required') {
       return `${message}. ${PAYMENT_NEXT_STEPS}`
@@ -67,10 +97,31 @@ function describePaymentRequiredResponse(response: Response, payerAddress?: stri
   }
 }
 
-function createPaymentFailureReportingFetch(baseFetch: FetchLike, payerAddress?: string): FetchLike {
+function createPaymentFailureReportingFetch(
+  baseFetch: FetchLike,
+  payerAddress?: string,
+  paymentWallet?: { address: `0x${string}`; privateKey: `0x${string}` },
+): FetchLike {
   const reportingFetch = (async (input: FetchInput, init?: FetchInit) => {
     const response = await baseFetch(input, init)
     if (response.status !== 402) return response
+    const requirement = paymentRequirementFromResponse(response)
+    if (paymentWallet && requirement?.reason.includes('allowance_required')) {
+      try {
+        await prepareWalletForPaidCalls({
+          account: paymentWallet,
+          ...(requirement.amountUnits === undefined ? {} : { minimumApprovalUnits: requirement.amountUnits }),
+        })
+      } catch (err) {
+        throw new PaymentRequiredError(
+          'Payment setup is not ready yet. Run `chain-insights wallet ready` and try again. ' +
+          `${(err as Error).message}`,
+        )
+      }
+      const retryResponse = await baseFetch(input, init)
+      if (retryResponse.status !== 402) return retryResponse
+      throw new PaymentRequiredError(describePaymentRequiredResponse(retryResponse, payerAddress))
+    }
     throw new PaymentRequiredError(describePaymentRequiredResponse(response, payerAddress))
   }) as FetchLike
   return Object.assign(reportingFetch, baseFetch)
@@ -100,7 +151,11 @@ export function createMcpFetchClient(privateKey: `0x${string}`, authToken?: stri
       },
     ],
   })
-  const reportingFetch = createPaymentFailureReportingFetch(paymentFetch, account.address)
+  const reportingFetch = createPaymentFailureReportingFetch(
+    paymentFetch,
+    account.address,
+    { address: account.address, privateKey },
+  )
   return authToken ? createHeaderFetch(authToken, reportingFetch) : reportingFetch
 }
 

@@ -533,7 +533,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.isError).toBe(true)
     expect(result.content[0].type).toBe('text')
     expect(result.content[0].text).toContain('Payment required for trace_address')
-    expect(result.content[0].text).toContain('chain-insights wallet topup')
+    expect(result.content[0].text).toContain('chain-insights wallet ready')
   })
 
   it('calls remoteClient.connect but not listTools when schema cache has tools (WR-01: always connect)', async () => {

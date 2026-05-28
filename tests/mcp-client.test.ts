@@ -1,6 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 
 const mockWrappedFetch = vi.hoisted(() => vi.fn(async () => new Response('{}')))
+const mockPrepareWalletForPaidCalls = vi.hoisted(() => vi.fn())
 
 vi.mock('@x402/fetch', () => ({
   wrapFetchWithPaymentFromConfig: vi.fn((fetch, config) => {
@@ -25,6 +26,10 @@ vi.mock('viem/accounts', () => ({
   privateKeyToAccount: vi.fn((key) => ({ address: '0xmock', key })),
 }))
 
+vi.mock('../src/wallet/tools.js', () => ({
+  prepareWalletForPaidCalls: mockPrepareWalletForPaidCalls,
+}))
+
 const mockIsWalletConfigured = vi.hoisted(() => vi.fn())
 const mockDecryptKey = vi.hoisted(() => vi.fn())
 vi.mock('../src/wallet/index.js', () => ({
@@ -36,6 +41,10 @@ describe('MCP client (02-01)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockWrappedFetch.mockResolvedValue(new Response('{}'))
+    mockPrepareWalletForPaidCalls.mockResolvedValue({
+      readiness: { ready: true },
+      approval: { status: 'approved', txHash: '0xapproval' },
+    })
   })
 
   it('createMcpFetchClient returns a function', async () => {
@@ -165,11 +174,45 @@ describe('MCP client (02-01)', () => {
     const client = createMcpFetchClient(testKey)
 
     await expect(client('https://staging-mcp.chain-insights.ai/mcp')).rejects.toThrow(
-      'chain-insights wallet topup',
+      'chain-insights wallet ready',
     )
   })
 
-  it('createMcpFetchClient explains Permit2 allowance failures need Base ETH gas', async () => {
+  it('createMcpFetchClient prepares the wallet and retries once when approval is missing', async () => {
+    const paymentRequired = Buffer.from(JSON.stringify({
+      x402Version: 2,
+      error: 'invalid_exact_evm_permit2_payload_allowance_required: simulation failed',
+      accepts: [{
+        scheme: 'upto',
+        network: 'eip155:8453',
+        amount: '2000000',
+      }],
+    })).toString('base64')
+    mockWrappedFetch
+      .mockResolvedValueOnce(new Response('null', {
+        status: 402,
+        headers: { 'payment-required': paymentRequired },
+      }))
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+
+    const { createMcpFetchClient } = await import('../src/mcp/client.js')
+    const testKey = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as const
+    const client = createMcpFetchClient(testKey)
+
+    const response = await client('https://staging-mcp.chain-insights.ai/mcp')
+
+    expect(response.status).toBe(200)
+    expect(mockWrappedFetch).toHaveBeenCalledTimes(2)
+    expect(mockPrepareWalletForPaidCalls).toHaveBeenCalledWith({
+      account: {
+        address: '0xmock',
+        privateKey: testKey,
+      },
+      minimumApprovalUnits: 2_000_000n,
+    })
+  })
+
+  it('createMcpFetchClient explains approval failures with wallet-ready guidance', async () => {
     const paymentRequired = Buffer.from(JSON.stringify({
       x402Version: 2,
       error: 'invalid_exact_evm_permit2_payload_allowance_required: simulation failed',
@@ -183,13 +226,14 @@ describe('MCP client (02-01)', () => {
       status: 402,
       headers: { 'payment-required': paymentRequired },
     }))
+    mockPrepareWalletForPaidCalls.mockRejectedValueOnce(new Error('insufficient Base ETH for gas'))
 
     const { createMcpFetchClient } = await import('../src/mcp/client.js')
     const testKey = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as const
     const client = createMcpFetchClient(testKey)
 
     await expect(client('https://staging-mcp.chain-insights.ai/mcp')).rejects.toThrow(
-      'Base ETH is required for approval gas',
+      'chain-insights wallet ready',
     )
   })
 
@@ -266,7 +310,7 @@ describe('MCP client (02-01)', () => {
 
     await expect(authedFetch('http://localhost:8011/mcp')).rejects.toBeInstanceOf(PaymentRequiredError)
     await expect(authedFetch('http://localhost:8011/mcp')).rejects.toThrow(
-      'chain-insights wallet topup',
+      'chain-insights wallet ready',
     )
   })
 
@@ -277,7 +321,7 @@ describe('MCP client (02-01)', () => {
     const authedFetch = createMcpAuthFetchClient('debug-secret', baseFetch)
 
     await expect(authedFetch('http://localhost:8011/mcp')).rejects.toThrow(
-      'chain-insights wallet topup',
+      'chain-insights wallet ready',
     )
   })
 
