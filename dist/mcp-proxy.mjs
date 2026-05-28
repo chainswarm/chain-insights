@@ -991,7 +991,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { addressRisk } = await import("./public-tools-D8W54YSA.mjs");
+			const { addressRisk } = await import("./public-tools-BKNH0BGv.mjs");
 			const { writeGraphReport } = await import("./graph-reports-DnqWWNSp.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-C9rfjB05.mjs");
 			const result = await addressRisk(remoteClient, {
@@ -1062,7 +1062,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { trackFunds } = await import("./public-tools-D8W54YSA.mjs");
+			const { trackFunds } = await import("./public-tools-BKNH0BGv.mjs");
 			const { writeGraphReport } = await import("./graph-reports-DnqWWNSp.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-C9rfjB05.mjs");
 			const result = await trackFunds(remoteClient, config, {
@@ -1135,7 +1135,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { scamTopology } = await import("./public-tools-D8W54YSA.mjs");
+			const { scamTopology } = await import("./public-tools-BKNH0BGv.mjs");
 			const { writeGraphReport } = await import("./graph-reports-DnqWWNSp.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-C9rfjB05.mjs");
 			const result = await scamTopology(remoteClient, config, {
@@ -1212,7 +1212,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { stakeInsights } = await import("./public-tools-D8W54YSA.mjs");
+			const { stakeInsights } = await import("./public-tools-BKNH0BGv.mjs");
 			const { writeGraphReport } = await import("./graph-reports-DnqWWNSp.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-C9rfjB05.mjs");
 			const result = await stakeInsights(remoteClient, {
