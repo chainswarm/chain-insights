@@ -223,6 +223,46 @@ describe('scamTopology', () => {
     ]))
   })
 
+  it('does not scam-label shared exchange-deposit infrastructure', async () => {
+    vi.mocked(client.callTool)
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_1', ok: true, results: [topologyRow('5Victim', '5Hop')] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        { id: 'incident_hop_2', ok: true, results: [topologyRow('5Hop', '5SharedDeposit')] },
+      ]))
+      .mockResolvedValueOnce(graphBatchResult([
+        {
+          id: 'incident_hop_3',
+          ok: true,
+          results: [topologyRow('5SharedDeposit', '5Exchange', {
+            dst_labels: ['exchange'],
+            dst_is_exchange: true,
+            tx_count: 1500,
+            amount_usd_sum: 200_000_000,
+          })],
+        },
+      ]))
+    const { scamTopology } = await import('../src/investigation/scam-topology.js')
+
+    const result = await scamTopology(client, config, {
+      network: 'bittensor',
+      victimAddress: '5Victim',
+      incidentTimestampMs: 1715532228001,
+    })
+
+    // A high-throughput shared exchange-deposit address is exchange-adjacent
+    // infrastructure, not a scammer-dedicated cash-out address.
+    expect(result.structuredContent.facts.label_candidates)
+      .not.toContainEqual(expect.objectContaining({ address: '5SharedDeposit', address_type: 'SCAM' }))
+    expect(result.structuredContent.facts.scam_labels)
+      .not.toContainEqual(expect.objectContaining({ address: '5SharedDeposit' }))
+    expect(result.structuredContent.facts.safety_decisions).toContainEqual(expect.objectContaining({
+      address: '5SharedDeposit',
+      decision: 'do_not_label_shared_exchange_deposit',
+    }))
+  })
+
   it('rejects scammer seed inputs because scam topology starts from a victim incident', async () => {
     const { scamTopology } = await import('../src/investigation/scam-topology.js')
 
