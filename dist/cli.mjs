@@ -376,7 +376,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { addressRisk } = await import("./public-tools-Cvh4VbIv.mjs");
+			const { addressRisk } = await import("./public-tools-BxgG_DC_.mjs");
 			const result = await addressRisk(client, {
 				address: opts.address,
 				network: opts.network,
@@ -404,7 +404,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { trackFunds } = await import("./public-tools-Cvh4VbIv.mjs");
+			const { trackFunds } = await import("./public-tools-BxgG_DC_.mjs");
 			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
 			const result = await trackFunds(client, config, {
 				trustedAddresses: opts.trustedAddresses,
@@ -427,7 +427,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { requireWorkspaceRoot } = await import("./output-root-B3iHs14J.mjs").then((n) => n.t);
 		requireWorkspaceRoot();
 		await withGraphMcpClient("chain-insights-cli-scam-topology", async (client, config) => {
-			const { scamTopology } = await import("./public-tools-Cvh4VbIv.mjs");
+			const { scamTopology } = await import("./public-tools-BxgG_DC_.mjs");
 			const incidentTimestampMs = optionalNumber(opts.incidentTimestampMs);
 			if (incidentTimestampMs === void 0) throw new Error("incident-timestamp-ms is required");
 			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
@@ -449,7 +449,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 })).addCommand(new Command("stake-insights").description("Explain Bittensor staking behavior around an address, coldkey, or hotkey").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--address <address>", "Full Bittensor address to inspect as either coldkey or hotkey").option("--coldkey <address>", "Full Bittensor coldkey address to inspect").option("--hotkey <address>", "Full Bittensor hotkey address to inspect").option("--netuid <number>", "Optional subnet netuid filter").option("--start-timestamp-ms <milliseconds>", "Optional inclusive lower activity timestamp bound").option("--end-timestamp-ms <milliseconds>", "Optional inclusive upper activity timestamp bound").option("--start-block <number>", "Optional start block. Current stake graph parity may require timestamp windows instead.").option("--end-block <number>", "Optional end block. Current stake graph parity may require timestamp windows instead.").option("--depth <number>", "Optional expansion depth limit, default 1, max 3").action(async (opts) => {
 	try {
 		await withGraphMcpClient("chain-insights-cli-stake-insights", async (client) => {
-			const { stakeInsights } = await import("./public-tools-Cvh4VbIv.mjs");
+			const { stakeInsights } = await import("./public-tools-BxgG_DC_.mjs");
 			const result = await stakeInsights(client, {
 				network: opts.network,
 				address: opts.address,
@@ -477,7 +477,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		assertPublicMcpToolName(tool);
 		await withGraphMcpClient("chain-insights-cli-call", async (client, config) => {
 			if (tool === "address_risk") {
-				const { addressRisk } = await import("./public-tools-Cvh4VbIv.mjs");
+				const { addressRisk } = await import("./public-tools-BxgG_DC_.mjs");
 				const result = await addressRisk(client, {
 					address: String(args["address"] ?? ""),
 					network: String(args["network"] ?? ""),
@@ -487,7 +487,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "track_funds") {
-				const { trackFunds } = await import("./public-tools-Cvh4VbIv.mjs");
+				const { trackFunds } = await import("./public-tools-BxgG_DC_.mjs");
 				const result = await trackFunds(client, config, {
 					trustedAddresses: args["trusted_addresses"] ?? "",
 					untrustedAddresses: args["untrusted_addresses"],
@@ -502,7 +502,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "scam_topology") {
-				const { scamTopology } = await import("./public-tools-Cvh4VbIv.mjs");
+				const { scamTopology } = await import("./public-tools-BxgG_DC_.mjs");
 				const victimAddress = String(args["victim_address"] ?? "").trim();
 				if (!victimAddress) throw new Error("victim_address is required");
 				const incidentTimestampMs = optionalNumberArg(args["incident_timestamp_ms"], "incident_timestamp_ms");
@@ -520,7 +520,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "stake_insights") {
-				const { stakeInsights } = await import("./public-tools-Cvh4VbIv.mjs");
+				const { stakeInsights } = await import("./public-tools-BxgG_DC_.mjs");
 				const result = await stakeInsights(client, {
 					network: String(args["network"] ?? ""),
 					address: args["address"] === void 0 ? void 0 : String(args["address"]),

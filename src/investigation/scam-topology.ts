@@ -308,6 +308,38 @@ function isExchangeEndpoint(labels: string[], isExchange: unknown, roles: string
   return isExchangeFlag(isExchange) || hasExchangeLabel(labels) || roles.some((role) => role.toLowerCase().includes('exchange'))
 }
 
+/**
+ * Transaction-count threshold above which a deposit edge is treated as shared
+ * exchange infrastructure rather than a scammer-dedicated cash-out address.
+ */
+const SHARED_EXCHANGE_DEPOSIT_TX_COUNT = 1000
+
+/**
+ * USD-volume threshold above which a deposit edge is treated as shared exchange
+ * infrastructure rather than a scammer-dedicated cash-out address.
+ */
+const SHARED_EXCHANGE_DEPOSIT_USD_SUM = 5_000_000
+
+/**
+ * Decide whether a penultimate-to-exchange edge represents shared exchange
+ * deposit infrastructure (an omnibus or routing address many users fund)
+ * rather than a scammer-dedicated cash-out address.
+ *
+ * A single scammer's cash-out deposit for one incident does not aggregate
+ * thousands of transfers or tens of millions of USD; an edge that does is
+ * exchange-side infrastructure and must not be auto-labeled scam.
+ *
+ * @param edge - A `terminal_exchange` topology edge (deposit -> exchange).
+ * @returns `true` when the edge's `tx_count` or `amount_usd_sum` exceeds the
+ *   shared-infrastructure thresholds.
+ */
+function isSharedExchangeDeposit(edge: ScamTopologyTopologyEdge): boolean {
+  return (
+    (edge.tx_count !== undefined && edge.tx_count >= SHARED_EXCHANGE_DEPOSIT_TX_COUNT) ||
+    (edge.amount_usd_sum !== undefined && edge.amount_usd_sum >= SHARED_EXCHANGE_DEPOSIT_USD_SUM)
+  )
+}
+
 function isGenericContextLabel(label: string): boolean {
   const normalized = label.trim().toLowerCase()
   return normalized === 'exchange' ||
@@ -998,13 +1030,24 @@ function classifyTopology(
           seed_role: edge.seed_role,
         })
         addRole(rolesByAddress, edge.src, 'exchange_deposit_candidate')
-        mergeCandidate(candidates, makeCandidate(
-          edge.src,
-          'exchange_deposit_candidate',
-          edgeEvidence(edge, 'Address is the penultimate hop before an exchange endpoint.'),
-          edge.seed_role === 'scammer' ? 0.8 : 0.68,
-          'review_required',
-        ))
+        if (isSharedExchangeDeposit(edge)) {
+          pushSafetyDecision(safetyDecisions, {
+            address: edge.src,
+            decision: 'do_not_label_shared_exchange_deposit',
+            reason: 'Penultimate address shows shared exchange-deposit throughput (high tx_count or USD volume); treated as exchange-adjacent context, not an automatic scam candidate.',
+            tx_count: edge.tx_count,
+            amount_usd_sum: edge.amount_usd_sum,
+            seed_address: edge.seed_address,
+          })
+        } else {
+          mergeCandidate(candidates, makeCandidate(
+            edge.src,
+            'exchange_deposit_candidate',
+            edgeEvidence(edge, 'Address is the penultimate hop before an exchange endpoint.'),
+            edge.seed_role === 'scammer' ? 0.8 : 0.68,
+            'review_required',
+          ))
+        }
       }
       continue
     }
