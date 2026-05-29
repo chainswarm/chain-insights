@@ -2,6 +2,10 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.26] - 2026-05-29
+
+- The MCP proxy now starts its local Chain Insights tool surface even when paid GraphRAG MCP fetch setup needs wallet or access-key configuration. Fresh MCP clients can list `help`, wallet/case tools, and the local AML workflows first, then receive user-facing `wallet ready` or `access-key` guidance when graph-backed calls need hosted access instead of seeing the proxy exit during `tools/list`.
+
 ## [0.2.25] - 2026-05-28
 
 - `scam_topology` auto-promotion now uses a decay-calibrated confidence threshold (0.5) instead of 0.72. Because carried value is scored from native token amounts — whose magnitudes sit far below the USD-scale value saturation — even a hop-1 incident-scale edge decays to ~0.5-0.6, so the old 0.72 bar was unreachable on victim-anchored traces and nothing ever auto-promoted. Combined with the `hop <= 2` gate, the close-hop real-value core now promotes while dust and deeper edges stay review-only.
