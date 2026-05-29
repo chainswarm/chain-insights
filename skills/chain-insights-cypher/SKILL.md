@@ -21,6 +21,11 @@ skill exists, load it after this one.
 4. Use `graph_query_batch` for related schema, topology, and facts reads.
 5. Save material query output as workspace evidence before summarizing it.
 
+For practical query recipes and Memgraph deep traversal fallbacks, read
+`references/memgraph-examples.md`. It contains staging-tested examples for
+`MATCH`, `WHERE`, `WITH`, aggregates, `CASE`, archive/facts projections, and
+fixed-hop traversal batches.
+
 ## Layer Choice
 
 | Layer | Use for | Query style |
@@ -32,7 +37,9 @@ skill exists, load it after this one.
 Treat `archive_topology` and `facts` as mapped graph views, not full Memgraph.
 Avoid backend-specific functions such as `keys()`, `labels()`, `type()`,
 procedures, native BFS syntax, catalog operations, and variable-length path
-tricks unless the current endpoint has just accepted the exact pattern.
+tricks unless the current endpoint has just accepted the exact pattern. When a
+Memgraph deep traversal pattern fails, rewrite it as a bounded
+`graph_query_batch` of explicit fixed-hop `FLOWS_TO` patterns.
 
 ## Common Schema
 
@@ -93,6 +100,8 @@ cia mcp call graph_query \
   network=<network> \
   'query=USE facts MATCH (a:Address {address: "FULL_ADDRESS"})-[:HAS_LABEL]->(label:AddressLabel) RETURN label.label AS label, label.entity_type AS entity_type, label.address_type AS address_type, label.source AS source LIMIT 25'
 ```
+
+More examples: `references/memgraph-examples.md`.
 
 ## Hard Stops
 

@@ -22,6 +22,8 @@ docs/superpowers/
 # Misc local output directories created by init/debug workflows.
 modules/
 references/
+!skills/*/references/
+!skills/*/references/**
 refrences/
 
 *.log

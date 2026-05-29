@@ -2,6 +2,18 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.32] - 2026-05-29
+
+- Added a shipped Memgraph examples reference for `chain-insights-cypher`,
+  covering staging-tested GraphRAG MCP reads, archive/facts examples, and
+  fixed-hop traversal fallbacks for native Memgraph deep traversal syntax that
+  the hosted endpoint currently rejects.
+- Allowed skill-local `references/` bundles to be tracked and shipped while
+  keeping root-level local investigation references ignored.
+- Expanded Bittensor Cypher guidance with practical prefix search,
+  address-family census, and combined SS58/EVM examples under
+  `network=bittensor`.
+
 ## [0.2.31] - 2026-05-29
 
 - Added shipped `chain-insights-cypher` and

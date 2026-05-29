@@ -38,6 +38,14 @@ Observed against staging on 2026-05-29:
 - Source mappings include archive `STAKES_IN` and facts labels/features/neuron
   context, but staging returned generic backend errors for those sample reads;
   verify them with a fresh schema probe before relying on them.
+- On 2026-05-29, staging accepted practical Memgraph-style reads such as
+  `WHERE STARTS WITH`, `WITH` aggregations, `CASE`, address-family counts, and
+  fixed-hop `FLOWS_TO` patterns. It rejected native Memgraph deep traversal
+  operators through the hosted GraphRAG MCP path, including `*BFS`,
+  `*WSHORTEST`, `*ALLSHORTEST`, `*KSHORTEST`, and variable-length relationship
+  syntax. Use the generic skill reference
+  `references/memgraph-examples.md` for tested examples and fixed-hop
+  fallbacks.
 
 ## Bittensor Shapes
 
@@ -122,6 +130,22 @@ Outflows from a SS58 or `0x...` Bittensor address:
 cia mcp call graph_query \
   network=bittensor \
   'query=USE live_topology MATCH (src:Address {address: "FULL_BITTENSOR_ADDRESS"})-[flow:FLOWS_TO]->(dst:Address) RETURN dst.address AS to_address, flow.amount_sum AS amount_sum, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 50'
+```
+
+Find likely address completions from a prefix:
+
+```bash
+cia mcp call graph_query \
+  network=bittensor \
+  'query=USE live_topology MATCH (a:Address) WHERE a.address STARTS WITH "5Ggf" RETURN a.address AS address, a.address_type AS address_type, a.network AS network LIMIT 10'
+```
+
+Show how the combined Bittensor network currently splits address families:
+
+```bash
+cia mcp call graph_query \
+  network=bittensor \
+  'query=USE live_topology MATCH (a:Address) RETURN a.address_type AS address_type, a.network AS source_network, count(a) AS addresses ORDER BY addresses DESC LIMIT 10'
 ```
 
 Historical archive read for the same address:

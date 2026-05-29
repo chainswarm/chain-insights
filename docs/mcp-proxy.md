@@ -132,6 +132,11 @@ current caller's quota status. Public free access does not include
 usage and batches. Use explicit LIMIT and pagination in your query when you
 want bounded result sets.
 
+For custom graph reads, install the shipped `chain-insights-cypher` skill. Its
+Memgraph examples reference distinguishes staging-tested GraphRAG MCP query
+patterns from direct Memgraph deep traversal syntax that needs a fixed-hop
+`graph_query_batch` fallback through the hosted endpoint.
+
 Paid x402 mode:
 
 ```bash
