@@ -61,6 +61,11 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS = {
 	graph_query: "Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment. Cross-layer correlated joins may be limited by the active graph endpoint; preserve full addresses exactly.",
 	graph_query_batch: "Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads."
 };
+const FALLBACK_GRAPH_PRIMITIVE_TOOL_NAMES = [
+	"network_capabilities",
+	"graph_query",
+	"graph_query_batch"
+];
 const NETWORK_DESCRIPTION = "Required network to query. Do not guess; use network_capabilities or ask the user if missing.";
 const REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS = 900 * 1e3;
 const CHAIN_INSIGHTS_WORKFLOW = [
@@ -184,6 +189,12 @@ function knownPublicToolInputSchema(toolName) {
 		};
 		default: return null;
 	}
+}
+function fallbackGraphPrimitiveTools() {
+	return FALLBACK_GRAPH_PRIMITIVE_TOOL_NAMES.map((name) => ({
+		name,
+		description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS[name]
+	}));
 }
 function isRecord(value) {
 	return !!value && typeof value === "object" && !Array.isArray(value);
@@ -590,7 +601,6 @@ async function createProxy() {
 		graph_mcp_endpoint: resolveGraphMcpEndpoint(config),
 		log_path: logger.filePath
 	});
-	const mcpFetch = await createConfiguredGraphMcpFetch(config);
 	const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
 	const remoteClient = new Client({
 		name: "chain-insights-proxy-client",
@@ -598,7 +608,18 @@ async function createProxy() {
 	});
 	let remoteConnected = false;
 	let remoteUnavailableMessage;
+	let mcpFetch;
 	try {
+		mcpFetch = await createConfiguredGraphMcpFetch(config);
+	} catch (err) {
+		await logger.error("remote.fetch_setup_failed", {
+			endpoint: graphMcpEndpoint,
+			error: errorForLog(err)
+		});
+		remoteUnavailableMessage = `Graph MCP setup unavailable at ${graphMcpEndpoint}: ${err.message}`;
+		process.stderr.write(`Chain Insights MCP graph tools unavailable: ${remoteUnavailableMessage}. Local Chain Insights tools are still available.\n`);
+	}
+	if (mcpFetch) try {
 		await remoteClient.connect(new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: mcpFetch }));
 		remoteConnected = true;
 		await logger.info("remote.connect", {
@@ -642,10 +663,10 @@ async function createProxy() {
 		count: tools.length
 	});
 	else {
-		tools = [];
+		tools = fallbackGraphPrimitiveTools();
 		await logger.info("schema.tools_loaded", {
 			source: "unavailable",
-			count: 0
+			count: tools.length
 		});
 	}
 	const remoteToolNames = new Set((tools ?? []).map((tool) => tool.name));

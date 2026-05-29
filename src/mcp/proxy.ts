@@ -61,6 +61,7 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   graph_query: 'Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment. Cross-layer correlated joins may be limited by the active graph endpoint; preserve full addresses exactly.',
   graph_query_batch: 'Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads.',
 }
+const FALLBACK_GRAPH_PRIMITIVE_TOOL_NAMES = ['network_capabilities', 'graph_query', 'graph_query_batch'] as const
 
 type ToolInputShape = Record<string, z.ZodTypeAny>
 type ToolHandler = (args: unknown, extra?: unknown) => Promise<unknown> | unknown
@@ -228,6 +229,13 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
     default:
       return null
   }
+}
+
+function fallbackGraphPrimitiveTools(): McpTool[] {
+  return FALLBACK_GRAPH_PRIMITIVE_TOOL_NAMES.map((name) => ({
+    name,
+    description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS[name],
+  }))
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -816,7 +824,6 @@ export async function createProxy(): Promise<void> {
     graph_mcp_endpoint: resolveGraphMcpEndpoint(config),
     log_path: logger.filePath,
   })
-  const mcpFetch = await createConfiguredGraphMcpFetch(config)
   const graphMcpEndpoint = resolveGraphMcpEndpoint(config)
 
   // Build remote MCP client. The local Chain Insights MCP surface must still
@@ -825,42 +832,58 @@ export async function createProxy(): Promise<void> {
   const remoteClient = new Client({ name: 'chain-insights-proxy-client', version: PACKAGE_VERSION })
   let remoteConnected = false
   let remoteUnavailableMessage: string | undefined
+  let mcpFetch: typeof fetch | undefined
 
   try {
-    await remoteClient.connect(
-      new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: mcpFetch }),
+    mcpFetch = await createConfiguredGraphMcpFetch(config)
+  } catch (err) {
+    await logger.error('remote.fetch_setup_failed', {
+      endpoint: graphMcpEndpoint,
+      error: errorForLog(err),
+    })
+    remoteUnavailableMessage = `Graph MCP setup unavailable at ${graphMcpEndpoint}: ${(err as Error).message}`
+    process.stderr.write(
+      `Chain Insights MCP graph tools unavailable: ${remoteUnavailableMessage}. Local Chain Insights tools are still available.\n`,
     )
-    remoteConnected = true
-    await logger.info('remote.connect', {
-      transport: 'streamable_http',
-      endpoint: graphMcpEndpoint,
-    })
-  } catch {
-    await logger.error('remote.connect_failed', {
-      transport: 'streamable_http',
-      endpoint: graphMcpEndpoint,
-    })
-    // StreamableHTTP failed — try SSE fallback (assumption A1 from RESEARCH.md)
+  }
+
+  if (mcpFetch) {
     try {
-      const { SSEClientTransport } = await import('@modelcontextprotocol/sdk/client/sse.js')
       await remoteClient.connect(
-        new SSEClientTransport(new URL(graphMcpEndpoint), { fetch: mcpFetch }),
+        new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: mcpFetch }),
       )
       remoteConnected = true
       await logger.info('remote.connect', {
-        transport: 'sse',
+        transport: 'streamable_http',
         endpoint: graphMcpEndpoint,
       })
-    } catch (err2) {
+    } catch {
       await logger.error('remote.connect_failed', {
-        transport: 'sse',
+        transport: 'streamable_http',
         endpoint: graphMcpEndpoint,
-        error: errorForLog(err2),
       })
-      remoteUnavailableMessage = `Graph MCP unreachable at ${graphMcpEndpoint}: ${(err2 as Error).message}`
-      process.stderr.write(
-        `Chain Insights MCP graph tools unavailable: ${remoteUnavailableMessage}. Local Chain Insights tools are still available.\n`,
-      )
+      // StreamableHTTP failed — try SSE fallback (assumption A1 from RESEARCH.md)
+      try {
+        const { SSEClientTransport } = await import('@modelcontextprotocol/sdk/client/sse.js')
+        await remoteClient.connect(
+          new SSEClientTransport(new URL(graphMcpEndpoint), { fetch: mcpFetch }),
+        )
+        remoteConnected = true
+        await logger.info('remote.connect', {
+          transport: 'sse',
+          endpoint: graphMcpEndpoint,
+        })
+      } catch (err2) {
+        await logger.error('remote.connect_failed', {
+          transport: 'sse',
+          endpoint: graphMcpEndpoint,
+          error: errorForLog(err2),
+        })
+        remoteUnavailableMessage = `Graph MCP unreachable at ${graphMcpEndpoint}: ${(err2 as Error).message}`
+        process.stderr.write(
+          `Chain Insights MCP graph tools unavailable: ${remoteUnavailableMessage}. Local Chain Insights tools are still available.\n`,
+        )
+      }
     }
   }
   if (remoteConnected) installRemoteCypherLogging(remoteClient as unknown as RemoteToolCaller, logger)
@@ -883,10 +906,10 @@ export async function createProxy(): Promise<void> {
       count: tools.length,
     })
   } else {
-    tools = []
+    tools = fallbackGraphPrimitiveTools()
     await logger.info('schema.tools_loaded', {
       source: 'unavailable',
-      count: 0,
+      count: tools.length,
     })
   }
   const remoteToolNames = new Set((tools ?? []).map((tool) => tool.name))

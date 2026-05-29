@@ -361,11 +361,42 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     await createProxy()
     stderrSpy.mockRestore()
 
+    const serverInstance = vi.mocked(McpServer).mock.results.at(-1)?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+      connect: ReturnType<typeof vi.fn>
+    }
+    const toolNames = serverInstance.registerTool.mock.calls.map((entry) => entry[0])
+    expect(toolNames).toContain('balance')
+    expect(toolNames).toContain('help')
+    expect(toolNames).toContain('case_list')
+    expect(toolNames).toContain('network_capabilities')
+    expect(toolNames).toContain('graph_query')
+    expect(toolNames).toContain('scam_topology')
+    expect(serverInstance.connect).toHaveBeenCalled()
+  })
+
+  it('starts local Chain Insights tools when paid GraphRAG fetch setup needs wallet configuration', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const mcpClient = await import('../src/mcp/client.js')
+    vi.mocked(mcpClient.createConfiguredGraphMcpFetch).mockRejectedValueOnce(
+      new Error('Wallet not configured. Run `chain-insights wallet ready`.'),
+    )
+
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+    stderrSpy.mockRestore()
+
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
       connect: ReturnType<typeof vi.fn>
     }
     const toolNames = serverInstance.registerTool.mock.calls.map((entry) => entry[0])
+
     expect(toolNames).toContain('balance')
     expect(toolNames).toContain('help')
     expect(toolNames).toContain('case_list')
