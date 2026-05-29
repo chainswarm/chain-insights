@@ -40,7 +40,10 @@ assumed to exist on the GraphRAG MCP endpoint.
 Agent installers ship two graph-query skills:
 
 - `chain-insights-cypher`: generic layer selection, schema capture, and
-  portable read-only GQL/Cypher examples.
+  portable read-only GQL/Cypher examples. Its
+  `references/memgraph-examples.md` file includes staging-tested Memgraph-style
+  recipes, archive/facts reads, and fixed-hop traversal fallbacks for native
+  Memgraph deep traversal syntax that the hosted GraphRAG MCP path may reject.
 - `chain-insights-bittensor-cypher`: Bittensor-specific schema notes for SS58
   and EVM-pallet addresses under `network=bittensor`.
 
