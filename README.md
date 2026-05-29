@@ -18,6 +18,7 @@ MCP endpoint for development; hosted endpoints are set explicitly with
 | `stake_insights` | Explain Bittensor staking relationships, net stake movement, and counterparties |
 | `track_funds` | Trace victim/source funds through intermediaries to exchange deposit candidates |
 | `scam_topology` | Expand a known victim incident into reviewable scam infrastructure and label candidates |
+| `usage_status` | Check the caller's public free graph query quota for today |
 | `graph_query` | Run one read-only GQL/Cypher query against a GraphRAG MCP graph layer |
 | `graph_query_batch` | Run related read-only graph queries as one MCP call |
 
@@ -101,12 +102,19 @@ Check the configured endpoint and current GraphRAG MCP capabilities:
 ```bash
 cia config get graphMcpEndpoint
 cia mcp networks
+cia mcp call usage_status
 cia mcp tools --refresh
 ```
 
 If network or tool discovery fails, check the endpoint and access mode first.
 The CLI can still initialize workspaces and manage cases without a reachable
 GraphRAG MCP endpoint.
+
+Hosted GraphRAG MCP lets new users try `graph_query` with a small public free
+quota before setting up paid access. The default public free graph_query quota
+is 10 execution seconds per IP per UTC day. Use `usage_status` to see the
+current caller quota. When the free quota is exhausted, prepare a wallet or use
+an invited tester access key and retry.
 
 Open a case and run a small investigation:
 
@@ -182,8 +190,9 @@ Graph queries must choose the right read layer explicitly:
 | `facts` | Labels, features, risk scores, assets, and enrichment |
 
 Use `graph_query_batch` when related reads should share one call and one
-result envelope. Endpoint access and authentication are configured separately;
-see [MCP proxy](docs/mcp-proxy.md).
+result envelope. Use explicit `LIMIT` and pagination in your query when you
+want bounded result sets. Endpoint access and authentication are configured
+separately; see [MCP proxy](docs/mcp-proxy.md).
 
 ## AML Tools
 

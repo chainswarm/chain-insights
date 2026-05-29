@@ -201,6 +201,16 @@ async function createConfiguredFetchWithToken(
   return createMcpFetchClient(privateKey as `0x${string}`)
 }
 
+async function createConfiguredGraphPaidOrFreeFetch(): Promise<FetchLike> {
+  const { isWalletConfigured, decryptKey } = await import('../wallet/index.js')
+  if (!(await isWalletConfigured())) {
+    return createPaymentFailureReportingFetch(fetch)
+  }
+
+  const privateKey = await decryptKey()
+  return createMcpFetchClient(privateKey as `0x${string}`)
+}
+
 export async function createConfiguredMcpFetch(config: Pick<InvestigatorConfig, 'mcpAuthToken'>): Promise<FetchLike> {
   return createConfiguredFetchWithToken(config.mcpAuthToken, 'mcpAuthToken')
 }
@@ -216,5 +226,5 @@ export async function createConfiguredGraphMcpFetch(
     return createMcpAuthFetchClient(authToken)
   }
 
-  return createConfiguredFetchWithToken(undefined, 'walletPrivateKey')
+  return createConfiguredGraphPaidOrFreeFetch()
 }

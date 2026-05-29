@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { callGraphQueryBatch, type ToolCaller } from '../src/mcp/graph-client.js'
+import { callGraphQueryBatch, callUsageStatus, type ToolCaller } from '../src/mcp/graph-client.js'
 
 function resultEnvelope(facts: Record<string, unknown> = { rows: [] }) {
   return {
@@ -13,6 +13,40 @@ function resultEnvelope(facts: Record<string, unknown> = { rows: [] }) {
 }
 
 describe('MCP graph batch client', () => {
+  it('calls usage_status as free metadata without network arguments', async () => {
+    const client: ToolCaller = {
+      callTool: vi.fn(async () => ({
+        structuredContent: {
+          schema: 'chain-insights.result.v1',
+          tool: 'usage_status',
+          facts: {
+            usage: {
+              access_mode: 'public_free',
+              daily_seconds_used: 4,
+              remaining_seconds: 6,
+            },
+          },
+          hint: null,
+        },
+      })),
+    }
+
+    const result = await callUsageStatus({ client })
+
+    expect(client.callTool).toHaveBeenCalledWith({
+      name: 'usage_status',
+      arguments: {},
+    })
+    expect(result.tool).toBe('usage_status')
+    expect(result.facts).toEqual({
+      usage: {
+        access_mode: 'public_free',
+        daily_seconds_used: 4,
+        remaining_seconds: 6,
+      },
+    })
+  })
+
   it('calls graph_query_batch with network and query list', async () => {
     const client: ToolCaller = {
       callTool: vi.fn(async () => resultEnvelope({ count: 2 })),

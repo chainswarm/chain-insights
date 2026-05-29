@@ -2,6 +2,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.29] - 2026-05-29
+
+- Added `usage_status` documentation and client coverage for the GraphRAG MCP public free `graph_query` quota.
+- Updated graph access guidance to call out the default 10 execution seconds per IP per UTC day, explicit query `LIMIT`/pagination, and paid fallback after quota exhaustion.
+- Let paid-mode GraphRAG MCP clients make public free calls before wallet setup, while still surfacing wallet-ready guidance when the endpoint returns payment required.
+
 ## [0.2.28] - 2026-05-29
 
 - Added `chain-insights wallet import <private-key>` as the user-facing way to configure a Base payment wallet.

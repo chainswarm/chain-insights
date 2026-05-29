@@ -399,26 +399,59 @@ describe('MCP client (02-01)', () => {
     expect(mockDecryptKey).not.toHaveBeenCalled()
   })
 
-  it('createConfiguredGraphMcpFetch explains missing hosted access without raw wallet config internals', async () => {
+  it('createConfiguredGraphMcpFetch allows public free calls before wallet setup', async () => {
     mockIsWalletConfigured.mockResolvedValue(false)
+    const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = []
+    const baseFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ input, init })
+      return new Response('{}')
+    })
+    vi.stubGlobal('fetch', baseFetch)
 
-    const { createConfiguredGraphMcpFetch } = await import('../src/mcp/client.js')
-    let message = ''
     try {
-      await createConfiguredGraphMcpFetch({
+      const { createConfiguredGraphMcpFetch } = await import('../src/mcp/client.js')
+      const graphFetch = await createConfiguredGraphMcpFetch({
         mcpAuthToken: '',
         graphMcpAuthToken: '',
         graphMcpMode: 'paid',
       })
-    } catch (err) {
-      message = (err as Error).message
-    }
+      await graphFetch('https://staging-mcp.chain-insights.ai/mcp')
 
-    expect(message).toContain('chain-insights wallet ready')
-    expect(message).toContain('chain-insights wallet topup')
-    expect(message).toContain('chain-insights access-key set <key>')
-    expect(message).not.toContain('walletPrivateKey')
-    expect(message).not.toContain('debug bypass')
+      expect(calls).toHaveLength(1)
+      expect(mockIsWalletConfigured).toHaveBeenCalledOnce()
+      expect(mockDecryptKey).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('createConfiguredGraphMcpFetch explains paid fallback without raw wallet config internals', async () => {
+    mockIsWalletConfigured.mockResolvedValue(false)
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', {
+      status: 402,
+      headers: {
+        'payment-required': Buffer.from(JSON.stringify({
+          x402Version: 2,
+          error: 'payment_required',
+          accepts: [{ scheme: 'upto', network: 'eip155:8453', amount: '1000000' }],
+        })).toString('base64'),
+      },
+    })))
+
+    try {
+      const { createConfiguredGraphMcpFetch } = await import('../src/mcp/client.js')
+      const graphFetch = await createConfiguredGraphMcpFetch({
+        mcpAuthToken: '',
+        graphMcpAuthToken: '',
+        graphMcpMode: 'paid',
+      })
+
+      await expect(graphFetch('https://staging-mcp.chain-insights.ai/mcp')).rejects.toThrow('chain-insights wallet ready')
+      await expect(graphFetch('https://staging-mcp.chain-insights.ai/mcp')).rejects.toThrow('chain-insights wallet topup')
+      await expect(graphFetch('https://staging-mcp.chain-insights.ai/mcp')).rejects.toThrow('chain-insights access-key set <key>')
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('createConfiguredGraphMcpFetch in paid mode ignores debug tokens and uses wallet/x402', async () => {

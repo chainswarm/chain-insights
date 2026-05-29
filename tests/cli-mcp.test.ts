@@ -396,6 +396,28 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
   })
 
+  it('mcp call sends usage_status without wallet-specific arguments', async () => {
+    mockLoadConfig.mockResolvedValue({
+      mcpEndpoint: 'http://localhost:8011/mcp',
+      graphMcpEndpoint: 'https://staging-mcp.chain-insights.ai/mcp',
+    })
+    mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
+    mockClientConnect.mockResolvedValue(undefined)
+    mockClientCallTool.mockResolvedValue({
+      content: [{ type: 'text', text: '{"usage":{"remaining_seconds":10}}' }],
+    })
+    mockClientClose.mockResolvedValue(undefined)
+
+    await runMcpCallAction('usage_status', [])
+
+    expect(mockCreateConfiguredGraphMcpFetch).toHaveBeenCalledOnce()
+    expect(mockClientCallTool).toHaveBeenCalledWith({
+      name: 'usage_status',
+      arguments: {},
+    })
+    expect(consoleLogSpy).toHaveBeenCalledWith('{"usage":{"remaining_seconds":10}}')
+  })
+
   it('mcp call preserves number-like scalar strings', async () => {
     mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
     mockClientConnect.mockResolvedValue(undefined)
