@@ -188,6 +188,8 @@ Use manual `graph_query_batch` for custom topology or fact questions. Use
 `USE live_topology` for recent topology, `USE archive_topology` for historical
 topology, and `USE facts` for facts and enrichment.
 Use `graph_query` or `graph_query_batch` for all graph-language reads.
+When writing custom Cypher, use the shipped `chain-insights-cypher` skill; for
+Bittensor, also use `chain-insights-bittensor-cypher`.
 
 ## Query And Evidence Loop
 

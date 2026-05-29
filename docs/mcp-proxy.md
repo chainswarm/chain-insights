@@ -165,6 +165,11 @@ directory and registers the stdio MCP proxy in the Hermes config.
 After installing, open an initialized investigation workspace in the agent and
 operate over the workspace files.
 
+For manual graph-language work, agents should use the shipped
+`chain-insights-cypher` skill. For Bittensor queries, load
+`chain-insights-bittensor-cypher` after the generic skill so SS58 and
+EVM-pallet addresses stay under `network=bittensor`.
+
 ## Claude Desktop
 
 Claude Desktop is supported for basic MCP calls. It is not the primary

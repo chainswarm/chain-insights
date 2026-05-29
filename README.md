@@ -194,6 +194,10 @@ result envelope. Use explicit `LIMIT` and pagination in your query when you
 want bounded result sets. Endpoint access and authentication are configured
 separately; see [MCP proxy](docs/mcp-proxy.md).
 
+Agent installs include `chain-insights-cypher` for generic layer-aware
+GQL/Cypher work and `chain-insights-bittensor-cypher` for Bittensor-specific
+schema notes and examples.
+
 ## AML Tools
 
 The high-level AML tools are Chain Insights workflows built around graph access

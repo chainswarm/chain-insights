@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bittensor Cypher"
+  short_description: "Write Bittensor-specific Chain Insights graph reads"
+  default_prompt: "Use Chain Insights graph_query or graph_query_batch on network=bittensor with SS58 and EVM-pallet address handling, Bittensor topology fields, bounded Cypher, and fresh schema probes."

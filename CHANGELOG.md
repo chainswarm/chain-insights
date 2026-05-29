@@ -2,6 +2,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.31] - 2026-05-29
+
+- Added shipped `chain-insights-cypher` and
+  `chain-insights-bittensor-cypher` skills for schema-aware GraphRAG MCP
+  GQL/Cypher work, including generic live/archive/facts layer guidance and
+  Bittensor-specific SS58 plus EVM-pallet address handling.
+- Updated graph-tool and MCP proxy docs to point agents at the new Cypher
+  skills and to use portable schema probes that avoid non-portable metadata
+  functions.
+
 ## [0.2.30] - 2026-05-29
 
 - Clarified the investigation skill for Bittensor: native Substrate/SS58 `5...`

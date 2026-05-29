@@ -40,6 +40,10 @@ Chain Insights tools should be implemented as local AML workflows over these
 generic graph primitives unless there is a product reason to add a new
 primitive.
 
+For manual graph-language guidance, use the shipped `chain-insights-cypher`
+skill. For Bittensor schema-specific queries, load
+`chain-insights-bittensor-cypher` after the generic skill.
+
 ## Topology Language
 
 Use these names consistently:
