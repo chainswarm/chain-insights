@@ -86,7 +86,7 @@ function describePaymentRequiredResponse(response: Response, payerAddress?: stri
     ].filter(Boolean).join(' ')
     const message = details ? `x402 payment failed: ${reason} (${details})` : `x402 payment failed: ${reason}`
     if (reason.includes('allowance_required')) {
-      return `${message}. The payment wallet needs one-time setup before paid MCP calls can settle. Run \`chain-insights wallet ready\`; Base ETH is required for the approval gas.`
+      return `${message}. The payment wallet needs one-time setup before paid MCP calls can settle. Run \`chain-insights wallet ready\`; Base ETH is used for the setup gas.`
     }
     if (reason === 'payment_required') {
       return `${message}. ${PAYMENT_NEXT_STEPS}`

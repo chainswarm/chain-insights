@@ -70,6 +70,9 @@ Hosted staging endpoint for approved testers:
 cia config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
 ```
 
+For now, use the staging endpoint only for tester activation. Production is not
+live yet.
+
 Hosted access also needs an access mode, such as an approved access key or a
 prepared wallet. Keep those credentials out of README examples; setup commands
 live in [MCP proxy](docs/mcp-proxy.md). For paid access, run

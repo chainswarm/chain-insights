@@ -21,7 +21,7 @@ describe('wallet top-up browser page', () => {
     expect(html).toContain("fetch(TOPUP_URL + '/api/balance')")
     expect(html).toContain('id="gas"')
     expect(html).toContain('balance_eth')
-    expect(html).toContain('Base ETH is used for one-time approval gas')
+    expect(html).toContain('Base ETH is used for one-time payment setup gas')
     expect(html).toContain('<svg')
     expect(html).toContain('Base Network')
     expect(html).not.toContain('$1.00 USDC = ~100 tool calls')

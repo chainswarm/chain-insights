@@ -1,5 +1,5 @@
 import { t as __exportAll } from "./rolldown-runtime-wcPFST8Q.mjs";
-import { s as prepareWalletForPaidCalls } from "./tools-BJrDqTlw.mjs";
+import { s as prepareWalletForPaidCalls } from "./tools-BySGvRR8.mjs";
 import { privateKeyToAccount } from "viem/accounts";
 import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
 import { ExactEvmScheme } from "@x402/evm";
@@ -66,7 +66,7 @@ function describePaymentRequiredResponse(response, payerAddress) {
 			requirement.amount ? `amount=${requirement.amount}` : void 0
 		].filter(Boolean).join(" ");
 		const message = details ? `x402 payment failed: ${reason} (${details})` : `x402 payment failed: ${reason}`;
-		if (reason.includes("allowance_required")) return `${message}. The payment wallet needs one-time setup before paid MCP calls can settle. Run \`chain-insights wallet ready\`; Base ETH is required for the approval gas.`;
+		if (reason.includes("allowance_required")) return `${message}. The payment wallet needs one-time setup before paid MCP calls can settle. Run \`chain-insights wallet ready\`; Base ETH is used for the setup gas.`;
 		if (reason === "payment_required") return `${message}. ${PAYMENT_NEXT_STEPS}`;
 		return `${message}. ${PAYMENT_NEXT_STEPS}`;
 	} catch {
@@ -157,4 +157,4 @@ async function createConfiguredGraphMcpFetch(config) {
 //#endregion
 export { resolveGraphMcpEndpoint as a, createMcpFetchClient as i, client_exports as n, createConfiguredMcpFetch as r, PaymentRequiredError as t };
 
-//# sourceMappingURL=client-VlCrxmPU.mjs.map
+//# sourceMappingURL=client-D3_J1pnp.mjs.map
