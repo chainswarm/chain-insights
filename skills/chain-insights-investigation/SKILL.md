@@ -84,6 +84,10 @@ cia debug off
 ## Hard Rules
 
 - Always preserve full blockchain addresses exactly.
+- Bittensor contains both native Substrate/SS58 addresses such as `5...` and
+  EVM-pallet `0x...` addresses in the same investigation network. Use
+  `network=bittensor` for both; do not switch networks based only on address
+  format. Preserve the exact address and any returned `address_type` evidence.
 - Python GraphRAG MCP is the golden behavior for `address_risk` and
   `track_funds`. Chain Insights MCP may expose its own high-level tools, but
   their graph semantics must be a faithful port of the Python tools.

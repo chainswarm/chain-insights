@@ -2,6 +2,13 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.30] - 2026-05-29
+
+- Clarified the investigation skill for Bittensor: native Substrate/SS58 `5...`
+  addresses and EVM-pallet `0x...` addresses are queried under the same
+  `network=bittensor`; agents should not switch networks based only on address
+  format.
+
 ## [0.2.29] - 2026-05-29
 
 - Added `usage_status` documentation and client coverage for the GraphRAG MCP public free `graph_query` quota.
