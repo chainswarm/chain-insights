@@ -1,5 +1,5 @@
 import { n as PACKAGE_VERSION } from "./version-1gP19Lhi.mjs";
-import { t as PaymentRequiredError } from "./client-D3_J1pnp.mjs";
+import { t as PaymentRequiredError } from "./client-BK26wTbL.mjs";
 import { t as HIDDEN_REMOTE_TOOL_NAMES } from "./tool-visibility-CiMX9WlU.mjs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -585,7 +585,7 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 async function createProxy() {
 	const { loadConfig } = await import("./config-DvPLEixE.mjs").then((n) => n.t);
 	const { activeDataDir, findActiveWorkspace } = await import("./active-CcrbWsFC.mjs").then((n) => n.n);
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-D3_J1pnp.mjs").then((n) => n.n);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-BK26wTbL.mjs").then((n) => n.n);
 	const { loadSchema, saveSchema } = await import("./schema-cache-DE6TTr76.mjs");
 	const loadedConfig = await loadConfig();
 	const activeWorkspace = findActiveWorkspace();
@@ -706,7 +706,7 @@ async function createProxy() {
 		inputSchema: z.object({}).passthrough()
 	}, async () => {
 		try {
-			const { getWalletAccount, getWalletBalanceText } = await import("./tools-BySGvRR8.mjs").then((n) => n.c);
+			const { getWalletAccount, getWalletBalanceText } = await import("./tools-C2UrlOUn.mjs").then((n) => n.c);
 			return {
 				content: [{
 					type: "text",

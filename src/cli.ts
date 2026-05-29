@@ -403,6 +403,22 @@ program
   .command('wallet')
   .description('Manage the local Base USDC payment wallet')
   .addCommand(
+    new Command('import')
+      .description('Import a Base payment wallet')
+      .argument('<private-key>', '0x-prefixed EVM private key')
+      .action(async (privateKey: string) => {
+        try {
+          const { setWalletPrivateKey } = await import('./wallet/index.js')
+          const address = await setWalletPrivateKey(privateKey)
+          console.log(`Wallet imported: ${address}`)
+          console.log('Next: run `chain-insights wallet ready`')
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
     new Command('address')
       .description('Print the local payment wallet address')
       .action(async () => {

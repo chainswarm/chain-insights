@@ -73,7 +73,7 @@ function optionalScamTopologyActivityPolicy(value) {
 async function withGraphMcpClient(name, fn) {
 	const { loadConfig } = await Promise.resolve().then(() => require("./config-v5J0jdM9.cjs")).then((n) => n.config_exports);
 	const config = await loadConfig();
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-DehwPtim.cjs")).then((n) => n.client_exports);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-CC8EFRyv.cjs")).then((n) => n.client_exports);
 	const paymentFetch = await createConfiguredGraphMcpFetch(config);
 	const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
 	const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
@@ -93,7 +93,7 @@ function printMcpTextContent(result) {
 }
 async function printNetworkCapabilities(opts) {
 	const { loadConfig } = await Promise.resolve().then(() => require("./config-v5J0jdM9.cjs")).then((n) => n.config_exports);
-	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await Promise.resolve().then(() => require("./capabilities-C-tzA3Hc.cjs"));
+	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await Promise.resolve().then(() => require("./capabilities-DPseQluO.cjs"));
 	const document = await fetchNetworkCapabilities(await loadConfig());
 	if (opts.json) console.log(JSON.stringify(document, null, 2));
 	else console.log(formatNetworkCapabilities(document));
@@ -261,7 +261,7 @@ program.command("config").description("Read or write configuration values").addC
 })).addCommand(new commander.Command("set").argument("<key>", "Config key to write").argument("<value>", "Value to set").action(async (key, value) => {
 	if (key === "walletPrivateKey") {
 		try {
-			const { setWalletPrivateKey } = await Promise.resolve().then(() => require("./wallet-D_r1WQpN.cjs")).then((n) => n.wallet_exports);
+			const { setWalletPrivateKey } = await Promise.resolve().then(() => require("./wallet-ByFOXIlr.cjs")).then((n) => n.wallet_exports);
 			const address = await setWalletPrivateKey(value);
 			console.log("Wallet private key encrypted and stored in ~/.chain-insights/wallet.json");
 			console.log(`Wallet address: ${address}`);
@@ -285,9 +285,19 @@ program.command("config").description("Read or write configuration values").addC
 	const displayed = key.toLowerCase().includes("token") ? "[redacted]" : coerced;
 	console.log(`Set ${key} = ${displayed}`);
 }));
-program.command("wallet").description("Manage the local Base USDC payment wallet").addCommand(new commander.Command("address").description("Print the local payment wallet address").action(async () => {
+program.command("wallet").description("Manage the local Base USDC payment wallet").addCommand(new commander.Command("import").description("Import a Base payment wallet").argument("<private-key>", "0x-prefixed EVM private key").action(async (privateKey) => {
 	try {
-		const { getWalletAccount } = await Promise.resolve().then(() => require("./tools-D5Tvcp4h.cjs")).then((n) => n.tools_exports);
+		const { setWalletPrivateKey } = await Promise.resolve().then(() => require("./wallet-ByFOXIlr.cjs")).then((n) => n.wallet_exports);
+		const address = await setWalletPrivateKey(privateKey);
+		console.log(`Wallet imported: ${address}`);
+		console.log("Next: run `chain-insights wallet ready`");
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
+})).addCommand(new commander.Command("address").description("Print the local payment wallet address").action(async () => {
+	try {
+		const { getWalletAccount } = await Promise.resolve().then(() => require("./tools-BwPM-GdI.cjs")).then((n) => n.tools_exports);
 		const account = await getWalletAccount();
 		console.log(account.address);
 	} catch (err) {
@@ -296,7 +306,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new commander.Command("balance").description("Show the local payment wallet Base USDC balance").action(async () => {
 	try {
-		const { getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-D5Tvcp4h.cjs")).then((n) => n.tools_exports);
+		const { getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-BwPM-GdI.cjs")).then((n) => n.tools_exports);
 		console.log(await getWalletBalanceText());
 	} catch (err) {
 		console.error(err.message);
@@ -304,7 +314,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new commander.Command("ready").description("Check and prepare the wallet for paid GraphRAG MCP calls").option("--check-only", "Only check readiness; do not submit the one-time payment setup").addOption(new commander.Option("--no-approve", "Deprecated alias for --check-only").hideHelp()).option("--payment-usdc <amount>", "USDC setup cap to prepare for paid calls", "1").addOption(new commander.Option("--approval-usdc <amount>", "Deprecated alias for --payment-usdc").hideHelp()).option("--json", "Print machine-readable readiness metadata").action(async (opts) => {
 	try {
-		const { formatWalletReadiness, parsePaymentApprovalUnits, prepareWalletForPaidCalls } = await Promise.resolve().then(() => require("./tools-D5Tvcp4h.cjs")).then((n) => n.tools_exports);
+		const { formatWalletReadiness, parsePaymentApprovalUnits, prepareWalletForPaidCalls } = await Promise.resolve().then(() => require("./tools-BwPM-GdI.cjs")).then((n) => n.tools_exports);
 		const result = await prepareWalletForPaidCalls({
 			minimumApprovalUnits: parsePaymentApprovalUnits(opts.paymentUsdc ?? opts.approvalUsdc ?? "1"),
 			approve: opts.checkOnly ? false : opts.approve !== false
@@ -320,7 +330,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new commander.Command("topup").description("Open a local browser page to top up the payment wallet").option("--no-open", "Print the top-up URL without opening a browser").option("--json", "Print machine-readable top-up metadata").action(async (opts) => {
 	try {
-		const { buildTopupInfo, getWalletAccount } = await Promise.resolve().then(() => require("./tools-D5Tvcp4h.cjs")).then((n) => n.tools_exports);
+		const { buildTopupInfo, getWalletAccount } = await Promise.resolve().then(() => require("./tools-BwPM-GdI.cjs")).then((n) => n.tools_exports);
 		const { startTopupServer } = await Promise.resolve().then(() => require("./topup-server-C9cSeCiL.cjs")).then((n) => n.topup_server_exports);
 		const account = await getWalletAccount();
 		const url = await startTopupServer(account);
@@ -355,7 +365,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-CQcyYDgs.cjs"));
 		const { visibleRemoteTools } = await Promise.resolve().then(() => require("./tool-visibility-DsD5KOTr.cjs")).then((n) => n.tool_visibility_exports);
 		const { loadConfig } = await Promise.resolve().then(() => require("./config-v5J0jdM9.cjs")).then((n) => n.config_exports);
-		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-DehwPtim.cjs")).then((n) => n.client_exports);
+		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-CC8EFRyv.cjs")).then((n) => n.client_exports);
 		const config = await loadConfig();
 		const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
 		let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint);
@@ -738,7 +748,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-BEIvihNT.cjs"));
+		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-DuqGqRLi.cjs"));
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,

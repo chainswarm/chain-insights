@@ -93,7 +93,7 @@ export async function decryptKey(): Promise<string> {
     const nodeErr = err as NodeJS.ErrnoException
     if (nodeErr.code === 'ENOENT') {
       throw new Error(
-        'Wallet not configured. Run `chain-insights config set walletPrivateKey <key>` to enable paid MCP calls',
+        'Wallet not configured. Run `chain-insights wallet import <private-key>`, then `chain-insights wallet ready`.',
       )
     }
     throw err
@@ -119,7 +119,7 @@ export async function decryptKey(): Promise<string> {
     return decrypted.toString('utf8')
   } catch {
     throw new Error(
-      'Wallet decryption failed. If you changed your hostname or username, re-configure with `chain-insights config set walletPrivateKey <key>`.',
+      'Wallet decryption failed. If you changed your hostname or username, re-import it with `chain-insights wallet import <private-key>`.',
     )
   }
 }

@@ -1,5 +1,5 @@
 import { t as __exportAll } from "./rolldown-runtime-wcPFST8Q.mjs";
-import { s as prepareWalletForPaidCalls } from "./tools-BySGvRR8.mjs";
+import { s as prepareWalletForPaidCalls } from "./tools-C2UrlOUn.mjs";
 import { privateKeyToAccount } from "viem/accounts";
 import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
 import { ExactEvmScheme } from "@x402/evm";
@@ -139,8 +139,8 @@ function resolveGraphMcpEndpoint(config) {
 async function createConfiguredFetchWithToken(authToken, missingTokenName) {
 	const normalizedAuthToken = authToken?.trim();
 	if (normalizedAuthToken) return createMcpAuthFetchClient(normalizedAuthToken);
-	const { isWalletConfigured, decryptKey } = await import("./wallet-B6NNdnWH.mjs").then((n) => n.s);
-	if (!await isWalletConfigured()) throw new Error(`Wallet not configured and ${missingTokenName} is empty. Run \`chain-insights access-key set <key>\` for invited test access or \`chain-insights config set ${missingTokenName} <token>\` for local MCP debug bypass, or \`chain-insights config set walletPrivateKey <key>\` to enable paid x402 MCP calls.`);
+	const { isWalletConfigured, decryptKey } = await import("./wallet-3OUnh-O2.mjs").then((n) => n.s);
+	if (!await isWalletConfigured()) throw new Error("Hosted access is not configured. Run `chain-insights access-key set <key>` for invited test access. For wallet-paid access, run `chain-insights wallet import <private-key>` once, then run `chain-insights wallet ready`; run `chain-insights wallet topup` if it says the wallet needs funds.");
 	return createMcpFetchClient(await decryptKey());
 }
 async function createConfiguredMcpFetch(config) {
@@ -157,4 +157,4 @@ async function createConfiguredGraphMcpFetch(config) {
 //#endregion
 export { resolveGraphMcpEndpoint as a, createMcpFetchClient as i, client_exports as n, createConfiguredMcpFetch as r, PaymentRequiredError as t };
 
-//# sourceMappingURL=client-D3_J1pnp.mjs.map
+//# sourceMappingURL=client-BK26wTbL.mjs.map

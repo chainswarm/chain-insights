@@ -2,6 +2,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.28] - 2026-05-29
+
+- Added `chain-insights wallet import <private-key>` as the user-facing way to configure a Base payment wallet.
+- Removed raw `walletPrivateKey` and debug-bypass guidance from hosted missing-wallet errors; normal users are now pointed to `wallet ready`, `wallet topup`, or invited tester access keys.
+- Updated wallet setup docs to keep payment setup protocol details out of the normal activation path.
+
 ## [0.2.27] - 2026-05-29
 
 - Made `chain-insights wallet ready` default output fully user-facing: normal users now see one-time payment setup guidance instead of approval mechanics or transaction hashes, while `--json` keeps machine-readable readiness fields for operators.
