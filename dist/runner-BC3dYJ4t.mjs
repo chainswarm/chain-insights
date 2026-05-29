@@ -1,12 +1,11 @@
-require("./chunk-CZWwpsFl.cjs");
-const require_version = require("./version-BNGtdpmH.cjs");
-const require_config = require("./config-v5J0jdM9.cjs");
-const require_client = require("./client-DehwPtim.cjs");
-const require_viz = require("./viz-Br90TlRv.cjs");
-const require_store = require("./store-A5a0uepq.cjs");
-const require_evidence = require("./evidence-D5B0MRNd.cjs");
-let _modelcontextprotocol_sdk_client_index_js = require("@modelcontextprotocol/sdk/client/index.js");
-let _modelcontextprotocol_sdk_client_streamableHttp_js = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
+import { n as PACKAGE_VERSION } from "./version-1gP19Lhi.mjs";
+import { n as loadConfig } from "./config-DvPLEixE.mjs";
+import { r as createConfiguredMcpFetch } from "./client-BK26wTbL.mjs";
+import { t as generateVisualization } from "./viz-CJBDZpB3.mjs";
+import { CaseStore } from "./store-C7GN0z_m.mjs";
+import { t as EvidenceStore } from "./evidence-BWXKDMcS.mjs";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 //#region src/playbooks/runner.ts
 /** Sleep for ms milliseconds. */
 function sleep(ms) {
@@ -73,12 +72,12 @@ async run(playbook, opts) {
 		console.log("Cost: unknown (MCP pricing not available without live connection)");
 		return;
 	}
-	const config = await require_config.loadConfig();
-	const mcpFetch = await require_client.createConfiguredMcpFetch(config);
+	const config = await loadConfig();
+	const mcpFetch = await createConfiguredMcpFetch(config);
 	let caseId;
-	if (opts.caseId) caseId = (await require_store.CaseStore.get(opts.caseId)).id;
+	if (opts.caseId) caseId = (await CaseStore.get(opts.caseId)).id;
 	else {
-		caseId = (await require_store.CaseStore.create({
+		caseId = (await CaseStore.create({
 			name: `quick-${playbook.name}-${Date.now()}`,
 			tags: [
 				"quick",
@@ -89,11 +88,11 @@ async run(playbook, opts) {
 		})).id;
 		console.log(`Created quick case: ${caseId}`);
 	}
-	const client = new _modelcontextprotocol_sdk_client_index_js.Client({
+	const client = new Client({
 		name: "chain-insights-playbook",
-		version: require_version.PACKAGE_VERSION
+		version: PACKAGE_VERSION
 	});
-	await client.connect(new _modelcontextprotocol_sdk_client_streamableHttp_js.StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: mcpFetch }));
+	await client.connect(new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: mcpFetch }));
 	let evidenceCount = 0;
 	try {
 		await validateStepTools(client, stepsToRun);
@@ -118,14 +117,14 @@ async run(playbook, opts) {
 						console.log(`Step ${step.index} skipped.`);
 						continue;
 					} else throw new Error(`Aborted at step ${step.index} due to payment failure.`);
-				} else throw new Error(`Payment required for step ${step.index} but no interactive terminal available. Configure wallet with \`chain-insights config set walletPrivateKey <key>\`. Aborting.`);
+				} else throw new Error(`Payment required for step ${step.index} but no interactive terminal available. Configure wallet with \`chain-insights wallet import <private-key>\`, then run \`chain-insights wallet ready\`. Aborting.`);
 				else {
 					const completedMsg = step.index - 1 - startIndex > 0 ? `Completed: steps ${startIndex + 1}..${step.index - 1}.` : "No steps completed before failure.";
 					console.error(`Step ${step.index} failed: ${err.message}. ${completedMsg} Run with --from ${step.index} to resume.`);
 					throw err;
 				}
 			}
-			await require_evidence.EvidenceStore.append(caseId, {
+			await EvidenceStore.append(caseId, {
 				source: step.tool,
 				content: result,
 				queryParams: JSON.stringify(step.params)
@@ -134,7 +133,7 @@ async run(playbook, opts) {
 			console.log(`  (${result.length} chars stored)`);
 		}
 		if (playbook.name === "trace-funds") try {
-			const viz = await require_viz.generateVisualization({ caseId });
+			const viz = await generateVisualization({ caseId });
 			console.log(`Visualization generated: ${viz.htmlPath}`);
 		} catch {
 			console.log("No transaction data to visualize.");
@@ -145,4 +144,6 @@ async run(playbook, opts) {
 	}
 } };
 //#endregion
-exports.PlaybookRunner = PlaybookRunner;
+export { PlaybookRunner };
+
+//# sourceMappingURL=runner-BC3dYJ4t.mjs.map

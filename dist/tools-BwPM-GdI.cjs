@@ -1,10 +1,10 @@
-import { t as __exportAll } from "./rolldown-runtime-wcPFST8Q.mjs";
-import { i as normalizeWalletPrivateKey, t as decryptKey } from "./wallet-B6NNdnWH.mjs";
-import { privateKeyToAccount } from "viem/accounts";
-import { createPublicClient, createWalletClient, formatEther, formatUnits, http, parseUnits } from "viem";
-import { base } from "viem/chains";
+const require_chunk = require("./chunk-CZWwpsFl.cjs");
+const require_wallet = require("./wallet-ByFOXIlr.cjs");
+let viem_accounts = require("viem/accounts");
+let viem = require("viem");
+let viem_chains = require("viem/chains");
 //#region src/wallet/tools.ts
-var tools_exports = /* @__PURE__ */ __exportAll({
+var tools_exports = /* @__PURE__ */ require_chunk.__exportAll({
 	BASE_CHAIN_ID: () => BASE_CHAIN_ID,
 	DEFAULT_BASE_RPC_URL: () => DEFAULT_BASE_RPC_URL,
 	DEFAULT_PAYMENT_APPROVAL_UNITS: () => DEFAULT_PAYMENT_APPROVAL_UNITS,
@@ -83,9 +83,9 @@ const USDC_ABI = [
 	}
 ];
 async function getWalletAccount() {
-	const privateKey = normalizeWalletPrivateKey(await decryptKey());
+	const privateKey = require_wallet.normalizeWalletPrivateKey(await require_wallet.decryptKey());
 	return {
-		address: privateKeyToAccount(privateKey).address,
+		address: (0, viem_accounts.privateKeyToAccount)(privateKey).address,
 		privateKey
 	};
 }
@@ -94,9 +94,9 @@ function baseRpcUrls(rpcUrl = process.env["BASE_RPC_URL"]) {
 }
 async function getBalanceUsdc(address, rpcUrl = process.env["BASE_RPC_URL"]) {
 	for (const url of baseRpcUrls(rpcUrl)) try {
-		return formatUnits(await createPublicClient({
-			chain: base,
-			transport: http(url)
+		return (0, viem.formatUnits)(await (0, viem.createPublicClient)({
+			chain: viem_chains.base,
+			transport: (0, viem.http)(url)
 		}).readContract({
 			address: USDC_ADDRESS,
 			abi: USDC_ABI,
@@ -108,18 +108,18 @@ async function getBalanceUsdc(address, rpcUrl = process.env["BASE_RPC_URL"]) {
 }
 async function getBalanceEth(address, rpcUrl = process.env["BASE_RPC_URL"]) {
 	for (const url of baseRpcUrls(rpcUrl)) try {
-		return formatEther(await createPublicClient({
-			chain: base,
-			transport: http(url)
+		return (0, viem.formatEther)(await (0, viem.createPublicClient)({
+			chain: viem_chains.base,
+			transport: (0, viem.http)(url)
 		}).getBalance({ address }));
 	} catch {}
 	return "unknown";
 }
 async function getPaymentApprovalUnits(address, rpcUrl = process.env["BASE_RPC_URL"]) {
 	for (const url of baseRpcUrls(rpcUrl)) try {
-		return await createPublicClient({
-			chain: base,
-			transport: http(url)
+		return await (0, viem.createPublicClient)({
+			chain: viem_chains.base,
+			transport: (0, viem.http)(url)
 		}).readContract({
 			address: USDC_ADDRESS,
 			abi: USDC_ABI,
@@ -132,7 +132,7 @@ async function getPaymentApprovalUnits(address, rpcUrl = process.env["BASE_RPC_U
 function parsePaymentApprovalUnits(amountUsdc) {
 	const trimmed = amountUsdc.trim();
 	if (!/^\d+(\.\d{1,6})?$/.test(trimmed) || !isPositiveDecimal(trimmed)) throw new Error("Payment setup amount must be a positive USDC value with up to 6 decimals.");
-	return parseUnits(trimmed, 6);
+	return (0, viem.parseUnits)(trimmed, 6);
 }
 function isPositiveDecimal(value) {
 	if (value === "unknown") return false;
@@ -162,7 +162,7 @@ function buildWalletReadiness(params) {
 		address: params.address,
 		balanceUsdc: params.balanceUsdc,
 		balanceEth: params.balanceEth,
-		paymentApprovalUsdc: params.paymentApprovalUnits === null ? "unknown" : formatUnits(paymentApprovalUnits, 6),
+		paymentApprovalUsdc: params.paymentApprovalUnits === null ? "unknown" : (0, viem.formatUnits)(paymentApprovalUnits, 6),
 		paymentApprovalUnits,
 		minimumApprovalUnits: params.minimumApprovalUnits,
 		hasUsdc,
@@ -194,7 +194,7 @@ async function getWalletReadiness(account, minimumApprovalUnits = DEFAULT_PAYMEN
 }
 function formatWalletReadiness(readiness, approval) {
 	const status = readiness.ready ? "Ready for paid GraphRAG MCP calls" : "Action needed before paid GraphRAG MCP calls";
-	const setup = readiness.needsPaymentApproval ? `Payment setup: needs one-time setup for up to ${formatUnits(readiness.minimumApprovalUnits, 6)} USDC of paid calls` : "Payment setup: ready";
+	const setup = readiness.needsPaymentApproval ? `Payment setup: needs one-time setup for up to ${(0, viem.formatUnits)(readiness.minimumApprovalUnits, 6)} USDC of paid calls` : "Payment setup: ready";
 	const setupCompletedLine = approval?.status === "approved" ? "Payment setup completed." : void 0;
 	return [
 		status,
@@ -215,16 +215,16 @@ async function approvePaymentAllowance(account, minimumApprovalUnits = DEFAULT_P
 		paymentApprovalUnits: initialApprovalUnits,
 		minimumApprovalUnits
 	};
-	const clientAccount = privateKeyToAccount(wallet.privateKey);
+	const clientAccount = (0, viem_accounts.privateKeyToAccount)(wallet.privateKey);
 	for (const url of baseRpcUrls(rpcUrl)) try {
-		const publicClient = createPublicClient({
-			chain: base,
-			transport: http(url)
+		const publicClient = (0, viem.createPublicClient)({
+			chain: viem_chains.base,
+			transport: (0, viem.http)(url)
 		});
-		const txHash = await createWalletClient({
+		const txHash = await (0, viem.createWalletClient)({
 			account: clientAccount,
-			chain: base,
-			transport: http(url)
+			chain: viem_chains.base,
+			transport: (0, viem.http)(url)
 		}).writeContract({
 			address: USDC_ADDRESS,
 			abi: USDC_ABI,
@@ -293,6 +293,51 @@ function buildTopupInfo(address, topupUrl) {
 	};
 }
 //#endregion
-export { getWalletAccount as a, tools_exports as c, getBalanceUsdc as i, formatWalletBalance as n, getWalletBalanceText as o, getBalanceEth as r, prepareWalletForPaidCalls as s, buildTopupInfo as t };
-
-//# sourceMappingURL=tools-BySGvRR8.mjs.map
+Object.defineProperty(exports, "buildTopupInfo", {
+	enumerable: true,
+	get: function() {
+		return buildTopupInfo;
+	}
+});
+Object.defineProperty(exports, "formatWalletBalance", {
+	enumerable: true,
+	get: function() {
+		return formatWalletBalance;
+	}
+});
+Object.defineProperty(exports, "getBalanceEth", {
+	enumerable: true,
+	get: function() {
+		return getBalanceEth;
+	}
+});
+Object.defineProperty(exports, "getBalanceUsdc", {
+	enumerable: true,
+	get: function() {
+		return getBalanceUsdc;
+	}
+});
+Object.defineProperty(exports, "getWalletAccount", {
+	enumerable: true,
+	get: function() {
+		return getWalletAccount;
+	}
+});
+Object.defineProperty(exports, "getWalletBalanceText", {
+	enumerable: true,
+	get: function() {
+		return getWalletBalanceText;
+	}
+});
+Object.defineProperty(exports, "prepareWalletForPaidCalls", {
+	enumerable: true,
+	get: function() {
+		return prepareWalletForPaidCalls;
+	}
+});
+Object.defineProperty(exports, "tools_exports", {
+	enumerable: true,
+	get: function() {
+		return tools_exports;
+	}
+});

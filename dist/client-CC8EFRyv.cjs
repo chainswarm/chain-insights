@@ -1,5 +1,5 @@
 const require_chunk = require("./chunk-CZWwpsFl.cjs");
-const require_tools = require("./tools-D5Tvcp4h.cjs");
+const require_tools = require("./tools-BwPM-GdI.cjs");
 let viem_accounts = require("viem/accounts");
 let _x402_fetch = require("@x402/fetch");
 let _x402_evm = require("@x402/evm");
@@ -139,8 +139,8 @@ function resolveGraphMcpEndpoint(config) {
 async function createConfiguredFetchWithToken(authToken, missingTokenName) {
 	const normalizedAuthToken = authToken?.trim();
 	if (normalizedAuthToken) return createMcpAuthFetchClient(normalizedAuthToken);
-	const { isWalletConfigured, decryptKey } = await Promise.resolve().then(() => require("./wallet-D_r1WQpN.cjs")).then((n) => n.wallet_exports);
-	if (!await isWalletConfigured()) throw new Error(`Wallet not configured and ${missingTokenName} is empty. Run \`chain-insights access-key set <key>\` for invited test access or \`chain-insights config set ${missingTokenName} <token>\` for local MCP debug bypass, or \`chain-insights config set walletPrivateKey <key>\` to enable paid x402 MCP calls.`);
+	const { isWalletConfigured, decryptKey } = await Promise.resolve().then(() => require("./wallet-ByFOXIlr.cjs")).then((n) => n.wallet_exports);
+	if (!await isWalletConfigured()) throw new Error("Hosted access is not configured. Run `chain-insights access-key set <key>` for invited test access. For wallet-paid access, run `chain-insights wallet import <private-key>` once, then run `chain-insights wallet ready`; run `chain-insights wallet topup` if it says the wallet needs funds.");
 	return createMcpFetchClient(await decryptKey());
 }
 async function createConfiguredMcpFetch(config) {

@@ -119,7 +119,7 @@ Paid x402 mode:
 ```bash
 chain-insights config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
 chain-insights debug off
-chain-insights config set walletPrivateKey 0xYOUR_EVM_PRIVATE_KEY
+chain-insights wallet import 0xYOUR_EVM_PRIVATE_KEY
 chain-insights wallet ready
 ```
 

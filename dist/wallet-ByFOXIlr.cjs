@@ -72,7 +72,7 @@ async function decryptKey() {
 	try {
 		raw = await (0, node_fs_promises.readFile)(walletPath(), "utf8");
 	} catch (err) {
-		if (err.code === "ENOENT") throw new Error("Wallet not configured. Run `chain-insights config set walletPrivateKey <key>` to enable paid MCP calls");
+		if (err.code === "ENOENT") throw new Error("Wallet not configured. Run `chain-insights wallet import <private-key>`, then `chain-insights wallet ready`.");
 		throw err;
 	}
 	try {
@@ -85,7 +85,7 @@ async function decryptKey() {
 		decipher.setAuthTag(tag);
 		return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
 	} catch {
-		throw new Error("Wallet decryption failed. If you changed your hostname or username, re-configure with `chain-insights config set walletPrivateKey <key>`.");
+		throw new Error("Wallet decryption failed. If you changed your hostname or username, re-import it with `chain-insights wallet import <private-key>`.");
 	}
 }
 /**

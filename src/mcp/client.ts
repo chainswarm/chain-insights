@@ -190,9 +190,10 @@ async function createConfiguredFetchWithToken(
   const { isWalletConfigured, decryptKey } = await import('../wallet/index.js')
   if (!(await isWalletConfigured())) {
     throw new Error(
-      `Wallet not configured and ${missingTokenName} is empty. ` +
-      `Run \`chain-insights access-key set <key>\` for invited test access or \`chain-insights config set ${missingTokenName} <token>\` for local MCP debug bypass, ` +
-      'or `chain-insights config set walletPrivateKey <key>` to enable paid x402 MCP calls.',
+      'Hosted access is not configured. ' +
+      'Run `chain-insights access-key set <key>` for invited test access. ' +
+      'For wallet-paid access, run `chain-insights wallet import <private-key>` once, then run `chain-insights wallet ready`; ' +
+      'run `chain-insights wallet topup` if it says the wallet needs funds.',
     )
   }
 

@@ -399,6 +399,28 @@ describe('MCP client (02-01)', () => {
     expect(mockDecryptKey).not.toHaveBeenCalled()
   })
 
+  it('createConfiguredGraphMcpFetch explains missing hosted access without raw wallet config internals', async () => {
+    mockIsWalletConfigured.mockResolvedValue(false)
+
+    const { createConfiguredGraphMcpFetch } = await import('../src/mcp/client.js')
+    let message = ''
+    try {
+      await createConfiguredGraphMcpFetch({
+        mcpAuthToken: '',
+        graphMcpAuthToken: '',
+        graphMcpMode: 'paid',
+      })
+    } catch (err) {
+      message = (err as Error).message
+    }
+
+    expect(message).toContain('chain-insights wallet ready')
+    expect(message).toContain('chain-insights wallet topup')
+    expect(message).toContain('chain-insights access-key set <key>')
+    expect(message).not.toContain('walletPrivateKey')
+    expect(message).not.toContain('debug bypass')
+  })
+
   it('createConfiguredGraphMcpFetch in paid mode ignores debug tokens and uses wallet/x402', async () => {
     mockIsWalletConfigured.mockResolvedValue(true)
     mockDecryptKey.mockResolvedValue('0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef')

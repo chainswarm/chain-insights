@@ -165,7 +165,7 @@ export const PlaybookRunner = {
               // Non-TTY: abort
               throw new Error(
                 `Payment required for step ${step.index} but no interactive terminal available. ` +
-                `Configure wallet with \`chain-insights config set walletPrivateKey <key>\`. Aborting.`
+                `Configure wallet with \`chain-insights wallet import <private-key>\`, then run \`chain-insights wallet ready\`. Aborting.`
               )
             }
           } else {

@@ -77,6 +77,13 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('topup')
   })
 
+  it('wallet --help exposes a user-facing wallet import command', () => {
+    const out = execFileSync('node', ['--import', 'tsx', srcCli, 'wallet', '--help'], { encoding: 'utf8' })
+    expect(out).toContain('import')
+    expect(out).toContain('Import a Base payment wallet')
+    expect(out).not.toContain('walletPrivateKey')
+  })
+
   it('wallet ready help uses user-facing payment setup language', () => {
     const out = execFileSync('node', ['--import', 'tsx', srcCli, 'wallet', 'ready', '--help'], { encoding: 'utf8' })
 
