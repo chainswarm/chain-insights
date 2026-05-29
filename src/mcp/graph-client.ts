@@ -21,6 +21,10 @@ type CallGraphQueryBatchInput = {
   perQueryTimeoutSeconds?: number
 }
 
+type CallUsageStatusInput = {
+  client: ToolCaller
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -84,6 +88,15 @@ export async function callGraphQueryBatch(input: CallGraphQueryBatchInput): Prom
   const response = await input.client.callTool({
     name: 'graph_query_batch',
     arguments: args,
+  })
+
+  return normalizeChainInsightsResult(response)
+}
+
+export async function callUsageStatus(input: CallUsageStatusInput): Promise<ChainInsightsResult> {
+  const response = await input.client.callTool({
+    name: 'usage_status',
+    arguments: {},
   })
 
   return normalizeChainInsightsResult(response)

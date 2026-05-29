@@ -1,11 +1,11 @@
-import { t as __exportAll } from "./rolldown-runtime-wcPFST8Q.mjs";
-import { s as prepareWalletForPaidCalls } from "./tools-C2UrlOUn.mjs";
-import { privateKeyToAccount } from "viem/accounts";
-import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
-import { ExactEvmScheme } from "@x402/evm";
-import { UptoEvmScheme } from "@x402/evm/upto/client";
+const require_chunk = require("./chunk-CZWwpsFl.cjs");
+const require_tools = require("./tools-BwPM-GdI.cjs");
+let viem_accounts = require("viem/accounts");
+let _x402_fetch = require("@x402/fetch");
+let _x402_evm = require("@x402/evm");
+let _x402_evm_upto_client = require("@x402/evm/upto/client");
 //#region src/mcp/client.ts
-var client_exports = /* @__PURE__ */ __exportAll({
+var client_exports = /* @__PURE__ */ require_chunk.__exportAll({
 	PAYMENT_NEXT_STEPS: () => PAYMENT_NEXT_STEPS,
 	PaymentRequiredError: () => PaymentRequiredError,
 	createConfiguredGraphMcpFetch: () => createConfiguredGraphMcpFetch,
@@ -80,7 +80,7 @@ function createPaymentFailureReportingFetch(baseFetch, payerAddress, paymentWall
 		const requirement = paymentRequirementFromResponse(response);
 		if (paymentWallet && requirement?.reason.includes("allowance_required")) {
 			try {
-				await prepareWalletForPaidCalls({
+				await require_tools.prepareWalletForPaidCalls({
 					account: paymentWallet,
 					...requirement.amountUnits === void 0 ? {} : { minimumApprovalUnits: requirement.amountUnits }
 				});
@@ -106,13 +106,13 @@ function createPaymentFailureReportingFetch(baseFetch, payerAddress, paymentWall
 * @returns A fetch-compatible function that auto-handles HTTP 402 payment challenges
 */
 function createMcpFetchClient(privateKey, authToken) {
-	const account = privateKeyToAccount(privateKey);
-	const reportingFetch = createPaymentFailureReportingFetch(wrapFetchWithPaymentFromConfig(fetch, { schemes: [{
+	const account = (0, viem_accounts.privateKeyToAccount)(privateKey);
+	const reportingFetch = createPaymentFailureReportingFetch((0, _x402_fetch.wrapFetchWithPaymentFromConfig)(fetch, { schemes: [{
 		network: "eip155:8453",
-		client: new UptoEvmScheme(account)
+		client: new _x402_evm_upto_client.UptoEvmScheme(account)
 	}, {
 		network: "eip155:8453",
-		client: new ExactEvmScheme(account)
+		client: new _x402_evm.ExactEvmScheme(account)
 	}] }), account.address, {
 		address: account.address,
 		privateKey
@@ -139,8 +139,13 @@ function resolveGraphMcpEndpoint(config) {
 async function createConfiguredFetchWithToken(authToken, missingTokenName) {
 	const normalizedAuthToken = authToken?.trim();
 	if (normalizedAuthToken) return createMcpAuthFetchClient(normalizedAuthToken);
-	const { isWalletConfigured, decryptKey } = await import("./wallet-3OUnh-O2.mjs").then((n) => n.s);
+	const { isWalletConfigured, decryptKey } = await Promise.resolve().then(() => require("./wallet-ByFOXIlr.cjs")).then((n) => n.wallet_exports);
 	if (!await isWalletConfigured()) throw new Error("Hosted access is not configured. Run `chain-insights access-key set <key>` for invited test access. For wallet-paid access, run `chain-insights wallet import <private-key>` once, then run `chain-insights wallet ready`; run `chain-insights wallet topup` if it says the wallet needs funds.");
+	return createMcpFetchClient(await decryptKey());
+}
+async function createConfiguredGraphPaidOrFreeFetch() {
+	const { isWalletConfigured, decryptKey } = await Promise.resolve().then(() => require("./wallet-ByFOXIlr.cjs")).then((n) => n.wallet_exports);
+	if (!await isWalletConfigured()) return createPaymentFailureReportingFetch(fetch);
 	return createMcpFetchClient(await decryptKey());
 }
 async function createConfiguredMcpFetch(config) {
@@ -152,9 +157,36 @@ async function createConfiguredGraphMcpFetch(config) {
 		if (!authToken) throw new Error("Graph MCP debug mode requires graphMcpAuthToken. Run `cia access-key set <key>` or `cia debug on --token <token>`.");
 		return createMcpAuthFetchClient(authToken);
 	}
-	return createConfiguredFetchWithToken(void 0, "walletPrivateKey");
+	return createConfiguredGraphPaidOrFreeFetch();
 }
 //#endregion
-export { resolveGraphMcpEndpoint as a, createMcpFetchClient as i, client_exports as n, createConfiguredMcpFetch as r, PaymentRequiredError as t };
-
-//# sourceMappingURL=client-BK26wTbL.mjs.map
+Object.defineProperty(exports, "PaymentRequiredError", {
+	enumerable: true,
+	get: function() {
+		return PaymentRequiredError;
+	}
+});
+Object.defineProperty(exports, "client_exports", {
+	enumerable: true,
+	get: function() {
+		return client_exports;
+	}
+});
+Object.defineProperty(exports, "createConfiguredMcpFetch", {
+	enumerable: true,
+	get: function() {
+		return createConfiguredMcpFetch;
+	}
+});
+Object.defineProperty(exports, "createMcpFetchClient", {
+	enumerable: true,
+	get: function() {
+		return createMcpFetchClient;
+	}
+});
+Object.defineProperty(exports, "resolveGraphMcpEndpoint", {
+	enumerable: true,
+	get: function() {
+		return resolveGraphMcpEndpoint;
+	}
+});

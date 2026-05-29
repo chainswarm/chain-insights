@@ -1,4 +1,4 @@
-import { a as resolveGraphMcpEndpoint } from "./client-BK26wTbL.mjs";
+import { a as resolveGraphMcpEndpoint } from "./client-DeXaxQv2.mjs";
 //#region src/mcp/capabilities.ts
 function metadataNetworksUrl(endpoint) {
 	const url = new URL(endpoint);
@@ -81,4 +81,4 @@ function formatNetworkCapabilities(document) {
 //#endregion
 export { fetchNetworkCapabilities, formatNetworkCapabilities };
 
-//# sourceMappingURL=capabilities-aKgN457g.mjs.map
+//# sourceMappingURL=capabilities-BDpRy0gD.mjs.map

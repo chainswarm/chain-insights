@@ -93,7 +93,8 @@ The proxy:
 | `case_end_session` | End a session with findings and next steps |
 
 Remote graph tools are discovered from the configured GraphRAG MCP endpoint. The
-expected primitive graph tools are `graph_query` and `graph_query_batch`.
+expected primitive graph tools are `usage_status`, `graph_query`, and
+`graph_query_batch`.
 Chain Insights adds high-level local graph recipes such as `address_risk`,
 `stake_insights`, `track_funds`, and `scam_topology` when the remote endpoint
 only exposes primitives.
@@ -113,6 +114,23 @@ Invited tester access key mode:
 chain-insights access-key set ci_test_REDACTED --endpoint https://staging-mcp.chain-insights.ai/mcp
 chain-insights access-key status
 ```
+
+Public free graph usage:
+
+```bash
+chain-insights mcp call usage_status
+chain-insights mcp call graph_query \
+  network=bittensor \
+  "query=USE live_topology MATCH (n) RETURN count(n) AS count LIMIT 1"
+```
+
+Hosted GraphRAG MCP can allow anonymous `graph_query` calls before wallet
+setup. The default public free graph_query quota is 10 execution seconds per IP
+per UTC day, reset on the UTC calendar day. `usage_status` returns only the
+current caller's quota status. Public free access does not include
+`graph_query_batch`; use a tester access key or paid x402 mode for regular
+usage and batches. Use explicit LIMIT and pagination in your query when you
+want bounded result sets.
 
 Paid x402 mode:
 

@@ -9,6 +9,7 @@ The GraphRAG MCP public graph surface is intentionally small:
 
 | Tool | Purpose |
 | --- | --- |
+| `usage_status` | Return the caller's public free graph_query quota for the current UTC day |
 | `graph_query` | Run one read-only GQL/Cypher query through the universal graph endpoint |
 | `graph_query_batch` | Run related read-only graph-language queries as one MCP call |
 
@@ -24,9 +25,23 @@ assumed to exist on the GraphRAG MCP endpoint.
 - Use `USE live_topology` for recent topology.
 - Use `USE archive_topology` for historical topology.
 - Use `USE facts` for labels, features, risk scores, assets, and enrichment.
+- Use `usage_status` before public hosted reads when you need the caller's
+  remaining free quota.
+- Hosted endpoints can expose a public free graph_query quota. The default is
+  10 execution seconds per IP per UTC day.
+- Use explicit LIMIT and pagination in your query when you want bounded result
+  sets.
+- The GraphRAG MCP server does not append `LIMIT`; Chain Insights recipes own
+  their own limits and pagination.
 - Use `graph_query_batch` for related reads that should share one paid call.
-- `per_query_timeout_seconds` is optional and capped at `600`.
+- `per_query_timeout_seconds` is optional and capped at `10` by default.
 - Returned rows live in `structuredContent.facts`.
+
+Check public-free usage:
+
+```bash
+chain-insights mcp call usage_status
+```
 
 Example single query:
 
@@ -52,7 +67,7 @@ Batch result facts include:
     "count": 2,
     "completed": 2,
     "failed": 0,
-    "per_query_timeout_seconds": 600,
+    "per_query_timeout_seconds": 10,
     "total_query_elapsed_ms": 1345,
     "billable_seconds": 2,
     "estimated_usdc": "0.02"
