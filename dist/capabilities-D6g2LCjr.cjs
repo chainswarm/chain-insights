@@ -1,4 +1,4 @@
-const require_client = require("./client-CC8EFRyv.cjs");
+const require_client = require("./client-D0Bnl2S5.cjs");
 //#region src/mcp/capabilities.ts
 function metadataNetworksUrl(endpoint) {
 	const url = new URL(endpoint);

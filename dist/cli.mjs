@@ -71,7 +71,7 @@ function optionalScamTopologyActivityPolicy(value) {
 async function withGraphMcpClient(name, fn) {
 	const { loadConfig } = await import("./config-DvPLEixE.mjs").then((n) => n.t);
 	const config = await loadConfig();
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-BK26wTbL.mjs").then((n) => n.n);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-DeXaxQv2.mjs").then((n) => n.n);
 	const paymentFetch = await createConfiguredGraphMcpFetch(config);
 	const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
 	const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
@@ -91,7 +91,7 @@ function printMcpTextContent(result) {
 }
 async function printNetworkCapabilities(opts) {
 	const { loadConfig } = await import("./config-DvPLEixE.mjs").then((n) => n.t);
-	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import("./capabilities-aKgN457g.mjs");
+	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import("./capabilities-BDpRy0gD.mjs");
 	const document = await fetchNetworkCapabilities(await loadConfig());
 	if (opts.json) console.log(JSON.stringify(document, null, 2));
 	else console.log(formatNetworkCapabilities(document));
@@ -363,7 +363,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { formatToolsTable } = await import("./format-CBsTuN6f.mjs");
 		const { visibleRemoteTools } = await import("./tool-visibility-CiMX9WlU.mjs").then((n) => n.n);
 		const { loadConfig } = await import("./config-DvPLEixE.mjs").then((n) => n.t);
-		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-BK26wTbL.mjs").then((n) => n.n);
+		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-DeXaxQv2.mjs").then((n) => n.n);
 		const config = await loadConfig();
 		const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
 		let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint);
@@ -746,7 +746,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await import("./runner-BC3dYJ4t.mjs");
+		const { PlaybookRunner } = await import("./runner-BT1nE8Cf.mjs");
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,

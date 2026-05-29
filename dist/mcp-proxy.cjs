@@ -1,7 +1,7 @@
 Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 const require_chunk = require("./chunk-CZWwpsFl.cjs");
 const require_version = require("./version-BNGtdpmH.cjs");
-const require_client = require("./client-CC8EFRyv.cjs");
+const require_client = require("./client-D0Bnl2S5.cjs");
 const require_tool_visibility = require("./tool-visibility-DsD5KOTr.cjs");
 let node_url = require("node:url");
 let node_path = require("node:path");
@@ -589,7 +589,7 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 async function createProxy() {
 	const { loadConfig } = await Promise.resolve().then(() => require("./config-v5J0jdM9.cjs")).then((n) => n.config_exports);
 	const { activeDataDir, findActiveWorkspace } = await Promise.resolve().then(() => require("./active-cWS-i7UB.cjs")).then((n) => n.active_exports);
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-CC8EFRyv.cjs")).then((n) => n.client_exports);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-D0Bnl2S5.cjs")).then((n) => n.client_exports);
 	const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-DrXpp4r2.cjs"));
 	const loadedConfig = await loadConfig();
 	const activeWorkspace = findActiveWorkspace();
