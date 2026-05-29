@@ -37,6 +37,13 @@ assumed to exist on the GraphRAG MCP endpoint.
 - `per_query_timeout_seconds` is optional and capped at `10` by default.
 - Returned rows live in `structuredContent.facts`.
 
+Agent installers ship two graph-query skills:
+
+- `chain-insights-cypher`: generic layer selection, schema capture, and
+  portable read-only GQL/Cypher examples.
+- `chain-insights-bittensor-cypher`: Bittensor-specific schema notes for SS58
+  and EVM-pallet addresses under `network=bittensor`.
+
 Check public-free usage:
 
 ```bash
@@ -313,12 +320,19 @@ Large JSON belongs under workspace report directories, not inline in evidence.
 Fresh workspaces include a runtime schema skill and schema capture directory.
 Before the first case query against a network, capture the live graph schema and
 use the observed labels, relationship types, and property names in subsequent
-queries.
+queries. Different networks can expose different fact nodes and relationship
+properties, so do not assume a query that works on Bittensor will work on Base,
+Ethereum, or TRON without a fresh schema probe.
 
 Useful schema probes:
 
 ```bash
 cia mcp call graph_query_batch \
   network=bittensor \
-  'queries=[{"id":"live_address_sample","query":"USE live_topology MATCH (n:Address) RETURN n.address AS address, n.labels AS labels LIMIT 5"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.period_granularity AS granularity LIMIT 5"},{"id":"facts_sample","query":"USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.sent_count AS sent_count LIMIT 5"}]'
+  per_query_timeout_seconds=5 \
+  'queries=[{"id":"live_address_sample","query":"USE live_topology MATCH (n:Address) RETURN n.address AS address, n.labels AS labels, n.is_exchange AS is_exchange LIMIT 10"},{"id":"live_flow_sample","query":"USE live_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_sum AS amount_sum, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.period_granularity AS period_granularity, flow.amount_sum AS amount_sum, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"facts_address_sample","query":"USE facts MATCH (a:Address) RETURN a.address AS address, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 10"}]'
 ```
+
+Use projections like `n.address` and `flow.tx_count` in probes. Metadata
+functions such as `keys()`, `labels()`, and `type()` are not portable across
+every GraphRAG MCP layer.
