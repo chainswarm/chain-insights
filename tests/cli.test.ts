@@ -77,6 +77,18 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('topup')
   })
 
+  it('wallet ready help uses user-facing payment setup language', () => {
+    const out = execFileSync('node', ['--import', 'tsx', srcCli, 'wallet', 'ready', '--help'], { encoding: 'utf8' })
+
+    expect(out).toContain('--check-only')
+    expect(out).toContain('--payment-usdc <amount>')
+    expect(out).toMatch(/one-time\s+payment setup/)
+    expect(out).not.toContain('--no-approve')
+    expect(out).not.toContain('--approval-usdc')
+    expect(out).not.toContain('approval')
+    expect(out).not.toContain('Permit2')
+  })
+
   it('mcp --help lists track-funds and hides trace-funds', () => {
     const out = execSync('node bin/cli.js mcp --help', { encoding: 'utf8' })
     expect(out).toContain('track-funds')

@@ -131,7 +131,7 @@ async function getPaymentApprovalUnits(address, rpcUrl = process.env["BASE_RPC_U
 }
 function parsePaymentApprovalUnits(amountUsdc) {
 	const trimmed = amountUsdc.trim();
-	if (!/^\d+(\.\d{1,6})?$/.test(trimmed) || !isPositiveDecimal(trimmed)) throw new Error("Approval amount must be a positive USDC value with up to 6 decimals.");
+	if (!/^\d+(\.\d{1,6})?$/.test(trimmed) || !isPositiveDecimal(trimmed)) throw new Error("Payment setup amount must be a positive USDC value with up to 6 decimals.");
 	return parseUnits(trimmed, 6);
 }
 function isPositiveDecimal(value) {
@@ -194,14 +194,14 @@ async function getWalletReadiness(account, minimumApprovalUnits = DEFAULT_PAYMEN
 }
 function formatWalletReadiness(readiness, approval) {
 	const status = readiness.ready ? "Ready for paid GraphRAG MCP calls" : "Action needed before paid GraphRAG MCP calls";
-	const setup = readiness.needsPaymentApproval ? `Payment setup: needs one-time approval (${readiness.paymentApprovalUsdc} / ${formatUnits(readiness.minimumApprovalUnits, 6)} USDC cap)` : `Payment setup: ready (${readiness.paymentApprovalUsdc} USDC cap)`;
-	const approvalLine = approval?.status === "approved" ? `Approval transaction: ${approval.txHash}` : void 0;
+	const setup = readiness.needsPaymentApproval ? `Payment setup: needs one-time setup for up to ${formatUnits(readiness.minimumApprovalUnits, 6)} USDC of paid calls` : "Payment setup: ready";
+	const setupCompletedLine = approval?.status === "approved" ? "Payment setup completed." : void 0;
 	return [
 		status,
 		`Balance: ${readiness.balanceUsdc} USDC`,
 		`Gas: ${readiness.balanceEth} ETH on Base`,
 		setup,
-		approvalLine,
+		setupCompletedLine,
 		"Network: Base",
 		`Address: ${readiness.address}`,
 		...readiness.nextSteps.map((step) => `Next: ${step}`)
@@ -273,7 +273,7 @@ function formatWalletBalance(address, balanceUsdc, balanceEth) {
 		`Balance: ${balanceUsdc} USDC`,
 		balanceEth === void 0 ? void 0 : `Gas: ${balanceEth} ETH on Base`,
 		"Network: Base",
-		"Base ETH is required only for one-time payment approval gas.",
+		"Base ETH is used only for one-time payment setup gas.",
 		`Address: ${address}`
 	].filter(Boolean).join("\n");
 }
@@ -295,4 +295,4 @@ function buildTopupInfo(address, topupUrl) {
 //#endregion
 export { getWalletAccount as a, tools_exports as c, getBalanceUsdc as i, formatWalletBalance as n, getWalletBalanceText as o, getBalanceEth as r, prepareWalletForPaidCalls as s, buildTopupInfo as t };
 
-//# sourceMappingURL=tools-BJrDqTlw.mjs.map
+//# sourceMappingURL=tools-BySGvRR8.mjs.map

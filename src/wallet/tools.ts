@@ -186,7 +186,7 @@ export async function getPaymentApprovalUsdc(
 export function parsePaymentApprovalUnits(amountUsdc: string): bigint {
   const trimmed = amountUsdc.trim()
   if (!/^\d+(\.\d{1,6})?$/.test(trimmed) || !isPositiveDecimal(trimmed)) {
-    throw new Error('Approval amount must be a positive USDC value with up to 6 decimals.')
+    throw new Error('Payment setup amount must be a positive USDC value with up to 6 decimals.')
   }
   return parseUnits(trimmed, 6)
 }
@@ -276,17 +276,17 @@ export async function getWalletReadiness(
 export function formatWalletReadiness(readiness: WalletReadiness, approval?: PaymentApprovalResult): string {
   const status = readiness.ready ? 'Ready for paid GraphRAG MCP calls' : 'Action needed before paid GraphRAG MCP calls'
   const setup = readiness.needsPaymentApproval
-    ? `Payment setup: needs one-time approval (${readiness.paymentApprovalUsdc} / ${formatUnits(readiness.minimumApprovalUnits, 6)} USDC cap)`
-    : `Payment setup: ready (${readiness.paymentApprovalUsdc} USDC cap)`
-  const approvalLine = approval?.status === 'approved'
-    ? `Approval transaction: ${approval.txHash}`
+    ? `Payment setup: needs one-time setup for up to ${formatUnits(readiness.minimumApprovalUnits, 6)} USDC of paid calls`
+    : 'Payment setup: ready'
+  const setupCompletedLine = approval?.status === 'approved'
+    ? 'Payment setup completed.'
     : undefined
   return [
     status,
     `Balance: ${readiness.balanceUsdc} USDC`,
     `Gas: ${readiness.balanceEth} ETH on Base`,
     setup,
-    approvalLine,
+    setupCompletedLine,
     'Network: Base',
     `Address: ${readiness.address}`,
     ...readiness.nextSteps.map((step) => `Next: ${step}`),
@@ -377,7 +377,7 @@ export function formatWalletBalance(address: string, balanceUsdc: string, balanc
     `Balance: ${balanceUsdc} USDC`,
     balanceEth === undefined ? undefined : `Gas: ${balanceEth} ETH on Base`,
     'Network: Base',
-    'Base ETH is required only for one-time payment approval gas.',
+    'Base ETH is used only for one-time payment setup gas.',
     `Address: ${address}`,
   ].filter(Boolean).join('\n')
 }

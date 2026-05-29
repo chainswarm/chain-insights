@@ -1,5 +1,5 @@
 const require_chunk = require("./chunk-CZWwpsFl.cjs");
-const require_tools = require("./tools-CyUNISq0.cjs");
+const require_tools = require("./tools-D5Tvcp4h.cjs");
 let viem_accounts = require("viem/accounts");
 let _x402_fetch = require("@x402/fetch");
 let _x402_evm = require("@x402/evm");
@@ -66,7 +66,7 @@ function describePaymentRequiredResponse(response, payerAddress) {
 			requirement.amount ? `amount=${requirement.amount}` : void 0
 		].filter(Boolean).join(" ");
 		const message = details ? `x402 payment failed: ${reason} (${details})` : `x402 payment failed: ${reason}`;
-		if (reason.includes("allowance_required")) return `${message}. The payment wallet needs one-time setup before paid MCP calls can settle. Run \`chain-insights wallet ready\`; Base ETH is required for the approval gas.`;
+		if (reason.includes("allowance_required")) return `${message}. The payment wallet needs one-time setup before paid MCP calls can settle. Run \`chain-insights wallet ready\`; Base ETH is used for the setup gas.`;
 		if (reason === "payment_required") return `${message}. ${PAYMENT_NEXT_STEPS}`;
 		return `${message}. ${PAYMENT_NEXT_STEPS}`;
 	} catch {

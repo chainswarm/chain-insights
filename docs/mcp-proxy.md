@@ -38,6 +38,8 @@ Set hosted staging for approved testers:
 chain-insights config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
 ```
 
+For now, use staging only for tester activation. Production is not live yet.
+
 Use a one-shot environment override:
 
 ```bash
@@ -125,8 +127,9 @@ If `graphMcpAuthToken` is set, Chain Insights sends both
 `X-MCP-Debug-Token` and `Authorization: Bearer <token>`. If it is empty,
 Chain Insights uses the encrypted wallet private key with x402 payment
 handling. `wallet ready` is the user-facing preflight: it checks Base USDC,
-Base ETH gas, and payment approval, and it submits only the one-time approval
-transaction when needed.
+Base ETH gas, and one-time payment setup. A normal user does not need payment
+protocol details; run `chain-insights wallet ready` and retry the paid tool
+after it reports ready.
 
 ## Agent Installers
 

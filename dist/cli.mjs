@@ -1,5 +1,5 @@
 import { n as PACKAGE_VERSION, t as PACKAGE_INFO } from "./version-1gP19Lhi.mjs";
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -71,7 +71,7 @@ function optionalScamTopologyActivityPolicy(value) {
 async function withGraphMcpClient(name, fn) {
 	const { loadConfig } = await import("./config-DvPLEixE.mjs").then((n) => n.t);
 	const config = await loadConfig();
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-VlCrxmPU.mjs").then((n) => n.n);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-D3_J1pnp.mjs").then((n) => n.n);
 	const paymentFetch = await createConfiguredGraphMcpFetch(config);
 	const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
 	const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
@@ -91,7 +91,7 @@ function printMcpTextContent(result) {
 }
 async function printNetworkCapabilities(opts) {
 	const { loadConfig } = await import("./config-DvPLEixE.mjs").then((n) => n.t);
-	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import("./capabilities-Ctz5iorb.mjs");
+	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import("./capabilities-D38MFVUY.mjs");
 	const document = await fetchNetworkCapabilities(await loadConfig());
 	if (opts.json) console.log(JSON.stringify(document, null, 2));
 	else console.log(formatNetworkCapabilities(document));
@@ -213,7 +213,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 }));
 program.command("init").description("Initialize an investigation workspace").argument("[dir]", "Workspace directory to initialize", ".").option("--force", "Overwrite existing workspace files").action(async (dir, opts) => {
 	try {
-		const { initWorkspace } = await import("./init-C5mnUxQu.mjs");
+		const { initWorkspace } = await import("./init-KVbTzQ65.mjs");
 		const result = await initWorkspace({
 			targetDir: dir,
 			force: opts.force
@@ -285,7 +285,7 @@ program.command("config").description("Read or write configuration values").addC
 }));
 program.command("wallet").description("Manage the local Base USDC payment wallet").addCommand(new Command("address").description("Print the local payment wallet address").action(async () => {
 	try {
-		const { getWalletAccount } = await import("./tools-BJrDqTlw.mjs").then((n) => n.c);
+		const { getWalletAccount } = await import("./tools-BySGvRR8.mjs").then((n) => n.c);
 		const account = await getWalletAccount();
 		console.log(account.address);
 	} catch (err) {
@@ -294,18 +294,18 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new Command("balance").description("Show the local payment wallet Base USDC balance").action(async () => {
 	try {
-		const { getWalletBalanceText } = await import("./tools-BJrDqTlw.mjs").then((n) => n.c);
+		const { getWalletBalanceText } = await import("./tools-BySGvRR8.mjs").then((n) => n.c);
 		console.log(await getWalletBalanceText());
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new Command("ready").description("Check and prepare the wallet for paid GraphRAG MCP calls").option("--no-approve", "Only check readiness; do not submit the one-time payment approval").option("--approval-usdc <amount>", "USDC approval cap to prepare for paid calls", "1").option("--json", "Print machine-readable readiness metadata").action(async (opts) => {
+})).addCommand(new Command("ready").description("Check and prepare the wallet for paid GraphRAG MCP calls").option("--check-only", "Only check readiness; do not submit the one-time payment setup").addOption(new Option("--no-approve", "Deprecated alias for --check-only").hideHelp()).option("--payment-usdc <amount>", "USDC setup cap to prepare for paid calls", "1").addOption(new Option("--approval-usdc <amount>", "Deprecated alias for --payment-usdc").hideHelp()).option("--json", "Print machine-readable readiness metadata").action(async (opts) => {
 	try {
-		const { formatWalletReadiness, parsePaymentApprovalUnits, prepareWalletForPaidCalls } = await import("./tools-BJrDqTlw.mjs").then((n) => n.c);
+		const { formatWalletReadiness, parsePaymentApprovalUnits, prepareWalletForPaidCalls } = await import("./tools-BySGvRR8.mjs").then((n) => n.c);
 		const result = await prepareWalletForPaidCalls({
-			minimumApprovalUnits: parsePaymentApprovalUnits(opts.approvalUsdc ?? "1"),
-			approve: opts.approve !== false
+			minimumApprovalUnits: parsePaymentApprovalUnits(opts.paymentUsdc ?? opts.approvalUsdc ?? "1"),
+			approve: opts.checkOnly ? false : opts.approve !== false
 		});
 		if (opts.json) {
 			console.log(JSON.stringify(result, (_key, value) => typeof value === "bigint" ? value.toString() : value, 2));
@@ -318,8 +318,8 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new Command("topup").description("Open a local browser page to top up the payment wallet").option("--no-open", "Print the top-up URL without opening a browser").option("--json", "Print machine-readable top-up metadata").action(async (opts) => {
 	try {
-		const { buildTopupInfo, getWalletAccount } = await import("./tools-BJrDqTlw.mjs").then((n) => n.c);
-		const { startTopupServer } = await import("./topup-server-DOnI0kfI.mjs").then((n) => n.r);
+		const { buildTopupInfo, getWalletAccount } = await import("./tools-BySGvRR8.mjs").then((n) => n.c);
+		const { startTopupServer } = await import("./topup-server-jPmGUXra.mjs").then((n) => n.r);
 		const account = await getWalletAccount();
 		const url = await startTopupServer(account);
 		const info = buildTopupInfo(account.address, url);
@@ -353,7 +353,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { formatToolsTable } = await import("./format-CBsTuN6f.mjs");
 		const { visibleRemoteTools } = await import("./tool-visibility-CiMX9WlU.mjs").then((n) => n.n);
 		const { loadConfig } = await import("./config-DvPLEixE.mjs").then((n) => n.t);
-		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-VlCrxmPU.mjs").then((n) => n.n);
+		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-D3_J1pnp.mjs").then((n) => n.n);
 		const config = await loadConfig();
 		const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
 		let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint);
@@ -736,7 +736,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await import("./runner-CORo7tqv.mjs");
+		const { PlaybookRunner } = await import("./runner-DSB7-n4U.mjs");
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,

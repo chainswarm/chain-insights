@@ -1,4 +1,4 @@
-import { Command } from 'commander'
+import { Command, Option } from 'commander'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -432,16 +432,18 @@ program
   .addCommand(
     new Command('ready')
       .description('Check and prepare the wallet for paid GraphRAG MCP calls')
-      .option('--no-approve', 'Only check readiness; do not submit the one-time payment approval')
-      .option('--approval-usdc <amount>', 'USDC approval cap to prepare for paid calls', '1')
+      .option('--check-only', 'Only check readiness; do not submit the one-time payment setup')
+      .addOption(new Option('--no-approve', 'Deprecated alias for --check-only').hideHelp())
+      .option('--payment-usdc <amount>', 'USDC setup cap to prepare for paid calls', '1')
+      .addOption(new Option('--approval-usdc <amount>', 'Deprecated alias for --payment-usdc').hideHelp())
       .option('--json', 'Print machine-readable readiness metadata')
-      .action(async (opts: { approve?: boolean; approvalUsdc?: string; json?: boolean }) => {
+      .action(async (opts: { checkOnly?: boolean; approve?: boolean; paymentUsdc?: string; approvalUsdc?: string; json?: boolean }) => {
         try {
           const { formatWalletReadiness, parsePaymentApprovalUnits, prepareWalletForPaidCalls } = await import('./wallet/tools.js')
-          const minimumApprovalUnits = parsePaymentApprovalUnits(opts.approvalUsdc ?? '1')
+          const minimumApprovalUnits = parsePaymentApprovalUnits(opts.paymentUsdc ?? opts.approvalUsdc ?? '1')
           const result = await prepareWalletForPaidCalls({
             minimumApprovalUnits,
-            approve: opts.approve !== false,
+            approve: opts.checkOnly ? false : opts.approve !== false,
           })
 
           if (opts.json) {

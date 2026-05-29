@@ -2,6 +2,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.2.27] - 2026-05-29
+
+- Made `chain-insights wallet ready` default output fully user-facing: normal users now see one-time payment setup guidance instead of approval mechanics or transaction hashes, while `--json` keeps machine-readable readiness fields for operators.
+- Added `wallet ready --check-only` and `--payment-usdc` as the user-facing flags, keeping the older approval-named flags as hidden compatibility aliases.
+- Clarified staging activation docs: approved testers should use `https://staging-mcp.chain-insights.ai/mcp` only until production is live.
+
 ## [0.2.26] - 2026-05-29
 
 - The MCP proxy now starts its local Chain Insights tool surface even when paid GraphRAG MCP fetch setup needs wallet or access-key configuration. Fresh MCP clients can list `help`, wallet/case tools, and the local AML workflows first, then receive user-facing `wallet ready` or `access-key` guidance when graph-backed calls need hosted access instead of seeing the proxy exit during `tools/list`.

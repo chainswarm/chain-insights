@@ -104,9 +104,10 @@ describe('wallet tools', () => {
 
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Balance: 2.500000 USDC')
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Gas: 0.0001 ETH on Base')
-    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Base ETH is required only for one-time payment approval gas.')
+    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Base ETH is used only for one-time payment setup gas.')
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Address: 0xabc')
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).not.toContain('Permit2')
+    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).not.toContain('approval')
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).not.toContain('Capacity:')
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).not.toContain('tool calls')
   })
@@ -156,7 +157,7 @@ describe('wallet tools', () => {
     )
   })
 
-  it('renders a ready wallet without exposing low-level permit mechanics', async () => {
+  it('renders wallet readiness without exposing payment approval mechanics', async () => {
     const { formatWalletReadiness } = await import('../src/wallet/tools.js')
 
     const text = formatWalletReadiness({
@@ -172,11 +173,39 @@ describe('wallet tools', () => {
       needsPaymentApproval: false,
       ready: true,
       nextSteps: [],
-    })
+    }, { status: 'approved', txHash: '0xapproval', paymentApprovalUnits: 1_000_000n, minimumApprovalUnits: 1_000_000n })
 
     expect(text).toContain('Ready for paid GraphRAG MCP calls')
     expect(text).toContain('Payment setup: ready')
     expect(text).not.toContain('Permit2')
+    expect(text).not.toContain('approval')
+    expect(text).not.toContain('0xapproval')
+    expect(text).not.toContain('transaction')
+  })
+
+  it('renders action-needed wallet readiness as one-time setup', async () => {
+    const { formatWalletReadiness } = await import('../src/wallet/tools.js')
+
+    const text = formatWalletReadiness({
+      address: '0x0000000000000000000000000000000000000001',
+      balanceUsdc: '0.99',
+      balanceEth: '0.0001',
+      paymentApprovalUsdc: '0.99',
+      paymentApprovalUnits: 990_000n,
+      minimumApprovalUnits: 1_000_000n,
+      hasUsdc: true,
+      hasGas: true,
+      hasPaymentApproval: false,
+      needsPaymentApproval: true,
+      ready: false,
+      nextSteps: ['Run `chain-insights wallet ready` to finish the one-time payment setup.'],
+    })
+
+    expect(text).toContain('Action needed before paid GraphRAG MCP calls')
+    expect(text).toContain('Payment setup: needs one-time setup')
+    expect(text).not.toContain('Permit2')
+    expect(text).not.toContain('approval')
+    expect(text).not.toContain('0.99 / 1')
   })
 
   it('builds top-up metadata for MCP and CLI output', async () => {

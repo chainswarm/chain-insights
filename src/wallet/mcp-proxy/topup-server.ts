@@ -221,7 +221,7 @@ export function generateArtifactHtml(walletAddressInput: string, topupUrl: strin
     <div class="address-hint" id="addrHint">Click to copy address</div>
   </div>
   <div class="badge"><span class="dot"></span>Base Network &middot; USDC</div>
-  <p class="balance-line" id="balLine">Current balance: <span class="amount" id="bal">--</span> USDC<br>Gas balance: <span class="gas" id="gas">--</span> ETH<br>Base ETH is used for one-time approval gas.</p>
+  <p class="balance-line" id="balLine">Current balance: <span class="amount" id="bal">--</span> USDC<br>Gas balance: <span class="gas" id="gas">--</span> ETH<br>Base ETH is used for one-time payment setup gas.</p>
 </div>
 <script>
 // MCP Apps protocol handshake (matches @modelcontextprotocol/ext-apps App.connect())
@@ -580,7 +580,7 @@ function generatePage(walletAddressInput: string): string {
       <span class="balance-label">Gas balance</span>
       <span class="balance-value" id="gasBalance">—<span class="currency">ETH</span></span>
     </div>
-    <p class="gas-note">Base ETH is used for one-time approval gas.</p>
+    <p class="gas-note">Base ETH is used for one-time payment setup gas.</p>
 
     <div class="status" id="status"></div>
   </div>
