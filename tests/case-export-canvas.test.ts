@@ -58,6 +58,8 @@ describe('case export graph and canvas files', () => {
     expect(graph.schema).toBe('chain-insights.graph.v1')
     expect(graph.nodes).toHaveLength(2)
     expect(graph.edges).toHaveLength(1)
+    expect(canvas.nodes.length).toBeGreaterThan(0)
+    expect(Array.isArray(canvas.edges)).toBe(true)
     expect(canvas.nodes.some(node => node.file === 'Entities/5seed.md')).toBe(true)
     expect(existsSync(join(result.outputDir, 'Entities', '5seed.md'))).toBe(true)
 

@@ -57,6 +57,15 @@ describe('case export service', () => {
     expect(existsSync(join(result.outputDir, 'Agent Console.md'))).toBe(true)
     expect(existsSync(join(result.outputDir, 'Prompts', 'Codex.md'))).toBe(true)
 
+    const readme = await readFile(join(result.outputDir, 'README.md'), 'utf8')
+    expect(readme).toContain('Open this directory as an Obsidian vault')
+    expect(readme).toContain('LLM Wiki')
+    expect(readme).toContain('Agent Console.md')
+
+    const agentConsole = await readFile(join(result.outputDir, 'Agent Console.md'), 'utf8')
+    expect(agentConsole).toContain('Treat Chain Insights case evidence and manifests as canonical')
+    expect(agentConsole).toContain('Preserve full blockchain addresses exactly')
+
     const manifest = JSON.parse(await readFile(join(result.outputDir, 'manifest.chain-insights.json'), 'utf8')) as {
       schema: string
       case_id: string
