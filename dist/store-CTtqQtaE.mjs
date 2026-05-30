@@ -1,61 +1,64 @@
-const require_chunk = require("./chunk-DakpK96I.cjs");
-const require_frontmatter = require("./frontmatter-Dvqa5HX6.cjs");
-const require_output_root = require("./output-root-YIbl6PwF.cjs");
-let node_path = require("node:path");
-node_path = require_chunk.__toESM(node_path, 1);
-let node_fs_promises = require("node:fs/promises");
-let zod = require("zod");
-zod = require_chunk.__toESM(zod, 1);
+import { t as __exportAll } from "./rolldown-runtime-D7D4PA-g.mjs";
+import { n as serializeFrontmatter, t as parseFrontmatter } from "./frontmatter-D0ccQnUM.mjs";
+import { n as workspaceOutputPaths } from "./output-root-BRhzhhXZ.mjs";
+import path from "node:path";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import * as z from "zod";
 //#region src/cases/schema.ts
 const caseIdRegex = /^\d{8}_\d{3}_[a-z0-9][a-z0-9-]*$/;
-const CaseStatusEnum = zod.enum([
+const CaseStatusEnum = z.enum([
 	"open",
 	"active",
 	"suspended",
 	"closed"
 ]);
-const CaseSchema = zod.object({
-	id: zod.string().regex(caseIdRegex, "Invalid case ID format"),
-	name: zod.string().min(1).max(200),
+const CaseSchema = z.object({
+	id: z.string().regex(caseIdRegex, "Invalid case ID format"),
+	name: z.string().min(1).max(200),
 	status: CaseStatusEnum.default("open"),
-	created: zod.string().datetime(),
-	updated: zod.string().datetime(),
-	tags: zod.array(zod.string()).default([]),
-	description: zod.string().default(""),
-	slug: zod.string().optional()
+	created: z.string().datetime(),
+	updated: z.string().datetime(),
+	tags: z.array(z.string()).default([]),
+	description: z.string().default(""),
+	slug: z.string().optional()
 });
-zod.object({
-	id: zod.string().min(1),
-	caseId: zod.string().regex(caseIdRegex),
-	source: zod.string().min(1),
-	timestamp: zod.string().datetime(),
-	queryParams: zod.string().default("")
+z.object({
+	id: z.string().min(1),
+	caseId: z.string().regex(caseIdRegex),
+	source: z.string().min(1),
+	timestamp: z.string().datetime(),
+	queryParams: z.string().default("")
 });
-zod.object({
-	address: zod.string().min(1).max(100),
-	type: zod.enum([
+z.object({
+	address: z.string().min(1).max(100),
+	type: z.enum([
 		"eoa",
 		"contract",
 		"exchange",
 		"mixer",
 		"unknown"
 	]).default("unknown"),
-	firstSeen: zod.string().datetime(),
-	lastSeen: zod.string().datetime(),
-	riskTags: zod.string().default("")
+	firstSeen: z.string().datetime(),
+	lastSeen: z.string().datetime(),
+	riskTags: z.string().default("")
 });
-zod.object({
-	sessionId: zod.string().min(1),
-	caseId: zod.string().regex(caseIdRegex),
-	startTime: zod.string().datetime(),
-	endTime: zod.string().optional(),
-	status: zod.enum(["active", "ended"]).default("active")
+z.object({
+	sessionId: z.string().min(1),
+	caseId: z.string().regex(caseIdRegex),
+	startTime: z.string().datetime(),
+	endTime: z.string().optional(),
+	status: z.enum(["active", "ended"]).default("active")
 });
 //#endregion
 //#region src/cases/store.ts
-const casesRoot = () => require_output_root.workspaceOutputPaths().casesRoot;
+var store_exports = /* @__PURE__ */ __exportAll({
+	CaseStore: () => CaseStore,
+	casesRoot: () => casesRoot,
+	generateCaseId: () => generateCaseId
+});
+const casesRoot = () => workspaceOutputPaths().casesRoot;
 function caseDir(id) {
-	return node_path.default.join(casesRoot(), id);
+	return path.join(casesRoot(), id);
 }
 function generateCaseId(name, existingIds) {
 	const date = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10).replace(/-/g, "");
@@ -67,15 +70,15 @@ function generateCaseId(name, existingIds) {
 const CaseStore = {
 	async create(input) {
 		const root = casesRoot();
-		await (0, node_fs_promises.mkdir)(root, { recursive: true });
-		const existingIds = await (0, node_fs_promises.readdir)(root).catch(() => []);
+		await mkdir(root, { recursive: true });
+		const existingIds = await readdir(root).catch(() => []);
 		const id = generateCaseId(input.name, existingIds);
 		const slug = id.split("_").slice(2).join("_");
 		const now = (/* @__PURE__ */ new Date()).toISOString();
 		const tags = input.tags;
 		const dir = caseDir(id);
-		await (0, node_fs_promises.mkdir)(node_path.default.join(dir, "evidence"), { recursive: true });
-		await (0, node_fs_promises.mkdir)(node_path.default.join(dir, "dossiers"), { recursive: true });
+		await mkdir(path.join(dir, "evidence"), { recursive: true });
+		await mkdir(path.join(dir, "dossiers"), { recursive: true });
 		const fm = {
 			id,
 			name: input.name,
@@ -112,12 +115,12 @@ const CaseStore = {
 			"## Reports",
 			""
 		].join("\n");
-		await (0, node_fs_promises.writeFile)(node_path.default.join(dir, "case.md"), require_frontmatter.serializeFrontmatter(fm, body), { mode: 384 });
+		await writeFile(path.join(dir, "case.md"), serializeFrontmatter(fm, body), { mode: 384 });
 		const manifest = JSON.stringify({
 			caseId: id,
 			entries: []
 		}, null, 2) + "\n";
-		await (0, node_fs_promises.writeFile)(node_path.default.join(dir, "manifest.json"), manifest, { mode: 384 });
+		await writeFile(path.join(dir, "manifest.json"), manifest, { mode: 384 });
 		return CaseSchema.parse({
 			id,
 			name: input.name,
@@ -131,12 +134,12 @@ const CaseStore = {
 	},
 	async setStatus(id, status) {
 		const dir = caseDir(id);
-		const filePath = node_path.default.join(dir, "case.md");
-		const { frontmatter, body } = require_frontmatter.parseFrontmatter(await (0, node_fs_promises.readFile)(filePath, "utf8"));
+		const filePath = path.join(dir, "case.md");
+		const { frontmatter, body } = parseFrontmatter(await readFile(filePath, "utf8"));
 		const now = (/* @__PURE__ */ new Date()).toISOString();
 		frontmatter["status"] = status;
 		frontmatter["updated"] = now;
-		await (0, node_fs_promises.writeFile)(filePath, require_frontmatter.serializeFrontmatter(frontmatter, body), { mode: 384 });
+		await writeFile(filePath, serializeFrontmatter(frontmatter, body), { mode: 384 });
 		const tags = (frontmatter["tags"] ?? "").split(",").filter(Boolean);
 		return CaseSchema.parse({
 			id,
@@ -151,10 +154,10 @@ const CaseStore = {
 	async list() {
 		const root = casesRoot();
 		try {
-			const ids = await (0, node_fs_promises.readdir)(root);
+			const ids = await readdir(root);
 			const cases = [];
 			for (const id of ids) try {
-				const { frontmatter } = require_frontmatter.parseFrontmatter(await (0, node_fs_promises.readFile)(node_path.default.join(caseDir(id), "case.md"), "utf8"));
+				const { frontmatter } = parseFrontmatter(await readFile(path.join(caseDir(id), "case.md"), "utf8"));
 				cases.push({
 					id,
 					name: frontmatter["name"] ?? id,
@@ -177,7 +180,7 @@ const CaseStore = {
 	},
 	async get(id) {
 		const dir = caseDir(id);
-		const { frontmatter } = require_frontmatter.parseFrontmatter(await (0, node_fs_promises.readFile)(node_path.default.join(dir, "case.md"), "utf8"));
+		const { frontmatter } = parseFrontmatter(await readFile(path.join(dir, "case.md"), "utf8"));
 		const tags = (frontmatter["tags"] ?? "").split(",").filter(Boolean);
 		return CaseSchema.parse({
 			id,
@@ -191,14 +194,14 @@ const CaseStore = {
 	},
 	async loadContext(id) {
 		const dir = caseDir(id);
-		const { frontmatter } = require_frontmatter.parseFrontmatter(await (0, node_fs_promises.readFile)(node_path.default.join(dir, "case.md"), "utf8"));
+		const { frontmatter } = parseFrontmatter(await readFile(path.join(dir, "case.md"), "utf8"));
 		const tags = (frontmatter["tags"] ?? "").split(",").filter(Boolean);
-		const { SessionStore } = await Promise.resolve().then(() => require("./session-DwyikazY.cjs"));
-		const { DossierStore } = await Promise.resolve().then(() => require("./dossier-Br62hCG7.cjs"));
+		const { SessionStore } = await import("./session-DROyhebe.mjs").then((n) => n.n);
+		const { DossierStore } = await import("./dossier-Bjpcbcxa.mjs").then((n) => n.n);
 		const [latestSession, dossierSummaries, manifest] = await Promise.all([
 			SessionStore.getLatest(id),
 			DossierStore.listSummaries(id),
-			(0, node_fs_promises.readFile)(node_path.default.join(dir, "manifest.json"), "utf8").catch(() => "{\"entries\":[]}")
+			readFile(path.join(dir, "manifest.json"), "utf8").catch(() => "{\"entries\":[]}")
 		]);
 		const evidenceCount = JSON.parse(manifest).entries.length;
 		const lastSession = latestSession ? {
@@ -223,8 +226,6 @@ const CaseStore = {
 	}
 };
 //#endregion
-exports.CaseSchema = CaseSchema;
-exports.CaseStatusEnum = CaseStatusEnum;
-exports.CaseStore = CaseStore;
-exports.casesRoot = casesRoot;
-exports.generateCaseId = generateCaseId;
+export { CaseStatusEnum as a, CaseSchema as i, generateCaseId as n, store_exports as r, CaseStore as t };
+
+//# sourceMappingURL=store-CTtqQtaE.mjs.map

@@ -1,4 +1,4 @@
-import { CaseStore } from "./store-BT2SCcQr.mjs";
+import { t as CaseStore } from "./store-CTtqQtaE.mjs";
 //#region src/cases/selector.ts
 async function resolveCaseSelector(input) {
 	if (!/^[1-9]\d*$/.test(input)) return input;
@@ -9,4 +9,4 @@ async function resolveCaseSelector(input) {
 //#endregion
 export { resolveCaseSelector };
 
-//# sourceMappingURL=selector-CTUiQrzI.mjs.map
+//# sourceMappingURL=selector-CF2o5gxN.mjs.map

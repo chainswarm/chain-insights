@@ -882,7 +882,7 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	await (0, node_fs_promises.writeFile)(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 384 });
 	await (0, node_fs_promises.writeFile)(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 384 });
 	if (options.caseId) {
-		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-sTY5aXav.cjs"));
 		await EvidenceStore.append(options.caseId, {
 			source: evidenceSource,
 			queryParams: `network=${network} seed_address=${seedAddress} max_hops=${maxHops} per_address_limit=${perAddressLimit} min_amount_sum=${minAmountSum}`,
@@ -2321,7 +2321,7 @@ async function traceDepositSources(remoteClient, _config, options) {
 	const artifacts = await writeTraceSourceArtifacts("trace_deposit_sources", network, graphData, rows, summaryText);
 	const evidence = artifactEvidence(artifacts);
 	if (options.caseId) {
-		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-sTY5aXav.cjs"));
 		await EvidenceStore.append(options.caseId, {
 			source: "trace_deposit_sources",
 			queryParams: `network=${network} deposit_addresses=${deposits.join(",")} max_hops=${maxHops}`,
