@@ -33,7 +33,7 @@ imports/                      External investigation inputs
 reports/                      Final or interim analyst reports
 reports/graphs/               Canonical graph JSON for visualization
 reports/tables/               Compact tabular extracts
-published/                    Shareable Obsidian, LLMWiki, and agent export bundles
+published/                    Shareable Obsidian, LLM Wiki, and agent export bundles
 templates/                    Reusable case and report templates
 ```
 

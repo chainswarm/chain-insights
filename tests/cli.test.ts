@@ -605,7 +605,7 @@ describe('CLI scaffold (FOUND-02)', () => {
 
   it('case export help exposes target, mode, and output options', () => {
     const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'case', 'export', '--help'], { encoding: 'utf8' })
-    expect(out).toContain('Export a case for Obsidian, LLMWiki, and agents')
+    expect(out).toContain('Export a case for Obsidian, LLM Wiki, and agents')
     expect(out).toContain('--target <target>')
     expect(out).toContain('--mode <mode>')
     expect(out).toContain('--out <directory>')

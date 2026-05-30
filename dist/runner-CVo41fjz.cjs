@@ -1,11 +1,11 @@
-import { n as PACKAGE_VERSION } from "./version-BA3J8hu4.mjs";
-import { n as loadConfig } from "./config-Drgc2HuF.mjs";
-import { r as createConfiguredMcpFetch } from "./client-D4JE7fFF.mjs";
-import { t as generateVisualization } from "./viz-5y24S5X1.mjs";
-import { t as CaseStore } from "./store-CTtqQtaE.mjs";
-import { t as EvidenceStore } from "./evidence-D96PTzOQ.mjs";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+const require_version = require("./version-CO9Or_YV.cjs");
+const require_config = require("./config-BwVx19Og.cjs");
+const require_client = require("./client-Db6IV1tv.cjs");
+const require_viz = require("./viz-D1620cBX.cjs");
+const require_store = require("./store-CQhU8dz8.cjs");
+const require_evidence = require("./evidence-CvEesemA.cjs");
+let _modelcontextprotocol_sdk_client_index_js = require("@modelcontextprotocol/sdk/client/index.js");
+let _modelcontextprotocol_sdk_client_streamableHttp_js = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
 //#region src/playbooks/runner.ts
 /** Sleep for ms milliseconds. */
 function sleep(ms) {
@@ -72,12 +72,12 @@ async run(playbook, opts) {
 		console.log("Cost: unknown (MCP pricing not available without live connection)");
 		return;
 	}
-	const config = await loadConfig();
-	const mcpFetch = await createConfiguredMcpFetch(config);
+	const config = await require_config.loadConfig();
+	const mcpFetch = await require_client.createConfiguredMcpFetch(config);
 	let caseId;
-	if (opts.caseId) caseId = (await CaseStore.get(opts.caseId)).id;
+	if (opts.caseId) caseId = (await require_store.CaseStore.get(opts.caseId)).id;
 	else {
-		caseId = (await CaseStore.create({
+		caseId = (await require_store.CaseStore.create({
 			name: `quick-${playbook.name}-${Date.now()}`,
 			tags: [
 				"quick",
@@ -88,11 +88,11 @@ async run(playbook, opts) {
 		})).id;
 		console.log(`Created quick case: ${caseId}`);
 	}
-	const client = new Client({
+	const client = new _modelcontextprotocol_sdk_client_index_js.Client({
 		name: "chain-insights-playbook",
-		version: PACKAGE_VERSION
+		version: require_version.PACKAGE_VERSION
 	});
-	await client.connect(new StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: mcpFetch }));
+	await client.connect(new _modelcontextprotocol_sdk_client_streamableHttp_js.StreamableHTTPClientTransport(new URL(config.mcpEndpoint), { fetch: mcpFetch }));
 	let evidenceCount = 0;
 	try {
 		await validateStepTools(client, stepsToRun);
@@ -124,7 +124,7 @@ async run(playbook, opts) {
 					throw err;
 				}
 			}
-			await EvidenceStore.append(caseId, {
+			await require_evidence.EvidenceStore.append(caseId, {
 				source: step.tool,
 				content: result,
 				queryParams: JSON.stringify(step.params)
@@ -133,7 +133,7 @@ async run(playbook, opts) {
 			console.log(`  (${result.length} chars stored)`);
 		}
 		if (playbook.name === "trace-funds") try {
-			const viz = await generateVisualization({ caseId });
+			const viz = await require_viz.generateVisualization({ caseId });
 			console.log(`Visualization generated: ${viz.htmlPath}`);
 		} catch {
 			console.log("No transaction data to visualize.");
@@ -144,6 +144,4 @@ async run(playbook, opts) {
 	}
 } };
 //#endregion
-export { PlaybookRunner };
-
-//# sourceMappingURL=runner-DIJSbkjc.mjs.map
+exports.PlaybookRunner = PlaybookRunner;

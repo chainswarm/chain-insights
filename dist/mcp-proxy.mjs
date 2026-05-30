@@ -75,12 +75,12 @@ const NETWORK_DESCRIPTION = "Required network to query. Do not guess; use networ
 const REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS = 900 * 1e3;
 const CHAIN_INSIGHTS_WORKFLOW = [
 	"Workflow:",
-	"1. If the user is starting or continuing an investigation, use case_open or case_list/case_resume first.",
+	"1. Chain Insights workspaces are Obsidian-compatible vaults. If the user is starting or continuing an investigation, use case_open or case_list/case_resume first.",
 	"2. Do not call investigation tools until required arguments are known. Network is required; use network_capabilities to check supported networks, data layers, retention, and freshness, or ask the user if missing.",
 	"3. Use address_risk for single-address enrichment. Use trace_victim_funds for victim/source forward tracing, trace_deposit_sources for reverse traceback from suspected deposit endpoints, and trace_suspect_funds for suspect-controlled outbound laundering/cashout topology. Use stake_insights for Bittensor staking behavior. Use graph_query(_batch) only when the high-level trace tools do not answer the exact question.",
 	"4. After a material result, preserve it with case_add_evidence when a case is active or ask whether to create/select a case.",
 	"5. Use case_update_dossier for durable address/entity findings and case_start_session/case_end_session for session notes.",
-	"6. When a case reaches a useful checkpoint, use case_verify_evidence and case_export to produce Obsidian, LLMWiki, Codex, Claude Code, and ChatGPT-ready files."
+	"6. For local review, use live vault notes refreshed with cia case vault refresh. When a case reaches a sharing or archive checkpoint, use case_verify_evidence and case_export to produce Obsidian, LLM Wiki, Codex, Claude Code, and ChatGPT-ready handoff bundles."
 ].join("\n");
 const GRAPH_SCHEMA_HINTS = [
 	"Graph query hints for network=bittensor:",
@@ -771,13 +771,13 @@ async function createProxy() {
 		}
 	}, async ({ name, tags, description }) => {
 		try {
-			const { CaseStore } = await import("./cases-Cp9DUbEV.mjs");
+			const { CaseStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
 			const created = await CaseStore.create({
 				name,
 				tags: parseTags(tags),
 				description: description ?? ""
 			});
-			const { casesRoot } = await import("./store-CTtqQtaE.mjs").then((n) => n.r);
+			const { casesRoot } = await import("./store-C2B_AssI.mjs").then((n) => n.n);
 			return {
 				content: [{
 					type: "text",
@@ -811,7 +811,7 @@ async function createProxy() {
 		}
 	}, async ({ status }) => {
 		try {
-			const { CaseStore } = await import("./cases-Cp9DUbEV.mjs");
+			const { CaseStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
 			const cases = await CaseStore.list();
 			const filtered = status ? cases.filter((entry) => entry.status === status) : cases;
 			return {
@@ -836,7 +836,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { CaseStore } = await import("./cases-Cp9DUbEV.mjs");
+			const { CaseStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
 			const context = await CaseStore.loadContext(case_id);
 			return {
 				content: [{
@@ -865,7 +865,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, source, content, query_params }) => {
 		try {
-			const { EvidenceStore } = await import("./cases-Cp9DUbEV.mjs");
+			const { EvidenceStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
 			const saved = await EvidenceStore.append(case_id, {
 				source,
 				content,
@@ -893,7 +893,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { EvidenceStore } = await import("./cases-Cp9DUbEV.mjs");
+			const { EvidenceStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
 			const result = await EvidenceStore.verifyManifest(case_id);
 			return {
 				content: [{
@@ -907,7 +907,7 @@ async function createProxy() {
 		}
 	});
 	server.registerTool("case_export", {
-		description: "Export a Chain Insights case to an Obsidian, LLMWiki, Codex, Claude Code, and ChatGPT-friendly local bundle.",
+		description: "Export a Chain Insights case to an Obsidian, LLM Wiki, Codex, Claude Code, and ChatGPT-friendly handoff bundle.",
 		inputSchema: {
 			case_id: z.string().min(1).describe("Chain Insights case ID to export"),
 			target: z.enum(["obsidian-llmwiki"]).optional().describe("Export target. Default obsidian-llmwiki."),
@@ -926,7 +926,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, target, mode, output_dir }) => {
 		try {
-			const { exportCase } = await import("./export-BqTCO9lP.mjs");
+			const { exportCase } = await import("./export-CBhcJuZ6.mjs");
 			const result = await exportCase({
 				caseId: case_id,
 				target: target ?? "obsidian-llmwiki",
@@ -973,7 +973,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, address, finding, entity_type }) => {
 		try {
-			const { DossierStore } = await import("./cases-Cp9DUbEV.mjs");
+			const { DossierStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
 			await DossierStore.appendFinding(case_id, address, finding, entity_type ?? "unknown");
 			return {
 				content: [{
@@ -1001,7 +1001,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { SessionStore } = await import("./cases-Cp9DUbEV.mjs");
+			const { SessionStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
 			const session = await SessionStore.start(case_id);
 			return {
 				content: [{
@@ -1029,7 +1029,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, findings, next_steps }) => {
 		try {
-			const { SessionStore } = await import("./cases-Cp9DUbEV.mjs");
+			const { SessionStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
 			await SessionStore.end(case_id, {
 				findings: findings ?? "",
 				nextSteps: next_steps ?? ""
@@ -1074,7 +1074,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { addressRisk } = await import("./public-tools-wJoAFDFa.mjs");
+			const { addressRisk } = await import("./public-tools-CyUZEz9B.mjs");
 			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
 			const result = await addressRisk(remoteClient, {
@@ -1146,7 +1146,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { traceVictimFunds } = await import("./public-tools-wJoAFDFa.mjs");
+			const { traceVictimFunds } = await import("./public-tools-CyUZEz9B.mjs");
 			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
 			const result = await traceVictimFunds(remoteClient, config, {
@@ -1222,7 +1222,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { traceSuspectFunds } = await import("./public-tools-wJoAFDFa.mjs");
+			const { traceSuspectFunds } = await import("./public-tools-CyUZEz9B.mjs");
 			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
 			const result = await traceSuspectFunds(remoteClient, config, {
@@ -1294,7 +1294,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { traceDepositSources } = await import("./public-tools-wJoAFDFa.mjs");
+			const { traceDepositSources } = await import("./public-tools-CyUZEz9B.mjs");
 			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
 			const result = await traceDepositSources(remoteClient, config, {
@@ -1369,7 +1369,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { stakeInsights } = await import("./public-tools-wJoAFDFa.mjs");
+			const { stakeInsights } = await import("./public-tools-CyUZEz9B.mjs");
 			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
 			const result = await stakeInsights(remoteClient, {
@@ -1426,7 +1426,7 @@ async function createProxy() {
 		content: [{
 			type: "text",
 			text: [
-				"Chain Insights AML investigation workspace for AI agents.",
+				"Chain Insights AML investigation workspace for AI agents. Workspaces are Obsidian-compatible vaults backed by plain local files.",
 				"",
 				CHAIN_INSIGHTS_WORKFLOW,
 				"",
@@ -1446,7 +1446,7 @@ async function createProxy() {
 				"- case_resume: load case context, evidence count, dossiers, and latest session.",
 				"- case_add_evidence: append a report or note to the case evidence manifest.",
 				"- case_verify_evidence: verify saved evidence integrity.",
-				"- case_export: export a case for Obsidian, LLMWiki, Codex, Claude Code, and ChatGPT.",
+				"- case_export: export a case for Obsidian, LLM Wiki, Codex, Claude Code, and ChatGPT handoff bundles.",
 				"- case_update_dossier: add a finding to an address/entity dossier.",
 				"- case_start_session and case_end_session: record session notes.",
 				"",

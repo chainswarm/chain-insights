@@ -2,6 +2,18 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.5] - 2026-05-30
+
+- Made fresh Chain Insights workspaces Obsidian-compatible investigation vaults
+  by default, including root vault notes, starter `.obsidian` settings, canvas,
+  entity, evidence, and published handoff directories.
+- Added live case vault refresh files and CLI workflow so case notes, agent
+  console notes, entity notes, evidence notes, and `Graph.canvas` can be
+  reviewed in Obsidian during active investigations.
+- Repositioned docs around the Obsidian-first local workflow while preserving
+  `cia case export` and MCP `case_export` for public, partner, LLM Wiki, and
+  agent handoff bundles.
+
 ## [0.3.4] - 2026-05-30
 
 - Added `docs/knowledge-exports.md` with install and setup instructions for

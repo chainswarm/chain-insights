@@ -27,6 +27,22 @@ export type VaultCaseSummary = {
   entityCount: number
 }
 
+export type VaultEvidenceSummary = {
+  id: string
+  filename: string
+  source: string
+  timestamp: string
+  queryParams: string
+  notePath: string
+  body: string
+}
+
+export type VaultEntitySummary = {
+  label: string
+  notePath: string
+  entityType: string
+}
+
 export function renderLiveCaseNote(input: VaultCaseSummary): string {
   return frontmatter({
     type: 'chain-insights-case',
@@ -52,8 +68,8 @@ export function renderLiveCaseNote(input: VaultCaseSummary): string {
     '- [[Agent Console]]',
     '- [[Graph.canvas]]',
     '- [[Cases]]',
-    '- [[Evidence]]',
-    '- [[Entities]]',
+    `- [[cases/${input.id}/Evidence|Evidence]]`,
+    `- [[cases/${input.id}/Entities|Entities]]`,
     '- [[Graphs]]',
     '',
   ].join('\n')
@@ -73,14 +89,82 @@ export function renderCaseAgentConsole(input: VaultCaseSummary): string {
     '',
     '- [[Case]]',
     '- [[Graph.canvas]]',
-    '- [[Evidence]]',
-    '- [[Entities]]',
+    `- [[cases/${input.id}/Evidence|Evidence]]`,
+    `- [[cases/${input.id}/Entities|Entities]]`,
     '',
     '## Current Counts',
     '',
     `- Evidence files: ${input.evidenceCount}`,
     `- Entities: ${input.entityCount}`,
     `- Manifest verified: ${input.evidenceVerified ? 'yes' : 'no'}`,
+    '',
+  ].join('\n')
+}
+
+export function renderCaseEvidenceIndex(input: VaultCaseSummary, evidence: VaultEvidenceSummary[]): string {
+  return frontmatter({
+    type: 'chain-insights-case-evidence-index',
+    case_id: input.id,
+    contains_sensitive_data: true,
+  }) + [
+    `# Evidence: ${input.name}`,
+    '',
+    `Canonical evidence directory: \`cases/${input.id}/evidence/\``,
+    `Evidence files: ${input.evidenceCount}`,
+    `Manifest verified: ${input.evidenceVerified ? 'yes' : 'no'}`,
+    '',
+    '## Evidence Notes',
+    '',
+    ...(evidence.length > 0
+      ? evidence.map(item => `- [[${item.notePath.replace(/\.md$/, '')}|${item.id}]] (${item.source})`)
+      : ['No evidence files recorded yet.']),
+    '',
+  ].join('\n')
+}
+
+export function renderEvidenceNote(input: VaultEvidenceSummary, caseId: string): string {
+  return frontmatter({
+    type: 'chain-insights-evidence',
+    case_id: caseId,
+    evidence_id: input.id,
+    source: input.source,
+    source_file: `cases/${caseId}/evidence/${input.filename}`,
+    contains_sensitive_data: true,
+  }) + [
+    `# Evidence: ${input.source}`,
+    '',
+    `Evidence ID: \`${input.id}\``,
+    `Source file: \`cases/${caseId}/evidence/${input.filename}\``,
+    `Captured: ${input.timestamp || 'unknown'}`,
+    `Query params: ${input.queryParams || 'none'}`,
+    '',
+    '## Case',
+    '',
+    `- [[cases/${caseId}/Case|${caseId}]]`,
+    '',
+    '## Body',
+    '',
+    input.body.trim() || 'No evidence body recorded.',
+    '',
+  ].join('\n')
+}
+
+export function renderCaseEntityIndex(input: VaultCaseSummary, entities: VaultEntitySummary[]): string {
+  return frontmatter({
+    type: 'chain-insights-case-entity-index',
+    case_id: input.id,
+    contains_sensitive_data: true,
+  }) + [
+    `# Entities: ${input.name}`,
+    '',
+    `Canonical dossier directory: \`cases/${input.id}/dossiers/\``,
+    `Entities: ${entities.length}`,
+    '',
+    '## Entity Notes',
+    '',
+    ...(entities.length > 0
+      ? entities.map(item => `- [[${item.notePath.replace(/\.md$/, '')}|${item.label}]] (${item.entityType})`)
+      : ['No entities recorded yet.']),
     '',
   ].join('\n')
 }

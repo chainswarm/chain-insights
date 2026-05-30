@@ -1,214 +1,14 @@
-const require_chunk = require("./chunk-DakpK96I.cjs");
-const require_data_extractor = require("./data-extractor-Cavd7wHk.cjs");
-const require_frontmatter = require("./frontmatter-Dvqa5HX6.cjs");
-const require_output_root = require("./output-root-YIbl6PwF.cjs");
-const require_dossier = require("./dossier-BXy57V4-.cjs");
-const require_store = require("./store-CqPfs47P.cjs");
-const require_evidence = require("./evidence-CvEesemA.cjs");
-require("./cases-sTY5aXav.cjs");
-const require_graph_normalizer = require("./graph-normalizer-DbjlbMpz.cjs");
-let node_path = require("node:path");
-node_path = require_chunk.__toESM(node_path, 1);
-let node_fs_promises = require("node:fs/promises");
-let zod = require("zod");
-zod = require_chunk.__toESM(zod, 1);
-let node_crypto = require("node:crypto");
-//#region src/export/paths.ts
-function safeSlug(value) {
-	return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "case-export";
-}
-function safeFilename(value) {
-	const parsed = node_path.default.parse(value);
-	return `${safeSlug(parsed.name)}${parsed.ext.toLowerCase().replace(/[^.a-z0-9]/g, "") || ".md"}`;
-}
-function assertInsideDirectory(root, candidate) {
-	const resolvedRoot = node_path.default.resolve(root);
-	const resolvedCandidate = node_path.default.resolve(candidate);
-	const relative = node_path.default.relative(resolvedRoot, resolvedCandidate);
-	if (relative === "" || !relative.startsWith("..") && !node_path.default.isAbsolute(relative)) return;
-	throw new Error(`Refusing to write outside export directory: ${candidate}`);
-}
-async function assertNoSymlink(filePath) {
-	try {
-		if ((await (0, node_fs_promises.lstat)(filePath)).isSymbolicLink()) throw new Error(`Refusing to write through symlink: ${filePath}`);
-	} catch (err) {
-		if (err.code === "ENOENT") return;
-		throw err;
-	}
-}
-async function writePrivateFile(root, relativePath, content) {
-	const filePath = node_path.default.join(root, relativePath);
-	assertInsideDirectory(root, filePath);
-	await (0, node_fs_promises.mkdir)(node_path.default.dirname(filePath), {
-		recursive: true,
-		mode: 448
-	});
-	await assertNoSymlink(filePath);
-	await (0, node_fs_promises.writeFile)(filePath, content, { mode: 384 });
-	const bytes = Buffer.byteLength(content, "utf8");
-	return {
-		path: relativePath,
-		sha256: (0, node_crypto.createHash)("sha256").update(content).digest("hex"),
-		bytes
-	};
-}
-//#endregion
-//#region src/export/schema.ts
-const CaseExportTargetSchema = zod.enum(["obsidian-llmwiki"]);
-const CaseExportModeSchema = zod.enum([
-	"private",
-	"partner",
-	"public"
-]);
-const caseIdRegex = /^\d{8}_\d{3}_[a-z0-9][a-z0-9-]*$/;
-const CaseExportOptionsSchema = zod.object({
-	caseId: zod.string().regex(caseIdRegex),
-	target: CaseExportTargetSchema.default("obsidian-llmwiki"),
-	mode: CaseExportModeSchema.default("private"),
-	outputDir: zod.string().optional()
-});
-const ExportedFileSchema = zod.object({
-	path: zod.string().min(1),
-	sha256: zod.string().regex(/^[a-f0-9]{64}$/),
-	bytes: zod.number().int().nonnegative()
-});
-const CaseExportManifestSchema = zod.object({
-	schema: zod.literal("chain-insights.case_export.v1"),
-	case_id: zod.string().regex(caseIdRegex),
-	case_name: zod.string().min(1),
-	exported_at: zod.string().datetime(),
-	mode: CaseExportModeSchema,
-	target: CaseExportTargetSchema,
-	source_workspace: zod.string().min(1),
-	verification: zod.object({
-		evidence_manifest_verified: zod.boolean(),
-		verified_at: zod.string().datetime(),
-		evidence_count: zod.number().int().nonnegative()
-	}),
-	files: zod.array(ExportedFileSchema),
-	redactions: zod.array(zod.string()),
-	warnings: zod.array(zod.string())
-});
-const JsonCanvasNodeSchema = zod.object({
-	id: zod.string().min(1),
-	type: zod.enum([
-		"text",
-		"file",
-		"link",
-		"group"
-	]),
-	x: zod.number(),
-	y: zod.number(),
-	width: zod.number().positive(),
-	height: zod.number().positive(),
-	text: zod.string().optional(),
-	file: zod.string().optional(),
-	url: zod.string().optional(),
-	label: zod.string().optional(),
-	color: zod.string().optional()
-});
-const JsonCanvasEdgeSchema = zod.object({
-	id: zod.string().min(1),
-	fromNode: zod.string().min(1),
-	toNode: zod.string().min(1),
-	fromSide: zod.enum([
-		"top",
-		"right",
-		"bottom",
-		"left"
-	]).optional(),
-	toSide: zod.enum([
-		"top",
-		"right",
-		"bottom",
-		"left"
-	]).optional(),
-	toEnd: zod.enum(["none", "arrow"]).optional(),
-	label: zod.string().optional(),
-	color: zod.string().optional()
-});
-const JsonCanvasSchema = zod.object({
-	nodes: zod.array(JsonCanvasNodeSchema),
-	edges: zod.array(JsonCanvasEdgeSchema)
-});
-//#endregion
-//#region src/export/canvas.ts
-function roleColor(roles) {
-	if (roles.includes("victim")) return "1";
-	if (roles.includes("suspect") || roles.includes("scam_candidate")) return "2";
-	if (roles.includes("deposit")) return "3";
-	if (roles.includes("exchange")) return "5";
-	if (roles.includes("service")) return "6";
-	return "#808080";
-}
-function nodeRoles(node) {
-	return Array.isArray(node["roles"]) ? node["roles"].map(String) : [];
-}
-function nodeLabel(node) {
-	return String(node["address"] ?? node["id"] ?? "unknown");
-}
-function graphNodeId(node, index) {
-	return String(node["id"] ?? node["address"] ?? `node-${index + 1}`);
-}
-function entityNotePath(entityId) {
-	return `Entities/${safeFilename(entityId)}`;
-}
-function graphToCanvas(graph) {
-	const nodes = [{
-		id: "case",
-		type: "file",
-		file: "Case.md",
-		x: 0,
-		y: 0,
-		width: 360,
-		height: 120,
-		color: "4"
-	}];
-	const nodeIdMap = /* @__PURE__ */ new Map();
-	graph.nodes.forEach((node, index) => {
-		const rawId = graphNodeId(node, index);
-		const canvasId = `entity-${index + 1}`;
-		nodeIdMap.set(rawId, canvasId);
-		nodes.push({
-			id: canvasId,
-			type: "file",
-			file: entityNotePath(rawId),
-			x: 420 + index % 4 * 340,
-			y: Math.floor(index / 4) * 220,
-			width: 300,
-			height: 120,
-			color: roleColor(nodeRoles(node))
-		});
-	});
-	const edges = graph.edges.flatMap((edge, index) => {
-		const from = nodeIdMap.get(String(edge["source"] ?? ""));
-		const to = nodeIdMap.get(String(edge["target"] ?? ""));
-		if (!from || !to) return [];
-		return [{
-			id: `edge-${index + 1}`,
-			fromNode: from,
-			toNode: to,
-			fromSide: "right",
-			toSide: "left",
-			toEnd: "arrow",
-			label: String(edge["edge_type"] ?? "related_to")
-		}];
-	});
-	for (const [index, node] of graph.nodes.entries()) edges.push({
-		id: `case-link-${index + 1}`,
-		fromNode: "case",
-		toNode: `entity-${index + 1}`,
-		fromSide: "right",
-		toSide: "left",
-		toEnd: "arrow",
-		label: nodeLabel(node)
-	});
-	return JsonCanvasSchema.parse({
-		nodes,
-		edges
-	});
-}
-//#endregion
+import { n as extractGraphFromCase } from "./data-extractor-B4nHw1wZ.mjs";
+import { t as parseFrontmatter } from "./frontmatter-D0ccQnUM.mjs";
+import { n as workspaceOutputPaths } from "./output-root-BRhzhhXZ.mjs";
+import { t as DossierStore } from "./dossier-Bjpcbcxa.mjs";
+import { t as CaseStore } from "./store-C2B_AssI.mjs";
+import { t as EvidenceStore } from "./evidence-D96PTzOQ.mjs";
+import "./cases-TVcAifxu.mjs";
+import { a as CaseExportOptionsSchema, c as writePrivateFile, i as CaseExportManifestSchema, n as graphNodeId, o as safeFilename, r as graphToCanvas, s as safeSlug, t as entityNotePath } from "./canvas-Cn-maEIh.mjs";
+import { t as normalizeGraphPayload } from "./graph-normalizer-CXP06jKh.mjs";
+import path from "node:path";
+import { mkdir, readFile, readdir } from "node:fs/promises";
 //#region src/export/graph.ts
 function isRecord(value) {
 	return !!value && typeof value === "object" && !Array.isArray(value);
@@ -253,16 +53,16 @@ function mergeGraphs(graphs) {
 	};
 }
 async function loadCaseExportGraph(caseId) {
-	const paths = require_output_root.workspaceOutputPaths();
-	const files = await (0, node_fs_promises.readdir)(paths.reportGraphsRoot).catch(() => []);
+	const paths = workspaceOutputPaths();
+	const files = await readdir(paths.reportGraphsRoot).catch(() => []);
 	const graphs = [];
 	for (const file of files.filter((name) => name.endsWith(".graph.json")).sort()) {
-		const parsed = JSON.parse(await (0, node_fs_promises.readFile)(node_path.default.join(paths.reportGraphsRoot, file), "utf8"));
-		if (isRecord(parsed) && parsed["schema"] === "chain-insights.graph.v1") graphs.push(require_graph_normalizer.normalizeGraphPayload(parsed));
+		const parsed = JSON.parse(await readFile(path.join(paths.reportGraphsRoot, file), "utf8"));
+		if (isRecord(parsed) && parsed["schema"] === "chain-insights.graph.v1") graphs.push(normalizeGraphPayload(parsed));
 	}
 	if (graphs.length > 0) return mergeGraphs(graphs);
-	const fallback = await require_data_extractor.extractGraphFromCase(caseId);
-	return require_graph_normalizer.normalizeGraphPayload({
+	const fallback = await extractGraphFromCase(caseId);
+	return normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: fallback.nodes,
 		edges: fallback.edges,
@@ -286,7 +86,7 @@ function renderReadme(caseName) {
 	return [
 		`# ${caseName} Export`,
 		"",
-		"Open this directory as an Obsidian vault or give it to an LLMWiki-style knowledge workflow.",
+		"Open this directory as an Obsidian vault or give it to an LLM Wiki-style knowledge workflow.",
 		"",
 		"Start with:",
 		"",
@@ -355,7 +155,7 @@ function renderAgentConsole(caseName) {
 }
 function renderLlmWiki() {
 	return [
-		"# LLMWiki Entry",
+		"# LLM Wiki Entry",
 		"",
 		"This directory is a Chain Insights case export.",
 		"",
@@ -456,12 +256,12 @@ function createRedactor(mode) {
 //#endregion
 //#region src/export/index.ts
 async function readEvidence(caseId) {
-	const paths = require_output_root.workspaceOutputPaths();
-	const dir = node_path.default.join(paths.casesRoot, caseId, "evidence");
-	const files = await (0, node_fs_promises.readdir)(dir).catch(() => []);
+	const paths = workspaceOutputPaths();
+	const dir = path.join(paths.casesRoot, caseId, "evidence");
+	const files = await readdir(dir).catch(() => []);
 	const docs = [];
 	for (const filename of files.filter((file) => file.endsWith(".md")).sort()) {
-		const { frontmatter, body } = require_frontmatter.parseFrontmatter(await (0, node_fs_promises.readFile)(node_path.default.join(dir, filename), "utf8"));
+		const { frontmatter, body } = parseFrontmatter(await readFile(path.join(dir, filename), "utf8"));
 		docs.push({
 			id: frontmatter["id"] || filename.replace(/\.md$/, ""),
 			filename,
@@ -479,16 +279,16 @@ async function writeFiles(root, entries) {
 }
 async function exportCase(rawOptions) {
 	const options = CaseExportOptionsSchema.parse(rawOptions);
-	const workspace = require_output_root.workspaceOutputPaths();
-	const caseInfo = await require_store.CaseStore.get(options.caseId);
+	const workspace = workspaceOutputPaths();
+	const caseInfo = await CaseStore.get(options.caseId);
 	const redactor = createRedactor(options.mode);
-	const evidenceVerification = await require_evidence.EvidenceStore.verifyManifest(options.caseId);
+	const evidenceVerification = await EvidenceStore.verifyManifest(options.caseId);
 	const evidenceDocs = await readEvidence(options.caseId);
-	const dossiers = await require_dossier.DossierStore.listSummaries(options.caseId);
+	const dossiers = await DossierStore.listSummaries(options.caseId);
 	const graph = redactor.value(await loadCaseExportGraph(options.caseId));
 	const canvas = graphToCanvas(graph);
-	const outputRoot = node_path.default.resolve(options.outputDir ?? node_path.default.join(workspace.root, "published", safeSlug(caseInfo.name)));
-	await (0, node_fs_promises.mkdir)(outputRoot, {
+	const outputRoot = path.resolve(options.outputDir ?? path.join(workspace.root, "published", safeSlug(caseInfo.name)));
+	await mkdir(outputRoot, {
 		recursive: true,
 		mode: 448
 	});
@@ -518,7 +318,7 @@ async function exportCase(rawOptions) {
 		["graph.chain-insights.json", JSON.stringify(graph, null, 2) + "\n"],
 		["Graph.canvas", JSON.stringify(canvas, null, 2) + "\n"]
 	];
-	for (const evidence of evidenceDocs) entries.push([node_path.default.join("Evidence", safeFilename(evidence.id)), redactor.text([
+	for (const evidence of evidenceDocs) entries.push([path.join("Evidence", safeFilename(evidence.id)), redactor.text([
 		`# Evidence: ${evidence.source}`,
 		"",
 		`Source file: \`${evidence.filename}\``,
@@ -530,7 +330,7 @@ async function exportCase(rawOptions) {
 	const entityPaths = /* @__PURE__ */ new Set();
 	for (const dossier of dossiers) {
 		const entityId = options.mode === "public" ? redactor.aliasFor(dossier.address) : dossier.address;
-		const entityPath = node_path.default.join("Entities", safeFilename(entityId));
+		const entityPath = path.join("Entities", safeFilename(entityId));
 		entityPaths.add(entityPath);
 		entries.push([entityPath, redactor.text([
 			`# Entity: ${entityId}`,
@@ -581,7 +381,7 @@ async function exportCase(rawOptions) {
 	});
 	const manifestFile = await writePrivateFile(outputRoot, "manifest.chain-insights.json", JSON.stringify(manifest, null, 2) + "\n");
 	return {
-		manifestPath: node_path.default.join(outputRoot, manifestFile.path),
+		manifestPath: path.join(outputRoot, manifestFile.path),
 		outputDir: outputRoot,
 		fileCount: files.length + 1,
 		warnings: manifest.warnings,
@@ -589,4 +389,6 @@ async function exportCase(rawOptions) {
 	};
 }
 //#endregion
-exports.exportCase = exportCase;
+export { exportCase };
+
+//# sourceMappingURL=export-CBhcJuZ6.mjs.map

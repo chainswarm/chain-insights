@@ -1146,7 +1146,7 @@ const caseCommand = new Command('case')
   )
   .addCommand(
     new Command('export')
-      .description('Export a case for Obsidian, LLMWiki, and agents')
+      .description('Export a case for Obsidian, LLM Wiki, and agents')
       .argument('<case-id>', 'Case ID or case list number to export')
       .option('--target <target>', 'Export target: obsidian-llmwiki', 'obsidian-llmwiki')
       .option('--mode <mode>', 'Redaction mode: private|partner|public', 'private')

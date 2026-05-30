@@ -1,8 +1,7 @@
-const require_chunk = require("./chunk-DakpK96I.cjs");
-const require_mcp_endpoint = require("./mcp-endpoint-BaV8h_lq.cjs");
-let node_path = require("node:path");
-node_path = require_chunk.__toESM(node_path, 1);
-let node_fs_promises = require("node:fs/promises");
+import { t as LOCAL_GRAPH_MCP_ENDPOINT } from "./mcp-endpoint-DHs1cRFH.mjs";
+import { assertNoVaultFileCollisions, scaffoldVault } from "./vault-z35Dohdq.mjs";
+import path from "node:path";
+import { access, mkdir, writeFile } from "node:fs/promises";
 //#region src/workspace/init.ts
 const WORKSPACE_DIRS = [
 	".chain-insights",
@@ -15,7 +14,8 @@ const WORKSPACE_DIRS = [
 	"reports",
 	"reports/graphs",
 	"reports/tables",
-	"templates"
+	"templates",
+	"published"
 ];
 function todayIso() {
 	return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
@@ -26,7 +26,7 @@ function workspaceJson(workspaceRoot) {
 		name: "Chain Insights Investigations",
 		workspace_root: workspaceRoot,
 		default_network: "bittensor",
-		graph_mcp_endpoint: require_mcp_endpoint.LOCAL_GRAPH_MCP_ENDPOINT,
+		graph_mcp_endpoint: LOCAL_GRAPH_MCP_ENDPOINT,
 		cases_dir: "cases",
 		imports_dir: "imports",
 		reports_dir: "reports",
@@ -34,9 +34,11 @@ function workspaceJson(workspaceRoot) {
 		created_at: todayIso()
 	}, null, 2) + "\n";
 }
-const README = `# Chain Insights Investigations
+const README = `# Chain Insights Investigation Vault
 
-This is a workspace for Chain Insights AML investigations.
+This is a Chain Insights AML investigation workspace and Obsidian-compatible vault.
+Open this directory in Obsidian to review cases, entities, evidence, graphs, and
+published investigation bundles alongside the Chain Insights runtime metadata.
 
 ## Start
 
@@ -55,9 +57,14 @@ reports/           Final or interim analyst reports
 reports/graphs/    Graph JSON for visualization
 reports/tables/    Compact tabular extracts
 templates/         Reusable case/report templates
+published/         Obsidian-ready case exports and published bundles
 .chain-insights/schema/         Runtime graph schema captures
 .chain-insights/runtime/        Workspace-local runtime process state and debug logs
 .chain-insights/runtime-skill/  Workspace-specific agent schema notes
+.obsidian/         Obsidian vault configuration
+Canvases/          Obsidian canvases for graph review
+Entities/          Entity notes and indexes
+Evidence/          Evidence notes and indexes
 \`\`\`
 `;
 const AGENTS = `# Agent Instructions
@@ -220,9 +227,9 @@ function workspaceFiles(workspaceRoot) {
 }
 async function assertNoFileCollisions(workspaceRoot) {
 	for (const [relativePath] of workspaceFiles(workspaceRoot)) {
-		const filePath = node_path.default.join(workspaceRoot, relativePath);
+		const filePath = path.join(workspaceRoot, relativePath);
 		try {
-			await (0, node_fs_promises.access)(filePath);
+			await access(filePath);
 			throw new Error(`Refusing to overwrite ${filePath}. Re-run with --force to replace workspace files.`);
 		} catch (err) {
 			if (err.code === "ENOENT") continue;
@@ -231,15 +238,18 @@ async function assertNoFileCollisions(workspaceRoot) {
 	}
 }
 async function initWorkspace(options) {
-	const workspaceRoot = node_path.default.resolve(options.targetDir);
-	if (!options.force) await assertNoFileCollisions(workspaceRoot);
-	for (const dir of WORKSPACE_DIRS) await (0, node_fs_promises.mkdir)(node_path.default.join(workspaceRoot, dir), { recursive: true });
+	const workspaceRoot = path.resolve(options.targetDir);
+	if (!options.force) {
+		await assertNoFileCollisions(workspaceRoot);
+		await assertNoVaultFileCollisions(workspaceRoot);
+	}
+	for (const dir of WORKSPACE_DIRS) await mkdir(path.join(workspaceRoot, dir), { recursive: true });
 	const filesWritten = [];
 	const flag = options.force ? "w" : "wx";
 	for (const [relativePath, content] of workspaceFiles(workspaceRoot)) {
-		const filePath = node_path.default.join(workspaceRoot, relativePath);
+		const filePath = path.join(workspaceRoot, relativePath);
 		try {
-			await (0, node_fs_promises.writeFile)(filePath, content, {
+			await writeFile(filePath, content, {
 				mode: 384,
 				flag
 			});
@@ -249,10 +259,17 @@ async function initWorkspace(options) {
 			throw err;
 		}
 	}
+	const vault = await scaffoldVault({
+		workspaceRoot,
+		force: options.force
+	});
+	filesWritten.push(...vault.filesWritten);
 	return {
 		workspaceRoot,
 		filesWritten
 	};
 }
 //#endregion
-exports.initWorkspace = initWorkspace;
+export { initWorkspace };
+
+//# sourceMappingURL=init-CKQ6F07J.mjs.map

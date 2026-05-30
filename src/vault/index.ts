@@ -1,6 +1,6 @@
-import { access, mkdir, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve, join } from 'node:path'
-import { CaseStore, DossierStore, EvidenceStore } from '../cases/index.js'
+import { CaseStore, DossierStore, EvidenceStore, parseFrontmatter } from '../cases/index.js'
 import { graphToCanvas } from '../export/canvas.js'
 import { safeFilename } from '../export/paths.js'
 import type { JsonCanvas } from '../export/schema.js'
@@ -10,8 +10,11 @@ import { workspaceOutputPaths } from '../workspace/output-root.js'
 import type { CaseVaultRefreshOptions, CaseVaultRefreshResult, VaultScaffoldOptions, VaultScaffoldResult } from './schema.js'
 import { VAULT_DIRS } from './schema.js'
 import {
+  renderCaseEntityIndex,
+  renderCaseEvidenceIndex,
   renderCaseAgentConsole,
   renderEntityNote,
+  renderEvidenceNote,
   renderLiveCaseNote,
   renderObsidianAppConfig,
   renderObsidianGraphConfig,
@@ -20,6 +23,8 @@ import {
   renderRootIndex,
   renderVaultGitignore,
   renderVaultHome,
+  type VaultEntitySummary,
+  type VaultEvidenceSummary,
 } from './markdown.js'
 
 type VaultFile = {
@@ -96,9 +101,10 @@ export async function scaffoldVault(options: VaultScaffoldOptions): Promise<Vaul
 export async function refreshCaseVault(options: CaseVaultRefreshOptions): Promise<CaseVaultRefreshResult> {
   const workspace = workspaceOutputPaths()
   const force = options.force === true
-  const [caseInfo, evidenceVerification, dossiers, graph] = await Promise.all([
+  const [caseInfo, evidenceVerification, evidence, dossiers, graph] = await Promise.all([
     CaseStore.get(options.caseId),
     EvidenceStore.verifyManifest(options.caseId),
+    readCaseEvidence(options.caseId),
     DossierStore.listSummaries(options.caseId),
     loadLiveCaseGraph(options.caseId),
   ])
@@ -118,14 +124,28 @@ export async function refreshCaseVault(options: CaseVaultRefreshOptions): Promis
     nodes: mergeDossierNodes(graph.nodes, dossiers),
   }
   const canvas = graphToCaseVaultCanvas(graphToCanvas(canvasGraph), caseInfo.id, canvasGraph.nodes)
+  const evidenceSummaries = evidence.map(evidenceDoc => ({
+    ...evidenceDoc,
+    notePath: `Evidence/${safeFilename(`${evidenceDoc.filename.replace(/\.md$/, '')}-${caseInfo.id}`)}`,
+  }))
+  const entityFiles = entityFilesForCase(caseInfo.id, canvasGraph.nodes, dossiers)
+  const entitySummaries = [...entityFiles.values()]
+    .map(entry => entry.summary)
+    .sort((left, right) => left.label.localeCompare(right.label))
 
   const files: VaultFile[] = [
     { path: `cases/${caseInfo.id}/Case.md`, content: renderLiveCaseNote(caseSummary) },
     { path: `cases/${caseInfo.id}/Agent Console.md`, content: renderCaseAgentConsole(caseSummary) },
+    { path: `cases/${caseInfo.id}/Evidence.md`, content: renderCaseEvidenceIndex(caseSummary, evidenceSummaries) },
+    { path: `cases/${caseInfo.id}/Entities.md`, content: renderCaseEntityIndex(caseSummary, entitySummaries) },
     { path: `cases/${caseInfo.id}/Graph.canvas`, content: JSON.stringify(canvas, null, 2) + '\n' },
-    ...dossiers.map(dossier => ({
-      path: `Entities/${safeFilename(dossier.address)}`,
-      content: renderEntityNote(dossier.address, caseInfo.id, dossier.type),
+    ...evidenceSummaries.map(evidenceDoc => ({
+      path: evidenceDoc.notePath,
+      content: renderEvidenceNote(evidenceDoc, caseInfo.id),
+    })),
+    ...[...entityFiles.values()].map(entry => ({
+      path: entry.summary.notePath,
+      content: entry.content,
     })),
   ]
 
@@ -215,6 +235,60 @@ function mergeDossierNodes(
   return [...nodesById.values()]
 }
 
+type EvidenceDoc = Omit<VaultEvidenceSummary, 'notePath'>
+
+async function readCaseEvidence(caseId: string): Promise<EvidenceDoc[]> {
+  const workspace = workspaceOutputPaths()
+  const evidenceDir = join(workspace.casesRoot, caseId, 'evidence')
+  const files = await readdir(evidenceDir).catch(() => [])
+  const docs: EvidenceDoc[] = []
+  for (const filename of files.filter(file => file.endsWith('.md')).sort()) {
+    const raw = await readFile(join(evidenceDir, filename), 'utf8')
+    const { frontmatter, body } = parseFrontmatter(raw)
+    docs.push({
+      id: frontmatter['id'] || filename.replace(/\.md$/, ''),
+      filename,
+      source: frontmatter['source'] || 'unknown',
+      timestamp: frontmatter['timestamp'] || '',
+      queryParams: frontmatter['queryParams'] || '',
+      body,
+    })
+  }
+  return docs
+}
+
+function entityFilesForCase(
+  caseId: string,
+  graphNodes: Record<string, unknown>[],
+  dossiers: Array<{ address: string; type: string }>,
+): Map<string, { summary: VaultEntitySummary; content: string }> {
+  const files = new Map<string, { summary: VaultEntitySummary; content: string }>()
+
+  for (const [index, node] of graphNodes.entries()) {
+    const label = entityLabelForGraphNode(node, index)
+    const entityType = String(node['entityType'] ?? node['node_type'] ?? node['nodeType'] ?? 'unknown')
+    const notePath = `Entities/${safeFilename(label)}`
+    files.set(notePath, {
+      summary: { label, notePath, entityType },
+      content: renderEntityNote(label, caseId, entityType),
+    })
+  }
+
+  for (const dossier of dossiers) {
+    const notePath = `Entities/${safeFilename(dossier.address)}`
+    files.set(notePath, {
+      summary: { label: dossier.address, notePath, entityType: dossier.type },
+      content: renderEntityNote(dossier.address, caseId, dossier.type),
+    })
+  }
+
+  return files
+}
+
+function entityLabelForGraphNode(node: Record<string, unknown>, index: number): string {
+  return String(node['address'] ?? node['id'] ?? `node-${index + 1}`)
+}
+
 function graphToCaseVaultCanvas(canvas: JsonCanvas, caseId: string, graphNodes: Record<string, unknown>[]): JsonCanvas {
   return {
     nodes: canvas.nodes.map(node => {
@@ -224,9 +298,7 @@ function graphToCaseVaultCanvas(canvas: JsonCanvas, caseId: string, graphNodes: 
       const entityIndex = /^entity-(\d+)$/.exec(node.id)?.[1]
       if (node.type === 'file' && entityIndex) {
         const graphNode = graphNodes[Number(entityIndex) - 1]
-        if (typeof graphNode?.['address'] === 'string') {
-          return { ...node, file: `Entities/${safeFilename(graphNode['address'])}` }
-        }
+        if (graphNode) return { ...node, file: `Entities/${safeFilename(entityLabelForGraphNode(graphNode, Number(entityIndex) - 1))}` }
       }
       return node
     }),

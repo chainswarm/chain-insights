@@ -1,53 +1,55 @@
-import { t as __exportAll } from "./rolldown-runtime-D7D4PA-g.mjs";
-import { t as parseFrontmatter } from "./frontmatter-D0ccQnUM.mjs";
-import { t as activeCasesRoot } from "./active-ByNgjuAg.mjs";
-import path from "node:path";
-import { readFile, readdir } from "node:fs/promises";
-import * as z from "zod";
+const require_chunk = require("./chunk-DakpK96I.cjs");
+const require_frontmatter = require("./frontmatter-Dvqa5HX6.cjs");
+const require_active = require("./active-BVr55kvW.cjs");
+let node_path = require("node:path");
+node_path = require_chunk.__toESM(node_path, 1);
+let node_fs_promises = require("node:fs/promises");
+let zod = require("zod");
+zod = require_chunk.__toESM(zod, 1);
 //#region src/viz/graph-model.ts
-const EntityType = z.enum([
+const EntityType = zod.enum([
 	"eoa",
 	"contract",
 	"exchange",
 	"mixer",
 	"unknown"
 ]);
-const RiskLevel = z.enum([
+const RiskLevel = zod.enum([
 	"low",
 	"medium",
 	"high",
 	"critical",
 	"unknown"
 ]);
-const GraphNode = z.object({
-	id: z.string().min(1),
-	label: z.string().optional(),
+const GraphNode = zod.object({
+	id: zod.string().min(1),
+	label: zod.string().optional(),
 	entityType: EntityType.default("unknown"),
 	riskLevel: RiskLevel.default("unknown"),
-	totalIn: z.number().default(0),
-	totalOut: z.number().default(0),
-	txCount: z.number().int().default(0),
-	firstSeen: z.string().optional(),
-	lastSeen: z.string().optional()
+	totalIn: zod.number().default(0),
+	totalOut: zod.number().default(0),
+	txCount: zod.number().int().default(0),
+	firstSeen: zod.string().optional(),
+	lastSeen: zod.string().optional()
 });
-const GraphEdge = z.object({
-	source: z.string().min(1),
-	target: z.string().min(1),
-	value: z.number(),
-	txHash: z.string().optional(),
-	blockNumber: z.number().int().optional(),
-	timestamp: z.string().optional()
+const GraphEdge = zod.object({
+	source: zod.string().min(1),
+	target: zod.string().min(1),
+	value: zod.number(),
+	txHash: zod.string().optional(),
+	blockNumber: zod.number().int().optional(),
+	timestamp: zod.string().optional()
 });
-const GraphData = z.object({
-	nodes: z.array(GraphNode),
-	edges: z.array(GraphEdge),
-	metadata: z.object({
-		caseId: z.string().optional(),
-		title: z.string().default("Money Flow"),
-		generatedAt: z.string(),
-		truncated: z.boolean().default(false),
-		totalNodes: z.number().int().optional(),
-		hiddenNodes: z.number().int().optional()
+const GraphData = zod.object({
+	nodes: zod.array(GraphNode),
+	edges: zod.array(GraphEdge),
+	metadata: zod.object({
+		caseId: zod.string().optional(),
+		title: zod.string().default("Money Flow"),
+		generatedAt: zod.string(),
+		truncated: zod.boolean().default(false),
+		totalNodes: zod.number().int().optional(),
+		hiddenNodes: zod.number().int().optional()
 	})
 });
 const MAX_NODES = 100;
@@ -68,14 +70,14 @@ function truncateGraph(data) {
 }
 //#endregion
 //#region src/viz/data-extractor.ts
-var data_extractor_exports = /* @__PURE__ */ __exportAll({
+var data_extractor_exports = /* @__PURE__ */ require_chunk.__exportAll({
 	extractGraphFromCase: () => extractGraphFromCase,
 	extractGraphFromJson: () => extractGraphFromJson,
 	parseEvidenceJson: () => parseEvidenceJson
 });
 function caseDir(caseId) {
 	if (/[/\\]|^\.\.?$/.test(caseId)) throw new Error(`Invalid case ID: ${caseId}`);
-	return path.join(activeCasesRoot(), caseId);
+	return node_path.default.join(require_active.activeCasesRoot(), caseId);
 }
 /**
 * Extracts all items from ```json code blocks in a markdown string.
@@ -253,10 +255,10 @@ function aggregateEdges(edges) {
 * and returns a merged GraphData.
 */
 async function extractGraphFromCase(caseId) {
-	const evidenceDir = path.join(caseDir(caseId), "evidence");
+	const evidenceDir = node_path.default.join(caseDir(caseId), "evidence");
 	let files = [];
 	try {
-		files = (await readdir(evidenceDir)).filter((f) => f.endsWith(".md"));
+		files = (await (0, node_fs_promises.readdir)(evidenceDir)).filter((f) => f.endsWith(".md"));
 	} catch {
 		return GraphData.parse({
 			nodes: [],
@@ -271,7 +273,7 @@ async function extractGraphFromCase(caseId) {
 	let allNodes = [];
 	let allEdges = [];
 	for (const file of files) {
-		const { body } = parseFrontmatter(await readFile(path.join(evidenceDir, file), "utf-8"));
+		const { body } = require_frontmatter.parseFrontmatter(await (0, node_fs_promises.readFile)(node_path.default.join(evidenceDir, file), "utf-8"));
 		const items = parseEvidenceJson(body);
 		if (items.length === 0) continue;
 		const graphDataItems = items.filter((item) => isGraphDataLike(item));
@@ -298,7 +300,7 @@ async function extractGraphFromCase(caseId) {
 	}
 	allEdges = aggregateEdges(allEdges);
 	try {
-		const { DossierStore } = await import("./cases-Cp9DUbEV.mjs");
+		const { DossierStore } = await Promise.resolve().then(() => require("./cases-Bz_9XKEw.cjs")).then((n) => n.cases_exports);
 		const dossiers = await DossierStore.listSummaries(caseId);
 		const dossierMap = /* @__PURE__ */ new Map();
 		for (const d of dossiers) dossierMap.set(d.address, d.type);
@@ -331,6 +333,21 @@ async function extractGraphFromCase(caseId) {
 	});
 }
 //#endregion
-export { extractGraphFromCase as n, truncateGraph as r, data_extractor_exports as t };
-
-//# sourceMappingURL=data-extractor-DZUJu1Bz.mjs.map
+Object.defineProperty(exports, "data_extractor_exports", {
+	enumerable: true,
+	get: function() {
+		return data_extractor_exports;
+	}
+});
+Object.defineProperty(exports, "extractGraphFromCase", {
+	enumerable: true,
+	get: function() {
+		return extractGraphFromCase;
+	}
+});
+Object.defineProperty(exports, "truncateGraph", {
+	enumerable: true,
+	get: function() {
+		return truncateGraph;
+	}
+});

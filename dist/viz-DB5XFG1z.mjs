@@ -1,5 +1,5 @@
 import { t as __exportAll } from "./rolldown-runtime-D7D4PA-g.mjs";
-import { r as truncateGraph } from "./data-extractor-DZUJu1Bz.mjs";
+import { r as truncateGraph } from "./data-extractor-B4nHw1wZ.mjs";
 import { r as writeVizHtml, t as generateHtml } from "./html-generator-AowOmzyi.mjs";
 import { readFile } from "node:fs/promises";
 //#region src/viz/index.ts
@@ -14,10 +14,10 @@ async function generateVisualization(opts) {
 		} catch {
 			throw new Error("Invalid transaction data. The input file must contain a JSON array of transaction objects with `from`, `to`, and `value` fields.");
 		}
-		const { extractGraphFromJson } = await import("./data-extractor-DZUJu1Bz.mjs").then((n) => n.t);
+		const { extractGraphFromJson } = await import("./data-extractor-B4nHw1wZ.mjs").then((n) => n.t);
 		rawData = extractGraphFromJson(parsed);
 	} else if (opts.caseId) {
-		const { extractGraphFromCase } = await import("./data-extractor-DZUJu1Bz.mjs").then((n) => n.t);
+		const { extractGraphFromCase } = await import("./data-extractor-B4nHw1wZ.mjs").then((n) => n.t);
 		const extracted = await extractGraphFromCase(opts.caseId);
 		if (extracted.nodes.length === 0) throw new Error("No Transaction Data. This case has no evidence with transaction data. Add evidence using `chain-insights evidence add` or provide a JSON file with `chain-insights viz --data <file.json>`.");
 		rawData = extracted;
@@ -32,4 +32,4 @@ async function generateVisualization(opts) {
 //#endregion
 export { viz_exports as n, generateVisualization as t };
 
-//# sourceMappingURL=viz-5y24S5X1.mjs.map
+//# sourceMappingURL=viz-DB5XFG1z.mjs.map

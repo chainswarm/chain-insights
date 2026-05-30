@@ -104,7 +104,7 @@ export function renderAgentConsole(caseName: string): string {
 
 export function renderLlmWiki(): string {
   return [
-    '# LLMWiki Entry',
+    '# LLM Wiki Entry',
     '',
     'This directory is a Chain Insights case export.',
     '',

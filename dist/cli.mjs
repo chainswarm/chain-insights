@@ -28,7 +28,7 @@ if (rawArgs[0] === "mcp" && [
 	process.exit(1);
 }
 async function resolveCaseSelector(input) {
-	const { resolveCaseSelector } = await import("./selector-CF2o5gxN.mjs");
+	const { resolveCaseSelector } = await import("./selector-BvXM9jbe.mjs");
 	return resolveCaseSelector(input);
 }
 async function scopeCasesToInvocationDir() {
@@ -37,7 +37,7 @@ async function scopeCasesToInvocationDir() {
 	process.env["CHAIN_INSIGHTS_CASES_ROOT"] = activeCasesRoot();
 }
 async function showCaseContext(caseSelector) {
-	const { CaseStore } = await import("./cases-Cp9DUbEV.mjs");
+	const { CaseStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
 	const caseId = await resolveCaseSelector(caseSelector);
 	const ctx = await CaseStore.loadContext(caseId);
 	console.log(`\n=== Case: ${ctx.case.id} ===`);
@@ -127,6 +127,25 @@ program.command("status").description("Show toolkit status and configuration").a
 	console.log("Graph MCP:", graphMcpStatus);
 	console.log("Graph endpoint:", config.graphMcpEndpoint);
 });
+program.command("obsidian").description("Manage the local Obsidian investigation vault").addCommand(new Command("open").description("Open the current Chain Insights vault in Obsidian").argument("[path]", "Workspace path to open as an Obsidian vault").action(async (workspacePath) => {
+	try {
+		const { findActiveWorkspace } = await import("./active-ByNgjuAg.mjs").then((n) => n.n);
+		const workspace = workspacePath ? path.resolve(workspacePath) : findActiveWorkspace()?.root;
+		if (!workspace) {
+			console.error("No Chain Insights workspace found. Run: cia init .");
+			process.exit(1);
+		}
+		const open = (await import("open")).default;
+		await open(workspace, {
+			app: { name: "obsidian" },
+			wait: false
+		});
+	} catch (err) {
+		console.error(err.message);
+		console.error("Open Obsidian manually and choose \"Open folder as vault\" for this workspace.");
+		process.exit(1);
+	}
+}));
 program.command("debug").description("Configure Graph MCP debug mode").addCommand(new Command("on").description("Enable Graph MCP debug mode without x402 payments").requiredOption("--token <token>", "Debug bearer token").option("--endpoint <url>", "Graph MCP endpoint").action(async (opts) => {
 	try {
 		const { saveConfig } = await import("./config-Drgc2HuF.mjs").then((n) => n.t);
@@ -212,7 +231,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 }));
 program.command("init").description("Initialize an investigation workspace").argument("[dir]", "Workspace directory to initialize", ".").option("--force", "Overwrite existing workspace files").action(async (dir, opts) => {
 	try {
-		const { initWorkspace } = await import("./init-DLBL_nVG.mjs");
+		const { initWorkspace } = await import("./init-CKQ6F07J.mjs");
 		const result = await initWorkspace({
 			targetDir: dir,
 			force: opts.force
@@ -401,7 +420,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { addressRisk } = await import("./public-tools-wJoAFDFa.mjs");
+			const { addressRisk } = await import("./public-tools-CyUZEz9B.mjs");
 			const result = await addressRisk(client, {
 				address: opts.address,
 				network: opts.network,
@@ -429,7 +448,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { traceVictimFunds } = await import("./public-tools-wJoAFDFa.mjs");
+			const { traceVictimFunds } = await import("./public-tools-CyUZEz9B.mjs");
 			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
 			const result = await traceVictimFunds(client, config, {
 				victimAddresses: opts.victimAddresses,
@@ -453,7 +472,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { requireWorkspaceRoot } = await import("./output-root-BRhzhhXZ.mjs").then((n) => n.t);
 		requireWorkspaceRoot();
 		await withGraphMcpClient("chain-insights-cli-trace-suspect-funds", async (client, config) => {
-			const { traceSuspectFunds } = await import("./public-tools-wJoAFDFa.mjs");
+			const { traceSuspectFunds } = await import("./public-tools-CyUZEz9B.mjs");
 			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
 			const result = await traceSuspectFunds(client, config, {
 				suspectAddresses: opts.suspectAddresses,
@@ -476,7 +495,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { requireWorkspaceRoot } = await import("./output-root-BRhzhhXZ.mjs").then((n) => n.t);
 		requireWorkspaceRoot();
 		await withGraphMcpClient("chain-insights-cli-trace-deposit-sources", async (client, config) => {
-			const { traceDepositSources } = await import("./public-tools-wJoAFDFa.mjs");
+			const { traceDepositSources } = await import("./public-tools-CyUZEz9B.mjs");
 			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
 			const result = await traceDepositSources(client, config, {
 				depositAddresses: opts.depositAddresses,
@@ -494,7 +513,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 })).addCommand(new Command("stake-insights").description("Explain Bittensor staking behavior around an address, coldkey, or hotkey").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--address <address>", "Full Bittensor address to inspect as either coldkey or hotkey").option("--coldkey <address>", "Full Bittensor coldkey address to inspect").option("--hotkey <address>", "Full Bittensor hotkey address to inspect").option("--netuid <number>", "Optional subnet netuid filter").option("--start-timestamp-ms <milliseconds>", "Optional inclusive lower activity timestamp bound").option("--end-timestamp-ms <milliseconds>", "Optional inclusive upper activity timestamp bound").option("--start-block <number>", "Optional start block. Current stake graph parity may require timestamp windows instead.").option("--end-block <number>", "Optional end block. Current stake graph parity may require timestamp windows instead.").option("--depth <number>", "Optional expansion depth limit, default 1, max 3").action(async (opts) => {
 	try {
 		await withGraphMcpClient("chain-insights-cli-stake-insights", async (client) => {
-			const { stakeInsights } = await import("./public-tools-wJoAFDFa.mjs");
+			const { stakeInsights } = await import("./public-tools-CyUZEz9B.mjs");
 			const result = await stakeInsights(client, {
 				network: opts.network,
 				address: opts.address,
@@ -522,7 +541,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		assertPublicMcpToolName(tool);
 		await withGraphMcpClient("chain-insights-cli-call", async (client, config) => {
 			if (tool === "address_risk") {
-				const { addressRisk } = await import("./public-tools-wJoAFDFa.mjs");
+				const { addressRisk } = await import("./public-tools-CyUZEz9B.mjs");
 				const result = await addressRisk(client, {
 					address: String(args["address"] ?? ""),
 					network: String(args["network"] ?? ""),
@@ -532,7 +551,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "trace_victim_funds") {
-				const { traceVictimFunds } = await import("./public-tools-wJoAFDFa.mjs");
+				const { traceVictimFunds } = await import("./public-tools-CyUZEz9B.mjs");
 				const result = await traceVictimFunds(client, config, {
 					victimAddresses: args["victim_addresses"] ?? "",
 					knownSuspectAddresses: args["known_suspect_addresses"],
@@ -548,7 +567,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "trace_suspect_funds") {
-				const { traceSuspectFunds } = await import("./public-tools-wJoAFDFa.mjs");
+				const { traceSuspectFunds } = await import("./public-tools-CyUZEz9B.mjs");
 				const result = await traceSuspectFunds(client, config, {
 					suspectAddresses: args["suspect_addresses"] ?? "",
 					network: String(args["network"] ?? ""),
@@ -563,7 +582,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "trace_deposit_sources") {
-				const { traceDepositSources } = await import("./public-tools-wJoAFDFa.mjs");
+				const { traceDepositSources } = await import("./public-tools-CyUZEz9B.mjs");
 				const result = await traceDepositSources(client, config, {
 					depositAddresses: args["deposit_addresses"] ?? "",
 					network: String(args["network"] ?? ""),
@@ -575,7 +594,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "stake_insights") {
-				const { stakeInsights } = await import("./public-tools-wJoAFDFa.mjs");
+				const { stakeInsights } = await import("./public-tools-CyUZEz9B.mjs");
 				const result = await stakeInsights(client, {
 					network: String(args["network"] ?? ""),
 					address: args["address"] === void 0 ? void 0 : String(args["address"]),
@@ -607,24 +626,36 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 }).addCommand(new Command("open").description("Open a new investigation case").argument("<name>", "Case name (e.g. \"Tornado Mixer Investigation\")").option("--tags <tags>", "Comma-separated tags (e.g. aml,mixer,defi)", "").option("--description <desc>", "Brief description of the investigation", "").action(async (name, opts) => {
 	try {
 		if (/^[1-9]\d*$/.test(name.trim())) throw new Error("Numeric case names look like list selectors. Use a descriptive case name, e.g. `cia case open \"Tracking stolen funds from <address>\"`.");
-		const { CaseStore } = await import("./cases-Cp9DUbEV.mjs");
+		const { CaseStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
 		const tags = opts.tags ? opts.tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
 		const c = await CaseStore.create({
 			name,
 			tags,
 			description: opts.description
 		});
-		const { casesRoot } = await import("./store-CTtqQtaE.mjs").then((n) => n.r);
+		const { casesRoot } = await import("./store-C2B_AssI.mjs").then((n) => n.n);
 		console.log(`Case opened: ${c.id}`);
 		console.log(`Directory:   ${path.join(casesRoot(), c.id)}/`);
 		console.log(`Status:      ${c.status}`);
+		const { findActiveWorkspace } = await import("./active-ByNgjuAg.mjs").then((n) => n.n);
+		if (findActiveWorkspace()) try {
+			const { refreshCaseVault } = await import("./vault-z35Dohdq.mjs");
+			const result = await refreshCaseVault({
+				caseId: c.id,
+				force: true
+			});
+			console.log(`Open first:  ${result.nextFile}`);
+		} catch (refreshErr) {
+			console.error(`Warning: live vault refresh failed: ${refreshErr.message}`);
+			console.error(`Run: cia case vault refresh ${c.id} --force`);
+		}
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);
 	}
 })).addCommand(new Command("activate").description("Activate a case (set status to active)").argument("<case-id>", "Case ID to activate").action(async (caseSelector) => {
 	try {
-		const { CaseStore } = await import("./cases-Cp9DUbEV.mjs");
+		const { CaseStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
 		const caseId = await resolveCaseSelector(caseSelector);
 		const c = await CaseStore.setStatus(caseId, "active");
 		console.log(`Case ${c.id} is now: active`);
@@ -634,7 +665,7 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 	}
 })).addCommand(new Command("suspend").description("Suspend a case (set status to suspended)").argument("<case-id>", "Case ID to suspend").action(async (caseSelector) => {
 	try {
-		const { CaseStore } = await import("./cases-Cp9DUbEV.mjs");
+		const { CaseStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
 		const caseId = await resolveCaseSelector(caseSelector);
 		const c = await CaseStore.setStatus(caseId, "suspended");
 		console.log(`Case ${c.id} is now: suspended`);
@@ -644,7 +675,7 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 	}
 })).addCommand(new Command("close").description("Close a case permanently").argument("<case-id>", "Case ID to close").action(async (caseSelector) => {
 	try {
-		const { CaseStore } = await import("./cases-Cp9DUbEV.mjs");
+		const { CaseStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
 		const caseId = await resolveCaseSelector(caseSelector);
 		const c = await CaseStore.setStatus(caseId, "closed");
 		console.log(`Case ${c.id} is now: closed`);
@@ -654,7 +685,7 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 	}
 })).addCommand(new Command("list").description("List all investigation cases").option("--status <status>", "Filter by status (open|active|suspended|closed)").action(async (opts) => {
 	try {
-		const { CaseStore } = await import("./cases-Cp9DUbEV.mjs");
+		const { CaseStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
 		const cases = await CaseStore.list();
 		const filtered = opts.status ? cases.filter((c) => c.status === opts.status) : cases;
 		if (filtered.length === 0) {
@@ -668,7 +699,7 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 	}
 })).addCommand(new Command("evidence").description("Manage case evidence").addCommand(new Command("add").description("Add evidence to a case from an MCP query result").argument("<case-id>", "Case ID to add evidence to").option("--source <tool>", "MCP tool name that produced this evidence", "manual").option("--content <text>", "Evidence content (MCP response or notes)", "").option("--query-params <params>", "Query parameters used (e.g. address=0x1234)", "").action(async (caseSelector, opts) => {
 	try {
-		const { EvidenceStore } = await import("./cases-Cp9DUbEV.mjs");
+		const { EvidenceStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
 		const caseId = await resolveCaseSelector(caseSelector);
 		const result = await EvidenceStore.append(caseId, {
 			source: opts.source,
@@ -683,7 +714,7 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 	}
 })).addCommand(new Command("verify").description("Verify evidence manifest integrity for a case").argument("<case-id>", "Case ID to verify").action(async (caseSelector) => {
 	try {
-		const { EvidenceStore } = await import("./cases-Cp9DUbEV.mjs");
+		const { EvidenceStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
 		const caseId = await resolveCaseSelector(caseSelector);
 		const result = await EvidenceStore.verifyManifest(caseId);
 		if (result.ok) console.log(`Manifest OK — ${result.count} evidence file(s) verified`);
@@ -697,7 +728,7 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 	}
 }))).addCommand(new Command("dossier").description("Manage entity dossiers for a case").addCommand(new Command("update").description("Append a finding to an entity dossier").argument("<case-id>", "Case ID").argument("<address>", "Entity address or identifier").option("--finding <text>", "Finding to append to the dossier", "").option("--type <type>", "Entity type (eoa|contract|exchange|mixer|unknown)", "unknown").action(async (caseSelector, address, opts) => {
 	try {
-		const { DossierStore } = await import("./cases-Cp9DUbEV.mjs");
+		const { DossierStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
 		const caseId = await resolveCaseSelector(caseSelector);
 		const entityType = [
 			"eoa",
@@ -714,7 +745,7 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 	}
 }))).addCommand(new Command("session").description("Manage investigation sessions").addCommand(new Command("start").description("Start a new investigation session for a case").argument("<case-id>", "Case ID").argument("[title...]", "Optional session title").action(async (caseSelector, titleParts) => {
 	try {
-		const { SessionStore } = await import("./cases-Cp9DUbEV.mjs");
+		const { SessionStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
 		const caseId = await resolveCaseSelector(caseSelector);
 		const title = titleParts.join(" ").trim();
 		const s = await SessionStore.start(caseId, title ? { title } : {});
@@ -725,7 +756,7 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 	}
 })).addCommand(new Command("end").description("End the current session with findings and next steps").argument("<case-id>", "Case ID").option("--findings <text>", "Key findings from this session", "").option("--next-steps <text>", "Next steps for the investigation", "").action(async (caseSelector, opts) => {
 	try {
-		const { SessionStore } = await import("./cases-Cp9DUbEV.mjs");
+		const { SessionStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
 		const caseId = await resolveCaseSelector(caseSelector);
 		await SessionStore.end(caseId, {
 			findings: opts.findings,
@@ -737,7 +768,22 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 		console.error(err.message);
 		process.exit(1);
 	}
-}))).addCommand(new Command("export").description("Export a case for Obsidian, LLMWiki, and agents").argument("<case-id>", "Case ID or case list number to export").option("--target <target>", "Export target: obsidian-llmwiki", "obsidian-llmwiki").option("--mode <mode>", "Redaction mode: private|partner|public", "private").option("--out <directory>", "Output directory. Defaults to published/<case-slug>").action(async (caseSelector, opts) => {
+}))).addCommand(new Command("vault").description("Manage live Obsidian case vault notes").addCommand(new Command("refresh").description("Refresh Obsidian vault notes for a case").argument("<case-id-or-selector>", "Case ID or case list number to refresh").option("--force", "Overwrite existing generated case vault files").action(async (caseSelector, opts) => {
+	try {
+		const caseId = await resolveCaseSelector(caseSelector);
+		const { refreshCaseVault } = await import("./vault-z35Dohdq.mjs");
+		const result = await refreshCaseVault({
+			caseId,
+			force: opts.force === true
+		});
+		console.log(`Case vault refreshed: ${caseId}`);
+		console.log(`Files: ${result.filesWritten.length}`);
+		console.log(`Open first: ${result.nextFile}`);
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
+}))).addCommand(new Command("export").description("Export a case for Obsidian, LLM Wiki, and agents").argument("<case-id>", "Case ID or case list number to export").option("--target <target>", "Export target: obsidian-llmwiki", "obsidian-llmwiki").option("--mode <mode>", "Redaction mode: private|partner|public", "private").option("--out <directory>", "Output directory. Defaults to published/<case-slug>").action(async (caseSelector, opts) => {
 	try {
 		const target = opts.target === "obsidian-llmwiki" ? opts.target : void 0;
 		const mode = [
@@ -748,7 +794,7 @@ const caseCommand = new Command("case").description("Manage investigation cases"
 		if (!target) throw new Error(`Unsupported export target: ${opts.target}`);
 		if (!mode) throw new Error(`Unsupported export mode: ${opts.mode}`);
 		const caseId = await resolveCaseSelector(caseSelector);
-		const { exportCase } = await import("./export-BqTCO9lP.mjs");
+		const { exportCase } = await import("./export-CBhcJuZ6.mjs");
 		const result = await exportCase({
 			caseId,
 			target,
@@ -802,7 +848,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await import("./runner-DIJSbkjc.mjs");
+		const { PlaybookRunner } = await import("./runner-DWuSy1Se.mjs");
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,
@@ -852,7 +898,7 @@ program.command("viz").description("Generate money flow visualization").argument
 			console.error("Provide either a case ID or --data <file.json>");
 			process.exit(1);
 		}
-		const { generateVisualization } = await import("./viz-5y24S5X1.mjs").then((n) => n.n);
+		const { generateVisualization } = await import("./viz-DB5XFG1z.mjs").then((n) => n.n);
 		const result = await generateVisualization({
 			caseId,
 			dataFile: opts.data

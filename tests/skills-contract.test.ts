@@ -42,7 +42,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('generated fixed-depth `FLOWS_TO` query batches')
     expect(skill).toContain('exchange hot wallets are terminal endpoints only')
     expect(skill).toContain('cia case export')
-    expect(skill).toContain('LLMWiki')
+    expect(skill).toContain('LLM Wiki')
     expect(skill).not.toContain('track_funds')
     expect(skill).not.toContain('scam_topology')
     expect(skill).not.toContain('Use `trace_funds`')

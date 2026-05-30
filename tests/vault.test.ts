@@ -1,6 +1,6 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { isAbsolute, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -125,9 +125,13 @@ describe('Obsidian vault scaffold', () => {
       expect(result.nextFile).toBe(`cases/${c.id}/Case.md`)
       expect(result.filesWritten).toContain(`cases/${c.id}/Case.md`)
       expect(result.filesWritten).toContain(`cases/${c.id}/Agent Console.md`)
+      expect(result.filesWritten).toContain(`cases/${c.id}/Evidence.md`)
+      expect(result.filesWritten).toContain(`cases/${c.id}/Entities.md`)
       expect(result.filesWritten).toContain(`cases/${c.id}/Graph.canvas`)
       expect(existsSync(join(workspace, 'cases', c.id, 'Case.md'))).toBe(true)
       expect(existsSync(join(workspace, 'cases', c.id, 'Agent Console.md'))).toBe(true)
+      expect(existsSync(join(workspace, 'cases', c.id, 'Evidence.md'))).toBe(true)
+      expect(existsSync(join(workspace, 'cases', c.id, 'Entities.md'))).toBe(true)
       expect(existsSync(join(workspace, 'cases', c.id, 'Graph.canvas'))).toBe(true)
       expect(existsSync(join(workspace, 'Entities', '5gtjfjalpbnrgybhy24nqhdnkw9r94z72rsylxeodxjfskj5.md'))).toBe(true)
 
@@ -139,13 +143,27 @@ describe('Obsidian vault scaffold', () => {
       expect(caseMd).toContain('[[Agent Console]]')
       expect(caseMd).toContain('[[Graph.canvas]]')
       expect(caseMd).toContain('[[Cases]]')
-      expect(caseMd).toContain('[[Evidence]]')
-      expect(caseMd).toContain('[[Entities]]')
+      expect(caseMd).toContain(`[[cases/${c.id}/Evidence|Evidence]]`)
+      expect(caseMd).toContain(`[[cases/${c.id}/Entities|Entities]]`)
       expect(caseMd).toContain('[[Graphs]]')
+
+      const evidenceIndex = await readFile(join(workspace, 'cases', c.id, 'Evidence.md'), 'utf8')
+      expect(evidenceIndex).toContain('chain-insights-case-evidence-index')
+      expect(evidenceIndex).toContain('manual')
+      const evidenceFiles = await readdir(join(workspace, 'Evidence'))
+      const evidenceNote = evidenceFiles.find(file => file.endsWith('.md') && file !== 'README.md')
+      expect(evidenceNote).toBeDefined()
+      const evidenceMd = await readFile(join(workspace, 'Evidence', evidenceNote as string), 'utf8')
+      expect(evidenceMd).toContain('chain-insights-evidence')
+      expect(evidenceMd).toContain(`cases/${c.id}/evidence/`)
+      expect(evidenceMd).toContain('Address 5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5 appears in the flow.')
 
       const entity = await readFile(join(workspace, 'Entities', '5gtjfjalpbnrgybhy24nqhdnkw9r94z72rsylxeodxjfskj5.md'), 'utf8')
       expect(entity).toContain('5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5')
       expect(entity).toContain(`[[cases/${c.id}/Case|${c.id}]]`)
+      const entityIndex = await readFile(join(workspace, 'cases', c.id, 'Entities.md'), 'utf8')
+      expect(entityIndex).toContain('chain-insights-case-entity-index')
+      expect(entityIndex).toContain('5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5')
 
       const canvas = JSON.parse(await readFile(join(workspace, 'cases', c.id, 'Graph.canvas'), 'utf8')) as {
         nodes: Array<{ id: string; type: string; file?: string }>
@@ -276,6 +294,51 @@ describe('Obsidian vault scaffold', () => {
         nodes: Array<{ file?: string }>
       }
       expect(canvas.nodes.filter(node => node.file === 'Entities/5gtjfjalpbnrgybhy24nqhdnkw9r94z72rsylxeodxjfskj5.md')).toHaveLength(1)
+    } finally {
+      if (prevWorkspace === undefined) delete process.env['CHAIN_INSIGHTS_WORKSPACE']
+      else process.env['CHAIN_INSIGHTS_WORKSPACE'] = prevWorkspace
+      vi.doUnmock('../src/viz/data-extractor.js')
+    }
+  })
+
+  it('writes entity notes for graph-only canvas nodes without dossiers', async () => {
+    await mkdir(join(workspace, '.chain-insights'), { recursive: true })
+    await writeFile(join(workspace, '.chain-insights', 'workspace.json'), JSON.stringify({
+      schema: 'chain-insights.workspace.v1',
+      workspace_root: workspace,
+      cases_dir: 'cases',
+    }) + '\n')
+    const address = '0x1111111111111111111111111111111111111111'
+    vi.doMock('../src/viz/data-extractor.js', () => ({
+      extractGraphFromCase: async () => ({
+        nodes: [{ id: 'graph-only-node', address, roles: ['suspect'], node_type: 'address' }],
+        edges: [],
+        metadata: { generatedAt: new Date().toISOString() },
+      }),
+    }))
+    const prevWorkspace = process.env['CHAIN_INSIGHTS_WORKSPACE']
+    process.env['CHAIN_INSIGHTS_WORKSPACE'] = workspace
+    try {
+      const { CaseStore } = await import('../src/cases/index.js')
+      const { scaffoldVault, refreshCaseVault } = await import('../src/vault/index.js')
+      await scaffoldVault({ workspaceRoot: workspace })
+
+      const c = await CaseStore.create({
+        name: 'Graph Only Entity Case',
+        tags: ['aml'],
+        description: 'Graph node has no dossier.',
+      })
+
+      await refreshCaseVault({ caseId: c.id, force: true })
+
+      const entityPath = join(workspace, 'Entities', '0x1111111111111111111111111111111111111111.md')
+      expect(existsSync(entityPath)).toBe(true)
+      const entity = await readFile(entityPath, 'utf8')
+      expect(entity).toContain(address)
+      const canvas = JSON.parse(await readFile(join(workspace, 'cases', c.id, 'Graph.canvas'), 'utf8')) as {
+        nodes: Array<{ file?: string }>
+      }
+      expect(canvas.nodes.some(node => node.file === 'Entities/0x1111111111111111111111111111111111111111.md')).toBe(true)
     } finally {
       if (prevWorkspace === undefined) delete process.env['CHAIN_INSIGHTS_WORKSPACE']
       else process.env['CHAIN_INSIGHTS_WORKSPACE'] = prevWorkspace

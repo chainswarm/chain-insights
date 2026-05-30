@@ -96,14 +96,14 @@ Every new AML tool needs:
 `cia case export` and MCP `case_export` are developer-experience surfaces, not
 new graph primitives. Keep CLI and MCP adapters thin over the shared export
 service, and keep `manifest.chain-insights.json`, case evidence, graph reports,
-and source report artifacts canonical. Obsidian, LLMWiki, Codex, Claude Code,
+and source report artifacts canonical. Obsidian, LLM Wiki, Codex, Claude Code,
 and ChatGPT files are generated views.
 
 Case export changes need:
 
 - CLI help and MCP tool descriptions.
 - Private, partner, and public redaction behavior.
-- Obsidian/LLMWiki/agent artifact tests.
+- Obsidian/LLM Wiki/agent artifact tests.
 - Clean-workspace dogfood that opens a case, verifies evidence, exports it,
   and inspects `manifest.chain-insights.json`, `Graph.canvas`, and
   `graph.chain-insights.json`.

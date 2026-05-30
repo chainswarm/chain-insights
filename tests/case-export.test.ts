@@ -28,7 +28,7 @@ describe('case export service', () => {
     vi.resetModules()
   })
 
-  it('exports a private Obsidian and LLMWiki bundle for a verified case', async () => {
+  it('exports a private Obsidian and LLM Wiki bundle for a verified case', async () => {
     const { CaseStore, DossierStore, EvidenceStore, SessionStore } = await import('../src/cases/index.js')
     const { exportCase } = await import('../src/export/index.js')
 
