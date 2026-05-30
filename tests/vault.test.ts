@@ -92,4 +92,194 @@ describe('Obsidian vault scaffold', () => {
     expect(existsSync(join(workspace, 'Home.md'))).toBe(false)
     await expect(readFile(join(workspace, 'Evidence/README.md'), 'utf8')).resolves.toBe('# Existing Evidence\n')
   })
+
+  it('refreshes live case notes from canonical case state', async () => {
+    await mkdir(join(workspace, '.chain-insights'), { recursive: true })
+    await writeFile(join(workspace, '.chain-insights', 'workspace.json'), JSON.stringify({
+      schema: 'chain-insights.workspace.v1',
+      workspace_root: workspace,
+      cases_dir: 'cases',
+    }) + '\n')
+    const prevWorkspace = process.env['CHAIN_INSIGHTS_WORKSPACE']
+    process.env['CHAIN_INSIGHTS_WORKSPACE'] = workspace
+    try {
+      const { CaseStore, DossierStore, EvidenceStore } = await import('../src/cases/index.js')
+      const { scaffoldVault, refreshCaseVault } = await import('../src/vault/index.js')
+      await scaffoldVault({ workspaceRoot: workspace })
+
+      const c = await CaseStore.create({
+        name: 'Vault Case',
+        tags: ['aml', 'bittensor'],
+        description: 'Obsidian-first case notes.',
+      })
+      await EvidenceStore.append(c.id, {
+        source: 'manual',
+        queryParams: 'network=bittensor',
+        content: 'Address 5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5 appears in the flow.',
+      })
+      await DossierStore.appendFinding(c.id, '5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5', 'Appears in vault refresh.', 'unknown')
+
+      const result = await refreshCaseVault({ caseId: c.id, force: true })
+
+      expect(result.caseId).toBe(c.id)
+      expect(result.nextFile).toBe(`cases/${c.id}/Case.md`)
+      expect(result.filesWritten).toContain(`cases/${c.id}/Case.md`)
+      expect(result.filesWritten).toContain(`cases/${c.id}/Agent Console.md`)
+      expect(result.filesWritten).toContain(`cases/${c.id}/Graph.canvas`)
+      expect(existsSync(join(workspace, 'cases', c.id, 'Case.md'))).toBe(true)
+      expect(existsSync(join(workspace, 'cases', c.id, 'Agent Console.md'))).toBe(true)
+      expect(existsSync(join(workspace, 'cases', c.id, 'Graph.canvas'))).toBe(true)
+      expect(existsSync(join(workspace, 'Entities', '5gtjfjalpbnrgybhy24nqhdnkw9r94z72rsylxeodxjfskj5.md'))).toBe(true)
+
+      const caseMd = await readFile(join(workspace, 'cases', c.id, 'Case.md'), 'utf8')
+      expect(caseMd).toContain('type: "chain-insights-case"')
+      expect(caseMd).toContain(`case_id: ${JSON.stringify(c.id)}`)
+      expect(caseMd).toContain('contains_sensitive_data: true')
+      expect(caseMd).toContain(`source_of_truth: ${JSON.stringify(`cases/${c.id}/`)}`)
+      expect(caseMd).toContain('[[Agent Console]]')
+      expect(caseMd).toContain('[[Graph.canvas]]')
+      expect(caseMd).toContain('[[Cases]]')
+      expect(caseMd).toContain('[[Evidence]]')
+      expect(caseMd).toContain('[[Entities]]')
+      expect(caseMd).toContain('[[Graphs]]')
+
+      const entity = await readFile(join(workspace, 'Entities', '5gtjfjalpbnrgybhy24nqhdnkw9r94z72rsylxeodxjfskj5.md'), 'utf8')
+      expect(entity).toContain('5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5')
+      expect(entity).toContain(`[[cases/${c.id}/Case|${c.id}]]`)
+
+      const canvas = JSON.parse(await readFile(join(workspace, 'cases', c.id, 'Graph.canvas'), 'utf8')) as {
+        nodes: Array<{ id: string; type: string; file?: string }>
+        edges: unknown[]
+      }
+      expect(canvas.nodes.some(node => node.file === `cases/${c.id}/Case.md`)).toBe(true)
+      expect(canvas.nodes.some(node => node.file === 'Entities/5gtjfjalpbnrgybhy24nqhdnkw9r94z72rsylxeodxjfskj5.md')).toBe(true)
+      expect(canvas.edges).toBeDefined()
+    } finally {
+      if (prevWorkspace === undefined) delete process.env['CHAIN_INSIGHTS_WORKSPACE']
+      else process.env['CHAIN_INSIGHTS_WORKSPACE'] = prevWorkspace
+    }
+  })
+
+  it('does not include unrelated workspace report graphs in live case canvas', async () => {
+    await mkdir(join(workspace, '.chain-insights'), { recursive: true })
+    await writeFile(join(workspace, '.chain-insights', 'workspace.json'), JSON.stringify({
+      schema: 'chain-insights.workspace.v1',
+      workspace_root: workspace,
+      cases_dir: 'cases',
+    }) + '\n')
+    const prevWorkspace = process.env['CHAIN_INSIGHTS_WORKSPACE']
+    process.env['CHAIN_INSIGHTS_WORKSPACE'] = workspace
+    try {
+      const { CaseStore, DossierStore } = await import('../src/cases/index.js')
+      const { scaffoldVault, refreshCaseVault } = await import('../src/vault/index.js')
+      await scaffoldVault({ workspaceRoot: workspace })
+
+      await CaseStore.create({
+        name: 'Unrelated Report Case',
+        tags: ['base'],
+        description: 'Owns an unrelated graph report.',
+      })
+      const c = await CaseStore.create({
+        name: 'Dossier Only Case',
+        tags: ['bittensor'],
+        description: 'Should not import workspace reports.',
+      })
+      await DossierStore.appendFinding(c.id, '5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5', 'Appears in vault refresh.', 'unknown')
+      await mkdir(join(workspace, 'reports', 'graphs'), { recursive: true })
+      await writeFile(join(workspace, 'reports', 'graphs', 'unrelated.graph.json'), JSON.stringify({
+        schema: 'chain-insights.graph.v1',
+        nodes: [{ id: 'unrelated-node', address: 'UNRELATED_REPORT_ADDRESS' }],
+        edges: [],
+        flows: [],
+        edge_anchors: [],
+      }) + '\n')
+
+      await refreshCaseVault({ caseId: c.id, force: true })
+
+      const canvas = JSON.parse(await readFile(join(workspace, 'cases', c.id, 'Graph.canvas'), 'utf8')) as {
+        nodes: Array<{ file?: string }>
+      }
+      expect(canvas.nodes.some(node => node.file === 'Entities/unrelated-node.md')).toBe(false)
+      expect(canvas.nodes.some(node => node.file === 'Entities/unrelated-report-address.md')).toBe(false)
+      expect(canvas.nodes.some(node => node.file === 'Entities/5gtjfjalpbnrgybhy24nqhdnkw9r94z72rsylxeodxjfskj5.md')).toBe(true)
+    } finally {
+      if (prevWorkspace === undefined) delete process.env['CHAIN_INSIGHTS_WORKSPACE']
+      else process.env['CHAIN_INSIGHTS_WORKSPACE'] = prevWorkspace
+    }
+  })
+
+  it('preflights live case refresh targets before writing generated files', async () => {
+    await mkdir(join(workspace, '.chain-insights'), { recursive: true })
+    await writeFile(join(workspace, '.chain-insights', 'workspace.json'), JSON.stringify({
+      schema: 'chain-insights.workspace.v1',
+      workspace_root: workspace,
+      cases_dir: 'cases',
+    }) + '\n')
+    const prevWorkspace = process.env['CHAIN_INSIGHTS_WORKSPACE']
+    process.env['CHAIN_INSIGHTS_WORKSPACE'] = workspace
+    try {
+      const { CaseStore, DossierStore } = await import('../src/cases/index.js')
+      const { scaffoldVault, refreshCaseVault } = await import('../src/vault/index.js')
+      await scaffoldVault({ workspaceRoot: workspace })
+
+      const c = await CaseStore.create({
+        name: 'Preflight Case',
+        tags: ['aml'],
+        description: 'Non-force refresh should be atomic.',
+      })
+      const address = '5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5'
+      await DossierStore.appendFinding(c.id, address, 'Appears in vault refresh.', 'unknown')
+      await writeFile(join(workspace, 'Entities', '5gtjfjalpbnrgybhy24nqhdnkw9r94z72rsylxeodxjfskj5.md'), '# User entity note\n', 'utf8')
+
+      await expect(refreshCaseVault({ caseId: c.id })).rejects.toThrow('Refusing to overwrite')
+
+      expect(existsSync(join(workspace, 'cases', c.id, 'Case.md'))).toBe(false)
+      await expect(readFile(join(workspace, 'Entities', '5gtjfjalpbnrgybhy24nqhdnkw9r94z72rsylxeodxjfskj5.md'), 'utf8')).resolves.toBe('# User entity note\n')
+    } finally {
+      if (prevWorkspace === undefined) delete process.env['CHAIN_INSIGHTS_WORKSPACE']
+      else process.env['CHAIN_INSIGHTS_WORKSPACE'] = prevWorkspace
+    }
+  })
+
+  it('does not duplicate a dossier entity when graph node id differs from address', async () => {
+    await mkdir(join(workspace, '.chain-insights'), { recursive: true })
+    await writeFile(join(workspace, '.chain-insights', 'workspace.json'), JSON.stringify({
+      schema: 'chain-insights.workspace.v1',
+      workspace_root: workspace,
+      cases_dir: 'cases',
+    }) + '\n')
+    const address = '5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5'
+    vi.doMock('../src/viz/data-extractor.js', () => ({
+      extractGraphFromCase: async () => ({
+        nodes: [{ id: 'node-1', address, roles: ['suspect'], node_type: 'address' }],
+        edges: [],
+        metadata: { generatedAt: new Date().toISOString() },
+      }),
+    }))
+    const prevWorkspace = process.env['CHAIN_INSIGHTS_WORKSPACE']
+    process.env['CHAIN_INSIGHTS_WORKSPACE'] = workspace
+    try {
+      const { CaseStore, DossierStore } = await import('../src/cases/index.js')
+      const { scaffoldVault, refreshCaseVault } = await import('../src/vault/index.js')
+      await scaffoldVault({ workspaceRoot: workspace })
+
+      const c = await CaseStore.create({
+        name: 'Alias Case',
+        tags: ['aml'],
+        description: 'Graph id and address differ.',
+      })
+      await DossierStore.appendFinding(c.id, address, 'Appears in vault refresh.', 'unknown')
+
+      await refreshCaseVault({ caseId: c.id, force: true })
+
+      const canvas = JSON.parse(await readFile(join(workspace, 'cases', c.id, 'Graph.canvas'), 'utf8')) as {
+        nodes: Array<{ file?: string }>
+      }
+      expect(canvas.nodes.filter(node => node.file === 'Entities/5gtjfjalpbnrgybhy24nqhdnkw9r94z72rsylxeodxjfskj5.md')).toHaveLength(1)
+    } finally {
+      if (prevWorkspace === undefined) delete process.env['CHAIN_INSIGHTS_WORKSPACE']
+      else process.env['CHAIN_INSIGHTS_WORKSPACE'] = prevWorkspace
+      vi.doUnmock('../src/viz/data-extractor.js')
+    }
+  })
 })
