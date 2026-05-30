@@ -2,6 +2,18 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.1] - 2026-05-30
+
+- Tightened trace traversal boundaries so exchange hot wallets are terminal
+  endpoints only: forward trace tools now require every non-terminal path node
+  to be non-exchange, reverse deposit traceback excludes exchange sources and
+  exchange deposit seeds, and defensive result filtering drops backend rows that
+  would classify exchange nodes as deposit or suspect candidates.
+- Updated generated runtime schema guidance, shipped Chain Insights skills, MCP
+  server instructions, and graph-tool docs to state that BFS, fixed-depth
+  fallback, shortest-path, and manual `FLOWS_TO` traversals must not expand
+  through exchange hot wallets.
+
 ## [0.3.0] - 2026-05-29
 
 - Replaced the public trace workflow surface with role-specific

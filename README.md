@@ -219,6 +219,10 @@ The three trace tools share `chain-insights.trace.v1` and return compact,
 chainable results. Full graph/table/report artifacts remain on disk under the
 workspace, with pointers in the tool result and case evidence.
 
+Trace traversal treats exchange hot wallets as terminal endpoints only. Tools do
+not expand through exchange nodes or classify them as deposit, suspect, or
+intermediate candidates.
+
 When a case is provided, tools can save compact evidence pointers and graph
 reports under the workspace instead of embedding large payloads in case notes.
 

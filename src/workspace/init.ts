@@ -177,6 +177,12 @@ Rules:
 - Keep evidence compact: select only the fields needed to support the claim.
   Avoid storing whole node or relationship property blobs in evidence unless
   the purpose of the query is schema discovery or debugging.
+- When using BFS, fixed-depth traversal fallbacks, or any manual \`FLOWS_TO\`
+  traversal, treat exchange hot wallets as terminal endpoints only. Do not
+  expand from, through, or classify exchange nodes as deposit, suspect, or
+  intermediate candidates. In Cypher, require every non-terminal traversal node
+  to satisfy \`is_exchange IS NULL\`; only the final exchange endpoint should
+  satisfy \`is_exchange IS NOT NULL\`.
 - Keep analysis products separate from evidence: graph JSON belongs under
   \`reports/graphs/\`, tabular extracts under \`reports/tables/\`, and analyst
   narrative under \`reports/\`.

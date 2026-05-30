@@ -431,6 +431,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).toContain('local graph report server is started automatically')
     expect(instructions).toContain('FLOWS_TO')
     expect(instructions).toContain('first_tx_id')
+    expect(instructions).toContain('exchange hot wallets are terminal endpoints only')
     expect(instructions).toContain('schema discovery')
   })
 
@@ -720,11 +721,34 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
               { amount_sum: 121, amount_usd_sum: 454, tx_count: 1, first_tx_id: '3-1', last_tx_id: '3-1' },
             ],
             node_labels: [['Address'], ['Address'], ['Address'], ['Address', 'Exchange']],
+            path_nodes: [
+              { address: '5Seed', is_exchange: null },
+              { address: '5Hop', is_exchange: null },
+              { address: '5Deposit', is_exchange: null },
+              { address: '5Exchange', is_exchange: true },
+            ],
             exchange_address: '5Exchange',
             exchange_labels: ['Exchange'],
             exchange_display_labels: ['Binance'],
             exchange_address_type: 'substrate',
             hops: 3,
+          }, {
+            addresses: ['5Seed', '5ExchangeHot', '5KrakenCold'],
+            edge_props: [
+              { amount_sum: 99, amount_usd_sum: 198, tx_count: 1, first_tx_id: '4-1', last_tx_id: '4-1' },
+              { amount_sum: 98, amount_usd_sum: 196, tx_count: 1, first_tx_id: '5-1', last_tx_id: '5-1' },
+            ],
+            node_labels: [['Address'], ['Address', 'exchange'], ['Address', 'exchange']],
+            path_nodes: [
+              { address: '5Seed', is_exchange: null },
+              { address: '5ExchangeHot', labels: ['Kraken Hot', 'exchange'], is_exchange: true },
+              { address: '5KrakenCold', labels: ['Kraken Cold', 'exchange'], is_exchange: true },
+            ],
+            exchange_address: '5KrakenCold',
+            exchange_labels: ['Kraken Cold', 'exchange'],
+            exchange_display_labels: ['Kraken Cold', 'exchange'],
+            exchange_address_type: 'substrate',
+            hops: 2,
           }],
         },
       ]))
@@ -771,6 +795,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         recommended_next_tools: expect.arrayContaining(['trace_deposit_sources']),
       },
     })
+    expect(result.structuredContent.continuation.candidate_deposit_addresses).not.toContain('5ExchangeHot')
+    expect(result.structuredContent.candidate_labels).not.toContainEqual(expect.objectContaining({
+      address: '5ExchangeHot',
+      candidate_label: 'candidate_deposit',
+    }))
     expect(result.structuredContent.artifacts.graph_json).toContain('/reports/graphs/')
     expect(result.structuredContent.addresses).toContainEqual(expect.objectContaining({
       address: '5Seed',
@@ -805,6 +834,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(forwardQuery).toContain('USE live_topology MATCH')
     expect(forwardQuery).toContain('r1.amount_sum IS NOT NULL')
     expect(forwardQuery).toContain('r2.amount_sum IS NOT NULL')
+    expect(forwardQuery).toContain('s.is_exchange IS NULL')
+    expect(forwardQuery).toContain('n1.is_exchange IS NULL')
     expect(forwardQuery).toContain('t.is_exchange IS NOT NULL')
     expect(forwardQuery).not.toContain('*BFS')
     const reverseCall = clientInstance.callTool.mock.calls.find((call) => {
@@ -1299,6 +1330,34 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                       amount_sum: 12,
                       first_tx_id: 'b-1',
                     },
+                    {
+                      source_address: '5ExchangeHot',
+                      deposit_address: '5DepositA',
+                      source_is_exchange: true,
+                      deposit_is_exchange: null,
+                      hop: 1,
+                      addresses: ['5ExchangeHot', '5DepositA'],
+                      path_nodes: [
+                        { address: '5ExchangeHot', labels: ['Kraken Hot', 'exchange'], is_exchange: true },
+                        { address: '5DepositA', is_exchange: null },
+                      ],
+                      amount_sum: 13,
+                      first_tx_id: 'c-1',
+                    },
+                    {
+                      source_address: '5ExchangeHot',
+                      deposit_address: '5DepositB',
+                      source_is_exchange: true,
+                      deposit_is_exchange: null,
+                      hop: 1,
+                      addresses: ['5ExchangeHot', '5DepositB'],
+                      path_nodes: [
+                        { address: '5ExchangeHot', labels: ['Kraken Hot', 'exchange'], is_exchange: true },
+                        { address: '5DepositB', is_exchange: null },
+                      ],
+                      amount_sum: 14,
+                      first_tx_id: 'd-1',
+                    },
                   ],
                 },
               ],
@@ -1325,6 +1384,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(query).toContain('MATCH (source:Address)-[r1:FLOWS_TO]->(deposit:Address)')
     expect(query).toContain('deposit.address = "5DepositA"')
     expect(query).toContain('deposit.address = "5DepositB"')
+    expect(query).toContain('source.is_exchange IS NULL')
+    expect(query).toContain('deposit.is_exchange IS NULL')
     expect(result.structuredContent).toMatchObject({
       schema: 'chain-insights.trace.v1',
       tool: 'trace_deposit_sources',
@@ -1336,6 +1397,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         candidate_suspect_addresses: ['5SharedSource'],
       },
     })
+    expect(result.structuredContent.continuation.candidate_suspect_addresses).not.toContain('5ExchangeHot')
+    expect(result.structuredContent.candidate_labels).not.toContainEqual(expect.objectContaining({
+      address: '5ExchangeHot',
+      candidate_label: 'candidate_suspect',
+    }))
     expect(result.structuredContent.convergence).toContainEqual(expect.objectContaining({
       address: '5SharedSource',
       path_ids: expect.arrayContaining([expect.any(String)]),

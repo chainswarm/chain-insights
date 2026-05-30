@@ -106,6 +106,12 @@ cia debug off
   `trace_victim_funds`; use `trace_deposit_sources` for backward/source
   discovery. Some Graph MCP deployments do not parse backend-specific BFS or
   variable-length relationship syntax, so they reproduce this with generated fixed-depth `FLOWS_TO` query batches.
+- When using BFS, fixed-depth traversal fallbacks, or any manual `FLOWS_TO`
+  traversal, exchange hot wallets are terminal endpoints only. Do not expand
+  from, through, or classify exchange nodes as deposit, suspect, or
+  intermediate candidates. In Cypher, require every non-terminal traversal node
+  to satisfy `is_exchange IS NULL`; only the final exchange endpoint should
+  satisfy `is_exchange IS NOT NULL`.
 - For `address_risk`, Python `GraphRAGQueryEngine.check_address_risk` is the
   golden behavior: bounded neighborhood expansion with exchange-stopped waves,
   risk/scoring fields, lookalikes, forward exchange
@@ -154,12 +160,14 @@ up to five `victim_addresses` plus optional `known_suspect_addresses` as
 context only. The victim/source traversal is outward from victim/source funds;
 do not query or promote victim inbound transfers as scam infrastructure. This
 uses exchange terminal safety: stop at exchange endpoints and treat the
-penultimate address as the deposit candidate.
+penultimate non-exchange address as the deposit candidate.
 
 Use `trace_deposit_sources` when the user has suspected deposit/cashout
 addresses and wants to find direct funders, upstream funders, and shared-source
-convergence. Deposit seeds are not scammers by default. Candidate suspects are
-reviewable, not automatic writes to `core_address_labels`.
+convergence. Deposit seeds must be non-exchange addresses; if the supplied
+seed is an exchange hot wallet, use `address_risk` or a narrow manual
+`graph_query_batch` for exchange exposure instead of traceback. Candidate
+suspects are reviewable, not automatic writes to `core_address_labels`.
 
 Use `trace_suspect_funds` when the user has suspected scammer, mule, operator,
 or laundering-ring addresses. It traces suspect-controlled funds forward to

@@ -183,7 +183,9 @@ describe('CLI scaffold (FOUND-02)', () => {
         expect(body).toContain('Never write cases, evidence, reports, graph JSON, HTML, schema captures, or logs to ~/.chain-insights.')
       }
       expect(readFileSync(join(target, 'templates', 'case-brief.md'), 'utf8')).toContain('# Case Brief')
-      expect(readFileSync(join(target, '.chain-insights', 'runtime-skill', 'SKILL.md'), 'utf8')).toContain('Runtime Graph Schema')
+      const runtimeSkill = readFileSync(join(target, '.chain-insights', 'runtime-skill', 'SKILL.md'), 'utf8')
+      expect(runtimeSkill).toContain('Runtime Graph Schema')
+      expect(runtimeSkill).toContain('exchange hot wallets as terminal endpoints only')
       expect(readFileSync(join(target, '.chain-insights', 'schema', 'README.md'), 'utf8')).toContain('Runtime Schema Captures')
       expect(existsSync(join(target, 'artifacts'))).toBe(false)
       expect(existsSync(join(target, 'logs'))).toBe(false)

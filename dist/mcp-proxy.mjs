@@ -59,9 +59,9 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS = {
 	network_capabilities: "Return supported Chain Insights networks, capability layers, tool availability, data retention windows, and freshness. Use this before choosing network-specific tools.",
 	address_risk: "Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. This includes the exchange-behavior analysis formerly covered by money_flows_between_exchanges. Use this as the first tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.",
 	stake_insights: "Explain Bittensor staking behavior around one full address, coldkey, or hotkey. Requires network plus exactly one of address, coldkey, or hotkey. Returns net staked/unstaked amounts, active coldkey-hotkey-netuid relationships, aggregate stake movement amounts, top counterparties, first/last activity, source backend, query evidence, and optional graph report metadata.",
-	trace_victim_funds: "Trace victim/source funds forward through intermediaries to exchange deposit candidates. Use only when the input addresses are victims or trusted stolen-source addresses; do not use for suspected deposit addresses because traceback belongs to trace_deposit_sources. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
-	trace_suspect_funds: "Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology. Use when the input addresses are suspect-controlled seeds; incident_timestamp_ms is optional. Do not use for victim/source addresses or suspected deposit endpoints. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
-	trace_deposit_sources: "Trace backward from suspected deposit/cashout addresses to upstream sources, shared funders, and convergence. Use only when the input addresses are suspected deposit endpoints; do not treat these seeds as scammers and do not continue forward from discovered suspects here. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
+	trace_victim_funds: "Trace victim/source funds forward through intermediaries to exchange deposit candidates. Use only when the input addresses are victims or trusted stolen-source addresses; do not use for suspected deposit addresses because traceback belongs to trace_deposit_sources. Exchange hot wallets are terminal only, never candidate deposits. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
+	trace_suspect_funds: "Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology. Use when the input addresses are suspect-controlled seeds; incident_timestamp_ms is optional. Do not use for victim/source addresses or suspected deposit endpoints. Exchange hot wallets are terminal only, never candidate suspects or intermediates. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
+	trace_deposit_sources: "Trace backward from suspected deposit/cashout addresses to upstream sources, shared funders, and convergence. Use only when the input addresses are suspected non-exchange deposit endpoints; do not treat these seeds as scammers and do not continue forward from discovered suspects here. Exchange hot wallets are excluded as seeds and upstream sources. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
 	graph_query: "Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment. Cross-layer correlated joins may be limited by the active graph endpoint; preserve full addresses exactly.",
 	graph_query_batch: "Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads."
 };
@@ -89,6 +89,7 @@ const GRAPH_SCHEMA_HINTS = [
 	"- Risk and ML properties may appear as live hints, but source-of-truth risk rows are RiskScore facts.",
 	"- Common relationships include FLOWS_TO, OPERATED_FROM, SERVED_FROM, REGISTERED_NEURON, BELONGS_TO, SYBIL_CLUSTER, LAYERING_HOP, BURST_ACTIVITY, CYCLE_PARTICIPANT, SMURFING_CLUSTER.",
 	"- FLOWS_TO properties are scoped to the selected topology graph and commonly carry amount_sum, amount_usd_sum, tx_count, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id. Confirm available fields through runtime schema before relying on them.",
+	"- Traversal rule: for BFS, fixed-hop fallback, shortest-path, or manual FLOWS_TO traversal, exchange hot wallets are terminal endpoints only. Do not expand from, through, or classify exchange nodes as deposit, suspect, or intermediate candidates; filter every non-terminal node with is_exchange IS NULL.",
 	"- Start schema discovery with endpoint-safe property reads: MATCH (n:Address) WHERE n.address IS NOT NULL RETURN n.labels AS labels, n.address AS address LIMIT 20",
 	"- Relationship discovery: MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum LIMIT 20",
 	"- graph_query uses the active Chain Insights graph endpoint. Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment.",
@@ -1026,7 +1027,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { addressRisk } = await import("./public-tools-naQ9lt5V.mjs");
+			const { addressRisk } = await import("./public-tools-B4i5fCJS.mjs");
 			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
 			const result = await addressRisk(remoteClient, {
@@ -1098,7 +1099,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { traceVictimFunds } = await import("./public-tools-naQ9lt5V.mjs");
+			const { traceVictimFunds } = await import("./public-tools-B4i5fCJS.mjs");
 			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
 			const result = await traceVictimFunds(remoteClient, config, {
@@ -1174,7 +1175,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { traceSuspectFunds } = await import("./public-tools-naQ9lt5V.mjs");
+			const { traceSuspectFunds } = await import("./public-tools-B4i5fCJS.mjs");
 			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
 			const result = await traceSuspectFunds(remoteClient, config, {
@@ -1246,7 +1247,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { traceDepositSources } = await import("./public-tools-naQ9lt5V.mjs");
+			const { traceDepositSources } = await import("./public-tools-B4i5fCJS.mjs");
 			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
 			const result = await traceDepositSources(remoteClient, config, {
@@ -1321,7 +1322,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { stakeInsights } = await import("./public-tools-naQ9lt5V.mjs");
+			const { stakeInsights } = await import("./public-tools-B4i5fCJS.mjs");
 			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
 			const result = await stakeInsights(remoteClient, {

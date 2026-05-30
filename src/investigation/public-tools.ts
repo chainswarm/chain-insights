@@ -182,7 +182,7 @@ function flowEdgeMap(variableName: string): string {
 }
 
 function pathNodeMap(variableName: string): string {
-  return `{address: ${variableName}.address, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, address_subtypes: ${variableName}.address_subtypes}`
+  return `{address: ${variableName}.address, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, address_subtypes: ${variableName}.address_subtypes, is_exchange: ${variableName}.is_exchange}`
 }
 
 function exchangeOutflowQueries(address: string): Array<{ id: string; query: string }> {
@@ -267,6 +267,21 @@ function numberValue(value: unknown): number | undefined {
     return Number.isFinite(parsed) ? parsed : undefined
   }
   return undefined
+}
+
+function isExchangeFlag(value: unknown): boolean {
+  if (value === true) return true
+  if (value === false || value === null || value === undefined) return false
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    return normalized === 'true' || normalized === '1'
+  }
+  if (typeof value === 'number') return value === 1
+  return false
+}
+
+function hasExactExchangeLabel(labels: string[] | undefined): boolean {
+  return (labels ?? []).some((label) => label.trim().toLowerCase() === 'exchange')
 }
 
 function firstNumber(...values: unknown[]): number | undefined {
@@ -940,16 +955,30 @@ function reverseDepositSourceQueryAtDepth(depositAddresses: string[], depth: num
     return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
   }).join('')
   const depositPredicates = depositAddresses.map((address) => `deposit.address = "${escapeCypherString(address)}"`)
-  const intermediatePredicates = intermediateVariables.map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
+  const nonExchangePredicates = ['source', ...intermediateVariables, 'deposit'].map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
   return {
     id: `reverse_deposit_sources_${depth}`,
     query: [
       `MATCH (source:Address)${relationshipChain}`,
-      `WHERE (${depositPredicates.join(' OR ')}) AND source.address <> deposit.address${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
-      `RETURN DISTINCT source.address AS source_address, deposit.address AS deposit_address, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `WHERE (${depositPredicates.join(' OR ')}) AND source.address <> deposit.address AND ${nonExchangePredicates.join(' AND ')}`,
+      `RETURN DISTINCT source.address AS source_address, source.is_exchange AS source_is_exchange, deposit.address AS deposit_address, deposit.is_exchange AS deposit_is_exchange, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'LIMIT 500',
     ].join(' '),
   }
+}
+
+function rowNodeIsExchange(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const record = value as Record<string, unknown>
+  return isExchangeFlag(record['is_exchange']) ||
+    hasExactExchangeLabel(stringArrayValue(record['labels'])) ||
+    hasExactExchangeLabel(stringArrayValue(record['system_labels']))
+}
+
+function reverseDepositSourceRowUsesExchange(row: Record<string, unknown>): boolean {
+  if (isExchangeFlag(row['source_is_exchange']) || isExchangeFlag(row['deposit_is_exchange'])) return true
+  if (!Array.isArray(row['path_nodes'])) return false
+  return row['path_nodes'].some(rowNodeIsExchange)
 }
 
 function htmlEscape(value: unknown): string {
@@ -1066,10 +1095,12 @@ export async function traceDepositSources(
     Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1)),
   )
   const failures: QueryFailure[] = []
-  const rows: Array<Record<string, unknown>> = optionalResultsWithPrefix(batch, 'reverse_deposit_sources_', failures).map((row, index) => ({
-    ...row,
-    path_id: `p${index + 1}`,
-  }))
+  const rows: Array<Record<string, unknown>> = optionalResultsWithPrefix(batch, 'reverse_deposit_sources_', failures)
+    .filter((row) => !reverseDepositSourceRowUsesExchange(row))
+    .map((row, index) => ({
+      ...row,
+      path_id: `p${index + 1}`,
+    }))
   const addresses = new Map<string, {
     address: string
     roles: Set<TraceRole>

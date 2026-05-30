@@ -41,6 +41,12 @@ tricks unless the current endpoint has just accepted the exact pattern. When a
 Memgraph deep traversal pattern fails, rewrite it as a bounded
 `graph_query_batch` of explicit fixed-hop `FLOWS_TO` patterns.
 
+For any BFS, fixed-hop fallback, shortest-path, or custom `FLOWS_TO` traversal,
+exchange hot wallets are terminal endpoints only. Do not expand from, through,
+or classify exchange nodes as deposit, suspect, or intermediate candidates.
+Filter every non-terminal traversal node with `is_exchange IS NULL`; only the
+final exchange endpoint should use `is_exchange IS NOT NULL`.
+
 ## Common Schema
 
 Topology is intentionally stable across networks:

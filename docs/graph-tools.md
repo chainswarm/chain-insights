@@ -111,6 +111,11 @@ All role-specific trace tools return `chain-insights.trace.v1`. The compact
 return is for agent reasoning and chaining; durable graph, table, CSV, and
 Markdown artifacts stay on disk under the initialized workspace.
 
+Traversal safety is the same across trace tools and manual Cypher fallbacks:
+exchange hot wallets are terminal endpoints only. Trace workflows do not expand
+from, through, or classify exchange nodes as deposit, suspect, or intermediate
+candidates; every non-terminal traversal node must be non-exchange.
+
 ### `trace_victim_funds`
 
 Use when the input addresses are victims or trusted stolen-source addresses.
@@ -134,6 +139,8 @@ Optional input:
 Victim/source addresses are case roles, not risky labels. This tool does not
 trace backward from deposits; pass returned
 `continuation.candidate_deposit_addresses` to `trace_deposit_sources`.
+Deposit candidates are the penultimate non-exchange nodes before exchange
+endpoints, not exchange hot wallets themselves.
 
 CLI example:
 
@@ -162,7 +169,9 @@ Optional input:
 - `include_attachments`
 
 Deposit seeds are not scammers by default. Candidate suspect and victim roles
-are hypotheses requiring review.
+are hypotheses requiring review. If the supplied seed is already a known
+exchange hot wallet, use `address_risk` or a narrow manual exchange-exposure
+query instead of treating it as a deposit-source seed.
 
 CLI example:
 

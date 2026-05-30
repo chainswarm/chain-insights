@@ -120,9 +120,12 @@ calls.
 
 Some Graph MCP deployments do not parse backend-specific BFS or
 variable-length relationship syntax. In those cases, use generated fixed-depth `FLOWS_TO` query batches with `USE live_topology`. Exchange terminal safety
-applies to forward victim/suspect tracing: stop at exchange nodes and treat
-`path[-2]` as the deposit candidate. Deposit-source tracing is a separate
-reverse workflow.
+applies to all traversal algorithms: exchange hot wallets are terminal
+endpoints only. Do not expand from, through, or classify exchange nodes as
+deposit, suspect, or intermediate candidates. Forward victim/suspect tracing
+stops at exchange nodes and treats `path[-2]` as the penultimate non-exchange
+deposit candidate. Deposit-source tracing is a separate reverse workflow and
+must keep source, intermediate, and deposit seed nodes non-exchange.
 
 Evidence and generated data files must use original graph field names. Do not
 rename, reinterpret, or add unit labels unless the schema or query result
