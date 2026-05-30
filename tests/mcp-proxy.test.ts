@@ -46,6 +46,13 @@ const sessionStartMock = vi.hoisted(() => vi.fn().mockResolvedValue({
 }))
 const sessionEndMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const sessionArchiveOldMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+const caseExportMock = vi.hoisted(() => vi.fn().mockResolvedValue({
+  manifestPath: '/workspace/published/export-test/manifest.chain-insights.json',
+  outputDir: '/workspace/published/export-test',
+  fileCount: 12,
+  warnings: [],
+  nextFile: 'Agent Console.md',
+}))
 const ensureArtifactServerMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const runFundFlowProbeMock = vi.hoisted(() => vi.fn())
 
@@ -142,6 +149,10 @@ vi.mock('../src/cases/index.js', () => ({
     end: sessionEndMock,
     archiveOldSessions: sessionArchiveOldMock,
   },
+}))
+
+vi.mock('../src/export/index.js', () => ({
+  exportCase: caseExportMock,
 }))
 
 vi.mock('@modelcontextprotocol/sdk/server/mcp.js', () => {
@@ -2305,6 +2316,37 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       content: 'Risk summary',
       queryParams: 'network=bittensor address=5Addr',
     })
+  })
+
+  it('registers case_export and returns export paths', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'case_export')
+    const result = await handler({
+      case_id: mockCase.id,
+      target: 'obsidian-llmwiki',
+      mode: 'private',
+      output_dir: '/workspace/published/export-test',
+    })
+
+    expect(caseExportMock).toHaveBeenCalledWith({
+      caseId: mockCase.id,
+      target: 'obsidian-llmwiki',
+      mode: 'private',
+      outputDir: '/workspace/published/export-test',
+    })
+    expect(result.isError).toBe(false)
+    expect(JSON.stringify(result)).toContain('manifest.chain-insights.json')
+    expect(JSON.stringify(result)).toContain('Agent Console.md')
   })
 
   it('registers a local help tool that explains the Claude-facing product surface', async () => {

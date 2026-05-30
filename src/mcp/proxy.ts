@@ -23,6 +23,7 @@ const LOCAL_TOOL_NAMES = new Set([
   'case_resume',
   'case_add_evidence',
   'case_verify_evidence',
+  'case_export',
   'case_update_dossier',
   'case_start_session',
   'case_end_session',
@@ -1186,6 +1187,52 @@ export async function createProxy(): Promise<void> {
         }
       } catch (err) {
         return caseToolError('Evidence verify', err)
+      }
+    },
+  )
+
+  server.registerTool(
+    'case_export',
+    {
+      description: 'Export a Chain Insights case to an Obsidian, LLMWiki, Codex, Claude Code, and ChatGPT-friendly local bundle.',
+      inputSchema: {
+        case_id: z.string().min(1).describe('Chain Insights case ID to export'),
+        target: z.enum(['obsidian-llmwiki']).optional().describe('Export target. Default obsidian-llmwiki.'),
+        mode: z.enum(['private', 'partner', 'public']).optional().describe('Redaction mode. Default private.'),
+        output_dir: z.string().optional().describe('Optional output directory. Defaults to published/<case-slug>.'),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ case_id, target, mode, output_dir }) => {
+      try {
+        const { exportCase } = await import('../export/index.js')
+        const result = await exportCase({
+          caseId: case_id,
+          target: target ?? 'obsidian-llmwiki',
+          mode: mode ?? 'private',
+          outputDir: output_dir,
+        })
+        return {
+          content: [{
+            type: 'text' as const,
+            text: [
+              `Case exported: ${result.outputDir}`,
+              `Manifest: ${result.manifestPath}`,
+              `Files: ${result.fileCount}`,
+              `Open first: ${result.nextFile}`,
+              ...result.warnings.map((warning) => `Warning: ${warning}`),
+            ].join('\n'),
+          }],
+          structuredContent: result,
+          isError: false,
+        }
+      } catch (err) {
+        return caseToolError('Case export', err)
       }
     },
   )
