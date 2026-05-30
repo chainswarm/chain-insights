@@ -1,6 +1,6 @@
 import { n as PACKAGE_VERSION } from "./version-BA3J8hu4.mjs";
 import { t as PaymentRequiredError } from "./client-D4JE7fFF.mjs";
-import { t as HIDDEN_REMOTE_TOOL_NAMES } from "./tool-visibility-BHRFLXuU.mjs";
+import { t as HIDDEN_REMOTE_TOOL_NAMES } from "./tool-visibility-BpyZHRBi.mjs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { readFileSync } from "node:fs";
@@ -24,13 +24,14 @@ const LOCAL_TOOL_NAMES = new Set([
 	"case_start_session",
 	"case_end_session"
 ]);
-const PUBLIC_GRAPHRAG_PROMPT_NAMES = new Set(["address-risk", "track-funds"]);
+const PUBLIC_GRAPHRAG_PROMPT_NAMES = new Set(["address-risk", "trace-tools"]);
 const GRAPH_RESOURCE_URI = "ui://chain-insights/graph";
 const GRAPH_APP_TOOL_NAMES = new Set([
 	"address_risk",
-	"scam_topology",
 	"stake_insights",
-	"track_funds"
+	"trace_victim_funds",
+	"trace_suspect_funds",
+	"trace_deposit_sources"
 ]);
 const GRAPH_ARRAY_KEYS = [
 	"nodes",
@@ -39,25 +40,28 @@ const GRAPH_ARRAY_KEYS = [
 	"edge_anchors"
 ];
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const COMMA_SEPARATED_ADDRESS_FIELDS = new Set(["trusted_addresses", "untrusted_addresses"]);
+const COMMA_SEPARATED_ADDRESS_FIELDS = new Set([
+	"victim_addresses",
+	"known_suspect_addresses",
+	"suspect_addresses",
+	"deposit_addresses"
+]);
 const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS = {
 	address_risk: ["address", "network"],
-	scam_topology: [
-		"victim_address",
-		"incident_timestamp_ms",
-		"network"
-	],
 	stake_insights: ["network"],
-	track_funds: ["trusted_addresses", "network"],
+	trace_victim_funds: ["victim_addresses", "network"],
+	trace_suspect_funds: ["suspect_addresses", "network"],
+	trace_deposit_sources: ["deposit_addresses", "network"],
 	graph_query: ["query", "network"],
 	graph_query_batch: ["network", "queries"]
 };
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS = {
 	network_capabilities: "Return supported Chain Insights networks, capability layers, tool availability, data retention windows, and freshness. Use this before choosing network-specific tools.",
 	address_risk: "Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. This includes the exchange-behavior analysis formerly covered by money_flows_between_exchanges. Use this as the first tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.",
-	scam_topology: "Build victim-incident laundering topology from one victim/source address and the earliest known incident timestamp. Traversal uses one explicit activity policy: node_relative_only by default, or global_incident_only when requested. Repeated targets are kept as non-expanding convergence edges. Returns ML-ready scam_labels plus review context and a track_funds-compatible graph report: primary flows, deposits, reverse_leads. Victims, exchange endpoints, and generic labeled context nodes are not automatic scam labels; preserve full addresses exactly.",
 	stake_insights: "Explain Bittensor staking behavior around one full address, coldkey, or hotkey. Requires network plus exactly one of address, coldkey, or hotkey. Returns net staked/unstaked amounts, active coldkey-hotkey-netuid relationships, aggregate stake movement amounts, top counterparties, first/last activity, source backend, query evidence, and optional graph report metadata.",
-	track_funds: "Trace funds from trusted victim/source addresses through intermediaries to exchange deposit addresses. Use this when the user has a victim/source address or known untrusted/scammer addresses. The tool returns an investigator-ready fund-flow report and recommended next actions.",
+	trace_victim_funds: "Trace victim/source funds forward through intermediaries to exchange deposit candidates. Use only when the input addresses are victims or trusted stolen-source addresses; do not use for suspected deposit addresses because traceback belongs to trace_deposit_sources. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
+	trace_suspect_funds: "Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology. Use when the input addresses are suspect-controlled seeds; incident_timestamp_ms is optional. Do not use for victim/source addresses or suspected deposit endpoints. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
+	trace_deposit_sources: "Trace backward from suspected deposit/cashout addresses to upstream sources, shared funders, and convergence. Use only when the input addresses are suspected deposit endpoints; do not treat these seeds as scammers and do not continue forward from discovered suspects here. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
 	graph_query: "Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment. Cross-layer correlated joins may be limited by the active graph endpoint; preserve full addresses exactly.",
 	graph_query_batch: "Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads."
 };
@@ -72,7 +76,7 @@ const CHAIN_INSIGHTS_WORKFLOW = [
 	"Workflow:",
 	"1. If the user is starting or continuing an investigation, use case_open or case_list/case_resume first.",
 	"2. Do not call investigation tools until required arguments are known. Network is required; use network_capabilities to check supported networks, data layers, retention, and freshness, or ask the user if missing.",
-	"3. Use address_risk first for a single address when facts and topology are available. Use stake_insights for Bittensor coldkey/hotkey staking behavior. Use track_funds for victim/source fund tracing when topology is available. Use scam_topology when known victim incident ground truth should become ML-ready scam labels. Use graph_query(_batch) for the universal graph-language path over topology and facts.",
+	"3. Use address_risk for single-address enrichment. Use trace_victim_funds for victim/source forward tracing, trace_deposit_sources for reverse traceback from suspected deposit endpoints, and trace_suspect_funds for suspect-controlled outbound laundering/cashout topology. Use stake_insights for Bittensor staking behavior. Use graph_query(_batch) only when the high-level trace tools do not answer the exact question.",
 	"4. After a material result, preserve it with case_add_evidence when a case is active or ask whether to create/select a case.",
 	"5. Use case_update_dossier for durable address/entity findings and case_start_session/case_end_session for session notes."
 ].join("\n");
@@ -148,19 +152,26 @@ function knownPublicToolInputSchema(toolName) {
 			compare_address: z.string().optional().describe("Optional second full address for comparison"),
 			include_attachments: z.boolean().optional().describe("Include graph app report metadata")
 		};
-		case "track_funds": return {
-			trusted_addresses: z.string().min(1).describe("Comma-separated full trusted victim addresses. Min 1, max 5."),
+		case "trace_victim_funds": return {
+			victim_addresses: z.string().min(1).describe("Comma-separated full victim/source addresses. Min 1, max 5."),
 			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
-			untrusted_addresses: z.string().optional().describe("Comma-separated full untrusted/scammer addresses. Max 5."),
+			known_suspect_addresses: z.string().optional().describe("Optional known suspect addresses for context only. They are not reverse-traced by this tool. Max 5."),
+			incident_timestamp_ms: z.number().min(0).optional().describe("Optional incident timestamp in milliseconds."),
 			include_attachments: z.boolean().optional().describe("Include graph app report metadata")
 		};
-		case "scam_topology": return {
+		case "trace_suspect_funds": return {
 			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
-			victim_address: z.string().min(1).describe("Full victim/source address that anchors the scam incident. Victims are not risky labels."),
-			incident_timestamp_ms: z.number().min(0).describe("Earliest known incident transfer timestamp in milliseconds. Primary traversal uses node-relative wave-arrival filtering."),
-			max_hops: z.number().int().min(1).max(64).optional().describe("Maximum forward expansion depth. Default 16."),
-			activity_policy: z.enum(["node_relative_only", "global_incident_only"]).optional().describe("Traversal activity policy. Default node_relative_only."),
+			suspect_addresses: z.string().min(1).describe("Comma-separated full suspected scammer, mule, operator, or laundering-ring addresses. Min 1, max 5."),
+			incident_timestamp_ms: z.number().min(0).optional().describe("Optional incident timestamp in milliseconds. This tool also works without a timestamp."),
+			max_hops: z.number().int().min(1).max(5).optional().describe("Maximum forward trace hops. Default 3."),
 			case_id: z.string().optional().describe("Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest.")
+		};
+		case "trace_deposit_sources": return {
+			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
+			deposit_addresses: z.string().min(1).describe("Comma-separated full suspected deposit/cashout addresses. Min 1, max 5."),
+			max_hops: z.number().int().min(1).max(5).optional().describe("Maximum reverse traceback hops. Default 2."),
+			case_id: z.string().optional().describe("Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest."),
+			include_attachments: z.boolean().optional().describe("Include graph app report metadata")
 		};
 		case "stake_insights": return {
 			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
@@ -417,24 +428,27 @@ function registerLocalPrompts(server, remotePromptNames) {
 		"",
 		"Present the summary as-is. Do not add analysis, verdicts, or risk assessments; the tool output already contains the risk assessment."
 	].join("\n"), "Address risk screening"));
-	if (!remotePromptNames.has("track-funds")) server.registerPrompt("track-funds", {
-		title: "Track Funds",
-		description: "Trace stolen funds from victim addresses through intermediaries to exchange deposit addresses.",
+	if (!remotePromptNames.has("trace-tools")) server.registerPrompt("trace-tools", {
+		title: "Trace Tools",
+		description: "Choose trace_victim_funds, trace_deposit_sources, or trace_suspect_funds based on the evidence role.",
 		argsSchema: {
-			trusted_addresses: z.string().describe("Victim/trusted addresses, comma-separated full addresses"),
-			untrusted_addresses: z.string().optional().describe("Known scammer/untrusted addresses, comma-separated full addresses"),
+			addresses: z.string().describe("Input addresses, comma-separated full addresses"),
+			role: z.enum([
+				"victim",
+				"suspect",
+				"deposit"
+			]).describe("Role of the supplied addresses"),
 			network: z.string().describe(NETWORK_DESCRIPTION)
 		}
-	}, async ({ trusted_addresses, untrusted_addresses, network }) => {
-		const untrusted = untrusted_addresses?.trim() ? `\nKnown untrusted addresses:\n${untrusted_addresses}\n` : "";
+	}, async ({ addresses, role, network }) => {
 		return promptResult([
-			`Use Chain Insights track_funds on ${network}.`,
+			`Use Chain Insights ${role === "deposit" ? "trace_deposit_sources" : `trace_${role}_funds`} on ${network}.`,
 			"",
-			"Trusted victim addresses:",
-			trusted_addresses,
-			untrusted,
-			"Present the summary as-is and include recommended next actions exactly as returned."
-		].join("\n"), "Trace stolen funds");
+			"Full addresses:",
+			addresses,
+			"",
+			role === "deposit" ? "For deposit role, use trace_deposit_sources rather than trace_deposit_funds." : "Present the summary as-is and use continuation.recommended_next_tools for follow-up."
+		].join("\n"), "Trace role-specific funds");
 	});
 	server.registerPrompt("graph-query", {
 		title: "Federated Graph Query",
@@ -833,7 +847,7 @@ async function createProxy() {
 		}
 	});
 	server.registerTool("case_add_evidence", {
-		description: "Append a tool result or analyst note to a local case evidence manifest. Use after address_risk, track_funds, graph_query, or manual findings that should be preserved.",
+		description: "Append a tool result or analyst note to a local case evidence manifest. Use after address_risk, trace_victim_funds, trace_suspect_funds, trace_deposit_sources, graph_query, or manual findings that should be preserved.",
 		inputSchema: {
 			case_id: z.string().min(1).describe("Chain Insights case ID"),
 			source: z.string().min(1).describe("Source tool or evidence origin"),
@@ -1012,7 +1026,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { addressRisk } = await import("./public-tools-DoRNhMn9.mjs");
+			const { addressRisk } = await import("./public-tools-naQ9lt5V.mjs");
 			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
 			const result = await addressRisk(remoteClient, {
@@ -1054,15 +1068,16 @@ async function createProxy() {
 			};
 		}
 	});
-	if (!remoteToolNames.has("track_funds")) registerAppTool(server, "track_funds", {
-		title: "Track Funds",
-		description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.track_funds,
+	if (!remoteToolNames.has("trace_victim_funds")) registerAppTool(server, "trace_victim_funds", {
+		title: "Trace Victim Funds",
+		description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.trace_victim_funds,
 		inputSchema: {
-			trusted_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe("Comma-separated full trusted victim addresses, or an array. Min 1, max 5."),
+			victim_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe("Comma-separated full victim/source addresses, or an array. Min 1, max 5."),
 			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
-			untrusted_addresses: z.union([z.string(), z.array(z.string())]).optional().describe("Known scammer/untrusted addresses. Max 5."),
+			known_suspect_addresses: z.union([z.string(), z.array(z.string())]).optional().describe("Known suspect addresses for context only. This tool does not reverse-trace them. Max 5."),
 			include_attachments: z.boolean().optional().describe("Include graph app report metadata"),
 			case_id: z.string().optional().describe("Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest."),
+			incident_timestamp_ms: z.number().min(0).optional().describe("Optional incident timestamp in milliseconds."),
 			max_hops: z.number().int().min(1).max(5).optional(),
 			per_address_limit: z.number().int().min(1).max(10).optional(),
 			min_amount_sum: z.number().min(0).optional()
@@ -1074,7 +1089,7 @@ async function createProxy() {
 			idempotentHint: false,
 			openWorldHint: true
 		}
-	}, async ({ trusted_addresses, untrusted_addresses, network, case_id, max_hops, per_address_limit, min_amount_sum }) => {
+	}, async ({ victim_addresses, known_suspect_addresses, network, case_id, incident_timestamp_ms, max_hops, per_address_limit, min_amount_sum }) => {
 		try {
 			if (!remoteConnected) return {
 				content: [{
@@ -1083,21 +1098,22 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { trackFunds } = await import("./public-tools-DoRNhMn9.mjs");
+			const { traceVictimFunds } = await import("./public-tools-naQ9lt5V.mjs");
 			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
-			const result = await trackFunds(remoteClient, config, {
-				trustedAddresses: trusted_addresses,
-				untrustedAddresses: untrusted_addresses,
+			const result = await traceVictimFunds(remoteClient, config, {
+				victimAddresses: victim_addresses,
+				knownSuspectAddresses: known_suspect_addresses,
 				network,
 				caseId: case_id,
+				incidentTimestampMs: incident_timestamp_ms,
 				maxHops: max_hops,
 				perAddressLimit: per_address_limit,
 				minAmountSum: min_amount_sum
 			});
 			const report = await writeGraphReport(result.graphData, {
 				serverPort: config.serverPort,
-				slug: `track-funds-${network}`
+				slug: `trace-victim-funds-${network}`
 			});
 			await ensureArtifactServer(config.serverPort);
 			return {
@@ -1123,22 +1139,24 @@ async function createProxy() {
 			return {
 				content: [{
 					type: "text",
-					text: `Track funds failed: ${err.message}`
+					text: `Trace victim funds failed: ${err.message}`
 				}],
 				isError: true
 			};
 		}
 	});
-	if (!remoteToolNames.has("scam_topology")) registerAppTool(server, "scam_topology", {
-		title: "Scam Topology",
-		description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.scam_topology,
+	if (!remoteToolNames.has("trace_suspect_funds")) registerAppTool(server, "trace_suspect_funds", {
+		title: "Trace Suspect Funds",
+		description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.trace_suspect_funds,
 		inputSchema: {
 			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
-			victim_address: z.string().min(1).describe("Full victim/source address that anchors the scam incident. Victims are not risky labels."),
-			incident_timestamp_ms: z.number().min(0).describe("Earliest known incident transfer timestamp in milliseconds. Primary traversal uses node-relative wave-arrival filtering."),
-			max_hops: z.number().int().min(1).max(64).optional().describe("Maximum forward expansion depth. Default 16."),
-			activity_policy: z.enum(["node_relative_only", "global_incident_only"]).optional().describe("Traversal activity policy. Default node_relative_only."),
-			case_id: z.string().optional().describe("Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest.")
+			suspect_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe("Comma-separated full suspect-controlled addresses, or an array. Min 1, max 5."),
+			incident_timestamp_ms: z.number().min(0).optional().describe("Optional incident timestamp in milliseconds. This tool works without it."),
+			max_hops: z.number().int().min(1).max(5).optional().describe("Maximum forward trace hops. Default 3."),
+			per_address_limit: z.number().int().min(1).max(10).optional(),
+			min_amount_sum: z.number().min(0).optional(),
+			case_id: z.string().optional().describe("Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest."),
+			include_attachments: z.boolean().optional().describe("Include graph app report metadata")
 		},
 		_meta: { ui: { resourceUri: GRAPH_RESOURCE_URI } },
 		annotations: {
@@ -1147,7 +1165,7 @@ async function createProxy() {
 			idempotentHint: false,
 			openWorldHint: true
 		}
-	}, async ({ victim_address, incident_timestamp_ms, network, max_hops, activity_policy, case_id }) => {
+	}, async ({ suspect_addresses, incident_timestamp_ms, network, max_hops, per_address_limit, min_amount_sum, case_id }) => {
 		try {
 			if (!remoteConnected) return {
 				content: [{
@@ -1156,20 +1174,21 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { scamTopology } = await import("./public-tools-DoRNhMn9.mjs");
+			const { traceSuspectFunds } = await import("./public-tools-naQ9lt5V.mjs");
 			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
-			const result = await scamTopology(remoteClient, config, {
-				victimAddress: victim_address,
+			const result = await traceSuspectFunds(remoteClient, config, {
+				suspectAddresses: suspect_addresses,
 				network,
 				maxHops: max_hops,
+				perAddressLimit: per_address_limit,
+				minAmountSum: min_amount_sum,
 				incidentTimestampMs: incident_timestamp_ms,
-				activityPolicyMode: activity_policy,
 				caseId: case_id
 			});
 			const report = await writeGraphReport(result.graphData, {
 				serverPort: config.serverPort,
-				slug: `scam-topology-${network}`
+				slug: `trace-suspect-funds-${network}`
 			});
 			await ensureArtifactServer(config.serverPort);
 			return {
@@ -1195,7 +1214,76 @@ async function createProxy() {
 			return {
 				content: [{
 					type: "text",
-					text: `Scam topology failed: ${err.message}`
+					text: `Trace suspect funds failed: ${err.message}`
+				}],
+				isError: true
+			};
+		}
+	});
+	if (!remoteToolNames.has("trace_deposit_sources")) registerAppTool(server, "trace_deposit_sources", {
+		title: "Trace Deposit Sources",
+		description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.trace_deposit_sources,
+		inputSchema: {
+			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
+			deposit_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe("Comma-separated full suspected deposit/cashout addresses, or an array. Min 1, max 5."),
+			max_hops: z.number().int().min(1).max(5).optional().describe("Maximum reverse traceback hops. Default 2."),
+			case_id: z.string().optional().describe("Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest."),
+			include_attachments: z.boolean().optional().describe("Include graph app report metadata")
+		},
+		_meta: { ui: { resourceUri: GRAPH_RESOURCE_URI } },
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: true
+		}
+	}, async ({ deposit_addresses, network, max_hops, case_id }) => {
+		try {
+			if (!remoteConnected) return {
+				content: [{
+					type: "text",
+					text: `${remoteUnavailableMessage ?? `Graph MCP is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`
+				}],
+				isError: true
+			};
+			const { traceDepositSources } = await import("./public-tools-naQ9lt5V.mjs");
+			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
+			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
+			const result = await traceDepositSources(remoteClient, config, {
+				depositAddresses: deposit_addresses,
+				network,
+				maxHops: max_hops,
+				caseId: case_id
+			});
+			const report = await writeGraphReport(result.graphData, {
+				serverPort: config.serverPort,
+				slug: `trace-deposit-sources-${network}`
+			});
+			await ensureArtifactServer(config.serverPort);
+			return {
+				content: [{
+					type: "text",
+					text: result.summaryText
+				}],
+				structuredContent: result.structuredContent,
+				_meta: { chainInsights: { graph: {
+					schema: report.schema,
+					url: report.url
+				} } },
+				isError: false
+			};
+		} catch (err) {
+			if (err instanceof PaymentRequiredError) return {
+				content: [{
+					type: "text",
+					text: err.message
+				}],
+				isError: true
+			};
+			return {
+				content: [{
+					type: "text",
+					text: `Trace deposit sources failed: ${err.message}`
 				}],
 				isError: true
 			};
@@ -1233,7 +1321,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { stakeInsights } = await import("./public-tools-DoRNhMn9.mjs");
+			const { stakeInsights } = await import("./public-tools-naQ9lt5V.mjs");
 			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
 			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
 			const result = await stakeInsights(remoteClient, {
@@ -1298,8 +1386,9 @@ async function createProxy() {
 				"- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.",
 				"- address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.",
 				"- stake_insights: explain Bittensor staking around one address, coldkey, or hotkey with net stake, movement amounts, counterparties, backend, and query evidence.",
-				"- track_funds: trace up to five trusted/victim addresses plus up to five known untrusted/scammer addresses through intermediaries to exchange deposit addresses.",
-				"- scam_topology: derive ML-ready scam_labels from one victim incident address and incident_timestamp_ms.",
+				"- trace_victim_funds: trace up to five victim/source addresses forward to exchange deposit candidates.",
+				"- trace_deposit_sources: trace backward from suspected deposit/cashout addresses to upstream funders and shared-source convergence.",
+				"- trace_suspect_funds: trace up to five suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology.",
 				"- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE live_topology, USE archive_topology, or USE facts.",
 				"- graph_query_batch: run related read-only graph-language queries through one paid graph call.",
 				"",

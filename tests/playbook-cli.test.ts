@@ -26,7 +26,7 @@ describe('CLI playbook subcommand', () => {
   it('playbook list outputs trace-funds, risk-check, entity-profile', () => {
     const out = execSync('node bin/cli.js playbook list', { encoding: 'utf8' })
     expect(out).toContain('trace-funds')
-    expect(out).toContain('scam-topology')
+    expect(out).toContain('trace-suspect-funds')
     expect(out).toContain('risk-check')
     expect(out).toContain('entity-profile')
     expect(out).not.toContain('query')
@@ -42,7 +42,7 @@ describe('CLI playbook subcommand', () => {
     expect(out).toContain('trace-funds')
     expect(out).toContain('Steps:')
     expect(out).toContain('address_risk')
-    expect(out).toContain('track_funds')
+    expect(out).toContain('trace_victim_funds')
     expect(out).not.toContain('probe')
   })
 
@@ -52,11 +52,11 @@ describe('CLI playbook subcommand', () => {
     expect(out).toContain('required')
   })
 
-  it('playbook show scam-topology prints step list', () => {
-    const out = execSync('node bin/cli.js playbook show scam-topology', { encoding: 'utf8' })
-    expect(out).toContain('scam-topology')
+  it('playbook show trace-suspect-funds prints step list', () => {
+    const out = execSync('node bin/cli.js playbook show trace-suspect-funds', { encoding: 'utf8' })
+    expect(out).toContain('trace-suspect-funds')
     expect(out).toContain('address_risk')
-    expect(out).toContain('scam_topology')
+    expect(out).toContain('trace_suspect_funds')
   })
 
   it('playbook run trace-funds --dry-run -p address=0x1 prints step plan without MCP calls', () => {
@@ -65,7 +65,7 @@ describe('CLI playbook subcommand', () => {
     })
     expect(out).toContain('dry run')
     expect(out).toContain('address_risk')
-    expect(out).toContain('track_funds')
+    expect(out).toContain('trace_victim_funds')
     expect(out).not.toContain('probe')
     expect(out).toContain('"network":"bittensor"')
     expect(out).not.toContain('Error')

@@ -46,8 +46,9 @@ cia debug off
    address activity, or requested chain falls outside that range, state that
    limitation before querying. Do not call `address_risk` unless the selected
    network advertises risk support and `address_risk` is available. If only
-   topology is available, use `stake_insights`, `track_funds`, `scam_topology`, or
-   `graph_query_batch` with `USE live_topology` as appropriate. Use
+   topology is available, use `stake_insights`, `trace_victim_funds`,
+   `trace_suspect_funds`, `trace_deposit_sources`, or `graph_query_batch`
+   with `USE live_topology` as appropriate. Use
    `graph_query_batch` with `USE archive_topology`
    for historical money-flow topology, and `USE facts`
    for graph-language facts and enrichment.
@@ -88,21 +89,23 @@ cia debug off
   EVM-pallet `0x...` addresses in the same investigation network. Use
   `network=bittensor` for both; do not switch networks based only on address
   format. Preserve the exact address and any returned `address_type` evidence.
-- Python GraphRAG MCP is the golden behavior for `address_risk` and
-  `track_funds`. Chain Insights MCP may expose its own high-level tools, but
-  their graph semantics must be a faithful port of the Python tools.
+- Python GraphRAG MCP is the golden behavior for `address_risk` and the
+  original victim/source tracing semantics. Chain Insights MCP may expose its
+  own high-level tools, but their graph semantics must be a faithful port of
+  the Python tools.
 - When the upstream server is Go Graph MCP, high-level Chain Insights tools
   must implement Python-compatible orchestration by calling `graph_query` or
   `graph_query_batch`. Prefer `USE live_topology` for recent topology,
   `USE archive_topology` for historical topology, and `USE facts`
   for facts and enrichment. Do not replace Python probe semantics with
   simplified local recipes.
-- For exchange-deposit discovery, preserve Python `BFSOps`/`StolenFundsProbe`
-  semantics: forward search to `Address` nodes where `is_exchange IS NOT NULL`,
-  stop at exchange nodes, treat `path[-2]` as the deposit candidate, then run
-  backward/source and reverse-lead stages. Some Graph MCP deployments do not
-  parse backend-specific BFS or variable-length relationship syntax, so they
-  reproduce this with generated fixed-depth `FLOWS_TO` query batches.
+- For victim/source and suspect exchange-deposit discovery, preserve Python
+  `BFSOps`/`StolenFundsProbe` forward semantics: search to `Address` nodes
+  where `is_exchange IS NOT NULL`, stop at exchange nodes, and treat `path[-2]`
+  as the deposit candidate. Do not run deposit traceback inside
+  `trace_victim_funds`; use `trace_deposit_sources` for backward/source
+  discovery. Some Graph MCP deployments do not parse backend-specific BFS or
+  variable-length relationship syntax, so they reproduce this with generated fixed-depth `FLOWS_TO` query batches.
 - For `address_risk`, Python `GraphRAGQueryEngine.check_address_risk` is the
   golden behavior: bounded neighborhood expansion with exchange-stopped waves,
   risk/scoring fields, lookalikes, forward exchange
@@ -137,52 +140,44 @@ Tool selection is network-dependent:
   fall back to the available lower-level graph tools or tell the user the
   network is not supported for that workflow yet.
 
-Use `address_risk` first for ordinary address screening. It measures risk,
-neighborhood context, and exchange behavior together, including exchange inflow
-and outflow paths. Do not use retired separate exchange-flow tools as a primary
-workflow; that behavior belongs in `address_risk`.
+Use `address_risk` first for ordinary single-address screening. It measures
+risk, neighborhood context, and exchange behavior together, including exchange
+inflow and outflow paths. Do not use retired separate exchange-flow tools as a
+primary workflow; that behavior belongs in `address_risk`.
 
 Use `address_risk` with `compare_address` when the user asks whether two
 addresses are connected or whether a relationship is risky. Use compare mode
 as the unified connection-risk path.
 
-Use `track_funds` when the user has victim/source addresses and may also have
-known scammer addresses. It accepts up to five `trusted_addresses` and up to
-five `untrusted_addresses`, preserves those roles, and traces each through the
-local tracing engine.
+Use `trace_victim_funds` when the user has victim/source addresses. It accepts
+up to five `victim_addresses` plus optional `known_suspect_addresses` as
+context only. The victim/source traversal is outward from victim/source funds;
+do not query or promote victim inbound transfers as scam infrastructure. This
+uses exchange terminal safety: stop at exchange endpoints and treat the
+penultimate address as the deposit candidate.
 
-Use `track_funds` for stolen-fund and fund-flow work, including single-address
-fund-flow tracing by passing one address as the only `trusted_addresses` value.
+Use `trace_deposit_sources` when the user has suspected deposit/cashout
+addresses and wants to find direct funders, upstream funders, and shared-source
+convergence. Deposit seeds are not scammers by default. Candidate suspects are
+reviewable, not automatic writes to `core_address_labels`.
 
-Use `scam_topology` when known victim incident ground truth should become
-ML-ready `scam_labels` plus reviewable laundering context. The victim-only
-traversal is outward from victim/source funds, so do not query or promote
-victim inbound transfers as scam infrastructure. The primary traversal is a
-node-relative novelty wave: each new node expands only once, repeated targets
-are retained as non-expanding `convergence_edge` context, and downstream edges
-must have `first_seen_timestamp` or `last_seen_timestamp` greater than or equal
-to the current node's wave-arrival timestamp. The tool can instead use
-`activity_policy=global_incident_only`, where every wave is filtered against
-`incident_timestamp_ms`. Exchange terminal safety is the only hard-coded
-terminal behavior; other labels are generic context hints. The graph report follows the
-same `chain-insights.graph.v1` layout as
-`track_funds`: primary victim-flow edges are `flows`, exchange deposits are
-`deposits`, and deposit-cluster enrichment is `reverse_leads`.
-Victim/source addresses,
-exchange endpoints, and generic labeled context nodes are not automatic scam
-labels; laundering intermediates and exchange deposit candidates are reviewable,
-not automatic writes to `core_address_labels`.
+Use `trace_suspect_funds` when the user has suspected scammer, mule, operator,
+or laundering-ring addresses. It traces suspect-controlled funds forward to
+cashout topology. `incident_timestamp_ms` is optional; lack of a timestamp is
+valid.
 
 ```bash
-cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --max-hops 16
-cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --max-hops 16 --activity-policy global_incident_only
-cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --case 1
+cia mcp trace-victim-funds --network bittensor --victim-addresses 5... --max-hops 3 --case 1
+cia mcp trace-deposit-sources --network bittensor --deposit-addresses 5... --max-hops 2 --case 1
+cia mcp trace-suspect-funds --network bittensor --suspect-addresses 5... --max-hops 16
 ```
 
-If `case_id` or CLI `--case` is provided, `scam_topology` writes a compact
-`chain-insights.evidence_pointer.v1` entry to the case. The pointer references
-workspace-local compact evidence JSON, graph JSON, graph HTML,
-label-candidate CSV, and Markdown report files under `reports/`.
+All three tools return `chain-insights.trace.v1`, including `candidate_labels`
+and `continuation`. Candidate labels are reviewable, not automatic writes. If
+`case_id` or CLI `--case` is provided, trace tools write compact
+`chain-insights.evidence_pointer.v1` entries that reference workspace-local
+compact evidence JSON, graph JSON, graph HTML, CSV, and Markdown report files
+under `reports/`.
 
 Use manual `graph_query_batch` for custom topology or fact questions. Use
 `USE live_topology` for recent topology, `USE archive_topology` for historical

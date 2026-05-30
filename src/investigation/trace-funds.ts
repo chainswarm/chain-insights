@@ -18,6 +18,8 @@ export interface TraceFundsOptions {
   maxHops?: number
   perAddressLimit?: number
   minAmountSum?: number
+  includeDepositTraceback?: boolean
+  evidenceSource?: string
 }
 
 export interface TraceFlow {
@@ -549,7 +551,7 @@ async function hydrateDirectEdgeProps(remoteClient: Client, network: string, flo
 
 async function collectProbeTrace(
   remoteClient: Client,
-  options: Required<Pick<TraceFundsOptions, 'seedAddress' | 'network' | 'maxHops' | 'perAddressLimit' | 'minAmountSum'>>,
+  options: Required<Pick<TraceFundsOptions, 'seedAddress' | 'network' | 'maxHops' | 'perAddressLimit' | 'minAmountSum'>> & Pick<TraceFundsOptions, 'includeDepositTraceback'>,
 ): Promise<{ flows: TraceFlow[]; deposits: TraceDeposit[]; sourceMatches: SourceMatch[]; reverseLeads: ReverseLead[] }> {
   const forwardBatch = await callGraphBatch(remoteClient, options.network, [
     ...forwardExchangeQueries(options.seedAddress, Math.max(options.perAddressLimit * 20, 200), options.minAmountSum, options.maxHops),
@@ -565,7 +567,7 @@ async function collectProbeTrace(
   const uniqueDepositAddresses = [...new Set(deposits.map((deposit) => deposit.address))]
 
   const sourceMatches: SourceMatch[] = []
-  if (uniqueDepositAddresses.length > 0) {
+  if (options.includeDepositTraceback !== false && uniqueDepositAddresses.length > 0) {
     const backwardBatch = await callGraphBatch(
       remoteClient,
       options.network,
@@ -601,7 +603,7 @@ async function collectProbeTrace(
   }
 
   const reverseLeads: ReverseLead[] = []
-  if (uniqueDepositAddresses.length > 0) {
+  if (options.includeDepositTraceback !== false && uniqueDepositAddresses.length > 0) {
     const reverseBatch = await callGraphBatch(remoteClient, options.network, [reverseLeadsQuery(uniqueDepositAddresses)])
     for (const row of resultsFor(reverseBatch, 'reverse_1hop')) {
       const address = typeof row['address'] === 'string' ? row['address'] : ''
@@ -817,10 +819,10 @@ function buildMarkdownReport(seedAddress: string, network: string, flows: TraceF
   return lines.join('\n') + '\n'
 }
 
-function probeEvidence(seedAddress: string, network: string, schemaPath: string, aliases: AliasTracker, flows: TraceFlow[], deposits: TraceDeposit[], sourceMatches: SourceMatch[], reverseLeads: ReverseLead[]): Record<string, unknown> {
+function probeEvidence(seedAddress: string, network: string, schemaPath: string, aliases: AliasTracker, flows: TraceFlow[], deposits: TraceDeposit[], sourceMatches: SourceMatch[], reverseLeads: ReverseLead[], evidenceSource = 'track_funds'): Record<string, unknown> {
   return {
     schema: 'chain-insights.probe_evidence.v1',
-    source: 'track_funds',
+    source: evidenceSource,
     network,
     seed_address: seedAddress,
     schema_ref: schemaPath,
@@ -1021,14 +1023,15 @@ export async function runFundFlowProbe(
   const maxHops = clampInt(options.maxHops, 3, 1, 5)
   const perAddressLimit = clampInt(options.perAddressLimit, 5, 1, 10)
   const minAmountSum = Math.max(0, options.minAmountSum ?? 0)
+  const evidenceSource = options.evidenceSource ?? 'track_funds'
   const paths = workspaceOutputPaths()
   await ensureDirs(paths)
 
   const schemaResult = await loadOrCaptureTopologySchema(remoteClient, paths, network)
-  const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, { seedAddress, network, maxHops, perAddressLimit, minAmountSum })
+  const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, { seedAddress, network, maxHops, perAddressLimit, minAmountSum, includeDepositTraceback: options.includeDepositTraceback })
   const aliases = buildAliases(seedAddress, deposits, sourceMatches, reverseLeads)
   const slug = `${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}_${sanitizeSegment(seedAddress.slice(0, 16))}`
-  const compact = probeEvidence(seedAddress, network, schemaResult.filePath, aliases, flows, deposits, sourceMatches, reverseLeads)
+  const compact = probeEvidence(seedAddress, network, schemaResult.filePath, aliases, flows, deposits, sourceMatches, reverseLeads, evidenceSource)
   const graph = buildGraph(seedAddress, network, flows, deposits, sourceMatches, reverseLeads)
 
   const compactPath = path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`)
@@ -1049,11 +1052,11 @@ export async function runFundFlowProbe(
   if (options.caseId) {
     const { EvidenceStore } = await import('../cases/index.js')
     await EvidenceStore.append(options.caseId, {
-      source: 'track_funds',
+      source: evidenceSource,
       queryParams: `network=${network} seed_address=${seedAddress} max_hops=${maxHops} per_address_limit=${perAddressLimit} min_amount_sum=${minAmountSum}`,
       content: JSON.stringify({
         schema: 'chain-insights.evidence_pointer.v1',
-        source: 'track_funds',
+        source: evidenceSource,
         network,
         seed_address: seedAddress,
         address_map: aliases.compactAddressMap(),

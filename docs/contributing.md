@@ -18,8 +18,9 @@ Current AML tools live in the Chain Insights layer:
 
 - `address_risk`
 - `stake_insights`
-- `track_funds`
-- `scam_topology`
+- `trace_victim_funds`
+- `trace_deposit_sources`
+- `trace_suspect_funds`
 
 When adding a tool, document:
 

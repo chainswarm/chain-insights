@@ -96,11 +96,14 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).not.toContain('Permit2')
   })
 
-  it('mcp --help lists track-funds and hides trace-funds', () => {
+  it('mcp --help lists role-specific trace commands and hides legacy trace commands', () => {
     const out = execSync('node bin/cli.js mcp --help', { encoding: 'utf8' })
-    expect(out).toContain('track-funds')
-    expect(out).toContain('scam-topology')
+    expect(out).toContain('trace-victim-funds')
+    expect(out).toContain('trace-suspect-funds')
+    expect(out).toContain('trace-deposit-sources')
     expect(out).toContain('stake-insights')
+    expect(out).not.toContain('track-funds')
+    expect(out).not.toContain('scam-topology')
     expect(out).not.toContain('trace-funds')
   })
 
@@ -115,27 +118,28 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('--depth <number>')
   })
 
-  it('mcp scam-topology help exposes victim incident controls', () => {
-    const out = execFileSync('node', ['--import', 'tsx', srcCli, 'mcp', 'scam-topology', '--help'], { encoding: 'utf8' })
-    expect(out).toContain('--victim-address <address>')
+  it('mcp trace-suspect-funds help exposes suspect controls without requiring an incident timestamp', () => {
+    const out = execFileSync('node', ['--import', 'tsx', srcCli, 'mcp', 'trace-suspect-funds', '--help'], { encoding: 'utf8' })
+    expect(out).toContain('--suspect-addresses <addresses>')
     expect(out).toContain('--incident-timestamp-ms <milliseconds>')
     expect(out).toContain('--max-hops <number>')
-    expect(out).toContain('--activity-policy <mode>')
     expect(out).toContain('--case <id>')
-    expect(out).not.toContain('--compare-activity-policies')
-    expect(out).not.toContain('--scope <history|incident|compare>')
-    expect(out).not.toContain('--since-timestamp-ms <milliseconds>')
-    expect(out).not.toContain('--scammer-addresses')
+    expect(out).not.toContain('--victim-address <address>')
+    expect(out).not.toContain('--activity-policy <mode>')
   })
 
-  it('fund-flow CLI help exposes only track-funds', () => {
+  it('fund-flow CLI help exposes only role-specific trace commands', () => {
     const out = execSync('node bin/cli.js mcp --help', { encoding: 'utf8' })
-    expect(out).toContain('track-funds')
+    expect(out).toContain('trace-victim-funds')
+    expect(out).toContain('trace-suspect-funds')
+    expect(out).toContain('trace-deposit-sources')
+    expect(out).not.toContain('track-funds')
+    expect(out).not.toContain('scam-topology')
     expect(out).not.toContain('trace-funds')
   })
 
-  it('mcp trace-funds is not registered', () => {
-    expect(() => execSync('node bin/cli.js mcp trace-funds --help', {
+  it.each(['track-funds', 'scam-topology', 'trace-funds'])('mcp %s is not registered', (command) => {
+    expect(() => execSync(`node bin/cli.js mcp ${command} --help`, {
       encoding: 'utf8',
       stdio: 'pipe',
     })).toThrow()
@@ -277,7 +281,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     }
   })
 
-  it('mcp track-funds fails before workspace init and writes nothing', () => {
+  it('mcp trace-victim-funds fails before workspace init and writes nothing', () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'chain-insights-home-'))
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const target = join(parent, 'stolen')
@@ -289,8 +293,8 @@ describe('CLI scaffold (FOUND-02)', () => {
         tsxLoader,
         srcCli,
         'mcp',
-        'track-funds',
-        '--trusted-addresses',
+        'trace-victim-funds',
+        '--victim-addresses',
         '5GT',
         '--network',
         'bittensor',

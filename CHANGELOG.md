@@ -2,8 +2,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
-## [0.2.32] - 2026-05-29
+## [0.3.0] - 2026-05-29
 
+- Replaced the public trace workflow surface with role-specific
+  `trace_victim_funds`, `trace_deposit_sources`, and `trace_suspect_funds`
+  tools returning `chain-insights.trace.v1`; legacy public `track_funds` and
+  `scam_topology` exposure is hidden.
+- Added CLI commands for the new trace tools and updated workspace runtime
+  skill, shipped skills, docs, playbooks, and UAT guidance to teach the
+  victim -> deposit traceback -> suspect chaining workflow.
 - Added a shipped Memgraph examples reference for `chain-insights-cypher`,
   covering staging-tested GraphRAG MCP reads, archive/facts examples, and
   fixed-hop traversal fallbacks for native Memgraph deep traversal syntax that

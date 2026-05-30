@@ -1,6 +1,8 @@
-import { t as LOCAL_GRAPH_MCP_ENDPOINT } from "./mcp-endpoint-DHs1cRFH.mjs";
-import path from "node:path";
-import { access, mkdir, writeFile } from "node:fs/promises";
+const require_chunk = require("./chunk-DakpK96I.cjs");
+const require_mcp_endpoint = require("./mcp-endpoint-BaV8h_lq.cjs");
+let node_path = require("node:path");
+node_path = require_chunk.__toESM(node_path, 1);
+let node_fs_promises = require("node:fs/promises");
 //#region src/workspace/init.ts
 const WORKSPACE_DIRS = [
 	".chain-insights",
@@ -24,7 +26,7 @@ function workspaceJson(workspaceRoot) {
 		name: "Chain Insights Investigations",
 		workspace_root: workspaceRoot,
 		default_network: "bittensor",
-		graph_mcp_endpoint: LOCAL_GRAPH_MCP_ENDPOINT,
+		graph_mcp_endpoint: require_mcp_endpoint.LOCAL_GRAPH_MCP_ENDPOINT,
 		cases_dir: "cases",
 		imports_dir: "imports",
 		reports_dir: "reports",
@@ -163,6 +165,26 @@ Rules:
   narrative under \`reports/\`.
 - Evidence Markdown should be a short provenance record with key facts and
   pointers. Large JSON belongs in \`reports/tables/\`, not inline in evidence.
+
+Trace tool chaining:
+
+1. Use \`trace_victim_funds\` when the user gives victim/source addresses.
+2. Pass returned \`continuation.candidate_deposit_addresses\` to
+   \`trace_deposit_sources\`; do not make victim tracing run deposit traceback
+   internally.
+3. Pass high-confidence \`continuation.candidate_suspect_addresses\` from
+   deposit traceback to \`trace_suspect_funds\`.
+4. Use \`trace_suspect_funds\` when the user gives suspected scammer, mule,
+   operator, or laundering-ring addresses. \`incident_timestamp_ms\` is
+   optional.
+5. Use \`address_risk\` for single-address enrichment, and
+   \`graph_query_batch\` only when the role-specific tools do not answer the
+   exact question.
+
+All trace tools return \`chain-insights.trace.v1\`. Preserve full addresses in
+\`input.addresses\`, \`addresses[].address\`, \`edges[].from_address\`,
+\`edges[].to_address\`, \`paths[].addresses\`, \`candidate_labels[].address\`,
+and \`continuation\` address lists.
 `;
 const SCHEMA_README = `# Runtime Schema Captures
 
@@ -192,9 +214,9 @@ function workspaceFiles(workspaceRoot) {
 }
 async function assertNoFileCollisions(workspaceRoot) {
 	for (const [relativePath] of workspaceFiles(workspaceRoot)) {
-		const filePath = path.join(workspaceRoot, relativePath);
+		const filePath = node_path.default.join(workspaceRoot, relativePath);
 		try {
-			await access(filePath);
+			await (0, node_fs_promises.access)(filePath);
 			throw new Error(`Refusing to overwrite ${filePath}. Re-run with --force to replace workspace files.`);
 		} catch (err) {
 			if (err.code === "ENOENT") continue;
@@ -203,15 +225,15 @@ async function assertNoFileCollisions(workspaceRoot) {
 	}
 }
 async function initWorkspace(options) {
-	const workspaceRoot = path.resolve(options.targetDir);
+	const workspaceRoot = node_path.default.resolve(options.targetDir);
 	if (!options.force) await assertNoFileCollisions(workspaceRoot);
-	for (const dir of WORKSPACE_DIRS) await mkdir(path.join(workspaceRoot, dir), { recursive: true });
+	for (const dir of WORKSPACE_DIRS) await (0, node_fs_promises.mkdir)(node_path.default.join(workspaceRoot, dir), { recursive: true });
 	const filesWritten = [];
 	const flag = options.force ? "w" : "wx";
 	for (const [relativePath, content] of workspaceFiles(workspaceRoot)) {
-		const filePath = path.join(workspaceRoot, relativePath);
+		const filePath = node_path.default.join(workspaceRoot, relativePath);
 		try {
-			await writeFile(filePath, content, {
+			await (0, node_fs_promises.writeFile)(filePath, content, {
 				mode: 384,
 				flag
 			});
@@ -227,6 +249,4 @@ async function initWorkspace(options) {
 	};
 }
 //#endregion
-export { initWorkspace };
-
-//# sourceMappingURL=init-DBC9Ml33.mjs.map
+exports.initWorkspace = initWorkspace;

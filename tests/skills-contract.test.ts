@@ -13,15 +13,16 @@ function expectNoRetiredHostedMcpHost(content: string): void {
 }
 
 describe('shipped Chain Insights skills contract', () => {
-  it('keeps investigation guidance on initialized workspaces and public fund-flow tools', () => {
+  it('keeps investigation guidance on initialized workspaces and role-specific trace tools', () => {
     const skill = read('skills/chain-insights-investigation/SKILL.md')
 
     expect(skill).toContain('cia init .')
     expect(skill).toContain('No investigation output belongs under ~/.chain-insights')
-    expect(skill).toContain('track_funds')
-    expect(skill).toContain('scam_topology')
+    expect(skill).toContain('trace_victim_funds')
+    expect(skill).toContain('trace_suspect_funds')
+    expect(skill).toContain('trace_deposit_sources')
     expect(skill).toContain('single-address')
-    expect(skill).toContain('trusted_addresses')
+    expect(skill).toContain('victim_addresses')
     expect(skill).toContain('Python GraphRAG MCP is the golden behavior')
     expect(skill).toContain('GraphRAGQueryEngine.check_address_risk')
     expect(skill).toContain('graph_query_batch')
@@ -39,16 +40,20 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('address_type')
     expect(skill).toContain('Some Graph MCP deployments do not')
     expect(skill).toContain('generated fixed-depth `FLOWS_TO` query batches')
+    expect(skill).not.toContain('track_funds')
+    expect(skill).not.toContain('scam_topology')
     expect(skill).not.toContain('Use `trace_funds`')
     expect(skill).not.toContain('trace_funds')
   })
 
-  it('documents fund-flow tracking through track_funds and workspace-local output layout', () => {
+  it('documents trace-tool chaining and workspace-local output layout', () => {
     const skill = read('skills/chain-insights-trace-funds/SKILL.md')
 
-    expect(skill).toContain('# Chain Insights Fund Flow Tracking')
-    expect(skill).toContain('track_funds')
-    expect(skill).toContain('scam_topology')
+    expect(skill).toContain('# Chain Insights Trace Tools')
+    expect(skill).toContain('trace_victim_funds')
+    expect(skill).toContain('trace_suspect_funds')
+    expect(skill).toContain('trace_deposit_sources')
+    expect(skill).toContain('chain-insights.trace.v1')
     expect(skill).toContain('label_candidates')
     expect(skill).toContain('Victim/source addresses are not risky labels')
     expect(skill).toContain('single address')
@@ -67,22 +72,27 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('StolenFundsProbe')
     expect(skill).toContain('Some Graph MCP deployments do not')
     expect(skill).toContain('generated fixed-depth `FLOWS_TO` query batches')
+    expect(skill).not.toContain('track_funds')
+    expect(skill).not.toContain('scam_topology')
     expect(skill).not.toContain('trace_funds')
   })
 
-  it('documents scam topology victim incident traversal and review-only labels', () => {
+  it('documents role-specific trace chaining and review-only candidate labels', () => {
     const readme = read('README.md')
     const graphToolsDoc = read('docs/graph-tools.md')
     const traceFundsSkill = read('skills/chain-insights-trace-funds/SKILL.md')
     const investigationSkill = read('skills/chain-insights-investigation/SKILL.md')
     const combined = [readme, graphToolsDoc, traceFundsSkill, investigationSkill].join('\n')
 
-    expect(combined).toContain('scam_topology')
-    expect(combined).toContain('victim-only traversal is outward from victim/source funds')
+    expect(combined).toContain('trace_victim_funds')
+    expect(combined).toContain('trace_deposit_sources')
+    expect(combined).toContain('trace_suspect_funds')
+    expect(combined).toContain('victim/source traversal is outward from victim/source funds')
     expect(combined).toContain('incident_timestamp_ms')
     expect(combined).toContain('exchange terminal safety')
     expect(combined).toContain('reviewable, not automatic writes')
-    expect(combined).toContain('cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --max-hops 16')
+    expect(combined).toContain('cia mcp trace-suspect-funds --network bittensor --suspect-addresses 5... --max-hops 16')
+    expect(combined).not.toContain('cia mcp scam-topology')
   })
 
   it('replaces ci-case and ci-status placeholders with workspace guidance', () => {
@@ -142,12 +152,12 @@ describe('shipped Chain Insights skills contract', () => {
     const proxySection = script.slice(script.indexOf('PROXY_TOOLS_JSON='))
 
     expect(proxySection).toContain(
-      "const required = ['balance', 'help', 'address_risk', 'stake_insights', 'track_funds', 'scam_topology', 'network_capabilities', 'graph_query', 'graph_query_batch']",
+      "const required = ['balance', 'help', 'address_risk', 'stake_insights', 'trace_victim_funds', 'trace_suspect_funds', 'trace_deposit_sources', 'network_capabilities', 'graph_query', 'graph_query_batch']",
     )
     expect(proxySection).toContain(
-      "for (const hidden of ['topup', 'trace_funds', 'money_flows_between_exchanges', 'address_connection_risk'])",
+      "for (const hidden of ['topup', 'trace_funds', 'track_funds', 'scam_topology', 'money_flows_between_exchanges', 'address_connection_risk'])",
     )
-    expect(proxySection).toContain("for (const name of ['address_risk', 'stake_insights', 'track_funds', 'scam_topology'])")
+    expect(proxySection).toContain("for (const name of ['address_risk', 'stake_insights', 'trace_victim_funds', 'trace_suspect_funds', 'trace_deposit_sources'])")
     expect(proxySection).not.toContain("const required = ['balance', 'topup'")
     expect(proxySection).not.toContain("'money_flows_between_exchanges', 'address_connection_risk', 'graph_query']")
     expect(proxySection).not.toContain("for (const name of ['address_risk', 'track_funds', 'money_flows_between_exchanges'")
@@ -171,8 +181,9 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).toContain('prepared wallet')
     expect(readme).toContain('[MCP proxy](docs/mcp-proxy.md)')
     expect(readme).toContain('address_risk')
-    expect(readme).toContain('track_funds')
-    expect(readme).toContain('scam_topology')
+    expect(readme).toContain('trace_victim_funds')
+    expect(readme).toContain('trace_suspect_funds')
+    expect(readme).toContain('trace_deposit_sources')
     expect(readme).toContain('graph_query')
     expect(readme).toContain('graph_query_batch')
     expect(readme).toContain('live_topology')
@@ -227,8 +238,9 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('GraphRAG MCP')
     expect(skill).toContain('AML tool framework')
     expect(skill).toContain('address_risk')
-    expect(skill).toContain('track_funds')
-    expect(skill).toContain('scam_topology')
+    expect(skill).toContain('trace_victim_funds')
+    expect(skill).toContain('trace_suspect_funds')
+    expect(skill).toContain('trace_deposit_sources')
     expect(skill).toContain('live_topology')
     expect(skill).toContain('archive_topology')
     expect(skill).toContain('facts')

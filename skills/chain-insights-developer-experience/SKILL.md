@@ -24,10 +24,12 @@ names in debugging or contributor docs when the detail is necessary.
   and exchange exposure.
 - `stake_insights`: explain Bittensor coldkey-hotkey-netuid staking behavior,
   net stake movement, counterparties, activity range, and source backend.
-- `track_funds`: trace victim/source funds through intermediaries to exchange
-  deposit candidates.
-- `scam_topology`: expand known victim incident topology into reviewable scam
-  infrastructure and label candidates.
+- `trace_victim_funds`: trace victim/source funds forward to exchange deposit
+  candidates.
+- `trace_deposit_sources`: trace backward from suspected deposit/cashout
+  addresses to upstream sources and shared-source convergence.
+- `trace_suspect_funds`: trace suspected scammer, mule, operator, or
+  laundering-ring addresses forward to cashout topology.
 
 ## GraphRAG MCP Layer
 

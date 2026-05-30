@@ -1,13 +1,13 @@
 ---
 name: chain-insights-trace-funds
-description: Use when tracing stolen funds to exchange deposit candidates in Chain Insights. Explains the public track_funds workflow, traceback/source discovery, address aliases, compact evidence pointers, and graph/report outputs.
+description: Use when chaining Chain Insights trace_victim_funds, trace_deposit_sources, and trace_suspect_funds. Explains role-specific tracing, chain-insights.trace.v1 output, compact evidence pointers, and graph/report artifacts.
 ---
 
-# Chain Insights Fund Flow Tracking
+# Chain Insights Trace Tools
 
-This compatibility skill file documents the public Chain Insights fund-flow
-workflow. Use the `track_funds` MCP tool for stolen-fund tracing, victim/source
-fund-flow analysis, and exchange-deposit candidate discovery.
+Use the role-specific public trace tools. Do not guess address roles from
+format alone, and never replace full addresses with aliases in
+machine-readable output.
 
 Before running investigation-producing commands, confirm the current directory
 is an initialized Chain Insights workspace:
@@ -25,7 +25,7 @@ cia init .
 No investigation output belongs under `~/.chain-insights`; that global location
 is for config, cache, wallet, and installed skills only.
 
-Before selecting a tracing method, inspect the live GraphRAG network matrix:
+Before selecting a trace method, inspect the live GraphRAG network matrix:
 
 ```bash
 cia mcp networks
@@ -34,216 +34,96 @@ cia mcp networks
 Use the output as the source of truth:
 
 - `Topology: yes` is required for fund-flow tracing.
-- `Available tools` must include `track_funds`; otherwise use `graph_query` or
-  `graph_query_batch` with `USE live_topology` for manual topology diagnostics.
+- `Available tools` must include the role-specific trace tool, otherwise use
+  `graph_query` or `graph_query_batch` with `USE live_topology` for manual
+  topology diagnostics.
 - `Dataset` gives the graph coverage range as
   `<first_height>..<last_height> / <first_date>..<last_date>`. State this range
   in the investigation scope, and do not claim tracing coverage outside it.
-- `Risk: yes` is not required for `track_funds`, but it determines whether
-  downstream `address_risk` enrichment is available on the same network.
+- `Risk: yes` determines whether downstream `address_risk` enrichment is
+  available on the same network.
 
-Use `track_funds` when the investigation has victim/source addresses and may
-also include known scammer addresses. It accepts up to five
-`trusted_addresses` and up to five `untrusted_addresses`, preserves those
-roles, and runs the local tracing engine per address.
+## Tool Selection
 
-Use `scam_topology` when the user has known victim incident ground truth and
-wants to derive ML-ready `scam_labels` plus reviewable laundering context.
-`track_funds` answers where funds went; `scam_topology` answers which outward
-victim incident topology, laundering intermediates, exchange deposit
-candidates, exchange endpoints, and generic context boundaries were observed.
-The victim-only traversal is outward from victim/source funds; it does not
-query or promote victim inbound transfers as scam infrastructure.
-The primary traversal is a node-relative novelty wave: each new node expands
-only once, repeated targets are retained as non-expanding `convergence_edge`
-context, and downstream edges must have `first_seen_timestamp` or
-`last_seen_timestamp` greater than or equal to the current node's wave-arrival
-timestamp. The tool can instead use `activity_policy=global_incident_only`,
-where every wave is filtered against `incident_timestamp_ms`. Exchange terminal safety
-is the only hard-coded terminal behavior; non-exchange labels are context hints.
-Victim/source addresses are not risky labels. The tool returns `label_candidates`
-for analyst review; candidates are reviewable, not automatic writes to
-`core_address_labels`. Its graph report uses the same `chain-insights.graph.v1`
-layout as `track_funds`: primary victim-flow edges are `flows`, exchange
-deposits are `deposits`, and deposit-cluster enrichment is represented as
-`reverse_leads`.
+Use `trace_victim_funds` when the user gives victim/source addresses and asks
+where funds went. Required inputs are `victim_addresses` and `network`.
+Optional `known_suspect_addresses` are context only; this tool must not trace
+backward from deposit candidates.
+
+Use `trace_deposit_sources` when the user gives suspected deposit/cashout
+addresses and asks who funded them. Required inputs are `deposit_addresses` and
+`network`. This tool traces backward over `FLOWS_TO` and can reveal shared
+upstream sources or candidate suspects when multiple deposits converge.
+
+Use `trace_suspect_funds` when the user gives suspected scammer, mule,
+operator, or laundering-ring addresses and asks where suspect-controlled funds
+went. Required inputs are `suspect_addresses` and `network`.
+`incident_timestamp_ms` is optional; absence of a timestamp is valid.
+
+Use `address_risk` for single-address screening and enrichment. Use
+`graph_query_batch` only when the high-level tools do not answer the exact
+question.
+
+Default chain:
+
+1. Run `trace_victim_funds` for victim/source evidence.
+2. Pass `continuation.candidate_deposit_addresses` into
+   `trace_deposit_sources`.
+3. Pass high-confidence `continuation.candidate_suspect_addresses` from deposit
+   traceback into `trace_suspect_funds`.
+4. Enrich individual addresses with `address_risk`.
+
+Example:
 
 ```bash
-cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --max-hops 16
-cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --max-hops 16 --activity-policy global_incident_only
-cia mcp scam-topology --network bittensor --victim-address 5... --incident-timestamp-ms 1715532228001 --case 1
+cia mcp trace-victim-funds --network bittensor --victim-addresses 5... --max-hops 3 --case 1
+cia mcp trace-deposit-sources --network bittensor --deposit-addresses 5... --max-hops 2 --case 1
+cia mcp trace-suspect-funds --network bittensor --suspect-addresses 5... --max-hops 16 --case 1
 ```
 
-When `case_id` or CLI `--case` is present, `scam_topology` mirrors
-`track_funds` case behavior: it appends a compact
-`chain-insights.evidence_pointer.v1` entry that points at workspace-local
-compact evidence JSON, graph JSON, graph HTML, label-candidate CSV, and
-Markdown report files.
+All three tools return `chain-insights.trace.v1` with:
 
-Use `track_funds` for a single address by passing that address as the only
-`trusted_addresses` value. The workflow is a TypeScript port of the probe
-workflow, not a simple top-K hop walker. The goal is to find all reachable
-exchange-deposit paths the graph can return within query limits, then traceback
-those deposits toward source exchanges and enrich the result with reverse 1-hop
-leads.
+- `addresses`, `edges`, `paths`, `convergence`, `exchange_exposure`,
+  `candidate_labels`, `artifacts`, `evidence`, `continuation`, and `warnings`.
+- `label_candidates` / `candidate_labels` as review hypotheses only.
+- `promote_to_core_label: false` until a separate reviewed label-promotion
+  workflow curates the address.
+- Full addresses in every machine-readable field.
 
-Python GraphRAG MCP is the golden implementation. Do not degrade this workflow
-into a simple top-K neighbor recipe. When Chain Insights runs against the Go
-Graph MCP, it should still reproduce Python `BFSOps` and `StolenFundsProbe`
-semantics by issuing read-only `graph_query_batch` calls with `USE live_topology`.
+Victim/source addresses are not risky labels. Deposit seeds are not scammers by
+default. Candidate suspect or deposit roles are hypotheses until reviewed. For
+single address risk screening, use `address_risk` instead of trace tools.
 
-Some Graph MCP deployments do not parse backend-specific BFS or variable-length
-relationship syntax. Against Go Graph MCP, exchange-deposit discovery therefore uses
-generated fixed-depth `FLOWS_TO` query batches up to the requested hop limit,
-requires `t.is_exchange IS NOT NULL`, prevents intermediate exchange hops, and
-treats the penultimate address as the deposit candidate.
+## Artifacts
 
-This tool exists so the agent does not lose the investigation in chat context.
-It executes the repeatable tracing loop, stores machine-readable files for
-visualization, writes a human report, and returns compact facts plus an
-`address_map` so the agent can reason with aliases instead of repeatedly
-copying full blockchain addresses.
+Trace tools store durable workspace-local outputs and return pointers:
 
-## Tool
-
-Preferred multi-address call:
-
-```text
-track_funds
-```
-
-Required inputs:
-
-- `trusted_addresses`: comma-separated full victim/source addresses, max 5.
-- `network`: required network. Do not guess.
-
-Optional inputs:
-
-- `untrusted_addresses`: comma-separated full known scammer addresses, max 5.
-- `case_id`: when present, per-address evidence stores compact pointers to reports.
-- `max_hops`, `per_address_limit`, `min_amount_sum`: forwarded to the single-seed tracing engine.
-
-Single-address call:
-
-Call:
-
-```text
-track_funds
-```
-
-Required inputs:
-
-- `trusted_addresses`: one full source/victim address to trace from.
-- `network`: required network. Do not guess.
-
-Optional inputs:
-
-- `case_id`: when present, evidence stores a compact pointer to report/table/graph files.
-- `max_hops`: legacy compatibility knob; probe-style exchange search is bounded primarily by query timeout and result limits.
-- `per_address_limit`: controls the forward exchange path result budget.
-- `min_amount_sum`: optional minimum original graph `r.amount_sum`.
-
-## Behind The Scenes
-
-The tool:
-
-1. Captures runtime graph schema if missing:
-   - `.chain-insights/schema/<network>.graph-schema.json`
-2. Runs Python-probe-style forward exchange path query batches:
-   - generated fixed-depth `MATCH (s)-[r1:FLOWS_TO]->...->(t)` queries
-     because some graph endpoints reject backend-specific BFS or variable-length syntax,
-   - excludes paths that traverse through an intermediate exchange,
-   - records node and relationship projections,
-   - treats `path[-2]` as the exchange deposit candidate.
-3. Runs traceback/source discovery:
-   - generated fixed-depth backward reads from each deposit toward source exchanges,
-   - reverse 1-hop from deposits to surface leads,
-   - lead reasons include labeled entity, fan-in hub, or high-volume sender.
-4. Assigns aliases:
-   - `V*` seed/victim/source address,
-   - `D*` deposit candidates,
-   - `E*` forward exchange endpoints,
-   - `X*` traceback source exchanges,
-   - `L*` reverse 1-hop leads,
-   - `I*` intermediaries.
-5. Writes workspace-local reports:
-   - `reports/graphs/*.graph.json`
-   - served by the local Hono server at `/graph-reports/<filename>.graph.json`
-   - `reports/*.graph.html`
-   - `reports/tables/*.compact-evidence.json`
-   - `reports/tables/*.flows.csv`
-   - `reports/*.table.html`
-   - `reports/*.trace-report.md`
-6. Returns:
-   - concise facts,
-   - `address_map` alias-to-address mapping,
-   - file paths,
-   - graph app metadata,
-   - deposit, exchange, traceback, and lead summaries.
+- `reports/graphs/*.graph.json`
+- served by the local Hono server at `/graph-reports/<filename>.graph.json`
+- `reports/*.graph.html`
+- `reports/tables/*.compact-evidence.json`
+- `reports/tables/*.flows.csv`
+- `reports/*.table.html`
+- `reports/*.trace-report.md`
 
 Case evidence should stay compact. It should point to report files and include
-hashable provenance/facts, not paste the full graph/table JSON into markdown.
+hashable provenance/facts, not paste the full graph/table JSON into Markdown.
 The JSON/CSV/Markdown reports carry the investigation structure.
 
-## Field Discipline
+## Graph Semantics
+
+Python GraphRAG MCP is the golden implementation for address screening and the
+original StolenFundsProbe behavior. Do not degrade tracing into a simple top-K
+neighbor recipe. Chain Insights tools may call Go GraphRAG MCP primitives, but
+they must preserve the workflow semantics through read-only `graph_query_batch`
+calls.
+
+Some Graph MCP deployments do not parse backend-specific BFS or
+variable-length relationship syntax. In those cases, use generated fixed-depth `FLOWS_TO` query batches with `USE live_topology`. Exchange terminal safety
+applies to forward victim/suspect tracing: stop at exchange nodes and treat
+`path[-2]` as the deposit candidate. Deposit-source tracing is a separate
+reverse workflow.
 
 Evidence and generated data files must use original graph field names. Do not
 rename, reinterpret, or add unit labels unless the schema or query result
 explicitly supports that interpretation.
-
-For this tracing workflow, asset classification is not needed to identify
-exchange deposit candidates. The tool focuses on path shape,
-source/destination addresses, exchange labels, aliases, `amount_sum`,
-`amount_usd_sum`, tx counts, and tx ids.
-
-## Agent Continuation Logic
-
-After `track_funds` returns:
-
-1. Read the summary and file paths.
-2. Use `address_map` in reasoning and prose, but preserve full addresses when
-   writing evidence, graph JSON, tables, and reports.
-3. If `continuation.depositAddresses` is non-empty, those are evidence-backed
-   exchange deposit candidates discovered so far.
-4. Do not stop the investigation just because one exchange was found. Forward
-   exchange paths, traceback source paths, and reverse leads are separate
-   signals.
-5. Do not continue through `Exchange` nodes. Traceback goes backward from
-   deposit candidates; forward tracing terminates each exchange branch.
-6. If the user asks "where did it go?", answer with deposit candidates and
-   exchange endpoints first, then traceback source exchanges and leads.
-
-Do not expand dossiers with long prose. Dossiers should contain short pointers
-to the report and evidence files. The report and graph JSON carry the actual
-investigation structure.
-
-## Manual Topology Query
-
-Only hand-write `graph_query_batch` when the tool is unavailable or a custom
-question is outside simple outbound fund tracing. Prefix topology queries with
-`USE live_topology`.
-
-Manual forward exchange path pattern:
-
-```cypher
-MATCH (s:Address {address: "<full-address>"})
-  -[r1:FLOWS_TO]->(n1:Address)
-  -[r2:FLOWS_TO]->(t:Address)
-WHERE t.is_exchange IS NOT NULL
-  AND s <> t
-  AND n1.is_exchange IS NULL
-  AND r1.amount_sum IS NOT NULL
-  AND r2.amount_sum IS NOT NULL
-RETURN
-  [s.address, n1.address, t.address] AS addresses,
-  [s.labels, n1.labels, t.labels] AS node_labels,
-  [
-    {amount_sum: r1.amount_sum, amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count},
-    {amount_sum: r2.amount_sum, amount_usd_sum: r2.amount_usd_sum, tx_count: r2.tx_count}
-  ] AS edge_props,
-  t.address AS exchange_address,
-  t.labels AS exchange_labels,
-  2 AS hops
-ORDER BY hops ASC
-LIMIT 200
-```
