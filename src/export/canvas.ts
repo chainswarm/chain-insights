@@ -79,6 +79,7 @@ export function graphToCanvas(graph: { nodes: Record<string, unknown>[]; edges: 
       toNode: `entity-${index + 1}`,
       fromSide: 'right' as const,
       toSide: 'left' as const,
+      toEnd: 'arrow' as const,
       label: nodeLabel(node),
     })
   }
