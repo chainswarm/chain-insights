@@ -2,6 +2,14 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.4] - 2026-05-30
+
+- Added `docs/knowledge-exports.md` with install and setup instructions for
+  Obsidian, LLM Wiki, Codex, Claude Code, ChatGPT, and portable agent usage.
+- Linked the knowledge export guide from README, investigation workspace docs,
+  and MCP proxy docs so users can go from `cia case export` to an Obsidian
+  vault or LLM Wiki ingestion flow without guessing the next step.
+
 ## [0.3.3] - 2026-05-30
 
 - Added `cia case export` and MCP `case_export` to produce Obsidian,
