@@ -1,9 +1,9 @@
 # Investigation Workspaces
 
-An investigation workspace is a normal directory that contains Chain Insights
-case state, evidence, reports, graph payloads, imports, templates, and runtime
-schema notes. Agents and humans should be able to inspect it with a normal
-editor.
+An investigation workspace is a normal directory and Obsidian-compatible vault
+that contains Chain Insights case state, live notes, evidence, reports, graph
+payloads, imports, templates, and runtime schema notes. Agents and humans
+should be able to inspect it with a normal editor.
 
 ## Initialize
 
@@ -24,12 +24,16 @@ workspace files before it creates directories or writes any files.
 .chain-insights/schema/       Runtime graph schema captures
 .chain-insights/runtime/      Workspace-local runtime state and debug logs
 .chain-insights/runtime-skill/ Workspace-specific agent schema notes
+.obsidian/                    Obsidian vault settings
+Canvases/                     Obsidian Canvas graph review files
+Entities/                     Live entity notes and indexes
+Evidence/                     Live evidence notes and indexes
 cases/                        Case exports and notes
 imports/                      External investigation inputs
 reports/                      Final or interim analyst reports
 reports/graphs/               Canonical graph JSON for visualization
 reports/tables/               Compact tabular extracts
-published/                    Obsidian, LLMWiki, and agent export bundles
+published/                    Shareable Obsidian, LLMWiki, and agent export bundles
 templates/                    Reusable case and report templates
 ```
 
@@ -78,6 +82,20 @@ cia case close <case-id>
 Use `cia case show <case-id>` to show saved case context, evidence count,
 dossier summaries, and recent session notes.
 
+Refresh live Obsidian vault notes after case evidence, dossiers, or sessions
+change:
+
+```bash
+cia case vault refresh <case-id>
+cia case vault refresh <case-id> --force
+```
+
+Open the workspace in Obsidian:
+
+```bash
+cia obsidian open .
+```
+
 ## Evidence
 
 Append evidence:
@@ -105,19 +123,27 @@ original query parameters, compact facts, and workspace-local file pointers.
 
 ## Knowledge Exports
 
-Export a verified case bundle:
+For normal local review, use the live vault notes:
+
+```bash
+cia case vault refresh <case-id> --force
+```
+
+Export a verified case bundle only when sharing, handing off to a partner,
+ingesting into LLM Wiki, or archiving a checkpoint:
 
 ```bash
 cia case evidence verify <case-id>
 cia case export <case-id> --target obsidian-llmwiki --mode private
 ```
 
-Open `published/<case-slug>/` as an Obsidian vault, or give it to LLM Wiki,
-Codex, Claude Code, or ChatGPT as the case context. The case manifest remains
-the source of truth.
+Open `published/<case-slug>/` as a portable Obsidian vault, or give it to LLM
+Wiki, Codex, Claude Code, or ChatGPT as the case context. The case manifest
+remains the source of truth for the export.
 
 For install commands, Obsidian opening steps, LLM Wiki ingestion, and agent
-prompts, see [Knowledge exports](knowledge-exports.md).
+prompts, see [Obsidian vault workflow](obsidian-vault.md) and
+[Knowledge exports](knowledge-exports.md).
 
 ## Dossiers
 

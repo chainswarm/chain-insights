@@ -4,6 +4,11 @@ The Chain Insights stdio proxy lets AI agents consume Chain Insights tools as
 an MCP server. It connects to the configured GraphRAG MCP endpoint and adds
 local wallet, case, evidence, and graph-report behavior.
 
+Chain Insights workspaces are Obsidian-compatible vaults. Use live vault
+refresh and local notes for normal review; use `case_export` only when an agent
+needs a handoff bundle for sharing, partner review, LLM Wiki ingestion, or
+archive.
+
 ## Basic Configuration
 
 Use this MCP server configuration:
@@ -93,10 +98,16 @@ The proxy:
 | `case_start_session` | Start an investigation session |
 | `case_end_session` | End a session with findings and next steps |
 
+For normal local review, refresh live vault notes from the CLI with
+`cia case vault refresh <case-id> --force` and inspect the same workspace in
+Obsidian, VS Code, Codex, or Claude Code.
+
 `case_export` writes the same local bundle as `cia case export`. Use it after
 `case_verify_evidence` when an agent needs Obsidian, LLM Wiki, Codex, Claude
-Code, or ChatGPT-ready files. See [Knowledge exports](knowledge-exports.md) for
-viewer installation, vault opening, and LLM Wiki ingestion steps.
+Code, or ChatGPT-ready files for handoff. See
+[Obsidian vault workflow](obsidian-vault.md) and
+[Knowledge exports](knowledge-exports.md) for vault opening, sharing, and LLM
+Wiki ingestion steps.
 
 Remote graph tools are discovered from the configured GraphRAG MCP endpoint. The
 expected primitive graph tools are `usage_status`, `graph_query`, and

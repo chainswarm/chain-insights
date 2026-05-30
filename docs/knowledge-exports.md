@@ -1,7 +1,11 @@
 # Knowledge Exports
 
-Chain Insights can export a verified case as a local knowledge bundle for
-Obsidian, LLM Wiki, Codex, Claude Code, ChatGPT, and any agent that can read a
+Chain Insights workspaces are Obsidian-compatible vaults. Normal local
+investigation work happens in the workspace; exports are portable, redacted,
+and shareable bundles for partner handoff, LLM Wiki ingestion, and archive.
+
+Chain Insights can export a verified case as a local knowledge bundle for LLM
+Wiki, Codex, Claude Code, ChatGPT, Obsidian, and any agent that can read a
 folder of Markdown and JSON files.
 
 The export is local-first. Chain Insights writes files under your initialized
