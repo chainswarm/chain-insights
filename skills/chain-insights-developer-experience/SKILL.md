@@ -91,6 +91,23 @@ Every new AML tool needs:
 - Tests.
 - Dogfood or UAT path.
 
+## Adding Case Export Surfaces
+
+`cia case export` and MCP `case_export` are developer-experience surfaces, not
+new graph primitives. Keep CLI and MCP adapters thin over the shared export
+service, and keep `manifest.chain-insights.json`, case evidence, graph reports,
+and source report artifacts canonical. Obsidian, LLMWiki, Codex, Claude Code,
+and ChatGPT files are generated views.
+
+Case export changes need:
+
+- CLI help and MCP tool descriptions.
+- Private, partner, and public redaction behavior.
+- Obsidian/LLMWiki/agent artifact tests.
+- Clean-workspace dogfood that opens a case, verifies evidence, exports it,
+  and inspects `manifest.chain-insights.json`, `Graph.canvas`, and
+  `graph.chain-insights.json`.
+
 ## Dogfood from a clean workspace
 
 Before claiming the developer experience is good, run from a clean directory
@@ -105,5 +122,6 @@ cia mcp networks
 cia mcp tools --refresh
 ```
 
-Run at least one small investigation command, inspect generated files, and feed
-the friction back into README, docs, CLI help, or follow-up issues.
+Run at least one small investigation command, inspect generated files, export
+the case with `cia case export <case> --target obsidian-llmwiki --mode private`,
+and feed the friction back into README, docs, CLI help, or follow-up issues.

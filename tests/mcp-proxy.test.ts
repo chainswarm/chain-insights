@@ -2374,6 +2374,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).not.toContain('topup')
     expect(result.content[0].text).toContain('case_open')
     expect(result.content[0].text).toContain('case_add_evidence')
+    expect(result.content[0].text).toContain('case_export')
     expect(result.content[0].text).toContain('Graph visualization behavior')
     expect(result.content[0].text).toContain('local graph report server is started automatically')
     expect(result.content[0].text).toContain('Graph query hints for network=bittensor')

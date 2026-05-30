@@ -41,6 +41,8 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('Some Graph MCP deployments do not')
     expect(skill).toContain('generated fixed-depth `FLOWS_TO` query batches')
     expect(skill).toContain('exchange hot wallets are terminal endpoints only')
+    expect(skill).toContain('cia case export')
+    expect(skill).toContain('LLMWiki')
     expect(skill).not.toContain('track_funds')
     expect(skill).not.toContain('scam_topology')
     expect(skill).not.toContain('Use `trace_funds`')
@@ -194,6 +196,8 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).toContain('facts')
     expect(readme).toContain('cia mcp networks')
     expect(readme).toContain('cia mcp tools --refresh')
+    expect(readme).toContain('cia case export')
+    expect(readme).toContain('Graph.canvas')
     expect(readme).toContain('docs/contributing.md')
     expect(readme).toContain('docs/debugging.md')
 
@@ -248,6 +252,8 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('archive_topology')
     expect(skill).toContain('facts')
     expect(skill).toContain('Dogfood from a clean workspace')
+    expect(skill).toContain('cia case export')
+    expect(skill).toContain('manifest.chain-insights.json')
 
     expect(contributing).toContain('Adding AML Tools')
     expect(contributing).toContain('npm run release:check')

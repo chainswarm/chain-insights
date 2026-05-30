@@ -88,9 +88,14 @@ The proxy:
 | `case_resume` | Load case context, evidence count, dossiers, and latest session |
 | `case_add_evidence` | Append a report or note to the evidence manifest |
 | `case_verify_evidence` | Verify saved evidence integrity |
+| `case_export` | Export a case for Obsidian, LLMWiki, Codex, Claude Code, and ChatGPT |
 | `case_update_dossier` | Add a durable finding to an address/entity dossier |
 | `case_start_session` | Start an investigation session |
 | `case_end_session` | End a session with findings and next steps |
+
+`case_export` writes the same local bundle as `cia case export`. Use it after
+`case_verify_evidence` when an agent needs Obsidian, LLMWiki, Codex, Claude
+Code, or ChatGPT-ready files.
 
 Remote graph tools are discovered from the configured GraphRAG MCP endpoint. The
 expected primitive graph tools are `usage_status`, `graph_query`, and

@@ -319,6 +319,13 @@ HTML, CSV or table files, and Markdown reports.
 Evidence Markdown should be a provenance record with key facts and pointers.
 Large JSON belongs under workspace report directories, not inline in evidence.
 
+After a case has useful evidence, run `cia case evidence verify <case-id>` and
+`cia case export <case-id> --target obsidian-llmwiki --mode private` to produce
+an Obsidian, LLMWiki, and agent-friendly bundle. The export uses
+`manifest.chain-insights.json`, `graph.chain-insights.json`, `Graph.canvas`,
+Markdown evidence/entity notes, and agent prompt files as views over the
+canonical case evidence and report artifacts.
+
 ## Runtime Schema Capture
 
 Fresh workspaces include a runtime schema skill and schema capture directory.

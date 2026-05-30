@@ -137,6 +137,22 @@ cia case show 1
 find reports cases -maxdepth 3 -type f | sort
 ```
 
+## Export To Obsidian, LLMWiki, And Agents
+
+After a case has evidence, export a local knowledge bundle:
+
+```bash
+cia case evidence verify 1
+cia case export 1 --target obsidian-llmwiki --mode private
+```
+
+The export writes Markdown notes, `manifest.chain-insights.json`,
+`graph.chain-insights.json`, `Graph.canvas`, LLMWiki entrypoints, and prompts
+for Codex, Claude Code, and ChatGPT under `published/<case-slug>/`.
+
+Private exports may include full addresses. Use `--mode public` only for
+shareable demos; public mode aliases addresses and removes secrets by default.
+
 ## Demo
 
 Run a direct live topology query:
