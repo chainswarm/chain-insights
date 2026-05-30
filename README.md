@@ -137,7 +137,7 @@ cia case show 1
 find reports cases -maxdepth 3 -type f | sort
 ```
 
-## Export To Obsidian, LLMWiki, And Agents
+## Export To Obsidian, LLM Wiki, And Agents
 
 After a case has evidence, export a local knowledge bundle:
 
@@ -147,11 +147,13 @@ cia case export 1 --target obsidian-llmwiki --mode private
 ```
 
 The export writes Markdown notes, `manifest.chain-insights.json`,
-`graph.chain-insights.json`, `Graph.canvas`, LLMWiki entrypoints, and prompts
+`graph.chain-insights.json`, `Graph.canvas`, LLM Wiki entrypoints, and prompts
 for Codex, Claude Code, and ChatGPT under `published/<case-slug>/`.
 
 Private exports may include full addresses. Use `--mode public` only for
 shareable demos; public mode aliases addresses and removes secrets by default.
+Install and opening steps live in
+[Knowledge exports](docs/knowledge-exports.md).
 
 ## Demo
 
@@ -248,6 +250,7 @@ reports under the workspace instead of embedding large payloads in case notes.
 | --- | --- |
 | [Graph tools](docs/graph-tools.md) | GraphRAG MCP layers, `graph_query`, `graph_query_batch`, AML tool contracts, graph reports, evidence pointers |
 | [Investigation workspaces](docs/investigation-workspaces.md) | `cia init`, case layout, evidence, dossiers, imports, templates, sessions, reports |
+| [Knowledge exports](docs/knowledge-exports.md) | Install Obsidian and LLM Wiki, export verified cases, open vaults, ingest agent-ready Markdown and graph JSON |
 | [MCP proxy](docs/mcp-proxy.md) | Stdio proxy behavior, endpoint configuration, agent installers, local tools, auth modes, Inspector validation |
 | [Architecture](docs/architecture.md) | Product layers, data flow, local storage, security model, config keys |
 | [Development](docs/development.md) | Build, test, and local install commands |

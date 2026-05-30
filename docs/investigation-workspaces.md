@@ -112,9 +112,12 @@ cia case evidence verify <case-id>
 cia case export <case-id> --target obsidian-llmwiki --mode private
 ```
 
-Open `published/<case-slug>/` as an Obsidian vault, or give it to LLMWiki,
+Open `published/<case-slug>/` as an Obsidian vault, or give it to LLM Wiki,
 Codex, Claude Code, or ChatGPT as the case context. The case manifest remains
 the source of truth.
+
+For install commands, Obsidian opening steps, LLM Wiki ingestion, and agent
+prompts, see [Knowledge exports](knowledge-exports.md).
 
 ## Dossiers
 

@@ -198,6 +198,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).toContain('cia mcp tools --refresh')
     expect(readme).toContain('cia case export')
     expect(readme).toContain('Graph.canvas')
+    expect(readme).toContain('[Knowledge exports](docs/knowledge-exports.md)')
     expect(readme).toContain('docs/contributing.md')
     expect(readme).toContain('docs/debugging.md')
 
@@ -220,6 +221,32 @@ describe('shipped Chain Insights skills contract', () => {
     expect(mcpProxy).toContain('bake hosted endpoint URLs into MCP client JSON, source code, or workspace')
     expect(mcpProxy).toContain('x402')
     expectNoRetiredHostedMcpHost(readme + mcpProxy + read('docs/architecture.md'))
+  })
+
+  it('documents Obsidian, LLM Wiki, and agent knowledge export setup', () => {
+    const knowledgeExports = read('docs/knowledge-exports.md')
+    const readme = read('README.md')
+    const graphTools = read('docs/graph-tools.md')
+    const investigation = read('docs/investigation-workspaces.md')
+    const mcpProxy = read('docs/mcp-proxy.md')
+
+    expect(knowledgeExports).toContain('npm install -g chain-insights')
+    expect(knowledgeExports).toContain('https://obsidian.md/download')
+    expect(knowledgeExports).toContain('Open folder as vault')
+    expect(knowledgeExports).toContain('claude plugin install wiki@llm-wiki')
+    expect(knowledgeExports).toContain('codex plugin marketplace add nvk/llm-wiki')
+    expect(knowledgeExports).toContain('https://raw.githubusercontent.com/nvk/llm-wiki/master/AGENTS.md')
+    expect(knowledgeExports).toContain('cia case export <case-id> --target obsidian-llmwiki --mode private')
+    expect(knowledgeExports).toContain('manifest.chain-insights.json')
+    expect(knowledgeExports).toContain('graph.chain-insights.json')
+    expect(knowledgeExports).toContain('Graph.canvas')
+    expect(knowledgeExports).toContain('/wiki:ingest /absolute/path/to/published/<case-slug>/LLMWIKI.md --wiki chain-insights-cases')
+    expect(knowledgeExports).toContain('case_export')
+
+    for (const content of [readme, graphTools, investigation, mcpProxy]) {
+      expect(content).toContain('Knowledge exports')
+      expect(content).toContain('knowledge-exports.md')
+    }
   })
 
   it('does not hardcode hosted GraphRAG MCP endpoints in runtime source defaults', () => {
