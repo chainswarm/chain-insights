@@ -409,6 +409,61 @@ describe('CLI scaffold (FOUND-02)', () => {
     }
   })
 
+  it('case export help exposes target, mode, and output options', () => {
+    const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'case', 'export', '--help'], { encoding: 'utf8' })
+    expect(out).toContain('Export a case for Obsidian, LLMWiki, and agents')
+    expect(out).toContain('--target <target>')
+    expect(out).toContain('--mode <mode>')
+    expect(out).toContain('--out <directory>')
+    expect(out).toContain('obsidian-llmwiki')
+  })
+
+  it('case export writes a local knowledge bundle from a selector', () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'chain-insights-home-'))
+    const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
+    const target = join(parent, 'investigations')
+    const env = { ...process.env, HOME: fakeHome }
+    try {
+      execFileSync('node', ['--import', tsxLoader, srcCli, 'init', target], { encoding: 'utf8', env })
+      execFileSync('node', ['--import', tsxLoader, srcCli, 'case', 'open', 'Exportable Case'], {
+        cwd: target,
+        encoding: 'utf8',
+        env,
+      })
+      execFileSync('node', [
+        '--import',
+        tsxLoader,
+        srcCli,
+        'case',
+        'evidence',
+        'add',
+        '1',
+        '--source',
+        'manual',
+        '--query-params',
+        'network=bittensor',
+        '--content',
+        'Export evidence.',
+      ], {
+        cwd: target,
+        encoding: 'utf8',
+        env,
+      })
+      const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'case', 'export', '1'], {
+        cwd: target,
+        encoding: 'utf8',
+        env,
+      })
+      expect(out).toContain('Case exported:')
+      expect(out).toContain('Open first:    Agent Console.md')
+      expect(existsSync(join(target, 'published', 'exportable-case', 'manifest.chain-insights.json'))).toBe(true)
+      expect(existsSync(join(target, 'published', 'exportable-case', 'Graph.canvas'))).toBe(true)
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true })
+      rmSync(parent, { recursive: true, force: true })
+    }
+  })
+
   it('case resume is not registered', () => {
     expect(() => execSync('node bin/cli.js case resume 1', { encoding: 'utf8', stdio: 'pipe' })).toThrow()
   })
