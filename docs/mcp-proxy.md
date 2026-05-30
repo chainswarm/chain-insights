@@ -96,8 +96,16 @@ Remote graph tools are discovered from the configured GraphRAG MCP endpoint. The
 expected primitive graph tools are `usage_status`, `graph_query`, and
 `graph_query_batch`.
 Chain Insights adds high-level local graph recipes such as `address_risk`,
-`stake_insights`, `track_funds`, and `scam_topology` when the remote endpoint
-only exposes primitives.
+`stake_insights`, `trace_victim_funds`, `trace_deposit_sources`, and
+`trace_suspect_funds` when the remote endpoint only exposes primitives.
+
+The trace tools share `chain-insights.trace.v1` and are role-specific:
+
+- `trace_victim_funds` for victim/source forward tracing.
+- `trace_deposit_sources` for reverse traceback from suspected deposit
+  endpoints.
+- `trace_suspect_funds` for suspect-controlled outbound laundering/cashout
+  topology.
 
 ## Auth Modes
 

@@ -31,8 +31,8 @@ if (installerFlags.length > 0 && !rawArgs.some(a => !a.startsWith('-'))) {
   process.exit(0)
 }
 
-if (rawArgs[0] === 'mcp' && rawArgs[1] === 'trace-funds') {
-  console.error("error: unknown command 'trace-funds'")
+if (rawArgs[0] === 'mcp' && ['trace-funds', 'track-funds', 'scam-topology'].includes(rawArgs[1] ?? '')) {
+  console.error(`error: unknown command '${rawArgs[1]}'`)
   process.exit(1)
 }
 
@@ -83,14 +83,6 @@ function optionalNumberArg(value: unknown, name: string): number | undefined {
   if (typeof value === 'number' && Number.isFinite(value)) return value
   if (typeof value === 'string') return optionalNumber(value)
   throw new Error(`Invalid number for ${name}: ${String(value)}`)
-}
-
-type ScamTopologyActivityPolicyModeArg = 'node_relative_only' | 'global_incident_only'
-
-function optionalScamTopologyActivityPolicy(value: unknown): ScamTopologyActivityPolicyModeArg | undefined {
-  if (value === undefined || value === null || value === '') return undefined
-  if (value === 'node_relative_only' || value === 'global_incident_only') return value
-  throw new Error('activity_policy must be one of: node_relative_only, global_incident_only')
 }
 
 async function withGraphMcpClient<T>(name: string, fn: (client: import('@modelcontextprotocol/sdk/client/index.js').Client, config: Awaited<ReturnType<typeof import('./config/index.js').loadConfig>>) => Promise<T>): Promise<T> {
@@ -599,21 +591,23 @@ program
       })
   )
   .addCommand(
-    new Command('track-funds')
-      .description('Trace trusted/victim addresses and optional known untrusted/scammer addresses')
-      .requiredOption('--trusted-addresses <addresses>', 'Comma-separated full trusted/victim addresses, max 5')
+    new Command('trace-victim-funds')
+      .description('Trace victim/source addresses forward to exchange deposit candidates')
+      .requiredOption('--victim-addresses <addresses>', 'Comma-separated full victim/source addresses, max 5')
       .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
-      .option('--untrusted-addresses <addresses>', 'Comma-separated full known untrusted/scammer addresses, max 5')
+      .option('--known-suspect-addresses <addresses>', 'Optional known suspect addresses for context only, max 5')
       .option('--case <id>', 'Case ID to attach compact evidence pointers')
+      .option('--incident-timestamp-ms <milliseconds>', 'Optional incident timestamp in milliseconds')
       .option('--max-hops <number>', 'Maximum trace hops, 1-5')
       .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, 1-10')
       .option('--min-amount-sum <number>', 'Minimum r.amount_sum for traced edges')
       .option('--remote', 'Force remote MCP tool call instead of local Chain Insights recipe')
       .action(async (opts: {
-        trustedAddresses: string
+        victimAddresses: string
         network: string
-        untrustedAddresses?: string
+        knownSuspectAddresses?: string
         case?: string
+        incidentTimestampMs?: string
         maxHops?: string
         perAddressLimit?: string
         minAmountSum?: string
@@ -622,26 +616,27 @@ program
         try {
           const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
           requireWorkspaceRoot()
-          await withGraphMcpClient('chain-insights-cli-track-funds', async (client, config) => {
+          await withGraphMcpClient('chain-insights-cli-trace-victim-funds', async (client, config) => {
             if (opts.remote) {
               const result = await client.callTool({
-                name: 'track_funds',
+                name: 'trace_victim_funds',
                 arguments: {
-                  trusted_addresses: opts.trustedAddresses,
+                  victim_addresses: opts.victimAddresses,
                   network: opts.network,
-                  ...(opts.untrustedAddresses ? { untrusted_addresses: opts.untrustedAddresses } : {}),
+                  ...(opts.knownSuspectAddresses ? { known_suspect_addresses: opts.knownSuspectAddresses } : {}),
                 },
               })
               printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
               return
             }
-            const { trackFunds } = await import('./investigation/public-tools.js')
+            const { traceVictimFunds } = await import('./investigation/public-tools.js')
             const caseId = opts.case ? await resolveCaseSelector(opts.case) : undefined
-            const result = await trackFunds(client, config, {
-              trustedAddresses: opts.trustedAddresses,
-              untrustedAddresses: opts.untrustedAddresses,
+            const result = await traceVictimFunds(client, config, {
+              victimAddresses: opts.victimAddresses,
+              knownSuspectAddresses: opts.knownSuspectAddresses,
               network: opts.network,
               caseId,
+              incidentTimestampMs: optionalNumber(opts.incidentTimestampMs),
               maxHops: optionalNumber(opts.maxHops),
               perAddressLimit: optionalNumber(opts.perAddressLimit),
               minAmountSum: optionalNumber(opts.minAmountSum),
@@ -656,36 +651,71 @@ program
       })
   )
   .addCommand(
-    new Command('scam-topology')
-      .description('Build victim-incident scam topology and ML-ready scam labels')
+    new Command('trace-suspect-funds')
+      .description('Trace suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology')
       .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
-      .requiredOption('--victim-address <address>', 'Full victim/source address that anchors the incident')
-      .requiredOption('--incident-timestamp-ms <milliseconds>', 'Earliest known incident transfer timestamp in milliseconds')
-      .option('--max-hops <number>', 'Maximum trace hops, default 16, max 64')
-      .option('--activity-policy <mode>', 'Traversal activity policy: node_relative_only or global_incident_only', 'node_relative_only')
+      .requiredOption('--suspect-addresses <addresses>', 'Comma-separated full suspect-controlled addresses, max 5')
+      .option('--incident-timestamp-ms <milliseconds>', 'Optional incident timestamp in milliseconds')
+      .option('--max-hops <number>', 'Maximum trace hops, default 3, max 5')
+      .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, 1-10')
+      .option('--min-amount-sum <number>', 'Minimum r.amount_sum for traced edges')
       .option('--case <id>', 'Case ID to attach compact evidence pointers')
       .action(async (opts: {
         network: string
-        victimAddress: string
-        incidentTimestampMs: string
+        suspectAddresses: string
+        incidentTimestampMs?: string
         maxHops?: string
-        activityPolicy?: string
+        perAddressLimit?: string
+        minAmountSum?: string
         case?: string
       }) => {
         try {
           const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
           requireWorkspaceRoot()
-          await withGraphMcpClient('chain-insights-cli-scam-topology', async (client, config) => {
-            const { scamTopology } = await import('./investigation/public-tools.js')
-            const incidentTimestampMs = optionalNumber(opts.incidentTimestampMs)
-            if (incidentTimestampMs === undefined) throw new Error('incident-timestamp-ms is required')
+          await withGraphMcpClient('chain-insights-cli-trace-suspect-funds', async (client, config) => {
+            const { traceSuspectFunds } = await import('./investigation/public-tools.js')
             const caseId = opts.case ? await resolveCaseSelector(opts.case) : undefined
-            const result = await scamTopology(client, config, {
-              victimAddress: opts.victimAddress,
+            const result = await traceSuspectFunds(client, config, {
+              suspectAddresses: opts.suspectAddresses,
               network: opts.network,
               maxHops: optionalNumber(opts.maxHops),
-              incidentTimestampMs,
-              activityPolicyMode: optionalScamTopologyActivityPolicy(opts.activityPolicy),
+              perAddressLimit: optionalNumber(opts.perAddressLimit),
+              minAmountSum: optionalNumber(opts.minAmountSum),
+              incidentTimestampMs: optionalNumber(opts.incidentTimestampMs),
+              caseId,
+            })
+            console.log(result.summaryText)
+            console.log(JSON.stringify(result.structuredContent, null, 2))
+          })
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
+    new Command('trace-deposit-sources')
+      .description('Trace backward from suspected deposit/cashout addresses to upstream sources and convergence')
+      .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
+      .requiredOption('--deposit-addresses <addresses>', 'Comma-separated full suspected deposit/cashout addresses, max 5')
+      .option('--max-hops <number>', 'Maximum reverse traceback hops, default 2, max 5')
+      .option('--case <id>', 'Case ID to attach compact evidence pointers')
+      .action(async (opts: {
+        network: string
+        depositAddresses: string
+        maxHops?: string
+        case?: string
+      }) => {
+        try {
+          const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+          requireWorkspaceRoot()
+          await withGraphMcpClient('chain-insights-cli-trace-deposit-sources', async (client, config) => {
+            const { traceDepositSources } = await import('./investigation/public-tools.js')
+            const caseId = opts.case ? await resolveCaseSelector(opts.case) : undefined
+            const result = await traceDepositSources(client, config, {
+              depositAddresses: opts.depositAddresses,
+              network: opts.network,
+              maxHops: optionalNumber(opts.maxHops),
               caseId,
             })
             console.log(result.summaryText)
@@ -768,13 +798,14 @@ program
               console.log(result.summaryText)
               return
             }
-            if (tool === 'track_funds') {
-              const { trackFunds } = await import('./investigation/public-tools.js')
-              const result = await trackFunds(client, config, {
-                trustedAddresses: args['trusted_addresses'] as string | string[] | undefined ?? '',
-                untrustedAddresses: args['untrusted_addresses'] as string | string[] | undefined,
+            if (tool === 'trace_victim_funds') {
+              const { traceVictimFunds } = await import('./investigation/public-tools.js')
+              const result = await traceVictimFunds(client, config, {
+                victimAddresses: args['victim_addresses'] as string | string[] | undefined ?? '',
+                knownSuspectAddresses: args['known_suspect_addresses'] as string | string[] | undefined,
                 network: String(args['network'] ?? ''),
                 caseId: args['case_id'] === undefined ? undefined : String(args['case_id']),
+                incidentTimestampMs: optionalNumberArg(args['incident_timestamp_ms'], 'incident_timestamp_ms'),
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
                 perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
                 minAmountSum: typeof args['min_amount_sum'] === 'number' ? args['min_amount_sum'] : undefined,
@@ -783,19 +814,28 @@ program
               console.log(JSON.stringify(result.structuredContent, null, 2))
               return
             }
-            if (tool === 'scam_topology') {
-              const { scamTopology } = await import('./investigation/public-tools.js')
-              const victimAddress = String(args['victim_address'] ?? '').trim()
-              if (!victimAddress) throw new Error('victim_address is required')
-              const incidentTimestampMs = optionalNumberArg(args['incident_timestamp_ms'], 'incident_timestamp_ms')
-              if (incidentTimestampMs === undefined) throw new Error('incident_timestamp_ms is required')
-              const result = await scamTopology(client, config, {
-                victimAddress,
+            if (tool === 'trace_suspect_funds') {
+              const { traceSuspectFunds } = await import('./investigation/public-tools.js')
+              const result = await traceSuspectFunds(client, config, {
+                suspectAddresses: args['suspect_addresses'] as string | string[] | undefined ?? '',
                 network: String(args['network'] ?? ''),
                 caseId: args['case_id'] === undefined ? undefined : String(args['case_id']),
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
-                incidentTimestampMs,
-                activityPolicyMode: optionalScamTopologyActivityPolicy(args['activity_policy']),
+                perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
+                minAmountSum: typeof args['min_amount_sum'] === 'number' ? args['min_amount_sum'] : undefined,
+                incidentTimestampMs: optionalNumberArg(args['incident_timestamp_ms'], 'incident_timestamp_ms'),
+              })
+              console.log(result.summaryText)
+              console.log(JSON.stringify(result.structuredContent, null, 2))
+              return
+            }
+            if (tool === 'trace_deposit_sources') {
+              const { traceDepositSources } = await import('./investigation/public-tools.js')
+              const result = await traceDepositSources(client, config, {
+                depositAddresses: args['deposit_addresses'] as string | string[] | undefined ?? '',
+                network: String(args['network'] ?? ''),
+                caseId: args['case_id'] === undefined ? undefined : String(args['case_id']),
+                maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
               })
               console.log(result.summaryText)
               console.log(JSON.stringify(result.structuredContent, null, 2))

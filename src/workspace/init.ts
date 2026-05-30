@@ -182,6 +182,26 @@ Rules:
   narrative under \`reports/\`.
 - Evidence Markdown should be a short provenance record with key facts and
   pointers. Large JSON belongs in \`reports/tables/\`, not inline in evidence.
+
+Trace tool chaining:
+
+1. Use \`trace_victim_funds\` when the user gives victim/source addresses.
+2. Pass returned \`continuation.candidate_deposit_addresses\` to
+   \`trace_deposit_sources\`; do not make victim tracing run deposit traceback
+   internally.
+3. Pass high-confidence \`continuation.candidate_suspect_addresses\` from
+   deposit traceback to \`trace_suspect_funds\`.
+4. Use \`trace_suspect_funds\` when the user gives suspected scammer, mule,
+   operator, or laundering-ring addresses. \`incident_timestamp_ms\` is
+   optional.
+5. Use \`address_risk\` for single-address enrichment, and
+   \`graph_query_batch\` only when the role-specific tools do not answer the
+   exact question.
+
+All trace tools return \`chain-insights.trace.v1\`. Preserve full addresses in
+\`input.addresses\`, \`addresses[].address\`, \`edges[].from_address\`,
+\`edges[].to_address\`, \`paths[].addresses\`, \`candidate_labels[].address\`,
+and \`continuation\` address lists.
 `
 
 const SCHEMA_README = `# Runtime Schema Captures

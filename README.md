@@ -3,8 +3,8 @@
 [Website](https://chain-insights.ai) | [GitHub](https://github.com/chainswarm/chain-insights) | [npm](https://www.npmjs.com/package/chain-insights)
 
 Chain Insights is an open-source AML investigation toolkit for AI agents and
-analysts. Install it from npm to screen blockchain addresses, trace funds,
-expand scam topologies, manage case evidence, and generate graph reports.
+analysts. Install it from npm to screen blockchain addresses, trace role-specific
+fund flows, manage case evidence, and generate graph reports.
 
 Graph access is configuration-driven. The package defaults to a local GraphRAG
 MCP endpoint for development; hosted endpoints are set explicitly with
@@ -16,8 +16,9 @@ MCP endpoint for development; hosted endpoints are set explicitly with
 | --- | --- |
 | `address_risk` | Screen one address for risk, behavior, neighborhood context, and exchange exposure |
 | `stake_insights` | Explain Bittensor staking relationships, net stake movement, and counterparties |
-| `track_funds` | Trace victim/source funds through intermediaries to exchange deposit candidates |
-| `scam_topology` | Expand a known victim incident into reviewable scam infrastructure and label candidates |
+| `trace_victim_funds` | Trace victim/source funds forward to exchange deposit candidates |
+| `trace_deposit_sources` | Trace backward from suspected deposit/cashout addresses to upstream sources and convergence |
+| `trace_suspect_funds` | Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology |
 | `usage_status` | Check the caller's public free graph query quota for today |
 | `graph_query` | Run one read-only GQL/Cypher query against a GraphRAG MCP graph layer |
 | `graph_query_batch` | Run related read-only graph queries as one MCP call |
@@ -123,9 +124,9 @@ cia case open "First Chain Insights investigation" \
   --tags aml,bittensor \
   --description "Screen and trace a known source address"
 
-cia mcp track-funds \
+cia mcp trace-victim-funds \
   --network bittensor \
-  --trusted-addresses 5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5 \
+  --victim-addresses 5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5 \
   --case 1
 ```
 
@@ -154,13 +155,12 @@ cia mcp call graph_query_batch \
   'queries=[{"id":"count","query":"USE live_topology MATCH (n) RETURN count(n) AS count LIMIT 1"},{"id":"archive_flows","query":"USE archive_topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN f.period_granularity AS granularity, src.address AS source, dst.address AS target LIMIT 3"},{"id":"facts_sample","query":"USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.sent_count AS sent_count LIMIT 3"}]'
 ```
 
-Run victim incident topology:
+Run suspect topology without requiring an incident timestamp:
 
 ```bash
-cia mcp scam-topology \
+cia mcp trace-suspect-funds \
   --network bittensor \
-  --victim-address 5... \
-  --incident-timestamp-ms 1715532228001 \
+  --suspect-addresses 5... \
   --max-hops 16 \
   --case 1
 ```
@@ -208,10 +208,16 @@ and local case state:
 - `stake_insights` explains Bittensor coldkey-hotkey-netuid staking
   relationships, aggregate stake movement amounts, top counterparties, first
   and last activity, and source backend evidence.
-- `track_funds` traces trusted victim/source funds through intermediaries to
-  exchange deposit candidates.
-- `scam_topology` expands from a known victim incident into reviewable
-  topology, safety decisions, and ML-ready label candidates.
+- `trace_victim_funds` traces victim/source funds forward through
+  intermediaries to exchange deposit candidates.
+- `trace_deposit_sources` traces backward from suspected deposit/cashout
+  addresses to upstream sources and shared-source convergence.
+- `trace_suspect_funds` traces suspected scammer, mule, operator, or
+  laundering-ring funds forward to cashout topology.
+
+The three trace tools share `chain-insights.trace.v1` and return compact,
+chainable results. Full graph/table/report artifacts remain on disk under the
+workspace, with pointers in the tool result and case evidence.
 
 When a case is provided, tools can save compact evidence pointers and graph
 reports under the workspace instead of embedding large payloads in case notes.
