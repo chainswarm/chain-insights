@@ -83,7 +83,7 @@ export async function scaffoldVault(options: VaultScaffoldOptions): Promise<Vaul
   return { workspaceRoot, filesWritten }
 }
 
-async function assertNoVaultFileCollisions(workspaceRoot: string): Promise<void> {
+export async function assertNoVaultFileCollisions(workspaceRoot: string): Promise<void> {
   for (const file of VAULT_FILES) {
     try {
       await access(join(workspaceRoot, file.path))

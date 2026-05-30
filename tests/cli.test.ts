@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { execFileSync, execSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -159,7 +159,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const target = join(parent, 'investigations')
     try {
-      const out = execSync(`node bin/cli.js init ${target}`, { encoding: 'utf8' })
+      const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'init', target], { encoding: 'utf8' })
       expect(out).toContain(`Workspace initialized: ${target}`)
       expect(readFileSync(join(target, '.chain-insights', 'workspace.json'), 'utf8')).toContain(
         `"workspace_root": "${target}"`
@@ -168,10 +168,12 @@ describe('CLI scaffold (FOUND-02)', () => {
         '"graph_mcp_endpoint": "http://127.0.0.1:8012/mcp"'
       )
       const readme = readFileSync(join(target, 'README.md'), 'utf8')
-      expect(readme).toContain('Chain Insights Investigations')
+      expect(readme).toContain('Chain Insights Investigation Vault')
+      expect(readme).toContain('Obsidian-compatible vault')
       expect(readme).toContain('reports/graphs/    Graph JSON for visualization')
       expect(readme).not.toContain('logs/              Workspace-local investigation and preview logs')
       expect(readme).toContain('.chain-insights/runtime/        Workspace-local runtime process state and debug logs')
+      expect(readme).toContain('published/         Obsidian-ready case exports and published bundles')
       expect(readFileSync(join(target, 'imports', 'README.md'), 'utf8')).toContain('External Investigation Inputs')
       expect(readFileSync(join(target, 'templates', 'README.md'), 'utf8')).toContain('Reusable Workspace Templates')
       const agents = readFileSync(join(target, 'AGENTS.md'), 'utf8')
@@ -191,6 +193,94 @@ describe('CLI scaffold (FOUND-02)', () => {
       expect(existsSync(join(target, 'logs'))).toBe(false)
       expect(existsSync(join(target, '.chain-insights', 'runtime', 'logs', '.keep'))).toBe(true)
       expect(existsSync(join(target, '.chain-insights', 'runtime', '.keep'))).toBe(true)
+      expect(existsSync(join(target, '.obsidian', 'app.json'))).toBe(true)
+      expect(existsSync(join(target, 'Home.md'))).toBe(true)
+      expect(existsSync(join(target, 'Cases.md'))).toBe(true)
+      expect(existsSync(join(target, 'Entities.md'))).toBe(true)
+      expect(existsSync(join(target, 'Evidence.md'))).toBe(true)
+      expect(existsSync(join(target, 'Graphs.md'))).toBe(true)
+      expect(existsSync(join(target, 'Agent Console.md'))).toBe(true)
+      expect(existsSync(join(target, 'Canvases'))).toBe(true)
+      expect(existsSync(join(target, 'Entities'))).toBe(true)
+      expect(existsSync(join(target, 'Evidence'))).toBe(true)
+      expect(existsSync(join(target, 'published'))).toBe(true)
+    } finally {
+      rmSync(parent, { recursive: true, force: true })
+    }
+  })
+
+  it('bin/cli.js init creates an Obsidian-compatible investigation vault', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
+    const target = join(parent, 'packaged-investigations')
+    const packageFixturesRoot = join(process.cwd(), 'workspace')
+    mkdirSync(packageFixturesRoot, { recursive: true })
+    const packageRoot = mkdtempSync(join(packageFixturesRoot, 'packaged-cli-'))
+    try {
+      mkdirSync(join(packageRoot, 'bin'), { recursive: true })
+      copyFileSync(join(process.cwd(), 'bin', 'cli.js'), join(packageRoot, 'bin', 'cli.js'))
+      copyFileSync(join(process.cwd(), 'package.json'), join(packageRoot, 'package.json'))
+      execFileSync('npx', [
+        'tsdown',
+        'src/cli.ts',
+        '--no-config',
+        '--format',
+        'esm',
+        '--platform',
+        'node',
+        '--out-dir',
+        join(packageRoot, 'dist'),
+        '--shims',
+        '--logLevel',
+        'error',
+      ], { encoding: 'utf8' })
+
+      const out = execFileSync('node', ['bin/cli.js', 'init', target], { cwd: packageRoot, encoding: 'utf8' })
+
+      expect(out).toContain('Workspace initialized:')
+      expect(existsSync(join(target, '.chain-insights', 'workspace.json'))).toBe(true)
+      expect(readFileSync(join(target, 'README.md'), 'utf8')).toContain('Chain Insights Investigation Vault')
+      expect(existsSync(join(target, '.obsidian', 'app.json'))).toBe(true)
+      expect(existsSync(join(target, 'Home.md'))).toBe(true)
+    } finally {
+      rmSync(packageRoot, { recursive: true, force: true })
+      rmSync(parent, { recursive: true, force: true })
+    }
+  })
+
+  it('init creates an Obsidian-compatible investigation vault', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
+    const target = join(parent, 'investigations')
+    try {
+      execFileSync('node', ['--import', tsxLoader, srcCli, 'init', target], { encoding: 'utf8' })
+
+      const appConfig = JSON.parse(readFileSync(join(target, '.obsidian', 'app.json'), 'utf8'))
+      expect(appConfig).toMatchObject({
+        useMarkdownLinks: false,
+        newLinkFormat: 'shortest',
+        alwaysUpdateLinks: true,
+      })
+      expect(readFileSync(join(target, 'Home.md'), 'utf8')).toContain('[[Cases]]')
+      expect(readFileSync(join(target, 'Agent Console.md'), 'utf8')).toContain('type: "chain-insights-agent-console"')
+      expect(existsSync(join(target, 'Canvases'))).toBe(true)
+      expect(existsSync(join(target, 'Entities'))).toBe(true)
+      expect(existsSync(join(target, 'Evidence'))).toBe(true)
+      expect(existsSync(join(target, 'published'))).toBe(true)
+    } finally {
+      rmSync(parent, { recursive: true, force: true })
+    }
+  })
+
+  it('init returns vault files in filesWritten', async () => {
+    const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
+    const target = join(parent, 'investigations')
+    try {
+      const { initWorkspace } = await import('../src/workspace/init.js')
+      const result = await initWorkspace({ targetDir: target })
+
+      expect(result.filesWritten).toContain('.chain-insights/workspace.json')
+      expect(result.filesWritten).toContain('.obsidian/app.json')
+      expect(result.filesWritten).toContain('Home.md')
+      expect(result.filesWritten).toContain('Agent Console.md')
     } finally {
       rmSync(parent, { recursive: true, force: true })
     }
@@ -200,9 +290,9 @@ describe('CLI scaffold (FOUND-02)', () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const target = join(parent, 'investigations')
     try {
-      execSync(`node bin/cli.js init ${target}`, { encoding: 'utf8' })
+      execFileSync('node', ['--import', tsxLoader, srcCli, 'init', target], { encoding: 'utf8' })
       writeFileSync(join(target, 'README.md'), 'custom notes\n')
-      expect(() => execSync(`node bin/cli.js init ${target}`, { encoding: 'utf8', stdio: 'pipe' })).toThrow()
+      expect(() => execFileSync('node', ['--import', tsxLoader, srcCli, 'init', target], { encoding: 'utf8', stdio: 'pipe' })).toThrow()
       expect(readFileSync(join(target, 'README.md'), 'utf8')).toBe('custom notes\n')
     } finally {
       rmSync(parent, { recursive: true, force: true })
@@ -215,11 +305,28 @@ describe('CLI scaffold (FOUND-02)', () => {
     try {
       mkdirSync(target, { recursive: true })
       writeFileSync(join(target, 'README.md'), 'existing notes\n')
-      expect(() => execSync(`node bin/cli.js init ${target}`, { encoding: 'utf8', stdio: 'pipe' })).toThrow()
+      expect(() => execFileSync('node', ['--import', tsxLoader, srcCli, 'init', target], { encoding: 'utf8', stdio: 'pipe' })).toThrow()
       expect(readFileSync(join(target, 'README.md'), 'utf8')).toBe('existing notes\n')
       expect(existsSync(join(target, '.chain-insights', 'workspace.json'))).toBe(false)
       expect(existsSync(join(target, 'templates'))).toBe(false)
       expect(existsSync(join(target, 'imports'))).toBe(false)
+      expect(existsSync(join(target, '.obsidian', 'app.json'))).toBe(false)
+    } finally {
+      rmSync(parent, { recursive: true, force: true })
+    }
+  })
+
+  it('init refuses existing vault files before creating a partial workspace', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
+    const target = join(parent, 'investigations')
+    try {
+      mkdirSync(target, { recursive: true })
+      writeFileSync(join(target, 'Home.md'), '# Existing Home\n')
+      expect(() => execFileSync('node', ['--import', tsxLoader, srcCli, 'init', target], { encoding: 'utf8', stdio: 'pipe' })).toThrow()
+      expect(readFileSync(join(target, 'Home.md'), 'utf8')).toBe('# Existing Home\n')
+      expect(existsSync(join(target, '.chain-insights', 'workspace.json'))).toBe(false)
+      expect(existsSync(join(target, 'templates'))).toBe(false)
+      expect(existsSync(join(target, '.obsidian', 'app.json'))).toBe(false)
     } finally {
       rmSync(parent, { recursive: true, force: true })
     }
