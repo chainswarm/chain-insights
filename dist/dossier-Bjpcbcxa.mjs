@@ -1,9 +1,11 @@
+import { t as __exportAll } from "./rolldown-runtime-D7D4PA-g.mjs";
 import { n as serializeFrontmatter, t as parseFrontmatter } from "./frontmatter-D0ccQnUM.mjs";
 import { n as workspaceOutputPaths } from "./output-root-BRhzhhXZ.mjs";
 import path from "node:path";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import "node:crypto";
 //#region src/cases/dossier.ts
+var dossier_exports = /* @__PURE__ */ __exportAll({ DossierStore: () => DossierStore });
 function caseDir(caseId) {
 	return path.join(workspaceOutputPaths().casesRoot, caseId);
 }
@@ -71,6 +73,6 @@ const DossierStore = {
 	}
 };
 //#endregion
-export { DossierStore };
+export { dossier_exports as n, DossierStore as t };
 
-//# sourceMappingURL=dossier-Bl0NkJKC.mjs.map
+//# sourceMappingURL=dossier-Bjpcbcxa.mjs.map

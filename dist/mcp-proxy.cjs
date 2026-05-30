@@ -24,6 +24,7 @@ const LOCAL_TOOL_NAMES = new Set([
 	"case_resume",
 	"case_add_evidence",
 	"case_verify_evidence",
+	"case_export",
 	"case_update_dossier",
 	"case_start_session",
 	"case_end_session"
@@ -82,7 +83,8 @@ const CHAIN_INSIGHTS_WORKFLOW = [
 	"2. Do not call investigation tools until required arguments are known. Network is required; use network_capabilities to check supported networks, data layers, retention, and freshness, or ask the user if missing.",
 	"3. Use address_risk for single-address enrichment. Use trace_victim_funds for victim/source forward tracing, trace_deposit_sources for reverse traceback from suspected deposit endpoints, and trace_suspect_funds for suspect-controlled outbound laundering/cashout topology. Use stake_insights for Bittensor staking behavior. Use graph_query(_batch) only when the high-level trace tools do not answer the exact question.",
 	"4. After a material result, preserve it with case_add_evidence when a case is active or ask whether to create/select a case.",
-	"5. Use case_update_dossier for durable address/entity findings and case_start_session/case_end_session for session notes."
+	"5. Use case_update_dossier for durable address/entity findings and case_start_session/case_end_session for session notes.",
+	"6. When a case reaches a useful checkpoint, use case_verify_evidence and case_export to produce Obsidian, LLMWiki, Codex, Claude Code, and ChatGPT-ready files."
 ].join("\n");
 const GRAPH_SCHEMA_HINTS = [
 	"Graph query hints for network=bittensor:",
@@ -773,13 +775,13 @@ async function createProxy() {
 		}
 	}, async ({ name, tags, description }) => {
 		try {
-			const { CaseStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+			const { CaseStore } = await Promise.resolve().then(() => require("./cases-sTY5aXav.cjs"));
 			const created = await CaseStore.create({
 				name,
 				tags: parseTags(tags),
 				description: description ?? ""
 			});
-			const { casesRoot } = await Promise.resolve().then(() => require("./store-DogLawSj.cjs"));
+			const { casesRoot } = await Promise.resolve().then(() => require("./store-CqPfs47P.cjs")).then((n) => n.store_exports);
 			return {
 				content: [{
 					type: "text",
@@ -813,7 +815,7 @@ async function createProxy() {
 		}
 	}, async ({ status }) => {
 		try {
-			const { CaseStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+			const { CaseStore } = await Promise.resolve().then(() => require("./cases-sTY5aXav.cjs"));
 			const cases = await CaseStore.list();
 			const filtered = status ? cases.filter((entry) => entry.status === status) : cases;
 			return {
@@ -838,7 +840,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { CaseStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+			const { CaseStore } = await Promise.resolve().then(() => require("./cases-sTY5aXav.cjs"));
 			const context = await CaseStore.loadContext(case_id);
 			return {
 				content: [{
@@ -867,7 +869,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, source, content, query_params }) => {
 		try {
-			const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+			const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-sTY5aXav.cjs"));
 			const saved = await EvidenceStore.append(case_id, {
 				source,
 				content,
@@ -895,7 +897,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+			const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-sTY5aXav.cjs"));
 			const result = await EvidenceStore.verifyManifest(case_id);
 			return {
 				content: [{
@@ -906,6 +908,51 @@ async function createProxy() {
 			};
 		} catch (err) {
 			return caseToolError("Evidence verify", err);
+		}
+	});
+	server.registerTool("case_export", {
+		description: "Export a Chain Insights case to an Obsidian, LLMWiki, Codex, Claude Code, and ChatGPT-friendly local bundle.",
+		inputSchema: {
+			case_id: zod.string().min(1).describe("Chain Insights case ID to export"),
+			target: zod.enum(["obsidian-llmwiki"]).optional().describe("Export target. Default obsidian-llmwiki."),
+			mode: zod.enum([
+				"private",
+				"partner",
+				"public"
+			]).optional().describe("Redaction mode. Default private."),
+			output_dir: zod.string().optional().describe("Optional output directory. Defaults to published/<case-slug>.")
+		},
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: false
+		}
+	}, async ({ case_id, target, mode, output_dir }) => {
+		try {
+			const { exportCase } = await Promise.resolve().then(() => require("./export-DsXgtCwO.cjs"));
+			const result = await exportCase({
+				caseId: case_id,
+				target: target ?? "obsidian-llmwiki",
+				mode: mode ?? "private",
+				outputDir: output_dir
+			});
+			return {
+				content: [{
+					type: "text",
+					text: [
+						`Case exported: ${result.outputDir}`,
+						`Manifest: ${result.manifestPath}`,
+						`Files: ${result.fileCount}`,
+						`Open first: ${result.nextFile}`,
+						...result.warnings.map((warning) => `Warning: ${warning}`)
+					].join("\n")
+				}],
+				structuredContent: result,
+				isError: false
+			};
+		} catch (err) {
+			return caseToolError("Case export", err);
 		}
 	});
 	server.registerTool("case_update_dossier", {
@@ -930,7 +977,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, address, finding, entity_type }) => {
 		try {
-			const { DossierStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+			const { DossierStore } = await Promise.resolve().then(() => require("./cases-sTY5aXav.cjs"));
 			await DossierStore.appendFinding(case_id, address, finding, entity_type ?? "unknown");
 			return {
 				content: [{
@@ -958,7 +1005,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id }) => {
 		try {
-			const { SessionStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+			const { SessionStore } = await Promise.resolve().then(() => require("./cases-sTY5aXav.cjs"));
 			const session = await SessionStore.start(case_id);
 			return {
 				content: [{
@@ -986,7 +1033,7 @@ async function createProxy() {
 		}
 	}, async ({ case_id, findings, next_steps }) => {
 		try {
-			const { SessionStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+			const { SessionStore } = await Promise.resolve().then(() => require("./cases-sTY5aXav.cjs"));
 			await SessionStore.end(case_id, {
 				findings: findings ?? "",
 				nextSteps: next_steps ?? ""
@@ -1031,7 +1078,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-CcE1ExsT.cjs"));
+			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-BvMb3H2P.cjs"));
 			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-B3mkLP8Z.cjs"));
 			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-XbN16DwU.cjs"));
 			const result = await addressRisk(remoteClient, {
@@ -1103,7 +1150,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { traceVictimFunds } = await Promise.resolve().then(() => require("./public-tools-CcE1ExsT.cjs"));
+			const { traceVictimFunds } = await Promise.resolve().then(() => require("./public-tools-BvMb3H2P.cjs"));
 			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-B3mkLP8Z.cjs"));
 			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-XbN16DwU.cjs"));
 			const result = await traceVictimFunds(remoteClient, config, {
@@ -1179,7 +1226,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { traceSuspectFunds } = await Promise.resolve().then(() => require("./public-tools-CcE1ExsT.cjs"));
+			const { traceSuspectFunds } = await Promise.resolve().then(() => require("./public-tools-BvMb3H2P.cjs"));
 			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-B3mkLP8Z.cjs"));
 			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-XbN16DwU.cjs"));
 			const result = await traceSuspectFunds(remoteClient, config, {
@@ -1251,7 +1298,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { traceDepositSources } = await Promise.resolve().then(() => require("./public-tools-CcE1ExsT.cjs"));
+			const { traceDepositSources } = await Promise.resolve().then(() => require("./public-tools-BvMb3H2P.cjs"));
 			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-B3mkLP8Z.cjs"));
 			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-XbN16DwU.cjs"));
 			const result = await traceDepositSources(remoteClient, config, {
@@ -1326,7 +1373,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { stakeInsights } = await Promise.resolve().then(() => require("./public-tools-CcE1ExsT.cjs"));
+			const { stakeInsights } = await Promise.resolve().then(() => require("./public-tools-BvMb3H2P.cjs"));
 			const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-B3mkLP8Z.cjs"));
 			const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-XbN16DwU.cjs"));
 			const result = await stakeInsights(remoteClient, {
@@ -1403,6 +1450,7 @@ async function createProxy() {
 				"- case_resume: load case context, evidence count, dossiers, and latest session.",
 				"- case_add_evidence: append a report or note to the case evidence manifest.",
 				"- case_verify_evidence: verify saved evidence integrity.",
+				"- case_export: export a case for Obsidian, LLMWiki, Codex, Claude Code, and ChatGPT.",
 				"- case_update_dossier: add a finding to an address/entity dossier.",
 				"- case_start_session and case_end_session: record session notes.",
 				"",

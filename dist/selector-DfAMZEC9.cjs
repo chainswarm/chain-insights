@@ -1,4 +1,4 @@
-const require_store = require("./store-DogLawSj.cjs");
+const require_store = require("./store-CqPfs47P.cjs");
 //#region src/cases/selector.ts
 async function resolveCaseSelector(input) {
 	if (!/^[1-9]\d*$/.test(input)) return input;

@@ -2,6 +2,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.3] - 2026-05-30
+
+- Added `cia case export` and MCP `case_export` to produce Obsidian,
+  LLMWiki, Codex, Claude Code, and ChatGPT-friendly local case bundles.
+- Added export artifacts including `manifest.chain-insights.json`,
+  `graph.chain-insights.json`, `Graph.canvas`, Markdown entity/evidence notes,
+  `LLMWIKI.md`, `llms.txt`, and agent prompt files.
+- Added private, partner, and public redaction modes; public mode aliases
+  addresses by default and all modes remove secrets from generated exports.
+
 ## [0.3.2] - 2026-05-30
 
 - Added `AGENTS.md` as the Codex-facing twin of `CLAUDE.md` and documented

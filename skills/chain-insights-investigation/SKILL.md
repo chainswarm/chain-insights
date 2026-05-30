@@ -268,6 +268,19 @@ Then show the case:
 cia case show <case-number>
 ```
 
+## Case Export
+
+When a case reaches a useful checkpoint, run `cia case evidence verify <case>`
+before export. Then run:
+
+```bash
+cia case export <case> --target obsidian-llmwiki --mode private
+```
+
+Treat `manifest.chain-insights.json`, case evidence, and report artifacts as
+canonical. Treat Obsidian, LLMWiki, Codex, Claude Code, and ChatGPT notes as
+views over that evidence.
+
 ## When Asked "What Next?"
 
 Give one concrete next command, not a broad menu. Prefer the next topology or fact query, or the next evidence-save step.

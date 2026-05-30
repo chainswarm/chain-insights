@@ -29,6 +29,7 @@ imports/                      External investigation inputs
 reports/                      Final or interim analyst reports
 reports/graphs/               Canonical graph JSON for visualization
 reports/tables/               Compact tabular extracts
+published/                    Obsidian, LLMWiki, and agent export bundles
 templates/                    Reusable case and report templates
 ```
 
@@ -101,6 +102,19 @@ cia case evidence verify <case-id>
 Graph-backed tools can write `chain-insights.evidence_pointer.v1` entries that
 point to report files. The evidence file should keep the claim, source tool,
 original query parameters, compact facts, and workspace-local file pointers.
+
+## Knowledge Exports
+
+Export a verified case bundle:
+
+```bash
+cia case evidence verify <case-id>
+cia case export <case-id> --target obsidian-llmwiki --mode private
+```
+
+Open `published/<case-slug>/` as an Obsidian vault, or give it to LLMWiki,
+Codex, Claude Code, or ChatGPT as the case context. The case manifest remains
+the source of truth.
 
 ## Dossiers
 

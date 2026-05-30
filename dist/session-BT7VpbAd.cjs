@@ -1,10 +1,13 @@
-import { n as serializeFrontmatter, t as parseFrontmatter } from "./frontmatter-D0ccQnUM.mjs";
-import { n as workspaceOutputPaths } from "./output-root-BRhzhhXZ.mjs";
-import path from "node:path";
-import { readFile, readdir, rm, writeFile } from "node:fs/promises";
+const require_chunk = require("./chunk-DakpK96I.cjs");
+const require_frontmatter = require("./frontmatter-Dvqa5HX6.cjs");
+const require_output_root = require("./output-root-YIbl6PwF.cjs");
+let node_path = require("node:path");
+node_path = require_chunk.__toESM(node_path, 1);
+let node_fs_promises = require("node:fs/promises");
 //#region src/cases/session.ts
+var session_exports = /* @__PURE__ */ require_chunk.__exportAll({ SessionStore: () => SessionStore });
 function caseDir(caseId) {
-	return path.join(workspaceOutputPaths().casesRoot, caseId);
+	return node_path.default.join(require_output_root.workspaceOutputPaths().casesRoot, caseId);
 }
 const MAX_SESSIONS = 5;
 function sessionNumber(filename) {
@@ -20,7 +23,7 @@ function sessionFromFrontmatter(frontmatter) {
 	};
 }
 async function listSessionFiles(dir) {
-	return (await readdir(dir)).filter((f) => f.match(/^session_\d+\.md$/)).sort((a, b) => sessionNumber(b) - sessionNumber(a));
+	return (await (0, node_fs_promises.readdir)(dir)).filter((f) => f.match(/^session_\d+\.md$/)).sort((a, b) => sessionNumber(b) - sessionNumber(a));
 }
 const SessionStore = {
 	async start(caseId, input = {}) {
@@ -32,7 +35,7 @@ const SessionStore = {
 			sessionFiles = [];
 		}
 		for (const filename of sessionFiles) {
-			const { frontmatter } = parseFrontmatter(await readFile(path.join(dir, filename), "utf8"));
+			const { frontmatter } = require_frontmatter.parseFrontmatter(await (0, node_fs_promises.readFile)(node_path.default.join(dir, filename), "utf8"));
 			if (frontmatter["status"] !== "ended") return sessionFromFrontmatter(frontmatter);
 		}
 		const seq = sessionFiles.length + 1;
@@ -50,7 +53,7 @@ const SessionStore = {
 		};
 		if (title) fm["title"] = title;
 		const body = `# Session ${seq}: ${title || now.slice(0, 10)}\n\n## Investigation Log\n\n## Key Findings\n\n## Next Steps\n\n`;
-		await writeFile(path.join(dir, filename), serializeFrontmatter(fm, body), { mode: 384 });
+		await (0, node_fs_promises.writeFile)(node_path.default.join(dir, filename), require_frontmatter.serializeFrontmatter(fm, body), { mode: 384 });
 		return {
 			sessionId,
 			caseId,
@@ -66,7 +69,7 @@ const SessionStore = {
 		let activeFrontmatter = null;
 		let activeBody = "";
 		for (const filename of sessionFiles) {
-			const { frontmatter, body } = parseFrontmatter(await readFile(path.join(dir, filename), "utf8"));
+			const { frontmatter, body } = require_frontmatter.parseFrontmatter(await (0, node_fs_promises.readFile)(node_path.default.join(dir, filename), "utf8"));
 			if (frontmatter["status"] !== "ended") {
 				activeFile = filename;
 				activeFrontmatter = frontmatter;
@@ -79,14 +82,14 @@ const SessionStore = {
 		activeFrontmatter["endTime"] = now;
 		activeFrontmatter["status"] = "ended";
 		const updatedBody = activeBody.replace("## Key Findings\n", `## Key Findings\n\n${input.findings}\n`).replace("## Next Steps\n", `## Next Steps\n\n${input.nextSteps}\n`);
-		await writeFile(path.join(dir, activeFile), serializeFrontmatter(activeFrontmatter, updatedBody), { mode: 384 });
+		await (0, node_fs_promises.writeFile)(node_path.default.join(dir, activeFile), require_frontmatter.serializeFrontmatter(activeFrontmatter, updatedBody), { mode: 384 });
 	},
 	async getLatest(caseId) {
 		const dir = caseDir(caseId);
 		try {
 			const sessionFiles = await listSessionFiles(dir);
 			if (sessionFiles.length === 0) return null;
-			return parseFrontmatter(await readFile(path.join(dir, sessionFiles[0]), "utf8"));
+			return require_frontmatter.parseFrontmatter(await (0, node_fs_promises.readFile)(node_path.default.join(dir, sessionFiles[0]), "utf8"));
 		} catch {
 			return null;
 		}
@@ -96,20 +99,29 @@ const SessionStore = {
 		const sessionFiles = (await listSessionFiles(dir)).reverse();
 		if (sessionFiles.length <= MAX_SESSIONS) return;
 		const toArchive = sessionFiles.slice(0, sessionFiles.length - MAX_SESSIONS);
-		const historyPath = path.join(dir, "history.md");
-		const existingHistory = await readFile(historyPath, "utf8").catch(() => "");
+		const historyPath = node_path.default.join(dir, "history.md");
+		const existingHistory = await (0, node_fs_promises.readFile)(historyPath, "utf8").catch(() => "");
 		const summaries = [];
 		for (const filename of toArchive) {
-			const { frontmatter, body } = parseFrontmatter(await readFile(path.join(dir, filename), "utf8"));
+			const { frontmatter, body } = require_frontmatter.parseFrontmatter(await (0, node_fs_promises.readFile)(node_path.default.join(dir, filename), "utf8"));
 			const findingsMatch = body.match(/## Key Findings\n+([\s\S]*?)(?:\n## |$)/);
 			const findings = findingsMatch ? findingsMatch[1].trim() : "(no findings recorded)";
 			summaries.push(`### ${frontmatter["sessionId"] ?? filename} (${frontmatter["startTime"] ?? ""})\n\n${findings}\n`);
 		}
-		await writeFile(historyPath, existingHistory + "\n" + summaries.join("\n") + "\n", { mode: 384 });
-		for (const filename of toArchive) await rm(path.join(dir, filename));
+		await (0, node_fs_promises.writeFile)(historyPath, existingHistory + "\n" + summaries.join("\n") + "\n", { mode: 384 });
+		for (const filename of toArchive) await (0, node_fs_promises.rm)(node_path.default.join(dir, filename));
 	}
 };
 //#endregion
-export { SessionStore };
-
-//# sourceMappingURL=session-Bha3zFrx.mjs.map
+Object.defineProperty(exports, "SessionStore", {
+	enumerable: true,
+	get: function() {
+		return SessionStore;
+	}
+});
+Object.defineProperty(exports, "session_exports", {
+	enumerable: true,
+	get: function() {
+		return session_exports;
+	}
+});

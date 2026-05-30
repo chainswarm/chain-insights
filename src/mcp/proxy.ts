@@ -23,6 +23,7 @@ const LOCAL_TOOL_NAMES = new Set([
   'case_resume',
   'case_add_evidence',
   'case_verify_evidence',
+  'case_export',
   'case_update_dossier',
   'case_start_session',
   'case_end_session',
@@ -86,6 +87,7 @@ const CHAIN_INSIGHTS_WORKFLOW = [
   '3. Use address_risk for single-address enrichment. Use trace_victim_funds for victim/source forward tracing, trace_deposit_sources for reverse traceback from suspected deposit endpoints, and trace_suspect_funds for suspect-controlled outbound laundering/cashout topology. Use stake_insights for Bittensor staking behavior. Use graph_query(_batch) only when the high-level trace tools do not answer the exact question.',
   '4. After a material result, preserve it with case_add_evidence when a case is active or ask whether to create/select a case.',
   '5. Use case_update_dossier for durable address/entity findings and case_start_session/case_end_session for session notes.',
+  '6. When a case reaches a useful checkpoint, use case_verify_evidence and case_export to produce Obsidian, LLMWiki, Codex, Claude Code, and ChatGPT-ready files.',
 ].join('\n')
 
 const GRAPH_SCHEMA_HINTS = [
@@ -1191,6 +1193,52 @@ export async function createProxy(): Promise<void> {
   )
 
   server.registerTool(
+    'case_export',
+    {
+      description: 'Export a Chain Insights case to an Obsidian, LLMWiki, Codex, Claude Code, and ChatGPT-friendly local bundle.',
+      inputSchema: {
+        case_id: z.string().min(1).describe('Chain Insights case ID to export'),
+        target: z.enum(['obsidian-llmwiki']).optional().describe('Export target. Default obsidian-llmwiki.'),
+        mode: z.enum(['private', 'partner', 'public']).optional().describe('Redaction mode. Default private.'),
+        output_dir: z.string().optional().describe('Optional output directory. Defaults to published/<case-slug>.'),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ case_id, target, mode, output_dir }) => {
+      try {
+        const { exportCase } = await import('../export/index.js')
+        const result = await exportCase({
+          caseId: case_id,
+          target: target ?? 'obsidian-llmwiki',
+          mode: mode ?? 'private',
+          outputDir: output_dir,
+        })
+        return {
+          content: [{
+            type: 'text' as const,
+            text: [
+              `Case exported: ${result.outputDir}`,
+              `Manifest: ${result.manifestPath}`,
+              `Files: ${result.fileCount}`,
+              `Open first: ${result.nextFile}`,
+              ...result.warnings.map((warning) => `Warning: ${warning}`),
+            ].join('\n'),
+          }],
+          structuredContent: result,
+          isError: false,
+        }
+      } catch (err) {
+        return caseToolError('Case export', err)
+      }
+    },
+  )
+
+  server.registerTool(
     'case_update_dossier',
     {
       description: 'Append a finding to an address/entity dossier inside a local Chain Insights case.',
@@ -1724,6 +1772,7 @@ export async function createProxy(): Promise<void> {
             '- case_resume: load case context, evidence count, dossiers, and latest session.',
             '- case_add_evidence: append a report or note to the case evidence manifest.',
             '- case_verify_evidence: verify saved evidence integrity.',
+            '- case_export: export a case for Obsidian, LLMWiki, Codex, Claude Code, and ChatGPT.',
             '- case_update_dossier: add a finding to an address/entity dossier.',
             '- case_start_session and case_end_session: record session notes.',
             '',

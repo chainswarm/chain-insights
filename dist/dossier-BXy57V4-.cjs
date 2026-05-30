@@ -6,6 +6,7 @@ node_path = require_chunk.__toESM(node_path, 1);
 let node_fs_promises = require("node:fs/promises");
 require("node:crypto");
 //#region src/cases/dossier.ts
+var dossier_exports = /* @__PURE__ */ require_chunk.__exportAll({ DossierStore: () => DossierStore });
 function caseDir(caseId) {
 	return node_path.default.join(require_output_root.workspaceOutputPaths().casesRoot, caseId);
 }
@@ -73,4 +74,15 @@ const DossierStore = {
 	}
 };
 //#endregion
-exports.DossierStore = DossierStore;
+Object.defineProperty(exports, "DossierStore", {
+	enumerable: true,
+	get: function() {
+		return DossierStore;
+	}
+});
+Object.defineProperty(exports, "dossier_exports", {
+	enumerable: true,
+	get: function() {
+		return dossier_exports;
+	}
+});

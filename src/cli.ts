@@ -1086,6 +1086,41 @@ const caseCommand = new Command('case')
       )
   )
   .addCommand(
+    new Command('export')
+      .description('Export a case for Obsidian, LLMWiki, and agents')
+      .argument('<case-id>', 'Case ID or case list number to export')
+      .option('--target <target>', 'Export target: obsidian-llmwiki', 'obsidian-llmwiki')
+      .option('--mode <mode>', 'Redaction mode: private|partner|public', 'private')
+      .option('--out <directory>', 'Output directory. Defaults to published/<case-slug>')
+      .action(async (caseSelector: string, opts: { target: string; mode: string; out?: string }) => {
+        try {
+          const target = opts.target === 'obsidian-llmwiki' ? opts.target : undefined
+          const mode = ['private', 'partner', 'public'].includes(opts.mode)
+            ? (opts.mode as 'private' | 'partner' | 'public')
+            : undefined
+          if (!target) throw new Error(`Unsupported export target: ${opts.target}`)
+          if (!mode) throw new Error(`Unsupported export mode: ${opts.mode}`)
+
+          const caseId = await resolveCaseSelector(caseSelector)
+          const { exportCase } = await import('./export/index.js')
+          const result = await exportCase({
+            caseId,
+            target,
+            mode,
+            outputDir: opts.out,
+          })
+          console.log(`Case exported: ${result.outputDir}`)
+          console.log(`Manifest:      ${result.manifestPath}`)
+          console.log(`Files:         ${result.fileCount}`)
+          console.log(`Open first:    ${result.nextFile}`)
+          for (const warning of result.warnings) console.warn(`Warning: ${warning}`)
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
     new Command('show')
       .description('Show saved case context')
       .argument('<case-id>', 'Case ID or case list number to show')
