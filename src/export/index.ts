@@ -2,6 +2,8 @@ import { mkdir, readFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { CaseStore, DossierStore, EvidenceStore, parseFrontmatter } from '../cases/index.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
+import { entityNotePath, graphNodeId, graphToCanvas } from './canvas.js'
+import { loadCaseExportGraph } from './graph.js'
 import { renderAgentConsole, renderCaseMarkdown, renderLlmsTxt, renderLlmWiki, renderPrompt, renderReadme } from './markdown.js'
 import { safeFilename, safeSlug, writePrivateFile } from './paths.js'
 import { createRedactor } from './redaction.js'
@@ -50,6 +52,8 @@ export async function exportCase(rawOptions: CaseExportOptions): Promise<CaseExp
   const evidenceVerification = await EvidenceStore.verifyManifest(options.caseId)
   const evidenceDocs = await readEvidence(options.caseId)
   const dossiers = await DossierStore.listSummaries(options.caseId)
+  const graph = redactor.value(await loadCaseExportGraph(options.caseId))
+  const canvas = graphToCanvas(graph)
   const outputRoot = path.resolve(options.outputDir ?? path.join(workspace.root, 'published', safeSlug(caseInfo.name)))
   await mkdir(outputRoot, { recursive: true, mode: 0o700 })
 
@@ -76,6 +80,8 @@ export async function exportCase(rawOptions: CaseExportOptions): Promise<CaseExp
     ['Prompts/ChatGPT.md', renderPrompt('ChatGPT')],
     ['Sources/evidence-manifest.md', `# Evidence Manifest\n\nVerified: ${evidenceVerification.ok ? 'yes' : 'no'}\nEvidence files: ${evidenceVerification.count}\n`],
     ['Sources/reports-index.md', '# Reports Index\n\nGraph and report artifacts are exported when present.\n'],
+    ['graph.chain-insights.json', JSON.stringify(graph, null, 2) + '\n'],
+    ['Graph.canvas', JSON.stringify(canvas, null, 2) + '\n'],
   ]
 
   for (const evidence of evidenceDocs) {
@@ -93,10 +99,13 @@ export async function exportCase(rawOptions: CaseExportOptions): Promise<CaseExp
     ])
   }
 
+  const entityPaths = new Set<string>()
   for (const dossier of dossiers) {
     const entityId = options.mode === 'public' ? redactor.aliasFor(dossier.address) : dossier.address
+    const entityPath = path.join('Entities', safeFilename(entityId))
+    entityPaths.add(entityPath)
     entries.push([
-      path.join('Entities', safeFilename(entityId)),
+      entityPath,
       redactor.text([
         `# Entity: ${entityId}`,
         '',
@@ -106,6 +115,28 @@ export async function exportCase(rawOptions: CaseExportOptions): Promise<CaseExp
         `Risk tags: ${dossier.riskTags || 'none'}`,
         '',
       ].join('\n')),
+    ])
+  }
+
+  for (const [index, node] of graph.nodes.entries()) {
+    const entityId = graphNodeId(node, index)
+    const entityPath = entityNotePath(entityId)
+    if (entityPaths.has(entityPath)) continue
+    entityPaths.add(entityPath)
+    entries.push([
+      entityPath,
+      [
+        `# Entity: ${entityId}`,
+        '',
+        `Address: ${String(node['address'] ?? entityId)}`,
+        `Roles: ${Array.isArray(node['roles']) ? node['roles'].map(String).join(', ') || 'none' : 'none'}`,
+        `Node type: ${String(node['node_type'] ?? 'unknown')}`,
+        '',
+        '## Graph Links',
+        '',
+        '- [[Graph.canvas]]',
+        '',
+      ].join('\n'),
     ])
   }
 
