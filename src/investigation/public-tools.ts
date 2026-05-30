@@ -1,8 +1,12 @@
+import { createHash } from 'node:crypto'
+import { mkdir, writeFile } from 'node:fs/promises'
+import path from 'node:path'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import type { InvestigatorConfig } from '../config/schema.js'
 import { runFundFlowProbe, type TraceFundsResult } from './trace-funds.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
+import { workspaceOutputPaths } from '../workspace/output-root.js'
 
 export { scamTopology, type ScamTopologyOptions, type ScamTopologyResult } from './scam-topology.js'
 export { stakeInsights, type StakeInsightsOptions, type StakeInsightsResult } from './stake-insights.js'
@@ -178,7 +182,7 @@ function flowEdgeMap(variableName: string): string {
 }
 
 function pathNodeMap(variableName: string): string {
-  return `{address: ${variableName}.address, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, address_subtypes: ${variableName}.address_subtypes}`
+  return `{address: ${variableName}.address, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, address_subtypes: ${variableName}.address_subtypes, is_exchange: ${variableName}.is_exchange}`
 }
 
 function exchangeOutflowQueries(address: string): Array<{ id: string; query: string }> {
@@ -263,6 +267,21 @@ function numberValue(value: unknown): number | undefined {
     return Number.isFinite(parsed) ? parsed : undefined
   }
   return undefined
+}
+
+function isExchangeFlag(value: unknown): boolean {
+  if (value === true) return true
+  if (value === false || value === null || value === undefined) return false
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    return normalized === 'true' || normalized === '1'
+  }
+  if (typeof value === 'number') return value === 1
+  return false
+}
+
+function hasExactExchangeLabel(labels: string[] | undefined): boolean {
+  return (labels ?? []).some((label) => label.trim().toLowerCase() === 'exchange')
 }
 
 function firstNumber(...values: unknown[]): number | undefined {
@@ -519,6 +538,757 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
         connection: compareAddress ? { compare_address: compareAddress, paths: connections } : undefined,
         partial_query_errors: partialQueryFailures.length > 0 ? partialQueryFailures : undefined,
       },
+    },
+    graphData,
+  }
+}
+
+type TraceSeedRole = 'victim' | 'suspect' | 'deposit'
+type TraceToolName = 'trace_victim_funds' | 'trace_suspect_funds' | 'trace_deposit_sources'
+type TraceRole =
+  | 'seed_victim'
+  | 'seed_suspect'
+  | 'seed_deposit'
+  | 'candidate_victim'
+  | 'candidate_suspect'
+  | 'candidate_intermediate'
+  | 'candidate_deposit'
+  | 'exchange'
+  | 'unknown'
+
+export interface TraceVictimFundsOptions {
+  victimAddresses: string | string[]
+  knownSuspectAddresses?: string | string[]
+  network: string
+  caseId?: string
+  incidentTimestampMs?: number
+  timeRange?: { from_ms?: number; to_ms?: number }
+  maxHops?: number
+  perAddressLimit?: number
+  minAmountSum?: number
+}
+
+export interface TraceSuspectFundsOptions {
+  suspectAddresses: string | string[]
+  network: string
+  caseId?: string
+  incidentTimestampMs?: number
+  timeRange?: { from_ms?: number; to_ms?: number }
+  maxHops?: number
+  perAddressLimit?: number
+  minAmountSum?: number
+}
+
+export interface TraceDepositSourcesOptions {
+  depositAddresses: string | string[]
+  network: string
+  caseId?: string
+  timeRange?: { from_ms?: number; to_ms?: number }
+  maxHops?: number
+}
+
+type TraceToolResult = {
+  summaryText: string
+  structuredContent: Record<string, unknown>
+  graphData: Record<string, unknown>
+}
+
+type TraceRunRole = 'victim' | 'suspect'
+type TraceRun = { role: TraceRunRole; address: string; result: TraceFundsResult }
+type TraceAddressAccumulator = {
+  address: string
+  roles: Set<TraceRole>
+  labels: string[]
+  is_exchange?: boolean
+  confidence: 'low' | 'medium' | 'high'
+  rationale: string[]
+}
+
+function uniqueStrings(values: Array<string | undefined>): string[] {
+  return [...new Set(values.filter((value): value is string => typeof value === 'string' && value.length > 0))]
+}
+
+function clampInt(value: number | undefined, fallback: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return fallback
+  return Math.max(min, Math.min(max, Math.trunc(value as number)))
+}
+
+function graphRecords(graphData: Record<string, unknown>, key: string): Array<Record<string, unknown>> {
+  const value = graphData[key]
+  return Array.isArray(value)
+    ? value.filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null && !Array.isArray(item))
+    : []
+}
+
+function normalizeTraceGraphData(runs: TraceRun[], network: string): Record<string, unknown> {
+  return normalizeGraphPayload({
+    schema: 'chain-insights.graph.v1',
+    nodes: runs.flatMap((run) => graphRecords(run.result.graphData, 'nodes')),
+    edges: runs.flatMap((run) => graphRecords(run.result.graphData, 'edges')),
+    flows: runs.flatMap((run) => graphRecords(run.result.graphData, 'flows')),
+    deposits: runs.flatMap((run) => graphRecords(run.result.graphData, 'deposits').map((item) => ({ ...item, run_role: run.role, run_address: run.address }))),
+    source_matches: runs.flatMap((run) => graphRecords(run.result.graphData, 'source_matches').map((item) => ({ ...item, run_role: run.role, run_address: run.address }))),
+    reverse_leads: runs.flatMap((run) => graphRecords(run.result.graphData, 'reverse_leads').map((item) => ({ ...item, run_role: run.role, run_address: run.address }))),
+    edge_anchors: [],
+    metadata: {
+      network,
+      generated_at: new Date().toISOString(),
+      trace_tools: true,
+    },
+  })
+}
+
+function traceArtifactPointersFromRun(run: TraceFundsResult | undefined): Record<string, unknown> {
+  if (!run) return {}
+  return {
+    graph_json: run.files.graph,
+    graph_html: run.files.graphHtml,
+    table_json: run.files.compactEvidence,
+    flows_csv: run.files.table,
+    table_html: run.files.tableHtml,
+    report_md: run.files.report,
+  }
+}
+
+function artifactEvidence(artifacts: Record<string, unknown>): Array<Record<string, unknown>> {
+  return Object.entries(artifacts)
+    .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].length > 0)
+    .map(([kind, filePath]) => ({
+      evidence_type: 'artifact_pointer',
+      path: filePath,
+      summary: `${kind} artifact`,
+    }))
+}
+
+function traceAddressRoleForSeed(seedRole: TraceSeedRole): TraceRole {
+  if (seedRole === 'victim') return 'seed_victim'
+  if (seedRole === 'suspect') return 'seed_suspect'
+  return 'seed_deposit'
+}
+
+function addTraceAddress(
+  addresses: Map<string, TraceAddressAccumulator>,
+  address: string,
+  role: TraceRole,
+  rationale: string,
+  labels: string[] = [],
+): void {
+  if (!address) return
+  const existing = addresses.get(address)
+  if (existing) {
+    existing.roles.add(role)
+    existing.labels = uniqueStrings([...existing.labels, ...labels])
+    if (role === 'exchange') existing.is_exchange = true
+    if (!existing.rationale.includes(rationale)) existing.rationale.push(rationale)
+    return
+  }
+  addresses.set(address, {
+    address,
+    roles: new Set([role]),
+    labels,
+    is_exchange: role === 'exchange' ? true : undefined,
+    confidence: role.startsWith('seed_') || role === 'exchange' ? 'high' : 'medium',
+    rationale: [rationale],
+  })
+}
+
+function edgeKey(from: string, to: string): string {
+  return `${from}\u0000${to}`
+}
+
+function traceResultFromFundRuns(
+  tool: Extract<TraceToolName, 'trace_victim_funds' | 'trace_suspect_funds'>,
+  seedRole: Extract<TraceSeedRole, 'victim' | 'suspect'>,
+  network: string,
+  runs: TraceRun[],
+  options: {
+    incidentTimestampMs?: number
+    timeRange?: { from_ms?: number; to_ms?: number }
+    maxHops?: number
+    caseId?: string
+  } = {},
+): { summaryText: string; structuredContent: Record<string, unknown>; graphData: Record<string, unknown> } {
+  const graphData = normalizeTraceGraphData(runs, network)
+  const flows = graphRecords(graphData, 'flows')
+  const deposits = graphRecords(graphData, 'deposits')
+  const addresses = new Map<string, TraceAddressAccumulator>()
+  for (const run of runs) {
+    addTraceAddress(addresses, run.address, traceAddressRoleForSeed(seedRole), `${seedRole} seed provided by caller`)
+  }
+
+  const edgeIdsByPair = new Map<string, string>()
+  const edges = flows.map((flow, index) => {
+    const src = typeof flow['src'] === 'string' ? flow['src'] : ''
+    const dst = typeof flow['dst'] === 'string' ? flow['dst'] : ''
+    const edgeId = `e${index + 1}`
+    edgeIdsByPair.set(edgeKey(src, dst), edgeId)
+    const terminalExchange = flow['terminal_exchange'] === true
+    addTraceAddress(addresses, src, runs.some((run) => run.address === src) ? traceAddressRoleForSeed(seedRole) : 'candidate_intermediate', 'Address appears in traced FLOWS_TO path')
+    addTraceAddress(addresses, dst, terminalExchange ? 'exchange' : 'candidate_intermediate', terminalExchange ? 'Terminal exchange endpoint reached' : 'Address appears in traced FLOWS_TO path')
+    return {
+      edge_id: edgeId,
+      from_address: src,
+      to_address: dst,
+      edge_type: 'FLOWS_TO',
+      amount_sum: numberValue(flow['amount_sum']),
+      amount_usd_sum: numberValue(flow['amount_usd_sum']),
+      tx_count: numberValue(flow['tx_count']),
+      first_tx_id: typeof flow['first_tx_id'] === 'string' ? flow['first_tx_id'] : undefined,
+      last_tx_id: typeof flow['last_tx_id'] === 'string' ? flow['last_tx_id'] : undefined,
+    }
+  }).filter((edge) => edge.from_address && edge.to_address)
+
+  const paths = deposits.map((deposit, index) => {
+    const depositAddress = typeof deposit['address'] === 'string'
+      ? deposit['address']
+      : typeof deposit['deposit_address'] === 'string' ? deposit['deposit_address'] : ''
+    const exchangeAddress = typeof deposit['exchangeAddress'] === 'string'
+      ? deposit['exchangeAddress']
+      : typeof deposit['exchange_address'] === 'string' ? deposit['exchange_address'] : ''
+    const pathAddresses = stringArrayValue(deposit['path']) ?? [
+      typeof deposit['run_address'] === 'string' ? deposit['run_address'] : runs[0]?.address ?? '',
+      depositAddress,
+      exchangeAddress,
+    ].filter(Boolean)
+    addTraceAddress(addresses, depositAddress, 'candidate_deposit', 'Penultimate address before an exchange endpoint')
+    if (exchangeAddress) addTraceAddress(addresses, exchangeAddress, 'exchange', 'Exchange endpoint reached')
+    const edgeIds: string[] = []
+    for (let offset = 0; offset < pathAddresses.length - 1; offset += 1) {
+      const id = edgeIdsByPair.get(edgeKey(pathAddresses[offset]!, pathAddresses[offset + 1]!))
+      if (id) edgeIds.push(id)
+    }
+    return {
+      path_id: `p${index + 1}`,
+      direction: 'forward',
+      source: pathAddresses[0] ?? '',
+      target: exchangeAddress || depositAddress,
+      addresses: pathAddresses,
+      edge_ids: edgeIds,
+      hops: numberValue(deposit['hops']) ?? Math.max(pathAddresses.length - 1, 0),
+      terminal_role: exchangeAddress ? 'exchange' : 'deposit',
+      amount_sum: numberValue(deposit['amount_sum']),
+      amount_usd_sum: numberValue(deposit['amount_usd_sum']),
+    }
+  })
+
+  const depositAddresses = uniqueStrings(deposits.map((deposit) => (
+    typeof deposit['address'] === 'string' ? deposit['address'] : typeof deposit['deposit_address'] === 'string' ? deposit['deposit_address'] : undefined
+  )))
+  const exchangeAddresses = uniqueStrings(deposits.map((deposit) => (
+    typeof deposit['exchangeAddress'] === 'string' ? deposit['exchangeAddress'] : typeof deposit['exchange_address'] === 'string' ? deposit['exchange_address'] : undefined
+  )))
+  const convergence = [...new Map(depositAddresses.map((address) => {
+    const pathIds = paths.filter((path) => path.addresses.includes(address)).map((path) => path.path_id)
+    return [address, {
+      address,
+      role: 'candidate_deposit',
+      path_ids: pathIds,
+      reason: pathIds.length > 1 ? 'Multiple traced paths converge into this deposit candidate.' : 'Single traced path reached this deposit candidate.',
+    }]
+  })).values()].filter((entry) => entry.path_ids.length > 1)
+  const candidateLabels = depositAddresses.map((address) => ({
+    address,
+    candidate_label: 'candidate_deposit',
+    confidence: 'medium',
+    evidence_path_ids: paths.filter((path) => path.addresses.includes(address)).map((path) => path.path_id),
+    reason: 'Penultimate address before an exchange endpoint in bounded FLOWS_TO trace.',
+    promote_to_core_label: false,
+  }))
+  const runArtifacts = runs.map((run, index) => ({
+    run_id: `run_${index + 1}`,
+    role: run.role,
+    address: run.address,
+    ...traceArtifactPointersFromRun(run.result),
+  }))
+  const artifacts = {
+    ...traceArtifactPointersFromRun(runs[0]?.result),
+    runs: runArtifacts,
+  }
+  const artifactEvidenceEntries = runs.flatMap((run) => artifactEvidence(traceArtifactPointersFromRun(run.result))
+    .map((entry) => ({ ...entry, run_role: run.role, address: run.address })))
+  const recommendedNextTools = depositAddresses.length > 0
+    ? ['trace_deposit_sources', 'address_risk']
+    : ['address_risk', 'graph_query_batch']
+
+  const structuredContent = {
+    schema: 'chain-insights.trace.v1',
+    tool,
+    network,
+    input: {
+      addresses: runs.map((run) => run.address),
+      seed_role: seedRole,
+      ...(options.incidentTimestampMs !== undefined ? { incident_timestamp_ms: options.incidentTimestampMs } : {}),
+      ...(options.timeRange ? { time_range: options.timeRange } : {}),
+      max_hops: options.maxHops ?? 3,
+    },
+    summary: {
+      seed_count: runs.length,
+      path_count: paths.length,
+      edge_count: edges.length,
+      candidate_suspect_count: seedRole === 'suspect' ? runs.length : 0,
+      candidate_intermediate_count: [...addresses.values()].filter((entry) => entry.roles.has('candidate_intermediate')).length,
+      candidate_deposit_count: depositAddresses.length,
+      exchange_count: exchangeAddresses.length,
+    },
+    addresses: [...addresses.values()].map((entry) => ({
+      address: entry.address,
+      roles: [...entry.roles],
+      ...(entry.labels.length > 0 ? { labels: entry.labels } : {}),
+      ...(entry.is_exchange !== undefined ? { is_exchange: entry.is_exchange } : {}),
+      confidence: entry.confidence,
+      rationale: entry.rationale,
+    })),
+    edges,
+    paths,
+    convergence,
+    exchange_exposure: deposits.map((deposit) => ({
+      deposit_address: typeof deposit['address'] === 'string' ? deposit['address'] : deposit['deposit_address'],
+      exchange_address: typeof deposit['exchangeAddress'] === 'string' ? deposit['exchangeAddress'] : deposit['exchange_address'],
+      path_ids: paths.filter((path) => path.addresses.includes(String(deposit['address'] ?? deposit['deposit_address'] ?? ''))).map((path) => path.path_id),
+    })),
+    candidate_labels: candidateLabels,
+    artifacts,
+    evidence: [
+      ...artifactEvidenceEntries,
+      ...(options.caseId ? [{ evidence_type: 'case_pointer', summary: `case_id=${options.caseId}` }] : []),
+    ],
+    continuation: {
+      candidate_deposit_addresses: depositAddresses,
+      candidate_suspect_addresses: seedRole === 'suspect' ? runs.map((run) => run.address) : [],
+      candidate_victim_addresses: [],
+      recommended_next_tools: recommendedNextTools,
+    },
+    warnings: depositAddresses.length === 0 ? ['No exchange deposit candidates were connected in the queried topology.'] : [],
+  }
+
+  return {
+    summaryText: [
+      `${seedRole === 'victim' ? 'Trace victim funds' : 'Trace suspect funds'} complete for ${network}`,
+      '',
+      ...runs.map((run) => `## ${run.role}: ${run.address}\n${run.result.summaryText}`),
+    ].join('\n'),
+    structuredContent,
+    graphData,
+  }
+}
+
+export async function traceVictimFunds(
+  remoteClient: Client,
+  config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
+  options: TraceVictimFundsOptions,
+): Promise<TraceToolResult> {
+  const network = options.network.trim()
+  const victims = parseAddressList(options.victimAddresses)
+  const knownSuspects = parseAddressList(options.knownSuspectAddresses)
+  if (!network) throw new Error('network is required')
+  if (victims.length < 1) throw new Error('victim_addresses must contain at least 1 address')
+  if (victims.length > 5) throw new Error('victim_addresses cannot exceed 5 addresses')
+  if (knownSuspects.length > 5) throw new Error('known_suspect_addresses cannot exceed 5 addresses')
+
+  const runs: TraceRun[] = []
+  for (const address of victims) {
+    runs.push({
+      role: 'victim',
+      address,
+      result: await runFundFlowProbe(remoteClient, config, {
+        seedAddress: address,
+        network,
+        caseId: options.caseId,
+        maxHops: options.maxHops,
+        perAddressLimit: options.perAddressLimit,
+        minAmountSum: options.minAmountSum,
+        includeDepositTraceback: false,
+        evidenceSource: 'trace_victim_funds',
+      }),
+    })
+  }
+  return traceResultFromFundRuns('trace_victim_funds', 'victim', network, runs, {
+    incidentTimestampMs: options.incidentTimestampMs,
+    timeRange: options.timeRange,
+    maxHops: options.maxHops,
+    caseId: options.caseId,
+  })
+}
+
+export async function traceSuspectFunds(
+  remoteClient: Client,
+  config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
+  options: TraceSuspectFundsOptions,
+): Promise<TraceToolResult> {
+  const network = options.network.trim()
+  const suspects = parseAddressList(options.suspectAddresses)
+  if (!network) throw new Error('network is required')
+  if (suspects.length < 1) throw new Error('suspect_addresses must contain at least 1 address')
+  if (suspects.length > 5) throw new Error('suspect_addresses cannot exceed 5 addresses')
+
+  const runs: TraceRun[] = []
+  for (const address of suspects) {
+    runs.push({
+      role: 'suspect',
+      address,
+      result: await runFundFlowProbe(remoteClient, config, {
+        seedAddress: address,
+        network,
+        caseId: options.caseId,
+        maxHops: options.maxHops,
+        perAddressLimit: options.perAddressLimit,
+        minAmountSum: options.minAmountSum,
+        includeDepositTraceback: false,
+        evidenceSource: 'trace_suspect_funds',
+      }),
+    })
+  }
+  return traceResultFromFundRuns('trace_suspect_funds', 'suspect', network, runs, {
+    incidentTimestampMs: options.incidentTimestampMs,
+    timeRange: options.timeRange,
+    maxHops: options.maxHops,
+    caseId: options.caseId,
+  })
+}
+
+function reverseDepositSourceQueryAtDepth(depositAddresses: string[], depth: number): { id: string; query: string } {
+  const intermediateVariables = Array.from({ length: Math.max(depth - 1, 0) }, (_, index) => `n${index + 1}`)
+  const nodeVariables = ['source', ...intermediateVariables, 'deposit']
+  const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
+  const relationshipChain = edgeVariables.map((edgeVariable, index) => {
+    const targetVariable = index === edgeVariables.length - 1 ? 'deposit' : intermediateVariables[index]!
+    return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
+  }).join('')
+  const depositPredicates = depositAddresses.map((address) => `deposit.address = "${escapeCypherString(address)}"`)
+  const nonExchangePredicates = ['source', ...intermediateVariables, 'deposit'].map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
+  return {
+    id: `reverse_deposit_sources_${depth}`,
+    query: [
+      `MATCH (source:Address)${relationshipChain}`,
+      `WHERE (${depositPredicates.join(' OR ')}) AND source.address <> deposit.address AND ${nonExchangePredicates.join(' AND ')}`,
+      `RETURN DISTINCT source.address AS source_address, source.is_exchange AS source_is_exchange, deposit.address AS deposit_address, deposit.is_exchange AS deposit_is_exchange, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      'LIMIT 500',
+    ].join(' '),
+  }
+}
+
+function rowNodeIsExchange(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const record = value as Record<string, unknown>
+  return isExchangeFlag(record['is_exchange']) ||
+    hasExactExchangeLabel(stringArrayValue(record['labels'])) ||
+    hasExactExchangeLabel(stringArrayValue(record['system_labels']))
+}
+
+function reverseDepositSourceRowUsesExchange(row: Record<string, unknown>): boolean {
+  if (isExchangeFlag(row['source_is_exchange']) || isExchangeFlag(row['deposit_is_exchange'])) return true
+  if (!Array.isArray(row['path_nodes'])) return false
+  return row['path_nodes'].some(rowNodeIsExchange)
+}
+
+function htmlEscape(value: unknown): string {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
+function buildTraceSourceTableHtml(tool: TraceToolName, network: string, rows: Array<Record<string, unknown>>): string {
+  const headers = ['path_id', 'source_address', 'deposit_address', 'hop', 'amount_sum', 'first_tx_id'] as const
+  const body = rows.map((row) => `<tr>${headers.map((header) => `<td>${htmlEscape(row[header])}</td>`).join('')}</tr>`).join('\n')
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${htmlEscape(tool)} Table</title>
+<style>
+  :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0b0d12; color: #f4f2ea; }
+  body { margin: 0; background: #0b0d12; color: #f4f2ea; }
+  main { padding: 24px; }
+  h1 { font-size: 20px; margin: 0 0 8px; font-weight: 650; }
+  .meta { display: grid; gap: 6px; margin: 0 0 20px; color: rgba(244,242,234,.72); font-size: 13px; }
+  .table-wrap { overflow: auto; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; background: #10131b; }
+  table { border-collapse: collapse; width: 100%; min-width: 980px; font-size: 12px; }
+  th, td { border-bottom: 1px solid rgba(255,255,255,.08); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { position: sticky; top: 0; background: #161a24; color: #f2dda6; font-weight: 600; z-index: 1; }
+  td { color: rgba(244,242,234,.86); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  tr:hover td { background: rgba(242,221,166,.045); }
+</style>
+</head>
+<body>
+<main>
+  <h1>${htmlEscape(tool)} Table</h1>
+  <div class="meta">
+    <div>Network: <strong>${htmlEscape(network)}</strong></div>
+    <div>Generated: <strong>${htmlEscape(new Date().toISOString())}</strong></div>
+    <div>Rows: <strong>${rows.length}</strong></div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>${headers.map((header) => `<th>${htmlEscape(header)}</th>`).join('')}</tr></thead>
+      <tbody>
+${body}
+      </tbody>
+    </table>
+  </div>
+</main>
+</body>
+</html>
+`
+}
+
+async function writeTraceSourceArtifacts(tool: TraceToolName, network: string, graphData: Record<string, unknown>, rows: Array<Record<string, unknown>>, summaryText: string): Promise<Record<string, unknown>> {
+  const paths = workspaceOutputPaths()
+  await Promise.all([
+    mkdir(paths.reportsRoot, { recursive: true }),
+    mkdir(paths.reportGraphsRoot, { recursive: true }),
+    mkdir(paths.reportTablesRoot, { recursive: true }),
+  ])
+  const slug = `${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}_${tool}`
+  const graphPath = path.join(paths.reportGraphsRoot, `${slug}.graph.json`)
+  const tableJsonPath = path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`)
+  const csvPath = path.join(paths.reportTablesRoot, `${slug}.flows.csv`)
+  const tableHtmlPath = path.join(paths.reportsRoot, `${slug}.table.html`)
+  const reportPath = path.join(paths.reportsRoot, `${slug}.trace-report.md`)
+  const graphHtmlPath = path.join(paths.reportsRoot, `${slug}.graph.html`)
+  const { generateInlineGraphHtml } = await import('../viz/html-generator.js')
+  const csv = [
+    'path_id,source_address,deposit_address,hop,amount_sum,first_tx_id',
+    ...rows.map((row) => [
+      row['path_id'] ?? '',
+      row['source_address'] ?? '',
+      row['deposit_address'] ?? '',
+      row['hop'] ?? '',
+      row['amount_sum'] ?? '',
+      row['first_tx_id'] ?? '',
+    ].map((value) => JSON.stringify(String(value))).join(',')),
+  ].join('\n') + '\n'
+  await writeFile(graphPath, JSON.stringify(graphData, null, 2) + '\n', { mode: 0o600 })
+  await writeFile(tableJsonPath, JSON.stringify(rows, null, 2) + '\n', { mode: 0o600 })
+  await writeFile(csvPath, csv, { mode: 0o600 })
+  await writeFile(tableHtmlPath, buildTraceSourceTableHtml(tool, network, rows), { mode: 0o600 })
+  await writeFile(reportPath, summaryText + '\n', { mode: 0o600 })
+  await writeFile(graphHtmlPath, generateInlineGraphHtml(graphData), { mode: 0o600 })
+  return {
+    graph_json: graphPath,
+    graph_html: graphHtmlPath,
+    table_json: tableJsonPath,
+    flows_csv: csvPath,
+    table_html: tableHtmlPath,
+    report_md: reportPath,
+  }
+}
+
+export async function traceDepositSources(
+  remoteClient: Client,
+  _config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
+  options: TraceDepositSourcesOptions,
+): Promise<TraceToolResult> {
+  const network = options.network.trim()
+  const deposits = parseAddressList(options.depositAddresses)
+  if (!network) throw new Error('network is required')
+  if (deposits.length < 1) throw new Error('deposit_addresses must contain at least 1 address')
+  if (deposits.length > 5) throw new Error('deposit_addresses cannot exceed 5 addresses')
+  const maxHops = clampInt(options.maxHops, 2, 1, 5)
+
+  const batch = await callGraphBatch(
+    remoteClient,
+    network,
+    Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1)),
+  )
+  const failures: QueryFailure[] = []
+  const rows: Array<Record<string, unknown>> = optionalResultsWithPrefix(batch, 'reverse_deposit_sources_', failures)
+    .filter((row) => !reverseDepositSourceRowUsesExchange(row))
+    .map((row, index) => ({
+      ...row,
+      path_id: `p${index + 1}`,
+    }))
+  const addresses = new Map<string, {
+    address: string
+    roles: Set<TraceRole>
+    labels: string[]
+    is_exchange?: boolean
+    confidence: 'low' | 'medium' | 'high'
+    rationale: string[]
+  }>()
+  for (const deposit of deposits) addTraceAddress(addresses, deposit, 'seed_deposit', 'Deposit/cashout seed provided by caller')
+
+  const edges: Array<Record<string, unknown>> = []
+  const paths: Array<Record<string, unknown>> = []
+  for (const row of rows) {
+    const sourceAddress = typeof row['source_address'] === 'string' ? row['source_address'] : ''
+    const depositAddress = typeof row['deposit_address'] === 'string' ? row['deposit_address'] : ''
+    const pathAddresses = stringArrayValue(row['addresses']) ?? [sourceAddress, depositAddress].filter(Boolean)
+    addTraceAddress(addresses, sourceAddress, 'candidate_suspect', 'Upstream address funds a suspected deposit/cashout seed')
+    addTraceAddress(addresses, depositAddress, 'seed_deposit', 'Deposit/cashout seed provided by caller')
+    const edgeProps = Array.isArray(row['edge_props']) ? row['edge_props'] as Array<Record<string, unknown>> : []
+    const edgeIds: string[] = []
+    for (let index = 0; index < pathAddresses.length - 1; index += 1) {
+      const props = edgeProps[index] ?? {}
+      const edgeId = `e${edges.length + 1}`
+      edgeIds.push(edgeId)
+      edges.push({
+        edge_id: edgeId,
+        from_address: pathAddresses[index],
+        to_address: pathAddresses[index + 1],
+        edge_type: 'FLOWS_TO',
+        amount_sum: numberValue(props['amount_sum']) ?? numberValue(row['amount_sum']),
+        amount_usd_sum: numberValue(props['amount_usd_sum']) ?? numberValue(row['amount_usd_sum']),
+        tx_count: numberValue(props['tx_count']) ?? numberValue(row['tx_count']),
+        first_seen_timestamp: numberValue(props['first_seen_timestamp']) ?? numberValue(row['first_seen_timestamp']),
+        last_seen_timestamp: numberValue(props['last_seen_timestamp']) ?? numberValue(row['last_seen_timestamp']),
+        first_tx_id: typeof props['first_tx_id'] === 'string' ? props['first_tx_id'] : typeof row['first_tx_id'] === 'string' ? row['first_tx_id'] : undefined,
+        last_tx_id: typeof props['last_tx_id'] === 'string' ? props['last_tx_id'] : typeof row['last_tx_id'] === 'string' ? row['last_tx_id'] : undefined,
+      })
+    }
+    paths.push({
+      path_id: row['path_id'],
+      direction: 'reverse',
+      source: depositAddress,
+      target: sourceAddress,
+      addresses: [...pathAddresses].reverse(),
+      edge_ids: [...edgeIds].reverse(),
+      hops: numberValue(row['hop']) ?? Math.max(pathAddresses.length - 1, 0),
+      terminal_role: 'source',
+      amount_sum: numberValue(row['amount_sum']),
+      amount_usd_sum: numberValue(row['amount_usd_sum']),
+      first_seen_ms: numberValue(row['first_seen_timestamp']),
+      last_seen_ms: numberValue(row['last_seen_timestamp']),
+    })
+  }
+
+  const sourceToPathIds = new Map<string, string[]>()
+  const sourceToDeposits = new Map<string, Set<string>>()
+  for (const row of rows) {
+    const source = typeof row['source_address'] === 'string' ? row['source_address'] : ''
+    const deposit = typeof row['deposit_address'] === 'string' ? row['deposit_address'] : ''
+    if (!source) continue
+    sourceToPathIds.set(source, [...(sourceToPathIds.get(source) ?? []), String(row['path_id'])])
+    if (!sourceToDeposits.has(source)) sourceToDeposits.set(source, new Set())
+    if (deposit) sourceToDeposits.get(source)!.add(deposit)
+  }
+  const convergence = [...sourceToPathIds.entries()]
+    .filter(([address]) => (sourceToDeposits.get(address)?.size ?? 0) > 1)
+    .map(([address, pathIds]) => ({
+      address,
+      role: 'candidate_suspect',
+      path_ids: pathIds,
+      reason: 'Same upstream source funds multiple provided deposit/cashout seeds.',
+    }))
+  const candidateSuspects = convergence.map((entry) => entry.address)
+  const candidateLabels = [...sourceToPathIds.keys()].map((address) => ({
+    address,
+    candidate_label: 'candidate_suspect',
+    confidence: candidateSuspects.includes(address) ? 'high' : 'medium',
+    evidence_path_ids: sourceToPathIds.get(address) ?? [],
+    reason: candidateSuspects.includes(address)
+      ? 'Upstream source converges into multiple provided deposit/cashout seeds.'
+      : 'Upstream source funds a provided deposit/cashout seed.',
+    promote_to_core_label: false,
+  }))
+  const graphData = normalizeGraphPayload({
+    schema: 'chain-insights.graph.v1',
+    nodes: [...addresses.values()].map((entry) => ({
+      id: entry.address,
+      address: entry.address,
+      node_type: 'address',
+      roles: [...entry.roles],
+      labels: entry.labels,
+    })),
+    edges: edges.map((edge) => ({
+      source: edge['from_address'],
+      target: edge['to_address'],
+      edge_type: 'flows_to',
+      amount_sum: edge['amount_sum'],
+      tx_count: edge['tx_count'],
+      first_tx_id: edge['first_tx_id'],
+      last_tx_id: edge['last_tx_id'],
+      direction: 'traceback',
+    })),
+    flows: edges.map((edge, index) => ({
+      hop: index + 1,
+      src: edge['from_address'],
+      dst: edge['to_address'],
+      amount_sum: edge['amount_sum'] ?? 0,
+      terminal_exchange: false,
+    })),
+    edge_anchors: [],
+    metadata: {
+      network,
+      deposit_addresses: deposits,
+      generated_at: new Date().toISOString(),
+    },
+  })
+  const summaryText = [
+    `Trace deposit sources complete for ${network}`,
+    '',
+    `Deposit seeds: ${deposits.join(', ')}`,
+    `Reverse path(s): ${paths.length}`,
+    `Shared upstream convergence: ${convergence.length}`,
+  ].join('\n')
+  const artifacts = await writeTraceSourceArtifacts('trace_deposit_sources', network, graphData, rows, summaryText)
+  const evidence = artifactEvidence(artifacts)
+  if (options.caseId) {
+    const { EvidenceStore } = await import('../cases/index.js')
+    await EvidenceStore.append(options.caseId, {
+      source: 'trace_deposit_sources',
+      queryParams: `network=${network} deposit_addresses=${deposits.join(',')} max_hops=${maxHops}`,
+      content: JSON.stringify({
+        schema: 'chain-insights.evidence_pointer.v1',
+        source: 'trace_deposit_sources',
+        network,
+        deposit_addresses: deposits,
+        files: artifacts,
+        compact_sha256: createHash('sha256').update(JSON.stringify({ rows, convergence })).digest('hex'),
+      }, null, 2),
+    })
+    evidence.push({ evidence_type: 'case_pointer', summary: `case_id=${options.caseId}` })
+  }
+
+  return {
+    summaryText,
+    structuredContent: {
+      schema: 'chain-insights.trace.v1',
+      tool: 'trace_deposit_sources',
+      network,
+      input: {
+        addresses: deposits,
+        seed_role: 'deposit',
+        ...(options.timeRange ? { time_range: options.timeRange } : {}),
+        max_hops: maxHops,
+      },
+      summary: {
+        seed_count: deposits.length,
+        path_count: paths.length,
+        edge_count: edges.length,
+        candidate_suspect_count: sourceToPathIds.size,
+        candidate_intermediate_count: 0,
+        candidate_deposit_count: deposits.length,
+        exchange_count: 0,
+      },
+      addresses: [...addresses.values()].map((entry) => ({
+        address: entry.address,
+        roles: [...entry.roles],
+        confidence: entry.confidence,
+        rationale: entry.rationale,
+      })),
+      edges,
+      paths,
+      convergence,
+      exchange_exposure: [],
+      candidate_labels: candidateLabels,
+      artifacts,
+      evidence: [
+        ...evidence,
+        ...(failures.length > 0 ? [{ evidence_type: 'query_summary', summary: `partial query failures: ${failures.length}` }] : []),
+      ],
+      continuation: {
+        candidate_deposit_addresses: deposits,
+        candidate_suspect_addresses: candidateSuspects,
+        candidate_victim_addresses: [],
+        recommended_next_tools: candidateSuspects.length > 0
+          ? ['trace_suspect_funds', 'address_risk']
+          : ['address_risk', 'graph_query_batch'],
+      },
+      warnings: paths.length === 0 ? ['No upstream sources were connected in the queried topology.'] : [],
     },
     graphData,
   }

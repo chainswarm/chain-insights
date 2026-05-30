@@ -1,5 +1,5 @@
-const require_chunk = require("./chunk-CZWwpsFl.cjs");
-const require_version = require("./version-BNGtdpmH.cjs");
+const require_chunk = require("./chunk-DakpK96I.cjs");
+const require_version = require("./version-CO9Or_YV.cjs");
 let commander = require("commander");
 let node_child_process = require("node:child_process");
 let node_url = require("node:url");
@@ -21,21 +21,25 @@ if (installerFlags.length > 0 && !rawArgs.some((a) => !a.startsWith("-"))) {
 	}
 	process.exit(0);
 }
-if (rawArgs[0] === "mcp" && rawArgs[1] === "trace-funds") {
-	console.error("error: unknown command 'trace-funds'");
+if (rawArgs[0] === "mcp" && [
+	"trace-funds",
+	"track-funds",
+	"scam-topology"
+].includes(rawArgs[1] ?? "")) {
+	console.error(`error: unknown command '${rawArgs[1]}'`);
 	process.exit(1);
 }
 async function resolveCaseSelector(input) {
-	const { resolveCaseSelector } = await Promise.resolve().then(() => require("./selector-W7COoSdq.cjs"));
+	const { resolveCaseSelector } = await Promise.resolve().then(() => require("./selector-DBS2jYH4.cjs"));
 	return resolveCaseSelector(input);
 }
 async function scopeCasesToInvocationDir() {
 	if (process.env["CHAIN_INSIGHTS_CASES_ROOT"]?.trim()) return;
-	const { activeCasesRoot } = await Promise.resolve().then(() => require("./active-cWS-i7UB.cjs")).then((n) => n.active_exports);
+	const { activeCasesRoot } = await Promise.resolve().then(() => require("./active-BVr55kvW.cjs")).then((n) => n.active_exports);
 	process.env["CHAIN_INSIGHTS_CASES_ROOT"] = activeCasesRoot();
 }
 async function showCaseContext(caseSelector) {
-	const { CaseStore } = await Promise.resolve().then(() => require("./cases-DEgprfam.cjs"));
+	const { CaseStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
 	const caseId = await resolveCaseSelector(caseSelector);
 	const ctx = await CaseStore.loadContext(caseId);
 	console.log(`\n=== Case: ${ctx.case.id} ===`);
@@ -65,15 +69,10 @@ function optionalNumberArg(value, name) {
 	if (typeof value === "string") return optionalNumber(value);
 	throw new Error(`Invalid number for ${name}: ${String(value)}`);
 }
-function optionalScamTopologyActivityPolicy(value) {
-	if (value === void 0 || value === null || value === "") return void 0;
-	if (value === "node_relative_only" || value === "global_incident_only") return value;
-	throw new Error("activity_policy must be one of: node_relative_only, global_incident_only");
-}
 async function withGraphMcpClient(name, fn) {
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-v5J0jdM9.cjs")).then((n) => n.config_exports);
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
 	const config = await loadConfig();
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-D0Bnl2S5.cjs")).then((n) => n.client_exports);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-Db6IV1tv.cjs")).then((n) => n.client_exports);
 	const paymentFetch = await createConfiguredGraphMcpFetch(config);
 	const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
 	const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
@@ -92,8 +91,8 @@ function printMcpTextContent(result) {
 	for (const item of result.content ?? []) if (item.type === "text") console.log(item.text);
 }
 async function printNetworkCapabilities(opts) {
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-v5J0jdM9.cjs")).then((n) => n.config_exports);
-	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await Promise.resolve().then(() => require("./capabilities-D6g2LCjr.cjs"));
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
+	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await Promise.resolve().then(() => require("./capabilities-D5PSx9Hj.cjs"));
 	const document = await fetchNetworkCapabilities(await loadConfig());
 	if (opts.json) console.log(JSON.stringify(document, null, 2));
 	else console.log(formatNetworkCapabilities(document));
@@ -108,9 +107,9 @@ program.command("networks").alias("network").description("List supported graph n
 });
 program.command("serve").description("Start local visualization server").option("-p, --port <number>", "Port to bind (default: 4321)", "4321").action(async (opts) => {
 	try {
-		const { requireWorkspaceRoot } = await Promise.resolve().then(() => require("./output-root-HDoO9jk5.cjs")).then((n) => n.output_root_exports);
+		const { requireWorkspaceRoot } = await Promise.resolve().then(() => require("./output-root-YIbl6PwF.cjs")).then((n) => n.output_root_exports);
 		const workspaceRoot = requireWorkspaceRoot();
-		const { startServer } = await Promise.resolve().then(() => require("./server-fozXirQE.cjs")).then((n) => n.server_exports);
+		const { startServer } = await Promise.resolve().then(() => require("./server-BqVdWath.cjs")).then((n) => n.server_exports);
 		console.log(`Workspace: ${workspaceRoot}`);
 		startServer(parseInt(opts.port, 10));
 	} catch (err) {
@@ -119,8 +118,8 @@ program.command("serve").description("Start local visualization server").option(
 	}
 });
 program.command("status").description("Show toolkit status and configuration").action(async () => {
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-v5J0jdM9.cjs")).then((n) => n.config_exports);
-	const { findActiveWorkspace, activeDataDir } = await Promise.resolve().then(() => require("./active-cWS-i7UB.cjs")).then((n) => n.active_exports);
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
+	const { findActiveWorkspace, activeDataDir } = await Promise.resolve().then(() => require("./active-BVr55kvW.cjs")).then((n) => n.active_exports);
 	const config = await loadConfig();
 	const workspace = findActiveWorkspace();
 	const graphMcpStatus = config.graphMcpMode === "debug" && config.graphMcpAuthToken?.trim() ? "bearer access mode" : `${config.graphMcpMode} mode`;
@@ -132,7 +131,7 @@ program.command("status").description("Show toolkit status and configuration").a
 });
 program.command("debug").description("Configure Graph MCP debug mode").addCommand(new commander.Command("on").description("Enable Graph MCP debug mode without x402 payments").requiredOption("--token <token>", "Debug bearer token").option("--endpoint <url>", "Graph MCP endpoint").action(async (opts) => {
 	try {
-		const { saveConfig } = await Promise.resolve().then(() => require("./config-v5J0jdM9.cjs")).then((n) => n.config_exports);
+		const { saveConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
 		await saveConfig({
 			graphMcpMode: "debug",
 			graphMcpAuthToken: opts.token,
@@ -147,7 +146,7 @@ program.command("debug").description("Configure Graph MCP debug mode").addComman
 	}
 })).addCommand(new commander.Command("off").description("Disable Graph MCP debug mode and use paid x402 calls").action(async () => {
 	try {
-		const { saveConfig } = await Promise.resolve().then(() => require("./config-v5J0jdM9.cjs")).then((n) => n.config_exports);
+		const { saveConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
 		await saveConfig({
 			graphMcpMode: "paid",
 			graphMcpAuthToken: ""
@@ -160,7 +159,7 @@ program.command("debug").description("Configure Graph MCP debug mode").addComman
 	}
 })).addCommand(new commander.Command("status").description("Show Graph MCP payment/debug mode").action(async () => {
 	try {
-		const { loadConfig } = await Promise.resolve().then(() => require("./config-v5J0jdM9.cjs")).then((n) => n.config_exports);
+		const { loadConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
 		const config = await loadConfig();
 		console.log(`Graph MCP mode: ${config.graphMcpMode}`);
 		console.log(`Graph endpoint: ${config.graphMcpEndpoint}`);
@@ -175,7 +174,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 	try {
 		const normalizedKey = key.trim();
 		if (!normalizedKey) throw new Error("Test access key is required");
-		const { saveConfig } = await Promise.resolve().then(() => require("./config-v5J0jdM9.cjs")).then((n) => n.config_exports);
+		const { saveConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
 		await saveConfig({
 			graphMcpMode: "debug",
 			graphMcpAuthToken: normalizedKey,
@@ -190,7 +189,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 	}
 })).addCommand(new commander.Command("clear").description("Remove the Graph MCP test access key and use paid x402 calls").action(async () => {
 	try {
-		const { saveConfig } = await Promise.resolve().then(() => require("./config-v5J0jdM9.cjs")).then((n) => n.config_exports);
+		const { saveConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
 		await saveConfig({
 			graphMcpMode: "paid",
 			graphMcpAuthToken: ""
@@ -203,7 +202,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 	}
 })).addCommand(new commander.Command("status").description("Show Graph MCP test access key status").action(async () => {
 	try {
-		const { loadConfig } = await Promise.resolve().then(() => require("./config-v5J0jdM9.cjs")).then((n) => n.config_exports);
+		const { loadConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
 		const config = await loadConfig();
 		console.log(`Graph endpoint: ${config.graphMcpEndpoint}`);
 		console.log(`Access key:     ${config.graphMcpAuthToken?.trim() ? "configured" : "not configured"}`);
@@ -215,7 +214,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 }));
 program.command("init").description("Initialize an investigation workspace").argument("[dir]", "Workspace directory to initialize", ".").option("--force", "Overwrite existing workspace files").action(async (dir, opts) => {
 	try {
-		const { initWorkspace } = await Promise.resolve().then(() => require("./init-BxZIwGAP.cjs"));
+		const { initWorkspace } = await Promise.resolve().then(() => require("./init-zqbd7i-_.cjs"));
 		const result = await initWorkspace({
 			targetDir: dir,
 			force: opts.force
@@ -229,7 +228,7 @@ program.command("init").description("Initialize an investigation workspace").arg
 });
 program.command("setup").description("Configure external MCP clients").addCommand(new commander.Command("claude-desktop").alias("claude").description("Install or update the Claude Desktop MCP server entry").option("--config <path>", "Path to claude_desktop_config.json").option("--dry-run", "Print the intended change without writing files").action(async (opts) => {
 	try {
-		const { setupClaudeDesktop } = await Promise.resolve().then(() => require("./setup-D8YGZ1TF.cjs"));
+		const { setupClaudeDesktop } = await Promise.resolve().then(() => require("./setup-CDha4B9s.cjs"));
 		const result = await setupClaudeDesktop({
 			configPath: opts.config,
 			dryRun: opts.dryRun
@@ -250,8 +249,8 @@ program.command("setup").description("Configure external MCP clients").addComman
 	}
 }));
 program.command("config").description("Read or write configuration values").addCommand(new commander.Command("get").argument("<key>", "Config key to read").action(async (key) => {
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-v5J0jdM9.cjs")).then((n) => n.config_exports);
-	const { CONFIG_KEYS } = await Promise.resolve().then(() => require("./schema-BJK02kvh.cjs")).then((n) => n.schema_exports);
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
+	const { CONFIG_KEYS } = await Promise.resolve().then(() => require("./schema-Vl9yuOFO.cjs")).then((n) => n.schema_exports);
 	if (!CONFIG_KEYS.includes(key)) {
 		console.error(`Unknown config key: ${key}`);
 		process.exit(1);
@@ -261,7 +260,7 @@ program.command("config").description("Read or write configuration values").addC
 })).addCommand(new commander.Command("set").argument("<key>", "Config key to write").argument("<value>", "Value to set").action(async (key, value) => {
 	if (key === "walletPrivateKey") {
 		try {
-			const { setWalletPrivateKey } = await Promise.resolve().then(() => require("./wallet-ByFOXIlr.cjs")).then((n) => n.wallet_exports);
+			const { setWalletPrivateKey } = await Promise.resolve().then(() => require("./wallet-gC2jxh7j.cjs")).then((n) => n.wallet_exports);
 			const address = await setWalletPrivateKey(value);
 			console.log("Wallet private key encrypted and stored in ~/.chain-insights/wallet.json");
 			console.log(`Wallet address: ${address}`);
@@ -271,8 +270,8 @@ program.command("config").description("Read or write configuration values").addC
 		}
 		return;
 	}
-	const { loadConfig, saveConfig } = await Promise.resolve().then(() => require("./config-v5J0jdM9.cjs")).then((n) => n.config_exports);
-	const { CONFIG_KEYS, DEFAULT_CONFIG } = await Promise.resolve().then(() => require("./schema-BJK02kvh.cjs")).then((n) => n.schema_exports);
+	const { loadConfig, saveConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
+	const { CONFIG_KEYS, DEFAULT_CONFIG } = await Promise.resolve().then(() => require("./schema-Vl9yuOFO.cjs")).then((n) => n.schema_exports);
 	const current = await loadConfig();
 	if (!CONFIG_KEYS.includes(key)) {
 		console.error(`Unknown config key: ${key}`);
@@ -287,7 +286,7 @@ program.command("config").description("Read or write configuration values").addC
 }));
 program.command("wallet").description("Manage the local Base USDC payment wallet").addCommand(new commander.Command("import").description("Import a Base payment wallet").argument("<private-key>", "0x-prefixed EVM private key").action(async (privateKey) => {
 	try {
-		const { setWalletPrivateKey } = await Promise.resolve().then(() => require("./wallet-ByFOXIlr.cjs")).then((n) => n.wallet_exports);
+		const { setWalletPrivateKey } = await Promise.resolve().then(() => require("./wallet-gC2jxh7j.cjs")).then((n) => n.wallet_exports);
 		const address = await setWalletPrivateKey(privateKey);
 		console.log(`Wallet imported: ${address}`);
 		console.log("Next: run `chain-insights wallet ready`");
@@ -297,7 +296,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new commander.Command("address").description("Print the local payment wallet address").action(async () => {
 	try {
-		const { getWalletAccount } = await Promise.resolve().then(() => require("./tools-BwPM-GdI.cjs")).then((n) => n.tools_exports);
+		const { getWalletAccount } = await Promise.resolve().then(() => require("./tools-BhTI3Lmg.cjs")).then((n) => n.tools_exports);
 		const account = await getWalletAccount();
 		console.log(account.address);
 	} catch (err) {
@@ -306,7 +305,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new commander.Command("balance").description("Show the local payment wallet Base USDC balance").action(async () => {
 	try {
-		const { getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-BwPM-GdI.cjs")).then((n) => n.tools_exports);
+		const { getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-BhTI3Lmg.cjs")).then((n) => n.tools_exports);
 		console.log(await getWalletBalanceText());
 	} catch (err) {
 		console.error(err.message);
@@ -314,7 +313,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new commander.Command("ready").description("Check and prepare the wallet for paid GraphRAG MCP calls").option("--check-only", "Only check readiness; do not submit the one-time payment setup").addOption(new commander.Option("--no-approve", "Deprecated alias for --check-only").hideHelp()).option("--payment-usdc <amount>", "USDC setup cap to prepare for paid calls", "1").addOption(new commander.Option("--approval-usdc <amount>", "Deprecated alias for --payment-usdc").hideHelp()).option("--json", "Print machine-readable readiness metadata").action(async (opts) => {
 	try {
-		const { formatWalletReadiness, parsePaymentApprovalUnits, prepareWalletForPaidCalls } = await Promise.resolve().then(() => require("./tools-BwPM-GdI.cjs")).then((n) => n.tools_exports);
+		const { formatWalletReadiness, parsePaymentApprovalUnits, prepareWalletForPaidCalls } = await Promise.resolve().then(() => require("./tools-BhTI3Lmg.cjs")).then((n) => n.tools_exports);
 		const result = await prepareWalletForPaidCalls({
 			minimumApprovalUnits: parsePaymentApprovalUnits(opts.paymentUsdc ?? opts.approvalUsdc ?? "1"),
 			approve: opts.checkOnly ? false : opts.approve !== false
@@ -330,8 +329,8 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new commander.Command("topup").description("Open a local browser page to top up the payment wallet").option("--no-open", "Print the top-up URL without opening a browser").option("--json", "Print machine-readable top-up metadata").action(async (opts) => {
 	try {
-		const { buildTopupInfo, getWalletAccount } = await Promise.resolve().then(() => require("./tools-BwPM-GdI.cjs")).then((n) => n.tools_exports);
-		const { startTopupServer } = await Promise.resolve().then(() => require("./topup-server-C9cSeCiL.cjs")).then((n) => n.topup_server_exports);
+		const { buildTopupInfo, getWalletAccount } = await Promise.resolve().then(() => require("./tools-BhTI3Lmg.cjs")).then((n) => n.tools_exports);
+		const { startTopupServer } = await Promise.resolve().then(() => require("./topup-server-DhYlOOBM.cjs")).then((n) => n.topup_server_exports);
 		const account = await getWalletAccount();
 		const url = await startTopupServer(account);
 		const info = buildTopupInfo(account.address, url);
@@ -361,11 +360,11 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 	}
 })).addCommand(new commander.Command("tools").description("List available MCP tools (cached 24h)").option("--refresh", "Force refresh schema cache").action(async (opts) => {
 	try {
-		const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-DrXpp4r2.cjs"));
-		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-CQcyYDgs.cjs"));
-		const { visibleRemoteTools } = await Promise.resolve().then(() => require("./tool-visibility-DsD5KOTr.cjs")).then((n) => n.tool_visibility_exports);
-		const { loadConfig } = await Promise.resolve().then(() => require("./config-v5J0jdM9.cjs")).then((n) => n.config_exports);
-		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-D0Bnl2S5.cjs")).then((n) => n.client_exports);
+		const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-CJk1EL3L.cjs"));
+		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-9NLBykEL.cjs"));
+		const { visibleRemoteTools } = await Promise.resolve().then(() => require("./tool-visibility-Buq7YdUZ.cjs")).then((n) => n.tool_visibility_exports);
+		const { loadConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
+		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-Db6IV1tv.cjs")).then((n) => n.client_exports);
 		const config = await loadConfig();
 		const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
 		let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint);
@@ -404,7 +403,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-BdkPc9sv.cjs"));
+			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-CcE1ExsT.cjs"));
 			const result = await addressRisk(client, {
 				address: opts.address,
 				network: opts.network,
@@ -416,29 +415,30 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new commander.Command("track-funds").description("Trace trusted/victim addresses and optional known untrusted/scammer addresses").requiredOption("--trusted-addresses <addresses>", "Comma-separated full trusted/victim addresses, max 5").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--untrusted-addresses <addresses>", "Comma-separated full known untrusted/scammer addresses, max 5").option("--case <id>", "Case ID to attach compact evidence pointers").option("--max-hops <number>", "Maximum trace hops, 1-5").option("--per-address-limit <number>", "Maximum exchange paths/results per address, 1-10").option("--min-amount-sum <number>", "Minimum r.amount_sum for traced edges").option("--remote", "Force remote MCP tool call instead of local Chain Insights recipe").action(async (opts) => {
+})).addCommand(new commander.Command("trace-victim-funds").description("Trace victim/source addresses forward to exchange deposit candidates").requiredOption("--victim-addresses <addresses>", "Comma-separated full victim/source addresses, max 5").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--known-suspect-addresses <addresses>", "Optional known suspect addresses for context only, max 5").option("--case <id>", "Case ID to attach compact evidence pointers").option("--incident-timestamp-ms <milliseconds>", "Optional incident timestamp in milliseconds").option("--max-hops <number>", "Maximum trace hops, 1-5").option("--per-address-limit <number>", "Maximum exchange paths/results per address, 1-10").option("--min-amount-sum <number>", "Minimum r.amount_sum for traced edges").option("--remote", "Force remote MCP tool call instead of local Chain Insights recipe").action(async (opts) => {
 	try {
-		const { requireWorkspaceRoot } = await Promise.resolve().then(() => require("./output-root-HDoO9jk5.cjs")).then((n) => n.output_root_exports);
+		const { requireWorkspaceRoot } = await Promise.resolve().then(() => require("./output-root-YIbl6PwF.cjs")).then((n) => n.output_root_exports);
 		requireWorkspaceRoot();
-		await withGraphMcpClient("chain-insights-cli-track-funds", async (client, config) => {
+		await withGraphMcpClient("chain-insights-cli-trace-victim-funds", async (client, config) => {
 			if (opts.remote) {
 				printMcpTextContent(await client.callTool({
-					name: "track_funds",
+					name: "trace_victim_funds",
 					arguments: {
-						trusted_addresses: opts.trustedAddresses,
+						victim_addresses: opts.victimAddresses,
 						network: opts.network,
-						...opts.untrustedAddresses ? { untrusted_addresses: opts.untrustedAddresses } : {}
+						...opts.knownSuspectAddresses ? { known_suspect_addresses: opts.knownSuspectAddresses } : {}
 					}
 				}));
 				return;
 			}
-			const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-BdkPc9sv.cjs"));
+			const { traceVictimFunds } = await Promise.resolve().then(() => require("./public-tools-CcE1ExsT.cjs"));
 			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
-			const result = await trackFunds(client, config, {
-				trustedAddresses: opts.trustedAddresses,
-				untrustedAddresses: opts.untrustedAddresses,
+			const result = await traceVictimFunds(client, config, {
+				victimAddresses: opts.victimAddresses,
+				knownSuspectAddresses: opts.knownSuspectAddresses,
 				network: opts.network,
 				caseId,
+				incidentTimestampMs: optionalNumber(opts.incidentTimestampMs),
 				maxHops: optionalNumber(opts.maxHops),
 				perAddressLimit: optionalNumber(opts.perAddressLimit),
 				minAmountSum: optionalNumber(opts.minAmountSum)
@@ -450,21 +450,40 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new commander.Command("scam-topology").description("Build victim-incident scam topology and ML-ready scam labels").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").requiredOption("--victim-address <address>", "Full victim/source address that anchors the incident").requiredOption("--incident-timestamp-ms <milliseconds>", "Earliest known incident transfer timestamp in milliseconds").option("--max-hops <number>", "Maximum trace hops, default 16, max 64").option("--activity-policy <mode>", "Traversal activity policy: node_relative_only or global_incident_only", "node_relative_only").option("--case <id>", "Case ID to attach compact evidence pointers").action(async (opts) => {
+})).addCommand(new commander.Command("trace-suspect-funds").description("Trace suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").requiredOption("--suspect-addresses <addresses>", "Comma-separated full suspect-controlled addresses, max 5").option("--incident-timestamp-ms <milliseconds>", "Optional incident timestamp in milliseconds").option("--max-hops <number>", "Maximum trace hops, default 3, max 5").option("--per-address-limit <number>", "Maximum exchange paths/results per address, 1-10").option("--min-amount-sum <number>", "Minimum r.amount_sum for traced edges").option("--case <id>", "Case ID to attach compact evidence pointers").action(async (opts) => {
 	try {
-		const { requireWorkspaceRoot } = await Promise.resolve().then(() => require("./output-root-HDoO9jk5.cjs")).then((n) => n.output_root_exports);
+		const { requireWorkspaceRoot } = await Promise.resolve().then(() => require("./output-root-YIbl6PwF.cjs")).then((n) => n.output_root_exports);
 		requireWorkspaceRoot();
-		await withGraphMcpClient("chain-insights-cli-scam-topology", async (client, config) => {
-			const { scamTopology } = await Promise.resolve().then(() => require("./public-tools-BdkPc9sv.cjs"));
-			const incidentTimestampMs = optionalNumber(opts.incidentTimestampMs);
-			if (incidentTimestampMs === void 0) throw new Error("incident-timestamp-ms is required");
+		await withGraphMcpClient("chain-insights-cli-trace-suspect-funds", async (client, config) => {
+			const { traceSuspectFunds } = await Promise.resolve().then(() => require("./public-tools-CcE1ExsT.cjs"));
 			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
-			const result = await scamTopology(client, config, {
-				victimAddress: opts.victimAddress,
+			const result = await traceSuspectFunds(client, config, {
+				suspectAddresses: opts.suspectAddresses,
 				network: opts.network,
 				maxHops: optionalNumber(opts.maxHops),
-				incidentTimestampMs,
-				activityPolicyMode: optionalScamTopologyActivityPolicy(opts.activityPolicy),
+				perAddressLimit: optionalNumber(opts.perAddressLimit),
+				minAmountSum: optionalNumber(opts.minAmountSum),
+				incidentTimestampMs: optionalNumber(opts.incidentTimestampMs),
+				caseId
+			});
+			console.log(result.summaryText);
+			console.log(JSON.stringify(result.structuredContent, null, 2));
+		});
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
+})).addCommand(new commander.Command("trace-deposit-sources").description("Trace backward from suspected deposit/cashout addresses to upstream sources and convergence").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").requiredOption("--deposit-addresses <addresses>", "Comma-separated full suspected deposit/cashout addresses, max 5").option("--max-hops <number>", "Maximum reverse traceback hops, default 2, max 5").option("--case <id>", "Case ID to attach compact evidence pointers").action(async (opts) => {
+	try {
+		const { requireWorkspaceRoot } = await Promise.resolve().then(() => require("./output-root-YIbl6PwF.cjs")).then((n) => n.output_root_exports);
+		requireWorkspaceRoot();
+		await withGraphMcpClient("chain-insights-cli-trace-deposit-sources", async (client, config) => {
+			const { traceDepositSources } = await Promise.resolve().then(() => require("./public-tools-CcE1ExsT.cjs"));
+			const caseId = opts.case ? await resolveCaseSelector(opts.case) : void 0;
+			const result = await traceDepositSources(client, config, {
+				depositAddresses: opts.depositAddresses,
+				network: opts.network,
+				maxHops: optionalNumber(opts.maxHops),
 				caseId
 			});
 			console.log(result.summaryText);
@@ -477,7 +496,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 })).addCommand(new commander.Command("stake-insights").description("Explain Bittensor staking behavior around an address, coldkey, or hotkey").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--address <address>", "Full Bittensor address to inspect as either coldkey or hotkey").option("--coldkey <address>", "Full Bittensor coldkey address to inspect").option("--hotkey <address>", "Full Bittensor hotkey address to inspect").option("--netuid <number>", "Optional subnet netuid filter").option("--start-timestamp-ms <milliseconds>", "Optional inclusive lower activity timestamp bound").option("--end-timestamp-ms <milliseconds>", "Optional inclusive upper activity timestamp bound").option("--start-block <number>", "Optional start block. Current stake graph parity may require timestamp windows instead.").option("--end-block <number>", "Optional end block. Current stake graph parity may require timestamp windows instead.").option("--depth <number>", "Optional expansion depth limit, default 1, max 3").action(async (opts) => {
 	try {
 		await withGraphMcpClient("chain-insights-cli-stake-insights", async (client) => {
-			const { stakeInsights } = await Promise.resolve().then(() => require("./public-tools-BdkPc9sv.cjs"));
+			const { stakeInsights } = await Promise.resolve().then(() => require("./public-tools-CcE1ExsT.cjs"));
 			const result = await stakeInsights(client, {
 				network: opts.network,
 				address: opts.address,
@@ -499,13 +518,13 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 	}
 })).addCommand(new commander.Command("call").description("Call an MCP tool directly (debug)").argument("<tool>", "Tool name to call").argument("[args...]", "Key=value arguments (e.g. address=0x1234 chain=ethereum)").action(async (tool, rawArgs) => {
 	try {
-		const { parseMcpCallArgs } = await Promise.resolve().then(() => require("./call-args-Ivo_mXUd.cjs"));
-		const { assertPublicMcpToolName } = await Promise.resolve().then(() => require("./tool-visibility-DsD5KOTr.cjs")).then((n) => n.tool_visibility_exports);
+		const { parseMcpCallArgs } = await Promise.resolve().then(() => require("./call-args-CcUV6gFS.cjs"));
+		const { assertPublicMcpToolName } = await Promise.resolve().then(() => require("./tool-visibility-Buq7YdUZ.cjs")).then((n) => n.tool_visibility_exports);
 		const args = parseMcpCallArgs(rawArgs);
 		assertPublicMcpToolName(tool);
 		await withGraphMcpClient("chain-insights-cli-call", async (client, config) => {
 			if (tool === "address_risk") {
-				const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-BdkPc9sv.cjs"));
+				const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-CcE1ExsT.cjs"));
 				const result = await addressRisk(client, {
 					address: String(args["address"] ?? ""),
 					network: String(args["network"] ?? ""),
@@ -514,13 +533,14 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				console.log(result.summaryText);
 				return;
 			}
-			if (tool === "track_funds") {
-				const { trackFunds } = await Promise.resolve().then(() => require("./public-tools-BdkPc9sv.cjs"));
-				const result = await trackFunds(client, config, {
-					trustedAddresses: args["trusted_addresses"] ?? "",
-					untrustedAddresses: args["untrusted_addresses"],
+			if (tool === "trace_victim_funds") {
+				const { traceVictimFunds } = await Promise.resolve().then(() => require("./public-tools-CcE1ExsT.cjs"));
+				const result = await traceVictimFunds(client, config, {
+					victimAddresses: args["victim_addresses"] ?? "",
+					knownSuspectAddresses: args["known_suspect_addresses"],
 					network: String(args["network"] ?? ""),
 					caseId: args["case_id"] === void 0 ? void 0 : String(args["case_id"]),
+					incidentTimestampMs: optionalNumberArg(args["incident_timestamp_ms"], "incident_timestamp_ms"),
 					maxHops: typeof args["max_hops"] === "number" ? args["max_hops"] : void 0,
 					perAddressLimit: typeof args["per_address_limit"] === "number" ? args["per_address_limit"] : void 0,
 					minAmountSum: typeof args["min_amount_sum"] === "number" ? args["min_amount_sum"] : void 0
@@ -529,26 +549,35 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				console.log(JSON.stringify(result.structuredContent, null, 2));
 				return;
 			}
-			if (tool === "scam_topology") {
-				const { scamTopology } = await Promise.resolve().then(() => require("./public-tools-BdkPc9sv.cjs"));
-				const victimAddress = String(args["victim_address"] ?? "").trim();
-				if (!victimAddress) throw new Error("victim_address is required");
-				const incidentTimestampMs = optionalNumberArg(args["incident_timestamp_ms"], "incident_timestamp_ms");
-				if (incidentTimestampMs === void 0) throw new Error("incident_timestamp_ms is required");
-				const result = await scamTopology(client, config, {
-					victimAddress,
+			if (tool === "trace_suspect_funds") {
+				const { traceSuspectFunds } = await Promise.resolve().then(() => require("./public-tools-CcE1ExsT.cjs"));
+				const result = await traceSuspectFunds(client, config, {
+					suspectAddresses: args["suspect_addresses"] ?? "",
 					network: String(args["network"] ?? ""),
 					caseId: args["case_id"] === void 0 ? void 0 : String(args["case_id"]),
 					maxHops: typeof args["max_hops"] === "number" ? args["max_hops"] : void 0,
-					incidentTimestampMs,
-					activityPolicyMode: optionalScamTopologyActivityPolicy(args["activity_policy"])
+					perAddressLimit: typeof args["per_address_limit"] === "number" ? args["per_address_limit"] : void 0,
+					minAmountSum: typeof args["min_amount_sum"] === "number" ? args["min_amount_sum"] : void 0,
+					incidentTimestampMs: optionalNumberArg(args["incident_timestamp_ms"], "incident_timestamp_ms")
+				});
+				console.log(result.summaryText);
+				console.log(JSON.stringify(result.structuredContent, null, 2));
+				return;
+			}
+			if (tool === "trace_deposit_sources") {
+				const { traceDepositSources } = await Promise.resolve().then(() => require("./public-tools-CcE1ExsT.cjs"));
+				const result = await traceDepositSources(client, config, {
+					depositAddresses: args["deposit_addresses"] ?? "",
+					network: String(args["network"] ?? ""),
+					caseId: args["case_id"] === void 0 ? void 0 : String(args["case_id"]),
+					maxHops: typeof args["max_hops"] === "number" ? args["max_hops"] : void 0
 				});
 				console.log(result.summaryText);
 				console.log(JSON.stringify(result.structuredContent, null, 2));
 				return;
 			}
 			if (tool === "stake_insights") {
-				const { stakeInsights } = await Promise.resolve().then(() => require("./public-tools-BdkPc9sv.cjs"));
+				const { stakeInsights } = await Promise.resolve().then(() => require("./public-tools-CcE1ExsT.cjs"));
 				const result = await stakeInsights(client, {
 					network: String(args["network"] ?? ""),
 					address: args["address"] === void 0 ? void 0 : String(args["address"]),
@@ -580,14 +609,14 @@ const caseCommand = new commander.Command("case").description("Manage investigat
 }).addCommand(new commander.Command("open").description("Open a new investigation case").argument("<name>", "Case name (e.g. \"Tornado Mixer Investigation\")").option("--tags <tags>", "Comma-separated tags (e.g. aml,mixer,defi)", "").option("--description <desc>", "Brief description of the investigation", "").action(async (name, opts) => {
 	try {
 		if (/^[1-9]\d*$/.test(name.trim())) throw new Error("Numeric case names look like list selectors. Use a descriptive case name, e.g. `cia case open \"Tracking stolen funds from <address>\"`.");
-		const { CaseStore } = await Promise.resolve().then(() => require("./cases-DEgprfam.cjs"));
+		const { CaseStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
 		const tags = opts.tags ? opts.tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
 		const c = await CaseStore.create({
 			name,
 			tags,
 			description: opts.description
 		});
-		const { casesRoot } = await Promise.resolve().then(() => require("./store-A5a0uepq.cjs"));
+		const { casesRoot } = await Promise.resolve().then(() => require("./store-DogLawSj.cjs"));
 		console.log(`Case opened: ${c.id}`);
 		console.log(`Directory:   ${node_path.default.join(casesRoot(), c.id)}/`);
 		console.log(`Status:      ${c.status}`);
@@ -597,7 +626,7 @@ const caseCommand = new commander.Command("case").description("Manage investigat
 	}
 })).addCommand(new commander.Command("activate").description("Activate a case (set status to active)").argument("<case-id>", "Case ID to activate").action(async (caseSelector) => {
 	try {
-		const { CaseStore } = await Promise.resolve().then(() => require("./cases-DEgprfam.cjs"));
+		const { CaseStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
 		const caseId = await resolveCaseSelector(caseSelector);
 		const c = await CaseStore.setStatus(caseId, "active");
 		console.log(`Case ${c.id} is now: active`);
@@ -607,7 +636,7 @@ const caseCommand = new commander.Command("case").description("Manage investigat
 	}
 })).addCommand(new commander.Command("suspend").description("Suspend a case (set status to suspended)").argument("<case-id>", "Case ID to suspend").action(async (caseSelector) => {
 	try {
-		const { CaseStore } = await Promise.resolve().then(() => require("./cases-DEgprfam.cjs"));
+		const { CaseStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
 		const caseId = await resolveCaseSelector(caseSelector);
 		const c = await CaseStore.setStatus(caseId, "suspended");
 		console.log(`Case ${c.id} is now: suspended`);
@@ -617,7 +646,7 @@ const caseCommand = new commander.Command("case").description("Manage investigat
 	}
 })).addCommand(new commander.Command("close").description("Close a case permanently").argument("<case-id>", "Case ID to close").action(async (caseSelector) => {
 	try {
-		const { CaseStore } = await Promise.resolve().then(() => require("./cases-DEgprfam.cjs"));
+		const { CaseStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
 		const caseId = await resolveCaseSelector(caseSelector);
 		const c = await CaseStore.setStatus(caseId, "closed");
 		console.log(`Case ${c.id} is now: closed`);
@@ -627,7 +656,7 @@ const caseCommand = new commander.Command("case").description("Manage investigat
 	}
 })).addCommand(new commander.Command("list").description("List all investigation cases").option("--status <status>", "Filter by status (open|active|suspended|closed)").action(async (opts) => {
 	try {
-		const { CaseStore } = await Promise.resolve().then(() => require("./cases-DEgprfam.cjs"));
+		const { CaseStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
 		const cases = await CaseStore.list();
 		const filtered = opts.status ? cases.filter((c) => c.status === opts.status) : cases;
 		if (filtered.length === 0) {
@@ -641,7 +670,7 @@ const caseCommand = new commander.Command("case").description("Manage investigat
 	}
 })).addCommand(new commander.Command("evidence").description("Manage case evidence").addCommand(new commander.Command("add").description("Add evidence to a case from an MCP query result").argument("<case-id>", "Case ID to add evidence to").option("--source <tool>", "MCP tool name that produced this evidence", "manual").option("--content <text>", "Evidence content (MCP response or notes)", "").option("--query-params <params>", "Query parameters used (e.g. address=0x1234)", "").action(async (caseSelector, opts) => {
 	try {
-		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-DEgprfam.cjs"));
+		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
 		const caseId = await resolveCaseSelector(caseSelector);
 		const result = await EvidenceStore.append(caseId, {
 			source: opts.source,
@@ -656,7 +685,7 @@ const caseCommand = new commander.Command("case").description("Manage investigat
 	}
 })).addCommand(new commander.Command("verify").description("Verify evidence manifest integrity for a case").argument("<case-id>", "Case ID to verify").action(async (caseSelector) => {
 	try {
-		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-DEgprfam.cjs"));
+		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
 		const caseId = await resolveCaseSelector(caseSelector);
 		const result = await EvidenceStore.verifyManifest(caseId);
 		if (result.ok) console.log(`Manifest OK — ${result.count} evidence file(s) verified`);
@@ -670,7 +699,7 @@ const caseCommand = new commander.Command("case").description("Manage investigat
 	}
 }))).addCommand(new commander.Command("dossier").description("Manage entity dossiers for a case").addCommand(new commander.Command("update").description("Append a finding to an entity dossier").argument("<case-id>", "Case ID").argument("<address>", "Entity address or identifier").option("--finding <text>", "Finding to append to the dossier", "").option("--type <type>", "Entity type (eoa|contract|exchange|mixer|unknown)", "unknown").action(async (caseSelector, address, opts) => {
 	try {
-		const { DossierStore } = await Promise.resolve().then(() => require("./cases-DEgprfam.cjs"));
+		const { DossierStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
 		const caseId = await resolveCaseSelector(caseSelector);
 		const entityType = [
 			"eoa",
@@ -687,7 +716,7 @@ const caseCommand = new commander.Command("case").description("Manage investigat
 	}
 }))).addCommand(new commander.Command("session").description("Manage investigation sessions").addCommand(new commander.Command("start").description("Start a new investigation session for a case").argument("<case-id>", "Case ID").argument("[title...]", "Optional session title").action(async (caseSelector, titleParts) => {
 	try {
-		const { SessionStore } = await Promise.resolve().then(() => require("./cases-DEgprfam.cjs"));
+		const { SessionStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
 		const caseId = await resolveCaseSelector(caseSelector);
 		const title = titleParts.join(" ").trim();
 		const s = await SessionStore.start(caseId, title ? { title } : {});
@@ -698,7 +727,7 @@ const caseCommand = new commander.Command("case").description("Manage investigat
 	}
 })).addCommand(new commander.Command("end").description("End the current session with findings and next steps").argument("<case-id>", "Case ID").option("--findings <text>", "Key findings from this session", "").option("--next-steps <text>", "Next steps for the investigation", "").action(async (caseSelector, opts) => {
 	try {
-		const { SessionStore } = await Promise.resolve().then(() => require("./cases-DEgprfam.cjs"));
+		const { SessionStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
 		const caseId = await resolveCaseSelector(caseSelector);
 		await SessionStore.end(caseId, {
 			findings: opts.findings,
@@ -735,9 +764,9 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			}
 			resolvedParams[key] = kv.slice(eq + 1);
 		}
-		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-5tqlt9cz.cjs"));
+		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-CZdQwKvh.cjs"));
 		const markdown = await resolvePlaybookContent(name);
-		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-CjjNSPhr.cjs"));
+		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-BXLAHYnZ.cjs"));
 		const definition = PlaybookParser.parse(markdown, resolvedParams);
 		for (const spec of definition.params) if (spec.required && !resolvedParams[spec.name] && !spec.default) {
 			console.error(`Missing required param: ${spec.name}. Pass with: -p ${spec.name}=<value>`);
@@ -748,7 +777,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-ioMKA_44.cjs"));
+		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-BCDeBYsR.cjs"));
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,
@@ -761,7 +790,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new commander.Command("list").description("List available playbooks (built-in and user-defined)").action(async () => {
 	try {
-		const { listPlaybooks } = await Promise.resolve().then(() => require("./resolver-5tqlt9cz.cjs"));
+		const { listPlaybooks } = await Promise.resolve().then(() => require("./resolver-CZdQwKvh.cjs"));
 		const playbooks = await listPlaybooks();
 		if (playbooks.length === 0) {
 			console.log("No playbooks found.");
@@ -774,8 +803,8 @@ program.command("playbook").description("Run and manage investigation playbooks"
 	}
 })).addCommand(new commander.Command("show").description("Show steps for a playbook without executing").argument("<name>", "Playbook name").action(async (name) => {
 	try {
-		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-5tqlt9cz.cjs"));
-		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-CjjNSPhr.cjs"));
+		const { resolvePlaybookContent } = await Promise.resolve().then(() => require("./resolver-CZdQwKvh.cjs"));
+		const { PlaybookParser } = await Promise.resolve().then(() => require("./parser-BXLAHYnZ.cjs"));
 		const markdown = await resolvePlaybookContent(name);
 		const definition = PlaybookParser.parse(markdown, {});
 		console.log(`Playbook: ${definition.name} v${definition.version}`);
@@ -798,12 +827,12 @@ program.command("viz").description("Generate money flow visualization").argument
 			console.error("Provide either a case ID or --data <file.json>");
 			process.exit(1);
 		}
-		const { generateVisualization } = await Promise.resolve().then(() => require("./viz-Br90TlRv.cjs")).then((n) => n.viz_exports);
+		const { generateVisualization } = await Promise.resolve().then(() => require("./viz-Da9YWN_I.cjs")).then((n) => n.viz_exports);
 		const result = await generateVisualization({
 			caseId,
 			dataFile: opts.data
 		});
-		const { startServer } = await Promise.resolve().then(() => require("./server-fozXirQE.cjs")).then((n) => n.server_exports);
+		const { startServer } = await Promise.resolve().then(() => require("./server-BqVdWath.cjs")).then((n) => n.server_exports);
 		const port = parseInt(opts.port, 10);
 		startServer(port);
 		const url = `http://127.0.0.1:${port}/viz/${result.vizId}`;

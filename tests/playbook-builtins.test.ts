@@ -6,7 +6,7 @@ import {
   ENTITY_PROFILE_PLAYBOOK,
   BUILTIN_PLAYBOOKS,
   KNOWN_GRAPHRAG_PUBLIC_TOOLS,
-  SCAM_TOPOLOGY_PLAYBOOK,
+  TRACE_SUSPECT_FUNDS_PLAYBOOK,
 } from '../src/playbooks/builtins.js'
 
 describe('BUILTIN_PLAYBOOKS map', () => {
@@ -22,8 +22,8 @@ describe('BUILTIN_PLAYBOOKS map', () => {
     expect(BUILTIN_PLAYBOOKS).toHaveProperty('entity-profile')
   })
 
-  it("contains key 'scam-topology'", () => {
-    expect(BUILTIN_PLAYBOOKS).toHaveProperty('scam-topology')
+  it("contains key 'trace-suspect-funds'", () => {
+    expect(BUILTIN_PLAYBOOKS).toHaveProperty('trace-suspect-funds')
   })
 
   it('does not ship the obsolete free-form probe playbook', () => {
@@ -44,45 +44,29 @@ describe('BUILTIN_PLAYBOOKS map', () => {
   })
 })
 
-describe('SCAM_TOPOLOGY_PLAYBOOK', () => {
-  it('parses to PlaybookDefinition with name=scam-topology', () => {
-    const def = PlaybookParser.parse(SCAM_TOPOLOGY_PLAYBOOK, { address: '0x1' })
-    expect(def.name).toBe('scam-topology')
+describe('TRACE_SUSPECT_FUNDS_PLAYBOOK', () => {
+  it('parses to PlaybookDefinition with name=trace-suspect-funds', () => {
+    const def = PlaybookParser.parse(TRACE_SUSPECT_FUNDS_PLAYBOOK, { address: '0x1' })
+    expect(def.name).toBe('trace-suspect-funds')
   })
 
-  it('uses address_risk and scam_topology', () => {
-    const def = PlaybookParser.parse(SCAM_TOPOLOGY_PLAYBOOK, { address: '0x1' })
-    expect(def.steps.map(step => step.tool)).toEqual(['address_risk', 'scam_topology'])
+  it('uses address_risk and trace_suspect_funds', () => {
+    const def = PlaybookParser.parse(TRACE_SUSPECT_FUNDS_PLAYBOOK, { address: '0x1' })
+    expect(def.steps.map(step => step.tool)).toEqual(['address_risk', 'trace_suspect_funds'])
   })
 
-  it('maps victim address and incident timestamp by default', () => {
-    const def = PlaybookParser.parse(SCAM_TOPOLOGY_PLAYBOOK, { address: '0x1', incident_timestamp_ms: '1715532228001' })
+  it('maps suspect address by default', () => {
+    const def = PlaybookParser.parse(TRACE_SUSPECT_FUNDS_PLAYBOOK, { address: '0x1' })
     expect(def.steps[1].params).toMatchObject({
-      victim_address: '0x1',
-      incident_timestamp_ms: '1715532228001',
+      suspect_addresses: '0x1',
       network: 'bittensor',
-      activity_policy: 'node_relative_only',
     })
   })
 
-  it('allows overriding the scam topology activity policy', () => {
-    const def = PlaybookParser.parse(SCAM_TOPOLOGY_PLAYBOOK, {
-      address: '0x1',
-      incident_timestamp_ms: '1715532228001',
-      activity_policy: 'global_incident_only',
-    })
-    expect(def.steps[1].params).toMatchObject({
-      activity_policy: 'global_incident_only',
-    })
-  })
-
-  it('documents victim incident topology semantics', () => {
-    expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('victim_address')
-    expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('incident_timestamp_ms')
-    expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('victim-only traversal is outward from victim/source funds')
-    expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('node-relative novelty wave')
-    expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('global_incident_only')
-    expect(SCAM_TOPOLOGY_PLAYBOOK).toContain('exchange terminal safety')
+  it('documents suspect trace semantics', () => {
+    expect(TRACE_SUSPECT_FUNDS_PLAYBOOK).toContain('suspect_addresses')
+    expect(TRACE_SUSPECT_FUNDS_PLAYBOOK).toContain('cashout topology')
+    expect(TRACE_SUSPECT_FUNDS_PLAYBOOK).toContain('reviewable candidate labels')
   })
 })
 
@@ -104,15 +88,15 @@ describe('TRACE_FUNDS_PLAYBOOK', () => {
     expect(addressParam?.required).toBe(true)
   })
 
-  it('uses the real track_funds and address_risk tools', () => {
+  it('uses the real trace_victim_funds and address_risk tools', () => {
     const def = PlaybookParser.parse(TRACE_FUNDS_PLAYBOOK, { address: '0x1' })
-    expect(def.steps.map(step => step.tool)).toEqual(['address_risk', 'track_funds'])
+    expect(def.steps.map(step => step.tool)).toEqual(['address_risk', 'trace_victim_funds'])
   })
 
-  it('substitutes default network and maps address to trusted_addresses', () => {
+  it('substitutes default network and maps address to victim_addresses', () => {
     const def = PlaybookParser.parse(TRACE_FUNDS_PLAYBOOK, { address: '0x1' })
     expect(def.steps[0].params).toMatchObject({ address: '0x1', network: 'bittensor' })
-    expect(def.steps[1].params).toMatchObject({ trusted_addresses: '0x1', network: 'bittensor' })
+    expect(def.steps[1].params).toMatchObject({ victim_addresses: '0x1', network: 'bittensor' })
   })
 })
 

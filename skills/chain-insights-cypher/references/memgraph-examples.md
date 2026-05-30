@@ -1,0 +1,193 @@
+# GraphRAG MCP Cypher Examples
+
+Use these examples when an investigation needs practical graph-language reads
+instead of only schema probes. They are adapted from Memgraph query and deep
+path traversal features, then bounded to the Chain Insights GraphRAG MCP
+surface.
+
+Official Memgraph references:
+
+- Querying: https://memgraph.com/docs/querying
+- Deep path traversal: https://memgraph.com/docs/advanced-algorithms/deep-path-traversal
+
+## Staging Validation
+
+Validated against hosted staging on 2026-05-29 with `network=bittensor` and
+`per_query_timeout_seconds=5`.
+
+Accepted through GraphRAG MCP:
+
+- `MATCH`, directed relationship patterns, property equality, `WHERE`
+- `STARTS WITH`
+- `WITH`, `count`, `sum`
+- `CASE`
+- `ORDER BY`, explicit `LIMIT`
+- fixed-hop patterns written as explicit relationships
+- simple `archive_topology` counts and filtered projections
+- `facts` `Address` projection
+
+Rejected through the current hosted path with a generic backend error:
+
+- variable-length relationship syntax such as `[:FLOWS_TO*1..2]`
+- Memgraph native BFS syntax such as `*BFS` and `USING HOPS LIMIT`
+- weighted/all/K shortest path operators: `*WSHORTEST`, `*ALLSHORTEST`,
+  `*KSHORTEST`
+- `OPTIONAL MATCH`
+- `UNION ALL`
+
+Treat rejected syntax as direct-Memgraph reference material only unless the
+current endpoint accepts the exact query. For Chain Insights agents, use the
+fixed-hop `graph_query_batch` fallback below for traversal.
+
+## Live Topology Examples
+
+Top outflows by amount:
+
+```bash
+cia mcp call graph_query \
+  network=bittensor \
+  'query=USE live_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_sum AS amount_sum, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_sum DESC LIMIT 25'
+```
+
+Rank addresses by live out-degree and transferred amount:
+
+```bash
+cia mcp call graph_query \
+  network=bittensor \
+  'query=USE live_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) WITH src, count(dst) AS out_degree, sum(flow.amount_sum) AS total_amount RETURN src.address AS address, out_degree, total_amount ORDER BY out_degree DESC LIMIT 25'
+```
+
+Bucket flows for quick triage:
+
+```bash
+cia mcp call graph_query \
+  network=bittensor \
+  'query=USE live_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, CASE WHEN flow.amount_sum IS NULL THEN "unknown" WHEN flow.amount_sum >= 100 THEN "large" WHEN flow.amount_sum >= 10 THEN "medium" ELSE "small" END AS amount_bucket, flow.amount_sum AS amount_sum LIMIT 25'
+```
+
+Prefix search for address completion:
+
+```bash
+cia mcp call graph_query \
+  network=bittensor \
+  'query=USE live_topology MATCH (a:Address) WHERE a.address STARTS WITH "5Ggf" RETURN a.address AS address, a.address_type AS address_type, a.network AS network LIMIT 10'
+```
+
+Address-family census for a combined network:
+
+```bash
+cia mcp call graph_query \
+  network=bittensor \
+  'query=USE live_topology MATCH (a:Address) RETURN a.address_type AS address_type, a.network AS source_network, count(a) AS addresses ORDER BY addresses DESC LIMIT 10'
+```
+
+Bittensor EVM-pallet flow under the same investigation network:
+
+```bash
+cia mcp call graph_query \
+  network=bittensor \
+  'query=USE live_topology MATCH (src:Address {address: "0x20d09f2881602eee806147ceee9275d33ff31df8"})-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, src.address_type AS from_type, src.network AS from_network, dst.address AS to_address, dst.address_type AS to_type, dst.network AS to_network, flow.amount_sum AS amount_sum LIMIT 10'
+```
+
+## Archive Topology Examples
+
+Recent historical flows:
+
+```bash
+cia mcp call graph_query \
+  network=bittensor \
+  'query=USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.period_granularity AS period_granularity, flow.amount_sum AS amount_sum, flow.tx_count AS tx_count, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.last_seen_timestamp DESC LIMIT 25'
+```
+
+Count archive flow edges by granularity:
+
+```bash
+cia mcp call graph_query \
+  network=bittensor \
+  'query=USE archive_topology MATCH (:Address)-[flow:FLOWS_TO]->(:Address) RETURN flow.period_granularity AS period_granularity, count(flow) AS flow_edges LIMIT 10'
+```
+
+Filter daily archive flows:
+
+```bash
+cia mcp call graph_query \
+  network=bittensor \
+  'query=USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) WHERE flow.period_granularity = "daily" RETURN src.address AS from_address, dst.address AS to_address, flow.amount_sum AS amount_sum, flow.tx_count AS tx_count ORDER BY flow.amount_sum DESC LIMIT 25'
+```
+
+Remember that archive numeric fields may arrive as strings.
+
+## Facts Examples
+
+Facts `Address` projection:
+
+```bash
+cia mcp call graph_query \
+  network=bittensor \
+  'query=USE facts MATCH (a:Address) RETURN a.address AS address, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 25'
+```
+
+Only use richer fact labels or relationships after a fresh schema probe proves
+the current network exposes them. On 2026-05-29, staging accepted facts
+`Address` projection but rejected `Address` to `AddressLabel` relationship
+samples.
+
+## Fixed-Hop Traversal Fallback
+
+Memgraph deep traversal docs cover BFS, weighted shortest path, all shortest
+paths, and K shortest paths. Through the current GraphRAG MCP path, those
+native operators were rejected on staging. Use explicit fixed-hop batches for
+Chain Insights traversal instead.
+
+One-hop path:
+
+```bash
+cia mcp call graph_query_batch \
+  network=bittensor \
+  per_query_timeout_seconds=5 \
+  'queries=[{"id":"hop_1","query":"USE live_topology MATCH (src:Address {address: \"FULL_SOURCE_ADDRESS\"})-[r1:FLOWS_TO]->(dst:Address {address: \"FULL_TARGET_ADDRESS\"}) RETURN src.address AS from_address, dst.address AS to_address, 1 AS hops, r1.amount_sum AS amount_sum, r1.tx_count AS tx_count LIMIT 25"}]'
+```
+
+Two-hop expansion with exchange-stopped intermediate nodes:
+
+```bash
+cia mcp call graph_query_batch \
+  network=bittensor \
+  per_query_timeout_seconds=5 \
+  'queries=[{"id":"hop_2","query":"USE live_topology MATCH (src:Address {address: \"FULL_SOURCE_ADDRESS\"})-[r1:FLOWS_TO]->(mid:Address)-[r2:FLOWS_TO]->(dst:Address) WHERE mid.is_exchange IS NULL RETURN src.address AS from_address, mid.address AS mid_address, dst.address AS to_address, 2 AS hops, r1.amount_sum AS first_amount, r2.amount_sum AS second_amount LIMIT 25"}]'
+```
+
+Generate one query per depth when investigating a path. Keep each query
+directed, stop expansion at exchange nodes, preserve full addresses, and use a
+small `LIMIT` while exploring.
+
+## Direct Memgraph Reference Syntax
+
+Use this syntax only in a direct Memgraph console or after the GraphRAG MCP
+endpoint accepts the same pattern.
+
+Native BFS:
+
+```cypher
+MATCH path=(src:Address {address: "FULL_SOURCE_ADDRESS"})-[:FLOWS_TO *BFS]->(dst:Address {address: "FULL_TARGET_ADDRESS"})
+RETURN path
+LIMIT 5;
+```
+
+Weighted shortest path:
+
+```cypher
+MATCH path=(src:Address {address: "FULL_SOURCE_ADDRESS"})-[:FLOWS_TO *WSHORTEST (r, n | coalesce(r.amount_sum, 1)) total_weight]->(dst:Address {address: "FULL_TARGET_ADDRESS"})
+RETURN path, total_weight
+LIMIT 5;
+```
+
+K shortest alternatives:
+
+```cypher
+MATCH (src:Address {address: "FULL_SOURCE_ADDRESS"}), (dst:Address {address: "FULL_TARGET_ADDRESS"})
+WITH src, dst
+MATCH path=(src)-[:FLOWS_TO *KSHORTEST|3]->(dst)
+RETURN path
+LIMIT 3;
+```

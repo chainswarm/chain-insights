@@ -199,11 +199,12 @@ vi.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
             ],
           },
           {
-            name: 'track-funds',
-            title: 'Track Funds',
-            description: 'Trace stolen funds',
+            name: 'trace-tools',
+            title: 'Trace Tools',
+            description: 'Trace funds by address role',
             arguments: [
-              { name: 'trusted_addresses', description: 'Victim addresses', required: true },
+              { name: 'addresses', description: 'Input addresses', required: true },
+              { name: 'role', description: 'victim, suspect, or deposit', required: true },
               { name: 'network', description: 'Network', required: false },
             ],
           },
@@ -371,7 +372,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(toolNames).toContain('case_list')
     expect(toolNames).toContain('network_capabilities')
     expect(toolNames).toContain('graph_query')
-    expect(toolNames).toContain('scam_topology')
+    expect(toolNames).toContain('trace_victim_funds')
+    expect(toolNames).toContain('trace_suspect_funds')
+    expect(toolNames).toContain('trace_deposit_sources')
+    expect(toolNames).not.toContain('track_funds')
+    expect(toolNames).not.toContain('scam_topology')
     expect(serverInstance.connect).toHaveBeenCalled()
   })
 
@@ -426,6 +431,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).toContain('local graph report server is started automatically')
     expect(instructions).toContain('FLOWS_TO')
     expect(instructions).toContain('first_tx_id')
+    expect(instructions).toContain('exchange hot wallets are terminal endpoints only')
     expect(instructions).toContain('schema discovery')
   })
 
@@ -643,11 +649,13 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(properties.per_query_timeout_seconds.maximum).toBe(600)
   })
 
-  it('does not register trace_funds as a public MCP tool', async () => {
+  it('does not register legacy trace tools as public MCP tools', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       { name: 'graph_query_batch', description: 'Cypher topology query batch' },
       { name: 'trace_funds', description: 'Stale remote trace funds tool' },
+      { name: 'track_funds', description: 'Legacy remote track funds tool' },
+      { name: 'scam_topology', description: 'Legacy remote scam topology tool' },
     ])
 
     const { createProxy } = await import('../src/mcp/proxy.js')
@@ -660,11 +668,15 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       registerTool: ReturnType<typeof vi.fn>
     }
     const toolNames = serverInstance.registerTool.mock.calls.map((entry) => entry[0])
-    expect(toolNames).toContain('track_funds')
+    expect(toolNames).toContain('trace_victim_funds')
+    expect(toolNames).toContain('trace_suspect_funds')
+    expect(toolNames).toContain('trace_deposit_sources')
     expect(toolNames).not.toContain('trace_funds')
+    expect(toolNames).not.toContain('track_funds')
+    expect(toolNames).not.toContain('scam_topology')
   })
 
-  it('registers track_funds and writes graph reports from graph_query_batch results', async () => {
+  it('registers trace_victim_funds, writes graph reports, and does not run deposit traceback', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       { name: 'graph_query_batch', description: 'Cypher topology query batch' },
@@ -709,11 +721,34 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
               { amount_sum: 121, amount_usd_sum: 454, tx_count: 1, first_tx_id: '3-1', last_tx_id: '3-1' },
             ],
             node_labels: [['Address'], ['Address'], ['Address'], ['Address', 'Exchange']],
+            path_nodes: [
+              { address: '5Seed', is_exchange: null },
+              { address: '5Hop', is_exchange: null },
+              { address: '5Deposit', is_exchange: null },
+              { address: '5Exchange', is_exchange: true },
+            ],
             exchange_address: '5Exchange',
             exchange_labels: ['Exchange'],
             exchange_display_labels: ['Binance'],
             exchange_address_type: 'substrate',
             hops: 3,
+          }, {
+            addresses: ['5Seed', '5ExchangeHot', '5KrakenCold'],
+            edge_props: [
+              { amount_sum: 99, amount_usd_sum: 198, tx_count: 1, first_tx_id: '4-1', last_tx_id: '4-1' },
+              { amount_sum: 98, amount_usd_sum: 196, tx_count: 1, first_tx_id: '5-1', last_tx_id: '5-1' },
+            ],
+            node_labels: [['Address'], ['Address', 'exchange'], ['Address', 'exchange']],
+            path_nodes: [
+              { address: '5Seed', is_exchange: null },
+              { address: '5ExchangeHot', labels: ['Kraken Hot', 'exchange'], is_exchange: true },
+              { address: '5KrakenCold', labels: ['Kraken Cold', 'exchange'], is_exchange: true },
+            ],
+            exchange_address: '5KrakenCold',
+            exchange_labels: ['Kraken Cold', 'exchange'],
+            exchange_display_labels: ['Kraken Cold', 'exchange'],
+            exchange_address_type: 'substrate',
+            hops: 2,
           }],
         },
       ]))
@@ -729,41 +764,57 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         },
       ]))
       .mockResolvedValueOnce(textResult([
-        { id: 'backward_from_deposit_1', ok: true, results: [] },
-      ]))
-      .mockResolvedValueOnce(textResult([
-        { id: 'reverse_1hop', ok: true, results: [] },
+        { id: 'unexpected_reverse_query', ok: true, results: [] },
       ]))
 
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
-    const handler = findToolHandler(serverInstance, 'track_funds')
+    const handler = findToolHandler(serverInstance, 'trace_victim_funds')
     const result = await handler({
-      trusted_addresses: '5Seed',
+      victim_addresses: '5Seed',
       network: 'bittensor',
       case_id: mockCase.id,
       max_hops: 2,
       per_address_limit: 3,
     })
-    const run = result.structuredContent.facts.runs[0]
 
     expect(result.isError).toBe(false)
     expect(result.content[0].text).toContain('Trace complete for bittensor:5Seed')
     expect(result.content[0].text).toContain('amount_sum')
-    expect(run.files.graph).toContain('/reports/graphs/')
-    expect(run.continuation.depositAddresses).toEqual(['5Deposit'])
-    expect(run.address_map).toMatchObject({
-      V1: '5Seed',
-      I1: '5Hop',
-      D1: '5Deposit',
-      E1: '5Exchange',
+    expect(result.structuredContent).toMatchObject({
+      schema: 'chain-insights.trace.v1',
+      tool: 'trace_victim_funds',
+      network: 'bittensor',
+      input: {
+        addresses: ['5Seed'],
+        seed_role: 'victim',
+      },
+      continuation: {
+        candidate_deposit_addresses: ['5Deposit'],
+        recommended_next_tools: expect.arrayContaining(['trace_deposit_sources']),
+      },
     })
+    expect(result.structuredContent.continuation.candidate_deposit_addresses).not.toContain('5ExchangeHot')
+    expect(result.structuredContent.candidate_labels).not.toContainEqual(expect.objectContaining({
+      address: '5ExchangeHot',
+      candidate_label: 'candidate_deposit',
+    }))
+    expect(result.structuredContent.artifacts.graph_json).toContain('/reports/graphs/')
+    expect(result.structuredContent.addresses).toContainEqual(expect.objectContaining({
+      address: '5Seed',
+      roles: expect.arrayContaining(['seed_victim']),
+    }))
+    expect(result.structuredContent.edges).toContainEqual(expect.objectContaining({
+      from_address: '5Seed',
+      to_address: '5Hop',
+      edge_type: 'FLOWS_TO',
+    }))
     expect(result._meta.chainInsights.graph.url).toContain('/graph-reports/')
     expect(result._meta.chainInsights.graph).not.toHaveProperty('id')
     expect(result._meta.chainInsights.graph.data).toBeUndefined()
     expect(evidenceAppendMock).toHaveBeenCalledWith(mockCase.id, expect.objectContaining({
-      source: 'track_funds',
+      source: 'trace_victim_funds',
       content: expect.stringContaining('"compactEvidence"'),
     }))
     expect(ensureArtifactServerMock).toHaveBeenCalledWith(4321)
@@ -783,17 +834,15 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(forwardQuery).toContain('USE live_topology MATCH')
     expect(forwardQuery).toContain('r1.amount_sum IS NOT NULL')
     expect(forwardQuery).toContain('r2.amount_sum IS NOT NULL')
+    expect(forwardQuery).toContain('s.is_exchange IS NULL')
+    expect(forwardQuery).toContain('n1.is_exchange IS NULL')
     expect(forwardQuery).toContain('t.is_exchange IS NOT NULL')
     expect(forwardQuery).not.toContain('*BFS')
     const reverseCall = clientInstance.callTool.mock.calls.find((call) => {
       const queries = call[0].arguments?.queries as Array<{ id?: string }> | undefined
       return queries?.some((query) => query.id === 'reverse_1hop')
     })
-    const reverseQuery = (reverseCall?.[0].arguments.queries as Array<{ id: string; query: string }>)
-      .find((query) => query.id === 'reverse_1hop')?.query ?? ''
-    expect(reverseQuery).toContain('MATCH (sender:Address)-[r:FLOWS_TO]->(deposit:Address)')
-    expect(reverseQuery).toContain('deposit.address = "5Deposit"')
-    expect(reverseQuery).not.toContain('UNWIND')
+    expect(reverseCall).toBeUndefined()
 
     const graphUrl = result._meta.chainInsights.graph.url as string
     const filename = graphUrl.split('/graph-reports/')[1]
@@ -824,7 +873,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(graph.edges[0]).not.toHaveProperty('type')
   })
 
-  it('routes track_funds reports to workspace without creating home outputs', async () => {
+  it('routes trace_victim_funds reports to workspace without creating home outputs', async () => {
     const fakeHome = `/tmp/chain-insights-fake-home-${process.pid}-${Date.now()}`
     const workspace = `/tmp/chain-insights-workspace-${process.pid}-${Date.now()}`
     const previousHome = process.env['HOME']
@@ -898,25 +947,19 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
             ],
           },
         ]))
-        .mockResolvedValueOnce(textResult([
-          { id: 'backward_from_deposit_1', ok: true, results: [] },
-        ]))
-        .mockResolvedValueOnce(textResult([
-          { id: 'reverse_1hop', ok: true, results: [] },
-        ]))
+        .mockResolvedValueOnce(textResult([]))
 
       const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
         registerTool: ReturnType<typeof vi.fn>
       }
-      const handler = findToolHandler(serverInstance, 'track_funds')
+      const handler = findToolHandler(serverInstance, 'trace_victim_funds')
       const result = await handler({
-        trusted_addresses: '5Seed',
+        victim_addresses: '5Seed',
         network: 'bittensor',
       })
-      const run = result.structuredContent.facts.runs[0]
 
       expect(result.isError).toBe(false)
-      expect(run.files.graph).toContain(`${workspace}/reports/graphs/`)
+      expect(result.structuredContent.artifacts.graph_json).toContain(`${workspace}/reports/graphs/`)
       expect(result._meta.chainInsights.graph.url).toContain('/graph-reports/')
       expect(result._meta.chainInsights.graph).not.toHaveProperty('id')
       expect(result._meta.chainInsights.graph.data).toBeUndefined()
@@ -934,194 +977,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       rmSync(fakeHome, { recursive: true, force: true })
       rmSync(workspace, { recursive: true, force: true })
     }
-  })
-
-  it('track_funds reports deposit candidates and does not continue through Exchange nodes', async () => {
-    const { loadSchema } = await import('../src/mcp/schema-cache.js')
-    vi.mocked(loadSchema).mockResolvedValueOnce([
-      { name: 'graph_query_batch', description: 'Cypher topology query batch' },
-    ])
-
-    const { createProxy } = await import('../src/mcp/proxy.js')
-    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
-    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
-
-    await createProxy()
-
-    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
-      callTool: ReturnType<typeof vi.fn>
-    }
-    const textResult = (queries: unknown[]) => ({
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          schema: 'chain-insights.result.v1',
-          tool: 'graph_query_batch',
-          facts: { queries },
-        }),
-      }],
-      isError: false,
-    })
-    clientInstance.callTool
-      .mockResolvedValueOnce(textResult([
-        { id: 'node_labels', ok: true, results: [{ node_label: 'Address', sample_count: 10 }, { node_label: 'Exchange', sample_count: 1 }] },
-        { id: 'relationship_types', ok: true, results: [{ rel_name: 'FLOWS_TO', sample_count: 4 }] },
-        { id: 'address_property_keys', ok: true, results: [{ property_key: 'address', sample_count: 10 }] },
-        { id: 'flows_to_property_keys', ok: true, results: [{ property_key: 'amount_sum', sample_count: 4 }] },
-      ]))
-      .mockResolvedValueOnce(textResult([
-        {
-          id: 'forward_exchange_paths_2',
-          ok: true,
-          results: [
-            {
-              addresses: ['5Seed', '5Deposit', '5Exchange'],
-              edge_props: [
-                { amount_sum: 50, amount_usd_sum: 100, tx_count: 1, first_tx_id: '1-1' },
-                { amount_sum: 49, amount_usd_sum: 98, tx_count: 1, first_tx_id: '2-1' },
-              ],
-              node_labels: [['Address'], ['Address'], ['Address', 'Exchange']],
-              exchange_address: '5Exchange',
-              exchange_labels: ['Exchange'],
-              exchange_display_labels: ['Binance'],
-              exchange_address_type: 'substrate',
-              hops: 2,
-            },
-            {
-              addresses: ['5Seed', '5OtherDeposit', '5OtherExchange'],
-              edge_props: [
-                { amount_sum: 40, amount_usd_sum: 80, tx_count: 1, first_tx_id: '3-1' },
-                { amount_sum: 39, amount_usd_sum: 78, tx_count: 1, first_tx_id: '4-1' },
-              ],
-              node_labels: [['Address'], ['Address'], ['Address', 'Exchange']],
-              exchange_address: '5OtherExchange',
-              exchange_labels: ['Exchange'],
-              exchange_display_labels: ['Kraken'],
-              exchange_address_type: 'substrate',
-              hops: 2,
-            },
-          ],
-        },
-      ]))
-      .mockResolvedValueOnce(textResult([
-        {
-          id: 'direct_edge_props',
-          ok: true,
-          results: [
-            { src: '5Seed', dst: '5Deposit', amount_sum: 50, amount_usd_sum: 100, tx_count: 1, first_tx_id: '1-1' },
-            { src: '5Deposit', dst: '5Exchange', amount_sum: 49, amount_usd_sum: 98, tx_count: 1, first_tx_id: '2-1' },
-            { src: '5Seed', dst: '5OtherDeposit', amount_sum: 40, amount_usd_sum: 80, tx_count: 1, first_tx_id: '3-1' },
-            { src: '5OtherDeposit', dst: '5OtherExchange', amount_sum: 39, amount_usd_sum: 78, tx_count: 1, first_tx_id: '4-1' },
-          ],
-        },
-      ]))
-      .mockResolvedValueOnce(textResult([
-        {
-          id: 'backward_from_deposit_1',
-          ok: true,
-          results: [{
-            deposit_address: '5Deposit',
-            source_exchange: '5SourceExchange',
-            source_labels: ['Exchange'],
-            source_display_labels: ['Bitget'],
-            source_address_type: 'substrate',
-            hops: 2,
-            addresses: ['5Deposit', '5SourceMid', '5SourceExchange'],
-            node_labels: [['Address'], ['Address'], ['Address', 'Exchange']],
-            path_nodes: [
-              { address: '5Deposit', labels: ['deposit'], system_labels: ['Address'], address_type: 'substrate' },
-              { address: '5SourceMid', labels: ['source bridge'], system_labels: ['Address'], address_type: 'substrate' },
-              { address: '5SourceExchange', labels: ['Bitget'], system_labels: ['Address', 'Exchange'], address_type: 'substrate' },
-            ],
-          }],
-        },
-        { id: 'backward_from_deposit_2', ok: true, results: [] },
-      ]))
-      .mockResolvedValueOnce(textResult([
-        {
-          id: 'reverse_1hop',
-          ok: true,
-          results: [{
-            address: '5Lead',
-            labels: ['KnownEntity'],
-            system_labels: ['Address'],
-            address_type: 'substrate',
-            degree_in: 10,
-            degree_out: 1,
-            total_volume_usd: 200000,
-            deposit_address: '5Deposit',
-            amount_usd: 75,
-          }],
-        },
-      ]))
-
-    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
-      registerTool: ReturnType<typeof vi.fn>
-    }
-    const handler = findToolHandler(serverInstance, 'track_funds')
-    const result = await handler({
-      trusted_addresses: '5Seed',
-      network: 'bittensor',
-      max_hops: 5,
-      per_address_limit: 3,
-    })
-    const run = result.structuredContent.facts.runs[0]
-
-    expect(result.isError).toBe(false)
-    expect(run.continuation.depositAddresses).toEqual(['5Deposit', '5OtherDeposit'])
-    expect(run.continuation.exchangeAddresses).toEqual(['5Exchange', '5OtherExchange'])
-    expect(run.continuation.nextHopAddresses).toEqual([])
-    expect(run.address_map).toMatchObject({
-      V1: '5Seed',
-      D1: '5Deposit',
-      E1: '5Exchange',
-      D2: '5OtherDeposit',
-      E2: '5OtherExchange',
-      X1: '5SourceExchange',
-      I1: '5SourceMid',
-      L1: '5Lead',
-    })
-    expect(result.content[0].text).toContain('Deposit candidates: D1, D2')
-    expect(clientInstance.callTool).toHaveBeenCalledTimes(5)
-
-    expect(result._meta.chainInsights.graph.url).toContain('/graph-reports/')
-    expect(result._meta.chainInsights.graph).not.toHaveProperty('id')
-    expect(result._meta.chainInsights.graph.data).toBeUndefined()
-    const graphUrl = result._meta.chainInsights.graph.url as string
-    const filename = graphUrl.split('/graph-reports/')[1]
-    expect(filename).toMatch(/\.graph\.json$/)
-    const graphRaw = await readFile(join(testDataDir, 'reports', 'graphs', filename), 'utf8')
-    const graph = JSON.parse(graphRaw) as {
-      nodes: Array<Record<string, unknown> & { address: string; roles?: string[]; labels?: string[]; address_type?: string }>
-      edges: Array<Record<string, unknown> & { source?: string; target: string; terminal_exchange?: boolean; edge_type?: string; direction?: string }>
-    }
-    expect(graph.nodes[0]).toHaveProperty('node_type', 'address')
-    expect(graph.nodes[0]).not.toHaveProperty('entity_kind')
-    expect(graph.nodes[0]).not.toHaveProperty('raw_labels')
-    expect(graph.nodes[0]).not.toHaveProperty('address_type', 'wallet')
-    expect(graph.nodes.find((node) => node.address === '5Exchange')?.roles).toContain('exchange')
-    expect(graph.nodes.find((node) => node.address === '5Exchange')?.labels).toEqual(['Binance'])
-    expect(graph.nodes.find((node) => node.address === '5Exchange')?.address_type).toBe('substrate')
-    expect(graph.nodes.find((node) => node.address === '5Exchange')).not.toHaveProperty('raw_labels')
-    expect(graph.edges.find((edge) => edge.target === '5Exchange')?.terminal_exchange).toBe(true)
-    expect(graph.edges.find((edge) => edge.target === '5Exchange')?.edge_type).toBe('flows_to')
-    expect(graph.edges[0]).not.toHaveProperty('from_address')
-    expect(graph.edges[0]).not.toHaveProperty('to_address')
-    expect(graph.edges[0]).not.toHaveProperty('type')
-    expect(graph.nodes.find((node) => node.address === '5SourceExchange')?.roles).toContain('exchange')
-    expect(graph.nodes.find((node) => node.address === '5SourceExchange')?.labels).toEqual(['Bitget'])
-    expect(graph.nodes.find((node) => node.address === '5SourceExchange')?.address_type).toBe('substrate')
-    expect(graph.nodes.find((node) => node.address === '5SourceMid')?.labels).toEqual(['source bridge'])
-    expect(graph.edges.find((edge) => edge.source === '5SourceExchange' && edge.target === '5Deposit')).toBeUndefined()
-    expect(graph.edges.find((edge) => edge.source === '5SourceExchange' && edge.target === '5SourceMid')).toMatchObject({
-      edge_type: 'flows_to',
-      direction: 'traceback',
-    })
-    expect(graph.edges.find((edge) => edge.source === '5SourceMid' && edge.target === '5Deposit')).toMatchObject({
-      edge_type: 'flows_to',
-      direction: 'traceback',
-    })
-    expect(graph.nodes.find((node) => node.address === '5Lead')?.roles).toContain('lead')
   })
 
   it('registers local address_risk recipe with incorporated exchange behavior when remote is topology-query-only', async () => {
@@ -1371,7 +1226,193 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.graphData).toHaveProperty('schema', 'chain-insights.graph.v1')
   })
 
-  it('registers local track_funds recipe that preserves up to five trusted and untrusted addresses', async () => {
+  it('registers trace_suspect_funds without requiring incident_timestamp_ms', async () => {
+    runFundFlowProbeMock.mockResolvedValue({
+      summaryText: 'Trace complete for bittensor:5Suspect',
+      compactEvidence: {},
+      graphData: {
+        schema: 'chain-insights.graph.v1',
+        nodes: [
+          { id: '5Suspect', address: '5Suspect', node_type: 'address', roles: ['seed'] },
+          { id: '5Deposit', address: '5Deposit', node_type: 'address', roles: ['deposit_candidate'] },
+        ],
+        edges: [
+          { source: '5Suspect', target: '5Deposit', edge_type: 'flows_to', amount_sum: 9 },
+        ],
+        flows: [
+          { hop: 1, src: '5Suspect', dst: '5Deposit', amount_sum: 9, terminal_exchange: false },
+        ],
+        deposits: [],
+        source_matches: [],
+        reverse_leads: [],
+      },
+      files: {
+        schema: '/tmp/schema.json',
+        compactEvidence: '/tmp/compact.json',
+        graph: '/tmp/graph.json',
+        graphHtml: '/tmp/graph.html',
+        table: '/tmp/table.csv',
+        tableHtml: '/tmp/table.html',
+        report: '/tmp/report.md',
+      },
+      continuation: {
+        nextHopAddresses: [],
+        depositAddresses: ['5Deposit'],
+        exchangeAddresses: [],
+        hint: 'Found deposit candidates',
+      },
+      addressMap: { S1: '5Suspect', D1: '5Deposit' },
+    })
+
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query_batch', description: 'Cypher topology query batch' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'trace_suspect_funds')
+    const result = await handler({
+      suspect_addresses: ['5Suspect'],
+      network: 'bittensor',
+      max_hops: 2,
+    })
+
+    expect(result.isError).toBe(false)
+    expect(runFundFlowProbeMock).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
+      seedAddress: '5Suspect',
+      network: 'bittensor',
+      includeDepositTraceback: false,
+      evidenceSource: 'trace_suspect_funds',
+    }))
+    expect(result.structuredContent).toMatchObject({
+      schema: 'chain-insights.trace.v1',
+      tool: 'trace_suspect_funds',
+      input: {
+        addresses: ['5Suspect'],
+        seed_role: 'suspect',
+      },
+    })
+  })
+
+  it('trace_deposit_sources performs reverse tracing and reports shared upstream convergence', async () => {
+    const { traceDepositSources } = await import('../src/investigation/public-tools.js')
+    const remoteClient = {
+      callTool: vi.fn().mockResolvedValueOnce({
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            facts: {
+              queries: [
+                {
+                  id: 'reverse_deposit_sources_1',
+                  ok: true,
+                  results: [
+                    {
+                      source_address: '5SharedSource',
+                      deposit_address: '5DepositA',
+                      hop: 1,
+                      addresses: ['5SharedSource', '5DepositA'],
+                      amount_sum: 11,
+                      first_tx_id: 'a-1',
+                    },
+                    {
+                      source_address: '5SharedSource',
+                      deposit_address: '5DepositB',
+                      hop: 1,
+                      addresses: ['5SharedSource', '5DepositB'],
+                      amount_sum: 12,
+                      first_tx_id: 'b-1',
+                    },
+                    {
+                      source_address: '5ExchangeHot',
+                      deposit_address: '5DepositA',
+                      source_is_exchange: true,
+                      deposit_is_exchange: null,
+                      hop: 1,
+                      addresses: ['5ExchangeHot', '5DepositA'],
+                      path_nodes: [
+                        { address: '5ExchangeHot', labels: ['Kraken Hot', 'exchange'], is_exchange: true },
+                        { address: '5DepositA', is_exchange: null },
+                      ],
+                      amount_sum: 13,
+                      first_tx_id: 'c-1',
+                    },
+                    {
+                      source_address: '5ExchangeHot',
+                      deposit_address: '5DepositB',
+                      source_is_exchange: true,
+                      deposit_is_exchange: null,
+                      hop: 1,
+                      addresses: ['5ExchangeHot', '5DepositB'],
+                      path_nodes: [
+                        { address: '5ExchangeHot', labels: ['Kraken Hot', 'exchange'], is_exchange: true },
+                        { address: '5DepositB', is_exchange: null },
+                      ],
+                      amount_sum: 14,
+                      first_tx_id: 'd-1',
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        }],
+        isError: false,
+      }),
+    }
+
+    const result = await traceDepositSources(remoteClient as never, { dataDir: testDataDir, serverPort: 4321 }, {
+      depositAddresses: ['5DepositA', '5DepositB'],
+      network: 'bittensor',
+      maxHops: 1,
+    })
+
+    expect(remoteClient.callTool).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'graph_query_batch',
+      arguments: expect.objectContaining({
+        network: 'bittensor',
+      }),
+    }), undefined, expect.anything())
+    const query = remoteClient.callTool.mock.calls[0]?.[0].arguments.queries[0].query as string
+    expect(query).toContain('MATCH (source:Address)-[r1:FLOWS_TO]->(deposit:Address)')
+    expect(query).toContain('deposit.address = "5DepositA"')
+    expect(query).toContain('deposit.address = "5DepositB"')
+    expect(query).toContain('source.is_exchange IS NULL')
+    expect(query).toContain('deposit.is_exchange IS NULL')
+    expect(result.structuredContent).toMatchObject({
+      schema: 'chain-insights.trace.v1',
+      tool: 'trace_deposit_sources',
+      input: {
+        addresses: ['5DepositA', '5DepositB'],
+        seed_role: 'deposit',
+      },
+      continuation: {
+        candidate_suspect_addresses: ['5SharedSource'],
+      },
+    })
+    expect(result.structuredContent.continuation.candidate_suspect_addresses).not.toContain('5ExchangeHot')
+    expect(result.structuredContent.candidate_labels).not.toContainEqual(expect.objectContaining({
+      address: '5ExchangeHot',
+      candidate_label: 'candidate_suspect',
+    }))
+    expect(result.structuredContent.convergence).toContainEqual(expect.objectContaining({
+      address: '5SharedSource',
+      path_ids: expect.arrayContaining([expect.any(String)]),
+    }))
+    expect(result.structuredContent.artifacts.table_json).toMatch(/\.compact-evidence\.json$/)
+    expect(result.structuredContent.artifacts.table_html).toMatch(/\.table\.html$/)
+    expect(existsSync(result.structuredContent.artifacts.table_json as string)).toBe(true)
+    expect(existsSync(result.structuredContent.artifacts.table_html as string)).toBe(true)
+  })
+
+  it('registers local trace_victim_funds recipe that preserves up to five victim addresses and does not trace known suspects', async () => {
     runFundFlowProbeMock.mockResolvedValue({
       summaryText: 'Trace complete for bittensor:5Victim',
       compactEvidence: {},
@@ -1414,24 +1455,34 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
-    const handler = findToolHandler(serverInstance, 'track_funds')
+    const handler = findToolHandler(serverInstance, 'trace_victim_funds')
     const result = await handler({
-      trusted_addresses: ['5Victim', '5Victim2'],
-      untrusted_addresses: ['5Scammer'],
+      victim_addresses: ['5Victim', '5Victim2'],
+      known_suspect_addresses: ['5Scammer'],
       network: 'bittensor',
       case_id: mockCase.id,
     })
 
     expect(result.isError).toBe(false)
-    expect(result.content[0].text).toContain('Track funds complete')
-    expect(runFundFlowProbeMock).toHaveBeenCalledTimes(3)
+    expect(result.content[0].text).toContain('Trace victim funds complete')
+    expect(runFundFlowProbeMock).toHaveBeenCalledTimes(2)
     expect(runFundFlowProbeMock).toHaveBeenNthCalledWith(1, expect.anything(), expect.anything(), expect.objectContaining({
       seedAddress: '5Victim',
       network: 'bittensor',
       caseId: mockCase.id,
+      includeDepositTraceback: false,
+      evidenceSource: 'trace_victim_funds',
     }))
-    expect(result.structuredContent.facts.trusted_addresses).toEqual(['5Victim', '5Victim2'])
-    expect(result.structuredContent.facts.untrusted_addresses).toEqual(['5Scammer'])
+    expect(result.structuredContent.input.addresses).toEqual(['5Victim', '5Victim2'])
+    expect(result.structuredContent.artifacts.runs).toEqual([
+      expect.objectContaining({ role: 'victim', address: '5Victim', graph_json: '/tmp/graph.json' }),
+      expect.objectContaining({ role: 'victim', address: '5Victim2', graph_json: '/tmp/graph.json' }),
+    ])
+    expect(result.structuredContent.candidate_labels).toContainEqual(expect.objectContaining({
+      address: '5Deposit',
+      candidate_label: 'candidate_deposit',
+      promote_to_core_label: false,
+    }))
     const graphUrl = result._meta.chainInsights.graph.url as string
     const filename = graphUrl.split('/graph-reports/')[1]
     expect(filename).toMatch(/\.graph\.json$/)
@@ -1441,241 +1492,17 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       reverse_leads?: Array<Record<string, unknown>>
     }
     expect(graph.deposits).toEqual([
-      expect.objectContaining({ address: '5Deposit', run_role: 'trusted', run_address: '5Victim' }),
-      expect.objectContaining({ address: '5Deposit', run_role: 'trusted', run_address: '5Victim2' }),
-      expect.objectContaining({ address: '5Deposit', run_role: 'untrusted', run_address: '5Scammer' }),
+      expect.objectContaining({ address: '5Deposit', run_role: 'victim', run_address: '5Victim' }),
+      expect.objectContaining({ address: '5Deposit', run_role: 'victim', run_address: '5Victim2' }),
     ])
     expect(graph.source_matches).toEqual([
-      expect.objectContaining({ source_exchange: '5SourceExchange', run_role: 'trusted', run_address: '5Victim' }),
-      expect.objectContaining({ source_exchange: '5SourceExchange', run_role: 'trusted', run_address: '5Victim2' }),
-      expect.objectContaining({ source_exchange: '5SourceExchange', run_role: 'untrusted', run_address: '5Scammer' }),
+      expect.objectContaining({ source_exchange: '5SourceExchange', run_role: 'victim', run_address: '5Victim' }),
+      expect.objectContaining({ source_exchange: '5SourceExchange', run_role: 'victim', run_address: '5Victim2' }),
     ])
     expect(graph.reverse_leads).toEqual([
-      expect.objectContaining({ address: '5Lead', run_role: 'trusted', run_address: '5Victim' }),
-      expect.objectContaining({ address: '5Lead', run_role: 'trusted', run_address: '5Victim2' }),
-      expect.objectContaining({ address: '5Lead', run_role: 'untrusted', run_address: '5Scammer' }),
+      expect.objectContaining({ address: '5Lead', run_role: 'victim', run_address: '5Victim' }),
+      expect.objectContaining({ address: '5Lead', run_role: 'victim', run_address: '5Victim2' }),
     ])
-  })
-
-  it('registers scam_topology and writes graph reports with scam labels', async () => {
-    runFundFlowProbeMock.mockResolvedValue({
-      summaryText: 'Trace complete for bittensor:5Victim',
-      compactEvidence: {},
-      graphData: {
-        schema: 'chain-insights.graph.v1',
-        nodes: [
-          { id: '5Victim', address: '5Victim', node_type: 'address', roles: ['seed'] },
-          { id: '5Hop', address: '5Hop', node_type: 'address' },
-          { id: '5Deposit', address: '5Deposit', node_type: 'address', roles: ['deposit_candidate'] },
-          { id: '5Exchange', address: '5Exchange', node_type: 'address', roles: ['exchange'] },
-        ],
-        edges: [
-          { source: '5Victim', target: '5Hop', edge_type: 'flows_to', amount_sum: 10 },
-          { source: '5Hop', target: '5Deposit', edge_type: 'flows_to', amount_sum: 9 },
-          { source: '5Deposit', target: '5Exchange', edge_type: 'flows_to', amount_sum: 8, terminal_exchange: true },
-        ],
-        flows: [
-          { hop: 1, src: '5Victim', dst: '5Hop', amount_sum: 10, terminal_exchange: false },
-          { hop: 2, src: '5Hop', dst: '5Deposit', amount_sum: 9, terminal_exchange: false },
-          { hop: 3, src: '5Deposit', dst: '5Exchange', amount_sum: 8, terminal_exchange: true },
-        ],
-        deposits: [{
-          address: '5Deposit',
-          exchangeAddress: '5Exchange',
-          amount_sum: 8,
-          hops: 3,
-          path: ['5Victim', '5Hop', '5Deposit', '5Exchange'],
-        }],
-        reverse_leads: [],
-        edge_anchors: [],
-      },
-      files: {
-        schema: '/tmp/schema.json',
-        compactEvidence: '/tmp/compact.json',
-        graph: '/tmp/graph.json',
-        graphHtml: '/tmp/graph.html',
-        table: '/tmp/table.csv',
-        tableHtml: '/tmp/table.html',
-        report: '/tmp/report.md',
-      },
-      continuation: {
-        nextHopAddresses: [],
-        depositAddresses: ['5Deposit'],
-        exchangeAddresses: ['5Exchange'],
-        hint: 'Found deposit candidates',
-      },
-      addressMap: { S1: '5Victim', D1: '5Deposit', E1: '5Exchange' },
-    })
-
-    const { loadSchema } = await import('../src/mcp/schema-cache.js')
-    vi.mocked(loadSchema).mockResolvedValueOnce([
-      { name: 'graph_query_batch', description: 'Cypher topology query batch' },
-    ])
-
-    const { createProxy } = await import('../src/mcp/proxy.js')
-    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
-    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
-
-    await createProxy()
-
-    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
-      registerTool: ReturnType<typeof vi.fn>
-    }
-    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
-      callTool: ReturnType<typeof vi.fn>
-    }
-    clientInstance.callTool.mockResolvedValue({
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          schema: 'chain-insights.result.v1',
-          tool: 'graph_query_batch',
-          facts: { queries: [] },
-        }),
-      }],
-      isError: false,
-    })
-    clientInstance.callTool.mockResolvedValueOnce({
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          schema: 'chain-insights.result.v1',
-          tool: 'graph_query_batch',
-          facts: { queries: [{
-            id: 'incident_hop_1',
-            ok: true,
-            results: [{
-              src: '5Victim',
-              dst: '5Deposit',
-              amount_sum: 10,
-              tx_count: 1,
-              src_labels: [],
-              dst_labels: [],
-            }],
-          }] },
-        }),
-      }],
-      isError: false,
-    })
-    clientInstance.callTool.mockResolvedValueOnce({
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          schema: 'chain-insights.result.v1',
-          tool: 'graph_query_batch',
-          facts: { queries: [{
-            id: 'incident_hop_2',
-            ok: true,
-            results: [{
-              src: '5Deposit',
-              dst: '5Exchange',
-              amount_sum: 8,
-              tx_count: 1,
-              src_labels: [],
-              dst_labels: ['exchange'],
-              dst_is_exchange: true,
-            }],
-          }] },
-        }),
-      }],
-      isError: false,
-    })
-    clientInstance.callTool.mockResolvedValueOnce({
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          schema: 'chain-insights.result.v1',
-          tool: 'graph_query_batch',
-          facts: { queries: [{
-            id: 'incident_deposit_cluster_1',
-            ok: true,
-            results: [],
-          }] },
-        }),
-      }],
-      isError: false,
-    })
-    const toolNames = serverInstance.registerTool.mock.calls.map((entry) => entry[0])
-    expect(toolNames).toContain('scam_topology')
-
-    const toolConfig = findToolConfig(serverInstance, 'scam_topology')
-    const inputSchema = toolConfig.inputSchema as Record<string, z.ZodTypeAny>
-    expect(inputSchema.victim_address.safeParse('5Victim').success).toBe(true)
-    expect(inputSchema.incident_timestamp_ms.safeParse(1715532228001).success).toBe(true)
-    expect(inputSchema.incident_timestamp_ms.safeParse(-1).success).toBe(false)
-    expect(inputSchema.max_hops.safeParse(16).success).toBe(true)
-    expect(inputSchema.max_hops.safeParse(65).success).toBe(false)
-    expect(inputSchema.activity_policy.safeParse('node_relative_only').success).toBe(true)
-    expect(inputSchema.activity_policy.safeParse('global_incident_only').success).toBe(true)
-    expect(inputSchema.activity_policy.safeParse('compare').success).toBe(false)
-    expect(inputSchema.case_id.safeParse(mockCase.id).success).toBe(true)
-    expect(inputSchema.compare_activity_policies).toBeUndefined()
-    expect(inputSchema.scope).toBeUndefined()
-    expect(inputSchema.since_timestamp_ms).toBeUndefined()
-    expect(inputSchema.scammer_addresses).toBeUndefined()
-
-    const handler = findToolHandler(serverInstance, 'scam_topology')
-    const result = await handler({
-      victim_address: '5Victim',
-      network: 'bittensor',
-      incident_timestamp_ms: 1715532228001,
-      max_hops: 4,
-      activity_policy: 'global_incident_only',
-      case_id: mockCase.id,
-    })
-
-    expect(result.isError).toBe(false)
-    expect(result.content[0].text).toContain('Scam topology complete for bittensor')
-    expect(result.structuredContent.tool).toBe('scam_topology')
-    expect(result.structuredContent.facts.scam_labels).toEqual(expect.arrayContaining([
-      expect.objectContaining({ address: '5Deposit', scam: true, source_victim_address: '5Victim' }),
-    ]))
-    expect(result.structuredContent.facts.label_candidates).toEqual(expect.arrayContaining([
-      expect.objectContaining({ address: '5Deposit', address_subtype: 'exchange_deposit_candidate' }),
-    ]))
-    expect(result.structuredContent.facts.runs).toEqual(expect.arrayContaining([
-      expect.objectContaining({ activity_policy: 'global_incident', primary: true }),
-    ]))
-    expect(clientInstance.callTool.mock.calls[0]?.[0].arguments.queries[0].query)
-      .toContain('r.last_seen_timestamp >= 1715532228001')
-    expect(clientInstance.callTool.mock.calls[2]?.[0].arguments.queries[0].id)
-      .toBe('incident_deposit_cluster_1')
-    expect(evidenceAppendMock).toHaveBeenCalledWith(
-      mockCase.id,
-      expect.objectContaining({
-        source: 'scam_topology',
-        content: expect.stringContaining('"schema": "chain-insights.evidence_pointer.v1"'),
-      }),
-    )
-    const graphUrl = result._meta.chainInsights.graph.url as string
-    const filename = graphUrl.split('/graph-reports/')[1]
-    expect(filename).toMatch(/\.graph\.json$/)
-    const graph = JSON.parse(await readFile(join(testDataDir, 'reports', 'graphs', filename), 'utf8')) as {
-      nodes?: Array<Record<string, unknown>>
-      flows?: Array<Record<string, unknown>>
-      deposits?: Array<Record<string, unknown>>
-      source_matches?: Array<Record<string, unknown>>
-      reverse_leads?: Array<Record<string, unknown>>
-      scam_topology?: unknown
-      topology_edges?: unknown
-    }
-    expect(graph.scam_topology).toBeUndefined()
-    expect(graph.topology_edges).toBeUndefined()
-    expect(graph.source_matches).toEqual([])
-    expect(graph.reverse_leads).toEqual([])
-    expect(graph.deposits).toEqual([
-      expect.objectContaining({ address: '5Deposit', exchangeAddress: '5Exchange', path: ['5Victim', '5Deposit', '5Exchange'] }),
-    ])
-    expect(graph.flows).toEqual(expect.arrayContaining([
-      expect.objectContaining({ src: '5Deposit', dst: '5Exchange', terminal_exchange: true }),
-    ]))
-    const depositNode = graph.nodes?.find((node) => node['address'] === '5Deposit')
-    expect(depositNode).toEqual(expect.objectContaining({ address: '5Deposit', scam: true }))
-    // Confidence is hop-and-value decayed and bounded by the deposit base (0.68).
-    const depositConfidence = depositNode?.['scam_confidence']
-    expect(typeof depositConfidence).toBe('number')
-    expect(depositConfidence as number).toBeGreaterThan(0)
-    expect(depositConfidence as number).toBeLessThanOrEqual(0.68)
   })
 
   it('registers stake_insights and writes graph reports from STAKES_IN rows', async () => {
@@ -1879,7 +1706,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     expect(promptNames).toEqual(expect.arrayContaining([
       'address-risk',
-      'track-funds',
+      'trace-tools',
       'graph-query',
       'graph-query-batch',
       'balance',
@@ -1893,11 +1720,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(promptNames).not.toContain('address-poisoning-funding-probe')
 
     const addressRiskPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'address-risk')
-    const trackFundsPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'track-funds')
+    const traceToolsPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'trace-tools')
     expect(addressRiskPrompt?.[1].argsSchema.network.safeParse(undefined).success).toBe(false)
-    expect(trackFundsPrompt?.[1].argsSchema.network.safeParse(undefined).success).toBe(false)
+    expect(traceToolsPrompt?.[1].argsSchema.network.safeParse(undefined).success).toBe(false)
     expect(addressRiskPrompt?.[1].argsSchema.network.description).toContain('Do not guess')
-    expect(trackFundsPrompt?.[1].argsSchema.network.description).toContain('Do not guess')
+    expect(traceToolsPrompt?.[1].argsSchema.network.description).toContain('Do not guess')
   })
 
   it('forwards GraphRAG prompt requests to the remote MCP prompt implementation', async () => {
@@ -2043,9 +1870,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       {
-        name: 'track_funds',
-        title: 'Track Funds',
-        description: 'Fund tracing',
+        name: 'trace_victim_funds',
+        title: 'Trace Victim Funds',
+        description: 'Victim fund tracing',
         _meta: { ui: { resourceUri: 'ui://chain-insights/graph' } },
       },
     ])
@@ -2062,18 +1889,18 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
-    const handler = findToolHandler(serverInstance, 'track_funds')
+    const handler = findToolHandler(serverInstance, 'trace_victim_funds')
     await handler({
-      trusted_addresses: ['5VictimA', '5VictimB'],
-      untrusted_addresses: ['5Scammer'],
+      victim_addresses: ['5VictimA', '5VictimB'],
+      known_suspect_addresses: ['5Scammer'],
       network: 'bittensor',
     })
 
     expect(clientInstance.callTool).toHaveBeenCalledWith({
-      name: 'track_funds',
+      name: 'trace_victim_funds',
       arguments: {
-        trusted_addresses: '5VictimA,5VictimB',
-        untrusted_addresses: '5Scammer',
+        victim_addresses: '5VictimA,5VictimB',
+        known_suspect_addresses: '5Scammer',
         network: 'bittensor',
       },
     })

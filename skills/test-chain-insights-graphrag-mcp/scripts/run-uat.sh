@@ -182,7 +182,7 @@ const required = ['network_capabilities', 'graph_query', 'graph_query_batch']
 const missing = required.filter((name) => !names.has(name))
 if (missing.length) throw new Error(`direct tools/list missing tools: ${missing.join(', ')}`)
 if (JSON.stringify(tools).includes('app_data')) throw new Error('direct tools/list still contains app_data')
-const hasHighLevel = ['address_risk', 'track_funds'].every((name) => names.has(name))
+const hasHighLevel = ['address_risk', 'trace_victim_funds'].every((name) => names.has(name))
 fs.writeFileSync(highLevelFile, hasHighLevel ? 'yes\n' : 'no\n')
 console.log(`[uat] direct tools/list ok: ${tools.length} tools (${hasHighLevel ? 'high-level' : 'primitive-only'})`)
 NODE
@@ -244,15 +244,15 @@ const file = process.argv[2]
 const data = JSON.parse(fs.readFileSync(file, 'utf8'))
 const tools = data.tools || []
 const names = new Set(tools.map((tool) => tool.name))
-const required = ['balance', 'help', 'address_risk', 'stake_insights', 'track_funds', 'scam_topology', 'network_capabilities', 'graph_query', 'graph_query_batch']
+const required = ['balance', 'help', 'address_risk', 'stake_insights', 'trace_victim_funds', 'trace_suspect_funds', 'trace_deposit_sources', 'network_capabilities', 'graph_query', 'graph_query_batch']
 const missing = required.filter((name) => !names.has(name))
 if (missing.length) throw new Error(`proxy tools/list missing tools: ${missing.join(', ')}`)
-for (const hidden of ['topup', 'trace_funds', 'money_flows_between_exchanges', 'address_connection_risk']) {
+for (const hidden of ['topup', 'trace_funds', 'track_funds', 'scam_topology', 'money_flows_between_exchanges', 'address_connection_risk']) {
   if (names.has(hidden)) throw new Error(`proxy tools/list exposed hidden tool: ${hidden}`)
 }
 if (JSON.stringify(tools).includes('app_data')) throw new Error('proxy tools/list still contains app_data')
 const graphTools = tools.filter((tool) => tool._meta?.ui?.resourceUri === 'ui://chain-insights/graph').map((tool) => tool.name)
-for (const name of ['address_risk', 'stake_insights', 'track_funds', 'scam_topology']) {
+for (const name of ['address_risk', 'stake_insights', 'trace_victim_funds', 'trace_suspect_funds', 'trace_deposit_sources']) {
   if (!graphTools.includes(name)) throw new Error(`proxy graph app metadata missing for ${name}`)
 }
 console.log(`[uat] proxy tools/list ok: ${tools.length} tools`)

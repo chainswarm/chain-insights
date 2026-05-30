@@ -96,8 +96,16 @@ Remote graph tools are discovered from the configured GraphRAG MCP endpoint. The
 expected primitive graph tools are `usage_status`, `graph_query`, and
 `graph_query_batch`.
 Chain Insights adds high-level local graph recipes such as `address_risk`,
-`stake_insights`, `track_funds`, and `scam_topology` when the remote endpoint
-only exposes primitives.
+`stake_insights`, `trace_victim_funds`, `trace_deposit_sources`, and
+`trace_suspect_funds` when the remote endpoint only exposes primitives.
+
+The trace tools share `chain-insights.trace.v1` and are role-specific:
+
+- `trace_victim_funds` for victim/source forward tracing.
+- `trace_deposit_sources` for reverse traceback from suspected deposit
+  endpoints.
+- `trace_suspect_funds` for suspect-controlled outbound laundering/cashout
+  topology.
 
 ## Auth Modes
 
@@ -132,6 +140,11 @@ current caller's quota status. Public free access does not include
 usage and batches. Use explicit LIMIT and pagination in your query when you
 want bounded result sets.
 
+For custom graph reads, install the shipped `chain-insights-cypher` skill. Its
+Memgraph examples reference distinguishes staging-tested GraphRAG MCP query
+patterns from direct Memgraph deep traversal syntax that needs a fixed-hop
+`graph_query_batch` fallback through the hosted endpoint.
+
 Paid x402 mode:
 
 ```bash
@@ -164,6 +177,11 @@ directory and registers the stdio MCP proxy in the Hermes config.
 
 After installing, open an initialized investigation workspace in the agent and
 operate over the workspace files.
+
+For manual graph-language work, agents should use the shipped
+`chain-insights-cypher` skill. For Bittensor queries, load
+`chain-insights-bittensor-cypher` after the generic skill so SS58 and
+EVM-pallet addresses stay under `network=bittensor`.
 
 ## Claude Desktop
 
