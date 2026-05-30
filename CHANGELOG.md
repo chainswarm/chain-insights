@@ -2,6 +2,11 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.2] - 2026-05-30
+
+- Added `AGENTS.md` as the Codex-facing twin of `CLAUDE.md` and documented
+  that both agent entrypoints must stay byte-identical.
+
 ## [0.3.1] - 2026-05-30
 
 - Tightened trace traversal boundaries so exchange hot wallets are terminal
