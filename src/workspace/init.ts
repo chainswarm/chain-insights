@@ -1,6 +1,7 @@
 import { access, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { LOCAL_GRAPH_MCP_ENDPOINT } from '../config/mcp-endpoint.js'
+import { assertNoVaultFileCollisions, scaffoldVault } from '../vault/index.js'
 
 export interface InitWorkspaceOptions {
   targetDir: string
@@ -24,6 +25,7 @@ const WORKSPACE_DIRS = [
   'reports/graphs',
   'reports/tables',
   'templates',
+  'published',
 ]
 
 function todayIso(): string {
@@ -45,9 +47,11 @@ function workspaceJson(workspaceRoot: string): string {
   }, null, 2) + '\n'
 }
 
-const README = `# Chain Insights Investigations
+const README = `# Chain Insights Investigation Vault
 
-This is a workspace for Chain Insights AML investigations.
+This is a Chain Insights AML investigation workspace and Obsidian-compatible vault.
+Open this directory in Obsidian to review cases, entities, evidence, graphs, and
+published investigation bundles alongside the Chain Insights runtime metadata.
 
 ## Start
 
@@ -66,9 +70,14 @@ reports/           Final or interim analyst reports
 reports/graphs/    Graph JSON for visualization
 reports/tables/    Compact tabular extracts
 templates/         Reusable case/report templates
+published/         Obsidian-ready case exports and published bundles
 .chain-insights/schema/         Runtime graph schema captures
 .chain-insights/runtime/        Workspace-local runtime process state and debug logs
 .chain-insights/runtime-skill/  Workspace-specific agent schema notes
+.obsidian/         Obsidian vault configuration
+Canvases/          Obsidian canvases for graph review
+Entities/          Entity notes and indexes
+Evidence/          Evidence notes and indexes
 \`\`\`
 `
 
@@ -257,6 +266,7 @@ export async function initWorkspace(options: InitWorkspaceOptions): Promise<Init
   const workspaceRoot = path.resolve(options.targetDir)
   if (!options.force) {
     await assertNoFileCollisions(workspaceRoot)
+    await assertNoVaultFileCollisions(workspaceRoot)
   }
 
   for (const dir of WORKSPACE_DIRS) {
@@ -277,6 +287,9 @@ export async function initWorkspace(options: InitWorkspaceOptions): Promise<Init
       throw err
     }
   }
+
+  const vault = await scaffoldVault({ workspaceRoot, force: options.force })
+  filesWritten.push(...vault.filesWritten)
 
   return { workspaceRoot, filesWritten }
 }

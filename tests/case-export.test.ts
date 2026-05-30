@@ -28,7 +28,7 @@ describe('case export service', () => {
     vi.resetModules()
   })
 
-  it('exports a private Obsidian and LLMWiki bundle for a verified case', async () => {
+  it('exports a private Obsidian and LLM Wiki bundle for a verified case', async () => {
     const { CaseStore, DossierStore, EvidenceStore, SessionStore } = await import('../src/cases/index.js')
     const { exportCase } = await import('../src/export/index.js')
 
@@ -56,6 +56,15 @@ describe('case export service', () => {
     expect(existsSync(join(result.outputDir, 'llms.txt'))).toBe(true)
     expect(existsSync(join(result.outputDir, 'Agent Console.md'))).toBe(true)
     expect(existsSync(join(result.outputDir, 'Prompts', 'Codex.md'))).toBe(true)
+
+    const readme = await readFile(join(result.outputDir, 'README.md'), 'utf8')
+    expect(readme).toContain('Open this directory as an Obsidian vault')
+    expect(readme).toContain('LLM Wiki')
+    expect(readme).toContain('Agent Console.md')
+
+    const agentConsole = await readFile(join(result.outputDir, 'Agent Console.md'), 'utf8')
+    expect(agentConsole).toContain('Treat Chain Insights case evidence and manifests as canonical')
+    expect(agentConsole).toContain('Preserve full blockchain addresses exactly')
 
     const manifest = JSON.parse(await readFile(join(result.outputDir, 'manifest.chain-insights.json'), 'utf8')) as {
       schema: string

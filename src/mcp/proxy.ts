@@ -82,12 +82,12 @@ const REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS = 15 * 60 * 1000
 
 const CHAIN_INSIGHTS_WORKFLOW = [
   'Workflow:',
-  '1. If the user is starting or continuing an investigation, use case_open or case_list/case_resume first.',
+  '1. Chain Insights workspaces are Obsidian-compatible vaults. If the user is starting or continuing an investigation, use case_open or case_list/case_resume first.',
   '2. Do not call investigation tools until required arguments are known. Network is required; use network_capabilities to check supported networks, data layers, retention, and freshness, or ask the user if missing.',
   '3. Use address_risk for single-address enrichment. Use trace_victim_funds for victim/source forward tracing, trace_deposit_sources for reverse traceback from suspected deposit endpoints, and trace_suspect_funds for suspect-controlled outbound laundering/cashout topology. Use stake_insights for Bittensor staking behavior. Use graph_query(_batch) only when the high-level trace tools do not answer the exact question.',
   '4. After a material result, preserve it with case_add_evidence when a case is active or ask whether to create/select a case.',
   '5. Use case_update_dossier for durable address/entity findings and case_start_session/case_end_session for session notes.',
-  '6. When a case reaches a useful checkpoint, use case_verify_evidence and case_export to produce Obsidian, LLMWiki, Codex, Claude Code, and ChatGPT-ready files.',
+  '6. For local review, use live vault notes refreshed with cia case vault refresh. When a case reaches a sharing or archive checkpoint, use case_verify_evidence and case_export to produce Obsidian, LLM Wiki, Codex, Claude Code, and ChatGPT-ready handoff bundles.',
 ].join('\n')
 
 const GRAPH_SCHEMA_HINTS = [
@@ -1195,7 +1195,7 @@ export async function createProxy(): Promise<void> {
   server.registerTool(
     'case_export',
     {
-      description: 'Export a Chain Insights case to an Obsidian, LLMWiki, Codex, Claude Code, and ChatGPT-friendly local bundle.',
+      description: 'Export a Chain Insights case to an Obsidian, LLM Wiki, Codex, Claude Code, and ChatGPT-friendly handoff bundle.',
       inputSchema: {
         case_id: z.string().min(1).describe('Chain Insights case ID to export'),
         target: z.enum(['obsidian-llmwiki']).optional().describe('Export target. Default obsidian-llmwiki.'),
@@ -1752,7 +1752,7 @@ export async function createProxy(): Promise<void> {
         {
           type: 'text' as const,
           text: [
-            'Chain Insights AML investigation workspace for AI agents.',
+            'Chain Insights AML investigation workspace for AI agents. Workspaces are Obsidian-compatible vaults backed by plain local files.',
             '',
             CHAIN_INSIGHTS_WORKFLOW,
             '',
@@ -1772,7 +1772,7 @@ export async function createProxy(): Promise<void> {
             '- case_resume: load case context, evidence count, dossiers, and latest session.',
             '- case_add_evidence: append a report or note to the case evidence manifest.',
             '- case_verify_evidence: verify saved evidence integrity.',
-            '- case_export: export a case for Obsidian, LLMWiki, Codex, Claude Code, and ChatGPT.',
+            '- case_export: export a case for Obsidian, LLM Wiki, Codex, Claude Code, and ChatGPT handoff bundles.',
             '- case_update_dossier: add a finding to an address/entity dossier.',
             '- case_start_session and case_end_session: record session notes.',
             '',

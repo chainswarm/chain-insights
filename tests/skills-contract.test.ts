@@ -42,7 +42,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('generated fixed-depth `FLOWS_TO` query batches')
     expect(skill).toContain('exchange hot wallets are terminal endpoints only')
     expect(skill).toContain('cia case export')
-    expect(skill).toContain('LLMWiki')
+    expect(skill).toContain('LLM Wiki')
     expect(skill).not.toContain('track_funds')
     expect(skill).not.toContain('scam_topology')
     expect(skill).not.toContain('Use `trace_funds`')
@@ -223,16 +223,45 @@ describe('shipped Chain Insights skills contract', () => {
     expectNoRetiredHostedMcpHost(readme + mcpProxy + read('docs/architecture.md'))
   })
 
-  it('documents Obsidian, LLM Wiki, and agent knowledge export setup', () => {
+  it('positions Chain Insights as an Obsidian-first investigation vault', () => {
+    const readme = read('README.md')
+    const obsidianVault = read('docs/obsidian-vault.md')
     const knowledgeExports = read('docs/knowledge-exports.md')
+    const investigation = read('docs/investigation-workspaces.md')
+    const mcpProxy = read('docs/mcp-proxy.md')
+    const graphTools = read('docs/graph-tools.md')
+    const proxy = read('src/mcp/proxy.ts')
+
+    expect(readme).toContain('Create an investigation vault')
+    expect(readme).toContain('cia obsidian open .')
+    expect(readme).toContain('[Obsidian vault workflow](docs/obsidian-vault.md)')
+    expect(readme).toContain('Export Only When Sharing')
+
+    expect(obsidianVault).toContain('cia init .')
+    expect(obsidianVault).toContain('cia case vault refresh')
+    expect(obsidianVault).toContain('cia obsidian open')
+    expect(obsidianVault).toContain('VS Code')
+    expect(obsidianVault).toContain('Codex')
+    expect(obsidianVault).toContain('LLM Wiki')
+    expect(obsidianVault).toContain('Obsidian plugin is not required')
+
+    for (const content of [knowledgeExports, investigation, mcpProxy, graphTools, proxy]) {
+      expect(content).toContain('Obsidian-compatible vault')
+    }
+  })
+
+  it('documents Obsidian-first vaults, LLM Wiki, and agent knowledge export setup', () => {
+    const knowledgeExports = read('docs/knowledge-exports.md')
+    const obsidianVault = read('docs/obsidian-vault.md')
     const readme = read('README.md')
     const graphTools = read('docs/graph-tools.md')
     const investigation = read('docs/investigation-workspaces.md')
     const mcpProxy = read('docs/mcp-proxy.md')
 
-    expect(knowledgeExports).toContain('npm install -g chain-insights')
-    expect(knowledgeExports).toContain('https://obsidian.md/download')
-    expect(knowledgeExports).toContain('Open folder as vault')
+    expect(obsidianVault).toContain('npm install -g chain-insights')
+    expect(obsidianVault).toContain('https://obsidian.md/download')
+    expect(obsidianVault).toContain('Open folder as vault')
+    expect(obsidianVault).toContain('cia case vault refresh 1 --force')
     expect(knowledgeExports).toContain('claude plugin install wiki@llm-wiki')
     expect(knowledgeExports).toContain('codex plugin marketplace add nvk/llm-wiki')
     expect(knowledgeExports).toContain('https://raw.githubusercontent.com/nvk/llm-wiki/master/AGENTS.md')

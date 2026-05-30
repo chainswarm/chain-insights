@@ -168,6 +168,31 @@ program
   })
 
 program
+  .command('obsidian')
+  .description('Manage the local Obsidian investigation vault')
+  .addCommand(
+    new Command('open')
+      .description('Open the current Chain Insights vault in Obsidian')
+      .argument('[path]', 'Workspace path to open as an Obsidian vault')
+      .action(async (workspacePath?: string) => {
+        try {
+          const { findActiveWorkspace } = await import('./workspace/active.js')
+          const workspace = workspacePath ? path.resolve(workspacePath) : findActiveWorkspace()?.root
+          if (!workspace) {
+            console.error('No Chain Insights workspace found. Run: cia init .')
+            process.exit(1)
+          }
+          const open = (await import('open')).default
+          await open(workspace, { app: { name: 'obsidian' }, wait: false })
+        } catch (err) {
+          console.error((err as Error).message)
+          console.error('Open Obsidian manually and choose "Open folder as vault" for this workspace.')
+          process.exit(1)
+        }
+      })
+  )
+
+program
   .command('debug')
   .description('Configure Graph MCP debug mode')
   .addCommand(
@@ -892,6 +917,17 @@ const caseCommand = new Command('case')
           console.log(`Case opened: ${c.id}`)
           console.log(`Directory:   ${path.join(casesRoot(), c.id)}/`)
           console.log(`Status:      ${c.status}`)
+          const { findActiveWorkspace } = await import('./workspace/active.js')
+          if (findActiveWorkspace()) {
+            try {
+              const { refreshCaseVault } = await import('./vault/index.js')
+              const result = await refreshCaseVault({ caseId: c.id, force: true })
+              console.log(`Open first:  ${result.nextFile}`)
+            } catch (refreshErr) {
+              console.error(`Warning: live vault refresh failed: ${(refreshErr as Error).message}`)
+              console.error(`Run: cia case vault refresh ${c.id} --force`)
+            }
+          }
         } catch (err) {
           console.error((err as Error).message)
           process.exit(1)
@@ -1086,8 +1122,31 @@ const caseCommand = new Command('case')
       )
   )
   .addCommand(
+    new Command('vault')
+      .description('Manage live Obsidian case vault notes')
+      .addCommand(
+        new Command('refresh')
+          .description('Refresh Obsidian vault notes for a case')
+          .argument('<case-id-or-selector>', 'Case ID or case list number to refresh')
+          .option('--force', 'Overwrite existing generated case vault files')
+          .action(async (caseSelector: string, opts: { force?: boolean }) => {
+            try {
+              const caseId = await resolveCaseSelector(caseSelector)
+              const { refreshCaseVault } = await import('./vault/index.js')
+              const result = await refreshCaseVault({ caseId, force: opts.force === true })
+              console.log(`Case vault refreshed: ${caseId}`)
+              console.log(`Files: ${result.filesWritten.length}`)
+              console.log(`Open first: ${result.nextFile}`)
+            } catch (err) {
+              console.error((err as Error).message)
+              process.exit(1)
+            }
+          })
+      )
+  )
+  .addCommand(
     new Command('export')
-      .description('Export a case for Obsidian, LLMWiki, and agents')
+      .description('Export a case for Obsidian, LLM Wiki, and agents')
       .argument('<case-id>', 'Case ID or case list number to export')
       .option('--target <target>', 'Export target: obsidian-llmwiki', 'obsidian-llmwiki')
       .option('--mode <mode>', 'Redaction mode: private|partner|public', 'private')

@@ -278,7 +278,7 @@ cia case export <case> --target obsidian-llmwiki --mode private
 ```
 
 Treat `manifest.chain-insights.json`, case evidence, and report artifacts as
-canonical. Treat Obsidian, LLMWiki, Codex, Claude Code, and ChatGPT notes as
+canonical. Treat Obsidian, LLM Wiki, Codex, Claude Code, and ChatGPT notes as
 views over that evidence.
 
 ## When Asked "What Next?"

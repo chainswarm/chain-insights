@@ -46,13 +46,19 @@ npm install -g .
 cia --version
 ```
 
-Create an investigation workspace:
+Create an investigation vault:
 
 ```bash
 mkdir -p ./chain-insights-investigations
 cd ./chain-insights-investigations
 cia init .
+cia obsidian open .
 ```
+
+Chain Insights workspaces are Obsidian-compatible vaults and plain local
+folders. Obsidian is a first-class review UI, but it is not required to use the
+workspace files. See the
+[Obsidian vault workflow](docs/obsidian-vault.md).
 
 ## Configure GraphRAG MCP Endpoint
 
@@ -137,9 +143,11 @@ cia case show 1
 find reports cases -maxdepth 3 -type f | sort
 ```
 
-## Export To Obsidian, LLM Wiki, And Agents
+## Export Only When Sharing
 
-After a case has evidence, export a local knowledge bundle:
+Normal local work happens in the investigation vault. Export only when you need
+to share a case, hand it off to a partner, ingest it into LLM Wiki, or archive a
+review checkpoint.
 
 ```bash
 cia case evidence verify 1
@@ -150,10 +158,11 @@ The export writes Markdown notes, `manifest.chain-insights.json`,
 `graph.chain-insights.json`, `Graph.canvas`, LLM Wiki entrypoints, and prompts
 for Codex, Claude Code, and ChatGPT under `published/<case-slug>/`.
 
-Private exports may include full addresses. Use `--mode public` only for
-shareable demos; public mode aliases addresses and removes secrets by default.
-Install and opening steps live in
-[Knowledge exports](docs/knowledge-exports.md).
+Private exports may include full addresses. Use `--mode partner` for controlled
+handoff after review. Use `--mode public` only for shareable demos; public mode
+aliases addresses and removes secrets by default. Vault workflow guidance lives
+in [Obsidian vault workflow](docs/obsidian-vault.md); export bundle details
+live in [Knowledge exports](docs/knowledge-exports.md).
 
 ## Demo
 
@@ -249,8 +258,9 @@ reports under the workspace instead of embedding large payloads in case notes.
 | Doc | Use it for |
 | --- | --- |
 | [Graph tools](docs/graph-tools.md) | GraphRAG MCP layers, `graph_query`, `graph_query_batch`, AML tool contracts, graph reports, evidence pointers |
-| [Investigation workspaces](docs/investigation-workspaces.md) | `cia init`, case layout, evidence, dossiers, imports, templates, sessions, reports |
-| [Knowledge exports](docs/knowledge-exports.md) | Install Obsidian and LLM Wiki, export verified cases, open vaults, ingest agent-ready Markdown and graph JSON |
+| [Obsidian vault workflow](docs/obsidian-vault.md) | Create an investigation vault, open Obsidian, refresh live notes, and use VS Code, Codex, Claude Code, and LLM Wiki overlays |
+| [Investigation workspaces](docs/investigation-workspaces.md) | `cia init`, Obsidian-compatible vault layout, live note refresh, evidence, dossiers, imports, templates, sessions, reports |
+| [Knowledge exports](docs/knowledge-exports.md) | Portable and redacted bundles for sharing, partner handoff, LLM Wiki ingestion, and archive |
 | [MCP proxy](docs/mcp-proxy.md) | Stdio proxy behavior, endpoint configuration, agent installers, local tools, auth modes, Inspector validation |
 | [Architecture](docs/architecture.md) | Product layers, data flow, local storage, security model, config keys |
 | [Development](docs/development.md) | Build, test, and local install commands |

@@ -26,7 +26,7 @@ export function renderReadme(caseName: string): string {
   return [
     `# ${caseName} Export`,
     '',
-    'Open this directory as an Obsidian vault or give it to an LLMWiki-style knowledge workflow.',
+    'Open this directory as an Obsidian vault or give it to an LLM Wiki-style knowledge workflow.',
     '',
     'Start with:',
     '',
@@ -104,7 +104,7 @@ export function renderAgentConsole(caseName: string): string {
 
 export function renderLlmWiki(): string {
   return [
-    '# LLMWiki Entry',
+    '# LLM Wiki Entry',
     '',
     'This directory is a Chain Insights case export.',
     '',
