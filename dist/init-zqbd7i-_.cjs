@@ -1,6 +1,8 @@
-import { t as LOCAL_GRAPH_MCP_ENDPOINT } from "./mcp-endpoint-DHs1cRFH.mjs";
-import path from "node:path";
-import { access, mkdir, writeFile } from "node:fs/promises";
+const require_chunk = require("./chunk-DakpK96I.cjs");
+const require_mcp_endpoint = require("./mcp-endpoint-BaV8h_lq.cjs");
+let node_path = require("node:path");
+node_path = require_chunk.__toESM(node_path, 1);
+let node_fs_promises = require("node:fs/promises");
 //#region src/workspace/init.ts
 const WORKSPACE_DIRS = [
 	".chain-insights",
@@ -24,7 +26,7 @@ function workspaceJson(workspaceRoot) {
 		name: "Chain Insights Investigations",
 		workspace_root: workspaceRoot,
 		default_network: "bittensor",
-		graph_mcp_endpoint: LOCAL_GRAPH_MCP_ENDPOINT,
+		graph_mcp_endpoint: require_mcp_endpoint.LOCAL_GRAPH_MCP_ENDPOINT,
 		cases_dir: "cases",
 		imports_dir: "imports",
 		reports_dir: "reports",
@@ -158,6 +160,12 @@ Rules:
 - Keep evidence compact: select only the fields needed to support the claim.
   Avoid storing whole node or relationship property blobs in evidence unless
   the purpose of the query is schema discovery or debugging.
+- When using BFS, fixed-depth traversal fallbacks, or any manual \`FLOWS_TO\`
+  traversal, treat exchange hot wallets as terminal endpoints only. Do not
+  expand from, through, or classify exchange nodes as deposit, suspect, or
+  intermediate candidates. In Cypher, require every non-terminal traversal node
+  to satisfy \`is_exchange IS NULL\`; only the final exchange endpoint should
+  satisfy \`is_exchange IS NOT NULL\`.
 - Keep analysis products separate from evidence: graph JSON belongs under
   \`reports/graphs/\`, tabular extracts under \`reports/tables/\`, and analyst
   narrative under \`reports/\`.
@@ -212,9 +220,9 @@ function workspaceFiles(workspaceRoot) {
 }
 async function assertNoFileCollisions(workspaceRoot) {
 	for (const [relativePath] of workspaceFiles(workspaceRoot)) {
-		const filePath = path.join(workspaceRoot, relativePath);
+		const filePath = node_path.default.join(workspaceRoot, relativePath);
 		try {
-			await access(filePath);
+			await (0, node_fs_promises.access)(filePath);
 			throw new Error(`Refusing to overwrite ${filePath}. Re-run with --force to replace workspace files.`);
 		} catch (err) {
 			if (err.code === "ENOENT") continue;
@@ -223,15 +231,15 @@ async function assertNoFileCollisions(workspaceRoot) {
 	}
 }
 async function initWorkspace(options) {
-	const workspaceRoot = path.resolve(options.targetDir);
+	const workspaceRoot = node_path.default.resolve(options.targetDir);
 	if (!options.force) await assertNoFileCollisions(workspaceRoot);
-	for (const dir of WORKSPACE_DIRS) await mkdir(path.join(workspaceRoot, dir), { recursive: true });
+	for (const dir of WORKSPACE_DIRS) await (0, node_fs_promises.mkdir)(node_path.default.join(workspaceRoot, dir), { recursive: true });
 	const filesWritten = [];
 	const flag = options.force ? "w" : "wx";
 	for (const [relativePath, content] of workspaceFiles(workspaceRoot)) {
-		const filePath = path.join(workspaceRoot, relativePath);
+		const filePath = node_path.default.join(workspaceRoot, relativePath);
 		try {
-			await writeFile(filePath, content, {
+			await (0, node_fs_promises.writeFile)(filePath, content, {
 				mode: 384,
 				flag
 			});
@@ -247,6 +255,4 @@ async function initWorkspace(options) {
 	};
 }
 //#endregion
-export { initWorkspace };
-
-//# sourceMappingURL=init-B1voQJjO.mjs.map
+exports.initWorkspace = initWorkspace;

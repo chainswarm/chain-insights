@@ -102,6 +102,7 @@ interface GraphNodeMetadata {
   system_labels?: string[]
   address_type?: string
   address_subtypes?: string[]
+  is_exchange?: boolean
 }
 
 class AliasTracker {
@@ -305,7 +306,7 @@ function flowEdgeMap(variableName: string): string {
 }
 
 function pathNodeMap(variableName: string): string {
-  return `{address: ${variableName}.address, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, address_subtypes: ${variableName}.address_subtypes}`
+  return `{address: ${variableName}.address, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, address_subtypes: ${variableName}.address_subtypes, is_exchange: ${variableName}.is_exchange}`
 }
 
 function forwardExchangeQueries(address: string, limit: number, minAmountSum: number, maxHops: number): Array<{ id: string; query: string }> {
@@ -321,15 +322,15 @@ function forwardExchangeQueryAtDepth(address: string, limit: number, minAmountSu
     return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
   }).join('')
   const amountPredicates = edgeVariables.map((edgeVariable) => `${edgeVariable}.amount_sum IS NOT NULL${minAmountSum > 0 ? ` AND ${edgeVariable}.amount_sum >= ${minAmountSum}` : ''}`)
-  const intermediatePredicates = intermediateVariables.map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
-  const predicates = ['s <> t', 't.is_exchange IS NOT NULL', ...intermediatePredicates, ...amountPredicates]
+  const nonTerminalPredicates = ['s', ...intermediateVariables].map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
+  const predicates = ['s <> t', ...nonTerminalPredicates, 't.is_exchange IS NOT NULL', ...amountPredicates]
   const depositVariable = nodeVariables[nodeVariables.length - 2]!
   return {
     id: `forward_exchange_paths_${depth}`,
     query: [
       `MATCH (s:Address {address: "${escapeCypherString(address)}"})${relationshipChain}`,
       `WHERE ${predicates.join(' AND ')}`,
-      `RETURN [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(', ')}] AS node_labels, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props, t.address AS exchange_address, t.labels AS exchange_display_labels, t.labels AS exchange_labels, t.address_type AS exchange_address_type, t.address_subtypes AS exchange_address_subtypes, ${depositVariable}.address AS deposit_address, ${depth} AS hops`,
+      `RETURN [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(', ')}] AS node_labels, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props, t.address AS exchange_address, t.labels AS exchange_display_labels, t.labels AS exchange_labels, t.address_type AS exchange_address_type, t.address_subtypes AS exchange_address_subtypes, t.is_exchange AS exchange_is_exchange, ${depositVariable}.address AS deposit_address, ${depositVariable}.is_exchange AS deposit_is_exchange, ${depth} AS hops`,
       'ORDER BY hops ASC',
       `LIMIT ${limit}`,
     ].join(' '),
@@ -405,6 +406,17 @@ function numberValue(value: unknown): number | undefined {
   return undefined
 }
 
+function isExchangeFlag(value: unknown): boolean {
+  if (value === true) return true
+  if (value === false || value === null || value === undefined) return false
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    return normalized === 'true' || normalized === '1'
+  }
+  if (typeof value === 'number') return value === 1
+  return false
+}
+
 function rowTerminalAmount(row: Record<string, unknown>): number | undefined {
   const edgeProps = Array.isArray(row['edge_props']) ? row['edge_props'] as Array<Record<string, unknown>> : []
   const terminalEdge = edgeProps[edgeProps.length - 1]
@@ -427,6 +439,10 @@ function uniqueStrings(values: string[] | undefined): string[] {
   return [...new Set(values ?? [])]
 }
 
+function hasExactExchangeLabel(labels: string[] | undefined): boolean {
+  return (labels ?? []).some((label) => label.trim().toLowerCase() === 'exchange')
+}
+
 function nodeMetadataFromValue(value: unknown, fallbackAddress?: string): GraphNodeMetadata | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return fallbackAddress ? { address: fallbackAddress } : undefined
@@ -440,28 +456,52 @@ function nodeMetadataFromValue(value: unknown, fallbackAddress?: string): GraphN
     system_labels: stringArrayValue(record['system_labels']),
     address_type: typeof record['address_type'] === 'string' ? record['address_type'] : undefined,
     address_subtypes: stringArrayValue(record['address_subtypes']),
+    is_exchange: isExchangeFlag(record['is_exchange']),
   }
 }
 
 function isExchangeFlow(flow: TraceFlow): boolean {
-  return flow.terminal_exchange || flow.dst_labels?.includes('Exchange') === true || flow.dst_node?.system_labels?.includes('Exchange') === true
+  return flow.terminal_exchange ||
+    isExchangeFlag(flow.dst_node?.is_exchange) ||
+    hasExactExchangeLabel(flow.dst_labels) ||
+    hasExactExchangeLabel(flow.dst_node?.system_labels) ||
+    hasExactExchangeLabel(flow.dst_node?.labels)
+}
+
+function isExchangeNode(metadata: GraphNodeMetadata | undefined, labels: string[] | undefined): boolean {
+  return isExchangeFlag(metadata?.is_exchange) ||
+    hasExactExchangeLabel(labels) ||
+    hasExactExchangeLabel(metadata?.system_labels) ||
+    hasExactExchangeLabel(metadata?.labels)
+}
+
+function rowTouchesExchangeBeforeTerminal(pathNodes: Array<GraphNodeMetadata | undefined>, nodeLabels: string[][], pathLength: number): boolean {
+  for (let index = 0; index < Math.max(pathLength - 1, 0); index += 1) {
+    if (isExchangeNode(pathNodes[index], nodeLabels[index])) return true
+  }
+  return false
 }
 
 function depositFromRow(row: Record<string, unknown>): TraceDeposit | null {
   const pathAddresses = stringArrayValue(row['addresses']) ?? []
   if (pathAddresses.length < 2) return null
+  const nodeLabels = Array.isArray(row['node_labels']) ? row['node_labels'].map((labels) => stringArrayValue(labels) ?? []) : []
   const exchangeAddress = typeof row['exchange_address'] === 'string' ? row['exchange_address'] : pathAddresses[pathAddresses.length - 1]
   const edgeProps = Array.isArray(row['edge_props']) ? row['edge_props'] as Array<Record<string, unknown>> : []
   const terminalEdge = edgeProps[edgeProps.length - 1] ?? {}
   const pathNodes = Array.isArray(row['path_nodes'])
     ? row['path_nodes'].map((node, index) => nodeMetadataFromValue(node, pathAddresses[index])).filter((node): node is GraphNodeMetadata => Boolean(node))
     : undefined
+  const depositIndex = pathAddresses.length - 2
+  const depositNode = pathNodes?.find((node) => node.address === pathAddresses[depositIndex]) ?? pathNodes?.[depositIndex]
+  if (isExchangeFlag(row['deposit_is_exchange']) || isExchangeNode(depositNode, nodeLabels[depositIndex])) return null
   const exchangeNode = {
     address: exchangeAddress,
     labels: stringArrayValue(row['exchange_display_labels']),
     system_labels: stringArrayValue(row['exchange_system_labels']) ?? stringArrayValue(row['exchange_labels']),
     address_type: typeof row['exchange_address_type'] === 'string' ? row['exchange_address_type'] : undefined,
     address_subtypes: stringArrayValue(row['exchange_address_subtypes']),
+    is_exchange: true,
   }
   return {
     address: pathAddresses[pathAddresses.length - 2]!,
@@ -487,6 +527,7 @@ function flowsFromForwardRows(rows: Array<Record<string, unknown>>): { flows: Tr
       ? row['path_nodes'].map((node, index) => nodeMetadataFromValue(node, pathAddresses[index]))
       : []
     const edgeProps = Array.isArray(row['edge_props']) ? row['edge_props'] as Array<Record<string, unknown>> : []
+    if (rowTouchesExchangeBeforeTerminal(pathNodes, nodeLabels, pathAddresses.length)) continue
     const deposit = depositFromRow(row)
     if (deposit) deposits.push(deposit)
     for (let index = 0; index < pathAddresses.length - 1; index += 1) {

@@ -1,10 +1,8 @@
-const require_chunk = require("./chunk-DakpK96I.cjs");
-const require_output_root = require("./output-root-YIbl6PwF.cjs");
-const require_graph_normalizer = require("./graph-normalizer-DbjlbMpz.cjs");
-let node_path = require("node:path");
-node_path = require_chunk.__toESM(node_path, 1);
-let node_fs_promises = require("node:fs/promises");
-let node_crypto = require("node:crypto");
+import { n as workspaceOutputPaths } from "./output-root-BRhzhhXZ.mjs";
+import { t as normalizeGraphPayload } from "./graph-normalizer-CXP06jKh.mjs";
+import path from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 //#region src/investigation/trace-funds.ts
 var AliasTracker = class {
 	byAddress = /* @__PURE__ */ new Map();
@@ -76,23 +74,23 @@ function sanitizeSegment(value) {
 	return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "trace";
 }
 async function ensureDirs(paths) {
-	await (0, node_fs_promises.mkdir)(paths.schemaDir, {
+	await mkdir(paths.schemaDir, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportsRoot, {
+	await mkdir(paths.reportsRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportGraphsRoot, {
+	await mkdir(paths.reportGraphsRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.reportTablesRoot, {
+	await mkdir(paths.reportTablesRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await (0, node_fs_promises.mkdir)(paths.logsRoot, {
+	await mkdir(paths.logsRoot, {
 		recursive: true,
 		mode: 448
 	});
@@ -160,17 +158,17 @@ function schemaFromGraphBatch(network, batch) {
 	};
 }
 async function loadOrCaptureTopologySchema(remoteClient, paths, network) {
-	const filePath = node_path.default.join(paths.schemaDir, `${sanitizeSegment(network)}.graph-schema.json`);
+	const filePath = path.join(paths.schemaDir, `${sanitizeSegment(network)}.graph-schema.json`);
 	try {
 		return {
-			schema: JSON.parse(await (0, node_fs_promises.readFile)(filePath, "utf8")),
+			schema: JSON.parse(await readFile(filePath, "utf8")),
 			filePath
 		};
 	} catch (err) {
 		if (err.code !== "ENOENT") throw err;
 	}
 	const schema = schemaFromGraphBatch(network, await callGraphBatch$2(remoteClient, network, SCHEMA_QUERY_SET));
-	await (0, node_fs_promises.writeFile)(filePath, JSON.stringify(schema, null, 2) + "\n", { mode: 384 });
+	await writeFile(filePath, JSON.stringify(schema, null, 2) + "\n", { mode: 384 });
 	return {
 		schema,
 		filePath
@@ -180,7 +178,7 @@ function flowEdgeMap$1(variableName) {
 	return `{amount_sum: ${variableName}.amount_sum, amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`;
 }
 function pathNodeMap$1(variableName) {
-	return `{address: ${variableName}.address, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, address_subtypes: ${variableName}.address_subtypes}`;
+	return `{address: ${variableName}.address, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, address_subtypes: ${variableName}.address_subtypes, is_exchange: ${variableName}.is_exchange}`;
 }
 function forwardExchangeQueries(address, limit, minAmountSum, maxHops) {
 	return Array.from({ length: maxHops }, (_, index) => forwardExchangeQueryAtDepth(address, limit, minAmountSum, index + 1));
@@ -199,8 +197,8 @@ function forwardExchangeQueryAtDepth(address, limit, minAmountSum, depth) {
 	const amountPredicates = edgeVariables.map((edgeVariable) => `${edgeVariable}.amount_sum IS NOT NULL${minAmountSum > 0 ? ` AND ${edgeVariable}.amount_sum >= ${minAmountSum}` : ""}`);
 	const predicates = [
 		"s <> t",
+		...["s", ...intermediateVariables].map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`),
 		"t.is_exchange IS NOT NULL",
-		...intermediateVariables.map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`),
 		...amountPredicates
 	];
 	const depositVariable = nodeVariables[nodeVariables.length - 2];
@@ -209,7 +207,7 @@ function forwardExchangeQueryAtDepth(address, limit, minAmountSum, depth) {
 		query: [
 			`MATCH (s:Address {address: "${escapeCypherString$2(address)}"})${relationshipChain}`,
 			`WHERE ${predicates.join(" AND ")}`,
-			`RETURN [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(", ")}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(", ")}] AS node_labels, [${nodeVariables.map(pathNodeMap$1).join(", ")}] AS path_nodes, [${edgeVariables.map(flowEdgeMap$1).join(", ")}] AS edge_props, t.address AS exchange_address, t.labels AS exchange_display_labels, t.labels AS exchange_labels, t.address_type AS exchange_address_type, t.address_subtypes AS exchange_address_subtypes, ${depositVariable}.address AS deposit_address, ${depth} AS hops`,
+			`RETURN [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(", ")}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(", ")}] AS node_labels, [${nodeVariables.map(pathNodeMap$1).join(", ")}] AS path_nodes, [${edgeVariables.map(flowEdgeMap$1).join(", ")}] AS edge_props, t.address AS exchange_address, t.labels AS exchange_display_labels, t.labels AS exchange_labels, t.address_type AS exchange_address_type, t.address_subtypes AS exchange_address_subtypes, t.is_exchange AS exchange_is_exchange, ${depositVariable}.address AS deposit_address, ${depositVariable}.is_exchange AS deposit_is_exchange, ${depth} AS hops`,
 			"ORDER BY hops ASC",
 			`LIMIT ${limit}`
 		].join(" ")
@@ -279,6 +277,16 @@ function numberValue$2(value) {
 		return Number.isFinite(parsed) ? parsed : void 0;
 	}
 }
+function isExchangeFlag$1(value) {
+	if (value === true) return true;
+	if (value === false || value === null || value === void 0) return false;
+	if (typeof value === "string") {
+		const normalized = value.trim().toLowerCase();
+		return normalized === "true" || normalized === "1";
+	}
+	if (typeof value === "number") return value === 1;
+	return false;
+}
 function rowTerminalAmount(row) {
 	const edgeProps = Array.isArray(row["edge_props"]) ? row["edge_props"] : [];
 	const terminalEdge = edgeProps[edgeProps.length - 1];
@@ -296,6 +304,9 @@ function stringArrayValue$1(value) {
 function uniqueStrings$1(values) {
 	return [...new Set(values ?? [])];
 }
+function hasExactExchangeLabel$1(labels) {
+	return (labels ?? []).some((label) => label.trim().toLowerCase() === "exchange");
+}
 function nodeMetadataFromValue(value, fallbackAddress) {
 	if (typeof value !== "object" || value === null || Array.isArray(value)) return fallbackAddress ? { address: fallbackAddress } : void 0;
 	const record = value;
@@ -306,25 +317,38 @@ function nodeMetadataFromValue(value, fallbackAddress) {
 		labels: stringArrayValue$1(record["labels"]),
 		system_labels: stringArrayValue$1(record["system_labels"]),
 		address_type: typeof record["address_type"] === "string" ? record["address_type"] : void 0,
-		address_subtypes: stringArrayValue$1(record["address_subtypes"])
+		address_subtypes: stringArrayValue$1(record["address_subtypes"]),
+		is_exchange: isExchangeFlag$1(record["is_exchange"])
 	};
 }
 function isExchangeFlow(flow) {
-	return flow.terminal_exchange || flow.dst_labels?.includes("Exchange") === true || flow.dst_node?.system_labels?.includes("Exchange") === true;
+	return flow.terminal_exchange || isExchangeFlag$1(flow.dst_node?.is_exchange) || hasExactExchangeLabel$1(flow.dst_labels) || hasExactExchangeLabel$1(flow.dst_node?.system_labels) || hasExactExchangeLabel$1(flow.dst_node?.labels);
+}
+function isExchangeNode(metadata, labels) {
+	return isExchangeFlag$1(metadata?.is_exchange) || hasExactExchangeLabel$1(labels) || hasExactExchangeLabel$1(metadata?.system_labels) || hasExactExchangeLabel$1(metadata?.labels);
+}
+function rowTouchesExchangeBeforeTerminal(pathNodes, nodeLabels, pathLength) {
+	for (let index = 0; index < Math.max(pathLength - 1, 0); index += 1) if (isExchangeNode(pathNodes[index], nodeLabels[index])) return true;
+	return false;
 }
 function depositFromRow(row) {
 	const pathAddresses = stringArrayValue$1(row["addresses"]) ?? [];
 	if (pathAddresses.length < 2) return null;
+	const nodeLabels = Array.isArray(row["node_labels"]) ? row["node_labels"].map((labels) => stringArrayValue$1(labels) ?? []) : [];
 	const exchangeAddress = typeof row["exchange_address"] === "string" ? row["exchange_address"] : pathAddresses[pathAddresses.length - 1];
 	const edgeProps = Array.isArray(row["edge_props"]) ? row["edge_props"] : [];
 	const terminalEdge = edgeProps[edgeProps.length - 1] ?? {};
 	const pathNodes = Array.isArray(row["path_nodes"]) ? row["path_nodes"].map((node, index) => nodeMetadataFromValue(node, pathAddresses[index])).filter((node) => Boolean(node)) : void 0;
+	const depositIndex = pathAddresses.length - 2;
+	const depositNode = pathNodes?.find((node) => node.address === pathAddresses[depositIndex]) ?? pathNodes?.[depositIndex];
+	if (isExchangeFlag$1(row["deposit_is_exchange"]) || isExchangeNode(depositNode, nodeLabels[depositIndex])) return null;
 	const exchangeNode = {
 		address: exchangeAddress,
 		labels: stringArrayValue$1(row["exchange_display_labels"]),
 		system_labels: stringArrayValue$1(row["exchange_system_labels"]) ?? stringArrayValue$1(row["exchange_labels"]),
 		address_type: typeof row["exchange_address_type"] === "string" ? row["exchange_address_type"] : void 0,
-		address_subtypes: stringArrayValue$1(row["exchange_address_subtypes"])
+		address_subtypes: stringArrayValue$1(row["exchange_address_subtypes"]),
+		is_exchange: true
 	};
 	return {
 		address: pathAddresses[pathAddresses.length - 2],
@@ -347,6 +371,7 @@ function flowsFromForwardRows(rows) {
 		const nodeLabels = Array.isArray(row["node_labels"]) ? row["node_labels"].map((labels) => stringArrayValue$1(labels) ?? []) : [];
 		const pathNodes = Array.isArray(row["path_nodes"]) ? row["path_nodes"].map((node, index) => nodeMetadataFromValue(node, pathAddresses[index])) : [];
 		const edgeProps = Array.isArray(row["edge_props"]) ? row["edge_props"] : [];
+		if (rowTouchesExchangeBeforeTerminal(pathNodes, nodeLabels, pathAddresses.length)) continue;
 		const deposit = depositFromRow(row);
 		if (deposit) deposits.push(deposit);
 		for (let index = 0; index < pathAddresses.length - 1; index += 1) {
@@ -559,7 +584,7 @@ function buildGraph(seedAddress, network, flows, deposits, sourceMatches, revers
 		});
 		return edges;
 	});
-	return require_graph_normalizer.normalizeGraphPayload({
+	return normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: [...totals.entries()].map(([address, data]) => ({
 			id: address,
@@ -826,7 +851,7 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	const perAddressLimit = clampInt$2(options.perAddressLimit, 5, 1, 10);
 	const minAmountSum = Math.max(0, options.minAmountSum ?? 0);
 	const evidenceSource = options.evidenceSource ?? "track_funds";
-	const paths = require_output_root.workspaceOutputPaths();
+	const paths = workspaceOutputPaths();
 	await ensureDirs(paths);
 	const schemaResult = await loadOrCaptureTopologySchema(remoteClient, paths, network);
 	const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, {
@@ -841,21 +866,21 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	const slug = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}_${sanitizeSegment(seedAddress.slice(0, 16))}`;
 	const compact = probeEvidence(seedAddress, network, schemaResult.filePath, aliases, flows, deposits, sourceMatches, reverseLeads, evidenceSource);
 	const graph = buildGraph(seedAddress, network, flows, deposits, sourceMatches, reverseLeads);
-	const compactPath = node_path.default.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
-	const graphPath = node_path.default.join(paths.reportGraphsRoot, `${slug}.graph.json`);
-	const graphHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.graph.html`);
-	const tablePath = node_path.default.join(paths.reportTablesRoot, `${slug}.flows.csv`);
-	const tableHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.table.html`);
-	const reportPath = node_path.default.join(paths.reportsRoot, `${slug}.trace-report.md`);
-	const { generateInlineGraphHtml } = await Promise.resolve().then(() => require("./html-generator-Bx3UcLTB.cjs")).then((n) => n.html_generator_exports);
-	await (0, node_fs_promises.writeFile)(compactPath, JSON.stringify(compact, null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(graphPath, JSON.stringify(graph, null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(tablePath, tableCsv(flows), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 384 });
+	const compactPath = path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
+	const graphPath = path.join(paths.reportGraphsRoot, `${slug}.graph.json`);
+	const graphHtmlPath = path.join(paths.reportsRoot, `${slug}.graph.html`);
+	const tablePath = path.join(paths.reportTablesRoot, `${slug}.flows.csv`);
+	const tableHtmlPath = path.join(paths.reportsRoot, `${slug}.table.html`);
+	const reportPath = path.join(paths.reportsRoot, `${slug}.trace-report.md`);
+	const { generateInlineGraphHtml } = await import("./html-generator-AowOmzyi.mjs").then((n) => n.n);
+	await writeFile(compactPath, JSON.stringify(compact, null, 2) + "\n", { mode: 384 });
+	await writeFile(graphPath, JSON.stringify(graph, null, 2) + "\n", { mode: 384 });
+	await writeFile(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 384 });
+	await writeFile(tablePath, tableCsv(flows), { mode: 384 });
+	await writeFile(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 384 });
+	await writeFile(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 384 });
 	if (options.caseId) {
-		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+		const { EvidenceStore } = await import("./cases-qjPtbnUd.mjs");
 		await EvidenceStore.append(options.caseId, {
 			source: evidenceSource,
 			queryParams: `network=${network} seed_address=${seedAddress} max_hops=${maxHops} per_address_limit=${perAddressLimit} min_amount_sum=${minAmountSum}`,
@@ -1236,7 +1261,7 @@ function graphData(rows, subject, network) {
 			last_activity_timestamp: row.last_activity_timestamp
 		};
 	});
-	return require_graph_normalizer.normalizeGraphPayload({
+	return normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: [...nodes.values()],
 		edges,
@@ -1408,7 +1433,7 @@ function flowEdgeMap(variableName) {
 	return `{amount_sum: ${variableName}.amount_sum, amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`;
 }
 function pathNodeMap(variableName) {
-	return `{address: ${variableName}.address, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, address_subtypes: ${variableName}.address_subtypes}`;
+	return `{address: ${variableName}.address, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, address_subtypes: ${variableName}.address_subtypes, is_exchange: ${variableName}.is_exchange}`;
 }
 function exchangeOutflowQueries(address) {
 	return Array.from({ length: 3 }, (_, index) => exchangeOutflowQueryAtDepth(address, index + 1));
@@ -1490,6 +1515,19 @@ function numberValue(value) {
 		const parsed = Number(value);
 		return Number.isFinite(parsed) ? parsed : void 0;
 	}
+}
+function isExchangeFlag(value) {
+	if (value === true) return true;
+	if (value === false || value === null || value === void 0) return false;
+	if (typeof value === "string") {
+		const normalized = value.trim().toLowerCase();
+		return normalized === "true" || normalized === "1";
+	}
+	if (typeof value === "number") return value === 1;
+	return false;
+}
+function hasExactExchangeLabel(labels) {
+	return (labels ?? []).some((label) => label.trim().toLowerCase() === "exchange");
 }
 function firstNumber(...values) {
 	for (const value of values) {
@@ -1651,7 +1689,7 @@ function buildRiskGraph(address, profile, rows, network) {
 		}
 	}
 	const rawNodes = [...nodes.values()];
-	return restoreSystemLabels(require_graph_normalizer.normalizeGraphPayload({
+	return restoreSystemLabels(normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: rawNodes,
 		edges,
@@ -1745,7 +1783,7 @@ function graphRecords(graphData, key) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "object" && item !== null && !Array.isArray(item)) : [];
 }
 function normalizeTraceGraphData(runs, network) {
-	return require_graph_normalizer.normalizeGraphPayload({
+	return normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: runs.flatMap((run) => graphRecords(run.result.graphData, "nodes")),
 		edges: runs.flatMap((run) => graphRecords(run.result.graphData, "edges")),
@@ -2038,16 +2076,30 @@ function reverseDepositSourceQueryAtDepth(depositAddresses, depth) {
 		return `-[${edgeVariable}:FLOWS_TO]->(${index === edgeVariables.length - 1 ? "deposit" : intermediateVariables[index]}:Address)`;
 	}).join("");
 	const depositPredicates = depositAddresses.map((address) => `deposit.address = "${escapeCypherString(address)}"`);
-	const intermediatePredicates = intermediateVariables.map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`);
+	const nonExchangePredicates = [
+		"source",
+		...intermediateVariables,
+		"deposit"
+	].map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`);
 	return {
 		id: `reverse_deposit_sources_${depth}`,
 		query: [
 			`MATCH (source:Address)${relationshipChain}`,
-			`WHERE (${depositPredicates.join(" OR ")}) AND source.address <> deposit.address${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(" AND ")}` : ""}`,
-			`RETURN DISTINCT source.address AS source_address, deposit.address AS deposit_address, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(", ")}] AS addresses, [${edgeVariables.map(flowEdgeMap).join(", ")}] AS edge_props`,
+			`WHERE (${depositPredicates.join(" OR ")}) AND source.address <> deposit.address AND ${nonExchangePredicates.join(" AND ")}`,
+			`RETURN DISTINCT source.address AS source_address, source.is_exchange AS source_is_exchange, deposit.address AS deposit_address, deposit.is_exchange AS deposit_is_exchange, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(", ")}] AS addresses, [${nodeVariables.map(pathNodeMap).join(", ")}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(", ")}] AS edge_props`,
 			"LIMIT 500"
 		].join(" ")
 	};
+}
+function rowNodeIsExchange(value) {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+	const record = value;
+	return isExchangeFlag(record["is_exchange"]) || hasExactExchangeLabel(stringArrayValue(record["labels"])) || hasExactExchangeLabel(stringArrayValue(record["system_labels"]));
+}
+function reverseDepositSourceRowUsesExchange(row) {
+	if (isExchangeFlag(row["source_is_exchange"]) || isExchangeFlag(row["deposit_is_exchange"])) return true;
+	if (!Array.isArray(row["path_nodes"])) return false;
+	return row["path_nodes"].some(rowNodeIsExchange);
 }
 function htmlEscape(value) {
 	return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\"", "&quot;").replaceAll("'", "&#39;");
@@ -2104,20 +2156,20 @@ ${body}
 `;
 }
 async function writeTraceSourceArtifacts(tool, network, graphData, rows, summaryText) {
-	const paths = require_output_root.workspaceOutputPaths();
+	const paths = workspaceOutputPaths();
 	await Promise.all([
-		(0, node_fs_promises.mkdir)(paths.reportsRoot, { recursive: true }),
-		(0, node_fs_promises.mkdir)(paths.reportGraphsRoot, { recursive: true }),
-		(0, node_fs_promises.mkdir)(paths.reportTablesRoot, { recursive: true })
+		mkdir(paths.reportsRoot, { recursive: true }),
+		mkdir(paths.reportGraphsRoot, { recursive: true }),
+		mkdir(paths.reportTablesRoot, { recursive: true })
 	]);
 	const slug = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}_${tool}`;
-	const graphPath = node_path.default.join(paths.reportGraphsRoot, `${slug}.graph.json`);
-	const tableJsonPath = node_path.default.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
-	const csvPath = node_path.default.join(paths.reportTablesRoot, `${slug}.flows.csv`);
-	const tableHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.table.html`);
-	const reportPath = node_path.default.join(paths.reportsRoot, `${slug}.trace-report.md`);
-	const graphHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.graph.html`);
-	const { generateInlineGraphHtml } = await Promise.resolve().then(() => require("./html-generator-Bx3UcLTB.cjs")).then((n) => n.html_generator_exports);
+	const graphPath = path.join(paths.reportGraphsRoot, `${slug}.graph.json`);
+	const tableJsonPath = path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
+	const csvPath = path.join(paths.reportTablesRoot, `${slug}.flows.csv`);
+	const tableHtmlPath = path.join(paths.reportsRoot, `${slug}.table.html`);
+	const reportPath = path.join(paths.reportsRoot, `${slug}.trace-report.md`);
+	const graphHtmlPath = path.join(paths.reportsRoot, `${slug}.graph.html`);
+	const { generateInlineGraphHtml } = await import("./html-generator-AowOmzyi.mjs").then((n) => n.n);
 	const csv = ["path_id,source_address,deposit_address,hop,amount_sum,first_tx_id", ...rows.map((row) => [
 		row["path_id"] ?? "",
 		row["source_address"] ?? "",
@@ -2126,12 +2178,12 @@ async function writeTraceSourceArtifacts(tool, network, graphData, rows, summary
 		row["amount_sum"] ?? "",
 		row["first_tx_id"] ?? ""
 	].map((value) => JSON.stringify(String(value))).join(","))].join("\n") + "\n";
-	await (0, node_fs_promises.writeFile)(graphPath, JSON.stringify(graphData, null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(tableJsonPath, JSON.stringify(rows, null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(csvPath, csv, { mode: 384 });
-	await (0, node_fs_promises.writeFile)(tableHtmlPath, buildTraceSourceTableHtml(tool, network, rows), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(reportPath, summaryText + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(graphHtmlPath, generateInlineGraphHtml(graphData), { mode: 384 });
+	await writeFile(graphPath, JSON.stringify(graphData, null, 2) + "\n", { mode: 384 });
+	await writeFile(tableJsonPath, JSON.stringify(rows, null, 2) + "\n", { mode: 384 });
+	await writeFile(csvPath, csv, { mode: 384 });
+	await writeFile(tableHtmlPath, buildTraceSourceTableHtml(tool, network, rows), { mode: 384 });
+	await writeFile(reportPath, summaryText + "\n", { mode: 384 });
+	await writeFile(graphHtmlPath, generateInlineGraphHtml(graphData), { mode: 384 });
 	return {
 		graph_json: graphPath,
 		graph_html: graphHtmlPath,
@@ -2150,7 +2202,7 @@ async function traceDepositSources(remoteClient, _config, options) {
 	const maxHops = clampInt(options.maxHops, 2, 1, 5);
 	const batch = await callGraphBatch(remoteClient, network, Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1)));
 	const failures = [];
-	const rows = optionalResultsWithPrefix(batch, "reverse_deposit_sources_", failures).map((row, index) => ({
+	const rows = optionalResultsWithPrefix(batch, "reverse_deposit_sources_", failures).filter((row) => !reverseDepositSourceRowUsesExchange(row)).map((row, index) => ({
 		...row,
 		path_id: `p${index + 1}`
 	}));
@@ -2224,7 +2276,7 @@ async function traceDepositSources(remoteClient, _config, options) {
 		reason: candidateSuspects.includes(address) ? "Upstream source converges into multiple provided deposit/cashout seeds." : "Upstream source funds a provided deposit/cashout seed.",
 		promote_to_core_label: false
 	}));
-	const graphData = require_graph_normalizer.normalizeGraphPayload({
+	const graphData = normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: [...addresses.values()].map((entry) => ({
 			id: entry.address,
@@ -2267,7 +2319,7 @@ async function traceDepositSources(remoteClient, _config, options) {
 	const artifacts = await writeTraceSourceArtifacts("trace_deposit_sources", network, graphData, rows, summaryText);
 	const evidence = artifactEvidence(artifacts);
 	if (options.caseId) {
-		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-c0iV-XLI.cjs"));
+		const { EvidenceStore } = await import("./cases-qjPtbnUd.mjs");
 		await EvidenceStore.append(options.caseId, {
 			source: "trace_deposit_sources",
 			queryParams: `network=${network} deposit_addresses=${deposits.join(",")} max_hops=${maxHops}`,
@@ -2277,7 +2329,7 @@ async function traceDepositSources(remoteClient, _config, options) {
 				network,
 				deposit_addresses: deposits,
 				files: artifacts,
-				compact_sha256: (0, node_crypto.createHash)("sha256").update(JSON.stringify({
+				compact_sha256: createHash("sha256").update(JSON.stringify({
 					rows,
 					convergence
 				})).digest("hex")
@@ -2337,8 +2389,6 @@ async function traceDepositSources(remoteClient, _config, options) {
 	};
 }
 //#endregion
-exports.addressRisk = addressRisk;
-exports.stakeInsights = stakeInsights;
-exports.traceDepositSources = traceDepositSources;
-exports.traceSuspectFunds = traceSuspectFunds;
-exports.traceVictimFunds = traceVictimFunds;
+export { addressRisk, stakeInsights, traceDepositSources, traceSuspectFunds, traceVictimFunds };
+
+//# sourceMappingURL=public-tools-B4i5fCJS.mjs.map
