@@ -19,7 +19,7 @@ MCP endpoint for development; hosted endpoints are set explicitly with
 | `trace_victim_funds` | Trace victim/source funds forward to exchange deposit candidates |
 | `trace_deposit_sources` | Trace backward from suspected deposit/cashout addresses to upstream sources and convergence |
 | `trace_suspect_funds` | Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology |
-| `usage_status` | Check the caller's public free graph query quota for today |
+| `usage_status` | Check the caller's daily free-tier graph query allowance |
 | `graph_query` | Run one read-only GQL/Cypher query against a GraphRAG MCP graph layer |
 | `graph_query_batch` | Run related read-only graph queries as one MCP call |
 
@@ -117,14 +117,14 @@ If network or tool discovery fails, check the endpoint and access mode first.
 The CLI can still initialize workspaces and manage cases without a reachable
 GraphRAG MCP endpoint.
 
-Hosted GraphRAG MCP lets new users try `graph_query` with a small public free
-quota before setting up paid access. The default public free graph_query quota
-is 10 execution seconds per IP per UTC day. Use `usage_status` to see the
-current caller quota. Prepared wallet users receive the daily public grant
-first, then paid access continues automatically after the grant is exhausted.
+Hosted GraphRAG MCP includes a small public free tier for `graph_query` before
+paid access is required. The default public free tier is 10 execution seconds
+per IP per UTC day. Use `usage_status` to see the current caller allowance.
+Prepared wallet users receive the daily free tier first, then paid access
+continues automatically after the allowance is exhausted.
 If you do not have a prepared wallet yet, use bounded single `graph_query`
-calls for the demo, then prepare a wallet or use an invited tester access key
-when the quota is exhausted.
+calls within the free tier, then prepare a wallet or use an invited tester
+access key when the allowance is exhausted.
 
 Open a case and run a small investigation:
 
@@ -162,12 +162,12 @@ The export writes Markdown notes, `manifest.chain-insights.json`,
 for Codex, Claude Code, and ChatGPT under `published/<case-slug>/`.
 
 Private exports may include full addresses. Use `--mode partner` for controlled
-handoff after review. Use `--mode public` only for shareable demos; public mode
+handoff after review. Use `--mode public` only for shareable examples; public mode
 aliases addresses and removes secrets by default. Vault workflow guidance lives
 in [Obsidian vault workflow](docs/obsidian-vault.md); export bundle details
 live in [Knowledge exports](docs/knowledge-exports.md).
 
-## Demo
+## Examples
 
 Run a direct live topology query:
 
@@ -185,9 +185,9 @@ cia mcp call graph_query_batch \
   'queries=[{"id":"count","query":"USE live_topology MATCH (n) RETURN count(n) AS count LIMIT 1"},{"id":"archive_flows","query":"USE archive_topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN f.period_granularity AS granularity, src.address AS source, dst.address AS target LIMIT 3"},{"id":"facts_sample","query":"USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.sent_count AS sent_count LIMIT 3"}]'
 ```
 
-For no-wallet public demos, prefer the single-query example first. Batch calls
-reserve worst-case execution time and can ask for paid access even when a small
-free balance remains.
+For no-wallet public free-tier usage, prefer the single-query example first.
+Batch calls reserve worst-case execution time and can ask for paid access even
+when a small free allowance remains.
 
 Run suspect topology without requiring an incident timestamp:
 

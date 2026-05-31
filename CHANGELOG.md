@@ -2,13 +2,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.7] - 2026-05-31
+
+- Reworded public access guidance to the clearer "daily free tier": 10
+  execution seconds per IP per UTC day for bounded `graph_query` reads, then
+  wallet or approved access for sustained usage.
+
 ## [0.3.6] - 2026-05-31
 
-- Clarified the public GraphRAG MCP demo path: 10 execution seconds per IP per
+- Clarified the public GraphRAG MCP free-tier path: 10 execution seconds per IP per
   UTC day should be spent on bounded single `graph_query` reads, prepared wallet
-  users receive the daily grant first, and batches are documented as paid-access
-  usage.
-- Added staging UAT notes for the public free quota and free-to-paid handoff.
+  users receive the daily free tier first, and batches are documented as
+  paid-access usage.
+- Added staging UAT notes for the public free tier and free-to-paid handoff.
 
 ## [0.3.5] - 2026-05-30
 
