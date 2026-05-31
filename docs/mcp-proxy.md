@@ -140,7 +140,7 @@ chain-insights access-key set ci_test_REDACTED --endpoint https://staging-mcp.ch
 chain-insights access-key status
 ```
 
-Public free graph usage:
+Daily free-tier graph usage:
 
 ```bash
 chain-insights mcp call usage_status
@@ -150,23 +150,23 @@ chain-insights mcp call graph_query \
 ```
 
 Hosted GraphRAG MCP can allow anonymous `graph_query` calls before wallet
-setup. The default public free graph_query quota is 10 execution seconds per IP
-per UTC day, reset on the UTC calendar day. `usage_status` returns only the
-current caller's quota status. Wallet users receive the same daily public grant
-first; after it is exhausted, x402 payment continues automatically when
-`wallet ready` reports ready.
+setup. The default public free tier is 10 execution seconds per IP per UTC day,
+reset on the UTC calendar day. `usage_status` returns only the current caller's
+allowance status. Wallet users receive the same daily free tier first; after it
+is exhausted, x402 payment continues automatically when `wallet ready` reports
+ready.
 
-Public free access is intended for look-and-feel demos with bounded single
-`graph_query` calls. Public free access does not include `graph_query_batch`;
-use a tester access key or paid x402 mode for regular usage and batches. Use
-explicit LIMIT and pagination in your query when you want bounded result sets.
+The daily free tier is intended for bounded single `graph_query` calls. It does
+not include `graph_query_batch`; use a tester access key or paid x402 mode for
+regular usage and batches. Use explicit LIMIT and pagination in your query when
+you want bounded result sets.
 
-Staging UAT on 2026-05-31 showed the 10-second grant was enough for exact
+Staging UAT on 2026-05-31 showed the 10-second free tier was enough for exact
 Bittensor address checks, sample address reads, sample flow reads, and the
 free-to-paid handoff. The tested address
 `5EkTMF1noWnWupGxQqtPczW2FFB7ktdVwjaZ22Cam54U93Xx` returned no indexed live or
 archive rows on staging, but bounded sample reads still returned Bittensor
-topology data inside the same daily grant.
+topology data inside the same daily allowance.
 
 For custom graph reads, install the shipped `chain-insights-cypher` skill. Its
 Memgraph examples reference distinguishes staging-tested GraphRAG MCP query

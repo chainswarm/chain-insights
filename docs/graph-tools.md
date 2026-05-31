@@ -14,7 +14,7 @@ The GraphRAG MCP public graph surface is intentionally small:
 
 | Tool | Purpose |
 | --- | --- |
-| `usage_status` | Return the caller's public free graph_query quota for the current UTC day |
+| `usage_status` | Return the caller's daily free-tier graph_query allowance for the current UTC day |
 | `graph_query` | Run one read-only GQL/Cypher query through the universal graph endpoint |
 | `graph_query_batch` | Run related read-only graph-language queries as one MCP call |
 
@@ -31,18 +31,18 @@ GraphRAG MCP endpoint.
 - Use `USE archive_topology` for historical topology.
 - Use `USE facts` for labels, features, risk scores, assets, and enrichment.
 - Use `usage_status` before public hosted reads when you need the caller's
-  remaining free quota.
-- Hosted endpoints can expose a public free graph_query quota. The default is
-  10 execution seconds per IP per UTC day.
-- Prepared wallet users receive the daily public grant first; after it is used,
+  remaining free-tier allowance.
+- Hosted endpoints can expose a public free tier for graph_query. The default
+  is 10 execution seconds per IP per UTC day.
+- Prepared wallet users receive the daily free tier first; after it is used,
   x402 payment continues automatically from the configured wallet.
 - Use explicit LIMIT and pagination in your query when you want bounded result
   sets.
 - The GraphRAG MCP server does not append `LIMIT`; Chain Insights recipes own
   their own limits and pagination.
-- Use single bounded `graph_query` calls for public no-wallet demos. Use
+- Use single bounded `graph_query` calls for public no-wallet free-tier usage. Use
   `graph_query_batch` for related reads that should share one paid call; public
-  free access does not include batches.
+  free-tier access does not include batches.
 - `per_query_timeout_seconds` is optional and capped at `10` by default.
 - Returned rows live in `structuredContent.facts`.
 
@@ -80,7 +80,7 @@ chain-insights mcp call graph_query_batch \
 
 Batch calls reserve worst-case execution time from their timeout settings. On
 public hosted endpoints, they can ask for paid x402 access even when a small
-free balance remains.
+free-tier allowance remains.
 
 Batch result facts include:
 
