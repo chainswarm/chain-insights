@@ -2,6 +2,14 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.6] - 2026-05-31
+
+- Clarified the public GraphRAG MCP demo path: 10 execution seconds per IP per
+  UTC day should be spent on bounded single `graph_query` reads, prepared wallet
+  users receive the daily grant first, and batches are documented as paid-access
+  usage.
+- Added staging UAT notes for the public free quota and free-to-paid handoff.
+
 ## [0.3.5] - 2026-05-30
 
 - Made fresh Chain Insights workspaces Obsidian-compatible investigation vaults

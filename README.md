@@ -120,8 +120,11 @@ GraphRAG MCP endpoint.
 Hosted GraphRAG MCP lets new users try `graph_query` with a small public free
 quota before setting up paid access. The default public free graph_query quota
 is 10 execution seconds per IP per UTC day. Use `usage_status` to see the
-current caller quota. When the free quota is exhausted, prepare a wallet or use
-an invited tester access key and retry.
+current caller quota. Prepared wallet users receive the daily public grant
+first, then paid access continues automatically after the grant is exhausted.
+If you do not have a prepared wallet yet, use bounded single `graph_query`
+calls for the demo, then prepare a wallet or use an invited tester access key
+when the quota is exhausted.
 
 Open a case and run a small investigation:
 
@@ -181,6 +184,10 @@ cia mcp call graph_query_batch \
   network=bittensor \
   'queries=[{"id":"count","query":"USE live_topology MATCH (n) RETURN count(n) AS count LIMIT 1"},{"id":"archive_flows","query":"USE archive_topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN f.period_granularity AS granularity, src.address AS source, dst.address AS target LIMIT 3"},{"id":"facts_sample","query":"USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.sent_count AS sent_count LIMIT 3"}]'
 ```
+
+For no-wallet public demos, prefer the single-query example first. Batch calls
+reserve worst-case execution time and can ask for paid access even when a small
+free balance remains.
 
 Run suspect topology without requiring an incident timestamp:
 

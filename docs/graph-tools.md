@@ -34,11 +34,15 @@ GraphRAG MCP endpoint.
   remaining free quota.
 - Hosted endpoints can expose a public free graph_query quota. The default is
   10 execution seconds per IP per UTC day.
+- Prepared wallet users receive the daily public grant first; after it is used,
+  x402 payment continues automatically from the configured wallet.
 - Use explicit LIMIT and pagination in your query when you want bounded result
   sets.
 - The GraphRAG MCP server does not append `LIMIT`; Chain Insights recipes own
   their own limits and pagination.
-- Use `graph_query_batch` for related reads that should share one paid call.
+- Use single bounded `graph_query` calls for public no-wallet demos. Use
+  `graph_query_batch` for related reads that should share one paid call; public
+  free access does not include batches.
 - `per_query_timeout_seconds` is optional and capped at `10` by default.
 - Returned rows live in `structuredContent.facts`.
 
@@ -73,6 +77,10 @@ chain-insights mcp call graph_query_batch \
   network=bittensor \
   'queries=[{"id":"count","query":"USE live_topology MATCH (n) RETURN count(n) AS count LIMIT 1"},{"id":"archive_flows","query":"USE archive_topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN f.period_granularity AS granularity, src.address AS source, dst.address AS target LIMIT 3"}]'
 ```
+
+Batch calls reserve worst-case execution time from their timeout settings. On
+public hosted endpoints, they can ask for paid x402 access even when a small
+free balance remains.
 
 Batch result facts include:
 
