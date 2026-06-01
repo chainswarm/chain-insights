@@ -1,4 +1,4 @@
-const require_client = require("./client-Db6IV1tv.cjs");
+const require_client = require("./client-Y_zqKqJT.cjs");
 //#region src/mcp/capabilities.ts
 function metadataNetworksUrl(endpoint) {
 	const url = new URL(endpoint);
@@ -11,10 +11,7 @@ async function fetchNetworkCapabilities(config) {
 	const request = metadataNetworksUrl(require_client.resolveGraphMcpEndpoint(config));
 	const headers = new Headers();
 	const token = config.graphMcpAuthToken?.trim() || config.mcpAuthToken?.trim();
-	if (token) {
-		headers.set("X-MCP-Debug-Token", token);
-		headers.set("Authorization", `Bearer ${token}`);
-	}
+	if (token) require_client.applyMcpAuthHeaders(headers, token);
 	let response;
 	try {
 		response = await fetch(request, { headers });

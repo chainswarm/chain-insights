@@ -1,13 +1,14 @@
-import { t as __exportAll } from "./rolldown-runtime-D7D4PA-g.mjs";
-import { s as prepareWalletForPaidCalls } from "./tools-v6kcdojg.mjs";
-import { privateKeyToAccount } from "viem/accounts";
-import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
-import { ExactEvmScheme } from "@x402/evm";
-import { UptoEvmScheme } from "@x402/evm/upto/client";
+const require_chunk = require("./chunk-DakpK96I.cjs");
+const require_tools = require("./tools-BhTI3Lmg.cjs");
+let viem_accounts = require("viem/accounts");
+let _x402_fetch = require("@x402/fetch");
+let _x402_evm = require("@x402/evm");
+let _x402_evm_upto_client = require("@x402/evm/upto/client");
 //#region src/mcp/client.ts
-var client_exports = /* @__PURE__ */ __exportAll({
+var client_exports = /* @__PURE__ */ require_chunk.__exportAll({
 	PAYMENT_NEXT_STEPS: () => PAYMENT_NEXT_STEPS,
 	PaymentRequiredError: () => PaymentRequiredError,
+	applyMcpAuthHeaders: () => applyMcpAuthHeaders,
 	createConfiguredGraphMcpFetch: () => createConfiguredGraphMcpFetch,
 	createConfiguredMcpFetch: () => createConfiguredMcpFetch,
 	createMcpAuthFetchClient: () => createMcpAuthFetchClient,
@@ -20,12 +21,18 @@ var PaymentRequiredError = class extends Error {
 		this.name = "PaymentRequiredError";
 	}
 };
+function applyMcpAuthHeaders(headers, authToken) {
+	headers.set("X-MCP-Debug-Token", authToken);
+	headers.set("X-MCP-Test-Key", authToken);
+	headers.set("X-Chain-Insights-Test-Key", authToken);
+	headers.set("Authorization", `Bearer ${authToken}`);
+	return headers;
+}
 function createHeaderFetch(authToken, baseFetch) {
 	return (async (input, init) => {
 		const requestHeaders = input instanceof Request ? input.headers : void 0;
 		const headers = new Headers(init?.headers ?? requestHeaders);
-		headers.set("X-MCP-Debug-Token", authToken);
-		headers.set("Authorization", `Bearer ${authToken}`);
+		applyMcpAuthHeaders(headers, authToken);
 		return baseFetch(input, {
 			...init,
 			headers
@@ -80,7 +87,7 @@ function createPaymentFailureReportingFetch(baseFetch, payerAddress, paymentWall
 		const requirement = paymentRequirementFromResponse(response);
 		if (paymentWallet && requirement?.reason.includes("allowance_required")) {
 			try {
-				await prepareWalletForPaidCalls({
+				await require_tools.prepareWalletForPaidCalls({
 					account: paymentWallet,
 					...requirement.amountUnits === void 0 ? {} : { minimumApprovalUnits: requirement.amountUnits }
 				});
@@ -106,13 +113,13 @@ function createPaymentFailureReportingFetch(baseFetch, payerAddress, paymentWall
 * @returns A fetch-compatible function that auto-handles HTTP 402 payment challenges
 */
 function createMcpFetchClient(privateKey, authToken) {
-	const account = privateKeyToAccount(privateKey);
-	const reportingFetch = createPaymentFailureReportingFetch(wrapFetchWithPaymentFromConfig(fetch, { schemes: [{
+	const account = (0, viem_accounts.privateKeyToAccount)(privateKey);
+	const reportingFetch = createPaymentFailureReportingFetch((0, _x402_fetch.wrapFetchWithPaymentFromConfig)(fetch, { schemes: [{
 		network: "eip155:8453",
-		client: new UptoEvmScheme(account)
+		client: new _x402_evm_upto_client.UptoEvmScheme(account)
 	}, {
 		network: "eip155:8453",
-		client: new ExactEvmScheme(account)
+		client: new _x402_evm.ExactEvmScheme(account)
 	}] }), account.address, {
 		address: account.address,
 		privateKey
@@ -122,9 +129,10 @@ function createMcpFetchClient(privateKey, authToken) {
 /**
 * Creates a bearer/debug-token fetch for local Graph MCP testing.
 *
-* The public x402 debug bypass expects X-MCP-Debug-Token.
-* Private endpoints commonly expect Authorization: Bearer <token>.
-* Sending both lets one config value work for public debug and private M2M endpoints.
+* GraphRAG MCP deployments accept test access through the public debug header,
+* staging test-key headers, or Authorization: Bearer depending on the route.
+* Sending all supported auth headers lets one config value work across hosted
+* MCP calls, metadata reads, and private M2M endpoints.
 *
 * Wraps with 402 interception so that if the server still requires payment
 * (e.g. token not accepted for paid tools), the user sees actionable guidance
@@ -139,12 +147,12 @@ function resolveGraphMcpEndpoint(config) {
 async function createConfiguredFetchWithToken(authToken, missingTokenName) {
 	const normalizedAuthToken = authToken?.trim();
 	if (normalizedAuthToken) return createMcpAuthFetchClient(normalizedAuthToken);
-	const { isWalletConfigured, decryptKey } = await import("./wallet-BL0fJC29.mjs").then((n) => n.s);
+	const { isWalletConfigured, decryptKey } = await Promise.resolve().then(() => require("./wallet-gC2jxh7j.cjs")).then((n) => n.wallet_exports);
 	if (!await isWalletConfigured()) throw new Error("Hosted access is not configured. Run `chain-insights access-key set <key>` for invited test access. For wallet-paid access, run `chain-insights wallet import <private-key>` once, then run `chain-insights wallet ready`; run `chain-insights wallet topup` if it says the wallet needs funds.");
 	return createMcpFetchClient(await decryptKey());
 }
 async function createConfiguredGraphPaidOrFreeFetch() {
-	const { isWalletConfigured, decryptKey } = await import("./wallet-BL0fJC29.mjs").then((n) => n.s);
+	const { isWalletConfigured, decryptKey } = await Promise.resolve().then(() => require("./wallet-gC2jxh7j.cjs")).then((n) => n.wallet_exports);
 	if (!await isWalletConfigured()) return createPaymentFailureReportingFetch(fetch);
 	return createMcpFetchClient(await decryptKey());
 }
@@ -160,6 +168,39 @@ async function createConfiguredGraphMcpFetch(config) {
 	return createConfiguredGraphPaidOrFreeFetch();
 }
 //#endregion
-export { resolveGraphMcpEndpoint as a, createMcpFetchClient as i, client_exports as n, createConfiguredMcpFetch as r, PaymentRequiredError as t };
-
-//# sourceMappingURL=client-D4JE7fFF.mjs.map
+Object.defineProperty(exports, "PaymentRequiredError", {
+	enumerable: true,
+	get: function() {
+		return PaymentRequiredError;
+	}
+});
+Object.defineProperty(exports, "applyMcpAuthHeaders", {
+	enumerable: true,
+	get: function() {
+		return applyMcpAuthHeaders;
+	}
+});
+Object.defineProperty(exports, "client_exports", {
+	enumerable: true,
+	get: function() {
+		return client_exports;
+	}
+});
+Object.defineProperty(exports, "createConfiguredMcpFetch", {
+	enumerable: true,
+	get: function() {
+		return createConfiguredMcpFetch;
+	}
+});
+Object.defineProperty(exports, "createMcpFetchClient", {
+	enumerable: true,
+	get: function() {
+		return createMcpFetchClient;
+	}
+});
+Object.defineProperty(exports, "resolveGraphMcpEndpoint", {
+	enumerable: true,
+	get: function() {
+		return resolveGraphMcpEndpoint;
+	}
+});

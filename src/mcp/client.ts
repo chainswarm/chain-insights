@@ -16,12 +16,19 @@ export class PaymentRequiredError extends Error {
   }
 }
 
+export function applyMcpAuthHeaders(headers: Headers, authToken: string): Headers {
+  headers.set('X-MCP-Debug-Token', authToken)
+  headers.set('X-MCP-Test-Key', authToken)
+  headers.set('X-Chain-Insights-Test-Key', authToken)
+  headers.set('Authorization', `Bearer ${authToken}`)
+  return headers
+}
+
 function createHeaderFetch(authToken: string, baseFetch: FetchLike): FetchLike {
   return (async (input: FetchInput, init?: FetchInit) => {
     const requestHeaders = input instanceof Request ? input.headers : undefined
     const headers = new Headers(init?.headers ?? requestHeaders)
-    headers.set('X-MCP-Debug-Token', authToken)
-    headers.set('Authorization', `Bearer ${authToken}`)
+    applyMcpAuthHeaders(headers, authToken)
 
     return baseFetch(input, {
       ...init,
@@ -162,9 +169,10 @@ export function createMcpFetchClient(privateKey: `0x${string}`, authToken?: stri
 /**
  * Creates a bearer/debug-token fetch for local Graph MCP testing.
  *
- * The public x402 debug bypass expects X-MCP-Debug-Token.
- * Private endpoints commonly expect Authorization: Bearer <token>.
- * Sending both lets one config value work for public debug and private M2M endpoints.
+ * GraphRAG MCP deployments accept test access through the public debug header,
+ * staging test-key headers, or Authorization: Bearer depending on the route.
+ * Sending all supported auth headers lets one config value work across hosted
+ * MCP calls, metadata reads, and private M2M endpoints.
  *
  * Wraps with 402 interception so that if the server still requires payment
  * (e.g. token not accepted for paid tools), the user sees actionable guidance

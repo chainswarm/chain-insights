@@ -20,6 +20,7 @@ export interface TraceFundsOptions {
   minAmountSum?: number
   includeDepositTraceback?: boolean
   evidenceSource?: string
+  writeArtifacts?: boolean
 }
 
 export interface TraceFlow {
@@ -156,7 +157,7 @@ interface ParsedGraphBatch {
   }
 }
 
-const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 120
+const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 10
 const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS = 5 * 60 * 1000
 
 const SCHEMA_QUERY_SET = [
@@ -1024,6 +1025,7 @@ function summarize(seedAddress: string, network: string, flows: TraceFlow[], sou
   for (const flow of flows) byHop.set(flow.hop, (byHop.get(flow.hop) ?? 0) + 1)
   const depositCount = continuation.depositAddresses.length
   const exchangeCount = continuation.exchangeAddresses.length
+  const hasFiles = Object.values(files).some((value) => value.length > 0)
   return [
     `Trace complete for ${network}:${seedAddress}`,
     '',
@@ -1032,14 +1034,18 @@ function summarize(seedAddress: string, network: string, flows: TraceFlow[], sou
     `Exchange endpoints reached: ${exchangeCount}. Deposit candidate address(es): ${depositCount}.`,
     `Traceback source path(s): ${sourceMatches.length}. Reverse 1-hop lead(s): ${reverseLeads.length}.`,
     '',
-    'Files written:',
-    `- schema: ${files.schema}`,
-    `- compact evidence JSON: ${files.compactEvidence}`,
-    `- graph JSON: ${files.graph}`,
-    `- graph HTML: ${files.graphHtml}`,
-    `- table CSV: ${files.table}`,
-    `- table HTML: ${files.tableHtml}`,
-    `- report: ${files.report}`,
+    hasFiles
+      ? [
+          'Files written:',
+          `- schema: ${files.schema}`,
+          `- compact evidence JSON: ${files.compactEvidence}`,
+          `- graph JSON: ${files.graph}`,
+          `- graph HTML: ${files.graphHtml}`,
+          `- table CSV: ${files.table}`,
+          `- table HTML: ${files.tableHtml}`,
+          `- report: ${files.report}`,
+        ].join('\n')
+      : 'Files written: disabled by stateless proxy mode.',
     '',
     `Continuation hint: ${continuation.hint}`,
     continuation.depositAddresses.length > 0
@@ -1065,30 +1071,46 @@ export async function runFundFlowProbe(
   const perAddressLimit = clampInt(options.perAddressLimit, 5, 1, 10)
   const minAmountSum = Math.max(0, options.minAmountSum ?? 0)
   const evidenceSource = options.evidenceSource ?? 'track_funds'
-  const paths = workspaceOutputPaths()
-  await ensureDirs(paths)
+  const writeArtifacts = options.writeArtifacts !== false
+  if (!writeArtifacts && options.caseId) {
+    throw new Error('case_id requires workspace artifacts; omit case_id when CHAIN_INSIGHTS_MCP_PROXY_MODE=stateless')
+  }
 
-  const schemaResult = await loadOrCaptureTopologySchema(remoteClient, paths, network)
+  const paths = writeArtifacts ? workspaceOutputPaths() : undefined
+  if (paths) await ensureDirs(paths)
+
+  const schemaResult = paths
+    ? await loadOrCaptureTopologySchema(remoteClient, paths, network)
+    : {
+        schema: {
+          schema: 'chain-insights.runtime_graph_schema.v1',
+          network,
+          source: 'stateless_proxy_mode',
+        },
+        filePath: 'stateless://runtime-schema-not-written',
+      }
   const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, { seedAddress, network, maxHops, perAddressLimit, minAmountSum, includeDepositTraceback: options.includeDepositTraceback })
   const aliases = buildAliases(seedAddress, deposits, sourceMatches, reverseLeads)
   const slug = `${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}_${sanitizeSegment(seedAddress.slice(0, 16))}`
   const compact = probeEvidence(seedAddress, network, schemaResult.filePath, aliases, flows, deposits, sourceMatches, reverseLeads, evidenceSource)
   const graph = buildGraph(seedAddress, network, flows, deposits, sourceMatches, reverseLeads)
 
-  const compactPath = path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`)
-  const graphPath = path.join(paths.reportGraphsRoot, `${slug}.graph.json`)
-  const graphHtmlPath = path.join(paths.reportsRoot, `${slug}.graph.html`)
-  const tablePath = path.join(paths.reportTablesRoot, `${slug}.flows.csv`)
-  const tableHtmlPath = path.join(paths.reportsRoot, `${slug}.table.html`)
-  const reportPath = path.join(paths.reportsRoot, `${slug}.trace-report.md`)
-  const { generateInlineGraphHtml } = await import('../viz/html-generator.js')
+  const compactPath = paths ? path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`) : ''
+  const graphPath = paths ? path.join(paths.reportGraphsRoot, `${slug}.graph.json`) : ''
+  const graphHtmlPath = paths ? path.join(paths.reportsRoot, `${slug}.graph.html`) : ''
+  const tablePath = paths ? path.join(paths.reportTablesRoot, `${slug}.flows.csv`) : ''
+  const tableHtmlPath = paths ? path.join(paths.reportsRoot, `${slug}.table.html`) : ''
+  const reportPath = paths ? path.join(paths.reportsRoot, `${slug}.trace-report.md`) : ''
 
-  await writeFile(compactPath, JSON.stringify(compact, null, 2) + '\n', { mode: 0o600 })
-  await writeFile(graphPath, JSON.stringify(graph, null, 2) + '\n', { mode: 0o600 })
-  await writeFile(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 0o600 })
-  await writeFile(tablePath, tableCsv(flows), { mode: 0o600 })
-  await writeFile(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 0o600 })
-  await writeFile(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 0o600 })
+  if (paths) {
+    const { generateInlineGraphHtml } = await import('../viz/html-generator.js')
+    await writeFile(compactPath, JSON.stringify(compact, null, 2) + '\n', { mode: 0o600 })
+    await writeFile(graphPath, JSON.stringify(graph, null, 2) + '\n', { mode: 0o600 })
+    await writeFile(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 0o600 })
+    await writeFile(tablePath, tableCsv(flows), { mode: 0o600 })
+    await writeFile(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 0o600 })
+    await writeFile(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 0o600 })
+  }
 
   if (options.caseId) {
     const { EvidenceStore } = await import('../cases/index.js')

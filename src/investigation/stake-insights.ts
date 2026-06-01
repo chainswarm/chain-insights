@@ -77,7 +77,7 @@ type StakeRelationship = {
   topology_graph: StakeTopologyGraph
 }
 
-const STAKE_INSIGHTS_QUERY_TIMEOUT_SECONDS = 120
+const STAKE_INSIGHTS_QUERY_TIMEOUT_SECONDS = 10
 const STAKE_INSIGHTS_REQUEST_TIMEOUT_MS = 5 * 60 * 1000
 
 function escapeCypherString(value: string): string {
@@ -479,8 +479,9 @@ export async function stakeInsights(
     stakeRelationshipQuery('archive_topology', subject, options, depth),
   ])
   const { live, archive, failures, evidence } = collectRelationships(batch)
+  const successfulQueryCount = evidence.filter((entry) => entry['ok'] === true).length
 
-  if (live.length === 0 && archive.length === 0 && failures.length > 0) {
+  if (live.length === 0 && archive.length === 0 && failures.length > 0 && successfulQueryCount === 0) {
     throw new Error(`Stake insights unavailable: ${failures.map((failure) => `${failure.id}: ${failure.error}`).join('; ')}`)
   }
 

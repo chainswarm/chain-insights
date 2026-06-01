@@ -287,6 +287,8 @@ describe('MCP client (02-01)', () => {
     const headers = new Headers(calls[0]?.init?.headers)
     expect(headers.get('Accept')).toBe('application/json')
     expect(headers.get('X-MCP-Debug-Token')).toBe('debug-secret')
+    expect(headers.get('X-MCP-Test-Key')).toBe('debug-secret')
+    expect(headers.get('X-Chain-Insights-Test-Key')).toBe('debug-secret')
     expect(headers.get('Authorization')).toBe('Bearer debug-secret')
   })
 
@@ -353,6 +355,8 @@ describe('MCP client (02-01)', () => {
 
       const headers = new Headers(calls[0]?.init?.headers)
       expect(headers.get('X-MCP-Debug-Token')).toBe('legacy-debug-token')
+      expect(headers.get('X-MCP-Test-Key')).toBe('legacy-debug-token')
+      expect(headers.get('X-Chain-Insights-Test-Key')).toBe('legacy-debug-token')
       expect(headers.get('Authorization')).toBe('Bearer legacy-debug-token')
       expect(mockIsWalletConfigured).not.toHaveBeenCalled()
       expect(mockDecryptKey).not.toHaveBeenCalled()
@@ -380,6 +384,8 @@ describe('MCP client (02-01)', () => {
 
       const headers = new Headers(calls[0]?.init?.headers)
       expect(headers.get('X-MCP-Debug-Token')).toBe('graph-debug-token')
+      expect(headers.get('X-MCP-Test-Key')).toBe('graph-debug-token')
+      expect(headers.get('X-Chain-Insights-Test-Key')).toBe('graph-debug-token')
       expect(headers.get('Authorization')).toBe('Bearer graph-debug-token')
       expect(mockIsWalletConfigured).not.toHaveBeenCalled()
       expect(mockDecryptKey).not.toHaveBeenCalled()

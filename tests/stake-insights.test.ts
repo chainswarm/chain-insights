@@ -139,4 +139,37 @@ describe('stakeInsights', () => {
       coldkey: '5Cold',
     })).rejects.toThrow('Stake insights unavailable')
   })
+
+  it('returns a partial no-relationship result when one stake topology is unavailable', async () => {
+    const callTool = vi.fn().mockResolvedValue(graphBatchResult([
+      {
+        id: 'live_stake_relationships',
+        ok: true,
+        results: [],
+      },
+      {
+        id: 'archive_stake_relationships',
+        ok: false,
+        error: 'An unexpected error occurred executing the query',
+      },
+    ]))
+
+    const result = await stakeInsights({ callTool } as never, {
+      network: 'bittensor',
+      coldkey: '5Cold',
+    })
+
+    expect(result.summaryText).toContain('No stake relationships matched the requested filters.')
+    expect(result.summaryText).toContain('Partial query failures')
+    expect(result.structuredContent.facts.stake_totals).toMatchObject({
+      relationship_count: 0,
+      net_staked: 0,
+    })
+    expect(result.structuredContent.facts.partial_query_errors).toEqual([
+      expect.objectContaining({
+        id: 'archive_stake_relationships',
+        error: 'An unexpected error occurred executing the query',
+      }),
+    ])
+  })
 })

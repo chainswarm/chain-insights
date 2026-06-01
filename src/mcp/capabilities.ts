@@ -1,5 +1,5 @@
 import type { InvestigatorConfig } from '../config/schema.js'
-import { resolveGraphMcpEndpoint } from './client.js'
+import { applyMcpAuthHeaders, resolveGraphMcpEndpoint } from './client.js'
 
 export interface NetworkRetention {
   mode: 'full_history' | 'rolling_window' | 'expanding_then_rolling' | 'bounded_range' | 'unknown' | string
@@ -62,8 +62,7 @@ export async function fetchNetworkCapabilities(
   const headers = new Headers()
   const token = config.graphMcpAuthToken?.trim() || config.mcpAuthToken?.trim()
   if (token) {
-    headers.set('X-MCP-Debug-Token', token)
-    headers.set('Authorization', `Bearer ${token}`)
+    applyMcpAuthHeaders(headers, token)
   }
   let response: Response
   try {

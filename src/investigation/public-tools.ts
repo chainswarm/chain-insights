@@ -32,7 +32,7 @@ type QueryFailure = {
   error: string
 }
 
-const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 120
+const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 10
 const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS = 5 * 60 * 1000
 
 export interface AddressRiskOptions {
@@ -566,6 +566,7 @@ export interface TraceVictimFundsOptions {
   maxHops?: number
   perAddressLimit?: number
   minAmountSum?: number
+  writeArtifacts?: boolean
 }
 
 export interface TraceSuspectFundsOptions {
@@ -577,6 +578,7 @@ export interface TraceSuspectFundsOptions {
   maxHops?: number
   perAddressLimit?: number
   minAmountSum?: number
+  writeArtifacts?: boolean
 }
 
 export interface TraceDepositSourcesOptions {
@@ -585,6 +587,7 @@ export interface TraceDepositSourcesOptions {
   caseId?: string
   timeRange?: { from_ms?: number; to_ms?: number }
   maxHops?: number
+  writeArtifacts?: boolean
 }
 
 type TraceToolResult = {
@@ -640,6 +643,12 @@ function normalizeTraceGraphData(runs: TraceRun[], network: string): Record<stri
 
 function traceArtifactPointersFromRun(run: TraceFundsResult | undefined): Record<string, unknown> {
   if (!run) return {}
+  if (!Object.values(run.files).some((value) => value.length > 0)) {
+    return {
+      artifacts_written: false,
+      artifact_mode: 'stateless',
+    }
+  }
   return {
     graph_json: run.files.graph,
     graph_html: run.files.graphHtml,
@@ -647,6 +656,13 @@ function traceArtifactPointersFromRun(run: TraceFundsResult | undefined): Record
     flows_csv: run.files.table,
     table_html: run.files.tableHtml,
     report_md: run.files.report,
+  }
+}
+
+function statelessArtifacts(): Record<string, unknown> {
+  return {
+    artifacts_written: false,
+    artifact_mode: 'stateless',
   }
 }
 
@@ -899,6 +915,7 @@ export async function traceVictimFunds(
         minAmountSum: options.minAmountSum,
         includeDepositTraceback: false,
         evidenceSource: 'trace_victim_funds',
+        writeArtifacts: options.writeArtifacts,
       }),
     })
   }
@@ -935,6 +952,7 @@ export async function traceSuspectFunds(
         minAmountSum: options.minAmountSum,
         includeDepositTraceback: false,
         evidenceSource: 'trace_suspect_funds',
+        writeArtifacts: options.writeArtifacts,
       }),
     })
   }
@@ -1087,6 +1105,9 @@ export async function traceDepositSources(
   if (!network) throw new Error('network is required')
   if (deposits.length < 1) throw new Error('deposit_addresses must contain at least 1 address')
   if (deposits.length > 5) throw new Error('deposit_addresses cannot exceed 5 addresses')
+  if (options.writeArtifacts === false && options.caseId) {
+    throw new Error('case_id requires workspace artifacts; omit case_id when CHAIN_INSIGHTS_MCP_PROXY_MODE=stateless')
+  }
   const maxHops = clampInt(options.maxHops, 2, 1, 5)
 
   const batch = await callGraphBatch(
@@ -1224,7 +1245,9 @@ export async function traceDepositSources(
     `Reverse path(s): ${paths.length}`,
     `Shared upstream convergence: ${convergence.length}`,
   ].join('\n')
-  const artifacts = await writeTraceSourceArtifacts('trace_deposit_sources', network, graphData, rows, summaryText)
+  const artifacts = options.writeArtifacts === false
+    ? statelessArtifacts()
+    : await writeTraceSourceArtifacts('trace_deposit_sources', network, graphData, rows, summaryText)
   const evidence = artifactEvidence(artifacts)
   if (options.caseId) {
     const { EvidenceStore } = await import('../cases/index.js')
