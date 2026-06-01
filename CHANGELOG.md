@@ -2,6 +2,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.8] - 2026-06-01
+
+- Sent invited tester access keys through the GraphRAG MCP debug, staging
+  test-key, and bearer auth headers for both MCP tool calls and network
+  capability metadata reads, so staging smoke tests can exercise graph-backed
+  tools without falling through to x402 payment.
+- Added stateless MCP proxy mode for ACP and hosted callers so graph-backed CIA
+  tools can return summaries and structured results without requiring a local
+  investigation workspace, case files, or graph report attachments.
+
 ## [0.3.7] - 2026-05-31
 
 - Reworded public access guidance to the clearer "daily free tier": 10

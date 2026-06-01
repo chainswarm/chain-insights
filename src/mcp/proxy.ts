@@ -40,6 +40,15 @@ const GRAPH_APP_TOOL_NAMES = new Set([
 const GRAPH_ARRAY_KEYS = ['nodes', 'edges', 'flows', 'edge_anchors'] as const
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+export type McpProxyMode = 'workspace' | 'stateless'
+
+export function resolveMcpProxyMode(env: NodeJS.ProcessEnv = process.env): McpProxyMode {
+  const raw = env['CHAIN_INSIGHTS_MCP_PROXY_MODE']?.trim().toLowerCase()
+  if (!raw || raw === 'workspace') return 'workspace'
+  if (raw === 'stateless' || raw === 'no-workspace' || raw === 'workspace-less') return 'stateless'
+  throw new Error(`CHAIN_INSIGHTS_MCP_PROXY_MODE must be workspace or stateless; got "${raw}"`)
+}
+
 const COMMA_SEPARATED_ADDRESS_FIELDS = new Set([
   'victim_addresses',
   'known_suspect_addresses',
@@ -75,6 +84,10 @@ type ToolRegistrationConfig = Parameters<McpServer['registerTool']>[1]
 type ToolCallInput = { name: string; arguments?: Record<string, unknown> }
 type RemoteToolCaller = {
   callTool: Client['callTool']
+}
+type ChainInsightsGraphMeta = {
+  schema: string
+  url: string
 }
 
 const NETWORK_DESCRIPTION = 'Required network to query. Do not guess; use network_capabilities or ask the user if missing.'
@@ -122,6 +135,14 @@ const SERVER_INSTRUCTIONS = [
   GRAPH_REPORT_HINTS,
   GRAPH_SCHEMA_HINTS,
   'Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses; use case tools to preserve evidence when a case exists.',
+].join('\n\n')
+
+const STATELESS_SERVER_INSTRUCTIONS = [
+  'Chain Insights is running as a stateless AML proxy for a host application.',
+  'Do not use local case, evidence, dossier, session, wallet, or graph report workflows in this mode.',
+  'Use network_capabilities first when network support is unknown, then call address_risk, stake_insights, trace_victim_funds, trace_suspect_funds, trace_deposit_sources, graph_query, or graph_query_batch as needed.',
+  GRAPH_SCHEMA_HINTS,
+  'Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses.',
 ].join('\n\n')
 
 function readGraphAppHtml(): string {
@@ -780,11 +801,12 @@ async function normalizeRemoteToolResult(
   result: RemoteToolResult,
   config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
   toolName = 'remote-graph',
+  includeAttachments = true,
 ) {
   const graphPayload = getRemoteGraphPayload(result)
   const meta = { ...(result._meta ?? {}) }
 
-  if (graphPayload) {
+  if (graphPayload && includeAttachments) {
     const { writeGraphReport } = await import('./graph-reports.js')
     const { ensureArtifactServer } = await import('./artifact-server.js')
     const report = await writeGraphReport(graphPayload as never, {
@@ -809,6 +831,40 @@ async function normalizeRemoteToolResult(
   }
 }
 
+function shouldIncludeAttachments(args: Record<string, unknown>, workspaceArtifactsEnabled: boolean): boolean {
+  return workspaceArtifactsEnabled && args['include_attachments'] !== false
+}
+
+async function writeLocalGraphMeta(
+  graphData: unknown,
+  config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
+  slug: string,
+  includeAttachments: boolean,
+): Promise<ChainInsightsGraphMeta | undefined> {
+  if (!includeAttachments) return undefined
+  const { writeGraphReport } = await import('./graph-reports.js')
+  const { ensureArtifactServer } = await import('./artifact-server.js')
+  const report = await writeGraphReport(graphData as never, {
+    serverPort: config.serverPort,
+    slug,
+  })
+  await ensureArtifactServer(config.serverPort)
+  return {
+    schema: report.schema,
+    url: report.url,
+  }
+}
+
+function graphMetaResult(graph: ChainInsightsGraphMeta | undefined): Record<string, unknown> | undefined {
+  return graph
+    ? {
+        chainInsights: {
+          graph,
+        },
+      }
+    : undefined
+}
+
 /**
  * Core proxy logic — exported so tests can inject dependencies directly.
  * The IIFE at the bottom calls this with real dependencies.
@@ -823,16 +879,19 @@ export async function createProxy(): Promise<void> {
   const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import('./client.js')
   const { loadSchema, saveSchema } = await import('./schema-cache.js')
 
+  const proxyMode = resolveMcpProxyMode()
+  const workspaceArtifactsEnabled = proxyMode === 'workspace'
   const loadedConfig = await loadConfig()
-  const activeWorkspace = findActiveWorkspace()
+  const activeWorkspace = workspaceArtifactsEnabled ? findActiveWorkspace() : null
   const config = {
     ...loadedConfig,
-    dataDir: activeDataDir(loadedConfig.dataDir),
+    dataDir: workspaceArtifactsEnabled ? activeDataDir(loadedConfig.dataDir) : loadedConfig.dataDir,
   }
   const logger = createMcpLogger(config)
   await logger.info('proxy.start', {
     data_dir: config.dataDir,
     workspace_root: activeWorkspace?.root,
+    proxy_mode: proxyMode,
     graph_mcp_mode: config.graphMcpMode,
     graph_mcp_endpoint: resolveGraphMcpEndpoint(config),
     log_path: logger.filePath,
@@ -930,7 +989,7 @@ export async function createProxy(): Promise<void> {
   // Build local stdio proxy server
   const server = new McpServer(
     { name: 'chain-insights', version: PACKAGE_VERSION },
-    { instructions: SERVER_INSTRUCTIONS },
+    { instructions: workspaceArtifactsEnabled ? SERVER_INSTRUCTIONS : STATELESS_SERVER_INSTRUCTIONS },
   )
   installToolLogging(server, logger)
 
@@ -971,6 +1030,7 @@ export async function createProxy(): Promise<void> {
     return []
   }
 
+  if (workspaceArtifactsEnabled) {
   server.registerTool(
     'balance',
     {
@@ -1330,6 +1390,7 @@ export async function createProxy(): Promise<void> {
       }
     },
   )
+  }
 
   if (!remoteToolNames.has('address_risk')) {
     registerAppTool(
@@ -1356,7 +1417,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ address, network, compare_address }) => {
+      async ({ address, network, compare_address, include_attachments }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1368,29 +1429,21 @@ export async function createProxy(): Promise<void> {
             }
           }
           const { addressRisk } = await import('../investigation/public-tools.js')
-          const { writeGraphReport } = await import('./graph-reports.js')
-          const { ensureArtifactServer } = await import('./artifact-server.js')
           const result = await addressRisk(remoteClient, {
             address,
             network,
             compareAddress: compare_address,
           })
-          const report = await writeGraphReport(result.graphData as never, {
-            serverPort: config.serverPort,
-            slug: `address-risk-${network}-${address}`,
-          })
-          await ensureArtifactServer(config.serverPort)
+          const graph = await writeLocalGraphMeta(
+            result.graphData,
+            config,
+            `address-risk-${network}-${address}`,
+            shouldIncludeAttachments({ include_attachments }, workspaceArtifactsEnabled),
+          )
           return {
             content: [{ type: 'text' as const, text: result.summaryText }],
             structuredContent: result.structuredContent,
-            _meta: {
-              chainInsights: {
-                graph: {
-                  schema: report.schema,
-                  url: report.url,
-                },
-              },
-            },
+            _meta: graphMetaResult(graph),
             isError: false,
           }
         } catch (err) {
@@ -1436,7 +1489,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ victim_addresses, known_suspect_addresses, network, case_id, incident_timestamp_ms, max_hops, per_address_limit, min_amount_sum }) => {
+      async ({ victim_addresses, known_suspect_addresses, network, case_id, incident_timestamp_ms, max_hops, per_address_limit, min_amount_sum, include_attachments }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1447,9 +1500,13 @@ export async function createProxy(): Promise<void> {
               isError: true,
             }
           }
+          if (!workspaceArtifactsEnabled && case_id) {
+            return {
+              content: [{ type: 'text' as const, text: 'case_id requires Chain Insights workspace mode; omit case_id when CHAIN_INSIGHTS_MCP_PROXY_MODE=stateless.' }],
+              isError: true,
+            }
+          }
           const { traceVictimFunds } = await import('../investigation/public-tools.js')
-          const { writeGraphReport } = await import('./graph-reports.js')
-          const { ensureArtifactServer } = await import('./artifact-server.js')
           const result = await traceVictimFunds(remoteClient, config, {
             victimAddresses: victim_addresses,
             knownSuspectAddresses: known_suspect_addresses,
@@ -1459,23 +1516,18 @@ export async function createProxy(): Promise<void> {
             maxHops: max_hops,
             perAddressLimit: per_address_limit,
             minAmountSum: min_amount_sum,
+            writeArtifacts: workspaceArtifactsEnabled,
           })
-          const report = await writeGraphReport(result.graphData as never, {
-            serverPort: config.serverPort,
-            slug: `trace-victim-funds-${network}`,
-          })
-          await ensureArtifactServer(config.serverPort)
+          const graph = await writeLocalGraphMeta(
+            result.graphData,
+            config,
+            `trace-victim-funds-${network}`,
+            shouldIncludeAttachments({ include_attachments }, workspaceArtifactsEnabled),
+          )
           return {
             content: [{ type: 'text' as const, text: result.summaryText }],
             structuredContent: result.structuredContent,
-            _meta: {
-              chainInsights: {
-                graph: {
-                  schema: report.schema,
-                  url: report.url,
-                },
-              },
-            },
+            _meta: graphMetaResult(graph),
             isError: false,
           }
         } catch (err) {
@@ -1520,7 +1572,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ suspect_addresses, incident_timestamp_ms, network, max_hops, per_address_limit, min_amount_sum, case_id }) => {
+      async ({ suspect_addresses, incident_timestamp_ms, network, max_hops, per_address_limit, min_amount_sum, case_id, include_attachments }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1531,9 +1583,13 @@ export async function createProxy(): Promise<void> {
               isError: true,
             }
           }
+          if (!workspaceArtifactsEnabled && case_id) {
+            return {
+              content: [{ type: 'text' as const, text: 'case_id requires Chain Insights workspace mode; omit case_id when CHAIN_INSIGHTS_MCP_PROXY_MODE=stateless.' }],
+              isError: true,
+            }
+          }
           const { traceSuspectFunds } = await import('../investigation/public-tools.js')
-          const { writeGraphReport } = await import('./graph-reports.js')
-          const { ensureArtifactServer } = await import('./artifact-server.js')
           const result = await traceSuspectFunds(remoteClient, config, {
             suspectAddresses: suspect_addresses,
             network,
@@ -1542,23 +1598,18 @@ export async function createProxy(): Promise<void> {
             minAmountSum: min_amount_sum,
             incidentTimestampMs: incident_timestamp_ms,
             caseId: case_id,
+            writeArtifacts: workspaceArtifactsEnabled,
           })
-          const report = await writeGraphReport(result.graphData as never, {
-            serverPort: config.serverPort,
-            slug: `trace-suspect-funds-${network}`,
-          })
-          await ensureArtifactServer(config.serverPort)
+          const graph = await writeLocalGraphMeta(
+            result.graphData,
+            config,
+            `trace-suspect-funds-${network}`,
+            shouldIncludeAttachments({ include_attachments }, workspaceArtifactsEnabled),
+          )
           return {
             content: [{ type: 'text' as const, text: result.summaryText }],
             structuredContent: result.structuredContent,
-            _meta: {
-              chainInsights: {
-                graph: {
-                  schema: report.schema,
-                  url: report.url,
-                },
-              },
-            },
+            _meta: graphMetaResult(graph),
             isError: false,
           }
         } catch (err) {
@@ -1600,7 +1651,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ deposit_addresses, network, max_hops, case_id }) => {
+      async ({ deposit_addresses, network, max_hops, case_id, include_attachments }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1611,31 +1662,30 @@ export async function createProxy(): Promise<void> {
               isError: true,
             }
           }
+          if (!workspaceArtifactsEnabled && case_id) {
+            return {
+              content: [{ type: 'text' as const, text: 'case_id requires Chain Insights workspace mode; omit case_id when CHAIN_INSIGHTS_MCP_PROXY_MODE=stateless.' }],
+              isError: true,
+            }
+          }
           const { traceDepositSources } = await import('../investigation/public-tools.js')
-          const { writeGraphReport } = await import('./graph-reports.js')
-          const { ensureArtifactServer } = await import('./artifact-server.js')
           const result = await traceDepositSources(remoteClient, config, {
             depositAddresses: deposit_addresses,
             network,
             maxHops: max_hops,
             caseId: case_id,
+            writeArtifacts: workspaceArtifactsEnabled,
           })
-          const report = await writeGraphReport(result.graphData as never, {
-            serverPort: config.serverPort,
-            slug: `trace-deposit-sources-${network}`,
-          })
-          await ensureArtifactServer(config.serverPort)
+          const graph = await writeLocalGraphMeta(
+            result.graphData,
+            config,
+            `trace-deposit-sources-${network}`,
+            shouldIncludeAttachments({ include_attachments }, workspaceArtifactsEnabled),
+          )
           return {
             content: [{ type: 'text' as const, text: result.summaryText }],
             structuredContent: result.structuredContent,
-            _meta: {
-              chainInsights: {
-                graph: {
-                  schema: report.schema,
-                  url: report.url,
-                },
-              },
-            },
+            _meta: graphMetaResult(graph),
             isError: false,
           }
         } catch (err) {
@@ -1683,7 +1733,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ network, address, coldkey, hotkey, netuid, start_timestamp_ms, end_timestamp_ms, start_block, end_block, depth }) => {
+      async ({ network, address, coldkey, hotkey, netuid, start_timestamp_ms, end_timestamp_ms, start_block, end_block, depth, include_attachments }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1695,8 +1745,6 @@ export async function createProxy(): Promise<void> {
             }
           }
           const { stakeInsights } = await import('../investigation/public-tools.js')
-          const { writeGraphReport } = await import('./graph-reports.js')
-          const { ensureArtifactServer } = await import('./artifact-server.js')
           const result = await stakeInsights(remoteClient, {
             network,
             address,
@@ -1710,22 +1758,16 @@ export async function createProxy(): Promise<void> {
             depth,
           })
           const subject = address ?? coldkey ?? hotkey ?? 'subject'
-          const report = await writeGraphReport(result.graphData as never, {
-            serverPort: config.serverPort,
-            slug: `stake-insights-${network}-${subject}`,
-          })
-          await ensureArtifactServer(config.serverPort)
+          const graph = await writeLocalGraphMeta(
+            result.graphData,
+            config,
+            `stake-insights-${network}-${subject}`,
+            shouldIncludeAttachments({ include_attachments }, workspaceArtifactsEnabled),
+          )
           return {
             content: [{ type: 'text' as const, text: result.summaryText }],
             structuredContent: result.structuredContent,
-            _meta: {
-              chainInsights: {
-                graph: {
-                  schema: report.schema,
-                  url: report.url,
-                },
-              },
-            },
+            _meta: graphMetaResult(graph),
             isError: false,
           }
         } catch (err) {
@@ -1751,39 +1793,57 @@ export async function createProxy(): Promise<void> {
       content: [
         {
           type: 'text' as const,
-          text: [
-            'Chain Insights AML investigation workspace for AI agents. Workspaces are Obsidian-compatible vaults backed by plain local files.',
-            '',
-            CHAIN_INSIGHTS_WORKFLOW,
-            '',
-            'Investigation tools:',
-            '- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.',
-            '- address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.',
-            '- stake_insights: explain Bittensor staking around one address, coldkey, or hotkey with net stake, movement amounts, counterparties, backend, and query evidence.',
-            '- trace_victim_funds: trace up to five victim/source addresses forward to exchange deposit candidates.',
-            '- trace_deposit_sources: trace backward from suspected deposit/cashout addresses to upstream funders and shared-source convergence.',
-            '- trace_suspect_funds: trace up to five suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology.',
-            '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE live_topology, USE archive_topology, or USE facts.',
-            '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
-            '',
-            'Case workflow tools:',
-            '- case_open: create a local case before preserving evidence.',
-            '- case_list: list local cases.',
-            '- case_resume: load case context, evidence count, dossiers, and latest session.',
-            '- case_add_evidence: append a report or note to the case evidence manifest.',
-            '- case_verify_evidence: verify saved evidence integrity.',
-            '- case_export: export a case for Obsidian, LLM Wiki, Codex, Claude Code, and ChatGPT handoff bundles.',
-            '- case_update_dossier: add a finding to an address/entity dossier.',
-            '- case_start_session and case_end_session: record session notes.',
-            '',
-            'Wallet tools:',
-            '- balance: show the local payment wallet address and Base USDC balance.',
-            '- help: show this overview.',
-            '',
-            GRAPH_REPORT_HINTS,
-            '',
-            GRAPH_SCHEMA_HINTS,
-          ].join('\n'),
+          text: workspaceArtifactsEnabled
+            ? [
+                'Chain Insights AML investigation workspace for AI agents. Workspaces are Obsidian-compatible vaults backed by plain local files.',
+                '',
+                CHAIN_INSIGHTS_WORKFLOW,
+                '',
+                'Investigation tools:',
+                '- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.',
+                '- address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.',
+                '- stake_insights: explain Bittensor staking around one address, coldkey, or hotkey with net stake, movement amounts, counterparties, backend, and query evidence.',
+                '- trace_victim_funds: trace up to five victim/source addresses forward to exchange deposit candidates.',
+                '- trace_deposit_sources: trace backward from suspected deposit/cashout addresses to upstream funders and shared-source convergence.',
+                '- trace_suspect_funds: trace up to five suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology.',
+                '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE live_topology, USE archive_topology, or USE facts.',
+                '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
+                '',
+                'Case workflow tools:',
+                '- case_open: create a local case before preserving evidence.',
+                '- case_list: list local cases.',
+                '- case_resume: load case context, evidence count, dossiers, and latest session.',
+                '- case_add_evidence: append a report or note to the case evidence manifest.',
+                '- case_verify_evidence: verify saved evidence integrity.',
+                '- case_export: export a case for Obsidian, LLM Wiki, Codex, Claude Code, and ChatGPT handoff bundles.',
+                '- case_update_dossier: add a finding to an address/entity dossier.',
+                '- case_start_session and case_end_session: record session notes.',
+                '',
+                'Wallet tools:',
+                '- balance: show the local payment wallet address and Base USDC balance.',
+                '- help: show this overview.',
+                '',
+                GRAPH_REPORT_HINTS,
+                '',
+                GRAPH_SCHEMA_HINTS,
+              ].join('\n')
+            : [
+                'Chain Insights stateless AML proxy for host applications.',
+                '',
+                'Local workspace, case, evidence, dossier, session, wallet, and graph report attachment tools are disabled in this mode.',
+                '',
+                'Available graph-backed tools:',
+                '- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.',
+                '- address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.',
+                '- stake_insights: explain Bittensor staking around one address, coldkey, or hotkey with net stake, movement amounts, counterparties, backend, and query evidence.',
+                '- trace_victim_funds: trace up to five victim/source addresses forward to exchange deposit candidates.',
+                '- trace_deposit_sources: trace backward from suspected deposit/cashout addresses to upstream funders and shared-source convergence.',
+                '- trace_suspect_funds: trace up to five suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology.',
+                '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE live_topology, USE archive_topology, or USE facts.',
+                '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
+                '',
+                GRAPH_SCHEMA_HINTS,
+              ].join('\n'),
         },
       ],
       isError: false,
@@ -1822,7 +1882,12 @@ export async function createProxy(): Promise<void> {
         const result = requestOptions
           ? await remoteClient.callTool(request, undefined, requestOptions)
           : await remoteClient.callTool(request)
-        return await normalizeRemoteToolResult(result as RemoteToolResult, config, tool.name)
+        return await normalizeRemoteToolResult(
+          result as RemoteToolResult,
+          config,
+          tool.name,
+          shouldIncludeAttachments(normalizedArgs, workspaceArtifactsEnabled),
+        )
       } catch (err) {
         if (err instanceof PaymentRequiredError) {
           return {

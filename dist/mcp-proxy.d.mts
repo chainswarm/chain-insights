@@ -1,4 +1,6 @@
 //#region src/mcp/proxy.d.ts
+type McpProxyMode = 'workspace' | 'stateless';
+declare function resolveMcpProxyMode(env?: NodeJS.ProcessEnv): McpProxyMode;
 /**
  * Core proxy logic — exported so tests can inject dependencies directly.
  * The IIFE at the bottom calls this with real dependencies.
@@ -8,5 +10,5 @@
  */
 declare function createProxy(): Promise<void>;
 //#endregion
-export { createProxy };
+export { McpProxyMode, createProxy, resolveMcpProxyMode };
 //# sourceMappingURL=mcp-proxy.d.mts.map

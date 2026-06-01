@@ -1,5 +1,5 @@
 import { n as PACKAGE_VERSION } from "./version-BA3J8hu4.mjs";
-import { t as PaymentRequiredError } from "./client-D4JE7fFF.mjs";
+import { t as PaymentRequiredError } from "./client-BgmHjBHQ.mjs";
 import { t as HIDDEN_REMOTE_TOOL_NAMES } from "./tool-visibility-BpyZHRBi.mjs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -41,6 +41,12 @@ const GRAPH_ARRAY_KEYS = [
 	"edge_anchors"
 ];
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+function resolveMcpProxyMode(env = process.env) {
+	const raw = env["CHAIN_INSIGHTS_MCP_PROXY_MODE"]?.trim().toLowerCase();
+	if (!raw || raw === "workspace") return "workspace";
+	if (raw === "stateless" || raw === "no-workspace" || raw === "workspace-less") return "stateless";
+	throw new Error(`CHAIN_INSIGHTS_MCP_PROXY_MODE must be workspace or stateless; got "${raw}"`);
+}
 const COMMA_SEPARATED_ADDRESS_FIELDS = new Set([
 	"victim_addresses",
 	"known_suspect_addresses",
@@ -112,6 +118,13 @@ const SERVER_INSTRUCTIONS = [
 	GRAPH_REPORT_HINTS,
 	GRAPH_SCHEMA_HINTS,
 	"Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses; use case tools to preserve evidence when a case exists."
+].join("\n\n");
+const STATELESS_SERVER_INSTRUCTIONS = [
+	"Chain Insights is running as a stateless AML proxy for a host application.",
+	"Do not use local case, evidence, dossier, session, wallet, or graph report workflows in this mode.",
+	"Use network_capabilities first when network support is unknown, then call address_risk, stake_insights, trace_victim_funds, trace_suspect_funds, trace_deposit_sources, graph_query, or graph_query_batch as needed.",
+	GRAPH_SCHEMA_HINTS,
+	"Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses."
 ].join("\n\n");
 function readGraphAppHtml() {
 	const candidates = [
@@ -566,10 +579,10 @@ function getRemoteGraphPayload(result) {
 	if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("Invalid remote graph payload");
 	return data;
 }
-async function normalizeRemoteToolResult(result, config, toolName = "remote-graph") {
+async function normalizeRemoteToolResult(result, config, toolName = "remote-graph", includeAttachments = true) {
 	const graphPayload = getRemoteGraphPayload(result);
 	const meta = { ...result._meta ?? {} };
-	if (graphPayload) {
+	if (graphPayload && includeAttachments) {
 		const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
 		const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
 		const report = await writeGraphReport(graphPayload, {
@@ -592,6 +605,26 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 		isError: result.isError
 	};
 }
+function shouldIncludeAttachments(args, workspaceArtifactsEnabled) {
+	return workspaceArtifactsEnabled && args["include_attachments"] !== false;
+}
+async function writeLocalGraphMeta(graphData, config, slug, includeAttachments) {
+	if (!includeAttachments) return void 0;
+	const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
+	const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
+	const report = await writeGraphReport(graphData, {
+		serverPort: config.serverPort,
+		slug
+	});
+	await ensureArtifactServer(config.serverPort);
+	return {
+		schema: report.schema,
+		url: report.url
+	};
+}
+function graphMetaResult(graph) {
+	return graph ? { chainInsights: { graph } } : void 0;
+}
 /**
 * Core proxy logic — exported so tests can inject dependencies directly.
 * The IIFE at the bottom calls this with real dependencies.
@@ -602,18 +635,21 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 async function createProxy() {
 	const { loadConfig } = await import("./config-Drgc2HuF.mjs").then((n) => n.t);
 	const { activeDataDir, findActiveWorkspace } = await import("./active-ByNgjuAg.mjs").then((n) => n.n);
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-D4JE7fFF.mjs").then((n) => n.n);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-BgmHjBHQ.mjs").then((n) => n.r);
 	const { loadSchema, saveSchema } = await import("./schema-cache-DwDvPy4e.mjs");
+	const proxyMode = resolveMcpProxyMode();
+	const workspaceArtifactsEnabled = proxyMode === "workspace";
 	const loadedConfig = await loadConfig();
-	const activeWorkspace = findActiveWorkspace();
+	const activeWorkspace = workspaceArtifactsEnabled ? findActiveWorkspace() : null;
 	const config = {
 		...loadedConfig,
-		dataDir: activeDataDir(loadedConfig.dataDir)
+		dataDir: workspaceArtifactsEnabled ? activeDataDir(loadedConfig.dataDir) : loadedConfig.dataDir
 	};
 	const logger = createMcpLogger(config);
 	await logger.info("proxy.start", {
 		data_dir: config.dataDir,
 		workspace_root: activeWorkspace?.root,
+		proxy_mode: proxyMode,
 		graph_mcp_mode: config.graphMcpMode,
 		graph_mcp_endpoint: resolveGraphMcpEndpoint(config),
 		log_path: logger.filePath
@@ -690,7 +726,7 @@ async function createProxy() {
 	const server = new McpServer({
 		name: "chain-insights",
 		version: PACKAGE_VERSION
-	}, { instructions: SERVER_INSTRUCTIONS });
+	}, { instructions: workspaceArtifactsEnabled ? SERVER_INSTRUCTIONS : STATELESS_SERVER_INSTRUCTIONS });
 	installToolLogging(server, logger);
 	const remotePrompts = [];
 	if (remoteConnected) try {
@@ -718,337 +754,339 @@ async function createProxy() {
 		if (typeof tags === "string") return tags.split(",").map((tag) => tag.trim()).filter(Boolean);
 		return [];
 	};
-	server.registerTool("balance", {
-		description: "Show the local Chain Insights payment wallet address and Base USDC balance.",
-		inputSchema: z.object({}).passthrough()
-	}, async () => {
-		try {
-			const { getWalletAccount, getWalletBalanceText } = await import("./tools-v6kcdojg.mjs").then((n) => n.c);
-			return {
-				content: [{
-					type: "text",
-					text: await getWalletBalanceText(await getWalletAccount())
-				}],
-				isError: false
-			};
-		} catch (err) {
-			return {
-				content: [{
-					type: "text",
-					text: `Balance failed: ${err.message}`
-				}],
-				isError: true
-			};
-		}
-	});
-	registerAppResource(server, "Fund Flow Graph", GRAPH_RESOURCE_URI, {
-		description: "Interactive D3 force-directed graph for fund flow and pattern visualization. It loads local graph report URLs returned in _meta.chainInsights.graph.url.",
-		_meta: { ui: { csp: {
-			resourceDomains: graphArtifactOrigins(config),
-			connectDomains: graphArtifactOrigins(config)
-		} } }
-	}, async () => ({ contents: [{
-		uri: GRAPH_RESOURCE_URI,
-		mimeType: RESOURCE_MIME_TYPE,
-		text: readGraphAppHtml(),
-		_meta: { ui: { csp: {
-			resourceDomains: graphArtifactOrigins(config),
-			connectDomains: graphArtifactOrigins(config)
-		} } }
-	}] }));
-	server.registerTool("case_open", {
-		description: "Create a local Chain Insights investigation case. Use this before saving evidence, dossiers, or session notes for a new investigation.",
-		inputSchema: {
-			name: z.string().min(1).describe("Case name"),
-			tags: z.union([z.string(), z.array(z.string())]).optional().describe("Comma-separated tags or string array"),
-			description: z.string().optional().describe("Brief investigation description")
-		},
-		annotations: {
-			readOnlyHint: false,
-			destructiveHint: false,
-			idempotentHint: false,
-			openWorldHint: false
-		}
-	}, async ({ name, tags, description }) => {
-		try {
-			const { CaseStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
-			const created = await CaseStore.create({
-				name,
-				tags: parseTags(tags),
-				description: description ?? ""
-			});
-			const { casesRoot } = await import("./store-C2B_AssI.mjs").then((n) => n.n);
-			return {
-				content: [{
-					type: "text",
-					text: JSON.stringify({
-						case_id: created.id,
-						name: created.name,
-						status: created.status,
-						tags: created.tags,
-						directory: `${path.join(casesRoot(), created.id)}/`
-					}, null, 2)
-				}],
-				isError: false
-			};
-		} catch (err) {
-			return caseToolError("Case open", err);
-		}
-	});
-	server.registerTool("case_list", {
-		description: "List local Chain Insights investigation cases. Use before resuming when the user does not provide a case ID.",
-		inputSchema: { status: z.enum([
-			"open",
-			"active",
-			"suspended",
-			"closed"
-		]).optional().describe("Optional status filter") },
-		annotations: {
-			readOnlyHint: true,
-			destructiveHint: false,
-			idempotentHint: true,
-			openWorldHint: false
-		}
-	}, async ({ status }) => {
-		try {
-			const { CaseStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
-			const cases = await CaseStore.list();
-			const filtered = status ? cases.filter((entry) => entry.status === status) : cases;
-			return {
-				content: [{
-					type: "text",
-					text: JSON.stringify({ cases: filtered }, null, 2)
-				}],
-				isError: false
-			};
-		} catch (err) {
-			return caseToolError("Case list", err);
-		}
-	});
-	server.registerTool("case_resume", {
-		description: "Load local Chain Insights case context: metadata, evidence count, dossier summaries, and latest session notes.",
-		inputSchema: { case_id: z.string().min(1).describe("Chain Insights case ID") },
-		annotations: {
-			readOnlyHint: true,
-			destructiveHint: false,
-			idempotentHint: true,
-			openWorldHint: false
-		}
-	}, async ({ case_id }) => {
-		try {
-			const { CaseStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
-			const context = await CaseStore.loadContext(case_id);
-			return {
-				content: [{
-					type: "text",
-					text: JSON.stringify(context, null, 2)
-				}],
-				isError: false
-			};
-		} catch (err) {
-			return caseToolError("Case resume", err);
-		}
-	});
-	server.registerTool("case_add_evidence", {
-		description: "Append a tool result or analyst note to a local case evidence manifest. Use after address_risk, trace_victim_funds, trace_suspect_funds, trace_deposit_sources, graph_query, or manual findings that should be preserved.",
-		inputSchema: {
-			case_id: z.string().min(1).describe("Chain Insights case ID"),
-			source: z.string().min(1).describe("Source tool or evidence origin"),
-			content: z.string().min(1).describe("Evidence markdown/text to store"),
-			query_params: z.string().optional().describe("Original query parameters, for example \"network=bittensor address=...\"")
-		},
-		annotations: {
-			readOnlyHint: false,
-			destructiveHint: false,
-			idempotentHint: false,
-			openWorldHint: false
-		}
-	}, async ({ case_id, source, content, query_params }) => {
-		try {
-			const { EvidenceStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
-			const saved = await EvidenceStore.append(case_id, {
-				source,
-				content,
-				queryParams: query_params ?? ""
-			});
-			return {
-				content: [{
-					type: "text",
-					text: JSON.stringify(saved, null, 2)
-				}],
-				isError: false
-			};
-		} catch (err) {
-			return caseToolError("Evidence append", err);
-		}
-	});
-	server.registerTool("case_verify_evidence", {
-		description: "Verify a local case evidence manifest and report tampered or missing evidence files.",
-		inputSchema: { case_id: z.string().min(1).describe("Chain Insights case ID") },
-		annotations: {
-			readOnlyHint: true,
-			destructiveHint: false,
-			idempotentHint: true,
-			openWorldHint: false
-		}
-	}, async ({ case_id }) => {
-		try {
-			const { EvidenceStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
-			const result = await EvidenceStore.verifyManifest(case_id);
-			return {
-				content: [{
-					type: "text",
-					text: JSON.stringify(result, null, 2)
-				}],
-				isError: false
-			};
-		} catch (err) {
-			return caseToolError("Evidence verify", err);
-		}
-	});
-	server.registerTool("case_export", {
-		description: "Export a Chain Insights case to an Obsidian, LLM Wiki, Codex, Claude Code, and ChatGPT-friendly handoff bundle.",
-		inputSchema: {
-			case_id: z.string().min(1).describe("Chain Insights case ID to export"),
-			target: z.enum(["obsidian-llmwiki"]).optional().describe("Export target. Default obsidian-llmwiki."),
-			mode: z.enum([
-				"private",
-				"partner",
-				"public"
-			]).optional().describe("Redaction mode. Default private."),
-			output_dir: z.string().optional().describe("Optional output directory. Defaults to published/<case-slug>.")
-		},
-		annotations: {
-			readOnlyHint: false,
-			destructiveHint: false,
-			idempotentHint: false,
-			openWorldHint: false
-		}
-	}, async ({ case_id, target, mode, output_dir }) => {
-		try {
-			const { exportCase } = await import("./export-CBhcJuZ6.mjs");
-			const result = await exportCase({
-				caseId: case_id,
-				target: target ?? "obsidian-llmwiki",
-				mode: mode ?? "private",
-				outputDir: output_dir
-			});
-			return {
-				content: [{
-					type: "text",
-					text: [
-						`Case exported: ${result.outputDir}`,
-						`Manifest: ${result.manifestPath}`,
-						`Files: ${result.fileCount}`,
-						`Open first: ${result.nextFile}`,
-						...result.warnings.map((warning) => `Warning: ${warning}`)
-					].join("\n")
-				}],
-				structuredContent: result,
-				isError: false
-			};
-		} catch (err) {
-			return caseToolError("Case export", err);
-		}
-	});
-	server.registerTool("case_update_dossier", {
-		description: "Append a finding to an address/entity dossier inside a local Chain Insights case.",
-		inputSchema: {
-			case_id: z.string().min(1).describe("Chain Insights case ID"),
-			address: z.string().min(1).describe("Full address or entity identifier"),
-			finding: z.string().min(1).describe("Finding to append"),
-			entity_type: z.enum([
-				"eoa",
-				"contract",
-				"exchange",
-				"mixer",
-				"unknown"
-			]).optional().describe("Entity type")
-		},
-		annotations: {
-			readOnlyHint: false,
-			destructiveHint: false,
-			idempotentHint: false,
-			openWorldHint: false
-		}
-	}, async ({ case_id, address, finding, entity_type }) => {
-		try {
-			const { DossierStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
-			await DossierStore.appendFinding(case_id, address, finding, entity_type ?? "unknown");
-			return {
-				content: [{
-					type: "text",
-					text: JSON.stringify({
-						case_id,
-						address,
-						updated: true
-					}, null, 2)
-				}],
-				isError: false
-			};
-		} catch (err) {
-			return caseToolError("Dossier update", err);
-		}
-	});
-	server.registerTool("case_start_session", {
-		description: "Start a local investigation session file for a Chain Insights case.",
-		inputSchema: { case_id: z.string().min(1).describe("Chain Insights case ID") },
-		annotations: {
-			readOnlyHint: false,
-			destructiveHint: false,
-			idempotentHint: false,
-			openWorldHint: false
-		}
-	}, async ({ case_id }) => {
-		try {
-			const { SessionStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
-			const session = await SessionStore.start(case_id);
-			return {
-				content: [{
-					type: "text",
-					text: JSON.stringify(session, null, 2)
-				}],
-				isError: false
-			};
-		} catch (err) {
-			return caseToolError("Session start", err);
-		}
-	});
-	server.registerTool("case_end_session", {
-		description: "End the latest local investigation session for a Chain Insights case with findings and next steps.",
-		inputSchema: {
-			case_id: z.string().min(1).describe("Chain Insights case ID"),
-			findings: z.string().optional().describe("Key findings from this session"),
-			next_steps: z.string().optional().describe("Next investigation steps")
-		},
-		annotations: {
-			readOnlyHint: false,
-			destructiveHint: false,
-			idempotentHint: false,
-			openWorldHint: false
-		}
-	}, async ({ case_id, findings, next_steps }) => {
-		try {
-			const { SessionStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
-			await SessionStore.end(case_id, {
-				findings: findings ?? "",
-				nextSteps: next_steps ?? ""
-			});
-			await SessionStore.archiveOldSessions(case_id);
-			return {
-				content: [{
-					type: "text",
-					text: JSON.stringify({
-						case_id,
-						ended: true
-					}, null, 2)
-				}],
-				isError: false
-			};
-		} catch (err) {
-			return caseToolError("Session end", err);
-		}
-	});
+	if (workspaceArtifactsEnabled) {
+		server.registerTool("balance", {
+			description: "Show the local Chain Insights payment wallet address and Base USDC balance.",
+			inputSchema: z.object({}).passthrough()
+		}, async () => {
+			try {
+				const { getWalletAccount, getWalletBalanceText } = await import("./tools-v6kcdojg.mjs").then((n) => n.c);
+				return {
+					content: [{
+						type: "text",
+						text: await getWalletBalanceText(await getWalletAccount())
+					}],
+					isError: false
+				};
+			} catch (err) {
+				return {
+					content: [{
+						type: "text",
+						text: `Balance failed: ${err.message}`
+					}],
+					isError: true
+				};
+			}
+		});
+		registerAppResource(server, "Fund Flow Graph", GRAPH_RESOURCE_URI, {
+			description: "Interactive D3 force-directed graph for fund flow and pattern visualization. It loads local graph report URLs returned in _meta.chainInsights.graph.url.",
+			_meta: { ui: { csp: {
+				resourceDomains: graphArtifactOrigins(config),
+				connectDomains: graphArtifactOrigins(config)
+			} } }
+		}, async () => ({ contents: [{
+			uri: GRAPH_RESOURCE_URI,
+			mimeType: RESOURCE_MIME_TYPE,
+			text: readGraphAppHtml(),
+			_meta: { ui: { csp: {
+				resourceDomains: graphArtifactOrigins(config),
+				connectDomains: graphArtifactOrigins(config)
+			} } }
+		}] }));
+		server.registerTool("case_open", {
+			description: "Create a local Chain Insights investigation case. Use this before saving evidence, dossiers, or session notes for a new investigation.",
+			inputSchema: {
+				name: z.string().min(1).describe("Case name"),
+				tags: z.union([z.string(), z.array(z.string())]).optional().describe("Comma-separated tags or string array"),
+				description: z.string().optional().describe("Brief investigation description")
+			},
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: false
+			}
+		}, async ({ name, tags, description }) => {
+			try {
+				const { CaseStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
+				const created = await CaseStore.create({
+					name,
+					tags: parseTags(tags),
+					description: description ?? ""
+				});
+				const { casesRoot } = await import("./store-C2B_AssI.mjs").then((n) => n.n);
+				return {
+					content: [{
+						type: "text",
+						text: JSON.stringify({
+							case_id: created.id,
+							name: created.name,
+							status: created.status,
+							tags: created.tags,
+							directory: `${path.join(casesRoot(), created.id)}/`
+						}, null, 2)
+					}],
+					isError: false
+				};
+			} catch (err) {
+				return caseToolError("Case open", err);
+			}
+		});
+		server.registerTool("case_list", {
+			description: "List local Chain Insights investigation cases. Use before resuming when the user does not provide a case ID.",
+			inputSchema: { status: z.enum([
+				"open",
+				"active",
+				"suspended",
+				"closed"
+			]).optional().describe("Optional status filter") },
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: false
+			}
+		}, async ({ status }) => {
+			try {
+				const { CaseStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
+				const cases = await CaseStore.list();
+				const filtered = status ? cases.filter((entry) => entry.status === status) : cases;
+				return {
+					content: [{
+						type: "text",
+						text: JSON.stringify({ cases: filtered }, null, 2)
+					}],
+					isError: false
+				};
+			} catch (err) {
+				return caseToolError("Case list", err);
+			}
+		});
+		server.registerTool("case_resume", {
+			description: "Load local Chain Insights case context: metadata, evidence count, dossier summaries, and latest session notes.",
+			inputSchema: { case_id: z.string().min(1).describe("Chain Insights case ID") },
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: false
+			}
+		}, async ({ case_id }) => {
+			try {
+				const { CaseStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
+				const context = await CaseStore.loadContext(case_id);
+				return {
+					content: [{
+						type: "text",
+						text: JSON.stringify(context, null, 2)
+					}],
+					isError: false
+				};
+			} catch (err) {
+				return caseToolError("Case resume", err);
+			}
+		});
+		server.registerTool("case_add_evidence", {
+			description: "Append a tool result or analyst note to a local case evidence manifest. Use after address_risk, trace_victim_funds, trace_suspect_funds, trace_deposit_sources, graph_query, or manual findings that should be preserved.",
+			inputSchema: {
+				case_id: z.string().min(1).describe("Chain Insights case ID"),
+				source: z.string().min(1).describe("Source tool or evidence origin"),
+				content: z.string().min(1).describe("Evidence markdown/text to store"),
+				query_params: z.string().optional().describe("Original query parameters, for example \"network=bittensor address=...\"")
+			},
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: false
+			}
+		}, async ({ case_id, source, content, query_params }) => {
+			try {
+				const { EvidenceStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
+				const saved = await EvidenceStore.append(case_id, {
+					source,
+					content,
+					queryParams: query_params ?? ""
+				});
+				return {
+					content: [{
+						type: "text",
+						text: JSON.stringify(saved, null, 2)
+					}],
+					isError: false
+				};
+			} catch (err) {
+				return caseToolError("Evidence append", err);
+			}
+		});
+		server.registerTool("case_verify_evidence", {
+			description: "Verify a local case evidence manifest and report tampered or missing evidence files.",
+			inputSchema: { case_id: z.string().min(1).describe("Chain Insights case ID") },
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: false
+			}
+		}, async ({ case_id }) => {
+			try {
+				const { EvidenceStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
+				const result = await EvidenceStore.verifyManifest(case_id);
+				return {
+					content: [{
+						type: "text",
+						text: JSON.stringify(result, null, 2)
+					}],
+					isError: false
+				};
+			} catch (err) {
+				return caseToolError("Evidence verify", err);
+			}
+		});
+		server.registerTool("case_export", {
+			description: "Export a Chain Insights case to an Obsidian, LLM Wiki, Codex, Claude Code, and ChatGPT-friendly handoff bundle.",
+			inputSchema: {
+				case_id: z.string().min(1).describe("Chain Insights case ID to export"),
+				target: z.enum(["obsidian-llmwiki"]).optional().describe("Export target. Default obsidian-llmwiki."),
+				mode: z.enum([
+					"private",
+					"partner",
+					"public"
+				]).optional().describe("Redaction mode. Default private."),
+				output_dir: z.string().optional().describe("Optional output directory. Defaults to published/<case-slug>.")
+			},
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: false
+			}
+		}, async ({ case_id, target, mode, output_dir }) => {
+			try {
+				const { exportCase } = await import("./export-CBhcJuZ6.mjs");
+				const result = await exportCase({
+					caseId: case_id,
+					target: target ?? "obsidian-llmwiki",
+					mode: mode ?? "private",
+					outputDir: output_dir
+				});
+				return {
+					content: [{
+						type: "text",
+						text: [
+							`Case exported: ${result.outputDir}`,
+							`Manifest: ${result.manifestPath}`,
+							`Files: ${result.fileCount}`,
+							`Open first: ${result.nextFile}`,
+							...result.warnings.map((warning) => `Warning: ${warning}`)
+						].join("\n")
+					}],
+					structuredContent: result,
+					isError: false
+				};
+			} catch (err) {
+				return caseToolError("Case export", err);
+			}
+		});
+		server.registerTool("case_update_dossier", {
+			description: "Append a finding to an address/entity dossier inside a local Chain Insights case.",
+			inputSchema: {
+				case_id: z.string().min(1).describe("Chain Insights case ID"),
+				address: z.string().min(1).describe("Full address or entity identifier"),
+				finding: z.string().min(1).describe("Finding to append"),
+				entity_type: z.enum([
+					"eoa",
+					"contract",
+					"exchange",
+					"mixer",
+					"unknown"
+				]).optional().describe("Entity type")
+			},
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: false
+			}
+		}, async ({ case_id, address, finding, entity_type }) => {
+			try {
+				const { DossierStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
+				await DossierStore.appendFinding(case_id, address, finding, entity_type ?? "unknown");
+				return {
+					content: [{
+						type: "text",
+						text: JSON.stringify({
+							case_id,
+							address,
+							updated: true
+						}, null, 2)
+					}],
+					isError: false
+				};
+			} catch (err) {
+				return caseToolError("Dossier update", err);
+			}
+		});
+		server.registerTool("case_start_session", {
+			description: "Start a local investigation session file for a Chain Insights case.",
+			inputSchema: { case_id: z.string().min(1).describe("Chain Insights case ID") },
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: false
+			}
+		}, async ({ case_id }) => {
+			try {
+				const { SessionStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
+				const session = await SessionStore.start(case_id);
+				return {
+					content: [{
+						type: "text",
+						text: JSON.stringify(session, null, 2)
+					}],
+					isError: false
+				};
+			} catch (err) {
+				return caseToolError("Session start", err);
+			}
+		});
+		server.registerTool("case_end_session", {
+			description: "End the latest local investigation session for a Chain Insights case with findings and next steps.",
+			inputSchema: {
+				case_id: z.string().min(1).describe("Chain Insights case ID"),
+				findings: z.string().optional().describe("Key findings from this session"),
+				next_steps: z.string().optional().describe("Next investigation steps")
+			},
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: false
+			}
+		}, async ({ case_id, findings, next_steps }) => {
+			try {
+				const { SessionStore } = await import("./cases-TVcAifxu.mjs").then((n) => n.t);
+				await SessionStore.end(case_id, {
+					findings: findings ?? "",
+					nextSteps: next_steps ?? ""
+				});
+				await SessionStore.archiveOldSessions(case_id);
+				return {
+					content: [{
+						type: "text",
+						text: JSON.stringify({
+							case_id,
+							ended: true
+						}, null, 2)
+					}],
+					isError: false
+				};
+			} catch (err) {
+				return caseToolError("Session end", err);
+			}
+		});
+	}
 	if (!remoteToolNames.has("address_risk")) registerAppTool(server, "address_risk", {
 		title: "Address Risk",
 		description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.address_risk,
@@ -1065,7 +1103,7 @@ async function createProxy() {
 			idempotentHint: true,
 			openWorldHint: true
 		}
-	}, async ({ address, network, compare_address }) => {
+	}, async ({ address, network, compare_address, include_attachments }) => {
 		try {
 			if (!remoteConnected) return {
 				content: [{
@@ -1074,29 +1112,20 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { addressRisk } = await import("./public-tools-CyUZEz9B.mjs");
-			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
-			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
+			const { addressRisk } = await import("./public-tools-CvlZcysd.mjs");
 			const result = await addressRisk(remoteClient, {
 				address,
 				network,
 				compareAddress: compare_address
 			});
-			const report = await writeGraphReport(result.graphData, {
-				serverPort: config.serverPort,
-				slug: `address-risk-${network}-${address}`
-			});
-			await ensureArtifactServer(config.serverPort);
+			const graph = await writeLocalGraphMeta(result.graphData, config, `address-risk-${network}-${address}`, shouldIncludeAttachments({ include_attachments }, workspaceArtifactsEnabled));
 			return {
 				content: [{
 					type: "text",
 					text: result.summaryText
 				}],
 				structuredContent: result.structuredContent,
-				_meta: { chainInsights: { graph: {
-					schema: report.schema,
-					url: report.url
-				} } },
+				_meta: graphMetaResult(graph),
 				isError: false
 			};
 		} catch (err) {
@@ -1137,7 +1166,7 @@ async function createProxy() {
 			idempotentHint: false,
 			openWorldHint: true
 		}
-	}, async ({ victim_addresses, known_suspect_addresses, network, case_id, incident_timestamp_ms, max_hops, per_address_limit, min_amount_sum }) => {
+	}, async ({ victim_addresses, known_suspect_addresses, network, case_id, incident_timestamp_ms, max_hops, per_address_limit, min_amount_sum, include_attachments }) => {
 		try {
 			if (!remoteConnected) return {
 				content: [{
@@ -1146,9 +1175,14 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { traceVictimFunds } = await import("./public-tools-CyUZEz9B.mjs");
-			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
-			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
+			if (!workspaceArtifactsEnabled && case_id) return {
+				content: [{
+					type: "text",
+					text: "case_id requires Chain Insights workspace mode; omit case_id when CHAIN_INSIGHTS_MCP_PROXY_MODE=stateless."
+				}],
+				isError: true
+			};
+			const { traceVictimFunds } = await import("./public-tools-CvlZcysd.mjs");
 			const result = await traceVictimFunds(remoteClient, config, {
 				victimAddresses: victim_addresses,
 				knownSuspectAddresses: known_suspect_addresses,
@@ -1157,23 +1191,17 @@ async function createProxy() {
 				incidentTimestampMs: incident_timestamp_ms,
 				maxHops: max_hops,
 				perAddressLimit: per_address_limit,
-				minAmountSum: min_amount_sum
+				minAmountSum: min_amount_sum,
+				writeArtifacts: workspaceArtifactsEnabled
 			});
-			const report = await writeGraphReport(result.graphData, {
-				serverPort: config.serverPort,
-				slug: `trace-victim-funds-${network}`
-			});
-			await ensureArtifactServer(config.serverPort);
+			const graph = await writeLocalGraphMeta(result.graphData, config, `trace-victim-funds-${network}`, shouldIncludeAttachments({ include_attachments }, workspaceArtifactsEnabled));
 			return {
 				content: [{
 					type: "text",
 					text: result.summaryText
 				}],
 				structuredContent: result.structuredContent,
-				_meta: { chainInsights: { graph: {
-					schema: report.schema,
-					url: report.url
-				} } },
+				_meta: graphMetaResult(graph),
 				isError: false
 			};
 		} catch (err) {
@@ -1213,7 +1241,7 @@ async function createProxy() {
 			idempotentHint: false,
 			openWorldHint: true
 		}
-	}, async ({ suspect_addresses, incident_timestamp_ms, network, max_hops, per_address_limit, min_amount_sum, case_id }) => {
+	}, async ({ suspect_addresses, incident_timestamp_ms, network, max_hops, per_address_limit, min_amount_sum, case_id, include_attachments }) => {
 		try {
 			if (!remoteConnected) return {
 				content: [{
@@ -1222,9 +1250,14 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { traceSuspectFunds } = await import("./public-tools-CyUZEz9B.mjs");
-			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
-			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
+			if (!workspaceArtifactsEnabled && case_id) return {
+				content: [{
+					type: "text",
+					text: "case_id requires Chain Insights workspace mode; omit case_id when CHAIN_INSIGHTS_MCP_PROXY_MODE=stateless."
+				}],
+				isError: true
+			};
+			const { traceSuspectFunds } = await import("./public-tools-CvlZcysd.mjs");
 			const result = await traceSuspectFunds(remoteClient, config, {
 				suspectAddresses: suspect_addresses,
 				network,
@@ -1232,23 +1265,17 @@ async function createProxy() {
 				perAddressLimit: per_address_limit,
 				minAmountSum: min_amount_sum,
 				incidentTimestampMs: incident_timestamp_ms,
-				caseId: case_id
+				caseId: case_id,
+				writeArtifacts: workspaceArtifactsEnabled
 			});
-			const report = await writeGraphReport(result.graphData, {
-				serverPort: config.serverPort,
-				slug: `trace-suspect-funds-${network}`
-			});
-			await ensureArtifactServer(config.serverPort);
+			const graph = await writeLocalGraphMeta(result.graphData, config, `trace-suspect-funds-${network}`, shouldIncludeAttachments({ include_attachments }, workspaceArtifactsEnabled));
 			return {
 				content: [{
 					type: "text",
 					text: result.summaryText
 				}],
 				structuredContent: result.structuredContent,
-				_meta: { chainInsights: { graph: {
-					schema: report.schema,
-					url: report.url
-				} } },
+				_meta: graphMetaResult(graph),
 				isError: false
 			};
 		} catch (err) {
@@ -1285,7 +1312,7 @@ async function createProxy() {
 			idempotentHint: false,
 			openWorldHint: true
 		}
-	}, async ({ deposit_addresses, network, max_hops, case_id }) => {
+	}, async ({ deposit_addresses, network, max_hops, case_id, include_attachments }) => {
 		try {
 			if (!remoteConnected) return {
 				content: [{
@@ -1294,30 +1321,29 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { traceDepositSources } = await import("./public-tools-CyUZEz9B.mjs");
-			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
-			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
+			if (!workspaceArtifactsEnabled && case_id) return {
+				content: [{
+					type: "text",
+					text: "case_id requires Chain Insights workspace mode; omit case_id when CHAIN_INSIGHTS_MCP_PROXY_MODE=stateless."
+				}],
+				isError: true
+			};
+			const { traceDepositSources } = await import("./public-tools-CvlZcysd.mjs");
 			const result = await traceDepositSources(remoteClient, config, {
 				depositAddresses: deposit_addresses,
 				network,
 				maxHops: max_hops,
-				caseId: case_id
+				caseId: case_id,
+				writeArtifacts: workspaceArtifactsEnabled
 			});
-			const report = await writeGraphReport(result.graphData, {
-				serverPort: config.serverPort,
-				slug: `trace-deposit-sources-${network}`
-			});
-			await ensureArtifactServer(config.serverPort);
+			const graph = await writeLocalGraphMeta(result.graphData, config, `trace-deposit-sources-${network}`, shouldIncludeAttachments({ include_attachments }, workspaceArtifactsEnabled));
 			return {
 				content: [{
 					type: "text",
 					text: result.summaryText
 				}],
 				structuredContent: result.structuredContent,
-				_meta: { chainInsights: { graph: {
-					schema: report.schema,
-					url: report.url
-				} } },
+				_meta: graphMetaResult(graph),
 				isError: false
 			};
 		} catch (err) {
@@ -1360,7 +1386,7 @@ async function createProxy() {
 			idempotentHint: true,
 			openWorldHint: true
 		}
-	}, async ({ network, address, coldkey, hotkey, netuid, start_timestamp_ms, end_timestamp_ms, start_block, end_block, depth }) => {
+	}, async ({ network, address, coldkey, hotkey, netuid, start_timestamp_ms, end_timestamp_ms, start_block, end_block, depth, include_attachments }) => {
 		try {
 			if (!remoteConnected) return {
 				content: [{
@@ -1369,9 +1395,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { stakeInsights } = await import("./public-tools-CyUZEz9B.mjs");
-			const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
-			const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
+			const { stakeInsights } = await import("./public-tools-CvlZcysd.mjs");
 			const result = await stakeInsights(remoteClient, {
 				network,
 				address,
@@ -1385,21 +1409,14 @@ async function createProxy() {
 				depth
 			});
 			const subject = address ?? coldkey ?? hotkey ?? "subject";
-			const report = await writeGraphReport(result.graphData, {
-				serverPort: config.serverPort,
-				slug: `stake-insights-${network}-${subject}`
-			});
-			await ensureArtifactServer(config.serverPort);
+			const graph = await writeLocalGraphMeta(result.graphData, config, `stake-insights-${network}-${subject}`, shouldIncludeAttachments({ include_attachments }, workspaceArtifactsEnabled));
 			return {
 				content: [{
 					type: "text",
 					text: result.summaryText
 				}],
 				structuredContent: result.structuredContent,
-				_meta: { chainInsights: { graph: {
-					schema: report.schema,
-					url: report.url
-				} } },
+				_meta: graphMetaResult(graph),
 				isError: false
 			};
 		} catch (err) {
@@ -1425,7 +1442,7 @@ async function createProxy() {
 	}, async () => ({
 		content: [{
 			type: "text",
-			text: [
+			text: workspaceArtifactsEnabled ? [
 				"Chain Insights AML investigation workspace for AI agents. Workspaces are Obsidian-compatible vaults backed by plain local files.",
 				"",
 				CHAIN_INSIGHTS_WORKFLOW,
@@ -1455,6 +1472,22 @@ async function createProxy() {
 				"- help: show this overview.",
 				"",
 				GRAPH_REPORT_HINTS,
+				"",
+				GRAPH_SCHEMA_HINTS
+			].join("\n") : [
+				"Chain Insights stateless AML proxy for host applications.",
+				"",
+				"Local workspace, case, evidence, dossier, session, wallet, and graph report attachment tools are disabled in this mode.",
+				"",
+				"Available graph-backed tools:",
+				"- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.",
+				"- address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.",
+				"- stake_insights: explain Bittensor staking around one address, coldkey, or hotkey with net stake, movement amounts, counterparties, backend, and query evidence.",
+				"- trace_victim_funds: trace up to five victim/source addresses forward to exchange deposit candidates.",
+				"- trace_deposit_sources: trace backward from suspected deposit/cashout addresses to upstream funders and shared-source convergence.",
+				"- trace_suspect_funds: trace up to five suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology.",
+				"- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE live_topology, USE archive_topology, or USE facts.",
+				"- graph_query_batch: run related read-only graph-language queries through one paid graph call.",
 				"",
 				GRAPH_SCHEMA_HINTS
 			].join("\n")
@@ -1488,7 +1521,7 @@ async function createProxy() {
 					arguments: normalizedArgs
 				};
 				const requestOptions = remoteToolRequestOptions(tool.name);
-				return await normalizeRemoteToolResult(requestOptions ? await remoteClient.callTool(request, void 0, requestOptions) : await remoteClient.callTool(request), config, tool.name);
+				return await normalizeRemoteToolResult(requestOptions ? await remoteClient.callTool(request, void 0, requestOptions) : await remoteClient.callTool(request), config, tool.name, shouldIncludeAttachments(normalizedArgs, workspaceArtifactsEnabled));
 			} catch (err) {
 				if (err instanceof PaymentRequiredError) return {
 					content: [{
@@ -1545,6 +1578,6 @@ if (process.argv[1] && import.meta.url.includes(process.argv[1].replace(/\\/g, "
 	process.exit(1);
 });
 //#endregion
-export { createProxy };
+export { createProxy, resolveMcpProxyMode };
 
 //# sourceMappingURL=mcp-proxy.mjs.map

@@ -291,6 +291,7 @@ async function readJsonl(path: string): Promise<Array<Record<string, unknown>>> 
 let originalSigintListeners: NodeJS.SignalsListener[] = []
 let originalSigtermListeners: NodeJS.SignalsListener[] = []
 let originalWorkspace: string | undefined
+let originalProxyMode: string | undefined
 
 function removeAddedSignalListeners(signal: NodeJS.Signals, original: NodeJS.SignalsListener[]): void {
   for (const listener of process.listeners(signal)) {
@@ -305,6 +306,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     originalSigintListeners = process.listeners('SIGINT')
     originalSigtermListeners = process.listeners('SIGTERM')
     originalWorkspace = process.env['CHAIN_INSIGHTS_WORKSPACE']
+    originalProxyMode = process.env['CHAIN_INSIGHTS_MCP_PROXY_MODE']
     vi.clearAllMocks()
     runFundFlowProbeMock.mockReset()
     rmSync(testDataDir, { recursive: true, force: true })
@@ -320,8 +322,19 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
   afterEach(() => {
     if (originalWorkspace === undefined) delete process.env['CHAIN_INSIGHTS_WORKSPACE']
     else process.env['CHAIN_INSIGHTS_WORKSPACE'] = originalWorkspace
+    if (originalProxyMode === undefined) delete process.env['CHAIN_INSIGHTS_MCP_PROXY_MODE']
+    else process.env['CHAIN_INSIGHTS_MCP_PROXY_MODE'] = originalProxyMode
     removeAddedSignalListeners('SIGINT', originalSigintListeners)
     removeAddedSignalListeners('SIGTERM', originalSigtermListeners)
+  })
+
+  it('resolves workspace mode by default and accepts explicit stateless proxy mode', async () => {
+    const { resolveMcpProxyMode } = await import('../src/mcp/proxy.js')
+
+    expect(resolveMcpProxyMode({})).toBe('workspace')
+    expect(resolveMcpProxyMode({ CHAIN_INSIGHTS_MCP_PROXY_MODE: 'stateless' })).toBe('stateless')
+    expect(resolveMcpProxyMode({ CHAIN_INSIGHTS_MCP_PROXY_MODE: 'no-workspace' })).toBe('stateless')
+    expect(() => resolveMcpProxyMode({ CHAIN_INSIGHTS_MCP_PROXY_MODE: 'cases-only' })).toThrow('CHAIN_INSIGHTS_MCP_PROXY_MODE')
   })
 
   it('registers remote tool on the local server by name', async () => {
@@ -990,6 +1003,94 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
   })
 
+  it('runs trace tools in stateless proxy mode without case tools or graph report artifacts', async () => {
+    process.env['CHAIN_INSIGHTS_MCP_PROXY_MODE'] = 'stateless'
+    runFundFlowProbeMock.mockResolvedValue({
+      summaryText: 'Trace complete for bittensor:5Victim',
+      compactEvidence: {},
+      graphData: {
+        schema: 'chain-insights.graph.v1',
+        nodes: [],
+        edges: [],
+        flows: [],
+        deposits: [{ address: '5Deposit', exchangeAddress: '5Exchange' }],
+        source_matches: [],
+        reverse_leads: [],
+      },
+      files: {
+        schema: '',
+        compactEvidence: '',
+        graph: '',
+        graphHtml: '',
+        table: '',
+        tableHtml: '',
+        report: '',
+      },
+      continuation: {
+        nextHopAddresses: [],
+        depositAddresses: ['5Deposit'],
+        exchangeAddresses: ['5Exchange'],
+        hint: 'Found deposit candidates',
+      },
+      addressMap: {},
+    })
+
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query_batch', description: 'Cypher topology query batch' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const toolNames = serverInstance.registerTool.mock.calls.map((entry) => entry[0])
+    expect(toolNames).toContain('help')
+    expect(toolNames).toContain('trace_victim_funds')
+    expect(toolNames).not.toContain('balance')
+    expect(toolNames).not.toContain('case_open')
+    expect(toolNames).not.toContain('case_add_evidence')
+
+    const handler = findToolHandler(serverInstance, 'trace_victim_funds')
+    const result = await handler({
+      victim_addresses: '5Victim',
+      network: 'bittensor',
+    })
+
+    expect(result.isError).toBe(false)
+    expect(result._meta).toBeUndefined()
+    expect(result.structuredContent.artifacts).toMatchObject({
+      artifacts_written: false,
+      artifact_mode: 'stateless',
+    })
+    expect(result.structuredContent.artifacts.runs).toEqual([
+      expect.objectContaining({
+        role: 'victim',
+        address: '5Victim',
+        artifacts_written: false,
+        artifact_mode: 'stateless',
+      }),
+    ])
+    expect(runFundFlowProbeMock).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
+      seedAddress: '5Victim',
+      network: 'bittensor',
+      writeArtifacts: false,
+    }))
+    expect(ensureArtifactServerMock).not.toHaveBeenCalled()
+
+    const caseResult = await handler({
+      victim_addresses: '5Victim',
+      network: 'bittensor',
+      case_id: mockCase.id,
+    })
+    expect(caseResult.isError).toBe(true)
+    expect(caseResult.content[0].text).toContain('case_id requires Chain Insights workspace mode')
+  })
+
   it('registers local address_risk recipe with incorporated exchange behavior when remote is topology-query-only', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
@@ -1064,6 +1165,15 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const handler = findToolHandler(serverInstance, 'address_risk')
     const result = await handler({ address: '5Addr', network: 'bittensor' })
 
+    expect(clientInstance.callTool).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'graph_query_batch',
+      arguments: expect.objectContaining({
+        per_query_timeout_seconds: 10,
+      }),
+    }), undefined, expect.objectContaining({
+      timeout: expect.any(Number),
+      maxTotalTimeout: expect.any(Number),
+    }))
     expect(result.isError).toBe(false)
     expect(result.content[0].text).toContain('Address risk for bittensor:5Addr')
     expect(result.content[0].text).toContain('Risk: high (0.82)')

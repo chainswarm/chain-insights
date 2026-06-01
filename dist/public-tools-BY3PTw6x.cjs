@@ -45,7 +45,7 @@ var AliasTracker = class {
 		return Object.fromEntries(entries.sort(([a], [b]) => a.localeCompare(b, void 0, { numeric: true })));
 	}
 };
-const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS$1 = 120;
+const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS$1 = 10;
 const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS$1 = 300 * 1e3;
 const SCHEMA_QUERY_SET = [
 	{
@@ -822,6 +822,7 @@ function summarize(seedAddress, network, flows, sourceMatches, reverseLeads, ali
 	for (const flow of flows) byHop.set(flow.hop, (byHop.get(flow.hop) ?? 0) + 1);
 	const depositCount = continuation.depositAddresses.length;
 	const exchangeCount = continuation.exchangeAddresses.length;
+	const hasFiles = Object.values(files).some((value) => value.length > 0);
 	return [
 		`Trace complete for ${network}:${seedAddress}`,
 		"",
@@ -830,14 +831,16 @@ function summarize(seedAddress, network, flows, sourceMatches, reverseLeads, ali
 		`Exchange endpoints reached: ${exchangeCount}. Deposit candidate address(es): ${depositCount}.`,
 		`Traceback source path(s): ${sourceMatches.length}. Reverse 1-hop lead(s): ${reverseLeads.length}.`,
 		"",
-		"Files written:",
-		`- schema: ${files.schema}`,
-		`- compact evidence JSON: ${files.compactEvidence}`,
-		`- graph JSON: ${files.graph}`,
-		`- graph HTML: ${files.graphHtml}`,
-		`- table CSV: ${files.table}`,
-		`- table HTML: ${files.tableHtml}`,
-		`- report: ${files.report}`,
+		hasFiles ? [
+			"Files written:",
+			`- schema: ${files.schema}`,
+			`- compact evidence JSON: ${files.compactEvidence}`,
+			`- graph JSON: ${files.graph}`,
+			`- graph HTML: ${files.graphHtml}`,
+			`- table CSV: ${files.table}`,
+			`- table HTML: ${files.tableHtml}`,
+			`- report: ${files.report}`
+		].join("\n") : "Files written: disabled by stateless proxy mode.",
 		"",
 		`Continuation hint: ${continuation.hint}`,
 		continuation.depositAddresses.length > 0 ? `Deposit candidates: ${continuation.depositAddresses.map((address) => aliases.alias(address) ?? address).join(", ")}` : "Deposit candidates: none reached in this bounded trace.",
@@ -853,9 +856,18 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	const perAddressLimit = clampInt$2(options.perAddressLimit, 5, 1, 10);
 	const minAmountSum = Math.max(0, options.minAmountSum ?? 0);
 	const evidenceSource = options.evidenceSource ?? "track_funds";
-	const paths = require_output_root.workspaceOutputPaths();
-	await ensureDirs(paths);
-	const schemaResult = await loadOrCaptureTopologySchema(remoteClient, paths, network);
+	const writeArtifacts = options.writeArtifacts !== false;
+	if (!writeArtifacts && options.caseId) throw new Error("case_id requires workspace artifacts; omit case_id when CHAIN_INSIGHTS_MCP_PROXY_MODE=stateless");
+	const paths = writeArtifacts ? require_output_root.workspaceOutputPaths() : void 0;
+	if (paths) await ensureDirs(paths);
+	const schemaResult = paths ? await loadOrCaptureTopologySchema(remoteClient, paths, network) : {
+		schema: {
+			schema: "chain-insights.runtime_graph_schema.v1",
+			network,
+			source: "stateless_proxy_mode"
+		},
+		filePath: "stateless://runtime-schema-not-written"
+	};
 	const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, {
 		seedAddress,
 		network,
@@ -868,19 +880,21 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	const slug = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}_${sanitizeSegment(seedAddress.slice(0, 16))}`;
 	const compact = probeEvidence(seedAddress, network, schemaResult.filePath, aliases, flows, deposits, sourceMatches, reverseLeads, evidenceSource);
 	const graph = buildGraph(seedAddress, network, flows, deposits, sourceMatches, reverseLeads);
-	const compactPath = node_path.default.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
-	const graphPath = node_path.default.join(paths.reportGraphsRoot, `${slug}.graph.json`);
-	const graphHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.graph.html`);
-	const tablePath = node_path.default.join(paths.reportTablesRoot, `${slug}.flows.csv`);
-	const tableHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.table.html`);
-	const reportPath = node_path.default.join(paths.reportsRoot, `${slug}.trace-report.md`);
-	const { generateInlineGraphHtml } = await Promise.resolve().then(() => require("./html-generator-Bx3UcLTB.cjs")).then((n) => n.html_generator_exports);
-	await (0, node_fs_promises.writeFile)(compactPath, JSON.stringify(compact, null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(graphPath, JSON.stringify(graph, null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(tablePath, tableCsv(flows), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 384 });
+	const compactPath = paths ? node_path.default.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`) : "";
+	const graphPath = paths ? node_path.default.join(paths.reportGraphsRoot, `${slug}.graph.json`) : "";
+	const graphHtmlPath = paths ? node_path.default.join(paths.reportsRoot, `${slug}.graph.html`) : "";
+	const tablePath = paths ? node_path.default.join(paths.reportTablesRoot, `${slug}.flows.csv`) : "";
+	const tableHtmlPath = paths ? node_path.default.join(paths.reportsRoot, `${slug}.table.html`) : "";
+	const reportPath = paths ? node_path.default.join(paths.reportsRoot, `${slug}.trace-report.md`) : "";
+	if (paths) {
+		const { generateInlineGraphHtml } = await Promise.resolve().then(() => require("./html-generator-Bx3UcLTB.cjs")).then((n) => n.html_generator_exports);
+		await (0, node_fs_promises.writeFile)(compactPath, JSON.stringify(compact, null, 2) + "\n", { mode: 384 });
+		await (0, node_fs_promises.writeFile)(graphPath, JSON.stringify(graph, null, 2) + "\n", { mode: 384 });
+		await (0, node_fs_promises.writeFile)(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 384 });
+		await (0, node_fs_promises.writeFile)(tablePath, tableCsv(flows), { mode: 384 });
+		await (0, node_fs_promises.writeFile)(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 384 });
+		await (0, node_fs_promises.writeFile)(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 384 });
+	}
 	if (options.caseId) {
 		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-Bz_9XKEw.cjs")).then((n) => n.cases_exports);
 		await EvidenceStore.append(options.caseId, {
@@ -939,7 +953,7 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 }
 //#endregion
 //#region src/investigation/stake-insights.ts
-const STAKE_INSIGHTS_QUERY_TIMEOUT_SECONDS = 120;
+const STAKE_INSIGHTS_QUERY_TIMEOUT_SECONDS = 10;
 const STAKE_INSIGHTS_REQUEST_TIMEOUT_MS = 300 * 1e3;
 function escapeCypherString$1(value) {
 	return value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
@@ -1299,7 +1313,8 @@ function summaryLines(network, subject, rows, totals, failures) {
 async function stakeInsights(remoteClient, options) {
 	const { network, subject, depth } = validateOptions(options);
 	const { live, archive, failures, evidence } = collectRelationships(await callGraphBatch$1(remoteClient, network, [stakeRelationshipQuery("live_topology", subject, options, depth), stakeRelationshipQuery("archive_topology", subject, options, depth)]));
-	if (live.length === 0 && archive.length === 0 && failures.length > 0) throw new Error(`Stake insights unavailable: ${failures.map((failure) => `${failure.id}: ${failure.error}`).join("; ")}`);
+	const successfulQueryCount = evidence.filter((entry) => entry["ok"] === true).length;
+	if (live.length === 0 && archive.length === 0 && failures.length > 0 && successfulQueryCount === 0) throw new Error(`Stake insights unavailable: ${failures.map((failure) => `${failure.id}: ${failure.error}`).join("; ")}`);
 	const rows = live.length > 0 ? live : archive;
 	const totals = stakeTotals(rows);
 	const facts = {
@@ -1334,7 +1349,7 @@ async function stakeInsights(remoteClient, options) {
 }
 //#endregion
 //#region src/investigation/public-tools.ts
-const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 120;
+const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 10;
 const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS = 300 * 1e3;
 function escapeCypherString(value) {
 	return value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
@@ -1815,6 +1830,10 @@ function normalizeTraceGraphData(runs, network) {
 }
 function traceArtifactPointersFromRun(run) {
 	if (!run) return {};
+	if (!Object.values(run.files).some((value) => value.length > 0)) return {
+		artifacts_written: false,
+		artifact_mode: "stateless"
+	};
 	return {
 		graph_json: run.files.graph,
 		graph_html: run.files.graphHtml,
@@ -1822,6 +1841,12 @@ function traceArtifactPointersFromRun(run) {
 		flows_csv: run.files.table,
 		table_html: run.files.tableHtml,
 		report_md: run.files.report
+	};
+}
+function statelessArtifacts() {
+	return {
+		artifacts_written: false,
+		artifact_mode: "stateless"
 	};
 }
 function artifactEvidence(artifacts) {
@@ -2028,7 +2053,8 @@ async function traceVictimFunds(remoteClient, config, options) {
 			perAddressLimit: options.perAddressLimit,
 			minAmountSum: options.minAmountSum,
 			includeDepositTraceback: false,
-			evidenceSource: "trace_victim_funds"
+			evidenceSource: "trace_victim_funds",
+			writeArtifacts: options.writeArtifacts
 		})
 	});
 	return traceResultFromFundRuns("trace_victim_funds", "victim", network, runs, {
@@ -2056,7 +2082,8 @@ async function traceSuspectFunds(remoteClient, config, options) {
 			perAddressLimit: options.perAddressLimit,
 			minAmountSum: options.minAmountSum,
 			includeDepositTraceback: false,
-			evidenceSource: "trace_suspect_funds"
+			evidenceSource: "trace_suspect_funds",
+			writeArtifacts: options.writeArtifacts
 		})
 	});
 	return traceResultFromFundRuns("trace_suspect_funds", "suspect", network, runs, {
@@ -2201,6 +2228,7 @@ async function traceDepositSources(remoteClient, _config, options) {
 	if (!network) throw new Error("network is required");
 	if (deposits.length < 1) throw new Error("deposit_addresses must contain at least 1 address");
 	if (deposits.length > 5) throw new Error("deposit_addresses cannot exceed 5 addresses");
+	if (options.writeArtifacts === false && options.caseId) throw new Error("case_id requires workspace artifacts; omit case_id when CHAIN_INSIGHTS_MCP_PROXY_MODE=stateless");
 	const maxHops = clampInt(options.maxHops, 2, 1, 5);
 	const batch = await callGraphBatch(remoteClient, network, Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1)));
 	const failures = [];
@@ -2318,7 +2346,7 @@ async function traceDepositSources(remoteClient, _config, options) {
 		`Reverse path(s): ${paths.length}`,
 		`Shared upstream convergence: ${convergence.length}`
 	].join("\n");
-	const artifacts = await writeTraceSourceArtifacts("trace_deposit_sources", network, graphData, rows, summaryText);
+	const artifacts = options.writeArtifacts === false ? statelessArtifacts() : await writeTraceSourceArtifacts("trace_deposit_sources", network, graphData, rows, summaryText);
 	const evidence = artifactEvidence(artifacts);
 	if (options.caseId) {
 		const { EvidenceStore } = await Promise.resolve().then(() => require("./cases-Bz_9XKEw.cjs")).then((n) => n.cases_exports);

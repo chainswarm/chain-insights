@@ -44,6 +44,9 @@ describe('MCP network capabilities', () => {
     })
     const headers = fetchMock.mock.calls[0]?.[1]?.headers as Headers
     expect(headers.get('X-MCP-Debug-Token')).toBe('debug-token')
+    expect(headers.get('X-MCP-Test-Key')).toBe('debug-token')
+    expect(headers.get('X-Chain-Insights-Test-Key')).toBe('debug-token')
+    expect(headers.get('Authorization')).toBe('Bearer debug-token')
     expect(result.networks[0]?.network).toBe('tron')
   })
 

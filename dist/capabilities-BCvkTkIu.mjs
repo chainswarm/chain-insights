@@ -1,4 +1,4 @@
-import { a as resolveGraphMcpEndpoint } from "./client-D4JE7fFF.mjs";
+import { n as applyMcpAuthHeaders, o as resolveGraphMcpEndpoint } from "./client-BgmHjBHQ.mjs";
 //#region src/mcp/capabilities.ts
 function metadataNetworksUrl(endpoint) {
 	const url = new URL(endpoint);
@@ -11,10 +11,7 @@ async function fetchNetworkCapabilities(config) {
 	const request = metadataNetworksUrl(resolveGraphMcpEndpoint(config));
 	const headers = new Headers();
 	const token = config.graphMcpAuthToken?.trim() || config.mcpAuthToken?.trim();
-	if (token) {
-		headers.set("X-MCP-Debug-Token", token);
-		headers.set("Authorization", `Bearer ${token}`);
-	}
+	if (token) applyMcpAuthHeaders(headers, token);
 	let response;
 	try {
 		response = await fetch(request, { headers });
@@ -81,4 +78,4 @@ function formatNetworkCapabilities(document) {
 //#endregion
 export { fetchNetworkCapabilities, formatNetworkCapabilities };
 
-//# sourceMappingURL=capabilities-BC3Y5EOi.mjs.map
+//# sourceMappingURL=capabilities-BCvkTkIu.mjs.map
