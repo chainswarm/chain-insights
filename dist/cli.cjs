@@ -129,6 +129,31 @@ program.command("status").description("Show toolkit status and configuration").a
 	console.log("Graph MCP:", graphMcpStatus);
 	console.log("Graph endpoint:", config.graphMcpEndpoint);
 });
+program.command("update").description("Check npmjs for a newer Chain Insights release and update this CLI").option("--check", "Only check for a newer release").option("--dry-run", "Print the update command without running it").action(async (opts) => {
+	try {
+		const { checkForUpdate, runPackageUpdate } = await Promise.resolve().then(() => require("./update-BJoXYucO.cjs"));
+		const result = await checkForUpdate();
+		if (result.error) throw new Error(`Could not check npmjs for updates: ${result.error}`);
+		if (!result.updateAvailable || !result.latestVersion) {
+			console.log(`Chain Insights is up to date (${result.currentVersion}).`);
+			return;
+		}
+		console.log(`Chain Insights ${result.latestVersion} is available (current ${result.currentVersion}).`);
+		if (opts.check) {
+			console.log(`Run: ${result.updateCommand}`);
+			return;
+		}
+		if (opts.dryRun) {
+			console.log(`Would run: ${result.updateCommand}`);
+			return;
+		}
+		console.log(`Running: ${result.updateCommand}`);
+		runPackageUpdate(result.packageName);
+	} catch (err) {
+		console.error(err.message);
+		process.exit(1);
+	}
+});
 program.command("obsidian").description("Manage the local Obsidian investigation vault").addCommand(new commander.Command("open").description("Open the current Chain Insights vault in Obsidian").argument("[path]", "Workspace path to open as an Obsidian vault").action(async (workspacePath) => {
 	try {
 		const { findActiveWorkspace } = await Promise.resolve().then(() => require("./active-BVr55kvW.cjs")).then((n) => n.active_exports);
@@ -240,6 +265,8 @@ program.command("init").description("Initialize an investigation workspace").arg
 		});
 		console.log(`Workspace initialized: ${result.workspaceRoot}`);
 		console.log(`Files written: ${result.filesWritten.length}`);
+		const { maybePromptForUpdate } = await Promise.resolve().then(() => require("./update-BJoXYucO.cjs"));
+		await maybePromptForUpdate();
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);
