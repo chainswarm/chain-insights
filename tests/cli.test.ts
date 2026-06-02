@@ -25,6 +25,17 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('status')
   })
 
+  it('--help lists update subcommand', () => {
+    const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
+    expect(out).toContain('update')
+  })
+
+  it('update --help exposes check and dry-run flags', () => {
+    const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'update', '--help'], { encoding: 'utf8' })
+    expect(out).toContain('--check')
+    expect(out).toContain('--dry-run')
+  })
+
   it('--help lists setup subcommand', () => {
     const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
     expect(out).toContain('setup')

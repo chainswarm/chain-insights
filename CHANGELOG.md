@@ -2,6 +2,14 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.9] - 2026-06-02
+
+- Added `cia update` / `chain-insights update` to check the global npmjs
+  registry for the newest Chain Insights CLI release and run the global npm
+  update command.
+- Added an interactive update prompt after `cia init` when a newer npm release
+  is available, while keeping noninteractive workspace initialization quiet.
+
 ## [0.3.8] - 2026-06-01
 
 - Sent invited tester access keys through the GraphRAG MCP debug, staging

@@ -35,7 +35,12 @@ Check the CLI:
 
 ```bash
 cia --version
+cia update --check
 ```
+
+Run `cia update` to update a global npm install from the public npmjs registry.
+`cia init` also checks for a newer npm release in interactive terminals and
+prompts before updating.
 
 From a local checkout:
 
