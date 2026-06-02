@@ -2,6 +2,11 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.11] - 2026-06-02
+
+- Increased the packaged CLI init integration test timeout so npm publish CI can
+  complete reliably on slower runners.
+
 ## [0.3.10] - 2026-06-02
 
 - Allowed GraphRAG MCP endpoint configuration to use trusted Kubernetes
