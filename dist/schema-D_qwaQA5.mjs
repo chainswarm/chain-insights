@@ -1,5 +1,5 @@
 import { t as __exportAll } from "./rolldown-runtime-D7D4PA-g.mjs";
-import { i as validateMcpEndpoint, n as LOCAL_LEGACY_MCP_ENDPOINT, t as LOCAL_GRAPH_MCP_ENDPOINT } from "./mcp-endpoint-DHs1cRFH.mjs";
+import { i as validateMcpEndpoint, n as LOCAL_LEGACY_MCP_ENDPOINT, t as LOCAL_GRAPH_MCP_ENDPOINT } from "./mcp-endpoint-QQ5Lbqc2.mjs";
 import path from "node:path";
 import os from "node:os";
 import * as z from "zod";
@@ -57,4 +57,4 @@ const CONFIG_KEYS = [
 //#endregion
 export { parseInvestigatorConfig as n, schema_exports as r, DEFAULT_CONFIG as t };
 
-//# sourceMappingURL=schema-BFEWhzg7.mjs.map
+//# sourceMappingURL=schema-D_qwaQA5.mjs.map

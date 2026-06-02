@@ -12,6 +12,10 @@ function isLoopbackHost(hostname: string): boolean {
   return normalized.split('.')[0] === '127'
 }
 
+function isKubernetesServiceHost(hostname: string): boolean {
+  return hostname.toLowerCase().endsWith('.svc.cluster.local')
+}
+
 export function graphMcpEndpointEnvOverride(): string | undefined {
   const envEndpoint = process.env.CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT?.trim()
     || process.env.GRAPH_MCP_ENDPOINT?.trim()
@@ -42,9 +46,9 @@ export function validateMcpEndpoint(value: string, key: string): string {
   if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
     throw new Error(`${key} must use either https:// or http://.`)
   }
-  if (parsed.protocol === 'http:' && !isLoopbackHost(parsed.hostname)) {
+  if (parsed.protocol === 'http:' && !isLoopbackHost(parsed.hostname) && !isKubernetesServiceHost(parsed.hostname)) {
     throw new Error(
-      `${key} must use https:// for remote hosts. http:// is allowed only for localhost or loopback addresses.`,
+      `${key} must use https:// for remote hosts. http:// is allowed only for localhost, loopback addresses, or Kubernetes *.svc.cluster.local service DNS.`,
     )
   }
 

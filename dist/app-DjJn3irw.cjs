@@ -1,7 +1,10 @@
-import path from "node:path";
-import { lstat, readFile, readdir, realpath } from "node:fs/promises";
-import os from "node:os";
-import { Hono } from "hono";
+const require_chunk = require("./chunk-DakpK96I.cjs");
+let node_path = require("node:path");
+node_path = require_chunk.__toESM(node_path, 1);
+let node_fs_promises = require("node:fs/promises");
+let node_os = require("node:os");
+node_os = require_chunk.__toESM(node_os, 1);
+let hono = require("hono");
 //#region src/server/app.ts
 const WORKSPACE_TREE_ROOTS = [
 	"cases",
@@ -10,29 +13,29 @@ const WORKSPACE_TREE_ROOTS = [
 ];
 const WORKSPACE_TREE_MAX_DEPTH = 4;
 function withinRoot(root, target) {
-	const relative = path.relative(path.resolve(root), path.resolve(target));
-	return relative === "" || !relative.startsWith("..") && !path.isAbsolute(relative);
+	const relative = node_path.default.relative(node_path.default.resolve(root), node_path.default.resolve(target));
+	return relative === "" || !relative.startsWith("..") && !node_path.default.isAbsolute(relative);
 }
 async function realPathWithinRoot(root, target) {
 	try {
-		const [realRoot, realTarget] = await Promise.all([realpath(root), realpath(target)]);
+		const [realRoot, realTarget] = await Promise.all([(0, node_fs_promises.realpath)(root), (0, node_fs_promises.realpath)(target)]);
 		return withinRoot(realRoot, realTarget);
 	} catch {
 		return false;
 	}
 }
 function toWorkspaceRelative(root, target) {
-	return path.relative(root, target).split(path.sep).join("/");
+	return node_path.default.relative(root, target).split(node_path.default.sep).join("/");
 }
 async function listWorkspaceEntries(workspaceRoot, roots = WORKSPACE_TREE_ROOTS, maxDepth = WORKSPACE_TREE_MAX_DEPTH) {
 	const entries = [];
-	const root = path.resolve(workspaceRoot);
+	const root = node_path.default.resolve(workspaceRoot);
 	async function visit(target, depth) {
-		const resolved = path.resolve(target);
+		const resolved = node_path.default.resolve(target);
 		if (!withinRoot(root, resolved)) return;
 		let info;
 		try {
-			info = await lstat(resolved);
+			info = await (0, node_fs_promises.lstat)(resolved);
 		} catch {
 			return;
 		}
@@ -48,40 +51,40 @@ async function listWorkspaceEntries(workspaceRoot, roots = WORKSPACE_TREE_ROOTS,
 		if (!await realPathWithinRoot(root, resolved)) return;
 		let children;
 		try {
-			children = await readdir(resolved);
+			children = await (0, node_fs_promises.readdir)(resolved);
 		} catch {
 			return;
 		}
-		for (const child of children.sort()) await visit(path.join(resolved, child), depth + 1);
+		for (const child of children.sort()) await visit(node_path.default.join(resolved, child), depth + 1);
 	}
 	for (const rootName of roots) {
-		const target = path.resolve(root, rootName);
+		const target = node_path.default.resolve(root, rootName);
 		if (withinRoot(root, target)) await visit(target, 0);
 	}
 	return entries;
 }
 async function findVizHtml(vizId) {
-	const home = os.homedir();
+	const home = node_os.default.homedir();
 	const filename = `${vizId}.html`;
-	const centralPath = path.join(home, ".chain-insights", "viz", filename);
+	const centralPath = node_path.default.join(home, ".chain-insights", "viz", filename);
 	try {
-		return await readFile(centralPath, "utf-8");
+		return await (0, node_fs_promises.readFile)(centralPath, "utf-8");
 	} catch {}
 	const underscoreIdx = vizId.lastIndexOf("_");
 	if (underscoreIdx > 0) {
 		const possibleCaseId = vizId.substring(0, underscoreIdx);
-		const casePath = path.join(home, ".chain-insights", "cases", possibleCaseId, "viz", filename);
+		const casePath = node_path.default.join(home, ".chain-insights", "cases", possibleCaseId, "viz", filename);
 		try {
-			return await readFile(casePath, "utf-8");
+			return await (0, node_fs_promises.readFile)(casePath, "utf-8");
 		} catch {}
 	}
-	const casesDir = path.join(home, ".chain-insights", "cases");
+	const casesDir = node_path.default.join(home, ".chain-insights", "cases");
 	try {
-		const cases = await readdir(casesDir);
+		const cases = await (0, node_fs_promises.readdir)(casesDir);
 		for (const caseId of cases) {
-			const casePath = path.join(casesDir, caseId, "viz", filename);
+			const casePath = node_path.default.join(casesDir, caseId, "viz", filename);
 			try {
-				return await readFile(casePath, "utf-8");
+				return await (0, node_fs_promises.readFile)(casePath, "utf-8");
 			} catch {}
 		}
 	} catch {}
@@ -91,13 +94,13 @@ function isSafeGraphReportFilename(filename) {
 	return filename.endsWith(".graph.json") && /^[A-Za-z0-9._-]+$/.test(filename) && !filename.includes("..") && !filename.includes("/") && !filename.includes("\\");
 }
 function createApp() {
-	const app = new Hono();
+	const app = new hono.Hono();
 	app.get("/health", (c) => c.json({
 		ok: true,
 		ts: Date.now()
 	}));
 	app.get("/status", async (c) => {
-		const { loadConfig } = await import("./config-Drgc2HuF.mjs").then((n) => n.t);
+		const { loadConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
 		const config = await loadConfig();
 		return c.json({
 			dataDir: config.dataDir,
@@ -115,13 +118,13 @@ function createApp() {
 	app.get("/graph-reports/:filename", async (c) => {
 		const filename = c.req.param("filename");
 		if (!isSafeGraphReportFilename(filename)) return c.json({ error: "Invalid graph report filename" }, 400);
-		const { workspaceOutputPaths } = await import("./output-root-BRhzhhXZ.mjs").then((n) => n.t);
+		const { workspaceOutputPaths } = await Promise.resolve().then(() => require("./output-root-YIbl6PwF.cjs")).then((n) => n.output_root_exports);
 		const paths = workspaceOutputPaths();
-		const graphPath = path.resolve(paths.reportGraphsRoot, filename);
+		const graphPath = node_path.default.resolve(paths.reportGraphsRoot, filename);
 		if (!withinRoot(paths.reportGraphsRoot, graphPath)) return c.json({ error: "Invalid graph report filename" }, 400);
 		if (!await realPathWithinRoot(paths.reportGraphsRoot, graphPath)) return c.json({ error: "Graph report not found" }, 404);
 		try {
-			const graph = await readFile(graphPath, "utf-8");
+			const graph = await (0, node_fs_promises.readFile)(graphPath, "utf-8");
 			return c.body(graph, 200, {
 				"Content-Type": "application/json",
 				"Access-Control-Allow-Origin": "*"
@@ -134,7 +137,7 @@ function createApp() {
 		return c.json({ error: "Invalid graph report filename" }, 400);
 	});
 	app.get("/workspace/tree", async (c) => {
-		const { workspaceOutputPaths } = await import("./output-root-BRhzhhXZ.mjs").then((n) => n.t);
+		const { workspaceOutputPaths } = await Promise.resolve().then(() => require("./output-root-YIbl6PwF.cjs")).then((n) => n.output_root_exports);
 		const paths = workspaceOutputPaths();
 		const entries = await listWorkspaceEntries(paths.root, WORKSPACE_TREE_ROOTS);
 		return c.json({
@@ -150,6 +153,9 @@ function createApp() {
 	return app;
 }
 //#endregion
-export { createApp as t };
-
-//# sourceMappingURL=app-CRd39JJ8.mjs.map
+Object.defineProperty(exports, "createApp", {
+	enumerable: true,
+	get: function() {
+		return createApp;
+	}
+});

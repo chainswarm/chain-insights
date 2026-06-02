@@ -70,7 +70,7 @@ function optionalNumberArg(value, name) {
 	throw new Error(`Invalid number for ${name}: ${String(value)}`);
 }
 async function withGraphMcpClient(name, fn) {
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
 	const config = await loadConfig();
 	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-Y_zqKqJT.cjs")).then((n) => n.client_exports);
 	const paymentFetch = await createConfiguredGraphMcpFetch(config);
@@ -91,7 +91,7 @@ function printMcpTextContent(result) {
 	for (const item of result.content ?? []) if (item.type === "text") console.log(item.text);
 }
 async function printNetworkCapabilities(opts) {
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
 	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await Promise.resolve().then(() => require("./capabilities-DOa6EFO-.cjs"));
 	const document = await fetchNetworkCapabilities(await loadConfig());
 	if (opts.json) console.log(JSON.stringify(document, null, 2));
@@ -109,7 +109,7 @@ program.command("serve").description("Start local visualization server").option(
 	try {
 		const { requireWorkspaceRoot } = await Promise.resolve().then(() => require("./output-root-YIbl6PwF.cjs")).then((n) => n.output_root_exports);
 		const workspaceRoot = requireWorkspaceRoot();
-		const { startServer } = await Promise.resolve().then(() => require("./server-BqVdWath.cjs")).then((n) => n.server_exports);
+		const { startServer } = await Promise.resolve().then(() => require("./server-B2NFmnCM.cjs")).then((n) => n.server_exports);
 		console.log(`Workspace: ${workspaceRoot}`);
 		startServer(parseInt(opts.port, 10));
 	} catch (err) {
@@ -118,7 +118,7 @@ program.command("serve").description("Start local visualization server").option(
 	}
 });
 program.command("status").description("Show toolkit status and configuration").action(async () => {
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
 	const { findActiveWorkspace, activeDataDir } = await Promise.resolve().then(() => require("./active-BVr55kvW.cjs")).then((n) => n.active_exports);
 	const config = await loadConfig();
 	const workspace = findActiveWorkspace();
@@ -175,7 +175,7 @@ program.command("obsidian").description("Manage the local Obsidian investigation
 }));
 program.command("debug").description("Configure Graph MCP debug mode").addCommand(new commander.Command("on").description("Enable Graph MCP debug mode without x402 payments").requiredOption("--token <token>", "Debug bearer token").option("--endpoint <url>", "Graph MCP endpoint").action(async (opts) => {
 	try {
-		const { saveConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
+		const { saveConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
 		await saveConfig({
 			graphMcpMode: "debug",
 			graphMcpAuthToken: opts.token,
@@ -190,7 +190,7 @@ program.command("debug").description("Configure Graph MCP debug mode").addComman
 	}
 })).addCommand(new commander.Command("off").description("Disable Graph MCP debug mode and use paid x402 calls").action(async () => {
 	try {
-		const { saveConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
+		const { saveConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
 		await saveConfig({
 			graphMcpMode: "paid",
 			graphMcpAuthToken: ""
@@ -203,7 +203,7 @@ program.command("debug").description("Configure Graph MCP debug mode").addComman
 	}
 })).addCommand(new commander.Command("status").description("Show Graph MCP payment/debug mode").action(async () => {
 	try {
-		const { loadConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
+		const { loadConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
 		const config = await loadConfig();
 		console.log(`Graph MCP mode: ${config.graphMcpMode}`);
 		console.log(`Graph endpoint: ${config.graphMcpEndpoint}`);
@@ -218,7 +218,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 	try {
 		const normalizedKey = key.trim();
 		if (!normalizedKey) throw new Error("Test access key is required");
-		const { saveConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
+		const { saveConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
 		await saveConfig({
 			graphMcpMode: "debug",
 			graphMcpAuthToken: normalizedKey,
@@ -233,7 +233,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 	}
 })).addCommand(new commander.Command("clear").description("Remove the Graph MCP test access key and use paid x402 calls").action(async () => {
 	try {
-		const { saveConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
+		const { saveConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
 		await saveConfig({
 			graphMcpMode: "paid",
 			graphMcpAuthToken: ""
@@ -246,7 +246,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 	}
 })).addCommand(new commander.Command("status").description("Show Graph MCP test access key status").action(async () => {
 	try {
-		const { loadConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
+		const { loadConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
 		const config = await loadConfig();
 		console.log(`Graph endpoint: ${config.graphMcpEndpoint}`);
 		console.log(`Access key:     ${config.graphMcpAuthToken?.trim() ? "configured" : "not configured"}`);
@@ -258,7 +258,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 }));
 program.command("init").description("Initialize an investigation workspace").argument("[dir]", "Workspace directory to initialize", ".").option("--force", "Overwrite existing workspace files").action(async (dir, opts) => {
 	try {
-		const { initWorkspace } = await Promise.resolve().then(() => require("./init-Dhw8F23z.cjs"));
+		const { initWorkspace } = await Promise.resolve().then(() => require("./init-vj2v5PMP.cjs"));
 		const result = await initWorkspace({
 			targetDir: dir,
 			force: opts.force
@@ -295,8 +295,8 @@ program.command("setup").description("Configure external MCP clients").addComman
 	}
 }));
 program.command("config").description("Read or write configuration values").addCommand(new commander.Command("get").argument("<key>", "Config key to read").action(async (key) => {
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
-	const { CONFIG_KEYS } = await Promise.resolve().then(() => require("./schema-Vl9yuOFO.cjs")).then((n) => n.schema_exports);
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
+	const { CONFIG_KEYS } = await Promise.resolve().then(() => require("./schema-Dr6JXSOF.cjs")).then((n) => n.schema_exports);
 	if (!CONFIG_KEYS.includes(key)) {
 		console.error(`Unknown config key: ${key}`);
 		process.exit(1);
@@ -316,8 +316,8 @@ program.command("config").description("Read or write configuration values").addC
 		}
 		return;
 	}
-	const { loadConfig, saveConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
-	const { CONFIG_KEYS, DEFAULT_CONFIG } = await Promise.resolve().then(() => require("./schema-Vl9yuOFO.cjs")).then((n) => n.schema_exports);
+	const { loadConfig, saveConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
+	const { CONFIG_KEYS, DEFAULT_CONFIG } = await Promise.resolve().then(() => require("./schema-Dr6JXSOF.cjs")).then((n) => n.schema_exports);
 	const current = await loadConfig();
 	if (!CONFIG_KEYS.includes(key)) {
 		console.error(`Unknown config key: ${key}`);
@@ -409,7 +409,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-CJk1EL3L.cjs"));
 		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-9NLBykEL.cjs"));
 		const { visibleRemoteTools } = await Promise.resolve().then(() => require("./tool-visibility-Buq7YdUZ.cjs")).then((n) => n.tool_visibility_exports);
-		const { loadConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
+		const { loadConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
 		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-Y_zqKqJT.cjs")).then((n) => n.client_exports);
 		const config = await loadConfig();
 		const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
@@ -877,7 +877,7 @@ program.command("playbook").description("Run and manage investigation playbooks"
 			console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`);
 			process.exit(1);
 		}
-		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-bLy0pTr_.cjs"));
+		const { PlaybookRunner } = await Promise.resolve().then(() => require("./runner-CcZCrrkn.cjs"));
 		await PlaybookRunner.run(definition, {
 			caseId: opts.case,
 			from: fromN,
@@ -932,7 +932,7 @@ program.command("viz").description("Generate money flow visualization").argument
 			caseId,
 			dataFile: opts.data
 		});
-		const { startServer } = await Promise.resolve().then(() => require("./server-BqVdWath.cjs")).then((n) => n.server_exports);
+		const { startServer } = await Promise.resolve().then(() => require("./server-B2NFmnCM.cjs")).then((n) => n.server_exports);
 		const port = parseInt(opts.port, 10);
 		startServer(port);
 		const url = `http://127.0.0.1:${port}/viz/${result.vizId}`;

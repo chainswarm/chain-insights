@@ -1,11 +1,11 @@
-const require_chunk = require("./chunk-DakpK96I.cjs");
-const require_app = require("./app-BxojXjtB.cjs");
-let _hono_node_server = require("@hono/node-server");
+import { t as __exportAll } from "./rolldown-runtime-D7D4PA-g.mjs";
+import { t as createApp } from "./app-norpwdou.mjs";
+import { serve } from "@hono/node-server";
 //#region src/server/index.ts
-var server_exports = /* @__PURE__ */ require_chunk.__exportAll({ startServer: () => startServer });
+var server_exports = /* @__PURE__ */ __exportAll({ startServer: () => startServer });
 function startServer(port = 4321) {
-	const server = (0, _hono_node_server.serve)({
-		fetch: require_app.createApp().fetch,
+	const server = serve({
+		fetch: createApp().fetch,
 		hostname: "127.0.0.1",
 		port
 	});
@@ -40,15 +40,6 @@ function startServer(port = 4321) {
 	return stop;
 }
 //#endregion
-Object.defineProperty(exports, "server_exports", {
-	enumerable: true,
-	get: function() {
-		return server_exports;
-	}
-});
-Object.defineProperty(exports, "startServer", {
-	enumerable: true,
-	get: function() {
-		return startServer;
-	}
-});
+export { startServer as n, server_exports as t };
+
+//# sourceMappingURL=server-86dyCsJO.mjs.map
