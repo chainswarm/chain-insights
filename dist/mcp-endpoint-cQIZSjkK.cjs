@@ -14,6 +14,9 @@ function isLoopbackHost(hostname) {
 	if ((0, node_net.isIP)(normalized) !== 4) return false;
 	return normalized.split(".")[0] === "127";
 }
+function isKubernetesServiceHost(hostname) {
+	return hostname.toLowerCase().endsWith(".svc.cluster.local");
+}
 function graphMcpEndpointEnvOverride() {
 	const envEndpoint = process.env.CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT?.trim() || process.env.GRAPH_MCP_ENDPOINT?.trim();
 	return envEndpoint ? validateMcpEndpoint(envEndpoint, "graphMcpEndpoint") : void 0;
@@ -30,7 +33,7 @@ function validateMcpEndpoint(value, key) {
 	if (parsed.username || parsed.password) throw new Error(`${key} must not include URL credentials.`);
 	if (parsed.search || parsed.hash) throw new Error(`${key} must not include query parameters or URL fragments.`);
 	if (parsed.protocol !== "https:" && parsed.protocol !== "http:") throw new Error(`${key} must use either https:// or http://.`);
-	if (parsed.protocol === "http:" && !isLoopbackHost(parsed.hostname)) throw new Error(`${key} must use https:// for remote hosts. http:// is allowed only for localhost or loopback addresses.`);
+	if (parsed.protocol === "http:" && !isLoopbackHost(parsed.hostname) && !isKubernetesServiceHost(parsed.hostname)) throw new Error(`${key} must use https:// for remote hosts. http:// is allowed only for localhost, loopback addresses, or Kubernetes *.svc.cluster.local service DNS.`);
 	return trimmed;
 }
 //#endregion

@@ -2,6 +2,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.10] - 2026-06-02
+
+- Allowed GraphRAG MCP endpoint configuration to use trusted Kubernetes
+  `*.svc.cluster.local` HTTP service URLs for in-cluster proxy deployments while
+  continuing to reject arbitrary remote HTTP endpoints.
+
 ## [0.3.9] - 2026-06-02
 
 - Added `cia update` / `chain-insights update` to check the global npmjs

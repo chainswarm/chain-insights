@@ -1,4 +1,4 @@
-const require_app = require("./app-BxojXjtB.cjs");
+const require_app = require("./app-DjJn3irw.cjs");
 let _hono_node_server = require("@hono/node-server");
 let node_timers_promises = require("node:timers/promises");
 //#region src/mcp/artifact-server.ts

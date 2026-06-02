@@ -8,6 +8,9 @@ const DNS_LOOPBACK_LOOKALIKE_ENDPOINTS = [
   'http://127.0.0.1.evil.com/mcp',
 ] as const
 
+const CLUSTER_LOCAL_GRAPH_MCP_ENDPOINT =
+  'http://chainswarm-graphrag-mcp-go.chainswarm-staging.svc.cluster.local:8012/mcp'
+
 describe('Config system (FOUND-05)', () => {
   let fakeHome: string
   let prevHome: string | undefined
@@ -86,6 +89,15 @@ describe('Config system (FOUND-05)', () => {
     )
   })
 
+  it('allows Kubernetes service DNS http graphMcpEndpoint values for in-cluster proxy use', async () => {
+    const configPath = join(fakeHome, '.chain-insights', 'config.json')
+    await writeFile(configPath, JSON.stringify({ graphMcpEndpoint: CLUSTER_LOCAL_GRAPH_MCP_ENDPOINT }), { mode: 0o600 })
+    const { loadConfig, resetConfigCache } = await import('../src/config/index.js')
+    await resetConfigCache()
+    const config = await loadConfig()
+    expect(config.graphMcpEndpoint).toBe(CLUSTER_LOCAL_GRAPH_MCP_ENDPOINT)
+  })
+
   it('CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT overrides saved graphMcpEndpoint', async () => {
     const configPath = join(fakeHome, '.chain-insights', 'config.json')
     await writeFile(configPath, JSON.stringify({ graphMcpEndpoint: 'http://127.0.0.1:8012/mcp' }), { mode: 0o600 })
@@ -113,6 +125,14 @@ describe('Config system (FOUND-05)', () => {
     await expect(loadConfig()).rejects.toThrow(
       'Invalid configuration in environment: graphMcpEndpoint must use https:// for remote hosts',
     )
+  })
+
+  it('env endpoint override allows Kubernetes service DNS http values', async () => {
+    process.env['CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT'] = CLUSTER_LOCAL_GRAPH_MCP_ENDPOINT
+    const { loadConfig, resetConfigCache } = await import('../src/config/index.js')
+    await resetConfigCache()
+    const config = await loadConfig()
+    expect(config.graphMcpEndpoint).toBe(CLUSTER_LOCAL_GRAPH_MCP_ENDPOINT)
   })
 
   it('legacy env endpoint override rejects remote http before use', async () => {
@@ -177,6 +197,15 @@ describe('Config system (FOUND-05)', () => {
         delete process.env[envKey]
       }
     }
+  })
+
+  it('rejects DNS hostnames that only look like Kubernetes service DNS', async () => {
+    const endpoint = 'http://chainswarm-graphrag-mcp-go.chainswarm-staging.svc.cluster.local.evil.com:8012/mcp'
+    const { saveConfig, resetConfigCache } = await import('../src/config/index.js')
+    await resetConfigCache()
+    await expect(saveConfig({ graphMcpEndpoint: endpoint }))
+      .rejects
+      .toThrow('graphMcpEndpoint must use https:// for remote hosts')
   })
 
   it('.env.example documents the GraphRAG MCP endpoint override with a safe local value', async () => {

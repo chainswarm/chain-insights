@@ -584,7 +584,7 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 	const meta = { ...result._meta ?? {} };
 	if (graphPayload && includeAttachments) {
 		const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
-		const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
+		const { ensureArtifactServer } = await import("./artifact-server-DHPM0lxS.mjs");
 		const report = await writeGraphReport(graphPayload, {
 			serverPort: config.serverPort,
 			slug: toolName || "remote-graph"
@@ -611,7 +611,7 @@ function shouldIncludeAttachments(args, workspaceArtifactsEnabled) {
 async function writeLocalGraphMeta(graphData, config, slug, includeAttachments) {
 	if (!includeAttachments) return void 0;
 	const { writeGraphReport } = await import("./graph-reports-BDELxmpi.mjs");
-	const { ensureArtifactServer } = await import("./artifact-server-CP6LXQ9d.mjs");
+	const { ensureArtifactServer } = await import("./artifact-server-DHPM0lxS.mjs");
 	const report = await writeGraphReport(graphData, {
 		serverPort: config.serverPort,
 		slug
@@ -633,7 +633,7 @@ function graphMetaResult(graph) {
 * All diagnostic output goes to console.error() or process.stderr.write().
 */
 async function createProxy() {
-	const { loadConfig } = await import("./config-Drgc2HuF.mjs").then((n) => n.t);
+	const { loadConfig } = await import("./config-C6zM8Xir.mjs").then((n) => n.t);
 	const { activeDataDir, findActiveWorkspace } = await import("./active-ByNgjuAg.mjs").then((n) => n.n);
 	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-BgmHjBHQ.mjs").then((n) => n.r);
 	const { loadSchema, saveSchema } = await import("./schema-cache-DwDvPy4e.mjs");

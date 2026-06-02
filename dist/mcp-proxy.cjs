@@ -588,7 +588,7 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 	const meta = { ...result._meta ?? {} };
 	if (graphPayload && includeAttachments) {
 		const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-B3mkLP8Z.cjs"));
-		const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-XbN16DwU.cjs"));
+		const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-C6_gtIql.cjs"));
 		const report = await writeGraphReport(graphPayload, {
 			serverPort: config.serverPort,
 			slug: toolName || "remote-graph"
@@ -615,7 +615,7 @@ function shouldIncludeAttachments(args, workspaceArtifactsEnabled) {
 async function writeLocalGraphMeta(graphData, config, slug, includeAttachments) {
 	if (!includeAttachments) return void 0;
 	const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-B3mkLP8Z.cjs"));
-	const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-XbN16DwU.cjs"));
+	const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-C6_gtIql.cjs"));
 	const report = await writeGraphReport(graphData, {
 		serverPort: config.serverPort,
 		slug
@@ -637,7 +637,7 @@ function graphMetaResult(graph) {
 * All diagnostic output goes to console.error() or process.stderr.write().
 */
 async function createProxy() {
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-BwVx19Og.cjs")).then((n) => n.config_exports);
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
 	const { activeDataDir, findActiveWorkspace } = await Promise.resolve().then(() => require("./active-BVr55kvW.cjs")).then((n) => n.active_exports);
 	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-Y_zqKqJT.cjs")).then((n) => n.client_exports);
 	const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-CJk1EL3L.cjs"));
