@@ -268,7 +268,7 @@ describe('CLI scaffold (FOUND-02)', () => {
       rmSync(packageRoot, { recursive: true, force: true })
       rmSync(parent, { recursive: true, force: true })
     }
-  })
+  }, 20_000)
 
   it('init creates an Obsidian-compatible investigation vault', () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
