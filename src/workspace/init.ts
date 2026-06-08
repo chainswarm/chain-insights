@@ -1,7 +1,6 @@
 import { access, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { LOCAL_GRAPH_MCP_ENDPOINT } from '../config/mcp-endpoint.js'
-import { assertNoVaultFileCollisions, scaffoldVault } from '../vault/index.js'
 
 export interface InitWorkspaceOptions {
   targetDir: string
@@ -19,14 +18,18 @@ const WORKSPACE_DIRS = [
   '.chain-insights/runtime',
   '.chain-insights/runtime/logs',
   '.chain-insights/runtime-skill',
-  'cases',
+  'artifacts',
+  'entities',
   'imports',
   'reports',
   'reports/graphs',
   'reports/tables',
+  'sessions',
   'templates',
   'published',
 ]
+
+const DEFAULT_DOMAIN_HINTS = ['aml', 'exposure']
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10)
@@ -35,23 +38,25 @@ function todayIso(): string {
 function workspaceJson(workspaceRoot: string): string {
   return JSON.stringify({
     schema: 'chain-insights.workspace.v1',
-    name: 'Chain Insights Investigations',
+    name: 'Chain Insights Workspace',
     workspace_root: workspaceRoot,
     default_network: 'bittensor',
     graph_mcp_endpoint: LOCAL_GRAPH_MCP_ENDPOINT,
-    cases_dir: 'cases',
+    artifacts_dir: 'artifacts',
     imports_dir: 'imports',
     reports_dir: 'reports',
     templates_dir: 'templates',
+    domain_hints: DEFAULT_DOMAIN_HINTS,
     created_at: todayIso(),
   }, null, 2) + '\n'
 }
 
-const README = `# Chain Insights Investigation Vault
+const README = `# Chain Insights Workspace
 
-This is a Chain Insights AML investigation workspace and Obsidian-compatible vault.
-Open this directory in Obsidian to review cases, entities, evidence, graphs, and
-published investigation bundles alongside the Chain Insights runtime metadata.
+This is a generic Chain Insights workspace.
+Use any editor or agent tooling you want to review reports, artifacts, entity
+notes, graphs, and published bundles alongside the Chain Insights runtime
+metadata.
 
 ## Start
 
@@ -64,45 +69,46 @@ chain-insights wallet ready --check-only
 
 \`\`\`text
 .chain-insights/   Workspace metadata
-cases/             Case exports and notes
+artifacts/         Tool-generated artifacts and durable workspace records
+entities/          Entity notes and indexes
 imports/           External reports, CSVs, screenshots, raw notes
 reports/           Final or interim analyst reports
 reports/graphs/    Graph JSON for visualization
 reports/tables/    Compact tabular extracts
-templates/         Reusable case/report templates
-published/         Obsidian-ready case exports and published bundles
+sessions/          Optional session notes
+templates/         Reusable workspace templates
+published/         Published bundles and handoff-ready exports
 .chain-insights/schema/         Runtime graph schema captures
 .chain-insights/runtime/        Workspace-local runtime process state and debug logs
 .chain-insights/runtime-skill/  Workspace-specific agent schema notes
-.obsidian/         Obsidian vault configuration
-Canvases/          Obsidian canvases for graph review
-Entities/          Entity notes and indexes
-Evidence/          Evidence notes and indexes
 \`\`\`
 `
 
 const AGENTS = `# Agent Instructions
 
-You are operating inside a Chain Insights investigation workspace.
+You are operating inside a Chain Insights workspace.
 
 - Read README.md first.
-- If this directory is not initialized, run \`cia init .\` before investigation-producing commands.
+- If this directory is not initialized, run \`cia init .\` before persistence-producing commands.
 - Do not rerun init in an existing workspace unless replacing scaffolding with \`--force\`.
 - Read .chain-insights/runtime-skill/SKILL.md before graph queries.
 - Preserve full blockchain addresses exactly.
 - Do not guess the network for graph queries.
-- Capture or refresh graph schema before the first case query.
-- Save compact evidence with original graph field names.
+- Capture or refresh graph schema before the first graph workflow.
+- \`domain_hints\` in \`.chain-insights/workspace.json\` are optional advisory workflow
+  preferences (for example \`["aml", "exposure"]\`) and should guide, not constrain,
+  tool selection.
+- Save compact artifacts with original graph field names.
 - Put canonical graph JSON in reports/graphs/ and analyst tables in reports/tables/.
-- Evidence files should summarize and point to graph/table outputs; do not paste large raw JSON blobs into evidence Markdown.
-- Investigation output must stay in this initialized workspace.
-- Never write cases, evidence, reports, graph JSON, HTML, schema captures, or logs to ~/.chain-insights.
+- Markdown reports should summarize and point to graph/table outputs; do not paste large raw JSON blobs into reports.
+- Workspace output must stay in this initialized workspace.
+- Never write artifacts, reports, graph JSON, HTML, schema captures, or logs to ~/.chain-insights.
 - Keep theories lightweight until evidence supports them.
 `
 
 const CLAUDE = AGENTS
 
-const CASE_BRIEF = `# Case Brief
+const CASE_BRIEF = `# Workspace Brief
 
 ## Summary
 
@@ -121,8 +127,8 @@ Current Assessment:
 
 const IMPORTS_README = `# External Investigation Inputs
 
-Put user-provided or third-party investigation material here before turning it
-into case evidence.
+Put user-provided or third-party material here before turning it into durable
+workspace outputs.
 
 Examples:
 
@@ -133,17 +139,17 @@ Examples:
 - Partner reports
 
 Files in this directory are inputs, not verified evidence. When an import
-supports a claim, summarize it into the case evidence manifest and reference
-the original file path.
+supports a claim, summarize it into a workspace report or artifact note and
+reference the original file path.
 `
 
 const TEMPLATES_README = `# Reusable Workspace Templates
 
-Store local report, case, prompt, and evidence templates here.
+Store local report, prompt, artifact, and note templates here.
 
 Templates are optional workspace helpers. They are not evidence and should not
-be treated as case state until copied into a case, evidence file, dossier, or
-report.
+be treated as durable workspace state until copied into an artifact, report,
+entity note, or session note.
 `
 
 const RUNTIME_SKILL = `---
@@ -180,11 +186,11 @@ Rules:
   Archived money-flow topology is exposed as
   \`(:Address)-[:FLOWS_TO]->(:Address)\` with \`period_granularity\`,
   \`period_start_date\`, and \`period_end_date\` on the relationship.
-- Preserve source schema field names in evidence and generated data files.
+- Preserve source schema field names in generated data files.
 - Do not rename, reinterpret, or add unit labels to graph fields unless the
   schema or query result explicitly supports that interpretation.
-- Keep evidence compact: select only the fields needed to support the claim.
-  Avoid storing whole node or relationship property blobs in evidence unless
+- Keep persisted outputs compact: select only the fields needed to support the claim.
+  Avoid storing whole node or relationship property blobs unless
   the purpose of the query is schema discovery or debugging.
 - When using BFS, fixed-depth traversal fallbacks, or any manual \`FLOWS_TO\`
   traversal, treat exchange hot wallets as terminal endpoints only. Do not
@@ -192,24 +198,24 @@ Rules:
   intermediate candidates. In Cypher, require every non-terminal traversal node
   to satisfy \`is_exchange IS NULL\`; only the final exchange endpoint should
   satisfy \`is_exchange IS NOT NULL\`.
-- Keep analysis products separate from evidence: graph JSON belongs under
+- Keep analysis products separate from summary notes: graph JSON belongs under
   \`reports/graphs/\`, tabular extracts under \`reports/tables/\`, and analyst
   narrative under \`reports/\`.
-- Evidence Markdown should be a short provenance record with key facts and
-  pointers. Large JSON belongs in \`reports/tables/\`, not inline in evidence.
+- Markdown reports should be short provenance records with key facts and
+  pointers. Large JSON belongs in \`reports/tables/\`, not inline in reports.
 
 Trace tool chaining:
 
-1. Use \`trace_victim_funds\` when the user gives victim/source addresses.
+1. Use \`aml_trace_victim_funds\` when the user gives victim/source addresses.
 2. Pass returned \`continuation.candidate_deposit_addresses\` to
-   \`trace_deposit_sources\`; do not make victim tracing run deposit traceback
+   \`aml_trace_deposit_sources\`; do not make victim tracing run deposit traceback
    internally.
 3. Pass high-confidence \`continuation.candidate_suspect_addresses\` from
-   deposit traceback to \`trace_suspect_funds\`.
-4. Use \`trace_suspect_funds\` when the user gives suspected scammer, mule,
+   deposit traceback to \`aml_trace_suspect_funds\`.
+4. Use \`aml_trace_suspect_funds\` when the user gives suspected scammer, mule,
    operator, or laundering-ring addresses. \`incident_timestamp_ms\` is
    optional.
-5. Use \`address_risk\` for single-address enrichment, and
+5. Use \`aml_address_risk\` for single-address enrichment, and
    \`graph_query_batch\` only when the role-specific tools do not answer the
    exact question.
 
@@ -227,8 +233,8 @@ Store graph schema captures here, for example:
 bittensor.graph-schema.json
 \`\`\`
 
-Schema captures should be generated before the first case query in a fresh
-workspace, then referenced by evidence, reports, and runtime skill notes.
+Schema captures should be generated before the first graph workflow in a fresh
+workspace, then referenced by artifacts, reports, and runtime skill notes.
 `
 
 function workspaceFiles(workspaceRoot: string): Array<[string, string]> {
@@ -239,7 +245,7 @@ function workspaceFiles(workspaceRoot: string): Array<[string, string]> {
     ['CLAUDE.md', CLAUDE],
     ['imports/README.md', IMPORTS_README],
     ['templates/README.md', TEMPLATES_README],
-    ['templates/case-brief.md', CASE_BRIEF],
+    ['templates/workspace-brief.md', CASE_BRIEF],
     ['.chain-insights/runtime-skill/SKILL.md', RUNTIME_SKILL],
     ['.chain-insights/schema/README.md', SCHEMA_README],
     ['.chain-insights/runtime/.keep', ''],
@@ -266,7 +272,6 @@ export async function initWorkspace(options: InitWorkspaceOptions): Promise<Init
   const workspaceRoot = path.resolve(options.targetDir)
   if (!options.force) {
     await assertNoFileCollisions(workspaceRoot)
-    await assertNoVaultFileCollisions(workspaceRoot)
   }
 
   for (const dir of WORKSPACE_DIRS) {
@@ -287,9 +292,6 @@ export async function initWorkspace(options: InitWorkspaceOptions): Promise<Init
       throw err
     }
   }
-
-  const vault = await scaffoldVault({ workspaceRoot, force: options.force })
-  filesWritten.push(...vault.filesWritten)
 
   return { workspaceRoot, filesWritten }
 }

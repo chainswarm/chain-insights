@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   exposureCarry,
   exposureCorrelation,
@@ -7,6 +7,13 @@ import {
   exposureExplain,
   exposureQuality,
 } from '../src/investigation/public-tools.js'
+import { writeExposureArtifacts } from '../src/investigation/exposure-report.js'
+
+vi.mock('../src/investigation/exposure-report.js', () => ({
+  writeExposureArtifacts: vi.fn(),
+}))
+
+const mockWriteExposureArtifacts = vi.mocked(writeExposureArtifacts)
 
 function graphBatchResult(queries: Array<Record<string, unknown>>): {
   content: Array<{ type: 'text'; text: string }>
@@ -103,6 +110,10 @@ function expectNoInternalFields(value: unknown): void {
 }
 
 describe('generic exposure analysis tools', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('scores exposure_quality from generic exposure rows', async () => {
     const callTool = vi.fn().mockResolvedValue(profileBatch([exposureRow()]))
 
@@ -117,7 +128,29 @@ describe('generic exposure analysis tools', () => {
     expect(result.structuredContent.summary.score).toBeGreaterThan(50)
     expect(result.structuredContent.components.pricing_coverage_ratio).toBe(1)
     expect(result.summaryText).toContain('Exposure quality')
+    expect(Object.prototype.hasOwnProperty.call(result.structuredContent, 'graph')).toBe(false)
+    expect(Object.prototype.hasOwnProperty.call(result.structuredContent, 'graph_data')).toBe(false)
     expectNoInternalFields(result.structuredContent)
+  })
+
+  it('writes artifacts for exposure_quality when requested', async () => {
+    const callTool = vi.fn().mockResolvedValue(profileBatch([exposureRow()]))
+
+    const result = await exposureQuality({ callTool } as never, {
+      network: 'hyperliquid',
+      account: '0xTrader',
+      writeArtifacts: true,
+      limit: 10,
+    })
+
+    expect(mockWriteExposureArtifacts).toHaveBeenCalledTimes(1)
+    expect(mockWriteExposureArtifacts).toHaveBeenCalledWith({
+      toolName: 'exposure_quality',
+      network: 'hyperliquid',
+      subject: '0xTrader',
+      summaryText: result.summaryText,
+      structuredContent: result.structuredContent,
+    })
   })
 
   it('summarizes exposure_carry across venue-native carry fields', async () => {

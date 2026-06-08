@@ -33,7 +33,6 @@ export const GraphData = z.object({
   nodes: z.array(GraphNode),
   edges: z.array(GraphEdge),
   metadata: z.object({
-    caseId:      z.string().optional(),
     title:       z.string().default('Money Flow'),
     generatedAt: z.string(),
     truncated:   z.boolean().default(false),

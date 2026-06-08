@@ -36,41 +36,6 @@ if (rawArgs[0] === 'mcp' && ['trace-funds', 'track-funds', 'scam-topology'].incl
   process.exit(1)
 }
 
-async function resolveCaseSelector(input: string): Promise<string> {
-  const { resolveCaseSelector } = await import('./cases/selector.js')
-  return resolveCaseSelector(input)
-}
-
-async function scopeCasesToInvocationDir(): Promise<void> {
-  if (process.env['CHAIN_INSIGHTS_CASES_ROOT']?.trim()) return
-  const { activeCasesRoot } = await import('./workspace/active.js')
-  process.env['CHAIN_INSIGHTS_CASES_ROOT'] = activeCasesRoot()
-}
-
-async function showCaseContext(caseSelector: string): Promise<void> {
-  const { CaseStore } = await import('./cases/index.js')
-  const caseId = await resolveCaseSelector(caseSelector)
-  const ctx = await CaseStore.loadContext(caseId)
-  console.log(`\n=== Case: ${ctx.case.id} ===`)
-  console.log(`Name:   ${ctx.case.name}`)
-  console.log(`Status: ${ctx.case.status}`)
-  console.log(`Tags:   ${ctx.case.tags.join(', ') || 'none'}`)
-  console.log(`Evidence files: ${ctx.evidenceCount}`)
-  console.log(`Dossiers: ${ctx.dossierSummaries.length}`)
-  if (ctx.lastSession) {
-    console.log(`\n--- Last Session (${ctx.lastSession.sessionId}) ---`)
-    console.log(ctx.lastSession.body.slice(0, 500))
-  } else {
-    console.log('\nNo previous sessions.')
-  }
-  if (ctx.dossierSummaries.length > 0) {
-    console.log('\n--- Entity Dossiers ---')
-    for (const d of ctx.dossierSummaries) {
-      console.log(`  ${d.address} [${d.type}] tags: ${d.riskTags || 'none'}`)
-    }
-  }
-}
-
 function optionalNumber(value: string | undefined): number | undefined {
   if (value === undefined) return undefined
   const parsed = Number(value)
@@ -319,31 +284,6 @@ program
       process.exit(1)
     }
   })
-
-program
-  .command('obsidian')
-  .description('Manage the local Obsidian investigation vault')
-  .addCommand(
-    new Command('open')
-      .description('Open the current Chain Insights vault in Obsidian')
-      .argument('[path]', 'Workspace path to open as an Obsidian vault')
-      .action(async (workspacePath?: string) => {
-        try {
-          const { findActiveWorkspace } = await import('./workspace/active.js')
-          const workspace = workspacePath ? path.resolve(workspacePath) : findActiveWorkspace()?.root
-          if (!workspace) {
-            console.error('No Chain Insights workspace found. Run: cia init .')
-            process.exit(1)
-          }
-          const open = (await import('open')).default
-          await open(workspace, { app: { name: 'obsidian' }, wait: false })
-        } catch (err) {
-          console.error((err as Error).message)
-          console.error('Open Obsidian manually and choose "Open folder as vault" for this workspace.')
-          process.exit(1)
-        }
-      })
-  )
 
 program
   .command('debug')
@@ -735,7 +675,7 @@ program
       })
   )
   .addCommand(
-    new Command('address-risk')
+    new Command('aml-address-risk')
       .description('Screen an address for risk, exchange behavior, and optional compare_address connection risk')
       .requiredOption('--address <address>', 'Full blockchain address to screen')
       .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
@@ -743,10 +683,10 @@ program
       .option('--remote', 'Force remote MCP tool call instead of local Chain Insights recipe')
       .action(async (opts: { address: string; network: string; compareAddress?: string; remote?: boolean }) => {
         try {
-          await withGraphMcpClient('chain-insights-cli-address-risk', async (client) => {
+          await withGraphMcpClient('chain-insights-cli-aml-address-risk', async (client) => {
             if (opts.remote) {
               const result = await client.callTool({
-                name: 'address_risk',
+                name: 'aml_address_risk',
                 arguments: {
                   address: opts.address,
                   network: opts.network,
@@ -771,12 +711,11 @@ program
       })
   )
   .addCommand(
-    new Command('trace-victim-funds')
+    new Command('aml-trace-victim-funds')
       .description('Trace victim/source addresses forward to exchange deposit candidates')
       .requiredOption('--victim-addresses <addresses>', 'Comma-separated full victim/source addresses, max 5')
       .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
       .option('--known-suspect-addresses <addresses>', 'Optional known suspect addresses for context only, max 5')
-      .option('--case <id>', 'Case ID to attach compact evidence pointers')
       .option('--incident-timestamp-ms <milliseconds>', 'Optional incident timestamp in milliseconds')
       .option('--max-hops <number>', 'Maximum trace hops, 1-5')
       .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, 1-10')
@@ -786,7 +725,6 @@ program
         victimAddresses: string
         network: string
         knownSuspectAddresses?: string
-        case?: string
         incidentTimestampMs?: string
         maxHops?: string
         perAddressLimit?: string
@@ -796,10 +734,10 @@ program
         try {
           const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
           requireWorkspaceRoot()
-          await withGraphMcpClient('chain-insights-cli-trace-victim-funds', async (client, config) => {
+          await withGraphMcpClient('chain-insights-cli-aml-trace-victim-funds', async (client, config) => {
             if (opts.remote) {
               const result = await client.callTool({
-                name: 'trace_victim_funds',
+                name: 'aml_trace_victim_funds',
                 arguments: {
                   victim_addresses: opts.victimAddresses,
                   network: opts.network,
@@ -810,12 +748,10 @@ program
               return
             }
             const { traceVictimFunds } = await import('./investigation/public-tools.js')
-            const caseId = opts.case ? await resolveCaseSelector(opts.case) : undefined
             const result = await traceVictimFunds(client, config, {
               victimAddresses: opts.victimAddresses,
               knownSuspectAddresses: opts.knownSuspectAddresses,
               network: opts.network,
-              caseId,
               incidentTimestampMs: optionalNumber(opts.incidentTimestampMs),
               maxHops: optionalNumber(opts.maxHops),
               perAddressLimit: optionalNumber(opts.perAddressLimit),
@@ -831,7 +767,7 @@ program
       })
   )
   .addCommand(
-    new Command('trace-suspect-funds')
+    new Command('aml-trace-suspect-funds')
       .description('Trace suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology')
       .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
       .requiredOption('--suspect-addresses <addresses>', 'Comma-separated full suspect-controlled addresses, max 5')
@@ -839,7 +775,6 @@ program
       .option('--max-hops <number>', 'Maximum trace hops, default 3, max 5')
       .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, 1-10')
       .option('--min-amount-sum <number>', 'Minimum r.amount_sum for traced edges')
-      .option('--case <id>', 'Case ID to attach compact evidence pointers')
       .action(async (opts: {
         network: string
         suspectAddresses: string
@@ -847,14 +782,12 @@ program
         maxHops?: string
         perAddressLimit?: string
         minAmountSum?: string
-        case?: string
       }) => {
         try {
           const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
           requireWorkspaceRoot()
-          await withGraphMcpClient('chain-insights-cli-trace-suspect-funds', async (client, config) => {
+          await withGraphMcpClient('chain-insights-cli-aml-trace-suspect-funds', async (client, config) => {
             const { traceSuspectFunds } = await import('./investigation/public-tools.js')
-            const caseId = opts.case ? await resolveCaseSelector(opts.case) : undefined
             const result = await traceSuspectFunds(client, config, {
               suspectAddresses: opts.suspectAddresses,
               network: opts.network,
@@ -862,7 +795,6 @@ program
               perAddressLimit: optionalNumber(opts.perAddressLimit),
               minAmountSum: optionalNumber(opts.minAmountSum),
               incidentTimestampMs: optionalNumber(opts.incidentTimestampMs),
-              caseId,
             })
             console.log(result.summaryText)
             console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -874,29 +806,25 @@ program
       })
   )
   .addCommand(
-    new Command('trace-deposit-sources')
+    new Command('aml-trace-deposit-sources')
       .description('Trace backward from suspected deposit/cashout addresses to upstream sources and convergence')
       .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
       .requiredOption('--deposit-addresses <addresses>', 'Comma-separated full suspected deposit/cashout addresses, max 5')
       .option('--max-hops <number>', 'Maximum reverse traceback hops, default 2, max 5')
-      .option('--case <id>', 'Case ID to attach compact evidence pointers')
       .action(async (opts: {
         network: string
         depositAddresses: string
         maxHops?: string
-        case?: string
       }) => {
         try {
           const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
           requireWorkspaceRoot()
-          await withGraphMcpClient('chain-insights-cli-trace-deposit-sources', async (client, config) => {
+          await withGraphMcpClient('chain-insights-cli-aml-trace-deposit-sources', async (client, config) => {
             const { traceDepositSources } = await import('./investigation/public-tools.js')
-            const caseId = opts.case ? await resolveCaseSelector(opts.case) : undefined
             const result = await traceDepositSources(client, config, {
               depositAddresses: opts.depositAddresses,
               network: opts.network,
               maxHops: optionalNumber(opts.maxHops),
-              caseId,
             })
             console.log(result.summaryText)
             console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -998,7 +926,7 @@ program
           const args = parseMcpCallArgs(rawArgs)
           assertPublicMcpToolName(tool)
           await withGraphMcpClient('chain-insights-cli-call', async (client, config) => {
-            if (tool === 'address_risk') {
+            if (tool === 'aml_address_risk') {
               const { addressRisk } = await import('./investigation/public-tools.js')
               const result = await addressRisk(client, {
                 address: String(args['address'] ?? ''),
@@ -1008,13 +936,12 @@ program
               console.log(result.summaryText)
               return
             }
-            if (tool === 'trace_victim_funds') {
+            if (tool === 'aml_trace_victim_funds') {
               const { traceVictimFunds } = await import('./investigation/public-tools.js')
               const result = await traceVictimFunds(client, config, {
                 victimAddresses: args['victim_addresses'] as string | string[] | undefined ?? '',
                 knownSuspectAddresses: args['known_suspect_addresses'] as string | string[] | undefined,
                 network: String(args['network'] ?? ''),
-                caseId: args['case_id'] === undefined ? undefined : String(args['case_id']),
                 incidentTimestampMs: optionalNumberArg(args['incident_timestamp_ms'], 'incident_timestamp_ms'),
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
                 perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
@@ -1024,12 +951,11 @@ program
               console.log(JSON.stringify(result.structuredContent, null, 2))
               return
             }
-            if (tool === 'trace_suspect_funds') {
+            if (tool === 'aml_trace_suspect_funds') {
               const { traceSuspectFunds } = await import('./investigation/public-tools.js')
               const result = await traceSuspectFunds(client, config, {
                 suspectAddresses: args['suspect_addresses'] as string | string[] | undefined ?? '',
                 network: String(args['network'] ?? ''),
-                caseId: args['case_id'] === undefined ? undefined : String(args['case_id']),
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
                 perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
                 minAmountSum: typeof args['min_amount_sum'] === 'number' ? args['min_amount_sum'] : undefined,
@@ -1039,12 +965,11 @@ program
               console.log(JSON.stringify(result.structuredContent, null, 2))
               return
             }
-            if (tool === 'trace_deposit_sources') {
+            if (tool === 'aml_trace_deposit_sources') {
               const { traceDepositSources } = await import('./investigation/public-tools.js')
               const result = await traceDepositSources(client, config, {
                 depositAddresses: args['deposit_addresses'] as string | string[] | undefined ?? '',
                 network: String(args['network'] ?? ''),
-                caseId: args['case_id'] === undefined ? undefined : String(args['case_id']),
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
               })
               console.log(result.summaryText)
@@ -1125,427 +1050,22 @@ program
       })
   )
 
-const caseCommand = new Command('case')
-  .description('Manage investigation cases')
-  .hook('preAction', async () => {
-    await scopeCasesToInvocationDir()
-  })
-  .addCommand(
-    new Command('open')
-      .description('Open a new investigation case')
-      .argument('<name>', 'Case name (e.g. "Tornado Mixer Investigation")')
-      .option('--tags <tags>', 'Comma-separated tags (e.g. aml,mixer,defi)', '')
-      .option('--description <desc>', 'Brief description of the investigation', '')
-      .action(async (name: string, opts: { tags: string; description: string }) => {
-        try {
-          if (/^[1-9]\d*$/.test(name.trim())) {
-            throw new Error('Numeric case names look like list selectors. Use a descriptive case name, e.g. `cia case open "Tracking stolen funds from <address>"`.')
-          }
-          const { CaseStore } = await import('./cases/index.js')
-          const tags = opts.tags ? opts.tags.split(',').map(t => t.trim()).filter(Boolean) : []
-          const c = await CaseStore.create({ name, tags, description: opts.description })
-          const { casesRoot } = await import('./cases/store.js')
-          console.log(`Case opened: ${c.id}`)
-          console.log(`Directory:   ${path.join(casesRoot(), c.id)}/`)
-          console.log(`Status:      ${c.status}`)
-          const { findActiveWorkspace } = await import('./workspace/active.js')
-          if (findActiveWorkspace()) {
-            try {
-              const { refreshCaseVault } = await import('./vault/index.js')
-              const result = await refreshCaseVault({ caseId: c.id, force: true })
-              console.log(`Open first:  ${result.nextFile}`)
-            } catch (refreshErr) {
-              console.error(`Warning: live vault refresh failed: ${(refreshErr as Error).message}`)
-              console.error(`Run: cia case vault refresh ${c.id} --force`)
-            }
-          }
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
-  .addCommand(
-    new Command('activate')
-      .description('Activate a case (set status to active)')
-      .argument('<case-id>', 'Case ID to activate')
-      .action(async (caseSelector: string) => {
-        try {
-          const { CaseStore } = await import('./cases/index.js')
-          const caseId = await resolveCaseSelector(caseSelector)
-          const c = await CaseStore.setStatus(caseId, 'active')
-          console.log(`Case ${c.id} is now: active`)
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
-  .addCommand(
-    new Command('suspend')
-      .description('Suspend a case (set status to suspended)')
-      .argument('<case-id>', 'Case ID to suspend')
-      .action(async (caseSelector: string) => {
-        try {
-          const { CaseStore } = await import('./cases/index.js')
-          const caseId = await resolveCaseSelector(caseSelector)
-          const c = await CaseStore.setStatus(caseId, 'suspended')
-          console.log(`Case ${c.id} is now: suspended`)
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
-  .addCommand(
-    new Command('close')
-      .description('Close a case permanently')
-      .argument('<case-id>', 'Case ID to close')
-      .action(async (caseSelector: string) => {
-        try {
-          const { CaseStore } = await import('./cases/index.js')
-          const caseId = await resolveCaseSelector(caseSelector)
-          const c = await CaseStore.setStatus(caseId, 'closed')
-          console.log(`Case ${c.id} is now: closed`)
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
-  .addCommand(
-    new Command('list')
-      .description('List all investigation cases')
-      .option('--status <status>', 'Filter by status (open|active|suspended|closed)')
-      .action(async (opts: { status?: string }) => {
-        try {
-          const { CaseStore } = await import('./cases/index.js')
-          const cases = await CaseStore.list()
-          const filtered = opts.status ? cases.filter(c => c.status === opts.status) : cases
-          if (filtered.length === 0) {
-            console.log('No cases found.')
-            return
-          }
-          for (const [index, c] of filtered.entries()) {
-            console.log(`${index + 1}. ${c.id}  [${c.status}]  ${c.name}`)
-          }
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
-  .addCommand(
-    new Command('evidence')
-      .description('Manage case evidence')
-      .addCommand(
-        new Command('add')
-          .description('Add evidence to a case from an MCP query result')
-          .argument('<case-id>', 'Case ID to add evidence to')
-          .option('--source <tool>', 'MCP tool name that produced this evidence', 'manual')
-          .option('--content <text>', 'Evidence content (MCP response or notes)', '')
-          .option('--query-params <params>', 'Query parameters used (e.g. address=0x1234)', '')
-          .action(async (caseSelector: string, opts: { source: string; content: string; queryParams: string }) => {
-            try {
-              const { EvidenceStore } = await import('./cases/index.js')
-              const caseId = await resolveCaseSelector(caseSelector)
-              const result = await EvidenceStore.append(caseId, {
-                source: opts.source,
-                content: opts.content,
-                queryParams: opts.queryParams,
-              })
-              console.log(`Evidence saved: ${result.filename}`)
-              console.log(`SHA-256: ${result.sha256}`)
-            } catch (err) {
-              console.error((err as Error).message)
-              process.exit(1)
-            }
-          })
-      )
-      .addCommand(
-        new Command('verify')
-          .description('Verify evidence manifest integrity for a case')
-          .argument('<case-id>', 'Case ID to verify')
-          .action(async (caseSelector: string) => {
-            try {
-              const { EvidenceStore } = await import('./cases/index.js')
-              const caseId = await resolveCaseSelector(caseSelector)
-              const result = await EvidenceStore.verifyManifest(caseId)
-              if (result.ok) {
-                console.log(`Manifest OK — ${result.count} evidence file(s) verified`)
-              } else {
-                console.error(`Manifest FAILED — tampered files: ${(result.tampered ?? []).join(', ')}`)
-                process.exit(1)
-              }
-            } catch (err) {
-              console.error((err as Error).message)
-              process.exit(1)
-            }
-          })
-      )
-  )
-  .addCommand(
-    new Command('dossier')
-      .description('Manage entity dossiers for a case')
-      .addCommand(
-        new Command('update')
-          .description('Append a finding to an entity dossier')
-          .argument('<case-id>', 'Case ID')
-          .argument('<address>', 'Entity address or identifier')
-          .option('--finding <text>', 'Finding to append to the dossier', '')
-          .option('--type <type>', 'Entity type (eoa|contract|exchange|mixer|unknown)', 'unknown')
-          .action(async (caseSelector: string, address: string, opts: { finding: string; type: string }) => {
-            try {
-              const { DossierStore } = await import('./cases/index.js')
-              const caseId = await resolveCaseSelector(caseSelector)
-              const validTypes = ['eoa', 'contract', 'exchange', 'mixer', 'unknown'] as const
-              const entityType = validTypes.includes(opts.type as typeof validTypes[number])
-                ? (opts.type as typeof validTypes[number])
-                : 'unknown'
-              await DossierStore.appendFinding(caseId, address, opts.finding, entityType)
-              console.log(`Dossier updated for ${address}`)
-            } catch (err) {
-              console.error((err as Error).message)
-              process.exit(1)
-            }
-          })
-      )
-  )
-  .addCommand(
-    new Command('session')
-      .description('Manage investigation sessions')
-      .addCommand(
-        new Command('start')
-          .description('Start a new investigation session for a case')
-          .argument('<case-id>', 'Case ID')
-          .argument('[title...]', 'Optional session title')
-          .action(async (caseSelector: string, titleParts: string[]) => {
-            try {
-              const { SessionStore } = await import('./cases/index.js')
-              const caseId = await resolveCaseSelector(caseSelector)
-              const title = titleParts.join(' ').trim()
-              const s = await SessionStore.start(caseId, title ? { title } : {})
-              console.log(`Session started: ${s.sessionId}`)
-            } catch (err) {
-              console.error((err as Error).message)
-              process.exit(1)
-            }
-          })
-      )
-      .addCommand(
-        new Command('end')
-          .description('End the current session with findings and next steps')
-          .argument('<case-id>', 'Case ID')
-          .option('--findings <text>', 'Key findings from this session', '')
-          .option('--next-steps <text>', 'Next steps for the investigation', '')
-          .action(async (caseSelector: string, opts: { findings: string; nextSteps: string }) => {
-            try {
-              const { SessionStore } = await import('./cases/index.js')
-              const caseId = await resolveCaseSelector(caseSelector)
-              await SessionStore.end(caseId, { findings: opts.findings, nextSteps: opts.nextSteps })
-              await SessionStore.archiveOldSessions(caseId)
-              console.log(`Session ended for case ${caseId}`)
-            } catch (err) {
-              console.error((err as Error).message)
-              process.exit(1)
-            }
-          })
-      )
-  )
-  .addCommand(
-    new Command('vault')
-      .description('Manage live Obsidian case vault notes')
-      .addCommand(
-        new Command('refresh')
-          .description('Refresh Obsidian vault notes for a case')
-          .argument('<case-id-or-selector>', 'Case ID or case list number to refresh')
-          .option('--force', 'Overwrite existing generated case vault files')
-          .action(async (caseSelector: string, opts: { force?: boolean }) => {
-            try {
-              const caseId = await resolveCaseSelector(caseSelector)
-              const { refreshCaseVault } = await import('./vault/index.js')
-              const result = await refreshCaseVault({ caseId, force: opts.force === true })
-              console.log(`Case vault refreshed: ${caseId}`)
-              console.log(`Files: ${result.filesWritten.length}`)
-              console.log(`Open first: ${result.nextFile}`)
-            } catch (err) {
-              console.error((err as Error).message)
-              process.exit(1)
-            }
-          })
-      )
-  )
-  .addCommand(
-    new Command('export')
-      .description('Export a case for Obsidian, LLM Wiki, and agents')
-      .argument('<case-id>', 'Case ID or case list number to export')
-      .option('--target <target>', 'Export target: obsidian-llmwiki', 'obsidian-llmwiki')
-      .option('--mode <mode>', 'Redaction mode: private|partner|public', 'private')
-      .option('--out <directory>', 'Output directory. Defaults to published/<case-slug>')
-      .action(async (caseSelector: string, opts: { target: string; mode: string; out?: string }) => {
-        try {
-          const target = opts.target === 'obsidian-llmwiki' ? opts.target : undefined
-          const mode = ['private', 'partner', 'public'].includes(opts.mode)
-            ? (opts.mode as 'private' | 'partner' | 'public')
-            : undefined
-          if (!target) throw new Error(`Unsupported export target: ${opts.target}`)
-          if (!mode) throw new Error(`Unsupported export mode: ${opts.mode}`)
 
-          const caseId = await resolveCaseSelector(caseSelector)
-          const { exportCase } = await import('./export/index.js')
-          const result = await exportCase({
-            caseId,
-            target,
-            mode,
-            outputDir: opts.out,
-          })
-          console.log(`Case exported: ${result.outputDir}`)
-          console.log(`Manifest:      ${result.manifestPath}`)
-          console.log(`Files:         ${result.fileCount}`)
-          console.log(`Open first:    ${result.nextFile}`)
-          for (const warning of result.warnings) console.warn(`Warning: ${warning}`)
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
-  .addCommand(
-    new Command('show')
-      .description('Show saved case context')
-      .argument('<case-id>', 'Case ID or case list number to show')
-      .action(async (caseSelector: string) => {
-        try {
-          await showCaseContext(caseSelector)
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
-
-program.addCommand(caseCommand)
-
-program
-  .command('playbook')
-  .description('Run and manage investigation playbooks')
-  .addCommand(
-    new Command('run')
-      .description('Execute a playbook by name')
-      .argument('<name>', 'Playbook name (e.g. trace-funds, risk-check, entity-profile)')
-      .option('--case <id>', 'Case ID to attach evidence to (auto-created if omitted)')
-      .option('--from <n>', 'Resume from step N (1-based)', '1')
-      .option('--dry-run', 'Show steps without executing')
-      .option('-p, --param <kv...>', 'Parameters as key=value pairs (repeatable, e.g. -p address=0x1 -p hops=3)')
-      .action(async (name: string, opts: { case?: string; from: string; dryRun?: boolean; param?: string[] }) => {
-        try {
-          // 1. Parse --param key=value pairs into Record<string,string> — split on first '=' only (T-05-06)
-          const resolvedParams: Record<string, string> = {}
-          for (const kv of (opts.param ?? [])) {
-            const eq = kv.indexOf('=')
-            if (eq === -1) {
-              console.error(`Invalid param format: "${kv}". Use key=value`)
-              process.exit(1)
-            }
-            const key = kv.slice(0, eq)
-            if (!key) {
-              console.error(`Invalid param format: "${kv}". Key must be non-empty`)
-              process.exit(1)
-            }
-            resolvedParams[key] = kv.slice(eq + 1)
-          }
-          // 2. Resolve playbook content (user-dir first, built-in fallback)
-          const { resolvePlaybookContent } = await import('./playbooks/resolver.js')
-          const markdown = await resolvePlaybookContent(name)
-          // 3. Parse markdown → PlaybookDefinition
-          const { PlaybookParser } = await import('./playbooks/parser.js')
-          const definition = PlaybookParser.parse(markdown, resolvedParams)
-          // 4. Validate required params are provided
-          for (const spec of definition.params) {
-            if (spec.required && !resolvedParams[spec.name] && !spec.default) {
-              console.error(`Missing required param: ${spec.name}. Pass with: -p ${spec.name}=<value>`)
-              process.exit(1)
-            }
-          }
-          // 5. Validate --from value
-          const fromN = parseInt(opts.from, 10)
-          if (isNaN(fromN) || fromN < 1) {
-            console.error(`Invalid --from value: "${opts.from}". Must be a positive integer.`)
-            process.exit(1)
-          }
-          // 6. Run
-          const { PlaybookRunner } = await import('./playbooks/runner.js')
-          await PlaybookRunner.run(definition, {
-            caseId:  opts.case,
-            from:    fromN,
-            dryRun:  opts.dryRun,
-            params:  resolvedParams,
-          })
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
-  .addCommand(
-    new Command('list')
-      .description('List available playbooks (built-in and user-defined)')
-      .action(async () => {
-        try {
-          const { listPlaybooks } = await import('./playbooks/resolver.js')
-          const playbooks = await listPlaybooks()
-          if (playbooks.length === 0) { console.log('No playbooks found.'); return }
-          for (const p of playbooks) {
-            console.log(`  ${p.name.padEnd(20)} [${p.source}]`)
-          }
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
-  .addCommand(
-    new Command('show')
-      .description('Show steps for a playbook without executing')
-      .argument('<name>', 'Playbook name')
-      .action(async (name: string) => {
-        try {
-          const { resolvePlaybookContent } = await import('./playbooks/resolver.js')
-          const { PlaybookParser } = await import('./playbooks/parser.js')
-          const markdown = await resolvePlaybookContent(name)
-          const definition = PlaybookParser.parse(markdown, {})
-          console.log(`Playbook: ${definition.name} v${definition.version}`)
-          console.log(`${definition.description}\n`)
-          console.log(`Parameters:`)
-          for (const p of definition.params) {
-            const req = p.required ? '(required)' : `(optional, default: ${p.default ?? 'none'})`
-            console.log(`  ${p.name}: ${p.type} ${req}`)
-          }
-          console.log(`\nSteps:`)
-          for (const step of definition.steps) {
-            console.log(`  ${step.index}. ${step.label} → tool: ${step.tool}`)
-          }
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
 
 program
   .command('viz')
-  .description('Generate money flow visualization')
-  .argument('[case-id]', 'Case ID to visualize')
+  .description('Generate a workspace visualization')
+  .argument('[source-id]', 'Workspace graph report ID to render')
   .option('--data <file>', 'Raw transaction JSON file for ad-hoc visualization')
   .option('-p, --port <number>', 'Server port', '4321')
-  .action(async (caseId: string | undefined, opts: { data?: string; port: string }) => {
+  .action(async (sourceId: string | undefined, opts: { data?: string; port: string }) => {
     try {
-      if (!caseId && !opts.data) {
-        console.error('Provide either a case ID or --data <file.json>')
+      if (!sourceId && !opts.data) {
+        console.error('Provide either a visualization source ID or --data <file.json>')
         process.exit(1)
       }
       const { generateVisualization } = await import('./viz/index.js')
-      const result = await generateVisualization({ caseId, dataFile: opts.data })
+      const result = await generateVisualization({ sourceId, dataFile: opts.data })
       const { startServer } = await import('./server/index.js')
       const port = parseInt(opts.port, 10)
       startServer(port)

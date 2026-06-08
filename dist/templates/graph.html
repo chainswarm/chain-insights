@@ -372,7 +372,7 @@ function edgeUsdAmount(e) {
 function storageIdFromData(data) {
   if (!data) return null;
   var meta = data.metadata || {};
-  var explicit = meta.storage_id || meta.storageId || meta.trace_id || meta.traceId || meta.job_id || meta.jobId || meta.case_id || meta.caseId;
+  var explicit = meta.storage_id || meta.storageId || meta.trace_id || meta.traceId || meta.job_id || meta.jobId;
   if (explicit) return String(explicit).replace(/[^a-zA-Z0-9_.-]/g, '_');
 
   var nodeIds = (data.nodes || []).map(function(n){ return n.address || n.id || ''; }).sort();

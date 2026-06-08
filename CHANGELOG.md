@@ -11,6 +11,17 @@ All notable changes to Chain Insights are recorded here.
   account and smoke all exposure tools without exposing storage or graph
   relationship internals.
 
+## [0.3.14] - 2026-06-08
+
+- Removed the legacy non-public `stake_insights` implementation and remaining
+  stake-topology GraphRAG assumptions from the public Chain Insights source,
+  skills, and UAT surface.
+- Removed the deprecated case/vault/playbook product surface, including
+  `cia case` export and vault scaffolding, shipped `ci-case` guidance, and
+  runtime compatibility paths that recreated legacy case directories.
+- Reframed the shipped docs, skills, and tests around workspace-only
+  artifacts, reports, and graph outputs.
+
 ## [0.3.12] - 2026-06-07
 
 - Added the public `exposure_profile` MCP tool and `cia mcp exposure-profile`

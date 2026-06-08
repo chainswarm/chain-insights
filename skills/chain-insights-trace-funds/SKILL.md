@@ -1,6 +1,6 @@
 ---
 name: chain-insights-trace-funds
-description: Use when chaining Chain Insights trace_victim_funds, trace_deposit_sources, and trace_suspect_funds. Explains role-specific tracing, chain-insights.trace.v1 output, compact evidence pointers, and graph/report artifacts.
+description: Use when chaining Chain Insights aml_trace_victim_funds, aml_trace_deposit_sources, and aml_trace_suspect_funds. Explains role-specific tracing, chain-insights.trace.v1 output, compact evidence pointers, and graph/report artifacts.
 ---
 
 # Chain Insights Trace Tools
@@ -40,45 +40,45 @@ Use the output as the source of truth:
 - `Dataset` gives the graph coverage range as
   `<first_height>..<last_height> / <first_date>..<last_date>`. State this range
   in the investigation scope, and do not claim tracing coverage outside it.
-- `Risk: yes` determines whether downstream `address_risk` enrichment is
+- `Risk: yes` determines whether downstream `aml_address_risk` enrichment is
   available on the same network.
 
 ## Tool Selection
 
-Use `trace_victim_funds` when the user gives victim/source addresses and asks
+Use `aml_trace_victim_funds` when the user gives victim/source addresses and asks
 where funds went. Required inputs are `victim_addresses` and `network`.
 Optional `known_suspect_addresses` are context only; this tool must not trace
 backward from deposit candidates.
 
-Use `trace_deposit_sources` when the user gives suspected deposit/cashout
+Use `aml_trace_deposit_sources` when the user gives suspected deposit/cashout
 addresses and asks who funded them. Required inputs are `deposit_addresses` and
 `network`. This tool traces backward over `FLOWS_TO` and can reveal shared
 upstream sources or candidate suspects when multiple deposits converge.
 
-Use `trace_suspect_funds` when the user gives suspected scammer, mule,
+Use `aml_trace_suspect_funds` when the user gives suspected scammer, mule,
 operator, or laundering-ring addresses and asks where suspect-controlled funds
 went. Required inputs are `suspect_addresses` and `network`.
 `incident_timestamp_ms` is optional; absence of a timestamp is valid.
 
-Use `address_risk` for single-address screening and enrichment. Use
+Use `aml_address_risk` for single-address screening and enrichment. Use
 `graph_query_batch` only when the high-level tools do not answer the exact
 question.
 
 Default chain:
 
-1. Run `trace_victim_funds` for victim/source evidence.
+1. Run `aml_trace_victim_funds` for victim/source evidence.
 2. Pass `continuation.candidate_deposit_addresses` into
-   `trace_deposit_sources`.
+   `aml_trace_deposit_sources`.
 3. Pass high-confidence `continuation.candidate_suspect_addresses` from deposit
-   traceback into `trace_suspect_funds`.
-4. Enrich individual addresses with `address_risk`.
+   traceback into `aml_trace_suspect_funds`.
+4. Enrich individual addresses with `aml_address_risk`.
 
 Example:
 
 ```bash
-cia mcp trace-victim-funds --network bittensor --victim-addresses 5... --max-hops 3 --case 1
-cia mcp trace-deposit-sources --network bittensor --deposit-addresses 5... --max-hops 2 --case 1
-cia mcp trace-suspect-funds --network bittensor --suspect-addresses 5... --max-hops 16 --case 1
+cia mcp trace-victim-funds --network bittensor --victim-addresses 5... --max-hops 3
+cia mcp trace-deposit-sources --network bittensor --deposit-addresses 5... --max-hops 2
+cia mcp trace-suspect-funds --network bittensor --suspect-addresses 5... --max-hops 16
 ```
 
 All three tools return `chain-insights.trace.v1` with:
@@ -92,7 +92,7 @@ All three tools return `chain-insights.trace.v1` with:
 
 Victim/source addresses are not risky labels. Deposit seeds are not scammers by
 default. Candidate suspect or deposit roles are hypotheses until reviewed. For
-single address risk screening, use `address_risk` instead of trace tools.
+single address risk screening, use `aml_address_risk` instead of trace tools.
 
 ## Artifacts
 

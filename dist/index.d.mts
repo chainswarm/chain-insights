@@ -164,7 +164,6 @@ declare const GraphData: z.ZodObject<{
     timestamp: z.ZodOptional<z.ZodString>;
   }, z.core.$strip>>;
   metadata: z.ZodObject<{
-    caseId: z.ZodOptional<z.ZodString>;
     title: z.ZodDefault<z.ZodString>;
     generatedAt: z.ZodString;
     truncated: z.ZodDefault<z.ZodBoolean>;
@@ -176,7 +175,7 @@ type GraphData = z.infer<typeof GraphData>;
 //#endregion
 //#region src/viz/index.d.ts
 declare function generateVisualization(opts: {
-  caseId?: string;
+  sourceId?: string;
   dataFile?: string;
 }): Promise<{
   vizId: string;

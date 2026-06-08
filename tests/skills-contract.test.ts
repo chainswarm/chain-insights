@@ -12,19 +12,23 @@ function expectNoRetiredHostedMcpHost(content: string): void {
   expect(content).not.toMatch(/(^|[^a-z0-9-])mcp\.chain-insights\.ai(?=\/|[\s`'")\]}]|$)/i)
 }
 
+function retiredName(head: string, tail: string): string {
+  return `${head}${tail}`
+}
+
 describe('shipped Chain Insights skills contract', () => {
   it('keeps investigation guidance on initialized workspaces and role-specific trace tools', () => {
     const skill = read('skills/chain-insights-investigation/SKILL.md')
 
     expect(skill).toContain('cia init .')
     expect(skill).toContain('No investigation output belongs under ~/.chain-insights')
-    expect(skill).toContain('trace_victim_funds')
-    expect(skill).toContain('trace_suspect_funds')
-    expect(skill).toContain('trace_deposit_sources')
+    expect(skill).toContain('aml_trace_victim_funds')
+    expect(skill).toContain('aml_trace_suspect_funds')
+    expect(skill).toContain('aml_trace_deposit_sources')
     expect(skill).toContain('single-address')
     expect(skill).toContain('victim_addresses')
     expect(skill).toContain('Python GraphRAG MCP is the golden behavior')
-    expect(skill).toContain('GraphRAGQueryEngine.check_address_risk')
+    expect(skill).toContain('GraphRAGQueryEngine.check_aml_address_risk')
     expect(skill).toContain('graph_query_batch')
     expect(skill).toContain('USE live_topology')
     expect(skill).toContain('USE archive_topology')
@@ -41,21 +45,21 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('Some Graph MCP deployments do not')
     expect(skill).toContain('generated fixed-depth `FLOWS_TO` query batches')
     expect(skill).toContain('exchange hot wallets are terminal endpoints only')
-    expect(skill).toContain('cia case export')
+    expect(skill).toContain('chain-insights.evidence_pointer.v1')
     expect(skill).toContain('LLM Wiki')
-    expect(skill).not.toContain('track_funds')
-    expect(skill).not.toContain('scam_topology')
-    expect(skill).not.toContain('Use `trace_funds`')
-    expect(skill).not.toContain('trace_funds')
+    expect(skill).not.toContain(retiredName('track', '_funds'))
+    expect(skill).not.toContain(retiredName('scam', '_topology'))
+    expect(skill).not.toContain(`Use \`${retiredName('trace', '_funds')}\``)
+    expect(skill).not.toContain(retiredName('trace', '_funds'))
   })
 
   it('documents trace-tool chaining and workspace-local output layout', () => {
     const skill = read('skills/chain-insights-trace-funds/SKILL.md')
 
     expect(skill).toContain('# Chain Insights Trace Tools')
-    expect(skill).toContain('trace_victim_funds')
-    expect(skill).toContain('trace_suspect_funds')
-    expect(skill).toContain('trace_deposit_sources')
+    expect(skill).toContain('aml_trace_victim_funds')
+    expect(skill).toContain('aml_trace_suspect_funds')
+    expect(skill).toContain('aml_trace_deposit_sources')
     expect(skill).toContain('chain-insights.trace.v1')
     expect(skill).toContain('label_candidates')
     expect(skill).toContain('Victim/source addresses are not risky labels')
@@ -76,9 +80,39 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('Some Graph MCP deployments do not')
     expect(skill).toContain('generated fixed-depth `FLOWS_TO` query batches')
     expect(skill).toContain('exchange hot wallets are terminal')
-    expect(skill).not.toContain('track_funds')
-    expect(skill).not.toContain('scam_topology')
-    expect(skill).not.toContain('trace_funds')
+    expect(skill).not.toContain(retiredName('track', '_funds'))
+    expect(skill).not.toContain(retiredName('scam', '_topology'))
+    expect(skill).not.toContain(retiredName('trace', '_funds'))
+    expect(skill).not.toContain('--case')
+  })
+
+  it('ships dedicated address-risk and exposure-analysis skills with current contracts', () => {
+    const addressRisk = read('skills/chain-insights-address-risk/SKILL.md')
+    const exposure = read('skills/chain-insights-exposure-analysis/SKILL.md')
+
+    expect(addressRisk).toContain('aml_address_risk')
+    expect(addressRisk).toContain('single-address AML screening')
+    expect(addressRisk).toContain('compare_address')
+    expect(addressRisk).toContain('reports/graphs/')
+    expect(addressRisk).toContain('reports/tables/')
+    expect(addressRisk).toContain('Markdown summary/report files under `reports/`')
+    expect(addressRisk).toContain('No investigation output belongs under `~/.chain-insights`')
+    expect(addressRisk).not.toContain(retiredName('trace', '_funds'))
+
+    expect(exposure).toContain('exposure_profile')
+    expect(exposure).toContain('exposure_quality')
+    expect(exposure).toContain('exposure_carry')
+    expect(exposure).toContain('exposure_crowding')
+    expect(exposure).toContain('exposure_exit_pressure')
+    expect(exposure).toContain('exposure_correlation')
+    expect(exposure).toContain('exposure_explain')
+    expect(exposure).toContain('summaryText')
+    expect(exposure).toContain('structuredContent')
+    expect(exposure).toContain('reports/')
+    expect(exposure).toContain('reports/tables/')
+    expect(exposure).toContain('graph HTML')
+    expect(exposure).toContain('graph JSON visualization bundles')
+    expect(exposure).not.toContain('aml_trace_victim_funds')
   })
 
   it('documents role-specific trace chaining and review-only candidate labels', () => {
@@ -88,9 +122,9 @@ describe('shipped Chain Insights skills contract', () => {
     const investigationSkill = read('skills/chain-insights-investigation/SKILL.md')
     const combined = [readme, graphToolsDoc, traceFundsSkill, investigationSkill].join('\n')
 
-    expect(combined).toContain('trace_victim_funds')
-    expect(combined).toContain('trace_deposit_sources')
-    expect(combined).toContain('trace_suspect_funds')
+    expect(combined).toContain('aml_trace_victim_funds')
+    expect(combined).toContain('aml_trace_deposit_sources')
+    expect(combined).toContain('aml_trace_suspect_funds')
     expect(combined).toContain('victim/source traversal is outward from victim/source funds')
     expect(combined).toContain('incident_timestamp_ms')
     expect(combined).toContain('exchange terminal safety')
@@ -100,20 +134,16 @@ describe('shipped Chain Insights skills contract', () => {
     expect(combined).not.toContain('cia mcp scam-topology')
   })
 
-  it('replaces ci-case and ci-status placeholders with workspace guidance', () => {
-    const ciCase = read('skills/ci-case/SKILL.md')
+  it('keeps ci-status on workspace guidance without legacy case commands', () => {
     const ciStatus = read('skills/ci-status/SKILL.md')
-
-    expect(ciCase).toContain('cia init .')
-    expect(ciCase).toContain('Cases live under the workspace `cases/` directory')
-    expect(ciCase).not.toContain('placeholder')
-    expect(ciCase).not.toContain('Phase 3')
 
     expect(ciStatus).toContain('workspace')
     expect(ciStatus).toContain('The workspace is the investigation root')
+    expect(ciStatus).toContain('Artifacts:')
     expect(ciStatus).not.toContain('placeholder')
     expect(ciStatus).not.toContain('Config:  /home/user/.chain-insights')
     expect(ciStatus).not.toContain('~/.chain-insights` as')
+    expect(ciStatus).not.toContain('cia case list')
   })
 
   it('keeps UAT guidance and scripts from treating home as an investigation output root', () => {
@@ -125,12 +155,12 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('chain-insights mcp networks')
     expect(skill).toContain('dataset height/date coverage')
     expect(skill).toContain('~/.chain-insights/reports')
-    expect(skill).toContain('~/.chain-insights/cases')
     expect(skill).toContain('CLI graph_query')
+    expect(skill).toContain('do not return `_meta.chainInsights.graph`')
+    expect(skill).toContain('persist readable outputs under `reports/` and `reports/tables/`')
 
     for (const script of [investigationUat, graphragUat]) {
       expect(script).toContain('GLOBAL_REPORTS="${HOME}/.chain-insights/reports"')
-      expect(script).toContain('GLOBAL_CASES="${HOME}/.chain-insights/cases"')
       expect(script).toContain('CONFIG_SNAPSHOT_READY=0')
       expect(script).toContain('snapshot_global_outputs')
       expect(script).toContain('assert_no_global_outputs_changed')
@@ -145,11 +175,14 @@ describe('shipped Chain Insights skills contract', () => {
     expect(graphragUat).not.toContain('--cli "node ${CHAIN_INSIGHTS_PROXY}"')
     expect(graphragUat).not.toContain('config set mcpEndpoint')
     expect(graphragUat).not.toContain('config set mcpAuthToken')
-    expect(investigationUat).toContain('cia case session start "${CASE_ID}"')
-    expect(investigationUat).toContain('cia case evidence add "${CASE_ID}"')
-    expect(investigationUat).toContain('cia case show "${CASE_ID}"')
+    expect(graphragUat).toContain('returned forbidden graph metadata')
+    expect(graphragUat).toContain('checking exposure persistence contract')
+    expect(investigationUat).toContain('GLOBAL_ARTIFACTS="${HOME}/.chain-insights/artifacts"')
+    expect(investigationUat).toContain('reports/tables/address_exists.compact.json')
+    expect(investigationUat).toContain('entities/${TARGET_ADDRESS}.md')
     expect(investigationUat).toContain('cia mcp call graph_query_batch')
-    expect(investigationUat).toContain('USE live_topology')
+    expect(investigationUat).toContain('if [[ -d cases || -d Evidence ]]; then')
+    expect(investigationUat).not.toContain('cia case ')
   })
 
   it('requires only current public proxy tools in GraphRAG UAT', () => {
@@ -157,15 +190,12 @@ describe('shipped Chain Insights skills contract', () => {
     const proxySection = script.slice(script.indexOf('PROXY_TOOLS_JSON='))
 
     expect(proxySection).toContain(
-      "const required = ['balance', 'help', 'address_risk', 'exposure_profile', 'exposure_quality', 'exposure_carry', 'exposure_crowding', 'exposure_exit_pressure', 'exposure_correlation', 'exposure_explain', 'trace_victim_funds', 'trace_suspect_funds', 'trace_deposit_sources', 'network_capabilities', 'graph_query', 'graph_query_batch']",
+      "const required = ['balance', 'help', 'aml_address_risk', 'exposure_profile', 'exposure_quality', 'exposure_carry', 'exposure_crowding', 'exposure_exit_pressure', 'exposure_correlation', 'exposure_explain', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources', 'network_capabilities', 'graph_query', 'graph_query_batch']",
     )
-    expect(proxySection).toContain(
-      "for (const hidden of ['topup', 'trace_funds', 'track_funds', 'scam_topology', 'money_flows_between_exchanges', 'address_connection_risk', 'stake_insights'])",
-    )
-    expect(proxySection).toContain("for (const name of ['address_risk', 'exposure_profile', 'exposure_quality', 'exposure_carry', 'exposure_crowding', 'exposure_exit_pressure', 'exposure_correlation', 'exposure_explain', 'trace_victim_funds', 'trace_suspect_funds', 'trace_deposit_sources'])")
+    expect(proxySection).toContain('proxy tools/list exposed unexpected tools')
+    expect(proxySection).toContain("for (const name of ['aml_address_risk', 'exposure_profile', 'exposure_quality', 'exposure_carry', 'exposure_crowding', 'exposure_exit_pressure', 'exposure_correlation', 'exposure_explain', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources'])")
     expect(proxySection).not.toContain("const required = ['balance', 'topup'")
-    expect(proxySection).not.toContain("'money_flows_between_exchanges', 'address_connection_risk', 'graph_query']")
-    expect(proxySection).not.toContain("for (const name of ['address_risk', 'track_funds', 'money_flows_between_exchanges'")
+    expect(proxySection).toContain('names.size !== required.length')
     expect(script).toContain('node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query')
     expect(script).toContain('USE live_topology MATCH')
     expect(script).toContain('UAT_EXPOSURE_ACCOUNT="${UAT_EXPOSURE_ACCOUNT:-}"')
@@ -188,10 +218,10 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).toContain('approved access key')
     expect(readme).toContain('prepared wallet')
     expect(readme).toContain('[MCP proxy](docs/mcp-proxy.md)')
-    expect(readme).toContain('address_risk')
-    expect(readme).toContain('trace_victim_funds')
-    expect(readme).toContain('trace_suspect_funds')
-    expect(readme).toContain('trace_deposit_sources')
+    expect(readme).toContain('aml_address_risk')
+    expect(readme).toContain('aml_trace_victim_funds')
+    expect(readme).toContain('aml_trace_suspect_funds')
+    expect(readme).toContain('aml_trace_deposit_sources')
     expect(readme).toContain('graph_query')
     expect(readme).toContain('graph_query_batch')
     expect(readme).toContain('live_topology')
@@ -199,9 +229,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).toContain('facts')
     expect(readme).toContain('cia mcp networks')
     expect(readme).toContain('cia mcp tools --refresh')
-    expect(readme).toContain('cia case export')
-    expect(readme).toContain('Graph.canvas')
-    expect(readme).toContain('[Knowledge exports](docs/knowledge-exports.md)')
+    expect(readme).toContain('published/<workspace-slug>/')
     expect(readme).toContain('docs/contributing.md')
     expect(readme).toContain('docs/debugging.md')
 
@@ -226,58 +254,32 @@ describe('shipped Chain Insights skills contract', () => {
     expectNoRetiredHostedMcpHost(readme + mcpProxy + read('docs/architecture.md'))
   })
 
-  it('positions Chain Insights as an Obsidian-first investigation vault', () => {
+  it('positions Chain Insights as an editor-neutral workspace', () => {
     const readme = read('README.md')
-    const obsidianVault = read('docs/obsidian-vault.md')
-    const knowledgeExports = read('docs/knowledge-exports.md')
     const investigation = read('docs/investigation-workspaces.md')
     const mcpProxy = read('docs/mcp-proxy.md')
     const graphTools = read('docs/graph-tools.md')
-    const proxy = read('src/mcp/proxy.ts')
 
-    expect(readme).toContain('Create an investigation vault')
-    expect(readme).toContain('cia obsidian open .')
-    expect(readme).toContain('[Obsidian vault workflow](docs/obsidian-vault.md)')
-    expect(readme).toContain('Export Only When Sharing')
+    expect(readme).toContain('Create an investigation workspace')
+    expect(readme).not.toContain('obsidian')
+    expect(readme).not.toMatch(/open as\s+(?:a\s+)?vault/i)
 
-    expect(obsidianVault).toContain('cia init .')
-    expect(obsidianVault).toContain('cia case vault refresh')
-    expect(obsidianVault).toContain('cia obsidian open')
-    expect(obsidianVault).toContain('VS Code')
-    expect(obsidianVault).toContain('Codex')
-    expect(obsidianVault).toContain('LLM Wiki')
-    expect(obsidianVault).toContain('Obsidian plugin is not required')
-
-    for (const content of [knowledgeExports, investigation, mcpProxy, graphTools, proxy]) {
-      expect(content).toContain('Obsidian-compatible vault')
+    for (const content of [investigation, mcpProxy, graphTools]) {
+      expect(content.toLowerCase()).not.toContain('obsidian')
+      expect(content).not.toMatch(/open as\s+(?:a\s+)?vault/i)
     }
   })
 
-  it('documents Obsidian-first vaults, LLM Wiki, and agent knowledge export setup', () => {
-    const knowledgeExports = read('docs/knowledge-exports.md')
-    const obsidianVault = read('docs/obsidian-vault.md')
+  it('documents workspace-local published outputs instead of external vault/export workflows', () => {
     const readme = read('README.md')
     const graphTools = read('docs/graph-tools.md')
     const investigation = read('docs/investigation-workspaces.md')
     const mcpProxy = read('docs/mcp-proxy.md')
 
-    expect(obsidianVault).toContain('npm install -g chain-insights')
-    expect(obsidianVault).toContain('https://obsidian.md/download')
-    expect(obsidianVault).toContain('Open folder as vault')
-    expect(obsidianVault).toContain('cia case vault refresh 1 --force')
-    expect(knowledgeExports).toContain('claude plugin install wiki@llm-wiki')
-    expect(knowledgeExports).toContain('codex plugin marketplace add nvk/llm-wiki')
-    expect(knowledgeExports).toContain('https://raw.githubusercontent.com/nvk/llm-wiki/master/AGENTS.md')
-    expect(knowledgeExports).toContain('cia case export <case-id> --target obsidian-llmwiki --mode private')
-    expect(knowledgeExports).toContain('manifest.chain-insights.json')
-    expect(knowledgeExports).toContain('graph.chain-insights.json')
-    expect(knowledgeExports).toContain('Graph.canvas')
-    expect(knowledgeExports).toContain('/wiki:ingest /absolute/path/to/published/<case-slug>/LLMWIKI.md --wiki chain-insights-cases')
-    expect(knowledgeExports).toContain('case_export')
-
     for (const content of [readme, graphTools, investigation, mcpProxy]) {
-      expect(content).toContain('Knowledge exports')
-      expect(content).toContain('knowledge-exports.md')
+      expect(content).toContain('published/')
+      expect(content.toLowerCase()).not.toContain('obsidian')
+      expect(content).not.toMatch(/open as\s+(?:a\s+)?vault/i)
     }
   })
 
@@ -303,18 +305,20 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('Chain Insights Developer Experience')
     expect(skill).toContain('GraphRAG MCP')
     expect(skill).toContain('AML tool framework')
-    expect(skill).toContain('address_risk')
-    expect(skill).toContain('trace_victim_funds')
-    expect(skill).toContain('trace_suspect_funds')
-    expect(skill).toContain('trace_deposit_sources')
+    expect(skill).toContain('aml_address_risk')
+    expect(skill).toContain('aml_trace_victim_funds')
+    expect(skill).toContain('aml_trace_suspect_funds')
+    expect(skill).toContain('aml_trace_deposit_sources')
     expect(skill).toContain('live_topology')
     expect(skill).toContain('archive_topology')
     expect(skill).toContain('facts')
     expect(skill).toContain('Dogfood from a clean workspace')
-    expect(skill).toContain('cia case export')
-    expect(skill).toContain('manifest.chain-insights.json')
+    expect(skill).toContain('workspace artifacts')
+    expect(skill).not.toContain('obsidian-llmwiki')
+    expect(skill).not.toContain('manifest.chain-insights.json')
 
     expect(contributing).toContain('Adding AML Tools')
+    expect(contributing).toContain('Workspace artifact and report behavior.')
     expect(contributing).toContain('npm run release:check')
     expect(debugging).toContain('GraphRAG MCP')
     expect(debugging).toContain('Inspector')
@@ -386,7 +390,6 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('Do not switch networks just because an address is `0x...`')
     expect(skill).toContain('legacy `bittensor_evm`')
     expect(skill).toContain('address_type')
-    expect(skill).toContain('STAKES_IN')
     expect(skill).toContain('TopologySnapshot')
     expect(skill).toContain('REGISTERED_NEURON')
     expect(skill).toContain('SERVED_FROM')

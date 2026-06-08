@@ -49,16 +49,17 @@ Set `SKIP_BUILD=1` only when deliberately reusing an existing Chain Insights `di
 The UAT must verify all of these facts:
 
 - GraphRAG direct MCP exposes `network_capabilities`, `graph_query`, and `graph_query_batch` through debug bearer auth.
-- If GraphRAG direct MCP also exposes high-level `address_risk`, that direct tool succeeds, returns `content` text and `structuredContent.schema = chain-insights.result.v1`, does not expose `app_data`, `nodes`, `edges`, `flows`, `edge_anchors`, or `transfers` in `structuredContent`, and puts graph data only in `_meta.chainInsights.graph.data`.
+- If GraphRAG direct MCP also exposes high-level `aml_address_risk`, that direct tool succeeds, returns `content` text and `structuredContent.schema = chain-insights.result.v1`, does not expose `app_data`, `nodes`, `edges`, `flows`, `edge_anchors`, or `transfers` in `structuredContent`, and puts graph data only in `_meta.chainInsights.graph.data`.
 - If GraphRAG direct MCP is primitive-only, Chain Insights proxy high-level tools are still mandatory and must build their graph reports from the primitive graph path.
-- Chain Insights proxy `tools/list` exposes local `balance`, `help`, `address_risk`, `trace_victim_funds`, `trace_suspect_funds`, and `trace_deposit_sources`, plus public proxied GraphRAG tools.
+- Chain Insights proxy `tools/list` exposes local `balance`, `help`, `aml_address_risk`, `aml_trace_victim_funds`, `aml_trace_suspect_funds`, and `aml_trace_deposit_sources`, plus public proxied GraphRAG tools.
 - `chain-insights mcp networks` reports each supported network with topology support, risk support, available tools, and dataset height/date coverage when the GraphRAG endpoint exposes it.
 - Chain Insights proxy tool descriptions must not contain stale `app_data` wording after schema refresh.
-- Chain Insights proxy `address_risk` returns only local graph report metadata in `_meta.chainInsights.graph = { schema, url }`.
+- Chain Insights proxy `aml_address_risk` returns only local graph report metadata in `_meta.chainInsights.graph = { schema, url }`.
 - Chain Insights proxy response must not include `_meta.chainInsights.graph.data`.
 - The local graph report URL must be served by the Chain Insights Hono server at `/graph-reports/<filename>.graph.json` and return `chain-insights.graph.v1` JSON without `transfers`.
+- Chain Insights proxy exposure tools return only analyst text plus `structuredContent`, do not return `_meta.chainInsights.graph`, and persist readable outputs under `reports/` and `reports/tables/` without writing exposure graph bundles.
 - `chain-insights mcp call graph_query` with `USE live_topology` must hit the real GraphRAG path and return the UAT address.
-- No investigation output is created under `~/.chain-insights/reports` or `~/.chain-insights/cases`.
+- No investigation output is created under `~/.chain-insights/reports`.
 </uat_contract>
 
 <process>

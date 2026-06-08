@@ -1,4 +1,4 @@
 interface:
   display_name: "Chain Insights Investigation"
   short_description: "Run evidence-backed blockchain investigations with cia"
-  default_prompt: "Use the Chain Insights investigation workflow for this case: select or create a case, start a session, run bounded graph queries, save raw outputs as evidence, update dossiers for durable findings, and close with next steps."
+  default_prompt: "Use the Chain Insights investigation workflow in the initialized workspace: run bounded graph queries, save raw outputs as artifacts and reports, update entity notes for durable findings, and close with next steps."

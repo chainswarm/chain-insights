@@ -33,7 +33,6 @@ against live topology, archive topology, and facts.
 | Wallet | Encrypted EVM wallet and Base USDC balance checks |
 | MCP client/proxy | x402, debug-token, test-key auth, schema cache, stdio proxy |
 | Cases | Case state, evidence, dossiers, sessions |
-| Playbooks | Legacy playbook runner and migration boundary |
 | Visualization | Graph data model and self-contained HTML generation |
 | Server | Local report and visualization server |
 | Workspace init | Investigation workspace scaffold and runtime schema notes |
@@ -99,11 +98,13 @@ directory.
 Workspace outputs include:
 
 ```text
-cases/
+artifacts/
+entities/
 imports/
 reports/
 reports/graphs/
 reports/tables/
+sessions/
 templates/
 .chain-insights/schema/
 .chain-insights/runtime/

@@ -19,7 +19,6 @@ describe('Hono viz routes (VIZ-03)', () => {
     await writeFile(join(workspace, '.chain-insights', 'workspace.json'), JSON.stringify({
       schema: 'chain-insights.workspace.v1',
       workspace_root: workspace,
-      cases_dir: 'cases',
     }) + '\n')
     prevHome = process.env['HOME']
     prevWorkspace = process.env['CHAIN_INSIGHTS_WORKSPACE']
@@ -62,11 +61,10 @@ describe('Hono viz routes (VIZ-03)', () => {
     expect(body.error).toBe('Invalid visualization ID')
   })
 
-  it('GET /viz/:id serves stored HTML from central dir', async () => {
-    // Write test HTML to central standalone directory
-    const centralDir = join(fakeHome, '.chain-insights', 'viz')
-    await mkdir(centralDir, { recursive: true })
-    await writeFile(join(centralDir, 'testviz.html'), '<html>test</html>')
+  it('GET /viz/:id serves stored HTML from workspace published dir', async () => {
+    const vizDir = join(workspace, 'published', 'viz')
+    await mkdir(vizDir, { recursive: true })
+    await writeFile(join(vizDir, 'testviz.html'), '<html>test</html>')
 
     stop = await startTestServer(14402)
     const res = await fetch('http://127.0.0.1:14402/viz/testviz')
@@ -75,19 +73,6 @@ describe('Hono viz routes (VIZ-03)', () => {
     expect(contentType).toContain('text/html')
     const body = await res.text()
     expect(body).toContain('<html>test</html>')
-  })
-
-  it('GET /viz/:id serves stored HTML from per-case dir (CONTEXT.md locked decision)', async () => {
-    // Write test HTML to per-case viz directory
-    const caseVizDir = join(fakeHome, '.chain-insights', 'cases', 'CASE-001', 'viz')
-    await mkdir(caseVizDir, { recursive: true })
-    await writeFile(join(caseVizDir, 'CASE-001_12345.html'), '<html>case test</html>')
-
-    stop = await startTestServer(14403)
-    const res = await fetch('http://127.0.0.1:14403/viz/CASE-001_12345')
-    expect(res.status).toBe(200)
-    const body = await res.text()
-    expect(body).toContain('<html>case test</html>')
   })
 
   it('GET /graph-reports/:filename serves stored graph JSON', async () => {
@@ -151,12 +136,16 @@ describe('Hono viz routes (VIZ-03)', () => {
   })
 
   it('GET /workspace/tree returns confined workspace entries', async () => {
-    await mkdir(join(workspace, 'cases', 'case-001'), { recursive: true })
+    await mkdir(join(workspace, 'artifacts', 'run-001'), { recursive: true })
+    await mkdir(join(workspace, 'entities'), { recursive: true })
     await mkdir(join(workspace, 'reports', 'graphs'), { recursive: true })
+    await mkdir(join(workspace, 'sessions'), { recursive: true })
     await mkdir(join(workspace, '.chain-insights', 'schema'), { recursive: true })
-    await writeFile(join(workspace, 'cases', 'case-001', 'case.md'), 'case body\n')
+    await writeFile(join(workspace, 'artifacts', 'run-001', 'note.md'), 'artifact body\n')
+    await writeFile(join(workspace, 'entities', 'address.md'), 'entity\n')
     await writeFile(join(workspace, 'reports', 'summary.md'), 'summary\n')
     await writeFile(join(workspace, 'reports', 'graphs', 'sample.graph.json'), '{"nodes":[]}\n')
+    await writeFile(join(workspace, 'sessions', 'session-001.md'), 'session\n')
     await writeFile(join(workspace, '.chain-insights', 'schema', 'graph.json'), '{"schema":"test"}\n')
     await writeFile(join(workspace, '..', 'outside-secret.txt'), 'outside\n')
 
@@ -173,10 +162,12 @@ describe('Hono viz routes (VIZ-03)', () => {
     expect(body.root).toBe(workspace)
     expect(body.entries).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ path: 'cases', type: 'directory' }),
-        expect.objectContaining({ path: 'cases/case-001/case.md', type: 'file' }),
+        expect.objectContaining({ path: 'artifacts', type: 'directory' }),
+        expect.objectContaining({ path: 'artifacts/run-001/note.md', type: 'file' }),
+        expect.objectContaining({ path: 'entities/address.md', type: 'file' }),
         expect.objectContaining({ path: 'reports/summary.md', type: 'file' }),
         expect.objectContaining({ path: 'reports/graphs/sample.graph.json', type: 'file' }),
+        expect.objectContaining({ path: 'sessions/session-001.md', type: 'file' }),
         expect.objectContaining({ path: '.chain-insights/schema/graph.json', type: 'file' }),
       ])
     )
@@ -188,8 +179,8 @@ describe('Hono viz routes (VIZ-03)', () => {
     const outside = join(tmpdir(), `ci-viz-tree-outside-${Date.now()}-${Math.random().toString(36).slice(2)}`)
     await mkdir(outside, { recursive: true })
     await writeFile(join(outside, 'secret.txt'), 'outside\n')
-    await mkdir(join(workspace, 'cases'), { recursive: true })
-    await symlink(outside, join(workspace, 'cases', 'case_link'))
+    await mkdir(join(workspace, 'artifacts'), { recursive: true })
+    await symlink(outside, join(workspace, 'artifacts', 'artifact_link'))
 
     stop = await startTestServer(14411)
     const res = await fetch('http://127.0.0.1:14411/workspace/tree')
@@ -200,12 +191,12 @@ describe('Hono viz routes (VIZ-03)', () => {
 
     expect(body.entries).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ path: 'cases/case_link', type: 'symlink' }),
+        expect.objectContaining({ path: 'artifacts/artifact_link', type: 'symlink' }),
       ])
     )
     expect(body.entries).not.toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ path: 'cases/case_link/secret.txt' }),
+        expect.objectContaining({ path: 'artifacts/artifact_link/secret.txt' }),
       ])
     )
 

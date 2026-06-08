@@ -8,7 +8,10 @@ export interface WorkspaceOutputPaths {
   metadataDir: string
   schemaDir: string
   runtimeDir: string
-  casesRoot: string
+  artifactsRoot: string
+  entitiesRoot: string
+  sessionsRoot: string
+  publishedRoot: string
   reportsRoot: string
   reportGraphsRoot: string
   reportTablesRoot: string
@@ -28,7 +31,10 @@ export function workspaceOutputPaths(workspaceRoot = requireWorkspaceRoot()): Wo
     metadataDir: path.join(root, '.chain-insights'),
     schemaDir: path.join(root, '.chain-insights', 'schema'),
     runtimeDir: path.join(root, '.chain-insights', 'runtime'),
-    casesRoot: path.join(root, 'cases'),
+    artifactsRoot: path.join(root, 'artifacts'),
+    entitiesRoot: path.join(root, 'entities'),
+    sessionsRoot: path.join(root, 'sessions'),
+    publishedRoot: path.join(root, 'published'),
     reportsRoot: path.join(root, 'reports'),
     reportGraphsRoot: path.join(root, 'reports', 'graphs'),
     reportTablesRoot: path.join(root, 'reports', 'tables'),

@@ -1,9 +1,9 @@
 import { Hono } from 'hono'
 import { lstat, readFile, readdir, realpath } from 'node:fs/promises'
 import path from 'node:path'
-import os from 'node:os'
+import { workspaceOutputPaths } from '../workspace/output-root.js'
 
-const WORKSPACE_TREE_ROOTS = ['cases', 'reports', '.chain-insights/schema']
+const WORKSPACE_TREE_ROOTS = ['artifacts', 'entities', 'reports', 'sessions', '.chain-insights/schema']
 const WORKSPACE_TREE_MAX_DEPTH = 4
 
 interface WorkspaceTreeEntry {
@@ -83,40 +83,14 @@ async function listWorkspaceEntries(
 }
 
 async function findVizHtml(vizId: string): Promise<string | null> {
-  const home = os.homedir()
   const filename = `${vizId}.html`
-
-  // 1. Check central standalone directory first (fast, single path)
-  const centralPath = path.join(home, '.chain-insights', 'viz', filename)
+  const paths = workspaceOutputPaths()
+  const vizPath = path.join(paths.publishedRoot, 'viz', filename)
   try {
-    return await readFile(centralPath, 'utf-8')
-  } catch { /* not found here, continue */ }
-
-  // 2. Check per-case directory using vizId prefix (case-based vizs use <caseId>_<timestamp>)
-  //    The vizId for case-based vizs is formatted as <case-id>_<timestamp>,
-  //    so extract the case-id prefix to check its directory first.
-  const underscoreIdx = vizId.lastIndexOf('_')
-  if (underscoreIdx > 0) {
-    const possibleCaseId = vizId.substring(0, underscoreIdx)
-    const casePath = path.join(home, '.chain-insights', 'cases', possibleCaseId, 'viz', filename)
-    try {
-      return await readFile(casePath, 'utf-8')
-    } catch { /* not found here, continue */ }
+    return await readFile(vizPath, 'utf-8')
+  } catch {
+    return null
   }
-
-  // 3. Fallback: scan all case directories (CONTEXT.md: ~/.chain-insights/cases/<case-id>/viz/)
-  const casesDir = path.join(home, '.chain-insights', 'cases')
-  try {
-    const cases = await readdir(casesDir)
-    for (const caseId of cases) {
-      const casePath = path.join(casesDir, caseId, 'viz', filename)
-      try {
-        return await readFile(casePath, 'utf-8')
-      } catch { /* not in this case dir */ }
-    }
-  } catch { /* cases dir doesn't exist */ }
-
-  return null
 }
 
 function isSafeGraphReportFilename(filename: string): boolean {

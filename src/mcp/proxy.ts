@@ -1,5 +1,6 @@
+import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { appendFile, mkdir } from 'node:fs/promises'
+import { appendFile, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -18,30 +19,14 @@ import { PaymentRequiredError } from './client.js'
 const LOCAL_TOOL_NAMES = new Set([
   'balance',
   'help',
-  'case_open',
-  'case_list',
-  'case_resume',
-  'case_add_evidence',
-  'case_verify_evidence',
-  'case_export',
-  'case_update_dossier',
-  'case_start_session',
-  'case_end_session',
 ])
 const PUBLIC_GRAPHRAG_PROMPT_NAMES = new Set(['address-risk', 'trace-tools'])
 const GRAPH_RESOURCE_URI = 'ui://chain-insights/graph'
 const GRAPH_APP_TOOL_NAMES = new Set([
-  'address_risk',
-  'exposure_profile',
-  'exposure_quality',
-  'exposure_carry',
-  'exposure_crowding',
-  'exposure_exit_pressure',
-  'exposure_correlation',
-  'exposure_explain',
-  'trace_victim_funds',
-  'trace_suspect_funds',
-  'trace_deposit_sources',
+  'aml_address_risk',
+  'aml_trace_victim_funds',
+  'aml_trace_suspect_funds',
+  'aml_trace_deposit_sources',
 ])
 const GRAPH_ARRAY_KEYS = ['nodes', 'edges', 'flows', 'edge_anchors'] as const
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -63,7 +48,7 @@ const COMMA_SEPARATED_ADDRESS_FIELDS = new Set([
 ])
 
 const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
-  address_risk: ['address', 'network'],
+  aml_address_risk: ['address', 'network'],
   exposure_profile: ['network'],
   exposure_quality: ['network'],
   exposure_carry: ['network'],
@@ -71,16 +56,16 @@ const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
   exposure_exit_pressure: ['network'],
   exposure_correlation: ['network'],
   exposure_explain: ['network'],
-  trace_victim_funds: ['victim_addresses', 'network'],
-  trace_suspect_funds: ['suspect_addresses', 'network'],
-  trace_deposit_sources: ['deposit_addresses', 'network'],
+  aml_trace_victim_funds: ['victim_addresses', 'network'],
+  aml_trace_suspect_funds: ['suspect_addresses', 'network'],
+  aml_trace_deposit_sources: ['deposit_addresses', 'network'],
   graph_query: ['query', 'network'],
   graph_query_batch: ['network', 'queries'],
 }
 
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   network_capabilities: 'Return supported Chain Insights networks, capability layers, tool availability, data retention windows, and freshness. Use this before choosing network-specific tools.',
-  address_risk: 'Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. This includes the exchange-behavior analysis formerly covered by money_flows_between_exchanges. Use this as the first tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.',
+  aml_address_risk: 'Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. This includes the exchange-behavior analysis formerly covered by money_flows_between_exchanges. Use this as the first AML tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.',
   exposure_profile: 'Explain exposure around one account, owner, or counterparty. Supports Bittensor staking exposure and Hyperliquid trading exposure through one generic response shape with venues, instruments, position changes, carry/risk fields when available, public support events, and caveats.',
   exposure_quality: 'Score whether exposure behavior looks disciplined, fragile, lucky, or noisy across Bittensor staking, Hyperliquid trading, and future exposure venues. Returns deterministic components, sample-size warnings, evidence, and caveats; it is not trading advice.',
   exposure_carry: 'Explain carry earned or paid by exposure, including funding, fees, emissions, dividends, validator take, or equivalent venue-native carry when indexed. Returns carry breakdowns, evidence, and missing-data caveats.',
@@ -88,9 +73,9 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   exposure_exit_pressure: 'Explain what could force or incentivize exits, including liquidation pressure, slippage/unstake pressure, funding pain, or missing risk coverage. Accepts either an account-style subject or an instrument/market subject.',
   exposure_correlation: 'Compare exposure behavior across accounts to find possible copy, overlap, or strategy-cluster relationships. Correlation is not proof of shared control.',
   exposure_explain: 'Explain the lifecycle of a specific exposure, position, trade, stake, or rotation using public support events, position changes, carry, risk fields, and caveats.',
-  trace_victim_funds: 'Trace victim/source funds forward through intermediaries to exchange deposit candidates. Use only when the input addresses are victims or trusted stolen-source addresses; do not use for suspected deposit addresses because traceback belongs to trace_deposit_sources. Exchange hot wallets are terminal only, never candidate deposits. Returns chain-insights.trace.v1 and preserves full addresses exactly.',
-  trace_suspect_funds: 'Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology. Use when the input addresses are suspect-controlled seeds; incident_timestamp_ms is optional. Do not use for victim/source addresses or suspected deposit endpoints. Exchange hot wallets are terminal only, never candidate suspects or intermediates. Returns chain-insights.trace.v1 and preserves full addresses exactly.',
-  trace_deposit_sources: 'Trace backward from suspected deposit/cashout addresses to upstream sources, shared funders, and convergence. Use only when the input addresses are suspected non-exchange deposit endpoints; do not treat these seeds as scammers and do not continue forward from discovered suspects here. Exchange hot wallets are excluded as seeds and upstream sources. Returns chain-insights.trace.v1 and preserves full addresses exactly.',
+  aml_trace_victim_funds: 'Trace victim/source funds forward through intermediaries to exchange deposit candidates. Use only when the input addresses are victims or trusted stolen-source addresses; do not use for suspected deposit addresses because traceback belongs to aml_trace_deposit_sources. Exchange hot wallets are terminal only, never candidate deposits. Returns chain-insights.trace.v1 and preserves full addresses exactly.',
+  aml_trace_suspect_funds: 'Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology. Use when the input addresses are suspect-controlled seeds; incident_timestamp_ms is optional. Do not use for victim/source addresses or suspected deposit endpoints. Exchange hot wallets are terminal only, never candidate suspects or intermediates. Returns chain-insights.trace.v1 and preserves full addresses exactly.',
+  aml_trace_deposit_sources: 'Trace backward from suspected deposit/cashout addresses to upstream sources, shared funders, and convergence. Use only when the input addresses are suspected non-exchange deposit endpoints; do not treat these seeds as scammers and do not continue forward from discovered suspects here. Exchange hot wallets are excluded as seeds and upstream sources. Returns chain-insights.trace.v1 and preserves full addresses exactly.',
   graph_query: 'Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment. Cross-layer correlated joins may be limited by the active graph endpoint; preserve full addresses exactly.',
   graph_query_batch: 'Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads.',
 }
@@ -110,15 +95,15 @@ type ChainInsightsGraphMeta = {
 
 const NETWORK_DESCRIPTION = 'Required network to query. Do not guess; use network_capabilities or ask the user if missing.'
 const REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS = 15 * 60 * 1000
+const EXPOSURE_TABLE_ROW_KEYS = ['exposures', 'venues', 'top_exposures', 'pressure_bands', 'relationships', 'evidence', 'sides'] as const
 
 const CHAIN_INSIGHTS_WORKFLOW = [
   'Workflow:',
-  '1. Chain Insights workspaces are Obsidian-compatible vaults. If the user is starting or continuing an investigation, use case_open or case_list/case_resume first.',
+  '1. Chain Insights workspaces are append-only local working directories. Bootstrap with cia init before workflows that persist artifacts.',
   '2. Do not call investigation tools until required arguments are known. Network is required; use network_capabilities to check supported networks, data layers, retention, and freshness, or ask the user if missing.',
-  '3. Use address_risk for single-address enrichment. Use exposure_profile, exposure_quality, exposure_carry, exposure_crowding, exposure_exit_pressure, exposure_correlation, and exposure_explain for Bittensor staking and trading exposure. Use trace_victim_funds for victim/source forward tracing, trace_deposit_sources for reverse traceback from suspected deposit endpoints, and trace_suspect_funds for suspect-controlled outbound laundering/cashout topology. Use graph_query(_batch) only when the high-level tools do not answer the exact question.',
-  '4. After a material result, preserve it with case_add_evidence when a case is active or ask whether to create/select a case.',
-  '5. Use case_update_dossier for durable address/entity findings and case_start_session/case_end_session for session notes.',
-  '6. For local review, use live vault notes refreshed with cia case vault refresh. When a case reaches a sharing or archive checkpoint, use case_verify_evidence and case_export to produce Obsidian, LLM Wiki, Codex, Claude Code, and ChatGPT-ready handoff bundles.',
+  '3. Use aml_address_risk for single-address enrichment. Use exposure_profile, exposure_quality, exposure_carry, exposure_crowding, exposure_exit_pressure, exposure_correlation, and exposure_explain for exposure analysis. Use aml_trace_victim_funds for victim/source forward tracing, aml_trace_deposit_sources for reverse traceback from suspected deposit endpoints, and aml_trace_suspect_funds for suspect-controlled outbound laundering/cashout topology. Use graph_query(_batch) only when the high-level tools do not answer the exact question.',
+  '4. Persisted outputs belong in the initialized workspace under reports/, reports/graphs/, reports/tables/, artifacts/, entities/, sessions/, and published/.',
+  '5. For local review, inspect the generated Markdown and graph/table artifacts directly in the workspace.',
 ].join('\n')
 
 const GRAPH_SCHEMA_HINTS = [
@@ -148,17 +133,17 @@ const GRAPH_REPORT_HINTS = [
 ].join('\n')
 
 const SERVER_INSTRUCTIONS = [
-  'Chain Insights is a local AML investigation workspace for AI agents.',
+  'Chain Insights is a local graph-analysis workspace for AI agents.',
   CHAIN_INSIGHTS_WORKFLOW,
   GRAPH_REPORT_HINTS,
   GRAPH_SCHEMA_HINTS,
-  'Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses; use case tools to preserve evidence when a case exists.',
+  'Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses.',
 ].join('\n\n')
 
 const STATELESS_SERVER_INSTRUCTIONS = [
   'Chain Insights is running as a stateless AML proxy for a host application.',
-  'Do not use local case, evidence, dossier, session, wallet, or graph report workflows in this mode.',
-  'Use network_capabilities first when network support is unknown, then call address_risk, exposure_profile, exposure_quality, exposure_carry, exposure_crowding, exposure_exit_pressure, exposure_correlation, exposure_explain, trace_victim_funds, trace_suspect_funds, trace_deposit_sources, graph_query, or graph_query_batch as needed.',
+  'Do not use local workspace persistence, wallet, or graph report workflows in this mode.',
+  'Use network_capabilities first when network support is unknown, then call aml_address_risk, exposure_profile, exposure_quality, exposure_carry, exposure_crowding, exposure_exit_pressure, exposure_correlation, exposure_explain, aml_trace_victim_funds, aml_trace_suspect_funds, aml_trace_deposit_sources, graph_query, or graph_query_batch as needed.',
   GRAPH_SCHEMA_HINTS,
   'Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses.',
 ].join('\n\n')
@@ -222,14 +207,14 @@ function graphToolMeta(tool: McpTool): Record<string, unknown> & { ui: { resourc
 
 function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
   switch (toolName) {
-    case 'address_risk':
+    case 'aml_address_risk':
       return {
         address: z.string().min(1).describe('Full blockchain address to screen'),
         network: z.string().min(1).describe(NETWORK_DESCRIPTION),
         compare_address: z.string().optional().describe('Optional second full address for comparison'),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
       }
-    case 'trace_victim_funds':
+    case 'aml_trace_victim_funds':
       return {
         victim_addresses: z.string().min(1).describe('Comma-separated full victim/source addresses. Min 1, max 5.'),
         network: z.string().min(1).describe(NETWORK_DESCRIPTION),
@@ -237,20 +222,18 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
         incident_timestamp_ms: z.number().min(0).optional().describe('Optional incident timestamp in milliseconds.'),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
       }
-    case 'trace_suspect_funds':
+    case 'aml_trace_suspect_funds':
       return {
         network: z.string().min(1).describe(NETWORK_DESCRIPTION),
         suspect_addresses: z.string().min(1).describe('Comma-separated full suspected scammer, mule, operator, or laundering-ring addresses. Min 1, max 5.'),
         incident_timestamp_ms: z.number().min(0).optional().describe('Optional incident timestamp in milliseconds. This tool also works without a timestamp.'),
         max_hops: z.number().int().min(1).max(5).optional().describe('Maximum forward trace hops. Default 3.'),
-        case_id: z.string().optional().describe('Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest.'),
       }
-    case 'trace_deposit_sources':
+    case 'aml_trace_deposit_sources':
       return {
         network: z.string().min(1).describe(NETWORK_DESCRIPTION),
         deposit_addresses: z.string().min(1).describe('Comma-separated full suspected deposit/cashout addresses. Min 1, max 5.'),
         max_hops: z.number().int().min(1).max(5).optional().describe('Maximum reverse traceback hops. Default 2.'),
-        case_id: z.string().optional().describe('Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest.'),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
       }
     case 'exposure_profile':
@@ -653,7 +636,7 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
       },
       async ({ address, network }) => promptResult(
         [
-          `Use Chain Insights address_risk on ${network} for:`,
+          `Use Chain Insights aml_address_risk on ${network} for:`,
           '',
           `\`${address}\``,
           '',
@@ -669,7 +652,7 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
       'trace-tools',
       {
         title: 'Trace Tools',
-        description: 'Choose trace_victim_funds, trace_deposit_sources, or trace_suspect_funds based on the evidence role.',
+        description: 'Choose aml_trace_victim_funds, aml_trace_deposit_sources, or aml_trace_suspect_funds based on the evidence role.',
         argsSchema: {
           addresses: z.string().describe('Input addresses, comma-separated full addresses'),
           role: z.enum(['victim', 'suspect', 'deposit']).describe('Role of the supplied addresses'),
@@ -677,7 +660,7 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
         },
       },
       async ({ addresses, role, network }) => {
-        const toolName = role === 'deposit' ? 'trace_deposit_sources' : `trace_${role}_funds`
+        const toolName = role === 'deposit' ? 'aml_trace_deposit_sources' : `aml_trace_${role}_funds`
         return promptResult([
           `Use Chain Insights ${toolName} on ${network}.`,
           '',
@@ -685,7 +668,7 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
           addresses,
           '',
           role === 'deposit'
-            ? 'For deposit role, use trace_deposit_sources rather than trace_deposit_funds.'
+            ? 'For deposit role, use aml_trace_deposit_sources rather than aml_trace_deposit_funds.'
             : 'Present the summary as-is and use continuation.recommended_next_tools for follow-up.',
         ].join('\n'), 'Trace role-specific funds')
       },
@@ -759,80 +742,60 @@ function registerLocalPrompts(server: McpServer, remotePromptNames: Set<string>)
     'help',
     {
       title: 'Chain Insights Help',
-      description: 'Show available Chain Insights tools and investigation case workflow.',
+      description: 'Show available Chain Insights tools and workspace workflow.',
       argsSchema: {},
     },
     async () => promptResult(
-      'Use Chain Insights help. Summarize the available tools and investigation case workflow without inventing capabilities.',
+      'Use Chain Insights help. Summarize the available tools and workspace workflow without inventing capabilities.',
       'Chain Insights help',
     ),
   )
 
-  server.registerPrompt(
-    'open-investigation-case',
-    {
-      title: 'Open Investigation Case',
-      description: 'Create a local Chain Insights case for an investigation.',
-      argsSchema: {
-        name: z.string().describe('Case name'),
-        tags: z.string().optional().describe('Comma-separated tags'),
-        description: z.string().optional().describe('Brief investigation description'),
-      },
-    },
-    async ({ name, tags, description }) => promptResult(
-      [
-        'Use Chain Insights case_open to create a local investigation case.',
-        '',
-        `name: \`${name}\``,
-        tags ? `tags: \`${tags}\`` : '',
-        description ? `description: ${description}` : '',
-      ].filter(Boolean).join('\n'),
-      'Open investigation case',
-    ),
-  )
 
-  server.registerPrompt(
-    'resume-investigation-case',
-    {
-      title: 'Resume Investigation Case',
-      description: 'Load local Chain Insights case context, evidence count, dossiers, and latest session.',
-      argsSchema: {
-        case_id: z.string().describe('Chain Insights case ID'),
-      },
-    },
-    async ({ case_id }) => promptResult(
-      `Use Chain Insights case_resume for case_id: \`${case_id}\`. Continue from the returned context.`,
-      'Resume investigation case',
-    ),
-  )
-
-  server.registerPrompt(
-    'save-investigation-evidence',
-    {
-      title: 'Save Investigation Evidence',
-      description: 'Append a tool result or analyst note to a local Chain Insights case evidence manifest.',
-      argsSchema: {
-        case_id: z.string().describe('Chain Insights case ID'),
-        source: z.string().describe('Tool or source name'),
-      },
-    },
-    async ({ case_id, source }) => promptResult(
-      [
-        'Use Chain Insights case_add_evidence after the next relevant tool result.',
-        '',
-        `case_id: \`${case_id}\``,
-        `source: \`${source}\``,
-        'content: use the exact report or note that should become evidence.',
-      ].join('\n'),
-      'Save investigation evidence',
-    ),
-  )
 }
 
 function hasGraphArrayFields(value: unknown): boolean {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const record = value as Record<string, unknown>
   return GRAPH_ARRAY_KEYS.some((key) => Array.isArray(record[key]))
+}
+
+function sanitizeSlug(value: string): string {
+  const slug = value.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/-+/g, '-').replace(/^[._-]+|[._-]+$/g, '')
+  return slug || 'exposure'
+}
+
+function exposureArtifactTimestamp(date = new Date()): string {
+  return date.toISOString().replace(/[-:.]/g, '').replace(/\.[0-9]{3}Z$/, 'Z')
+}
+
+function csvEscape(value: unknown): string {
+  if (value === undefined || value === null) return '""'
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return JSON.stringify(String(value))
+  return JSON.stringify(value)
+}
+
+function tableRowsFromExposureContent(structuredContent: Record<string, unknown>): Array<Record<string, unknown>> | undefined {
+  for (const key of EXPOSURE_TABLE_ROW_KEYS) {
+    const value = structuredContent[key]
+    if (!Array.isArray(value) || value.length === 0) continue
+    if (!value.every((row) => isRecord(row))) continue
+    return value as Array<Record<string, unknown>>
+  }
+  return undefined
+}
+
+function exposureRowsToCsv(rows: Array<Record<string, unknown>>): string {
+  const headers = new Set<string>()
+  for (const row of rows) {
+    for (const key of Object.keys(row)) headers.add(key)
+  }
+  const headerList = [...headers]
+  const lines = [headerList.map(csvEscape).join(',')]
+  for (const row of rows) {
+    lines.push(headerList.map((header) => csvEscape(row[header])).join(','))
+  }
+  return lines.join('\n') + '\n'
 }
 
 function sanitizeStructuredContentForGraphPayload(
@@ -950,6 +913,62 @@ function graphMetaResult(graph: ChainInsightsGraphMeta | undefined): Record<stri
     : undefined
 }
 
+async function writeExposureArtifacts(
+  result: { summaryText: string, structuredContent: Record<string, unknown> },
+  toolName: string,
+  subject: string,
+  network: string,
+  includeAttachments: boolean,
+): Promise<void> {
+  if (!includeAttachments) return undefined
+
+  const { workspaceOutputPaths } = await import('../workspace/output-root.js')
+  const paths = workspaceOutputPaths()
+  const now = new Date()
+  const timestamp = exposureArtifactTimestamp(now)
+  const slug = `${timestamp}-${sanitizeSlug(toolName)}-${sanitizeSlug(subject)}-${randomUUID().replace(/-/g, '').slice(0, 12)}`
+
+  await Promise.all([
+    mkdir(paths.reportsRoot, { recursive: true, mode: 0o700 }),
+    mkdir(paths.reportTablesRoot, { recursive: true, mode: 0o700 }),
+  ])
+
+  const reportPath = path.join(paths.reportsRoot, `${slug}.exposure-report.md`)
+  const compactFactsPath = path.join(paths.reportTablesRoot, `${slug}.compact-facts.json`)
+  const compactFacts = {
+    schema: result.structuredContent.schema,
+    tool: result.structuredContent.tool,
+    network,
+    subject,
+    generated_at: now.toISOString(),
+    summary_text: result.summaryText,
+    facts: result.structuredContent,
+  }
+  const reportBody = [
+    `# ${toolName} Report`,
+    '',
+    `Network: ${network}`,
+    `Generated: ${now.toISOString()}`,
+    '',
+    result.summaryText,
+    '',
+    '## Artifacts',
+    `- Report: ${reportPath}`,
+    `- Compact facts: ${compactFactsPath}`,
+  ]
+
+  const tableRows = tableRowsFromExposureContent(result.structuredContent)
+  if (tableRows) {
+    const tablePath = path.join(paths.reportTablesRoot, `${slug}.table.csv`)
+    reportBody.push(`- Table: ${tablePath}`)
+    await writeFile(tablePath, exposureRowsToCsv(tableRows), { mode: 0o600 })
+  }
+
+  await writeFile(reportPath, reportBody.join('\n') + '\n', { mode: 0o600 })
+  await writeFile(compactFactsPath, JSON.stringify(compactFacts, null, 2) + '\n', { mode: 0o600 })
+  return undefined
+}
+
 /**
  * Core proxy logic — exported so tests can inject dependencies directly.
  * The IIFE at the bottom calls this with real dependencies.
@@ -985,7 +1004,7 @@ export async function createProxy(): Promise<void> {
 
   // Build remote MCP client. The local Chain Insights MCP surface must still
   // start when the graph endpoint is temporarily unavailable so agents can use
-  // help, wallet, and case workflow tools.
+  // help and wallet tools.
   const remoteClient = new Client({ name: 'chain-insights-proxy-client', version: PACKAGE_VERSION })
   let remoteConnected = false
   let remoteUnavailableMessage: string | undefined
@@ -1173,317 +1192,15 @@ export async function createProxy(): Promise<void> {
     }),
   )
 
-  server.registerTool(
-    'case_open',
-    {
-      description: 'Create a local Chain Insights investigation case. Use this before saving evidence, dossiers, or session notes for a new investigation.',
-      inputSchema: {
-        name: z.string().min(1).describe('Case name'),
-        tags: z.union([z.string(), z.array(z.string())]).optional().describe('Comma-separated tags or string array'),
-        description: z.string().optional().describe('Brief investigation description'),
-      },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: false,
-        openWorldHint: false,
-      },
-    },
-    async ({ name, tags, description }) => {
-      try {
-        const { CaseStore } = await import('../cases/index.js')
-        const created = await CaseStore.create({
-          name,
-          tags: parseTags(tags),
-          description: description ?? '',
-        })
-        const { casesRoot } = await import('../cases/store.js')
-        return {
-          content: [{
-            type: 'text' as const,
-            text: JSON.stringify({
-              case_id: created.id,
-              name: created.name,
-              status: created.status,
-              tags: created.tags,
-              directory: `${path.join(casesRoot(), created.id)}/`,
-            }, null, 2),
-          }],
-          isError: false,
-        }
-      } catch (err) {
-        return caseToolError('Case open', err)
-      }
-    },
-  )
 
-  server.registerTool(
-    'case_list',
-    {
-      description: 'List local Chain Insights investigation cases. Use before resuming when the user does not provide a case ID.',
-      inputSchema: {
-        status: z.enum(['open', 'active', 'suspended', 'closed']).optional().describe('Optional status filter'),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
-    },
-    async ({ status }) => {
-      try {
-        const { CaseStore } = await import('../cases/index.js')
-        const cases = await CaseStore.list()
-        const filtered = status ? cases.filter((entry) => entry.status === status) : cases
-        return {
-          content: [{ type: 'text' as const, text: JSON.stringify({ cases: filtered }, null, 2) }],
-          isError: false,
-        }
-      } catch (err) {
-        return caseToolError('Case list', err)
-      }
-    },
-  )
 
-  server.registerTool(
-    'case_resume',
-    {
-      description: 'Load local Chain Insights case context: metadata, evidence count, dossier summaries, and latest session notes.',
-      inputSchema: {
-        case_id: z.string().min(1).describe('Chain Insights case ID'),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
-    },
-    async ({ case_id }) => {
-      try {
-        const { CaseStore } = await import('../cases/index.js')
-        const context = await CaseStore.loadContext(case_id)
-        return {
-          content: [{ type: 'text' as const, text: JSON.stringify(context, null, 2) }],
-          isError: false,
-        }
-      } catch (err) {
-        return caseToolError('Case resume', err)
-      }
-    },
-  )
-
-  server.registerTool(
-    'case_add_evidence',
-    {
-      description: 'Append a tool result or analyst note to a local case evidence manifest. Use after address_risk, trace_victim_funds, trace_suspect_funds, trace_deposit_sources, graph_query, or manual findings that should be preserved.',
-      inputSchema: {
-        case_id: z.string().min(1).describe('Chain Insights case ID'),
-        source: z.string().min(1).describe('Source tool or evidence origin'),
-        content: z.string().min(1).describe('Evidence markdown/text to store'),
-        query_params: z.string().optional().describe('Original query parameters, for example "network=bittensor address=..."'),
-      },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: false,
-        openWorldHint: false,
-      },
-    },
-    async ({ case_id, source, content, query_params }) => {
-      try {
-        const { EvidenceStore } = await import('../cases/index.js')
-        const saved = await EvidenceStore.append(case_id, {
-          source,
-          content,
-          queryParams: query_params ?? '',
-        })
-        return {
-          content: [{ type: 'text' as const, text: JSON.stringify(saved, null, 2) }],
-          isError: false,
-        }
-      } catch (err) {
-        return caseToolError('Evidence append', err)
-      }
-    },
-  )
-
-  server.registerTool(
-    'case_verify_evidence',
-    {
-      description: 'Verify a local case evidence manifest and report tampered or missing evidence files.',
-      inputSchema: {
-        case_id: z.string().min(1).describe('Chain Insights case ID'),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
-    },
-    async ({ case_id }) => {
-      try {
-        const { EvidenceStore } = await import('../cases/index.js')
-        const result = await EvidenceStore.verifyManifest(case_id)
-        return {
-          content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
-          isError: false,
-        }
-      } catch (err) {
-        return caseToolError('Evidence verify', err)
-      }
-    },
-  )
-
-  server.registerTool(
-    'case_export',
-    {
-      description: 'Export a Chain Insights case to an Obsidian, LLM Wiki, Codex, Claude Code, and ChatGPT-friendly handoff bundle.',
-      inputSchema: {
-        case_id: z.string().min(1).describe('Chain Insights case ID to export'),
-        target: z.enum(['obsidian-llmwiki']).optional().describe('Export target. Default obsidian-llmwiki.'),
-        mode: z.enum(['private', 'partner', 'public']).optional().describe('Redaction mode. Default private.'),
-        output_dir: z.string().optional().describe('Optional output directory. Defaults to published/<case-slug>.'),
-      },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: false,
-        openWorldHint: false,
-      },
-    },
-    async ({ case_id, target, mode, output_dir }) => {
-      try {
-        const { exportCase } = await import('../export/index.js')
-        const result = await exportCase({
-          caseId: case_id,
-          target: target ?? 'obsidian-llmwiki',
-          mode: mode ?? 'private',
-          outputDir: output_dir,
-        })
-        return {
-          content: [{
-            type: 'text' as const,
-            text: [
-              `Case exported: ${result.outputDir}`,
-              `Manifest: ${result.manifestPath}`,
-              `Files: ${result.fileCount}`,
-              `Open first: ${result.nextFile}`,
-              ...result.warnings.map((warning) => `Warning: ${warning}`),
-            ].join('\n'),
-          }],
-          structuredContent: result,
-          isError: false,
-        }
-      } catch (err) {
-        return caseToolError('Case export', err)
-      }
-    },
-  )
-
-  server.registerTool(
-    'case_update_dossier',
-    {
-      description: 'Append a finding to an address/entity dossier inside a local Chain Insights case.',
-      inputSchema: {
-        case_id: z.string().min(1).describe('Chain Insights case ID'),
-        address: z.string().min(1).describe('Full address or entity identifier'),
-        finding: z.string().min(1).describe('Finding to append'),
-        entity_type: z.enum(['eoa', 'contract', 'exchange', 'mixer', 'unknown']).optional().describe('Entity type'),
-      },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: false,
-        openWorldHint: false,
-      },
-    },
-    async ({ case_id, address, finding, entity_type }) => {
-      try {
-        const { DossierStore } = await import('../cases/index.js')
-        await DossierStore.appendFinding(case_id, address, finding, entity_type ?? 'unknown')
-        return {
-          content: [{ type: 'text' as const, text: JSON.stringify({ case_id, address, updated: true }, null, 2) }],
-          isError: false,
-        }
-      } catch (err) {
-        return caseToolError('Dossier update', err)
-      }
-    },
-  )
-
-  server.registerTool(
-    'case_start_session',
-    {
-      description: 'Start a local investigation session file for a Chain Insights case.',
-      inputSchema: {
-        case_id: z.string().min(1).describe('Chain Insights case ID'),
-      },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: false,
-        openWorldHint: false,
-      },
-    },
-    async ({ case_id }) => {
-      try {
-        const { SessionStore } = await import('../cases/index.js')
-        const session = await SessionStore.start(case_id)
-        return {
-          content: [{ type: 'text' as const, text: JSON.stringify(session, null, 2) }],
-          isError: false,
-        }
-      } catch (err) {
-        return caseToolError('Session start', err)
-      }
-    },
-  )
-
-  server.registerTool(
-    'case_end_session',
-    {
-      description: 'End the latest local investigation session for a Chain Insights case with findings and next steps.',
-      inputSchema: {
-        case_id: z.string().min(1).describe('Chain Insights case ID'),
-        findings: z.string().optional().describe('Key findings from this session'),
-        next_steps: z.string().optional().describe('Next investigation steps'),
-      },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: false,
-        openWorldHint: false,
-      },
-    },
-    async ({ case_id, findings, next_steps }) => {
-      try {
-        const { SessionStore } = await import('../cases/index.js')
-        await SessionStore.end(case_id, {
-          findings: findings ?? '',
-          nextSteps: next_steps ?? '',
-        })
-        await SessionStore.archiveOldSessions(case_id)
-        return {
-          content: [{ type: 'text' as const, text: JSON.stringify({ case_id, ended: true }, null, 2) }],
-          isError: false,
-        }
-      } catch (err) {
-        return caseToolError('Session end', err)
-      }
-    },
-  )
-  }
-
-  if (!remoteToolNames.has('address_risk')) {
+  if (!remoteToolNames.has('aml_address_risk')) {
     registerAppTool(
       server,
-      'address_risk',
+      'aml_address_risk',
       {
         title: 'Address Risk',
-        description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.address_risk,
+        description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.aml_address_risk,
         inputSchema: {
           address: z.string().min(1).describe('Full blockchain address to screen'),
           network: z.string().min(1).describe(NETWORK_DESCRIPTION),
@@ -1518,6 +1235,7 @@ export async function createProxy(): Promise<void> {
             address,
             network,
             compareAddress: compare_address,
+            writeArtifacts: workspaceArtifactsEnabled,
           })
           const graph = await writeLocalGraphMeta(
             result.graphData,
@@ -1544,19 +1262,18 @@ export async function createProxy(): Promise<void> {
     )
   }
 
-  if (!remoteToolNames.has('trace_victim_funds')) {
+  if (!remoteToolNames.has('aml_trace_victim_funds')) {
     registerAppTool(
       server,
-      'trace_victim_funds',
+      'aml_trace_victim_funds',
       {
         title: 'Trace Victim Funds',
-        description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.trace_victim_funds,
+        description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.aml_trace_victim_funds,
         inputSchema: {
           victim_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe('Comma-separated full victim/source addresses, or an array. Min 1, max 5.'),
           network: z.string().min(1).describe(NETWORK_DESCRIPTION),
           known_suspect_addresses: z.union([z.string(), z.array(z.string())]).optional().describe('Known suspect addresses for context only. This tool does not reverse-trace them. Max 5.'),
           include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
-          case_id: z.string().optional().describe('Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest.'),
           incident_timestamp_ms: z.number().min(0).optional().describe('Optional incident timestamp in milliseconds.'),
           max_hops: z.number().int().min(1).max(5).optional(),
           per_address_limit: z.number().int().min(1).max(10).optional(),
@@ -1574,7 +1291,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ victim_addresses, known_suspect_addresses, network, case_id, incident_timestamp_ms, max_hops, per_address_limit, min_amount_sum, include_attachments }) => {
+      async ({ victim_addresses, known_suspect_addresses, network, incident_timestamp_ms, max_hops, per_address_limit, min_amount_sum, include_attachments }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1585,18 +1302,11 @@ export async function createProxy(): Promise<void> {
               isError: true,
             }
           }
-          if (!workspaceArtifactsEnabled && case_id) {
-            return {
-              content: [{ type: 'text' as const, text: 'case_id requires Chain Insights workspace mode; omit case_id when CHAIN_INSIGHTS_MCP_PROXY_MODE=stateless.' }],
-              isError: true,
-            }
-          }
           const { traceVictimFunds } = await import('../investigation/public-tools.js')
           const result = await traceVictimFunds(remoteClient, config, {
             victimAddresses: victim_addresses,
             knownSuspectAddresses: known_suspect_addresses,
             network,
-            caseId: case_id,
             incidentTimestampMs: incident_timestamp_ms,
             maxHops: max_hops,
             perAddressLimit: per_address_limit,
@@ -1628,13 +1338,13 @@ export async function createProxy(): Promise<void> {
     )
   }
 
-  if (!remoteToolNames.has('trace_suspect_funds')) {
+  if (!remoteToolNames.has('aml_trace_suspect_funds')) {
     registerAppTool(
       server,
-      'trace_suspect_funds',
+      'aml_trace_suspect_funds',
       {
         title: 'Trace Suspect Funds',
-        description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.trace_suspect_funds,
+        description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.aml_trace_suspect_funds,
         inputSchema: {
           network: z.string().min(1).describe(NETWORK_DESCRIPTION),
           suspect_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe('Comma-separated full suspect-controlled addresses, or an array. Min 1, max 5.'),
@@ -1642,7 +1352,6 @@ export async function createProxy(): Promise<void> {
           max_hops: z.number().int().min(1).max(5).optional().describe('Maximum forward trace hops. Default 3.'),
           per_address_limit: z.number().int().min(1).max(10).optional(),
           min_amount_sum: z.number().min(0).optional(),
-          case_id: z.string().optional().describe('Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest.'),
           include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
         },
         _meta: {
@@ -1657,7 +1366,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ suspect_addresses, incident_timestamp_ms, network, max_hops, per_address_limit, min_amount_sum, case_id, include_attachments }) => {
+      async ({ suspect_addresses, incident_timestamp_ms, network, max_hops, per_address_limit, min_amount_sum, include_attachments }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1665,12 +1374,6 @@ export async function createProxy(): Promise<void> {
                 type: 'text' as const,
                 text: `${remoteUnavailableMessage ?? `Graph MCP is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
               }],
-              isError: true,
-            }
-          }
-          if (!workspaceArtifactsEnabled && case_id) {
-            return {
-              content: [{ type: 'text' as const, text: 'case_id requires Chain Insights workspace mode; omit case_id when CHAIN_INSIGHTS_MCP_PROXY_MODE=stateless.' }],
               isError: true,
             }
           }
@@ -1682,7 +1385,6 @@ export async function createProxy(): Promise<void> {
             perAddressLimit: per_address_limit,
             minAmountSum: min_amount_sum,
             incidentTimestampMs: incident_timestamp_ms,
-            caseId: case_id,
             writeArtifacts: workspaceArtifactsEnabled,
           })
           const graph = await writeLocalGraphMeta(
@@ -1710,18 +1412,17 @@ export async function createProxy(): Promise<void> {
     )
   }
 
-  if (!remoteToolNames.has('trace_deposit_sources')) {
+  if (!remoteToolNames.has('aml_trace_deposit_sources')) {
     registerAppTool(
       server,
-      'trace_deposit_sources',
+      'aml_trace_deposit_sources',
       {
         title: 'Trace Deposit Sources',
-        description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.trace_deposit_sources,
+        description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.aml_trace_deposit_sources,
         inputSchema: {
           network: z.string().min(1).describe(NETWORK_DESCRIPTION),
           deposit_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe('Comma-separated full suspected deposit/cashout addresses, or an array. Min 1, max 5.'),
           max_hops: z.number().int().min(1).max(5).optional().describe('Maximum reverse traceback hops. Default 2.'),
-          case_id: z.string().optional().describe('Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest.'),
           include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
         },
         _meta: {
@@ -1736,7 +1437,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ deposit_addresses, network, max_hops, case_id, include_attachments }) => {
+      async ({ deposit_addresses, network, max_hops, include_attachments }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1747,18 +1448,11 @@ export async function createProxy(): Promise<void> {
               isError: true,
             }
           }
-          if (!workspaceArtifactsEnabled && case_id) {
-            return {
-              content: [{ type: 'text' as const, text: 'case_id requires Chain Insights workspace mode; omit case_id when CHAIN_INSIGHTS_MCP_PROXY_MODE=stateless.' }],
-              isError: true,
-            }
-          }
           const { traceDepositSources } = await import('../investigation/public-tools.js')
           const result = await traceDepositSources(remoteClient, config, {
             depositAddresses: deposit_addresses,
             network,
             maxHops: max_hops,
-            caseId: case_id,
             writeArtifacts: workspaceArtifactsEnabled,
           })
           const graph = await writeLocalGraphMeta(
@@ -1842,16 +1536,19 @@ export async function createProxy(): Promise<void> {
             limit,
           })
           const subject = account ?? owner ?? counterparty ?? 'subject'
-          const graph = await writeLocalGraphMeta(
-            result.graphData,
-            config,
-            `exposure-profile-${network}-${subject}`,
+          await writeExposureArtifacts(
+            {
+              summaryText: result.summaryText,
+              structuredContent: result.structuredContent as Record<string, unknown>,
+            },
+            'exposure_profile',
+            subject,
+            network,
             workspaceArtifactsEnabled,
           )
           return {
             content: [{ type: 'text' as const, text: result.summaryText }],
             structuredContent: result.structuredContent,
-            _meta: graphMetaResult(graph),
             isError: false,
           }
         } catch (err) {
@@ -1868,12 +1565,12 @@ export async function createProxy(): Promise<void> {
   }
 
   const exposureInsightTools = [
-    { name: 'exposure_quality', title: 'Exposure Quality', failure: 'Exposure quality failed', slug: 'exposure-quality' },
-    { name: 'exposure_carry', title: 'Exposure Carry', failure: 'Exposure carry failed', slug: 'exposure-carry' },
-    { name: 'exposure_crowding', title: 'Exposure Crowding', failure: 'Exposure crowding failed', slug: 'exposure-crowding' },
-    { name: 'exposure_exit_pressure', title: 'Exposure Exit Pressure', failure: 'Exposure exit pressure failed', slug: 'exposure-exit-pressure' },
-    { name: 'exposure_correlation', title: 'Exposure Correlation', failure: 'Exposure correlation failed', slug: 'exposure-correlation' },
-    { name: 'exposure_explain', title: 'Exposure Explain', failure: 'Exposure explain failed', slug: 'exposure-explain' },
+    { name: 'exposure_quality', title: 'Exposure Quality', failure: 'Exposure quality failed' },
+    { name: 'exposure_carry', title: 'Exposure Carry', failure: 'Exposure carry failed' },
+    { name: 'exposure_crowding', title: 'Exposure Crowding', failure: 'Exposure crowding failed' },
+    { name: 'exposure_exit_pressure', title: 'Exposure Exit Pressure', failure: 'Exposure exit pressure failed' },
+    { name: 'exposure_correlation', title: 'Exposure Correlation', failure: 'Exposure correlation failed' },
+    { name: 'exposure_explain', title: 'Exposure Explain', failure: 'Exposure explain failed' },
   ] as const
 
   for (const tool of exposureInsightTools) {
@@ -1933,20 +1630,23 @@ export async function createProxy(): Promise<void> {
                 ? await exposureCrowding(remoteClient, options)
                 : tool.name === 'exposure_exit_pressure'
                   ? await exposureExitPressure(remoteClient, options)
-                  : tool.name === 'exposure_correlation'
-                    ? await exposureCorrelation(remoteClient, options)
-                    : await exposureExplain(remoteClient, options)
+                : tool.name === 'exposure_correlation'
+                  ? await exposureCorrelation(remoteClient, options)
+                  : await exposureExplain(remoteClient, options)
           const subject = options.account ?? options.owner ?? options.counterparty ?? options.instrument ?? options.market ?? 'subject'
-          const graph = await writeLocalGraphMeta(
-            result.graphData,
-            config,
-            `${tool.slug}-${options.network}-${subject}`,
+          await writeExposureArtifacts(
+            {
+              summaryText: result.summaryText,
+              structuredContent: result.structuredContent as Record<string, unknown>,
+            },
+            tool.name,
+            subject,
+            options.network,
             workspaceArtifactsEnabled,
           )
           return {
             content: [{ type: 'text' as const, text: result.summaryText }],
             structuredContent: result.structuredContent,
-            _meta: graphMetaResult(graph),
             isError: false,
           }
         } catch (err) {
@@ -1974,13 +1674,13 @@ export async function createProxy(): Promise<void> {
           type: 'text' as const,
           text: workspaceArtifactsEnabled
             ? [
-                'Chain Insights AML investigation workspace for AI agents. Workspaces are Obsidian-compatible vaults backed by plain local files.',
+                'Chain Insights workspace for AI agents. Workspaces are plain local files for reports, artifacts, graphs, and published outputs.',
                 '',
                 CHAIN_INSIGHTS_WORKFLOW,
                 '',
                 'Investigation tools:',
                 '- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.',
-                '- address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.',
+                '- aml_address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.',
                 '- exposure_profile: explain staking or trading exposure around one account, owner, or counterparty.',
                 '- exposure_quality: score whether exposure behavior looks disciplined, fragile, lucky, or noisy.',
                 '- exposure_carry: explain carry earned or paid from staking, trading, funding, fees, emissions, or dividends.',
@@ -1988,22 +1688,11 @@ export async function createProxy(): Promise<void> {
                 '- exposure_exit_pressure: explain liquidation, slippage, unstake, funding pain, or other exit pressure.',
                 '- exposure_correlation: compare accounts for possible copy, overlap, or strategy-cluster behavior.',
                 '- exposure_explain: explain a specific exposure lifecycle, trade, position, stake, rotation, or incident.',
-                '- trace_victim_funds: trace up to five victim/source addresses forward to exchange deposit candidates.',
-                '- trace_deposit_sources: trace backward from suspected deposit/cashout addresses to upstream funders and shared-source convergence.',
-                '- trace_suspect_funds: trace up to five suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology.',
+                '- aml_trace_victim_funds: trace up to five victim/source addresses forward to exchange deposit candidates.',
+                '- aml_trace_deposit_sources: trace backward from suspected deposit/cashout addresses to upstream funders and shared-source convergence.',
+                '- aml_trace_suspect_funds: trace up to five suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE live_topology, USE archive_topology, or USE facts.',
                 '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
-                '',
-                'Case workflow tools:',
-                '- case_open: create a local case before preserving evidence.',
-                '- case_list: list local cases.',
-                '- case_resume: load case context, evidence count, dossiers, and latest session.',
-                '- case_add_evidence: append a report or note to the case evidence manifest.',
-                '- case_verify_evidence: verify saved evidence integrity.',
-                '- case_export: export a case for Obsidian, LLM Wiki, Codex, Claude Code, and ChatGPT handoff bundles.',
-                '- case_update_dossier: add a finding to an address/entity dossier.',
-                '- case_start_session and case_end_session: record session notes.',
-                '',
                 'Wallet tools:',
                 '- balance: show the local payment wallet address and Base USDC balance.',
                 '- help: show this overview.',
@@ -2015,11 +1704,11 @@ export async function createProxy(): Promise<void> {
             : [
                 'Chain Insights stateless AML proxy for host applications.',
                 '',
-                'Local workspace, case, evidence, dossier, session, wallet, and graph report attachment tools are disabled in this mode.',
+                'Local workspace persistence, wallet, and graph report attachment tools are disabled in this mode.',
                 '',
                 'Available graph-backed tools:',
                 '- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.',
-                '- address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.',
+                '- aml_address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.',
                 '- exposure_profile: explain staking or trading exposure around one account, owner, or counterparty.',
                 '- exposure_quality: score whether exposure behavior looks disciplined, fragile, lucky, or noisy.',
                 '- exposure_carry: explain carry earned or paid from staking, trading, funding, fees, emissions, or dividends.',
@@ -2027,9 +1716,9 @@ export async function createProxy(): Promise<void> {
                 '- exposure_exit_pressure: explain liquidation, slippage, unstake, funding pain, or other exit pressure.',
                 '- exposure_correlation: compare accounts for possible copy, overlap, or strategy-cluster behavior.',
                 '- exposure_explain: explain a specific exposure lifecycle, trade, position, stake, rotation, or incident.',
-                '- trace_victim_funds: trace up to five victim/source addresses forward to exchange deposit candidates.',
-                '- trace_deposit_sources: trace backward from suspected deposit/cashout addresses to upstream funders and shared-source convergence.',
-                '- trace_suspect_funds: trace up to five suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology.',
+                '- aml_trace_victim_funds: trace up to five victim/source addresses forward to exchange deposit candidates.',
+                '- aml_trace_deposit_sources: trace backward from suspected deposit/cashout addresses to upstream funders and shared-source convergence.',
+                '- aml_trace_suspect_funds: trace up to five suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE live_topology, USE archive_topology, or USE facts.',
                 '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
                 '',
@@ -2146,6 +1835,8 @@ export async function createProxy(): Promise<void> {
   process.on('SIGINT', () => { void shutdown() })
   process.on('SIGTERM', () => { void shutdown() })
 }
+}
+
 
 // Entry point — only execute when run as the main module (not when imported by tests)
 // Using process.argv check to detect direct execution vs import

@@ -17,7 +17,6 @@ describe('MCP graph report store', () => {
     await writeFile(join(workspace, '.chain-insights', 'workspace.json'), JSON.stringify({
       schema: 'chain-insights.workspace.v1',
       workspace_root: workspace,
-      cases_dir: 'cases',
     }) + '\n')
     previousHome = process.env['HOME']
     previousWorkspace = process.env['CHAIN_INSIGHTS_WORKSPACE']

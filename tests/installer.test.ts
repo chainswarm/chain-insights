@@ -27,12 +27,6 @@ describe('Installer (FOUND-01)', () => {
     expect(existsSync(skillPath)).toBe(true)
   })
 
-  it('--claude copies ci-case SKILL.md to ~/.claude/skills/ci-case/', () => {
-    execSync(`HOME=${fakeHome} node bin/install.cjs --claude`, { stdio: 'pipe' })
-    const skillPath = join(fakeHome, '.claude', 'skills', 'ci-case', 'SKILL.md')
-    expect(existsSync(skillPath)).toBe(true)
-  })
-
   it('--claude creates ~/.chain-insights/config.json', () => {
     execSync(`HOME=${fakeHome} node bin/install.cjs --claude`, { stdio: 'pipe' })
     const configPath = join(fakeHome, '.chain-insights', 'config.json')

@@ -16,7 +16,7 @@ node bin/cli.js --help
 
 Current AML tools live in the Chain Insights layer:
 
-- `address_risk`
+- `aml_address_risk`
 - `exposure_profile`
 - `exposure_quality`
 - `exposure_carry`
@@ -24,9 +24,9 @@ Current AML tools live in the Chain Insights layer:
 - `exposure_exit_pressure`
 - `exposure_correlation`
 - `exposure_explain`
-- `trace_victim_funds`
-- `trace_deposit_sources`
-- `trace_suspect_funds`
+- `aml_trace_victim_funds`
+- `aml_trace_deposit_sources`
+- `aml_trace_suspect_funds`
 
 When adding a tool, document:
 
@@ -35,7 +35,7 @@ When adding a tool, document:
 - GraphRAG MCP primitive calls.
 - Use of `live_topology`, `archive_topology`, and `facts`.
 - Result contract.
-- Case evidence behavior.
+- Workspace artifact and report behavior.
 - Graph report behavior.
 - Tests and dogfood path.
 

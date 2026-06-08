@@ -9,7 +9,6 @@ import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
 
 export { scamTopology, type ScamTopologyOptions, type ScamTopologyResult } from './scam-topology.js'
-export { stakeInsights, type StakeInsightsOptions, type StakeInsightsResult } from './stake-insights.js'
 export { exposureProfile, type ExposureProfileOptions, type ExposureProfileResult } from './exposure-profile.js'
 export {
   exposureCarry,
@@ -49,13 +48,13 @@ export interface AddressRiskOptions {
   address: string
   network: string
   compareAddress?: string
+  writeArtifacts?: boolean
 }
 
 export interface TrackFundsOptions {
   trustedAddresses: string | string[]
   untrustedAddresses?: string | string[]
   network: string
-  caseId?: string
   maxHops?: number
   perAddressLimit?: number
   minAmountSum?: number
@@ -532,12 +531,22 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   if (partialQueryFailures.length > 0) {
     lines.push('', 'Partial query failures', partialQueryFailures.map((failure) => `- ${failure.id}: ${failure.error}`).join('\n'))
   }
+  const summaryText = lines.join('\n')
+  const artifacts = options.writeArtifacts ? await writeAddressRiskArtifacts(
+    network,
+    address,
+    compareAddress,
+    graphData,
+    exchangeRows,
+    summaryText,
+  ) : statelessArtifacts()
+  const evidence = artifactEvidence(artifacts)
 
   return {
-    summaryText: lines.join('\n'),
+    summaryText,
     structuredContent: {
       schema: 'chain-insights.result.v1',
-      tool: 'address_risk',
+      tool: 'aml_address_risk',
       facts: {
         subject: { network, addresses: compareAddress ? [address, compareAddress] : [address] },
         risk,
@@ -548,13 +557,18 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
         connection: compareAddress ? { compare_address: compareAddress, paths: connections } : undefined,
         partial_query_errors: partialQueryFailures.length > 0 ? partialQueryFailures : undefined,
       },
+      artifacts,
+      evidence: [...evidence, {
+        evidence_type: 'tool_summary',
+        summary: `aml_address_risk ${address} completed for ${network}`,
+      }],
     },
     graphData,
   }
 }
 
 type TraceSeedRole = 'victim' | 'suspect' | 'deposit'
-type TraceToolName = 'trace_victim_funds' | 'trace_suspect_funds' | 'trace_deposit_sources'
+type TraceToolName = 'aml_trace_victim_funds' | 'aml_trace_suspect_funds' | 'aml_trace_deposit_sources'
 type TraceRole =
   | 'seed_victim'
   | 'seed_suspect'
@@ -570,7 +584,6 @@ export interface TraceVictimFundsOptions {
   victimAddresses: string | string[]
   knownSuspectAddresses?: string | string[]
   network: string
-  caseId?: string
   incidentTimestampMs?: number
   timeRange?: { from_ms?: number; to_ms?: number }
   maxHops?: number
@@ -582,7 +595,6 @@ export interface TraceVictimFundsOptions {
 export interface TraceSuspectFundsOptions {
   suspectAddresses: string | string[]
   network: string
-  caseId?: string
   incidentTimestampMs?: number
   timeRange?: { from_ms?: number; to_ms?: number }
   maxHops?: number
@@ -594,7 +606,6 @@ export interface TraceSuspectFundsOptions {
 export interface TraceDepositSourcesOptions {
   depositAddresses: string | string[]
   network: string
-  caseId?: string
   timeRange?: { from_ms?: number; to_ms?: number }
   maxHops?: number
   writeArtifacts?: boolean
@@ -669,6 +680,166 @@ function traceArtifactPointersFromRun(run: TraceFundsResult | undefined): Record
   }
 }
 
+function toCsvValue(value: unknown): string {
+  return value === undefined || value === null ? '' : String(value)
+}
+
+function subjectNodeForExchangeRow(row: Record<string, unknown>, fallbackAddress: string): string {
+  return String(
+    row['direction'] === 'inflow'
+      ? row['withdrawal_address'] ?? row['deposit_address'] ?? fallbackAddress
+      : row['deposit_address'] ?? row['withdrawal_address'] ?? fallbackAddress,
+  )
+}
+
+function buildAddressRiskTableHtml(tool: string, network: string, rows: Array<Record<string, unknown>>, subject: string): string {
+  const headers = ['direction', 'exchange_address', 'subject_path_node', 'hops', 'amount_sum', 'amount_usd_sum', 'tx_count'] as const
+  const body = rows.map((row) => {
+    const exchangeAddress = String(row['exchange_address'] ?? '')
+    const subjectNode = subjectNodeForExchangeRow(row, subject)
+    const rowValues = [
+      row['direction'] ?? '',
+      exchangeAddress,
+      subjectNode,
+      row['hops'] ?? '',
+      row['amount_sum'] ?? '',
+      row['amount_usd_sum'] ?? '',
+      row['tx_count'] ?? '',
+    ]
+    return `<tr>${rowValues.map((value) => `<td>${htmlEscape(toCsvValue(value))}</td>`).join('')}</tr>`
+  }).join('\n')
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${htmlEscape(tool)} Risk Table</title>
+<style>
+  :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui; background: #0b0d12; color: #f4f2ea; }
+  body { margin: 0; background: #0b0d12; color: #f4f2ea; }
+  main { padding: 24px; }
+  h1 { font-size: 20px; margin: 0 0 8px; font-weight: 650; }
+  table { border-collapse: collapse; width: 100%; min-width: 900px; }
+  th, td { border-bottom: 1px solid rgba(255,255,255,.08); padding: 8px 10px; text-align: left; }
+  th { position: sticky; top: 0; background: #161a24; color: #f2dda6; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>${htmlEscape(tool)} Table</h1>
+  <div>Network: <strong>${htmlEscape(network)}</strong></div>
+  <div>Generated: <strong>${htmlEscape(new Date().toISOString())}</strong></div>
+  <table>
+    <thead><tr>${headers.map((header) => `<th>${htmlEscape(header)}</th>`).join('')}</tr></thead>
+    <tbody>${body}</tbody>
+  </table>
+</main>
+</body>
+</html>
+`
+}
+
+async function writeAddressRiskArtifacts(
+  network: string,
+  address: string,
+  compareAddress: string | undefined,
+  graphData: Record<string, unknown>,
+  exchangeRows: Array<Record<string, unknown>>,
+  summaryText: string,
+): Promise<Record<string, string>> {
+  const paths = workspaceOutputPaths()
+  await Promise.all([
+    mkdir(paths.reportsRoot, { recursive: true }),
+    mkdir(paths.reportGraphsRoot, { recursive: true }),
+    mkdir(paths.reportTablesRoot, { recursive: true }),
+  ])
+  const safeNetwork = network.replace(/[^A-Za-z0-9._-]+/g, '_')
+  const safeAddress = address.replace(/[^A-Za-z0-9._-]+/g, '_')
+  const slug = `${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}_aml_address_risk_${safeNetwork}_${safeAddress}`
+  const graphPath = path.join(paths.reportGraphsRoot, `${slug}.graph.json`)
+  const tableJsonPath = path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`)
+  const csvPath = path.join(paths.reportTablesRoot, `${slug}.flows.csv`)
+  const tableHtmlPath = path.join(paths.reportsRoot, `${slug}.table.html`)
+  const reportPath = path.join(paths.reportsRoot, `${slug}.aml-address-report.md`)
+  const graphHtmlPath = path.join(paths.reportsRoot, `${slug}.graph.html`)
+  const { generateInlineGraphHtml } = await import('../viz/html-generator.js')
+  const header = [
+    'direction',
+    'exchange_address',
+    'subject_path_node',
+    'hops',
+    'amount_sum',
+    'amount_usd_sum',
+    'tx_count',
+  ]
+  const csv = [
+    header.join(','),
+    ...exchangeRows.map((row) => {
+      const exchangeAddress = String(row['exchange_address'] ?? '')
+      const subjectPathNode = subjectNodeForExchangeRow(row, address)
+      return [
+        row['direction'] ?? '',
+        exchangeAddress,
+        subjectPathNode,
+        row['hops'] ?? '',
+        row['amount_sum'] ?? '',
+        row['amount_usd_sum'] ?? '',
+        row['tx_count'] ?? '',
+      ].map((value) => JSON.stringify(String(value))).join(',')
+    }),
+  ].join('\n') + '\n'
+  const evidence = {
+    schema: 'chain-insights.trace.v1',
+    tool: 'aml_address_risk',
+    network,
+    input: {
+      address,
+      ...(compareAddress ? { compare_address: compareAddress } : {}),
+    },
+    profile: {
+      exchange_rows: exchangeRows.map((row) => ({
+        direction: row['direction'],
+        exchange_address: row['exchange_address'],
+        subject_node: subjectNodeForExchangeRow(row, address),
+        hops: row['hops'],
+        amount_sum: row['amount_sum'],
+        amount_usd_sum: row['amount_usd_sum'],
+        tx_count: row['tx_count'],
+      })),
+      report_summary: summaryText,
+    },
+  }
+  await writeFile(graphPath, JSON.stringify(graphData, null, 2) + '\n', { mode: 0o600 })
+  await writeFile(tableJsonPath, JSON.stringify(evidence, null, 2) + '\n', { mode: 0o600 })
+  await writeFile(csvPath, csv, { mode: 0o600 })
+  await writeFile(tableHtmlPath, buildAddressRiskTableHtml('aml_address_risk', network, exchangeRows, address), { mode: 0o600 })
+  await writeFile(graphHtmlPath, generateInlineGraphHtml(graphData), { mode: 0o600 })
+  await writeFile(
+    reportPath,
+    [
+      `# Address Risk Report (${network}:${address})`,
+      `- Graph JSON: ${graphPath}`,
+      `- Table JSON: ${tableJsonPath}`,
+      `- CSV: ${csvPath}`,
+      `- Report HTML: ${tableHtmlPath}`,
+      `- Graph HTML: ${graphHtmlPath}`,
+      '',
+      summaryText,
+    ].join('\n'),
+    { mode: 0o600 },
+  )
+
+  return {
+    graph_json: graphPath,
+    graph_html: graphHtmlPath,
+    table_json: tableJsonPath,
+    flows_csv: csvPath,
+    table_html: tableHtmlPath,
+    report_md: reportPath,
+  }
+}
+
+
 function statelessArtifacts(): Record<string, unknown> {
   return {
     artifacts_written: false,
@@ -723,7 +894,7 @@ function edgeKey(from: string, to: string): string {
 }
 
 function traceResultFromFundRuns(
-  tool: Extract<TraceToolName, 'trace_victim_funds' | 'trace_suspect_funds'>,
+  tool: Extract<TraceToolName, 'aml_trace_victim_funds' | 'aml_trace_suspect_funds'>,
   seedRole: Extract<TraceSeedRole, 'victim' | 'suspect'>,
   network: string,
   runs: TraceRun[],
@@ -731,8 +902,7 @@ function traceResultFromFundRuns(
     incidentTimestampMs?: number
     timeRange?: { from_ms?: number; to_ms?: number }
     maxHops?: number
-    caseId?: string
-  } = {},
+    } = {},
 ): { summaryText: string; structuredContent: Record<string, unknown>; graphData: Record<string, unknown> } {
   const graphData = normalizeTraceGraphData(runs, network)
   const flows = graphRecords(graphData, 'flows')
@@ -833,8 +1003,8 @@ function traceResultFromFundRuns(
   const artifactEvidenceEntries = runs.flatMap((run) => artifactEvidence(traceArtifactPointersFromRun(run.result))
     .map((entry) => ({ ...entry, run_role: run.role, address: run.address })))
   const recommendedNextTools = depositAddresses.length > 0
-    ? ['trace_deposit_sources', 'address_risk']
-    : ['address_risk', 'graph_query_batch']
+    ? ['aml_trace_deposit_sources', 'aml_address_risk']
+    : ['aml_address_risk', 'graph_query_batch']
 
   const structuredContent = {
     schema: 'chain-insights.trace.v1',
@@ -876,7 +1046,6 @@ function traceResultFromFundRuns(
     artifacts,
     evidence: [
       ...artifactEvidenceEntries,
-      ...(options.caseId ? [{ evidence_type: 'case_pointer', summary: `case_id=${options.caseId}` }] : []),
     ],
     continuation: {
       candidate_deposit_addresses: depositAddresses,
@@ -919,21 +1088,19 @@ export async function traceVictimFunds(
       result: await runFundFlowProbe(remoteClient, config, {
         seedAddress: address,
         network,
-        caseId: options.caseId,
         maxHops: options.maxHops,
         perAddressLimit: options.perAddressLimit,
         minAmountSum: options.minAmountSum,
         includeDepositTraceback: false,
-        evidenceSource: 'trace_victim_funds',
+        evidenceSource: 'aml_trace_victim_funds',
         writeArtifacts: options.writeArtifacts,
       }),
     })
   }
-  return traceResultFromFundRuns('trace_victim_funds', 'victim', network, runs, {
+  return traceResultFromFundRuns('aml_trace_victim_funds', 'victim', network, runs, {
     incidentTimestampMs: options.incidentTimestampMs,
     timeRange: options.timeRange,
     maxHops: options.maxHops,
-    caseId: options.caseId,
   })
 }
 
@@ -956,21 +1123,19 @@ export async function traceSuspectFunds(
       result: await runFundFlowProbe(remoteClient, config, {
         seedAddress: address,
         network,
-        caseId: options.caseId,
         maxHops: options.maxHops,
         perAddressLimit: options.perAddressLimit,
         minAmountSum: options.minAmountSum,
         includeDepositTraceback: false,
-        evidenceSource: 'trace_suspect_funds',
+        evidenceSource: 'aml_trace_suspect_funds',
         writeArtifacts: options.writeArtifacts,
       }),
     })
   }
-  return traceResultFromFundRuns('trace_suspect_funds', 'suspect', network, runs, {
+  return traceResultFromFundRuns('aml_trace_suspect_funds', 'suspect', network, runs, {
     incidentTimestampMs: options.incidentTimestampMs,
     timeRange: options.timeRange,
     maxHops: options.maxHops,
-    caseId: options.caseId,
   })
 }
 
@@ -1115,9 +1280,6 @@ export async function traceDepositSources(
   if (!network) throw new Error('network is required')
   if (deposits.length < 1) throw new Error('deposit_addresses must contain at least 1 address')
   if (deposits.length > 5) throw new Error('deposit_addresses cannot exceed 5 addresses')
-  if (options.writeArtifacts === false && options.caseId) {
-    throw new Error('case_id requires workspace artifacts; omit case_id when CHAIN_INSIGHTS_MCP_PROXY_MODE=stateless')
-  }
   const maxHops = clampInt(options.maxHops, 2, 1, 5)
 
   const batch = await callGraphBatch(
@@ -1257,30 +1419,14 @@ export async function traceDepositSources(
   ].join('\n')
   const artifacts = options.writeArtifacts === false
     ? statelessArtifacts()
-    : await writeTraceSourceArtifacts('trace_deposit_sources', network, graphData, rows, summaryText)
+    : await writeTraceSourceArtifacts('aml_trace_deposit_sources', network, graphData, rows, summaryText)
   const evidence = artifactEvidence(artifacts)
-  if (options.caseId) {
-    const { EvidenceStore } = await import('../cases/index.js')
-    await EvidenceStore.append(options.caseId, {
-      source: 'trace_deposit_sources',
-      queryParams: `network=${network} deposit_addresses=${deposits.join(',')} max_hops=${maxHops}`,
-      content: JSON.stringify({
-        schema: 'chain-insights.evidence_pointer.v1',
-        source: 'trace_deposit_sources',
-        network,
-        deposit_addresses: deposits,
-        files: artifacts,
-        compact_sha256: createHash('sha256').update(JSON.stringify({ rows, convergence })).digest('hex'),
-      }, null, 2),
-    })
-    evidence.push({ evidence_type: 'case_pointer', summary: `case_id=${options.caseId}` })
-  }
 
   return {
     summaryText,
     structuredContent: {
       schema: 'chain-insights.trace.v1',
-      tool: 'trace_deposit_sources',
+      tool: 'aml_trace_deposit_sources',
       network,
       input: {
         addresses: deposits,
@@ -1318,8 +1464,8 @@ export async function traceDepositSources(
         candidate_suspect_addresses: candidateSuspects,
         candidate_victim_addresses: [],
         recommended_next_tools: candidateSuspects.length > 0
-          ? ['trace_suspect_funds', 'address_risk']
-          : ['address_risk', 'graph_query_batch'],
+          ? ['aml_trace_suspect_funds', 'aml_address_risk']
+          : ['aml_address_risk', 'graph_query_batch'],
       },
       warnings: paths.length === 0 ? ['No upstream sources were connected in the queried topology.'] : [],
     },
@@ -1354,7 +1500,6 @@ export async function trackFunds(
       result: await runFundFlowProbe(remoteClient, config, {
         seedAddress: address,
         network,
-        caseId: options.caseId,
         maxHops: options.maxHops,
         perAddressLimit: options.perAddressLimit,
         minAmountSum: options.minAmountSum,
@@ -1368,7 +1513,6 @@ export async function trackFunds(
       result: await runFundFlowProbe(remoteClient, config, {
         seedAddress: address,
         network,
-        caseId: options.caseId,
         maxHops: options.maxHops,
         perAddressLimit: options.perAddressLimit,
         minAmountSum: options.minAmountSum,

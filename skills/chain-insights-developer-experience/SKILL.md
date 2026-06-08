@@ -12,7 +12,7 @@ framework.
 
 Chain Insights is an AML tool framework layered on top of GraphRAG MCP.
 GraphRAG MCP provides generic graph-language access. Chain Insights provides
-investigation workflows, AML recipes, local cases, evidence, dossiers, reports,
+investigation workflows, AML recipes, workspace artifacts, entity notes, reports,
 and graph visualizations.
 
 Use "GraphRAG MCP" in product-facing docs. Only use lower-level implementation
@@ -20,15 +20,13 @@ names in debugging or contributor docs when the detail is necessary.
 
 ## Current AML Tools
 
-- `address_risk`: screen one address for risk, behavior, neighborhood context,
+- `aml_address_risk`: screen one address for risk, behavior, neighborhood context,
   and exchange exposure.
-- `stake_insights`: explain Bittensor coldkey-hotkey-netuid staking behavior,
-  net stake movement, counterparties, activity range, and source backend.
-- `trace_victim_funds`: trace victim/source funds forward to exchange deposit
+- `aml_trace_victim_funds`: trace victim/source funds forward to exchange deposit
   candidates.
-- `trace_deposit_sources`: trace backward from suspected deposit/cashout
+- `aml_trace_deposit_sources`: trace backward from suspected deposit/cashout
   addresses to upstream sources and shared-source convergence.
-- `trace_suspect_funds`: trace suspected scammer, mule, operator, or
+- `aml_trace_suspect_funds`: trace suspected scammer, mule, operator, or
   laundering-ring addresses forward to cashout topology.
 
 ## GraphRAG MCP Layer
@@ -86,27 +84,10 @@ Every new AML tool needs:
 - GraphRAG MCP primitives used.
 - Topology/facts scope.
 - Result contract.
-- Case evidence behavior.
+- Workspace artifact and report behavior.
 - Graph report behavior.
 - Tests.
 - Dogfood or UAT path.
-
-## Adding Case Export Surfaces
-
-`cia case export` and MCP `case_export` are developer-experience surfaces, not
-new graph primitives. Keep CLI and MCP adapters thin over the shared export
-service, and keep `manifest.chain-insights.json`, case evidence, graph reports,
-and source report artifacts canonical. Obsidian, LLM Wiki, Codex, Claude Code,
-and ChatGPT files are generated views.
-
-Case export changes need:
-
-- CLI help and MCP tool descriptions.
-- Private, partner, and public redaction behavior.
-- Obsidian/LLM Wiki/agent artifact tests.
-- Clean-workspace dogfood that opens a case, verifies evidence, exports it,
-  and inspects `manifest.chain-insights.json`, `Graph.canvas`, and
-  `graph.chain-insights.json`.
 
 ## Dogfood from a clean workspace
 
@@ -122,6 +103,5 @@ cia mcp networks
 cia mcp tools --refresh
 ```
 
-Run at least one small investigation command, inspect generated files, export
-the case with `cia case export <case> --target obsidian-llmwiki --mode private`,
-and feed the friction back into README, docs, CLI help, or follow-up issues.
+Run at least one small investigation command, inspect generated files, and feed
+the friction back into README, docs, CLI help, or follow-up issues.

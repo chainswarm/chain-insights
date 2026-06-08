@@ -38,7 +38,7 @@ describe('MCP schema cache (MCP-02)', () => {
 
   it('loadSchema(endpoint) returns null for cache without matching endpoint', async () => {
     const schemaPath = join(fakeHome, '.chain-insights', 'mcp-schema.json')
-    const tools = [{ name: 'address_risk' }]
+    const tools = [{ name: 'aml_address_risk' }]
     await writeFile(schemaPath, JSON.stringify({ tools, cachedAt: Date.now() }), { mode: 0o600 })
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     const result = await loadSchema('http://localhost:8012/mcp')
@@ -47,7 +47,7 @@ describe('MCP schema cache (MCP-02)', () => {
 
   it('loadSchema(endpoint) returns null when cached endpoint differs', async () => {
     const schemaPath = join(fakeHome, '.chain-insights', 'mcp-schema.json')
-    const tools = [{ name: 'address_risk' }]
+    const tools = [{ name: 'aml_address_risk' }]
     await writeFile(schemaPath, JSON.stringify({
       tools,
       cachedAt: Date.now(),
