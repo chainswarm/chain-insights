@@ -19,7 +19,7 @@ concurrency:
 jobs:
   dependency-audit:
     name: npm Audit
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || 'chainswarm-runner' }}
     timeout-minutes: 15
 
     steps:
@@ -46,7 +46,7 @@ jobs:
 
   secret-patterns:
     name: Secret Pattern Scan
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || 'chainswarm-runner' }}
     timeout-minutes: 10
 
     steps:
@@ -57,17 +57,23 @@ jobs:
         run: |
           set -euo pipefail
           pattern='(0x[0-9a-fA-F]{64}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|\b(ghp|github_pat|xox[baprs]|AKIA|ASIA|sk|pk|rk)[_-][A-Za-z0-9_-]{16,}\b)'
+          # Keep the scan broad enough to cover tests, but exempt the small set of
+          # fixtures that intentionally contain fake secret-shaped values.
           if git grep -n -I -E "$pattern" -- \
             . \
             ':(exclude)package-lock.json' \
-            ':(exclude)tests/**'; then
+            ':(exclude)tests/cli-mcp.test.ts' \
+            ':(exclude)tests/mcp-client.test.ts' \
+            ':(exclude)tests/mcp-proxy.test.ts' \
+            ':(exclude)tests/wallet.test.ts' \
+            ':(exclude)tests/wallet-tools.test.ts'; then
             echo "::error::High-confidence secret-looking value found in tracked files."
             exit 1
           fi
 
   codeql:
     name: CodeQL
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || 'chainswarm-runner' }}
     timeout-minutes: 20
     permissions:
       contents: read
