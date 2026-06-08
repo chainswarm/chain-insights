@@ -157,17 +157,20 @@ describe('shipped Chain Insights skills contract', () => {
     const proxySection = script.slice(script.indexOf('PROXY_TOOLS_JSON='))
 
     expect(proxySection).toContain(
-      "const required = ['balance', 'help', 'address_risk', 'stake_insights', 'trace_victim_funds', 'trace_suspect_funds', 'trace_deposit_sources', 'network_capabilities', 'graph_query', 'graph_query_batch']",
+      "const required = ['balance', 'help', 'address_risk', 'exposure_profile', 'exposure_quality', 'exposure_carry', 'exposure_crowding', 'exposure_exit_pressure', 'exposure_correlation', 'exposure_explain', 'trace_victim_funds', 'trace_suspect_funds', 'trace_deposit_sources', 'network_capabilities', 'graph_query', 'graph_query_batch']",
     )
     expect(proxySection).toContain(
-      "for (const hidden of ['topup', 'trace_funds', 'track_funds', 'scam_topology', 'money_flows_between_exchanges', 'address_connection_risk'])",
+      "for (const hidden of ['topup', 'trace_funds', 'track_funds', 'scam_topology', 'money_flows_between_exchanges', 'address_connection_risk', 'stake_insights'])",
     )
-    expect(proxySection).toContain("for (const name of ['address_risk', 'stake_insights', 'trace_victim_funds', 'trace_suspect_funds', 'trace_deposit_sources'])")
+    expect(proxySection).toContain("for (const name of ['address_risk', 'exposure_profile', 'exposure_quality', 'exposure_carry', 'exposure_crowding', 'exposure_exit_pressure', 'exposure_correlation', 'exposure_explain', 'trace_victim_funds', 'trace_suspect_funds', 'trace_deposit_sources'])")
     expect(proxySection).not.toContain("const required = ['balance', 'topup'")
     expect(proxySection).not.toContain("'money_flows_between_exchanges', 'address_connection_risk', 'graph_query']")
     expect(proxySection).not.toContain("for (const name of ['address_risk', 'track_funds', 'money_flows_between_exchanges'")
     expect(script).toContain('node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query')
     expect(script).toContain('USE live_topology MATCH')
+    expect(script).toContain('UAT_EXPOSURE_ACCOUNT="${UAT_EXPOSURE_ACCOUNT:-}"')
+    expect(script).toContain('EXPOSURE_ACCOUNT="${UAT_EXPOSURE_ACCOUNT}"')
+    expect(script).toContain('using generic exposure UAT account')
   })
 
   it('keeps README product-first and moves debug/client detail to focused docs', () => {

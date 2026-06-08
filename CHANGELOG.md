@@ -2,6 +2,24 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.13] - 2026-06-07
+
+- Added generic `exposure_quality`, `exposure_carry`, `exposure_crowding`,
+  `exposure_exit_pressure`, `exposure_correlation`, and `exposure_explain`
+  MCP tools plus matching `cia mcp` commands over the shared exposure model.
+- Extended Chain Insights GraphRAG UAT to discover a seeded generic exposure
+  account and smoke all exposure tools without exposing storage or graph
+  relationship internals.
+
+## [0.3.12] - 2026-06-07
+
+- Added the public `exposure_profile` MCP tool and `cia mcp exposure-profile`
+  command for generic staking and trading exposure around an account, owner, or
+  counterparty.
+- Hid the old public `stake_insights` surface from proxy tool discovery and UAT
+  contracts while preserving non-public implementation compatibility during the
+  exposure topology migration.
+
 ## [0.3.11] - 2026-06-02
 
 - Increased the packaged CLI init integration test timeout so npm publish CI can

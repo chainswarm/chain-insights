@@ -15,7 +15,13 @@ MCP endpoint for development; hosted endpoints are set explicitly with
 | Tool | Use it for |
 | --- | --- |
 | `address_risk` | Screen one address for risk, behavior, neighborhood context, and exchange exposure |
-| `stake_insights` | Explain Bittensor staking relationships, net stake movement, and counterparties |
+| `exposure_profile` | Explain staking or trading exposure around an account, owner, or counterparty |
+| `exposure_quality` | Score whether exposure behavior looks disciplined, fragile, lucky, or noisy |
+| `exposure_carry` | Explain carry earned or paid from staking, trading, funding, fees, emissions, or dividends |
+| `exposure_crowding` | Measure side concentration for a market, subnet, hotkey, vault, or strategy |
+| `exposure_exit_pressure` | Explain liquidation, slippage, unstake, funding pain, or other exit pressure |
+| `exposure_correlation` | Compare accounts for possible copy, overlap, or strategy-cluster behavior |
+| `exposure_explain` | Explain a specific exposure lifecycle, trade, position, stake, rotation, or incident |
 | `trace_victim_funds` | Trace victim/source funds forward to exchange deposit candidates |
 | `trace_deposit_sources` | Trace backward from suspected deposit/cashout addresses to upstream sources and convergence |
 | `trace_suspect_funds` | Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology |
@@ -244,9 +250,14 @@ and local case state:
 
 - `address_risk` starts a single-address screen with risk, behavior,
   neighborhood context, and exchange exposure.
-- `stake_insights` explains Bittensor coldkey-hotkey-netuid staking
-  relationships, aggregate stake movement amounts, top counterparties, first
-  and last activity, and source backend evidence.
+- `exposure_profile` explains staking exposure and trading exposure
+  with venues, instruments, position changes, public support events, and
+  caveats when pricing or unit coverage is incomplete.
+- `exposure_quality`, `exposure_carry`, `exposure_crowding`,
+  `exposure_exit_pressure`, `exposure_correlation`, and `exposure_explain`
+  add deterministic exposure analytics over the same generic model. They work
+  for Bittensor staking rows now and are shaped for Hyperliquid trading rows as
+  soon as the Hyperliquid indexer writes the shared exposure contract.
 - `trace_victim_funds` traces victim/source funds forward through
   intermediaries to exchange deposit candidates.
 - `trace_deposit_sources` traces backward from suspected deposit/cashout

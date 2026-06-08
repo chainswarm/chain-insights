@@ -18,7 +18,9 @@ The GraphRAG MCP public graph surface is intentionally small:
 | `graph_query` | Run one read-only GQL/Cypher query through the universal graph endpoint |
 | `graph_query_batch` | Run related read-only graph-language queries as one MCP call |
 
-Chain Insights AML tools such as `address_risk`, `stake_insights`,
+Chain Insights tools such as `address_risk`, `exposure_profile`,
+`exposure_quality`, `exposure_carry`, `exposure_crowding`,
+`exposure_exit_pressure`, `exposure_correlation`, `exposure_explain`,
 `trace_victim_funds`, `trace_deposit_sources`, and `trace_suspect_funds` are
 recipes built over `graph_query_batch`. They are not assumed to exist on the
 GraphRAG MCP endpoint.
@@ -225,61 +227,97 @@ cia mcp trace-suspect-funds \
   --case 1
 ```
 
-## Stake Insights
+## Exposure Profile
 
-`stake_insights` explains Bittensor staking behavior around one address,
-coldkey, or hotkey. It keeps stake semantics separate from generic money-flow
-semantics and reads direct `STAKES_IN` relationships from the graph endpoint.
+`exposure_profile` explains staking and trading exposure around one account,
+owner, or counterparty. It is the base profile tool for Bittensor staking
+exposure, Hyperliquid trading exposure, and future exposure venues, with one
+response shape for venues, instruments, position changes, carry, risk fields
+when available, and compact support events.
 
 Required input:
 
 - `network`
-- exactly one of `address`, `coldkey`, or `hotkey`
+- exactly one of `account`, `owner`, or `counterparty`
 
 Optional input:
 
-- `netuid`
+- `venue`
+- `instrument`
+- `instrument_type`
 - `start_timestamp_ms`
 - `end_timestamp_ms`
-- `start_block`
-- `end_block`
-- `depth`
-- `include_attachments`
-
-The first release returns direct coldkey-hotkey-netuid stake relationships. The
-current GraphRAG stake parity surface supports timestamp windows; block windows
-are accepted by the tool contract but fail explicitly until the backend exposes
-block-range fields.
+- `limit`
 
 Result facts include:
 
-- `stake_totals`: total staked, total unstaked, moved-in/out amounts, net
-  staked, first activity, and last activity.
-- `active_relationships`: coldkey-hotkey-netuid relationships with amount,
-  event counts, first/last activity, transaction ids when present, topology
-  graph, and source backend.
-- `stake_movements`: aggregate `stake_added`, `stake_removed`,
-  `stake_moved_in`, and `stake_moved_out` movement rows.
-- `top_counterparties`: counterparties ranked by stake amount.
-- `query_evidence`: `graph_query_batch` query ids, topology graph, row counts,
-  source backends, and partial errors.
+- `subject`: the requested account, owner, or counterparty.
+- `summary`: exposure count, venues, instruments, net direction, and activity
+  bounds.
+- `exposures`: public exposure rows with instrument identity, side, size,
+  notional or pricing status, position changes, carry, optional risk fields,
+  activity bounds, and support events such as transactions, orders, trades, or
+  fills.
+- `caveats`: data-quality notes, for example when Bittensor quantity units or
+  subnet lifecycle identity are not proven by the source data.
 
 CLI examples:
 
 ```bash
-cia mcp stake-insights \
+cia mcp exposure-profile \
   --network bittensor \
-  --coldkey 5... \
-  --netuid 19
+  --account 5... \
+  --venue Bittensor \
+  --instrument bittensor:subnet:19:<lifecycle-id>
 ```
 
 ```bash
-cia mcp call stake_insights \
-  network=bittensor \
-  address=5... \
-  netuid=19 \
+cia mcp call exposure_profile \
+  network=hyperliquid \
+  account=0x... \
+  venue=Hyperliquid \
+  instrument=BTC-PERP \
   start_timestamp_ms=1769126300000 \
   end_timestamp_ms=1769126600000
+```
+
+## Exposure Analysis Tools
+
+The generic exposure analysis tools use the same exposure rows as
+`exposure_profile`. They are intentionally not Hyperliquid-specific:
+Bittensor staking, Hyperliquid perps, vaults, future staking products, and
+other exposure venues should map into the same tool family.
+
+Subject-level tools accept `network` plus exactly one of `account`, `owner`, or
+`counterparty`, with optional `venue`, `instrument`, `instrument_type`, time
+window, and `limit` filters:
+
+- `exposure_quality` returns deterministic quality components, flags, sample
+  size warnings, confidence, evidence, and caveats. It is not trading advice.
+- `exposure_carry` summarizes carry received, carry paid, net carry, venue
+  breakdowns, evidence, and missing-data caveats.
+- `exposure_correlation` compares a subject with explicit
+  `candidate_accounts` and reports overlapping instruments. Correlation is not
+  proof of shared control.
+- `exposure_explain` explains the selected exposure lifecycle with position
+  changes, carry, risk, activity, support events, and optional `position_id`.
+
+Market-level tools accept `network` plus `instrument` or `market`, with
+optional venue, type, window, and limit filters:
+
+- `exposure_crowding` measures side concentration and top exposure rows for a
+  market, subnet, hotkey, vault, or strategy.
+- `exposure_exit_pressure` can run on either a subject or a market. It reports
+  pressure score, pressure level, pressure bands, evidence, and caveats for
+  liquidation, slippage, unstake, funding pain, or equivalent exit pressure.
+
+CLI examples:
+
+```bash
+cia mcp exposure-quality --network bittensor --account 5... --venue Bittensor
+cia mcp exposure-crowding --network bittensor --instrument "Subnet 19"
+cia mcp exposure-carry --network hyperliquid --account 0x... --instrument BTC-PERP
+cia mcp exposure-correlation --network hyperliquid --account 0x... --candidate-accounts 0xabc,0xdef
 ```
 
 ## Trace Result Contract

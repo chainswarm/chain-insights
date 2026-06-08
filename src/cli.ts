@@ -107,6 +107,124 @@ function printMcpTextContent(result: { content?: Array<{ type: string; text?: st
   }
 }
 
+type ExposureInsightCliTool =
+  | 'exposure_quality'
+  | 'exposure_carry'
+  | 'exposure_crowding'
+  | 'exposure_exit_pressure'
+  | 'exposure_correlation'
+  | 'exposure_explain'
+
+type ExposureInsightCliOptions = {
+  network: string
+  account?: string
+  owner?: string
+  counterparty?: string
+  venue?: string
+  instrument?: string
+  market?: string
+  instrumentType?: string
+  startTimestampMs?: string
+  endTimestampMs?: string
+  limit?: string
+  candidateAccounts?: string
+  positionId?: string
+}
+
+function addExposureSubjectOptions(command: Command): Command {
+  return command
+    .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
+    .option('--account <address>', 'Account address to inspect')
+    .option('--owner <address>', 'Owner address to inspect')
+    .option('--counterparty <address>', 'Counterparty address to inspect')
+    .option('--venue <name>', 'Optional venue filter, for example Bittensor or Hyperliquid')
+    .option('--instrument <id>', 'Optional instrument filter, for example a subnet lifecycle id or BTC-PERP')
+    .option('--instrument-type <type>', 'Optional instrument type filter, for example subnet, perp, spot, vault, or staking')
+    .option('--start-timestamp-ms <milliseconds>', 'Optional inclusive lower activity timestamp bound')
+    .option('--end-timestamp-ms <milliseconds>', 'Optional inclusive upper activity timestamp bound')
+    .option('--limit <number>', 'Maximum exposure rows, default 100, max 500')
+}
+
+function addExposureMarketOptions(command: Command, requiredInstrument: boolean, includeNetwork = true): Command {
+  let configured = command
+    .option('--venue <name>', 'Optional venue filter, for example Bittensor or Hyperliquid')
+    .option('--market <id>', 'Alias for --instrument when using market language')
+    .option('--instrument-type <type>', 'Optional instrument type filter, for example subnet, perp, spot, vault, or staking')
+    .option('--start-timestamp-ms <milliseconds>', 'Optional inclusive lower activity timestamp bound')
+    .option('--end-timestamp-ms <milliseconds>', 'Optional inclusive upper activity timestamp bound')
+    .option('--limit <number>', 'Maximum exposure rows, default 100, max 500')
+  if (includeNetwork) {
+    configured = configured.requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
+  }
+  return requiredInstrument
+    ? configured.requiredOption('--instrument <id>', 'Instrument, market, subnet, hotkey, vault, or durable exposure target identifier to inspect')
+    : configured.option('--instrument <id>', 'Instrument, market, subnet, hotkey, vault, or durable exposure target identifier to inspect')
+}
+
+function buildExposureInsightCommand(name: string, tool: ExposureInsightCliTool, description: string): Command {
+  const command = new Command(name).description(description)
+  const configured = tool === 'exposure_crowding'
+    ? addExposureMarketOptions(command, true)
+    : tool === 'exposure_exit_pressure'
+      ? addExposureSubjectOptions(command).option('--market <id>', 'Alias for --instrument when using market language')
+      : addExposureSubjectOptions(command)
+
+  if (tool === 'exposure_correlation') {
+    configured.option('--candidate-accounts <addresses>', 'Comma-separated candidate accounts to compare against')
+  }
+  if (tool === 'exposure_explain') {
+    configured
+      .option('--market <id>', 'Alias for --instrument when using market language')
+      .option('--position-id <id>', 'Optional venue-native position, trade, stake, rotation, or lifecycle identifier')
+  }
+
+  return configured.action(async (opts: ExposureInsightCliOptions) => {
+    try {
+      await withGraphMcpClient(`chain-insights-cli-${name}`, async (client) => {
+        const {
+          exposureCarry,
+          exposureCorrelation,
+          exposureCrowding,
+          exposureExitPressure,
+          exposureExplain,
+          exposureQuality,
+        } = await import('./investigation/public-tools.js')
+        const args = {
+          network: opts.network,
+          account: opts.account,
+          owner: opts.owner,
+          counterparty: opts.counterparty,
+          venue: opts.venue,
+          instrument: opts.instrument,
+          market: opts.market,
+          instrumentType: opts.instrumentType,
+          startTimestampMs: optionalNumber(opts.startTimestampMs),
+          endTimestampMs: optionalNumber(opts.endTimestampMs),
+          limit: optionalNumber(opts.limit),
+          candidateAccounts: opts.candidateAccounts,
+          positionId: opts.positionId,
+        }
+        const result = tool === 'exposure_quality'
+          ? await exposureQuality(client, args)
+          : tool === 'exposure_carry'
+            ? await exposureCarry(client, args)
+            : tool === 'exposure_crowding'
+              ? await exposureCrowding(client, args)
+              : tool === 'exposure_exit_pressure'
+                ? await exposureExitPressure(client, args)
+                : tool === 'exposure_correlation'
+                  ? await exposureCorrelation(client, args)
+                  : await exposureExplain(client, args)
+        console.log(result.summaryText)
+        console.log(JSON.stringify(result.structuredContent, null, 2))
+      })
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+}
+
 async function printNetworkCapabilities(opts: { json?: boolean }): Promise<void> {
   const { loadConfig } = await import('./config/index.js')
   const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import('./mcp/capabilities.js')
@@ -790,44 +908,44 @@ program
       })
   )
   .addCommand(
-    new Command('stake-insights')
-      .description('Explain Bittensor staking behavior around an address, coldkey, or hotkey')
+    new Command('exposure-profile')
+      .description('Explain staking or trading exposure around one account, owner, or counterparty')
       .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
-      .option('--address <address>', 'Full Bittensor address to inspect as either coldkey or hotkey')
-      .option('--coldkey <address>', 'Full Bittensor coldkey address to inspect')
-      .option('--hotkey <address>', 'Full Bittensor hotkey address to inspect')
-      .option('--netuid <number>', 'Optional subnet netuid filter')
+      .option('--account <address>', 'Account address to inspect')
+      .option('--owner <address>', 'Owner address to inspect')
+      .option('--counterparty <address>', 'Counterparty address to inspect')
+      .option('--venue <name>', 'Optional venue filter, for example Bittensor or Hyperliquid')
+      .option('--instrument <id>', 'Optional instrument filter, for example a subnet lifecycle id or BTC-PERP')
+      .option('--instrument-type <type>', 'Optional instrument type filter, for example subnet, perp, spot, vault, or staking')
       .option('--start-timestamp-ms <milliseconds>', 'Optional inclusive lower activity timestamp bound')
       .option('--end-timestamp-ms <milliseconds>', 'Optional inclusive upper activity timestamp bound')
-      .option('--start-block <number>', 'Optional start block. Current stake graph parity may require timestamp windows instead.')
-      .option('--end-block <number>', 'Optional end block. Current stake graph parity may require timestamp windows instead.')
-      .option('--depth <number>', 'Optional expansion depth limit, default 1, max 3')
+      .option('--limit <number>', 'Maximum exposure rows, default 100, max 500')
       .action(async (opts: {
         network: string
-        address?: string
-        coldkey?: string
-        hotkey?: string
-        netuid?: string
+        account?: string
+        owner?: string
+        counterparty?: string
+        venue?: string
+        instrument?: string
+        instrumentType?: string
         startTimestampMs?: string
         endTimestampMs?: string
-        startBlock?: string
-        endBlock?: string
-        depth?: string
+        limit?: string
       }) => {
         try {
-          await withGraphMcpClient('chain-insights-cli-stake-insights', async (client) => {
-            const { stakeInsights } = await import('./investigation/public-tools.js')
-            const result = await stakeInsights(client, {
+          await withGraphMcpClient('chain-insights-cli-exposure-profile', async (client) => {
+            const { exposureProfile } = await import('./investigation/public-tools.js')
+            const result = await exposureProfile(client, {
               network: opts.network,
-              address: opts.address,
-              coldkey: opts.coldkey,
-              hotkey: opts.hotkey,
-              netuid: optionalNumber(opts.netuid),
+              account: opts.account,
+              owner: opts.owner,
+              counterparty: opts.counterparty,
+              venue: opts.venue,
+              instrument: opts.instrument,
+              instrumentType: opts.instrumentType,
               startTimestampMs: optionalNumber(opts.startTimestampMs),
               endTimestampMs: optionalNumber(opts.endTimestampMs),
-              startBlock: optionalNumber(opts.startBlock),
-              endBlock: optionalNumber(opts.endBlock),
-              depth: optionalNumber(opts.depth),
+              limit: optionalNumber(opts.limit),
             })
             console.log(result.summaryText)
             console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -838,6 +956,36 @@ program
         }
       })
   )
+  .addCommand(buildExposureInsightCommand(
+    'exposure-quality',
+    'exposure_quality',
+    'Score whether exposure behavior looks disciplined, fragile, lucky, or noisy',
+  ))
+  .addCommand(buildExposureInsightCommand(
+    'exposure-carry',
+    'exposure_carry',
+    'Explain carry earned or paid by staking, trading, funding, fees, emissions, or dividends',
+  ))
+  .addCommand(buildExposureInsightCommand(
+    'exposure-crowding',
+    'exposure_crowding',
+    'Measure crowding and side concentration for a market, subnet, hotkey, vault, or strategy',
+  ))
+  .addCommand(buildExposureInsightCommand(
+    'exposure-exit-pressure',
+    'exposure_exit_pressure',
+    'Explain liquidation, slippage, funding pain, unstake, or other exit pressure',
+  ))
+  .addCommand(buildExposureInsightCommand(
+    'exposure-correlation',
+    'exposure_correlation',
+    'Compare accounts for possible copy, overlap, or strategy-cluster exposure behavior',
+  ))
+  .addCommand(buildExposureInsightCommand(
+    'exposure-explain',
+    'exposure_explain',
+    'Explain a specific exposure lifecycle, trade, position, stake, rotation, or incident',
+  ))
   .addCommand(
     new Command('call')
       .description('Call an MCP tool directly (debug)')
@@ -903,20 +1051,66 @@ program
               console.log(JSON.stringify(result.structuredContent, null, 2))
               return
             }
-            if (tool === 'stake_insights') {
-              const { stakeInsights } = await import('./investigation/public-tools.js')
-              const result = await stakeInsights(client, {
+            if (tool === 'exposure_profile') {
+              const { exposureProfile } = await import('./investigation/public-tools.js')
+              const result = await exposureProfile(client, {
                 network: String(args['network'] ?? ''),
-                address: args['address'] === undefined ? undefined : String(args['address']),
-                coldkey: args['coldkey'] === undefined ? undefined : String(args['coldkey']),
-                hotkey: args['hotkey'] === undefined ? undefined : String(args['hotkey']),
-                netuid: optionalNumberArg(args['netuid'], 'netuid'),
+                account: args['account'] === undefined ? undefined : String(args['account']),
+                owner: args['owner'] === undefined ? undefined : String(args['owner']),
+                counterparty: args['counterparty'] === undefined ? undefined : String(args['counterparty']),
+                venue: args['venue'] === undefined ? undefined : String(args['venue']),
+                instrument: args['instrument'] === undefined ? undefined : String(args['instrument']),
+                instrumentType: args['instrument_type'] === undefined ? undefined : String(args['instrument_type']),
                 startTimestampMs: optionalNumberArg(args['start_timestamp_ms'], 'start_timestamp_ms'),
                 endTimestampMs: optionalNumberArg(args['end_timestamp_ms'], 'end_timestamp_ms'),
-                startBlock: optionalNumberArg(args['start_block'], 'start_block'),
-                endBlock: optionalNumberArg(args['end_block'], 'end_block'),
-                depth: optionalNumberArg(args['depth'] ?? args['max_hops'], 'depth'),
+                limit: optionalNumberArg(args['limit'], 'limit'),
               })
+              console.log(result.summaryText)
+              console.log(JSON.stringify(result.structuredContent, null, 2))
+              return
+            }
+            if ([
+              'exposure_quality',
+              'exposure_carry',
+              'exposure_crowding',
+              'exposure_exit_pressure',
+              'exposure_correlation',
+              'exposure_explain',
+            ].includes(tool)) {
+              const {
+                exposureCarry,
+                exposureCorrelation,
+                exposureCrowding,
+                exposureExitPressure,
+                exposureExplain,
+                exposureQuality,
+              } = await import('./investigation/public-tools.js')
+              const exposureArgs = {
+                network: String(args['network'] ?? ''),
+                account: args['account'] === undefined ? undefined : String(args['account']),
+                owner: args['owner'] === undefined ? undefined : String(args['owner']),
+                counterparty: args['counterparty'] === undefined ? undefined : String(args['counterparty']),
+                venue: args['venue'] === undefined ? undefined : String(args['venue']),
+                instrument: args['instrument'] === undefined ? undefined : String(args['instrument']),
+                market: args['market'] === undefined ? undefined : String(args['market']),
+                instrumentType: args['instrument_type'] === undefined ? undefined : String(args['instrument_type']),
+                startTimestampMs: optionalNumberArg(args['start_timestamp_ms'], 'start_timestamp_ms'),
+                endTimestampMs: optionalNumberArg(args['end_timestamp_ms'], 'end_timestamp_ms'),
+                limit: optionalNumberArg(args['limit'], 'limit'),
+                candidateAccounts: args['candidate_accounts'] as string | string[] | undefined,
+                positionId: args['position_id'] === undefined ? undefined : String(args['position_id']),
+              }
+              const result = tool === 'exposure_quality'
+                ? await exposureQuality(client, exposureArgs)
+                : tool === 'exposure_carry'
+                  ? await exposureCarry(client, exposureArgs)
+                  : tool === 'exposure_crowding'
+                    ? await exposureCrowding(client, exposureArgs)
+                    : tool === 'exposure_exit_pressure'
+                      ? await exposureExitPressure(client, exposureArgs)
+                      : tool === 'exposure_correlation'
+                        ? await exposureCorrelation(client, exposureArgs)
+                        : await exposureExplain(client, exposureArgs)
               console.log(result.summaryText)
               console.log(JSON.stringify(result.structuredContent, null, 2))
               return
