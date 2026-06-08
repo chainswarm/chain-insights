@@ -10,13 +10,14 @@ describe('CLI viz command (VIZ-03)', () => {
   it('--help includes viz command', () => {
     const out = execSync(`node ${CLI} --help`, { encoding: 'utf8' })
     expect(out).toContain('viz')
-    expect(out).toContain('Generate money flow visualization')
+    expect(out).toContain('Generate a workspace visualization')
   })
 
   it('viz --help shows --data option', () => {
     const out = execSync(`node ${CLI} viz --help`, { encoding: 'utf8' })
     expect(out).toContain('--data')
     expect(out).toContain('Raw transaction JSON file')
+    expect(out).toContain('Workspace graph report ID to render')
   })
 
   it('viz without arguments exits with error', () => {

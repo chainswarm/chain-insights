@@ -14,7 +14,6 @@ type RemoteToolResult = {
 export interface TraceFundsOptions {
   seedAddress: string
   network: string
-  caseId?: string
   maxHops?: number
   perAddressLimit?: number
   minAmountSum?: number
@@ -1072,9 +1071,6 @@ export async function runFundFlowProbe(
   const minAmountSum = Math.max(0, options.minAmountSum ?? 0)
   const evidenceSource = options.evidenceSource ?? 'track_funds'
   const writeArtifacts = options.writeArtifacts !== false
-  if (!writeArtifacts && options.caseId) {
-    throw new Error('case_id requires workspace artifacts; omit case_id when CHAIN_INSIGHTS_MCP_PROXY_MODE=stateless')
-  }
 
   const paths = writeArtifacts ? workspaceOutputPaths() : undefined
   if (paths) await ensureDirs(paths)
@@ -1111,37 +1107,6 @@ export async function runFundFlowProbe(
     await writeFile(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 0o600 })
     await writeFile(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 0o600 })
   }
-
-  if (options.caseId) {
-    const { EvidenceStore } = await import('../cases/index.js')
-    await EvidenceStore.append(options.caseId, {
-      source: evidenceSource,
-      queryParams: `network=${network} seed_address=${seedAddress} max_hops=${maxHops} per_address_limit=${perAddressLimit} min_amount_sum=${minAmountSum}`,
-      content: JSON.stringify({
-        schema: 'chain-insights.evidence_pointer.v1',
-        source: evidenceSource,
-        network,
-        seed_address: seedAddress,
-        address_map: aliases.compactAddressMap(),
-        files: {
-          compactEvidence: compactPath,
-          graph: graphPath,
-          graphHtml: graphHtmlPath,
-          table: tablePath,
-          tableHtml: tableHtmlPath,
-          report: reportPath,
-        },
-        facts: {
-          flow_count: flows.length,
-          deposit_candidates: [...new Set(deposits.map((deposit) => aliases.alias(deposit.address) ?? deposit.address))],
-          exchange_endpoints: [...new Set(deposits.map((deposit) => aliases.alias(deposit.exchangeAddress) ?? deposit.exchangeAddress))],
-          traceback_source_paths: sourceMatches.length,
-          reverse_leads: reverseLeads.length,
-        },
-      }, null, 2),
-    })
-  }
-
   const depositAddresses = [...new Set(deposits.map((deposit) => deposit.address))]
   const exchangeAddresses = [...new Set(deposits.map((deposit) => deposit.exchangeAddress))]
   const leaves: string[] = []

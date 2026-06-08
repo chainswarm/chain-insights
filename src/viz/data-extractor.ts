@@ -1,13 +1,5 @@
-import { readFile, readdir } from 'node:fs/promises'
-import path from 'node:path'
+import { readFile } from 'node:fs/promises'
 import { GraphData, GraphNode, GraphEdge } from './graph-model.js'
-import { parseFrontmatter } from '../cases/frontmatter.js'
-import { activeCasesRoot } from '../workspace/active.js'
-
-function caseDir(caseId: string): string {
-  if (/[/\\]|^\.\.?$/.test(caseId)) throw new Error(`Invalid case ID: ${caseId}`)
-  return path.join(activeCasesRoot(), caseId)
-}
 
 /**
  * Extracts all items from ```json code blocks in a markdown string.
@@ -270,107 +262,7 @@ function aggregateEdges(edges: GraphEdge[]): GraphEdge[] {
  * from markdown code blocks, enriches nodes with entity types from dossiers,
  * and returns a merged GraphData.
  */
-export async function extractGraphFromCase(caseId: string): Promise<GraphData> {
-  const evidenceDir = path.join(caseDir(caseId), 'evidence')
-
-  let files: string[] = []
-  try {
-    const all = await readdir(evidenceDir)
-    files = all.filter(f => f.endsWith('.md'))
-  } catch {
-    // Evidence directory missing — return empty graph (graceful, not an error)
-    return GraphData.parse({
-      nodes: [],
-      edges: [],
-      metadata: {
-        caseId,
-        title: `${caseId} - Money Flow`,
-        generatedAt: new Date().toISOString(),
-      },
-    })
-  }
-
-  let allNodes: GraphNode[] = []
-  let allEdges: GraphEdge[] = []
-
-  for (const file of files) {
-    const raw = await readFile(path.join(evidenceDir, file), 'utf-8')
-    const { body } = parseFrontmatter(raw)
-    const items = parseEvidenceJson(body)
-    if (items.length === 0) continue
-
-    // Check if items contain a full GraphData object
-    const graphDataItems = items.filter(item => isGraphDataLike(item))
-    const simpleTxItems = items.flatMap(item => {
-      if (isSimpleTx(item)) return [item]
-      return compactEvidenceToSimpleTxs(item)
-    }) as SimpleTx[]
-
-    if (graphDataItems.length > 0) {
-      // Merge full GraphData objects
-      for (const gd of graphDataItems) {
-        try {
-          const parsed = GraphData.parse(gd)
-          allNodes = mergeNodes(allNodes, parsed.nodes)
-          allEdges = [...allEdges, ...parsed.edges]
-        } catch {
-          // Invalid GraphData in evidence — skip (T-04-06)
-        }
-      }
-      // Also process any simple tx items alongside
-      if (simpleTxItems.length > 0) {
-        const { nodes, edges } = buildGraphFromSimpleTxs(simpleTxItems)
-        allNodes = mergeNodes(allNodes, nodes)
-        allEdges = [...allEdges, ...edges]
-      }
-    } else if (simpleTxItems.length > 0) {
-      const { nodes, edges } = buildGraphFromSimpleTxs(simpleTxItems)
-      allNodes = mergeNodes(allNodes, nodes)
-      allEdges = [...allEdges, ...edges]
-    }
-  }
-
-  // Aggregate edges with same source-target pair
-  allEdges = aggregateEdges(allEdges)
-
-  // Enrich nodes with entity types from dossiers
-  try {
-    const { DossierStore } = await import('../cases/index.js')
-    const dossiers = await DossierStore.listSummaries(caseId)
-    const dossierMap = new Map<string, string>()
-    for (const d of dossiers) {
-      dossierMap.set(d.address, d.type)
-    }
-    allNodes = allNodes.map(node => {
-      const dossierType = dossierMap.get(node.id)
-      if (dossierType && dossierType !== 'unknown') {
-        // Validate against EntityType enum — default to 'unknown' if invalid (T-04-07)
-        const validTypes = ['eoa', 'contract', 'exchange', 'mixer', 'unknown'] as const
-        type ValidType = (typeof validTypes)[number]
-        const entityType: ValidType = validTypes.includes(dossierType as ValidType)
-          ? (dossierType as ValidType)
-          : 'unknown'
-        return { ...node, entityType }
-      }
-      return node
-    })
-  } catch {
-    // Dossier enrichment is best-effort — don't fail extraction if dossiers unavailable
-  }
-
-  return GraphData.parse({
-    nodes: allNodes,
-    edges: allEdges,
-    metadata: {
-      caseId,
-      title: `${caseId} - Money Flow`,
-      generatedAt: new Date().toISOString(),
-    },
-  })
-}
-
 export const DataExtractor = {
-  extractGraphFromCase,
   extractGraphFromJson,
   parseEvidenceJson,
 }

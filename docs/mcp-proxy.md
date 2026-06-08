@@ -2,12 +2,11 @@
 
 The Chain Insights stdio proxy lets AI agents consume Chain Insights tools as
 an MCP server. It connects to the configured GraphRAG MCP endpoint and adds
-local wallet, case, evidence, and graph-report behavior.
+local wallet and graph-report behavior.
 
-Chain Insights workspaces are Obsidian-compatible vaults. Use live vault
-refresh and local notes for normal review; use `case_export` only when an agent
-needs a handoff bundle for sharing, partner review, LLM Wiki ingestion, or
-archive.
+Chain Insights workspaces are plain local folders. Use local workspace files
+for normal review. Use published workspace outputs only when an agent needs a
+handoff, rendered HTML, or a durable bundle inside the workspace.
 
 ## Basic Configuration
 
@@ -77,7 +76,7 @@ The proxy:
   to local config.
 - Caches remote tool schemas per endpoint for 24 hours.
 - Exposes graph tools returned by the endpoint.
-- Adds local `balance`, `help`, and case workflow tools.
+- Adds local `balance` and `help` tools.
 - Starts the local graph report server when graph report URLs are returned.
 - Publishes instructions with required argument rules, workflow guidance, graph
   report behavior, and schema hints.
@@ -88,42 +87,28 @@ The proxy:
 | --- | --- |
 | `balance` | Show the local Base USDC payment wallet balance |
 | `help` | Show Chain Insights tool and workflow guidance |
-| `case_open` | Create a local investigation case |
-| `case_list` | List local investigation cases |
-| `case_resume` | Load case context, evidence count, dossiers, and latest session |
-| `case_add_evidence` | Append a report or note to the evidence manifest |
-| `case_verify_evidence` | Verify saved evidence integrity |
-| `case_export` | Export a case for Obsidian, LLM Wiki, Codex, Claude Code, and ChatGPT |
-| `case_update_dossier` | Add a durable finding to an address/entity dossier |
-| `case_start_session` | Start an investigation session |
-| `case_end_session` | End a session with findings and next steps |
 
-For normal local review, refresh live vault notes from the CLI with
-`cia case vault refresh <case-id> --force` and inspect the same workspace in
-Obsidian, VS Code, Codex, or Claude Code.
+For normal local review, inspect local workspace files directly and keep your
+preferred editor or agent tooling open to the same workspace while you work.
 
-`case_export` writes the same local bundle as `cia case export`. Use it after
-`case_verify_evidence` when an agent needs Obsidian, LLM Wiki, Codex, Claude
-Code, or ChatGPT-ready files for handoff. See
-[Obsidian vault workflow](obsidian-vault.md) and
-[Knowledge exports](knowledge-exports.md) for vault opening, sharing, and LLM
-Wiki ingestion steps.
+`published/` contains the generated shareable artifacts. Use it after
+workspace validation when an agent needs rendered HTML or handoff-ready files.
 
 Remote graph tools are discovered from the configured GraphRAG MCP endpoint. The
 expected primitive graph tools are `usage_status`, `graph_query`, and
 `graph_query_batch`.
-Chain Insights adds high-level local graph recipes such as `address_risk`,
+Chain Insights adds high-level local graph recipes such as `aml_address_risk`,
 `exposure_profile`, `exposure_quality`, `exposure_carry`,
 `exposure_crowding`, `exposure_exit_pressure`, `exposure_correlation`,
-`exposure_explain`, `trace_victim_funds`, `trace_deposit_sources`, and
-`trace_suspect_funds` when the remote endpoint only exposes primitives.
+`exposure_explain`, `aml_trace_victim_funds`, `aml_trace_deposit_sources`, and
+`aml_trace_suspect_funds` when the remote endpoint only exposes primitives.
 
 The trace tools share `chain-insights.trace.v1` and are role-specific:
 
-- `trace_victim_funds` for victim/source forward tracing.
-- `trace_deposit_sources` for reverse traceback from suspected deposit
+- `aml_trace_victim_funds` for victim/source forward tracing.
+- `aml_trace_deposit_sources` for reverse traceback from suspected deposit
   endpoints.
-- `trace_suspect_funds` for suspect-controlled outbound laundering/cashout
+- `aml_trace_suspect_funds` for suspect-controlled outbound laundering/cashout
   topology.
 
 ## Auth Modes
@@ -256,11 +241,13 @@ Use Chain Insights graph_query_batch on network bittensor with these read-only C
 ```
 
 ```text
-Use Chain Insights to open an investigation case named "Exchange deposit clustering" with tags aml,bittensor.
+Use Chain Insights to open a workspace investigation thread named
+"Exchange deposit clustering" with tags aml,bittensor.
 ```
 
 ```text
-Use Chain Insights to save the last graph_query_batch result as evidence in case <case-id>.
+Use Chain Insights to save the last graph_query_batch result as workspace
+evidence.
 ```
 
 ## Inspector Validation

@@ -286,49 +286,48 @@ describe('transformToGraphHtml (data schema mapping)', () => {
 
 describe('writeVizHtml and generateVisualization (VIZ-02)', () => {
   let fakeHome: string
+  let workspace: string
   let prevHome: string | undefined
+  let prevWorkspace: string | undefined
 
   beforeEach(async () => {
     vi.resetModules()
     fakeHome = join(tmpdir(), `ci-viz-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    workspace = join(tmpdir(), `ci-viz-workspace-${Date.now()}-${Math.random().toString(36).slice(2)}`)
     await mkdir(join(fakeHome, '.chain-insights'), { recursive: true })
+    await mkdir(join(workspace, '.chain-insights'), { recursive: true })
+    await writeFile(join(workspace, '.chain-insights', 'workspace.json'), JSON.stringify({
+      schema: 'chain-insights.workspace.v1',
+      workspace_root: workspace,
+    }) + '\n')
     prevHome = process.env['HOME']
+    prevWorkspace = process.env['CHAIN_INSIGHTS_WORKSPACE']
     process.env['HOME'] = fakeHome
+    process.env['CHAIN_INSIGHTS_WORKSPACE'] = workspace
   })
 
   afterEach(async () => {
     process.env['HOME'] = prevHome
+    if (prevWorkspace === undefined) delete process.env['CHAIN_INSIGHTS_WORKSPACE']
+    else process.env['CHAIN_INSIGHTS_WORKSPACE'] = prevWorkspace
     await rm(fakeHome, { recursive: true, force: true })
+    await rm(workspace, { recursive: true, force: true })
     vi.resetModules()
   })
 
-  it('writeVizHtml without caseId writes to ~/.chain-insights/viz/ (standalone path)', async () => {
+  it('writeVizHtml writes to workspace published/viz', async () => {
     const { writeVizHtml } = await import('../src/viz/html-generator.js')
     const filePath = await writeVizHtml('test_id', '<html>test</html>')
-    expect(filePath).toContain(join('.chain-insights', 'viz', 'test_id.html'))
+    expect(filePath).toContain(join('published', 'viz', 'test_id.html'))
     const content = await readFile(filePath, 'utf-8')
     expect(content).toBe('<html>test</html>')
   })
 
-  it('writeVizHtml without caseId writes to correct directory path', async () => {
+  it('writeVizHtml writes to the active workspace rather than ~/.chain-insights', async () => {
     const { writeVizHtml } = await import('../src/viz/html-generator.js')
     const filePath = await writeVizHtml('standalone_123', '<html>standalone</html>')
-    expect(filePath).toContain(join(fakeHome, '.chain-insights', 'viz'))
-    expect(filePath).not.toContain('cases')
-  })
-
-  it('writeVizHtml with caseId writes to ~/.chain-insights/cases/<caseId>/viz/ (per-case path per CONTEXT.md)', async () => {
-    const { writeVizHtml } = await import('../src/viz/html-generator.js')
-    const filePath = await writeVizHtml('CASE-001_12345', '<html>case test</html>', 'CASE-001')
-    expect(filePath).toContain(join('cases', 'CASE-001', 'viz', 'CASE-001_12345.html'))
-    const content = await readFile(filePath, 'utf-8')
-    expect(content).toBe('<html>case test</html>')
-  })
-
-  it('writeVizHtml with caseId returned path contains /cases/<caseId>/viz/', async () => {
-    const { writeVizHtml } = await import('../src/viz/html-generator.js')
-    const filePath = await writeVizHtml('test_viz', '<html></html>', 'CASE-001')
-    expect(filePath).toContain(join('cases', 'CASE-001', 'viz'))
+    expect(filePath).toContain(join(workspace, 'published', 'viz'))
+    expect(filePath).not.toContain(join(fakeHome, '.chain-insights'))
   })
 
   it('writeVizHtml creates parent directories recursively', async () => {
@@ -338,7 +337,7 @@ describe('writeVizHtml and generateVisualization (VIZ-02)', () => {
     expect(st.isFile()).toBe(true)
   })
 
-  it('generateVisualization with dataFile writes .html to ~/.chain-insights/viz/ and returns vizId starting with "adhoc_"', async () => {
+  it('generateVisualization with dataFile writes .html to workspace published/viz and returns vizId starting with "adhoc_"', async () => {
     const testData = JSON.stringify({
       nodes: [{ id: '0x1234', entityType: 'eoa', riskLevel: 'low', totalIn: 100, totalOut: 50, txCount: 5 }],
       edges: [{ source: '0x1234', target: '0xabcd', value: 10 }],
@@ -351,7 +350,7 @@ describe('writeVizHtml and generateVisualization (VIZ-02)', () => {
     const result = await generateVisualization({ dataFile })
 
     expect(result.vizId).toMatch(/^adhoc_/)
-    expect(result.htmlPath).toContain(join('.chain-insights', 'viz'))
+    expect(result.htmlPath).toContain(join(workspace, 'published', 'viz'))
     const content = await readFile(result.htmlPath, 'utf-8')
     expect(content).toMatch(/^<!DOCTYPE html>/)
   })

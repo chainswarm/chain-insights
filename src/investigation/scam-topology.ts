@@ -18,7 +18,6 @@ export interface ScamTopologyOptions {
   incidentTimestampMs: number
   maxHops?: number
   activityPolicyMode?: ScamTopologyActivityPolicyMode
-  caseId?: string
 }
 
 export type ScamTopologySeedRole = 'victim' | 'scammer'
@@ -1816,7 +1815,6 @@ export async function scamTopology(
     minAmountSum?: number
     scope?: ScamTopologyScope
     sinceTimestampMs?: number
-    caseId?: string
   }
   const victimAddresses = parseAddressList(options.victimAddress ?? legacyOptions.victimAddresses)
   const scammerAddresses = parseAddressList(legacyOptions.scammerAddresses)
@@ -1826,7 +1824,6 @@ export async function scamTopology(
   const minAmountSum = undefined
   const activityPolicyMode = validateActivityPolicyMode(options.activityPolicyMode)
   const primaryActivityPolicy = activityPolicyForMode(activityPolicyMode)
-  const caseId = options.caseId ?? legacyOptions.caseId
 
   if (!network) throw new Error('network is required')
   if (legacyOptions.scope !== undefined) throw new Error('scope is no longer accepted; scam_topology always runs the victim incident topology')
@@ -1884,40 +1881,6 @@ export async function scamTopology(
   }
   const graphData = buildGraph(seeds, topologyEdges, classification.rolesByAddress, facts)
   const summaryText = summarize(network, victimAddress, incidentTimestampMs, labelCandidates, scamLabels, classification.safetyDecisions, topologyEdges, classification.terminalPoints)
-
-  if (caseId) {
-    const files = await writeScamTopologyCaseArtifacts(facts, graphData)
-    const { EvidenceStore } = await import('../cases/index.js')
-    await EvidenceStore.append(caseId, {
-      source: 'scam_topology',
-      queryParams: [
-        `network=${network}`,
-        `victim_address=${victimAddress}`,
-        `incident_timestamp_ms=${incidentTimestampMs}`,
-        `max_hops=${maxHops}`,
-        `activity_policy=${activityPolicyMode}`,
-      ].filter(Boolean).join(' '),
-      content: JSON.stringify({
-        schema: 'chain-insights.evidence_pointer.v1',
-        source: 'scam_topology',
-        network,
-        victim_address: victimAddress,
-        incident_timestamp_ms: incidentTimestampMs,
-        topology_graphs: facts.topology_graphs,
-        primary_activity_policy: primaryActivityPolicy,
-        activity_policy_mode: activityPolicyMode,
-        files,
-        facts: {
-          topology_edges: topologyEdges.length,
-          terminal_points: classification.terminalPoints.length,
-          exchange_deposits: classification.exchangeDeposits.length,
-          scam_labels: scamLabels.length,
-          label_candidates: labelCandidates.length,
-          safety_decisions: classification.safetyDecisions.length,
-        },
-      }, null, 2),
-    })
-  }
 
   return {
     summaryText,

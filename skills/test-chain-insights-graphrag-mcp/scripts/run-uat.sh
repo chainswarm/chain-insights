@@ -16,7 +16,6 @@ WORKSPACE_ROOT="${WORKSPACE_ROOT:-${RUN_DIR}/workspace}"
 CHAIN_INSIGHTS_CLI="${CHAIN_INSIGHTS_DIR}/bin/cli.js"
 CHAIN_INSIGHTS_PROXY="${CHAIN_INSIGHTS_DIR}/bin/mcp-proxy.cjs"
 GLOBAL_REPORTS="${HOME}/.chain-insights/reports"
-GLOBAL_CASES="${HOME}/.chain-insights/cases"
 GLOBAL_SNAPSHOT_BEFORE="${RUN_DIR}/global-output-before.txt"
 GLOBAL_SNAPSHOT_AFTER="${RUN_DIR}/global-output-after.txt"
 SERVER_PID=""
@@ -38,7 +37,7 @@ require_cmd() {
 snapshot_global_outputs() {
   local output_file="$1"
   : >"${output_file}"
-  for dir in "${GLOBAL_REPORTS}" "${GLOBAL_CASES}"; do
+  for dir in "${GLOBAL_REPORTS}"; do
     {
       printf '[%s]\n' "${dir}"
       if [[ -d "${dir}" ]]; then
@@ -60,7 +59,7 @@ snapshot_global_outputs() {
 assert_no_global_outputs_changed() {
   snapshot_global_outputs "${GLOBAL_SNAPSHOT_AFTER}"
   if ! cmp -s "${GLOBAL_SNAPSHOT_BEFORE}" "${GLOBAL_SNAPSHOT_AFTER}"; then
-    log "global investigation output roots changed; reports/cases must stay workspace-local"
+    log "global investigation output roots changed; reports must stay workspace-local"
     diff -u "${GLOBAL_SNAPSHOT_BEFORE}" "${GLOBAL_SNAPSHOT_AFTER}" >&2 || true
     return 1
   fi
@@ -183,22 +182,22 @@ const required = ['network_capabilities', 'graph_query', 'graph_query_batch']
 const missing = required.filter((name) => !names.has(name))
 if (missing.length) throw new Error(`direct tools/list missing tools: ${missing.join(', ')}`)
 if (JSON.stringify(tools).includes('app_data')) throw new Error('direct tools/list still contains app_data')
-const hasHighLevel = ['address_risk', 'trace_victim_funds'].every((name) => names.has(name))
+const hasHighLevel = ['aml_address_risk', 'aml_trace_victim_funds'].every((name) => names.has(name))
 fs.writeFileSync(highLevelFile, hasHighLevel ? 'yes\n' : 'no\n')
 console.log(`[uat] direct tools/list ok: ${tools.length} tools (${hasHighLevel ? 'high-level' : 'primitive-only'})`)
 NODE
 
 DIRECT_JSON="${RUN_DIR}/direct-address-risk.json"
-DIRECT_ADDRESS_RISK_SUMMARY="- direct address_risk skipped: direct endpoint is primitive-only"
+DIRECT_ADDRESS_RISK_SUMMARY="- direct aml_address_risk skipped: direct endpoint is primitive-only"
 if [[ "$(cat "${RUN_DIR}/direct-high-level-tools.txt")" == "yes" ]]; then
-  log "calling direct GraphRAG address_risk"
+  log "calling direct GraphRAG aml_address_risk"
   npx @modelcontextprotocol/inspector \
     --cli "${MCP_ENDPOINT}" \
     --transport http \
     --header "Authorization: Bearer ${DEBUG_TOKEN}" \
     --header "X-MCP-Debug-Token: ${DEBUG_TOKEN}" \
     --method tools/call \
-    --tool-name address_risk \
+    --tool-name aml_address_risk \
     --tool-arg "network=${NETWORK}" \
     --tool-arg "address=${UAT_ADDRESS}" \
     --tool-arg include_attachments=true >"${DIRECT_JSON}"
@@ -212,7 +211,7 @@ const content = data.content || []
 const sc = data.structuredContent || {}
 const graphData = data._meta?.chainInsights?.graph?.data
 const graphArrayKeys = ['app_data', 'nodes', 'edges', 'flows', 'edge_anchors', 'transfers']
-if (data.isError) errors.push('direct address_risk returned isError=true')
+if (data.isError) errors.push('direct aml_address_risk returned isError=true')
 if (content[0]?.type !== 'text') errors.push('direct content[0] is not text')
 if (sc.schema !== 'chain-insights.result.v1') errors.push(`direct structuredContent schema mismatch: ${sc.schema}`)
 for (const key of graphArrayKeys) {
@@ -225,11 +224,11 @@ for (const key of ['nodes', 'edges', 'flows', 'edge_anchors']) {
 }
 if (Object.prototype.hasOwnProperty.call(graphData || {}, 'transfers')) errors.push('direct graph includes transfers')
 if (errors.length) throw new Error(errors.join('; '))
-console.log(`[uat] direct address_risk ok: nodes=${graphData.nodes.length} edges=${graphData.edges.length} flows=${graphData.flows.length} edge_anchors=${graphData.edge_anchors.length}`)
+console.log(`[uat] direct aml_address_risk ok: nodes=${graphData.nodes.length} edges=${graphData.edges.length} flows=${graphData.flows.length} edge_anchors=${graphData.edge_anchors.length}`)
 NODE
   DIRECT_ADDRESS_RISK_SUMMARY="- ${DIRECT_JSON}"
 else
-  log "direct GraphRAG high-level tools absent; primitive-only endpoint, skipping direct address_risk check"
+  log "direct GraphRAG high-level tools absent; primitive-only endpoint, skipping direct aml_address_risk check"
 fi
 
 PROXY_TOOLS_JSON="${RUN_DIR}/proxy-tools-list.json"
@@ -245,22 +244,23 @@ const file = process.argv[2]
 const data = JSON.parse(fs.readFileSync(file, 'utf8'))
 const tools = data.tools || []
 const names = new Set(tools.map((tool) => tool.name))
-const required = ['balance', 'help', 'address_risk', 'exposure_profile', 'exposure_quality', 'exposure_carry', 'exposure_crowding', 'exposure_exit_pressure', 'exposure_correlation', 'exposure_explain', 'trace_victim_funds', 'trace_suspect_funds', 'trace_deposit_sources', 'network_capabilities', 'graph_query', 'graph_query_batch']
+const required = ['balance', 'help', 'aml_address_risk', 'exposure_profile', 'exposure_quality', 'exposure_carry', 'exposure_crowding', 'exposure_exit_pressure', 'exposure_correlation', 'exposure_explain', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources', 'network_capabilities', 'graph_query', 'graph_query_batch']
 const missing = required.filter((name) => !names.has(name))
 if (missing.length) throw new Error(`proxy tools/list missing tools: ${missing.join(', ')}`)
-for (const hidden of ['topup', 'trace_funds', 'track_funds', 'scam_topology', 'money_flows_between_exchanges', 'address_connection_risk', 'stake_insights']) {
-  if (names.has(hidden)) throw new Error(`proxy tools/list exposed hidden tool: ${hidden}`)
+if (names.size !== required.length) {
+  const unexpected = [...names].filter((name) => !required.includes(name))
+  throw new Error(`proxy tools/list exposed unexpected tools: ${unexpected.join(', ')}`)
 }
 if (JSON.stringify(tools).includes('app_data')) throw new Error('proxy tools/list still contains app_data')
 const graphTools = tools.filter((tool) => tool._meta?.ui?.resourceUri === 'ui://chain-insights/graph').map((tool) => tool.name)
-for (const name of ['address_risk', 'exposure_profile', 'exposure_quality', 'exposure_carry', 'exposure_crowding', 'exposure_exit_pressure', 'exposure_correlation', 'exposure_explain', 'trace_victim_funds', 'trace_suspect_funds', 'trace_deposit_sources']) {
+for (const name of ['aml_address_risk', 'exposure_profile', 'exposure_quality', 'exposure_carry', 'exposure_crowding', 'exposure_exit_pressure', 'exposure_correlation', 'exposure_explain', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources']) {
   if (!graphTools.includes(name)) throw new Error(`proxy graph app metadata missing for ${name}`)
 }
 console.log(`[uat] proxy tools/list ok: ${tools.length} tools`)
 NODE
 
 PROXY_JSON="${RUN_DIR}/proxy-address-risk.json"
-log "calling Chain Insights proxy address_risk"
+log "calling Chain Insights proxy aml_address_risk"
 node --input-type=module - "${CHAIN_INSIGHTS_PROXY}" "${NETWORK}" "${UAT_ADDRESS}" "${PROXY_JSON}" <<'NODE'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
@@ -283,7 +283,7 @@ try {
   await client.connect(transport)
   const result = await client.callTool(
     {
-      name: 'address_risk',
+      name: 'aml_address_risk',
       arguments: {
         network,
         address,
@@ -311,7 +311,7 @@ const errors = []
 const content = data.content || []
 const sc = data.structuredContent || {}
 const graph = data._meta?.chainInsights?.graph
-if (data.isError) errors.push('proxy address_risk returned isError=true')
+if (data.isError) errors.push('proxy aml_address_risk returned isError=true')
 if (content[0]?.type !== 'text') errors.push('proxy content[0] is not text')
 if (sc.schema !== 'chain-insights.result.v1') errors.push(`proxy structuredContent schema mismatch: ${sc.schema}`)
 for (const key of ['app_data', 'nodes', 'edges', 'flows', 'edge_anchors', 'transfers']) {
@@ -325,7 +325,7 @@ if (!/^http:\/\/127\.0\.0\.1:\d+\/graph-reports\/[A-Za-z0-9._-]+\.graph\.json$/.
   errors.push(`proxy graph url is not a local graph report URL: ${graph?.url}`)
 }
 if (errors.length) throw new Error(errors.join('; '))
-console.error(`[uat] proxy address_risk ok: graph_report=${graph.url}`)
+console.error(`[uat] proxy aml_address_risk ok: graph_report=${graph.url}`)
 process.stdout.write(graph.url)
 NODE
 )"
@@ -547,13 +547,55 @@ for (const [name, schema] of Object.entries(expected)) {
   if (result?.content?.[0]?.type !== 'text') errors.push(`${name} content[0] is not text`)
   if (sc.schema !== schema) errors.push(`${name} schema mismatch: ${sc.schema}`)
   if (sc.tool !== name) errors.push(`${name} tool mismatch: ${sc.tool}`)
-  if (!result?._meta?.chainInsights?.graph?.url) errors.push(`${name} graph metadata missing`)
+  if (result?._meta?.chainInsights?.graph) errors.push(`${name} returned forbidden graph metadata`)
   for (const field of forbidden) {
     if (serialized.includes(field)) errors.push(`${name} leaks ${field}`)
   }
 }
 if (errors.length) throw new Error(errors.join('; '))
 console.log(`[uat] generic exposure tools ok: ${Object.keys(expected).join(', ')}`)
+NODE
+
+log "checking exposure persistence contract"
+node - "${WORKSPACE_ROOT}" <<'NODE'
+const fs = require('node:fs')
+const path = require('node:path')
+
+const workspace = process.argv[2]
+const reportsDir = path.join(workspace, 'reports')
+const tablesDir = path.join(reportsDir, 'tables')
+const graphsDir = path.join(reportsDir, 'graphs')
+const tools = [
+  'exposure_profile',
+  'exposure_quality',
+  'exposure_carry',
+  'exposure_crowding',
+  'exposure_exit_pressure',
+  'exposure_correlation',
+  'exposure_explain',
+]
+
+const reportFiles = fs.readdirSync(reportsDir).filter((name) => name.endsWith('.exposure-report.md'))
+const tableFiles = fs.readdirSync(tablesDir)
+const graphFiles = fs.existsSync(graphsDir) ? fs.readdirSync(graphsDir) : []
+const errors = []
+
+for (const tool of tools) {
+  if (!reportFiles.some((name) => name.includes(tool))) errors.push(`${tool} report markdown missing`)
+  if (!tableFiles.some((name) => name.includes(tool) && name.endsWith('.compact-facts.json'))) {
+    errors.push(`${tool} compact facts JSON missing`)
+  }
+}
+
+for (const name of reportFiles) {
+  if (name.includes('exposure_') && name.endsWith('.graph.html')) errors.push(`forbidden exposure graph html persisted: ${name}`)
+}
+for (const name of graphFiles) {
+  if (name.includes('exposure_')) errors.push(`forbidden exposure graph json persisted: ${name}`)
+}
+
+if (errors.length) throw new Error(errors.join('; '))
+console.log(`[uat] exposure persistence ok: reports=${reportFiles.length} tables=${tableFiles.length}`)
 NODE
 
 GRAPH_QUERY_TEXT="${RUN_DIR}/graph-query-address.txt"

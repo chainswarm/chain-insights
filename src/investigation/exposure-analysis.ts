@@ -1,7 +1,7 @@
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
-import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 import { exposureProfile, type ExposureProfileOptions, type ExposureProfileResult } from './exposure-profile.js'
+import { writeExposureArtifacts } from './exposure-report.js'
 
 type RemoteToolResult = {
   content?: ContentBlock[]
@@ -36,7 +36,6 @@ type ExposureToolResult<T extends Record<string, unknown>> = {
     tool: ExposureToolName
     caveats: string[]
   }
-  graphData: Record<string, unknown>
 }
 
 export interface ExposureInsightOptions extends ExposureProfileOptions {
@@ -143,6 +142,7 @@ async function loadSubjectProfile(remoteClient: Client, options: ExposureInsight
     ...options,
     instrument: options.instrument ?? options.market,
     limit: clampLimit(options.limit),
+    writeArtifacts: false,
   })
 }
 
@@ -379,36 +379,6 @@ function baseCaveats(exposures: Exposure[], failedQueryCount = 0): string[] {
   return [...caveats]
 }
 
-function graphData(tool: ExposureToolName, subject: Record<string, unknown>, exposures: Exposure[]): Record<string, unknown> {
-  const nodes = new Map<string, Record<string, unknown>>()
-  const edges: Array<Record<string, unknown>> = []
-  const subjectId = String(subject['account'] ?? subject['instrument'] ?? subject['network'] ?? tool)
-  nodes.set(subjectId, { id: subjectId, node_type: 'subject', ...subject })
-  exposures.forEach((exposure, index) => {
-    const exposureId = `${tool}:exposure:${index}:${exposure.instrument.id}`
-    nodes.set(exposureId, { id: exposureId, node_type: 'exposure', venue: exposure.venue, side: exposure.position.side })
-    nodes.set(exposure.instrument.id, {
-      id: exposure.instrument.id,
-      node_type: 'instrument',
-      display_name: exposure.instrument.display_name,
-      instrument_type: exposure.instrument.type,
-    })
-    edges.push({ source: subjectId, target: exposureId, edge_type: 'exposure', venue: exposure.venue })
-    edges.push({ source: exposureId, target: exposure.instrument.id, edge_type: 'instrument', venue: exposure.venue })
-  })
-  return normalizeGraphPayload({
-    schema: 'chain-insights.graph.v1',
-    nodes: [...nodes.values()],
-    edges,
-    flows: [],
-    edge_anchors: [],
-    metadata: {
-      tool,
-      generated_at: new Date().toISOString(),
-    },
-  })
-}
-
 function profileSubject(profile: ExposureProfileResult): ExposureSubject {
   return profile.structuredContent.subject
 }
@@ -428,6 +398,25 @@ function qualityClassification(qualityScore: number): string {
   if (qualityScore >= 55) return 'mixed'
   if (qualityScore >= 35) return 'fragile'
   return 'noisy'
+}
+
+function artifactSubject(options: ExposureInsightOptions): string {
+  return options.account ?? options.owner ?? options.counterparty ?? options.instrument ?? options.market ?? 'subject'
+}
+
+async function maybeWriteArtifacts(
+  toolName: ExposureToolName,
+  options: ExposureInsightOptions,
+  result: ExposureToolResult<Record<string, unknown>>,
+): Promise<void> {
+  if (!options.writeArtifacts) return
+  await writeExposureArtifacts({
+    toolName,
+    network: options.network,
+    subject: artifactSubject(options),
+    summaryText: result.summaryText,
+    structuredContent: result.structuredContent,
+  })
 }
 
 export async function exposureQuality(
@@ -488,7 +477,7 @@ export async function exposureQuality(
     evidence: exposures.flatMap((exposure) => exposure.support).slice(0, 10),
     caveats,
   }
-  return {
+  const result = {
     summaryText: [
       `Exposure quality for ${subjectLine(subject)}`,
       `Classification: ${structuredContent.summary.classification}`,
@@ -497,8 +486,9 @@ export async function exposureQuality(
       flags.length ? `Flags: ${flags.join(', ')}` : 'Flags: none',
     ].join('\n'),
     structuredContent,
-    graphData: graphData('exposure_quality', subject, exposures),
   }
+  await maybeWriteArtifacts('exposure_quality', options, result)
+  return result
 }
 
 export async function exposureCarry(
@@ -549,7 +539,7 @@ export async function exposureCarry(
     evidence: exposures.flatMap((exposure) => exposure.support).slice(0, 10),
     caveats,
   }
-  return {
+  const result = {
     summaryText: [
       `Exposure carry for ${subjectLine(subject)}`,
       `Net carry: ${structuredContent.summary.net_carry}`,
@@ -557,8 +547,9 @@ export async function exposureCarry(
       `Confidence: ${structuredContent.summary.confidence}`,
     ].join('\n'),
     structuredContent,
-    graphData: graphData('exposure_carry', subject, exposures),
   }
+  await maybeWriteArtifacts('exposure_carry', options, result)
+  return result
 }
 
 export async function exposureCrowding(
@@ -628,7 +619,7 @@ export async function exposureCrowding(
     })),
     caveats,
   }
-  return {
+  const result = {
     summaryText: [
       `Exposure crowding for ${options.network}:${instrument}`,
       `Level: ${structuredContent.summary.crowding_level}`,
@@ -636,8 +627,9 @@ export async function exposureCrowding(
       `Exposures: ${exposures.length}`,
     ].join('\n'),
     structuredContent,
-    graphData: graphData('exposure_crowding', subject, exposures),
   }
+  await maybeWriteArtifacts('exposure_crowding', options, result)
+  return result
 }
 
 export async function exposureExitPressure(
@@ -689,7 +681,7 @@ export async function exposureExitPressure(
     evidence: exposures.flatMap((exposure) => exposure.support).slice(0, 10),
     caveats,
   }
-  return {
+  const result = {
     summaryText: [
       `Exposure exit pressure for ${String(subject['network'])}:${String(subject['account'] ?? subject['instrument'])}`,
       `Level: ${structuredContent.summary.pressure_level}`,
@@ -697,8 +689,9 @@ export async function exposureExitPressure(
       `Exposures: ${exposures.length}`,
     ].join('\n'),
     structuredContent,
-    graphData: graphData('exposure_exit_pressure', subject, exposures),
   }
+  await maybeWriteArtifacts('exposure_exit_pressure', options, result)
+  return result
 }
 
 export async function exposureCorrelation(
@@ -752,15 +745,16 @@ export async function exposureCorrelation(
     relationships,
     caveats,
   }
-  return {
+  const result = {
     summaryText: [
       `Exposure correlation for ${subjectLine(subject)}`,
       `Candidates: ${candidates.length}`,
       `Relationships with overlap: ${structuredContent.summary.relationship_count}`,
     ].join('\n'),
     structuredContent,
-    graphData: graphData('exposure_correlation', subject, primaryExposures),
   }
+  await maybeWriteArtifacts('exposure_correlation', options, result)
+  return result
 }
 
 export async function exposureExplain(
@@ -808,7 +802,7 @@ export async function exposureExplain(
     evidence,
     caveats,
   }
-  return {
+  const result = {
     summaryText: [
       `Exposure explanation for ${subjectLine(subject)}`,
       selected ? `Instrument: ${selected.instrument.display_name}` : 'Instrument: unavailable',
@@ -816,6 +810,7 @@ export async function exposureExplain(
       `Evidence events: ${evidence.length}`,
     ].join('\n'),
     structuredContent,
-    graphData: graphData('exposure_explain', subject, exposures),
   }
+  await maybeWriteArtifacts('exposure_explain', options, result)
+  return result
 }

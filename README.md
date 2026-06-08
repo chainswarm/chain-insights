@@ -4,7 +4,7 @@
 
 Chain Insights is an open-source AML investigation toolkit for AI agents and
 analysts. Install it from npm to screen blockchain addresses, trace role-specific
-fund flows, manage case evidence, and generate graph reports.
+fund flows, manage workspace evidence, and generate graph reports.
 
 Graph access is configuration-driven. The package defaults to a local GraphRAG
 MCP endpoint for development; hosted endpoints are set explicitly with
@@ -14,7 +14,7 @@ MCP endpoint for development; hosted endpoints are set explicitly with
 
 | Tool | Use it for |
 | --- | --- |
-| `address_risk` | Screen one address for risk, behavior, neighborhood context, and exchange exposure |
+| `aml_address_risk` | Screen one address for risk, behavior, neighborhood context, and exchange exposure |
 | `exposure_profile` | Explain staking or trading exposure around an account, owner, or counterparty |
 | `exposure_quality` | Score whether exposure behavior looks disciplined, fragile, lucky, or noisy |
 | `exposure_carry` | Explain carry earned or paid from staking, trading, funding, fees, emissions, or dividends |
@@ -22,9 +22,9 @@ MCP endpoint for development; hosted endpoints are set explicitly with
 | `exposure_exit_pressure` | Explain liquidation, slippage, unstake, funding pain, or other exit pressure |
 | `exposure_correlation` | Compare accounts for possible copy, overlap, or strategy-cluster behavior |
 | `exposure_explain` | Explain a specific exposure lifecycle, trade, position, stake, rotation, or incident |
-| `trace_victim_funds` | Trace victim/source funds forward to exchange deposit candidates |
-| `trace_deposit_sources` | Trace backward from suspected deposit/cashout addresses to upstream sources and convergence |
-| `trace_suspect_funds` | Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology |
+| `aml_trace_victim_funds` | Trace victim/source funds forward to exchange deposit candidates |
+| `aml_trace_deposit_sources` | Trace backward from suspected deposit/cashout addresses to upstream sources and convergence |
+| `aml_trace_suspect_funds` | Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology |
 | `usage_status` | Check the caller's daily free-tier graph query allowance |
 | `graph_query` | Run one read-only GQL/Cypher query against a GraphRAG MCP graph layer |
 | `graph_query_batch` | Run related read-only graph queries as one MCP call |
@@ -57,19 +57,17 @@ npm install -g .
 cia --version
 ```
 
-Create an investigation vault:
+Create an investigation workspace:
 
 ```bash
 mkdir -p ./chain-insights-investigations
 cd ./chain-insights-investigations
 cia init .
-cia obsidian open .
 ```
 
-Chain Insights workspaces are Obsidian-compatible vaults and plain local
-folders. Obsidian is a first-class review UI, but it is not required to use the
-workspace files. See the
-[Obsidian vault workflow](docs/obsidian-vault.md).
+Chain Insights workspaces are plain local folders. Use any editor or agent
+tooling you want to inspect workspace files, graph reports, artifacts, and
+published outputs.
 
 ## Configure GraphRAG MCP Endpoint
 
@@ -125,7 +123,7 @@ cia mcp tools --refresh
 ```
 
 If network or tool discovery fails, check the endpoint and access mode first.
-The CLI can still initialize workspaces and manage cases without a reachable
+The CLI can still initialize workspaces and continue investigation workflow without a reachable
 GraphRAG MCP endpoint.
 
 Hosted GraphRAG MCP includes a small public free tier for `graph_query` before
@@ -137,46 +135,36 @@ If you do not have a prepared wallet yet, use bounded single `graph_query`
 calls within the free tier, then prepare a wallet or use an invited tester
 access key when the allowance is exhausted.
 
-Open a case and run a small investigation:
+Run a focused investigation in the initialized workspace:
 
 ```bash
-cia case open "First Chain Insights investigation" \
-  --tags aml,bittensor \
-  --description "Screen and trace a known source address"
+cia init .
 
 cia mcp trace-victim-funds \
   --network bittensor \
-  --victim-addresses 5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5 \
-  --case 1
+  --victim-addresses 5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5
 ```
 
 Then inspect:
 
 ```bash
-cia case show 1
-find reports cases -maxdepth 3 -type f | sort
+find reports -maxdepth 3 -type f | sort
 ```
 
 ## Export Only When Sharing
 
-Normal local work happens in the investigation vault. Export only when you need
-to share a case, hand it off to a partner, ingest it into LLM Wiki, or archive a
+Normal local work happens in the workspace. Export only when you need
+to share, hand it off to a partner, ingest into LLM Wiki, or archive a
 review checkpoint.
 
 ```bash
-cia case evidence verify 1
-cia case export 1 --target obsidian-llmwiki --mode private
+# Use your configured workspace export flow to produce the handoff package.
+published/<workspace-slug>/
 ```
 
-The export writes Markdown notes, `manifest.chain-insights.json`,
-`graph.chain-insights.json`, `Graph.canvas`, LLM Wiki entrypoints, and prompts
-for Codex, Claude Code, and ChatGPT under `published/<case-slug>/`.
-
-Private exports may include full addresses. Use `--mode partner` for controlled
-handoff after review. Use `--mode public` only for shareable examples; public mode
-aliases addresses and removes secrets by default. Vault workflow guidance lives
-in [Obsidian vault workflow](docs/obsidian-vault.md); export bundle details
-live in [Knowledge exports](docs/knowledge-exports.md).
+Workspace-generated reports, graph JSON, graph HTML, and published bundles live
+under the initialized workspace. Treat those files as the durable handoff
+surface.
 
 ## Examples
 
@@ -206,8 +194,7 @@ Run suspect topology without requiring an incident timestamp:
 cia mcp trace-suspect-funds \
   --network bittensor \
   --suspect-addresses 5... \
-  --max-hops 16 \
-  --case 1
+  --max-hops 16
 ```
 
 ## How It Fits Together
@@ -215,7 +202,7 @@ cia mcp trace-suspect-funds \
 ```text
 Agent or CLI user
   -> Chain Insights CLI / MCP proxy
-  -> local config, wallet, workspace, cases, evidence, reports
+  -> local config, wallet, workspace, artifacts, reports
   -> GraphRAG MCP
   -> graph intelligence for AML workflows
 ```
@@ -246,9 +233,9 @@ schema notes and examples.
 ## AML Tools
 
 The high-level AML tools are Chain Insights workflows built around graph access
-and local case state:
+and local workspace state:
 
-- `address_risk` starts a single-address screen with risk, behavior,
+- `aml_address_risk` starts a single-address screen with risk, behavior,
   neighborhood context, and exchange exposure.
 - `exposure_profile` explains staking exposure and trading exposure
   with venues, instruments, position changes, public support events, and
@@ -258,32 +245,31 @@ and local case state:
   add deterministic exposure analytics over the same generic model. They work
   for Bittensor staking rows now and are shaped for Hyperliquid trading rows as
   soon as the Hyperliquid indexer writes the shared exposure contract.
-- `trace_victim_funds` traces victim/source funds forward through
+- `aml_trace_victim_funds` traces victim/source funds forward through
   intermediaries to exchange deposit candidates.
-- `trace_deposit_sources` traces backward from suspected deposit/cashout
+- `aml_trace_deposit_sources` traces backward from suspected deposit/cashout
   addresses to upstream sources and shared-source convergence.
-- `trace_suspect_funds` traces suspected scammer, mule, operator, or
+- `aml_trace_suspect_funds` traces suspected scammer, mule, operator, or
   laundering-ring funds forward to cashout topology.
 
 The three trace tools share `chain-insights.trace.v1` and return compact,
 chainable results. Full graph/table/report artifacts remain on disk under the
-workspace, with pointers in the tool result and case evidence.
+workspace, with pointers in the tool result and workspace evidence.
 
 Trace traversal treats exchange hot wallets as terminal endpoints only. Tools do
 not expand through exchange nodes or classify them as deposit, suspect, or
 intermediate candidates.
 
-When a case is provided, tools can save compact evidence pointers and graph
-reports under the workspace instead of embedding large payloads in case notes.
+When investigation output is large, tools can save compact evidence pointers and
+graph reports under the workspace instead of embedding large payloads in human
+notes.
 
 ## Docs Map
 
 | Doc | Use it for |
 | --- | --- |
 | [Graph tools](docs/graph-tools.md) | GraphRAG MCP layers, `graph_query`, `graph_query_batch`, AML tool contracts, graph reports, evidence pointers |
-| [Obsidian vault workflow](docs/obsidian-vault.md) | Create an investigation vault, open Obsidian, refresh live notes, and use VS Code, Codex, Claude Code, and LLM Wiki overlays |
-| [Investigation workspaces](docs/investigation-workspaces.md) | `cia init`, Obsidian-compatible vault layout, live note refresh, evidence, dossiers, imports, templates, sessions, reports |
-| [Knowledge exports](docs/knowledge-exports.md) | Portable and redacted bundles for sharing, partner handoff, LLM Wiki ingestion, and archive |
+| [Investigation workspaces](docs/investigation-workspaces.md) | `cia init`, workspace layout, artifacts, imports, templates, sessions, reports, and visualization outputs |
 | [MCP proxy](docs/mcp-proxy.md) | Stdio proxy behavior, endpoint configuration, agent installers, local tools, auth modes, Inspector validation |
 | [Architecture](docs/architecture.md) | Product layers, data flow, local storage, security model, config keys |
 | [Development](docs/development.md) | Build, test, and local install commands |

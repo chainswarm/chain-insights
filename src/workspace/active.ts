@@ -5,13 +5,15 @@ import path from 'node:path'
 interface WorkspaceConfig {
   schema?: string
   workspace_root?: string
-  cases_dir?: string
+  artifacts_dir?: string
+  domain_hints?: unknown
 }
 
 export interface ActiveWorkspace {
   root: string
   metadataDir: string
-  casesRoot: string
+  artifactsRoot: string
+  domainHints: string[]
 }
 
 function workspaceFromRoot(rootCandidate: string): ActiveWorkspace | null {
@@ -24,11 +26,15 @@ function workspaceFromRoot(rootCandidate: string): ActiveWorkspace | null {
   if (parsed.schema !== 'chain-insights.workspace.v1') return null
 
   const workspaceRoot = path.resolve(parsed.workspace_root ?? root)
-  const casesDir = parsed.cases_dir ?? 'cases'
+  const artifactsDir = parsed.artifacts_dir ?? 'artifacts'
+  const domainHints = Array.isArray(parsed.domain_hints)
+    ? parsed.domain_hints.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    : []
   return {
     root: workspaceRoot,
     metadataDir: path.join(workspaceRoot, '.chain-insights'),
-    casesRoot: path.resolve(workspaceRoot, casesDir),
+    artifactsRoot: path.resolve(workspaceRoot, artifactsDir),
+    domainHints,
   }
 }
 
@@ -54,8 +60,8 @@ export function activeMetadataDir(): string {
   return findActiveWorkspace()?.metadataDir ?? path.join(os.homedir(), '.chain-insights')
 }
 
-export function activeCasesRoot(): string {
-  return findActiveWorkspace()?.casesRoot ?? path.join(os.homedir(), '.chain-insights', 'cases')
+export function activeArtifactsRoot(): string {
+  return findActiveWorkspace()?.artifactsRoot ?? path.join(os.homedir(), '.chain-insights', 'artifacts')
 }
 
 export function activeDataDir(fallbackDataDir?: string): string {

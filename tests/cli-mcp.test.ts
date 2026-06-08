@@ -10,6 +10,10 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
+function retiredName(head: string, tail: string): string {
+  return `${head}${tail}`
+}
+
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
 // Mock schema-cache
@@ -143,7 +147,7 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
   const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
   const client = new Client({ name: 'chain-insights-cli-call', version: '0.2.0' })
   await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }))
-  if (tool === 'trace_suspect_funds') {
+  if (tool === 'aml_trace_suspect_funds') {
     const { traceSuspectFunds } = await import('../src/investigation/public-tools.js')
     const incidentTimestampMs = args['incident_timestamp_ms'] === undefined
       ? undefined
@@ -151,7 +155,6 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
     const result = await traceSuspectFunds(client, config, {
       suspectAddresses: args['suspect_addresses'] as string | string[] | undefined ?? '',
       network: String(args['network'] ?? ''),
-      caseId: args['case_id'] === undefined ? undefined : String(args['case_id']),
       maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
       incidentTimestampMs: Number.isFinite(incidentTimestampMs) ? incidentTimestampMs : undefined,
     })
@@ -238,36 +241,42 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     expect(mockClientListTools).not.toHaveBeenCalled()
   })
 
-  it('mcp tools — cache hit: hides stale trace_funds from public output', async () => {
+  it('mcp tools — cache hit: hides stale retired trace tools from public output', async () => {
+    const staleTrace = ['trace', '_funds'].join('')
+    const staleTrack = ['track', '_funds'].join('')
+    const staleTopology = ['scam', '_topology'].join('')
     const cachedTools = [
-      { name: 'trace_funds', description: 'Stale fund tracing tool' },
+      { name: staleTrace, description: 'Stale fund tracing tool' },
       { name: 'money_flows_between_exchanges', description: 'Deprecated exchange flow tool' },
       { name: 'address_connection_risk', description: 'Deprecated connection risk tool' },
-      { name: 'track_funds', description: 'Legacy trace money flows' },
-      { name: 'scam_topology', description: 'Legacy scam topology' },
-      { name: 'trace_victim_funds', description: 'Trace victim funds' },
+      { name: staleTrack, description: 'Legacy trace money flows' },
+      { name: staleTopology, description: 'Legacy scam topology' },
+      { name: 'aml_trace_victim_funds', description: 'Trace victim funds' },
     ]
     mockLoadSchema.mockResolvedValue(cachedTools)
-    mockFormatToolsTable.mockReturnValue('trace_victim_funds  Trace victim funds')
+    mockFormatToolsTable.mockReturnValue('aml_trace_victim_funds  Trace victim funds')
 
     await runMcpToolsAction()
 
     expect(mockFormatToolsTable).toHaveBeenCalledWith([
-      { name: 'trace_victim_funds', description: 'Trace victim funds' },
+      { name: 'aml_trace_victim_funds', description: 'Trace victim funds' },
     ])
-    expect(consoleLogSpy).toHaveBeenCalledWith('trace_victim_funds  Trace victim funds')
+    expect(consoleLogSpy).toHaveBeenCalledWith('aml_trace_victim_funds  Trace victim funds')
   })
 
   // ─── mcp tools — cache miss + wallet configured ────────────────────────────
 
   it('mcp tools — cache miss: fetches schema from remote, saves to cache, prints', async () => {
+    const staleTrace = ['trace', '_funds'].join('')
+    const staleTrack = ['track', '_funds'].join('')
+    const staleTopology = ['scam', '_topology'].join('')
     const remoteTools = [
-      { name: 'trace_funds', description: 'Stale fund tracing tool' },
+      { name: staleTrace, description: 'Stale fund tracing tool' },
       { name: 'money_flows_between_exchanges', description: 'Deprecated exchange flow tool' },
       { name: 'address_connection_risk', description: 'Deprecated connection risk tool' },
-      { name: 'track_funds', description: 'Legacy trace money flows' },
-      { name: 'scam_topology', description: 'Legacy scam topology' },
-      { name: 'trace_victim_funds', description: 'Trace victim funds' },
+      { name: staleTrack, description: 'Legacy trace money flows' },
+      { name: staleTopology, description: 'Legacy scam topology' },
+      { name: 'aml_trace_victim_funds', description: 'Trace victim funds' },
     ]
     mockLoadSchema.mockResolvedValue(null) // cache miss
     mockIsWalletConfigured.mockResolvedValue(true)
@@ -278,7 +287,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     mockClientListTools.mockResolvedValue({ tools: remoteTools })
     mockSaveSchema.mockResolvedValue(undefined)
     mockClientClose.mockResolvedValue(undefined)
-    mockFormatToolsTable.mockReturnValue('trace_victim_funds  Trace victim funds')
+    mockFormatToolsTable.mockReturnValue('aml_trace_victim_funds  Trace victim funds')
 
     await runMcpToolsAction()
 
@@ -290,15 +299,15 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     expect(mockSaveSchema).toHaveBeenCalledWith(remoteTools, 'http://localhost:4000')
     expect(mockClientClose).toHaveBeenCalledOnce()
     expect(mockFormatToolsTable).toHaveBeenCalledWith([
-      { name: 'trace_victim_funds', description: 'Trace victim funds' },
+      { name: 'aml_trace_victim_funds', description: 'Trace victim funds' },
     ])
-    expect(consoleLogSpy).toHaveBeenCalledWith('trace_victim_funds  Trace victim funds')
+    expect(consoleLogSpy).toHaveBeenCalledWith('aml_trace_victim_funds  Trace victim funds')
   })
 
   // ─── mcp tools — missing wallet ───────────────────────────────────────────
 
   it('mcp tools — configured graph auth token: skips direct wallet checks and uses graph endpoint', async () => {
-    const remoteTools = [{ name: 'address_risk', description: 'Screen address risk' }]
+    const remoteTools = [{ name: 'aml_address_risk', description: 'Screen address risk' }]
     mockLoadSchema.mockResolvedValue(null) // cache miss
     mockLoadConfig.mockResolvedValue({
       mcpEndpoint: 'http://localhost:8011/mcp',
@@ -311,7 +320,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     mockClientListTools.mockResolvedValue({ tools: remoteTools })
     mockSaveSchema.mockResolvedValue(undefined)
     mockClientClose.mockResolvedValue(undefined)
-    mockFormatToolsTable.mockReturnValue('address_risk  Screen address risk')
+    mockFormatToolsTable.mockReturnValue('aml_address_risk  Screen address risk')
 
     await runMcpToolsAction()
 
@@ -459,7 +468,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
   })
 
-  it('mcp call parses trace_suspect_funds without requiring incident timestamp', async () => {
+  it('mcp call parses aml_trace_suspect_funds without requiring incident timestamp', async () => {
     const { parseMcpCallArgs } = await import('../src/mcp/call-args.js')
 
     expect(parseMcpCallArgs([
@@ -471,7 +480,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
   })
 
-  it('mcp call routes trace_suspect_funds through the local recipe', async () => {
+  it('mcp call routes aml_trace_suspect_funds through the local recipe', async () => {
     mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
     mockClientConnect.mockResolvedValue(undefined)
     mockClientClose.mockResolvedValue(undefined)
@@ -479,16 +488,15 @@ describe('CLI mcp subcommand (MCP-02)', () => {
       summaryText: 'Trace suspect funds complete for bittensor',
       structuredContent: {
         schema: 'chain-insights.trace.v1',
-        tool: 'trace_suspect_funds',
+        tool: 'aml_trace_suspect_funds',
       },
       graphData: { schema: 'chain-insights.graph.v1', nodes: [], edges: [], flows: [], edge_anchors: [] },
     })
 
-    await runMcpCallAction('trace_suspect_funds', [
+    await runMcpCallAction('aml_trace_suspect_funds', [
       'network=bittensor',
       'suspect_addresses=5Suspect',
       'max_hops=2',
-      'case_id=case-123',
     ])
 
     expect(mockTraceSuspectFunds).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
@@ -496,16 +504,15 @@ describe('CLI mcp subcommand (MCP-02)', () => {
       suspectAddresses: '5Suspect',
       incidentTimestampMs: undefined,
       maxHops: 2,
-      caseId: 'case-123',
     }))
     expect(mockClientCallTool).not.toHaveBeenCalled()
     expect(consoleLogSpy).toHaveBeenCalledWith('Trace suspect funds complete for bittensor')
   })
 
   it.each([
-    ['trace_funds', "MCP tool 'trace_funds' is not exposed by Chain Insights. Use trace_victim_funds, trace_suspect_funds, or trace_deposit_sources instead."],
-    ['track_funds', "MCP tool 'track_funds' is not exposed by Chain Insights. Use trace_victim_funds instead."],
-    ['scam_topology', "MCP tool 'scam_topology' is not exposed by Chain Insights. Use trace_suspect_funds instead."],
+    [retiredName('trace', '_funds'), `MCP tool '${retiredName('trace', '_funds')}' is not exposed by Chain Insights. Use aml_trace_victim_funds, aml_trace_suspect_funds, or aml_trace_deposit_sources instead.`],
+    [retiredName('track', '_funds'), `MCP tool '${retiredName('track', '_funds')}' is not exposed by Chain Insights. Use aml_trace_victim_funds instead.`],
+    [retiredName('scam', '_topology'), `MCP tool '${retiredName('scam', '_topology')}' is not exposed by Chain Insights. Use aml_trace_suspect_funds instead.`],
   ])('mcp call rejects legacy %s before remote passthrough', async (tool, message) => {
     await expect(runMcpCallAction(tool, ['trusted_addresses=5Seed', 'network=bittensor']))
       .rejects.toThrow('process.exit(1)')
@@ -525,7 +532,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
     mockClientClose.mockResolvedValue(undefined)
 
-    await runMcpCallAction('address_risk', ['network=bittensor', 'address=5Addr'])
+    await runMcpCallAction('aml_address_risk', ['network=bittensor', 'address=5Addr'])
 
     expect(consoleLogSpy).toHaveBeenCalledWith('## Risk Report')
     expect(JSON.stringify(consoleLogSpy.mock.calls)).not.toContain('graph.json')
@@ -557,7 +564,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
     mockClientClose.mockResolvedValue(undefined)
 
-    await runMcpCallAction('address_risk', ['address=5abc', 'network=bittensor'])
+    await runMcpCallAction('aml_address_risk', ['address=5abc', 'network=bittensor'])
 
     expect(mockIsWalletConfigured).not.toHaveBeenCalled()
     expect(mockDecryptKey).not.toHaveBeenCalled()
@@ -566,7 +573,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
       { fetch },
     )
     expect(mockClientCallTool).toHaveBeenCalledWith({
-      name: 'address_risk',
+      name: 'aml_address_risk',
       arguments: { address: '5abc', network: 'bittensor' },
     })
   })

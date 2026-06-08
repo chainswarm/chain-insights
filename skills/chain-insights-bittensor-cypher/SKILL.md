@@ -1,6 +1,6 @@
 ---
 name: chain-insights-bittensor-cypher
-description: Use when writing Chain Insights graph_query or graph_query_batch reads for network=bittensor, Bittensor SS58 and EVM-pallet addresses, TAO FLOWS_TO, STAKES_IN, hotkey/coldkey/neuron facts, or Bittensor-specific schema checks.
+description: Use when writing Chain Insights graph_query or graph_query_batch reads for network=bittensor, Bittensor SS58 and EVM-pallet addresses, TAO FLOWS_TO, hotkey/coldkey/neuron facts, or Bittensor-specific schema checks.
 ---
 
 # Chain Insights Bittensor Cypher
@@ -29,15 +29,10 @@ Observed against staging on 2026-05-29:
 - `live_topology` accepted `Address` and `FLOWS_TO` projection queries. Sample
   `Address` rows included `address`, `network`, and `address_type`; `labels`,
   `is_exchange`, degree, and tx-count fields were sparse in the sample.
-- `live_topology` accepted `STAKES_IN` count/projection shape but returned zero
-  rows in the staging sample.
 - `archive_topology` accepted `Address` to `FLOWS_TO` historical queries and
   returned SS58 addresses with `edge_id`, `period_granularity`, amount fields,
   tx count, and first/last timestamps.
 - `archive_topology` exposed `TopologySnapshot` in the staging sample.
-- Source mappings include archive `STAKES_IN` and facts labels/features/neuron
-  context, but staging returned generic backend errors for those sample reads;
-  verify them with a fresh schema probe before relying on them.
 - On 2026-05-29, staging accepted practical Memgraph-style reads such as
   `WHERE STARTS WITH`, `WITH` aggregations, `CASE`, address-family counts, and
   fixed-hop `FLOWS_TO` patterns. It rejected native Memgraph deep traversal
@@ -81,21 +76,6 @@ RETURN src.address AS from_address,
 LIMIT 25
 ```
 
-Stake topology, when the endpoint proves it:
-
-```cypher
-USE live_topology
-MATCH (coldkey:Address)-[stake:STAKES_IN]->(hotkey:Address)
-RETURN coldkey.address AS coldkey,
-       hotkey.address AS hotkey,
-       stake.netuid AS netuid,
-       stake.amount AS amount,
-       stake.source_role AS source_role,
-       stake.destination_role AS destination_role,
-       stake.source_backend AS source_backend
-LIMIT 25
-```
-
 Facts, when the endpoint proves the mapping:
 
 ```cypher
@@ -115,7 +95,7 @@ Use this before a custom Bittensor query session:
 cia mcp call graph_query_batch \
   network=bittensor \
   per_query_timeout_seconds=5 \
-  'queries=[{"id":"live_address_projection","query":"USE live_topology MATCH (n:Address) RETURN n.address AS address, n.labels AS labels, n.is_exchange AS is_exchange, n.address_type AS address_type, n.network AS network LIMIT 10"},{"id":"live_flow_sample","query":"USE live_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_sum AS amount_sum, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"live_stake_count","query":"USE live_topology MATCH (:Address)-[stake:STAKES_IN]->(:Address) RETURN count(stake) AS stake_edges LIMIT 1"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.edge_id AS edge_id, flow.period_granularity AS period_granularity, flow.amount_sum AS amount_sum, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"archive_snapshot","query":"USE archive_topology MATCH (s:TopologySnapshot) RETURN s.graph_name AS graph_name, s.default_period_granularity AS default_period_granularity, s.available_granularities AS available_granularities LIMIT 5"},{"id":"facts_address_sample","query":"USE facts MATCH (a:Address) RETURN a.address AS address, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 10"}]'
+  'queries=[{"id":"live_address_projection","query":"USE live_topology MATCH (n:Address) RETURN n.address AS address, n.labels AS labels, n.is_exchange AS is_exchange, n.address_type AS address_type, n.network AS network LIMIT 10"},{"id":"live_flow_sample","query":"USE live_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_sum AS amount_sum, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.edge_id AS edge_id, flow.period_granularity AS period_granularity, flow.amount_sum AS amount_sum, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"archive_snapshot","query":"USE archive_topology MATCH (s:TopologySnapshot) RETURN s.graph_name AS graph_name, s.default_period_granularity AS default_period_granularity, s.available_granularities AS available_granularities LIMIT 5"},{"id":"facts_address_sample","query":"USE facts MATCH (a:Address) RETURN a.address AS address, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 10"}]'
 ```
 
 Avoid `keys()`, `labels()`, `type()`, native BFS syntax, and variable-length

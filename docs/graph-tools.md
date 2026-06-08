@@ -3,10 +3,9 @@
 This document covers the graph-facing tools and the result contracts that
 agents should rely on during investigations.
 
-Chain Insights workspaces are Obsidian-compatible vaults. Graph tools write
-case evidence and report pointers into the workspace; use live vault refresh for
-local review and exports only for sharing, partner handoff, LLM Wiki ingestion,
-or archive.
+Chain Insights workspaces are plain local folders. Graph tools write workspace
+evidence and report pointers into the workspace; use live workspace files for
+local review and `published/` only for rendered HTML or handoff-ready outputs.
 
 ## Graph MCP Surface
 
@@ -18,10 +17,10 @@ The GraphRAG MCP public graph surface is intentionally small:
 | `graph_query` | Run one read-only GQL/Cypher query through the universal graph endpoint |
 | `graph_query_batch` | Run related read-only graph-language queries as one MCP call |
 
-Chain Insights tools such as `address_risk`, `exposure_profile`,
+Chain Insights tools such as `aml_address_risk`, `exposure_profile`,
 `exposure_quality`, `exposure_carry`, `exposure_crowding`,
 `exposure_exit_pressure`, `exposure_correlation`, `exposure_explain`,
-`trace_victim_funds`, `trace_deposit_sources`, and `trace_suspect_funds` are
+`aml_trace_victim_funds`, `aml_trace_deposit_sources`, and `aml_trace_suspect_funds` are
 recipes built over `graph_query_batch`. They are not assumed to exist on the
 GraphRAG MCP endpoint.
 
@@ -102,7 +101,7 @@ Batch result facts include:
 
 ## Address Risk
 
-`address_risk` screens one address for AML risk, behavior patterns,
+`aml_address_risk` screens one address for AML risk, behavior patterns,
 neighborhood context, and exchange exposure. Use it as the first tool for a
 single-address investigation.
 
@@ -118,7 +117,7 @@ Optional input:
 
 The tool can emit graph report metadata when attachments are requested. Store
 large graph payloads under workspace reports and save compact evidence pointers
-to cases.
+to workspace artifacts.
 
 ## Trace Tools
 
@@ -131,7 +130,7 @@ exchange hot wallets are terminal endpoints only. Trace workflows do not expand
 from, through, or classify exchange nodes as deposit, suspect, or intermediate
 candidates; every non-terminal traversal node must be non-exchange.
 
-### `trace_victim_funds`
+### `aml_trace_victim_funds`
 
 Use when the input addresses are victims or trusted stolen-source addresses.
 The tool traces forward over `FLOWS_TO` to exchange deposit candidates.
@@ -148,12 +147,11 @@ Optional input:
 - `max_hops`
 - `min_amount_sum`
 - `per_address_limit`
-- `case_id`
 - `include_attachments`
 
-Victim/source addresses are case roles, not risky labels. This tool does not
+Victim/source addresses are role labels for workflow intent, not risky labels. This tool does not
 trace backward from deposits; pass returned
-`continuation.candidate_deposit_addresses` to `trace_deposit_sources`.
+`continuation.candidate_deposit_addresses` to `aml_trace_deposit_sources`.
 Deposit candidates are the penultimate non-exchange nodes before exchange
 endpoints, not exchange hot wallets themselves.
 
@@ -162,11 +160,10 @@ CLI example:
 ```bash
 cia mcp trace-victim-funds \
   --network bittensor \
-  --victim-addresses 5... \
-  --case 1
+  --victim-addresses 5...
 ```
 
-### `trace_deposit_sources`
+### `aml_trace_deposit_sources`
 
 Use when the input addresses are suspected deposit/cashout endpoints. The tool
 traces backward over `FLOWS_TO` to upstream sources and reports shared-source
@@ -180,12 +177,11 @@ Required input:
 Optional input:
 
 - `max_hops`
-- `case_id`
 - `include_attachments`
 
 Deposit seeds are not scammers by default. Candidate suspect and victim roles
 are hypotheses requiring review. If the supplied seed is already a known
-exchange hot wallet, use `address_risk` or a narrow manual exchange-exposure
+exchange hot wallet, use `aml_address_risk` or a narrow manual exchange-exposure
 query instead of treating it as a deposit-source seed.
 
 CLI example:
@@ -193,11 +189,10 @@ CLI example:
 ```bash
 cia mcp trace-deposit-sources \
   --network bittensor \
-  --deposit-addresses 5... \
-  --case 1
+  --deposit-addresses 5...
 ```
 
-### `trace_suspect_funds`
+### `aml_trace_suspect_funds`
 
 Use when the input addresses are suspected scammer, mule, operator, or
 laundering-ring addresses. The tool traces suspect-controlled funds forward to
@@ -214,7 +209,6 @@ Optional input:
 - `max_hops`
 - `min_amount_sum`
 - `per_address_limit`
-- `case_id`
 - `include_attachments`
 
 CLI example:
@@ -223,8 +217,7 @@ CLI example:
 cia mcp trace-suspect-funds \
   --network bittensor \
   --suspect-addresses 5... \
-  --max-hops 16 \
-  --case 1
+  --max-hops 16
 ```
 
 ## Exposure Profile
@@ -328,7 +321,7 @@ shape:
 ```json
 {
   "schema": "chain-insights.trace.v1",
-  "tool": "trace_victim_funds",
+  "tool": "aml_trace_victim_funds",
   "network": "bittensor",
   "input": { "addresses": ["5..."], "seed_role": "victim", "max_hops": 3 },
   "summary": { "seed_count": 1, "path_count": 0, "edge_count": 0 },
@@ -362,7 +355,7 @@ Trace graph reports emit primary flow edges in `flows`, exchange deposit
 candidates in `deposits`, and reverse/source enrichment only when the selected
 tool actually performs traceback.
 
-When `case_id` or CLI `--case` is provided, trace tools store
+Trace tools store
 `chain-insights.evidence_pointer.v1` evidence entries.
 The pointer references workspace-local compact evidence JSON, graph JSON, graph
 HTML, CSV or table files, and Markdown reports.
@@ -370,21 +363,15 @@ HTML, CSV or table files, and Markdown reports.
 Evidence Markdown should be a provenance record with key facts and pointers.
 Large JSON belongs under workspace report directories, not inline in evidence.
 
-After a case has useful evidence, run
-`cia case vault refresh <case-id> --force` for live Obsidian-compatible notes in
-the workspace. When you need to share, hand off to a partner, ingest into LLM
-Wiki, or archive a checkpoint, run `cia case evidence verify <case-id>` and
-`cia case export <case-id> --target obsidian-llmwiki --mode private`. The export
-uses `manifest.chain-insights.json`, `graph.chain-insights.json`,
-`Graph.canvas`, Markdown evidence/entity notes, and agent prompt files as views
-over the canonical case evidence and report artifacts. Vault workflow guidance
-lives in [Obsidian vault workflow](obsidian-vault.md); export and ingestion
-steps live in [Knowledge exports](knowledge-exports.md).
+After evidence is collected, keep workspace notes and `published/` artifacts in
+sync for a handoff. Use workspace-generated graph JSON, graph HTML, table
+extracts, and Markdown reports as the review surface over canonical workspace
+artifacts.
 
 ## Runtime Schema Capture
 
 Fresh workspaces include a runtime schema skill and schema capture directory.
-Before the first case query against a network, capture the live graph schema and
+Before the first graph query against a network, capture the live graph schema and
 use the observed labels, relationship types, and property names in subsequent
 queries. Different networks can expose different fact nodes and relationship
 properties, so do not assume a query that works on Bittensor will work on Base,

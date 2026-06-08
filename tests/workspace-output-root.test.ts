@@ -29,7 +29,6 @@ describe('workspace output root', () => {
       JSON.stringify({
         schema: 'chain-insights.workspace.v1',
         workspace_root: root,
-        cases_dir: 'cases',
       }) + '\n',
     )
   }
@@ -75,7 +74,10 @@ describe('workspace output root', () => {
       metadataDir: join(root, '.chain-insights'),
       schemaDir: join(root, '.chain-insights', 'schema'),
       runtimeDir: join(root, '.chain-insights', 'runtime'),
-      casesRoot: join(root, 'cases'),
+      artifactsRoot: join(root, 'artifacts'),
+      entitiesRoot: join(root, 'entities'),
+      sessionsRoot: join(root, 'sessions'),
+      publishedRoot: join(root, 'published'),
       reportsRoot: join(root, 'reports'),
       reportGraphsRoot: join(root, 'reports', 'graphs'),
       reportTablesRoot: join(root, 'reports', 'tables'),

@@ -1,6 +1,6 @@
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
-import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
+import { writeExposureArtifacts } from './exposure-report.js'
 
 type RemoteToolResult = {
   content?: ContentBlock[]
@@ -30,6 +30,7 @@ export interface ExposureProfileOptions {
   account?: string
   owner?: string
   counterparty?: string
+  writeArtifacts?: boolean
   venue?: string
   instrument?: string
   instrumentType?: string
@@ -59,7 +60,6 @@ export interface ExposureProfileResult {
     exposures: PublicExposure[]
     caveats: string[]
   }
-  graphData: Record<string, unknown>
 }
 
 type ValidatedOptions = {
@@ -68,6 +68,7 @@ type ValidatedOptions = {
     role: ExposureSubjectRole
     account: string
   }
+  writeArtifacts?: boolean
   venue?: string
   instrument?: string
   instrumentType?: string
@@ -256,6 +257,7 @@ function validateOptions(options: ExposureProfileOptions): ValidatedOptions {
   return {
     network,
     subject: resolveSubject(options),
+    writeArtifacts: options.writeArtifacts,
     venue: stringValue(options.venue),
     instrument: stringValue(options.instrument),
     instrumentType: stringValue(options.instrumentType),
@@ -517,39 +519,6 @@ function netDirection(exposures: PublicExposure[]): ExposureDirection {
   return 'mixed'
 }
 
-function graphData(exposures: PublicExposure[], subject: { network: string; account: string; role: ExposureSubjectRole }): Record<string, unknown> {
-  const nodes = new Map<string, Record<string, unknown>>()
-  const edges: Array<Record<string, unknown>> = []
-  nodes.set(subject.account, { id: subject.account, address: subject.account, node_type: 'account', roles: [subject.role] })
-
-  exposures.forEach((exposure, index) => {
-    const exposureId = `exposure:${index}:${exposure.instrument.id}`
-    nodes.set(exposureId, { id: exposureId, node_type: 'exposure', venue: exposure.venue, side: exposure.position.side })
-    nodes.set(exposure.instrument.id, {
-      id: exposure.instrument.id,
-      node_type: 'instrument',
-      display_name: exposure.instrument.display_name,
-      instrument_type: exposure.instrument.type,
-    })
-    edges.push({ source: subject.account, target: exposureId, edge_type: 'exposure', venue: exposure.venue })
-    edges.push({ source: exposureId, target: exposure.instrument.id, edge_type: 'instrument', venue: exposure.venue })
-  })
-
-  return normalizeGraphPayload({
-    schema: 'chain-insights.graph.v1',
-    nodes: [...nodes.values()],
-    edges,
-    flows: [],
-    edge_anchors: [],
-    metadata: {
-      network: subject.network,
-      subject_address: subject.account,
-      subject_role: subject.role,
-      generated_at: new Date().toISOString(),
-    },
-  })
-}
-
 function summaryLines(network: string, subject: { account: string; role: ExposureSubjectRole }, exposures: PublicExposure[], caveats: string[]): string {
   const lines = [
     `Exposure profile for ${network}:${subject.account}`,
@@ -565,6 +534,17 @@ function summaryLines(network: string, subject: { account: string; role: Exposur
     for (const caveat of caveats) lines.push(`- ${caveat}`)
   }
   return lines.join('\n')
+}
+
+async function maybeWriteArtifacts(options: ValidatedOptions, result: ExposureProfileResult): Promise<void> {
+  if (options.writeArtifacts !== true) return
+  await writeExposureArtifacts({
+    toolName: 'exposure_profile',
+    network: options.network,
+    subject: options.subject.account,
+    summaryText: result.summaryText,
+    structuredContent: result.structuredContent,
+  })
 }
 
 export async function exposureProfile(
@@ -601,15 +581,12 @@ export async function exposureProfile(
     caveats,
   }
 
-  return {
+  const result: ExposureProfileResult = {
     summaryText: summaryLines(validated.network, validated.subject, exposures, caveats),
     structuredContent,
-    graphData: graphData(exposures, {
-      network: validated.network,
-      account: validated.subject.account,
-      role: validated.subject.role,
-    }),
   }
+  if (options.writeArtifacts) await maybeWriteArtifacts(validated, result)
+  return result
 }
 
 export const exposureProfileInternalFieldNames = INTERNAL_FIELD_NAMES

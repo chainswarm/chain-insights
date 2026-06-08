@@ -1,5 +1,12 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { writeExposureArtifacts } from '../src/investigation/exposure-report.js'
 import { exposureProfile } from '../src/investigation/public-tools.js'
+
+vi.mock('../src/investigation/exposure-report.js', () => ({
+  writeExposureArtifacts: vi.fn(),
+}))
+
+const mockWriteExposureArtifacts = vi.mocked(writeExposureArtifacts)
 
 function graphBatchResult(queries: Array<Record<string, unknown>>): {
   content: Array<{ type: 'text'; text: string }>
@@ -37,6 +44,10 @@ function expectNoInternalExposureFields(value: unknown): void {
 }
 
 describe('exposureProfile', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('maps Bittensor alpha staking exposure into the generic public response without internals', async () => {
     const callTool = vi.fn().mockResolvedValue(graphBatchResult([
       {
@@ -112,6 +123,8 @@ describe('exposureProfile', () => {
       first_activity_timestamp: 1769126400000,
       last_activity_timestamp: 1769126500000,
     })
+    expect(Object.prototype.hasOwnProperty.call(result.structuredContent, 'graph')).toBe(false)
+    expect(Object.prototype.hasOwnProperty.call(result.structuredContent, 'graph_data')).toBe(false)
     expect(result.structuredContent.exposures).toEqual([
       expect.objectContaining({
         venue: 'Bittensor',
@@ -314,5 +327,67 @@ describe('exposureProfile', () => {
         amount: '1',
       },
     ])
+  })
+
+  it('writes artifacts when writeArtifacts=true', async () => {
+    const callTool = vi.fn().mockResolvedValue(graphBatchResult([
+      {
+        id: 'live_exposures',
+        ok: true,
+        results: [{
+          account_address: '0xTrader',
+          owner_address: '0xTrader',
+          counterparty_address: '',
+          venue: 'Hyperliquid',
+          instrument_id: 'hyperliquid:perp:BTC',
+          instrument_display_id: 'BTC-PERP',
+          instrument_type: 'perp',
+          side: 'long',
+          quantity: '0.42',
+          quantity_unit: 'BTC',
+          notional: '42000',
+          quote_unit: 'USDC',
+          pricing_status: 'priced',
+          opened: '0.50',
+          closed: '0.08',
+          increased: '0.50',
+          reduced: '0.08',
+          net_change: '0.42',
+          carry_received: '3',
+          carry_paid: '12',
+          liquidation_distance: '18.5',
+          exit_pressure: 'medium',
+          event_count: 64,
+          first_activity_timestamp: 1769126400000,
+          last_activity_timestamp: 1769126500000,
+          support_events: JSON.stringify([
+            {
+              event_time: 1769126500000,
+              order_id: 'order-1',
+              trade_id: 'trade-1',
+              fill_id: 'fill-1',
+              action: 'fill',
+              amount: '0.42',
+              price: '100000',
+            },
+          ]),
+        }],
+      },
+    ]))
+
+    const result = await exposureProfile({ callTool } as never, {
+      network: 'hyperliquid',
+      account: '0xTrader',
+      writeArtifacts: true,
+    })
+
+    expect(mockWriteExposureArtifacts).toHaveBeenCalledTimes(1)
+    expect(mockWriteExposureArtifacts).toHaveBeenCalledWith({
+      toolName: 'exposure_profile',
+      network: 'hyperliquid',
+      subject: '0xTrader',
+      summaryText: result.summaryText,
+      structuredContent: result.structuredContent,
+    })
   })
 })

@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs'
 import { writeFile, mkdir } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import os from 'node:os'
 import type { GraphData } from './graph-model.js'
+import { workspaceOutputPaths } from '../workspace/output-root.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const templatePath = path.resolve(__dirname, 'templates', 'graph.html')
@@ -88,13 +88,10 @@ function sanitizePathSegment(segment: string): string {
   return segment
 }
 
-export async function writeVizHtml(vizId: string, html: string, caseId?: string): Promise<string> {
-  let vizDir: string
-  if (caseId) {
-    vizDir = path.join(os.homedir(), '.chain-insights', 'cases', sanitizePathSegment(caseId), 'viz')
-  } else {
-    vizDir = path.join(os.homedir(), '.chain-insights', 'viz')
-  }
+export async function writeVizHtml(vizId: string, html: string): Promise<string> {
+  const paths = workspaceOutputPaths()
+  const vizDir = path.join(paths.publishedRoot, 'viz')
+  sanitizePathSegment(vizId)
   await mkdir(vizDir, { recursive: true })
   const filePath = path.join(vizDir, `${vizId}.html`)
   await writeFile(filePath, html, { mode: 0o600 })
