@@ -22,6 +22,12 @@ All notable changes to Chain Insights are recorded here.
 - Reframed the shipped docs, skills, and tests around workspace-only
   artifacts, reports, and graph outputs.
 
+## [0.3.15] - 2026-06-08
+
+- Reordered the README tool table so `aml_` tools come first, `exposure_`
+  tools follow, `graph_query` sits below the investigative tools, and
+  `usage_status` remains the final metadata tool.
+
 ## [0.3.12] - 2026-06-07
 
 - Added the public `exposure_profile` MCP tool and `cia mcp exposure-profile`
