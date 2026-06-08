@@ -19,7 +19,7 @@ concurrency:
 jobs:
   scorecard:
     name: OpenSSF Scorecard
-    runs-on: ubuntu-latest
+    runs-on: chainswarm-runner
     timeout-minutes: 20
     permissions:
       actions: read

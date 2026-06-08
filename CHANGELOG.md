@@ -22,6 +22,12 @@ All notable changes to Chain Insights are recorded here.
 - Reframed the shipped docs, skills, and tests around workspace-only
   artifacts, reports, and graph outputs.
 
+## [0.3.16] - 2026-06-08
+
+- Reordered the README tool table so `graph_query_batch` appears above
+  `graph_query`, keeping generic graph query at the bottom of the non-metadata
+  tools and `usage_status` last.
+
 ## [0.3.12] - 2026-06-07
 
 - Added the public `exposure_profile` MCP tool and `cia mcp exposure-profile`
