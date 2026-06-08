@@ -60,7 +60,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@x402/evm": "^2.12.0",
     "@x402/fetch": "^2.12.0",
-    "commander": "^14.0.3",
+    "commander": "^15.0.0",
     "hono": "^4.12.18",
     "open": "^11.0.0",
     "viem": "^2.49.3",
