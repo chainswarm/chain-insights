@@ -69,7 +69,7 @@ function clampInt$2(value, fallback, min, max) {
 	if (!Number.isFinite(value)) return fallback;
 	return Math.max(min, Math.min(max, Math.trunc(value)));
 }
-function escapeCypherString$2(value) {
+function escapeCypherString$3(value) {
 	return value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
 }
 function sanitizeSegment(value) {
@@ -97,11 +97,11 @@ async function ensureDirs(paths) {
 		mode: 448
 	});
 }
-function textFromToolResult$2(result) {
+function textFromToolResult$3(result) {
 	return (result.content ?? []).filter((item) => item.type === "text").map((item) => item.text).join("\n");
 }
-function parseGraphBatchResult$2(result) {
-	const text = textFromToolResult$2(result).trim();
+function parseGraphBatchResult$3(result) {
+	const text = textFromToolResult$3(result).trim();
 	if (!text) throw new Error("graph_query_batch returned no text content");
 	const parsed = JSON.parse(text);
 	if (!parsed.facts?.queries) throw new Error("graph_query_batch response did not include facts.queries");
@@ -112,7 +112,7 @@ function topologyGraphQuery$1(query) {
 	if (/^USE\s+/i.test(trimmed)) return trimmed;
 	return `USE live_topology ${trimmed}`;
 }
-async function callGraphBatch$2(remoteClient, network, queries) {
+async function callGraphBatch$3(remoteClient, network, queries) {
 	const result = await remoteClient.callTool({
 		name: "graph_query_batch",
 		arguments: {
@@ -127,8 +127,8 @@ async function callGraphBatch$2(remoteClient, network, queries) {
 		timeout: GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS$1,
 		maxTotalTimeout: GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS$1
 	});
-	if (result.isError) throw new Error(textFromToolResult$2(result) || "graph_query_batch failed");
-	return parseGraphBatchResult$2(result);
+	if (result.isError) throw new Error(textFromToolResult$3(result) || "graph_query_batch failed");
+	return parseGraphBatchResult$3(result);
 }
 function resultsFor(batch, id) {
 	const query = batch.facts?.queries?.find((entry) => entry.id === id);
@@ -169,7 +169,7 @@ async function loadOrCaptureTopologySchema(remoteClient, paths, network) {
 	} catch (err) {
 		if (err.code !== "ENOENT") throw err;
 	}
-	const schema = schemaFromGraphBatch(network, await callGraphBatch$2(remoteClient, network, SCHEMA_QUERY_SET));
+	const schema = schemaFromGraphBatch(network, await callGraphBatch$3(remoteClient, network, SCHEMA_QUERY_SET));
 	await (0, node_fs_promises.writeFile)(filePath, JSON.stringify(schema, null, 2) + "\n", { mode: 384 });
 	return {
 		schema,
@@ -207,7 +207,7 @@ function forwardExchangeQueryAtDepth(address, limit, minAmountSum, depth) {
 	return {
 		id: `forward_exchange_paths_${depth}`,
 		query: [
-			`MATCH (s:Address {address: "${escapeCypherString$2(address)}"})${relationshipChain}`,
+			`MATCH (s:Address {address: "${escapeCypherString$3(address)}"})${relationshipChain}`,
 			`WHERE ${predicates.join(" AND ")}`,
 			`RETURN [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(", ")}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(", ")}] AS node_labels, [${nodeVariables.map(pathNodeMap$1).join(", ")}] AS path_nodes, [${edgeVariables.map(flowEdgeMap$1).join(", ")}] AS edge_props, t.address AS exchange_address, t.labels AS exchange_display_labels, t.labels AS exchange_labels, t.address_type AS exchange_address_type, t.address_subtypes AS exchange_address_subtypes, t.is_exchange AS exchange_is_exchange, ${depositVariable}.address AS deposit_address, ${depositVariable}.is_exchange AS deposit_is_exchange, ${depth} AS hops`,
 			"ORDER BY hops ASC",
@@ -233,7 +233,7 @@ function backwardSourceQueryAtDepth(id, depositAddress, depth) {
 	return {
 		id,
 		query: [
-			`MATCH (dep:Address {address: "${escapeCypherString$2(depositAddress)}"})`,
+			`MATCH (dep:Address {address: "${escapeCypherString$3(depositAddress)}"})`,
 			`MATCH (dep)${relationshipChain}`,
 			`WHERE source <> dep AND source.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(" AND ")}` : ""}`,
 			`RETURN dep.address AS deposit_address, source.address AS source_exchange, source.labels AS source_display_labels, source.labels AS source_labels, source.address_type AS source_address_type, source.address_subtypes AS source_address_subtypes, ${depth} AS hops, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(", ")}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(", ")}] AS node_labels, [${nodeVariables.map(pathNodeMap$1).join(", ")}] AS path_nodes`,
@@ -246,7 +246,7 @@ function reverseLeadsQuery(depositAddresses) {
 		id: "reverse_1hop",
 		query: [
 			"MATCH (sender:Address)-[r:FLOWS_TO]->(deposit:Address)",
-			`WHERE (${depositAddresses.map((address) => `deposit.address = "${escapeCypherString$2(address)}"`).join(" OR ")}) AND sender.is_exchange IS NULL AND sender.address <> deposit.address`,
+			`WHERE (${depositAddresses.map((address) => `deposit.address = "${escapeCypherString$3(address)}"`).join(" OR ")}) AND sender.is_exchange IS NULL AND sender.address <> deposit.address`,
 			"RETURN DISTINCT sender.address AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.address_subtypes AS address_subtypes, coalesce(sender.lifetime_degree_in, 0) AS degree_in, coalesce(sender.lifetime_degree_out, 0) AS degree_out, coalesce(sender.total_volume_usd, 0) AS total_volume_usd, deposit.address AS deposit_address, r.amount_usd_sum AS amount_usd",
 			"ORDER BY r.amount_usd_sum DESC",
 			`LIMIT ${Math.max(50, depositAddresses.length * 50)}`
@@ -266,13 +266,13 @@ function directEdgePropsQuery(flows) {
 		id: "direct_edge_props",
 		query: [
 			"MATCH (a:Address)-[r:FLOWS_TO]->(b:Address)",
-			`WHERE (${pairs.map((pair) => `(a.address = "${escapeCypherString$2(pair.src)}" AND b.address = "${escapeCypherString$2(pair.dst)}")`).join(" OR ")})`,
+			`WHERE (${pairs.map((pair) => `(a.address = "${escapeCypherString$3(pair.src)}" AND b.address = "${escapeCypherString$3(pair.dst)}")`).join(" OR ")})`,
 			"RETURN a.address AS src, b.address AS dst, r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count, r.first_tx_id AS first_tx_id, r.last_tx_id AS last_tx_id",
 			`LIMIT ${pairs.length}`
 		].join(" ")
 	};
 }
-function numberValue$2(value) {
+function numberValue$3(value) {
 	if (typeof value === "number" && Number.isFinite(value)) return value;
 	if (typeof value === "string" && value.trim()) {
 		const parsed = Number(value);
@@ -293,7 +293,7 @@ function rowTerminalAmount(row) {
 	const edgeProps = Array.isArray(row["edge_props"]) ? row["edge_props"] : [];
 	const terminalEdge = edgeProps[edgeProps.length - 1];
 	if (!terminalEdge) return void 0;
-	return numberValue$2(terminalEdge["amount_sum"]) ?? numberValue$2(terminalEdge["amount_usd_sum"]);
+	return numberValue$3(terminalEdge["amount_sum"]) ?? numberValue$3(terminalEdge["amount_usd_sum"]);
 }
 function rowsMatchingMinimumAmount(rows, minAmountSum) {
 	if (minAmountSum <= 0) return rows;
@@ -357,9 +357,9 @@ function depositFromRow(row) {
 		exchangeAddress,
 		exchangeLabels: stringArrayValue$1(row["exchange_labels"]),
 		exchangeNode,
-		amount_sum: numberValue$2(terminalEdge["amount_sum"]),
-		amount_usd_sum: numberValue$2(terminalEdge["amount_usd_sum"]),
-		hops: numberValue$2(row["hops"]) ?? pathAddresses.length - 1,
+		amount_sum: numberValue$3(terminalEdge["amount_sum"]),
+		amount_usd_sum: numberValue$3(terminalEdge["amount_usd_sum"]),
+		hops: numberValue$3(row["hops"]) ?? pathAddresses.length - 1,
 		path: pathAddresses,
 		pathNodes
 	};
@@ -380,7 +380,7 @@ function flowsFromForwardRows(rows) {
 			const src = pathAddresses[index];
 			const dst = pathAddresses[index + 1];
 			const edge = edgeProps[index] ?? {};
-			const amount = numberValue$2(edge["amount_sum"]) ?? numberValue$2(edge["amount_usd_sum"]) ?? 0;
+			const amount = numberValue$3(edge["amount_sum"]) ?? numberValue$3(edge["amount_usd_sum"]) ?? 0;
 			const terminal = index === pathAddresses.length - 2;
 			const key = `${src}->${dst}`;
 			if (seenEdges.has(key)) continue;
@@ -390,8 +390,8 @@ function flowsFromForwardRows(rows) {
 				src,
 				dst,
 				amount_sum: amount,
-				amount_usd_sum: numberValue$2(edge["amount_usd_sum"]),
-				tx_count: numberValue$2(edge["tx_count"]),
+				amount_usd_sum: numberValue$3(edge["amount_usd_sum"]),
+				tx_count: numberValue$3(edge["tx_count"]),
 				first_tx_id: typeof edge["first_tx_id"] === "string" ? edge["first_tx_id"] : void 0,
 				last_tx_id: typeof edge["last_tx_id"] === "string" ? edge["last_tx_id"] : void 0,
 				src_labels: nodeLabels[index],
@@ -410,7 +410,7 @@ function flowsFromForwardRows(rows) {
 async function hydrateDirectEdgeProps(remoteClient, network, flows, deposits) {
 	const query = directEdgePropsQuery(flows);
 	if (!query) return;
-	const batch = await callGraphBatch$2(remoteClient, network, [query]);
+	const batch = await callGraphBatch$3(remoteClient, network, [query]);
 	const edgeProps = /* @__PURE__ */ new Map();
 	for (const row of resultsFor(batch, "direct_edge_props")) {
 		const src = typeof row["src"] === "string" ? row["src"] : "";
@@ -421,21 +421,21 @@ async function hydrateDirectEdgeProps(remoteClient, network, flows, deposits) {
 	for (const flow of flows) {
 		const props = edgeProps.get(edgeKey$1(flow.src, flow.dst));
 		if (!props) continue;
-		flow.amount_sum = numberValue$2(props["amount_sum"]) ?? flow.amount_sum;
-		flow.amount_usd_sum = numberValue$2(props["amount_usd_sum"]);
-		flow.tx_count = numberValue$2(props["tx_count"]);
+		flow.amount_sum = numberValue$3(props["amount_sum"]) ?? flow.amount_sum;
+		flow.amount_usd_sum = numberValue$3(props["amount_usd_sum"]);
+		flow.tx_count = numberValue$3(props["tx_count"]);
 		flow.first_tx_id = typeof props["first_tx_id"] === "string" ? props["first_tx_id"] : void 0;
 		flow.last_tx_id = typeof props["last_tx_id"] === "string" ? props["last_tx_id"] : void 0;
 	}
 	for (const deposit of deposits) {
 		const props = edgeProps.get(edgeKey$1(deposit.address, deposit.exchangeAddress));
 		if (!props) continue;
-		deposit.amount_sum = numberValue$2(props["amount_sum"]);
-		deposit.amount_usd_sum = numberValue$2(props["amount_usd_sum"]);
+		deposit.amount_sum = numberValue$3(props["amount_sum"]);
+		deposit.amount_usd_sum = numberValue$3(props["amount_usd_sum"]);
 	}
 }
 async function collectProbeTrace(remoteClient, options) {
-	const { flows, deposits } = flowsFromForwardRows(rowsMatchingMinimumAmount(((await callGraphBatch$2(remoteClient, options.network, [...forwardExchangeQueries(options.seedAddress, Math.max(options.perAddressLimit * 20, 200), options.minAmountSum, options.maxHops)])).facts?.queries ?? []).filter((query) => query.id?.startsWith("forward_exchange_paths_")).flatMap((query) => {
+	const { flows, deposits } = flowsFromForwardRows(rowsMatchingMinimumAmount(((await callGraphBatch$3(remoteClient, options.network, [...forwardExchangeQueries(options.seedAddress, Math.max(options.perAddressLimit * 20, 200), options.minAmountSum, options.maxHops)])).facts?.queries ?? []).filter((query) => query.id?.startsWith("forward_exchange_paths_")).flatMap((query) => {
 		if (query.ok === false) throw new Error(query.error || `Query failed: ${query.id}`);
 		return query.results ?? [];
 	}), options.minAmountSum));
@@ -443,7 +443,7 @@ async function collectProbeTrace(remoteClient, options) {
 	const uniqueDepositAddresses = [...new Set(deposits.map((deposit) => deposit.address))];
 	const sourceMatches = [];
 	if (options.includeDepositTraceback !== false && uniqueDepositAddresses.length > 0) {
-		const backwardBatch = await callGraphBatch$2(remoteClient, options.network, uniqueDepositAddresses.slice(0, Math.max(1, Math.floor(20 / options.maxHops))).flatMap((address, index) => backwardSourceQueries(`backward_from_deposit_${index + 1}`, address, options.maxHops)));
+		const backwardBatch = await callGraphBatch$3(remoteClient, options.network, uniqueDepositAddresses.slice(0, Math.max(1, Math.floor(20 / options.maxHops))).flatMap((address, index) => backwardSourceQueries(`backward_from_deposit_${index + 1}`, address, options.maxHops)));
 		for (const query of backwardBatch.facts?.queries ?? []) for (const row of query.results ?? []) {
 			const pathAddresses = stringArrayValue$1(row["addresses"]) ?? [];
 			const pathNodes = Array.isArray(row["path_nodes"]) ? row["path_nodes"].map((node, index) => nodeMetadataFromValue(node, pathAddresses[index])).filter((node) => Boolean(node)) : void 0;
@@ -462,7 +462,7 @@ async function collectProbeTrace(remoteClient, options) {
 				source_exchange: sourceExchange,
 				source_labels: stringArrayValue$1(row["source_labels"]),
 				sourceNode,
-				hops: numberValue$2(row["hops"]) ?? Math.max(pathAddresses.length - 1, 0),
+				hops: numberValue$3(row["hops"]) ?? Math.max(pathAddresses.length - 1, 0),
 				path: pathAddresses,
 				pathNodes
 			});
@@ -470,15 +470,15 @@ async function collectProbeTrace(remoteClient, options) {
 	}
 	const reverseLeads = [];
 	if (options.includeDepositTraceback !== false && uniqueDepositAddresses.length > 0) {
-		const reverseBatch = await callGraphBatch$2(remoteClient, options.network, [reverseLeadsQuery(uniqueDepositAddresses)]);
+		const reverseBatch = await callGraphBatch$3(remoteClient, options.network, [reverseLeadsQuery(uniqueDepositAddresses)]);
 		for (const row of resultsFor(reverseBatch, "reverse_1hop")) {
 			const address = typeof row["address"] === "string" ? row["address"] : "";
 			const depositAddress = typeof row["deposit_address"] === "string" ? row["deposit_address"] : "";
 			if (!address || !depositAddress) continue;
 			const labels = stringArrayValue$1(row["display_labels"]) ?? stringArrayValue$1(row["labels"]) ?? [];
-			const degreeIn = numberValue$2(row["degree_in"]) ?? 0;
-			const degreeOut = numberValue$2(row["degree_out"]) ?? 0;
-			const totalVolume = numberValue$2(row["total_volume_usd"]) ?? 0;
+			const degreeIn = numberValue$3(row["degree_in"]) ?? 0;
+			const degreeOut = numberValue$3(row["degree_out"]) ?? 0;
+			const totalVolume = numberValue$3(row["total_volume_usd"]) ?? 0;
 			const reason = labels.length > 0 ? "labeled_entity" : degreeIn > 50 ? "fan_in_hub" : degreeOut > 50 ? "fan_out_hub" : totalVolume > 1e5 ? "high_volume_sender" : "";
 			if (!reason) continue;
 			reverseLeads.push({
@@ -495,7 +495,7 @@ async function collectProbeTrace(remoteClient, options) {
 				degree_out: degreeOut,
 				total_volume_usd: totalVolume,
 				deposit_address: depositAddress,
-				amount_usd: numberValue$2(row["amount_usd"]),
+				amount_usd: numberValue$3(row["amount_usd"]),
 				reason
 			});
 		}
@@ -952,9 +952,420 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	};
 }
 //#endregion
-//#region src/investigation/stake-insights.ts
-const STAKE_INSIGHTS_QUERY_TIMEOUT_SECONDS = 10;
-const STAKE_INSIGHTS_REQUEST_TIMEOUT_MS = 300 * 1e3;
+//#region src/investigation/exposure-profile.ts
+const EXPOSURE_PROFILE_QUERY_TIMEOUT_SECONDS = 10;
+const EXPOSURE_PROFILE_REQUEST_TIMEOUT_MS = 300 * 1e3;
+const DEFAULT_LIMIT$1 = 100;
+const MAX_LIMIT$1 = 500;
+function escapeCypherString$2(value) {
+	return value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
+}
+function textFromToolResult$2(result) {
+	return (result.content ?? []).filter((item) => item.type === "text").map((item) => item.text).join("\n");
+}
+function parseGraphBatchResult$2(result) {
+	const text = textFromToolResult$2(result).trim();
+	if (!text) throw new Error("graph_query_batch returned no text content");
+	const parsed = JSON.parse(text);
+	if (!parsed.facts?.queries) throw new Error("graph_query_batch response did not include facts.queries");
+	return parsed;
+}
+function stringValue$1(value) {
+	if (typeof value === "string" && value.trim()) return value.trim();
+	if (typeof value === "number" && Number.isFinite(value)) return String(value);
+}
+function numberValue$2(value) {
+	if (typeof value === "number" && Number.isFinite(value)) return value;
+	if (typeof value === "string" && value.trim()) {
+		const parsed = Number(value);
+		if (Number.isFinite(parsed)) return parsed;
+	}
+}
+function clampInt$1(value, fallback, min, max) {
+	if (!Number.isFinite(value)) return fallback;
+	return Math.max(min, Math.min(max, Math.trunc(value)));
+}
+function compactRecord$1(record) {
+	return Object.fromEntries(Object.entries(record).filter(([, value]) => value !== void 0 && value !== null && value !== ""));
+}
+function normalizeInstrumentType$1(value) {
+	const normalized = stringValue$1(value)?.toLowerCase();
+	switch (normalized) {
+		case "subnet":
+		case "perp":
+		case "spot":
+		case "vault":
+		case "staking":
+		case "other": return normalized;
+		default: return "other";
+	}
+}
+function normalizePricingStatus$1(value) {
+	const normalized = stringValue$1(value)?.toLowerCase();
+	if (normalized === "priced" || normalized === "partial") return normalized;
+	return "unpriced";
+}
+function normalizeSide$1(value) {
+	const normalized = stringValue$1(value)?.toLowerCase();
+	switch (normalized) {
+		case "long":
+		case "short":
+		case "stake":
+		case "unstake":
+		case "mixed":
+		case "unknown": return normalized;
+		default: return "unknown";
+	}
+}
+function normalizeExitPressure$1(value) {
+	const normalized = stringValue$1(value)?.toLowerCase();
+	switch (normalized) {
+		case "low":
+		case "medium":
+		case "high":
+		case "unknown": return normalized;
+		default: return;
+	}
+}
+function resolveSubject(options) {
+	const candidates = [
+		["account", options.account],
+		["owner", options.owner],
+		["counterparty", options.counterparty]
+	].filter((entry) => !!entry[1]?.trim());
+	if (candidates.length !== 1) throw new Error("Provide exactly one of account, owner, or counterparty");
+	return {
+		role: candidates[0][0],
+		account: candidates[0][1].trim()
+	};
+}
+function validateOptions(options) {
+	const network = options.network.trim();
+	if (!network) throw new Error("network is required");
+	return {
+		network,
+		subject: resolveSubject(options),
+		venue: stringValue$1(options.venue),
+		instrument: stringValue$1(options.instrument),
+		instrumentType: stringValue$1(options.instrumentType),
+		startTimestampMs: options.startTimestampMs,
+		endTimestampMs: options.endTimestampMs,
+		limit: clampInt$1(options.limit, DEFAULT_LIMIT$1, 1, MAX_LIMIT$1)
+	};
+}
+function subjectPredicate(subject) {
+	const account = escapeCypherString$2(subject.account);
+	if (subject.role === "owner") return `exposure.owner_address = "${account}"`;
+	if (subject.role === "counterparty") return `exposure.counterparty_address = "${account}"`;
+	return `(account.address = "${account}" OR exposure.owner_address = "${account}" OR exposure.counterparty_address = "${account}")`;
+}
+function exposureQuery(topologyGraph, options) {
+	const predicates = [subjectPredicate(options.subject)];
+	if (options.venue) predicates.push(`exposure.venue = "${escapeCypherString$2(options.venue)}"`);
+	if (options.instrument) {
+		const instrument = escapeCypherString$2(options.instrument);
+		predicates.push(`(instrument.display_id = "${instrument}" OR instrument.id = "${instrument}" OR exposure.instrument_display_id = "${instrument}" OR exposure.instrument_id = "${instrument}")`);
+	}
+	if (options.instrumentType) predicates.push(`instrument.type = "${escapeCypherString$2(options.instrumentType)}"`);
+	if (options.startTimestampMs !== void 0) predicates.push(`exposure.last_activity_timestamp >= ${Math.trunc(options.startTimestampMs)}`);
+	if (options.endTimestampMs !== void 0) predicates.push(`exposure.first_activity_timestamp <= ${Math.trunc(options.endTimestampMs)}`);
+	return {
+		id: topologyGraph === "live_topology" ? "live_exposures" : "archive_exposures",
+		query: [
+			`USE ${topologyGraph}`,
+			"MATCH (account:Address)-[:HAS_EXPOSURE]->(exposure:Exposure)-[:TARGETS_INSTRUMENT]->(instrument:Instrument)",
+			`WHERE ${predicates.join(" AND ")}`,
+			[
+				"RETURN account.address AS account_address",
+				"exposure.owner_address AS owner_address",
+				"exposure.counterparty_address AS counterparty_address",
+				"exposure.venue AS venue",
+				"instrument.id AS instrument_id",
+				"instrument.display_id AS instrument_display_id",
+				"instrument.type AS instrument_type",
+				"instrument.lifecycle_id AS instrument_lifecycle_id",
+				"exposure.side AS side",
+				"exposure.quantity AS quantity",
+				"exposure.quantity_unit AS quantity_unit",
+				"exposure.notional AS notional",
+				"exposure.quote_unit AS quote_unit",
+				"exposure.pricing_status AS pricing_status",
+				"exposure.opened AS opened",
+				"exposure.closed AS closed",
+				"exposure.increased AS increased",
+				"exposure.reduced AS reduced",
+				"exposure.net_change AS net_change",
+				"exposure.carry_received AS carry_received",
+				"exposure.carry_paid AS carry_paid",
+				"exposure.liquidation_distance AS liquidation_distance",
+				"exposure.exit_pressure AS exit_pressure",
+				"exposure.event_count AS event_count",
+				"exposure.first_activity_timestamp AS first_activity_timestamp",
+				"exposure.last_activity_timestamp AS last_activity_timestamp",
+				"exposure.support_events AS support_events"
+			].join(", "),
+			"ORDER BY exposure.last_activity_timestamp DESC",
+			`LIMIT ${options.limit}`
+		].join(" ")
+	};
+}
+async function callGraphBatch$2(remoteClient, network, queries) {
+	const result = await remoteClient.callTool({
+		name: "graph_query_batch",
+		arguments: {
+			network,
+			queries,
+			per_query_timeout_seconds: EXPOSURE_PROFILE_QUERY_TIMEOUT_SECONDS
+		}
+	}, void 0, {
+		timeout: EXPOSURE_PROFILE_REQUEST_TIMEOUT_MS,
+		maxTotalTimeout: EXPOSURE_PROFILE_REQUEST_TIMEOUT_MS
+	});
+	if (result.isError) throw new Error(textFromToolResult$2(result) || "graph_query_batch failed");
+	return parseGraphBatchResult$2(result);
+}
+function collectRows(batch) {
+	const rowsByExposure = /* @__PURE__ */ new Map();
+	let failedQueryCount = 0;
+	for (const query of batch.facts?.queries ?? []) {
+		if (query.ok === false) {
+			failedQueryCount += 1;
+			continue;
+		}
+		for (const row of query.results ?? []) {
+			const key = exposureRowKey(row);
+			const existing = rowsByExposure.get(key);
+			if (!existing || shouldReplaceExposureRow(existing, row)) rowsByExposure.set(key, row);
+		}
+	}
+	return {
+		rows: [...rowsByExposure.values()],
+		failedQueryCount
+	};
+}
+function exposureRowKey(row) {
+	return [
+		stringValue$1(row["account_address"]) ?? "",
+		stringValue$1(row["venue"]) ?? "",
+		stringValue$1(row["instrument_id"]) ?? stringValue$1(row["instrument_display_id"]) ?? "",
+		stringValue$1(row["counterparty_address"]) ?? ""
+	].join("");
+}
+function shouldReplaceExposureRow(existing, candidate) {
+	const existingLastSeen = numberValue$2(existing["last_activity_timestamp"]) ?? 0;
+	const candidateLastSeen = numberValue$2(candidate["last_activity_timestamp"]) ?? 0;
+	if (candidateLastSeen !== existingLastSeen) return candidateLastSeen > existingLastSeen;
+	const existingEvents = numberValue$2(existing["event_count"]) ?? 0;
+	return (numberValue$2(candidate["event_count"]) ?? 0) > existingEvents;
+}
+function parseSupportEvents$1(value) {
+	if (Array.isArray(value)) return value.flatMap((entry) => normalizeSupportEvent(entry));
+	if (typeof value === "string" && value.trim()) try {
+		const parsed = JSON.parse(value);
+		if (Array.isArray(parsed)) return parsed.flatMap((entry) => normalizeSupportEvent(entry));
+		return normalizeSupportEvent(parsed);
+	} catch {
+		return [];
+	}
+	return [];
+}
+function normalizeSupportEvent(value) {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) return [];
+	const row = value;
+	const action = stringValue$1(row["action"]);
+	if (!action) return [];
+	return [compactRecord$1({
+		event_time: numberValue$2(row["event_time"]),
+		block_height: numberValue$2(row["block_height"]),
+		tx_id: stringValue$1(row["tx_id"]),
+		order_id: stringValue$1(row["order_id"]),
+		trade_id: stringValue$1(row["trade_id"]),
+		fill_id: stringValue$1(row["fill_id"]),
+		action,
+		amount: stringValue$1(row["amount"]),
+		price: stringValue$1(row["price"])
+	})];
+}
+function publicExposureFromRow(row) {
+	const venue = stringValue$1(row["venue"]) ?? "Unknown";
+	const pricingStatus = normalizePricingStatus$1(row["pricing_status"]);
+	const quoteUnit = stringValue$1(row["quote_unit"]);
+	const carryReceived = stringValue$1(row["carry_received"]);
+	const carryPaid = stringValue$1(row["carry_paid"]);
+	const liquidationDistance = stringValue$1(row["liquidation_distance"]);
+	const exitPressure = normalizeExitPressure$1(row["exit_pressure"]);
+	return compactRecord$1({
+		venue,
+		instrument: compactRecord$1({
+			id: stringValue$1(row["instrument_id"]) ?? stringValue$1(row["instrument_display_id"]) ?? "unknown",
+			display_name: stringValue$1(row["instrument_display_id"]) ?? stringValue$1(row["instrument_id"]) ?? "Unknown instrument",
+			type: normalizeInstrumentType$1(row["instrument_type"]),
+			lifecycle_id: stringValue$1(row["instrument_lifecycle_id"])
+		}),
+		position: compactRecord$1({
+			side: normalizeSide$1(row["side"]),
+			quantity: stringValue$1(row["quantity"]),
+			quantity_unit: stringValue$1(row["quantity_unit"]),
+			notional: stringValue$1(row["notional"]),
+			quote_unit: quoteUnit,
+			pricing_status: pricingStatus
+		}),
+		changes: compactRecord$1({
+			opened: stringValue$1(row["opened"]),
+			closed: stringValue$1(row["closed"]),
+			increased: stringValue$1(row["increased"]),
+			reduced: stringValue$1(row["reduced"]),
+			net_change: stringValue$1(row["net_change"])
+		}),
+		carry: carryReceived !== void 0 || carryPaid !== void 0 ? compactRecord$1({
+			received: carryReceived,
+			paid: carryPaid,
+			quote_unit: quoteUnit
+		}) : void 0,
+		risk: liquidationDistance !== void 0 || exitPressure !== void 0 ? compactRecord$1({
+			liquidation_distance: liquidationDistance,
+			exit_pressure: exitPressure ?? "unknown"
+		}) : void 0,
+		activity: compactRecord$1({
+			first_seen_timestamp: numberValue$2(row["first_activity_timestamp"]),
+			last_seen_timestamp: numberValue$2(row["last_activity_timestamp"]),
+			event_count: numberValue$2(row["event_count"])
+		}),
+		support: parseSupportEvents$1(row["support_events"])
+	});
+}
+function caveatsFor(exposures, failedQueryCount) {
+	const caveats = /* @__PURE__ */ new Set();
+	for (const exposure of exposures) {
+		if (exposure.venue === "Bittensor" && exposure.position.pricing_status === "unpriced" && !exposure.position.quantity_unit && !exposure.position.quote_unit) caveats.add("Bittensor exposure quantity is unpriced because the source unit resolver has not proven a base or quote unit for this exposure.");
+		if (!exposure.instrument.lifecycle_id && exposure.instrument.type === "subnet") caveats.add("Subnet display identifiers can be reused across lifecycles; this result omits lifecycle identity when the source does not prove it.");
+	}
+	if (failedQueryCount > 0) caveats.add("Some exposure data was unavailable during this query; results may be partial.");
+	return [...caveats];
+}
+function firstTimestamp$1(exposures) {
+	const timestamps = exposures.map((exposure) => exposure.activity.first_seen_timestamp).filter((value) => value !== void 0);
+	return timestamps.length > 0 ? Math.min(...timestamps) : void 0;
+}
+function lastTimestamp$1(exposures) {
+	const timestamps = exposures.map((exposure) => exposure.activity.last_seen_timestamp).filter((value) => value !== void 0);
+	return timestamps.length > 0 ? Math.max(...timestamps) : void 0;
+}
+function netDirection(exposures) {
+	if (exposures.length === 0) return "unknown";
+	const sides = new Set(exposures.map((exposure) => exposure.position.side));
+	if (sides.size === 1 && sides.has("long")) return "long";
+	if (sides.size === 1 && sides.has("short")) return "short";
+	const numericNet = exposures.map((exposure) => numberValue$2(exposure.changes.net_change)).filter((value) => value !== void 0);
+	if (numericNet.length > 0 && numericNet.every((value) => value === 0)) return "flat";
+	return "mixed";
+}
+function graphData$1(exposures, subject) {
+	const nodes = /* @__PURE__ */ new Map();
+	const edges = [];
+	nodes.set(subject.account, {
+		id: subject.account,
+		address: subject.account,
+		node_type: "account",
+		roles: [subject.role]
+	});
+	exposures.forEach((exposure, index) => {
+		const exposureId = `exposure:${index}:${exposure.instrument.id}`;
+		nodes.set(exposureId, {
+			id: exposureId,
+			node_type: "exposure",
+			venue: exposure.venue,
+			side: exposure.position.side
+		});
+		nodes.set(exposure.instrument.id, {
+			id: exposure.instrument.id,
+			node_type: "instrument",
+			display_name: exposure.instrument.display_name,
+			instrument_type: exposure.instrument.type
+		});
+		edges.push({
+			source: subject.account,
+			target: exposureId,
+			edge_type: "exposure",
+			venue: exposure.venue
+		});
+		edges.push({
+			source: exposureId,
+			target: exposure.instrument.id,
+			edge_type: "instrument",
+			venue: exposure.venue
+		});
+	});
+	return require_graph_normalizer.normalizeGraphPayload({
+		schema: "chain-insights.graph.v1",
+		nodes: [...nodes.values()],
+		edges,
+		flows: [],
+		edge_anchors: [],
+		metadata: {
+			network: subject.network,
+			subject_address: subject.account,
+			subject_role: subject.role,
+			generated_at: (/* @__PURE__ */ new Date()).toISOString()
+		}
+	});
+}
+function summaryLines(network, subject, exposures, caveats) {
+	const lines = [
+		`Exposure profile for ${network}:${subject.account}`,
+		"",
+		`Subject role: ${subject.role}`,
+		`Exposures: ${exposures.length}`
+	];
+	for (const exposure of exposures.slice(0, 10)) lines.push(`- ${exposure.venue} ${exposure.instrument.display_name}: ${exposure.position.side} ${exposure.position.quantity ?? exposure.changes.net_change ?? "unknown"}`);
+	if (caveats.length > 0) {
+		lines.push("", "Caveats");
+		for (const caveat of caveats) lines.push(`- ${caveat}`);
+	}
+	return lines.join("\n");
+}
+async function exposureProfile(remoteClient, options) {
+	const validated = validateOptions(options);
+	const { rows, failedQueryCount } = collectRows(await callGraphBatch$2(remoteClient, validated.network, [exposureQuery("live_topology", validated), exposureQuery("archive_topology", validated)]));
+	const exposures = rows.map(publicExposureFromRow);
+	const caveats = caveatsFor(exposures, failedQueryCount);
+	const venues = [...new Set(exposures.map((exposure) => exposure.venue))];
+	const instruments = [...new Set(exposures.map((exposure) => exposure.instrument.display_name))];
+	const structuredContent = {
+		schema: "chain-insights.exposure_profile.v1",
+		tool: "exposure_profile",
+		subject: {
+			network: validated.network,
+			account: validated.subject.account,
+			role: validated.subject.role
+		},
+		summary: compactRecord$1({
+			exposure_count: exposures.length,
+			venues,
+			instruments,
+			net_direction: netDirection(exposures),
+			first_activity_timestamp: firstTimestamp$1(exposures),
+			last_activity_timestamp: lastTimestamp$1(exposures)
+		}),
+		exposures,
+		caveats
+	};
+	return {
+		summaryText: summaryLines(validated.network, validated.subject, exposures, caveats),
+		structuredContent,
+		graphData: graphData$1(exposures, {
+			network: validated.network,
+			account: validated.subject.account,
+			role: validated.subject.role
+		})
+	};
+}
+//#endregion
+//#region src/investigation/exposure-analysis.ts
+const DEFAULT_LIMIT = 100;
+const MAX_LIMIT = 500;
+const REQUEST_TIMEOUT_MS = 300 * 1e3;
+const QUERY_TIMEOUT_SECONDS = 10;
 function escapeCypherString$1(value) {
 	return value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
 }
@@ -968,8 +1379,24 @@ function parseGraphBatchResult$1(result) {
 	if (!parsed.facts?.queries) throw new Error("graph_query_batch response did not include facts.queries");
 	return parsed;
 }
+async function callGraphBatch$1(remoteClient, network, queries) {
+	const result = await remoteClient.callTool({
+		name: "graph_query_batch",
+		arguments: {
+			network,
+			queries,
+			per_query_timeout_seconds: QUERY_TIMEOUT_SECONDS
+		}
+	}, void 0, {
+		timeout: REQUEST_TIMEOUT_MS,
+		maxTotalTimeout: REQUEST_TIMEOUT_MS
+	});
+	if (result.isError) throw new Error(textFromToolResult$1(result) || "graph_query_batch failed");
+	return parseGraphBatchResult$1(result);
+}
 function stringValue(value) {
-	return typeof value === "string" && value.trim() ? value.trim() : void 0;
+	if (typeof value === "string" && value.trim()) return value.trim();
+	if (typeof value === "number" && Number.isFinite(value)) return String(value);
 }
 function numberValue$1(value) {
 	if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -978,304 +1405,274 @@ function numberValue$1(value) {
 		if (Number.isFinite(parsed)) return parsed;
 	}
 }
-function nonZeroNumber(value) {
-	const parsed = numberValue$1(value);
-	return parsed !== void 0 && parsed !== 0 ? parsed : void 0;
+function clampLimit(value) {
+	if (!Number.isFinite(value)) return DEFAULT_LIMIT;
+	return Math.max(1, Math.min(MAX_LIMIT, Math.trunc(value)));
 }
-function clampInt$1(value, fallback, min, max) {
-	if (!Number.isFinite(value)) return fallback;
-	return Math.max(min, Math.min(max, Math.trunc(value)));
+function compactRecord(record) {
+	return Object.fromEntries(Object.entries(record).filter(([, value]) => value !== void 0 && value !== null && value !== ""));
 }
-function resolveSubject(options) {
-	const candidates = [
-		["address", options.address],
-		["coldkey", options.coldkey],
-		["hotkey", options.hotkey]
-	].filter((entry) => !!entry[1]?.trim());
-	if (candidates.length !== 1) throw new Error("Provide exactly one of address, coldkey, or hotkey");
+function candidateList(value) {
+	return (Array.isArray(value) ? value.join(",") : value ?? "").split(",").map((entry) => entry.trim()).filter(Boolean);
+}
+function hasSubject(options) {
+	return [
+		options.account,
+		options.owner,
+		options.counterparty
+	].filter((value) => !!value?.trim()).length === 1;
+}
+async function loadSubjectProfile(remoteClient, options) {
+	return exposureProfile(remoteClient, {
+		...options,
+		instrument: options.instrument ?? options.market,
+		limit: clampLimit(options.limit)
+	});
+}
+function marketPredicates(options) {
+	const instrument = escapeCypherString$1(options.instrument);
+	const predicates = [`(instrument.display_id = "${instrument}" OR instrument.id = "${instrument}" OR exposure.instrument_display_id = "${instrument}" OR exposure.instrument_id = "${instrument}")`];
+	if (options.venue) predicates.push(`exposure.venue = "${escapeCypherString$1(options.venue)}"`);
+	if (options.instrumentType) predicates.push(`instrument.type = "${escapeCypherString$1(options.instrumentType)}"`);
+	if (options.startTimestampMs !== void 0) predicates.push(`exposure.last_activity_timestamp >= ${Math.trunc(options.startTimestampMs)}`);
+	if (options.endTimestampMs !== void 0) predicates.push(`exposure.first_activity_timestamp <= ${Math.trunc(options.endTimestampMs)}`);
+	return predicates;
+}
+function marketExposureQuery(topologyGraph, options) {
 	return {
-		role: candidates[0][0],
-		address: candidates[0][1].trim()
-	};
-}
-function validateOptions(options) {
-	const network = options.network.trim();
-	if (!network) throw new Error("network is required");
-	if (options.startBlock !== void 0 || options.endBlock !== void 0) throw new Error("Block windows are not available on the current stake graph surface; use start_timestamp_ms/end_timestamp_ms");
-	return {
-		network,
-		subject: resolveSubject(options),
-		depth: clampInt$1(options.depth ?? options.maxHops, 1, 1, 3)
-	};
-}
-function subjectPredicate(subject) {
-	const address = escapeCypherString$1(subject.address);
-	if (subject.role === "coldkey") return `coldkey.address = "${address}"`;
-	if (subject.role === "hotkey") return `hotkey.address = "${address}"`;
-	return `(coldkey.address = "${address}" OR hotkey.address = "${address}")`;
-}
-function stakeRelationshipQuery(topologyGraph, subject, options, depth) {
-	const predicates = [subjectPredicate(subject)];
-	if (options.netuid !== void 0) predicates.push(`stake.netuid = ${Math.trunc(options.netuid)}`);
-	if (options.startTimestampMs !== void 0) predicates.push(`stake.last_activity_timestamp >= ${Math.trunc(options.startTimestampMs)}`);
-	if (options.endTimestampMs !== void 0) predicates.push(`stake.first_activity_timestamp <= ${Math.trunc(options.endTimestampMs)}`);
-	const limit = Math.min(500, Math.max(50, depth * 100));
-	return {
-		id: topologyGraph === "live_topology" ? "live_stake_relationships" : "archive_stake_relationships",
+		id: topologyGraph === "live_topology" ? "live_market_exposures" : "archive_market_exposures",
 		query: [
 			`USE ${topologyGraph}`,
-			"MATCH (coldkey:Address)-[stake:STAKES_IN]->(hotkey:Address)",
-			`WHERE ${predicates.join(" AND ")}`,
+			"MATCH (account:Address)-[:HAS_EXPOSURE]->(exposure:Exposure)-[:TARGETS_INSTRUMENT]->(instrument:Instrument)",
+			`WHERE ${marketPredicates(options).join(" AND ")}`,
 			[
-				"RETURN coldkey.address AS coldkey",
-				"hotkey.address AS hotkey",
-				"stake.netuid AS netuid",
-				"stake.amount AS amount",
-				"stake.source_role AS source_role",
-				"stake.destination_role AS destination_role",
-				"stake.stake_added_amount AS stake_added_amount",
-				"stake.stake_removed_amount AS stake_removed_amount",
-				"stake.stake_moved_in_amount AS stake_moved_in_amount",
-				"stake.stake_moved_out_amount AS stake_moved_out_amount",
-				"stake.net_stake_change AS net_stake_change",
-				"stake.stake_event_count AS stake_event_count",
-				"stake.first_seen_timestamp AS first_seen_timestamp",
-				"stake.last_seen_timestamp AS last_seen_timestamp",
-				"stake.first_activity_timestamp AS first_activity_timestamp",
-				"stake.last_activity_timestamp AS last_activity_timestamp",
-				"stake.first_tx_id AS first_tx_id",
-				"stake.last_tx_id AS last_tx_id",
-				"stake.active_days AS active_days",
-				"stake.granularity AS granularity",
-				"stake.source_stake_rows AS source_stake_rows",
-				"stake.source_backend AS source_backend",
-				`"${topologyGraph}" AS topology_graph`
+				"RETURN account.address AS account_address",
+				"exposure.owner_address AS owner_address",
+				"exposure.counterparty_address AS counterparty_address",
+				"exposure.venue AS venue",
+				"instrument.id AS instrument_id",
+				"instrument.display_id AS instrument_display_id",
+				"instrument.type AS instrument_type",
+				"instrument.lifecycle_id AS instrument_lifecycle_id",
+				"exposure.side AS side",
+				"exposure.quantity AS quantity",
+				"exposure.quantity_unit AS quantity_unit",
+				"exposure.notional AS notional",
+				"exposure.quote_unit AS quote_unit",
+				"exposure.pricing_status AS pricing_status",
+				"exposure.opened AS opened",
+				"exposure.closed AS closed",
+				"exposure.increased AS increased",
+				"exposure.reduced AS reduced",
+				"exposure.net_change AS net_change",
+				"exposure.carry_received AS carry_received",
+				"exposure.carry_paid AS carry_paid",
+				"exposure.liquidation_distance AS liquidation_distance",
+				"exposure.exit_pressure AS exit_pressure",
+				"exposure.event_count AS event_count",
+				"exposure.first_activity_timestamp AS first_activity_timestamp",
+				"exposure.last_activity_timestamp AS last_activity_timestamp",
+				"exposure.support_events AS support_events"
 			].join(", "),
-			"ORDER BY stake.amount DESC",
-			`LIMIT ${limit}`
+			"ORDER BY exposure.last_activity_timestamp DESC",
+			`LIMIT ${options.limit}`
 		].join(" ")
 	};
 }
-async function callGraphBatch$1(remoteClient, network, queries) {
-	const result = await remoteClient.callTool({
-		name: "graph_query_batch",
-		arguments: {
-			network,
-			queries,
-			per_query_timeout_seconds: STAKE_INSIGHTS_QUERY_TIMEOUT_SECONDS
-		}
-	}, void 0, {
-		timeout: STAKE_INSIGHTS_REQUEST_TIMEOUT_MS,
-		maxTotalTimeout: STAKE_INSIGHTS_REQUEST_TIMEOUT_MS
+function normalizeInstrumentType(value) {
+	const normalized = stringValue(value)?.toLowerCase();
+	if (normalized === "subnet" || normalized === "perp" || normalized === "spot" || normalized === "vault" || normalized === "staking" || normalized === "other") return normalized;
+	return "other";
+}
+function normalizeSide(value) {
+	const normalized = stringValue(value)?.toLowerCase();
+	if (normalized === "long" || normalized === "short" || normalized === "stake" || normalized === "unstake" || normalized === "mixed" || normalized === "unknown") return normalized;
+	return "unknown";
+}
+function normalizePricingStatus(value) {
+	const normalized = stringValue(value)?.toLowerCase();
+	if (normalized === "priced" || normalized === "partial") return normalized;
+	return "unpriced";
+}
+function normalizeExitPressure(value) {
+	const normalized = stringValue(value)?.toLowerCase();
+	if (normalized === "low" || normalized === "medium" || normalized === "high" || normalized === "unknown") return normalized;
+}
+function parseSupportEvents(value) {
+	if (!value) return [];
+	const normalize = (entry) => {
+		if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+		const row = entry;
+		const action = stringValue(row["action"]);
+		if (!action) return [];
+		return [compactRecord({
+			event_time: numberValue$1(row["event_time"]),
+			block_height: numberValue$1(row["block_height"]),
+			tx_id: stringValue(row["tx_id"]),
+			order_id: stringValue(row["order_id"]),
+			trade_id: stringValue(row["trade_id"]),
+			fill_id: stringValue(row["fill_id"]),
+			action,
+			amount: stringValue(row["amount"]),
+			price: stringValue(row["price"])
+		})];
+	};
+	if (Array.isArray(value)) return value.flatMap(normalize);
+	if (typeof value === "string" && value.trim()) try {
+		const parsed = JSON.parse(value);
+		return Array.isArray(parsed) ? parsed.flatMap(normalize) : normalize(parsed);
+	} catch {
+		return [];
+	}
+	return normalize(value);
+}
+function exposureFromRow(row) {
+	const quoteUnit = stringValue(row["quote_unit"]);
+	const carryReceived = stringValue(row["carry_received"]);
+	const carryPaid = stringValue(row["carry_paid"]);
+	const liquidationDistance = stringValue(row["liquidation_distance"]);
+	const exitPressure = normalizeExitPressure(row["exit_pressure"]);
+	return compactRecord({
+		venue: stringValue(row["venue"]) ?? "Unknown",
+		instrument: compactRecord({
+			id: stringValue(row["instrument_id"]) ?? stringValue(row["instrument_display_id"]) ?? "unknown",
+			display_name: stringValue(row["instrument_display_id"]) ?? stringValue(row["instrument_id"]) ?? "Unknown instrument",
+			type: normalizeInstrumentType(row["instrument_type"]),
+			lifecycle_id: stringValue(row["instrument_lifecycle_id"])
+		}),
+		position: compactRecord({
+			side: normalizeSide(row["side"]),
+			quantity: stringValue(row["quantity"]),
+			quantity_unit: stringValue(row["quantity_unit"]),
+			notional: stringValue(row["notional"]),
+			quote_unit: quoteUnit,
+			pricing_status: normalizePricingStatus(row["pricing_status"])
+		}),
+		changes: compactRecord({
+			opened: stringValue(row["opened"]),
+			closed: stringValue(row["closed"]),
+			increased: stringValue(row["increased"]),
+			reduced: stringValue(row["reduced"]),
+			net_change: stringValue(row["net_change"])
+		}),
+		carry: carryReceived !== void 0 || carryPaid !== void 0 ? compactRecord({
+			received: carryReceived,
+			paid: carryPaid,
+			quote_unit: quoteUnit
+		}) : void 0,
+		risk: liquidationDistance !== void 0 || exitPressure !== void 0 ? compactRecord({
+			liquidation_distance: liquidationDistance,
+			exit_pressure: exitPressure ?? "unknown"
+		}) : void 0,
+		activity: compactRecord({
+			first_seen_timestamp: numberValue$1(row["first_activity_timestamp"]),
+			last_seen_timestamp: numberValue$1(row["last_activity_timestamp"]),
+			event_count: numberValue$1(row["event_count"])
+		}),
+		support: parseSupportEvents(row["support_events"])
 	});
-	if (result.isError) throw new Error(textFromToolResult$1(result) || "graph_query_batch failed");
-	return parseGraphBatchResult$1(result);
 }
-function topologyGraphForQueryId(id) {
-	return id.startsWith("archive_") ? "archive_topology" : "live_topology";
+function marketRowKey(row) {
+	return [
+		stringValue(row["account_address"]) ?? "",
+		stringValue(row["venue"]) ?? "",
+		stringValue(row["instrument_id"]) ?? stringValue(row["instrument_display_id"]) ?? "",
+		stringValue(row["counterparty_address"]) ?? "",
+		stringValue(row["side"]) ?? ""
+	].join("");
 }
-function collectRelationships(batch) {
-	const failures = [];
-	const evidence = [];
-	const live = [];
-	const archive = [];
+function shouldReplaceMarketRow(existing, candidate) {
+	const existingLastSeen = numberValue$1(existing["last_activity_timestamp"]) ?? 0;
+	const candidateLastSeen = numberValue$1(candidate["last_activity_timestamp"]) ?? 0;
+	if (candidateLastSeen !== existingLastSeen) return candidateLastSeen > existingLastSeen;
+	return (numberValue$1(candidate["event_count"]) ?? 0) >= (numberValue$1(existing["event_count"]) ?? 0);
+}
+async function loadMarketExposures(remoteClient, options) {
+	const batch = await callGraphBatch$1(remoteClient, options.network, [marketExposureQuery("live_topology", options), marketExposureQuery("archive_topology", options)]);
+	const rowsByKey = /* @__PURE__ */ new Map();
+	let failedQueryCount = 0;
 	for (const query of batch.facts?.queries ?? []) {
-		const id = query.id ?? "unknown";
-		const topologyGraph = topologyGraphForQueryId(id);
 		if (query.ok === false) {
-			failures.push({
-				id,
-				error: query.error || "unknown error"
-			});
-			evidence.push({
-				id,
-				topology_graph: topologyGraph,
-				ok: false,
-				row_count: 0,
-				error: query.error || "unknown error"
-			});
+			failedQueryCount += 1;
 			continue;
 		}
-		const rows = (query.results ?? []).map((row) => normalizeRelationship(row, topologyGraph));
-		if (topologyGraph === "live_topology") live.push(...rows);
-		else archive.push(...rows);
-		evidence.push({
-			id,
-			topology_graph: topologyGraph,
-			ok: true,
-			row_count: rows.length,
-			source_backends: [...new Set(rows.map((row) => row.source_backend).filter(Boolean))]
-		});
-	}
-	return {
-		live,
-		archive,
-		failures,
-		evidence
-	};
-}
-function normalizeRelationship(row, topologyGraph) {
-	return {
-		coldkey: String(row["coldkey"] ?? ""),
-		hotkey: String(row["hotkey"] ?? ""),
-		netuid: numberValue$1(row["netuid"]),
-		amount: numberValue$1(row["amount"]),
-		source_role: stringValue(row["source_role"]),
-		destination_role: stringValue(row["destination_role"]),
-		stake_added_amount: numberValue$1(row["stake_added_amount"]),
-		stake_removed_amount: numberValue$1(row["stake_removed_amount"]),
-		stake_moved_in_amount: numberValue$1(row["stake_moved_in_amount"]),
-		stake_moved_out_amount: numberValue$1(row["stake_moved_out_amount"]),
-		net_stake_change: numberValue$1(row["net_stake_change"]),
-		stake_event_count: numberValue$1(row["stake_event_count"]),
-		first_seen_timestamp: numberValue$1(row["first_seen_timestamp"]),
-		last_seen_timestamp: numberValue$1(row["last_seen_timestamp"]),
-		first_activity_timestamp: numberValue$1(row["first_activity_timestamp"]),
-		last_activity_timestamp: numberValue$1(row["last_activity_timestamp"]),
-		first_tx_id: stringValue(row["first_tx_id"]),
-		last_tx_id: stringValue(row["last_tx_id"]),
-		active_days: numberValue$1(row["active_days"]),
-		granularity: stringValue(row["granularity"]),
-		source_stake_rows: numberValue$1(row["source_stake_rows"]),
-		source_backend: stringValue(row["source_backend"]) ?? (topologyGraph === "live_topology" ? "memgraph_live" : "starrocks_archive"),
-		topology_graph: topologyGraph
-	};
-}
-function firstTimestamp(rows) {
-	const timestamps = rows.map((row) => row.first_activity_timestamp).filter((value) => value !== void 0);
-	return timestamps.length > 0 ? Math.min(...timestamps) : void 0;
-}
-function lastTimestamp(rows) {
-	const timestamps = rows.map((row) => row.last_activity_timestamp).filter((value) => value !== void 0);
-	return timestamps.length > 0 ? Math.max(...timestamps) : void 0;
-}
-function sum(rows, selector) {
-	return rows.reduce((total, row) => total + (selector(row) ?? 0), 0);
-}
-function stakeTotals(rows) {
-	return {
-		amount_unit: "tao",
-		total_staked: sum(rows, (row) => row.stake_added_amount),
-		total_unstaked: sum(rows, (row) => row.stake_removed_amount),
-		total_moved_in: sum(rows, (row) => row.stake_moved_in_amount),
-		total_moved_out: sum(rows, (row) => row.stake_moved_out_amount),
-		net_staked: rows.some((row) => row.net_stake_change !== void 0) ? sum(rows, (row) => row.net_stake_change) : sum(rows, (row) => row.amount),
-		relationship_count: rows.length,
-		first_activity_timestamp: firstTimestamp(rows),
-		last_activity_timestamp: lastTimestamp(rows)
-	};
-}
-function movementRows(rows) {
-	const movements = [];
-	for (const row of rows) {
-		const base = {
-			coldkey: row.coldkey,
-			hotkey: row.hotkey,
-			netuid: row.netuid,
-			source_backend: row.source_backend,
-			first_activity_timestamp: row.first_activity_timestamp,
-			last_activity_timestamp: row.last_activity_timestamp
-		};
-		const added = nonZeroNumber(row.stake_added_amount);
-		if (added !== void 0) movements.push({
-			...base,
-			movement_type: "stake_added",
-			direction: "coldkey_to_hotkey",
-			amount: added
-		});
-		const removed = nonZeroNumber(row.stake_removed_amount);
-		if (removed !== void 0) movements.push({
-			...base,
-			movement_type: "stake_removed",
-			direction: "hotkey_to_coldkey",
-			amount: removed
-		});
-		const movedIn = nonZeroNumber(row.stake_moved_in_amount);
-		if (movedIn !== void 0) movements.push({
-			...base,
-			movement_type: "stake_moved_in",
-			direction: "counterparty_to_relationship",
-			amount: movedIn
-		});
-		const movedOut = nonZeroNumber(row.stake_moved_out_amount);
-		if (movedOut !== void 0) movements.push({
-			...base,
-			movement_type: "stake_moved_out",
-			direction: "relationship_to_counterparty",
-			amount: movedOut
-		});
-	}
-	return movements;
-}
-function topCounterparties(subject, rows) {
-	const byAddress = /* @__PURE__ */ new Map();
-	for (const row of rows) {
-		const counterparties = [];
-		if (subject.role === "coldkey") counterparties.push({
-			address: row.hotkey,
-			role: "hotkey"
-		});
-		else if (subject.role === "hotkey") counterparties.push({
-			address: row.coldkey,
-			role: "coldkey"
-		});
-		else {
-			if (row.coldkey === subject.address) counterparties.push({
-				address: row.hotkey,
-				role: "hotkey"
-			});
-			if (row.hotkey === subject.address) counterparties.push({
-				address: row.coldkey,
-				role: "coldkey"
-			});
-		}
-		for (const counterparty of counterparties.filter((entry) => entry.address)) {
-			const current = byAddress.get(counterparty.address) ?? {
-				address: counterparty.address,
-				role: counterparty.role,
-				amount: 0,
-				relationship_count: 0,
-				stake_event_count: 0
-			};
-			current.amount += row.amount ?? row.net_stake_change ?? 0;
-			current.relationship_count += 1;
-			current.stake_event_count += row.stake_event_count ?? 0;
-			byAddress.set(counterparty.address, current);
+		for (const row of query.results ?? []) {
+			const key = marketRowKey(row);
+			const existing = rowsByKey.get(key);
+			if (!existing || shouldReplaceMarketRow(existing, row)) rowsByKey.set(key, row);
 		}
 	}
-	return [...byAddress.values()].sort((left, right) => Math.abs(right.amount) - Math.abs(left.amount)).slice(0, 10);
+	return {
+		exposures: [...rowsByKey.values()].map(exposureFromRow),
+		failedQueryCount
+	};
 }
-function graphData(rows, subject, network) {
+function firstTimestamp(exposures) {
+	const values = exposures.map((exposure) => exposure.activity.first_seen_timestamp).filter((value) => value !== void 0);
+	return values.length ? Math.min(...values) : void 0;
+}
+function lastTimestamp(exposures) {
+	const values = exposures.map((exposure) => exposure.activity.last_seen_timestamp).filter((value) => value !== void 0);
+	return values.length ? Math.max(...values) : void 0;
+}
+function sum(values) {
+	return values.reduce((acc, value) => acc + (value ?? 0), 0);
+}
+function ratio(numerator, denominator) {
+	return denominator === 0 ? 0 : numerator / denominator;
+}
+function score(value) {
+	return Math.max(0, Math.min(100, Math.round(value)));
+}
+function confidenceFromCoverage(exposures, caveats) {
+	const eventCount = sum(exposures.map((exposure) => exposure.activity.event_count));
+	if (exposures.length === 0 || caveats.length >= 3 || eventCount < 10) return "low";
+	if (caveats.length > 0 || eventCount < 50) return "medium";
+	return "high";
+}
+function baseCaveats(exposures, failedQueryCount = 0) {
+	const caveats = /* @__PURE__ */ new Set();
+	if (failedQueryCount > 0) caveats.add("Some exposure data was unavailable during this query; results may be partial.");
+	if (exposures.length === 0) caveats.add("No matching exposure rows were available for this query window.");
+	if (exposures.some((exposure) => exposure.position.pricing_status !== "priced")) caveats.add("Some exposure rows are unpriced or partially priced; notional, carry, and quality metrics may be incomplete.");
+	if (exposures.some((exposure) => exposure.instrument.type === "subnet" && !exposure.instrument.lifecycle_id)) caveats.add("Subnet display identifiers can be reused across lifecycles; lifecycle identity is missing for at least one row.");
+	return [...caveats];
+}
+function graphData(tool, subject, exposures) {
 	const nodes = /* @__PURE__ */ new Map();
-	const ensureNode = (address, role) => {
-		const existing = nodes.get(address) ?? {
-			id: address,
-			address,
-			node_type: "address",
-			labels: [],
-			roles: []
-		};
-		const roles = Array.isArray(existing["roles"]) ? existing["roles"].map(String) : [];
-		nodes.set(address, {
-			...existing,
-			roles: [...new Set([...roles, role])]
+	const edges = [];
+	const subjectId = String(subject["account"] ?? subject["instrument"] ?? subject["network"] ?? tool);
+	nodes.set(subjectId, {
+		id: subjectId,
+		node_type: "subject",
+		...subject
+	});
+	exposures.forEach((exposure, index) => {
+		const exposureId = `${tool}:exposure:${index}:${exposure.instrument.id}`;
+		nodes.set(exposureId, {
+			id: exposureId,
+			node_type: "exposure",
+			venue: exposure.venue,
+			side: exposure.position.side
 		});
-	};
-	ensureNode(subject.address, "subject");
-	const edges = rows.map((row) => {
-		ensureNode(row.coldkey, "coldkey");
-		ensureNode(row.hotkey, "hotkey");
-		return {
-			source: row.coldkey,
-			target: row.hotkey,
-			edge_type: "stakes_in",
-			amount: row.amount ?? row.net_stake_change ?? 0,
-			netuid: row.netuid,
-			source_backend: row.source_backend,
-			topology_graph: row.topology_graph,
-			first_activity_timestamp: row.first_activity_timestamp,
-			last_activity_timestamp: row.last_activity_timestamp
-		};
+		nodes.set(exposure.instrument.id, {
+			id: exposure.instrument.id,
+			node_type: "instrument",
+			display_name: exposure.instrument.display_name,
+			instrument_type: exposure.instrument.type
+		});
+		edges.push({
+			source: subjectId,
+			target: exposureId,
+			edge_type: "exposure",
+			venue: exposure.venue
+		});
+		edges.push({
+			source: exposureId,
+			target: exposure.instrument.id,
+			edge_type: "instrument",
+			venue: exposure.venue
+		});
 	});
 	return require_graph_normalizer.normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
@@ -1284,67 +1681,375 @@ function graphData(rows, subject, network) {
 		flows: [],
 		edge_anchors: [],
 		metadata: {
-			network,
-			subject_address: subject.address,
-			subject_role: subject.role,
+			tool,
 			generated_at: (/* @__PURE__ */ new Date()).toISOString()
 		}
 	});
 }
-function summaryLines(network, subject, rows, totals, failures) {
-	const lines = [
-		`Stake insights for ${network}:${subject.address}`,
-		"",
-		`Subject role: ${subject.role}`,
-		`Relationships: ${rows.length}`,
-		`Net staked: ${totals["net_staked"] ?? 0} TAO`,
-		`Total staked: ${totals["total_staked"] ?? 0} TAO`,
-		`Total unstaked: ${totals["total_unstaked"] ?? 0} TAO`,
-		`First activity: ${totals["first_activity_timestamp"] ?? "unknown"}`,
-		`Last activity: ${totals["last_activity_timestamp"] ?? "unknown"}`
-	];
-	if (rows.length > 0) {
-		lines.push("", "Top staking relationships");
-		for (const row of rows.slice(0, 10)) lines.push(`- ${row.coldkey} -> ${row.hotkey} netuid ${row.netuid ?? "unknown"} amount ${row.amount ?? row.net_stake_change ?? "unknown"} (${row.source_backend})`);
-	} else lines.push("", "No stake relationships matched the requested filters.");
-	if (failures.length > 0) lines.push("", "Partial query failures", failures.map((failure) => `- ${failure.id}: ${failure.error}`).join("\n"));
-	return lines.join("\n");
+function profileSubject(profile) {
+	return profile.structuredContent.subject;
 }
-async function stakeInsights(remoteClient, options) {
-	const { network, subject, depth } = validateOptions(options);
-	const { live, archive, failures, evidence } = collectRelationships(await callGraphBatch$1(remoteClient, network, [stakeRelationshipQuery("live_topology", subject, options, depth), stakeRelationshipQuery("archive_topology", subject, options, depth)]));
-	const successfulQueryCount = evidence.filter((entry) => entry["ok"] === true).length;
-	if (live.length === 0 && archive.length === 0 && failures.length > 0 && successfulQueryCount === 0) throw new Error(`Stake insights unavailable: ${failures.map((failure) => `${failure.id}: ${failure.error}`).join("; ")}`);
-	const rows = live.length > 0 ? live : archive;
-	const totals = stakeTotals(rows);
-	const facts = {
-		subject: {
-			network,
-			address: subject.address,
-			role: subject.role,
-			netuid: options.netuid,
-			start_timestamp_ms: options.startTimestampMs,
-			end_timestamp_ms: options.endTimestampMs,
-			depth
+function subjectLine(subject) {
+	return `${subject.network}:${subject.account} (${subject.role})`;
+}
+function requireInstrument(options) {
+	const instrument = options.instrument ?? options.market;
+	if (!instrument?.trim()) throw new Error("instrument or market is required");
+	return instrument.trim();
+}
+function qualityClassification(qualityScore) {
+	if (qualityScore >= 75) return "disciplined";
+	if (qualityScore >= 55) return "mixed";
+	if (qualityScore >= 35) return "fragile";
+	return "noisy";
+}
+async function exposureQuality(remoteClient, options) {
+	const profile = await loadSubjectProfile(remoteClient, options);
+	const exposures = profile.structuredContent.exposures;
+	const caveats = [...profile.structuredContent.caveats];
+	const eventCount = sum(exposures.map((exposure) => exposure.activity.event_count));
+	const pricedCount = exposures.filter((exposure) => exposure.position.pricing_status === "priced").length;
+	const carryRows = exposures.filter((exposure) => exposure.carry?.paid !== void 0 || exposure.carry?.received !== void 0).length;
+	const riskRows = exposures.filter((exposure) => exposure.risk?.liquidation_distance !== void 0 || exposure.risk?.exit_pressure !== void 0).length;
+	const positiveNet = exposures.filter((exposure) => (numberValue$1(exposure.changes.net_change) ?? 0) > 0).length;
+	const negativeNet = exposures.filter((exposure) => (numberValue$1(exposure.changes.net_change) ?? 0) < 0).length;
+	const sampleScore = Math.min(35, eventCount);
+	const pricingScore = ratio(pricedCount, exposures.length) * 20;
+	const balanceScore = exposures.length === 0 ? 0 : (1 - Math.abs(positiveNet - negativeNet) / exposures.length) * 15;
+	const riskCoverageScore = ratio(riskRows, exposures.length) * 15;
+	const carryCoverageScore = ratio(carryRows, exposures.length) * 15;
+	const qualityScore = score(sampleScore + pricingScore + balanceScore + riskCoverageScore + carryCoverageScore);
+	if (eventCount < 50) caveats.push("Sample size is below the 50-event threshold for stronger quality claims.");
+	const flags = [
+		eventCount < 50 ? "small_sample" : void 0,
+		pricedCount < exposures.length ? "pricing_gap" : void 0,
+		riskRows === 0 ? "risk_gap" : void 0,
+		carryRows === 0 ? "carry_gap" : void 0
+	].filter((value) => !!value);
+	const subject = profileSubject(profile);
+	const structuredContent = {
+		schema: "chain-insights.exposure_quality.v1",
+		tool: "exposure_quality",
+		subject,
+		summary: {
+			classification: qualityClassification(qualityScore),
+			score: qualityScore,
+			confidence: confidenceFromCoverage(exposures, caveats),
+			exposure_count: exposures.length,
+			event_count: eventCount,
+			first_activity_timestamp: firstTimestamp(exposures),
+			last_activity_timestamp: lastTimestamp(exposures)
 		},
-		backend_used: [...new Set(rows.map((row) => row.source_backend).filter(Boolean))],
-		primary_topology_graph: live.length > 0 ? "live_topology" : "archive_topology",
-		stake_totals: totals,
-		active_relationships: rows,
-		stake_movements: movementRows(rows),
-		top_counterparties: topCounterparties(subject, rows),
-		query_evidence: evidence,
-		partial_query_errors: failures.length > 0 ? failures : void 0
+		components: {
+			sample_score: score(sampleScore),
+			pricing_coverage_ratio: ratio(pricedCount, exposures.length),
+			carry_coverage_ratio: ratio(carryRows, exposures.length),
+			risk_coverage_ratio: ratio(riskRows, exposures.length),
+			positive_net_exposures: positiveNet,
+			negative_net_exposures: negativeNet
+		},
+		flags,
+		evidence: exposures.flatMap((exposure) => exposure.support).slice(0, 10),
+		caveats
 	};
 	return {
-		summaryText: summaryLines(network, subject, rows, totals, failures),
-		structuredContent: {
-			schema: "chain-insights.result.v1",
-			tool: "stake_insights",
-			facts,
-			hint: rows.length > 0 ? "Review active_relationships and stake_movements before treating stake behavior as generic money flow." : "No matching stake relationships were found; confirm the address role, netuid, and time window."
+		summaryText: [
+			`Exposure quality for ${subjectLine(subject)}`,
+			`Classification: ${structuredContent.summary.classification}`,
+			`Score: ${qualityScore}/100 (${structuredContent.summary.confidence} confidence)`,
+			`Exposures: ${exposures.length}, events: ${eventCount}`,
+			flags.length ? `Flags: ${flags.join(", ")}` : "Flags: none"
+		].join("\n"),
+		structuredContent,
+		graphData: graphData("exposure_quality", subject, exposures)
+	};
+}
+async function exposureCarry(remoteClient, options) {
+	const profile = await loadSubjectProfile(remoteClient, options);
+	const exposures = profile.structuredContent.exposures;
+	const caveats = [...profile.structuredContent.caveats];
+	const received = sum(exposures.map((exposure) => numberValue$1(exposure.carry?.received)));
+	const paid = sum(exposures.map((exposure) => numberValue$1(exposure.carry?.paid)));
+	const net = received - paid;
+	const byVenue = /* @__PURE__ */ new Map();
+	for (const exposure of exposures) {
+		const row = byVenue.get(exposure.venue) ?? {
+			received: 0,
+			paid: 0,
+			rows: 0
+		};
+		row.received += numberValue$1(exposure.carry?.received) ?? 0;
+		row.paid += numberValue$1(exposure.carry?.paid) ?? 0;
+		row.rows += 1;
+		byVenue.set(exposure.venue, row);
+	}
+	if (exposures.every((exposure) => exposure.carry === void 0)) caveats.push("No carry rows were available; this can mean the venue adapter has not indexed funding, fees, emissions, or dividends yet.");
+	const subject = profileSubject(profile);
+	const structuredContent = {
+		schema: "chain-insights.exposure_carry.v1",
+		tool: "exposure_carry",
+		subject,
+		summary: {
+			net_carry: String(net),
+			carry_received: String(received),
+			carry_paid: String(paid),
+			confidence: confidenceFromCoverage(exposures, caveats),
+			exposure_count: exposures.length
 		},
-		graphData: graphData(rows, subject, network)
+		venues: [...byVenue.entries()].map(([venue, row]) => ({
+			venue,
+			net_carry: String(row.received - row.paid),
+			carry_received: String(row.received),
+			carry_paid: String(row.paid),
+			exposure_count: row.rows
+		})),
+		evidence: exposures.flatMap((exposure) => exposure.support).slice(0, 10),
+		caveats
+	};
+	return {
+		summaryText: [
+			`Exposure carry for ${subjectLine(subject)}`,
+			`Net carry: ${structuredContent.summary.net_carry}`,
+			`Received: ${structuredContent.summary.carry_received}, paid: ${structuredContent.summary.carry_paid}`,
+			`Confidence: ${structuredContent.summary.confidence}`
+		].join("\n"),
+		structuredContent,
+		graphData: graphData("exposure_carry", subject, exposures)
+	};
+}
+async function exposureCrowding(remoteClient, options) {
+	const instrument = requireInstrument(options);
+	const { exposures, failedQueryCount } = await loadMarketExposures(remoteClient, {
+		network: options.network,
+		instrument,
+		venue: options.venue,
+		instrumentType: options.instrumentType,
+		startTimestampMs: options.startTimestampMs,
+		endTimestampMs: options.endTimestampMs,
+		limit: clampLimit(options.limit)
+	});
+	const caveats = baseCaveats(exposures, failedQueryCount);
+	const bySide = /* @__PURE__ */ new Map();
+	for (const exposure of exposures) {
+		const side = exposure.position.side;
+		const row = bySide.get(side) ?? {
+			count: 0,
+			notional: 0,
+			quantity: 0
+		};
+		row.count += 1;
+		row.notional += numberValue$1(exposure.position.notional) ?? 0;
+		row.quantity += Math.abs(numberValue$1(exposure.position.quantity) ?? 0);
+		bySide.set(side, row);
+	}
+	const sortedSides = [...bySide.entries()].sort((a, b) => b[1].count - a[1].count);
+	const leadingSide = sortedSides[0]?.[0] ?? "unknown";
+	const crowdingRatio = ratio(sortedSides[0]?.[1].count ?? 0, exposures.length);
+	const subject = {
+		network: options.network,
+		instrument,
+		venue: options.venue
+	};
+	const structuredContent = {
+		schema: "chain-insights.exposure_crowding.v1",
+		tool: "exposure_crowding",
+		subject,
+		summary: {
+			exposure_count: exposures.length,
+			leading_side: leadingSide,
+			crowding_ratio: crowdingRatio,
+			crowding_level: crowdingRatio >= .75 ? "high" : crowdingRatio >= .5 ? "medium" : exposures.length > 0 ? "low" : "unknown",
+			confidence: confidenceFromCoverage(exposures, caveats),
+			first_activity_timestamp: firstTimestamp(exposures),
+			last_activity_timestamp: lastTimestamp(exposures)
+		},
+		sides: sortedSides.map(([side, row]) => ({
+			side,
+			exposure_count: row.count,
+			notional: String(row.notional),
+			quantity: String(row.quantity)
+		})),
+		top_exposures: exposures.slice(0, 10).map((exposure) => ({
+			venue: exposure.venue,
+			instrument: exposure.instrument.display_name,
+			side: exposure.position.side,
+			quantity: exposure.position.quantity,
+			notional: exposure.position.notional,
+			last_seen_timestamp: exposure.activity.last_seen_timestamp
+		})),
+		caveats
+	};
+	return {
+		summaryText: [
+			`Exposure crowding for ${options.network}:${instrument}`,
+			`Level: ${structuredContent.summary.crowding_level}`,
+			`Leading side: ${leadingSide} (${Math.round(crowdingRatio * 100)}%)`,
+			`Exposures: ${exposures.length}`
+		].join("\n"),
+		structuredContent,
+		graphData: graphData("exposure_crowding", subject, exposures)
+	};
+}
+async function exposureExitPressure(remoteClient, options) {
+	const useMarket = !hasSubject(options);
+	const loaded = useMarket ? await loadMarketExposures(remoteClient, {
+		network: options.network,
+		instrument: requireInstrument(options),
+		venue: options.venue,
+		instrumentType: options.instrumentType,
+		startTimestampMs: options.startTimestampMs,
+		endTimestampMs: options.endTimestampMs,
+		limit: clampLimit(options.limit)
+	}) : {
+		exposures: (await loadSubjectProfile(remoteClient, options)).structuredContent.exposures,
+		failedQueryCount: 0
+	};
+	const exposures = loaded.exposures;
+	const caveats = baseCaveats(exposures, loaded.failedQueryCount);
+	const bands = /* @__PURE__ */ new Map();
+	for (const exposure of exposures) {
+		const band = exposure.risk?.exit_pressure ?? "unknown";
+		bands.set(band, (bands.get(band) ?? 0) + 1);
+	}
+	const high = bands.get("high") ?? 0;
+	const medium = bands.get("medium") ?? 0;
+	const pressureScore = score(ratio(high * 2 + medium, Math.max(exposures.length * 2, 1)) * 100);
+	if (exposures.every((exposure) => exposure.risk === void 0)) caveats.push("No exit-risk rows were available; liquidation, slippage, funding pain, or unstake pressure may not be indexed yet.");
+	const subject = useMarket ? {
+		network: options.network,
+		instrument: requireInstrument(options),
+		venue: options.venue
+	} : {
+		network: options.network,
+		account: options.account ?? options.owner ?? options.counterparty
+	};
+	const structuredContent = {
+		schema: "chain-insights.exposure_exit_pressure.v1",
+		tool: "exposure_exit_pressure",
+		subject,
+		summary: {
+			pressure_score: pressureScore,
+			pressure_level: pressureScore >= 70 ? "high" : pressureScore >= 35 ? "medium" : exposures.length > 0 ? "low" : "unknown",
+			exposure_count: exposures.length,
+			confidence: confidenceFromCoverage(exposures, caveats)
+		},
+		pressure_bands: [...bands.entries()].map(([band, count]) => ({
+			band,
+			exposure_count: count
+		})),
+		evidence: exposures.flatMap((exposure) => exposure.support).slice(0, 10),
+		caveats
+	};
+	return {
+		summaryText: [
+			`Exposure exit pressure for ${String(subject["network"])}:${String(subject["account"] ?? subject["instrument"])}`,
+			`Level: ${structuredContent.summary.pressure_level}`,
+			`Score: ${pressureScore}/100`,
+			`Exposures: ${exposures.length}`
+		].join("\n"),
+		structuredContent,
+		graphData: graphData("exposure_exit_pressure", subject, exposures)
+	};
+}
+async function exposureCorrelation(remoteClient, options) {
+	const primary = await loadSubjectProfile(remoteClient, options);
+	const primaryExposures = primary.structuredContent.exposures;
+	const candidates = candidateList(options.candidateAccounts);
+	const caveats = [...primary.structuredContent.caveats];
+	if (candidates.length === 0) caveats.push("No candidate accounts were supplied; correlation v1 requires explicit candidates for deterministic scoring.");
+	const relationships = [];
+	const primaryInstruments = new Set(primaryExposures.map((exposure) => exposure.instrument.id));
+	for (const candidate of candidates.slice(0, 10)) {
+		const candidateExposures = (await exposureProfile(remoteClient, {
+			network: options.network,
+			account: candidate,
+			venue: options.venue,
+			instrument: options.instrument ?? options.market,
+			instrumentType: options.instrumentType,
+			startTimestampMs: options.startTimestampMs,
+			endTimestampMs: options.endTimestampMs,
+			limit: clampLimit(options.limit)
+		})).structuredContent.exposures;
+		const candidateInstruments = new Set(candidateExposures.map((exposure) => exposure.instrument.id));
+		const overlap = [...primaryInstruments].filter((instrument) => candidateInstruments.has(instrument));
+		const overlapRatio = ratio(overlap.length, Math.max(primaryInstruments.size, candidateInstruments.size, 1));
+		relationships.push({
+			account: candidate,
+			overlap_ratio: overlapRatio,
+			overlapping_instruments: overlap,
+			confidence: overlap.length >= 3 ? "medium" : overlap.length > 0 ? "low" : "none",
+			warning: overlap.length > 0 ? "Overlap is behavioral correlation, not proof of shared control or copy trading." : void 0
+		});
+	}
+	const subject = profileSubject(primary);
+	const structuredContent = {
+		schema: "chain-insights.exposure_correlation.v1",
+		tool: "exposure_correlation",
+		subject,
+		summary: {
+			candidate_count: candidates.length,
+			relationship_count: relationships.filter((row) => Number(row["overlap_ratio"]) > 0).length,
+			confidence: confidenceFromCoverage(primaryExposures, caveats)
+		},
+		relationships,
+		caveats
+	};
+	return {
+		summaryText: [
+			`Exposure correlation for ${subjectLine(subject)}`,
+			`Candidates: ${candidates.length}`,
+			`Relationships with overlap: ${structuredContent.summary.relationship_count}`
+		].join("\n"),
+		structuredContent,
+		graphData: graphData("exposure_correlation", subject, primaryExposures)
+	};
+}
+async function exposureExplain(remoteClient, options) {
+	const profile = await loadSubjectProfile(remoteClient, {
+		...options,
+		instrument: options.instrument ?? options.market,
+		limit: clampLimit(options.limit ?? 25)
+	});
+	const exposures = profile.structuredContent.exposures;
+	const caveats = [...profile.structuredContent.caveats];
+	if (!options.instrument && !options.market) caveats.push("No instrument was supplied; explanation uses the most recent matching exposure rows.");
+	const selected = exposures[0];
+	const subject = profileSubject(profile);
+	const evidence = exposures.flatMap((exposure) => exposure.support).slice(0, 20);
+	const structuredContent = {
+		schema: "chain-insights.exposure_explain.v1",
+		tool: "exposure_explain",
+		subject,
+		summary: {
+			exposure_count: exposures.length,
+			explained_instrument: selected?.instrument.display_name,
+			side: selected?.position.side,
+			first_activity_timestamp: firstTimestamp(exposures),
+			last_activity_timestamp: lastTimestamp(exposures),
+			confidence: confidenceFromCoverage(exposures, caveats)
+		},
+		lifecycle: compactRecord({
+			venue: selected?.venue,
+			instrument: selected?.instrument,
+			position: selected?.position,
+			changes: selected?.changes,
+			carry: selected?.carry,
+			risk: selected?.risk,
+			activity: selected?.activity,
+			position_id: options.positionId
+		}),
+		evidence,
+		caveats
+	};
+	return {
+		summaryText: [
+			`Exposure explanation for ${subjectLine(subject)}`,
+			selected ? `Instrument: ${selected.instrument.display_name}` : "Instrument: unavailable",
+			selected ? `Position: ${selected.position.side} ${selected.position.quantity ?? selected.changes.net_change ?? "unknown"}` : "Position: unavailable",
+			`Evidence events: ${evidence.length}`
+		].join("\n"),
+		structuredContent,
+		graphData: graphData("exposure_explain", subject, exposures)
 	};
 }
 //#endregion
@@ -2420,7 +3125,13 @@ async function traceDepositSources(remoteClient, _config, options) {
 }
 //#endregion
 exports.addressRisk = addressRisk;
-exports.stakeInsights = stakeInsights;
+exports.exposureCarry = exposureCarry;
+exports.exposureCorrelation = exposureCorrelation;
+exports.exposureCrowding = exposureCrowding;
+exports.exposureExitPressure = exposureExitPressure;
+exports.exposureExplain = exposureExplain;
+exports.exposureProfile = exposureProfile;
+exports.exposureQuality = exposureQuality;
 exports.traceDepositSources = traceDepositSources;
 exports.traceSuspectFunds = traceSuspectFunds;
 exports.traceVictimFunds = traceVictimFunds;

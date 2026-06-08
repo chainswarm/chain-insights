@@ -10,6 +10,16 @@ import { workspaceOutputPaths } from '../workspace/output-root.js'
 
 export { scamTopology, type ScamTopologyOptions, type ScamTopologyResult } from './scam-topology.js'
 export { stakeInsights, type StakeInsightsOptions, type StakeInsightsResult } from './stake-insights.js'
+export { exposureProfile, type ExposureProfileOptions, type ExposureProfileResult } from './exposure-profile.js'
+export {
+  exposureCarry,
+  exposureCorrelation,
+  exposureCrowding,
+  exposureExitPressure,
+  exposureExplain,
+  exposureQuality,
+  type ExposureInsightOptions,
+} from './exposure-analysis.js'
 
 type RemoteToolResult = {
   content?: ContentBlock[]

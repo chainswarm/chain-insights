@@ -1,6 +1,6 @@
 import { n as PACKAGE_VERSION } from "./version-BA3J8hu4.mjs";
 import { t as PaymentRequiredError } from "./client-BgmHjBHQ.mjs";
-import { t as HIDDEN_REMOTE_TOOL_NAMES } from "./tool-visibility-BpyZHRBi.mjs";
+import { t as HIDDEN_REMOTE_TOOL_NAMES } from "./tool-visibility-CZkb5fBO.mjs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { readFileSync } from "node:fs";
@@ -29,7 +29,13 @@ const PUBLIC_GRAPHRAG_PROMPT_NAMES = new Set(["address-risk", "trace-tools"]);
 const GRAPH_RESOURCE_URI = "ui://chain-insights/graph";
 const GRAPH_APP_TOOL_NAMES = new Set([
 	"address_risk",
-	"stake_insights",
+	"exposure_profile",
+	"exposure_quality",
+	"exposure_carry",
+	"exposure_crowding",
+	"exposure_exit_pressure",
+	"exposure_correlation",
+	"exposure_explain",
 	"trace_victim_funds",
 	"trace_suspect_funds",
 	"trace_deposit_sources"
@@ -55,7 +61,13 @@ const COMMA_SEPARATED_ADDRESS_FIELDS = new Set([
 ]);
 const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS = {
 	address_risk: ["address", "network"],
-	stake_insights: ["network"],
+	exposure_profile: ["network"],
+	exposure_quality: ["network"],
+	exposure_carry: ["network"],
+	exposure_crowding: ["network", "instrument"],
+	exposure_exit_pressure: ["network"],
+	exposure_correlation: ["network"],
+	exposure_explain: ["network"],
 	trace_victim_funds: ["victim_addresses", "network"],
 	trace_suspect_funds: ["suspect_addresses", "network"],
 	trace_deposit_sources: ["deposit_addresses", "network"],
@@ -65,7 +77,13 @@ const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS = {
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS = {
 	network_capabilities: "Return supported Chain Insights networks, capability layers, tool availability, data retention windows, and freshness. Use this before choosing network-specific tools.",
 	address_risk: "Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. This includes the exchange-behavior analysis formerly covered by money_flows_between_exchanges. Use this as the first tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.",
-	stake_insights: "Explain Bittensor staking behavior around one full address, coldkey, or hotkey. Requires network plus exactly one of address, coldkey, or hotkey. Returns net staked/unstaked amounts, active coldkey-hotkey-netuid relationships, aggregate stake movement amounts, top counterparties, first/last activity, source backend, query evidence, and optional graph report metadata.",
+	exposure_profile: "Explain exposure around one account, owner, or counterparty. Supports Bittensor staking exposure and Hyperliquid trading exposure through one generic response shape with venues, instruments, position changes, carry/risk fields when available, public support events, and caveats.",
+	exposure_quality: "Score whether exposure behavior looks disciplined, fragile, lucky, or noisy across Bittensor staking, Hyperliquid trading, and future exposure venues. Returns deterministic components, sample-size warnings, evidence, and caveats; it is not trading advice.",
+	exposure_carry: "Explain carry earned or paid by exposure, including funding, fees, emissions, dividends, validator take, or equivalent venue-native carry when indexed. Returns carry breakdowns, evidence, and missing-data caveats.",
+	exposure_crowding: "Measure whether a market, subnet, hotkey, vault, or strategy is crowded. Returns side concentration, top exposure rows, confidence, and caveats from generic exposure rows.",
+	exposure_exit_pressure: "Explain what could force or incentivize exits, including liquidation pressure, slippage/unstake pressure, funding pain, or missing risk coverage. Accepts either an account-style subject or an instrument/market subject.",
+	exposure_correlation: "Compare exposure behavior across accounts to find possible copy, overlap, or strategy-cluster relationships. Correlation is not proof of shared control.",
+	exposure_explain: "Explain the lifecycle of a specific exposure, position, trade, stake, or rotation using public support events, position changes, carry, risk fields, and caveats.",
 	trace_victim_funds: "Trace victim/source funds forward through intermediaries to exchange deposit candidates. Use only when the input addresses are victims or trusted stolen-source addresses; do not use for suspected deposit addresses because traceback belongs to trace_deposit_sources. Exchange hot wallets are terminal only, never candidate deposits. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
 	trace_suspect_funds: "Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology. Use when the input addresses are suspect-controlled seeds; incident_timestamp_ms is optional. Do not use for victim/source addresses or suspected deposit endpoints. Exchange hot wallets are terminal only, never candidate suspects or intermediates. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
 	trace_deposit_sources: "Trace backward from suspected deposit/cashout addresses to upstream sources, shared funders, and convergence. Use only when the input addresses are suspected non-exchange deposit endpoints; do not treat these seeds as scammers and do not continue forward from discovered suspects here. Exchange hot wallets are excluded as seeds and upstream sources. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
@@ -83,7 +101,7 @@ const CHAIN_INSIGHTS_WORKFLOW = [
 	"Workflow:",
 	"1. Chain Insights workspaces are Obsidian-compatible vaults. If the user is starting or continuing an investigation, use case_open or case_list/case_resume first.",
 	"2. Do not call investigation tools until required arguments are known. Network is required; use network_capabilities to check supported networks, data layers, retention, and freshness, or ask the user if missing.",
-	"3. Use address_risk for single-address enrichment. Use trace_victim_funds for victim/source forward tracing, trace_deposit_sources for reverse traceback from suspected deposit endpoints, and trace_suspect_funds for suspect-controlled outbound laundering/cashout topology. Use stake_insights for Bittensor staking behavior. Use graph_query(_batch) only when the high-level trace tools do not answer the exact question.",
+	"3. Use address_risk for single-address enrichment. Use exposure_profile, exposure_quality, exposure_carry, exposure_crowding, exposure_exit_pressure, exposure_correlation, and exposure_explain for Bittensor staking and trading exposure. Use trace_victim_funds for victim/source forward tracing, trace_deposit_sources for reverse traceback from suspected deposit endpoints, and trace_suspect_funds for suspect-controlled outbound laundering/cashout topology. Use graph_query(_batch) only when the high-level tools do not answer the exact question.",
 	"4. After a material result, preserve it with case_add_evidence when a case is active or ask whether to create/select a case.",
 	"5. Use case_update_dossier for durable address/entity findings and case_start_session/case_end_session for session notes.",
 	"6. For local review, use live vault notes refreshed with cia case vault refresh. When a case reaches a sharing or archive checkpoint, use case_verify_evidence and case_export to produce Obsidian, LLM Wiki, Codex, Claude Code, and ChatGPT-ready handoff bundles."
@@ -122,7 +140,7 @@ const SERVER_INSTRUCTIONS = [
 const STATELESS_SERVER_INSTRUCTIONS = [
 	"Chain Insights is running as a stateless AML proxy for a host application.",
 	"Do not use local case, evidence, dossier, session, wallet, or graph report workflows in this mode.",
-	"Use network_capabilities first when network support is unknown, then call address_risk, stake_insights, trace_victim_funds, trace_suspect_funds, trace_deposit_sources, graph_query, or graph_query_batch as needed.",
+	"Use network_capabilities first when network support is unknown, then call address_risk, exposure_profile, exposure_quality, exposure_carry, exposure_crowding, exposure_exit_pressure, exposure_correlation, exposure_explain, trace_victim_funds, trace_suspect_funds, trace_deposit_sources, graph_query, or graph_query_batch as needed.",
 	GRAPH_SCHEMA_HINTS,
 	"Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses."
 ].join("\n\n");
@@ -189,18 +207,80 @@ function knownPublicToolInputSchema(toolName) {
 			case_id: z.string().optional().describe("Optional Chain Insights case ID. When provided, compact evidence is appended to the case manifest."),
 			include_attachments: z.boolean().optional().describe("Include graph app report metadata")
 		};
-		case "stake_insights": return {
+		case "exposure_profile": return {
 			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
-			address: z.string().optional().describe("Full Bittensor address to inspect as either coldkey or hotkey. Provide exactly one of address, coldkey, or hotkey."),
-			coldkey: z.string().optional().describe("Full Bittensor coldkey address to inspect. Provide exactly one of address, coldkey, or hotkey."),
-			hotkey: z.string().optional().describe("Full Bittensor hotkey address to inspect. Provide exactly one of address, coldkey, or hotkey."),
-			netuid: z.number().int().min(0).optional().describe("Optional subnet netuid filter."),
+			account: z.string().optional().describe("Full account address to inspect. Provide exactly one of account, owner, or counterparty."),
+			owner: z.string().optional().describe("Full owner address to inspect. Provide exactly one of account, owner, or counterparty."),
+			counterparty: z.string().optional().describe("Full counterparty address to inspect. Provide exactly one of account, owner, or counterparty."),
+			venue: z.string().optional().describe("Optional venue filter, such as Bittensor or Hyperliquid."),
+			instrument: z.string().optional().describe("Optional instrument display or durable identifier filter, such as Subnet 19 or BTC-PERP."),
+			instrument_type: z.string().optional().describe("Optional instrument type filter, such as subnet, perp, spot, vault, staking, or other."),
 			start_timestamp_ms: z.number().min(0).optional().describe("Optional inclusive lower activity timestamp bound in milliseconds."),
 			end_timestamp_ms: z.number().min(0).optional().describe("Optional inclusive upper activity timestamp bound in milliseconds."),
-			start_block: z.number().int().min(0).optional().describe("Optional start block. Current stake graph parity may require timestamp windows instead."),
-			end_block: z.number().int().min(0).optional().describe("Optional end block. Current stake graph parity may require timestamp windows instead."),
-			depth: z.number().int().min(1).max(3).optional().describe("Optional expansion depth limit. First release returns direct STAKES_IN relationships; default 1, max 3."),
-			include_attachments: z.boolean().optional().describe("Include graph app report metadata")
+			limit: z.number().int().min(1).max(500).optional().describe("Maximum exposure rows to inspect. Default 100, max 500.")
+		};
+		case "exposure_quality":
+		case "exposure_carry": return {
+			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
+			account: z.string().optional().describe("Full account address to inspect. Provide exactly one of account, owner, or counterparty."),
+			owner: z.string().optional().describe("Full owner address to inspect. Provide exactly one of account, owner, or counterparty."),
+			counterparty: z.string().optional().describe("Full counterparty address to inspect. Provide exactly one of account, owner, or counterparty."),
+			venue: z.string().optional().describe("Optional venue filter, such as Bittensor or Hyperliquid."),
+			instrument: z.string().optional().describe("Optional instrument display or durable identifier filter, such as Subnet 19 or BTC-PERP."),
+			instrument_type: z.string().optional().describe("Optional instrument type filter, such as subnet, perp, spot, vault, staking, or other."),
+			start_timestamp_ms: z.number().min(0).optional().describe("Optional inclusive lower activity timestamp bound in milliseconds."),
+			end_timestamp_ms: z.number().min(0).optional().describe("Optional inclusive upper activity timestamp bound in milliseconds."),
+			limit: z.number().int().min(1).max(500).optional().describe("Maximum exposure rows to inspect. Default 100, max 500.")
+		};
+		case "exposure_crowding": return {
+			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
+			instrument: z.string().min(1).describe("Instrument, market, subnet, hotkey, vault, or durable exposure target identifier to inspect."),
+			market: z.string().optional().describe("Alias for instrument when using market language."),
+			venue: z.string().optional().describe("Optional venue filter, such as Bittensor or Hyperliquid."),
+			instrument_type: z.string().optional().describe("Optional instrument type filter, such as subnet, perp, spot, vault, staking, or other."),
+			start_timestamp_ms: z.number().min(0).optional().describe("Optional inclusive lower activity timestamp bound in milliseconds."),
+			end_timestamp_ms: z.number().min(0).optional().describe("Optional inclusive upper activity timestamp bound in milliseconds."),
+			limit: z.number().int().min(1).max(500).optional().describe("Maximum exposure rows to inspect. Default 100, max 500.")
+		};
+		case "exposure_exit_pressure": return {
+			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
+			account: z.string().optional().describe("Optional account address to inspect. Provide an account-style subject or an instrument/market."),
+			owner: z.string().optional().describe("Optional owner address to inspect. Provide an account-style subject or an instrument/market."),
+			counterparty: z.string().optional().describe("Optional counterparty address to inspect. Provide an account-style subject or an instrument/market."),
+			instrument: z.string().optional().describe("Instrument, market, subnet, hotkey, vault, or durable exposure target identifier to inspect."),
+			market: z.string().optional().describe("Alias for instrument when using market language."),
+			venue: z.string().optional().describe("Optional venue filter, such as Bittensor or Hyperliquid."),
+			instrument_type: z.string().optional().describe("Optional instrument type filter, such as subnet, perp, spot, vault, staking, or other."),
+			start_timestamp_ms: z.number().min(0).optional().describe("Optional inclusive lower activity timestamp bound in milliseconds."),
+			end_timestamp_ms: z.number().min(0).optional().describe("Optional inclusive upper activity timestamp bound in milliseconds."),
+			limit: z.number().int().min(1).max(500).optional().describe("Maximum exposure rows to inspect. Default 100, max 500.")
+		};
+		case "exposure_correlation": return {
+			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
+			account: z.string().optional().describe("Full account address to inspect. Provide exactly one of account, owner, or counterparty."),
+			owner: z.string().optional().describe("Full owner address to inspect. Provide exactly one of account, owner, or counterparty."),
+			counterparty: z.string().optional().describe("Full counterparty address to inspect. Provide exactly one of account, owner, or counterparty."),
+			candidate_accounts: z.union([z.string(), z.array(z.string())]).optional().describe("Optional comma-separated or array candidate accounts to compare against."),
+			venue: z.string().optional().describe("Optional venue filter, such as Bittensor or Hyperliquid."),
+			instrument: z.string().optional().describe("Optional instrument display or durable identifier filter."),
+			instrument_type: z.string().optional().describe("Optional instrument type filter, such as subnet, perp, spot, vault, staking, or other."),
+			start_timestamp_ms: z.number().min(0).optional().describe("Optional inclusive lower activity timestamp bound in milliseconds."),
+			end_timestamp_ms: z.number().min(0).optional().describe("Optional inclusive upper activity timestamp bound in milliseconds."),
+			limit: z.number().int().min(1).max(500).optional().describe("Maximum exposure rows to inspect. Default 100, max 500.")
+		};
+		case "exposure_explain": return {
+			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
+			account: z.string().optional().describe("Full account address to inspect. Provide exactly one of account, owner, or counterparty."),
+			owner: z.string().optional().describe("Full owner address to inspect. Provide exactly one of account, owner, or counterparty."),
+			counterparty: z.string().optional().describe("Full counterparty address to inspect. Provide exactly one of account, owner, or counterparty."),
+			instrument: z.string().optional().describe("Optional instrument display or durable identifier filter."),
+			market: z.string().optional().describe("Alias for instrument when using market language."),
+			position_id: z.string().optional().describe("Optional venue-native position, trade, stake, rotation, or lifecycle identifier when available."),
+			venue: z.string().optional().describe("Optional venue filter, such as Bittensor or Hyperliquid."),
+			instrument_type: z.string().optional().describe("Optional instrument type filter, such as subnet, perp, spot, vault, staking, or other."),
+			start_timestamp_ms: z.number().min(0).optional().describe("Optional inclusive lower activity timestamp bound in milliseconds."),
+			end_timestamp_ms: z.number().min(0).optional().describe("Optional inclusive upper activity timestamp bound in milliseconds."),
+			limit: z.number().int().min(1).max(500).optional().describe("Maximum exposure rows to inspect. Default 25, max 500.")
 		};
 		case "graph_query": return {
 			query: z.string().min(1).describe("Read-only GQL/Cypher query. Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment."),
@@ -1112,7 +1192,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { addressRisk } = await import("./public-tools-CvlZcysd.mjs");
+			const { addressRisk } = await import("./public-tools-CFbBiqq7.mjs");
 			const result = await addressRisk(remoteClient, {
 				address,
 				network,
@@ -1182,7 +1262,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { traceVictimFunds } = await import("./public-tools-CvlZcysd.mjs");
+			const { traceVictimFunds } = await import("./public-tools-CFbBiqq7.mjs");
 			const result = await traceVictimFunds(remoteClient, config, {
 				victimAddresses: victim_addresses,
 				knownSuspectAddresses: known_suspect_addresses,
@@ -1257,7 +1337,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { traceSuspectFunds } = await import("./public-tools-CvlZcysd.mjs");
+			const { traceSuspectFunds } = await import("./public-tools-CFbBiqq7.mjs");
 			const result = await traceSuspectFunds(remoteClient, config, {
 				suspectAddresses: suspect_addresses,
 				network,
@@ -1328,7 +1408,7 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { traceDepositSources } = await import("./public-tools-CvlZcysd.mjs");
+			const { traceDepositSources } = await import("./public-tools-CFbBiqq7.mjs");
 			const result = await traceDepositSources(remoteClient, config, {
 				depositAddresses: deposit_addresses,
 				network,
@@ -1363,21 +1443,20 @@ async function createProxy() {
 			};
 		}
 	});
-	if (!remoteToolNames.has("stake_insights")) registerAppTool(server, "stake_insights", {
-		title: "Stake Insights",
-		description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.stake_insights,
+	if (!remoteToolNames.has("exposure_profile")) registerAppTool(server, "exposure_profile", {
+		title: "Exposure Profile",
+		description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.exposure_profile,
 		inputSchema: {
 			network: z.string().min(1).describe(NETWORK_DESCRIPTION),
-			address: z.string().optional().describe("Full Bittensor address to inspect as either coldkey or hotkey. Provide exactly one of address, coldkey, or hotkey."),
-			coldkey: z.string().optional().describe("Full Bittensor coldkey address to inspect. Provide exactly one of address, coldkey, or hotkey."),
-			hotkey: z.string().optional().describe("Full Bittensor hotkey address to inspect. Provide exactly one of address, coldkey, or hotkey."),
-			netuid: z.number().int().min(0).optional().describe("Optional subnet netuid filter."),
+			account: z.string().optional().describe("Full account address to inspect. Provide exactly one of account, owner, or counterparty."),
+			owner: z.string().optional().describe("Full owner address to inspect. Provide exactly one of account, owner, or counterparty."),
+			counterparty: z.string().optional().describe("Full counterparty address to inspect. Provide exactly one of account, owner, or counterparty."),
+			venue: z.string().optional().describe("Optional venue filter, such as Bittensor or Hyperliquid."),
+			instrument: z.string().optional().describe("Optional instrument display or durable identifier filter, such as Subnet 19 or BTC-PERP."),
+			instrument_type: z.string().optional().describe("Optional instrument type filter, such as subnet, perp, spot, vault, staking, or other."),
 			start_timestamp_ms: z.number().min(0).optional().describe("Optional inclusive lower activity timestamp bound in milliseconds."),
 			end_timestamp_ms: z.number().min(0).optional().describe("Optional inclusive upper activity timestamp bound in milliseconds."),
-			start_block: z.number().int().min(0).optional().describe("Optional start block. Current stake graph parity may require timestamp windows instead."),
-			end_block: z.number().int().min(0).optional().describe("Optional end block. Current stake graph parity may require timestamp windows instead."),
-			depth: z.number().int().min(1).max(3).optional().describe("Optional expansion depth limit. First release returns direct STAKES_IN relationships; default 1, max 3."),
-			include_attachments: z.boolean().optional().describe("Include graph app report metadata")
+			limit: z.number().int().min(1).max(500).optional().describe("Maximum exposure rows to inspect. Default 100, max 500.")
 		},
 		_meta: { ui: { resourceUri: GRAPH_RESOURCE_URI } },
 		annotations: {
@@ -1386,7 +1465,7 @@ async function createProxy() {
 			idempotentHint: true,
 			openWorldHint: true
 		}
-	}, async ({ network, address, coldkey, hotkey, netuid, start_timestamp_ms, end_timestamp_ms, start_block, end_block, depth, include_attachments }) => {
+	}, async ({ network, account, owner, counterparty, venue, instrument, instrument_type, start_timestamp_ms, end_timestamp_ms, limit }) => {
 		try {
 			if (!remoteConnected) return {
 				content: [{
@@ -1395,21 +1474,21 @@ async function createProxy() {
 				}],
 				isError: true
 			};
-			const { stakeInsights } = await import("./public-tools-CvlZcysd.mjs");
-			const result = await stakeInsights(remoteClient, {
+			const { exposureProfile } = await import("./public-tools-CFbBiqq7.mjs");
+			const result = await exposureProfile(remoteClient, {
 				network,
-				address,
-				coldkey,
-				hotkey,
-				netuid,
+				account,
+				owner,
+				counterparty,
+				venue,
+				instrument,
+				instrumentType: instrument_type,
 				startTimestampMs: start_timestamp_ms,
 				endTimestampMs: end_timestamp_ms,
-				startBlock: start_block,
-				endBlock: end_block,
-				depth
+				limit
 			});
-			const subject = address ?? coldkey ?? hotkey ?? "subject";
-			const graph = await writeLocalGraphMeta(result.graphData, config, `stake-insights-${network}-${subject}`, shouldIncludeAttachments({ include_attachments }, workspaceArtifactsEnabled));
+			const subject = account ?? owner ?? counterparty ?? "subject";
+			const graph = await writeLocalGraphMeta(result.graphData, config, `exposure-profile-${network}-${subject}`, workspaceArtifactsEnabled);
 			return {
 				content: [{
 					type: "text",
@@ -1430,12 +1509,118 @@ async function createProxy() {
 			return {
 				content: [{
 					type: "text",
-					text: `Stake insights failed: ${err.message}`
+					text: `Exposure profile failed: ${err.message}`
 				}],
 				isError: true
 			};
 		}
 	});
+	for (const tool of [
+		{
+			name: "exposure_quality",
+			title: "Exposure Quality",
+			failure: "Exposure quality failed",
+			slug: "exposure-quality"
+		},
+		{
+			name: "exposure_carry",
+			title: "Exposure Carry",
+			failure: "Exposure carry failed",
+			slug: "exposure-carry"
+		},
+		{
+			name: "exposure_crowding",
+			title: "Exposure Crowding",
+			failure: "Exposure crowding failed",
+			slug: "exposure-crowding"
+		},
+		{
+			name: "exposure_exit_pressure",
+			title: "Exposure Exit Pressure",
+			failure: "Exposure exit pressure failed",
+			slug: "exposure-exit-pressure"
+		},
+		{
+			name: "exposure_correlation",
+			title: "Exposure Correlation",
+			failure: "Exposure correlation failed",
+			slug: "exposure-correlation"
+		},
+		{
+			name: "exposure_explain",
+			title: "Exposure Explain",
+			failure: "Exposure explain failed",
+			slug: "exposure-explain"
+		}
+	]) {
+		if (remoteToolNames.has(tool.name)) continue;
+		registerAppTool(server, tool.name, {
+			title: tool.title,
+			description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS[tool.name],
+			inputSchema: knownPublicToolInputSchema(tool.name) ?? {},
+			_meta: { ui: { resourceUri: GRAPH_RESOURCE_URI } },
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true
+			}
+		}, async (args) => {
+			try {
+				if (!remoteConnected) return {
+					content: [{
+						type: "text",
+						text: `${remoteUnavailableMessage ?? `Graph MCP is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`
+					}],
+					isError: true
+				};
+				const input = args;
+				const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await import("./public-tools-CFbBiqq7.mjs");
+				const options = {
+					network: String(input["network"] ?? ""),
+					account: input["account"] === void 0 ? void 0 : String(input["account"]),
+					owner: input["owner"] === void 0 ? void 0 : String(input["owner"]),
+					counterparty: input["counterparty"] === void 0 ? void 0 : String(input["counterparty"]),
+					venue: input["venue"] === void 0 ? void 0 : String(input["venue"]),
+					instrument: input["instrument"] === void 0 ? void 0 : String(input["instrument"]),
+					market: input["market"] === void 0 ? void 0 : String(input["market"]),
+					instrumentType: input["instrument_type"] === void 0 ? void 0 : String(input["instrument_type"]),
+					startTimestampMs: typeof input["start_timestamp_ms"] === "number" ? input["start_timestamp_ms"] : void 0,
+					endTimestampMs: typeof input["end_timestamp_ms"] === "number" ? input["end_timestamp_ms"] : void 0,
+					limit: typeof input["limit"] === "number" ? input["limit"] : void 0,
+					candidateAccounts: input["candidate_accounts"],
+					positionId: input["position_id"] === void 0 ? void 0 : String(input["position_id"])
+				};
+				const result = tool.name === "exposure_quality" ? await exposureQuality(remoteClient, options) : tool.name === "exposure_carry" ? await exposureCarry(remoteClient, options) : tool.name === "exposure_crowding" ? await exposureCrowding(remoteClient, options) : tool.name === "exposure_exit_pressure" ? await exposureExitPressure(remoteClient, options) : tool.name === "exposure_correlation" ? await exposureCorrelation(remoteClient, options) : await exposureExplain(remoteClient, options);
+				const subject = options.account ?? options.owner ?? options.counterparty ?? options.instrument ?? options.market ?? "subject";
+				const graph = await writeLocalGraphMeta(result.graphData, config, `${tool.slug}-${options.network}-${subject}`, workspaceArtifactsEnabled);
+				return {
+					content: [{
+						type: "text",
+						text: result.summaryText
+					}],
+					structuredContent: result.structuredContent,
+					_meta: graphMetaResult(graph),
+					isError: false
+				};
+			} catch (err) {
+				if (err instanceof PaymentRequiredError) return {
+					content: [{
+						type: "text",
+						text: err.message
+					}],
+					isError: true
+				};
+				return {
+					content: [{
+						type: "text",
+						text: `${tool.failure}: ${err.message}`
+					}],
+					isError: true
+				};
+			}
+		});
+	}
 	server.registerTool("help", {
 		description: "Show Chain Insights overview, available tools, and investigation workflow.",
 		inputSchema: z.object({}).passthrough()
@@ -1450,7 +1635,13 @@ async function createProxy() {
 				"Investigation tools:",
 				"- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.",
 				"- address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.",
-				"- stake_insights: explain Bittensor staking around one address, coldkey, or hotkey with net stake, movement amounts, counterparties, backend, and query evidence.",
+				"- exposure_profile: explain staking or trading exposure around one account, owner, or counterparty.",
+				"- exposure_quality: score whether exposure behavior looks disciplined, fragile, lucky, or noisy.",
+				"- exposure_carry: explain carry earned or paid from staking, trading, funding, fees, emissions, or dividends.",
+				"- exposure_crowding: measure side concentration for a market, subnet, hotkey, vault, or strategy.",
+				"- exposure_exit_pressure: explain liquidation, slippage, unstake, funding pain, or other exit pressure.",
+				"- exposure_correlation: compare accounts for possible copy, overlap, or strategy-cluster behavior.",
+				"- exposure_explain: explain a specific exposure lifecycle, trade, position, stake, rotation, or incident.",
 				"- trace_victim_funds: trace up to five victim/source addresses forward to exchange deposit candidates.",
 				"- trace_deposit_sources: trace backward from suspected deposit/cashout addresses to upstream funders and shared-source convergence.",
 				"- trace_suspect_funds: trace up to five suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology.",
@@ -1482,7 +1673,13 @@ async function createProxy() {
 				"Available graph-backed tools:",
 				"- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.",
 				"- address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.",
-				"- stake_insights: explain Bittensor staking around one address, coldkey, or hotkey with net stake, movement amounts, counterparties, backend, and query evidence.",
+				"- exposure_profile: explain staking or trading exposure around one account, owner, or counterparty.",
+				"- exposure_quality: score whether exposure behavior looks disciplined, fragile, lucky, or noisy.",
+				"- exposure_carry: explain carry earned or paid from staking, trading, funding, fees, emissions, or dividends.",
+				"- exposure_crowding: measure side concentration for a market, subnet, hotkey, vault, or strategy.",
+				"- exposure_exit_pressure: explain liquidation, slippage, unstake, funding pain, or other exit pressure.",
+				"- exposure_correlation: compare accounts for possible copy, overlap, or strategy-cluster behavior.",
+				"- exposure_explain: explain a specific exposure lifecycle, trade, position, stake, rotation, or incident.",
 				"- trace_victim_funds: trace up to five victim/source addresses forward to exchange deposit candidates.",
 				"- trace_deposit_sources: trace backward from suspected deposit/cashout addresses to upstream funders and shared-source convergence.",
 				"- trace_suspect_funds: trace up to five suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology.",

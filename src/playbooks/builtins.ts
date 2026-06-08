@@ -3,7 +3,13 @@
 
 export const KNOWN_GRAPHRAG_PUBLIC_TOOLS = [
   'address_risk',
-  'stake_insights',
+  'exposure_profile',
+  'exposure_quality',
+  'exposure_carry',
+  'exposure_crowding',
+  'exposure_exit_pressure',
+  'exposure_correlation',
+  'exposure_explain',
   'trace_victim_funds',
   'trace_deposit_sources',
   'trace_suspect_funds',

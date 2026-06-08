@@ -12,7 +12,8 @@ const HIDDEN_REMOTE_TOOL_NAMES = new Set([
 	"track_funds",
 	"scam_topology",
 	"money_flows_between_exchanges",
-	"address_connection_risk"
+	"address_connection_risk",
+	"stake_insights"
 ]);
 function isHiddenRemoteToolName(name) {
 	return HIDDEN_REMOTE_TOOL_NAMES.has(name);
@@ -22,9 +23,9 @@ function visibleRemoteTools(tools) {
 }
 function assertPublicMcpToolName(name) {
 	if (!isHiddenRemoteToolName(name)) return;
-	throw new Error(`MCP tool '${name}' is not exposed by Chain Insights.${name === "trace_funds" ? " Use trace_victim_funds, trace_suspect_funds, or trace_deposit_sources instead." : name === "track_funds" ? " Use trace_victim_funds instead." : name === "scam_topology" ? " Use trace_suspect_funds instead." : ""}`);
+	throw new Error(`MCP tool '${name}' is not exposed by Chain Insights.${name === "trace_funds" ? " Use trace_victim_funds, trace_suspect_funds, or trace_deposit_sources instead." : name === "track_funds" ? " Use trace_victim_funds instead." : name === "scam_topology" ? " Use trace_suspect_funds instead." : name === "stake_insights" ? " Use exposure_profile or the generic exposure_* tools for Bittensor and trading exposure." : ""}`);
 }
 //#endregion
 export { tool_visibility_exports as n, HIDDEN_REMOTE_TOOL_NAMES as t };
 
-//# sourceMappingURL=tool-visibility-BpyZHRBi.mjs.map
+//# sourceMappingURL=tool-visibility-CZkb5fBO.mjs.map

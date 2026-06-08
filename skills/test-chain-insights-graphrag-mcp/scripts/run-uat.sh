@@ -8,6 +8,7 @@ DEBUG_TOKEN="${GRAPHRAG_DEBUG_TOKEN:-chain-insights-dev-debug}"
 SERVER_PORT="${CHAIN_INSIGHTS_SERVER_PORT:-4321}"
 NETWORK="${NETWORK:-bittensor}"
 UAT_ADDRESS="${UAT_ADDRESS:-5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6}"
+UAT_EXPOSURE_ACCOUNT="${UAT_EXPOSURE_ACCOUNT:-}"
 REPORT_DIR="${REPORT_DIR:-${CHAIN_INSIGHTS_DIR}/.tmp/uat}"
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
 RUN_DIR="${REPORT_DIR}/${RUN_ID}"
@@ -244,15 +245,15 @@ const file = process.argv[2]
 const data = JSON.parse(fs.readFileSync(file, 'utf8'))
 const tools = data.tools || []
 const names = new Set(tools.map((tool) => tool.name))
-const required = ['balance', 'help', 'address_risk', 'stake_insights', 'trace_victim_funds', 'trace_suspect_funds', 'trace_deposit_sources', 'network_capabilities', 'graph_query', 'graph_query_batch']
+const required = ['balance', 'help', 'address_risk', 'exposure_profile', 'exposure_quality', 'exposure_carry', 'exposure_crowding', 'exposure_exit_pressure', 'exposure_correlation', 'exposure_explain', 'trace_victim_funds', 'trace_suspect_funds', 'trace_deposit_sources', 'network_capabilities', 'graph_query', 'graph_query_batch']
 const missing = required.filter((name) => !names.has(name))
 if (missing.length) throw new Error(`proxy tools/list missing tools: ${missing.join(', ')}`)
-for (const hidden of ['topup', 'trace_funds', 'track_funds', 'scam_topology', 'money_flows_between_exchanges', 'address_connection_risk']) {
+for (const hidden of ['topup', 'trace_funds', 'track_funds', 'scam_topology', 'money_flows_between_exchanges', 'address_connection_risk', 'stake_insights']) {
   if (names.has(hidden)) throw new Error(`proxy tools/list exposed hidden tool: ${hidden}`)
 }
 if (JSON.stringify(tools).includes('app_data')) throw new Error('proxy tools/list still contains app_data')
 const graphTools = tools.filter((tool) => tool._meta?.ui?.resourceUri === 'ui://chain-insights/graph').map((tool) => tool.name)
-for (const name of ['address_risk', 'stake_insights', 'trace_victim_funds', 'trace_suspect_funds', 'trace_deposit_sources']) {
+for (const name of ['address_risk', 'exposure_profile', 'exposure_quality', 'exposure_carry', 'exposure_crowding', 'exposure_exit_pressure', 'exposure_correlation', 'exposure_explain', 'trace_victim_funds', 'trace_suspect_funds', 'trace_deposit_sources']) {
   if (!graphTools.includes(name)) throw new Error(`proxy graph app metadata missing for ${name}`)
 }
 console.log(`[uat] proxy tools/list ok: ${tools.length} tools`)
@@ -348,6 +349,213 @@ if (errors.length) throw new Error(errors.join('; '))
 console.log(`[uat] graph report ok: nodes=${data.nodes.length} edges=${data.edges.length} flows=${data.flows.length} edge_anchors=${data.edge_anchors.length}`)
 NODE
 
+EXPOSURE_ACCOUNT="${UAT_EXPOSURE_ACCOUNT}"
+EXPOSURE_DISCOVERY_JSON="${RUN_DIR}/exposure-account-discovery.json"
+if [[ -z "${EXPOSURE_ACCOUNT}" ]]; then
+  log "discovering generic exposure UAT account"
+  npx @modelcontextprotocol/inspector \
+    --cli "${MCP_ENDPOINT}" \
+    --transport http \
+    --header "Authorization: Bearer ${DEBUG_TOKEN}" \
+    --header "X-MCP-Debug-Token: ${DEBUG_TOKEN}" \
+    --method tools/call \
+    --tool-name graph_query_batch \
+    --tool-arg "network=${NETWORK}" \
+    --tool-arg 'queries=[{"id":"live_exposure_uat_account","query":"USE live_topology MATCH (account:Address)-[:HAS_EXPOSURE]->(exposure:Exposure)-[:TARGETS_INSTRUMENT]->(instrument:Instrument) RETURN account.address AS account_address, exposure.venue AS venue, instrument.display_id AS instrument_display_id, exposure.side AS side LIMIT 1"},{"id":"archive_exposure_uat_account","query":"USE archive_topology MATCH (account:Address)-[:HAS_EXPOSURE]->(exposure:Exposure)-[:TARGETS_INSTRUMENT]->(instrument:Instrument) RETURN account.address AS account_address, exposure.venue AS venue, instrument.display_id AS instrument_display_id, exposure.side AS side LIMIT 1"}]' >"${EXPOSURE_DISCOVERY_JSON}"
+
+  EXPOSURE_ACCOUNT="$(
+    node - "${EXPOSURE_DISCOVERY_JSON}" <<'NODE'
+const fs = require('node:fs')
+const file = process.argv[2]
+const data = JSON.parse(fs.readFileSync(file, 'utf8'))
+const textPayload = data.content?.find((item) => item.type === 'text')?.text
+const parsedText = textPayload ? JSON.parse(textPayload) : {}
+const queries = data.structuredContent?.facts?.queries || parsedText.facts?.queries || []
+const rows = queries.flatMap((query) => Array.isArray(query.results) ? query.results : [])
+const account = rows.map((row) => row.account_address).find((value) => typeof value === 'string' && value.length > 0)
+if (!account) {
+  throw new Error('no generic exposure rows found; run exposure GraphRAG sync or set UAT_EXPOSURE_ACCOUNT')
+}
+process.stdout.write(account)
+NODE
+  )"
+fi
+printf '%s\n' "${EXPOSURE_ACCOUNT}" >"${RUN_DIR}/exposure-account.txt"
+log "using generic exposure UAT account: ${EXPOSURE_ACCOUNT}"
+
+EXPOSURE_PROFILE_JSON="${RUN_DIR}/proxy-exposure-profile.json"
+log "calling Chain Insights proxy exposure_profile"
+node --input-type=module - "${CHAIN_INSIGHTS_PROXY}" "${NETWORK}" "${EXPOSURE_ACCOUNT}" "${EXPOSURE_PROFILE_JSON}" <<'NODE'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
+import fs from 'node:fs'
+
+const proxy = process.argv[2]
+const network = process.argv[3]
+const account = process.argv[4]
+const outputFile = process.argv[5]
+const requestTimeoutMs = 5 * 60 * 1000
+
+const client = new Client({ name: 'chain-insights-uat', version: '0.0.0' })
+const transport = new StdioClientTransport({
+  command: process.execPath,
+  args: [proxy],
+  env: process.env,
+})
+
+try {
+  await client.connect(transport)
+  const result = await client.callTool(
+    {
+      name: 'exposure_profile',
+      arguments: {
+        network,
+        account,
+        limit: 3,
+      },
+    },
+    undefined,
+    {
+      timeout: requestTimeoutMs,
+      maxTotalTimeout: requestTimeoutMs,
+    },
+  )
+  fs.writeFileSync(outputFile, `${JSON.stringify(result, null, 2)}\n`)
+} finally {
+  await client.close()
+}
+NODE
+
+node - "${EXPOSURE_PROFILE_JSON}" <<'NODE'
+const fs = require('node:fs')
+const file = process.argv[2]
+const data = JSON.parse(fs.readFileSync(file, 'utf8'))
+const errors = []
+const content = data.content || []
+const sc = data.structuredContent || {}
+const serialized = JSON.stringify(data)
+if (data.isError) errors.push('proxy exposure_profile returned isError=true')
+if (content[0]?.type !== 'text') errors.push('proxy exposure_profile content[0] is not text')
+if (sc.schema !== 'chain-insights.exposure_profile.v1') errors.push(`proxy exposure_profile schema mismatch: ${sc.schema}`)
+if (sc.tool !== 'exposure_profile') errors.push(`proxy exposure_profile tool mismatch: ${sc.tool}`)
+if (!Array.isArray(sc.exposures) || sc.exposures.length < 1) errors.push('proxy exposure_profile returned no exposures')
+if (sc.exposures?.length > 3) errors.push(`proxy exposure_profile exceeded requested limit: ${sc.exposures.length}`)
+for (const forbidden of [
+  'source_backend',
+  'evidence_relationship_type',
+  'STAKES_IN',
+  'HAS_EXPOSURE',
+  'TARGETS_HOTKEY',
+  'live_topology',
+  'archive_topology',
+  'core_exposure',
+  'include_attachments',
+  'stake_unit',
+]) {
+  if (serialized.includes(forbidden)) errors.push(`proxy exposure_profile leaks ${forbidden}`)
+}
+if (errors.length) throw new Error(errors.join('; '))
+console.log(`[uat] exposure_profile ok: exposures=${sc.exposures.length}`)
+NODE
+
+EXPOSURE_INSIGHTS_JSON="${RUN_DIR}/proxy-exposure-insights.json"
+log "calling Chain Insights proxy generic exposure tools"
+node --input-type=module - "${CHAIN_INSIGHTS_PROXY}" "${NETWORK}" "${EXPOSURE_ACCOUNT}" "${EXPOSURE_PROFILE_JSON}" "${EXPOSURE_INSIGHTS_JSON}" <<'NODE'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
+import fs from 'node:fs'
+
+const proxy = process.argv[2]
+const network = process.argv[3]
+const account = process.argv[4]
+const profileFile = process.argv[5]
+const outputFile = process.argv[6]
+const requestTimeoutMs = 5 * 60 * 1000
+const profileData = JSON.parse(fs.readFileSync(profileFile, 'utf8'))
+const profile = profileData.structuredContent || {}
+const exposure = Array.isArray(profile.exposures) ? profile.exposures[0] : undefined
+const instrument = exposure?.instrument?.display_name || exposure?.instrument?.id
+
+if (!instrument) throw new Error('proxy exposure_profile did not return an instrument for generic exposure smoke')
+
+const calls = [
+  { name: 'exposure_quality', arguments: { network, account, limit: 3 } },
+  { name: 'exposure_carry', arguments: { network, account, limit: 3 } },
+  { name: 'exposure_crowding', arguments: { network, instrument, limit: 10 } },
+  { name: 'exposure_exit_pressure', arguments: { network, account, limit: 3 } },
+  { name: 'exposure_correlation', arguments: { network, account, candidate_accounts: account, limit: 3 } },
+  { name: 'exposure_explain', arguments: { network, account, instrument, limit: 3 } },
+]
+
+const client = new Client({ name: 'chain-insights-uat-exposure', version: '0.0.0' })
+const transport = new StdioClientTransport({
+  command: process.execPath,
+  args: [proxy],
+  env: process.env,
+})
+
+try {
+  await client.connect(transport)
+  const results = {}
+  for (const call of calls) {
+    results[call.name] = await client.callTool(
+      call,
+      undefined,
+      {
+        timeout: requestTimeoutMs,
+        maxTotalTimeout: requestTimeoutMs,
+      },
+    )
+  }
+  fs.writeFileSync(outputFile, `${JSON.stringify({ instrument, results }, null, 2)}\n`)
+} finally {
+  await client.close()
+}
+NODE
+
+node - "${EXPOSURE_INSIGHTS_JSON}" <<'NODE'
+const fs = require('node:fs')
+const file = process.argv[2]
+const data = JSON.parse(fs.readFileSync(file, 'utf8'))
+const expected = {
+  exposure_quality: 'chain-insights.exposure_quality.v1',
+  exposure_carry: 'chain-insights.exposure_carry.v1',
+  exposure_crowding: 'chain-insights.exposure_crowding.v1',
+  exposure_exit_pressure: 'chain-insights.exposure_exit_pressure.v1',
+  exposure_correlation: 'chain-insights.exposure_correlation.v1',
+  exposure_explain: 'chain-insights.exposure_explain.v1',
+}
+const forbidden = [
+  'source_backend',
+  'evidence_relationship_type',
+  'STAKES_IN',
+  'HAS_EXPOSURE',
+  'TARGETS_HOTKEY',
+  'live_topology',
+  'archive_topology',
+  'core_exposure',
+  'include_attachments',
+  'stake_unit',
+]
+const errors = []
+for (const [name, schema] of Object.entries(expected)) {
+  const result = data.results?.[name]
+  const sc = result?.structuredContent || {}
+  const serialized = JSON.stringify(result || {})
+  if (!result) errors.push(`${name} result missing`)
+  if (result?.isError) errors.push(`${name} returned isError=true`)
+  if (result?.content?.[0]?.type !== 'text') errors.push(`${name} content[0] is not text`)
+  if (sc.schema !== schema) errors.push(`${name} schema mismatch: ${sc.schema}`)
+  if (sc.tool !== name) errors.push(`${name} tool mismatch: ${sc.tool}`)
+  if (!result?._meta?.chainInsights?.graph?.url) errors.push(`${name} graph metadata missing`)
+  for (const field of forbidden) {
+    if (serialized.includes(field)) errors.push(`${name} leaks ${field}`)
+  }
+}
+if (errors.length) throw new Error(errors.join('; '))
+console.log(`[uat] generic exposure tools ok: ${Object.keys(expected).join(', ')}`)
+NODE
+
 GRAPH_QUERY_TEXT="${RUN_DIR}/graph-query-address.txt"
 log "calling Chain Insights CLI graph_query against real MCP"
 (
@@ -377,6 +585,7 @@ Chain Insights vs GraphRAG MCP UAT PASS
 Endpoint: ${MCP_ENDPOINT}
 Network: ${NETWORK}
 Address: ${UAT_ADDRESS}
+Exposure account: ${EXPOSURE_ACCOUNT}
 Graph report URL: ${GRAPH_REPORT_URL}
 
 Raw outputs:
@@ -385,6 +594,9 @@ ${DIRECT_ADDRESS_RISK_SUMMARY}
 - ${PROXY_TOOLS_JSON}
 - ${PROXY_JSON}
 - ${GRAPH_REPORT_JSON}
+- ${EXPOSURE_DISCOVERY_JSON}
+- ${EXPOSURE_PROFILE_JSON}
+- ${EXPOSURE_INSIGHTS_JSON}
 - ${GRAPH_QUERY_TEXT}
 
 Workspace:

@@ -1626,7 +1626,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     ])
   })
 
-  it('registers stake_insights and writes graph reports from STAKES_IN rows', async () => {
+  it('registers generic exposure tools and writes graph reports without leaking internals', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       { name: 'graph_query_batch', description: 'Cypher topology query batch' },
@@ -1653,38 +1653,42 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
           facts: {
             queries: [
               {
-                id: 'live_stake_relationships',
+                id: 'live_exposures',
                 ok: true,
                 results: [{
-                  coldkey: '5Cold',
-                  hotkey: '5Hot',
-                  netuid: 19,
-                  amount: 8.75,
-                  stake_added_amount: 10.5,
-                  stake_removed_amount: 2.25,
-                  net_stake_change: 8.75,
-                  stake_event_count: 4,
+                  account_address: '5Cold',
+                  owner_address: '5Cold',
+                  counterparty_address: '5Hot',
+                  venue: 'Bittensor',
+                  instrument_id: 'bittensor:subnet-lifecycle:19:2025-01',
+                  instrument_display_id: 'Subnet 19',
+                  instrument_type: 'subnet',
+                  instrument_lifecycle_id: 'subnet-19-2025-01',
+                  side: 'stake',
+                  quantity: '8.75',
+                  pricing_status: 'unpriced',
+                  opened: '10.5',
+                  closed: '2.25',
+                  net_change: '8.75',
+                  event_count: 4,
                   first_activity_timestamp: 1769126400000,
                   last_activity_timestamp: 1769126500000,
+                  support_events: JSON.stringify([
+                    {
+                      event_time: 1769126400000,
+                      block_height: 8265058,
+                      tx_id: '8265058-1',
+                      action: 'stake_added',
+                      amount: '10.5',
+                    },
+                  ]),
                   source_backend: 'memgraph_live',
                 }],
               },
               {
-                id: 'archive_stake_relationships',
+                id: 'archive_exposures',
                 ok: true,
-                results: [{
-                  coldkey: '5Cold',
-                  hotkey: '5Hot',
-                  netuid: 19,
-                  amount: 8.75,
-                  stake_added_amount: 10.5,
-                  stake_removed_amount: 2.25,
-                  net_stake_change: 8.75,
-                  stake_event_count: 4,
-                  first_activity_timestamp: 1769126400000,
-                  last_activity_timestamp: 1769126500000,
-                  source_backend: 'starrocks_archive',
-                }],
+                results: [],
               },
             ],
           },
@@ -1693,48 +1697,126 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       isError: false,
     })
 
+    const exposureToolNames = [
+      'exposure_profile',
+      'exposure_quality',
+      'exposure_carry',
+      'exposure_crowding',
+      'exposure_exit_pressure',
+      'exposure_correlation',
+      'exposure_explain',
+    ]
     const toolNames = serverInstance.registerTool.mock.calls.map((entry) => entry[0])
-    expect(toolNames).toContain('stake_insights')
+    for (const name of exposureToolNames) expect(toolNames).toContain(name)
+    expect(toolNames).not.toContain('stake_insights')
 
-    const toolConfig = findToolConfig(serverInstance, 'stake_insights')
+    const toolConfig = findToolConfig(serverInstance, 'exposure_profile')
     const inputSchema = toolConfig.inputSchema as Record<string, z.ZodTypeAny>
     expect(inputSchema.network.safeParse('bittensor').success).toBe(true)
-    expect(inputSchema.address.safeParse('5Cold').success).toBe(true)
-    expect(inputSchema.coldkey.safeParse('5Cold').success).toBe(true)
-    expect(inputSchema.hotkey.safeParse('5Hot').success).toBe(true)
-    expect(inputSchema.netuid.safeParse(19).success).toBe(true)
+    expect(inputSchema.account.safeParse('5Cold').success).toBe(true)
+    expect(inputSchema.owner.safeParse('5Cold').success).toBe(true)
+    expect(inputSchema.counterparty.safeParse('5Hot').success).toBe(true)
+    expect(inputSchema.venue.safeParse('Bittensor').success).toBe(true)
+    expect(inputSchema.instrument.safeParse('Subnet 19').success).toBe(true)
+    expect(inputSchema.instrument_type.safeParse('subnet').success).toBe(true)
     expect(inputSchema.start_timestamp_ms.safeParse(1769126300000).success).toBe(true)
     expect(inputSchema.end_timestamp_ms.safeParse(1769126600000).success).toBe(true)
-    expect(inputSchema.depth.safeParse(2).success).toBe(true)
-    expect(inputSchema.depth.safeParse(4).success).toBe(false)
+    expect(inputSchema.limit.safeParse(100).success).toBe(true)
+    expect(inputSchema.limit.safeParse(501).success).toBe(false)
+    expect(inputSchema.include_attachments).toBeUndefined()
+    for (const name of exposureToolNames.slice(1)) {
+      const genericToolConfig = findToolConfig(serverInstance, name)
+      const genericInputSchema = genericToolConfig.inputSchema as Record<string, z.ZodTypeAny>
+      expect(genericToolConfig._meta).toMatchObject({ ui: { resourceUri: 'ui://chain-insights/graph' } })
+      expect(genericInputSchema.network.safeParse('bittensor').success).toBe(true)
+      expect(genericInputSchema.include_attachments).toBeUndefined()
+    }
+    const crowdingSchema = findToolConfig(serverInstance, 'exposure_crowding').inputSchema as Record<string, z.ZodTypeAny>
+    expect(crowdingSchema.instrument.safeParse('Subnet 19').success).toBe(true)
+    expect(crowdingSchema.market.safeParse('Subnet 19').success).toBe(true)
+    const correlationSchema = findToolConfig(serverInstance, 'exposure_correlation').inputSchema as Record<string, z.ZodTypeAny>
+    expect(correlationSchema.candidate_accounts.safeParse('5Follower').success).toBe(true)
+    const explainSchema = findToolConfig(serverInstance, 'exposure_explain').inputSchema as Record<string, z.ZodTypeAny>
+    expect(explainSchema.position_id.safeParse('stake-rotation-1').success).toBe(true)
 
-    const handler = findToolHandler(serverInstance, 'stake_insights')
+    const handler = findToolHandler(serverInstance, 'exposure_profile')
     const result = await handler({
       network: 'bittensor',
-      address: '5Cold',
-      netuid: 19,
+      account: '5Cold',
+      instrument: 'Subnet 19',
       start_timestamp_ms: 1769126300000,
       end_timestamp_ms: 1769126600000,
-      depth: 2,
     })
 
     expect(result.isError).toBe(false)
-    expect(result.content[0].text).toContain('Stake insights for bittensor:5Cold')
-    expect(result.structuredContent.tool).toBe('stake_insights')
-    expect(result.structuredContent.facts.stake_totals.net_staked).toBe(8.75)
-    expect(result.structuredContent.facts.query_evidence).toEqual(expect.arrayContaining([
-      expect.objectContaining({ topology_graph: 'live_topology', row_count: 1 }),
-      expect.objectContaining({ topology_graph: 'archive_topology', row_count: 1 }),
-    ]))
+    expect(result.content[0].text).toContain('Exposure profile for bittensor:5Cold')
+    expect(result.structuredContent.tool).toBe('exposure_profile')
+    expect(result.structuredContent.summary.exposure_count).toBe(1)
+    expect(result.structuredContent.exposures[0].instrument.display_name).toBe('Subnet 19')
+    const serialized = JSON.stringify(result.structuredContent)
+    expect(serialized).not.toContain('source_backend')
+    expect(serialized).not.toContain('STAKES_IN')
+    expect(serialized).not.toContain('live_topology')
+    expect(serialized).not.toContain('include_attachments')
     const graphUrl = result._meta.chainInsights.graph.url as string
     const filename = graphUrl.split('/graph-reports/')[1]
     expect(filename).toMatch(/\.graph\.json$/)
     const graph = JSON.parse(await readFile(join(testDataDir, 'reports', 'graphs', filename), 'utf8')) as {
       edges?: Array<Record<string, unknown>>
     }
-    expect(graph.edges).toEqual([
-      expect.objectContaining({ source: '5Cold', target: '5Hot', edge_type: 'stakes_in', amount: 8.75 }),
-    ])
+    expect(graph.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: '5Cold', edge_type: 'exposure' }),
+    ]))
+
+    const genericCalls = [
+      {
+        name: 'exposure_quality',
+        schema: 'chain-insights.exposure_quality.v1',
+        args: { network: 'bittensor', account: '5Cold', instrument: 'Subnet 19' },
+      },
+      {
+        name: 'exposure_carry',
+        schema: 'chain-insights.exposure_carry.v1',
+        args: { network: 'bittensor', account: '5Cold', instrument: 'Subnet 19' },
+      },
+      {
+        name: 'exposure_crowding',
+        schema: 'chain-insights.exposure_crowding.v1',
+        args: { network: 'bittensor', instrument: 'Subnet 19' },
+      },
+      {
+        name: 'exposure_exit_pressure',
+        schema: 'chain-insights.exposure_exit_pressure.v1',
+        args: { network: 'bittensor', account: '5Cold', instrument: 'Subnet 19' },
+      },
+      {
+        name: 'exposure_correlation',
+        schema: 'chain-insights.exposure_correlation.v1',
+        args: { network: 'bittensor', account: '5Cold', candidate_accounts: '5Follower' },
+      },
+      {
+        name: 'exposure_explain',
+        schema: 'chain-insights.exposure_explain.v1',
+        args: { network: 'bittensor', account: '5Cold', instrument: 'Subnet 19', position_id: 'stake-rotation-1' },
+      },
+    ]
+    for (const call of genericCalls) {
+      const genericHandler = findToolHandler(serverInstance, call.name)
+      const genericResult = await genericHandler(call.args)
+      expect(genericResult.isError).toBe(false)
+      expect(genericResult.content[0].text).toContain('Exposure')
+      expect(genericResult.structuredContent.schema).toBe(call.schema)
+      expect(genericResult.structuredContent.tool).toBe(call.name)
+      const genericSerialized = JSON.stringify(genericResult.structuredContent)
+      expect(genericSerialized).not.toContain('source_backend')
+      expect(genericSerialized).not.toContain('evidence_relationship_type')
+      expect(genericSerialized).not.toContain('STAKES_IN')
+      expect(genericSerialized).not.toContain('HAS_EXPOSURE')
+      expect(genericSerialized).not.toContain('live_topology')
+      expect(genericSerialized).not.toContain('archive_topology')
+      expect(genericSerialized).not.toContain('include_attachments')
+      expect(genericResult._meta.chainInsights.graph.url).toMatch(/\/graph-reports\/.*\.graph\.json$/)
+    }
   })
 
   it('registers graph MCP app resource and preserves graph-backed remote tools', async () => {
