@@ -25,9 +25,9 @@ MCP endpoint for development; hosted endpoints are set explicitly with
 | `aml_trace_victim_funds` | Trace victim/source funds forward to exchange deposit candidates |
 | `aml_trace_deposit_sources` | Trace backward from suspected deposit/cashout addresses to upstream sources and convergence |
 | `aml_trace_suspect_funds` | Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology |
-| `usage_status` | Check the caller's daily free-tier graph query allowance |
 | `graph_query` | Run one read-only GQL/Cypher query against a GraphRAG MCP graph layer |
 | `graph_query_batch` | Run related read-only graph queries as one MCP call |
+| `usage_status` | Check the caller's daily free-tier graph query allowance |
 
 ## Quick Start
 
