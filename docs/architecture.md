@@ -32,7 +32,7 @@ against live topology, archive topology, and facts.
 | Config | Local config schema and owner-only storage |
 | Wallet | Encrypted EVM wallet and Base USDC balance checks |
 | MCP client/proxy | x402, debug-token, test-key auth, schema cache, stdio proxy |
-| Cases | Case state, evidence, dossiers, sessions |
+| Workspace evidence | Evidence, dossiers, reports, and workspace sessions |
 | Visualization | Graph data model and self-contained HTML generation |
 | Server | Local report and visualization server |
 | Workspace init | Investigation workspace scaffold and runtime schema notes |
