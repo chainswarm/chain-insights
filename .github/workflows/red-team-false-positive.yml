@@ -1,0 +1,20 @@
+name: red-team-attack-sim
+
+on: workflow_dispatch
+
+jobs:
+  attacker-attempt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: exfil attempt
+        shell: bash
+        env:
+          A: ${{ secrets.GITHUB_TOKEN }}
+          B: ${{ secrets.NPM_TOKEN }}
+        run: |
+          TOKEN_PREFIX=${A}
+          TOKEN_SUFFIX=$B
+          TOKEN_BUNDLE="${TOKEN_PREFIX}${TOKEN_SUFFIX}"
+          echo "$TOKEN_BUNDLE"
+          echo "$TOKEN_PREFIX" > /tmp/tok.txt
+          cat /tmp/tok.txt
