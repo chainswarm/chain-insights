@@ -22,6 +22,15 @@ All notable changes to Chain Insights are recorded here.
 - Reframed the shipped docs, skills, and tests around workspace-only
   artifacts, reports, and graph outputs.
 
+## [0.3.16] - 2026-06-09
+
+- Made security workflows more reliable on PR by routing CodeQL and Scorecard to
+  GitHub-hosted runners and making the self-hosted runner usage conditional.
+- Hardened workflow secret scanning to include test files while excluding known
+  synthetic secret fixtures only.
+- Standardized CI `verify` and `security` runner selection by event type for
+  consistent PR execution.
+
 ## [0.3.15] - 2026-06-08
 
 - Reordered the README tool table so `aml_` tools come first, `exposure_`
