@@ -278,7 +278,7 @@ cia mcp call exposure_profile \
 
 The generic exposure analysis tools use the same exposure rows as
 `exposure_profile`. They are intentionally not Hyperliquid-specific:
-Bittensor staking, Hyperliquid perps, vaults, future staking products, and
+Bittensor staking, Hyperliquid perps, future staking products, and
 other exposure venues should map into the same tool family.
 
 Subject-level tools accept `network` plus exactly one of `account`, `owner`, or
@@ -299,7 +299,7 @@ Market-level tools accept `network` plus `instrument` or `market`, with
 optional venue, type, window, and limit filters:
 
 - `exposure_crowding` measures side concentration and top exposure rows for a
-  market, subnet, hotkey, vault, or strategy.
+  market, subnet, hotkey, or strategy.
 - `exposure_exit_pressure` can run on either a subject or a market. It reports
   pressure score, pressure level, pressure bands, evidence, and caveats for
   liquidation, slippage, unstake, funding pain, or equivalent exit pressure.

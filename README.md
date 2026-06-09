@@ -15,16 +15,16 @@ MCP endpoint for development; hosted endpoints are set explicitly with
 | Tool | Use it for |
 | --- | --- |
 | `aml_address_risk` | Screen one address for risk, behavior, neighborhood context, and exchange exposure |
-| `exposure_profile` | Explain staking or trading exposure around an account, owner, or counterparty |
-| `exposure_quality` | Score whether exposure behavior looks disciplined, fragile, lucky, or noisy |
-| `exposure_carry` | Explain carry earned or paid from staking, trading, funding, fees, emissions, or dividends |
-| `exposure_crowding` | Measure side concentration for a market, subnet, hotkey, vault, or strategy |
-| `exposure_exit_pressure` | Explain liquidation, slippage, unstake, funding pain, or other exit pressure |
-| `exposure_correlation` | Compare accounts for possible copy, overlap, or strategy-cluster behavior |
-| `exposure_explain` | Explain a specific exposure lifecycle, trade, position, stake, rotation, or incident |
 | `aml_trace_victim_funds` | Trace victim/source funds forward to exchange deposit candidates |
 | `aml_trace_deposit_sources` | Trace backward from suspected deposit/cashout addresses to upstream sources and convergence |
 | `aml_trace_suspect_funds` | Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology |
+| `exposure_profile` | Explain staking or trading exposure around an account, owner, or counterparty |
+| `exposure_quality` | Score whether exposure behavior looks disciplined, fragile, lucky, or noisy |
+| `exposure_carry` | Explain carry earned or paid from staking, trading, funding, fees, emissions, or dividends |
+| `exposure_crowding` | Measure side concentration for a market, subnet, hotkey, or strategy |
+| `exposure_exit_pressure` | Explain liquidation, slippage, unstake, funding pain, or other exit pressure |
+| `exposure_correlation` | Compare accounts for possible copy, overlap, or strategy-cluster behavior |
+| `exposure_explain` | Explain a specific exposure lifecycle, trade, position, stake, rotation, or incident |
 | `graph_query` | Run one read-only GQL/Cypher query against a GraphRAG MCP graph layer |
 | `graph_query_batch` | Run related read-only graph queries as one MCP call |
 | `usage_status` | Check the caller's daily free-tier graph query allowance |
