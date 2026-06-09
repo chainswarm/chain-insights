@@ -2,6 +2,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.19] - 2026-06-09
+
+- Added a PR-only secret egress scan in `security.yml` to fail on code that
+  appears to print or forward environment secret values in changed files.
+
+## [0.3.17] - 2026-06-09
+
+- Reordered the README tool table to group `aml_` tools first, then `exposure_`
+  tools, with graph tools and metadata at the bottom.
+- Removed stale vault references from exposure-facing docs and clarified that case
+  and vault surfaces are deprecated.
 ## [0.3.13] - 2026-06-07
 
 - Added generic `exposure_quality`, `exposure_carry`, `exposure_crowding`,
