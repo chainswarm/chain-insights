@@ -3,6 +3,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.19] - 2026-06-09
+
+- Removed the in-repo npm publish workflow. npm publishing now runs only from the
+  private `chainswarm/chain-insights-publisher` repo via manual `workflow_dispatch`,
+  so the npm token no longer lives in this public contribution repo.
+
 ## [0.3.18] - 2026-06-09
 
 - Added secret egress pattern detection to the PR secret scan.
