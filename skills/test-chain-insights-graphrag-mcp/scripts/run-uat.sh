@@ -8,6 +8,10 @@ DEBUG_TOKEN="${GRAPHRAG_DEBUG_TOKEN:-chain-insights-dev-debug}"
 SERVER_PORT="${CHAIN_INSIGHTS_SERVER_PORT:-4321}"
 NETWORK="${NETWORK:-bittensor}"
 UAT_ADDRESS="${UAT_ADDRESS:-5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6}"
+# Identity-route facts are keyed by the public identity key form
+# '<network>:<canonical_evm_address>' (deterministic H160 mapping of
+# UAT_ADDRESS). Override together with UAT_ADDRESS.
+UAT_IDENTITY_KEY="${UAT_IDENTITY_KEY:-bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24}"
 UAT_EXPOSURE_ACCOUNT="${UAT_EXPOSURE_ACCOUNT:-}"
 REPORT_DIR="${REPORT_DIR:-${CHAIN_INSIGHTS_DIR}/.tmp/uat}"
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -187,6 +191,140 @@ fs.writeFileSync(highLevelFile, hasHighLevel ? 'yes\n' : 'no\n')
 console.log(`[uat] direct tools/list ok: ${tools.length} tools (${hasHighLevel ? 'high-level' : 'primitive-only'})`)
 NODE
 
+DIRECT_CAPABILITIES_JSON="${RUN_DIR}/direct-network-capabilities.json"
+log "checking semantic identity network capabilities"
+npx @modelcontextprotocol/inspector \
+  --cli "${MCP_ENDPOINT}" \
+  --transport http \
+  --header "Authorization: Bearer ${DEBUG_TOKEN}" \
+  --header "X-MCP-Debug-Token: ${DEBUG_TOKEN}" \
+  --method tools/call \
+  --tool-name network_capabilities >"${DIRECT_CAPABILITIES_JSON}"
+
+node - "${DIRECT_CAPABILITIES_JSON}" "${NETWORK}" <<'NODE'
+const fs = require('node:fs')
+const file = process.argv[2]
+const network = process.argv[3]
+const data = JSON.parse(fs.readFileSync(file, 'utf8'))
+let payload = data.structuredContent
+if (!payload && data.content?.[0]?.type === 'text') {
+  payload = JSON.parse(data.content[0].text)
+}
+const networks = payload?.facts?.capabilities?.networks || []
+const byName = new Map(networks.map((entry) => [entry.network, entry]))
+const source = byName.get(network)
+const errors = []
+if (!source) errors.push(`network_capabilities missing source network ${network}`)
+if (source?.layers?.topology?.enabled !== true) errors.push(`${network} topology is not enabled`)
+if (source?.tools?.graph_query !== 'available') errors.push(`${network} graph_query is not available`)
+if (network === 'bittensor') {
+  const evm = byName.get('bittensor_evm')
+  if (!evm) errors.push('network_capabilities missing bittensor_evm source network')
+  if (evm?.layers?.topology?.enabled !== true) errors.push('bittensor_evm topology is not enabled')
+}
+if (errors.length) throw new Error(errors.join('; '))
+console.log(`[uat] network_capabilities ok: source=${network}`)
+NODE
+
+IDENTITY_TOPOLOGY_JSON="${RUN_DIR}/direct-identity-topology.json"
+IDENTITY_TOPOLOGY_QUERY="USE live_topology MATCH (s:Identity)-[f:FLOWS_TO]->(d:Identity) RETURN count(f) AS identity_flows"
+log "checking public-route identity topology (network=${NETWORK} topology_scope=identity)"
+npx @modelcontextprotocol/inspector \
+  --cli "${MCP_ENDPOINT}" \
+  --transport http \
+  --header "Authorization: Bearer ${DEBUG_TOKEN}" \
+  --header "X-MCP-Debug-Token: ${DEBUG_TOKEN}" \
+  --method tools/call \
+  --tool-name graph_query \
+  --tool-arg "network=${NETWORK}" \
+  --tool-arg "topology_scope=identity" \
+  --tool-arg "query=${IDENTITY_TOPOLOGY_QUERY}" >"${IDENTITY_TOPOLOGY_JSON}"
+
+node - "${IDENTITY_TOPOLOGY_JSON}" "${NETWORK}" <<'NODE'
+const fs = require('node:fs')
+const file = process.argv[2]
+const network = process.argv[3]
+const data = JSON.parse(fs.readFileSync(file, 'utf8'))
+const errors = []
+if (data.isError) errors.push(`identity topology query returned isError=true: ${data.content?.[0]?.text || 'unknown error'}`)
+const facts = data.structuredContent?.facts
+const subject = facts?.subject
+const routing = facts?.routing
+const flows = facts?.query?.results?.[0]?.identity_flows
+if (subject?.network !== network) errors.push(`identity subject network mismatch: ${subject?.network}`)
+if (subject?.topology_scope !== 'identity') errors.push(`identity subject topology_scope mismatch: ${subject?.topology_scope}`)
+if (routing?.starrocks_database !== `${network}_semantic`) errors.push(`identity routing database mismatch: ${routing?.starrocks_database}`)
+if (!Number.isFinite(Number(flows)) || Number(flows) <= 0) errors.push(`identity FLOWS_TO count not positive: ${flows}`)
+if (errors.length) throw new Error(errors.join('; '))
+console.log(`[uat] public-route identity topology ok: flows=${flows} routing=${routing.starrocks_database}`)
+NODE
+
+SEMANTIC_FACTS_JSON="${RUN_DIR}/direct-semantic-facts.json"
+SEMANTIC_FACTS_QUERY="USE facts MATCH (a:Address {address: '${UAT_IDENTITY_KEY}'}) RETURN a.address AS identity_key, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 1"
+log "checking semantic identity facts query"
+npx @modelcontextprotocol/inspector \
+  --cli "${MCP_ENDPOINT}" \
+  --transport http \
+  --header "Authorization: Bearer ${DEBUG_TOKEN}" \
+  --header "X-MCP-Debug-Token: ${DEBUG_TOKEN}" \
+  --method tools/call \
+  --tool-name graph_query \
+  --tool-arg "network=${NETWORK}" \
+  --tool-arg "topology_scope=identity" \
+  --tool-arg "query=${SEMANTIC_FACTS_QUERY}" >"${SEMANTIC_FACTS_JSON}"
+
+node - "${SEMANTIC_FACTS_JSON}" "${NETWORK}" "${UAT_IDENTITY_KEY}" <<'NODE'
+const fs = require('node:fs')
+const file = process.argv[2]
+const network = process.argv[3]
+const identityKey = process.argv[4]
+const data = JSON.parse(fs.readFileSync(file, 'utf8'))
+const errors = []
+if (data.isError) errors.push(`semantic facts query returned isError=true: ${data.content?.[0]?.text || 'unknown error'}`)
+const subject = data.structuredContent?.facts?.subject
+const routing = data.structuredContent?.facts?.routing
+const results = data.structuredContent?.facts?.query?.results || []
+const match = results.find((row) => row.identity_key === identityKey)
+const labels = Array.isArray(match?.labels) ? match.labels.join(',') : (match?.labels || '')
+if (subject?.network !== network) errors.push(`semantic facts subject network mismatch: ${subject?.network}`)
+if (subject?.topology_scope !== 'identity') errors.push(`semantic facts subject scope mismatch: ${subject?.topology_scope}`)
+if (routing?.starrocks_database !== `${network}_semantic`) errors.push(`semantic facts routing database mismatch: ${routing?.starrocks_database}`)
+if (!match) errors.push(`semantic facts query did not return identity key ${identityKey}`)
+if (labels.length === 0) errors.push('semantic facts query did not return identity labels')
+if (errors.length) throw new Error(errors.join('; '))
+console.log(`[uat] semantic facts query ok: identity_key=${identityKey} labels=${labels}`)
+NODE
+
+ADDRESS_TOPOLOGY_JSON="${RUN_DIR}/direct-address-topology.json"
+ADDRESS_TOPOLOGY_QUERY="USE live_topology MATCH (a:Address)-[f:FLOWS_TO]->(b:Address) RETURN count(f) AS address_flows"
+log "checking address topology unregression (network=${NETWORK})"
+npx @modelcontextprotocol/inspector \
+  --cli "${MCP_ENDPOINT}" \
+  --transport http \
+  --header "Authorization: Bearer ${DEBUG_TOKEN}" \
+  --header "X-MCP-Debug-Token: ${DEBUG_TOKEN}" \
+  --method tools/call \
+  --tool-name graph_query \
+  --tool-arg "network=${NETWORK}" \
+  --tool-arg "query=${ADDRESS_TOPOLOGY_QUERY}" >"${ADDRESS_TOPOLOGY_JSON}"
+
+node - "${ADDRESS_TOPOLOGY_JSON}" "${NETWORK}" <<'NODE'
+const fs = require('node:fs')
+const file = process.argv[2]
+const network = process.argv[3]
+const data = JSON.parse(fs.readFileSync(file, 'utf8'))
+const errors = []
+if (data.isError) errors.push(`address topology query returned isError=true: ${data.content?.[0]?.text || 'unknown error'}`)
+const facts = data.structuredContent?.facts
+const subject = facts?.subject
+const flows = facts?.query?.results?.[0]?.address_flows
+if (subject?.network !== network) errors.push(`address subject network mismatch: ${subject?.network}`)
+if (subject?.topology_scope !== 'address') errors.push(`address subject topology_scope mismatch: ${subject?.topology_scope}`)
+if (!Number.isFinite(Number(flows)) || Number(flows) <= 0) errors.push(`address FLOWS_TO count not positive: ${flows}`)
+if (errors.length) throw new Error(errors.join('; '))
+console.log(`[uat] address topology unregressed: flows=${flows}`)
+NODE
+
 DIRECT_JSON="${RUN_DIR}/direct-address-risk.json"
 DIRECT_ADDRESS_RISK_SUMMARY="- direct aml_address_risk skipped: direct endpoint is primitive-only"
 if [[ "$(cat "${RUN_DIR}/direct-high-level-tools.txt")" == "yes" ]]; then
@@ -244,7 +382,7 @@ const file = process.argv[2]
 const data = JSON.parse(fs.readFileSync(file, 'utf8'))
 const tools = data.tools || []
 const names = new Set(tools.map((tool) => tool.name))
-const required = ['balance', 'help', 'aml_address_risk', 'exposure_profile', 'exposure_quality', 'exposure_carry', 'exposure_crowding', 'exposure_exit_pressure', 'exposure_correlation', 'exposure_explain', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources', 'network_capabilities', 'graph_query', 'graph_query_batch']
+const required = ['balance', 'help', 'aml_address_risk', 'exposure_profile', 'exposure_quality', 'exposure_carry', 'exposure_crowding', 'exposure_exit_pressure', 'exposure_correlation', 'exposure_explain', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources', 'network_capabilities', 'graph_query', 'graph_query_batch', 'usage_status']
 const missing = required.filter((name) => !names.has(name))
 if (missing.length) throw new Error(`proxy tools/list missing tools: ${missing.join(', ')}`)
 if (names.size !== required.length) {

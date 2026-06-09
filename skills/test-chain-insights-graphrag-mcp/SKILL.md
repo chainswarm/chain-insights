@@ -49,6 +49,10 @@ Set `SKIP_BUILD=1` only when deliberately reusing an existing Chain Insights `di
 The UAT must verify all of these facts:
 
 - GraphRAG direct MCP exposes `network_capabilities`, `graph_query`, and `graph_query_batch` through debug bearer auth.
+- GraphRAG direct `network_capabilities` exposes the source network topology, for example `bittensor` and `bittensor_evm`.
+- GraphRAG direct `graph_query` with `network=bittensor` and `topology_scope=identity` returns live `Identity FLOWS_TO Identity` topology and semantic identity facts, with routing metadata `facts.routing.starrocks_database=bittensor_semantic`; no internal identity network key is used as a public tool input.
+- Identity-route facts are keyed by the public identity key form `bittensor:<canonical_evm_address>` (set `UAT_IDENTITY_KEY` together with `UAT_ADDRESS`); labels for the default key are guaranteed by the RBMK identity verification harness seed or any real label on the address.
+- GraphRAG direct `graph_query` with the default address scope still returns raw `Address FLOWS_TO Address` topology for the same network.
 - If GraphRAG direct MCP also exposes high-level `aml_address_risk`, that direct tool succeeds, returns `content` text and `structuredContent.schema = chain-insights.result.v1`, does not expose `app_data`, `nodes`, `edges`, `flows`, `edge_anchors`, or `transfers` in `structuredContent`, and puts graph data only in `_meta.chainInsights.graph.data`.
 - If GraphRAG direct MCP is primitive-only, Chain Insights proxy high-level tools are still mandatory and must build their graph reports from the primitive graph path.
 - Chain Insights proxy `tools/list` exposes local `balance`, `help`, `aml_address_risk`, `aml_trace_victim_funds`, `aml_trace_suspect_funds`, and `aml_trace_deposit_sources`, plus public proxied GraphRAG tools.

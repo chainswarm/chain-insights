@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.20] - 2026-06-09
+
+- Cut the GraphRAG MCP UAT identity assertions to the public route:
+  `graph_query` with `network=bittensor` plus `topology_scope=identity` now
+  asserts live `Identity FLOWS_TO Identity` topology, resolved routing
+  metadata (`facts.routing.starrocks_database=bittensor_semantic`),
+  identity-keyed semantic facts, and unregressed address topology. The
+  internal `bittensor_identity` network key is no longer a public tool input.
+- Added the `usage_status` tool to the required proxy tool allow-list.
+
 ## [0.3.19] - 2026-06-09
 
 - Removed the in-repo npm publish workflow. npm publishing now runs only from the
