@@ -2,6 +2,11 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.15] - 2026-06-09
+
+- Hardened PR secret egress checks to catch indirect secret-variable flows
+  (aliasing/splitting before output), reducing silent secret-leak bypasses.
+
 ## [0.3.13] - 2026-06-07
 
 - Added generic `exposure_quality`, `exposure_carry`, `exposure_crowding`,

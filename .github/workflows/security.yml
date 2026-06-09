@@ -65,6 +65,49 @@ jobs:
             exit 1
           fi
 
+      - name: Detect indirect secret egress patterns in changed files
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+
+          base_sha='${{ github.event.pull_request.base.sha }}'
+          head_sha='${{ github.event.pull_request.head.sha }}'
+
+          git fetch --no-tags --prune --depth=1 origin "$base_sha" "$head_sha"
+
+          mapfile -d '' changed_files < <(
+            git diff --name-only -z "$base_sha...$head_sha" -- \
+              '*.js' '*.jsx' '*.ts' '*.tsx' '*.mjs' '*.cjs' '*.sh' '*.yml' '*.yaml'
+          )
+
+          if [ "${#changed_files[@]}" -eq 0 ]; then
+            echo "No eligible code file changes in this PR."
+            exit 0
+          fi
+
+          declare -A aliases=()
+          assign_pattern='^\\s*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=.*\\$\\{?(GITHUB_TOKEN|NPM_TOKEN|NODE_AUTH_TOKEN|AWS_SECRET_ACCESS_KEY|API_KEY|PRIVATE_KEY|AUTH_TOKEN|SECRETS?|TOKEN|KEY|SECRET)\\}?'
+
+          for f in "${changed_files[@]}"; do
+            [ -f "$f" ] || continue
+
+            while IFS= read -r name; do
+              aliases["$name"]=1
+            done < <(
+              rg -o -N -P "${assign_pattern}" "$f" |
+                sed -nE 's/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=.*/\1/p' | sort -u
+            )
+
+            if ((${#aliases[@]} > 0)); then
+              for alias in "${!aliases[@]}"; do
+                if rg -n -P "(^|[[:space:]])(echo|cat|printf|tee|node|python|bash|sh|curl|wget)\\s+.*\\$${alias}(\\b|[[:space:]]|\\}|\"|'|\)|\\$)" "$f" >/dev/null; then
+                  echo "::error::Potential indirect secret egress in $f: variable '$alias' appears in command output path after assignment from secret source."
+                  exit 1
+                fi
+              done
+            fi
+          done
+
   codeql:
     name: CodeQL
     runs-on: ubuntu-latest
