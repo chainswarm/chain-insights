@@ -35,8 +35,6 @@ export interface TraceFlow {
   dst_labels?: string[]
   src_node?: GraphNodeMetadata
   dst_node?: GraphNodeMetadata
-  dst_degree_in?: number
-  dst_degree_out?: number
   terminal_exchange: boolean
 }
 
@@ -90,9 +88,6 @@ interface ReverseLead {
   node?: GraphNodeMetadata
   deposit_address: string
   amount_usd?: number
-  degree_in?: number
-  degree_out?: number
-  total_volume_usd?: number
   reason: string
 }
 
@@ -101,7 +96,8 @@ interface GraphNodeMetadata {
   labels?: string[]
   system_labels?: string[]
   address_type?: string
-  address_subtypes?: string[]
+  evm_address?: string
+  substrate_address?: string
   is_exchange?: boolean
 }
 
@@ -162,19 +158,19 @@ const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS = 5 * 60 * 1000
 const SCHEMA_QUERY_SET = [
   {
     id: 'node_labels',
-    query: 'MATCH (n:Address) RETURN "Address" AS node_label, count(n) AS sample_count LIMIT 1',
+    query: 'MATCH (n:Identity) RETURN "Identity" AS node_label, count(n) AS sample_count LIMIT 1',
   },
   {
     id: 'relationship_types',
-    query: 'MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN "FLOWS_TO" AS rel_name, count(r) AS sample_count LIMIT 1',
+    query: 'MATCH (:Identity)-[r:FLOWS_TO]->(:Identity) RETURN "FLOWS_TO" AS rel_name, count(r) AS sample_count LIMIT 1',
   },
   {
-    id: 'address_property_keys',
-    query: 'MATCH (n:Address) RETURN "address" AS property_key, count(n) AS sample_count LIMIT 1',
+    id: 'identity_property_keys',
+    query: 'MATCH (n:Identity) RETURN "identity_id" AS property_key, count(n) AS sample_count LIMIT 1',
   },
   {
     id: 'flows_to_property_keys',
-    query: 'MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN "amount_sum" AS property_key, count(r) AS sample_count LIMIT 1',
+    query: 'MATCH (:Identity)-[r:FLOWS_TO]->(:Identity) RETURN "amount_sum" AS property_key, count(r) AS sample_count LIMIT 1',
   },
 ]
 
@@ -262,19 +258,19 @@ function schemaFromGraphBatch(network: string, batch: ParsedGraphBatch): Record<
     source: 'graph_query_batch',
     node_labels: resultsFor(batch, 'node_labels'),
     relationship_types: resultsFor(batch, 'relationship_types'),
-    address_property_keys: resultsFor(batch, 'address_property_keys').map((row) => row['property_key']),
+    identity_property_keys: resultsFor(batch, 'identity_property_keys').map((row) => row['property_key']),
     flows_to_property_keys: resultsFor(batch, 'flows_to_property_keys').map((row) => row['property_key']),
     recommended_flow_projection: [
-      'src.address AS src',
-      'dst.address AS dst',
+      'src.identity_id AS src',
+      'dst.identity_id AS dst',
       'r.amount_sum AS amount_sum',
       'r.amount_usd_sum AS amount_usd_sum',
       'r.tx_count AS tx_count',
       'r.first_tx_id AS first_tx_id',
       'r.last_tx_id AS last_tx_id',
       'dst.labels AS dst_labels',
-      'dst.lifetime_degree_in AS dst_degree_in',
-      'dst.lifetime_degree_out AS dst_degree_out',
+      'dst.evm_address AS dst_evm_address',
+      'dst.substrate_address AS dst_substrate_address',
     ],
   }
 }
@@ -306,7 +302,7 @@ function flowEdgeMap(variableName: string): string {
 }
 
 function pathNodeMap(variableName: string): string {
-  return `{address: ${variableName}.address, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, address_subtypes: ${variableName}.address_subtypes, is_exchange: ${variableName}.is_exchange}`
+  return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, evm_address: ${variableName}.evm_address, substrate_address: ${variableName}.substrate_address, is_exchange: ${variableName}.is_exchange}`
 }
 
 function forwardExchangeQueries(address: string, limit: number, minAmountSum: number, maxHops: number): Array<{ id: string; query: string }> {
@@ -319,7 +315,7 @@ function forwardExchangeQueryAtDepth(address: string, limit: number, minAmountSu
   const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
   const relationshipChain = edgeVariables.map((edgeVariable, index) => {
     const targetVariable = index === edgeVariables.length - 1 ? 't' : intermediateVariables[index]!
-    return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
+    return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Identity)`
   }).join('')
   const amountPredicates = edgeVariables.map((edgeVariable) => `${edgeVariable}.amount_sum IS NOT NULL${minAmountSum > 0 ? ` AND ${edgeVariable}.amount_sum >= ${minAmountSum}` : ''}`)
   const nonTerminalPredicates = ['s', ...intermediateVariables].map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
@@ -328,9 +324,9 @@ function forwardExchangeQueryAtDepth(address: string, limit: number, minAmountSu
   return {
     id: `forward_exchange_paths_${depth}`,
     query: [
-      `MATCH (s:Address {address: "${escapeCypherString(address)}"})${relationshipChain}`,
+      `MATCH (s:Identity {identity_id: "${escapeCypherString(address)}"})${relationshipChain}`,
       `WHERE ${predicates.join(' AND ')}`,
-      `RETURN [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(', ')}] AS node_labels, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props, t.address AS exchange_address, t.labels AS exchange_display_labels, t.labels AS exchange_labels, t.address_type AS exchange_address_type, t.address_subtypes AS exchange_address_subtypes, t.is_exchange AS exchange_is_exchange, ${depositVariable}.address AS deposit_address, ${depositVariable}.is_exchange AS deposit_is_exchange, ${depth} AS hops`,
+      `RETURN [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(', ')}] AS node_labels, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props, t.identity_id AS exchange_address, t.labels AS exchange_display_labels, t.labels AS exchange_labels, t.address_type AS exchange_address_type, t.is_exchange AS exchange_is_exchange, ${depositVariable}.identity_id AS deposit_address, ${depositVariable}.is_exchange AS deposit_is_exchange, ${depth} AS hops`,
       'ORDER BY hops ASC',
       `LIMIT ${limit}`,
     ].join(' '),
@@ -347,29 +343,29 @@ function backwardSourceQueryAtDepth(id: string, depositAddress: string, depth: n
   const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
   const relationshipChain = edgeVariables.map((edgeVariable, index) => {
     const targetVariable = index === edgeVariables.length - 1 ? 'source' : intermediateVariables[index]!
-    return `<-[${edgeVariable}:FLOWS_TO]-(${targetVariable}:Address)`
+    return `<-[${edgeVariable}:FLOWS_TO]-(${targetVariable}:Identity)`
   }).join('')
   const intermediatePredicates = intermediateVariables.map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
   return {
     id,
     query: [
-      `MATCH (dep:Address {address: "${escapeCypherString(depositAddress)}"})`,
+      `MATCH (dep:Identity {identity_id: "${escapeCypherString(depositAddress)}"})`,
       `MATCH (dep)${relationshipChain}`,
       `WHERE source <> dep AND source.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
-      `RETURN dep.address AS deposit_address, source.address AS source_exchange, source.labels AS source_display_labels, source.labels AS source_labels, source.address_type AS source_address_type, source.address_subtypes AS source_address_subtypes, ${depth} AS hops, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(', ')}] AS node_labels, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes`,
+      `RETURN dep.identity_id AS deposit_address, source.identity_id AS source_exchange, source.labels AS source_display_labels, source.labels AS source_labels, source.address_type AS source_address_type, ${depth} AS hops, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(', ')}] AS node_labels, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes`,
       'LIMIT 20',
     ].join(' '),
   }
 }
 
 function reverseLeadsQuery(depositAddresses: string[]): { id: string; query: string } {
-  const depositPredicates = depositAddresses.map((address) => `deposit.address = "${escapeCypherString(address)}"`)
+  const depositPredicates = depositAddresses.map((address) => `deposit.identity_id = "${escapeCypherString(address)}"`)
   return {
     id: 'reverse_1hop',
     query: [
-      'MATCH (sender:Address)-[r:FLOWS_TO]->(deposit:Address)',
-      `WHERE (${depositPredicates.join(' OR ')}) AND sender.is_exchange IS NULL AND sender.address <> deposit.address`,
-      'RETURN DISTINCT sender.address AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.address_subtypes AS address_subtypes, coalesce(sender.lifetime_degree_in, 0) AS degree_in, coalesce(sender.lifetime_degree_out, 0) AS degree_out, coalesce(sender.total_volume_usd, 0) AS total_volume_usd, deposit.address AS deposit_address, r.amount_usd_sum AS amount_usd',
+      'MATCH (sender:Identity)-[r:FLOWS_TO]->(deposit:Identity)',
+      `WHERE (${depositPredicates.join(' OR ')}) AND sender.is_exchange IS NULL AND sender.identity_id <> deposit.identity_id`,
+      'RETURN DISTINCT sender.identity_id AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.evm_address AS evm_address, sender.substrate_address AS substrate_address, deposit.identity_id AS deposit_address, r.amount_usd_sum AS amount_usd',
       'ORDER BY r.amount_usd_sum DESC',
       `LIMIT ${Math.max(50, depositAddresses.length * 50)}`,
     ].join(' '),
@@ -384,14 +380,14 @@ function directEdgePropsQuery(flows: TraceFlow[]): { id: string; query: string }
   const pairs = [...new Map(flows.map((flow) => [edgeKey(flow.src, flow.dst), { src: flow.src, dst: flow.dst }])).values()]
   if (pairs.length === 0) return null
   const predicates = pairs.map((pair) =>
-    `(a.address = "${escapeCypherString(pair.src)}" AND b.address = "${escapeCypherString(pair.dst)}")`
+    `(a.identity_id = "${escapeCypherString(pair.src)}" AND b.identity_id = "${escapeCypherString(pair.dst)}")`
   )
   return {
     id: 'direct_edge_props',
     query: [
-      'MATCH (a:Address)-[r:FLOWS_TO]->(b:Address)',
+      'MATCH (a:Identity)-[r:FLOWS_TO]->(b:Identity)',
       `WHERE (${predicates.join(' OR ')})`,
-      'RETURN a.address AS src, b.address AS dst, r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count, r.first_tx_id AS first_tx_id, r.last_tx_id AS last_tx_id',
+      'RETURN a.identity_id AS src, b.identity_id AS dst, r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count, r.first_tx_id AS first_tx_id, r.last_tx_id AS last_tx_id',
       `LIMIT ${pairs.length}`,
     ].join(' '),
   }
@@ -455,7 +451,8 @@ function nodeMetadataFromValue(value: unknown, fallbackAddress?: string): GraphN
     labels: stringArrayValue(record['labels']),
     system_labels: stringArrayValue(record['system_labels']),
     address_type: typeof record['address_type'] === 'string' ? record['address_type'] : undefined,
-    address_subtypes: stringArrayValue(record['address_subtypes']),
+    evm_address: typeof record['evm_address'] === 'string' ? record['evm_address'] : undefined,
+    substrate_address: typeof record['substrate_address'] === 'string' ? record['substrate_address'] : undefined,
     is_exchange: isExchangeFlag(record['is_exchange']),
   }
 }
@@ -500,7 +497,6 @@ function depositFromRow(row: Record<string, unknown>): TraceDeposit | null {
     labels: stringArrayValue(row['exchange_display_labels']),
     system_labels: stringArrayValue(row['exchange_system_labels']) ?? stringArrayValue(row['exchange_labels']),
     address_type: typeof row['exchange_address_type'] === 'string' ? row['exchange_address_type'] : undefined,
-    address_subtypes: stringArrayValue(row['exchange_address_subtypes']),
     is_exchange: true,
   }
   return {
@@ -628,7 +624,6 @@ async function collectProbeTrace(
           labels: stringArrayValue(row['source_display_labels']),
           system_labels: stringArrayValue(row['source_system_labels']) ?? stringArrayValue(row['source_labels']),
           address_type: typeof row['source_address_type'] === 'string' ? row['source_address_type'] : undefined,
-          address_subtypes: stringArrayValue(row['source_address_subtypes']),
         }
         sourceMatches.push({
           deposit_address: depositAddress,
@@ -651,10 +646,8 @@ async function collectProbeTrace(
       const depositAddress = typeof row['deposit_address'] === 'string' ? row['deposit_address'] : ''
       if (!address || !depositAddress) continue
       const labels = stringArrayValue(row['display_labels']) ?? stringArrayValue(row['labels']) ?? []
-      const degreeIn = numberValue(row['degree_in']) ?? 0
-      const degreeOut = numberValue(row['degree_out']) ?? 0
-      const totalVolume = numberValue(row['total_volume_usd']) ?? 0
-      const reason = labels.length > 0 ? 'labeled_entity' : degreeIn > 50 ? 'fan_in_hub' : degreeOut > 50 ? 'fan_out_hub' : totalVolume > 100000 ? 'high_volume_sender' : ''
+      const amountUsd = numberValue(row['amount_usd']) ?? 0
+      const reason = labels.length > 0 ? 'labeled_entity' : amountUsd > 100000 ? 'high_volume_sender' : ''
       if (!reason) continue
       reverseLeads.push({
         address,
@@ -664,11 +657,9 @@ async function collectProbeTrace(
           labels,
           system_labels: stringArrayValue(row['system_labels']),
           address_type: typeof row['address_type'] === 'string' ? row['address_type'] : undefined,
-          address_subtypes: stringArrayValue(row['address_subtypes']),
+          evm_address: typeof row['evm_address'] === 'string' ? row['evm_address'] : undefined,
+          substrate_address: typeof row['substrate_address'] === 'string' ? row['substrate_address'] : undefined,
         },
-        degree_in: degreeIn,
-        degree_out: degreeOut,
-        total_volume_usd: totalVolume,
         deposit_address: depositAddress,
         amount_usd: numberValue(row['amount_usd']),
         reason,
@@ -702,7 +693,8 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], de
     labels: string[]
     systemLabels: string[]
     addressType?: string
-    addressSubtypes: string[]
+    evmAddress?: string
+    substrateAddress?: string
     roles: Set<string>
   }
 
@@ -714,7 +706,6 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], de
         out: 0,
         labels: [],
         systemLabels: [],
-        addressSubtypes: [],
         roles: new Set(address === seedAddress ? ['seed'] : []),
       })
     }
@@ -725,7 +716,8 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], de
     node.labels = uniqueStrings([...node.labels, ...(metadata?.labels ?? [])])
     node.systemLabels = uniqueStrings([...node.systemLabels, ...(metadata?.system_labels ?? []), ...(systemLabelsFallback ?? [])])
     if (metadata?.address_type) node.addressType = metadata.address_type
-    node.addressSubtypes = uniqueStrings([...node.addressSubtypes, ...(metadata?.address_subtypes ?? [])])
+    if (metadata?.evm_address) node.evmAddress = metadata.evm_address
+    if (metadata?.substrate_address) node.substrateAddress = metadata.substrate_address
     if (role) node.roles.add(role)
     return node
   }
@@ -777,7 +769,8 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], de
       labels: uniqueStrings(data.labels),
       ...(data.systemLabels.length > 0 ? { system_labels: uniqueStrings(data.systemLabels) } : {}),
       ...(data.addressType ? { address_type: data.addressType } : {}),
-      ...(data.addressSubtypes.length > 0 ? { address_subtypes: uniqueStrings(data.addressSubtypes) } : {}),
+      ...(data.evmAddress ? { evm_address: data.evmAddress } : {}),
+      ...(data.substrateAddress ? { substrate_address: data.substrateAddress } : {}),
       ...(data.roles.size > 0 ? { roles: [...data.roles] } : {}),
       flow_in_usd: data.in,
       flow_out_usd: data.out,

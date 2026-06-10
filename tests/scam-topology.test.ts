@@ -337,9 +337,9 @@ describe('scamTopology', () => {
     expect(allQueries.map((query) => query.id)).not.toEqual(expect.arrayContaining([
       expect.stringMatching(/seed_in|funding|fan_in/i),
     ]))
-    expect(allQueries.map((query) => query.query).join('\n')).not.toContain(']->(dst:Address {address: "5Victim"})')
-    expect(allQueries[0]?.query).toMatch(/^USE live_topology MATCH \(src:Address \{address: "5Victim"\}\)-\[r:FLOWS_TO\]->\(dst:Address\)/)
-    expect(allQueries[1]?.query).toContain('MATCH (src:Address {address: "5Hop"})-[r:FLOWS_TO]->(dst:Address)')
+    expect(allQueries.map((query) => query.query).join('\n')).not.toContain(']->(dst:Identity {identity_id: "5Victim"})')
+    expect(allQueries[0]?.query).toMatch(/^USE live_topology MATCH \(src:Identity \{identity_id: "5Victim"\}\)-\[r:FLOWS_TO\]->\(dst:Identity\)/)
+    expect(allQueries[1]?.query).toContain('MATCH (src:Identity {identity_id: "5Hop"})-[r:FLOWS_TO]->(dst:Identity)')
     expect(allQueries[1]?.query).not.toContain('5Victim')
 
     expect(result.structuredContent.facts.infrastructure_flows).toEqual([])
@@ -358,7 +358,7 @@ describe('scamTopology', () => {
     vi.mocked(client.callTool).mockImplementation(async (request) => {
       const queries = request.arguments?.queries as Array<{ id: string; query: string }>
       return graphBatchResult(queries.map((query) => {
-        const source = query.query.match(/address: "([^"]+)"/)?.[1]
+        const source = query.query.match(/identity_id: "([^"]+)"/)?.[1]
         const resultsBySource: Record<string, Array<Record<string, unknown>>> = {
           '5Victim': [
             topologyRow('5Victim', '5A', { first_seen_timestamp: 100, last_seen_timestamp: 100 }),
@@ -409,7 +409,7 @@ describe('scamTopology', () => {
     ]))
     const cExpansionQueries = vi.mocked(client.callTool).mock.calls
       .flatMap((call) => call[0]?.arguments?.queries as Array<{ query: string }> ?? [])
-      .filter((query) => query.query.includes('address: "5C"'))
+      .filter((query) => query.query.includes('identity_id: "5C"'))
     expect(cExpansionQueries.length).toBeGreaterThan(0)
     expect(cExpansionQueries.length).toBeLessThanOrEqual(2)
   })
@@ -418,7 +418,7 @@ describe('scamTopology', () => {
     vi.mocked(client.callTool).mockImplementation(async (request) => {
       const queries = request.arguments?.queries as Array<{ id: string; query: string }>
       return graphBatchResult(queries.map((query) => {
-        const source = query.query.match(/address: "([^"]+)"/)?.[1]
+        const source = query.query.match(/identity_id: "([^"]+)"/)?.[1]
         return {
           id: query.id,
           ok: true,
@@ -439,7 +439,7 @@ describe('scamTopology', () => {
 
     const sourceAQueries = vi.mocked(client.callTool).mock.calls
       .flatMap((call) => call[0]?.arguments?.queries as Array<{ id: string; query: string }> ?? [])
-      .filter((query) => query.query.includes('address: "5A"'))
+      .filter((query) => query.query.includes('identity_id: "5A"'))
     expect(sourceAQueries.map((query) => query.query)).toEqual([
       expect.stringContaining('r.first_seen_timestamp >= 150 OR r.last_seen_timestamp >= 150'),
     ])
@@ -453,7 +453,7 @@ describe('scamTopology', () => {
     vi.mocked(client.callTool).mockImplementation(async (request) => {
       const queries = request.arguments?.queries as Array<{ id: string; query: string }>
       return graphBatchResult(queries.map((query) => {
-        const source = query.query.match(/address: "([^"]+)"/)?.[1]
+        const source = query.query.match(/identity_id: "([^"]+)"/)?.[1]
         return {
           id: query.id,
           ok: true,
@@ -475,7 +475,7 @@ describe('scamTopology', () => {
 
     const sourceAQueries = vi.mocked(client.callTool).mock.calls
       .flatMap((call) => call[0]?.arguments?.queries as Array<{ id: string; query: string }> ?? [])
-      .filter((query) => query.query.includes('address: "5A"'))
+      .filter((query) => query.query.includes('identity_id: "5A"'))
     expect(sourceAQueries.map((query) => query.query)).toEqual([
       expect.stringContaining('r.first_seen_timestamp >= 100 OR r.last_seen_timestamp >= 100'),
     ])
@@ -728,7 +728,7 @@ describe('scamTopology', () => {
       .flatMap((call) => call[0]?.arguments?.queries as Array<{ id: string; query: string }> ?? [])
     expect(queries.map((query) => query.id)).toContain('incident_deposit_cluster_1')
     expect(queries.find((query) => query.id === 'incident_deposit_cluster_1')?.query)
-      .toContain('MATCH (src:Address)-[r:FLOWS_TO]->(dst:Address {address: "5Deposit"})')
+      .toContain('MATCH (src:Identity)-[r:FLOWS_TO]->(dst:Identity {identity_id: "5Deposit"})')
 
     expect(result.structuredContent.facts.topology_edges).toEqual(expect.arrayContaining([
       expect.objectContaining({
@@ -806,7 +806,7 @@ describe('scamTopology', () => {
 
     const queries = vi.mocked(client.callTool).mock.calls[0]?.[0]?.arguments?.queries as Array<{ id: string; query: string }>
     expect(queries).toHaveLength(1)
-    expect(queries[0]?.query).toContain('MATCH (src:Address {address: "5Victim"})-[r:FLOWS_TO]->(dst:Address)')
+    expect(queries[0]?.query).toContain('MATCH (src:Identity {identity_id: "5Victim"})-[r:FLOWS_TO]->(dst:Identity)')
     expect(queries[0]?.query).toContain('LIMIT 10')
   })
 

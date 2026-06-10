@@ -3,6 +3,33 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.4.0] - 2026-06-10
+
+- **Breaking:** rewrote every investigation tool to the slim identity-grain
+  graph schema. Live and archive topology recipes now match
+  `(:Identity {identity_id})` with `[:FLOWS_TO]` edges; tool inputs take
+  canonical identity keys (`<network>:<canonical_address>`, for example
+  `bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24`).
+- **Breaking:** removed ghost node-property reads (`risk_score`,
+  `risk_level`, `pattern_flags`, `confluence_score`, `ml_*`,
+  `address_subtypes`, `lifetime_degree_*`, `total_volume_usd`) from all
+  live-topology queries; the slim graph no longer carries score or rollup
+  properties.
+- `aml_address_risk` is now facts-first: `ml_risk_score` comes from the
+  semantic `facts_risk_scores_view` (`HAS_RISK_SCORE`), label risk from
+  `facts_address_labels_view` (`HAS_LABEL`), with per-family provenance in
+  `facts.risk.sources`. Member addresses (`evm_address`,
+  `substrate_address`) are surfaced from the Identity node in the summary,
+  `facts.subject.member_addresses`, and graph nodes.
+- Workspace runtime-skill prompt teaches the slim identity schema:
+  identity key form, member-address properties, exposure shapes, and the
+  scores-come-from-`USE facts` rule. `topology_scope` accepts only
+  `identity`.
+- GraphRAG MCP UAT now runs identity-only assertions (identity node lookup
+  with member-address checks, identity exposure discovery) and asserts that
+  `graph_query` with `topology_scope=address` fails with the
+  unsupported-scope error.
+
 ## [0.3.24] - 2026-06-10
 
 - Reordered the UAT so the CLI live-topology assertion runs before the

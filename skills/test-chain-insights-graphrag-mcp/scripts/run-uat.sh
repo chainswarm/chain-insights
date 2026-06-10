@@ -7,8 +7,10 @@ MCP_ENDPOINT="${GRAPHRAG_MCP_ENDPOINT:-http://localhost:8012/mcp}"
 DEBUG_TOKEN="${GRAPHRAG_DEBUG_TOKEN:-chain-insights-dev-debug}"
 SERVER_PORT="${CHAIN_INSIGHTS_SERVER_PORT:-4321}"
 NETWORK="${NETWORK:-bittensor}"
+# UAT_ADDRESS is the SS58 substrate member address of the UAT identity; it is
+# asserted as the Identity node's substrate_address member property.
 UAT_ADDRESS="${UAT_ADDRESS:-5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6}"
-# Identity-route facts are keyed by the public identity key form
+# All graph keys and tool inputs use the canonical identity key form
 # '<network>:<canonical_evm_address>' (deterministic H160 mapping of
 # UAT_ADDRESS). Override together with UAT_ADDRESS.
 UAT_IDENTITY_KEY="${UAT_IDENTITY_KEY:-bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24}"
@@ -260,7 +262,7 @@ console.log(`[uat] public-route identity topology ok: flows=${flows} routing=${r
 NODE
 
 SEMANTIC_FACTS_JSON="${RUN_DIR}/direct-semantic-facts.json"
-SEMANTIC_FACTS_QUERY="USE facts MATCH (a:Address {address: '${UAT_IDENTITY_KEY}'}) RETURN a.address AS identity_key, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 1"
+SEMANTIC_FACTS_QUERY="USE facts MATCH (a:Identity {identity_id: '${UAT_IDENTITY_KEY}'}) RETURN a.identity_id AS identity_key, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 1"
 log "checking semantic identity facts query"
 npx @modelcontextprotocol/inspector \
   --cli "${MCP_ENDPOINT}" \
@@ -295,9 +297,10 @@ if (errors.length) throw new Error(errors.join('; '))
 console.log(`[uat] semantic facts query ok: identity_key=${identityKey} labels=${labels}`)
 NODE
 
-ADDRESS_TOPOLOGY_JSON="${RUN_DIR}/direct-address-topology.json"
-ADDRESS_TOPOLOGY_QUERY="USE live_topology MATCH (a:Address)-[f:FLOWS_TO]->(b:Address) RETURN count(f) AS address_flows"
-log "checking address topology unregression (network=${NETWORK})"
+ADDRESS_SCOPE_REJECTION_JSON="${RUN_DIR}/direct-address-scope-rejection.json"
+ADDRESS_SCOPE_QUERY="USE live_topology MATCH (a:Identity)-[f:FLOWS_TO]->(b:Identity) RETURN count(f) AS flows"
+ADDRESS_SCOPE_EXPECTED_ERROR="topology_scope must be identity (address scope was removed; live/archive selection stays in the query via USE)"
+log "checking topology_scope=address is rejected with the unsupported-scope error"
 npx @modelcontextprotocol/inspector \
   --cli "${MCP_ENDPOINT}" \
   --transport http \
@@ -306,41 +309,47 @@ npx @modelcontextprotocol/inspector \
   --method tools/call \
   --tool-name graph_query \
   --tool-arg "network=${NETWORK}" \
-  --tool-arg "query=${ADDRESS_TOPOLOGY_QUERY}" >"${ADDRESS_TOPOLOGY_JSON}"
+  --tool-arg "topology_scope=address" \
+  --tool-arg "query=${ADDRESS_SCOPE_QUERY}" >"${ADDRESS_SCOPE_REJECTION_JSON}" 2>&1 || true
 
-node - "${ADDRESS_TOPOLOGY_JSON}" "${NETWORK}" <<'NODE'
+node - "${ADDRESS_SCOPE_REJECTION_JSON}" "${ADDRESS_SCOPE_EXPECTED_ERROR}" <<'NODE'
 const fs = require('node:fs')
 const file = process.argv[2]
-const network = process.argv[3]
-const data = JSON.parse(fs.readFileSync(file, 'utf8'))
+const expectedError = process.argv[3]
+const raw = fs.readFileSync(file, 'utf8')
 const errors = []
-if (data.isError) errors.push(`address topology query returned isError=true: ${data.content?.[0]?.text || 'unknown error'}`)
-const facts = data.structuredContent?.facts
-const subject = facts?.subject
-const flows = facts?.query?.results?.[0]?.address_flows
-if (subject?.network !== network) errors.push(`address subject network mismatch: ${subject?.network}`)
-if (subject?.topology_scope !== 'address') errors.push(`address subject topology_scope mismatch: ${subject?.topology_scope}`)
-if (!Number.isFinite(Number(flows)) || Number(flows) <= 0) errors.push(`address FLOWS_TO count not positive: ${flows}`)
+if (!raw.includes(expectedError)) {
+  errors.push(`topology_scope=address response did not contain the unsupported-scope error: ${raw.slice(0, 500)}`)
+}
+let data
+try {
+  data = JSON.parse(raw)
+} catch {
+  data = undefined
+}
+if (data && data.isError !== true && data.structuredContent?.facts?.query?.results) {
+  errors.push('topology_scope=address unexpectedly returned query results instead of an error')
+}
 if (errors.length) throw new Error(errors.join('; '))
-console.log(`[uat] address topology unregressed: flows=${flows}`)
+console.log('[uat] topology_scope=address rejected with unsupported-scope error')
 NODE
 
 # Run the CLI live-topology assertion before the proxy/exposure phase:
 # heavy exposure scans abandoned at the MCP timeout keep running on the
 # memgql proxy's serial session and can poison live reads for the rest
 # of the run (memgql 0.6.1).
-GRAPH_QUERY_TEXT="${RUN_DIR}/graph-query-address.txt"
+GRAPH_QUERY_TEXT="${RUN_DIR}/graph-query-identity.txt"
 log "calling Chain Insights CLI graph_query against real MCP"
 # Bounded retry: a busy graph store can transiently queue point reads past
 # the MCP per-query timeout (e.g. mid-resync); the assertion itself is
-# unchanged and still requires the exact UAT address row.
+# unchanged and still requires the exact UAT identity row.
 GRAPH_QUERY_ATTEMPTS="${GRAPH_QUERY_ATTEMPTS:-3}"
 for attempt in $(seq 1 "${GRAPH_QUERY_ATTEMPTS}"); do
   (
     cd "${WORKSPACE_ROOT}"
     node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
       "network=${NETWORK}" \
-      "query=USE live_topology MATCH (n:Address {address: '${UAT_ADDRESS}'}) RETURN n.labels AS labels, n.address AS address LIMIT 1"
+      "query=USE live_topology MATCH (n:Identity {identity_id: '${UAT_IDENTITY_KEY}'}) RETURN n.identity_id AS identity_id, n.labels AS labels, n.evm_address AS evm_address, n.substrate_address AS substrate_address LIMIT 1"
   ) >"${GRAPH_QUERY_TEXT}" || true
   if node -e "JSON.parse(require('node:fs').readFileSync(process.argv[1], 'utf8').trim())" "${GRAPH_QUERY_TEXT}" 2>/dev/null; then
     break
@@ -351,17 +360,24 @@ for attempt in $(seq 1 "${GRAPH_QUERY_ATTEMPTS}"); do
   fi
 done
 
-node - "${GRAPH_QUERY_TEXT}" "${UAT_ADDRESS}" <<'NODE'
+node - "${GRAPH_QUERY_TEXT}" "${UAT_IDENTITY_KEY}" "${UAT_ADDRESS}" <<'NODE'
 const fs = require('node:fs')
 const file = process.argv[2]
-const address = process.argv[3]
+const identityKey = process.argv[3]
+const substrateAddress = process.argv[4]
 const text = fs.readFileSync(file, 'utf8').trim()
 const data = JSON.parse(text)
 const first = data.facts?.query?.results?.[0] || data.results?.[0]
-if (!first || first.address !== address) {
-  throw new Error(`graph_query did not return expected address ${address}`)
+if (!first || first.identity_id !== identityKey) {
+  throw new Error(`graph_query did not return expected identity ${identityKey}`)
 }
-console.log(`[uat] graph_query ok: ${first.address}`)
+if (typeof first.evm_address !== 'string' || !identityKey.endsWith(first.evm_address)) {
+  throw new Error(`identity node evm_address mismatch: ${first.evm_address}`)
+}
+if (first.substrate_address !== substrateAddress) {
+  throw new Error(`identity node substrate_address mismatch: expected ${substrateAddress}, got ${first.substrate_address}`)
+}
+console.log(`[uat] graph_query ok: ${first.identity_id} (evm=${first.evm_address}, substrate=${first.substrate_address})`)
 NODE
 
 DIRECT_JSON="${RUN_DIR}/direct-address-risk.json"
@@ -376,7 +392,7 @@ if [[ "$(cat "${RUN_DIR}/direct-high-level-tools.txt")" == "yes" ]]; then
     --method tools/call \
     --tool-name aml_address_risk \
     --tool-arg "network=${NETWORK}" \
-    --tool-arg "address=${UAT_ADDRESS}" \
+    --tool-arg "address=${UAT_IDENTITY_KEY}" \
     --tool-arg include_attachments=true >"${DIRECT_JSON}"
 
   node - "${DIRECT_JSON}" <<'NODE'
@@ -438,7 +454,7 @@ NODE
 
 PROXY_JSON="${RUN_DIR}/proxy-address-risk.json"
 log "calling Chain Insights proxy aml_address_risk"
-node --input-type=module - "${CHAIN_INSIGHTS_PROXY}" "${NETWORK}" "${UAT_ADDRESS}" "${PROXY_JSON}" <<'NODE'
+node --input-type=module - "${CHAIN_INSIGHTS_PROXY}" "${NETWORK}" "${UAT_IDENTITY_KEY}" "${PROXY_JSON}" <<'NODE'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import fs from 'node:fs'
@@ -538,7 +554,7 @@ if [[ -z "${EXPOSURE_ACCOUNT}" ]]; then
     --method tools/call \
     --tool-name graph_query_batch \
     --tool-arg "network=${NETWORK}" \
-    --tool-arg 'queries=[{"id":"live_exposure_uat_account","query":"USE live_topology MATCH (account:Address)-[:HAS_EXPOSURE]->(exposure:Exposure)-[:TARGETS_INSTRUMENT]->(instrument:Instrument) RETURN account.address AS account_address, exposure.venue AS venue, instrument.display_id AS instrument_display_id, exposure.side AS side LIMIT 1"},{"id":"archive_exposure_uat_account","query":"USE archive_topology MATCH (account:Address)-[:HAS_EXPOSURE]->(exposure:Exposure)-[:TARGETS_INSTRUMENT]->(instrument:Instrument) RETURN account.address AS account_address, exposure.venue AS venue, instrument.display_id AS instrument_display_id, exposure.side AS side LIMIT 1"}]' >"${EXPOSURE_DISCOVERY_JSON}"
+    --tool-arg 'queries=[{"id":"live_exposure_uat_account","query":"USE live_topology MATCH (account:Identity)-[:HAS_EXPOSURE]->(exposure:Exposure)-[:TARGETS_INSTRUMENT]->(instrument:Instrument) RETURN account.identity_id AS account_address, exposure.venue AS venue, instrument.display_id AS instrument_display_id, exposure.side AS side LIMIT 1"},{"id":"archive_exposure_uat_account","query":"USE archive_topology MATCH (account:Identity)-[:HAS_EXPOSURE]->(exposure:Exposure)-[:TARGETS_INSTRUMENT]->(instrument:Instrument) RETURN account.identity_id AS account_address, exposure.venue AS venue, instrument.display_id AS instrument_display_id, exposure.side AS side LIMIT 1"}]' >"${EXPOSURE_DISCOVERY_JSON}"
 
   EXPOSURE_ACCOUNT="$(
     node - "${EXPOSURE_DISCOVERY_JSON}" <<'NODE'
@@ -781,13 +797,15 @@ Chain Insights vs GraphRAG MCP UAT PASS
 
 Endpoint: ${MCP_ENDPOINT}
 Network: ${NETWORK}
-Address: ${UAT_ADDRESS}
+Identity key: ${UAT_IDENTITY_KEY}
+Substrate member address: ${UAT_ADDRESS}
 Exposure account: ${EXPOSURE_ACCOUNT}
 Graph report URL: ${GRAPH_REPORT_URL}
 
 Raw outputs:
 - ${DIRECT_TOOLS_JSON}
 ${DIRECT_ADDRESS_RISK_SUMMARY}
+- ${ADDRESS_SCOPE_REJECTION_JSON}
 - ${PROXY_TOOLS_JSON}
 - ${PROXY_JSON}
 - ${GRAPH_REPORT_JSON}

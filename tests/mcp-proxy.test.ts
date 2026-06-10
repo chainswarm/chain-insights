@@ -1028,11 +1028,32 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                     display_labels: ['validator'],
                     system_labels: ['Address', 'Validator'],
                     address_type: 'substrate',
-                    address_subtypes: ['validator_hotkey'],
-                    confluence_score: 0.82,
-                    ml_risk_level: 'high',
+                    evm_address: '0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24',
+                    substrate_address: '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6',
                     degree_in: 3,
                     degree_out: 4,
+                  }],
+                },
+                {
+                  id: 'address_risk_score',
+                  ok: true,
+                  results: [{
+                    ml_risk_score: 0.82,
+                    risk_window_days: 1095,
+                    risk_processing_date: '2026-06-09',
+                    xgboost_model_version: 'xgb_test_v1',
+                    gnn_model_version: 'gnn_test_v1',
+                  }],
+                },
+                {
+                  id: 'address_label_risk',
+                  ok: true,
+                  results: [{
+                    label: 'Scam laundering intermediate',
+                    risk_level: 'high',
+                    trust_level: 'candidate',
+                    confidence_score: 0.9,
+                    source: 'scam_topology_trace',
                   }],
                 },
                 {
@@ -1107,7 +1128,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(subjectNode).toMatchObject({
       labels: ['validator'],
       address_type: 'substrate',
-      address_subtypes: ['validator_hotkey'],
+      evm_address: '0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24',
+      substrate_address: '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6',
     })
     expect(subjectNode?.roles).toContain('subject')
     const exchangeNode = graph.nodes.find((node) => node.address === '5Exchange')
@@ -1277,7 +1299,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                       display_labels: ['validator'],
                       system_labels: ['Address', 'Validator'],
                       address_type: 'substrate',
-                      address_subtypes: ['validator_hotkey'],
+                      evm_address: '0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24',
+                      substrate_address: '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6',
                     }],
                   },
                   { id: 'exchange_outflows', ok: true, results: [] },
@@ -1304,7 +1327,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       labels: ['validator'],
       system_labels: ['Address', 'Validator'],
       address_type: 'substrate',
-      address_subtypes: ['validator_hotkey'],
+      evm_address: '0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24',
+      substrate_address: '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6',
       roles: ['subject'],
     })
   })
@@ -1510,9 +1534,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       }),
     }), undefined, expect.anything())
     const query = remoteClient.callTool.mock.calls[0]?.[0].arguments.queries[0].query as string
-    expect(query).toContain('MATCH (source:Address)-[r1:FLOWS_TO]->(deposit:Address)')
-    expect(query).toContain('deposit.address = "5DepositA"')
-    expect(query).toContain('deposit.address = "5DepositB"')
+    expect(query).toContain('MATCH (source:Identity)-[r1:FLOWS_TO]->(deposit:Identity)')
+    expect(query).toContain('deposit.identity_id = "5DepositA"')
+    expect(query).toContain('deposit.identity_id = "5DepositB"')
     expect(query).toContain('source.is_exchange IS NULL')
     expect(query).toContain('deposit.is_exchange IS NULL')
     expect(result.structuredContent).toMatchObject({
@@ -2106,7 +2130,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
     const config = findToolConfig(serverInstance, 'aml_address_risk')
 
-    expect(config.description).toContain('Screen one full blockchain address')
+    expect(config.description).toContain('Screen one canonical identity key')
     expect(config.description).toContain('Required arguments: address, network.')
     expect(config.description).not.toContain('Use address_connection_risk instead')
   })

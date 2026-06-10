@@ -163,10 +163,10 @@ function marketExposureQuery(topologyGraph: 'live_topology' | 'archive_topology'
     id: topologyGraph === 'live_topology' ? 'live_market_exposures' : 'archive_market_exposures',
     query: [
       `USE ${topologyGraph}`,
-      'MATCH (account:Address)-[:HAS_EXPOSURE]->(exposure:Exposure)-[:TARGETS_INSTRUMENT]->(instrument:Instrument)',
+      'MATCH (account:Identity)-[:HAS_EXPOSURE]->(exposure:Exposure)-[:TARGETS_INSTRUMENT]->(instrument:Instrument)',
       `WHERE ${marketPredicates(options).join(' AND ')}`,
       [
-        'RETURN account.address AS account_address',
+        'RETURN account.identity_id AS account_address',
         'exposure.owner_address AS owner_address',
         'exposure.counterparty_address AS counterparty_address',
         'exposure.venue AS venue',

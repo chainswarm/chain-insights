@@ -152,22 +152,48 @@ with \`USE live_topology\`, historical topology reads with
 \`USE archive_topology\`, and fact reads with \`USE facts\`, for example:
 
 \`\`\`bash
-cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE live_topology MATCH (n:Address) RETURN \"Address\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.period_granularity AS granularity, f.amount_sum AS amount_sum LIMIT 20"}]'
+cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE live_topology MATCH (n:Identity) RETURN \"Identity\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (:Identity)-[f:FLOWS_TO]->(:Identity) RETURN f.period_granularity AS granularity, f.amount_sum AS amount_sum LIMIT 20"}]'
 \`\`\`
 
 Then update this file with observed labels, relationship types, and allowed
 property names for the active network.
 
+The slim identity graph schema:
+
+- Every topology node is \`(:Identity)\`, keyed by \`identity_id\` in the
+  canonical prefixed form \`<network>:<canonical_address>\` (for example
+  \`bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\`). There is no
+  Address node label and no \`network\` property; each network has its own
+  graph.
+- Identity member-address properties: \`evm_address\` (canonical 0x form)
+  and \`substrate_address\` (SS58 form, null when the identity has no
+  substrate source). Use them to report the human-recognizable address
+  forms; never invent address conversions.
+- Other Identity properties: \`address_type\`, \`labels\` (array), and
+  \`is_exchange\` (sparse true/null traversal hint).
+- Money flow is \`(:Identity)-[:FLOWS_TO]->(:Identity)\`. Exposure context is
+  \`(:Identity)-[:OWNS_EXPOSURE|HAS_EXPOSURE]->(:Exposure)\`,
+  \`(:Exposure)-[:HAS_COUNTERPARTY]->(:Identity)\`, and
+  \`(:Exposure)-[:TARGETS_INSTRUMENT]->(:Instrument)\`.
+- Scores come from \`USE facts\`, never from node properties. ML risk:
+  \`(:Identity)-[:HAS_RISK_SCORE]->(:RiskScore)\`; label risk:
+  \`(:Identity)-[:HAS_LABEL]->(:AddressLabel)\`; lifetime metrics:
+  \`(:Identity)-[:HAS_FEATURE]->(:AddressFeature)\`. Facts identity keys
+  match live \`identity_id\` values exactly. Do not read \`risk_score\`,
+  \`ml_*\`, \`confluence_score\`, or \`pattern_flags\` off topology nodes —
+  those properties do not exist.
+
 Rules:
 
 - Prefer \`graph_query\` and \`graph_query_batch\` for graph-language reads.
+- \`topology_scope\` accepts only \`identity\` (empty defaults to identity).
+  The live/archive layer choice stays inside the query via \`USE ...\`.
 - Use \`USE live_topology\` for recent topology, \`USE archive_topology\`
   for historical topology, and \`USE facts\` for labels, features,
-  risk scores, assets, and enrichment. Address facts can be reached through
-  relationships such as \`(:Address)-[:HAS_FEATURE]->(:AddressFeature)\`.
-  Archived money-flow topology is exposed as
-  \`(:Address)-[:FLOWS_TO]->(:Address)\` with \`period_granularity\`,
-  \`period_start_date\`, and \`period_end_date\` on the relationship.
+  risk scores, assets, and enrichment. Archived money-flow topology is
+  exposed as \`(:Identity)-[:FLOWS_TO]->(:Identity)\` with
+  \`period_granularity\`, \`period_start_date\`, and \`period_end_date\` on
+  the relationship.
 - Preserve source schema field names in generated data files.
 - Do not rename, reinterpret, or add unit labels to graph fields unless the
   schema or query result explicitly supports that interpretation.
@@ -201,7 +227,9 @@ Trace tool chaining:
    \`graph_query_batch\` only when the role-specific tools do not answer the
    exact question.
 
-All trace tools return \`chain-insights.trace.v1\`. Preserve full addresses in
+All trace tools take canonical identity keys
+(\`<network>:<canonical_address>\`) as inputs and return
+\`chain-insights.trace.v1\`. Preserve full identity keys in
 \`input.addresses\`, \`addresses[].address\`, \`edges[].from_address\`,
 \`edges[].to_address\`, \`paths[].addresses\`, \`candidate_labels[].address\`,
 and \`continuation\` address lists.
