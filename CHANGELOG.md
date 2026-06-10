@@ -3,6 +3,14 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.21] - 2026-06-10
+
+- Fixed the GraphRAG MCP UAT CLI live-topology lookup to use a labeled
+  `MATCH (n:Address)` pattern. The unlabeled `MATCH (n)` form forced a full
+  client-side proxy scan (~27s on a large graph) and broke under the MCP
+  per-query timeout; labeled lookups resolve via the address index in
+  under a second.
+
 ## [0.3.20] - 2026-06-09
 
 - Cut the GraphRAG MCP UAT identity assertions to the public route:
