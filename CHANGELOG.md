@@ -3,6 +3,33 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.5.0] - 2026-06-10
+
+- **Breaking:** adopted the generic member-address graph model. Identity
+  nodes no longer carry `evm_address`/`substrate_address` scalars; member
+  addresses come from the `addresses` list property (canonical 0x form
+  first, SS58 form second when present). Tool responses and graph nodes
+  now expose `member_addresses` as a list instead of the two scalars.
+- AML tool address inputs accept any member address form. Non-0x inputs
+  (for example SS58) are resolved through the indexed
+  `(:MemberAddress {address})-[:ADDRESS_OF]->(:Identity)` exact lookup;
+  0x inputs are derived locally as `<network>:<lowercase 0x form>`.
+  Unresolvable inputs pass through unchanged.
+- Identity nodes regained investigator triage properties: a slim live
+  risk verdict (`risk_score`, `risk_level`) and base activity rollups.
+  `aml_address_risk` surfaces the live verdict as
+  `facts.risk.live_node` and a `Live node triage` summary line; the
+  facts-first detailed scoring (`facts_risk_scores_view` with
+  provenance) remains the authoritative risk source. Path/graph nodes
+  carry `risk_score`/`risk_level` quick-triage values when present.
+- Workspace runtime-skill prompt and MCP schema hints teach the
+  `addresses` list, the MemberAddress resolution pattern, the node
+  triage/rollup properties, and the scores-detail-via-`USE facts` rule.
+- GraphRAG MCP UAT asserts a non-empty `addresses` list on the UAT
+  identity node and that MemberAddress resolution by the SS58 member
+  form returns the identity; all existing identity/scope assertions are
+  kept.
+
 ## [0.4.0] - 2026-06-10
 
 - **Breaking:** rewrote every investigation tool to the slim identity-grain

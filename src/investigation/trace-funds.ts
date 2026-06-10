@@ -96,8 +96,9 @@ interface GraphNodeMetadata {
   labels?: string[]
   system_labels?: string[]
   address_type?: string
-  evm_address?: string
-  substrate_address?: string
+  addresses?: string[]
+  risk_score?: number
+  risk_level?: string
   is_exchange?: boolean
 }
 
@@ -269,8 +270,7 @@ function schemaFromGraphBatch(network: string, batch: ParsedGraphBatch): Record<
       'r.first_tx_id AS first_tx_id',
       'r.last_tx_id AS last_tx_id',
       'dst.labels AS dst_labels',
-      'dst.evm_address AS dst_evm_address',
-      'dst.substrate_address AS dst_substrate_address',
+      'dst.addresses AS dst_member_addresses',
     ],
   }
 }
@@ -302,7 +302,7 @@ function flowEdgeMap(variableName: string): string {
 }
 
 function pathNodeMap(variableName: string): string {
-  return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, evm_address: ${variableName}.evm_address, substrate_address: ${variableName}.substrate_address, is_exchange: ${variableName}.is_exchange}`
+  return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, addresses: ${variableName}.addresses, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`
 }
 
 function forwardExchangeQueries(address: string, limit: number, minAmountSum: number, maxHops: number): Array<{ id: string; query: string }> {
@@ -365,7 +365,7 @@ function reverseLeadsQuery(depositAddresses: string[]): { id: string; query: str
     query: [
       'MATCH (sender:Identity)-[r:FLOWS_TO]->(deposit:Identity)',
       `WHERE (${depositPredicates.join(' OR ')}) AND sender.is_exchange IS NULL AND sender.identity_id <> deposit.identity_id`,
-      'RETURN DISTINCT sender.identity_id AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.evm_address AS evm_address, sender.substrate_address AS substrate_address, deposit.identity_id AS deposit_address, r.amount_usd_sum AS amount_usd',
+      'RETURN DISTINCT sender.identity_id AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.addresses AS member_addresses, sender.risk_score AS risk_score, sender.risk_level AS risk_level, deposit.identity_id AS deposit_address, r.amount_usd_sum AS amount_usd',
       'ORDER BY r.amount_usd_sum DESC',
       `LIMIT ${Math.max(50, depositAddresses.length * 50)}`,
     ].join(' '),
@@ -451,8 +451,9 @@ function nodeMetadataFromValue(value: unknown, fallbackAddress?: string): GraphN
     labels: stringArrayValue(record['labels']),
     system_labels: stringArrayValue(record['system_labels']),
     address_type: typeof record['address_type'] === 'string' ? record['address_type'] : undefined,
-    evm_address: typeof record['evm_address'] === 'string' ? record['evm_address'] : undefined,
-    substrate_address: typeof record['substrate_address'] === 'string' ? record['substrate_address'] : undefined,
+    addresses: stringArrayValue(record['addresses']) ?? stringArrayValue(record['member_addresses']),
+    risk_score: numberValue(record['risk_score']),
+    risk_level: typeof record['risk_level'] === 'string' && record['risk_level'].trim() ? record['risk_level'] : undefined,
     is_exchange: isExchangeFlag(record['is_exchange']),
   }
 }
@@ -657,8 +658,9 @@ async function collectProbeTrace(
           labels,
           system_labels: stringArrayValue(row['system_labels']),
           address_type: typeof row['address_type'] === 'string' ? row['address_type'] : undefined,
-          evm_address: typeof row['evm_address'] === 'string' ? row['evm_address'] : undefined,
-          substrate_address: typeof row['substrate_address'] === 'string' ? row['substrate_address'] : undefined,
+          addresses: stringArrayValue(row['member_addresses']),
+          risk_score: numberValue(row['risk_score']),
+          risk_level: typeof row['risk_level'] === 'string' && row['risk_level'].trim() ? row['risk_level'] : undefined,
         },
         deposit_address: depositAddress,
         amount_usd: numberValue(row['amount_usd']),
@@ -693,8 +695,9 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], de
     labels: string[]
     systemLabels: string[]
     addressType?: string
-    evmAddress?: string
-    substrateAddress?: string
+    memberAddresses?: string[]
+    riskScore?: number
+    riskLevel?: string
     roles: Set<string>
   }
 
@@ -716,8 +719,9 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], de
     node.labels = uniqueStrings([...node.labels, ...(metadata?.labels ?? [])])
     node.systemLabels = uniqueStrings([...node.systemLabels, ...(metadata?.system_labels ?? []), ...(systemLabelsFallback ?? [])])
     if (metadata?.address_type) node.addressType = metadata.address_type
-    if (metadata?.evm_address) node.evmAddress = metadata.evm_address
-    if (metadata?.substrate_address) node.substrateAddress = metadata.substrate_address
+    if (metadata?.addresses?.length) node.memberAddresses = uniqueStrings([...(node.memberAddresses ?? []), ...metadata.addresses])
+    if (metadata?.risk_score !== undefined) node.riskScore = metadata.risk_score
+    if (metadata?.risk_level) node.riskLevel = metadata.risk_level
     if (role) node.roles.add(role)
     return node
   }
@@ -769,8 +773,9 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], de
       labels: uniqueStrings(data.labels),
       ...(data.systemLabels.length > 0 ? { system_labels: uniqueStrings(data.systemLabels) } : {}),
       ...(data.addressType ? { address_type: data.addressType } : {}),
-      ...(data.evmAddress ? { evm_address: data.evmAddress } : {}),
-      ...(data.substrateAddress ? { substrate_address: data.substrateAddress } : {}),
+      ...(data.memberAddresses?.length ? { member_addresses: data.memberAddresses } : {}),
+      ...(data.riskScore !== undefined ? { risk_score: data.riskScore } : {}),
+      ...(data.riskLevel ? { risk_level: data.riskLevel } : {}),
       ...(data.roles.size > 0 ? { roles: [...data.roles] } : {}),
       flow_in_usd: data.in,
       flow_out_usd: data.out,

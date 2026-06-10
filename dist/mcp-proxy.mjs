@@ -99,13 +99,15 @@ const CHAIN_INSIGHTS_WORKFLOW = [
 const GRAPH_SCHEMA_HINTS = [
 	"Graph query hints for network=bittensor:",
 	"- The graph is identity-grain. The only topology node label is Identity, keyed by identity_id in the canonical prefixed form <network>:<canonical_address>, for example bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24.",
-	"- Identity nodes carry identity_id, evm_address (canonical 0x form), substrate_address (SS58 member address, null when no substrate source), address_type, labels, and is_exchange. There is no network property; each network has its own graph.",
-	"- Scores are never node properties. ML risk, label risk, and feature metrics come from USE facts: (:Identity)-[:HAS_RISK_SCORE]->(:RiskScore), (:Identity)-[:HAS_LABEL]->(:AddressLabel), (:Identity)-[:HAS_FEATURE]->(:AddressFeature).",
+	"- Identity nodes carry identity_id, addresses (member-address list: canonical 0x form first, SS58 form second when present), address_type, labels, and is_exchange. There is no network property; each network has its own graph.",
+	"- Identity nodes also carry a slim live risk verdict (risk_score float, risk_level string) for quick triage, plus base activity rollups: degree_in/degree_out, tx_in_count/tx_out_count/tx_total_count, total_in_usd/total_out_usd/total_volume_usd, net_flow_usd, active_days, activity_span_days, first_activity_timestamp/last_activity_timestamp, and lifetime_* variants.",
+	"- Resolve any member address form (0x or SS58) to its identity with the indexed exact lookup: MATCH (m:MemberAddress {address: $input})-[:ADDRESS_OF]->(i:Identity) RETURN i.identity_id. :MemberAddress(address) is unique and index-backed.",
+	"- Detailed, provenanced scoring still comes from USE facts: (:Identity)-[:HAS_RISK_SCORE]->(:RiskScore) for model versions/processing dates, (:Identity)-[:HAS_LABEL]->(:AddressLabel) for label risk, (:Identity)-[:HAS_FEATURE]->(:AddressFeature) for feature metrics. Use node risk_score/risk_level only as the quick-triage verdict; never read ml_* properties off topology nodes.",
 	"- Facts graph labels include Identity, AddressLabel, AddressFeature, RiskScore, and Asset. Facts identity keys match live identity_id values exactly.",
 	"- Live topology relationships include FLOWS_TO and RISK_PROXIMITY between Identity nodes, plus OWNS_EXPOSURE/HAS_EXPOSURE to Exposure, HAS_COUNTERPARTY from Exposure to Identity, and TARGETS_INSTRUMENT from Exposure to Instrument.",
 	"- FLOWS_TO properties are scoped to the selected topology graph and commonly carry amount_sum, amount_usd_sum, tx_count, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id. Confirm available fields through runtime schema before relying on them.",
 	"- Traversal rule: for BFS, fixed-hop fallback, shortest-path, or manual FLOWS_TO traversal, exchange hot wallets are terminal endpoints only. Do not expand from, through, or classify exchange nodes as deposit, suspect, or intermediate candidates; filter every non-terminal node with is_exchange IS NULL.",
-	"- Start schema discovery with endpoint-safe property reads: MATCH (n:Identity) WHERE n.identity_id IS NOT NULL RETURN n.identity_id AS identity_id, n.labels AS labels, n.evm_address AS evm_address, n.substrate_address AS substrate_address LIMIT 20",
+	"- Start schema discovery with endpoint-safe property reads: MATCH (n:Identity) WHERE n.identity_id IS NOT NULL RETURN n.identity_id AS identity_id, n.labels AS labels, n.addresses AS addresses, n.risk_score AS risk_score, n.risk_level AS risk_level LIMIT 20",
 	"- Relationship discovery: MATCH (:Identity)-[r:FLOWS_TO]->(:Identity) RETURN r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum LIMIT 20",
 	"- graph_query uses the active Chain Insights graph endpoint. topology_scope accepts only identity (empty defaults to identity). Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment.",
 	"- Archive topology labels include Identity and TopologySnapshot. Archived money-flow topology is represented as (:Identity)-[:FLOWS_TO]->(:Identity) relationships with period_granularity, period_start_date, and period_end_date.",
@@ -911,7 +913,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { addressRisk } = await import("./public-tools-BvGR4bxw.mjs");
+				const { addressRisk } = await import("./public-tools-CUzKPYod.mjs");
 				const result = await addressRisk(remoteClient, {
 					address,
 					network,
@@ -974,7 +976,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceVictimFunds } = await import("./public-tools-BvGR4bxw.mjs");
+				const { traceVictimFunds } = await import("./public-tools-CUzKPYod.mjs");
 				const result = await traceVictimFunds(remoteClient, config, {
 					victimAddresses: victim_addresses,
 					knownSuspectAddresses: known_suspect_addresses,
@@ -1040,7 +1042,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceSuspectFunds } = await import("./public-tools-BvGR4bxw.mjs");
+				const { traceSuspectFunds } = await import("./public-tools-CUzKPYod.mjs");
 				const result = await traceSuspectFunds(remoteClient, config, {
 					suspectAddresses: suspect_addresses,
 					network,
@@ -1102,7 +1104,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceDepositSources } = await import("./public-tools-BvGR4bxw.mjs");
+				const { traceDepositSources } = await import("./public-tools-CUzKPYod.mjs");
 				const result = await traceDepositSources(remoteClient, config, {
 					depositAddresses: deposit_addresses,
 					network,
@@ -1167,7 +1169,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { exposureProfile } = await import("./public-tools-BvGR4bxw.mjs");
+				const { exposureProfile } = await import("./public-tools-CUzKPYod.mjs");
 				const result = await exposureProfile(remoteClient, {
 					network,
 					account,
@@ -1264,7 +1266,7 @@ async function createProxy() {
 						isError: true
 					};
 					const input = args;
-					const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await import("./public-tools-BvGR4bxw.mjs");
+					const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await import("./public-tools-CUzKPYod.mjs");
 					const options = {
 						network: String(input["network"] ?? ""),
 						account: input["account"] === void 0 ? void 0 : String(input["account"]),
