@@ -3,6 +3,13 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.22] - 2026-06-10
+
+- Added a bounded retry (3 attempts, `GRAPH_QUERY_ATTEMPTS` override) to the
+  UAT CLI live-topology lookup. A busy graph store can transiently queue
+  point reads past the MCP per-query timeout (e.g. mid-resync); the
+  assertion still requires the exact UAT address row.
+
 ## [0.3.21] - 2026-06-10
 
 - Fixed the GraphRAG MCP UAT CLI live-topology lookup to use a labeled
