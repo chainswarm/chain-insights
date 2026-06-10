@@ -747,7 +747,7 @@ for attempt in $(seq 1 "${GRAPH_QUERY_ATTEMPTS}"); do
     cd "${WORKSPACE_ROOT}"
     node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
       "network=${NETWORK}" \
-      "query=USE live_topology MATCH (n:Address) WHERE n.address = '${UAT_ADDRESS}' RETURN n.labels AS labels, n.address AS address LIMIT 1"
+      "query=USE live_topology MATCH (n:Address {address: '${UAT_ADDRESS}'}) RETURN n.labels AS labels, n.address AS address LIMIT 1"
   ) >"${GRAPH_QUERY_TEXT}" || true
   if node -e "JSON.parse(require('node:fs').readFileSync(process.argv[1], 'utf8').trim())" "${GRAPH_QUERY_TEXT}" 2>/dev/null; then
     break

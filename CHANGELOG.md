@@ -3,6 +3,13 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.23] - 2026-06-10
+
+- Switched the UAT CLI live-topology lookup to the inline property-map form
+  (`MATCH (n:Address {address: …})`). The `WHERE`-clause form deterministically
+  hangs in the memgql proxy when sent from the GraphRAG MCP Go client, while
+  the inline form resolves in milliseconds through every client path.
+
 ## [0.3.22] - 2026-06-10
 
 - Added a bounded retry (3 attempts, `GRAPH_QUERY_ATTEMPTS` override) to the
