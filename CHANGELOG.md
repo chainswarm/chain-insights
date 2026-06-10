@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.5.1] - 2026-06-11
+
+- Adopted the final member-address graph naming: the satellite label is
+  `:Address` (not `:MemberAddress`) and the relationship is Identity-outward
+  `(:Identity)-[:OF]->(:Address)` (not `(m)-[:ADDRESS_OF]->(i)`). The
+  resolution lookup is now
+  `MATCH (m:Address {address: $input})<-[:OF]-(i:Identity)
+  RETURN i.identity_id LIMIT 1`. Updated the resolution helper, workspace
+  runtime-skill prompt, MCP schema hints, and the GraphRAG MCP UAT
+  member-address resolution phase. Everything else from 0.5.0 stands.
+
 ## [0.5.0] - 2026-06-10
 
 - **Breaking:** adopted the generic member-address graph model. Identity
