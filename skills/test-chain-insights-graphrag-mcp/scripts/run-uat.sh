@@ -325,6 +325,45 @@ if (errors.length) throw new Error(errors.join('; '))
 console.log(`[uat] address topology unregressed: flows=${flows}`)
 NODE
 
+# Run the CLI live-topology assertion before the proxy/exposure phase:
+# heavy exposure scans abandoned at the MCP timeout keep running on the
+# memgql proxy's serial session and can poison live reads for the rest
+# of the run (memgql 0.6.1).
+GRAPH_QUERY_TEXT="${RUN_DIR}/graph-query-address.txt"
+log "calling Chain Insights CLI graph_query against real MCP"
+# Bounded retry: a busy graph store can transiently queue point reads past
+# the MCP per-query timeout (e.g. mid-resync); the assertion itself is
+# unchanged and still requires the exact UAT address row.
+GRAPH_QUERY_ATTEMPTS="${GRAPH_QUERY_ATTEMPTS:-3}"
+for attempt in $(seq 1 "${GRAPH_QUERY_ATTEMPTS}"); do
+  (
+    cd "${WORKSPACE_ROOT}"
+    node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
+      "network=${NETWORK}" \
+      "query=USE live_topology MATCH (n:Address) WHERE n.address = '${UAT_ADDRESS}' RETURN n.labels AS labels, n.address AS address LIMIT 1"
+  ) >"${GRAPH_QUERY_TEXT}" || true
+  if node -e "JSON.parse(require('node:fs').readFileSync(process.argv[1], 'utf8').trim())" "${GRAPH_QUERY_TEXT}" 2>/dev/null; then
+    break
+  fi
+  if [[ "${attempt}" -lt "${GRAPH_QUERY_ATTEMPTS}" ]]; then
+    log "graph_query attempt ${attempt} returned a non-JSON transient error; retrying in 20s"
+    sleep 20
+  fi
+done
+
+node - "${GRAPH_QUERY_TEXT}" "${UAT_ADDRESS}" <<'NODE'
+const fs = require('node:fs')
+const file = process.argv[2]
+const address = process.argv[3]
+const text = fs.readFileSync(file, 'utf8').trim()
+const data = JSON.parse(text)
+const first = data.facts?.query?.results?.[0] || data.results?.[0]
+if (!first || first.address !== address) {
+  throw new Error(`graph_query did not return expected address ${address}`)
+}
+console.log(`[uat] graph_query ok: ${first.address}`)
+NODE
+
 DIRECT_JSON="${RUN_DIR}/direct-address-risk.json"
 DIRECT_ADDRESS_RISK_SUMMARY="- direct aml_address_risk skipped: direct endpoint is primitive-only"
 if [[ "$(cat "${RUN_DIR}/direct-high-level-tools.txt")" == "yes" ]]; then
@@ -734,41 +773,6 @@ for (const name of graphFiles) {
 
 if (errors.length) throw new Error(errors.join('; '))
 console.log(`[uat] exposure persistence ok: reports=${reportFiles.length} tables=${tableFiles.length}`)
-NODE
-
-GRAPH_QUERY_TEXT="${RUN_DIR}/graph-query-address.txt"
-log "calling Chain Insights CLI graph_query against real MCP"
-# Bounded retry: a busy graph store can transiently queue point reads past
-# the MCP per-query timeout (e.g. mid-resync); the assertion itself is
-# unchanged and still requires the exact UAT address row.
-GRAPH_QUERY_ATTEMPTS="${GRAPH_QUERY_ATTEMPTS:-3}"
-for attempt in $(seq 1 "${GRAPH_QUERY_ATTEMPTS}"); do
-  (
-    cd "${WORKSPACE_ROOT}"
-    node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
-      "network=${NETWORK}" \
-      "query=USE live_topology MATCH (n:Address) WHERE n.address = '${UAT_ADDRESS}' RETURN n.labels AS labels, n.address AS address LIMIT 1"
-  ) >"${GRAPH_QUERY_TEXT}" || true
-  if node -e "JSON.parse(require('node:fs').readFileSync(process.argv[1], 'utf8').trim())" "${GRAPH_QUERY_TEXT}" 2>/dev/null; then
-    break
-  fi
-  if [[ "${attempt}" -lt "${GRAPH_QUERY_ATTEMPTS}" ]]; then
-    log "graph_query attempt ${attempt} returned a non-JSON transient error; retrying in 20s"
-    sleep 20
-  fi
-done
-
-node - "${GRAPH_QUERY_TEXT}" "${UAT_ADDRESS}" <<'NODE'
-const fs = require('node:fs')
-const file = process.argv[2]
-const address = process.argv[3]
-const text = fs.readFileSync(file, 'utf8').trim()
-const data = JSON.parse(text)
-const first = data.facts?.query?.results?.[0] || data.results?.[0]
-if (!first || first.address !== address) {
-  throw new Error(`graph_query did not return expected address ${address}`)
-}
-console.log(`[uat] graph_query ok: ${first.address}`)
 NODE
 
 SUMMARY="${RUN_DIR}/summary.txt"
