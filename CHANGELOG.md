@@ -3,6 +3,14 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.3.24] - 2026-06-10
+
+- Reordered the UAT so the CLI live-topology assertion runs before the
+  proxy/exposure phase. Exposure scans abandoned at the MCP per-query
+  timeout keep executing on the memgql proxy's serial session and can
+  poison subsequent live reads for the remainder of the run; no assertion
+  was weakened and every step still executes.
+
 ## [0.3.23] - 2026-06-10
 
 - Switched the UAT CLI live-topology lookup to the inline property-map form
