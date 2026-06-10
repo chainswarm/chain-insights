@@ -180,17 +180,17 @@ The slim identity graph schema:
 
 - Every topology node is \`(:Identity)\`, keyed by \`identity_id\` in the
   canonical prefixed form \`<network>:<canonical_address>\` (for example
-  \`bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\`). There is no
-  Address node label and no \`network\` property; each network has its own
-  graph.
+  \`bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\`). Satellite
+  \`(:Address)\` nodes exist only for member-address lookup. There is no
+  \`network\` property; each network has its own graph.
 - Identity member addresses live in the \`addresses\` list property:
   the canonical 0x form first, then the SS58 substrate form when the
   identity has a substrate source. Use the list to report the
   human-recognizable address forms; never invent address conversions.
 - Resolve any member address form (0x or SS58) to its identity through
   the indexed exact lookup:
-  \`MATCH (m:MemberAddress {address: $input})-[:ADDRESS_OF]->(i:Identity)
-  RETURN i.identity_id\`. \`:MemberAddress(address)\` is unique and
+  \`MATCH (m:Address {address: $input})<-[:OF]-(i:Identity)
+  RETURN i.identity_id LIMIT 1\`. \`:Address(address)\` is unique and
   index-backed.
 - Other Identity properties: \`address_type\`, \`labels\` (array), and
   \`is_exchange\` (sparse true/null traversal hint).

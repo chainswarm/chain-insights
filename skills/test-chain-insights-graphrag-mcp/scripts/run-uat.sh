@@ -9,7 +9,7 @@ SERVER_PORT="${CHAIN_INSIGHTS_SERVER_PORT:-4321}"
 NETWORK="${NETWORK:-bittensor}"
 # UAT_ADDRESS is the SS58 substrate member address of the UAT identity; it is
 # asserted as a member of the Identity node's addresses list and resolved
-# through the (:MemberAddress)-[:ADDRESS_OF]->(:Identity) lookup.
+# through the (:Address)<-[:OF]-(:Identity) lookup.
 UAT_ADDRESS="${UAT_ADDRESS:-5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6}"
 # All graph keys and tool inputs use the canonical identity key form
 # '<network>:<canonical_evm_address>' (deterministic H160 mapping of
@@ -384,15 +384,15 @@ if (!first.addresses.includes(substrateAddress)) {
 console.log(`[uat] graph_query ok: ${first.identity_id} (addresses=${first.addresses.join(',')})`)
 NODE
 
-# MemberAddress resolution: an exact, index-backed lookup by any member
+# Member-address resolution: an exact, index-backed lookup by any member
 # address form (here the SS58 substrate form) must return the identity.
 MEMBER_RESOLVE_TEXT="${RUN_DIR}/graph-query-member-resolve.txt"
-log "calling Chain Insights CLI graph_query for MemberAddress resolution"
+log "calling Chain Insights CLI graph_query for member-address resolution"
 (
   cd "${WORKSPACE_ROOT}"
   node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
     "network=${NETWORK}" \
-    "query=USE live_topology MATCH (m:MemberAddress {address: '${UAT_ADDRESS}'})-[:ADDRESS_OF]->(i:Identity) RETURN i.identity_id AS identity_id LIMIT 1"
+    "query=USE live_topology MATCH (m:Address {address: '${UAT_ADDRESS}'})<-[:OF]-(i:Identity) RETURN i.identity_id AS identity_id LIMIT 1"
 ) >"${MEMBER_RESOLVE_TEXT}"
 
 node - "${MEMBER_RESOLVE_TEXT}" "${UAT_IDENTITY_KEY}" "${UAT_ADDRESS}" <<'NODE'
@@ -403,9 +403,9 @@ const memberAddress = process.argv[4]
 const data = JSON.parse(fs.readFileSync(file, 'utf8').trim())
 const first = data.facts?.query?.results?.[0] || data.results?.[0]
 if (!first || first.identity_id !== identityKey) {
-  throw new Error(`MemberAddress resolution for ${memberAddress} did not return ${identityKey}: ${JSON.stringify(first)}`)
+  throw new Error(`member-address resolution for ${memberAddress} did not return ${identityKey}: ${JSON.stringify(first)}`)
 }
-console.log(`[uat] MemberAddress resolution ok: ${memberAddress} -> ${first.identity_id}`)
+console.log(`[uat] member-address resolution ok: ${memberAddress} -> ${first.identity_id}`)
 NODE
 
 DIRECT_JSON="${RUN_DIR}/direct-address-risk.json"

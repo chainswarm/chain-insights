@@ -224,7 +224,7 @@ function findPromptHandler(
 }
 
 // Non-canonical address inputs (anything that is not a 0x form) now trigger a
-// MemberAddress resolution batch before the main tool batch. This response
+// member-address resolution batch before the main tool batch. This response
 // resolves nothing, so every input passes through unchanged.
 function memberResolutionPassthrough(): Record<string, unknown> {
   return {
@@ -1203,7 +1203,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }))
     const resolutionQueries = clientInstance.callTool.mock.calls[0][0].arguments.queries as Array<{ id: string; query: string }>
     expect(resolutionQueries[0]?.id).toBe('resolve_member_address_1')
-    expect(resolutionQueries[0]?.query).toContain('MATCH (m:MemberAddress {address: "5Addr"})-[:ADDRESS_OF]->(i:Identity)')
+    expect(resolutionQueries[0]?.query).toContain('MATCH (m:Address {address: "5Addr"})<-[:OF]-(i:Identity)')
     const riskQueries = clientInstance.callTool.mock.calls[1][0].arguments.queries as Array<{ id: string; query: string }>
     const outflowQuery = riskQueries.find((query) => query.id === 'exchange_outflows_2')?.query ?? ''
     const inflowQuery = riskQueries.find((query) => query.id === 'exchange_inflows_2')?.query ?? ''
@@ -1374,7 +1374,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     })
   })
 
-  it('resolves SS58 member-address inputs through the MemberAddress lookup and derives canonical 0x inputs locally', async () => {
+  it('resolves SS58 member-address inputs through the Address lookup and derives canonical 0x inputs locally', async () => {
     const { resolveIdentityKeys } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
       callTool: vi.fn().mockResolvedValueOnce({
@@ -1407,7 +1407,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const queries = remoteClient.callTool.mock.calls[0]?.[0].arguments.queries as Array<{ id: string; query: string }>
     expect(queries).toHaveLength(1)
     expect(queries[0]?.id).toBe('resolve_member_address_1')
-    expect(queries[0]?.query).toContain('MATCH (m:MemberAddress {address: "5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6"})-[:ADDRESS_OF]->(i:Identity)')
+    expect(queries[0]?.query).toContain('MATCH (m:Address {address: "5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6"})<-[:OF]-(i:Identity)')
     expect(queries[0]?.query).toContain('RETURN i.identity_id AS identity_id')
   })
 
