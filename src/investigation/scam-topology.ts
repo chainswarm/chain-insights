@@ -96,8 +96,6 @@ export interface ScamTopologyTopologyEdge {
   dst_is_exchange: boolean
   src_address_type?: string
   dst_address_type?: string
-  src_address_subtypes?: string[]
-  dst_address_subtypes?: string[]
 }
 
 export interface ScamTopologyInfrastructureFlow {
@@ -411,24 +409,16 @@ function exchangeNamesFromLabels(labels: string[]): string[] {
     .filter((label) => label.length > 0 && !isGenericContextLabel(label)))]
 }
 
-function addressPredicate(addresses: string[]): string {
-  return addresses
-    .map((address) => `src.address = "${escapeCypherString(address)}"`)
-    .join(' OR ')
-}
-
 function traversalProjection(): string {
   return [
-    'src.address AS src',
-    'dst.address AS dst',
+    'src.identity_id AS src',
+    'dst.identity_id AS dst',
     'src.labels AS src_labels',
     'dst.labels AS dst_labels',
     'src.is_exchange AS src_is_exchange',
     'dst.is_exchange AS dst_is_exchange',
     'src.address_type AS src_address_type',
     'dst.address_type AS dst_address_type',
-    'src.address_subtypes AS src_address_subtypes',
-    'dst.address_subtypes AS dst_address_subtypes',
     'r.amount_sum AS amount_sum',
     'r.amount_usd_sum AS amount_usd_sum',
     'r.tx_count AS tx_count',
@@ -449,7 +439,7 @@ function frontierQuery(
   activityThresholdTimestamp: number | undefined,
 ): { id: string; query: string } {
   const where = [
-    'src.address <> dst.address',
+    'src.identity_id <> dst.identity_id',
   ]
   if (minAmountSum !== undefined) where.push(`r.amount_sum >= ${minAmountSum}`)
   if (graphScope === 'incident' && activityThresholdTimestamp !== undefined) {
@@ -460,7 +450,7 @@ function frontierQuery(
     id: sourceIndex === undefined ? `${graphScope}_hop_${hop}` : `${graphScope}_hop_${hop}_source_${sourceIndex}`,
     query: [
       `USE ${graphForScope(graphScope)}`,
-      `MATCH (src:Address {address: "${escapeCypherString(sourceAddress)}"})-[r:FLOWS_TO]->(dst:Address)`,
+      `MATCH (src:Identity {identity_id: "${escapeCypherString(sourceAddress)}"})-[r:FLOWS_TO]->(dst:Identity)`,
       `WHERE ${where.join(' AND ')}`,
       `RETURN ${traversalProjection()}`,
       'ORDER BY r.amount_sum DESC',
@@ -492,7 +482,7 @@ function depositClusterQuery(
   minAmountSum: number | undefined,
 ): { id: string; query: string } {
   const where = [
-    'src.address <> dst.address',
+    'src.identity_id <> dst.identity_id',
     'src.is_exchange IS NULL',
   ]
   if (minAmountSum !== undefined) where.push(`r.amount_sum >= ${minAmountSum}`)
@@ -501,7 +491,7 @@ function depositClusterQuery(
     id: `${graphScope}_deposit_cluster_${index}`,
     query: [
       `USE ${graphForScope(graphScope)}`,
-      `MATCH (src:Address)-[r:FLOWS_TO]->(dst:Address {address: "${escapeCypherString(depositAddress)}"})`,
+      `MATCH (src:Identity)-[r:FLOWS_TO]->(dst:Identity {identity_id: "${escapeCypherString(depositAddress)}"})`,
       `WHERE ${where.join(' AND ')}`,
       `RETURN ${traversalProjection()}`,
       'ORDER BY r.amount_sum DESC',
@@ -526,8 +516,6 @@ function edgeFromRow(
   const dstRoles = stringArray(row['dst_roles'])
   const srcAddressType = stringValue(row['src_address_type'])
   const dstAddressType = stringValue(row['dst_address_type'])
-  const srcAddressSubtypes = stringArray(row['src_address_subtypes'])
-  const dstAddressSubtypes = stringArray(row['dst_address_subtypes'])
   const srcIsExchange = isExchangeEndpoint(srcLabels, row['src_is_exchange'], srcRoles, srcAddressType)
   const dstIsExchange = isExchangeEndpoint(dstLabels, row['dst_is_exchange'], dstRoles, dstAddressType)
   // A scam-typed node's labels are this tool's own output synced back into the
@@ -565,8 +553,6 @@ function edgeFromRow(
     dst_is_exchange: dstIsExchange,
     ...(srcAddressType !== undefined ? { src_address_type: srcAddressType } : {}),
     ...(dstAddressType !== undefined ? { dst_address_type: dstAddressType } : {}),
-    ...(srcAddressSubtypes.length > 0 ? { src_address_subtypes: srcAddressSubtypes } : {}),
-    ...(dstAddressSubtypes.length > 0 ? { dst_address_subtypes: dstAddressSubtypes } : {}),
   }
 }
 

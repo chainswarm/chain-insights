@@ -271,7 +271,7 @@ function subjectPredicate(subject: { role: ExposureSubjectRole; account: string 
   const account = escapeCypherString(subject.account)
   if (subject.role === 'owner') return `exposure.owner_address = "${account}"`
   if (subject.role === 'counterparty') return `exposure.counterparty_address = "${account}"`
-  return `(account.address = "${account}" OR exposure.owner_address = "${account}" OR exposure.counterparty_address = "${account}")`
+  return `(account.identity_id = "${account}" OR exposure.owner_address = "${account}" OR exposure.counterparty_address = "${account}")`
 }
 
 function exposureQuery(topologyGraph: 'live_topology' | 'archive_topology', options: ValidatedOptions): { id: string; query: string } {
@@ -289,10 +289,10 @@ function exposureQuery(topologyGraph: 'live_topology' | 'archive_topology', opti
     id: topologyGraph === 'live_topology' ? 'live_exposures' : 'archive_exposures',
     query: [
       `USE ${topologyGraph}`,
-      'MATCH (account:Address)-[:HAS_EXPOSURE]->(exposure:Exposure)-[:TARGETS_INSTRUMENT]->(instrument:Instrument)',
+      'MATCH (account:Identity)-[:HAS_EXPOSURE]->(exposure:Exposure)-[:TARGETS_INSTRUMENT]->(instrument:Instrument)',
       `WHERE ${predicates.join(' AND ')}`,
       [
-        'RETURN account.address AS account_address',
+        'RETURN account.identity_id AS account_address',
         'exposure.owner_address AS owner_address',
         'exposure.counterparty_address AS counterparty_address',
         'exposure.venue AS venue',

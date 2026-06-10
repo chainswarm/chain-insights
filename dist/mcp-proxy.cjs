@@ -62,7 +62,7 @@ const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS = {
 };
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS = {
 	network_capabilities: "Return supported Chain Insights networks, capability layers, tool availability, data retention windows, and freshness. Use this before choosing network-specific tools.",
-	aml_address_risk: "Screen one full blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. This includes the exchange-behavior analysis formerly covered by money_flows_between_exchanges. Use this as the first AML tool for a single-address investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.",
+	aml_address_risk: "Screen one canonical identity key (<network>:<canonical_address>) for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. This includes the exchange-behavior analysis formerly covered by money_flows_between_exchanges. Use this as the first AML tool for a single-identity investigation. The tool returns an investigator-ready summary; preserve full addresses exactly.",
 	exposure_profile: "Explain exposure around one account, owner, or counterparty. Supports Bittensor staking exposure and Hyperliquid trading exposure through one generic response shape with venues, instruments, position changes, carry/risk fields when available, public support events, and caveats.",
 	exposure_quality: "Score whether exposure behavior looks disciplined, fragile, lucky, or noisy across Bittensor staking, Hyperliquid trading, and future exposure venues. Returns deterministic components, sample-size warnings, evidence, and caveats; it is not trading advice.",
 	exposure_carry: "Explain carry earned or paid by exposure, including funding, fees, emissions, dividends, validator take, or equivalent venue-native carry when indexed. Returns carry breakdowns, evidence, and missing-data caveats.",
@@ -102,18 +102,17 @@ const CHAIN_INSIGHTS_WORKFLOW = [
 ].join("\n");
 const GRAPH_SCHEMA_HINTS = [
 	"Graph query hints for network=bittensor:",
-	"- Common live topology node labels include Address and may include legacy enrichment labels. Do not depend on Exchange/Miner graph labels for correctness; use address properties such as labels and is_exchange when available.",
-	"- Address nodes are identity plus traversal hints. Lifetime/global address metrics live in USE facts as AddressFeature, not as topology semantics.",
-	"- Facts graph labels include Address, AddressLabel, AddressFeature, RiskScore, and Asset.",
-	"- Facts graph relationships include (:Address)-[:HAS_FEATURE]->(:AddressFeature), (:Address)-[:HAS_LABEL]->(:AddressLabel), and (:Address)-[:HAS_RISK_SCORE]->(:RiskScore).",
-	"- Risk and ML properties may appear as live hints, but source-of-truth risk rows are RiskScore facts.",
-	"- Common relationships include FLOWS_TO, OPERATED_FROM, SERVED_FROM, REGISTERED_NEURON, BELONGS_TO, SYBIL_CLUSTER, LAYERING_HOP, BURST_ACTIVITY, CYCLE_PARTICIPANT, SMURFING_CLUSTER.",
+	"- The graph is identity-grain. The only topology node label is Identity, keyed by identity_id in the canonical prefixed form <network>:<canonical_address>, for example bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24.",
+	"- Identity nodes carry identity_id, evm_address (canonical 0x form), substrate_address (SS58 member address, null when no substrate source), address_type, labels, and is_exchange. There is no network property; each network has its own graph.",
+	"- Scores are never node properties. ML risk, label risk, and feature metrics come from USE facts: (:Identity)-[:HAS_RISK_SCORE]->(:RiskScore), (:Identity)-[:HAS_LABEL]->(:AddressLabel), (:Identity)-[:HAS_FEATURE]->(:AddressFeature).",
+	"- Facts graph labels include Identity, AddressLabel, AddressFeature, RiskScore, and Asset. Facts identity keys match live identity_id values exactly.",
+	"- Live topology relationships include FLOWS_TO and RISK_PROXIMITY between Identity nodes, plus OWNS_EXPOSURE/HAS_EXPOSURE to Exposure, HAS_COUNTERPARTY from Exposure to Identity, and TARGETS_INSTRUMENT from Exposure to Instrument.",
 	"- FLOWS_TO properties are scoped to the selected topology graph and commonly carry amount_sum, amount_usd_sum, tx_count, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id. Confirm available fields through runtime schema before relying on them.",
 	"- Traversal rule: for BFS, fixed-hop fallback, shortest-path, or manual FLOWS_TO traversal, exchange hot wallets are terminal endpoints only. Do not expand from, through, or classify exchange nodes as deposit, suspect, or intermediate candidates; filter every non-terminal node with is_exchange IS NULL.",
-	"- Start schema discovery with endpoint-safe property reads: MATCH (n:Address) WHERE n.address IS NOT NULL RETURN n.labels AS labels, n.address AS address LIMIT 20",
-	"- Relationship discovery: MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum LIMIT 20",
-	"- graph_query uses the active Chain Insights graph endpoint. Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment.",
-	"- Archive topology labels include Address and TopologySnapshot. Archived money-flow topology is represented as (:Address)-[:FLOWS_TO]->(:Address) relationships with period_granularity, period_start_date, and period_end_date.",
+	"- Start schema discovery with endpoint-safe property reads: MATCH (n:Identity) WHERE n.identity_id IS NOT NULL RETURN n.identity_id AS identity_id, n.labels AS labels, n.evm_address AS evm_address, n.substrate_address AS substrate_address LIMIT 20",
+	"- Relationship discovery: MATCH (:Identity)-[r:FLOWS_TO]->(:Identity) RETURN r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum LIMIT 20",
+	"- graph_query uses the active Chain Insights graph endpoint. topology_scope accepts only identity (empty defaults to identity). Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment.",
+	"- Archive topology labels include Identity and TopologySnapshot. Archived money-flow topology is represented as (:Identity)-[:FLOWS_TO]->(:Identity) relationships with period_granularity, period_start_date, and period_end_date.",
 	"- All graph_query calls are read-only. Never use CREATE, INSERT, MERGE, SET, DELETE, REMOVE, DROP, DETACH, ADD, CONNECT, DISCONNECT, ALTER, TRUNCATE, GRANT, or REVOKE.",
 	"- Use USE facts graph patterns for fact and enrichment reads. Do not query internal table namespaces directly."
 ].join("\n");
@@ -129,14 +128,14 @@ const SERVER_INSTRUCTIONS = [
 	CHAIN_INSIGHTS_WORKFLOW,
 	GRAPH_REPORT_HINTS,
 	GRAPH_SCHEMA_HINTS,
-	"Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses."
+	"Presentation rules: preserve tool summaries as returned; never truncate identity keys or blockchain addresses."
 ].join("\n\n");
 const STATELESS_SERVER_INSTRUCTIONS = [
 	"Chain Insights is running as a stateless AML proxy for a host application.",
 	"Do not use local workspace persistence, wallet, or graph report workflows in this mode.",
 	"Use network_capabilities first when network support is unknown, then call aml_address_risk, exposure_profile, exposure_quality, exposure_carry, exposure_crowding, exposure_exit_pressure, exposure_correlation, exposure_explain, aml_trace_victim_funds, aml_trace_suspect_funds, aml_trace_deposit_sources, graph_query, or graph_query_batch as needed.",
 	GRAPH_SCHEMA_HINTS,
-	"Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses."
+	"Presentation rules: preserve tool summaries as returned; never truncate identity keys or blockchain addresses."
 ].join("\n\n");
 function readGraphAppHtml() {
 	const candidates = [
@@ -175,35 +174,35 @@ function graphToolMeta(tool) {
 function knownPublicToolInputSchema(toolName) {
 	switch (toolName) {
 		case "aml_address_risk": return {
-			address: zod.string().min(1).describe("Full blockchain address to screen"),
+			address: zod.string().min(1).describe("Canonical identity key to screen, in the form <network>:<canonical_address> (for example bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24)"),
 			network: zod.string().min(1).describe(NETWORK_DESCRIPTION),
-			compare_address: zod.string().optional().describe("Optional second full address for comparison"),
+			compare_address: zod.string().optional().describe("Optional second canonical identity key for comparison"),
 			include_attachments: zod.boolean().optional().describe("Include graph app report metadata")
 		};
 		case "aml_trace_victim_funds": return {
-			victim_addresses: zod.string().min(1).describe("Comma-separated full victim/source addresses. Min 1, max 5."),
+			victim_addresses: zod.string().min(1).describe("Comma-separated canonical victim/source identity keys (<network>:<canonical_address>). Min 1, max 5."),
 			network: zod.string().min(1).describe(NETWORK_DESCRIPTION),
-			known_suspect_addresses: zod.string().optional().describe("Optional known suspect addresses for context only. They are not reverse-traced by this tool. Max 5."),
+			known_suspect_addresses: zod.string().optional().describe("Optional known suspect identity keys for context only. They are not reverse-traced by this tool. Max 5."),
 			incident_timestamp_ms: zod.number().min(0).optional().describe("Optional incident timestamp in milliseconds."),
 			include_attachments: zod.boolean().optional().describe("Include graph app report metadata")
 		};
 		case "aml_trace_suspect_funds": return {
 			network: zod.string().min(1).describe(NETWORK_DESCRIPTION),
-			suspect_addresses: zod.string().min(1).describe("Comma-separated full suspected scammer, mule, operator, or laundering-ring addresses. Min 1, max 5."),
+			suspect_addresses: zod.string().min(1).describe("Comma-separated canonical suspected scammer, mule, operator, or laundering-ring identity keys (<network>:<canonical_address>). Min 1, max 5."),
 			incident_timestamp_ms: zod.number().min(0).optional().describe("Optional incident timestamp in milliseconds. This tool also works without a timestamp."),
 			max_hops: zod.number().int().min(1).max(5).optional().describe("Maximum forward trace hops. Default 3.")
 		};
 		case "aml_trace_deposit_sources": return {
 			network: zod.string().min(1).describe(NETWORK_DESCRIPTION),
-			deposit_addresses: zod.string().min(1).describe("Comma-separated full suspected deposit/cashout addresses. Min 1, max 5."),
+			deposit_addresses: zod.string().min(1).describe("Comma-separated canonical suspected deposit/cashout identity keys (<network>:<canonical_address>). Min 1, max 5."),
 			max_hops: zod.number().int().min(1).max(5).optional().describe("Maximum reverse traceback hops. Default 2."),
 			include_attachments: zod.boolean().optional().describe("Include graph app report metadata")
 		};
 		case "exposure_profile": return {
 			network: zod.string().min(1).describe(NETWORK_DESCRIPTION),
-			account: zod.string().optional().describe("Full account address to inspect. Provide exactly one of account, owner, or counterparty."),
-			owner: zod.string().optional().describe("Full owner address to inspect. Provide exactly one of account, owner, or counterparty."),
-			counterparty: zod.string().optional().describe("Full counterparty address to inspect. Provide exactly one of account, owner, or counterparty."),
+			account: zod.string().optional().describe("Canonical account identity key (<network>:<canonical_address>) to inspect. Provide exactly one of account, owner, or counterparty."),
+			owner: zod.string().optional().describe("Canonical owner identity key to inspect. Provide exactly one of account, owner, or counterparty."),
+			counterparty: zod.string().optional().describe("Canonical counterparty identity key to inspect. Provide exactly one of account, owner, or counterparty."),
 			venue: zod.string().optional().describe("Optional venue filter, such as Bittensor or Hyperliquid."),
 			instrument: zod.string().optional().describe("Optional instrument display or durable identifier filter, such as Subnet 19 or BTC-PERP."),
 			instrument_type: zod.string().optional().describe("Optional instrument type filter, such as subnet, perp, spot, vault, staking, or other."),
@@ -214,9 +213,9 @@ function knownPublicToolInputSchema(toolName) {
 		case "exposure_quality":
 		case "exposure_carry": return {
 			network: zod.string().min(1).describe(NETWORK_DESCRIPTION),
-			account: zod.string().optional().describe("Full account address to inspect. Provide exactly one of account, owner, or counterparty."),
-			owner: zod.string().optional().describe("Full owner address to inspect. Provide exactly one of account, owner, or counterparty."),
-			counterparty: zod.string().optional().describe("Full counterparty address to inspect. Provide exactly one of account, owner, or counterparty."),
+			account: zod.string().optional().describe("Canonical account identity key (<network>:<canonical_address>) to inspect. Provide exactly one of account, owner, or counterparty."),
+			owner: zod.string().optional().describe("Canonical owner identity key to inspect. Provide exactly one of account, owner, or counterparty."),
+			counterparty: zod.string().optional().describe("Canonical counterparty identity key to inspect. Provide exactly one of account, owner, or counterparty."),
 			venue: zod.string().optional().describe("Optional venue filter, such as Bittensor or Hyperliquid."),
 			instrument: zod.string().optional().describe("Optional instrument display or durable identifier filter, such as Subnet 19 or BTC-PERP."),
 			instrument_type: zod.string().optional().describe("Optional instrument type filter, such as subnet, perp, spot, vault, staking, or other."),
@@ -236,9 +235,9 @@ function knownPublicToolInputSchema(toolName) {
 		};
 		case "exposure_exit_pressure": return {
 			network: zod.string().min(1).describe(NETWORK_DESCRIPTION),
-			account: zod.string().optional().describe("Optional account address to inspect. Provide an account-style subject or an instrument/market."),
-			owner: zod.string().optional().describe("Optional owner address to inspect. Provide an account-style subject or an instrument/market."),
-			counterparty: zod.string().optional().describe("Optional counterparty address to inspect. Provide an account-style subject or an instrument/market."),
+			account: zod.string().optional().describe("Optional canonical account identity key to inspect. Provide an account-style subject or an instrument/market."),
+			owner: zod.string().optional().describe("Optional canonical owner identity key to inspect. Provide an account-style subject or an instrument/market."),
+			counterparty: zod.string().optional().describe("Optional canonical counterparty identity key to inspect. Provide an account-style subject or an instrument/market."),
 			instrument: zod.string().optional().describe("Instrument, market, subnet, hotkey, vault, or durable exposure target identifier to inspect."),
 			market: zod.string().optional().describe("Alias for instrument when using market language."),
 			venue: zod.string().optional().describe("Optional venue filter, such as Bittensor or Hyperliquid."),
@@ -249,10 +248,10 @@ function knownPublicToolInputSchema(toolName) {
 		};
 		case "exposure_correlation": return {
 			network: zod.string().min(1).describe(NETWORK_DESCRIPTION),
-			account: zod.string().optional().describe("Full account address to inspect. Provide exactly one of account, owner, or counterparty."),
-			owner: zod.string().optional().describe("Full owner address to inspect. Provide exactly one of account, owner, or counterparty."),
-			counterparty: zod.string().optional().describe("Full counterparty address to inspect. Provide exactly one of account, owner, or counterparty."),
-			candidate_accounts: zod.union([zod.string(), zod.array(zod.string())]).optional().describe("Optional comma-separated or array candidate accounts to compare against."),
+			account: zod.string().optional().describe("Canonical account identity key (<network>:<canonical_address>) to inspect. Provide exactly one of account, owner, or counterparty."),
+			owner: zod.string().optional().describe("Canonical owner identity key to inspect. Provide exactly one of account, owner, or counterparty."),
+			counterparty: zod.string().optional().describe("Canonical counterparty identity key to inspect. Provide exactly one of account, owner, or counterparty."),
+			candidate_accounts: zod.union([zod.string(), zod.array(zod.string())]).optional().describe("Optional comma-separated or array candidate account identity keys to compare against."),
 			venue: zod.string().optional().describe("Optional venue filter, such as Bittensor or Hyperliquid."),
 			instrument: zod.string().optional().describe("Optional instrument display or durable identifier filter."),
 			instrument_type: zod.string().optional().describe("Optional instrument type filter, such as subnet, perp, spot, vault, staking, or other."),
@@ -262,9 +261,9 @@ function knownPublicToolInputSchema(toolName) {
 		};
 		case "exposure_explain": return {
 			network: zod.string().min(1).describe(NETWORK_DESCRIPTION),
-			account: zod.string().optional().describe("Full account address to inspect. Provide exactly one of account, owner, or counterparty."),
-			owner: zod.string().optional().describe("Full owner address to inspect. Provide exactly one of account, owner, or counterparty."),
-			counterparty: zod.string().optional().describe("Full counterparty address to inspect. Provide exactly one of account, owner, or counterparty."),
+			account: zod.string().optional().describe("Canonical account identity key (<network>:<canonical_address>) to inspect. Provide exactly one of account, owner, or counterparty."),
+			owner: zod.string().optional().describe("Canonical owner identity key to inspect. Provide exactly one of account, owner, or counterparty."),
+			counterparty: zod.string().optional().describe("Canonical counterparty identity key to inspect. Provide exactly one of account, owner, or counterparty."),
 			instrument: zod.string().optional().describe("Optional instrument display or durable identifier filter."),
 			market: zod.string().optional().describe("Alias for instrument when using market language."),
 			position_id: zod.string().optional().describe("Optional venue-native position, trade, stake, rotation, or lifecycle identifier when available."),
@@ -504,9 +503,9 @@ function registerRemotePrompt(server, remoteClient, prompt) {
 function registerLocalPrompts(server, remotePromptNames) {
 	if (!remotePromptNames.has("address-risk")) server.registerPrompt("address-risk", {
 		title: "Address Risk",
-		description: "Screen an address for AML risk, behavioral patterns, neighborhood profile, and exchange links.",
+		description: "Screen a canonical identity key for AML risk, behavioral patterns, neighborhood profile, member addresses, and exchange links.",
 		argsSchema: {
-			address: zod.string().describe("Full blockchain address to screen"),
+			address: zod.string().describe("Canonical identity key to screen (<network>:<canonical_address>)"),
 			network: zod.string().describe(NETWORK_DESCRIPTION)
 		}
 	}, async ({ address, network }) => promptResult([
@@ -895,7 +894,7 @@ async function createProxy() {
 			title: "Address Risk",
 			description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.aml_address_risk,
 			inputSchema: {
-				address: zod.string().min(1).describe("Full blockchain address to screen"),
+				address: zod.string().min(1).describe("Canonical identity key to screen (<network>:<canonical_address>)"),
 				network: zod.string().min(1).describe(NETWORK_DESCRIPTION),
 				compare_address: zod.string().optional().describe("Optional second full address for comparison"),
 				include_attachments: zod.boolean().optional().describe("Include graph app report metadata")
@@ -916,7 +915,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-BREojpU7.cjs"));
+				const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-DSsW5X1d.cjs"));
 				const result = await addressRisk(remoteClient, {
 					address,
 					network,
@@ -954,7 +953,7 @@ async function createProxy() {
 			title: "Trace Victim Funds",
 			description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.aml_trace_victim_funds,
 			inputSchema: {
-				victim_addresses: zod.union([zod.string().min(1), zod.array(zod.string().min(1))]).describe("Comma-separated full victim/source addresses, or an array. Min 1, max 5."),
+				victim_addresses: zod.union([zod.string().min(1), zod.array(zod.string().min(1))]).describe("Comma-separated canonical victim/source identity keys, or an array. Min 1, max 5."),
 				network: zod.string().min(1).describe(NETWORK_DESCRIPTION),
 				known_suspect_addresses: zod.union([zod.string(), zod.array(zod.string())]).optional().describe("Known suspect addresses for context only. This tool does not reverse-trace them. Max 5."),
 				include_attachments: zod.boolean().optional().describe("Include graph app report metadata"),
@@ -979,7 +978,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceVictimFunds } = await Promise.resolve().then(() => require("./public-tools-BREojpU7.cjs"));
+				const { traceVictimFunds } = await Promise.resolve().then(() => require("./public-tools-DSsW5X1d.cjs"));
 				const result = await traceVictimFunds(remoteClient, config, {
 					victimAddresses: victim_addresses,
 					knownSuspectAddresses: known_suspect_addresses,
@@ -1022,7 +1021,7 @@ async function createProxy() {
 			description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.aml_trace_suspect_funds,
 			inputSchema: {
 				network: zod.string().min(1).describe(NETWORK_DESCRIPTION),
-				suspect_addresses: zod.union([zod.string().min(1), zod.array(zod.string().min(1))]).describe("Comma-separated full suspect-controlled addresses, or an array. Min 1, max 5."),
+				suspect_addresses: zod.union([zod.string().min(1), zod.array(zod.string().min(1))]).describe("Comma-separated canonical suspect-controlled identity keys, or an array. Min 1, max 5."),
 				incident_timestamp_ms: zod.number().min(0).optional().describe("Optional incident timestamp in milliseconds. This tool works without it."),
 				max_hops: zod.number().int().min(1).max(5).optional().describe("Maximum forward trace hops. Default 3."),
 				per_address_limit: zod.number().int().min(1).max(10).optional(),
@@ -1045,7 +1044,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceSuspectFunds } = await Promise.resolve().then(() => require("./public-tools-BREojpU7.cjs"));
+				const { traceSuspectFunds } = await Promise.resolve().then(() => require("./public-tools-DSsW5X1d.cjs"));
 				const result = await traceSuspectFunds(remoteClient, config, {
 					suspectAddresses: suspect_addresses,
 					network,
@@ -1087,7 +1086,7 @@ async function createProxy() {
 			description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.aml_trace_deposit_sources,
 			inputSchema: {
 				network: zod.string().min(1).describe(NETWORK_DESCRIPTION),
-				deposit_addresses: zod.union([zod.string().min(1), zod.array(zod.string().min(1))]).describe("Comma-separated full suspected deposit/cashout addresses, or an array. Min 1, max 5."),
+				deposit_addresses: zod.union([zod.string().min(1), zod.array(zod.string().min(1))]).describe("Comma-separated canonical suspected deposit/cashout identity keys, or an array. Min 1, max 5."),
 				max_hops: zod.number().int().min(1).max(5).optional().describe("Maximum reverse traceback hops. Default 2."),
 				include_attachments: zod.boolean().optional().describe("Include graph app report metadata")
 			},
@@ -1107,7 +1106,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceDepositSources } = await Promise.resolve().then(() => require("./public-tools-BREojpU7.cjs"));
+				const { traceDepositSources } = await Promise.resolve().then(() => require("./public-tools-DSsW5X1d.cjs"));
 				const result = await traceDepositSources(remoteClient, config, {
 					depositAddresses: deposit_addresses,
 					network,
@@ -1146,9 +1145,9 @@ async function createProxy() {
 			description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.exposure_profile,
 			inputSchema: {
 				network: zod.string().min(1).describe(NETWORK_DESCRIPTION),
-				account: zod.string().optional().describe("Full account address to inspect. Provide exactly one of account, owner, or counterparty."),
-				owner: zod.string().optional().describe("Full owner address to inspect. Provide exactly one of account, owner, or counterparty."),
-				counterparty: zod.string().optional().describe("Full counterparty address to inspect. Provide exactly one of account, owner, or counterparty."),
+				account: zod.string().optional().describe("Canonical account identity key (<network>:<canonical_address>) to inspect. Provide exactly one of account, owner, or counterparty."),
+				owner: zod.string().optional().describe("Canonical owner identity key to inspect. Provide exactly one of account, owner, or counterparty."),
+				counterparty: zod.string().optional().describe("Canonical counterparty identity key to inspect. Provide exactly one of account, owner, or counterparty."),
 				venue: zod.string().optional().describe("Optional venue filter, such as Bittensor or Hyperliquid."),
 				instrument: zod.string().optional().describe("Optional instrument display or durable identifier filter, such as Subnet 19 or BTC-PERP."),
 				instrument_type: zod.string().optional().describe("Optional instrument type filter, such as subnet, perp, spot, vault, staking, or other."),
@@ -1172,7 +1171,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { exposureProfile } = await Promise.resolve().then(() => require("./public-tools-BREojpU7.cjs"));
+				const { exposureProfile } = await Promise.resolve().then(() => require("./public-tools-DSsW5X1d.cjs"));
 				const result = await exposureProfile(remoteClient, {
 					network,
 					account,
@@ -1269,7 +1268,7 @@ async function createProxy() {
 						isError: true
 					};
 					const input = args;
-					const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await Promise.resolve().then(() => require("./public-tools-BREojpU7.cjs"));
+					const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await Promise.resolve().then(() => require("./public-tools-DSsW5X1d.cjs"));
 					const options = {
 						network: String(input["network"] ?? ""),
 						account: input["account"] === void 0 ? void 0 : String(input["account"]),
@@ -1330,7 +1329,7 @@ async function createProxy() {
 					"",
 					"Investigation tools:",
 					"- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.",
-					"- aml_address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.",
+					"- aml_address_risk: screen a canonical identity key for AML risk, behavior, neighborhood, member addresses, exchange exposure, and optional compare_address connection checks.",
 					"- exposure_profile: explain staking or trading exposure around one account, owner, or counterparty.",
 					"- exposure_quality: score whether exposure behavior looks disciplined, fragile, lucky, or noisy.",
 					"- exposure_carry: explain carry earned or paid from staking, trading, funding, fees, emissions, or dividends.",
@@ -1357,7 +1356,7 @@ async function createProxy() {
 					"",
 					"Available graph-backed tools:",
 					"- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.",
-					"- aml_address_risk: screen a full address for AML risk, behavior, neighborhood, exchange exposure, and optional compare_address connection checks.",
+					"- aml_address_risk: screen a canonical identity key for AML risk, behavior, neighborhood, member addresses, exchange exposure, and optional compare_address connection checks.",
 					"- exposure_profile: explain staking or trading exposure around one account, owner, or counterparty.",
 					"- exposure_quality: score whether exposure behavior looks disciplined, fragile, lucky, or noisy.",
 					"- exposure_carry: explain carry earned or paid from staking, trading, funding, fees, emissions, or dividends.",

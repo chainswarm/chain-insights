@@ -155,8 +155,8 @@ function addressProfileQuery(address: string): { id: string; query: string } {
   return {
     id: 'address_profile',
     query: [
-      `MATCH (a:Address {address: "${escapeCypherString(address)}"})`,
-      'RETURN a.address AS address, a.labels AS display_labels, a.labels AS system_labels, a.address_type AS address_type, a.address_subtypes AS address_subtypes, a.is_exchange AS is_exchange, a.confluence_score AS confluence_score, a.ml_risk_score AS ml_risk_score, a.ml_risk_level AS ml_risk_level, a.ml_top_drivers AS ml_top_drivers, a.ml_pattern_summary AS ml_pattern_summary, a.risk_score AS risk_score, a.risk_level AS risk_level, a.pattern_flags AS pattern_flags, a.ml_pagerank AS ml_pagerank, a.ml_betweenness AS ml_betweenness, a.ml_community_id AS ml_community_id',
+      `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})`,
+      'RETURN a.identity_id AS address, a.labels AS display_labels, a.labels AS system_labels, a.address_type AS address_type, a.evm_address AS evm_address, a.substrate_address AS substrate_address, a.is_exchange AS is_exchange',
       'LIMIT 1',
     ].join(' '),
   }
@@ -167,7 +167,7 @@ function addressFeatureQuery(address: string): { id: string; query: string } {
     id: 'address_feature',
     query: [
       'USE facts',
-      `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[:HAS_FEATURE]->(feature:AddressFeature)`,
+      `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[:HAS_FEATURE]->(feature:AddressFeature)`,
       'RETURN feature.degree_in AS degree_in, feature.degree_out AS degree_out, feature.degree_total AS degree_total, feature.tx_in_count AS tx_in_count, feature.tx_out_count AS tx_out_count, feature.tx_total_count AS tx_total_count, feature.total_volume_usd AS total_volume_usd, feature.total_in_usd AS total_in_usd, feature.total_out_usd AS total_out_usd, feature.net_flow_usd AS net_flow_usd, feature.first_activity_timestamp AS first_activity_timestamp, feature.last_activity_timestamp AS last_activity_timestamp, feature.activity_span_days AS activity_span_days, feature.active_days AS active_days',
       'LIMIT 1',
     ].join(' '),
@@ -179,9 +179,21 @@ function addressRiskScoreQuery(address: string): { id: string; query: string } {
     id: 'address_risk_score',
     query: [
       'USE facts',
-      `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[:HAS_RISK_SCORE]->(risk:RiskScore)`,
-      'RETURN risk.risk_score AS risk_score, risk.window_days AS risk_window_days, risk.processing_date AS risk_processing_date, risk.shap_top_features AS shap_top_features',
+      `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[:HAS_RISK_SCORE]->(risk:RiskScore)`,
+      'RETURN risk.risk_score AS ml_risk_score, risk.window_days AS risk_window_days, risk.processing_date AS risk_processing_date, risk.xgboost_model_version AS xgboost_model_version, risk.gnn_model_version AS gnn_model_version, risk.shap_top_features AS shap_top_features',
       'LIMIT 1',
+    ].join(' '),
+  }
+}
+
+function addressLabelRiskQuery(address: string): { id: string; query: string } {
+  return {
+    id: 'address_label_risk',
+    query: [
+      'USE facts',
+      `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[:HAS_LABEL]->(label:AddressLabel)`,
+      'RETURN label.label AS label, label.risk_level AS risk_level, label.trust_level AS trust_level, label.confidence_score AS confidence_score, label.source AS source, label.entity_type AS entity_type, label.updated_timestamp AS updated_timestamp',
+      'LIMIT 10',
     ].join(' '),
   }
 }
@@ -191,7 +203,7 @@ function flowEdgeMap(variableName: string): string {
 }
 
 function pathNodeMap(variableName: string): string {
-  return `{address: ${variableName}.address, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, address_subtypes: ${variableName}.address_subtypes, is_exchange: ${variableName}.is_exchange}`
+  return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, evm_address: ${variableName}.evm_address, substrate_address: ${variableName}.substrate_address, is_exchange: ${variableName}.is_exchange}`
 }
 
 function exchangeOutflowQueries(address: string): Array<{ id: string; query: string }> {
@@ -204,7 +216,7 @@ function exchangeOutflowQueryAtDepth(address: string, depth: number): { id: stri
   const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
   const relationshipChain = edgeVariables.map((edgeVariable, index) => {
     const targetVariable = index === edgeVariables.length - 1 ? 'exchange' : intermediateVariables[index]!
-    return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
+    return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Identity)`
   }).join('')
   const intermediatePredicates = intermediateVariables.map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
   const depositVariable = nodeVariables[nodeVariables.length - 2]!
@@ -212,9 +224,9 @@ function exchangeOutflowQueryAtDepth(address: string, depth: number): { id: stri
   return {
     id: `exchange_outflows_${depth}`,
     query: [
-      `MATCH (a:Address {address: "${escapeCypherString(address)}"})${relationshipChain}`,
+      `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})${relationshipChain}`,
       `WHERE a <> exchange AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
-      `RETURN "outflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, exchange.address_type AS exchange_address_type, exchange.address_subtypes AS exchange_address_subtypes, ${depositVariable}.address AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_sum AS amount_sum, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `RETURN "outflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, exchange.address_type AS exchange_address_type, ${depositVariable}.identity_id AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_sum AS amount_sum, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
     ].join(' '),
@@ -231,7 +243,7 @@ function exchangeInflowQueryAtDepth(address: string, depth: number): { id: strin
   const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
   const relationshipChain = edgeVariables.map((edgeVariable, index) => {
     const targetVariable = index === edgeVariables.length - 1 ? 'a' : intermediateVariables[index]!
-    return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
+    return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Identity)`
   }).join('')
   const intermediatePredicates = intermediateVariables.map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
   const withdrawalVariable = nodeVariables[1]!
@@ -239,9 +251,9 @@ function exchangeInflowQueryAtDepth(address: string, depth: number): { id: strin
   return {
     id: `exchange_inflows_${depth}`,
     query: [
-      `MATCH (exchange:Address)${relationshipChain}`,
-      `WHERE a.address = "${escapeCypherString(address)}" AND a <> exchange AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
-      `RETURN "inflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, exchange.address_type AS exchange_address_type, exchange.address_subtypes AS exchange_address_subtypes, ${withdrawalVariable}.address AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_sum AS amount_sum, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `MATCH (exchange:Identity)${relationshipChain}`,
+      `WHERE a.identity_id = "${escapeCypherString(address)}" AND a <> exchange AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
+      `RETURN "inflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, exchange.address_type AS exchange_address_type, ${withdrawalVariable}.identity_id AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_sum AS amount_sum, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
     ].join(' '),
@@ -252,8 +264,8 @@ function connectionProbeQuery(address: string, compareAddress: string): { id: st
   return {
     id: 'connection_probe',
     query: [
-      `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[r:FLOWS_TO]-(b:Address {address: "${escapeCypherString(compareAddress)}"})`,
-      'RETURN [a.address, b.address] AS addresses, 1 AS hops',
+      `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[r:FLOWS_TO]-(b:Identity {identity_id: "${escapeCypherString(compareAddress)}"})`,
+      'RETURN [a.identity_id, b.identity_id] AS addresses, 1 AS hops',
       'LIMIT 5',
     ].join(' '),
   }
@@ -321,13 +333,19 @@ function riskRecommendation(level: string): string {
   return 'No stored risk signal found; continue with normal monitoring.'
 }
 
-function riskDrivers(profile: Record<string, unknown>, exchangeRows: Array<Record<string, unknown>>): string[] {
+function riskDrivers(
+  profile: Record<string, unknown>,
+  labelRows: Array<Record<string, unknown>>,
+  exchangeRows: Array<Record<string, unknown>>,
+): string[] {
   const drivers: string[] = []
-  const storedDrivers = stringArrayValue(profile['ml_top_drivers'])
-  if (storedDrivers?.length) drivers.push(...storedDrivers)
+  const shapDrivers = stringArrayValue(profile['shap_top_features'])
+  if (shapDrivers?.length) drivers.push(`Top model features: ${shapDrivers.join(', ')}`)
 
-  const patternFlags = stringArrayValue(profile['pattern_flags'])
-  if (patternFlags?.length) drivers.push(`Pattern flags: ${patternFlags.join(', ')}`)
+  const riskLabels = labelRows
+    .map((row) => firstString(row['label']))
+    .filter((label): label is string => Boolean(label))
+  if (riskLabels.length > 0) drivers.push(`Labels: ${[...new Set(riskLabels)].join('; ')}`)
 
   const outflowCount = exchangeRows.filter((row) => row['direction'] === 'outflow').length
   const inflowCount = exchangeRows.filter((row) => row['direction'] === 'inflow').length
@@ -335,6 +353,46 @@ function riskDrivers(profile: Record<string, unknown>, exchangeRows: Array<Recor
   if (inflowCount > 0) drivers.push(`Backward bounded search found ${inflowCount} source exchange path(s).`)
 
   return [...new Set(drivers)]
+}
+
+const RISK_LEVEL_ORDER = ['critical', 'high', 'medium', 'low'] as const
+
+function strongestLabelRiskLevel(labelRows: Array<Record<string, unknown>>): string | undefined {
+  const levels = labelRows
+    .map((row) => firstString(row['risk_level'])?.toLowerCase())
+    .filter((level): level is string => Boolean(level && (RISK_LEVEL_ORDER as readonly string[]).includes(level)))
+  if (levels.length === 0) return undefined
+  return RISK_LEVEL_ORDER.find((candidate) => levels.includes(candidate))
+}
+
+function riskScoreSources(profile: Record<string, unknown>, labelRows: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  const sources: Array<Record<string, unknown>> = []
+  if (numberValue(profile['ml_risk_score']) !== undefined) {
+    sources.push({
+      family: 'ml_risk_score',
+      layer: 'facts',
+      view: 'facts_risk_scores_view',
+      xgboost_model_version: profile['xgboost_model_version'],
+      gnn_model_version: profile['gnn_model_version'],
+      processing_date: profile['risk_processing_date'],
+      window_days: profile['risk_window_days'],
+    })
+  }
+  if (labelRows.length > 0) {
+    sources.push({
+      family: 'label_risk',
+      layer: 'facts',
+      view: 'facts_address_labels_view',
+      labels: labelRows.map((row) => ({
+        label: row['label'],
+        risk_level: row['risk_level'],
+        trust_level: row['trust_level'],
+        confidence_score: row['confidence_score'],
+        source: row['source'],
+      })),
+    })
+  }
+  return sources
 }
 
 function terminalEdgeProperties(row: Record<string, unknown>): Record<string, unknown> | undefined {
@@ -357,17 +415,24 @@ function enrichExchangeRows(rows: Array<Record<string, unknown>>): Array<Record<
   })
 }
 
-function riskAssessment(profile: Record<string, unknown>, exchangeRows: Array<Record<string, unknown>>): Record<string, unknown> {
-  const storedScore = firstNumber(profile['confluence_score'], profile['ml_risk_score'], profile['risk_score'])
-  const score = storedScore ?? (exchangeRows.length > 0 ? 0.4 : 0)
-  const level = firstString(profile['ml_risk_level'], profile['risk_level']) ?? riskLevelFromScore(score)
-  const drivers = riskDrivers(profile, exchangeRows)
+function riskAssessment(
+  profile: Record<string, unknown>,
+  labelRows: Array<Record<string, unknown>>,
+  exchangeRows: Array<Record<string, unknown>>,
+): Record<string, unknown> {
+  const mlRiskScore = firstNumber(profile['ml_risk_score'])
+  const labelRiskLevel = strongestLabelRiskLevel(labelRows)
+  const score = mlRiskScore ?? (exchangeRows.length > 0 ? 0.4 : 0)
+  const level = labelRiskLevel ?? riskLevelFromScore(score)
+  const drivers = riskDrivers(profile, labelRows, exchangeRows)
   return {
     level,
     score,
-    confidence: storedScore !== undefined || firstString(profile['ml_risk_level'], profile['risk_level']) ? 'high' : exchangeRows.length > 0 ? 'medium' : 'low',
+    ...(mlRiskScore !== undefined ? { ml_risk_score: mlRiskScore } : {}),
+    confidence: mlRiskScore !== undefined || labelRiskLevel ? 'high' : exchangeRows.length > 0 ? 'medium' : 'low',
     recommendation: riskRecommendation(level),
     drivers,
+    sources: riskScoreSources(profile, labelRows),
   }
 }
 
@@ -409,7 +474,8 @@ function buildRiskGraph(address: string, profile: Record<string, unknown>, rows:
     labels: stringArrayValue(profile['display_labels']) ?? [],
     ...(stringArrayValue(profile['system_labels']) ? { system_labels: stringArrayValue(profile['system_labels']) } : {}),
     ...(typeof profile['address_type'] === 'string' ? { address_type: profile['address_type'] } : {}),
-    ...(stringArrayValue(profile['address_subtypes']) ? { address_subtypes: stringArrayValue(profile['address_subtypes']) } : {}),
+    ...(typeof profile['evm_address'] === 'string' ? { evm_address: profile['evm_address'] } : {}),
+    ...(typeof profile['substrate_address'] === 'string' ? { substrate_address: profile['substrate_address'] } : {}),
     roles: ['subject'],
   })
   const edges: Array<Record<string, unknown>> = []
@@ -418,13 +484,15 @@ function buildRiskGraph(address: string, profile: Record<string, unknown>, rows:
     const labels = stringArrayValue(metadata?.['labels']) ?? existing['labels']
     const systemLabels = stringArrayValue(metadata?.['system_labels']) ?? existing['system_labels']
     const addressType = typeof metadata?.['address_type'] === 'string' ? metadata['address_type'] : existing['address_type']
-    const addressSubtypes = stringArrayValue(metadata?.['address_subtypes']) ?? existing['address_subtypes']
+    const evmAddress = typeof metadata?.['evm_address'] === 'string' ? metadata['evm_address'] : existing['evm_address']
+    const substrateAddress = typeof metadata?.['substrate_address'] === 'string' ? metadata['substrate_address'] : existing['substrate_address']
     nodes.set(entry, {
       ...existing,
       labels,
       ...(systemLabels ? { system_labels: systemLabels } : {}),
       ...(addressType ? { address_type: addressType } : {}),
-      ...(addressSubtypes ? { address_subtypes: addressSubtypes } : {}),
+      ...(evmAddress ? { evm_address: evmAddress } : {}),
+      ...(substrateAddress ? { substrate_address: substrateAddress } : {}),
     })
   }
   for (const row of rows) {
@@ -446,7 +514,6 @@ function buildRiskGraph(address: string, profile: Record<string, unknown>, rows:
         labels: displayLabels,
         ...(systemLabels.length > 0 ? { system_labels: systemLabels } : {}),
         ...(typeof row['exchange_address_type'] === 'string' ? { address_type: row['exchange_address_type'] } : {}),
-        ...(stringArrayValue(row['exchange_address_subtypes']) ? { address_subtypes: stringArrayValue(row['exchange_address_subtypes']) } : {}),
         roles: ['exchange'],
       })
     }
@@ -492,9 +559,10 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     addressProfileQuery(address),
     addressFeatureQuery(address),
     addressRiskScoreQuery(address),
+    addressLabelRiskQuery(address),
     ...exchangeOutflowQueries(address),
     ...exchangeInflowQueries(address),
-    ...(compareAddress ? [connectionProbeQuery(address, compareAddress)] : [{ id: 'connection_probe', query: 'MATCH (n:Address {address: "__chain_insights_noop__"}) RETURN n.address AS noop LIMIT 0' }]),
+    ...(compareAddress ? [connectionProbeQuery(address, compareAddress)] : [{ id: 'connection_probe', query: 'MATCH (n:Identity {identity_id: "__chain_insights_noop__"}) RETURN n.identity_id AS noop LIMIT 0' }]),
   ]
   const batch = await callGraphBatch(remoteClient, network, queries)
   const partialQueryFailures: QueryFailure[] = []
@@ -504,12 +572,17 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     ...(optionalResultsFor(batch, 'address_feature', partialQueryFailures)[0] ?? {}),
     ...(optionalResultsFor(batch, 'address_risk_score', partialQueryFailures)[0] ?? {}),
   }
+  const labelRows = optionalResultsFor(batch, 'address_label_risk', partialQueryFailures)
   const outflows = enrichExchangeRows(optionalResultsWithPrefix(batch, 'exchange_outflows_', partialQueryFailures))
   const inflows = enrichExchangeRows(optionalResultsWithPrefix(batch, 'exchange_inflows_', partialQueryFailures))
   const connections = compareAddress ? optionalResultsFor(batch, 'connection_probe', partialQueryFailures) : []
   const exchangeRows = [...outflows, ...inflows]
   const graphData = buildRiskGraph(address, profile, exchangeRows, network)
-  const risk = riskAssessment(profile, exchangeRows)
+  const risk = riskAssessment(profile, labelRows, exchangeRows)
+  const memberAddresses = {
+    ...(typeof profile['evm_address'] === 'string' && profile['evm_address'] ? { evm_address: profile['evm_address'] } : {}),
+    ...(typeof profile['substrate_address'] === 'string' && profile['substrate_address'] ? { substrate_address: profile['substrate_address'] } : {}),
+  }
 
   const lines = [
     `Address risk for ${network}:${address}`,
@@ -517,6 +590,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     `Risk: ${risk['level']} (${formatRiskScore(risk['score'])})`,
     `Confidence: ${risk['confidence']}`,
     `Recommendation: ${risk['recommendation']}`,
+    `Member addresses: evm ${memberAddresses['evm_address'] ?? 'unknown'}, substrate ${memberAddresses['substrate_address'] ?? 'none'}.`,
     `Graph degree: in ${profile['degree_in'] ?? 'unknown'}, out ${profile['degree_out'] ?? 'unknown'}.`,
     '',
     'Exchange behavior',
@@ -548,7 +622,11 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
       schema: 'chain-insights.result.v1',
       tool: 'aml_address_risk',
       facts: {
-        subject: { network, addresses: compareAddress ? [address, compareAddress] : [address] },
+        subject: {
+          network,
+          addresses: compareAddress ? [address, compareAddress] : [address],
+          ...(Object.keys(memberAddresses).length > 0 ? { member_addresses: memberAddresses } : {}),
+        },
         risk,
         exchange_behavior: {
           outflows,
@@ -1145,16 +1223,16 @@ function reverseDepositSourceQueryAtDepth(depositAddresses: string[], depth: num
   const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
   const relationshipChain = edgeVariables.map((edgeVariable, index) => {
     const targetVariable = index === edgeVariables.length - 1 ? 'deposit' : intermediateVariables[index]!
-    return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
+    return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Identity)`
   }).join('')
-  const depositPredicates = depositAddresses.map((address) => `deposit.address = "${escapeCypherString(address)}"`)
+  const depositPredicates = depositAddresses.map((address) => `deposit.identity_id = "${escapeCypherString(address)}"`)
   const nonExchangePredicates = ['source', ...intermediateVariables, 'deposit'].map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
   return {
     id: `reverse_deposit_sources_${depth}`,
     query: [
-      `MATCH (source:Address)${relationshipChain}`,
-      `WHERE (${depositPredicates.join(' OR ')}) AND source.address <> deposit.address AND ${nonExchangePredicates.join(' AND ')}`,
-      `RETURN DISTINCT source.address AS source_address, source.is_exchange AS source_is_exchange, deposit.address AS deposit_address, deposit.is_exchange AS deposit_is_exchange, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `MATCH (source:Identity)${relationshipChain}`,
+      `WHERE (${depositPredicates.join(' OR ')}) AND source.identity_id <> deposit.identity_id AND ${nonExchangePredicates.join(' AND ')}`,
+      `RETURN DISTINCT source.identity_id AS source_address, source.is_exchange AS source_is_exchange, deposit.identity_id AS deposit_address, deposit.is_exchange AS deposit_is_exchange, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'LIMIT 500',
     ].join(' '),
   }

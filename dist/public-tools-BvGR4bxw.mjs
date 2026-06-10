@@ -48,19 +48,19 @@ const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS$1 = 300 * 1e3;
 const SCHEMA_QUERY_SET = [
 	{
 		id: "node_labels",
-		query: "MATCH (n:Address) RETURN \"Address\" AS node_label, count(n) AS sample_count LIMIT 1"
+		query: "MATCH (n:Identity) RETURN \"Identity\" AS node_label, count(n) AS sample_count LIMIT 1"
 	},
 	{
 		id: "relationship_types",
-		query: "MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN \"FLOWS_TO\" AS rel_name, count(r) AS sample_count LIMIT 1"
+		query: "MATCH (:Identity)-[r:FLOWS_TO]->(:Identity) RETURN \"FLOWS_TO\" AS rel_name, count(r) AS sample_count LIMIT 1"
 	},
 	{
-		id: "address_property_keys",
-		query: "MATCH (n:Address) RETURN \"address\" AS property_key, count(n) AS sample_count LIMIT 1"
+		id: "identity_property_keys",
+		query: "MATCH (n:Identity) RETURN \"identity_id\" AS property_key, count(n) AS sample_count LIMIT 1"
 	},
 	{
 		id: "flows_to_property_keys",
-		query: "MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN \"amount_sum\" AS property_key, count(r) AS sample_count LIMIT 1"
+		query: "MATCH (:Identity)-[r:FLOWS_TO]->(:Identity) RETURN \"amount_sum\" AS property_key, count(r) AS sample_count LIMIT 1"
 	}
 ];
 function clampInt$2(value, fallback, min, max) {
@@ -141,19 +141,19 @@ function schemaFromGraphBatch(network, batch) {
 		source: "graph_query_batch",
 		node_labels: resultsFor(batch, "node_labels"),
 		relationship_types: resultsFor(batch, "relationship_types"),
-		address_property_keys: resultsFor(batch, "address_property_keys").map((row) => row["property_key"]),
+		identity_property_keys: resultsFor(batch, "identity_property_keys").map((row) => row["property_key"]),
 		flows_to_property_keys: resultsFor(batch, "flows_to_property_keys").map((row) => row["property_key"]),
 		recommended_flow_projection: [
-			"src.address AS src",
-			"dst.address AS dst",
+			"src.identity_id AS src",
+			"dst.identity_id AS dst",
 			"r.amount_sum AS amount_sum",
 			"r.amount_usd_sum AS amount_usd_sum",
 			"r.tx_count AS tx_count",
 			"r.first_tx_id AS first_tx_id",
 			"r.last_tx_id AS last_tx_id",
 			"dst.labels AS dst_labels",
-			"dst.lifetime_degree_in AS dst_degree_in",
-			"dst.lifetime_degree_out AS dst_degree_out"
+			"dst.evm_address AS dst_evm_address",
+			"dst.substrate_address AS dst_substrate_address"
 		]
 	};
 }
@@ -178,7 +178,7 @@ function flowEdgeMap$1(variableName) {
 	return `{amount_sum: ${variableName}.amount_sum, amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`;
 }
 function pathNodeMap$1(variableName) {
-	return `{address: ${variableName}.address, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, address_subtypes: ${variableName}.address_subtypes, is_exchange: ${variableName}.is_exchange}`;
+	return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, evm_address: ${variableName}.evm_address, substrate_address: ${variableName}.substrate_address, is_exchange: ${variableName}.is_exchange}`;
 }
 function forwardExchangeQueries(address, limit, minAmountSum, maxHops) {
 	return Array.from({ length: maxHops }, (_, index) => forwardExchangeQueryAtDepth(address, limit, minAmountSum, index + 1));
@@ -192,7 +192,7 @@ function forwardExchangeQueryAtDepth(address, limit, minAmountSum, depth) {
 	];
 	const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`);
 	const relationshipChain = edgeVariables.map((edgeVariable, index) => {
-		return `-[${edgeVariable}:FLOWS_TO]->(${index === edgeVariables.length - 1 ? "t" : intermediateVariables[index]}:Address)`;
+		return `-[${edgeVariable}:FLOWS_TO]->(${index === edgeVariables.length - 1 ? "t" : intermediateVariables[index]}:Identity)`;
 	}).join("");
 	const amountPredicates = edgeVariables.map((edgeVariable) => `${edgeVariable}.amount_sum IS NOT NULL${minAmountSum > 0 ? ` AND ${edgeVariable}.amount_sum >= ${minAmountSum}` : ""}`);
 	const predicates = [
@@ -205,9 +205,9 @@ function forwardExchangeQueryAtDepth(address, limit, minAmountSum, depth) {
 	return {
 		id: `forward_exchange_paths_${depth}`,
 		query: [
-			`MATCH (s:Address {address: "${escapeCypherString$3(address)}"})${relationshipChain}`,
+			`MATCH (s:Identity {identity_id: "${escapeCypherString$3(address)}"})${relationshipChain}`,
 			`WHERE ${predicates.join(" AND ")}`,
-			`RETURN [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(", ")}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(", ")}] AS node_labels, [${nodeVariables.map(pathNodeMap$1).join(", ")}] AS path_nodes, [${edgeVariables.map(flowEdgeMap$1).join(", ")}] AS edge_props, t.address AS exchange_address, t.labels AS exchange_display_labels, t.labels AS exchange_labels, t.address_type AS exchange_address_type, t.address_subtypes AS exchange_address_subtypes, t.is_exchange AS exchange_is_exchange, ${depositVariable}.address AS deposit_address, ${depositVariable}.is_exchange AS deposit_is_exchange, ${depth} AS hops`,
+			`RETURN [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(", ")}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(", ")}] AS node_labels, [${nodeVariables.map(pathNodeMap$1).join(", ")}] AS path_nodes, [${edgeVariables.map(flowEdgeMap$1).join(", ")}] AS edge_props, t.identity_id AS exchange_address, t.labels AS exchange_display_labels, t.labels AS exchange_labels, t.address_type AS exchange_address_type, t.is_exchange AS exchange_is_exchange, ${depositVariable}.identity_id AS deposit_address, ${depositVariable}.is_exchange AS deposit_is_exchange, ${depth} AS hops`,
 			"ORDER BY hops ASC",
 			`LIMIT ${limit}`
 		].join(" ")
@@ -225,16 +225,16 @@ function backwardSourceQueryAtDepth(id, depositAddress, depth) {
 	];
 	const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`);
 	const relationshipChain = edgeVariables.map((edgeVariable, index) => {
-		return `<-[${edgeVariable}:FLOWS_TO]-(${index === edgeVariables.length - 1 ? "source" : intermediateVariables[index]}:Address)`;
+		return `<-[${edgeVariable}:FLOWS_TO]-(${index === edgeVariables.length - 1 ? "source" : intermediateVariables[index]}:Identity)`;
 	}).join("");
 	const intermediatePredicates = intermediateVariables.map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`);
 	return {
 		id,
 		query: [
-			`MATCH (dep:Address {address: "${escapeCypherString$3(depositAddress)}"})`,
+			`MATCH (dep:Identity {identity_id: "${escapeCypherString$3(depositAddress)}"})`,
 			`MATCH (dep)${relationshipChain}`,
 			`WHERE source <> dep AND source.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(" AND ")}` : ""}`,
-			`RETURN dep.address AS deposit_address, source.address AS source_exchange, source.labels AS source_display_labels, source.labels AS source_labels, source.address_type AS source_address_type, source.address_subtypes AS source_address_subtypes, ${depth} AS hops, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(", ")}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(", ")}] AS node_labels, [${nodeVariables.map(pathNodeMap$1).join(", ")}] AS path_nodes`,
+			`RETURN dep.identity_id AS deposit_address, source.identity_id AS source_exchange, source.labels AS source_display_labels, source.labels AS source_labels, source.address_type AS source_address_type, ${depth} AS hops, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(", ")}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(", ")}] AS node_labels, [${nodeVariables.map(pathNodeMap$1).join(", ")}] AS path_nodes`,
 			"LIMIT 20"
 		].join(" ")
 	};
@@ -243,9 +243,9 @@ function reverseLeadsQuery(depositAddresses) {
 	return {
 		id: "reverse_1hop",
 		query: [
-			"MATCH (sender:Address)-[r:FLOWS_TO]->(deposit:Address)",
-			`WHERE (${depositAddresses.map((address) => `deposit.address = "${escapeCypherString$3(address)}"`).join(" OR ")}) AND sender.is_exchange IS NULL AND sender.address <> deposit.address`,
-			"RETURN DISTINCT sender.address AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.address_subtypes AS address_subtypes, coalesce(sender.lifetime_degree_in, 0) AS degree_in, coalesce(sender.lifetime_degree_out, 0) AS degree_out, coalesce(sender.total_volume_usd, 0) AS total_volume_usd, deposit.address AS deposit_address, r.amount_usd_sum AS amount_usd",
+			"MATCH (sender:Identity)-[r:FLOWS_TO]->(deposit:Identity)",
+			`WHERE (${depositAddresses.map((address) => `deposit.identity_id = "${escapeCypherString$3(address)}"`).join(" OR ")}) AND sender.is_exchange IS NULL AND sender.identity_id <> deposit.identity_id`,
+			"RETURN DISTINCT sender.identity_id AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.evm_address AS evm_address, sender.substrate_address AS substrate_address, deposit.identity_id AS deposit_address, r.amount_usd_sum AS amount_usd",
 			"ORDER BY r.amount_usd_sum DESC",
 			`LIMIT ${Math.max(50, depositAddresses.length * 50)}`
 		].join(" ")
@@ -263,9 +263,9 @@ function directEdgePropsQuery(flows) {
 	return {
 		id: "direct_edge_props",
 		query: [
-			"MATCH (a:Address)-[r:FLOWS_TO]->(b:Address)",
-			`WHERE (${pairs.map((pair) => `(a.address = "${escapeCypherString$3(pair.src)}" AND b.address = "${escapeCypherString$3(pair.dst)}")`).join(" OR ")})`,
-			"RETURN a.address AS src, b.address AS dst, r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count, r.first_tx_id AS first_tx_id, r.last_tx_id AS last_tx_id",
+			"MATCH (a:Identity)-[r:FLOWS_TO]->(b:Identity)",
+			`WHERE (${pairs.map((pair) => `(a.identity_id = "${escapeCypherString$3(pair.src)}" AND b.identity_id = "${escapeCypherString$3(pair.dst)}")`).join(" OR ")})`,
+			"RETURN a.identity_id AS src, b.identity_id AS dst, r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count, r.first_tx_id AS first_tx_id, r.last_tx_id AS last_tx_id",
 			`LIMIT ${pairs.length}`
 		].join(" ")
 	};
@@ -317,7 +317,8 @@ function nodeMetadataFromValue(value, fallbackAddress) {
 		labels: stringArrayValue$1(record["labels"]),
 		system_labels: stringArrayValue$1(record["system_labels"]),
 		address_type: typeof record["address_type"] === "string" ? record["address_type"] : void 0,
-		address_subtypes: stringArrayValue$1(record["address_subtypes"]),
+		evm_address: typeof record["evm_address"] === "string" ? record["evm_address"] : void 0,
+		substrate_address: typeof record["substrate_address"] === "string" ? record["substrate_address"] : void 0,
 		is_exchange: isExchangeFlag$1(record["is_exchange"])
 	};
 }
@@ -347,7 +348,6 @@ function depositFromRow(row) {
 		labels: stringArrayValue$1(row["exchange_display_labels"]),
 		system_labels: stringArrayValue$1(row["exchange_system_labels"]) ?? stringArrayValue$1(row["exchange_labels"]),
 		address_type: typeof row["exchange_address_type"] === "string" ? row["exchange_address_type"] : void 0,
-		address_subtypes: stringArrayValue$1(row["exchange_address_subtypes"]),
 		is_exchange: true
 	};
 	return {
@@ -452,8 +452,7 @@ async function collectProbeTrace(remoteClient, options) {
 				address: sourceExchange,
 				labels: stringArrayValue$1(row["source_display_labels"]),
 				system_labels: stringArrayValue$1(row["source_system_labels"]) ?? stringArrayValue$1(row["source_labels"]),
-				address_type: typeof row["source_address_type"] === "string" ? row["source_address_type"] : void 0,
-				address_subtypes: stringArrayValue$1(row["source_address_subtypes"])
+				address_type: typeof row["source_address_type"] === "string" ? row["source_address_type"] : void 0
 			};
 			sourceMatches.push({
 				deposit_address: depositAddress,
@@ -474,10 +473,8 @@ async function collectProbeTrace(remoteClient, options) {
 			const depositAddress = typeof row["deposit_address"] === "string" ? row["deposit_address"] : "";
 			if (!address || !depositAddress) continue;
 			const labels = stringArrayValue$1(row["display_labels"]) ?? stringArrayValue$1(row["labels"]) ?? [];
-			const degreeIn = numberValue$3(row["degree_in"]) ?? 0;
-			const degreeOut = numberValue$3(row["degree_out"]) ?? 0;
-			const totalVolume = numberValue$3(row["total_volume_usd"]) ?? 0;
-			const reason = labels.length > 0 ? "labeled_entity" : degreeIn > 50 ? "fan_in_hub" : degreeOut > 50 ? "fan_out_hub" : totalVolume > 1e5 ? "high_volume_sender" : "";
+			const amountUsd = numberValue$3(row["amount_usd"]) ?? 0;
+			const reason = labels.length > 0 ? "labeled_entity" : amountUsd > 1e5 ? "high_volume_sender" : "";
 			if (!reason) continue;
 			reverseLeads.push({
 				address,
@@ -487,11 +484,9 @@ async function collectProbeTrace(remoteClient, options) {
 					labels,
 					system_labels: stringArrayValue$1(row["system_labels"]),
 					address_type: typeof row["address_type"] === "string" ? row["address_type"] : void 0,
-					address_subtypes: stringArrayValue$1(row["address_subtypes"])
+					evm_address: typeof row["evm_address"] === "string" ? row["evm_address"] : void 0,
+					substrate_address: typeof row["substrate_address"] === "string" ? row["substrate_address"] : void 0
 				},
-				degree_in: degreeIn,
-				degree_out: degreeOut,
-				total_volume_usd: totalVolume,
 				deposit_address: depositAddress,
 				amount_usd: numberValue$3(row["amount_usd"]),
 				reason
@@ -528,7 +523,6 @@ function buildGraph(seedAddress, network, flows, deposits, sourceMatches, revers
 			out: 0,
 			labels: [],
 			systemLabels: [],
-			addressSubtypes: [],
 			roles: new Set(address === seedAddress ? ["seed"] : [])
 		});
 		return totals.get(address);
@@ -542,7 +536,8 @@ function buildGraph(seedAddress, network, flows, deposits, sourceMatches, revers
 			...systemLabelsFallback ?? []
 		]);
 		if (metadata?.address_type) node.addressType = metadata.address_type;
-		node.addressSubtypes = uniqueStrings$1([...node.addressSubtypes, ...metadata?.address_subtypes ?? []]);
+		if (metadata?.evm_address) node.evmAddress = metadata.evm_address;
+		if (metadata?.substrate_address) node.substrateAddress = metadata.substrate_address;
 		if (role) node.roles.add(role);
 		return node;
 	};
@@ -593,7 +588,8 @@ function buildGraph(seedAddress, network, flows, deposits, sourceMatches, revers
 			labels: uniqueStrings$1(data.labels),
 			...data.systemLabels.length > 0 ? { system_labels: uniqueStrings$1(data.systemLabels) } : {},
 			...data.addressType ? { address_type: data.addressType } : {},
-			...data.addressSubtypes.length > 0 ? { address_subtypes: uniqueStrings$1(data.addressSubtypes) } : {},
+			...data.evmAddress ? { evm_address: data.evmAddress } : {},
+			...data.substrateAddress ? { substrate_address: data.substrateAddress } : {},
 			...data.roles.size > 0 ? { roles: [...data.roles] } : {},
 			flow_in_usd: data.in,
 			flow_out_usd: data.out
@@ -1114,7 +1110,7 @@ function subjectPredicate(subject) {
 	const account = escapeCypherString$2(subject.account);
 	if (subject.role === "owner") return `exposure.owner_address = "${account}"`;
 	if (subject.role === "counterparty") return `exposure.counterparty_address = "${account}"`;
-	return `(account.address = "${account}" OR exposure.owner_address = "${account}" OR exposure.counterparty_address = "${account}")`;
+	return `(account.identity_id = "${account}" OR exposure.owner_address = "${account}" OR exposure.counterparty_address = "${account}")`;
 }
 function exposureQuery(topologyGraph, options) {
 	const predicates = [subjectPredicate(options.subject)];
@@ -1130,10 +1126,10 @@ function exposureQuery(topologyGraph, options) {
 		id: topologyGraph === "live_topology" ? "live_exposures" : "archive_exposures",
 		query: [
 			`USE ${topologyGraph}`,
-			"MATCH (account:Address)-[:HAS_EXPOSURE]->(exposure:Exposure)-[:TARGETS_INSTRUMENT]->(instrument:Instrument)",
+			"MATCH (account:Identity)-[:HAS_EXPOSURE]->(exposure:Exposure)-[:TARGETS_INSTRUMENT]->(instrument:Instrument)",
 			`WHERE ${predicates.join(" AND ")}`,
 			[
-				"RETURN account.address AS account_address",
+				"RETURN account.identity_id AS account_address",
 				"exposure.owner_address AS owner_address",
 				"exposure.counterparty_address AS counterparty_address",
 				"exposure.venue AS venue",
@@ -1458,10 +1454,10 @@ function marketExposureQuery(topologyGraph, options) {
 		id: topologyGraph === "live_topology" ? "live_market_exposures" : "archive_market_exposures",
 		query: [
 			`USE ${topologyGraph}`,
-			"MATCH (account:Address)-[:HAS_EXPOSURE]->(exposure:Exposure)-[:TARGETS_INSTRUMENT]->(instrument:Instrument)",
+			"MATCH (account:Identity)-[:HAS_EXPOSURE]->(exposure:Exposure)-[:TARGETS_INSTRUMENT]->(instrument:Instrument)",
 			`WHERE ${marketPredicates(options).join(" AND ")}`,
 			[
-				"RETURN account.address AS account_address",
+				"RETURN account.identity_id AS account_address",
 				"exposure.owner_address AS owner_address",
 				"exposure.counterparty_address AS counterparty_address",
 				"exposure.venue AS venue",
@@ -2108,8 +2104,8 @@ function addressProfileQuery(address) {
 	return {
 		id: "address_profile",
 		query: [
-			`MATCH (a:Address {address: "${escapeCypherString(address)}"})`,
-			"RETURN a.address AS address, a.labels AS display_labels, a.labels AS system_labels, a.address_type AS address_type, a.address_subtypes AS address_subtypes, a.is_exchange AS is_exchange, a.confluence_score AS confluence_score, a.ml_risk_score AS ml_risk_score, a.ml_risk_level AS ml_risk_level, a.ml_top_drivers AS ml_top_drivers, a.ml_pattern_summary AS ml_pattern_summary, a.risk_score AS risk_score, a.risk_level AS risk_level, a.pattern_flags AS pattern_flags, a.ml_pagerank AS ml_pagerank, a.ml_betweenness AS ml_betweenness, a.ml_community_id AS ml_community_id",
+			`MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})`,
+			"RETURN a.identity_id AS address, a.labels AS display_labels, a.labels AS system_labels, a.address_type AS address_type, a.evm_address AS evm_address, a.substrate_address AS substrate_address, a.is_exchange AS is_exchange",
 			"LIMIT 1"
 		].join(" ")
 	};
@@ -2119,7 +2115,7 @@ function addressFeatureQuery(address) {
 		id: "address_feature",
 		query: [
 			"USE facts",
-			`MATCH (a:Address {address: "${escapeCypherString(address)}"})-[:HAS_FEATURE]->(feature:AddressFeature)`,
+			`MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[:HAS_FEATURE]->(feature:AddressFeature)`,
 			"RETURN feature.degree_in AS degree_in, feature.degree_out AS degree_out, feature.degree_total AS degree_total, feature.tx_in_count AS tx_in_count, feature.tx_out_count AS tx_out_count, feature.tx_total_count AS tx_total_count, feature.total_volume_usd AS total_volume_usd, feature.total_in_usd AS total_in_usd, feature.total_out_usd AS total_out_usd, feature.net_flow_usd AS net_flow_usd, feature.first_activity_timestamp AS first_activity_timestamp, feature.last_activity_timestamp AS last_activity_timestamp, feature.activity_span_days AS activity_span_days, feature.active_days AS active_days",
 			"LIMIT 1"
 		].join(" ")
@@ -2130,9 +2126,20 @@ function addressRiskScoreQuery(address) {
 		id: "address_risk_score",
 		query: [
 			"USE facts",
-			`MATCH (a:Address {address: "${escapeCypherString(address)}"})-[:HAS_RISK_SCORE]->(risk:RiskScore)`,
-			"RETURN risk.risk_score AS risk_score, risk.window_days AS risk_window_days, risk.processing_date AS risk_processing_date, risk.shap_top_features AS shap_top_features",
+			`MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[:HAS_RISK_SCORE]->(risk:RiskScore)`,
+			"RETURN risk.risk_score AS ml_risk_score, risk.window_days AS risk_window_days, risk.processing_date AS risk_processing_date, risk.xgboost_model_version AS xgboost_model_version, risk.gnn_model_version AS gnn_model_version, risk.shap_top_features AS shap_top_features",
 			"LIMIT 1"
+		].join(" ")
+	};
+}
+function addressLabelRiskQuery(address) {
+	return {
+		id: "address_label_risk",
+		query: [
+			"USE facts",
+			`MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[:HAS_LABEL]->(label:AddressLabel)`,
+			"RETURN label.label AS label, label.risk_level AS risk_level, label.trust_level AS trust_level, label.confidence_score AS confidence_score, label.source AS source, label.entity_type AS entity_type, label.updated_timestamp AS updated_timestamp",
+			"LIMIT 10"
 		].join(" ")
 	};
 }
@@ -2140,7 +2147,7 @@ function flowEdgeMap(variableName) {
 	return `{amount_sum: ${variableName}.amount_sum, amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`;
 }
 function pathNodeMap(variableName) {
-	return `{address: ${variableName}.address, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, address_subtypes: ${variableName}.address_subtypes, is_exchange: ${variableName}.is_exchange}`;
+	return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, evm_address: ${variableName}.evm_address, substrate_address: ${variableName}.substrate_address, is_exchange: ${variableName}.is_exchange}`;
 }
 function exchangeOutflowQueries(address) {
 	return Array.from({ length: 3 }, (_, index) => exchangeOutflowQueryAtDepth(address, index + 1));
@@ -2154,7 +2161,7 @@ function exchangeOutflowQueryAtDepth(address, depth) {
 	];
 	const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`);
 	const relationshipChain = edgeVariables.map((edgeVariable, index) => {
-		return `-[${edgeVariable}:FLOWS_TO]->(${index === edgeVariables.length - 1 ? "exchange" : intermediateVariables[index]}:Address)`;
+		return `-[${edgeVariable}:FLOWS_TO]->(${index === edgeVariables.length - 1 ? "exchange" : intermediateVariables[index]}:Identity)`;
 	}).join("");
 	const intermediatePredicates = intermediateVariables.map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`);
 	const depositVariable = nodeVariables[nodeVariables.length - 2];
@@ -2162,9 +2169,9 @@ function exchangeOutflowQueryAtDepth(address, depth) {
 	return {
 		id: `exchange_outflows_${depth}`,
 		query: [
-			`MATCH (a:Address {address: "${escapeCypherString(address)}"})${relationshipChain}`,
+			`MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})${relationshipChain}`,
 			`WHERE a <> exchange AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(" AND ")}` : ""}`,
-			`RETURN "outflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, exchange.address_type AS exchange_address_type, exchange.address_subtypes AS exchange_address_subtypes, ${depositVariable}.address AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_sum AS amount_sum, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(", ")}] AS addresses, [${nodeVariables.map(pathNodeMap).join(", ")}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(", ")}] AS edge_props`,
+			`RETURN "outflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, exchange.address_type AS exchange_address_type, ${depositVariable}.identity_id AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_sum AS amount_sum, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(", ")}] AS addresses, [${nodeVariables.map(pathNodeMap).join(", ")}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(", ")}] AS edge_props`,
 			"ORDER BY hops ASC",
 			"LIMIT 200"
 		].join(" ")
@@ -2182,7 +2189,7 @@ function exchangeInflowQueryAtDepth(address, depth) {
 	];
 	const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`);
 	const relationshipChain = edgeVariables.map((edgeVariable, index) => {
-		return `-[${edgeVariable}:FLOWS_TO]->(${index === edgeVariables.length - 1 ? "a" : intermediateVariables[index]}:Address)`;
+		return `-[${edgeVariable}:FLOWS_TO]->(${index === edgeVariables.length - 1 ? "a" : intermediateVariables[index]}:Identity)`;
 	}).join("");
 	const intermediatePredicates = intermediateVariables.map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`);
 	const withdrawalVariable = nodeVariables[1];
@@ -2190,9 +2197,9 @@ function exchangeInflowQueryAtDepth(address, depth) {
 	return {
 		id: `exchange_inflows_${depth}`,
 		query: [
-			`MATCH (exchange:Address)${relationshipChain}`,
-			`WHERE a.address = "${escapeCypherString(address)}" AND a <> exchange AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(" AND ")}` : ""}`,
-			`RETURN "inflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, exchange.address_type AS exchange_address_type, exchange.address_subtypes AS exchange_address_subtypes, ${withdrawalVariable}.address AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_sum AS amount_sum, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(", ")}] AS addresses, [${nodeVariables.map(pathNodeMap).join(", ")}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(", ")}] AS edge_props`,
+			`MATCH (exchange:Identity)${relationshipChain}`,
+			`WHERE a.identity_id = "${escapeCypherString(address)}" AND a <> exchange AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(" AND ")}` : ""}`,
+			`RETURN "inflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, exchange.address_type AS exchange_address_type, ${withdrawalVariable}.identity_id AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_sum AS amount_sum, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(", ")}] AS addresses, [${nodeVariables.map(pathNodeMap).join(", ")}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(", ")}] AS edge_props`,
 			"ORDER BY hops ASC",
 			"LIMIT 200"
 		].join(" ")
@@ -2202,8 +2209,8 @@ function connectionProbeQuery(address, compareAddress) {
 	return {
 		id: "connection_probe",
 		query: [
-			`MATCH (a:Address {address: "${escapeCypherString(address)}"})-[r:FLOWS_TO]-(b:Address {address: "${escapeCypherString(compareAddress)}"})`,
-			"RETURN [a.address, b.address] AS addresses, 1 AS hops",
+			`MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[r:FLOWS_TO]-(b:Identity {identity_id: "${escapeCypherString(compareAddress)}"})`,
+			"RETURN [a.identity_id, b.identity_id] AS addresses, 1 AS hops",
 			"LIMIT 5"
 		].join(" ")
 	};
@@ -2256,17 +2263,53 @@ function riskRecommendation(level) {
 	if (level === "medium") return "Review exchange exposure and counterparties before clearing.";
 	return "No stored risk signal found; continue with normal monitoring.";
 }
-function riskDrivers(profile, exchangeRows) {
+function riskDrivers(profile, labelRows, exchangeRows) {
 	const drivers = [];
-	const storedDrivers = stringArrayValue(profile["ml_top_drivers"]);
-	if (storedDrivers?.length) drivers.push(...storedDrivers);
-	const patternFlags = stringArrayValue(profile["pattern_flags"]);
-	if (patternFlags?.length) drivers.push(`Pattern flags: ${patternFlags.join(", ")}`);
+	const shapDrivers = stringArrayValue(profile["shap_top_features"]);
+	if (shapDrivers?.length) drivers.push(`Top model features: ${shapDrivers.join(", ")}`);
+	const riskLabels = labelRows.map((row) => firstString(row["label"])).filter((label) => Boolean(label));
+	if (riskLabels.length > 0) drivers.push(`Labels: ${[...new Set(riskLabels)].join("; ")}`);
 	const outflowCount = exchangeRows.filter((row) => row["direction"] === "outflow").length;
 	const inflowCount = exchangeRows.filter((row) => row["direction"] === "inflow").length;
 	if (outflowCount > 0) drivers.push(`Forward bounded search reached ${outflowCount} exchange path(s).`);
 	if (inflowCount > 0) drivers.push(`Backward bounded search found ${inflowCount} source exchange path(s).`);
 	return [...new Set(drivers)];
+}
+const RISK_LEVEL_ORDER = [
+	"critical",
+	"high",
+	"medium",
+	"low"
+];
+function strongestLabelRiskLevel(labelRows) {
+	const levels = labelRows.map((row) => firstString(row["risk_level"])?.toLowerCase()).filter((level) => Boolean(level && RISK_LEVEL_ORDER.includes(level)));
+	if (levels.length === 0) return void 0;
+	return RISK_LEVEL_ORDER.find((candidate) => levels.includes(candidate));
+}
+function riskScoreSources(profile, labelRows) {
+	const sources = [];
+	if (numberValue(profile["ml_risk_score"]) !== void 0) sources.push({
+		family: "ml_risk_score",
+		layer: "facts",
+		view: "facts_risk_scores_view",
+		xgboost_model_version: profile["xgboost_model_version"],
+		gnn_model_version: profile["gnn_model_version"],
+		processing_date: profile["risk_processing_date"],
+		window_days: profile["risk_window_days"]
+	});
+	if (labelRows.length > 0) sources.push({
+		family: "label_risk",
+		layer: "facts",
+		view: "facts_address_labels_view",
+		labels: labelRows.map((row) => ({
+			label: row["label"],
+			risk_level: row["risk_level"],
+			trust_level: row["trust_level"],
+			confidence_score: row["confidence_score"],
+			source: row["source"]
+		}))
+	});
+	return sources;
 }
 function terminalEdgeProperties(row) {
 	const edgeProps = Array.isArray(row["edge_props"]) ? row["edge_props"] : [];
@@ -2286,17 +2329,20 @@ function enrichExchangeRows(rows) {
 		};
 	});
 }
-function riskAssessment(profile, exchangeRows) {
-	const storedScore = firstNumber(profile["confluence_score"], profile["ml_risk_score"], profile["risk_score"]);
-	const score = storedScore ?? (exchangeRows.length > 0 ? .4 : 0);
-	const level = firstString(profile["ml_risk_level"], profile["risk_level"]) ?? riskLevelFromScore(score);
-	const drivers = riskDrivers(profile, exchangeRows);
+function riskAssessment(profile, labelRows, exchangeRows) {
+	const mlRiskScore = firstNumber(profile["ml_risk_score"]);
+	const labelRiskLevel = strongestLabelRiskLevel(labelRows);
+	const score = mlRiskScore ?? (exchangeRows.length > 0 ? .4 : 0);
+	const level = labelRiskLevel ?? riskLevelFromScore(score);
+	const drivers = riskDrivers(profile, labelRows, exchangeRows);
 	return {
 		level,
 		score,
-		confidence: storedScore !== void 0 || firstString(profile["ml_risk_level"], profile["risk_level"]) ? "high" : exchangeRows.length > 0 ? "medium" : "low",
+		...mlRiskScore !== void 0 ? { ml_risk_score: mlRiskScore } : {},
+		confidence: mlRiskScore !== void 0 || labelRiskLevel ? "high" : exchangeRows.length > 0 ? "medium" : "low",
 		recommendation: riskRecommendation(level),
-		drivers
+		drivers,
+		sources: riskScoreSources(profile, labelRows)
 	};
 }
 function formatRiskScore(score) {
@@ -2334,7 +2380,8 @@ function buildRiskGraph(address, profile, rows, network) {
 		labels: stringArrayValue(profile["display_labels"]) ?? [],
 		...stringArrayValue(profile["system_labels"]) ? { system_labels: stringArrayValue(profile["system_labels"]) } : {},
 		...typeof profile["address_type"] === "string" ? { address_type: profile["address_type"] } : {},
-		...stringArrayValue(profile["address_subtypes"]) ? { address_subtypes: stringArrayValue(profile["address_subtypes"]) } : {},
+		...typeof profile["evm_address"] === "string" ? { evm_address: profile["evm_address"] } : {},
+		...typeof profile["substrate_address"] === "string" ? { substrate_address: profile["substrate_address"] } : {},
 		roles: ["subject"]
 	});
 	const edges = [];
@@ -2348,13 +2395,15 @@ function buildRiskGraph(address, profile, rows, network) {
 		const labels = stringArrayValue(metadata?.["labels"]) ?? existing["labels"];
 		const systemLabels = stringArrayValue(metadata?.["system_labels"]) ?? existing["system_labels"];
 		const addressType = typeof metadata?.["address_type"] === "string" ? metadata["address_type"] : existing["address_type"];
-		const addressSubtypes = stringArrayValue(metadata?.["address_subtypes"]) ?? existing["address_subtypes"];
+		const evmAddress = typeof metadata?.["evm_address"] === "string" ? metadata["evm_address"] : existing["evm_address"];
+		const substrateAddress = typeof metadata?.["substrate_address"] === "string" ? metadata["substrate_address"] : existing["substrate_address"];
 		nodes.set(entry, {
 			...existing,
 			labels,
 			...systemLabels ? { system_labels: systemLabels } : {},
 			...addressType ? { address_type: addressType } : {},
-			...addressSubtypes ? { address_subtypes: addressSubtypes } : {}
+			...evmAddress ? { evm_address: evmAddress } : {},
+			...substrateAddress ? { substrate_address: substrateAddress } : {}
 		});
 	};
 	for (const row of rows) {
@@ -2376,7 +2425,6 @@ function buildRiskGraph(address, profile, rows, network) {
 				labels: displayLabels,
 				...systemLabels.length > 0 ? { system_labels: systemLabels } : {},
 				...typeof row["exchange_address_type"] === "string" ? { address_type: row["exchange_address_type"] } : {},
-				...stringArrayValue(row["exchange_address_subtypes"]) ? { address_subtypes: stringArrayValue(row["exchange_address_subtypes"]) } : {},
 				roles: ["exchange"]
 			});
 		}
@@ -2419,11 +2467,12 @@ async function addressRisk(remoteClient, options) {
 		addressProfileQuery(address),
 		addressFeatureQuery(address),
 		addressRiskScoreQuery(address),
+		addressLabelRiskQuery(address),
 		...exchangeOutflowQueries(address),
 		...exchangeInflowQueries(address),
 		...compareAddress ? [connectionProbeQuery(address, compareAddress)] : [{
 			id: "connection_probe",
-			query: "MATCH (n:Address {address: \"__chain_insights_noop__\"}) RETURN n.address AS noop LIMIT 0"
+			query: "MATCH (n:Identity {identity_id: \"__chain_insights_noop__\"}) RETURN n.identity_id AS noop LIMIT 0"
 		}]
 	]);
 	const partialQueryFailures = [];
@@ -2433,18 +2482,24 @@ async function addressRisk(remoteClient, options) {
 		...optionalResultsFor(batch, "address_feature", partialQueryFailures)[0] ?? {},
 		...optionalResultsFor(batch, "address_risk_score", partialQueryFailures)[0] ?? {}
 	};
+	const labelRows = optionalResultsFor(batch, "address_label_risk", partialQueryFailures);
 	const outflows = enrichExchangeRows(optionalResultsWithPrefix(batch, "exchange_outflows_", partialQueryFailures));
 	const inflows = enrichExchangeRows(optionalResultsWithPrefix(batch, "exchange_inflows_", partialQueryFailures));
 	const connections = compareAddress ? optionalResultsFor(batch, "connection_probe", partialQueryFailures) : [];
 	const exchangeRows = [...outflows, ...inflows];
 	const graphData = buildRiskGraph(address, profile, exchangeRows, network);
-	const risk = riskAssessment(profile, exchangeRows);
+	const risk = riskAssessment(profile, labelRows, exchangeRows);
+	const memberAddresses = {
+		...typeof profile["evm_address"] === "string" && profile["evm_address"] ? { evm_address: profile["evm_address"] } : {},
+		...typeof profile["substrate_address"] === "string" && profile["substrate_address"] ? { substrate_address: profile["substrate_address"] } : {}
+	};
 	const lines = [
 		`Address risk for ${network}:${address}`,
 		"",
 		`Risk: ${risk["level"]} (${formatRiskScore(risk["score"])})`,
 		`Confidence: ${risk["confidence"]}`,
 		`Recommendation: ${risk["recommendation"]}`,
+		`Member addresses: evm ${memberAddresses["evm_address"] ?? "unknown"}, substrate ${memberAddresses["substrate_address"] ?? "none"}.`,
 		`Graph degree: in ${profile["degree_in"] ?? "unknown"}, out ${profile["degree_out"] ?? "unknown"}.`,
 		"",
 		"Exchange behavior",
@@ -2464,7 +2519,8 @@ async function addressRisk(remoteClient, options) {
 			facts: {
 				subject: {
 					network,
-					addresses: compareAddress ? [address, compareAddress] : [address]
+					addresses: compareAddress ? [address, compareAddress] : [address],
+					...Object.keys(memberAddresses).length > 0 ? { member_addresses: memberAddresses } : {}
 				},
 				risk,
 				exchange_behavior: {
@@ -2935,9 +2991,9 @@ function reverseDepositSourceQueryAtDepth(depositAddresses, depth) {
 	];
 	const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`);
 	const relationshipChain = edgeVariables.map((edgeVariable, index) => {
-		return `-[${edgeVariable}:FLOWS_TO]->(${index === edgeVariables.length - 1 ? "deposit" : intermediateVariables[index]}:Address)`;
+		return `-[${edgeVariable}:FLOWS_TO]->(${index === edgeVariables.length - 1 ? "deposit" : intermediateVariables[index]}:Identity)`;
 	}).join("");
-	const depositPredicates = depositAddresses.map((address) => `deposit.address = "${escapeCypherString(address)}"`);
+	const depositPredicates = depositAddresses.map((address) => `deposit.identity_id = "${escapeCypherString(address)}"`);
 	const nonExchangePredicates = [
 		"source",
 		...intermediateVariables,
@@ -2946,9 +3002,9 @@ function reverseDepositSourceQueryAtDepth(depositAddresses, depth) {
 	return {
 		id: `reverse_deposit_sources_${depth}`,
 		query: [
-			`MATCH (source:Address)${relationshipChain}`,
-			`WHERE (${depositPredicates.join(" OR ")}) AND source.address <> deposit.address AND ${nonExchangePredicates.join(" AND ")}`,
-			`RETURN DISTINCT source.address AS source_address, source.is_exchange AS source_is_exchange, deposit.address AS deposit_address, deposit.is_exchange AS deposit_is_exchange, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(", ")}] AS addresses, [${nodeVariables.map(pathNodeMap).join(", ")}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(", ")}] AS edge_props`,
+			`MATCH (source:Identity)${relationshipChain}`,
+			`WHERE (${depositPredicates.join(" OR ")}) AND source.identity_id <> deposit.identity_id AND ${nonExchangePredicates.join(" AND ")}`,
+			`RETURN DISTINCT source.identity_id AS source_address, source.is_exchange AS source_is_exchange, deposit.identity_id AS deposit_address, deposit.is_exchange AS deposit_is_exchange, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(", ")}] AS addresses, [${nodeVariables.map(pathNodeMap).join(", ")}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(", ")}] AS edge_props`,
 			"LIMIT 500"
 		].join(" ")
 	};
@@ -3231,4 +3287,4 @@ async function traceDepositSources(remoteClient, _config, options) {
 //#endregion
 export { addressRisk, exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureProfile, exposureQuality, traceDepositSources, traceSuspectFunds, traceVictimFunds };
 
-//# sourceMappingURL=public-tools-brHmHGYm.mjs.map
+//# sourceMappingURL=public-tools-BvGR4bxw.mjs.map
