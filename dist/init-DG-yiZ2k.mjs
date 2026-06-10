@@ -1,8 +1,6 @@
-const require_chunk = require("./chunk-DakpK96I.cjs");
-const require_mcp_endpoint = require("./mcp-endpoint-cQIZSjkK.cjs");
-let node_path = require("node:path");
-node_path = require_chunk.__toESM(node_path, 1);
-let node_fs_promises = require("node:fs/promises");
+import { t as LOCAL_GRAPH_MCP_ENDPOINT } from "./mcp-endpoint-QQ5Lbqc2.mjs";
+import path from "node:path";
+import { access, mkdir, writeFile } from "node:fs/promises";
 //#region src/workspace/init.ts
 const WORKSPACE_DIRS = [
 	".chain-insights",
@@ -30,7 +28,7 @@ function workspaceJson(workspaceRoot) {
 		name: "Chain Insights Workspace",
 		workspace_root: workspaceRoot,
 		default_network: "bittensor",
-		graph_mcp_endpoint: require_mcp_endpoint.LOCAL_GRAPH_MCP_ENDPOINT,
+		graph_mcp_endpoint: LOCAL_GRAPH_MCP_ENDPOINT,
 		artifacts_dir: "artifacts",
 		imports_dir: "imports",
 		reports_dir: "reports",
@@ -165,23 +163,38 @@ The slim identity graph schema:
   \`bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\`). There is no
   Address node label and no \`network\` property; each network has its own
   graph.
-- Identity member-address properties: \`evm_address\` (canonical 0x form)
-  and \`substrate_address\` (SS58 form, null when the identity has no
-  substrate source). Use them to report the human-recognizable address
-  forms; never invent address conversions.
+- Identity member addresses live in the \`addresses\` list property:
+  the canonical 0x form first, then the SS58 substrate form when the
+  identity has a substrate source. Use the list to report the
+  human-recognizable address forms; never invent address conversions.
+- Resolve any member address form (0x or SS58) to its identity through
+  the indexed exact lookup:
+  \`MATCH (m:MemberAddress {address: $input})-[:ADDRESS_OF]->(i:Identity)
+  RETURN i.identity_id\`. \`:MemberAddress(address)\` is unique and
+  index-backed.
 - Other Identity properties: \`address_type\`, \`labels\` (array), and
   \`is_exchange\` (sparse true/null traversal hint).
+- Identity nodes carry a slim live risk verdict for quick triage:
+  \`risk_score\` (float) and \`risk_level\` (string). They also carry base
+  activity rollups: \`degree_in\`/\`degree_out\`,
+  \`tx_in_count\`/\`tx_out_count\`/\`tx_total_count\`,
+  \`total_in_usd\`/\`total_out_usd\`/\`total_volume_usd\`, \`net_flow_usd\`,
+  \`active_days\`, \`activity_span_days\`,
+  \`first_activity_timestamp\`/\`last_activity_timestamp\`, and
+  \`lifetime_*\` variants.
 - Money flow is \`(:Identity)-[:FLOWS_TO]->(:Identity)\`. Exposure context is
   \`(:Identity)-[:OWNS_EXPOSURE|HAS_EXPOSURE]->(:Exposure)\`,
   \`(:Exposure)-[:HAS_COUNTERPARTY]->(:Identity)\`, and
   \`(:Exposure)-[:TARGETS_INSTRUMENT]->(:Instrument)\`.
-- Scores come from \`USE facts\`, never from node properties. ML risk:
+- Detailed, provenanced scoring comes from \`USE facts\`. ML risk with
+  model versions and processing dates:
   \`(:Identity)-[:HAS_RISK_SCORE]->(:RiskScore)\`; label risk:
   \`(:Identity)-[:HAS_LABEL]->(:AddressLabel)\`; lifetime metrics:
   \`(:Identity)-[:HAS_FEATURE]->(:AddressFeature)\`. Facts identity keys
-  match live \`identity_id\` values exactly. Do not read \`risk_score\`,
-  \`ml_*\`, \`confluence_score\`, or \`pattern_flags\` off topology nodes —
-  those properties do not exist.
+  match live \`identity_id\` values exactly. Node \`risk_score\`/
+  \`risk_level\` are quick-triage verdicts only; do not read \`ml_*\`,
+  \`confluence_score\`, or \`pattern_flags\` off topology nodes — those
+  properties do not exist.
 
 Rules:
 
@@ -262,9 +275,9 @@ function workspaceFiles(workspaceRoot) {
 }
 async function assertNoFileCollisions(workspaceRoot) {
 	for (const [relativePath] of workspaceFiles(workspaceRoot)) {
-		const filePath = node_path.default.join(workspaceRoot, relativePath);
+		const filePath = path.join(workspaceRoot, relativePath);
 		try {
-			await (0, node_fs_promises.access)(filePath);
+			await access(filePath);
 			throw new Error(`Refusing to overwrite ${filePath}. Re-run with --force to replace workspace files.`);
 		} catch (err) {
 			if (err.code === "ENOENT") continue;
@@ -273,15 +286,15 @@ async function assertNoFileCollisions(workspaceRoot) {
 	}
 }
 async function initWorkspace(options) {
-	const workspaceRoot = node_path.default.resolve(options.targetDir);
+	const workspaceRoot = path.resolve(options.targetDir);
 	if (!options.force) await assertNoFileCollisions(workspaceRoot);
-	for (const dir of WORKSPACE_DIRS) await (0, node_fs_promises.mkdir)(node_path.default.join(workspaceRoot, dir), { recursive: true });
+	for (const dir of WORKSPACE_DIRS) await mkdir(path.join(workspaceRoot, dir), { recursive: true });
 	const filesWritten = [];
 	const flag = options.force ? "w" : "wx";
 	for (const [relativePath, content] of workspaceFiles(workspaceRoot)) {
-		const filePath = node_path.default.join(workspaceRoot, relativePath);
+		const filePath = path.join(workspaceRoot, relativePath);
 		try {
-			await (0, node_fs_promises.writeFile)(filePath, content, {
+			await writeFile(filePath, content, {
 				mode: 384,
 				flag
 			});
@@ -297,4 +310,6 @@ async function initWorkspace(options) {
 	};
 }
 //#endregion
-exports.initWorkspace = initWorkspace;
+export { initWorkspace };
+
+//# sourceMappingURL=init-DG-yiZ2k.mjs.map

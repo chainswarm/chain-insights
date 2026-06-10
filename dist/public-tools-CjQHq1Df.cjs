@@ -154,8 +154,7 @@ function schemaFromGraphBatch(network, batch) {
 			"r.first_tx_id AS first_tx_id",
 			"r.last_tx_id AS last_tx_id",
 			"dst.labels AS dst_labels",
-			"dst.evm_address AS dst_evm_address",
-			"dst.substrate_address AS dst_substrate_address"
+			"dst.addresses AS dst_member_addresses"
 		]
 	};
 }
@@ -180,7 +179,7 @@ function flowEdgeMap$1(variableName) {
 	return `{amount_sum: ${variableName}.amount_sum, amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`;
 }
 function pathNodeMap$1(variableName) {
-	return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, evm_address: ${variableName}.evm_address, substrate_address: ${variableName}.substrate_address, is_exchange: ${variableName}.is_exchange}`;
+	return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, addresses: ${variableName}.addresses, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`;
 }
 function forwardExchangeQueries(address, limit, minAmountSum, maxHops) {
 	return Array.from({ length: maxHops }, (_, index) => forwardExchangeQueryAtDepth(address, limit, minAmountSum, index + 1));
@@ -247,7 +246,7 @@ function reverseLeadsQuery(depositAddresses) {
 		query: [
 			"MATCH (sender:Identity)-[r:FLOWS_TO]->(deposit:Identity)",
 			`WHERE (${depositAddresses.map((address) => `deposit.identity_id = "${escapeCypherString$3(address)}"`).join(" OR ")}) AND sender.is_exchange IS NULL AND sender.identity_id <> deposit.identity_id`,
-			"RETURN DISTINCT sender.identity_id AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.evm_address AS evm_address, sender.substrate_address AS substrate_address, deposit.identity_id AS deposit_address, r.amount_usd_sum AS amount_usd",
+			"RETURN DISTINCT sender.identity_id AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.addresses AS member_addresses, sender.risk_score AS risk_score, sender.risk_level AS risk_level, deposit.identity_id AS deposit_address, r.amount_usd_sum AS amount_usd",
 			"ORDER BY r.amount_usd_sum DESC",
 			`LIMIT ${Math.max(50, depositAddresses.length * 50)}`
 		].join(" ")
@@ -319,8 +318,9 @@ function nodeMetadataFromValue(value, fallbackAddress) {
 		labels: stringArrayValue$1(record["labels"]),
 		system_labels: stringArrayValue$1(record["system_labels"]),
 		address_type: typeof record["address_type"] === "string" ? record["address_type"] : void 0,
-		evm_address: typeof record["evm_address"] === "string" ? record["evm_address"] : void 0,
-		substrate_address: typeof record["substrate_address"] === "string" ? record["substrate_address"] : void 0,
+		addresses: stringArrayValue$1(record["addresses"]) ?? stringArrayValue$1(record["member_addresses"]),
+		risk_score: numberValue$3(record["risk_score"]),
+		risk_level: typeof record["risk_level"] === "string" && record["risk_level"].trim() ? record["risk_level"] : void 0,
 		is_exchange: isExchangeFlag$1(record["is_exchange"])
 	};
 }
@@ -486,8 +486,9 @@ async function collectProbeTrace(remoteClient, options) {
 					labels,
 					system_labels: stringArrayValue$1(row["system_labels"]),
 					address_type: typeof row["address_type"] === "string" ? row["address_type"] : void 0,
-					evm_address: typeof row["evm_address"] === "string" ? row["evm_address"] : void 0,
-					substrate_address: typeof row["substrate_address"] === "string" ? row["substrate_address"] : void 0
+					addresses: stringArrayValue$1(row["member_addresses"]),
+					risk_score: numberValue$3(row["risk_score"]),
+					risk_level: typeof row["risk_level"] === "string" && row["risk_level"].trim() ? row["risk_level"] : void 0
 				},
 				deposit_address: depositAddress,
 				amount_usd: numberValue$3(row["amount_usd"]),
@@ -538,8 +539,9 @@ function buildGraph(seedAddress, network, flows, deposits, sourceMatches, revers
 			...systemLabelsFallback ?? []
 		]);
 		if (metadata?.address_type) node.addressType = metadata.address_type;
-		if (metadata?.evm_address) node.evmAddress = metadata.evm_address;
-		if (metadata?.substrate_address) node.substrateAddress = metadata.substrate_address;
+		if (metadata?.addresses?.length) node.memberAddresses = uniqueStrings$1([...node.memberAddresses ?? [], ...metadata.addresses]);
+		if (metadata?.risk_score !== void 0) node.riskScore = metadata.risk_score;
+		if (metadata?.risk_level) node.riskLevel = metadata.risk_level;
 		if (role) node.roles.add(role);
 		return node;
 	};
@@ -590,8 +592,9 @@ function buildGraph(seedAddress, network, flows, deposits, sourceMatches, revers
 			labels: uniqueStrings$1(data.labels),
 			...data.systemLabels.length > 0 ? { system_labels: uniqueStrings$1(data.systemLabels) } : {},
 			...data.addressType ? { address_type: data.addressType } : {},
-			...data.evmAddress ? { evm_address: data.evmAddress } : {},
-			...data.substrateAddress ? { substrate_address: data.substrateAddress } : {},
+			...data.memberAddresses?.length ? { member_addresses: data.memberAddresses } : {},
+			...data.riskScore !== void 0 ? { risk_score: data.riskScore } : {},
+			...data.riskLevel ? { risk_level: data.riskLevel } : {},
 			...data.roles.size > 0 ? { roles: [...data.roles] } : {},
 			flow_in_usd: data.in,
 			flow_out_usd: data.out
@@ -2102,12 +2105,57 @@ async function callGraphBatch(remoteClient, network, queries) {
 function parseAddressList(value) {
 	return (Array.isArray(value) ? value.join(",") : value ?? "").split(",").map((entry) => entry.trim()).filter(Boolean);
 }
+const CANONICAL_HEX_FORM_PATTERN = /^0x[0-9a-fA-F]+$/;
+function memberFormOf(input, network) {
+	const prefix = `${network}:`;
+	return input.startsWith(prefix) ? input.slice(prefix.length) : input;
+}
+function canonicalIdentityKeyFor(network, memberForm) {
+	if (!CANONICAL_HEX_FORM_PATTERN.test(memberForm)) return void 0;
+	return `${network}:${memberForm.toLowerCase()}`;
+}
+function memberAddressResolutionQuery(id, memberForm) {
+	return {
+		id,
+		query: [
+			`MATCH (m:MemberAddress {address: "${escapeCypherString(memberForm)}"})-[:ADDRESS_OF]->(i:Identity)`,
+			"RETURN i.identity_id AS identity_id",
+			"LIMIT 1"
+		].join(" ")
+	};
+}
+/**
+* Resolve tool address inputs to canonical identity keys.
+*
+* Inputs already in canonical 0x form (with or without the network prefix)
+* are derived locally as `<network>:<lowercase 0x form>`. Any other member
+* form (for example an SS58 substrate address) is resolved through the
+* indexed `(:MemberAddress {address})-[:ADDRESS_OF]->(:Identity)` lookup.
+* Inputs the graph cannot resolve are passed through unchanged.
+*/
+async function resolveIdentityKeys(remoteClient, network, inputs) {
+	const resolved = /* @__PURE__ */ new Map();
+	const pending = [];
+	for (const input of [...new Set(inputs.map((value) => value.trim()).filter(Boolean))]) {
+		const canonical = canonicalIdentityKeyFor(network, memberFormOf(input, network));
+		if (canonical) resolved.set(input, canonical);
+		else pending.push(input);
+	}
+	if (pending.length === 0) return resolved;
+	const batch = await callGraphBatch(remoteClient, network, pending.map((input, index) => memberAddressResolutionQuery(`resolve_member_address_${index + 1}`, memberFormOf(input, network))));
+	const failures = [];
+	pending.forEach((input, index) => {
+		const identityId = firstString(optionalResultsFor(batch, `resolve_member_address_${index + 1}`, failures)[0]?.["identity_id"]);
+		resolved.set(input, identityId ?? input);
+	});
+	return resolved;
+}
 function addressProfileQuery(address) {
 	return {
 		id: "address_profile",
 		query: [
 			`MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})`,
-			"RETURN a.identity_id AS address, a.labels AS display_labels, a.labels AS system_labels, a.address_type AS address_type, a.evm_address AS evm_address, a.substrate_address AS substrate_address, a.is_exchange AS is_exchange",
+			"RETURN a.identity_id AS address, a.labels AS display_labels, a.labels AS system_labels, a.address_type AS address_type, a.addresses AS member_addresses, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level, a.is_exchange AS is_exchange",
 			"LIMIT 1"
 		].join(" ")
 	};
@@ -2149,7 +2197,7 @@ function flowEdgeMap(variableName) {
 	return `{amount_sum: ${variableName}.amount_sum, amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`;
 }
 function pathNodeMap(variableName) {
-	return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, evm_address: ${variableName}.evm_address, substrate_address: ${variableName}.substrate_address, is_exchange: ${variableName}.is_exchange}`;
+	return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, addresses: ${variableName}.addresses, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`;
 }
 function exchangeOutflowQueries(address) {
 	return Array.from({ length: 3 }, (_, index) => exchangeOutflowQueryAtDepth(address, index + 1));
@@ -2382,8 +2430,9 @@ function buildRiskGraph(address, profile, rows, network) {
 		labels: stringArrayValue(profile["display_labels"]) ?? [],
 		...stringArrayValue(profile["system_labels"]) ? { system_labels: stringArrayValue(profile["system_labels"]) } : {},
 		...typeof profile["address_type"] === "string" ? { address_type: profile["address_type"] } : {},
-		...typeof profile["evm_address"] === "string" ? { evm_address: profile["evm_address"] } : {},
-		...typeof profile["substrate_address"] === "string" ? { substrate_address: profile["substrate_address"] } : {},
+		...stringArrayValue(profile["member_addresses"])?.length ? { member_addresses: stringArrayValue(profile["member_addresses"]) } : {},
+		...numberValue(profile["live_risk_score"]) !== void 0 ? { risk_score: numberValue(profile["live_risk_score"]) } : {},
+		...firstString(profile["live_risk_level"]) ? { risk_level: firstString(profile["live_risk_level"]) } : {},
 		roles: ["subject"]
 	});
 	const edges = [];
@@ -2397,15 +2446,17 @@ function buildRiskGraph(address, profile, rows, network) {
 		const labels = stringArrayValue(metadata?.["labels"]) ?? existing["labels"];
 		const systemLabels = stringArrayValue(metadata?.["system_labels"]) ?? existing["system_labels"];
 		const addressType = typeof metadata?.["address_type"] === "string" ? metadata["address_type"] : existing["address_type"];
-		const evmAddress = typeof metadata?.["evm_address"] === "string" ? metadata["evm_address"] : existing["evm_address"];
-		const substrateAddress = typeof metadata?.["substrate_address"] === "string" ? metadata["substrate_address"] : existing["substrate_address"];
+		const memberAddresses = stringArrayValue(metadata?.["addresses"]) ?? stringArrayValue(metadata?.["member_addresses"]) ?? existing["member_addresses"];
+		const riskScore = numberValue(metadata?.["risk_score"]) ?? existing["risk_score"];
+		const riskLevel = firstString(metadata?.["risk_level"]) ?? existing["risk_level"];
 		nodes.set(entry, {
 			...existing,
 			labels,
 			...systemLabels ? { system_labels: systemLabels } : {},
 			...addressType ? { address_type: addressType } : {},
-			...evmAddress ? { evm_address: evmAddress } : {},
-			...substrateAddress ? { substrate_address: substrateAddress } : {}
+			...Array.isArray(memberAddresses) && memberAddresses.length > 0 ? { member_addresses: memberAddresses } : {},
+			...riskScore !== void 0 ? { risk_score: riskScore } : {},
+			...riskLevel ? { risk_level: riskLevel } : {}
 		});
 	};
 	for (const row of rows) {
@@ -2460,11 +2511,14 @@ function buildRiskGraph(address, profile, rows, network) {
 	}), rawNodes);
 }
 async function addressRisk(remoteClient, options) {
-	const address = options.address.trim();
+	const inputAddress = options.address.trim();
 	const network = options.network.trim();
-	const compareAddress = options.compareAddress?.trim() ?? "";
-	if (!address) throw new Error("address is required");
+	const compareInput = options.compareAddress?.trim() ?? "";
+	if (!inputAddress) throw new Error("address is required");
 	if (!network) throw new Error("network is required");
+	const resolvedKeys = await resolveIdentityKeys(remoteClient, network, [inputAddress, ...compareInput ? [compareInput] : []]);
+	const address = resolvedKeys.get(inputAddress) ?? inputAddress;
+	const compareAddress = compareInput ? resolvedKeys.get(compareInput) ?? compareInput : "";
 	const batch = await callGraphBatch(remoteClient, network, [
 		addressProfileQuery(address),
 		addressFeatureQuery(address),
@@ -2491,17 +2545,22 @@ async function addressRisk(remoteClient, options) {
 	const exchangeRows = [...outflows, ...inflows];
 	const graphData = buildRiskGraph(address, profile, exchangeRows, network);
 	const risk = riskAssessment(profile, labelRows, exchangeRows);
-	const memberAddresses = {
-		...typeof profile["evm_address"] === "string" && profile["evm_address"] ? { evm_address: profile["evm_address"] } : {},
-		...typeof profile["substrate_address"] === "string" && profile["substrate_address"] ? { substrate_address: profile["substrate_address"] } : {}
-	};
+	const memberAddresses = stringArrayValue(profile["member_addresses"]) ?? [];
+	const liveRiskScore = numberValue(profile["live_risk_score"]);
+	const liveRiskLevel = firstString(profile["live_risk_level"]);
+	const liveNodeVerdict = liveRiskScore !== void 0 || liveRiskLevel ? {
+		...liveRiskScore !== void 0 ? { risk_score: liveRiskScore } : {},
+		...liveRiskLevel ? { risk_level: liveRiskLevel } : {},
+		source: "live_topology_node"
+	} : void 0;
 	const lines = [
 		`Address risk for ${network}:${address}`,
 		"",
 		`Risk: ${risk["level"]} (${formatRiskScore(risk["score"])})`,
 		`Confidence: ${risk["confidence"]}`,
 		`Recommendation: ${risk["recommendation"]}`,
-		`Member addresses: evm ${memberAddresses["evm_address"] ?? "unknown"}, substrate ${memberAddresses["substrate_address"] ?? "none"}.`,
+		...liveNodeVerdict ? [`Live node triage: ${liveRiskLevel ?? "unknown"} (${formatRiskScore(liveRiskScore)})`] : [],
+		`Member addresses: ${memberAddresses.join(", ") || "unknown"}.`,
 		`Graph degree: in ${profile["degree_in"] ?? "unknown"}, out ${profile["degree_out"] ?? "unknown"}.`,
 		"",
 		"Exchange behavior",
@@ -2522,9 +2581,12 @@ async function addressRisk(remoteClient, options) {
 				subject: {
 					network,
 					addresses: compareAddress ? [address, compareAddress] : [address],
-					...Object.keys(memberAddresses).length > 0 ? { member_addresses: memberAddresses } : {}
+					...memberAddresses.length > 0 ? { member_addresses: memberAddresses } : {}
 				},
-				risk,
+				risk: {
+					...risk,
+					...liveNodeVerdict ? { live_node: liveNodeVerdict } : {}
+				},
 				exchange_behavior: {
 					outflows,
 					inflows
@@ -2930,12 +2992,14 @@ function traceResultFromFundRuns(tool, seedRole, network, runs, options = {}) {
 }
 async function traceVictimFunds(remoteClient, config, options) {
 	const network = options.network.trim();
-	const victims = parseAddressList(options.victimAddresses);
+	const victimInputs = parseAddressList(options.victimAddresses);
 	const knownSuspects = parseAddressList(options.knownSuspectAddresses);
 	if (!network) throw new Error("network is required");
-	if (victims.length < 1) throw new Error("victim_addresses must contain at least 1 address");
-	if (victims.length > 5) throw new Error("victim_addresses cannot exceed 5 addresses");
+	if (victimInputs.length < 1) throw new Error("victim_addresses must contain at least 1 address");
+	if (victimInputs.length > 5) throw new Error("victim_addresses cannot exceed 5 addresses");
 	if (knownSuspects.length > 5) throw new Error("known_suspect_addresses cannot exceed 5 addresses");
+	const resolvedVictims = await resolveIdentityKeys(remoteClient, network, victimInputs);
+	const victims = [...new Set(victimInputs.map((input) => resolvedVictims.get(input) ?? input))];
 	const runs = [];
 	for (const address of victims) runs.push({
 		role: "victim",
@@ -2959,10 +3023,12 @@ async function traceVictimFunds(remoteClient, config, options) {
 }
 async function traceSuspectFunds(remoteClient, config, options) {
 	const network = options.network.trim();
-	const suspects = parseAddressList(options.suspectAddresses);
+	const suspectInputs = parseAddressList(options.suspectAddresses);
 	if (!network) throw new Error("network is required");
-	if (suspects.length < 1) throw new Error("suspect_addresses must contain at least 1 address");
-	if (suspects.length > 5) throw new Error("suspect_addresses cannot exceed 5 addresses");
+	if (suspectInputs.length < 1) throw new Error("suspect_addresses must contain at least 1 address");
+	if (suspectInputs.length > 5) throw new Error("suspect_addresses cannot exceed 5 addresses");
+	const resolvedSuspects = await resolveIdentityKeys(remoteClient, network, suspectInputs);
+	const suspects = [...new Set(suspectInputs.map((input) => resolvedSuspects.get(input) ?? input))];
 	const runs = [];
 	for (const address of suspects) runs.push({
 		role: "suspect",
@@ -3115,10 +3181,12 @@ async function writeTraceSourceArtifacts(tool, network, graphData, rows, summary
 }
 async function traceDepositSources(remoteClient, _config, options) {
 	const network = options.network.trim();
-	const deposits = parseAddressList(options.depositAddresses);
+	const depositInputs = parseAddressList(options.depositAddresses);
 	if (!network) throw new Error("network is required");
-	if (deposits.length < 1) throw new Error("deposit_addresses must contain at least 1 address");
-	if (deposits.length > 5) throw new Error("deposit_addresses cannot exceed 5 addresses");
+	if (depositInputs.length < 1) throw new Error("deposit_addresses must contain at least 1 address");
+	if (depositInputs.length > 5) throw new Error("deposit_addresses cannot exceed 5 addresses");
+	const resolvedDeposits = await resolveIdentityKeys(remoteClient, network, depositInputs);
+	const deposits = [...new Set(depositInputs.map((input) => resolvedDeposits.get(input) ?? input))];
 	const maxHops = clampInt(options.maxHops, 2, 1, 5);
 	const batch = await callGraphBatch(remoteClient, network, Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1)));
 	const failures = [];

@@ -223,6 +223,23 @@ function findPromptHandler(
   return call[2] as Function
 }
 
+// Non-canonical address inputs (anything that is not a 0x form) now trigger a
+// MemberAddress resolution batch before the main tool batch. This response
+// resolves nothing, so every input passes through unchanged.
+function memberResolutionPassthrough(): Record<string, unknown> {
+  return {
+    content: [{
+      type: 'text',
+      text: JSON.stringify({
+        schema: 'chain-insights.result.v1',
+        tool: 'graph_query_batch',
+        facts: { queries: [] },
+      }),
+    }],
+    isError: false,
+  }
+}
+
 async function readJsonl(path: string): Promise<Array<Record<string, unknown>>> {
   const text = await readFile(path, 'utf8')
   return text.trim().split('\n').filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>)
@@ -668,6 +685,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       isError: false,
     })
     clientInstance.callTool
+      .mockResolvedValueOnce(memberResolutionPassthrough())
       .mockResolvedValueOnce(textResult([
         { id: 'node_labels', ok: true, results: [{ node_label: 'Address', sample_count: 10 }] },
         { id: 'relationship_types', ok: true, results: [{ rel_name: 'FLOWS_TO', sample_count: 4 }] },
@@ -1012,6 +1030,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       callTool: ReturnType<typeof vi.fn>
     }
     clientInstance.callTool
+      .mockResolvedValueOnce(memberResolutionPassthrough())
       .mockResolvedValueOnce({
         content: [{
           type: 'text',
@@ -1028,8 +1047,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                     display_labels: ['validator'],
                     system_labels: ['Address', 'Validator'],
                     address_type: 'substrate',
-                    evm_address: '0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24',
-                    substrate_address: '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6',
+                    member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
+                    live_risk_score: 0.91,
+                    live_risk_level: 'critical',
                     degree_in: 3,
                     degree_out: 4,
                   }],
@@ -1103,13 +1123,24 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.isError).toBe(false)
     expect(result.content[0].text).toContain('Address risk for bittensor:5Addr')
     expect(result.content[0].text).toContain('Risk: high (0.82)')
+    expect(result.content[0].text).toContain('Live node triage: critical (0.91)')
+    expect(result.content[0].text).toContain('Member addresses: 0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24, 5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6.')
     expect(result.content[0].text).toContain('Exchange behavior')
     expect(result.content[0].text).toContain('5Exchange')
     expect(result.structuredContent.facts.risk).toMatchObject({
       level: 'high',
       score: 0.82,
       confidence: 'high',
+      live_node: {
+        risk_score: 0.91,
+        risk_level: 'critical',
+        source: 'live_topology_node',
+      },
     })
+    expect(result.structuredContent.facts.subject.member_addresses).toEqual([
+      '0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24',
+      '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6',
+    ])
     expect(result.structuredContent.facts.exchange_behavior.outflows[0].exchange_address).toBe('5Exchange')
     expect(result._meta.chainInsights.graph.url).toContain('/graph-reports/')
     const graphUrl = result._meta.chainInsights.graph.url as string
@@ -1128,9 +1159,12 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(subjectNode).toMatchObject({
       labels: ['validator'],
       address_type: 'substrate',
-      evm_address: '0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24',
-      substrate_address: '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6',
+      member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
+      risk_score: 0.91,
+      risk_level: 'critical',
     })
+    expect(subjectNode).not.toHaveProperty('evm_address')
+    expect(subjectNode).not.toHaveProperty('substrate_address')
     expect(subjectNode?.roles).toContain('subject')
     const exchangeNode = graph.nodes.find((node) => node.address === '5Exchange')
     expect(exchangeNode?.roles).toContain('exchange')
@@ -1167,7 +1201,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       timeout: 300_000,
       maxTotalTimeout: 300_000,
     }))
-    const riskQueries = clientInstance.callTool.mock.calls[0][0].arguments.queries as Array<{ id: string; query: string }>
+    const resolutionQueries = clientInstance.callTool.mock.calls[0][0].arguments.queries as Array<{ id: string; query: string }>
+    expect(resolutionQueries[0]?.id).toBe('resolve_member_address_1')
+    expect(resolutionQueries[0]?.query).toContain('MATCH (m:MemberAddress {address: "5Addr"})-[:ADDRESS_OF]->(i:Identity)')
+    const riskQueries = clientInstance.callTool.mock.calls[1][0].arguments.queries as Array<{ id: string; query: string }>
     const outflowQuery = riskQueries.find((query) => query.id === 'exchange_outflows_2')?.query ?? ''
     const inflowQuery = riskQueries.find((query) => query.id === 'exchange_inflows_2')?.query ?? ''
     expect(outflowQuery).toContain('exchange.is_exchange IS NOT NULL')
@@ -1188,6 +1225,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       callTool: ReturnType<typeof vi.fn>
     }
+    clientInstance.callTool.mockResolvedValueOnce(memberResolutionPassthrough())
     clientInstance.callTool.mockResolvedValueOnce({
       content: [{
         type: 'text',
@@ -1285,6 +1323,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const { addressRisk } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
       callTool: vi.fn()
+        .mockResolvedValueOnce(memberResolutionPassthrough())
         .mockResolvedValueOnce({
           content: [{
             type: 'text',
@@ -1299,8 +1338,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                       display_labels: ['validator'],
                       system_labels: ['Address', 'Validator'],
                       address_type: 'substrate',
-                      evm_address: '0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24',
-                      substrate_address: '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6',
+                      member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
+                      live_risk_score: 0.12,
+                      live_risk_level: 'low',
                     }],
                   },
                   { id: 'exchange_outflows', ok: true, results: [] },
@@ -1327,16 +1367,76 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       labels: ['validator'],
       system_labels: ['Address', 'Validator'],
       address_type: 'substrate',
-      evm_address: '0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24',
-      substrate_address: '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6',
+      member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
+      risk_score: 0.12,
+      risk_level: 'low',
       roles: ['subject'],
     })
+  })
+
+  it('resolves SS58 member-address inputs through the MemberAddress lookup and derives canonical 0x inputs locally', async () => {
+    const { resolveIdentityKeys } = await import('../src/investigation/public-tools.js')
+    const remoteClient = {
+      callTool: vi.fn().mockResolvedValueOnce({
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            facts: {
+              queries: [{
+                id: 'resolve_member_address_1',
+                ok: true,
+                results: [{ identity_id: 'bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24' }],
+              }],
+            },
+          }),
+        }],
+        isError: false,
+      }),
+    }
+
+    const resolved = await resolveIdentityKeys(remoteClient as never, 'bittensor', [
+      '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6',
+      'bittensor:0x1874A43D7C6D888F9EDA3D22A3A49704E3CADB24',
+      '0xABCDEF0123456789abcdef0123456789abcdef01',
+    ])
+
+    expect(resolved.get('5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6')).toBe('bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24')
+    expect(resolved.get('bittensor:0x1874A43D7C6D888F9EDA3D22A3A49704E3CADB24')).toBe('bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24')
+    expect(resolved.get('0xABCDEF0123456789abcdef0123456789abcdef01')).toBe('bittensor:0xabcdef0123456789abcdef0123456789abcdef01')
+    expect(remoteClient.callTool).toHaveBeenCalledTimes(1)
+    const queries = remoteClient.callTool.mock.calls[0]?.[0].arguments.queries as Array<{ id: string; query: string }>
+    expect(queries).toHaveLength(1)
+    expect(queries[0]?.id).toBe('resolve_member_address_1')
+    expect(queries[0]?.query).toContain('MATCH (m:MemberAddress {address: "5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6"})-[:ADDRESS_OF]->(i:Identity)')
+    expect(queries[0]?.query).toContain('RETURN i.identity_id AS identity_id')
+  })
+
+  it('passes unresolvable non-0x member-address inputs through unchanged', async () => {
+    const { resolveIdentityKeys } = await import('../src/investigation/public-tools.js')
+    const remoteClient = {
+      callTool: vi.fn().mockResolvedValueOnce({
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            facts: {
+              queries: [{ id: 'resolve_member_address_1', ok: true, results: [] }],
+            },
+          }),
+        }],
+        isError: false,
+      }),
+    }
+
+    const resolved = await resolveIdentityKeys(remoteClient as never, 'bittensor', ['5UnknownMember'])
+    expect(resolved.get('5UnknownMember')).toBe('5UnknownMember')
   })
 
   it('aml_address_risk reports partial enrichment query failures without failing screening', async () => {
     const { addressRisk } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
-      callTool: vi.fn().mockResolvedValueOnce({
+      callTool: vi.fn()
+        .mockResolvedValueOnce(memberResolutionPassthrough())
+        .mockResolvedValueOnce({
         content: [{
           type: 'text',
           text: JSON.stringify({
@@ -1424,8 +1524,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     const { createProxy } = await import('../src/mcp/proxy.js')
     const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
 
     await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool.mockResolvedValueOnce(memberResolutionPassthrough())
 
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
@@ -1457,7 +1563,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
   it('aml_trace_deposit_sources performs reverse tracing and reports shared upstream convergence', async () => {
     const { traceDepositSources } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
-      callTool: vi.fn().mockResolvedValueOnce({
+      callTool: vi.fn()
+        .mockResolvedValueOnce(memberResolutionPassthrough())
+        .mockResolvedValueOnce({
         content: [{
           type: 'text',
           text: JSON.stringify({
@@ -1533,7 +1641,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         network: 'bittensor',
       }),
     }), undefined, expect.anything())
-    const query = remoteClient.callTool.mock.calls[0]?.[0].arguments.queries[0].query as string
+    const query = remoteClient.callTool.mock.calls[1]?.[0].arguments.queries[0].query as string
     expect(query).toContain('MATCH (source:Identity)-[r1:FLOWS_TO]->(deposit:Identity)')
     expect(query).toContain('deposit.identity_id = "5DepositA"')
     expect(query).toContain('deposit.identity_id = "5DepositB"')
@@ -1602,8 +1710,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     const { createProxy } = await import('../src/mcp/proxy.js')
     const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
 
     await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool.mockResolvedValueOnce(memberResolutionPassthrough())
 
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
