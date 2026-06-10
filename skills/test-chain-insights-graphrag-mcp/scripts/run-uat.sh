@@ -738,12 +738,25 @@ NODE
 
 GRAPH_QUERY_TEXT="${RUN_DIR}/graph-query-address.txt"
 log "calling Chain Insights CLI graph_query against real MCP"
-(
-  cd "${WORKSPACE_ROOT}"
-  node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
-    "network=${NETWORK}" \
-    "query=USE live_topology MATCH (n:Address) WHERE n.address = '${UAT_ADDRESS}' RETURN n.labels AS labels, n.address AS address LIMIT 1"
-) >"${GRAPH_QUERY_TEXT}"
+# Bounded retry: a busy graph store can transiently queue point reads past
+# the MCP per-query timeout (e.g. mid-resync); the assertion itself is
+# unchanged and still requires the exact UAT address row.
+GRAPH_QUERY_ATTEMPTS="${GRAPH_QUERY_ATTEMPTS:-3}"
+for attempt in $(seq 1 "${GRAPH_QUERY_ATTEMPTS}"); do
+  (
+    cd "${WORKSPACE_ROOT}"
+    node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
+      "network=${NETWORK}" \
+      "query=USE live_topology MATCH (n:Address) WHERE n.address = '${UAT_ADDRESS}' RETURN n.labels AS labels, n.address AS address LIMIT 1"
+  ) >"${GRAPH_QUERY_TEXT}" || true
+  if node -e "JSON.parse(require('node:fs').readFileSync(process.argv[1], 'utf8').trim())" "${GRAPH_QUERY_TEXT}" 2>/dev/null; then
+    break
+  fi
+  if [[ "${attempt}" -lt "${GRAPH_QUERY_ATTEMPTS}" ]]; then
+    log "graph_query attempt ${attempt} returned a non-JSON transient error; retrying in 20s"
+    sleep 20
+  fi
+done
 
 node - "${GRAPH_QUERY_TEXT}" "${UAT_ADDRESS}" <<'NODE'
 const fs = require('node:fs')
