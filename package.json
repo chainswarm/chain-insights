@@ -1,6 +1,6 @@
 {
   "name": "chain-insights",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "AML investigation CLI and MCP proxy for blockchain risk, fund-flow tracing, workspace reports, and GraphRAG MCP access",
   "homepage": "https://chain-insights.ai",
   "repository": {

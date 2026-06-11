@@ -101,7 +101,7 @@ const GRAPH_SCHEMA_HINTS = [
 	"- The graph is identity-grain. The only topology node label is Identity (satellite Address nodes exist only for member-address lookup), keyed by identity_id in the canonical prefixed form <network>:<canonical_address>, for example bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24.",
 	"- Identity nodes carry identity_id, addresses (member-address list: canonical 0x form first, SS58 form second when present), address_type, labels, and is_exchange. There is no network property; each network has its own graph.",
 	"- Identity nodes also carry a slim live risk verdict (risk_score float, risk_level string) for quick triage, plus base activity rollups: degree_in/degree_out, tx_in_count/tx_out_count/tx_total_count, total_in_usd/total_out_usd/total_volume_usd, net_flow_usd, active_days, activity_span_days, first_activity_timestamp/last_activity_timestamp, and lifetime_* variants.",
-	"- Resolve any member address form (0x or SS58) to its identity with the indexed exact lookup: MATCH (m:Address {address: $input})<-[:OF]-(i:Identity) RETURN i.identity_id LIMIT 1. :Address(address) is unique and index-backed.",
+	"- Resolve any member address form (0x or SS58) to its identity with the indexed exact lookup: MATCH (m:Address {address: $input})<-[:`OF`]-(i:Identity) RETURN i.identity_id LIMIT 1. :Address(address) is unique and index-backed. OF is a reserved word in the GQL grammar, so always backtick-escape the edge type as `OF`.",
 	"- Detailed, provenanced scoring still comes from USE facts: (:Identity)-[:HAS_RISK_SCORE]->(:RiskScore) for model versions/processing dates, (:Identity)-[:HAS_LABEL]->(:AddressLabel) for label risk, (:Identity)-[:HAS_FEATURE]->(:AddressFeature) for feature metrics. Use node risk_score/risk_level only as the quick-triage verdict; never read ml_* properties off topology nodes.",
 	"- Facts graph labels include Identity, AddressLabel, AddressFeature, RiskScore, and Asset. Facts identity keys match live identity_id values exactly.",
 	"- Live topology relationships include FLOWS_TO and RISK_PROXIMITY between Identity nodes, plus OWNS_EXPOSURE/HAS_EXPOSURE to Exposure, HAS_COUNTERPARTY from Exposure to Identity, and TARGETS_INSTRUMENT from Exposure to Instrument.",
@@ -913,7 +913,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { addressRisk } = await import("./public-tools-A_0trm_c.mjs");
+				const { addressRisk } = await import("./public-tools-DlE8VfaP.mjs");
 				const result = await addressRisk(remoteClient, {
 					address,
 					network,
@@ -976,7 +976,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceVictimFunds } = await import("./public-tools-A_0trm_c.mjs");
+				const { traceVictimFunds } = await import("./public-tools-DlE8VfaP.mjs");
 				const result = await traceVictimFunds(remoteClient, config, {
 					victimAddresses: victim_addresses,
 					knownSuspectAddresses: known_suspect_addresses,
@@ -1042,7 +1042,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceSuspectFunds } = await import("./public-tools-A_0trm_c.mjs");
+				const { traceSuspectFunds } = await import("./public-tools-DlE8VfaP.mjs");
 				const result = await traceSuspectFunds(remoteClient, config, {
 					suspectAddresses: suspect_addresses,
 					network,
@@ -1104,7 +1104,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceDepositSources } = await import("./public-tools-A_0trm_c.mjs");
+				const { traceDepositSources } = await import("./public-tools-DlE8VfaP.mjs");
 				const result = await traceDepositSources(remoteClient, config, {
 					depositAddresses: deposit_addresses,
 					network,
@@ -1169,7 +1169,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { exposureProfile } = await import("./public-tools-A_0trm_c.mjs");
+				const { exposureProfile } = await import("./public-tools-DlE8VfaP.mjs");
 				const result = await exposureProfile(remoteClient, {
 					network,
 					account,
@@ -1266,7 +1266,7 @@ async function createProxy() {
 						isError: true
 					};
 					const input = args;
-					const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await import("./public-tools-A_0trm_c.mjs");
+					const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await import("./public-tools-DlE8VfaP.mjs");
 					const options = {
 						network: String(input["network"] ?? ""),
 						account: input["account"] === void 0 ? void 0 : String(input["account"]),

@@ -392,7 +392,7 @@ log "calling Chain Insights CLI graph_query for member-address resolution"
   cd "${WORKSPACE_ROOT}"
   node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
     "network=${NETWORK}" \
-    "query=USE live_topology MATCH (m:Address {address: '${UAT_ADDRESS}'})<-[:OF]-(i:Identity) RETURN i.identity_id AS identity_id LIMIT 1"
+    "query=USE live_topology MATCH (m:Address {address: '${UAT_ADDRESS}'})<-[:\`OF\`]-(i:Identity) RETURN i.identity_id AS identity_id LIMIT 1"
 ) >"${MEMBER_RESOLVE_TEXT}"
 
 node - "${MEMBER_RESOLVE_TEXT}" "${UAT_IDENTITY_KEY}" "${UAT_ADDRESS}" <<'NODE'

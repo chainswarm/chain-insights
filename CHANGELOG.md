@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.5.2] - 2026-06-11
+
+- Fixed member-address resolution against MemGQL: `OF` is a reserved word in
+  the GQL grammar, so the relationship type must be backtick-escaped. The
+  resolution lookup is now
+  `MATCH (m:Address {address: $input})<-[:\`OF\`]-(i:Identity)
+  RETURN i.identity_id LIMIT 1`. Updated the resolution helper, workspace
+  runtime-skill prompt, MCP schema hints, and the GraphRAG MCP UAT
+  member-address resolution phase. The graph model from 0.5.1 is unchanged.
+
 ## [0.5.1] - 2026-06-11
 
 - Adopted the final member-address graph naming: the satellite label is

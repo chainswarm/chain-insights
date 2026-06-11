@@ -169,9 +169,10 @@ The slim identity graph schema:
   human-recognizable address forms; never invent address conversions.
 - Resolve any member address form (0x or SS58) to its identity through
   the indexed exact lookup:
-  \`MATCH (m:Address {address: $input})<-[:OF]-(i:Identity)
+  \`MATCH (m:Address {address: $input})<-[:\\\`OF\\\`]-(i:Identity)
   RETURN i.identity_id LIMIT 1\`. \`:Address(address)\` is unique and
-  index-backed.
+  index-backed. OF is a reserved word in the GQL grammar, so the edge
+  type must always be written backtick-escaped as \\\`OF\\\`.
 - Other Identity properties: \`address_type\`, \`labels\` (array), and
   \`is_exchange\` (sparse true/null traversal hint).
 - Identity nodes carry a slim live risk verdict for quick triage:
@@ -312,4 +313,4 @@ async function initWorkspace(options) {
 //#endregion
 export { initWorkspace };
 
-//# sourceMappingURL=init-BOiJMbrt.mjs.map
+//# sourceMappingURL=init-BYq-j2_Q.mjs.map

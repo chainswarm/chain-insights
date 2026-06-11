@@ -2116,7 +2116,7 @@ function memberAddressResolutionQuery(id, memberForm) {
 	return {
 		id,
 		query: [
-			`MATCH (m:Address {address: "${escapeCypherString(memberForm)}"})<-[:OF]-(i:Identity)`,
+			`MATCH (m:Address {address: "${escapeCypherString(memberForm)}"})<-[:\`OF\`]-(i:Identity)`,
 			"RETURN i.identity_id AS identity_id",
 			"LIMIT 1"
 		].join(" ")
@@ -2128,7 +2128,8 @@ function memberAddressResolutionQuery(id, memberForm) {
 * Inputs already in canonical 0x form (with or without the network prefix)
 * are derived locally as `<network>:<lowercase 0x form>`. Any other member
 * form (for example an SS58 substrate address) is resolved through the
-* indexed `(:Address {address})<-[:OF]-(:Identity)` lookup.
+* indexed `(:Address {address})<-[:\`OF\`]-(:Identity)` lookup (OF is a
+* reserved word in the GQL grammar and must be backtick-escaped).
 * Inputs the graph cannot resolve are passed through unchanged.
 */
 async function resolveIdentityKeys(remoteClient, network, inputs) {
@@ -3355,4 +3356,4 @@ async function traceDepositSources(remoteClient, _config, options) {
 //#endregion
 export { addressRisk, exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureProfile, exposureQuality, traceDepositSources, traceSuspectFunds, traceVictimFunds };
 
-//# sourceMappingURL=public-tools-A_0trm_c.mjs.map
+//# sourceMappingURL=public-tools-DlE8VfaP.mjs.map
