@@ -4,7 +4,7 @@ import path from 'node:path'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import type { InvestigatorConfig } from '../config/schema.js'
-import { runFundFlowProbe, type TraceActivityWindow, type TraceFundsResult } from './trace-funds.js'
+import { activityWindowPredicates, runFundFlowProbe, type TraceActivityWindow, type TraceFundsResult } from './trace-funds.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
 
@@ -769,6 +769,7 @@ export interface TraceDepositSourcesOptions {
   network: string
   timeRange?: { from_ms?: number; to_ms?: number }
   maxHops?: number
+  minAmountSum?: number
   writeArtifacts?: boolean
 }
 
@@ -1337,7 +1338,14 @@ export async function traceSuspectFunds(
   })
 }
 
-function reverseDepositSourceQueryAtDepth(depositAddresses: string[], depth: number): { id: string; query: string } {
+const REVERSE_DEPOSIT_SOURCES_LIMIT = 500
+
+function reverseDepositSourceQueryAtDepth(
+  depositAddresses: string[],
+  depth: number,
+  minAmountSum: number,
+  window: TraceActivityWindow | undefined,
+): { id: string; query: string } {
   const intermediateVariables = Array.from({ length: Math.max(depth - 1, 0) }, (_, index) => `n${index + 1}`)
   const nodeVariables = ['source', ...intermediateVariables, 'deposit']
   const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
@@ -1347,13 +1355,15 @@ function reverseDepositSourceQueryAtDepth(depositAddresses: string[], depth: num
   }).join('')
   const depositPredicates = depositAddresses.map((address) => `deposit.identity_id = "${escapeCypherString(address)}"`)
   const nonExchangePredicates = ['source', ...intermediateVariables, 'deposit'].map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
+  const amountPredicates = minAmountSum > 0 ? edgeVariables.map((edgeVariable) => `${edgeVariable}.amount_usd_sum >= ${minAmountSum}`) : []
+  const windowPredicates = activityWindowPredicates(edgeVariables, window)
   return {
     id: `reverse_deposit_sources_${depth}`,
     query: [
       `MATCH (source:Identity)${relationshipChain}`,
-      `WHERE (${depositPredicates.join(' OR ')}) AND source.identity_id <> deposit.identity_id AND ${nonExchangePredicates.join(' AND ')}`,
+      `WHERE (${depositPredicates.join(' OR ')}) AND source.identity_id <> deposit.identity_id AND ${[...nonExchangePredicates, ...amountPredicates, ...windowPredicates].join(' AND ')}`,
       `RETURN DISTINCT source.identity_id AS source_address, source.is_exchange AS source_is_exchange, deposit.identity_id AS deposit_address, deposit.is_exchange AS deposit_is_exchange, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
-      'LIMIT 500',
+      `LIMIT ${REVERSE_DEPOSIT_SOURCES_LIMIT}`,
     ].join(' '),
   }
 }
@@ -1481,11 +1491,13 @@ export async function traceDepositSources(
   const resolvedDeposits = await resolveIdentityKeys(remoteClient, network, depositInputs)
   const deposits = [...new Set(depositInputs.map((input) => resolvedDeposits.get(input) ?? input))]
   const maxHops = clampInt(options.maxHops, 2, 1, 5)
+  const minAmountSum = Math.max(0, options.minAmountSum ?? 0)
+  const window = traceActivityWindow(undefined, options.timeRange)
 
   const batch = await callGraphBatch(
     remoteClient,
     network,
-    Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1)),
+    Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1, minAmountSum, window)),
   )
   const failures: QueryFailure[] = []
   const rows: Array<Record<string, unknown>> = optionalResultsWithPrefix(batch, 'reverse_deposit_sources_', failures)
@@ -1494,6 +1506,9 @@ export async function traceDepositSources(
       ...row,
       path_id: `p${index + 1}`,
     }))
+  const truncationWarnings = (batch.facts?.queries ?? [])
+    .filter((entry) => entry.id?.startsWith('reverse_deposit_sources_') && (entry.results?.length ?? 0) >= REVERSE_DEPOSIT_SOURCES_LIMIT)
+    .map((entry) => `${entry.id} hit the ${REVERSE_DEPOSIT_SOURCES_LIMIT}-row limit; results may be truncated.`)
   const addresses = new Map<string, {
     address: string
     roles: Set<TraceRole>
@@ -1630,6 +1645,10 @@ export async function traceDepositSources(
         addresses: deposits,
         seed_role: 'deposit',
         ...(options.timeRange ? { time_range: options.timeRange } : {}),
+        ...(minAmountSum > 0 ? { min_amount_sum: minAmountSum } : {}),
+        time_filter: window
+          ? { from_ms: window.fromMs, ...(window.toMs !== undefined ? { to_ms: window.toMs } : {}) }
+          : 'none',
         max_hops: maxHops,
       },
       summary: {
@@ -1665,7 +1684,10 @@ export async function traceDepositSources(
           ? ['aml_trace_suspect_funds', 'aml_address_risk']
           : ['aml_address_risk', 'graph_query_batch'],
       },
-      warnings: paths.length === 0 ? ['No upstream sources were connected in the queried topology.'] : [],
+      warnings: [
+        ...(paths.length === 0 ? ['No upstream sources were connected in the queried topology.'] : []),
+        ...truncationWarnings,
+      ],
     },
     graphData,
   }
