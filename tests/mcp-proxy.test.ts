@@ -1047,11 +1047,17 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                     display_labels: ['validator'],
                     system_labels: ['Address', 'Validator'],
                     address_type: 'substrate',
-                    member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
                     live_risk_score: 0.91,
                     live_risk_level: 'critical',
                     degree_in: 3,
                     degree_out: 4,
+                  }],
+                },
+                {
+                  id: 'member_addresses',
+                  ok: true,
+                  results: [{
+                    member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
                   }],
                 },
                 {
@@ -1203,7 +1209,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }))
     const resolutionQueries = clientInstance.callTool.mock.calls[0][0].arguments.queries as Array<{ id: string; query: string }>
     expect(resolutionQueries[0]?.id).toBe('resolve_member_address_1')
-    expect(resolutionQueries[0]?.query).toContain('MATCH (m:Address {address: "5Addr"})<-[:OF]-(i:Identity)')
+    expect(resolutionQueries[0]?.query).toContain('MATCH (m:Address {address: "5Addr"})<-[:HAS_ADDRESS]-(i:Identity)')
     const riskQueries = clientInstance.callTool.mock.calls[1][0].arguments.queries as Array<{ id: string; query: string }>
     const outflowQuery = riskQueries.find((query) => query.id === 'exchange_outflows_2')?.query ?? ''
     const inflowQuery = riskQueries.find((query) => query.id === 'exchange_inflows_2')?.query ?? ''
@@ -1338,9 +1344,15 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                       display_labels: ['validator'],
                       system_labels: ['Address', 'Validator'],
                       address_type: 'substrate',
-                      member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
                       live_risk_score: 0.12,
                       live_risk_level: 'low',
+                    }],
+                  },
+                  {
+                    id: 'member_addresses',
+                    ok: true,
+                    results: [{
+                      member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
                     }],
                   },
                   { id: 'exchange_outflows', ok: true, results: [] },
@@ -1407,7 +1419,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const queries = remoteClient.callTool.mock.calls[0]?.[0].arguments.queries as Array<{ id: string; query: string }>
     expect(queries).toHaveLength(1)
     expect(queries[0]?.id).toBe('resolve_member_address_1')
-    expect(queries[0]?.query).toContain('MATCH (m:Address {address: "5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6"})<-[:OF]-(i:Identity)')
+    expect(queries[0]?.query).toContain('MATCH (m:Address {address: "5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6"})<-[:HAS_ADDRESS]-(i:Identity)')
     expect(queries[0]?.query).toContain('RETURN i.identity_id AS identity_id')
   })
 

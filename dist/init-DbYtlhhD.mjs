@@ -1,8 +1,6 @@
-const require_chunk = require("./chunk-DakpK96I.cjs");
-const require_mcp_endpoint = require("./mcp-endpoint-cQIZSjkK.cjs");
-let node_path = require("node:path");
-node_path = require_chunk.__toESM(node_path, 1);
-let node_fs_promises = require("node:fs/promises");
+import { t as LOCAL_GRAPH_MCP_ENDPOINT } from "./mcp-endpoint-QQ5Lbqc2.mjs";
+import path from "node:path";
+import { access, mkdir, writeFile } from "node:fs/promises";
 //#region src/workspace/init.ts
 const WORKSPACE_DIRS = [
 	".chain-insights",
@@ -30,7 +28,7 @@ function workspaceJson(workspaceRoot) {
 		name: "Chain Insights Workspace",
 		workspace_root: workspaceRoot,
 		default_network: "bittensor",
-		graph_mcp_endpoint: require_mcp_endpoint.LOCAL_GRAPH_MCP_ENDPOINT,
+		graph_mcp_endpoint: LOCAL_GRAPH_MCP_ENDPOINT,
 		artifacts_dir: "artifacts",
 		imports_dir: "imports",
 		reports_dir: "reports",
@@ -165,13 +163,18 @@ The slim identity graph schema:
   \`bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\`). Satellite
   \`(:Address)\` nodes exist only for member-address lookup. There is no
   \`network\` property; each network has its own graph.
-- Identity member addresses live in the \`addresses\` list property:
-  the canonical 0x form first, then the SS58 substrate form when the
-  identity has a substrate source. Use the list to report the
+- Identity nodes carry no member-address list property. Member-address
+  forms (the canonical 0x form, plus the SS58 substrate form when the
+  identity has a substrate source) live exclusively on the satellite
+  \`(:Address {address})\` nodes reached via
+  \`(:Identity)-[:HAS_ADDRESS]->(:Address)\`. Enumerate an identity's
+  member forms with:
+  \`MATCH (i:Identity {identity_id: $id})-[:HAS_ADDRESS]->(m:Address)
+  RETURN m.address\`. Use those satellite forms to report the
   human-recognizable address forms; never invent address conversions.
 - Resolve any member address form (0x or SS58) to its identity through
   the indexed exact lookup:
-  \`MATCH (m:Address {address: $input})<-[:OF]-(i:Identity)
+  \`MATCH (m:Address {address: $input})<-[:HAS_ADDRESS]-(i:Identity)
   RETURN i.identity_id LIMIT 1\`. \`:Address(address)\` is unique and
   index-backed.
 - Other Identity properties: \`address_type\`, \`labels\` (array), and
@@ -277,9 +280,9 @@ function workspaceFiles(workspaceRoot) {
 }
 async function assertNoFileCollisions(workspaceRoot) {
 	for (const [relativePath] of workspaceFiles(workspaceRoot)) {
-		const filePath = node_path.default.join(workspaceRoot, relativePath);
+		const filePath = path.join(workspaceRoot, relativePath);
 		try {
-			await (0, node_fs_promises.access)(filePath);
+			await access(filePath);
 			throw new Error(`Refusing to overwrite ${filePath}. Re-run with --force to replace workspace files.`);
 		} catch (err) {
 			if (err.code === "ENOENT") continue;
@@ -288,15 +291,15 @@ async function assertNoFileCollisions(workspaceRoot) {
 	}
 }
 async function initWorkspace(options) {
-	const workspaceRoot = node_path.default.resolve(options.targetDir);
+	const workspaceRoot = path.resolve(options.targetDir);
 	if (!options.force) await assertNoFileCollisions(workspaceRoot);
-	for (const dir of WORKSPACE_DIRS) await (0, node_fs_promises.mkdir)(node_path.default.join(workspaceRoot, dir), { recursive: true });
+	for (const dir of WORKSPACE_DIRS) await mkdir(path.join(workspaceRoot, dir), { recursive: true });
 	const filesWritten = [];
 	const flag = options.force ? "w" : "wx";
 	for (const [relativePath, content] of workspaceFiles(workspaceRoot)) {
-		const filePath = node_path.default.join(workspaceRoot, relativePath);
+		const filePath = path.join(workspaceRoot, relativePath);
 		try {
-			await (0, node_fs_promises.writeFile)(filePath, content, {
+			await writeFile(filePath, content, {
 				mode: 384,
 				flag
 			});
@@ -312,4 +315,6 @@ async function initWorkspace(options) {
 	};
 }
 //#endregion
-exports.initWorkspace = initWorkspace;
+export { initWorkspace };
+
+//# sourceMappingURL=init-DbYtlhhD.mjs.map

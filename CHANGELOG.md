@@ -3,6 +3,43 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.5.4] - 2026-06-11
+
+- Breaking graph-model change: Identity nodes no longer carry the `addresses`
+  list property. Member-address forms live exclusively on the
+  `(:Address {address})` satellite nodes reached via
+  `(:Identity)-[:HAS_ADDRESS]->(:Address)`; enumerate an identity's member
+  forms with `MATCH (i:Identity {identity_id: $id})-[:HAS_ADDRESS]->(m:Address)
+  RETURN m.address`. Removed every `addresses`-property read: the
+  `aml_address_risk` profile now collects member addresses through a dedicated
+  `HAS_ADDRESS` batch query, trace path-node maps no longer project
+  `addresses`, the workspace runtime-skill prompt and MCP schema hints document
+  the satellite traversal instead of the list property, and the GraphRAG MCP
+  UAT asserts membership via `collect(m.address)` from the satellites.
+
+## [0.5.3] - 2026-06-11
+
+- Renamed the identity member-address edge from `(:Identity)-[:OF]->(:Address)`
+  to `(:Identity)-[:HAS_ADDRESS]->(:Address)`. `OF` is a reserved word in the
+  MemGQL grammar and required backtick escaping in every query; `HAS_ADDRESS`
+  parses bare and matches the facts-graph `HAS_RISK_SCORE`/`HAS_LABEL`/
+  `HAS_FEATURE` edge family. The member-address resolution lookup is now
+  `MATCH (m:Address {address: $input})<-[:HAS_ADDRESS]-(i:Identity)
+  RETURN i.identity_id LIMIT 1`. Removed the backtick escaping and
+  reserved-word notes from the resolution helper, workspace runtime-skill
+  prompt, MCP schema hints, and the GraphRAG MCP UAT member-address
+  resolution phase.
+
+## [0.5.2] - 2026-06-11
+
+- Fixed member-address resolution against MemGQL: `OF` is a reserved word in
+  the GQL grammar, so the relationship type must be backtick-escaped. The
+  resolution lookup is now
+  `MATCH (m:Address {address: $input})<-[:\`OF\`]-(i:Identity)
+  RETURN i.identity_id LIMIT 1`. Updated the resolution helper, workspace
+  runtime-skill prompt, MCP schema hints, and the GraphRAG MCP UAT
+  member-address resolution phase. The graph model from 0.5.1 is unchanged.
+
 ## [0.5.1] - 2026-06-11
 
 - Adopted the final member-address graph naming: the satellite label is

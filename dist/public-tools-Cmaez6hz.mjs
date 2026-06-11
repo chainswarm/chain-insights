@@ -151,8 +151,7 @@ function schemaFromGraphBatch(network, batch) {
 			"r.tx_count AS tx_count",
 			"r.first_tx_id AS first_tx_id",
 			"r.last_tx_id AS last_tx_id",
-			"dst.labels AS dst_labels",
-			"dst.addresses AS dst_member_addresses"
+			"dst.labels AS dst_labels"
 		]
 	};
 }
@@ -177,7 +176,7 @@ function flowEdgeMap$1(variableName) {
 	return `{amount_sum: ${variableName}.amount_sum, amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`;
 }
 function pathNodeMap$1(variableName) {
-	return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, addresses: ${variableName}.addresses, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`;
+	return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`;
 }
 function forwardExchangeQueries(address, limit, minAmountSum, maxHops) {
 	return Array.from({ length: maxHops }, (_, index) => forwardExchangeQueryAtDepth(address, limit, minAmountSum, index + 1));
@@ -244,7 +243,7 @@ function reverseLeadsQuery(depositAddresses) {
 		query: [
 			"MATCH (sender:Identity)-[r:FLOWS_TO]->(deposit:Identity)",
 			`WHERE (${depositAddresses.map((address) => `deposit.identity_id = "${escapeCypherString$3(address)}"`).join(" OR ")}) AND sender.is_exchange IS NULL AND sender.identity_id <> deposit.identity_id`,
-			"RETURN DISTINCT sender.identity_id AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.addresses AS member_addresses, sender.risk_score AS risk_score, sender.risk_level AS risk_level, deposit.identity_id AS deposit_address, r.amount_usd_sum AS amount_usd",
+			"RETURN DISTINCT sender.identity_id AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.risk_score AS risk_score, sender.risk_level AS risk_level, deposit.identity_id AS deposit_address, r.amount_usd_sum AS amount_usd",
 			"ORDER BY r.amount_usd_sum DESC",
 			`LIMIT ${Math.max(50, depositAddresses.length * 50)}`
 		].join(" ")
@@ -316,7 +315,7 @@ function nodeMetadataFromValue(value, fallbackAddress) {
 		labels: stringArrayValue$1(record["labels"]),
 		system_labels: stringArrayValue$1(record["system_labels"]),
 		address_type: typeof record["address_type"] === "string" ? record["address_type"] : void 0,
-		addresses: stringArrayValue$1(record["addresses"]) ?? stringArrayValue$1(record["member_addresses"]),
+		addresses: stringArrayValue$1(record["member_addresses"]),
 		risk_score: numberValue$3(record["risk_score"]),
 		risk_level: typeof record["risk_level"] === "string" && record["risk_level"].trim() ? record["risk_level"] : void 0,
 		is_exchange: isExchangeFlag$1(record["is_exchange"])
@@ -2116,7 +2115,7 @@ function memberAddressResolutionQuery(id, memberForm) {
 	return {
 		id,
 		query: [
-			`MATCH (m:Address {address: "${escapeCypherString(memberForm)}"})<-[:OF]-(i:Identity)`,
+			`MATCH (m:Address {address: "${escapeCypherString(memberForm)}"})<-[:HAS_ADDRESS]-(i:Identity)`,
 			"RETURN i.identity_id AS identity_id",
 			"LIMIT 1"
 		].join(" ")
@@ -2128,7 +2127,7 @@ function memberAddressResolutionQuery(id, memberForm) {
 * Inputs already in canonical 0x form (with or without the network prefix)
 * are derived locally as `<network>:<lowercase 0x form>`. Any other member
 * form (for example an SS58 substrate address) is resolved through the
-* indexed `(:Address {address})<-[:OF]-(:Identity)` lookup.
+* indexed `(:Address {address})<-[:HAS_ADDRESS]-(:Identity)` lookup.
 * Inputs the graph cannot resolve are passed through unchanged.
 */
 async function resolveIdentityKeys(remoteClient, network, inputs) {
@@ -2153,9 +2152,15 @@ function addressProfileQuery(address) {
 		id: "address_profile",
 		query: [
 			`MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})`,
-			"RETURN a.identity_id AS address, a.labels AS display_labels, a.labels AS system_labels, a.address_type AS address_type, a.addresses AS member_addresses, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level, a.is_exchange AS is_exchange",
+			"RETURN a.identity_id AS address, a.labels AS display_labels, a.labels AS system_labels, a.address_type AS address_type, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level, a.is_exchange AS is_exchange",
 			"LIMIT 1"
 		].join(" ")
+	};
+}
+function memberAddressesQuery(address) {
+	return {
+		id: "member_addresses",
+		query: [`MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[:HAS_ADDRESS]->(m:Address)`, "RETURN collect(m.address) AS member_addresses"].join(" ")
 	};
 }
 function addressFeatureQuery(address) {
@@ -2195,7 +2200,7 @@ function flowEdgeMap(variableName) {
 	return `{amount_sum: ${variableName}.amount_sum, amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`;
 }
 function pathNodeMap(variableName) {
-	return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, addresses: ${variableName}.addresses, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`;
+	return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`;
 }
 function exchangeOutflowQueries(address) {
 	return Array.from({ length: 3 }, (_, index) => exchangeOutflowQueryAtDepth(address, index + 1));
@@ -2444,7 +2449,7 @@ function buildRiskGraph(address, profile, rows, network) {
 		const labels = stringArrayValue(metadata?.["labels"]) ?? existing["labels"];
 		const systemLabels = stringArrayValue(metadata?.["system_labels"]) ?? existing["system_labels"];
 		const addressType = typeof metadata?.["address_type"] === "string" ? metadata["address_type"] : existing["address_type"];
-		const memberAddresses = stringArrayValue(metadata?.["addresses"]) ?? stringArrayValue(metadata?.["member_addresses"]) ?? existing["member_addresses"];
+		const memberAddresses = stringArrayValue(metadata?.["member_addresses"]) ?? existing["member_addresses"];
 		const riskScore = numberValue(metadata?.["risk_score"]) ?? existing["risk_score"];
 		const riskLevel = firstString(metadata?.["risk_level"]) ?? existing["risk_level"];
 		nodes.set(entry, {
@@ -2519,6 +2524,7 @@ async function addressRisk(remoteClient, options) {
 	const compareAddress = compareInput ? resolvedKeys.get(compareInput) ?? compareInput : "";
 	const batch = await callGraphBatch(remoteClient, network, [
 		addressProfileQuery(address),
+		memberAddressesQuery(address),
 		addressFeatureQuery(address),
 		addressRiskScoreQuery(address),
 		addressLabelRiskQuery(address),
@@ -2533,6 +2539,7 @@ async function addressRisk(remoteClient, options) {
 	const profile = {
 		address,
 		...optionalResultsFor(batch, "address_profile", partialQueryFailures)[0] ?? {},
+		...optionalResultsFor(batch, "member_addresses", partialQueryFailures)[0] ?? {},
 		...optionalResultsFor(batch, "address_feature", partialQueryFailures)[0] ?? {},
 		...optionalResultsFor(batch, "address_risk_score", partialQueryFailures)[0] ?? {}
 	};
@@ -3355,4 +3362,4 @@ async function traceDepositSources(remoteClient, _config, options) {
 //#endregion
 export { addressRisk, exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureProfile, exposureQuality, traceDepositSources, traceSuspectFunds, traceVictimFunds };
 
-//# sourceMappingURL=public-tools-A_0trm_c.mjs.map
+//# sourceMappingURL=public-tools-Cmaez6hz.mjs.map
