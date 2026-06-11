@@ -4,7 +4,7 @@ import path from 'node:path'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import type { InvestigatorConfig } from '../config/schema.js'
-import { runFundFlowProbe, type TraceFundsResult } from './trace-funds.js'
+import { runFundFlowProbe, type TraceActivityWindow, type TraceFundsResult } from './trace-funds.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
 
@@ -798,6 +798,12 @@ function clampInt(value: number | undefined, fallback: number, min: number, max:
   return Math.max(min, Math.min(max, Math.trunc(value as number)))
 }
 
+function traceActivityWindow(incidentTimestampMs: number | undefined, timeRange: { from_ms?: number; to_ms?: number } | undefined): TraceActivityWindow | undefined {
+  const fromMs = timeRange?.from_ms ?? incidentTimestampMs
+  if (fromMs === undefined) return undefined
+  return { fromMs, ...(timeRange?.to_ms !== undefined ? { toMs: timeRange.to_ms } : {}) }
+}
+
 function graphRecords(graphData: Record<string, unknown>, key: string): Array<Record<string, unknown>> {
   const value = graphData[key]
   return Array.isArray(value)
@@ -1058,6 +1064,7 @@ function traceResultFromFundRuns(
   options: {
     incidentTimestampMs?: number
     timeRange?: { from_ms?: number; to_ms?: number }
+    activityWindow?: TraceActivityWindow
     maxHops?: number
     } = {},
 ): { summaryText: string; structuredContent: Record<string, unknown>; graphData: Record<string, unknown> } {
@@ -1170,6 +1177,9 @@ function traceResultFromFundRuns(
       seed_role: seedRole,
       ...(options.incidentTimestampMs !== undefined ? { incident_timestamp_ms: options.incidentTimestampMs } : {}),
       ...(options.timeRange ? { time_range: options.timeRange } : {}),
+      time_filter: options.activityWindow
+        ? { from_ms: options.activityWindow.fromMs, ...(options.activityWindow.toMs !== undefined ? { to_ms: options.activityWindow.toMs } : {}) }
+        : 'none',
       max_hops: options.maxHops ?? 3,
     },
     summary: {
@@ -1236,6 +1246,7 @@ export async function traceVictimFunds(
   if (knownSuspects.length > 5) throw new Error('known_suspect_addresses cannot exceed 5 addresses')
   const resolvedVictims = await resolveIdentityKeys(remoteClient, network, victimInputs)
   const victims = [...new Set(victimInputs.map((input) => resolvedVictims.get(input) ?? input))]
+  const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange)
 
   const runs: TraceRun[] = []
   for (const address of victims) {
@@ -1248,6 +1259,7 @@ export async function traceVictimFunds(
         maxHops: options.maxHops,
         perAddressLimit: options.perAddressLimit,
         minAmountSum: options.minAmountSum,
+        activityWindow,
         includeDepositTraceback: false,
         evidenceSource: 'aml_trace_victim_funds',
         writeArtifacts: options.writeArtifacts,
@@ -1257,6 +1269,7 @@ export async function traceVictimFunds(
   return traceResultFromFundRuns('aml_trace_victim_funds', 'victim', network, runs, {
     incidentTimestampMs: options.incidentTimestampMs,
     timeRange: options.timeRange,
+    activityWindow,
     maxHops: options.maxHops,
   })
 }
@@ -1273,6 +1286,7 @@ export async function traceSuspectFunds(
   if (suspectInputs.length > 5) throw new Error('suspect_addresses cannot exceed 5 addresses')
   const resolvedSuspects = await resolveIdentityKeys(remoteClient, network, suspectInputs)
   const suspects = [...new Set(suspectInputs.map((input) => resolvedSuspects.get(input) ?? input))]
+  const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange)
 
   const runs: TraceRun[] = []
   for (const address of suspects) {
@@ -1285,6 +1299,7 @@ export async function traceSuspectFunds(
         maxHops: options.maxHops,
         perAddressLimit: options.perAddressLimit,
         minAmountSum: options.minAmountSum,
+        activityWindow,
         includeDepositTraceback: false,
         evidenceSource: 'aml_trace_suspect_funds',
         writeArtifacts: options.writeArtifacts,
@@ -1294,6 +1309,7 @@ export async function traceSuspectFunds(
   return traceResultFromFundRuns('aml_trace_suspect_funds', 'suspect', network, runs, {
     incidentTimestampMs: options.incidentTimestampMs,
     timeRange: options.timeRange,
+    activityWindow,
     maxHops: options.maxHops,
   })
 }

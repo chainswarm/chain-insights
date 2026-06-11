@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { runFundFlowProbe } from '../src/investigation/trace-funds.js'
+import { traceVictimFunds } from '../src/investigation/public-tools.js'
 
 type BatchQuery = { id: string; query: string }
 
@@ -80,5 +81,33 @@ describe('forward trace activity window', () => {
     const forward = captured.flat().find((q) => q.id === 'forward_exchange_paths_1')
     expect(forward!.query).toContain('first_seen_timestamp: r1.first_seen_timestamp')
     expect(forward!.query).toContain('last_seen_timestamp: r1.last_seen_timestamp')
+  })
+})
+
+describe('public trace tools window wiring', () => {
+  it('derives the window from incident_timestamp_ms and reports time_filter', async () => {
+    const captured: BatchQuery[][] = []
+    const result = await traceVictimFunds(fakeClient(captured) as never, config, {
+      victimAddresses: 'net:0xv1',
+      network: 'bittensor',
+      incidentTimestampMs: 1715500000000,
+      writeArtifacts: false,
+    })
+    const forward = captured.flat().filter((q) => q.id.startsWith('forward_exchange_paths_'))
+    expect(forward.length).toBeGreaterThan(0)
+    expect(forward[0]!.query).toContain('first_seen_timestamp >= 1715500000000')
+    const input = (result.structuredContent as { input: Record<string, unknown> }).input
+    expect(input['time_filter']).toEqual({ from_ms: 1715500000000 })
+  })
+
+  it('reports time_filter none when no window inputs are given', async () => {
+    const captured: BatchQuery[][] = []
+    const result = await traceVictimFunds(fakeClient(captured) as never, config, {
+      victimAddresses: 'net:0xv1',
+      network: 'bittensor',
+      writeArtifacts: false,
+    })
+    const input = (result.structuredContent as { input: Record<string, unknown> }).input
+    expect(input['time_filter']).toBe('none')
   })
 })
