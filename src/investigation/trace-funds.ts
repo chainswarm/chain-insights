@@ -11,12 +11,18 @@ type RemoteToolResult = {
   isError?: boolean
 }
 
+export interface TraceActivityWindow {
+  fromMs: number
+  toMs?: number
+}
+
 export interface TraceFundsOptions {
   seedAddress: string
   network: string
   maxHops?: number
   perAddressLimit?: number
   minAmountSum?: number
+  activityWindow?: TraceActivityWindow
   includeDepositTraceback?: boolean
   evidenceSource?: string
   writeArtifacts?: boolean
@@ -30,6 +36,8 @@ export interface TraceFlow {
   tx_count?: number
   first_tx_id?: string
   last_tx_id?: string
+  first_seen_timestamp?: number
+  last_seen_timestamp?: number
   src_labels?: string[]
   dst_labels?: string[]
   src_node?: GraphNodeMetadata
@@ -293,18 +301,27 @@ async function loadOrCaptureTopologySchema(
 }
 
 function flowEdgeMap(variableName: string): string {
-  return `{amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`
+  return `{amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_seen_timestamp: ${variableName}.first_seen_timestamp, last_seen_timestamp: ${variableName}.last_seen_timestamp, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`
 }
 
 function pathNodeMap(variableName: string): string {
   return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`
 }
 
-function forwardExchangeQueries(address: string, limit: number, minAmountSum: number, maxHops: number): Array<{ id: string; query: string }> {
-  return Array.from({ length: maxHops }, (_, index) => forwardExchangeQueryAtDepth(address, limit, minAmountSum, index + 1))
+function activityWindowPredicates(edgeVariables: string[], window: TraceActivityWindow | undefined): string[] {
+  if (!window) return []
+  return edgeVariables.map((edgeVariable) => {
+    const from = `(${edgeVariable}.first_seen_timestamp >= ${window.fromMs} OR ${edgeVariable}.last_seen_timestamp >= ${window.fromMs})`
+    const to = window.toMs !== undefined ? ` AND ${edgeVariable}.first_seen_timestamp <= ${window.toMs}` : ''
+    return `${from}${to}`
+  })
 }
 
-function forwardExchangeQueryAtDepth(address: string, limit: number, minAmountSum: number, depth: number): { id: string; query: string } {
+function forwardExchangeQueries(address: string, limit: number, minAmountSum: number, maxHops: number, activityWindow?: TraceActivityWindow): Array<{ id: string; query: string }> {
+  return Array.from({ length: maxHops }, (_, index) => forwardExchangeQueryAtDepth(address, limit, minAmountSum, index + 1, activityWindow))
+}
+
+function forwardExchangeQueryAtDepth(address: string, limit: number, minAmountSum: number, depth: number, activityWindow?: TraceActivityWindow): { id: string; query: string } {
   const intermediateVariables = Array.from({ length: Math.max(depth - 1, 0) }, (_, index) => `n${index + 1}`)
   const nodeVariables = ['s', ...intermediateVariables, 't']
   const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
@@ -314,7 +331,7 @@ function forwardExchangeQueryAtDepth(address: string, limit: number, minAmountSu
   }).join('')
   const amountPredicates = edgeVariables.map((edgeVariable) => `${edgeVariable}.amount_usd_sum IS NOT NULL${minAmountSum > 0 ? ` AND ${edgeVariable}.amount_usd_sum >= ${minAmountSum}` : ''}`)
   const nonTerminalPredicates = ['s', ...intermediateVariables].map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
-  const predicates = ['s <> t', ...nonTerminalPredicates, 't.is_exchange IS NOT NULL', ...amountPredicates]
+  const predicates = ['s <> t', ...nonTerminalPredicates, 't.is_exchange IS NOT NULL', ...amountPredicates, ...activityWindowPredicates(edgeVariables, activityWindow)]
   const depositVariable = nodeVariables[nodeVariables.length - 2]!
   return {
     id: `forward_exchange_paths_${depth}`,
@@ -382,7 +399,7 @@ function directEdgePropsQuery(flows: TraceFlow[]): { id: string; query: string }
     query: [
       'MATCH (a:Identity)-[r:FLOWS_TO]->(b:Identity)',
       `WHERE (${predicates.join(' OR ')})`,
-      'RETURN a.identity_id AS src, b.identity_id AS dst, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count, r.first_tx_id AS first_tx_id, r.last_tx_id AS last_tx_id',
+      'RETURN a.identity_id AS src, b.identity_id AS dst, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count, r.first_tx_id AS first_tx_id, r.last_tx_id AS last_tx_id, r.first_seen_timestamp AS first_seen_timestamp, r.last_seen_timestamp AS last_seen_timestamp',
       `LIMIT ${pairs.length}`,
     ].join(' '),
   }
@@ -535,6 +552,8 @@ function flowsFromForwardRows(rows: Array<Record<string, unknown>>): { flows: Tr
         tx_count: numberValue(edge['tx_count']),
         first_tx_id: typeof edge['first_tx_id'] === 'string' ? edge['first_tx_id'] : undefined,
         last_tx_id: typeof edge['last_tx_id'] === 'string' ? edge['last_tx_id'] : undefined,
+        first_seen_timestamp: numberValue(edge['first_seen_timestamp']),
+        last_seen_timestamp: numberValue(edge['last_seen_timestamp']),
         src_labels: nodeLabels[index],
         dst_labels: nodeLabels[index + 1],
         src_node: pathNodes[index],
@@ -566,6 +585,8 @@ async function hydrateDirectEdgeProps(remoteClient: Client, network: string, flo
     flow.tx_count = numberValue(props['tx_count'])
     flow.first_tx_id = typeof props['first_tx_id'] === 'string' ? props['first_tx_id'] : undefined
     flow.last_tx_id = typeof props['last_tx_id'] === 'string' ? props['last_tx_id'] : undefined
+    flow.first_seen_timestamp = numberValue(props['first_seen_timestamp']) ?? flow.first_seen_timestamp
+    flow.last_seen_timestamp = numberValue(props['last_seen_timestamp']) ?? flow.last_seen_timestamp
   }
 
   for (const deposit of deposits) {
@@ -577,10 +598,10 @@ async function hydrateDirectEdgeProps(remoteClient: Client, network: string, flo
 
 async function collectProbeTrace(
   remoteClient: Client,
-  options: Required<Pick<TraceFundsOptions, 'seedAddress' | 'network' | 'maxHops' | 'perAddressLimit' | 'minAmountSum'>> & Pick<TraceFundsOptions, 'includeDepositTraceback'>,
+  options: Required<Pick<TraceFundsOptions, 'seedAddress' | 'network' | 'maxHops' | 'perAddressLimit' | 'minAmountSum'>> & Pick<TraceFundsOptions, 'includeDepositTraceback' | 'activityWindow'>,
 ): Promise<{ flows: TraceFlow[]; deposits: TraceDeposit[]; sourceMatches: SourceMatch[]; reverseLeads: ReverseLead[] }> {
   const forwardBatch = await callGraphBatch(remoteClient, options.network, [
-    ...forwardExchangeQueries(options.seedAddress, Math.max(options.perAddressLimit * 20, 200), options.minAmountSum, options.maxHops),
+    ...forwardExchangeQueries(options.seedAddress, Math.max(options.perAddressLimit * 20, 200), options.minAmountSum, options.maxHops, options.activityWindow),
   ])
   const forwardRows = rowsMatchingMinimumAmount((forwardBatch.facts?.queries ?? [])
     .filter((query) => query.id?.startsWith('forward_exchange_paths_'))
@@ -771,6 +792,8 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], de
         usd_amount: flow.amount_usd_sum,
         amount_usd_sum: flow.amount_usd_sum,
         tx_count: flow.tx_count ?? 0,
+        first_seen_timestamp: flow.first_seen_timestamp,
+        last_seen_timestamp: flow.last_seen_timestamp,
         first_tx_id: flow.first_tx_id,
         last_tx_id: flow.last_tx_id,
         terminal_exchange: flow.terminal_exchange,
@@ -881,6 +904,8 @@ function probeEvidence(seedAddress: string, network: string, schemaPath: string,
       dst: aliases.alias(flow.dst) ?? flow.dst,
       amount_usd_sum: flow.amount_usd_sum,
       tx_count: flow.tx_count,
+      first_seen_timestamp: flow.first_seen_timestamp,
+      last_seen_timestamp: flow.last_seen_timestamp,
       first_tx_id: flow.first_tx_id,
       last_tx_id: flow.last_tx_id,
       terminal_exchange: flow.terminal_exchange,
@@ -889,7 +914,7 @@ function probeEvidence(seedAddress: string, network: string, schemaPath: string,
 }
 
 function tableCsv(flows: TraceFlow[]): string {
-  const rows = ['hop,src,dst,amount_usd_sum,tx_count,first_tx_id,last_tx_id,terminal_exchange']
+  const rows = ['hop,src,dst,amount_usd_sum,tx_count,first_seen_timestamp,last_seen_timestamp,first_tx_id,last_tx_id,terminal_exchange']
   for (const flow of flows) {
     rows.push([
       flow.hop,
@@ -897,6 +922,8 @@ function tableCsv(flows: TraceFlow[]): string {
       flow.dst,
       flow.amount_usd_sum,
       flow.tx_count ?? '',
+      flow.first_seen_timestamp ?? '',
+      flow.last_seen_timestamp ?? '',
       flow.first_tx_id ?? '',
       flow.last_tx_id ?? '',
       flow.terminal_exchange ? 'true' : 'false',
@@ -1060,7 +1087,7 @@ export async function runFundFlowProbe(
         },
         filePath: 'stateless://runtime-schema-not-written',
       }
-  const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, { seedAddress, network, maxHops, perAddressLimit, minAmountSum, includeDepositTraceback: options.includeDepositTraceback })
+  const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, { seedAddress, network, maxHops, perAddressLimit, minAmountSum, activityWindow: options.activityWindow, includeDepositTraceback: options.includeDepositTraceback })
   const aliases = buildAliases(seedAddress, deposits, sourceMatches, reverseLeads)
   const slug = `${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}_${sanitizeSegment(seedAddress.slice(0, 16))}`
   const compact = probeEvidence(seedAddress, network, schemaResult.filePath, aliases, flows, deposits, sourceMatches, reverseLeads, evidenceSource)
