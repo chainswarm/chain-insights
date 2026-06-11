@@ -271,6 +271,8 @@ function schemaFromGraphBatch(network: string, batch: ParsedGraphBatch): Record<
       'dst.identity_id AS dst',
       'r.amount_usd_sum AS amount_usd_sum',
       'r.tx_count AS tx_count',
+      'r.first_seen_timestamp AS first_seen_timestamp',
+      'r.last_seen_timestamp AS last_seen_timestamp',
       'r.first_tx_id AS first_tx_id',
       'r.last_tx_id AS last_tx_id',
       'dst.labels AS dst_labels',
@@ -308,7 +310,7 @@ function pathNodeMap(variableName: string): string {
   return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`
 }
 
-function activityWindowPredicates(edgeVariables: string[], window: TraceActivityWindow | undefined): string[] {
+export function activityWindowPredicates(edgeVariables: string[], window: TraceActivityWindow | undefined): string[] {
   if (!window) return []
   return edgeVariables.map((edgeVariable) => {
     const from = `(${edgeVariable}.first_seen_timestamp >= ${window.fromMs} OR ${edgeVariable}.last_seen_timestamp >= ${window.fromMs})`
@@ -839,14 +841,16 @@ function buildMarkdownReport(seedAddress: string, network: string, flows: TraceF
     '',
     '## Flow Table',
     '',
-    '| Hop | Source | Destination | amount_usd_sum | tx_count | first_tx_id | terminal_exchange |',
-    '|---:|---|---|---:|---:|---|---|',
+    '| Hop | Source | Destination | amount_usd_sum | tx_count | first_seen_timestamp | last_seen_timestamp | first_tx_id | terminal_exchange |',
+    '|---:|---|---|---:|---:|---:|---:|---|---|',
     ...flows.map((flow) => [
       `| ${flow.hop}`,
       `\`${flow.src}\``,
       `\`${flow.dst}\``,
       flow.amount_usd_sum,
       flow.tx_count ?? '',
+      flow.first_seen_timestamp ?? '',
+      flow.last_seen_timestamp ?? '',
       flow.first_tx_id ? `\`${flow.first_tx_id}\`` : '',
       flow.terminal_exchange ? 'yes' : 'no',
     ].join(' | ') + ' |'),
@@ -948,6 +952,8 @@ function buildTableHtml(seedAddress: string, network: string, flows: TraceFlow[]
     'dst',
     'amount_usd_sum',
     'tx_count',
+    'first_seen_timestamp',
+    'last_seen_timestamp',
     'first_tx_id',
     'last_tx_id',
     'terminal_exchange_display',
@@ -958,6 +964,8 @@ function buildTableHtml(seedAddress: string, network: string, flows: TraceFlow[]
     dst: 'Destination',
     amount_usd_sum: 'amount_usd_sum',
     tx_count: 'tx_count',
+    first_seen_timestamp: 'first_seen_timestamp',
+    last_seen_timestamp: 'last_seen_timestamp',
     first_tx_id: 'first_tx_id',
     last_tx_id: 'last_tx_id',
     terminal_exchange_display: 'terminal_exchange',
@@ -1067,6 +1075,9 @@ export async function runFundFlowProbe(
   const network = options.network.trim()
   if (!seedAddress) throw new Error('seed_address is required')
   if (!network) throw new Error('network is required')
+  if (options.activityWindow && (!Number.isFinite(options.activityWindow.fromMs) || (options.activityWindow.toMs !== undefined && !Number.isFinite(options.activityWindow.toMs)))) {
+    throw new Error('activity window timestamps must be finite numbers')
+  }
 
   const maxHops = clampInt(options.maxHops, 3, 1, 5)
   const perAddressLimit = clampInt(options.perAddressLimit, 5, 1, 10)

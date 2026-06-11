@@ -40,6 +40,21 @@ describe('forward trace activity window', () => {
       expect(query.query).toContain('r1.first_seen_timestamp <= 1716000000000')
     }
     expect(forward[1]!.query).toContain('r2.first_seen_timestamp >= 1715500000000 OR r2.last_seen_timestamp >= 1715500000000')
+    expect(forward[1]!.query).toContain('r2.first_seen_timestamp <= 1716000000000')
+  })
+
+  it('renders only the from predicate when toMs is omitted', async () => {
+    const captured: BatchQuery[][] = []
+    await runFundFlowProbe(fakeClient(captured) as never, config, {
+      seedAddress: 'net:0xseed',
+      network: 'bittensor',
+      maxHops: 1,
+      writeArtifacts: false,
+      activityWindow: { fromMs: 1715500000000 },
+    })
+    const forward = captured.flat().find((q) => q.id === 'forward_exchange_paths_1')
+    expect(forward!.query).toContain('(r1.first_seen_timestamp >= 1715500000000 OR r1.last_seen_timestamp >= 1715500000000)')
+    expect(forward!.query).not.toContain('<=')
   })
 
   it('omits window predicates when no window is given', async () => {
