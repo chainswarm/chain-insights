@@ -3,6 +3,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.5.3] - 2026-06-11
+
+- Renamed the identity member-address edge from `(:Identity)-[:OF]->(:Address)`
+  to `(:Identity)-[:HAS_ADDRESS]->(:Address)`. `OF` is a reserved word in the
+  MemGQL grammar and required backtick escaping in every query; `HAS_ADDRESS`
+  parses bare and matches the facts-graph `HAS_RISK_SCORE`/`HAS_LABEL`/
+  `HAS_FEATURE` edge family. The member-address resolution lookup is now
+  `MATCH (m:Address {address: $input})<-[:HAS_ADDRESS]-(i:Identity)
+  RETURN i.identity_id LIMIT 1`. Removed the backtick escaping and
+  reserved-word notes from the resolution helper, workspace runtime-skill
+  prompt, MCP schema hints, and the GraphRAG MCP UAT member-address
+  resolution phase.
+
 ## [0.5.2] - 2026-06-11
 
 - Fixed member-address resolution against MemGQL: `OF` is a reserved word in

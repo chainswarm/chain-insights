@@ -9,7 +9,7 @@ SERVER_PORT="${CHAIN_INSIGHTS_SERVER_PORT:-4321}"
 NETWORK="${NETWORK:-bittensor}"
 # UAT_ADDRESS is the SS58 substrate member address of the UAT identity; it is
 # asserted as a member of the Identity node's addresses list and resolved
-# through the (:Address)<-[:OF]-(:Identity) lookup.
+# through the (:Address)<-[:HAS_ADDRESS]-(:Identity) lookup.
 UAT_ADDRESS="${UAT_ADDRESS:-5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6}"
 # All graph keys and tool inputs use the canonical identity key form
 # '<network>:<canonical_evm_address>' (deterministic H160 mapping of
@@ -392,7 +392,7 @@ log "calling Chain Insights CLI graph_query for member-address resolution"
   cd "${WORKSPACE_ROOT}"
   node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
     "network=${NETWORK}" \
-    "query=USE live_topology MATCH (m:Address {address: '${UAT_ADDRESS}'})<-[:\`OF\`]-(i:Identity) RETURN i.identity_id AS identity_id LIMIT 1"
+    "query=USE live_topology MATCH (m:Address {address: '${UAT_ADDRESS}'})<-[:HAS_ADDRESS]-(i:Identity) RETURN i.identity_id AS identity_id LIMIT 1"
 ) >"${MEMBER_RESOLVE_TEXT}"
 
 node - "${MEMBER_RESOLVE_TEXT}" "${UAT_IDENTITY_KEY}" "${UAT_ADDRESS}" <<'NODE'

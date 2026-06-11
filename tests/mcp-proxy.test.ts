@@ -1203,7 +1203,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }))
     const resolutionQueries = clientInstance.callTool.mock.calls[0][0].arguments.queries as Array<{ id: string; query: string }>
     expect(resolutionQueries[0]?.id).toBe('resolve_member_address_1')
-    expect(resolutionQueries[0]?.query).toContain('MATCH (m:Address {address: "5Addr"})<-[:`OF`]-(i:Identity)')
+    expect(resolutionQueries[0]?.query).toContain('MATCH (m:Address {address: "5Addr"})<-[:HAS_ADDRESS]-(i:Identity)')
     const riskQueries = clientInstance.callTool.mock.calls[1][0].arguments.queries as Array<{ id: string; query: string }>
     const outflowQuery = riskQueries.find((query) => query.id === 'exchange_outflows_2')?.query ?? ''
     const inflowQuery = riskQueries.find((query) => query.id === 'exchange_inflows_2')?.query ?? ''
@@ -1407,7 +1407,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const queries = remoteClient.callTool.mock.calls[0]?.[0].arguments.queries as Array<{ id: string; query: string }>
     expect(queries).toHaveLength(1)
     expect(queries[0]?.id).toBe('resolve_member_address_1')
-    expect(queries[0]?.query).toContain('MATCH (m:Address {address: "5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6"})<-[:`OF`]-(i:Identity)')
+    expect(queries[0]?.query).toContain('MATCH (m:Address {address: "5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6"})<-[:HAS_ADDRESS]-(i:Identity)')
     expect(queries[0]?.query).toContain('RETURN i.identity_id AS identity_id')
   })
 

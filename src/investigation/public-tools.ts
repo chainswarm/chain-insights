@@ -162,9 +162,7 @@ function memberAddressResolutionQuery(id: string, memberForm: string): { id: str
   return {
     id,
     query: [
-      // OF is a reserved word in the MemGQL grammar; the edge type must be
-      // backtick-escaped even though Memgraph itself accepts it bare.
-      `MATCH (m:Address {address: "${escapeCypherString(memberForm)}"})<-[:\`OF\`]-(i:Identity)`,
+      `MATCH (m:Address {address: "${escapeCypherString(memberForm)}"})<-[:HAS_ADDRESS]-(i:Identity)`,
       'RETURN i.identity_id AS identity_id',
       'LIMIT 1',
     ].join(' '),
@@ -177,8 +175,7 @@ function memberAddressResolutionQuery(id: string, memberForm: string): { id: str
  * Inputs already in canonical 0x form (with or without the network prefix)
  * are derived locally as `<network>:<lowercase 0x form>`. Any other member
  * form (for example an SS58 substrate address) is resolved through the
- * indexed `(:Address {address})<-[:\`OF\`]-(:Identity)` lookup (OF is a
- * reserved word in the GQL grammar and must be backtick-escaped).
+ * indexed `(:Address {address})<-[:HAS_ADDRESS]-(:Identity)` lookup.
  * Inputs the graph cannot resolve are passed through unchanged.
  */
 export async function resolveIdentityKeys(
