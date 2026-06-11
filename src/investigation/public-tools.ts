@@ -269,7 +269,7 @@ function addressLabelRiskQuery(address: string): { id: string; query: string } {
 }
 
 function flowEdgeMap(variableName: string): string {
-  return `{amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`
+  return `{amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_seen_timestamp: ${variableName}.first_seen_timestamp, last_seen_timestamp: ${variableName}.last_seen_timestamp, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`
 }
 
 function pathNodeMap(variableName: string): string {
@@ -296,7 +296,7 @@ function exchangeOutflowQueryAtDepth(address: string, depth: number): { id: stri
     query: [
       `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})${relationshipChain}`,
       `WHERE a <> exchange AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
-      `RETURN "outflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${depositVariable}.identity_id AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `RETURN "outflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${depositVariable}.identity_id AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
     ].join(' '),
@@ -323,7 +323,7 @@ function exchangeInflowQueryAtDepth(address: string, depth: number): { id: strin
     query: [
       `MATCH (exchange:Identity)${relationshipChain}`,
       `WHERE a.identity_id = "${escapeCypherString(address)}" AND a <> exchange AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
-      `RETURN "inflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${withdrawalVariable}.identity_id AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `RETURN "inflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${withdrawalVariable}.identity_id AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
     ].join(' '),
@@ -478,10 +478,39 @@ function enrichExchangeRows(rows: Array<Record<string, unknown>>): Array<Record<
       ...row,
       amount_usd_sum: row['amount_usd_sum'] ?? terminal['amount_usd_sum'],
       tx_count: row['tx_count'] ?? terminal['tx_count'],
+      first_seen_timestamp: row['first_seen_timestamp'] ?? terminal['first_seen_timestamp'],
+      last_seen_timestamp: row['last_seen_timestamp'] ?? terminal['last_seen_timestamp'],
       first_tx_id: row['first_tx_id'] ?? terminal['first_tx_id'],
       last_tx_id: row['last_tx_id'] ?? terminal['last_tx_id'],
     }
   })
+}
+
+const FALLBACK_SHARED_TX_COUNT = 1000
+const FALLBACK_SHARED_USD_SUM = 5_000_000
+const FALLBACK_SHARED_DAMPING = 0.1
+const FALLBACK_VALUE_SATURATION_USD = 1_000_000
+const FALLBACK_BASE_SCORE = 0.1
+const FALLBACK_MAX_SCORE = 0.6
+
+/**
+ * Score exchange exposure when no ML risk score exists. Topology-grain:
+ * log-scaled USD volume across exchange rows, with shared/omnibus edges
+ * (high tx_count or USD throughput) dampened, bounded in (0, 0.6] so a
+ * fallback can never impersonate a high ML score band.
+ */
+export function exchangeExposureFallbackScore(exchangeRows: Array<Record<string, unknown>>): number {
+  if (exchangeRows.length === 0) return 0
+  let weightedUsd = 0
+  for (const row of exchangeRows) {
+    const usd = numberValue(row['amount_usd_sum']) ?? 0
+    const txCount = numberValue(row['tx_count']) ?? 0
+    const shared = txCount >= FALLBACK_SHARED_TX_COUNT || usd >= FALLBACK_SHARED_USD_SUM
+    weightedUsd += shared ? usd * FALLBACK_SHARED_DAMPING : usd
+  }
+  const capped = Math.min(weightedUsd, FALLBACK_VALUE_SATURATION_USD)
+  const factor = Math.log10(1 + capped) / Math.log10(1 + FALLBACK_VALUE_SATURATION_USD)
+  return Math.min(FALLBACK_MAX_SCORE, FALLBACK_BASE_SCORE + (FALLBACK_MAX_SCORE - FALLBACK_BASE_SCORE) * factor)
 }
 
 function riskAssessment(
@@ -491,7 +520,7 @@ function riskAssessment(
 ): Record<string, unknown> {
   const mlRiskScore = firstNumber(profile['ml_risk_score'])
   const labelRiskLevel = strongestLabelRiskLevel(labelRows)
-  const score = mlRiskScore ?? (exchangeRows.length > 0 ? 0.4 : 0)
+  const score = mlRiskScore ?? exchangeExposureFallbackScore(exchangeRows)
   const level = labelRiskLevel ?? riskLevelFromScore(score)
   const drivers = riskDrivers(profile, labelRows, exchangeRows)
   return {
