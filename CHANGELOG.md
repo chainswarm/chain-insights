@@ -3,6 +3,20 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.5.4] - 2026-06-11
+
+- Breaking graph-model change: Identity nodes no longer carry the `addresses`
+  list property. Member-address forms live exclusively on the
+  `(:Address {address})` satellite nodes reached via
+  `(:Identity)-[:HAS_ADDRESS]->(:Address)`; enumerate an identity's member
+  forms with `MATCH (i:Identity {identity_id: $id})-[:HAS_ADDRESS]->(m:Address)
+  RETURN m.address`. Removed every `addresses`-property read: the
+  `aml_address_risk` profile now collects member addresses through a dedicated
+  `HAS_ADDRESS` batch query, trace path-node maps no longer project
+  `addresses`, the workspace runtime-skill prompt and MCP schema hints document
+  the satellite traversal instead of the list property, and the GraphRAG MCP
+  UAT asserts membership via `collect(m.address)` from the satellites.
+
 ## [0.5.3] - 2026-06-11
 
 - Renamed the identity member-address edge from `(:Identity)-[:OF]->(:Address)`

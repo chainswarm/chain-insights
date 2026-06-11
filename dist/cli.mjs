@@ -76,7 +76,7 @@ function buildExposureInsightCommand(name, tool, description) {
 	return configured.action(async (opts) => {
 		try {
 			await withGraphMcpClient(`chain-insights-cli-${name}`, async (client) => {
-				const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await import("./public-tools-DPj2sQFI.mjs");
+				const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await import("./public-tools-Cmaez6hz.mjs");
 				const args = {
 					network: opts.network,
 					account: opts.account,
@@ -251,7 +251,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 }));
 program.command("init").description("Initialize an investigation workspace").argument("[dir]", "Workspace directory to initialize", ".").option("--force", "Overwrite existing workspace files").action(async (dir, opts) => {
 	try {
-		const { initWorkspace } = await import("./init-BvAneVO8.mjs");
+		const { initWorkspace } = await import("./init-DbYtlhhD.mjs");
 		const result = await initWorkspace({
 			targetDir: dir,
 			force: opts.force
@@ -442,7 +442,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { addressRisk } = await import("./public-tools-DPj2sQFI.mjs");
+			const { addressRisk } = await import("./public-tools-Cmaez6hz.mjs");
 			const result = await addressRisk(client, {
 				address: opts.address,
 				network: opts.network,
@@ -470,7 +470,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { traceVictimFunds } = await import("./public-tools-DPj2sQFI.mjs");
+			const { traceVictimFunds } = await import("./public-tools-Cmaez6hz.mjs");
 			const result = await traceVictimFunds(client, config, {
 				victimAddresses: opts.victimAddresses,
 				knownSuspectAddresses: opts.knownSuspectAddresses,
@@ -492,7 +492,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { requireWorkspaceRoot } = await import("./output-root-BK4pdjyz.mjs").then((n) => n.t);
 		requireWorkspaceRoot();
 		await withGraphMcpClient("chain-insights-cli-aml-trace-suspect-funds", async (client, config) => {
-			const { traceSuspectFunds } = await import("./public-tools-DPj2sQFI.mjs");
+			const { traceSuspectFunds } = await import("./public-tools-Cmaez6hz.mjs");
 			const result = await traceSuspectFunds(client, config, {
 				suspectAddresses: opts.suspectAddresses,
 				network: opts.network,
@@ -513,7 +513,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { requireWorkspaceRoot } = await import("./output-root-BK4pdjyz.mjs").then((n) => n.t);
 		requireWorkspaceRoot();
 		await withGraphMcpClient("chain-insights-cli-aml-trace-deposit-sources", async (client, config) => {
-			const { traceDepositSources } = await import("./public-tools-DPj2sQFI.mjs");
+			const { traceDepositSources } = await import("./public-tools-Cmaez6hz.mjs");
 			const result = await traceDepositSources(client, config, {
 				depositAddresses: opts.depositAddresses,
 				network: opts.network,
@@ -529,7 +529,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 })).addCommand(new Command("exposure-profile").description("Explain staking or trading exposure around one account, owner, or counterparty").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--account <address>", "Account address to inspect").option("--owner <address>", "Owner address to inspect").option("--counterparty <address>", "Counterparty address to inspect").option("--venue <name>", "Optional venue filter, for example Bittensor or Hyperliquid").option("--instrument <id>", "Optional instrument filter, for example a subnet lifecycle id or BTC-PERP").option("--instrument-type <type>", "Optional instrument type filter, for example subnet, perp, spot, vault, or staking").option("--start-timestamp-ms <milliseconds>", "Optional inclusive lower activity timestamp bound").option("--end-timestamp-ms <milliseconds>", "Optional inclusive upper activity timestamp bound").option("--limit <number>", "Maximum exposure rows, default 100, max 500").action(async (opts) => {
 	try {
 		await withGraphMcpClient("chain-insights-cli-exposure-profile", async (client) => {
-			const { exposureProfile } = await import("./public-tools-DPj2sQFI.mjs");
+			const { exposureProfile } = await import("./public-tools-Cmaez6hz.mjs");
 			const result = await exposureProfile(client, {
 				network: opts.network,
 				account: opts.account,
@@ -557,7 +557,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		assertPublicMcpToolName(tool);
 		await withGraphMcpClient("chain-insights-cli-call", async (client, config) => {
 			if (tool === "aml_address_risk") {
-				const { addressRisk } = await import("./public-tools-DPj2sQFI.mjs");
+				const { addressRisk } = await import("./public-tools-Cmaez6hz.mjs");
 				const result = await addressRisk(client, {
 					address: String(args["address"] ?? ""),
 					network: String(args["network"] ?? ""),
@@ -567,7 +567,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "aml_trace_victim_funds") {
-				const { traceVictimFunds } = await import("./public-tools-DPj2sQFI.mjs");
+				const { traceVictimFunds } = await import("./public-tools-Cmaez6hz.mjs");
 				const result = await traceVictimFunds(client, config, {
 					victimAddresses: args["victim_addresses"] ?? "",
 					knownSuspectAddresses: args["known_suspect_addresses"],
@@ -582,7 +582,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "aml_trace_suspect_funds") {
-				const { traceSuspectFunds } = await import("./public-tools-DPj2sQFI.mjs");
+				const { traceSuspectFunds } = await import("./public-tools-Cmaez6hz.mjs");
 				const result = await traceSuspectFunds(client, config, {
 					suspectAddresses: args["suspect_addresses"] ?? "",
 					network: String(args["network"] ?? ""),
@@ -596,7 +596,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "aml_trace_deposit_sources") {
-				const { traceDepositSources } = await import("./public-tools-DPj2sQFI.mjs");
+				const { traceDepositSources } = await import("./public-tools-Cmaez6hz.mjs");
 				const result = await traceDepositSources(client, config, {
 					depositAddresses: args["deposit_addresses"] ?? "",
 					network: String(args["network"] ?? ""),
@@ -607,7 +607,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "exposure_profile") {
-				const { exposureProfile } = await import("./public-tools-DPj2sQFI.mjs");
+				const { exposureProfile } = await import("./public-tools-Cmaez6hz.mjs");
 				const result = await exposureProfile(client, {
 					network: String(args["network"] ?? ""),
 					account: args["account"] === void 0 ? void 0 : String(args["account"]),
@@ -632,7 +632,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				"exposure_correlation",
 				"exposure_explain"
 			].includes(tool)) {
-				const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await import("./public-tools-DPj2sQFI.mjs");
+				const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await import("./public-tools-Cmaez6hz.mjs");
 				const exposureArgs = {
 					network: String(args["network"] ?? ""),
 					account: args["account"] === void 0 ? void 0 : String(args["account"]),

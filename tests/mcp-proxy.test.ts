@@ -1047,11 +1047,17 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                     display_labels: ['validator'],
                     system_labels: ['Address', 'Validator'],
                     address_type: 'substrate',
-                    member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
                     live_risk_score: 0.91,
                     live_risk_level: 'critical',
                     degree_in: 3,
                     degree_out: 4,
+                  }],
+                },
+                {
+                  id: 'member_addresses',
+                  ok: true,
+                  results: [{
+                    member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
                   }],
                 },
                 {
@@ -1338,9 +1344,15 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                       display_labels: ['validator'],
                       system_labels: ['Address', 'Validator'],
                       address_type: 'substrate',
-                      member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
                       live_risk_score: 0.12,
                       live_risk_level: 'low',
+                    }],
+                  },
+                  {
+                    id: 'member_addresses',
+                    ok: true,
+                    results: [{
+                      member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
                     }],
                   },
                   { id: 'exchange_outflows', ok: true, results: [] },

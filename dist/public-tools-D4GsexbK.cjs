@@ -1,8 +1,10 @@
-import { n as workspaceOutputPaths } from "./output-root-BK4pdjyz.mjs";
-import { t as normalizeGraphPayload } from "./graph-normalizer-CXP06jKh.mjs";
-import path from "node:path";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
+const require_chunk = require("./chunk-DakpK96I.cjs");
+const require_output_root = require("./output-root-DI0tzA0X.cjs");
+const require_graph_normalizer = require("./graph-normalizer-DbjlbMpz.cjs");
+let node_path = require("node:path");
+node_path = require_chunk.__toESM(node_path, 1);
+let node_fs_promises = require("node:fs/promises");
+let node_crypto = require("node:crypto");
 //#region src/investigation/trace-funds.ts
 var AliasTracker = class {
 	byAddress = /* @__PURE__ */ new Map();
@@ -74,23 +76,23 @@ function sanitizeSegment(value) {
 	return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "trace";
 }
 async function ensureDirs(paths) {
-	await mkdir(paths.schemaDir, {
+	await (0, node_fs_promises.mkdir)(paths.schemaDir, {
 		recursive: true,
 		mode: 448
 	});
-	await mkdir(paths.reportsRoot, {
+	await (0, node_fs_promises.mkdir)(paths.reportsRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await mkdir(paths.reportGraphsRoot, {
+	await (0, node_fs_promises.mkdir)(paths.reportGraphsRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await mkdir(paths.reportTablesRoot, {
+	await (0, node_fs_promises.mkdir)(paths.reportTablesRoot, {
 		recursive: true,
 		mode: 448
 	});
-	await mkdir(paths.logsRoot, {
+	await (0, node_fs_promises.mkdir)(paths.logsRoot, {
 		recursive: true,
 		mode: 448
 	});
@@ -151,23 +153,22 @@ function schemaFromGraphBatch(network, batch) {
 			"r.tx_count AS tx_count",
 			"r.first_tx_id AS first_tx_id",
 			"r.last_tx_id AS last_tx_id",
-			"dst.labels AS dst_labels",
-			"dst.addresses AS dst_member_addresses"
+			"dst.labels AS dst_labels"
 		]
 	};
 }
 async function loadOrCaptureTopologySchema(remoteClient, paths, network) {
-	const filePath = path.join(paths.schemaDir, `${sanitizeSegment(network)}.graph-schema.json`);
+	const filePath = node_path.default.join(paths.schemaDir, `${sanitizeSegment(network)}.graph-schema.json`);
 	try {
 		return {
-			schema: JSON.parse(await readFile(filePath, "utf8")),
+			schema: JSON.parse(await (0, node_fs_promises.readFile)(filePath, "utf8")),
 			filePath
 		};
 	} catch (err) {
 		if (err.code !== "ENOENT") throw err;
 	}
 	const schema = schemaFromGraphBatch(network, await callGraphBatch$3(remoteClient, network, SCHEMA_QUERY_SET));
-	await writeFile(filePath, JSON.stringify(schema, null, 2) + "\n", { mode: 384 });
+	await (0, node_fs_promises.writeFile)(filePath, JSON.stringify(schema, null, 2) + "\n", { mode: 384 });
 	return {
 		schema,
 		filePath
@@ -177,7 +178,7 @@ function flowEdgeMap$1(variableName) {
 	return `{amount_sum: ${variableName}.amount_sum, amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`;
 }
 function pathNodeMap$1(variableName) {
-	return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, addresses: ${variableName}.addresses, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`;
+	return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`;
 }
 function forwardExchangeQueries(address, limit, minAmountSum, maxHops) {
 	return Array.from({ length: maxHops }, (_, index) => forwardExchangeQueryAtDepth(address, limit, minAmountSum, index + 1));
@@ -244,7 +245,7 @@ function reverseLeadsQuery(depositAddresses) {
 		query: [
 			"MATCH (sender:Identity)-[r:FLOWS_TO]->(deposit:Identity)",
 			`WHERE (${depositAddresses.map((address) => `deposit.identity_id = "${escapeCypherString$3(address)}"`).join(" OR ")}) AND sender.is_exchange IS NULL AND sender.identity_id <> deposit.identity_id`,
-			"RETURN DISTINCT sender.identity_id AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.addresses AS member_addresses, sender.risk_score AS risk_score, sender.risk_level AS risk_level, deposit.identity_id AS deposit_address, r.amount_usd_sum AS amount_usd",
+			"RETURN DISTINCT sender.identity_id AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.risk_score AS risk_score, sender.risk_level AS risk_level, deposit.identity_id AS deposit_address, r.amount_usd_sum AS amount_usd",
 			"ORDER BY r.amount_usd_sum DESC",
 			`LIMIT ${Math.max(50, depositAddresses.length * 50)}`
 		].join(" ")
@@ -316,7 +317,7 @@ function nodeMetadataFromValue(value, fallbackAddress) {
 		labels: stringArrayValue$1(record["labels"]),
 		system_labels: stringArrayValue$1(record["system_labels"]),
 		address_type: typeof record["address_type"] === "string" ? record["address_type"] : void 0,
-		addresses: stringArrayValue$1(record["addresses"]) ?? stringArrayValue$1(record["member_addresses"]),
+		addresses: stringArrayValue$1(record["member_addresses"]),
 		risk_score: numberValue$3(record["risk_score"]),
 		risk_level: typeof record["risk_level"] === "string" && record["risk_level"].trim() ? record["risk_level"] : void 0,
 		is_exchange: isExchangeFlag$1(record["is_exchange"])
@@ -581,7 +582,7 @@ function buildGraph(seedAddress, network, flows, deposits, sourceMatches, revers
 		});
 		return edges;
 	});
-	return normalizeGraphPayload({
+	return require_graph_normalizer.normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: [...totals.entries()].map(([address, data]) => ({
 			id: address,
@@ -853,7 +854,7 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	const perAddressLimit = clampInt$2(options.perAddressLimit, 5, 1, 10);
 	const minAmountSum = Math.max(0, options.minAmountSum ?? 0);
 	const evidenceSource = options.evidenceSource ?? "track_funds";
-	const paths = options.writeArtifacts !== false ? workspaceOutputPaths() : void 0;
+	const paths = options.writeArtifacts !== false ? require_output_root.workspaceOutputPaths() : void 0;
 	if (paths) await ensureDirs(paths);
 	const schemaResult = paths ? await loadOrCaptureTopologySchema(remoteClient, paths, network) : {
 		schema: {
@@ -875,20 +876,20 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	const slug = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}_${sanitizeSegment(seedAddress.slice(0, 16))}`;
 	const compact = probeEvidence(seedAddress, network, schemaResult.filePath, aliases, flows, deposits, sourceMatches, reverseLeads, evidenceSource);
 	const graph = buildGraph(seedAddress, network, flows, deposits, sourceMatches, reverseLeads);
-	const compactPath = paths ? path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`) : "";
-	const graphPath = paths ? path.join(paths.reportGraphsRoot, `${slug}.graph.json`) : "";
-	const graphHtmlPath = paths ? path.join(paths.reportsRoot, `${slug}.graph.html`) : "";
-	const tablePath = paths ? path.join(paths.reportTablesRoot, `${slug}.flows.csv`) : "";
-	const tableHtmlPath = paths ? path.join(paths.reportsRoot, `${slug}.table.html`) : "";
-	const reportPath = paths ? path.join(paths.reportsRoot, `${slug}.trace-report.md`) : "";
+	const compactPath = paths ? node_path.default.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`) : "";
+	const graphPath = paths ? node_path.default.join(paths.reportGraphsRoot, `${slug}.graph.json`) : "";
+	const graphHtmlPath = paths ? node_path.default.join(paths.reportsRoot, `${slug}.graph.html`) : "";
+	const tablePath = paths ? node_path.default.join(paths.reportTablesRoot, `${slug}.flows.csv`) : "";
+	const tableHtmlPath = paths ? node_path.default.join(paths.reportsRoot, `${slug}.table.html`) : "";
+	const reportPath = paths ? node_path.default.join(paths.reportsRoot, `${slug}.trace-report.md`) : "";
 	if (paths) {
-		const { generateInlineGraphHtml } = await import("./html-generator-D4fX71hI.mjs").then((n) => n.n);
-		await writeFile(compactPath, JSON.stringify(compact, null, 2) + "\n", { mode: 384 });
-		await writeFile(graphPath, JSON.stringify(graph, null, 2) + "\n", { mode: 384 });
-		await writeFile(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 384 });
-		await writeFile(tablePath, tableCsv(flows), { mode: 384 });
-		await writeFile(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 384 });
-		await writeFile(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 384 });
+		const { generateInlineGraphHtml } = await Promise.resolve().then(() => require("./html-generator-BFKafL8y.cjs")).then((n) => n.html_generator_exports);
+		await (0, node_fs_promises.writeFile)(compactPath, JSON.stringify(compact, null, 2) + "\n", { mode: 384 });
+		await (0, node_fs_promises.writeFile)(graphPath, JSON.stringify(graph, null, 2) + "\n", { mode: 384 });
+		await (0, node_fs_promises.writeFile)(graphHtmlPath, generateInlineGraphHtml(graph), { mode: 384 });
+		await (0, node_fs_promises.writeFile)(tablePath, tableCsv(flows), { mode: 384 });
+		await (0, node_fs_promises.writeFile)(tableHtmlPath, buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, reverseLeads), { mode: 384 });
+		await (0, node_fs_promises.writeFile)(reportPath, buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatches, reverseLeads, aliases, graphPath, schemaResult.filePath), { mode: 384 });
 	}
 	const depositAddresses = [...new Set(deposits.map((deposit) => deposit.address))];
 	const exchangeAddresses = [...new Set(deposits.map((deposit) => deposit.exchangeAddress))];
@@ -959,18 +960,18 @@ function exposureRowsToCsv(rows) {
 	return lines.join("\n") + "\n";
 }
 async function writeExposureArtifacts(input) {
-	const outputPaths = input.outputPaths ?? workspaceOutputPaths();
-	await Promise.all([mkdir(outputPaths.reportsRoot, {
+	const outputPaths = input.outputPaths ?? require_output_root.workspaceOutputPaths();
+	await Promise.all([(0, node_fs_promises.mkdir)(outputPaths.reportsRoot, {
 		recursive: true,
 		mode: 448
-	}), mkdir(outputPaths.reportTablesRoot, {
+	}), (0, node_fs_promises.mkdir)(outputPaths.reportTablesRoot, {
 		recursive: true,
 		mode: 448
 	})]);
 	const now = input.generatedAt ?? /* @__PURE__ */ new Date();
-	const slug = `${exposureArtifactTimestamp(now)}-${sanitizeSlug(input.toolName)}-${sanitizeSlug(input.subject)}-${randomUUID().replace(/-/g, "").slice(0, 12)}`;
-	const reportPath = path.join(outputPaths.reportsRoot, `${slug}.exposure-report.md`);
-	const compactFactsPath = path.join(outputPaths.reportTablesRoot, `${slug}.compact-facts.json`);
+	const slug = `${exposureArtifactTimestamp(now)}-${sanitizeSlug(input.toolName)}-${sanitizeSlug(input.subject)}-${(0, node_crypto.randomUUID)().replace(/-/g, "").slice(0, 12)}`;
+	const reportPath = node_path.default.join(outputPaths.reportsRoot, `${slug}.exposure-report.md`);
+	const compactFactsPath = node_path.default.join(outputPaths.reportTablesRoot, `${slug}.compact-facts.json`);
 	const compactFacts = {
 		schema: input.structuredContent["schema"],
 		tool: input.structuredContent["tool"],
@@ -995,11 +996,11 @@ async function writeExposureArtifacts(input) {
 	const tableRows = tableRowsFromExposureContent(input.structuredContent);
 	let tablePath;
 	if (tableRows) {
-		tablePath = path.join(outputPaths.reportTablesRoot, `${slug}.table.csv`);
+		tablePath = node_path.default.join(outputPaths.reportTablesRoot, `${slug}.table.csv`);
 		reportLines.push(`- Table: ${tablePath}`);
-		await writeFile(tablePath, exposureRowsToCsv(tableRows), { mode: 384 });
+		await (0, node_fs_promises.writeFile)(tablePath, exposureRowsToCsv(tableRows), { mode: 384 });
 	}
-	await Promise.all([writeFile(reportPath, reportLines.join("\n") + "\n", { mode: 384 }), writeFile(compactFactsPath, JSON.stringify(compactFacts, null, 2) + "\n", { mode: 384 })]);
+	await Promise.all([(0, node_fs_promises.writeFile)(reportPath, reportLines.join("\n") + "\n", { mode: 384 }), (0, node_fs_promises.writeFile)(compactFactsPath, JSON.stringify(compactFacts, null, 2) + "\n", { mode: 384 })]);
 	return {
 		reportPath,
 		compactFactsPath,
@@ -2153,9 +2154,15 @@ function addressProfileQuery(address) {
 		id: "address_profile",
 		query: [
 			`MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})`,
-			"RETURN a.identity_id AS address, a.labels AS display_labels, a.labels AS system_labels, a.address_type AS address_type, a.addresses AS member_addresses, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level, a.is_exchange AS is_exchange",
+			"RETURN a.identity_id AS address, a.labels AS display_labels, a.labels AS system_labels, a.address_type AS address_type, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level, a.is_exchange AS is_exchange",
 			"LIMIT 1"
 		].join(" ")
+	};
+}
+function memberAddressesQuery(address) {
+	return {
+		id: "member_addresses",
+		query: [`MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[:HAS_ADDRESS]->(m:Address)`, "RETURN collect(m.address) AS member_addresses"].join(" ")
 	};
 }
 function addressFeatureQuery(address) {
@@ -2195,7 +2202,7 @@ function flowEdgeMap(variableName) {
 	return `{amount_sum: ${variableName}.amount_sum, amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`;
 }
 function pathNodeMap(variableName) {
-	return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, addresses: ${variableName}.addresses, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`;
+	return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`;
 }
 function exchangeOutflowQueries(address) {
 	return Array.from({ length: 3 }, (_, index) => exchangeOutflowQueryAtDepth(address, index + 1));
@@ -2444,7 +2451,7 @@ function buildRiskGraph(address, profile, rows, network) {
 		const labels = stringArrayValue(metadata?.["labels"]) ?? existing["labels"];
 		const systemLabels = stringArrayValue(metadata?.["system_labels"]) ?? existing["system_labels"];
 		const addressType = typeof metadata?.["address_type"] === "string" ? metadata["address_type"] : existing["address_type"];
-		const memberAddresses = stringArrayValue(metadata?.["addresses"]) ?? stringArrayValue(metadata?.["member_addresses"]) ?? existing["member_addresses"];
+		const memberAddresses = stringArrayValue(metadata?.["member_addresses"]) ?? existing["member_addresses"];
 		const riskScore = numberValue(metadata?.["risk_score"]) ?? existing["risk_score"];
 		const riskLevel = firstString(metadata?.["risk_level"]) ?? existing["risk_level"];
 		nodes.set(entry, {
@@ -2495,7 +2502,7 @@ function buildRiskGraph(address, profile, rows, network) {
 		}
 	}
 	const rawNodes = [...nodes.values()];
-	return restoreSystemLabels(normalizeGraphPayload({
+	return restoreSystemLabels(require_graph_normalizer.normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: rawNodes,
 		edges,
@@ -2519,6 +2526,7 @@ async function addressRisk(remoteClient, options) {
 	const compareAddress = compareInput ? resolvedKeys.get(compareInput) ?? compareInput : "";
 	const batch = await callGraphBatch(remoteClient, network, [
 		addressProfileQuery(address),
+		memberAddressesQuery(address),
 		addressFeatureQuery(address),
 		addressRiskScoreQuery(address),
 		addressLabelRiskQuery(address),
@@ -2533,6 +2541,7 @@ async function addressRisk(remoteClient, options) {
 	const profile = {
 		address,
 		...optionalResultsFor(batch, "address_profile", partialQueryFailures)[0] ?? {},
+		...optionalResultsFor(batch, "member_addresses", partialQueryFailures)[0] ?? {},
 		...optionalResultsFor(batch, "address_feature", partialQueryFailures)[0] ?? {},
 		...optionalResultsFor(batch, "address_risk_score", partialQueryFailures)[0] ?? {}
 	};
@@ -2616,7 +2625,7 @@ function graphRecords(graphData, key) {
 	return Array.isArray(value) ? value.filter((item) => typeof item === "object" && item !== null && !Array.isArray(item)) : [];
 }
 function normalizeTraceGraphData(runs, network) {
-	return normalizeGraphPayload({
+	return require_graph_normalizer.normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: runs.flatMap((run) => graphRecords(run.result.graphData, "nodes")),
 		edges: runs.flatMap((run) => graphRecords(run.result.graphData, "edges")),
@@ -2719,22 +2728,22 @@ function buildAddressRiskTableHtml(tool, network, rows, subject) {
 `;
 }
 async function writeAddressRiskArtifacts(network, address, compareAddress, graphData, exchangeRows, summaryText) {
-	const paths = workspaceOutputPaths();
+	const paths = require_output_root.workspaceOutputPaths();
 	await Promise.all([
-		mkdir(paths.reportsRoot, { recursive: true }),
-		mkdir(paths.reportGraphsRoot, { recursive: true }),
-		mkdir(paths.reportTablesRoot, { recursive: true })
+		(0, node_fs_promises.mkdir)(paths.reportsRoot, { recursive: true }),
+		(0, node_fs_promises.mkdir)(paths.reportGraphsRoot, { recursive: true }),
+		(0, node_fs_promises.mkdir)(paths.reportTablesRoot, { recursive: true })
 	]);
 	const safeNetwork = network.replace(/[^A-Za-z0-9._-]+/g, "_");
 	const safeAddress = address.replace(/[^A-Za-z0-9._-]+/g, "_");
 	const slug = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}_aml_address_risk_${safeNetwork}_${safeAddress}`;
-	const graphPath = path.join(paths.reportGraphsRoot, `${slug}.graph.json`);
-	const tableJsonPath = path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
-	const csvPath = path.join(paths.reportTablesRoot, `${slug}.flows.csv`);
-	const tableHtmlPath = path.join(paths.reportsRoot, `${slug}.table.html`);
-	const reportPath = path.join(paths.reportsRoot, `${slug}.aml-address-report.md`);
-	const graphHtmlPath = path.join(paths.reportsRoot, `${slug}.graph.html`);
-	const { generateInlineGraphHtml } = await import("./html-generator-D4fX71hI.mjs").then((n) => n.n);
+	const graphPath = node_path.default.join(paths.reportGraphsRoot, `${slug}.graph.json`);
+	const tableJsonPath = node_path.default.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
+	const csvPath = node_path.default.join(paths.reportTablesRoot, `${slug}.flows.csv`);
+	const tableHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.table.html`);
+	const reportPath = node_path.default.join(paths.reportsRoot, `${slug}.aml-address-report.md`);
+	const graphHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.graph.html`);
+	const { generateInlineGraphHtml } = await Promise.resolve().then(() => require("./html-generator-BFKafL8y.cjs")).then((n) => n.html_generator_exports);
 	const csv = [[
 		"direction",
 		"exchange_address",
@@ -2777,12 +2786,12 @@ async function writeAddressRiskArtifacts(network, address, compareAddress, graph
 			report_summary: summaryText
 		}
 	};
-	await writeFile(graphPath, JSON.stringify(graphData, null, 2) + "\n", { mode: 384 });
-	await writeFile(tableJsonPath, JSON.stringify(evidence, null, 2) + "\n", { mode: 384 });
-	await writeFile(csvPath, csv, { mode: 384 });
-	await writeFile(tableHtmlPath, buildAddressRiskTableHtml("aml_address_risk", network, exchangeRows, address), { mode: 384 });
-	await writeFile(graphHtmlPath, generateInlineGraphHtml(graphData), { mode: 384 });
-	await writeFile(reportPath, [
+	await (0, node_fs_promises.writeFile)(graphPath, JSON.stringify(graphData, null, 2) + "\n", { mode: 384 });
+	await (0, node_fs_promises.writeFile)(tableJsonPath, JSON.stringify(evidence, null, 2) + "\n", { mode: 384 });
+	await (0, node_fs_promises.writeFile)(csvPath, csv, { mode: 384 });
+	await (0, node_fs_promises.writeFile)(tableHtmlPath, buildAddressRiskTableHtml("aml_address_risk", network, exchangeRows, address), { mode: 384 });
+	await (0, node_fs_promises.writeFile)(graphHtmlPath, generateInlineGraphHtml(graphData), { mode: 384 });
+	await (0, node_fs_promises.writeFile)(reportPath, [
 		`# Address Risk Report (${network}:${address})`,
 		`- Graph JSON: ${graphPath}`,
 		`- Table JSON: ${tableJsonPath}`,
@@ -3140,20 +3149,20 @@ ${body}
 `;
 }
 async function writeTraceSourceArtifacts(tool, network, graphData, rows, summaryText) {
-	const paths = workspaceOutputPaths();
+	const paths = require_output_root.workspaceOutputPaths();
 	await Promise.all([
-		mkdir(paths.reportsRoot, { recursive: true }),
-		mkdir(paths.reportGraphsRoot, { recursive: true }),
-		mkdir(paths.reportTablesRoot, { recursive: true })
+		(0, node_fs_promises.mkdir)(paths.reportsRoot, { recursive: true }),
+		(0, node_fs_promises.mkdir)(paths.reportGraphsRoot, { recursive: true }),
+		(0, node_fs_promises.mkdir)(paths.reportTablesRoot, { recursive: true })
 	]);
 	const slug = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}_${tool}`;
-	const graphPath = path.join(paths.reportGraphsRoot, `${slug}.graph.json`);
-	const tableJsonPath = path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
-	const csvPath = path.join(paths.reportTablesRoot, `${slug}.flows.csv`);
-	const tableHtmlPath = path.join(paths.reportsRoot, `${slug}.table.html`);
-	const reportPath = path.join(paths.reportsRoot, `${slug}.trace-report.md`);
-	const graphHtmlPath = path.join(paths.reportsRoot, `${slug}.graph.html`);
-	const { generateInlineGraphHtml } = await import("./html-generator-D4fX71hI.mjs").then((n) => n.n);
+	const graphPath = node_path.default.join(paths.reportGraphsRoot, `${slug}.graph.json`);
+	const tableJsonPath = node_path.default.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
+	const csvPath = node_path.default.join(paths.reportTablesRoot, `${slug}.flows.csv`);
+	const tableHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.table.html`);
+	const reportPath = node_path.default.join(paths.reportsRoot, `${slug}.trace-report.md`);
+	const graphHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.graph.html`);
+	const { generateInlineGraphHtml } = await Promise.resolve().then(() => require("./html-generator-BFKafL8y.cjs")).then((n) => n.html_generator_exports);
 	const csv = ["path_id,source_address,deposit_address,hop,amount_sum,first_tx_id", ...rows.map((row) => [
 		row["path_id"] ?? "",
 		row["source_address"] ?? "",
@@ -3162,12 +3171,12 @@ async function writeTraceSourceArtifacts(tool, network, graphData, rows, summary
 		row["amount_sum"] ?? "",
 		row["first_tx_id"] ?? ""
 	].map((value) => JSON.stringify(String(value))).join(","))].join("\n") + "\n";
-	await writeFile(graphPath, JSON.stringify(graphData, null, 2) + "\n", { mode: 384 });
-	await writeFile(tableJsonPath, JSON.stringify(rows, null, 2) + "\n", { mode: 384 });
-	await writeFile(csvPath, csv, { mode: 384 });
-	await writeFile(tableHtmlPath, buildTraceSourceTableHtml(tool, network, rows), { mode: 384 });
-	await writeFile(reportPath, summaryText + "\n", { mode: 384 });
-	await writeFile(graphHtmlPath, generateInlineGraphHtml(graphData), { mode: 384 });
+	await (0, node_fs_promises.writeFile)(graphPath, JSON.stringify(graphData, null, 2) + "\n", { mode: 384 });
+	await (0, node_fs_promises.writeFile)(tableJsonPath, JSON.stringify(rows, null, 2) + "\n", { mode: 384 });
+	await (0, node_fs_promises.writeFile)(csvPath, csv, { mode: 384 });
+	await (0, node_fs_promises.writeFile)(tableHtmlPath, buildTraceSourceTableHtml(tool, network, rows), { mode: 384 });
+	await (0, node_fs_promises.writeFile)(reportPath, summaryText + "\n", { mode: 384 });
+	await (0, node_fs_promises.writeFile)(graphHtmlPath, generateInlineGraphHtml(graphData), { mode: 384 });
 	return {
 		graph_json: graphPath,
 		graph_html: graphHtmlPath,
@@ -3262,7 +3271,7 @@ async function traceDepositSources(remoteClient, _config, options) {
 		reason: candidateSuspects.includes(address) ? "Upstream source converges into multiple provided deposit/cashout seeds." : "Upstream source funds a provided deposit/cashout seed.",
 		promote_to_core_label: false
 	}));
-	const graphData = normalizeGraphPayload({
+	const graphData = require_graph_normalizer.normalizeGraphPayload({
 		schema: "chain-insights.graph.v1",
 		nodes: [...addresses.values()].map((entry) => ({
 			id: entry.address,
@@ -3353,6 +3362,14 @@ async function traceDepositSources(remoteClient, _config, options) {
 	};
 }
 //#endregion
-export { addressRisk, exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureProfile, exposureQuality, traceDepositSources, traceSuspectFunds, traceVictimFunds };
-
-//# sourceMappingURL=public-tools-DPj2sQFI.mjs.map
+exports.addressRisk = addressRisk;
+exports.exposureCarry = exposureCarry;
+exports.exposureCorrelation = exposureCorrelation;
+exports.exposureCrowding = exposureCrowding;
+exports.exposureExitPressure = exposureExitPressure;
+exports.exposureExplain = exposureExplain;
+exports.exposureProfile = exposureProfile;
+exports.exposureQuality = exposureQuality;
+exports.traceDepositSources = traceDepositSources;
+exports.traceSuspectFunds = traceSuspectFunds;
+exports.traceVictimFunds = traceVictimFunds;

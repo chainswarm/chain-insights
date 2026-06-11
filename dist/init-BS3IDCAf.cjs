@@ -165,9 +165,14 @@ The slim identity graph schema:
   \`bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\`). Satellite
   \`(:Address)\` nodes exist only for member-address lookup. There is no
   \`network\` property; each network has its own graph.
-- Identity member addresses live in the \`addresses\` list property:
-  the canonical 0x form first, then the SS58 substrate form when the
-  identity has a substrate source. Use the list to report the
+- Identity nodes carry no member-address list property. Member-address
+  forms (the canonical 0x form, plus the SS58 substrate form when the
+  identity has a substrate source) live exclusively on the satellite
+  \`(:Address {address})\` nodes reached via
+  \`(:Identity)-[:HAS_ADDRESS]->(:Address)\`. Enumerate an identity's
+  member forms with:
+  \`MATCH (i:Identity {identity_id: $id})-[:HAS_ADDRESS]->(m:Address)
+  RETURN m.address\`. Use those satellite forms to report the
   human-recognizable address forms; never invent address conversions.
 - Resolve any member address form (0x or SS58) to its identity through
   the indexed exact lookup:

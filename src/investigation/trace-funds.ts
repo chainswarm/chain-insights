@@ -270,7 +270,6 @@ function schemaFromGraphBatch(network: string, batch: ParsedGraphBatch): Record<
       'r.first_tx_id AS first_tx_id',
       'r.last_tx_id AS last_tx_id',
       'dst.labels AS dst_labels',
-      'dst.addresses AS dst_member_addresses',
     ],
   }
 }
@@ -302,7 +301,7 @@ function flowEdgeMap(variableName: string): string {
 }
 
 function pathNodeMap(variableName: string): string {
-  return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, addresses: ${variableName}.addresses, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`
+  return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`
 }
 
 function forwardExchangeQueries(address: string, limit: number, minAmountSum: number, maxHops: number): Array<{ id: string; query: string }> {
@@ -365,7 +364,7 @@ function reverseLeadsQuery(depositAddresses: string[]): { id: string; query: str
     query: [
       'MATCH (sender:Identity)-[r:FLOWS_TO]->(deposit:Identity)',
       `WHERE (${depositPredicates.join(' OR ')}) AND sender.is_exchange IS NULL AND sender.identity_id <> deposit.identity_id`,
-      'RETURN DISTINCT sender.identity_id AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.addresses AS member_addresses, sender.risk_score AS risk_score, sender.risk_level AS risk_level, deposit.identity_id AS deposit_address, r.amount_usd_sum AS amount_usd',
+      'RETURN DISTINCT sender.identity_id AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.risk_score AS risk_score, sender.risk_level AS risk_level, deposit.identity_id AS deposit_address, r.amount_usd_sum AS amount_usd',
       'ORDER BY r.amount_usd_sum DESC',
       `LIMIT ${Math.max(50, depositAddresses.length * 50)}`,
     ].join(' '),
@@ -451,7 +450,7 @@ function nodeMetadataFromValue(value: unknown, fallbackAddress?: string): GraphN
     labels: stringArrayValue(record['labels']),
     system_labels: stringArrayValue(record['system_labels']),
     address_type: typeof record['address_type'] === 'string' ? record['address_type'] : undefined,
-    addresses: stringArrayValue(record['addresses']) ?? stringArrayValue(record['member_addresses']),
+    addresses: stringArrayValue(record['member_addresses']),
     risk_score: numberValue(record['risk_score']),
     risk_level: typeof record['risk_level'] === 'string' && record['risk_level'].trim() ? record['risk_level'] : undefined,
     is_exchange: isExchangeFlag(record['is_exchange']),
