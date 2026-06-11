@@ -1071,6 +1071,8 @@ function traceResultFromFundRuns(
   const graphData = normalizeTraceGraphData(runs, network)
   const flows = graphRecords(graphData, 'flows')
   const deposits = graphRecords(graphData, 'deposits')
+  const sourceMatches = graphRecords(graphData, 'source_matches')
+  const reverseLeads = graphRecords(graphData, 'reverse_leads')
   const addresses = new Map<string, TraceAddressAccumulator>()
   for (const run of runs) {
     addTraceAddress(addresses, run.address, traceAddressRoleForSeed(seedRole), `${seedRole} seed provided by caller`)
@@ -1207,6 +1209,23 @@ function traceResultFromFundRuns(
       exchange_address: typeof deposit['exchangeAddress'] === 'string' ? deposit['exchangeAddress'] : deposit['exchange_address'],
       path_ids: paths.filter((path) => path.addresses.includes(String(deposit['address'] ?? deposit['deposit_address'] ?? ''))).map((path) => path.path_id),
     })),
+    deposit_funding: {
+      source_exchange_paths: sourceMatches.map((match) => ({
+        deposit_address: match['deposit_address'],
+        source_exchange: match['source_exchange'],
+        source_labels: match['source_labels'],
+        hops: match['hops'],
+        path: match['path'],
+        reason: 'Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure).',
+      })),
+      reverse_leads: reverseLeads.map((lead) => ({
+        address: lead['address'],
+        deposit_address: lead['deposit_address'],
+        labels: lead['labels'],
+        amount_usd: lead['amount_usd'],
+        reason: lead['reason'],
+      })),
+    },
     candidate_labels: candidateLabels,
     artifacts,
     evidence: [
@@ -1217,6 +1236,7 @@ function traceResultFromFundRuns(
       candidate_suspect_addresses: seedRole === 'suspect' ? runs.map((run) => run.address) : [],
       candidate_victim_addresses: [],
       recommended_next_tools: recommendedNextTools,
+      ...(sourceMatches.length > 0 ? { deposit_funding_note: 'One or more deposit candidates are exchange-funded upstream; consider aml_trace_deposit_sources on those deposits.' } : {}),
     },
     warnings: depositAddresses.length === 0 ? ['No exchange deposit candidates were connected in the queried topology.'] : [],
   }
@@ -1260,7 +1280,7 @@ export async function traceVictimFunds(
         perAddressLimit: options.perAddressLimit,
         minAmountSum: options.minAmountSum,
         activityWindow,
-        includeDepositTraceback: false,
+        includeDepositTraceback: true,
         evidenceSource: 'aml_trace_victim_funds',
         writeArtifacts: options.writeArtifacts,
       }),
@@ -1300,7 +1320,7 @@ export async function traceSuspectFunds(
         perAddressLimit: options.perAddressLimit,
         minAmountSum: options.minAmountSum,
         activityWindow,
-        includeDepositTraceback: false,
+        includeDepositTraceback: true,
         evidenceSource: 'aml_trace_suspect_funds',
         writeArtifacts: options.writeArtifacts,
       }),

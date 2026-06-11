@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { runFundFlowProbe } from '../src/investigation/trace-funds.js'
-import { traceVictimFunds } from '../src/investigation/public-tools.js'
+import { traceSuspectFunds, traceVictimFunds } from '../src/investigation/public-tools.js'
 
 type BatchQuery = { id: string; query: string }
 
@@ -109,5 +109,19 @@ describe('public trace tools window wiring', () => {
     })
     const input = (result.structuredContent as { input: Record<string, unknown> }).input
     expect(input['time_filter']).toBe('none')
+  })
+
+  it('wires the window through traceSuspectFunds symmetrically', async () => {
+    const captured: BatchQuery[][] = []
+    const result = await traceSuspectFunds(fakeClient(captured) as never, config, {
+      suspectAddresses: 'net:0xs1',
+      network: 'bittensor',
+      incidentTimestampMs: 1715500000000,
+      writeArtifacts: false,
+    })
+    const forward = captured.flat().filter((q) => q.id.startsWith('forward_exchange_paths_'))
+    expect(forward[0]!.query).toContain('first_seen_timestamp >= 1715500000000')
+    const input = (result.structuredContent as { input: Record<string, unknown> }).input
+    expect(input['time_filter']).toEqual({ from_ms: 1715500000000 })
   })
 })

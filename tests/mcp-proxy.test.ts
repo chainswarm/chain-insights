@@ -658,7 +658,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(toolNames).not.toContain(staleTopology)
   })
 
-  it('registers aml_trace_victim_funds, writes graph reports, and does not run deposit traceback', async () => {
+  it('registers aml_trace_victim_funds, writes graph reports, and runs deposit traceback', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       { name: 'graph_query_batch', description: 'Cypher topology query batch' },
@@ -745,7 +745,26 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         },
       ]))
       .mockResolvedValueOnce(textResult([
-        { id: 'unexpected_reverse_query', ok: true, results: [] },
+        {
+          id: 'backward_from_deposit_1_1',
+          ok: true,
+          results: [{
+            deposit_address: '5Deposit',
+            source_exchange: '5SourceExchange',
+            source_labels: ['OKX, exchange'],
+            hops: 1,
+            addresses: ['5Deposit', '5SourceExchange'],
+            node_labels: [[], ['OKX, exchange']],
+            path_nodes: [
+              { address: '5Deposit', is_exchange: null },
+              { address: '5SourceExchange', labels: ['OKX, exchange'], is_exchange: true },
+            ],
+          }],
+        },
+        { id: 'backward_from_deposit_1_2', ok: true, results: [] },
+      ]))
+      .mockResolvedValueOnce(textResult([
+        { id: 'reverse_1hop', ok: true, results: [] },
       ]))
 
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
@@ -815,11 +834,22 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(forwardQuery).toContain('n1.is_exchange IS NULL')
     expect(forwardQuery).toContain('t.is_exchange IS NOT NULL')
     expect(forwardQuery).not.toContain('*BFS')
+    const backwardCall = clientInstance.callTool.mock.calls.find((call) => {
+      const queries = call[0].arguments?.queries as Array<{ id?: string }> | undefined
+      return queries?.some((query) => query.id?.startsWith('backward_from_deposit_'))
+    })
+    expect(backwardCall).toBeDefined()
     const reverseCall = clientInstance.callTool.mock.calls.find((call) => {
       const queries = call[0].arguments?.queries as Array<{ id?: string }> | undefined
       return queries?.some((query) => query.id === 'reverse_1hop')
     })
-    expect(reverseCall).toBeUndefined()
+    expect(reverseCall).toBeDefined()
+    expect(result.structuredContent.deposit_funding.source_exchange_paths).toContainEqual(expect.objectContaining({
+      deposit_address: '5Deposit',
+      source_exchange: '5SourceExchange',
+    }))
+    expect(result.structuredContent.deposit_funding.reverse_leads).toEqual([])
+    expect(result.structuredContent.continuation.deposit_funding_note).toContain('aml_trace_deposit_sources')
 
     const graphUrl = result._meta.chainInsights.graph.url as string
     const filename = graphUrl.split('/graph-reports/')[1]
@@ -1553,7 +1583,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(runFundFlowProbeMock).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
       seedAddress: '5Suspect',
       network: 'bittensor',
-      includeDepositTraceback: false,
+      includeDepositTraceback: true,
       evidenceSource: 'aml_trace_suspect_funds',
     }))
     expect(result.structuredContent).toMatchObject({
@@ -1741,7 +1771,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(runFundFlowProbeMock).toHaveBeenNthCalledWith(1, expect.anything(), expect.anything(), expect.objectContaining({
       seedAddress: '5Victim',
       network: 'bittensor',
-      includeDepositTraceback: false,
+      includeDepositTraceback: true,
       evidenceSource: 'aml_trace_victim_funds',
     }))
     expect(result.structuredContent.input.addresses).toEqual(['5Victim', '5Victim2'])
