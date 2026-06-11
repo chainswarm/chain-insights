@@ -108,14 +108,14 @@ describe('extractGraphFromJson (VIZ-01)', () => {
     expect(result.edges[0]!.txHash).toBe('0xdeadbeef')
   })
 
-  it('maps compact evidence outgoing_flows using original amount_sum field', () => {
+  it('maps compact evidence outgoing_flows using the amount_usd_sum field', () => {
     const { extractGraphFromJson } = extractors
     const input = [{
       schema: 'chain-insights.compact_evidence.v1',
       outgoing_flows: [{
         src: '5src',
         dst: '5dst',
-        amount_sum: 42,
+        amount_usd_sum: 42,
         tx_count: 1,
         first_tx_id: '294-1',
       }],

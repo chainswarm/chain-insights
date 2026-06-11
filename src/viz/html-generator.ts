@@ -11,7 +11,7 @@ const template = readFileSync(templatePath, 'utf-8')
 
 interface GraphHtmlNode {
   address: string
-  address_type: string
+  node_kind: string
   labels: string[]
   flow_in_usd: number
   flow_out_usd: number
@@ -45,7 +45,7 @@ const ENTITY_TO_ROLE: Record<string, string | null> = {
 export function transformToGraphHtml(data: GraphData): GraphHtmlData {
   const nodes: GraphHtmlNode[] = data.nodes.map((n) => ({
     address: n.id,
-    address_type: n.entityType === 'exchange' ? 'exchange' : 'wallet',
+    node_kind: n.entityType === 'exchange' ? 'exchange' : 'wallet',
     labels: n.label ? [n.label] : [],
     flow_in_usd: n.totalIn,
     flow_out_usd: n.totalOut,

@@ -63,7 +63,7 @@ type CompactEvidence = {
   outgoing_flows?: Array<{
     src?: string
     dst?: string
-    amount_sum?: number
+    amount_usd_sum?: number
     tx_count?: number
     first_tx_id?: string
   }>
@@ -100,11 +100,11 @@ function compactEvidenceToSimpleTxs(item: unknown): SimpleTx[] {
   }
 
   return compact.outgoing_flows
-    .filter(flow => typeof flow.src === 'string' && typeof flow.dst === 'string' && typeof flow.amount_sum === 'number')
+    .filter(flow => typeof flow.src === 'string' && typeof flow.dst === 'string' && typeof flow.amount_usd_sum === 'number')
     .map(flow => ({
       from: flow.src!,
       to: flow.dst!,
-      value: flow.amount_sum!,
+      value: flow.amount_usd_sum!,
       txHash: flow.first_tx_id,
     }))
 }

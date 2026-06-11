@@ -26,8 +26,7 @@ export interface TraceFlow {
   hop: number
   src: string
   dst: string
-  amount_sum: number
-  amount_usd_sum?: number
+  amount_usd_sum: number
   tx_count?: number
   first_tx_id?: string
   last_tx_id?: string
@@ -65,7 +64,6 @@ interface TraceDeposit {
   exchangeAddress: string
   exchangeLabels?: string[]
   exchangeNode?: GraphNodeMetadata
-  amount_sum?: number
   amount_usd_sum?: number
   hops: number
   path: string[]
@@ -95,7 +93,6 @@ interface GraphNodeMetadata {
   address: string
   labels?: string[]
   system_labels?: string[]
-  address_type?: string
   addresses?: string[]
   risk_score?: number
   risk_level?: string
@@ -171,7 +168,7 @@ const SCHEMA_QUERY_SET = [
   },
   {
     id: 'flows_to_property_keys',
-    query: 'MATCH (:Identity)-[r:FLOWS_TO]->(:Identity) RETURN "amount_sum" AS property_key, count(r) AS sample_count LIMIT 1',
+    query: 'MATCH (:Identity)-[r:FLOWS_TO]->(:Identity) RETURN "amount_usd_sum" AS property_key, count(r) AS sample_count LIMIT 1',
   },
 ]
 
@@ -264,7 +261,6 @@ function schemaFromGraphBatch(network: string, batch: ParsedGraphBatch): Record<
     recommended_flow_projection: [
       'src.identity_id AS src',
       'dst.identity_id AS dst',
-      'r.amount_sum AS amount_sum',
       'r.amount_usd_sum AS amount_usd_sum',
       'r.tx_count AS tx_count',
       'r.first_tx_id AS first_tx_id',
@@ -297,11 +293,11 @@ async function loadOrCaptureTopologySchema(
 }
 
 function flowEdgeMap(variableName: string): string {
-  return `{amount_sum: ${variableName}.amount_sum, amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`
+  return `{amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`
 }
 
 function pathNodeMap(variableName: string): string {
-  return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`
+  return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`
 }
 
 function forwardExchangeQueries(address: string, limit: number, minAmountSum: number, maxHops: number): Array<{ id: string; query: string }> {
@@ -316,7 +312,7 @@ function forwardExchangeQueryAtDepth(address: string, limit: number, minAmountSu
     const targetVariable = index === edgeVariables.length - 1 ? 't' : intermediateVariables[index]!
     return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Identity)`
   }).join('')
-  const amountPredicates = edgeVariables.map((edgeVariable) => `${edgeVariable}.amount_sum IS NOT NULL${minAmountSum > 0 ? ` AND ${edgeVariable}.amount_sum >= ${minAmountSum}` : ''}`)
+  const amountPredicates = edgeVariables.map((edgeVariable) => `${edgeVariable}.amount_usd_sum IS NOT NULL${minAmountSum > 0 ? ` AND ${edgeVariable}.amount_usd_sum >= ${minAmountSum}` : ''}`)
   const nonTerminalPredicates = ['s', ...intermediateVariables].map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
   const predicates = ['s <> t', ...nonTerminalPredicates, 't.is_exchange IS NOT NULL', ...amountPredicates]
   const depositVariable = nodeVariables[nodeVariables.length - 2]!
@@ -325,7 +321,7 @@ function forwardExchangeQueryAtDepth(address: string, limit: number, minAmountSu
     query: [
       `MATCH (s:Identity {identity_id: "${escapeCypherString(address)}"})${relationshipChain}`,
       `WHERE ${predicates.join(' AND ')}`,
-      `RETURN [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(', ')}] AS node_labels, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props, t.identity_id AS exchange_address, t.labels AS exchange_display_labels, t.labels AS exchange_labels, t.address_type AS exchange_address_type, t.is_exchange AS exchange_is_exchange, ${depositVariable}.identity_id AS deposit_address, ${depositVariable}.is_exchange AS deposit_is_exchange, ${depth} AS hops`,
+      `RETURN [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(', ')}] AS node_labels, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props, t.identity_id AS exchange_address, t.labels AS exchange_display_labels, t.labels AS exchange_labels, t.is_exchange AS exchange_is_exchange, ${depositVariable}.identity_id AS deposit_address, ${depositVariable}.is_exchange AS deposit_is_exchange, ${depth} AS hops`,
       'ORDER BY hops ASC',
       `LIMIT ${limit}`,
     ].join(' '),
@@ -351,7 +347,7 @@ function backwardSourceQueryAtDepth(id: string, depositAddress: string, depth: n
       `MATCH (dep:Identity {identity_id: "${escapeCypherString(depositAddress)}"})`,
       `MATCH (dep)${relationshipChain}`,
       `WHERE source <> dep AND source.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
-      `RETURN dep.identity_id AS deposit_address, source.identity_id AS source_exchange, source.labels AS source_display_labels, source.labels AS source_labels, source.address_type AS source_address_type, ${depth} AS hops, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(', ')}] AS node_labels, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes`,
+      `RETURN dep.identity_id AS deposit_address, source.identity_id AS source_exchange, source.labels AS source_display_labels, source.labels AS source_labels, ${depth} AS hops, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(', ')}] AS node_labels, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes`,
       'LIMIT 20',
     ].join(' '),
   }
@@ -364,7 +360,7 @@ function reverseLeadsQuery(depositAddresses: string[]): { id: string; query: str
     query: [
       'MATCH (sender:Identity)-[r:FLOWS_TO]->(deposit:Identity)',
       `WHERE (${depositPredicates.join(' OR ')}) AND sender.is_exchange IS NULL AND sender.identity_id <> deposit.identity_id`,
-      'RETURN DISTINCT sender.identity_id AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.address_type AS address_type, sender.risk_score AS risk_score, sender.risk_level AS risk_level, deposit.identity_id AS deposit_address, r.amount_usd_sum AS amount_usd',
+      'RETURN DISTINCT sender.identity_id AS address, sender.labels AS display_labels, sender.labels AS system_labels, sender.risk_score AS risk_score, sender.risk_level AS risk_level, deposit.identity_id AS deposit_address, r.amount_usd_sum AS amount_usd',
       'ORDER BY r.amount_usd_sum DESC',
       `LIMIT ${Math.max(50, depositAddresses.length * 50)}`,
     ].join(' '),
@@ -386,7 +382,7 @@ function directEdgePropsQuery(flows: TraceFlow[]): { id: string; query: string }
     query: [
       'MATCH (a:Identity)-[r:FLOWS_TO]->(b:Identity)',
       `WHERE (${predicates.join(' OR ')})`,
-      'RETURN a.identity_id AS src, b.identity_id AS dst, r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count, r.first_tx_id AS first_tx_id, r.last_tx_id AS last_tx_id',
+      'RETURN a.identity_id AS src, b.identity_id AS dst, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count, r.first_tx_id AS first_tx_id, r.last_tx_id AS last_tx_id',
       `LIMIT ${pairs.length}`,
     ].join(' '),
   }
@@ -416,7 +412,7 @@ function rowTerminalAmount(row: Record<string, unknown>): number | undefined {
   const edgeProps = Array.isArray(row['edge_props']) ? row['edge_props'] as Array<Record<string, unknown>> : []
   const terminalEdge = edgeProps[edgeProps.length - 1]
   if (!terminalEdge) return undefined
-  return numberValue(terminalEdge['amount_sum']) ?? numberValue(terminalEdge['amount_usd_sum'])
+  return numberValue(terminalEdge['amount_usd_sum'])
 }
 
 function rowsMatchingMinimumAmount(rows: Array<Record<string, unknown>>, minAmountSum: number): Array<Record<string, unknown>> {
@@ -449,7 +445,6 @@ function nodeMetadataFromValue(value: unknown, fallbackAddress?: string): GraphN
     address,
     labels: stringArrayValue(record['labels']),
     system_labels: stringArrayValue(record['system_labels']),
-    address_type: typeof record['address_type'] === 'string' ? record['address_type'] : undefined,
     addresses: stringArrayValue(record['member_addresses']),
     risk_score: numberValue(record['risk_score']),
     risk_level: typeof record['risk_level'] === 'string' && record['risk_level'].trim() ? record['risk_level'] : undefined,
@@ -496,7 +491,6 @@ function depositFromRow(row: Record<string, unknown>): TraceDeposit | null {
     address: exchangeAddress,
     labels: stringArrayValue(row['exchange_display_labels']),
     system_labels: stringArrayValue(row['exchange_system_labels']) ?? stringArrayValue(row['exchange_labels']),
-    address_type: typeof row['exchange_address_type'] === 'string' ? row['exchange_address_type'] : undefined,
     is_exchange: true,
   }
   return {
@@ -504,7 +498,6 @@ function depositFromRow(row: Record<string, unknown>): TraceDeposit | null {
     exchangeAddress,
     exchangeLabels: stringArrayValue(row['exchange_labels']),
     exchangeNode,
-    amount_sum: numberValue(terminalEdge['amount_sum']),
     amount_usd_sum: numberValue(terminalEdge['amount_usd_sum']),
     hops: numberValue(row['hops']) ?? pathAddresses.length - 1,
     path: pathAddresses,
@@ -530,7 +523,6 @@ function flowsFromForwardRows(rows: Array<Record<string, unknown>>): { flows: Tr
       const src = pathAddresses[index]!
       const dst = pathAddresses[index + 1]!
       const edge = edgeProps[index] ?? {}
-      const amount = numberValue(edge['amount_sum']) ?? numberValue(edge['amount_usd_sum']) ?? 0
       const terminal = index === pathAddresses.length - 2
       const key = `${src}->${dst}`
       if (seenEdges.has(key)) continue
@@ -539,8 +531,7 @@ function flowsFromForwardRows(rows: Array<Record<string, unknown>>): { flows: Tr
         hop: index + 1,
         src,
         dst,
-        amount_sum: amount,
-        amount_usd_sum: numberValue(edge['amount_usd_sum']),
+        amount_usd_sum: numberValue(edge['amount_usd_sum']) ?? 0,
         tx_count: numberValue(edge['tx_count']),
         first_tx_id: typeof edge['first_tx_id'] === 'string' ? edge['first_tx_id'] : undefined,
         last_tx_id: typeof edge['last_tx_id'] === 'string' ? edge['last_tx_id'] : undefined,
@@ -571,8 +562,7 @@ async function hydrateDirectEdgeProps(remoteClient: Client, network: string, flo
   for (const flow of flows) {
     const props = edgeProps.get(edgeKey(flow.src, flow.dst))
     if (!props) continue
-    flow.amount_sum = numberValue(props['amount_sum']) ?? flow.amount_sum
-    flow.amount_usd_sum = numberValue(props['amount_usd_sum'])
+    flow.amount_usd_sum = numberValue(props['amount_usd_sum']) ?? flow.amount_usd_sum
     flow.tx_count = numberValue(props['tx_count'])
     flow.first_tx_id = typeof props['first_tx_id'] === 'string' ? props['first_tx_id'] : undefined
     flow.last_tx_id = typeof props['last_tx_id'] === 'string' ? props['last_tx_id'] : undefined
@@ -581,7 +571,6 @@ async function hydrateDirectEdgeProps(remoteClient: Client, network: string, flo
   for (const deposit of deposits) {
     const props = edgeProps.get(edgeKey(deposit.address, deposit.exchangeAddress))
     if (!props) continue
-    deposit.amount_sum = numberValue(props['amount_sum'])
     deposit.amount_usd_sum = numberValue(props['amount_usd_sum'])
   }
 }
@@ -623,7 +612,6 @@ async function collectProbeTrace(
           address: sourceExchange,
           labels: stringArrayValue(row['source_display_labels']),
           system_labels: stringArrayValue(row['source_system_labels']) ?? stringArrayValue(row['source_labels']),
-          address_type: typeof row['source_address_type'] === 'string' ? row['source_address_type'] : undefined,
         }
         sourceMatches.push({
           deposit_address: depositAddress,
@@ -656,7 +644,6 @@ async function collectProbeTrace(
           address,
           labels,
           system_labels: stringArrayValue(row['system_labels']),
-          address_type: typeof row['address_type'] === 'string' ? row['address_type'] : undefined,
           addresses: stringArrayValue(row['member_addresses']),
           risk_score: numberValue(row['risk_score']),
           risk_level: typeof row['risk_level'] === 'string' && row['risk_level'].trim() ? row['risk_level'] : undefined,
@@ -693,7 +680,6 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], de
     out: number
     labels: string[]
     systemLabels: string[]
-    addressType?: string
     memberAddresses?: string[]
     riskScore?: number
     riskLevel?: string
@@ -717,7 +703,6 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], de
     const node = ensure(address)
     node.labels = uniqueStrings([...node.labels, ...(metadata?.labels ?? [])])
     node.systemLabels = uniqueStrings([...node.systemLabels, ...(metadata?.system_labels ?? []), ...(systemLabelsFallback ?? [])])
-    if (metadata?.address_type) node.addressType = metadata.address_type
     if (metadata?.addresses?.length) node.memberAddresses = uniqueStrings([...(node.memberAddresses ?? []), ...metadata.addresses])
     if (metadata?.risk_score !== undefined) node.riskScore = metadata.risk_score
     if (metadata?.risk_level) node.riskLevel = metadata.risk_level
@@ -727,9 +712,9 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], de
 
   for (const flow of flows) {
     const src = mergeNode(flow.src, flow.src_node, undefined, flow.src_labels)
-    src.out += flow.amount_usd_sum ?? flow.amount_sum
+    src.out += flow.amount_usd_sum
     const dst = mergeNode(flow.dst, flow.dst_node, undefined, flow.dst_labels)
-    dst.in += flow.amount_usd_sum ?? flow.amount_sum
+    dst.in += flow.amount_usd_sum
     if (isExchangeFlow(flow)) dst.roles.add('exchange')
   }
   for (const deposit of deposits) {
@@ -755,7 +740,7 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], de
         target: path[index - 1],
         edge_type: 'flows_to',
         usd_amount: 0,
-        amount_sum: 0,
+        amount_usd_sum: 0,
         tx_count: 0,
         direction: 'traceback',
       })
@@ -771,7 +756,6 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], de
       node_type: 'address',
       labels: uniqueStrings(data.labels),
       ...(data.systemLabels.length > 0 ? { system_labels: uniqueStrings(data.systemLabels) } : {}),
-      ...(data.addressType ? { address_type: data.addressType } : {}),
       ...(data.memberAddresses?.length ? { member_addresses: data.memberAddresses } : {}),
       ...(data.riskScore !== undefined ? { risk_score: data.riskScore } : {}),
       ...(data.riskLevel ? { risk_level: data.riskLevel } : {}),
@@ -784,8 +768,8 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], de
         source: flow.src,
         target: flow.dst,
         edge_type: 'flows_to',
-        usd_amount: flow.amount_usd_sum ?? flow.amount_sum,
-        amount_sum: flow.amount_sum,
+        usd_amount: flow.amount_usd_sum,
+        amount_usd_sum: flow.amount_usd_sum,
         tx_count: flow.tx_count ?? 0,
         first_tx_id: flow.first_tx_id,
         last_tx_id: flow.last_tx_id,
@@ -797,7 +781,7 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], de
         target: lead.deposit_address,
         edge_type: 'flows_to',
         usd_amount: lead.amount_usd ?? 0,
-        amount_sum: lead.amount_usd ?? 0,
+        amount_usd_sum: lead.amount_usd ?? 0,
         tx_count: 0,
         direction: 'reverse_1hop_lead',
       })),
@@ -832,14 +816,13 @@ function buildMarkdownReport(seedAddress: string, network: string, flows: TraceF
     '',
     '## Flow Table',
     '',
-    '| Hop | Source | Destination | amount_sum | amount_usd_sum | tx_count | first_tx_id | terminal_exchange |',
-    '|---:|---|---|---:|---:|---:|---|---|',
+    '| Hop | Source | Destination | amount_usd_sum | tx_count | first_tx_id | terminal_exchange |',
+    '|---:|---|---|---:|---:|---|---|',
     ...flows.map((flow) => [
       `| ${flow.hop}`,
       `\`${flow.src}\``,
       `\`${flow.dst}\``,
-      flow.amount_sum,
-      flow.amount_usd_sum ?? '',
+      flow.amount_usd_sum,
       flow.tx_count ?? '',
       flow.first_tx_id ? `\`${flow.first_tx_id}\`` : '',
       flow.terminal_exchange ? 'yes' : 'no',
@@ -850,7 +833,7 @@ function buildMarkdownReport(seedAddress: string, network: string, flows: TraceF
     '```mermaid',
     'flowchart LR',
     ...flows.map((flow, index) =>
-      `  n${index}["${flow.src.slice(0, 8)}..."] -->|"amount_sum ${flow.amount_sum}${flow.terminal_exchange ? '; exchange endpoint' : ''}"| m${index}["${flow.dst.slice(0, 8)}..."]`
+      `  n${index}["${flow.src.slice(0, 8)}..."] -->|"amount_usd_sum ${flow.amount_usd_sum}${flow.terminal_exchange ? '; exchange endpoint' : ''}"| m${index}["${flow.dst.slice(0, 8)}..."]`
     ),
     '```',
   ]
@@ -872,7 +855,6 @@ function probeEvidence(seedAddress: string, network: string, schemaPath: string,
         path: deposit.path.map((address) => aliases.alias(address) ?? address),
         deposit: aliases.alias(deposit.address),
         exchange: aliases.alias(deposit.exchangeAddress),
-        amount_sum: deposit.amount_sum,
         amount_usd_sum: deposit.amount_usd_sum,
         hops: deposit.hops,
       })),
@@ -897,7 +879,6 @@ function probeEvidence(seedAddress: string, network: string, schemaPath: string,
       hop: flow.hop,
       src: aliases.alias(flow.src) ?? flow.src,
       dst: aliases.alias(flow.dst) ?? flow.dst,
-      amount_sum: flow.amount_sum,
       amount_usd_sum: flow.amount_usd_sum,
       tx_count: flow.tx_count,
       first_tx_id: flow.first_tx_id,
@@ -908,14 +889,13 @@ function probeEvidence(seedAddress: string, network: string, schemaPath: string,
 }
 
 function tableCsv(flows: TraceFlow[]): string {
-  const rows = ['hop,src,dst,amount_sum,amount_usd_sum,tx_count,first_tx_id,last_tx_id,terminal_exchange']
+  const rows = ['hop,src,dst,amount_usd_sum,tx_count,first_tx_id,last_tx_id,terminal_exchange']
   for (const flow of flows) {
     rows.push([
       flow.hop,
       flow.src,
       flow.dst,
-      flow.amount_sum,
-      flow.amount_usd_sum ?? '',
+      flow.amount_usd_sum,
       flow.tx_count ?? '',
       flow.first_tx_id ?? '',
       flow.last_tx_id ?? '',
@@ -939,7 +919,6 @@ function buildTableHtml(seedAddress: string, network: string, flows: TraceFlow[]
     'hop',
     'src',
     'dst',
-    'amount_sum',
     'amount_usd_sum',
     'tx_count',
     'first_tx_id',
@@ -950,7 +929,6 @@ function buildTableHtml(seedAddress: string, network: string, flows: TraceFlow[]
     hop: 'Hop',
     src: 'Source',
     dst: 'Destination',
-    amount_sum: 'amount_sum',
     amount_usd_sum: 'amount_usd_sum',
     tx_count: 'tx_count',
     first_tx_id: 'first_tx_id',
@@ -1016,7 +994,7 @@ ${rows}
 }
 
 function summarize(seedAddress: string, network: string, flows: TraceFlow[], sourceMatches: SourceMatch[], reverseLeads: ReverseLead[], aliases: AliasTracker, files: TraceFundsResult['files'], continuation: TraceFundsResult['continuation']): string {
-  const totalAmount = flows.reduce((sum, flow) => sum + flow.amount_sum, 0)
+  const totalAmount = flows.reduce((sum, flow) => sum + flow.amount_usd_sum, 0)
   const byHop = new Map<number, number>()
   for (const flow of flows) byHop.set(flow.hop, (byHop.get(flow.hop) ?? 0) + 1)
   const depositCount = continuation.depositAddresses.length
@@ -1025,7 +1003,7 @@ function summarize(seedAddress: string, network: string, flows: TraceFlow[], sou
   return [
     `Trace complete for ${network}:${seedAddress}`,
     '',
-    `Facts: ${flows.length} FLOWS_TO edge(s), sum of traced edge amount_sum values ${Number(totalAmount.toFixed(8))}.`,
+    `Facts: ${flows.length} FLOWS_TO edge(s), sum of traced edge amount_usd_sum values ${Number(totalAmount.toFixed(8))}.`,
     `By hop: ${[...byHop.entries()].map(([hop, count]) => `hop ${hop}: ${count}`).join(', ') || 'none'}.`,
     `Exchange endpoints reached: ${exchangeCount}. Deposit candidate address(es): ${depositCount}.`,
     `Traceback source path(s): ${sourceMatches.length}. Reverse 1-hop lead(s): ${reverseLeads.length}.`,

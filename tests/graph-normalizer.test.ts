@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 describe('normalizeGraphPayload', () => {
-  it('emits canonical node_type, labels, roles, flags, and source-backed address_type', async () => {
+  it('emits canonical node_type, labels, roles, and flags', async () => {
     const { normalizeGraphPayload } = await import('../src/viz/graph-normalizer.js')
 
     const result = normalizeGraphPayload({
@@ -12,7 +12,6 @@ describe('normalizeGraphPayload', () => {
           labels: ['Address'],
           system_labels: ['Address'],
           role: 'seed',
-          address_type: 'wallet',
           entity_kind: 'address',
           raw_labels: ['Address'],
         },
@@ -21,7 +20,6 @@ describe('normalizeGraphPayload', () => {
           address: '5Exchange',
           labels: ['Binance', 'exchange'],
           system_labels: ['Address', 'Exchange'],
-          address_type: 'substrate',
           address_subtypes: [],
           role: 'source_exchange',
           pattern_flags: ['layering'],
@@ -30,7 +28,6 @@ describe('normalizeGraphPayload', () => {
           address: '0xabc',
           labels: null,
           system_labels: ['Address'],
-          address_type: 'evm',
           address_subtypes: null,
         },
       ],
@@ -41,7 +38,7 @@ describe('normalizeGraphPayload', () => {
           type: 'FLOWS_TO',
           from_address: '5Seed',
           to_address: '5Exchange',
-          amount_sum: 12,
+          amount_usd_sum: 12,
         },
         {
           from_address: '5Exchange',
@@ -77,11 +74,11 @@ describe('normalizeGraphPayload', () => {
       id: '5Exchange',
       address: '5Exchange',
       node_type: 'address',
-      address_type: 'substrate',
       labels: ['Binance', 'exchange'],
       roles: ['exchange'],
       flags: ['layering'],
     })
+    expect(result.nodes[1]).not.toHaveProperty('address_type')
     expect(result.nodes[1]).not.toHaveProperty('address_subtypes')
     expect(result.nodes[1]).not.toHaveProperty('pattern_flags')
 
@@ -89,16 +86,16 @@ describe('normalizeGraphPayload', () => {
       id: '0xabc',
       address: '0xabc',
       node_type: 'address',
-      address_type: 'evm',
       labels: [],
     })
+    expect(result.nodes[2]).not.toHaveProperty('address_type')
     expect(result.nodes[2]).not.toHaveProperty('address_subtypes')
 
     expect(result.edges[0]).toMatchObject({
       source: '5Seed',
       target: '5Exchange',
       edge_type: 'flows_to',
-      amount_sum: 12,
+      amount_usd_sum: 12,
     })
     expect(result.edges[0]).not.toHaveProperty('from_address')
     expect(result.edges[0]).not.toHaveProperty('to_address')
@@ -126,7 +123,6 @@ describe('normalizeGraphPayload', () => {
         {
           address: '5Validator',
           labels: ['validator'],
-          address_type: 'substrate',
           address_subtypes: ['validator_hotkey'],
         },
       ],
@@ -140,7 +136,6 @@ describe('normalizeGraphPayload', () => {
       address: '5Validator',
       node_type: 'address',
       labels: ['validator'],
-      address_type: 'substrate',
       address_subtypes: ['validator_hotkey'],
     })
   })

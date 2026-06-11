@@ -719,7 +719,7 @@ program
       .option('--incident-timestamp-ms <milliseconds>', 'Optional incident timestamp in milliseconds')
       .option('--max-hops <number>', 'Maximum trace hops, 1-5')
       .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, 1-10')
-      .option('--min-amount-sum <number>', 'Minimum r.amount_sum for traced edges')
+      .option('--min-amount-sum <number>', 'Minimum USD amount (amount_usd_sum) for traced edges')
       .option('--remote', 'Force remote MCP tool call instead of local Chain Insights recipe')
       .action(async (opts: {
         victimAddresses: string
@@ -774,7 +774,7 @@ program
       .option('--incident-timestamp-ms <milliseconds>', 'Optional incident timestamp in milliseconds')
       .option('--max-hops <number>', 'Maximum trace hops, default 3, max 5')
       .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, 1-10')
-      .option('--min-amount-sum <number>', 'Minimum r.amount_sum for traced edges')
+      .option('--min-amount-sum <number>', 'Minimum USD amount (amount_usd_sum) for traced edges')
       .action(async (opts: {
         network: string
         suspectAddresses: string

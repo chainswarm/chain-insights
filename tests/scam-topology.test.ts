@@ -55,7 +55,6 @@ function topologyRow(src: string, dst: string, extra: Record<string, unknown> = 
   return {
     src,
     dst,
-    amount_sum: 10,
     amount_usd_sum: 10,
     tx_count: 1,
     src_labels: [],
@@ -80,19 +79,18 @@ function probeResult(seed: string, path: string[]) {
         roles: index === 0 ? ['seed'] : index === path.length - 2 ? ['deposit_candidate'] : index === path.length - 1 ? ['exchange'] : undefined,
       })),
       edges: [
-        { source: first, target: second, edge_type: 'flows_to', amount_sum: 10, amount_usd_sum: 10, tx_count: 1 },
-        { source: second, target: third, edge_type: 'flows_to', amount_sum: 9, amount_usd_sum: 9, tx_count: 1 },
-        { source: third, target: fourth, edge_type: 'flows_to', amount_sum: 8, amount_usd_sum: 8, tx_count: 1, terminal_exchange: true },
+        { source: first, target: second, edge_type: 'flows_to', amount_usd_sum: 10, tx_count: 1 },
+        { source: second, target: third, edge_type: 'flows_to', amount_usd_sum: 9, tx_count: 1 },
+        { source: third, target: fourth, edge_type: 'flows_to', amount_usd_sum: 8, tx_count: 1, terminal_exchange: true },
       ],
       flows: [
-        { hop: 1, src: first, dst: second, amount_sum: 10, amount_usd_sum: 10, tx_count: 1, terminal_exchange: false },
-        { hop: 2, src: second, dst: third, amount_sum: 9, amount_usd_sum: 9, tx_count: 1, terminal_exchange: false },
-        { hop: 3, src: third, dst: fourth, amount_sum: 8, amount_usd_sum: 8, tx_count: 1, terminal_exchange: true },
+        { hop: 1, src: first, dst: second, amount_usd_sum: 10, tx_count: 1, terminal_exchange: false },
+        { hop: 2, src: second, dst: third, amount_usd_sum: 9, tx_count: 1, terminal_exchange: false },
+        { hop: 3, src: third, dst: fourth, amount_usd_sum: 8, tx_count: 1, terminal_exchange: true },
       ],
       deposits: [{
         address: third,
         exchangeAddress: fourth,
-        amount_sum: 8,
         amount_usd_sum: 8,
         hops: 3,
         path,
@@ -500,7 +498,6 @@ describe('scamTopology', () => {
       .mockResolvedValueOnce(graphBatchResult([
         { id: 'incident_deposit_cluster_1', ok: true, results: [
           topologyRow('5ClusterPeer', '5Deposit', {
-            amount_sum: 42,
             amount_usd_sum: 420,
             tx_count: 2,
             src_labels: ['miner subnet 63'],
@@ -711,8 +708,8 @@ describe('scamTopology', () => {
       ]))
       .mockResolvedValueOnce(graphBatchResult([
         { id: 'incident_deposit_cluster_1', ok: true, results: [
-          topologyRow('5SiblingMixer', '5Deposit', { amount_sum: 42 }),
-          topologyRow('5GenericLabeledMixer', '5Deposit', { amount_sum: 21, src_labels: ['miner subnet 9'] }),
+          topologyRow('5SiblingMixer', '5Deposit', { amount_usd_sum: 42 }),
+          topologyRow('5GenericLabeledMixer', '5Deposit', { amount_usd_sum: 21, src_labels: ['miner subnet 9'] }),
         ] },
       ]))
     const { scamTopology } = await import('../src/investigation/scam-topology.js')
@@ -913,22 +910,21 @@ describe('scamTopology', () => {
     }))
   })
 
-  it('does not treat a scam-typed node with exchange-like label text as an exchange endpoint', async () => {
+  it('does not treat a node carrying scam-output label text as an exchange endpoint', async () => {
     // A previously written scam label syncs back into the graph as a node whose
-    // label text contains a brand/"exchange" token and whose address_type is
-    // SCAM. Exchange detection must ignore that loose text and the SCAM type,
-    // so traversal continues instead of terminating at a fake exchange.
+    // label text contains a brand/"exchange" token. Identity nodes carry no
+    // address_type in the graph contract, so the strict exchange-label matcher
+    // is the only protection: it must reject the loose text instead of
+    // terminating at a fake exchange. The labeled node now stops traversal as a
+    // generic context boundary (the scam-typed traversal-continuation carve-out
+    // left the contract together with address_type; the scam-topology
+    // recalibration plan owns restoring continuation if needed).
     vi.mocked(client.callTool)
       .mockResolvedValueOnce(graphBatchResult([
         { id: 'incident_hop_1', ok: true, results: [topologyRow('5Victim', '5ScamCashout', {
           dst_labels: ['Scam cashout -> Kucoin', 'scam_cashout_deposit'],
           dst_is_exchange: false,
-          dst_address_type: 'SCAM',
-          dst_address_subtypes: ['scam_cashout_deposit'],
         })] },
-      ]))
-      .mockResolvedValueOnce(graphBatchResult([
-        { id: 'incident_hop_2', ok: true, results: [topologyRow('5ScamCashout', '5NextHop')] },
       ]))
     const { scamTopology } = await import('../src/investigation/scam-topology.js')
 
@@ -939,7 +935,7 @@ describe('scamTopology', () => {
       maxHops: 2,
     })
 
-    // The scam-typed node is NOT a terminal exchange endpoint; traversal continues.
+    // The scam-labeled node is NOT a terminal exchange endpoint.
     expect(result.structuredContent.facts.case_roles).not.toContainEqual(expect.objectContaining({
       address: '5ScamCashout',
       role: 'exchange_endpoint',
@@ -949,10 +945,16 @@ describe('scamTopology', () => {
       dst: '5ScamCashout',
       relation: 'terminal_exchange',
     }))
+    // Without a scam-typed carve-out, its generic labels stop traversal as a
+    // context boundary instead of expanding the frontier.
     expect(result.structuredContent.facts.topology_edges).toContainEqual(expect.objectContaining({
-      src: '5ScamCashout',
-      dst: '5NextHop',
-      relation: 'traversal_edge',
+      src: '5Victim',
+      dst: '5ScamCashout',
+      relation: 'context_boundary',
+    }))
+    expect(result.structuredContent.facts.case_roles).toContainEqual(expect.objectContaining({
+      address: '5ScamCashout',
+      role: 'context_boundary',
     }))
   })
 
@@ -994,13 +996,11 @@ describe('scamTopology', () => {
     vi.mocked(client.callTool)
       .mockResolvedValueOnce(graphBatchResult([
         { id: 'incident_hop_1', ok: true, results: [topologyRow('5Victim', '5HighValueHop', {
-          amount_sum: 563_000,
           amount_usd_sum: 563_000,
         })] },
       ]))
       .mockResolvedValueOnce(graphBatchResult([
         { id: 'incident_hop_2', ok: true, results: [topologyRow('5HighValueHop', '5DeepLowValueHop', {
-          amount_sum: 30,
           amount_usd_sum: 30,
         })] },
       ]))
@@ -1028,21 +1028,22 @@ describe('scamTopology', () => {
     expect(deepHop!.confidence_score).toBeGreaterThan(0)
   })
 
-  it('does not inflate confidence from implausible deep-hop USD pricing', async () => {
-    // Hop 1: native 249 with a plausible USD of 24900 (full traced value).
-    // Hop 2: native 200 but USD reported as a tiny implausible 3 (bad price);
-    // scoring must fall back to native and not collapse confidence to the floor.
+  it('scores confidence from the USD grain only', async () => {
+    // FLOWS_TO carries USD-only value under the graph contract; there is no
+    // native amount to prefer. At the same hop, a higher-USD edge must outrank
+    // a lower-USD sibling, and an under-priced edge (price_coverage_ratio < 1
+    // upstream) deflates confidence — compensation belongs to the scam-topology
+    // recalibration plan, not the contract.
     vi.mocked(client.callTool)
       .mockResolvedValueOnce(graphBatchResult([
         { id: 'incident_hop_1', ok: true, results: [topologyRow('5Victim', '5Hop', {
-          amount_sum: 249,
           amount_usd_sum: 24_900,
         })] },
       ]))
       .mockResolvedValueOnce(graphBatchResult([
         { id: 'incident_hop_2', ok: true, results: [
-          topologyRow('5Hop', '5BadPriceHop', { amount_sum: 200, amount_usd_sum: 3 }),
-          topologyRow('5Hop', '5GoodTrustedUsdHop', { amount_sum: 200, amount_usd_sum: 20_000 }),
+          topologyRow('5Hop', '5UnderPricedHop', { amount_usd_sum: 3 }),
+          topologyRow('5Hop', '5FullPricedHop', { amount_usd_sum: 20_000 }),
         ] },
       ]))
       .mockResolvedValueOnce(graphBatchResult([
@@ -1062,24 +1063,26 @@ describe('scamTopology', () => {
     })
 
     const candidates = result.structuredContent.facts.label_candidates
-    const badPrice = candidates.find((candidate) => candidate.address === '5BadPriceHop')
-    const trusted = candidates.find((candidate) => candidate.address === '5GoodTrustedUsdHop')
-    expect(badPrice).toBeDefined()
-    expect(trusted).toBeDefined()
-    // Both edges are hop 2 with the same native value; implausible USD on one
-    // must not push its confidence below the trusted-USD sibling.
-    expect(badPrice!.confidence_score).toBeCloseTo(trusted!.confidence_score, 5)
+    const underPriced = candidates.find((candidate) => candidate.address === '5UnderPricedHop')
+    const fullPriced = candidates.find((candidate) => candidate.address === '5FullPricedHop')
+    expect(underPriced).toBeDefined()
+    expect(fullPriced).toBeDefined()
+    // Same hop: confidence is monotonic in the USD value.
+    expect(fullPriced!.confidence_score).toBeGreaterThan(underPriced!.confidence_score)
+    // Both remain bounded and positive.
+    expect(fullPriced!.confidence_score).toBeLessThanOrEqual(1)
+    expect(underPriced!.confidence_score).toBeGreaterThan(0)
   })
 
-  it('auto-promotes a realistic native-value hop-1 core and not a hop-1 dust edge', async () => {
-    // Native token amounts (hundreds-thousands of TAO) sit far below the USD
-    // value saturation, so even a hop-1 incident-scale edge decays to ~0.55.
-    // The promote threshold must recognise this close-hop, real-value core.
+  it('auto-promotes a realistic USD-value hop-1 core and not a hop-1 dust edge', async () => {
+    // A modest hop-1 USD value still sits below the value saturation and
+    // decays toward the promote bar; the threshold must recognise this
+    // close-hop, real-value core while dust stays review-only.
     vi.mocked(client.callTool)
       .mockResolvedValueOnce(graphBatchResult([
         { id: 'incident_hop_1', ok: true, results: [
-          topologyRow('5Victim', '5BigMule', { amount_sum: 1000, amount_usd_sum: 1000 }),
-          topologyRow('5Victim', '5DustHop', { amount_sum: 1, amount_usd_sum: 1 }),
+          topologyRow('5Victim', '5BigMule', { amount_usd_sum: 1000 }),
+          topologyRow('5Victim', '5DustHop', { amount_usd_sum: 1 }),
         ] },
       ]))
       .mockResolvedValueOnce(graphBatchResult([{ id: 'incident_hop_2', ok: true, results: [] }]))
@@ -1105,19 +1108,16 @@ describe('scamTopology', () => {
     vi.mocked(client.callTool)
       .mockResolvedValueOnce(graphBatchResult([
         { id: 'incident_hop_1', ok: true, results: [topologyRow('5Victim', '5CoreMule', {
-          amount_sum: 563_000,
           amount_usd_sum: 563_000,
         })] },
       ]))
       .mockResolvedValueOnce(graphBatchResult([
         { id: 'incident_hop_2', ok: true, results: [topologyRow('5CoreMule', '5MidHop', {
-          amount_sum: 6,
           amount_usd_sum: 6,
         })] },
       ]))
       .mockResolvedValueOnce(graphBatchResult([
         { id: 'incident_hop_3', ok: true, results: [topologyRow('5MidHop', '5DeepTail', {
-          amount_sum: 1,
           amount_usd_sum: 1,
         })] },
       ]))

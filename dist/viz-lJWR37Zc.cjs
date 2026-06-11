@@ -1,52 +1,54 @@
-import { t as __exportAll } from "./rolldown-runtime-D7D4PA-g.mjs";
-import { n as workspaceOutputPaths } from "./output-root-BK4pdjyz.mjs";
-import { r as writeVizHtml, t as generateHtml } from "./html-generator-D4fX71hI.mjs";
-import path from "node:path";
-import { readFile } from "node:fs/promises";
-import * as z from "zod";
+const require_chunk = require("./chunk-DakpK96I.cjs");
+const require_output_root = require("./output-root-DI0tzA0X.cjs");
+const require_html_generator = require("./html-generator-CZQUunR6.cjs");
+let node_path = require("node:path");
+node_path = require_chunk.__toESM(node_path, 1);
+let node_fs_promises = require("node:fs/promises");
+let zod = require("zod");
+zod = require_chunk.__toESM(zod, 1);
 //#region src/viz/graph-model.ts
-const EntityType = z.enum([
+const EntityType = zod.enum([
 	"eoa",
 	"contract",
 	"exchange",
 	"mixer",
 	"unknown"
 ]);
-const RiskLevel = z.enum([
+const RiskLevel = zod.enum([
 	"low",
 	"medium",
 	"high",
 	"critical",
 	"unknown"
 ]);
-const GraphNode = z.object({
-	id: z.string().min(1),
-	label: z.string().optional(),
+const GraphNode = zod.object({
+	id: zod.string().min(1),
+	label: zod.string().optional(),
 	entityType: EntityType.default("unknown"),
 	riskLevel: RiskLevel.default("unknown"),
-	totalIn: z.number().default(0),
-	totalOut: z.number().default(0),
-	txCount: z.number().int().default(0),
-	firstSeen: z.string().optional(),
-	lastSeen: z.string().optional()
+	totalIn: zod.number().default(0),
+	totalOut: zod.number().default(0),
+	txCount: zod.number().int().default(0),
+	firstSeen: zod.string().optional(),
+	lastSeen: zod.string().optional()
 });
-const GraphEdge = z.object({
-	source: z.string().min(1),
-	target: z.string().min(1),
-	value: z.number(),
-	txHash: z.string().optional(),
-	blockNumber: z.number().int().optional(),
-	timestamp: z.string().optional()
+const GraphEdge = zod.object({
+	source: zod.string().min(1),
+	target: zod.string().min(1),
+	value: zod.number(),
+	txHash: zod.string().optional(),
+	blockNumber: zod.number().int().optional(),
+	timestamp: zod.string().optional()
 });
-const GraphData = z.object({
-	nodes: z.array(GraphNode),
-	edges: z.array(GraphEdge),
-	metadata: z.object({
-		title: z.string().default("Money Flow"),
-		generatedAt: z.string(),
-		truncated: z.boolean().default(false),
-		totalNodes: z.number().int().optional(),
-		hiddenNodes: z.number().int().optional()
+const GraphData = zod.object({
+	nodes: zod.array(GraphNode),
+	edges: zod.array(GraphEdge),
+	metadata: zod.object({
+		title: zod.string().default("Money Flow"),
+		generatedAt: zod.string(),
+		truncated: zod.boolean().default(false),
+		totalNodes: zod.number().int().optional(),
+		hiddenNodes: zod.number().int().optional()
 	})
 });
 const MAX_NODES = 100;
@@ -76,10 +78,10 @@ function isGraphDataLike(input) {
 function compactEvidenceToSimpleTxs(item) {
 	const compact = item;
 	if (!compact || typeof compact !== "object" || compact.schema !== "chain-insights.compact_evidence.v1" || !Array.isArray(compact.outgoing_flows)) return [];
-	return compact.outgoing_flows.filter((flow) => typeof flow.src === "string" && typeof flow.dst === "string" && typeof flow.amount_sum === "number").map((flow) => ({
+	return compact.outgoing_flows.filter((flow) => typeof flow.src === "string" && typeof flow.dst === "string" && typeof flow.amount_usd_sum === "number").map((flow) => ({
 		from: flow.src,
 		to: flow.dst,
-		value: flow.amount_sum,
+		value: flow.amount_usd_sum,
 		txHash: flow.first_tx_id
 	}));
 }
@@ -158,7 +160,7 @@ function extractGraphFromJson(input) {
 }
 //#endregion
 //#region src/viz/index.ts
-var viz_exports = /* @__PURE__ */ __exportAll({ generateVisualization: () => generateVisualization });
+var viz_exports = /* @__PURE__ */ require_chunk.__exportAll({ generateVisualization: () => generateVisualization });
 function sanitizeSourceId(sourceId) {
 	if (!/^[A-Za-z0-9._-]+$/.test(sourceId) || sourceId.includes("..")) throw new Error(`Invalid visualization source ID: ${sourceId}`);
 	return sourceId;
@@ -168,7 +170,7 @@ async function generateVisualization(opts) {
 	let vizId;
 	let title;
 	if (opts.dataFile) {
-		const content = await readFile(opts.dataFile, "utf-8");
+		const content = await (0, node_fs_promises.readFile)(opts.dataFile, "utf-8");
 		let parsed;
 		try {
 			parsed = JSON.parse(content);
@@ -180,20 +182,29 @@ async function generateVisualization(opts) {
 		title = "Ad-hoc Visualization";
 	} else if (opts.sourceId) {
 		const sourceId = sanitizeSourceId(opts.sourceId);
-		const paths = workspaceOutputPaths();
-		const content = await readFile(path.join(paths.reportGraphsRoot, `${sourceId}.graph.json`), "utf-8");
+		const paths = require_output_root.workspaceOutputPaths();
+		const content = await (0, node_fs_promises.readFile)(node_path.default.join(paths.reportGraphsRoot, `${sourceId}.graph.json`), "utf-8");
 		rawData = JSON.parse(content);
 		vizId = sourceId;
 		title = `${sourceId} - Workspace Graph`;
 	} else throw new Error("Provide either a visualization source ID or --data <file.json>");
-	const html = generateHtml(truncateGraph(rawData), title);
-	const htmlPath = await writeVizHtml(vizId, html);
+	const html = require_html_generator.generateHtml(truncateGraph(rawData), title);
+	const htmlPath = await require_html_generator.writeVizHtml(vizId, html);
 	return {
 		vizId,
 		htmlPath
 	};
 }
 //#endregion
-export { viz_exports as n, generateVisualization as t };
-
-//# sourceMappingURL=viz-D8umSF-t.mjs.map
+Object.defineProperty(exports, "generateVisualization", {
+	enumerable: true,
+	get: function() {
+		return generateVisualization;
+	}
+});
+Object.defineProperty(exports, "viz_exports", {
+	enumerable: true,
+	get: function() {
+		return viz_exports;
+	}
+});

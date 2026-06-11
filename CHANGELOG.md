@@ -3,6 +3,37 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.5.5] - 2026-06-12
+
+- Breaking graph-property contract alignment (identity/address property
+  contract, spec 2026-06-11). Identity nodes carry `identity_id`, `labels`,
+  `is_exchange` (sparse), the slim risk verdict (`risk_score`/`risk_level`),
+  external-flow rollups (`degree_in`/`degree_out`/`degree_total`,
+  `tx_in_count`/`tx_out_count`/`tx_total_count`,
+  `total_in_usd`/`total_out_usd`/`total_volume_usd`, `net_flow_usd` = in minus
+  out, `first_activity_timestamp`/`last_activity_timestamp`,
+  `activity_span_days`), and sparse `internal_tx_count`/`internal_volume_usd`.
+  Dropped everywhere: `address_type`, `lifetime_*`, and `active_days` reads.
+- `FLOWS_TO` is USD-only at identity grain: the native `amount_sum` edge
+  property no longer exists. All trace/risk/scam-topology queries, predicates,
+  projections, CSV/Markdown/HTML tables, mermaid labels, compact evidence, and
+  graph payloads now use `amount_usd_sum`. The `min_amount_sum` option keeps
+  its name but filters on `amount_usd_sum`; its CLI/MCP descriptions say so.
+- Scam topology scores candidate confidence from the USD grain only
+  (`reliableScoringValue` takes a single USD argument); thresholds and
+  promotion logic are unchanged and owned by the separate recalibration plan.
+  The scam-typed (`address_type`) traversal carve-outs were removed with the
+  property; the strict exchange-label matcher remains the protection against
+  reading scam-output labels as exchanges.
+- Address satellites carry `network`; contract docs (MCP proxy schema hints
+  and the workspace runtime-skill prompt) document the full new contract,
+  including the sparse idiom, `internal_*`, and the `FLOWS_TO` edge surface
+  (`tx_count`, `amount_usd_sum`, `avg_tx_size_usd`, `first/last_seen_timestamp`,
+  `first/last_tx_id`, `dominant_asset`, `price_coverage_ratio`).
+- Viz: the synthesized display field formerly named `address_type` is now
+  `node_kind` (wallet/exchange) across the HTML generator, graph template, and
+  fixtures; the graph normalizer no longer special-cases `address_type`.
+
 ## [0.5.4] - 2026-06-11
 
 - Breaking graph-model change: Identity nodes no longer carry the `addresses`

@@ -78,7 +78,7 @@ function buildExposureInsightCommand(name, tool, description) {
 	return configured.action(async (opts) => {
 		try {
 			await withGraphMcpClient(`chain-insights-cli-${name}`, async (client) => {
-				const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await Promise.resolve().then(() => require("./public-tools-D4GsexbK.cjs"));
+				const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await Promise.resolve().then(() => require("./public-tools-DGTDYACX.cjs"));
 				const args = {
 					network: opts.network,
 					account: opts.account,
@@ -253,7 +253,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 }));
 program.command("init").description("Initialize an investigation workspace").argument("[dir]", "Workspace directory to initialize", ".").option("--force", "Overwrite existing workspace files").action(async (dir, opts) => {
 	try {
-		const { initWorkspace } = await Promise.resolve().then(() => require("./init-BS3IDCAf.cjs"));
+		const { initWorkspace } = await Promise.resolve().then(() => require("./init-CQaxVCoi.cjs"));
 		const result = await initWorkspace({
 			targetDir: dir,
 			force: opts.force
@@ -444,7 +444,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-D4GsexbK.cjs"));
+			const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-DGTDYACX.cjs"));
 			const result = await addressRisk(client, {
 				address: opts.address,
 				network: opts.network,
@@ -456,7 +456,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new commander.Command("aml-trace-victim-funds").description("Trace victim/source addresses forward to exchange deposit candidates").requiredOption("--victim-addresses <addresses>", "Comma-separated full victim/source addresses, max 5").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--known-suspect-addresses <addresses>", "Optional known suspect addresses for context only, max 5").option("--incident-timestamp-ms <milliseconds>", "Optional incident timestamp in milliseconds").option("--max-hops <number>", "Maximum trace hops, 1-5").option("--per-address-limit <number>", "Maximum exchange paths/results per address, 1-10").option("--min-amount-sum <number>", "Minimum r.amount_sum for traced edges").option("--remote", "Force remote MCP tool call instead of local Chain Insights recipe").action(async (opts) => {
+})).addCommand(new commander.Command("aml-trace-victim-funds").description("Trace victim/source addresses forward to exchange deposit candidates").requiredOption("--victim-addresses <addresses>", "Comma-separated full victim/source addresses, max 5").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--known-suspect-addresses <addresses>", "Optional known suspect addresses for context only, max 5").option("--incident-timestamp-ms <milliseconds>", "Optional incident timestamp in milliseconds").option("--max-hops <number>", "Maximum trace hops, 1-5").option("--per-address-limit <number>", "Maximum exchange paths/results per address, 1-10").option("--min-amount-sum <number>", "Minimum USD amount (amount_usd_sum) for traced edges").option("--remote", "Force remote MCP tool call instead of local Chain Insights recipe").action(async (opts) => {
 	try {
 		const { requireWorkspaceRoot } = await Promise.resolve().then(() => require("./output-root-DI0tzA0X.cjs")).then((n) => n.output_root_exports);
 		requireWorkspaceRoot();
@@ -472,7 +472,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { traceVictimFunds } = await Promise.resolve().then(() => require("./public-tools-D4GsexbK.cjs"));
+			const { traceVictimFunds } = await Promise.resolve().then(() => require("./public-tools-DGTDYACX.cjs"));
 			const result = await traceVictimFunds(client, config, {
 				victimAddresses: opts.victimAddresses,
 				knownSuspectAddresses: opts.knownSuspectAddresses,
@@ -489,12 +489,12 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new commander.Command("aml-trace-suspect-funds").description("Trace suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").requiredOption("--suspect-addresses <addresses>", "Comma-separated full suspect-controlled addresses, max 5").option("--incident-timestamp-ms <milliseconds>", "Optional incident timestamp in milliseconds").option("--max-hops <number>", "Maximum trace hops, default 3, max 5").option("--per-address-limit <number>", "Maximum exchange paths/results per address, 1-10").option("--min-amount-sum <number>", "Minimum r.amount_sum for traced edges").action(async (opts) => {
+})).addCommand(new commander.Command("aml-trace-suspect-funds").description("Trace suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").requiredOption("--suspect-addresses <addresses>", "Comma-separated full suspect-controlled addresses, max 5").option("--incident-timestamp-ms <milliseconds>", "Optional incident timestamp in milliseconds").option("--max-hops <number>", "Maximum trace hops, default 3, max 5").option("--per-address-limit <number>", "Maximum exchange paths/results per address, 1-10").option("--min-amount-sum <number>", "Minimum USD amount (amount_usd_sum) for traced edges").action(async (opts) => {
 	try {
 		const { requireWorkspaceRoot } = await Promise.resolve().then(() => require("./output-root-DI0tzA0X.cjs")).then((n) => n.output_root_exports);
 		requireWorkspaceRoot();
 		await withGraphMcpClient("chain-insights-cli-aml-trace-suspect-funds", async (client, config) => {
-			const { traceSuspectFunds } = await Promise.resolve().then(() => require("./public-tools-D4GsexbK.cjs"));
+			const { traceSuspectFunds } = await Promise.resolve().then(() => require("./public-tools-DGTDYACX.cjs"));
 			const result = await traceSuspectFunds(client, config, {
 				suspectAddresses: opts.suspectAddresses,
 				network: opts.network,
@@ -515,7 +515,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { requireWorkspaceRoot } = await Promise.resolve().then(() => require("./output-root-DI0tzA0X.cjs")).then((n) => n.output_root_exports);
 		requireWorkspaceRoot();
 		await withGraphMcpClient("chain-insights-cli-aml-trace-deposit-sources", async (client, config) => {
-			const { traceDepositSources } = await Promise.resolve().then(() => require("./public-tools-D4GsexbK.cjs"));
+			const { traceDepositSources } = await Promise.resolve().then(() => require("./public-tools-DGTDYACX.cjs"));
 			const result = await traceDepositSources(client, config, {
 				depositAddresses: opts.depositAddresses,
 				network: opts.network,
@@ -531,7 +531,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 })).addCommand(new commander.Command("exposure-profile").description("Explain staking or trading exposure around one account, owner, or counterparty").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--account <address>", "Account address to inspect").option("--owner <address>", "Owner address to inspect").option("--counterparty <address>", "Counterparty address to inspect").option("--venue <name>", "Optional venue filter, for example Bittensor or Hyperliquid").option("--instrument <id>", "Optional instrument filter, for example a subnet lifecycle id or BTC-PERP").option("--instrument-type <type>", "Optional instrument type filter, for example subnet, perp, spot, vault, or staking").option("--start-timestamp-ms <milliseconds>", "Optional inclusive lower activity timestamp bound").option("--end-timestamp-ms <milliseconds>", "Optional inclusive upper activity timestamp bound").option("--limit <number>", "Maximum exposure rows, default 100, max 500").action(async (opts) => {
 	try {
 		await withGraphMcpClient("chain-insights-cli-exposure-profile", async (client) => {
-			const { exposureProfile } = await Promise.resolve().then(() => require("./public-tools-D4GsexbK.cjs"));
+			const { exposureProfile } = await Promise.resolve().then(() => require("./public-tools-DGTDYACX.cjs"));
 			const result = await exposureProfile(client, {
 				network: opts.network,
 				account: opts.account,
@@ -559,7 +559,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		assertPublicMcpToolName(tool);
 		await withGraphMcpClient("chain-insights-cli-call", async (client, config) => {
 			if (tool === "aml_address_risk") {
-				const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-D4GsexbK.cjs"));
+				const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-DGTDYACX.cjs"));
 				const result = await addressRisk(client, {
 					address: String(args["address"] ?? ""),
 					network: String(args["network"] ?? ""),
@@ -569,7 +569,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "aml_trace_victim_funds") {
-				const { traceVictimFunds } = await Promise.resolve().then(() => require("./public-tools-D4GsexbK.cjs"));
+				const { traceVictimFunds } = await Promise.resolve().then(() => require("./public-tools-DGTDYACX.cjs"));
 				const result = await traceVictimFunds(client, config, {
 					victimAddresses: args["victim_addresses"] ?? "",
 					knownSuspectAddresses: args["known_suspect_addresses"],
@@ -584,7 +584,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "aml_trace_suspect_funds") {
-				const { traceSuspectFunds } = await Promise.resolve().then(() => require("./public-tools-D4GsexbK.cjs"));
+				const { traceSuspectFunds } = await Promise.resolve().then(() => require("./public-tools-DGTDYACX.cjs"));
 				const result = await traceSuspectFunds(client, config, {
 					suspectAddresses: args["suspect_addresses"] ?? "",
 					network: String(args["network"] ?? ""),
@@ -598,7 +598,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "aml_trace_deposit_sources") {
-				const { traceDepositSources } = await Promise.resolve().then(() => require("./public-tools-D4GsexbK.cjs"));
+				const { traceDepositSources } = await Promise.resolve().then(() => require("./public-tools-DGTDYACX.cjs"));
 				const result = await traceDepositSources(client, config, {
 					depositAddresses: args["deposit_addresses"] ?? "",
 					network: String(args["network"] ?? ""),
@@ -609,7 +609,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "exposure_profile") {
-				const { exposureProfile } = await Promise.resolve().then(() => require("./public-tools-D4GsexbK.cjs"));
+				const { exposureProfile } = await Promise.resolve().then(() => require("./public-tools-DGTDYACX.cjs"));
 				const result = await exposureProfile(client, {
 					network: String(args["network"] ?? ""),
 					account: args["account"] === void 0 ? void 0 : String(args["account"]),
@@ -634,7 +634,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				"exposure_correlation",
 				"exposure_explain"
 			].includes(tool)) {
-				const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await Promise.resolve().then(() => require("./public-tools-D4GsexbK.cjs"));
+				const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await Promise.resolve().then(() => require("./public-tools-DGTDYACX.cjs"));
 				const exposureArgs = {
 					network: String(args["network"] ?? ""),
 					account: args["account"] === void 0 ? void 0 : String(args["account"]),
@@ -671,7 +671,7 @@ program.command("viz").description("Generate a workspace visualization").argumen
 			console.error("Provide either a visualization source ID or --data <file.json>");
 			process.exit(1);
 		}
-		const { generateVisualization } = await Promise.resolve().then(() => require("./viz-BBvY-wXz.cjs")).then((n) => n.viz_exports);
+		const { generateVisualization } = await Promise.resolve().then(() => require("./viz-lJWR37Zc.cjs")).then((n) => n.viz_exports);
 		const result = await generateVisualization({
 			sourceId,
 			dataFile: opts.data

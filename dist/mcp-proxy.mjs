@@ -99,16 +99,16 @@ const CHAIN_INSIGHTS_WORKFLOW = [
 const GRAPH_SCHEMA_HINTS = [
 	"Graph query hints for network=bittensor:",
 	"- The graph is identity-grain. The only topology node label is Identity (satellite Address nodes exist only for member-address lookup), keyed by identity_id in the canonical prefixed form <network>:<canonical_address>, for example bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24.",
-	"- Identity nodes carry identity_id, address_type, labels, and is_exchange. There is no addresses list property and no network property; each network has its own graph. Member-address forms live exclusively on satellite (:Address {address}) nodes; enumerate them with MATCH (i:Identity {identity_id: $id})-[:HAS_ADDRESS]->(m:Address) RETURN m.address.",
-	"- Identity nodes also carry a slim live risk verdict (risk_score float, risk_level string) for quick triage, plus base activity rollups: degree_in/degree_out, tx_in_count/tx_out_count/tx_total_count, total_in_usd/total_out_usd/total_volume_usd, net_flow_usd, active_days, activity_span_days, first_activity_timestamp/last_activity_timestamp, and lifetime_* variants.",
+	"- Identity nodes carry identity_id, labels, and is_exchange. There is no addresses list property and no network property; each network domain has its own graph. Member-address forms live exclusively on satellite (:Address {address, network}) nodes; enumerate them with MATCH (i:Identity {identity_id: $id})-[:HAS_ADDRESS]->(m:Address) RETURN m.address, m.network.",
+	"- Identity nodes also carry a slim live risk verdict (risk_score float, risk_level string) plus base activity rollups computed from external flows only: degree_in/degree_out/degree_total (distinct counterparty identities), tx_in_count/tx_out_count/tx_total_count, total_in_usd/total_out_usd/total_volume_usd, net_flow_usd (in minus out; positive = net receiver), first_activity_timestamp/last_activity_timestamp, activity_span_days. Movement between an identity's own member forms is excluded from those rollups and exposed separately as internal_tx_count/internal_volume_usd (sparse: absent when zero, like is_exchange). FLOWS_TO edges carry tx_count, amount_usd_sum, avg_tx_size_usd (understates when price_coverage_ratio < 1), first/last_seen_timestamp, first/last_tx_id, dominant_asset (largest USD share), price_coverage_ratio. Lifetime aggregates are the only serving window.",
 	"- Resolve any member address form (0x or SS58) to its identity with the indexed exact lookup: MATCH (m:Address {address: $input})<-[:HAS_ADDRESS]-(i:Identity) RETURN i.identity_id LIMIT 1. :Address(address) is unique and index-backed.",
 	"- Detailed, provenanced scoring still comes from USE facts: (:Identity)-[:HAS_RISK_SCORE]->(:RiskScore) for model versions/processing dates, (:Identity)-[:HAS_LABEL]->(:AddressLabel) for label risk, (:Identity)-[:HAS_FEATURE]->(:AddressFeature) for feature metrics. Use node risk_score/risk_level only as the quick-triage verdict; never read ml_* properties off topology nodes.",
 	"- Facts graph labels include Identity, AddressLabel, AddressFeature, RiskScore, and Asset. Facts identity keys match live identity_id values exactly.",
 	"- Live topology relationships include FLOWS_TO and RISK_PROXIMITY between Identity nodes, plus OWNS_EXPOSURE/HAS_EXPOSURE to Exposure, HAS_COUNTERPARTY from Exposure to Identity, and TARGETS_INSTRUMENT from Exposure to Instrument.",
-	"- FLOWS_TO properties are scoped to the selected topology graph and commonly carry amount_sum, amount_usd_sum, tx_count, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id. Confirm available fields through runtime schema before relying on them.",
+	"- FLOWS_TO properties are scoped to the selected topology graph and commonly carry tx_count, amount_usd_sum, avg_tx_size_usd, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id, dominant_asset, price_coverage_ratio. Confirm available fields through runtime schema before relying on them.",
 	"- Traversal rule: for BFS, fixed-hop fallback, shortest-path, or manual FLOWS_TO traversal, exchange hot wallets are terminal endpoints only. Do not expand from, through, or classify exchange nodes as deposit, suspect, or intermediate candidates; filter every non-terminal node with is_exchange IS NULL.",
 	"- Start schema discovery with endpoint-safe property reads: MATCH (n:Identity) WHERE n.identity_id IS NOT NULL RETURN n.identity_id AS identity_id, n.labels AS labels, n.risk_score AS risk_score, n.risk_level AS risk_level LIMIT 20",
-	"- Relationship discovery: MATCH (:Identity)-[r:FLOWS_TO]->(:Identity) RETURN r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum LIMIT 20",
+	"- Relationship discovery: MATCH (:Identity)-[r:FLOWS_TO]->(:Identity) RETURN r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 20",
 	"- graph_query uses the active Chain Insights graph endpoint. topology_scope accepts only identity (empty defaults to identity). Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment.",
 	"- Archive topology labels include Identity and TopologySnapshot. Archived money-flow topology is represented as (:Identity)-[:FLOWS_TO]->(:Identity) relationships with period_granularity, period_start_date, and period_end_date.",
 	"- All graph_query calls are read-only. Never use CREATE, INSERT, MERGE, SET, DELETE, REMOVE, DROP, DETACH, ADD, CONNECT, DISCONNECT, ALTER, TRUNCATE, GRANT, or REVOKE.",
@@ -645,7 +645,7 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 	const graphPayload = getRemoteGraphPayload(result);
 	const meta = { ...result._meta ?? {} };
 	if (graphPayload && includeAttachments) {
-		const { writeGraphReport } = await import("./graph-reports-CEq-Mvx0.mjs");
+		const { writeGraphReport } = await import("./graph-reports-Dw_t59Ez.mjs");
 		const { ensureArtifactServer } = await import("./artifact-server-CcmLBv1j.mjs");
 		const report = await writeGraphReport(graphPayload, {
 			serverPort: config.serverPort,
@@ -672,7 +672,7 @@ function shouldIncludeAttachments(args, workspaceArtifactsEnabled) {
 }
 async function writeLocalGraphMeta(graphData, config, slug, includeAttachments) {
 	if (!includeAttachments) return void 0;
-	const { writeGraphReport } = await import("./graph-reports-CEq-Mvx0.mjs");
+	const { writeGraphReport } = await import("./graph-reports-Dw_t59Ez.mjs");
 	const { ensureArtifactServer } = await import("./artifact-server-CcmLBv1j.mjs");
 	const report = await writeGraphReport(graphData, {
 		serverPort: config.serverPort,
@@ -913,7 +913,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { addressRisk } = await import("./public-tools-Cmaez6hz.mjs");
+				const { addressRisk } = await import("./public-tools-2VAnv033.mjs");
 				const result = await addressRisk(remoteClient, {
 					address,
 					network,
@@ -958,7 +958,7 @@ async function createProxy() {
 				incident_timestamp_ms: z.number().min(0).optional().describe("Optional incident timestamp in milliseconds."),
 				max_hops: z.number().int().min(1).max(5).optional(),
 				per_address_limit: z.number().int().min(1).max(10).optional(),
-				min_amount_sum: z.number().min(0).optional()
+				min_amount_sum: z.number().min(0).optional().describe("Minimum USD amount (amount_usd_sum) required on traced FLOWS_TO edges.")
 			},
 			_meta: { ui: { resourceUri: GRAPH_RESOURCE_URI } },
 			annotations: {
@@ -976,7 +976,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceVictimFunds } = await import("./public-tools-Cmaez6hz.mjs");
+				const { traceVictimFunds } = await import("./public-tools-2VAnv033.mjs");
 				const result = await traceVictimFunds(remoteClient, config, {
 					victimAddresses: victim_addresses,
 					knownSuspectAddresses: known_suspect_addresses,
@@ -1023,7 +1023,7 @@ async function createProxy() {
 				incident_timestamp_ms: z.number().min(0).optional().describe("Optional incident timestamp in milliseconds. This tool works without it."),
 				max_hops: z.number().int().min(1).max(5).optional().describe("Maximum forward trace hops. Default 3."),
 				per_address_limit: z.number().int().min(1).max(10).optional(),
-				min_amount_sum: z.number().min(0).optional(),
+				min_amount_sum: z.number().min(0).optional().describe("Minimum USD amount (amount_usd_sum) required on traced FLOWS_TO edges."),
 				include_attachments: z.boolean().optional().describe("Include graph app report metadata")
 			},
 			_meta: { ui: { resourceUri: GRAPH_RESOURCE_URI } },
@@ -1042,7 +1042,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceSuspectFunds } = await import("./public-tools-Cmaez6hz.mjs");
+				const { traceSuspectFunds } = await import("./public-tools-2VAnv033.mjs");
 				const result = await traceSuspectFunds(remoteClient, config, {
 					suspectAddresses: suspect_addresses,
 					network,
@@ -1104,7 +1104,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceDepositSources } = await import("./public-tools-Cmaez6hz.mjs");
+				const { traceDepositSources } = await import("./public-tools-2VAnv033.mjs");
 				const result = await traceDepositSources(remoteClient, config, {
 					depositAddresses: deposit_addresses,
 					network,
@@ -1169,7 +1169,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { exposureProfile } = await import("./public-tools-Cmaez6hz.mjs");
+				const { exposureProfile } = await import("./public-tools-2VAnv033.mjs");
 				const result = await exposureProfile(remoteClient, {
 					network,
 					account,
@@ -1266,7 +1266,7 @@ async function createProxy() {
 						isError: true
 					};
 					const input = args;
-					const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await import("./public-tools-Cmaez6hz.mjs");
+					const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await import("./public-tools-2VAnv033.mjs");
 					const options = {
 						network: String(input["network"] ?? ""),
 						account: input["account"] === void 0 ? void 0 : String(input["account"]),

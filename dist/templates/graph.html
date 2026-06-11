@@ -689,7 +689,7 @@ function applyDataMode() {
   nodeMap = {};
 
   nodes = graphData.nodes.map(function(n) {
-    var o = {address:n.address, address_type:n.address_type||'wallet', labels:n.labels||[],
+    var o = {address:n.address, node_kind:n.node_kind||'wallet', labels:n.labels||[],
              flow_in_usd:n.flow_in_usd, flow_out_usd:n.flow_out_usd,
              role:nodeDisplayRole(n), risk_level:n.risk_level||null,
              risk_score: typeof n.risk_score === 'number' ? n.risk_score : null,
@@ -1270,13 +1270,13 @@ window.loadData = function(data) {
    Mock data
    ─────────────────────────────────────────────────────────── */
 var MOCK={nodes:[
-  {address:"5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",address_type:"wallet",labels:["Validator"],flow_in_usd:50000,flow_out_usd:45000},
-  {address:"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",address_type:"exchange",labels:["Binance"],flow_in_usd:120000,flow_out_usd:115000},
-  {address:"5HGjWAeFDfFCWPsjFQdVV2Msvz2XtMktvgocEZcCj68kUMaw",address_type:"wallet",labels:[],flow_in_usd:8000,flow_out_usd:7500},
-  {address:"5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy",address_type:"wallet",labels:[],flow_in_usd:3000,flow_out_usd:2800,pattern_flags:["layering"]},
-  {address:"5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSneWj6VLHPF",address_type:"wallet",labels:["Miner"],flow_in_usd:25000,flow_out_usd:22000},
-  {address:"5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc",address_type:"exchange",labels:["Kraken"],flow_in_usd:95000,flow_out_usd:90000},
-  {address:"5Ew3MyB15VprZrjQVkpQFj8okmc9xLDSEdNhqMMS5cXsqxoW",address_type:"wallet",labels:[],flow_in_usd:1500,flow_out_usd:1400,pattern_flags:["structuring","rapid_consolidation"]},
+  {address:"5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",node_kind:"wallet",labels:["Validator"],flow_in_usd:50000,flow_out_usd:45000},
+  {address:"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",node_kind:"exchange",labels:["Binance"],flow_in_usd:120000,flow_out_usd:115000},
+  {address:"5HGjWAeFDfFCWPsjFQdVV2Msvz2XtMktvgocEZcCj68kUMaw",node_kind:"wallet",labels:[],flow_in_usd:8000,flow_out_usd:7500},
+  {address:"5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy",node_kind:"wallet",labels:[],flow_in_usd:3000,flow_out_usd:2800,pattern_flags:["layering"]},
+  {address:"5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSneWj6VLHPF",node_kind:"wallet",labels:["Miner"],flow_in_usd:25000,flow_out_usd:22000},
+  {address:"5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc",node_kind:"exchange",labels:["Kraken"],flow_in_usd:95000,flow_out_usd:90000},
+  {address:"5Ew3MyB15VprZrjQVkpQFj8okmc9xLDSEdNhqMMS5cXsqxoW",node_kind:"wallet",labels:[],flow_in_usd:1500,flow_out_usd:1400,pattern_flags:["structuring","rapid_consolidation"]},
 ],edges:[
   {source:"5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",target:"5HGjWAeFDfFCWPsjFQdVV2Msvz2XtMktvgocEZcCj68kUMaw",usd_amount:5000,tx_count:3,edge_type:"flows_to"},
   {source:"5HGjWAeFDfFCWPsjFQdVV2Msvz2XtMktvgocEZcCj68kUMaw",target:"5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy",usd_amount:4500,tx_count:2,edge_type:"flows_to"},

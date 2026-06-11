@@ -1,18 +1,19 @@
-import { t as __exportAll } from "./rolldown-runtime-D7D4PA-g.mjs";
-import { n as workspaceOutputPaths } from "./output-root-BK4pdjyz.mjs";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
-import { readFileSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+const require_chunk = require("./chunk-DakpK96I.cjs");
+const require_output_root = require("./output-root-DI0tzA0X.cjs");
+let node_url = require("node:url");
+let node_path = require("node:path");
+node_path = require_chunk.__toESM(node_path, 1);
+let node_fs = require("node:fs");
+let node_fs_promises = require("node:fs/promises");
 //#region src/viz/html-generator.ts
-var html_generator_exports = /* @__PURE__ */ __exportAll({
+var html_generator_exports = /* @__PURE__ */ require_chunk.__exportAll({
 	generateHtml: () => generateHtml,
 	generateInlineGraphHtml: () => generateInlineGraphHtml,
 	transformToGraphHtml: () => transformToGraphHtml,
 	writeVizHtml: () => writeVizHtml
 });
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const template = readFileSync(path.resolve(__dirname, "templates", "graph.html"), "utf-8");
+const __dirname$1 = node_path.default.dirname((0, node_url.fileURLToPath)(require("url").pathToFileURL(__filename).href));
+const template = (0, node_fs.readFileSync)(node_path.default.resolve(__dirname$1, "templates", "graph.html"), "utf-8");
 const ENTITY_TO_ROLE = {
 	eoa: "search",
 	contract: "intermediary",
@@ -24,7 +25,7 @@ function transformToGraphHtml(data) {
 	return {
 		nodes: data.nodes.map((n) => ({
 			address: n.id,
-			address_type: n.entityType === "exchange" ? "exchange" : "wallet",
+			node_kind: n.entityType === "exchange" ? "exchange" : "wallet",
 			labels: n.label ? [n.label] : [],
 			flow_in_usd: n.totalIn,
 			flow_out_usd: n.totalOut,
@@ -54,15 +55,30 @@ function sanitizePathSegment(segment) {
 	return segment;
 }
 async function writeVizHtml(vizId, html) {
-	const paths = workspaceOutputPaths();
-	const vizDir = path.join(paths.publishedRoot, "viz");
+	const paths = require_output_root.workspaceOutputPaths();
+	const vizDir = node_path.default.join(paths.publishedRoot, "viz");
 	sanitizePathSegment(vizId);
-	await mkdir(vizDir, { recursive: true });
-	const filePath = path.join(vizDir, `${vizId}.html`);
-	await writeFile(filePath, html, { mode: 384 });
+	await (0, node_fs_promises.mkdir)(vizDir, { recursive: true });
+	const filePath = node_path.default.join(vizDir, `${vizId}.html`);
+	await (0, node_fs_promises.writeFile)(filePath, html, { mode: 384 });
 	return filePath;
 }
 //#endregion
-export { html_generator_exports as n, writeVizHtml as r, generateHtml as t };
-
-//# sourceMappingURL=html-generator-D4fX71hI.mjs.map
+Object.defineProperty(exports, "generateHtml", {
+	enumerable: true,
+	get: function() {
+		return generateHtml;
+	}
+});
+Object.defineProperty(exports, "html_generator_exports", {
+	enumerable: true,
+	get: function() {
+		return html_generator_exports;
+	}
+});
+Object.defineProperty(exports, "writeVizHtml", {
+	enumerable: true,
+	get: function() {
+		return writeVizHtml;
+	}
+});
