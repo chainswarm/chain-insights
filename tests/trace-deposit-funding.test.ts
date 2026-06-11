@@ -35,12 +35,16 @@ const BACKWARD_ROW = {
   ],
 }
 
-function client() {
+function client(options: { failTraceback?: boolean } = {}) {
   return {
     callTool: vi.fn(async (req: { arguments: { queries: BatchQuery[] } }) => {
       const queries = req.arguments.queries.map((q) => {
         if (q.id === 'forward_exchange_paths_2') return { id: q.id, ok: true, results: [FORWARD_ROW] }
-        if (q.id.startsWith('backward_from_deposit_')) return { id: q.id, ok: true, results: [BACKWARD_ROW] }
+        if (q.id.startsWith('backward_from_deposit_')) {
+          if (options.failTraceback) return { id: q.id, ok: false, error: 'timeout' }
+          if (q.id === 'backward_from_deposit_1_1') return { id: q.id, ok: true, results: [BACKWARD_ROW] }
+          return { id: q.id, ok: true, results: [] }
+        }
         return { id: q.id, ok: true, results: [] }
       })
       return { content: [{ type: 'text', text: JSON.stringify({ facts: { queries } }) }], isError: false }
@@ -60,9 +64,30 @@ describe('deposit traceback in public trace tools', () => {
     expect(issued.some((id) => id.startsWith('backward_from_deposit_'))).toBe(true)
     const content = result.structuredContent as { deposit_funding?: { source_exchange_paths: Array<Record<string, unknown>>; reverse_leads: Array<Record<string, unknown>> } }
     expect(content.deposit_funding).toBeDefined()
+    expect(content.deposit_funding!.source_exchange_paths).toHaveLength(1)
     expect(content.deposit_funding!.source_exchange_paths[0]).toMatchObject({
       deposit_address: 'net:0xdep',
       source_exchange: 'net:0xsrcex',
     })
+  })
+
+  it('surfaces traceback query failures as warnings without aborting the trace', async () => {
+    const remote = client({ failTraceback: true })
+    const result = await traceVictimFunds(remote as never, { dataDir: '/tmp/ci-test', serverPort: 4321 }, {
+      victimAddresses: 'net:0xv1',
+      network: 'bittensor',
+      writeArtifacts: false,
+    })
+    const content = result.structuredContent as {
+      summary?: { candidate_deposit_count: number }
+      deposit_funding?: { source_exchange_paths: Array<Record<string, unknown>> }
+      warnings?: string[]
+    }
+    expect(content.summary?.candidate_deposit_count).toBe(1)
+    expect(content.deposit_funding).toBeDefined()
+    expect(content.deposit_funding!.source_exchange_paths).toEqual([])
+    expect(content.warnings).toEqual(expect.arrayContaining([
+      expect.stringMatching(/deposit traceback query .* failed: timeout/),
+    ]))
   })
 })

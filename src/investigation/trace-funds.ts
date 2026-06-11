@@ -65,6 +65,7 @@ export interface TraceFundsResult {
     hint: string
   }
   addressMap: Record<string, string>
+  tracebackWarnings: string[]
 }
 
 interface TraceDeposit {
@@ -601,7 +602,7 @@ async function hydrateDirectEdgeProps(remoteClient: Client, network: string, flo
 async function collectProbeTrace(
   remoteClient: Client,
   options: Required<Pick<TraceFundsOptions, 'seedAddress' | 'network' | 'maxHops' | 'perAddressLimit' | 'minAmountSum'>> & Pick<TraceFundsOptions, 'includeDepositTraceback' | 'activityWindow'>,
-): Promise<{ flows: TraceFlow[]; deposits: TraceDeposit[]; sourceMatches: SourceMatch[]; reverseLeads: ReverseLead[] }> {
+): Promise<{ flows: TraceFlow[]; deposits: TraceDeposit[]; sourceMatches: SourceMatch[]; reverseLeads: ReverseLead[]; tracebackWarnings: string[] }> {
   const forwardBatch = await callGraphBatch(remoteClient, options.network, [
     ...forwardExchangeQueries(options.seedAddress, Math.max(options.perAddressLimit * 20, 200), options.minAmountSum, options.maxHops, options.activityWindow),
   ])
@@ -616,13 +617,24 @@ async function collectProbeTrace(
   const uniqueDepositAddresses = [...new Set(deposits.map((deposit) => deposit.address))]
 
   const sourceMatches: SourceMatch[] = []
+  const tracebackWarnings: string[] = []
   if (options.includeDepositTraceback !== false && uniqueDepositAddresses.length > 0) {
-    const backwardBatch = await callGraphBatch(
-      remoteClient,
-      options.network,
-      uniqueDepositAddresses.slice(0, Math.max(1, Math.floor(20 / options.maxHops))).flatMap((address, index) => backwardSourceQueries(`backward_from_deposit_${index + 1}`, address, options.maxHops)),
-    )
-    for (const query of backwardBatch.facts?.queries ?? []) {
+    let backwardQueries: NonNullable<NonNullable<ParsedGraphBatch['facts']>['queries']> = []
+    try {
+      const backwardBatch = await callGraphBatch(
+        remoteClient,
+        options.network,
+        uniqueDepositAddresses.slice(0, Math.max(1, Math.floor(20 / options.maxHops))).flatMap((address, index) => backwardSourceQueries(`backward_from_deposit_${index + 1}`, address, options.maxHops)),
+      )
+      backwardQueries = backwardBatch.facts?.queries ?? []
+    } catch (err) {
+      tracebackWarnings.push(`deposit traceback batch failed: ${(err as Error).message}`)
+    }
+    for (const query of backwardQueries) {
+      if (query.ok === false) {
+        tracebackWarnings.push(`deposit traceback query ${query.id} failed: ${query.error || 'unknown error'}`)
+        continue
+      }
       for (const row of query.results ?? []) {
         const pathAddresses = stringArrayValue(row['addresses']) ?? []
         const pathNodes = Array.isArray(row['path_nodes'])
@@ -651,8 +663,18 @@ async function collectProbeTrace(
 
   const reverseLeads: ReverseLead[] = []
   if (options.includeDepositTraceback !== false && uniqueDepositAddresses.length > 0) {
-    const reverseBatch = await callGraphBatch(remoteClient, options.network, [reverseLeadsQuery(uniqueDepositAddresses)])
-    for (const row of resultsFor(reverseBatch, 'reverse_1hop')) {
+    let reverseRows: Array<Record<string, unknown>> = []
+    try {
+      const reverseBatch = await callGraphBatch(remoteClient, options.network, [reverseLeadsQuery(uniqueDepositAddresses)])
+      try {
+        reverseRows = resultsFor(reverseBatch, 'reverse_1hop')
+      } catch (err) {
+        tracebackWarnings.push(`deposit traceback query reverse_1hop failed: ${(err as Error).message}`)
+      }
+    } catch (err) {
+      tracebackWarnings.push(`deposit traceback batch failed: ${(err as Error).message}`)
+    }
+    for (const row of reverseRows) {
       const address = typeof row['address'] === 'string' ? row['address'] : ''
       const depositAddress = typeof row['deposit_address'] === 'string' ? row['deposit_address'] : ''
       if (!address || !depositAddress) continue
@@ -678,7 +700,7 @@ async function collectProbeTrace(
     }
   }
 
-  return { flows, deposits, sourceMatches, reverseLeads }
+  return { flows, deposits, sourceMatches, reverseLeads, tracebackWarnings }
 }
 
 function buildAliases(seedAddress: string, deposits: TraceDeposit[], sourceMatches: SourceMatch[], reverseLeads: ReverseLead[]): AliasTracker {
@@ -1098,7 +1120,7 @@ export async function runFundFlowProbe(
         },
         filePath: 'stateless://runtime-schema-not-written',
       }
-  const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, { seedAddress, network, maxHops, perAddressLimit, minAmountSum, activityWindow: options.activityWindow, includeDepositTraceback: options.includeDepositTraceback })
+  const { flows, deposits, sourceMatches, reverseLeads, tracebackWarnings } = await collectProbeTrace(remoteClient, { seedAddress, network, maxHops, perAddressLimit, minAmountSum, activityWindow: options.activityWindow, includeDepositTraceback: options.includeDepositTraceback })
   const aliases = buildAliases(seedAddress, deposits, sourceMatches, reverseLeads)
   const slug = `${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}_${sanitizeSegment(seedAddress.slice(0, 16))}`
   const compact = probeEvidence(seedAddress, network, schemaResult.filePath, aliases, flows, deposits, sourceMatches, reverseLeads, evidenceSource)
@@ -1150,5 +1172,6 @@ export async function runFundFlowProbe(
     files,
     continuation,
     addressMap: aliases.compactAddressMap(),
+    tracebackWarnings,
   }
 }

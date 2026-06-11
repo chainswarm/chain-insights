@@ -1238,7 +1238,10 @@ function traceResultFromFundRuns(
       recommended_next_tools: recommendedNextTools,
       ...(sourceMatches.length > 0 ? { deposit_funding_note: 'One or more deposit candidates are exchange-funded upstream; consider aml_trace_deposit_sources on those deposits.' } : {}),
     },
-    warnings: depositAddresses.length === 0 ? ['No exchange deposit candidates were connected in the queried topology.'] : [],
+    warnings: [
+      ...(depositAddresses.length === 0 ? ['No exchange deposit candidates were connected in the queried topology.'] : []),
+      ...runs.flatMap((run) => run.result.tracebackWarnings ?? []),
+    ],
   }
 
   return {
