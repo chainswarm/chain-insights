@@ -3,6 +3,40 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.5.6] - 2026-06-12
+
+- AML trace tools accept an activity window. `aml_trace_victim_funds` and
+  `aml_trace_suspect_funds` take `time_range` (`from_ms` required, `to_ms`
+  optional) or derive the window from `incident_timestamp_ms`; traced
+  `FLOWS_TO` edges are filtered on `first_seen_timestamp`/`last_seen_timestamp`
+  on every hop, and the effective window is echoed back as `time_filter`
+  (`'none'` when unfiltered). `time_range` takes precedence over
+  `incident_timestamp_ms`. Edge timestamps now ride along in trace projections,
+  compact evidence, graph payloads, and the CSV/Markdown/HTML flow tables.
+- Victim/suspect traces now run the bounded deposit traceback and expose a
+  `deposit_funding` section: source-exchange paths covering roughly the first
+  `floor(20/max_hops)` deposit candidates plus reverse 1-hop leads, with
+  `source_exchange_paths[].path` in traversal order deposit-to-source (the
+  reverse of money flow). Traceback query failures surface as result warnings
+  instead of aborting the trace, and an exchange-funded deposit candidate adds
+  a continuation note pointing at `aml_trace_deposit_sources`.
+- `aml_trace_deposit_sources` gains noise controls: `min_amount_sum` drops
+  reverse `FLOWS_TO` edges below the given USD amount (`amount_usd_sum`; dust
+  control), `time_range` applies the same activity window (echoed as
+  `time_filter`), and each reverse depth warns explicitly when it saturates
+  the 500-row limit.
+- `aml_address_risk` exchange-exposure rows include edge activity timestamps,
+  and when no ML risk score exists the fallback score is structure-weighted
+  instead of a flat 0.4: log-scaled USD exposure volume with shared/omnibus
+  edges dampened, bounded in (0, 0.6] so a fallback can never impersonate a
+  high ML score band.
+- MCP proxy schemas and descriptions updated for the three trace tools:
+  shared `time_range` fragment, `min_amount_sum` on deposit sources, and
+  product-facing descriptions of the window semantics, the bounded
+  `deposit_funding` traceback preview, and dust/truncation controls. All new
+  filters and fields follow the USD-only value grain of the graph property
+  contract (v0.5.5): every amount is `amount_usd_sum`.
+
 ## [0.5.5] - 2026-06-12
 
 - Breaking graph-property contract alignment (identity/address property

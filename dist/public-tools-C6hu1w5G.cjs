@@ -150,6 +150,8 @@ function schemaFromGraphBatch(network, batch) {
 			"dst.identity_id AS dst",
 			"r.amount_usd_sum AS amount_usd_sum",
 			"r.tx_count AS tx_count",
+			"r.first_seen_timestamp AS first_seen_timestamp",
+			"r.last_seen_timestamp AS last_seen_timestamp",
 			"r.first_tx_id AS first_tx_id",
 			"r.last_tx_id AS last_tx_id",
 			"dst.labels AS dst_labels"
@@ -174,15 +176,21 @@ async function loadOrCaptureTopologySchema(remoteClient, paths, network) {
 	};
 }
 function flowEdgeMap$1(variableName) {
-	return `{amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`;
+	return `{amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_seen_timestamp: ${variableName}.first_seen_timestamp, last_seen_timestamp: ${variableName}.last_seen_timestamp, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`;
 }
 function pathNodeMap$1(variableName) {
 	return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`;
 }
-function forwardExchangeQueries(address, limit, minAmountSum, maxHops) {
-	return Array.from({ length: maxHops }, (_, index) => forwardExchangeQueryAtDepth(address, limit, minAmountSum, index + 1));
+function activityWindowPredicates(edgeVariables, window) {
+	if (!window) return [];
+	return edgeVariables.map((edgeVariable) => {
+		return `${`(${edgeVariable}.first_seen_timestamp >= ${window.fromMs} OR ${edgeVariable}.last_seen_timestamp >= ${window.fromMs})`}${window.toMs !== void 0 ? ` AND ${edgeVariable}.first_seen_timestamp <= ${window.toMs}` : ""}`;
+	});
 }
-function forwardExchangeQueryAtDepth(address, limit, minAmountSum, depth) {
+function forwardExchangeQueries(address, limit, minAmountSum, maxHops, activityWindow) {
+	return Array.from({ length: maxHops }, (_, index) => forwardExchangeQueryAtDepth(address, limit, minAmountSum, index + 1, activityWindow));
+}
+function forwardExchangeQueryAtDepth(address, limit, minAmountSum, depth, activityWindow) {
 	const intermediateVariables = Array.from({ length: Math.max(depth - 1, 0) }, (_, index) => `n${index + 1}`);
 	const nodeVariables = [
 		"s",
@@ -198,7 +206,8 @@ function forwardExchangeQueryAtDepth(address, limit, minAmountSum, depth) {
 		"s <> t",
 		...["s", ...intermediateVariables].map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`),
 		"t.is_exchange IS NOT NULL",
-		...amountPredicates
+		...amountPredicates,
+		...activityWindowPredicates(edgeVariables, activityWindow)
 	];
 	const depositVariable = nodeVariables[nodeVariables.length - 2];
 	return {
@@ -264,7 +273,7 @@ function directEdgePropsQuery(flows) {
 		query: [
 			"MATCH (a:Identity)-[r:FLOWS_TO]->(b:Identity)",
 			`WHERE (${pairs.map((pair) => `(a.identity_id = "${escapeCypherString$3(pair.src)}" AND b.identity_id = "${escapeCypherString$3(pair.dst)}")`).join(" OR ")})`,
-			"RETURN a.identity_id AS src, b.identity_id AS dst, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count, r.first_tx_id AS first_tx_id, r.last_tx_id AS last_tx_id",
+			"RETURN a.identity_id AS src, b.identity_id AS dst, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count, r.first_tx_id AS first_tx_id, r.last_tx_id AS last_tx_id, r.first_seen_timestamp AS first_seen_timestamp, r.last_seen_timestamp AS last_seen_timestamp",
 			`LIMIT ${pairs.length}`
 		].join(" ")
 	};
@@ -387,6 +396,8 @@ function flowsFromForwardRows(rows) {
 				tx_count: numberValue$3(edge["tx_count"]),
 				first_tx_id: typeof edge["first_tx_id"] === "string" ? edge["first_tx_id"] : void 0,
 				last_tx_id: typeof edge["last_tx_id"] === "string" ? edge["last_tx_id"] : void 0,
+				first_seen_timestamp: numberValue$3(edge["first_seen_timestamp"]),
+				last_seen_timestamp: numberValue$3(edge["last_seen_timestamp"]),
 				src_labels: nodeLabels[index],
 				dst_labels: nodeLabels[index + 1],
 				src_node: pathNodes[index],
@@ -418,6 +429,8 @@ async function hydrateDirectEdgeProps(remoteClient, network, flows, deposits) {
 		flow.tx_count = numberValue$3(props["tx_count"]);
 		flow.first_tx_id = typeof props["first_tx_id"] === "string" ? props["first_tx_id"] : void 0;
 		flow.last_tx_id = typeof props["last_tx_id"] === "string" ? props["last_tx_id"] : void 0;
+		flow.first_seen_timestamp = numberValue$3(props["first_seen_timestamp"]) ?? flow.first_seen_timestamp;
+		flow.last_seen_timestamp = numberValue$3(props["last_seen_timestamp"]) ?? flow.last_seen_timestamp;
 	}
 	for (const deposit of deposits) {
 		const props = edgeProps.get(edgeKey$1(deposit.address, deposit.exchangeAddress));
@@ -426,41 +439,63 @@ async function hydrateDirectEdgeProps(remoteClient, network, flows, deposits) {
 	}
 }
 async function collectProbeTrace(remoteClient, options) {
-	const { flows, deposits } = flowsFromForwardRows(rowsMatchingMinimumAmount(((await callGraphBatch$3(remoteClient, options.network, [...forwardExchangeQueries(options.seedAddress, Math.max(options.perAddressLimit * 20, 200), options.minAmountSum, options.maxHops)])).facts?.queries ?? []).filter((query) => query.id?.startsWith("forward_exchange_paths_")).flatMap((query) => {
+	const { flows, deposits } = flowsFromForwardRows(rowsMatchingMinimumAmount(((await callGraphBatch$3(remoteClient, options.network, [...forwardExchangeQueries(options.seedAddress, Math.max(options.perAddressLimit * 20, 200), options.minAmountSum, options.maxHops, options.activityWindow)])).facts?.queries ?? []).filter((query) => query.id?.startsWith("forward_exchange_paths_")).flatMap((query) => {
 		if (query.ok === false) throw new Error(query.error || `Query failed: ${query.id}`);
 		return query.results ?? [];
 	}), options.minAmountSum));
 	await hydrateDirectEdgeProps(remoteClient, options.network, flows, deposits);
 	const uniqueDepositAddresses = [...new Set(deposits.map((deposit) => deposit.address))];
 	const sourceMatches = [];
+	const tracebackWarnings = [];
 	if (options.includeDepositTraceback !== false && uniqueDepositAddresses.length > 0) {
-		const backwardBatch = await callGraphBatch$3(remoteClient, options.network, uniqueDepositAddresses.slice(0, Math.max(1, Math.floor(20 / options.maxHops))).flatMap((address, index) => backwardSourceQueries(`backward_from_deposit_${index + 1}`, address, options.maxHops)));
-		for (const query of backwardBatch.facts?.queries ?? []) for (const row of query.results ?? []) {
-			const pathAddresses = stringArrayValue$1(row["addresses"]) ?? [];
-			const pathNodes = Array.isArray(row["path_nodes"]) ? row["path_nodes"].map((node, index) => nodeMetadataFromValue(node, pathAddresses[index])).filter((node) => Boolean(node)) : void 0;
-			const depositAddress = typeof row["deposit_address"] === "string" ? row["deposit_address"] : pathAddresses[0];
-			const sourceExchange = typeof row["source_exchange"] === "string" ? row["source_exchange"] : pathAddresses[pathAddresses.length - 1];
-			if (!depositAddress || !sourceExchange) continue;
-			const sourceNode = {
-				address: sourceExchange,
-				labels: stringArrayValue$1(row["source_display_labels"]),
-				system_labels: stringArrayValue$1(row["source_system_labels"]) ?? stringArrayValue$1(row["source_labels"])
-			};
-			sourceMatches.push({
-				deposit_address: depositAddress,
-				source_exchange: sourceExchange,
-				source_labels: stringArrayValue$1(row["source_labels"]),
-				sourceNode,
-				hops: numberValue$3(row["hops"]) ?? Math.max(pathAddresses.length - 1, 0),
-				path: pathAddresses,
-				pathNodes
-			});
+		let backwardQueries = [];
+		try {
+			backwardQueries = (await callGraphBatch$3(remoteClient, options.network, uniqueDepositAddresses.slice(0, Math.max(1, Math.floor(20 / options.maxHops))).flatMap((address, index) => backwardSourceQueries(`backward_from_deposit_${index + 1}`, address, options.maxHops)))).facts?.queries ?? [];
+		} catch (err) {
+			tracebackWarnings.push(`deposit traceback batch failed: ${err.message}`);
+		}
+		for (const query of backwardQueries) {
+			if (query.ok === false) {
+				tracebackWarnings.push(`deposit traceback query ${query.id} failed: ${query.error || "unknown error"}`);
+				continue;
+			}
+			for (const row of query.results ?? []) {
+				const pathAddresses = stringArrayValue$1(row["addresses"]) ?? [];
+				const pathNodes = Array.isArray(row["path_nodes"]) ? row["path_nodes"].map((node, index) => nodeMetadataFromValue(node, pathAddresses[index])).filter((node) => Boolean(node)) : void 0;
+				const depositAddress = typeof row["deposit_address"] === "string" ? row["deposit_address"] : pathAddresses[0];
+				const sourceExchange = typeof row["source_exchange"] === "string" ? row["source_exchange"] : pathAddresses[pathAddresses.length - 1];
+				if (!depositAddress || !sourceExchange) continue;
+				const sourceNode = {
+					address: sourceExchange,
+					labels: stringArrayValue$1(row["source_display_labels"]),
+					system_labels: stringArrayValue$1(row["source_system_labels"]) ?? stringArrayValue$1(row["source_labels"])
+				};
+				sourceMatches.push({
+					deposit_address: depositAddress,
+					source_exchange: sourceExchange,
+					source_labels: stringArrayValue$1(row["source_labels"]),
+					sourceNode,
+					hops: numberValue$3(row["hops"]) ?? Math.max(pathAddresses.length - 1, 0),
+					path: pathAddresses,
+					pathNodes
+				});
+			}
 		}
 	}
 	const reverseLeads = [];
 	if (options.includeDepositTraceback !== false && uniqueDepositAddresses.length > 0) {
-		const reverseBatch = await callGraphBatch$3(remoteClient, options.network, [reverseLeadsQuery(uniqueDepositAddresses)]);
-		for (const row of resultsFor(reverseBatch, "reverse_1hop")) {
+		let reverseRows = [];
+		try {
+			const reverseBatch = await callGraphBatch$3(remoteClient, options.network, [reverseLeadsQuery(uniqueDepositAddresses)]);
+			try {
+				reverseRows = resultsFor(reverseBatch, "reverse_1hop");
+			} catch (err) {
+				tracebackWarnings.push(`deposit traceback query reverse_1hop failed: ${err.message}`);
+			}
+		} catch (err) {
+			tracebackWarnings.push(`deposit traceback batch failed: ${err.message}`);
+		}
+		for (const row of reverseRows) {
 			const address = typeof row["address"] === "string" ? row["address"] : "";
 			const depositAddress = typeof row["deposit_address"] === "string" ? row["deposit_address"] : "";
 			if (!address || !depositAddress) continue;
@@ -489,7 +524,8 @@ async function collectProbeTrace(remoteClient, options) {
 		flows,
 		deposits,
 		sourceMatches,
-		reverseLeads
+		reverseLeads,
+		tracebackWarnings
 	};
 }
 function buildAliases(seedAddress, deposits, sourceMatches, reverseLeads) {
@@ -594,6 +630,8 @@ function buildGraph(seedAddress, network, flows, deposits, sourceMatches, revers
 				usd_amount: flow.amount_usd_sum,
 				amount_usd_sum: flow.amount_usd_sum,
 				tx_count: flow.tx_count ?? 0,
+				first_seen_timestamp: flow.first_seen_timestamp,
+				last_seen_timestamp: flow.last_seen_timestamp,
 				first_tx_id: flow.first_tx_id,
 				last_tx_id: flow.last_tx_id,
 				terminal_exchange: flow.terminal_exchange
@@ -638,14 +676,16 @@ function buildMarkdownReport(seedAddress, network, flows, deposits, sourceMatche
 		"",
 		"## Flow Table",
 		"",
-		"| Hop | Source | Destination | amount_usd_sum | tx_count | first_tx_id | terminal_exchange |",
-		"|---:|---|---|---:|---:|---|---|",
+		"| Hop | Source | Destination | amount_usd_sum | tx_count | first_seen_timestamp | last_seen_timestamp | first_tx_id | terminal_exchange |",
+		"|---:|---|---|---:|---:|---:|---:|---|---|",
 		...flows.map((flow) => [
 			`| ${flow.hop}`,
 			`\`${flow.src}\``,
 			`\`${flow.dst}\``,
 			flow.amount_usd_sum,
 			flow.tx_count ?? "",
+			flow.first_seen_timestamp ?? "",
+			flow.last_seen_timestamp ?? "",
 			flow.first_tx_id ? `\`${flow.first_tx_id}\`` : "",
 			flow.terminal_exchange ? "yes" : "no"
 		].join(" | ") + " |"),
@@ -696,6 +736,8 @@ function probeEvidence(seedAddress, network, schemaPath, aliases, flows, deposit
 			dst: aliases.alias(flow.dst) ?? flow.dst,
 			amount_usd_sum: flow.amount_usd_sum,
 			tx_count: flow.tx_count,
+			first_seen_timestamp: flow.first_seen_timestamp,
+			last_seen_timestamp: flow.last_seen_timestamp,
 			first_tx_id: flow.first_tx_id,
 			last_tx_id: flow.last_tx_id,
 			terminal_exchange: flow.terminal_exchange
@@ -703,13 +745,15 @@ function probeEvidence(seedAddress, network, schemaPath, aliases, flows, deposit
 	};
 }
 function tableCsv(flows) {
-	const rows = ["hop,src,dst,amount_usd_sum,tx_count,first_tx_id,last_tx_id,terminal_exchange"];
+	const rows = ["hop,src,dst,amount_usd_sum,tx_count,first_seen_timestamp,last_seen_timestamp,first_tx_id,last_tx_id,terminal_exchange"];
 	for (const flow of flows) rows.push([
 		flow.hop,
 		flow.src,
 		flow.dst,
 		flow.amount_usd_sum,
 		flow.tx_count ?? "",
+		flow.first_seen_timestamp ?? "",
+		flow.last_seen_timestamp ?? "",
 		flow.first_tx_id ?? "",
 		flow.last_tx_id ?? "",
 		flow.terminal_exchange ? "true" : "false"
@@ -726,6 +770,8 @@ function buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, re
 		"dst",
 		"amount_usd_sum",
 		"tx_count",
+		"first_seen_timestamp",
+		"last_seen_timestamp",
 		"first_tx_id",
 		"last_tx_id",
 		"terminal_exchange_display"
@@ -736,6 +782,8 @@ function buildTableHtml(seedAddress, network, flows, deposits, sourceMatches, re
 		dst: "Destination",
 		amount_usd_sum: "amount_usd_sum",
 		tx_count: "tx_count",
+		first_seen_timestamp: "first_seen_timestamp",
+		last_seen_timestamp: "last_seen_timestamp",
 		first_tx_id: "first_tx_id",
 		last_tx_id: "last_tx_id",
 		terminal_exchange_display: "terminal_exchange"
@@ -832,6 +880,7 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 	const network = options.network.trim();
 	if (!seedAddress) throw new Error("seed_address is required");
 	if (!network) throw new Error("network is required");
+	if (options.activityWindow && (!Number.isFinite(options.activityWindow.fromMs) || options.activityWindow.toMs !== void 0 && !Number.isFinite(options.activityWindow.toMs))) throw new Error("activity window timestamps must be finite numbers");
 	const maxHops = clampInt$2(options.maxHops, 3, 1, 5);
 	const perAddressLimit = clampInt$2(options.perAddressLimit, 5, 1, 10);
 	const minAmountSum = Math.max(0, options.minAmountSum ?? 0);
@@ -846,12 +895,13 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 		},
 		filePath: "stateless://runtime-schema-not-written"
 	};
-	const { flows, deposits, sourceMatches, reverseLeads } = await collectProbeTrace(remoteClient, {
+	const { flows, deposits, sourceMatches, reverseLeads, tracebackWarnings } = await collectProbeTrace(remoteClient, {
 		seedAddress,
 		network,
 		maxHops,
 		perAddressLimit,
 		minAmountSum,
+		activityWindow: options.activityWindow,
 		includeDepositTraceback: options.includeDepositTraceback
 	});
 	const aliases = buildAliases(seedAddress, deposits, sourceMatches, reverseLeads);
@@ -897,7 +947,8 @@ async function runFundFlowProbe(remoteClient, _config, options) {
 		graphData: graph,
 		files,
 		continuation,
-		addressMap: aliases.compactAddressMap()
+		addressMap: aliases.compactAddressMap(),
+		tracebackWarnings
 	};
 }
 //#endregion
@@ -2181,7 +2232,7 @@ function addressLabelRiskQuery(address) {
 	};
 }
 function flowEdgeMap(variableName) {
-	return `{amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`;
+	return `{amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_seen_timestamp: ${variableName}.first_seen_timestamp, last_seen_timestamp: ${variableName}.last_seen_timestamp, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`;
 }
 function pathNodeMap(variableName) {
 	return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`;
@@ -2208,7 +2259,7 @@ function exchangeOutflowQueryAtDepth(address, depth) {
 		query: [
 			`MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})${relationshipChain}`,
 			`WHERE a <> exchange AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(" AND ")}` : ""}`,
-			`RETURN "outflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${depositVariable}.identity_id AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(", ")}] AS addresses, [${nodeVariables.map(pathNodeMap).join(", ")}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(", ")}] AS edge_props`,
+			`RETURN "outflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${depositVariable}.identity_id AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(", ")}] AS addresses, [${nodeVariables.map(pathNodeMap).join(", ")}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(", ")}] AS edge_props`,
 			"ORDER BY hops ASC",
 			"LIMIT 200"
 		].join(" ")
@@ -2236,7 +2287,7 @@ function exchangeInflowQueryAtDepth(address, depth) {
 		query: [
 			`MATCH (exchange:Identity)${relationshipChain}`,
 			`WHERE a.identity_id = "${escapeCypherString(address)}" AND a <> exchange AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(" AND ")}` : ""}`,
-			`RETURN "inflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${withdrawalVariable}.identity_id AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(", ")}] AS addresses, [${nodeVariables.map(pathNodeMap).join(", ")}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(", ")}] AS edge_props`,
+			`RETURN "inflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${withdrawalVariable}.identity_id AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(", ")}] AS addresses, [${nodeVariables.map(pathNodeMap).join(", ")}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(", ")}] AS edge_props`,
 			"ORDER BY hops ASC",
 			"LIMIT 200"
 		].join(" ")
@@ -2360,15 +2411,40 @@ function enrichExchangeRows(rows) {
 			...row,
 			amount_usd_sum: row["amount_usd_sum"] ?? terminal["amount_usd_sum"],
 			tx_count: row["tx_count"] ?? terminal["tx_count"],
+			first_seen_timestamp: row["first_seen_timestamp"] ?? terminal["first_seen_timestamp"],
+			last_seen_timestamp: row["last_seen_timestamp"] ?? terminal["last_seen_timestamp"],
 			first_tx_id: row["first_tx_id"] ?? terminal["first_tx_id"],
 			last_tx_id: row["last_tx_id"] ?? terminal["last_tx_id"]
 		};
 	});
 }
+const FALLBACK_SHARED_TX_COUNT = 1e3;
+const FALLBACK_SHARED_USD_SUM = 5e6;
+const FALLBACK_SHARED_DAMPING = .1;
+const FALLBACK_VALUE_SATURATION_USD = 1e6;
+const FALLBACK_BASE_SCORE = .1;
+const FALLBACK_MAX_SCORE = .6;
+/**
+* Score exchange exposure when no ML risk score exists. Topology-grain:
+* log-scaled USD volume across exchange rows, with shared/omnibus edges
+* (high tx_count or USD throughput) dampened, bounded in (0, 0.6] so a
+* fallback can never impersonate a high ML score band.
+*/
+function exchangeExposureFallbackScore(exchangeRows) {
+	if (exchangeRows.length === 0) return 0;
+	let weightedUsd = 0;
+	for (const row of exchangeRows) {
+		const usd = numberValue(row["amount_usd_sum"]) ?? 0;
+		const shared = (numberValue(row["tx_count"]) ?? 0) >= FALLBACK_SHARED_TX_COUNT || usd >= FALLBACK_SHARED_USD_SUM;
+		weightedUsd += shared ? usd * FALLBACK_SHARED_DAMPING : usd;
+	}
+	const factor = Math.log10(1 + Math.min(weightedUsd, FALLBACK_VALUE_SATURATION_USD)) / Math.log10(1000001);
+	return Math.min(FALLBACK_MAX_SCORE, FALLBACK_BASE_SCORE + (FALLBACK_MAX_SCORE - FALLBACK_BASE_SCORE) * factor);
+}
 function riskAssessment(profile, labelRows, exchangeRows) {
 	const mlRiskScore = firstNumber(profile["ml_risk_score"]);
 	const labelRiskLevel = strongestLabelRiskLevel(labelRows);
-	const score = mlRiskScore ?? (exchangeRows.length > 0 ? .4 : 0);
+	const score = mlRiskScore ?? exchangeExposureFallbackScore(exchangeRows);
 	const level = labelRiskLevel ?? riskLevelFromScore(score);
 	const drivers = riskDrivers(profile, labelRows, exchangeRows);
 	return {
@@ -2596,6 +2672,14 @@ function uniqueStrings(values) {
 function clampInt(value, fallback, min, max) {
 	if (!Number.isFinite(value)) return fallback;
 	return Math.max(min, Math.min(max, Math.trunc(value)));
+}
+function traceActivityWindow(incidentTimestampMs, timeRange) {
+	const fromMs = timeRange?.from_ms ?? incidentTimestampMs;
+	if (fromMs === void 0) return void 0;
+	return {
+		fromMs,
+		...timeRange?.to_ms !== void 0 ? { toMs: timeRange.to_ms } : {}
+	};
 }
 function graphRecords(graphData, key) {
 	const value = graphData[key];
@@ -2826,6 +2910,8 @@ function traceResultFromFundRuns(tool, seedRole, network, runs, options = {}) {
 	const graphData = normalizeTraceGraphData(runs, network);
 	const flows = graphRecords(graphData, "flows");
 	const deposits = graphRecords(graphData, "deposits");
+	const sourceMatches = graphRecords(graphData, "source_matches");
+	const reverseLeads = graphRecords(graphData, "reverse_leads");
 	const addresses = /* @__PURE__ */ new Map();
 	for (const run of runs) addTraceAddress(addresses, run.address, traceAddressRoleForSeed(seedRole), `${seedRole} seed provided by caller`);
 	const edgeIdsByPair = /* @__PURE__ */ new Map();
@@ -2919,6 +3005,10 @@ function traceResultFromFundRuns(tool, seedRole, network, runs, options = {}) {
 			seed_role: seedRole,
 			...options.incidentTimestampMs !== void 0 ? { incident_timestamp_ms: options.incidentTimestampMs } : {},
 			...options.timeRange ? { time_range: options.timeRange } : {},
+			time_filter: options.activityWindow ? {
+				from_ms: options.activityWindow.fromMs,
+				...options.activityWindow.toMs !== void 0 ? { to_ms: options.activityWindow.toMs } : {}
+			} : "none",
 			max_hops: options.maxHops ?? 3
 		},
 		summary: {
@@ -2946,6 +3036,23 @@ function traceResultFromFundRuns(tool, seedRole, network, runs, options = {}) {
 			exchange_address: typeof deposit["exchangeAddress"] === "string" ? deposit["exchangeAddress"] : deposit["exchange_address"],
 			path_ids: paths.filter((path) => path.addresses.includes(String(deposit["address"] ?? deposit["deposit_address"] ?? ""))).map((path) => path.path_id)
 		})),
+		deposit_funding: {
+			source_exchange_paths: sourceMatches.map((match) => ({
+				deposit_address: match["deposit_address"],
+				source_exchange: match["source_exchange"],
+				source_labels: match["source_labels"],
+				hops: match["hops"],
+				path: match["path"],
+				reason: "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+			})),
+			reverse_leads: reverseLeads.map((lead) => ({
+				address: lead["address"],
+				deposit_address: lead["deposit_address"],
+				labels: lead["labels"],
+				amount_usd: lead["amount_usd"],
+				reason: lead["reason"]
+			}))
+		},
 		candidate_labels: candidateLabels,
 		artifacts,
 		evidence: [...artifactEvidenceEntries],
@@ -2953,9 +3060,10 @@ function traceResultFromFundRuns(tool, seedRole, network, runs, options = {}) {
 			candidate_deposit_addresses: depositAddresses,
 			candidate_suspect_addresses: seedRole === "suspect" ? runs.map((run) => run.address) : [],
 			candidate_victim_addresses: [],
-			recommended_next_tools: recommendedNextTools
+			recommended_next_tools: recommendedNextTools,
+			...sourceMatches.length > 0 ? { deposit_funding_note: "One or more deposit candidates are exchange-funded upstream; consider aml_trace_deposit_sources on those deposits." } : {}
 		},
-		warnings: depositAddresses.length === 0 ? ["No exchange deposit candidates were connected in the queried topology."] : []
+		warnings: [...depositAddresses.length === 0 ? ["No exchange deposit candidates were connected in the queried topology."] : [], ...runs.flatMap((run) => run.result.tracebackWarnings ?? [])]
 	};
 	return {
 		summaryText: [
@@ -2977,6 +3085,7 @@ async function traceVictimFunds(remoteClient, config, options) {
 	if (knownSuspects.length > 5) throw new Error("known_suspect_addresses cannot exceed 5 addresses");
 	const resolvedVictims = await resolveIdentityKeys(remoteClient, network, victimInputs);
 	const victims = [...new Set(victimInputs.map((input) => resolvedVictims.get(input) ?? input))];
+	const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange);
 	const runs = [];
 	for (const address of victims) runs.push({
 		role: "victim",
@@ -2987,7 +3096,8 @@ async function traceVictimFunds(remoteClient, config, options) {
 			maxHops: options.maxHops,
 			perAddressLimit: options.perAddressLimit,
 			minAmountSum: options.minAmountSum,
-			includeDepositTraceback: false,
+			activityWindow,
+			includeDepositTraceback: true,
 			evidenceSource: "aml_trace_victim_funds",
 			writeArtifacts: options.writeArtifacts
 		})
@@ -2995,6 +3105,7 @@ async function traceVictimFunds(remoteClient, config, options) {
 	return traceResultFromFundRuns("aml_trace_victim_funds", "victim", network, runs, {
 		incidentTimestampMs: options.incidentTimestampMs,
 		timeRange: options.timeRange,
+		activityWindow,
 		maxHops: options.maxHops
 	});
 }
@@ -3006,6 +3117,7 @@ async function traceSuspectFunds(remoteClient, config, options) {
 	if (suspectInputs.length > 5) throw new Error("suspect_addresses cannot exceed 5 addresses");
 	const resolvedSuspects = await resolveIdentityKeys(remoteClient, network, suspectInputs);
 	const suspects = [...new Set(suspectInputs.map((input) => resolvedSuspects.get(input) ?? input))];
+	const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange);
 	const runs = [];
 	for (const address of suspects) runs.push({
 		role: "suspect",
@@ -3016,7 +3128,8 @@ async function traceSuspectFunds(remoteClient, config, options) {
 			maxHops: options.maxHops,
 			perAddressLimit: options.perAddressLimit,
 			minAmountSum: options.minAmountSum,
-			includeDepositTraceback: false,
+			activityWindow,
+			includeDepositTraceback: true,
 			evidenceSource: "aml_trace_suspect_funds",
 			writeArtifacts: options.writeArtifacts
 		})
@@ -3024,10 +3137,12 @@ async function traceSuspectFunds(remoteClient, config, options) {
 	return traceResultFromFundRuns("aml_trace_suspect_funds", "suspect", network, runs, {
 		incidentTimestampMs: options.incidentTimestampMs,
 		timeRange: options.timeRange,
+		activityWindow,
 		maxHops: options.maxHops
 	});
 }
-function reverseDepositSourceQueryAtDepth(depositAddresses, depth) {
+const REVERSE_DEPOSIT_SOURCES_LIMIT = 500;
+function reverseDepositSourceQueryAtDepth(depositAddresses, depth, minAmountSum, window) {
 	const intermediateVariables = Array.from({ length: Math.max(depth - 1, 0) }, (_, index) => `n${index + 1}`);
 	const nodeVariables = [
 		"source",
@@ -3044,13 +3159,19 @@ function reverseDepositSourceQueryAtDepth(depositAddresses, depth) {
 		...intermediateVariables,
 		"deposit"
 	].map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`);
+	const amountPredicates = minAmountSum > 0 ? edgeVariables.map((edgeVariable) => `${edgeVariable}.amount_usd_sum >= ${minAmountSum}`) : [];
+	const windowPredicates = activityWindowPredicates(edgeVariables, window);
 	return {
 		id: `reverse_deposit_sources_${depth}`,
 		query: [
 			`MATCH (source:Identity)${relationshipChain}`,
-			`WHERE (${depositPredicates.join(" OR ")}) AND source.identity_id <> deposit.identity_id AND ${nonExchangePredicates.join(" AND ")}`,
+			`WHERE (${depositPredicates.join(" OR ")}) AND source.identity_id <> deposit.identity_id AND ${[
+				...nonExchangePredicates,
+				...amountPredicates,
+				...windowPredicates
+			].join(" AND ")}`,
 			`RETURN DISTINCT source.identity_id AS source_address, source.is_exchange AS source_is_exchange, deposit.identity_id AS deposit_address, deposit.is_exchange AS deposit_is_exchange, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(", ")}] AS addresses, [${nodeVariables.map(pathNodeMap).join(", ")}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(", ")}] AS edge_props`,
-			"LIMIT 500"
+			`LIMIT ${REVERSE_DEPOSIT_SOURCES_LIMIT}`
 		].join(" ")
 	};
 }
@@ -3165,12 +3286,15 @@ async function traceDepositSources(remoteClient, _config, options) {
 	const resolvedDeposits = await resolveIdentityKeys(remoteClient, network, depositInputs);
 	const deposits = [...new Set(depositInputs.map((input) => resolvedDeposits.get(input) ?? input))];
 	const maxHops = clampInt(options.maxHops, 2, 1, 5);
-	const batch = await callGraphBatch(remoteClient, network, Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1)));
+	const minAmountSum = Math.max(0, options.minAmountSum ?? 0);
+	const window = traceActivityWindow(void 0, options.timeRange);
+	const batch = await callGraphBatch(remoteClient, network, Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1, minAmountSum, window)));
 	const failures = [];
 	const rows = optionalResultsWithPrefix(batch, "reverse_deposit_sources_", failures).filter((row) => !reverseDepositSourceRowUsesExchange(row)).map((row, index) => ({
 		...row,
 		path_id: `p${index + 1}`
 	}));
+	const truncationWarnings = (batch.facts?.queries ?? []).filter((entry) => entry.id?.startsWith("reverse_deposit_sources_") && (entry.results?.length ?? 0) >= REVERSE_DEPOSIT_SOURCES_LIMIT).map((entry) => `${entry.id} hit the ${REVERSE_DEPOSIT_SOURCES_LIMIT}-row limit; results may be truncated.`);
 	const addresses = /* @__PURE__ */ new Map();
 	for (const deposit of deposits) addTraceAddress(addresses, deposit, "seed_deposit", "Deposit/cashout seed provided by caller");
 	const edges = [];
@@ -3291,6 +3415,11 @@ async function traceDepositSources(remoteClient, _config, options) {
 				addresses: deposits,
 				seed_role: "deposit",
 				...options.timeRange ? { time_range: options.timeRange } : {},
+				...minAmountSum > 0 ? { min_amount_sum: minAmountSum } : {},
+				time_filter: window ? {
+					from_ms: window.fromMs,
+					...window.toMs !== void 0 ? { to_ms: window.toMs } : {}
+				} : "none",
 				max_hops: maxHops
 			},
 			summary: {
@@ -3324,7 +3453,7 @@ async function traceDepositSources(remoteClient, _config, options) {
 				candidate_victim_addresses: [],
 				recommended_next_tools: candidateSuspects.length > 0 ? ["aml_trace_suspect_funds", "aml_address_risk"] : ["aml_address_risk", "graph_query_batch"]
 			},
-			warnings: paths.length === 0 ? ["No upstream sources were connected in the queried topology."] : []
+			warnings: [...paths.length === 0 ? ["No upstream sources were connected in the queried topology."] : [], ...truncationWarnings]
 		},
 		graphData
 	};
