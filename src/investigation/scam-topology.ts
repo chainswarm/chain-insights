@@ -25,7 +25,7 @@ export type ScamTopologySeedRole = 'victim' | 'scammer'
 export interface ScamTopologyLabelCandidate {
   address: string
   label: string
-  address_type: 'SCAM'
+  address_type: 'SCAM' // core_address_labels label-row column, not a graph node property
   address_subtype: 'scam_seed' | 'laundering_intermediate' | 'exchange_deposit_candidate'
   trust_level: 'blacklisted' | 'candidate'
   risk_level: 'critical' | 'high'
@@ -83,7 +83,6 @@ export interface ScamTopologyTopologyEdge {
   graph_scopes?: ScamTopologyGraphScope[]
   seed_address?: string
   seed_role?: ScamTopologySeedRole
-  amount_sum?: number
   amount_usd_sum?: number
   tx_count?: number
   first_seen_timestamp?: number
@@ -94,8 +93,6 @@ export interface ScamTopologyTopologyEdge {
   dst_labels: string[]
   src_is_exchange: boolean
   dst_is_exchange: boolean
-  src_address_type?: string
-  dst_address_type?: string
 }
 
 export interface ScamTopologyInfrastructureFlow {
@@ -302,27 +299,6 @@ function isExchangeFlag(value: unknown): boolean {
 }
 
 /**
- * Address-type values that mark a node as part of the scam topology itself
- * (a written scam label or the protected victim role). Such nodes must never be
- * read back as exchange infrastructure, even when their label text contains a
- * brand or the word "exchange" — that text is our own output syncing back into
- * the graph, not authoritative exchange signal.
- */
-const NON_EXCHANGE_ADDRESS_TYPES = new Set(['scam', 'victim'])
-
-/**
- * Determine whether a node's `address_type` marks it as scam- or victim-typed,
- * which disqualifies it from being treated as an exchange endpoint.
- *
- * @param addressType - The node's `address_type` property, if present.
- * @returns `true` when the type is a scam/victim role.
- */
-function isScamOrVictimType(addressType: string | undefined): boolean {
-  if (addressType === undefined) return false
-  return NON_EXCHANGE_ADDRESS_TYPES.has(addressType.trim().toLowerCase())
-}
-
-/**
  * Detect an authoritative exchange label.
  *
  * Only an exact `exchange` token or a trailing `, exchange` registry suffix
@@ -345,19 +321,17 @@ function hasExchangeLabel(labels: string[]): boolean {
  * Decide whether a node is an exchange endpoint that terminates traversal.
  *
  * Exchange status keys off the authoritative `is_exchange` flag first, then an
- * exact `exchange` registry label. A node whose `address_type` is SCAM or
- * VICTIM is never an exchange endpoint, regardless of its label or role text,
- * because that signal originates from this tool's own labels rather than from
- * exchange enrichment.
+ * exact `exchange` registry label. Identity nodes carry no scam/victim type
+ * property in the graph contract, so scam-output protection relies entirely on
+ * the strict exchange-label matcher above, which rejects this tool's own label
+ * text.
  *
  * @param labels - Destination node label strings.
  * @param isExchange - The node's authoritative `is_exchange` property.
  * @param roles - Enrichment role strings for the node.
- * @param addressType - The node's `address_type` property, if present.
  * @returns `true` when the node should be treated as an exchange endpoint.
  */
-function isExchangeEndpoint(labels: string[], isExchange: unknown, roles: string[], addressType: string | undefined): boolean {
-  if (isScamOrVictimType(addressType)) return false
+function isExchangeEndpoint(labels: string[], isExchange: unknown, roles: string[]): boolean {
   return isExchangeFlag(isExchange) ||
     hasExchangeLabel(labels) ||
     roles.some((role) => role.trim().toLowerCase() === 'exchange')
@@ -417,9 +391,6 @@ function traversalProjection(): string {
     'dst.labels AS dst_labels',
     'src.is_exchange AS src_is_exchange',
     'dst.is_exchange AS dst_is_exchange',
-    'src.address_type AS src_address_type',
-    'dst.address_type AS dst_address_type',
-    'r.amount_sum AS amount_sum',
     'r.amount_usd_sum AS amount_usd_sum',
     'r.tx_count AS tx_count',
     'r.first_seen_timestamp AS first_seen_timestamp',
@@ -441,7 +412,7 @@ function frontierQuery(
   const where = [
     'src.identity_id <> dst.identity_id',
   ]
-  if (minAmountSum !== undefined) where.push(`r.amount_sum >= ${minAmountSum}`)
+  if (minAmountSum !== undefined) where.push(`r.amount_usd_sum >= ${minAmountSum}`)
   if (graphScope === 'incident' && activityThresholdTimestamp !== undefined) {
     where.push(`(r.first_seen_timestamp >= ${activityThresholdTimestamp} OR r.last_seen_timestamp >= ${activityThresholdTimestamp})`)
   }
@@ -453,7 +424,7 @@ function frontierQuery(
       `MATCH (src:Identity {identity_id: "${escapeCypherString(sourceAddress)}"})-[r:FLOWS_TO]->(dst:Identity)`,
       `WHERE ${where.join(' AND ')}`,
       `RETURN ${traversalProjection()}`,
-      'ORDER BY r.amount_sum DESC',
+      'ORDER BY r.amount_usd_sum DESC',
       `LIMIT ${perAddressLimit}`,
     ].join(' '),
   }
@@ -485,7 +456,7 @@ function depositClusterQuery(
     'src.identity_id <> dst.identity_id',
     'src.is_exchange IS NULL',
   ]
-  if (minAmountSum !== undefined) where.push(`r.amount_sum >= ${minAmountSum}`)
+  if (minAmountSum !== undefined) where.push(`r.amount_usd_sum >= ${minAmountSum}`)
 
   return {
     id: `${graphScope}_deposit_cluster_${index}`,
@@ -494,7 +465,7 @@ function depositClusterQuery(
       `MATCH (src:Identity)-[r:FLOWS_TO]->(dst:Identity {identity_id: "${escapeCypherString(depositAddress)}"})`,
       `WHERE ${where.join(' AND ')}`,
       `RETURN ${traversalProjection()}`,
-      'ORDER BY r.amount_sum DESC',
+      'ORDER BY r.amount_usd_sum DESC',
       `LIMIT ${SCAM_TOPOLOGY_DEPOSIT_CLUSTER_LIMIT}`,
     ].join(' '),
   }
@@ -514,15 +485,9 @@ function edgeFromRow(
   const dstLabels = stringArray(row['dst_labels'])
   const srcRoles = stringArray(row['src_roles'])
   const dstRoles = stringArray(row['dst_roles'])
-  const srcAddressType = stringValue(row['src_address_type'])
-  const dstAddressType = stringValue(row['dst_address_type'])
-  const srcIsExchange = isExchangeEndpoint(srcLabels, row['src_is_exchange'], srcRoles, srcAddressType)
-  const dstIsExchange = isExchangeEndpoint(dstLabels, row['dst_is_exchange'], dstRoles, dstAddressType)
-  // A scam-typed node's labels are this tool's own output synced back into the
-  // graph, not third-party generic context labels, so they must not stop
-  // traversal as a context boundary.
-  const dstIsScamTyped = isScamOrVictimType(dstAddressType)
-  const genericLabeledBoundary = dstLabels.length > 0 && !dstIsExchange && !dstIsScamTyped
+  const srcIsExchange = isExchangeEndpoint(srcLabels, row['src_is_exchange'], srcRoles)
+  const dstIsExchange = isExchangeEndpoint(dstLabels, row['dst_is_exchange'], dstRoles)
+  const genericLabeledBoundary = dstLabels.length > 0 && !dstIsExchange
   const relation: ScamTopologyEdgeRelation = dstIsExchange
     ? 'terminal_exchange'
     : genericLabeledBoundary
@@ -540,7 +505,6 @@ function edgeFromRow(
     topology_graph: graphForScope(graphScope),
     seed_address: context.seedAddress,
     seed_role: context.seedRole,
-    amount_sum: numberValue(row['amount_sum']),
     amount_usd_sum: numberValue(row['amount_usd_sum']),
     tx_count: numberValue(row['tx_count']),
     first_seen_timestamp: numberValue(row['first_seen_timestamp']),
@@ -551,8 +515,6 @@ function edgeFromRow(
     dst_labels: dstLabels,
     src_is_exchange: srcIsExchange,
     dst_is_exchange: dstIsExchange,
-    ...(srcAddressType !== undefined ? { src_address_type: srcAddressType } : {}),
-    ...(dstAddressType !== undefined ? { dst_address_type: dstAddressType } : {}),
   }
 }
 
@@ -880,7 +842,7 @@ const SCAM_TOPOLOGY_HOP_DECAY = 0.85
 const SCAM_TOPOLOGY_MIN_HOP_FACTOR = 0.25
 
 /**
- * Native/USD value at or above which the value factor saturates to its maximum
+ * USD value at or above which the value factor saturates to its maximum
  * contribution. Chosen so a large incident-scale transfer earns full value
  * weight while small dust transfers earn little.
  */
@@ -896,15 +858,15 @@ const SCAM_TOPOLOGY_VALUE_WEIGHT = 0.5
  * Confidence threshold at or above which a close-hop candidate is auto-promoted
  * to `promote_confirmed` instead of `review_required`.
  *
- * Calibrated to the decayed-confidence scale, not to a raw base. Carried value
- * is scored from the native token amount (see {@link reliableScoringValue}),
- * whose magnitudes (hundreds–thousands of TAO) sit well below the USD-scale
- * {@link SCAM_TOPOLOGY_VALUE_SATURATION}, so even a hop-1 incident-scale edge
- * decays to roughly 0.5–0.6. A 0.72 bar was therefore unreachable on
- * victim-anchored traces and nothing ever promoted. At 0.5, combined with the
- * `hop <= 2` gate, only the close-hop, real-value core promotes while dust and
- * deeper edges stay review-only. (Deeper fix tracked: make value scaling
- * asset-relative so the native/USD unit split no longer compresses scores.)
+ * Calibrated to the decayed-confidence scale, not to a raw base. This bar was
+ * originally tuned while carried value was scored from the native token amount
+ * (hundreds–thousands of TAO), which sat well below the USD-scale
+ * {@link SCAM_TOPOLOGY_VALUE_SATURATION}; FLOWS_TO now carries USD-only value
+ * (see {@link reliableScoringValue}), which reads higher on the same scale, so
+ * promotion at this bar is more permissive than under the native grain. The
+ * separate scam-topology recalibration plan owns retuning this constant; do
+ * not adjust it in contract-only changes. The `hop <= 2` gate still restricts
+ * promotion to the close-hop core while dust and deeper edges stay review-only.
  */
 const SCAM_TOPOLOGY_PROMOTE_CONFIDENCE = 0.5
 
@@ -917,24 +879,19 @@ const SCAM_TOPOLOGY_PROMOTE_MAX_HOP = 2
 /**
  * Choose the value used for confidence scoring.
  *
- * Deep-hop `amount_usd_sum` is frequently inconsistent with the native amount
- * (e.g. hundreds of tokens reported as a few dollars) because price coverage is
- * missing at depth or the price join is wrong. Trusting such USD would deflate
- * confidence for genuinely high-value transfers, so the native `amount_sum` is
- * always preferred when present and positive. USD is used only as a fallback
- * when no usable native amount exists. Native units are consistent within a
- * single asset's topology, so value comparisons across edges remain meaningful.
+ * FLOWS_TO edges carry value at USD grain only; the native-amount grain no
+ * longer exists on the graph contract, so `amount_usd_sum` is the single
+ * scoring source. When price coverage is incomplete at depth
+ * (`price_coverage_ratio` < 1) the USD value understates the transfer, which
+ * deflates confidence for under-priced edges; the scam-topology recalibration
+ * plan owns compensating for that.
  *
- * @param amountSum - Native transferred amount on the edge, if present.
  * @param amountUsdSum - Reported USD value on the edge, if present.
- * @returns A positive scoring value, or `undefined` when neither amount is
- *   usable.
+ * @returns A positive scoring value, or `undefined` when no usable USD amount
+ *   exists.
  */
-function reliableScoringValue(amountSum: number | undefined, amountUsdSum: number | undefined): number | undefined {
-  const native = amountSum !== undefined && Number.isFinite(amountSum) && amountSum > 0 ? amountSum : undefined
-  if (native !== undefined) return native
-  const usd = amountUsdSum !== undefined && Number.isFinite(amountUsdSum) && amountUsdSum > 0 ? amountUsdSum : undefined
-  return usd
+function reliableScoringValue(amountUsdSum: number | undefined): number | undefined {
+  return amountUsdSum !== undefined && Number.isFinite(amountUsdSum) && amountUsdSum > 0 ? amountUsdSum : undefined
 }
 
 /**
@@ -959,8 +916,8 @@ function valueFactor(value: number | undefined): number {
  * where `hopFactor = max(MIN_HOP_FACTOR, HOP_DECAY^(hop - 1))`. It is bounded in
  * `(0, base]`, strictly decreasing in `hop`, and increasing in carried value, so
  * a hop-1 high-value edge always outranks a deeper low-value edge. Carried value
- * is read from the native amount when available (see {@link reliableScoringValue}),
- * so unreliable deep-hop USD pricing cannot distort the score.
+ * is read from the USD amount (see {@link reliableScoringValue}); USD is the
+ * only value grain on the graph contract.
  *
  * @param edge - The topology edge being scored.
  * @param baseConfidence - The relation-and-role base confidence in `(0, 1]`.
@@ -969,7 +926,7 @@ function valueFactor(value: number | undefined): number {
 function decayedConfidence(edge: ScamTopologyTopologyEdge, baseConfidence: number): number {
   const hop = Number.isFinite(edge.hop) && edge.hop > 0 ? edge.hop : 1
   const hopFactor = Math.max(SCAM_TOPOLOGY_MIN_HOP_FACTOR, Math.pow(SCAM_TOPOLOGY_HOP_DECAY, hop - 1))
-  const value = reliableScoringValue(edge.amount_sum, edge.amount_usd_sum)
+  const value = reliableScoringValue(edge.amount_usd_sum)
   const valueScale = 1 - SCAM_TOPOLOGY_VALUE_WEIGHT + SCAM_TOPOLOGY_VALUE_WEIGHT * valueFactor(value)
   const confidence = baseConfidence * hopFactor * valueScale
   return Math.min(baseConfidence, Math.max(0, confidence))
@@ -1023,7 +980,7 @@ function makeCandidate(
   return {
     address,
     label: labelForSubtype(subtype),
-    address_type: 'SCAM',
+    address_type: 'SCAM', // core_address_labels label-row column, not a graph node property
     address_subtype: subtype,
     trust_level: promotionStatus === 'promote_confirmed' ? 'blacklisted' : 'candidate',
     risk_level: promotionStatus === 'promote_confirmed' ? 'critical' : 'high',
@@ -1065,7 +1022,6 @@ function edgeEvidence(edge: ScamTopologyTopologyEdge, reason: string): Record<st
     hop: edge.hop,
     src: edge.src,
     dst: edge.dst,
-    amount_sum: edge.amount_sum,
     amount_usd_sum: edge.amount_usd_sum,
     tx_count: edge.tx_count,
     ...(edge.relation === 'terminal_exchange' ? {
@@ -1180,7 +1136,6 @@ function classifyTopology(
         exchange_address: edge.dst,
         exchange_names: exchangeNames,
         exchange_labels: edge.dst_labels,
-        amount_sum: edge.amount_sum,
         amount_usd_sum: edge.amount_usd_sum,
         tx_count: edge.tx_count,
         hop: edge.hop,
@@ -1458,7 +1413,7 @@ function buildGraph(
     const dst = mergeNode(edge.dst, edge.dst_labels, dstRoles)
     if (edge.src_is_exchange) src['is_exchange'] = true
     if (edge.dst_is_exchange) dst['is_exchange'] = true
-    const amount = edge.amount_usd_sum ?? edge.amount_sum ?? 0
+    const amount = edge.amount_usd_sum ?? 0
     addFlowTotals(edge.src, 'out', amount)
     addFlowTotals(edge.dst, 'in', amount)
   }
@@ -1469,7 +1424,6 @@ function buildGraph(
     exchangeAddress: edge.dst,
     exchangeLabels: edge.dst_labels,
     exchangeNames: exchangeNamesFromLabels(edge.dst_labels),
-    amount_sum: edge.amount_sum,
     amount_usd_sum: edge.amount_usd_sum,
     hops: edge.hop,
     path: shortestPathFromSeed(edge.seed_address ?? seeds[0]?.address ?? edge.src, edge.dst, primaryEdges),
@@ -1480,7 +1434,7 @@ function buildGraph(
     address: edge.src,
     labels: edge.src_labels,
     deposit_address: edge.dst,
-    amount_usd: edge.amount_usd_sum ?? edge.amount_sum,
+    amount_usd: edge.amount_usd_sum,
     degree_in: undefined,
     degree_out: undefined,
     total_volume_usd: edge.amount_usd_sum,
@@ -1509,8 +1463,7 @@ function buildGraph(
         scope_membership: edge.scope_membership,
         seed_address: edge.seed_address,
         seed_role: edge.seed_role,
-        usd_amount: edge.amount_usd_sum ?? edge.amount_sum,
-        amount_sum: edge.amount_sum,
+        usd_amount: edge.amount_usd_sum,
         amount_usd_sum: edge.amount_usd_sum,
         tx_count: edge.tx_count ?? 0,
         first_seen_timestamp: edge.first_seen_timestamp,
@@ -1531,7 +1484,7 @@ function buildGraph(
         edge_type: 'flows_to',
         relation: 'deposit_cluster_inflow',
         usd_amount: lead.amount_usd ?? 0,
-        amount_sum: lead.amount_usd ?? 0,
+        amount_usd_sum: lead.amount_usd ?? 0,
         tx_count: lead.tx_count ?? 0,
         direction: 'reverse_1hop_lead',
       })),
@@ -1548,7 +1501,6 @@ function buildGraph(
       scope_membership: edge.scope_membership,
       seed_address: edge.seed_address,
       seed_role: edge.seed_role,
-      amount_sum: edge.amount_sum,
       amount_usd_sum: edge.amount_usd_sum,
       tx_count: edge.tx_count,
       first_seen_timestamp: edge.first_seen_timestamp,
@@ -1636,7 +1588,7 @@ function labelCandidatesCsv(candidates: ScamTopologyLabelCandidate[]): string {
   const headers = [
     'address',
     'label',
-    'address_type',
+    'address_type', // label-row column from ScamTopologyLabelCandidate
     'address_subtype',
     'trust_level',
     'risk_level',
@@ -1650,7 +1602,7 @@ function labelCandidatesCsv(candidates: ScamTopologyLabelCandidate[]): string {
     rows.push([
       candidate.address,
       candidate.label,
-      candidate.address_type,
+      candidate.address_type, // label-row column from ScamTopologyLabelCandidate
       candidate.address_subtype,
       candidate.trust_level,
       candidate.risk_level,
@@ -1687,13 +1639,13 @@ function buildScamTopologyReport(
     '',
     '## Exchange Deposits',
     '',
-    '| Deposit | Exchange | Names | Hop | amount_sum | tx_count |',
+    '| Deposit | Exchange | Names | Hop | amount_usd_sum | tx_count |',
     '|---|---|---|---:|---:|---:|',
     ...facts.exchange_deposits.map((entry) => {
       const deposit = stringValue(entry['deposit_address']) ?? ''
       const exchange = stringValue(entry['exchange_address']) ?? ''
       const names = stringArray(entry['exchange_names']).join(', ')
-      return `| \`${deposit}\` | \`${exchange}\` | ${names || ''} | ${entry['hop'] ?? ''} | ${entry['amount_sum'] ?? ''} | ${entry['tx_count'] ?? ''} |`
+      return `| \`${deposit}\` | \`${exchange}\` | ${names || ''} | ${entry['hop'] ?? ''} | ${entry['amount_usd_sum'] ?? ''} | ${entry['tx_count'] ?? ''} |`
     }),
     '',
     '## Label Candidates',

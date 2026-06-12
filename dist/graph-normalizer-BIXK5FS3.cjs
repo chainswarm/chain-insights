@@ -8,7 +8,6 @@ const GRAPH_TYPE_LABELS = new Set([
 	"Subnet",
 	"IPAddress"
 ]);
-const SOURCE_ADDRESS_TYPES = new Set(["substrate", "evm"]);
 const FLOW_EDGE_TYPES = new Set([
 	"flows_to",
 	"transfer",
@@ -62,7 +61,6 @@ function normalizeNode(node) {
 	const normalized = {};
 	for (const [key, value] of Object.entries(node)) {
 		if ([
-			"address_type",
 			"address_subtypes",
 			"entity_kind",
 			"graph_labels",
@@ -83,7 +81,6 @@ function normalizeNode(node) {
 	if (address) normalized["address"] = address;
 	normalized["node_type"] = normalizeNodeType(node);
 	normalized["labels"] = displayLabels(node);
-	if (typeof node["address_type"] === "string" && SOURCE_ADDRESS_TYPES.has(node["address_type"])) normalized["address_type"] = node["address_type"];
 	const addressSubtypes = unique(stringArray(node["address_subtypes"]));
 	if (addressSubtypes.length > 0) normalized["address_subtypes"] = addressSubtypes;
 	const roles = normalizeRoles(node);
@@ -125,6 +122,9 @@ function normalizeGraphPayload(payload) {
 	};
 }
 //#endregion
-export { normalizeGraphPayload as t };
-
-//# sourceMappingURL=graph-normalizer-CXP06jKh.mjs.map
+Object.defineProperty(exports, "normalizeGraphPayload", {
+	enumerable: true,
+	get: function() {
+		return normalizeGraphPayload;
+	}
+});

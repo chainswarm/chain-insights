@@ -216,7 +216,7 @@ function addressProfileQuery(address: string): { id: string; query: string } {
     id: 'address_profile',
     query: [
       `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})`,
-      'RETURN a.identity_id AS address, a.labels AS display_labels, a.labels AS system_labels, a.address_type AS address_type, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level, a.is_exchange AS is_exchange',
+      'RETURN a.identity_id AS address, a.labels AS display_labels, a.labels AS system_labels, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level, a.is_exchange AS is_exchange',
       'LIMIT 1',
     ].join(' '),
   }
@@ -238,7 +238,7 @@ function addressFeatureQuery(address: string): { id: string; query: string } {
     query: [
       'USE facts',
       `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[:HAS_FEATURE]->(feature:AddressFeature)`,
-      'RETURN feature.degree_in AS degree_in, feature.degree_out AS degree_out, feature.degree_total AS degree_total, feature.tx_in_count AS tx_in_count, feature.tx_out_count AS tx_out_count, feature.tx_total_count AS tx_total_count, feature.total_volume_usd AS total_volume_usd, feature.total_in_usd AS total_in_usd, feature.total_out_usd AS total_out_usd, feature.net_flow_usd AS net_flow_usd, feature.first_activity_timestamp AS first_activity_timestamp, feature.last_activity_timestamp AS last_activity_timestamp, feature.activity_span_days AS activity_span_days, feature.active_days AS active_days',
+      'RETURN feature.degree_in AS degree_in, feature.degree_out AS degree_out, feature.degree_total AS degree_total, feature.tx_in_count AS tx_in_count, feature.tx_out_count AS tx_out_count, feature.tx_total_count AS tx_total_count, feature.total_volume_usd AS total_volume_usd, feature.total_in_usd AS total_in_usd, feature.total_out_usd AS total_out_usd, feature.net_flow_usd AS net_flow_usd, feature.first_activity_timestamp AS first_activity_timestamp, feature.last_activity_timestamp AS last_activity_timestamp, feature.activity_span_days AS activity_span_days',
       'LIMIT 1',
     ].join(' '),
   }
@@ -269,11 +269,11 @@ function addressLabelRiskQuery(address: string): { id: string; query: string } {
 }
 
 function flowEdgeMap(variableName: string): string {
-  return `{amount_sum: ${variableName}.amount_sum, amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`
+  return `{amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`
 }
 
 function pathNodeMap(variableName: string): string {
-  return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, address_type: ${variableName}.address_type, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`
+  return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`
 }
 
 function exchangeOutflowQueries(address: string): Array<{ id: string; query: string }> {
@@ -296,7 +296,7 @@ function exchangeOutflowQueryAtDepth(address: string, depth: number): { id: stri
     query: [
       `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})${relationshipChain}`,
       `WHERE a <> exchange AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
-      `RETURN "outflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, exchange.address_type AS exchange_address_type, ${depositVariable}.identity_id AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_sum AS amount_sum, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `RETURN "outflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${depositVariable}.identity_id AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
     ].join(' '),
@@ -323,7 +323,7 @@ function exchangeInflowQueryAtDepth(address: string, depth: number): { id: strin
     query: [
       `MATCH (exchange:Identity)${relationshipChain}`,
       `WHERE a.identity_id = "${escapeCypherString(address)}" AND a <> exchange AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
-      `RETURN "inflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, exchange.address_type AS exchange_address_type, ${withdrawalVariable}.identity_id AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_sum AS amount_sum, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `RETURN "inflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${withdrawalVariable}.identity_id AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
     ].join(' '),
@@ -345,9 +345,9 @@ function formatExchangeRows(rows: Array<Record<string, unknown>>): string[] {
   return rows.map((row) => {
     const direction = String(row['direction'] ?? 'flow')
     const exchange = String(row['exchange_address'] ?? '')
-    const amount = row['amount_sum'] ?? row['amount_usd_sum'] ?? ''
+    const amount = row['amount_usd_sum'] ?? ''
     const hops = row['hops'] ?? ''
-    return `- ${direction}: ${exchange} (${hops} hop(s), amount ${amount})`
+    return `- ${direction}: ${exchange} (${hops} hop(s), amount_usd_sum ${amount})`
   })
 }
 
@@ -476,7 +476,6 @@ function enrichExchangeRows(rows: Array<Record<string, unknown>>): Array<Record<
     if (!terminal) return row
     return {
       ...row,
-      amount_sum: row['amount_sum'] ?? terminal['amount_sum'],
       amount_usd_sum: row['amount_usd_sum'] ?? terminal['amount_usd_sum'],
       tx_count: row['tx_count'] ?? terminal['tx_count'],
       first_tx_id: row['first_tx_id'] ?? terminal['first_tx_id'],
@@ -543,7 +542,6 @@ function buildRiskGraph(address: string, profile: Record<string, unknown>, rows:
     node_type: 'address',
     labels: stringArrayValue(profile['display_labels']) ?? [],
     ...(stringArrayValue(profile['system_labels']) ? { system_labels: stringArrayValue(profile['system_labels']) } : {}),
-    ...(typeof profile['address_type'] === 'string' ? { address_type: profile['address_type'] } : {}),
     ...(stringArrayValue(profile['member_addresses'])?.length ? { member_addresses: stringArrayValue(profile['member_addresses']) } : {}),
     ...(numberValue(profile['live_risk_score']) !== undefined ? { risk_score: numberValue(profile['live_risk_score']) } : {}),
     ...(firstString(profile['live_risk_level']) ? { risk_level: firstString(profile['live_risk_level']) } : {}),
@@ -554,7 +552,6 @@ function buildRiskGraph(address: string, profile: Record<string, unknown>, rows:
     const existing = nodes.get(entry) ?? { id: entry, address: entry, node_type: 'address', labels: [] }
     const labels = stringArrayValue(metadata?.['labels']) ?? existing['labels']
     const systemLabels = stringArrayValue(metadata?.['system_labels']) ?? existing['system_labels']
-    const addressType = typeof metadata?.['address_type'] === 'string' ? metadata['address_type'] : existing['address_type']
     const memberAddresses = stringArrayValue(metadata?.['member_addresses']) ?? existing['member_addresses']
     const riskScore = numberValue(metadata?.['risk_score']) ?? existing['risk_score']
     const riskLevel = firstString(metadata?.['risk_level']) ?? existing['risk_level']
@@ -562,7 +559,6 @@ function buildRiskGraph(address: string, profile: Record<string, unknown>, rows:
       ...existing,
       labels,
       ...(systemLabels ? { system_labels: systemLabels } : {}),
-      ...(addressType ? { address_type: addressType } : {}),
       ...(Array.isArray(memberAddresses) && memberAddresses.length > 0 ? { member_addresses: memberAddresses } : {}),
       ...(riskScore !== undefined ? { risk_score: riskScore } : {}),
       ...(riskLevel ? { risk_level: riskLevel } : {}),
@@ -586,7 +582,6 @@ function buildRiskGraph(address: string, profile: Record<string, unknown>, rows:
         node_type: 'address',
         labels: displayLabels,
         ...(systemLabels.length > 0 ? { system_labels: systemLabels } : {}),
-        ...(typeof row['exchange_address_type'] === 'string' ? { address_type: row['exchange_address_type'] } : {}),
         roles: ['exchange'],
       })
     }
@@ -597,8 +592,8 @@ function buildRiskGraph(address: string, profile: Record<string, unknown>, rows:
         source: path[index],
         target: path[index + 1],
         edge_type: 'flows_to',
-        usd_amount: edge['amount_usd_sum'] ?? edge['amount_sum'] ?? 0,
-        amount_sum: edge['amount_sum'] ?? 0,
+        usd_amount: edge['amount_usd_sum'] ?? 0,
+        amount_usd_sum: edge['amount_usd_sum'] ?? 0,
         tx_count: edge['tx_count'] ?? 0,
         first_tx_id: edge['first_tx_id'],
         last_tx_id: edge['last_tx_id'],
@@ -859,7 +854,7 @@ function subjectNodeForExchangeRow(row: Record<string, unknown>, fallbackAddress
 }
 
 function buildAddressRiskTableHtml(tool: string, network: string, rows: Array<Record<string, unknown>>, subject: string): string {
-  const headers = ['direction', 'exchange_address', 'subject_path_node', 'hops', 'amount_sum', 'amount_usd_sum', 'tx_count'] as const
+  const headers = ['direction', 'exchange_address', 'subject_path_node', 'hops', 'amount_usd_sum', 'tx_count'] as const
   const body = rows.map((row) => {
     const exchangeAddress = String(row['exchange_address'] ?? '')
     const subjectNode = subjectNodeForExchangeRow(row, subject)
@@ -868,7 +863,6 @@ function buildAddressRiskTableHtml(tool: string, network: string, rows: Array<Re
       exchangeAddress,
       subjectNode,
       row['hops'] ?? '',
-      row['amount_sum'] ?? '',
       row['amount_usd_sum'] ?? '',
       row['tx_count'] ?? '',
     ]
@@ -934,7 +928,6 @@ async function writeAddressRiskArtifacts(
     'exchange_address',
     'subject_path_node',
     'hops',
-    'amount_sum',
     'amount_usd_sum',
     'tx_count',
   ]
@@ -948,7 +941,6 @@ async function writeAddressRiskArtifacts(
         exchangeAddress,
         subjectPathNode,
         row['hops'] ?? '',
-        row['amount_sum'] ?? '',
         row['amount_usd_sum'] ?? '',
         row['tx_count'] ?? '',
       ].map((value) => JSON.stringify(String(value))).join(',')
@@ -968,7 +960,6 @@ async function writeAddressRiskArtifacts(
         exchange_address: row['exchange_address'],
         subject_node: subjectNodeForExchangeRow(row, address),
         hops: row['hops'],
-        amount_sum: row['amount_sum'],
         amount_usd_sum: row['amount_usd_sum'],
         tx_count: row['tx_count'],
       })),
@@ -1092,7 +1083,6 @@ function traceResultFromFundRuns(
       from_address: src,
       to_address: dst,
       edge_type: 'FLOWS_TO',
-      amount_sum: numberValue(flow['amount_sum']),
       amount_usd_sum: numberValue(flow['amount_usd_sum']),
       tx_count: numberValue(flow['tx_count']),
       first_tx_id: typeof flow['first_tx_id'] === 'string' ? flow['first_tx_id'] : undefined,
@@ -1128,7 +1118,6 @@ function traceResultFromFundRuns(
       edge_ids: edgeIds,
       hops: numberValue(deposit['hops']) ?? Math.max(pathAddresses.length - 1, 0),
       terminal_role: exchangeAddress ? 'exchange' : 'deposit',
-      amount_sum: numberValue(deposit['amount_sum']),
       amount_usd_sum: numberValue(deposit['amount_usd_sum']),
     }
   })
@@ -1354,7 +1343,7 @@ function htmlEscape(value: unknown): string {
 }
 
 function buildTraceSourceTableHtml(tool: TraceToolName, network: string, rows: Array<Record<string, unknown>>): string {
-  const headers = ['path_id', 'source_address', 'deposit_address', 'hop', 'amount_sum', 'first_tx_id'] as const
+  const headers = ['path_id', 'source_address', 'deposit_address', 'hop', 'amount_usd_sum', 'first_tx_id'] as const
   const body = rows.map((row) => `<tr>${headers.map((header) => `<td>${htmlEscape(row[header])}</td>`).join('')}</tr>`).join('\n')
   return `<!doctype html>
 <html lang="en">
@@ -1414,13 +1403,13 @@ async function writeTraceSourceArtifacts(tool: TraceToolName, network: string, g
   const graphHtmlPath = path.join(paths.reportsRoot, `${slug}.graph.html`)
   const { generateInlineGraphHtml } = await import('../viz/html-generator.js')
   const csv = [
-    'path_id,source_address,deposit_address,hop,amount_sum,first_tx_id',
+    'path_id,source_address,deposit_address,hop,amount_usd_sum,first_tx_id',
     ...rows.map((row) => [
       row['path_id'] ?? '',
       row['source_address'] ?? '',
       row['deposit_address'] ?? '',
       row['hop'] ?? '',
-      row['amount_sum'] ?? '',
+      row['amount_usd_sum'] ?? '',
       row['first_tx_id'] ?? '',
     ].map((value) => JSON.stringify(String(value))).join(',')),
   ].join('\n') + '\n'
@@ -1495,7 +1484,6 @@ export async function traceDepositSources(
         from_address: pathAddresses[index],
         to_address: pathAddresses[index + 1],
         edge_type: 'FLOWS_TO',
-        amount_sum: numberValue(props['amount_sum']) ?? numberValue(row['amount_sum']),
         amount_usd_sum: numberValue(props['amount_usd_sum']) ?? numberValue(row['amount_usd_sum']),
         tx_count: numberValue(props['tx_count']) ?? numberValue(row['tx_count']),
         first_seen_timestamp: numberValue(props['first_seen_timestamp']) ?? numberValue(row['first_seen_timestamp']),
@@ -1513,7 +1501,6 @@ export async function traceDepositSources(
       edge_ids: [...edgeIds].reverse(),
       hops: numberValue(row['hop']) ?? Math.max(pathAddresses.length - 1, 0),
       terminal_role: 'source',
-      amount_sum: numberValue(row['amount_sum']),
       amount_usd_sum: numberValue(row['amount_usd_sum']),
       first_seen_ms: numberValue(row['first_seen_timestamp']),
       last_seen_ms: numberValue(row['last_seen_timestamp']),
@@ -1562,7 +1549,7 @@ export async function traceDepositSources(
       source: edge['from_address'],
       target: edge['to_address'],
       edge_type: 'flows_to',
-      amount_sum: edge['amount_sum'],
+      amount_usd_sum: edge['amount_usd_sum'],
       tx_count: edge['tx_count'],
       first_tx_id: edge['first_tx_id'],
       last_tx_id: edge['last_tx_id'],
@@ -1572,7 +1559,7 @@ export async function traceDepositSources(
       hop: index + 1,
       src: edge['from_address'],
       dst: edge['to_address'],
-      amount_sum: edge['amount_sum'] ?? 0,
+      amount_usd_sum: edge['amount_usd_sum'] ?? 0,
       terminal_exchange: false,
     })),
     edge_anchors: [],

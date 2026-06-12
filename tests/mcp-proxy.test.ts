@@ -690,7 +690,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         { id: 'node_labels', ok: true, results: [{ node_label: 'Address', sample_count: 10 }] },
         { id: 'relationship_types', ok: true, results: [{ rel_name: 'FLOWS_TO', sample_count: 4 }] },
         { id: 'address_property_keys', ok: true, results: [{ property_key: 'address', sample_count: 10 }] },
-        { id: 'flows_to_property_keys', ok: true, results: [{ property_key: 'amount_sum', sample_count: 4 }] },
+        { id: 'flows_to_property_keys', ok: true, results: [{ property_key: 'amount_usd_sum', sample_count: 4 }] },
       ]))
       .mockResolvedValueOnce(textResult([
         {
@@ -699,9 +699,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
           results: [{
             addresses: ['5Seed', '5Hop', '5Deposit', '5Exchange'],
             edge_props: [
-              { amount_sum: 123, amount_usd_sum: 456, tx_count: 1, first_tx_id: '1-1', last_tx_id: '1-1' },
-              { amount_sum: 122, amount_usd_sum: 455, tx_count: 1, first_tx_id: '2-1', last_tx_id: '2-1' },
-              { amount_sum: 121, amount_usd_sum: 454, tx_count: 1, first_tx_id: '3-1', last_tx_id: '3-1' },
+              { amount_usd_sum: 456, tx_count: 1, first_tx_id: '1-1', last_tx_id: '1-1' },
+              { amount_usd_sum: 455, tx_count: 1, first_tx_id: '2-1', last_tx_id: '2-1' },
+              { amount_usd_sum: 454, tx_count: 1, first_tx_id: '3-1', last_tx_id: '3-1' },
             ],
             node_labels: [['Address'], ['Address'], ['Address'], ['Address', 'Exchange']],
             path_nodes: [
@@ -713,13 +713,12 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
             exchange_address: '5Exchange',
             exchange_labels: ['Exchange'],
             exchange_display_labels: ['Binance'],
-            exchange_address_type: 'substrate',
             hops: 3,
           }, {
             addresses: ['5Seed', '5ExchangeHot', '5KrakenCold'],
             edge_props: [
-              { amount_sum: 99, amount_usd_sum: 198, tx_count: 1, first_tx_id: '4-1', last_tx_id: '4-1' },
-              { amount_sum: 98, amount_usd_sum: 196, tx_count: 1, first_tx_id: '5-1', last_tx_id: '5-1' },
+              { amount_usd_sum: 198, tx_count: 1, first_tx_id: '4-1', last_tx_id: '4-1' },
+              { amount_usd_sum: 196, tx_count: 1, first_tx_id: '5-1', last_tx_id: '5-1' },
             ],
             node_labels: [['Address'], ['Address', 'exchange'], ['Address', 'exchange']],
             path_nodes: [
@@ -730,7 +729,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
             exchange_address: '5KrakenCold',
             exchange_labels: ['Kraken Cold', 'exchange'],
             exchange_display_labels: ['Kraken Cold', 'exchange'],
-            exchange_address_type: 'substrate',
             hops: 2,
           }],
         },
@@ -740,9 +738,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
           id: 'direct_edge_props',
           ok: true,
           results: [
-            { src: '5Seed', dst: '5Hop', amount_sum: 123, amount_usd_sum: 456, tx_count: 1, first_tx_id: '1-1', last_tx_id: '1-1' },
-            { src: '5Hop', dst: '5Deposit', amount_sum: 122, amount_usd_sum: 455, tx_count: 1, first_tx_id: '2-1', last_tx_id: '2-1' },
-            { src: '5Deposit', dst: '5Exchange', amount_sum: 121, amount_usd_sum: 454, tx_count: 1, first_tx_id: '3-1', last_tx_id: '3-1' },
+            { src: '5Seed', dst: '5Hop', amount_usd_sum: 456, tx_count: 1, first_tx_id: '1-1', last_tx_id: '1-1' },
+            { src: '5Hop', dst: '5Deposit', amount_usd_sum: 455, tx_count: 1, first_tx_id: '2-1', last_tx_id: '2-1' },
+            { src: '5Deposit', dst: '5Exchange', amount_usd_sum: 454, tx_count: 1, first_tx_id: '3-1', last_tx_id: '3-1' },
           ],
         },
       ]))
@@ -763,7 +761,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     expect(result.isError).toBe(false)
     expect(result.content[0].text).toContain('Trace complete for bittensor:5Seed')
-    expect(result.content[0].text).toContain('amount_sum')
+    expect(result.content[0].text).toContain('amount_usd_sum')
     expect(result.structuredContent).toMatchObject({
       schema: 'chain-insights.trace.v1',
       tool: 'aml_trace_victim_funds',
@@ -810,8 +808,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const forwardQueries = forwardCall?.[0].arguments.queries as Array<{ id: string; query: string }>
     const forwardQuery = forwardQueries.find((query) => query.id === 'forward_exchange_paths_2')?.query ?? ''
     expect(forwardQuery).toContain('USE live_topology MATCH')
-    expect(forwardQuery).toContain('r1.amount_sum IS NOT NULL')
-    expect(forwardQuery).toContain('r2.amount_sum IS NOT NULL')
+    expect(forwardQuery).toContain('r1.amount_usd_sum IS NOT NULL')
+    expect(forwardQuery).toContain('r2.amount_usd_sum IS NOT NULL')
+    expect(forwardQuery).not.toContain('address_type')
     expect(forwardQuery).toContain('s.is_exchange IS NULL')
     expect(forwardQuery).toContain('n1.is_exchange IS NULL')
     expect(forwardQuery).toContain('t.is_exchange IS NOT NULL')
@@ -827,25 +826,25 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(filename).toMatch(/\.graph\.json$/)
     const graphRaw = await readFile(join(testDataDir, 'reports', 'graphs', filename), 'utf8')
     const graph = JSON.parse(graphRaw) as {
-      nodes: Array<Record<string, unknown> & { address: string; labels?: string[]; roles?: string[]; address_type?: string }>
-      edges: Array<Record<string, unknown> & { amount_sum?: number; source?: string; edge_type?: string }>
+      nodes: Array<Record<string, unknown> & { address: string; labels?: string[]; roles?: string[] }>
+      edges: Array<Record<string, unknown> & { amount_usd_sum?: number; source?: string; edge_type?: string }>
     }
     expect(graph.schema).toBe('chain-insights.graph.v1')
     expect(graph.nodes[0]).toHaveProperty('node_type', 'address')
     expect(graph.nodes[0]).not.toHaveProperty('entity_kind')
     expect(graph.nodes[0]).not.toHaveProperty('raw_labels')
-    expect(graph.nodes[0]).not.toHaveProperty('address_type', 'wallet')
+    expect(graph.nodes[0]).not.toHaveProperty('address_type')
     const exchangeNode = graph.nodes.find((node) => node.address === '5Exchange')
     expect(exchangeNode).toMatchObject({
       labels: ['Binance'],
       roles: ['exchange'],
-      address_type: 'substrate',
     })
     expect(exchangeNode).not.toHaveProperty('entity_kind')
     expect(exchangeNode).not.toHaveProperty('raw_labels')
     expect(exchangeNode).not.toHaveProperty('risk_level')
     expect(exchangeNode).not.toHaveProperty('pattern_flags')
-    expect(graph.edges[0]).toMatchObject({ source: '5Seed', amount_sum: 123, edge_type: 'flows_to' })
+    expect(exchangeNode).not.toHaveProperty('address_type')
+    expect(graph.edges[0]).toMatchObject({ source: '5Seed', amount_usd_sum: 456, edge_type: 'flows_to' })
     expect(graph.edges[0]).not.toHaveProperty('from_address')
     expect(graph.edges[0]).not.toHaveProperty('to_address')
     expect(graph.edges[0]).not.toHaveProperty('type')
@@ -895,7 +894,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
           { id: 'node_labels', ok: true, results: [{ node_label: 'Address', sample_count: 10 }] },
           { id: 'relationship_types', ok: true, results: [{ rel_name: 'FLOWS_TO', sample_count: 4 }] },
           { id: 'address_property_keys', ok: true, results: [{ property_key: 'address', sample_count: 10 }] },
-          { id: 'flows_to_property_keys', ok: true, results: [{ property_key: 'amount_sum', sample_count: 4 }] },
+          { id: 'flows_to_property_keys', ok: true, results: [{ property_key: 'amount_usd_sum', sample_count: 4 }] },
         ]))
         .mockResolvedValueOnce(textResult([
           {
@@ -904,8 +903,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
             results: [{
               addresses: ['5Seed', '5Deposit', '5Exchange'],
               edge_props: [
-                { amount_sum: 50, amount_usd_sum: 100, tx_count: 1, first_tx_id: '1-1' },
-                { amount_sum: 49, amount_usd_sum: 98, tx_count: 1, first_tx_id: '2-1' },
+                { amount_usd_sum: 100, tx_count: 1, first_tx_id: '1-1' },
+                { amount_usd_sum: 98, tx_count: 1, first_tx_id: '2-1' },
               ],
               node_labels: [['Address'], ['Address'], ['Address', 'Exchange']],
               exchange_address: '5Exchange',
@@ -919,8 +918,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
             id: 'direct_edge_props',
             ok: true,
             results: [
-              { src: '5Seed', dst: '5Deposit', amount_sum: 50, amount_usd_sum: 100, tx_count: 1, first_tx_id: '1-1' },
-              { src: '5Deposit', dst: '5Exchange', amount_sum: 49, amount_usd_sum: 98, tx_count: 1, first_tx_id: '2-1' },
+              { src: '5Seed', dst: '5Deposit', amount_usd_sum: 100, tx_count: 1, first_tx_id: '1-1' },
+              { src: '5Deposit', dst: '5Exchange', amount_usd_sum: 98, tx_count: 1, first_tx_id: '2-1' },
             ],
           },
         ]))
@@ -1046,7 +1045,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                     address: '5Addr',
                     display_labels: ['validator'],
                     system_labels: ['Address', 'Validator'],
-                    address_type: 'substrate',
                     live_risk_score: 0.91,
                     live_risk_level: 'critical',
                     degree_in: 3,
@@ -1090,14 +1088,12 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                     exchange_address: '5Exchange',
                     exchange_labels: ['Address', 'Exchange'],
                     exchange_display_labels: ['Binance'],
-                    exchange_address_type: 'substrate',
                     deposit_address: '5Deposit',
                     hops: 2,
-                    amount_sum: 44,
                     amount_usd_sum: 88,
                     edge_props: [
-                      { amount_sum: 11, amount_usd_sum: 22, tx_count: 1, first_tx_id: 'risk-1', last_tx_id: 'risk-1' },
-                      { amount_sum: 44, amount_usd_sum: 88, tx_count: 2, first_tx_id: 'risk-2', last_tx_id: 'risk-2' },
+                      { amount_usd_sum: 22, tx_count: 1, first_tx_id: 'risk-1', last_tx_id: 'risk-1' },
+                      { amount_usd_sum: 88, tx_count: 2, first_tx_id: 'risk-2', last_tx_id: 'risk-2' },
                     ],
                     path: ['5Addr', '5Deposit', '5Exchange'],
                   }],
@@ -1154,37 +1150,37 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(filename).toMatch(/\.graph\.json$/)
     const graphRaw = await readFile(join(testDataDir, 'reports', 'graphs', filename), 'utf8')
     const graph = JSON.parse(graphRaw) as {
-      nodes: Array<Record<string, unknown> & { address: string; labels?: string[]; roles?: string[]; address_type?: string }>
+      nodes: Array<Record<string, unknown> & { address: string; labels?: string[]; roles?: string[] }>
       edges: Array<Record<string, unknown> & { source?: string; target?: string; edge_type?: string }>
     }
     expect(graph.nodes[0]).toHaveProperty('node_type', 'address')
     expect(graph.nodes[0]).not.toHaveProperty('entity_kind')
     expect(graph.nodes[0]).not.toHaveProperty('raw_labels')
-    expect(graph.nodes[0]).not.toHaveProperty('address_type', 'wallet')
+    expect(graph.nodes[0]).not.toHaveProperty('address_type')
     const subjectNode = graph.nodes.find((node) => node.address === '5Addr')
     expect(subjectNode).toMatchObject({
       labels: ['validator'],
-      address_type: 'substrate',
       member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
       risk_score: 0.91,
       risk_level: 'critical',
     })
     expect(subjectNode).not.toHaveProperty('evm_address')
     expect(subjectNode).not.toHaveProperty('substrate_address')
+    expect(subjectNode).not.toHaveProperty('address_type')
     expect(subjectNode?.roles).toContain('subject')
     const exchangeNode = graph.nodes.find((node) => node.address === '5Exchange')
     expect(exchangeNode?.roles).toContain('exchange')
     expect(exchangeNode?.labels).toEqual(['Binance'])
-    expect(exchangeNode?.address_type).toBe('substrate')
+    expect(exchangeNode).not.toHaveProperty('address_type')
     expect(graph.edges.find((edge) => edge.source === '5Addr' && edge.target === '5Deposit')).toMatchObject({
-      amount_sum: 11,
+      amount_usd_sum: 22,
       usd_amount: 22,
       tx_count: 1,
       first_tx_id: 'risk-1',
       last_tx_id: 'risk-1',
     })
     expect(graph.edges.find((edge) => edge.source === '5Deposit' && edge.target === '5Exchange')).toMatchObject({
-      amount_sum: 44,
+      amount_usd_sum: 88,
       usd_amount: 88,
       tx_count: 2,
       first_tx_id: 'risk-2',
@@ -1245,7 +1241,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                   address: '5Addr',
                   display_labels: ['Address'],
                   system_labels: ['Address'],
-                  address_type: 'substrate',
                   address_subtypes: ['coldkey'],
                 }],
               },
@@ -1343,7 +1338,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                       address: '5Addr',
                       display_labels: ['validator'],
                       system_labels: ['Address', 'Validator'],
-                      address_type: 'substrate',
                       live_risk_score: 0.12,
                       live_risk_level: 'low',
                     }],
@@ -1378,12 +1372,12 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(subjectNode).toMatchObject({
       labels: ['validator'],
       system_labels: ['Address', 'Validator'],
-      address_type: 'substrate',
       member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
       risk_score: 0.12,
       risk_level: 'low',
       roles: ['subject'],
     })
+    expect(subjectNode).not.toHaveProperty('address_type')
   })
 
   it('resolves SS58 member-address inputs through the Address lookup and derives canonical 0x inputs locally', async () => {
@@ -1502,10 +1496,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
           { id: '5Deposit', address: '5Deposit', node_type: 'address', roles: ['deposit_candidate'] },
         ],
         edges: [
-          { source: '5Suspect', target: '5Deposit', edge_type: 'flows_to', amount_sum: 9 },
+          { source: '5Suspect', target: '5Deposit', edge_type: 'flows_to', amount_usd_sum: 9 },
         ],
         flows: [
-          { hop: 1, src: '5Suspect', dst: '5Deposit', amount_sum: 9, terminal_exchange: false },
+          { hop: 1, src: '5Suspect', dst: '5Deposit', amount_usd_sum: 9, terminal_exchange: false },
         ],
         deposits: [],
         source_matches: [],
@@ -1592,7 +1586,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                       deposit_address: '5DepositA',
                       hop: 1,
                       addresses: ['5SharedSource', '5DepositA'],
-                      amount_sum: 11,
+                      amount_usd_sum: 11,
                       first_tx_id: 'a-1',
                     },
                     {
@@ -1600,7 +1594,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                       deposit_address: '5DepositB',
                       hop: 1,
                       addresses: ['5SharedSource', '5DepositB'],
-                      amount_sum: 12,
+                      amount_usd_sum: 12,
                       first_tx_id: 'b-1',
                     },
                     {
@@ -1614,7 +1608,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                         { address: '5ExchangeHot', labels: ['Kraken Hot', 'exchange'], is_exchange: true },
                         { address: '5DepositA', is_exchange: null },
                       ],
-                      amount_sum: 13,
+                      amount_usd_sum: 13,
                       first_tx_id: 'c-1',
                     },
                     {
@@ -1628,7 +1622,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                         { address: '5ExchangeHot', labels: ['Kraken Hot', 'exchange'], is_exchange: true },
                         { address: '5DepositB', is_exchange: null },
                       ],
-                      amount_sum: 14,
+                      amount_usd_sum: 14,
                       first_tx_id: 'd-1',
                     },
                   ],

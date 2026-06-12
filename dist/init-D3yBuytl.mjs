@@ -1,8 +1,6 @@
-const require_chunk = require("./chunk-DakpK96I.cjs");
-const require_mcp_endpoint = require("./mcp-endpoint-cQIZSjkK.cjs");
-let node_path = require("node:path");
-node_path = require_chunk.__toESM(node_path, 1);
-let node_fs_promises = require("node:fs/promises");
+import { t as LOCAL_GRAPH_MCP_ENDPOINT } from "./mcp-endpoint-QQ5Lbqc2.mjs";
+import path from "node:path";
+import { access, mkdir, writeFile } from "node:fs/promises";
 //#region src/workspace/init.ts
 const WORKSPACE_DIRS = [
 	".chain-insights",
@@ -30,7 +28,7 @@ function workspaceJson(workspaceRoot) {
 		name: "Chain Insights Workspace",
 		workspace_root: workspaceRoot,
 		default_network: "bittensor",
-		graph_mcp_endpoint: require_mcp_endpoint.LOCAL_GRAPH_MCP_ENDPOINT,
+		graph_mcp_endpoint: LOCAL_GRAPH_MCP_ENDPOINT,
 		artifacts_dir: "artifacts",
 		imports_dir: "imports",
 		reports_dir: "reports",
@@ -152,7 +150,7 @@ with \`USE live_topology\`, historical topology reads with
 \`USE archive_topology\`, and fact reads with \`USE facts\`, for example:
 
 \`\`\`bash
-cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE live_topology MATCH (n:Identity) RETURN \"Identity\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (:Identity)-[f:FLOWS_TO]->(:Identity) RETURN f.period_granularity AS granularity, f.amount_sum AS amount_sum LIMIT 20"}]'
+cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE live_topology MATCH (n:Identity) RETURN \"Identity\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (:Identity)-[f:FLOWS_TO]->(:Identity) RETURN f.period_granularity AS granularity, f.amount_usd_sum AS amount_usd_sum LIMIT 20"}]'
 \`\`\`
 
 Then update this file with observed labels, relationship types, and allowed
@@ -168,27 +166,37 @@ The slim identity graph schema:
 - Identity nodes carry no member-address list property. Member-address
   forms (the canonical 0x form, plus the SS58 substrate form when the
   identity has a substrate source) live exclusively on the satellite
-  \`(:Address {address})\` nodes reached via
+  \`(:Address {address, network})\` nodes reached via
   \`(:Identity)-[:HAS_ADDRESS]->(:Address)\`. Enumerate an identity's
   member forms with:
   \`MATCH (i:Identity {identity_id: $id})-[:HAS_ADDRESS]->(m:Address)
-  RETURN m.address\`. Use those satellite forms to report the
+  RETURN m.address, m.network\`. Use those satellite forms to report the
   human-recognizable address forms; never invent address conversions.
 - Resolve any member address form (0x or SS58) to its identity through
   the indexed exact lookup:
   \`MATCH (m:Address {address: $input})<-[:HAS_ADDRESS]-(i:Identity)
   RETURN i.identity_id LIMIT 1\`. \`:Address(address)\` is unique and
   index-backed.
-- Other Identity properties: \`address_type\`, \`labels\` (array), and
-  \`is_exchange\` (sparse true/null traversal hint).
-- Identity nodes carry a slim live risk verdict for quick triage:
-  \`risk_score\` (float) and \`risk_level\` (string). They also carry base
-  activity rollups: \`degree_in\`/\`degree_out\`,
-  \`tx_in_count\`/\`tx_out_count\`/\`tx_total_count\`,
-  \`total_in_usd\`/\`total_out_usd\`/\`total_volume_usd\`, \`net_flow_usd\`,
-  \`active_days\`, \`activity_span_days\`,
-  \`first_activity_timestamp\`/\`last_activity_timestamp\`, and
-  \`lifetime_*\` variants.
+- Other Identity properties: \`labels\` (array) and \`is_exchange\`
+  (sparse true/null traversal hint).
+- Identity nodes carry a slim live risk verdict for quick triage
+  (\`risk_score\` float, \`risk_level\` string) plus base activity rollups:
+  \`degree_in\`/\`degree_out\`/\`degree_total\` (distinct counterparty
+  identities), \`tx_in_count\`/\`tx_out_count\`/\`tx_total_count\`,
+  \`total_in_usd\`/\`total_out_usd\`/\`total_volume_usd\`, \`net_flow_usd\`
+  (in minus out; positive = net receiver) — all computed from external
+  flows only — and \`first_activity_timestamp\`/
+  \`last_activity_timestamp\`/\`activity_span_days\`, which include all
+  flows (self-loops included). Movement between an identity's own member
+  forms is excluded from the degree/count/USD rollups and exposed
+  separately as
+  \`internal_tx_count\`/\`internal_volume_usd\` (sparse: absent when zero,
+  like \`is_exchange\`). FLOWS_TO edges carry \`tx_count\`,
+  \`amount_usd_sum\`, \`avg_tx_size_usd\` (understates when
+  \`price_coverage_ratio\` < 1), \`first_seen_timestamp\`/
+  \`last_seen_timestamp\`, \`first_tx_id\`/\`last_tx_id\`,
+  \`dominant_asset\` (largest USD share), and \`price_coverage_ratio\`.
+  Lifetime aggregates are the only serving window.
 - Money flow is \`(:Identity)-[:FLOWS_TO]->(:Identity)\`. Exposure context is
   \`(:Identity)-[:OWNS_EXPOSURE|HAS_EXPOSURE]->(:Exposure)\`,
   \`(:Exposure)-[:HAS_COUNTERPARTY]->(:Identity)\`, and
@@ -282,9 +290,9 @@ function workspaceFiles(workspaceRoot) {
 }
 async function assertNoFileCollisions(workspaceRoot) {
 	for (const [relativePath] of workspaceFiles(workspaceRoot)) {
-		const filePath = node_path.default.join(workspaceRoot, relativePath);
+		const filePath = path.join(workspaceRoot, relativePath);
 		try {
-			await (0, node_fs_promises.access)(filePath);
+			await access(filePath);
 			throw new Error(`Refusing to overwrite ${filePath}. Re-run with --force to replace workspace files.`);
 		} catch (err) {
 			if (err.code === "ENOENT") continue;
@@ -293,15 +301,15 @@ async function assertNoFileCollisions(workspaceRoot) {
 	}
 }
 async function initWorkspace(options) {
-	const workspaceRoot = node_path.default.resolve(options.targetDir);
+	const workspaceRoot = path.resolve(options.targetDir);
 	if (!options.force) await assertNoFileCollisions(workspaceRoot);
-	for (const dir of WORKSPACE_DIRS) await (0, node_fs_promises.mkdir)(node_path.default.join(workspaceRoot, dir), { recursive: true });
+	for (const dir of WORKSPACE_DIRS) await mkdir(path.join(workspaceRoot, dir), { recursive: true });
 	const filesWritten = [];
 	const flag = options.force ? "w" : "wx";
 	for (const [relativePath, content] of workspaceFiles(workspaceRoot)) {
-		const filePath = node_path.default.join(workspaceRoot, relativePath);
+		const filePath = path.join(workspaceRoot, relativePath);
 		try {
-			await (0, node_fs_promises.writeFile)(filePath, content, {
+			await writeFile(filePath, content, {
 				mode: 384,
 				flag
 			});
@@ -317,4 +325,6 @@ async function initWorkspace(options) {
 	};
 }
 //#endregion
-exports.initWorkspace = initWorkspace;
+export { initWorkspace };
+
+//# sourceMappingURL=init-D3yBuytl.mjs.map

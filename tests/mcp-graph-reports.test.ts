@@ -41,7 +41,6 @@ describe('MCP graph report store', () => {
       nodes: [{
         address: '5Exchange',
         labels: ['Address', 'Exchange', 'Binance'],
-        address_type: 'substrate',
       }],
       edges: [{ source: '5Seed', target: '5Exchange', type: 'FLOWS_TO' }],
       flows: [],
@@ -62,7 +61,6 @@ describe('MCP graph report store', () => {
       nodes: [{
         address: '5Exchange',
         node_type: 'address',
-        address_type: 'substrate',
         labels: ['Binance'],
         roles: ['exchange'],
       }],

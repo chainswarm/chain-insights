@@ -1,5 +1,4 @@
 const GRAPH_TYPE_LABELS = new Set(['Address', 'Exchange', 'Miner', 'Validator', 'Hotkey', 'Subnet', 'IPAddress'])
-const SOURCE_ADDRESS_TYPES = new Set(['substrate', 'evm'])
 const FLOW_EDGE_TYPES = new Set(['flows_to', 'transfer', 'transfer_to', 'transfers_to'])
 
 type GraphRecord = Record<string, unknown>
@@ -82,7 +81,6 @@ function normalizeNode(node: unknown): GraphRecord {
   for (const [key, value] of Object.entries(node)) {
     if (
       [
-        'address_type',
         'address_subtypes',
         'entity_kind',
         'graph_labels',
@@ -109,10 +107,6 @@ function normalizeNode(node: unknown): GraphRecord {
 
   normalized['node_type'] = normalizeNodeType(node)
   normalized['labels'] = displayLabels(node)
-
-  if (typeof node['address_type'] === 'string' && SOURCE_ADDRESS_TYPES.has(node['address_type'])) {
-    normalized['address_type'] = node['address_type']
-  }
 
   const addressSubtypes = unique(stringArray(node['address_subtypes']))
   if (addressSubtypes.length > 0) normalized['address_subtypes'] = addressSubtypes

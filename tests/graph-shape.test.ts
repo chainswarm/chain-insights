@@ -14,7 +14,7 @@ describe('graph result shape detection', () => {
     const { classifyGraphResultShape } = await import('../src/viz/graph-shape.js')
 
     expect(classifyGraphResultShape([
-      { source: '5Seed', target: '5Exchange', relationship_type: 'FLOWS_TO', amount_sum: 12 },
+      { source: '5Seed', target: '5Exchange', relationship_type: 'FLOWS_TO', amount_usd_sum: 12 },
     ])).toBe('graph')
   })
 
@@ -22,7 +22,7 @@ describe('graph result shape detection', () => {
     const { classifyGraphResultShape } = await import('../src/viz/graph-shape.js')
 
     expect(classifyGraphResultShape([
-      { src: '5Seed', dst: '5Exchange', relationship_type: 'FLOWS_TO', amount_sum: 12 },
+      { src: '5Seed', dst: '5Exchange', relationship_type: 'FLOWS_TO', amount_usd_sum: 12 },
     ])).toBe('graph')
   })
 
