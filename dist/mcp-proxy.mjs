@@ -66,9 +66,9 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS = {
 	exposure_exit_pressure: "Explain what could force or incentivize exits, including liquidation pressure, slippage/unstake pressure, funding pain, or missing risk coverage. Accepts either an account-style subject or an instrument/market subject.",
 	exposure_correlation: "Compare exposure behavior across accounts to find possible copy, overlap, or strategy-cluster relationships. Correlation is not proof of shared control.",
 	exposure_explain: "Explain the lifecycle of a specific exposure, position, trade, stake, or rotation using public support events, position changes, carry, risk fields, and caveats.",
-	aml_trace_victim_funds: "Trace victim/source funds forward through intermediaries to exchange deposit candidates. Use only when the input addresses are victims or trusted stolen-source addresses; do not use for suspected deposit addresses because traceback belongs to aml_trace_deposit_sources. Exchange hot wallets are terminal only, never candidate deposits. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
-	aml_trace_suspect_funds: "Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology. Use when the input addresses are suspect-controlled seeds; incident_timestamp_ms is optional. Do not use for victim/source addresses or suspected deposit endpoints. Exchange hot wallets are terminal only, never candidate suspects or intermediates. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
-	aml_trace_deposit_sources: "Trace backward from suspected deposit/cashout addresses to upstream sources, shared funders, and convergence. Use only when the input addresses are suspected non-exchange deposit endpoints; do not treat these seeds as scammers and do not continue forward from discovered suspects here. Exchange hot wallets are excluded as seeds and upstream sources. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
+	aml_trace_victim_funds: "Trace victim/source funds forward through intermediaries to exchange deposit candidates on GraphRAG MCP topology; when incident_timestamp_ms or time_range is set, traced FLOWS_TO edges are filtered to that activity window (first_seen/last_seen) and the effective filter is echoed as time_filter in the result. The result also includes a bounded deposit_funding traceback preview: source-exchange paths covering roughly the first floor(20/max_hops) deposit candidates plus reverse 1-hop leads, where each source_exchange_paths[].path is in traversal order deposit-to-source (the reverse of money flow) and traceback cost grows with each seed; use aml_trace_deposit_sources for deeper reverse traceback from suspected deposit endpoints. Use only when the input addresses are victims or trusted stolen-source addresses, and treat exchange hot wallets as terminal only, never candidate deposits. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
+	aml_trace_suspect_funds: "Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology on GraphRAG MCP; when incident_timestamp_ms or time_range is set, traced FLOWS_TO edges are filtered to that activity window (first_seen/last_seen) and the effective filter is echoed as time_filter in the result. The result also includes a bounded deposit_funding traceback preview (source-exchange paths covering roughly the first floor(20/max_hops) deposit candidates plus reverse 1-hop leads; source_exchange_paths[].path is traversal order deposit-to-source, the reverse of money flow; cost grows per seed). Use only when the input addresses are suspect-controlled seeds, not victim/source addresses or suspected deposit endpoints, and treat exchange hot wallets as terminal only. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
+	aml_trace_deposit_sources: "Trace backward from suspected deposit/cashout addresses to upstream sources, shared funders, and convergence on GraphRAG MCP topology. min_amount_sum drops reverse FLOWS_TO edges below that USD amount (amount_usd_sum; dust control), time_range applies the same first_seen/last_seen activity window echoed as time_filter, and each reverse depth is capped at 500 rows with an explicit truncation warning when the cap is hit. Use only when the input addresses are suspected non-exchange deposit endpoints; do not treat these seeds as scammers, and exchange hot wallets are excluded as seeds and upstream sources. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
 	graph_query: "Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment. Cross-layer correlated joins may be limited by the active graph endpoint; preserve full addresses exactly.",
 	graph_query_batch: "Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads."
 };
@@ -92,7 +92,7 @@ const CHAIN_INSIGHTS_WORKFLOW = [
 	"Workflow:",
 	"1. Chain Insights workspaces are append-only local working directories. Bootstrap with cia init before workflows that persist artifacts.",
 	"2. Do not call investigation tools until required arguments are known. Network is required; use network_capabilities to check supported networks, data layers, retention, and freshness, or ask the user if missing.",
-	"3. Use aml_address_risk for single-address enrichment. Use exposure_profile, exposure_quality, exposure_carry, exposure_crowding, exposure_exit_pressure, exposure_correlation, and exposure_explain for exposure analysis. Use aml_trace_victim_funds for victim/source forward tracing, aml_trace_deposit_sources for reverse traceback from suspected deposit endpoints, and aml_trace_suspect_funds for suspect-controlled outbound laundering/cashout topology. Use graph_query(_batch) only when the high-level tools do not answer the exact question.",
+	"3. Use aml_address_risk for single-address enrichment. Use exposure_profile, exposure_quality, exposure_carry, exposure_crowding, exposure_exit_pressure, exposure_correlation, and exposure_explain for exposure analysis. Use aml_trace_victim_funds for victim/source forward tracing and aml_trace_suspect_funds for suspect-controlled outbound laundering/cashout topology; both include a bounded deposit_funding traceback preview for discovered deposit candidates. Use aml_trace_deposit_sources for deeper reverse traceback from suspected deposit endpoints. Use graph_query(_batch) only when the high-level tools do not answer the exact question.",
 	"4. Persisted outputs belong in the initialized workspace under reports/, reports/graphs/, reports/tables/, artifacts/, entities/, sessions/, and published/.",
 	"5. For local review, inspect the generated Markdown and graph/table artifacts directly in the workspace."
 ].join("\n");
@@ -913,7 +913,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { addressRisk } = await import("./public-tools-yM1LskOb.mjs");
+				const { addressRisk } = await import("./public-tools-CXGdchjk.mjs");
 				const result = await addressRisk(remoteClient, {
 					address,
 					network,
@@ -947,6 +947,10 @@ async function createProxy() {
 				};
 			}
 		});
+		const timeRangeSchema = z.object({
+			from_ms: z.number().min(0),
+			to_ms: z.number().min(0).optional()
+		}).optional().describe("Optional activity window applied to traced FLOWS_TO edges (first_seen/last_seen). from_ms is required when time_range is set and takes precedence over incident_timestamp_ms; the effective filter is echoed as time_filter in the result.");
 		if (!remoteToolNames.has("aml_trace_victim_funds")) registerAppTool(server, "aml_trace_victim_funds", {
 			title: "Trace Victim Funds",
 			description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.aml_trace_victim_funds,
@@ -955,7 +959,8 @@ async function createProxy() {
 				network: z.string().min(1).describe(NETWORK_DESCRIPTION),
 				known_suspect_addresses: z.union([z.string(), z.array(z.string())]).optional().describe("Known suspect addresses for context only. This tool does not reverse-trace them. Max 5."),
 				include_attachments: z.boolean().optional().describe("Include graph app report metadata"),
-				incident_timestamp_ms: z.number().min(0).optional().describe("Optional incident timestamp in milliseconds."),
+				incident_timestamp_ms: z.number().min(0).optional().describe("Optional incident timestamp in milliseconds. When set (or when time_range is set), traced FLOWS_TO edges are filtered to the activity window."),
+				time_range: timeRangeSchema,
 				max_hops: z.number().int().min(1).max(5).optional(),
 				per_address_limit: z.number().int().min(1).max(10).optional(),
 				min_amount_sum: z.number().min(0).optional().describe("Minimum USD amount (amount_usd_sum) required on traced FLOWS_TO edges.")
@@ -967,7 +972,7 @@ async function createProxy() {
 				idempotentHint: false,
 				openWorldHint: true
 			}
-		}, async ({ victim_addresses, known_suspect_addresses, network, incident_timestamp_ms, max_hops, per_address_limit, min_amount_sum, include_attachments }) => {
+		}, async ({ victim_addresses, known_suspect_addresses, network, incident_timestamp_ms, time_range, max_hops, per_address_limit, min_amount_sum, include_attachments }) => {
 			try {
 				if (!remoteConnected) return {
 					content: [{
@@ -976,12 +981,13 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceVictimFunds } = await import("./public-tools-yM1LskOb.mjs");
+				const { traceVictimFunds } = await import("./public-tools-CXGdchjk.mjs");
 				const result = await traceVictimFunds(remoteClient, config, {
 					victimAddresses: victim_addresses,
 					knownSuspectAddresses: known_suspect_addresses,
 					network,
 					incidentTimestampMs: incident_timestamp_ms,
+					timeRange: time_range,
 					maxHops: max_hops,
 					perAddressLimit: per_address_limit,
 					minAmountSum: min_amount_sum,
@@ -1020,7 +1026,8 @@ async function createProxy() {
 			inputSchema: {
 				network: z.string().min(1).describe(NETWORK_DESCRIPTION),
 				suspect_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe("Comma-separated canonical suspect-controlled identity keys, or an array. Min 1, max 5."),
-				incident_timestamp_ms: z.number().min(0).optional().describe("Optional incident timestamp in milliseconds. This tool works without it."),
+				incident_timestamp_ms: z.number().min(0).optional().describe("Optional incident timestamp in milliseconds. When set (or when time_range is set), traced FLOWS_TO edges are filtered to the activity window."),
+				time_range: timeRangeSchema,
 				max_hops: z.number().int().min(1).max(5).optional().describe("Maximum forward trace hops. Default 3."),
 				per_address_limit: z.number().int().min(1).max(10).optional(),
 				min_amount_sum: z.number().min(0).optional().describe("Minimum USD amount (amount_usd_sum) required on traced FLOWS_TO edges."),
@@ -1033,7 +1040,7 @@ async function createProxy() {
 				idempotentHint: false,
 				openWorldHint: true
 			}
-		}, async ({ suspect_addresses, incident_timestamp_ms, network, max_hops, per_address_limit, min_amount_sum, include_attachments }) => {
+		}, async ({ suspect_addresses, incident_timestamp_ms, time_range, network, max_hops, per_address_limit, min_amount_sum, include_attachments }) => {
 			try {
 				if (!remoteConnected) return {
 					content: [{
@@ -1042,7 +1049,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceSuspectFunds } = await import("./public-tools-yM1LskOb.mjs");
+				const { traceSuspectFunds } = await import("./public-tools-CXGdchjk.mjs");
 				const result = await traceSuspectFunds(remoteClient, config, {
 					suspectAddresses: suspect_addresses,
 					network,
@@ -1050,6 +1057,7 @@ async function createProxy() {
 					perAddressLimit: per_address_limit,
 					minAmountSum: min_amount_sum,
 					incidentTimestampMs: incident_timestamp_ms,
+					timeRange: time_range,
 					writeArtifacts: workspaceArtifactsEnabled
 				});
 				const graph = await writeLocalGraphMeta(result.graphData, config, `trace-suspect-funds-${network}`, shouldIncludeAttachments({ include_attachments }, workspaceArtifactsEnabled));
@@ -1086,6 +1094,8 @@ async function createProxy() {
 				network: z.string().min(1).describe(NETWORK_DESCRIPTION),
 				deposit_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe("Comma-separated canonical suspected deposit/cashout identity keys, or an array. Min 1, max 5."),
 				max_hops: z.number().int().min(1).max(5).optional().describe("Maximum reverse traceback hops. Default 2."),
+				min_amount_sum: z.number().min(0).optional().describe("Drop reverse FLOWS_TO edges below this USD amount (amount_usd_sum; dust control)."),
+				time_range: timeRangeSchema,
 				include_attachments: z.boolean().optional().describe("Include graph app report metadata")
 			},
 			_meta: { ui: { resourceUri: GRAPH_RESOURCE_URI } },
@@ -1095,7 +1105,7 @@ async function createProxy() {
 				idempotentHint: false,
 				openWorldHint: true
 			}
-		}, async ({ deposit_addresses, network, max_hops, include_attachments }) => {
+		}, async ({ deposit_addresses, network, max_hops, min_amount_sum, time_range, include_attachments }) => {
 			try {
 				if (!remoteConnected) return {
 					content: [{
@@ -1104,11 +1114,13 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceDepositSources } = await import("./public-tools-yM1LskOb.mjs");
+				const { traceDepositSources } = await import("./public-tools-CXGdchjk.mjs");
 				const result = await traceDepositSources(remoteClient, config, {
 					depositAddresses: deposit_addresses,
 					network,
 					maxHops: max_hops,
+					minAmountSum: min_amount_sum,
+					timeRange: time_range,
 					writeArtifacts: workspaceArtifactsEnabled
 				});
 				const graph = await writeLocalGraphMeta(result.graphData, config, `trace-deposit-sources-${network}`, shouldIncludeAttachments({ include_attachments }, workspaceArtifactsEnabled));
@@ -1169,7 +1181,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { exposureProfile } = await import("./public-tools-yM1LskOb.mjs");
+				const { exposureProfile } = await import("./public-tools-CXGdchjk.mjs");
 				const result = await exposureProfile(remoteClient, {
 					network,
 					account,
@@ -1266,7 +1278,7 @@ async function createProxy() {
 						isError: true
 					};
 					const input = args;
-					const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await import("./public-tools-yM1LskOb.mjs");
+					const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await import("./public-tools-CXGdchjk.mjs");
 					const options = {
 						network: String(input["network"] ?? ""),
 						account: input["account"] === void 0 ? void 0 : String(input["account"]),

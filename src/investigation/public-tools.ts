@@ -4,7 +4,7 @@ import path from 'node:path'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import type { InvestigatorConfig } from '../config/schema.js'
-import { runFundFlowProbe, type TraceFundsResult } from './trace-funds.js'
+import { activityWindowPredicates, runFundFlowProbe, type TraceActivityWindow, type TraceFundsResult } from './trace-funds.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
 
@@ -269,7 +269,7 @@ function addressLabelRiskQuery(address: string): { id: string; query: string } {
 }
 
 function flowEdgeMap(variableName: string): string {
-  return `{amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`
+  return `{amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_seen_timestamp: ${variableName}.first_seen_timestamp, last_seen_timestamp: ${variableName}.last_seen_timestamp, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`
 }
 
 function pathNodeMap(variableName: string): string {
@@ -296,7 +296,7 @@ function exchangeOutflowQueryAtDepth(address: string, depth: number): { id: stri
     query: [
       `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})${relationshipChain}`,
       `WHERE a <> exchange AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
-      `RETURN "outflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${depositVariable}.identity_id AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `RETURN "outflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${depositVariable}.identity_id AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
     ].join(' '),
@@ -323,7 +323,7 @@ function exchangeInflowQueryAtDepth(address: string, depth: number): { id: strin
     query: [
       `MATCH (exchange:Identity)${relationshipChain}`,
       `WHERE a.identity_id = "${escapeCypherString(address)}" AND a <> exchange AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
-      `RETURN "inflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${withdrawalVariable}.identity_id AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `RETURN "inflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${withdrawalVariable}.identity_id AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
     ].join(' '),
@@ -478,10 +478,39 @@ function enrichExchangeRows(rows: Array<Record<string, unknown>>): Array<Record<
       ...row,
       amount_usd_sum: row['amount_usd_sum'] ?? terminal['amount_usd_sum'],
       tx_count: row['tx_count'] ?? terminal['tx_count'],
+      first_seen_timestamp: row['first_seen_timestamp'] ?? terminal['first_seen_timestamp'],
+      last_seen_timestamp: row['last_seen_timestamp'] ?? terminal['last_seen_timestamp'],
       first_tx_id: row['first_tx_id'] ?? terminal['first_tx_id'],
       last_tx_id: row['last_tx_id'] ?? terminal['last_tx_id'],
     }
   })
+}
+
+const FALLBACK_SHARED_TX_COUNT = 1000
+const FALLBACK_SHARED_USD_SUM = 5_000_000
+const FALLBACK_SHARED_DAMPING = 0.1
+const FALLBACK_VALUE_SATURATION_USD = 1_000_000
+const FALLBACK_BASE_SCORE = 0.1
+const FALLBACK_MAX_SCORE = 0.6
+
+/**
+ * Score exchange exposure when no ML risk score exists. Topology-grain:
+ * log-scaled USD volume across exchange rows, with shared/omnibus edges
+ * (high tx_count or USD throughput) dampened, bounded in (0, 0.6] so a
+ * fallback can never impersonate a high ML score band.
+ */
+export function exchangeExposureFallbackScore(exchangeRows: Array<Record<string, unknown>>): number {
+  if (exchangeRows.length === 0) return 0
+  let weightedUsd = 0
+  for (const row of exchangeRows) {
+    const usd = numberValue(row['amount_usd_sum']) ?? 0
+    const txCount = numberValue(row['tx_count']) ?? 0
+    const shared = txCount >= FALLBACK_SHARED_TX_COUNT || usd >= FALLBACK_SHARED_USD_SUM
+    weightedUsd += shared ? usd * FALLBACK_SHARED_DAMPING : usd
+  }
+  const capped = Math.min(weightedUsd, FALLBACK_VALUE_SATURATION_USD)
+  const factor = Math.log10(1 + capped) / Math.log10(1 + FALLBACK_VALUE_SATURATION_USD)
+  return Math.min(FALLBACK_MAX_SCORE, FALLBACK_BASE_SCORE + (FALLBACK_MAX_SCORE - FALLBACK_BASE_SCORE) * factor)
 }
 
 function riskAssessment(
@@ -491,7 +520,7 @@ function riskAssessment(
 ): Record<string, unknown> {
   const mlRiskScore = firstNumber(profile['ml_risk_score'])
   const labelRiskLevel = strongestLabelRiskLevel(labelRows)
-  const score = mlRiskScore ?? (exchangeRows.length > 0 ? 0.4 : 0)
+  const score = mlRiskScore ?? exchangeExposureFallbackScore(exchangeRows)
   const level = labelRiskLevel ?? riskLevelFromScore(score)
   const drivers = riskDrivers(profile, labelRows, exchangeRows)
   return {
@@ -769,6 +798,7 @@ export interface TraceDepositSourcesOptions {
   network: string
   timeRange?: { from_ms?: number; to_ms?: number }
   maxHops?: number
+  minAmountSum?: number
   writeArtifacts?: boolean
 }
 
@@ -796,6 +826,12 @@ function uniqueStrings(values: Array<string | undefined>): string[] {
 function clampInt(value: number | undefined, fallback: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return fallback
   return Math.max(min, Math.min(max, Math.trunc(value as number)))
+}
+
+function traceActivityWindow(incidentTimestampMs: number | undefined, timeRange: { from_ms?: number; to_ms?: number } | undefined): TraceActivityWindow | undefined {
+  const fromMs = timeRange?.from_ms ?? incidentTimestampMs
+  if (fromMs === undefined) return undefined
+  return { fromMs, ...(timeRange?.to_ms !== undefined ? { toMs: timeRange.to_ms } : {}) }
 }
 
 function graphRecords(graphData: Record<string, unknown>, key: string): Array<Record<string, unknown>> {
@@ -1058,12 +1094,15 @@ function traceResultFromFundRuns(
   options: {
     incidentTimestampMs?: number
     timeRange?: { from_ms?: number; to_ms?: number }
+    activityWindow?: TraceActivityWindow
     maxHops?: number
     } = {},
 ): { summaryText: string; structuredContent: Record<string, unknown>; graphData: Record<string, unknown> } {
   const graphData = normalizeTraceGraphData(runs, network)
   const flows = graphRecords(graphData, 'flows')
   const deposits = graphRecords(graphData, 'deposits')
+  const sourceMatches = graphRecords(graphData, 'source_matches')
+  const reverseLeads = graphRecords(graphData, 'reverse_leads')
   const addresses = new Map<string, TraceAddressAccumulator>()
   for (const run of runs) {
     addTraceAddress(addresses, run.address, traceAddressRoleForSeed(seedRole), `${seedRole} seed provided by caller`)
@@ -1170,6 +1209,9 @@ function traceResultFromFundRuns(
       seed_role: seedRole,
       ...(options.incidentTimestampMs !== undefined ? { incident_timestamp_ms: options.incidentTimestampMs } : {}),
       ...(options.timeRange ? { time_range: options.timeRange } : {}),
+      time_filter: options.activityWindow
+        ? { from_ms: options.activityWindow.fromMs, ...(options.activityWindow.toMs !== undefined ? { to_ms: options.activityWindow.toMs } : {}) }
+        : 'none',
       max_hops: options.maxHops ?? 3,
     },
     summary: {
@@ -1197,6 +1239,23 @@ function traceResultFromFundRuns(
       exchange_address: typeof deposit['exchangeAddress'] === 'string' ? deposit['exchangeAddress'] : deposit['exchange_address'],
       path_ids: paths.filter((path) => path.addresses.includes(String(deposit['address'] ?? deposit['deposit_address'] ?? ''))).map((path) => path.path_id),
     })),
+    deposit_funding: {
+      source_exchange_paths: sourceMatches.map((match) => ({
+        deposit_address: match['deposit_address'],
+        source_exchange: match['source_exchange'],
+        source_labels: match['source_labels'],
+        hops: match['hops'],
+        path: match['path'],
+        reason: 'Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure).',
+      })),
+      reverse_leads: reverseLeads.map((lead) => ({
+        address: lead['address'],
+        deposit_address: lead['deposit_address'],
+        labels: lead['labels'],
+        amount_usd: lead['amount_usd'],
+        reason: lead['reason'],
+      })),
+    },
     candidate_labels: candidateLabels,
     artifacts,
     evidence: [
@@ -1207,8 +1266,12 @@ function traceResultFromFundRuns(
       candidate_suspect_addresses: seedRole === 'suspect' ? runs.map((run) => run.address) : [],
       candidate_victim_addresses: [],
       recommended_next_tools: recommendedNextTools,
+      ...(sourceMatches.length > 0 ? { deposit_funding_note: 'One or more deposit candidates are exchange-funded upstream; consider aml_trace_deposit_sources on those deposits.' } : {}),
     },
-    warnings: depositAddresses.length === 0 ? ['No exchange deposit candidates were connected in the queried topology.'] : [],
+    warnings: [
+      ...(depositAddresses.length === 0 ? ['No exchange deposit candidates were connected in the queried topology.'] : []),
+      ...runs.flatMap((run) => run.result.tracebackWarnings ?? []),
+    ],
   }
 
   return {
@@ -1236,6 +1299,7 @@ export async function traceVictimFunds(
   if (knownSuspects.length > 5) throw new Error('known_suspect_addresses cannot exceed 5 addresses')
   const resolvedVictims = await resolveIdentityKeys(remoteClient, network, victimInputs)
   const victims = [...new Set(victimInputs.map((input) => resolvedVictims.get(input) ?? input))]
+  const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange)
 
   const runs: TraceRun[] = []
   for (const address of victims) {
@@ -1248,7 +1312,8 @@ export async function traceVictimFunds(
         maxHops: options.maxHops,
         perAddressLimit: options.perAddressLimit,
         minAmountSum: options.minAmountSum,
-        includeDepositTraceback: false,
+        activityWindow,
+        includeDepositTraceback: true,
         evidenceSource: 'aml_trace_victim_funds',
         writeArtifacts: options.writeArtifacts,
       }),
@@ -1257,6 +1322,7 @@ export async function traceVictimFunds(
   return traceResultFromFundRuns('aml_trace_victim_funds', 'victim', network, runs, {
     incidentTimestampMs: options.incidentTimestampMs,
     timeRange: options.timeRange,
+    activityWindow,
     maxHops: options.maxHops,
   })
 }
@@ -1273,6 +1339,7 @@ export async function traceSuspectFunds(
   if (suspectInputs.length > 5) throw new Error('suspect_addresses cannot exceed 5 addresses')
   const resolvedSuspects = await resolveIdentityKeys(remoteClient, network, suspectInputs)
   const suspects = [...new Set(suspectInputs.map((input) => resolvedSuspects.get(input) ?? input))]
+  const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange)
 
   const runs: TraceRun[] = []
   for (const address of suspects) {
@@ -1285,7 +1352,8 @@ export async function traceSuspectFunds(
         maxHops: options.maxHops,
         perAddressLimit: options.perAddressLimit,
         minAmountSum: options.minAmountSum,
-        includeDepositTraceback: false,
+        activityWindow,
+        includeDepositTraceback: true,
         evidenceSource: 'aml_trace_suspect_funds',
         writeArtifacts: options.writeArtifacts,
       }),
@@ -1294,11 +1362,19 @@ export async function traceSuspectFunds(
   return traceResultFromFundRuns('aml_trace_suspect_funds', 'suspect', network, runs, {
     incidentTimestampMs: options.incidentTimestampMs,
     timeRange: options.timeRange,
+    activityWindow,
     maxHops: options.maxHops,
   })
 }
 
-function reverseDepositSourceQueryAtDepth(depositAddresses: string[], depth: number): { id: string; query: string } {
+const REVERSE_DEPOSIT_SOURCES_LIMIT = 500
+
+function reverseDepositSourceQueryAtDepth(
+  depositAddresses: string[],
+  depth: number,
+  minAmountSum: number,
+  window: TraceActivityWindow | undefined,
+): { id: string; query: string } {
   const intermediateVariables = Array.from({ length: Math.max(depth - 1, 0) }, (_, index) => `n${index + 1}`)
   const nodeVariables = ['source', ...intermediateVariables, 'deposit']
   const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
@@ -1308,13 +1384,15 @@ function reverseDepositSourceQueryAtDepth(depositAddresses: string[], depth: num
   }).join('')
   const depositPredicates = depositAddresses.map((address) => `deposit.identity_id = "${escapeCypherString(address)}"`)
   const nonExchangePredicates = ['source', ...intermediateVariables, 'deposit'].map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
+  const amountPredicates = minAmountSum > 0 ? edgeVariables.map((edgeVariable) => `${edgeVariable}.amount_usd_sum >= ${minAmountSum}`) : []
+  const windowPredicates = activityWindowPredicates(edgeVariables, window)
   return {
     id: `reverse_deposit_sources_${depth}`,
     query: [
       `MATCH (source:Identity)${relationshipChain}`,
-      `WHERE (${depositPredicates.join(' OR ')}) AND source.identity_id <> deposit.identity_id AND ${nonExchangePredicates.join(' AND ')}`,
+      `WHERE (${depositPredicates.join(' OR ')}) AND source.identity_id <> deposit.identity_id AND ${[...nonExchangePredicates, ...amountPredicates, ...windowPredicates].join(' AND ')}`,
       `RETURN DISTINCT source.identity_id AS source_address, source.is_exchange AS source_is_exchange, deposit.identity_id AS deposit_address, deposit.is_exchange AS deposit_is_exchange, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
-      'LIMIT 500',
+      `LIMIT ${REVERSE_DEPOSIT_SOURCES_LIMIT}`,
     ].join(' '),
   }
 }
@@ -1442,11 +1520,13 @@ export async function traceDepositSources(
   const resolvedDeposits = await resolveIdentityKeys(remoteClient, network, depositInputs)
   const deposits = [...new Set(depositInputs.map((input) => resolvedDeposits.get(input) ?? input))]
   const maxHops = clampInt(options.maxHops, 2, 1, 5)
+  const minAmountSum = Math.max(0, options.minAmountSum ?? 0)
+  const window = traceActivityWindow(undefined, options.timeRange)
 
   const batch = await callGraphBatch(
     remoteClient,
     network,
-    Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1)),
+    Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1, minAmountSum, window)),
   )
   const failures: QueryFailure[] = []
   const rows: Array<Record<string, unknown>> = optionalResultsWithPrefix(batch, 'reverse_deposit_sources_', failures)
@@ -1455,6 +1535,9 @@ export async function traceDepositSources(
       ...row,
       path_id: `p${index + 1}`,
     }))
+  const truncationWarnings = (batch.facts?.queries ?? [])
+    .filter((entry) => entry.id?.startsWith('reverse_deposit_sources_') && (entry.results?.length ?? 0) >= REVERSE_DEPOSIT_SOURCES_LIMIT)
+    .map((entry) => `${entry.id} hit the ${REVERSE_DEPOSIT_SOURCES_LIMIT}-row limit; results may be truncated.`)
   const addresses = new Map<string, {
     address: string
     roles: Set<TraceRole>
@@ -1591,6 +1674,10 @@ export async function traceDepositSources(
         addresses: deposits,
         seed_role: 'deposit',
         ...(options.timeRange ? { time_range: options.timeRange } : {}),
+        ...(minAmountSum > 0 ? { min_amount_sum: minAmountSum } : {}),
+        time_filter: window
+          ? { from_ms: window.fromMs, ...(window.toMs !== undefined ? { to_ms: window.toMs } : {}) }
+          : 'none',
         max_hops: maxHops,
       },
       summary: {
@@ -1626,7 +1713,10 @@ export async function traceDepositSources(
           ? ['aml_trace_suspect_funds', 'aml_address_risk']
           : ['aml_address_risk', 'graph_query_batch'],
       },
-      warnings: paths.length === 0 ? ['No upstream sources were connected in the queried topology.'] : [],
+      warnings: [
+        ...(paths.length === 0 ? ['No upstream sources were connected in the queried topology.'] : []),
+        ...truncationWarnings,
+      ],
     },
     graphData,
   }
