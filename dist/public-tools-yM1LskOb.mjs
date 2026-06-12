@@ -2255,7 +2255,7 @@ function formatExchangeRows(rows) {
 		const direction = String(row["direction"] ?? "flow");
 		const exchange = String(row["exchange_address"] ?? "");
 		const amount = row["amount_usd_sum"] ?? "";
-		return `- ${direction}: ${exchange} (${row["hops"] ?? ""} hop(s), amount ${amount})`;
+		return `- ${direction}: ${exchange} (${row["hops"] ?? ""} hop(s), amount_usd_sum ${amount})`;
 	});
 }
 function numberValue(value) {
@@ -3330,4 +3330,4 @@ async function traceDepositSources(remoteClient, _config, options) {
 //#endregion
 export { addressRisk, exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureProfile, exposureQuality, traceDepositSources, traceSuspectFunds, traceVictimFunds };
 
-//# sourceMappingURL=public-tools-2VAnv033.mjs.map
+//# sourceMappingURL=public-tools-yM1LskOb.mjs.map

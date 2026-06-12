@@ -2257,7 +2257,7 @@ function formatExchangeRows(rows) {
 		const direction = String(row["direction"] ?? "flow");
 		const exchange = String(row["exchange_address"] ?? "");
 		const amount = row["amount_usd_sum"] ?? "";
-		return `- ${direction}: ${exchange} (${row["hops"] ?? ""} hop(s), amount ${amount})`;
+		return `- ${direction}: ${exchange} (${row["hops"] ?? ""} hop(s), amount_usd_sum ${amount})`;
 	});
 }
 function numberValue(value) {

@@ -347,7 +347,7 @@ function formatExchangeRows(rows: Array<Record<string, unknown>>): string[] {
     const exchange = String(row['exchange_address'] ?? '')
     const amount = row['amount_usd_sum'] ?? ''
     const hops = row['hops'] ?? ''
-    return `- ${direction}: ${exchange} (${hops} hop(s), amount ${amount})`
+    return `- ${direction}: ${exchange} (${hops} hop(s), amount_usd_sum ${amount})`
   })
 }
 

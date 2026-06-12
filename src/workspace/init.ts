@@ -200,15 +200,16 @@ The slim identity graph schema:
 - Other Identity properties: \`labels\` (array) and \`is_exchange\`
   (sparse true/null traversal hint).
 - Identity nodes carry a slim live risk verdict for quick triage
-  (\`risk_score\` float, \`risk_level\` string) plus base activity rollups
-  computed from external flows only:
+  (\`risk_score\` float, \`risk_level\` string) plus base activity rollups:
   \`degree_in\`/\`degree_out\`/\`degree_total\` (distinct counterparty
   identities), \`tx_in_count\`/\`tx_out_count\`/\`tx_total_count\`,
   \`total_in_usd\`/\`total_out_usd\`/\`total_volume_usd\`, \`net_flow_usd\`
-  (in minus out; positive = net receiver),
-  \`first_activity_timestamp\`/\`last_activity_timestamp\`, and
-  \`activity_span_days\`. Movement between an identity's own member forms
-  is excluded from those rollups and exposed separately as
+  (in minus out; positive = net receiver) — all computed from external
+  flows only — and \`first_activity_timestamp\`/
+  \`last_activity_timestamp\`/\`activity_span_days\`, which include all
+  flows (self-loops included). Movement between an identity's own member
+  forms is excluded from the degree/count/USD rollups and exposed
+  separately as
   \`internal_tx_count\`/\`internal_volume_usd\` (sparse: absent when zero,
   like \`is_exchange\`). FLOWS_TO edges carry \`tx_count\`,
   \`amount_usd_sum\`, \`avg_tx_size_usd\` (understates when
