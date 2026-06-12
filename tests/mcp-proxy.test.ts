@@ -20,6 +20,7 @@ const sessionEndMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const sessionArchiveOldMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const ensureArtifactServerMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const runFundFlowProbeMock = vi.hoisted(() => vi.fn())
+const traceDepositSourcesMock = vi.hoisted(() => vi.fn())
 
 // Mock all external dependencies before importing proxy
 vi.mock('../src/config/index.js', () => ({
@@ -92,6 +93,19 @@ vi.mock('../src/investigation/trace-funds.js', async (importOriginal) => {
         return runFundFlowProbeMock(...args)
       }
       return actual.runFundFlowProbe(...args)
+    },
+  }
+})
+
+vi.mock('../src/investigation/public-tools.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/investigation/public-tools.js')>()
+  return {
+    ...actual,
+    traceDepositSources: (...args: Parameters<typeof actual.traceDepositSources>) => {
+      if (traceDepositSourcesMock.getMockImplementation()) {
+        return traceDepositSourcesMock(...args)
+      }
+      return actual.traceDepositSources(...args)
     },
   }
 })
@@ -268,6 +282,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
     vi.mocked(McpServer).mockClear()
     runFundFlowProbeMock.mockReset()
+    traceDepositSourcesMock.mockReset()
     rmSync(testDataDir, { recursive: true, force: true })
     mkdirSync(join(testDataDir, '.chain-insights'), { recursive: true })
     writeFileSync(join(testDataDir, '.chain-insights', 'workspace.json'), JSON.stringify({
@@ -1594,6 +1609,155 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         seed_role: 'suspect',
       },
     })
+  })
+
+  it('aml_trace_deposit_sources registration forwards min_amount_sum and time_range to the trace', async () => {
+    traceDepositSourcesMock.mockResolvedValue({
+      summaryText: 'Deposit sources trace complete for bittensor',
+      structuredContent: {
+        schema: 'chain-insights.trace.v1',
+        tool: 'aml_trace_deposit_sources',
+      },
+      graphData: {
+        schema: 'chain-insights.graph.v1',
+        nodes: [
+          { id: '5Deposit', address: '5Deposit', node_type: 'address', roles: ['seed'] },
+          { id: '5Source', address: '5Source', node_type: 'address', roles: ['source'] },
+        ],
+        edges: [
+          { source: '5Source', target: '5Deposit', edge_type: 'flows_to', amount_usd_sum: 31 },
+        ],
+      },
+    })
+
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query_batch', description: 'Cypher topology query batch' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'aml_trace_deposit_sources')
+    const result = await handler({
+      deposit_addresses: ['5Deposit'],
+      network: 'bittensor',
+      min_amount_sum: 25,
+      time_range: { from_ms: 1715500000000 },
+    })
+
+    expect(result.isError).toBe(false)
+    expect(traceDepositSourcesMock).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
+      depositAddresses: ['5Deposit'],
+      network: 'bittensor',
+      minAmountSum: 25,
+      timeRange: { from_ms: 1715500000000 },
+    }))
+  })
+
+  it('aml_trace_victim_funds passes time_range through as the probe activity window', async () => {
+    runFundFlowProbeMock.mockResolvedValue({
+      summaryText: 'Trace complete for bittensor:5Victim',
+      compactEvidence: {},
+      graphData: {
+        schema: 'chain-insights.graph.v1',
+        nodes: [
+          { id: '5Victim', address: '5Victim', node_type: 'address', roles: ['seed'] },
+          { id: '5Deposit', address: '5Deposit', node_type: 'address', roles: ['deposit_candidate'] },
+        ],
+        edges: [
+          { source: '5Victim', target: '5Deposit', edge_type: 'flows_to', amount_usd_sum: 9 },
+        ],
+        flows: [
+          { hop: 1, src: '5Victim', dst: '5Deposit', amount_usd_sum: 9, terminal_exchange: false },
+        ],
+        deposits: [],
+        source_matches: [],
+        reverse_leads: [],
+      },
+      files: {
+        schema: '/tmp/schema.json',
+        compactEvidence: '/tmp/compact.json',
+        graph: '/tmp/graph.json',
+        graphHtml: '/tmp/graph.html',
+        table: '/tmp/table.csv',
+        tableHtml: '/tmp/table.html',
+        report: '/tmp/report.md',
+      },
+      continuation: {
+        nextHopAddresses: [],
+        depositAddresses: ['5Deposit'],
+        exchangeAddresses: [],
+        hint: 'Found deposit candidates',
+      },
+      addressMap: { V1: '5Victim', D1: '5Deposit' },
+    })
+
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query_batch', description: 'Cypher topology query batch' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool.mockResolvedValueOnce(memberResolutionPassthrough())
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'aml_trace_victim_funds')
+    const result = await handler({
+      victim_addresses: ['5Victim'],
+      network: 'bittensor',
+      time_range: { from_ms: 1715500000000, to_ms: 1716000000000 },
+    })
+
+    expect(result.isError).toBe(false)
+    expect(runFundFlowProbeMock).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
+      seedAddress: '5Victim',
+      network: 'bittensor',
+      activityWindow: { fromMs: 1715500000000, toMs: 1716000000000 },
+      evidenceSource: 'aml_trace_victim_funds',
+    }))
+    expect(result.structuredContent.input.time_filter).toEqual({ from_ms: 1715500000000, to_ms: 1716000000000 })
+  })
+
+  it('aml_trace_victim_funds input schema rejects time_range without from_ms', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query_batch', description: 'Cypher topology query batch' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const config = findToolConfig(serverInstance, 'aml_trace_victim_funds')
+    const schema = z.object(config['inputSchema'] as z.ZodRawShape)
+    const parsed = schema.safeParse({
+      victim_addresses: '5Victim',
+      network: 'bittensor',
+      time_range: { to_ms: 1716000000000 },
+    })
+
+    expect(parsed.success).toBe(false)
+    expect(JSON.stringify(parsed.error?.issues ?? [])).toContain('from_ms')
   })
 
   it('aml_trace_deposit_sources performs reverse tracing and reports shared upstream convergence', async () => {
