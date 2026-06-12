@@ -31,7 +31,7 @@ if (installerFlags.length > 0 && !rawArgs.some(a => !a.startsWith('-'))) {
   process.exit(0)
 }
 
-if (rawArgs[0] === 'mcp' && ['trace-funds', 'track-funds', 'scam-topology'].includes(rawArgs[1] ?? '')) {
+if (rawArgs[0] === 'mcp' && ['trace-funds', 'track-funds'].includes(rawArgs[1] ?? '')) {
   console.error(`error: unknown command '${rawArgs[1]}'`)
   process.exit(1)
 }

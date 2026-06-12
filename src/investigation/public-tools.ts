@@ -8,7 +8,6 @@ import { activityWindowPredicates, runFundFlowProbe, type TraceActivityWindow, t
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
 
-export { scamTopology, type ScamTopologyOptions, type ScamTopologyResult } from './scam-topology.js'
 export { exposureProfile, type ExposureProfileOptions, type ExposureProfileResult } from './exposure-profile.js'
 export {
   exposureCarry,

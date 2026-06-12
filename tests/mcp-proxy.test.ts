@@ -646,13 +646,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
   it('does not register legacy trace tools as public MCP tools', async () => {
     const staleTrace = retiredName('trace', '_funds')
     const staleTrack = retiredName('track', '_funds')
-    const staleTopology = retiredName('scam', '_topology')
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       { name: 'graph_query_batch', description: 'Cypher topology query batch' },
       { name: staleTrace, description: 'Stale remote trace funds tool' },
       { name: staleTrack, description: 'Legacy remote track funds tool' },
-      { name: staleTopology, description: 'Legacy remote scam topology tool' },
     ])
 
     const { createProxy } = await import('../src/mcp/proxy.js')
@@ -670,7 +668,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(toolNames).toContain('aml_trace_deposit_sources')
     expect(toolNames).not.toContain(staleTrace)
     expect(toolNames).not.toContain(staleTrack)
-    expect(toolNames).not.toContain(staleTopology)
   })
 
   it('registers aml_trace_victim_funds, writes graph reports, and runs deposit traceback', async () => {

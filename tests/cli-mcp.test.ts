@@ -244,13 +244,11 @@ describe('CLI mcp subcommand (MCP-02)', () => {
   it('mcp tools — cache hit: hides stale retired trace tools from public output', async () => {
     const staleTrace = ['trace', '_funds'].join('')
     const staleTrack = ['track', '_funds'].join('')
-    const staleTopology = ['scam', '_topology'].join('')
     const cachedTools = [
       { name: staleTrace, description: 'Stale fund tracing tool' },
       { name: 'money_flows_between_exchanges', description: 'Deprecated exchange flow tool' },
       { name: 'address_connection_risk', description: 'Deprecated connection risk tool' },
       { name: staleTrack, description: 'Legacy trace money flows' },
-      { name: staleTopology, description: 'Legacy scam topology' },
       { name: 'aml_trace_victim_funds', description: 'Trace victim funds' },
     ]
     mockLoadSchema.mockResolvedValue(cachedTools)
@@ -269,13 +267,11 @@ describe('CLI mcp subcommand (MCP-02)', () => {
   it('mcp tools — cache miss: fetches schema from remote, saves to cache, prints', async () => {
     const staleTrace = ['trace', '_funds'].join('')
     const staleTrack = ['track', '_funds'].join('')
-    const staleTopology = ['scam', '_topology'].join('')
     const remoteTools = [
       { name: staleTrace, description: 'Stale fund tracing tool' },
       { name: 'money_flows_between_exchanges', description: 'Deprecated exchange flow tool' },
       { name: 'address_connection_risk', description: 'Deprecated connection risk tool' },
       { name: staleTrack, description: 'Legacy trace money flows' },
-      { name: staleTopology, description: 'Legacy scam topology' },
       { name: 'aml_trace_victim_funds', description: 'Trace victim funds' },
     ]
     mockLoadSchema.mockResolvedValue(null) // cache miss
@@ -512,7 +508,6 @@ describe('CLI mcp subcommand (MCP-02)', () => {
   it.each([
     [retiredName('trace', '_funds'), `MCP tool '${retiredName('trace', '_funds')}' is not exposed by Chain Insights. Use aml_trace_victim_funds, aml_trace_suspect_funds, or aml_trace_deposit_sources instead.`],
     [retiredName('track', '_funds'), `MCP tool '${retiredName('track', '_funds')}' is not exposed by Chain Insights. Use aml_trace_victim_funds instead.`],
-    [retiredName('scam', '_topology'), `MCP tool '${retiredName('scam', '_topology')}' is not exposed by Chain Insights. Use aml_trace_suspect_funds instead.`],
   ])('mcp call rejects legacy %s before remote passthrough', async (tool, message) => {
     await expect(runMcpCallAction(tool, ['trusted_addresses=5Seed', 'network=bittensor']))
       .rejects.toThrow('process.exit(1)')

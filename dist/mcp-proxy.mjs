@@ -1,6 +1,6 @@
 import { n as PACKAGE_VERSION } from "./version-BA3J8hu4.mjs";
 import { t as PaymentRequiredError } from "./client-ytTO0mcZ.mjs";
-import { t as HIDDEN_REMOTE_TOOL_NAMES } from "./tool-visibility-nr6XqO1F.mjs";
+import { t as HIDDEN_REMOTE_TOOL_NAMES } from "./tool-visibility-Dfql5CmR.mjs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { readFileSync } from "node:fs";

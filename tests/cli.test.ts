@@ -198,7 +198,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).not.toContain('trace-funds')
   })
 
-  it.each(['track-funds', 'scam-topology', 'trace-funds'])('mcp %s is not registered', (command) => {
+  it.each(['track-funds', 'trace-funds'])('mcp %s is not registered', (command) => {
     expect(() => execSync(`node bin/cli.js mcp ${command} --help`, {
       encoding: 'utf8',
       stdio: 'pipe',
