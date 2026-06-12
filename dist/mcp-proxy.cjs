@@ -2,7 +2,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 const require_chunk = require("./chunk-DakpK96I.cjs");
 const require_version = require("./version-CO9Or_YV.cjs");
 const require_client = require("./client-BY-56ojr.cjs");
-const require_tool_visibility = require("./tool-visibility--QPgrRE5.cjs");
+const require_tool_visibility = require("./tool-visibility-CDG80Zqv.cjs");
 let node_url = require("node:url");
 let node_path = require("node:path");
 node_path = require_chunk.__toESM(node_path, 1);

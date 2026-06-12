@@ -3,6 +3,20 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.6.0] - 2026-06-12
+
+- BREAKING: removed the interactive `scam_topology` investigation tool. Scam
+  topology is now derived automatically by a backend labeler daemon that
+  traverses the identity graph from confirmed scam/victim seeds and writes
+  `inferred` scam labels for serving and ML supervision, so the analyst no
+  longer runs an interactive topology traversal and curates candidates by hand.
+  Dropped the `scamTopology` public-tools export, the `src/investigation/scam-topology.ts`
+  implementation, the `scam-topology` CLI dispatch entry, and the
+  `scam_topology` hidden-remote-tool registration plus its
+  `assertPublicMcpToolName` redirect branch. Use `aml_trace_suspect_funds` for
+  on-demand suspect fund-flow tracing. Confirmed scam/victim seeds are managed
+  through the data-pipeline seed corpus.
+
 ## [0.5.6] - 2026-06-12
 
 - AML trace tools accept an activity window. `aml_trace_victim_funds` and

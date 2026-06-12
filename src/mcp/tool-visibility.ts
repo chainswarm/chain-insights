@@ -6,7 +6,6 @@ export const HIDDEN_REMOTE_TOOL_NAMES = new Set([
   'trace_deposit_sources',
   'trace_funds',
   'track_funds',
-  'scam_topology',
   'money_flows_between_exchanges',
   'address_connection_risk',
 ])
@@ -31,8 +30,6 @@ export function assertPublicMcpToolName(name: string): void {
           ? ' Use aml_trace_deposit_sources instead.'
     : name === 'track_funds'
       ? ' Use aml_trace_victim_funds instead.'
-    : name === 'scam_topology'
-      ? ' Use aml_trace_suspect_funds instead.'
       : name === 'address_risk'
         ? ' Use aml_address_risk instead.'
       : ''

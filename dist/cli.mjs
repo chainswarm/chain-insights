@@ -19,11 +19,7 @@ if (installerFlags.length > 0 && !rawArgs.some((a) => !a.startsWith("-"))) {
 	}
 	process.exit(0);
 }
-if (rawArgs[0] === "mcp" && [
-	"trace-funds",
-	"track-funds",
-	"scam-topology"
-].includes(rawArgs[1] ?? "")) {
+if (rawArgs[0] === "mcp" && ["trace-funds", "track-funds"].includes(rawArgs[1] ?? "")) {
 	console.error(`error: unknown command '${rawArgs[1]}'`);
 	process.exit(1);
 }
@@ -401,7 +397,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 	try {
 		const { loadSchema, saveSchema } = await import("./schema-cache-DwDvPy4e.mjs");
 		const { formatToolsTable } = await import("./format-Bq94jSyw.mjs");
-		const { visibleRemoteTools } = await import("./tool-visibility-nr6XqO1F.mjs").then((n) => n.n);
+		const { visibleRemoteTools } = await import("./tool-visibility-Dfql5CmR.mjs").then((n) => n.n);
 		const { loadConfig } = await import("./config-C6zM8Xir.mjs").then((n) => n.t);
 		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-ytTO0mcZ.mjs").then((n) => n.r);
 		const config = await loadConfig();
@@ -552,7 +548,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 })).addCommand(buildExposureInsightCommand("exposure-quality", "exposure_quality", "Score whether exposure behavior looks disciplined, fragile, lucky, or noisy")).addCommand(buildExposureInsightCommand("exposure-carry", "exposure_carry", "Explain carry earned or paid by staking, trading, funding, fees, emissions, or dividends")).addCommand(buildExposureInsightCommand("exposure-crowding", "exposure_crowding", "Measure crowding and side concentration for a market, subnet, hotkey, vault, or strategy")).addCommand(buildExposureInsightCommand("exposure-exit-pressure", "exposure_exit_pressure", "Explain liquidation, slippage, funding pain, unstake, or other exit pressure")).addCommand(buildExposureInsightCommand("exposure-correlation", "exposure_correlation", "Compare accounts for possible copy, overlap, or strategy-cluster exposure behavior")).addCommand(buildExposureInsightCommand("exposure-explain", "exposure_explain", "Explain a specific exposure lifecycle, trade, position, stake, rotation, or incident")).addCommand(new Command("call").description("Call an MCP tool directly (debug)").argument("<tool>", "Tool name to call").argument("[args...]", "Key=value arguments (e.g. address=0x1234 chain=ethereum)").action(async (tool, rawArgs) => {
 	try {
 		const { parseMcpCallArgs } = await import("./call-args-DPXdX3_D.mjs");
-		const { assertPublicMcpToolName } = await import("./tool-visibility-nr6XqO1F.mjs").then((n) => n.n);
+		const { assertPublicMcpToolName } = await import("./tool-visibility-Dfql5CmR.mjs").then((n) => n.n);
 		const args = parseMcpCallArgs(rawArgs);
 		assertPublicMcpToolName(tool);
 		await withGraphMcpClient("chain-insights-cli-call", async (client, config) => {
