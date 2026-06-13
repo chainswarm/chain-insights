@@ -18,13 +18,6 @@ MCP endpoint for development; hosted endpoints are set explicitly with
 | `aml_trace_victim_funds` | Trace victim/source funds forward to exchange deposit candidates |
 | `aml_trace_deposit_sources` | Trace backward from suspected deposit/cashout addresses to upstream sources and convergence |
 | `aml_trace_suspect_funds` | Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology |
-| `exposure_profile` | Explain staking or trading exposure around an account, owner, or counterparty |
-| `exposure_quality` | Score whether exposure behavior looks disciplined, fragile, lucky, or noisy |
-| `exposure_carry` | Explain carry earned or paid from staking, trading, funding, fees, emissions, or dividends |
-| `exposure_crowding` | Measure side concentration for a market, subnet, hotkey, or strategy |
-| `exposure_exit_pressure` | Explain liquidation, slippage, unstake, funding pain, or other exit pressure |
-| `exposure_correlation` | Compare accounts for possible copy, overlap, or strategy-cluster behavior |
-| `exposure_explain` | Explain a specific exposure lifecycle, trade, position, stake, rotation, or incident |
 | `graph_query` | Run one read-only GQL/Cypher query against a GraphRAG MCP graph layer |
 | `graph_query_batch` | Run related read-only graph queries as one MCP call |
 | `usage_status` | Check the caller's daily free-tier graph query allowance |
@@ -237,20 +230,17 @@ and local workspace state:
 
 - `aml_address_risk` starts a single-address screen with risk, behavior,
   neighborhood context, and exchange exposure.
-- `exposure_profile` explains staking exposure and trading exposure
-  with venues, instruments, position changes, public support events, and
-  caveats when pricing or unit coverage is incomplete.
-- `exposure_quality`, `exposure_carry`, `exposure_crowding`,
-  `exposure_exit_pressure`, `exposure_correlation`, and `exposure_explain`
-  add deterministic exposure analytics over the same generic model. They work
-  for Bittensor staking rows now and are shaped for Hyperliquid trading rows as
-  soon as the Hyperliquid indexer writes the shared exposure contract.
 - `aml_trace_victim_funds` traces victim/source funds forward through
   intermediaries to exchange deposit candidates.
 - `aml_trace_deposit_sources` traces backward from suspected deposit/cashout
   addresses to upstream sources and shared-source convergence.
 - `aml_trace_suspect_funds` traces suspected scammer, mule, operator, or
   laundering-ring funds forward to cashout topology.
+
+AML tools accept full blockchain addresses and return blockchain addresses as
+the public result surface. Chain Insights resolves those addresses to
+identity-grain topology internally and includes identity resolution metadata for
+audit/debug use.
 
 The three trace tools share `chain-insights.trace.v1` and return compact,
 chainable results. Full graph/table/report artifacts remain on disk under the

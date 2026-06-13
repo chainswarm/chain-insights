@@ -63,7 +63,7 @@ Fresh workspaces include a `workspace-brief.md` starter template.
 
 ## Workspace Evidence
 
-The graph and exposure tools write durable workspace artifacts under `artifacts/`
+The graph and AML tools write durable workspace artifacts under `artifacts/`
 and `reports/` during runtime.
 
 Evidence Markdown is a provenance record, not a raw-data dump. Small JSON is

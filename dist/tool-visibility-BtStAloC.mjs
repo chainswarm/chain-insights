@@ -15,7 +15,14 @@ const HIDDEN_REMOTE_TOOL_NAMES = new Set([
 	"trace_funds",
 	"track_funds",
 	"money_flows_between_exchanges",
-	"address_connection_risk"
+	"address_connection_risk",
+	"exposure_profile",
+	"exposure_quality",
+	"exposure_carry",
+	"exposure_crowding",
+	"exposure_exit_pressure",
+	"exposure_correlation",
+	"exposure_explain"
 ]);
 function isHiddenRemoteToolName(name) {
 	return HIDDEN_REMOTE_TOOL_NAMES.has(name);
@@ -30,4 +37,4 @@ function assertPublicMcpToolName(name) {
 //#endregion
 export { tool_visibility_exports as n, HIDDEN_REMOTE_TOOL_NAMES as t };
 
-//# sourceMappingURL=tool-visibility-Dfql5CmR.mjs.map
+//# sourceMappingURL=tool-visibility-BtStAloC.mjs.map

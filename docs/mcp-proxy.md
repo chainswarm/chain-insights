@@ -98,10 +98,13 @@ Remote graph tools are discovered from the configured GraphRAG MCP endpoint. The
 expected primitive graph tools are `usage_status`, `graph_query`, and
 `graph_query_batch`.
 Chain Insights adds high-level local graph recipes such as `aml_address_risk`,
-`exposure_profile`, `exposure_quality`, `exposure_carry`,
-`exposure_crowding`, `exposure_exit_pressure`, `exposure_correlation`,
-`exposure_explain`, `aml_trace_victim_funds`, `aml_trace_deposit_sources`, and
+`aml_trace_victim_funds`, `aml_trace_deposit_sources`, and
 `aml_trace_suspect_funds` when the remote endpoint only exposes primitives.
+
+AML recipes accept full blockchain addresses and return blockchain addresses as
+the public result surface. Chain Insights resolves those addresses to
+identity-grain topology internally and includes identity resolution metadata in
+tool results for audit/debug use.
 
 The trace tools share `chain-insights.trace.v1` and are role-specific:
 

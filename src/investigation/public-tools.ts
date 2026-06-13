@@ -8,17 +8,6 @@ import { activityWindowPredicates, runFundFlowProbe, type TraceActivityWindow, t
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
 
-export { exposureProfile, type ExposureProfileOptions, type ExposureProfileResult } from './exposure-profile.js'
-export {
-  exposureCarry,
-  exposureCorrelation,
-  exposureCrowding,
-  exposureExitPressure,
-  exposureExplain,
-  exposureQuality,
-  type ExposureInsightOptions,
-} from './exposure-analysis.js'
-
 type RemoteToolResult = {
   content?: ContentBlock[]
   isError?: boolean
@@ -168,8 +157,21 @@ function memberAddressResolutionQuery(id: string, memberForm: string): { id: str
   }
 }
 
+function identityMemberAddressesQuery(identityKeys: string[]): { id: string; query: string } {
+  const predicates = identityKeys.map((identityKey) => `i.identity_id = "${escapeCypherString(identityKey)}"`)
+  return {
+    id: 'identity_member_addresses',
+    query: [
+      'MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address)',
+      `WHERE ${predicates.join(' OR ')}`,
+      'RETURN i.identity_id AS identity_id, collect(m.address) AS member_addresses',
+      `LIMIT ${identityKeys.length}`,
+    ].join(' '),
+  }
+}
+
 /**
- * Resolve tool address inputs to canonical identity keys.
+ * Resolve public tool address inputs to canonical identity keys.
  *
  * Inputs already in canonical 0x form (with or without the network prefix)
  * are derived locally as `<network>:<lowercase 0x form>`. Any other member
@@ -203,6 +205,110 @@ export async function resolveIdentityKeys(
     resolved.set(input, identityId ?? input)
   })
   return resolved
+}
+
+type IdentityDisplayInfo = {
+  canonical_identity_key: string
+  address: string
+  member_addresses: string[]
+}
+
+function collectIdentityKeys(value: unknown, network: string, keys = new Set<string>()): Set<string> {
+  const prefix = `${network}:`
+  if (typeof value === 'string') {
+    if (value.startsWith(prefix)) keys.add(value)
+    return keys
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectIdentityKeys(item, network, keys)
+    return keys
+  }
+  if (typeof value === 'object' && value !== null) {
+    for (const item of Object.values(value)) collectIdentityKeys(item, network, keys)
+  }
+  return keys
+}
+
+async function identityDisplayMap(
+  remoteClient: Client,
+  network: string,
+  identityKeys: string[],
+  preferredByIdentity = new Map<string, string>(),
+): Promise<Map<string, IdentityDisplayInfo>> {
+  const uniqueKeys = [...new Set(identityKeys.filter((key) => key.startsWith(`${network}:`)))]
+  const memberRows = new Map<string, string[]>()
+  if (uniqueKeys.length > 0) {
+    try {
+      const batch = await callGraphBatch(remoteClient, network, [identityMemberAddressesQuery(uniqueKeys)])
+      for (const row of optionalResultsFor(batch, 'identity_member_addresses', [])) {
+        const identityKey = firstString(row['identity_id'])
+        if (!identityKey) continue
+        memberRows.set(identityKey, stringArrayValue(row['member_addresses']) ?? [])
+      }
+    } catch {
+      // Publicization is best-effort. Tool execution should not fail only
+      // because member-address decoration was unavailable.
+    }
+  }
+
+  return new Map(uniqueKeys.map((identityKey) => {
+    const preferred = preferredByIdentity.get(identityKey)
+    const members = memberRows.get(identityKey) ?? []
+    const address = preferred ? memberFormOf(preferred, network) : members[0] ?? memberFormOf(identityKey, network)
+    return [identityKey, {
+      canonical_identity_key: identityKey,
+      address,
+      member_addresses: members,
+    }]
+  }))
+}
+
+function replaceIdentityKeysDeep(value: unknown, displayByIdentity: Map<string, IdentityDisplayInfo>): unknown {
+  if (typeof value === 'string') return replaceIdentityKeysInText(value, displayByIdentity)
+  if (Array.isArray(value)) return value.map((item) => replaceIdentityKeysDeep(item, displayByIdentity))
+  if (typeof value !== 'object' || value === null) return value
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [key, replaceIdentityKeysDeep(entry, displayByIdentity)]),
+  )
+}
+
+function replaceIdentityKeysInText(value: string, displayByIdentity: Map<string, IdentityDisplayInfo>): string {
+  return [...displayByIdentity.entries()]
+    .sort((a, b) => b[0].length - a[0].length)
+    .reduce((text, [identityKey, info]) => text.replaceAll(identityKey, info.address), value)
+}
+
+function identityResolution(displayByIdentity: Map<string, IdentityDisplayInfo>): IdentityDisplayInfo[] {
+  return [...displayByIdentity.values()]
+    .sort((a, b) => a.address.localeCompare(b.address))
+}
+
+async function publicizeIdentityResult<T extends {
+  summaryText: string
+  structuredContent: Record<string, unknown>
+  graphData: Record<string, unknown>
+}>(
+  remoteClient: Client,
+  network: string,
+  result: T,
+  preferredByIdentity = new Map<string, string>(),
+): Promise<T> {
+  const identityKeys = [
+    ...collectIdentityKeys(result.summaryText, network),
+    ...collectIdentityKeys(result.structuredContent, network),
+    ...collectIdentityKeys(result.graphData, network),
+  ]
+  const displayByIdentity = await identityDisplayMap(remoteClient, network, identityKeys, preferredByIdentity)
+  if (displayByIdentity.size === 0) return result
+  return {
+    ...result,
+    summaryText: replaceIdentityKeysInText(result.summaryText, displayByIdentity),
+    structuredContent: {
+      ...(replaceIdentityKeysDeep(result.structuredContent, displayByIdentity) as Record<string, unknown>),
+      identity_resolution: identityResolution(displayByIdentity),
+    },
+    graphData: replaceIdentityKeysDeep(result.graphData, displayByIdentity) as Record<string, unknown>,
+  }
 }
 
 function graphArray(graphData: Record<string, unknown>, key: string): Array<Record<string, unknown>> {
@@ -653,6 +759,10 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   const resolvedKeys = await resolveIdentityKeys(remoteClient, network, [inputAddress, ...(compareInput ? [compareInput] : [])])
   const address = resolvedKeys.get(inputAddress) ?? inputAddress
   const compareAddress = compareInput ? resolvedKeys.get(compareInput) ?? compareInput : ''
+  const preferredByIdentity = new Map<string, string>([
+    [address, inputAddress],
+    ...(compareAddress ? [[compareAddress, compareInput] as [string, string]] : []),
+  ])
 
   const queries = [
     addressProfileQuery(address),
@@ -714,17 +824,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     lines.push('', 'Partial query failures', partialQueryFailures.map((failure) => `- ${failure.id}: ${failure.error}`).join('\n'))
   }
   const summaryText = lines.join('\n')
-  const artifacts = options.writeArtifacts ? await writeAddressRiskArtifacts(
-    network,
-    address,
-    compareAddress,
-    graphData,
-    exchangeRows,
-    summaryText,
-  ) : statelessArtifacts()
-  const evidence = artifactEvidence(artifacts)
-
-  return {
+  const baseResult = {
     summaryText,
     structuredContent: {
       schema: 'chain-insights.result.v1',
@@ -746,13 +846,44 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
         connection: compareAddress ? { compare_address: compareAddress, paths: connections } : undefined,
         partial_query_errors: partialQueryFailures.length > 0 ? partialQueryFailures : undefined,
       },
-      artifacts,
-      evidence: [...evidence, {
+      artifacts: statelessArtifacts(),
+      evidence: [{
         evidence_type: 'tool_summary',
         summary: `aml_address_risk ${address} completed for ${network}`,
       }],
     },
     graphData,
+  }
+  const publicResult = await publicizeIdentityResult(remoteClient, network, baseResult, preferredByIdentity)
+  const publicSubject = publicResult.structuredContent.facts as Record<string, unknown> | undefined
+  const publicSubjectAddresses = (publicSubject?.subject as Record<string, unknown> | undefined)?.addresses
+  const publicSubjectAddress = Array.isArray(publicSubjectAddresses) && typeof publicSubjectAddresses[0] === 'string'
+    ? publicSubjectAddresses[0]
+    : memberFormOf(inputAddress, network)
+  const publicCompareAddress = Array.isArray(publicSubjectAddresses) && typeof publicSubjectAddresses[1] === 'string'
+    ? publicSubjectAddresses[1]
+    : compareAddress
+  const artifacts = options.writeArtifacts ? await writeAddressRiskArtifacts(
+    network,
+    publicSubjectAddress,
+    publicCompareAddress,
+    publicResult.graphData,
+    exchangeRows,
+    publicResult.summaryText,
+  ) : statelessArtifacts()
+  const evidence = artifactEvidence(artifacts)
+
+  return {
+    summaryText: publicResult.summaryText,
+    structuredContent: {
+      ...publicResult.structuredContent,
+      artifacts,
+      evidence: [...evidence, {
+        evidence_type: 'tool_summary',
+        summary: `aml_address_risk ${inputAddress} completed for ${network}`,
+      }],
+    },
+    graphData: publicResult.graphData,
   }
 }
 
@@ -1298,6 +1429,7 @@ export async function traceVictimFunds(
   if (knownSuspects.length > 5) throw new Error('known_suspect_addresses cannot exceed 5 addresses')
   const resolvedVictims = await resolveIdentityKeys(remoteClient, network, victimInputs)
   const victims = [...new Set(victimInputs.map((input) => resolvedVictims.get(input) ?? input))]
+  const preferredByIdentity = new Map(victimInputs.map((input) => [resolvedVictims.get(input) ?? input, input] as [string, string]))
   const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange)
 
   const runs: TraceRun[] = []
@@ -1318,12 +1450,13 @@ export async function traceVictimFunds(
       }),
     })
   }
-  return traceResultFromFundRuns('aml_trace_victim_funds', 'victim', network, runs, {
+  const result = traceResultFromFundRuns('aml_trace_victim_funds', 'victim', network, runs, {
     incidentTimestampMs: options.incidentTimestampMs,
     timeRange: options.timeRange,
     activityWindow,
     maxHops: options.maxHops,
   })
+  return publicizeIdentityResult(remoteClient, network, result, preferredByIdentity)
 }
 
 export async function traceSuspectFunds(
@@ -1338,6 +1471,7 @@ export async function traceSuspectFunds(
   if (suspectInputs.length > 5) throw new Error('suspect_addresses cannot exceed 5 addresses')
   const resolvedSuspects = await resolveIdentityKeys(remoteClient, network, suspectInputs)
   const suspects = [...new Set(suspectInputs.map((input) => resolvedSuspects.get(input) ?? input))]
+  const preferredByIdentity = new Map(suspectInputs.map((input) => [resolvedSuspects.get(input) ?? input, input] as [string, string]))
   const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange)
 
   const runs: TraceRun[] = []
@@ -1358,12 +1492,13 @@ export async function traceSuspectFunds(
       }),
     })
   }
-  return traceResultFromFundRuns('aml_trace_suspect_funds', 'suspect', network, runs, {
+  const result = traceResultFromFundRuns('aml_trace_suspect_funds', 'suspect', network, runs, {
     incidentTimestampMs: options.incidentTimestampMs,
     timeRange: options.timeRange,
     activityWindow,
     maxHops: options.maxHops,
   })
+  return publicizeIdentityResult(remoteClient, network, result, preferredByIdentity)
 }
 
 const REVERSE_DEPOSIT_SOURCES_LIMIT = 500
@@ -1518,6 +1653,7 @@ export async function traceDepositSources(
   if (depositInputs.length > 5) throw new Error('deposit_addresses cannot exceed 5 addresses')
   const resolvedDeposits = await resolveIdentityKeys(remoteClient, network, depositInputs)
   const deposits = [...new Set(depositInputs.map((input) => resolvedDeposits.get(input) ?? input))]
+  const preferredByIdentity = new Map(depositInputs.map((input) => [resolvedDeposits.get(input) ?? input, input] as [string, string]))
   const maxHops = clampInt(options.maxHops, 2, 1, 5)
   const minAmountSum = Math.max(0, options.minAmountSum ?? 0)
   const window = traceActivityWindow(undefined, options.timeRange)
@@ -1663,7 +1799,7 @@ export async function traceDepositSources(
     : await writeTraceSourceArtifacts('aml_trace_deposit_sources', network, graphData, rows, summaryText)
   const evidence = artifactEvidence(artifacts)
 
-  return {
+  const result = {
     summaryText,
     structuredContent: {
       schema: 'chain-insights.trace.v1',
@@ -1719,6 +1855,7 @@ export async function traceDepositSources(
     },
     graphData,
   }
+  return publicizeIdentityResult(remoteClient, network, result, preferredByIdentity)
 }
 
 export async function trackFunds(

@@ -56,48 +56,6 @@ async function withGraphMcpClient(name, fn) {
 function printMcpTextContent(result) {
 	for (const item of result.content ?? []) if (item.type === "text") console.log(item.text);
 }
-function addExposureSubjectOptions(command) {
-	return command.requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--account <address>", "Account address to inspect").option("--owner <address>", "Owner address to inspect").option("--counterparty <address>", "Counterparty address to inspect").option("--venue <name>", "Optional venue filter, for example Bittensor or Hyperliquid").option("--instrument <id>", "Optional instrument filter, for example a subnet lifecycle id or BTC-PERP").option("--instrument-type <type>", "Optional instrument type filter, for example subnet, perp, spot, vault, or staking").option("--start-timestamp-ms <milliseconds>", "Optional inclusive lower activity timestamp bound").option("--end-timestamp-ms <milliseconds>", "Optional inclusive upper activity timestamp bound").option("--limit <number>", "Maximum exposure rows, default 100, max 500");
-}
-function addExposureMarketOptions(command, requiredInstrument, includeNetwork = true) {
-	let configured = command.option("--venue <name>", "Optional venue filter, for example Bittensor or Hyperliquid").option("--market <id>", "Alias for --instrument when using market language").option("--instrument-type <type>", "Optional instrument type filter, for example subnet, perp, spot, vault, or staking").option("--start-timestamp-ms <milliseconds>", "Optional inclusive lower activity timestamp bound").option("--end-timestamp-ms <milliseconds>", "Optional inclusive upper activity timestamp bound").option("--limit <number>", "Maximum exposure rows, default 100, max 500");
-	if (includeNetwork) configured = configured.requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.");
-	return requiredInstrument ? configured.requiredOption("--instrument <id>", "Instrument, market, subnet, hotkey, vault, or durable exposure target identifier to inspect") : configured.option("--instrument <id>", "Instrument, market, subnet, hotkey, vault, or durable exposure target identifier to inspect");
-}
-function buildExposureInsightCommand(name, tool, description) {
-	const command = new Command(name).description(description);
-	const configured = tool === "exposure_crowding" ? addExposureMarketOptions(command, true) : tool === "exposure_exit_pressure" ? addExposureSubjectOptions(command).option("--market <id>", "Alias for --instrument when using market language") : addExposureSubjectOptions(command);
-	if (tool === "exposure_correlation") configured.option("--candidate-accounts <addresses>", "Comma-separated candidate accounts to compare against");
-	if (tool === "exposure_explain") configured.option("--market <id>", "Alias for --instrument when using market language").option("--position-id <id>", "Optional venue-native position, trade, stake, rotation, or lifecycle identifier");
-	return configured.action(async (opts) => {
-		try {
-			await withGraphMcpClient(`chain-insights-cli-${name}`, async (client) => {
-				const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await import("./public-tools-CXGdchjk.mjs");
-				const args = {
-					network: opts.network,
-					account: opts.account,
-					owner: opts.owner,
-					counterparty: opts.counterparty,
-					venue: opts.venue,
-					instrument: opts.instrument,
-					market: opts.market,
-					instrumentType: opts.instrumentType,
-					startTimestampMs: optionalNumber(opts.startTimestampMs),
-					endTimestampMs: optionalNumber(opts.endTimestampMs),
-					limit: optionalNumber(opts.limit),
-					candidateAccounts: opts.candidateAccounts,
-					positionId: opts.positionId
-				};
-				const result = tool === "exposure_quality" ? await exposureQuality(client, args) : tool === "exposure_carry" ? await exposureCarry(client, args) : tool === "exposure_crowding" ? await exposureCrowding(client, args) : tool === "exposure_exit_pressure" ? await exposureExitPressure(client, args) : tool === "exposure_correlation" ? await exposureCorrelation(client, args) : await exposureExplain(client, args);
-				console.log(result.summaryText);
-				console.log(JSON.stringify(result.structuredContent, null, 2));
-			});
-		} catch (err) {
-			console.error(err.message);
-			process.exit(1);
-		}
-	});
-}
 async function printNetworkCapabilities(opts) {
 	const { loadConfig } = await import("./config-C6zM8Xir.mjs").then((n) => n.t);
 	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import("./capabilities-CM72SErE.mjs");
@@ -247,7 +205,7 @@ program.command("access-key").description("Configure Graph MCP test access key m
 }));
 program.command("init").description("Initialize an investigation workspace").argument("[dir]", "Workspace directory to initialize", ".").option("--force", "Overwrite existing workspace files").action(async (dir, opts) => {
 	try {
-		const { initWorkspace } = await import("./init-D3yBuytl.mjs");
+		const { initWorkspace } = await import("./init-JUNPuTg5.mjs");
 		const result = await initWorkspace({
 			targetDir: dir,
 			force: opts.force
@@ -397,7 +355,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 	try {
 		const { loadSchema, saveSchema } = await import("./schema-cache-DwDvPy4e.mjs");
 		const { formatToolsTable } = await import("./format-Bq94jSyw.mjs");
-		const { visibleRemoteTools } = await import("./tool-visibility-Dfql5CmR.mjs").then((n) => n.n);
+		const { visibleRemoteTools } = await import("./tool-visibility-BtStAloC.mjs").then((n) => n.n);
 		const { loadConfig } = await import("./config-C6zM8Xir.mjs").then((n) => n.t);
 		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-ytTO0mcZ.mjs").then((n) => n.r);
 		const config = await loadConfig();
@@ -438,7 +396,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { addressRisk } = await import("./public-tools-CXGdchjk.mjs");
+			const { addressRisk } = await import("./public-tools-B8MyxTm1.mjs");
 			const result = await addressRisk(client, {
 				address: opts.address,
 				network: opts.network,
@@ -466,7 +424,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { traceVictimFunds } = await import("./public-tools-CXGdchjk.mjs");
+			const { traceVictimFunds } = await import("./public-tools-B8MyxTm1.mjs");
 			const result = await traceVictimFunds(client, config, {
 				victimAddresses: opts.victimAddresses,
 				knownSuspectAddresses: opts.knownSuspectAddresses,
@@ -488,7 +446,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { requireWorkspaceRoot } = await import("./output-root-BK4pdjyz.mjs").then((n) => n.t);
 		requireWorkspaceRoot();
 		await withGraphMcpClient("chain-insights-cli-aml-trace-suspect-funds", async (client, config) => {
-			const { traceSuspectFunds } = await import("./public-tools-CXGdchjk.mjs");
+			const { traceSuspectFunds } = await import("./public-tools-B8MyxTm1.mjs");
 			const result = await traceSuspectFunds(client, config, {
 				suspectAddresses: opts.suspectAddresses,
 				network: opts.network,
@@ -509,7 +467,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { requireWorkspaceRoot } = await import("./output-root-BK4pdjyz.mjs").then((n) => n.t);
 		requireWorkspaceRoot();
 		await withGraphMcpClient("chain-insights-cli-aml-trace-deposit-sources", async (client, config) => {
-			const { traceDepositSources } = await import("./public-tools-CXGdchjk.mjs");
+			const { traceDepositSources } = await import("./public-tools-B8MyxTm1.mjs");
 			const result = await traceDepositSources(client, config, {
 				depositAddresses: opts.depositAddresses,
 				network: opts.network,
@@ -522,38 +480,15 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new Command("exposure-profile").description("Explain staking or trading exposure around one account, owner, or counterparty").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--account <address>", "Account address to inspect").option("--owner <address>", "Owner address to inspect").option("--counterparty <address>", "Counterparty address to inspect").option("--venue <name>", "Optional venue filter, for example Bittensor or Hyperliquid").option("--instrument <id>", "Optional instrument filter, for example a subnet lifecycle id or BTC-PERP").option("--instrument-type <type>", "Optional instrument type filter, for example subnet, perp, spot, vault, or staking").option("--start-timestamp-ms <milliseconds>", "Optional inclusive lower activity timestamp bound").option("--end-timestamp-ms <milliseconds>", "Optional inclusive upper activity timestamp bound").option("--limit <number>", "Maximum exposure rows, default 100, max 500").action(async (opts) => {
-	try {
-		await withGraphMcpClient("chain-insights-cli-exposure-profile", async (client) => {
-			const { exposureProfile } = await import("./public-tools-CXGdchjk.mjs");
-			const result = await exposureProfile(client, {
-				network: opts.network,
-				account: opts.account,
-				owner: opts.owner,
-				counterparty: opts.counterparty,
-				venue: opts.venue,
-				instrument: opts.instrument,
-				instrumentType: opts.instrumentType,
-				startTimestampMs: optionalNumber(opts.startTimestampMs),
-				endTimestampMs: optionalNumber(opts.endTimestampMs),
-				limit: optionalNumber(opts.limit)
-			});
-			console.log(result.summaryText);
-			console.log(JSON.stringify(result.structuredContent, null, 2));
-		});
-	} catch (err) {
-		console.error(err.message);
-		process.exit(1);
-	}
-})).addCommand(buildExposureInsightCommand("exposure-quality", "exposure_quality", "Score whether exposure behavior looks disciplined, fragile, lucky, or noisy")).addCommand(buildExposureInsightCommand("exposure-carry", "exposure_carry", "Explain carry earned or paid by staking, trading, funding, fees, emissions, or dividends")).addCommand(buildExposureInsightCommand("exposure-crowding", "exposure_crowding", "Measure crowding and side concentration for a market, subnet, hotkey, vault, or strategy")).addCommand(buildExposureInsightCommand("exposure-exit-pressure", "exposure_exit_pressure", "Explain liquidation, slippage, funding pain, unstake, or other exit pressure")).addCommand(buildExposureInsightCommand("exposure-correlation", "exposure_correlation", "Compare accounts for possible copy, overlap, or strategy-cluster exposure behavior")).addCommand(buildExposureInsightCommand("exposure-explain", "exposure_explain", "Explain a specific exposure lifecycle, trade, position, stake, rotation, or incident")).addCommand(new Command("call").description("Call an MCP tool directly (debug)").argument("<tool>", "Tool name to call").argument("[args...]", "Key=value arguments (e.g. address=0x1234 chain=ethereum)").action(async (tool, rawArgs) => {
+})).addCommand(new Command("call").description("Call an MCP tool directly (debug)").argument("<tool>", "Tool name to call").argument("[args...]", "Key=value arguments (e.g. address=0x1234 chain=ethereum)").action(async (tool, rawArgs) => {
 	try {
 		const { parseMcpCallArgs } = await import("./call-args-DPXdX3_D.mjs");
-		const { assertPublicMcpToolName } = await import("./tool-visibility-Dfql5CmR.mjs").then((n) => n.n);
+		const { assertPublicMcpToolName } = await import("./tool-visibility-BtStAloC.mjs").then((n) => n.n);
 		const args = parseMcpCallArgs(rawArgs);
 		assertPublicMcpToolName(tool);
 		await withGraphMcpClient("chain-insights-cli-call", async (client, config) => {
 			if (tool === "aml_address_risk") {
-				const { addressRisk } = await import("./public-tools-CXGdchjk.mjs");
+				const { addressRisk } = await import("./public-tools-B8MyxTm1.mjs");
 				const result = await addressRisk(client, {
 					address: String(args["address"] ?? ""),
 					network: String(args["network"] ?? ""),
@@ -563,7 +498,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "aml_trace_victim_funds") {
-				const { traceVictimFunds } = await import("./public-tools-CXGdchjk.mjs");
+				const { traceVictimFunds } = await import("./public-tools-B8MyxTm1.mjs");
 				const result = await traceVictimFunds(client, config, {
 					victimAddresses: args["victim_addresses"] ?? "",
 					knownSuspectAddresses: args["known_suspect_addresses"],
@@ -578,7 +513,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "aml_trace_suspect_funds") {
-				const { traceSuspectFunds } = await import("./public-tools-CXGdchjk.mjs");
+				const { traceSuspectFunds } = await import("./public-tools-B8MyxTm1.mjs");
 				const result = await traceSuspectFunds(client, config, {
 					suspectAddresses: args["suspect_addresses"] ?? "",
 					network: String(args["network"] ?? ""),
@@ -592,59 +527,12 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "aml_trace_deposit_sources") {
-				const { traceDepositSources } = await import("./public-tools-CXGdchjk.mjs");
+				const { traceDepositSources } = await import("./public-tools-B8MyxTm1.mjs");
 				const result = await traceDepositSources(client, config, {
 					depositAddresses: args["deposit_addresses"] ?? "",
 					network: String(args["network"] ?? ""),
 					maxHops: typeof args["max_hops"] === "number" ? args["max_hops"] : void 0
 				});
-				console.log(result.summaryText);
-				console.log(JSON.stringify(result.structuredContent, null, 2));
-				return;
-			}
-			if (tool === "exposure_profile") {
-				const { exposureProfile } = await import("./public-tools-CXGdchjk.mjs");
-				const result = await exposureProfile(client, {
-					network: String(args["network"] ?? ""),
-					account: args["account"] === void 0 ? void 0 : String(args["account"]),
-					owner: args["owner"] === void 0 ? void 0 : String(args["owner"]),
-					counterparty: args["counterparty"] === void 0 ? void 0 : String(args["counterparty"]),
-					venue: args["venue"] === void 0 ? void 0 : String(args["venue"]),
-					instrument: args["instrument"] === void 0 ? void 0 : String(args["instrument"]),
-					instrumentType: args["instrument_type"] === void 0 ? void 0 : String(args["instrument_type"]),
-					startTimestampMs: optionalNumberArg(args["start_timestamp_ms"], "start_timestamp_ms"),
-					endTimestampMs: optionalNumberArg(args["end_timestamp_ms"], "end_timestamp_ms"),
-					limit: optionalNumberArg(args["limit"], "limit")
-				});
-				console.log(result.summaryText);
-				console.log(JSON.stringify(result.structuredContent, null, 2));
-				return;
-			}
-			if ([
-				"exposure_quality",
-				"exposure_carry",
-				"exposure_crowding",
-				"exposure_exit_pressure",
-				"exposure_correlation",
-				"exposure_explain"
-			].includes(tool)) {
-				const { exposureCarry, exposureCorrelation, exposureCrowding, exposureExitPressure, exposureExplain, exposureQuality } = await import("./public-tools-CXGdchjk.mjs");
-				const exposureArgs = {
-					network: String(args["network"] ?? ""),
-					account: args["account"] === void 0 ? void 0 : String(args["account"]),
-					owner: args["owner"] === void 0 ? void 0 : String(args["owner"]),
-					counterparty: args["counterparty"] === void 0 ? void 0 : String(args["counterparty"]),
-					venue: args["venue"] === void 0 ? void 0 : String(args["venue"]),
-					instrument: args["instrument"] === void 0 ? void 0 : String(args["instrument"]),
-					market: args["market"] === void 0 ? void 0 : String(args["market"]),
-					instrumentType: args["instrument_type"] === void 0 ? void 0 : String(args["instrument_type"]),
-					startTimestampMs: optionalNumberArg(args["start_timestamp_ms"], "start_timestamp_ms"),
-					endTimestampMs: optionalNumberArg(args["end_timestamp_ms"], "end_timestamp_ms"),
-					limit: optionalNumberArg(args["limit"], "limit"),
-					candidateAccounts: args["candidate_accounts"],
-					positionId: args["position_id"] === void 0 ? void 0 : String(args["position_id"])
-				};
-				const result = tool === "exposure_quality" ? await exposureQuality(client, exposureArgs) : tool === "exposure_carry" ? await exposureCarry(client, exposureArgs) : tool === "exposure_crowding" ? await exposureCrowding(client, exposureArgs) : tool === "exposure_exit_pressure" ? await exposureExitPressure(client, exposureArgs) : tool === "exposure_correlation" ? await exposureCorrelation(client, exposureArgs) : await exposureExplain(client, exposureArgs);
 				console.log(result.summaryText);
 				console.log(JSON.stringify(result.structuredContent, null, 2));
 				return;

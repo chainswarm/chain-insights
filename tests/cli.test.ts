@@ -112,71 +112,29 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('trace-victim-funds')
     expect(out).toContain('trace-suspect-funds')
     expect(out).toContain('trace-deposit-sources')
-    expect(out).toContain('exposure-profile')
-    expect(out).toContain('exposure-quality')
-    expect(out).toContain('exposure-carry')
-    expect(out).toContain('exposure-crowding')
-    expect(out).toContain('exposure-exit-pressure')
-    expect(out).toContain('exposure-correlation')
-    expect(out).toContain('exposure-explain')
+    expect(out).not.toContain('exposure-profile')
+    expect(out).not.toContain('exposure-quality')
+    expect(out).not.toContain('exposure-carry')
+    expect(out).not.toContain('exposure-crowding')
+    expect(out).not.toContain('exposure-exit-pressure')
+    expect(out).not.toContain('exposure-correlation')
+    expect(out).not.toContain('exposure-explain')
     expect(out).not.toContain('track-funds')
     expect(out).not.toContain('scam-topology')
     expect(out).not.toContain('trace-funds')
   })
 
-  it('mcp exposure-profile help exposes exposure controls', () => {
-    const out = execFileSync('node', ['--import', 'tsx', srcCli, 'mcp', 'exposure-profile', '--help'], { encoding: 'utf8' })
-    expect(out).toContain('--account <address>')
-    expect(out).toContain('--owner <address>')
-    expect(out).toContain('--counterparty <address>')
-    expect(out).toContain('--venue <name>')
-    expect(out).toContain('--instrument <id>')
-    expect(out).toContain('--instrument-type <type>')
-    expect(out).toContain('--start-timestamp-ms <milliseconds>')
-    expect(out).toContain('--end-timestamp-ms <milliseconds>')
-    expect(out).toContain('--limit <number>')
-  })
-
   it.each([
+    'exposure-profile',
     'exposure-quality',
     'exposure-carry',
+    'exposure-crowding',
     'exposure-exit-pressure',
     'exposure-correlation',
     'exposure-explain',
-  ])('mcp %s help exposes generic subject exposure controls', (command) => {
-    const out = execFileSync('node', ['--import', 'tsx', srcCli, 'mcp', command, '--help'], { encoding: 'utf8' })
-    expect(out).toContain('--network <network>')
-    expect(out).toContain('--account <address>')
-    expect(out).toContain('--owner <address>')
-    expect(out).toContain('--counterparty <address>')
-    expect(out).toContain('--venue <name>')
-    expect(out).toContain('--instrument <id>')
-    expect(out).toContain('--instrument-type <type>')
-    expect(out).toContain('--start-timestamp-ms <milliseconds>')
-    expect(out).toContain('--end-timestamp-ms <milliseconds>')
-    expect(out).toContain('--limit <number>')
-  })
-
-  it('mcp exposure-crowding help exposes generic market exposure controls', () => {
-    const out = execFileSync('node', ['--import', 'tsx', srcCli, 'mcp', 'exposure-crowding', '--help'], { encoding: 'utf8' })
-    expect(out).toContain('--network <network>')
-    expect(out).toContain('--instrument <id>')
-    expect(out).toContain('--market <id>')
-    expect(out).toContain('--venue <name>')
-    expect(out).toContain('--instrument-type <type>')
-    expect(out).toContain('--start-timestamp-ms <milliseconds>')
-    expect(out).toContain('--end-timestamp-ms <milliseconds>')
-    expect(out).toContain('--limit <number>')
-    expect(out).not.toContain('--account <address>')
-  })
-
-  it('mcp exposure-correlation and exposure-explain expose their extra controls', () => {
-    const correlation = execFileSync('node', ['--import', 'tsx', srcCli, 'mcp', 'exposure-correlation', '--help'], { encoding: 'utf8' })
-    const explain = execFileSync('node', ['--import', 'tsx', srcCli, 'mcp', 'exposure-explain', '--help'], { encoding: 'utf8' })
-
-    expect(correlation).toContain('--candidate-accounts <addresses>')
-    expect(explain).toContain('--position-id <id>')
-    expect(explain).toContain('--market <id>')
+  ])('mcp %s is not exposed in the first production release', (command) => {
+    const result = spawnSync('node', ['--import', 'tsx', srcCli, 'mcp', command, '--help'], { encoding: 'utf8' })
+    expect(`${result.stdout}${result.stderr}`).not.toContain(command)
   })
 
   it('mcp aml-trace-suspect-funds help exposes suspect controls without requiring an incident timestamp', () => {
