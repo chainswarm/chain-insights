@@ -86,9 +86,8 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).not.toContain('--case')
   })
 
-  it('ships dedicated address-risk and exposure-analysis skills with current contracts', () => {
+  it('ships dedicated address-risk skill with current contracts', () => {
     const addressRisk = read('skills/chain-insights-address-risk/SKILL.md')
-    const exposure = read('skills/chain-insights-exposure-analysis/SKILL.md')
 
     expect(addressRisk).toContain('aml_address_risk')
     expect(addressRisk).toContain('single-address AML screening')
@@ -98,21 +97,6 @@ describe('shipped Chain Insights skills contract', () => {
     expect(addressRisk).toContain('Markdown summary/report files under `reports/`')
     expect(addressRisk).toContain('No investigation output belongs under `~/.chain-insights`')
     expect(addressRisk).not.toContain(retiredName('trace', '_funds'))
-
-    expect(exposure).toContain('exposure_profile')
-    expect(exposure).toContain('exposure_quality')
-    expect(exposure).toContain('exposure_carry')
-    expect(exposure).toContain('exposure_crowding')
-    expect(exposure).toContain('exposure_exit_pressure')
-    expect(exposure).toContain('exposure_correlation')
-    expect(exposure).toContain('exposure_explain')
-    expect(exposure).toContain('summaryText')
-    expect(exposure).toContain('structuredContent')
-    expect(exposure).toContain('reports/')
-    expect(exposure).toContain('reports/tables/')
-    expect(exposure).toContain('graph HTML')
-    expect(exposure).toContain('graph JSON visualization bundles')
-    expect(exposure).not.toContain('aml_trace_victim_funds')
   })
 
   it('documents role-specific trace chaining and review-only candidate labels', () => {
@@ -159,8 +143,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).not.toContain('network=bittensor_identity')
     expect(skill).toContain('~/.chain-insights/reports')
     expect(skill).toContain('CLI graph_query')
-    expect(skill).toContain('do not return `_meta.chainInsights.graph`')
-    expect(skill).toContain('persist readable outputs under `reports/` and `reports/tables/`')
+    expect(skill).toContain('return public addresses as the primary address surface')
 
     for (const script of [investigationUat, graphragUat]) {
       expect(script).toContain('GLOBAL_REPORTS="${HOME}/.chain-insights/reports"')
@@ -178,8 +161,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(graphragUat).not.toContain('--cli "node ${CHAIN_INSIGHTS_PROXY}"')
     expect(graphragUat).not.toContain('config set mcpEndpoint')
     expect(graphragUat).not.toContain('config set mcpAuthToken')
-    expect(graphragUat).toContain('returned forbidden graph metadata')
-    expect(graphragUat).toContain('checking exposure persistence contract')
+    expect(graphragUat).toContain('AML trace tools ok')
     expect(investigationUat).toContain('GLOBAL_ARTIFACTS="${HOME}/.chain-insights/artifacts"')
     expect(investigationUat).toContain('reports/tables/address_exists.compact.json')
     expect(investigationUat).toContain('entities/${TARGET_ADDRESS}.md')
@@ -193,10 +175,10 @@ describe('shipped Chain Insights skills contract', () => {
     const proxySection = script.slice(script.indexOf('PROXY_TOOLS_JSON='))
 
     expect(proxySection).toContain(
-      "const required = ['balance', 'help', 'aml_address_risk', 'exposure_profile', 'exposure_quality', 'exposure_carry', 'exposure_crowding', 'exposure_exit_pressure', 'exposure_correlation', 'exposure_explain', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources', 'network_capabilities', 'graph_query', 'graph_query_batch', 'usage_status']",
+      "const required = ['balance', 'help', 'aml_address_risk', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources', 'network_capabilities', 'graph_query', 'graph_query_batch', 'usage_status']",
     )
     expect(proxySection).toContain('proxy tools/list exposed unexpected tools')
-    expect(proxySection).toContain("for (const name of ['aml_address_risk', 'exposure_profile', 'exposure_quality', 'exposure_carry', 'exposure_crowding', 'exposure_exit_pressure', 'exposure_correlation', 'exposure_explain', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources'])")
+    expect(proxySection).toContain("for (const name of ['aml_address_risk', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources'])")
     expect(proxySection).not.toContain("const required = ['balance', 'topup'")
     expect(proxySection).toContain('names.size !== required.length')
     expect(script).toContain('node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query')
@@ -217,9 +199,9 @@ describe('shipped Chain Insights skills contract', () => {
     expect(script).toContain('checking topology_scope=address is rejected with the unsupported-scope error')
     expect(script).toContain('topology_scope must be identity (address scope was removed; live/archive selection stays in the query via USE)')
     expect(script).toContain('topology_scope=address rejected with unsupported-scope error')
-    expect(script).toContain('UAT_EXPOSURE_ACCOUNT="${UAT_EXPOSURE_ACCOUNT:-}"')
-    expect(script).toContain('EXPOSURE_ACCOUNT="${UAT_EXPOSURE_ACCOUNT}"')
-    expect(script).toContain('using generic exposure UAT account')
+    expect(script).toContain('TRACE_TOOLS_JSON="${RUN_DIR}/proxy-aml-trace-tools.json"')
+    expect(script).not.toContain('UAT_EXPOSURE_ACCOUNT')
+    expect(script).not.toContain('EXPOSURE_ACCOUNT=')
   })
 
   it('keeps README product-first and moves debug/client detail to focused docs', () => {

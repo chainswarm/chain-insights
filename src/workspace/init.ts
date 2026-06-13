@@ -217,10 +217,9 @@ The slim identity graph schema:
   \`last_seen_timestamp\`, \`first_tx_id\`/\`last_tx_id\`,
   \`dominant_asset\` (largest USD share), and \`price_coverage_ratio\`.
   Lifetime aggregates are the only serving window.
-- Money flow is \`(:Identity)-[:FLOWS_TO]->(:Identity)\`. Exposure context is
-  \`(:Identity)-[:OWNS_EXPOSURE|HAS_EXPOSURE]->(:Exposure)\`,
-  \`(:Exposure)-[:HAS_COUNTERPARTY]->(:Identity)\`, and
-  \`(:Exposure)-[:TARGETS_INSTRUMENT]->(:Instrument)\`.
+- Money flow is \`(:Identity)-[:FLOWS_TO]->(:Identity)\`. Public AML tools
+  accept blockchain/member addresses and resolve them to identity-grain
+  topology internally.
 - Detailed, provenanced scoring comes from \`USE facts\`. ML risk with
   model versions and processing dates:
   \`(:Identity)-[:HAS_RISK_SCORE]->(:RiskScore)\`; label risk:
@@ -275,12 +274,13 @@ Trace tool chaining:
    \`graph_query_batch\` only when the role-specific tools do not answer the
    exact question.
 
-All trace tools take canonical identity keys
-(\`<network>:<canonical_address>\`) as inputs and return
-\`chain-insights.trace.v1\`. Preserve full identity keys in
+All trace tools take blockchain/member addresses as inputs, resolve them to
+canonical identity keys internally, and return \`chain-insights.trace.v1\`.
+Preserve full blockchain addresses in
 \`input.addresses\`, \`addresses[].address\`, \`edges[].from_address\`,
 \`edges[].to_address\`, \`paths[].addresses\`, \`candidate_labels[].address\`,
-and \`continuation\` address lists.
+and \`continuation\` address lists. Preserve canonical identity mappings only
+inside explicit \`identity_resolution\` audit metadata.
 `
 
 const SCHEMA_README = `# Runtime Schema Captures

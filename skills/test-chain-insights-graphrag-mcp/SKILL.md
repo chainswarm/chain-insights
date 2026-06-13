@@ -61,7 +61,7 @@ The UAT must verify all of these facts:
 - Chain Insights proxy `aml_address_risk` returns only local graph report metadata in `_meta.chainInsights.graph = { schema, url }`.
 - Chain Insights proxy response must not include `_meta.chainInsights.graph.data`.
 - The local graph report URL must be served by the Chain Insights Hono server at `/graph-reports/<filename>.graph.json` and return `chain-insights.graph.v1` JSON without `transfers`.
-- Chain Insights proxy exposure tools return only analyst text plus `structuredContent`, do not return `_meta.chainInsights.graph`, and persist readable outputs under `reports/` and `reports/tables/` without writing exposure graph bundles.
+- Chain Insights proxy AML tools accept public blockchain/member addresses, resolve identity-grain topology internally, return public addresses as the primary address surface, and include identity resolution metadata for audit/debug use.
 - `chain-insights mcp call graph_query` with `USE live_topology` must hit the real GraphRAG path and return the UAT address.
 - No investigation output is created under `~/.chain-insights/reports`.
 </uat_contract>

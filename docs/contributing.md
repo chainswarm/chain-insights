@@ -17,13 +17,6 @@ node bin/cli.js --help
 Current AML tools live in the Chain Insights layer:
 
 - `aml_address_risk`
-- `exposure_profile`
-- `exposure_quality`
-- `exposure_carry`
-- `exposure_crowding`
-- `exposure_exit_pressure`
-- `exposure_correlation`
-- `exposure_explain`
 - `aml_trace_victim_funds`
 - `aml_trace_deposit_sources`
 - `aml_trace_suspect_funds`

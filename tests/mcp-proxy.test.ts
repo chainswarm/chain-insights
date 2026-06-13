@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
-import { readFile, readdir } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import * as z from 'zod'
@@ -1967,77 +1967,28 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     ])
   })
 
-  it('registers generic exposure tools and writes exposure artifacts without leaking internals', async () => {
+  it('does not expose exposure tools in the first production release', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       { name: 'graph_query_batch', description: 'Cypher topology query batch' },
+      { name: 'exposure_profile', description: 'Remote exposure profile' },
+      { name: 'exposure_quality', description: 'Remote exposure quality' },
+      { name: 'exposure_carry', description: 'Remote exposure carry' },
+      { name: 'exposure_crowding', description: 'Remote exposure crowding' },
+      { name: 'exposure_exit_pressure', description: 'Remote exposure exit pressure' },
+      { name: 'exposure_correlation', description: 'Remote exposure correlation' },
+      { name: 'exposure_explain', description: 'Remote exposure explain' },
     ])
 
     const { createProxy } = await import('../src/mcp/proxy.js')
     const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
-    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
 
     await createProxy()
 
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
-    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
-      callTool: ReturnType<typeof vi.fn>
-    }
-    clientInstance.callTool.mockResolvedValue({
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          schema: 'chain-insights.result.v1',
-          tool: 'graph_query_batch',
-          facts: {
-            queries: [
-              {
-                id: 'live_exposures',
-                ok: true,
-                results: [{
-                  account_address: '5Cold',
-                  owner_address: '5Cold',
-                  counterparty_address: '5Hot',
-                  venue: 'Bittensor',
-                  instrument_id: 'bittensor:subnet-lifecycle:19:2025-01',
-                  instrument_display_id: 'Subnet 19',
-                  instrument_type: 'subnet',
-                  instrument_lifecycle_id: 'subnet-19-2025-01',
-                  side: 'stake',
-                  quantity: '8.75',
-                  pricing_status: 'unpriced',
-                  opened: '10.5',
-                  closed: '2.25',
-                  net_change: '8.75',
-                  event_count: 4,
-                  first_activity_timestamp: 1769126400000,
-                  last_activity_timestamp: 1769126500000,
-                  support_events: JSON.stringify([
-                    {
-                      event_time: 1769126400000,
-                      block_height: 8265058,
-                      tx_id: '8265058-1',
-                      action: 'stake_added',
-                      amount: '10.5',
-                    },
-                  ]),
-                  source_backend: 'memgraph_live',
-                }],
-              },
-              {
-                id: 'archive_exposures',
-                ok: true,
-                results: [],
-              },
-            ],
-          },
-        }),
-      }],
-      isError: false,
-    })
-
+    const toolNames = serverInstance.registerTool.mock.calls.map((entry) => entry[0])
     const exposureToolNames = [
       'exposure_profile',
       'exposure_quality',
@@ -2047,187 +1998,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       'exposure_correlation',
       'exposure_explain',
     ]
-    const toolNames = serverInstance.registerTool.mock.calls.map((entry) => entry[0])
-    for (const name of exposureToolNames) expect(toolNames).toContain(name)
-    expect(toolNames).not.toContain('stake_insights')
 
-    const toolConfig = findToolConfig(serverInstance, 'exposure_profile')
-    expect(toolConfig._meta?.ui?.resourceUri).toBe('ui://chain-insights/graph')
-    const inputSchema = toolConfig.inputSchema as Record<string, z.ZodTypeAny>
-    expect(inputSchema.network.safeParse('bittensor').success).toBe(true)
-    expect(inputSchema.account.safeParse('5Cold').success).toBe(true)
-    expect(inputSchema.owner.safeParse('5Cold').success).toBe(true)
-    expect(inputSchema.counterparty.safeParse('5Hot').success).toBe(true)
-    expect(inputSchema.venue.safeParse('Bittensor').success).toBe(true)
-    expect(inputSchema.instrument.safeParse('Subnet 19').success).toBe(true)
-    expect(inputSchema.instrument_type.safeParse('subnet').success).toBe(true)
-    expect(inputSchema.start_timestamp_ms.safeParse(1769126300000).success).toBe(true)
-    expect(inputSchema.end_timestamp_ms.safeParse(1769126600000).success).toBe(true)
-    expect(inputSchema.limit.safeParse(100).success).toBe(true)
-    expect(inputSchema.limit.safeParse(501).success).toBe(false)
-    expect(inputSchema.include_attachments).toBeUndefined()
-    for (const name of exposureToolNames.slice(1)) {
-      const genericToolConfig = findToolConfig(serverInstance, name)
-      const genericInputSchema = genericToolConfig.inputSchema as Record<string, z.ZodTypeAny>
-      expect(genericToolConfig._meta?.ui?.resourceUri).toBe('ui://chain-insights/graph')
-      expect(genericInputSchema.network.safeParse('bittensor').success).toBe(true)
-      expect(genericInputSchema.include_attachments).toBeUndefined()
-    }
-    const crowdingSchema = findToolConfig(serverInstance, 'exposure_crowding').inputSchema as Record<string, z.ZodTypeAny>
-    expect(crowdingSchema.instrument.safeParse('Subnet 19').success).toBe(true)
-    expect(crowdingSchema.market.safeParse('Subnet 19').success).toBe(true)
-    const correlationSchema = findToolConfig(serverInstance, 'exposure_correlation').inputSchema as Record<string, z.ZodTypeAny>
-    expect(correlationSchema.candidate_accounts.safeParse('5Follower').success).toBe(true)
-    const explainSchema = findToolConfig(serverInstance, 'exposure_explain').inputSchema as Record<string, z.ZodTypeAny>
-    expect(explainSchema.position_id.safeParse('stake-rotation-1').success).toBe(true)
-
-    const listDir = async (dir: string): Promise<string[]> => (existsSync(dir) ? await readdir(dir) : [])
-
-    const beforeReportsBase = await listDir(join(testDataDir, 'reports'))
-    const beforeTablesBase = await listDir(join(testDataDir, 'reports', 'tables'))
-    const genericHandler = findToolHandler(serverInstance, 'exposure_profile')
-    const result = await genericHandler({
-      network: 'bittensor',
-      account: '5Cold',
-      instrument: 'Subnet 19',
-      start_timestamp_ms: 1769126300000,
-      end_timestamp_ms: 1769126600000,
-    })
-
-    expect(result.isError).toBe(false)
-    expect(result.content[0].text).toContain('Exposure profile for bittensor:5Cold')
-    expect(result.structuredContent.tool).toBe('exposure_profile')
-    expect(result.structuredContent.summary.exposure_count).toBe(1)
-    expect(result.structuredContent.exposures[0].instrument.display_name).toBe('Subnet 19')
-    const serialized = JSON.stringify(result.structuredContent)
-    expect(serialized).not.toContain('source_backend')
-    expect(serialized).not.toContain('STAKES_IN')
-    expect(serialized).not.toContain('live_topology')
-    expect(serialized).not.toContain('include_attachments')
-    const afterReports = await listDir(join(testDataDir, 'reports'))
-    const afterTables = await listDir(join(testDataDir, 'reports', 'tables'))
-    const newReport = afterReports
-      .filter((name) => name.endsWith('.exposure-report.md'))
-      .filter((name) => !beforeReportsBase.includes(name))
-    const newCompactFacts = afterTables
-      .filter((name) => name.endsWith('.compact-facts.json'))
-      .filter((name) => !beforeTablesBase.includes(name))
-    expect(newReport).toHaveLength(1)
-    expect(newCompactFacts).toHaveLength(1)
-    const reportPath = join(testDataDir, 'reports', newReport[0])
-    const compactFactsPath = join(testDataDir, 'reports', 'tables', newCompactFacts[0])
-    const reportText = await readFile(reportPath, 'utf8')
-    const compactFacts = JSON.parse(await readFile(compactFactsPath, 'utf8')) as {
-      schema: string
-      tool: string
-      network: string
-      subject: string
-      summary_text: string
-      facts: unknown
-    }
-    expect(reportText).toContain('# exposure_profile Report')
-    expect(reportText).toContain(`- Report: ${reportPath}`)
-    expect(reportText).toContain(`- Compact facts: ${compactFactsPath}`)
-    expect(compactFacts).toMatchObject({
-      schema: result.structuredContent.schema,
-      tool: 'exposure_profile',
-      network: 'bittensor',
-      subject: '5Cold',
-      facts: result.structuredContent,
-    })
-    expect(compactFacts.summary_text).toEqual(expect.any(String))
-    const newTable = afterTables
-      .filter((name) => name.endsWith('.table.csv'))
-      .filter((name) => !beforeTablesBase.includes(name))
-    if (newTable.length > 0) {
-      const tablePath = join(testDataDir, 'reports', 'tables', newTable[0])
-      const tableText = await readFile(tablePath, 'utf8')
-      expect(tableText.length).toBeGreaterThan(0)
-      expect(tableText).toContain(',')
-    }
-
-    const genericCalls = [
-      {
-        name: 'exposure_quality',
-        schema: 'chain-insights.exposure_quality.v1',
-        args: { network: 'bittensor', account: '5Cold', instrument: 'Subnet 19' },
-      },
-      {
-        name: 'exposure_carry',
-        schema: 'chain-insights.exposure_carry.v1',
-        args: { network: 'bittensor', account: '5Cold', instrument: 'Subnet 19' },
-      },
-      {
-        name: 'exposure_crowding',
-        schema: 'chain-insights.exposure_crowding.v1',
-        args: { network: 'bittensor', instrument: 'Subnet 19' },
-      },
-      {
-        name: 'exposure_exit_pressure',
-        schema: 'chain-insights.exposure_exit_pressure.v1',
-        args: { network: 'bittensor', account: '5Cold', instrument: 'Subnet 19' },
-      },
-      {
-        name: 'exposure_correlation',
-        schema: 'chain-insights.exposure_correlation.v1',
-        args: { network: 'bittensor', account: '5Cold', candidate_accounts: '5Follower' },
-      },
-      {
-        name: 'exposure_explain',
-        schema: 'chain-insights.exposure_explain.v1',
-        args: { network: 'bittensor', account: '5Cold', instrument: 'Subnet 19', position_id: 'stake-rotation-1' },
-      },
-    ]
-    for (const call of genericCalls) {
-      const genericHandler = findToolHandler(serverInstance, call.name)
-      const beforeReports = await listDir(join(testDataDir, 'reports'))
-      const beforeTables = await listDir(join(testDataDir, 'reports', 'tables'))
-      const genericResult = await genericHandler(call.args)
-      expect(genericResult.isError).toBe(false)
-      expect(genericResult.content[0].text).toContain('Exposure')
-      expect(genericResult.structuredContent.schema).toBe(call.schema)
-      expect(genericResult.structuredContent.tool).toBe(call.name)
-      const genericSerialized = JSON.stringify(genericResult.structuredContent)
-      expect(genericSerialized).not.toContain('source_backend')
-      expect(genericSerialized).not.toContain('evidence_relationship_type')
-      expect(genericSerialized).not.toContain('STAKES_IN')
-      expect(genericSerialized).not.toContain('HAS_EXPOSURE')
-      expect(genericSerialized).not.toContain('live_topology')
-      expect(genericSerialized).not.toContain('archive_topology')
-      expect(genericSerialized).not.toContain('include_attachments')
-      const afterReports = await listDir(join(testDataDir, 'reports'))
-      const afterTables = await listDir(join(testDataDir, 'reports', 'tables'))
-      const newReport = afterReports
-        .filter((name) => name.endsWith('.exposure-report.md'))
-        .filter((name) => !beforeReports.includes(name))
-      const newCompactFacts = afterTables
-        .filter((name) => name.endsWith('.compact-facts.json'))
-        .filter((name) => !beforeTables.includes(name))
-      const newTable = afterTables
-        .filter((name) => name.endsWith('.table.csv'))
-        .filter((name) => !beforeTables.includes(name))
-      expect(newReport).toHaveLength(1)
-      expect(newCompactFacts).toHaveLength(1)
-      const reportPath = join(testDataDir, 'reports', newReport[0])
-      const compactFactsPath = join(testDataDir, 'reports', 'tables', newCompactFacts[0])
-      const reportText = await readFile(reportPath, 'utf8')
-      const compactFacts = JSON.parse(await readFile(compactFactsPath, 'utf8')) as {
-        schema: string
-        tool: string
-        network: string
-      }
-      expect(reportText).toContain(`# ${call.name} Report`)
-      expect(compactFacts).toMatchObject({
-        schema: call.schema,
-        tool: call.name,
-        network: 'bittensor',
-      })
-      if (newTable.length > 0) {
-        const tablePath = join(testDataDir, 'reports', 'tables', newTable[0])
-        const tableText = await readFile(tablePath, 'utf8')
-        expect(tableText.length).toBeGreaterThan(0)
-      }
-    }
+    for (const name of exposureToolNames) expect(toolNames).not.toContain(name)
+    expect(toolNames).toContain('aml_address_risk')
   })
 
   it('registers graph MCP app resource and preserves graph-backed remote tools', async () => {
@@ -2441,7 +2214,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
     const config = findToolConfig(serverInstance, 'aml_address_risk')
 
-    expect(config.description).toContain('Screen one canonical identity key')
+    expect(config.description).toContain('Screen one blockchain address')
     expect(config.description).toContain('Required arguments: address, network.')
     expect(config.description).not.toContain('Use address_connection_risk instead')
   })
