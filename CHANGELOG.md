@@ -3,6 +3,13 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.6.1] - 2026-06-13
+
+- Removed the exposure analysis/profile/report tool surfaces from the first
+  public release package. The public tool set now keeps exposure data out of
+  the initial CLI/MCP surface while the backend graph and risk tooling continue
+  through the dedicated trace and address-risk tools.
+
 ## [0.6.0] - 2026-06-12
 
 - BREAKING: removed the interactive `scam_topology` investigation tool. Scam
