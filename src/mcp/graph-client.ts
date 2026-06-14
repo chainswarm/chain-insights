@@ -95,7 +95,7 @@ export async function callGraphQueryBatch(input: CallGraphQueryBatchInput): Prom
 
 export async function callUsageStatus(input: CallUsageStatusInput): Promise<ChainInsightsResult> {
   const response = await input.client.callTool({
-    name: 'usage_status',
+    name: 'meta_usage_status',
     arguments: {},
   })
 

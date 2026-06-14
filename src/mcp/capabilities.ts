@@ -33,6 +33,32 @@ export interface NetworkCapabilitiesDocument {
   networks: NetworkCapability[]
 }
 
+const BITTENSOR_SEMANTIC_NETWORKS = new Set(['bittensor', 'bittensor_evm', 'bittensor_semantic'])
+
+function publicNetworkCapabilities(document: NetworkCapabilitiesDocument): NetworkCapabilitiesDocument {
+  const source = document.networks.find((network) => BITTENSOR_SEMANTIC_NETWORKS.has(network.network))
+  return {
+    schema: 'chain-insights.network-capabilities.v1',
+    networks: source
+      ? [{
+        network: 'bittensor',
+        display_name: 'Bittensor',
+        status: source.status || 'live',
+        default: source.default !== false,
+        layers: {
+          facts: { enabled: source.layers.facts?.enabled === true },
+          risk: { enabled: source.layers.risk?.enabled === true },
+          topology: { enabled: source.layers.topology?.enabled === true },
+        },
+        tools: {
+          graph_query: 'available',
+          graph_query_batch: 'available',
+        },
+      }]
+      : [],
+  }
+}
+
 function metadataNetworksUrl(endpoint: string): URL {
   const url = new URL(endpoint)
   url.pathname = '/metadata/networks'
@@ -64,7 +90,7 @@ export async function fetchNetworkCapabilities(
   if (parsed.schema !== 'chain-insights.network-capabilities.v1' || !Array.isArray(parsed.networks)) {
     throw new Error('network capabilities response has unsupported schema')
   }
-  return parsed
+  return publicNetworkCapabilities(parsed)
 }
 
 function layerValue(network: NetworkCapability, layer: string): string {
@@ -80,28 +106,10 @@ function availableToolsLabel(network: NetworkCapability): string {
   return tools.length > 0 ? tools.join(', ') : 'none'
 }
 
-function shortDate(value?: string): string {
-  if (!value) return ''
-  return value.slice(0, 10)
-}
-
-function datasetLabel(network: NetworkCapability): string {
-  const coverage = network.coverage
-  if (!coverage) return 'unknown'
-  const blockRange = coverage.from_block !== undefined && coverage.to_block !== undefined
-    ? `${coverage.from_block}..${coverage.to_block}`
-    : 'blocks unknown'
-  const dateRange = coverage.from_timestamp && coverage.to_timestamp
-    ? `${shortDate(coverage.from_timestamp)}..${shortDate(coverage.to_timestamp)}`
-    : 'dates unknown'
-  if (blockRange === 'blocks unknown' && dateRange === 'dates unknown') return 'unknown'
-  return `${blockRange} / ${dateRange}`
-}
-
 export function formatNetworkCapabilities(document: NetworkCapabilitiesDocument): string {
   if (document.networks.length === 0) return 'No supported networks advertised.'
-  const headers = ['Network', 'Topology', 'Facts', 'Risk', 'Dataset', 'Available tools']
-  const widths = [14, 10, 8, 8, 38, 64]
+  const headers = ['Network', 'Topology', 'Facts', 'Risk', 'Available tools']
+  const widths = [14, 10, 8, 8, 64]
   const row = (values: string[]) => values.map((value, index) => value.padEnd(widths[index]!)).join('  ')
   return [
     row(headers),
@@ -111,7 +119,6 @@ export function formatNetworkCapabilities(document: NetworkCapabilitiesDocument)
       layerValue(network, 'topology'),
       layerValue(network, 'facts'),
       layerValue(network, 'risk'),
-      datasetLabel(network),
       availableToolsLabel(network),
     ])),
   ].join('\n')

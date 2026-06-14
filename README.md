@@ -20,7 +20,9 @@ MCP endpoint for development; hosted endpoints are set explicitly with
 | `aml_trace_suspect_funds` | Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology |
 | `graph_query` | Run one read-only GQL/Cypher query against a GraphRAG MCP graph layer |
 | `graph_query_batch` | Run related read-only graph queries as one MCP call |
-| `usage_status` | Check the caller's daily free-tier graph query allowance |
+| `meta_network_capabilities` | Check supported Chain Insights semantic networks and graph tools |
+| `meta_usage_status` | Check the caller's daily free-tier graph query allowance |
+| `wallet_balance` | Show the local payment wallet amount |
 
 ## Quick Start
 
@@ -111,7 +113,7 @@ Check the configured endpoint and current GraphRAG MCP capabilities:
 ```bash
 cia config get graphMcpEndpoint
 cia mcp networks
-cia mcp call usage_status
+cia mcp call meta_usage_status
 cia mcp tools --refresh
 ```
 
@@ -121,7 +123,7 @@ GraphRAG MCP endpoint.
 
 Hosted GraphRAG MCP includes a small public free tier for `graph_query` before
 paid access is required. The default public free tier is 10 execution seconds
-per IP per UTC day. Use `usage_status` to see the current caller allowance.
+per IP per UTC day. Use `meta_usage_status` to see the current caller allowance.
 Prepared wallet users receive the daily free tier first, then paid access
 continues automatically after the allowance is exhausted.
 If you do not have a prepared wallet yet, use bounded single `graph_query`

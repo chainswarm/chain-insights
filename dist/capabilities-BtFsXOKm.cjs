@@ -1,5 +1,31 @@
-import { a as resolveGraphMcpEndpoint, n as applyMcpAuthHeaders } from "./client-ytTO0mcZ.mjs";
+const require_client = require("./client-BY-56ojr.cjs");
 //#region src/mcp/capabilities.ts
+const BITTENSOR_SEMANTIC_NETWORKS = new Set([
+	"bittensor",
+	"bittensor_evm",
+	"bittensor_semantic"
+]);
+function publicNetworkCapabilities(document) {
+	const source = document.networks.find((network) => BITTENSOR_SEMANTIC_NETWORKS.has(network.network));
+	return {
+		schema: "chain-insights.network-capabilities.v1",
+		networks: source ? [{
+			network: "bittensor",
+			display_name: "Bittensor",
+			status: source.status || "live",
+			default: source.default !== false,
+			layers: {
+				facts: { enabled: source.layers.facts?.enabled === true },
+				risk: { enabled: source.layers.risk?.enabled === true },
+				topology: { enabled: source.layers.topology?.enabled === true }
+			},
+			tools: {
+				graph_query: "available",
+				graph_query_batch: "available"
+			}
+		}] : []
+	};
+}
 function metadataNetworksUrl(endpoint) {
 	const url = new URL(endpoint);
 	url.pathname = "/metadata/networks";
@@ -8,10 +34,10 @@ function metadataNetworksUrl(endpoint) {
 	return url;
 }
 async function fetchNetworkCapabilities(config) {
-	const request = metadataNetworksUrl(resolveGraphMcpEndpoint(config));
+	const request = metadataNetworksUrl(require_client.resolveGraphMcpEndpoint(config));
 	const headers = new Headers();
 	const token = config.graphMcpAuthToken?.trim() || config.mcpAuthToken?.trim();
-	if (token) applyMcpAuthHeaders(headers, token);
+	if (token) require_client.applyMcpAuthHeaders(headers, token);
 	let response;
 	try {
 		response = await fetch(request, { headers });
@@ -21,7 +47,7 @@ async function fetchNetworkCapabilities(config) {
 	if (!response.ok) throw new Error(`network capabilities unavailable at ${request}: HTTP ${response.status}`);
 	const parsed = await response.json();
 	if (parsed.schema !== "chain-insights.network-capabilities.v1" || !Array.isArray(parsed.networks)) throw new Error("network capabilities response has unsupported schema");
-	return parsed;
+	return publicNetworkCapabilities(parsed);
 }
 function layerValue(network, layer) {
 	if (!network.layers[layer]?.enabled) return "no";
@@ -31,18 +57,6 @@ function availableToolsLabel(network) {
 	const tools = Object.entries(network.tools ?? {}).filter(([, status]) => status === "available").map(([name]) => name);
 	return tools.length > 0 ? tools.join(", ") : "none";
 }
-function shortDate(value) {
-	if (!value) return "";
-	return value.slice(0, 10);
-}
-function datasetLabel(network) {
-	const coverage = network.coverage;
-	if (!coverage) return "unknown";
-	const blockRange = coverage.from_block !== void 0 && coverage.to_block !== void 0 ? `${coverage.from_block}..${coverage.to_block}` : "blocks unknown";
-	const dateRange = coverage.from_timestamp && coverage.to_timestamp ? `${shortDate(coverage.from_timestamp)}..${shortDate(coverage.to_timestamp)}` : "dates unknown";
-	if (blockRange === "blocks unknown" && dateRange === "dates unknown") return "unknown";
-	return `${blockRange} / ${dateRange}`;
-}
 function formatNetworkCapabilities(document) {
 	if (document.networks.length === 0) return "No supported networks advertised.";
 	const headers = [
@@ -50,7 +64,6 @@ function formatNetworkCapabilities(document) {
 		"Topology",
 		"Facts",
 		"Risk",
-		"Dataset",
 		"Available tools"
 	];
 	const widths = [
@@ -58,7 +71,6 @@ function formatNetworkCapabilities(document) {
 		10,
 		8,
 		8,
-		38,
 		64
 	];
 	const row = (values) => values.map((value, index) => value.padEnd(widths[index])).join("  ");
@@ -70,12 +82,10 @@ function formatNetworkCapabilities(document) {
 			layerValue(network, "topology"),
 			layerValue(network, "facts"),
 			layerValue(network, "risk"),
-			datasetLabel(network),
 			availableToolsLabel(network)
 		]))
 	].join("\n");
 }
 //#endregion
-export { fetchNetworkCapabilities, formatNetworkCapabilities };
-
-//# sourceMappingURL=capabilities-CM72SErE.mjs.map
+exports.fetchNetworkCapabilities = fetchNetworkCapabilities;
+exports.formatNetworkCapabilities = formatNetworkCapabilities;

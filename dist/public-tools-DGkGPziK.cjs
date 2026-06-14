@@ -1842,11 +1842,119 @@ function statelessArtifacts() {
 	};
 }
 function artifactEvidence(artifacts) {
-	return Object.entries(artifacts).filter((entry) => typeof entry[1] === "string" && entry[1].length > 0).map(([kind, filePath]) => ({
+	return Object.entries(artifacts).filter((entry) => entry[0] !== "artifact_mode" && typeof entry[1] === "string" && entry[1].length > 0).map(([kind, filePath]) => ({
 		evidence_type: "artifact_pointer",
 		path: filePath,
 		summary: `${kind} artifact`
 	}));
+}
+function traceEdgesForCsv(structuredContent) {
+	const edges = structuredContent["edges"];
+	return Array.isArray(edges) ? edges.filter((edge) => typeof edge === "object" && edge !== null && !Array.isArray(edge)) : [];
+}
+function buildTraceTableHtml(tool, network, result) {
+	const headers = [
+		"edge_id",
+		"from_address",
+		"to_address",
+		"amount_usd_sum",
+		"tx_count",
+		"first_tx_id",
+		"last_tx_id"
+	];
+	const body = traceEdgesForCsv(result.structuredContent).map((row) => {
+		return `<tr>${headers.map((header) => row[header] ?? "").map((value) => `<td>${htmlEscape(toCsvValue(value))}</td>`).join("")}</tr>`;
+	}).join("\n");
+	return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${htmlEscape(tool)} Trace Table</title>
+<style>
+  :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui; background: #0b0d12; color: #f4f2ea; }
+  body { margin: 0; background: #0b0d12; color: #f4f2ea; }
+  main { padding: 24px; }
+  h1 { font-size: 20px; margin: 0 0 8px; font-weight: 650; }
+  table { border-collapse: collapse; width: 100%; min-width: 900px; }
+  th, td { border-bottom: 1px solid rgba(255,255,255,.08); padding: 8px 10px; text-align: left; }
+  th { position: sticky; top: 0; background: #161a24; color: #f2dda6; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>${htmlEscape(tool)} Trace Table</h1>
+  <div>Network: <strong>${htmlEscape(network)}</strong></div>
+  <div>Generated: <strong>${htmlEscape((/* @__PURE__ */ new Date()).toISOString())}</strong></div>
+  <table>
+    <thead><tr>${headers.map((header) => `<th>${htmlEscape(header)}</th>`).join("")}</tr></thead>
+    <tbody>${body}</tbody>
+  </table>
+</main>
+</body>
+</html>
+`;
+}
+async function writeTraceArtifacts(tool, network, result) {
+	const paths = require_output_root.workspaceOutputPaths();
+	await Promise.all([
+		(0, node_fs_promises.mkdir)(paths.reportsRoot, { recursive: true }),
+		(0, node_fs_promises.mkdir)(paths.reportGraphsRoot, { recursive: true }),
+		(0, node_fs_promises.mkdir)(paths.reportTablesRoot, { recursive: true })
+	]);
+	const slug = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}_${tool}`;
+	const graphPath = node_path.default.join(paths.reportGraphsRoot, `${slug}.graph.json`);
+	const tableJsonPath = node_path.default.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
+	const csvPath = node_path.default.join(paths.reportTablesRoot, `${slug}.flows.csv`);
+	const tableHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.table.html`);
+	const reportPath = node_path.default.join(paths.reportsRoot, `${slug}.trace-report.md`);
+	const graphHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.graph.html`);
+	const artifacts = {
+		graph_json: graphPath,
+		graph_html: graphHtmlPath,
+		table_json: tableJsonPath,
+		flows_csv: csvPath,
+		table_html: tableHtmlPath,
+		report_md: reportPath
+	};
+	const existingEvidence = Array.isArray(result.structuredContent["evidence"]) ? result.structuredContent["evidence"].filter((entry) => typeof entry === "object" && entry !== null && !Array.isArray(entry)) : [];
+	const structuredForArtifact = {
+		...result.structuredContent,
+		artifacts,
+		evidence: [...existingEvidence.filter((entry) => entry["evidence_type"] !== "artifact_pointer"), ...artifactEvidence(artifacts)]
+	};
+	const { generateInlineGraphHtml } = await Promise.resolve().then(() => require("./html-generator-CZQUunR6.cjs")).then((n) => n.html_generator_exports);
+	const csvHeaders = [
+		"edge_id",
+		"from_address",
+		"to_address",
+		"amount_usd_sum",
+		"tx_count",
+		"first_tx_id",
+		"last_tx_id"
+	];
+	const csv = [csvHeaders.join(","), ...traceEdgesForCsv(result.structuredContent).map((row) => csvHeaders.map((header) => JSON.stringify(String(row[header] ?? ""))).join(","))].join("\n") + "\n";
+	await (0, node_fs_promises.writeFile)(graphPath, JSON.stringify(result.graphData, null, 2) + "\n", { mode: 384 });
+	await (0, node_fs_promises.writeFile)(tableJsonPath, JSON.stringify(structuredForArtifact, null, 2) + "\n", { mode: 384 });
+	await (0, node_fs_promises.writeFile)(csvPath, csv, { mode: 384 });
+	await (0, node_fs_promises.writeFile)(tableHtmlPath, buildTraceTableHtml(tool, network, result), { mode: 384 });
+	await (0, node_fs_promises.writeFile)(reportPath, result.summaryText + "\n", { mode: 384 });
+	await (0, node_fs_promises.writeFile)(graphHtmlPath, generateInlineGraphHtml(result.graphData), { mode: 384 });
+	return artifacts;
+}
+async function publicizeTraceResult(remoteClient, network, result, preferredByIdentity, writeArtifacts) {
+	const publicResult = await publicizeIdentityResult(remoteClient, network, result, preferredByIdentity);
+	if (!writeArtifacts) return publicResult;
+	const artifacts = await writeTraceArtifacts(typeof publicResult.structuredContent["tool"] === "string" ? publicResult.structuredContent["tool"] : "aml_trace_victim_funds", network, publicResult);
+	const existingEvidence = Array.isArray(publicResult.structuredContent["evidence"]) ? publicResult.structuredContent["evidence"].filter((entry) => typeof entry === "object" && entry !== null && !Array.isArray(entry)) : [];
+	return {
+		...publicResult,
+		structuredContent: {
+			...publicResult.structuredContent,
+			artifacts,
+			evidence: [...existingEvidence.filter((entry) => entry["evidence_type"] !== "artifact_pointer"), ...artifactEvidence(artifacts)]
+		}
+	};
 }
 function traceAddressRoleForSeed(seedRole) {
 	if (seedRole === "victim") return "seed_victim";
@@ -2069,15 +2177,15 @@ async function traceVictimFunds(remoteClient, config, options) {
 			activityWindow,
 			includeDepositTraceback: true,
 			evidenceSource: "aml_trace_victim_funds",
-			writeArtifacts: options.writeArtifacts
+			writeArtifacts: false
 		})
 	});
-	return publicizeIdentityResult(remoteClient, network, traceResultFromFundRuns("aml_trace_victim_funds", "victim", network, runs, {
+	return publicizeTraceResult(remoteClient, network, traceResultFromFundRuns("aml_trace_victim_funds", "victim", network, runs, {
 		incidentTimestampMs: options.incidentTimestampMs,
 		timeRange: options.timeRange,
 		activityWindow,
 		maxHops: options.maxHops
-	}), preferredByIdentity);
+	}), preferredByIdentity, options.writeArtifacts !== false);
 }
 async function traceSuspectFunds(remoteClient, config, options) {
 	const network = options.network.trim();
@@ -2102,15 +2210,15 @@ async function traceSuspectFunds(remoteClient, config, options) {
 			activityWindow,
 			includeDepositTraceback: true,
 			evidenceSource: "aml_trace_suspect_funds",
-			writeArtifacts: options.writeArtifacts
+			writeArtifacts: false
 		})
 	});
-	return publicizeIdentityResult(remoteClient, network, traceResultFromFundRuns("aml_trace_suspect_funds", "suspect", network, runs, {
+	return publicizeTraceResult(remoteClient, network, traceResultFromFundRuns("aml_trace_suspect_funds", "suspect", network, runs, {
 		incidentTimestampMs: options.incidentTimestampMs,
 		timeRange: options.timeRange,
 		activityWindow,
 		maxHops: options.maxHops
-	}), preferredByIdentity);
+	}), preferredByIdentity, options.writeArtifacts !== false);
 }
 const REVERSE_DEPOSIT_SOURCES_LIMIT = 500;
 function reverseDepositSourceQueryAtDepth(depositAddresses, depth, minAmountSum, window) {
@@ -2158,95 +2266,6 @@ function reverseDepositSourceRowUsesExchange(row) {
 }
 function htmlEscape(value) {
 	return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\"", "&quot;").replaceAll("'", "&#39;");
-}
-function buildTraceSourceTableHtml(tool, network, rows) {
-	const headers = [
-		"path_id",
-		"source_address",
-		"deposit_address",
-		"hop",
-		"amount_usd_sum",
-		"first_tx_id"
-	];
-	const body = rows.map((row) => `<tr>${headers.map((header) => `<td>${htmlEscape(row[header])}</td>`).join("")}</tr>`).join("\n");
-	return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${htmlEscape(tool)} Table</title>
-<style>
-  :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0b0d12; color: #f4f2ea; }
-  body { margin: 0; background: #0b0d12; color: #f4f2ea; }
-  main { padding: 24px; }
-  h1 { font-size: 20px; margin: 0 0 8px; font-weight: 650; }
-  .meta { display: grid; gap: 6px; margin: 0 0 20px; color: rgba(244,242,234,.72); font-size: 13px; }
-  .table-wrap { overflow: auto; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; background: #10131b; }
-  table { border-collapse: collapse; width: 100%; min-width: 980px; font-size: 12px; }
-  th, td { border-bottom: 1px solid rgba(255,255,255,.08); padding: 8px 10px; text-align: left; vertical-align: top; }
-  th { position: sticky; top: 0; background: #161a24; color: #f2dda6; font-weight: 600; z-index: 1; }
-  td { color: rgba(244,242,234,.86); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-  tr:hover td { background: rgba(242,221,166,.045); }
-</style>
-</head>
-<body>
-<main>
-  <h1>${htmlEscape(tool)} Table</h1>
-  <div class="meta">
-    <div>Network: <strong>${htmlEscape(network)}</strong></div>
-    <div>Generated: <strong>${htmlEscape((/* @__PURE__ */ new Date()).toISOString())}</strong></div>
-    <div>Rows: <strong>${rows.length}</strong></div>
-  </div>
-  <div class="table-wrap">
-    <table>
-      <thead><tr>${headers.map((header) => `<th>${htmlEscape(header)}</th>`).join("")}</tr></thead>
-      <tbody>
-${body}
-      </tbody>
-    </table>
-  </div>
-</main>
-</body>
-</html>
-`;
-}
-async function writeTraceSourceArtifacts(tool, network, graphData, rows, summaryText) {
-	const paths = require_output_root.workspaceOutputPaths();
-	await Promise.all([
-		(0, node_fs_promises.mkdir)(paths.reportsRoot, { recursive: true }),
-		(0, node_fs_promises.mkdir)(paths.reportGraphsRoot, { recursive: true }),
-		(0, node_fs_promises.mkdir)(paths.reportTablesRoot, { recursive: true })
-	]);
-	const slug = `${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")}_${tool}`;
-	const graphPath = node_path.default.join(paths.reportGraphsRoot, `${slug}.graph.json`);
-	const tableJsonPath = node_path.default.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`);
-	const csvPath = node_path.default.join(paths.reportTablesRoot, `${slug}.flows.csv`);
-	const tableHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.table.html`);
-	const reportPath = node_path.default.join(paths.reportsRoot, `${slug}.trace-report.md`);
-	const graphHtmlPath = node_path.default.join(paths.reportsRoot, `${slug}.graph.html`);
-	const { generateInlineGraphHtml } = await Promise.resolve().then(() => require("./html-generator-CZQUunR6.cjs")).then((n) => n.html_generator_exports);
-	const csv = ["path_id,source_address,deposit_address,hop,amount_usd_sum,first_tx_id", ...rows.map((row) => [
-		row["path_id"] ?? "",
-		row["source_address"] ?? "",
-		row["deposit_address"] ?? "",
-		row["hop"] ?? "",
-		row["amount_usd_sum"] ?? "",
-		row["first_tx_id"] ?? ""
-	].map((value) => JSON.stringify(String(value))).join(","))].join("\n") + "\n";
-	await (0, node_fs_promises.writeFile)(graphPath, JSON.stringify(graphData, null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(tableJsonPath, JSON.stringify(rows, null, 2) + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(csvPath, csv, { mode: 384 });
-	await (0, node_fs_promises.writeFile)(tableHtmlPath, buildTraceSourceTableHtml(tool, network, rows), { mode: 384 });
-	await (0, node_fs_promises.writeFile)(reportPath, summaryText + "\n", { mode: 384 });
-	await (0, node_fs_promises.writeFile)(graphHtmlPath, generateInlineGraphHtml(graphData), { mode: 384 });
-	return {
-		graph_json: graphPath,
-		graph_html: graphHtmlPath,
-		table_json: tableJsonPath,
-		flows_csv: csvPath,
-		table_html: tableHtmlPath,
-		report_md: reportPath
-	};
 }
 async function traceDepositSources(remoteClient, _config, options) {
 	const network = options.network.trim();
@@ -2368,17 +2387,14 @@ async function traceDepositSources(remoteClient, _config, options) {
 			generated_at: (/* @__PURE__ */ new Date()).toISOString()
 		}
 	});
-	const summaryText = [
-		`Trace deposit sources complete for ${network}`,
-		"",
-		`Deposit seeds: ${deposits.join(", ")}`,
-		`Reverse path(s): ${paths.length}`,
-		`Shared upstream convergence: ${convergence.length}`
-	].join("\n");
-	const artifacts = options.writeArtifacts === false ? statelessArtifacts() : await writeTraceSourceArtifacts("aml_trace_deposit_sources", network, graphData, rows, summaryText);
-	const evidence = artifactEvidence(artifacts);
-	return publicizeIdentityResult(remoteClient, network, {
-		summaryText,
+	return publicizeTraceResult(remoteClient, network, {
+		summaryText: [
+			`Trace deposit sources complete for ${network}`,
+			"",
+			`Deposit seeds: ${deposits.join(", ")}`,
+			`Reverse path(s): ${paths.length}`,
+			`Shared upstream convergence: ${convergence.length}`
+		].join("\n"),
 		structuredContent: {
 			schema: "chain-insights.trace.v1",
 			tool: "aml_trace_deposit_sources",
@@ -2414,11 +2430,11 @@ async function traceDepositSources(remoteClient, _config, options) {
 			convergence,
 			exchange_exposure: [],
 			candidate_labels: candidateLabels,
-			artifacts,
-			evidence: [...evidence, ...failures.length > 0 ? [{
+			artifacts: statelessArtifacts(),
+			evidence: failures.length > 0 ? [{
 				evidence_type: "query_summary",
 				summary: `partial query failures: ${failures.length}`
-			}] : []],
+			}] : [],
 			continuation: {
 				candidate_deposit_addresses: deposits,
 				candidate_suspect_addresses: candidateSuspects,
@@ -2428,7 +2444,7 @@ async function traceDepositSources(remoteClient, _config, options) {
 			warnings: [...paths.length === 0 ? ["No upstream sources were connected in the queried topology."] : [], ...truncationWarnings]
 		},
 		graphData
-	}, preferredByIdentity);
+	}, preferredByIdentity, options.writeArtifacts !== false);
 }
 //#endregion
 exports.addressRisk = addressRisk;

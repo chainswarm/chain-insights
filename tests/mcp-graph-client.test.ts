@@ -13,12 +13,12 @@ function resultEnvelope(facts: Record<string, unknown> = { rows: [] }) {
 }
 
 describe('MCP graph batch client', () => {
-  it('calls usage_status as free metadata without network arguments', async () => {
+  it('calls meta_usage_status as free metadata without network arguments', async () => {
     const client: ToolCaller = {
       callTool: vi.fn(async () => ({
         structuredContent: {
           schema: 'chain-insights.result.v1',
-          tool: 'usage_status',
+          tool: 'meta_usage_status',
           facts: {
             usage: {
               access_mode: 'public_free',
@@ -34,10 +34,10 @@ describe('MCP graph batch client', () => {
     const result = await callUsageStatus({ client })
 
     expect(client.callTool).toHaveBeenCalledWith({
-      name: 'usage_status',
+      name: 'meta_usage_status',
       arguments: {},
     })
-    expect(result.tool).toBe('usage_status')
+    expect(result.tool).toBe('meta_usage_status')
     expect(result.facts).toEqual({
       usage: {
         access_mode: 'public_free',

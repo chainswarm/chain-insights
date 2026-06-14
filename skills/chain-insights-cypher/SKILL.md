@@ -14,7 +14,7 @@ skill exists, load it after this one.
 1. Inspect the endpoint before writing network-specific queries:
    ```bash
    cia mcp networks
-   cia mcp call usage_status
+   cia mcp call meta_usage_status
    ```
 2. Always pass an explicit `network`.
 3. Always add your own `LIMIT`; GraphRAG MCP does not append one.

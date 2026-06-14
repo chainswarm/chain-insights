@@ -79,9 +79,11 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('No investigation output belongs under `~/.chain-insights`')
     expect(skill).toContain('cia mcp networks')
     expect(skill).toContain('Topology: yes')
-    expect(skill).toContain('<first_height>..<last_height> / <first_date>..<last_date>')
-    expect(skill).toContain('Python GraphRAG MCP is the golden implementation')
-    expect(skill).toContain('StolenFundsProbe')
+    expect(skill).toContain('Do not infer dataset coverage ranges')
+    expect(skill).toContain('Current Chain Insights AML tools define the behavior contract')
+    expect(skill).not.toContain('<first_height>..<last_height> / <first_date>..<last_date>')
+    expect(skill).not.toContain('Python GraphRAG MCP is the golden implementation')
+    expect(skill).not.toContain('StolenFundsProbe')
     expect(skill).toContain('Some Graph MCP deployments do not')
     expect(skill).toContain('generated fixed-depth `FLOWS_TO` query batches')
     expect(skill).toContain('exchange hot wallets are terminal')
@@ -142,7 +144,7 @@ describe('shipped Chain Insights skills contract', () => {
 
     expect(skill).toContain('temporary initialized Chain Insights workspace')
     expect(skill).toContain('chain-insights mcp networks')
-    expect(skill).toContain('dataset height/date coverage')
+    expect(skill).toContain('topology support, risk support, and available tools')
     expect(skill).toContain('USE live_topology')
     expect(skill).not.toContain('topology_scope=identity')
     expect(skill).toContain('facts.routing.starrocks_database=bittensor_semantic')
@@ -214,11 +216,11 @@ describe('shipped Chain Insights skills contract', () => {
     const proxySection = script.slice(script.indexOf('PROXY_TOOLS_JSON='))
 
     expect(proxySection).toContain(
-      "const required = ['balance', 'help', 'aml_address_risk', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources', 'network_capabilities', 'graph_query', 'graph_query_batch', 'usage_status']",
+      "const required = ['wallet_balance', 'meta_help', 'meta_network_capabilities', 'meta_usage_status', 'aml_address_risk', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources', 'graph_query', 'graph_query_batch']",
     )
     expect(proxySection).toContain('proxy tools/list exposed unexpected tools')
     expect(proxySection).toContain("for (const name of ['aml_address_risk', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources'])")
-    expect(proxySection).not.toContain("const required = ['balance', 'topup'")
+    expect(proxySection).not.toContain("const required = ['wallet_balance', 'topup'")
     expect(proxySection).toContain('names.size !== required.length')
     expect(script).toContain('node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query')
     expect(script).toContain('USE live_topology MATCH')

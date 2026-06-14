@@ -47,7 +47,7 @@ Optional inputs:
 Example:
 
 ```bash
-cia mcp address-risk \
+cia mcp aml-address-risk \
   --network bittensor \
   --address 5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5 \
   --include-attachments

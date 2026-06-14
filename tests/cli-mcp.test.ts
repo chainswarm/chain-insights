@@ -147,6 +147,15 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
   const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
   const client = new Client({ name: 'chain-insights-cli-call', version: '0.2.0' })
   await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }))
+  if (tool === 'meta_usage_status') {
+    const result = await client.callTool({ name: 'usage_status', arguments: {} })
+    const content = result.content as Array<{ type: string; text?: string }>
+    for (const item of content) {
+      if (item.type === 'text') console.log(item.text)
+    }
+    await client.close()
+    return
+  }
   if (tool === 'aml_trace_suspect_funds') {
     const { traceSuspectFunds } = await import('../src/investigation/public-tools.js')
     const incidentTimestampMs = args['incident_timestamp_ms'] === undefined
@@ -408,7 +417,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
   })
 
-  it('mcp call sends usage_status without wallet-specific arguments', async () => {
+  it('mcp call sends meta_usage_status through the upstream usage_status primitive', async () => {
     mockLoadConfig.mockResolvedValue({
       mcpEndpoint: 'http://localhost:8011/mcp',
       graphMcpEndpoint: 'https://staging-mcp.chain-insights.ai/mcp',
@@ -420,7 +429,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
     mockClientClose.mockResolvedValue(undefined)
 
-    await runMcpCallAction('usage_status', [])
+    await runMcpCallAction('meta_usage_status', [])
 
     expect(mockCreateConfiguredGraphMcpFetch).toHaveBeenCalledOnce()
     expect(mockClientCallTool).toHaveBeenCalledWith({
@@ -508,7 +517,12 @@ describe('CLI mcp subcommand (MCP-02)', () => {
   it.each([
     [retiredName('trace', '_funds'), `MCP tool '${retiredName('trace', '_funds')}' is not exposed by Chain Insights. Use aml_trace_victim_funds, aml_trace_suspect_funds, or aml_trace_deposit_sources instead.`],
     [retiredName('track', '_funds'), `MCP tool '${retiredName('track', '_funds')}' is not exposed by Chain Insights. Use aml_trace_victim_funds instead.`],
-  ])('mcp call rejects legacy %s before remote passthrough', async (tool, message) => {
+    ['network_capabilities', "MCP tool 'network_capabilities' is not exposed by Chain Insights. Use meta_network_capabilities instead."],
+    ['usage_status', "MCP tool 'usage_status' is not exposed by Chain Insights. Use meta_usage_status instead."],
+    ['balance', "MCP tool 'balance' is not exposed by Chain Insights. Use wallet_balance instead."],
+    ['help', "MCP tool 'help' is not exposed by Chain Insights. Use meta_help instead."],
+    ['exposure_profile', "MCP tool 'exposure_profile' is not exposed by Chain Insights."],
+  ])('mcp call rejects hidden tool %s before remote passthrough', async (tool, message) => {
     await expect(runMcpCallAction(tool, ['trusted_addresses=5Seed', 'network=bittensor']))
       .rejects.toThrow('process.exit(1)')
 

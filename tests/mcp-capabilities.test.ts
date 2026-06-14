@@ -49,6 +49,50 @@ describe('MCP network capabilities', () => {
     expect(headers.get('X-Chain-Insights-Test-Key')).toBe('debug-token')
     expect(headers.get('Authorization')).toBe('Bearer debug-token')
     expect(result.networks[0]?.network).toBe('bittensor')
+    expect(result.networks[0]).not.toHaveProperty('coverage')
+  })
+
+  it('merges internal Bittensor aliases into the public bittensor semantic network', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({
+      schema: 'chain-insights.network-capabilities.v1',
+      networks: [{
+        network: 'bittensor_evm',
+        display_name: 'Bittensor EVM',
+        status: 'live',
+        layers: {
+          topology: { enabled: true },
+          facts: { enabled: true },
+          risk: { enabled: false },
+        },
+        aggregations: {
+          transfers: [{ level: 'daily', enabled: true }],
+        },
+        tools: {
+          graph_query: 'available',
+          graph_query_batch: 'available',
+        },
+      }],
+    }), { status: 200 }))
+
+    const { fetchNetworkCapabilities } = await import('../src/mcp/capabilities.js')
+    const result = await fetchNetworkCapabilities({
+      mcpEndpoint: 'https://legacy.example.test/mcp',
+      graphMcpEndpoint: 'https://staging-mcp.chain-insights.ai/mcp',
+      graphMcpMode: 'debug',
+      graphMcpAuthToken: 'debug-token',
+      mcpAuthToken: '',
+    })
+
+    expect(result.networks).toEqual([expect.objectContaining({
+      network: 'bittensor',
+      display_name: 'Bittensor',
+      tools: {
+        graph_query: 'available',
+        graph_query_batch: 'available',
+      },
+    })])
+    expect(JSON.stringify(result)).not.toContain('bittensor_evm')
+    expect(JSON.stringify(result)).not.toContain('aggregations')
   })
 
   it('includes the metadata URL when network capability fetch fails', async () => {
@@ -95,8 +139,9 @@ describe('MCP network capabilities', () => {
 
     expect(output).toContain('Bittensor')
     expect(output).toContain('yes')
-    expect(output).toContain('84..7440268 / 2023-03-20..2026-01-31')
     expect(output).toContain('graph_query, graph_query_batch')
+    expect(output).not.toContain('Dataset')
+    expect(output).not.toContain('84..7440268')
   })
 
   it('formats no available tools for unsupported networks', async () => {
@@ -124,7 +169,7 @@ describe('MCP network capabilities', () => {
     expect(output).toContain('none')
   })
 
-  it('formats partial dataset coverage without hiding missing heights', async () => {
+  it('omits dataset coverage even when upstream metadata includes partial coverage', async () => {
     const { formatNetworkCapabilities } = await import('../src/mcp/capabilities.js')
 
     const output = formatNetworkCapabilities({
@@ -149,7 +194,9 @@ describe('MCP network capabilities', () => {
       }],
     })
 
-    expect(output).toContain('blocks unknown / 2026-05-19..2026-05-20')
+    expect(output).toContain('Bittensor')
+    expect(output).not.toContain('blocks unknown')
+    expect(output).not.toContain('2026-05-19')
   })
 
   it('does not expose StarRocks storage metadata in CLI output', async () => {
