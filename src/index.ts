@@ -15,9 +15,11 @@ export {
 export {
   buildTopupInfo,
   formatWalletBalance,
+  formatWalletBalanceResult,
   getBalanceEth,
   getBalanceUsdc,
   getWalletAccount,
+  getWalletBalanceResult,
   getWalletBalanceText,
 } from './wallet/tools.js'
 export { generateArtifactHtml, getTopupUrl, startTopupServer } from './wallet/topup-server.js'

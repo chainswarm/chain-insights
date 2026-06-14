@@ -44,10 +44,35 @@ vi.mock('../src/wallet/tools.js', () => ({
     address: '0x0000000000000000000000000000000000000001',
     privateKey: '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
   }),
+  getWalletBalanceResult: vi.fn().mockResolvedValue({
+    schema: 'chain-insights.result.v1',
+    tool: 'wallet_balance',
+    hint: null,
+    facts: {
+      wallet: {
+        address: '0x0000000000000000000000000000000000000001',
+        payment_network: 'base',
+        payment_network_display: 'Base',
+        chain_id: 8453,
+        token: 'USDC',
+        token_balance: '4.200000',
+        gas_token: 'ETH',
+        gas_balance: '0.0001',
+      },
+    },
+  }),
+  formatWalletBalanceResult: vi.fn().mockReturnValue([
+    'Payment wallet: 0x0000000000000000000000000000000000000001',
+    'USDC on Base: 4.200000',
+    'Gas on Base: 0.0001 ETH',
+    'Payment network: Base',
+    'Base ETH is used only for one-time payment setup gas.',
+  ].join('\n')),
   getWalletBalanceText: vi.fn().mockResolvedValue([
-    'Balance: 4.200000 USDC',
-    'Network: Base',
-    'Address: 0x0000000000000000000000000000000000000001',
+    'Payment wallet: 0x0000000000000000000000000000000000000001',
+    'USDC on Base: 4.200000',
+    'Gas on Base: 0.0001 ETH',
+    'Payment network: Base',
   ].join('\n')),
 }))
 
@@ -622,7 +647,23 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     expect(config.title).toBe('Wallet Balance')
     expect(result.isError).toBe(false)
-    expect(result.content[0].text).toContain('Balance: 4.200000 USDC')
+    expect(result.content[0].text).toContain('USDC on Base: 4.200000')
+    expect(result.content[0].text).toContain('Payment network: Base')
+    expect(result.content[0].text).not.toContain('Network: Base')
+    expect(result.structuredContent).toMatchObject({
+      schema: 'chain-insights.result.v1',
+      tool: 'wallet_balance',
+      facts: {
+        wallet: {
+          address: '0x0000000000000000000000000000000000000001',
+          payment_network: 'base',
+          token: 'USDC',
+          token_balance: '4.200000',
+          gas_token: 'ETH',
+          gas_balance: '0.0001',
+        },
+      },
+    })
   })
 
   it('registers meta_usage_status with canonical visible text', async () => {

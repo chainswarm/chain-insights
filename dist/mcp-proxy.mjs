@@ -1,5 +1,5 @@
 import { n as PACKAGE_VERSION } from "./version-BA3J8hu4.mjs";
-import { t as PaymentRequiredError } from "./client-ytTO0mcZ.mjs";
+import { t as PaymentRequiredError } from "./client-D1aMU7vY.mjs";
 import { t as HIDDEN_REMOTE_TOOL_NAMES } from "./tool-visibility-CmaiRzJc.mjs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -691,7 +691,7 @@ function jsonTextResult(structuredContent) {
 async function createProxy() {
 	const { loadConfig } = await import("./config-C6zM8Xir.mjs").then((n) => n.t);
 	const { activeDataDir, findActiveWorkspace } = await import("./active-BQopLul8.mjs").then((n) => n.t);
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-ytTO0mcZ.mjs").then((n) => n.r);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-D1aMU7vY.mjs").then((n) => n.r);
 	const { loadSchema, saveSchema } = await import("./schema-cache-DwDvPy4e.mjs");
 	const proxyMode = resolveMcpProxyMode();
 	const workspaceArtifactsEnabled = proxyMode === "workspace";
@@ -884,12 +884,14 @@ async function createProxy() {
 			}
 		}, async () => {
 			try {
-				const { getWalletAccount, getWalletBalanceText } = await import("./tools-v6kcdojg.mjs").then((n) => n.c);
+				const { formatWalletBalanceResult, getWalletAccount, getWalletBalanceResult } = await import("./tools-BHBPchXp.mjs").then((n) => n.u);
+				const structuredContent = await getWalletBalanceResult(await getWalletAccount());
 				return {
 					content: [{
 						type: "text",
-						text: await getWalletBalanceText(await getWalletAccount())
+						text: formatWalletBalanceResult(structuredContent)
 					}],
+					structuredContent,
 					isError: false
 				};
 			} catch (err) {

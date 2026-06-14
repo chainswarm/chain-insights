@@ -14,11 +14,13 @@ var tools_exports = /* @__PURE__ */ __exportAll({
 	approvePaymentAllowance: () => approvePaymentAllowance,
 	buildTopupInfo: () => buildTopupInfo,
 	formatWalletBalance: () => formatWalletBalance,
+	formatWalletBalanceResult: () => formatWalletBalanceResult,
 	formatWalletReadiness: () => formatWalletReadiness,
 	getBalanceEth: () => getBalanceEth,
 	getBalanceUsdc: () => getBalanceUsdc,
 	getPaymentApprovalUnits: () => getPaymentApprovalUnits,
 	getWalletAccount: () => getWalletAccount,
+	getWalletBalanceResult: () => getWalletBalanceResult,
 	getWalletBalanceText: () => getWalletBalanceText,
 	getWalletReadiness: () => getWalletReadiness,
 	parsePaymentApprovalUnits: () => parsePaymentApprovalUnits,
@@ -202,7 +204,7 @@ function formatWalletReadiness(readiness, approval) {
 		`Gas: ${readiness.balanceEth} ETH on Base`,
 		setup,
 		setupCompletedLine,
-		"Network: Base",
+		"Payment network: Base",
 		`Address: ${readiness.address}`,
 		...readiness.nextSteps.map((step) => `Next: ${step}`)
 	].filter(Boolean).join("\n");
@@ -270,17 +272,38 @@ async function prepareWalletForPaidCalls(options = {}) {
 }
 function formatWalletBalance(address, balanceUsdc, balanceEth) {
 	return [
-		`Balance: ${balanceUsdc} USDC`,
-		balanceEth === void 0 ? void 0 : `Gas: ${balanceEth} ETH on Base`,
-		"Network: Base",
-		"Base ETH is used only for one-time payment setup gas.",
-		`Address: ${address}`
+		`Payment wallet: ${address}`,
+		`USDC on Base: ${balanceUsdc}`,
+		balanceEth === void 0 ? void 0 : `Gas on Base: ${balanceEth} ETH`,
+		"Payment network: Base",
+		"Base ETH is used only for one-time payment setup gas."
 	].filter(Boolean).join("\n");
 }
-async function getWalletBalanceText(account) {
+async function getWalletBalanceResult(account) {
 	const wallet = account ?? await getWalletAccount();
 	const [balanceUsdc, balanceEth] = await Promise.all([getBalanceUsdc(wallet.address), getBalanceEth(wallet.address)]);
-	return formatWalletBalance(wallet.address, balanceUsdc, balanceEth);
+	return {
+		schema: "chain-insights.result.v1",
+		tool: "wallet_balance",
+		hint: null,
+		facts: { wallet: {
+			address: wallet.address,
+			payment_network: "base",
+			payment_network_display: "Base",
+			chain_id: BASE_CHAIN_ID,
+			token: "USDC",
+			token_balance: balanceUsdc,
+			gas_token: "ETH",
+			...balanceEth === void 0 ? {} : { gas_balance: balanceEth }
+		} }
+	};
+}
+function formatWalletBalanceResult(result) {
+	const wallet = result.facts.wallet;
+	return formatWalletBalance(wallet.address, wallet.token_balance, wallet.gas_balance);
+}
+async function getWalletBalanceText(account) {
+	return formatWalletBalanceResult(await getWalletBalanceResult(account));
 }
 function buildTopupInfo(address, topupUrl) {
 	return {
@@ -293,6 +316,6 @@ function buildTopupInfo(address, topupUrl) {
 	};
 }
 //#endregion
-export { getWalletAccount as a, tools_exports as c, getBalanceUsdc as i, formatWalletBalance as n, getWalletBalanceText as o, getBalanceEth as r, prepareWalletForPaidCalls as s, buildTopupInfo as t };
+export { getBalanceUsdc as a, getWalletBalanceText as c, getBalanceEth as i, prepareWalletForPaidCalls as l, formatWalletBalance as n, getWalletAccount as o, formatWalletBalanceResult as r, getWalletBalanceResult as s, buildTopupInfo as t, tools_exports as u };
 
-//# sourceMappingURL=tools-v6kcdojg.mjs.map
+//# sourceMappingURL=tools-BHBPchXp.mjs.map

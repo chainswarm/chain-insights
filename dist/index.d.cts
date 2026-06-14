@@ -70,10 +70,30 @@ interface TopupInfo {
   token_contract: typeof USDC_ADDRESS;
   topup_url?: string;
 }
+interface WalletBalanceFacts {
+  address: Address;
+  payment_network: 'base';
+  payment_network_display: 'Base';
+  chain_id: typeof BASE_CHAIN_ID;
+  token: 'USDC';
+  token_balance: string;
+  gas_token: 'ETH';
+  gas_balance?: string;
+}
+interface WalletBalanceResult {
+  schema: 'chain-insights.result.v1';
+  tool: 'wallet_balance';
+  hint: null;
+  facts: {
+    wallet: WalletBalanceFacts;
+  };
+}
 declare function getWalletAccount(): Promise<PaymentWalletAccount>;
 declare function getBalanceUsdc(address: Address | string, rpcUrl?: string | undefined): Promise<string>;
 declare function getBalanceEth(address: Address | string, rpcUrl?: string | undefined): Promise<string>;
 declare function formatWalletBalance(address: string, balanceUsdc: string, balanceEth?: string): string;
+declare function getWalletBalanceResult(account?: PaymentWalletAccount): Promise<WalletBalanceResult>;
+declare function formatWalletBalanceResult(result: WalletBalanceResult): string;
 declare function getWalletBalanceText(account?: PaymentWalletAccount): Promise<string>;
 declare function buildTopupInfo(address: string, topupUrl?: string): TopupInfo;
 //#endregion
@@ -182,5 +202,5 @@ declare function generateVisualization(opts: {
   htmlPath: string;
 }>;
 //#endregion
-export { type GraphData as GraphDataType, type GraphEdge as GraphEdgeType, type GraphNode as GraphNodeType, type InvestigatorConfig, buildTopupInfo, createApp, createMcpFetchClient, decryptKey, encryptKey, formatWalletBalance, generateArtifactHtml, generateVisualization, getBalanceEth, getBalanceUsdc, getTopupUrl, getWalletAccount, getWalletBalanceText, isWalletConfigured, loadConfig, normalizeWalletPrivateKey, resetConfigCache, saveConfig, setWalletPrivateKey, startServer, startTopupServer, walletAddressFromPrivateKey };
+export { type GraphData as GraphDataType, type GraphEdge as GraphEdgeType, type GraphNode as GraphNodeType, type InvestigatorConfig, buildTopupInfo, createApp, createMcpFetchClient, decryptKey, encryptKey, formatWalletBalance, formatWalletBalanceResult, generateArtifactHtml, generateVisualization, getBalanceEth, getBalanceUsdc, getTopupUrl, getWalletAccount, getWalletBalanceResult, getWalletBalanceText, isWalletConfigured, loadConfig, normalizeWalletPrivateKey, resetConfigCache, saveConfig, setWalletPrivateKey, startServer, startTopupServer, walletAddressFromPrivateKey };
 //# sourceMappingURL=index.d.cts.map

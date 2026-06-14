@@ -3,6 +3,14 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.7.1] - 2026-06-14
+
+- Improved the `wallet_balance` MCP Inspector result. The tool now returns
+  structured wallet balance JSON in `structuredContent` while keeping a concise
+  human-readable text summary. The visible text uses `Payment network: Base`
+  instead of `Network: Base` so the Base payment rail is not confused with the
+  Chain Insights semantic investigation network.
+
 ## [0.7.0] - 2026-06-14
 
 - BREAKING: refactored the MCP Inspector-facing public surface to canonical
