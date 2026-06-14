@@ -86,7 +86,7 @@ async function printNetworkCapabilities(opts: { json?: boolean }): Promise<void>
 program
   .command('networks')
   .alias('network')
-  .description('List supported graph networks, capability layers, dataset coverage, and available tools')
+  .description('List supported graph networks, capability layers, and available tools')
   .option('--json', 'Print raw capability JSON')
   .action(async (opts: { json?: boolean }) => {
     try {
@@ -721,14 +721,36 @@ program
     new Command('call')
       .description('Call an MCP tool directly (debug)')
       .argument('<tool>', 'Tool name to call')
-      .argument('[args...]', 'Key=value arguments (e.g. address=0x1234 chain=ethereum)')
+      .argument('[args...]', 'Key=value arguments (e.g. address=5Seed network=bittensor)')
       .action(async (tool: string, rawArgs: string[]) => {
         try {
           const { parseMcpCallArgs } = await import('./mcp/call-args.js')
           const { assertPublicMcpToolName } = await import('./mcp/tool-visibility.js')
           const args = parseMcpCallArgs(rawArgs)
           assertPublicMcpToolName(tool)
+
+          if (tool === 'wallet_balance') {
+            const { getWalletBalanceText } = await import('./wallet/tools.js')
+            console.log(await getWalletBalanceText())
+            return
+          }
+
+          if (tool === 'meta_network_capabilities') {
+            await printNetworkCapabilities({ json: true })
+            return
+          }
+
+          if (tool === 'meta_help') {
+            console.log('Chain Insights tools: aml_*, graph_query, graph_query_batch, meta_*, and wallet_balance.')
+            return
+          }
+
           await withGraphMcpClient('chain-insights-cli-call', async (client, config) => {
+            if (tool === 'meta_usage_status') {
+              const result = await client.callTool({ name: 'usage_status', arguments: {} })
+              printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
+              return
+            }
             if (tool === 'aml_address_risk') {
               const { addressRisk } = await import('./investigation/public-tools.js')
               const result = await addressRisk(client, {

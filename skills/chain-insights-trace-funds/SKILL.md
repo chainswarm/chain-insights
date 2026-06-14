@@ -37,9 +37,8 @@ Use the output as the source of truth:
 - `Available tools` must include the role-specific trace tool, otherwise use
   `graph_query` or `graph_query_batch` with `USE live_topology` for manual
   topology diagnostics.
-- `Dataset` gives the graph coverage range as
-  `<first_height>..<last_height> / <first_date>..<last_date>`. State this range
-  in the investigation scope, and do not claim tracing coverage outside it.
+- Do not infer dataset coverage ranges from the public support matrix. State
+  coverage only when a tool result or query result explicitly returns it.
 - `Risk: yes` determines whether downstream `aml_address_risk` enrichment is
   available on the same network.
 
@@ -112,11 +111,15 @@ The JSON/CSV/Markdown reports carry the investigation structure.
 
 ## Graph Semantics
 
-Python GraphRAG MCP is the golden implementation for address screening and the
-original StolenFundsProbe behavior. Do not degrade tracing into a simple top-K
-neighbor recipe. Chain Insights tools may call Go GraphRAG MCP primitives, but
-they must preserve the workflow semantics through read-only `graph_query_batch`
-calls.
+Current Chain Insights AML tools define the behavior contract. Keep tracing
+implementation-neutral: GraphRAG may serve Memgraph `live_topology` directly or
+proxy StarRocks-backed `archive_topology`/`facts`, but high-level AML workflows
+must preserve role-specific semantics and return member addresses at the public
+boundary.
+
+Do not degrade tracing into a simple top-K neighbor recipe. Chain Insights tools
+may use GraphRAG MCP primitives, but they must preserve the workflow semantics
+through read-only `graph_query_batch` calls.
 
 Some Graph MCP deployments do not parse backend-specific BFS or
 variable-length relationship syntax. In those cases, use generated fixed-depth `FLOWS_TO` query batches with `USE live_topology`. Exchange terminal safety

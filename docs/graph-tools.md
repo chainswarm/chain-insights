@@ -13,7 +13,7 @@ The GraphRAG MCP public graph surface is intentionally small:
 
 | Tool | Purpose |
 | --- | --- |
-| `usage_status` | Return the caller's daily free-tier graph_query allowance for the current UTC day |
+| `meta_usage_status` | Return the caller's daily free-tier graph_query allowance for the current UTC day |
 | `graph_query` | Run one read-only GQL/Cypher query through the universal graph endpoint |
 | `graph_query_batch` | Run related read-only graph-language queries as one MCP call |
 
@@ -29,7 +29,7 @@ GraphRAG MCP endpoint.
 - Use `USE live_topology` for recent topology.
 - Use `USE archive_topology` for historical topology.
 - Use `USE facts` for labels, features, risk scores, assets, and enrichment.
-- Use `usage_status` before public hosted reads when you need the caller's
+- Use `meta_usage_status` before public hosted reads when you need the caller's
   remaining free-tier allowance.
 - Hosted endpoints can expose a public free tier for graph_query. The default
   is 10 execution seconds per IP per UTC day.
@@ -58,7 +58,7 @@ Agent installers ship two graph-query skills:
 Check public-free usage:
 
 ```bash
-chain-insights mcp call usage_status
+chain-insights mcp call meta_usage_status
 ```
 
 Example single query:

@@ -20,7 +20,7 @@ const WORKSPACE_DIRS = [
 	"templates",
 	"published"
 ];
-const DEFAULT_DOMAIN_HINTS = ["aml", "exposure"];
+const DEFAULT_DOMAIN_HINTS = ["aml"];
 function todayIso() {
 	return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 }
@@ -83,7 +83,7 @@ You are operating inside a Chain Insights workspace.
 - Do not guess the network for graph queries.
 - Capture or refresh graph schema before the first graph workflow.
 - \`domain_hints\` in \`.chain-insights/workspace.json\` are optional advisory workflow
-  preferences (for example \`["aml", "exposure"]\`) and should guide, not constrain,
+  preferences (for example \`["aml"]\`) and should guide, not constrain,
   tool selection.
 - Save compact artifacts with original graph field names.
 - Put canonical graph JSON in reports/graphs/ and analyst tables in reports/tables/.
@@ -152,7 +152,7 @@ with \`USE live_topology\`, historical topology reads with
 \`USE archive_topology\`, and fact reads with \`USE facts\`, for example:
 
 \`\`\`bash
-cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE live_topology MATCH (n:Identity) RETURN \"Identity\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (:Identity)-[f:FLOWS_TO]->(:Identity) RETURN f.period_granularity AS granularity, f.amount_usd_sum AS amount_usd_sum LIMIT 20"}]'
+cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE live_topology MATCH (n:Identity) RETURN \"Identity\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (:Identity)-[f:FLOWS_TO]->(:Identity) RETURN f.period_granularity AS granularity, f.amount_usd_sum AS amount_usd_sum LIMIT 20"},{"id":"archive_member_address_sample","query":"USE archive_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 20"}]'
 \`\`\`
 
 Then update this file with observed labels, relationship types, and allowed
@@ -215,14 +215,18 @@ The slim identity graph schema:
 Rules:
 
 - Prefer \`graph_query\` and \`graph_query_batch\` for graph-language reads.
-- \`topology_scope\` accepts only \`identity\` (empty defaults to identity).
-  The live/archive layer choice stays inside the query via \`USE ...\`.
+- Do not use legacy \`topology_scope\` arguments to choose a graph. If an
+  older endpoint surfaces that argument, treat it as compatibility routing
+  only. The live/archive/facts graph choice stays inside the query via
+  \`USE ...\`.
 - Use \`USE live_topology\` for recent topology, \`USE archive_topology\`
   for historical topology, and \`USE facts\` for labels, features,
   risk scores, assets, and enrichment. Archived money-flow topology is
   exposed as \`(:Identity)-[:FLOWS_TO]->(:Identity)\` with
   \`period_granularity\`, \`period_start_date\`, and \`period_end_date\` on
-  the relationship.
+  the relationship. Archive member-address lookup is exposed as
+  \`(:Identity)-[:HAS_ADDRESS]->(:Address)\` with \`Address.address\` and
+  member-ledger \`Address.network\` projected for member-address resolution.
 - Preserve source schema field names in generated data files.
 - Do not rename, reinterpret, or add unit labels to graph fields unless the
   schema or query result explicitly supports that interpretation.

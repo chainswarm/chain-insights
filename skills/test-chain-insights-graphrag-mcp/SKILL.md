@@ -57,8 +57,8 @@ The UAT must verify all of these facts:
 - GraphRAG direct `graph_query` defaults to identity-grain topology for the same network: `(:Identity)-[:FLOWS_TO]->(:Identity)` plus `(:Identity)-[:HAS_ADDRESS]->(:Address)` satellites. Public tools remain address-facing by resolving supplied member addresses to identities internally and returning member addresses as the primary public surface.
 - If GraphRAG direct MCP also exposes high-level `aml_address_risk`, that direct tool succeeds, returns `content` text and `structuredContent.schema = chain-insights.result.v1`, does not expose `app_data`, `nodes`, `edges`, `flows`, `edge_anchors`, or `transfers` in `structuredContent`, and puts graph data only in `_meta.chainInsights.graph.data`.
 - If GraphRAG direct MCP is primitive-only, Chain Insights proxy high-level tools are still mandatory and must build their graph reports from the primitive graph path.
-- Chain Insights proxy `tools/list` exposes local `balance`, `help`, `aml_address_risk`, `aml_trace_victim_funds`, `aml_trace_suspect_funds`, and `aml_trace_deposit_sources`, plus public proxied GraphRAG tools.
-- `chain-insights mcp networks` reports each supported network with topology support, risk support, available tools, and dataset height/date coverage when the GraphRAG endpoint exposes it.
+- Chain Insights proxy `tools/list` exposes local `wallet_balance`, `meta_help`, `meta_network_capabilities`, `meta_usage_status`, `aml_address_risk`, `aml_trace_victim_funds`, `aml_trace_suspect_funds`, and `aml_trace_deposit_sources`, plus public proxied GraphRAG tools.
+- `chain-insights mcp networks` reports each supported network with topology support, risk support, and available tools.
 - Chain Insights proxy tool descriptions must not contain stale `app_data` wording after schema refresh.
 - Chain Insights proxy `aml_address_risk` returns only local graph report metadata in `_meta.chainInsights.graph = { schema, url }`.
 - Chain Insights proxy response must not include `_meta.chainInsights.graph.data`.

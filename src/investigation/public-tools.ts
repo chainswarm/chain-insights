@@ -1172,12 +1172,135 @@ function statelessArtifacts(): Record<string, unknown> {
 
 function artifactEvidence(artifacts: Record<string, unknown>): Array<Record<string, unknown>> {
   return Object.entries(artifacts)
-    .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].length > 0)
+    .filter((entry): entry is [string, string] => entry[0] !== 'artifact_mode' && typeof entry[1] === 'string' && entry[1].length > 0)
     .map(([kind, filePath]) => ({
       evidence_type: 'artifact_pointer',
       path: filePath,
       summary: `${kind} artifact`,
     }))
+}
+
+function traceEdgesForCsv(structuredContent: Record<string, unknown>): Array<Record<string, unknown>> {
+  const edges = structuredContent['edges']
+  return Array.isArray(edges)
+    ? edges.filter((edge): edge is Record<string, unknown> => typeof edge === 'object' && edge !== null && !Array.isArray(edge))
+    : []
+}
+
+function buildTraceTableHtml(tool: string, network: string, result: TraceToolResult): string {
+  const headers = ['edge_id', 'from_address', 'to_address', 'amount_usd_sum', 'tx_count', 'first_tx_id', 'last_tx_id'] as const
+  const body = traceEdgesForCsv(result.structuredContent).map((row) => {
+    const rowValues = headers.map((header) => row[header] ?? '')
+    return `<tr>${rowValues.map((value) => `<td>${htmlEscape(toCsvValue(value))}</td>`).join('')}</tr>`
+  }).join('\n')
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${htmlEscape(tool)} Trace Table</title>
+<style>
+  :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui; background: #0b0d12; color: #f4f2ea; }
+  body { margin: 0; background: #0b0d12; color: #f4f2ea; }
+  main { padding: 24px; }
+  h1 { font-size: 20px; margin: 0 0 8px; font-weight: 650; }
+  table { border-collapse: collapse; width: 100%; min-width: 900px; }
+  th, td { border-bottom: 1px solid rgba(255,255,255,.08); padding: 8px 10px; text-align: left; }
+  th { position: sticky; top: 0; background: #161a24; color: #f2dda6; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>${htmlEscape(tool)} Trace Table</h1>
+  <div>Network: <strong>${htmlEscape(network)}</strong></div>
+  <div>Generated: <strong>${htmlEscape(new Date().toISOString())}</strong></div>
+  <table>
+    <thead><tr>${headers.map((header) => `<th>${htmlEscape(header)}</th>`).join('')}</tr></thead>
+    <tbody>${body}</tbody>
+  </table>
+</main>
+</body>
+</html>
+`
+}
+
+async function writeTraceArtifacts(tool: TraceToolName, network: string, result: TraceToolResult): Promise<Record<string, string>> {
+  const paths = workspaceOutputPaths()
+  await Promise.all([
+    mkdir(paths.reportsRoot, { recursive: true }),
+    mkdir(paths.reportGraphsRoot, { recursive: true }),
+    mkdir(paths.reportTablesRoot, { recursive: true }),
+  ])
+  const slug = `${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}_${tool}`
+  const graphPath = path.join(paths.reportGraphsRoot, `${slug}.graph.json`)
+  const tableJsonPath = path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`)
+  const csvPath = path.join(paths.reportTablesRoot, `${slug}.flows.csv`)
+  const tableHtmlPath = path.join(paths.reportsRoot, `${slug}.table.html`)
+  const reportPath = path.join(paths.reportsRoot, `${slug}.trace-report.md`)
+  const graphHtmlPath = path.join(paths.reportsRoot, `${slug}.graph.html`)
+  const artifacts = {
+    graph_json: graphPath,
+    graph_html: graphHtmlPath,
+    table_json: tableJsonPath,
+    flows_csv: csvPath,
+    table_html: tableHtmlPath,
+    report_md: reportPath,
+  }
+  const existingEvidence = Array.isArray(result.structuredContent['evidence'])
+    ? result.structuredContent['evidence'].filter((entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null && !Array.isArray(entry))
+    : []
+  const structuredForArtifact = {
+    ...result.structuredContent,
+    artifacts,
+    evidence: [
+      ...existingEvidence.filter((entry) => entry['evidence_type'] !== 'artifact_pointer'),
+      ...artifactEvidence(artifacts),
+    ],
+  }
+  const { generateInlineGraphHtml } = await import('../viz/html-generator.js')
+  const csvHeaders = ['edge_id', 'from_address', 'to_address', 'amount_usd_sum', 'tx_count', 'first_tx_id', 'last_tx_id']
+  const csv = [
+    csvHeaders.join(','),
+    ...traceEdgesForCsv(result.structuredContent).map((row) => csvHeaders
+      .map((header) => JSON.stringify(String(row[header] ?? '')))
+      .join(',')),
+  ].join('\n') + '\n'
+  await writeFile(graphPath, JSON.stringify(result.graphData, null, 2) + '\n', { mode: 0o600 })
+  await writeFile(tableJsonPath, JSON.stringify(structuredForArtifact, null, 2) + '\n', { mode: 0o600 })
+  await writeFile(csvPath, csv, { mode: 0o600 })
+  await writeFile(tableHtmlPath, buildTraceTableHtml(tool, network, result), { mode: 0o600 })
+  await writeFile(reportPath, result.summaryText + '\n', { mode: 0o600 })
+  await writeFile(graphHtmlPath, generateInlineGraphHtml(result.graphData), { mode: 0o600 })
+  return artifacts
+}
+
+async function publicizeTraceResult(
+  remoteClient: Client,
+  network: string,
+  result: TraceToolResult,
+  preferredByIdentity: Map<string, string>,
+  writeArtifacts: boolean,
+): Promise<TraceToolResult> {
+  const publicResult = await publicizeIdentityResult(remoteClient, network, result, preferredByIdentity)
+  if (!writeArtifacts) return publicResult
+  const tool = typeof publicResult.structuredContent['tool'] === 'string'
+    ? publicResult.structuredContent['tool'] as TraceToolName
+    : 'aml_trace_victim_funds'
+  const artifacts = await writeTraceArtifacts(tool, network, publicResult)
+  const existingEvidence = Array.isArray(publicResult.structuredContent['evidence'])
+    ? publicResult.structuredContent['evidence'].filter((entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null && !Array.isArray(entry))
+    : []
+  return {
+    ...publicResult,
+    structuredContent: {
+      ...publicResult.structuredContent,
+      artifacts,
+      evidence: [
+        ...existingEvidence.filter((entry) => entry['evidence_type'] !== 'artifact_pointer'),
+        ...artifactEvidence(artifacts),
+      ],
+    },
+  }
 }
 
 function traceAddressRoleForSeed(seedRole: TraceSeedRole): TraceRole {
@@ -1446,7 +1569,7 @@ export async function traceVictimFunds(
         activityWindow,
         includeDepositTraceback: true,
         evidenceSource: 'aml_trace_victim_funds',
-        writeArtifacts: options.writeArtifacts,
+        writeArtifacts: false,
       }),
     })
   }
@@ -1456,7 +1579,7 @@ export async function traceVictimFunds(
     activityWindow,
     maxHops: options.maxHops,
   })
-  return publicizeIdentityResult(remoteClient, network, result, preferredByIdentity)
+  return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false)
 }
 
 export async function traceSuspectFunds(
@@ -1488,7 +1611,7 @@ export async function traceSuspectFunds(
         activityWindow,
         includeDepositTraceback: true,
         evidenceSource: 'aml_trace_suspect_funds',
-        writeArtifacts: options.writeArtifacts,
+        writeArtifacts: false,
       }),
     })
   }
@@ -1498,7 +1621,7 @@ export async function traceSuspectFunds(
     activityWindow,
     maxHops: options.maxHops,
   })
-  return publicizeIdentityResult(remoteClient, network, result, preferredByIdentity)
+  return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false)
 }
 
 const REVERSE_DEPOSIT_SOURCES_LIMIT = 500
@@ -1552,93 +1675,6 @@ function htmlEscape(value: unknown): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;')
-}
-
-function buildTraceSourceTableHtml(tool: TraceToolName, network: string, rows: Array<Record<string, unknown>>): string {
-  const headers = ['path_id', 'source_address', 'deposit_address', 'hop', 'amount_usd_sum', 'first_tx_id'] as const
-  const body = rows.map((row) => `<tr>${headers.map((header) => `<td>${htmlEscape(row[header])}</td>`).join('')}</tr>`).join('\n')
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${htmlEscape(tool)} Table</title>
-<style>
-  :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0b0d12; color: #f4f2ea; }
-  body { margin: 0; background: #0b0d12; color: #f4f2ea; }
-  main { padding: 24px; }
-  h1 { font-size: 20px; margin: 0 0 8px; font-weight: 650; }
-  .meta { display: grid; gap: 6px; margin: 0 0 20px; color: rgba(244,242,234,.72); font-size: 13px; }
-  .table-wrap { overflow: auto; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; background: #10131b; }
-  table { border-collapse: collapse; width: 100%; min-width: 980px; font-size: 12px; }
-  th, td { border-bottom: 1px solid rgba(255,255,255,.08); padding: 8px 10px; text-align: left; vertical-align: top; }
-  th { position: sticky; top: 0; background: #161a24; color: #f2dda6; font-weight: 600; z-index: 1; }
-  td { color: rgba(244,242,234,.86); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-  tr:hover td { background: rgba(242,221,166,.045); }
-</style>
-</head>
-<body>
-<main>
-  <h1>${htmlEscape(tool)} Table</h1>
-  <div class="meta">
-    <div>Network: <strong>${htmlEscape(network)}</strong></div>
-    <div>Generated: <strong>${htmlEscape(new Date().toISOString())}</strong></div>
-    <div>Rows: <strong>${rows.length}</strong></div>
-  </div>
-  <div class="table-wrap">
-    <table>
-      <thead><tr>${headers.map((header) => `<th>${htmlEscape(header)}</th>`).join('')}</tr></thead>
-      <tbody>
-${body}
-      </tbody>
-    </table>
-  </div>
-</main>
-</body>
-</html>
-`
-}
-
-async function writeTraceSourceArtifacts(tool: TraceToolName, network: string, graphData: Record<string, unknown>, rows: Array<Record<string, unknown>>, summaryText: string): Promise<Record<string, unknown>> {
-  const paths = workspaceOutputPaths()
-  await Promise.all([
-    mkdir(paths.reportsRoot, { recursive: true }),
-    mkdir(paths.reportGraphsRoot, { recursive: true }),
-    mkdir(paths.reportTablesRoot, { recursive: true }),
-  ])
-  const slug = `${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}_${tool}`
-  const graphPath = path.join(paths.reportGraphsRoot, `${slug}.graph.json`)
-  const tableJsonPath = path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`)
-  const csvPath = path.join(paths.reportTablesRoot, `${slug}.flows.csv`)
-  const tableHtmlPath = path.join(paths.reportsRoot, `${slug}.table.html`)
-  const reportPath = path.join(paths.reportsRoot, `${slug}.trace-report.md`)
-  const graphHtmlPath = path.join(paths.reportsRoot, `${slug}.graph.html`)
-  const { generateInlineGraphHtml } = await import('../viz/html-generator.js')
-  const csv = [
-    'path_id,source_address,deposit_address,hop,amount_usd_sum,first_tx_id',
-    ...rows.map((row) => [
-      row['path_id'] ?? '',
-      row['source_address'] ?? '',
-      row['deposit_address'] ?? '',
-      row['hop'] ?? '',
-      row['amount_usd_sum'] ?? '',
-      row['first_tx_id'] ?? '',
-    ].map((value) => JSON.stringify(String(value))).join(',')),
-  ].join('\n') + '\n'
-  await writeFile(graphPath, JSON.stringify(graphData, null, 2) + '\n', { mode: 0o600 })
-  await writeFile(tableJsonPath, JSON.stringify(rows, null, 2) + '\n', { mode: 0o600 })
-  await writeFile(csvPath, csv, { mode: 0o600 })
-  await writeFile(tableHtmlPath, buildTraceSourceTableHtml(tool, network, rows), { mode: 0o600 })
-  await writeFile(reportPath, summaryText + '\n', { mode: 0o600 })
-  await writeFile(graphHtmlPath, generateInlineGraphHtml(graphData), { mode: 0o600 })
-  return {
-    graph_json: graphPath,
-    graph_html: graphHtmlPath,
-    table_json: tableJsonPath,
-    flows_csv: csvPath,
-    table_html: tableHtmlPath,
-    report_md: reportPath,
-  }
 }
 
 export async function traceDepositSources(
@@ -1794,11 +1830,6 @@ export async function traceDepositSources(
     `Reverse path(s): ${paths.length}`,
     `Shared upstream convergence: ${convergence.length}`,
   ].join('\n')
-  const artifacts = options.writeArtifacts === false
-    ? statelessArtifacts()
-    : await writeTraceSourceArtifacts('aml_trace_deposit_sources', network, graphData, rows, summaryText)
-  const evidence = artifactEvidence(artifacts)
-
   const result = {
     summaryText,
     structuredContent: {
@@ -1835,11 +1866,8 @@ export async function traceDepositSources(
       convergence,
       exchange_exposure: [],
       candidate_labels: candidateLabels,
-      artifacts,
-      evidence: [
-        ...evidence,
-        ...(failures.length > 0 ? [{ evidence_type: 'query_summary', summary: `partial query failures: ${failures.length}` }] : []),
-      ],
+      artifacts: statelessArtifacts(),
+      evidence: failures.length > 0 ? [{ evidence_type: 'query_summary', summary: `partial query failures: ${failures.length}` }] : [],
       continuation: {
         candidate_deposit_addresses: deposits,
         candidate_suspect_addresses: candidateSuspects,
@@ -1855,7 +1883,7 @@ export async function traceDepositSources(
     },
     graphData,
   }
-  return publicizeIdentityResult(remoteClient, network, result, preferredByIdentity)
+  return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false)
 }
 
 export async function trackFunds(

@@ -15,7 +15,7 @@ EVM-pallet `0x...` addresses in one semantic investigation network:
 
 - Use `network=bittensor` for both address families.
 - Do not switch networks just because an address is `0x...`.
-- `network_capabilities` should advertise Bittensor as one public semantic
+- `meta_network_capabilities` should advertise Bittensor as one public semantic
   domain; Bittensor EVM is not a separate public network.
 - Preserve exact returned `identity_id`, member `address`, and member `network`
   fields.
@@ -24,7 +24,7 @@ EVM-pallet `0x...` addresses in one semantic investigation network:
 
 Observed against the identity-serving contract on 2026-06-13:
 
-- `network_capabilities` advertises Bittensor as default with topology, facts,
+- `meta_network_capabilities` advertises Bittensor as default with topology, facts,
   risk, `graph_query`, and `graph_query_batch` available.
 - `live_topology` uses `Identity` nodes and `FLOWS_TO` relationships. Identity
   keys use the public form `bittensor:<canonical_evm_address>`.

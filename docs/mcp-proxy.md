@@ -76,7 +76,7 @@ The proxy:
   to local config.
 - Caches remote tool schemas per endpoint for 24 hours.
 - Exposes graph tools returned by the endpoint.
-- Adds local `balance` and `help` tools.
+- Adds local `meta_*` and `wallet_*` tools.
 - Starts the local graph report server when graph report URLs are returned.
 - Publishes instructions with required argument rules, workflow guidance, graph
   report behavior, and schema hints.
@@ -85,8 +85,10 @@ The proxy:
 
 | Tool | Purpose |
 | --- | --- |
-| `balance` | Show the local Base USDC payment wallet balance |
-| `help` | Show Chain Insights tool and workflow guidance |
+| `meta_network_capabilities` | Show the current Chain Insights network/tool support matrix |
+| `meta_usage_status` | Check the caller's daily free-tier graph query allowance |
+| `meta_help` | Show Chain Insights tool and workflow guidance |
+| `wallet_balance` | Show the local payment wallet address, payment network, token, and amount |
 
 For normal local review, inspect local workspace files directly and keep your
 preferred editor or agent tooling open to the same workspace while you work.
@@ -95,8 +97,8 @@ preferred editor or agent tooling open to the same workspace while you work.
 workspace validation when an agent needs rendered HTML or handoff-ready files.
 
 Remote graph tools are discovered from the configured GraphRAG MCP endpoint. The
-expected primitive graph tools are `usage_status`, `graph_query`, and
-`graph_query_batch`.
+Chain Insights proxy presents the current public graph surface as
+`meta_usage_status`, `graph_query`, and `graph_query_batch`.
 Chain Insights adds high-level local graph recipes such as `aml_address_risk`,
 `aml_trace_victim_funds`, `aml_trace_deposit_sources`, and
 `aml_trace_suspect_funds` when the remote endpoint only exposes primitives.
@@ -133,7 +135,7 @@ chain-insights access-key status
 Daily free-tier graph usage:
 
 ```bash
-chain-insights mcp call usage_status
+chain-insights mcp call meta_usage_status
 chain-insights mcp call graph_query \
   network=bittensor \
   "query=USE live_topology MATCH (n) RETURN count(n) AS count LIMIT 1"
@@ -141,7 +143,7 @@ chain-insights mcp call graph_query \
 
 Hosted GraphRAG MCP can allow anonymous `graph_query` calls before wallet
 setup. The default public free tier is 10 execution seconds per IP per UTC day,
-reset on the UTC calendar day. `usage_status` returns only the current caller's
+reset on the UTC calendar day. `meta_usage_status` returns only the current caller's
 allowance status. Wallet users receive the same daily free tier first; after it
 is exhausted, x402 payment continues automatically when `wallet ready` reports
 ready.
@@ -228,18 +230,21 @@ after setup.
 
 Current MCP prompts exposed by the local proxy:
 
-- `address-risk`
-- `trace-tools`
-- `network-capabilities`
+- `aml-address-risk`
+- `aml-trace-victim-funds`
+- `aml-trace-suspect-funds`
+- `aml-trace-deposit-sources`
+- `meta-network-capabilities`
+- `meta-usage-status`
 - `graph-query`
 - `graph-query-batch`
-- `balance`
-- `help`
+- `wallet-balance`
+- `meta-help`
 
 Useful prompt text:
 
 ```text
-Use Chain Insights network-capabilities. Report the supported networks and
+Use Chain Insights `meta_network_capabilities`. Report the supported networks and
 available tools exactly as returned.
 ```
 
@@ -257,8 +262,8 @@ Use Chain Insights graph_query_batch on network bittensor with these read-only C
 ```
 
 ```text
-Use Chain Insights balance. Show the wallet address, network, token, and
-balance exactly as returned.
+Use Chain Insights `wallet_balance`. Show the wallet address, payment network,
+token, and amount exactly as returned.
 ```
 
 ## Inspector Validation

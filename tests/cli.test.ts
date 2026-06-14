@@ -185,6 +185,10 @@ describe('CLI scaffold (FOUND-02)', () => {
       expect(readFileSync(join(target, '.chain-insights', 'workspace.json'), 'utf8')).toContain(
         '"graph_mcp_endpoint": "http://127.0.0.1:8012/mcp"'
       )
+      expect(readFileSync(join(target, '.chain-insights', 'workspace.json'), 'utf8')).toContain(
+        '"domain_hints": [\n    "aml"\n  ]'
+      )
+      expect(readFileSync(join(target, '.chain-insights', 'workspace.json'), 'utf8')).not.toContain('exposure')
       const readme = readFileSync(join(target, 'README.md'), 'utf8')
       expect(readme).toContain('Chain Insights Workspace')
       expect(readme).not.toContain('Obsidian')
@@ -206,6 +210,8 @@ describe('CLI scaffold (FOUND-02)', () => {
       const runtimeSkill = readFileSync(join(target, '.chain-insights', 'runtime-skill', 'SKILL.md'), 'utf8')
       expect(runtimeSkill).toContain('Runtime Graph Schema')
       expect(runtimeSkill).toContain('exchange hot wallets as terminal endpoints only')
+      expect(runtimeSkill).toContain('Archive member-address lookup is exposed as')
+      expect(runtimeSkill).toContain('member-ledger `Address.network`')
       expect(readFileSync(join(target, '.chain-insights', 'schema', 'README.md'), 'utf8')).toContain('Runtime Schema Captures')
       expect(existsSync(join(target, 'artifacts'))).toBe(true)
       expect(existsSync(join(target, 'logs'))).toBe(false)

@@ -3,6 +3,28 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.7.0] - 2026-06-14
+
+- BREAKING: refactored the MCP Inspector-facing public surface to canonical
+  prefix families. Metadata tools are now `meta_network_capabilities`,
+  `meta_usage_status`, and `meta_help`; the payment wallet tool is now
+  `wallet_balance`; AML tools remain under `aml_*`; graph primitives remain
+  `graph_query` and `graph_query_batch`. The legacy `network_capabilities`,
+  `usage_status`, `help`, `balance`, `address_risk`, `track_funds`, and
+  unprefixed trace aliases are no longer exposed.
+- Rebuilt the prompt catalogue around the same prefixes:
+  `aml-address-risk`, `aml-trace-victim-funds`,
+  `aml-trace-suspect-funds`, `aml-trace-deposit-sources`,
+  `meta-network-capabilities`, `meta-usage-status`, `meta-help`,
+  `wallet-balance`, `graph-query`, and `graph-query-batch`.
+- Simplified `meta_network_capabilities` to the only current semantic
+  workflow network, `bittensor`, and removed unsupported-network,
+  retention-window, and aggregation fields from the public result.
+- Tightened no-argument MCP schemas for metadata and wallet tools so MCP
+  Inspector renders strict empty inputs, and aligned docs, runtime skills,
+  GraphRAG UAT guidance, and ACP-facing surface names with the prefixed
+  contract.
+
 ## [0.6.2] - 2026-06-13
 
 - Refreshed the MCP inspector-facing prompt and tool metadata: added the
