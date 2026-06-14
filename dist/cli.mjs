@@ -38,7 +38,7 @@ function optionalNumberArg(value, name) {
 async function withGraphMcpClient(name, fn) {
 	const { loadConfig } = await import("./config-C6zM8Xir.mjs").then((n) => n.t);
 	const config = await loadConfig();
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-ytTO0mcZ.mjs").then((n) => n.r);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-D1aMU7vY.mjs").then((n) => n.r);
 	const paymentFetch = await createConfiguredGraphMcpFetch(config);
 	const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
 	const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
@@ -58,7 +58,7 @@ function printMcpTextContent(result) {
 }
 async function printNetworkCapabilities(opts) {
 	const { loadConfig } = await import("./config-C6zM8Xir.mjs").then((n) => n.t);
-	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import("./capabilities-BZl69Wmd.mjs");
+	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import("./capabilities-BH6npxHJ.mjs");
 	const document = await fetchNetworkCapabilities(await loadConfig());
 	if (opts.json) console.log(JSON.stringify(document, null, 2));
 	else console.log(formatNetworkCapabilities(document));
@@ -289,7 +289,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new Command("address").description("Print the local payment wallet address").action(async () => {
 	try {
-		const { getWalletAccount } = await import("./tools-v6kcdojg.mjs").then((n) => n.c);
+		const { getWalletAccount } = await import("./tools-BHBPchXp.mjs").then((n) => n.u);
 		const account = await getWalletAccount();
 		console.log(account.address);
 	} catch (err) {
@@ -298,7 +298,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new Command("balance").description("Show the local payment wallet Base USDC balance").action(async () => {
 	try {
-		const { getWalletBalanceText } = await import("./tools-v6kcdojg.mjs").then((n) => n.c);
+		const { getWalletBalanceText } = await import("./tools-BHBPchXp.mjs").then((n) => n.u);
 		console.log(await getWalletBalanceText());
 	} catch (err) {
 		console.error(err.message);
@@ -306,7 +306,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new Command("ready").description("Check and prepare the wallet for paid GraphRAG MCP calls").option("--check-only", "Only check readiness; do not submit the one-time payment setup").addOption(new Option("--no-approve", "Deprecated alias for --check-only").hideHelp()).option("--payment-usdc <amount>", "USDC setup cap to prepare for paid calls", "1").addOption(new Option("--approval-usdc <amount>", "Deprecated alias for --payment-usdc").hideHelp()).option("--json", "Print machine-readable readiness metadata").action(async (opts) => {
 	try {
-		const { formatWalletReadiness, parsePaymentApprovalUnits, prepareWalletForPaidCalls } = await import("./tools-v6kcdojg.mjs").then((n) => n.c);
+		const { formatWalletReadiness, parsePaymentApprovalUnits, prepareWalletForPaidCalls } = await import("./tools-BHBPchXp.mjs").then((n) => n.u);
 		const result = await prepareWalletForPaidCalls({
 			minimumApprovalUnits: parsePaymentApprovalUnits(opts.paymentUsdc ?? opts.approvalUsdc ?? "1"),
 			approve: opts.checkOnly ? false : opts.approve !== false
@@ -322,7 +322,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new Command("topup").description("Open a local browser page to top up the payment wallet").option("--no-open", "Print the top-up URL without opening a browser").option("--json", "Print machine-readable top-up metadata").action(async (opts) => {
 	try {
-		const { buildTopupInfo, getWalletAccount } = await import("./tools-v6kcdojg.mjs").then((n) => n.c);
+		const { buildTopupInfo, getWalletAccount } = await import("./tools-BHBPchXp.mjs").then((n) => n.u);
 		const { startTopupServer } = await import("./topup-server-R3dNp-p8.mjs").then((n) => n.r);
 		const account = await getWalletAccount();
 		const url = await startTopupServer(account);
@@ -357,7 +357,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { formatToolsTable } = await import("./format-Bq94jSyw.mjs");
 		const { visibleRemoteTools } = await import("./tool-visibility-CmaiRzJc.mjs").then((n) => n.n);
 		const { loadConfig } = await import("./config-C6zM8Xir.mjs").then((n) => n.t);
-		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-ytTO0mcZ.mjs").then((n) => n.r);
+		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-D1aMU7vY.mjs").then((n) => n.r);
 		const config = await loadConfig();
 		const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
 		let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint);
@@ -487,7 +487,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const args = parseMcpCallArgs(rawArgs);
 		assertPublicMcpToolName(tool);
 		if (tool === "wallet_balance") {
-			const { getWalletBalanceText } = await import("./tools-v6kcdojg.mjs").then((n) => n.c);
+			const { getWalletBalanceText } = await import("./tools-BHBPchXp.mjs").then((n) => n.u);
 			console.log(await getWalletBalanceText());
 			return;
 		}

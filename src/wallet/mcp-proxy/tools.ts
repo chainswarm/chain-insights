@@ -75,11 +75,11 @@ export async function getBalance(wallet: WalletData): Promise<string> {
     getBalanceEth(wallet),
   ]);
   return [
-    `Balance: ${balanceUsdc} USDC`,
-    `Gas: ${balanceEth} ETH on Base`,
-    `Network: Base`,
+    `Payment wallet: ${wallet.address}`,
+    `USDC on Base: ${balanceUsdc}`,
+    `Gas on Base: ${balanceEth} ETH`,
+    `Payment network: Base`,
     `Base ETH is used only for one-time payment setup gas.`,
-    `Address: ${wallet.address}`,
   ].filter(Boolean).join("\n");
 }
 

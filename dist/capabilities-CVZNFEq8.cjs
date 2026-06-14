@@ -1,4 +1,4 @@
-import { a as resolveGraphMcpEndpoint, n as applyMcpAuthHeaders } from "./client-ytTO0mcZ.mjs";
+const require_client = require("./client-pAkBddTV.cjs");
 //#region src/mcp/capabilities.ts
 const BITTENSOR_SEMANTIC_NETWORKS = new Set([
 	"bittensor",
@@ -34,10 +34,10 @@ function metadataNetworksUrl(endpoint) {
 	return url;
 }
 async function fetchNetworkCapabilities(config) {
-	const request = metadataNetworksUrl(resolveGraphMcpEndpoint(config));
+	const request = metadataNetworksUrl(require_client.resolveGraphMcpEndpoint(config));
 	const headers = new Headers();
 	const token = config.graphMcpAuthToken?.trim() || config.mcpAuthToken?.trim();
-	if (token) applyMcpAuthHeaders(headers, token);
+	if (token) require_client.applyMcpAuthHeaders(headers, token);
 	let response;
 	try {
 		response = await fetch(request, { headers });
@@ -87,6 +87,5 @@ function formatNetworkCapabilities(document) {
 	].join("\n");
 }
 //#endregion
-export { fetchNetworkCapabilities, formatNetworkCapabilities };
-
-//# sourceMappingURL=capabilities-BZl69Wmd.mjs.map
+exports.fetchNetworkCapabilities = fetchNetworkCapabilities;
+exports.formatNetworkCapabilities = formatNetworkCapabilities;

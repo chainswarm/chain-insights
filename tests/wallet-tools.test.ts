@@ -102,14 +102,46 @@ describe('wallet tools', () => {
   it('renders operator-friendly balance text', async () => {
     const { formatWalletBalance } = await import('../src/wallet/tools.js')
 
-    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Balance: 2.500000 USDC')
-    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Gas: 0.0001 ETH on Base')
+    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Payment wallet: 0xabc')
+    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('USDC on Base: 2.500000')
+    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Gas on Base: 0.0001 ETH')
+    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Payment network: Base')
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Base ETH is used only for one-time payment setup gas.')
-    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Address: 0xabc')
+    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).not.toContain('Network: Base')
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).not.toContain('Permit2')
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).not.toContain('approval')
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).not.toContain('Capacity:')
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).not.toContain('tool calls')
+  })
+
+  it('builds structured wallet balance facts', async () => {
+    const { formatWalletBalanceResult, getWalletBalanceResult } = await import('../src/wallet/tools.js')
+    readContractMock.mockResolvedValueOnce(2_500_000n)
+    getBalanceMock.mockResolvedValueOnce(100_000_000_000_000n)
+
+    const result = await getWalletBalanceResult({
+      address: '0x0000000000000000000000000000000000000001',
+      privateKey: '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
+    })
+
+    expect(result).toMatchObject({
+      schema: 'chain-insights.result.v1',
+      tool: 'wallet_balance',
+      hint: null,
+      facts: {
+        wallet: {
+          address: '0x0000000000000000000000000000000000000001',
+          payment_network: 'base',
+          payment_network_display: 'Base',
+          chain_id: 8453,
+          token: 'USDC',
+          token_balance: '2.5',
+          gas_token: 'ETH',
+          gas_balance: '0.0001',
+        },
+      },
+    })
+    expect(formatWalletBalanceResult(result)).toContain('Payment network: Base')
   })
 
   it('reads and formats the Base USDC payment approval allowance', async () => {

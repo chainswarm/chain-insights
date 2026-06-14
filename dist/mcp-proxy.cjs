@@ -1,7 +1,7 @@
 Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 const require_chunk = require("./chunk-DakpK96I.cjs");
 const require_version = require("./version-CO9Or_YV.cjs");
-const require_client = require("./client-BY-56ojr.cjs");
+const require_client = require("./client-pAkBddTV.cjs");
 const require_tool_visibility = require("./tool-visibility-BjF8N0BD.cjs");
 let node_url = require("node:url");
 let node_path = require("node:path");
@@ -695,7 +695,7 @@ function jsonTextResult(structuredContent) {
 async function createProxy() {
 	const { loadConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
 	const { activeDataDir, findActiveWorkspace } = await Promise.resolve().then(() => require("./active-XWv72R1X.cjs")).then((n) => n.active_exports);
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-BY-56ojr.cjs")).then((n) => n.client_exports);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-pAkBddTV.cjs")).then((n) => n.client_exports);
 	const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-CJk1EL3L.cjs"));
 	const proxyMode = resolveMcpProxyMode();
 	const workspaceArtifactsEnabled = proxyMode === "workspace";
@@ -888,12 +888,14 @@ async function createProxy() {
 			}
 		}, async () => {
 			try {
-				const { getWalletAccount, getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-BhTI3Lmg.cjs")).then((n) => n.tools_exports);
+				const { formatWalletBalanceResult, getWalletAccount, getWalletBalanceResult } = await Promise.resolve().then(() => require("./tools-BLl9g15T.cjs")).then((n) => n.tools_exports);
+				const structuredContent = await getWalletBalanceResult(await getWalletAccount());
 				return {
 					content: [{
 						type: "text",
-						text: await getWalletBalanceText(await getWalletAccount())
+						text: formatWalletBalanceResult(structuredContent)
 					}],
+					structuredContent,
 					isError: false
 				};
 			} catch (err) {

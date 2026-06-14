@@ -93,6 +93,26 @@ export interface PrepareWalletOptions {
   rpcUrl?: string
 }
 
+export interface WalletBalanceFacts {
+  address: Address
+  payment_network: 'base'
+  payment_network_display: 'Base'
+  chain_id: typeof BASE_CHAIN_ID
+  token: 'USDC'
+  token_balance: string
+  gas_token: 'ETH'
+  gas_balance?: string
+}
+
+export interface WalletBalanceResult {
+  schema: 'chain-insights.result.v1'
+  tool: 'wallet_balance'
+  hint: null
+  facts: {
+    wallet: WalletBalanceFacts
+  }
+}
+
 export async function getWalletAccount(): Promise<PaymentWalletAccount> {
   const privateKey = normalizeWalletPrivateKey(await decryptKey()) as Hex
   const account = privateKeyToAccount(privateKey)
@@ -287,7 +307,7 @@ export function formatWalletReadiness(readiness: WalletReadiness, approval?: Pay
     `Gas: ${readiness.balanceEth} ETH on Base`,
     setup,
     setupCompletedLine,
-    'Network: Base',
+    'Payment network: Base',
     `Address: ${readiness.address}`,
     ...readiness.nextSteps.map((step) => `Next: ${step}`),
   ].filter(Boolean).join('\n')
@@ -374,21 +394,46 @@ export async function prepareWalletForPaidCalls(options: PrepareWalletOptions = 
 
 export function formatWalletBalance(address: string, balanceUsdc: string, balanceEth?: string): string {
   return [
-    `Balance: ${balanceUsdc} USDC`,
-    balanceEth === undefined ? undefined : `Gas: ${balanceEth} ETH on Base`,
-    'Network: Base',
+    `Payment wallet: ${address}`,
+    `USDC on Base: ${balanceUsdc}`,
+    balanceEth === undefined ? undefined : `Gas on Base: ${balanceEth} ETH`,
+    'Payment network: Base',
     'Base ETH is used only for one-time payment setup gas.',
-    `Address: ${address}`,
   ].filter(Boolean).join('\n')
 }
 
-export async function getWalletBalanceText(account?: PaymentWalletAccount): Promise<string> {
+export async function getWalletBalanceResult(account?: PaymentWalletAccount): Promise<WalletBalanceResult> {
   const wallet = account ?? await getWalletAccount()
   const [balanceUsdc, balanceEth] = await Promise.all([
     getBalanceUsdc(wallet.address),
     getBalanceEth(wallet.address),
   ])
-  return formatWalletBalance(wallet.address, balanceUsdc, balanceEth)
+  return {
+    schema: 'chain-insights.result.v1',
+    tool: 'wallet_balance',
+    hint: null,
+    facts: {
+      wallet: {
+        address: wallet.address,
+        payment_network: 'base',
+        payment_network_display: 'Base',
+        chain_id: BASE_CHAIN_ID,
+        token: 'USDC',
+        token_balance: balanceUsdc,
+        gas_token: 'ETH',
+        ...(balanceEth === undefined ? {} : { gas_balance: balanceEth }),
+      },
+    },
+  }
+}
+
+export function formatWalletBalanceResult(result: WalletBalanceResult): string {
+  const wallet = result.facts.wallet
+  return formatWalletBalance(wallet.address, wallet.token_balance, wallet.gas_balance)
+}
+
+export async function getWalletBalanceText(account?: PaymentWalletAccount): Promise<string> {
+  return formatWalletBalanceResult(await getWalletBalanceResult(account))
 }
 
 export function buildTopupInfo(address: string, topupUrl?: string): TopupInfo {

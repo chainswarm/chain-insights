@@ -1209,10 +1209,12 @@ export async function createProxy(): Promise<void> {
     },
     async () => {
       try {
-        const { getWalletAccount, getWalletBalanceText } = await import('../wallet/tools.js')
+        const { formatWalletBalanceResult, getWalletAccount, getWalletBalanceResult } = await import('../wallet/tools.js')
         const account = await getWalletAccount()
+        const structuredContent = await getWalletBalanceResult(account)
         return {
-          content: [{ type: 'text' as const, text: await getWalletBalanceText(account) }],
+          content: [{ type: 'text' as const, text: formatWalletBalanceResult(structuredContent) }],
+          structuredContent: structuredContent as unknown as Record<string, unknown>,
           isError: false,
         }
       } catch (err) {

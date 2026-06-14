@@ -40,7 +40,7 @@ function optionalNumberArg(value, name) {
 async function withGraphMcpClient(name, fn) {
 	const { loadConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
 	const config = await loadConfig();
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-BY-56ojr.cjs")).then((n) => n.client_exports);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-pAkBddTV.cjs")).then((n) => n.client_exports);
 	const paymentFetch = await createConfiguredGraphMcpFetch(config);
 	const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
 	const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
@@ -60,7 +60,7 @@ function printMcpTextContent(result) {
 }
 async function printNetworkCapabilities(opts) {
 	const { loadConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
-	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await Promise.resolve().then(() => require("./capabilities-BtFsXOKm.cjs"));
+	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await Promise.resolve().then(() => require("./capabilities-CVZNFEq8.cjs"));
 	const document = await fetchNetworkCapabilities(await loadConfig());
 	if (opts.json) console.log(JSON.stringify(document, null, 2));
 	else console.log(formatNetworkCapabilities(document));
@@ -291,7 +291,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new commander.Command("address").description("Print the local payment wallet address").action(async () => {
 	try {
-		const { getWalletAccount } = await Promise.resolve().then(() => require("./tools-BhTI3Lmg.cjs")).then((n) => n.tools_exports);
+		const { getWalletAccount } = await Promise.resolve().then(() => require("./tools-BLl9g15T.cjs")).then((n) => n.tools_exports);
 		const account = await getWalletAccount();
 		console.log(account.address);
 	} catch (err) {
@@ -300,7 +300,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new commander.Command("balance").description("Show the local payment wallet Base USDC balance").action(async () => {
 	try {
-		const { getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-BhTI3Lmg.cjs")).then((n) => n.tools_exports);
+		const { getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-BLl9g15T.cjs")).then((n) => n.tools_exports);
 		console.log(await getWalletBalanceText());
 	} catch (err) {
 		console.error(err.message);
@@ -308,7 +308,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new commander.Command("ready").description("Check and prepare the wallet for paid GraphRAG MCP calls").option("--check-only", "Only check readiness; do not submit the one-time payment setup").addOption(new commander.Option("--no-approve", "Deprecated alias for --check-only").hideHelp()).option("--payment-usdc <amount>", "USDC setup cap to prepare for paid calls", "1").addOption(new commander.Option("--approval-usdc <amount>", "Deprecated alias for --payment-usdc").hideHelp()).option("--json", "Print machine-readable readiness metadata").action(async (opts) => {
 	try {
-		const { formatWalletReadiness, parsePaymentApprovalUnits, prepareWalletForPaidCalls } = await Promise.resolve().then(() => require("./tools-BhTI3Lmg.cjs")).then((n) => n.tools_exports);
+		const { formatWalletReadiness, parsePaymentApprovalUnits, prepareWalletForPaidCalls } = await Promise.resolve().then(() => require("./tools-BLl9g15T.cjs")).then((n) => n.tools_exports);
 		const result = await prepareWalletForPaidCalls({
 			minimumApprovalUnits: parsePaymentApprovalUnits(opts.paymentUsdc ?? opts.approvalUsdc ?? "1"),
 			approve: opts.checkOnly ? false : opts.approve !== false
@@ -324,7 +324,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new commander.Command("topup").description("Open a local browser page to top up the payment wallet").option("--no-open", "Print the top-up URL without opening a browser").option("--json", "Print machine-readable top-up metadata").action(async (opts) => {
 	try {
-		const { buildTopupInfo, getWalletAccount } = await Promise.resolve().then(() => require("./tools-BhTI3Lmg.cjs")).then((n) => n.tools_exports);
+		const { buildTopupInfo, getWalletAccount } = await Promise.resolve().then(() => require("./tools-BLl9g15T.cjs")).then((n) => n.tools_exports);
 		const { startTopupServer } = await Promise.resolve().then(() => require("./topup-server-DhYlOOBM.cjs")).then((n) => n.topup_server_exports);
 		const account = await getWalletAccount();
 		const url = await startTopupServer(account);
@@ -359,7 +359,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-9NLBykEL.cjs"));
 		const { visibleRemoteTools } = await Promise.resolve().then(() => require("./tool-visibility-BjF8N0BD.cjs")).then((n) => n.tool_visibility_exports);
 		const { loadConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
-		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-BY-56ojr.cjs")).then((n) => n.client_exports);
+		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-pAkBddTV.cjs")).then((n) => n.client_exports);
 		const config = await loadConfig();
 		const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
 		let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint);
@@ -489,7 +489,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const args = parseMcpCallArgs(rawArgs);
 		assertPublicMcpToolName(tool);
 		if (tool === "wallet_balance") {
-			const { getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-BhTI3Lmg.cjs")).then((n) => n.tools_exports);
+			const { getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-BLl9g15T.cjs")).then((n) => n.tools_exports);
 			console.log(await getWalletBalanceText());
 			return;
 		}
