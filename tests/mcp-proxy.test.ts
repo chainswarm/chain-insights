@@ -2260,12 +2260,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const networkCapabilitiesPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'meta-network-capabilities')
     const graphQueryPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'graph-query')
     const graphQueryBatchPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'graph-query-batch')
-    expect(addressRiskPrompt?.[1].argsSchema.network.safeParse(undefined).success).toBe(false)
-    expect(traceVictimPrompt?.[1].argsSchema.network.safeParse(undefined).success).toBe(false)
-    expect(addressRiskPrompt?.[1].argsSchema.network.description).toContain('Network to query')
-    expect(addressRiskPrompt?.[1].argsSchema.network.description).toContain('Bittensor')
-    expect(traceVictimPrompt?.[1].argsSchema.network.description).toContain('Network to query')
-    expect(traceVictimPrompt?.[1].argsSchema.network.description).toContain('Base')
+    expect(addressRiskPrompt?.[1].argsSchema.network).toBeUndefined()
+    expect(traceVictimPrompt?.[1].argsSchema.network).toBeUndefined()
+    expect(graphQueryPrompt?.[1].argsSchema.network).toBeUndefined()
+    expect(graphQueryBatchPrompt?.[1].argsSchema.network).toBeUndefined()
     expect(networkCapabilitiesPrompt?.[1].title).toBe('Network Capabilities')
     expect(graphQueryPrompt?.[1].title).toBe('Graph Query')
     expect(graphQueryBatchPrompt?.[1].title).toBe('Graph Query Batch')
@@ -2291,13 +2289,67 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const handler = findPromptHandler(serverInstance, 'aml-address-risk')
     const result = await handler({
       address: '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6',
-      network: 'bittensor',
       empty_optional: '',
     })
 
     expect(clientInstance.getPrompt).not.toHaveBeenCalled()
     expect(result.messages[0].content.text).toContain('aml_address_risk')
+    expect(result.messages[0].content.text).toContain('on bittensor')
     expect(result.messages[0].content.text).toContain('5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6')
+  })
+
+  it('does not pass through remote canonical prompts with free-text network arguments', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    vi.mocked(Client).mockImplementationOnce(function () {
+      return {
+        connect: vi.fn().mockResolvedValue(undefined),
+        listTools: vi.fn().mockResolvedValue({
+          tools: [
+            { name: 'graph_query', description: 'Federated graph query' },
+            { name: 'graph_query_batch', description: 'Federated graph query batch' },
+          ],
+        }),
+        listPrompts: vi.fn().mockResolvedValue({
+          prompts: [{
+            name: 'aml-address-risk',
+            title: 'Remote AML Address Risk',
+            description: 'Remote prompt should not win',
+            arguments: [
+              { name: 'address', description: 'Address', required: true },
+              { name: 'network', description: 'Free-text network', required: true },
+            ],
+          }],
+        }),
+        getPrompt: vi.fn().mockResolvedValue({
+          messages: [{ role: 'user', content: { type: 'text', text: 'remote canonical prompt' } }],
+        }),
+        callTool: vi.fn().mockResolvedValue({ content: [{ type: 'text', text: 'result' }], isError: false }),
+      }
+    } as never)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerPrompt: ReturnType<typeof vi.fn>
+    }
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      getPrompt: ReturnType<typeof vi.fn>
+    }
+    const addressRiskPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'aml-address-risk')
+    expect(addressRiskPrompt?.[1].title).toBe('AML Address Risk')
+    expect(addressRiskPrompt?.[1].argsSchema.network).toBeUndefined()
+
+    const handler = findPromptHandler(serverInstance, 'aml-address-risk')
+    const result = await handler({ address: '5Addr' })
+    expect(clientInstance.getPrompt).not.toHaveBeenCalled()
+    expect(result.messages[0].content.text).toContain('aml_address_risk on bittensor')
+    expect(result.messages[0].content.text).not.toContain('remote canonical prompt')
   })
 
   it('does not expose deprecated GraphRAG prompt names as primary prompts', async () => {

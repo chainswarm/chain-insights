@@ -18,16 +18,6 @@ const LOCAL_TOOL_NAMES = new Set([
 	"meta_help",
 	"wallet_balance"
 ]);
-const PUBLIC_GRAPHRAG_PROMPT_NAMES = new Set([
-	"aml-address-risk",
-	"aml-trace-victim-funds",
-	"aml-trace-suspect-funds",
-	"aml-trace-deposit-sources",
-	"meta-network-capabilities",
-	"meta-usage-status",
-	"meta-help",
-	"wallet-balance"
-]);
 const GRAPH_RESOURCE_URI = "ui://chain-insights/graph";
 const GRAPH_APP_TOOL_NAMES = new Set([
 	"aml_address_risk",
@@ -42,6 +32,7 @@ const GRAPH_ARRAY_KEYS = [
 	"edge_anchors"
 ];
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DEFAULT_PROMPT_NETWORK = "bittensor";
 function resolveMcpProxyMode(env = process.env) {
 	const raw = env["CHAIN_INSIGHTS_MCP_PROXY_MODE"]?.trim().toLowerCase();
 	if (!raw || raw === "workspace") return "workspace";
@@ -110,8 +101,7 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS = {
 	graph_query_batch: "Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads."
 };
 const FALLBACK_GRAPH_PRIMITIVE_TOOL_NAMES = ["graph_query", "graph_query_batch"];
-const NETWORK_DESCRIPTION = "Network to query, for example Bittensor or Base.";
-const BITTENSOR_NETWORK_SCHEMA = z.enum(["bittensor"]).describe(NETWORK_DESCRIPTION);
+const BITTENSOR_NETWORK_SCHEMA = z.enum(["bittensor"]).describe("Network to query, for example Bittensor or Base.");
 const EMPTY_INPUT_SCHEMA = z.strictObject({});
 const REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS = 900 * 1e3;
 const CHAIN_INSIGHTS_WORKFLOW = [
@@ -438,56 +428,31 @@ function promptResult(text, description) {
 		}]
 	};
 }
-function compactPromptArguments(args) {
-	const compact = {};
-	for (const [key, value] of Object.entries(args)) if (typeof value === "string" && value.trim() !== "") compact[key] = value;
-	return compact;
-}
-function promptArgumentSchema(promptName, argument) {
-	const description = PUBLIC_GRAPHRAG_PROMPT_NAMES.has(promptName) && argument.name === "network" ? NETWORK_DESCRIPTION : argument.description ?? argument.name;
-	const schema = argument.name === "network" ? BITTENSOR_NETWORK_SCHEMA : z.string().describe(description);
-	if (PUBLIC_GRAPHRAG_PROMPT_NAMES.has(promptName) && argument.name === "network") return schema;
-	return argument.required === false ? schema.optional() : schema;
-}
-function registerRemotePrompt(server, remoteClient, prompt) {
-	const argsSchema = {};
-	for (const argument of prompt.arguments ?? []) argsSchema[argument.name] = promptArgumentSchema(prompt.name, argument);
-	server.registerPrompt(prompt.name, {
-		title: prompt.title,
-		description: prompt.description,
-		argsSchema
-	}, async (args) => remoteClient.getPrompt({
-		name: prompt.name,
-		arguments: compactPromptArguments(args)
-	}));
-}
-function registerLocalPrompts(server, remotePromptNames) {
-	if (!remotePromptNames.has("aml-address-risk")) server.registerPrompt("aml-address-risk", {
+function registerLocalPrompts(server) {
+	server.registerPrompt("aml-address-risk", {
 		title: "AML Address Risk",
 		description: "Screen a blockchain address for AML risk, behavioral patterns, neighborhood profile, member addresses, and exchange links.",
 		argsSchema: {
 			address: z.string().describe("Blockchain address to screen"),
-			network: BITTENSOR_NETWORK_SCHEMA,
 			compare_address: z.string().optional().describe("Optional address to compare against the screened address")
 		}
-	}, async ({ address, network, compare_address }) => promptResult([
-		`Use Chain Insights aml_address_risk on ${network} for:`,
+	}, async ({ address, compare_address }) => promptResult([
+		`Use Chain Insights aml_address_risk on ${DEFAULT_PROMPT_NETWORK} for:`,
 		"",
 		`\`${address}\``,
 		compare_address ? `\nCompare with: \`${compare_address}\`` : "",
 		"",
 		"Present the summary as-is. Do not add analysis, verdicts, or risk assessments; the tool output already contains the risk assessment."
 	].filter(Boolean).join("\n"), "AML address risk screening"));
-	if (!remotePromptNames.has("aml-trace-victim-funds")) server.registerPrompt("aml-trace-victim-funds", {
+	server.registerPrompt("aml-trace-victim-funds", {
 		title: "AML Trace Victim Funds",
 		description: "Trace victim or trusted-source funds forward to deposit candidates.",
 		argsSchema: {
 			victim_addresses: z.string().describe("Victim/source addresses, comma-separated"),
-			network: BITTENSOR_NETWORK_SCHEMA,
 			known_suspect_addresses: z.string().optional().describe("Optional known suspect addresses for context only")
 		}
-	}, async ({ victim_addresses, network, known_suspect_addresses }) => promptResult([
-		`Use Chain Insights aml_trace_victim_funds on ${network}.`,
+	}, async ({ victim_addresses, known_suspect_addresses }) => promptResult([
+		`Use Chain Insights aml_trace_victim_funds on ${DEFAULT_PROMPT_NETWORK}.`,
 		"",
 		"Victim/source addresses:",
 		victim_addresses,
@@ -495,30 +460,24 @@ function registerLocalPrompts(server, remotePromptNames) {
 		"",
 		"Present the summary as-is and use continuation.recommended_next_tools for follow-up."
 	].filter(Boolean).join("\n"), "AML victim/source trace"));
-	if (!remotePromptNames.has("aml-trace-suspect-funds")) server.registerPrompt("aml-trace-suspect-funds", {
+	server.registerPrompt("aml-trace-suspect-funds", {
 		title: "AML Trace Suspect Funds",
 		description: "Trace suspect-controlled funds forward to cashout topology.",
-		argsSchema: {
-			suspect_addresses: z.string().describe("Suspect-controlled addresses, comma-separated"),
-			network: BITTENSOR_NETWORK_SCHEMA
-		}
-	}, async ({ suspect_addresses, network }) => promptResult([
-		`Use Chain Insights aml_trace_suspect_funds on ${network}.`,
+		argsSchema: { suspect_addresses: z.string().describe("Suspect-controlled addresses, comma-separated") }
+	}, async ({ suspect_addresses }) => promptResult([
+		`Use Chain Insights aml_trace_suspect_funds on ${DEFAULT_PROMPT_NETWORK}.`,
 		"",
 		"Suspect-controlled addresses:",
 		suspect_addresses,
 		"",
 		"Present the summary as-is and use continuation.recommended_next_tools for follow-up."
 	].join("\n"), "AML suspect trace"));
-	if (!remotePromptNames.has("aml-trace-deposit-sources")) server.registerPrompt("aml-trace-deposit-sources", {
+	server.registerPrompt("aml-trace-deposit-sources", {
 		title: "AML Trace Deposit Sources",
 		description: "Trace suspected deposit or cashout addresses backward to upstream sources.",
-		argsSchema: {
-			deposit_addresses: z.string().describe("Suspected deposit/cashout addresses, comma-separated"),
-			network: BITTENSOR_NETWORK_SCHEMA
-		}
-	}, async ({ deposit_addresses, network }) => promptResult([
-		`Use Chain Insights aml_trace_deposit_sources on ${network}.`,
+		argsSchema: { deposit_addresses: z.string().describe("Suspected deposit/cashout addresses, comma-separated") }
+	}, async ({ deposit_addresses }) => promptResult([
+		`Use Chain Insights aml_trace_deposit_sources on ${DEFAULT_PROMPT_NETWORK}.`,
 		"",
 		"Suspected deposit/cashout addresses:",
 		deposit_addresses,
@@ -538,12 +497,9 @@ function registerLocalPrompts(server, remotePromptNames) {
 	server.registerPrompt("graph-query", {
 		title: "Graph Query",
 		description: "Run a read-only GQL/Cypher query through the Chain Insights graph endpoint.",
-		argsSchema: {
-			query: z.string().describe("Read-only GQL/Cypher query"),
-			network: BITTENSOR_NETWORK_SCHEMA
-		}
-	}, async ({ query, network }) => promptResult([
-		`Use Chain Insights graph_query on ${network} with this read-only GQL/Cypher query:`,
+		argsSchema: { query: z.string().describe("Read-only GQL/Cypher query") }
+	}, async ({ query }) => promptResult([
+		`Use Chain Insights graph_query on ${DEFAULT_PROMPT_NETWORK} with this read-only GQL/Cypher query:`,
 		"",
 		"```gql",
 		query,
@@ -556,11 +512,10 @@ function registerLocalPrompts(server, remotePromptNames) {
 		description: "Run related read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch.",
 		argsSchema: {
 			queries: z.string().describe("JSON array of query objects with optional id and required query fields"),
-			network: BITTENSOR_NETWORK_SCHEMA,
 			per_query_timeout_seconds: z.string().optional().describe("Optional integer timeout per query, 1-600 seconds")
 		}
-	}, async ({ queries, network, per_query_timeout_seconds }) => promptResult([
-		`Use Chain Insights graph_query_batch on ${network} with these read-only GQL/Cypher queries:`,
+	}, async ({ queries, per_query_timeout_seconds }) => promptResult([
+		`Use Chain Insights graph_query_batch on ${DEFAULT_PROMPT_NETWORK} with these read-only GQL/Cypher queries:`,
 		"",
 		"```json",
 		queries,
@@ -823,20 +778,16 @@ async function createProxy() {
 		version: PACKAGE_VERSION
 	}, { instructions: workspaceArtifactsEnabled ? SERVER_INSTRUCTIONS : STATELESS_SERVER_INSTRUCTIONS });
 	installToolLogging(server, logger);
-	const remotePrompts = [];
 	if (remoteConnected) try {
-		const promptResult = await remoteClient.listPrompts();
-		for (const prompt of promptResult.prompts) if (PUBLIC_GRAPHRAG_PROMPT_NAMES.has(prompt.name)) remotePrompts.push(prompt);
+		await remoteClient.listPrompts();
 	} catch (err) {
 		await logger.error("remote.prompts_failed", {
 			endpoint: graphMcpEndpoint,
 			error: errorForLog(err)
 		});
-		process.stderr.write(`Chain Insights MCP prompt passthrough unavailable at ${graphMcpEndpoint}: ${err.message}\n`);
+		process.stderr.write(`Chain Insights MCP remote prompt metadata unavailable at ${graphMcpEndpoint}: ${err.message}\n`);
 	}
-	const remotePromptNames = new Set(remotePrompts.map((prompt) => prompt.name));
-	for (const prompt of remotePrompts) registerRemotePrompt(server, remoteClient, prompt);
-	registerLocalPrompts(server, remotePromptNames);
+	registerLocalPrompts(server);
 	server.registerTool("meta_network_capabilities", {
 		title: "Network Capabilities",
 		description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.meta_network_capabilities,

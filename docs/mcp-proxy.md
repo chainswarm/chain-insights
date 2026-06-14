@@ -241,6 +241,10 @@ Current MCP prompts exposed by the local proxy:
 - `wallet-balance`
 - `meta-help`
 
+Prompts use the current supported investigation network internally so Inspector
+does not render a free-text network field. Tool calls still expose `network` as
+an enum input where the Inspector can render a dropdown.
+
 Useful prompt text:
 
 ```text

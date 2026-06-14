@@ -3,6 +3,14 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.7.3] - 2026-06-14
+
+- Removed free-text `network` inputs from MCP Inspector prompt cards. Prompts
+  now generate instructions with the current supported investigation network,
+  while tools continue to expose `network` as an enum/dropdown input.
+- Stopped passing through remote canonical prompt definitions so upstream prompt
+  metadata cannot reintroduce stale descriptions or free-text network fields.
+
 ## [0.7.2] - 2026-06-14
 
 - Cleaned up the MCP Inspector tool surface: network inputs now use generic,
