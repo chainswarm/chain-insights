@@ -86,7 +86,7 @@ async function printNetworkCapabilities(opts: { json?: boolean }): Promise<void>
 program
   .command('networks')
   .alias('network')
-  .description('List supported graph networks, capability layers, retention, and freshness')
+  .description('List supported graph networks, capability layers, dataset coverage, and available tools')
   .option('--json', 'Print raw capability JSON')
   .action(async (opts: { json?: boolean }) => {
     try {
@@ -510,7 +510,7 @@ program
   .allowExcessArguments(false)
   .addCommand(
     new Command('networks')
-      .description('List supported graph networks, capability layers, retention, and freshness')
+      .description('List supported graph networks, capability layers, dataset coverage, and available tools')
       .option('--json', 'Print raw capability JSON')
       .action(async (opts: { json?: boolean }) => {
         try {

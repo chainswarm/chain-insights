@@ -66,7 +66,7 @@ Example single query:
 ```bash
 chain-insights mcp call graph_query \
   network=bittensor \
-  "query=USE live_topology MATCH (n) WHERE n.address IS NOT NULL RETURN n.labels AS labels, n.address AS address LIMIT 10"
+  "query=USE live_topology MATCH (i:Identity) RETURN i.identity_id AS identity_id, i.labels AS labels, i.risk_level AS risk_level LIMIT 10"
 ```
 
 Example batch query:
@@ -74,7 +74,7 @@ Example batch query:
 ```bash
 chain-insights mcp call graph_query_batch \
   network=bittensor \
-  'queries=[{"id":"count","query":"USE live_topology MATCH (n) RETURN count(n) AS count LIMIT 1"},{"id":"archive_flows","query":"USE archive_topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN f.period_granularity AS granularity, src.address AS source, dst.address AS target LIMIT 3"}]'
+  'queries=[{"id":"count","query":"USE live_topology MATCH (i:Identity) RETURN count(i) AS count LIMIT 1"},{"id":"archive_flows","query":"USE archive_topology MATCH (src:Identity)-[f:FLOWS_TO]->(dst:Identity) RETURN f.period_granularity AS granularity, src.identity_id AS source, dst.identity_id AS target, f.amount_usd_sum AS amount_usd_sum LIMIT 3"},{"id":"archive_member_address","query":"USE archive_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 3"}]'
 ```
 
 Batch calls reserve worst-case execution time from their timeout settings. On
@@ -283,9 +283,9 @@ artifacts.
 Fresh workspaces include a runtime schema skill and schema capture directory.
 Before the first graph query against a network, capture the live graph schema and
 use the observed labels, relationship types, and property names in subsequent
-queries. Different networks can expose different fact nodes and relationship
-properties, so do not assume a query that works on Bittensor will work on Base,
-Ethereum, or TRON without a fresh schema probe.
+queries. The current public GraphRAG investigation network is Bittensor only;
+do not infer support for unadvertised networks from internal database names or
+historical examples.
 
 Useful schema probes:
 
@@ -293,9 +293,10 @@ Useful schema probes:
 cia mcp call graph_query_batch \
   network=bittensor \
   per_query_timeout_seconds=5 \
-  'queries=[{"id":"live_address_sample","query":"USE live_topology MATCH (n:Address) RETURN n.address AS address, n.labels AS labels, n.is_exchange AS is_exchange LIMIT 10"},{"id":"live_flow_sample","query":"USE live_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_sum AS amount_sum, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.period_granularity AS period_granularity, flow.amount_sum AS amount_sum, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"facts_address_sample","query":"USE facts MATCH (a:Address) RETURN a.address AS address, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 10"}]'
+  'queries=[{"id":"live_identity_sample","query":"USE live_topology MATCH (i:Identity) RETURN i.identity_id AS identity_id, i.labels AS labels, i.risk_level AS risk_level, i.is_exchange AS is_exchange LIMIT 10"},{"id":"live_flow_sample","query":"USE live_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"member_address_sample","query":"USE live_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 10"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, flow.period_granularity AS period_granularity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"archive_member_address_sample","query":"USE archive_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 10"},{"id":"facts_feature_sample","query":"USE facts MATCH (i:Identity)-[:HAS_FEATURE]->(f:AddressFeature) RETURN i.identity_id AS identity_id, f.tx_out_count AS tx_out_count LIMIT 10"}]'
 ```
 
-Use projections like `n.address` and `flow.tx_count` in probes. Metadata
+Use endpoint-safe property projections like `i.identity_id` and `flow.tx_count`
+in probes. Metadata
 functions such as `keys()`, `labels()`, and `type()` are not portable across
 every GraphRAG MCP layer.

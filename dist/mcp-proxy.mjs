@@ -49,7 +49,7 @@ const KNOWN_PUBLIC_TOOL_REQUIRED_ARGS = {
 	graph_query_batch: ["network", "queries"]
 };
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS = {
-	network_capabilities: "Return supported Chain Insights networks, capability layers, tool availability, data retention windows, and freshness. Use this before choosing network-specific tools.",
+	network_capabilities: "Return supported Chain Insights networks, graph layers, and available tools. Use this before choosing network-specific tools.",
 	aml_address_risk: "Screen one blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with compare_address. Chain Insights resolves member addresses to identity-grain topology internally and returns member addresses as the public result surface.",
 	aml_trace_victim_funds: "Trace victim/source funds forward through intermediaries to exchange deposit candidates on GraphRAG MCP topology; when incident_timestamp_ms or time_range is set, traced FLOWS_TO edges are filtered to that activity window (first_seen/last_seen) and the effective filter is echoed as time_filter in the result. The result also includes a bounded deposit_funding traceback preview: source-exchange paths covering roughly the first floor(20/max_hops) deposit candidates plus reverse 1-hop leads, where each source_exchange_paths[].path is in traversal order deposit-to-source (the reverse of money flow) and traceback cost grows with each seed; use aml_trace_deposit_sources for deeper reverse traceback from suspected deposit endpoints. Use only when the input addresses are victims or trusted stolen-source addresses, and treat exchange hot wallets as terminal only, never candidate deposits. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
 	aml_trace_suspect_funds: "Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology on GraphRAG MCP; when incident_timestamp_ms or time_range is set, traced FLOWS_TO edges are filtered to that activity window (first_seen/last_seen) and the effective filter is echoed as time_filter in the result. The result also includes a bounded deposit_funding traceback preview (source-exchange paths covering roughly the first floor(20/max_hops) deposit candidates plus reverse 1-hop leads; source_exchange_paths[].path is traversal order deposit-to-source, the reverse of money flow; cost grows per seed). Use only when the input addresses are suspect-controlled seeds, not victim/source addresses or suspected deposit endpoints, and treat exchange hot wallets as terminal only. Returns chain-insights.trace.v1 and preserves full addresses exactly.",
@@ -67,7 +67,7 @@ const REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS = 900 * 1e3;
 const CHAIN_INSIGHTS_WORKFLOW = [
 	"Workflow:",
 	"1. Chain Insights workspaces are append-only local working directories. Bootstrap with cia init before workflows that persist artifacts.",
-	"2. Do not call investigation tools until required arguments are known. Network is required; use network_capabilities to check supported networks, data layers, retention, and freshness, or ask the user if missing.",
+	"2. Do not call investigation tools until required arguments are known. Network is required; use network_capabilities to check supported networks, graph layers, and available tools, or ask the user if missing.",
 	"3. Use aml_address_risk for single-address enrichment. Use aml_trace_victim_funds for victim/source forward tracing and aml_trace_suspect_funds for suspect-controlled outbound laundering/cashout topology; both include a bounded deposit_funding traceback preview for discovered deposit candidates. Use aml_trace_deposit_sources for deeper reverse traceback from suspected deposit endpoints. Use graph_query(_batch) only when the high-level tools do not answer the exact question.",
 	"4. Persisted outputs belong in the initialized workspace under reports/, reports/graphs/, reports/tables/, artifacts/, entities/, sessions/, and published/.",
 	"5. For local review, inspect the generated Markdown and graph/table artifacts directly in the workspace."
@@ -79,14 +79,14 @@ const GRAPH_SCHEMA_HINTS = [
 	"- Identity nodes also carry a slim live risk verdict (risk_score float, risk_level string) plus base activity rollups: degree_in/degree_out/degree_total (distinct counterparty identities), tx_in_count/tx_out_count/tx_total_count, total_in_usd/total_out_usd/total_volume_usd, net_flow_usd (in minus out; positive = net receiver) — all computed from external flows only — and first_activity_timestamp/last_activity_timestamp/activity_span_days, which include all flows (self-loops included). Movement between an identity's own member forms is excluded from the degree/count/USD rollups and exposed separately as internal_tx_count/internal_volume_usd (sparse: absent when zero, like is_exchange). FLOWS_TO edges carry tx_count, amount_usd_sum, avg_tx_size_usd (understates when price_coverage_ratio < 1), first/last_seen_timestamp, first/last_tx_id, dominant_asset (largest USD share), price_coverage_ratio. Lifetime aggregates are the only serving window.",
 	"- Resolve any member address form (0x or SS58) to its identity with the indexed exact lookup: MATCH (m:Address {address: $input})<-[:HAS_ADDRESS]-(i:Identity) RETURN i.identity_id LIMIT 1. :Address(address) is unique and index-backed.",
 	"- Detailed, provenanced scoring still comes from USE facts: (:Identity)-[:HAS_RISK_SCORE]->(:RiskScore) for model versions/processing dates, (:Identity)-[:HAS_LABEL]->(:AddressLabel) for label risk, (:Identity)-[:HAS_FEATURE]->(:AddressFeature) for feature metrics. Use node risk_score/risk_level only as the quick-triage verdict; never read ml_* properties off topology nodes.",
-	"- Facts graph labels include Identity, AddressLabel, AddressFeature, RiskScore, and Asset. Facts identity keys match live identity_id values exactly.",
+	"- Facts graph labels include Identity, AddressLabel, AddressFeature, RiskScore, Asset, NeuronEndpoint, Hotkey, and IPAddress. Facts identity keys match live identity_id values exactly.",
 	"- Live topology relationships include FLOWS_TO and RISK_PROXIMITY between Identity nodes.",
 	"- FLOWS_TO properties are scoped to the selected topology graph and commonly carry tx_count, amount_usd_sum, avg_tx_size_usd, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id, dominant_asset, price_coverage_ratio. Confirm available fields through runtime schema before relying on them.",
 	"- Traversal rule: for BFS, fixed-hop fallback, shortest-path, or manual FLOWS_TO traversal, exchange hot wallets are terminal endpoints only. Do not expand from, through, or classify exchange nodes as deposit, suspect, or intermediate candidates; filter every non-terminal node with is_exchange IS NULL.",
 	"- Start schema discovery with endpoint-safe property reads: MATCH (n:Identity) WHERE n.identity_id IS NOT NULL RETURN n.identity_id AS identity_id, n.labels AS labels, n.risk_score AS risk_score, n.risk_level AS risk_level LIMIT 20",
 	"- Relationship discovery: MATCH (:Identity)-[r:FLOWS_TO]->(:Identity) RETURN r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 20",
-	"- graph_query uses the active Chain Insights graph endpoint. topology_scope accepts only identity (empty defaults to identity). Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment.",
-	"- Archive topology labels include Identity and TopologySnapshot. Archived money-flow topology is represented as (:Identity)-[:FLOWS_TO]->(:Identity) relationships with period_granularity, period_start_date, and period_end_date.",
+	"- graph_query uses the active Chain Insights graph endpoint. Select the graph with USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment. If an older endpoint surfaces a legacy topology_scope argument, treat it as compatibility routing only; identity is the node grain, not the topology name.",
+	"- Archive topology labels include Identity and Address. Archived money-flow topology is represented as (:Identity)-[:FLOWS_TO]->(:Identity) relationships with period_granularity, period_start_date, and period_end_date, and archive member-address lookup uses (:Identity)-[:HAS_ADDRESS]->(:Address) with Address.address and member-ledger Address.network projected for public address resolution.",
 	"- All graph_query calls are read-only. Never use CREATE, INSERT, MERGE, SET, DELETE, REMOVE, DROP, DETACH, ADD, CONNECT, DISCONNECT, ALTER, TRUNCATE, GRANT, or REVOKE.",
 	"- Use USE facts graph patterns for fact and enrichment reads. Do not query internal table namespaces directly."
 ].join("\n");
@@ -436,8 +436,13 @@ function registerLocalPrompts(server, remotePromptNames) {
 			role === "deposit" ? "For deposit role, use aml_trace_deposit_sources rather than aml_trace_deposit_funds." : "Present the summary as-is and use continuation.recommended_next_tools for follow-up."
 		].join("\n"), "Trace role-specific funds");
 	});
+	server.registerPrompt("network-capabilities", {
+		title: "Network Capabilities",
+		description: "Inspect supported semantic networks, graph layers, and available tools before selecting a network.",
+		argsSchema: {}
+	}, async () => promptResult("Use Chain Insights network_capabilities. Report only the supported networks and available tools exactly as returned; do not infer unsupported networks.", "Network capabilities"));
 	server.registerPrompt("graph-query", {
-		title: "Federated Graph Query",
+		title: "Graph Query",
 		description: "Run a read-only GQL/Cypher query through the Chain Insights graph endpoint.",
 		argsSchema: {
 			query: z.string().describe("Read-only GQL/Cypher query"),
@@ -451,9 +456,9 @@ function registerLocalPrompts(server, remotePromptNames) {
 		"```",
 		"",
 		"Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment. Return full address properties; never shorten addresses with ellipses."
-	].join("\n"), "Federated graph query"));
+	].join("\n"), "Graph query"));
 	server.registerPrompt("graph-query-batch", {
-		title: "Federated Graph Query Batch",
+		title: "Graph Query Batch",
 		description: "Run related read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch.",
 		argsSchema: {
 			queries: z.string().describe("JSON array of query objects with optional id and required query fields"),
@@ -469,7 +474,7 @@ function registerLocalPrompts(server, remotePromptNames) {
 		per_query_timeout_seconds ? `per_query_timeout_seconds: ${per_query_timeout_seconds}` : "",
 		"",
 		"Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment. Return full address properties; never shorten addresses with ellipses."
-	].filter(Boolean).join("\n"), "Federated graph batch query"));
+	].filter(Boolean).join("\n"), "Graph query batch"));
 	server.registerPrompt("balance", {
 		title: "Wallet Balance",
 		description: "Show the local Chain Insights payment wallet address and Base USDC balance.",
@@ -680,6 +685,7 @@ async function createProxy() {
 	registerLocalPrompts(server, remotePromptNames);
 	if (workspaceArtifactsEnabled) {
 		server.registerTool("balance", {
+			title: "Balance",
 			description: "Show the local Chain Insights payment wallet address and Base USDC balance.",
 			inputSchema: z.object({}).passthrough()
 		}, async () => {
@@ -980,6 +986,7 @@ async function createProxy() {
 			}
 		});
 		server.registerTool("help", {
+			title: "Help",
 			description: "Show Chain Insights overview, available tools, and investigation workflow.",
 			inputSchema: z.object({}).passthrough()
 		}, async () => ({
@@ -991,7 +998,7 @@ async function createProxy() {
 					CHAIN_INSIGHTS_WORKFLOW,
 					"",
 					"Investigation tools:",
-					"- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.",
+					"- network_capabilities: inspect supported networks, graph layers, and available tools.",
 					"- aml_address_risk: screen a blockchain address for AML risk, behavior, neighborhood, member addresses, exchange exposure, and optional compare_address connection checks.",
 					"- aml_trace_victim_funds: trace up to five victim/source addresses forward to exchange deposit candidates.",
 					"- aml_trace_deposit_sources: trace backward from suspected deposit/cashout addresses to upstream funders and shared-source convergence.",
@@ -1011,7 +1018,7 @@ async function createProxy() {
 					"Local workspace persistence, wallet, and graph report attachment tools are disabled in this mode.",
 					"",
 					"Available graph-backed tools:",
-					"- network_capabilities: inspect supported networks, data layers, tool availability, retention windows, and freshness.",
+					"- network_capabilities: inspect supported networks, graph layers, and available tools.",
 					"- aml_address_risk: screen a blockchain address for AML risk, behavior, neighborhood, member addresses, exchange exposure, and optional compare_address connection checks.",
 					"- aml_trace_victim_funds: trace up to five victim/source addresses forward to exchange deposit candidates.",
 					"- aml_trace_deposit_sources: trace backward from suspected deposit/cashout addresses to upstream funders and shared-source convergence.",

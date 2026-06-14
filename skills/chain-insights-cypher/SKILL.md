@@ -49,21 +49,34 @@ final exchange endpoint should use `is_exchange IS NOT NULL`.
 
 ## Common Schema
 
-Topology is intentionally stable across networks:
+The public graph surface is identity-grain over semantic network domains.
+The current public GraphRAG investigation network is `bittensor`; do not invent
+or query unsupported network names. Bittensor native SS58 and Bittensor
+EVM-pallet `0x...` member addresses both belong under `network=bittensor`.
 
-- Node: `(:Address)` with `address`, usually sparse `labels` and `is_exchange`.
-- Edge: `(:Address)-[:FLOWS_TO]->(:Address)` for money flow.
-- Archive flow fields commonly include `edge_id`, `from_address`, `to_address`,
-  `period_granularity`, `period_start_date`, `period_end_date`,
-  `asset_contract`, `asset_symbol`, `tx_count`, `amount_sum`,
-  `amount_usd_sum`, `first_seen_timestamp`, `last_seen_timestamp`,
-  `first_tx_id`, and `last_tx_id`.
-- Facts may expose `AddressFeature`, `AddressLabel`, `RiskScore`, `Asset`, and
-  network-specific fact nodes.
+Topology is intentionally stable across semantic networks:
 
-Different networks expose different schemas. Do not reuse a Bittensor stake
-query on Base or Ethereum unless that network advertises and proves the same
-labels and fields.
+- Node: `(:Identity)` with `identity_id`, usually sparse `labels`,
+  `is_exchange`, `risk_score`, `risk_level`, and activity rollups.
+- Member-address satellite: `(:Address {address, network})`, reached from an
+  identity with `(:Identity)-[:HAS_ADDRESS]->(:Address)`. Use this only for
+  exact member-address lookup and enumeration; money-flow topology is not
+  address-grain.
+- Edge: `(:Identity)-[:FLOWS_TO]->(:Identity)` for money flow.
+- Flow fields commonly include `tx_count`, `amount_usd_sum`,
+  `avg_tx_size_usd`, `first_seen_timestamp`, `last_seen_timestamp`,
+  `first_tx_id`, `last_tx_id`, `dominant_asset`, and
+  `price_coverage_ratio`. The public identity contract is USD-only; do not
+  rely on native `amount_sum`.
+- Archive flow fields commonly include `period_granularity`,
+  `period_start_date`, `period_end_date`, `tx_count`, `amount_usd_sum`,
+  `first_seen_timestamp`, and `last_seen_timestamp`.
+- Facts may expose `Identity`, `AddressFeature`, `AddressLabel`, `RiskScore`,
+  `Asset`, and network-specific fact nodes.
+
+Future networks may expose different schemas. Do not reuse a Bittensor
+relationship or feature query on another network unless that network advertises
+support and proves the same labels and fields.
 
 ## Schema Capture
 
@@ -74,7 +87,7 @@ Memgraph-backed and mapped layers:
 cia mcp call graph_query_batch \
   network=<network> \
   per_query_timeout_seconds=5 \
-  'queries=[{"id":"live_address_sample","query":"USE live_topology MATCH (n:Address) RETURN n.address AS address, n.labels AS labels, n.is_exchange AS is_exchange LIMIT 10"},{"id":"live_flow_sample","query":"USE live_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_sum AS amount_sum, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp LIMIT 10"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.period_granularity AS period_granularity, flow.amount_sum AS amount_sum, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"facts_address_sample","query":"USE facts MATCH (a:Address) RETURN a.address AS address, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 10"}]'
+  'queries=[{"id":"live_identity_sample","query":"USE live_topology MATCH (i:Identity) RETURN i.identity_id AS identity_id, i.labels AS labels, i.risk_level AS risk_level, i.is_exchange AS is_exchange LIMIT 10"},{"id":"live_flow_sample","query":"USE live_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp LIMIT 10"},{"id":"member_address_sample","query":"USE live_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 10"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, flow.period_granularity AS period_granularity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"archive_member_address_sample","query":"USE archive_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 10"},{"id":"facts_feature_sample","query":"USE facts MATCH (i:Identity)-[:HAS_FEATURE]->(f:AddressFeature) RETURN i.identity_id AS identity_id, f.tx_out_count AS tx_out_count LIMIT 10"}]'
 ```
 
 If a query fails with a generic backend error, narrow it before changing the
@@ -83,12 +96,20 @@ one relationship, project fewer fields, and lower the limit.
 
 ## Query Examples
 
-Live outflows from one address:
+Resolve a member address to an identity:
 
 ```bash
 cia mcp call graph_query \
   network=<network> \
-  'query=USE live_topology MATCH (src:Address {address: "FULL_ADDRESS"})-[flow:FLOWS_TO]->(dst:Address) RETURN dst.address AS to_address, flow.amount_sum AS amount_sum, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 50'
+  'query=USE live_topology MATCH (m:Address {address: "FULL_MEMBER_ADDRESS"})<-[:HAS_ADDRESS]-(i:Identity) RETURN i.identity_id AS identity_id LIMIT 1'
+```
+
+Live outflows from one identity:
+
+```bash
+cia mcp call graph_query \
+  network=<network> \
+  'query=USE live_topology MATCH (src:Identity {identity_id: "FULL_IDENTITY_ID"})-[flow:FLOWS_TO]->(dst:Identity) RETURN dst.identity_id AS to_identity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 50'
 ```
 
 Archive flow history:
@@ -96,7 +117,7 @@ Archive flow history:
 ```bash
 cia mcp call graph_query \
   network=<network> \
-  'query=USE archive_topology MATCH (src:Address {address: "FULL_ADDRESS"})-[flow:FLOWS_TO]->(dst:Address) RETURN dst.address AS to_address, flow.period_granularity AS period_granularity, flow.amount_sum AS amount_sum, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.last_seen_timestamp DESC LIMIT 50'
+  'query=USE archive_topology MATCH (src:Identity {identity_id: "FULL_IDENTITY_ID"})-[flow:FLOWS_TO]->(dst:Identity) RETURN dst.identity_id AS to_identity, flow.period_granularity AS period_granularity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.last_seen_timestamp DESC LIMIT 50'
 ```
 
 Facts lookup after schema proof:
@@ -104,7 +125,7 @@ Facts lookup after schema proof:
 ```bash
 cia mcp call graph_query \
   network=<network> \
-  'query=USE facts MATCH (a:Address {address: "FULL_ADDRESS"})-[:HAS_LABEL]->(label:AddressLabel) RETURN label.label AS label, label.entity_type AS entity_type, label.address_type AS address_type, label.source AS source LIMIT 25'
+  'query=USE facts MATCH (i:Identity {identity_id: "FULL_IDENTITY_ID"})-[:HAS_LABEL]->(label:AddressLabel) RETURN label.label AS label, label.entity_type AS entity_type, label.source AS source LIMIT 25'
 ```
 
 More examples: `references/memgraph-examples.md`.

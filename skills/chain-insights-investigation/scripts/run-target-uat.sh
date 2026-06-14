@@ -102,15 +102,15 @@ mkdir -p reports/uat reports/tables reports/graphs artifacts entities .chain-ins
 
 SCHEMA_RAW=".chain-insights/schema/${NETWORK}.graph-schema.raw.json"
 SCHEMA_FILE=".chain-insights/schema/${NETWORK}.graph-schema.json"
-RESULT_FILE="reports/uat/address_exists.json"
-COMPACT_FILE="reports/tables/address_exists.compact.json"
-REPORT_FILE="reports/address_exists.md"
+RESULT_FILE="reports/uat/member_address_identity.json"
+COMPACT_FILE="reports/tables/member_address_identity.compact.json"
+REPORT_FILE="reports/member_address_identity.md"
 ENTITY_FILE="entities/${TARGET_ADDRESS}.md"
 
 log "capturing ${NETWORK} graph schema"
 cia mcp call graph_query_batch \
   network="${NETWORK}" \
-  'queries=[{"id":"node_labels","query":"USE live_topology MATCH (n:Address) RETURN \"Address\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"relationship_types","query":"USE live_topology MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN \"FLOWS_TO\" AS rel_name, count(r) AS sample_count LIMIT 1"},{"id":"address_sample","query":"USE live_topology MATCH (n:Address) RETURN n.address AS address, n.labels AS labels LIMIT 20"},{"id":"flow_sample","query":"USE live_topology MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN r.amount_sum AS amount_sum, r.amount_usd_sum AS amount_usd_sum LIMIT 20"}]' \
+  'queries=[{"id":"node_labels","query":"USE live_topology MATCH (i:Identity) RETURN \"Identity\" AS node_label, count(i) AS sample_count LIMIT 1"},{"id":"relationship_types","query":"USE live_topology MATCH (:Identity)-[r:FLOWS_TO]->(:Identity) RETURN \"FLOWS_TO\" AS rel_name, count(r) AS sample_count LIMIT 1"},{"id":"member_address_sample","query":"USE live_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 20"},{"id":"flow_sample","query":"USE live_topology MATCH (:Identity)-[r:FLOWS_TO]->(:Identity) RETURN r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 20"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (:Identity)-[r:FLOWS_TO]->(:Identity) RETURN r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 20"},{"id":"archive_member_address_sample","query":"USE archive_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 20"}]' \
   > "${SCHEMA_RAW}"
 
 jq --arg network "${NETWORK}" '{
@@ -121,10 +121,10 @@ jq --arg network "${NETWORK}" '{
   relationship_types:(.facts.queries[]|select(.id=="relationship_types")|.results)
 }' "${SCHEMA_RAW}" > "${SCHEMA_FILE}"
 
-log "running graph_query_batch address_exists"
+log "running graph_query_batch member_address_identity"
 cia mcp call graph_query_batch \
   network="${NETWORK}" \
-  "queries=[{\"id\":\"address_exists\",\"query\":\"USE live_topology MATCH (n:Address {address: \\\"${TARGET_ADDRESS}\\\"}) RETURN n.address AS address, n.labels AS labels, n.degree_in AS degree_in, n.degree_out AS degree_out LIMIT 1\"}]" \
+  "queries=[{\"id\":\"member_address_identity\",\"query\":\"USE live_topology MATCH (m:Address {address: \\\"${TARGET_ADDRESS}\\\"})<-[:HAS_ADDRESS]-(i:Identity) RETURN m.address AS address, m.network AS member_network, i.identity_id AS identity_id, i.labels AS labels, i.degree_in AS degree_in, i.degree_out AS degree_out LIMIT 1\"}]" \
   > "${RESULT_FILE}"
 
 if ! grep -q "${TARGET_ADDRESS}" "${RESULT_FILE}"; then
@@ -137,15 +137,15 @@ jq --arg network "${NETWORK}" '{
   schema:"chain-insights.compact_evidence.v1",
   source:"graph_query_batch",
   network:$network,
-  query_ids:["address_exists"],
-  addresses:(.facts.queries[]|select(.id=="address_exists")|.results)
+  query_ids:["member_address_identity"],
+  identity_matches:(.facts.queries[]|select(.id=="member_address_identity")|.results)
 }' "${RESULT_FILE}" > "${COMPACT_FILE}"
 
 cat > "${REPORT_FILE}" <<EOF
-# Address Exists UAT
+# Member Address Identity UAT
 
 - Network: ${NETWORK}
-- Address: ${TARGET_ADDRESS}
+- Member address: ${TARGET_ADDRESS}
 - Source: graph_query_batch
 - Compact facts: ${COMPACT_FILE}
 - Runtime schema: ${SCHEMA_FILE}
@@ -154,7 +154,7 @@ EOF
 cat > "${ENTITY_FILE}" <<EOF
 # Entity Note
 
-- Address: ${TARGET_ADDRESS}
+- Member address: ${TARGET_ADDRESS}
 - Evidence: ${REPORT_FILE}
 - Compact facts: ${COMPACT_FILE}
 EOF

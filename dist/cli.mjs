@@ -63,7 +63,7 @@ async function printNetworkCapabilities(opts) {
 	if (opts.json) console.log(JSON.stringify(document, null, 2));
 	else console.log(formatNetworkCapabilities(document));
 }
-program.command("networks").alias("network").description("List supported graph networks, capability layers, retention, and freshness").option("--json", "Print raw capability JSON").action(async (opts) => {
+program.command("networks").alias("network").description("List supported graph networks, capability layers, dataset coverage, and available tools").option("--json", "Print raw capability JSON").action(async (opts) => {
 	try {
 		await printNetworkCapabilities(opts);
 	} catch (err) {
@@ -344,7 +344,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 		process.exit(1);
 	}
 }));
-program.command("mcp").description("Interact with the Chain Insights MCP endpoint").allowExcessArguments(false).addCommand(new Command("networks").description("List supported graph networks, capability layers, retention, and freshness").option("--json", "Print raw capability JSON").action(async (opts) => {
+program.command("mcp").description("Interact with the Chain Insights MCP endpoint").allowExcessArguments(false).addCommand(new Command("networks").description("List supported graph networks, capability layers, dataset coverage, and available tools").option("--json", "Print raw capability JSON").action(async (opts) => {
 	try {
 		await printNetworkCapabilities(opts);
 	} catch (err) {
