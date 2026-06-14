@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.7.4] - 2026-06-14
+
+- Refined the MCP Inspector-facing surface after review: canonical prompts now
+  require `network` instead of silently defaulting it, graph prompts provide
+  schema-discovery query guidance, and help/resource copy no longer exposes
+  graph-app internals such as `_meta` URLs or iframe behavior.
+- Made the CLI `mcp call` shortcut enforce the same public argument allow-list
+  as the MCP proxy so removed trace controls such as `min_amount_sum` and
+  `per_address_limit` are rejected instead of looking supported.
+
 ## [0.7.3] - 2026-06-14
 
 - Removed free-text `network` inputs from MCP Inspector prompt cards. Prompts
