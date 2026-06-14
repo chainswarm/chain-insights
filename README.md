@@ -20,7 +20,7 @@ MCP endpoint for development; hosted endpoints are set explicitly with
 | `aml_trace_suspect_funds` | Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology |
 | `graph_query` | Run one read-only GQL/Cypher query against a GraphRAG MCP graph layer |
 | `graph_query_batch` | Run related read-only graph queries as one MCP call |
-| `meta_network_capabilities` | Check supported Chain Insights semantic networks and graph tools |
+| `meta_network_capabilities` | Check supported Chain Insights networks and graph tools |
 | `meta_usage_status` | Check the caller's daily free-tier graph query allowance |
 | `wallet_balance` | Show the local payment wallet amount |
 
@@ -171,7 +171,7 @@ cia mcp call graph_query \
   "query=USE live_topology MATCH (i:Identity) RETURN i.identity_id AS identity_id, i.labels AS labels, i.risk_level AS risk_level LIMIT 10"
 ```
 
-Run a batch across graph layers:
+Run a batch across graph views:
 
 ```bash
 cia mcp call graph_query_batch \

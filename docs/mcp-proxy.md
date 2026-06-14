@@ -154,7 +154,7 @@ regular usage and batches. Use explicit LIMIT and pagination in your query when
 you want bounded result sets.
 
 Staging UAT on 2026-05-31 showed the 10-second free tier was enough for exact
-Bittensor address checks, sample address reads, sample flow reads, and the
+address checks, sample address reads, sample flow reads, and the
 free-to-paid handoff. The tested address
 `5EkTMF1noWnWupGxQqtPczW2FFB7ktdVwjaZ22Cam54U93Xx` returned no indexed live or
 archive rows on staging, but bounded sample reads still returned Bittensor

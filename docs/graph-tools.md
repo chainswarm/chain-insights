@@ -135,7 +135,7 @@ candidates; every non-terminal traversal node must be non-exchange.
 
 ### `aml_trace_victim_funds`
 
-Use when the input addresses are victims or trusted stolen-source addresses.
+Use when the input addresses are victims or trusted source addresses.
 The tool traces forward over `FLOWS_TO` to exchange deposit candidates.
 
 Required input:
@@ -148,8 +148,6 @@ Optional input:
 - `known_suspect_addresses`
 - `incident_timestamp_ms`
 - `max_hops`
-- `min_amount_sum`
-- `per_address_limit`
 - `include_attachments`
 
 Victim/source addresses are role labels for workflow intent, not risky labels. This tool does not
@@ -210,8 +208,6 @@ Optional input:
 
 - `incident_timestamp_ms`
 - `max_hops`
-- `min_amount_sum`
-- `per_address_limit`
 - `include_attachments`
 
 CLI example:
