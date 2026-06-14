@@ -357,7 +357,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 	try {
 		const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-CJk1EL3L.cjs"));
 		const { formatToolsTable } = await Promise.resolve().then(() => require("./format-9NLBykEL.cjs"));
-		const { visibleRemoteTools } = await Promise.resolve().then(() => require("./tool-visibility-BjF8N0BD.cjs")).then((n) => n.tool_visibility_exports);
+		const { visibleRemoteTools } = await Promise.resolve().then(() => require("./tool-visibility-BA24cH3g.cjs")).then((n) => n.tool_visibility_exports);
 		const { loadConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
 		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-pAkBddTV.cjs")).then((n) => n.client_exports);
 		const config = await loadConfig();
@@ -384,7 +384,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new commander.Command("aml-address-risk").description("Screen an address for risk, exchange behavior, and optional compare_address connection risk").requiredOption("--address <address>", "Full blockchain address to screen").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--compare-address <address>", "Optional second address for connection-risk compare mode").option("--remote", "Force remote MCP tool call instead of local Chain Insights recipe").action(async (opts) => {
+})).addCommand(new commander.Command("aml-address-risk").description("Screen an address for AML risk, exchange behavior, and optional comparison with another address").requiredOption("--address <address>", "Full blockchain address to screen").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--compare-address <address>", "Optional second address to compare against the screened address").option("--remote", "Force remote MCP tool call instead of local Chain Insights recipe").action(async (opts) => {
 	try {
 		await withGraphMcpClient("chain-insights-cli-aml-address-risk", async (client) => {
 			if (opts.remote) {
@@ -484,10 +484,11 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 	}
 })).addCommand(new commander.Command("call").description("Call an MCP tool directly (debug)").argument("<tool>", "Tool name to call").argument("[args...]", "Key=value arguments (e.g. address=5Seed network=bittensor)").action(async (tool, rawArgs) => {
 	try {
-		const { parseMcpCallArgs } = await Promise.resolve().then(() => require("./call-args-CcUV6gFS.cjs"));
-		const { assertPublicMcpToolName } = await Promise.resolve().then(() => require("./tool-visibility-BjF8N0BD.cjs")).then((n) => n.tool_visibility_exports);
+		const { parseMcpCallArgs } = await Promise.resolve().then(() => require("./call-args-DE-jK5-O.cjs"));
+		const { assertPublicMcpToolName, validatePublicMcpToolArguments } = await Promise.resolve().then(() => require("./tool-visibility-BA24cH3g.cjs")).then((n) => n.tool_visibility_exports);
 		const args = parseMcpCallArgs(rawArgs);
 		assertPublicMcpToolName(tool);
+		validatePublicMcpToolArguments(tool, args);
 		if (tool === "wallet_balance") {
 			const { getWalletBalanceText } = await Promise.resolve().then(() => require("./tools-BLl9g15T.cjs")).then((n) => n.tools_exports);
 			console.log(await getWalletBalanceText());
@@ -526,9 +527,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 					knownSuspectAddresses: args["known_suspect_addresses"],
 					network: String(args["network"] ?? ""),
 					incidentTimestampMs: optionalNumberArg(args["incident_timestamp_ms"], "incident_timestamp_ms"),
-					maxHops: typeof args["max_hops"] === "number" ? args["max_hops"] : void 0,
-					perAddressLimit: typeof args["per_address_limit"] === "number" ? args["per_address_limit"] : void 0,
-					minAmountSum: typeof args["min_amount_sum"] === "number" ? args["min_amount_sum"] : void 0
+					maxHops: typeof args["max_hops"] === "number" ? args["max_hops"] : void 0
 				});
 				console.log(result.summaryText);
 				console.log(JSON.stringify(result.structuredContent, null, 2));
@@ -540,8 +539,6 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 					suspectAddresses: args["suspect_addresses"] ?? "",
 					network: String(args["network"] ?? ""),
 					maxHops: typeof args["max_hops"] === "number" ? args["max_hops"] : void 0,
-					perAddressLimit: typeof args["per_address_limit"] === "number" ? args["per_address_limit"] : void 0,
-					minAmountSum: typeof args["min_amount_sum"] === "number" ? args["min_amount_sum"] : void 0,
 					incidentTimestampMs: optionalNumberArg(args["incident_timestamp_ms"], "incident_timestamp_ms")
 				});
 				console.log(result.summaryText);

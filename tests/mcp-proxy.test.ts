@@ -454,7 +454,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).toContain('aml_address_risk')
     expect(instructions).toContain('Network is required')
     expect(instructions).toContain('Graph visualization behavior')
-    expect(instructions).toContain('local graph report server is started automatically')
+    expect(instructions).toContain('prepares the graph view automatically')
+    expect(instructions).not.toContain('Claude Desktop')
+    expect(instructions).not.toContain('iframe')
     expect(instructions).toContain('FLOWS_TO')
     expect(instructions).toContain('first_tx_id')
     expect(instructions).toContain('archive member-address lookup')
@@ -2175,14 +2177,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       'Fund Flow Graph',
       'ui://chain-insights/graph',
       expect.objectContaining({
-        description: expect.stringContaining('D3 force-directed graph'),
+        description: expect.stringContaining('Interactive fund-flow and pattern graph'),
       }),
       expect.any(Function),
     )
     const graphResourceConfig = vi
       .mocked(registerAppResource)
       .mock.calls.find((entry) => entry[2] === 'ui://chain-insights/graph')?.[3]
-    expect(graphResourceConfig?.description).toContain('_meta.chainInsights.graph.url')
+    expect(graphResourceConfig?.description).not.toContain('_meta')
     expect(graphResourceConfig?._meta?.ui?.csp?.connectDomains).toContain('http://127.0.0.1:4321')
     expect(graphResourceConfig?._meta?.ui?.csp?.connectDomains).toContain('http://localhost:4321')
     expect(registerAppTool).toHaveBeenCalledWith(
@@ -2260,10 +2262,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const networkCapabilitiesPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'meta-network-capabilities')
     const graphQueryPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'graph-query')
     const graphQueryBatchPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'graph-query-batch')
-    expect(addressRiskPrompt?.[1].argsSchema.network).toBeUndefined()
-    expect(traceVictimPrompt?.[1].argsSchema.network).toBeUndefined()
-    expect(graphQueryPrompt?.[1].argsSchema.network).toBeUndefined()
-    expect(graphQueryBatchPrompt?.[1].argsSchema.network).toBeUndefined()
+    expect(addressRiskPrompt?.[1].argsSchema.network).toBeDefined()
+    expect(traceVictimPrompt?.[1].argsSchema.network).toBeDefined()
+    expect(graphQueryPrompt?.[1].argsSchema.network).toBeDefined()
+    expect(graphQueryBatchPrompt?.[1].argsSchema.network).toBeDefined()
     expect(networkCapabilitiesPrompt?.[1].title).toBe('Network Capabilities')
     expect(graphQueryPrompt?.[1].title).toBe('Graph Query')
     expect(graphQueryBatchPrompt?.[1].title).toBe('Graph Query Batch')
@@ -2288,6 +2290,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     const handler = findPromptHandler(serverInstance, 'aml-address-risk')
     const result = await handler({
+      network: 'bittensor',
       address: '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6',
       empty_optional: '',
     })
@@ -2296,6 +2299,32 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.messages[0].content.text).toContain('aml_address_risk')
     expect(result.messages[0].content.text).toContain('on bittensor')
     expect(result.messages[0].content.text).toContain('5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6')
+  })
+
+  it('gives graph prompts schema-discovery guidance without address-grain wording', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerPrompt: ReturnType<typeof vi.fn>
+    }
+    const handler = findPromptHandler(serverInstance, 'graph-query')
+    const result = await handler({
+      network: 'bittensor',
+      query: 'USE live_topology MATCH (i:Identity) RETURN i.identity_id LIMIT 1',
+    })
+    const text = result.messages[0].content.text
+
+    expect(text).toContain('schema context')
+    expect(text).toContain('keys(i) AS identity_properties')
+    expect(text).toContain('keys(r) AS flow_properties')
+    expect(text).toContain('identity_id and member addresses')
+    expect(text).not.toContain('Return full address properties')
   })
 
   it('does not pass through remote canonical prompts with free-text network arguments', async () => {
@@ -2343,10 +2372,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
     const addressRiskPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'aml-address-risk')
     expect(addressRiskPrompt?.[1].title).toBe('AML Address Risk')
-    expect(addressRiskPrompt?.[1].argsSchema.network).toBeUndefined()
+    expect(addressRiskPrompt?.[1].argsSchema.network).toBeDefined()
 
     const handler = findPromptHandler(serverInstance, 'aml-address-risk')
-    const result = await handler({ address: '5Addr' })
+    const result = await handler({ network: 'bittensor', address: '5Addr' })
     expect(clientInstance.getPrompt).not.toHaveBeenCalled()
     expect(result.messages[0].content.text).toContain('aml_address_risk on bittensor')
     expect(result.messages[0].content.text).not.toContain('remote canonical prompt')
@@ -2881,7 +2910,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('- aml_trace_victim_funds: trace up to five victim/source addresses forward to exchange deposit candidates.')
     expect(result.content[0].text).not.toContain('topup')
     expect(result.content[0].text).toContain('Graph visualization behavior')
-    expect(result.content[0].text).toContain('local graph report server is started automatically')
+    expect(result.content[0].text).toContain('prepares the graph view automatically')
+    expect(result.content[0].text).not.toContain('_meta')
+    expect(result.content[0].text).not.toContain('Claude Desktop')
+    expect(result.content[0].text).not.toContain('iframe')
     expect(result.content[0].text).not.toContain('Graph query hints for network=bittensor')
     expect(result.content[0].text).not.toContain('FLOWS_TO')
     expect(result.content[0].text).not.toContain('first_tx_id')
