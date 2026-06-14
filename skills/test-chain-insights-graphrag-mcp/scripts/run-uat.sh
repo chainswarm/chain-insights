@@ -12,6 +12,7 @@ NETWORK="${NETWORK:-bittensor}"
 # (:Identity)-[:HAS_ADDRESS]->(:Address) satellites and resolved through the
 # (:Address)<-[:HAS_ADDRESS]-(:Identity) lookup.
 UAT_ADDRESS="${UAT_ADDRESS:-5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6}"
+UAT_MEMBER_NETWORK="${UAT_MEMBER_NETWORK:-substrate}"
 # All graph internals use the canonical identity key form
 # '<network>:<canonical_evm_address>' (deterministic H160 mapping of
 # UAT_ADDRESS). Public AML tool inputs use UAT_ADDRESS and should return member
@@ -196,7 +197,7 @@ console.log(`[uat] direct tools/list ok: ${tools.length} tools (${hasHighLevel ?
 NODE
 
 DIRECT_CAPABILITIES_JSON="${RUN_DIR}/direct-network-capabilities.json"
-log "checking semantic identity network capabilities"
+log "checking public network capabilities"
 npx @modelcontextprotocol/inspector \
   --cli "${MCP_ENDPOINT}" \
   --transport http \
@@ -215,24 +216,26 @@ if (!payload && data.content?.[0]?.type === 'text') {
   payload = JSON.parse(data.content[0].text)
 }
 const networks = payload?.facts?.capabilities?.networks || []
+const rawPayload = JSON.stringify(payload?.facts?.capabilities || {})
 const byName = new Map(networks.map((entry) => [entry.network, entry]))
 const source = byName.get(network)
 const errors = []
 if (!source) errors.push(`network_capabilities missing source network ${network}`)
 if (source?.layers?.topology?.enabled !== true) errors.push(`${network} topology is not enabled`)
 if (source?.tools?.graph_query !== 'available') errors.push(`${network} graph_query is not available`)
-if (network === 'bittensor') {
-  const evm = byName.get('bittensor_evm')
-  if (!evm) errors.push('network_capabilities missing bittensor_evm source network')
-  if (evm?.layers?.topology?.enabled !== true) errors.push('bittensor_evm topology is not enabled')
+for (const leaked of ['retention', 'window_days', 'aggregations']) {
+  if (rawPayload.includes(leaked)) errors.push(`network_capabilities leaked ${leaked} implementation metadata`)
+}
+for (const alias of ['bittensor_evm', 'base', 'ethereum', 'tron']) {
+  if (byName.has(alias)) errors.push(`network_capabilities leaked alias or unsupported network ${alias}`)
 }
 if (errors.length) throw new Error(errors.join('; '))
 console.log(`[uat] network_capabilities ok: source=${network}`)
 NODE
 
-IDENTITY_TOPOLOGY_JSON="${RUN_DIR}/direct-identity-topology.json"
+IDENTITY_TOPOLOGY_JSON="${RUN_DIR}/direct-live-topology.json"
 IDENTITY_TOPOLOGY_QUERY="USE live_topology MATCH (s:Identity)-[f:FLOWS_TO]->(d:Identity) RETURN count(f) AS identity_flows"
-log "checking public-route identity topology (network=${NETWORK} topology_scope=identity)"
+log "checking public live_topology identity-grain edges (network=${NETWORK})"
 npx @modelcontextprotocol/inspector \
   --cli "${MCP_ENDPOINT}" \
   --transport http \
@@ -241,7 +244,6 @@ npx @modelcontextprotocol/inspector \
   --method tools/call \
   --tool-name graph_query \
   --tool-arg "network=${NETWORK}" \
-  --tool-arg "topology_scope=identity" \
   --tool-arg "query=${IDENTITY_TOPOLOGY_QUERY}" >"${IDENTITY_TOPOLOGY_JSON}"
 
 node - "${IDENTITY_TOPOLOGY_JSON}" "${NETWORK}" <<'NODE'
@@ -250,22 +252,21 @@ const file = process.argv[2]
 const network = process.argv[3]
 const data = JSON.parse(fs.readFileSync(file, 'utf8'))
 const errors = []
-if (data.isError) errors.push(`identity topology query returned isError=true: ${data.content?.[0]?.text || 'unknown error'}`)
+if (data.isError) errors.push(`live_topology query returned isError=true: ${data.content?.[0]?.text || 'unknown error'}`)
 const facts = data.structuredContent?.facts
 const subject = facts?.subject
 const routing = facts?.routing
 const flows = facts?.query?.results?.[0]?.identity_flows
 if (subject?.network !== network) errors.push(`identity subject network mismatch: ${subject?.network}`)
-if (subject?.topology_scope !== 'identity') errors.push(`identity subject topology_scope mismatch: ${subject?.topology_scope}`)
-if (routing?.starrocks_database !== `${network}_semantic`) errors.push(`identity routing database mismatch: ${routing?.starrocks_database}`)
-if (!Number.isFinite(Number(flows)) || Number(flows) <= 0) errors.push(`identity FLOWS_TO count not positive: ${flows}`)
+if (routing?.starrocks_database !== `${network}_semantic`) errors.push(`live_topology routing database mismatch: ${routing?.starrocks_database}`)
+if (!Number.isFinite(Number(flows)) || Number(flows) <= 0) errors.push(`live_topology FLOWS_TO count not positive: ${flows}`)
 if (errors.length) throw new Error(errors.join('; '))
-console.log(`[uat] public-route identity topology ok: flows=${flows} routing=${routing.starrocks_database}`)
+console.log(`[uat] public live_topology identity-grain edges ok: flows=${flows} routing=${routing.starrocks_database}`)
 NODE
 
 SEMANTIC_FACTS_JSON="${RUN_DIR}/direct-semantic-facts.json"
 SEMANTIC_FACTS_QUERY="USE facts MATCH (a:Identity {identity_id: '${UAT_IDENTITY_KEY}'}) RETURN a.identity_id AS identity_key, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 1"
-log "checking semantic identity facts query"
+log "checking facts identity query"
 npx @modelcontextprotocol/inspector \
   --cli "${MCP_ENDPOINT}" \
   --transport http \
@@ -274,7 +275,6 @@ npx @modelcontextprotocol/inspector \
   --method tools/call \
   --tool-name graph_query \
   --tool-arg "network=${NETWORK}" \
-  --tool-arg "topology_scope=identity" \
   --tool-arg "query=${SEMANTIC_FACTS_QUERY}" >"${SEMANTIC_FACTS_JSON}"
 
 node - "${SEMANTIC_FACTS_JSON}" "${NETWORK}" "${UAT_IDENTITY_KEY}" <<'NODE'
@@ -284,56 +284,18 @@ const network = process.argv[3]
 const identityKey = process.argv[4]
 const data = JSON.parse(fs.readFileSync(file, 'utf8'))
 const errors = []
-if (data.isError) errors.push(`semantic facts query returned isError=true: ${data.content?.[0]?.text || 'unknown error'}`)
+if (data.isError) errors.push(`facts query returned isError=true: ${data.content?.[0]?.text || 'unknown error'}`)
 const subject = data.structuredContent?.facts?.subject
 const routing = data.structuredContent?.facts?.routing
 const results = data.structuredContent?.facts?.query?.results || []
 const match = results.find((row) => row.identity_key === identityKey)
 const labels = Array.isArray(match?.labels) ? match.labels.join(',') : (match?.labels || '')
 if (subject?.network !== network) errors.push(`semantic facts subject network mismatch: ${subject?.network}`)
-if (subject?.topology_scope !== 'identity') errors.push(`semantic facts subject scope mismatch: ${subject?.topology_scope}`)
-if (routing?.starrocks_database !== `${network}_semantic`) errors.push(`semantic facts routing database mismatch: ${routing?.starrocks_database}`)
-if (!match) errors.push(`semantic facts query did not return identity key ${identityKey}`)
-if (labels.length === 0) errors.push('semantic facts query did not return identity labels')
+if (routing?.starrocks_database !== `${network}_semantic`) errors.push(`facts routing database mismatch: ${routing?.starrocks_database}`)
+if (!match) errors.push(`facts query did not return identity key ${identityKey}`)
+if (labels.length === 0) errors.push('facts query did not return identity labels')
 if (errors.length) throw new Error(errors.join('; '))
-console.log(`[uat] semantic facts query ok: identity_key=${identityKey} labels=${labels}`)
-NODE
-
-ADDRESS_SCOPE_REJECTION_JSON="${RUN_DIR}/direct-address-scope-rejection.json"
-ADDRESS_SCOPE_QUERY="USE live_topology MATCH (a:Identity)-[f:FLOWS_TO]->(b:Identity) RETURN count(f) AS flows"
-ADDRESS_SCOPE_EXPECTED_ERROR="topology_scope must be identity (address scope was removed; live/archive selection stays in the query via USE)"
-log "checking topology_scope=address is rejected with the unsupported-scope error"
-npx @modelcontextprotocol/inspector \
-  --cli "${MCP_ENDPOINT}" \
-  --transport http \
-  --header "Authorization: Bearer ${DEBUG_TOKEN}" \
-  --header "X-MCP-Debug-Token: ${DEBUG_TOKEN}" \
-  --method tools/call \
-  --tool-name graph_query \
-  --tool-arg "network=${NETWORK}" \
-  --tool-arg "topology_scope=address" \
-  --tool-arg "query=${ADDRESS_SCOPE_QUERY}" >"${ADDRESS_SCOPE_REJECTION_JSON}" 2>&1 || true
-
-node - "${ADDRESS_SCOPE_REJECTION_JSON}" "${ADDRESS_SCOPE_EXPECTED_ERROR}" <<'NODE'
-const fs = require('node:fs')
-const file = process.argv[2]
-const expectedError = process.argv[3]
-const raw = fs.readFileSync(file, 'utf8')
-const errors = []
-if (!raw.includes(expectedError)) {
-  errors.push(`topology_scope=address response did not contain the unsupported-scope error: ${raw.slice(0, 500)}`)
-}
-let data
-try {
-  data = JSON.parse(raw)
-} catch {
-  data = undefined
-}
-if (data && data.isError !== true && data.structuredContent?.facts?.query?.results) {
-  errors.push('topology_scope=address unexpectedly returned query results instead of an error')
-}
-if (errors.length) throw new Error(errors.join('; '))
-console.log('[uat] topology_scope=address rejected with unsupported-scope error')
+console.log(`[uat] facts identity query ok: identity_key=${identityKey} labels=${labels}`)
 NODE
 
 # Run the CLI live-topology assertion before proxy tool checks so graph reads
@@ -378,6 +340,31 @@ if (!first.addresses.includes(substrateAddress)) {
   throw new Error(`HAS_ADDRESS satellites missing SS58 member form ${substrateAddress}: ${JSON.stringify(first.addresses)}`)
 }
 console.log(`[uat] graph_query ok: ${first.identity_id} (addresses=${first.addresses.join(',')})`)
+NODE
+
+# Archive topology compatibility: historical StarRocks-backed topology must
+# expose the same Identity -> HAS_ADDRESS -> Address member-address shape.
+ARCHIVE_MEMBER_TEXT="${RUN_DIR}/graph-query-archive-member-address.txt"
+log "calling Chain Insights CLI graph_query for archive member-address compatibility"
+(
+  cd "${WORKSPACE_ROOT}"
+  node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
+    "network=${NETWORK}" \
+    "query=USE archive_topology MATCH (i:Identity {identity_id: '${UAT_IDENTITY_KEY}'})-[:HAS_ADDRESS]->(m:Address {address: '${UAT_ADDRESS}'}) RETURN i.identity_id AS identity_id, m.address AS address, m.network AS network LIMIT 1"
+) >"${ARCHIVE_MEMBER_TEXT}"
+
+node - "${ARCHIVE_MEMBER_TEXT}" "${UAT_IDENTITY_KEY}" "${UAT_ADDRESS}" "${UAT_MEMBER_NETWORK}" <<'NODE'
+const fs = require('node:fs')
+const file = process.argv[2]
+const identityKey = process.argv[3]
+const memberAddress = process.argv[4]
+const network = process.argv[5]
+const data = JSON.parse(fs.readFileSync(file, 'utf8').trim())
+const first = data.facts?.query?.results?.[0] || data.results?.[0]
+if (!first || first.identity_id !== identityKey || first.address !== memberAddress || first.network !== network) {
+  throw new Error(`archive HAS_ADDRESS lookup for ${memberAddress} did not return ${identityKey}: ${JSON.stringify(first)}`)
+}
+console.log(`[uat] archive HAS_ADDRESS ok: ${first.identity_id} -> ${first.address} (${first.network})`)
 NODE
 
 # Member-address resolution: an exact, index-backed lookup by any member

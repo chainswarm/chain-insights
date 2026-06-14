@@ -425,8 +425,17 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).toContain('local graph report server is started automatically')
     expect(instructions).toContain('FLOWS_TO')
     expect(instructions).toContain('first_tx_id')
+    expect(instructions).toContain('archive member-address lookup')
+    expect(instructions).toContain('(:Identity)-[:HAS_ADDRESS]->(:Address)')
+    expect(instructions).toContain('Address.network')
+    expect(instructions).toContain('member-ledger')
     expect(instructions).toContain('exchange hot wallets are terminal endpoints only')
     expect(instructions).toContain('schema discovery')
+    expect(instructions).toContain('Select the graph with USE live_topology')
+    expect(instructions).toContain('identity is the node grain, not the topology name')
+    expect(instructions).toContain('NeuronEndpoint')
+    expect(instructions).not.toContain('topology_scope accepts only identity')
+    expect(instructions).not.toContain('topology_scope=identity')
   })
 
   it('forwards tool call arguments to remoteClient.callTool', async () => {
@@ -600,9 +609,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
+    const config = findToolConfig(serverInstance, 'balance')
     const handler = findToolHandler(serverInstance, 'balance')
     const result = await handler({})
 
+    expect(config.title).toBe('Balance')
     expect(result.isError).toBe(false)
     expect(result.content[0].text).toContain('Balance: 4.200000 USDC')
   })
@@ -2094,6 +2105,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(promptNames).toEqual(expect.arrayContaining([
       'address-risk',
       'trace-tools',
+      'network-capabilities',
       'graph-query',
       'graph-query-batch',
       'balance',
@@ -2105,10 +2117,16 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     const addressRiskPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'address-risk')
     const traceToolsPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'trace-tools')
+    const networkCapabilitiesPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'network-capabilities')
+    const graphQueryPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'graph-query')
+    const graphQueryBatchPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'graph-query-batch')
     expect(addressRiskPrompt?.[1].argsSchema.network.safeParse(undefined).success).toBe(false)
     expect(traceToolsPrompt?.[1].argsSchema.network.safeParse(undefined).success).toBe(false)
     expect(addressRiskPrompt?.[1].argsSchema.network.description).toContain('Do not guess')
     expect(traceToolsPrompt?.[1].argsSchema.network.description).toContain('Do not guess')
+    expect(networkCapabilitiesPrompt?.[1].title).toBe('Network Capabilities')
+    expect(graphQueryPrompt?.[1].title).toBe('Graph Query')
+    expect(graphQueryBatchPrompt?.[1].title).toBe('Graph Query Batch')
   })
 
   it('forwards GraphRAG prompt requests to the remote MCP prompt implementation', async () => {
@@ -2658,9 +2676,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
+    const config = findToolConfig(serverInstance, 'help')
     const handler = findToolHandler(serverInstance, 'help')
     const result = await handler({})
 
+    expect(config.title).toBe('Help')
     expect(result.isError).toBe(false)
     expect(result.content[0].text).toContain('Chain Insights workspace for AI agents.')
     expect(result.content[0].text).toContain('Workflow:')
@@ -2674,6 +2694,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('Graph query hints for network=bittensor')
     expect(result.content[0].text).toContain('FLOWS_TO')
     expect(result.content[0].text).toContain('first_tx_id')
+    expect(result.content[0].text).toContain('archive member-address lookup')
+    expect(result.content[0].text).toContain('(:Identity)-[:HAS_ADDRESS]->(:Address)')
+    expect(result.content[0].text).toContain('Address.network')
+    expect(result.content[0].text).toContain('member-ledger')
     expect(result.content[0].text).toContain('AddressFeature')
     expect(result.content[0].text).toContain('HAS_FEATURE')
     expect(result.content[0].text).not.toContain('AddressFeatureFact')

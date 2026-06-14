@@ -9,11 +9,12 @@ describe('MCP network capabilities', () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({
       schema: 'chain-insights.network-capabilities.v1',
       networks: [{
-        network: 'tron',
-        display_name: 'TRON',
+        network: 'bittensor',
+        display_name: 'Bittensor',
         status: 'live',
+        default: true,
         layers: {
-          topology: { enabled: true, retention: { mode: 'rolling_window', window_days: 365 } },
+          topology: { enabled: true },
           facts: { enabled: true },
           risk: { enabled: false },
         },
@@ -47,7 +48,7 @@ describe('MCP network capabilities', () => {
     expect(headers.get('X-MCP-Test-Key')).toBe('debug-token')
     expect(headers.get('X-Chain-Insights-Test-Key')).toBe('debug-token')
     expect(headers.get('Authorization')).toBe('Bearer debug-token')
-    expect(result.networks[0]?.network).toBe('tron')
+    expect(result.networks[0]?.network).toBe('bittensor')
   })
 
   it('includes the metadata URL when network capability fetch fails', async () => {
@@ -70,11 +71,12 @@ describe('MCP network capabilities', () => {
     const output = formatNetworkCapabilities({
       schema: 'chain-insights.network-capabilities.v1',
       networks: [{
-        network: 'tron',
-        display_name: 'TRON',
+        network: 'bittensor',
+        display_name: 'Bittensor',
         status: 'live',
+        default: true,
         layers: {
-          topology: { enabled: true, retention: { mode: 'rolling_window', window_days: 365 } },
+          topology: { enabled: true },
           facts: { enabled: true },
           risk: { enabled: false },
         },
@@ -91,7 +93,7 @@ describe('MCP network capabilities', () => {
       }],
     })
 
-    expect(output).toContain('TRON')
+    expect(output).toContain('Bittensor')
     expect(output).toContain('yes')
     expect(output).toContain('84..7440268 / 2023-03-20..2026-01-31')
     expect(output).toContain('graph_query, graph_query_batch')
@@ -103,8 +105,8 @@ describe('MCP network capabilities', () => {
     const output = formatNetworkCapabilities({
       schema: 'chain-insights.network-capabilities.v1',
       networks: [{
-        network: 'base',
-        display_name: 'Base',
+        network: 'future_network',
+        display_name: 'Future Network',
         status: 'unavailable',
         layers: {
           topology: { enabled: false },
@@ -118,7 +120,7 @@ describe('MCP network capabilities', () => {
       }],
     })
 
-    expect(output).toContain('Base')
+    expect(output).toContain('Future Network')
     expect(output).toContain('none')
   })
 
@@ -128,8 +130,8 @@ describe('MCP network capabilities', () => {
     const output = formatNetworkCapabilities({
       schema: 'chain-insights.network-capabilities.v1',
       networks: [{
-        network: 'tron',
-        display_name: 'TRON',
+        network: 'bittensor',
+        display_name: 'Bittensor',
         status: 'live',
         layers: {
           topology: { enabled: true },
@@ -150,17 +152,17 @@ describe('MCP network capabilities', () => {
     expect(output).toContain('blocks unknown / 2026-05-19..2026-05-20')
   })
 
-  it('does not expose StarRocks storage materializations in CLI output', async () => {
+  it('does not expose StarRocks storage metadata in CLI output', async () => {
     const { formatNetworkCapabilities } = await import('../src/mcp/capabilities.js')
 
     const output = formatNetworkCapabilities({
       schema: 'chain-insights.network-capabilities.v1',
       networks: [{
-        network: 'tron',
-        display_name: 'TRON',
+        network: 'bittensor',
+        display_name: 'Bittensor',
         status: 'live',
         layers: {
-          topology: { enabled: true, retention: { mode: 'unknown' } },
+          topology: { enabled: true },
           facts: { enabled: true },
           risk: { enabled: false },
         },
@@ -170,5 +172,7 @@ describe('MCP network capabilities', () => {
 
     expect(output).not.toContain('Transfers')
     expect(output).not.toContain('raw/day/month/year')
+    expect(output).not.toContain('retention')
+    expect(output).not.toContain('window_days')
   })
 })

@@ -226,31 +226,39 @@ npx @modelcontextprotocol/inspector \
 Claude Desktop does not hot-reload its MCP config. Fully quit and reopen it
 after setup.
 
-Useful MCP prompts:
+Current MCP prompts exposed by the local proxy:
+
+- `address-risk`
+- `trace-tools`
+- `network-capabilities`
+- `graph-query`
+- `graph-query-batch`
+- `balance`
+- `help`
+
+Useful prompt text:
 
 ```text
-Use Chain Insights to show my payment wallet balance.
+Use Chain Insights network-capabilities. Report the supported networks and
+available tools exactly as returned.
 ```
 
 ```text
 Use Chain Insights graph_query on network bittensor with:
-USE live_topology MATCH (n) WHERE n.address IS NOT NULL RETURN n.labels AS labels, n.address AS address LIMIT 10
+USE live_topology MATCH (i:Identity)
+RETURN i.identity_id AS identity_id, i.labels AS labels, i.risk_level AS risk_level
+LIMIT 10
 ```
 
 ```text
 Use Chain Insights graph_query_batch on network bittensor with these read-only Cypher queries:
-1. USE live_topology MATCH (n) RETURN count(n) AS count LIMIT 1
-2. USE live_topology MATCH (n) WHERE n.address IS NOT NULL RETURN n.labels AS labels, n.address AS address LIMIT 3
+1. USE live_topology MATCH (i:Identity) RETURN count(i) AS count LIMIT 1
+2. USE live_topology MATCH (src:Identity)-[f:FLOWS_TO]->(dst:Identity) RETURN src.identity_id AS source, dst.identity_id AS target, f.amount_usd_sum AS amount_usd_sum LIMIT 3
 ```
 
 ```text
-Use Chain Insights to open a workspace investigation thread named
-"Exchange deposit clustering" with tags aml,bittensor.
-```
-
-```text
-Use Chain Insights to save the last graph_query_batch result as workspace
-evidence.
+Use Chain Insights balance. Show the wallet address, network, token, and
+balance exactly as returned.
 ```
 
 ## Inspector Validation

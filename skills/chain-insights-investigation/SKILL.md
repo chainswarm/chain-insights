@@ -1,6 +1,6 @@
 ---
 name: chain-insights-investigation
-description: Use when operating in a Chain Insights workspace or when the user asks to investigate blockchain activity, trace funds, analyze AML risk, use the cia/chain-insights CLI, work with workspace reports and artifacts, use graph_query, graph_query_batch, Bittensor, Ethereum, or Base investigation data. This skill is mandatory for Codex-led Chain Insights investigations.
+description: Use when operating in a Chain Insights workspace or when the user asks to investigate blockchain activity, trace funds, analyze AML risk, use the cia/chain-insights CLI, work with workspace reports and artifacts, use graph_query, graph_query_batch, or Bittensor semantic investigation data. This skill is mandatory for Codex-led Chain Insights investigations.
 ---
 
 # Chain Insights Investigation
@@ -49,7 +49,7 @@ cia debug off
 4. If `.chain-insights/schema/<network>.graph-schema.json` does not exist, capture schema before the first graph workflow:
    ```bash
    mkdir -p .chain-insights/schema
-   cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE live_topology MATCH (n:Address) RETURN \"Address\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.period_granularity AS granularity, f.amount_sum AS amount_sum LIMIT 20"}]' > .chain-insights/schema/<network>.graph-schema.raw.json
+   cia mcp call graph_query_batch network=<network> 'queries=[{"id":"identity_labels","query":"USE live_topology MATCH (i:Identity) RETURN \"Identity\" AS node_label, count(i) AS sample_count LIMIT 1"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (:Identity)-[f:FLOWS_TO]->(:Identity) RETURN f.period_granularity AS granularity, f.amount_usd_sum AS amount_usd_sum LIMIT 20"},{"id":"member_address_sample","query":"USE live_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 20"},{"id":"archive_member_address_sample","query":"USE archive_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 20"}]' > .chain-insights/schema/<network>.graph-schema.raw.json
    ```
 5. Make sure the canonical workspace output roots exist:
    ```bash
@@ -59,10 +59,10 @@ cia debug off
 ## Hard Rules
 
 - Always preserve full blockchain addresses exactly.
-- Bittensor contains both native Substrate/SS58 addresses such as `5...` and EVM-pallet `0x...` addresses in the same investigation network. Use `network=bittensor` for both; do not switch networks based only on address format.
-- Preserve any returned `address_type` evidence exactly.
-- Python GraphRAG MCP is the golden behavior for `aml_address_risk` and the original victim/source tracing semantics.
-- `GraphRAGQueryEngine.check_aml_address_risk` is the golden single-address reference behavior.
+- Bittensor contains both native Substrate/SS58 addresses such as `5...` and EVM-pallet `0x...` addresses in the same semantic investigation network. Use `network=bittensor` for both; do not switch networks based only on address format.
+- Live and archive topology are identity-grain but graph-selected: use `USE live_topology` for Memgraph live topology and `USE archive_topology` for StarRocks-backed archive topology. Both support compatible `(:Identity)-[:FLOWS_TO]->(:Identity)` and `(:Identity)-[:HAS_ADDRESS]->(:Address)` shapes.
+- Users operate on member addresses. High-level `aml_*` tools may resolve addresses into identity-grain topology internally, but public results, artifacts, and follow-up candidate lists must return member addresses.
+- Use the current Chain Insights AML tool contract as the reference behavior; do not downgrade semantics to legacy implementation details from the old Python GraphRAG path.
 - Never call graph tools without an explicit `network`.
 - Never assume network support. Run `cia mcp networks` first.
 - Never treat user claims as facts until tool output supports them.

@@ -1,21 +1,8 @@
 import type { InvestigatorConfig } from '../config/schema.js'
 import { applyMcpAuthHeaders, resolveGraphMcpEndpoint } from './client.js'
 
-export interface NetworkRetention {
-  mode: 'full_history' | 'rolling_window' | 'expanding_then_rolling' | 'bounded_range' | 'unknown' | string
-  window_days?: number
-  from_block?: number
-  to_block?: number
-  from_timestamp?: string
-  to_timestamp?: string
-  started_at?: string
-  rolls_after_at?: string
-  current_window_seconds?: number
-}
-
 export interface NetworkLayerCapability {
   enabled: boolean
-  retention?: NetworkRetention | null
 }
 
 export interface NetworkCapability {

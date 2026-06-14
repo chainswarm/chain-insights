@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.6.2] - 2026-06-13
+
+- Refreshed the MCP inspector-facing prompt and tool metadata: added the
+  `network-capabilities` prompt, aligned graph prompt titles, and capitalized
+  the local `Balance` and `Help` tool titles.
+- Updated Chain Insights graph docs, shipped Cypher skills, and GraphRAG UAT
+  guidance for the current semantic identity graph: the only public GraphRAG
+  investigation network is `bittensor`, Bittensor SS58 and EVM-pallet member
+  addresses share `network=bittensor`, and money-flow queries use
+  `(:Identity)-[:FLOWS_TO]->(:Identity)` with `amount_usd_sum`.
+
 ## [0.6.1] - 2026-06-13
 
 - Removed the exposure analysis/profile/report tool surfaces from the first
