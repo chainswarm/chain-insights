@@ -3,6 +3,18 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.7.2] - 2026-06-14
+
+- Cleaned up the MCP Inspector tool surface: network inputs now use generic,
+  short descriptions; `aml_address_risk` no longer hardcodes a network name in
+  its description; timestamp fields say they expect Unix milliseconds rather
+  than block heights; and trace depth is described as hops.
+- Simplified the public Inspector trace schemas by hiding low-level
+  `time_range`, `per_address_limit`, and `min_amount_sum` filters from the
+  `aml_trace_*` tool cards while keeping product-facing controls available.
+- Reworked `meta_help` into a short product guide instead of returning graph
+  schema internals.
+
 ## [0.7.1] - 2026-06-14
 
 - Improved the `wallet_balance` MCP Inspector result. The tool now returns

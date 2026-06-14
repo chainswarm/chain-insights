@@ -887,7 +887,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       victim_addresses: '5Seed',
       network: 'bittensor',
       max_hops: 2,
-      per_address_limit: 3,
     })
 
     expect(result.isError).toBe(false)
@@ -1703,7 +1702,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     })
   })
 
-  it('aml_trace_deposit_sources registration forwards min_amount_sum and time_range to the trace', async () => {
+  it('aml_trace_deposit_sources registration exposes only product-facing trace controls', async () => {
     traceDepositSourcesMock.mockResolvedValue({
       summaryText: 'Deposit sources trace complete for bittensor',
       structuredContent: {
@@ -1735,10 +1734,18 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
+    const config = findToolConfig(serverInstance, 'aml_trace_deposit_sources')
+    const inputSchema = config.inputSchema as Record<string, unknown>
+    expect(inputSchema.max_hops).toBeDefined()
+    expect(inputSchema.time_range).toBeUndefined()
+    expect(inputSchema.min_amount_sum).toBeUndefined()
+    expect(inputSchema.per_address_limit).toBeUndefined()
+
     const handler = findToolHandler(serverInstance, 'aml_trace_deposit_sources')
     const result = await handler({
       deposit_addresses: ['5Deposit'],
       network: 'bittensor',
+      max_hops: 2,
       min_amount_sum: 25,
       time_range: { from_ms: 1715500000000 },
     })
@@ -1747,12 +1754,13 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(traceDepositSourcesMock).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
       depositAddresses: ['5Deposit'],
       network: 'bittensor',
-      minAmountSum: 25,
-      timeRange: { from_ms: 1715500000000 },
+      maxHops: 2,
     }))
+    expect(traceDepositSourcesMock.mock.calls[0]?.[2]).not.toHaveProperty('minAmountSum')
+    expect(traceDepositSourcesMock.mock.calls[0]?.[2]).not.toHaveProperty('timeRange')
   })
 
-  it('aml_trace_victim_funds passes time_range through as the probe activity window', async () => {
+  it('aml_trace_victim_funds exposes user-facing incident time and hides low-level filters', async () => {
     runFundFlowProbeMock.mockResolvedValue({
       summaryText: 'Trace complete for bittensor:5Victim',
       compactEvidence: {},
@@ -1809,47 +1817,33 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
+    const config = findToolConfig(serverInstance, 'aml_trace_victim_funds')
+    const inputSchema = config.inputSchema as Record<string, { description?: string } | undefined>
+    expect(inputSchema.incident_timestamp_ms?.description).toContain('Unix timestamp in milliseconds')
+    expect(inputSchema.incident_timestamp_ms?.description).toContain('not a block number')
+    expect(inputSchema.max_hops?.description).toContain('Trace depth in hops')
+    expect(inputSchema.time_range).toBeUndefined()
+    expect(inputSchema.min_amount_sum).toBeUndefined()
+    expect(inputSchema.per_address_limit).toBeUndefined()
+
     const handler = findToolHandler(serverInstance, 'aml_trace_victim_funds')
     const result = await handler({
       victim_addresses: ['5Victim'],
       network: 'bittensor',
+      incident_timestamp_ms: 1715500000000,
       time_range: { from_ms: 1715500000000, to_ms: 1716000000000 },
+      min_amount_sum: 25,
     })
 
     expect(result.isError).toBe(false)
     expect(runFundFlowProbeMock).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
       seedAddress: '5Victim',
       network: 'bittensor',
-      activityWindow: { fromMs: 1715500000000, toMs: 1716000000000 },
+      activityWindow: { fromMs: 1715500000000 },
       evidenceSource: 'aml_trace_victim_funds',
     }))
-    expect(result.structuredContent.input.time_filter).toEqual({ from_ms: 1715500000000, to_ms: 1716000000000 })
-  })
-
-  it('aml_trace_victim_funds input schema rejects time_range without from_ms', async () => {
-    const { loadSchema } = await import('../src/mcp/schema-cache.js')
-    vi.mocked(loadSchema).mockResolvedValueOnce([
-      { name: 'graph_query_batch', description: 'Cypher topology query batch' },
-    ])
-
-    const { createProxy } = await import('../src/mcp/proxy.js')
-    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
-
-    await createProxy()
-
-    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
-      registerTool: ReturnType<typeof vi.fn>
-    }
-    const config = findToolConfig(serverInstance, 'aml_trace_victim_funds')
-    const schema = z.object(config['inputSchema'] as z.ZodRawShape)
-    const parsed = schema.safeParse({
-      victim_addresses: '5Victim',
-      network: 'bittensor',
-      time_range: { to_ms: 1716000000000 },
-    })
-
-    expect(parsed.success).toBe(false)
-    expect(JSON.stringify(parsed.error?.issues ?? [])).toContain('from_ms')
+    expect(runFundFlowProbeMock.mock.calls[0]?.[2]?.minAmountSum).toBeUndefined()
+    expect(runFundFlowProbeMock.mock.calls[0]?.[2]).not.toHaveProperty('timeRange')
   })
 
   it('aml_trace_deposit_sources performs reverse tracing and reports shared upstream convergence', async () => {
@@ -2268,8 +2262,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const graphQueryBatchPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'graph-query-batch')
     expect(addressRiskPrompt?.[1].argsSchema.network.safeParse(undefined).success).toBe(false)
     expect(traceVictimPrompt?.[1].argsSchema.network.safeParse(undefined).success).toBe(false)
-    expect(addressRiskPrompt?.[1].argsSchema.network.description).toContain('only bittensor is supported')
-    expect(traceVictimPrompt?.[1].argsSchema.network.description).toContain('only bittensor is supported')
+    expect(addressRiskPrompt?.[1].argsSchema.network.description).toContain('Network to query')
+    expect(addressRiskPrompt?.[1].argsSchema.network.description).toContain('Bittensor')
+    expect(traceVictimPrompt?.[1].argsSchema.network.description).toContain('Network to query')
+    expect(traceVictimPrompt?.[1].argsSchema.network.description).toContain('Base')
     expect(networkCapabilitiesPrompt?.[1].title).toBe('Network Capabilities')
     expect(graphQueryPrompt?.[1].title).toBe('Graph Query')
     expect(graphQueryBatchPrompt?.[1].title).toBe('Graph Query Batch')
@@ -2347,7 +2343,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     expect(inputSchema.address).toBeDefined()
     expect(inputSchema.network).toBeDefined()
-    expect((inputSchema.network as { description?: string }).description).toContain('only bittensor is supported')
+    expect((inputSchema.network as { description?: string }).description).toContain('Network to query')
+    expect((inputSchema.network as { description?: string }).description).toContain('Bittensor')
     expect(config.description).toContain('Required arguments: address, network.')
     expect(config.description).toContain('Do not guess a default network')
   })
@@ -2373,7 +2370,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
     const config = findToolConfig(serverInstance, 'aml_address_risk')
 
-    expect(config.description).toContain('Screen one Bittensor address')
+    expect(config.description).toContain('Screen one blockchain address')
+    expect(config.description).not.toContain('Bittensor address')
     expect(config.description).toContain('Required arguments: address, network.')
     expect(config.description).not.toContain('Use address_connection_risk instead')
   })
@@ -2821,9 +2819,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const handler = findToolHandler(serverInstance, 'meta_help')
     const result = await handler({})
 
-    expect(config.title).toBe('Help')
+    expect(config.title).toBe('Chain Insights Help')
     expect(result.isError).toBe(false)
-    expect(result.content[0].text).toContain('Chain Insights workspace for AI agents.')
+    expect(result.content[0].text).toContain('Chain Insights helps AI agents run AML investigation workflows')
     expect(result.content[0].text).toContain('Workflow:')
     expect(result.content[0].text).toContain('Network is required')
     expect(result.content[0].text).toContain('aml_address_risk')
@@ -2832,17 +2830,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).not.toContain('topup')
     expect(result.content[0].text).toContain('Graph visualization behavior')
     expect(result.content[0].text).toContain('local graph report server is started automatically')
-    expect(result.content[0].text).toContain('Graph query hints for network=bittensor')
-    expect(result.content[0].text).toContain('FLOWS_TO')
-    expect(result.content[0].text).toContain('first_tx_id')
-    expect(result.content[0].text).toContain('archive member-address lookup')
-    expect(result.content[0].text).toContain('(:Identity)-[:HAS_ADDRESS]->(:Address)')
-    expect(result.content[0].text).toContain('Address.network')
-    expect(result.content[0].text).toContain('member-ledger')
-    expect(result.content[0].text).toContain('AddressFeature')
-    expect(result.content[0].text).toContain('HAS_FEATURE')
+    expect(result.content[0].text).not.toContain('Graph query hints for network=bittensor')
+    expect(result.content[0].text).not.toContain('FLOWS_TO')
+    expect(result.content[0].text).not.toContain('first_tx_id')
+    expect(result.content[0].text).not.toContain('archive member-address lookup')
+    expect(result.content[0].text).not.toContain('(:Identity)-[:HAS_ADDRESS]->(:Address)')
+    expect(result.content[0].text).not.toContain('member-ledger')
     expect(result.content[0].text).not.toContain('AddressFeatureFact')
-    expect(result.content[0].text).toContain('schema discovery')
+    expect(result.content[0].text).not.toContain('schema discovery')
     expect(result.content[0].text).not.toContain('GraphRAG')
     expect(result.content[0].text).not.toContain('prox')
     expect(result.content[0].text).not.toContain('chain-insights mcp')
