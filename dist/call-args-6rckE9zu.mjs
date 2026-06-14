@@ -2,9 +2,7 @@
 const NUMERIC_ARG_KEYS = new Set([
 	"per_query_timeout_seconds",
 	"incident_timestamp_ms",
-	"max_hops",
-	"per_address_limit",
-	"min_amount_sum"
+	"max_hops"
 ]);
 function parseMcpArgValue(key, value) {
 	const trimmed = value.trim();
@@ -24,4 +22,6 @@ function parseMcpCallArgs(rawArgs) {
 	return args;
 }
 //#endregion
-exports.parseMcpCallArgs = parseMcpCallArgs;
+export { parseMcpCallArgs };
+
+//# sourceMappingURL=call-args-6rckE9zu.mjs.map

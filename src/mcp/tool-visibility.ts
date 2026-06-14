@@ -21,6 +21,24 @@ export const HIDDEN_REMOTE_TOOL_NAMES = new Set([
   'exposure_explain',
 ])
 
+export const PUBLIC_MCP_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
+  aml_address_risk: ['address', 'network'],
+  aml_trace_victim_funds: ['victim_addresses', 'network'],
+  aml_trace_suspect_funds: ['suspect_addresses', 'network'],
+  aml_trace_deposit_sources: ['deposit_addresses', 'network'],
+  graph_query: ['query', 'network'],
+  graph_query_batch: ['network', 'queries'],
+}
+
+export const PUBLIC_MCP_TOOL_ALLOWED_ARGS: Record<string, string[]> = {
+  aml_address_risk: ['address', 'network', 'compare_address', 'include_attachments'],
+  aml_trace_victim_funds: ['victim_addresses', 'network', 'known_suspect_addresses', 'incident_timestamp_ms', 'max_hops', 'include_attachments'],
+  aml_trace_suspect_funds: ['suspect_addresses', 'network', 'incident_timestamp_ms', 'max_hops', 'include_attachments'],
+  aml_trace_deposit_sources: ['deposit_addresses', 'network', 'max_hops', 'include_attachments'],
+  graph_query: ['query', 'network'],
+  graph_query_batch: ['network', 'queries', 'per_query_timeout_seconds'],
+}
+
 export function isHiddenRemoteToolName(name: string): boolean {
   return HIDDEN_REMOTE_TOOL_NAMES.has(name)
 }
@@ -53,4 +71,17 @@ export function assertPublicMcpToolName(name: string): void {
         ? ' Use meta_help instead.'
       : ''
   throw new Error(`MCP tool '${name}' is not exposed by Chain Insights.${replacement}`)
+}
+
+export function validatePublicMcpToolArguments(name: string, args: Record<string, unknown>): void {
+  const allowedArgs = PUBLIC_MCP_TOOL_ALLOWED_ARGS[name]
+  if (!allowedArgs) return
+
+  const unsupportedArgs = Object.keys(args).filter((argName) => !allowedArgs.includes(argName))
+  if (unsupportedArgs.length === 0) return
+
+  throw new Error([
+    `Unsupported argument${unsupportedArgs.length === 1 ? '' : 's'} for ${name}: ${unsupportedArgs.join(', ')}.`,
+    `Allowed arguments: ${allowedArgs.join(', ')}.`,
+  ].join(' '))
 }

@@ -558,10 +558,10 @@ program
   )
   .addCommand(
     new Command('aml-address-risk')
-      .description('Screen an address for risk, exchange behavior, and optional compare_address connection risk')
+      .description('Screen an address for AML risk, exchange behavior, and optional comparison with another address')
       .requiredOption('--address <address>', 'Full blockchain address to screen')
       .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
-      .option('--compare-address <address>', 'Optional second address for connection-risk compare mode')
+      .option('--compare-address <address>', 'Optional second address to compare against the screened address')
       .option('--remote', 'Force remote MCP tool call instead of local Chain Insights recipe')
       .action(async (opts: { address: string; network: string; compareAddress?: string; remote?: boolean }) => {
         try {
@@ -725,9 +725,10 @@ program
       .action(async (tool: string, rawArgs: string[]) => {
         try {
           const { parseMcpCallArgs } = await import('./mcp/call-args.js')
-          const { assertPublicMcpToolName } = await import('./mcp/tool-visibility.js')
+          const { assertPublicMcpToolName, validatePublicMcpToolArguments } = await import('./mcp/tool-visibility.js')
           const args = parseMcpCallArgs(rawArgs)
           assertPublicMcpToolName(tool)
+          validatePublicMcpToolArguments(tool, args)
 
           if (tool === 'wallet_balance') {
             const { getWalletBalanceText } = await import('./wallet/tools.js')
@@ -769,8 +770,6 @@ program
                 network: String(args['network'] ?? ''),
                 incidentTimestampMs: optionalNumberArg(args['incident_timestamp_ms'], 'incident_timestamp_ms'),
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
-                perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
-                minAmountSum: typeof args['min_amount_sum'] === 'number' ? args['min_amount_sum'] : undefined,
               })
               console.log(result.summaryText)
               console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -782,8 +781,6 @@ program
                 suspectAddresses: args['suspect_addresses'] as string | string[] | undefined ?? '',
                 network: String(args['network'] ?? ''),
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
-                perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
-                minAmountSum: typeof args['min_amount_sum'] === 'number' ? args['min_amount_sum'] : undefined,
                 incidentTimestampMs: optionalNumberArg(args['incident_timestamp_ms'], 'incident_timestamp_ms'),
               })
               console.log(result.summaryText)

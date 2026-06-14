@@ -292,11 +292,10 @@ npx @modelcontextprotocol/inspector \
 
 ## Graph Reports
 
-Graph-backed tools may return raw graph data in
-`_meta.chainInsights.graph.data`. Chain Insights stores that graph data under
-`reports/graphs/*.graph.json` in the active workspace and returns
-`_meta.chainInsights.graph.url` pointing to
-`/graph-reports/<filename>.graph.json`.
+Graph-backed tools can prepare a local graph view for the report. Chain
+Insights stores graph report files under `reports/graphs/*.graph.json` in the
+active workspace and exposes them to compatible MCP clients through app
+metadata.
 
 The local graph report server binds to localhost. Chain Insights does not
 create duplicated `artifacts/` graph payloads; `reports/graphs/` is canonical.

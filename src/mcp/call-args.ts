@@ -2,8 +2,6 @@ const NUMERIC_ARG_KEYS = new Set([
   'per_query_timeout_seconds',
   'incident_timestamp_ms',
   'max_hops',
-  'per_address_limit',
-  'min_amount_sum',
 ])
 
 function parseMcpArgValue(key: string, value: string): unknown {

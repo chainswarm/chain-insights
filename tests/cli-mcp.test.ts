@@ -132,9 +132,10 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
   let args: Record<string, unknown>
   try {
     const { parseMcpCallArgs } = await import('../src/mcp/call-args.js')
-    const { assertPublicMcpToolName } = await import('../src/mcp/tool-visibility.js')
+    const { assertPublicMcpToolName, validatePublicMcpToolArguments } = await import('../src/mcp/tool-visibility.js')
     args = parseMcpCallArgs(rawArgs)
     assertPublicMcpToolName(tool)
+    validatePublicMcpToolArguments(tool, args)
   } catch (err) {
     console.error((err as Error).message)
     process.exit(1)
@@ -455,22 +456,38 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
   })
 
-  it('mcp call parses trace tool numeric controls', async () => {
+  it('mcp call parses current public trace numeric controls only', async () => {
     const { parseMcpCallArgs } = await import('../src/mcp/call-args.js')
 
     expect(parseMcpCallArgs([
       'victim_addresses=5Seed',
       'network=bittensor',
       'max_hops=8',
+      'incident_timestamp_ms=1715500000000',
       'per_address_limit=10',
       'min_amount_sum=1.5',
     ])).toEqual({
       victim_addresses: '5Seed',
       network: 'bittensor',
       max_hops: 8,
-      per_address_limit: 10,
-      min_amount_sum: 1.5,
+      incident_timestamp_ms: 1715500000000,
+      per_address_limit: '10',
+      min_amount_sum: '1.5',
     })
+  })
+
+  it('mcp call rejects removed trace controls before local recipe execution', async () => {
+    await expect(runMcpCallAction('aml_trace_suspect_funds', [
+      'network=bittensor',
+      'suspect_addresses=5Suspect',
+      'min_amount_sum=1.5',
+    ])).rejects.toThrow('process.exit(1)')
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Unsupported argument for aml_trace_suspect_funds: min_amount_sum. Allowed arguments: suspect_addresses, network, incident_timestamp_ms, max_hops, include_attachments.'
+    )
+    expect(mockClientConnect).not.toHaveBeenCalled()
+    expect(mockTraceSuspectFunds).not.toHaveBeenCalled()
   })
 
   it('mcp call parses aml_trace_suspect_funds without requiring incident timestamp', async () => {

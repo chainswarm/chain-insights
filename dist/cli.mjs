@@ -355,7 +355,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 	try {
 		const { loadSchema, saveSchema } = await import("./schema-cache-DwDvPy4e.mjs");
 		const { formatToolsTable } = await import("./format-Bq94jSyw.mjs");
-		const { visibleRemoteTools } = await import("./tool-visibility-CmaiRzJc.mjs").then((n) => n.n);
+		const { visibleRemoteTools } = await import("./tool-visibility-DQ6_mq2m.mjs").then((n) => n.i);
 		const { loadConfig } = await import("./config-C6zM8Xir.mjs").then((n) => n.t);
 		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-D1aMU7vY.mjs").then((n) => n.r);
 		const config = await loadConfig();
@@ -382,7 +382,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new Command("aml-address-risk").description("Screen an address for risk, exchange behavior, and optional compare_address connection risk").requiredOption("--address <address>", "Full blockchain address to screen").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--compare-address <address>", "Optional second address for connection-risk compare mode").option("--remote", "Force remote MCP tool call instead of local Chain Insights recipe").action(async (opts) => {
+})).addCommand(new Command("aml-address-risk").description("Screen an address for AML risk, exchange behavior, and optional comparison with another address").requiredOption("--address <address>", "Full blockchain address to screen").requiredOption("--network <network>", "Network to query. Run `cia mcp networks` for supported networks.").option("--compare-address <address>", "Optional second address to compare against the screened address").option("--remote", "Force remote MCP tool call instead of local Chain Insights recipe").action(async (opts) => {
 	try {
 		await withGraphMcpClient("chain-insights-cli-aml-address-risk", async (client) => {
 			if (opts.remote) {
@@ -482,10 +482,11 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 	}
 })).addCommand(new Command("call").description("Call an MCP tool directly (debug)").argument("<tool>", "Tool name to call").argument("[args...]", "Key=value arguments (e.g. address=5Seed network=bittensor)").action(async (tool, rawArgs) => {
 	try {
-		const { parseMcpCallArgs } = await import("./call-args-DPXdX3_D.mjs");
-		const { assertPublicMcpToolName } = await import("./tool-visibility-CmaiRzJc.mjs").then((n) => n.n);
+		const { parseMcpCallArgs } = await import("./call-args-6rckE9zu.mjs");
+		const { assertPublicMcpToolName, validatePublicMcpToolArguments } = await import("./tool-visibility-DQ6_mq2m.mjs").then((n) => n.i);
 		const args = parseMcpCallArgs(rawArgs);
 		assertPublicMcpToolName(tool);
+		validatePublicMcpToolArguments(tool, args);
 		if (tool === "wallet_balance") {
 			const { getWalletBalanceText } = await import("./tools-BHBPchXp.mjs").then((n) => n.u);
 			console.log(await getWalletBalanceText());
@@ -524,9 +525,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 					knownSuspectAddresses: args["known_suspect_addresses"],
 					network: String(args["network"] ?? ""),
 					incidentTimestampMs: optionalNumberArg(args["incident_timestamp_ms"], "incident_timestamp_ms"),
-					maxHops: typeof args["max_hops"] === "number" ? args["max_hops"] : void 0,
-					perAddressLimit: typeof args["per_address_limit"] === "number" ? args["per_address_limit"] : void 0,
-					minAmountSum: typeof args["min_amount_sum"] === "number" ? args["min_amount_sum"] : void 0
+					maxHops: typeof args["max_hops"] === "number" ? args["max_hops"] : void 0
 				});
 				console.log(result.summaryText);
 				console.log(JSON.stringify(result.structuredContent, null, 2));
@@ -538,8 +537,6 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 					suspectAddresses: args["suspect_addresses"] ?? "",
 					network: String(args["network"] ?? ""),
 					maxHops: typeof args["max_hops"] === "number" ? args["max_hops"] : void 0,
-					perAddressLimit: typeof args["per_address_limit"] === "number" ? args["per_address_limit"] : void 0,
-					minAmountSum: typeof args["min_amount_sum"] === "number" ? args["min_amount_sum"] : void 0,
 					incidentTimestampMs: optionalNumberArg(args["incident_timestamp_ms"], "incident_timestamp_ms")
 				});
 				console.log(result.summaryText);
