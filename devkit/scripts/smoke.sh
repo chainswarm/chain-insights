@@ -67,12 +67,14 @@ PY
 
 mcp_post "tools/call" '{"name":"network_capabilities","arguments":{}}' "$EVIDENCE_DIR/network-capabilities.json"
 
-mcp_post "tools/call" '{"name":"graph_query","arguments":{"network":"bittensor","query":"USE live_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(a:Address) RETURN i.identity_id, a.address LIMIT 1;"}}' "$EVIDENCE_DIR/live-topology.json"
+mcp_post "tools/call" '{"name":"graph_query","arguments":{"network":"bittensor","query":"USE live_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(a:Address) RETURN i.identity_id, a.address LIMIT 1"}}' "$EVIDENCE_DIR/live-topology.json"
 
-mcp_post "tools/call" '{"name":"graph_query","arguments":{"network":"bittensor","query":"USE archive_topology MATCH (i:Identity)-[r:FLOWS_TO]->(j:Identity) RETURN count(r) AS flow_count LIMIT 1;"}}' "$EVIDENCE_DIR/archive-coverage.json"
+mcp_post "tools/call" '{"name":"graph_query","arguments":{"network":"bittensor","query":"USE archive_topology MATCH (i:Identity)-[r:FLOWS_TO]->(j:Identity) RETURN count(r) AS flow_count LIMIT 1"}}' "$EVIDENCE_DIR/archive-coverage.json"
 
-mcp_post "tools/call" '{"name":"graph_query","arguments":{"network":"bittensor","query":"USE facts MATCH (f:AddressFeature) RETURN count(f) AS features LIMIT 1;"}}' "$EVIDENCE_DIR/facts.json"
+mcp_post "tools/call" '{"name":"graph_query","arguments":{"network":"bittensor","query":"USE facts MATCH (f:AddressFeature) RETURN count(f) AS features LIMIT 1"}}' "$EVIDENCE_DIR/facts.json"
 
-mcp_post "tools/call" '{"name":"graph_query_batch","arguments":{"network":"bittensor","queries":[{"id":"live","query":"USE live_topology MATCH (i:Identity) RETURN count(i) AS identities LIMIT 1;"},{"id":"facts","query":"USE facts MATCH (f:AddressFeature) RETURN count(f) AS features LIMIT 1;"}]}}' "$EVIDENCE_DIR/graph-query-batch.json"
+mcp_post "tools/call" '{"name":"graph_query_batch","arguments":{"network":"bittensor","queries":[{"id":"live","query":"USE live_topology MATCH (i:Identity) RETURN count(i) AS identities LIMIT 1"},{"id":"facts","query":"USE facts MATCH (f:AddressFeature) RETURN count(f) AS features LIMIT 1"}]}}' "$EVIDENCE_DIR/graph-query-batch.json"
+
+"$SCRIPT_DIR/smoke-memgql-objects.py" > "$EVIDENCE_DIR/memgql-object-coverage.json"
 
 printf '%s\n' "devkit smoke evidence written to workspace/devkit-smoke"

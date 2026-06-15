@@ -748,8 +748,15 @@ program
 
           await withGraphMcpClient('chain-insights-cli-call', async (client, config) => {
             if (tool === 'meta_usage_status') {
-              const result = await client.callTool({ name: 'usage_status', arguments: {} })
-              printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
+              try {
+                const result = await client.callTool({ name: 'usage_status', arguments: {} })
+                printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
+              } catch (err) {
+                const { isMissingUsageStatusToolError, primitiveBackendUsageStatus, usageStatusText } = await import('./mcp/usage-status.js')
+                if (!isMissingUsageStatusToolError(err)) throw err
+                const { resolveGraphMcpEndpoint } = await import('./mcp/client.js')
+                console.log(usageStatusText(primitiveBackendUsageStatus(resolveGraphMcpEndpoint(config))))
+              }
               return
             }
             if (tool === 'aml_address_risk') {

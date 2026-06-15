@@ -14,6 +14,7 @@ import { PACKAGE_VERSION } from '../version.js'
 import type { McpTool } from './schema-cache.js'
 import { HIDDEN_REMOTE_TOOL_NAMES, PUBLIC_MCP_TOOL_ALLOWED_ARGS, PUBLIC_MCP_TOOL_REQUIRED_ARGS } from './tool-visibility.js'
 import { PaymentRequiredError } from './client.js'
+import { primitiveBackendUsageStatus } from './usage-status.js'
 
 const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -1084,7 +1085,7 @@ export async function createProxy(): Promise<void> {
     },
     async () => {
       try {
-        if (!remoteConnected || !remoteToolNames.has('usage_status')) {
+        if (!remoteConnected) {
           return {
             content: [{
               type: 'text' as const,
@@ -1092,6 +1093,9 @@ export async function createProxy(): Promise<void> {
             }],
             isError: true,
           }
+        }
+        if (!remoteToolNames.has('usage_status')) {
+          return jsonTextResult(primitiveBackendUsageStatus(graphMcpEndpoint))
         }
         const result = await remoteClient.callTool({ name: 'usage_status', arguments: {} }) as RemoteToolResult
         const structuredContent = isRecord(result.structuredContent)

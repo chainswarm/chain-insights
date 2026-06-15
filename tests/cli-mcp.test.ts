@@ -149,10 +149,16 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
   const client = new Client({ name: 'chain-insights-cli-call', version: '0.2.0' })
   await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }))
   if (tool === 'meta_usage_status') {
-    const result = await client.callTool({ name: 'usage_status', arguments: {} })
-    const content = result.content as Array<{ type: string; text?: string }>
-    for (const item of content) {
-      if (item.type === 'text') console.log(item.text)
+    try {
+      const result = await client.callTool({ name: 'usage_status', arguments: {} })
+      const content = result.content as Array<{ type: string; text?: string }>
+      for (const item of content) {
+        if (item.type === 'text') console.log(item.text)
+      }
+    } catch (err) {
+      const { isMissingUsageStatusToolError, primitiveBackendUsageStatus, usageStatusText } = await import('../src/mcp/usage-status.js')
+      if (!isMissingUsageStatusToolError(err)) throw err
+      console.log(usageStatusText(primitiveBackendUsageStatus(resolveGraphMcpEndpoint(config))))
     }
     await client.close()
     return
@@ -438,6 +444,28 @@ describe('CLI mcp subcommand (MCP-02)', () => {
       arguments: {},
     })
     expect(consoleLogSpy).toHaveBeenCalledWith('{"usage":{"remaining_seconds":10}}')
+  })
+
+  it('mcp call returns a devkit usage status when upstream usage_status is absent', async () => {
+    mockLoadConfig.mockResolvedValue({
+      mcpEndpoint: 'http://localhost:8011/mcp',
+      graphMcpEndpoint: 'http://127.0.0.1:18012/mcp',
+    })
+    mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
+    mockClientConnect.mockResolvedValue(undefined)
+    mockClientCallTool.mockRejectedValue(new Error('MCP error -32602: unknown tool "usage_status"'))
+    mockClientClose.mockResolvedValue(undefined)
+
+    await runMcpCallAction('meta_usage_status', [])
+
+    expect(mockClientCallTool).toHaveBeenCalledWith({
+      name: 'usage_status',
+      arguments: {},
+    })
+    const text = String(consoleLogSpy.mock.calls.at(-1)?.[0] ?? '')
+    expect(text).toContain('"tool": "meta_usage_status"')
+    expect(text).toContain('"mode": "primitive_graph_backend"')
+    expect(text).toContain('"usage_status_tool": "unavailable"')
   })
 
   it('mcp call preserves number-like scalar strings', async () => {

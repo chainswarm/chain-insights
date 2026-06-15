@@ -708,6 +708,44 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).not.toContain('"tool":"usage_status"')
   })
 
+  it('returns primitive backend usage status when remote usage_status is absent', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'network_capabilities', description: 'Network capabilities' },
+      { name: 'graph_query', description: 'Federated graph query' },
+      { name: 'graph_query_batch', description: 'Federated graph query batch' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'meta_usage_status')
+    const result = await handler({})
+
+    expect(clientInstance.callTool).not.toHaveBeenCalledWith({ name: 'usage_status', arguments: {} })
+    expect(result.isError).not.toBe(true)
+    expect(result.structuredContent).toMatchObject({
+      schema: 'chain-insights.result.v1',
+      tool: 'meta_usage_status',
+      facts: {
+        usage: {
+          mode: 'primitive_graph_backend',
+          usage_status_tool: 'unavailable',
+        },
+      },
+    })
+    expect(result.content[0].text).toContain('"usage_status_tool": "unavailable"')
+  })
+
   it('advertises canonical graph, metadata, and wallet tools but not hidden remote tools', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
