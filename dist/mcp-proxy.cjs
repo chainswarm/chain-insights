@@ -3,6 +3,7 @@ const require_chunk = require("./chunk-DakpK96I.cjs");
 const require_version = require("./version-CO9Or_YV.cjs");
 const require_client = require("./client-pAkBddTV.cjs");
 const require_tool_visibility = require("./tool-visibility-BA24cH3g.cjs");
+const require_usage_status = require("./usage-status-BIOT92jc.cjs");
 let node_url = require("node:url");
 let node_path = require("node:path");
 node_path = require_chunk.__toESM(node_path, 1);
@@ -798,13 +799,14 @@ async function createProxy() {
 		}
 	}, async () => {
 		try {
-			if (!remoteConnected || !remoteToolNames.has("usage_status")) return {
+			if (!remoteConnected) return {
 				content: [{
 					type: "text",
 					text: `${remoteUnavailableMessage ?? `Graph MCP is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`
 				}],
 				isError: true
 			};
+			if (!remoteToolNames.has("usage_status")) return jsonTextResult(require_usage_status.primitiveBackendUsageStatus(graphMcpEndpoint));
 			const result = await remoteClient.callTool({
 				name: "usage_status",
 				arguments: {}

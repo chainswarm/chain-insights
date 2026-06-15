@@ -504,10 +504,17 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		}
 		await withGraphMcpClient("chain-insights-cli-call", async (client, config) => {
 			if (tool === "meta_usage_status") {
-				printMcpTextContent(await client.callTool({
-					name: "usage_status",
-					arguments: {}
-				}));
+				try {
+					printMcpTextContent(await client.callTool({
+						name: "usage_status",
+						arguments: {}
+					}));
+				} catch (err) {
+					const { isMissingUsageStatusToolError, primitiveBackendUsageStatus, usageStatusText } = await Promise.resolve().then(() => require("./usage-status-BIOT92jc.cjs")).then((n) => n.usage_status_exports);
+					if (!isMissingUsageStatusToolError(err)) throw err;
+					const { resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-pAkBddTV.cjs")).then((n) => n.client_exports);
+					console.log(usageStatusText(primitiveBackendUsageStatus(resolveGraphMcpEndpoint(config))));
+				}
 				return;
 			}
 			if (tool === "aml_address_risk") {

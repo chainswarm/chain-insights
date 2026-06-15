@@ -1,6 +1,7 @@
 import { n as PACKAGE_VERSION } from "./version-BA3J8hu4.mjs";
 import { t as PaymentRequiredError } from "./client-D1aMU7vY.mjs";
 import { n as PUBLIC_MCP_TOOL_ALLOWED_ARGS, r as PUBLIC_MCP_TOOL_REQUIRED_ARGS, t as HIDDEN_REMOTE_TOOL_NAMES } from "./tool-visibility-DQ6_mq2m.mjs";
+import { t as primitiveBackendUsageStatus } from "./usage-status-D2uosC7s.mjs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { readFileSync } from "node:fs";
@@ -794,13 +795,14 @@ async function createProxy() {
 		}
 	}, async () => {
 		try {
-			if (!remoteConnected || !remoteToolNames.has("usage_status")) return {
+			if (!remoteConnected) return {
 				content: [{
 					type: "text",
 					text: `${remoteUnavailableMessage ?? `Graph MCP is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`
 				}],
 				isError: true
 			};
+			if (!remoteToolNames.has("usage_status")) return jsonTextResult(primitiveBackendUsageStatus(graphMcpEndpoint));
 			const result = await remoteClient.callTool({
 				name: "usage_status",
 				arguments: {}
