@@ -141,7 +141,7 @@
       "source_min": "2019-01-01T00:00:00Z",
       "exported_min": "2019-01-01T00:00:00Z",
       "exported_max": "2025-12-31T23:59:59Z",
-      "sha256": "3959dba0e984aa8da4dbd38ff88b7b6fd2099e859b8df3fc39f177f27877307c"
+      "sha256": "5c9a4db89ac208693123040df793ae2f904dc4ce20caed1aa72de6cfa1f81f69"
     },
     {
       "database": "bittensor_semantic",

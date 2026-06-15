@@ -18,6 +18,12 @@ MAPPING_CANDIDATES = [
     REPO_ROOT / MAPPING_REL,
 ]
 
+COMPATIBILITY_COLUMNS_BY_TABLE = {
+    "facts_address_features_view": {
+        "active_days": "activity_span_days",
+    },
+}
+
 
 def read_manifest() -> dict:
     return json.loads(MANIFEST.read_text(encoding="utf-8"))
@@ -58,6 +64,9 @@ def mapped_columns_by_table() -> dict[str, list[str]]:
         add_column(table, edge["source_column"])
         add_column(table, edge["target_column"])
         for column in edge.get("properties", {}).values():
+            add_column(table, column)
+    for table, compatibility_columns in COMPATIBILITY_COLUMNS_BY_TABLE.items():
+        for column in compatibility_columns:
             add_column(table, column)
     return columns
 
