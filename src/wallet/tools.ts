@@ -294,7 +294,7 @@ export async function getWalletReadiness(
 }
 
 export function formatWalletReadiness(readiness: WalletReadiness, approval?: PaymentApprovalResult): string {
-  const status = readiness.ready ? 'Ready for paid GraphRAG MCP calls' : 'Action needed before paid GraphRAG MCP calls'
+  const status = readiness.ready ? 'Ready for paid Chain Insights Graph calls' : 'Action needed before paid Chain Insights Graph calls'
   const setup = readiness.needsPaymentApproval
     ? `Payment setup: needs one-time setup for up to ${formatUnits(readiness.minimumApprovalUnits, 6)} USDC of paid calls`
     : 'Payment setup: ready'

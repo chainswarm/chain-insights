@@ -2,7 +2,7 @@
 
 Chain Insights is a local investigation framework around a remote graph
 execution endpoint. It keeps sensitive workspace outputs as normal local files
-and leaves graph computation to the configured GraphRAG MCP backend.
+and leaves graph computation to the configured Chain Insights Graph backend.
 
 ## Product Layers
 
@@ -13,15 +13,15 @@ flowchart LR
   CLI --> Config[Local config]
   CLI --> Wallet[Encrypted wallet]
   CLI --> Workspace[Investigation workspace]
-  Proxy --> GraphMCP[GraphRAG MCP]
-  CLI --> GraphMCP
-  GraphMCP --> GraphData[(Graph intelligence)]
+  Proxy --> ChainInsightsGraph[Chain Insights Graph]
+  CLI --> ChainInsightsGraph
+  ChainInsightsGraph --> GraphData[(Graph intelligence)]
   Wallet --> Base[Base RPC]
   Workspace --> Browser[Local browser reports]
 ```
 
 The CLI is the operator entry point. The MCP proxy exposes the same local
-framework to AI agents. The GraphRAG MCP endpoint executes graph-language reads
+framework to AI agents. Chain Insights Graph executes graph-language reads
 against live topology, archive topology, and facts.
 
 ## Module Responsibilities
@@ -41,7 +41,7 @@ against live topology, archive topology, and facts.
 
 1. The user or agent works inside an initialized investigation workspace.
 2. Chain Insights reads local config for endpoint and auth mode.
-3. Graph queries go to the configured GraphRAG MCP endpoint.
+3. Graph queries go to the configured Chain Insights Graph endpoint.
 4. The graph backend executes against `live_topology`, `archive_topology`, or
    `facts`.
 5. Chain Insights stores compact evidence, graph JSON, HTML reports, CSVs, and
@@ -53,7 +53,7 @@ against live topology, archive topology, and facts.
 Configuration is stored in `~/.chain-insights/config.json` with owner-only
 permissions.
 
-Primary GraphRAG MCP config:
+Primary Chain Insights Graph config:
 
 ```bash
 chain-insights config get graphMcpEndpoint
@@ -68,8 +68,8 @@ Supported config keys:
 
 | Key | Purpose |
 | --- | --- |
-| `graphMcpEndpoint` | GraphRAG MCP endpoint used by CLI and proxy |
-| `graphMcpAuthToken` | GraphRAG MCP bearer credential for test access keys or local debug UAT |
+| `graphMcpEndpoint` | Chain Insights Graph endpoint used by CLI and proxy |
+| `graphMcpAuthToken` | Chain Insights Graph bearer credential for test access keys or local debug UAT |
 | `mcpEndpoint` | Legacy endpoint fallback |
 | `mcpAuthToken` | Legacy debug token fallback |
 | `walletAddress` | Optional wallet metadata |
@@ -146,4 +146,4 @@ export MCP_TEST_ACCESS_KEY_HASHES="partner-a:<sha256-from-command>"
 ```
 
 Share the raw `ci_test_...` key once. Store only its SHA-256 hash in deployment
-config. Revoke by removing the entry and redeploying GraphRAG MCP.
+config. Revoke by removing the entry and redeploying Chain Insights Graph.

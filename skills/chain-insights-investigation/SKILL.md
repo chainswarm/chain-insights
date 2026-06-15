@@ -9,7 +9,7 @@ Use the Chain Insights workspace workflow. Do not improvise an investigation wor
 
 ## Debug Mode
 
-For local development and UAT, enable Graph MCP debug mode before graph calls:
+For local development and UAT, enable Chain Insights Graph debug mode before graph calls:
 
 ```bash
 cia debug on --token chain-insights-dev-debug --endpoint http://localhost:8012/mcp
@@ -39,7 +39,7 @@ cia debug off
    cia mcp networks
    ```
    Use the advertised `Topology`, `Risk`, `Dataset`, and `Available tools`
-   columns as the source of truth for the current GraphRAG endpoint. The
+   columns as the source of truth for the current Chain Insights Graph endpoint. The
    `Dataset` column is the graph coverage range, usually
    `<first_height>..<last_height> / <first_date>..<last_date>`.
 3. Read workspace runtime schema notes:
@@ -62,7 +62,7 @@ cia debug off
 - Bittensor contains both native Substrate/SS58 addresses such as `5...` and EVM-pallet `0x...` addresses in the same semantic investigation network. Use `network=bittensor` for both; do not switch networks based only on address format.
 - Live and archive topology are identity-grain but graph-selected: use `USE live_topology` for Memgraph live topology and `USE archive_topology` for StarRocks-backed archive topology. Both support compatible `(:Identity)-[:FLOWS_TO]->(:Identity)` and `(:Identity)-[:HAS_ADDRESS]->(:Address)` shapes.
 - Users operate on member addresses. High-level `aml_*` tools may resolve addresses into identity-grain topology internally, but public results, artifacts, and follow-up candidate lists must return member addresses.
-- Use the current Chain Insights AML tool contract as the reference behavior; do not downgrade semantics to legacy implementation details from the old Python GraphRAG path.
+- Use the current Chain Insights AML tool contract as the reference behavior; do not downgrade semantics to legacy implementation details from the old Python graph path.
 - Never call graph tools without an explicit `network`.
 - Never assume network support. Run `cia mcp networks` first.
 - Never treat user claims as facts until tool output supports them.
@@ -88,7 +88,7 @@ Candidate labels are reviewable, not automatic writes.
 
 Use `aml_trace_suspect_funds` when the user has suspected scammer, mule, operator, or laundering-ring addresses.
 `incident_timestamp_ms` is optional.
-Some Graph MCP deployments do not parse backend-specific BFS or variable-length relationship syntax, so they reproduce this with generated fixed-depth `FLOWS_TO` query batches.
+Some Chain Insights Graph deployments do not parse backend-specific BFS or variable-length relationship syntax, so they reproduce this with generated fixed-depth `FLOWS_TO` query batches.
 
 ```bash
 cia mcp trace-victim-funds --network bittensor --victim-addresses 5... --max-hops 3

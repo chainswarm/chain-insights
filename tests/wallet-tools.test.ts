@@ -207,7 +207,7 @@ describe('wallet tools', () => {
       nextSteps: [],
     }, { status: 'approved', txHash: '0xapproval', paymentApprovalUnits: 1_000_000n, minimumApprovalUnits: 1_000_000n })
 
-    expect(text).toContain('Ready for paid GraphRAG MCP calls')
+    expect(text).toContain('Ready for paid Chain Insights Graph calls')
     expect(text).toContain('Payment setup: ready')
     expect(text).not.toContain('Permit2')
     expect(text).not.toContain('approval')
@@ -233,7 +233,7 @@ describe('wallet tools', () => {
       nextSteps: ['Run `chain-insights wallet ready` to finish the one-time payment setup.'],
     })
 
-    expect(text).toContain('Action needed before paid GraphRAG MCP calls')
+    expect(text).toContain('Action needed before paid Chain Insights Graph calls')
     expect(text).toContain('Payment setup: needs one-time setup')
     expect(text).not.toContain('Permit2')
     expect(text).not.toContain('approval')

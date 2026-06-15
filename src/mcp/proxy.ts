@@ -14,6 +14,7 @@ import { PACKAGE_VERSION } from '../version.js'
 import type { McpTool } from './schema-cache.js'
 import { HIDDEN_REMOTE_TOOL_NAMES, PUBLIC_MCP_TOOL_ALLOWED_ARGS, PUBLIC_MCP_TOOL_REQUIRED_ARGS } from './tool-visibility.js'
 import { PaymentRequiredError } from './client.js'
+import { primitiveBackendUsageStatus } from './usage-status.js'
 
 const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -144,7 +145,7 @@ function readGraphAppHtml(): string {
     }
   }
 
-  throw new Error(`Graph MCP app template not found. Tried: ${candidates.join(', ')}`)
+  throw new Error(`Chain Insights Graph app template not found. Tried: ${candidates.join(', ')}`)
 }
 
 function graphArtifactOrigins(config: Pick<InvestigatorConfig, 'serverPort'>): string[] {
@@ -933,7 +934,7 @@ export async function createProxy(): Promise<void> {
       endpoint: graphMcpEndpoint,
       error: errorForLog(err),
     })
-    remoteUnavailableMessage = `Graph MCP setup unavailable at ${graphMcpEndpoint}: ${(err as Error).message}`
+    remoteUnavailableMessage = `Chain Insights Graph setup unavailable at ${graphMcpEndpoint}: ${(err as Error).message}`
     process.stderr.write(
       `Chain Insights MCP graph tools unavailable: ${remoteUnavailableMessage}. Local Chain Insights tools are still available.\n`,
     )
@@ -971,7 +972,7 @@ export async function createProxy(): Promise<void> {
           endpoint: graphMcpEndpoint,
           error: errorForLog(err2),
         })
-        remoteUnavailableMessage = `Graph MCP unreachable at ${graphMcpEndpoint}: ${(err2 as Error).message}`
+        remoteUnavailableMessage = `Chain Insights Graph unreachable at ${graphMcpEndpoint}: ${(err2 as Error).message}`
         process.stderr.write(
           `Chain Insights MCP graph tools unavailable: ${remoteUnavailableMessage}. Local Chain Insights tools are still available.\n`,
         )
@@ -1084,14 +1085,17 @@ export async function createProxy(): Promise<void> {
     },
     async () => {
       try {
-        if (!remoteConnected || !remoteToolNames.has('usage_status')) {
+        if (!remoteConnected) {
           return {
             content: [{
               type: 'text' as const,
-              text: `${remoteUnavailableMessage ?? `Graph MCP is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
+              text: `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
             }],
             isError: true,
           }
+        }
+        if (!remoteToolNames.has('usage_status')) {
+          return jsonTextResult(primitiveBackendUsageStatus(graphMcpEndpoint))
         }
         const result = await remoteClient.callTool({ name: 'usage_status', arguments: {} }) as RemoteToolResult
         const structuredContent = isRecord(result.structuredContent)
@@ -1214,7 +1218,7 @@ export async function createProxy(): Promise<void> {
             return {
               content: [{
                 type: 'text' as const,
-                text: `${remoteUnavailableMessage ?? `Graph MCP is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
+                text: `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
               }],
               isError: true,
             }
@@ -1284,7 +1288,7 @@ export async function createProxy(): Promise<void> {
             return {
               content: [{
                 type: 'text' as const,
-                text: `${remoteUnavailableMessage ?? `Graph MCP is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
+                text: `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
               }],
               isError: true,
             }
@@ -1355,7 +1359,7 @@ export async function createProxy(): Promise<void> {
             return {
               content: [{
                 type: 'text' as const,
-                text: `${remoteUnavailableMessage ?? `Graph MCP is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
+                text: `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
               }],
               isError: true,
             }
@@ -1424,7 +1428,7 @@ export async function createProxy(): Promise<void> {
             return {
               content: [{
                 type: 'text' as const,
-                text: `${remoteUnavailableMessage ?? `Graph MCP is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
+                text: `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
               }],
               isError: true,
             }
@@ -1532,7 +1536,7 @@ export async function createProxy(): Promise<void> {
           return {
             content: [{
               type: 'text' as const,
-              text: `${remoteUnavailableMessage ?? `Graph MCP is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
+              text: `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
             }],
             isError: true,
           }

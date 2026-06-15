@@ -6,8 +6,8 @@ Chain Insights is an open-source AML investigation toolkit for AI agents and
 analysts. Install it from npm to screen blockchain addresses, trace role-specific
 fund flows, manage workspace evidence, and generate graph reports.
 
-Graph access is configuration-driven. The package defaults to a local GraphRAG
-MCP endpoint for development; hosted endpoints are set explicitly with
+Graph access is configuration-driven. The package defaults to a local Chain
+Insights Graph endpoint for development; hosted endpoints are set explicitly with
 `graphMcpEndpoint` or `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT`.
 
 ## What You Can Do Today
@@ -18,7 +18,7 @@ MCP endpoint for development; hosted endpoints are set explicitly with
 | `aml_trace_victim_funds` | Trace victim/source funds forward to exchange deposit candidates |
 | `aml_trace_deposit_sources` | Trace backward from suspected deposit/cashout addresses to upstream sources and convergence |
 | `aml_trace_suspect_funds` | Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology |
-| `graph_query` | Run one read-only GQL/Cypher query against a GraphRAG MCP graph layer |
+| `graph_query` | Run one read-only GQL/Cypher query against a Chain Insights Graph layer |
 | `graph_query_batch` | Run related read-only graph queries as one MCP call |
 | `meta_network_capabilities` | Check supported Chain Insights networks and graph tools |
 | `meta_usage_status` | Check the caller's daily free-tier graph query allowance |
@@ -64,10 +64,10 @@ Chain Insights workspaces are plain local folders. Use any editor or agent
 tooling you want to inspect workspace files, graph reports, artifacts, and
 published outputs.
 
-## Configure GraphRAG MCP Endpoint
+## Configure Chain Insights Graph Endpoint
 
-`cia` uses `graphMcpEndpoint` for all GraphRAG MCP calls. The npm package does
-not hardcode a hosted endpoint. Configure the endpoint explicitly for the
+`cia` uses `graphMcpEndpoint` for all Chain Insights Graph calls. The npm
+package does not hardcode a hosted endpoint. Configure the endpoint explicitly for the
 environment you intend to use.
 
 Local development endpoint (default):
@@ -75,6 +75,10 @@ Local development endpoint (default):
 ```bash
 cia config set graphMcpEndpoint http://127.0.0.1:8012/mcp
 ```
+
+For a deterministic local Bittensor backend, run the bundled
+[Bittensor devkit](devkit/README.md) and point Chain Insights at
+`http://127.0.0.1:18012/mcp`.
 
 Hosted staging endpoint for approved testers:
 
@@ -108,7 +112,7 @@ Configuration precedence for `graphMcpEndpoint`:
 2. `cia config set graphMcpEndpoint ...` saved value
 3. Local default `http://127.0.0.1:8012/mcp`
 
-Check the configured endpoint and current GraphRAG MCP capabilities:
+Check the configured endpoint and current Chain Insights Graph capabilities:
 
 ```bash
 cia config get graphMcpEndpoint
@@ -118,11 +122,11 @@ cia mcp tools --refresh
 ```
 
 If network or tool discovery fails, check the endpoint and access mode first.
-The CLI can still initialize workspaces and continue investigation workflow without a reachable
-GraphRAG MCP endpoint.
+The CLI can still initialize workspaces and continue investigation workflow
+without a reachable Chain Insights Graph endpoint.
 
-Hosted GraphRAG MCP includes a small public free tier for `graph_query` before
-paid access is required. The default public free tier is 10 execution seconds
+Hosted Chain Insights Graph includes a small public free tier for `graph_query`
+before paid access is required. The default public free tier is 10 execution seconds
 per IP per UTC day. Use `meta_usage_status` to see the current caller allowance.
 Prepared wallet users receive the daily free tier first, then paid access
 continues automatically after the allowance is exhausted.
@@ -198,12 +202,12 @@ cia mcp trace-suspect-funds \
 Agent or CLI user
   -> Chain Insights CLI / MCP proxy
   -> local config, wallet, workspace, artifacts, reports
-  -> GraphRAG MCP
+  -> Chain Insights Graph
   -> graph intelligence for AML workflows
 ```
 
 Chain Insights stores investigation outputs in initialized local workspaces.
-GraphRAG MCP performs graph-language reads against network-specific graph
+Chain Insights Graph performs graph-language reads against network-specific
 layers.
 
 ## Graph Access
@@ -260,7 +264,8 @@ notes.
 
 | Doc | Use it for |
 | --- | --- |
-| [Graph tools](docs/graph-tools.md) | GraphRAG MCP layers, `graph_query`, `graph_query_batch`, AML tool contracts, graph reports, evidence pointers |
+| [Graph tools](docs/graph-tools.md) | Chain Insights Graph layers, `graph_query`, `graph_query_batch`, AML tool contracts, graph reports, evidence pointers |
+| [Bittensor devkit](devkit/README.md) | Local Chain Insights Graph backend with deterministic Bittensor fixture data for Chain Insights development |
 | [Investigation workspaces](docs/investigation-workspaces.md) | `cia init`, workspace layout, artifacts, imports, templates, sessions, reports, and visualization outputs |
 | [MCP proxy](docs/mcp-proxy.md) | Stdio proxy behavior, endpoint configuration, agent installers, local tools, auth modes, Inspector validation |
 | [Architecture](docs/architecture.md) | Product layers, data flow, local storage, security model, config keys |

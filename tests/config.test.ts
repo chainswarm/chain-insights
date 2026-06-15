@@ -9,7 +9,7 @@ const DNS_LOOPBACK_LOOKALIKE_ENDPOINTS = [
 ] as const
 
 const CLUSTER_LOCAL_GRAPH_MCP_ENDPOINT =
-  'http://chainswarm-graphrag-mcp-go.chainswarm-staging.svc.cluster.local:8012/mcp'
+  'http://chainswarm-chain-insights-graph.chainswarm-staging.svc.cluster.local:8012/mcp'
 
 describe('Config system (FOUND-05)', () => {
   let fakeHome: string
@@ -200,7 +200,7 @@ describe('Config system (FOUND-05)', () => {
   })
 
   it('rejects DNS hostnames that only look like Kubernetes service DNS', async () => {
-    const endpoint = 'http://chainswarm-graphrag-mcp-go.chainswarm-staging.svc.cluster.local.evil.com:8012/mcp'
+    const endpoint = 'http://chainswarm-chain-insights-graph.chainswarm-staging.svc.cluster.local.evil.com:8012/mcp'
     const { saveConfig, resetConfigCache } = await import('../src/config/index.js')
     await resetConfigCache()
     await expect(saveConfig({ graphMcpEndpoint: endpoint }))
@@ -208,10 +208,10 @@ describe('Config system (FOUND-05)', () => {
       .toThrow('graphMcpEndpoint must use https:// for remote hosts')
   })
 
-  it('.env.example documents the GraphRAG MCP endpoint override with a safe local value', async () => {
+  it('.env.example documents the Chain Insights Graph endpoint override with a safe local value', async () => {
     const body = await readFile('.env.example', 'utf8')
     expect(body).toContain('CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=http://127.0.0.1:8012/mcp')
-    expect(body).toContain('Remote GraphRAG MCP endpoints must use https://')
+    expect(body).toContain('Remote Chain Insights Graph endpoints must use https://')
   })
 
   it('activeDataDir prefers CHAIN_INSIGHTS_WORKSPACE over global dataDir', async () => {

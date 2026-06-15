@@ -459,16 +459,16 @@ describe('CLI scaffold (FOUND-02)', () => {
         encoding: 'utf8',
         env,
       })
-      expect(on).toContain('Graph MCP debug mode enabled')
+      expect(on).toContain('Chain Insights Graph debug mode enabled')
       expect(on).not.toContain('test-debug-token')
       const status = execSync('node bin/cli.js debug status', { encoding: 'utf8', env })
-      expect(status).toContain('Graph MCP mode: debug')
+      expect(status).toContain('Chain Insights Graph mode: debug')
       expect(status).toContain('Debug token:    configured')
       expect(status).not.toContain('test-debug-token')
       const off = execSync('node bin/cli.js debug off', { encoding: 'utf8', env })
-      expect(off).toContain('Graph MCP debug mode disabled')
+      expect(off).toContain('Chain Insights Graph debug mode disabled')
       const statusAfter = execSync('node bin/cli.js debug status', { encoding: 'utf8', env })
-      expect(statusAfter).toContain('Graph MCP mode: paid')
+      expect(statusAfter).toContain('Chain Insights Graph mode: paid')
       expect(statusAfter).toContain('Debug token:    not configured')
     } finally {
       rmSync(fakeHome, { recursive: true, force: true })
@@ -490,7 +490,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     }
   })
 
-  it('access-key set/clear/status configures Graph MCP test access without exposing key', () => {
+  it('access-key set/clear/status configures Chain Insights Graph test access without exposing key', () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'chain-insights-home-'))
     const env = { ...process.env, HOME: fakeHome }
     try {
@@ -498,7 +498,7 @@ describe('CLI scaffold (FOUND-02)', () => {
         encoding: 'utf8',
         env,
       })
-      expect(set).toContain('Graph MCP test access key configured')
+      expect(set).toContain('Chain Insights Graph test access key configured')
       expect(set).toContain('Graph endpoint: https://staging-mcp.chain-insights.ai/mcp')
       expect(set).not.toContain('ci_test_secret')
 
@@ -508,7 +508,7 @@ describe('CLI scaffold (FOUND-02)', () => {
       expect(status).not.toContain('ci_test_secret')
 
       const clear = execSync('node bin/cli.js access-key clear', { encoding: 'utf8', env })
-      expect(clear).toContain('Graph MCP test access key cleared')
+      expect(clear).toContain('Chain Insights Graph test access key cleared')
       const statusAfter = execSync('node bin/cli.js access-key status', { encoding: 'utf8', env })
       expect(statusAfter).toContain('Payments:       enabled')
       expect(statusAfter).toContain('Access key:     not configured')

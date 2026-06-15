@@ -25,7 +25,7 @@ cia init .
 No investigation output belongs under `~/.chain-insights`; that global location
 is for config, cache, wallet, and installed skills only.
 
-Before selecting a trace method, inspect the live GraphRAG network matrix:
+Before selecting a trace method, inspect the live Chain Insights Graph network matrix:
 
 ```bash
 cia mcp networks
@@ -112,16 +112,16 @@ The JSON/CSV/Markdown reports carry the investigation structure.
 ## Graph Semantics
 
 Current Chain Insights AML tools define the behavior contract. Keep tracing
-implementation-neutral: GraphRAG may serve Memgraph `live_topology` directly or
+implementation-neutral: Chain Insights Graph may serve Memgraph `live_topology` directly or
 proxy StarRocks-backed `archive_topology`/`facts`, but high-level AML workflows
 must preserve role-specific semantics and return member addresses at the public
 boundary.
 
 Do not degrade tracing into a simple top-K neighbor recipe. Chain Insights tools
-may use GraphRAG MCP primitives, but they must preserve the workflow semantics
+may use Chain Insights Graph primitives, but they must preserve the workflow semantics
 through read-only `graph_query_batch` calls.
 
-Some Graph MCP deployments do not parse backend-specific BFS or
+Some Chain Insights Graph deployments do not parse backend-specific BFS or
 variable-length relationship syntax. In those cases, use generated fixed-depth `FLOWS_TO` query batches with `USE live_topology`. Exchange terminal safety
 applies to all traversal algorithms: exchange hot wallets are terminal
 endpoints only. Do not expand from, through, or classify exchange nodes as

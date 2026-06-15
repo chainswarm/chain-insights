@@ -406,7 +406,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(serverInstance.connect).toHaveBeenCalled()
   })
 
-  it('starts local Chain Insights tools when paid GraphRAG fetch setup needs wallet configuration', async () => {
+  it('starts local Chain Insights tools when paid Chain Insights Graph fetch setup needs wallet configuration', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)
 
@@ -708,6 +708,44 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).not.toContain('"tool":"usage_status"')
   })
 
+  it('returns primitive backend usage status when remote usage_status is absent', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'network_capabilities', description: 'Network capabilities' },
+      { name: 'graph_query', description: 'Federated graph query' },
+      { name: 'graph_query_batch', description: 'Federated graph query batch' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'meta_usage_status')
+    const result = await handler({})
+
+    expect(clientInstance.callTool).not.toHaveBeenCalledWith({ name: 'usage_status', arguments: {} })
+    expect(result.isError).not.toBe(true)
+    expect(result.structuredContent).toMatchObject({
+      schema: 'chain-insights.result.v1',
+      tool: 'meta_usage_status',
+      facts: {
+        usage: {
+          mode: 'primitive_graph_backend',
+          usage_status_tool: 'unavailable',
+        },
+      },
+    })
+    expect(result.content[0].text).toContain('"usage_status_tool": "unavailable"')
+  })
+
   it('advertises canonical graph, metadata, and wallet tools but not hidden remote tools', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
@@ -912,7 +950,16 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       address: '5ExchangeHot',
       candidate_label: 'candidate_deposit',
     }))
-    expect(result.structuredContent.artifacts.graph_json).toContain('/reports/graphs/')
+    const artifacts = result.structuredContent.artifacts as Record<string, string>
+    expect(artifacts.graph_json).toContain('/reports/graphs/')
+    expect(result.content[0].text).toContain(`- compact evidence JSON: ${artifacts.table_json}`)
+    expect(result.content[0].text).toContain(`- graph HTML: ${artifacts.graph_html}`)
+    expect(result.content[0].text).toContain(`- report: ${artifacts.report_md}`)
+    expect(result.content[0].text).not.toContain('stateless://runtime-schema-not-written')
+    const reportText = await readFile(artifacts.report_md, 'utf8')
+    expect(reportText).toContain(`- compact evidence JSON: ${artifacts.table_json}`)
+    expect(reportText).toContain(`- graph HTML: ${artifacts.graph_html}`)
+    expect(reportText).not.toContain('stateless://runtime-schema-not-written')
     expect(result.structuredContent.addresses).toContainEqual(expect.objectContaining({
       address: '5Seed',
       roles: expect.arrayContaining(['seed_victim']),
@@ -2381,7 +2428,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.messages[0].content.text).not.toContain('remote canonical prompt')
   })
 
-  it('does not expose deprecated GraphRAG prompt names as primary prompts', async () => {
+  it('does not expose deprecated Chain Insights Graph prompt names as primary prompts', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)
 
@@ -2488,7 +2535,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(clientInstance.callTool).not.toHaveBeenCalled()
   })
 
-  it('normalizes array address inputs for comma-separated GraphRAG tool fields', async () => {
+  it('normalizes array address inputs for comma-separated Chain Insights Graph tool fields', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       {
@@ -2922,7 +2969,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).not.toContain('member-ledger')
     expect(result.content[0].text).not.toContain('AddressFeatureFact')
     expect(result.content[0].text).not.toContain('schema discovery')
-    expect(result.content[0].text).not.toContain('GraphRAG')
+    expect(result.content[0].text).not.toContain('Chain Insights Graph')
     expect(result.content[0].text).not.toContain('prox')
     expect(result.content[0].text).not.toContain('chain-insights mcp')
     expect(result.content[0].text).not.toContain('Useful CLI commands')

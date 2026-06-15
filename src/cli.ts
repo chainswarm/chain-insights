@@ -128,7 +128,7 @@ program
     console.log('Config: ', activeDataDir(config.dataDir))
     if (workspace) console.log('Workspace:', workspace.root)
     console.log('Server: ', `http://127.0.0.1:${config.serverPort}`)
-    console.log('Graph MCP:', graphMcpStatus)
+    console.log('Chain Insights Graph:', graphMcpStatus)
     console.log('Graph endpoint:', config.graphMcpEndpoint)
   })
 
@@ -169,12 +169,12 @@ program
 
 program
   .command('debug')
-  .description('Configure Graph MCP debug mode')
+  .description('Configure Chain Insights Graph debug mode')
   .addCommand(
     new Command('on')
-      .description('Enable Graph MCP debug mode without x402 payments')
+      .description('Enable Chain Insights Graph debug mode without x402 payments')
       .requiredOption('--token <token>', 'Debug bearer token')
-      .option('--endpoint <url>', 'Graph MCP endpoint')
+      .option('--endpoint <url>', 'Chain Insights Graph endpoint')
       .action(async (opts: { token: string; endpoint?: string }) => {
         try {
           const { saveConfig } = await import('./config/index.js')
@@ -183,9 +183,9 @@ program
             graphMcpAuthToken: opts.token,
             ...(opts.endpoint ? { graphMcpEndpoint: opts.endpoint } : {}),
           })
-          console.log('Graph MCP debug mode enabled')
+          console.log('Chain Insights Graph debug mode enabled')
           if (opts.endpoint) console.log(`Graph endpoint: ${opts.endpoint}`)
-          console.log('Payments: disabled for Graph MCP calls')
+          console.log('Payments: disabled for Chain Insights Graph calls')
         } catch (err) {
           console.error((err as Error).message)
           process.exit(1)
@@ -194,13 +194,13 @@ program
   )
   .addCommand(
     new Command('off')
-      .description('Disable Graph MCP debug mode and use paid x402 calls')
+      .description('Disable Chain Insights Graph debug mode and use paid x402 calls')
       .action(async () => {
         try {
           const { saveConfig } = await import('./config/index.js')
           await saveConfig({ graphMcpMode: 'paid', graphMcpAuthToken: '' })
-          console.log('Graph MCP debug mode disabled')
-          console.log('Payments: enabled for Graph MCP calls')
+          console.log('Chain Insights Graph debug mode disabled')
+          console.log('Payments: enabled for Chain Insights Graph calls')
         } catch (err) {
           console.error((err as Error).message)
           process.exit(1)
@@ -209,12 +209,12 @@ program
   )
   .addCommand(
     new Command('status')
-      .description('Show Graph MCP payment/debug mode')
+      .description('Show Chain Insights Graph payment/debug mode')
       .action(async () => {
         try {
           const { loadConfig } = await import('./config/index.js')
           const config = await loadConfig()
-          console.log(`Graph MCP mode: ${config.graphMcpMode}`)
+          console.log(`Chain Insights Graph mode: ${config.graphMcpMode}`)
           console.log(`Graph endpoint: ${config.graphMcpEndpoint}`)
           console.log(`Debug token:    ${config.graphMcpAuthToken?.trim() ? 'configured' : 'not configured'}`)
           console.log(`Payments:       ${config.graphMcpMode === 'debug' ? 'disabled' : 'enabled'}`)
@@ -227,12 +227,12 @@ program
 
 program
   .command('access-key')
-  .description('Configure Graph MCP test access key mode')
+  .description('Configure Chain Insights Graph test access key mode')
   .addCommand(
     new Command('set')
-      .description('Use a Graph MCP test access key without x402 payments')
+      .description('Use a Chain Insights Graph test access key without x402 payments')
       .argument('<key>', 'Test access key')
-      .option('--endpoint <url>', 'Graph MCP endpoint')
+      .option('--endpoint <url>', 'Chain Insights Graph endpoint')
       .action(async (key: string, opts: { endpoint?: string }) => {
         try {
           const normalizedKey = key.trim()
@@ -243,7 +243,7 @@ program
             graphMcpAuthToken: normalizedKey,
             ...(opts.endpoint ? { graphMcpEndpoint: opts.endpoint } : {}),
           })
-          console.log('Graph MCP test access key configured')
+          console.log('Chain Insights Graph test access key configured')
           if (opts.endpoint) console.log(`Graph endpoint: ${opts.endpoint}`)
           console.log('Payments: disabled when the server accepts this key')
         } catch (err) {
@@ -254,13 +254,13 @@ program
   )
   .addCommand(
     new Command('clear')
-      .description('Remove the Graph MCP test access key and use paid x402 calls')
+      .description('Remove the Chain Insights Graph test access key and use paid x402 calls')
       .action(async () => {
         try {
           const { saveConfig } = await import('./config/index.js')
           await saveConfig({ graphMcpMode: 'paid', graphMcpAuthToken: '' })
-          console.log('Graph MCP test access key cleared')
-          console.log('Payments: enabled for Graph MCP calls')
+          console.log('Chain Insights Graph test access key cleared')
+          console.log('Payments: enabled for Chain Insights Graph calls')
         } catch (err) {
           console.error((err as Error).message)
           process.exit(1)
@@ -269,7 +269,7 @@ program
   )
   .addCommand(
     new Command('status')
-      .description('Show Graph MCP test access key status')
+      .description('Show Chain Insights Graph test access key status')
       .action(async () => {
         try {
           const { loadConfig } = await import('./config/index.js')
@@ -441,7 +441,7 @@ program
   )
   .addCommand(
     new Command('ready')
-      .description('Check and prepare the wallet for paid GraphRAG MCP calls')
+      .description('Check and prepare the wallet for paid Chain Insights Graph calls')
       .option('--check-only', 'Only check readiness; do not submit the one-time payment setup')
       .addOption(new Option('--no-approve', 'Deprecated alias for --check-only').hideHelp())
       .option('--payment-usdc <amount>', 'USDC setup cap to prepare for paid calls', '1')
@@ -748,8 +748,15 @@ program
 
           await withGraphMcpClient('chain-insights-cli-call', async (client, config) => {
             if (tool === 'meta_usage_status') {
-              const result = await client.callTool({ name: 'usage_status', arguments: {} })
-              printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
+              try {
+                const result = await client.callTool({ name: 'usage_status', arguments: {} })
+                printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
+              } catch (err) {
+                const { isMissingUsageStatusToolError, primitiveBackendUsageStatus, usageStatusText } = await import('./mcp/usage-status.js')
+                if (!isMissingUsageStatusToolError(err)) throw err
+                const { resolveGraphMcpEndpoint } = await import('./mcp/client.js')
+                console.log(usageStatusText(primitiveBackendUsageStatus(resolveGraphMcpEndpoint(config))))
+              }
               return
             }
             if (tool === 'aml_address_risk') {

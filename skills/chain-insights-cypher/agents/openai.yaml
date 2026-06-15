@@ -1,4 +1,4 @@
 interface:
   display_name: "Chain Insights Cypher"
-  short_description: "Write schema-aware GraphRAG MCP GQL/Cypher"
+  short_description: "Write schema-aware Chain Insights Graph GQL/Cypher"
   default_prompt: "Use Chain Insights graph_query or graph_query_batch with explicit network, layer selection, bounded read-only Cypher, schema capture, and evidence-safe output handling."

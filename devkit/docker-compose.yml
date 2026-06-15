@@ -1,0 +1,80 @@
+services:
+  starrocks:
+    image: starrocks/allin1-ubuntu:3.3.5
+    expose:
+      - "9030"
+
+  memgraph:
+    image: memgraph/memgraph:3.10.1
+    expose:
+      - "7687"
+    volumes:
+      - ./data:/data:ro
+
+  memgql:
+    image: memgraph/memgql:0.6.1
+    environment:
+      CONNECTOR_TYPE: multi
+    ports:
+      - "${DEVKIT_MCP_PORT:-18012}:8012"
+    expose:
+      - "7688"
+    volumes:
+      - ../../../ml/data-pipeline/ops/memgql:/mapping:ro
+
+  starrocks-import:
+    build:
+      context: .
+      dockerfile: Dockerfile.tools
+    command: ["bash", "/devkit/scripts/import-starrocks.sh"]
+    volumes:
+      - ./scripts:/devkit/scripts:ro
+      - ./data:/devkit/data:ro
+      - ../../../ml/data-pipeline/ops/memgql:/mapping:ro
+    depends_on:
+      - starrocks
+
+  memgraph-import:
+    build:
+      context: .
+      dockerfile: Dockerfile.tools
+    command: ["bash", "/devkit/scripts/import-memgraph.sh"]
+    volumes:
+      - ./scripts:/devkit/scripts:ro
+      - ./data:/devkit/data:ro
+      - ../../../ml/data-pipeline/ops/memgql:/mapping:ro
+    depends_on:
+      - memgraph
+
+  memgql-bootstrap:
+    build:
+      context: .
+      dockerfile: Dockerfile.tools
+    network_mode: "service:memgql"
+    command: ["bash", "/devkit/scripts/import-memgql.sh"]
+    environment:
+      MEMGQL_HOST: 127.0.0.1
+      MEMGQL_PORT: "7688"
+      MEMGQL_STARROCKS_MAPPING_FILE: /mapping/chain_insights_starrocks_mapping.json
+    volumes:
+      - ./scripts:/devkit/scripts:ro
+      - ./data:/devkit/data:ro
+      - ../../../ml/data-pipeline/ops/memgql:/mapping:ro
+    depends_on:
+      memgql:
+        condition: service_started
+      memgraph-import:
+        condition: service_completed_successfully
+      starrocks-import:
+        condition: service_completed_successfully
+
+  chain-insights-graph-devkit:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    network_mode: "service:memgql"
+    environment:
+      MEMGQL_BOLT_URI: bolt://127.0.0.1:7688
+    depends_on:
+      memgql-bootstrap:
+        condition: service_completed_successfully

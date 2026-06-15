@@ -92,7 +92,7 @@ CONFIG_SNAPSHOT_READY=1
 
 log "workspace: ${WORKSPACE_ROOT}"
 log "target: ${NETWORK}:${TARGET_ADDRESS}"
-log "enabling Graph MCP debug mode for UAT"
+log "enabling Chain Insights Graph debug mode for UAT"
 cia debug on --token "${GRAPH_MCP_DEBUG_TOKEN}" --endpoint "${GRAPH_MCP_ENDPOINT}" >/dev/null
 
 cia init "${WORKSPACE_ROOT}" --force >/dev/null

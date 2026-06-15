@@ -41,7 +41,7 @@ Observed against the identity-serving contract on 2026-06-13:
 - Use the generic skill reference `references/memgraph-examples.md` for tested
   examples and fixed-hop traversal fallbacks. Native Memgraph deep traversal
   operators such as `*BFS`, `*WSHORTEST`, `*ALLSHORTEST`, and `*KSHORTEST` may
-  not be portable across the GraphRAG MCP federation path.
+  not be portable across the Chain Insights Graph federation path.
 
 ## Bittensor Shapes
 
@@ -109,7 +109,7 @@ cia mcp call graph_query_batch \
 
 Avoid `keys()`, `labels()`, `type()`, native BFS syntax, and variable-length
 paths in schema probes. They may be valid in a direct Memgraph console but are
-not portable across the GraphRAG MCP federation path.
+not portable across the Chain Insights Graph federation path.
 
 ## Investigation Patterns
 

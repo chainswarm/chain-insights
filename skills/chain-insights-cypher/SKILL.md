@@ -17,7 +17,7 @@ skill exists, load it after this one.
    cia mcp call meta_usage_status
    ```
 2. Always pass an explicit `network`.
-3. Always add your own `LIMIT`; GraphRAG MCP does not append one.
+3. Always add your own `LIMIT`; Chain Insights Graph does not append one.
 4. Use `graph_query_batch` for related schema, topology, and facts reads.
 5. Save material query output as workspace evidence before summarizing it.
 
@@ -50,7 +50,7 @@ final exchange endpoint should use `is_exchange IS NOT NULL`.
 ## Common Schema
 
 The public graph surface is identity-grain over semantic network domains.
-The current public GraphRAG investigation network is `bittensor`; do not invent
+The current public Chain Insights Graph investigation network is `bittensor`; do not invent
 or query unsupported network names. Bittensor native SS58 and Bittensor
 EVM-pallet `0x...` member addresses both belong under `network=bittensor`.
 
@@ -134,7 +134,7 @@ More examples: `references/memgraph-examples.md`.
 
 - No writes or catalog changes: no `CREATE`, `MERGE`, `SET`, `DELETE`,
   `REMOVE`, `DROP`, `ADD`, `CONNECT`, or `CALL`.
-- No raw StarRocks table names through GraphRAG MCP.
+- No raw StarRocks table names through Chain Insights Graph.
 - Do not rely on dynamic labels such as `:Exchange`; use `is_exchange` or
   label facts when the schema proves they exist.
 - Empty results mean no indexed match in the selected layer, not proof of
