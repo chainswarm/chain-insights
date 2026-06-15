@@ -903,7 +903,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { addressRisk } = await import("./public-tools-BYkOjD63.mjs");
+				const { addressRisk } = await import("./public-tools-D5seSuAa.mjs");
 				const result = await addressRisk(remoteClient, {
 					address,
 					network,
@@ -964,7 +964,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceVictimFunds } = await import("./public-tools-BYkOjD63.mjs");
+				const { traceVictimFunds } = await import("./public-tools-D5seSuAa.mjs");
 				const result = await traceVictimFunds(remoteClient, config, {
 					victimAddresses: victim_addresses,
 					knownSuspectAddresses: known_suspect_addresses,
@@ -1026,7 +1026,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceSuspectFunds } = await import("./public-tools-BYkOjD63.mjs");
+				const { traceSuspectFunds } = await import("./public-tools-D5seSuAa.mjs");
 				const result = await traceSuspectFunds(remoteClient, config, {
 					suspectAddresses: suspect_addresses,
 					network,
@@ -1086,7 +1086,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceDepositSources } = await import("./public-tools-BYkOjD63.mjs");
+				const { traceDepositSources } = await import("./public-tools-D5seSuAa.mjs");
 				const result = await traceDepositSources(remoteClient, config, {
 					depositAddresses: deposit_addresses,
 					network,

@@ -950,7 +950,16 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       address: '5ExchangeHot',
       candidate_label: 'candidate_deposit',
     }))
-    expect(result.structuredContent.artifacts.graph_json).toContain('/reports/graphs/')
+    const artifacts = result.structuredContent.artifacts as Record<string, string>
+    expect(artifacts.graph_json).toContain('/reports/graphs/')
+    expect(result.content[0].text).toContain(`- compact evidence JSON: ${artifacts.table_json}`)
+    expect(result.content[0].text).toContain(`- graph HTML: ${artifacts.graph_html}`)
+    expect(result.content[0].text).toContain(`- report: ${artifacts.report_md}`)
+    expect(result.content[0].text).not.toContain('stateless://runtime-schema-not-written')
+    const reportText = await readFile(artifacts.report_md, 'utf8')
+    expect(reportText).toContain(`- compact evidence JSON: ${artifacts.table_json}`)
+    expect(reportText).toContain(`- graph HTML: ${artifacts.graph_html}`)
+    expect(reportText).not.toContain('stateless://runtime-schema-not-written')
     expect(result.structuredContent.addresses).toContainEqual(expect.objectContaining({
       address: '5Seed',
       roles: expect.arrayContaining(['seed_victim']),

@@ -7,13 +7,13 @@ Chain Insights workspaces are plain local folders. Graph tools write workspace
 evidence and report pointers into the workspace; use live workspace files for
 local review and `published/` only for rendered HTML or handoff-ready outputs.
 
-## Graph MCP Surface
+## GraphRAG MCP Surface
 
-The GraphRAG MCP public graph surface is intentionally small:
+The GraphRAG MCP graph surface is intentionally small:
 
 | Tool | Purpose |
 | --- | --- |
-| `meta_usage_status` | Return the caller's daily free-tier graph_query allowance for the current UTC day |
+| `network_capabilities` | Return supported networks and graph layers when the backend exposes capability metadata |
 | `graph_query` | Run one read-only GQL/Cypher query through the universal graph endpoint |
 | `graph_query_batch` | Run related read-only graph-language queries as one MCP call |
 
@@ -22,6 +22,12 @@ Chain Insights tools such as `aml_address_risk`,
 recipes built over `graph_query_batch`. They are not assumed to exist on the
 GraphRAG MCP endpoint.
 
+The Chain Insights MCP proxy adds product-facing local metadata tools such as
+`meta_network_capabilities`, `meta_usage_status`, and `meta_help`. On hosted
+backends, `meta_usage_status` can reflect remote quota telemetry. On
+primitive-only local backends such as the Bittensor devkit, Chain Insights
+returns a local unmetered primitive-backend status instead.
+
 ## Query Rules
 
 - `network` is required. Do not guess it in agent workflows.
@@ -29,8 +35,8 @@ GraphRAG MCP endpoint.
 - Use `USE live_topology` for recent topology.
 - Use `USE archive_topology` for historical topology.
 - Use `USE facts` for labels, features, risk scores, assets, and enrichment.
-- Use `meta_usage_status` before public hosted reads when you need the caller's
-  remaining free-tier allowance.
+- Use `meta_usage_status` through Chain Insights before public hosted reads
+  when you need the caller's remaining free-tier allowance.
 - Hosted endpoints can expose a public free tier for graph_query. The default
   is 10 execution seconds per IP per UTC day.
 - Prepared wallet users receive the daily free tier first; after it is used,

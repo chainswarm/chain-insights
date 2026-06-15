@@ -76,6 +76,10 @@ Local development endpoint (default):
 cia config set graphMcpEndpoint http://127.0.0.1:8012/mcp
 ```
 
+For a deterministic local Bittensor backend, run the bundled
+[Bittensor devkit](devkit/README.md) and point Chain Insights at
+`http://127.0.0.1:18012/mcp`.
+
 Hosted staging endpoint for approved testers:
 
 ```bash
@@ -261,6 +265,7 @@ notes.
 | Doc | Use it for |
 | --- | --- |
 | [Graph tools](docs/graph-tools.md) | GraphRAG MCP layers, `graph_query`, `graph_query_batch`, AML tool contracts, graph reports, evidence pointers |
+| [Bittensor devkit](devkit/README.md) | Local GraphRAG MCP backend with deterministic Bittensor fixture data for Chain Insights development |
 | [Investigation workspaces](docs/investigation-workspaces.md) | `cia init`, workspace layout, artifacts, imports, templates, sessions, reports, and visualization outputs |
 | [MCP proxy](docs/mcp-proxy.md) | Stdio proxy behavior, endpoint configuration, agent installers, local tools, auth modes, Inspector validation |
 | [Architecture](docs/architecture.md) | Product layers, data flow, local storage, security model, config keys |

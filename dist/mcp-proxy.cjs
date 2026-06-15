@@ -907,7 +907,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-DGkGPziK.cjs"));
+				const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-BlsnaiuG.cjs"));
 				const result = await addressRisk(remoteClient, {
 					address,
 					network,
@@ -968,7 +968,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceVictimFunds } = await Promise.resolve().then(() => require("./public-tools-DGkGPziK.cjs"));
+				const { traceVictimFunds } = await Promise.resolve().then(() => require("./public-tools-BlsnaiuG.cjs"));
 				const result = await traceVictimFunds(remoteClient, config, {
 					victimAddresses: victim_addresses,
 					knownSuspectAddresses: known_suspect_addresses,
@@ -1030,7 +1030,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceSuspectFunds } = await Promise.resolve().then(() => require("./public-tools-DGkGPziK.cjs"));
+				const { traceSuspectFunds } = await Promise.resolve().then(() => require("./public-tools-BlsnaiuG.cjs"));
 				const result = await traceSuspectFunds(remoteClient, config, {
 					suspectAddresses: suspect_addresses,
 					network,
@@ -1090,7 +1090,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceDepositSources } = await Promise.resolve().then(() => require("./public-tools-DGkGPziK.cjs"));
+				const { traceDepositSources } = await Promise.resolve().then(() => require("./public-tools-BlsnaiuG.cjs"));
 				const result = await traceDepositSources(remoteClient, config, {
 					depositAddresses: deposit_addresses,
 					network,

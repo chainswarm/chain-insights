@@ -3,6 +3,18 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.7.5] - 2026-06-15
+
+- Documented the Bittensor devkit as the deterministic local GraphRAG MCP
+  backend for Chain Insights development, including clean compose startup,
+  smoke scripts, CIA parity checks, and the primitive-only backend boundary.
+- Clarified GraphRAG MCP docs so `graph_query` and `graph_query_batch` remain
+  the portable graph primitives, while Chain Insights owns local metadata,
+  usage-status fallback behavior, wallet state, and AML workflows.
+- Fixed public trace summaries and Markdown reports so final artifact paths
+  point at the Chain Insights workspace bundle instead of internal trace probe
+  placeholders.
+
 ## [0.7.4] - 2026-06-14
 
 - Refined the MCP Inspector-facing surface after review: canonical prompts now

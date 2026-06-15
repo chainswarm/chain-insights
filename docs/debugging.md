@@ -4,6 +4,22 @@ This document covers local GraphRAG MCP debugging, auth bypasses, Inspector
 checks, and UAT. Product quick starts belong in README; debugging details live
 here.
 
+## Bittensor Devkit Backend
+
+Use the bundled devkit when you need a deterministic local GraphRAG MCP backend
+for Chain Insights workflows:
+
+```bash
+docker compose -f devkit/docker-compose.yml down -v --remove-orphans
+docker compose -f devkit/docker-compose.yml up -d --build
+export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=http://127.0.0.1:18012/mcp
+npm run devkit:smoke
+npm run devkit:smoke:parity
+```
+
+The devkit backend exposes graph primitives only. It does not need a debug
+token, wallet, x402 payment, quota state, or hosted tester access key.
+
 ## Local GraphRAG MCP Debug
 
 Start your local GraphRAG MCP development endpoint with debug bearer auth

@@ -396,7 +396,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { addressRisk } = await import("./public-tools-BYkOjD63.mjs");
+			const { addressRisk } = await import("./public-tools-D5seSuAa.mjs");
 			const result = await addressRisk(client, {
 				address: opts.address,
 				network: opts.network,
@@ -424,7 +424,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				}));
 				return;
 			}
-			const { traceVictimFunds } = await import("./public-tools-BYkOjD63.mjs");
+			const { traceVictimFunds } = await import("./public-tools-D5seSuAa.mjs");
 			const result = await traceVictimFunds(client, config, {
 				victimAddresses: opts.victimAddresses,
 				knownSuspectAddresses: opts.knownSuspectAddresses,
@@ -446,7 +446,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { requireWorkspaceRoot } = await import("./output-root-BK4pdjyz.mjs").then((n) => n.t);
 		requireWorkspaceRoot();
 		await withGraphMcpClient("chain-insights-cli-aml-trace-suspect-funds", async (client, config) => {
-			const { traceSuspectFunds } = await import("./public-tools-BYkOjD63.mjs");
+			const { traceSuspectFunds } = await import("./public-tools-D5seSuAa.mjs");
 			const result = await traceSuspectFunds(client, config, {
 				suspectAddresses: opts.suspectAddresses,
 				network: opts.network,
@@ -467,7 +467,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { requireWorkspaceRoot } = await import("./output-root-BK4pdjyz.mjs").then((n) => n.t);
 		requireWorkspaceRoot();
 		await withGraphMcpClient("chain-insights-cli-aml-trace-deposit-sources", async (client, config) => {
-			const { traceDepositSources } = await import("./public-tools-BYkOjD63.mjs");
+			const { traceDepositSources } = await import("./public-tools-D5seSuAa.mjs");
 			const result = await traceDepositSources(client, config, {
 				depositAddresses: opts.depositAddresses,
 				network: opts.network,
@@ -516,7 +516,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "aml_address_risk") {
-				const { addressRisk } = await import("./public-tools-BYkOjD63.mjs");
+				const { addressRisk } = await import("./public-tools-D5seSuAa.mjs");
 				const result = await addressRisk(client, {
 					address: String(args["address"] ?? ""),
 					network: String(args["network"] ?? ""),
@@ -526,7 +526,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "aml_trace_victim_funds") {
-				const { traceVictimFunds } = await import("./public-tools-BYkOjD63.mjs");
+				const { traceVictimFunds } = await import("./public-tools-D5seSuAa.mjs");
 				const result = await traceVictimFunds(client, config, {
 					victimAddresses: args["victim_addresses"] ?? "",
 					knownSuspectAddresses: args["known_suspect_addresses"],
@@ -539,7 +539,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "aml_trace_suspect_funds") {
-				const { traceSuspectFunds } = await import("./public-tools-BYkOjD63.mjs");
+				const { traceSuspectFunds } = await import("./public-tools-D5seSuAa.mjs");
 				const result = await traceSuspectFunds(client, config, {
 					suspectAddresses: args["suspect_addresses"] ?? "",
 					network: String(args["network"] ?? ""),
@@ -551,7 +551,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				return;
 			}
 			if (tool === "aml_trace_deposit_sources") {
-				const { traceDepositSources } = await import("./public-tools-BYkOjD63.mjs");
+				const { traceDepositSources } = await import("./public-tools-D5seSuAa.mjs");
 				const result = await traceDepositSources(client, config, {
 					depositAddresses: args["deposit_addresses"] ?? "",
 					network: String(args["network"] ?? ""),

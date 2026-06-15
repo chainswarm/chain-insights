@@ -1007,6 +1007,51 @@ function traceArtifactPointersFromRun(run: TraceFundsResult | undefined): Record
   }
 }
 
+function traceArtifactSummary(artifacts: Record<string, string>): string {
+  return [
+    'Files written:',
+    `- compact evidence JSON: ${artifacts['table_json'] ?? ''}`,
+    `- graph JSON: ${artifacts['graph_json'] ?? ''}`,
+    `- graph HTML: ${artifacts['graph_html'] ?? ''}`,
+    `- flows CSV: ${artifacts['flows_csv'] ?? ''}`,
+    `- table HTML: ${artifacts['table_html'] ?? ''}`,
+    `- report: ${artifacts['report_md'] ?? ''}`,
+  ].join('\n')
+}
+
+function stripTraceFileSections(summaryText: string): string {
+  const lines = summaryText.split('\n')
+  const kept: string[] = []
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]
+    if (line === 'Files written: disabled by stateless proxy mode.') {
+      if (lines[index + 1] === '') index += 1
+      continue
+    }
+    if (line === 'Files written:') {
+      index += 1
+      while (index < lines.length && lines[index]?.startsWith('- ')) {
+        index += 1
+      }
+      if (lines[index] !== '') {
+        index -= 1
+      }
+      continue
+    }
+    kept.push(line)
+  }
+  return kept.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()
+}
+
+function withTraceArtifactSummary(summaryText: string, artifacts: Record<string, string>): string {
+  const cleaned = stripTraceFileSections(summaryText)
+  return [
+    cleaned,
+    '',
+    traceArtifactSummary(artifacts),
+  ].filter((part) => part.length > 0).join('\n')
+}
+
 function toCsvValue(value: unknown): string {
   return value === undefined || value === null ? '' : String(value)
 }
@@ -1224,7 +1269,7 @@ function buildTraceTableHtml(tool: string, network: string, result: TraceToolRes
 `
 }
 
-async function writeTraceArtifacts(tool: TraceToolName, network: string, result: TraceToolResult): Promise<Record<string, string>> {
+async function writeTraceArtifacts(tool: TraceToolName, network: string, result: TraceToolResult): Promise<{ artifacts: Record<string, string>; summaryText: string }> {
   const paths = workspaceOutputPaths()
   await Promise.all([
     mkdir(paths.reportsRoot, { recursive: true }),
@@ -1257,6 +1302,7 @@ async function writeTraceArtifacts(tool: TraceToolName, network: string, result:
       ...artifactEvidence(artifacts),
     ],
   }
+  const summaryText = withTraceArtifactSummary(result.summaryText, artifacts)
   const { generateInlineGraphHtml } = await import('../viz/html-generator.js')
   const csvHeaders = ['edge_id', 'from_address', 'to_address', 'amount_usd_sum', 'tx_count', 'first_tx_id', 'last_tx_id']
   const csv = [
@@ -1269,9 +1315,9 @@ async function writeTraceArtifacts(tool: TraceToolName, network: string, result:
   await writeFile(tableJsonPath, JSON.stringify(structuredForArtifact, null, 2) + '\n', { mode: 0o600 })
   await writeFile(csvPath, csv, { mode: 0o600 })
   await writeFile(tableHtmlPath, buildTraceTableHtml(tool, network, result), { mode: 0o600 })
-  await writeFile(reportPath, result.summaryText + '\n', { mode: 0o600 })
+  await writeFile(reportPath, summaryText + '\n', { mode: 0o600 })
   await writeFile(graphHtmlPath, generateInlineGraphHtml(result.graphData), { mode: 0o600 })
-  return artifacts
+  return { artifacts, summaryText }
 }
 
 async function publicizeTraceResult(
@@ -1286,12 +1332,13 @@ async function publicizeTraceResult(
   const tool = typeof publicResult.structuredContent['tool'] === 'string'
     ? publicResult.structuredContent['tool'] as TraceToolName
     : 'aml_trace_victim_funds'
-  const artifacts = await writeTraceArtifacts(tool, network, publicResult)
+  const { artifacts, summaryText } = await writeTraceArtifacts(tool, network, publicResult)
   const existingEvidence = Array.isArray(publicResult.structuredContent['evidence'])
     ? publicResult.structuredContent['evidence'].filter((entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null && !Array.isArray(entry))
     : []
   return {
     ...publicResult,
+    summaryText,
     structuredContent: {
       ...publicResult.structuredContent,
       artifacts,

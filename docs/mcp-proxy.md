@@ -96,9 +96,17 @@ preferred editor or agent tooling open to the same workspace while you work.
 `published/` contains the generated shareable artifacts. Use it after
 workspace validation when an agent needs rendered HTML or handoff-ready files.
 
-Remote graph tools are discovered from the configured GraphRAG MCP endpoint. The
-Chain Insights proxy presents the current public graph surface as
-`meta_usage_status`, `graph_query`, and `graph_query_batch`.
+Remote graph tools are discovered from the configured GraphRAG MCP endpoint.
+The minimum graph primitive surface is `graph_query` and `graph_query_batch`;
+backends can also expose capability metadata such as `network_capabilities`.
+Chain Insights presents this as local, prefixed metadata through
+`meta_network_capabilities`.
+
+`meta_usage_status` is a Chain Insights proxy tool. On hosted GraphRAG MCP
+backends it can reflect remote quota telemetry. On primitive-only local
+backends such as the Bittensor devkit, it returns a local unmetered
+primitive-backend status.
+
 Chain Insights adds high-level local graph recipes such as `aml_address_risk`,
 `aml_trace_victim_funds`, `aml_trace_deposit_sources`, and
 `aml_trace_suspect_funds` when the remote endpoint only exposes primitives.
