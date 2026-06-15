@@ -1,8 +1,8 @@
 # MCP Proxy
 
 The Chain Insights stdio proxy lets AI agents consume Chain Insights tools as
-an MCP server. It connects to the configured GraphRAG MCP endpoint and adds
-local wallet and graph-report behavior.
+an MCP server. It connects to the configured Chain Insights Graph endpoint and
+adds local wallet and graph-report behavior.
 
 Chain Insights workspaces are plain local folders. Use local workspace files
 for normal review. Use published workspace outputs only when an agent needs a
@@ -24,7 +24,7 @@ Use this MCP server configuration:
 
 The proxy reads the same local Chain Insights config as the CLI.
 
-## GraphRAG MCP Endpoint Configuration
+## Chain Insights Graph Endpoint Configuration
 
 The endpoint lives in Chain Insights config, not in the MCP client registration.
 The npm package default is the local development endpoint
@@ -96,13 +96,13 @@ preferred editor or agent tooling open to the same workspace while you work.
 `published/` contains the generated shareable artifacts. Use it after
 workspace validation when an agent needs rendered HTML or handoff-ready files.
 
-Remote graph tools are discovered from the configured GraphRAG MCP endpoint.
+Remote graph tools are discovered from the configured Chain Insights Graph endpoint.
 The minimum graph primitive surface is `graph_query` and `graph_query_batch`;
 backends can also expose capability metadata such as `network_capabilities`.
 Chain Insights presents this as local, prefixed metadata through
 `meta_network_capabilities`.
 
-`meta_usage_status` is a Chain Insights proxy tool. On hosted GraphRAG MCP
+`meta_usage_status` is a Chain Insights proxy tool. On hosted Chain Insights Graph
 backends it can reflect remote quota telemetry. On primitive-only local
 backends such as the Bittensor devkit, it returns a local unmetered
 primitive-backend status.
@@ -149,7 +149,7 @@ chain-insights mcp call graph_query \
   "query=USE live_topology MATCH (n) RETURN count(n) AS count LIMIT 1"
 ```
 
-Hosted GraphRAG MCP can allow anonymous `graph_query` calls before wallet
+Hosted Chain Insights Graph can allow anonymous `graph_query` calls before wallet
 setup. The default public free tier is 10 execution seconds per IP per UTC day,
 reset on the UTC calendar day. `meta_usage_status` returns only the current caller's
 allowance status. Wallet users receive the same daily free tier first; after it
@@ -169,7 +169,7 @@ archive rows on staging, but bounded sample reads still returned Bittensor
 topology data inside the same daily allowance.
 
 For custom graph reads, install the shipped `chain-insights-cypher` skill. Its
-Memgraph examples reference distinguishes staging-tested GraphRAG MCP query
+Memgraph examples reference distinguishes staging-tested Chain Insights Graph query
 patterns from direct Memgraph deep traversal syntax that needs a fixed-hop
 `graph_query_batch` fallback through the hosted endpoint.
 
@@ -280,7 +280,7 @@ token, and amount exactly as returned.
 
 ## Inspector Validation
 
-Inspect a local Graph MCP endpoint directly:
+Inspect a local Chain Insights Graph endpoint directly:
 
 ```bash
 npx @modelcontextprotocol/inspector \

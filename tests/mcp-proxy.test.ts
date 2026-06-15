@@ -406,7 +406,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(serverInstance.connect).toHaveBeenCalled()
   })
 
-  it('starts local Chain Insights tools when paid GraphRAG fetch setup needs wallet configuration', async () => {
+  it('starts local Chain Insights tools when paid Chain Insights Graph fetch setup needs wallet configuration', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)
 
@@ -2428,7 +2428,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.messages[0].content.text).not.toContain('remote canonical prompt')
   })
 
-  it('does not expose deprecated GraphRAG prompt names as primary prompts', async () => {
+  it('does not expose deprecated Chain Insights Graph prompt names as primary prompts', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)
 
@@ -2535,7 +2535,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(clientInstance.callTool).not.toHaveBeenCalled()
   })
 
-  it('normalizes array address inputs for comma-separated GraphRAG tool fields', async () => {
+  it('normalizes array address inputs for comma-separated Chain Insights Graph tool fields', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       {
@@ -2969,7 +2969,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).not.toContain('member-ledger')
     expect(result.content[0].text).not.toContain('AddressFeatureFact')
     expect(result.content[0].text).not.toContain('schema discovery')
-    expect(result.content[0].text).not.toContain('GraphRAG')
+    expect(result.content[0].text).not.toContain('Chain Insights Graph')
     expect(result.content[0].text).not.toContain('prox')
     expect(result.content[0].text).not.toContain('chain-insights mcp')
     expect(result.content[0].text).not.toContain('Useful CLI commands')

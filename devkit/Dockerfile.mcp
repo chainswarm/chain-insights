@@ -1,10 +1,10 @@
 FROM golang:1.25 AS build
 WORKDIR /src
-COPY graphrag-mcp-devkit/ ./
+COPY chain-insights-graph-devkit/ ./
 RUN go test ./...
-RUN go build -o /out/graphrag-mcp-devkit ./cmd/graphrag-mcp-devkit
+RUN go build -o /out/chain-insights-graph-devkit ./cmd/chain-insights-graph-devkit
 
 FROM gcr.io/distroless/base-debian12
-COPY --from=build /out/graphrag-mcp-devkit /usr/local/bin/graphrag-mcp-devkit
+COPY --from=build /out/chain-insights-graph-devkit /usr/local/bin/chain-insights-graph-devkit
 EXPOSE 8012
-ENTRYPOINT ["/usr/local/bin/graphrag-mcp-devkit"]
+ENTRYPOINT ["/usr/local/bin/chain-insights-graph-devkit"]

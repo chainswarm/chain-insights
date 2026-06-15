@@ -28,7 +28,7 @@ func NewHTTPHandler(runner QueryRunner) http.Handler {
 }
 
 func NewMCPServer(runner QueryRunner) *mcp.Server {
-	server := mcp.NewServer(&mcp.Implementation{Name: "graphrag-mcp-devkit", Version: "0.1.0"}, nil)
+	server := mcp.NewServer(&mcp.Implementation{Name: "chain-insights-graph-devkit", Version: "0.1.0"}, nil)
 	RegisterTools(server, runner)
 	return server
 }

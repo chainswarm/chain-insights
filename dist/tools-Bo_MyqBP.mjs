@@ -195,7 +195,7 @@ async function getWalletReadiness(account, minimumApprovalUnits = DEFAULT_PAYMEN
 	});
 }
 function formatWalletReadiness(readiness, approval) {
-	const status = readiness.ready ? "Ready for paid GraphRAG MCP calls" : "Action needed before paid GraphRAG MCP calls";
+	const status = readiness.ready ? "Ready for paid Chain Insights Graph calls" : "Action needed before paid Chain Insights Graph calls";
 	const setup = readiness.needsPaymentApproval ? `Payment setup: needs one-time setup for up to ${formatUnits(readiness.minimumApprovalUnits, 6)} USDC of paid calls` : "Payment setup: ready";
 	const setupCompletedLine = approval?.status === "approved" ? "Payment setup completed." : void 0;
 	return [
@@ -318,4 +318,4 @@ function buildTopupInfo(address, topupUrl) {
 //#endregion
 export { getBalanceUsdc as a, getWalletBalanceText as c, getBalanceEth as i, prepareWalletForPaidCalls as l, formatWalletBalance as n, getWalletAccount as o, formatWalletBalanceResult as r, getWalletBalanceResult as s, buildTopupInfo as t, tools_exports as u };
 
-//# sourceMappingURL=tools-BHBPchXp.mjs.map
+//# sourceMappingURL=tools-Bo_MyqBP.mjs.map

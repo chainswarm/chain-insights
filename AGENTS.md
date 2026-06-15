@@ -10,7 +10,7 @@ risk screening, fund-flow tracing, local case evidence, and graph reports.
 ## Public Repository Rules
 
 - Keep documentation product-facing and useful to external users.
-- Use "GraphRAG MCP" for the graph and risk analysis layer.
+- Use "Chain Insights Graph" for the graph and risk analysis layer.
 - Do not include private repository names, local workspace paths, internal
   planning catalogs, private deployment details, or organization-only workflow
   names in tracked files.
@@ -40,7 +40,7 @@ Every PR that changes tracked files must update:
 ## Public Documentation
 
 - README and docs should start from user workflows: install, initialize,
-  configure GraphRAG MCP access, run AML tools, and review evidence.
+  configure Chain Insights Graph access, run AML tools, and review evidence.
 - Local debugging docs may mention localhost endpoints and environment
   variables, but must avoid private filesystem paths and private repository
   topology.

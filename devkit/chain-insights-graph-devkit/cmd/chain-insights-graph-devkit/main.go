@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/chainswarm/chain-insights/devkit/graphrag-mcp-devkit/internal/devkitmcp"
+	"github.com/chainswarm/chain-insights/devkit/chain-insights-graph-devkit/internal/devkitmcp"
 )
 
 func main() {

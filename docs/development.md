@@ -30,7 +30,7 @@ npm test -- tests/skills-contract.test.ts tests/cli.test.ts
 
 ## Bittensor Devkit
 
-The devkit runs a local GraphRAG MCP backend with deterministic Bittensor
+The devkit runs a local Chain Insights Graph backend with deterministic Bittensor
 fixture data. Use it when changing graph workflows, AML recipes, MCP proxy
 behavior, or developer documentation that depends on a working local backend.
 

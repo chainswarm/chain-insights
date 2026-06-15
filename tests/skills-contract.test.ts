@@ -47,7 +47,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('HAS_ADDRESS')
     expect(skill).toContain('archive_member_address_sample')
     expect(skill).toContain('USE archive_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address)')
-    expect(skill).toContain('Some Graph MCP deployments do not')
+    expect(skill).toContain('Some Chain Insights Graph deployments do not')
     expect(skill).toContain('generated fixed-depth `FLOWS_TO` query batches')
     expect(skill).toContain('exchange hot wallets are terminal endpoints only')
     expect(skill).toContain('chain-insights.evidence_pointer.v1')
@@ -82,9 +82,9 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('Do not infer dataset coverage ranges')
     expect(skill).toContain('Current Chain Insights AML tools define the behavior contract')
     expect(skill).not.toContain('<first_height>..<last_height> / <first_date>..<last_date>')
-    expect(skill).not.toContain('Python GraphRAG MCP is the golden implementation')
+    expect(skill).not.toContain('Python graph path is the golden implementation')
     expect(skill).not.toContain('StolenFundsProbe')
-    expect(skill).toContain('Some Graph MCP deployments do not')
+    expect(skill).toContain('Some Chain Insights Graph deployments do not')
     expect(skill).toContain('generated fixed-depth `FLOWS_TO` query batches')
     expect(skill).toContain('exchange hot wallets are terminal')
     expect(skill).not.toContain(retiredName('track', '_funds'))
@@ -138,9 +138,9 @@ describe('shipped Chain Insights skills contract', () => {
   })
 
   it('keeps UAT guidance and scripts from treating home as an investigation output root', () => {
-    const skill = read('skills/test-chain-insights-graphrag-mcp/SKILL.md')
+    const skill = read('skills/test-chain-insights-graph/SKILL.md')
     const investigationUat = read('skills/chain-insights-investigation/scripts/run-target-uat.sh')
-    const graphragUat = read('skills/test-chain-insights-graphrag-mcp/scripts/run-uat.sh')
+    const graphUat = read('skills/test-chain-insights-graph/scripts/run-uat.sh')
 
     expect(skill).toContain('temporary initialized Chain Insights workspace')
     expect(skill).toContain('chain-insights mcp networks')
@@ -157,7 +157,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('UAT_MEMBER_NETWORK=substrate')
     expect(skill).not.toContain('raw `Address FLOWS_TO Address` topology')
 
-    for (const script of [investigationUat, graphragUat]) {
+    for (const script of [investigationUat, graphUat]) {
       expect(script).toContain('GLOBAL_REPORTS="${HOME}/.chain-insights/reports"')
       expect(script).toContain('CONFIG_SNAPSHOT_READY=0')
       expect(script).toContain('snapshot_global_outputs')
@@ -165,20 +165,20 @@ describe('shipped Chain Insights skills contract', () => {
       expect(script).toContain('trap finish EXIT')
     }
 
-    expect(graphragUat).toContain('node "${CHAIN_INSIGHTS_CLI}" init "${WORKSPACE_ROOT}" --force')
-    expect(graphragUat).toContain('export CHAIN_INSIGHTS_WORKSPACE="${WORKSPACE_ROOT}"')
-    expect(graphragUat).toContain('cd "${WORKSPACE_ROOT}"')
-    expect(graphragUat).toContain('node "${CHAIN_INSIGHTS_CLI}" debug on --token "${DEBUG_TOKEN}" --endpoint "${MCP_ENDPOINT}"')
-    expect(graphragUat).toContain('--cli node "${CHAIN_INSIGHTS_PROXY}"')
-    expect(graphragUat).not.toContain('--cli "node ${CHAIN_INSIGHTS_PROXY}"')
-    expect(graphragUat).not.toContain('config set mcpEndpoint')
-    expect(graphragUat).not.toContain('config set mcpAuthToken')
-    expect(graphragUat).toContain('archive HAS_ADDRESS ok')
-    expect(graphragUat).toContain('USE archive_topology MATCH (i:Identity {identity_id:')
-    expect(graphragUat).toContain('m.network AS network')
-    expect(graphragUat).toContain('UAT_MEMBER_NETWORK="${UAT_MEMBER_NETWORK:-substrate}"')
-    expect(graphragUat).toContain('first.network !== network')
-    expect(graphragUat).toContain('AML trace tools ok')
+    expect(graphUat).toContain('node "${CHAIN_INSIGHTS_CLI}" init "${WORKSPACE_ROOT}" --force')
+    expect(graphUat).toContain('export CHAIN_INSIGHTS_WORKSPACE="${WORKSPACE_ROOT}"')
+    expect(graphUat).toContain('cd "${WORKSPACE_ROOT}"')
+    expect(graphUat).toContain('node "${CHAIN_INSIGHTS_CLI}" debug on --token "${DEBUG_TOKEN}" --endpoint "${MCP_ENDPOINT}"')
+    expect(graphUat).toContain('--cli node "${CHAIN_INSIGHTS_PROXY}"')
+    expect(graphUat).not.toContain('--cli "node ${CHAIN_INSIGHTS_PROXY}"')
+    expect(graphUat).not.toContain('config set mcpEndpoint')
+    expect(graphUat).not.toContain('config set mcpAuthToken')
+    expect(graphUat).toContain('archive HAS_ADDRESS ok')
+    expect(graphUat).toContain('USE archive_topology MATCH (i:Identity {identity_id:')
+    expect(graphUat).toContain('m.network AS network')
+    expect(graphUat).toContain('UAT_MEMBER_NETWORK="${UAT_MEMBER_NETWORK:-substrate}"')
+    expect(graphUat).toContain('first.network !== network')
+    expect(graphUat).toContain('AML trace tools ok')
     expect(investigationUat).toContain('GLOBAL_ARTIFACTS="${HOME}/.chain-insights/artifacts"')
     expect(investigationUat).toContain('reports/tables/member_address_identity.compact.json')
     expect(investigationUat).toContain('entities/${TARGET_ADDRESS}.md')
@@ -211,8 +211,8 @@ describe('shipped Chain Insights skills contract', () => {
     expect(combined).toContain('m.address AS member_address, m.network AS member_network')
   })
 
-  it('requires only current public proxy tools in GraphRAG UAT', () => {
-    const script = read('skills/test-chain-insights-graphrag-mcp/scripts/run-uat.sh')
+  it('requires only current public proxy tools in Chain Insights Graph UAT', () => {
+    const script = read('skills/test-chain-insights-graph/scripts/run-uat.sh')
     const proxySection = script.slice(script.indexOf('PROXY_TOOLS_JSON='))
 
     expect(proxySection).toContain(
@@ -252,7 +252,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).toContain('open-source AML investigation toolkit')
     expect(readme).toContain('https://chain-insights.ai')
     expect(readme).toContain('https://github.com/chainswarm/chain-insights')
-    expect(readme).toContain('GraphRAG MCP')
+    expect(readme).toContain('Chain Insights Graph')
     expect(readme).toContain('cia config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp')
     expect(readme).toContain('CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://staging-mcp.chain-insights.ai/mcp')
     expect(readme).toContain('http://127.0.0.1:8012/mcp')
@@ -277,7 +277,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).toContain('docs/debugging.md')
 
     expect(readme).not.toContain('Claude Desktop')
-    expect(readme).not.toContain('Go Graph MCP')
+    expect(readme).not.toContain(`${retiredName('Graph', 'RAG')}`)
     expect(readme).not.toContain('x402')
     expect(readme).not.toContain('Base USDC')
     expect(readme).not.toContain('USDC on Base')
@@ -326,7 +326,7 @@ describe('shipped Chain Insights skills contract', () => {
     }
   })
 
-  it('does not hardcode hosted GraphRAG MCP endpoints in runtime source defaults', () => {
+  it('does not hardcode hosted Chain Insights Graph endpoints in runtime source defaults', () => {
     const runtimeSources = [
       'src/config/mcp-endpoint.ts',
       'src/config/schema.ts',
@@ -346,7 +346,7 @@ describe('shipped Chain Insights skills contract', () => {
     const development = read('docs/development.md')
 
     expect(skill).toContain('Chain Insights Developer Experience')
-    expect(skill).toContain('GraphRAG MCP')
+    expect(skill).toContain('Chain Insights Graph')
     expect(skill).toContain('AML tool framework')
     expect(skill).toContain('aml_address_risk')
     expect(skill).toContain('aml_trace_victim_funds')
@@ -363,13 +363,13 @@ describe('shipped Chain Insights skills contract', () => {
     expect(contributing).toContain('Adding AML Tools')
     expect(contributing).toContain('Workspace artifact and report behavior.')
     expect(contributing).toContain('npm run release:check')
-    expect(debugging).toContain('GraphRAG MCP')
+    expect(debugging).toContain('Chain Insights Graph')
     expect(debugging).toContain('Inspector')
     expect(development).toContain('docs/contributing.md')
     expect(development).toContain('docs/debugging.md')
   })
 
-  it('ships generic GraphRAG MCP Cypher guidance with layer-aware schema capture', () => {
+  it('ships generic Chain Insights Graph Cypher guidance with layer-aware schema capture', () => {
     const skill = read('skills/chain-insights-cypher/SKILL.md')
     const examples = read('skills/chain-insights-cypher/references/memgraph-examples.md')
     const openai = read('skills/chain-insights-cypher/agents/openai.yaml')
@@ -385,7 +385,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('USE facts')
     expect(skill).toContain('archive_member_address_sample')
     expect(skill).toContain('USE archive_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address)')
-    expect(skill).toContain('GraphRAG MCP does not append')
+    expect(skill).toContain('Chain Insights Graph does not append')
     expect(skill).toContain('per_query_timeout_seconds=5')
     expect(skill).toContain('Future networks may expose different schemas')
     expect(skill).toContain('AddressFeature')
@@ -398,7 +398,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('fixed-hop')
     expect(skill).toContain('exchange hot wallets are terminal endpoints only')
     expect(skill).toContain('No raw StarRocks table names')
-    expect(examples).toContain('GraphRAG MCP Cypher Examples')
+    expect(examples).toContain('Chain Insights Graph Cypher Examples')
     expect(examples).toContain('Official Memgraph references')
     expect(examples).toContain('Validated against the identity-serving contract on 2026-06-13')
     expect(examples).toContain('Top outflows by amount')

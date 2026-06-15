@@ -195,7 +195,7 @@ async function getWalletReadiness(account, minimumApprovalUnits = DEFAULT_PAYMEN
 	});
 }
 function formatWalletReadiness(readiness, approval) {
-	const status = readiness.ready ? "Ready for paid GraphRAG MCP calls" : "Action needed before paid GraphRAG MCP calls";
+	const status = readiness.ready ? "Ready for paid Chain Insights Graph calls" : "Action needed before paid Chain Insights Graph calls";
 	const setup = readiness.needsPaymentApproval ? `Payment setup: needs one-time setup for up to ${(0, viem.formatUnits)(readiness.minimumApprovalUnits, 6)} USDC of paid calls` : "Payment setup: ready";
 	const setupCompletedLine = approval?.status === "approved" ? "Payment setup completed." : void 0;
 	return [

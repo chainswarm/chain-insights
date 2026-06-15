@@ -1,9 +1,8 @@
-# GraphRAG MCP Cypher Examples
+# Chain Insights Graph Cypher Examples
 
 Use these examples when an investigation needs practical graph-language reads
 instead of only schema probes. They are adapted from Memgraph query and deep
-path traversal features, then bounded to the Chain Insights GraphRAG MCP
-surface.
+path traversal features, then bounded to the Chain Insights Graph surface.
 
 Official Memgraph references:
 
@@ -15,7 +14,7 @@ Official Memgraph references:
 Validated against the identity-serving contract on 2026-06-13 with
 `network=bittensor` and `per_query_timeout_seconds=5`.
 
-Accepted through GraphRAG MCP:
+Accepted through Chain Insights Graph:
 
 - `MATCH`, directed relationship patterns, property equality, `WHERE`
 - `STARTS WITH`
@@ -142,7 +141,7 @@ the current network exposes them.
 ## Fixed-Hop Traversal Fallback
 
 Memgraph deep traversal docs cover BFS, weighted shortest path, all shortest
-paths, and K shortest paths. Through the current GraphRAG MCP path, those
+paths, and K shortest paths. Through the current Chain Insights Graph path, those
 native operators were rejected on staging. Use explicit fixed-hop batches for
 Chain Insights traversal instead.
 
@@ -170,7 +169,7 @@ member addresses, and use a small `LIMIT` while exploring.
 
 ## Direct Memgraph Reference Syntax
 
-Use this syntax only in a direct Memgraph console or after the GraphRAG MCP
+Use this syntax only in a direct Memgraph console or after the Chain Insights Graph
 endpoint accepts the same pattern.
 
 Native BFS:

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Test Chain Insights GraphRAG MCP"
-  short_description: "Run Chain Insights vs GraphRAG MCP UAT"
-  default_prompt: "Run the Chain Insights versus GraphRAG MCP UAT and report pass/fail evidence."

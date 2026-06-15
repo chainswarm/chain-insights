@@ -167,9 +167,9 @@ export function createMcpFetchClient(privateKey: `0x${string}`, authToken?: stri
 }
 
 /**
- * Creates a bearer/debug-token fetch for local Graph MCP testing.
+ * Creates a bearer/debug-token fetch for local Chain Insights Graph testing.
  *
- * GraphRAG MCP deployments accept test access through the public debug header,
+ * Chain Insights Graph deployments accept test access through the public debug header,
  * staging test-key headers, or Authorization: Bearer depending on the route.
  * Sending all supported auth headers lets one config value work across hosted
  * MCP calls, metadata reads, and private M2M endpoints.
@@ -229,7 +229,7 @@ export async function createConfiguredGraphMcpFetch(
   if (config.graphMcpMode === 'debug') {
     const authToken = config.graphMcpAuthToken?.trim() || config.mcpAuthToken?.trim()
     if (!authToken) {
-      throw new Error('Graph MCP debug mode requires graphMcpAuthToken. Run `cia access-key set <key>` or `cia debug on --token <token>`.')
+      throw new Error('Chain Insights Graph debug mode requires graphMcpAuthToken. Run `cia access-key set <key>` or `cia debug on --token <token>`.')
     }
     return createMcpAuthFetchClient(authToken)
   }

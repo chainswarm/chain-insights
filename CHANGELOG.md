@@ -3,12 +3,20 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.7.6] - 2026-06-15
+
+- Renamed the product-facing graph layer to Chain Insights Graph across README,
+  docs, shipped skills, CLI output, wallet readiness text, and MCP proxy errors.
+- Renamed the devkit lite graph backend and UAT skill to
+  `chain-insights-graph-devkit` and `test-chain-insights-graph` so local
+  devkit output no longer exposes retired graph-layer names.
+
 ## [0.7.5] - 2026-06-15
 
-- Documented the Bittensor devkit as the deterministic local GraphRAG MCP
+- Documented the Bittensor devkit as the deterministic local Chain Insights Graph
   backend for Chain Insights development, including clean compose startup,
   smoke scripts, CIA parity checks, and the primitive-only backend boundary.
-- Clarified GraphRAG MCP docs so `graph_query` and `graph_query_batch` remain
+- Clarified Chain Insights Graph docs so `graph_query` and `graph_query_batch` remain
   the portable graph primitives, while Chain Insights owns local metadata,
   usage-status fallback behavior, wallet state, and AML workflows.
 - Fixed public trace summaries and Markdown reports so final artifact paths
@@ -72,7 +80,7 @@ All notable changes to Chain Insights are recorded here.
   retention-window, and aggregation fields from the public result.
 - Tightened no-argument MCP schemas for metadata and wallet tools so MCP
   Inspector renders strict empty inputs, and aligned docs, runtime skills,
-  GraphRAG UAT guidance, and ACP-facing surface names with the prefixed
+  Chain Insights Graph UAT guidance, and ACP-facing surface names with the prefixed
   contract.
 
 ## [0.6.2] - 2026-06-13
@@ -80,8 +88,8 @@ All notable changes to Chain Insights are recorded here.
 - Refreshed the MCP inspector-facing prompt and tool metadata: added the
   `network-capabilities` prompt, aligned graph prompt titles, and capitalized
   the local `Balance` and `Help` tool titles.
-- Updated Chain Insights graph docs, shipped Cypher skills, and GraphRAG UAT
-  guidance for the current semantic identity graph: the only public GraphRAG
+- Updated Chain Insights graph docs, shipped Cypher skills, and Chain Insights Graph UAT
+  guidance for the current semantic identity graph: the only public Chain Insights Graph
   investigation network is `bittensor`, Bittensor SS58 and EVM-pallet member
   addresses share `network=bittensor`, and money-flow queries use
   `(:Identity)-[:FLOWS_TO]->(:Identity)` with `amount_usd_sum`.
@@ -183,7 +191,7 @@ All notable changes to Chain Insights are recorded here.
   `aml_address_risk` profile now collects member addresses through a dedicated
   `HAS_ADDRESS` batch query, trace path-node maps no longer project
   `addresses`, the workspace runtime-skill prompt and MCP schema hints document
-  the satellite traversal instead of the list property, and the GraphRAG MCP
+  the satellite traversal instead of the list property, and the Chain Insights Graph
   UAT asserts membership via `collect(m.address)` from the satellites.
 
 ## [0.5.3] - 2026-06-11
@@ -196,7 +204,7 @@ All notable changes to Chain Insights are recorded here.
   `MATCH (m:Address {address: $input})<-[:HAS_ADDRESS]-(i:Identity)
   RETURN i.identity_id LIMIT 1`. Removed the backtick escaping and
   reserved-word notes from the resolution helper, workspace runtime-skill
-  prompt, MCP schema hints, and the GraphRAG MCP UAT member-address
+  prompt, MCP schema hints, and the Chain Insights Graph UAT member-address
   resolution phase.
 
 ## [0.5.2] - 2026-06-11
@@ -206,7 +214,7 @@ All notable changes to Chain Insights are recorded here.
   resolution lookup is now
   `MATCH (m:Address {address: $input})<-[:\`OF\`]-(i:Identity)
   RETURN i.identity_id LIMIT 1`. Updated the resolution helper, workspace
-  runtime-skill prompt, MCP schema hints, and the GraphRAG MCP UAT
+  runtime-skill prompt, MCP schema hints, and the Chain Insights Graph UAT
   member-address resolution phase. The graph model from 0.5.1 is unchanged.
 
 ## [0.5.1] - 2026-06-11
@@ -217,7 +225,7 @@ All notable changes to Chain Insights are recorded here.
   resolution lookup is now
   `MATCH (m:Address {address: $input})<-[:OF]-(i:Identity)
   RETURN i.identity_id LIMIT 1`. Updated the resolution helper, workspace
-  runtime-skill prompt, MCP schema hints, and the GraphRAG MCP UAT
+  runtime-skill prompt, MCP schema hints, and the Chain Insights Graph UAT
   member-address resolution phase. Everything else from 0.5.0 stands.
 
 ## [0.5.0] - 2026-06-10
@@ -242,7 +250,7 @@ All notable changes to Chain Insights are recorded here.
 - Workspace runtime-skill prompt and MCP schema hints teach the
   `addresses` list, the MemberAddress resolution pattern, the node
   triage/rollup properties, and the scores-detail-via-`USE facts` rule.
-- GraphRAG MCP UAT asserts a non-empty `addresses` list on the UAT
+- Chain Insights Graph UAT asserts a non-empty `addresses` list on the UAT
   identity node and that MemberAddress resolution by the SS58 member
   form returns the identity; all existing identity/scope assertions are
   kept.
@@ -269,7 +277,7 @@ All notable changes to Chain Insights are recorded here.
   identity key form, member-address properties, exposure shapes, and the
   scores-come-from-`USE facts` rule. `topology_scope` accepts only
   `identity`.
-- GraphRAG MCP UAT now runs identity-only assertions (identity node lookup
+- Chain Insights Graph UAT now runs identity-only assertions (identity node lookup
   with member-address checks, identity exposure discovery) and asserts that
   `graph_query` with `topology_scope=address` fails with the
   unsupported-scope error.
@@ -286,7 +294,7 @@ All notable changes to Chain Insights are recorded here.
 
 - Switched the UAT CLI live-topology lookup to the inline property-map form
   (`MATCH (n:Address {address: …})`). The `WHERE`-clause form deterministically
-  hangs in the memgql proxy when sent from the GraphRAG MCP Go client, while
+  hangs in the memgql proxy when sent from the Chain Insights Graph Go client, while
   the inline form resolves in milliseconds through every client path.
 
 ## [0.3.22] - 2026-06-10
@@ -298,7 +306,7 @@ All notable changes to Chain Insights are recorded here.
 
 ## [0.3.21] - 2026-06-10
 
-- Fixed the GraphRAG MCP UAT CLI live-topology lookup to use a labeled
+- Fixed the Chain Insights Graph UAT CLI live-topology lookup to use a labeled
   `MATCH (n:Address)` pattern. The unlabeled `MATCH (n)` form forced a full
   client-side proxy scan (~27s on a large graph) and broke under the MCP
   per-query timeout; labeled lookups resolve via the address index in
@@ -306,7 +314,7 @@ All notable changes to Chain Insights are recorded here.
 
 ## [0.3.20] - 2026-06-09
 
-- Cut the GraphRAG MCP UAT identity assertions to the public route:
+- Cut the Chain Insights Graph UAT identity assertions to the public route:
   `graph_query` with `network=bittensor` plus `topology_scope=identity` now
   asserts live `Identity FLOWS_TO Identity` topology, resolved routing
   metadata (`facts.routing.starrocks_database=bittensor_semantic`),
@@ -331,14 +339,14 @@ All notable changes to Chain Insights are recorded here.
 - Added generic `exposure_quality`, `exposure_carry`, `exposure_crowding`,
   `exposure_exit_pressure`, `exposure_correlation`, and `exposure_explain`
   MCP tools plus matching `cia mcp` commands over the shared exposure model.
-- Extended Chain Insights GraphRAG UAT to discover a seeded generic exposure
+- Extended Chain Insights Graph UAT to discover a seeded generic exposure
   account and smoke all exposure tools without exposing storage or graph
   relationship internals.
 
 ## [0.3.14] - 2026-06-08
 
 - Removed the legacy non-public `stake_insights` implementation and remaining
-  stake-topology GraphRAG assumptions from the public Chain Insights source,
+  stake-topology Chain Insights Graph assumptions from the public Chain Insights source,
   skills, and UAT surface.
 - Removed the deprecated case/vault/playbook product surface, including
   `cia case` export and vault scaffolding, shipped `ci-case` guidance, and
@@ -377,7 +385,7 @@ All notable changes to Chain Insights are recorded here.
 
 ## [0.3.10] - 2026-06-02
 
-- Allowed GraphRAG MCP endpoint configuration to use trusted Kubernetes
+- Allowed Chain Insights Graph endpoint configuration to use trusted Kubernetes
   `*.svc.cluster.local` HTTP service URLs for in-cluster proxy deployments while
   continuing to reject arbitrary remote HTTP endpoints.
 
@@ -391,7 +399,7 @@ All notable changes to Chain Insights are recorded here.
 
 ## [0.3.8] - 2026-06-01
 
-- Sent invited tester access keys through the GraphRAG MCP debug, staging
+- Sent invited tester access keys through the Chain Insights Graph debug, staging
   test-key, and bearer auth headers for both MCP tool calls and network
   capability metadata reads, so staging smoke tests can exercise graph-backed
   tools without falling through to x402 payment.
@@ -407,7 +415,7 @@ All notable changes to Chain Insights are recorded here.
 
 ## [0.3.6] - 2026-05-31
 
-- Clarified the public GraphRAG MCP free-tier path: 10 execution seconds per IP per
+- Clarified the public Chain Insights Graph free-tier path: 10 execution seconds per IP per
   UTC day should be spent on bounded single `graph_query` reads, prepared wallet
   users receive the daily free tier first, and batches are documented as
   paid-access usage.
@@ -470,7 +478,7 @@ All notable changes to Chain Insights are recorded here.
   skill, shipped skills, docs, playbooks, and UAT guidance to teach the
   victim -> deposit traceback -> suspect chaining workflow.
 - Added a shipped Memgraph examples reference for `chain-insights-cypher`,
-  covering staging-tested GraphRAG MCP reads, archive/facts examples, and
+  covering staging-tested Chain Insights Graph reads, archive/facts examples, and
   fixed-hop traversal fallbacks for native Memgraph deep traversal syntax that
   the hosted endpoint currently rejects.
 - Allowed skill-local `references/` bundles to be tracked and shipped while
@@ -482,7 +490,7 @@ All notable changes to Chain Insights are recorded here.
 ## [0.2.31] - 2026-05-29
 
 - Added shipped `chain-insights-cypher` and
-  `chain-insights-bittensor-cypher` skills for schema-aware GraphRAG MCP
+  `chain-insights-bittensor-cypher` skills for schema-aware Chain Insights Graph
   GQL/Cypher work, including generic live/archive/facts layer guidance and
   Bittensor-specific SS58 plus EVM-pallet address handling.
 - Updated graph-tool and MCP proxy docs to point agents at the new Cypher
@@ -498,9 +506,9 @@ All notable changes to Chain Insights are recorded here.
 
 ## [0.2.29] - 2026-05-29
 
-- Added `usage_status` documentation and client coverage for the GraphRAG MCP public free `graph_query` quota.
+- Added `usage_status` documentation and client coverage for the Chain Insights Graph public free `graph_query` quota.
 - Updated graph access guidance to call out the default 10 execution seconds per IP per UTC day, explicit query `LIMIT`/pagination, and paid fallback after quota exhaustion.
-- Let paid-mode GraphRAG MCP clients make public free calls before wallet setup, while still surfacing wallet-ready guidance when the endpoint returns payment required.
+- Let paid-mode Chain Insights Graph clients make public free calls before wallet setup, while still surfacing wallet-ready guidance when the endpoint returns payment required.
 
 ## [0.2.28] - 2026-05-29
 
@@ -516,7 +524,7 @@ All notable changes to Chain Insights are recorded here.
 
 ## [0.2.26] - 2026-05-29
 
-- The MCP proxy now starts its local Chain Insights tool surface even when paid GraphRAG MCP fetch setup needs wallet or access-key configuration. Fresh MCP clients can list `help`, wallet/case tools, and the local AML workflows first, then receive user-facing `wallet ready` or `access-key` guidance when graph-backed calls need hosted access instead of seeing the proxy exit during `tools/list`.
+- The MCP proxy now starts its local Chain Insights tool surface even when paid Chain Insights Graph fetch setup needs wallet or access-key configuration. Fresh MCP clients can list `help`, wallet/case tools, and the local AML workflows first, then receive user-facing `wallet ready` or `access-key` guidance when graph-backed calls need hosted access instead of seeing the proxy exit during `tools/list`.
 
 ## [0.2.25] - 2026-05-28
 
@@ -525,8 +533,8 @@ All notable changes to Chain Insights are recorded here.
 
 ## [0.2.24] - 2026-05-28
 
-- Added `chain-insights wallet ready` to check Base USDC, Base ETH gas, and one-time payment approval readiness in one user-facing command before paid GraphRAG MCP calls.
-- Paid GraphRAG MCP calls now automatically prepare the local wallet and retry once when the x402 endpoint reports missing payment approval, so new users do not need to understand low-level approval mechanics.
+- Added `chain-insights wallet ready` to check Base USDC, Base ETH gas, and one-time payment approval readiness in one user-facing command before paid Chain Insights Graph calls.
+- Paid Chain Insights Graph calls now automatically prepare the local wallet and retry once when the x402 endpoint reports missing payment approval, so new users do not need to understand low-level approval mechanics.
 - Updated payment guidance across the CLI, MCP proxy, workspace scaffold, and docs to point users at `wallet ready` first.
 
 ## [0.2.23] - 2026-05-28
@@ -547,12 +555,12 @@ All notable changes to Chain Insights are recorded here.
 ## [0.2.20] - 2026-05-27
 
 - Removed internal planning artifacts from the public repository and ignored the local planning catalog path.
-- Cleaned public docs, shipped skills, and agent guidance so they use product-facing Chain Insights and GraphRAG MCP language.
+- Cleaned public docs, shipped skills, and agent guidance so they use product-facing Chain Insights and Chain Insights Graph language.
 
 ## [0.2.19] - 2026-05-27
 
-- Added the Chain Insights `stake_insights` recipe over GraphRAG `STAKES_IN` live/archive topology queries, including MCP proxy and CLI exposure, graph report metadata, and explicit backend-unavailable failures.
-- Removed the hardcoded hosted GraphRAG MCP default from runtime config and workspace scaffold paths; local defaults now point to loopback.
+- Added the Chain Insights `stake_insights` recipe over Chain Insights Graph `STAKES_IN` live/archive topology queries, including MCP proxy and CLI exposure, graph report metadata, and explicit backend-unavailable failures.
+- Removed the hardcoded hosted Chain Insights Graph default from runtime config and workspace scaffold paths; local defaults now point to loopback.
 - Added MCP endpoint validation for operator config (`graphMcpEndpoint` / `mcpEndpoint`) with explicit errors for malformed URLs, remote `http://`, credentials, and query/fragment usage.
 - Added README operator guidance for MCP server address configuration across local, staging, and production environments, including precedence and validation rules.
 - Removed synthetic fallback private-key generation from wallet topup startup; topup servers now require valid EVM wallet addresses at runtime entry points.
@@ -568,7 +576,7 @@ All notable changes to Chain Insights are recorded here.
 ## [0.2.17] - 2026-05-25
 
 - Reworked npm package positioning with growth-friendly description, homepage, repository, issue tracker, and keywords.
-- Updated the npm-facing README to link the website, GitHub, and npm package, and to explain x402-paid GraphRAG MCP access without exposing backend infrastructure names.
+- Updated the npm-facing README to link the website, GitHub, and npm package, and to explain x402-paid Chain Insights Graph access without exposing backend infrastructure names.
 - Removed backend infrastructure names from public package docs, shipped skills, MCP tool copy, and generated workspace runtime guidance.
 
 ## [0.2.16] - 2026-05-25
@@ -579,11 +587,11 @@ All notable changes to Chain Insights are recorded here.
 
 - Fixed the Chain Insights MCP proxy so graph query timeout options survive runtime query logging and slow `graph_query_batch` calls do not fall back to the SDK default timeout.
 - Made `address_risk` report partial enrichment query failures without failing the whole screening or graph report.
-- Updated the GraphRAG MCP UAT skill to validate a local GraphRAG MCP endpoint on port 8012.
+- Updated the Chain Insights Graph UAT skill to validate a local Chain Insights Graph endpoint on port 8012.
 
 ## [0.2.14] - 2026-05-24
 
-- Reworked README into a product-first Chain Insights overview with a cleaner quick start, AML tool showcase, GraphRAG MCP layering, and live/archive/facts topology guidance.
+- Reworked README into a product-first Chain Insights overview with a cleaner quick start, AML tool showcase, Chain Insights Graph layering, and live/archive/facts topology guidance.
 - Added Chain Insights developer-experience guidance plus focused contributing and debugging docs.
 - Dogfooded the installed `cia` workflow from a clean workspace and documented the resulting README/CLI feedback.
 
@@ -626,14 +634,14 @@ All notable changes to Chain Insights are recorded here.
 ## [0.2.7] - 2026-05-23
 
 - Added `scam_topology` live infrastructure expansion: seed funding inputs, seed sweeps, and fan-in/fan-out context around traced laundering anchors.
-- Raised `graph_query_batch` timeout metadata to 600 seconds so archive-scale graph reads can be requested through the Chain Insights proxy and GraphRAG MCP.
+- Raised `graph_query_batch` timeout metadata to 600 seconds so archive-scale graph reads can be requested through the Chain Insights proxy and Chain Insights Graph.
 - Updated Chain Insights investigation docs/skills for the wider scam-topology graph report.
 
 ## [0.2.6] - 2026-05-22
 
 - Switched Chain Insights graph recipes to MemGQL-native `live_topology`, `archive_topology`, and `facts` queries.
 - Reworked `track_funds` to avoid MemGQL-unsupported BFS, variable-length paths, `labels()`, reserved aliases, and top-level `UNWIND`.
-- Updated GraphRAG MCP UAT guidance for the primitive `graph_query` and `graph_query_batch` endpoint.
+- Updated Chain Insights Graph UAT guidance for the primitive `graph_query` and `graph_query_batch` endpoint.
 
 ## [0.2.5] - 2026-05-21
 
@@ -651,8 +659,8 @@ All notable changes to Chain Insights are recorded here.
 - Tightened investigation workspace output: large JSON evidence is stored under `reports/tables/` with compact evidence pointers, case briefs are more actionable, dossiers omit empty placeholder sections, and runtime logs now live under `.chain-insights/runtime/logs/`.
 - Clarified that `reports/graphs/` is the canonical graph payload location and duplicated graph artifacts are not created.
 - Fixed `cia mcp track-funds --case <number>` so numeric case selectors resolve to the real case ID before evidence is attached.
-- Restored Python GraphRAG MCP golden semantics for local `track_funds` forward exchange discovery: Chain Insights now issues Memgraph `FLOWS_TO *BFS` through the Go Graph MCP primitive instead of replacing the probe with plain variable-length path enumeration.
-- Restored Python GraphRAG MCP golden semantics for local `address_risk` exchange discovery: exchange outflow/inflow checks use Memgraph `FLOWS_TO *BFS` with Python-style result budgets instead of bounded `FLOWS_TO *1..N` recipes, and missing stored risk fields now produce deterministic risk facts instead of `unknown/null`.
+- Restored legacy Python graph-path semantics for local `track_funds` forward exchange discovery: Chain Insights now issues Memgraph `FLOWS_TO *BFS` through the Go graph primitive instead of replacing the probe with plain variable-length path enumeration.
+- Restored legacy Python graph-path semantics for local `address_risk` exchange discovery: exchange outflow/inflow checks use Memgraph `FLOWS_TO *BFS` with Python-style result budgets instead of bounded `FLOWS_TO *1..N` recipes, and missing stored risk fields now produce deterministic risk facts instead of `unknown/null`.
 
 ## [0.2.2] - 2026-05-18
 
@@ -661,7 +669,7 @@ All notable changes to Chain Insights are recorded here.
 ## [0.2.1] - 2026-05-18
 
 - Added `chain-insights access-key set|clear|status` for simple invited tester setup without exposing x402 details.
-- Documented Graph MCP test access key mode for invited users who should bypass x402 payment.
+- Documented Chain Insights Graph test access key mode for invited users who should bypass x402 payment.
 - Documented server-side test key hash configuration and rotation guidance.
 
 ## [0.2.0] - 2026-05-18
@@ -671,4 +679,4 @@ All notable changes to Chain Insights are recorded here.
 - Added canonical graph report schema support and local graph report serving from workspace `reports/graphs`.
 - Added workspace output-root handling so investigation outputs stay in initialized workspaces.
 - Added wallet balance visibility for Base ETH gas alongside USDC.
-- Updated the default Graph MCP endpoint to staging.
+- Updated the default Chain Insights Graph endpoint to staging.

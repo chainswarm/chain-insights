@@ -400,7 +400,7 @@ describe('MCP client (02-01)', () => {
       mcpAuthToken: '',
       graphMcpAuthToken: '',
       graphMcpMode: 'debug',
-    })).rejects.toThrow('Graph MCP debug mode requires graphMcpAuthToken')
+    })).rejects.toThrow('Chain Insights Graph debug mode requires graphMcpAuthToken')
     expect(mockIsWalletConfigured).not.toHaveBeenCalled()
     expect(mockDecryptKey).not.toHaveBeenCalled()
   })

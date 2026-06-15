@@ -1,6 +1,6 @@
 # Contributing To Chain Insights
 
-Chain Insights is an AML investigation framework layered on top of GraphRAG
+Chain Insights is an AML investigation framework layered on top of Chain Insights Graph
 MCP. Contributions should keep the product easy to try while preserving precise
 tool contracts for agents and analysts.
 
@@ -25,7 +25,7 @@ When adding a tool, document:
 
 - User problem.
 - Required and optional inputs.
-- GraphRAG MCP primitive calls.
+- Chain Insights Graph primitive calls.
 - Use of `live_topology`, `archive_topology`, and `facts`.
 - Result contract.
 - Workspace artifact and report behavior.

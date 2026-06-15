@@ -79,7 +79,7 @@ func newMemgraphRunnerWithRetry(
 					ctx,
 					"memgraph connectivity ready",
 					"operation", "devkit_mcp.memgraph_connect",
-					"component", "graphrag-mcp-devkit",
+					"component", "chain-insights-graph-devkit",
 					"attempt", attempt,
 					"status", "success",
 				)
@@ -94,7 +94,7 @@ func newMemgraphRunnerWithRetry(
 			ctx,
 			"memgraph connectivity not ready",
 			"operation", "devkit_mcp.memgraph_connect",
-			"component", "graphrag-mcp-devkit",
+			"component", "chain-insights-graph-devkit",
 			"attempt", attempt,
 			"status", "retrying",
 			"error", err,

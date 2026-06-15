@@ -3,8 +3,8 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHAIN_INSIGHTS_DIR="${CHAIN_INSIGHTS_DIR:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
-MCP_ENDPOINT="${GRAPHRAG_MCP_ENDPOINT:-http://localhost:8012/mcp}"
-DEBUG_TOKEN="${GRAPHRAG_DEBUG_TOKEN:-chain-insights-dev-debug}"
+MCP_ENDPOINT="${CHAIN_INSIGHTS_GRAPH_ENDPOINT:-${CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT:-http://localhost:8012/mcp}}"
+DEBUG_TOKEN="${CHAIN_INSIGHTS_GRAPH_DEBUG_TOKEN:-chain-insights-dev-debug}"
 SERVER_PORT="${CHAIN_INSIGHTS_SERVER_PORT:-4321}"
 NETWORK="${NETWORK:-bittensor}"
 # UAT_ADDRESS is the SS58 substrate member address of the UAT identity; it is
@@ -127,7 +127,7 @@ OLD_GRAPH_MCP_ENDPOINT="$(node "${CHAIN_INSIGHTS_CLI}" config get graphMcpEndpoi
 OLD_GRAPH_MCP_AUTH_TOKEN="$(node "${CHAIN_INSIGHTS_CLI}" config get graphMcpAuthToken || true)"
 OLD_SERVER_PORT="$(node "${CHAIN_INSIGHTS_CLI}" config get serverPort || true)"
 CONFIG_SNAPSHOT_READY=1
-log "using GraphRAG MCP endpoint: ${MCP_ENDPOINT}"
+log "using Chain Insights Graph endpoint: ${MCP_ENDPOINT}"
 
 cd "${CHAIN_INSIGHTS_DIR}"
 
@@ -172,7 +172,7 @@ log "refreshing Chain Insights remote tool schema cache"
 ) >"${RUN_DIR}/chain-insights-tools.txt"
 
 DIRECT_TOOLS_JSON="${RUN_DIR}/direct-tools-list.json"
-log "checking direct GraphRAG tools/list"
+log "checking direct Chain Insights Graph tools/list"
 npx @modelcontextprotocol/inspector \
   --cli "${MCP_ENDPOINT}" \
   --transport http \
@@ -394,7 +394,7 @@ NODE
 DIRECT_JSON="${RUN_DIR}/direct-address-risk.json"
 DIRECT_ADDRESS_RISK_SUMMARY="- direct aml_address_risk skipped: direct endpoint is primitive-only"
 if [[ "$(cat "${RUN_DIR}/direct-high-level-tools.txt")" == "yes" ]]; then
-  log "calling direct GraphRAG aml_address_risk"
+  log "calling direct Chain Insights Graph aml_address_risk"
   npx @modelcontextprotocol/inspector \
     --cli "${MCP_ENDPOINT}" \
     --transport http \
@@ -432,7 +432,7 @@ console.log(`[uat] direct aml_address_risk ok: nodes=${graphData.nodes.length} e
 NODE
   DIRECT_ADDRESS_RISK_SUMMARY="- ${DIRECT_JSON}"
 else
-  log "direct GraphRAG high-level tools absent; primitive-only endpoint, skipping direct aml_address_risk check"
+  log "direct Chain Insights Graph high-level tools absent; primitive-only endpoint, skipping direct aml_address_risk check"
 fi
 
 PROXY_TOOLS_JSON="${RUN_DIR}/proxy-tools-list.json"
@@ -627,7 +627,7 @@ NODE
 
 SUMMARY="${RUN_DIR}/summary.txt"
 cat >"${SUMMARY}" <<EOF
-Chain Insights vs GraphRAG MCP UAT PASS
+Chain Insights against Chain Insights Graph UAT PASS
 
 Endpoint: ${MCP_ENDPOINT}
 Network: ${NETWORK}

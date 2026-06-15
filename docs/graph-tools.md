@@ -7,9 +7,9 @@ Chain Insights workspaces are plain local folders. Graph tools write workspace
 evidence and report pointers into the workspace; use live workspace files for
 local review and `published/` only for rendered HTML or handoff-ready outputs.
 
-## GraphRAG MCP Surface
+## Chain Insights Graph Surface
 
-The GraphRAG MCP graph surface is intentionally small:
+The Chain Insights Graph surface is intentionally small:
 
 | Tool | Purpose |
 | --- | --- |
@@ -20,7 +20,7 @@ The GraphRAG MCP graph surface is intentionally small:
 Chain Insights tools such as `aml_address_risk`,
 `aml_trace_victim_funds`, `aml_trace_deposit_sources`, and `aml_trace_suspect_funds` are
 recipes built over `graph_query_batch`. They are not assumed to exist on the
-GraphRAG MCP endpoint.
+Chain Insights Graph endpoint.
 
 The Chain Insights MCP proxy adds product-facing local metadata tools such as
 `meta_network_capabilities`, `meta_usage_status`, and `meta_help`. On hosted
@@ -43,8 +43,8 @@ returns a local unmetered primitive-backend status instead.
   x402 payment continues automatically from the configured wallet.
 - Use explicit LIMIT and pagination in your query when you want bounded result
   sets.
-- The GraphRAG MCP server does not append `LIMIT`; Chain Insights recipes own
-  their own limits and pagination.
+- Chain Insights Graph does not append `LIMIT`; Chain Insights recipes own their
+  own limits and pagination.
 - Use single bounded `graph_query` calls for public no-wallet free-tier usage. Use
   `graph_query_batch` for related reads that should share one paid call; public
   free-tier access does not include batches.
@@ -57,7 +57,8 @@ Agent installers ship two graph-query skills:
   portable read-only GQL/Cypher examples. Its
   `references/memgraph-examples.md` file includes staging-tested Memgraph-style
   recipes, archive/facts reads, and fixed-hop traversal fallbacks for native
-  Memgraph deep traversal syntax that the hosted GraphRAG MCP path may reject.
+  Memgraph deep traversal syntax that the hosted Chain Insights Graph path may
+  reject.
 - `chain-insights-bittensor-cypher`: Bittensor-specific schema notes for SS58
   and EVM-pallet addresses under `network=bittensor`.
 
@@ -285,9 +286,9 @@ artifacts.
 Fresh workspaces include a runtime schema skill and schema capture directory.
 Before the first graph query against a network, capture the live graph schema and
 use the observed labels, relationship types, and property names in subsequent
-queries. The current public GraphRAG investigation network is Bittensor only;
-do not infer support for unadvertised networks from internal database names or
-historical examples.
+queries. The current public Chain Insights Graph investigation network is
+Bittensor only; do not infer support for unadvertised networks from internal
+database names or historical examples.
 
 Useful schema probes:
 
@@ -301,4 +302,4 @@ cia mcp call graph_query_batch \
 Use endpoint-safe property projections like `i.identity_id` and `flow.tx_count`
 in probes. Metadata
 functions such as `keys()`, `labels()`, and `type()` are not portable across
-every GraphRAG MCP layer.
+every Chain Insights Graph layer.

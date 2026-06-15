@@ -68,7 +68,7 @@ services:
       starrocks-import:
         condition: service_completed_successfully
 
-  graphrag-mcp-devkit:
+  chain-insights-graph-devkit:
     build:
       context: .
       dockerfile: Dockerfile.mcp

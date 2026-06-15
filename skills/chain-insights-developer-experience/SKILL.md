@@ -1,6 +1,6 @@
 ---
 name: chain-insights-developer-experience
-description: Use when changing Chain Insights README, docs, skills, CLI UX, AML tool contracts, or developer-facing workflows. Keeps Chain Insights product-first while preserving accurate GraphRAG MCP and investigation details.
+description: Use when changing Chain Insights README, docs, skills, CLI UX, AML tool contracts, or developer-facing workflows. Keeps Chain Insights product-first while preserving accurate Chain Insights Graph and investigation details.
 ---
 
 # Chain Insights Developer Experience
@@ -10,12 +10,12 @@ framework.
 
 ## Product Frame
 
-Chain Insights is an AML tool framework layered on top of GraphRAG MCP.
-GraphRAG MCP provides generic graph-language access. Chain Insights provides
+Chain Insights is an AML tool framework layered on top of Chain Insights Graph.
+Chain Insights Graph provides generic graph-language access. Chain Insights provides
 investigation workflows, AML recipes, workspace artifacts, entity notes, reports,
 and graph visualizations.
 
-Use "GraphRAG MCP" in product-facing docs. Only use lower-level implementation
+Use "Chain Insights Graph" in product-facing docs. Only use lower-level implementation
 names in debugging or contributor docs when the detail is necessary.
 
 ## Current AML Tools
@@ -29,9 +29,9 @@ names in debugging or contributor docs when the detail is necessary.
 - `aml_trace_suspect_funds`: trace suspected scammer, mule, operator, or
   laundering-ring addresses forward to cashout topology.
 
-## GraphRAG MCP Layer
+## Chain Insights Graph Layer
 
-GraphRAG MCP exposes generic tools such as:
+Chain Insights Graph exposes generic tools such as:
 
 - `graph_query`
 - `graph_query_batch`
@@ -69,7 +69,7 @@ README starts from the product experience:
 2. What users can do today.
 3. Fast setup and one working demo.
 4. AML tools.
-5. GraphRAG MCP and topology model.
+5. Chain Insights Graph and topology model.
 6. Links to deeper docs.
 
 Do not put debug-token setup, local bypasses, release gates, full test
@@ -81,7 +81,7 @@ Every new AML tool needs:
 
 - User problem and intended analyst workflow.
 - Required inputs and optional inputs.
-- GraphRAG MCP primitives used.
+- Chain Insights Graph primitives used.
 - Topology/facts scope.
 - Result contract.
 - Workspace artifact and report behavior.

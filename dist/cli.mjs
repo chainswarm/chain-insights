@@ -38,7 +38,7 @@ function optionalNumberArg(value, name) {
 async function withGraphMcpClient(name, fn) {
 	const { loadConfig } = await import("./config-C6zM8Xir.mjs").then((n) => n.t);
 	const config = await loadConfig();
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-D1aMU7vY.mjs").then((n) => n.r);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-79S14ZuM.mjs").then((n) => n.r);
 	const paymentFetch = await createConfiguredGraphMcpFetch(config);
 	const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
 	const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
@@ -58,7 +58,7 @@ function printMcpTextContent(result) {
 }
 async function printNetworkCapabilities(opts) {
 	const { loadConfig } = await import("./config-C6zM8Xir.mjs").then((n) => n.t);
-	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import("./capabilities-BH6npxHJ.mjs");
+	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import("./capabilities-B08O3iEX.mjs");
 	const document = await fetchNetworkCapabilities(await loadConfig());
 	if (opts.json) console.log(JSON.stringify(document, null, 2));
 	else console.log(formatNetworkCapabilities(document));
@@ -92,7 +92,7 @@ program.command("status").description("Show toolkit status and configuration").a
 	console.log("Config: ", activeDataDir(config.dataDir));
 	if (workspace) console.log("Workspace:", workspace.root);
 	console.log("Server: ", `http://127.0.0.1:${config.serverPort}`);
-	console.log("Graph MCP:", graphMcpStatus);
+	console.log("Chain Insights Graph:", graphMcpStatus);
 	console.log("Graph endpoint:", config.graphMcpEndpoint);
 });
 program.command("update").description("Check npmjs for a newer Chain Insights release and update this CLI").option("--check", "Only check for a newer release").option("--dry-run", "Print the update command without running it").action(async (opts) => {
@@ -120,7 +120,7 @@ program.command("update").description("Check npmjs for a newer Chain Insights re
 		process.exit(1);
 	}
 });
-program.command("debug").description("Configure Graph MCP debug mode").addCommand(new Command("on").description("Enable Graph MCP debug mode without x402 payments").requiredOption("--token <token>", "Debug bearer token").option("--endpoint <url>", "Graph MCP endpoint").action(async (opts) => {
+program.command("debug").description("Configure Chain Insights Graph debug mode").addCommand(new Command("on").description("Enable Chain Insights Graph debug mode without x402 payments").requiredOption("--token <token>", "Debug bearer token").option("--endpoint <url>", "Chain Insights Graph endpoint").action(async (opts) => {
 	try {
 		const { saveConfig } = await import("./config-C6zM8Xir.mjs").then((n) => n.t);
 		await saveConfig({
@@ -128,31 +128,31 @@ program.command("debug").description("Configure Graph MCP debug mode").addComman
 			graphMcpAuthToken: opts.token,
 			...opts.endpoint ? { graphMcpEndpoint: opts.endpoint } : {}
 		});
-		console.log("Graph MCP debug mode enabled");
+		console.log("Chain Insights Graph debug mode enabled");
 		if (opts.endpoint) console.log(`Graph endpoint: ${opts.endpoint}`);
-		console.log("Payments: disabled for Graph MCP calls");
+		console.log("Payments: disabled for Chain Insights Graph calls");
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new Command("off").description("Disable Graph MCP debug mode and use paid x402 calls").action(async () => {
+})).addCommand(new Command("off").description("Disable Chain Insights Graph debug mode and use paid x402 calls").action(async () => {
 	try {
 		const { saveConfig } = await import("./config-C6zM8Xir.mjs").then((n) => n.t);
 		await saveConfig({
 			graphMcpMode: "paid",
 			graphMcpAuthToken: ""
 		});
-		console.log("Graph MCP debug mode disabled");
-		console.log("Payments: enabled for Graph MCP calls");
+		console.log("Chain Insights Graph debug mode disabled");
+		console.log("Payments: enabled for Chain Insights Graph calls");
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new Command("status").description("Show Graph MCP payment/debug mode").action(async () => {
+})).addCommand(new Command("status").description("Show Chain Insights Graph payment/debug mode").action(async () => {
 	try {
 		const { loadConfig } = await import("./config-C6zM8Xir.mjs").then((n) => n.t);
 		const config = await loadConfig();
-		console.log(`Graph MCP mode: ${config.graphMcpMode}`);
+		console.log(`Chain Insights Graph mode: ${config.graphMcpMode}`);
 		console.log(`Graph endpoint: ${config.graphMcpEndpoint}`);
 		console.log(`Debug token:    ${config.graphMcpAuthToken?.trim() ? "configured" : "not configured"}`);
 		console.log(`Payments:       ${config.graphMcpMode === "debug" ? "disabled" : "enabled"}`);
@@ -161,7 +161,7 @@ program.command("debug").description("Configure Graph MCP debug mode").addComman
 		process.exit(1);
 	}
 }));
-program.command("access-key").description("Configure Graph MCP test access key mode").addCommand(new Command("set").description("Use a Graph MCP test access key without x402 payments").argument("<key>", "Test access key").option("--endpoint <url>", "Graph MCP endpoint").action(async (key, opts) => {
+program.command("access-key").description("Configure Chain Insights Graph test access key mode").addCommand(new Command("set").description("Use a Chain Insights Graph test access key without x402 payments").argument("<key>", "Test access key").option("--endpoint <url>", "Chain Insights Graph endpoint").action(async (key, opts) => {
 	try {
 		const normalizedKey = key.trim();
 		if (!normalizedKey) throw new Error("Test access key is required");
@@ -171,27 +171,27 @@ program.command("access-key").description("Configure Graph MCP test access key m
 			graphMcpAuthToken: normalizedKey,
 			...opts.endpoint ? { graphMcpEndpoint: opts.endpoint } : {}
 		});
-		console.log("Graph MCP test access key configured");
+		console.log("Chain Insights Graph test access key configured");
 		if (opts.endpoint) console.log(`Graph endpoint: ${opts.endpoint}`);
 		console.log("Payments: disabled when the server accepts this key");
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new Command("clear").description("Remove the Graph MCP test access key and use paid x402 calls").action(async () => {
+})).addCommand(new Command("clear").description("Remove the Chain Insights Graph test access key and use paid x402 calls").action(async () => {
 	try {
 		const { saveConfig } = await import("./config-C6zM8Xir.mjs").then((n) => n.t);
 		await saveConfig({
 			graphMcpMode: "paid",
 			graphMcpAuthToken: ""
 		});
-		console.log("Graph MCP test access key cleared");
-		console.log("Payments: enabled for Graph MCP calls");
+		console.log("Chain Insights Graph test access key cleared");
+		console.log("Payments: enabled for Chain Insights Graph calls");
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new Command("status").description("Show Graph MCP test access key status").action(async () => {
+})).addCommand(new Command("status").description("Show Chain Insights Graph test access key status").action(async () => {
 	try {
 		const { loadConfig } = await import("./config-C6zM8Xir.mjs").then((n) => n.t);
 		const config = await loadConfig();
@@ -289,7 +289,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new Command("address").description("Print the local payment wallet address").action(async () => {
 	try {
-		const { getWalletAccount } = await import("./tools-BHBPchXp.mjs").then((n) => n.u);
+		const { getWalletAccount } = await import("./tools-Bo_MyqBP.mjs").then((n) => n.u);
 		const account = await getWalletAccount();
 		console.log(account.address);
 	} catch (err) {
@@ -298,15 +298,15 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new Command("balance").description("Show the local payment wallet Base USDC balance").action(async () => {
 	try {
-		const { getWalletBalanceText } = await import("./tools-BHBPchXp.mjs").then((n) => n.u);
+		const { getWalletBalanceText } = await import("./tools-Bo_MyqBP.mjs").then((n) => n.u);
 		console.log(await getWalletBalanceText());
 	} catch (err) {
 		console.error(err.message);
 		process.exit(1);
 	}
-})).addCommand(new Command("ready").description("Check and prepare the wallet for paid GraphRAG MCP calls").option("--check-only", "Only check readiness; do not submit the one-time payment setup").addOption(new Option("--no-approve", "Deprecated alias for --check-only").hideHelp()).option("--payment-usdc <amount>", "USDC setup cap to prepare for paid calls", "1").addOption(new Option("--approval-usdc <amount>", "Deprecated alias for --payment-usdc").hideHelp()).option("--json", "Print machine-readable readiness metadata").action(async (opts) => {
+})).addCommand(new Command("ready").description("Check and prepare the wallet for paid Chain Insights Graph calls").option("--check-only", "Only check readiness; do not submit the one-time payment setup").addOption(new Option("--no-approve", "Deprecated alias for --check-only").hideHelp()).option("--payment-usdc <amount>", "USDC setup cap to prepare for paid calls", "1").addOption(new Option("--approval-usdc <amount>", "Deprecated alias for --payment-usdc").hideHelp()).option("--json", "Print machine-readable readiness metadata").action(async (opts) => {
 	try {
-		const { formatWalletReadiness, parsePaymentApprovalUnits, prepareWalletForPaidCalls } = await import("./tools-BHBPchXp.mjs").then((n) => n.u);
+		const { formatWalletReadiness, parsePaymentApprovalUnits, prepareWalletForPaidCalls } = await import("./tools-Bo_MyqBP.mjs").then((n) => n.u);
 		const result = await prepareWalletForPaidCalls({
 			minimumApprovalUnits: parsePaymentApprovalUnits(opts.paymentUsdc ?? opts.approvalUsdc ?? "1"),
 			approve: opts.checkOnly ? false : opts.approve !== false
@@ -322,7 +322,7 @@ program.command("wallet").description("Manage the local Base USDC payment wallet
 	}
 })).addCommand(new Command("topup").description("Open a local browser page to top up the payment wallet").option("--no-open", "Print the top-up URL without opening a browser").option("--json", "Print machine-readable top-up metadata").action(async (opts) => {
 	try {
-		const { buildTopupInfo, getWalletAccount } = await import("./tools-BHBPchXp.mjs").then((n) => n.u);
+		const { buildTopupInfo, getWalletAccount } = await import("./tools-Bo_MyqBP.mjs").then((n) => n.u);
 		const { startTopupServer } = await import("./topup-server-R3dNp-p8.mjs").then((n) => n.r);
 		const account = await getWalletAccount();
 		const url = await startTopupServer(account);
@@ -357,7 +357,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		const { formatToolsTable } = await import("./format-Bq94jSyw.mjs");
 		const { visibleRemoteTools } = await import("./tool-visibility-DQ6_mq2m.mjs").then((n) => n.i);
 		const { loadConfig } = await import("./config-C6zM8Xir.mjs").then((n) => n.t);
-		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-D1aMU7vY.mjs").then((n) => n.r);
+		const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-79S14ZuM.mjs").then((n) => n.r);
 		const config = await loadConfig();
 		const graphMcpEndpoint = resolveGraphMcpEndpoint(config);
 		let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint);
@@ -488,7 +488,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 		assertPublicMcpToolName(tool);
 		validatePublicMcpToolArguments(tool, args);
 		if (tool === "wallet_balance") {
-			const { getWalletBalanceText } = await import("./tools-BHBPchXp.mjs").then((n) => n.u);
+			const { getWalletBalanceText } = await import("./tools-Bo_MyqBP.mjs").then((n) => n.u);
 			console.log(await getWalletBalanceText());
 			return;
 		}
@@ -510,7 +510,7 @@ program.command("mcp").description("Interact with the Chain Insights MCP endpoin
 				} catch (err) {
 					const { isMissingUsageStatusToolError, primitiveBackendUsageStatus, usageStatusText } = await import("./usage-status-D2uosC7s.mjs").then((n) => n.n);
 					if (!isMissingUsageStatusToolError(err)) throw err;
-					const { resolveGraphMcpEndpoint } = await import("./client-D1aMU7vY.mjs").then((n) => n.r);
+					const { resolveGraphMcpEndpoint } = await import("./client-79S14ZuM.mjs").then((n) => n.r);
 					console.log(usageStatusText(primitiveBackendUsageStatus(resolveGraphMcpEndpoint(config))));
 				}
 				return;

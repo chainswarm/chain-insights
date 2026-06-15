@@ -1,4 +1,4 @@
-module github.com/chainswarm/chain-insights/devkit/graphrag-mcp-devkit
+module github.com/chainswarm/chain-insights/devkit/chain-insights-graph-devkit
 
 go 1.25.0
 

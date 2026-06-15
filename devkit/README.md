@@ -1,7 +1,7 @@
 # Chain Insights Bittensor Devkit
 
-The devkit is a local GraphRAG MCP backend for Chain Insights development. It
-lets developers run Chain Insights AML workflows against a deterministic
+The devkit is a local Chain Insights Graph backend for Chain Insights
+development. It lets developers run Chain Insights AML workflows against a deterministic
 Bittensor fixture without staging access, hosted credentials, x402 payment, or
 live indexing.
 
@@ -17,7 +17,7 @@ recipes; this devkit exposes only the graph backend primitives those tools use.
   fixture files.
 - Memgraph with live topology imported from fixture files.
 - Memgraph Zero / MemGQL configured with the shared Chain Insights mapping.
-- A devkit-only lite GraphRAG MCP backend.
+- A devkit-only lite Chain Insights Graph backend.
 
 The MCP endpoint is:
 
@@ -51,7 +51,7 @@ docker compose -f devkit/docker-compose.yml ps -a
 ```
 
 The import/bootstrap one-shot services should exit `0`, and `starrocks`,
-`memgraph`, `memgql`, and `graphrag-mcp-devkit` should stay running.
+`memgraph`, `memgql`, and `chain-insights-graph-devkit` should stay running.
 
 ## Smoke Test
 
@@ -114,4 +114,4 @@ Memgraph starts empty and imports live topology directly from fixture files.
 `USE live_topology` resolves to Memgraph; `USE archive_topology` and `USE
 facts` resolve to StarRocks through Memgraph Zero.
 
-The production GraphRAG MCP assembly is not used by this package.
+The production Chain Insights Graph assembly is not used by this devkit package.
