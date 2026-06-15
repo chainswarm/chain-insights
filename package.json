@@ -49,6 +49,8 @@
   "scripts": {
     "build": "tsdown && cp -r src/viz/templates dist/templates && mkdir -p dist/assets && cp -r src/wallet/mcp-proxy/assets/* dist/assets/",
     "dev": "tsx src/cli.ts",
+    "devkit:smoke": "bash devkit/scripts/smoke.sh",
+    "devkit:smoke:parity": "bash devkit/scripts/smoke-chain-insights-parity.sh",
     "release:check": "node scripts/check-release-gate.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
