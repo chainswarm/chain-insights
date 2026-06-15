@@ -1,0 +1,10 @@
+FROM golang:1.25 AS build
+WORKDIR /src
+COPY graphrag-mcp-devkit/ ./
+RUN go test ./...
+RUN go build -o /out/graphrag-mcp-devkit ./cmd/graphrag-mcp-devkit
+
+FROM gcr.io/distroless/base-debian12
+COPY --from=build /out/graphrag-mcp-devkit /usr/local/bin/graphrag-mcp-devkit
+EXPOSE 8012
+ENTRYPOINT ["/usr/local/bin/graphrag-mcp-devkit"]

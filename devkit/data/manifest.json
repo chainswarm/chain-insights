@@ -1,0 +1,147 @@
+{
+  "schema": "chain-insights.devkit.fixture.v1",
+  "network": "bittensor",
+  "semantic_database": "bittensor_semantic",
+  "exported_at": "2026-06-15T00:00:00Z",
+  "fixture_window": {
+    "from": "source-min",
+    "to_exclusive": "2026-01-01T00:00:00Z"
+  },
+  "source": {
+    "mapping": "repos/ml/data-pipeline/ops/memgql/chain_insights_starrocks_mapping.json"
+  },
+  "coverage": {
+    "substrate_rows": 1,
+    "evm_pallet_rows": 1,
+    "identity_count": 1,
+    "member_address_count": 1,
+    "flow_edge_count": 1,
+    "exposure_tables_included": false
+  },
+  "uat": {
+    "seed_address": "5DevkitSeedAddress111111111111111111111111111111"
+  },
+  "objects": [
+    {
+      "database": "bittensor_semantic",
+      "name": "archive_topology_addresses_view",
+      "format": "tsv.gz",
+      "path": "starrocks/archive_topology_addresses_view.tsv.gz",
+      "row_count": 1,
+      "source_min": "2019-01-01T00:00:00Z",
+      "exported_min": "2019-01-01T00:00:00Z",
+      "exported_max": "2025-12-31T23:59:59Z",
+      "sha256": "25cf54c697a69632c5952486ec189be371ddddc422bca30910f17b2c3a0ba31d"
+    },
+    {
+      "database": "bittensor_semantic",
+      "name": "archive_topology_edges_view",
+      "format": "tsv.gz",
+      "path": "starrocks/archive_topology_edges_view.tsv.gz",
+      "row_count": 1,
+      "source_min": "2019-01-01T00:00:00Z",
+      "exported_min": "2019-01-01T00:00:00Z",
+      "exported_max": "2025-12-31T23:59:59Z",
+      "sha256": "25cf54c697a69632c5952486ec189be371ddddc422bca30910f17b2c3a0ba31d"
+    },
+    {
+      "database": "bittensor_semantic",
+      "name": "archive_topology_snapshot_view",
+      "format": "tsv.gz",
+      "path": "starrocks/archive_topology_snapshot_view.tsv.gz",
+      "row_count": 1,
+      "source_min": "2019-01-01T00:00:00Z",
+      "exported_min": "2019-01-01T00:00:00Z",
+      "exported_max": "2025-12-31T23:59:59Z",
+      "sha256": "25cf54c697a69632c5952486ec189be371ddddc422bca30910f17b2c3a0ba31d"
+    },
+    {
+      "database": "bittensor_semantic",
+      "name": "archive_identity_address_links_view",
+      "format": "tsv.gz",
+      "path": "starrocks/archive_identity_address_links_view.tsv.gz",
+      "row_count": 1,
+      "source_min": "2019-01-01T00:00:00Z",
+      "exported_min": "2019-01-01T00:00:00Z",
+      "exported_max": "2025-12-31T23:59:59Z",
+      "sha256": "25cf54c697a69632c5952486ec189be371ddddc422bca30910f17b2c3a0ba31d"
+    },
+    {
+      "database": "bittensor_semantic",
+      "name": "facts_address_labels_view",
+      "format": "tsv.gz",
+      "path": "starrocks/facts_address_labels_view.tsv.gz",
+      "row_count": 1,
+      "source_min": "2019-01-01T00:00:00Z",
+      "exported_min": "2019-01-01T00:00:00Z",
+      "exported_max": "2025-12-31T23:59:59Z",
+      "sha256": "25cf54c697a69632c5952486ec189be371ddddc422bca30910f17b2c3a0ba31d"
+    },
+    {
+      "database": "bittensor_semantic",
+      "name": "facts_address_features_view",
+      "format": "tsv.gz",
+      "path": "starrocks/facts_address_features_view.tsv.gz",
+      "row_count": 1,
+      "source_min": "2019-01-01T00:00:00Z",
+      "exported_min": "2019-01-01T00:00:00Z",
+      "exported_max": "2025-12-31T23:59:59Z",
+      "sha256": "25cf54c697a69632c5952486ec189be371ddddc422bca30910f17b2c3a0ba31d"
+    },
+    {
+      "database": "bittensor_semantic",
+      "name": "facts_assets_view",
+      "format": "tsv.gz",
+      "path": "starrocks/facts_assets_view.tsv.gz",
+      "row_count": 1,
+      "source_min": "2019-01-01T00:00:00Z",
+      "exported_min": "2019-01-01T00:00:00Z",
+      "exported_max": "2025-12-31T23:59:59Z",
+      "sha256": "25cf54c697a69632c5952486ec189be371ddddc422bca30910f17b2c3a0ba31d"
+    },
+    {
+      "database": "bittensor_semantic",
+      "name": "facts_risk_scores_view",
+      "format": "tsv.gz",
+      "path": "starrocks/facts_risk_scores_view.tsv.gz",
+      "row_count": 1,
+      "source_min": "2019-01-01T00:00:00Z",
+      "exported_min": "2019-01-01T00:00:00Z",
+      "exported_max": "2025-12-31T23:59:59Z",
+      "sha256": "25cf54c697a69632c5952486ec189be371ddddc422bca30910f17b2c3a0ba31d"
+    },
+    {
+      "database": "bittensor_semantic",
+      "name": "facts_neuron_endpoints_view",
+      "format": "tsv.gz",
+      "path": "starrocks/facts_neuron_endpoints_view.tsv.gz",
+      "row_count": 1,
+      "source_min": "2019-01-01T00:00:00Z",
+      "exported_min": "2019-01-01T00:00:00Z",
+      "exported_max": "2025-12-31T23:59:59Z",
+      "sha256": "25cf54c697a69632c5952486ec189be371ddddc422bca30910f17b2c3a0ba31d"
+    },
+    {
+      "database": "bittensor_semantic",
+      "name": "facts_neuron_hotkeys_view",
+      "format": "tsv.gz",
+      "path": "starrocks/facts_neuron_hotkeys_view.tsv.gz",
+      "row_count": 1,
+      "source_min": "2019-01-01T00:00:00Z",
+      "exported_min": "2019-01-01T00:00:00Z",
+      "exported_max": "2025-12-31T23:59:59Z",
+      "sha256": "25cf54c697a69632c5952486ec189be371ddddc422bca30910f17b2c3a0ba31d"
+    },
+    {
+      "database": "bittensor_semantic",
+      "name": "facts_neuron_ip_addresses_view",
+      "format": "tsv.gz",
+      "path": "starrocks/facts_neuron_ip_addresses_view.tsv.gz",
+      "row_count": 1,
+      "source_min": "2019-01-01T00:00:00Z",
+      "exported_min": "2019-01-01T00:00:00Z",
+      "exported_max": "2025-12-31T23:59:59Z",
+      "sha256": "25cf54c697a69632c5952486ec189be371ddddc422bca30910f17b2c3a0ba31d"
+    }
+  ]
+}
