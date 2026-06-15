@@ -3,6 +3,13 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.7.7] - 2026-06-15
+
+- Bumped dependency lockfiles for the latest maintenance updates from Dependabot:
+  - `@modelcontextprotocol/ext-apps`, `@x402/evm`, `@x402/fetch`, and `viem`
+  - tooling updates: `@types/node`, `tsdown`, `tsx`, and `vitest`
+  - `hono` runtime dependency
+
 ## [0.7.6] - 2026-06-15
 
 - Renamed the product-facing graph layer to Chain Insights Graph across README,
