@@ -4,13 +4,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 WORKSPACE="$REPO_ROOT/workspace"
-DEVKIT_MEMGRAPH_DATA_REL="repos/infra/chain-insights/devkit/data/memgraph"
-DEVKIT_MEMGRAPH_DATA="$REPO_ROOT/$DEVKIT_MEMGRAPH_DATA_REL"
+DEVKIT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+DEVKIT_MEMGRAPH_DATA="$DEVKIT_ROOT/data/memgraph"
 MGCONSOLE_BIN="${MGCONSOLE_BIN:-mgconsole}"
 MEMGRAPH_HOST="${MEMGRAPH_HOST:-memgraph}"
 MEMGRAPH_PORT="${MEMGRAPH_PORT:-7687}"
 
 mkdir -p "$WORKSPACE"
+export PATH="$SCRIPT_DIR:$PATH"
 test -d "$DEVKIT_MEMGRAPH_DATA"
 command -v "$MGCONSOLE_BIN" >/dev/null
 

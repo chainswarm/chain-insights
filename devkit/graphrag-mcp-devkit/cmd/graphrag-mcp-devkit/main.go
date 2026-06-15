@@ -12,10 +12,15 @@ import (
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	config := devkitmcp.ConfigFromEnvironment()
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	runner, err := devkitmcp.NewMemgraphRunner(ctx, config.MemgraphURI, config.MemgraphUser, config.MemgraphPassword)
+	runner, err := devkitmcp.NewMemgraphRunnerWithRetry(
+		ctx,
+		config,
+		devkitmcp.RetryConfig{Attempts: 60, Delay: 2 * time.Second},
+		logger,
+	)
 	if err != nil {
 		logger.Error("devkit mcp startup failed", "operation", "devkit_mcp.start", "error", err)
 		os.Exit(1)

@@ -1,51 +1,80 @@
 services:
   starrocks:
     image: starrocks/allin1-ubuntu:3.3.5
-    ports:
-      - "${STARROCKS_FE_PORT:-9030}:9030"
+    expose:
+      - "9030"
 
   memgraph:
-    image: memgraph/memgraph:3.6
-    ports:
-      - "${MEMGRAPH_BOLT_PORT:-7687}:7687"
-
-  memgql:
-    image: alpine:3.20
-    command: ["sh", "-c", "sleep infinity"]
-    ports:
-      - "${MEMGQL_PORT:-7444}:7444"
-
-  starrocks-import:
-    image: alpine:3.20
-    command: ["sh", "-c", "test -d /data/starrocks"]
+    image: memgraph/memgraph:3.10.1
+    expose:
+      - "7687"
     volumes:
       - ./data:/data:ro
+
+  memgql:
+    image: memgraph/memgql:0.6.1
+    environment:
+      CONNECTOR_TYPE: multi
+    ports:
+      - "${DEVKIT_MCP_PORT:-18012}:8012"
+    expose:
+      - "7688"
+    volumes:
+      - ../../../ml/data-pipeline/ops/memgql:/mapping:ro
+
+  starrocks-import:
+    build:
+      context: .
+      dockerfile: Dockerfile.tools
+    command: ["bash", "/devkit/scripts/import-starrocks.sh"]
+    volumes:
+      - ./scripts:/devkit/scripts:ro
+      - ./data:/devkit/data:ro
+      - ../../../ml/data-pipeline/ops/memgql:/mapping:ro
     depends_on:
       - starrocks
 
   memgraph-import:
-    image: alpine:3.20
-    command: ["sh", "-c", "test -d /data/memgraph"]
+    build:
+      context: .
+      dockerfile: Dockerfile.tools
+    command: ["bash", "/devkit/scripts/import-memgraph.sh"]
     volumes:
-      - ./data:/data:ro
+      - ./scripts:/devkit/scripts:ro
+      - ./data:/devkit/data:ro
+      - ../../../ml/data-pipeline/ops/memgql:/mapping:ro
     depends_on:
       - memgraph
 
   memgql-bootstrap:
-    image: alpine:3.20
-    command: ["sh", "-c", "test -f /mapping/chain_insights_starrocks_mapping.json"]
+    build:
+      context: .
+      dockerfile: Dockerfile.tools
+    network_mode: "service:memgql"
+    command: ["bash", "/devkit/scripts/import-memgql.sh"]
+    environment:
+      MEMGQL_HOST: 127.0.0.1
+      MEMGQL_PORT: "7688"
+      MEMGQL_STARROCKS_MAPPING_FILE: /mapping/chain_insights_starrocks_mapping.json
     volumes:
+      - ./scripts:/devkit/scripts:ro
+      - ./data:/devkit/data:ro
       - ../../../ml/data-pipeline/ops/memgql:/mapping:ro
     depends_on:
-      - memgql
-      - memgraph
-      - starrocks
+      memgql:
+        condition: service_started
+      memgraph-import:
+        condition: service_completed_successfully
+      starrocks-import:
+        condition: service_completed_successfully
 
   graphrag-mcp-devkit:
     build:
       context: .
       dockerfile: Dockerfile.mcp
-    ports:
-      - "${DEVKIT_MCP_PORT:-8012}:8012"
+    network_mode: "service:memgql"
+    environment:
+      MEMGQL_BOLT_URI: bolt://127.0.0.1:7688
     depends_on:
-      - memgql
+      memgql-bootstrap:
+        condition: service_completed_successfully

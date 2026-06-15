@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
 import hashlib
 import json
+import os
 from pathlib import Path
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEVKIT_ROOT = SCRIPT_DIR.parent
-REPO_ROOT = SCRIPT_DIR.parents[4]
+REPO_ROOT = SCRIPT_DIR.parents[4] if len(SCRIPT_DIR.parents) > 4 else Path("/")
 MANIFEST = DEVKIT_ROOT / "data/manifest.json"
-MAPPING = REPO_ROOT / "repos/ml/data-pipeline/ops/memgql/chain_insights_starrocks_mapping.json"
+MAPPING_REL = "repos/ml/data-pipeline/ops/memgql/chain_insights_starrocks_mapping.json"
+MAPPING_CANDIDATES = [
+    Path(os.environ["MEMGQL_STARROCKS_MAPPING_FILE"])
+    if os.environ.get("MEMGQL_STARROCKS_MAPPING_FILE")
+    else None,
+    Path("/mapping/chain_insights_starrocks_mapping.json"),
+    REPO_ROOT / MAPPING_REL,
+]
 
 REQUIRED_TABLES = {
     "archive_topology_addresses_view",
@@ -22,15 +30,6 @@ REQUIRED_TABLES = {
     "facts_neuron_endpoints_view",
     "facts_neuron_hotkeys_view",
     "facts_neuron_ip_addresses_view",
-}
-
-OPTIONAL_EXPOSURE_TABLES = {
-    "archive_exposure_nodes_view",
-    "archive_exposure_instruments_view",
-    "archive_exposure_edges_has_exposure_view",
-    "archive_exposure_edges_targets_instrument_view",
-    "archive_exposure_edges_owns_exposure_view",
-    "archive_exposure_edges_has_counterparty_view",
 }
 
 DENYLIST = {
@@ -49,8 +48,15 @@ def read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def mapping_path() -> Path:
+    for candidate in MAPPING_CANDIDATES:
+        if candidate is not None and candidate.is_file():
+            return candidate
+    fail(f"MemGQL mapping file not found; checked {MAPPING_CANDIDATES}")
+
+
 def mapped_facade_tables() -> set[str]:
-    mapping = read_json(MAPPING)
+    mapping = read_json(mapping_path())
     tables: set[str] = set()
     for section in ("nodes", "edges"):
         for entry in mapping[section]:
@@ -91,11 +97,14 @@ def main() -> None:
 
     objects = manifest.get("objects", [])
     names = {entry.get("name", "") for entry in objects}
-    allowed = mapped_facade_tables() | OPTIONAL_EXPOSURE_TABLES
+    allowed = mapped_facade_tables()
     missing_required = REQUIRED_TABLES - names
+    missing_mapped = allowed - names
     unknown = names - allowed
     if missing_required:
         fail(f"manifest missing required tables: {sorted(missing_required)}")
+    if missing_mapped:
+        fail(f"manifest missing mapped tables: {sorted(missing_mapped)}")
     if unknown:
         fail(f"manifest contains non-mapped tables: {sorted(unknown)}")
 

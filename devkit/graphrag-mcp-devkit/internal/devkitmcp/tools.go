@@ -31,6 +31,24 @@ type BatchQueryResult struct {
 	Error  string      `json:"error,omitempty"`
 }
 
+type ChainInsightsBatchResult struct {
+	Schema string                  `json:"schema"`
+	Tool   string                  `json:"tool"`
+	Facts  ChainInsightsBatchFacts `json:"facts"`
+	Hint   *string                 `json:"hint"`
+}
+
+type ChainInsightsBatchFacts struct {
+	Queries []ChainInsightsBatchQuery `json:"queries"`
+}
+
+type ChainInsightsBatchQuery struct {
+	ID      string           `json:"id,omitempty"`
+	OK      bool             `json:"ok"`
+	Results []map[string]any `json:"results"`
+	Error   string           `json:"error,omitempty"`
+}
+
 func ToolNames() []string {
 	return []string{"network_capabilities", "graph_query", "graph_query_batch"}
 }
@@ -67,26 +85,31 @@ func graphQueryBatchHandler(runner QueryRunner) func(context.Context, *mcp.CallT
 		if timeout > 60 {
 			return toolError("per_query_timeout_seconds must be 60 or less"), nil, nil
 		}
-		results := make([]BatchQueryResult, 0, len(args.Queries))
+		queries := make([]ChainInsightsBatchQuery, 0, len(args.Queries))
 		for index, query := range args.Queries {
 			id := query.ID
 			if id == "" {
 				id = fmt.Sprintf("%d", index)
 			}
 			if err := ValidateReadOnlyQuery(query.Query); err != nil {
-				results = append(results, BatchQueryResult{ID: id, Error: err.Error()})
+				queries = append(queries, ChainInsightsBatchQuery{ID: id, OK: false, Results: []map[string]any{}, Error: err.Error()})
 				continue
 			}
 			queryContext, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 			result, err := runner.Run(queryContext, args.Network, query.Query)
 			cancel()
 			if err != nil {
-				results = append(results, BatchQueryResult{ID: id, Error: err.Error()})
+				queries = append(queries, ChainInsightsBatchQuery{ID: id, OK: false, Results: []map[string]any{}, Error: err.Error()})
 				continue
 			}
-			results = append(results, BatchQueryResult{ID: id, Result: result})
+			queries = append(queries, ChainInsightsBatchQuery{ID: id, OK: true, Results: result.Rows})
 		}
-		return jsonResult(map[string]any{"results": results})
+		return jsonResult(ChainInsightsBatchResult{
+			Schema: "chain-insights.result.v1",
+			Tool:   "graph_query_batch",
+			Facts:  ChainInsightsBatchFacts{Queries: queries},
+			Hint:   nil,
+		})
 	}
 }
 

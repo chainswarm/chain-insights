@@ -10,6 +10,11 @@ STARROCKS_HOST="${STARROCKS_HOST:-starrocks}"
 STARROCKS_PORT="${STARROCKS_PORT:-9030}"
 STARROCKS_USER="${STARROCKS_USER:-root}"
 STARROCKS_PASSWORD="${STARROCKS_PASSWORD:-}"
+MEMGQL_STARROCKS_MAPPING_FILE="${MEMGQL_STARROCKS_MAPPING_FILE:-/mapping/chain_insights_starrocks_mapping.json}"
+if [ ! -f "$MEMGQL_STARROCKS_MAPPING_FILE" ]; then
+  MEMGQL_STARROCKS_MAPPING_FILE="$REPO_ROOT/repos/ml/data-pipeline/ops/memgql/chain_insights_starrocks_mapping.json"
+fi
+export MEMGQL_STARROCKS_MAPPING_FILE
 
 mkdir -p "$WORKSPACE/devkit-starrocks"
 command -v "$MYSQL_BIN" >/dev/null
@@ -32,6 +37,24 @@ for attempt in $(seq 1 60); do
   sleep 2
 done
 
+for attempt in $(seq 1 60); do
+  if MYSQL_PWD="$STARROCKS_PASSWORD" "$MYSQL_BIN" \
+    --host="$STARROCKS_HOST" \
+    --port="$STARROCKS_PORT" \
+    --user="$STARROCKS_USER" \
+    --batch \
+    --raw \
+    --execute="SHOW BACKENDS" 2>/dev/null \
+    | awk -F'\t' 'NR == 1 {for (i = 1; i <= NF; i++) if ($i == "Alive") alive_col = i; next} alive_col && $alive_col == "true" {found = 1} END {exit found ? 0 : 1}'; then
+    break
+  fi
+  if [ "$attempt" -eq 60 ]; then
+    echo "StarRocks backend did not become alive at ${STARROCKS_HOST}:${STARROCKS_PORT}" >&2
+    exit 1
+  fi
+  sleep 2
+done
+
 python3 "$SCRIPT_DIR/starrocks-ddl.py" > "$WORKSPACE/devkit-starrocks/schema.sql"
 MYSQL_PWD="$STARROCKS_PASSWORD" "$MYSQL_BIN" \
   --host="$STARROCKS_HOST" \
@@ -40,25 +63,52 @@ MYSQL_PWD="$STARROCKS_PASSWORD" "$MYSQL_BIN" \
   < "$WORKSPACE/devkit-starrocks/schema.sql"
 
 python3 - "$DEVKIT_ROOT/data/manifest.json" "$WORKSPACE/devkit-starrocks/load.sql" <<'PY'
+import gzip
 import json
 import sys
 from pathlib import Path
 
 manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 output = Path(sys.argv[2])
-lines = []
-for entry in manifest["objects"]:
-    table = entry["name"]
-    source = Path(sys.argv[1]).parent / entry["path"]
-    plain = output.parent / f"{table}.tsv"
-    lines.append((table, source, plain))
+
+
+def sql_string(value: str) -> str:
+    return "'" + value.replace("\\", "\\\\").replace("'", "''") + "'"
+
+
+def rows_from_fixture(source: Path) -> tuple[list[str], list[list[str]]]:
+    with source.open("rb") as raw:
+        prefix = raw.read(2)
+    opener = gzip.open if prefix == b"\x1f\x8b" else open
+    with opener(source, "rt", encoding="utf-8", newline="") as handle:
+        header = handle.readline().rstrip("\n")
+        if not header:
+            raise SystemExit(f"fixture file has no header row: {source}")
+        columns = header.split("\t")
+        for column in columns:
+            if not column or not column.replace("_", "").isalnum() or column[0].isdigit():
+                raise SystemExit(f"unsafe TSV column {column!r} in {source}")
+        rows = [line.rstrip("\n").split("\t") for line in handle if line.rstrip("\n")]
+    for row in rows:
+        if len(row) != len(columns):
+            raise SystemExit(f"fixture row has {len(row)} values, expected {len(columns)}: {source}")
+    return columns, rows
+
+
 with output.open("w", encoding="utf-8") as handle:
-    for table, _source, plain in lines:
-        handle.write(
-            "LOAD DATA LOCAL INFILE "
-            f"'{plain}' INTO TABLE bittensor_semantic.{table} "
-            "FIELDS TERMINATED BY '\\t' LINES TERMINATED BY '\\n' (raw_line);\n"
-        )
+    for entry in manifest["objects"]:
+        table = entry["name"]
+        source = Path(sys.argv[1]).parent / entry["path"]
+        columns, rows = rows_from_fixture(source)
+        if not rows:
+            continue
+        column_sql = ", ".join(f"`{column}`" for column in columns)
+        for row in rows:
+            value_sql = ", ".join(sql_string(value) for value in row)
+            handle.write(
+                f"INSERT INTO bittensor_semantic.{table} ({column_sql}) "
+                f"VALUES ({value_sql});\n"
+            )
 PY
 
 python3 - "$DEVKIT_ROOT/data/manifest.json" "$WORKSPACE/devkit-starrocks" <<'PY'

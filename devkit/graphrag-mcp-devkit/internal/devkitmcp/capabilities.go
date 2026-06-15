@@ -6,8 +6,12 @@ type NetworkCapability struct {
 	Status        string            `json:"status"`
 	Default       bool              `json:"default"`
 	FixtureWindow string            `json:"fixture_window"`
-	Layers        map[string]bool   `json:"layers"`
+	Layers        map[string]Layer  `json:"layers"`
 	Tools         map[string]string `json:"tools"`
+}
+
+type Layer struct {
+	Enabled bool `json:"enabled"`
 }
 
 type NetworkCapabilitiesDocument struct {
@@ -24,10 +28,10 @@ func NetworkDocument() NetworkCapabilitiesDocument {
 			Status:        "devkit",
 			Default:       true,
 			FixtureWindow: "genesis..2025-12-31",
-			Layers: map[string]bool{
-				"topology": true,
-				"facts":    true,
-				"risk":     false,
+			Layers: map[string]Layer{
+				"topology": {Enabled: true},
+				"facts":    {Enabled: true},
+				"risk":     {Enabled: false},
 			},
 			Tools: map[string]string{
 				"network_capabilities": "available",

@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 COMPOSE_FILE="$REPO_ROOT/repos/infra/chain-insights/devkit/docker-compose.yml"
 EVIDENCE_DIR="$REPO_ROOT/workspace/devkit-smoke"
-MCP_ENDPOINT="${CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT:-http://127.0.0.1:${DEVKIT_MCP_PORT:-8012}/mcp}"
+MCP_ENDPOINT="${CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT:-http://127.0.0.1:${DEVKIT_MCP_PORT:-18012}/mcp}"
 MCP_BASE="${MCP_ENDPOINT%/mcp}"
 
 mkdir -p "$EVIDENCE_DIR"
