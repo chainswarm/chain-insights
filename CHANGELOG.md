@@ -3,6 +3,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.7.8] - 2026-06-16
+
+- Published the devkit fixture as a static real Bittensor semantic export for
+  StarRocks and Memgraph, replacing synthetic placeholder rows with 2023-2025
+  data generated from the RBMK-controlled semantic facade.
+- Removed UAT-only seed-address metadata from the fixture manifest; smoke
+  scripts now derive real graph addresses at runtime from the exported
+  Memgraph CSVs.
+
 ## [0.7.7] - 2026-06-15
 
 - Bumped dependency lockfiles for the latest maintenance updates from Dependabot:
