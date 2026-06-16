@@ -20,7 +20,6 @@ def require_files() -> None:
 
 
 def main() -> None:
-    require_files()
     print("MATCH (n) DETACH DELETE n;")
     print("CREATE INDEX ON :Identity(identity_id);")
     print("CREATE INDEX ON :Address(address);")

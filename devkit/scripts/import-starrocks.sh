@@ -8,6 +8,7 @@ WORKSPACE="$REPO_ROOT/workspace"
 MYSQL_BIN="${MYSQL_BIN:-mysql}"
 STARROCKS_HOST="${STARROCKS_HOST:-starrocks}"
 STARROCKS_PORT="${STARROCKS_PORT:-9030}"
+STARROCKS_HTTP_PORT="${STARROCKS_HTTP_PORT:-8030}"
 STARROCKS_USER="${STARROCKS_USER:-root}"
 STARROCKS_PASSWORD="${STARROCKS_PASSWORD:-}"
 MEMGQL_STARROCKS_MAPPING_FILE="${MEMGQL_STARROCKS_MAPPING_FILE:-/mapping/chain_insights_starrocks_mapping.json}"
@@ -17,7 +18,10 @@ fi
 export MEMGQL_STARROCKS_MAPPING_FILE
 
 mkdir -p "$WORKSPACE/devkit-starrocks"
+LOAD_RUN_ID="${STARROCKS_STREAM_LOAD_RUN_ID:-$(date +%s%N)}"
+export LOAD_RUN_ID
 command -v "$MYSQL_BIN" >/dev/null
+command -v curl >/dev/null
 command -v gzip >/dev/null
 
 python3 "$SCRIPT_DIR/validate-manifest.py"
@@ -62,83 +66,89 @@ MYSQL_PWD="$STARROCKS_PASSWORD" "$MYSQL_BIN" \
   --user="$STARROCKS_USER" \
   < "$WORKSPACE/devkit-starrocks/schema.sql"
 
-python3 - "$DEVKIT_ROOT/data/manifest.json" "$WORKSPACE/devkit-starrocks/load.sql" <<'PY'
+python3 - "$DEVKIT_ROOT/data/manifest.json" "$WORKSPACE/devkit-starrocks/stream-load.sh" "$WORKSPACE/devkit-starrocks" <<'PY'
 import gzip
 import json
+import os
+import shutil
+import shlex
 import sys
 from pathlib import Path
 
 manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 output = Path(sys.argv[2])
+workspace = Path(sys.argv[3])
+data_root = Path(sys.argv[1]).parent
 
 
 def sql_string(value: str) -> str:
     return "'" + value.replace("\\", "\\\\").replace("'", "''") + "'"
 
 
-def rows_from_fixture(source: Path) -> tuple[list[str], list[list[str]]]:
-    with source.open("rb") as raw:
-        prefix = raw.read(2)
-    opener = gzip.open if prefix == b"\x1f\x8b" else open
-    with opener(source, "rt", encoding="utf-8", newline="") as handle:
-        header = handle.readline().rstrip("\n")
-        if not header:
-            raise SystemExit(f"fixture file has no header row: {source}")
-        columns = header.split("\t")
-        for column in columns:
-            if not column or not column.replace("_", "").isalnum() or column[0].isdigit():
-                raise SystemExit(f"unsafe TSV column {column!r} in {source}")
-        rows = [line.rstrip("\n").split("\t") for line in handle if line.rstrip("\n")]
-    for row in rows:
-        if len(row) != len(columns):
-            raise SystemExit(f"fixture row has {len(row)} values, expected {len(columns)}: {source}")
-    return columns, rows
+def safe_identifier(value: str) -> str:
+    if not value or not value.replace("_", "").isalnum() or value[0].isdigit():
+        raise SystemExit(f"unsafe SQL identifier: {value!r}")
+    return value
 
 
-with output.open("w", encoding="utf-8") as handle:
-    for entry in manifest["objects"]:
-        table = entry["name"]
-        source = Path(sys.argv[1]).parent / entry["path"]
-        columns, rows = rows_from_fixture(source)
-        if not rows:
-            continue
-        column_sql = ", ".join(f"`{column}`" for column in columns)
-        for row in rows:
-            value_sql = ", ".join(sql_string(value) for value in row)
-            handle.write(
-                f"INSERT INTO bittensor_semantic.{table} ({column_sql}) "
-                f"VALUES ({value_sql});\n"
-            )
-PY
-
-python3 - "$DEVKIT_ROOT/data/manifest.json" "$WORKSPACE/devkit-starrocks" <<'PY'
-import gzip
-import json
-import shutil
-import sys
-from pathlib import Path
-
-manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-workspace = Path(sys.argv[2])
-data_root = Path(sys.argv[1]).parent
-for entry in manifest["objects"]:
-    source = data_root / entry["path"]
-    target = workspace / f"{entry['name']}.tsv"
+def write_plain_tsv(source: Path, target: Path) -> list[str]:
     with source.open("rb") as raw:
         prefix = raw.read(2)
     if prefix == b"\x1f\x8b":
         with gzip.open(source, "rb") as src, target.open("wb") as dst:
             shutil.copyfileobj(src, dst)
     else:
-        shutil.copyfile(source, target)
+        shutil.copy(source, target)
+    with target.open("r", encoding="utf-8", newline="") as handle:
+        header = handle.readline().rstrip("\n")
+        if not header:
+            raise SystemExit(f"fixture file has no header row: {source}")
+        columns = header.split("\t")
+        for column in columns:
+            safe_identifier(column)
+    return columns
+
+
+with output.open("w", encoding="utf-8") as handle:
+    handle.write("#!/usr/bin/env bash\nset -euo pipefail\n")
+    for entry in manifest["objects"]:
+        table = safe_identifier(entry["name"])
+        source = data_root / entry["path"]
+        target = workspace / f"{table}.tsv"
+        columns = write_plain_tsv(source, target)
+        if int(entry["row_count"]) == 0:
+            continue
+        column_header = ",".join(columns)
+        label = f"devkit_{table}_{os.environ['LOAD_RUN_ID']}_{entry['sha256'][:8]}"
+        response = workspace / f"stream-load-{table}.json"
+        handle.write(
+            "curl --fail --silent --show-error --location-trusted "
+            "--connect-to \"127.0.0.1:8040:${STARROCKS_HOST}:8040\" "
+            f"-u \"${{STARROCKS_USER}}:${{STARROCKS_PASSWORD}}\" "
+            "-H 'Expect:100-continue' "
+            f"-H {shlex.quote('label:' + label)} "
+            "-H $'column_separator:\\t' "
+            "-H 'skip_header:1' "
+            f"-H {shlex.quote('columns:' + column_header)} "
+            f"-T {shlex.quote(str(target))} "
+            f"\"http://${{STARROCKS_HOST}}:${{STARROCKS_HTTP_PORT}}/api/bittensor_semantic/{table}/_stream_load\" "
+            f"> {shlex.quote(str(response))}\n"
+            f"python3 - {shlex.quote(str(response))} <<'CHECK'\n"
+            "import json\n"
+            "import sys\n"
+            "from pathlib import Path\n"
+            "payload = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))\n"
+            "if payload.get('Status') not in {'Success', 'Publish Timeout'}:\n"
+            "    raise SystemExit(f\"stream load failed: {payload}\")\n"
+            "CHECK\n"
+        )
 PY
 
-MYSQL_PWD="$STARROCKS_PASSWORD" "$MYSQL_BIN" \
-  --host="$STARROCKS_HOST" \
-  --port="$STARROCKS_PORT" \
-  --user="$STARROCKS_USER" \
-  --local-infile=1 \
-  < "$WORKSPACE/devkit-starrocks/load.sql"
+STARROCKS_HOST="$STARROCKS_HOST" \
+STARROCKS_HTTP_PORT="$STARROCKS_HTTP_PORT" \
+STARROCKS_USER="$STARROCKS_USER" \
+STARROCKS_PASSWORD="$STARROCKS_PASSWORD" \
+  bash "$WORKSPACE/devkit-starrocks/stream-load.sh"
 
 python3 - "$DEVKIT_ROOT/data/manifest.json" "$WORKSPACE/devkit-starrocks/counts.sql" <<'PY'
 import json

@@ -25,6 +25,13 @@ The MCP endpoint is:
 http://127.0.0.1:18012/mcp
 ```
 
+Fixture data is generated from the RBMK-controlled StarRocks export path:
+
+```bash
+cd /path/to/rbmk
+bash scripts/devops/chain-insights-devkit/build-fixture.sh
+```
+
 The devkit MCP tool list is intentionally small:
 
 - `network_capabilities`
@@ -95,14 +102,18 @@ cd /tmp/chain-insights-devkit-demo
 cia init .
 cia mcp networks
 cia mcp tools --refresh
+address="$(
+  awk -F, 'NR > 1 && $2 == "substrate" { print $1; exit }' \
+    /path/to/chain-insights/devkit/data/memgraph/addresses.csv
+)"
 cia mcp call aml_address_risk \
-  address=5DevkitSeedAddress111111111111111111111111111111 \
+  "address=${address}" \
   network=bittensor
 ```
 
-The devkit fixture is intentionally small, so it is best for contract testing,
-tool development, docs examples, and local workflow checks. It is not a
-representative production coverage sample.
+The devkit fixture is a static export of real Bittensor semantic data through
+the end of 2025. It is best for contract testing, tool development, docs
+examples, and local workflow checks.
 
 ## Data Boundary
 

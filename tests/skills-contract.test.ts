@@ -251,7 +251,11 @@ describe('shipped Chain Insights skills contract', () => {
 
     expect(readme).toContain('open-source AML investigation toolkit')
     expect(readme).toContain('https://chain-insights.ai')
-    expect(readme).toContain('https://github.com/chainswarm/chain-insights')
+    expect(readme).toContain('https://www.npmjs.com/package/chain-insights')
+    expect(readme).not.toContain('chainswarm/chain-insights')
+    expect(readme).not.toContain('[GitHub](')
+    expect(readme).not.toContain('devkit/README.md')
+    expect(readme).not.toContain('blob/main/devkit')
     expect(readme).toContain('Chain Insights Graph')
     expect(readme).toContain('cia config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp')
     expect(readme).toContain('CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://staging-mcp.chain-insights.ai/mcp')
