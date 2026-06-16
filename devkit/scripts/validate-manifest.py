@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import hashlib
+import gzip
 import json
 import os
 from pathlib import Path
@@ -43,6 +44,15 @@ DENYLIST = {
     "telemetry",
 }
 
+PLACEHOLDER_MARKERS = (
+    "5devkit",
+    "devkit_seed",
+    "devkit_peer",
+    "devkit-flow",
+    "devkit-tx",
+    "chain-insights-devkit",
+)
+
 
 def read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -72,11 +82,30 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def fail_on_placeholder_value(context: str, value: object) -> None:
+    text = str(value or "").lower()
+    for marker in PLACEHOLDER_MARKERS:
+        if marker in text:
+            fail(f"{context} contains synthetic devkit placeholder marker: {marker}")
+
+
+def fail_on_placeholder_file(path: Path) -> None:
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            lowered = chunk.lower()
+            for marker in PLACEHOLDER_MARKERS:
+                if marker.encode("utf-8") in lowered:
+                    fail(f"{path} contains synthetic devkit placeholder marker: {marker}")
+
+
 def fail(message: str) -> None:
     raise SystemExit(message)
 
 
 def main() -> None:
+    if not MANIFEST.is_file():
+        fail("manifest missing; run bash scripts/devops/chain-insights-devkit/build-fixture.sh from the RBMK root with StarRocks export credentials")
     manifest = read_json(MANIFEST)
     if manifest.get("schema") != "chain-insights.devkit.fixture.v1":
         fail("manifest schema must be chain-insights.devkit.fixture.v1")
@@ -94,6 +123,12 @@ def main() -> None:
         fail("manifest coverage.substrate_rows must be positive")
     if int(coverage.get("evm_pallet_rows", 0)) <= 0:
         fail("manifest coverage.evm_pallet_rows must be positive")
+    for key in ("identity_count", "member_address_count", "flow_edge_count"):
+        if int(coverage.get(key, 0)) <= 0:
+            fail(f"manifest coverage.{key} must be positive")
+
+    if "uat" in manifest:
+        fail("manifest must not contain UAT-only metadata")
 
     objects = manifest.get("objects", [])
     names = {entry.get("name", "") for entry in objects}
@@ -124,6 +159,7 @@ def main() -> None:
         file_path = DEVKIT_ROOT / "data" / rel_path
         if not file_path.is_file():
             fail(f"manifest object {name} file missing: {rel_path}")
+        fail_on_placeholder_file(file_path)
         expected_sha = entry.get("sha256", "")
         actual_sha = sha256(file_path)
         if actual_sha != expected_sha:

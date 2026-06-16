@@ -27,8 +27,16 @@ cia_in_workspace() {
   (cd "$WORKSPACE_DIR" && "$CIA_TSX" "$CIA_SRC" "$@")
 }
 
-SEED_ADDRESS="$(python3 "$SCRIPT_DIR/read-manifest.py" uat.seed_address)"
-PEER_ADDRESS="$(awk -F, 'NR == 2 { print $2 }' "$REPO_ROOT/repos/infra/chain-insights/devkit/data/memgraph/flows.csv")"
+IDENTITY_ADDRESSES="$REPO_ROOT/repos/infra/chain-insights/devkit/data/memgraph/identity_addresses.csv"
+FLOWS="$REPO_ROOT/repos/infra/chain-insights/devkit/data/memgraph/flows.csv"
+SEED_ADDRESS="$(
+  awk -F, 'NR == FNR { if (FNR > 1 && $2 ~ /^5/) address[$1] = $2; next } FNR > 1 && ($1 in address) { print address[$1]; exit }' \
+    "$IDENTITY_ADDRESSES" "$FLOWS"
+)"
+PEER_ADDRESS="$(
+  awk -F, 'NR == FNR { if (FNR > 1 && $2 ~ /^5/) address[$1] = $2; next } FNR > 1 && ($2 in address) { print address[$2]; exit }' \
+    "$IDENTITY_ADDRESSES" "$FLOWS"
+)"
 test -n "$SEED_ADDRESS"
 test -n "$PEER_ADDRESS"
 
@@ -109,7 +117,7 @@ required_terms = {
     "graph-query-archive-topology.json": ["row_count"],
     "graph-query-facts.json": ["row_count"],
     "graph-query-batch.json": ["chain-insights.result.v1", "facts"],
-    "aml-address-risk.txt": ["Risk: medium", "Labels: devkit_seed"],
+    "aml-address-risk.txt": ["Risk:", seed],
     "aml-trace-victim-funds.txt": ["Trace victim funds complete", seed],
     "aml-trace-suspect-funds.txt": ["Trace suspect funds complete", seed],
     "aml-trace-deposit-sources.txt": ["Trace deposit sources complete", peer],

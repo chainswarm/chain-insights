@@ -1,6 +1,6 @@
 # Chain Insights
 
-[Website](https://chain-insights.ai) | [GitHub](https://github.com/chainswarm/chain-insights) | [npm](https://www.npmjs.com/package/chain-insights)
+[Website](https://chain-insights.ai) | [npm](https://www.npmjs.com/package/chain-insights)
 
 Chain Insights is an open-source AML investigation toolkit for AI agents and
 analysts. Install it from npm to screen blockchain addresses, trace role-specific
@@ -76,8 +76,8 @@ Local development endpoint (default):
 cia config set graphMcpEndpoint http://127.0.0.1:8012/mcp
 ```
 
-For a deterministic local Bittensor backend, run the bundled
-[Bittensor devkit](devkit/README.md) and point Chain Insights at
+For a deterministic local Bittensor backend, use the RBMK-managed devkit
+runbook and point Chain Insights at
 `http://127.0.0.1:18012/mcp`.
 
 Hosted staging endpoint for approved testers:
@@ -265,7 +265,7 @@ notes.
 | Doc | Use it for |
 | --- | --- |
 | [Graph tools](docs/graph-tools.md) | Chain Insights Graph layers, `graph_query`, `graph_query_batch`, AML tool contracts, graph reports, evidence pointers |
-| [Bittensor devkit](devkit/README.md) | Local Chain Insights Graph backend with deterministic Bittensor fixture data for Chain Insights development |
+| Bittensor devkit parity workflow (RBMK) | Local Chain Insights Graph backend with deterministic Bittensor fixture data for Chain Insights development |
 | [Investigation workspaces](docs/investigation-workspaces.md) | `cia init`, workspace layout, artifacts, imports, templates, sessions, reports, and visualization outputs |
 | [MCP proxy](docs/mcp-proxy.md) | Stdio proxy behavior, endpoint configuration, agent installers, local tools, auth modes, Inspector validation |
 | [Architecture](docs/architecture.md) | Product layers, data flow, local storage, security model, config keys |

@@ -25,7 +25,9 @@ COMPATIBILITY_COLUMNS_BY_TABLE = {
 }
 
 
-def read_manifest() -> dict:
+def read_manifest() -> dict | None:
+    if not MANIFEST.is_file():
+        return None
     return json.loads(MANIFEST.read_text(encoding="utf-8"))
 
 
@@ -101,6 +103,10 @@ def main() -> None:
     print("CREATE DATABASE IF NOT EXISTS bittensor_semantic;")
     print("CREATE DATABASE IF NOT EXISTS bittensor;")
     print("CREATE DATABASE IF NOT EXISTS bittensor_evm;")
+    if manifest is None:
+        for table in sorted(mapped_columns):
+            print(table_sql(table, mapped_columns[table]))
+        return
     for entry in manifest["objects"]:
         if entry["database"] != "bittensor_semantic":
             raise SystemExit(f"unexpected object database: {entry['database']}")
