@@ -33,6 +33,11 @@ REQUIRED_TABLES = {
     "facts_neuron_ip_addresses_view",
 }
 
+MEMGRAPH_OBJECTS = {
+    "memgraph_nodes",
+    "memgraph_relationships",
+}
+
 DENYLIST = {
     "_sync_state",
     "_indexer_checkpoints",
@@ -51,6 +56,12 @@ PLACEHOLDER_MARKERS = (
     "devkit-flow",
     "devkit-tx",
     "chain-insights-devkit",
+)
+
+FORBIDDEN_MEMGRAPH_MARKERS = (
+    "GlobalState",
+    "_sync_state",
+    "_indexer_checkpoints",
 )
 
 
@@ -133,13 +144,17 @@ def main() -> None:
     objects = manifest.get("objects", [])
     names = {entry.get("name", "") for entry in objects}
     allowed = mapped_facade_tables()
-    missing_required = REQUIRED_TABLES - names
-    missing_mapped = allowed - names
-    unknown = names - allowed
+    starrocks_names = names - MEMGRAPH_OBJECTS
+    missing_required = REQUIRED_TABLES - starrocks_names
+    missing_mapped = allowed - starrocks_names
+    missing_memgraph = MEMGRAPH_OBJECTS - names
+    unknown = names - allowed - MEMGRAPH_OBJECTS
     if missing_required:
         fail(f"manifest missing required tables: {sorted(missing_required)}")
     if missing_mapped:
         fail(f"manifest missing mapped tables: {sorted(missing_mapped)}")
+    if missing_memgraph:
+        fail(f"manifest missing Memgraph fixture objects: {sorted(missing_memgraph)}")
     if unknown:
         fail(f"manifest contains non-mapped tables: {sorted(unknown)}")
 
@@ -149,8 +164,13 @@ def main() -> None:
         for forbidden in DENYLIST:
             if forbidden in lowered:
                 fail(f"manifest object {name} contains denylisted term {forbidden}")
-        if entry.get("database") != "bittensor_semantic":
-            fail(f"manifest object {name} must use bittensor_semantic")
+        is_memgraph_object = name in MEMGRAPH_OBJECTS
+        expected_database = "memgraph" if is_memgraph_object else "bittensor_semantic"
+        expected_format = "jsonl.gz" if is_memgraph_object else "tsv.gz"
+        if entry.get("database") != expected_database:
+            fail(f"manifest object {name} must use {expected_database}")
+        if entry.get("format") != expected_format:
+            fail(f"manifest object {name} must use {expected_format}")
         if entry.get("exported_min") != entry.get("source_min"):
             fail(f"manifest object {name} exported_min must equal source_min")
         if str(entry.get("exported_max", "")) >= "2026-01-01T00:00:00Z":
@@ -164,6 +184,13 @@ def main() -> None:
         actual_sha = sha256(file_path)
         if actual_sha != expected_sha:
             fail(f"manifest object {name} checksum mismatch: {actual_sha} != {expected_sha}")
+        if is_memgraph_object:
+            opener = gzip.open if file_path.suffix == ".gz" else open
+            with opener(file_path, "rt", encoding="utf-8", errors="replace") as handle:
+                payload = handle.read()
+            for marker in FORBIDDEN_MEMGRAPH_MARKERS:
+                if marker in payload:
+                    fail(f"manifest object {name} contains forbidden Memgraph marker: {marker}")
 
     print(f"validated {len(objects)} devkit fixture objects")
 

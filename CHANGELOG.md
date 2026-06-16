@@ -3,6 +3,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.7.9] - 2026-06-16
+
+- Replaced the devkit Memgraph live-topology fixture with a GraphRAG-synced
+  JSONL export that preserves node labels, relationship types, properties,
+  Bittensor structure, ML risk scores, and scam-topology relationships while
+  excluding runtime `GlobalState` cursor data.
+- Updated the devkit Memgraph importer to load the enriched JSONL graph instead
+  of the earlier bare CSV topology.
+
 ## [0.7.8] - 2026-06-16
 
 - Published the devkit fixture as a static real Bittensor semantic export for

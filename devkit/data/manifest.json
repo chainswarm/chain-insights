@@ -2,13 +2,14 @@
   "schema": "chain-insights.devkit.fixture.v1",
   "network": "bittensor",
   "semantic_database": "bittensor_semantic",
-  "exported_at": "2026-06-16T08:35:40Z",
+  "exported_at": "2026-06-16T20:36:02Z",
   "fixture_window": {
     "from": "source-min",
     "to_exclusive": "2026-01-01T00:00:00Z"
   },
   "source": {
-    "mapping": "repos/ml/data-pipeline/ops/memgql/chain_insights_starrocks_mapping.json"
+    "mapping": "repos/ml/data-pipeline/ops/memgql/chain_insights_starrocks_mapping.json",
+    "live_topology": "memgraph"
   },
   "coverage": {
     "substrate_rows": 464133,
@@ -16,7 +17,11 @@
     "identity_count": 468887,
     "member_address_count": 932216,
     "flow_edge_count": 764312,
-    "exposure_tables_included": false
+    "exposure_tables_included": false,
+    "memgraph_node_count": 756074,
+    "memgraph_relationship_count": 499616,
+    "memgraph_label_count": 9,
+    "scam_topology_edge_count": 2176
   },
   "objects": [
     {
@@ -205,6 +210,28 @@
       "exported_min": "1970-01-01T00:00:00Z",
       "exported_max": "1970-01-01T00:00:00Z",
       "sha256": "de50ffb767b7d334ffa2a3013817f66a82e9f61aff52b9a57a7ea42a3f0fa22c"
+    },
+    {
+      "database": "memgraph",
+      "name": "memgraph_nodes",
+      "format": "jsonl.gz",
+      "path": "memgraph/nodes.jsonl.gz",
+      "row_count": 756074,
+      "source_min": "2023-03-20T22:12:24Z",
+      "exported_min": "2023-03-20T22:12:24Z",
+      "exported_max": "2025-12-31T23:56:00Z",
+      "sha256": "bb854f98afae6366128c3f19b714c016713a3db265efd5e78a6d74f4d892c609"
+    },
+    {
+      "database": "memgraph",
+      "name": "memgraph_relationships",
+      "format": "jsonl.gz",
+      "path": "memgraph/relationships.jsonl.gz",
+      "row_count": 499616,
+      "source_min": "2023-06-15T17:03:24Z",
+      "exported_min": "2023-06-15T17:03:24Z",
+      "exported_max": "2025-12-31T15:44:24Z",
+      "sha256": "0c11024b82285d3c85bee1596b01e745e48943f92c0784afb56bc29c389af74f"
     }
   ]
 }
