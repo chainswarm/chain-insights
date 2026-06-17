@@ -109,7 +109,7 @@ def main() -> None:
         return
     for entry in manifest["objects"]:
         if entry["database"] != "bittensor_semantic":
-            raise SystemExit(f"unexpected object database: {entry['database']}")
+            continue
         table = entry["name"]
         if table not in mapped_columns:
             raise SystemExit(f"manifest object is not in MemGQL mapping: {table}")

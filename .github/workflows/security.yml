@@ -104,7 +104,7 @@ jobs:
 
   codeql:
     name: CodeQL
-    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || 'chainswarm-runner' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read

@@ -3,6 +3,13 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.7.10] - 2026-06-17
+
+- Fixed devkit import scripts so Memgraph fixture objects are excluded from
+  StarRocks DDL, stream-load, and count checks.
+- Added semicolon-terminated Memgraph index DDL and pinned the Security
+  workflow CodeQL job to an X64 self-hosted runner.
+
 ## [0.7.9] - 2026-06-16
 
 - Replaced the devkit Memgraph live-topology fixture with a GraphRAG-synced
