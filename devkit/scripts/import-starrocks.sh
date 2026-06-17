@@ -79,6 +79,7 @@ manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 output = Path(sys.argv[2])
 workspace = Path(sys.argv[3])
 data_root = Path(sys.argv[1]).parent
+objects = [entry for entry in manifest["objects"] if entry["database"] == "bittensor_semantic"]
 
 
 def sql_string(value: str) -> str:
@@ -111,7 +112,7 @@ def write_plain_tsv(source: Path, target: Path) -> list[str]:
 
 with output.open("w", encoding="utf-8") as handle:
     handle.write("#!/usr/bin/env bash\nset -euo pipefail\n")
-    for entry in manifest["objects"]:
+    for entry in objects:
         table = safe_identifier(entry["name"])
         source = data_root / entry["path"]
         target = workspace / f"{table}.tsv"
@@ -157,8 +158,9 @@ from pathlib import Path
 
 manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 output = Path(sys.argv[2])
+objects = [entry for entry in manifest["objects"] if entry["database"] == "bittensor_semantic"]
 with output.open("w", encoding="utf-8") as handle:
-    for entry in manifest["objects"]:
+    for entry in objects:
         handle.write(f"SELECT '{entry['name']}', COUNT(*) FROM bittensor_semantic.{entry['name']};\n")
 PY
 
@@ -178,7 +180,11 @@ import sys
 from pathlib import Path
 
 manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-expected = {entry["name"]: int(entry["row_count"]) for entry in manifest["objects"]}
+expected = {
+    entry["name"]: int(entry["row_count"])
+    for entry in manifest["objects"]
+    if entry["database"] == "bittensor_semantic"
+}
 actual = {}
 for line in Path(sys.argv[2]).read_text(encoding="utf-8").splitlines():
     table, count = line.split("\t")

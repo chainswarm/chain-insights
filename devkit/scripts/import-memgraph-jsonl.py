@@ -98,9 +98,9 @@ def execute_schema(session: Any) -> None:
     statements = [
         "MATCH (node) DETACH DELETE node",
         "CREATE INDEX ON :DevkitFixture(_devkit_export_id)",
-        "CREATE INDEX ON :Identity(identity_id)",
-        "CREATE INDEX ON :Address(address)",
-        "CREATE INDEX ON :Subnet(netuid)",
+        "CREATE INDEX ON :Identity(identity_id);",
+        "CREATE INDEX ON :Address(address);",
+        "CREATE INDEX ON :Subnet(netuid);",
     ]
     for statement in statements:
         session.run(statement).consume()
