@@ -3,6 +3,14 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.7.11] - 2026-06-18
+
+- Hardened the devkit Chain Insights Graph MCP record mapper so mismatched
+  Neo4j/Memgraph record keys and values no longer panic during graph query
+  result formatting.
+- Added a regression test for mismatched devkit MCP records and made devkit
+  Chain Insights smoke scripts more tolerant of CSV line endings.
+
 ## [0.7.10] - 2026-06-17
 
 - Fixed devkit import scripts so Memgraph fixture objects are excluded from
