@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j/db"
 )
 
 type QueryResult struct {
@@ -136,12 +137,26 @@ func (runner *MemgraphRunner) Run(ctx context.Context, network string, query str
 	}
 	rows := make([]map[string]any, 0, len(result.Records))
 	for _, record := range result.Records {
-		row := map[string]any{}
-		for _, key := range record.Keys {
-			value, _ := record.Get(key)
-			row[key] = value
+		row, err := recordRow(record)
+		if err != nil {
+			return QueryResult{}, fmt.Errorf("map graph query record network=%s: %w", network, err)
 		}
 		rows = append(rows, row)
 	}
 	return QueryResult{Rows: rows}, nil
+}
+
+func recordRow(record *db.Record) (map[string]any, error) {
+	if record == nil {
+		return nil, fmt.Errorf("record is nil")
+	}
+	row := make(map[string]any, len(record.Keys))
+	for index, key := range record.Keys {
+		if index < len(record.Values) {
+			row[key] = record.Values[index]
+			continue
+		}
+		row[key] = nil
+	}
+	return row, nil
 }
