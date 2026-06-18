@@ -6,7 +6,25 @@ import (
 	"log/slog"
 	"testing"
 	"time"
+
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j/db"
 )
+
+func TestRecordRowToleratesMismatchedKeysAndValues(t *testing.T) {
+	row, err := recordRow(&db.Record{
+		Keys:   []string{"row_count", "extra"},
+		Values: []any{1},
+	})
+	if err != nil {
+		t.Fatalf("expected mismatched record to map without panic: %v", err)
+	}
+	if row["row_count"] != 1 {
+		t.Fatalf("row_count = %#v, want 1", row["row_count"])
+	}
+	if row["extra"] != nil {
+		t.Fatalf("extra = %#v, want nil", row["extra"])
+	}
+}
 
 func TestNewMemgraphRunnerWithRetryRetriesUntilConnectivitySucceeds(t *testing.T) {
 	attempts := 0
