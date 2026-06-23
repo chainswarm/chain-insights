@@ -882,7 +882,7 @@ function buildMarkdownReport(seedAddress: string, network: string, flows: TraceF
     '```mermaid',
     'flowchart LR',
     ...flows.map((flow, index) =>
-      `  n${index}["${flow.src.slice(0, 8)}..."] -->|"amount_usd_sum ${flow.amount_usd_sum}${flow.terminal_exchange ? '; exchange endpoint' : ''}"| m${index}["${flow.dst.slice(0, 8)}..."]`
+      `  n${index}["${flow.src}"] -->|"amount_usd_sum ${flow.amount_usd_sum}${flow.terminal_exchange ? '; exchange endpoint' : ''}"| m${index}["${flow.dst}"]`
     ),
     '```',
   ]

@@ -1,7 +1,7 @@
-import { n as PACKAGE_VERSION } from "./version-BA3J8hu4.mjs";
-import { t as PaymentRequiredError } from "./client-79S14ZuM.mjs";
-import { n as PUBLIC_MCP_TOOL_ALLOWED_ARGS, r as PUBLIC_MCP_TOOL_REQUIRED_ARGS, t as HIDDEN_REMOTE_TOOL_NAMES } from "./tool-visibility-DQ6_mq2m.mjs";
-import { t as primitiveBackendUsageStatus } from "./usage-status-D2uosC7s.mjs";
+import { n as PACKAGE_VERSION } from "./version-1gP19Lhi.mjs";
+import { t as PaymentRequiredError } from "./client-BP01tPOG.mjs";
+import { n as PUBLIC_MCP_TOOL_ALLOWED_ARGS, r as PUBLIC_MCP_TOOL_REQUIRED_ARGS, t as HIDDEN_REMOTE_TOOL_NAMES } from "./tool-visibility-CUNRXUWj.mjs";
+import { t as primitiveBackendUsageStatus } from "./usage-status-Chnej2I9.mjs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { readFileSync } from "node:fs";
@@ -541,8 +541,8 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 	const graphPayload = getRemoteGraphPayload(result);
 	const meta = { ...result._meta ?? {} };
 	if (graphPayload && includeAttachments) {
-		const { writeGraphReport } = await import("./graph-reports-Dw_t59Ez.mjs");
-		const { ensureArtifactServer } = await import("./artifact-server-CcmLBv1j.mjs");
+		const { writeGraphReport } = await import("./graph-reports-DJgotDQN.mjs");
+		const { ensureArtifactServer } = await import("./artifact-server-DgWrK2gm.mjs");
 		const report = await writeGraphReport(graphPayload, {
 			serverPort: config.serverPort,
 			slug: toolName || "remote-graph"
@@ -568,8 +568,8 @@ function shouldIncludeAttachments(args, workspaceArtifactsEnabled) {
 }
 async function writeLocalGraphMeta(graphData, config, slug, includeAttachments) {
 	if (!includeAttachments) return void 0;
-	const { writeGraphReport } = await import("./graph-reports-Dw_t59Ez.mjs");
-	const { ensureArtifactServer } = await import("./artifact-server-CcmLBv1j.mjs");
+	const { writeGraphReport } = await import("./graph-reports-DJgotDQN.mjs");
+	const { ensureArtifactServer } = await import("./artifact-server-DgWrK2gm.mjs");
 	const report = await writeGraphReport(graphData, {
 		serverPort: config.serverPort,
 		slug
@@ -651,10 +651,10 @@ function jsonTextResult(structuredContent) {
 * All diagnostic output goes to console.error() or process.stderr.write().
 */
 async function createProxy() {
-	const { loadConfig } = await import("./config-C6zM8Xir.mjs").then((n) => n.t);
-	const { activeDataDir, findActiveWorkspace } = await import("./active-BQopLul8.mjs").then((n) => n.t);
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-79S14ZuM.mjs").then((n) => n.r);
-	const { loadSchema, saveSchema } = await import("./schema-cache-DwDvPy4e.mjs");
+	const { loadConfig } = await import("./config-Ckr1nQWC.mjs").then((n) => n.t);
+	const { activeDataDir, findActiveWorkspace } = await import("./active-BZD4Ttxr.mjs").then((n) => n.t);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import("./client-BP01tPOG.mjs").then((n) => n.r);
+	const { loadSchema, saveSchema } = await import("./schema-cache-CJhrjElr.mjs");
 	const proxyMode = resolveMcpProxyMode();
 	const workspaceArtifactsEnabled = proxyMode === "workspace";
 	const loadedConfig = await loadConfig();
@@ -843,7 +843,7 @@ async function createProxy() {
 			}
 		}, async () => {
 			try {
-				const { formatWalletBalanceResult, getWalletAccount, getWalletBalanceResult } = await import("./tools-Bo_MyqBP.mjs").then((n) => n.u);
+				const { formatWalletBalanceResult, getWalletAccount, getWalletBalanceResult } = await import("./tools-DwGCDBYx.mjs").then((n) => n.u);
 				const structuredContent = await getWalletBalanceResult(await getWalletAccount());
 				return {
 					content: [{
@@ -903,7 +903,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { addressRisk } = await import("./public-tools-D5seSuAa.mjs");
+				const { addressRisk } = await import("./public-tools-D4Y_LUIx.mjs");
 				const result = await addressRisk(remoteClient, {
 					address,
 					network,
@@ -964,7 +964,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceVictimFunds } = await import("./public-tools-D5seSuAa.mjs");
+				const { traceVictimFunds } = await import("./public-tools-D4Y_LUIx.mjs");
 				const result = await traceVictimFunds(remoteClient, config, {
 					victimAddresses: victim_addresses,
 					knownSuspectAddresses: known_suspect_addresses,
@@ -1026,7 +1026,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceSuspectFunds } = await import("./public-tools-D5seSuAa.mjs");
+				const { traceSuspectFunds } = await import("./public-tools-D4Y_LUIx.mjs");
 				const result = await traceSuspectFunds(remoteClient, config, {
 					suspectAddresses: suspect_addresses,
 					network,
@@ -1086,7 +1086,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceDepositSources } = await import("./public-tools-D5seSuAa.mjs");
+				const { traceDepositSources } = await import("./public-tools-D4Y_LUIx.mjs");
 				const result = await traceDepositSources(remoteClient, config, {
 					depositAddresses: deposit_addresses,
 					network,
