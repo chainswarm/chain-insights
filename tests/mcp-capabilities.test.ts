@@ -49,7 +49,12 @@ describe('MCP network capabilities', () => {
     expect(headers.get('X-Chain-Insights-Test-Key')).toBe('debug-token')
     expect(headers.get('Authorization')).toBe('Bearer debug-token')
     expect(result.networks[0]?.network).toBe('bittensor')
-    expect(result.networks[0]).not.toHaveProperty('coverage')
+    expect(result.networks[0]?.coverage).toEqual({
+      from_block: 84,
+      to_block: 7440268,
+      from_timestamp: '2023-03-20T22:25:48Z',
+      to_timestamp: '2026-01-31T04:26:00Z',
+    })
   })
 
   it('merges internal Bittensor aliases into the public bittensor semantic network', async () => {
@@ -86,10 +91,17 @@ describe('MCP network capabilities', () => {
     expect(result.networks).toEqual([expect.objectContaining({
       network: 'bittensor',
       display_name: 'Bittensor',
-      tools: {
+      tools: expect.objectContaining({
+        aml_address_risk: 'available',
+        aml_trace_victim_funds: 'available',
+        aml_trace_deposit_sources: 'available',
+        aml_trace_suspect_funds: 'available',
         graph_query: 'available',
         graph_query_batch: 'available',
-      },
+        meta_network_capabilities: 'available',
+        meta_usage_status: 'available',
+        wallet_balance: 'available',
+      }),
     })])
     expect(JSON.stringify(result)).not.toContain('bittensor_evm')
     expect(JSON.stringify(result)).not.toContain('aggregations')
@@ -139,9 +151,21 @@ describe('MCP network capabilities', () => {
 
     expect(output).toContain('Bittensor')
     expect(output).toContain('yes')
-    expect(output).toContain('graph_query, graph_query_batch')
-    expect(output).not.toContain('Dataset')
-    expect(output).not.toContain('84..7440268')
+    expect(output).toContain('84..7440268 / 2023-03-20..2026-01-31')
+    expect(output).toContain('aml_address_risk')
+    expect(output).toContain('aml_trace_victim_funds')
+    expect(output).toContain('aml_trace_deposit_sources')
+    expect(output).toContain('aml_trace_suspect_funds')
+    expect(output).toContain('graph_query')
+    expect(output).toContain('graph_query_batch')
+    expect(output).toContain('meta_network_capabilities')
+    expect(output).toContain('meta_usage_status')
+    expect(output).toContain('wallet_balance')
+    expect(output).toContain('Dataset')
+    expect(output).toContain('aml_address_risk, aml_trace_deposit_sources, aml_trace_suspect_funds')
+    expect(output).toContain('aml_trace_victim_funds, graph_query, graph_query_batch')
+    expect(output).toContain('meta_network_capabilities, meta_usage_status, wallet_balance')
+    expect(output).not.toContain('aml_address_risk, aml_trace_deposit_sources, aml_trace_suspect_funds, aml_trace_victim_funds')
   })
 
   it('formats no available tools for unsupported networks', async () => {
@@ -169,7 +193,7 @@ describe('MCP network capabilities', () => {
     expect(output).toContain('none')
   })
 
-  it('omits dataset coverage even when upstream metadata includes partial coverage', async () => {
+  it('formats partial dataset coverage without hiding missing heights', async () => {
     const { formatNetworkCapabilities } = await import('../src/mcp/capabilities.js')
 
     const output = formatNetworkCapabilities({
@@ -195,8 +219,8 @@ describe('MCP network capabilities', () => {
     })
 
     expect(output).toContain('Bittensor')
+    expect(output).toContain('2026-05-19..2026-05-20')
     expect(output).not.toContain('blocks unknown')
-    expect(output).not.toContain('2026-05-19')
   })
 
   it('does not expose StarRocks storage metadata in CLI output', async () => {
