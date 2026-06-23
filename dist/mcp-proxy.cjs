@@ -1,9 +1,9 @@
 Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-const require_chunk = require("./chunk-DakpK96I.cjs");
-const require_version = require("./version-CO9Or_YV.cjs");
-const require_client = require("./client-CX6u0efa.cjs");
-const require_tool_visibility = require("./tool-visibility-BA24cH3g.cjs");
-const require_usage_status = require("./usage-status-BIOT92jc.cjs");
+const require_chunk = require("./chunk-CZWwpsFl.cjs");
+const require_version = require("./version-BNGtdpmH.cjs");
+const require_client = require("./client-D-MHbBVe.cjs");
+const require_tool_visibility = require("./tool-visibility-d0gse29t.cjs");
+const require_usage_status = require("./usage-status-D76CYhE-.cjs");
 let node_url = require("node:url");
 let node_path = require("node:path");
 node_path = require_chunk.__toESM(node_path, 1);
@@ -545,8 +545,8 @@ async function normalizeRemoteToolResult(result, config, toolName = "remote-grap
 	const graphPayload = getRemoteGraphPayload(result);
 	const meta = { ...result._meta ?? {} };
 	if (graphPayload && includeAttachments) {
-		const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-CT630GyR.cjs"));
-		const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-v0WgTPFT.cjs"));
+		const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-B8eiYpS_.cjs"));
+		const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-BSDxThZU.cjs"));
 		const report = await writeGraphReport(graphPayload, {
 			serverPort: config.serverPort,
 			slug: toolName || "remote-graph"
@@ -572,8 +572,8 @@ function shouldIncludeAttachments(args, workspaceArtifactsEnabled) {
 }
 async function writeLocalGraphMeta(graphData, config, slug, includeAttachments) {
 	if (!includeAttachments) return void 0;
-	const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-CT630GyR.cjs"));
-	const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-v0WgTPFT.cjs"));
+	const { writeGraphReport } = await Promise.resolve().then(() => require("./graph-reports-B8eiYpS_.cjs"));
+	const { ensureArtifactServer } = await Promise.resolve().then(() => require("./artifact-server-BSDxThZU.cjs"));
 	const report = await writeGraphReport(graphData, {
 		serverPort: config.serverPort,
 		slug
@@ -655,10 +655,10 @@ function jsonTextResult(structuredContent) {
 * All diagnostic output goes to console.error() or process.stderr.write().
 */
 async function createProxy() {
-	const { loadConfig } = await Promise.resolve().then(() => require("./config-CkW404Cs.cjs")).then((n) => n.config_exports);
-	const { activeDataDir, findActiveWorkspace } = await Promise.resolve().then(() => require("./active-XWv72R1X.cjs")).then((n) => n.active_exports);
-	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-CX6u0efa.cjs")).then((n) => n.client_exports);
-	const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-CJk1EL3L.cjs"));
+	const { loadConfig } = await Promise.resolve().then(() => require("./config-BvLxe0Mq.cjs")).then((n) => n.config_exports);
+	const { activeDataDir, findActiveWorkspace } = await Promise.resolve().then(() => require("./active-CIOqKulA.cjs")).then((n) => n.active_exports);
+	const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await Promise.resolve().then(() => require("./client-D-MHbBVe.cjs")).then((n) => n.client_exports);
+	const { loadSchema, saveSchema } = await Promise.resolve().then(() => require("./schema-cache-bX1Oq8MM.cjs"));
 	const proxyMode = resolveMcpProxyMode();
 	const workspaceArtifactsEnabled = proxyMode === "workspace";
 	const loadedConfig = await loadConfig();
@@ -847,7 +847,7 @@ async function createProxy() {
 			}
 		}, async () => {
 			try {
-				const { formatWalletBalanceResult, getWalletAccount, getWalletBalanceResult } = await Promise.resolve().then(() => require("./tools-Cqo7lEIZ.cjs")).then((n) => n.tools_exports);
+				const { formatWalletBalanceResult, getWalletAccount, getWalletBalanceResult } = await Promise.resolve().then(() => require("./tools-CzV1-y_x.cjs")).then((n) => n.tools_exports);
 				const structuredContent = await getWalletBalanceResult(await getWalletAccount());
 				return {
 					content: [{
@@ -907,7 +907,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-BlsnaiuG.cjs"));
+				const { addressRisk } = await Promise.resolve().then(() => require("./public-tools-CNWQ4HwA.cjs"));
 				const result = await addressRisk(remoteClient, {
 					address,
 					network,
@@ -968,7 +968,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceVictimFunds } = await Promise.resolve().then(() => require("./public-tools-BlsnaiuG.cjs"));
+				const { traceVictimFunds } = await Promise.resolve().then(() => require("./public-tools-CNWQ4HwA.cjs"));
 				const result = await traceVictimFunds(remoteClient, config, {
 					victimAddresses: victim_addresses,
 					knownSuspectAddresses: known_suspect_addresses,
@@ -1030,7 +1030,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceSuspectFunds } = await Promise.resolve().then(() => require("./public-tools-BlsnaiuG.cjs"));
+				const { traceSuspectFunds } = await Promise.resolve().then(() => require("./public-tools-CNWQ4HwA.cjs"));
 				const result = await traceSuspectFunds(remoteClient, config, {
 					suspectAddresses: suspect_addresses,
 					network,
@@ -1090,7 +1090,7 @@ async function createProxy() {
 					}],
 					isError: true
 				};
-				const { traceDepositSources } = await Promise.resolve().then(() => require("./public-tools-BlsnaiuG.cjs"));
+				const { traceDepositSources } = await Promise.resolve().then(() => require("./public-tools-CNWQ4HwA.cjs"));
 				const result = await traceDepositSources(remoteClient, config, {
 					depositAddresses: deposit_addresses,
 					network,

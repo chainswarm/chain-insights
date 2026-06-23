@@ -344,7 +344,7 @@ var amtRange  = 0;
 /* ───────────────────────────────────────────────────────────
    Helpers
    ─────────────────────────────────────────────────────────── */
-function trunc(a) { return (!a||a.length<=14) ? (a||'') : a.slice(0,6)+'…'+a.slice(-6); }
+function nodeAddress(n) { return (n && (n.address || n.id)) || ''; }
 function fmtDate(ts) {
   var d = new Date(ts);
   return d.toISOString().slice(0,10) + ' ' + d.toISOString().slice(11,16);
@@ -689,7 +689,8 @@ function applyDataMode() {
   nodeMap = {};
 
   nodes = graphData.nodes.map(function(n) {
-    var o = {address:n.address, node_kind:n.node_kind||'wallet', labels:n.labels||[],
+    var addr = n.address || n.id || '';
+    var o = {address:addr, node_kind:n.node_kind||'wallet', labels:n.labels||[],
              flow_in_usd:n.flow_in_usd, flow_out_usd:n.flow_out_usd,
              role:nodeDisplayRole(n), risk_level:n.risk_level||null,
              risk_score: typeof n.risk_score === 'number' ? n.risk_score : null,
@@ -960,7 +961,7 @@ function drawNodes() {
     ctx.textBaseline = 'top';
     var ly = n.y + r + 6;
     ctx.fillStyle = '#fff';
-    ctx.fillText(trunc(n.address), n.x, ly);
+    ctx.fillText(nodeAddress(n), n.x, ly);
     ly += 14;
     if (n.tx_id) {
       // Timeline mode: show tx_id
