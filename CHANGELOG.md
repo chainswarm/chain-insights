@@ -3,6 +3,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.7.12] - 2026-06-23
+
+- Show full addresses in the D3 graph canvas (removed truncation). Fall back
+  to `node.id` when `address` is absent.
+- Show full src/dst addresses in Mermaid flowchart report markdown (was 8-char
+  truncation).
+- Add `cursor.com` and `www.cursor.com` to `graph.html` trusted parent origins
+  for MCP App iframe handshake in Cursor IDE.
+
 ## [0.7.11] - 2026-06-18
 
 - Hardened the devkit Chain Insights Graph MCP record mapper so mismatched
