@@ -34,6 +34,18 @@ export interface NetworkCapabilitiesDocument {
 }
 
 const BITTENSOR_SEMANTIC_NETWORKS = new Set(['bittensor', 'bittensor_evm', 'bittensor_semantic'])
+const PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS = {
+  aml_address_risk: 'available',
+  aml_trace_victim_funds: 'available',
+  aml_trace_deposit_sources: 'available',
+  aml_trace_suspect_funds: 'available',
+  graph_query: 'available',
+  graph_query_batch: 'available',
+  meta_network_capabilities: 'available',
+  meta_usage_status: 'available',
+  wallet_balance: 'available',
+} as const
+const AVAILABLE_TOOLS_PER_LINE = 3
 
 function publicNetworkCapabilities(document: NetworkCapabilitiesDocument): NetworkCapabilitiesDocument {
   const source = document.networks.find((network) => BITTENSOR_SEMANTIC_NETWORKS.has(network.network))
@@ -50,10 +62,9 @@ function publicNetworkCapabilities(document: NetworkCapabilitiesDocument): Netwo
           risk: { enabled: source.layers.risk?.enabled === true },
           topology: { enabled: source.layers.topology?.enabled === true },
         },
-        tools: {
-          graph_query: 'available',
-          graph_query_batch: 'available',
-        },
+        ...(source.coverage ? { coverage: source.coverage } : {}),
+        ...(source.freshness ? { freshness: source.freshness } : {}),
+        tools: PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS,
       }]
       : [],
   }
@@ -99,27 +110,68 @@ function layerValue(network: NetworkCapability, layer: string): string {
   return 'yes'
 }
 
-function availableToolsLabel(network: NetworkCapability): string {
-  const tools = Object.entries(network.tools ?? {})
+function availableTools(network: NetworkCapability): string[] {
+  const effectiveTools = BITTENSOR_SEMANTIC_NETWORKS.has(network.network) && network.layers.topology?.enabled === true
+    ? {
+      ...(network.tools ?? {}),
+      ...PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS,
+    }
+    : network.tools ?? {}
+  const tools = Object.entries(effectiveTools)
     .filter(([, status]) => status === 'available')
     .map(([name]) => name)
-  return tools.length > 0 ? tools.join(', ') : 'none'
+  return tools.sort()
+}
+
+function availableToolLines(network: NetworkCapability): string[] {
+  const tools = availableTools(network)
+  if (tools.length === 0) return ['none']
+  const lines: string[] = []
+  for (let index = 0; index < tools.length; index += AVAILABLE_TOOLS_PER_LINE) {
+    lines.push(tools.slice(index, index + AVAILABLE_TOOLS_PER_LINE).join(', '))
+  }
+  return lines
+}
+
+function shortDate(value?: string): string {
+  if (!value) return ''
+  return value.slice(0, 10)
+}
+
+function datasetLabel(network: NetworkCapability): string {
+  const coverage = network.coverage
+  if (!coverage) return 'unknown'
+  const blockRange = coverage.from_block !== undefined && coverage.to_block !== undefined
+    ? `${coverage.from_block}..${coverage.to_block}`
+    : 'blocks unknown'
+  const dateRange = coverage.from_timestamp && coverage.to_timestamp
+    ? `${shortDate(coverage.from_timestamp)}..${shortDate(coverage.to_timestamp)}`
+    : ''
+  if (blockRange === 'blocks unknown' && dateRange === '') return 'unknown'
+  if (blockRange === 'blocks unknown') return dateRange
+  if (dateRange === '') return blockRange
+  return `${blockRange} / ${dateRange}`
 }
 
 export function formatNetworkCapabilities(document: NetworkCapabilitiesDocument): string {
   if (document.networks.length === 0) return 'No supported networks advertised.'
-  const headers = ['Network', 'Topology', 'Facts', 'Risk', 'Available tools']
-  const widths = [14, 10, 8, 8, 64]
+  const headers = ['Network', 'Topology', 'Facts', 'Risk', 'Dataset', 'Available tools']
+  const widths = [14, 10, 8, 8, 38, 64]
   const row = (values: string[]) => values.map((value, index) => value.padEnd(widths[index]!)).join('  ')
+  const networkRows = document.networks.flatMap((network) => {
+    const toolLines = availableToolLines(network)
+    return toolLines.map((toolLine, index) => row([
+      index === 0 ? network.display_name || network.network : '',
+      index === 0 ? layerValue(network, 'topology') : '',
+      index === 0 ? layerValue(network, 'facts') : '',
+      index === 0 ? layerValue(network, 'risk') : '',
+      index === 0 ? datasetLabel(network) : '',
+      toolLine,
+    ]))
+  })
   return [
     row(headers),
     widths.map((width) => '-'.repeat(width)).join('  '),
-    ...document.networks.map((network) => row([
-      network.display_name || network.network,
-      layerValue(network, 'topology'),
-      layerValue(network, 'facts'),
-      layerValue(network, 'risk'),
-      availableToolsLabel(network),
-    ])),
+    ...networkRows,
   ].join('\n')
 }
