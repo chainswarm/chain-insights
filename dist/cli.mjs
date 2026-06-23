@@ -58,7 +58,7 @@ function printMcpTextContent(result) {
 }
 async function printNetworkCapabilities(opts) {
 	const { loadConfig } = await import("./config-C6zM8Xir.mjs").then((n) => n.t);
-	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import("./capabilities-B08O3iEX.mjs");
+	const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import("./capabilities-BM-221Ps.mjs");
 	const document = await fetchNetworkCapabilities(await loadConfig());
 	if (opts.json) console.log(JSON.stringify(document, null, 2));
 	else console.log(formatNetworkCapabilities(document));
