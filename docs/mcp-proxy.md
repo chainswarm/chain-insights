@@ -211,30 +211,20 @@ For manual graph-language work, agents should use the shipped
 `chain-insights-bittensor-cypher` after the generic skill so SS58 and
 EVM-pallet addresses stay under `network=bittensor`.
 
-## Claude Desktop
+## Supported Agent Setup
 
-Claude Desktop is supported for basic MCP calls. It is not the primary
-framework UI.
-
-Configure it:
+The supported setup targets are the same ones advertised by top-level installer
+flags:
 
 ```bash
-chain-insights setup claude-desktop --dry-run
-chain-insights setup claude-desktop
+chain-insights setup claude-code
+chain-insights setup codex
+chain-insights setup hermes
 ```
 
-Validate without opening Claude:
-
-```bash
-npx @modelcontextprotocol/inspector \
-  --cli \
-  --config ~/.config/Claude/claude_desktop_config.json \
-  --server chain-insights \
-  --method tools/list
-```
-
-Claude Desktop does not hot-reload its MCP config. Fully quit and reopen it
-after setup.
+`chain-insights setup claude` is an alias for `chain-insights setup
+claude-code`. Claude Desktop configuration is not exposed by the CLI setup
+surface.
 
 Current MCP prompts exposed by the local proxy:
 

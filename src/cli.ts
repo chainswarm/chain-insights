@@ -36,6 +36,15 @@ if (rawArgs[0] === 'mcp' && ['trace-funds', 'track-funds'].includes(rawArgs[1] ?
   process.exit(1)
 }
 
+function runInstaller(flag: '--claude' | '--codex' | '--hermes'): void {
+  try {
+    execFileSync(process.execPath, [installerPath, flag], { stdio: 'inherit' })
+  } catch (err) {
+    console.error('Installation failed:', (err as Error).message)
+    process.exit(1)
+  }
+}
+
 function optionalNumber(value: string | undefined): number | undefined {
   if (value === undefined) return undefined
   const parsed = Number(value)
@@ -307,36 +316,25 @@ program
   .command('setup')
   .description('Configure external MCP clients')
   .addCommand(
-    new Command('claude-desktop')
+    new Command('claude-code')
       .alias('claude')
-      .description('Install or update the Claude Desktop MCP server entry')
-      .option('--config <path>', 'Path to claude_desktop_config.json')
-      .option('--dry-run', 'Print the intended change without writing files')
-      .action(async (opts: { config?: string; dryRun?: boolean }) => {
-        try {
-          const { setupClaudeDesktop } = await import('./claude-desktop/setup.js')
-          const result = await setupClaudeDesktop({
-            configPath: opts.config,
-            dryRun: opts.dryRun,
-          })
-
-          console.log(`Claude Desktop config: ${result.configPath}`)
-          console.log('MCP server:            chain-insights')
-          console.log(`Command:               ${result.command}`)
-          console.log(`Args:                  ${result.args.join(' ')}`)
-          if (result.dryRun) {
-            console.log(`Dry run:               ${result.changed ? 'would update config' : 'already up to date'}`)
-          } else if (result.changed) {
-            console.log(`Updated:               yes`)
-            if (result.backupPath) console.log(`Backup:                ${result.backupPath}`)
-          } else {
-            console.log('Updated:               already up to date')
-          }
-          console.log('Reload required:       quit and reopen Claude Desktop; it does not hot-reload MCP config.')
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
+      .description('Install Claude Code skills and register the MCP proxy')
+      .action(() => {
+        runInstaller('--claude')
+      })
+  )
+  .addCommand(
+    new Command('codex')
+      .description('Install Codex skills and register the MCP proxy')
+      .action(() => {
+        runInstaller('--codex')
+      })
+  )
+  .addCommand(
+    new Command('hermes')
+      .description('Install Hermes skills and register the MCP proxy')
+      .action(() => {
+        runInstaller('--hermes')
       })
   )
 
