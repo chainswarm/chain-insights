@@ -1,0 +1,32 @@
+@startuml
+title <size:24>System Context View: Chain Insights Toolkit</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+
+Person(InvestigatorAgent, "Investigator / Agent", $descr="Uses CLI, ChatGPT, Codex, Claude Code, or MCP clients to investigate blockchain activity.", $tags="", $link="")
+System(RBMKControlCenter, "RBMK Control Center", $descr="Runs npm release smoke checks, staging validation, and docs workflows.", $tags="", $link="")
+System(DataPipelineGraphRAGMCP, "Data Pipeline GraphRAG MCP", $descr="Public MCP endpoint serving graph queries, risk tools, quota, and report metadata.", $tags="", $link="")
+System(AMLACP, "AML ACP", $descr="Marketplace bridge that calls Chain Insights workflows through the proxy.", $tags="", $link="")
+System(ObsidianLLMWiki, "Obsidian / LLM Wiki", $descr="Optional local knowledge workspace and exported investigation bundle target.", $tags="", $link="")
+System(ChainInsightsToolkit, "Chain Insights Toolkit", $descr="Open-source AML investigation package, CLI, workspace manager, MCP proxy, and case evidence tooling.", $tags="", $link="")
+
+Rel(InvestigatorAgent, ChainInsightsToolkit, "Runs investigation and setup commands", $techn="", $tags="", $link="")
+Rel(RBMKControlCenter, ChainInsightsToolkit, "Validates release smoke checks", $techn="", $tags="", $link="")
+Rel(AMLACP, ChainInsightsToolkit, "Uses proxy mode for curated paid workflows", $techn="", $tags="", $link="")
+Rel(ChainInsightsToolkit, DataPipelineGraphRAGMCP, "Calls graph tools and AML primitives", $techn="", $tags="", $link="")
+Rel(ChainInsightsToolkit, ObsidianLLMWiki, "Opens or exports curated investigation bundles", $techn="", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml
