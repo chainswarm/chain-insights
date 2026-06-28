@@ -12,7 +12,7 @@
 
 ```bash
 # Import wallet
-cia wallet import 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+cia wallet import 0x1234...cdef (example 64-hex private key)
 # Expected: Returns "Wallet imported. Address: 0x..." and creates wallet.json
 
 # Verify wallet file created
@@ -39,7 +39,7 @@ cia wallet import invalid-key 2>&1 | grep -i "invalid"
 # Expected: Error message containing "not a valid 0x-prefixed EVM private key"
 
 # Test re-import (idempotent)
-cia wallet import 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+cia wallet import 0x1234...cdef (example 64-hex private key)
 # Expected: Overwrites existing wallet.json, returns same address
 
 # Test address derivation consistency

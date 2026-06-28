@@ -61,7 +61,7 @@ flowchart TB
 
 ```bash
 # Import wallet (CLI)
-cia wallet import 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+cia wallet import 0x1234...cdef (example 64-hex private key)
 # → Validates key, encrypts, writes ~/.chain-insights/wallet.json, returns address
 
 # Check wallet ready for payments
