@@ -17,7 +17,6 @@
     "identity_count": 468887,
     "member_address_count": 932216,
     "flow_edge_count": 764312,
-    "exposure_tables_included": false,
     "memgraph_node_count": 756074,
     "memgraph_relationship_count": 499616,
     "memgraph_label_count": 9,
@@ -144,72 +143,6 @@
       "exported_min": "2023-03-23T21:03:36Z",
       "exported_max": "2025-12-31T18:55:00Z",
       "sha256": "079866fbde09f0e406a317be44ca31156c25f8d518eb35b54a06afb5eccda00f"
-    },
-    {
-      "database": "bittensor_semantic",
-      "name": "archive_exposure_edges_has_counterparty_view",
-      "format": "tsv.gz",
-      "path": "starrocks/archive_exposure_edges_has_counterparty_view.tsv.gz",
-      "row_count": 0,
-      "source_min": "1970-01-01T00:00:00Z",
-      "exported_min": "1970-01-01T00:00:00Z",
-      "exported_max": "1970-01-01T00:00:00Z",
-      "sha256": "63b2acece8c377e0eda412f96288139a29230298331af1e18d7e188a71b552de"
-    },
-    {
-      "database": "bittensor_semantic",
-      "name": "archive_exposure_edges_has_exposure_view",
-      "format": "tsv.gz",
-      "path": "starrocks/archive_exposure_edges_has_exposure_view.tsv.gz",
-      "row_count": 0,
-      "source_min": "1970-01-01T00:00:00Z",
-      "exported_min": "1970-01-01T00:00:00Z",
-      "exported_max": "1970-01-01T00:00:00Z",
-      "sha256": "3fd25206c74e3ea4ec80937f554d9bf0bcc8e7f184d72207fe3a004aae672bb8"
-    },
-    {
-      "database": "bittensor_semantic",
-      "name": "archive_exposure_edges_owns_exposure_view",
-      "format": "tsv.gz",
-      "path": "starrocks/archive_exposure_edges_owns_exposure_view.tsv.gz",
-      "row_count": 0,
-      "source_min": "1970-01-01T00:00:00Z",
-      "exported_min": "1970-01-01T00:00:00Z",
-      "exported_max": "1970-01-01T00:00:00Z",
-      "sha256": "b8ebb2914b2c96e4fe8f8f32ef323e61123dd38d5ba5b7f6761e0659f733e8a2"
-    },
-    {
-      "database": "bittensor_semantic",
-      "name": "archive_exposure_edges_targets_instrument_view",
-      "format": "tsv.gz",
-      "path": "starrocks/archive_exposure_edges_targets_instrument_view.tsv.gz",
-      "row_count": 0,
-      "source_min": "1970-01-01T00:00:00Z",
-      "exported_min": "1970-01-01T00:00:00Z",
-      "exported_max": "1970-01-01T00:00:00Z",
-      "sha256": "b885524cd994e2a78bad6998efd8ec9a5839b40d548e40941b1b5a5b641b6b79"
-    },
-    {
-      "database": "bittensor_semantic",
-      "name": "archive_exposure_instruments_view",
-      "format": "tsv.gz",
-      "path": "starrocks/archive_exposure_instruments_view.tsv.gz",
-      "row_count": 0,
-      "source_min": "1970-01-01T00:00:00Z",
-      "exported_min": "1970-01-01T00:00:00Z",
-      "exported_max": "1970-01-01T00:00:00Z",
-      "sha256": "2f12f8fb86e73871e8815ea6524c1c46319d331a4d214556672ef025b3410ca7"
-    },
-    {
-      "database": "bittensor_semantic",
-      "name": "archive_exposure_nodes_view",
-      "format": "tsv.gz",
-      "path": "starrocks/archive_exposure_nodes_view.tsv.gz",
-      "row_count": 0,
-      "source_min": "1970-01-01T00:00:00Z",
-      "exported_min": "1970-01-01T00:00:00Z",
-      "exported_max": "1970-01-01T00:00:00Z",
-      "sha256": "de50ffb767b7d334ffa2a3013817f66a82e9f61aff52b9a57a7ea42a3f0fa22c"
     },
     {
       "database": "memgraph",

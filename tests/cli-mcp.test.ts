@@ -566,7 +566,6 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     ['usage_status', "MCP tool 'usage_status' is not exposed by Chain Insights. Use meta_usage_status instead."],
     ['balance', "MCP tool 'balance' is not exposed by Chain Insights. Use wallet_balance instead."],
     ['help', "MCP tool 'help' is not exposed by Chain Insights. Use meta_help instead."],
-    ['exposure_profile', "MCP tool 'exposure_profile' is not exposed by Chain Insights."],
   ])('mcp call rejects hidden tool %s before remote passthrough', async (tool, message) => {
     await expect(runMcpCallAction(tool, ['trusted_addresses=5Seed', 'network=bittensor']))
       .rejects.toThrow('process.exit(1)')

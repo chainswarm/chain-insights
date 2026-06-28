@@ -2158,42 +2158,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     ])
   })
 
-  it('does not expose exposure tools in the first production release', async () => {
-    const { loadSchema } = await import('../src/mcp/schema-cache.js')
-    vi.mocked(loadSchema).mockResolvedValueOnce([
-      { name: 'graph_query_batch', description: 'Cypher topology query batch' },
-      { name: 'exposure_profile', description: 'Remote exposure profile' },
-      { name: 'exposure_quality', description: 'Remote exposure quality' },
-      { name: 'exposure_carry', description: 'Remote exposure carry' },
-      { name: 'exposure_crowding', description: 'Remote exposure crowding' },
-      { name: 'exposure_exit_pressure', description: 'Remote exposure exit pressure' },
-      { name: 'exposure_correlation', description: 'Remote exposure correlation' },
-      { name: 'exposure_explain', description: 'Remote exposure explain' },
-    ])
-
-    const { createProxy } = await import('../src/mcp/proxy.js')
-    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
-
-    await createProxy()
-
-    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
-      registerTool: ReturnType<typeof vi.fn>
-    }
-    const toolNames = serverInstance.registerTool.mock.calls.map((entry) => entry[0])
-    const exposureToolNames = [
-      'exposure_profile',
-      'exposure_quality',
-      'exposure_carry',
-      'exposure_crowding',
-      'exposure_exit_pressure',
-      'exposure_correlation',
-      'exposure_explain',
-    ]
-
-    for (const name of exposureToolNames) expect(toolNames).not.toContain(name)
-    expect(toolNames).toContain('aml_address_risk')
-  })
-
   it('registers graph MCP app resource and preserves graph-backed remote tools', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([

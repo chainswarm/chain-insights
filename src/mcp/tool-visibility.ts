@@ -12,13 +12,6 @@ export const HIDDEN_REMOTE_TOOL_NAMES = new Set([
   'help',
   'money_flows_between_exchanges',
   'address_connection_risk',
-  'exposure_profile',
-  'exposure_quality',
-  'exposure_carry',
-  'exposure_crowding',
-  'exposure_exit_pressure',
-  'exposure_correlation',
-  'exposure_explain',
 ])
 
 export const PUBLIC_MCP_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
