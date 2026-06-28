@@ -116,29 +116,9 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('trace-victim-funds')
     expect(out).toContain('trace-suspect-funds')
     expect(out).toContain('trace-deposit-sources')
-    expect(out).not.toContain('exposure-profile')
-    expect(out).not.toContain('exposure-quality')
-    expect(out).not.toContain('exposure-carry')
-    expect(out).not.toContain('exposure-crowding')
-    expect(out).not.toContain('exposure-exit-pressure')
-    expect(out).not.toContain('exposure-correlation')
-    expect(out).not.toContain('exposure-explain')
     expect(out).not.toContain('track-funds')
     expect(out).not.toContain('scam-topology')
     expect(out).not.toContain('trace-funds')
-  })
-
-  it.each([
-    'exposure-profile',
-    'exposure-quality',
-    'exposure-carry',
-    'exposure-crowding',
-    'exposure-exit-pressure',
-    'exposure-correlation',
-    'exposure-explain',
-  ])('mcp %s is not exposed in the first production release', (command) => {
-    const result = spawnSync('node', ['--import', 'tsx', srcCli, 'mcp', command, '--help'], { encoding: 'utf8' })
-    expect(`${result.stdout}${result.stderr}`).not.toContain(command)
   })
 
   it('mcp aml-trace-suspect-funds help exposes suspect controls without requiring an incident timestamp', () => {
@@ -192,7 +172,6 @@ describe('CLI scaffold (FOUND-02)', () => {
       expect(readFileSync(join(target, '.chain-insights', 'workspace.json'), 'utf8')).toContain(
         '"domain_hints": [\n    "aml"\n  ]'
       )
-      expect(readFileSync(join(target, '.chain-insights', 'workspace.json'), 'utf8')).not.toContain('exposure')
       const readme = readFileSync(join(target, 'README.md'), 'utf8')
       expect(readme).toContain('Chain Insights Workspace')
       expect(readme).not.toContain('Obsidian')

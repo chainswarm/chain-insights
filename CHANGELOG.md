@@ -3,6 +3,14 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.0] - 2026-06-28
+
+- Remove the public `exposure_*` MCP tools (`exposure_profile`, `exposure_quality`,
+  `exposure_carry`, `exposure_crowding`, `exposure_exit_pressure`,
+  `exposure_correlation`, `exposure_explain`) and their devkit fixtures, as part of
+  the coordinated removal of the exposure subsystem across Chain Insights. The
+  `aml_address_risk` exchange-exposure signal is unchanged.
+
 ## [0.7.13] - 2026-06-23
 
 - Show dataset coverage (block range / date range) in `cia networks` output.
