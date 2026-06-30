@@ -3,6 +3,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.1] - 2026-06-30
+
+- Consolidated dependency and workflow bumps: `hono` 4.12.27, `@hono/node-server` 2.0.6, `github/codeql-action` v4.36.2, `actions/checkout` v7, plus the tooling and mcp-and-payments dependency groups.
+- docs(architecture): federated docs subsystem (wrapper + context/containers/comp).
+- ci(docs): thin docs caller wired to the RBMK docs subsystem.
+
 ## [0.8.0] - 2026-06-28
 
 - Remove the public `exposure_*` MCP tools (`exposure_profile`, `exposure_quality`,
