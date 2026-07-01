@@ -1,8 +1,22 @@
 import type { InvestigatorConfig } from '../config/schema.js'
 import { applyMcpAuthHeaders, resolveGraphMcpEndpoint } from './client.js'
 
+export interface NetworkTopologyLayer {
+  enabled: boolean
+  coverage?: {
+    from_block?: number
+    to_block?: number
+    from_timestamp?: string
+    to_timestamp?: string
+    chain_tip_block?: number
+    blocks_behind_tip?: number
+  }
+}
+
 export interface NetworkLayerCapability {
   enabled: boolean
+  live?: NetworkTopologyLayer
+  archive?: NetworkTopologyLayer
 }
 
 export interface NetworkCapability {
@@ -60,7 +74,11 @@ function publicNetworkCapabilities(document: NetworkCapabilitiesDocument): Netwo
         layers: {
           facts: { enabled: source.layers.facts?.enabled === true },
           risk: { enabled: source.layers.risk?.enabled === true },
-          topology: { enabled: source.layers.topology?.enabled === true },
+          topology: {
+            enabled: source.layers.topology?.enabled === true,
+            ...(source.layers.topology?.live ? { live: source.layers.topology.live } : {}),
+            ...(source.layers.topology?.archive ? { archive: source.layers.topology.archive } : {}),
+          },
         },
         ...(source.coverage ? { coverage: source.coverage } : {}),
         ...(source.freshness ? { freshness: source.freshness } : {}),
