@@ -182,6 +182,13 @@ function identityMemberAddressesQuery(identityKeys: string[]): { id: string; que
  * indexed `(:Address {address})<-[:HAS_ADDRESS]-(:Identity)` lookup.
  * Inputs the graph cannot resolve are passed through unchanged.
  */
+// Resolves each raw input to its canonical identity_id via the graph's Address
+// node: (:Identity)-[:HAS_ADDRESS]->(:Address {address: $raw}). Inputs that do
+// not resolve (no matching Address/Identity in the active topology) are
+// OMITTED from the returned map -- callers must not fall back to treating the
+// raw input as an identity_id (network:<raw address> is never a valid
+// identity_id; identities are keyed network:<canonical form>). Use
+// resolved.has(input) to distinguish "resolved to X" from "did not resolve".
 export async function resolveIdentityKeys(
   remoteClient: Client,
   network: string,
@@ -207,7 +214,7 @@ export async function resolveIdentityKeys(
   pending.forEach((input, index) => {
     const rows = optionalResultsFor(batch, `resolve_member_address_${index + 1}`, failures)
     const identityId = firstString(rows[0]?.['identity_id'])
-    resolved.set(input, identityId ?? input)
+    if (identityId) resolved.set(input, identityId)
   })
   return resolved
 }
@@ -765,8 +772,23 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   if (!inputAddress) throw new Error('address is required')
   if (!network) throw new Error('network is required')
   const resolvedKeys = await resolveIdentityKeys(remoteClient, network, [inputAddress, ...(compareInput ? [compareInput] : [])], topologyScope)
-  const address = resolvedKeys.get(inputAddress) ?? inputAddress
-  const compareAddress = compareInput ? resolvedKeys.get(compareInput) ?? compareInput : ''
+  if (!resolvedKeys.has(inputAddress)) {
+    return {
+      summaryText: `Address risk for ${network}:${inputAddress}\n\nUnresolved: no Identity/Address found for "${inputAddress}" in ${topologyScope}. The address may not have on-chain activity in this network or topology scope; try topology_scope=archive_topology for full history.`,
+      structuredContent: {
+        schema: 'chain-insights.result.v1',
+        tool: 'aml_address_risk',
+        facts: {
+          subject: { network, addresses: [inputAddress] },
+          unresolved: [inputAddress],
+        },
+      },
+      graphData: { schema: 'chain-insights.graph.v1', nodes: [], edges: [], flows: [], edge_anchors: [], metadata: { address: inputAddress, network, generated_at: new Date().toISOString() } },
+    }
+  }
+  const address = resolvedKeys.get(inputAddress)!
+  const compareUnresolved = compareInput !== '' && !resolvedKeys.has(compareInput)
+  const compareAddress = compareInput && !compareUnresolved ? resolvedKeys.get(compareInput)! : ''
   const preferredByIdentity = new Map<string, string>([
     [address, inputAddress],
     ...(compareAddress ? [[compareAddress, compareInput] as [string, string]] : []),
@@ -828,6 +850,9 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   if (compareAddress) {
     lines.push('', `Connection compare target: ${compareAddress}`, connections.length > 0 ? `Connection paths found: ${connections.length}` : 'Connection paths found: 0')
   }
+  if (compareUnresolved) {
+    lines.push('', `Unresolved compare_address: no Identity/Address found for "${compareInput}" in ${topologyScope}; comparison skipped.`)
+  }
   if (partialQueryFailures.length > 0) {
     lines.push('', 'Partial query failures', partialQueryFailures.map((failure) => `- ${failure.id}: ${failure.error}`).join('\n'))
   }
@@ -852,6 +877,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
           inflows,
         },
         connection: compareAddress ? { compare_address: compareAddress, paths: connections } : undefined,
+        unresolved: compareUnresolved ? [compareInput] : undefined,
         partial_query_errors: partialQueryFailures.length > 0 ? partialQueryFailures : undefined,
       },
       artifacts: statelessArtifacts(),
@@ -1408,6 +1434,7 @@ function traceResultFromFundRuns(
     timeRange?: { from_ms?: number; to_ms?: number }
     activityWindow?: TraceActivityWindow
     maxHops?: number
+    unresolved?: string[]
     } = {},
 ): { summaryText: string; structuredContent: Record<string, unknown>; graphData: Record<string, unknown> } {
   const graphData = normalizeTraceGraphData(runs, network)
@@ -1528,6 +1555,7 @@ function traceResultFromFundRuns(
     },
     summary: {
       seed_count: runs.length,
+      unresolved_count: options.unresolved?.length ?? 0,
       path_count: paths.length,
       edge_count: edges.length,
       candidate_suspect_count: seedRole === 'suspect' ? runs.length : 0,
@@ -1535,6 +1563,7 @@ function traceResultFromFundRuns(
       candidate_deposit_count: depositAddresses.length,
       exchange_count: exchangeAddresses.length,
     },
+    unresolved: options.unresolved ?? [],
     addresses: [...addresses.values()].map((entry) => ({
       address: entry.address,
       roles: [...entry.roles],
@@ -1582,6 +1611,7 @@ function traceResultFromFundRuns(
     },
     warnings: [
       ...(depositAddresses.length === 0 ? ['No exchange deposit candidates were connected in the queried topology.'] : []),
+      ...(options.unresolved && options.unresolved.length > 0 ? [`${options.unresolved.length} input address(es) did not resolve to a known Identity and were not traced: ${options.unresolved.join(', ')}.`] : []),
       ...runs.flatMap((run) => run.result.tracebackWarnings ?? []),
     ],
   }
@@ -1589,6 +1619,9 @@ function traceResultFromFundRuns(
   return {
     summaryText: [
       `${seedRole === 'victim' ? 'Trace victim funds' : 'Trace suspect funds'} complete for ${network}`,
+      ...(options.unresolved && options.unresolved.length > 0
+        ? [`Unresolved (no matching Identity/Address): ${options.unresolved.join(', ')}`]
+        : []),
       '',
       ...runs.map((run) => `## ${run.role}: ${run.address}\n${run.result.summaryText}`),
     ].join('\n'),
@@ -1611,8 +1644,9 @@ export async function traceVictimFunds(
   if (knownSuspects.length > 5) throw new Error('known_suspect_addresses cannot exceed 5 addresses')
   const topologyScope = options.topologyScope ?? DEFAULT_TOPOLOGY_SCOPE
   const resolvedVictims = await resolveIdentityKeys(remoteClient, network, victimInputs, topologyScope)
-  const victims = [...new Set(victimInputs.map((input) => resolvedVictims.get(input) ?? input))]
-  const preferredByIdentity = new Map(victimInputs.map((input) => [resolvedVictims.get(input) ?? input, input] as [string, string]))
+  const unresolvedVictims = victimInputs.filter((input) => !resolvedVictims.has(input))
+  const victims = [...new Set(victimInputs.filter((input) => resolvedVictims.has(input)).map((input) => resolvedVictims.get(input)!))]
+  const preferredByIdentity = new Map(victimInputs.filter((input) => resolvedVictims.has(input)).map((input) => [resolvedVictims.get(input)!, input] as [string, string]))
   const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange)
 
   const runs: TraceRun[] = []
@@ -1639,6 +1673,7 @@ export async function traceVictimFunds(
     timeRange: options.timeRange,
     activityWindow,
     maxHops: options.maxHops,
+    unresolved: unresolvedVictims,
   })
   return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false, topologyScope)
 }
@@ -1655,8 +1690,9 @@ export async function traceSuspectFunds(
   if (suspectInputs.length > 5) throw new Error('suspect_addresses cannot exceed 5 addresses')
   const topologyScope = options.topologyScope ?? DEFAULT_TOPOLOGY_SCOPE
   const resolvedSuspects = await resolveIdentityKeys(remoteClient, network, suspectInputs, topologyScope)
-  const suspects = [...new Set(suspectInputs.map((input) => resolvedSuspects.get(input) ?? input))]
-  const preferredByIdentity = new Map(suspectInputs.map((input) => [resolvedSuspects.get(input) ?? input, input] as [string, string]))
+  const unresolvedSuspects = suspectInputs.filter((input) => !resolvedSuspects.has(input))
+  const suspects = [...new Set(suspectInputs.filter((input) => resolvedSuspects.has(input)).map((input) => resolvedSuspects.get(input)!))]
+  const preferredByIdentity = new Map(suspectInputs.filter((input) => resolvedSuspects.has(input)).map((input) => [resolvedSuspects.get(input)!, input] as [string, string]))
   const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange)
 
   const runs: TraceRun[] = []
@@ -1683,6 +1719,7 @@ export async function traceSuspectFunds(
     timeRange: options.timeRange,
     activityWindow,
     maxHops: options.maxHops,
+    unresolved: unresolvedSuspects,
   })
   return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false, topologyScope)
 }
@@ -1752,18 +1789,21 @@ export async function traceDepositSources(
   if (depositInputs.length > 5) throw new Error('deposit_addresses cannot exceed 5 addresses')
   const topologyScope = options.topologyScope ?? DEFAULT_TOPOLOGY_SCOPE
   const resolvedDeposits = await resolveIdentityKeys(remoteClient, network, depositInputs, topologyScope)
-  const deposits = [...new Set(depositInputs.map((input) => resolvedDeposits.get(input) ?? input))]
-  const preferredByIdentity = new Map(depositInputs.map((input) => [resolvedDeposits.get(input) ?? input, input] as [string, string]))
+  const unresolvedDeposits = depositInputs.filter((input) => !resolvedDeposits.has(input))
+  const deposits = [...new Set(depositInputs.filter((input) => resolvedDeposits.has(input)).map((input) => resolvedDeposits.get(input)!))]
+  const preferredByIdentity = new Map(depositInputs.filter((input) => resolvedDeposits.has(input)).map((input) => [resolvedDeposits.get(input)!, input] as [string, string]))
   const maxHops = clampInt(options.maxHops, 2, 1, 5)
   const minAmountSum = Math.max(0, options.minAmountSum ?? 0)
   const window = traceActivityWindow(undefined, options.timeRange)
 
-  const batch = await callGraphBatch(
-    remoteClient,
-    network,
-    Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1, minAmountSum, window)),
-    topologyScope,
-  )
+  const batch = deposits.length > 0
+    ? await callGraphBatch(
+        remoteClient,
+        network,
+        Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1, minAmountSum, window)),
+        topologyScope,
+      )
+    : { facts: { queries: [] } }
   const failures: QueryFailure[] = []
   const rows: Array<Record<string, unknown>> = optionalResultsWithPrefix(batch, 'reverse_deposit_sources_', failures)
     .filter((row) => !reverseDepositSourceRowUsesExchange(row))
@@ -1890,8 +1930,9 @@ export async function traceDepositSources(
   })
   const summaryText = [
     `Trace deposit sources complete for ${network}`,
+    ...(unresolvedDeposits.length > 0 ? [`Unresolved (no matching Identity/Address): ${unresolvedDeposits.join(', ')}`] : []),
     '',
-    `Deposit seeds: ${deposits.join(', ')}`,
+    `Deposit seeds: ${deposits.join(', ') || 'none resolved'}`,
     `Reverse path(s): ${paths.length}`,
     `Shared upstream convergence: ${convergence.length}`,
   ].join('\n')
@@ -1913,6 +1954,7 @@ export async function traceDepositSources(
       },
       summary: {
         seed_count: deposits.length,
+        unresolved_count: unresolvedDeposits.length,
         path_count: paths.length,
         edge_count: edges.length,
         candidate_suspect_count: sourceToPathIds.size,
@@ -1920,6 +1962,7 @@ export async function traceDepositSources(
         candidate_deposit_count: deposits.length,
         exchange_count: 0,
       },
+      unresolved: unresolvedDeposits,
       addresses: [...addresses.values()].map((entry) => ({
         address: entry.address,
         roles: [...entry.roles],
@@ -1943,6 +1986,7 @@ export async function traceDepositSources(
       },
       warnings: [
         ...(paths.length === 0 ? ['No upstream sources were connected in the queried topology.'] : []),
+        ...(unresolvedDeposits.length > 0 ? [`${unresolvedDeposits.length} input address(es) did not resolve to a known Identity and were not traced: ${unresolvedDeposits.join(', ')}.`] : []),
         ...truncationWarnings,
       ],
     },

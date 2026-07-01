@@ -15,7 +15,17 @@ function fakeClient(captured: BatchQuery[][]) {
     callTool: vi.fn(async (req: { name: string; arguments: { queries: BatchQuery[] } }) => {
       captured.push(req.arguments.queries)
       return {
-        content: [{ type: 'text', text: JSON.stringify(batchResponse(req.arguments.queries.map((q) => ({ id: q.id })))) }],
+        content: [{
+          type: 'text',
+          text: JSON.stringify(batchResponse(req.arguments.queries.map((q) => (
+            // Resolve any member-address lookup to itself so callers of
+            // traceVictimFunds/traceSuspectFunds (which resolve seeds via the
+            // :Address node before tracing) proceed to the forward query.
+            q.id.startsWith('resolve_member_address_')
+              ? { id: q.id, rows: [{ identity_id: q.query.match(/address:\s*"([^"]+)"/)?.[1] ?? '' }] }
+              : { id: q.id }
+          )))),
+        }],
         isError: false,
       }
     }),

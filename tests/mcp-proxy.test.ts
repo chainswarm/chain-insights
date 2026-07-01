@@ -264,7 +264,9 @@ function findPromptHandler(
 
 // Non-canonical address inputs (anything that is not a 0x form) now trigger a
 // member-address resolution batch before the main tool batch. This response
-// resolves nothing, so every input passes through unchanged.
+// resolves nothing: per R2/R3, an input that does not resolve is OMITTED from
+// tracing (never passed through as a raw-address identity_id), so callers that
+// need a seed to actually trace must use memberResolutionResolvesTo() instead.
 function memberResolutionPassthrough(): Record<string, unknown> {
   return {
     content: [{
@@ -273,6 +275,28 @@ function memberResolutionPassthrough(): Record<string, unknown> {
         schema: 'chain-insights.result.v1',
         tool: 'graph_query_batch',
         facts: { queries: [] },
+      }),
+    }],
+    isError: false,
+  }
+}
+
+// Resolves each raw input (in order) to the given identity_id via the
+// Address-node lookup batch, mirroring a real :Address -> :Identity match.
+function memberResolutionResolvesTo(...identityIds: string[]): Record<string, unknown> {
+  return {
+    content: [{
+      type: 'text',
+      text: JSON.stringify({
+        schema: 'chain-insights.result.v1',
+        tool: 'graph_query_batch',
+        facts: {
+          queries: identityIds.map((identityId, index) => ({
+            id: `resolve_member_address_${index + 1}`,
+            ok: true,
+            results: [{ identity_id: identityId }],
+          })),
+        },
       }),
     }],
     isError: false,
@@ -874,7 +898,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       isError: false,
     })
     clientInstance.callTool
-      .mockResolvedValueOnce(memberResolutionPassthrough())
+      .mockResolvedValueOnce(memberResolutionResolvesTo('5Seed'))
       .mockResolvedValueOnce(textResult([
         {
           id: 'forward_exchange_paths_2',
@@ -1245,7 +1269,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       callTool: ReturnType<typeof vi.fn>
     }
     clientInstance.callTool
-      .mockResolvedValueOnce(memberResolutionPassthrough())
+      .mockResolvedValueOnce(memberResolutionResolvesTo('5Addr'))
       .mockResolvedValueOnce({
         content: [{
           type: 'text',
@@ -1443,7 +1467,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       callTool: ReturnType<typeof vi.fn>
     }
-    clientInstance.callTool.mockResolvedValueOnce(memberResolutionPassthrough())
+    clientInstance.callTool.mockResolvedValueOnce(memberResolutionResolvesTo('5Addr'))
     clientInstance.callTool.mockResolvedValueOnce({
       content: [{
         type: 'text',
@@ -1540,7 +1564,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const { addressRisk } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
       callTool: vi.fn()
-        .mockResolvedValueOnce(memberResolutionPassthrough())
+        .mockResolvedValueOnce(memberResolutionResolvesTo('5Addr'))
         .mockResolvedValueOnce({
           content: [{
             type: 'text',
@@ -1633,7 +1657,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(queries[0]?.query).toContain('RETURN i.identity_id AS identity_id')
   })
 
-  it('passes unresolvable non-0x member-address inputs through unchanged', async () => {
+  it('omits unresolvable non-0x member-address inputs from the resolved map (R2/R3: never fall back to a raw-address identity_id)', async () => {
     const { resolveIdentityKeys } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
       callTool: vi.fn().mockResolvedValueOnce({
@@ -1650,7 +1674,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
 
     const resolved = await resolveIdentityKeys(remoteClient as never, 'bittensor', ['5UnknownMember'])
-    expect(resolved.get('5UnknownMember')).toBe('5UnknownMember')
+    expect(resolved.has('5UnknownMember')).toBe(false)
   })
 
   it('resolveIdentityKeys defaults to live_topology and honors an explicit archive_topology scope', async () => {
@@ -1680,7 +1704,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const { addressRisk } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
       callTool: vi.fn()
-        .mockResolvedValueOnce(memberResolutionPassthrough())
+        .mockResolvedValueOnce(memberResolutionResolvesTo('5Addr'))
         .mockResolvedValueOnce({
         content: [{
           type: 'text',
@@ -1776,7 +1800,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       callTool: ReturnType<typeof vi.fn>
     }
-    clientInstance.callTool.mockResolvedValueOnce(memberResolutionPassthrough())
+    clientInstance.callTool.mockResolvedValueOnce(memberResolutionResolvesTo('5Suspect'))
 
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
@@ -1915,7 +1939,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       callTool: ReturnType<typeof vi.fn>
     }
-    clientInstance.callTool.mockResolvedValueOnce(memberResolutionPassthrough())
+    clientInstance.callTool.mockResolvedValueOnce(memberResolutionResolvesTo('5Victim'))
 
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
@@ -2160,7 +2184,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       callTool: ReturnType<typeof vi.fn>
     }
-    clientInstance.callTool.mockResolvedValueOnce(memberResolutionPassthrough())
+    clientInstance.callTool.mockResolvedValueOnce(memberResolutionResolvesTo('5Victim', '5Victim2'))
 
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
