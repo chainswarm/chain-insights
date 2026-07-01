@@ -53,10 +53,10 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   meta_usage_status: "Return the caller's public free graph_query quota for the current UTC day.",
   meta_help: 'Show a short guide to Chain Insights tools and workflow.',
   wallet_balance: 'Show the local Chain Insights payment wallet address, payment network, token, and amount.',
-  aml_address_risk: 'Screen one blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with another address. Set topology_scope=archive_topology to screen against full history instead of the default live_topology.',
-  aml_trace_victim_funds: 'Trace victim or trusted-source funds forward to intermediary and exchange deposit candidates. Defaults to topology_scope=live_topology (recent activity); set topology_scope=archive_topology for older incidents or when live_topology finds nothing.',
-  aml_trace_suspect_funds: 'Trace suspect-controlled scammer, mule, operator, or laundering-ring funds forward to cashout topology. Defaults to topology_scope=live_topology (recent activity); set topology_scope=archive_topology for older incidents or when live_topology finds nothing.',
-  aml_trace_deposit_sources: 'Trace suspected deposit or cashout addresses backward to upstream sources, shared funders, and convergence. Defaults to topology_scope=live_topology (recent activity); set topology_scope=archive_topology for older incidents or when live_topology finds nothing.',
+  aml_address_risk: 'Screen one blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with another address. Set topology_scope=archive_topology to screen against full history instead of the default live_topology; archive_topology can take substantially longer and is billed for the real time it takes.',
+  aml_trace_victim_funds: 'Trace victim or trusted-source funds forward to intermediary and exchange deposit candidates. Defaults to topology_scope=live_topology (recent activity, fast); set topology_scope=archive_topology for older incidents or when live_topology finds nothing -- it can take substantially longer and is billed for the real time it takes.',
+  aml_trace_suspect_funds: 'Trace suspect-controlled scammer, mule, operator, or laundering-ring funds forward to cashout topology. Defaults to topology_scope=live_topology (recent activity, fast); set topology_scope=archive_topology for older incidents or when live_topology finds nothing -- it can take substantially longer and is billed for the real time it takes.',
+  aml_trace_deposit_sources: 'Trace suspected deposit or cashout addresses backward to upstream sources, shared funders, and convergence. Defaults to topology_scope=live_topology (recent activity, fast); set topology_scope=archive_topology for older incidents or when live_topology finds nothing -- it can take substantially longer and is billed for the real time it takes.',
   graph_query: 'Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment. Cross-layer correlated joins may be limited by the active graph endpoint; preserve full addresses exactly.',
   graph_query_batch: 'Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads.',
 }
@@ -76,7 +76,7 @@ type ChainInsightsGraphMeta = {
 
 const NETWORK_DESCRIPTION = 'Network to query, for example Bittensor or Base.'
 const BITTENSOR_NETWORK_SCHEMA = z.enum(['bittensor']).describe(NETWORK_DESCRIPTION)
-const TOPOLOGY_SCOPE_DESCRIPTION = 'Which topology graph to query: live_topology (default, fast, recent activity) or archive_topology (full history, slower). Use archive_topology for older incidents that may be outside the live window.'
+const TOPOLOGY_SCOPE_DESCRIPTION = 'Which topology graph to query: live_topology (default, fast, recent activity) or archive_topology (full history, slower and billed for the extra real time it takes at the same per-second rate). Use archive_topology for older incidents that may be outside the live window.'
 const TOPOLOGY_SCOPE_SCHEMA = z.enum(['live_topology', 'archive_topology']).optional().describe(TOPOLOGY_SCOPE_DESCRIPTION)
 const EMPTY_INPUT_SCHEMA = z.strictObject({})
 const REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS = 15 * 60 * 1000

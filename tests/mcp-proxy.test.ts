@@ -844,6 +844,35 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
   })
 
+  it('describes the archive_topology cost/latency tradeoff on all four aml_* tools and the shared topology_scope parameter', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query', description: 'Federated graph query' },
+      { name: 'graph_query_batch', description: 'Federated graph query batch' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+
+    for (const toolName of ['aml_address_risk', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources']) {
+      const config = findToolConfig(serverInstance, toolName)
+      expect(config.description, `${toolName} description must mention archive_topology's cost/latency tradeoff`).toContain('billed for the real time it takes')
+
+      const jsonSchema = z.toJSONSchema(
+        z.object(config.inputSchema as z.ZodRawShape),
+      ) as Record<string, unknown>
+      const properties = jsonSchema.properties as Record<string, Record<string, unknown>>
+      const topologyScopeDescription = (properties.topology_scope.description ?? (properties.topology_scope.anyOf as Array<{ description?: string }> | undefined)?.find((entry) => entry.description)?.description) as string | undefined
+      expect(topologyScopeDescription, `${toolName} topology_scope description must mention the cost/latency tradeoff`).toContain('billed for the extra real time it takes')
+    }
+  })
+
   it('does not register legacy trace tools as public MCP tools', async () => {
     const staleTrace = retiredName('trace', '_funds')
     const staleTrack = retiredName('track', '_funds')
