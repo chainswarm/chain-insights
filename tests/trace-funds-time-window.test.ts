@@ -12,12 +12,19 @@ function batchResponse(results: Array<{ id: string; rows?: Array<Record<string, 
 
 function fakeClient(captured: BatchQuery[][]) {
   return {
-    callTool: vi.fn(async (req: { name: string; arguments: { queries: BatchQuery[] } }) => {
-      captured.push(req.arguments.queries)
+    callTool: vi.fn(async (req: { name: string; arguments: { queries?: BatchQuery[] } }) => {
+      // AC12's archive-retry hint probes network_capabilities (no queries arg)
+      // when a trace finds nothing; respond with archive disabled so no hint
+      // computation is exercised by these window-wiring tests.
+      if (req.name === 'network_capabilities') {
+        return { content: [{ type: 'text', text: JSON.stringify({ networks: [] }) }], isError: false }
+      }
+      const queries = req.arguments.queries ?? []
+      captured.push(queries)
       return {
         content: [{
           type: 'text',
-          text: JSON.stringify(batchResponse(req.arguments.queries.map((q) => (
+          text: JSON.stringify(batchResponse(queries.map((q) => (
             // Resolve any member-address lookup to itself so callers of
             // traceVictimFunds/traceSuspectFunds (which resolve seeds via the
             // :Address node before tracing) proceed to the forward query.

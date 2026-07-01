@@ -10,8 +10,12 @@ const config = { dataDir: '/tmp/ci-test', serverPort: 4321 }
 // report it as unresolved, not silently trace it as a raw-address identity_id.
 function unresolvingClient(extra: (id: string) => { id: string; ok: boolean; results: Array<Record<string, unknown>> } | undefined = () => undefined) {
   return {
-    callTool: vi.fn(async (req: { arguments: { queries: BatchQuery[] } }) => {
-      const queries = req.arguments.queries.map((q) => {
+    callTool: vi.fn(async (req: { name: string; arguments: { queries?: BatchQuery[] } }) => {
+      // AC12's archive-retry hint probes network_capabilities (no queries arg).
+      if (req.name === 'network_capabilities') {
+        return { content: [{ type: 'text', text: JSON.stringify({ networks: [] }) }], isError: false }
+      }
+      const queries = (req.arguments.queries ?? []).map((q) => {
         if (q.id.startsWith('resolve_member_address_')) return { id: q.id, ok: true, results: [] }
         return extra(q.id) ?? { id: q.id, ok: true, results: [] }
       })
@@ -59,7 +63,7 @@ describe('R2/R3: unresolved seed addresses are reported, never silently traced',
     expect(content.summary.seed_count).toBe(0)
     expect(content.summary.unresolved_count).toBe(1)
     // No reverse_deposit_sources_* query should have been issued for a seed set with 0 resolved deposits.
-    const issuedIds = remote.callTool.mock.calls.flatMap((call) => (call[0] as { arguments: { queries: BatchQuery[] } }).arguments.queries.map((q) => q.id))
+    const issuedIds = remote.callTool.mock.calls.flatMap((call) => ((call[0] as { arguments: { queries?: BatchQuery[] } }).arguments.queries ?? []).map((q) => q.id))
     expect(issuedIds.some((id) => id.startsWith('reverse_deposit_sources_'))).toBe(false)
   })
 

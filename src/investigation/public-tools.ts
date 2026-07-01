@@ -129,6 +129,42 @@ async function callGraphBatch(
   return parseGraphBatchResult(result)
 }
 
+// Best-effort archive_topology availability check for the AC12 observability
+// hint (retry with archive when a live_topology call finds nothing). Never
+// throws: a failed/unsupported capabilities call just means no hint is shown.
+async function archiveTopologyAvailable(remoteClient: Client, network: string): Promise<boolean> {
+  try {
+    const result = await remoteClient.callTool({ name: 'network_capabilities', arguments: {} }) as RemoteToolResult
+    if (result.isError) return false
+    const text = textFromToolResult(result).trim()
+    if (!text) return false
+    const parsed = JSON.parse(text) as {
+      networks?: Array<{ network?: string; layers?: { topology?: { archive?: { enabled?: boolean } } } }>
+      facts?: { capabilities?: { networks?: Array<{ network?: string; layers?: { topology?: { archive?: { enabled?: boolean } } } }> } }
+    }
+    const networks = parsed.facts?.capabilities?.networks ?? parsed.networks
+    const entry = networks?.find((candidate) => candidate.network === network)
+    return entry?.layers?.topology?.archive?.enabled === true
+  } catch {
+    return false
+  }
+}
+
+// Appends the AC12 archive-retry hint to a trace/risk warnings array when the
+// call ran on live_topology, found nothing, and archive_topology is available.
+async function archiveRetryHint(
+  remoteClient: Client,
+  network: string,
+  topologyScope: TopologyScope,
+  foundNothing: boolean,
+): Promise<string[]> {
+  if (topologyScope !== 'live_topology' || !foundNothing) return []
+  const archiveAvailable = await archiveTopologyAvailable(remoteClient, network)
+  return archiveAvailable
+    ? ['No results on live_topology; archive_topology is available for this network and covers full history -- retry with topology_scope=archive_topology.']
+    : []
+}
+
 function parseAddressList(value: string | string[] | undefined): string[] {
   const raw = Array.isArray(value) ? value.join(',') : value ?? ''
   return raw
@@ -779,7 +815,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
         schema: 'chain-insights.result.v1',
         tool: 'aml_address_risk',
         facts: {
-          subject: { network, addresses: [inputAddress] },
+          subject: { network, addresses: [inputAddress], topology_scope: topologyScope },
           unresolved: [inputAddress],
         },
       },
@@ -867,6 +903,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
           network,
           addresses: compareAddress ? [address, compareAddress] : [address],
           ...(memberAddresses.length > 0 ? { member_addresses: memberAddresses } : {}),
+          topology_scope: topologyScope,
         },
         risk: {
           ...risk,
@@ -1435,6 +1472,8 @@ function traceResultFromFundRuns(
     activityWindow?: TraceActivityWindow
     maxHops?: number
     unresolved?: string[]
+    topologyScope?: TopologyScope
+    archiveHint?: string[]
     } = {},
 ): { summaryText: string; structuredContent: Record<string, unknown>; graphData: Record<string, unknown> } {
   const graphData = normalizeTraceGraphData(runs, network)
@@ -1552,6 +1591,7 @@ function traceResultFromFundRuns(
         ? { from_ms: options.activityWindow.fromMs, ...(options.activityWindow.toMs !== undefined ? { to_ms: options.activityWindow.toMs } : {}) }
         : 'none',
       max_hops: options.maxHops ?? 3,
+      topology_scope: options.topologyScope ?? DEFAULT_TOPOLOGY_SCOPE,
     },
     summary: {
       seed_count: runs.length,
@@ -1613,6 +1653,7 @@ function traceResultFromFundRuns(
       ...(depositAddresses.length === 0 ? ['No exchange deposit candidates were connected in the queried topology.'] : []),
       ...(options.unresolved && options.unresolved.length > 0 ? [`${options.unresolved.length} input address(es) did not resolve to a known Identity and were not traced: ${options.unresolved.join(', ')}.`] : []),
       ...runs.flatMap((run) => run.result.tracebackWarnings ?? []),
+      ...(options.archiveHint ?? []),
     ],
   }
 
@@ -1668,12 +1709,16 @@ export async function traceVictimFunds(
       }),
     })
   }
+  const foundNothing = runs.length > 0 && runs.every((run) => graphRecords(run.result.graphData, 'flows').length === 0)
+  const archiveHint = await archiveRetryHint(remoteClient, network, topologyScope, foundNothing)
   const result = traceResultFromFundRuns('aml_trace_victim_funds', 'victim', network, runs, {
     incidentTimestampMs: options.incidentTimestampMs,
     timeRange: options.timeRange,
     activityWindow,
     maxHops: options.maxHops,
     unresolved: unresolvedVictims,
+    topologyScope,
+    archiveHint,
   })
   return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false, topologyScope)
 }
@@ -1714,12 +1759,16 @@ export async function traceSuspectFunds(
       }),
     })
   }
+  const foundNothing = runs.length > 0 && runs.every((run) => graphRecords(run.result.graphData, 'flows').length === 0)
+  const archiveHint = await archiveRetryHint(remoteClient, network, topologyScope, foundNothing)
   const result = traceResultFromFundRuns('aml_trace_suspect_funds', 'suspect', network, runs, {
     incidentTimestampMs: options.incidentTimestampMs,
     timeRange: options.timeRange,
     activityWindow,
     maxHops: options.maxHops,
     unresolved: unresolvedSuspects,
+    topologyScope,
+    archiveHint,
   })
   return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false, topologyScope)
 }
@@ -1928,6 +1977,7 @@ export async function traceDepositSources(
       generated_at: new Date().toISOString(),
     },
   })
+  const archiveHint = await archiveRetryHint(remoteClient, network, topologyScope, edges.length === 0)
   const summaryText = [
     `Trace deposit sources complete for ${network}`,
     ...(unresolvedDeposits.length > 0 ? [`Unresolved (no matching Identity/Address): ${unresolvedDeposits.join(', ')}`] : []),
@@ -1951,6 +2001,7 @@ export async function traceDepositSources(
           ? { from_ms: window.fromMs, ...(window.toMs !== undefined ? { to_ms: window.toMs } : {}) }
           : 'none',
         max_hops: maxHops,
+        topology_scope: topologyScope,
       },
       summary: {
         seed_count: deposits.length,
@@ -1988,6 +2039,7 @@ export async function traceDepositSources(
         ...(paths.length === 0 ? ['No upstream sources were connected in the queried topology.'] : []),
         ...(unresolvedDeposits.length > 0 ? [`${unresolvedDeposits.length} input address(es) did not resolve to a known Identity and were not traced: ${unresolvedDeposits.join(', ')}.`] : []),
         ...truncationWarnings,
+        ...archiveHint,
       ],
     },
     graphData,
