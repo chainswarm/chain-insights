@@ -3,6 +3,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.2] - 2026-07-01
+
+- Add an explicit `topology_scope` parameter (`live_topology` default, `archive_topology` override) to `aml_address_risk`, `aml_trace_victim_funds`, `aml_trace_suspect_funds`, and `aml_trace_deposit_sources`, with tool/parameter descriptions stating the archive cost/latency tradeoff.
+- Fix seed resolution to use the `:Address` graph node (with an existence check for canonical hex-form inputs) instead of falling back to an unresolved raw address as a synthetic identity key; a fabricated address is now reported `unresolved` rather than silently traced.
+- Add a best-effort archive-retry hint (bounded independent timeout) suggesting `archive_topology` when a `live_topology` trace finds nothing.
+- Fix dual-layer (`live`/`archive`) topology capability reporting across both capability-cleaning code paths.
+- Fix a StarRocks `<>` node-comparison incompatibility affecting `archive_topology` exchange-detection and deposit-source queries.
+- Validate direct CLI `--topology-scope` flags against the same enum as the MCP proxy path.
+
 ## [0.8.1] - 2026-06-30
 
 - Consolidated dependency and workflow bumps: `hono` 4.12.27, `@hono/node-server` 2.0.6, `github/codeql-action` v4.36.2, `actions/checkout` v7, plus the tooling and mcp-and-payments dependency groups.
