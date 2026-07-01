@@ -24,10 +24,10 @@ export const PUBLIC_MCP_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
 }
 
 export const PUBLIC_MCP_TOOL_ALLOWED_ARGS: Record<string, string[]> = {
-  aml_address_risk: ['address', 'network', 'compare_address', 'include_attachments'],
-  aml_trace_victim_funds: ['victim_addresses', 'network', 'known_suspect_addresses', 'incident_timestamp_ms', 'max_hops', 'include_attachments'],
-  aml_trace_suspect_funds: ['suspect_addresses', 'network', 'incident_timestamp_ms', 'max_hops', 'include_attachments'],
-  aml_trace_deposit_sources: ['deposit_addresses', 'network', 'max_hops', 'include_attachments'],
+  aml_address_risk: ['address', 'network', 'compare_address', 'include_attachments', 'topology_scope'],
+  aml_trace_victim_funds: ['victim_addresses', 'network', 'known_suspect_addresses', 'incident_timestamp_ms', 'max_hops', 'include_attachments', 'topology_scope'],
+  aml_trace_suspect_funds: ['suspect_addresses', 'network', 'incident_timestamp_ms', 'max_hops', 'include_attachments', 'topology_scope'],
+  aml_trace_deposit_sources: ['deposit_addresses', 'network', 'max_hops', 'include_attachments', 'topology_scope'],
   graph_query: ['query', 'network'],
   graph_query_batch: ['network', 'queries', 'per_query_timeout_seconds'],
 }
@@ -66,12 +66,19 @@ export function assertPublicMcpToolName(name: string): void {
   throw new Error(`MCP tool '${name}' is not exposed by Chain Insights.${replacement}`)
 }
 
+const TOPOLOGY_SCOPE_VALUES = ['live_topology', 'archive_topology']
+
 export function validatePublicMcpToolArguments(name: string, args: Record<string, unknown>): void {
   const allowedArgs = PUBLIC_MCP_TOOL_ALLOWED_ARGS[name]
   if (!allowedArgs) return
 
   const unsupportedArgs = Object.keys(args).filter((argName) => !allowedArgs.includes(argName))
-  if (unsupportedArgs.length === 0) return
+  if (unsupportedArgs.length === 0) {
+    if ('topology_scope' in args && !TOPOLOGY_SCOPE_VALUES.includes(String(args['topology_scope']))) {
+      throw new Error(`Invalid topology_scope for ${name}: ${String(args['topology_scope'])}. Allowed values: ${TOPOLOGY_SCOPE_VALUES.join(', ')}.`)
+    }
+    return
+  }
 
   throw new Error([
     `Unsupported argument${unsupportedArgs.length === 1 ? '' : 's'} for ${name}: ${unsupportedArgs.join(', ')}.`,

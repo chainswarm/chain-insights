@@ -4,7 +4,7 @@ import path from 'node:path'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import type { InvestigatorConfig } from '../config/schema.js'
-import { activityWindowPredicates, runFundFlowProbe, type TraceActivityWindow, type TraceFundsResult } from './trace-funds.js'
+import { activityWindowPredicates, runFundFlowProbe, type TraceActivityWindow, type TraceFundsResult, type TopologyScope, DEFAULT_TOPOLOGY_SCOPE } from './trace-funds.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
 
@@ -37,6 +37,7 @@ export interface AddressRiskOptions {
   network: string
   compareAddress?: string
   writeArtifacts?: boolean
+  topologyScope?: TopologyScope
 }
 
 export interface TrackFundsOptions {
@@ -46,6 +47,7 @@ export interface TrackFundsOptions {
   maxHops?: number
   perAddressLimit?: number
   minAmountSum?: number
+  topologyScope?: TopologyScope
 }
 
 function escapeCypherString(value: string): string {
@@ -67,10 +69,10 @@ function parseGraphBatchResult(result: RemoteToolResult): ParsedGraphBatch {
   return parsed
 }
 
-function topologyGraphQuery(query: string): string {
+function topologyGraphQuery(query: string, scope: TopologyScope = DEFAULT_TOPOLOGY_SCOPE): string {
   const trimmed = query.trim()
   if (/^USE\s+/i.test(trimmed)) return trimmed
-  return `USE live_topology ${trimmed}`
+  return `USE ${scope} ${trimmed}`
 }
 
 function collectQueryFailure(failures: QueryFailure[], id: string, error: string | undefined): void {
@@ -103,6 +105,7 @@ async function callGraphBatch(
   remoteClient: Client,
   network: string,
   queries: Array<{ id: string; query: string }>,
+  topologyScope: TopologyScope = DEFAULT_TOPOLOGY_SCOPE,
 ): Promise<ParsedGraphBatch> {
   const result = await remoteClient.callTool(
     {
@@ -111,7 +114,7 @@ async function callGraphBatch(
         network,
         queries: queries.map((query) => ({
           ...query,
-          query: topologyGraphQuery(query.query),
+          query: topologyGraphQuery(query.query, topologyScope),
         })),
         per_query_timeout_seconds: GRAPH_QUERY_BATCH_TIMEOUT_SECONDS,
       },
@@ -183,6 +186,7 @@ export async function resolveIdentityKeys(
   remoteClient: Client,
   network: string,
   inputs: string[],
+  topologyScope: TopologyScope = DEFAULT_TOPOLOGY_SCOPE,
 ): Promise<Map<string, string>> {
   const resolved = new Map<string, string>()
   const pending: string[] = []
@@ -197,6 +201,7 @@ export async function resolveIdentityKeys(
     remoteClient,
     network,
     pending.map((input, index) => memberAddressResolutionQuery(`resolve_member_address_${index + 1}`, memberFormOf(input, network))),
+    topologyScope,
   )
   const failures: QueryFailure[] = []
   pending.forEach((input, index) => {
@@ -234,12 +239,13 @@ async function identityDisplayMap(
   network: string,
   identityKeys: string[],
   preferredByIdentity = new Map<string, string>(),
+  topologyScope: TopologyScope = DEFAULT_TOPOLOGY_SCOPE,
 ): Promise<Map<string, IdentityDisplayInfo>> {
   const uniqueKeys = [...new Set(identityKeys.filter((key) => key.startsWith(`${network}:`)))]
   const memberRows = new Map<string, string[]>()
   if (uniqueKeys.length > 0) {
     try {
-      const batch = await callGraphBatch(remoteClient, network, [identityMemberAddressesQuery(uniqueKeys)])
+      const batch = await callGraphBatch(remoteClient, network, [identityMemberAddressesQuery(uniqueKeys)], topologyScope)
       for (const row of optionalResultsFor(batch, 'identity_member_addresses', [])) {
         const identityKey = firstString(row['identity_id'])
         if (!identityKey) continue
@@ -292,13 +298,14 @@ async function publicizeIdentityResult<T extends {
   network: string,
   result: T,
   preferredByIdentity = new Map<string, string>(),
+  topologyScope: TopologyScope = DEFAULT_TOPOLOGY_SCOPE,
 ): Promise<T> {
   const identityKeys = [
     ...collectIdentityKeys(result.summaryText, network),
     ...collectIdentityKeys(result.structuredContent, network),
     ...collectIdentityKeys(result.graphData, network),
   ]
-  const displayByIdentity = await identityDisplayMap(remoteClient, network, identityKeys, preferredByIdentity)
+  const displayByIdentity = await identityDisplayMap(remoteClient, network, identityKeys, preferredByIdentity, topologyScope)
   if (displayByIdentity.size === 0) return result
   return {
     ...result,
@@ -754,9 +761,10 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   const inputAddress = options.address.trim()
   const network = options.network.trim()
   const compareInput = options.compareAddress?.trim() ?? ''
+  const topologyScope = options.topologyScope ?? DEFAULT_TOPOLOGY_SCOPE
   if (!inputAddress) throw new Error('address is required')
   if (!network) throw new Error('network is required')
-  const resolvedKeys = await resolveIdentityKeys(remoteClient, network, [inputAddress, ...(compareInput ? [compareInput] : [])])
+  const resolvedKeys = await resolveIdentityKeys(remoteClient, network, [inputAddress, ...(compareInput ? [compareInput] : [])], topologyScope)
   const address = resolvedKeys.get(inputAddress) ?? inputAddress
   const compareAddress = compareInput ? resolvedKeys.get(compareInput) ?? compareInput : ''
   const preferredByIdentity = new Map<string, string>([
@@ -774,7 +782,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     ...exchangeInflowQueries(address),
     ...(compareAddress ? [connectionProbeQuery(address, compareAddress)] : [{ id: 'connection_probe', query: 'MATCH (n:Identity {identity_id: "__chain_insights_noop__"}) RETURN n.identity_id AS noop LIMIT 0' }]),
   ]
-  const batch = await callGraphBatch(remoteClient, network, queries)
+  const batch = await callGraphBatch(remoteClient, network, queries, topologyScope)
   const partialQueryFailures: QueryFailure[] = []
   const profile: Record<string, unknown> = {
     address,
@@ -854,7 +862,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     },
     graphData,
   }
-  const publicResult = await publicizeIdentityResult(remoteClient, network, baseResult, preferredByIdentity)
+  const publicResult = await publicizeIdentityResult(remoteClient, network, baseResult, preferredByIdentity, topologyScope)
   const publicSubject = publicResult.structuredContent.facts as Record<string, unknown> | undefined
   const publicSubjectAddresses = (publicSubject?.subject as Record<string, unknown> | undefined)?.addresses
   const publicSubjectAddress = Array.isArray(publicSubjectAddresses) && typeof publicSubjectAddresses[0] === 'string'
@@ -910,6 +918,7 @@ export interface TraceVictimFundsOptions {
   perAddressLimit?: number
   minAmountSum?: number
   writeArtifacts?: boolean
+  topologyScope?: TopologyScope
 }
 
 export interface TraceSuspectFundsOptions {
@@ -921,6 +930,7 @@ export interface TraceSuspectFundsOptions {
   perAddressLimit?: number
   minAmountSum?: number
   writeArtifacts?: boolean
+  topologyScope?: TopologyScope
 }
 
 export interface TraceDepositSourcesOptions {
@@ -930,6 +940,7 @@ export interface TraceDepositSourcesOptions {
   maxHops?: number
   minAmountSum?: number
   writeArtifacts?: boolean
+  topologyScope?: TopologyScope
 }
 
 type TraceToolResult = {
@@ -1326,8 +1337,9 @@ async function publicizeTraceResult(
   result: TraceToolResult,
   preferredByIdentity: Map<string, string>,
   writeArtifacts: boolean,
+  topologyScope: TopologyScope = DEFAULT_TOPOLOGY_SCOPE,
 ): Promise<TraceToolResult> {
-  const publicResult = await publicizeIdentityResult(remoteClient, network, result, preferredByIdentity)
+  const publicResult = await publicizeIdentityResult(remoteClient, network, result, preferredByIdentity, topologyScope)
   if (!writeArtifacts) return publicResult
   const tool = typeof publicResult.structuredContent['tool'] === 'string'
     ? publicResult.structuredContent['tool'] as TraceToolName
@@ -1597,7 +1609,8 @@ export async function traceVictimFunds(
   if (victimInputs.length < 1) throw new Error('victim_addresses must contain at least 1 address')
   if (victimInputs.length > 5) throw new Error('victim_addresses cannot exceed 5 addresses')
   if (knownSuspects.length > 5) throw new Error('known_suspect_addresses cannot exceed 5 addresses')
-  const resolvedVictims = await resolveIdentityKeys(remoteClient, network, victimInputs)
+  const topologyScope = options.topologyScope ?? DEFAULT_TOPOLOGY_SCOPE
+  const resolvedVictims = await resolveIdentityKeys(remoteClient, network, victimInputs, topologyScope)
   const victims = [...new Set(victimInputs.map((input) => resolvedVictims.get(input) ?? input))]
   const preferredByIdentity = new Map(victimInputs.map((input) => [resolvedVictims.get(input) ?? input, input] as [string, string]))
   const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange)
@@ -1617,6 +1630,7 @@ export async function traceVictimFunds(
         includeDepositTraceback: true,
         evidenceSource: 'aml_trace_victim_funds',
         writeArtifacts: false,
+        topologyScope,
       }),
     })
   }
@@ -1626,7 +1640,7 @@ export async function traceVictimFunds(
     activityWindow,
     maxHops: options.maxHops,
   })
-  return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false)
+  return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false, topologyScope)
 }
 
 export async function traceSuspectFunds(
@@ -1639,7 +1653,8 @@ export async function traceSuspectFunds(
   if (!network) throw new Error('network is required')
   if (suspectInputs.length < 1) throw new Error('suspect_addresses must contain at least 1 address')
   if (suspectInputs.length > 5) throw new Error('suspect_addresses cannot exceed 5 addresses')
-  const resolvedSuspects = await resolveIdentityKeys(remoteClient, network, suspectInputs)
+  const topologyScope = options.topologyScope ?? DEFAULT_TOPOLOGY_SCOPE
+  const resolvedSuspects = await resolveIdentityKeys(remoteClient, network, suspectInputs, topologyScope)
   const suspects = [...new Set(suspectInputs.map((input) => resolvedSuspects.get(input) ?? input))]
   const preferredByIdentity = new Map(suspectInputs.map((input) => [resolvedSuspects.get(input) ?? input, input] as [string, string]))
   const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange)
@@ -1659,6 +1674,7 @@ export async function traceSuspectFunds(
         includeDepositTraceback: true,
         evidenceSource: 'aml_trace_suspect_funds',
         writeArtifacts: false,
+        topologyScope,
       }),
     })
   }
@@ -1668,7 +1684,7 @@ export async function traceSuspectFunds(
     activityWindow,
     maxHops: options.maxHops,
   })
-  return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false)
+  return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false, topologyScope)
 }
 
 const REVERSE_DEPOSIT_SOURCES_LIMIT = 500
@@ -1734,7 +1750,8 @@ export async function traceDepositSources(
   if (!network) throw new Error('network is required')
   if (depositInputs.length < 1) throw new Error('deposit_addresses must contain at least 1 address')
   if (depositInputs.length > 5) throw new Error('deposit_addresses cannot exceed 5 addresses')
-  const resolvedDeposits = await resolveIdentityKeys(remoteClient, network, depositInputs)
+  const topologyScope = options.topologyScope ?? DEFAULT_TOPOLOGY_SCOPE
+  const resolvedDeposits = await resolveIdentityKeys(remoteClient, network, depositInputs, topologyScope)
   const deposits = [...new Set(depositInputs.map((input) => resolvedDeposits.get(input) ?? input))]
   const preferredByIdentity = new Map(depositInputs.map((input) => [resolvedDeposits.get(input) ?? input, input] as [string, string]))
   const maxHops = clampInt(options.maxHops, 2, 1, 5)
@@ -1745,6 +1762,7 @@ export async function traceDepositSources(
     remoteClient,
     network,
     Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1, minAmountSum, window)),
+    topologyScope,
   )
   const failures: QueryFailure[] = []
   const rows: Array<Record<string, unknown>> = optionalResultsWithPrefix(batch, 'reverse_deposit_sources_', failures)
@@ -1930,7 +1948,7 @@ export async function traceDepositSources(
     },
     graphData,
   }
-  return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false)
+  return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false, topologyScope)
 }
 
 export async function trackFunds(

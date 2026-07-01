@@ -11,6 +11,9 @@ type RemoteToolResult = {
   isError?: boolean
 }
 
+export type TopologyScope = 'live_topology' | 'archive_topology'
+export const DEFAULT_TOPOLOGY_SCOPE: TopologyScope = 'live_topology'
+
 export interface TraceActivityWindow {
   fromMs: number
   toMs?: number
@@ -26,6 +29,7 @@ export interface TraceFundsOptions {
   includeDepositTraceback?: boolean
   evidenceSource?: string
   writeArtifacts?: boolean
+  topologyScope?: TopologyScope
 }
 
 export interface TraceFlow {
@@ -218,16 +222,17 @@ function parseGraphBatchResult(result: RemoteToolResult): ParsedGraphBatch {
   return parsed
 }
 
-function topologyGraphQuery(query: string): string {
+function topologyGraphQuery(query: string, scope: TopologyScope = DEFAULT_TOPOLOGY_SCOPE): string {
   const trimmed = query.trim()
   if (/^USE\s+/i.test(trimmed)) return trimmed
-  return `USE live_topology ${trimmed}`
+  return `USE ${scope} ${trimmed}`
 }
 
 async function callGraphBatch(
   remoteClient: Client,
   network: string,
   queries: Array<{ id: string; query: string }>,
+  topologyScope: TopologyScope = DEFAULT_TOPOLOGY_SCOPE,
 ): Promise<ParsedGraphBatch> {
   const result = await remoteClient.callTool(
     {
@@ -236,7 +241,7 @@ async function callGraphBatch(
         network,
         queries: queries.map((query) => ({
           ...query,
-          query: topologyGraphQuery(query.query),
+          query: topologyGraphQuery(query.query, topologyScope),
         })),
         per_query_timeout_seconds: GRAPH_QUERY_BATCH_TIMEOUT_SECONDS,
       },
@@ -334,7 +339,11 @@ function forwardExchangeQueryAtDepth(address: string, limit: number, minAmountSu
   }).join('')
   const amountPredicates = edgeVariables.map((edgeVariable) => `${edgeVariable}.amount_usd_sum IS NOT NULL${minAmountSum > 0 ? ` AND ${edgeVariable}.amount_usd_sum >= ${minAmountSum}` : ''}`)
   const nonTerminalPredicates = ['s', ...intermediateVariables].map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
-  const predicates = ['s <> t', ...nonTerminalPredicates, 't.is_exchange IS NOT NULL', ...amountPredicates, ...activityWindowPredicates(edgeVariables, activityWindow)]
+  // Compare identity_id (property), not the node reference: StarRocks GQL
+  // (archive_topology) does not support direct node-to-node comparison (s <> t
+  // / id(s) <> id(t)), only Memgraph/Cypher (live_topology) does. Property
+  // comparison is equivalent here and works on both backends.
+  const predicates = ['s.identity_id <> t.identity_id', ...nonTerminalPredicates, 't.is_exchange IS NOT NULL', ...amountPredicates, ...activityWindowPredicates(edgeVariables, activityWindow)]
   const depositVariable = nodeVariables[nodeVariables.length - 2]!
   return {
     id: `forward_exchange_paths_${depth}`,
@@ -568,11 +577,11 @@ function flowsFromForwardRows(rows: Array<Record<string, unknown>>): { flows: Tr
   return { flows, deposits }
 }
 
-async function hydrateDirectEdgeProps(remoteClient: Client, network: string, flows: TraceFlow[], deposits: TraceDeposit[]): Promise<void> {
+async function hydrateDirectEdgeProps(remoteClient: Client, network: string, flows: TraceFlow[], deposits: TraceDeposit[], topologyScope: TopologyScope): Promise<void> {
   const query = directEdgePropsQuery(flows)
   if (!query) return
 
-  const batch = await callGraphBatch(remoteClient, network, [query])
+  const batch = await callGraphBatch(remoteClient, network, [query], topologyScope)
   const edgeProps = new Map<string, Record<string, unknown>>()
   for (const row of resultsFor(batch, 'direct_edge_props')) {
     const src = typeof row['src'] === 'string' ? row['src'] : ''
@@ -601,11 +610,12 @@ async function hydrateDirectEdgeProps(remoteClient: Client, network: string, flo
 
 async function collectProbeTrace(
   remoteClient: Client,
-  options: Required<Pick<TraceFundsOptions, 'seedAddress' | 'network' | 'maxHops' | 'perAddressLimit' | 'minAmountSum'>> & Pick<TraceFundsOptions, 'includeDepositTraceback' | 'activityWindow'>,
+  options: Required<Pick<TraceFundsOptions, 'seedAddress' | 'network' | 'maxHops' | 'perAddressLimit' | 'minAmountSum'>> & Pick<TraceFundsOptions, 'includeDepositTraceback' | 'activityWindow' | 'topologyScope'>,
 ): Promise<{ flows: TraceFlow[]; deposits: TraceDeposit[]; sourceMatches: SourceMatch[]; reverseLeads: ReverseLead[]; tracebackWarnings: string[] }> {
+  const topologyScope = options.topologyScope ?? DEFAULT_TOPOLOGY_SCOPE
   const forwardBatch = await callGraphBatch(remoteClient, options.network, [
     ...forwardExchangeQueries(options.seedAddress, Math.max(options.perAddressLimit * 20, 200), options.minAmountSum, options.maxHops, options.activityWindow),
-  ])
+  ], topologyScope)
   const forwardRows = rowsMatchingMinimumAmount((forwardBatch.facts?.queries ?? [])
     .filter((query) => query.id?.startsWith('forward_exchange_paths_'))
     .flatMap((query) => {
@@ -613,7 +623,7 @@ async function collectProbeTrace(
       return query.results ?? []
     }), options.minAmountSum)
   const { flows, deposits } = flowsFromForwardRows(forwardRows)
-  await hydrateDirectEdgeProps(remoteClient, options.network, flows, deposits)
+  await hydrateDirectEdgeProps(remoteClient, options.network, flows, deposits, topologyScope)
   const uniqueDepositAddresses = [...new Set(deposits.map((deposit) => deposit.address))]
 
   const sourceMatches: SourceMatch[] = []
@@ -625,6 +635,7 @@ async function collectProbeTrace(
         remoteClient,
         options.network,
         uniqueDepositAddresses.slice(0, Math.max(1, Math.floor(20 / options.maxHops))).flatMap((address, index) => backwardSourceQueries(`backward_from_deposit_${index + 1}`, address, options.maxHops)),
+        topologyScope,
       )
       backwardQueries = backwardBatch.facts?.queries ?? []
     } catch (err) {
@@ -665,7 +676,7 @@ async function collectProbeTrace(
   if (options.includeDepositTraceback !== false && uniqueDepositAddresses.length > 0) {
     let reverseRows: Array<Record<string, unknown>> = []
     try {
-      const reverseBatch = await callGraphBatch(remoteClient, options.network, [reverseLeadsQuery(uniqueDepositAddresses)])
+      const reverseBatch = await callGraphBatch(remoteClient, options.network, [reverseLeadsQuery(uniqueDepositAddresses)], topologyScope)
       try {
         reverseRows = resultsFor(reverseBatch, 'reverse_1hop')
       } catch (err) {
@@ -1120,7 +1131,7 @@ export async function runFundFlowProbe(
         },
         filePath: 'stateless://runtime-schema-not-written',
       }
-  const { flows, deposits, sourceMatches, reverseLeads, tracebackWarnings } = await collectProbeTrace(remoteClient, { seedAddress, network, maxHops, perAddressLimit, minAmountSum, activityWindow: options.activityWindow, includeDepositTraceback: options.includeDepositTraceback })
+  const { flows, deposits, sourceMatches, reverseLeads, tracebackWarnings } = await collectProbeTrace(remoteClient, { seedAddress, network, maxHops, perAddressLimit, minAmountSum, activityWindow: options.activityWindow, includeDepositTraceback: options.includeDepositTraceback, topologyScope: options.topologyScope })
   const aliases = buildAliases(seedAddress, deposits, sourceMatches, reverseLeads)
   const slug = `${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}_${sanitizeSegment(seedAddress.slice(0, 16))}`
   const compact = probeEvidence(seedAddress, network, schemaResult.filePath, aliases, flows, deposits, sourceMatches, reverseLeads, evidenceSource)

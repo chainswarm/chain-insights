@@ -789,6 +789,37 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(properties.per_query_timeout_seconds.maximum).toBe(600)
   })
 
+  it('exposes topology_scope (live_topology default, archive_topology option) on all four aml_* tools', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query', description: 'Federated graph query' },
+      { name: 'graph_query_batch', description: 'Federated graph query batch' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+
+    for (const toolName of ['aml_address_risk', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources']) {
+      const config = findToolConfig(serverInstance, toolName)
+      const jsonSchema = z.toJSONSchema(
+        z.object(config.inputSchema as z.ZodRawShape),
+      ) as Record<string, unknown>
+      const properties = jsonSchema.properties as Record<string, Record<string, unknown>>
+      expect(properties.topology_scope, `${toolName} must expose topology_scope`).toBeDefined()
+      expect((jsonSchema.required as string[] | undefined) ?? []).not.toContain('topology_scope')
+      const anyOf = properties.topology_scope.anyOf as Array<{ enum?: string[] }> | undefined
+      const enumValues = properties.topology_scope.enum as string[] | undefined
+      const values = enumValues ?? anyOf?.flatMap((entry) => entry.enum ?? [])
+      expect(values, `${toolName} topology_scope must be an enum`).toEqual(expect.arrayContaining(['live_topology', 'archive_topology']))
+    }
+  })
+
   it('does not register legacy trace tools as public MCP tools', async () => {
     const staleTrace = retiredName('trace', '_funds')
     const staleTrack = retiredName('track', '_funds')
@@ -1620,6 +1651,29 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     const resolved = await resolveIdentityKeys(remoteClient as never, 'bittensor', ['5UnknownMember'])
     expect(resolved.get('5UnknownMember')).toBe('5UnknownMember')
+  })
+
+  it('resolveIdentityKeys defaults to live_topology and honors an explicit archive_topology scope', async () => {
+    const { resolveIdentityKeys } = await import('../src/investigation/public-tools.js')
+    const remoteClientDefault = {
+      callTool: vi.fn().mockResolvedValueOnce({
+        content: [{ type: 'text', text: JSON.stringify({ facts: { queries: [{ id: 'resolve_member_address_1', ok: true, results: [] }] } }) }],
+        isError: false,
+      }),
+    }
+    await resolveIdentityKeys(remoteClientDefault as never, 'bittensor', ['5UnknownMember'])
+    const defaultQueries = remoteClientDefault.callTool.mock.calls[0]?.[0].arguments.queries as Array<{ query: string }>
+    expect(defaultQueries[0]?.query).toMatch(/^USE live_topology/)
+
+    const remoteClientArchive = {
+      callTool: vi.fn().mockResolvedValueOnce({
+        content: [{ type: 'text', text: JSON.stringify({ facts: { queries: [{ id: 'resolve_member_address_1', ok: true, results: [] }] } }) }],
+        isError: false,
+      }),
+    }
+    await resolveIdentityKeys(remoteClientArchive as never, 'bittensor', ['5UnknownMember'], 'archive_topology')
+    const archiveQueries = remoteClientArchive.callTool.mock.calls[0]?.[0].arguments.queries as Array<{ query: string }>
+    expect(archiveQueries[0]?.query).toMatch(/^USE archive_topology/)
   })
 
   it('aml_address_risk reports partial enrichment query failures without failing screening', async () => {

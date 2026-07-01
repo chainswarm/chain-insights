@@ -173,6 +173,7 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
       network: String(args['network'] ?? ''),
       maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
       incidentTimestampMs: Number.isFinite(incidentTimestampMs) ? incidentTimestampMs : undefined,
+      topologyScope: args['topology_scope'] as 'live_topology' | 'archive_topology' | undefined,
     })
     console.log(result.summaryText)
     console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -512,10 +513,39 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     ])).rejects.toThrow('process.exit(1)')
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Unsupported argument for aml_trace_suspect_funds: min_amount_sum. Allowed arguments: suspect_addresses, network, incident_timestamp_ms, max_hops, include_attachments.'
+      'Unsupported argument for aml_trace_suspect_funds: min_amount_sum. Allowed arguments: suspect_addresses, network, incident_timestamp_ms, max_hops, include_attachments, topology_scope.'
     )
     expect(mockClientConnect).not.toHaveBeenCalled()
     expect(mockTraceSuspectFunds).not.toHaveBeenCalled()
+  })
+
+  it('mcp call rejects an invalid topology_scope value before local recipe execution', async () => {
+    await expect(runMcpCallAction('aml_trace_suspect_funds', [
+      'network=bittensor',
+      'suspect_addresses=5Suspect',
+      'topology_scope=bogus',
+    ])).rejects.toThrow('process.exit(1)')
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Invalid topology_scope for aml_trace_suspect_funds: bogus. Allowed values: live_topology, archive_topology.'
+    )
+    expect(mockClientConnect).not.toHaveBeenCalled()
+    expect(mockTraceSuspectFunds).not.toHaveBeenCalled()
+  })
+
+  it('mcp call forwards a valid topology_scope=archive_topology to the trace recipe', async () => {
+    mockTraceSuspectFunds.mockResolvedValueOnce({ summaryText: 'ok', structuredContent: {} })
+    await runMcpCallAction('aml_trace_suspect_funds', [
+      'network=bittensor',
+      'suspect_addresses=5Suspect',
+      'topology_scope=archive_topology',
+    ])
+
+    expect(mockTraceSuspectFunds).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ topologyScope: 'archive_topology' }),
+    )
   })
 
   it('mcp call parses aml_trace_suspect_funds without requiring incident timestamp', async () => {

@@ -560,8 +560,9 @@ program
       .requiredOption('--address <address>', 'Full blockchain address to screen')
       .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
       .option('--compare-address <address>', 'Optional second address to compare against the screened address')
+      .option('--topology-scope <scope>', 'Which topology graph to query: live_topology (default) or archive_topology (full history)')
       .option('--remote', 'Force remote MCP tool call instead of local Chain Insights recipe')
-      .action(async (opts: { address: string; network: string; compareAddress?: string; remote?: boolean }) => {
+      .action(async (opts: { address: string; network: string; compareAddress?: string; topologyScope?: string; remote?: boolean }) => {
         try {
           await withGraphMcpClient('chain-insights-cli-aml-address-risk', async (client) => {
             if (opts.remote) {
@@ -571,6 +572,7 @@ program
                   address: opts.address,
                   network: opts.network,
                   ...(opts.compareAddress ? { compare_address: opts.compareAddress } : {}),
+                  ...(opts.topologyScope ? { topology_scope: opts.topologyScope } : {}),
                 },
               })
               printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
@@ -581,6 +583,7 @@ program
               address: opts.address,
               network: opts.network,
               compareAddress: opts.compareAddress,
+              topologyScope: opts.topologyScope as 'live_topology' | 'archive_topology' | undefined,
             })
             console.log(result.summaryText)
           })
@@ -600,6 +603,7 @@ program
       .option('--max-hops <number>', 'Maximum trace hops, 1-5')
       .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, 1-10')
       .option('--min-amount-sum <number>', 'Minimum USD amount (amount_usd_sum) for traced edges')
+      .option('--topology-scope <scope>', 'Which topology graph to query: live_topology (default) or archive_topology (full history)')
       .option('--remote', 'Force remote MCP tool call instead of local Chain Insights recipe')
       .action(async (opts: {
         victimAddresses: string
@@ -609,6 +613,7 @@ program
         maxHops?: string
         perAddressLimit?: string
         minAmountSum?: string
+        topologyScope?: string
         remote?: boolean
       }) => {
         try {
@@ -622,6 +627,7 @@ program
                   victim_addresses: opts.victimAddresses,
                   network: opts.network,
                   ...(opts.knownSuspectAddresses ? { known_suspect_addresses: opts.knownSuspectAddresses } : {}),
+                  ...(opts.topologyScope ? { topology_scope: opts.topologyScope } : {}),
                 },
               })
               printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
@@ -636,6 +642,7 @@ program
               maxHops: optionalNumber(opts.maxHops),
               perAddressLimit: optionalNumber(opts.perAddressLimit),
               minAmountSum: optionalNumber(opts.minAmountSum),
+              topologyScope: opts.topologyScope as 'live_topology' | 'archive_topology' | undefined,
             })
             console.log(result.summaryText)
             console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -655,6 +662,7 @@ program
       .option('--max-hops <number>', 'Maximum trace hops, default 3, max 5')
       .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, 1-10')
       .option('--min-amount-sum <number>', 'Minimum USD amount (amount_usd_sum) for traced edges')
+      .option('--topology-scope <scope>', 'Which topology graph to query: live_topology (default) or archive_topology (full history)')
       .action(async (opts: {
         network: string
         suspectAddresses: string
@@ -662,6 +670,7 @@ program
         maxHops?: string
         perAddressLimit?: string
         minAmountSum?: string
+        topologyScope?: string
       }) => {
         try {
           const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
@@ -675,6 +684,7 @@ program
               perAddressLimit: optionalNumber(opts.perAddressLimit),
               minAmountSum: optionalNumber(opts.minAmountSum),
               incidentTimestampMs: optionalNumber(opts.incidentTimestampMs),
+              topologyScope: opts.topologyScope as 'live_topology' | 'archive_topology' | undefined,
             })
             console.log(result.summaryText)
             console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -691,10 +701,12 @@ program
       .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
       .requiredOption('--deposit-addresses <addresses>', 'Comma-separated full suspected deposit/cashout addresses, max 5')
       .option('--max-hops <number>', 'Maximum reverse traceback hops, default 2, max 5')
+      .option('--topology-scope <scope>', 'Which topology graph to query: live_topology (default) or archive_topology (full history)')
       .action(async (opts: {
         network: string
         depositAddresses: string
         maxHops?: string
+        topologyScope?: string
       }) => {
         try {
           const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
@@ -705,6 +717,7 @@ program
               depositAddresses: opts.depositAddresses,
               network: opts.network,
               maxHops: optionalNumber(opts.maxHops),
+              topologyScope: opts.topologyScope as 'live_topology' | 'archive_topology' | undefined,
             })
             console.log(result.summaryText)
             console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -763,6 +776,7 @@ program
                 address: String(args['address'] ?? ''),
                 network: String(args['network'] ?? ''),
                 compareAddress: args['compare_address'] === undefined ? undefined : String(args['compare_address']),
+                topologyScope: args['topology_scope'] as 'live_topology' | 'archive_topology' | undefined,
               })
               console.log(result.summaryText)
               return
@@ -775,6 +789,7 @@ program
                 network: String(args['network'] ?? ''),
                 incidentTimestampMs: optionalNumberArg(args['incident_timestamp_ms'], 'incident_timestamp_ms'),
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
+                topologyScope: args['topology_scope'] as 'live_topology' | 'archive_topology' | undefined,
               })
               console.log(result.summaryText)
               console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -787,6 +802,7 @@ program
                 network: String(args['network'] ?? ''),
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
                 incidentTimestampMs: optionalNumberArg(args['incident_timestamp_ms'], 'incident_timestamp_ms'),
+                topologyScope: args['topology_scope'] as 'live_topology' | 'archive_topology' | undefined,
               })
               console.log(result.summaryText)
               console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -798,6 +814,7 @@ program
                 depositAddresses: args['deposit_addresses'] as string | string[] | undefined ?? '',
                 network: String(args['network'] ?? ''),
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
+                topologyScope: args['topology_scope'] as 'live_topology' | 'archive_topology' | undefined,
               })
               console.log(result.summaryText)
               console.log(JSON.stringify(result.structuredContent, null, 2))
