@@ -107,6 +107,45 @@ describe('MCP network capabilities', () => {
     expect(JSON.stringify(result)).not.toContain('aggregations')
   })
 
+  it('passes through live/archive topology sub-layers (AC4/AC11: dual-layer capability reporting)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({
+      schema: 'chain-insights.network-capabilities.v1',
+      networks: [{
+        network: 'bittensor',
+        display_name: 'Bittensor',
+        status: 'live',
+        default: true,
+        layers: {
+          topology: {
+            enabled: true,
+            live: { enabled: true, coverage: { from_block: 8512012, to_block: 8513977 } },
+            archive: { enabled: true, coverage: { from_block: 8512012, to_block: 8513977 } },
+          },
+          facts: { enabled: true },
+          risk: { enabled: false },
+        },
+        tools: { graph_query: 'available', graph_query_batch: 'available' },
+      }],
+    }), { status: 200 }))
+
+    const { fetchNetworkCapabilities } = await import('../src/mcp/capabilities.js')
+    const result = await fetchNetworkCapabilities({
+      mcpEndpoint: 'https://legacy.example.test/mcp',
+      graphMcpEndpoint: 'http://localhost:8012/mcp',
+      graphMcpMode: 'debug',
+      graphMcpAuthToken: 'debug-token',
+      mcpAuthToken: '',
+    })
+
+    const topology = result.networks[0]?.layers.topology
+    // Backward-compat field preserved.
+    expect(topology?.enabled).toBe(true)
+    // New dual-layer fields.
+    expect(topology?.live?.enabled).toBe(true)
+    expect(topology?.archive?.enabled).toBe(true)
+    expect(topology?.live?.coverage).toEqual({ from_block: 8512012, to_block: 8513977 })
+  })
+
   it('includes the metadata URL when network capability fetch fails', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new TypeError('fetch failed'))
 

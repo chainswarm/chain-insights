@@ -19,7 +19,7 @@ const config = { dataDir: '/tmp/ci-test', serverPort: 4321 }
 
 describe('aml_trace_deposit_sources filters', () => {
   it('applies min_amount_sum and time window to the reverse query', async () => {
-    const remote = clientWithRows({})
+    const remote = clientWithRows({ resolve_member_address_1: [{ identity_id: 'net:0xdep' }] })
     await traceDepositSources(remote as never, config, {
       depositAddresses: 'net:0xdep',
       network: 'bittensor',
@@ -35,7 +35,10 @@ describe('aml_trace_deposit_sources filters', () => {
 
   it('warns when a depth saturates the 500-row limit', async () => {
     const row = { source_address: 'net:0xsrc', deposit_address: 'net:0xdep', hop: 1, addresses: ['net:0xsrc', 'net:0xdep'], path_nodes: [], edge_props: [] }
-    const remote = clientWithRows({ reverse_deposit_sources_1: Array.from({ length: 500 }, () => ({ ...row })) })
+    const remote = clientWithRows({
+      resolve_member_address_1: [{ identity_id: 'net:0xdep' }],
+      reverse_deposit_sources_1: Array.from({ length: 500 }, () => ({ ...row })),
+    })
     const result = await traceDepositSources(remote as never, config, {
       depositAddresses: 'net:0xdep',
       network: 'bittensor',

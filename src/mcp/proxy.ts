@@ -53,10 +53,10 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   meta_usage_status: "Return the caller's public free graph_query quota for the current UTC day.",
   meta_help: 'Show a short guide to Chain Insights tools and workflow.',
   wallet_balance: 'Show the local Chain Insights payment wallet address, payment network, token, and amount.',
-  aml_address_risk: 'Screen one blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with another address.',
-  aml_trace_victim_funds: 'Trace victim or trusted-source funds forward to intermediary and exchange deposit candidates.',
-  aml_trace_suspect_funds: 'Trace suspect-controlled scammer, mule, operator, or laundering-ring funds forward to cashout topology.',
-  aml_trace_deposit_sources: 'Trace suspected deposit or cashout addresses backward to upstream sources, shared funders, and convergence.',
+  aml_address_risk: 'Screen one blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with another address. Set topology_scope=archive_topology to screen against full history instead of the default live_topology; archive_topology can take substantially longer and is billed for the real time it takes.',
+  aml_trace_victim_funds: 'Trace victim or trusted-source funds forward to intermediary and exchange deposit candidates. Defaults to topology_scope=live_topology (recent activity, fast); set topology_scope=archive_topology for older incidents or when live_topology finds nothing -- it can take substantially longer and is billed for the real time it takes.',
+  aml_trace_suspect_funds: 'Trace suspect-controlled scammer, mule, operator, or laundering-ring funds forward to cashout topology. Defaults to topology_scope=live_topology (recent activity, fast); set topology_scope=archive_topology for older incidents or when live_topology finds nothing -- it can take substantially longer and is billed for the real time it takes.',
+  aml_trace_deposit_sources: 'Trace suspected deposit or cashout addresses backward to upstream sources, shared funders, and convergence. Defaults to topology_scope=live_topology (recent activity, fast); set topology_scope=archive_topology for older incidents or when live_topology finds nothing -- it can take substantially longer and is billed for the real time it takes.',
   graph_query: 'Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment. Cross-layer correlated joins may be limited by the active graph endpoint; preserve full addresses exactly.',
   graph_query_batch: 'Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads.',
 }
@@ -76,6 +76,8 @@ type ChainInsightsGraphMeta = {
 
 const NETWORK_DESCRIPTION = 'Network to query, for example Bittensor or Base.'
 const BITTENSOR_NETWORK_SCHEMA = z.enum(['bittensor']).describe(NETWORK_DESCRIPTION)
+const TOPOLOGY_SCOPE_DESCRIPTION = 'Which topology graph to query: live_topology (default, fast, recent activity) or archive_topology (full history, slower and billed for the extra real time it takes at the same per-second rate). Use archive_topology for older incidents that may be outside the live window.'
+const TOPOLOGY_SCOPE_SCHEMA = z.enum(['live_topology', 'archive_topology']).optional().describe(TOPOLOGY_SCOPE_DESCRIPTION)
 const EMPTY_INPUT_SCHEMA = z.strictObject({})
 const REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS = 15 * 60 * 1000
 
@@ -195,6 +197,7 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
         network: BITTENSOR_NETWORK_SCHEMA,
         compare_address: z.string().optional().describe('Optional address to compare against the screened address.'),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
+        topology_scope: TOPOLOGY_SCOPE_SCHEMA,
       }
     case 'aml_trace_victim_funds':
       return {
@@ -204,6 +207,7 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
         incident_timestamp_ms: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
         max_hops: z.number().int().min(1).max(5).optional().describe('Trace depth in hops. Default 3.'),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
+        topology_scope: TOPOLOGY_SCOPE_SCHEMA,
       }
     case 'aml_trace_suspect_funds':
       return {
@@ -212,6 +216,7 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
         incident_timestamp_ms: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
         max_hops: z.number().int().min(1).max(5).optional().describe('Trace depth in hops. Default 3.'),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
+        topology_scope: TOPOLOGY_SCOPE_SCHEMA,
       }
     case 'aml_trace_deposit_sources':
       return {
@@ -219,6 +224,7 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
         deposit_addresses: z.string().min(1).describe('Suspected deposit or cashout addresses, comma-separated. Min 1, max 5.'),
         max_hops: z.number().int().min(1).max(5).optional().describe('Reverse trace depth in hops. Default 2.'),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
+        topology_scope: TOPOLOGY_SCOPE_SCHEMA,
       }
     case 'graph_query':
       return {
@@ -813,12 +819,18 @@ function graphMetaResult(graph: ChainInsightsGraphMeta | undefined): Record<stri
     : undefined
 }
 
-function cleanCapabilityLayers(value: unknown): Record<string, { enabled: boolean }> {
+function cleanCapabilityLayers(value: unknown): Record<string, unknown> {
   const layers = isRecord(value) ? value : {}
+  const topologySource = isRecord(layers.topology) ? layers.topology : {}
+  const topology: Record<string, unknown> = {
+    enabled: isRecord(layers.topology) ? topologySource.enabled === true : true,
+  }
+  if (isRecord(topologySource.live)) topology.live = topologySource.live
+  if (isRecord(topologySource.archive)) topology.archive = topologySource.archive
   return {
     facts: { enabled: isRecord(layers.facts) ? layers.facts.enabled === true : true },
     risk: { enabled: isRecord(layers.risk) ? layers.risk.enabled === true : false },
-    topology: { enabled: isRecord(layers.topology) ? layers.topology.enabled === true : true },
+    topology,
   }
 }
 
@@ -831,7 +843,7 @@ function defaultBittensorCapability() {
     layers: {
       facts: { enabled: true },
       risk: { enabled: false },
-      topology: { enabled: true },
+      topology: { enabled: true, live: { enabled: true }, archive: { enabled: true } },
     },
     tools: {
       graph_query: 'available',
@@ -1199,6 +1211,7 @@ export async function createProxy(): Promise<void> {
           network: BITTENSOR_NETWORK_SCHEMA,
           compare_address: z.string().optional().describe('Optional address to compare against the screened address'),
           include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
+          topology_scope: TOPOLOGY_SCOPE_SCHEMA,
         },
         _meta: {
           ui: {
@@ -1212,7 +1225,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ address, network, compare_address, include_attachments }) => {
+      async ({ address, network, compare_address, include_attachments, topology_scope }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1229,6 +1242,7 @@ export async function createProxy(): Promise<void> {
             network,
             compareAddress: compare_address,
             writeArtifacts: workspaceArtifactsEnabled,
+            topologyScope: topology_scope,
           })
           const graph = await writeLocalGraphMeta(
             result.graphData,
@@ -1269,6 +1283,7 @@ export async function createProxy(): Promise<void> {
           include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
           incident_timestamp_ms: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
           max_hops: z.number().int().min(1).max(5).optional().describe('Trace depth in hops. Default 3.'),
+          topology_scope: TOPOLOGY_SCOPE_SCHEMA,
         },
         _meta: {
           ui: {
@@ -1282,7 +1297,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ victim_addresses, known_suspect_addresses, network, incident_timestamp_ms, max_hops, include_attachments }) => {
+      async ({ victim_addresses, known_suspect_addresses, network, incident_timestamp_ms, max_hops, include_attachments, topology_scope }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1301,6 +1316,7 @@ export async function createProxy(): Promise<void> {
             incidentTimestampMs: incident_timestamp_ms,
             maxHops: max_hops,
             writeArtifacts: workspaceArtifactsEnabled,
+            topologyScope: topology_scope,
           })
           const graph = await writeLocalGraphMeta(
             result.graphData,
@@ -1340,6 +1356,7 @@ export async function createProxy(): Promise<void> {
           incident_timestamp_ms: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
           max_hops: z.number().int().min(1).max(5).optional().describe('Trace depth in hops. Default 3.'),
           include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
+          topology_scope: TOPOLOGY_SCOPE_SCHEMA,
         },
         _meta: {
           ui: {
@@ -1353,7 +1370,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ suspect_addresses, incident_timestamp_ms, network, max_hops, include_attachments }) => {
+      async ({ suspect_addresses, incident_timestamp_ms, network, max_hops, include_attachments, topology_scope }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1371,6 +1388,7 @@ export async function createProxy(): Promise<void> {
             maxHops: max_hops,
             incidentTimestampMs: incident_timestamp_ms,
             writeArtifacts: workspaceArtifactsEnabled,
+            topologyScope: topology_scope,
           })
           const graph = await writeLocalGraphMeta(
             result.graphData,
@@ -1409,6 +1427,7 @@ export async function createProxy(): Promise<void> {
           deposit_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe('Suspected deposit or cashout addresses, comma-separated or an array. Min 1, max 5.'),
           max_hops: z.number().int().min(1).max(5).optional().describe('Reverse trace depth in hops. Default 2.'),
           include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
+          topology_scope: TOPOLOGY_SCOPE_SCHEMA,
         },
         _meta: {
           ui: {
@@ -1422,7 +1441,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ deposit_addresses, network, max_hops, include_attachments }) => {
+      async ({ deposit_addresses, network, max_hops, include_attachments, topology_scope }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1439,6 +1458,7 @@ export async function createProxy(): Promise<void> {
             network,
             maxHops: max_hops,
             writeArtifacts: workspaceArtifactsEnabled,
+            topologyScope: topology_scope,
           })
           const graph = await writeLocalGraphMeta(
             result.graphData,

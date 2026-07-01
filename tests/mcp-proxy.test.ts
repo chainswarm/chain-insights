@@ -264,7 +264,9 @@ function findPromptHandler(
 
 // Non-canonical address inputs (anything that is not a 0x form) now trigger a
 // member-address resolution batch before the main tool batch. This response
-// resolves nothing, so every input passes through unchanged.
+// resolves nothing: per R2/R3, an input that does not resolve is OMITTED from
+// tracing (never passed through as a raw-address identity_id), so callers that
+// need a seed to actually trace must use memberResolutionResolvesTo() instead.
 function memberResolutionPassthrough(): Record<string, unknown> {
   return {
     content: [{
@@ -273,6 +275,28 @@ function memberResolutionPassthrough(): Record<string, unknown> {
         schema: 'chain-insights.result.v1',
         tool: 'graph_query_batch',
         facts: { queries: [] },
+      }),
+    }],
+    isError: false,
+  }
+}
+
+// Resolves each raw input (in order) to the given identity_id via the
+// Address-node lookup batch, mirroring a real :Address -> :Identity match.
+function memberResolutionResolvesTo(...identityIds: string[]): Record<string, unknown> {
+  return {
+    content: [{
+      type: 'text',
+      text: JSON.stringify({
+        schema: 'chain-insights.result.v1',
+        tool: 'graph_query_batch',
+        facts: {
+          queries: identityIds.map((identityId, index) => ({
+            id: `resolve_member_address_${index + 1}`,
+            ok: true,
+            results: [{ identity_id: identityId }],
+          })),
+        },
       }),
     }],
     isError: false,
@@ -789,6 +813,66 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(properties.per_query_timeout_seconds.maximum).toBe(600)
   })
 
+  it('exposes topology_scope (live_topology default, archive_topology option) on all four aml_* tools', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query', description: 'Federated graph query' },
+      { name: 'graph_query_batch', description: 'Federated graph query batch' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+
+    for (const toolName of ['aml_address_risk', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources']) {
+      const config = findToolConfig(serverInstance, toolName)
+      const jsonSchema = z.toJSONSchema(
+        z.object(config.inputSchema as z.ZodRawShape),
+      ) as Record<string, unknown>
+      const properties = jsonSchema.properties as Record<string, Record<string, unknown>>
+      expect(properties.topology_scope, `${toolName} must expose topology_scope`).toBeDefined()
+      expect((jsonSchema.required as string[] | undefined) ?? []).not.toContain('topology_scope')
+      const anyOf = properties.topology_scope.anyOf as Array<{ enum?: string[] }> | undefined
+      const enumValues = properties.topology_scope.enum as string[] | undefined
+      const values = enumValues ?? anyOf?.flatMap((entry) => entry.enum ?? [])
+      expect(values, `${toolName} topology_scope must be an enum`).toEqual(expect.arrayContaining(['live_topology', 'archive_topology']))
+    }
+  })
+
+  it('describes the archive_topology cost/latency tradeoff on all four aml_* tools and the shared topology_scope parameter', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query', description: 'Federated graph query' },
+      { name: 'graph_query_batch', description: 'Federated graph query batch' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+
+    for (const toolName of ['aml_address_risk', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources']) {
+      const config = findToolConfig(serverInstance, toolName)
+      expect(config.description, `${toolName} description must mention archive_topology's cost/latency tradeoff`).toContain('billed for the real time it takes')
+
+      const jsonSchema = z.toJSONSchema(
+        z.object(config.inputSchema as z.ZodRawShape),
+      ) as Record<string, unknown>
+      const properties = jsonSchema.properties as Record<string, Record<string, unknown>>
+      const topologyScopeDescription = (properties.topology_scope.description ?? (properties.topology_scope.anyOf as Array<{ description?: string }> | undefined)?.find((entry) => entry.description)?.description) as string | undefined
+      expect(topologyScopeDescription, `${toolName} topology_scope description must mention the cost/latency tradeoff`).toContain('billed for the extra real time it takes')
+    }
+  })
+
   it('does not register legacy trace tools as public MCP tools', async () => {
     const staleTrace = retiredName('trace', '_funds')
     const staleTrack = retiredName('track', '_funds')
@@ -843,7 +927,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       isError: false,
     })
     clientInstance.callTool
-      .mockResolvedValueOnce(memberResolutionPassthrough())
+      .mockResolvedValueOnce(memberResolutionResolvesTo('5Seed'))
       .mockResolvedValueOnce(textResult([
         {
           id: 'forward_exchange_paths_2',
@@ -1214,7 +1298,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       callTool: ReturnType<typeof vi.fn>
     }
     clientInstance.callTool
-      .mockResolvedValueOnce(memberResolutionPassthrough())
+      .mockResolvedValueOnce(memberResolutionResolvesTo('5Addr'))
       .mockResolvedValueOnce({
         content: [{
           type: 'text',
@@ -1239,9 +1323,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                 {
                   id: 'member_addresses',
                   ok: true,
-                  results: [{
-                    member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
-                  }],
+                  results: [
+                    { member_address: '0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24' },
+                    { member_address: '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6' },
+                  ],
                 },
                 {
                   id: 'address_risk_score',
@@ -1412,7 +1497,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       callTool: ReturnType<typeof vi.fn>
     }
-    clientInstance.callTool.mockResolvedValueOnce(memberResolutionPassthrough())
+    clientInstance.callTool.mockResolvedValueOnce(memberResolutionResolvesTo('5Addr'))
     clientInstance.callTool.mockResolvedValueOnce({
       content: [{
         type: 'text',
@@ -1509,7 +1594,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const { addressRisk } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
       callTool: vi.fn()
-        .mockResolvedValueOnce(memberResolutionPassthrough())
+        .mockResolvedValueOnce(memberResolutionResolvesTo('5Addr'))
         .mockResolvedValueOnce({
           content: [{
             type: 'text',
@@ -1530,9 +1615,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                   {
                     id: 'member_addresses',
                     ok: true,
-                    results: [{
-                      member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
-                    }],
+                    results: [
+                      { member_address: '0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24' },
+                      { member_address: '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6' },
+                    ],
                   },
                   { id: 'exchange_outflows', ok: true, results: [] },
                   { id: 'exchange_inflows', ok: true, results: [] },
@@ -1565,7 +1651,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(subjectNode).not.toHaveProperty('address_type')
   })
 
-  it('resolves SS58 member-address inputs through the Address lookup and derives canonical 0x inputs locally', async () => {
+  it('resolves SS58 member-address inputs through the Address lookup and CONFIRMS canonical 0x inputs exist as an Identity (MoA-review fix: canonical form is not proof of existence)', async () => {
     const { resolveIdentityKeys } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
       callTool: vi.fn().mockResolvedValueOnce({
@@ -1573,11 +1659,23 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
           type: 'text',
           text: JSON.stringify({
             facts: {
-              queries: [{
-                id: 'resolve_member_address_1',
-                ok: true,
-                results: [{ identity_id: 'bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24' }],
-              }],
+              queries: [
+                {
+                  id: 'resolve_member_address_1',
+                  ok: true,
+                  results: [{ identity_id: 'bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24' }],
+                },
+                {
+                  id: 'resolve_identity_exists_1',
+                  ok: true,
+                  results: [{ identity_id: 'bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24' }],
+                },
+                {
+                  id: 'resolve_identity_exists_2',
+                  ok: true,
+                  results: [],
+                },
+              ],
             },
           }),
         }],
@@ -1593,16 +1691,21 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     expect(resolved.get('5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6')).toBe('bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24')
     expect(resolved.get('bittensor:0x1874A43D7C6D888F9EDA3D22A3A49704E3CADB24')).toBe('bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24')
-    expect(resolved.get('0xABCDEF0123456789abcdef0123456789abcdef01')).toBe('bittensor:0xabcdef0123456789abcdef0123456789abcdef01')
+    // The second canonical-hex input's existence check returned no rows: it must NOT be resolved.
+    expect(resolved.has('0xABCDEF0123456789abcdef0123456789abcdef01')).toBe(false)
     expect(remoteClient.callTool).toHaveBeenCalledTimes(1)
     const queries = remoteClient.callTool.mock.calls[0]?.[0].arguments.queries as Array<{ id: string; query: string }>
-    expect(queries).toHaveLength(1)
+    expect(queries).toHaveLength(3)
     expect(queries[0]?.id).toBe('resolve_member_address_1')
     expect(queries[0]?.query).toContain('MATCH (m:Address {address: "5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6"})<-[:HAS_ADDRESS]-(i:Identity)')
     expect(queries[0]?.query).toContain('RETURN i.identity_id AS identity_id')
+    expect(queries[1]?.id).toBe('resolve_identity_exists_1')
+    expect(queries[1]?.query).toContain('MATCH (i:Identity {identity_id: "bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24"})')
+    expect(queries[2]?.id).toBe('resolve_identity_exists_2')
+    expect(queries[2]?.query).toContain('MATCH (i:Identity {identity_id: "bittensor:0xabcdef0123456789abcdef0123456789abcdef01"})')
   })
 
-  it('passes unresolvable non-0x member-address inputs through unchanged', async () => {
+  it('omits unresolvable non-0x member-address inputs from the resolved map (R2/R3: never fall back to a raw-address identity_id)', async () => {
     const { resolveIdentityKeys } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
       callTool: vi.fn().mockResolvedValueOnce({
@@ -1619,14 +1722,37 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
 
     const resolved = await resolveIdentityKeys(remoteClient as never, 'bittensor', ['5UnknownMember'])
-    expect(resolved.get('5UnknownMember')).toBe('5UnknownMember')
+    expect(resolved.has('5UnknownMember')).toBe(false)
+  })
+
+  it('resolveIdentityKeys defaults to live_topology and honors an explicit archive_topology scope', async () => {
+    const { resolveIdentityKeys } = await import('../src/investigation/public-tools.js')
+    const remoteClientDefault = {
+      callTool: vi.fn().mockResolvedValueOnce({
+        content: [{ type: 'text', text: JSON.stringify({ facts: { queries: [{ id: 'resolve_member_address_1', ok: true, results: [] }] } }) }],
+        isError: false,
+      }),
+    }
+    await resolveIdentityKeys(remoteClientDefault as never, 'bittensor', ['5UnknownMember'])
+    const defaultQueries = remoteClientDefault.callTool.mock.calls[0]?.[0].arguments.queries as Array<{ query: string }>
+    expect(defaultQueries[0]?.query).toMatch(/^USE live_topology/)
+
+    const remoteClientArchive = {
+      callTool: vi.fn().mockResolvedValueOnce({
+        content: [{ type: 'text', text: JSON.stringify({ facts: { queries: [{ id: 'resolve_member_address_1', ok: true, results: [] }] } }) }],
+        isError: false,
+      }),
+    }
+    await resolveIdentityKeys(remoteClientArchive as never, 'bittensor', ['5UnknownMember'], 'archive_topology')
+    const archiveQueries = remoteClientArchive.callTool.mock.calls[0]?.[0].arguments.queries as Array<{ query: string }>
+    expect(archiveQueries[0]?.query).toMatch(/^USE archive_topology/)
   })
 
   it('aml_address_risk reports partial enrichment query failures without failing screening', async () => {
     const { addressRisk } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
       callTool: vi.fn()
-        .mockResolvedValueOnce(memberResolutionPassthrough())
+        .mockResolvedValueOnce(memberResolutionResolvesTo('5Addr'))
         .mockResolvedValueOnce({
         content: [{
           type: 'text',
@@ -1722,7 +1848,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       callTool: ReturnType<typeof vi.fn>
     }
-    clientInstance.callTool.mockResolvedValueOnce(memberResolutionPassthrough())
+    clientInstance.callTool.mockResolvedValueOnce(memberResolutionResolvesTo('5Suspect'))
 
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
@@ -1861,7 +1987,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       callTool: ReturnType<typeof vi.fn>
     }
-    clientInstance.callTool.mockResolvedValueOnce(memberResolutionPassthrough())
+    clientInstance.callTool.mockResolvedValueOnce(memberResolutionResolvesTo('5Victim'))
 
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
@@ -2106,7 +2232,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       callTool: ReturnType<typeof vi.fn>
     }
-    clientInstance.callTool.mockResolvedValueOnce(memberResolutionPassthrough())
+    clientInstance.callTool.mockResolvedValueOnce(memberResolutionResolvesTo('5Victim', '5Victim2'))
 
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>

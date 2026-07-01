@@ -4,7 +4,7 @@ import path from 'node:path'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import type { InvestigatorConfig } from '../config/schema.js'
-import { activityWindowPredicates, runFundFlowProbe, type TraceActivityWindow, type TraceFundsResult } from './trace-funds.js'
+import { activityWindowPredicates, runFundFlowProbe, type TraceActivityWindow, type TraceFundsResult, type TopologyScope, DEFAULT_TOPOLOGY_SCOPE } from './trace-funds.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
 
@@ -31,12 +31,17 @@ type QueryFailure = {
 
 const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 10
 const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS = 5 * 60 * 1000
+// The AC12 archive-retry hint is a best-effort nicety, not part of the trace
+// itself: bound it tightly so a hung/slow capabilities call can never stall
+// (let alone fail) the actual trace/risk result.
+const ARCHIVE_HINT_CAPABILITY_TIMEOUT_MS = 5000
 
 export interface AddressRiskOptions {
   address: string
   network: string
   compareAddress?: string
   writeArtifacts?: boolean
+  topologyScope?: TopologyScope
 }
 
 export interface TrackFundsOptions {
@@ -46,6 +51,7 @@ export interface TrackFundsOptions {
   maxHops?: number
   perAddressLimit?: number
   minAmountSum?: number
+  topologyScope?: TopologyScope
 }
 
 function escapeCypherString(value: string): string {
@@ -67,10 +73,10 @@ function parseGraphBatchResult(result: RemoteToolResult): ParsedGraphBatch {
   return parsed
 }
 
-function topologyGraphQuery(query: string): string {
+function topologyGraphQuery(query: string, scope: TopologyScope = DEFAULT_TOPOLOGY_SCOPE): string {
   const trimmed = query.trim()
   if (/^USE\s+/i.test(trimmed)) return trimmed
-  return `USE live_topology ${trimmed}`
+  return `USE ${scope} ${trimmed}`
 }
 
 function collectQueryFailure(failures: QueryFailure[], id: string, error: string | undefined): void {
@@ -103,6 +109,7 @@ async function callGraphBatch(
   remoteClient: Client,
   network: string,
   queries: Array<{ id: string; query: string }>,
+  topologyScope: TopologyScope = DEFAULT_TOPOLOGY_SCOPE,
 ): Promise<ParsedGraphBatch> {
   const result = await remoteClient.callTool(
     {
@@ -111,7 +118,7 @@ async function callGraphBatch(
         network,
         queries: queries.map((query) => ({
           ...query,
-          query: topologyGraphQuery(query.query),
+          query: topologyGraphQuery(query.query, topologyScope),
         })),
         per_query_timeout_seconds: GRAPH_QUERY_BATCH_TIMEOUT_SECONDS,
       },
@@ -124,6 +131,46 @@ async function callGraphBatch(
   ) as RemoteToolResult
   if (result.isError) throw new Error(textFromToolResult(result) || 'graph_query_batch failed')
   return parseGraphBatchResult(result)
+}
+
+// Best-effort archive_topology availability check for the AC12 observability
+// hint (retry with archive when a live_topology call finds nothing). Never
+// throws: a failed/unsupported capabilities call just means no hint is shown.
+async function archiveTopologyAvailable(remoteClient: Client, network: string): Promise<boolean> {
+  try {
+    const result = await remoteClient.callTool(
+      { name: 'network_capabilities', arguments: {} },
+      undefined,
+      { timeout: ARCHIVE_HINT_CAPABILITY_TIMEOUT_MS, maxTotalTimeout: ARCHIVE_HINT_CAPABILITY_TIMEOUT_MS },
+    ) as RemoteToolResult
+    if (result.isError) return false
+    const text = textFromToolResult(result).trim()
+    if (!text) return false
+    const parsed = JSON.parse(text) as {
+      networks?: Array<{ network?: string; layers?: { topology?: { archive?: { enabled?: boolean } } } }>
+      facts?: { capabilities?: { networks?: Array<{ network?: string; layers?: { topology?: { archive?: { enabled?: boolean } } } }> } }
+    }
+    const networks = parsed.facts?.capabilities?.networks ?? parsed.networks
+    const entry = networks?.find((candidate) => candidate.network === network)
+    return entry?.layers?.topology?.archive?.enabled === true
+  } catch {
+    return false
+  }
+}
+
+// Appends the AC12 archive-retry hint to a trace/risk warnings array when the
+// call ran on live_topology, found nothing, and archive_topology is available.
+async function archiveRetryHint(
+  remoteClient: Client,
+  network: string,
+  topologyScope: TopologyScope,
+  foundNothing: boolean,
+): Promise<string[]> {
+  if (topologyScope !== 'live_topology' || !foundNothing) return []
+  const archiveAvailable = await archiveTopologyAvailable(remoteClient, network)
+  return archiveAvailable
+    ? ['No results on live_topology; archive_topology is available for this network and covers full history -- retry with topology_scope=archive_topology.']
+    : []
 }
 
 function parseAddressList(value: string | string[] | undefined): string[] {
@@ -157,6 +204,21 @@ function memberAddressResolutionQuery(id: string, memberForm: string): { id: str
   }
 }
 
+// canonicalIdentityKeyFor() recognizes the CANONICAL FORM (0x...) but does not
+// verify the identity actually exists in the graph. A made-up 0x address would
+// otherwise be treated as "resolved" and traced, in violation of R2/R3.
+// This confirms existence for candidates that already look canonical.
+function identityExistenceQuery(id: string, identityId: string): { id: string; query: string } {
+  return {
+    id,
+    query: [
+      `MATCH (i:Identity {identity_id: "${escapeCypherString(identityId)}"})`,
+      'RETURN i.identity_id AS identity_id',
+      'LIMIT 1',
+    ].join(' '),
+  }
+}
+
 function identityMemberAddressesQuery(identityKeys: string[]): { id: string; query: string } {
   const predicates = identityKeys.map((identityKey) => `i.identity_id = "${escapeCypherString(identityKey)}"`)
   return {
@@ -179,31 +241,55 @@ function identityMemberAddressesQuery(identityKeys: string[]): { id: string; que
  * indexed `(:Address {address})<-[:HAS_ADDRESS]-(:Identity)` lookup.
  * Inputs the graph cannot resolve are passed through unchanged.
  */
+// Resolves each raw input to its canonical identity_id via the graph's Address
+// node: (:Identity)-[:HAS_ADDRESS]->(:Address {address: $raw}). Inputs that do
+// not resolve (no matching Address/Identity in the active topology) are
+// OMITTED from the returned map -- callers must not fall back to treating the
+// raw input as an identity_id (network:<raw address> is never a valid
+// identity_id; identities are keyed network:<canonical form>). Use
+// resolved.has(input) to distinguish "resolved to X" from "did not resolve".
 export async function resolveIdentityKeys(
   remoteClient: Client,
   network: string,
   inputs: string[],
+  topologyScope: TopologyScope = DEFAULT_TOPOLOGY_SCOPE,
 ): Promise<Map<string, string>> {
   const resolved = new Map<string, string>()
-  const pending: string[] = []
+  const pendingAddressLookup: string[] = []
+  const pendingCanonicalCandidate = new Map<string, string>()
   for (const input of [...new Set(inputs.map((value) => value.trim()).filter(Boolean))]) {
     const canonical = canonicalIdentityKeyFor(network, memberFormOf(input, network))
-    if (canonical) resolved.set(input, canonical)
-    else pending.push(input)
+    if (canonical) pendingCanonicalCandidate.set(input, canonical)
+    else pendingAddressLookup.push(input)
   }
-  if (pending.length === 0) return resolved
+  if (pendingAddressLookup.length === 0 && pendingCanonicalCandidate.size === 0) return resolved
 
+  const addressQueries = pendingAddressLookup.map((input, index) => ({
+    input,
+    ...memberAddressResolutionQuery(`resolve_member_address_${index + 1}`, memberFormOf(input, network)),
+  }))
+  const canonicalInputs = [...pendingCanonicalCandidate.keys()]
+  const existenceQueries = canonicalInputs.map((input, index) => ({
+    input,
+    ...identityExistenceQuery(`resolve_identity_exists_${index + 1}`, pendingCanonicalCandidate.get(input)!),
+  }))
   const batch = await callGraphBatch(
     remoteClient,
     network,
-    pending.map((input, index) => memberAddressResolutionQuery(`resolve_member_address_${index + 1}`, memberFormOf(input, network))),
+    [...addressQueries, ...existenceQueries].map(({ id, query }) => ({ id, query })),
+    topologyScope,
   )
   const failures: QueryFailure[] = []
-  pending.forEach((input, index) => {
-    const rows = optionalResultsFor(batch, `resolve_member_address_${index + 1}`, failures)
+  for (const { input, id } of addressQueries) {
+    const rows = optionalResultsFor(batch, id, failures)
     const identityId = firstString(rows[0]?.['identity_id'])
-    resolved.set(input, identityId ?? input)
-  })
+    if (identityId) resolved.set(input, identityId)
+  }
+  for (const { input, id } of existenceQueries) {
+    const rows = optionalResultsFor(batch, id, failures)
+    const identityId = firstString(rows[0]?.['identity_id'])
+    if (identityId) resolved.set(input, identityId)
+  }
   return resolved
 }
 
@@ -234,12 +320,13 @@ async function identityDisplayMap(
   network: string,
   identityKeys: string[],
   preferredByIdentity = new Map<string, string>(),
+  topologyScope: TopologyScope = DEFAULT_TOPOLOGY_SCOPE,
 ): Promise<Map<string, IdentityDisplayInfo>> {
   const uniqueKeys = [...new Set(identityKeys.filter((key) => key.startsWith(`${network}:`)))]
   const memberRows = new Map<string, string[]>()
   if (uniqueKeys.length > 0) {
     try {
-      const batch = await callGraphBatch(remoteClient, network, [identityMemberAddressesQuery(uniqueKeys)])
+      const batch = await callGraphBatch(remoteClient, network, [identityMemberAddressesQuery(uniqueKeys)], topologyScope)
       for (const row of optionalResultsFor(batch, 'identity_member_addresses', [])) {
         const identityKey = firstString(row['identity_id'])
         if (!identityKey) continue
@@ -292,13 +379,14 @@ async function publicizeIdentityResult<T extends {
   network: string,
   result: T,
   preferredByIdentity = new Map<string, string>(),
+  topologyScope: TopologyScope = DEFAULT_TOPOLOGY_SCOPE,
 ): Promise<T> {
   const identityKeys = [
     ...collectIdentityKeys(result.summaryText, network),
     ...collectIdentityKeys(result.structuredContent, network),
     ...collectIdentityKeys(result.graphData, network),
   ]
-  const displayByIdentity = await identityDisplayMap(remoteClient, network, identityKeys, preferredByIdentity)
+  const displayByIdentity = await identityDisplayMap(remoteClient, network, identityKeys, preferredByIdentity, topologyScope)
   if (displayByIdentity.size === 0) return result
   return {
     ...result,
@@ -316,23 +404,33 @@ function graphArray(graphData: Record<string, unknown>, key: string): Array<Reco
   return Array.isArray(value) ? value.filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null && !Array.isArray(item)) : []
 }
 
-function addressProfileQuery(address: string): { id: string; query: string } {
+function addressProfileQuery(address: string, topologyScope: TopologyScope): { id: string; query: string } {
+  // risk_score/risk_level are a live_topology-only "slim live risk verdict" on
+  // :Identity (see ops/memgql/README.md); the archive_topology StarRocks
+  // mapping never defines them, so projecting them there hard-errors the
+  // whole query instead of nulling gracefully. Real risk scores for archive
+  // come from the separate USE facts query (addressRiskScoreQuery).
+  const riskFields = topologyScope === 'archive_topology' ? '' : ', a.risk_score AS live_risk_score, a.risk_level AS live_risk_level'
   return {
     id: 'address_profile',
     query: [
       `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})`,
-      'RETURN a.identity_id AS address, a.labels AS display_labels, a.labels AS system_labels, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level, a.is_exchange AS is_exchange',
+      `RETURN a.identity_id AS address, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange${riskFields}`,
       'LIMIT 1',
     ].join(' '),
   }
 }
 
 function memberAddressesQuery(address: string): { id: string; query: string } {
+  // No collect(): MemGQL translates collect() to MySQL's JSON_ARRAYAGG, which
+  // StarRocks rejects (memgraph/memgraph#4178, upstream, unfixed as of 0.6.3).
+  // Return one row per member address and aggregate client-side instead.
   return {
     id: 'member_addresses',
     query: [
       `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[:HAS_ADDRESS]->(m:Address)`,
-      'RETURN collect(m.address) AS member_addresses',
+      'RETURN m.address AS member_address',
+      'LIMIT 50',
     ].join(' '),
   }
 }
@@ -377,15 +475,18 @@ function flowEdgeMap(variableName: string): string {
   return `{amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_seen_timestamp: ${variableName}.first_seen_timestamp, last_seen_timestamp: ${variableName}.last_seen_timestamp, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`
 }
 
-function pathNodeMap(variableName: string): string {
-  return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`
+function pathNodeMap(variableName: string, topologyScope: TopologyScope): string {
+  // See addressProfileQuery: risk_score/risk_level aren't in the archive_topology
+  // Identity mapping, so they must be omitted from path_nodes on that scope.
+  const riskFields = topologyScope === 'archive_topology' ? '' : `, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level`
+  return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, is_exchange: ${variableName}.is_exchange${riskFields}}`
 }
 
-function exchangeOutflowQueries(address: string): Array<{ id: string; query: string }> {
-  return Array.from({ length: 3 }, (_, index) => exchangeOutflowQueryAtDepth(address, index + 1))
+function exchangeOutflowQueries(address: string, topologyScope: TopologyScope): Array<{ id: string; query: string }> {
+  return Array.from({ length: 3 }, (_, index) => exchangeOutflowQueryAtDepth(address, index + 1, topologyScope))
 }
 
-function exchangeOutflowQueryAtDepth(address: string, depth: number): { id: string; query: string } {
+function exchangeOutflowQueryAtDepth(address: string, depth: number, topologyScope: TopologyScope): { id: string; query: string } {
   const intermediateVariables = Array.from({ length: Math.max(depth - 1, 0) }, (_, index) => `n${index + 1}`)
   const nodeVariables = ['a', ...intermediateVariables, 'exchange']
   const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
@@ -400,19 +501,19 @@ function exchangeOutflowQueryAtDepth(address: string, depth: number): { id: stri
     id: `exchange_outflows_${depth}`,
     query: [
       `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})${relationshipChain}`,
-      `WHERE a <> exchange AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
-      `RETURN "outflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${depositVariable}.identity_id AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `WHERE a.identity_id <> exchange.identity_id AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
+      `RETURN "outflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${depositVariable}.identity_id AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable, topologyScope)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
     ].join(' '),
   }
 }
 
-function exchangeInflowQueries(address: string): Array<{ id: string; query: string }> {
-  return Array.from({ length: 3 }, (_, index) => exchangeInflowQueryAtDepth(address, index + 1))
+function exchangeInflowQueries(address: string, topologyScope: TopologyScope): Array<{ id: string; query: string }> {
+  return Array.from({ length: 3 }, (_, index) => exchangeInflowQueryAtDepth(address, index + 1, topologyScope))
 }
 
-function exchangeInflowQueryAtDepth(address: string, depth: number): { id: string; query: string } {
+function exchangeInflowQueryAtDepth(address: string, depth: number, topologyScope: TopologyScope): { id: string; query: string } {
   const intermediateVariables = Array.from({ length: Math.max(depth - 1, 0) }, (_, index) => `n${index + 1}`)
   const nodeVariables = ['exchange', ...intermediateVariables, 'a']
   const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
@@ -427,8 +528,8 @@ function exchangeInflowQueryAtDepth(address: string, depth: number): { id: strin
     id: `exchange_inflows_${depth}`,
     query: [
       `MATCH (exchange:Identity)${relationshipChain}`,
-      `WHERE a.identity_id = "${escapeCypherString(address)}" AND a <> exchange AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
-      `RETURN "inflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${withdrawalVariable}.identity_id AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `WHERE a.identity_id = "${escapeCypherString(address)}" AND a.identity_id <> exchange.identity_id AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
+      `RETURN "inflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${withdrawalVariable}.identity_id AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable, topologyScope)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
     ].join(' '),
@@ -754,32 +855,50 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   const inputAddress = options.address.trim()
   const network = options.network.trim()
   const compareInput = options.compareAddress?.trim() ?? ''
+  const topologyScope = options.topologyScope ?? DEFAULT_TOPOLOGY_SCOPE
   if (!inputAddress) throw new Error('address is required')
   if (!network) throw new Error('network is required')
-  const resolvedKeys = await resolveIdentityKeys(remoteClient, network, [inputAddress, ...(compareInput ? [compareInput] : [])])
-  const address = resolvedKeys.get(inputAddress) ?? inputAddress
-  const compareAddress = compareInput ? resolvedKeys.get(compareInput) ?? compareInput : ''
+  const resolvedKeys = await resolveIdentityKeys(remoteClient, network, [inputAddress, ...(compareInput ? [compareInput] : [])], topologyScope)
+  if (!resolvedKeys.has(inputAddress)) {
+    return {
+      summaryText: `Address risk for ${network}:${inputAddress}\n\nUnresolved: no Identity/Address found for "${inputAddress}" in ${topologyScope}. The address may not have on-chain activity in this network or topology scope; try topology_scope=archive_topology for full history.`,
+      structuredContent: {
+        schema: 'chain-insights.result.v1',
+        tool: 'aml_address_risk',
+        facts: {
+          subject: { network, addresses: [inputAddress], topology_scope: topologyScope },
+          unresolved: [inputAddress],
+        },
+      },
+      graphData: { schema: 'chain-insights.graph.v1', nodes: [], edges: [], flows: [], edge_anchors: [], metadata: { address: inputAddress, network, generated_at: new Date().toISOString() } },
+    }
+  }
+  const address = resolvedKeys.get(inputAddress)!
+  const compareUnresolved = compareInput !== '' && !resolvedKeys.has(compareInput)
+  const compareAddress = compareInput && !compareUnresolved ? resolvedKeys.get(compareInput)! : ''
   const preferredByIdentity = new Map<string, string>([
     [address, inputAddress],
     ...(compareAddress ? [[compareAddress, compareInput] as [string, string]] : []),
   ])
 
   const queries = [
-    addressProfileQuery(address),
+    addressProfileQuery(address, topologyScope),
     memberAddressesQuery(address),
     addressFeatureQuery(address),
     addressRiskScoreQuery(address),
     addressLabelRiskQuery(address),
-    ...exchangeOutflowQueries(address),
-    ...exchangeInflowQueries(address),
+    ...exchangeOutflowQueries(address, topologyScope),
+    ...exchangeInflowQueries(address, topologyScope),
     ...(compareAddress ? [connectionProbeQuery(address, compareAddress)] : [{ id: 'connection_probe', query: 'MATCH (n:Identity {identity_id: "__chain_insights_noop__"}) RETURN n.identity_id AS noop LIMIT 0' }]),
   ]
-  const batch = await callGraphBatch(remoteClient, network, queries)
+  const batch = await callGraphBatch(remoteClient, network, queries, topologyScope)
   const partialQueryFailures: QueryFailure[] = []
+  const memberAddressRows = optionalResultsFor(batch, 'member_addresses', partialQueryFailures)
+  const memberAddressesFromRows = memberAddressRows.map((row) => firstString(row['member_address'])).filter((value): value is string => Boolean(value))
   const profile: Record<string, unknown> = {
     address,
     ...(optionalResultsFor(batch, 'address_profile', partialQueryFailures)[0] ?? {}),
-    ...(optionalResultsFor(batch, 'member_addresses', partialQueryFailures)[0] ?? {}),
+    ...(memberAddressesFromRows.length > 0 ? { member_addresses: memberAddressesFromRows } : {}),
     ...(optionalResultsFor(batch, 'address_feature', partialQueryFailures)[0] ?? {}),
     ...(optionalResultsFor(batch, 'address_risk_score', partialQueryFailures)[0] ?? {}),
   }
@@ -820,6 +939,9 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   if (compareAddress) {
     lines.push('', `Connection compare target: ${compareAddress}`, connections.length > 0 ? `Connection paths found: ${connections.length}` : 'Connection paths found: 0')
   }
+  if (compareUnresolved) {
+    lines.push('', `Unresolved compare_address: no Identity/Address found for "${compareInput}" in ${topologyScope}; comparison skipped.`)
+  }
   if (partialQueryFailures.length > 0) {
     lines.push('', 'Partial query failures', partialQueryFailures.map((failure) => `- ${failure.id}: ${failure.error}`).join('\n'))
   }
@@ -834,6 +956,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
           network,
           addresses: compareAddress ? [address, compareAddress] : [address],
           ...(memberAddresses.length > 0 ? { member_addresses: memberAddresses } : {}),
+          topology_scope: topologyScope,
         },
         risk: {
           ...risk,
@@ -844,6 +967,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
           inflows,
         },
         connection: compareAddress ? { compare_address: compareAddress, paths: connections } : undefined,
+        unresolved: compareUnresolved ? [compareInput] : undefined,
         partial_query_errors: partialQueryFailures.length > 0 ? partialQueryFailures : undefined,
       },
       artifacts: statelessArtifacts(),
@@ -854,7 +978,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     },
     graphData,
   }
-  const publicResult = await publicizeIdentityResult(remoteClient, network, baseResult, preferredByIdentity)
+  const publicResult = await publicizeIdentityResult(remoteClient, network, baseResult, preferredByIdentity, topologyScope)
   const publicSubject = publicResult.structuredContent.facts as Record<string, unknown> | undefined
   const publicSubjectAddresses = (publicSubject?.subject as Record<string, unknown> | undefined)?.addresses
   const publicSubjectAddress = Array.isArray(publicSubjectAddresses) && typeof publicSubjectAddresses[0] === 'string'
@@ -910,6 +1034,7 @@ export interface TraceVictimFundsOptions {
   perAddressLimit?: number
   minAmountSum?: number
   writeArtifacts?: boolean
+  topologyScope?: TopologyScope
 }
 
 export interface TraceSuspectFundsOptions {
@@ -921,6 +1046,7 @@ export interface TraceSuspectFundsOptions {
   perAddressLimit?: number
   minAmountSum?: number
   writeArtifacts?: boolean
+  topologyScope?: TopologyScope
 }
 
 export interface TraceDepositSourcesOptions {
@@ -930,6 +1056,7 @@ export interface TraceDepositSourcesOptions {
   maxHops?: number
   minAmountSum?: number
   writeArtifacts?: boolean
+  topologyScope?: TopologyScope
 }
 
 type TraceToolResult = {
@@ -1326,8 +1453,9 @@ async function publicizeTraceResult(
   result: TraceToolResult,
   preferredByIdentity: Map<string, string>,
   writeArtifacts: boolean,
+  topologyScope: TopologyScope = DEFAULT_TOPOLOGY_SCOPE,
 ): Promise<TraceToolResult> {
-  const publicResult = await publicizeIdentityResult(remoteClient, network, result, preferredByIdentity)
+  const publicResult = await publicizeIdentityResult(remoteClient, network, result, preferredByIdentity, topologyScope)
   if (!writeArtifacts) return publicResult
   const tool = typeof publicResult.structuredContent['tool'] === 'string'
     ? publicResult.structuredContent['tool'] as TraceToolName
@@ -1396,6 +1524,9 @@ function traceResultFromFundRuns(
     timeRange?: { from_ms?: number; to_ms?: number }
     activityWindow?: TraceActivityWindow
     maxHops?: number
+    unresolved?: string[]
+    topologyScope?: TopologyScope
+    archiveHint?: string[]
     } = {},
 ): { summaryText: string; structuredContent: Record<string, unknown>; graphData: Record<string, unknown> } {
   const graphData = normalizeTraceGraphData(runs, network)
@@ -1513,9 +1644,11 @@ function traceResultFromFundRuns(
         ? { from_ms: options.activityWindow.fromMs, ...(options.activityWindow.toMs !== undefined ? { to_ms: options.activityWindow.toMs } : {}) }
         : 'none',
       max_hops: options.maxHops ?? 3,
+      topology_scope: options.topologyScope ?? DEFAULT_TOPOLOGY_SCOPE,
     },
     summary: {
       seed_count: runs.length,
+      unresolved_count: options.unresolved?.length ?? 0,
       path_count: paths.length,
       edge_count: edges.length,
       candidate_suspect_count: seedRole === 'suspect' ? runs.length : 0,
@@ -1523,6 +1656,7 @@ function traceResultFromFundRuns(
       candidate_deposit_count: depositAddresses.length,
       exchange_count: exchangeAddresses.length,
     },
+    unresolved: options.unresolved ?? [],
     addresses: [...addresses.values()].map((entry) => ({
       address: entry.address,
       roles: [...entry.roles],
@@ -1570,13 +1704,18 @@ function traceResultFromFundRuns(
     },
     warnings: [
       ...(depositAddresses.length === 0 ? ['No exchange deposit candidates were connected in the queried topology.'] : []),
+      ...(options.unresolved && options.unresolved.length > 0 ? [`${options.unresolved.length} input address(es) did not resolve to a known Identity and were not traced: ${options.unresolved.join(', ')}.`] : []),
       ...runs.flatMap((run) => run.result.tracebackWarnings ?? []),
+      ...(options.archiveHint ?? []),
     ],
   }
 
   return {
     summaryText: [
       `${seedRole === 'victim' ? 'Trace victim funds' : 'Trace suspect funds'} complete for ${network}`,
+      ...(options.unresolved && options.unresolved.length > 0
+        ? [`Unresolved (no matching Identity/Address): ${options.unresolved.join(', ')}`]
+        : []),
       '',
       ...runs.map((run) => `## ${run.role}: ${run.address}\n${run.result.summaryText}`),
     ].join('\n'),
@@ -1597,9 +1736,11 @@ export async function traceVictimFunds(
   if (victimInputs.length < 1) throw new Error('victim_addresses must contain at least 1 address')
   if (victimInputs.length > 5) throw new Error('victim_addresses cannot exceed 5 addresses')
   if (knownSuspects.length > 5) throw new Error('known_suspect_addresses cannot exceed 5 addresses')
-  const resolvedVictims = await resolveIdentityKeys(remoteClient, network, victimInputs)
-  const victims = [...new Set(victimInputs.map((input) => resolvedVictims.get(input) ?? input))]
-  const preferredByIdentity = new Map(victimInputs.map((input) => [resolvedVictims.get(input) ?? input, input] as [string, string]))
+  const topologyScope = options.topologyScope ?? DEFAULT_TOPOLOGY_SCOPE
+  const resolvedVictims = await resolveIdentityKeys(remoteClient, network, victimInputs, topologyScope)
+  const unresolvedVictims = victimInputs.filter((input) => !resolvedVictims.has(input))
+  const victims = [...new Set(victimInputs.filter((input) => resolvedVictims.has(input)).map((input) => resolvedVictims.get(input)!))]
+  const preferredByIdentity = new Map(victimInputs.filter((input) => resolvedVictims.has(input)).map((input) => [resolvedVictims.get(input)!, input] as [string, string]))
   const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange)
 
   const runs: TraceRun[] = []
@@ -1617,16 +1758,22 @@ export async function traceVictimFunds(
         includeDepositTraceback: true,
         evidenceSource: 'aml_trace_victim_funds',
         writeArtifacts: false,
+        topologyScope,
       }),
     })
   }
+  const foundNothing = runs.length > 0 && runs.every((run) => graphRecords(run.result.graphData, 'flows').length === 0)
+  const archiveHint = await archiveRetryHint(remoteClient, network, topologyScope, foundNothing)
   const result = traceResultFromFundRuns('aml_trace_victim_funds', 'victim', network, runs, {
     incidentTimestampMs: options.incidentTimestampMs,
     timeRange: options.timeRange,
     activityWindow,
     maxHops: options.maxHops,
+    unresolved: unresolvedVictims,
+    topologyScope,
+    archiveHint,
   })
-  return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false)
+  return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false, topologyScope)
 }
 
 export async function traceSuspectFunds(
@@ -1639,9 +1786,11 @@ export async function traceSuspectFunds(
   if (!network) throw new Error('network is required')
   if (suspectInputs.length < 1) throw new Error('suspect_addresses must contain at least 1 address')
   if (suspectInputs.length > 5) throw new Error('suspect_addresses cannot exceed 5 addresses')
-  const resolvedSuspects = await resolveIdentityKeys(remoteClient, network, suspectInputs)
-  const suspects = [...new Set(suspectInputs.map((input) => resolvedSuspects.get(input) ?? input))]
-  const preferredByIdentity = new Map(suspectInputs.map((input) => [resolvedSuspects.get(input) ?? input, input] as [string, string]))
+  const topologyScope = options.topologyScope ?? DEFAULT_TOPOLOGY_SCOPE
+  const resolvedSuspects = await resolveIdentityKeys(remoteClient, network, suspectInputs, topologyScope)
+  const unresolvedSuspects = suspectInputs.filter((input) => !resolvedSuspects.has(input))
+  const suspects = [...new Set(suspectInputs.filter((input) => resolvedSuspects.has(input)).map((input) => resolvedSuspects.get(input)!))]
+  const preferredByIdentity = new Map(suspectInputs.filter((input) => resolvedSuspects.has(input)).map((input) => [resolvedSuspects.get(input)!, input] as [string, string]))
   const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange)
 
   const runs: TraceRun[] = []
@@ -1659,16 +1808,22 @@ export async function traceSuspectFunds(
         includeDepositTraceback: true,
         evidenceSource: 'aml_trace_suspect_funds',
         writeArtifacts: false,
+        topologyScope,
       }),
     })
   }
+  const foundNothing = runs.length > 0 && runs.every((run) => graphRecords(run.result.graphData, 'flows').length === 0)
+  const archiveHint = await archiveRetryHint(remoteClient, network, topologyScope, foundNothing)
   const result = traceResultFromFundRuns('aml_trace_suspect_funds', 'suspect', network, runs, {
     incidentTimestampMs: options.incidentTimestampMs,
     timeRange: options.timeRange,
     activityWindow,
     maxHops: options.maxHops,
+    unresolved: unresolvedSuspects,
+    topologyScope,
+    archiveHint,
   })
-  return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false)
+  return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false, topologyScope)
 }
 
 const REVERSE_DEPOSIT_SOURCES_LIMIT = 500
@@ -1678,6 +1833,7 @@ function reverseDepositSourceQueryAtDepth(
   depth: number,
   minAmountSum: number,
   window: TraceActivityWindow | undefined,
+  topologyScope: TopologyScope,
 ): { id: string; query: string } {
   const intermediateVariables = Array.from({ length: Math.max(depth - 1, 0) }, (_, index) => `n${index + 1}`)
   const nodeVariables = ['source', ...intermediateVariables, 'deposit']
@@ -1695,7 +1851,7 @@ function reverseDepositSourceQueryAtDepth(
     query: [
       `MATCH (source:Identity)${relationshipChain}`,
       `WHERE (${depositPredicates.join(' OR ')}) AND source.identity_id <> deposit.identity_id AND ${[...nonExchangePredicates, ...amountPredicates, ...windowPredicates].join(' AND ')}`,
-      `RETURN DISTINCT source.identity_id AS source_address, source.is_exchange AS source_is_exchange, deposit.identity_id AS deposit_address, deposit.is_exchange AS deposit_is_exchange, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `RETURN DISTINCT source.identity_id AS source_address, source.is_exchange AS source_is_exchange, deposit.identity_id AS deposit_address, deposit.is_exchange AS deposit_is_exchange, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable, topologyScope)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       `LIMIT ${REVERSE_DEPOSIT_SOURCES_LIMIT}`,
     ].join(' '),
   }
@@ -1734,18 +1890,23 @@ export async function traceDepositSources(
   if (!network) throw new Error('network is required')
   if (depositInputs.length < 1) throw new Error('deposit_addresses must contain at least 1 address')
   if (depositInputs.length > 5) throw new Error('deposit_addresses cannot exceed 5 addresses')
-  const resolvedDeposits = await resolveIdentityKeys(remoteClient, network, depositInputs)
-  const deposits = [...new Set(depositInputs.map((input) => resolvedDeposits.get(input) ?? input))]
-  const preferredByIdentity = new Map(depositInputs.map((input) => [resolvedDeposits.get(input) ?? input, input] as [string, string]))
+  const topologyScope = options.topologyScope ?? DEFAULT_TOPOLOGY_SCOPE
+  const resolvedDeposits = await resolveIdentityKeys(remoteClient, network, depositInputs, topologyScope)
+  const unresolvedDeposits = depositInputs.filter((input) => !resolvedDeposits.has(input))
+  const deposits = [...new Set(depositInputs.filter((input) => resolvedDeposits.has(input)).map((input) => resolvedDeposits.get(input)!))]
+  const preferredByIdentity = new Map(depositInputs.filter((input) => resolvedDeposits.has(input)).map((input) => [resolvedDeposits.get(input)!, input] as [string, string]))
   const maxHops = clampInt(options.maxHops, 2, 1, 5)
   const minAmountSum = Math.max(0, options.minAmountSum ?? 0)
   const window = traceActivityWindow(undefined, options.timeRange)
 
-  const batch = await callGraphBatch(
-    remoteClient,
-    network,
-    Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1, minAmountSum, window)),
-  )
+  const batch = deposits.length > 0
+    ? await callGraphBatch(
+        remoteClient,
+        network,
+        Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1, minAmountSum, window, topologyScope)),
+        topologyScope,
+      )
+    : { facts: { queries: [] } }
   const failures: QueryFailure[] = []
   const rows: Array<Record<string, unknown>> = optionalResultsWithPrefix(batch, 'reverse_deposit_sources_', failures)
     .filter((row) => !reverseDepositSourceRowUsesExchange(row))
@@ -1870,10 +2031,12 @@ export async function traceDepositSources(
       generated_at: new Date().toISOString(),
     },
   })
+  const archiveHint = await archiveRetryHint(remoteClient, network, topologyScope, edges.length === 0)
   const summaryText = [
     `Trace deposit sources complete for ${network}`,
+    ...(unresolvedDeposits.length > 0 ? [`Unresolved (no matching Identity/Address): ${unresolvedDeposits.join(', ')}`] : []),
     '',
-    `Deposit seeds: ${deposits.join(', ')}`,
+    `Deposit seeds: ${deposits.join(', ') || 'none resolved'}`,
     `Reverse path(s): ${paths.length}`,
     `Shared upstream convergence: ${convergence.length}`,
   ].join('\n')
@@ -1892,9 +2055,11 @@ export async function traceDepositSources(
           ? { from_ms: window.fromMs, ...(window.toMs !== undefined ? { to_ms: window.toMs } : {}) }
           : 'none',
         max_hops: maxHops,
+        topology_scope: topologyScope,
       },
       summary: {
         seed_count: deposits.length,
+        unresolved_count: unresolvedDeposits.length,
         path_count: paths.length,
         edge_count: edges.length,
         candidate_suspect_count: sourceToPathIds.size,
@@ -1902,6 +2067,7 @@ export async function traceDepositSources(
         candidate_deposit_count: deposits.length,
         exchange_count: 0,
       },
+      unresolved: unresolvedDeposits,
       addresses: [...addresses.values()].map((entry) => ({
         address: entry.address,
         roles: [...entry.roles],
@@ -1925,12 +2091,14 @@ export async function traceDepositSources(
       },
       warnings: [
         ...(paths.length === 0 ? ['No upstream sources were connected in the queried topology.'] : []),
+        ...(unresolvedDeposits.length > 0 ? [`${unresolvedDeposits.length} input address(es) did not resolve to a known Identity and were not traced: ${unresolvedDeposits.join(', ')}.`] : []),
         ...truncationWarnings,
+        ...archiveHint,
       ],
     },
     graphData,
   }
-  return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false)
+  return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false, topologyScope)
 }
 
 export async function trackFunds(
