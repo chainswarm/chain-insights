@@ -1,0 +1,45 @@
+@startuml
+title <size:24>Container View: Chain Insights Toolkit</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+
+Person(InvestigatorAgent, "Investigator / Agent", $descr="Uses CLI, ChatGPT, Codex, Claude Code, or MCP clients to investigate blockchain activity.", $tags="", $link="")
+System(RBMKControlCenter, "RBMK Control Center", $descr="Runs npm release smoke checks, staging validation, and docs workflows.", $tags="", $link="")
+System(DataPipelineGraphRAGMCP, "Data Pipeline GraphRAG MCP", $descr="Public MCP endpoint serving graph queries, risk tools, quota, and report metadata.", $tags="", $link="")
+System(AMLACP, "AML ACP", $descr="Marketplace bridge that calls Chain Insights workflows through the proxy.", $tags="", $link="")
+System(ObsidianLLMWiki, "Obsidian / LLM Wiki", $descr="Optional local knowledge workspace and exported investigation bundle target.", $tags="", $link="")
+
+System_Boundary("ChainInsightsToolkit_boundary", "Chain Insights Toolkit", $tags="") {
+  Container(ChainInsightsToolkit.MCPProxy, "MCP Proxy", $techn="TypeScript / MCP", $descr="Stdio or local proxy surface that lets agent clients call Chain Insights tools.", $tags="", $link="")
+  Container(ChainInsightsToolkit.LocalWorkspaceStore, "Local Workspace Store", $techn="Files", $descr="Filesystem workspace containing cases, evidence manifests, dossiers, exports, and config.", $tags="", $link="")
+  Container(ChainInsightsToolkit.NPMPackage, "NPM Package", $techn="npm", $descr="Published package containing CLI, proxy, docs, and installer assets.", $tags="", $link="")
+  Container(ChainInsightsToolkit.ciaCLI, "cia CLI", $techn="TypeScript CLI", $descr="Command-line interface for workspace setup, case workflows, exports, and graph tool calls.", $tags="", $link="")
+}
+
+Rel(InvestigatorAgent, ChainInsightsToolkit.ciaCLI, "Runs investigation and setup commands", $techn="", $tags="", $link="")
+Rel(InvestigatorAgent, ChainInsightsToolkit.MCPProxy, "Calls tools from agent clients", $techn="", $tags="", $link="")
+Rel(RBMKControlCenter, ChainInsightsToolkit.NPMPackage, "Validates release smoke checks", $techn="", $tags="", $link="")
+Rel(AMLACP, ChainInsightsToolkit.MCPProxy, "Uses proxy mode for curated paid workflows", $techn="", $tags="", $link="")
+Rel(ChainInsightsToolkit.ciaCLI, DataPipelineGraphRAGMCP, "Calls graph tools and AML primitives", $techn="", $tags="", $link="")
+Rel(ChainInsightsToolkit.MCPProxy, DataPipelineGraphRAGMCP, "Proxies configured tools", $techn="", $tags="", $link="")
+Rel(ChainInsightsToolkit.ciaCLI, ChainInsightsToolkit.LocalWorkspaceStore, "Writes local cases, evidence, config, and exports", $techn="", $tags="", $link="")
+Rel(ChainInsightsToolkit.MCPProxy, ChainInsightsToolkit.LocalWorkspaceStore, "Uses local workspace configuration", $techn="", $tags="", $link="")
+Rel(ChainInsightsToolkit.ciaCLI, ObsidianLLMWiki, "Opens or exports curated investigation bundles", $techn="", $tags="", $link="")
+Rel(ChainInsightsToolkit.NPMPackage, ChainInsightsToolkit.ciaCLI, "Packages CLI entrypoint", $techn="", $tags="", $link="")
+Rel(ChainInsightsToolkit.NPMPackage, ChainInsightsToolkit.MCPProxy, "Packages proxy entrypoint", $techn="", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

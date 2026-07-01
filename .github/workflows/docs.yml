@@ -1,0 +1,14 @@
+name: Docs
+
+# Thin caller for the RBMK docs subsystem. Logic lives once in
+# chainswarm/rbmk/.github/workflows/docs-reusable.yml (Approach A — no per-repo drift).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  docs:
+    uses: chainswarm/rbmk/.github/workflows/docs-reusable.yml@main
+    secrets: inherit
