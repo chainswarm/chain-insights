@@ -31,6 +31,10 @@ type QueryFailure = {
 
 const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 10
 const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS = 5 * 60 * 1000
+// The AC12 archive-retry hint is a best-effort nicety, not part of the trace
+// itself: bound it tightly so a hung/slow capabilities call can never stall
+// (let alone fail) the actual trace/risk result.
+const ARCHIVE_HINT_CAPABILITY_TIMEOUT_MS = 5000
 
 export interface AddressRiskOptions {
   address: string
@@ -134,7 +138,11 @@ async function callGraphBatch(
 // throws: a failed/unsupported capabilities call just means no hint is shown.
 async function archiveTopologyAvailable(remoteClient: Client, network: string): Promise<boolean> {
   try {
-    const result = await remoteClient.callTool({ name: 'network_capabilities', arguments: {} }) as RemoteToolResult
+    const result = await remoteClient.callTool(
+      { name: 'network_capabilities', arguments: {} },
+      undefined,
+      { timeout: ARCHIVE_HINT_CAPABILITY_TIMEOUT_MS, maxTotalTimeout: ARCHIVE_HINT_CAPABILITY_TIMEOUT_MS },
+    ) as RemoteToolResult
     if (result.isError) return false
     const text = textFromToolResult(result).trim()
     if (!text) return false
@@ -196,6 +204,21 @@ function memberAddressResolutionQuery(id: string, memberForm: string): { id: str
   }
 }
 
+// canonicalIdentityKeyFor() recognizes the CANONICAL FORM (0x...) but does not
+// verify the identity actually exists in the graph. A made-up 0x address would
+// otherwise be treated as "resolved" and traced, in violation of R2/R3.
+// This confirms existence for candidates that already look canonical.
+function identityExistenceQuery(id: string, identityId: string): { id: string; query: string } {
+  return {
+    id,
+    query: [
+      `MATCH (i:Identity {identity_id: "${escapeCypherString(identityId)}"})`,
+      'RETURN i.identity_id AS identity_id',
+      'LIMIT 1',
+    ].join(' '),
+  }
+}
+
 function identityMemberAddressesQuery(identityKeys: string[]): { id: string; query: string } {
   const predicates = identityKeys.map((identityKey) => `i.identity_id = "${escapeCypherString(identityKey)}"`)
   return {
@@ -232,26 +255,41 @@ export async function resolveIdentityKeys(
   topologyScope: TopologyScope = DEFAULT_TOPOLOGY_SCOPE,
 ): Promise<Map<string, string>> {
   const resolved = new Map<string, string>()
-  const pending: string[] = []
+  const pendingAddressLookup: string[] = []
+  const pendingCanonicalCandidate = new Map<string, string>()
   for (const input of [...new Set(inputs.map((value) => value.trim()).filter(Boolean))]) {
     const canonical = canonicalIdentityKeyFor(network, memberFormOf(input, network))
-    if (canonical) resolved.set(input, canonical)
-    else pending.push(input)
+    if (canonical) pendingCanonicalCandidate.set(input, canonical)
+    else pendingAddressLookup.push(input)
   }
-  if (pending.length === 0) return resolved
+  if (pendingAddressLookup.length === 0 && pendingCanonicalCandidate.size === 0) return resolved
 
+  const addressQueries = pendingAddressLookup.map((input, index) => ({
+    input,
+    ...memberAddressResolutionQuery(`resolve_member_address_${index + 1}`, memberFormOf(input, network)),
+  }))
+  const canonicalInputs = [...pendingCanonicalCandidate.keys()]
+  const existenceQueries = canonicalInputs.map((input, index) => ({
+    input,
+    ...identityExistenceQuery(`resolve_identity_exists_${index + 1}`, pendingCanonicalCandidate.get(input)!),
+  }))
   const batch = await callGraphBatch(
     remoteClient,
     network,
-    pending.map((input, index) => memberAddressResolutionQuery(`resolve_member_address_${index + 1}`, memberFormOf(input, network))),
+    [...addressQueries, ...existenceQueries].map(({ id, query }) => ({ id, query })),
     topologyScope,
   )
   const failures: QueryFailure[] = []
-  pending.forEach((input, index) => {
-    const rows = optionalResultsFor(batch, `resolve_member_address_${index + 1}`, failures)
+  for (const { input, id } of addressQueries) {
+    const rows = optionalResultsFor(batch, id, failures)
     const identityId = firstString(rows[0]?.['identity_id'])
     if (identityId) resolved.set(input, identityId)
-  })
+  }
+  for (const { input, id } of existenceQueries) {
+    const rows = optionalResultsFor(batch, id, failures)
+    const identityId = firstString(rows[0]?.['identity_id'])
+    if (identityId) resolved.set(input, identityId)
+  }
   return resolved
 }
 
@@ -366,23 +404,33 @@ function graphArray(graphData: Record<string, unknown>, key: string): Array<Reco
   return Array.isArray(value) ? value.filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null && !Array.isArray(item)) : []
 }
 
-function addressProfileQuery(address: string): { id: string; query: string } {
+function addressProfileQuery(address: string, topologyScope: TopologyScope): { id: string; query: string } {
+  // risk_score/risk_level are a live_topology-only "slim live risk verdict" on
+  // :Identity (see ops/memgql/README.md); the archive_topology StarRocks
+  // mapping never defines them, so projecting them there hard-errors the
+  // whole query instead of nulling gracefully. Real risk scores for archive
+  // come from the separate USE facts query (addressRiskScoreQuery).
+  const riskFields = topologyScope === 'archive_topology' ? '' : ', a.risk_score AS live_risk_score, a.risk_level AS live_risk_level'
   return {
     id: 'address_profile',
     query: [
       `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})`,
-      'RETURN a.identity_id AS address, a.labels AS display_labels, a.labels AS system_labels, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level, a.is_exchange AS is_exchange',
+      `RETURN a.identity_id AS address, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange${riskFields}`,
       'LIMIT 1',
     ].join(' '),
   }
 }
 
 function memberAddressesQuery(address: string): { id: string; query: string } {
+  // No collect(): MemGQL translates collect() to MySQL's JSON_ARRAYAGG, which
+  // StarRocks rejects (memgraph/memgraph#4178, upstream, unfixed as of 0.6.3).
+  // Return one row per member address and aggregate client-side instead.
   return {
     id: 'member_addresses',
     query: [
       `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[:HAS_ADDRESS]->(m:Address)`,
-      'RETURN collect(m.address) AS member_addresses',
+      'RETURN m.address AS member_address',
+      'LIMIT 50',
     ].join(' '),
   }
 }
@@ -427,15 +475,18 @@ function flowEdgeMap(variableName: string): string {
   return `{amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_seen_timestamp: ${variableName}.first_seen_timestamp, last_seen_timestamp: ${variableName}.last_seen_timestamp, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`
 }
 
-function pathNodeMap(variableName: string): string {
-  return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level, is_exchange: ${variableName}.is_exchange}`
+function pathNodeMap(variableName: string, topologyScope: TopologyScope): string {
+  // See addressProfileQuery: risk_score/risk_level aren't in the archive_topology
+  // Identity mapping, so they must be omitted from path_nodes on that scope.
+  const riskFields = topologyScope === 'archive_topology' ? '' : `, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level`
+  return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, is_exchange: ${variableName}.is_exchange${riskFields}}`
 }
 
-function exchangeOutflowQueries(address: string): Array<{ id: string; query: string }> {
-  return Array.from({ length: 3 }, (_, index) => exchangeOutflowQueryAtDepth(address, index + 1))
+function exchangeOutflowQueries(address: string, topologyScope: TopologyScope): Array<{ id: string; query: string }> {
+  return Array.from({ length: 3 }, (_, index) => exchangeOutflowQueryAtDepth(address, index + 1, topologyScope))
 }
 
-function exchangeOutflowQueryAtDepth(address: string, depth: number): { id: string; query: string } {
+function exchangeOutflowQueryAtDepth(address: string, depth: number, topologyScope: TopologyScope): { id: string; query: string } {
   const intermediateVariables = Array.from({ length: Math.max(depth - 1, 0) }, (_, index) => `n${index + 1}`)
   const nodeVariables = ['a', ...intermediateVariables, 'exchange']
   const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
@@ -450,19 +501,19 @@ function exchangeOutflowQueryAtDepth(address: string, depth: number): { id: stri
     id: `exchange_outflows_${depth}`,
     query: [
       `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})${relationshipChain}`,
-      `WHERE a <> exchange AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
-      `RETURN "outflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${depositVariable}.identity_id AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `WHERE a.identity_id <> exchange.identity_id AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
+      `RETURN "outflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${depositVariable}.identity_id AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable, topologyScope)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
     ].join(' '),
   }
 }
 
-function exchangeInflowQueries(address: string): Array<{ id: string; query: string }> {
-  return Array.from({ length: 3 }, (_, index) => exchangeInflowQueryAtDepth(address, index + 1))
+function exchangeInflowQueries(address: string, topologyScope: TopologyScope): Array<{ id: string; query: string }> {
+  return Array.from({ length: 3 }, (_, index) => exchangeInflowQueryAtDepth(address, index + 1, topologyScope))
 }
 
-function exchangeInflowQueryAtDepth(address: string, depth: number): { id: string; query: string } {
+function exchangeInflowQueryAtDepth(address: string, depth: number, topologyScope: TopologyScope): { id: string; query: string } {
   const intermediateVariables = Array.from({ length: Math.max(depth - 1, 0) }, (_, index) => `n${index + 1}`)
   const nodeVariables = ['exchange', ...intermediateVariables, 'a']
   const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
@@ -477,8 +528,8 @@ function exchangeInflowQueryAtDepth(address: string, depth: number): { id: strin
     id: `exchange_inflows_${depth}`,
     query: [
       `MATCH (exchange:Identity)${relationshipChain}`,
-      `WHERE a.identity_id = "${escapeCypherString(address)}" AND a <> exchange AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
-      `RETURN "inflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${withdrawalVariable}.identity_id AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `WHERE a.identity_id = "${escapeCypherString(address)}" AND a.identity_id <> exchange.identity_id AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
+      `RETURN "inflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${withdrawalVariable}.identity_id AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable, topologyScope)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
     ].join(' '),
@@ -831,21 +882,23 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   ])
 
   const queries = [
-    addressProfileQuery(address),
+    addressProfileQuery(address, topologyScope),
     memberAddressesQuery(address),
     addressFeatureQuery(address),
     addressRiskScoreQuery(address),
     addressLabelRiskQuery(address),
-    ...exchangeOutflowQueries(address),
-    ...exchangeInflowQueries(address),
+    ...exchangeOutflowQueries(address, topologyScope),
+    ...exchangeInflowQueries(address, topologyScope),
     ...(compareAddress ? [connectionProbeQuery(address, compareAddress)] : [{ id: 'connection_probe', query: 'MATCH (n:Identity {identity_id: "__chain_insights_noop__"}) RETURN n.identity_id AS noop LIMIT 0' }]),
   ]
   const batch = await callGraphBatch(remoteClient, network, queries, topologyScope)
   const partialQueryFailures: QueryFailure[] = []
+  const memberAddressRows = optionalResultsFor(batch, 'member_addresses', partialQueryFailures)
+  const memberAddressesFromRows = memberAddressRows.map((row) => firstString(row['member_address'])).filter((value): value is string => Boolean(value))
   const profile: Record<string, unknown> = {
     address,
     ...(optionalResultsFor(batch, 'address_profile', partialQueryFailures)[0] ?? {}),
-    ...(optionalResultsFor(batch, 'member_addresses', partialQueryFailures)[0] ?? {}),
+    ...(memberAddressesFromRows.length > 0 ? { member_addresses: memberAddressesFromRows } : {}),
     ...(optionalResultsFor(batch, 'address_feature', partialQueryFailures)[0] ?? {}),
     ...(optionalResultsFor(batch, 'address_risk_score', partialQueryFailures)[0] ?? {}),
   }
@@ -1780,6 +1833,7 @@ function reverseDepositSourceQueryAtDepth(
   depth: number,
   minAmountSum: number,
   window: TraceActivityWindow | undefined,
+  topologyScope: TopologyScope,
 ): { id: string; query: string } {
   const intermediateVariables = Array.from({ length: Math.max(depth - 1, 0) }, (_, index) => `n${index + 1}`)
   const nodeVariables = ['source', ...intermediateVariables, 'deposit']
@@ -1797,7 +1851,7 @@ function reverseDepositSourceQueryAtDepth(
     query: [
       `MATCH (source:Identity)${relationshipChain}`,
       `WHERE (${depositPredicates.join(' OR ')}) AND source.identity_id <> deposit.identity_id AND ${[...nonExchangePredicates, ...amountPredicates, ...windowPredicates].join(' AND ')}`,
-      `RETURN DISTINCT source.identity_id AS source_address, source.is_exchange AS source_is_exchange, deposit.identity_id AS deposit_address, deposit.is_exchange AS deposit_is_exchange, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map(pathNodeMap).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `RETURN DISTINCT source.identity_id AS source_address, source.is_exchange AS source_is_exchange, deposit.identity_id AS deposit_address, deposit.is_exchange AS deposit_is_exchange, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable, topologyScope)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       `LIMIT ${REVERSE_DEPOSIT_SOURCES_LIMIT}`,
     ].join(' '),
   }
@@ -1849,7 +1903,7 @@ export async function traceDepositSources(
     ? await callGraphBatch(
         remoteClient,
         network,
-        Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1, minAmountSum, window)),
+        Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1, minAmountSum, window, topologyScope)),
         topologyScope,
       )
     : { facts: { queries: [] } }

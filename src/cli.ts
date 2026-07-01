@@ -59,6 +59,16 @@ function optionalNumberArg(value: unknown, name: string): number | undefined {
   throw new Error(`Invalid number for ${name}: ${String(value)}`)
 }
 
+const TOPOLOGY_SCOPE_VALUES = ['live_topology', 'archive_topology'] as const
+
+function resolveTopologyScopeOption(value: string | undefined): 'live_topology' | 'archive_topology' | undefined {
+  if (value === undefined) return undefined
+  if (!(TOPOLOGY_SCOPE_VALUES as readonly string[]).includes(value)) {
+    throw new Error(`Invalid --topology-scope: ${value}. Allowed values: ${TOPOLOGY_SCOPE_VALUES.join(', ')}.`)
+  }
+  return value as 'live_topology' | 'archive_topology'
+}
+
 async function withGraphMcpClient<T>(name: string, fn: (client: import('@modelcontextprotocol/sdk/client/index.js').Client, config: Awaited<ReturnType<typeof import('./config/index.js').loadConfig>>) => Promise<T>): Promise<T> {
   const { loadConfig } = await import('./config/index.js')
   const config = await loadConfig()
@@ -564,6 +574,7 @@ program
       .option('--remote', 'Force remote MCP tool call instead of local Chain Insights recipe')
       .action(async (opts: { address: string; network: string; compareAddress?: string; topologyScope?: string; remote?: boolean }) => {
         try {
+          const topologyScope = resolveTopologyScopeOption(opts.topologyScope)
           await withGraphMcpClient('chain-insights-cli-aml-address-risk', async (client) => {
             if (opts.remote) {
               const result = await client.callTool({
@@ -572,7 +583,7 @@ program
                   address: opts.address,
                   network: opts.network,
                   ...(opts.compareAddress ? { compare_address: opts.compareAddress } : {}),
-                  ...(opts.topologyScope ? { topology_scope: opts.topologyScope } : {}),
+                  ...(topologyScope ? { topology_scope: topologyScope } : {}),
                 },
               })
               printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
@@ -583,7 +594,7 @@ program
               address: opts.address,
               network: opts.network,
               compareAddress: opts.compareAddress,
-              topologyScope: opts.topologyScope as 'live_topology' | 'archive_topology' | undefined,
+              topologyScope,
             })
             console.log(result.summaryText)
           })
@@ -617,6 +628,7 @@ program
         remote?: boolean
       }) => {
         try {
+          const topologyScope = resolveTopologyScopeOption(opts.topologyScope)
           const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
           requireWorkspaceRoot()
           await withGraphMcpClient('chain-insights-cli-aml-trace-victim-funds', async (client, config) => {
@@ -627,7 +639,7 @@ program
                   victim_addresses: opts.victimAddresses,
                   network: opts.network,
                   ...(opts.knownSuspectAddresses ? { known_suspect_addresses: opts.knownSuspectAddresses } : {}),
-                  ...(opts.topologyScope ? { topology_scope: opts.topologyScope } : {}),
+                  ...(topologyScope ? { topology_scope: topologyScope } : {}),
                 },
               })
               printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
@@ -642,7 +654,7 @@ program
               maxHops: optionalNumber(opts.maxHops),
               perAddressLimit: optionalNumber(opts.perAddressLimit),
               minAmountSum: optionalNumber(opts.minAmountSum),
-              topologyScope: opts.topologyScope as 'live_topology' | 'archive_topology' | undefined,
+              topologyScope,
             })
             console.log(result.summaryText)
             console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -673,6 +685,7 @@ program
         topologyScope?: string
       }) => {
         try {
+          const topologyScope = resolveTopologyScopeOption(opts.topologyScope)
           const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
           requireWorkspaceRoot()
           await withGraphMcpClient('chain-insights-cli-aml-trace-suspect-funds', async (client, config) => {
@@ -684,7 +697,7 @@ program
               perAddressLimit: optionalNumber(opts.perAddressLimit),
               minAmountSum: optionalNumber(opts.minAmountSum),
               incidentTimestampMs: optionalNumber(opts.incidentTimestampMs),
-              topologyScope: opts.topologyScope as 'live_topology' | 'archive_topology' | undefined,
+              topologyScope,
             })
             console.log(result.summaryText)
             console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -709,6 +722,7 @@ program
         topologyScope?: string
       }) => {
         try {
+          const topologyScope = resolveTopologyScopeOption(opts.topologyScope)
           const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
           requireWorkspaceRoot()
           await withGraphMcpClient('chain-insights-cli-aml-trace-deposit-sources', async (client, config) => {
@@ -717,7 +731,7 @@ program
               depositAddresses: opts.depositAddresses,
               network: opts.network,
               maxHops: optionalNumber(opts.maxHops),
-              topologyScope: opts.topologyScope as 'live_topology' | 'archive_topology' | undefined,
+              topologyScope,
             })
             console.log(result.summaryText)
             console.log(JSON.stringify(result.structuredContent, null, 2))

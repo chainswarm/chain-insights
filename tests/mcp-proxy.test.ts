@@ -1294,9 +1294,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                 {
                   id: 'member_addresses',
                   ok: true,
-                  results: [{
-                    member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
-                  }],
+                  results: [
+                    { member_address: '0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24' },
+                    { member_address: '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6' },
+                  ],
                 },
                 {
                   id: 'address_risk_score',
@@ -1585,9 +1586,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                   {
                     id: 'member_addresses',
                     ok: true,
-                    results: [{
-                      member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
-                    }],
+                    results: [
+                      { member_address: '0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24' },
+                      { member_address: '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6' },
+                    ],
                   },
                   { id: 'exchange_outflows', ok: true, results: [] },
                   { id: 'exchange_inflows', ok: true, results: [] },
@@ -1620,7 +1622,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(subjectNode).not.toHaveProperty('address_type')
   })
 
-  it('resolves SS58 member-address inputs through the Address lookup and derives canonical 0x inputs locally', async () => {
+  it('resolves SS58 member-address inputs through the Address lookup and CONFIRMS canonical 0x inputs exist as an Identity (MoA-review fix: canonical form is not proof of existence)', async () => {
     const { resolveIdentityKeys } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
       callTool: vi.fn().mockResolvedValueOnce({
@@ -1628,11 +1630,23 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
           type: 'text',
           text: JSON.stringify({
             facts: {
-              queries: [{
-                id: 'resolve_member_address_1',
-                ok: true,
-                results: [{ identity_id: 'bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24' }],
-              }],
+              queries: [
+                {
+                  id: 'resolve_member_address_1',
+                  ok: true,
+                  results: [{ identity_id: 'bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24' }],
+                },
+                {
+                  id: 'resolve_identity_exists_1',
+                  ok: true,
+                  results: [{ identity_id: 'bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24' }],
+                },
+                {
+                  id: 'resolve_identity_exists_2',
+                  ok: true,
+                  results: [],
+                },
+              ],
             },
           }),
         }],
@@ -1648,13 +1662,18 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     expect(resolved.get('5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6')).toBe('bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24')
     expect(resolved.get('bittensor:0x1874A43D7C6D888F9EDA3D22A3A49704E3CADB24')).toBe('bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24')
-    expect(resolved.get('0xABCDEF0123456789abcdef0123456789abcdef01')).toBe('bittensor:0xabcdef0123456789abcdef0123456789abcdef01')
+    // The second canonical-hex input's existence check returned no rows: it must NOT be resolved.
+    expect(resolved.has('0xABCDEF0123456789abcdef0123456789abcdef01')).toBe(false)
     expect(remoteClient.callTool).toHaveBeenCalledTimes(1)
     const queries = remoteClient.callTool.mock.calls[0]?.[0].arguments.queries as Array<{ id: string; query: string }>
-    expect(queries).toHaveLength(1)
+    expect(queries).toHaveLength(3)
     expect(queries[0]?.id).toBe('resolve_member_address_1')
     expect(queries[0]?.query).toContain('MATCH (m:Address {address: "5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6"})<-[:HAS_ADDRESS]-(i:Identity)')
     expect(queries[0]?.query).toContain('RETURN i.identity_id AS identity_id')
+    expect(queries[1]?.id).toBe('resolve_identity_exists_1')
+    expect(queries[1]?.query).toContain('MATCH (i:Identity {identity_id: "bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24"})')
+    expect(queries[2]?.id).toBe('resolve_identity_exists_2')
+    expect(queries[2]?.query).toContain('MATCH (i:Identity {identity_id: "bittensor:0xabcdef0123456789abcdef0123456789abcdef01"})')
   })
 
   it('omits unresolvable non-0x member-address inputs from the resolved map (R2/R3: never fall back to a raw-address identity_id)', async () => {
