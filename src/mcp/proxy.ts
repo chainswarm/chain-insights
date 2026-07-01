@@ -813,12 +813,18 @@ function graphMetaResult(graph: ChainInsightsGraphMeta | undefined): Record<stri
     : undefined
 }
 
-function cleanCapabilityLayers(value: unknown): Record<string, { enabled: boolean }> {
+function cleanCapabilityLayers(value: unknown): Record<string, unknown> {
   const layers = isRecord(value) ? value : {}
+  const topologySource = isRecord(layers.topology) ? layers.topology : {}
+  const topology: Record<string, unknown> = {
+    enabled: isRecord(layers.topology) ? topologySource.enabled === true : true,
+  }
+  if (isRecord(topologySource.live)) topology.live = topologySource.live
+  if (isRecord(topologySource.archive)) topology.archive = topologySource.archive
   return {
     facts: { enabled: isRecord(layers.facts) ? layers.facts.enabled === true : true },
     risk: { enabled: isRecord(layers.risk) ? layers.risk.enabled === true : false },
-    topology: { enabled: isRecord(layers.topology) ? layers.topology.enabled === true : true },
+    topology,
   }
 }
 
@@ -831,7 +837,7 @@ function defaultBittensorCapability() {
     layers: {
       facts: { enabled: true },
       risk: { enabled: false },
-      topology: { enabled: true },
+      topology: { enabled: true, live: { enabled: true }, archive: { enabled: true } },
     },
     tools: {
       graph_query: 'available',
