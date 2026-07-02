@@ -2,7 +2,7 @@
   "schema": "chain-insights.devkit.fixture.v1",
   "network": "bittensor",
   "semantic_database": "bittensor_semantic",
-  "exported_at": "2026-07-02T18:45:59Z",
+  "exported_at": "2026-07-02T19:45:45Z",
   "fixture_window": {
     "from": "2024-01-01T00:00:00Z",
     "to_exclusive": "2026-07-03T00:00:00Z"
@@ -16,9 +16,9 @@
     "evm_pallet_rows": 480381,
     "identity_count": 480381,
     "member_address_count": 960768,
-    "flow_edge_count": 516204,
+    "flow_edge_count": 1210434,
     "memgraph_node_count": 958025,
-    "memgraph_relationship_count": 697269,
+    "memgraph_relationship_count": 1025021,
     "memgraph_label_count": 8,
     "scam_topology_edge_count": 2429
   },
@@ -28,11 +28,28 @@
       "name": "archive_topology_edges_view",
       "format": "tsv.gz",
       "path": "starrocks/archive_topology_edges_view.tsv.gz",
-      "row_count": 516204,
+      "row_count": 1210434,
       "source_min": "2024-01-01T00:11:24Z",
       "exported_min": "2024-01-01T00:11:24Z",
       "exported_max": "2026-06-30T23:59:48Z",
-      "sha256": "3b1331960d2271b99a323177f63b3cc11e8cc20b811ba39a33a7a90c0728a645"
+      "sha256": "bb517d4dc958a46b0759cf1f97c066950fc767006bac9da8fef8e5ad07d9a510",
+      "parts": [
+        {
+          "path": "starrocks/archive_topology_edges_view.tsv.gz.part-000.gz",
+          "row_count": 600000,
+          "sha256": "93ca872189a83a7810f61d82aad5550e6034fb34190c49c3d2c6f6e18f37dc94"
+        },
+        {
+          "path": "starrocks/archive_topology_edges_view.tsv.gz.part-001.gz",
+          "row_count": 600000,
+          "sha256": "d77aa01e68700117c72e36115e21d280f7fa5e628ddb1c2ed2cfcd5395d805a6"
+        },
+        {
+          "path": "starrocks/archive_topology_edges_view.tsv.gz.part-002.gz",
+          "row_count": 10434,
+          "sha256": "b14ef1092730396dca26b12d87282e0c65cbe2a676c91eceb402de92d6eb5157"
+        }
+      ]
     },
     {
       "database": "bittensor_semantic",
@@ -160,11 +177,11 @@
       "name": "memgraph_relationships",
       "format": "jsonl.gz",
       "path": "memgraph/relationships.jsonl.gz",
-      "row_count": 697269,
+      "row_count": 1025021,
       "source_min": "2024-01-01T00:04:36Z",
       "exported_min": "2024-01-01T00:04:36Z",
       "exported_max": "2026-06-30T23:49:48Z",
-      "sha256": "bae26c7f279271b81aa8d421ec2acc9cab0198c2e8e8822ae39e31e03791f3c6"
+      "sha256": "bbb4d1932f1f8c41b8b28b568a6f34ff209ad961778e5a2c8f9dcd93c1117a37"
     }
   ]
 }

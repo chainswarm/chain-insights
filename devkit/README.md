@@ -37,8 +37,9 @@ cd /path/to/rbmk
 bash scripts/devops/chain-insights-devkit/build-fixture.sh
 ```
 
-The topology edge fixture is sampled to repeated-flow edges (`tx_count >= 2`)
-so the devkit data stays small enough for ordinary Git checkouts.
+The largest topology fixture object is chunked into Git-safe parts so the
+devkit data stays small enough for ordinary Git checkouts without dropping rows
+inside the fixture window.
 
 The devkit MCP tool list is intentionally small:
 

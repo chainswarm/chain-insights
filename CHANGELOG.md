@@ -3,13 +3,20 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.6] - 2026-07-02
+
+- Restore full devkit fixture parity inside the 2024-01-01 through 2026-07-02
+  window by removing the rejected repeated-flow filter and shipping the largest
+  StarRocks edge fixture as manifest-declared gzip parts.
+
 ## [0.8.5] - 2026-07-02
 
 - Refresh the Bittensor devkit fixture to cover 2024-01-01 through
   2026-07-02, including updated StarRocks/Memgraph objects, hashes, coverage
   counts, and manifest validation bounds.
-- Keep the devkit fixture in ordinary Git by sampling topology to repeated-flow
-  edges (`tx_count >= 2`) instead of shipping the full all-time edge export.
+- Keep the devkit fixture in ordinary Git by chunking the largest StarRocks
+  fixture object into Git-safe parts without dropping rows inside the fixture
+  window.
 - Return `graph_query` results in the Chain Insights result envelope with query
   tier, timeout, topology routing, and semantic database facts for parity with
   the production surface.
