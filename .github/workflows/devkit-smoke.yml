@@ -1,0 +1,124 @@
+name: Devkit Smoke
+
+# Boots the self-contained devkit fixture stack (StarRocks + Memgraph +
+# MemGQL + the lite Chain Insights Graph backend) and runs both smokes:
+# the backend smoke and the full cia CLI parity smoke. Runs on trusted
+# refs only — pull requests stay off self-hosted runners on purpose.
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - "devkit/**"
+      - "src/**"
+      - "package.json"
+      - ".github/workflows/devkit-smoke.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: devkit-smoke
+  cancel-in-progress: false
+
+env:
+  # Dedicated port + compose project so a CI run never collides with an
+  # operator's local devkit (which owns 18012 per the port-isolation table).
+  DEVKIT_MCP_PORT: "18112"
+  COMPOSE_PROJECT: devkit-ci
+  CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT: http://127.0.0.1:18112/mcp
+
+jobs:
+  devkit-smoke:
+    name: Devkit + cia parity smoke
+    runs-on: [self-hosted, chainswarm-runner]
+    timeout-minutes: 75
+    steps:
+      - name: Checkout chain-insights
+        uses: actions/checkout@v4
+        with:
+          path: repos/infra/chain-insights
+
+      - name: Mint cross-repo App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.CHAINSWARM_GITHUB_APP_ID }}
+          private-key: ${{ secrets.CHAINSWARM_GITHUB_APP_PRIVATE_KEY }}
+          owner: chainswarm
+          repositories: data-pipeline
+
+      - name: Checkout MemGQL mapping (data-pipeline)
+        uses: actions/checkout@v4
+        with:
+          repository: chainswarm/data-pipeline
+          token: ${{ steps.app-token.outputs.token }}
+          path: repos/ml/data-pipeline
+          sparse-checkout: ops/memgql
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install cia dependencies
+        working-directory: repos/infra/chain-insights
+        run: npm ci
+
+      - name: Start devkit databases
+        working-directory: repos/infra/chain-insights/devkit
+        run: docker compose -p "$COMPOSE_PROJECT" up -d starrocks memgraph memgql
+
+      - name: Wait for StarRocks backend heartbeat
+        working-directory: repos/infra/chain-insights/devkit
+        # The all-in-one StarRocks image is x86_64; under qemu on an ARM64
+        # runner the BE heartbeat can take 10-15 minutes. Do NOT pass -N:
+        # it strips the field labels this probe greps for.
+        run: |
+          for attempt in $(seq 1 60); do
+            if docker exec "${COMPOSE_PROJECT}-starrocks-1" \
+              mysql -h127.0.0.1 -P9030 -uroot -e "SHOW BACKENDS\G" 2>/dev/null \
+              | grep -q "Alive: true"; then
+              echo "backend alive after ${attempt} checks"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "StarRocks backend never became alive" >&2
+          exit 1
+
+      - name: Import fixture and start the lite backend
+        working-directory: repos/infra/chain-insights/devkit
+        run: docker compose -p "$COMPOSE_PROJECT" up -d --build chain-insights-graph-devkit
+
+      - name: Wait for MCP health
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl -sf -m 3 "http://127.0.0.1:${DEVKIT_MCP_PORT}/health" >/dev/null; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "devkit MCP never became healthy" >&2
+          exit 1
+
+      - name: Backend smoke
+        working-directory: repos/infra/chain-insights
+        run: bash devkit/scripts/smoke.sh
+
+      - name: cia parity smoke
+        working-directory: repos/infra/chain-insights
+        run: bash devkit/scripts/smoke-chain-insights-parity.sh
+
+      - name: Upload smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devkit-smoke-evidence
+          path: workspace/devkit-smoke/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Tear down devkit stack
+        if: always()
+        working-directory: repos/infra/chain-insights/devkit
+        run: docker compose -p "$COMPOSE_PROJECT" down -v --remove-orphans

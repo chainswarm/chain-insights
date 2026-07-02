@@ -3,6 +3,14 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.7] - 2026-07-03
+
+- Add the `Devkit Smoke` workflow: on pushes to `main` touching `devkit/` or
+  `src/` (and on manual dispatch), boot the devkit fixture stack on a trusted
+  self-hosted runner and run the backend smoke plus the full `cia` parity
+  smoke, uploading the evidence bundle as a workflow artifact. Pull requests
+  intentionally stay off self-hosted runners.
+
 ## [0.8.6] - 2026-07-02
 
 - Restore full devkit fixture parity inside the 2024-01-01 through 2026-07-02
