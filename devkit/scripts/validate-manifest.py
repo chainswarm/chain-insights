@@ -124,10 +124,10 @@ def main() -> None:
         fail("manifest network must be bittensor")
     if manifest.get("semantic_database") != "bittensor_semantic":
         fail("manifest semantic_database must be bittensor_semantic")
-    if manifest.get("fixture_window", {}).get("from") != "source-min":
-        fail("manifest fixture_window.from must be source-min")
-    if manifest.get("fixture_window", {}).get("to_exclusive") != "2026-01-01T00:00:00Z":
-        fail("manifest fixture_window.to_exclusive must be 2026-01-01T00:00:00Z")
+    if manifest.get("fixture_window", {}).get("from") != "2024-01-01T00:00:00Z":
+        fail("manifest fixture_window.from must be 2024-01-01T00:00:00Z")
+    if manifest.get("fixture_window", {}).get("to_exclusive") != "2026-07-03T00:00:00Z":
+        fail("manifest fixture_window.to_exclusive must be 2026-07-03T00:00:00Z")
 
     coverage = manifest.get("coverage", {})
     if int(coverage.get("substrate_rows", 0)) <= 0:
@@ -173,8 +173,8 @@ def main() -> None:
             fail(f"manifest object {name} must use {expected_format}")
         if entry.get("exported_min") != entry.get("source_min"):
             fail(f"manifest object {name} exported_min must equal source_min")
-        if str(entry.get("exported_max", "")) >= "2026-01-01T00:00:00Z":
-            fail(f"manifest object {name} exported_max must be before 2026-01-01T00:00:00Z")
+        if str(entry.get("exported_max", "")) >= "2026-07-03T00:00:00Z":
+            fail(f"manifest object {name} exported_max must be before 2026-07-03T00:00:00Z")
         rel_path = entry.get("path", "")
         file_path = DEVKIT_ROOT / "data" / rel_path
         if not file_path.is_file():

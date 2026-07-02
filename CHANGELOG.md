@@ -3,6 +3,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.5] - 2026-07-02
+
+- Refresh the Bittensor devkit fixture to cover 2024-01-01 through
+  2026-07-02, including updated StarRocks/Memgraph objects, hashes, coverage
+  counts, and manifest validation bounds.
+- Keep the devkit fixture in ordinary Git by sampling topology to repeated-flow
+  edges (`tx_count >= 2`) instead of shipping the full all-time edge export.
+- Return `graph_query` results in the Chain Insights result envelope with query
+  tier, timeout, topology routing, and semantic database facts for parity with
+  the production surface.
+- Enforce the production `graph_query_batch` 20-query cap in the lite devkit
+  backend.
+
 ## [0.8.4] - 2026-07-02
 
 - Restore the devkit-only lite Chain Insights Graph backend (reverts the 0.8.3
