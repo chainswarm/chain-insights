@@ -1,6 +1,6 @@
 {
   "name": "chain-insights",
-  "version": "0.8.7",
+  "version": "0.8.8",
   "description": "AML investigation CLI and MCP proxy for blockchain risk, fund-flow tracing, workspace reports, and Chain Insights Graph access",
   "homepage": "https://chain-insights.ai",
   "repository": {
@@ -55,7 +55,8 @@
     "release:check": "node scripts/check-release-gate.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepare": "npm run build"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.6",

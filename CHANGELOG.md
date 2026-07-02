@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.8] - 2026-07-03
+
+- Add a `prepare` script so installing Chain Insights as a git dependency
+  builds `dist/` on install. Since 0.7.13 `dist/` is untracked, so GitHub
+  tarball/git installs shipped a `chain-insights-mcp-proxy` whose bin shim
+  could not resolve `../dist/mcp-proxy.mjs` and exited at spawn ("MCP error
+  -32000: Connection closed" in consumers such as the aml-acp benchmark).
+  Consumers must pin via the `github:` protocol (not archive tarball URLs)
+  for `prepare` to run.
+
 ## [0.8.7] - 2026-07-03
 
 - Add the `Devkit Smoke` workflow: on pushes to `main` touching `devkit/` or
