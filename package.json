@@ -43,6 +43,7 @@
     "bin",
     "dist",
     "skills",
+    "!skills/rbmk-*",
     "docs/*.md",
     "docs/images"
   ],
