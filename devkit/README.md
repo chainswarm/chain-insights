@@ -17,10 +17,12 @@ recipes; this devkit exposes only the graph backend primitives those tools use.
   fixture files.
 - Memgraph with live topology imported from fixture files.
 - Memgraph Zero / MemGQL configured with the shared Chain Insights mapping.
-- The real Chain Insights Graph backend binary, built from the sibling
-  `data-pipeline` checkout, with payments (x402), telemetry, and dynamic
-  capabilities disabled. Two-tier query timeouts match production defaults
-  (live 10s, archive/facts 30s).
+- A devkit-only lite Chain Insights Graph backend, built entirely from this
+  repository so third-party developers can host the graph MCP against local
+  StarRocks and Memgraph without any production backend source, payment,
+  quota, or telemetry surface. Its tool and tier contract tracks the
+  production backend: two-tier query timeouts (live 10s, archive/facts 30s),
+  capability live/archive sublayers, and an unmetered `usage_status`.
 
 The MCP endpoint is:
 

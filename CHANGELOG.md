@@ -3,6 +3,20 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.4] - 2026-07-02
+
+- Restore the devkit-only lite Chain Insights Graph backend (reverts the 0.8.3
+  swap to the production binary). The lite backend exists so third-party
+  developers can build and host the graph MCP from this repository alone,
+  against locally served StarRocks and Memgraph, without production backend
+  source or any payment/quota/telemetry surface.
+- Contract-sync the lite backend to the current production surface instead:
+  add the unmetered `usage_status` tool, two-tier query timeout ceilings
+  (live 10s, archive/facts 30s) selected by the query's `USE` clause with
+  caller overrides only lowering them, per-query `tier`/`timeout_seconds` and
+  batch tier-ceiling facts in `graph_query_batch` results, and capability
+  live/archive topology sublayers with tier timeouts.
+
 ## [0.8.3] - 2026-07-02
 
 - Devkit now runs the real Chain Insights Graph backend binary (built from the sibling `data-pipeline` checkout) instead of the bespoke lite MCP, with x402 billing, telemetry, and dynamic capabilities disabled and production two-tier query timeouts (live 10s, archive/facts 30s). The bespoke Go module and `Dockerfile.mcp` are removed.
