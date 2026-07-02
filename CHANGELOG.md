@@ -3,6 +3,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.3] - 2026-07-02
+
+- Devkit now runs the real Chain Insights Graph backend binary (built from the sibling `data-pipeline` checkout) instead of the bespoke lite MCP, with x402 billing, telemetry, and dynamic capabilities disabled and production two-tier query timeouts (live 10s, archive/facts 30s). The bespoke Go module and `Dockerfile.mcp` are removed.
+- Devkit smoke expects the backend's four tools (`network_capabilities`, `usage_status`, `graph_query`, `graph_query_batch`); the parity smoke accepts the backend-served usage status alongside the primitive fallback.
+- Devkit parity smoke derives MemGQL object-coverage totals from the live mapping instead of pinning node/relationship counts (the pinned 12/13 counts predated the exposure-surface removal and failed against the current 10/9 mapping).
+
 ## [0.8.2] - 2026-07-01
 
 - Add an explicit `topology_scope` parameter (`live_topology` default, `archive_topology` override) to `aml_address_risk`, `aml_trace_victim_funds`, `aml_trace_suspect_funds`, and `aml_trace_deposit_sources`, with tool/parameter descriptions stating the archive cost/latency tradeoff.

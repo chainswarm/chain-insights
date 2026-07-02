@@ -57,7 +57,7 @@ from pathlib import Path
 text = Path(sys.argv[1]).read_text(encoding="utf-8")
 payload = json.loads(text)
 tools = {tool["name"] for tool in payload.get("result", {}).get("tools", [])}
-expected = {"network_capabilities", "graph_query", "graph_query_batch"}
+expected = {"network_capabilities", "usage_status", "graph_query", "graph_query_batch"}
 if tools != expected:
     raise SystemExit(f"unexpected MCP tools: {sorted(tools)}")
 for denied in ["aml_", "wallet", "x402", "ACP", "quota", "telemetry"]:

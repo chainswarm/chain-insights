@@ -17,7 +17,10 @@ recipes; this devkit exposes only the graph backend primitives those tools use.
   fixture files.
 - Memgraph with live topology imported from fixture files.
 - Memgraph Zero / MemGQL configured with the shared Chain Insights mapping.
-- A devkit-only lite Chain Insights Graph backend.
+- The real Chain Insights Graph backend binary, built from the sibling
+  `data-pipeline` checkout, with payments (x402), telemetry, and dynamic
+  capabilities disabled. Two-tier query timeouts match production defaults
+  (live 10s, archive/facts 30s).
 
 The MCP endpoint is:
 
@@ -35,6 +38,7 @@ bash scripts/devops/chain-insights-devkit/build-fixture.sh
 The devkit MCP tool list is intentionally small:
 
 - `network_capabilities`
+- `usage_status`
 - `graph_query`
 - `graph_query_batch`
 
