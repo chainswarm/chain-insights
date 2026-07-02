@@ -71,11 +71,10 @@ services:
   # Devkit-only lite Chain Insights Graph backend, built entirely from this
   # repository. It deliberately does not import or build the production
   # backend source: third-party developers host only this graph MCP against
-  # locally served StarRocks and Memgraph, with no x402 billing, quota, or
-  # telemetry surface. Its tool/tier contract (network_capabilities,
-  # usage_status, graph_query, graph_query_batch; live 10s / archive-facts
-  # 30s ceilings; capability tier sublayers) is kept in sync with the
-  # production backend by contract tests.
+  # locally served StarRocks and Memgraph, with no billing, metering, or
+  # usage-reporting surface. Its tool/tier contract (the four graph tools,
+  # live 10s / archive-facts 30s ceilings, capability tier sublayers) is
+  # kept in sync with the production backend by contract tests.
   chain-insights-graph-devkit:
     build:
       context: .

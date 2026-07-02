@@ -126,8 +126,8 @@ func TestUsageStatusReportsUnmeteredDevkit(t *testing.T) {
 	if doc.Facts.Usage["mode"] != "devkit_unmetered" {
 		t.Fatalf("usage mode = %v", doc.Facts.Usage["mode"])
 	}
-	if doc.Facts.Usage["payment_enabled"] != false {
-		t.Fatalf("payment_enabled = %v", doc.Facts.Usage["payment_enabled"])
+	if doc.Facts.Usage["billing"] != "disabled" {
+		t.Fatalf("billing = %v", doc.Facts.Usage["billing"])
 	}
 }
 

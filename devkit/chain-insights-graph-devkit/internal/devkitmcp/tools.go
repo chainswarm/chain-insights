@@ -101,7 +101,7 @@ func ClassifyQueryTier(query string) (string, int) {
 }
 
 // UsageStatusDocument reports the devkit's fixed unmetered usage contract:
-// no payments, no quotas, no telemetry. The shape matches the production
+// no billing, no metering, no usage limits. The shape matches the production
 // chain-insights.result.v1 envelope so clients exercise the same parse path.
 func UsageStatusDocument() UsageStatusResult {
 	return UsageStatusResult{
@@ -109,10 +109,10 @@ func UsageStatusDocument() UsageStatusResult {
 		Tool:   "usage_status",
 		Facts: UsageStatusFacts{
 			Usage: map[string]any{
-				"mode":              "devkit_unmetered",
-				"payment_enabled":   false,
-				"metering_enabled":  false,
-				"telemetry_enabled": false,
+				"mode":     "devkit_unmetered",
+				"billing":  "disabled",
+				"metering": "disabled",
+				"limits":   "none",
 			},
 		},
 		Hint: nil,
