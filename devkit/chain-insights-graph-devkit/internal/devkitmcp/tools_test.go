@@ -158,7 +158,7 @@ func TestNetworkDocument(t *testing.T) {
 	if network.Network != "bittensor" {
 		t.Fatalf("network = %q, want bittensor", network.Network)
 	}
-	if network.FixtureWindow != "genesis..2025-12-31" {
+	if network.FixtureWindow != "2024-01-01..2026-07-02" {
 		t.Fatalf("fixture window = %q", network.FixtureWindow)
 	}
 	if !network.Layers["topology"].Enabled {
@@ -216,5 +216,54 @@ func TestGraphQueryBatchUsesChainInsightsEnvelope(t *testing.T) {
 	}
 	if len(query.Results) != 1 || query.Results[0]["query"] == "" {
 		t.Fatalf("unexpected query results: %#v", query.Results)
+	}
+}
+
+func TestBatchRejectsMoreThanMaxQueries(t *testing.T) {
+	t.Parallel()
+
+	handler := graphQueryBatchHandler(fakeRunner{})
+	queries := make([]BatchQuery, maxBatchQueries+1)
+	for index := range queries {
+		queries[index] = BatchQuery{Query: "MATCH (i) RETURN i"}
+	}
+	callResult, _, err := handler(context.Background(), nil, GraphQueryBatchArgs{Network: "bittensor", Queries: queries})
+	if err != nil {
+		t.Fatalf("handler returned error: %v", err)
+	}
+	if callResult == nil || !callResult.IsError {
+		t.Fatalf("expected batch larger than %d to be rejected", maxBatchQueries)
+	}
+}
+
+func TestGraphQueryReturnsChainInsightsEnvelopeWithRouting(t *testing.T) {
+	t.Parallel()
+
+	handler := graphQueryHandler(fakeRunner{})
+	_, structured, err := handler(context.Background(), nil, GraphQueryArgs{
+		Network: "bittensor",
+		Query:   "USE archive_topology MATCH (i) RETURN i LIMIT 1",
+	})
+	if err != nil {
+		t.Fatalf("handler returned error: %v", err)
+	}
+	result, ok := structured.(ChainInsightsQueryResult)
+	if !ok {
+		t.Fatalf("structured result type = %T, want ChainInsightsQueryResult", structured)
+	}
+	if result.Schema != "chain-insights.result.v1" || result.Tool != "graph_query" {
+		t.Fatalf("envelope = %q/%q", result.Schema, result.Tool)
+	}
+	if result.Facts.Query.Tier != "starrocks" || result.Facts.Query.TimeoutSeconds != starrocksTierTimeoutSeconds {
+		t.Fatalf("query facts = %+v", result.Facts.Query)
+	}
+	if result.Facts.Routing.TopologyKey != "archive_topology" {
+		t.Fatalf("topology key = %q", result.Facts.Routing.TopologyKey)
+	}
+	if result.Facts.Routing.StarRocksDatabase != "bittensor_semantic" {
+		t.Fatalf("starrocks database = %q", result.Facts.Routing.StarRocksDatabase)
+	}
+	if len(result.Facts.Query.Results) != 1 {
+		t.Fatalf("results = %#v", result.Facts.Query.Results)
 	}
 }

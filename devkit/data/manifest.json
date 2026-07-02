@@ -2,25 +2,25 @@
   "schema": "chain-insights.devkit.fixture.v1",
   "network": "bittensor",
   "semantic_database": "bittensor_semantic",
-  "exported_at": "2026-06-16T20:36:02Z",
+  "exported_at": "2026-07-02T18:45:59Z",
   "fixture_window": {
-    "from": "source-min",
-    "to_exclusive": "2026-01-01T00:00:00Z"
+    "from": "2024-01-01T00:00:00Z",
+    "to_exclusive": "2026-07-03T00:00:00Z"
   },
   "source": {
     "mapping": "repos/ml/data-pipeline/ops/memgql/chain_insights_starrocks_mapping.json",
     "live_topology": "memgraph"
   },
   "coverage": {
-    "substrate_rows": 464133,
-    "evm_pallet_rows": 468887,
-    "identity_count": 468887,
-    "member_address_count": 932216,
-    "flow_edge_count": 764312,
-    "memgraph_node_count": 756074,
-    "memgraph_relationship_count": 499616,
-    "memgraph_label_count": 9,
-    "scam_topology_edge_count": 2176
+    "substrate_rows": 480387,
+    "evm_pallet_rows": 480381,
+    "identity_count": 480381,
+    "member_address_count": 960768,
+    "flow_edge_count": 516204,
+    "memgraph_node_count": 958025,
+    "memgraph_relationship_count": 697269,
+    "memgraph_label_count": 8,
+    "scam_topology_edge_count": 2429
   },
   "objects": [
     {
@@ -28,33 +28,33 @@
       "name": "archive_topology_edges_view",
       "format": "tsv.gz",
       "path": "starrocks/archive_topology_edges_view.tsv.gz",
-      "row_count": 764312,
-      "source_min": "2023-03-20T19:05:48Z",
-      "exported_min": "2023-03-20T19:05:48Z",
-      "exported_max": "2025-12-31T23:56:24Z",
-      "sha256": "c0cea414d2b43afc7f1adf10e2ff72fa55c43b4dd46bb67d93896e42b794d249"
+      "row_count": 516204,
+      "source_min": "2024-01-01T00:11:24Z",
+      "exported_min": "2024-01-01T00:11:24Z",
+      "exported_max": "2026-06-30T23:59:48Z",
+      "sha256": "3b1331960d2271b99a323177f63b3cc11e8cc20b811ba39a33a7a90c0728a645"
     },
     {
       "database": "bittensor_semantic",
       "name": "archive_identity_address_links_view",
       "format": "tsv.gz",
       "path": "starrocks/archive_identity_address_links_view.tsv.gz",
-      "row_count": 932216,
-      "source_min": "1970-01-01T00:00:00Z",
-      "exported_min": "1970-01-01T00:00:00Z",
-      "exported_max": "2025-12-31T23:59:59Z",
-      "sha256": "5c4a26f0f5cd44fe3c1162f7e9ed65c078c36f24b150ab00c6fdbbc2c519a47b"
+      "row_count": 960768,
+      "source_min": "2024-01-01T00:00:00Z",
+      "exported_min": "2024-01-01T00:00:00Z",
+      "exported_max": "2026-07-02T23:59:59Z",
+      "sha256": "fa156d02b666204bf12426374d963cf83be1321e065285a368612058db702cb4"
     },
     {
       "database": "bittensor_semantic",
       "name": "archive_topology_addresses_view",
       "format": "tsv.gz",
       "path": "starrocks/archive_topology_addresses_view.tsv.gz",
-      "row_count": 468887,
-      "source_min": "1970-01-01T00:00:00Z",
-      "exported_min": "1970-01-01T00:00:00Z",
-      "exported_max": "2025-12-31T23:59:59Z",
-      "sha256": "1e57fddf8ae06f6a79e9b6a52614477f490248d284a1b848e64b9ad3eb4974ae"
+      "row_count": 480381,
+      "source_min": "2024-01-01T00:00:00Z",
+      "exported_min": "2024-01-01T00:00:00Z",
+      "exported_max": "2026-07-02T23:59:59Z",
+      "sha256": "e51f074023d7572c46db31afa1feb2b736feb4421ede37405bee09787ca00330"
     },
     {
       "database": "bittensor_semantic",
@@ -62,109 +62,109 @@
       "format": "tsv.gz",
       "path": "starrocks/archive_topology_snapshot_view.tsv.gz",
       "row_count": 1,
-      "source_min": "2023-03-20T00:00:00Z",
-      "exported_min": "2023-03-20T00:00:00Z",
-      "exported_max": "2025-12-31T00:00:00Z",
-      "sha256": "041f585d8a64c5eecebe8aa135650f57766d08c33376d658d066e95c5dd5c29b"
+      "source_min": "2024-01-01T00:00:00Z",
+      "exported_min": "2024-01-01T00:00:00Z",
+      "exported_max": "2026-07-02T00:00:00Z",
+      "sha256": "66dd107493b6ced25405784d8909750a086d3909409c135a43c6099fb9c6c2b5"
     },
     {
       "database": "bittensor_semantic",
       "name": "facts_address_labels_view",
       "format": "tsv.gz",
       "path": "starrocks/facts_address_labels_view.tsv.gz",
-      "row_count": 4265,
-      "source_min": "1970-01-01T00:00:00Z",
-      "exported_min": "1970-01-01T00:00:00Z",
-      "exported_max": "1970-01-01T00:00:00Z",
-      "sha256": "282ff2014f818eee69c5b971ee643cbd5802af392002653bb3df83881cdff776"
+      "row_count": 61,
+      "source_min": "2026-06-28T02:08:24Z",
+      "exported_min": "2026-06-28T02:08:24Z",
+      "exported_max": "2026-07-02T06:08:14Z",
+      "sha256": "1aa401ee5fc0631bf329c2fb9965158e8bdcac439ea2f604bb3409d620df94ca"
     },
     {
       "database": "bittensor_semantic",
       "name": "facts_address_features_view",
       "format": "tsv.gz",
       "path": "starrocks/facts_address_features_view.tsv.gz",
-      "row_count": 698084,
-      "source_min": "2023-03-20T19:05:48Z",
-      "exported_min": "2023-03-20T19:05:48Z",
-      "exported_max": "2025-12-31T23:54:36Z",
-      "sha256": "4414943cb2a9851bf74d39a66d467c06182bbf224093a08b1b3a978c1a8caa01"
+      "row_count": 874915,
+      "source_min": "2024-01-01T00:11:24Z",
+      "exported_min": "2024-01-01T00:11:24Z",
+      "exported_max": "2026-06-30T23:57:48Z",
+      "sha256": "a9197a8626074368e5d1ef06f3d57d23c728fedf5e4969d7651fb764ff8893de"
     },
     {
       "database": "bittensor_semantic",
       "name": "facts_assets_view",
       "format": "tsv.gz",
       "path": "starrocks/facts_assets_view.tsv.gz",
-      "row_count": 128,
-      "source_min": "2025-01-03T13:57:36Z",
-      "exported_min": "2025-01-03T13:57:36Z",
-      "exported_max": "2025-12-12T09:50:24Z",
-      "sha256": "1eaa14c34d403f51d8ebda95eadeacb28727307ba5607e1f0b0b2f09101b9aab"
+      "row_count": 332,
+      "source_min": "2024-12-30T14:30:36Z",
+      "exported_min": "2024-12-30T14:30:36Z",
+      "exported_max": "2026-06-30T17:39:24Z",
+      "sha256": "4c5e098e7b1f926902c22cb69ed47022a319eb081156ed9af479351fe5c37c37"
     },
     {
       "database": "bittensor_semantic",
       "name": "facts_risk_scores_view",
       "format": "tsv.gz",
       "path": "starrocks/facts_risk_scores_view.tsv.gz",
-      "row_count": 0,
-      "source_min": "1970-01-01T00:00:00Z",
-      "exported_min": "1970-01-01T00:00:00Z",
-      "exported_max": "1970-01-01T00:00:00Z",
-      "sha256": "686ac486dbb11fba2e4988a91cdff68974406a375786e2185a6a86ff7e3b5247"
+      "row_count": 23636,
+      "source_min": "2026-06-30T00:00:00Z",
+      "exported_min": "2026-06-30T00:00:00Z",
+      "exported_max": "2026-06-30T00:00:00Z",
+      "sha256": "605fa9536fcb7b211f721f5395fe3792c4d1ad8a87f2dbe01292641c2cb33b17"
     },
     {
       "database": "bittensor_semantic",
       "name": "facts_neuron_endpoints_view",
       "format": "tsv.gz",
       "path": "starrocks/facts_neuron_endpoints_view.tsv.gz",
-      "row_count": 304368,
-      "source_min": "2023-03-23T21:03:36Z",
-      "exported_min": "2023-03-23T21:03:36Z",
-      "exported_max": "2025-12-31T23:55:36Z",
-      "sha256": "56530aa00915800bbf61f2d0bedb1e28ab60407e2b480ebf0a538f11c1a58388"
+      "row_count": 297141,
+      "source_min": "2024-01-01T00:21:00Z",
+      "exported_min": "2024-01-01T00:21:00Z",
+      "exported_max": "2026-06-30T23:57:48Z",
+      "sha256": "b7e93caaeae4b481c5db06a954e0c243f1c5ae3a022475af7bd98f39272b727c"
     },
     {
       "database": "bittensor_semantic",
       "name": "facts_neuron_hotkeys_view",
       "format": "tsv.gz",
       "path": "starrocks/facts_neuron_hotkeys_view.tsv.gz",
-      "row_count": 162812,
-      "source_min": "2023-03-23T21:03:36Z",
-      "exported_min": "2023-03-23T21:03:36Z",
-      "exported_max": "2025-12-31T23:22:00Z",
-      "sha256": "bc325053d4c9e12556b9bdd47c17e32a77bd662d0e8abae7a8c4569cac2b8152"
+      "row_count": 156255,
+      "source_min": "2024-01-01T00:21:00Z",
+      "exported_min": "2024-01-01T00:21:00Z",
+      "exported_max": "2026-06-30T23:57:48Z",
+      "sha256": "fe94654777470518e6c519fe469eede4b6d0c79162e42173daa8c5d294273fc6"
     },
     {
       "database": "bittensor_semantic",
       "name": "facts_neuron_ip_addresses_view",
       "format": "tsv.gz",
       "path": "starrocks/facts_neuron_ip_addresses_view.tsv.gz",
-      "row_count": 45352,
-      "source_min": "2023-03-23T21:03:36Z",
-      "exported_min": "2023-03-23T21:03:36Z",
-      "exported_max": "2025-12-31T18:55:00Z",
-      "sha256": "079866fbde09f0e406a317be44ca31156c25f8d518eb35b54a06afb5eccda00f"
+      "row_count": 45136,
+      "source_min": "2024-01-01T00:21:00Z",
+      "exported_min": "2024-01-01T00:21:00Z",
+      "exported_max": "2026-06-30T23:54:24Z",
+      "sha256": "c5818b50a8a4ecb44b9e1b3d0e9ba7009247adf5a4b81de26cc98f07f976f6bc"
     },
     {
       "database": "memgraph",
       "name": "memgraph_nodes",
       "format": "jsonl.gz",
       "path": "memgraph/nodes.jsonl.gz",
-      "row_count": 756074,
-      "source_min": "2023-03-20T22:12:24Z",
-      "exported_min": "2023-03-20T22:12:24Z",
-      "exported_max": "2025-12-31T23:56:00Z",
-      "sha256": "bb854f98afae6366128c3f19b714c016713a3db265efd5e78a6d74f4d892c609"
+      "row_count": 958025,
+      "source_min": "2026-06-26T01:25:12Z",
+      "exported_min": "2026-06-26T01:25:12Z",
+      "exported_max": "2026-06-30T23:59:24Z",
+      "sha256": "487a5d10a5562cf1a2eeeafd23dae5b67174b30b97b311a19321d1b550ae90d0"
     },
     {
       "database": "memgraph",
       "name": "memgraph_relationships",
       "format": "jsonl.gz",
       "path": "memgraph/relationships.jsonl.gz",
-      "row_count": 499616,
-      "source_min": "2023-06-15T17:03:24Z",
-      "exported_min": "2023-06-15T17:03:24Z",
-      "exported_max": "2025-12-31T15:44:24Z",
-      "sha256": "0c11024b82285d3c85bee1596b01e745e48943f92c0784afb56bc29c389af74f"
+      "row_count": 697269,
+      "source_min": "2024-01-01T00:04:36Z",
+      "exported_min": "2024-01-01T00:04:36Z",
+      "exported_max": "2026-06-30T23:49:48Z",
+      "sha256": "bae26c7f279271b81aa8d421ec2acc9cab0198c2e8e8822ae39e31e03791f3c6"
     }
   ]
 }

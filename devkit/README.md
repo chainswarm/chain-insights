@@ -5,8 +5,8 @@ development. It lets developers run Chain Insights AML workflows against a deter
 Bittensor fixture without staging access, hosted credentials, x402 payment, or
 live indexing.
 
-The fixture serves the public semantic network `bittensor` from source genesis
-through `2025-12-31` UTC. Chain Insights owns the AML tools and investigation
+The fixture serves the public semantic network `bittensor` from
+`2024-01-01` through `2026-07-02` UTC. Chain Insights owns the AML tools and investigation
 recipes; this devkit exposes only the graph backend primitives those tools use.
 
 ## What It Runs
@@ -36,6 +36,9 @@ Fixture data is generated from the RBMK-controlled StarRocks export path:
 cd /path/to/rbmk
 bash scripts/devops/chain-insights-devkit/build-fixture.sh
 ```
+
+The topology edge fixture is sampled to repeated-flow edges (`tx_count >= 2`)
+so the devkit data stays small enough for ordinary Git checkouts.
 
 The devkit MCP tool list is intentionally small:
 
@@ -117,8 +120,8 @@ cia mcp call aml_address_risk \
   network=bittensor
 ```
 
-The devkit fixture is a static export of real Bittensor semantic data through
-the end of 2025. It is best for contract testing, tool development, docs
+The devkit fixture is a static export of real Bittensor semantic data from
+2024-01-01 through 2026-07-02. It is best for contract testing, tool development, docs
 examples, and local workflow checks.
 
 ## Data Boundary

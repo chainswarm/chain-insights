@@ -20,6 +20,13 @@ const (
 
 	liveTierName      = "live"
 	starrocksTierName = "starrocks"
+
+	// maxBatchQueries mirrors the production per-batch query cap.
+	maxBatchQueries = 20
+
+	// devkitStarRocksDatabase is the fixed semantic database the devkit
+	// fixture serves; reported in routing facts for production parity.
+	devkitStarRocksDatabase = "bittensor_semantic"
 )
 
 type GraphQueryArgs struct {
@@ -70,6 +77,29 @@ type ChainInsightsBatchQuery struct {
 	Error          string           `json:"error,omitempty"`
 }
 
+type ChainInsightsQueryResult struct {
+	Schema string                  `json:"schema"`
+	Tool   string                  `json:"tool"`
+	Facts  ChainInsightsQueryFacts `json:"facts"`
+	Hint   *string                 `json:"hint"`
+}
+
+type ChainInsightsQueryFacts struct {
+	Query   QueryExecutionFacts `json:"query"`
+	Routing RoutingFacts        `json:"routing"`
+}
+
+type QueryExecutionFacts struct {
+	Results        []map[string]any `json:"results"`
+	Tier           string           `json:"tier"`
+	TimeoutSeconds int              `json:"timeout_seconds"`
+}
+
+type RoutingFacts struct {
+	TopologyKey       string `json:"topology_key"`
+	StarRocksDatabase string `json:"starrocks_database"`
+}
+
 type UsageStatusResult struct {
 	Schema string           `json:"schema"`
 	Tool   string           `json:"tool"`
@@ -98,6 +128,19 @@ func ClassifyQueryTier(query string) (string, int) {
 		}
 	}
 	return liveTierName, liveTierTimeoutSeconds
+}
+
+// topologyKey resolves the USE-clause graph name for routing facts,
+// defaulting to live_topology when no recognized USE clause is present.
+func topologyKey(query string) string {
+	fields := strings.Fields(strings.ToLower(query))
+	if len(fields) >= 2 && fields[0] == "use" {
+		switch fields[1] {
+		case "archive_topology", "facts", "live_topology":
+			return fields[1]
+		}
+	}
+	return "live_topology"
 }
 
 // UsageStatusDocument reports the devkit's fixed unmetered usage contract:
@@ -139,19 +182,37 @@ func graphQueryHandler(runner QueryRunner) func(context.Context, *mcp.CallToolRe
 		if err := ValidateReadOnlyQuery(args.Query); err != nil {
 			return toolError(err.Error()), nil, nil
 		}
-		_, timeoutSeconds := ClassifyQueryTier(args.Query)
+		tier, timeoutSeconds := ClassifyQueryTier(args.Query)
 		queryContext, cancel := context.WithTimeout(ctx, time.Duration(timeoutSeconds)*time.Second)
 		defer cancel()
 		result, err := runner.Run(queryContext, args.Network, args.Query)
 		if err != nil {
 			return toolError(err.Error()), nil, nil
 		}
-		return jsonResult(result)
+		return jsonResult(ChainInsightsQueryResult{
+			Schema: "chain-insights.result.v1",
+			Tool:   "graph_query",
+			Facts: ChainInsightsQueryFacts{
+				Query: QueryExecutionFacts{
+					Results:        result.Rows,
+					Tier:           tier,
+					TimeoutSeconds: timeoutSeconds,
+				},
+				Routing: RoutingFacts{
+					TopologyKey:       topologyKey(args.Query),
+					StarRocksDatabase: devkitStarRocksDatabase,
+				},
+			},
+			Hint: nil,
+		})
 	}
 }
 
 func graphQueryBatchHandler(runner QueryRunner) func(context.Context, *mcp.CallToolRequest, GraphQueryBatchArgs) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, req *mcp.CallToolRequest, args GraphQueryBatchArgs) (*mcp.CallToolResult, any, error) {
+		if len(args.Queries) > maxBatchQueries {
+			return toolError(fmt.Sprintf("queries must contain at most %d items", maxBatchQueries)), nil, nil
+		}
 		if args.PerQueryTimeoutSeconds > starrocksTierTimeoutSeconds {
 			return toolError(fmt.Sprintf(
 				"per_query_timeout_seconds must not exceed %d (live tier ceiling %d, starrocks tier ceiling %d)",

@@ -37,7 +37,7 @@ func NetworkDocument() NetworkCapabilitiesDocument {
 			DisplayName:   "Bittensor",
 			Status:        "devkit",
 			Default:       true,
-			FixtureWindow: "genesis..2025-12-31",
+			FixtureWindow: "2024-01-01..2026-07-02",
 			Layers: map[string]Layer{
 				"topology": {
 					Enabled: true,
