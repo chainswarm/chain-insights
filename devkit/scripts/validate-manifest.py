@@ -93,6 +93,51 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def sha256_paths(paths: list[Path]) -> str:
+    digest = hashlib.sha256()
+    for path in paths:
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+    return digest.hexdigest()
+
+
+def fixture_part_paths(entry: dict) -> list[Path]:
+    parts = entry.get("parts") or []
+    if not parts:
+        rel_path = entry.get("path", "")
+        return [DEVKIT_ROOT / "data" / rel_path]
+    paths: list[Path] = []
+    for part in parts:
+        rel_path = part.get("path", "")
+        path = DEVKIT_ROOT / "data" / rel_path
+        paths.append(path)
+    return paths
+
+
+def validate_parts(entry: dict) -> None:
+    parts = entry.get("parts") or []
+    if not parts:
+        return
+    row_count = 0
+    for part in parts:
+        rel_path = part.get("path", "")
+        relative_path = Path(rel_path)
+        if relative_path.is_absolute() or ".." in relative_path.parts:
+            fail(f"manifest object {entry.get('name', '')} part path is unsafe: {rel_path}")
+        path = DEVKIT_ROOT / "data" / rel_path
+        if not path.is_file():
+            fail(f"manifest object {entry.get('name', '')} part file missing: {rel_path}")
+        fail_on_placeholder_file(path)
+        expected_sha = part.get("sha256", "")
+        actual_sha = sha256(path)
+        if actual_sha != expected_sha:
+            fail(f"manifest object {entry.get('name', '')} part checksum mismatch: {actual_sha} != {expected_sha}")
+        row_count += int(part.get("row_count", 0))
+    if row_count != int(entry.get("row_count", 0)):
+        fail(f"manifest object {entry.get('name', '')} part row counts do not sum to row_count")
+
+
 def fail_on_placeholder_value(context: str, value: object) -> None:
     text = str(value or "").lower()
     for marker in PLACEHOLDER_MARKERS:
@@ -175,18 +220,20 @@ def main() -> None:
             fail(f"manifest object {name} exported_min must equal source_min")
         if str(entry.get("exported_max", "")) >= "2026-07-03T00:00:00Z":
             fail(f"manifest object {name} exported_max must be before 2026-07-03T00:00:00Z")
-        rel_path = entry.get("path", "")
-        file_path = DEVKIT_ROOT / "data" / rel_path
-        if not file_path.is_file():
-            fail(f"manifest object {name} file missing: {rel_path}")
-        fail_on_placeholder_file(file_path)
+        paths = fixture_part_paths(entry)
+        for file_path in paths:
+            if not file_path.is_file():
+                fail(f"manifest object {name} file missing: {file_path.relative_to(DEVKIT_ROOT / 'data')}")
+        validate_parts(entry)
+        if not entry.get("parts"):
+            fail_on_placeholder_file(paths[0])
         expected_sha = entry.get("sha256", "")
-        actual_sha = sha256(file_path)
+        actual_sha = sha256_paths(paths) if entry.get("parts") else sha256(paths[0])
         if actual_sha != expected_sha:
             fail(f"manifest object {name} checksum mismatch: {actual_sha} != {expected_sha}")
         if is_memgraph_object:
-            opener = gzip.open if file_path.suffix == ".gz" else open
-            with opener(file_path, "rt", encoding="utf-8", errors="replace") as handle:
+            opener = gzip.open if paths[0].suffix == ".gz" else open
+            with opener(paths[0], "rt", encoding="utf-8", errors="replace") as handle:
                 payload = handle.read()
             for marker in FORBIDDEN_MEMGRAPH_MARKERS:
                 if marker in payload:
