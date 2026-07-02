@@ -68,13 +68,35 @@ services:
       starrocks-import:
         condition: service_completed_successfully
 
+  # Real Chain Insights Graph backend binary, built from the sibling
+  # data-pipeline checkout (same convention as the memgql mapping mount).
+  # x402 billing, telemetry, and dynamic capabilities are disabled: the
+  # devkit exercises the tool/tier contract, not billing or warehouse
+  # coverage. Flip GRAPH_MCP_DYNAMIC_CAPABILITIES_ENABLED once the fixture
+  # carries the coverage/checkpoint sources dynamic capabilities probe.
   chain-insights-graph-devkit:
     build:
-      context: .
-      dockerfile: Dockerfile.mcp
+      context: ../../../ml/data-pipeline
+      dockerfile: ops/Dockerfile
+    image: chain-insights-graph-devkit:local
+    command: ["/usr/local/bin/graphrag-mcp"]
     network_mode: "service:memgql"
     environment:
-      MEMGQL_BOLT_URI: bolt://127.0.0.1:7688
+      PORT: "8012"
+      METRICS_PORT: "0"
+      MEMGRAPH_ZERO_URI_BITTENSOR: bolt://127.0.0.1:7688
+      STARROCKS_HOST: starrocks
+      STARROCKS_PORT: "9030"
+      STARROCKS_USER: root
+      STARROCKS_PASSWORD: ""
+      STARROCKS_DATABASE: bittensor_semantic
+      STARROCKS_DATABASE_BITTENSOR_SEMANTIC: bittensor_semantic
+      STARROCKS_DATABASE_BITTENSOR_EVM: bittensor_semantic
+      GRAPH_MCP_DYNAMIC_CAPABILITIES_ENABLED: "false"
+      GRAPH_MCP_PER_QUERY_TIMEOUT_SECONDS: "10"
+      GRAPH_MCP_STARROCKS_PER_QUERY_TIMEOUT_SECONDS: "30"
+      X402_ENABLED: "false"
+      TELEMETRY_ENABLED: "false"
     depends_on:
       memgql-bootstrap:
         condition: service_completed_successfully
