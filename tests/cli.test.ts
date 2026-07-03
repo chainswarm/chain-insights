@@ -172,6 +172,37 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out.trim()).toMatch(/^\d+\.\d+\.\d+$/)
   })
 
+  it('--claude --help prints help and does NOT run the installer', () => {
+    const home = mkdtempSync(join(tmpdir(), 'chain-insights-help-'))
+    try {
+      const out = execFileSync('node', ['--import', tsxLoader, srcCli, '--claude', '--help'], {
+        encoding: 'utf8',
+        env: { ...process.env, HOME: home },
+      })
+      expect(out).toContain('Usage:')
+      expect(out).toContain('--claude')
+      // The installer must not have written anything.
+      expect(existsSync(join(home, '.claude', 'skills'))).toBe(false)
+      expect(existsSync(join(home, '.chain-insights', 'config.json'))).toBe(false)
+    } finally {
+      rmSync(home, { recursive: true, force: true })
+    }
+  })
+
+  it('--claude --version prints the version and does NOT run the installer', () => {
+    const home = mkdtempSync(join(tmpdir(), 'chain-insights-ver-'))
+    try {
+      const out = execFileSync('node', ['--import', tsxLoader, srcCli, '--claude', '--version'], {
+        encoding: 'utf8',
+        env: { ...process.env, HOME: home },
+      })
+      expect(out.trim()).toMatch(/^\d+\.\d+\.\d+$/)
+      expect(existsSync(join(home, '.chain-insights', 'config.json'))).toBe(false)
+    } finally {
+      rmSync(home, { recursive: true, force: true })
+    }
+  })
+
   it('package exposes cia as a short CLI alias', () => {
     const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { bin: Record<string, string> }
     expect(pkg.bin['cia']).toBe('./bin/cli.js')

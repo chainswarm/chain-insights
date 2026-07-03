@@ -27,6 +27,20 @@ describe('Installer (FOUND-01)', () => {
     expect(existsSync(skillPath)).toBe(true)
   })
 
+  it('--claude preserves a user-owned ci-* skill dir it does not ship', () => {
+    // A user's own skill that merely shares the "ci-" prefix must not be
+    // deleted by a clean reinstall.
+    const userSkillDir = join(fakeHome, '.claude', 'skills', 'ci-my-user-skill')
+    mkdirSync(userSkillDir, { recursive: true })
+    writeFileSync(join(userSkillDir, 'SKILL.md'), '# my own skill\n', 'utf8')
+
+    execSync(`HOME=${fakeHome} node bin/install.cjs --claude`, { stdio: 'pipe' })
+
+    // User skill survives; the shipped ci-status skill is still installed.
+    expect(existsSync(join(userSkillDir, 'SKILL.md'))).toBe(true)
+    expect(existsSync(join(fakeHome, '.claude', 'skills', 'ci-status', 'SKILL.md'))).toBe(true)
+  })
+
   it('--claude creates ~/.chain-insights/config.json', () => {
     execSync(`HOME=${fakeHome} node bin/install.cjs --claude`, { stdio: 'pipe' })
     const configPath = join(fakeHome, '.chain-insights', 'config.json')

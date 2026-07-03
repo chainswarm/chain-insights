@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.14] - 2026-07-03
+
+- Installer safety: `cia --claude` / `--codex` / `--hermes` no longer delete
+  every `ci-*` directory in the shared global skills folder before copying. A
+  user's own unrelated `ci-*` skill was being removed on install; clean
+  reinstall is now scoped to only the skill directories Chain Insights ships.
+- `cia --claude --help` (and `--codex`/`--hermes` with `--help`/`--version`)
+  now print help/version instead of running the global installer. A help or
+  version request must never mutate the machine.
+
 ## [0.8.13] - 2026-07-03
 
 - Wallet safety: the payment wallet no longer signs an unbounded token
