@@ -3,6 +3,21 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.18] - 2026-07-04
+
+- `cia serve` and `cia viz` now bind the configured `serverPort` when `--port`
+  is omitted, instead of always hardcoding 4321. `cia status` and persisted
+  graph-report URLs advertise `config.serverPort`, so after `config set
+  serverPort <n>` the advertised URL is now the one the server actually listens
+  on. `--port` still overrides, and a non-numeric or out-of-range `--port` is
+  now rejected with a clear message instead of letting `NaN` reach `listen()`.
+- `cia mcp aml-trace-victim-funds --remote` now forwards `--incident-timestamp-ms`
+  and `--max-hops` (both accepted by the remote tool contract) instead of
+  silently dropping them, and rejects `--per-address-limit` / `--min-amount-sum`
+  with a clear error since those tune the local recipe only and the remote tool
+  does not accept them. Previously all four flags were silently ignored in
+  `--remote` mode.
+
 ## [0.8.17] - 2026-07-03
 
 - Corrected the LICENSE copyright holder to Chainswarm Technology (the legal
