@@ -49,6 +49,11 @@ jobs:
       - name: Verify npm package contents
         run: |
           set -euo pipefail
-          package_file="$(npm pack --silent)"
+          # `npm pack` runs the `prepare` lifecycle script (tsdown build);
+          # that child process's stdout is not silenced by --silent and is
+          # interleaved with npm's own printed tarball filename. The tarball
+          # filename is always npm's own final line of output, so take the
+          # last line rather than the whole capture.
+          package_file="$(npm pack --silent | tail -n1)"
           tar -tf "$package_file"
           rm "$package_file"

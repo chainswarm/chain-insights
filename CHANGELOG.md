@@ -3,6 +3,14 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.11] - 2026-07-03
+
+- Fix the Verify workflow's "Verify npm package contents" step: `npm pack`
+  runs the `prepare` build hook, and that child process's build-tool stdout
+  was getting captured into the tarball filename variable, causing `tar -tf`
+  to fail with "Cannot open" on every push and PR since 0.8.8. Take the last
+  line of `npm pack --silent` output instead of the whole capture.
+
 ## [0.8.10] - 2026-07-03
 
 - Fix the devkit README's `cia mcp call` example: the sample address
