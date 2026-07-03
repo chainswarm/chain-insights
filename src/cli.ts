@@ -408,10 +408,15 @@ program
     new Command('import')
       .description('Import a Base payment wallet')
       .argument('<private-key>', '0x-prefixed EVM private key')
-      .action(async (privateKey: string) => {
+      .option('--force', 'Replace an existing wallet (the previous key is backed up next to wallet.json)')
+      .action(async (privateKey: string, opts: { force?: boolean }) => {
         try {
-          const { setWalletPrivateKey } = await import('./wallet/index.js')
-          const address = await setWalletPrivateKey(privateKey)
+          const { setWalletPrivateKey, isWalletConfigured } = await import('./wallet/index.js')
+          const replacing = opts.force === true && await isWalletConfigured()
+          const address = await setWalletPrivateKey(privateKey, { force: opts.force })
+          if (replacing) {
+            console.log('Previous wallet key backed up next to ~/.chain-insights/wallet.json')
+          }
           console.log(`Wallet imported: ${address}`)
           console.log('Next: run `chain-insights wallet ready`')
         } catch (err) {

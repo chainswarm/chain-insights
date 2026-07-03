@@ -8,6 +8,13 @@ export const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as cons
 export const PERMIT2_ADDRESS = '0x000000000022D473030F116dDEE9F6B43aC78BA3' as const
 export const DEFAULT_BASE_RPC_URL = 'https://mainnet.base.org'
 export const DEFAULT_PAYMENT_APPROVAL_UNITS = 1_000_000n
+// Ceiling for approvals triggered automatically by a 402 `allowance_required`
+// response. The endpoint dictates the amount, so it must be bounded: a
+// malicious or compromised endpoint could otherwise demand — and have the
+// client silently sign — an allowance up to the wallet's entire balance.
+// Override with CHAIN_INSIGHTS_MAX_AUTO_APPROVAL_USDC; larger one-off
+// allowances go through the explicit `wallet ready --payment-usdc` path.
+export const DEFAULT_MAX_AUTO_APPROVAL_UNITS = 10_000_000n
 export const PUBLIC_BASE_RPC_URLS = [
   DEFAULT_BASE_RPC_URL,
   'https://base-rpc.publicnode.com',
@@ -89,8 +96,23 @@ export interface PrepareWalletResult {
 export interface PrepareWalletOptions {
   account?: PaymentWalletAccount
   minimumApprovalUnits?: bigint
+  // When set, refuse (before any on-chain action) to approve more than this
+  // many USDC units. Callers that escalate to an endpoint-dictated amount must
+  // pass this so an untrusted endpoint cannot drive an unbounded approval.
+  maxApprovalUnits?: bigint
   approve?: boolean
   rpcUrl?: string
+}
+
+/**
+ * Resolves the automatic payment-approval ceiling, honoring the
+ * CHAIN_INSIGHTS_MAX_AUTO_APPROVAL_USDC override (validated as a positive USDC
+ * amount) and otherwise returning DEFAULT_MAX_AUTO_APPROVAL_UNITS.
+ */
+export function resolveMaxAutoApprovalUnits(env: NodeJS.ProcessEnv = process.env): bigint {
+  const raw = env['CHAIN_INSIGHTS_MAX_AUTO_APPROVAL_USDC']?.trim()
+  if (!raw) return DEFAULT_MAX_AUTO_APPROVAL_UNITS
+  return parsePaymentApprovalUnits(raw)
 }
 
 export interface WalletBalanceFacts {
@@ -364,6 +386,15 @@ export async function approvePaymentAllowance(
 
 export async function prepareWalletForPaidCalls(options: PrepareWalletOptions = {}): Promise<PrepareWalletResult> {
   const minimumApprovalUnits = options.minimumApprovalUnits ?? DEFAULT_PAYMENT_APPROVAL_UNITS
+  if (options.maxApprovalUnits !== undefined && minimumApprovalUnits > options.maxApprovalUnits) {
+    const requested = formatUnits(minimumApprovalUnits, 6)
+    throw new Error(
+      `Requested payment approval of ${requested} USDC exceeds the automatic payment-approval ceiling ` +
+      `of ${formatUnits(options.maxApprovalUnits, 6)} USDC. If this amount is expected, approve it deliberately with ` +
+      `\`chain-insights wallet ready --payment-usdc ${requested}\`, or raise the ceiling via ` +
+      `CHAIN_INSIGHTS_MAX_AUTO_APPROVAL_USDC.`,
+    )
+  }
   const wallet = options.account ?? await getWalletAccount()
   const readiness = await getWalletReadiness(wallet, minimumApprovalUnits)
 

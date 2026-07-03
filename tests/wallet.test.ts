@@ -48,6 +48,34 @@ describe('Wallet module (MCP-01)', () => {
     expect(recovered).toBe(testKey)
   })
 
+  it('setWalletPrivateKey refuses to overwrite an existing wallet without force', async () => {
+    const { setWalletPrivateKey, decryptKey } = await import('../src/wallet/index.js')
+    const firstKey = '0x1111111111111111111111111111111111111111111111111111111111111111'
+    const secondKey = '0x2222222222222222222222222222222222222222222222222222222222222222'
+    await setWalletPrivateKey(firstKey)
+
+    await expect(setWalletPrivateKey(secondKey)).rejects.toThrow(/already exists/)
+    // The original key is untouched.
+    expect(await decryptKey()).toBe(firstKey)
+  })
+
+  it('setWalletPrivateKey with force overwrites and backs up the previous wallet', async () => {
+    const { setWalletPrivateKey, decryptKey, walletPath } = await import('../src/wallet/index.js')
+    const { readdir } = await import('node:fs/promises')
+    const { dirname, basename } = await import('node:path')
+    const firstKey = '0x1111111111111111111111111111111111111111111111111111111111111111'
+    const secondKey = '0x2222222222222222222222222222222222222222222222222222222222222222'
+    await setWalletPrivateKey(firstKey)
+
+    await setWalletPrivateKey(secondKey, { force: true })
+
+    expect(await decryptKey()).toBe(secondKey)
+    const dir = dirname(walletPath())
+    const entries = await readdir(dir)
+    const backups = entries.filter((name) => name.startsWith(`${basename(walletPath())}.bak`))
+    expect(backups.length).toBe(1)
+  })
+
   it('wallet.json is written with 0o600 permissions', async () => {
     const { encryptKey, walletPath } = await import('../src/wallet/index.js')
     const { stat } = await import('node:fs/promises')
