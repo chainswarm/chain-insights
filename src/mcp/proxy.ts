@@ -1162,6 +1162,11 @@ export async function createProxy(): Promise<void> {
       }
     },
   )
+  }
+  // NOTE: only wallet_balance is workspace-only. Everything below — the graph
+  // app resource, the aml_*/graph tools, and server.connect() — is shared and
+  // MUST run in stateless mode too. (Regression #136: this brace had drifted to
+  // the end of the function, so stateless mode skipped server.connect entirely.)
 
   registerAppResource(
     server,
@@ -1650,7 +1655,6 @@ export async function createProxy(): Promise<void> {
   }
   process.on('SIGINT', () => { void shutdown() })
   process.on('SIGTERM', () => { void shutdown() })
-}
 }
 
 

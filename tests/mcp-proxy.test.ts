@@ -430,6 +430,49 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(serverInstance.connect).toHaveBeenCalled()
   })
 
+  it('connects the stdio server and registers the shared tools in stateless mode', async () => {
+    process.env['CHAIN_INSIGHTS_MCP_PROXY_MODE'] = 'stateless'
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    vi.mocked(Client).mockImplementationOnce(function () {
+      return {
+        connect: vi.fn().mockRejectedValue(new Error('connection refused')),
+        listTools: vi.fn(),
+        listPrompts: vi.fn(),
+        getPrompt: vi.fn(),
+        callTool: vi.fn(),
+      }
+    } as never)
+
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+    stderrSpy.mockRestore()
+
+    const serverInstance = vi.mocked(McpServer).mock.results.at(-1)?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+      connect: ReturnType<typeof vi.fn>
+    }
+    const toolNames = serverInstance.registerTool.mock.calls.map((entry) => entry[0])
+    // The core of issue #136: the stdio server must actually attach in stateless mode.
+    expect(serverInstance.connect).toHaveBeenCalled()
+    // Shared tools must register in stateless mode too.
+    expect(toolNames).toContain('meta_network_capabilities')
+    expect(toolNames).toContain('meta_usage_status')
+    expect(toolNames).toContain('meta_help')
+    expect(toolNames).toContain('graph_query')
+    expect(toolNames).toContain('aml_address_risk')
+    expect(toolNames).toContain('aml_trace_victim_funds')
+    expect(toolNames).toContain('aml_trace_suspect_funds')
+    expect(toolNames).toContain('aml_trace_deposit_sources')
+    // The wallet tool stays workspace-only and must NOT appear in stateless mode.
+    expect(toolNames).not.toContain('wallet_balance')
+  })
+
   it('starts local Chain Insights tools when paid Chain Insights Graph fetch setup needs wallet configuration', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)
@@ -1222,7 +1265,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
   })
 
-  it('runs trace tools in stateless proxy mode without helper tools or graph report artifacts', async () => {
+  it('registers shared trace tools in stateless proxy mode without wallet or graph report artifacts', async () => {
     process.env['CHAIN_INSIGHTS_MCP_PROXY_MODE'] = 'stateless'
     runFundFlowProbeMock.mockResolvedValue({
       summaryText: 'Trace complete for bittensor:5Victim',
@@ -1276,7 +1319,12 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       'meta_network_capabilities',
       'meta_usage_status',
     ]))
-    expect(toolNames).not.toContain('aml_trace_victim_funds')
+    // Stateless mode exposes the paid aml_* surface (that IS the ACP product);
+    // it only omits the workspace wallet tool and never writes local artifacts.
+    expect(toolNames).toContain('aml_trace_victim_funds')
+    expect(toolNames).toContain('aml_trace_suspect_funds')
+    expect(toolNames).toContain('aml_trace_deposit_sources')
+    expect(toolNames).toContain('aml_address_risk')
     expect(toolNames).not.toContain('wallet_balance')
     expect(ensureArtifactServerMock).not.toHaveBeenCalled()
     expect(runFundFlowProbeMock).not.toHaveBeenCalled()

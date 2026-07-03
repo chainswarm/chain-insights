@@ -3,6 +3,18 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.15] - 2026-07-03
+
+- Fix stateless MCP proxy mode (`CHAIN_INSIGHTS_MCP_PROXY_MODE=stateless`): the
+  proxy exited cleanly before `server.connect()` ran, so every host call failed
+  with `MCP error -32000: Connection closed`. A misplaced brace left the
+  `if (workspaceArtifactsEnabled)` block wrapping the graph app resource, the
+  `aml_*`/`graph_*` tool registration, and the stdio connect — all skipped when
+  not in workspace mode. Scope the gate to the workspace-only `wallet_balance`
+  tool so the shared surface and the transport attach in both modes. Stateless
+  mode now completes the handshake and serves the four `aml_*` tools plus the
+  graph primitives without writing workspace artifacts.
+
 ## [0.8.14] - 2026-07-03
 
 - Installer safety: `cia --claude` / `--codex` / `--hermes` no longer delete
