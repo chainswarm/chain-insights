@@ -117,14 +117,18 @@ program
 program
   .command('serve')
   .description('Start local visualization server')
-  .option('-p, --port <number>', 'Port to bind (default: 4321)', '4321')
-  .action(async (opts: { port: string }) => {
+  .option('-p, --port <number>', 'Port to bind (defaults to the configured serverPort)')
+  .action(async (opts: { port?: string }) => {
     try {
       const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
       const workspaceRoot = requireWorkspaceRoot()
+      const { loadConfig } = await import('./config/index.js')
+      const { resolveServerPort } = await import('./server/resolve-port.js')
+      const config = await loadConfig()
+      const port = resolveServerPort(opts.port, config.serverPort)
       const { startServer } = await import('./server/index.js')
       console.log(`Workspace: ${workspaceRoot}`)
-      startServer(parseInt(opts.port, 10))
+      startServer(port)
     } catch (err) {
       console.error((err as Error).message)
       process.exit(1)
@@ -636,14 +640,19 @@ program
           requireWorkspaceRoot()
           await withGraphMcpClient('chain-insights-cli-aml-trace-victim-funds', async (client, config) => {
             if (opts.remote) {
+              const { buildTraceVictimFundsRemoteArgs } = await import('./investigation/remote-trace-args.js')
               const result = await client.callTool({
                 name: 'aml_trace_victim_funds',
-                arguments: {
-                  victim_addresses: opts.victimAddresses,
+                arguments: buildTraceVictimFundsRemoteArgs({
+                  victimAddresses: opts.victimAddresses,
                   network: opts.network,
-                  ...(opts.knownSuspectAddresses ? { known_suspect_addresses: opts.knownSuspectAddresses } : {}),
-                  ...(topologyScope ? { topology_scope: topologyScope } : {}),
-                },
+                  knownSuspectAddresses: opts.knownSuspectAddresses,
+                  incidentTimestampMs: opts.incidentTimestampMs,
+                  maxHops: opts.maxHops,
+                  perAddressLimit: opts.perAddressLimit,
+                  minAmountSum: opts.minAmountSum,
+                  topologyScope: topologyScope ?? undefined,
+                }),
               })
               printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
               return
@@ -854,17 +863,20 @@ program
   .description('Generate a workspace visualization')
   .argument('[source-id]', 'Workspace graph report ID to render')
   .option('--data <file>', 'Raw transaction JSON file for ad-hoc visualization')
-  .option('-p, --port <number>', 'Server port', '4321')
-  .action(async (sourceId: string | undefined, opts: { data?: string; port: string }) => {
+  .option('-p, --port <number>', 'Server port (defaults to the configured serverPort)')
+  .action(async (sourceId: string | undefined, opts: { data?: string; port?: string }) => {
     try {
       if (!sourceId && !opts.data) {
         console.error('Provide either a visualization source ID or --data <file.json>')
         process.exit(1)
       }
+      const { loadConfig } = await import('./config/index.js')
+      const { resolveServerPort } = await import('./server/resolve-port.js')
+      const config = await loadConfig()
+      const port = resolveServerPort(opts.port, config.serverPort)
       const { generateVisualization } = await import('./viz/index.js')
       const result = await generateVisualization({ sourceId, dataFile: opts.data })
       const { startServer } = await import('./server/index.js')
-      const port = parseInt(opts.port, 10)
       startServer(port)
       const url = `http://127.0.0.1:${port}/viz/${result.vizId}`
       console.log(`Visualization: ${url}`)
