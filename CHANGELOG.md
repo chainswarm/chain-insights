@@ -3,6 +3,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.12] - 2026-07-03
+
+- Document devkit's persistent `cia debug on --token <token> --endpoint
+  http://127.0.0.1:18012/mcp` config path in the top-level README, matching
+  the pattern used for the local/staging endpoint examples.
+
 ## [0.8.11] - 2026-07-03
 
 - Fix the Verify workflow's "Verify npm package contents" step: `npm pack`

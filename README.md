@@ -77,8 +77,15 @@ cia config set graphMcpEndpoint http://127.0.0.1:8012/mcp
 ```
 
 For a deterministic local Bittensor backend, use the RBMK-managed devkit
-runbook and point Chain Insights at
-`http://127.0.0.1:18012/mcp`.
+runbook and point Chain Insights at it persistently:
+
+```bash
+cia debug on --token <any-string> --endpoint http://127.0.0.1:18012/mcp
+```
+
+The devkit backend is unmetered and never issues a paid challenge, so
+`cia config set graphMcpEndpoint http://127.0.0.1:18012/mcp` alone also works;
+`debug on` just skips payment negotiation outright.
 
 Hosted staging endpoint for approved testers:
 
