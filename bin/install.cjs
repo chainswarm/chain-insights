@@ -57,13 +57,10 @@ function copyCommandsAsClaudeSkills(srcDir, targetDir) {
 
   fs.mkdirSync(targetDir, { recursive: true });
 
-  // Remove stale ci-* skill dirs before copying (clean reinstall)
-  const existing = fs.readdirSync(targetDir, { withFileTypes: true });
-  for (const entry of existing) {
-    if (entry.isDirectory() && entry.name.startsWith('ci-')) {
-      fs.rmSync(path.join(targetDir, entry.name), { recursive: true, force: true });
-    }
-  }
+  // NOTE: do NOT blanket-delete by prefix here. The target is a shared skills
+  // directory that may hold the user's own skills (including unrelated `ci-*`
+  // ones). Clean reinstall is handled per shipped skill below — each skill dir
+  // we ship is removed and recopied, and nothing else is touched.
 
   const copyTree = (src, dest) => {
     const stat = fs.statSync(src);

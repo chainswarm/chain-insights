@@ -21,7 +21,10 @@ program
 // Handle installer flags when invoked with no subcommand (bare `chain-insights --claude`)
 const rawArgs = process.argv.slice(2)
 const installerFlags = rawArgs.filter(a => a === '--claude' || a === '--codex' || a === '--hermes')
-if (installerFlags.length > 0 && !rawArgs.some(a => !a.startsWith('-'))) {
+// A help/version request must never trigger a global install side effect — let
+// commander handle it and print help/version instead.
+const wantsHelpOrVersion = rawArgs.some(a => a === '--help' || a === '-h' || a === '--version' || a === '-V')
+if (installerFlags.length > 0 && !wantsHelpOrVersion && !rawArgs.some(a => !a.startsWith('-'))) {
   try {
     execFileSync(process.execPath, [installerPath, ...installerFlags], { stdio: 'inherit' })
   } catch (err) {
