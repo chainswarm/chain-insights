@@ -12,7 +12,7 @@ services:
       - ./data:/data:ro
 
   memgql:
-    image: memgraph/memgql:0.6.1
+    image: memgraph/memgql:0.6.3
     environment:
       CONNECTOR_TYPE: multi
     ports:
