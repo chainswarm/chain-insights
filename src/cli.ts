@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { PACKAGE_INFO, PACKAGE_VERSION } from './version.js'
+import { printMcpTextContent } from './mcp/print-result.js'
 
 // Resolve bin/install.cjs relative to this file's location in dist/
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -85,12 +86,6 @@ async function withGraphMcpClient<T>(name: string, fn: (client: import('@modelco
     return await fn(client, config)
   } finally {
     await client.close()
-  }
-}
-
-function printMcpTextContent(result: { content?: Array<{ type: string; text?: string }> }): void {
-  for (const item of result.content ?? []) {
-    if (item.type === 'text') console.log(item.text)
   }
 }
 
@@ -881,4 +876,10 @@ program
     }
   })
 
-program.parse(process.argv)
+// parseAsync (not parse) so a rejected async action surfaces as a clean
+// one-line error and a non-zero exit, instead of an unhandled-rejection stack
+// trace. Commands with their own try/catch still exit(1) before this fires.
+program.parseAsync(process.argv).catch((err) => {
+  console.error((err as Error).message)
+  process.exit(1)
+})
