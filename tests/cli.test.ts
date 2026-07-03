@@ -203,6 +203,25 @@ describe('CLI scaffold (FOUND-02)', () => {
     }
   })
 
+  it('status fails cleanly (no stack trace) on a corrupt config.json', () => {
+    const home = mkdtempSync(join(tmpdir(), 'chain-insights-badcfg-'))
+    try {
+      mkdirSync(join(home, '.chain-insights'), { recursive: true })
+      writeFileSync(join(home, '.chain-insights', 'config.json'), '{ not valid json', 'utf8')
+      const result = spawnSync('node', ['bin/cli.js', 'status'], {
+        encoding: 'utf8',
+        env: { ...process.env, HOME: home },
+      })
+      expect(result.status).not.toBe(0)
+      expect(result.stderr).toContain('Invalid JSON in')
+      // A clean one-line error, not a raw Node stack trace.
+      expect(result.stderr).not.toMatch(/\n\s+at\s/)
+      expect(result.stderr).not.toContain('node:internal')
+    } finally {
+      rmSync(home, { recursive: true, force: true })
+    }
+  })
+
   it('package exposes cia as a short CLI alias', () => {
     const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { bin: Record<string, string> }
     expect(pkg.bin['cia']).toBe('./bin/cli.js')

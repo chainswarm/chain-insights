@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.16] - 2026-07-03
+
+- `cia mcp call` now exits non-zero when the backend tool returns an error
+  result (`isError`). Previously the error text was printed and the CLI still
+  exited 0, so scripts and CI treated remote tool failures as success.
+- `cia status`, `cia config get`, and `cia config set` now fail with a clean
+  one-line error and a non-zero exit on a corrupt config (e.g. invalid
+  `config.json`), instead of a raw Node stack trace. The CLI parses commands
+  with `parseAsync` so any async action rejection is surfaced cleanly.
+
 ## [0.8.15] - 2026-07-03
 
 - Fix stateless MCP proxy mode (`CHAIN_INSIGHTS_MCP_PROXY_MODE=stateless`): the
