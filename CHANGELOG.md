@@ -3,6 +3,11 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.17] - 2026-07-03
+
+- Corrected the LICENSE copyright holder to Chainswarm Technology (the legal
+  entity; "Chain Swarm AML" was never the company name). No code changes.
+
 ## [0.8.16] - 2026-07-03
 
 - `cia mcp call` now exits non-zero when the backend tool returns an error
