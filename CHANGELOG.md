@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.10] - 2026-07-03
+
+- Fix the devkit README's `cia mcp call` example: the sample address
+  extraction referenced a retired `addresses.csv` fixture file. The devkit
+  fixture format moved to `nodes.jsonl.gz`/`relationships.jsonl.gz`; the
+  example now extracts a substrate address from `nodes.jsonl.gz`.
+- Document `cia debug on --token <token> --endpoint <devkit-url>` as the
+  persistent way to point `cia` at the devkit backend, as an alternative to
+  the one-off `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` environment variable.
+
 ## [0.8.9] - 2026-07-03
 
 - Devkit MemGQL bumped to 0.6.3 (latest), matching the dev compose stack and

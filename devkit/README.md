@@ -98,11 +98,25 @@ workspace/devkit-smoke/chain-insights-parity/
 
 ## Use It With `cia`
 
-Point Chain Insights at the devkit endpoint:
+For a one-off session, point Chain Insights at the devkit endpoint with an
+environment variable:
 
 ```bash
 export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=http://127.0.0.1:18012/mcp
 ```
+
+For ongoing devkit-based development, persist the endpoint in `cia`'s config
+instead so every session and workspace uses it without re-exporting:
+
+```bash
+cia debug on --token <any-string> --endpoint http://127.0.0.1:18012/mcp
+cia status   # confirms "Graph endpoint: http://127.0.0.1:18012/mcp"
+```
+
+The devkit backend is unmetered and ignores the token value; `debug on` just
+disables x402 payment handling so calls go straight to the local backend.
+Revert to a production/staging endpoint the same way (`cia debug on --token
+... --endpoint <url>`) or clear it with `cia debug off`.
 
 From a clean investigation workspace:
 
@@ -113,8 +127,10 @@ cia init .
 cia mcp networks
 cia mcp tools --refresh
 address="$(
-  awk -F, 'NR > 1 && $2 == "substrate" { print $1; exit }' \
-    /path/to/chain-insights/devkit/data/memgraph/addresses.csv
+  zcat /path/to/chain-insights/devkit/data/memgraph/nodes.jsonl.gz \
+    | grep -oE '"5[1-9A-HJ-NP-Za-km-z]{46,49}"' \
+    | head -1 \
+    | tr -d '"'
 )"
 cia mcp call aml_address_risk \
   "address=${address}" \
