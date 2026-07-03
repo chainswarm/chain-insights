@@ -3,6 +3,11 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.9] - 2026-07-03
+
+- Devkit MemGQL bumped to 0.6.3 (latest), matching the dev compose stack and
+  the staging chart.
+
 ## [0.8.8] - 2026-07-03
 
 - Add a `prepare` script so installing Chain Insights as a git dependency
