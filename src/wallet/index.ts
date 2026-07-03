@@ -72,9 +72,67 @@ export async function encryptKey(privateKey: string): Promise<void> {
   await writeFile(p, JSON.stringify(walletData, null, 2) + '\n', { mode: 0o600 })
 }
 
-export async function setWalletPrivateKey(privateKey: string): Promise<Address> {
+export interface SetWalletPrivateKeyOptions {
+  /** Overwrite an existing wallet. The previous ciphertext is backed up first. */
+  force?: boolean
+}
+
+/**
+ * Best-effort address of the currently stored wallet, for overwrite messaging.
+ * Returns null when the wallet can't be decrypted (e.g. hostname/username
+ * changed) — the overwrite is still refused, just without naming the address.
+ */
+async function existingWalletAddress(): Promise<Address | null> {
+  try {
+    return walletAddressFromPrivateKey(await decryptKey())
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Copies the existing wallet.json to a timestamped `.bak-*` sibling before it
+ * is overwritten, preserving the 0o600 permission. No-op when absent.
+ */
+async function backupExistingWallet(): Promise<void> {
+  const p = walletPath()
+  let raw: string
+  try {
+    raw = await readFile(p, 'utf8')
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return
+    throw err
+  }
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  await writeFile(`${p}.bak-${stamp}`, raw, { mode: 0o600 })
+}
+
+/**
+ * Encrypts and stores a private key, refusing to overwrite an existing wallet
+ * unless `force` is set. Importing a new key over a funded wallet discards the
+ * only local copy of the old key, so the overwrite is guarded and the previous
+ * ciphertext is backed up.
+ */
+export async function setWalletPrivateKey(
+  privateKey: string,
+  options: SetWalletPrivateKeyOptions = {},
+): Promise<Address> {
   const normalizedPrivateKey = normalizeWalletPrivateKey(privateKey)
   const address = walletAddressFromPrivateKey(normalizedPrivateKey)
+
+  if (await isWalletConfigured()) {
+    if (!options.force) {
+      const existing = await existingWalletAddress()
+      const which = existing ? ` (${existing})` : ''
+      throw new Error(
+        `A payment wallet already exists${which}. Importing a new key overwrites it and permanently ` +
+        `discards the old key. Re-run \`chain-insights wallet import <key> --force\` to replace it; ` +
+        `the previous encrypted key is backed up next to wallet.json first.`,
+      )
+    }
+    await backupExistingWallet()
+  }
+
   await encryptKey(normalizedPrivateKey)
   return address
 }

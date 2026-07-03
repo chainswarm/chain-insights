@@ -3,7 +3,7 @@ import { ExactEvmScheme } from '@x402/evm'
 import { UptoEvmScheme } from '@x402/evm/upto/client'
 import { privateKeyToAccount } from 'viem/accounts'
 import type { InvestigatorConfig } from '../config/schema.js'
-import { prepareWalletForPaidCalls } from '../wallet/tools.js'
+import { prepareWalletForPaidCalls, resolveMaxAutoApprovalUnits } from '../wallet/tools.js'
 
 type FetchLike = typeof fetch
 type FetchInput = Parameters<FetchLike>[0]
@@ -117,6 +117,9 @@ function createPaymentFailureReportingFetch(
       try {
         await prepareWalletForPaidCalls({
           account: paymentWallet,
+          // The endpoint dictates requirement.amountUnits; cap it so a hostile
+          // endpoint cannot drive an unbounded Permit2 approval / wallet drain.
+          maxApprovalUnits: resolveMaxAutoApprovalUnits(),
           ...(requirement.amountUnits === undefined ? {} : { minimumApprovalUnits: requirement.amountUnits }),
         })
       } catch (err) {

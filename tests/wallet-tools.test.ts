@@ -254,4 +254,60 @@ describe('wallet tools', () => {
       }),
     )
   })
+
+  it('refuses an auto-approval above the ceiling without touching the chain', async () => {
+    const { prepareWalletForPaidCalls, DEFAULT_MAX_AUTO_APPROVAL_UNITS } = await import('../src/wallet/tools.js')
+    const account = {
+      address: '0x0000000000000000000000000000000000000001' as const,
+      privateKey: '0x0000000000000000000000000000000000000000000000000000000000000001' as const,
+    }
+
+    await expect(
+      prepareWalletForPaidCalls({
+        account,
+        minimumApprovalUnits: DEFAULT_MAX_AUTO_APPROVAL_UNITS + 1n,
+        maxApprovalUnits: DEFAULT_MAX_AUTO_APPROVAL_UNITS,
+      }),
+    ).rejects.toThrow(/exceeds the automatic payment-approval ceiling/)
+
+    // No RPC reads and, crucially, no on-chain approve is submitted.
+    expect(readContractMock).not.toHaveBeenCalled()
+    expect(writeContractMock).not.toHaveBeenCalled()
+  })
+
+  it('approves an endpoint amount at or below the ceiling', async () => {
+    const { prepareWalletForPaidCalls, DEFAULT_MAX_AUTO_APPROVAL_UNITS } = await import('../src/wallet/tools.js')
+    const account = {
+      address: '0x0000000000000000000000000000000000000001' as const,
+      privateKey: '0x0000000000000000000000000000000000000000000000000000000000000001' as const,
+    }
+    readContractMock
+      .mockResolvedValueOnce(2_000_000n) // balanceOf → 2 USDC
+      .mockResolvedValueOnce(0n) // allowance (readiness)
+      .mockResolvedValueOnce(0n) // allowance (pre-approve check)
+      .mockResolvedValueOnce(2_000_000n) // allowance (post-approve)
+    getBalanceMock.mockResolvedValueOnce(100_000_000_000_000n)
+
+    const result = await prepareWalletForPaidCalls({
+      account,
+      minimumApprovalUnits: 2_000_000n,
+      maxApprovalUnits: DEFAULT_MAX_AUTO_APPROVAL_UNITS,
+    })
+
+    expect(result.approval).toMatchObject({ status: 'approved' })
+    expect(writeContractMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        functionName: 'approve',
+        args: ['0x000000000022D473030F116dDEE9F6B43aC78BA3', 2_000_000n],
+      }),
+    )
+  })
+
+  it('resolveMaxAutoApprovalUnits honors a valid env override and rejects a bad one', async () => {
+    const { resolveMaxAutoApprovalUnits, DEFAULT_MAX_AUTO_APPROVAL_UNITS } = await import('../src/wallet/tools.js')
+
+    expect(resolveMaxAutoApprovalUnits({})).toBe(DEFAULT_MAX_AUTO_APPROVAL_UNITS)
+    expect(resolveMaxAutoApprovalUnits({ CHAIN_INSIGHTS_MAX_AUTO_APPROVAL_USDC: '25' })).toBe(25_000_000n)
+    expect(() => resolveMaxAutoApprovalUnits({ CHAIN_INSIGHTS_MAX_AUTO_APPROVAL_USDC: '-1' })).toThrow()
+  })
 })

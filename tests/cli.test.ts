@@ -99,6 +99,12 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).not.toContain('walletPrivateKey')
   })
 
+  it('wallet import help documents the --force overwrite guard', () => {
+    const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'wallet', 'import', '--help'], { encoding: 'utf8' })
+    expect(out).toContain('--force')
+    expect(out).toContain('Replace an existing wallet')
+  })
+
   it('wallet ready help uses user-facing payment setup language', () => {
     const out = execFileSync('node', ['--import', 'tsx', srcCli, 'wallet', 'ready', '--help'], { encoding: 'utf8' })
 

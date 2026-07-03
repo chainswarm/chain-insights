@@ -3,6 +3,18 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.13] - 2026-07-03
+
+- Wallet safety: the payment wallet no longer signs an unbounded token
+  approval when a paid endpoint returns an `allowance_required` challenge.
+  Endpoint-dictated auto-approvals are capped at 10 USDC (override with
+  `CHAIN_INSIGHTS_MAX_AUTO_APPROVAL_USDC`); larger allowances must be approved
+  deliberately with `chain-insights wallet ready --payment-usdc <amount>`.
+- Wallet safety: `chain-insights wallet import` now refuses to overwrite an
+  existing wallet unless `--force` is passed, and backs up the previous
+  encrypted key next to `wallet.json` before replacing it. Setting
+  `walletPrivateKey` via `config set` is create-only for the same reason.
+
 ## [0.8.12] - 2026-07-03
 
 - Document devkit's persistent `cia debug on --token <token> --endpoint

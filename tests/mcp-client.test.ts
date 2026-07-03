@@ -28,6 +28,7 @@ vi.mock('viem/accounts', () => ({
 
 vi.mock('../src/wallet/tools.js', () => ({
   prepareWalletForPaidCalls: mockPrepareWalletForPaidCalls,
+  resolveMaxAutoApprovalUnits: vi.fn(() => 10_000_000n),
 }))
 
 const mockIsWalletConfigured = vi.hoisted(() => vi.fn())
@@ -208,6 +209,7 @@ describe('MCP client (02-01)', () => {
         address: '0xmock',
         privateKey: testKey,
       },
+      maxApprovalUnits: 10_000_000n,
       minimumApprovalUnits: 2_000_000n,
     })
   })
