@@ -3,6 +3,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.19] - 2026-07-04
+
+- The Chain Insights Graph's ML verdict now includes an explicit abstention
+  band: `risk_level = UNSCORED` means the model had too little labeled graph
+  context to stand behind a severity. Chain Insights treats it as "no
+  stance", never low risk: `aml_address_risk` stops deriving a severity from
+  an abstained ML score (falls back to label/exchange-exposure signal, adds
+  an `ml_abstained` driver and `ml_verdict: unscored`, and reports `level:
+  unscored` when no other signal exists), and trace/report graph payloads
+  normalize `risk_level` casing (`HIGH` -> `high`) so the graph app's risk
+  borders fire regardless of backend casing while `unscored` renders with the
+  neutral border.
+
 ## [0.8.18] - 2026-07-04
 
 - `cia serve` and `cia viz` now bind the configured `serverPort` when `--port`
