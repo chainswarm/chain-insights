@@ -33,11 +33,9 @@ describe('MCP network capabilities', () => {
 
     const { fetchNetworkCapabilities } = await import('../src/mcp/capabilities.js')
     const result = await fetchNetworkCapabilities({
-      mcpEndpoint: 'https://legacy.example.test/mcp',
       graphMcpEndpoint: 'https://staging-mcp.chain-insights.ai/mcp',
       graphMcpMode: 'debug',
       graphMcpAuthToken: 'debug-token',
-      mcpAuthToken: '',
     })
 
     expect(fetchMock).toHaveBeenCalledWith(new URL('https://staging-mcp.chain-insights.ai/metadata/networks'), {
@@ -81,11 +79,9 @@ describe('MCP network capabilities', () => {
 
     const { fetchNetworkCapabilities } = await import('../src/mcp/capabilities.js')
     const result = await fetchNetworkCapabilities({
-      mcpEndpoint: 'https://legacy.example.test/mcp',
       graphMcpEndpoint: 'https://staging-mcp.chain-insights.ai/mcp',
       graphMcpMode: 'debug',
       graphMcpAuthToken: 'debug-token',
-      mcpAuthToken: '',
     })
 
     expect(result.networks).toEqual([expect.objectContaining({
@@ -130,11 +126,9 @@ describe('MCP network capabilities', () => {
 
     const { fetchNetworkCapabilities } = await import('../src/mcp/capabilities.js')
     const result = await fetchNetworkCapabilities({
-      mcpEndpoint: 'https://legacy.example.test/mcp',
       graphMcpEndpoint: 'http://localhost:8012/mcp',
       graphMcpMode: 'debug',
       graphMcpAuthToken: 'debug-token',
-      mcpAuthToken: '',
     })
 
     const topology = result.networks[0]?.layers.topology
@@ -152,11 +146,9 @@ describe('MCP network capabilities', () => {
     const { fetchNetworkCapabilities } = await import('../src/mcp/capabilities.js')
 
     await expect(fetchNetworkCapabilities({
-      mcpEndpoint: 'https://legacy.example.test/mcp',
       graphMcpEndpoint: 'http://localhost:8012/mcp',
       graphMcpMode: 'debug',
       graphMcpAuthToken: 'debug-token',
-      mcpAuthToken: '',
     })).rejects.toThrow('network capabilities unavailable at http://localhost:8012/metadata/networks: fetch failed')
   })
 

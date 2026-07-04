@@ -3,7 +3,6 @@ import { isIP } from 'node:net'
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]'])
 
 export const LOCAL_GRAPH_MCP_ENDPOINT = 'http://127.0.0.1:8012/mcp'
-export const LOCAL_LEGACY_MCP_ENDPOINT = 'http://127.0.0.1:4000'
 
 function isLoopbackHost(hostname: string): boolean {
   const normalized = hostname.toLowerCase().replace(/^\[(.*)\]$/, '$1')

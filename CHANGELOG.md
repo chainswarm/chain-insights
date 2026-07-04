@@ -3,6 +3,20 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.21] - 2026-07-04
+
+- Removed the dead legacy `mcpEndpoint` and `mcpAuthToken` config keys. They
+  date from the pre-`graphMcpEndpoint` MCP server on `:4000`. `mcpEndpoint` was
+  only ever read as an unreachable fallback — the `graphMcpEndpoint` default
+  always wins — and `mcpAuthToken` only fed a never-called fetch helper plus a
+  redundant `graphMcpAuthToken` fallback. Endpoint selection now reads
+  `graphMcpEndpoint` directly, and the debug/test bearer token reads
+  `graphMcpAuthToken` only. The installer now seeds the live `graphMcpEndpoint`
+  instead of the retired `:4000` endpoint. All AML, debug, test-access, and
+  normal (paid) flows are unaffected — they were already wired to the
+  `graphMcp*` keys via `cia debug on`, `cia access-key set`, and
+  `cia config set graphMcpEndpoint`.
+
 ## [0.8.20] - 2026-07-04
 
 - Removed the legacy `--remote` flag from `cia mcp aml-address-risk` and

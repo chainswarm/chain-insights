@@ -1,9 +1,9 @@
 import * as z from 'zod'
 import os from 'node:os'
 import path from 'node:path'
-import { LOCAL_GRAPH_MCP_ENDPOINT, LOCAL_LEGACY_MCP_ENDPOINT, validateMcpEndpoint } from './mcp-endpoint.js'
+import { LOCAL_GRAPH_MCP_ENDPOINT, validateMcpEndpoint } from './mcp-endpoint.js'
 
-function endpointSchema(key: 'mcpEndpoint' | 'graphMcpEndpoint') {
+function endpointSchema(key: 'graphMcpEndpoint') {
   return z.string().transform((value, ctx) => {
     try {
       return validateMcpEndpoint(value, key)
@@ -18,8 +18,6 @@ function endpointSchema(key: 'mcpEndpoint' | 'graphMcpEndpoint') {
 }
 
 export const ConfigSchema = z.object({
-  mcpEndpoint:       endpointSchema('mcpEndpoint').default(LOCAL_LEGACY_MCP_ENDPOINT),
-  mcpAuthToken:      z.string().optional(),
   graphMcpEndpoint:  endpointSchema('graphMcpEndpoint').default(LOCAL_GRAPH_MCP_ENDPOINT),
   graphMcpAuthToken: z.string().optional(),
   graphMcpMode:      z.enum(['paid', 'debug']).default('paid'),
@@ -44,8 +42,6 @@ export function parseInvestigatorConfig(input: unknown): InvestigatorConfig {
 export const DEFAULT_CONFIG: InvestigatorConfig = parseInvestigatorConfig({})
 
 export const CONFIG_KEYS = [
-  'mcpEndpoint',
-  'mcpAuthToken',
   'graphMcpEndpoint',
   'graphMcpAuthToken',
   'graphMcpMode',

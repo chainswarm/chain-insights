@@ -25,7 +25,6 @@ const traceDepositSourcesMock = vi.hoisted(() => vi.fn())
 // Mock all external dependencies before importing proxy
 vi.mock('../src/config/index.js', () => ({
   loadConfig: vi.fn().mockResolvedValue({
-    mcpEndpoint: 'http://localhost:8080/mcp',
     graphMcpEndpoint: 'http://localhost:8012/mcp',
     graphMcpAuthToken: 'graph-debug-token',
     serverPort: 4321,
@@ -92,11 +91,8 @@ vi.mock('../src/mcp/client.js', async (importOriginal) => {
   return {
     ...actual,
     createMcpFetchClient: vi.fn().mockReturnValue(fetch),
-    createConfiguredMcpFetch: vi.fn().mockResolvedValue(fetch),
     createConfiguredGraphMcpFetch: vi.fn().mockResolvedValue(fetch),
-    resolveGraphMcpEndpoint: vi.fn((config: { graphMcpEndpoint?: string; mcpEndpoint: string }) => (
-      config.graphMcpEndpoint?.trim() || config.mcpEndpoint
-    )),
+    resolveGraphMcpEndpoint: vi.fn((config: { graphMcpEndpoint: string }) => config.graphMcpEndpoint.trim()),
   }
 })
 

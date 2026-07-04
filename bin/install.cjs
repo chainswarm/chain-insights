@@ -102,8 +102,7 @@ if (!fs.existsSync(dataDir)) {
 
 if (!fs.existsSync(configPath)) {
   const defaultConfig = {
-    mcpEndpoint:   'http://localhost:4000',
-    mcpAuthToken:  '',
+    graphMcpEndpoint: 'http://127.0.0.1:8012/mcp',
     walletAddress: '',
     graphMcpMode:  'paid',
     serverPort:    4321,
