@@ -25,3 +25,14 @@ export function normalizeRiskLevel(value: unknown): string | undefined {
 export function isUnscoredRiskLevel(value: unknown): boolean {
   return normalizeRiskLevel(value) === UNSCORED_RISK_LEVEL
 }
+
+/**
+ * Severity ordering for comparisons: low(0) < medium(1) < high(2) <
+ * critical(3). Unknown/unscored values rank -1 — they never win a
+ * severity comparison, they abstain from it.
+ */
+export function riskSeverityRank(value: unknown): number {
+  const normalized = normalizeRiskLevel(value)
+  if (!normalized || normalized === UNSCORED_RISK_LEVEL) return -1
+  return (RISK_SEVERITIES as readonly string[]).indexOf(normalized)
+}
