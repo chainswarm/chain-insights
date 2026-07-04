@@ -3,6 +3,32 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.23] - 2026-07-04
+
+- Fixed `aml_address_risk`'s ML risk-score enrichment query: it selected
+  `risk.risk_level`, a column `facts_risk_scores_view` has never had (only
+  a numeric `risk_score`), which hard-errored the whole query and silently
+  discarded every downstream field including the real ML score. The field
+  is now dropped from the query; the existing "unscored" abstention
+  handling already treats a missing `ml_risk_level` as not-abstained, so
+  ML scores are used normally.
+- Regenerated the devkit fixture from a repaired dev warehouse: the six
+  bittensor exchange labels (Binance, KuCoin, Gate.io, MEXC, HTX, Bitget)
+  were fabricated placeholder addresses with zero on-chain history;
+  they're replaced with a real taostats capture (11 real exchange
+  wallets with genuine flow history). `is_exchange` now imports as a real
+  typed `TINYINT NULL` instead of the varchar `"NULL"` string that made
+  `IS NOT NULL` match every row. `smoke.sh` gained a check pinning this.
+- `validate-manifest.py`: the fixture window's upper bound is now a live
+  coverage watermark, not a fixed calendar date, so the manifest's
+  consistency checks validate internal consistency (a valid, later-than-
+  `from` timestamp) instead of an exact-match against a stale literal that
+  would have rejected every fixture built after 2026-07-03. Added
+  structural-consistency and symmetric cross-tier label-parity checks.
+- `starrocks-ddl.py`: added a column-type override map so `is_exchange`
+  types correctly instead of the blanket `VARCHAR(4096)` every other
+  column gets.
+
 ## [0.8.22] - 2026-07-04
 
 - `aml_address_risk` label reads are deterministic: the label subset feeding
