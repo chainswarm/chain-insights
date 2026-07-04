@@ -97,12 +97,12 @@ function metadataNetworksUrl(endpoint: string): URL {
 }
 
 export async function fetchNetworkCapabilities(
-  config: Pick<InvestigatorConfig, 'mcpAuthToken' | 'graphMcpAuthToken' | 'graphMcpMode' | 'graphMcpEndpoint' | 'mcpEndpoint'>,
+  config: Pick<InvestigatorConfig, 'graphMcpAuthToken' | 'graphMcpMode' | 'graphMcpEndpoint'>,
 ): Promise<NetworkCapabilitiesDocument> {
   const endpoint = resolveGraphMcpEndpoint(config)
   const request = metadataNetworksUrl(endpoint)
   const headers = new Headers()
-  const token = config.graphMcpAuthToken?.trim() || config.mcpAuthToken?.trim()
+  const token = config.graphMcpAuthToken?.trim()
   if (token) {
     applyMcpAuthHeaders(headers, token)
   }

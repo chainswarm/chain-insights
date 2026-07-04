@@ -329,42 +329,12 @@ describe('MCP client (02-01)', () => {
     )
   })
 
-  it('resolveGraphMcpEndpoint prefers graphMcpEndpoint over legacy mcpEndpoint', async () => {
+  it('resolveGraphMcpEndpoint returns the configured graphMcpEndpoint', async () => {
     const { resolveGraphMcpEndpoint } = await import('../src/mcp/client.js')
 
     expect(resolveGraphMcpEndpoint({
-      mcpEndpoint: 'http://localhost:8011/mcp',
-      graphMcpEndpoint: 'http://localhost:8012/mcp',
+      graphMcpEndpoint: '  http://localhost:8012/mcp  ',
     })).toBe('http://localhost:8012/mcp')
-  })
-
-  it('createConfiguredMcpFetch uses legacy mcpAuthToken even when graph token is present', async () => {
-    const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = []
-    const baseFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      calls.push({ input, init })
-      return new Response('{}')
-    })
-    vi.stubGlobal('fetch', baseFetch)
-
-    try {
-      const { createConfiguredMcpFetch } = await import('../src/mcp/client.js')
-      const config = {
-        mcpAuthToken: 'legacy-debug-token',
-        graphMcpAuthToken: 'graph-debug-token',
-      }
-      const authedFetch = await createConfiguredMcpFetch(config)
-      await authedFetch('http://localhost:8011/mcp')
-
-      const headers = new Headers(calls[0]?.init?.headers)
-      expect(headers.get('X-MCP-Debug-Token')).toBe('legacy-debug-token')
-      expect(headers.get('X-MCP-Test-Key')).toBe('legacy-debug-token')
-      expect(headers.get('X-Chain-Insights-Test-Key')).toBe('legacy-debug-token')
-      expect(headers.get('Authorization')).toBe('Bearer legacy-debug-token')
-      expect(mockIsWalletConfigured).not.toHaveBeenCalled()
-      expect(mockDecryptKey).not.toHaveBeenCalled()
-    } finally {
-      vi.unstubAllGlobals()
-    }
   })
 
   it('createConfiguredGraphMcpFetch in debug mode requires and uses graphMcpAuthToken without wallet', async () => {
@@ -378,7 +348,6 @@ describe('MCP client (02-01)', () => {
     try {
       const { createConfiguredGraphMcpFetch } = await import('../src/mcp/client.js')
       const authedFetch = await createConfiguredGraphMcpFetch({
-        mcpAuthToken: 'legacy-debug-token',
         graphMcpAuthToken: 'graph-debug-token',
         graphMcpMode: 'debug',
       })
@@ -399,7 +368,6 @@ describe('MCP client (02-01)', () => {
   it('createConfiguredGraphMcpFetch in debug mode errors when no debug token is configured', async () => {
     const { createConfiguredGraphMcpFetch } = await import('../src/mcp/client.js')
     await expect(createConfiguredGraphMcpFetch({
-      mcpAuthToken: '',
       graphMcpAuthToken: '',
       graphMcpMode: 'debug',
     })).rejects.toThrow('Chain Insights Graph debug mode requires graphMcpAuthToken')
@@ -419,8 +387,7 @@ describe('MCP client (02-01)', () => {
     try {
       const { createConfiguredGraphMcpFetch } = await import('../src/mcp/client.js')
       const graphFetch = await createConfiguredGraphMcpFetch({
-        mcpAuthToken: '',
-        graphMcpAuthToken: '',
+          graphMcpAuthToken: '',
         graphMcpMode: 'paid',
       })
       await graphFetch('https://staging-mcp.chain-insights.ai/mcp')
@@ -449,8 +416,7 @@ describe('MCP client (02-01)', () => {
     try {
       const { createConfiguredGraphMcpFetch } = await import('../src/mcp/client.js')
       const graphFetch = await createConfiguredGraphMcpFetch({
-        mcpAuthToken: '',
-        graphMcpAuthToken: '',
+          graphMcpAuthToken: '',
         graphMcpMode: 'paid',
       })
 
@@ -468,7 +434,6 @@ describe('MCP client (02-01)', () => {
 
     const { createConfiguredGraphMcpFetch } = await import('../src/mcp/client.js')
     const paymentFetch = await createConfiguredGraphMcpFetch({
-      mcpAuthToken: 'legacy-debug-token',
       graphMcpAuthToken: 'graph-debug-token',
       graphMcpMode: 'paid',
     })

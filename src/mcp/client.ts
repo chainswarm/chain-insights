@@ -186,30 +186,8 @@ export function createMcpAuthFetchClient(authToken: string, baseFetch: FetchLike
   return createPaymentFailureReportingFetch(headerFetch)
 }
 
-export function resolveGraphMcpEndpoint(config: Pick<InvestigatorConfig, 'graphMcpEndpoint' | 'mcpEndpoint'>): string {
-  const graphEndpoint = config.graphMcpEndpoint?.trim()
-  return graphEndpoint || config.mcpEndpoint
-}
-
-async function createConfiguredFetchWithToken(
-  authToken: string | undefined,
-  missingTokenName: string,
-): Promise<FetchLike> {
-  const normalizedAuthToken = authToken?.trim()
-  if (normalizedAuthToken) return createMcpAuthFetchClient(normalizedAuthToken)
-
-  const { isWalletConfigured, decryptKey } = await import('../wallet/index.js')
-  if (!(await isWalletConfigured())) {
-    throw new Error(
-      'Hosted access is not configured. ' +
-      'Run `chain-insights access-key set <key>` for invited test access. ' +
-      'For wallet-paid access, run `chain-insights wallet import <private-key>` once, then run `chain-insights wallet ready`; ' +
-      'run `chain-insights wallet topup` if it says the wallet needs funds.',
-    )
-  }
-
-  const privateKey = await decryptKey()
-  return createMcpFetchClient(privateKey as `0x${string}`)
+export function resolveGraphMcpEndpoint(config: Pick<InvestigatorConfig, 'graphMcpEndpoint'>): string {
+  return config.graphMcpEndpoint.trim()
 }
 
 async function createConfiguredGraphPaidOrFreeFetch(): Promise<FetchLike> {
@@ -222,15 +200,11 @@ async function createConfiguredGraphPaidOrFreeFetch(): Promise<FetchLike> {
   return createMcpFetchClient(privateKey as `0x${string}`)
 }
 
-export async function createConfiguredMcpFetch(config: Pick<InvestigatorConfig, 'mcpAuthToken'>): Promise<FetchLike> {
-  return createConfiguredFetchWithToken(config.mcpAuthToken, 'mcpAuthToken')
-}
-
 export async function createConfiguredGraphMcpFetch(
-  config: Pick<InvestigatorConfig, 'mcpAuthToken' | 'graphMcpAuthToken' | 'graphMcpMode'>,
+  config: Pick<InvestigatorConfig, 'graphMcpAuthToken' | 'graphMcpMode'>,
 ): Promise<FetchLike> {
   if (config.graphMcpMode === 'debug') {
-    const authToken = config.graphMcpAuthToken?.trim() || config.mcpAuthToken?.trim()
+    const authToken = config.graphMcpAuthToken?.trim()
     if (!authToken) {
       throw new Error('Chain Insights Graph debug mode requires graphMcpAuthToken. Run `cia access-key set <key>` or `cia debug on --token <token>`.')
     }
