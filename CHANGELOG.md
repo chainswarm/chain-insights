@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.22] - 2026-07-04
+
+- `aml_address_risk` label reads are deterministic: the label subset feeding
+  the risk level is now ordered by recency before the LIMIT, so the reported
+  level no longer varies between runs for label-heavy identities.
+- Risk precedence hardening: labels remain the leading signal, but a
+  lower-severity label no longer suppresses a more severe usable ML band —
+  the response reports the more severe band with an `ml_label_divergence`
+  driver. An AML triage verdict never fails toward "looks safe".
+
 ## [0.8.21] - 2026-07-04
 
 - Removed the dead legacy `mcpEndpoint` and `mcpAuthToken` config keys. They

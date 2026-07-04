@@ -6,7 +6,7 @@ import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import type { InvestigatorConfig } from '../config/schema.js'
 import { activityWindowPredicates, runFundFlowProbe, type TraceActivityWindow, type TraceFundsResult, type TopologyScope, DEFAULT_TOPOLOGY_SCOPE } from './trace-funds.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
-import { isUnscoredRiskLevel, normalizeRiskLevel } from './risk-level.js'
+import { isUnscoredRiskLevel, normalizeRiskLevel, riskSeverityRank } from './risk-level.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
 
 type RemoteToolResult = {
@@ -467,6 +467,10 @@ function addressLabelRiskQuery(address: string): { id: string; query: string } {
       'USE facts',
       `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[:HAS_LABEL]->(label:AddressLabel)`,
       'RETURN label.label AS label, label.risk_level AS risk_level, label.trust_level AS trust_level, label.confidence_score AS confidence_score, label.source AS source, label.entity_type AS entity_type, label.updated_timestamp AS updated_timestamp',
+      // Deterministic subset: an unordered LIMIT let the surfaced labels —
+      // and therefore the derived risk level — flap between runs for
+      // label-heavy identities.
+      'ORDER BY label.updated_timestamp DESC',
       'LIMIT 10',
     ].join(' '),
   }
@@ -720,7 +724,7 @@ export function exchangeExposureFallbackScore(exchangeRows: Array<Record<string,
   return Math.min(FALLBACK_MAX_SCORE, FALLBACK_BASE_SCORE + (FALLBACK_MAX_SCORE - FALLBACK_BASE_SCORE) * factor)
 }
 
-function riskAssessment(
+export function riskAssessment(
   profile: Record<string, unknown>,
   labelRows: Array<Record<string, unknown>>,
   exchangeRows: Array<Record<string, unknown>>,
@@ -735,9 +739,21 @@ function riskAssessment(
   const labelRiskLevel = strongestLabelRiskLevel(labelRows)
   const usableMlScore = mlAbstained ? undefined : mlRiskScore
   const score = usableMlScore ?? exchangeExposureFallbackScore(exchangeRows)
-  const level = labelRiskLevel ?? (mlAbstained && exchangeRows.length === 0 ? 'unscored' : riskLevelFromScore(score))
+  let level = labelRiskLevel ?? (mlAbstained && exchangeRows.length === 0 ? 'unscored' : riskLevelFromScore(score))
   const drivers = riskDrivers(profile, labelRows, exchangeRows)
   if (mlAbstained) drivers.push('ml_abstained: ML verdict is UNSCORED (insufficient labeled graph context); level derived from labels/exchange exposure only')
+  // Labels are curated truth and stay first — but a lower-severity label
+  // must never SUPPRESS a more severe usable ML band. Failing toward
+  // "looks safe" is the one direction an AML triage tool may not fail.
+  const usableMlBand = usableMlScore !== undefined ? riskLevelFromScore(usableMlScore) : undefined
+  if (
+    labelRiskLevel &&
+    usableMlBand &&
+    riskSeverityRank(usableMlBand) > riskSeverityRank(labelRiskLevel)
+  ) {
+    level = usableMlBand
+    drivers.push(`ml_label_divergence: usable ML band ${usableMlBand} exceeds strongest label level ${labelRiskLevel}; reporting the more severe band — review the label`)
+  }
   return {
     level,
     score,
