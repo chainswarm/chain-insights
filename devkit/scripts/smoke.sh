@@ -75,6 +75,36 @@ mcp_post "tools/call" '{"name":"graph_query","arguments":{"network":"bittensor",
 
 mcp_post "tools/call" '{"name":"graph_query_batch","arguments":{"network":"bittensor","queries":[{"id":"live","query":"USE live_topology MATCH (i:Identity) RETURN count(i) AS identities LIMIT 1"},{"id":"facts","query":"USE facts MATCH (f:AddressFeature) RETURN count(f) AS features LIMIT 1"}]}}' "$EVIDENCE_DIR/graph-query-batch.json"
 
+mcp_post "tools/call" '{"name":"graph_query","arguments":{"network":"bittensor","query":"USE archive_topology MATCH (i:Identity) WHERE i.is_exchange IS NOT NULL RETURN count(i) AS not_null_count"}}' "$EVIDENCE_DIR/is-exchange-not-null-count.json"
+mcp_post "tools/call" '{"name":"graph_query","arguments":{"network":"bittensor","query":"USE archive_topology MATCH (i:Identity) WHERE i.is_exchange = true RETURN count(i) AS true_count"}}' "$EVIDENCE_DIR/is-exchange-true-count.json"
+
+python3 - "$EVIDENCE_DIR/is-exchange-not-null-count.json" "$EVIDENCE_DIR/is-exchange-true-count.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+# is_exchange must be a real typed NULL, not the literal varchar string
+# "NULL" -- the D3 corruption this check pins against forever. Before the
+# fix, "IS NOT NULL" matched every row (480,381 in the devkit fixture)
+# instead of just the 11 exchange-flagged identities; both counts must be
+# identical (every non-NULL is_exchange value is true, never false/0).
+def result_count(path, key):
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    facts = payload["result"]["structuredContent"]["facts"]
+    return facts["query"]["results"][0][key]
+
+not_null_count = result_count(sys.argv[1], "not_null_count")
+true_count = result_count(sys.argv[2], "true_count")
+if not_null_count != true_count:
+    raise SystemExit(
+        f"is_exchange typed-NULL check FAILED: IS NOT NULL count ({not_null_count}) "
+        f"!= = true count ({true_count}) -- is_exchange is not a real typed NULL"
+    )
+if not_null_count <= 0:
+    raise SystemExit("is_exchange typed-NULL check FAILED: expected a positive exchange count, got 0")
+print(f"is_exchange typed-NULL check OK: {not_null_count} exchange identities, no varchar-NULL corruption")
+PY
+
 "$SCRIPT_DIR/smoke-memgql-objects.py" > "$EVIDENCE_DIR/memgql-object-coverage.json"
 
 printf '%s\n' "devkit smoke evidence written to workspace/devkit-smoke"

@@ -449,12 +449,23 @@ function addressFeatureQuery(address: string): { id: string; query: string } {
 }
 
 function addressRiskScoreQuery(address: string): { id: string; query: string } {
+  // risk.risk_level does not exist: facts_risk_scores_view (and the RiskScore
+  // node mapping in chain_insights_starrocks_mapping.json) only ever defined
+  // risk_score_id, address, processing_date, xgboost_model_version,
+  // window_days, gnn_model_version, risk_score, shap_top_features,
+  // shap_top_values -- no risk_level/abstention column. Projecting it hard-
+  // errored the whole query (MemGQL: "cannot be resolved"), silently
+  // discarding every downstream field including the real ml_risk_score.
+  // riskAssessment() already treats a missing ml_risk_level as "not
+  // abstained" (isUnscoredRiskLevel(undefined) === false, see risk-level.ts)
+  // and uses the ML score normally -- the honest behavior when the upstream
+  // view has no way to signal abstention at all, rather than fabricating one.
   return {
     id: 'address_risk_score',
     query: [
       'USE facts',
       `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[:HAS_RISK_SCORE]->(risk:RiskScore)`,
-      'RETURN risk.risk_score AS ml_risk_score, risk.risk_level AS ml_risk_level, risk.window_days AS risk_window_days, risk.processing_date AS risk_processing_date, risk.xgboost_model_version AS xgboost_model_version, risk.gnn_model_version AS gnn_model_version, risk.shap_top_features AS shap_top_features',
+      'RETURN risk.risk_score AS ml_risk_score, risk.window_days AS risk_window_days, risk.processing_date AS risk_processing_date, risk.xgboost_model_version AS xgboost_model_version, risk.gnn_model_version AS gnn_model_version, risk.shap_top_features AS shap_top_features',
       'LIMIT 1',
     ].join(' '),
   }

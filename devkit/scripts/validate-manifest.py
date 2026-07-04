@@ -3,6 +3,7 @@ import hashlib
 import gzip
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -159,6 +160,16 @@ def fail(message: str) -> None:
     raise SystemExit(message)
 
 
+def parse_iso8601(value: object):
+    if not value:
+        return None
+    text = str(value).strip()
+    try:
+        return datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+
+
 def main() -> None:
     if not MANIFEST.is_file():
         fail("manifest missing; run bash scripts/devops/chain-insights-devkit/build-fixture.sh from the RBMK root with StarRocks export credentials")
@@ -169,10 +180,24 @@ def main() -> None:
         fail("manifest network must be bittensor")
     if manifest.get("semantic_database") != "bittensor_semantic":
         fail("manifest semantic_database must be bittensor_semantic")
-    if manifest.get("fixture_window", {}).get("from") != "2024-01-01T00:00:00Z":
+    # fixture_window.to_exclusive is no longer a fixed historical literal:
+    # it is pinned to a live coverage watermark each build
+    # (scripts/devops/chain-insights-devkit/fixture_window.py, in the
+    # sibling RBMK root repo -- not importable here across the repo
+    # boundary), so this validates internal consistency of the manifest's
+    # own declared window instead of an exact-match against a stale date
+    # (found and fixed during W2 execution, 2026-07-04: the old exact-match
+    # form would have rejected every fixture built after 2026-07-03).
+    fixture_window = manifest.get("fixture_window", {})
+    if fixture_window.get("from") != "2024-01-01T00:00:00Z":
         fail("manifest fixture_window.from must be 2024-01-01T00:00:00Z")
-    if manifest.get("fixture_window", {}).get("to_exclusive") != "2026-07-03T00:00:00Z":
-        fail("manifest fixture_window.to_exclusive must be 2026-07-03T00:00:00Z")
+    lower_bound_dt = parse_iso8601(fixture_window.get("from"))
+    upper_bound_text = fixture_window.get("to_exclusive")
+    upper_bound_dt = parse_iso8601(upper_bound_text)
+    if upper_bound_dt is None:
+        fail(f"manifest fixture_window.to_exclusive is not a valid ISO-8601 timestamp: {upper_bound_text!r}")
+    if upper_bound_dt <= lower_bound_dt:
+        fail("manifest fixture_window.to_exclusive must be after fixture_window.from")
 
     coverage = manifest.get("coverage", {})
     if int(coverage.get("substrate_rows", 0)) <= 0:
@@ -218,8 +243,8 @@ def main() -> None:
             fail(f"manifest object {name} must use {expected_format}")
         if entry.get("exported_min") != entry.get("source_min"):
             fail(f"manifest object {name} exported_min must equal source_min")
-        if str(entry.get("exported_max", "")) >= "2026-07-03T00:00:00Z":
-            fail(f"manifest object {name} exported_max must be before 2026-07-03T00:00:00Z")
+        if str(entry.get("exported_max", "")) >= upper_bound_text:
+            fail(f"manifest object {name} exported_max must be before {upper_bound_text} (fixture_window.to_exclusive)")
         paths = fixture_part_paths(entry)
         for file_path in paths:
             if not file_path.is_file():
@@ -239,7 +264,126 @@ def main() -> None:
                 if marker in payload:
                     fail(f"manifest object {name} contains forbidden Memgraph marker: {marker}")
 
+    object_paths = {entry.get("name", ""): fixture_part_paths(entry) for entry in objects}
+    check_memgraph_endpoint_integrity(object_paths)
+    check_symmetric_label_parity(object_paths)
+
     print(f"validated {len(objects)} devkit fixture objects")
+
+
+def _read_jsonl_gz(paths: list[Path]):
+    for path in paths:
+        with gzip.open(path, "rt", encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if line:
+                    yield json.loads(line)
+
+
+def _read_tsv_gz(paths: list[Path]):
+    import csv
+
+    for path in paths:
+        with gzip.open(path, "rt", encoding="utf-8", newline="") as handle:
+            yield from csv.DictReader(handle, delimiter="\t")
+
+
+# The AML label taxonomy entries that ARE derivable from
+# archive_topology_addresses_view's exported label text (mirrors
+# scripts/devops/chain-insights-devkit/export-memgraph-fixture.py's
+# LABEL_TEXT_DERIVED_TAXONOMY in the sibling RBMK root repo). Scam, Victim,
+# Propagated, Mixer, Bridge, Poisoned are out of scope for this parity
+# check -- they derive from address_type/source columns the exported
+# addresses view does not carry.
+LABEL_TEXT_DERIVED_TAXONOMY = {"Exchange", "Validator", "Miner", "Subnet"}
+
+
+def check_memgraph_endpoint_integrity(object_paths: dict[str, list[Path]]) -> None:
+    node_paths = object_paths.get("memgraph_nodes")
+    relationship_paths = object_paths.get("memgraph_relationships")
+    if not node_paths or not relationship_paths:
+        return
+    node_ids = {str(row["id"]) for row in _read_jsonl_gz(node_paths)}
+    missing_endpoints = set()
+    for row in _read_jsonl_gz(relationship_paths):
+        start_id = str(row["start_id"])
+        end_id = str(row["end_id"])
+        if start_id not in node_ids:
+            missing_endpoints.add(start_id)
+        if end_id not in node_ids:
+            missing_endpoints.add(end_id)
+    if missing_endpoints:
+        fail(
+            "manifest Memgraph fixture is internally inconsistent: "
+            f"{len(missing_endpoints)} relationship endpoint id(s) missing from the nodes dump, "
+            f"e.g. {sorted(missing_endpoints)[:10]}"
+        )
+
+
+def check_symmetric_label_parity(object_paths: dict[str, list[Path]]) -> None:
+    addresses_paths = object_paths.get("archive_topology_addresses_view")
+    edges_paths = object_paths.get("archive_topology_edges_view")
+    node_paths = object_paths.get("memgraph_nodes")
+    if not addresses_paths or not edges_paths or not node_paths:
+        return
+
+    archive_labels: dict[str, str] = {}
+    for row in _read_tsv_gz(addresses_paths):
+        labels_text = (row.get("labels") or "").strip()
+        if labels_text:
+            archive_labels[row["identity_id"]] = labels_text
+
+    edge_connected: set[str] = set()
+    for row in _read_tsv_gz(edges_paths):
+        edge_connected.add(row["from_identity"])
+        edge_connected.add(row["to_identity"])
+
+    archive_labeled_and_connected = set(archive_labels) & edge_connected
+
+    memgraph_labeled: dict[str, dict] = {}
+    for row in _read_jsonl_gz(node_paths):
+        properties = row.get("properties", {})
+        identity_id = properties.get("identity_id")
+        if identity_id is None:
+            continue
+        has_label_property = bool(properties.get("labels"))
+        taxonomy_labels = set(row.get("labels", [])) & LABEL_TEXT_DERIVED_TAXONOMY
+        if has_label_property or taxonomy_labels:
+            memgraph_labeled[identity_id] = {
+                "has_label_property": has_label_property,
+                "taxonomy_labels": taxonomy_labels,
+            }
+
+    # Direction 1: every archive-labeled-and-edge-connected identity must
+    # exist in Memgraph with a non-empty labels property.
+    missing_in_memgraph = [
+        identity_id
+        for identity_id in archive_labeled_and_connected
+        if identity_id not in memgraph_labeled or not memgraph_labeled[identity_id]["has_label_property"]
+    ]
+    if missing_in_memgraph:
+        fail(
+            "manifest fixture fails cross-tier label parity: "
+            f"{len(missing_in_memgraph)} archive-labeled-and-connected identities missing "
+            f"labels in the Memgraph dump, e.g. {sorted(missing_in_memgraph)[:10]}"
+        )
+
+    # Direction 2: no Memgraph node's labels property or
+    # LABEL_TEXT_DERIVED_TAXONOMY structural label may reference an
+    # identity absent from the StarRocks-bounded allowlist (a
+    # post-watermark leak through the Memgraph export leg).
+    leaked = [
+        identity_id
+        for identity_id, state in memgraph_labeled.items()
+        if identity_id not in archive_labels
+        and (state["has_label_property"] or state["taxonomy_labels"])
+    ]
+    if leaked:
+        fail(
+            "manifest fixture fails cross-tier label parity: "
+            f"{len(leaked)} Memgraph identities carry labels/taxonomy absent from the "
+            f"StarRocks-bounded allowlist (post-watermark leak), e.g. {sorted(leaked)[:10]}"
+        )
 
 
 if __name__ == "__main__":

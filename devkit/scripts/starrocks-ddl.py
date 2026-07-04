@@ -24,6 +24,18 @@ COMPATIBILITY_COLUMNS_BY_TABLE = {
     },
 }
 
+# Every column defaults to VARCHAR(4096) below; typed overrides go here.
+# is_exchange must be a real nullable TINYINT, not the blanket VARCHAR --
+# otherwise the exported \N NULL marker loads as the literal 2-character
+# string "\N" rather than a real SQL NULL, and `is_exchange IS NOT NULL`
+# silently matches every row instead of just the exchange-flagged ones
+# (the D3 corruption this fix targets).
+COLUMN_TYPE_OVERRIDES_BY_TABLE = {
+    "archive_topology_addresses_view": {
+        "is_exchange": "TINYINT NULL",
+    },
+}
+
 
 def read_manifest() -> dict | None:
     if not MANIFEST.is_file():
@@ -81,8 +93,10 @@ def table_sql(table: str, columns: list[str]) -> str:
     table = require_identifier(table)
     if not columns:
         raise SystemExit(f"mapped table has no columns: {table}")
+    type_overrides = COLUMN_TYPE_OVERRIDES_BY_TABLE.get(table, {})
     column_sql = ",\n".join(
-        f"  {quote_identifier(column)} VARCHAR(4096)" for column in columns
+        f"  {quote_identifier(column)} {type_overrides.get(column, 'VARCHAR(4096)')}"
+        for column in columns
     )
     key = quote_identifier(columns[0])
     return f"""CREATE TABLE IF NOT EXISTS bittensor_semantic.{table} (
