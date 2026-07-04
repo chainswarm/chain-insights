@@ -578,24 +578,10 @@ program
       .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
       .option('--compare-address <address>', 'Optional second address to compare against the screened address')
       .option('--topology-scope <scope>', 'Which topology graph to query: live_topology (default) or archive_topology (full history)')
-      .option('--remote', 'Force remote MCP tool call instead of local Chain Insights recipe')
-      .action(async (opts: { address: string; network: string; compareAddress?: string; topologyScope?: string; remote?: boolean }) => {
+      .action(async (opts: { address: string; network: string; compareAddress?: string; topologyScope?: string }) => {
         try {
           const topologyScope = resolveTopologyScopeOption(opts.topologyScope)
           await withGraphMcpClient('chain-insights-cli-aml-address-risk', async (client) => {
-            if (opts.remote) {
-              const result = await client.callTool({
-                name: 'aml_address_risk',
-                arguments: {
-                  address: opts.address,
-                  network: opts.network,
-                  ...(opts.compareAddress ? { compare_address: opts.compareAddress } : {}),
-                  ...(topologyScope ? { topology_scope: topologyScope } : {}),
-                },
-              })
-              printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
-              return
-            }
             const { addressRisk } = await import('./investigation/public-tools.js')
             const result = await addressRisk(client, {
               address: opts.address,
@@ -622,7 +608,6 @@ program
       .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, 1-10')
       .option('--min-amount-sum <number>', 'Minimum USD amount (amount_usd_sum) for traced edges')
       .option('--topology-scope <scope>', 'Which topology graph to query: live_topology (default) or archive_topology (full history)')
-      .option('--remote', 'Force remote MCP tool call instead of local Chain Insights recipe')
       .action(async (opts: {
         victimAddresses: string
         network: string
@@ -632,31 +617,12 @@ program
         perAddressLimit?: string
         minAmountSum?: string
         topologyScope?: string
-        remote?: boolean
       }) => {
         try {
           const topologyScope = resolveTopologyScopeOption(opts.topologyScope)
           const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
           requireWorkspaceRoot()
           await withGraphMcpClient('chain-insights-cli-aml-trace-victim-funds', async (client, config) => {
-            if (opts.remote) {
-              const { buildTraceVictimFundsRemoteArgs } = await import('./investigation/remote-trace-args.js')
-              const result = await client.callTool({
-                name: 'aml_trace_victim_funds',
-                arguments: buildTraceVictimFundsRemoteArgs({
-                  victimAddresses: opts.victimAddresses,
-                  network: opts.network,
-                  knownSuspectAddresses: opts.knownSuspectAddresses,
-                  incidentTimestampMs: opts.incidentTimestampMs,
-                  maxHops: opts.maxHops,
-                  perAddressLimit: opts.perAddressLimit,
-                  minAmountSum: opts.minAmountSum,
-                  topologyScope: topologyScope ?? undefined,
-                }),
-              })
-              printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
-              return
-            }
             const { traceVictimFunds } = await import('./investigation/public-tools.js')
             const result = await traceVictimFunds(client, config, {
               victimAddresses: opts.victimAddresses,

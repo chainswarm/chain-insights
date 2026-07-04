@@ -3,6 +3,18 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.20] - 2026-07-04
+
+- Removed the legacy `--remote` flag from `cia mcp aml-address-risk` and
+  `cia mcp aml-trace-victim-funds`. It dates from when the graph backend served
+  the AML tools server-side; the tools are now composed client-side (the CLI
+  recipe and the local `chain-insights-mcp-proxy`) and the backend serves only
+  graph primitives (`graph_query`, `graph_query_batch`, `network_capabilities`,
+  `usage_status`), so `--remote` called a tool no backend serves and always
+  failed with `unknown tool`. The AML commands run the local recipe as before;
+  this supersedes the 0.8.18 `--remote` argument-handling change, which tuned a
+  path that no longer exists.
+
 ## [0.8.19] - 2026-07-04
 
 - The Chain Insights Graph's ML verdict now includes an explicit abstention
