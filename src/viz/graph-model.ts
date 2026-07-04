@@ -3,7 +3,7 @@ import * as z from 'zod'
 export const EntityType = z.enum(['eoa', 'contract', 'exchange', 'mixer', 'unknown'])
 export type EntityType = z.infer<typeof EntityType>
 
-export const RiskLevel = z.enum(['low', 'medium', 'high', 'critical', 'unknown'])
+export const RiskLevel = z.enum(['low', 'medium', 'high', 'critical', 'unscored', 'unknown'])
 export type RiskLevel = z.infer<typeof RiskLevel>
 
 export const GraphNode = z.object({

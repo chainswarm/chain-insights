@@ -4,6 +4,7 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import type { InvestigatorConfig } from '../config/schema.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
+import { normalizeRiskLevel } from './risk-level.js'
 import { workspaceOutputPaths, type WorkspaceOutputPaths } from '../workspace/output-root.js'
 
 type RemoteToolResult = {
@@ -482,7 +483,7 @@ function nodeMetadataFromValue(value: unknown, fallbackAddress?: string): GraphN
     system_labels: stringArrayValue(record['system_labels']),
     addresses: stringArrayValue(record['member_addresses']),
     risk_score: numberValue(record['risk_score']),
-    risk_level: typeof record['risk_level'] === 'string' && record['risk_level'].trim() ? record['risk_level'] : undefined,
+    risk_level: normalizeRiskLevel(record['risk_level']),
     is_exchange: isExchangeFlag(record['is_exchange']),
   }
 }
@@ -767,7 +768,7 @@ function buildGraph(seedAddress: string, network: string, flows: TraceFlow[], de
     node.systemLabels = uniqueStrings([...node.systemLabels, ...(metadata?.system_labels ?? []), ...(systemLabelsFallback ?? [])])
     if (metadata?.addresses?.length) node.memberAddresses = uniqueStrings([...(node.memberAddresses ?? []), ...metadata.addresses])
     if (metadata?.risk_score !== undefined) node.riskScore = metadata.risk_score
-    if (metadata?.risk_level) node.riskLevel = metadata.risk_level
+    if (metadata?.risk_level) node.riskLevel = normalizeRiskLevel(metadata.risk_level) ?? node.riskLevel
     if (role) node.roles.add(role)
     return node
   }

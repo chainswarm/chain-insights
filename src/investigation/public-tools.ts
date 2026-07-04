@@ -6,6 +6,7 @@ import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import type { InvestigatorConfig } from '../config/schema.js'
 import { activityWindowPredicates, runFundFlowProbe, type TraceActivityWindow, type TraceFundsResult, type TopologyScope, DEFAULT_TOPOLOGY_SCOPE } from './trace-funds.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
+import { isUnscoredRiskLevel, normalizeRiskLevel } from './risk-level.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
 
 type RemoteToolResult = {
@@ -453,7 +454,7 @@ function addressRiskScoreQuery(address: string): { id: string; query: string } {
     query: [
       'USE facts',
       `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[:HAS_RISK_SCORE]->(risk:RiskScore)`,
-      'RETURN risk.risk_score AS ml_risk_score, risk.window_days AS risk_window_days, risk.processing_date AS risk_processing_date, risk.xgboost_model_version AS xgboost_model_version, risk.gnn_model_version AS gnn_model_version, risk.shap_top_features AS shap_top_features',
+      'RETURN risk.risk_score AS ml_risk_score, risk.risk_level AS ml_risk_level, risk.window_days AS risk_window_days, risk.processing_date AS risk_processing_date, risk.xgboost_model_version AS xgboost_model_version, risk.gnn_model_version AS gnn_model_version, risk.shap_top_features AS shap_top_features',
       'LIMIT 1',
     ].join(' '),
   }
@@ -725,16 +726,25 @@ function riskAssessment(
   exchangeRows: Array<Record<string, unknown>>,
 ): Record<string, unknown> {
   const mlRiskScore = firstNumber(profile['ml_risk_score'])
+  // UNSCORED is the model's explicit abstention (calibrated-scoring release):
+  // the score exists for transparency but carries no stance — deriving a
+  // severity band from it would silently launder an abstention into a
+  // confident verdict (typically "low"). Fall back to labels/exchange
+  // exposure and say so.
+  const mlAbstained = isUnscoredRiskLevel(profile['ml_risk_level'])
   const labelRiskLevel = strongestLabelRiskLevel(labelRows)
-  const score = mlRiskScore ?? exchangeExposureFallbackScore(exchangeRows)
-  const level = labelRiskLevel ?? riskLevelFromScore(score)
+  const usableMlScore = mlAbstained ? undefined : mlRiskScore
+  const score = usableMlScore ?? exchangeExposureFallbackScore(exchangeRows)
+  const level = labelRiskLevel ?? (mlAbstained && exchangeRows.length === 0 ? 'unscored' : riskLevelFromScore(score))
   const drivers = riskDrivers(profile, labelRows, exchangeRows)
+  if (mlAbstained) drivers.push('ml_abstained: ML verdict is UNSCORED (insufficient labeled graph context); level derived from labels/exchange exposure only')
   return {
     level,
     score,
     ...(mlRiskScore !== undefined ? { ml_risk_score: mlRiskScore } : {}),
-    confidence: mlRiskScore !== undefined || labelRiskLevel ? 'high' : exchangeRows.length > 0 ? 'medium' : 'low',
-    recommendation: riskRecommendation(level),
+    ...(mlAbstained ? { ml_verdict: 'unscored' } : {}),
+    confidence: (usableMlScore !== undefined || labelRiskLevel) ? 'high' : exchangeRows.length > 0 ? 'medium' : 'low',
+    recommendation: level === 'unscored' ? 'Model abstained and no label/exchange signal found; gather more context before clearing.' : riskRecommendation(level),
     drivers,
     sources: riskScoreSources(profile, labelRows),
   }
@@ -789,7 +799,7 @@ function buildRiskGraph(address: string, profile: Record<string, unknown>, rows:
     const systemLabels = stringArrayValue(metadata?.['system_labels']) ?? existing['system_labels']
     const memberAddresses = stringArrayValue(metadata?.['member_addresses']) ?? existing['member_addresses']
     const riskScore = numberValue(metadata?.['risk_score']) ?? existing['risk_score']
-    const riskLevel = firstString(metadata?.['risk_level']) ?? existing['risk_level']
+    const riskLevel = normalizeRiskLevel(firstString(metadata?.['risk_level'])) ?? existing['risk_level']
     nodes.set(entry, {
       ...existing,
       labels,
