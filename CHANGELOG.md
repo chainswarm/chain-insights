@@ -1017,3 +1017,5 @@ All notable changes to Chain Insights are recorded here.
 - Added workspace output-root handling so investigation outputs stay in initialized workspaces.
 - Added wallet balance visibility for Base ETH gas alongside USDC.
 - Updated the default Chain Insights Graph endpoint to staging.
+
+<!-- test/moa-pr-review-stage-b-probe: internal RBMK process-rollout probe, throwaway -->
