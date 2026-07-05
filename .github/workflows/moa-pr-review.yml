@@ -1,0 +1,22 @@
+name: MoA PR Review
+
+# Thin caller for the moa-pr-review gate. Logic lives once in
+# chainswarm/rbmk/.github/workflows/moa-pr-review-reusable.yml (Approach A
+# -- no per-repo drift). The job-level `if:` gates on fork-origin BEFORE
+# the reusable workflow is ever invoked -- no runner is allocated at all
+# for a fork-originated PR.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: write
+
+jobs:
+  moa-review:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    uses: chainswarm/rbmk/.github/workflows/moa-pr-review-reusable.yml@main
+    secrets: inherit
