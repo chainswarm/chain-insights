@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.25] - 2026-07-05
+
+- Regenerated the devkit fixture (data only, no source changes here) to
+  pick up two upstream export fixes (RBMK-root `chainswarm/rbmk`): a
+  label-window boundary-precision fix and a fix bounding
+  `facts_address_labels_view`'s declared `exported_max` correctly by
+  whichever window branch each row actually qualified through, instead of
+  a blanket write-audit-column timestamp that could read "now" for
+  properly historically-bounded data.
+
 ## [0.8.24] - 2026-07-05
 
 - Fixed a false-clean AML result: `aml_address_risk`'s exchange-behavior
