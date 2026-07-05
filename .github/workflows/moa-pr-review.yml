@@ -1,10 +1,11 @@
 name: MoA PR Review
 
-# Thin caller for the moa-pr-review gate. Logic lives once in
-# chainswarm/rbmk/.github/workflows/moa-pr-review-reusable.yml (Approach A
-# -- no per-repo drift). The job-level `if:` gates on fork-origin BEFORE
-# the reusable workflow is ever invoked -- no runner is allocated at all
-# for a fork-originated PR.
+# Automated diff review gate. As a public repository this workflow runs
+# self-contained rather than calling a shared internal workflow (GitHub does
+# not allow a public repo to call a reusable workflow hosted in a private
+# one). Internal maintainers: this is a manually-synced copy of the
+# organization's standard review workflow steps -- see the internal ops
+# catalog for the source of truth when updating.
 
 on:
   pull_request:
@@ -17,6 +18,67 @@ permissions:
 
 jobs:
   moa-review:
+    name: MoA PR review
     if: github.event.pull_request.head.repo.full_name == github.repository
-    uses: chainswarm/rbmk/.github/workflows/moa-pr-review-reusable.yml@main
-    secrets: inherit
+    runs-on: [self-hosted, chainswarm-runner]
+    steps:
+      - name: Ensure gh CLI is available
+        run: |
+          if command -v gh >/dev/null 2>&1; then
+            echo "gh already available: $(command -v gh)"
+            exit 0
+          fi
+          arch="$(uname -m)"
+          case "$arch" in
+            x86_64) gh_arch=amd64 ;;
+            aarch64|arm64) gh_arch=arm64 ;;
+            *) echo "::error::unsupported architecture for gh install: $arch"; exit 1 ;;
+          esac
+          gh_version="2.63.2"
+          install_dir="${RUNNER_TEMP}/gh-cli"
+          mkdir -p "$install_dir"
+          curl -fsSL "https://github.com/cli/cli/releases/download/v${gh_version}/gh_${gh_version}_linux_${gh_arch}.tar.gz" \
+            -o "${RUNNER_TEMP}/gh.tar.gz"
+          tar -xzf "${RUNNER_TEMP}/gh.tar.gz" -C "$install_dir" --strip-components=1
+          echo "${install_dir}/bin" >> "$GITHUB_PATH"
+          "${install_dir}/bin/gh" --version
+
+      - name: Ensure codex CLI is on PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Checkout caller repo (PR head)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Mint chainswarm-ci app token (rbmk checkout only)
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.CHAINSWARM_GITHUB_APP_ID }}
+          private-key: ${{ secrets.CHAINSWARM_GITHUB_APP_PRIVATE_KEY }}
+          owner: chainswarm
+          repositories: rbmk
+
+      - name: Checkout rbmk tooling (staging, actions/checkout requires an in-workspace path)
+        uses: actions/checkout@v4
+        with:
+          repository: chainswarm/rbmk
+          ref: main
+          path: .rbmk-tools-staging
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
+
+      - name: Relocate rbmk tooling outside caller workspace
+        run: mv "$GITHUB_WORKSPACE/.rbmk-tools-staging" "${{ runner.temp }}/rbmk-tools"
+
+      - name: Classify, build packet, run MoA, map verdict, post comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RBMK_TOOLS: ${{ runner.temp }}/rbmk-tools
+        run: |
+          python3 "$RBMK_TOOLS/scripts/devops/run-moa-pr-review.py" \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --rbmk-tools "$RBMK_TOOLS" \
+            --repository "$GITHUB_REPOSITORY" \
+            --pr-number "${{ github.event.pull_request.number }}"
