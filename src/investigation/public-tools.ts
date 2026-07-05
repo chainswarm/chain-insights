@@ -944,6 +944,17 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   const inflows = enrichExchangeRows(optionalResultsWithPrefix(batch, 'exchange_inflows_', partialQueryFailures))
   const connections = compareAddress ? optionalResultsFor(batch, 'connection_probe', partialQueryFailures) : []
   const exchangeRows = [...outflows, ...inflows]
+  // A hop-depth exchange_outflows_N/exchange_inflows_N query can fail
+  // independently (e.g. the archive-tier query-memory limit on a deep
+  // multi-hop search) while other hop depths succeed with zero rows. An
+  // empty exchangeRows result must then read as "search incomplete," not
+  // "no exchange exposure" -- the two are not the same claim, and an AML
+  // tool that silently reports a false-clean verdict on a partial search
+  // failure is a real risk (found during MoA review, 2026-07-05).
+  const exchangeSearchFailures = partialQueryFailures.filter(
+    (failure) => failure.id.startsWith('exchange_outflows_') || failure.id.startsWith('exchange_inflows_'),
+  )
+  const exchangeSearchComplete = exchangeSearchFailures.length === 0
   const graphData = buildRiskGraph(address, profile, exchangeRows, network)
   const risk = riskAssessment(profile, labelRows, exchangeRows)
   const memberAddresses = stringArrayValue(profile['member_addresses']) ?? []
@@ -968,7 +979,18 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     `Graph degree: in ${profile['degree_in'] ?? 'unknown'}, out ${profile['degree_out'] ?? 'unknown'}.`,
     '',
     'Exchange behavior',
-    exchangeRows.length > 0 ? formatExchangeRows(exchangeRows).join('\n') : '- No exchange inflow/outflow paths found in bounded search.',
+    ...(exchangeRows.length > 0
+      ? [
+          formatExchangeRows(exchangeRows).join('\n'),
+          ...(exchangeSearchComplete
+            ? []
+            : [`(incomplete: ${exchangeSearchFailures.length} other hop-depth quer${exchangeSearchFailures.length === 1 ? 'y' : 'ies'} failed -- there may be more exchange exposure than shown here)`]),
+        ]
+      : [
+          exchangeSearchComplete
+            ? '- No exchange inflow/outflow paths found in bounded search.'
+            : `- Exchange search incomplete: ${exchangeSearchFailures.length} hop-depth quer${exchangeSearchFailures.length === 1 ? 'y' : 'ies'} failed before returning a result. This is NOT a clean finding -- retry or narrow the search (see Partial query failures below).`,
+        ]),
   ]
   if (Array.isArray(risk['drivers']) && risk['drivers'].length > 0) {
     lines.push('', 'Risk drivers', risk['drivers'].map((driver) => `- ${driver}`).join('\n'))
@@ -1002,6 +1024,8 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
         exchange_behavior: {
           outflows,
           inflows,
+          search_status: exchangeSearchComplete ? 'complete' : 'incomplete',
+          ...(exchangeSearchComplete ? {} : { failed_query_ids: exchangeSearchFailures.map((failure) => failure.id) }),
         },
         connection: compareAddress ? { compare_address: compareAddress, paths: connections } : undefined,
         unresolved: compareUnresolved ? [compareInput] : undefined,

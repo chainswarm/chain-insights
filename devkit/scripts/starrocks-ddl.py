@@ -28,8 +28,7 @@ COMPATIBILITY_COLUMNS_BY_TABLE = {
 # is_exchange must be a real nullable TINYINT, not the blanket VARCHAR --
 # otherwise the exported \N NULL marker loads as the literal 2-character
 # string "\N" rather than a real SQL NULL, and `is_exchange IS NOT NULL`
-# silently matches every row instead of just the exchange-flagged ones
-# (the D3 corruption this fix targets).
+# silently matches every row instead of just the exchange-flagged ones.
 COLUMN_TYPE_OVERRIDES_BY_TABLE = {
     "archive_topology_addresses_view": {
         "is_exchange": "TINYINT NULL",
