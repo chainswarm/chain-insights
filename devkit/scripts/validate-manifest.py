@@ -180,14 +180,12 @@ def main() -> None:
         fail("manifest network must be bittensor")
     if manifest.get("semantic_database") != "bittensor_semantic":
         fail("manifest semantic_database must be bittensor_semantic")
-    # fixture_window.to_exclusive is no longer a fixed historical literal:
-    # it is pinned to a live coverage watermark each build
-    # (scripts/devops/chain-insights-devkit/fixture_window.py, in the
-    # sibling RBMK root repo -- not importable here across the repo
-    # boundary), so this validates internal consistency of the manifest's
-    # own declared window instead of an exact-match against a stale date
-    # (found and fixed during W2 execution, 2026-07-04: the old exact-match
-    # form would have rejected every fixture built after 2026-07-03).
+    # fixture_window.to_exclusive is pinned to a live coverage watermark on
+    # every build, not a fixed historical literal, so this validates
+    # internal consistency of the manifest's own declared window (a valid,
+    # later-than-from timestamp) rather than an exact-match against a
+    # stale date -- an exact-match check would reject every fixture built
+    # after whatever date it was written against.
     fixture_window = manifest.get("fixture_window", {})
     if fixture_window.get("from") != "2024-01-01T00:00:00Z":
         fail("manifest fixture_window.from must be 2024-01-01T00:00:00Z")

@@ -84,10 +84,10 @@ import sys
 from pathlib import Path
 
 # is_exchange must be a real typed NULL, not the literal varchar string
-# "NULL" -- the D3 corruption this check pins against forever. Before the
-# fix, "IS NOT NULL" matched every row (480,381 in the devkit fixture)
-# instead of just the 11 exchange-flagged identities; both counts must be
-# identical (every non-NULL is_exchange value is true, never false/0).
+# "NULL". Before this check existed, "IS NOT NULL" matched every row
+# (480,381 in the devkit fixture) instead of just the 11 exchange-flagged
+# identities; both counts must be identical (every non-NULL is_exchange
+# value is true, never false/0).
 def result_count(path, key):
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     facts = payload["result"]["structuredContent"]["facts"]

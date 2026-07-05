@@ -3,6 +3,23 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.24] - 2026-07-05
+
+- Fixed a false-clean AML result: `aml_address_risk`'s exchange-behavior
+  search runs one query per hop depth, and a hop-depth query can fail
+  independently (e.g. an archive-tier query-memory limit on a deep
+  multi-hop search) while others succeed with zero rows. The response
+  previously reported "No exchange inflow/outflow paths found in bounded
+  search" identically whether the search genuinely found nothing or
+  partially failed -- an analyst reading only the headline could not tell
+  a clean result from an incomplete one. The response now says "Exchange
+  search incomplete" when any hop-depth query fails, and adds a caveat
+  even when some hops did return hits, since deeper ones may still be
+  missing; `exchange_behavior.search_status` (`complete`/`incomplete`)
+  and `failed_query_ids` are now in the structured response too.
+- devkit fixture scripts: removed internal workstream-label references
+  from code comments (product-facing wording only, no behavior change).
+
 ## [0.8.23] - 2026-07-04
 
 - Fixed `aml_address_risk`'s ML risk-score enrichment query: it selected
