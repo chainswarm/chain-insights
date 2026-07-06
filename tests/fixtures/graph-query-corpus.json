@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/generate-query-corpus.mjs",
- "entry_count": 139,
+ "entry_count": 141,
  "entries": [
   {
    "builder": "addressFeatureQuery",
@@ -907,7 +907,7 @@
    "query": "USE live_topology MATCH (i:Identity {identity_id: \"corpus-identity-a\"}) RETURN i.identity_id AS identity_id LIMIT 1"
   },
   {
-   "builder": "identityMemberAddressesQuery",
+   "builder": "identityMemberAddressesQueries",
    "params": {
     "identities": [
      "corpus-identity-a",
@@ -915,10 +915,21 @@
     ]
    },
    "scope": "archive_topology",
-   "query": "USE archive_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) WHERE i.identity_id = \"corpus-identity-a\" OR i.identity_id = \"corpus-identity-b\" RETURN i.identity_id AS identity_id, m.address AS member_address ORDER BY i.identity_id, m.address LIMIT 50"
+   "query": "USE archive_topology MATCH (i:Identity {identity_id: \"corpus-identity-a\"})-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address ORDER BY m.address LIMIT 25"
   },
   {
-   "builder": "identityMemberAddressesQuery",
+   "builder": "identityMemberAddressesQueries",
+   "params": {
+    "identities": [
+     "corpus-identity-a",
+     "corpus-identity-b"
+    ]
+   },
+   "scope": "archive_topology",
+   "query": "USE archive_topology MATCH (i:Identity {identity_id: \"corpus-identity-b\"})-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address ORDER BY m.address LIMIT 25"
+  },
+  {
+   "builder": "identityMemberAddressesQueries",
    "params": {
     "identities": [
      "corpus-identity-a",
@@ -926,7 +937,18 @@
     ]
    },
    "scope": "live_topology",
-   "query": "USE live_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) WHERE i.identity_id = \"corpus-identity-a\" OR i.identity_id = \"corpus-identity-b\" RETURN i.identity_id AS identity_id, m.address AS member_address ORDER BY i.identity_id, m.address LIMIT 50"
+   "query": "USE live_topology MATCH (i:Identity {identity_id: \"corpus-identity-a\"})-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address ORDER BY m.address LIMIT 25"
+  },
+  {
+   "builder": "identityMemberAddressesQueries",
+   "params": {
+    "identities": [
+     "corpus-identity-a",
+     "corpus-identity-b"
+    ]
+   },
+   "scope": "live_topology",
+   "query": "USE live_topology MATCH (i:Identity {identity_id: \"corpus-identity-b\"})-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address ORDER BY m.address LIMIT 25"
   },
   {
    "builder": "memberAddressesQuery",

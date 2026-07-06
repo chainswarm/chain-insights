@@ -220,25 +220,28 @@ function identityExistenceQuery(id: string, identityId: string): { id: string; q
   }
 }
 
-function identityMemberAddressesQuery(identityKeys: string[]): { id: string; query: string } {
-  const predicates = identityKeys.map((identityKey) => `i.identity_id = "${escapeCypherString(identityKey)}"`)
-  // No collect(): this builder runs under the caller's topology scope, and
-  // collect() fails at runtime on the archive layer (the warehouse backend
-  // has no COLLECT aggregate — capability probe A07 pins the reject). One
-  // row per member address; callers aggregate client-side.
-  return {
-    id: 'identity_member_addresses',
+// Display enrichment can only spend one batch, so cap the identities
+// enriched per lookup (batch query ceiling); enrichment is best-effort.
+const MEMBER_ADDRESS_LOOKUP_MAX_IDENTITIES = 20
+const MEMBER_ADDRESSES_PER_IDENTITY_LIMIT = 25
+
+function identityMemberAddressesQueries(identityKeys: string[]): Array<{ id: string; query: string }> {
+  // One query PER identity: a per-identity LIMIT is not expressible in a
+  // single query on every layer, and a global LIMIT lets one address-rich
+  // identity starve the rest. No collect(): this builder runs under the
+  // caller's topology scope, and collect() fails at runtime on the
+  // archive layer (no COLLECT aggregate in the warehouse backend —
+  // capability probe A07 pins the reject). One row per member address;
+  // callers aggregate client-side.
+  return identityKeys.slice(0, MEMBER_ADDRESS_LOOKUP_MAX_IDENTITIES).map((identityKey, index) => ({
+    id: `identity_member_addresses_${index}`,
     query: [
-      'MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address)',
-      `WHERE ${predicates.join(' OR ')}`,
+      `MATCH (i:Identity {identity_id: "${escapeCypherString(identityKey)}"})-[:HAS_ADDRESS]->(m:Address)`,
       'RETURN i.identity_id AS identity_id, m.address AS member_address',
-      // Deterministic truncation: the LIMIT is global (per-identity caps
-      // are not expressible in one query on every layer), so order rows
-      // to make which members survive stable across runs.
-      'ORDER BY i.identity_id, m.address',
-      `LIMIT ${identityKeys.length * 25}`,
+      'ORDER BY m.address',
+      `LIMIT ${MEMBER_ADDRESSES_PER_IDENTITY_LIMIT}`,
     ].join(' '),
-  }
+  }))
 }
 
 /**
@@ -335,16 +338,19 @@ async function identityDisplayMap(
   const memberRows = new Map<string, string[]>()
   if (uniqueKeys.length > 0) {
     try {
-      const batch = await callGraphBatch(remoteClient, network, [identityMemberAddressesQuery(uniqueKeys)], topologyScope)
-      for (const row of optionalResultsFor(batch, 'identity_member_addresses', [])) {
-        const identityKey = firstString(row['identity_id'])
-        const memberAddress = firstString(row['member_address'])
-        if (!identityKey || !memberAddress) continue
-        // One row per member address (no collect() — archive-safe form);
-        // aggregate client-side.
-        const existing = memberRows.get(identityKey) ?? []
-        if (!existing.includes(memberAddress)) existing.push(memberAddress)
-        memberRows.set(identityKey, existing)
+      const memberQueries = identityMemberAddressesQueries(uniqueKeys)
+      const batch = await callGraphBatch(remoteClient, network, memberQueries, topologyScope)
+      for (const memberQuery of memberQueries) {
+        for (const row of optionalResultsFor(batch, memberQuery.id, [])) {
+          const identityKey = firstString(row['identity_id'])
+          const memberAddress = firstString(row['member_address'])
+          if (!identityKey || !memberAddress) continue
+          // One row per member address (no collect() — archive-safe
+          // form); aggregate client-side.
+          const existing = memberRows.get(identityKey) ?? []
+          if (!existing.includes(memberAddress)) existing.push(memberAddress)
+          memberRows.set(identityKey, existing)
+        }
       }
     } catch {
       // Publicization is best-effort. Tool execution should not fail only
@@ -672,7 +678,10 @@ export function routeFromPathValue(value: unknown): RouteEvidenceSide | null {
     .filter((node) => isExchangeMarker(node['is_exchange']))
     .map((node) => String(node['identity_id']))
   return {
-    hops: edges.length > 0 ? edges.length : nodes.length - 1,
+    // Hop count is a structural property of the node sequence — never
+    // derived from edge-object detection, which keys on numeric
+    // amount_usd_sum and would under-report on partially hydrated edges.
+    hops: nodes.length - 1,
     identities,
     exchange_intermediates: exchangeIntermediates,
     amount_usd_sum_total: edges.reduce((total, edge) => total + Number(edge['amount_usd_sum']), 0),
@@ -2426,7 +2435,7 @@ export const queryBuilderContract = {
   topologyGraphQuery,
   memberAddressResolutionQuery,
   identityExistenceQuery,
-  identityMemberAddressesQuery,
+  identityMemberAddressesQueries,
   addressProfileQuery,
   memberAddressesQuery,
   addressFeatureQuery,

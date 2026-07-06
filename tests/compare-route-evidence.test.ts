@@ -115,6 +115,16 @@ describe('routeFromPathValue', () => {
     expect(route!.exchange_intermediates).toEqual([])
   })
 
+  it('hops come from the node sequence even with partially hydrated edges', () => {
+    const route = routeFromPathValue({
+      nodes: [{ identity_id: 'idA' }, { identity_id: 'mid' }, { identity_id: 'idB' }],
+      // One edge lacks a numeric amount — hop count must not shrink.
+      relationships: [{ amount_usd_sum: 30 }, { amount_usd_sum: null }],
+    })
+    expect(route!.hops).toBe(2)
+    expect(route!.amount_usd_sum_total).toBe(30)
+  })
+
   it('returns null for empty/absent rows', () => {
     expect(routeFromPathValue(undefined)).toBeNull()
     expect(routeFromPathValue(null)).toBeNull()

@@ -2156,11 +2156,12 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
               facts: {
                 queries: [
                   {
-                    id: 'identity_member_addresses',
+                    id: 'identity_member_addresses_0',
                     ok: true,
                     results: [
                       // One row per member address (archive-safe builder
-                      // form — no collect(); see probe A07).
+                      // form — no collect(); see probe A07). Per-identity
+                      // queries; extra ids resolve empty in this stub.
                       { identity_id: depositAIdentity, member_address: '5DepositA' },
                       { identity_id: depositBIdentity, member_address: '5DepositB' },
                       { identity_id: sharedSourceIdentity, member_address: '5SharedSource' },

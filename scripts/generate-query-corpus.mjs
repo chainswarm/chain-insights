@@ -56,7 +56,7 @@ for (const scope of SCOPES) {
   add('memberAddressesQuery', { address: ADDR }, scope, queryBuilderContract.memberAddressesQuery(ADDR))
   add('memberAddressResolutionQuery', { member: ADDR_QUOTED }, scope, queryBuilderContract.memberAddressResolutionQuery('resolve_0', ADDR_QUOTED))
   add('identityExistenceQuery', { identity: ADDR }, scope, queryBuilderContract.identityExistenceQuery('exists_0', ADDR))
-  add('identityMemberAddressesQuery', { identities: [ADDR, COMPARE] }, scope, queryBuilderContract.identityMemberAddressesQuery([ADDR, COMPARE]))
+  add('identityMemberAddressesQueries', { identities: [ADDR, COMPARE] }, scope, queryBuilderContract.identityMemberAddressesQueries([ADDR, COMPARE]))
   add('connectionProbeQuery', { address: ADDR, compare: COMPARE }, scope, queryBuilderContract.connectionProbeQuery(ADDR, COMPARE))
 
   for (const minAmountSum of [0, 10]) {
