@@ -639,6 +639,22 @@ function collectOrdered(
   return collected
 }
 
+// is_exchange on topology nodes is a MARKER, not a boolean: it usually
+// carries the exchange name (e.g. "binance"). Treat explicit falsy
+// encodings as not-exchange (a bare non-null check would falsely disclose
+// nodes serialized as false/"false"/0), and any other non-empty value as
+// exchange. isExchangeFlag() is NOT reused here — it is boolean-only and
+// would miss name-valued markers.
+export function isExchangeMarker(value: unknown): boolean {
+  if (value === null || value === undefined || value === false) return false
+  if (typeof value === 'number') return value !== 0
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    return normalized !== '' && normalized !== 'false' && normalized !== '0' && normalized !== 'null'
+  }
+  return value === true
+}
+
 // Shape-tolerant hydrated-path reader: walks the returned path value for
 // ordered identity nodes and FLOWS_TO edge amounts without pinning the
 // backend's exact path envelope.
@@ -653,7 +669,7 @@ export function routeFromPathValue(value: unknown): RouteEvidenceSide | null {
   const identities = nodes.map((node) => String(node['identity_id']))
   const exchangeIntermediates = nodes
     .slice(1, -1)
-    .filter((node) => node['is_exchange'] !== null && node['is_exchange'] !== undefined)
+    .filter((node) => isExchangeMarker(node['is_exchange']))
     .map((node) => String(node['identity_id']))
   return {
     hops: edges.length > 0 ? edges.length : nodes.length - 1,

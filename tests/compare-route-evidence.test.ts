@@ -83,6 +83,27 @@ describe('routeFromPathValue', () => {
     expect(route!.exchange_intermediates).toEqual(['mid1'])
   })
 
+  it('falsy is_exchange encodings are never disclosed; name markers are', () => {
+    const route = routeFromPathValue({
+      nodes: [
+        { identity_id: 'idA' },
+        { identity_id: 'midFalse', is_exchange: false },
+        { identity_id: 'midFalseStr', is_exchange: 'false' },
+        { identity_id: 'midZero', is_exchange: 0 },
+        { identity_id: 'midName', is_exchange: 'binance' },
+        { identity_id: 'idB' },
+      ],
+      relationships: [
+        { amount_usd_sum: 1 },
+        { amount_usd_sum: 1 },
+        { amount_usd_sum: 1 },
+        { amount_usd_sum: 1 },
+        { amount_usd_sum: 1 },
+      ],
+    })
+    expect(route!.exchange_intermediates).toEqual(['midName'])
+  })
+
   it('endpoints are not counted as exchange intermediates', () => {
     const route = routeFromPathValue({
       nodes: [
