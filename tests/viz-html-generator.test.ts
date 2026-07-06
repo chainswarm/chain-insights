@@ -270,6 +270,19 @@ describe('transformToGraphHtml (data schema mapping)', () => {
     expect(result.edges[0]).not.toHaveProperty('type')
   })
 
+  it('maps hub entityType to a non-null role', async () => {
+    const { transformToGraphHtml } = await import('../src/viz/html-generator.js')
+    const { GraphData } = await import('../src/viz/graph-model.js')
+    const data = GraphData.parse({
+      nodes: [{ id: '0xhub1', entityType: 'hub', riskLevel: 'high', totalIn: 300, totalOut: 280, txCount: 42 }],
+      edges: [],
+      metadata: { generatedAt: '2024-01-01T00:00:00Z' },
+    })
+    const result = transformToGraphHtml(data)
+    expect(result.nodes[0].role).toBe('intermediary')
+    expect(result.nodes[0].role).not.toBeNull()
+  })
+
   it('maps unknown riskLevel to null', async () => {
     const { transformToGraphHtml } = await import('../src/viz/html-generator.js')
     const { GraphData } = await import('../src/viz/graph-model.js')

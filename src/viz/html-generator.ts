@@ -39,6 +39,7 @@ const ENTITY_TO_ROLE: Record<string, string | null> = {
   contract: 'intermediary',
   exchange: 'exchange',
   mixer: 'intermediary',
+  hub: 'intermediary',
   unknown: null,
 }
 

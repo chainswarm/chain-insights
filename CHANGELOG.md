@@ -3,6 +3,13 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.26] - 2026-07-06
+
+- Graph visualization now recognizes a `hub` entity type (dense
+  infrastructure a scam trace routed through, distinct from a confirmed
+  `mixer` classification) so hub-typed nodes render correctly instead of
+  failing schema validation.
+
 ## [0.8.25] - 2026-07-05
 
 - Regenerated the devkit fixture (data only, no source changes here) to
