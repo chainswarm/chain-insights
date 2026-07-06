@@ -167,7 +167,10 @@ describe.skipIf(!enabled)('route evidence against devkit fixture (AC8)', () => {
       // prefix stripped) while graph_query row values are prefixed keys —
       // normalize both sides for the comparison and query ground truth
       // with the prefixed form.
-      const stripPrefix = (identity: string): string => identity.replace(/^bittensor:/, '')
+      // Identity keys are `bittensor:<lowercased ss58>`, while the tool
+      // display-normalizes route identities to member SS58 form (mixed
+      // case) once the member map resolves — compare on the lowercase stem.
+      const stripPrefix = (identity: string): string => identity.replace(/^bittensor:/, '').toLowerCase()
       const intermediates = side!.identities.slice(1, -1)
       expect(intermediates.length).toBeGreaterThanOrEqual(1)
       const actualExchanges = intermediates
