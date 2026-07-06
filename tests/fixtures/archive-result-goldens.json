@@ -9,94 +9,94 @@
    "baseline": "memgql",
    "expected_rows": [
     {
-     "amount_usd_sum": "0.00000015",
-     "from_identity": "bittensor:5caopbng7kvvn5ureapm4ztczhxqvenveety4d2ckzxrhf1v",
-     "period_end_date": "2026-02-11",
+     "amount_usd_sum": "16020.96453792",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2025-05-31",
      "period_granularity": "daily",
-     "period_start_date": "2026-02-11",
-     "to_identity": "bittensor:5dundrfv6bpbzsglzutmqtcq7w9fcuebm59buwx5e7n9bn5e",
-     "tx_count": "1"
-    },
-    {
-     "amount_usd_sum": "2138.63407813",
-     "from_identity": "bittensor:5caoqjbp3jsukpmfnmzfbznwbfvbk8icu8nofmed7svwzf1n",
-     "period_end_date": "2026-06-06",
-     "period_granularity": "daily",
-     "period_start_date": "2026-06-06",
-     "to_identity": "bittensor:0x6d6f646c73756274656e73720000000000000000",
-     "tx_count": "1"
-    },
-    {
-     "amount_usd_sum": "3.20583455",
-     "from_identity": "bittensor:5capssswpqc9szvdhwa62rzmm1q4ek8gszam7nq8ygaf99yl",
-     "period_end_date": "2026-03-25",
-     "period_granularity": "daily",
-     "period_start_date": "2026-03-25",
-     "to_identity": "bittensor:5gjufyhsypwt4vg6jveajzsmrus1kyzchp1bj4avap4sld5p",
-     "tx_count": "1"
-    },
-    {
-     "amount_usd_sum": "3386.48535632",
-     "from_identity": "bittensor:5caqcrbsxmu2ktqgbxbcn78habz69xvyk29fyw3jjq96igbo",
-     "period_end_date": "2026-06-26",
-     "period_granularity": "daily",
-     "period_start_date": "2026-06-26",
-     "to_identity": "bittensor:0x6d6f646c73756274656e73727800000000000000",
-     "tx_count": "3"
-    },
-    {
-     "amount_usd_sum": "38066.76126205",
-     "from_identity": "bittensor:5caqdeebtncsp2dpjye4nd6as2endc8inmfpcgxnibhyq5ar",
-     "period_end_date": "2026-04-05",
-     "period_granularity": "daily",
-     "period_start_date": "2026-04-05",
-     "to_identity": "bittensor:5eckuxqt6k94abydv4rry6eo4f3hosoy2sxacdtbg4uca3p9",
+     "period_start_date": "2025-05-31",
+     "to_identity": "bittensor:5d2hsuggy41wpmjbsqief4vzinh62ynpu7cou5a8operv8ek",
      "tx_count": "4"
     },
     {
-     "amount_usd_sum": "38517.09358345",
-     "from_identity": "bittensor:5caqdeebtncsp2dpjye4nd6as2endc8inmfpcgxnibhyq5ar",
-     "period_end_date": "2024-07-23",
+     "amount_usd_sum": "56.15914121",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2024-04-09",
      "period_granularity": "daily",
-     "period_start_date": "2024-07-23",
-     "to_identity": "bittensor:5g9qvps36ofwqblkujrqavttshcfg95g4tfbxxxp6ieb7n1r",
-     "tx_count": "4"
-    },
-    {
-     "amount_usd_sum": "985.41324119",
-     "from_identity": "bittensor:5cas94w16yzkim1dapyg9issfubv2ryma2tgx93ov3gnmabn",
-     "period_end_date": "2024-05-09",
-     "period_granularity": "daily",
-     "period_start_date": "2024-05-09",
-     "to_identity": "bittensor:5cdcc1ctbejgy9jewfrlfu4myhapujwjp8dgzgaztsv4uemu",
+     "period_start_date": "2024-04-09",
+     "to_identity": "bittensor:5d2ix5mcelobt7aafl8vg9buwhmw9kuhlscebxfypsjpjuzb",
      "tx_count": "1"
     },
     {
-     "amount_usd_sum": "3257.35549852",
-     "from_identity": "bittensor:5cas94w16yzkim1dapyg9issfubv2ryma2tgx93ov3gnmabn",
-     "period_end_date": "2024-06-30",
+     "amount_usd_sum": "2922.68241908",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2024-04-18",
      "period_granularity": "daily",
-     "period_start_date": "2024-06-30",
-     "to_identity": "bittensor:5cihiuboyv5anjtwozqmtqx7ayzr7phq3wvsddkozfgovkou",
-     "tx_count": "11"
+     "period_start_date": "2024-04-18",
+     "to_identity": "bittensor:5d2ndhcygf3ghzuhdx4afgc7kymcx92pkx8drxxpyhtkzggd",
+     "tx_count": "2"
     },
     {
-     "amount_usd_sum": "14.31965166",
-     "from_identity": "bittensor:5cas94w16yzkim1dapyg9issfubv2ryma2tgx93ov3gnmabn",
-     "period_end_date": "2024-06-19",
+     "amount_usd_sum": "61.74966865",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2025-09-05",
      "period_granularity": "daily",
-     "period_start_date": "2024-06-19",
-     "to_identity": "bittensor:5eqmneph1ktrnjudlnvnvx7nywsvmaakncwnngvszgzpk2sm",
+     "period_start_date": "2025-09-05",
+     "to_identity": "bittensor:5d2r5mlznxsjme5prufuyfgetjy1tb78kiz3cfktprsatbt6",
      "tx_count": "1"
     },
     {
-     "amount_usd_sum": "1192.87119422",
-     "from_identity": "bittensor:5caseb3cnkvj3xd1wwph3qmct8mahxgstcvewztjifkshekn",
-     "period_end_date": "2024-03-06",
+     "amount_usd_sum": "206.88912151",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2024-08-17",
      "period_granularity": "daily",
-     "period_start_date": "2024-03-06",
-     "to_identity": "bittensor:5gux82zfzseoduvsn2auu2crksktbuwxxyihydukcbg1wk1c",
+     "period_start_date": "2024-08-17",
+     "to_identity": "bittensor:5d2uoss3ciwczrvlfp52ctmgbqtpzkjnm6uvu6nxwmxdg5mj",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "1822.79437507",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2024-06-03",
+     "period_granularity": "daily",
+     "period_start_date": "2024-06-03",
+     "to_identity": "bittensor:5d4hyv15e7o6wga4sfesbvbzkocqjwrmygvd8qpfuukknh4b",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "138475.31860040",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2024-04-02",
+     "period_granularity": "daily",
+     "period_start_date": "2024-04-02",
+     "to_identity": "bittensor:5d4umbkdyobkszprektrc15spthgjseufsuef3hef3ctxmwo",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "33.36074027",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2026-06-19",
+     "period_granularity": "daily",
+     "period_start_date": "2026-06-19",
+     "to_identity": "bittensor:5d4ve7xyxmb7cukrbxabeqk7vo3gvnryjfdlqcvyhpk2dw3d",
      "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "231949.22262258",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2026-06-21",
+     "period_granularity": "daily",
+     "period_start_date": "2026-06-21",
+     "to_identity": "bittensor:5d54wcid6m2ymfwlyn5ywjac6us5ssn1rvdymuvw8fa8tvmf",
+     "tx_count": "10"
+    },
+    {
+     "amount_usd_sum": "4378.09332114",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2024-05-04",
+     "period_granularity": "daily",
+     "period_start_date": "2024-05-04",
+     "to_identity": "bittensor:5d5cupbm73o4drrm71oej71eqq9rdakr72srdsw3jputmmgj",
+     "tx_count": "2"
     }
    ]
   },
@@ -107,53 +107,53 @@
    "baseline": "memgql",
    "expected_rows": [
     {
-     "identity_id": "bittensor:0x07c0bc0f4ad7f338e4a9d7d36df3dc3589abd92d",
-     "member_address": "0x07c0bc0f4ad7f338e4a9d7d36df3dc3589abd92d",
+     "identity_id": "bittensor:0x099bbd6b71b5f13bc259ae657c8f6daec9421fcd",
+     "member_address": "0x099bbd6b71b5f13bc259ae657c8f6daec9421fcd",
      "member_network": "evm"
     },
     {
-     "identity_id": "bittensor:0x07dc7b0049a069be37baaaa865f754bfd66aa532",
-     "member_address": "0x07dc7b0049a069be37baaaa865f754bfd66aa532",
+     "identity_id": "bittensor:0x09e97f8fbd8046116d83dc0f283e28ce30bd9c11",
+     "member_address": "0x09e97f8fbd8046116d83dc0f283e28ce30bd9c11",
      "member_network": "evm"
     },
     {
-     "identity_id": "bittensor:0x094b46a4fa3efe55e825fca8404ab100b830bee8",
-     "member_address": "0x094b46a4fa3efe55e825fca8404ab100b830bee8",
+     "identity_id": "bittensor:0x0f4c6c9e7c0cc93d8cb80bb04b6d999402e408f9",
+     "member_address": "0x0f4c6c9e7c0cc93d8cb80bb04b6d999402e408f9",
      "member_network": "evm"
     },
     {
-     "identity_id": "bittensor:0x0e03c4319bc9bf263919c00359a45923652db5f5",
-     "member_address": "0x0e03c4319bc9bf263919c00359a45923652db5f5",
+     "identity_id": "bittensor:0x16773e1a28c1184238b3d4599097d4e38855893b",
+     "member_address": "0x16773e1a28c1184238b3d4599097d4e38855893b",
      "member_network": "evm"
     },
     {
-     "identity_id": "bittensor:0x110e5a0c4c9458aed07b79b531e92fa4f51e86ba",
-     "member_address": "0x110e5a0c4c9458aed07b79b531e92fa4f51e86ba",
+     "identity_id": "bittensor:0x1a40cc024672a0aa45a121eb456adb56f7e27d09",
+     "member_address": "0x1a40cc024672a0aa45a121eb456adb56f7e27d09",
      "member_network": "evm"
     },
     {
-     "identity_id": "bittensor:0x198d138aef96cffc841bc18203cd55ff959da680",
-     "member_address": "0x198d138aef96cffc841bc18203cd55ff959da680",
+     "identity_id": "bittensor:0x1e2ca98f79751ff5dc7032d655377029a37d4b1d",
+     "member_address": "0x1e2ca98f79751ff5dc7032d655377029a37d4b1d",
      "member_network": "evm"
     },
     {
-     "identity_id": "bittensor:0x1bee157d89e6e10c17f46bf637d76baccb05b65a",
-     "member_address": "0x1bee157d89e6e10c17f46bf637d76baccb05b65a",
+     "identity_id": "bittensor:0x20b1eae10c9a44ad80cdcf6e8a704c14de156186",
+     "member_address": "0x20b1eae10c9a44ad80cdcf6e8a704c14de156186",
      "member_network": "evm"
     },
     {
-     "identity_id": "bittensor:0x1d1ec8969bd49833b6512483a75c62fa98621e8b",
-     "member_address": "0x1d1ec8969bd49833b6512483a75c62fa98621e8b",
+     "identity_id": "bittensor:0x238d2f087ce91c9a82386ffe771653990d240f45",
+     "member_address": "0x238d2f087ce91c9a82386ffe771653990d240f45",
      "member_network": "evm"
     },
     {
-     "identity_id": "bittensor:0x22434ed0c62c93d3173cc78d3e17f309854ec689",
-     "member_address": "0x22434ed0c62c93d3173cc78d3e17f309854ec689",
+     "identity_id": "bittensor:0x2b01465065c18eb6d0ca94b0b0977a71f16abd5e",
+     "member_address": "0x2b01465065c18eb6d0ca94b0b0977a71f16abd5e",
      "member_network": "evm"
     },
     {
-     "identity_id": "bittensor:0x271b4bbee5cd822c88d83e1841eb8087022175ac",
-     "member_address": "0x271b4bbee5cd822c88d83e1841eb8087022175ac",
+     "identity_id": "bittensor:0x3a504de56fc195033f0dcf19a2b79db687259439",
+     "member_address": "0x3a504de56fc195033f0dcf19a2b79db687259439",
      "member_network": "evm"
     }
    ]
@@ -661,12 +661,12 @@
      "tx_count": "141"
     },
     {
-     "amount_usd_sum": "113940.33008607",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73723600000000000000",
+     "amount_usd_sum": "151.82995637",
+     "from_identity": "bittensor:0x6d6f646c73756274656e73725c00000000000000",
      "last_seen_timestamp": "1783234140000",
      "period_granularity": "daily",
-     "to_identity": "bittensor:5gvjxbtad6xkctd9kkdiysgij2ucdx2u8sybsmhoe78fgxc1",
-     "tx_count": "39"
+     "to_identity": "bittensor:5cphkdvhmmqrmmurpfnvlc6gucduvwpnhsppehnyq7qxjpdz",
+     "tx_count": "438"
     },
     {
      "amount_usd_sum": "249.34816890",
@@ -677,20 +677,12 @@
      "tx_count": "439"
     },
     {
-     "amount_usd_sum": "151.82995637",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73725c00000000000000",
+     "amount_usd_sum": "113940.33008607",
+     "from_identity": "bittensor:0x6d6f646c73756274656e73723600000000000000",
      "last_seen_timestamp": "1783234140000",
      "period_granularity": "daily",
-     "to_identity": "bittensor:5cphkdvhmmqrmmurpfnvlc6gucduvwpnhsppehnyq7qxjpdz",
-     "tx_count": "438"
-    },
-    {
-     "amount_usd_sum": "1343528.90596469",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73720000000000000000",
-     "last_seen_timestamp": "1783234128001",
-     "period_granularity": "daily",
-     "to_identity": "bittensor:5ccj2omehmulvlfvdykpccq9vbfofczz9hk3b2aulschzwkh",
-     "tx_count": "925"
+     "to_identity": "bittensor:5gvjxbtad6xkctd9kkdiysgij2ucdx2u8sybsmhoe78fgxc1",
+     "tx_count": "39"
     },
     {
      "amount_usd_sum": "7036.04327401",
@@ -699,6 +691,14 @@
      "period_granularity": "daily",
      "to_identity": "bittensor:0x6d6f646c73756274656e73721000000000000000",
      "tx_count": "18"
+    },
+    {
+     "amount_usd_sum": "1343528.90596469",
+     "from_identity": "bittensor:0x6d6f646c73756274656e73720000000000000000",
+     "last_seen_timestamp": "1783234128001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5ccj2omehmulvlfvdykpccq9vbfofczz9hk3b2aulschzwkh",
+     "tx_count": "925"
     },
     {
      "amount_usd_sum": "296.42146034",
@@ -725,6 +725,14 @@
      "tx_count": "182"
     },
     {
+     "amount_usd_sum": "44.81451343",
+     "from_identity": "bittensor:5hwrwena79upwvvewuqsdmrtkrc6oepynvliwwqrukleou6o",
+     "last_seen_timestamp": "1783234116001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5hwrwena79upwvvewuqsdmrtkrc6oepynvliwwqrukleou6o",
+     "tx_count": "364"
+    },
+    {
      "amount_usd_sum": "0.00000000",
      "from_identity": "bittensor:0x6d6f646c73756274656e73723600000000000000",
      "last_seen_timestamp": "1783234116001",
@@ -739,14 +747,6 @@
      "period_granularity": "daily",
      "to_identity": "bittensor:5fs1kluepc5o1rzci5ouqcb3ejuimwstajsmmhmg64v2g56p",
      "tx_count": "1"
-    },
-    {
-     "amount_usd_sum": "44.81451343",
-     "from_identity": "bittensor:5hwrwena79upwvvewuqsdmrtkrc6oepynvliwwqrukleou6o",
-     "last_seen_timestamp": "1783234116001",
-     "period_granularity": "daily",
-     "to_identity": "bittensor:5hwrwena79upwvvewuqsdmrtkrc6oepynvliwwqrukleou6o",
-     "tx_count": "364"
     },
     {
      "amount_usd_sum": "0.00000000",
@@ -778,13 +778,8 @@
    "id": "recipe_archive_topology_05",
    "layer": "archive_topology",
    "query": "USE archive_topology MATCH (:Identity)-[flow:FLOWS_TO]->(:Identity) RETURN flow.period_granularity AS period_granularity, count(flow) AS flow_edges LIMIT 10",
-   "baseline": "memgql",
-   "expected_rows": [
-    {
-     "flow_edges": 1229884,
-     "period_granularity": "daily"
-    }
-   ]
+   "baseline": "unsupported",
+   "reason": "documented shape outside the archive translator's compiled subset (WITH/CASE/grouped aggregate)"
   },
   {
    "id": "recipe_archive_topology_06",
@@ -1133,141 +1128,15 @@
    "id": "recipe_archive_topology_10",
    "layer": "archive_topology",
    "query": "USE archive_topology MATCH (src:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[flow:FLOWS_TO]->(dst:Identity) WITH dst, sum(flow.amount_usd_sum) AS total_usd, count(flow) AS flow_edges RETURN dst.identity_id AS to_identity, total_usd, flow_edges ORDER BY total_usd DESC LIMIT 25",
-   "baseline": "rejected",
-   "rejected_reason": "Expecting value: line 1 column 1 (char 0)"
+   "baseline": "unsupported",
+   "reason": "documented shape outside the archive translator's compiled subset (WITH/CASE/grouped aggregate)"
   },
   {
    "id": "recipe_archive_topology_11",
    "layer": "archive_topology",
    "query": "USE archive_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, CASE WHEN flow.amount_usd_sum > 100000 THEN \"high\" WHEN flow.amount_usd_sum > 1000 THEN \"medium\" ELSE \"low\" END AS amount_band LIMIT 25",
-   "baseline": "memgql",
-   "expected_rows": [
-    {
-     "amount_band": "low",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5c5r91djx2mgimq4pgmdmzsqyhsvbihrihm8fsyk5ozpsnxk"
-    },
-    {
-     "amount_band": "low",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5cahggttog4vwhnovzragtmjbp7gknvruxbqmrfuxiyxapjn"
-    },
-    {
-     "amount_band": "low",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5ccbwd9dh2lerrhwhyxvloaamwbcw1jdx6scsmfnlpet5c6d"
-    },
-    {
-     "amount_band": "medium",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5ccoxfnbs4qpjdj3eykt5z2l7cypdcgrsztwqv7bpqz4pswu"
-    },
-    {
-     "amount_band": "low",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5cdbowxph5tpewmr7uniq9hr5pm2pdhkinowvhjk2nj4wvan"
-    },
-    {
-     "amount_band": "low",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5cfbazewcasmscgj1j9rhxess9zxz5qycuzvfwii9sxt977v"
-    },
-    {
-     "amount_band": "low",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5cjpavkjvtmjeoew7ppfap1whlp7v5pxdguqlfu5ukkchafh"
-    },
-    {
-     "amount_band": "low",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5coxzdhjnfgaetmdjwmxkbsqgtvrhxnhycvbbzwubvebmzyx"
-    },
-    {
-     "amount_band": "low",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5csxjcnwaoftyz4sbgywwt7v4rjn8n8wfmh8jvuuvxnxqcqt"
-    },
-    {
-     "amount_band": "low",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5cu36r2ysx6asmmvchk4oeqbsy58hjgy9gv2lkx1lsnyretx"
-    },
-    {
-     "amount_band": "low",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5cuygscfzag5hkzfk8jcujdcf9frl873uwm4p3teuvrd4ecr"
-    },
-    {
-     "amount_band": "low",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5cvypfiw27y4ultkmk4bjtpfofshcmuwazhd3inc8hh557fh"
-    },
-    {
-     "amount_band": "low",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5cxdnww4r9mwpmeqdags9jeenxatsxxrkk9hemgpd3pzma2k"
-    },
-    {
-     "amount_band": "low",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5cyvzybpmfrz4ejicsbspnpbb63ax61flmvxhrgw1ul7mxcg"
-    },
-    {
-     "amount_band": "medium",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5czmny5azuksvofqody8kkn16heyxmuw8bdaqf1btph3v7kh"
-    },
-    {
-     "amount_band": "medium",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5czrjq5ujy3tz2pa3ssupr9vaupbc1ejcnfmhfv3se44bpcu"
-    },
-    {
-     "amount_band": "low",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5d5eqwrkm5sw93p57apq96kascsjbee7hc4eakdfhmawdv7n"
-    },
-    {
-     "amount_band": "low",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5dczghjsdvyphcuszzl5fawpqcbfrubv4kvfaoejs65kdame"
-    },
-    {
-     "amount_band": "medium",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5deyb5gc6zdvy7fmsqsvszrnxzy7gfqwxjnldjjszr2eguzj"
-    },
-    {
-     "amount_band": "low",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5diqozmiph17rkmzmmxb6hyvrp8nnatolr9mf9rmaf6sgvnq"
-    },
-    {
-     "amount_band": "medium",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5dir65zvlhdkjzvyjh7pejlcwwrvamfceasjp4p8qdrhgku6"
-    },
-    {
-     "amount_band": "low",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5djxmxkkedsfrt9mf4zmmcwrgmksr58dbsdbtq7sztnwjwwz"
-    },
-    {
-     "amount_band": "low",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5dkgxrlblngs87jg5xtryqbxnutskdtiwyune4bjpaelfarb"
-    },
-    {
-     "amount_band": "low",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5dqfszztdhee2zfeccsmph1wlqy54cxtarvpkkerj5vhhnxc"
-    },
-    {
-     "amount_band": "medium",
-     "from_identity": "bittensor:0x6d6f646c73756274656e73724400000000000000",
-     "to_identity": "bittensor:5dqj3zfkttafrnojfpgptrtps7q9ewgbt1qbsy9a12f5xden"
-    }
-   ]
+   "baseline": "unsupported",
+   "reason": "documented shape outside the archive translator's compiled subset (WITH/CASE/grouped aggregate)"
   },
   {
    "id": "recipe_archive_topology_12",
@@ -1496,152 +1365,152 @@
    "baseline": "memgql",
    "expected_rows": [
     {
-     "identity_id": "bittensor:0x582c63d478936c92ab9b440db8c04ae0f1153f89",
-     "risk_score": "0.21338178",
+     "identity_id": "bittensor:0x0efc92aef625247163fcaa3b30a9cab955cdc206",
+     "risk_score": "0.62813044",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:0x5b18f167f7f5efb5357a2be0a9a1fd7192908ea2",
-     "risk_score": "0.19961452",
+     "identity_id": "bittensor:0x4208f85180b9556ff439bc73bc1c43131fde0409",
+     "risk_score": "0.021818174",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:0x6d6f646c73756274656e73720200000000000000",
-     "risk_score": "0.024714073",
+     "identity_id": "bittensor:0x61eea4770d7e15e7036f8632f4bcb33af1af1e25",
+     "risk_score": "0.9059205",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:0x6d6f646c73756274656e73721200000000000000",
-     "risk_score": "0.017937006",
+     "identity_id": "bittensor:0x6d6f646c73756274656e73720000000000000000",
+     "risk_score": "0.9236739",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:0x6d6f646c73756274656e73721400000000000000",
-     "risk_score": "0.04348713",
+     "identity_id": "bittensor:0x6d6f646c73756274656e73720500000000000000",
+     "risk_score": "0.104330346",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:0x6d6f646c73756274656e73722300000000000000",
-     "risk_score": "0.030359708",
+     "identity_id": "bittensor:0x6d6f646c73756274656e73720d00000000000000",
+     "risk_score": "0.037889898",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:0x6d6f646c73756274656e73722600000000000000",
-     "risk_score": "0.018278927",
+     "identity_id": "bittensor:0x6d6f646c73756274656e73721300000000000000",
+     "risk_score": "0.07075369",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:0x6d6f646c73756274656e73722a00000000000000",
-     "risk_score": "0.062935",
+     "identity_id": "bittensor:0x6d6f646c73756274656e73721500000000000000",
+     "risk_score": "0.017251927",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:0x6d6f646c73756274656e73723000000000000000",
-     "risk_score": "0.03657313",
+     "identity_id": "bittensor:0x6d6f646c73756274656e73722100000000000000",
+     "risk_score": "0.030495541",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:0x6d6f646c73756274656e73724d00000000000000",
-     "risk_score": "0.06297245",
+     "identity_id": "bittensor:0x6d6f646c73756274656e73722200000000000000",
+     "risk_score": "0.03015386",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:0x6d6f646c73756274656e73725300000000000000",
-     "risk_score": "0.06386242",
+     "identity_id": "bittensor:0x6d6f646c73756274656e73725200000000000000",
+     "risk_score": "0.021236764",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:0x6d6f646c73756274656e73725a00000000000000",
-     "risk_score": "0.026554",
+     "identity_id": "bittensor:0x6d6f646c73756274656e73725e00000000000000",
+     "risk_score": "0.01972224",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:0x6d6f646c73756274656e73726c00000000000000",
-     "risk_score": "0.026834063",
+     "identity_id": "bittensor:0x6d6f646c73756274656e73726a00000000000000",
+     "risk_score": "0.022116028",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:0x6d6f646c73756274656e73727200000000000000",
-     "risk_score": "0.02323014",
+     "identity_id": "bittensor:0x6d6f646c73756274656e73727500000000000000",
+     "risk_score": "0.021923672",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:0xd474b255b23fe81401d9883b8ac353a00940ecde",
-     "risk_score": "0.22220531",
+     "identity_id": "bittensor:0x6d6f646c73756274656e73727600000000000000",
+     "risk_score": "0.049668144",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:0xdfef0851a6aed4f546b4fe69d8c11665b1891281",
-     "risk_score": "0.59126604",
+     "identity_id": "bittensor:0x6d6f646c73756274656e73727d00000000000000",
+     "risk_score": "0.04631028",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:5c4iwabzzfn1mvx4zsvmx6j1qg6yzquy8zn6xbcfnqsvq276",
-     "risk_score": "0.038612805",
+     "identity_id": "bittensor:0x960ef77a03e281886969b8d741d2d67feb720ec9",
+     "risk_score": "0.7918398",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:5c5bphhtt8wginm7n6vrkqycwwyqrveyt2akjgfig9dcaghv",
-     "risk_score": "0.3288235",
+     "identity_id": "bittensor:0xb6a30fd5ed09dadd85ff5d6c0c704273053f6bc3",
+     "risk_score": "0.3020734",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:5c5edxgrgbjdiq1xezh6ojzkclqych13okwzc21adb2yexma",
-     "risk_score": "0.93346673",
+     "identity_id": "bittensor:0xb833e8137fedf80de7e908dc6fea43a029142f20",
+     "risk_score": "0.3187156",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:5c5efzrfxz31hffjdn1id751pzmirnsa4364sr9pwb2xuu86",
-     "risk_score": "0.13918255",
+     "identity_id": "bittensor:5c4hytebbrilgq8ddqnweq3ml5cdzslhxxpa9htjkzsxjbqp",
+     "risk_score": "0.02921262",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:5c5exxx6qd63z4fzfgjcztvip5ms5nhsyv7jhhpv7qnik1ff",
-     "risk_score": "0.5731483",
+     "identity_id": "bittensor:5c4pmqzb7uzazqxex6fcdu1sfb2qubvpw4ncbxqpvqznngol",
+     "risk_score": "0.076116614",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:5c5jjvj1kzos3vscruhrrve9o7qdfrikdctspqcgehigbdqd",
-     "risk_score": "0.05135244",
+     "identity_id": "bittensor:5c4twyjhkujptexk49t1f8v2cxqb7w836vjuuki9rzkrjfil",
+     "risk_score": "0.5235372",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:5c5jtexhc5k1gn6m6t1bscaeczr92gk3za9tsy29bxq9gaco",
+     "identity_id": "bittensor:5c4vzu9omxqcsakoqxzpjmrwca5xpntdthskz54yt6vnwnda",
      "risk_score": "0.0061333897",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:5c5nryuyghlpv5rozsjadeowycgnwughws7xfg5rf7zvrbf2",
-     "risk_score": "0.07979134",
+     "identity_id": "bittensor:5c51hmhy1y2twekzlvuaqiugcuo8wmhrjccql346b6brnffh",
+     "risk_score": "0.9826757",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     },
     {
-     "identity_id": "bittensor:5c5o3gmgawh2nrqcu3ut1rbnjzxehuulw4grrqwpqjxhuvsl",
-     "risk_score": "0.19778492",
+     "identity_id": "bittensor:5c5awcsaqvq8wrhcvsawurkg4t2oslcgtnaycqkfhps4hbvk",
+     "risk_score": "0.8280616",
      "window_days": "7",
      "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
     }
@@ -2235,109 +2104,8 @@
    "id": "recipe_facts_13",
    "layer": "facts",
    "query": "USE facts MATCH (i:Identity)-[:HAS_LABEL]->(l:AddressLabel) RETURN l.label AS label, count(l) AS label_count ORDER BY label_count DESC LIMIT 25",
-   "baseline": "memgql",
-   "expected_rows": [
-    {
-     "label": "scam",
-     "label_count": 3876
-    },
-    {
-     "label": "Rizzo (Insured)",
-     "label_count": 115
-    },
-    {
-     "label": "Yuma, a DCG Company",
-     "label_count": 113
-    },
-    {
-     "label": "TAO.com",
-     "label_count": 89
-    },
-    {
-     "label": "Validator",
-     "label_count": 80
-    },
-    {
-     "label": "Kraken",
-     "label_count": 74
-    },
-    {
-     "label": "Open\u03c4ensor Founda\u03c4ion",
-     "label_count": 52
-    },
-    {
-     "label": "mixer",
-     "label_count": 44
-    },
-    {
-     "label": "Kooltek68",
-     "label_count": 40
-    },
-    {
-     "label": "Dusting source (fanout=4 targets)",
-     "label_count": 38
-    },
-    {
-     "label": "MUV",
-     "label_count": 33
-    },
-    {
-     "label": "Warehouse-derived attribution from dusting_source (hop=1)",
-     "label_count": 22
-    },
-    {
-     "label": "Dusting source (fanout=5 targets)",
-     "label_count": 14
-    },
-    {
-     "label": "exchange",
-     "label_count": 11
-    },
-    {
-     "label": "Dusting source (fanout=8 targets)",
-     "label_count": 10
-    },
-    {
-     "label": "Dusting source (fanout=9 targets)",
-     "label_count": 8
-    },
-    {
-     "label": "Dusting source (fanout=7 targets)",
-     "label_count": 7
-    },
-    {
-     "label": "Scam laundering intermediate (hop 3, incident 2024-05-12)",
-     "label_count": 7
-    },
-    {
-     "label": "TAO.app",
-     "label_count": 6
-    },
-    {
-     "label": "Macrocosmos",
-     "label_count": 5
-    },
-    {
-     "label": "Dusting source (fanout=6 targets)",
-     "label_count": 5
-    },
-    {
-     "label": "General Tensor",
-     "label_count": 5
-    },
-    {
-     "label": "Scam laundering cash-out deposit (hop 9, incident 2024-05-12)",
-     "label_count": 3
-    },
-    {
-     "label": "Scam laundering intermediate (hop 14, evidence 9, incident 2024-05-12)",
-     "label_count": 3
-    },
-    {
-     "label": "Scam laundering intermediate (hop 7, evidence 14, incident 2024-05-12)",
-     "label_count": 3
-    }
-   ]
+   "baseline": "unsupported",
+   "reason": "documented shape outside the archive translator's compiled subset (WITH/CASE/grouped aggregate)"
   },
   {
    "id": "recipe_facts_14",
@@ -2346,6 +2114,12 @@
    "baseline": "memgql",
    "expected_rows": [
     {
+     "entity_type": "scam"
+    },
+    {
+     "entity_type": "validator"
+    },
+    {
      "entity_type": "VICTIM"
     },
     {
@@ -2353,12 +2127,6 @@
     },
     {
      "entity_type": "mixer"
-    },
-    {
-     "entity_type": "scam"
-    },
-    {
-     "entity_type": "validator"
     },
     {
      "entity_type": "SCAM"
@@ -2530,14 +2298,8 @@
    "id": "recipe_facts_16",
    "layer": "facts",
    "query": "USE facts MATCH (i:Identity)-[:HAS_FEATURE]->(f:AddressFeature) RETURN f.feature_scope AS feature_scope, count(f) AS features, sum(f.total_volume_usd) AS total_volume_usd ORDER BY total_volume_usd DESC LIMIT 25",
-   "baseline": "memgql",
-   "expected_rows": [
-    {
-     "feature_scope": "identity",
-     "features": 438410,
-     "total_volume_usd": 60045165413.38297
-    }
-   ]
+   "baseline": "unsupported",
+   "reason": "documented shape outside the archive translator's compiled subset (WITH/CASE/grouped aggregate)"
   },
   {
    "id": "recipe_facts_17",
@@ -2552,9 +2314,9 @@
   }
  ],
  "counts": {
-  "memgql": 28,
+  "memgql": 24,
   "sql_truth": 0,
-  "rejected": 1,
+  "rejected": 5,
   "total": 29
  }
 }

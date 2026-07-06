@@ -79,6 +79,15 @@ out = {"generated_by": "record-archive-goldens.sh",
 memgql_n = truth_n = err_n = 0
 for r in archive:
     q = r["query"]
+    # Recipes explicitly marked out of the translator's compiled scope
+    # (WITH/CASE/grouped-aggregate) are negative shapes, not result
+    # baselines — the translator must return ErrUnsupportedShape for them.
+    if r.get("expect") == "unsupported":
+        out["entries"].append({"id": r.get("id"), "layer": r["layer"], "query": q,
+            "baseline": "unsupported",
+            "reason": "documented shape outside the archive translator's compiled subset (WITH/CASE/grouped aggregate)"})
+        err_n += 1
+        continue
     baseline = "sql-truth" if SQL_TRUTH_RE.search(q) else "memgql"
     res = call(q)
     rows = None

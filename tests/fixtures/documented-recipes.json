@@ -54,7 +54,8 @@
     "fixed-hop",
     "label-match",
     "aggregate"
-   ]
+   ],
+   "expect": "unsupported"
   },
   {
    "id": "recipe_archive_topology_06",
@@ -124,7 +125,8 @@
     "fixed-hop",
     "label-match",
     "case-expression"
-   ]
+   ],
+   "expect": "unsupported"
   },
   {
    "id": "recipe_archive_topology_12",
@@ -277,7 +279,8 @@
     "label-match",
     "aggregate",
     "order-by"
-   ]
+   ],
+   "expect": "unsupported"
   },
   {
    "id": "recipe_facts_14",
@@ -313,7 +316,8 @@
     "label-match",
     "aggregate",
     "order-by"
-   ]
+   ],
+   "expect": "unsupported"
   },
   {
    "id": "recipe_facts_17",
