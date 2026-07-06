@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, readdirSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 // Capability probe suite wrapper. Runs the live-lane probe script (spins
@@ -16,7 +17,7 @@ import { describe, expect, it } from 'vitest'
 // AND re-evaluates which query shapes the tools are allowed to adopt
 // (see docs/graph-query-compatibility.md).
 const enabled = process.env.CAPABILITY_PROBES === '1'
-const repoRoot = resolve(__dirname, '..')
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 describe.skipIf(!enabled)('MemGQL capability matrix (live lane)', () => {
   it('probe run matches pinned expectations', { timeout: 10 * 60 * 1000 }, () => {

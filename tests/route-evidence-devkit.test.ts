@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { readFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { addressRisk, type RouteEvidence } from '../src/investigation/public-tools.js'
 
 // AC8 fixture-backed acceptance (devkit-gated): runs the REAL
@@ -13,7 +14,7 @@ import { addressRisk, type RouteEvidence } from '../src/investigation/public-too
 // CAPABILITY_PROBES=1.
 const enabled = process.env.CAPABILITY_PROBES === '1'
 const endpoint = process.env.CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT ?? 'http://127.0.0.1:18012/mcp'
-const repoRoot = resolve(__dirname, '..')
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 function fixturePair(): { seed: string; peer: string } {
   // Same derivation as devkit/scripts/smoke-chain-insights-parity.sh:

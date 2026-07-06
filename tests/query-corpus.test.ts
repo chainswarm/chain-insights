@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 
 // Query-contract pin: the committed corpus is the contract consumed by
@@ -10,7 +11,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 // the corpus changes, the backend's copy must be refreshed in the same
 // release wave.
 
-const repoRoot = resolve(__dirname, '..')
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const committedPath = join(repoRoot, 'tests/fixtures/graph-query-corpus.json')
 const tempDir = mkdtempSync(join(tmpdir(), 'corpus-'))
 

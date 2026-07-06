@@ -220,9 +220,12 @@ function identityExistenceQuery(id: string, identityId: string): { id: string; q
   }
 }
 
-// Display enrichment can only spend one batch, so cap the identities
-// enriched per lookup (batch query ceiling); enrichment is best-effort.
-const MEMBER_ADDRESS_LOOKUP_MAX_IDENTITIES = 20
+// Per-identity member lookups run one query per identity so a
+// per-identity LIMIT applies (a single global LIMIT lets one address-rich
+// identity starve the rest). Batches carry at most the backend's query
+// ceiling; callers chunk larger identity sets across batches so NO
+// identity loses enrichment.
+const MEMBER_ADDRESS_BATCH_CHUNK = 20
 const MEMBER_ADDRESSES_PER_IDENTITY_LIMIT = 25
 
 function identityMemberAddressesQueries(identityKeys: string[]): Array<{ id: string; query: string }> {
@@ -233,7 +236,7 @@ function identityMemberAddressesQueries(identityKeys: string[]): Array<{ id: str
   // archive layer (no COLLECT aggregate in the warehouse backend —
   // capability probe A07 pins the reject). One row per member address;
   // callers aggregate client-side.
-  return identityKeys.slice(0, MEMBER_ADDRESS_LOOKUP_MAX_IDENTITIES).map((identityKey, index) => ({
+  return identityKeys.map((identityKey, index) => ({
     id: `identity_member_addresses_${index}`,
     query: [
       `MATCH (i:Identity {identity_id: "${escapeCypherString(identityKey)}"})-[:HAS_ADDRESS]->(m:Address)`,
@@ -338,18 +341,24 @@ async function identityDisplayMap(
   const memberRows = new Map<string, string[]>()
   if (uniqueKeys.length > 0) {
     try {
-      const memberQueries = identityMemberAddressesQueries(uniqueKeys)
-      const batch = await callGraphBatch(remoteClient, network, memberQueries, topologyScope)
-      for (const memberQuery of memberQueries) {
-        for (const row of optionalResultsFor(batch, memberQuery.id, [])) {
-          const identityKey = firstString(row['identity_id'])
-          const memberAddress = firstString(row['member_address'])
-          if (!identityKey || !memberAddress) continue
-          // One row per member address (no collect() — archive-safe
-          // form); aggregate client-side.
-          const existing = memberRows.get(identityKey) ?? []
-          if (!existing.includes(memberAddress)) existing.push(memberAddress)
-          memberRows.set(identityKey, existing)
+      // Chunk across batches (batch query ceiling) so every identity gets
+      // enriched — capping instead of chunking regressed large traces to
+      // unenriched lowercase stems past the cap.
+      for (let start = 0; start < uniqueKeys.length; start += MEMBER_ADDRESS_BATCH_CHUNK) {
+        const chunk = uniqueKeys.slice(start, start + MEMBER_ADDRESS_BATCH_CHUNK)
+        const memberQueries = identityMemberAddressesQueries(chunk)
+        const batch = await callGraphBatch(remoteClient, network, memberQueries, topologyScope)
+        for (const memberQuery of memberQueries) {
+          for (const row of optionalResultsFor(batch, memberQuery.id, [])) {
+            const identityKey = firstString(row['identity_id'])
+            const memberAddress = firstString(row['member_address'])
+            if (!identityKey || !memberAddress) continue
+            // One row per member address (no collect() — archive-safe
+            // form); aggregate client-side.
+            const existing = memberRows.get(identityKey) ?? []
+            if (!existing.includes(memberAddress)) existing.push(memberAddress)
+            memberRows.set(identityKey, existing)
+          }
         }
       }
     } catch {

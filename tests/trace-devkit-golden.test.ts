@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
@@ -23,7 +24,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 // (empirically deterministic; same family as the pinned upstream issues).
 const enabled = process.env.TRACE_DEVKIT_GOLDEN === '1'
 const endpoint = process.env.CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT ?? 'http://127.0.0.1:18012/mcp'
-const repoRoot = resolve(__dirname, '..')
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const goldenPath = join(repoRoot, 'tests/fixtures/trace-victim-devkit-golden.json')
 
 function fixtureSeed(): string {
