@@ -272,6 +272,7 @@ notes.
 | Doc | Use it for |
 | --- | --- |
 | [Graph tools](docs/graph-tools.md) | Chain Insights Graph layers, `graph_query`, `graph_query_batch`, AML tool contracts, graph reports, evidence pointers |
+| [Graph query compatibility](docs/graph-query-compatibility.md) | GQL/Cypher construct support per layer, rejected→accepted rewrite recipes, traversal guidance |
 | Bittensor devkit parity workflow (RBMK) | Local Chain Insights Graph backend with deterministic Bittensor fixture data for Chain Insights development |
 | [Investigation workspaces](docs/investigation-workspaces.md) | `cia init`, workspace layout, artifacts, imports, templates, sessions, reports, and visualization outputs |
 | [MCP proxy](docs/mcp-proxy.md) | Stdio proxy behavior, endpoint configuration, agent installers, local tools, auth modes, Inspector validation |

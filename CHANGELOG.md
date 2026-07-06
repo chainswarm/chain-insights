@@ -3,6 +3,22 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.26] - 2026-07-06
+
+- Added `docs/graph-query-compatibility.md`: a construct-by-construct
+  GQL/Cypher support matrix for the three Chain Insights Graph layers
+  (`live_topology`, `archive_topology`, `facts`), including
+  rejected→accepted rewrite recipes (native Cypher `[:R*1..3]`/`*BFS`
+  forms vs GQL `{m,n}`/`ANY SHORTEST` forms) and traversal guidance.
+- Extended the `chain-insights-cypher` skill with a
+  `references/gql-translation-matrix.md` reference and sharpened its
+  layer-choice guidance: the GQL parser rejects Memgraph-native syntax on
+  every layer, bounded quantified paths `{m,n}` are the supported
+  variable-length form (live, and archive with tight bounds), and
+  shortest-path forms are live-only.
+- Devkit: upgraded the bundled Memgraph Zero/MemGQL federation image from
+  0.6.3 to 0.7.0 (cross-backend join fixes and federation improvements).
+
 ## [0.8.25] - 2026-07-05
 
 - Regenerated the devkit fixture (data only, no source changes here) to
