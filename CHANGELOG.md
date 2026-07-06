@@ -3,7 +3,7 @@
 
 All notable changes to Chain Insights are recorded here.
 
-## [0.8.26] - 2026-07-06
+## [0.8.27] - 2026-07-06
 
 - `aml_address_risk` compare-address route evidence (additive): when a
   `compare_address` is given on the live topology scope, the structured
@@ -45,6 +45,13 @@ All notable changes to Chain Insights are recorded here.
   `WHERE` must never be used.
 - Devkit: upgraded the bundled Memgraph Zero/MemGQL federation image from
   0.6.3 to 0.7.0 (cross-backend join fixes and federation improvements).
+
+## [0.8.26] - 2026-07-06
+
+- Graph visualization now recognizes a `hub` entity type (dense
+  infrastructure a scam trace routed through, distinct from a confirmed
+  `mixer` classification) so hub-typed nodes render correctly instead of
+  failing schema validation.
 
 ## [0.8.25] - 2026-07-05
 

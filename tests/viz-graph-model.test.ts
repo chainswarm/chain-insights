@@ -45,6 +45,10 @@ describe('GraphData schema (VIZ-01)', () => {
     expect(() => EntityType.parse('invalid')).toThrow()
   })
 
+  it('EntityType.parse("hub") returns "hub"', () => {
+    expect(EntityType.parse('hub')).toBe('hub')
+  })
+
   it('RiskLevel.parse("critical") returns "critical"', () => {
     expect(RiskLevel.parse('critical')).toBe('critical')
   })
