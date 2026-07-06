@@ -5,17 +5,44 @@ All notable changes to Chain Insights are recorded here.
 
 ## [0.8.26] - 2026-07-06
 
+- `aml_address_risk` compare-address route evidence (additive): when a
+  `compare_address` is given on the live topology scope, the structured
+  `connection` object gains `route_evidence` — directed `ANY SHORTEST`
+  route discovery in both directions (outbound/inbound, depth bound 4)
+  with hop counts, route identities, USD totals, and **disclosed**
+  exchange intermediates (paths through exchanges are reported, never
+  silently filtered). Existing `connection.compare_address` and
+  `connection.paths` fields are unchanged; archive scope keeps the
+  legacy 1-hop probe only.
+- MemGQL capability probe suite: `npm run probe:capability` (live lane,
+  self-contained containers) and `npm run probe:capability:archive`
+  (devkit-gated) pin the federation layer's real capability matrix per
+  image version with result-set assertions. Known upstream defects are
+  pinned as canaries (memgraph/memgraph#4343 quantifier-inner `WHERE`
+  silently ignored, #4344 `SHORTEST k` mis-translation, #4345
+  shortest+`WHERE` anchor drop) so an image bump that changes behavior
+  fails tests loudly instead of shifting semantics silently.
+- Trace query golden pins: snapshot tests freeze the exact emitted query
+  text of all five fan-out trace builders at every depth and scope —
+  trace tools are deliberately unchanged in this release.
+- Graph query corpus contract: `npm run corpus:generate` exports every
+  builder-emitted query in production shape
+  (`tests/fixtures/graph-query-corpus.json`); the Chain Insights Graph
+  backend validator proves admission of the full corpus in its own test
+  suite.
 - Added `docs/graph-query-compatibility.md`: a construct-by-construct
   GQL/Cypher support matrix for the three Chain Insights Graph layers
   (`live_topology`, `archive_topology`, `facts`), including
   rejected→accepted rewrite recipes (native Cypher `[:R*1..3]`/`*BFS`
-  forms vs GQL `{m,n}`/`ANY SHORTEST` forms) and traversal guidance.
+  forms vs GQL `{m,n}`/`ANY SHORTEST` forms), spike-verified hazard
+  rules, and traversal guidance.
 - Extended the `chain-insights-cypher` skill with a
   `references/gql-translation-matrix.md` reference and sharpened its
   layer-choice guidance: the GQL parser rejects Memgraph-native syntax on
   every layer, bounded quantified paths `{m,n}` are the supported
-  variable-length form (live, and archive with tight bounds), and
-  shortest-path forms are live-only.
+  variable-length form (live, and archive with tight bounds), shortest
+  paths are `ANY`/`ALL SHORTEST` on live only, and quantifier-inner
+  `WHERE` must never be used.
 - Devkit: upgraded the bundled Memgraph Zero/MemGQL federation image from
   0.6.3 to 0.7.0 (cross-backend join fixes and federation improvements).
 
