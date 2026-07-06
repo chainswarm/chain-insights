@@ -47,7 +47,7 @@ jobs:
         run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Checkout caller repo (PR head)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -61,7 +61,7 @@ jobs:
           repositories: rbmk
 
       - name: Checkout rbmk tooling (staging, actions/checkout requires an in-workspace path)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: chainswarm/rbmk
           ref: main

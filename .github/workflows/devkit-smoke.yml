@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 75
     steps:
       - name: Checkout chain-insights
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: repos/infra/chain-insights
 
@@ -49,7 +49,7 @@ jobs:
           repositories: data-pipeline
 
       - name: Checkout MemGQL mapping (data-pipeline)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: chainswarm/data-pipeline
           token: ${{ steps.app-token.outputs.token }}
