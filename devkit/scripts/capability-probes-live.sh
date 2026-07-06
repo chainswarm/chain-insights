@@ -176,13 +176,14 @@ probe_p17
 DET_Q="USE live_topology MATCH p = ANY SHORTEST (a:Identity {identity_id:'A'})-[:FLOWS_TO]->{1,5}(c:Identity {identity_id:'C'}) RETURN p;"
 DET_FIRST=""; DET_OK=1; DET_NONEMPTY=1
 for i in 1 2 3 4 5; do
-  OUT=$(gql "$DET_Q")
+  # Own variable — $OUT is the artifact path and must not be clobbered.
+  DET_RESPONSE=$(gql "$DET_Q")
   # A failed or empty response must never count as "deterministic": require
   # a successful classification AND a non-empty path row every repeat.
-  if [ "$(classify "$OUT")" != "supported" ]; then DET_NONEMPTY=0; break; fi
+  if [ "$(classify "$DET_RESPONSE")" != "supported" ]; then DET_NONEMPTY=0; break; fi
   # Strip property maps before comparing: Memgraph's property print order
   # is nondeterministic; route identity = the node/edge sequence only.
-  R=$(echo "$OUT" | grep FLOWS_TO | sed 's/{[^}]*}//g')
+  R=$(echo "$DET_RESPONSE" | grep FLOWS_TO | sed 's/{[^}]*}//g')
   if [ -z "$R" ]; then DET_NONEMPTY=0; break; fi
   if [ -z "$DET_FIRST" ]; then DET_FIRST="$R"; elif [ "$R" != "$DET_FIRST" ]; then DET_OK=0; fi
 done
