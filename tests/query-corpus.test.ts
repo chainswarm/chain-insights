@@ -4,11 +4,11 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 
-// R5/AC2 (cia-gql-query-optimization spec): the committed corpus is the
-// cross-repo contract consumed by data-pipeline's ValidateReadOnlyGraphQuery
-// admission test. If a builder changes without `npm run corpus:generate`,
-// this test fails; if the corpus changes, the data-pipeline testdata copy
-// must be refreshed in the same wave (RBMK root sha256 sync test pins it).
+// Query-contract pin: the committed corpus is the contract consumed by
+// the Chain Insights Graph backend's read-only query validator test. If a
+// builder changes without `npm run corpus:generate`, this test fails; if
+// the corpus changes, the backend's copy must be refreshed in the same
+// release wave.
 
 const repoRoot = resolve(__dirname, '..')
 const committedPath = join(repoRoot, 'tests/fixtures/graph-query-corpus.json')

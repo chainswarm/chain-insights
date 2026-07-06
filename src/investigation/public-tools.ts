@@ -576,7 +576,7 @@ function connectionProbeQuery(address: string, compareAddress: string): { id: st
   }
 }
 
-// ── Pairwise route evidence (R3b, cia-gql-query-optimization spec) ──
+// ── Pairwise route evidence ──
 // Directed ANY SHORTEST between two KNOWN identity endpoints, live scope
 // only. Spike-pinned constraints (capability matrix, MemGQL 0.7.0):
 // directed forms only, NO quantifier-inner WHERE (memgraph/memgraph#4343
@@ -2417,7 +2417,7 @@ export async function trackFunds(
   }
 }
 
-// ── Test/corpus contract surface (cia-gql-query-optimization spec R5/AC4) ──
+// ── Test/corpus contract surface ──
 // Exposes the exact query builders so trace-golden tests can snapshot the
 // emitted query text and scripts/generate-query-corpus.mjs can export the
 // full production-shaped query set (including the USE-prefix wrapper the

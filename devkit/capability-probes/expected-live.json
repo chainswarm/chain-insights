@@ -1,6 +1,6 @@
 {
   "meta": {
-    "description": "Pinned MemGQL capability expectations for the live lane. Rows with upstream_issue pin CURRENT DEFECTIVE behavior on purpose (canary): when a MemGQL bump fixes the issue, the probe run diverges, tests/capability-matrix.test.ts fails, and the operator updates this file AND revisits the R2 rewrite gates in the cia-gql-query-optimization spec.",
+    "description": "Pinned MemGQL capability expectations for the live lane. Rows with upstream_issue pin CURRENT DEFECTIVE behavior on purpose (canary): when a MemGQL bump fixes the issue, the probe run diverges, tests/capability-matrix.test.ts fails, and the operator updates this file AND re-evaluates which query shapes the tools may adopt (see docs/graph-query-compatibility.md).",
     "authored_from": "2026-07-06 spike + probe run, memgraph/memgql:0.7.0"
   },
   "memgql_image": "memgraph/memgql:0.7.0",

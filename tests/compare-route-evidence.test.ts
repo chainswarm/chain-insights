@@ -6,7 +6,7 @@ import {
   shouldIncludeRouteQueries,
 } from '../src/investigation/public-tools.js'
 
-// R3b (cia-gql-query-optimization spec): pairwise route evidence between
+// Pairwise route evidence between
 // two KNOWN endpoints via directed ANY SHORTEST. Spike-pinned rules:
 // directed only (no undirected shortest), NO quantifier-inner WHERE
 // (memgraph/memgraph#4343/#4345), exchange intermediates are DISCLOSED,

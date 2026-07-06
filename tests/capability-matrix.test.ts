@@ -13,8 +13,8 @@ import { describe, expect, it } from 'vitest'
 // expected_outcome "supported-but-wrong"/"rejected-translation"). When a
 // future MemGQL image bump fixes one, the probe run diverges from the
 // pin, this test fails loudly, and the operator updates the expectation
-// AND revisits the R2 rewrite gates in
-// docs/superpowers/specs/2026-07-06-cia-gql-query-optimization-design.md.
+// AND re-evaluates which query shapes the tools are allowed to adopt
+// (see docs/graph-query-compatibility.md).
 const enabled = process.env.CAPABILITY_PROBES === '1'
 const repoRoot = resolve(__dirname, '..')
 
@@ -48,7 +48,7 @@ describe.skipIf(!enabled)('MemGQL capability matrix (live lane)', () => {
       expect(
         actualRow.actual_outcome,
         `probe ${expectedRow.probe_id} (${expectedRow.upstream_issue ?? 'no upstream issue'}): ` +
-          `outcome drifted — if an upstream fix landed, update expected-live.json AND revisit the R2 gates`,
+          `outcome drifted — if an upstream fix landed, update expected-live.json AND re-evaluate allowed query shapes`,
       ).toBe(expectedRow.expected_outcome)
     }
   })

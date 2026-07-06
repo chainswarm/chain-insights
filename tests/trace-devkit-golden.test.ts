@@ -66,8 +66,64 @@ function normalize(structured: unknown, workspaceDir: string): unknown {
   )
 }
 
-describe.skipIf(!enabled)('trace victim funds devkit output golden (AC4)', () => {
-  it('path-set fields are stable against the committed golden', { timeout: 300_000 }, async () => {
+async function runGolden(
+  toolName: 'victim' | 'suspect' | 'deposit',
+  goldenFile: string,
+  invoke: (client: Client, seed: string, workspaceDir: string) => Promise<{ structuredContent: unknown }>,
+): Promise<void> {
+  const workspaceDir = join(repoRoot, `.tmp/trace-golden-ws-${toolName}`)
+  execFileSync('npx', ['tsx', 'src/cli.ts', 'init', '--force', workspaceDir], {
+    cwd: repoRoot,
+    stdio: 'pipe',
+    timeout: 120_000,
+  })
+  const previousCwd = process.cwd()
+  process.chdir(workspaceDir)
+  const client = new Client({ name: `trace-devkit-golden-${toolName}`, version: '0.0.0' })
+  await client.connect(new StreamableHTTPClientTransport(new URL(endpoint)))
+  try {
+    const result = await invoke(client, fixtureSeed(), workspaceDir)
+    const golden = join(repoRoot, 'tests/fixtures', goldenFile)
+    const actual = normalize(result.structuredContent, workspaceDir)
+    if (JSON.stringify(actual).match(/\/home\/|\/Users\//)) {
+      throw new Error('golden must not contain machine-local absolute paths')
+    }
+    if (!existsSync(golden)) {
+      if (process.env.TRACE_GOLDEN_RECORD === '1') {
+        writeFileSync(golden, JSON.stringify(actual, null, 1) + '\n')
+        throw new Error(`golden recorded (${goldenFile}) — rerun without TRACE_GOLDEN_RECORD to verify`)
+      }
+      throw new Error(`missing golden ${golden}; record with TRACE_GOLDEN_RECORD=1`)
+    }
+    expect(actual).toEqual(JSON.parse(readFileSync(golden, 'utf8')))
+  } finally {
+    process.chdir(previousCwd)
+    await client.close()
+  }
+}
+
+describe.skipIf(!enabled)('trace tool devkit output goldens (AC4: victim, suspect, deposit)', () => {
+  it('suspect trace path-set fields are stable', { timeout: 300_000 }, async () => {
+    const { traceSuspectFunds } = await import('../src/investigation/public-tools.js')
+    await runGolden('suspect', 'trace-suspect-devkit-golden.json', (client, seed, ws) =>
+      traceSuspectFunds(client, { dataDir: join(ws, '.chain-insights'), serverPort: 0 }, {
+        network: 'bittensor',
+        suspectAddresses: seed,
+        topologyScope: 'live_topology',
+      }))
+  })
+
+  it('deposit-sources trace path-set fields are stable', { timeout: 300_000 }, async () => {
+    const { traceDepositSources } = await import('../src/investigation/public-tools.js')
+    await runGolden('deposit', 'trace-deposit-devkit-golden.json', (client, seed, ws) =>
+      traceDepositSources(client, { dataDir: join(ws, '.chain-insights'), serverPort: 0 }, {
+        network: 'bittensor',
+        depositAddresses: seed,
+        topologyScope: 'live_topology',
+      }))
+  })
+
+  it('victim trace path-set fields are stable against the committed golden', { timeout: 300_000 }, async () => {
     // The trace tool persists case evidence, so it needs an initialized
     // workspace; run it from a throwaway one under .tmp (git-ignored).
     const workspaceDir = join(repoRoot, '.tmp/trace-golden-ws')

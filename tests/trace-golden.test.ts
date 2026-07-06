@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { queryBuilderContract } from '../src/investigation/public-tools.js'
 import { traceQueryBuilderContract } from '../src/investigation/trace-funds.js'
 
-// AC4 (cia-gql-query-optimization spec): trace tools are result-equivalent
+// Trace stability pin: trace tools are result-equivalent
 // in this wave — NO trace builder changes ship. These snapshots pin the
 // exact emitted query text of every fan-out builder at every depth and
 // scope; accidental drift (including a well-meaning "optimization" that
