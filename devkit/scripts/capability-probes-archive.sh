@@ -17,8 +17,10 @@ WORKSPACE="$REPO_ROOT/workspace"
 mkdir -p "$WORKSPACE"
 
 EXPECTED="$REPO_ROOT/devkit/capability-probes/expected-archive.json"
-DEVKIT_NETWORK="${DEVKIT_NETWORK:-devkit_default}"
-MEMGQL_HOST="${MEMGQL_HOST:-memgql}"
+# Devkit MemGQL binds bolt on container-local 127.0.0.1 (bootstrap and the
+# lite MCP share its network namespace) — probes join that namespace too.
+MEMGQL_CONTAINER="${MEMGQL_CONTAINER:-devkit-memgql-1}"
+MEMGQL_HOST="127.0.0.1"
 MGCONSOLE_IMAGE="memgraph/mgconsole:1.5.1"
 
 MEMGQL_IMAGE="$(grep -oE 'memgraph/memgql:[0-9.]+' "$REPO_ROOT/devkit/docker-compose.yml" | head -1)"
@@ -28,8 +30,8 @@ OUT="$WORKSPACE/capability-matrix-archive.$TAG.json"
 ANCHOR="$(python3 -c "import json;print(json.load(open('$EXPECTED'))['meta']['anchor_identity'])")"
 
 gql() {
-  docker run --rm -i --network "$DEVKIT_NETWORK" "$MGCONSOLE_IMAGE" \
-    sh -c "echo \"\$0\" | timeout 45 mgconsole --host $MEMGQL_HOST --port 7688" "$1" 2>&1
+  docker run --rm -i --network "container:$MEMGQL_CONTAINER" --entrypoint sh "$MGCONSOLE_IMAGE" \
+    -c "echo \"\$1\" | timeout 45 mgconsole --host $MEMGQL_HOST --port 7688" sh "$1" 2>&1
 }
 
 classify() {
@@ -72,26 +74,29 @@ print(json.dumps({"probe_id": i, "layer": "archive_topology", "query": q,
 PY
 }
 
-echo "── capability probes: archive lane ($MEMGQL_IMAGE via $DEVKIT_NETWORK) ──"
+echo "── capability probes: archive lane ($MEMGQL_IMAGE via container:$MEMGQL_CONTAINER) ──"
 
 probe A01 supported expected_count "" \
  "USE archive_topology MATCH (i:Identity {identity_id:'$ANCHOR'})-[f:FLOWS_TO]->(t:Identity) RETURN count(f) AS c;"
-probe A02 supported expected_count "" \
+# {m,n} on StarRocks: MemGQL emits WITH RECURSIVE, which StarRocks does not
+# support (memgraph/memgraph#4178 dialect gap). Pinned as rejected until a
+# release adds a StarRocks-compatible translation.
+probe A02 rejected-translation expected_count "memgraph/memgraph#4178" \
  "USE archive_topology MATCH (i:Identity {identity_id:'$ANCHOR'})-[:FLOWS_TO]->{1,1}(t:Identity) RETURN count(t) AS c;"
-probe A03 supported expected_count "" \
+probe A03 rejected-translation expected_count "memgraph/memgraph#4178" \
  "USE archive_topology MATCH (i:Identity {identity_id:'$ANCHOR'})-[:FLOWS_TO]->{1,2}(t:Identity) RETURN count(t) AS c;"
 # Inner WHERE on archive: mirror of live P04/P05 — expected outcome pinned
 # from the authoring run (supported-but-wrong if SQL translation also
 # discards; rejected-* if the SQL path rejects instead).
 probe A04 "$(python3 -c "import json;print([x for x in json.load(open('$EXPECTED'))['rows'] if x['probe_id']=='A04'][0]['expected_outcome'])")" expected_count "memgraph/memgraph#4343" \
  "USE archive_topology MATCH (i:Identity {identity_id:'$ANCHOR'})(-[f:FLOWS_TO WHERE f.amount_usd_sum >= 999999999]->(x:Identity)){1,2}(t:Identity) RETURN count(t) AS c;"
-probe A05 rejected-parse "" "" \
+probe A05 rejected-parse "" "memgraph/memgraph#4241" \
  "USE archive_topology MATCH (a:Identity)-[:FLOWS_TO*1..2]->(t:Identity) RETURN t.identity_id LIMIT 1;"
-probe A06 error "" "" \
+probe A06 rejected-translation "" "" \
  "USE archive_topology MATCH (a:Identity {identity_id:'$ANCHOR'}), (t:Identity) WHERE a <> t RETURN count(t) AS c;"
-probe A07 error "" "" \
+probe A07 rejected-translation "" "memgraph/memgraph#4178" \
  "USE archive_topology MATCH (i:Identity {identity_id:'$ANCHOR'})-[f:FLOWS_TO]->(t:Identity) RETURN collect(t.identity_id) AS ids;"
-probe A08 error "" "" \
+probe A08 rejected-translation "" "" \
  "USE archive_topology MATCH (a:Identity {identity_id:'$ANCHOR'})-[:FLOWS_TO]->{1,}(t:Identity) RETURN count(t) AS c;"
 
 python3 - "$OUT" "$MEMGQL_IMAGE" "$ROWS_TMP" <<'PY'

@@ -35,6 +35,9 @@ describe('graph query corpus', () => {
       expect(entry.query.startsWith('USE '), `not USE-prefixed: ${entry.builder}`).toBe(true)
       // memgraph/memgraph#4344: SHORTEST k must not appear anywhere.
       expect(entry.query).not.toMatch(/SHORTEST\s+\d/)
+      // A malformed generator parameter (wrong window/limit key) leaks
+      // JS junk into the emitted query text — pin its absence.
+      expect(entry.query, `malformed value in ${entry.builder}`).not.toMatch(/undefined|NaN|\[object /)
     }
   })
 })

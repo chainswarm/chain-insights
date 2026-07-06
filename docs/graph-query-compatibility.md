@@ -66,7 +66,7 @@ Legend: ✅ supported · ❌ rejected or unsupported · ⚠️ caveat (see notes
 | --- | --- | --- | --- |
 | Typed single hop | `-[r:FLOWS_TO]->` | ✅ | ✅ |
 | Untyped hop | `-[r]->` | ✅ | ❌ specify the relationship type |
-| Bounded quantified path | `-[:FLOWS_TO]->{1,3}` | ✅ | ✅ ⚠️ recursive CTE; keep bounds tight and expect archive-tier latency |
+| Bounded quantified path | `-[:FLOWS_TO]->{1,3}` | ✅ | ❌ the federation layer emits `WITH RECURSIVE`, which the warehouse backend does not support (probe-verified; upstream dialect gap) — use explicit fixed-hop patterns |
 | Unbounded quantified path | `-[:FLOWS_TO]->{1,}` | ✅ ⚠️ always bound in practice | ❌ |
 | Path binding | `MATCH p = (a)-[:R]->{1,3}(b) RETURN p` | ✅ | ❌ return individual nodes/edges instead |
 | Shortest path | `ANY SHORTEST`, `ALL SHORTEST` | ✅ | ❌ |
@@ -79,7 +79,7 @@ These fail at parse time regardless of layer. Use the accepted form.
 
 | Intent | Rejected (Memgraph-native Cypher) | Accepted (Chain Insights Graph GQL) |
 | --- | --- | --- |
-| Bounded variable-length | `-[:FLOWS_TO*1..3]->` | `-[:FLOWS_TO]->{1,3}` |
+| Bounded variable-length | `-[:FLOWS_TO*1..3]->` | `-[:FLOWS_TO]->{1,3}` (live only — rejected at runtime on archive/facts) |
 | Shortest path (BFS) | `-[:FLOWS_TO *BFS ..5]->` | `MATCH p = ANY SHORTEST (a)-[:FLOWS_TO]->{1,5}(b) RETURN p` (live only) |
 | All shortest paths | `-[* ALLSHORTEST ...]-` | `ALL SHORTEST` (live only, unweighted) |
 | K shortest paths | `-[*KSHORTEST\|3]->` | None on 0.7.0 — `SHORTEST k` is broken at runtime (see hazards); use `ALL SHORTEST` and truncate client-side |
@@ -104,6 +104,8 @@ results:
 | `WHERE` inside a quantified segment, node or edge — `(-[r:FLOWS_TO WHERE r.amount_usd_sum >= 10]->(x WHERE x.is_exchange IS NULL)){1,3}` | Accepted; **predicates silently discarded** — result set is the unfiltered traversal | Never use. Write hops explicitly with clause-level `WHERE` per hop |
 | Inner `WHERE` combined with `ANY SHORTEST` | Accepted; **the anchor node is dropped** — paths returned from arbitrary start nodes | Never use. Shortest-path patterns must carry no quantifier-inner predicates |
 | `SHORTEST k` | Rejected at runtime: the federation layer emits invalid backend Cypher | Use `ANY SHORTEST` (one route) or `ALL SHORTEST` (all same-length routes) |
+| `{m,n}` on `archive_topology` / `facts` | Rejected at runtime: translation emits `WITH RECURSIVE`, unsupported by the warehouse | Write explicit fixed-hop patterns per depth |
+| Inner-`WHERE` group form on `archive_topology` | Accepted; **anchor AND predicate silently dropped** — probe observed 482k rows from a 1-outflow anchor with an impossible amount floor | Never use (SQL-backend variant of the live hazard) |
 
 Verified working in the same spike: plain `{m,n}` (correct result sets),
 `ANY SHORTEST` / `ALL SHORTEST` with path binding and full edge-property
@@ -142,9 +144,9 @@ the canonical cross-layer filter.
   federation layer today. For flows-weighted routing, enumerate bounded
   paths (`{1,n}` with per-edge predicates where each hop is written
   explicitly) and rank by aggregated `amount_usd_sum` client-side.
-- **Test archive queries at depth 1 first.** The recursive-CTE translation
-  is correct but expensive; grow the bound only after the shallow form
-  returns within the tier timeout.
+- **Archive traversal is fixed-hop only.** Quantified paths do not
+  translate for the warehouse backend (probe-verified); write one explicit
+  pattern per depth and batch them with `graph_query_batch`.
 - When a construct fails with a parse error, check the rejected/accepted
   table above before assuming the data is missing.
 
