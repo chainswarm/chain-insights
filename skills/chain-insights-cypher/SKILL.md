@@ -45,7 +45,9 @@ procedures, native BFS syntax (`*BFS`, `*WSHORTEST`, `[:R*1..3]`), and catalog
 operations — the GQL parser rejects them on every layer, including
 `live_topology`. The supported traversal forms are the GQL ones: bounded
 quantified paths `-[:FLOWS_TO]->{1,3}` (live and, with tight bounds, archive)
-and `ANY SHORTEST` / `ALL SHORTEST` / `SHORTEST k` (live only). See
+and `ANY SHORTEST` / `ALL SHORTEST` (live only; `SHORTEST k` is broken in
+MemGQL 0.7.0 — runtime translation error). Never put `WHERE` inside a
+quantified segment: it is accepted and silently ignored. See
 `references/gql-translation-matrix.md` for the full matrix. When a traversal
 needs per-hop edge predicates or intermediate-node filtering, or an archive
 quantified path is too slow, rewrite it as a bounded `graph_query_batch` of

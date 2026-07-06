@@ -69,7 +69,8 @@ Legend: ✅ supported · ❌ rejected or unsupported · ⚠️ caveat (see notes
 | Bounded quantified path | `-[:FLOWS_TO]->{1,3}` | ✅ | ✅ ⚠️ recursive CTE; keep bounds tight and expect archive-tier latency |
 | Unbounded quantified path | `-[:FLOWS_TO]->{1,}` | ✅ ⚠️ always bound in practice | ❌ |
 | Path binding | `MATCH p = (a)-[:R]->{1,3}(b) RETURN p` | ✅ | ❌ return individual nodes/edges instead |
-| Shortest path | `ANY SHORTEST`, `ALL SHORTEST`, `SHORTEST k` | ✅ | ❌ |
+| Shortest path | `ANY SHORTEST`, `ALL SHORTEST` | ✅ | ❌ |
+| K shortest paths | `SHORTEST k` | ❌ broken in 0.7.0 (invalid backend translation — see hazards) | ❌ |
 | Trail semantics (no repeated edges) | automatic on quantified paths | ✅ | ✅ |
 
 ### Rejected on every layer (parser gate)
@@ -81,7 +82,7 @@ These fail at parse time regardless of layer. Use the accepted form.
 | Bounded variable-length | `-[:FLOWS_TO*1..3]->` | `-[:FLOWS_TO]->{1,3}` |
 | Shortest path (BFS) | `-[:FLOWS_TO *BFS ..5]->` | `MATCH p = ANY SHORTEST (a)-[:FLOWS_TO]->{1,5}(b) RETURN p` (live only) |
 | All shortest paths | `-[* ALLSHORTEST ...]-` | `ALL SHORTEST` (live only, unweighted) |
-| K shortest paths | `-[*KSHORTEST\|3]->` | `SHORTEST 3 ...` (live only) |
+| K shortest paths | `-[*KSHORTEST\|3]->` | None on 0.7.0 — `SHORTEST k` is broken at runtime (see hazards); use `ALL SHORTEST` and truncate client-side |
 | Weighted shortest path | `-[*WSHORTEST (r, n \| r.amount_usd_sum)]-` | No equivalent — enumerate bounded paths and rank client-side |
 | Traversal filter lambda | `-[* (r, n \| n.is_exchange IS NULL)]->` | No equivalent — apply `WHERE` per hop or post-filter |
 | Hop budget directive | `USING HOPS LIMIT 1000` | No equivalent — bound the quantifier instead |

@@ -13,7 +13,7 @@ layer, even live. Full construct-by-construct detail:
 | Bounded variable-length | `-[:FLOWS_TO*1..3]->` | `-[:FLOWS_TO]->{1,3}` | live ✅, archive ⚠️ slow |
 | Shortest path | `-[:FLOWS_TO *BFS ..5]->` | `MATCH p = ANY SHORTEST (a)-[:FLOWS_TO]->{1,5}(b) RETURN p` | live only |
 | All shortest | `*ALLSHORTEST` | `ALL SHORTEST` (unweighted) | live only |
-| K shortest | `*KSHORTEST\|3` | `SHORTEST 3` | live only |
+| K shortest | `*KSHORTEST\|3` | None — `SHORTEST k` broken in 0.7.0 (see hazards); `ALL SHORTEST` + client-side truncate | — |
 | Weighted shortest | `*WSHORTEST (r, n \| r.amount_usd_sum)` | Not expressible — enumerate bounded explicit-hop paths, rank client-side | — |
 | Mid-path filter lambda | `[* (r, n \| n.is_exchange IS NULL)]` | Not expressible in `{m,n}` — write hops explicitly with per-hop `WHERE`, or post-filter | — |
 | Taxonomy label match | `(n:Identity:Exchange)` (rejected) | `(n:Exchange)` or `(n:Identity&Exchange)` — spike-verified | live only |
@@ -39,7 +39,8 @@ layer, even live. Full construct-by-construct detail:
 | --- | --- | --- |
 | Typed single hop, OPTIONAL MATCH, WITH, aggregates, CASE, IN, string predicates, UNION | ✅ | ✅ |
 | Bounded `{m,n}` quantified path | ✅ | ✅ (recursive CTE — test depth 1 first, keep bounds tight) |
-| Unbounded `{m,}`, path binding `MATCH p =`, `ANY/ALL SHORTEST`, `SHORTEST k`, temporal functions, `FOR x IN` | ✅ | ❌ |
+| Unbounded `{m,}`, path binding `MATCH p =`, `ANY/ALL SHORTEST`, temporal functions, `FOR x IN` | ✅ | ❌ |
+| `SHORTEST k` | ❌ broken in 0.7.0 (runtime translation error) | ❌ |
 | Untyped hop `-[r]->` | ✅ | ❌ (always type the relationship) |
 | `collect()` | ✅ | ❌ (warehouse dialect gap) |
 | `DATE`-typed edge properties | n/a | ⚠️ may return `null`; filter on `*_timestamp` fields |
