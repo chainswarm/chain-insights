@@ -220,17 +220,31 @@ function identityExistenceQuery(id: string, identityId: string): { id: string; q
   }
 }
 
-function identityMemberAddressesQuery(identityKeys: string[]): { id: string; query: string } {
-  const predicates = identityKeys.map((identityKey) => `i.identity_id = "${escapeCypherString(identityKey)}"`)
-  return {
-    id: 'identity_member_addresses',
+// Per-identity member lookups run one query per identity so a
+// per-identity LIMIT applies (a single global LIMIT lets one address-rich
+// identity starve the rest). Batches carry at most the backend's query
+// ceiling; callers chunk larger identity sets across batches so NO
+// identity loses enrichment.
+const MEMBER_ADDRESS_BATCH_CHUNK = 20
+const MEMBER_ADDRESSES_PER_IDENTITY_LIMIT = 25
+
+function identityMemberAddressesQueries(identityKeys: string[]): Array<{ id: string; query: string }> {
+  // One query PER identity: a per-identity LIMIT is not expressible in a
+  // single query on every layer, and a global LIMIT lets one address-rich
+  // identity starve the rest. No collect(): this builder runs under the
+  // caller's topology scope, and collect() fails at runtime on the
+  // archive layer (no COLLECT aggregate in the warehouse backend —
+  // capability probe A07 pins the reject). One row per member address;
+  // callers aggregate client-side.
+  return identityKeys.map((identityKey, index) => ({
+    id: `identity_member_addresses_${index}`,
     query: [
-      'MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address)',
-      `WHERE ${predicates.join(' OR ')}`,
-      'RETURN i.identity_id AS identity_id, collect(m.address) AS member_addresses',
-      `LIMIT ${identityKeys.length}`,
+      `MATCH (i:Identity {identity_id: "${escapeCypherString(identityKey)}"})-[:HAS_ADDRESS]->(m:Address)`,
+      'RETURN i.identity_id AS identity_id, m.address AS member_address',
+      'ORDER BY m.address',
+      `LIMIT ${MEMBER_ADDRESSES_PER_IDENTITY_LIMIT}`,
     ].join(' '),
-  }
+  }))
 }
 
 /**
@@ -327,11 +341,25 @@ async function identityDisplayMap(
   const memberRows = new Map<string, string[]>()
   if (uniqueKeys.length > 0) {
     try {
-      const batch = await callGraphBatch(remoteClient, network, [identityMemberAddressesQuery(uniqueKeys)], topologyScope)
-      for (const row of optionalResultsFor(batch, 'identity_member_addresses', [])) {
-        const identityKey = firstString(row['identity_id'])
-        if (!identityKey) continue
-        memberRows.set(identityKey, stringArrayValue(row['member_addresses']) ?? [])
+      // Chunk across batches (batch query ceiling) so every identity gets
+      // enriched — capping instead of chunking regressed large traces to
+      // unenriched lowercase stems past the cap.
+      for (let start = 0; start < uniqueKeys.length; start += MEMBER_ADDRESS_BATCH_CHUNK) {
+        const chunk = uniqueKeys.slice(start, start + MEMBER_ADDRESS_BATCH_CHUNK)
+        const memberQueries = identityMemberAddressesQueries(chunk)
+        const batch = await callGraphBatch(remoteClient, network, memberQueries, topologyScope)
+        for (const memberQuery of memberQueries) {
+          for (const row of optionalResultsFor(batch, memberQuery.id, [])) {
+            const identityKey = firstString(row['identity_id'])
+            const memberAddress = firstString(row['member_address'])
+            if (!identityKey || !memberAddress) continue
+            // One row per member address (no collect() — archive-safe
+            // form); aggregate client-side.
+            const existing = memberRows.get(identityKey) ?? []
+            if (!existing.includes(memberAddress)) existing.push(memberAddress)
+            memberRows.set(identityKey, existing)
+          }
+        }
       }
     } catch {
       // Publicization is best-effort. Tool execution should not fail only
@@ -560,6 +588,143 @@ function connectionProbeQuery(address: string, compareAddress: string): { id: st
       'RETURN [a.identity_id, b.identity_id] AS addresses, 1 AS hops',
       'LIMIT 5',
     ].join(' '),
+  }
+}
+
+// ── Pairwise route evidence ──
+// Directed ANY SHORTEST between two KNOWN identity endpoints, live scope
+// only. Spike-pinned constraints (capability matrix, MemGQL 0.7.0):
+// directed forms only, NO quantifier-inner WHERE (memgraph/memgraph#4343
+// silently discards predicates; #4345 drops the anchor in shortest
+// patterns). Exchange intermediates on a returned route are DISCLOSED in
+// the evidence, never silently filtered out.
+
+export const CONNECTION_ROUTE_DEPTH_BOUND = 4
+
+export function shouldIncludeRouteQueries(
+  topologyScope: TopologyScope,
+  compareAddress: string | undefined,
+): boolean {
+  // ANY SHORTEST is live-only (archive/facts are SQL-mapped layers where
+  // shortest-path forms are rejected); archive compare keeps the legacy
+  // 1-hop probe alone.
+  return topologyScope === 'live_topology' && Boolean(compareAddress)
+}
+
+export function connectionRouteQueries(
+  addressIdentity: string,
+  compareIdentity: string,
+): Array<{ id: string; query: string }> {
+  const routeQuery = (fromIdentity: string, toIdentity: string): string =>
+    [
+      `MATCH p = ANY SHORTEST (src:Identity {identity_id: "${escapeCypherString(fromIdentity)}"})`,
+      `-[:FLOWS_TO]->{1,${CONNECTION_ROUTE_DEPTH_BOUND}}`,
+      `(dst:Identity {identity_id: "${escapeCypherString(toIdentity)}"}) RETURN p LIMIT 1`,
+    ].join('')
+  return [
+    { id: 'connection_route_outbound', query: routeQuery(addressIdentity, compareIdentity) },
+    { id: 'connection_route_inbound', query: routeQuery(compareIdentity, addressIdentity) },
+  ]
+}
+
+export interface RouteEvidenceSide {
+  hops: number
+  identities: string[]
+  exchange_intermediates: string[]
+  amount_usd_sum_total: number
+}
+
+function collectOrdered(
+  value: unknown,
+  matches: (candidate: Record<string, unknown>) => boolean,
+): Array<Record<string, unknown>> {
+  const collected: Array<Record<string, unknown>> = []
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      for (const entry of node) walk(entry)
+      return
+    }
+    if (node && typeof node === 'object') {
+      const candidate = node as Record<string, unknown>
+      if (matches(candidate)) collected.push(candidate)
+      for (const nested of Object.values(candidate)) walk(nested)
+    }
+  }
+  walk(value)
+  return collected
+}
+
+// is_exchange on topology nodes is a MARKER, not a boolean: it usually
+// carries the exchange name (e.g. "binance"). Treat explicit falsy
+// encodings as not-exchange (a bare non-null check would falsely disclose
+// nodes serialized as false/"false"/0), and any other non-empty value as
+// exchange. isExchangeFlag() is NOT reused here — it is boolean-only and
+// would miss name-valued markers.
+export function isExchangeMarker(value: unknown): boolean {
+  if (value === null || value === undefined || value === false) return false
+  if (typeof value === 'number') return value !== 0
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    return normalized !== '' && normalized !== 'false' && normalized !== '0' && normalized !== 'null'
+  }
+  return value === true
+}
+
+// Shape-tolerant hydrated-path reader: walks the returned path value for
+// ordered identity nodes and FLOWS_TO edge amounts without pinning the
+// backend's exact path envelope.
+export function routeFromPathValue(value: unknown): RouteEvidenceSide | null {
+  if (!value || typeof value !== 'object') return null
+  const nodes = collectOrdered(value, (candidate) => typeof candidate['identity_id'] === 'string')
+  if (nodes.length < 2) return null
+  const edges = collectOrdered(
+    value,
+    (candidate) => typeof candidate['amount_usd_sum'] === 'number' && !('identity_id' in candidate),
+  )
+  const identities = nodes.map((node) => String(node['identity_id']))
+  const exchangeIntermediates = nodes
+    .slice(1, -1)
+    .filter((node) => isExchangeMarker(node['is_exchange']))
+    .map((node) => String(node['identity_id']))
+  return {
+    // Hop count is a structural property of the node sequence — never
+    // derived from edge-object detection, which keys on numeric
+    // amount_usd_sum and would under-report on partially hydrated edges.
+    hops: nodes.length - 1,
+    identities,
+    exchange_intermediates: exchangeIntermediates,
+    amount_usd_sum_total: edges.reduce((total, edge) => total + Number(edge['amount_usd_sum']), 0),
+  }
+}
+
+export interface RouteEvidence {
+  search_strategy: 'any_shortest'
+  route_rank_basis: 'hop_count'
+  depth_bound: number
+  route_found: boolean
+  outbound: RouteEvidenceSide | null
+  inbound: RouteEvidenceSide | null
+}
+
+export function buildRouteEvidence(
+  outboundRows: Array<Record<string, unknown>>,
+  inboundRows: Array<Record<string, unknown>>,
+): RouteEvidence {
+  const sideFrom = (rows: Array<Record<string, unknown>>): RouteEvidenceSide | null => {
+    const first = rows[0]
+    if (!first) return null
+    const pathValue = 'p' in first ? first['p'] : Object.values(first)[0]
+    return routeFromPathValue(pathValue)
+  }
+  const outbound = sideFrom(outboundRows)
+  const inbound = sideFrom(inboundRows)
+  return {
+    search_strategy: 'any_shortest',
+    route_rank_basis: 'hop_count',
+    depth_bound: CONNECTION_ROUTE_DEPTH_BOUND,
+    route_found: outbound !== null || inbound !== null,
+    outbound,
+    inbound,
   }
 }
 
@@ -927,6 +1092,11 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     ...exchangeOutflowQueries(address, topologyScope),
     ...exchangeInflowQueries(address, topologyScope),
     ...(compareAddress ? [connectionProbeQuery(address, compareAddress)] : [{ id: 'connection_probe', query: 'MATCH (n:Identity {identity_id: "__chain_insights_noop__"}) RETURN n.identity_id AS noop LIMIT 0' }]),
+    // Route evidence is additive and live-only (ANY SHORTEST rejects on
+    // SQL-mapped scopes); the legacy 1-hop probe above always runs.
+    ...(shouldIncludeRouteQueries(topologyScope, compareAddress)
+      ? connectionRouteQueries(address, compareAddress as string)
+      : []),
   ]
   const batch = await callGraphBatch(remoteClient, network, queries, topologyScope)
   const partialQueryFailures: QueryFailure[] = []
@@ -943,6 +1113,12 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   const outflows = enrichExchangeRows(optionalResultsWithPrefix(batch, 'exchange_outflows_', partialQueryFailures))
   const inflows = enrichExchangeRows(optionalResultsWithPrefix(batch, 'exchange_inflows_', partialQueryFailures))
   const connections = compareAddress ? optionalResultsFor(batch, 'connection_probe', partialQueryFailures) : []
+  const routeEvidence = shouldIncludeRouteQueries(topologyScope, compareAddress)
+    ? buildRouteEvidence(
+        optionalResultsFor(batch, 'connection_route_outbound', partialQueryFailures),
+        optionalResultsFor(batch, 'connection_route_inbound', partialQueryFailures),
+      )
+    : undefined
   const exchangeRows = [...outflows, ...inflows]
   // A hop-depth exchange_outflows_N/exchange_inflows_N query can fail
   // independently (e.g. the archive-tier query-memory limit on a deep
@@ -1027,7 +1203,13 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
           search_status: exchangeSearchComplete ? 'complete' : 'incomplete',
           ...(exchangeSearchComplete ? {} : { failed_query_ids: exchangeSearchFailures.map((failure) => failure.id) }),
         },
-        connection: compareAddress ? { compare_address: compareAddress, paths: connections } : undefined,
+        connection: compareAddress
+          ? {
+              compare_address: compareAddress,
+              paths: connections,
+              ...(routeEvidence ? { route_evidence: routeEvidence } : {}),
+            }
+          : undefined,
         unresolved: compareUnresolved ? [compareInput] : undefined,
         partial_query_errors: partialQueryFailures.length > 0 ? partialQueryFailures : undefined,
       },
@@ -2251,4 +2433,26 @@ export async function trackFunds(
     },
     graphData,
   }
+}
+
+// ── Test/corpus contract surface ──
+// Exposes the exact query builders so trace-golden tests can snapshot the
+// emitted query text and scripts/generate-query-corpus.mjs can export the
+// full production-shaped query set (including the USE-prefix wrapper the
+// runtime applies). Not a public API; do not import from product code.
+export const queryBuilderContract = {
+  topologyGraphQuery,
+  memberAddressResolutionQuery,
+  identityExistenceQuery,
+  identityMemberAddressesQueries,
+  addressProfileQuery,
+  memberAddressesQuery,
+  addressFeatureQuery,
+  addressRiskScoreQuery,
+  addressLabelRiskQuery,
+  exchangeOutflowQueries,
+  exchangeInflowQueries,
+  connectionProbeQuery,
+  connectionRouteQueries,
+  reverseDepositSourceQueryAtDepth,
 }

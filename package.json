@@ -1,6 +1,6 @@
 {
   "name": "chain-insights",
-  "version": "0.8.26",
+  "version": "0.8.27",
   "description": "AML investigation CLI and MCP proxy for blockchain risk, fund-flow tracing, workspace reports, and Chain Insights Graph access",
   "homepage": "https://chain-insights.ai",
   "repository": {
@@ -52,6 +52,10 @@
     "dev": "tsx src/cli.ts",
     "devkit:smoke": "bash devkit/scripts/smoke.sh",
     "devkit:smoke:parity": "bash devkit/scripts/smoke-chain-insights-parity.sh",
+    "probe:capability": "bash devkit/scripts/capability-probes-live.sh",
+    "probe:capability:archive": "bash devkit/scripts/capability-probes-archive.sh",
+    "test:devkit": "CAPABILITY_PROBES=1 CAPABILITY_PROBES_ARCHIVE=1 vitest run tests/capability-matrix.test.ts tests/route-evidence-devkit.test.ts && TRACE_DEVKIT_GOLDEN=1 vitest run tests/trace-devkit-golden.test.ts",
+    "corpus:generate": "tsx scripts/generate-query-corpus.mjs",
     "release:check": "node scripts/check-release-gate.mjs",
     "test": "vitest run",
     "test:watch": "vitest",

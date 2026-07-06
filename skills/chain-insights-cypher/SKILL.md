@@ -26,6 +26,11 @@ For practical query recipes and Memgraph deep traversal fallbacks, read
 `MATCH`, `WHERE`, `WITH`, aggregates, `CASE`, archive/facts projections, and
 fixed-hop traversal batches.
 
+For the construct-by-construct support matrix and rejected→accepted rewrite
+recipes (native Cypher `[:R*1..3]`/`*BFS` vs GQL `{m,n}`/`ANY SHORTEST`),
+read `references/gql-translation-matrix.md` before writing any traversal
+deeper than one hop.
+
 ## Layer Choice
 
 | Layer | Use for | Query style |
@@ -36,10 +41,17 @@ fixed-hop traversal batches.
 
 Treat `archive_topology` and `facts` as mapped graph views, not full Memgraph.
 Avoid backend-specific functions such as `keys()`, `labels()`, `type()`,
-procedures, native BFS syntax, catalog operations, and variable-length path
-tricks unless the current endpoint has just accepted the exact pattern. When a
-Memgraph deep traversal pattern fails, rewrite it as a bounded
-`graph_query_batch` of explicit fixed-hop `FLOWS_TO` patterns.
+procedures, native BFS syntax (`*BFS`, `*WSHORTEST`, `[:R*1..3]`), and catalog
+operations — the GQL parser rejects them on every layer, including
+`live_topology`. The supported traversal forms are the GQL ones: bounded
+quantified paths `-[:FLOWS_TO]->{1,3}` (live only — archive rejects them at
+runtime) and `ANY SHORTEST` / `ALL SHORTEST` (live only; `SHORTEST k` is
+broken in MemGQL 0.7.0 — runtime translation error). Never put `WHERE`
+inside a quantified segment: it is accepted and silently ignored. See
+`references/gql-translation-matrix.md` for the full matrix. When a traversal
+needs per-hop edge predicates or intermediate-node filtering, or an archive
+quantified path is too slow, rewrite it as a bounded `graph_query_batch` of
+explicit fixed-hop `FLOWS_TO` patterns.
 
 For any BFS, fixed-hop fallback, shortest-path, or custom `FLOWS_TO` traversal,
 exchange hot wallets are terminal endpoints only. Do not expand from, through,

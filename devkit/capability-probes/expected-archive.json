@@ -1,0 +1,18 @@
+{
+  "meta": {
+    "description": "Pinned MemGQL archive-lane expectations against the deterministic devkit fixture (StarRocks-backed archive_topology). Authored empirically 2026-07-06 on memgraph/memgql:0.7.0. Key finding: bounded quantified paths {m,n} FAIL on StarRocks (MemGQL emits WITH RECURSIVE, which StarRocks does not support — memgraph/memgraph#4178 dialect gap), and the inner-WHERE group form silently drops both the anchor and the predicate (SQL-backend variant of #4343/#4345). Fixed-hop fan-out batches remain the only correct archive traversal form. Rows with upstream_issue are canaries: an image bump that changes an outcome fails tests/capability-matrix expectations loudly.",
+    "anchor_identity": "bittensor:0x747e810cdfc66bdabcb2e617208399ad9cec4fa9",
+    "anchor_note": "fixture identity with exactly 1 direct outflow; re-derive counts when the devkit fixture is regenerated"
+  },
+  "memgql_image": "memgraph/memgql:0.7.0",
+  "rows": [
+    { "probe_id": "A01", "expected_outcome": "supported", "expected_count": "1", "upstream_issue": null },
+    { "probe_id": "A02", "expected_outcome": "rejected-translation", "expected_count": null, "upstream_issue": "memgraph/memgraph#4178", "note": "{1,1} -> WITH RECURSIVE, unsupported by StarRocks" },
+    { "probe_id": "A03", "expected_outcome": "rejected-translation", "expected_count": null, "upstream_issue": "memgraph/memgraph#4178", "note": "{1,2} -> WITH RECURSIVE, unsupported by StarRocks" },
+    { "probe_id": "A04", "expected_outcome": "supported-but-wrong", "expected_count": "0", "upstream_issue": "memgraph/memgraph#4343", "note": "inner-WHERE group form skips the CTE path and silently drops anchor + predicate (observed 482624 rows from a 1-outflow anchor with an impossible amount floor)" },
+    { "probe_id": "A05", "expected_outcome": "rejected-parse", "expected_count": null, "upstream_issue": "memgraph/memgraph#4241" },
+    { "probe_id": "A06", "expected_outcome": "rejected-translation", "expected_count": null, "upstream_issue": null, "note": "node <> node pushes bare aliases into SQL; compare key properties instead" },
+    { "probe_id": "A07", "expected_outcome": "rejected-translation", "expected_count": null, "upstream_issue": "memgraph/memgraph#4178", "note": "collect() -> COLLECT(), no such StarRocks function" },
+    { "probe_id": "A08", "expected_outcome": "rejected-translation", "expected_count": null, "upstream_issue": null, "note": "unbounded {1,} cleanly rejected with bounded-form guidance" }
+  ]
+}
