@@ -232,6 +232,10 @@ function identityMemberAddressesQuery(identityKeys: string[]): { id: string; que
       'MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address)',
       `WHERE ${predicates.join(' OR ')}`,
       'RETURN i.identity_id AS identity_id, m.address AS member_address',
+      // Deterministic truncation: the LIMIT is global (per-identity caps
+      // are not expressible in one query on every layer), so order rows
+      // to make which members survive stable across runs.
+      'ORDER BY i.identity_id, m.address',
       `LIMIT ${identityKeys.length * 25}`,
     ].join(' '),
   }

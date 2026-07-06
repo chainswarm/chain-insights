@@ -26,6 +26,8 @@ MGCONSOLE_IMAGE="memgraph/mgconsole:1.5.1"
 MEMGQL_IMAGE="$(grep -oE 'memgraph/memgql:[0-9.]+' "$REPO_ROOT/devkit/docker-compose.yml" | head -1)"
 TAG="${MEMGQL_IMAGE##*:}"
 OUT="$WORKSPACE/capability-matrix-archive.$TAG.json"
+# AC7: artifact carries tag AND digest of the running devkit memgql.
+MEMGQL_DIGEST="$(docker inspect "$MEMGQL_CONTAINER" --format '{{.Image}}' 2>/dev/null || echo unknown)"
 
 ANCHOR="$(python3 -c "import json;print(json.load(open('$EXPECTED'))['meta']['anchor_identity'])")"
 
@@ -99,12 +101,15 @@ probe A07 rejected-translation "" "memgraph/memgraph#4178" \
 probe A08 rejected-translation "" "" \
  "USE archive_topology MATCH (a:Identity {identity_id:'$ANCHOR'})-[:FLOWS_TO]->{1,}(t:Identity) RETURN count(t) AS c;"
 
-python3 - "$OUT" "$MEMGQL_IMAGE" "$ROWS_TMP" <<'PY'
+python3 - "$OUT" "$MEMGQL_IMAGE" "$MEMGQL_DIGEST" "$ROWS_TMP" <<'PY'
 import json, sys
-out, image, rows_path = sys.argv[1:4]
+out, image, digest, rows_path = sys.argv[1:5]
 rows = [json.loads(l) for l in open(rows_path) if l.strip()]
-json.dump({"lane": "archive", "memgql_image": image, "rows": rows},
-          open(out, "w"), indent=1, sort_keys=True)
+for r in rows:
+    r["memgql_image"] = image
+    r["memgql_digest"] = digest
+json.dump({"lane": "archive", "memgql_image": image, "memgql_digest": digest,
+           "rows": rows}, open(out, "w"), indent=1, sort_keys=True)
 print(f"wrote {out} ({len(rows)} rows)")
 PY
 rm -f "$ROWS_TMP"
