@@ -1193,3 +1193,13 @@ export async function runFundFlowProbe(
     tracebackWarnings,
   }
 }
+
+// ── Test/corpus contract surface (cia-gql-query-optimization spec R5/AC4) ──
+// Same role as public-tools.ts's queryBuilderContract: exact emitted-query
+// visibility for golden tests and the corpus generator. Not a public API.
+export const traceQueryBuilderContract = {
+  forwardExchangeQueries,
+  backwardSourceQueries,
+  reverseLeadsQuery,
+  directEdgePropsQuery,
+}
