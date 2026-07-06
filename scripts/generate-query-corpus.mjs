@@ -109,6 +109,16 @@ const documentedRecipes = JSON.parse(
   readFileSync(join(repoRoot, 'tests/fixtures/documented-recipes.json'), 'utf8'),
 )
 for (const recipe of documentedRecipes.recipes) {
+  // This corpus is the production ADMISSION contract: the data-pipeline
+  // graphmcp test asserts ValidateReadOnlyGraphQuery admits every entry, so a
+  // query production deliberately refuses must not appear here. Recipes tagged
+  // `admits: false` (StarRocks-backed global aggregates without an indexed
+  // predicate — refused by the cost-shape gate) document a surface boundary;
+  // their translator behaviour is still pinned by the archive-result goldens,
+  // just not by this admission corpus.
+  if (recipe.admits === false) {
+    continue
+  }
   entries.push({
     builder: 'documented-recipe',
     params: { id: recipe.id, features: recipe.features },

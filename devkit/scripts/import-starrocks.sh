@@ -11,9 +11,12 @@ STARROCKS_PORT="${STARROCKS_PORT:-9030}"
 STARROCKS_HTTP_PORT="${STARROCKS_HTTP_PORT:-8030}"
 STARROCKS_USER="${STARROCKS_USER:-root}"
 STARROCKS_PASSWORD="${STARROCKS_PASSWORD:-}"
+# Graph node/edge → StarRocks table+column mapping. Post MemGQL retirement the
+# canonical source is the devkit's own vendored translator asset; in-container
+# it is bind-mounted at /mapping, on host it is read from the devkit tree.
 MEMGQL_STARROCKS_MAPPING_FILE="${MEMGQL_STARROCKS_MAPPING_FILE:-/mapping/chain_insights_starrocks_mapping.json}"
 if [ ! -f "$MEMGQL_STARROCKS_MAPPING_FILE" ]; then
-  MEMGQL_STARROCKS_MAPPING_FILE="$REPO_ROOT/repos/ml/data-pipeline/ops/memgql/chain_insights_starrocks_mapping.json"
+  MEMGQL_STARROCKS_MAPPING_FILE="$DEVKIT_ROOT/chain-insights-graph-devkit/internal/cyphersql/mapping.json"
 fi
 export MEMGQL_STARROCKS_MAPPING_FILE
 

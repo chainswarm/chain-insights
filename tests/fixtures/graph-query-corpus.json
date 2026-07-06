@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/generate-query-corpus.mjs",
- "entry_count": 188,
+ "entry_count": 183,
  "entries": [
   {
    "builder": "addressFeatureQuery",
@@ -272,19 +272,6 @@
   {
    "builder": "documented-recipe",
    "params": {
-    "id": "recipe_archive_topology_05",
-    "features": [
-     "fixed-hop",
-     "label-match",
-     "aggregate"
-    ]
-   },
-   "scope": "archive_topology",
-   "query": "USE archive_topology MATCH (:Identity)-[flow:FLOWS_TO]->(:Identity) RETURN flow.period_granularity AS period_granularity, count(flow) AS flow_edges LIMIT 10"
-  },
-  {
-   "builder": "documented-recipe",
-   "params": {
     "id": "recipe_archive_topology_06",
     "features": [
      "fixed-hop",
@@ -362,18 +349,6 @@
    },
    "scope": "archive_topology",
    "query": "USE archive_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, CASE WHEN flow.amount_usd_sum > 100000 THEN \"high\" WHEN flow.amount_usd_sum > 1000 THEN \"medium\" ELSE \"low\" END AS amount_band LIMIT 25"
-  },
-  {
-   "builder": "documented-recipe",
-   "params": {
-    "id": "recipe_archive_topology_12",
-    "features": [
-     "label-match",
-     "aggregate"
-    ]
-   },
-   "scope": "archive_topology",
-   "query": "USE archive_topology MATCH (i:Identity) RETURN count(i) AS identity_count LIMIT 1"
   },
   {
    "builder": "documented-recipe",
@@ -533,20 +508,6 @@
   {
    "builder": "documented-recipe",
    "params": {
-    "id": "recipe_facts_13",
-    "features": [
-     "fixed-hop",
-     "label-match",
-     "aggregate",
-     "order-by"
-    ]
-   },
-   "scope": "facts",
-   "query": "USE facts MATCH (i:Identity)-[:HAS_LABEL]->(l:AddressLabel) RETURN l.label AS label, count(l) AS label_count ORDER BY label_count DESC LIMIT 25"
-  },
-  {
-   "builder": "documented-recipe",
-   "params": {
     "id": "recipe_facts_14",
     "features": [
      "fixed-hop",
@@ -571,32 +532,6 @@
    },
    "scope": "facts",
    "query": "USE facts MATCH (i:Identity)-[:HAS_RISK_SCORE]->(r:RiskScore) WHERE r.risk_score IS NOT NULL RETURN i.identity_id AS identity_id, r.risk_score AS risk_score, r.window_days AS window_days, r.processing_date AS processing_date ORDER BY r.risk_score DESC LIMIT 25"
-  },
-  {
-   "builder": "documented-recipe",
-   "params": {
-    "id": "recipe_facts_16",
-    "features": [
-     "fixed-hop",
-     "label-match",
-     "aggregate",
-     "order-by"
-    ]
-   },
-   "scope": "facts",
-   "query": "USE facts MATCH (i:Identity)-[:HAS_FEATURE]->(f:AddressFeature) RETURN f.feature_scope AS feature_scope, count(f) AS features, sum(f.total_volume_usd) AS total_volume_usd ORDER BY total_volume_usd DESC LIMIT 25"
-  },
-  {
-   "builder": "documented-recipe",
-   "params": {
-    "id": "recipe_facts_17",
-    "features": [
-     "label-match",
-     "aggregate"
-    ]
-   },
-   "scope": "facts",
-   "query": "USE facts MATCH (i:Identity) RETURN count(i) AS identity_count LIMIT 1"
   },
   {
    "builder": "documented-recipe",

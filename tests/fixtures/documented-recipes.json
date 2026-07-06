@@ -47,6 +47,7 @@
   },
   {
    "id": "recipe_archive_topology_05",
+   "admits": false,
    "query": "USE archive_topology MATCH (:Identity)-[flow:FLOWS_TO]->(:Identity) RETURN flow.period_granularity AS period_granularity, count(flow) AS flow_edges LIMIT 10",
    "layer": "archive_topology",
    "description": "Count archive FLOWS_TO edges grouped by period_granularity",
@@ -130,6 +131,7 @@
   },
   {
    "id": "recipe_archive_topology_12",
+   "admits": false,
    "query": "USE archive_topology MATCH (i:Identity) RETURN count(i) AS identity_count LIMIT 1",
    "layer": "archive_topology",
    "description": "Node-only Identity count on the archive layer \u2014 the archive counterpart to recipe_live_topology_14, fills archive node-only aggregate coverage.",
@@ -271,6 +273,7 @@
   },
   {
    "id": "recipe_facts_13",
+   "admits": false,
    "query": "USE facts MATCH (i:Identity)-[:HAS_LABEL]->(l:AddressLabel) RETURN l.label AS label, count(l) AS label_count ORDER BY label_count DESC LIMIT 25",
    "layer": "facts",
    "description": "HAS_LABEL aggregate over AddressLabel grouped by label value with count and ORDER BY \u2014 fills the missing facts-layer aggregate and order-by (grouped GROUP BY projection through the translator).",
@@ -308,6 +311,7 @@
   },
   {
    "id": "recipe_facts_16",
+   "admits": false,
    "query": "USE facts MATCH (i:Identity)-[:HAS_FEATURE]->(f:AddressFeature) RETURN f.feature_scope AS feature_scope, count(f) AS features, sum(f.total_volume_usd) AS total_volume_usd ORDER BY total_volume_usd DESC LIMIT 25",
    "layer": "facts",
    "description": "HAS_FEATURE numeric aggregation: count and sum(total_volume_usd) grouped by feature_scope with ORDER BY \u2014 fills facts-layer numeric SUM aggregation (distinct from the count-only aggregate) over the AddressFeature view.",
@@ -321,6 +325,7 @@
   },
   {
    "id": "recipe_facts_17",
+   "admits": false,
    "query": "USE facts MATCH (i:Identity) RETURN count(i) AS identity_count LIMIT 1",
    "layer": "facts",
    "description": "Node-only Identity count on the facts layer \u2014 the facts-layer counterpart to recipe_live_topology_14, fills facts node-only aggregate coverage.",

@@ -27,8 +27,18 @@ func main() {
 	}
 	defer runner.Close(context.Background())
 
+	// archive_topology / facts run directly against StarRocks via the
+	// translator (MemGQL retired); live_topology stays on Memgraph.
+	starRocks, err := devkitmcp.NewStarRocksRunner(config)
+	if err != nil {
+		logger.Error("devkit starrocks init failed", "operation", "devkit_mcp.start", "error", err)
+		os.Exit(1)
+	}
+	defer starRocks.Close()
+	dispatch := devkitmcp.NewDispatchRunner(runner, starRocks)
+
 	logger.Info("devkit mcp listening", "operation", "devkit_mcp.start", "address", config.ListenAddress)
-	if err := devkitmcp.Serve(config, runner); err != nil {
+	if err := devkitmcp.Serve(config, dispatch); err != nil {
 		logger.Error("devkit mcp stopped", "operation", "devkit_mcp.serve", "error", err)
 		os.Exit(1)
 	}

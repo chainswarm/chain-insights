@@ -6,21 +6,11 @@ services:
 
   memgraph:
     image: memgraph/memgraph:3.10.1
+    command: ["--query-execution-timeout-sec=10"]
     expose:
       - "7687"
     volumes:
       - ./data:/data:ro
-
-  memgql:
-    image: memgraph/memgql:0.7.0
-    environment:
-      CONNECTOR_TYPE: multi
-    ports:
-      - "${DEVKIT_MCP_PORT:-18012}:8012"
-    expose:
-      - "7688"
-    volumes:
-      - ../../../ml/data-pipeline/ops/memgql:/mapping:ro
 
   starrocks-import:
     build:
@@ -30,7 +20,11 @@ services:
     volumes:
       - ./scripts:/devkit/scripts:ro
       - ./data:/devkit/data:ro
-      - ../../../ml/data-pipeline/ops/memgql:/mapping:ro
+      # Graph node/edge → StarRocks table+column mapping, sourced from the
+      # devkit's own vendored translator asset (internal/cyphersql/mapping.json).
+      # Keeps the devkit self-contained so the MemGQL retirement can delete the
+      # old federation mapping in data-pipeline without breaking devkit boot.
+      - ./chain-insights-graph-devkit/internal/cyphersql/mapping.json:/mapping/chain_insights_starrocks_mapping.json:ro
     depends_on:
       - starrocks
 
@@ -42,46 +36,34 @@ services:
     volumes:
       - ./scripts:/devkit/scripts:ro
       - ./data:/devkit/data:ro
-      - ../../../ml/data-pipeline/ops/memgql:/mapping:ro
+      - ./chain-insights-graph-devkit/internal/cyphersql/mapping.json:/mapping/chain_insights_starrocks_mapping.json:ro
     depends_on:
       - memgraph
-
-  memgql-bootstrap:
-    build:
-      context: .
-      dockerfile: Dockerfile.tools
-    network_mode: "service:memgql"
-    command: ["bash", "/devkit/scripts/import-memgql.sh"]
-    environment:
-      MEMGQL_HOST: 127.0.0.1
-      MEMGQL_PORT: "7688"
-      MEMGQL_STARROCKS_MAPPING_FILE: /mapping/chain_insights_starrocks_mapping.json
-    volumes:
-      - ./scripts:/devkit/scripts:ro
-      - ./data:/devkit/data:ro
-      - ../../../ml/data-pipeline/ops/memgql:/mapping:ro
-    depends_on:
-      memgql:
-        condition: service_started
-      memgraph-import:
-        condition: service_completed_successfully
-      starrocks-import:
-        condition: service_completed_successfully
 
   # Devkit-only lite Chain Insights Graph backend, built entirely from this
   # repository. It deliberately does not import or build the production
   # backend source: third-party developers host only this graph MCP against
   # locally served StarRocks and Memgraph, with no billing, metering, or
-  # usage-reporting surface. Its tool/tier contract (the four graph tools,
-  # live 10s / archive-facts 30s ceilings, capability tier sublayers) is
-  # kept in sync with the production backend by contract tests.
+  # usage-reporting surface. Post MemGQL retirement it routes exactly like
+  # production: USE live_topology → Memgraph directly (native Cypher), USE
+  # archive_topology / facts → StarRocks directly via the corpus-scoped
+  # translator. Its tool/tier contract is kept in sync with the production
+  # backend by contract + corpus-parity tests.
   chain-insights-graph-devkit:
     build:
       context: .
       dockerfile: Dockerfile.mcp
-    network_mode: "service:memgql"
+    ports:
+      - "${DEVKIT_MCP_PORT:-18012}:8012"
     environment:
-      MEMGQL_BOLT_URI: bolt://127.0.0.1:7688
+      DEVKIT_MCP_LISTEN_ADDRESS: ":8012"
+      MEMGRAPH_BOLT_URI: bolt://memgraph:7687
+      STARROCKS_HOST: starrocks
+      STARROCKS_PORT: "9030"
+      STARROCKS_USER: root
+      STARROCKS_DATABASE: bittensor_semantic
     depends_on:
-      memgql-bootstrap:
+      memgraph-import:
+        condition: service_completed_successfully
+      starrocks-import:
         condition: service_completed_successfully
