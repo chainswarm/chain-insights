@@ -222,13 +222,17 @@ function identityExistenceQuery(id: string, identityId: string): { id: string; q
 
 function identityMemberAddressesQuery(identityKeys: string[]): { id: string; query: string } {
   const predicates = identityKeys.map((identityKey) => `i.identity_id = "${escapeCypherString(identityKey)}"`)
+  // No collect(): this builder runs under the caller's topology scope, and
+  // collect() fails at runtime on the archive layer (the warehouse backend
+  // has no COLLECT aggregate — capability probe A07 pins the reject). One
+  // row per member address; callers aggregate client-side.
   return {
     id: 'identity_member_addresses',
     query: [
       'MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address)',
       `WHERE ${predicates.join(' OR ')}`,
-      'RETURN i.identity_id AS identity_id, collect(m.address) AS member_addresses',
-      `LIMIT ${identityKeys.length}`,
+      'RETURN i.identity_id AS identity_id, m.address AS member_address',
+      `LIMIT ${identityKeys.length * 25}`,
     ].join(' '),
   }
 }
@@ -330,8 +334,13 @@ async function identityDisplayMap(
       const batch = await callGraphBatch(remoteClient, network, [identityMemberAddressesQuery(uniqueKeys)], topologyScope)
       for (const row of optionalResultsFor(batch, 'identity_member_addresses', [])) {
         const identityKey = firstString(row['identity_id'])
-        if (!identityKey) continue
-        memberRows.set(identityKey, stringArrayValue(row['member_addresses']) ?? [])
+        const memberAddress = firstString(row['member_address'])
+        if (!identityKey || !memberAddress) continue
+        // One row per member address (no collect() — archive-safe form);
+        // aggregate client-side.
+        const existing = memberRows.get(identityKey) ?? []
+        if (!existing.includes(memberAddress)) existing.push(memberAddress)
+        memberRows.set(identityKey, existing)
       }
     } catch {
       // Publicization is best-effort. Tool execution should not fail only

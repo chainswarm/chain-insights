@@ -2159,9 +2159,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                     id: 'identity_member_addresses',
                     ok: true,
                     results: [
-                      { identity_id: depositAIdentity, member_addresses: ['5DepositA'] },
-                      { identity_id: depositBIdentity, member_addresses: ['5DepositB'] },
-                      { identity_id: sharedSourceIdentity, member_addresses: ['5SharedSource'] },
+                      // One row per member address (archive-safe builder
+                      // form — no collect(); see probe A07).
+                      { identity_id: depositAIdentity, member_address: '5DepositA' },
+                      { identity_id: depositBIdentity, member_address: '5DepositB' },
+                      { identity_id: sharedSourceIdentity, member_address: '5SharedSource' },
                     ],
                   },
                 ],
