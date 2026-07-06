@@ -91,6 +91,42 @@ These fail at parse time regardless of layer. Use the accepted form.
 | Plan inspection | `EXPLAIN`, `PROFILE` | Not available |
 | Writes / DDL | `CREATE`, `MERGE`, `SET`, `DELETE`, `DROP`, ... | Never — the surface is read-only |
 
+## Verified hazards (spike-tested against MemGQL 0.7.0)
+
+These were verified empirically on 2026-07-06 against a seeded Memgraph
+3.10.1 + MemGQL 0.7.0 stack. They are **more dangerous than parse
+errors** because the query is accepted and returns confidently wrong
+results:
+
+| Form | What happens | Rule |
+| --- | --- | --- |
+| `WHERE` inside a quantified segment, node or edge — `(-[r:FLOWS_TO WHERE r.amount_usd_sum >= 10]->(x WHERE x.is_exchange IS NULL)){1,3}` | Accepted; **predicates silently discarded** — result set is the unfiltered traversal | Never use. Write hops explicitly with clause-level `WHERE` per hop |
+| Inner `WHERE` combined with `ANY SHORTEST` | Accepted; **the anchor node is dropped** — paths returned from arbitrary start nodes | Never use. Shortest-path patterns must carry no quantifier-inner predicates |
+| `SHORTEST k` | Rejected at runtime: the federation layer emits invalid backend Cypher | Use `ANY SHORTEST` (one route) or `ALL SHORTEST` (all same-length routes) |
+
+Verified working in the same spike: plain `{m,n}` (correct result sets),
+`ANY SHORTEST` / `ALL SHORTEST` with path binding and full edge-property
+hydration, `FOR x IN`, node `<>` comparison (live).
+
+### Taxonomy labels (live layer, spike-verified)
+
+Secondary node labels (for example exchange or scam classification labels
+maintained on live topology identities) are queryable through the
+federation layer on `live_topology` only:
+
+| Form | Result |
+| --- | --- |
+| `MATCH (n:Exchange)` — bare secondary label | ✅ works |
+| `MATCH (n:Identity&Exchange)` — GQL conjunction | ✅ works |
+| `MATCH (n:Identity:Exchange)` — Cypher colon-stacking | ❌ parse error |
+| `RETURN labels(n)` | ❌ parse error (all layers) |
+
+Caveats: taxonomy labels are sticky (never removed once assigned — label
+presence means "was ever classified", not "currently active"); archive
+and facts layers carry only their mapped labels, so taxonomy-label
+patterns are live-only. The property-flag form (`is_exchange`) remains
+the canonical cross-layer filter.
+
 ## Practical guidance
 
 - **Prefer inline property maps for equality lookups**:

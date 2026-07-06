@@ -16,6 +16,20 @@ layer, even live. Full construct-by-construct detail:
 | K shortest | `*KSHORTEST\|3` | `SHORTEST 3` | live only |
 | Weighted shortest | `*WSHORTEST (r, n \| r.amount_usd_sum)` | Not expressible — enumerate bounded explicit-hop paths, rank client-side | — |
 | Mid-path filter lambda | `[* (r, n \| n.is_exchange IS NULL)]` | Not expressible in `{m,n}` — write hops explicitly with per-hop `WHERE`, or post-filter | — |
+| Taxonomy label match | `(n:Identity:Exchange)` (rejected) | `(n:Exchange)` or `(n:Identity&Exchange)` — spike-verified | live only |
+
+## Verified hazards (MemGQL 0.7.0 spike, 2026-07-06)
+
+- **`WHERE` inside a quantified segment is ACCEPTED but SILENTLY
+  IGNORED** (node and edge predicates both) — the result set is the
+  unfiltered traversal. Never use it; write hops explicitly.
+- **Inner `WHERE` + `ANY SHORTEST` drops the anchor** — paths return from
+  arbitrary start nodes. Never combine.
+- **`SHORTEST k` fails at runtime** (invalid backend translation). Use
+  `ANY SHORTEST` or `ALL SHORTEST`.
+- Verified correct: plain `{m,n}`, `ANY SHORTEST`/`ALL SHORTEST` with
+  path binding + edge hydration, `FOR x IN`, node `<>` compare, bare and
+  `&`-conjunction label patterns (live).
 | List unroll | `UNWIND xs AS x` | `FOR x IN xs` | live only |
 | Node identity compare | `WHERE a <> b` | live: works; archive/facts: `a.identity_id <> b.identity_id` | see note |
 
