@@ -56,7 +56,7 @@ jobs:
           path: repos/ml/data-pipeline
           sparse-checkout: ops/memgql
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
 
