@@ -54,7 +54,7 @@
     "devkit:smoke:parity": "bash devkit/scripts/smoke-chain-insights-parity.sh",
     "probe:capability": "bash devkit/scripts/capability-probes-live.sh",
     "probe:capability:archive": "bash devkit/scripts/capability-probes-archive.sh",
-    "corpus:generate": "node scripts/generate-query-corpus.mjs",
+    "corpus:generate": "tsx scripts/generate-query-corpus.mjs",
     "release:check": "node scripts/check-release-gate.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
