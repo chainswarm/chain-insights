@@ -124,10 +124,11 @@ describe.skipIf(!enabled)('route evidence against devkit fixture (AC8)', () => {
           break
         }
       }
-      if (!picked) {
-        console.warn('fixture has no indirect exchange-intermediate pair; disclosure covered by synthetic test only')
-        return
-      }
+      // Hard requirement (AC8): the deterministic devkit fixture is known
+      // to contain indirect exchange-intermediate pairs; absence means the
+      // fixture regressed or the discovery queries broke — fail, never skip.
+      expect(picked, 'no indirect exchange-intermediate fixture pair found — AC8 cannot be verified').toBeDefined()
+      if (!picked) throw new Error('unreachable')
       const member = async (identity: string): Promise<string> => {
         const m = await rows(
           `USE live_topology MATCH (i:Identity {identity_id: "${identity}"})-[:HAS_ADDRESS]->(m:Address) RETURN m.address AS address LIMIT 1`,

@@ -15,7 +15,13 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 // To regenerate after an APPROVED trace-behavior change: delete
 // tests/fixtures/trace-victim-devkit-golden.json and run once with
 // TRACE_GOLDEN_RECORD=1.
-const enabled = process.env.CAPABILITY_PROBES === '1'
+//
+// Own gate (TRACE_DEVKIT_GOLDEN=1, not CAPABILITY_PROBES): this file must
+// run in its OWN vitest invocation. The federation layer exhibits a
+// session-state defect where heavy graph_query_batch traffic from another
+// test file degrades subsequent results on the shared backend session
+// (empirically deterministic; same family as the pinned upstream issues).
+const enabled = process.env.TRACE_DEVKIT_GOLDEN === '1'
 const endpoint = process.env.CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT ?? 'http://127.0.0.1:18012/mcp'
 const repoRoot = resolve(__dirname, '..')
 const goldenPath = join(repoRoot, 'tests/fixtures/trace-victim-devkit-golden.json')
@@ -39,14 +45,22 @@ function fixtureSeed(): string {
   throw new Error('no fixture seed found')
 }
 
-// Normalize: keep the path-set identity of the trace, drop volatile fields.
-function normalize(structured: unknown): unknown {
+// Normalize: keep the path-set identity of the trace, drop volatile
+// fields, and REDACT machine-local absolute paths — the golden is
+// committed to a public repository (no private filesystem paths) and
+// must be portable across checkouts.
+function normalize(structured: unknown, workspaceDir: string): unknown {
   return JSON.parse(
     JSON.stringify(structured, (key, value) => {
       if (/timestamp|generated_at|duration|elapsed|schema/i.test(key)) return undefined
-      // Artifact paths embed a run timestamp (…/20260706T082004Z_…); the
-      // path shape matters for the golden, the instant does not.
-      if (typeof value === 'string') return value.replace(/\d{8}T\d{6}Z/g, 'RUN_TS')
+      if (typeof value === 'string') {
+        return value
+          .replaceAll(workspaceDir, '<workspace>')
+          .replaceAll(repoRoot, '<repo>')
+          // Artifact filenames embed a run timestamp; the path shape
+          // matters for the golden, the instant does not.
+          .replace(/\d{8}T\d{6}Z/g, 'RUN_TS')
+      }
       return value
     }),
   )
@@ -77,7 +91,11 @@ describe.skipIf(!enabled)('trace victim funds devkit output golden (AC4)', () =>
           topologyScope: 'live_topology',
         },
       )
-      const actual = normalize(result.structuredContent)
+      const actual = normalize(result.structuredContent, workspaceDir)
+      expect(
+        JSON.stringify(actual),
+        'golden must not contain machine-local absolute paths (public repo rule)',
+      ).not.toMatch(/\/home\/|\/Users\//)
       if (!existsSync(goldenPath)) {
         if (process.env.TRACE_GOLDEN_RECORD === '1') {
           writeFileSync(goldenPath, JSON.stringify(actual, null, 1) + '\n')

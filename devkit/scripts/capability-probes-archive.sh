@@ -27,7 +27,13 @@ MEMGQL_IMAGE="$(grep -oE 'memgraph/memgql:[0-9.]+' "$REPO_ROOT/devkit/docker-com
 TAG="${MEMGQL_IMAGE##*:}"
 OUT="$WORKSPACE/capability-matrix-archive.$TAG.json"
 # AC7: artifact carries tag AND digest of the running devkit memgql.
-MEMGQL_DIGEST="$(docker inspect "$MEMGQL_CONTAINER" --format '{{.Image}}' 2>/dev/null || echo unknown)"
+# Fail hard if the container is not inspectable — an artifact without a
+# digest is not acceptable evidence.
+MEMGQL_DIGEST="$(docker inspect "$MEMGQL_CONTAINER" --format '{{.Image}}')"
+case "$MEMGQL_DIGEST" in
+  sha256:*) : ;;
+  *) echo "ERROR: could not resolve memgql image digest from $MEMGQL_CONTAINER" >&2; exit 1 ;;
+esac
 
 ANCHOR="$(python3 -c "import json;print(json.load(open('$EXPECTED'))['meta']['anchor_identity'])")"
 

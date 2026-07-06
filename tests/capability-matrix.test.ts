@@ -37,6 +37,7 @@ describe.skipIf(!enabled)('MemGQL capability matrix (live lane)', () => {
     )
 
     expect(artifact.memgql_image).toBe(expected.memgql_image)
+    expect(artifact.memgql_digest, 'live artifact must carry a real image digest (AC7)').toMatch(/^sha256:/)
     expect(artifact.rows.length).toBe(expected.rows.length)
 
     for (const expectedRow of expected.rows) {
@@ -75,7 +76,7 @@ describe.skipIf(!archiveEnabled)('MemGQL capability matrix (archive lane, devkit
       readFileSync(join(repoRoot, 'devkit/capability-probes/expected-archive.json'), 'utf8'),
     )
     expect(artifact.memgql_image).toBe(expected.memgql_image)
-    expect(artifact.memgql_digest, 'archive artifact must carry the image digest (AC7)').toBeTruthy()
+    expect(artifact.memgql_digest, 'archive artifact must carry a real image digest (AC7)').toMatch(/^sha256:/)
     for (const expectedRow of expected.rows) {
       const actualRow = artifact.rows.find(
         (r: { probe_id: string }) => r.probe_id === expectedRow.probe_id,

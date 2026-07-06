@@ -809,42 +809,42 @@
   }
  ],
  "artifacts": {
-  "graph_json": "/home/aphex5/work/rbmk/repos/infra/chain-insights/.tmp/trace-golden-ws/reports/graphs/RUN_TS_aml_trace_victim_funds.graph.json",
-  "graph_html": "/home/aphex5/work/rbmk/repos/infra/chain-insights/.tmp/trace-golden-ws/reports/RUN_TS_aml_trace_victim_funds.graph.html",
-  "table_json": "/home/aphex5/work/rbmk/repos/infra/chain-insights/.tmp/trace-golden-ws/reports/tables/RUN_TS_aml_trace_victim_funds.compact-evidence.json",
-  "flows_csv": "/home/aphex5/work/rbmk/repos/infra/chain-insights/.tmp/trace-golden-ws/reports/tables/RUN_TS_aml_trace_victim_funds.flows.csv",
-  "table_html": "/home/aphex5/work/rbmk/repos/infra/chain-insights/.tmp/trace-golden-ws/reports/RUN_TS_aml_trace_victim_funds.table.html",
-  "report_md": "/home/aphex5/work/rbmk/repos/infra/chain-insights/.tmp/trace-golden-ws/reports/RUN_TS_aml_trace_victim_funds.trace-report.md"
+  "graph_json": "<workspace>/reports/graphs/RUN_TS_aml_trace_victim_funds.graph.json",
+  "graph_html": "<workspace>/reports/RUN_TS_aml_trace_victim_funds.graph.html",
+  "table_json": "<workspace>/reports/tables/RUN_TS_aml_trace_victim_funds.compact-evidence.json",
+  "flows_csv": "<workspace>/reports/tables/RUN_TS_aml_trace_victim_funds.flows.csv",
+  "table_html": "<workspace>/reports/RUN_TS_aml_trace_victim_funds.table.html",
+  "report_md": "<workspace>/reports/RUN_TS_aml_trace_victim_funds.trace-report.md"
  },
  "evidence": [
   {
    "evidence_type": "artifact_pointer",
-   "path": "/home/aphex5/work/rbmk/repos/infra/chain-insights/.tmp/trace-golden-ws/reports/graphs/RUN_TS_aml_trace_victim_funds.graph.json",
+   "path": "<workspace>/reports/graphs/RUN_TS_aml_trace_victim_funds.graph.json",
    "summary": "graph_json artifact"
   },
   {
    "evidence_type": "artifact_pointer",
-   "path": "/home/aphex5/work/rbmk/repos/infra/chain-insights/.tmp/trace-golden-ws/reports/RUN_TS_aml_trace_victim_funds.graph.html",
+   "path": "<workspace>/reports/RUN_TS_aml_trace_victim_funds.graph.html",
    "summary": "graph_html artifact"
   },
   {
    "evidence_type": "artifact_pointer",
-   "path": "/home/aphex5/work/rbmk/repos/infra/chain-insights/.tmp/trace-golden-ws/reports/tables/RUN_TS_aml_trace_victim_funds.compact-evidence.json",
+   "path": "<workspace>/reports/tables/RUN_TS_aml_trace_victim_funds.compact-evidence.json",
    "summary": "table_json artifact"
   },
   {
    "evidence_type": "artifact_pointer",
-   "path": "/home/aphex5/work/rbmk/repos/infra/chain-insights/.tmp/trace-golden-ws/reports/tables/RUN_TS_aml_trace_victim_funds.flows.csv",
+   "path": "<workspace>/reports/tables/RUN_TS_aml_trace_victim_funds.flows.csv",
    "summary": "flows_csv artifact"
   },
   {
    "evidence_type": "artifact_pointer",
-   "path": "/home/aphex5/work/rbmk/repos/infra/chain-insights/.tmp/trace-golden-ws/reports/RUN_TS_aml_trace_victim_funds.table.html",
+   "path": "<workspace>/reports/RUN_TS_aml_trace_victim_funds.table.html",
    "summary": "table_html artifact"
   },
   {
    "evidence_type": "artifact_pointer",
-   "path": "/home/aphex5/work/rbmk/repos/infra/chain-insights/.tmp/trace-golden-ws/reports/RUN_TS_aml_trace_victim_funds.trace-report.md",
+   "path": "<workspace>/reports/RUN_TS_aml_trace_victim_funds.trace-report.md",
    "summary": "report_md artifact"
   }
  ],
