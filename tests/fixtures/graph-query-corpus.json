@@ -173,7 +173,7 @@
     "compare": "corpus-identity-b"
    },
    "scope": "live_topology",
-   "query": "USE live_topology MATCH p = ANY SHORTEST (src:Identity {identity_id: \"corpus-identity-a\"})-[:FLOWS_TO]->{1,4}(dst:Identity {identity_id: \"corpus-identity-b\"}) RETURN p LIMIT 1"
+   "query": "USE live_topology MATCH p = (src:Identity {identity_id: \"corpus-identity-a\"})-[:FLOWS_TO *BFS 1..4]->(dst:Identity {identity_id: \"corpus-identity-b\"}) RETURN p LIMIT 1"
   },
   {
    "builder": "connectionRouteQueries",
@@ -182,7 +182,7 @@
     "compare": "corpus-identity-b"
    },
    "scope": "live_topology",
-   "query": "USE live_topology MATCH p = ANY SHORTEST (src:Identity {identity_id: \"corpus-identity-b\"})-[:FLOWS_TO]->{1,4}(dst:Identity {identity_id: \"corpus-identity-a\"}) RETURN p LIMIT 1"
+   "query": "USE live_topology MATCH p = (src:Identity {identity_id: \"corpus-identity-b\"})-[:FLOWS_TO *BFS 1..4]->(dst:Identity {identity_id: \"corpus-identity-a\"}) RETURN p LIMIT 1"
   },
   {
    "builder": "connectionRouteQueries",
@@ -191,7 +191,7 @@
     "compare": "corpus-identity-b"
    },
    "scope": "live_topology",
-   "query": "USE live_topology MATCH p = ANY SHORTEST (src:Identity {identity_id: \"corpus-identity-b\"})-[:FLOWS_TO]->{1,4}(dst:Identity {identity_id: \"corpus\\\"quote\"}) RETURN p LIMIT 1"
+   "query": "USE live_topology MATCH p = (src:Identity {identity_id: \"corpus-identity-b\"})-[:FLOWS_TO *BFS 1..4]->(dst:Identity {identity_id: \"corpus\\\"quote\"}) RETURN p LIMIT 1"
   },
   {
    "builder": "connectionRouteQueries",
@@ -200,7 +200,7 @@
     "compare": "corpus-identity-b"
    },
    "scope": "live_topology",
-   "query": "USE live_topology MATCH p = ANY SHORTEST (src:Identity {identity_id: \"corpus\\\"quote\"})-[:FLOWS_TO]->{1,4}(dst:Identity {identity_id: \"corpus-identity-b\"}) RETURN p LIMIT 1"
+   "query": "USE live_topology MATCH p = (src:Identity {identity_id: \"corpus\\\"quote\"})-[:FLOWS_TO *BFS 1..4]->(dst:Identity {identity_id: \"corpus-identity-b\"}) RETURN p LIMIT 1"
   },
   {
    "builder": "directEdgePropsQuery",

@@ -592,12 +592,12 @@ function connectionProbeQuery(address: string, compareAddress: string): { id: st
 }
 
 // ── Pairwise route evidence ──
-// Directed ANY SHORTEST between two KNOWN identity endpoints, live scope
-// only. Spike-pinned constraints (capability matrix, MemGQL 0.7.0):
-// directed forms only, NO quantifier-inner WHERE (memgraph/memgraph#4343
-// silently discards predicates; #4345 drops the anchor in shortest
-// patterns). Exchange intermediates on a returned route are DISCLOSED in
-// the evidence, never silently filtered out.
+// Directed shortest route between two KNOWN identity endpoints, live scope
+// only. Post MemGQL retirement live_topology is native Memgraph Cypher, so the
+// route uses native `*BFS 1..N` (BFS = fewest-hop directed route within the
+// depth bound) between both anchored endpoints, not the retired GQL
+// `ANY SHORTEST … {1,N}` form. Exchange intermediates on a returned route are
+// DISCLOSED in the evidence, never silently filtered out.
 
 export const CONNECTION_ROUTE_DEPTH_BOUND = 4
 
@@ -605,8 +605,8 @@ export function shouldIncludeRouteQueries(
   topologyScope: TopologyScope,
   compareAddress: string | undefined,
 ): boolean {
-  // ANY SHORTEST is live-only (archive/facts are SQL-mapped layers where
-  // shortest-path forms are rejected); archive compare keeps the legacy
+  // Native traversal (*BFS) is live-only (archive/facts are SQL-mapped layers
+  // where the translator rejects traversal); archive compare keeps the legacy
   // 1-hop probe alone.
   return topologyScope === 'live_topology' && Boolean(compareAddress)
 }
@@ -617,8 +617,8 @@ export function connectionRouteQueries(
 ): Array<{ id: string; query: string }> {
   const routeQuery = (fromIdentity: string, toIdentity: string): string =>
     [
-      `MATCH p = ANY SHORTEST (src:Identity {identity_id: "${escapeCypherString(fromIdentity)}"})`,
-      `-[:FLOWS_TO]->{1,${CONNECTION_ROUTE_DEPTH_BOUND}}`,
+      `MATCH p = (src:Identity {identity_id: "${escapeCypherString(fromIdentity)}"})`,
+      `-[:FLOWS_TO *BFS 1..${CONNECTION_ROUTE_DEPTH_BOUND}]->`,
       `(dst:Identity {identity_id: "${escapeCypherString(toIdentity)}"}) RETURN p LIMIT 1`,
     ].join('')
   return [
@@ -1092,8 +1092,9 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     ...exchangeOutflowQueries(address, topologyScope),
     ...exchangeInflowQueries(address, topologyScope),
     ...(compareAddress ? [connectionProbeQuery(address, compareAddress)] : [{ id: 'connection_probe', query: 'MATCH (n:Identity {identity_id: "__chain_insights_noop__"}) RETURN n.identity_id AS noop LIMIT 0' }]),
-    // Route evidence is additive and live-only (ANY SHORTEST rejects on
-    // SQL-mapped scopes); the legacy 1-hop probe above always runs.
+    // Route evidence is additive and live-only (native *BFS traversal is
+    // rejected by the translator on SQL-mapped scopes); the legacy 1-hop probe
+    // above always runs.
     ...(shouldIncludeRouteQueries(topologyScope, compareAddress)
       ? connectionRouteQueries(address, compareAddress as string)
       : []),

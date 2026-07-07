@@ -12,6 +12,10 @@ All notable changes to Chain Insights are recorded here.
   native bounded traversal — `*1..5`, `*BFS`, `*WSHORTEST` (weight lambda),
   `*KSHORTEST`, `*ALLSHORTEST`, and per-hop filter lambdas — with depth ≤ 5,
   KSHORTEST k ≤ 16, and UNWIND ≤ 1000; unbounded/over-depth traversal is rejected.
+- `aml_address_risk` route evidence migrated to native Cypher: the directed
+  two-endpoint route now uses `*BFS 1..N` instead of the retired GQL
+  `ANY SHORTEST … {1,N}` form (native Memgraph rejects the GQL form). Fixes
+  route discovery on the post-retirement live surface.
 - Devkit graph backend rewired to match: direct Memgraph + StarRocks (no memgql
   container), a faithful mirror of production admission (read-only + StarRocks
   cost-shape gate + traversal bounds), Neo4j driver v6.
