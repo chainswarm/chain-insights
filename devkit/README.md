@@ -16,7 +16,6 @@ recipes; this devkit exposes only the graph backend primitives those tools use.
 - StarRocks with physical `bittensor_semantic` facade tables loaded from
   fixture files.
 - Memgraph with live topology imported from fixture files.
-- Memgraph Zero / MemGQL configured with the shared Chain Insights mapping.
 - A devkit-only lite Chain Insights Graph backend, built entirely from this
   repository so third-party developers can host the graph MCP against local
   StarRocks and Memgraph without any production backend source, payment,
@@ -68,7 +67,7 @@ docker compose -f devkit/docker-compose.yml ps -a
 ```
 
 The import/bootstrap one-shot services should exit `0`, and `starrocks`,
-`memgraph`, `memgql`, and `chain-insights-graph-devkit` should stay running.
+`memgraph`, and `chain-insights-graph-devkit` should stay running.
 
 ## Smoke Test
 
@@ -143,12 +142,14 @@ examples, and local workflow checks.
 
 ## Data Boundary
 
-StarRocks imports only the MemGQL mapped facade objects as physical tables. The
+StarRocks imports only the graph-mapped view objects (from the vendored
+`internal/cyphersql/mapping.json`) as physical tables. The
 devkit does not import raw block streams, sync state, indexer checkpoints,
 wallet/payment/quota metadata, or telemetry tables.
 
 Memgraph starts empty and imports live topology directly from fixture files.
-`USE live_topology` resolves to Memgraph; `USE archive_topology` and `USE
-facts` resolve to StarRocks through Memgraph Zero.
+`USE live_topology` resolves to Memgraph directly (native Cypher); `USE
+archive_topology` and `USE facts` compile to StarRocks SQL via the vendored
+corpus-scoped translator (`internal/cyphersql`). MemGQL is retired.
 
 The production Chain Insights Graph assembly is not used by this devkit package.
