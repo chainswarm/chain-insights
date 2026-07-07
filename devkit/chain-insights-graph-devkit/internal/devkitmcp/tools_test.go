@@ -184,8 +184,10 @@ func TestGraphQueryBatchUsesChainInsightsEnvelope(t *testing.T) {
 	_, structured, err := handler(context.Background(), nil, GraphQueryBatchArgs{
 		Network: "bittensor",
 		Queries: []BatchQuery{{
-			ID:    "facts_subject",
-			Query: "USE facts MATCH (f:AddressFeature) RETURN count(f) AS features;",
+			ID: "facts_subject",
+			// Bounded projection: admitted by the StarRocks cost-shape gate
+			// (explicit LIMIT, no predicate-less global aggregate).
+			Query: "USE facts MATCH (f:AddressFeature) RETURN f.feature_scope AS feature_scope LIMIT 1;",
 		}},
 	})
 	if err != nil {

@@ -7,8 +7,10 @@ from pathlib import Path
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parents[4]
-MAPPING = REPO_ROOT / "repos/ml/data-pipeline/ops/memgql/chain_insights_starrocks_mapping.json"
+DEVKIT_ROOT = SCRIPT_DIR.parent
+# Post MemGQL retirement the graph mapping is the devkit's own vendored
+# translator asset (the old data-pipeline federation mapping is deleted).
+MAPPING = DEVKIT_ROOT / "chain-insights-graph-devkit/internal/cyphersql/mapping.json"
 ENDPOINT = os.environ.get("CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT", "http://127.0.0.1:18012/mcp")
 NETWORK = os.environ.get("CHAIN_INSIGHTS_DEVKIT_NETWORK", "bittensor")
 
@@ -56,22 +58,30 @@ def graph_query(query: str) -> dict:
     return json.loads(text)
 
 
-def row_count(result: dict) -> int:
-    rows = result.get("rows", [])
-    if not rows:
-        return 0
-    value = rows[0].get("row_count", 0)
-    return int(value)
+def rows_returned(result: dict) -> int:
+    # The graph MCP envelope carries rows at facts.query.results. Coverage is
+    # "the mapped object is queryable and returns a bounded row"; an empty
+    # object legitimately returns 0.
+    facts = result.get("facts", {})
+    query = facts.get("query", {}) if isinstance(facts, dict) else {}
+    return len(query.get("results", []) or [])
+
+
+def probe_property(node: dict) -> str:
+    # The first mapped Cypher-facing property is always projectable and,
+    # unlike count(), admitted by the StarRocks cost-shape gate.
+    return next(iter(node["properties"]))
 
 
 def main() -> None:
     mapping = json.loads(MAPPING.read_text(encoding="utf-8"))
+    nodes_by_label = {node["label"]: node for node in mapping["nodes"]}
     checks: list[dict] = []
 
     for node in mapping["nodes"]:
         query = (
             f"USE {layer_for_table(node['table'])} "
-            f"MATCH (n:{node['label']}) RETURN count(n) AS row_count LIMIT 1"
+            f"MATCH (n:{node['label']}) RETURN n.{probe_property(node)} AS probe LIMIT 1"
         )
         checks.append(
             {
@@ -84,10 +94,16 @@ def main() -> None:
         )
 
     for edge in mapping["edges"]:
+        source_node = nodes_by_label.get(edge["source_label"])
+        projection = (
+            f"src.{probe_property(source_node)}"
+            if source_node
+            else f"src.{edge['source_column']}"
+        )
         query = (
             f"USE {layer_for_table(edge['table'])} "
             f"MATCH (src:{edge['source_label']})-[r:{edge['rel_type']}]->(dst:{edge['target_label']}) "
-            "RETURN count(r) AS row_count LIMIT 1"
+            f"RETURN {projection} AS probe LIMIT 1"
         )
         checks.append(
             {
@@ -106,7 +122,7 @@ def main() -> None:
         try:
             result = graph_query(check["query"])
             check["ok"] = True
-            check["row_count"] = row_count(result)
+            check["rows_returned"] = rows_returned(result)
         except Exception as err:
             check["ok"] = False
             check["error"] = str(err)
@@ -116,7 +132,7 @@ def main() -> None:
         "schema": "chain-insights.devkit.memgql-object-coverage.v1",
         "network": NETWORK,
         "endpoint": ENDPOINT,
-        "mapping": str(MAPPING.relative_to(REPO_ROOT)),
+        "mapping": str(MAPPING.relative_to(DEVKIT_ROOT)),
         "summary": {
             "checks": len(checks),
             "nodes": sum(1 for check in checks if check["kind"] == "node"),

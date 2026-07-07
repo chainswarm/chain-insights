@@ -12,7 +12,7 @@
 // hashed bundle without stable per-module paths). Regenerate with
 // `npm run corpus:generate`; tests/query-corpus.test.ts fails CI when
 // builders drift from the committed corpus.
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -98,6 +98,34 @@ add('connectionRouteQueries', { address: ADDR_QUOTED, compare: COMPARE }, 'live_
 addFacts('addressFeatureQuery', { address: ADDR }, queryBuilderContract.addressFeatureQuery(ADDR))
 addFacts('addressRiskScoreQuery', { address: ADDR }, queryBuilderContract.addressRiskScoreQuery(ADDR))
 addFacts('addressLabelRiskQuery', { address: ADDR_QUOTED }, queryBuilderContract.addressLabelRiskQuery(ADDR_QUOTED))
+
+// Documented-recipe demand curve (corpus v2, MemGQL retirement wave): the
+// full set of query shapes the docs + skills advertise, harvested and
+// runtime-verified. These extend the translator's required grammar beyond
+// what the builders emit today (native live traversal, neuron/asset facts
+// lookups). Real fixture values so archive/facts recipes also drive the
+// T0b baselines and translator conformance. See tests/fixtures/documented-recipes.json.
+const documentedRecipes = JSON.parse(
+  readFileSync(join(repoRoot, 'tests/fixtures/documented-recipes.json'), 'utf8'),
+)
+for (const recipe of documentedRecipes.recipes) {
+  // This corpus is the production ADMISSION contract: the data-pipeline
+  // graphmcp test asserts ValidateReadOnlyGraphQuery admits every entry, so a
+  // query production deliberately refuses must not appear here. Recipes tagged
+  // `admits: false` (StarRocks-backed global aggregates without an indexed
+  // predicate — refused by the cost-shape gate) document a surface boundary;
+  // their translator behaviour is still pinned by the archive-result goldens,
+  // just not by this admission corpus.
+  if (recipe.admits === false) {
+    continue
+  }
+  entries.push({
+    builder: 'documented-recipe',
+    params: { id: recipe.id, features: recipe.features },
+    scope: recipe.layer,
+    query: recipe.query,
+  })
+}
 
 entries.sort((a, b) =>
   a.builder.localeCompare(b.builder) ||

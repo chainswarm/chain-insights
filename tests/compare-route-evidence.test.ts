@@ -6,25 +6,23 @@ import {
   shouldIncludeRouteQueries,
 } from '../src/investigation/public-tools.js'
 
-// Pairwise route evidence between
-// two KNOWN endpoints via directed ANY SHORTEST. Spike-pinned rules:
-// directed only (no undirected shortest), NO quantifier-inner WHERE
-// (memgraph/memgraph#4343/#4345), exchange intermediates are DISCLOSED,
-// never silently filtered.
+// Pairwise route evidence between two KNOWN endpoints via native directed
+// *BFS (MemGQL retired). Rules: directed only (no undirected shortest),
+// bounded depth, exchange intermediates are DISCLOSED, never silently filtered.
 
 describe('connectionRouteQueries', () => {
-  it('emits exactly the two directed ANY SHORTEST queries (snapshot)', () => {
+  it('emits exactly the two directed native *BFS route queries (snapshot)', () => {
     const queries = connectionRouteQueries('idA', 'idB')
     expect(queries).toEqual([
       {
         id: 'connection_route_outbound',
         query:
-          'MATCH p = ANY SHORTEST (src:Identity {identity_id: "idA"})-[:FLOWS_TO]->{1,4}(dst:Identity {identity_id: "idB"}) RETURN p LIMIT 1',
+          'MATCH p = (src:Identity {identity_id: "idA"})-[:FLOWS_TO *BFS 1..4]->(dst:Identity {identity_id: "idB"}) RETURN p LIMIT 1',
       },
       {
         id: 'connection_route_inbound',
         query:
-          'MATCH p = ANY SHORTEST (src:Identity {identity_id: "idB"})-[:FLOWS_TO]->{1,4}(dst:Identity {identity_id: "idA"}) RETURN p LIMIT 1',
+          'MATCH p = (src:Identity {identity_id: "idB"})-[:FLOWS_TO *BFS 1..4]->(dst:Identity {identity_id: "idA"}) RETURN p LIMIT 1',
       },
     ])
   })

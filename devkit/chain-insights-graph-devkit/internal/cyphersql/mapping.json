@@ -1,0 +1,308 @@
+{
+  "nodes": [
+    {
+      "label": "Identity",
+      "table": "archive_topology_addresses_view",
+      "id_column": "identity_id",
+      "properties": {
+        "identity_id": "identity_id",
+        "address": "address",
+        "labels": "labels",
+        "is_exchange": "is_exchange"
+      }
+    },
+    {
+      "label": "TopologySnapshot",
+      "table": "archive_topology_snapshot_view",
+      "id_column": "graph_name",
+      "properties": {
+        "graph_name": "graph_name",
+        "topology_tier": "topology_tier",
+        "default_period_granularity": "default_period_granularity",
+        "min_period_start_date": "min_period_start_date",
+        "max_period_end_date": "max_period_end_date",
+        "available_granularities": "available_granularities",
+        "generated_at": "generated_at"
+      }
+    },
+    {
+      "label": "AddressLabel",
+      "table": "facts_address_labels_view",
+      "id_column": "label_id",
+      "properties": {
+        "label_id": "label_id",
+        "address": "address",
+        "network_type": "network_type",
+        "label": "label",
+        "address_type": "address_type",
+        "entity_type": "entity_type",
+        "address_subtype": "address_subtype",
+        "trust_level": "trust_level",
+        "source": "source",
+        "risk_level": "risk_level",
+        "confidence_score": "confidence_score",
+        "block_height": "block_height",
+        "block_timestamp": "block_timestamp",
+        "updated_timestamp": "updated_timestamp"
+      }
+    },
+    {
+      "label": "AddressFeature",
+      "table": "facts_address_features_view",
+      "id_column": "address",
+      "properties": {
+        "address": "address",
+        "feature_scope": "feature_scope",
+        "network": "network",
+        "degree_in": "degree_in",
+        "degree_out": "degree_out",
+        "degree_total": "degree_total",
+        "tx_in_count": "tx_in_count",
+        "tx_out_count": "tx_out_count",
+        "tx_total_count": "tx_total_count",
+        "total_volume_usd": "total_volume_usd",
+        "total_in_usd": "total_in_usd",
+        "total_out_usd": "total_out_usd",
+        "net_flow_usd": "net_flow_usd",
+        "first_activity_timestamp": "first_activity_timestamp",
+        "last_activity_timestamp": "last_activity_timestamp",
+        "activity_span_days": "activity_span_days"
+      }
+    },
+    {
+      "label": "RiskScore",
+      "table": "facts_risk_scores_view",
+      "id_column": "risk_score_id",
+      "properties": {
+        "risk_score_id": "risk_score_id",
+        "address": "address",
+        "processing_date": "processing_date",
+        "xgboost_model_version": "xgboost_model_version",
+        "window_days": "window_days",
+        "gnn_model_version": "gnn_model_version",
+        "risk_score": "risk_score",
+        "shap_top_features": "shap_top_features",
+        "shap_top_values": "shap_top_values"
+      }
+    },
+    {
+      "label": "Asset",
+      "table": "facts_assets_view",
+      "id_column": "asset_contract",
+      "properties": {
+        "asset_contract": "asset_contract",
+        "asset_symbol": "asset_symbol",
+        "name": "name",
+        "symbol_lower": "symbol_lower",
+        "decimals": "decimals",
+        "verified": "verified",
+        "verification_source": "verification_source",
+        "coingecko_id": "coingecko_id",
+        "pricing_status": "pricing_status",
+        "pricing_tier": "pricing_tier",
+        "registry_source": "registry_source",
+        "first_seen_timestamp": "first_seen_timestamp",
+        "last_scanned_block_height": "last_scanned_block_height"
+      }
+    },
+    {
+      "label": "NeuronEndpoint",
+      "table": "facts_neuron_endpoints_view",
+      "id_column": "endpoint_id",
+      "properties": {
+        "endpoint_id": "endpoint_id",
+        "coldkey_address": "coldkey_address",
+        "hotkey_address": "hotkey_address",
+        "netuid": "netuid",
+        "ip_address": "ip_address",
+        "axon_port": "axon_port",
+        "prometheus_port": "prometheus_port",
+        "first_seen_timestamp": "first_seen_timestamp",
+        "last_seen_timestamp": "last_seen_timestamp",
+        "observation_count": "observation_count"
+      }
+    },
+    {
+      "label": "Hotkey",
+      "table": "facts_neuron_hotkeys_view",
+      "id_column": "address",
+      "properties": {
+        "address": "address",
+        "netuids": "netuids",
+        "first_seen_timestamp": "first_seen_timestamp",
+        "last_seen_timestamp": "last_seen_timestamp",
+        "observation_count": "observation_count"
+      }
+    },
+    {
+      "label": "IPAddress",
+      "table": "facts_neuron_ip_addresses_view",
+      "id_column": "ip_address",
+      "properties": {
+        "ip_address": "ip_address",
+        "netuids": "netuids",
+        "first_seen_timestamp": "first_seen_timestamp",
+        "last_seen_timestamp": "last_seen_timestamp",
+        "observation_count": "observation_count"
+      }
+    },
+    {
+      "label": "Address",
+      "table": "archive_identity_address_links_view",
+      "id_column": "address",
+      "properties": {
+        "address": "address",
+        "network": "network",
+        "form": "form"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "rel_type": "HAS_FEATURE",
+      "table": "facts_address_features_view",
+      "id_column": "address",
+      "source_column": "address",
+      "target_column": "address",
+      "source_label": "Identity",
+      "target_label": "AddressFeature",
+      "properties": {
+        "feature_scope": "feature_scope"
+      }
+    },
+    {
+      "rel_type": "HAS_LABEL",
+      "table": "facts_address_labels_view",
+      "id_column": "label_id",
+      "source_column": "address",
+      "target_column": "label_id",
+      "source_label": "Identity",
+      "target_label": "AddressLabel",
+      "properties": {
+        "source": "source",
+        "trust_level": "trust_level",
+        "confidence_score": "confidence_score",
+        "updated_timestamp": "updated_timestamp"
+      }
+    },
+    {
+      "rel_type": "HAS_RISK_SCORE",
+      "table": "facts_risk_scores_view",
+      "id_column": "risk_score_id",
+      "source_column": "address",
+      "target_column": "risk_score_id",
+      "source_label": "Identity",
+      "target_label": "RiskScore",
+      "properties": {
+        "processing_date": "processing_date",
+        "window_days": "window_days",
+        "xgboost_model_version": "xgboost_model_version"
+      }
+    },
+    {
+      "rel_type": "HAS_NEURON_ENDPOINT",
+      "table": "facts_neuron_endpoints_view",
+      "id_column": "endpoint_id",
+      "source_column": "coldkey_address",
+      "target_column": "endpoint_id",
+      "source_label": "Identity",
+      "target_label": "NeuronEndpoint",
+      "properties": {
+        "netuid": "netuid",
+        "hotkey_address": "hotkey_address",
+        "ip_address": "ip_address",
+        "last_seen_timestamp": "last_seen_timestamp"
+      }
+    },
+    {
+      "rel_type": "REGISTERED_NEURON",
+      "table": "facts_neuron_endpoints_view",
+      "id_column": "endpoint_id",
+      "source_column": "coldkey_address",
+      "target_column": "hotkey_address",
+      "source_label": "Identity",
+      "target_label": "Hotkey",
+      "properties": {
+        "netuid": "netuid",
+        "first_seen_timestamp": "first_seen_timestamp",
+        "last_seen_timestamp": "last_seen_timestamp",
+        "observation_count": "observation_count"
+      }
+    },
+    {
+      "rel_type": "SERVED_FROM",
+      "table": "facts_neuron_endpoints_view",
+      "id_column": "endpoint_id",
+      "source_column": "hotkey_address",
+      "target_column": "ip_address",
+      "source_label": "Hotkey",
+      "target_label": "IPAddress",
+      "properties": {
+        "netuid": "netuid",
+        "axon_port": "axon_port",
+        "prometheus_port": "prometheus_port",
+        "first_seen_timestamp": "first_seen_timestamp",
+        "last_seen_timestamp": "last_seen_timestamp",
+        "observation_count": "observation_count"
+      }
+    },
+    {
+      "rel_type": "OPERATED_FROM",
+      "table": "facts_neuron_endpoints_view",
+      "id_column": "endpoint_id",
+      "source_column": "coldkey_address",
+      "target_column": "ip_address",
+      "source_label": "Identity",
+      "target_label": "IPAddress",
+      "properties": {
+        "netuid": "netuid",
+        "hotkey_address": "hotkey_address",
+        "axon_port": "axon_port",
+        "prometheus_port": "prometheus_port",
+        "first_seen_timestamp": "first_seen_timestamp",
+        "last_seen_timestamp": "last_seen_timestamp",
+        "observation_count": "observation_count"
+      }
+    },
+    {
+      "rel_type": "FLOWS_TO",
+      "table": "archive_topology_edges_view",
+      "id_column": "edge_id",
+      "source_column": "from_identity",
+      "target_column": "to_identity",
+      "source_label": "Identity",
+      "target_label": "Identity",
+      "properties": {
+        "edge_id": "edge_id",
+        "from_identity": "from_identity",
+        "to_identity": "to_identity",
+        "from_address": "from_address",
+        "to_address": "to_address",
+        "period_granularity": "period_granularity",
+        "period_start_date": "period_start_date",
+        "period_end_date": "period_end_date",
+        "asset_contract": "asset_contract",
+        "asset_symbol": "asset_symbol",
+        "tx_count": "tx_count",
+        "amount_sum": "amount_sum",
+        "amount_usd_sum": "amount_usd_sum",
+        "first_seen_timestamp": "first_seen_timestamp",
+        "last_seen_timestamp": "last_seen_timestamp",
+        "first_tx_id": "first_tx_id",
+        "last_tx_id": "last_tx_id",
+        "price_coverage_ratio": "price_coverage_ratio",
+        "has_missing_price": "has_missing_price"
+      }
+    },
+    {
+      "rel_type": "HAS_ADDRESS",
+      "table": "archive_identity_address_links_view",
+      "id_column": "address",
+      "source_column": "identity",
+      "target_column": "address",
+      "source_label": "Identity",
+      "target_label": "Address",
+      "properties": {}
+    }
+  ]
+}

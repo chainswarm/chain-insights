@@ -1,27 +1,68 @@
 {
   "meta": {
-    "description": "Pinned MemGQL capability expectations for the live lane. Rows with upstream_issue pin CURRENT DEFECTIVE behavior on purpose (canary): when a MemGQL bump fixes the issue, the probe run diverges, tests/capability-matrix.test.ts fails, and the operator updates this file AND re-evaluates which query shapes the tools may adopt (see docs/graph-query-compatibility.md).",
-    "authored_from": "2026-07-06 spike + probe run, memgraph/memgql:0.7.0"
+    "description": "Native Memgraph live_topology capability expectations (post MemGQL retirement). Probed through the devkit graph MCP by capability-probes-live.sh. supported = native form accepted; rejected-bounds = live traversal gate (depth<=5, KSHORTEST k<=16, unbounded rejected); rejected-write = read-only admission.",
+    "surface": "native-memgraph-cypher"
   },
-  "memgql_image": "memgraph/memgql:0.7.0",
   "rows": [
-    { "probe_id": "P01", "expected_outcome": "supported", "upstream_issue": null },
-    { "probe_id": "P02", "expected_outcome": "supported", "upstream_issue": null },
-    { "probe_id": "P03", "expected_outcome": "supported", "upstream_issue": null },
-    { "probe_id": "P04", "expected_outcome": "supported-but-wrong", "upstream_issue": "memgraph/memgraph#4343" },
-    { "probe_id": "P05", "expected_outcome": "supported-but-wrong", "upstream_issue": "memgraph/memgraph#4343" },
-    { "probe_id": "P06", "expected_outcome": "supported", "upstream_issue": null },
-    { "probe_id": "P07", "expected_outcome": "rejected-translation", "upstream_issue": "memgraph/memgraph#4344" },
-    { "probe_id": "P08", "expected_outcome": "supported", "upstream_issue": null },
-    { "probe_id": "P09", "expected_outcome": "supported", "upstream_issue": null },
-    { "probe_id": "P10", "expected_outcome": "supported", "upstream_issue": null },
-    { "probe_id": "P11", "expected_outcome": "rejected-parse", "upstream_issue": null },
-    { "probe_id": "P12", "expected_outcome": "supported", "upstream_issue": null },
-    { "probe_id": "P13", "expected_outcome": "supported", "upstream_issue": null },
-    { "probe_id": "P14", "expected_outcome": "supported", "upstream_issue": null },
-    { "probe_id": "P15", "expected_outcome": "rejected-parse", "upstream_issue": "memgraph/memgraph#4241" },
-    { "probe_id": "P16", "expected_outcome": "rejected-parse", "upstream_issue": null },
-    { "probe_id": "P17", "expected_outcome": "supported-but-wrong", "upstream_issue": "memgraph/memgraph#4345" },
-    { "probe_id": "P18", "expected_outcome": "supported", "upstream_issue": null }
+    {
+      "probe_id": "P01",
+      "expected_outcome": "supported",
+      "error_code": null
+    },
+    {
+      "probe_id": "P02",
+      "expected_outcome": "supported",
+      "error_code": null
+    },
+    {
+      "probe_id": "P03",
+      "expected_outcome": "supported",
+      "error_code": null
+    },
+    {
+      "probe_id": "P04",
+      "expected_outcome": "supported",
+      "error_code": null
+    },
+    {
+      "probe_id": "P05",
+      "expected_outcome": "supported",
+      "error_code": null
+    },
+    {
+      "probe_id": "P06",
+      "expected_outcome": "supported",
+      "error_code": null
+    },
+    {
+      "probe_id": "P07",
+      "expected_outcome": "supported",
+      "error_code": null
+    },
+    {
+      "probe_id": "P08",
+      "expected_outcome": "rejected-bounds",
+      "error_code": "traversal-bounds"
+    },
+    {
+      "probe_id": "P09",
+      "expected_outcome": "rejected-bounds",
+      "error_code": "traversal-bounds"
+    },
+    {
+      "probe_id": "P10",
+      "expected_outcome": "rejected-bounds",
+      "error_code": "traversal-bounds"
+    },
+    {
+      "probe_id": "P11",
+      "expected_outcome": "rejected-bounds",
+      "error_code": "traversal-bounds"
+    },
+    {
+      "probe_id": "P12",
+      "expected_outcome": "rejected-write",
+      "error_code": "read-only"
+    }
   ]
 }

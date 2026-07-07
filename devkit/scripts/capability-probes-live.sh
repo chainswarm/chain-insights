@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Capability probe suite — live lane (self-contained; no devkit required).
+# Capability probe suite — live lane (post MemGQL retirement).
 #
-# Empirically pins what the MemGQL federation layer accepts AND what it
-# returns on a Memgraph-backed live_topology graph. Result-set assertions
-# are mandatory: a "supported-but-wrong" outcome class exists because
-# MemGQL 0.7.0 accepts quantifier-inner WHERE syntax and silently discards
-# the predicates (memgraph/memgraph#4343; see also #4344, #4345).
+# Probes the NATIVE Memgraph live_topology surface THROUGH the running devkit
+# graph MCP (:18012). The MCP enforces production admission (read-only) and the
+# live traversal bounds (depth<=5, KSHORTEST k<=16, UNWIND<=1000, unbounded
+# rejected). MemGQL is gone: there is no GQL parser gate and native traversal
+# (*1..n / *BFS / *WSHORTEST / *KSHORTEST + filter lambdas) is the SUPPORTED
+# surface, not a rejected one.
 #
-# Emits: workspace/capability-matrix.<memgql-tag>.json
+# Emits: workspace/capability-matrix.native.json
 # Compared against: devkit/capability-probes/expected-live.json
 # (tests/capability-matrix.test.ts, gated by CAPABILITY_PROBES=1).
 set -uo pipefail
@@ -16,199 +17,87 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 WORKSPACE="$REPO_ROOT/workspace"
 mkdir -p "$WORKSPACE"
-
-# Probe against the same MemGQL image the devkit pins.
-MEMGQL_IMAGE="$(grep -oE 'memgraph/memgql:[0-9.]+' "$REPO_ROOT/devkit/docker-compose.yml" | head -1)"
-MEMGRAPH_IMAGE="$(grep -oE 'memgraph/memgraph:[0-9.]+' "$REPO_ROOT/devkit/docker-compose.yml" | head -1)"
-MGCONSOLE_IMAGE="memgraph/mgconsole:1.5.1"
-TAG="${MEMGQL_IMAGE##*:}"
-OUT="$WORKSPACE/capability-matrix.$TAG.json"
-
-SUFFIX="$$"
-NET="capprobe-net-$SUFFIX"
-MG="capprobe-mg-$SUFFIX"
-GQL="capprobe-gql-$SUFFIX"
-CON="capprobe-con-$SUFFIX"
-
-cleanup() {
-  docker rm -f "$MG" "$GQL" "$CON" >/dev/null 2>&1
-  docker network rm "$NET" >/dev/null 2>&1
-}
-cleanup 2>/dev/null
-trap cleanup EXIT
-
-set -e
-docker network create "$NET" >/dev/null
-docker run -d --name "$MG" --network "$NET" "$MEMGRAPH_IMAGE" >/dev/null
-docker run -d --name "$GQL" --network "$NET" \
-  -e CONNECTOR_TYPE=multi -e BOLT_LISTEN_ADDR=0.0.0.0:7688 "$MEMGQL_IMAGE" >/dev/null
-docker run -d --name "$CON" --network "$NET" --entrypoint sh "$MGCONSOLE_IMAGE" -c 'sleep 900' >/dev/null
-MEMGQL_DIGEST="$(docker inspect --format '{{index .Image}}' "$GQL")"
-set +e
-
-mg()  { docker exec -i "$CON" sh -c "echo \"\$0\" | timeout 20 mgconsole --host $MG --port 7687" "$1" 2>&1; }
-gql() { docker exec -i "$CON" sh -c "echo \"\$0\" | timeout 20 mgconsole --host $GQL --port 7688" "$1" 2>&1; }
-
-for i in $(seq 1 45); do mg "RETURN 1;" >/dev/null 2>&1 && break; sleep 1; done
-
-# Deterministic probe topology (same as the 2026-07-06 spike):
-#   A->B 100, B->C 50, A->D 10, D->E 5, E->C 20
-#   C = :Identity:Exchange {is_exchange:'binance'}; D = :Identity:Scam
-mg "CREATE (:Identity {identity_id:'A'});" >/dev/null
-mg "CREATE (:Identity {identity_id:'B'});" >/dev/null
-mg "CREATE (:Identity:Exchange {identity_id:'C', is_exchange:'binance'});" >/dev/null
-mg "CREATE (:Identity:Scam {identity_id:'D', address_type:'SCAM'});" >/dev/null
-mg "CREATE (:Identity {identity_id:'E'});" >/dev/null
-mg "MATCH (a {identity_id:'A'}),(b {identity_id:'B'}) CREATE (a)-[:FLOWS_TO {amount_usd_sum:100.0}]->(b);" >/dev/null
-mg "MATCH (b {identity_id:'B'}),(c {identity_id:'C'}) CREATE (b)-[:FLOWS_TO {amount_usd_sum:50.0}]->(c);" >/dev/null
-mg "MATCH (a {identity_id:'A'}),(d {identity_id:'D'}) CREATE (a)-[:FLOWS_TO {amount_usd_sum:10.0}]->(d);" >/dev/null
-mg "MATCH (d {identity_id:'D'}),(e {identity_id:'E'}) CREATE (d)-[:FLOWS_TO {amount_usd_sum:5.0}]->(e);" >/dev/null
-mg "MATCH (e {identity_id:'E'}),(c {identity_id:'C'}) CREATE (e)-[:FLOWS_TO {amount_usd_sum:20.0}]->(c);" >/dev/null
-
-for i in $(seq 1 45); do gql "SHOW CONNECTORS;" >/dev/null 2>&1 && break; sleep 1; done
-gql "ADD CONNECTOR live_topology TYPE memgraph URI 'bolt://$MG:7687' GRAPH memgraph;" >/dev/null
-gql "CONNECT live_topology AS live_topology_conn;" >/dev/null
-gql "ADD GRAPH live_topology ON CONNECTOR live_topology GRAPH memgraph;" >/dev/null
+OUT="$WORKSPACE/capability-matrix.native.json"
+ENDPOINT="${CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT:-http://127.0.0.1:18012/mcp}"
+NETWORK="${CHAIN_INSIGHTS_DEVKIT_NETWORK:-bittensor}"
 
 ROWS_TMP="$(mktemp)"
 FAILED=0
 
-# classify <output> -> supported | rejected-parse | rejected-translation | error | timeout
-classify() {
-  local out="$1"
-  if echo "$out" | grep -q "Terminated"; then echo "timeout"; return; fi
-  if echo "$out" | grep -qi "Parse error"; then echo "rejected-parse"; return; fi
-  # Backend-side error on translated query = MemGQL emitted invalid Cypher
-  if echo "$out" | grep -q "Memgraph.ClientError.MemgraphError"; then echo "rejected-translation"; return; fi
-  if echo "$out" | grep -qiE "exception|error"; then echo "error"; return; fi
-  echo "supported"
-}
-
-# extract sorted data cells (single-column results) as CSV
-cells() {
-  echo "$1" | grep -oE '^\| "[A-Za-z0-9_]+" *\|$' | tr -d '|" ' | sort | paste -sd, -
-}
-
+# Run one graph_query through the MCP; classify the outcome and record the row.
+# Args: probe_id expected_outcome query
 probe() {
-  local id="$1" desc="$2" expected_outcome="$3" expected_rows="$4" issue="$5" query="$6"
-  local out actual_outcome actual_rows verdict
-  out=$(gql "$query")
-  actual_outcome=$(classify "$out")
-  actual_rows=$(cells "$out")
-  # supported + row mismatch vs KNOWN-CORRECT expectation = supported-but-wrong
-  if [ "$actual_outcome" = "supported" ] && [ -n "$expected_rows" ] && [ "$actual_rows" != "$expected_rows" ]; then
-    actual_outcome="supported-but-wrong"
-  fi
-  if [ "$actual_outcome" = "$expected_outcome" ]; then verdict="PASS"; else verdict="FAIL"; FAILED=1; fi
-  printf '%-4s %-22s %-8s expected=%s actual=%s rows=[%s]\n' "$id" "$actual_outcome" "$verdict" "$expected_outcome" "$actual_outcome" "$actual_rows"
-  python3 - "$id" "$query" "$expected_outcome" "$actual_outcome" "$expected_rows" "$actual_rows" "$issue" <<'PY' >> "$ROWS_TMP"
-import json, sys
-i, q, eo, ao, er, ar, iss = sys.argv[1:8]
-print(json.dumps({
-  "probe_id": i, "layer": "live_topology", "query": q,
-  "expected_outcome": eo, "actual_outcome": ao,
-  "expected_rows": er.split(",") if er else None,
-  "actual_rows": ar.split(",") if ar else None,
-  "upstream_issue": iss or None,
-}))
+  local id="$1" expected_outcome="$2" query="$3"
+  python3 - "$id" "$expected_outcome" "$query" "$ENDPOINT" "$NETWORK" "$ROWS_TMP" <<'PY'
+import json, sys, urllib.request
+probe_id, expected, query, endpoint, network, rows_tmp = sys.argv[1:7]
+payload = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+    "params": {"name": "graph_query", "arguments": {"network": network, "query": query}}}).encode()
+req = urllib.request.Request(endpoint, data=payload,
+    headers={"Content-Type": "application/json", "Accept": "application/json, text/event-stream"})
+try:
+    body = json.loads(urllib.request.urlopen(req, timeout=30).read().decode())
+except Exception as e:  # transport failure is its own outcome
+    body = {"result": {"isError": True, "content": [{"type": "text", "text": f"transport: {e}"}]}}
+result = body.get("result", {})
+text = "\n".join(i.get("text", "") for i in result.get("content", []) if i.get("type") == "text")
+is_error = bool(result.get("isError"))
+error_code = None
+if is_error:
+    low = text.lower()
+    if "unbounded traversal" in low or "exceeds the maximum" in low:
+        outcome, error_code = "rejected-bounds", "traversal-bounds"
+    elif "disallowed operation" in low or "write operations" in low:
+        outcome, error_code = "rejected-write", "read-only"
+    elif "aggregate" in low and "indexed predicate" in low:
+        outcome, error_code = "rejected-cost", "cost-shape"
+    else:
+        outcome, error_code = "rejected", "other"
+else:
+    outcome = "supported"
+verdict = "PASS" if outcome == expected else "FAIL"
+print(f"{probe_id:<4} {outcome:<16} {verdict:<5} expected={expected} code={error_code or '-'}",
+      file=sys.stderr)
+with open(rows_tmp, "a") as fh:
+    fh.write(json.dumps({"probe_id": probe_id, "layer": "live_topology", "query": query,
+        "expected_outcome": expected, "actual_outcome": outcome, "error_code": error_code}) + "\n")
+sys.exit(0 if verdict == "PASS" else 7)
 PY
+  [ $? -eq 0 ] || FAILED=1
 }
 
-echo "── capability probes: live lane ($MEMGQL_IMAGE) ──"
+echo "── capability probes: live lane (native Memgraph via $ENDPOINT) ──"
 
-probe P01 "baseline-match" supported "A,B" "" \
- "USE live_topology MATCH (n:Identity) RETURN n.identity_id AS id ORDER BY n.identity_id LIMIT 2;"
-probe P02 "plain-quantifier" supported "B,C,D,E" "" \
- "USE live_topology MATCH (a:Identity {identity_id:'A'})-[:FLOWS_TO]->{1,3}(t:Identity) RETURN DISTINCT t.identity_id AS t ORDER BY t;"
-probe P03 "group-quantifier" supported "" "" \
- "USE live_topology MATCH ((s:Identity)-[:FLOWS_TO]->(x:Identity)){1,3} RETURN count(*) AS c LIMIT 1;"
-# 4343: inner WHERE parsed but DISCARDED -> unfiltered rows (A leak included).
-# Correct result excluding B everywhere: D (1 hop), E (2), C (3 via D,E).
-probe P04 "inner-where-node" supported-but-wrong "C,D,E" "memgraph/memgraph#4343" \
- "USE live_topology MATCH (a:Identity {identity_id:'A'})(-[:FLOWS_TO]->(x:Identity WHERE x.identity_id <> 'B')){1,3}(t:Identity) RETURN DISTINCT t.identity_id AS t ORDER BY t;"
-probe P05 "inner-where-edge" supported-but-wrong "B" "memgraph/memgraph#4343" \
- "USE live_topology MATCH (a:Identity {identity_id:'A'})(-[r:FLOWS_TO WHERE r.amount_usd_sum >= 60]->(x:Identity)){1,3}(t:Identity) RETURN DISTINCT t.identity_id AS t ORDER BY t;"
-probe P06 "any-shortest-binding" supported "" "" \
- "USE live_topology MATCH p = ANY SHORTEST (a:Identity {identity_id:'A'})-[:FLOWS_TO]->{1,5}(c:Identity {identity_id:'C'}) RETURN p;"
-probe P07 "shortest-k" rejected-translation "" "memgraph/memgraph#4344" \
- "USE live_topology MATCH p = SHORTEST 2 (a:Identity {identity_id:'A'})-[:FLOWS_TO]->{1,5}(c:Identity {identity_id:'C'}) RETURN p;"
-probe P08 "all-shortest" supported "" "" \
- "USE live_topology MATCH p = ALL SHORTEST (a:Identity {identity_id:'A'})-[:FLOWS_TO]->{1,5}(c:Identity {identity_id:'C'}) RETURN count(p) AS routes;"
-probe P09 "bare-secondary-label" supported "C" "" \
- "USE live_topology MATCH (n:Exchange) RETURN n.identity_id AS id;"
-probe P10 "label-conjunction" supported "C" "" \
- "USE live_topology MATCH (n:Identity&Exchange) RETURN n.identity_id AS id;"
-probe P11 "label-colon-stacking" rejected-parse "" "" \
- "USE live_topology MATCH (n:Identity:Exchange) RETURN n.identity_id AS id;"
-probe P12 "scam-label" supported "D" "" \
- "USE live_topology MATCH (n:Scam) RETURN n.identity_id AS id;"
-probe P13 "for-x-in" supported "" "" \
- "USE live_topology FOR x IN [1,2,3] RETURN x;"
-probe P14 "node-compare" supported "" "" \
- "USE live_topology MATCH (a:Identity {identity_id:'A'}), (t:Identity) WHERE a <> t RETURN count(t) AS c;"
-probe P15 "cypher-star-varlen" rejected-parse "" "memgraph/memgraph#4241" \
- "USE live_topology MATCH (a:Identity {identity_id:'A'})-[:FLOWS_TO*1..3]->(t:Identity) RETURN t.identity_id;"
-probe P16 "labels-function" rejected-parse "" "" \
- "USE live_topology MATCH (n:Identity) RETURN labels(n) LIMIT 1;"
-# 4345: anchor dropped when inner WHERE combines with shortest. RETURN p
-# (not count(p) — aggregating a path variable is itself a parse error).
-# Wrongness signal: >1 path row (correct anchored behavior returns exactly
-# one A->…->C route).
-probe_p17() {
-  local q="USE live_topology MATCH p = ANY SHORTEST (a:Identity {identity_id:'A'})(-[:FLOWS_TO]->(x:Identity WHERE x.is_exchange IS NULL)){0,4}(m:Identity)-[:FLOWS_TO]->(c:Identity {identity_id:'C'}) RETURN p;"
-  local out paths actual verdict
-  out=$(gql "$q")
-  actual=$(classify "$out")
-  paths=$(echo "$out" | grep -c "FLOWS_TO")
-  if [ "$actual" = "supported" ] && [ "$paths" -ne 1 ]; then actual="supported-but-wrong"; fi
-  if [ "$actual" = "supported-but-wrong" ]; then verdict="PASS"; else verdict="FAIL"; FAILED=1; fi
-  printf '%-4s %-22s %-8s expected=supported-but-wrong actual=%s path_rows=%s\n' P17 "$actual" "$verdict" "$actual" "$paths"
-  python3 - "$q" "$actual" <<'PY' >> "$ROWS_TMP"
-import json, sys
-print(json.dumps({"probe_id":"P17","layer":"live_topology","query":sys.argv[1],
-  "expected_outcome":"supported-but-wrong","actual_outcome":sys.argv[2],
-  "expected_rows":None,"actual_rows":None,"upstream_issue":"memgraph/memgraph#4345"}))
-PY
-}
-probe_p17
+# --- supported: the expanded native surface ---
+probe P01 supported "USE live_topology MATCH (n:Identity) RETURN n.identity_id AS id ORDER BY n.identity_id LIMIT 2;"
+probe P02 supported "USE live_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(a:Address) RETURN a.address AS addr LIMIT 1;"
+probe P03 supported "USE live_topology MATCH (a:Identity)-[:FLOWS_TO*1..3]->(t:Identity) RETURN t.identity_id AS t LIMIT 5;"
+probe P04 supported "USE live_topology MATCH p=(a:Identity)-[:FLOWS_TO *BFS 1..3]->(b:Identity) RETURN b.identity_id AS b LIMIT 5;"
+probe P05 supported "USE live_topology MATCH p=(a:Identity)-[:FLOWS_TO *WSHORTEST 5 (r,n | coalesce(r.amount_usd_sum,1)) w]->(b:Identity) RETURN b.identity_id AS b LIMIT 3;"
+# KSHORTEST requires both endpoints matched first (Memgraph contract) — anchor
+# the pair via WITH, then expand. k (path count) is bounded by the MCP (see P11).
+probe P06 supported "USE live_topology MATCH (a:Identity), (b:Identity) WITH a, b LIMIT 1 MATCH p=(a)-[:FLOWS_TO *KSHORTEST|3]->(b) RETURN b.identity_id AS b LIMIT 3;"
+probe P07 supported "USE live_topology MATCH (a:Identity)-[:FLOWS_TO*1..3 (r,n | n.is_exchange IS NULL)]->(t:Identity) RETURN t.identity_id AS t LIMIT 5;"
 
-# P18: determinism — ANY SHORTEST 5x must return the identical route.
-DET_Q="USE live_topology MATCH p = ANY SHORTEST (a:Identity {identity_id:'A'})-[:FLOWS_TO]->{1,5}(c:Identity {identity_id:'C'}) RETURN p;"
-DET_FIRST=""; DET_OK=1; DET_NONEMPTY=1
-for i in 1 2 3 4 5; do
-  # Own variable — $OUT is the artifact path and must not be clobbered.
-  DET_RESPONSE=$(gql "$DET_Q")
-  # A failed or empty response must never count as "deterministic": require
-  # a successful classification AND a non-empty path row every repeat.
-  if [ "$(classify "$DET_RESPONSE")" != "supported" ]; then DET_NONEMPTY=0; break; fi
-  # Strip property maps before comparing: Memgraph's property print order
-  # is nondeterministic; route identity = the node/edge sequence only.
-  R=$(echo "$DET_RESPONSE" | grep FLOWS_TO | sed 's/{[^}]*}//g')
-  if [ -z "$R" ]; then DET_NONEMPTY=0; break; fi
-  if [ -z "$DET_FIRST" ]; then DET_FIRST="$R"; elif [ "$R" != "$DET_FIRST" ]; then DET_OK=0; fi
-done
-if [ "$DET_NONEMPTY" = "1" ] && [ "$DET_OK" = "1" ]; then DET_OUTCOME="supported"; DET_VERDICT="PASS"
-elif [ "$DET_NONEMPTY" = "0" ]; then DET_OUTCOME="error"; DET_VERDICT="FAIL"; FAILED=1
-else DET_OUTCOME="supported-but-wrong"; DET_VERDICT="FAIL"; FAILED=1; fi
-printf '%-4s %-22s %-8s (5-repeat identical route)\n' P18 "$DET_OUTCOME" "$DET_VERDICT"
-python3 - "$DET_Q" "$DET_OUTCOME" <<'PY' >> "$ROWS_TMP"
+# --- rejected: the live bounds + admission gate ---
+probe P08 rejected-bounds "USE live_topology MATCH (a:Identity)-[:FLOWS_TO*]->(b:Identity) RETURN b.identity_id AS b LIMIT 5;"
+probe P09 rejected-bounds "USE live_topology MATCH (a:Identity)-[:FLOWS_TO*1..9]->(b:Identity) RETURN b.identity_id AS b LIMIT 5;"
+probe P10 rejected-bounds "USE live_topology MATCH p=(a:Identity)-[:FLOWS_TO *BFS]->(b:Identity) RETURN b.identity_id AS b LIMIT 5;"
+probe P11 rejected-bounds "USE live_topology MATCH p=(a:Identity)-[:FLOWS_TO *KSHORTEST|50]->(b:Identity) RETURN b.identity_id AS b LIMIT 5;"
+probe P12 rejected-write "USE live_topology MATCH (a:Identity {identity_id:'X'}) CREATE (a)-[:FLOWS_TO]->(:Identity) RETURN 1;"
+
+python3 - "$OUT" "$ROWS_TMP" <<'PY'
 import json, sys
-print(json.dumps({"probe_id":"P18","layer":"live_topology","query":sys.argv[1],
-  "expected_outcome":"supported","actual_outcome":sys.argv[2],
-  "expected_rows":None,"actual_rows":None,"upstream_issue":None}))
+out, rows_tmp = sys.argv[1:3]
+rows = [json.loads(l) for l in open(rows_tmp) if l.strip()]
+json.dump({
+    "meta": {"description": "Native Memgraph live_topology capability matrix (post MemGQL retirement), probed through the devkit graph MCP. rejected-bounds rows pin the live traversal gate.",
+             "surface": "native-memgraph-cypher"},
+    "rows": rows,
+}, open(out, "w"), indent=2)
+open(out, "a").write("\n")
+print(f"wrote {out} ({len(rows)} rows)", file=sys.stderr)
 PY
 
-python3 - "$OUT" "$MEMGQL_IMAGE" "$MEMGQL_DIGEST" "$ROWS_TMP" <<'PY'
-import json, sys
-out, image, digest, rows_path = sys.argv[1:5]
-rows = [json.loads(l) for l in open(rows_path) if l.strip()]
-for r in rows:
-    r["memgql_image"] = image
-    r["memgql_digest"] = digest
-json.dump({"lane": "live", "memgql_image": image, "memgql_digest": digest,
-           "rows": rows}, open(out, "w"), indent=1, sort_keys=True)
-print(f"wrote {out} ({len(rows)} rows)")
-PY
-
-rm -f "$ROWS_TMP"
-exit "$FAILED"
+[ "$FAILED" -eq 0 ] || { echo "capability probes (live): FAIL — outcome drift vs expected-live.json" >&2; exit 1; }
+echo "capability probes (live): all rows match expected-live.json"

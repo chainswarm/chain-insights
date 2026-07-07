@@ -8,14 +8,20 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEVKIT_ROOT = SCRIPT_DIR.parent
 MANIFEST = DEVKIT_ROOT / "data/manifest.json"
-REPO_ROOT = SCRIPT_DIR.parents[4] if len(SCRIPT_DIR.parents) > 4 else Path("/")
-MAPPING_REL = "repos/ml/data-pipeline/ops/memgql/chain_insights_starrocks_mapping.json"
+# Graph node/edge → StarRocks table+column mapping. Post MemGQL retirement the
+# canonical source is the devkit's own vendored translator asset
+# (chain-insights-graph-devkit/internal/cyphersql/mapping.json); the old
+# data-pipeline federation mapping is deleted. In-container it is provided at
+# /mapping via a compose bind; on host it is read directly.
+VENDORED_MAPPING = (
+    DEVKIT_ROOT / "chain-insights-graph-devkit/internal/cyphersql/mapping.json"
+)
 MAPPING_CANDIDATES = [
     Path(os.environ["MEMGQL_STARROCKS_MAPPING_FILE"])
     if os.environ.get("MEMGQL_STARROCKS_MAPPING_FILE")
     else None,
     Path("/mapping/chain_insights_starrocks_mapping.json"),
-    REPO_ROOT / MAPPING_REL,
+    VENDORED_MAPPING,
 ]
 
 COMPATIBILITY_COLUMNS_BY_TABLE = {

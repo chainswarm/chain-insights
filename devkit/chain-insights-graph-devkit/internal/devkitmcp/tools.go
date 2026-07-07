@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chainswarm/chain-insights/devkit/chain-insights-graph-devkit/internal/cypheradmit"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -179,8 +180,13 @@ func handleUsageStatus(ctx context.Context, req *mcp.CallToolRequest, args struc
 
 func graphQueryHandler(runner QueryRunner) func(context.Context, *mcp.CallToolRequest, GraphQueryArgs) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, req *mcp.CallToolRequest, args GraphQueryArgs) (*mcp.CallToolResult, any, error) {
-		if err := ValidateReadOnlyQuery(args.Query); err != nil {
+		if _, err := cypheradmit.ValidateReadOnlyGraphQuery(args.Query); err != nil {
 			return toolError(err.Error()), nil, nil
+		}
+		if queryTargetsLiveTopology(args.Query) {
+			if err := ValidateLiveTraversalBounds(args.Query, defaultTraversalBounds()); err != nil {
+				return toolError(err.Error()), nil, nil
+			}
 		}
 		tier, timeoutSeconds := ClassifyQueryTier(args.Query)
 		queryContext, cancel := context.WithTimeout(ctx, time.Duration(timeoutSeconds)*time.Second)
@@ -229,9 +235,15 @@ func graphQueryBatchHandler(runner QueryRunner) func(context.Context, *mcp.CallT
 			if args.PerQueryTimeoutSeconds > 0 && args.PerQueryTimeoutSeconds < timeoutSeconds {
 				timeoutSeconds = args.PerQueryTimeoutSeconds
 			}
-			if err := ValidateReadOnlyQuery(query.Query); err != nil {
+			if _, err := cypheradmit.ValidateReadOnlyGraphQuery(query.Query); err != nil {
 				queries = append(queries, ChainInsightsBatchQuery{ID: id, OK: false, Tier: tier, TimeoutSeconds: timeoutSeconds, Results: []map[string]any{}, Error: err.Error()})
 				continue
+			}
+			if queryTargetsLiveTopology(query.Query) {
+				if err := ValidateLiveTraversalBounds(query.Query, defaultTraversalBounds()); err != nil {
+					queries = append(queries, ChainInsightsBatchQuery{ID: id, OK: false, Tier: tier, TimeoutSeconds: timeoutSeconds, Results: []map[string]any{}, Error: err.Error()})
+					continue
+				}
 			}
 			queryContext, cancel := context.WithTimeout(ctx, time.Duration(timeoutSeconds)*time.Second)
 			result, err := runner.Run(queryContext, args.Network, query.Query)

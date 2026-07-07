@@ -26,32 +26,34 @@ For practical query recipes and Memgraph deep traversal fallbacks, read
 `MATCH`, `WHERE`, `WITH`, aggregates, `CASE`, archive/facts projections, and
 fixed-hop traversal batches.
 
-For the construct-by-construct support matrix and rejected→accepted rewrite
-recipes (native Cypher `[:R*1..3]`/`*BFS` vs GQL `{m,n}`/`ANY SHORTEST`),
-read `references/gql-translation-matrix.md` before writing any traversal
-deeper than one hop.
+For the construct-by-construct support matrix, live bounds, and the
+archive/facts contract-error schema, read `docs/graph-query-compatibility.md`.
 
 ## Layer Choice
 
 | Layer | Use for | Query style |
 | --- | --- | --- |
-| `USE live_topology` | Current or recent route discovery and fast topology reads | Memgraph-backed Cypher over topology nodes and relationships. Prefer directed `MATCH` patterns and narrow projections. |
-| `USE archive_topology` | Historical money-flow and long-window topology facts | StarRocks/MemGQL GQL-Cypher subset. Keep to simple `MATCH`, `WHERE`, property projections, aggregates, `ORDER BY`, and `LIMIT`. |
-| `USE facts` | Labels, address features, risk scores, assets, and enrichment | StarRocks/MemGQL facts mapping. Verify the current network schema before assuming fact labels or relationships exist. |
+| `USE live_topology` | Current or recent route discovery and fast topology reads | Native Memgraph Cypher over topology nodes and relationships, bounded. Prefer directed `MATCH` patterns and narrow projections. |
+| `USE archive_topology` | Historical money-flow and long-window topology facts | Corpus-scoped Cypher subset compiled to StarRocks SQL. Keep to simple `MATCH`, `WHERE` (indexed predicate), property projections, aggregates (with a predicate), `ORDER BY`, and `LIMIT`. |
+| `USE facts` | Labels, address features, risk scores, assets, and enrichment | Corpus-scoped Cypher subset compiled to StarRocks SQL. Verify the current network schema before assuming fact labels or relationships exist. |
 
-Treat `archive_topology` and `facts` as mapped graph views, not full Memgraph.
-Avoid backend-specific functions such as `keys()`, `labels()`, `type()`,
-procedures, native BFS syntax (`*BFS`, `*WSHORTEST`, `[:R*1..3]`), and catalog
-operations — the GQL parser rejects them on every layer, including
-`live_topology`. The supported traversal forms are the GQL ones: bounded
-quantified paths `-[:FLOWS_TO]->{1,3}` (live only — archive rejects them at
-runtime) and `ANY SHORTEST` / `ALL SHORTEST` (live only; `SHORTEST k` is
-broken in MemGQL 0.7.0 — runtime translation error). Never put `WHERE`
-inside a quantified segment: it is accepted and silently ignored. See
-`references/gql-translation-matrix.md` for the full matrix. When a traversal
-needs per-hop edge predicates or intermediate-node filtering, or an archive
-quantified path is too slow, rewrite it as a bounded `graph_query_batch` of
-explicit fixed-hop `FLOWS_TO` patterns.
+`live_topology` is **native Memgraph Cypher** (MemGQL retired). Bounded
+variable-length and path-algorithm traversal are first-class:
+`-[:FLOWS_TO*1..5]->`, `-[:FLOWS_TO *BFS 1..5]->`,
+`-[:FLOWS_TO *WSHORTEST 5 (r,n | coalesce(r.amount_usd_sum,1)) w]->`,
+`-[:FLOWS_TO *KSHORTEST|3]->`, and per-hop filter lambdas
+`-[:FLOWS_TO*1..5 (r,n | n.is_exchange IS NULL)]->`. Always add an explicit
+upper hop bound — the live gate rejects unbounded (`*`, `*BFS` with no range)
+and over-depth (> 5) traversal, KSHORTEST k > 16, and UNWIND lists > 1000.
+
+Treat `archive_topology` and `facts` as a compiled Cypher subset, not full
+Memgraph. Native traversal, `WITH` pipelines, `CASE`, grouped aggregates,
+`collect()`, and metadata functions (`keys()`, `labels()`, `type()`) are
+rejected there with a typed contract error before any SQL runs; predicate-less
+global aggregates are refused by the cost-shape gate. When an archive/facts read
+needs multi-hop traversal or per-hop filtering, either move it to
+`live_topology` (native traversal) or rewrite it as a bounded
+`graph_query_batch` of explicit fixed-hop `FLOWS_TO` patterns.
 
 For any BFS, fixed-hop fallback, shortest-path, or custom `FLOWS_TO` traversal,
 exchange hot wallets are terminal endpoints only. Do not expand from, through,

@@ -3,6 +3,26 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.8.28] - 2026-07-07
+
+- MemGQL (Memgraph Zero) retired from the graph query surface. `graph_query` /
+  `graph_query_batch` now route `USE live_topology` to Memgraph directly (native
+  Cypher, bounded traversal) and `USE archive_topology` / `USE facts` to
+  StarRocks via a corpus-scoped Cypher→SQL translator. `USE live_topology` gains
+  native bounded traversal — `*1..5`, `*BFS`, `*WSHORTEST` (weight lambda),
+  `*KSHORTEST`, `*ALLSHORTEST`, and per-hop filter lambdas — with depth ≤ 5,
+  KSHORTEST k ≤ 16, and UNWIND ≤ 1000; unbounded/over-depth traversal is rejected.
+- `aml_address_risk` route evidence migrated to native Cypher: the directed
+  two-endpoint route now uses `*BFS 1..N` instead of the retired GQL
+  `ANY SHORTEST … {1,N}` form (native Memgraph rejects the GQL form). Fixes
+  route discovery on the post-retirement live surface.
+- Devkit graph backend rewired to match: direct Memgraph + StarRocks (no memgql
+  container), a faithful mirror of production admission (read-only + StarRocks
+  cost-shape gate + traversal bounds), Neo4j driver v6.
+- `docs/graph-query-compatibility.md` and the `chain-insights-cypher` skill
+  rewritten for the native surface; the GQL parser-gate and MemGQL 0.7.0 hazard
+  guidance are now historical.
+
 ## [0.8.27] - 2026-07-06
 
 - `aml_address_risk` compare-address route evidence (additive): when a

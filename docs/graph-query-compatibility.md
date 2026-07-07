@@ -1,154 +1,149 @@
 # Chain Insights Graph Query Compatibility Matrix
 
-Chain Insights Graph accepts GQL (ISO/IEC 39075) with Cypher-style pattern
-syntax through `graph_query` and `graph_query_batch`. Queries are parsed once
-by a federation layer and then translated per layer:
+Chain Insights Graph accepts Cypher through `graph_query` and
+`graph_query_batch`. A query is routed by its leading `USE <layer>` clause to
+one of two backends, each with its own accepted surface:
 
-| Layer | Backend class | Translation |
+| Layer | Backend | Query surface |
 | --- | --- | --- |
-| `live_topology` | Cypher graph database (Memgraph) | GQL → Cypher |
-| `archive_topology` | SQL warehouse mapped as a graph | GQL → SQL (recursive CTE for paths) |
-| `facts` | SQL warehouse mapped as a graph | GQL → SQL |
+| `live_topology` | Memgraph, directly over Bolt | **Native Memgraph Cypher**, bounded (see live bounds) |
+| `archive_topology` | StarRocks warehouse | Corpus-scoped Cypher subset, compiled to SQL |
+| `facts` | StarRocks warehouse | Corpus-scoped Cypher subset, compiled to SQL |
 
 Two consequences drive everything below:
 
-1. **The GQL parser is the gate.** A construct the parser rejects never
-   reaches any backend — even when the backend itself would support it.
-   Memgraph-native syntax such as `[:R*1..3]`, `*BFS`, or `CALL` fails at
-   parse time on every layer, including `live_topology`.
-2. **The SQL layers support a subset of the Cypher layer.** A query that runs
-   on `live_topology` may still fail on `archive_topology` or `facts`.
+1. **`live_topology` is native Memgraph Cypher.** Variable-length paths and the
+   path-algorithm forms (`*BFS`, `*WSHORTEST`, `*KSHORTEST`, `*ALLSHORTEST`) are
+   first-class — subject to traversal bounds enforced before execution. There is
+   no separate query dialect and no federation parser in front of it.
+2. **`archive_topology` / `facts` are a compiled Cypher *subset*.** A
+   corpus-scoped translator (`internal/cyphersql`) compiles a defined shape of
+   `MATCH` / `WHERE` / projection / aggregate / `ORDER BY` / `LIMIT` to StarRocks
+   SQL. Shapes outside that grammar are rejected with a typed contract error
+   *before* any SQL runs — they do not reach the warehouse.
 
-## Construct support by layer
+> **History.** Chain Insights Graph previously fronted both layers with a MemGQL
+> (Memgraph Zero) GQL federation layer. MemGQL was retired in 2026‑07 after
+> blocking upstream defects; the routing above replaces it. Docs and skills that
+> describe a "GQL parser gate", GQL quantifier syntax (`{1,3}`), or MemGQL 0.7.0
+> hazards (#4343/#4344/#4345) are historical.
 
-Legend: ✅ supported · ❌ rejected or unsupported · ⚠️ caveat (see notes)
+## `live_topology` — native Memgraph Cypher
 
-### Core query structure
+Everything Memgraph accepts on a read-only session is accepted here, within the
+admission + bounds gate below. This includes clause- and pattern-level `WHERE`,
+`WITH` pipelines, `CASE`, `collect()`, temporal functions, `UNWIND`, map
+projections, `UNION`, and the full traversal surface.
 
-| Construct | Syntax | live | archive / facts |
-| --- | --- | --- | --- |
-| Node match with inline properties | `MATCH (n:Identity {identity_id: "X"})` | ✅ | ✅ |
-| Clause-level `WHERE` | `MATCH (n) WHERE n.x = 1` | ✅ | ✅ |
-| Pattern-level `WHERE` | `MATCH (n WHERE n.x = 1)` | ✅ | ✅ |
-| Multiple sequential `MATCH` | `MATCH (a) MATCH (b)` | ✅ | ✅ |
-| `OPTIONAL MATCH` | `OPTIONAL MATCH (a)-[r:R]->(b)` | ✅ | ✅ |
-| `WITH` pipelines | `WITH n, count(*) AS c` | ✅ | ✅ |
-| `WITH DISTINCT`, `WITH ... ORDER BY ... LIMIT` | | ✅ | ✅ |
-| `RETURN` expressions with aliases | `RETURN n.x AS x` | ✅ | ✅ |
-| Whole node / relationship return | `RETURN n`, `RETURN r` | ✅ | ✅ ⚠️ typed Bolt objects; not across layers |
-| Map projections | `RETURN n {.identity_id, .risk_level}` | ✅ | ✅ |
-| `ORDER BY` (incl. aliases) | | ✅ | ✅ |
-| `SKIP` / `LIMIT` (`SKIP` works without `LIMIT`) | | ✅ | ✅ |
-| `DISTINCT` | | ✅ | ✅ |
-| `UNION` / `UNION ALL` / `UNION DISTINCT` | | ✅ | ✅ |
-| `INTERSECT` / `EXCEPT` | | ✅ | ✅ |
+### Traversal (the expanded surface)
 
-### Filters, expressions, aggregates
-
-| Construct | Syntax | live | archive / facts |
-| --- | --- | --- | --- |
-| `IN` list membership | `WHERE n.x IN ["a", "b"]` | ✅ | ✅ |
-| `STARTS WITH` / `ENDS WITH` / `CONTAINS` | | ✅ | ✅ |
-| `CASE WHEN ... THEN ... ELSE ... END` | | ✅ | ✅ |
-| `COALESCE`, `NULLIF` | | ✅ | ✅ |
-| Arithmetic | `+ - * / %` | ✅ | ✅ |
-| `count`, `sum`, `avg`, `min`, `max` | | ✅ | ✅ |
-| `COUNT(DISTINCT ...)` | | ✅ | ✅ |
-| `collect()` | `collect(n.x)` | ✅ | ❌ warehouse dialect gap — translation emits an unsupported aggregate |
-| Temporal functions | `date()`, `datetime()`, `localTime()` | ✅ | ❌ Cypher layer only |
-| `DATE`-typed edge properties | `flow.period_start_date` | n/a | ⚠️ may materialize as `null`; filter on timestamps instead |
-| Node-to-node identity comparison | `WHERE a <> b` | ✅ | ❌ compare key properties instead: `a.identity_id <> b.identity_id` |
-| List iteration | `FOR x IN [...]` | ✅ | ❌ |
-
-### Paths and traversal
-
-| Construct | Syntax | live | archive / facts |
-| --- | --- | --- | --- |
-| Typed single hop | `-[r:FLOWS_TO]->` | ✅ | ✅ |
-| Untyped hop | `-[r]->` | ✅ | ❌ specify the relationship type |
-| Bounded quantified path | `-[:FLOWS_TO]->{1,3}` | ✅ | ❌ the federation layer emits `WITH RECURSIVE`, which the warehouse backend does not support (probe-verified; upstream dialect gap) — use explicit fixed-hop patterns |
-| Unbounded quantified path | `-[:FLOWS_TO]->{1,}` | ✅ ⚠️ always bound in practice | ❌ |
-| Path binding | `MATCH p = (a)-[:R]->{1,3}(b) RETURN p` | ✅ | ❌ return individual nodes/edges instead |
-| Shortest path | `ANY SHORTEST`, `ALL SHORTEST` | ✅ | ❌ |
-| K shortest paths | `SHORTEST k` | ❌ broken in 0.7.0 (invalid backend translation — see hazards) | ❌ |
-| Trail semantics (no repeated edges) | automatic on quantified paths | ✅ | ✅ |
-
-### Rejected on every layer (parser gate)
-
-These fail at parse time regardless of layer. Use the accepted form.
-
-| Intent | Rejected (Memgraph-native Cypher) | Accepted (Chain Insights Graph GQL) |
+| Form | Syntax | Supported |
 | --- | --- | --- |
-| Bounded variable-length | `-[:FLOWS_TO*1..3]->` | `-[:FLOWS_TO]->{1,3}` (live only — rejected at runtime on archive/facts) |
-| Shortest path (BFS) | `-[:FLOWS_TO *BFS ..5]->` | `MATCH p = ANY SHORTEST (a)-[:FLOWS_TO]->{1,5}(b) RETURN p` (live only) |
-| All shortest paths | `-[* ALLSHORTEST ...]-` | `ALL SHORTEST` (live only, unweighted) |
-| K shortest paths | `-[*KSHORTEST\|3]->` | None on 0.7.0 — `SHORTEST k` is broken at runtime (see hazards); use `ALL SHORTEST` and truncate client-side |
-| Weighted shortest path | `-[*WSHORTEST (r, n \| r.amount_usd_sum)]-` | No equivalent — enumerate bounded paths and rank client-side |
-| Traversal filter lambda | `-[* (r, n \| n.is_exchange IS NULL)]->` | No equivalent — apply `WHERE` per hop or post-filter |
-| Hop budget directive | `USING HOPS LIMIT 1000` | No equivalent — bound the quantifier instead |
-| List unrolling | `UNWIND xs AS x` | `FOR x IN xs` (live only) |
-| Procedures / query modules | `CALL anything()` | Not available through Chain Insights Graph |
-| Metadata functions | `keys(n)`, `labels(n)`, `type(r)` | Project known properties explicitly |
-| Plan inspection | `EXPLAIN`, `PROFILE` | Not available |
-| Writes / DDL | `CREATE`, `MERGE`, `SET`, `DELETE`, `DROP`, ... | Never — the surface is read-only |
+| Bounded variable-length | `-[:FLOWS_TO*1..5]->` | ✅ upper bound ≤ 5 |
+| BFS to depth | `-[:FLOWS_TO *BFS 1..5]->` | ✅ upper bound ≤ 5 |
+| Weighted shortest path | `-[:FLOWS_TO *WSHORTEST 5 (r,n \| coalesce(r.amount_usd_sum,1)) w]->` | ✅ hop bound ≤ 5, weight lambda supported |
+| All shortest paths | `-[:FLOWS_TO *ALLSHORTEST 5 (r,n \| 1) w]->` | ✅ hop bound ≤ 5 |
+| K shortest paths | `-[:FLOWS_TO *KSHORTEST\|3]->` | ✅ path count k ≤ 16 |
+| Traversal filter lambda | `-[:FLOWS_TO *1..5 (r,n \| n.is_exchange IS NULL)]->` | ✅ |
 
-## Verified hazards (spike-tested against MemGQL 0.7.0)
+### Live admission + bounds gate
 
-These were verified empirically on 2026-07-06 against a seeded Memgraph
-3.10.1 + MemGQL 0.7.0 stack. They are **more dangerous than parse
-errors** because the query is accepted and returns confidently wrong
-results:
+Admission mirrors the production graph MCP exactly (read-only, byte size ≤ 32768,
+single statement, must start with a read clause). On top of that, traversal is
+bounded so an admitted query cannot become an unbounded graph walk:
 
-| Form | What happens | Rule |
+| Bound | Limit | Rejected example |
 | --- | --- | --- |
-| `WHERE` inside a quantified segment, node or edge — `(-[r:FLOWS_TO WHERE r.amount_usd_sum >= 10]->(x WHERE x.is_exchange IS NULL)){1,3}` | Accepted; **predicates silently discarded** — result set is the unfiltered traversal | Never use. Write hops explicitly with clause-level `WHERE` per hop |
-| Inner `WHERE` combined with `ANY SHORTEST` | Accepted; **the anchor node is dropped** — paths returned from arbitrary start nodes | Never use. Shortest-path patterns must carry no quantifier-inner predicates |
-| `SHORTEST k` | Rejected at runtime: the federation layer emits invalid backend Cypher | Use `ANY SHORTEST` (one route) or `ALL SHORTEST` (all same-length routes) |
-| `{m,n}` on `archive_topology` / `facts` | Rejected at runtime: translation emits `WITH RECURSIVE`, unsupported by the warehouse | Write explicit fixed-hop patterns per depth |
-| Inner-`WHERE` group form on `archive_topology` | Accepted; **anchor AND predicate silently dropped** — probe observed 482k rows from a 1-outflow anchor with an impossible amount floor | Never use (SQL-backend variant of the live hazard) |
+| Traversal depth (upper hop bound) | ≤ 5 | `-[:FLOWS_TO*1..9]->` → *traversal depth 9 exceeds the maximum of 5* |
+| Unbounded traversal | forbidden | `-[:FLOWS_TO*]->`, `-[:FLOWS_TO *BFS]->`, `-[:FLOWS_TO*3..]->` → *unbounded traversal … add an explicit upper hop bound* |
+| KSHORTEST path count `k` | ≤ 16 | `*KSHORTEST\|50` → *KSHORTEST k=50 exceeds the maximum of 16* |
+| `UNWIND` literal list length | ≤ 1000 | `UNWIND [ …1001 items… ] AS x` → *UNWIND list of 1001 items exceeds the maximum of 1000* |
 
-Verified working in the same spike: plain `{m,n}` (correct result sets),
-`ANY SHORTEST` / `ALL SHORTEST` with path binding and full edge-property
-hydration, `FOR x IN`, node `<>` comparison (live).
+Always add an explicit upper hop bound and a `LIMIT`. Writes/DDL (`CREATE`,
+`MERGE`, `SET`, `DELETE`, `DROP`, `CALL`, …) are always rejected — the surface is
+read-only.
 
-### Taxonomy labels (live layer, spike-verified)
+## `archive_topology` / `facts` — compiled Cypher subset
 
-Secondary node labels (for example exchange or scam classification labels
-maintained on live topology identities) are queryable through the
-federation layer on `live_topology` only:
+The translator compiles a defined grammar to StarRocks SQL. All literals are
+bound as parameters (no SQL injection surface). Anything outside the grammar is
+rejected with a typed contract error before execution.
+
+### Supported
+
+| Construct | Notes |
+| --- | --- |
+| `MATCH` on a mapped node / single relationship | `(:Identity)-[:FLOWS_TO]->(:Identity)`, `(:Identity)-[:HAS_LABEL]->(:AddressLabel)`, etc. |
+| Chained fixed-hop patterns | up to 5 hops |
+| `WHERE` with an indexed predicate | `identity_id` / `address` equality or `IN`; date/height/timestamp range |
+| Inline property maps | `MATCH (i:Identity {identity_id:"…"})` |
+| Property projections with aliases | `RETURN i.identity_id AS id, f.amount_usd_sum AS amt` |
+| Aggregates **with** an indexed predicate | `count`, `sum`, `min`, `max` |
+| `ORDER BY`, `LIMIT` (≤ 1000), `OFFSET`-free paging | `LIMIT` required unless an indexed predicate is present |
+
+### Cost-shape gate
+
+`archive_topology` / `facts` reject full-scan shapes so a mapped-graph read
+cannot turn into an unbounded warehouse scan:
+
+| Rejected shape | Contract error |
+| --- | --- |
+| Predicate-less global aggregate | `count(i)` with no indexed predicate → *StarRocks-backed aggregate graph queries require an indexed predicate* |
+| No `LIMIT` and no indexed predicate | → *StarRocks-backed graph queries require an explicit LIMIT or indexed predicate* |
+| `LIMIT` above the ceiling | `LIMIT 5000` → *StarRocks-backed graph query LIMIT exceeds maximum 1000* |
+
+### Not in the archive/facts grammar (contract error)
+
+These compile-reject (`ErrUnsupportedShape` / related) — they never reach
+StarRocks. Use the live layer, or restructure:
+
+| Construct | Instead |
+| --- | --- |
+| Native traversal (`*1..3`, `*BFS`, `*WSHORTEST`, …) | Live layer, or explicit fixed-hop `FLOWS_TO` patterns batched via `graph_query_batch` |
+| `WITH` pipelines | Live layer |
+| `CASE … END` | Live layer, or post-process client-side |
+| Grouped aggregates (`GROUP BY`-shaped) | Live layer, or per-key `graph_query_batch` |
+| `collect()` and other warehouse-dialect-gap aggregates | Live layer |
+| Untyped relationship `-[r]->` | Name the relationship type |
+| Node-to-node identity comparison `WHERE a <> b` | Compare key properties: `a.identity_id <> b.identity_id` |
+| Metadata functions `keys(n)`, `labels(n)`, `type(r)` | Project known properties explicitly |
+| Cost-bound free-ended traversal (k ≥ 3 free-ended `FLOWS_TO`) | Add an anchor / narrower bound |
+
+The archive/facts result baselines and the exact supported/rejected shape set
+are pinned by `devkit/chain-insights-graph-devkit/internal/cyphersql`
+(`corpus_test.go`, `conformance_starrocks_test.go`) and the shared
+`archive-result-goldens.json`.
+
+## Taxonomy labels (live layer)
+
+Secondary node labels (exchange / scam classification labels maintained on live
+identities) are queryable on `live_topology`:
 
 | Form | Result |
 | --- | --- |
-| `MATCH (n:Exchange)` — bare secondary label | ✅ works |
-| `MATCH (n:Identity&Exchange)` — GQL conjunction | ✅ works |
-| `MATCH (n:Identity:Exchange)` — Cypher colon-stacking | ❌ parse error |
-| `RETURN labels(n)` | ❌ parse error (all layers) |
+| `MATCH (n:Exchange)` — bare secondary label | ✅ |
+| `MATCH (n:Identity:Exchange)` — colon-stacked labels | ✅ (native Cypher) |
+| `RETURN labels(n)` | project known properties instead |
 
-Caveats: taxonomy labels are sticky (never removed once assigned — label
-presence means "was ever classified", not "currently active"); archive
-and facts layers carry only their mapped labels, so taxonomy-label
-patterns are live-only. The property-flag form (`is_exchange`) remains
-the canonical cross-layer filter.
+Caveats: taxonomy labels are sticky (never removed once assigned — presence means
+"was ever classified", not "currently active"); archive/facts carry only their
+mapped labels, so taxonomy-label patterns are live-only. The property-flag form
+(`is_exchange`) remains the canonical cross-layer filter.
 
 ## Practical guidance
 
 - **Prefer inline property maps for equality lookups**:
-  `MATCH (n:Identity {identity_id: "X"})` rather than
-  `MATCH (n:Identity) WHERE n.identity_id = "X"`. The federation layer
-  normalizes the inline form itself, and the inline form has proven more
-  robust across client drivers.
-- **Always bound quantified paths** and always add `LIMIT`. Unbounded
-  traversal on a dense money-flow graph is how queries hit the per-query
-  timeout.
-- **Weighted or filtered deep traversal is not expressible** through the
-  federation layer today. For flows-weighted routing, enumerate bounded
-  paths (`{1,n}` with per-edge predicates where each hop is written
-  explicitly) and rank by aggregated `amount_usd_sum` client-side.
-- **Archive traversal is fixed-hop only.** Quantified paths do not
-  translate for the warehouse backend (probe-verified); write one explicit
-  pattern per depth and batch them with `graph_query_batch`.
-- When a construct fails with a parse error, check the rejected/accepted
-  table above before assuming the data is missing.
+  `MATCH (n:Identity {identity_id:"X"})` over
+  `MATCH (n:Identity) WHERE n.identity_id = "X"`.
+- **Bound every traversal and add `LIMIT`.** The live gate rejects unbounded and
+  over-depth traversal outright; archive/facts reject predicate-less scans.
+- **Weighted / filtered deep traversal is now first-class on the live layer.**
+  Use `*WSHORTEST … (r,n | coalesce(r.amount_usd_sum,1)) w` for flow-weighted
+  routing or `*BFS 1..k` for reachability, instead of enumerating hops client-side.
+- **Archive/facts stay fixed-hop.** For historical multi-hop flows, write one
+  explicit pattern per depth and batch them with `graph_query_batch`.
+- When a query is rejected, read the returned contract error — it names the exact
+  violated bound or unsupported shape.
 
 ## Related documentation
 

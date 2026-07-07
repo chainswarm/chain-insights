@@ -1,0 +1,2322 @@
+{
+ "generated_by": "record-archive-goldens.sh",
+ "note": "T0b archive/facts result baselines recorded from MemGQL-era devkit; baseline=memgql trusted, baseline=sql-truth needs reviewer-derived rows",
+ "entries": [
+  {
+   "id": "recipe_archive_topology_01",
+   "layer": "archive_topology",
+   "query": "USE archive_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, flow.period_granularity AS period_granularity, flow.period_start_date AS period_start_date, flow.period_end_date AS period_end_date, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "amount_usd_sum": "16020.96453792",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2025-05-31",
+     "period_granularity": "daily",
+     "period_start_date": "2025-05-31",
+     "to_identity": "bittensor:5d2hsuggy41wpmjbsqief4vzinh62ynpu7cou5a8operv8ek",
+     "tx_count": "4"
+    },
+    {
+     "amount_usd_sum": "56.15914121",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2024-04-09",
+     "period_granularity": "daily",
+     "period_start_date": "2024-04-09",
+     "to_identity": "bittensor:5d2ix5mcelobt7aafl8vg9buwhmw9kuhlscebxfypsjpjuzb",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "2922.68241908",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2024-04-18",
+     "period_granularity": "daily",
+     "period_start_date": "2024-04-18",
+     "to_identity": "bittensor:5d2ndhcygf3ghzuhdx4afgc7kymcx92pkx8drxxpyhtkzggd",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "61.74966865",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2025-09-05",
+     "period_granularity": "daily",
+     "period_start_date": "2025-09-05",
+     "to_identity": "bittensor:5d2r5mlznxsjme5prufuyfgetjy1tb78kiz3cfktprsatbt6",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "206.88912151",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2024-08-17",
+     "period_granularity": "daily",
+     "period_start_date": "2024-08-17",
+     "to_identity": "bittensor:5d2uoss3ciwczrvlfp52ctmgbqtpzkjnm6uvu6nxwmxdg5mj",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "1822.79437507",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2024-06-03",
+     "period_granularity": "daily",
+     "period_start_date": "2024-06-03",
+     "to_identity": "bittensor:5d4hyv15e7o6wga4sfesbvbzkocqjwrmygvd8qpfuukknh4b",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "138475.31860040",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2024-04-02",
+     "period_granularity": "daily",
+     "period_start_date": "2024-04-02",
+     "to_identity": "bittensor:5d4umbkdyobkszprektrc15spthgjseufsuef3hef3ctxmwo",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "33.36074027",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2026-06-19",
+     "period_granularity": "daily",
+     "period_start_date": "2026-06-19",
+     "to_identity": "bittensor:5d4ve7xyxmb7cukrbxabeqk7vo3gvnryjfdlqcvyhpk2dw3d",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "231949.22262258",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2026-06-21",
+     "period_granularity": "daily",
+     "period_start_date": "2026-06-21",
+     "to_identity": "bittensor:5d54wcid6m2ymfwlyn5ywjac6us5ssn1rvdymuvw8fa8tvmf",
+     "tx_count": "10"
+    },
+    {
+     "amount_usd_sum": "4378.09332114",
+     "from_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "period_end_date": "2024-05-04",
+     "period_granularity": "daily",
+     "period_start_date": "2024-05-04",
+     "to_identity": "bittensor:5d5cupbm73o4drrm71oej71eqq9rdakr72srdsw3jputmmgj",
+     "tx_count": "2"
+    }
+   ]
+  },
+  {
+   "id": "recipe_archive_topology_02",
+   "layer": "archive_topology",
+   "query": "USE archive_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 10",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "identity_id": "bittensor:0x099bbd6b71b5f13bc259ae657c8f6daec9421fcd",
+     "member_address": "0x099bbd6b71b5f13bc259ae657c8f6daec9421fcd",
+     "member_network": "evm"
+    },
+    {
+     "identity_id": "bittensor:0x09e97f8fbd8046116d83dc0f283e28ce30bd9c11",
+     "member_address": "0x09e97f8fbd8046116d83dc0f283e28ce30bd9c11",
+     "member_network": "evm"
+    },
+    {
+     "identity_id": "bittensor:0x0f4c6c9e7c0cc93d8cb80bb04b6d999402e408f9",
+     "member_address": "0x0f4c6c9e7c0cc93d8cb80bb04b6d999402e408f9",
+     "member_network": "evm"
+    },
+    {
+     "identity_id": "bittensor:0x16773e1a28c1184238b3d4599097d4e38855893b",
+     "member_address": "0x16773e1a28c1184238b3d4599097d4e38855893b",
+     "member_network": "evm"
+    },
+    {
+     "identity_id": "bittensor:0x1a40cc024672a0aa45a121eb456adb56f7e27d09",
+     "member_address": "0x1a40cc024672a0aa45a121eb456adb56f7e27d09",
+     "member_network": "evm"
+    },
+    {
+     "identity_id": "bittensor:0x1e2ca98f79751ff5dc7032d655377029a37d4b1d",
+     "member_address": "0x1e2ca98f79751ff5dc7032d655377029a37d4b1d",
+     "member_network": "evm"
+    },
+    {
+     "identity_id": "bittensor:0x20b1eae10c9a44ad80cdcf6e8a704c14de156186",
+     "member_address": "0x20b1eae10c9a44ad80cdcf6e8a704c14de156186",
+     "member_network": "evm"
+    },
+    {
+     "identity_id": "bittensor:0x238d2f087ce91c9a82386ffe771653990d240f45",
+     "member_address": "0x238d2f087ce91c9a82386ffe771653990d240f45",
+     "member_network": "evm"
+    },
+    {
+     "identity_id": "bittensor:0x2b01465065c18eb6d0ca94b0b0977a71f16abd5e",
+     "member_address": "0x2b01465065c18eb6d0ca94b0b0977a71f16abd5e",
+     "member_network": "evm"
+    },
+    {
+     "identity_id": "bittensor:0x3a504de56fc195033f0dcf19a2b79db687259439",
+     "member_address": "0x3a504de56fc195033f0dcf19a2b79db687259439",
+     "member_network": "evm"
+    }
+   ]
+  },
+  {
+   "id": "recipe_archive_topology_03",
+   "layer": "archive_topology",
+   "query": "USE archive_topology MATCH (src:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[flow:FLOWS_TO]->(dst:Identity) RETURN dst.identity_id AS to_identity, flow.period_granularity AS period_granularity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.last_seen_timestamp DESC LIMIT 50",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "amount_usd_sum": "0.00000000",
+     "first_seen_timestamp": "1783224852000",
+     "last_seen_timestamp": "1783224852000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5efsvyxr7nhd2mvdc5wvumgtnds6pxotdkbwsnyxumrnbwfe",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "0.00000000",
+     "first_seen_timestamp": "1783220172000",
+     "last_seen_timestamp": "1783220172000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5evctxk3dnhxhqfx1vk5jypkryyuli6cy1jbv2k8bfwdf4zy",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "2348971.54314615",
+     "first_seen_timestamp": "1762702884000",
+     "last_seen_timestamp": "1783218804000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5eexvu5lhthenriymqwntjvc19fpnfgaa62iv2yyowrfzm8q",
+     "tx_count": "95"
+    },
+    {
+     "amount_usd_sum": "1346372.60069115",
+     "first_seen_timestamp": "1760508624000",
+     "last_seen_timestamp": "1783218792000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5cxaqyazwyay5qxlh9fhjx3k8lkdywdwyab5fvcufyhnjfwf",
+     "tx_count": "158"
+    },
+    {
+     "amount_usd_sum": "1765826.91209740",
+     "first_seen_timestamp": "1776679800000",
+     "last_seen_timestamp": "1783218624000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5crvziad3au1wz6odkwaphgbj3tgtkcpq5tsa16pxvcuidtt",
+     "tx_count": "152"
+    },
+    {
+     "amount_usd_sum": "0.00000000",
+     "first_seen_timestamp": "1783217964000",
+     "last_seen_timestamp": "1783217964000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5hb3ppwvjp6dkrzeynsihfagzwdlxwxbywb7ykv3erf1evgt",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "934597.45795178",
+     "first_seen_timestamp": "1773017292000",
+     "last_seen_timestamp": "1783217844001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5cihdvogsih23krwauc39xfjto15adoym9x8nw2qmduuatqa",
+     "tx_count": "17"
+    },
+    {
+     "amount_usd_sum": "291014.81266923",
+     "first_seen_timestamp": "1779703908000",
+     "last_seen_timestamp": "1783210164000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5gmzs6tqavfyjcg3ggp1e9drahkzuth2xheqfdcj4kagxh9s",
+     "tx_count": "45"
+    },
+    {
+     "amount_usd_sum": "14950.35580576",
+     "first_seen_timestamp": "1781511228000",
+     "last_seen_timestamp": "1783207164000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5cymzczxgg5qz2wzff2lwrndy93kan4r9twl3npxgmc9dw7z",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "636.97482068",
+     "first_seen_timestamp": "1783199568000",
+     "last_seen_timestamp": "1783200432000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5fyz11w1u5sfjayrr1fw3gso2al3w1aafnfk5ska6cx9aj5j",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "5184.89839496",
+     "first_seen_timestamp": "1778521344000",
+     "last_seen_timestamp": "1783200228000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5fx85xvq9lhfuy2bxrh1mebv8pwatcjuxvtjy74kf1e4b56u",
+     "tx_count": "3"
+    },
+    {
+     "amount_usd_sum": "67775054.72684603",
+     "first_seen_timestamp": "1767082800000",
+     "last_seen_timestamp": "1783197096000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5elwnr5a7dummqhsypa3izmfu1bx3gcerueqfptsmtkcqr7j",
+     "tx_count": "278"
+    },
+    {
+     "amount_usd_sum": "12892.73679399",
+     "first_seen_timestamp": "1724958036001",
+     "last_seen_timestamp": "1783196712000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5cbcwpcp8ivicbmo25yqg5ncy13hl5989x3t65fv4rif1obv",
+     "tx_count": "22"
+    },
+    {
+     "amount_usd_sum": "645.59338836",
+     "first_seen_timestamp": "1783196508001",
+     "last_seen_timestamp": "1783196508001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5dkmcrb6mdnvobryvgh9agrkmn5yu56jsuprgyvmlbavhp5p",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "375.70751235",
+     "first_seen_timestamp": "1783193424001",
+     "last_seen_timestamp": "1783193424001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5dbtc58rkwcjmdtleaswplg5ru6acwyremfwgocfuscijrrr",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "152.53789574",
+     "first_seen_timestamp": "1783192284001",
+     "last_seen_timestamp": "1783192608000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5hap4qakr25ua27ol5gbiele7gwtk9yayedhsfckqymhrexh",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "5231.22938791",
+     "first_seen_timestamp": "1783051080000",
+     "last_seen_timestamp": "1783190292001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5fnmhkkescndnuzc7mtethbu6gtexsrtyuxtoj1dwvql7mvx",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "10721.38508670",
+     "first_seen_timestamp": "1735074468000",
+     "last_seen_timestamp": "1783189284000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5hpxbtegxg9y8u7eubreqrxeg3rzq6prhh9bin5rbnpo2yce",
+     "tx_count": "74"
+    },
+    {
+     "amount_usd_sum": "73160.96869232",
+     "first_seen_timestamp": "1780083852000",
+     "last_seen_timestamp": "1783187640000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5ea4rjebjwugtlvi7e1vl8cg9waiepx9tfifw22zkfdhuejm",
+     "tx_count": "11"
+    },
+    {
+     "amount_usd_sum": "5055612.70595735",
+     "first_seen_timestamp": "1762351152000",
+     "last_seen_timestamp": "1783186704000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5fztuqpdb3uyugf3hzfuumtgmfpnmh1w5gvywigd8msibt4c",
+     "tx_count": "1233"
+    },
+    {
+     "amount_usd_sum": "57.07431065",
+     "first_seen_timestamp": "1778826348000",
+     "last_seen_timestamp": "1783184904000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5eq94uk6kjim2gjihwovgdq8xqjfbzpyhyeqwh6bmn6qzreu",
+     "tx_count": "3"
+    },
+    {
+     "amount_usd_sum": "2101.34231046",
+     "first_seen_timestamp": "1782976248000",
+     "last_seen_timestamp": "1783184484000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5czjbmtffiqxnpaw4x6ggnu3giz2dav7mgfflmzz16wdkeah",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "545.38228701",
+     "first_seen_timestamp": "1782397068000",
+     "last_seen_timestamp": "1783182972000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5dckt5yiza3nhm1nabtpivu66xgx48ng1tafmsvdpwd8r9ob",
+     "tx_count": "3"
+    },
+    {
+     "amount_usd_sum": "1720.60125436",
+     "first_seen_timestamp": "1775138892001",
+     "last_seen_timestamp": "1783182072000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5euwcxnsj4olczslsf2hnzb1rdqqcpjjskusxtsce3twpixy",
+     "tx_count": "4"
+    },
+    {
+     "amount_usd_sum": "1290.49988247",
+     "first_seen_timestamp": "1783182048001",
+     "last_seen_timestamp": "1783182048001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5htfxftuhfnqntmbc4chujk9vydtolfn9runvqt2wwdx8ohw",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "2151.80928811",
+     "first_seen_timestamp": "1783181844000",
+     "last_seen_timestamp": "1783181844000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5g3zpa1d9cg3zu4cdbdhomq4jshggvvw5ojcmjepp9ngtx1m",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "2151.80928811",
+     "first_seen_timestamp": "1783181592000",
+     "last_seen_timestamp": "1783181592000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5dfqbn4wwuvpgwrf5fh36pirsxdv9amyl6gvutf2dssbh8ev",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "12083.12002045",
+     "first_seen_timestamp": "1772213148001",
+     "last_seen_timestamp": "1783180548000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5gxxcc9qftxzvaudgkdzqyqqntbzfcbxq4ziinugk5q2s7ew",
+     "tx_count": "4"
+    },
+    {
+     "amount_usd_sum": "64.71107835",
+     "first_seen_timestamp": "1734768588000",
+     "last_seen_timestamp": "1783179024000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5ctx1vhpfvbanc6ittpcx58jrgtveqg56cy4qk73hs9jddjq",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "12.86352678",
+     "first_seen_timestamp": "1783177212000",
+     "last_seen_timestamp": "1783177212000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5gyxeejgqr22qfezahelfacjf94r4ywpv6tbdgdkmz655aef",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "27.33516128",
+     "first_seen_timestamp": "1783172928001",
+     "last_seen_timestamp": "1783172928001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5fmxmqfcsfv5u8bcs4jhw5mf6ak4jf2j1bqwjrmxg746wwmt",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "174.62145547",
+     "first_seen_timestamp": "1783172808000",
+     "last_seen_timestamp": "1783172808000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5hk8dfqkm8uyvytupnvr4avwqncvvcffm5xplhlplgnbfdbg",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "18980.34763593",
+     "first_seen_timestamp": "1780480872000",
+     "last_seen_timestamp": "1783170048001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5geemgvgqqrvd6fex3p1rarvz6czrmsns919mw67a7l934kq",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "52.53018401",
+     "first_seen_timestamp": "1783165968001",
+     "last_seen_timestamp": "1783165968001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5cmbwh7axqqj9i9cwa9f48djzupw4nxxuqg439qdwh77k16c",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "514.19353703",
+     "first_seen_timestamp": "1783165788000",
+     "last_seen_timestamp": "1783165788000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5dpq48ywbdgpbqsl8zueuvtox8vpi3hsae23dltpmluuxzw8",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "252750.35250320",
+     "first_seen_timestamp": "1776519588000",
+     "last_seen_timestamp": "1783162932000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5eoknp9mshxra51fyidzvqjthfjssaushnwxf6f12url9x6x",
+     "tx_count": "14"
+    },
+    {
+     "amount_usd_sum": "216.33938996",
+     "first_seen_timestamp": "1783157448001",
+     "last_seen_timestamp": "1783157448001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5gnzghttjyekqjdq2vf6ujbscxrzfkxjrnmsrm9zz8fwvvq5",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "994.58717626",
+     "first_seen_timestamp": "1751912088001",
+     "last_seen_timestamp": "1783156452001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5ezsp73qdvqbpywwtdphzxewogaymdwbh5ezohhcedfsr8tv",
+     "tx_count": "3"
+    },
+    {
+     "amount_usd_sum": "449.00059316",
+     "first_seen_timestamp": "1783155528000",
+     "last_seen_timestamp": "1783155528000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5gnej8je5eyfqlppnzszkpwkhn4w8gt77k2eatp2dmjbwyph",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "219.30988970",
+     "first_seen_timestamp": "1782984744000",
+     "last_seen_timestamp": "1783145208000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5eahcqj61vri28m2wnpqaupxxupr4eaqfpdpbqbqaoebd77q",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "305.44083027",
+     "first_seen_timestamp": "1782984672001",
+     "last_seen_timestamp": "1783145124000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5hdegbzgyq26zfsqblx7o54uwfqzlrpwkbe2s6jm2anvpcj5",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "32.09660876",
+     "first_seen_timestamp": "1782967572000",
+     "last_seen_timestamp": "1783140372000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5heteqtbqdfowatryrdwxughnfbqu7hqyvjbnsyj4fdvjdck",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "12863.11607682",
+     "first_seen_timestamp": "1751717928000",
+     "last_seen_timestamp": "1783138992000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5ghhxbbtp4ic8cesvhyewc7dwhhdghnl5wpbx6qse1chzdxn",
+     "tx_count": "6"
+    },
+    {
+     "amount_usd_sum": "8191.00658512",
+     "first_seen_timestamp": "1749436224000",
+     "last_seen_timestamp": "1783135224000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5fvnsiwpenlgvqyke9oka4rcyvqg6qxwj2jk2kvpmxdgd5ws",
+     "tx_count": "19"
+    },
+    {
+     "amount_usd_sum": "10132.85907119",
+     "first_seen_timestamp": "1776369192001",
+     "last_seen_timestamp": "1783127232000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5fzufy9j26xhzqu66jud8cxjxmknytqq6m7ys3v9nymbfv3i",
+     "tx_count": "7"
+    },
+    {
+     "amount_usd_sum": "217.30599444",
+     "first_seen_timestamp": "1783123548001",
+     "last_seen_timestamp": "1783123548001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5emkeq4tuuav2yawychksnqdixnmrefpeh9fl9bee5knaz1a",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "103.71813201",
+     "first_seen_timestamp": "1778494788000",
+     "last_seen_timestamp": "1783120668000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5dcuq192zmftxr3dcurup6zij6iijnrlnjdqg7nj7id5byau",
+     "tx_count": "7"
+    },
+    {
+     "amount_usd_sum": "288.58222312",
+     "first_seen_timestamp": "1783113048001",
+     "last_seen_timestamp": "1783113228000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5fuse8hbg6vsavkwaqjh8jqqeutpzvkcamxxc1njzdofhxyi",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "838.83180405",
+     "first_seen_timestamp": "1783112772000",
+     "last_seen_timestamp": "1783112772000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5dvyu28yel3ysqaqzno38nkmxnkq4rdwmp4571uprkrox3tk",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "10.29668516",
+     "first_seen_timestamp": "1783112364000",
+     "last_seen_timestamp": "1783112364000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5dtgqn6tft8avedzito2416tpzebb8wttiqabe5kcvmsyqhx",
+     "tx_count": "1"
+    }
+   ]
+  },
+  {
+   "id": "recipe_archive_topology_04",
+   "layer": "archive_topology",
+   "query": "USE archive_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, flow.period_granularity AS period_granularity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.last_seen_timestamp DESC LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "amount_usd_sum": "1412.90879062",
+     "from_identity": "bittensor:5ccuzhbd6pwrp4a7wkjktxk6863uhbsqykpsvsvd9aqv6eou",
+     "last_seen_timestamp": "1783234164001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:0x6d6f646c73756274656e73725c00000000000000",
+     "tx_count": "26"
+    },
+    {
+     "amount_usd_sum": "0.00000000",
+     "from_identity": "bittensor:5flffjchmxh1sl6ms9c3zyan2cxdf8urkexbbak7mcseayuc",
+     "last_seen_timestamp": "1783234164001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:0x6d6f646c73756274656e73725c00000000000000",
+     "tx_count": "4"
+    },
+    {
+     "amount_usd_sum": "62.10099392",
+     "from_identity": "bittensor:0x6d6f646c73756274656e73722700000000000000",
+     "last_seen_timestamp": "1783234152001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5dztjvhqvjhyhxlhomme4jqy9w1hjeknqwj8p6qnuwghrys1",
+     "tx_count": "441"
+    },
+    {
+     "amount_usd_sum": "78.83210369",
+     "from_identity": "bittensor:0x6d6f646c73756274656e73722700000000000000",
+     "last_seen_timestamp": "1783234152001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5fgev5ja4sakijjwrgn5gp4mzfsd91p3fmd3eesmxamc4yxt",
+     "tx_count": "29"
+    },
+    {
+     "amount_usd_sum": "38103.80728777",
+     "from_identity": "bittensor:0x6d6f646c73756274656e73725c00000000000000",
+     "last_seen_timestamp": "1783234140000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5dwezmilozoscrkhefkrcgwgvyrgx1nmyy4cbvggbrr7uscr",
+     "tx_count": "29"
+    },
+    {
+     "amount_usd_sum": "12.82151835",
+     "from_identity": "bittensor:5gp8cpwjwscc1bzcxbgzoq7xtfj8xndbyea3dnd3mr8vbqth",
+     "last_seen_timestamp": "1783234140000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5dwezmilozoscrkhefkrcgwgvyrgx1nmyy4cbvggbrr7uscr",
+     "tx_count": "59"
+    },
+    {
+     "amount_usd_sum": "43278.26870804",
+     "from_identity": "bittensor:0x6d6f646c73756274656e73723100000000000000",
+     "last_seen_timestamp": "1783234140000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5hdqm3xfrx3tpaakmvqsyngf4dsf3jchulyvxuhwlatttif7",
+     "tx_count": "23"
+    },
+    {
+     "amount_usd_sum": "12.91964108",
+     "from_identity": "bittensor:5dwezmilozoscrkhefkrcgwgvyrgx1nmyy4cbvggbrr7uscr",
+     "last_seen_timestamp": "1783234140000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5gp8cpwjwscc1bzcxbgzoq7xtfj8xndbyea3dnd3mr8vbqth",
+     "tx_count": "59"
+    },
+    {
+     "amount_usd_sum": "21.51042061",
+     "from_identity": "bittensor:5hdqm3xfrx3tpaakmvqsyngf4dsf3jchulyvxuhwlatttif7",
+     "last_seen_timestamp": "1783234140000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5dceutr7xpqw67pnhw9ewzzo2cz7cm8hgfjwuqepd8mh8qng",
+     "tx_count": "502"
+    },
+    {
+     "amount_usd_sum": "60.90995320",
+     "from_identity": "bittensor:5g9w5smznmwadhw7cu4enzajyhhq89n4umzr7patqceqqhkf",
+     "last_seen_timestamp": "1783234140000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5gc1ctdh1yxssvqq1jjzogunewqrkulsvjsdavc685rfvxjy",
+     "tx_count": "19"
+    },
+    {
+     "amount_usd_sum": "84.00534833",
+     "from_identity": "bittensor:0x6d6f646c73756274656e73723100000000000000",
+     "last_seen_timestamp": "1783234140000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5cphkdvhmmqrmmurpfnvlc6gucduvwpnhsppehnyq7qxjpdz",
+     "tx_count": "141"
+    },
+    {
+     "amount_usd_sum": "151.82995637",
+     "from_identity": "bittensor:0x6d6f646c73756274656e73725c00000000000000",
+     "last_seen_timestamp": "1783234140000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5cphkdvhmmqrmmurpfnvlc6gucduvwpnhsppehnyq7qxjpdz",
+     "tx_count": "438"
+    },
+    {
+     "amount_usd_sum": "249.34816890",
+     "from_identity": "bittensor:0x6d6f646c73756274656e73723600000000000000",
+     "last_seen_timestamp": "1783234140000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5cphkdvhmmqrmmurpfnvlc6gucduvwpnhsppehnyq7qxjpdz",
+     "tx_count": "439"
+    },
+    {
+     "amount_usd_sum": "113940.33008607",
+     "from_identity": "bittensor:0x6d6f646c73756274656e73723600000000000000",
+     "last_seen_timestamp": "1783234140000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5gvjxbtad6xkctd9kkdiysgij2ucdx2u8sybsmhoe78fgxc1",
+     "tx_count": "39"
+    },
+    {
+     "amount_usd_sum": "7036.04327401",
+     "from_identity": "bittensor:5ccj2omehmulvlfvdykpccq9vbfofczz9hk3b2aulschzwkh",
+     "last_seen_timestamp": "1783234128001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:0x6d6f646c73756274656e73721000000000000000",
+     "tx_count": "18"
+    },
+    {
+     "amount_usd_sum": "1343528.90596469",
+     "from_identity": "bittensor:0x6d6f646c73756274656e73720000000000000000",
+     "last_seen_timestamp": "1783234128001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5ccj2omehmulvlfvdykpccq9vbfofczz9hk3b2aulschzwkh",
+     "tx_count": "925"
+    },
+    {
+     "amount_usd_sum": "296.42146034",
+     "from_identity": "bittensor:0x6d6f646c73756274656e73721000000000000000",
+     "last_seen_timestamp": "1783234128001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5h3v2vfqmsaagj63edab1zwmruthhkj4kci5wkt6swmi2vw1",
+     "tx_count": "552"
+    },
+    {
+     "amount_usd_sum": "16.66814351",
+     "from_identity": "bittensor:0x6d6f646c73756274656e73720000000000000000",
+     "last_seen_timestamp": "1783234128001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5h3v2vfqmsaagj63edab1zwmruthhkj4kci5wkt6swmi2vw1",
+     "tx_count": "8990"
+    },
+    {
+     "amount_usd_sum": "420500.11574092",
+     "from_identity": "bittensor:5hwrwena79upwvvewuqsdmrtkrc6oepynvliwwqrukleou6o",
+     "last_seen_timestamp": "1783234116001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:0x6d6f646c73756274656e73720000000000000000",
+     "tx_count": "182"
+    },
+    {
+     "amount_usd_sum": "44.81451343",
+     "from_identity": "bittensor:5hwrwena79upwvvewuqsdmrtkrc6oepynvliwwqrukleou6o",
+     "last_seen_timestamp": "1783234116001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5hwrwena79upwvvewuqsdmrtkrc6oepynvliwwqrukleou6o",
+     "tx_count": "364"
+    },
+    {
+     "amount_usd_sum": "0.00000000",
+     "from_identity": "bittensor:0x6d6f646c73756274656e73723600000000000000",
+     "last_seen_timestamp": "1783234116001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5hwrwena79upwvvewuqsdmrtkrc6oepynvliwwqrukleou6o",
+     "tx_count": "3"
+    },
+    {
+     "amount_usd_sum": "0.00000000",
+     "from_identity": "bittensor:5e9lpds2e5rfzoqrsf2d7ngjtfh3n2dvqeaodtkspjp7ct4x",
+     "last_seen_timestamp": "1783234116001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5fs1kluepc5o1rzci5ouqcb3ejuimwstajsmmhmg64v2g56p",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "0.00000000",
+     "from_identity": "bittensor:5eixej3awjkqb9mjqaf29jg5hjf9dwtt8cjvdqa8biprwtin",
+     "last_seen_timestamp": "1783234116001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5djmyv3uz2qbuv1bicwrbmareuca6rafbvs861sgaukto4qt",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "45.88440173",
+     "from_identity": "bittensor:5fr2mjur4fibnhfkc3a4djskbrwicqgjdjwsmzyffaqwpa7n",
+     "last_seen_timestamp": "1783234116001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5dceutr7xpqw67pnhw9ewzzo2cz7cm8hgfjwuqepd8mh8qng",
+     "tx_count": "861"
+    },
+    {
+     "amount_usd_sum": "12894.47785571",
+     "from_identity": "bittensor:5fr2mjur4fibnhfkc3a4djskbrwicqgjdjwsmzyffaqwpa7n",
+     "last_seen_timestamp": "1783234116001",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:0x6d6f646c73756274656e73723600000000000000",
+     "tx_count": "7"
+    }
+   ]
+  },
+  {
+   "id": "recipe_archive_topology_05",
+   "layer": "archive_topology",
+   "query": "USE archive_topology MATCH (:Identity)-[flow:FLOWS_TO]->(:Identity) RETURN flow.period_granularity AS period_granularity, count(flow) AS flow_edges LIMIT 10",
+   "baseline": "unsupported",
+   "reason": "documented shape outside the archive translator's compiled subset (WITH/CASE/grouped aggregate)"
+  },
+  {
+   "id": "recipe_archive_topology_06",
+   "layer": "archive_topology",
+   "query": "USE archive_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) WHERE flow.period_granularity = \"daily\" RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count ORDER BY flow.amount_usd_sum DESC LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "amount_usd_sum": "99993.81455013",
+     "from_identity": "bittensor:5gbnpzvpghs8aucoo6bfnk7jufhuyuhwsfd4wobnsknpieui",
+     "to_identity": "bittensor:5cvyjvqkum6s9jakjvtstucw2jmenaqxd3boapswjekhmjoy",
+     "tx_count": "5"
+    },
+    {
+     "amount_usd_sum": "99993.68112891",
+     "from_identity": "bittensor:5cvyjvqkum6s9jakjvtstucw2jmenaqxd3boapswjekhmjoy",
+     "to_identity": "bittensor:5gr1ab7lsv4et6rdwmveoxntpdbwazflxhhrcawnddjk22pp",
+     "tx_count": "3"
+    },
+    {
+     "amount_usd_sum": "9999.85627751",
+     "from_identity": "bittensor:5ewhvzcbpdetaanygpnz6hkns7t16na8upfehufbv61uh3vu",
+     "to_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "9999.81257862",
+     "from_identity": "bittensor:5dc2nieebkejzn68jdfxt79jxwifqth1ena88agmnvhp2jpx",
+     "to_identity": "bittensor:5gxhukbzfzf8twztutvfpkom6r9h43uttjqt1vtedkabwgag",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "9999.70329028",
+     "from_identity": "bittensor:5hw8c7rfhxzhpvk8awfaqkvugscwdwo4c4cuxt1frhzyecsu",
+     "to_identity": "bittensor:5gbipylpbcat1u4m1x4uqb9xeyt4yz9nsm859jc7ybeyyucb",
+     "tx_count": "4"
+    },
+    {
+     "amount_usd_sum": "9999.70043967",
+     "from_identity": "bittensor:5gxhukbzfzf8twztutvfpkom6r9h43uttjqt1vtedkabwgag",
+     "to_identity": "bittensor:5cmrlqwbgw5cweqwroiahpbqhf2iwqujhawvi9qa278acunz",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "9999.64527738",
+     "from_identity": "bittensor:5gykrjurw2digqmrraq88qckohfxyowxp5qnymzh67kpfhva",
+     "to_identity": "bittensor:5cdsxggpd8vku1yw1ukz2mguz4ypbgg1say7sxl3md3p4d7e",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "9999.35213187",
+     "from_identity": "bittensor:5dvbyqjfupcatlacc4djw3yay3bzbathyy3qrghcqw5czffz",
+     "to_identity": "bittensor:5dthsxux84fppagvt8qbgct5zwqj2baxtyecegteu6dwjyoz",
+     "tx_count": "3"
+    },
+    {
+     "amount_usd_sum": "9999.31520796",
+     "from_identity": "bittensor:0x6d6f646c73756274656e73726100000000000000",
+     "to_identity": "bittensor:5gq6vrsuniufc8obykqa2ehtus3jue8knqnbqsefvrf5ws7v",
+     "tx_count": "7"
+    },
+    {
+     "amount_usd_sum": "9999.28083711",
+     "from_identity": "bittensor:5gmep4twlfhbrhvdubuujrr14nkwfreyjysvy7usjma3czwg",
+     "to_identity": "bittensor:5ehdbqzh6p7wpasd8hokweitmgjvcsgjgy3adhryazuam7je",
+     "tx_count": "3"
+    },
+    {
+     "amount_usd_sum": "9999.20500673",
+     "from_identity": "bittensor:5dthsxux84fppagvt8qbgct5zwqj2baxtyecegteu6dwjyoz",
+     "to_identity": "bittensor:5gbnpzvpghs8aucoo6bfnk7jufhuyuhwsfd4wobnsknpieui",
+     "tx_count": "3"
+    },
+    {
+     "amount_usd_sum": "9999.12422104",
+     "from_identity": "bittensor:5ezyh6qme71rqdjj2ps3gsnpwlpchasegiqbqcpp2rljdkuk",
+     "to_identity": "bittensor:0x6d6f646c73756274656e73726900000000000000",
+     "tx_count": "4"
+    },
+    {
+     "amount_usd_sum": "99983.22155911",
+     "from_identity": "bittensor:5c7ro3aud2y5qovgwekanegjui8pird5aunb5s2e6pj2t3ds",
+     "to_identity": "bittensor:5gju21nunwkyj6cc3dmqbumtkazd3q2cpz1j8hzhxkawjkhs",
+     "tx_count": "37"
+    },
+    {
+     "amount_usd_sum": "9998.69699840",
+     "from_identity": "bittensor:5czq2hzfontjz2pimoczdk12n3jdls3ahf5zg4zs4radq8fb",
+     "to_identity": "bittensor:5el52rtf2pafemz1sgcysc8amdprzc7eagppnu1q6eknsaav",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "9998.69260160",
+     "from_identity": "bittensor:5el52rtf2pafemz1sgcysc8amdprzc7eagppnu1q6eknsaav",
+     "to_identity": "bittensor:5dhqug27u6ewzmuuq6hynvsmmdzbbbt2lgeqakrk47vnmagi",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "9998.57073502",
+     "from_identity": "bittensor:5g8rsyuvebwxmdfo1egv7yvtbvwazdv3t97phyvnbeu9hvn7",
+     "to_identity": "bittensor:5encqj7veeurjxvqblpsihkcxcrlxhpbbvw9d3te1d4dua6v",
+     "tx_count": "164"
+    },
+    {
+     "amount_usd_sum": "9998.08427885",
+     "from_identity": "bittensor:0x6d6f646c73756274656e73720400000000000000",
+     "to_identity": "bittensor:5ez6cfzklsbscv1jltxabkqpudnkygiex6ylmchh4gls8cyf",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "9998.06131945",
+     "from_identity": "bittensor:5h8d5cxtnhuy9hxxdaaab7nex8kpx3tto1eyhjgbo26gevoh",
+     "to_identity": "bittensor:5ehki4cugrnyjdepxbzxps4qljetwkggwtnd7syhxsdjzt4b",
+     "tx_count": "6"
+    },
+    {
+     "amount_usd_sum": "9997.96901303",
+     "from_identity": "bittensor:5h1wpcvgvnplapmesludcmjt6c7c2wlppiiwaqarftwm2x7v",
+     "to_identity": "bittensor:5cp55q65mlrfuc1vy8grhkvmqekcsfkyapmk9fh2p4cjqxs6",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "9997.81924795",
+     "from_identity": "bittensor:5dzxwrjqgkcnxii4ntiqpjqoodkk83trhbv11bwfzs2seqbc",
+     "to_identity": "bittensor:5fpkatscrxminmyu6yfb52vnj6gzifea5wcfrdy8o5xqpfzl",
+     "tx_count": "78"
+    },
+    {
+     "amount_usd_sum": "9997.47507094",
+     "from_identity": "bittensor:5ehdbqzh6p7wpasd8hokweitmgjvcsgjgy3adhryazuam7je",
+     "to_identity": "bittensor:5gbnpzvpghs8aucoo6bfnk7jufhuyuhwsfd4wobnsknpieui",
+     "tx_count": "1"
+    },
+    {
+     "amount_usd_sum": "9997.44641765",
+     "from_identity": "bittensor:5e2b2dcmd5w8mbhztcft63t2zen8rsrgl7odd7bfyl9amqux",
+     "to_identity": "bittensor:5dju9yyuexhpgbhjbmxmgychys3py2ekslbeh9dt4jwxvs87",
+     "tx_count": "9"
+    },
+    {
+     "amount_usd_sum": "9997.39091955",
+     "from_identity": "bittensor:5dhqug27u6ewzmuuq6hynvsmmdzbbbt2lgeqakrk47vnmagi",
+     "to_identity": "bittensor:5h7pqdrjwveicyqjjfpx4k7o1ckehldjuzrd6pzehnz1wcr1",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "9997.28304879",
+     "from_identity": "bittensor:5crmvkapx6sjybzal1gehfzvhwecpbavqrrxgylcqmhehx2q",
+     "to_identity": "bittensor:5cd7nubsycyn5v446ch19bxplpes8fhvbve68oem6tpd5cy2",
+     "tx_count": "2"
+    },
+    {
+     "amount_usd_sum": "9997.18604121",
+     "from_identity": "bittensor:5gpusaswnbytpk3nlxqwqxdaw8uecaw8e5ndmnadxgvbn1xq",
+     "to_identity": "bittensor:0x6d6f646c73756274656e73720000000000000000",
+     "tx_count": "12"
+    }
+   ]
+  },
+  {
+   "id": "recipe_archive_topology_07",
+   "layer": "archive_topology",
+   "query": "USE archive_topology MATCH (t:TopologySnapshot) RETURN t.graph_name AS graph_name, t.topology_tier AS topology_tier, t.default_period_granularity AS default_period_granularity, t.min_period_start_date AS min_period_start_date, t.max_period_end_date AS max_period_end_date, t.available_granularities AS available_granularities LIMIT 10",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "available_granularities": "daily",
+     "default_period_granularity": "archive",
+     "graph_name": "archive_topology",
+     "max_period_end_date": "2026-07-04 00:00:00",
+     "min_period_start_date": "2024-01-01 00:00:00",
+     "topology_tier": "archive"
+    }
+   ]
+  },
+  {
+   "id": "recipe_archive_topology_08",
+   "layer": "archive_topology",
+   "query": "USE archive_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) WHERE flow.amount_usd_sum IS NOT NULL RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, flow.amount_usd_sum AS amount_usd_sum, flow.period_granularity AS period_granularity ORDER BY flow.amount_usd_sum DESC LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "amount_usd_sum": "99993.81455013",
+     "from_identity": "bittensor:5gbnpzvpghs8aucoo6bfnk7jufhuyuhwsfd4wobnsknpieui",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5cvyjvqkum6s9jakjvtstucw2jmenaqxd3boapswjekhmjoy"
+    },
+    {
+     "amount_usd_sum": "99993.68112891",
+     "from_identity": "bittensor:5cvyjvqkum6s9jakjvtstucw2jmenaqxd3boapswjekhmjoy",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5gr1ab7lsv4et6rdwmveoxntpdbwazflxhhrcawnddjk22pp"
+    },
+    {
+     "amount_usd_sum": "9999.85627751",
+     "from_identity": "bittensor:5ewhvzcbpdetaanygpnz6hkns7t16na8upfehufbv61uh3vu",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5cnchyk2fnvgvszdlavvfb4qbtmgm6wfuqvsebg6hj8xwzkp"
+    },
+    {
+     "amount_usd_sum": "9999.81257862",
+     "from_identity": "bittensor:5dc2nieebkejzn68jdfxt79jxwifqth1ena88agmnvhp2jpx",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5gxhukbzfzf8twztutvfpkom6r9h43uttjqt1vtedkabwgag"
+    },
+    {
+     "amount_usd_sum": "9999.70329028",
+     "from_identity": "bittensor:5hw8c7rfhxzhpvk8awfaqkvugscwdwo4c4cuxt1frhzyecsu",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5gbipylpbcat1u4m1x4uqb9xeyt4yz9nsm859jc7ybeyyucb"
+    },
+    {
+     "amount_usd_sum": "9999.70043967",
+     "from_identity": "bittensor:5gxhukbzfzf8twztutvfpkom6r9h43uttjqt1vtedkabwgag",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5cmrlqwbgw5cweqwroiahpbqhf2iwqujhawvi9qa278acunz"
+    },
+    {
+     "amount_usd_sum": "9999.64527738",
+     "from_identity": "bittensor:5gykrjurw2digqmrraq88qckohfxyowxp5qnymzh67kpfhva",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5cdsxggpd8vku1yw1ukz2mguz4ypbgg1say7sxl3md3p4d7e"
+    },
+    {
+     "amount_usd_sum": "9999.35213187",
+     "from_identity": "bittensor:5dvbyqjfupcatlacc4djw3yay3bzbathyy3qrghcqw5czffz",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5dthsxux84fppagvt8qbgct5zwqj2baxtyecegteu6dwjyoz"
+    },
+    {
+     "amount_usd_sum": "9999.31520796",
+     "from_identity": "bittensor:0x6d6f646c73756274656e73726100000000000000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5gq6vrsuniufc8obykqa2ehtus3jue8knqnbqsefvrf5ws7v"
+    },
+    {
+     "amount_usd_sum": "9999.28083711",
+     "from_identity": "bittensor:5gmep4twlfhbrhvdubuujrr14nkwfreyjysvy7usjma3czwg",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5ehdbqzh6p7wpasd8hokweitmgjvcsgjgy3adhryazuam7je"
+    },
+    {
+     "amount_usd_sum": "9999.20500673",
+     "from_identity": "bittensor:5dthsxux84fppagvt8qbgct5zwqj2baxtyecegteu6dwjyoz",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5gbnpzvpghs8aucoo6bfnk7jufhuyuhwsfd4wobnsknpieui"
+    },
+    {
+     "amount_usd_sum": "9999.12422104",
+     "from_identity": "bittensor:5ezyh6qme71rqdjj2ps3gsnpwlpchasegiqbqcpp2rljdkuk",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:0x6d6f646c73756274656e73726900000000000000"
+    },
+    {
+     "amount_usd_sum": "99983.22155911",
+     "from_identity": "bittensor:5c7ro3aud2y5qovgwekanegjui8pird5aunb5s2e6pj2t3ds",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5gju21nunwkyj6cc3dmqbumtkazd3q2cpz1j8hzhxkawjkhs"
+    },
+    {
+     "amount_usd_sum": "9998.69699840",
+     "from_identity": "bittensor:5czq2hzfontjz2pimoczdk12n3jdls3ahf5zg4zs4radq8fb",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5el52rtf2pafemz1sgcysc8amdprzc7eagppnu1q6eknsaav"
+    },
+    {
+     "amount_usd_sum": "9998.69260160",
+     "from_identity": "bittensor:5el52rtf2pafemz1sgcysc8amdprzc7eagppnu1q6eknsaav",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5dhqug27u6ewzmuuq6hynvsmmdzbbbt2lgeqakrk47vnmagi"
+    },
+    {
+     "amount_usd_sum": "9998.57073502",
+     "from_identity": "bittensor:5g8rsyuvebwxmdfo1egv7yvtbvwazdv3t97phyvnbeu9hvn7",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5encqj7veeurjxvqblpsihkcxcrlxhpbbvw9d3te1d4dua6v"
+    },
+    {
+     "amount_usd_sum": "9998.08427885",
+     "from_identity": "bittensor:0x6d6f646c73756274656e73720400000000000000",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5ez6cfzklsbscv1jltxabkqpudnkygiex6ylmchh4gls8cyf"
+    },
+    {
+     "amount_usd_sum": "9998.06131945",
+     "from_identity": "bittensor:5h8d5cxtnhuy9hxxdaaab7nex8kpx3tto1eyhjgbo26gevoh",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5ehki4cugrnyjdepxbzxps4qljetwkggwtnd7syhxsdjzt4b"
+    },
+    {
+     "amount_usd_sum": "9997.96901303",
+     "from_identity": "bittensor:5h1wpcvgvnplapmesludcmjt6c7c2wlppiiwaqarftwm2x7v",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5cp55q65mlrfuc1vy8grhkvmqekcsfkyapmk9fh2p4cjqxs6"
+    },
+    {
+     "amount_usd_sum": "9997.81924795",
+     "from_identity": "bittensor:5dzxwrjqgkcnxii4ntiqpjqoodkk83trhbv11bwfzs2seqbc",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5fpkatscrxminmyu6yfb52vnj6gzifea5wcfrdy8o5xqpfzl"
+    },
+    {
+     "amount_usd_sum": "9997.47507094",
+     "from_identity": "bittensor:5ehdbqzh6p7wpasd8hokweitmgjvcsgjgy3adhryazuam7je",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5gbnpzvpghs8aucoo6bfnk7jufhuyuhwsfd4wobnsknpieui"
+    },
+    {
+     "amount_usd_sum": "9997.44641765",
+     "from_identity": "bittensor:5e2b2dcmd5w8mbhztcft63t2zen8rsrgl7odd7bfyl9amqux",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5dju9yyuexhpgbhjbmxmgychys3py2ekslbeh9dt4jwxvs87"
+    },
+    {
+     "amount_usd_sum": "9997.39091955",
+     "from_identity": "bittensor:5dhqug27u6ewzmuuq6hynvsmmdzbbbt2lgeqakrk47vnmagi",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5h7pqdrjwveicyqjjfpx4k7o1ckehldjuzrd6pzehnz1wcr1"
+    },
+    {
+     "amount_usd_sum": "9997.28304879",
+     "from_identity": "bittensor:5crmvkapx6sjybzal1gehfzvhwecpbavqrrxgylcqmhehx2q",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:5cd7nubsycyn5v446ch19bxplpes8fhvbve68oem6tpd5cy2"
+    },
+    {
+     "amount_usd_sum": "9997.18604121",
+     "from_identity": "bittensor:5gpusaswnbytpk3nlxqwqxdaw8uecaw8e5ndmnadxgvbn1xq",
+     "period_granularity": "daily",
+     "to_identity": "bittensor:0x6d6f646c73756274656e73720000000000000000"
+    }
+   ]
+  },
+  {
+   "id": "recipe_archive_topology_09",
+   "layer": "archive_topology",
+   "query": "USE archive_topology MATCH (:Identity)-[flow:FLOWS_TO]->(:Identity) RETURN DISTINCT flow.period_granularity AS period_granularity LIMIT 10",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "period_granularity": "daily"
+    }
+   ]
+  },
+  {
+   "id": "recipe_archive_topology_10",
+   "layer": "archive_topology",
+   "query": "USE archive_topology MATCH (src:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[flow:FLOWS_TO]->(dst:Identity) WITH dst, sum(flow.amount_usd_sum) AS total_usd, count(flow) AS flow_edges RETURN dst.identity_id AS to_identity, total_usd, flow_edges ORDER BY total_usd DESC LIMIT 25",
+   "baseline": "unsupported",
+   "reason": "documented shape outside the archive translator's compiled subset (WITH/CASE/grouped aggregate)"
+  },
+  {
+   "id": "recipe_archive_topology_11",
+   "layer": "archive_topology",
+   "query": "USE archive_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, CASE WHEN flow.amount_usd_sum > 100000 THEN \"high\" WHEN flow.amount_usd_sum > 1000 THEN \"medium\" ELSE \"low\" END AS amount_band LIMIT 25",
+   "baseline": "unsupported",
+   "reason": "documented shape outside the archive translator's compiled subset (WITH/CASE/grouped aggregate)"
+  },
+  {
+   "id": "recipe_archive_topology_12",
+   "layer": "archive_topology",
+   "query": "USE archive_topology MATCH (i:Identity) RETURN count(i) AS identity_count LIMIT 1",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "identity_count": 482624
+    }
+   ]
+  },
+  {
+   "id": "recipe_facts_01",
+   "layer": "facts",
+   "query": "USE facts MATCH (i:Identity)-[:HAS_FEATURE]->(f:AddressFeature) RETURN i.identity_id AS identity_id, f.tx_out_count AS tx_out_count, f.tx_in_count AS tx_in_count LIMIT 10",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "identity_id": "bittensor:0x00d78daf782921b27a6b407d34f19842c10a4a6b",
+     "tx_in_count": "6",
+     "tx_out_count": "7"
+    },
+    {
+     "identity_id": "bittensor:0x0271d189a6ceaae1572f4f0ac25ab13be8f2521c",
+     "tx_in_count": "4",
+     "tx_out_count": "6"
+    },
+    {
+     "identity_id": "bittensor:0x027473f7793b9613838767ea71f73aaca280f0c5",
+     "tx_in_count": "8",
+     "tx_out_count": "6"
+    },
+    {
+     "identity_id": "bittensor:0x05209e9815a075f39ab465aa1d1277422ac17662",
+     "tx_in_count": "6",
+     "tx_out_count": "4"
+    },
+    {
+     "identity_id": "bittensor:0x05f39816f0655457f25935d92696b047e1ee07f6",
+     "tx_in_count": "1",
+     "tx_out_count": "0"
+    },
+    {
+     "identity_id": "bittensor:0x067c2069a28b047838e534da02b4faf94cc06f85",
+     "tx_in_count": "1",
+     "tx_out_count": "0"
+    },
+    {
+     "identity_id": "bittensor:0x072d3b2e4c3c1023bdc07ee94777d79c82b898af",
+     "tx_in_count": "3",
+     "tx_out_count": "1"
+    },
+    {
+     "identity_id": "bittensor:0x0886a501e8dcbb4e2ea61eff09bba29b34a82ed0",
+     "tx_in_count": "1",
+     "tx_out_count": "1"
+    },
+    {
+     "identity_id": "bittensor:0x08f18859b17fe4979eea154756acd2955e6777a4",
+     "tx_in_count": "6",
+     "tx_out_count": "6"
+    },
+    {
+     "identity_id": "bittensor:0x0ac1471a9c80c0cb178a972a72328ae9ede87689",
+     "tx_in_count": "1",
+     "tx_out_count": "0"
+    }
+   ]
+  },
+  {
+   "id": "recipe_facts_02",
+   "layer": "facts",
+   "query": "USE facts MATCH (i:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[:HAS_LABEL]->(label:AddressLabel) RETURN label.label AS label, label.entity_type AS entity_type, label.source AS source LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "entity_type": "exchange",
+     "label": "Bitget",
+     "source": "taostats_api"
+    },
+    {
+     "entity_type": "exchange",
+     "label": "exchange",
+     "source": "scam_topology_propagator"
+    }
+   ]
+  },
+  {
+   "id": "recipe_facts_03",
+   "layer": "facts",
+   "query": "USE facts MATCH (i:Identity) RETURN i.identity_id AS identity_id, i.labels AS labels, i.is_exchange AS is_exchange LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "identity_id": "bittensor:0x0000000000000000000000000000000000000000",
+     "is_exchange": null,
+     "labels": "Dusting source (fanout=1410 targets)"
+    },
+    {
+     "identity_id": "bittensor:0x000000000000000000000000000000000000dead",
+     "is_exchange": null,
+     "labels": ""
+    },
+    {
+     "identity_id": "bittensor:0x000000009bb6453f06c274c6f71537044de926a8",
+     "is_exchange": null,
+     "labels": ""
+    },
+    {
+     "identity_id": "bittensor:0x00000274d208d797f3fa90ed734578079db51a69",
+     "is_exchange": null,
+     "labels": ""
+    },
+    {
+     "identity_id": "bittensor:0x000009df76cd34aa2133900bff2b488d2c2fa4b3",
+     "is_exchange": null,
+     "labels": ""
+    },
+    {
+     "identity_id": "bittensor:0x00086222786345a7a0cb640d7d3ea5483eb77a1e",
+     "is_exchange": null,
+     "labels": "scam"
+    },
+    {
+     "identity_id": "bittensor:0x0024d25f003c1e02cebec5291bc54943910c4332",
+     "is_exchange": null,
+     "labels": ""
+    },
+    {
+     "identity_id": "bittensor:0x003c75f06b960f83dbb4359c61abe6416ded4054",
+     "is_exchange": null,
+     "labels": ""
+    },
+    {
+     "identity_id": "bittensor:0x0056014b7016a0944ab677d6faab0c3cee5c1e4e",
+     "is_exchange": null,
+     "labels": ""
+    },
+    {
+     "identity_id": "bittensor:0x0064c1608efa188c7e51bbf1cd914e16f9807ba4",
+     "is_exchange": null,
+     "labels": "scam"
+    },
+    {
+     "identity_id": "bittensor:0x0078d9a566bb8286a9dbc1a3b59dd1acd47fdc61",
+     "is_exchange": null,
+     "labels": ""
+    },
+    {
+     "identity_id": "bittensor:0x00801180685476dd2cb0718b87114412cf37a39b",
+     "is_exchange": null,
+     "labels": ""
+    },
+    {
+     "identity_id": "bittensor:0x0086e8b7671d889ed09140865fc3a1d5892fe220",
+     "is_exchange": null,
+     "labels": ""
+    },
+    {
+     "identity_id": "bittensor:0x00a300e5dee37d8d87e98e5c179eb7f7992f1000",
+     "is_exchange": null,
+     "labels": "scam"
+    },
+    {
+     "identity_id": "bittensor:0x00a36bf34c91e0f240b287fa1fb510a0b0479ff9",
+     "is_exchange": null,
+     "labels": ""
+    },
+    {
+     "identity_id": "bittensor:0x00c173bf71c3c82a0401ce9cb67000ba36922456",
+     "is_exchange": null,
+     "labels": "Dusting source (fanout=7 targets)"
+    },
+    {
+     "identity_id": "bittensor:0x00c5b6af15b7aca9bfbbf0b19e5fbea1ca40bb05",
+     "is_exchange": null,
+     "labels": ""
+    },
+    {
+     "identity_id": "bittensor:0x00cbee46c376e43d51d97df30c5949e62678b46e",
+     "is_exchange": null,
+     "labels": ""
+    },
+    {
+     "identity_id": "bittensor:0x00d263f5b323f448f3f0b784693b50c3e516d6f1",
+     "is_exchange": null,
+     "labels": ""
+    },
+    {
+     "identity_id": "bittensor:0x00d415404751c5baac56eadd9dd6d618fc521c58",
+     "is_exchange": null,
+     "labels": ""
+    },
+    {
+     "identity_id": "bittensor:0x00d78daf782921b27a6b407d34f19842c10a4a6b",
+     "is_exchange": null,
+     "labels": ""
+    },
+    {
+     "identity_id": "bittensor:0x00db464690c4329ca426696131815d45117e9ce2",
+     "is_exchange": null,
+     "labels": ""
+    },
+    {
+     "identity_id": "bittensor:0x00dba06f5c4d77acbcf80404e4517807f10380c6",
+     "is_exchange": null,
+     "labels": ""
+    },
+    {
+     "identity_id": "bittensor:0x00de43f007132ebfad320f0c9f6cc2120a2ada18",
+     "is_exchange": null,
+     "labels": ""
+    },
+    {
+     "identity_id": "bittensor:0x00df3b37ed7302ee504f61747ed38dc13bd165e4",
+     "is_exchange": null,
+     "labels": ""
+    }
+   ]
+  },
+  {
+   "id": "recipe_facts_04",
+   "layer": "facts",
+   "query": "USE facts MATCH (i:Identity)-[:HAS_RISK_SCORE]->(r:RiskScore) RETURN i.identity_id AS identity_id, r.risk_score AS risk_score, r.window_days AS window_days, r.xgboost_model_version AS xgboost_model_version LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "identity_id": "bittensor:0x0efc92aef625247163fcaa3b30a9cab955cdc206",
+     "risk_score": "0.62813044",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:0x4208f85180b9556ff439bc73bc1c43131fde0409",
+     "risk_score": "0.021818174",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:0x61eea4770d7e15e7036f8632f4bcb33af1af1e25",
+     "risk_score": "0.9059205",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:0x6d6f646c73756274656e73720000000000000000",
+     "risk_score": "0.9236739",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:0x6d6f646c73756274656e73720500000000000000",
+     "risk_score": "0.104330346",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:0x6d6f646c73756274656e73720d00000000000000",
+     "risk_score": "0.037889898",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:0x6d6f646c73756274656e73721300000000000000",
+     "risk_score": "0.07075369",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:0x6d6f646c73756274656e73721500000000000000",
+     "risk_score": "0.017251927",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:0x6d6f646c73756274656e73722100000000000000",
+     "risk_score": "0.030495541",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:0x6d6f646c73756274656e73722200000000000000",
+     "risk_score": "0.03015386",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:0x6d6f646c73756274656e73725200000000000000",
+     "risk_score": "0.021236764",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:0x6d6f646c73756274656e73725e00000000000000",
+     "risk_score": "0.01972224",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:0x6d6f646c73756274656e73726a00000000000000",
+     "risk_score": "0.022116028",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:0x6d6f646c73756274656e73727500000000000000",
+     "risk_score": "0.021923672",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:0x6d6f646c73756274656e73727600000000000000",
+     "risk_score": "0.049668144",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:0x6d6f646c73756274656e73727d00000000000000",
+     "risk_score": "0.04631028",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:0x960ef77a03e281886969b8d741d2d67feb720ec9",
+     "risk_score": "0.7918398",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:0xb6a30fd5ed09dadd85ff5d6c0c704273053f6bc3",
+     "risk_score": "0.3020734",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:0xb833e8137fedf80de7e908dc6fea43a029142f20",
+     "risk_score": "0.3187156",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:5c4hytebbrilgq8ddqnweq3ml5cdzslhxxpa9htjkzsxjbqp",
+     "risk_score": "0.02921262",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:5c4pmqzb7uzazqxex6fcdu1sfb2qubvpw4ncbxqpvqznngol",
+     "risk_score": "0.076116614",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:5c4twyjhkujptexk49t1f8v2cxqb7w836vjuuki9rzkrjfil",
+     "risk_score": "0.5235372",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:5c4vzu9omxqcsakoqxzpjmrwca5xpntdthskz54yt6vnwnda",
+     "risk_score": "0.0061333897",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:5c51hmhy1y2twekzlvuaqiugcuo8wmhrjccql346b6brnffh",
+     "risk_score": "0.9826757",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    },
+    {
+     "identity_id": "bittensor:5c5awcsaqvq8wrhcvsawurkg4t2oslcgtnaycqkfhps4hbvk",
+     "risk_score": "0.8280616",
+     "window_days": "7",
+     "xgboost_model_version": "xgb_bittensor_2026-06-30_window_7"
+    }
+   ]
+  },
+  {
+   "id": "recipe_facts_05",
+   "layer": "facts",
+   "query": "USE facts MATCH (a:Asset) WHERE a.coingecko_id IS NOT NULL RETURN a.asset_symbol AS asset_symbol, a.asset_contract AS asset_contract, a.pricing_tier AS pricing_tier, a.verified AS verified ORDER BY a.asset_symbol ASC LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": []
+  },
+  {
+   "id": "recipe_facts_06",
+   "layer": "facts",
+   "query": "USE facts MATCH (n:NeuronEndpoint) WHERE n.netuid = 15 RETURN n.endpoint_id AS endpoint_id, n.coldkey_address AS coldkey_address, n.hotkey_address AS hotkey_address, n.netuid AS netuid, n.ip_address AS ip_address, n.axon_port AS axon_port ORDER BY n.last_seen_timestamp DESC LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "axon_port": "8091",
+     "coldkey_address": "bittensor:5csrugtxt2lrdhgxqtb6f9cvhesfwp5yrbfnujxru4m4xuze",
+     "endpoint_id": "29e646d7c2d3874c6c8349490efaf114f089a3f71c3a9710aee3e0507760bab2",
+     "hotkey_address": "bittensor:5dxnwvyr9yzqkjbb67eqrzmpzgaw4h7dum5phzfe64trttgc",
+     "ip_address": "183.222.164.28",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8102",
+     "coldkey_address": "bittensor:5ctpmg3gagzxssrwj2xnzg2y7pxbs6t5wglhbjpcss4b2ldv",
+     "endpoint_id": "94f0f55343cbf50707ab994f9addd90059e1187e8c1a5b28cd391b47128956a8",
+     "hotkey_address": "bittensor:5d4b2smoexbjayh6k9xb9qfibk8a8xsemsyvy5g1sqnzic8b",
+     "ip_address": "43.245.224.240",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8205",
+     "coldkey_address": "bittensor:5gqn2udccolh5euqcrotqfumzyec9xcervkg88k6vmqma4g3",
+     "endpoint_id": "4c4bd0bf389059050e404431a8b60f6ff0885d3fa0413cacc5c4fd1a0fb99cc3",
+     "hotkey_address": "bittensor:5enjbapqmtydbzknkvspmmmsrjj9xqplqnayfkszw7jsfx19",
+     "ip_address": "95.216.29.17",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8204",
+     "coldkey_address": "bittensor:5gqn2udccolh5euqcrotqfumzyec9xcervkg88k6vmqma4g3",
+     "endpoint_id": "244876c1e9b163032542662e02a633d54a0fcf289100317acacb500340e5a5d9",
+     "hotkey_address": "bittensor:5ecrz7zxqmamgfroqa9rew4zcdv711gelwycpymp9ydklkzz",
+     "ip_address": "95.216.29.17",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8203",
+     "coldkey_address": "bittensor:5gqn2udccolh5euqcrotqfumzyec9xcervkg88k6vmqma4g3",
+     "endpoint_id": "a373633c1146b2cada3e88cd7bb193b6f03e6eba6966b116ef3e1e5249e26781",
+     "hotkey_address": "bittensor:5dfcqrvthzpjftojrufkce8z5t7wgmt6zrthalgfldderuuc",
+     "ip_address": "95.216.29.17",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8094",
+     "coldkey_address": "bittensor:5cml5nkr7dkiritwgwhdd7v6b8wmyagkpbqvkc7hyxemfsbp",
+     "endpoint_id": "7307cb49f6a68e92e2356d6eb1e9cee11c1b0c5d8145179fecd3c5d54318b52c",
+     "hotkey_address": "bittensor:5freswy6ffbekddnv9xmxxm6jnaauwtfbsi7we4prwwhbbfr",
+     "ip_address": "146.0.78.80",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8109",
+     "coldkey_address": "bittensor:5cml5nkr7dkiritwgwhdd7v6b8wmyagkpbqvkc7hyxemfsbp",
+     "endpoint_id": "32e62dc4c6df65e6e661adce9d1b8cfd728f1ec4105b0863b435f3dbc8c2fa70",
+     "hotkey_address": "bittensor:5du92fwoe2zb4smup6gesbw9kptdzu54gf1w1qmuu8ytadct",
+     "ip_address": "146.0.78.80",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8202",
+     "coldkey_address": "bittensor:5gqn2udccolh5euqcrotqfumzyec9xcervkg88k6vmqma4g3",
+     "endpoint_id": "d765c9c78f2e6ef37f192e822105a03be347bf3e76cbf42d21534ec0576863bd",
+     "hotkey_address": "bittensor:5chfabphcuwpmpvbqceaffyjmnvvw3glbxhchdjaurweo81h",
+     "ip_address": "95.216.29.17",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8201",
+     "coldkey_address": "bittensor:5gqn2udccolh5euqcrotqfumzyec9xcervkg88k6vmqma4g3",
+     "endpoint_id": "48faebeaa69eaec7e9137c894634e78c632c3bd311a5e1ae5b06a928c18820a3",
+     "hotkey_address": "bittensor:5g1mbgazc6qmguxaqjavze6b28vn6tg7fthzftxv5navufub",
+     "ip_address": "95.216.29.17",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8110",
+     "coldkey_address": "bittensor:5cml5nkr7dkiritwgwhdd7v6b8wmyagkpbqvkc7hyxemfsbp",
+     "endpoint_id": "4fe8705d7da40ddab54dd7d5c1f41a0599dd307f890fbb06ce93407978a07f8e",
+     "hotkey_address": "bittensor:5dz2sqiqfkteamwzbfhcj24jcggivxqmwdwkkkspoanyftku",
+     "ip_address": "146.0.78.80",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8101",
+     "coldkey_address": "bittensor:5dbtvmdprhnfrwbec4aunnjmaabi3ngqjttfmaq3eu3qjce2",
+     "endpoint_id": "ab40fde7030d3de251ca91f2bbf4ff9b4df95f10865ed946f51a892c658bb25d",
+     "hotkey_address": "bittensor:5hdfuszlvqjsehcktc2bvfyzdmekmsfhyzjdwxrla9jkym9m",
+     "ip_address": "212.108.82.107",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8130",
+     "coldkey_address": "bittensor:5gk2mbudatshfxogji9kyvju1ztmspntyfwbtqdwuss5eijc",
+     "endpoint_id": "a03a2829b4b455e6fb2fb51c5162fa214ca5180789b2a1e53cd28c69d76f036f",
+     "hotkey_address": "bittensor:5gzg6xgcfhrafbw5ezaechs6ixzouvsy4g4jtpaybucky7mf",
+     "ip_address": "151.241.109.250",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8114",
+     "coldkey_address": "bittensor:5gk2mbudatshfxogji9kyvju1ztmspntyfwbtqdwuss5eijc",
+     "endpoint_id": "834171e22e5138a15f5a62cde4a1829ab3f9e2ba5a72663e778dc6c8beb6ef01",
+     "hotkey_address": "bittensor:5dqsnzwf5eucqcccfa9wrt78xex7yxnddinqwdwbwyntsbf1",
+     "ip_address": "151.241.109.250",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8091",
+     "coldkey_address": "bittensor:5dbtvmdprhnfrwbec4aunnjmaabi3ngqjttfmaq3eu3qjce2",
+     "endpoint_id": "f51f102603ae81a47cde9e9fdb06802517704f90a4e4acd867ad780b3bbb4a10",
+     "hotkey_address": "bittensor:5hbjgtpyjvputwvjp8r7f9j4iuc5riuft8s61nkk9ozwdqr4",
+     "ip_address": "212.108.82.107",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8126",
+     "coldkey_address": "bittensor:5gk2mbudatshfxogji9kyvju1ztmspntyfwbtqdwuss5eijc",
+     "endpoint_id": "ce632bbc0f135f5cad74052630a496df72659424c93b0ddf627fa032c0b1b6c9",
+     "hotkey_address": "bittensor:5fcsbfdfne6ohqmnnrd9wdmb47cysdrza5xp6vxbwl2tmmy7",
+     "ip_address": "151.241.109.250",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8095",
+     "coldkey_address": "bittensor:5cafrvghq9crwkefvbrgre3y7ebwjk4jvdhodrpmke8h9bua",
+     "endpoint_id": "2d28b912f500054d5cd60c32c3b41622ca92483d7232ec2d2855992df3d84363",
+     "hotkey_address": "bittensor:5d4rpwy6bqstexgfu1vik3fhxzpmovpi3bdx4corzp8qdgat",
+     "ip_address": "43.245.224.225",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8092",
+     "coldkey_address": "bittensor:5h11uoxzykz6e9qg6qe7aapjwasc9jpv73tth1rphqz9rzs3",
+     "endpoint_id": "4444cd5ac67987fe677e523594eef0d46bf98a75207c2904d86532498fd3112f",
+     "hotkey_address": "bittensor:5f3olvkwjjqut6iux51buqtlpbqvhwz95dqwt5yey8fvdsy2",
+     "ip_address": "146.0.76.243",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8092",
+     "coldkey_address": "bittensor:5hewtz46owq1beyvetwgm1jvyrpj1jddtsppjyh5mjpe2hb1",
+     "endpoint_id": "02fe14c8f2f9cd4c726dc6f21dff91cd799b28312581826eae3ddb47b4e46bfa",
+     "hotkey_address": "bittensor:5gqvzks9hfnzc8qllmdudfukkmynfy6kuqcpqhyrbbg2ipzf",
+     "ip_address": "95.216.112.36",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8091",
+     "coldkey_address": "bittensor:5hewtz46owq1beyvetwgm1jvyrpj1jddtsppjyh5mjpe2hb1",
+     "endpoint_id": "70c2985020ea572008c5851206ffe1bfa5bc9498b38fa17897a4065619819d07",
+     "hotkey_address": "bittensor:5ef9z3qys9yhfkoubf2sv6kdvrpwiryw64mibooqjubngub2",
+     "ip_address": "95.216.112.36",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8721",
+     "coldkey_address": "bittensor:5f2dq6afhvxuyxuc8ny9todabwbgsgwie4eqbeufjzjfqhso",
+     "endpoint_id": "8e99ca6b5a8472b4b9e521fcf8eeb7ee793659725aaea07c7d690d186150d75d",
+     "hotkey_address": "bittensor:5cigtle3hzgtgb1vey3doxaisn7rkqmge2ghpmpcbquxadps",
+     "ip_address": "185.191.118.144",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8716",
+     "coldkey_address": "bittensor:5dfhysdxo4gx2m9reu1plcugntfocd8ppqaehp2uxeedcsyt",
+     "endpoint_id": "07efc76f784ab3fd6e74292183e96f4188fa7a76958bfe9555fa806d53145ee7",
+     "hotkey_address": "bittensor:5dbv8tvxctqg3oxtkpzcq4upyfq2gysdyuwjcjjq5e52y7as",
+     "ip_address": "185.191.118.144",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8709",
+     "coldkey_address": "bittensor:5gxfznjxm9dxg7qyhjlfme9vypta8swgszrbsabxgzhydkbo",
+     "endpoint_id": "ba51f33154eb54bf89490fe8878673d9d5bcad351a33c1215e17cfbb4cecbfe1",
+     "hotkey_address": "bittensor:5djstwxyik85tdabiuppqnkfxumonsmv3yhgwczq8b4hzbjp",
+     "ip_address": "185.191.118.144",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8711",
+     "coldkey_address": "bittensor:5gumhebnthkxvshtqqsyp76rxhswavr9ygkjg8kvx29zf64a",
+     "endpoint_id": "ba755e9b790ab5b12356376e465ae0fbbe71f5d9ab22eeb524351a94aad35f18",
+     "hotkey_address": "bittensor:5hgo1bt63hru9sv3fp2olzlx5ntjzdzjn6xs7z9fgs6ftutc",
+     "ip_address": "185.191.118.144",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8107",
+     "coldkey_address": "bittensor:5hau4cq1za1qntdqym7chldeow7rstqfax61arbgcfdmu4kr",
+     "endpoint_id": "94696ac8f42ea319e5b2d8ac01c447a88504055ab99a1edd88f7f1a0e7d6f646",
+     "hotkey_address": "bittensor:5cjrj94yehadfvu29kwecstjgvs1hsf7m3bi61a4q9f9mqqy",
+     "ip_address": "146.0.79.23",
+     "netuid": "15"
+    },
+    {
+     "axon_port": "8097",
+     "coldkey_address": "bittensor:5dbtvmdprhnfrwbec4aunnjmaabi3ngqjttfmaq3eu3qjce2",
+     "endpoint_id": "aaf0258fbea1be5554d59e181c8c9e14af64124959e1fd1034c4d155baf1ba2b",
+     "hotkey_address": "bittensor:5g3yrcranvq4bhl5nzjhxibvpfwxm1p7mwg1htvcpbgbn56z",
+     "ip_address": "212.108.82.107",
+     "netuid": "15"
+    }
+   ]
+  },
+  {
+   "id": "recipe_facts_07",
+   "layer": "facts",
+   "query": "USE facts MATCH (i:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[hne:HAS_NEURON_ENDPOINT]->(n:NeuronEndpoint) RETURN n.endpoint_id AS endpoint_id, hne.netuid AS netuid, hne.hotkey_address AS hotkey_address, hne.ip_address AS ip_address, hne.last_seen_timestamp AS last_seen_timestamp ORDER BY hne.last_seen_timestamp DESC LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": []
+  },
+  {
+   "id": "recipe_facts_08",
+   "layer": "facts",
+   "query": "USE facts MATCH (i:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[reg:REGISTERED_NEURON]->(h:Hotkey) WHERE reg.netuid = 15 RETURN h.address AS hotkey_address, reg.netuid AS netuid, reg.observation_count AS observation_count, reg.last_seen_timestamp AS last_seen_timestamp ORDER BY reg.last_seen_timestamp DESC LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": []
+  },
+  {
+   "id": "recipe_facts_09",
+   "layer": "facts",
+   "query": "USE facts MATCH (h:Hotkey) RETURN h.address AS address, h.netuids AS netuids, h.observation_count AS observation_count, h.first_seen_timestamp AS first_seen_timestamp, h.last_seen_timestamp AS last_seen_timestamp ORDER BY h.observation_count DESC LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "address": "bittensor:5djwkkcdca2s4l7qwyuihg2xiayeeznusgotqmjf4fy7ci82",
+     "first_seen_timestamp": "1730709288001",
+     "last_seen_timestamp": "1738987740000",
+     "netuids": "19",
+     "observation_count": "97"
+    },
+    {
+     "address": "bittensor:5fhuns5414buevhxw57tjaqxwmhss5sdanfz8q7afdenbsve",
+     "first_seen_timestamp": "1710406800003",
+     "last_seen_timestamp": "1722307236001",
+     "netuids": "29,12",
+     "observation_count": "93"
+    },
+    {
+     "address": "bittensor:5c8rgmludxdb1c4cgo7xyhhkmk7pvnpfdbvdh6ktnfxfrqve",
+     "first_seen_timestamp": "1704670440000",
+     "last_seen_timestamp": "1711182732000",
+     "netuids": "17",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5c83l4mncz2bekjpn2y8hk14wp4hbnwqoio3su9lfhtkuumg",
+     "first_seen_timestamp": "1709282148000",
+     "last_seen_timestamp": "1755880416000",
+     "netuids": "18",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5c84mvxcggfvvowz61hkdhnhvj5t6gukaeufkbbcbejcnr6v",
+     "first_seen_timestamp": "1704967380000",
+     "last_seen_timestamp": "1713993996000",
+     "netuids": "26,25,16,22,23,29",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5cad2qai73zjsreyftmgjkksdbcaa5zdvajhyqyc9z3tamwr",
+     "first_seen_timestamp": "1709825580000",
+     "last_seen_timestamp": "1710427056001",
+     "netuids": "1,13",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5c5t9q1zg9clwrnyeuyj3trmfdksurvxanjhn3ch3usioe8h",
+     "first_seen_timestamp": "1724378220002",
+     "last_seen_timestamp": "1737048576000",
+     "netuids": "55,45,49,36,35,15,42",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5c5uyndgg7yvns7vyuffk1rh2229eeeumgegfdupxuwtcbnu",
+     "first_seen_timestamp": "1737619500000",
+     "last_seen_timestamp": "1755459816000",
+     "netuids": "70,122,94,54,18,36,15,62",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5c8afu6ekucvmrmygv8fsuik614jsuygxojsdpihczgofdlm",
+     "first_seen_timestamp": "1748878164000",
+     "last_seen_timestamp": "1754896980000",
+     "netuids": "26,60,102,99,38,79",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5c8bwnbg5jeynsedks9g1ujh1rsqy2m1djwj9if26qrctsgw",
+     "first_seen_timestamp": "1708456188001",
+     "last_seen_timestamp": "1715408016001",
+     "netuids": "5,12",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5c7zvxjxlyrkkpvtumh2ds688uhkkgpwhknoghsfarxtssjx",
+     "first_seen_timestamp": "1723941876005",
+     "last_seen_timestamp": "1733518716000",
+     "netuids": "41,36,47",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5c7xn9oyyezmgn8hgwbzkwgwkkwe912naoppuu6mauenx5du",
+     "first_seen_timestamp": "1710394860000",
+     "last_seen_timestamp": "1730735988000",
+     "netuids": "45,36,42,32,33,2,34,25",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5cajuvcx4gaxogs7pzoffqqrn9rztzn2phqwcva81atvvgdu",
+     "first_seen_timestamp": "1752970332000",
+     "last_seen_timestamp": "1760736012000",
+     "netuids": "105,103,122,117,31",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5cacs5qctt819dk52fp4xmvh8zpzsqu2mdn4r8ulhwpdvsx7",
+     "first_seen_timestamp": "1719567228001",
+     "last_seen_timestamp": "1760361120000",
+     "netuids": "22,60",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5c5tdz359rfajrrjbavtsygger9lqbg5uawwenmwnupbcyt2",
+     "first_seen_timestamp": "1723802040000",
+     "last_seen_timestamp": "1735100232000",
+     "netuids": "15,45,59,36,62,54,42,30",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5c7rpdl2tkh1oluj3swmuchrjcavf9pg8fx71mgdofywosdb",
+     "first_seen_timestamp": "1748178120000",
+     "last_seen_timestamp": "1750115808001",
+     "netuids": "42",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5c5kfpwcfxfjxgyuwqkggggnpf951nkuf3nq1vywb4sxtcv9",
+     "first_seen_timestamp": "1711609920002",
+     "last_seen_timestamp": "1716472080001",
+     "netuids": "32,31,7",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5c8fsjoqww8smergvkqmuttfxgtj8lgcftrequd9hlnxgxhm",
+     "first_seen_timestamp": "1732891944000",
+     "last_seen_timestamp": "1740909612001",
+     "netuids": "46,44,47",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5c5mrudqyunulsaumxz7mebytmsgp8ngbddfsaywlgt8c8ch",
+     "first_seen_timestamp": "1747017408001",
+     "last_seen_timestamp": "1747022484000",
+     "netuids": "19",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5c8cwau2qjuwjnibyqxcpsgr7xpfy71zscxxrmgbzxvizv7r",
+     "first_seen_timestamp": "1731591960002",
+     "last_seen_timestamp": "1751909952000",
+     "netuids": "41",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5c7ez9xrriuw6qt23xzwxlq1rhqi4ian2bf7wubjbnsmhjbu",
+     "first_seen_timestamp": "1739395044000",
+     "last_seen_timestamp": "1739418336000",
+     "netuids": "51",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5caimqbtpha7au2j5hfs3b5fpxfrybtw2ywqclhdj8tjd55v",
+     "first_seen_timestamp": "1730829180004",
+     "last_seen_timestamp": "1755125556001",
+     "netuids": "15,35,45",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5c5ncnzacmftswt7kmfupfxeyrke9eruzggk6sxxwkaukj9y",
+     "first_seen_timestamp": "1748236476000",
+     "last_seen_timestamp": "1759200600000",
+     "netuids": "1",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5c5ppsnz9rxjpwm5muepuktnkehkccjurgsxqbtcpgaywm1r",
+     "first_seen_timestamp": "1722669480004",
+     "last_seen_timestamp": "1743864192000",
+     "netuids": "10",
+     "observation_count": "9"
+    },
+    {
+     "address": "bittensor:5c9y1vf7ggm557dtt34xv4v2b72znhtookbdd9rsnfjen3xf",
+     "first_seen_timestamp": "1731415200000",
+     "last_seen_timestamp": "1751357940000",
+     "netuids": "27,124,45",
+     "observation_count": "9"
+    }
+   ]
+  },
+  {
+   "id": "recipe_facts_10",
+   "layer": "facts",
+   "query": "USE facts MATCH (i:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[:REGISTERED_NEURON]->(h:Hotkey)-[sf:SERVED_FROM]->(ip:IPAddress) RETURN h.address AS hotkey_address, ip.ip_address AS ip_address, sf.axon_port AS axon_port, sf.prometheus_port AS prometheus_port, sf.netuid AS netuid LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": []
+  },
+  {
+   "id": "recipe_facts_11",
+   "layer": "facts",
+   "query": "USE facts MATCH (i:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[op:OPERATED_FROM]->(ip:IPAddress) WHERE op.netuid = 15 RETURN ip.ip_address AS ip_address, op.netuid AS netuid, op.hotkey_address AS hotkey_address, op.axon_port AS axon_port, op.last_seen_timestamp AS last_seen_timestamp LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": []
+  },
+  {
+   "id": "recipe_facts_12",
+   "layer": "facts",
+   "query": "USE facts MATCH (ip:IPAddress) RETURN ip.ip_address AS ip_address, ip.netuids AS netuids, ip.observation_count AS observation_count, ip.last_seen_timestamp AS last_seen_timestamp ORDER BY ip.observation_count DESC LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "ip_address": "167.86.81.250",
+     "last_seen_timestamp": "1756611456001",
+     "netuids": "124,52,30",
+     "observation_count": "99"
+    },
+    {
+     "ip_address": "185.8.107.20",
+     "last_seen_timestamp": "1765459344000",
+     "netuids": "24",
+     "observation_count": "99"
+    },
+    {
+     "ip_address": "195.0.159.206",
+     "last_seen_timestamp": "1752163512001",
+     "netuids": "51,34,24,22,25,35,12,33,64,23,46,26,17",
+     "observation_count": "99"
+    },
+    {
+     "ip_address": "3.73.73.185",
+     "last_seen_timestamp": "1744840608000",
+     "netuids": "1",
+     "observation_count": "99"
+    },
+    {
+     "ip_address": "34.211.76.164",
+     "last_seen_timestamp": "1735865292000",
+     "netuids": "1",
+     "observation_count": "99"
+    },
+    {
+     "ip_address": "65.108.20.72",
+     "last_seen_timestamp": "1771342728000",
+     "netuids": "111,92,74,71,46",
+     "observation_count": "99"
+    },
+    {
+     "ip_address": "18.236.244.114",
+     "last_seen_timestamp": "1735865112000",
+     "netuids": "1",
+     "observation_count": "98"
+    },
+    {
+     "ip_address": "207.188.6.143",
+     "last_seen_timestamp": "1731841608000",
+     "netuids": "19",
+     "observation_count": "98"
+    },
+    {
+     "ip_address": "35.172.165.243",
+     "last_seen_timestamp": "1724057388002",
+     "netuids": "1",
+     "observation_count": "98"
+    },
+    {
+     "ip_address": "34.222.223.64",
+     "last_seen_timestamp": "1735838172000",
+     "netuids": "1",
+     "observation_count": "98"
+    },
+    {
+     "ip_address": "34.199.102.24",
+     "last_seen_timestamp": "1745263476000",
+     "netuids": "1",
+     "observation_count": "98"
+    },
+    {
+     "ip_address": "37.27.135.86",
+     "last_seen_timestamp": "1748611248001",
+     "netuids": "26",
+     "observation_count": "98"
+    },
+    {
+     "ip_address": "95.217.102.133",
+     "last_seen_timestamp": "1773407976000",
+     "netuids": "70",
+     "observation_count": "97"
+    },
+    {
+     "ip_address": "103.219.168.231",
+     "last_seen_timestamp": "1767311724000",
+     "netuids": "99",
+     "observation_count": "97"
+    },
+    {
+     "ip_address": "84.32.48.101",
+     "last_seen_timestamp": "1777783680000",
+     "netuids": "33,82,39,59,78,79",
+     "observation_count": "97"
+    },
+    {
+     "ip_address": "172.81.127.6",
+     "last_seen_timestamp": "1750854984000",
+     "netuids": "46,49,23,29,26,45,18,25,47,44,32,15,41,34,35,24,14,6,36",
+     "observation_count": "97"
+    },
+    {
+     "ip_address": "172.235.57.29",
+     "last_seen_timestamp": "1774023996000",
+     "netuids": "83",
+     "observation_count": "97"
+    },
+    {
+     "ip_address": "37.59.122.130",
+     "last_seen_timestamp": "1764062484000",
+     "netuids": "94",
+     "observation_count": "97"
+    },
+    {
+     "ip_address": "34.211.12.15",
+     "last_seen_timestamp": "1736940264000",
+     "netuids": "1",
+     "observation_count": "97"
+    },
+    {
+     "ip_address": "34.54.2.114",
+     "last_seen_timestamp": "1730749008000",
+     "netuids": "19",
+     "observation_count": "97"
+    },
+    {
+     "ip_address": "95.179.233.144",
+     "last_seen_timestamp": "1756868508000",
+     "netuids": "83,43",
+     "observation_count": "96"
+    },
+    {
+     "ip_address": "91.242.214.7",
+     "last_seen_timestamp": "1754665920000",
+     "netuids": "34",
+     "observation_count": "96"
+    },
+    {
+     "ip_address": "95.216.88.185",
+     "last_seen_timestamp": "1773740196000",
+     "netuids": "70",
+     "observation_count": "96"
+    },
+    {
+     "ip_address": "147.185.40.117",
+     "last_seen_timestamp": "1753926060000",
+     "netuids": "46,23,19,60,35,52,14",
+     "observation_count": "96"
+    },
+    {
+     "ip_address": "162.55.102.31",
+     "last_seen_timestamp": "1779196332000",
+     "netuids": "22,26,126,57,111,37,55",
+     "observation_count": "96"
+    }
+   ]
+  },
+  {
+   "id": "recipe_facts_13",
+   "layer": "facts",
+   "query": "USE facts MATCH (i:Identity)-[:HAS_LABEL]->(l:AddressLabel) RETURN l.label AS label, count(l) AS label_count ORDER BY label_count DESC LIMIT 25",
+   "baseline": "unsupported",
+   "reason": "documented shape outside the archive translator's compiled subset (WITH/CASE/grouped aggregate)"
+  },
+  {
+   "id": "recipe_facts_14",
+   "layer": "facts",
+   "query": "USE facts MATCH (i:Identity)-[:HAS_LABEL]->(l:AddressLabel) RETURN DISTINCT l.entity_type AS entity_type LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "entity_type": "scam"
+    },
+    {
+     "entity_type": "validator"
+    },
+    {
+     "entity_type": "VICTIM"
+    },
+    {
+     "entity_type": "exchange"
+    },
+    {
+     "entity_type": "mixer"
+    },
+    {
+     "entity_type": "SCAM"
+    },
+    {
+     "entity_type": "bridge"
+    }
+   ]
+  },
+  {
+   "id": "recipe_facts_15",
+   "layer": "facts",
+   "query": "USE facts MATCH (i:Identity)-[:HAS_RISK_SCORE]->(r:RiskScore) WHERE r.risk_score IS NOT NULL RETURN i.identity_id AS identity_id, r.risk_score AS risk_score, r.window_days AS window_days, r.processing_date AS processing_date ORDER BY r.risk_score DESC LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "identity_id": "bittensor:5gwclwsdfh2grvgjaqbyeuukzcy7vopyhccwgn8g8xtrdbqy",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.9864275",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5fcfqgmengnsknhlfww4gjgwp9faffhmswdrney1mbppbtu9",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.9861509",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5cmqetjt8fidsngee2wctwzft7jg6hm5ug3dwxpdkzhwszhk",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.9827959",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5c51hmhy1y2twekzlvuaqiugcuo8wmhrjccql346b6brnffh",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.9826757",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5gueobxqgmt8sn8nunzlnwuwbbkxftupkbytpm3czj76d5m2",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.9826757",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5higzwjjw8gmxnstgtst2h3pykpshmv6fu1nv1bdm91bgtxc",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.9825936",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5h1ej57ql8xuv68aamnrt7kuwejoxlamvcpzijvd8ishmyr8",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.9821353",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5c7zb86q4mhqrwld6mvop3fdgjda2x67bdjjktwrcddjmr7g",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.9808158",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5fyjwdbh6m39vczpbaj3vgdmwiyjuzy7dv4yo1njmrenfppw",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.98062825",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5cnngya95stsodgnjcjm4qnqnf1jn7vh6yi3d2kbgmkx9q7b",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.98062825",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5fv99mbyw3tyrmtxxe52pda69an1ae19atrpnb4kzxw73yuj",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.98056924",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5fpe19ldhzkknxrrb8svejykpntuvwbmse5fagzv8meb7flb",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.9804598",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5gey7tmrcjmfqg94lr4zmhh2n1gp72qhfnwkldbyo8fovejw",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.98010784",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5ecek5rqydw86fk92dr67lgvlnex2zbrbu46yklbxvzu8934",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.98005164",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5gxvyfsfhtjkpqvwcvgswxugbqwztk7sokqxweaxjojqt1m5",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.97998834",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5fsejgz5estutzdggw6zqjsupvt8bj9dx4phgdbbxggswzg9",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.97998834",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5da7smxgr8r55omn94daornfcvnlbm2dlecffbbnrne5b4yf",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.97973186",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5hncrrm4tskgea3xe5nyquedrhpqv4abunwoz3yamjqr7jv9",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.97967464",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5feioq7x2nxkuudh5dfbas2dadoewdvcsthi9bcgpazdo9k3",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.97964764",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5hh5bipczcb1fgdpivjzb9cxkpzeecqxwugfax4djkwqbjap",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.9795394",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5darw58oouvf1edve5trhkwsmdnx1nyfbjipnsvctlbufuvu",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.9795394",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5grfueyafp1vufdspseckh3etmjzzstnf7ugjxgzfr9stmsx",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.9793371",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5dlpsmuejd3j9kojk72gijmvrskaoz8ftdku3acqu4orcpmq",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.9789819",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5gebrpqjf4abiuzsafczmmgmbypyelvceybn5znlge5bkqt5",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.9786491",
+     "window_days": "7"
+    },
+    {
+     "identity_id": "bittensor:5gb4e3ttumvm1lh4upljuyvj7jggwbdqnkabniawav43bvkn",
+     "processing_date": "2026-06-30",
+     "risk_score": "0.97851723",
+     "window_days": "7"
+    }
+   ]
+  },
+  {
+   "id": "recipe_facts_16",
+   "layer": "facts",
+   "query": "USE facts MATCH (i:Identity)-[:HAS_FEATURE]->(f:AddressFeature) RETURN f.feature_scope AS feature_scope, count(f) AS features, sum(f.total_volume_usd) AS total_volume_usd ORDER BY total_volume_usd DESC LIMIT 25",
+   "baseline": "unsupported",
+   "reason": "documented shape outside the archive translator's compiled subset (WITH/CASE/grouped aggregate)"
+  },
+  {
+   "id": "recipe_facts_17",
+   "layer": "facts",
+   "query": "USE facts MATCH (i:Identity) RETURN count(i) AS identity_count LIMIT 1",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "identity_count": 482624
+    }
+   ]
+  }
+ ],
+ "counts": {
+  "memgql": 24,
+  "sql_truth": 0,
+  "rejected": 5,
+  "total": 29
+ }
+}

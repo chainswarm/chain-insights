@@ -9,15 +9,20 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEVKIT_ROOT = SCRIPT_DIR.parent
-REPO_ROOT = SCRIPT_DIR.parents[4] if len(SCRIPT_DIR.parents) > 4 else Path("/")
 MANIFEST = DEVKIT_ROOT / "data/manifest.json"
-MAPPING_REL = "repos/ml/data-pipeline/ops/memgql/chain_insights_starrocks_mapping.json"
+# Post MemGQL retirement the graph mapping is sourced from the devkit's own
+# vendored translator asset (the old data-pipeline federation mapping is
+# deleted). In-container it is bind-mounted at /mapping; on host it is read
+# directly.
+VENDORED_MAPPING = (
+    DEVKIT_ROOT / "chain-insights-graph-devkit/internal/cyphersql/mapping.json"
+)
 MAPPING_CANDIDATES = [
     Path(os.environ["MEMGQL_STARROCKS_MAPPING_FILE"])
     if os.environ.get("MEMGQL_STARROCKS_MAPPING_FILE")
     else None,
     Path("/mapping/chain_insights_starrocks_mapping.json"),
-    REPO_ROOT / MAPPING_REL,
+    VENDORED_MAPPING,
 ]
 
 REQUIRED_TABLES = {
