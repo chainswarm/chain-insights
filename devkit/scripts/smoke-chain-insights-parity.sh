@@ -27,12 +27,12 @@ cia_in_workspace() {
   (cd "$WORKSPACE_DIR" && "$CIA_TSX" "$CIA_SRC" "$@")
 }
 
-FLOWS="$REPO_ROOT/repos/infra/chain-insights/devkit/data/memgraph/flows.csv"
+FLOWS="$REPO_ROOT/repos/infra/chain-insights/devkit/data/memgraph/flows.csv.gz"
 # The first flow edge whose endpoints are both SS58 :Address nodes
 # (address-grain revert: flows.csv carries from_address/to_address directly,
 # no identity indirection).
 read -r SEED_ADDRESS PEER_ADDRESS <<<"$(
-  awk -F, '{ gsub(/\r/, "") } NR > 1 && $1 ~ /^5/ && $2 ~ /^5/ { print $1, $2; exit }' "$FLOWS"
+  zcat "$FLOWS" | awk -F, '{ gsub(/\r/, "") } NR > 1 && $1 ~ /^5/ && $2 ~ /^5/ { print $1, $2; exit }'
 )"
 test -n "$SEED_ADDRESS"
 test -n "$PEER_ADDRESS"

@@ -104,7 +104,7 @@ def table_sql(table: str, columns: list[str]) -> str:
         for column in columns
     )
     key = quote_identifier(columns[0])
-    return f"""CREATE TABLE IF NOT EXISTS bittensor_semantic.{table} (
+    return f"""CREATE TABLE IF NOT EXISTS bittensor.{table} (
 {column_sql}
 )
 ENGINE=OLAP
@@ -113,13 +113,12 @@ DISTRIBUTED BY HASH({key}) BUCKETS 1
 PROPERTIES (
   "replication_num" = "1"
 );
-TRUNCATE TABLE bittensor_semantic.{table};"""
+TRUNCATE TABLE bittensor.{table};"""
 
 
 def main() -> None:
     manifest = read_manifest()
     mapped_columns = mapped_columns_by_table()
-    print("CREATE DATABASE IF NOT EXISTS bittensor_semantic;")
     print("CREATE DATABASE IF NOT EXISTS bittensor;")
     print("CREATE DATABASE IF NOT EXISTS bittensor_evm;")
     if manifest is None:
@@ -127,7 +126,7 @@ def main() -> None:
             print(table_sql(table, mapped_columns[table]))
         return
     for entry in manifest["objects"]:
-        if entry["database"] != "bittensor_semantic":
+        if entry["database"] != "bittensor":
             continue
         table = entry["name"]
         if table not in mapped_columns:

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { readFileSync } from 'node:fs'
+import { gunzipSync } from 'node:zlib'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { addressRisk, type RouteEvidence } from '../src/investigation/public-tools.js'
@@ -21,7 +22,7 @@ function fixturePair(): { seed: string; peer: string } {
   // first flow edge whose endpoints are both bittensor (SS58) :Address
   // nodes -- address-grain has no identity indirection, so flows.csv's
   // from_address/to_address columns are read directly.
-  const addressRows = readFileSync(join(repoRoot, 'devkit/data/memgraph/addresses.csv'), 'utf8')
+  const addressRows = gunzipSync(readFileSync(join(repoRoot, 'devkit/data/memgraph/addresses.csv.gz'))).toString('utf8')
     .split('\n')
     .slice(1)
   const networkByAddress = new Map<string, string>()
@@ -29,7 +30,7 @@ function fixturePair(): { seed: string; peer: string } {
     const [address, network] = row.replace(/\r/g, '').split(',')
     if (address) networkByAddress.set(address, network ?? '')
   }
-  const flowRows = readFileSync(join(repoRoot, 'devkit/data/memgraph/flows.csv'), 'utf8')
+  const flowRows = gunzipSync(readFileSync(join(repoRoot, 'devkit/data/memgraph/flows.csv.gz'))).toString('utf8')
     .split('\n')
     .slice(1)
   for (const row of flowRows) {

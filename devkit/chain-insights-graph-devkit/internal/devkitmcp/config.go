@@ -31,7 +31,7 @@ func ConfigFromEnvironment() Config {
 		StarRocksPort:     getenvInt("STARROCKS_PORT", 9030),
 		StarRocksUser:     getenv("STARROCKS_USER", "root"),
 		StarRocksPassword: os.Getenv("STARROCKS_PASSWORD"),
-		StarRocksDatabase: getenv("STARROCKS_DATABASE", "bittensor_semantic"),
+		StarRocksDatabase: getenv("STARROCKS_DATABASE", "bittensor"),
 	}
 }
 

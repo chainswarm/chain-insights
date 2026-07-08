@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { gunzipSync } from 'node:zlib'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -28,20 +29,24 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const goldenPath = join(repoRoot, 'tests/fixtures/trace-victim-devkit-golden.json')
 
 function fixtureSeed(): string {
-  const identityRows = readFileSync(join(repoRoot, 'devkit/data/memgraph/identity_addresses.csv'), 'utf8')
+  // Address-grain has no identity indirection: flows.csv's from_address is
+  // already the raw :Address key, so the seed is the first flow edge whose
+  // source is a bittensor SS58 address (mirrors route-evidence-devkit's
+  // fixturePair() and devkit/scripts/smoke-chain-insights-parity.sh).
+  const addressRows = gunzipSync(readFileSync(join(repoRoot, 'devkit/data/memgraph/addresses.csv.gz'))).toString('utf8')
     .split('\n')
     .slice(1)
-  const address = new Map<string, string>()
-  for (const row of identityRows) {
-    const [identity, member] = row.replace(/\r/g, '').split(',')
-    if (identity && member?.startsWith('5')) address.set(identity, member)
+  const networkByAddress = new Map<string, string>()
+  for (const row of addressRows) {
+    const [addr, network] = row.replace(/\r/g, '').split(',')
+    if (addr) networkByAddress.set(addr, network ?? '')
   }
-  const flowRows = readFileSync(join(repoRoot, 'devkit/data/memgraph/flows.csv'), 'utf8')
+  const flowRows = gunzipSync(readFileSync(join(repoRoot, 'devkit/data/memgraph/flows.csv.gz'))).toString('utf8')
     .split('\n')
     .slice(1)
   for (const row of flowRows) {
     const [from] = row.replace(/\r/g, '').split(',')
-    if (from && address.has(from)) return address.get(from)!
+    if (from && networkByAddress.get(from) === 'bittensor') return from
   }
   throw new Error('no fixture seed found')
 }

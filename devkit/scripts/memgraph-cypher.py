@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+# Manual dev utility (no caller in this tree): prints the Cypher a fresh
+# devkit Memgraph load would run. Memgraph's own LOAD CSV clause cannot
+# read gzip, and the committed source files are addresses.csv.gz/flows.csv.gz
+# (GitHub's 100MB file-size limit forced compression once the address-grain
+# revert's edge count made the address-grain flows.csv exceed it) — the
+# operator must gunzip a working copy into the mounted data dir first:
+#   gunzip -k data/memgraph/addresses.csv.gz data/memgraph/flows.csv.gz
+# (the compose mount is read-only from inside the container, so the
+# decompression has to happen host-side before mgconsole runs this output).
 from pathlib import Path
 
 
@@ -6,8 +15,8 @@ DEVKIT_ROOT = Path(__file__).resolve().parents[1]
 DATA_ROOT = DEVKIT_ROOT / "data/memgraph"
 
 FILES = {
-    "addresses": DATA_ROOT / "addresses.csv",
-    "flows": DATA_ROOT / "flows.csv",
+    "addresses": DATA_ROOT / "addresses.csv.gz",
+    "flows": DATA_ROOT / "flows.csv.gz",
 }
 
 

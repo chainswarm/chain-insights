@@ -82,7 +82,7 @@ manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 output = Path(sys.argv[2])
 workspace = Path(sys.argv[3])
 data_root = Path(sys.argv[1]).parent
-objects = [entry for entry in manifest["objects"] if entry["database"] == "bittensor_semantic"]
+objects = [entry for entry in manifest["objects"] if entry["database"] == "bittensor"]
 
 
 def sql_string(value: str) -> str:
@@ -152,7 +152,7 @@ with output.open("w", encoding="utf-8") as handle:
                 "-H 'skip_header:1' "
                 f"-H {shlex.quote('columns:' + column_header)} "
                 f"-T {shlex.quote(str(target))} "
-                f"\"http://${{STARROCKS_HOST}}:${{STARROCKS_HTTP_PORT}}/api/bittensor_semantic/{table}/_stream_load\" "
+                f"\"http://${{STARROCKS_HOST}}:${{STARROCKS_HTTP_PORT}}/api/bittensor/{table}/_stream_load\" "
                 f"> {shlex.quote(str(response))}\n"
                 f"python3 - {shlex.quote(str(response))} <<'CHECK'\n"
                 "import json\n"
@@ -178,10 +178,10 @@ from pathlib import Path
 
 manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 output = Path(sys.argv[2])
-objects = [entry for entry in manifest["objects"] if entry["database"] == "bittensor_semantic"]
+objects = [entry for entry in manifest["objects"] if entry["database"] == "bittensor"]
 with output.open("w", encoding="utf-8") as handle:
     for entry in objects:
-        handle.write(f"SELECT '{entry['name']}', COUNT(*) FROM bittensor_semantic.{entry['name']};\n")
+        handle.write(f"SELECT '{entry['name']}', COUNT(*) FROM bittensor.{entry['name']};\n")
 PY
 
 MYSQL_PWD="$STARROCKS_PASSWORD" "$MYSQL_BIN" \
@@ -203,7 +203,7 @@ manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 expected = {
     entry["name"]: int(entry["row_count"])
     for entry in manifest["objects"]
-    if entry["database"] == "bittensor_semantic"
+    if entry["database"] == "bittensor"
 }
 actual = {}
 for line in Path(sys.argv[2]).read_text(encoding="utf-8").splitlines():

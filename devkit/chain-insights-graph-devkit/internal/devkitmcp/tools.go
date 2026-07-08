@@ -27,7 +27,7 @@ const (
 
 	// devkitStarRocksDatabase is the fixed semantic database the devkit
 	// fixture serves; reported in routing facts for production parity.
-	devkitStarRocksDatabase = "bittensor_semantic"
+	devkitStarRocksDatabase = "bittensor"
 )
 
 type GraphQueryArgs struct {

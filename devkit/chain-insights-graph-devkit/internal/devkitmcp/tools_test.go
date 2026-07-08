@@ -262,7 +262,7 @@ func TestGraphQueryReturnsChainInsightsEnvelopeWithRouting(t *testing.T) {
 	if result.Facts.Routing.TopologyKey != "archive_topology" {
 		t.Fatalf("topology key = %q", result.Facts.Routing.TopologyKey)
 	}
-	if result.Facts.Routing.StarRocksDatabase != "bittensor_semantic" {
+	if result.Facts.Routing.StarRocksDatabase != "bittensor" {
 		t.Fatalf("starrocks database = %q", result.Facts.Routing.StarRocksDatabase)
 	}
 	if len(result.Facts.Query.Results) != 1 {

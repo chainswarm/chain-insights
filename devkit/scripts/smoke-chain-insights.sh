@@ -8,9 +8,9 @@ export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=http://127.0.0.1:18012/mcp
 
 mkdir -p "$EVIDENCE_DIR"
 
-FLOWS="$REPO_ROOT/repos/infra/chain-insights/devkit/data/memgraph/flows.csv"
+FLOWS="$REPO_ROOT/repos/infra/chain-insights/devkit/data/memgraph/flows.csv.gz"
 SEED_ADDRESS="$(
-  awk -F, '{ gsub(/\r/, "") } NR > 1 && $1 ~ /^5/ { print $1; exit }' "$FLOWS"
+  zcat "$FLOWS" | awk -F, '{ gsub(/\r/, "") } NR > 1 && $1 ~ /^5/ { print $1; exit }'
 )"
 test -n "$SEED_ADDRESS"
 

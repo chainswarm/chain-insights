@@ -61,7 +61,7 @@ services:
       STARROCKS_HOST: starrocks
       STARROCKS_PORT: "9030"
       STARROCKS_USER: root
-      STARROCKS_DATABASE: bittensor_semantic
+      STARROCKS_DATABASE: bittensor
     depends_on:
       memgraph-import:
         condition: service_completed_successfully
