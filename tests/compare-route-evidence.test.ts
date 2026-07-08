@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
+  addressRisk,
   buildRouteEvidence,
   connectionRouteQueries,
   routeFromPathValue,
@@ -127,6 +128,47 @@ describe('routeFromPathValue', () => {
     expect(routeFromPathValue(undefined)).toBeNull()
     expect(routeFromPathValue(null)).toBeNull()
     expect(routeFromPathValue({})).toBeNull()
+  })
+})
+
+describe('addressRisk route suppression for an unresolved compare address', () => {
+  it('does not issue connection_route_* (or a real connection probe) when the compare existence probe fails', async () => {
+    const captured: Array<{ id: string; query: string }> = []
+    const remote = {
+      callTool: vi.fn(async (req: { name: string; arguments: { queries?: Array<{ id: string; query: string }> } }) => {
+        const queries = req.arguments.queries ?? []
+        captured.push(...queries)
+        const answered = queries.map((q) => (
+          q.id === 'address_profile'
+            ? { id: q.id, ok: true, results: [{ address: '5Known', network: 'bittensor' }] }
+            // compare_address_exists (and everything else) returns no rows:
+            // the compare address does not exist as an :Address node.
+            : { id: q.id, ok: true, results: [] }
+        ))
+        return { content: [{ type: 'text', text: JSON.stringify({ facts: { queries: answered } }) }], isError: false }
+      }),
+    }
+
+    const result = await addressRisk(remote as never, {
+      address: '5Known',
+      network: 'bittensor',
+      compareAddress: '5NoSuchCompare',
+      topologyScope: 'live_topology',
+    })
+
+    // Pre-revert contract restored: an unresolved compare address suppresses
+    // the *BFS route probes entirely -- they are never issued, not merely
+    // ignored -- and the 1-hop connection probe stays a noop.
+    expect(captured.some((q) => q.id.startsWith('connection_route_'))).toBe(false)
+    const connectionProbe = captured.find((q) => q.id === 'connection_probe')
+    expect(connectionProbe?.query).toContain('__chain_insights_noop__')
+    expect(connectionProbe?.query).not.toContain('5NoSuchCompare')
+    // The compare input is still probed for existence and reported unresolved.
+    expect(captured.some((q) => q.id === 'compare_address_exists' && q.query.includes('5NoSuchCompare'))).toBe(true)
+    const facts = (result.structuredContent as { facts: { unresolved?: string[]; connection?: unknown } }).facts
+    expect(facts.unresolved).toEqual(['5NoSuchCompare'])
+    expect(facts.connection).toBeUndefined()
+    expect(result.summaryText).toContain('Unresolved compare_address: no Address found for "5NoSuchCompare"')
   })
 })
 

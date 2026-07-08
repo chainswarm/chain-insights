@@ -319,7 +319,7 @@ function pathNodeMap(variableName: string, topologyScope: TopologyScope): string
   // StarRocks mapping never defines them, so projecting them there hard-errors
   // the whole query instead of nulling gracefully.
   const riskFields = topologyScope === 'archive_topology' ? '' : `, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level`
-  return `{address: ${variableName}.address, labels: ${variableName}.labels, system_labels: ${variableName}.labels, is_exchange: ${variableName}.is_exchange${riskFields}}`
+  return `{address: ${variableName}.address, network: ${variableName}.network, labels: ${variableName}.labels, system_labels: ${variableName}.labels, is_exchange: ${variableName}.is_exchange${riskFields}}`
 }
 
 export function activityWindowPredicates(edgeVariables: string[], window: TraceActivityWindow | undefined): string[] {

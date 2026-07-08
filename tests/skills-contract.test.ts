@@ -174,6 +174,9 @@ describe('shipped Chain Insights skills contract', () => {
     expect(graphUat).not.toContain('--cli "node ${CHAIN_INSIGHTS_PROXY}"')
     expect(graphUat).not.toContain('config set mcpEndpoint')
     expect(graphUat).not.toContain('config set mcpAuthToken')
+    // Retired identity-key env: the UAT is keyed by the raw address alone
+    // (needle built by concatenation so this gate never matches itself).
+    expect(graphUat).not.toContain(retiredName('UAT_IDENTITY', '_KEY'))
     expect(graphUat).toContain('archive LINKED ok')
     expect(graphUat).toContain('USE archive_topology MATCH (a:Address {address:')
     expect(graphUat).toContain('b.network AS linked_network')

@@ -132,7 +132,7 @@
   },
   {
    "id": "recipe_facts_01",
-   "query": "USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN i.address AS address, f.tx_out_count AS tx_out_count, f.tx_in_count AS tx_in_count LIMIT 10",
+   "query": "USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.tx_out_count AS tx_out_count, f.tx_in_count AS tx_in_count LIMIT 10",
    "layer": "facts",
    "description": "Facts-layer address feature enrichment via HAS_FEATURE (tx_out_count, tx_in_count)",
    "features": [
@@ -153,7 +153,7 @@
   },
   {
    "id": "recipe_facts_03",
-   "query": "USE facts MATCH (a:Address) RETURN i.address AS address, i.labels AS labels, i.is_exchange AS is_exchange LIMIT 25",
+   "query": "USE facts MATCH (a:Address) RETURN a.address AS address, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 25",
    "layer": "facts",
    "description": "Facts Address projection returning address, labels, risk_level",
    "features": [
@@ -162,7 +162,7 @@
   },
   {
    "id": "recipe_facts_04",
-   "query": "USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r:RiskScore) RETURN i.address AS address, r.risk_score AS risk_score, r.window_days AS window_days, r.xgboost_model_version AS xgboost_model_version LIMIT 25",
+   "query": "USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r:RiskScore) RETURN a.address AS address, r.risk_score AS risk_score, r.window_days AS window_days, r.xgboost_model_version AS xgboost_model_version LIMIT 25",
    "layer": "facts",
    "description": "Join identities to their RiskScore facts (score, level, model version)",
    "features": [
@@ -288,7 +288,7 @@
   },
   {
    "id": "recipe_facts_15",
-   "query": "USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r:RiskScore) WHERE r.risk_score IS NOT NULL RETURN i.address AS address, r.risk_score AS risk_score, r.window_days AS window_days, r.processing_date AS processing_date ORDER BY r.risk_score DESC LIMIT 25",
+   "query": "USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r:RiskScore) WHERE r.risk_score IS NOT NULL RETURN a.address AS address, r.risk_score AS risk_score, r.window_days AS window_days, r.processing_date AS processing_date ORDER BY r.risk_score DESC LIMIT 25",
    "layer": "facts",
    "description": "HAS_RISK_SCORE with an IS NOT NULL WHERE filter and ORDER BY on risk_score \u2014 fills facts-layer is-null and WHERE-clause coverage on the RiskScore view.",
    "features": [
@@ -326,7 +326,7 @@
   },
   {
    "id": "recipe_live_topology_01",
-   "query": "USE live_topology MATCH (a:Address) RETURN i.address AS address, i.labels AS labels, i.risk_score AS risk_score, i.risk_level AS risk_level, i.is_exchange AS is_exchange LIMIT 10",
+   "query": "USE live_topology MATCH (a:Address) RETURN a.address AS address, a.labels AS labels, a.risk_score AS risk_score, a.risk_level AS risk_level, a.is_exchange AS is_exchange LIMIT 10",
    "layer": "live_topology",
    "description": "Live Address projection returning address, labels, risk_score, risk_level, is_exchange",
    "features": [
@@ -426,7 +426,7 @@
   },
   {
    "id": "recipe_live_topology_14",
-   "query": "USE live_topology MATCH (a:Address) RETURN count(i) AS count LIMIT 1",
+   "query": "USE live_topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1",
    "layer": "live_topology",
    "description": "Count of Identity nodes in live topology",
    "features": [

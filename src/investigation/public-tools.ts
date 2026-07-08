@@ -903,9 +903,22 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   if (!address) throw new Error('address is required')
   if (!network) throw new Error('network is required')
 
-  // Address-grain has no separate resolution step: the input address IS the
-  // graph node key. Existence is determined from the address_profile row
-  // (below), not a pre-flight identity lookup.
+  // Address-grain has no separate resolution step for the SUBJECT address:
+  // the input address IS the graph node key. Its existence is inferred
+  // post-hoc from the address_profile row (below) instead of the pre-revert
+  // pre-flight lookup -- deliberate: it saves a round trip on the hot path.
+  // The COMPARE address keeps a pre-flight existence probe, because the
+  // connection probe and the *BFS route queries must be SUPPRESSED (not just
+  // ignored) when the compare address does not exist -- pre-revert behavior
+  // never issued route probes for an unresolved compare input.
+  let compareUnresolved = false
+  if (compareInput) {
+    const compareBatch = await callGraphBatch(remoteClient, network, [compareAddressExistsQuery(compareInput)], topologyScope)
+    const compareRows = optionalResultsFor(compareBatch, 'compare_address_exists', [])
+    compareUnresolved = !firstString(compareRows[0]?.['address'])
+  }
+  const compareAddress = compareInput && !compareUnresolved ? compareInput : ''
+
   const queries = [
     addressProfileQuery(address, topologyScope),
     addressFeatureQuery(address),
@@ -913,16 +926,20 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     addressLabelRiskQuery(address),
     ...exchangeOutflowQueries(address, topologyScope),
     ...exchangeInflowQueries(address, topologyScope),
-    ...(compareInput ? [connectionProbeQuery(address, compareInput), compareAddressExistsQuery(compareInput)] : [{ id: 'connection_probe', query: 'MATCH (n:Address {address: "__chain_insights_noop__"}) RETURN n.address AS noop LIMIT 0' }]),
+    ...(compareAddress ? [connectionProbeQuery(address, compareAddress)] : [{ id: 'connection_probe', query: 'MATCH (n:Address {address: "__chain_insights_noop__"}) RETURN n.address AS noop LIMIT 0' }]),
     // Route evidence is additive and live-only (native *BFS traversal is
     // rejected by the translator on SQL-mapped scopes); the legacy 1-hop probe
-    // above always runs.
-    ...(shouldIncludeRouteQueries(topologyScope, compareInput)
-      ? connectionRouteQueries(address, compareInput)
+    // above always runs. Routes only fire for a compare address whose
+    // existence probe succeeded.
+    ...(shouldIncludeRouteQueries(topologyScope, compareAddress)
+      ? connectionRouteQueries(address, compareAddress)
       : []),
   ]
   const batch = await callGraphBatch(remoteClient, network, queries, topologyScope)
   const partialQueryFailures: QueryFailure[] = []
+  // Deliberate post-hoc existence inference (address grain): an empty
+  // address_profile result means the subject :Address does not exist ->
+  // report unresolved; this replaces the pre-revert identity pre-flight.
   const addressProfileRows = optionalResultsFor(batch, 'address_profile', partialQueryFailures)
   if (addressProfileRows.length === 0) {
     return {
@@ -938,8 +955,6 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
       graphData: { schema: 'chain-insights.graph.v1', nodes: [], edges: [], flows: [], edge_anchors: [], metadata: { address, network, generated_at: new Date().toISOString() } },
     }
   }
-  const compareUnresolved = compareInput !== '' && optionalResultsFor(batch, 'compare_address_exists', partialQueryFailures).length === 0
-  const compareAddress = compareInput && !compareUnresolved ? compareInput : ''
   const profile: Record<string, unknown> = {
     address,
     ...(addressProfileRows[0] ?? {}),
@@ -2181,6 +2196,11 @@ export async function trackFunds(
   if (trustedInputs.length > 5) throw new Error('trusted_addresses cannot exceed 5 addresses')
   if (untrustedInputs.length > 5) throw new Error('untrusted_addresses cannot exceed 5 addresses')
   // Address-grain has no separate resolution step: see traceVictimFunds.
+  // trackFunds intentionally has NO seed-existence pre-flight: its
+  // pre-revert identity-resolution path also passed unresolved inputs
+  // through unchanged (resolved.get(input) ?? input, never filtered), so
+  // passthrough preserves the tool's existing posture. The trace_* tools
+  // are the R2/R3 surface with the unresolved-seeds contract.
   const trusted = [...new Set(trustedInputs)]
   const untrusted = [...new Set(untrustedInputs)]
   const overlap = trusted.filter((address) => untrusted.includes(address))
