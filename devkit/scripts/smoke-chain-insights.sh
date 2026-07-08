@@ -8,11 +8,9 @@ export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=http://127.0.0.1:18012/mcp
 
 mkdir -p "$EVIDENCE_DIR"
 
-IDENTITY_ADDRESSES="$REPO_ROOT/repos/infra/chain-insights/devkit/data/memgraph/identity_addresses.csv"
 FLOWS="$REPO_ROOT/repos/infra/chain-insights/devkit/data/memgraph/flows.csv"
 SEED_ADDRESS="$(
-  awk -F, '{ gsub(/\r/, "") } NR == FNR { if (FNR > 1 && $2 ~ /^5/) address[$1] = $2; next } FNR > 1 && ($1 in address) { print address[$1]; exit }' \
-    "$IDENTITY_ADDRESSES" "$FLOWS"
+  awk -F, '{ gsub(/\r/, "") } NR > 1 && $1 ~ /^5/ { print $1; exit }' "$FLOWS"
 )"
 test -n "$SEED_ADDRESS"
 

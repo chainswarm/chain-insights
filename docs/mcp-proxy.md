@@ -111,10 +111,9 @@ Chain Insights adds high-level local graph recipes such as `aml_address_risk`,
 `aml_trace_victim_funds`, `aml_trace_deposit_sources`, and
 `aml_trace_suspect_funds` when the remote endpoint only exposes primitives.
 
-AML recipes accept full blockchain addresses and return blockchain addresses as
-the public result surface. Chain Insights resolves those addresses to
-identity-grain topology internally and includes identity resolution metadata in
-tool results for audit/debug use.
+AML recipes accept full blockchain addresses directly and return blockchain
+addresses as the public result surface — the graph is address-grain, so there
+is no identity-resolution step.
 
 The trace tools share `chain-insights.trace.v1` and are role-specific:
 
@@ -252,15 +251,15 @@ available tools exactly as returned.
 
 ```text
 Use Chain Insights graph_query on network bittensor with:
-USE live_topology MATCH (i:Identity)
-RETURN i.identity_id AS identity_id, i.labels AS labels, i.risk_level AS risk_level
+USE live_topology MATCH (a:Address)
+RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level
 LIMIT 10
 ```
 
 ```text
 Use Chain Insights graph_query_batch on network bittensor with these read-only Cypher queries:
-1. USE live_topology MATCH (i:Identity) RETURN count(i) AS count LIMIT 1
-2. USE live_topology MATCH (src:Identity)-[f:FLOWS_TO]->(dst:Identity) RETURN src.identity_id AS source, dst.identity_id AS target, f.amount_usd_sum AS amount_usd_sum LIMIT 3
+1. USE live_topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1
+2. USE live_topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum LIMIT 3
 ```
 
 ```text

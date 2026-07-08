@@ -22,9 +22,9 @@ const { traceQueryBuilderContract } = await import(join(repoRoot, 'src/investiga
 
 const SCOPES = ['live_topology', 'archive_topology']
 // Escaping-sensitive values are part of the grid on purpose.
-const ADDR = 'corpus-identity-a'
+const ADDR = 'corpus-address-a'
 const ADDR_QUOTED = 'corpus"quote'
-const COMPARE = 'corpus-identity-b'
+const COMPARE = 'corpus-address-b'
 const DEPOSITS = ['corpus-dep-1', 'corpus-dep-2', 'corpus-dep-3']
 // TraceActivityWindow shape ({ fromMs, toMs }) — a wrong key here produces
 // `>= undefined` predicates; tests/query-corpus.test.ts pins their absence.
@@ -53,11 +53,10 @@ for (const scope of SCOPES) {
     add('exchangeOutflowQueries', { address }, scope, queryBuilderContract.exchangeOutflowQueries(address, scope))
     add('exchangeInflowQueries', { address }, scope, queryBuilderContract.exchangeInflowQueries(address, scope))
   }
-  add('memberAddressesQuery', { address: ADDR }, scope, queryBuilderContract.memberAddressesQuery(ADDR))
-  add('memberAddressResolutionQuery', { member: ADDR_QUOTED }, scope, queryBuilderContract.memberAddressResolutionQuery('resolve_0', ADDR_QUOTED))
-  add('identityExistenceQuery', { identity: ADDR }, scope, queryBuilderContract.identityExistenceQuery('exists_0', ADDR))
-  add('identityMemberAddressesQueries', { identities: [ADDR, COMPARE] }, scope, queryBuilderContract.identityMemberAddressesQueries([ADDR, COMPARE]))
+  add('compareAddressExistsQuery', { address: ADDR }, scope, queryBuilderContract.compareAddressExistsQuery(ADDR))
   add('connectionProbeQuery', { address: ADDR, compare: COMPARE }, scope, queryBuilderContract.connectionProbeQuery(ADDR, COMPARE))
+  add('linkedExposureQueries', { address: ADDR }, scope, queryBuilderContract.linkedExposureQueries(ADDR, scope))
+  add('crossSpaceLinkedQuery', { address: ADDR }, scope, queryBuilderContract.crossSpaceLinkedQuery(ADDR))
 
   for (const minAmountSum of [0, 10]) {
     for (const window of [undefined, WINDOW]) {

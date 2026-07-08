@@ -4,11 +4,12 @@ import { addressRisk } from '../src/investigation/public-tools.js'
 type BatchQuery = { id: string; query: string }
 type QueryResponder = (id: string) => { id: string; ok: boolean; results?: Array<Record<string, unknown>>; error?: string } | undefined
 
-// Builds a client that resolves "5Known" to a real identity, answers every
-// other lookup query (profile/member_addresses/feature/risk_score/label_risk/
-// connection_probe) with an empty-but-ok result, and delegates
-// exchange_outflows_N/exchange_inflows_N responses to the given responder so
-// each test can control exactly which hop-depth queries fail or return rows.
+// Builds a client that resolves "5Known" to a real :Address (address-grain:
+// the address_profile query result itself is the existence check), answers
+// every other lookup query (feature/risk_score/label_risk/connection_probe)
+// with an empty-but-ok result, and delegates exchange_outflows_N/
+// exchange_inflows_N responses to the given responder so each test can
+// control exactly which hop-depth queries fail or return rows.
 function clientWithExchangeSearch(respond: QueryResponder) {
   return {
     callTool: vi.fn(async (req: { name: string; arguments: { queries?: BatchQuery[] } }) => {
@@ -16,8 +17,8 @@ function clientWithExchangeSearch(respond: QueryResponder) {
         return { content: [{ type: 'text', text: JSON.stringify({ networks: [] }) }], isError: false }
       }
       const queries = (req.arguments.queries ?? []).map((q) => {
-        if (q.id === 'resolve_member_address_1') {
-          return { id: q.id, ok: true, results: [{ identity_id: 'bittensor:5known' }] }
+        if (q.id === 'address_profile') {
+          return { id: q.id, ok: true, results: [{ address: '5Known', network: 'bittensor' }] }
         }
         if (q.id.startsWith('exchange_outflows_') || q.id.startsWith('exchange_inflows_')) {
           return respond(q.id) ?? { id: q.id, ok: true, results: [] }
@@ -93,7 +94,7 @@ describe('aml_address_risk exchange-search partial-failure reporting', () => {
           return { content: [{ type: 'text', text: JSON.stringify({ networks: [] }) }], isError: false }
         }
         const queries = (req.arguments.queries ?? []).map((q) => {
-          if (q.id === 'resolve_member_address_1') return { id: q.id, ok: true, results: [{ identity_id: 'bittensor:5known' }] }
+          if (q.id === 'address_profile') return { id: q.id, ok: true, results: [{ address: '5Known', network: 'bittensor' }] }
           if (q.id === 'address_feature') return { id: q.id, ok: false, error: 'unrelated failure' }
           return { id: q.id, ok: true, results: [] }
         })

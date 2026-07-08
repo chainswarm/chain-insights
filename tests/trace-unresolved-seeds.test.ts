@@ -5,9 +5,9 @@ type BatchQuery = { id: string; query: string }
 
 const config = { dataDir: '/tmp/ci-test', serverPort: 4321 }
 
-// Every resolve_member_address_N query gets an empty result: no :Address node
-// found, so the raw input never resolves to an identity_id (R2). Callers must
-// report it as unresolved, not silently trace it as a raw-address identity_id.
+// Every seed_address_exists_N probe gets an empty result: no :Address node
+// exists for the seed, so it fails the address-grain existence pre-flight
+// (R2). Callers must report it as unresolved, never silently trace it.
 function unresolvingClient(extra: (id: string) => { id: string; ok: boolean; results: Array<Record<string, unknown>> } | undefined = () => undefined) {
   return {
     callTool: vi.fn(async (req: { name: string; arguments: { queries?: BatchQuery[] } }) => {
@@ -16,7 +16,7 @@ function unresolvingClient(extra: (id: string) => { id: string; ok: boolean; res
         return { content: [{ type: 'text', text: JSON.stringify({ networks: [] }) }], isError: false }
       }
       const queries = (req.arguments.queries ?? []).map((q) => {
-        if (q.id.startsWith('resolve_member_address_')) return { id: q.id, ok: true, results: [] }
+        if (q.id.startsWith('seed_address_exists_')) return { id: q.id, ok: true, results: [] }
         return extra(q.id) ?? { id: q.id, ok: true, results: [] }
       })
       return { content: [{ type: 'text', text: JSON.stringify({ facts: { queries } }) }], isError: false }
@@ -36,7 +36,7 @@ describe('R2/R3: unresolved seed addresses are reported, never silently traced',
     expect(content.unresolved).toEqual(['5UnknownVictim'])
     expect(content.summary.seed_count).toBe(0)
     expect(content.summary.unresolved_count).toBe(1)
-    expect(result.summaryText).toContain('Unresolved (no matching Identity/Address): 5UnknownVictim')
+    expect(result.summaryText).toContain('Unresolved (no matching Address): 5UnknownVictim')
   })
 
   it('aml_trace_suspect_funds reports an unresolved suspect address (AC5)', async () => {
@@ -73,7 +73,7 @@ describe('R2/R3: unresolved seed addresses are reported, never silently traced',
       address: '5UnknownAddr',
       network: 'bittensor',
     })
-    expect(result.summaryText).toContain('Unresolved: no Identity/Address found for "5UnknownAddr"')
+    expect(result.summaryText).toContain('Unresolved: no Address found for "5UnknownAddr"')
     const facts = (result.structuredContent as { facts: { unresolved: string[] } }).facts
     expect(facts.unresolved).toEqual(['5UnknownAddr'])
   })
@@ -82,8 +82,8 @@ describe('R2/R3: unresolved seed addresses are reported, never silently traced',
     const remote = {
       callTool: vi.fn(async (req: { arguments: { queries: BatchQuery[] } }) => {
         const queries = req.arguments.queries.map((q) => {
-          if (q.id === 'resolve_member_address_1') return { id: q.id, ok: true, results: [{ identity_id: 'bittensor:0xresolved' }] }
-          if (q.id.startsWith('resolve_member_address_')) return { id: q.id, ok: true, results: [] }
+          if (q.id === 'seed_address_exists_1') return { id: q.id, ok: true, results: [{ address: '5KnownVictim' }] }
+          if (q.id.startsWith('seed_address_exists_')) return { id: q.id, ok: true, results: [] }
           return { id: q.id, ok: true, results: [] }
         })
         return { content: [{ type: 'text', text: JSON.stringify({ facts: { queries } }) }], isError: false }

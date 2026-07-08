@@ -179,7 +179,7 @@ Run a direct live topology query:
 ```bash
 cia mcp call graph_query \
   network=bittensor \
-  "query=USE live_topology MATCH (i:Identity) RETURN i.identity_id AS identity_id, i.labels AS labels, i.risk_level AS risk_level LIMIT 10"
+  "query=USE live_topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level LIMIT 10"
 ```
 
 Run a batch across graph views:
@@ -187,7 +187,7 @@ Run a batch across graph views:
 ```bash
 cia mcp call graph_query_batch \
   network=bittensor \
-  'queries=[{"id":"count","query":"USE live_topology MATCH (i:Identity) RETURN count(i) AS count LIMIT 1"},{"id":"archive_flows","query":"USE archive_topology MATCH (src:Identity)-[f:FLOWS_TO]->(dst:Identity) RETURN f.period_granularity AS granularity, src.identity_id AS source, dst.identity_id AS target, f.amount_usd_sum AS amount_usd_sum LIMIT 3"},{"id":"archive_member_address","query":"USE archive_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 3"},{"id":"facts_sample","query":"USE facts MATCH (i:Identity)-[:HAS_FEATURE]->(f:AddressFeature) RETURN i.identity_id AS identity_id, f.tx_out_count AS tx_out_count LIMIT 3"}]'
+  'queries=[{"id":"count","query":"USE live_topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"archive_flows","query":"USE archive_topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN f.period_granularity AS granularity, src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum LIMIT 3"},{"id":"archive_linked","query":"USE archive_topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"},{"id":"facts_sample","query":"USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.tx_out_count AS tx_out_count LIMIT 3"}]'
 ```
 
 For no-wallet public free-tier usage, prefer the single-query example first.
@@ -250,10 +250,9 @@ and local workspace state:
 - `aml_trace_suspect_funds` traces suspected scammer, mule, operator, or
   laundering-ring funds forward to cashout topology.
 
-AML tools accept full blockchain addresses and return blockchain addresses as
-the public result surface. Chain Insights resolves those addresses to
-identity-grain topology internally and includes identity resolution metadata for
-audit/debug use.
+AML tools accept full blockchain addresses directly and return blockchain
+addresses as the public result surface — the graph is address-grain, so there
+is no identity-resolution step.
 
 The three trace tools share `chain-insights.trace.v1` and return compact,
 chainable results. Full graph/table/report artifacts remain on disk under the

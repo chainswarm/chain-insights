@@ -25,11 +25,11 @@ ROWS_TMP="$(mktemp)"
 FAILED=0
 
 # Resolve a real anchor identity that has archive outflows (indexed-predicate
-# probes need one). Deterministic: lowest identity_id with a FLOWS_TO edge.
+# probes need one). Deterministic: lowest address with a FLOWS_TO edge.
 ANCHOR="$(python3 - "$ENDPOINT" "$NETWORK" <<'PY'
 import json, sys, urllib.request
 endpoint, network = sys.argv[1:3]
-q = "USE archive_topology MATCH (i:Identity)-[f:FLOWS_TO]->(t:Identity) RETURN i.identity_id AS a ORDER BY i.identity_id LIMIT 1"
+q = "USE archive_topology MATCH (i:Address)-[f:FLOWS_TO]->(t:Address) RETURN i.address AS a ORDER BY i.address LIMIT 1"
 payload = json.dumps({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"graph_query","arguments":{"network":network,"query":q}}}).encode()
 req = urllib.request.Request(endpoint, data=payload, headers={"Content-Type":"application/json","Accept":"application/json, text/event-stream"})
 body = json.loads(urllib.request.urlopen(req, timeout=30).read().decode())
@@ -37,7 +37,7 @@ text = "\n".join(i.get("text","") for i in body.get("result",{}).get("content",[
 print(json.loads(text)["facts"]["query"]["results"][0]["a"])
 PY
 )"
-[ -n "$ANCHOR" ] || { echo "ERROR: could not resolve an archive anchor identity" >&2; exit 1; }
+[ -n "$ANCHOR" ] || { echo "ERROR: could not resolve an archive anchor address" >&2; exit 1; }
 echo "── capability probes: archive/facts lane (StarRocks translator via $ENDPOINT; anchor=$ANCHOR) ──"
 
 # Args: probe_id expected_outcome query
@@ -81,20 +81,20 @@ PY
 }
 
 # --- supported: the compiled subset ---
-probe A01 supported "USE archive_topology MATCH (i:Identity {identity_id:'$ANCHOR'})-[f:FLOWS_TO]->(t:Identity) RETURN t.identity_id AS t LIMIT 5"
+probe A01 supported "USE archive_topology MATCH (i:Address {address:'$ANCHOR'})-[f:FLOWS_TO]->(t:Address) RETURN t.address AS t LIMIT 5"
 # The translator requires an explicit LIMIT on every archive query, even a
 # single-row aggregate.
-probe A02 supported "USE archive_topology MATCH (i:Identity {identity_id:'$ANCHOR'})-[f:FLOWS_TO]->(t:Identity) RETURN count(f) AS c LIMIT 1"
-probe A03 supported "USE facts MATCH (i:Identity {identity_id:'$ANCHOR'})-[:HAS_LABEL]->(l:AddressLabel) RETURN l.label AS label LIMIT 5"
-probe A04 supported "USE facts MATCH (i:Identity {identity_id:'$ANCHOR'})-[:HAS_FEATURE]->(f:AddressFeature) RETURN f.feature_scope AS fs LIMIT 5"
+probe A02 supported "USE archive_topology MATCH (i:Address {address:'$ANCHOR'})-[f:FLOWS_TO]->(t:Address) RETURN count(f) AS c LIMIT 1"
+probe A03 supported "USE facts MATCH (i:Address {address:'$ANCHOR'})-[:HAS_LABEL]->(l:AddressLabel) RETURN l.label AS label LIMIT 5"
+probe A04 supported "USE facts MATCH (i:Address {address:'$ANCHOR'})-[:HAS_FEATURE]->(f:AddressFeature) RETURN f.feature_scope AS fs LIMIT 5"
 
 # --- rejected: cost-shape gate ---
-probe A05 rejected-cost "USE archive_topology MATCH (i:Identity) RETURN count(i) AS c LIMIT 1"
-probe A06 rejected-cost "USE archive_topology MATCH (i:Identity {identity_id:'$ANCHOR'})-[f:FLOWS_TO]->(t:Identity) RETURN t.identity_id AS t LIMIT 5000"
+probe A05 rejected-cost "USE archive_topology MATCH (i:Address) RETURN count(i) AS c LIMIT 1"
+probe A06 rejected-cost "USE archive_topology MATCH (i:Address {address:'$ANCHOR'})-[f:FLOWS_TO]->(t:Address) RETURN t.address AS t LIMIT 5000"
 
 # --- rejected: outside the compiled grammar (contract error) ---
-probe A07 rejected-translation "USE archive_topology MATCH (i:Identity {identity_id:'$ANCHOR'})-[:FLOWS_TO*1..2]->(t:Identity) RETURN t.identity_id AS t LIMIT 5"
-probe A08 rejected-translation "USE archive_topology MATCH (i:Identity {identity_id:'$ANCHOR'})-[f:FLOWS_TO]->(t:Identity) WITH t RETURN t.identity_id AS t LIMIT 5"
+probe A07 rejected-translation "USE archive_topology MATCH (i:Address {address:'$ANCHOR'})-[:FLOWS_TO*1..2]->(t:Address) RETURN t.address AS t LIMIT 5"
+probe A08 rejected-translation "USE archive_topology MATCH (i:Address {address:'$ANCHOR'})-[f:FLOWS_TO]->(t:Address) WITH t RETURN t.address AS t LIMIT 5"
 
 python3 - "$OUT" "$ROWS_TMP" <<'PY'
 import json, sys

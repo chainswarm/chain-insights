@@ -49,7 +49,7 @@ cia debug off
 4. If `.chain-insights/schema/<network>.graph-schema.json` does not exist, capture schema before the first graph workflow:
    ```bash
    mkdir -p .chain-insights/schema
-   cia mcp call graph_query_batch network=<network> 'queries=[{"id":"identity_labels","query":"USE live_topology MATCH (i:Identity) RETURN \"Identity\" AS node_label, count(i) AS sample_count LIMIT 1"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (:Identity)-[f:FLOWS_TO]->(:Identity) RETURN f.period_granularity AS granularity, f.amount_usd_sum AS amount_usd_sum LIMIT 20"},{"id":"member_address_sample","query":"USE live_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 20"},{"id":"archive_member_address_sample","query":"USE archive_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 20"}]' > .chain-insights/schema/<network>.graph-schema.raw.json
+   cia mcp call graph_query_batch network=<network> 'queries=[{"id":"address_labels","query":"USE live_topology MATCH (a:Address) RETURN \"Address\" AS node_label, count(a) AS sample_count LIMIT 1"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.period_granularity AS granularity, f.amount_usd_sum AS amount_usd_sum LIMIT 20"},{"id":"linked_sample","query":"USE live_topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 20"},{"id":"archive_linked_sample","query":"USE archive_topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 20"}]' > .chain-insights/schema/<network>.graph-schema.raw.json
    ```
 5. Make sure the canonical workspace output roots exist:
    ```bash
@@ -59,9 +59,9 @@ cia debug off
 ## Hard Rules
 
 - Always preserve full blockchain addresses exactly.
-- Bittensor contains both native Substrate/SS58 addresses such as `5...` and EVM-pallet `0x...` addresses in the same semantic investigation network. Use `network=bittensor` for both; do not switch networks based only on address format.
-- Live and archive topology are identity-grain but graph-selected: use `USE live_topology` for Memgraph live topology and `USE archive_topology` for StarRocks-backed archive topology. Both support compatible `(:Identity)-[:FLOWS_TO]->(:Identity)` and `(:Identity)-[:HAS_ADDRESS]->(:Address)` shapes.
-- Users operate on member addresses. High-level `aml_*` tools may resolve addresses into identity-grain topology internally, but public results, artifacts, and follow-up candidate lists must return member addresses.
+- Bittensor native Substrate/SS58 addresses such as `5...` and EVM-pallet `0x...` addresses belong to two distinct address-grain networks: use `network=bittensor` for SS58, `network=bittensor_evm` for `0x...`. Do not pass one network's addresses to the other. `LINKED` is the only edge that crosses between them.
+- Live and archive topology are address-grain and graph-selected: use `USE live_topology` for Memgraph live topology and `USE archive_topology` for StarRocks-backed archive topology. Both support compatible `(:Address)-[:FLOWS_TO]->(:Address)` and `(:Address)-[:LINKED]-(:Address)` shapes.
+- Users operate on raw blockchain addresses directly. High-level `aml_*` tools accept addresses with no identity-resolution step; public results, artifacts, and follow-up candidate lists always return the raw address.
 - Use the current Chain Insights AML tool contract as the reference behavior; do not downgrade semantics to legacy implementation details from the old Python graph path.
 - Never call graph tools without an explicit `network`.
 - Never assume network support. Run `cia mcp networks` first.

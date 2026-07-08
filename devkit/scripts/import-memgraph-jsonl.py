@@ -98,8 +98,8 @@ def execute_schema(session: Any) -> None:
     statements = [
         "MATCH (node) DETACH DELETE node",
         "CREATE INDEX ON :DevkitFixture(_devkit_export_id)",
-        "CREATE INDEX ON :Identity(identity_id);",
         "CREATE INDEX ON :Address(address);",
+        "CREATE INDEX ON :Address(network);",
         "CREATE INDEX ON :Subnet(netuid);",
     ]
     for statement in statements:
@@ -159,7 +159,7 @@ def write_import_summary(
         "Node": imported_nodes,
         "Relationship": imported_relationships,
     }
-    for label in ("Identity", "Address", "Subnet", "Scam", "Victim", "Exchange"):
+    for label in ("Address", "Subnet", "Scam", "Victim", "Exchange"):
         result = session.run(f"MATCH (node:`{label}`) RETURN count(node) AS count").single()
         counts[label] = int(result["count"]) if result is not None else 0
     for relationship_type in sorted(relationship_groups):

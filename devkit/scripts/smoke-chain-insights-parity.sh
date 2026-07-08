@@ -27,15 +27,12 @@ cia_in_workspace() {
   (cd "$WORKSPACE_DIR" && "$CIA_TSX" "$CIA_SRC" "$@")
 }
 
-IDENTITY_ADDRESSES="$REPO_ROOT/repos/infra/chain-insights/devkit/data/memgraph/identity_addresses.csv"
 FLOWS="$REPO_ROOT/repos/infra/chain-insights/devkit/data/memgraph/flows.csv"
-SEED_ADDRESS="$(
-  awk -F, '{ gsub(/\r/, "") } NR == FNR { if (FNR > 1 && $2 ~ /^5/) address[$1] = $2; next } FNR > 1 && ($1 in address) { print address[$1]; exit }' \
-    "$IDENTITY_ADDRESSES" "$FLOWS"
-)"
-PEER_ADDRESS="$(
-  awk -F, '{ gsub(/\r/, "") } NR == FNR { if (FNR > 1 && $2 ~ /^5/) address[$1] = $2; next } FNR > 1 && ($2 in address) { print address[$2]; exit }' \
-    "$IDENTITY_ADDRESSES" "$FLOWS"
+# The first flow edge whose endpoints are both SS58 :Address nodes
+# (address-grain revert: flows.csv carries from_address/to_address directly,
+# no identity indirection).
+read -r SEED_ADDRESS PEER_ADDRESS <<<"$(
+  awk -F, '{ gsub(/\r/, "") } NR > 1 && $1 ~ /^5/ && $2 ~ /^5/ { print $1, $2; exit }' "$FLOWS"
 )"
 test -n "$SEED_ADDRESS"
 test -n "$PEER_ADDRESS"
@@ -53,22 +50,22 @@ fi
 
 cia mcp call graph_query \
   network=bittensor \
-  "query=USE live_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(a:Address {address: '${SEED_ADDRESS}'}) RETURN i.identity_id, a.address LIMIT 1" \
+  "query=USE live_topology MATCH (a:Address {address: '${SEED_ADDRESS}'}) RETURN a.address, a.network LIMIT 1" \
   > "$EVIDENCE_DIR/graph-query-live-topology.json"
 
 cia mcp call graph_query \
   network=bittensor \
-  'query=USE archive_topology MATCH (src:Identity)-[r:FLOWS_TO]->(dst:Identity) RETURN count(r) AS row_count LIMIT 1' \
+  'query=USE archive_topology MATCH (src:Address)-[r:FLOWS_TO]->(dst:Address) RETURN count(r) AS row_count LIMIT 1' \
   > "$EVIDENCE_DIR/graph-query-archive-topology.json"
 
 cia mcp call graph_query \
   network=bittensor \
-  'query=USE facts MATCH (i:Identity)-[:HAS_FEATURE]->(f:AddressFeature) RETURN count(f) AS row_count LIMIT 1' \
+  'query=USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN count(f) AS row_count LIMIT 1' \
   > "$EVIDENCE_DIR/graph-query-facts.json"
 
 cia mcp call graph_query_batch \
   network=bittensor \
-  'queries=[{"id":"live","query":"USE live_topology MATCH (i:Identity) RETURN count(i) AS identities LIMIT 1"},{"id":"archive","query":"USE archive_topology MATCH (:Identity)-[r:FLOWS_TO]->(:Identity) RETURN count(r) AS flows LIMIT 1"},{"id":"facts","query":"USE facts MATCH (f:AddressFeature) RETURN count(f) AS features LIMIT 1"}]' \
+  'queries=[{"id":"live","query":"USE live_topology MATCH (a:Address) RETURN count(a) AS addresses LIMIT 1"},{"id":"archive","query":"USE archive_topology MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN count(r) AS flows LIMIT 1"},{"id":"facts","query":"USE facts MATCH (f:AddressFeature) RETURN count(f) AS features LIMIT 1"}]' \
   > "$EVIDENCE_DIR/graph-query-batch.json"
 
 cia mcp call aml_address_risk "address=${SEED_ADDRESS}" network=bittensor \

@@ -17,12 +17,12 @@ describe('connectionRouteQueries', () => {
       {
         id: 'connection_route_outbound',
         query:
-          'MATCH p = (src:Identity {identity_id: "idA"})-[:FLOWS_TO *BFS 1..4]->(dst:Identity {identity_id: "idB"}) RETURN p LIMIT 1',
+          'MATCH p = (src:Address {address: "idA"})-[:FLOWS_TO *BFS 1..4]->(dst:Address {address: "idB"}) RETURN p LIMIT 1',
       },
       {
         id: 'connection_route_inbound',
         query:
-          'MATCH p = (src:Identity {identity_id: "idB"})-[:FLOWS_TO *BFS 1..4]->(dst:Identity {identity_id: "idA"}) RETURN p LIMIT 1',
+          'MATCH p = (src:Address {address: "idB"})-[:FLOWS_TO *BFS 1..4]->(dst:Address {address: "idA"}) RETURN p LIMIT 1',
       },
     ])
   })
@@ -33,7 +33,7 @@ describe('connectionRouteQueries', () => {
     }
   })
 
-  it('escapes quotes in identity ids', () => {
+  it('escapes quotes in addresses', () => {
     const [outbound] = connectionRouteQueries('a"b', 'c')
     expect(outbound!.query).toContain('a\\"b')
     expect(outbound!.query).not.toContain('"a"b"')
@@ -51,13 +51,13 @@ describe('shouldIncludeRouteQueries', () => {
 
 describe('routeFromPathValue', () => {
   // Shape-tolerant: hydrated path values arrive as ordered node/edge
-  // structures; the parser walks them for identity_id / is_exchange /
+  // structures; the parser walks them for address / is_exchange /
   // amount_usd_sum regardless of the exact envelope.
   const path = {
     nodes: [
-      { identity_id: 'idA' },
-      { identity_id: 'mid1', is_exchange: 'binance' },
-      { identity_id: 'idB' },
+      { address: 'idA' },
+      { address: 'mid1', is_exchange: 'binance' },
+      { address: 'idB' },
     ],
     relationships: [
       { amount_usd_sum: 100 },
@@ -84,12 +84,12 @@ describe('routeFromPathValue', () => {
   it('falsy is_exchange encodings are never disclosed; name markers are', () => {
     const route = routeFromPathValue({
       nodes: [
-        { identity_id: 'idA' },
-        { identity_id: 'midFalse', is_exchange: false },
-        { identity_id: 'midFalseStr', is_exchange: 'false' },
-        { identity_id: 'midZero', is_exchange: 0 },
-        { identity_id: 'midName', is_exchange: 'binance' },
-        { identity_id: 'idB' },
+        { address: 'idA' },
+        { address: 'midFalse', is_exchange: false },
+        { address: 'midFalseStr', is_exchange: 'false' },
+        { address: 'midZero', is_exchange: 0 },
+        { address: 'midName', is_exchange: 'binance' },
+        { address: 'idB' },
       ],
       relationships: [
         { amount_usd_sum: 1 },
@@ -105,8 +105,8 @@ describe('routeFromPathValue', () => {
   it('endpoints are not counted as exchange intermediates', () => {
     const route = routeFromPathValue({
       nodes: [
-        { identity_id: 'idA', is_exchange: 'kraken' },
-        { identity_id: 'idB', is_exchange: 'binance' },
+        { address: 'idA', is_exchange: 'kraken' },
+        { address: 'idB', is_exchange: 'binance' },
       ],
       relationships: [{ amount_usd_sum: 10 }],
     })
@@ -115,7 +115,7 @@ describe('routeFromPathValue', () => {
 
   it('hops come from the node sequence even with partially hydrated edges', () => {
     const route = routeFromPathValue({
-      nodes: [{ identity_id: 'idA' }, { identity_id: 'mid' }, { identity_id: 'idB' }],
+      nodes: [{ address: 'idA' }, { address: 'mid' }, { address: 'idB' }],
       // One edge lacks a numeric amount — hop count must not shrink.
       relationships: [{ amount_usd_sum: 30 }, { amount_usd_sum: null }],
     })
@@ -132,7 +132,7 @@ describe('routeFromPathValue', () => {
 
 describe('buildRouteEvidence', () => {
   const outboundRow = {
-    nodes: [{ identity_id: 'idA' }, { identity_id: 'idB' }],
+    nodes: [{ address: 'idA' }, { address: 'idB' }],
     relationships: [{ amount_usd_sum: 5 }],
   }
 

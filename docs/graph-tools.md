@@ -73,7 +73,7 @@ Example single query:
 ```bash
 chain-insights mcp call graph_query \
   network=bittensor \
-  "query=USE live_topology MATCH (i:Identity) RETURN i.identity_id AS identity_id, i.labels AS labels, i.risk_level AS risk_level LIMIT 10"
+  "query=USE live_topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level LIMIT 10"
 ```
 
 Example batch query:
@@ -81,7 +81,7 @@ Example batch query:
 ```bash
 chain-insights mcp call graph_query_batch \
   network=bittensor \
-  'queries=[{"id":"count","query":"USE live_topology MATCH (i:Identity) RETURN count(i) AS count LIMIT 1"},{"id":"archive_flows","query":"USE archive_topology MATCH (src:Identity)-[f:FLOWS_TO]->(dst:Identity) RETURN f.period_granularity AS granularity, src.identity_id AS source, dst.identity_id AS target, f.amount_usd_sum AS amount_usd_sum LIMIT 3"},{"id":"archive_member_address","query":"USE archive_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 3"}]'
+  'queries=[{"id":"count","query":"USE live_topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"archive_flows","query":"USE archive_topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN f.period_granularity AS granularity, src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum LIMIT 3"},{"id":"archive_linked","query":"USE archive_topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"}]'
 ```
 
 Batch calls reserve worst-case execution time from their timeout settings. On
@@ -110,10 +110,9 @@ Batch result facts include:
 neighborhood context, and exchange exposure. Use it as the first tool for a
 single-address investigation.
 
-AML tools accept full blockchain addresses and return blockchain addresses as
-the public result surface. Internally, Chain Insights resolves member addresses
-to identity-grain topology and includes identity resolution metadata in the
-result for audit/debug use.
+AML tools accept full blockchain addresses directly and return blockchain
+addresses as the public result surface — the graph is address-grain, so there
+is no identity-resolution step.
 
 Required input:
 
@@ -296,10 +295,10 @@ Useful schema probes:
 cia mcp call graph_query_batch \
   network=bittensor \
   per_query_timeout_seconds=5 \
-  'queries=[{"id":"live_identity_sample","query":"USE live_topology MATCH (i:Identity) RETURN i.identity_id AS identity_id, i.labels AS labels, i.risk_level AS risk_level, i.is_exchange AS is_exchange LIMIT 10"},{"id":"live_flow_sample","query":"USE live_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"member_address_sample","query":"USE live_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 10"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, flow.period_granularity AS period_granularity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"archive_member_address_sample","query":"USE archive_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 10"},{"id":"facts_feature_sample","query":"USE facts MATCH (i:Identity)-[:HAS_FEATURE]->(f:AddressFeature) RETURN i.identity_id AS identity_id, f.tx_out_count AS tx_out_count LIMIT 10"}]'
+  'queries=[{"id":"live_address_sample","query":"USE live_topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level, a.is_exchange AS is_exchange LIMIT 10"},{"id":"live_flow_sample","query":"USE live_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"linked_sample","query":"USE live_topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.period_granularity AS period_granularity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"archive_linked_sample","query":"USE archive_topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"facts_feature_sample","query":"USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.tx_out_count AS tx_out_count LIMIT 10"}]'
 ```
 
-Use endpoint-safe property projections like `i.identity_id` and `flow.tx_count`
+Use endpoint-safe property projections like `a.address` and `flow.tx_count`
 in probes. Metadata
 functions such as `keys()`, `labels()`, and `type()` are not portable across
 every Chain Insights Graph layer.

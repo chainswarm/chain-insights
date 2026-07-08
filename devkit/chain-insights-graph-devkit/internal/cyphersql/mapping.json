@@ -1,12 +1,12 @@
 {
   "nodes": [
     {
-      "label": "Identity",
+      "label": "Address",
       "table": "archive_topology_addresses_view",
-      "id_column": "identity_id",
+      "id_column": "address",
       "properties": {
-        "identity_id": "identity_id",
         "address": "address",
+        "network": "network",
         "labels": "labels",
         "is_exchange": "is_exchange"
       }
@@ -145,16 +145,6 @@
         "last_seen_timestamp": "last_seen_timestamp",
         "observation_count": "observation_count"
       }
-    },
-    {
-      "label": "Address",
-      "table": "archive_identity_address_links_view",
-      "id_column": "address",
-      "properties": {
-        "address": "address",
-        "network": "network",
-        "form": "form"
-      }
     }
   ],
   "edges": [
@@ -164,7 +154,7 @@
       "id_column": "address",
       "source_column": "address",
       "target_column": "address",
-      "source_label": "Identity",
+      "source_label": "Address",
       "target_label": "AddressFeature",
       "properties": {
         "feature_scope": "feature_scope"
@@ -176,7 +166,7 @@
       "id_column": "label_id",
       "source_column": "address",
       "target_column": "label_id",
-      "source_label": "Identity",
+      "source_label": "Address",
       "target_label": "AddressLabel",
       "properties": {
         "source": "source",
@@ -191,7 +181,7 @@
       "id_column": "risk_score_id",
       "source_column": "address",
       "target_column": "risk_score_id",
-      "source_label": "Identity",
+      "source_label": "Address",
       "target_label": "RiskScore",
       "properties": {
         "processing_date": "processing_date",
@@ -205,7 +195,7 @@
       "id_column": "endpoint_id",
       "source_column": "coldkey_address",
       "target_column": "endpoint_id",
-      "source_label": "Identity",
+      "source_label": "Address",
       "target_label": "NeuronEndpoint",
       "properties": {
         "netuid": "netuid",
@@ -220,7 +210,7 @@
       "id_column": "endpoint_id",
       "source_column": "coldkey_address",
       "target_column": "hotkey_address",
-      "source_label": "Identity",
+      "source_label": "Address",
       "target_label": "Hotkey",
       "properties": {
         "netuid": "netuid",
@@ -252,7 +242,7 @@
       "id_column": "endpoint_id",
       "source_column": "coldkey_address",
       "target_column": "ip_address",
-      "source_label": "Identity",
+      "source_label": "Address",
       "target_label": "IPAddress",
       "properties": {
         "netuid": "netuid",
@@ -268,14 +258,12 @@
       "rel_type": "FLOWS_TO",
       "table": "archive_topology_edges_view",
       "id_column": "edge_id",
-      "source_column": "from_identity",
-      "target_column": "to_identity",
-      "source_label": "Identity",
-      "target_label": "Identity",
+      "source_column": "from_address",
+      "target_column": "to_address",
+      "source_label": "Address",
+      "target_label": "Address",
       "properties": {
         "edge_id": "edge_id",
-        "from_identity": "from_identity",
-        "to_identity": "to_identity",
         "from_address": "from_address",
         "to_address": "to_address",
         "period_granularity": "period_granularity",
@@ -295,14 +283,19 @@
       }
     },
     {
-      "rel_type": "HAS_ADDRESS",
-      "table": "archive_identity_address_links_view",
-      "id_column": "address",
-      "source_column": "identity",
-      "target_column": "address",
-      "source_label": "Identity",
+      "rel_type": "LINKED",
+      "table": "linked_addresses_view",
+      "id_column": "address_a",
+      "source_column": "address_a",
+      "target_column": "address_b",
+      "source_label": "Address",
       "target_label": "Address",
-      "properties": {}
+      "properties": {
+        "basis": "basis",
+        "confidence": "confidence",
+        "source_event": "source_event",
+        "declared_owner": "declared_owner"
+      }
     }
   ]
 }

@@ -170,62 +170,50 @@ with \`USE live_topology\`, historical topology reads with
 \`USE archive_topology\`, and fact reads with \`USE facts\`, for example:
 
 \`\`\`bash
-cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE live_topology MATCH (n:Identity) RETURN \"Identity\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (:Identity)-[f:FLOWS_TO]->(:Identity) RETURN f.period_granularity AS granularity, f.amount_usd_sum AS amount_usd_sum LIMIT 20"},{"id":"archive_member_address_sample","query":"USE archive_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 20"}]'
+cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE live_topology MATCH (n:Address) RETURN \"Address\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.period_granularity AS granularity, f.amount_usd_sum AS amount_usd_sum LIMIT 20"},{"id":"archive_linked_sample","query":"USE archive_topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 20"}]'
 \`\`\`
 
 Then update this file with observed labels, relationship types, and allowed
 property names for the active network.
 
-The slim identity graph schema:
+The address-grain graph schema:
 
-- Every topology node is \`(:Identity)\`, keyed by \`identity_id\` in the
-  canonical prefixed form \`<network>:<canonical_address>\` (for example
-  \`bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\`). Satellite
-  \`(:Address)\` nodes exist only for member-address lookup. There is no
-  \`network\` property; each network has its own graph.
-- Identity nodes carry no member-address list property. Member-address
-  forms (the canonical 0x form, plus the SS58 substrate form when the
-  identity has a substrate source) live exclusively on the satellite
-  \`(:Address {address, network})\` nodes reached via
-  \`(:Identity)-[:HAS_ADDRESS]->(:Address)\`. Enumerate an identity's
-  member forms with:
-  \`MATCH (i:Identity {identity_id: $id})-[:HAS_ADDRESS]->(m:Address)
-  RETURN m.address, m.network\`. Use those satellite forms to report the
-  human-recognizable address forms; never invent address conversions.
-- Resolve any member address form (0x or SS58) to its identity through
-  the indexed exact lookup:
-  \`MATCH (m:Address {address: $input})<-[:HAS_ADDRESS]-(i:Identity)
-  RETURN i.identity_id LIMIT 1\`. \`:Address(address)\` is unique and
-  index-backed.
-- Other Identity properties: \`labels\` (array) and \`is_exchange\`
+- Every topology node is \`(:Address {address, network})\`, keyed by the raw
+  chain-native \`address\` (SS58 for \`network=bittensor\`, EVM-pallet
+  \`0x...\` for \`network=bittensor_evm\`). There is no separate identity
+  key and no member-address satellite: the address IS the graph node.
+- \`(:Address)-[:LINKED]-(:Address)\` is an **undirected** ownership-overlay
+  edge (\`basis\` \`derived\`/\`associated\`, plus \`confidence\`,
+  \`source_event\`, \`declared_owner\`) asserting the two addresses are
+  controlled by the same actor. \`LINKED\` is the only edge that can connect
+  a \`bittensor\` address to a \`bittensor_evm\` address — walk one visible
+  \`LINKED\` hop to surface actor-level exposure or to resolve an address's
+  counterpart in the other network; never treat linked addresses as a single
+  collapsed node.
+- Other Address properties: \`labels\` (array) and \`is_exchange\`
   (sparse true/null traversal hint).
-- Identity nodes carry a slim live risk verdict for quick triage
+- Address nodes carry a slim live risk verdict for quick triage
   (\`risk_score\` float, \`risk_level\` string) plus base activity rollups:
   \`degree_in\`/\`degree_out\`/\`degree_total\` (distinct counterparty
-  identities), \`tx_in_count\`/\`tx_out_count\`/\`tx_total_count\`,
+  addresses), \`tx_in_count\`/\`tx_out_count\`/\`tx_total_count\`,
   \`total_in_usd\`/\`total_out_usd\`/\`total_volume_usd\`, \`net_flow_usd\`
   (in minus out; positive = net receiver) — all computed from external
   flows only — and \`first_activity_timestamp\`/
   \`last_activity_timestamp\`/\`activity_span_days\`, which include all
-  flows (self-loops included). Movement between an identity's own member
-  forms is excluded from the degree/count/USD rollups and exposed
-  separately as
-  \`internal_tx_count\`/\`internal_volume_usd\` (sparse: absent when zero,
-  like \`is_exchange\`). FLOWS_TO edges carry \`tx_count\`,
+  flows (self-loops included). FLOWS_TO edges carry \`tx_count\`,
   \`amount_usd_sum\`, \`avg_tx_size_usd\` (understates when
   \`price_coverage_ratio\` < 1), \`first_seen_timestamp\`/
   \`last_seen_timestamp\`, \`first_tx_id\`/\`last_tx_id\`,
   \`dominant_asset\` (largest USD share), and \`price_coverage_ratio\`.
   Lifetime aggregates are the only serving window.
-- Money flow is \`(:Identity)-[:FLOWS_TO]->(:Identity)\`. Public AML tools
-  accept blockchain/member addresses and resolve them to identity-grain
-  topology internally.
+- Money flow is \`(:Address)-[:FLOWS_TO]->(:Address)\`. Public AML tools
+  accept the raw blockchain address directly — there is no resolution step.
 - Detailed, provenanced scoring comes from \`USE facts\`. ML risk with
   model versions and processing dates:
-  \`(:Identity)-[:HAS_RISK_SCORE]->(:RiskScore)\`; label risk:
-  \`(:Identity)-[:HAS_LABEL]->(:AddressLabel)\`; lifetime metrics:
-  \`(:Identity)-[:HAS_FEATURE]->(:AddressFeature)\`. Facts identity keys
-  match live \`identity_id\` values exactly. Node \`risk_score\`/
+  \`(:Address)-[:HAS_RISK_SCORE]->(:RiskScore)\`; label risk:
+  \`(:Address)-[:HAS_LABEL]->(:AddressLabel)\`; lifetime metrics:
+  \`(:Address)-[:HAS_FEATURE]->(:AddressFeature)\`. Facts address keys
+  match live \`address\` values exactly. Node \`risk_score\`/
   \`risk_level\` are quick-triage verdicts only; do not read \`ml_*\`,
   \`confluence_score\`, or \`pattern_flags\` off topology nodes — those
   properties do not exist.
@@ -240,11 +228,10 @@ Rules:
 - Use \`USE live_topology\` for recent topology, \`USE archive_topology\`
   for historical topology, and \`USE facts\` for labels, features,
   risk scores, assets, and enrichment. Archived money-flow topology is
-  exposed as \`(:Identity)-[:FLOWS_TO]->(:Identity)\` with
+  exposed as \`(:Address)-[:FLOWS_TO]->(:Address)\` with
   \`period_granularity\`, \`period_start_date\`, and \`period_end_date\` on
-  the relationship. Archive member-address lookup is exposed as
-  \`(:Identity)-[:HAS_ADDRESS]->(:Address)\` with \`Address.address\` and
-  member-ledger \`Address.network\` projected for member-address resolution.
+  the relationship. Archive \`LINKED\` ownership-overlay reads use the same
+  \`(:Address)-[:LINKED]-(:Address)\` shape as live_topology.
 - Preserve source schema field names in generated data files.
 - Do not rename, reinterpret, or add unit labels to graph fields unless the
   schema or query result explicitly supports that interpretation.
@@ -278,13 +265,12 @@ Trace tool chaining:
    \`graph_query_batch\` only when the role-specific tools do not answer the
    exact question.
 
-All trace tools take blockchain/member addresses as inputs, resolve them to
-canonical identity keys internally, and return \`chain-insights.trace.v1\`.
-Preserve full blockchain addresses in
+All trace tools take raw blockchain addresses as inputs directly — there is no
+identity-resolution step — and return \`chain-insights.trace.v1\`. Preserve
+full blockchain addresses in
 \`input.addresses\`, \`addresses[].address\`, \`edges[].from_address\`,
 \`edges[].to_address\`, \`paths[].addresses\`, \`candidate_labels[].address\`,
-and \`continuation\` address lists. Preserve canonical identity mappings only
-inside explicit \`identity_resolution\` audit metadata.
+and \`continuation\` address lists.
 `
 
 const SCHEMA_README = `# Runtime Schema Captures

@@ -182,252 +182,6 @@ function parseAddressList(value: string | string[] | undefined): string[] {
     .filter(Boolean)
 }
 
-const CANONICAL_HEX_FORM_PATTERN = /^0x[0-9a-fA-F]+$/
-
-function memberFormOf(input: string, network: string): string {
-  const prefix = `${network}:`
-  return input.startsWith(prefix) ? input.slice(prefix.length) : input
-}
-
-function canonicalIdentityKeyFor(network: string, memberForm: string): string | undefined {
-  if (!CANONICAL_HEX_FORM_PATTERN.test(memberForm)) return undefined
-  return `${network}:${memberForm.toLowerCase()}`
-}
-
-function memberAddressResolutionQuery(id: string, memberForm: string): { id: string; query: string } {
-  return {
-    id,
-    query: [
-      `MATCH (m:Address {address: "${escapeCypherString(memberForm)}"})<-[:HAS_ADDRESS]-(i:Identity)`,
-      'RETURN i.identity_id AS identity_id',
-      'LIMIT 1',
-    ].join(' '),
-  }
-}
-
-// canonicalIdentityKeyFor() recognizes the CANONICAL FORM (0x...) but does not
-// verify the identity actually exists in the graph. A made-up 0x address would
-// otherwise be treated as "resolved" and traced, in violation of R2/R3.
-// This confirms existence for candidates that already look canonical.
-function identityExistenceQuery(id: string, identityId: string): { id: string; query: string } {
-  return {
-    id,
-    query: [
-      `MATCH (i:Identity {identity_id: "${escapeCypherString(identityId)}"})`,
-      'RETURN i.identity_id AS identity_id',
-      'LIMIT 1',
-    ].join(' '),
-  }
-}
-
-// Per-identity member lookups run one query per identity so a
-// per-identity LIMIT applies (a single global LIMIT lets one address-rich
-// identity starve the rest). Batches carry at most the backend's query
-// ceiling; callers chunk larger identity sets across batches so NO
-// identity loses enrichment.
-const MEMBER_ADDRESS_BATCH_CHUNK = 20
-const MEMBER_ADDRESSES_PER_IDENTITY_LIMIT = 25
-
-function identityMemberAddressesQueries(identityKeys: string[]): Array<{ id: string; query: string }> {
-  // One query PER identity: a per-identity LIMIT is not expressible in a
-  // single query on every layer, and a global LIMIT lets one address-rich
-  // identity starve the rest. No collect(): this builder runs under the
-  // caller's topology scope, and collect() fails at runtime on the
-  // archive layer (no COLLECT aggregate in the warehouse backend —
-  // capability probe A07 pins the reject). One row per member address;
-  // callers aggregate client-side.
-  return identityKeys.map((identityKey, index) => ({
-    id: `identity_member_addresses_${index}`,
-    query: [
-      `MATCH (i:Identity {identity_id: "${escapeCypherString(identityKey)}"})-[:HAS_ADDRESS]->(m:Address)`,
-      'RETURN i.identity_id AS identity_id, m.address AS member_address',
-      'ORDER BY m.address',
-      `LIMIT ${MEMBER_ADDRESSES_PER_IDENTITY_LIMIT}`,
-    ].join(' '),
-  }))
-}
-
-/**
- * Resolve public tool address inputs to canonical identity keys.
- *
- * Inputs already in canonical 0x form (with or without the network prefix)
- * are derived locally as `<network>:<lowercase 0x form>`. Any other member
- * form (for example an SS58 substrate address) is resolved through the
- * indexed `(:Address {address})<-[:HAS_ADDRESS]-(:Identity)` lookup.
- * Inputs the graph cannot resolve are passed through unchanged.
- */
-// Resolves each raw input to its canonical identity_id via the graph's Address
-// node: (:Identity)-[:HAS_ADDRESS]->(:Address {address: $raw}). Inputs that do
-// not resolve (no matching Address/Identity in the active topology) are
-// OMITTED from the returned map -- callers must not fall back to treating the
-// raw input as an identity_id (network:<raw address> is never a valid
-// identity_id; identities are keyed network:<canonical form>). Use
-// resolved.has(input) to distinguish "resolved to X" from "did not resolve".
-export async function resolveIdentityKeys(
-  remoteClient: Client,
-  network: string,
-  inputs: string[],
-  topologyScope: TopologyScope = DEFAULT_TOPOLOGY_SCOPE,
-): Promise<Map<string, string>> {
-  const resolved = new Map<string, string>()
-  const pendingAddressLookup: string[] = []
-  const pendingCanonicalCandidate = new Map<string, string>()
-  for (const input of [...new Set(inputs.map((value) => value.trim()).filter(Boolean))]) {
-    const canonical = canonicalIdentityKeyFor(network, memberFormOf(input, network))
-    if (canonical) pendingCanonicalCandidate.set(input, canonical)
-    else pendingAddressLookup.push(input)
-  }
-  if (pendingAddressLookup.length === 0 && pendingCanonicalCandidate.size === 0) return resolved
-
-  const addressQueries = pendingAddressLookup.map((input, index) => ({
-    input,
-    ...memberAddressResolutionQuery(`resolve_member_address_${index + 1}`, memberFormOf(input, network)),
-  }))
-  const canonicalInputs = [...pendingCanonicalCandidate.keys()]
-  const existenceQueries = canonicalInputs.map((input, index) => ({
-    input,
-    ...identityExistenceQuery(`resolve_identity_exists_${index + 1}`, pendingCanonicalCandidate.get(input)!),
-  }))
-  const batch = await callGraphBatch(
-    remoteClient,
-    network,
-    [...addressQueries, ...existenceQueries].map(({ id, query }) => ({ id, query })),
-    topologyScope,
-  )
-  const failures: QueryFailure[] = []
-  for (const { input, id } of addressQueries) {
-    const rows = optionalResultsFor(batch, id, failures)
-    const identityId = firstString(rows[0]?.['identity_id'])
-    if (identityId) resolved.set(input, identityId)
-  }
-  for (const { input, id } of existenceQueries) {
-    const rows = optionalResultsFor(batch, id, failures)
-    const identityId = firstString(rows[0]?.['identity_id'])
-    if (identityId) resolved.set(input, identityId)
-  }
-  return resolved
-}
-
-type IdentityDisplayInfo = {
-  canonical_identity_key: string
-  address: string
-  member_addresses: string[]
-}
-
-function collectIdentityKeys(value: unknown, network: string, keys = new Set<string>()): Set<string> {
-  const prefix = `${network}:`
-  if (typeof value === 'string') {
-    if (value.startsWith(prefix)) keys.add(value)
-    return keys
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) collectIdentityKeys(item, network, keys)
-    return keys
-  }
-  if (typeof value === 'object' && value !== null) {
-    for (const item of Object.values(value)) collectIdentityKeys(item, network, keys)
-  }
-  return keys
-}
-
-async function identityDisplayMap(
-  remoteClient: Client,
-  network: string,
-  identityKeys: string[],
-  preferredByIdentity = new Map<string, string>(),
-  topologyScope: TopologyScope = DEFAULT_TOPOLOGY_SCOPE,
-): Promise<Map<string, IdentityDisplayInfo>> {
-  const uniqueKeys = [...new Set(identityKeys.filter((key) => key.startsWith(`${network}:`)))]
-  const memberRows = new Map<string, string[]>()
-  if (uniqueKeys.length > 0) {
-    try {
-      // Chunk across batches (batch query ceiling) so every identity gets
-      // enriched — capping instead of chunking regressed large traces to
-      // unenriched lowercase stems past the cap.
-      for (let start = 0; start < uniqueKeys.length; start += MEMBER_ADDRESS_BATCH_CHUNK) {
-        const chunk = uniqueKeys.slice(start, start + MEMBER_ADDRESS_BATCH_CHUNK)
-        const memberQueries = identityMemberAddressesQueries(chunk)
-        const batch = await callGraphBatch(remoteClient, network, memberQueries, topologyScope)
-        for (const memberQuery of memberQueries) {
-          for (const row of optionalResultsFor(batch, memberQuery.id, [])) {
-            const identityKey = firstString(row['identity_id'])
-            const memberAddress = firstString(row['member_address'])
-            if (!identityKey || !memberAddress) continue
-            // One row per member address (no collect() — archive-safe
-            // form); aggregate client-side.
-            const existing = memberRows.get(identityKey) ?? []
-            if (!existing.includes(memberAddress)) existing.push(memberAddress)
-            memberRows.set(identityKey, existing)
-          }
-        }
-      }
-    } catch {
-      // Publicization is best-effort. Tool execution should not fail only
-      // because member-address decoration was unavailable.
-    }
-  }
-
-  return new Map(uniqueKeys.map((identityKey) => {
-    const preferred = preferredByIdentity.get(identityKey)
-    const members = memberRows.get(identityKey) ?? []
-    const address = preferred ? memberFormOf(preferred, network) : members[0] ?? memberFormOf(identityKey, network)
-    return [identityKey, {
-      canonical_identity_key: identityKey,
-      address,
-      member_addresses: members,
-    }]
-  }))
-}
-
-function replaceIdentityKeysDeep(value: unknown, displayByIdentity: Map<string, IdentityDisplayInfo>): unknown {
-  if (typeof value === 'string') return replaceIdentityKeysInText(value, displayByIdentity)
-  if (Array.isArray(value)) return value.map((item) => replaceIdentityKeysDeep(item, displayByIdentity))
-  if (typeof value !== 'object' || value === null) return value
-  return Object.fromEntries(
-    Object.entries(value).map(([key, entry]) => [key, replaceIdentityKeysDeep(entry, displayByIdentity)]),
-  )
-}
-
-function replaceIdentityKeysInText(value: string, displayByIdentity: Map<string, IdentityDisplayInfo>): string {
-  return [...displayByIdentity.entries()]
-    .sort((a, b) => b[0].length - a[0].length)
-    .reduce((text, [identityKey, info]) => text.replaceAll(identityKey, info.address), value)
-}
-
-function identityResolution(displayByIdentity: Map<string, IdentityDisplayInfo>): IdentityDisplayInfo[] {
-  return [...displayByIdentity.values()]
-    .sort((a, b) => a.address.localeCompare(b.address))
-}
-
-async function publicizeIdentityResult<T extends {
-  summaryText: string
-  structuredContent: Record<string, unknown>
-  graphData: Record<string, unknown>
-}>(
-  remoteClient: Client,
-  network: string,
-  result: T,
-  preferredByIdentity = new Map<string, string>(),
-  topologyScope: TopologyScope = DEFAULT_TOPOLOGY_SCOPE,
-): Promise<T> {
-  const identityKeys = [
-    ...collectIdentityKeys(result.summaryText, network),
-    ...collectIdentityKeys(result.structuredContent, network),
-    ...collectIdentityKeys(result.graphData, network),
-  ]
-  const displayByIdentity = await identityDisplayMap(remoteClient, network, identityKeys, preferredByIdentity, topologyScope)
-  if (displayByIdentity.size === 0) return result
-  return {
-    ...result,
-    summaryText: replaceIdentityKeysInText(result.summaryText, displayByIdentity),
-    structuredContent: {
-      ...(replaceIdentityKeysDeep(result.structuredContent, displayByIdentity) as Record<string, unknown>),
-      identity_resolution: identityResolution(displayByIdentity),
-    },
-    graphData: replaceIdentityKeysDeep(result.graphData, displayByIdentity) as Record<string, unknown>,
-  }
-}
-
 function graphArray(graphData: Record<string, unknown>, key: string): Array<Record<string, unknown>> {
   const value = graphData[key]
   return Array.isArray(value) ? value.filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null && !Array.isArray(item)) : []
@@ -435,7 +189,7 @@ function graphArray(graphData: Record<string, unknown>, key: string): Array<Reco
 
 function addressProfileQuery(address: string, topologyScope: TopologyScope): { id: string; query: string } {
   // risk_score/risk_level are a live_topology-only "slim live risk verdict" on
-  // :Identity (see ops/memgql/README.md); the archive_topology StarRocks
+  // :Address (see ops/memgql/README.md); the archive_topology StarRocks
   // mapping never defines them, so projecting them there hard-errors the
   // whole query instead of nulling gracefully. Real risk scores for archive
   // come from the separate USE facts query (addressRiskScoreQuery).
@@ -443,23 +197,9 @@ function addressProfileQuery(address: string, topologyScope: TopologyScope): { i
   return {
     id: 'address_profile',
     query: [
-      `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})`,
-      `RETURN a.identity_id AS address, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange${riskFields}`,
+      `MATCH (a:Address {address: "${escapeCypherString(address)}"})`,
+      `RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange${riskFields}`,
       'LIMIT 1',
-    ].join(' '),
-  }
-}
-
-function memberAddressesQuery(address: string): { id: string; query: string } {
-  // No collect(): MemGQL translates collect() to MySQL's JSON_ARRAYAGG, which
-  // StarRocks rejects (memgraph/memgraph#4178, upstream, unfixed as of 0.6.3).
-  // Return one row per member address and aggregate client-side instead.
-  return {
-    id: 'member_addresses',
-    query: [
-      `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[:HAS_ADDRESS]->(m:Address)`,
-      'RETURN m.address AS member_address',
-      'LIMIT 50',
     ].join(' '),
   }
 }
@@ -469,7 +209,7 @@ function addressFeatureQuery(address: string): { id: string; query: string } {
     id: 'address_feature',
     query: [
       'USE facts',
-      `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[:HAS_FEATURE]->(feature:AddressFeature)`,
+      `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[:HAS_FEATURE]->(feature:AddressFeature)`,
       'RETURN feature.degree_in AS degree_in, feature.degree_out AS degree_out, feature.degree_total AS degree_total, feature.tx_in_count AS tx_in_count, feature.tx_out_count AS tx_out_count, feature.tx_total_count AS tx_total_count, feature.total_volume_usd AS total_volume_usd, feature.total_in_usd AS total_in_usd, feature.total_out_usd AS total_out_usd, feature.net_flow_usd AS net_flow_usd, feature.first_activity_timestamp AS first_activity_timestamp, feature.last_activity_timestamp AS last_activity_timestamp, feature.activity_span_days AS activity_span_days',
       'LIMIT 1',
     ].join(' '),
@@ -492,7 +232,7 @@ function addressRiskScoreQuery(address: string): { id: string; query: string } {
     id: 'address_risk_score',
     query: [
       'USE facts',
-      `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[:HAS_RISK_SCORE]->(risk:RiskScore)`,
+      `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[:HAS_RISK_SCORE]->(risk:RiskScore)`,
       'RETURN risk.risk_score AS ml_risk_score, risk.window_days AS risk_window_days, risk.processing_date AS risk_processing_date, risk.xgboost_model_version AS xgboost_model_version, risk.gnn_model_version AS gnn_model_version, risk.shap_top_features AS shap_top_features',
       'LIMIT 1',
     ].join(' '),
@@ -504,11 +244,11 @@ function addressLabelRiskQuery(address: string): { id: string; query: string } {
     id: 'address_label_risk',
     query: [
       'USE facts',
-      `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[:HAS_LABEL]->(label:AddressLabel)`,
+      `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[:HAS_LABEL]->(label:AddressLabel)`,
       'RETURN label.label AS label, label.risk_level AS risk_level, label.trust_level AS trust_level, label.confidence_score AS confidence_score, label.source AS source, label.entity_type AS entity_type, label.updated_timestamp AS updated_timestamp',
       // Deterministic subset: an unordered LIMIT let the surfaced labels —
       // and therefore the derived risk level — flap between runs for
-      // label-heavy identities.
+      // label-heavy addresses.
       'ORDER BY label.updated_timestamp DESC',
       'LIMIT 10',
     ].join(' '),
@@ -521,9 +261,9 @@ function flowEdgeMap(variableName: string): string {
 
 function pathNodeMap(variableName: string, topologyScope: TopologyScope): string {
   // See addressProfileQuery: risk_score/risk_level aren't in the archive_topology
-  // Identity mapping, so they must be omitted from path_nodes on that scope.
+  // Address mapping, so they must be omitted from path_nodes on that scope.
   const riskFields = topologyScope === 'archive_topology' ? '' : `, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level`
-  return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, is_exchange: ${variableName}.is_exchange${riskFields}}`
+  return `{address: ${variableName}.address, network: ${variableName}.network, labels: ${variableName}.labels, system_labels: ${variableName}.labels, is_exchange: ${variableName}.is_exchange${riskFields}}`
 }
 
 function exchangeOutflowQueries(address: string, topologyScope: TopologyScope): Array<{ id: string; query: string }> {
@@ -536,7 +276,7 @@ function exchangeOutflowQueryAtDepth(address: string, depth: number, topologySco
   const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
   const relationshipChain = edgeVariables.map((edgeVariable, index) => {
     const targetVariable = index === edgeVariables.length - 1 ? 'exchange' : intermediateVariables[index]!
-    return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Identity)`
+    return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
   }).join('')
   const intermediatePredicates = intermediateVariables.map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
   const depositVariable = nodeVariables[nodeVariables.length - 2]!
@@ -544,9 +284,9 @@ function exchangeOutflowQueryAtDepth(address: string, depth: number, topologySco
   return {
     id: `exchange_outflows_${depth}`,
     query: [
-      `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})${relationshipChain}`,
-      `WHERE a.identity_id <> exchange.identity_id AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
-      `RETURN "outflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${depositVariable}.identity_id AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable, topologyScope)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `MATCH (a:Address {address: "${escapeCypherString(address)}"})${relationshipChain}`,
+      `WHERE a.address <> exchange.address AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
+      `RETURN "outflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${depositVariable}.address AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable, topologyScope)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
     ].join(' '),
@@ -563,7 +303,7 @@ function exchangeInflowQueryAtDepth(address: string, depth: number, topologyScop
   const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
   const relationshipChain = edgeVariables.map((edgeVariable, index) => {
     const targetVariable = index === edgeVariables.length - 1 ? 'a' : intermediateVariables[index]!
-    return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Identity)`
+    return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
   }).join('')
   const intermediatePredicates = intermediateVariables.map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
   const withdrawalVariable = nodeVariables[1]!
@@ -571,9 +311,9 @@ function exchangeInflowQueryAtDepth(address: string, depth: number, topologyScop
   return {
     id: `exchange_inflows_${depth}`,
     query: [
-      `MATCH (exchange:Identity)${relationshipChain}`,
-      `WHERE a.identity_id = "${escapeCypherString(address)}" AND a.identity_id <> exchange.identity_id AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
-      `RETURN "inflow" AS direction, exchange.identity_id AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${withdrawalVariable}.identity_id AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable, topologyScope)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `MATCH (exchange:Address)${relationshipChain}`,
+      `WHERE a.address = "${escapeCypherString(address)}" AND a.address <> exchange.address AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
+      `RETURN "inflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${withdrawalVariable}.address AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable, topologyScope)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
     ].join(' '),
@@ -584,9 +324,111 @@ function connectionProbeQuery(address: string, compareAddress: string): { id: st
   return {
     id: 'connection_probe',
     query: [
-      `MATCH (a:Identity {identity_id: "${escapeCypherString(address)}"})-[r:FLOWS_TO]-(b:Identity {identity_id: "${escapeCypherString(compareAddress)}"})`,
-      'RETURN [a.identity_id, b.identity_id] AS addresses, 1 AS hops',
+      `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[r:FLOWS_TO]-(b:Address {address: "${escapeCypherString(compareAddress)}"})`,
+      'RETURN [a.address, b.address] AS addresses, 1 AS hops',
       'LIMIT 5',
+    ].join(' '),
+  }
+}
+
+// Address-grain has no separate identity-resolution lookup: existence of the
+// compare_address is checked directly against :Address, distinct from the
+// primary address_profile query so both existence checks can run in one batch.
+function compareAddressExistsQuery(address: string): { id: string; query: string } {
+  return {
+    id: 'compare_address_exists',
+    query: [
+      `MATCH (a:Address {address: "${escapeCypherString(address)}"})`,
+      'RETURN a.address AS address',
+      'LIMIT 1',
+    ].join(' '),
+  }
+}
+
+// R2/R3 seed pre-flight (address grain): before a multi-address trace runs,
+// every seed is probed with a cheap indexed :Address existence lookup so a
+// made-up or inactive address is REPORTED as unresolved instead of silently
+// traced into an empty result. This preserves the pre-revert identity-
+// resolution contract's unresolved-seeds surface (structuredContent.unresolved
+// + summary.unresolved_count + the Unresolved summary line) with the address
+// itself as the graph key -- there is no canonical-key rewrite step anymore.
+function seedAddressExistsQuery(id: string, address: string): { id: string; query: string } {
+  return {
+    id,
+    query: [
+      `MATCH (a:Address {address: "${escapeCypherString(address)}"})`,
+      'RETURN a.address AS address',
+      'LIMIT 1',
+    ].join(' '),
+  }
+}
+
+async function probeSeedAddresses(
+  remoteClient: Client,
+  network: string,
+  inputs: string[],
+  topologyScope: TopologyScope,
+): Promise<Set<string>> {
+  if (inputs.length === 0) return new Set()
+  const queries = inputs.map((input, index) => ({
+    input,
+    ...seedAddressExistsQuery(`seed_address_exists_${index + 1}`, input),
+  }))
+  const batch = await callGraphBatch(
+    remoteClient,
+    network,
+    queries.map(({ id, query }) => ({ id, query })),
+    topologyScope,
+  )
+  const failures: QueryFailure[] = []
+  const existing = new Set<string>()
+  for (const { input, id } of queries) {
+    const rows = optionalResultsFor(batch, id, failures)
+    // A failed probe (ok:false) treats the seed as unresolved rather than
+    // silently tracing it -- same conservative posture the pre-revert
+    // identity resolution took on lookup failure.
+    if (firstString(rows[0]?.['address'])) existing.add(input)
+  }
+  return existing
+}
+
+// AC11: FLOWS_TO reachability UNIONed over one -[:LINKED]- hop, so an
+// investigator surveying an address's exposure also sees exposure carried by
+// an address that is only ownership-LINKED to it (LINKED is undirected).
+function linkedExposureQueries(address: string, topologyScope: TopologyScope): Array<{ id: string; query: string }> {
+  return [
+    {
+      id: 'linked_exposure_direct',
+      query: [
+        `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[r:FLOWS_TO]-(b:Address)`,
+        'WHERE a.address <> b.address',
+        `RETURN a.address AS subject_address, b.address AS counterparty_address, b.network AS counterparty_network, "direct" AS exposure_basis, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count`,
+        'LIMIT 200',
+      ].join(' '),
+    },
+    {
+      id: 'linked_exposure_via_linked',
+      query: [
+        `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[l:LINKED]-(owned:Address)-[r:FLOWS_TO]-(b:Address)`,
+        'WHERE owned.address <> b.address AND a.address <> b.address',
+        `RETURN a.address AS subject_address, b.address AS counterparty_address, b.network AS counterparty_network, "via_linked" AS exposure_basis, owned.address AS linked_via_address, l.basis AS link_basis, l.confidence AS link_confidence, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count`,
+        'LIMIT 200',
+      ].join(' '),
+    },
+  ]
+}
+
+// AC5: cross-space (bittensor <-> bittensor_evm) LINKED probe -- the only
+// edge that bridges the two address-grain networks (LINKED is written
+// cross-network by the graphsync bridge; FLOWS_TO never crosses networks).
+function crossSpaceLinkedQuery(address: string): { id: string; query: string } {
+  return {
+    id: 'cross_space_linked',
+    query: [
+      `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[l:LINKED]-(b:Address)`,
+      'WHERE a.network <> b.network',
+      'RETURN a.address AS address, a.network AS network, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence, l.source_event AS source_event, l.declared_owner AS declared_owner',
+      'LIMIT 50',
     ].join(' '),
   }
 }
@@ -612,18 +454,18 @@ export function shouldIncludeRouteQueries(
 }
 
 export function connectionRouteQueries(
-  addressIdentity: string,
-  compareIdentity: string,
+  address: string,
+  compareAddress: string,
 ): Array<{ id: string; query: string }> {
-  const routeQuery = (fromIdentity: string, toIdentity: string): string =>
+  const routeQuery = (fromAddress: string, toAddress: string): string =>
     [
-      `MATCH p = (src:Identity {identity_id: "${escapeCypherString(fromIdentity)}"})`,
+      `MATCH p = (src:Address {address: "${escapeCypherString(fromAddress)}"})`,
       `-[:FLOWS_TO *BFS 1..${CONNECTION_ROUTE_DEPTH_BOUND}]->`,
-      `(dst:Identity {identity_id: "${escapeCypherString(toIdentity)}"}) RETURN p LIMIT 1`,
+      `(dst:Address {address: "${escapeCypherString(toAddress)}"}) RETURN p LIMIT 1`,
     ].join('')
   return [
-    { id: 'connection_route_outbound', query: routeQuery(addressIdentity, compareIdentity) },
-    { id: 'connection_route_inbound', query: routeQuery(compareIdentity, addressIdentity) },
+    { id: 'connection_route_outbound', query: routeQuery(address, compareAddress) },
+    { id: 'connection_route_inbound', query: routeQuery(compareAddress, address) },
   ]
 }
 
@@ -671,21 +513,21 @@ export function isExchangeMarker(value: unknown): boolean {
 }
 
 // Shape-tolerant hydrated-path reader: walks the returned path value for
-// ordered identity nodes and FLOWS_TO edge amounts without pinning the
+// ordered address nodes and FLOWS_TO edge amounts without pinning the
 // backend's exact path envelope.
 export function routeFromPathValue(value: unknown): RouteEvidenceSide | null {
   if (!value || typeof value !== 'object') return null
-  const nodes = collectOrdered(value, (candidate) => typeof candidate['identity_id'] === 'string')
+  const nodes = collectOrdered(value, (candidate) => typeof candidate['address'] === 'string')
   if (nodes.length < 2) return null
   const edges = collectOrdered(
     value,
-    (candidate) => typeof candidate['amount_usd_sum'] === 'number' && !('identity_id' in candidate),
+    (candidate) => typeof candidate['amount_usd_sum'] === 'number' && !('address' in candidate),
   )
-  const identities = nodes.map((node) => String(node['identity_id']))
+  const identities = nodes.map((node) => String(node['address']))
   const exchangeIntermediates = nodes
     .slice(1, -1)
     .filter((node) => isExchangeMarker(node['is_exchange']))
-    .map((node) => String(node['identity_id']))
+    .map((node) => String(node['address']))
   return {
     // Hop count is a structural property of the node sequence — never
     // derived from edge-object detection, which keys on numeric
@@ -1054,59 +896,53 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   structuredContent: Record<string, unknown>
   graphData: Record<string, unknown>
 }> {
-  const inputAddress = options.address.trim()
+  const address = options.address.trim()
   const network = options.network.trim()
   const compareInput = options.compareAddress?.trim() ?? ''
   const topologyScope = options.topologyScope ?? DEFAULT_TOPOLOGY_SCOPE
-  if (!inputAddress) throw new Error('address is required')
+  if (!address) throw new Error('address is required')
   if (!network) throw new Error('network is required')
-  const resolvedKeys = await resolveIdentityKeys(remoteClient, network, [inputAddress, ...(compareInput ? [compareInput] : [])], topologyScope)
-  if (!resolvedKeys.has(inputAddress)) {
-    return {
-      summaryText: `Address risk for ${network}:${inputAddress}\n\nUnresolved: no Identity/Address found for "${inputAddress}" in ${topologyScope}. The address may not have on-chain activity in this network or topology scope; try topology_scope=archive_topology for full history.`,
-      structuredContent: {
-        schema: 'chain-insights.result.v1',
-        tool: 'aml_address_risk',
-        facts: {
-          subject: { network, addresses: [inputAddress], topology_scope: topologyScope },
-          unresolved: [inputAddress],
-        },
-      },
-      graphData: { schema: 'chain-insights.graph.v1', nodes: [], edges: [], flows: [], edge_anchors: [], metadata: { address: inputAddress, network, generated_at: new Date().toISOString() } },
-    }
-  }
-  const address = resolvedKeys.get(inputAddress)!
-  const compareUnresolved = compareInput !== '' && !resolvedKeys.has(compareInput)
-  const compareAddress = compareInput && !compareUnresolved ? resolvedKeys.get(compareInput)! : ''
-  const preferredByIdentity = new Map<string, string>([
-    [address, inputAddress],
-    ...(compareAddress ? [[compareAddress, compareInput] as [string, string]] : []),
-  ])
 
+  // Address-grain has no separate resolution step: the input address IS the
+  // graph node key. Existence is determined from the address_profile row
+  // (below), not a pre-flight identity lookup.
   const queries = [
     addressProfileQuery(address, topologyScope),
-    memberAddressesQuery(address),
     addressFeatureQuery(address),
     addressRiskScoreQuery(address),
     addressLabelRiskQuery(address),
     ...exchangeOutflowQueries(address, topologyScope),
     ...exchangeInflowQueries(address, topologyScope),
-    ...(compareAddress ? [connectionProbeQuery(address, compareAddress)] : [{ id: 'connection_probe', query: 'MATCH (n:Identity {identity_id: "__chain_insights_noop__"}) RETURN n.identity_id AS noop LIMIT 0' }]),
+    ...(compareInput ? [connectionProbeQuery(address, compareInput), compareAddressExistsQuery(compareInput)] : [{ id: 'connection_probe', query: 'MATCH (n:Address {address: "__chain_insights_noop__"}) RETURN n.address AS noop LIMIT 0' }]),
     // Route evidence is additive and live-only (native *BFS traversal is
     // rejected by the translator on SQL-mapped scopes); the legacy 1-hop probe
     // above always runs.
-    ...(shouldIncludeRouteQueries(topologyScope, compareAddress)
-      ? connectionRouteQueries(address, compareAddress as string)
+    ...(shouldIncludeRouteQueries(topologyScope, compareInput)
+      ? connectionRouteQueries(address, compareInput)
       : []),
   ]
   const batch = await callGraphBatch(remoteClient, network, queries, topologyScope)
   const partialQueryFailures: QueryFailure[] = []
-  const memberAddressRows = optionalResultsFor(batch, 'member_addresses', partialQueryFailures)
-  const memberAddressesFromRows = memberAddressRows.map((row) => firstString(row['member_address'])).filter((value): value is string => Boolean(value))
+  const addressProfileRows = optionalResultsFor(batch, 'address_profile', partialQueryFailures)
+  if (addressProfileRows.length === 0) {
+    return {
+      summaryText: `Address risk for ${network}:${address}\n\nUnresolved: no Address found for "${address}" in ${topologyScope}. The address may not have on-chain activity in this network or topology scope; try topology_scope=archive_topology for full history.`,
+      structuredContent: {
+        schema: 'chain-insights.result.v1',
+        tool: 'aml_address_risk',
+        facts: {
+          subject: { network, addresses: [address], topology_scope: topologyScope },
+          unresolved: [address],
+        },
+      },
+      graphData: { schema: 'chain-insights.graph.v1', nodes: [], edges: [], flows: [], edge_anchors: [], metadata: { address, network, generated_at: new Date().toISOString() } },
+    }
+  }
+  const compareUnresolved = compareInput !== '' && optionalResultsFor(batch, 'compare_address_exists', partialQueryFailures).length === 0
+  const compareAddress = compareInput && !compareUnresolved ? compareInput : ''
   const profile: Record<string, unknown> = {
     address,
-    ...(optionalResultsFor(batch, 'address_profile', partialQueryFailures)[0] ?? {}),
-    ...(memberAddressesFromRows.length > 0 ? { member_addresses: memberAddressesFromRows } : {}),
+    ...(addressProfileRows[0] ?? {}),
     ...(optionalResultsFor(batch, 'address_feature', partialQueryFailures)[0] ?? {}),
     ...(optionalResultsFor(batch, 'address_risk_score', partialQueryFailures)[0] ?? {}),
   }
@@ -1134,7 +970,6 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   const exchangeSearchComplete = exchangeSearchFailures.length === 0
   const graphData = buildRiskGraph(address, profile, exchangeRows, network)
   const risk = riskAssessment(profile, labelRows, exchangeRows)
-  const memberAddresses = stringArrayValue(profile['member_addresses']) ?? []
   const liveRiskScore = numberValue(profile['live_risk_score'])
   const liveRiskLevel = firstString(profile['live_risk_level'])
   const liveNodeVerdict = liveRiskScore !== undefined || liveRiskLevel
@@ -1152,7 +987,6 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     `Confidence: ${risk['confidence']}`,
     `Recommendation: ${risk['recommendation']}`,
     ...(liveNodeVerdict ? [`Live node triage: ${liveRiskLevel ?? 'unknown'} (${formatRiskScore(liveRiskScore)})`] : []),
-    `Member addresses: ${memberAddresses.join(', ') || 'unknown'}.`,
     `Graph degree: in ${profile['degree_in'] ?? 'unknown'}, out ${profile['degree_out'] ?? 'unknown'}.`,
     '',
     'Exchange behavior',
@@ -1176,82 +1010,63 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     lines.push('', `Connection compare target: ${compareAddress}`, connections.length > 0 ? `Connection paths found: ${connections.length}` : 'Connection paths found: 0')
   }
   if (compareUnresolved) {
-    lines.push('', `Unresolved compare_address: no Identity/Address found for "${compareInput}" in ${topologyScope}; comparison skipped.`)
+    lines.push('', `Unresolved compare_address: no Address found for "${compareInput}" in ${topologyScope}; comparison skipped.`)
   }
   if (partialQueryFailures.length > 0) {
     lines.push('', 'Partial query failures', partialQueryFailures.map((failure) => `- ${failure.id}: ${failure.error}`).join('\n'))
   }
   const summaryText = lines.join('\n')
-  const baseResult = {
+  const structuredContent = {
+    schema: 'chain-insights.result.v1',
+    tool: 'aml_address_risk',
+    facts: {
+      subject: {
+        network,
+        addresses: compareAddress ? [address, compareAddress] : [address],
+        topology_scope: topologyScope,
+      },
+      risk: {
+        ...risk,
+        ...(liveNodeVerdict ? { live_node: liveNodeVerdict } : {}),
+      },
+      exchange_behavior: {
+        outflows,
+        inflows,
+        search_status: exchangeSearchComplete ? 'complete' : 'incomplete',
+        ...(exchangeSearchComplete ? {} : { failed_query_ids: exchangeSearchFailures.map((failure) => failure.id) }),
+      },
+      connection: compareAddress
+        ? {
+            compare_address: compareAddress,
+            paths: connections,
+            ...(routeEvidence ? { route_evidence: routeEvidence } : {}),
+          }
+        : undefined,
+      unresolved: compareUnresolved ? [compareInput] : undefined,
+      partial_query_errors: partialQueryFailures.length > 0 ? partialQueryFailures : undefined,
+    },
+  }
+  const artifacts = options.writeArtifacts ? await writeAddressRiskArtifacts(
+    network,
+    address,
+    compareAddress,
+    graphData,
+    exchangeRows,
+    summaryText,
+  ) : statelessArtifacts()
+  const evidence = artifactEvidence(artifacts)
+
+  return {
     summaryText,
     structuredContent: {
-      schema: 'chain-insights.result.v1',
-      tool: 'aml_address_risk',
-      facts: {
-        subject: {
-          network,
-          addresses: compareAddress ? [address, compareAddress] : [address],
-          ...(memberAddresses.length > 0 ? { member_addresses: memberAddresses } : {}),
-          topology_scope: topologyScope,
-        },
-        risk: {
-          ...risk,
-          ...(liveNodeVerdict ? { live_node: liveNodeVerdict } : {}),
-        },
-        exchange_behavior: {
-          outflows,
-          inflows,
-          search_status: exchangeSearchComplete ? 'complete' : 'incomplete',
-          ...(exchangeSearchComplete ? {} : { failed_query_ids: exchangeSearchFailures.map((failure) => failure.id) }),
-        },
-        connection: compareAddress
-          ? {
-              compare_address: compareAddress,
-              paths: connections,
-              ...(routeEvidence ? { route_evidence: routeEvidence } : {}),
-            }
-          : undefined,
-        unresolved: compareUnresolved ? [compareInput] : undefined,
-        partial_query_errors: partialQueryFailures.length > 0 ? partialQueryFailures : undefined,
-      },
-      artifacts: statelessArtifacts(),
-      evidence: [{
+      ...structuredContent,
+      artifacts,
+      evidence: [...evidence, {
         evidence_type: 'tool_summary',
         summary: `aml_address_risk ${address} completed for ${network}`,
       }],
     },
     graphData,
-  }
-  const publicResult = await publicizeIdentityResult(remoteClient, network, baseResult, preferredByIdentity, topologyScope)
-  const publicSubject = publicResult.structuredContent.facts as Record<string, unknown> | undefined
-  const publicSubjectAddresses = (publicSubject?.subject as Record<string, unknown> | undefined)?.addresses
-  const publicSubjectAddress = Array.isArray(publicSubjectAddresses) && typeof publicSubjectAddresses[0] === 'string'
-    ? publicSubjectAddresses[0]
-    : memberFormOf(inputAddress, network)
-  const publicCompareAddress = Array.isArray(publicSubjectAddresses) && typeof publicSubjectAddresses[1] === 'string'
-    ? publicSubjectAddresses[1]
-    : compareAddress
-  const artifacts = options.writeArtifacts ? await writeAddressRiskArtifacts(
-    network,
-    publicSubjectAddress,
-    publicCompareAddress,
-    publicResult.graphData,
-    exchangeRows,
-    publicResult.summaryText,
-  ) : statelessArtifacts()
-  const evidence = artifactEvidence(artifacts)
-
-  return {
-    summaryText: publicResult.summaryText,
-    structuredContent: {
-      ...publicResult.structuredContent,
-      artifacts,
-      evidence: [...evidence, {
-        evidence_type: 'tool_summary',
-        summary: `aml_address_risk ${inputAddress} completed for ${network}`,
-      }],
-    },
-    graphData: publicResult.graphData,
   }
 }
 
@@ -1691,28 +1506,26 @@ async function writeTraceArtifacts(tool: TraceToolName, network: string, result:
   return { artifacts, summaryText }
 }
 
+// Address-grain has no separate identity-display mapping step: the graph
+// node key IS the address, so `result` is already in its public form.
 async function publicizeTraceResult(
-  remoteClient: Client,
   network: string,
   result: TraceToolResult,
-  preferredByIdentity: Map<string, string>,
   writeArtifacts: boolean,
-  topologyScope: TopologyScope = DEFAULT_TOPOLOGY_SCOPE,
 ): Promise<TraceToolResult> {
-  const publicResult = await publicizeIdentityResult(remoteClient, network, result, preferredByIdentity, topologyScope)
-  if (!writeArtifacts) return publicResult
-  const tool = typeof publicResult.structuredContent['tool'] === 'string'
-    ? publicResult.structuredContent['tool'] as TraceToolName
+  if (!writeArtifacts) return result
+  const tool = typeof result.structuredContent['tool'] === 'string'
+    ? result.structuredContent['tool'] as TraceToolName
     : 'aml_trace_victim_funds'
-  const { artifacts, summaryText } = await writeTraceArtifacts(tool, network, publicResult)
-  const existingEvidence = Array.isArray(publicResult.structuredContent['evidence'])
-    ? publicResult.structuredContent['evidence'].filter((entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null && !Array.isArray(entry))
+  const { artifacts, summaryText } = await writeTraceArtifacts(tool, network, result)
+  const existingEvidence = Array.isArray(result.structuredContent['evidence'])
+    ? result.structuredContent['evidence'].filter((entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null && !Array.isArray(entry))
     : []
   return {
-    ...publicResult,
+    ...result,
     summaryText,
     structuredContent: {
-      ...publicResult.structuredContent,
+      ...result.structuredContent,
       artifacts,
       evidence: [
         ...existingEvidence.filter((entry) => entry['evidence_type'] !== 'artifact_pointer'),
@@ -1948,7 +1761,7 @@ function traceResultFromFundRuns(
     },
     warnings: [
       ...(depositAddresses.length === 0 ? ['No exchange deposit candidates were connected in the queried topology.'] : []),
-      ...(options.unresolved && options.unresolved.length > 0 ? [`${options.unresolved.length} input address(es) did not resolve to a known Identity and were not traced: ${options.unresolved.join(', ')}.`] : []),
+      ...(options.unresolved && options.unresolved.length > 0 ? [`${options.unresolved.length} input address(es) did not resolve to a known Address and were not traced: ${options.unresolved.join(', ')}.`] : []),
       ...runs.flatMap((run) => run.result.tracebackWarnings ?? []),
       ...(options.archiveHint ?? []),
     ],
@@ -1958,7 +1771,7 @@ function traceResultFromFundRuns(
     summaryText: [
       `${seedRole === 'victim' ? 'Trace victim funds' : 'Trace suspect funds'} complete for ${network}`,
       ...(options.unresolved && options.unresolved.length > 0
-        ? [`Unresolved (no matching Identity/Address): ${options.unresolved.join(', ')}`]
+        ? [`Unresolved (no matching Address): ${options.unresolved.join(', ')}`]
         : []),
       '',
       ...runs.map((run) => `## ${run.role}: ${run.address}\n${run.result.summaryText}`),
@@ -1981,10 +1794,13 @@ export async function traceVictimFunds(
   if (victimInputs.length > 5) throw new Error('victim_addresses cannot exceed 5 addresses')
   if (knownSuspects.length > 5) throw new Error('known_suspect_addresses cannot exceed 5 addresses')
   const topologyScope = options.topologyScope ?? DEFAULT_TOPOLOGY_SCOPE
-  const resolvedVictims = await resolveIdentityKeys(remoteClient, network, victimInputs, topologyScope)
-  const unresolvedVictims = victimInputs.filter((input) => !resolvedVictims.has(input))
-  const victims = [...new Set(victimInputs.filter((input) => resolvedVictims.has(input)).map((input) => resolvedVictims.get(input)!))]
-  const preferredByIdentity = new Map(victimInputs.filter((input) => resolvedVictims.has(input)).map((input) => [resolvedVictims.get(input)!, input] as [string, string]))
+  // Address-grain seed pre-flight (R2/R3): the input address IS the graph
+  // node key, but a seed that does not exist as an :Address must be reported
+  // as unresolved, never silently traced into an empty result.
+  const uniqueVictims = [...new Set(victimInputs)]
+  const existingVictims = await probeSeedAddresses(remoteClient, network, uniqueVictims, topologyScope)
+  const victims = uniqueVictims.filter((input) => existingVictims.has(input))
+  const unresolvedVictims = uniqueVictims.filter((input) => !existingVictims.has(input))
   const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange)
 
   const runs: TraceRun[] = []
@@ -2017,7 +1833,7 @@ export async function traceVictimFunds(
     topologyScope,
     archiveHint,
   })
-  return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false, topologyScope)
+  return publicizeTraceResult(network, result, options.writeArtifacts !== false)
 }
 
 export async function traceSuspectFunds(
@@ -2031,10 +1847,11 @@ export async function traceSuspectFunds(
   if (suspectInputs.length < 1) throw new Error('suspect_addresses must contain at least 1 address')
   if (suspectInputs.length > 5) throw new Error('suspect_addresses cannot exceed 5 addresses')
   const topologyScope = options.topologyScope ?? DEFAULT_TOPOLOGY_SCOPE
-  const resolvedSuspects = await resolveIdentityKeys(remoteClient, network, suspectInputs, topologyScope)
-  const unresolvedSuspects = suspectInputs.filter((input) => !resolvedSuspects.has(input))
-  const suspects = [...new Set(suspectInputs.filter((input) => resolvedSuspects.has(input)).map((input) => resolvedSuspects.get(input)!))]
-  const preferredByIdentity = new Map(suspectInputs.filter((input) => resolvedSuspects.has(input)).map((input) => [resolvedSuspects.get(input)!, input] as [string, string]))
+  // Address-grain seed pre-flight (R2/R3): see traceVictimFunds.
+  const uniqueSuspects = [...new Set(suspectInputs)]
+  const existingSuspects = await probeSeedAddresses(remoteClient, network, uniqueSuspects, topologyScope)
+  const suspects = uniqueSuspects.filter((input) => existingSuspects.has(input))
+  const unresolvedSuspects = uniqueSuspects.filter((input) => !existingSuspects.has(input))
   const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange)
 
   const runs: TraceRun[] = []
@@ -2067,7 +1884,7 @@ export async function traceSuspectFunds(
     topologyScope,
     archiveHint,
   })
-  return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false, topologyScope)
+  return publicizeTraceResult(network, result, options.writeArtifacts !== false)
 }
 
 const REVERSE_DEPOSIT_SOURCES_LIMIT = 500
@@ -2084,18 +1901,18 @@ function reverseDepositSourceQueryAtDepth(
   const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
   const relationshipChain = edgeVariables.map((edgeVariable, index) => {
     const targetVariable = index === edgeVariables.length - 1 ? 'deposit' : intermediateVariables[index]!
-    return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Identity)`
+    return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
   }).join('')
-  const depositPredicates = depositAddresses.map((address) => `deposit.identity_id = "${escapeCypherString(address)}"`)
+  const depositPredicates = depositAddresses.map((address) => `deposit.address = "${escapeCypherString(address)}"`)
   const nonExchangePredicates = ['source', ...intermediateVariables, 'deposit'].map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
   const amountPredicates = minAmountSum > 0 ? edgeVariables.map((edgeVariable) => `${edgeVariable}.amount_usd_sum >= ${minAmountSum}`) : []
   const windowPredicates = activityWindowPredicates(edgeVariables, window)
   return {
     id: `reverse_deposit_sources_${depth}`,
     query: [
-      `MATCH (source:Identity)${relationshipChain}`,
-      `WHERE (${depositPredicates.join(' OR ')}) AND source.identity_id <> deposit.identity_id AND ${[...nonExchangePredicates, ...amountPredicates, ...windowPredicates].join(' AND ')}`,
-      `RETURN DISTINCT source.identity_id AS source_address, source.is_exchange AS source_is_exchange, deposit.identity_id AS deposit_address, deposit.is_exchange AS deposit_is_exchange, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable, topologyScope)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `MATCH (source:Address)${relationshipChain}`,
+      `WHERE (${depositPredicates.join(' OR ')}) AND source.address <> deposit.address AND ${[...nonExchangePredicates, ...amountPredicates, ...windowPredicates].join(' AND ')}`,
+      `RETURN DISTINCT source.address AS source_address, source.is_exchange AS source_is_exchange, deposit.address AS deposit_address, deposit.is_exchange AS deposit_is_exchange, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable, topologyScope)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       `LIMIT ${REVERSE_DEPOSIT_SOURCES_LIMIT}`,
     ].join(' '),
   }
@@ -2135,10 +1952,12 @@ export async function traceDepositSources(
   if (depositInputs.length < 1) throw new Error('deposit_addresses must contain at least 1 address')
   if (depositInputs.length > 5) throw new Error('deposit_addresses cannot exceed 5 addresses')
   const topologyScope = options.topologyScope ?? DEFAULT_TOPOLOGY_SCOPE
-  const resolvedDeposits = await resolveIdentityKeys(remoteClient, network, depositInputs, topologyScope)
-  const unresolvedDeposits = depositInputs.filter((input) => !resolvedDeposits.has(input))
-  const deposits = [...new Set(depositInputs.filter((input) => resolvedDeposits.has(input)).map((input) => resolvedDeposits.get(input)!))]
-  const preferredByIdentity = new Map(depositInputs.filter((input) => resolvedDeposits.has(input)).map((input) => [resolvedDeposits.get(input)!, input] as [string, string]))
+  // Address-grain seed pre-flight (R2/R3): see traceVictimFunds. With zero
+  // resolved deposits, no reverse_deposit_sources_* query is ever issued.
+  const uniqueDeposits = [...new Set(depositInputs)]
+  const existingDeposits = await probeSeedAddresses(remoteClient, network, uniqueDeposits, topologyScope)
+  const deposits = uniqueDeposits.filter((input) => existingDeposits.has(input))
+  const unresolvedDeposits = uniqueDeposits.filter((input) => !existingDeposits.has(input))
   const maxHops = clampInt(options.maxHops, 2, 1, 5)
   const minAmountSum = Math.max(0, options.minAmountSum ?? 0)
   const window = traceActivityWindow(undefined, options.timeRange)
@@ -2278,7 +2097,7 @@ export async function traceDepositSources(
   const archiveHint = await archiveRetryHint(remoteClient, network, topologyScope, edges.length === 0)
   const summaryText = [
     `Trace deposit sources complete for ${network}`,
-    ...(unresolvedDeposits.length > 0 ? [`Unresolved (no matching Identity/Address): ${unresolvedDeposits.join(', ')}`] : []),
+    ...(unresolvedDeposits.length > 0 ? [`Unresolved (no matching Address): ${unresolvedDeposits.join(', ')}`] : []),
     '',
     `Deposit seeds: ${deposits.join(', ') || 'none resolved'}`,
     `Reverse path(s): ${paths.length}`,
@@ -2335,14 +2154,14 @@ export async function traceDepositSources(
       },
       warnings: [
         ...(paths.length === 0 ? ['No upstream sources were connected in the queried topology.'] : []),
-        ...(unresolvedDeposits.length > 0 ? [`${unresolvedDeposits.length} input address(es) did not resolve to a known Identity and were not traced: ${unresolvedDeposits.join(', ')}.`] : []),
+        ...(unresolvedDeposits.length > 0 ? [`${unresolvedDeposits.length} input address(es) did not resolve to a known Address and were not traced: ${unresolvedDeposits.join(', ')}.`] : []),
         ...truncationWarnings,
         ...archiveHint,
       ],
     },
     graphData,
   }
-  return publicizeTraceResult(remoteClient, network, result, preferredByIdentity, options.writeArtifacts !== false, topologyScope)
+  return publicizeTraceResult(network, result, options.writeArtifacts !== false)
 }
 
 export async function trackFunds(
@@ -2361,9 +2180,9 @@ export async function trackFunds(
   if (trustedInputs.length < 1) throw new Error('trusted_addresses must contain at least 1 address')
   if (trustedInputs.length > 5) throw new Error('trusted_addresses cannot exceed 5 addresses')
   if (untrustedInputs.length > 5) throw new Error('untrusted_addresses cannot exceed 5 addresses')
-  const resolvedTrackInputs = await resolveIdentityKeys(remoteClient, network, [...trustedInputs, ...untrustedInputs])
-  const trusted = [...new Set(trustedInputs.map((input) => resolvedTrackInputs.get(input) ?? input))]
-  const untrusted = [...new Set(untrustedInputs.map((input) => resolvedTrackInputs.get(input) ?? input))]
+  // Address-grain has no separate resolution step: see traceVictimFunds.
+  const trusted = [...new Set(trustedInputs)]
+  const untrusted = [...new Set(untrustedInputs)]
   const overlap = trusted.filter((address) => untrusted.includes(address))
   if (overlap.length > 0) throw new Error(`Address(es) appear in both trusted and untrusted lists: ${overlap.join(', ')}`)
 
@@ -2443,11 +2262,8 @@ export async function trackFunds(
 // runtime applies). Not a public API; do not import from product code.
 export const queryBuilderContract = {
   topologyGraphQuery,
-  memberAddressResolutionQuery,
-  identityExistenceQuery,
-  identityMemberAddressesQueries,
   addressProfileQuery,
-  memberAddressesQuery,
+  compareAddressExistsQuery,
   addressFeatureQuery,
   addressRiskScoreQuery,
   addressLabelRiskQuery,
@@ -2456,4 +2272,6 @@ export const queryBuilderContract = {
   connectionProbeQuery,
   connectionRouteQueries,
   reverseDepositSourceQueryAtDepth,
+  linkedExposureQueries,
+  crossSpaceLinkedQuery,
 }

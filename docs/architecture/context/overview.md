@@ -6,7 +6,7 @@ Chain Insights is a public AML investigation toolkit for AI agents and analysts.
 
 ## Bounded Context
 
-Chain Insights operates as the investigation and agent integration layer above the Chain Insights Graph (GraphRAG MCP data pipeline). It resolves blockchain addresses to identity-grain topology, executes AML workflows (address risk screening, victim/suspect/deposit tracing), and stores investigation outputs in local workspaces. The toolkit does not perform risk labeling itself; it orchestrates graph queries, formats results, writes workspace artifacts, and presents tools through stdio MCP or CLI commands.
+Chain Insights operates as the investigation and agent integration layer above the Chain Insights Graph (GraphRAG MCP data pipeline). It queries address-grain topology directly by blockchain address, executes AML workflows (address risk screening, victim/suspect/deposit tracing), and stores investigation outputs in local workspaces. The toolkit does not perform risk labeling itself; it orchestrates graph queries, formats results, writes workspace artifacts, and presents tools through stdio MCP or CLI commands.
 
 Key boundaries:
 - **Upstream:** Consumes Chain Insights Graph MCP endpoint for graph queries, AML primitives, and metadata

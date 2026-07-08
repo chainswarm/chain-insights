@@ -29,7 +29,7 @@ REQUIRED_TABLES = {
     "archive_topology_addresses_view",
     "archive_topology_edges_view",
     "archive_topology_snapshot_view",
-    "archive_identity_address_links_view",
+    "linked_addresses_view",
     "facts_address_labels_view",
     "facts_address_features_view",
     "facts_assets_view",
@@ -183,8 +183,8 @@ def main() -> None:
         fail("manifest schema must be chain-insights.devkit.fixture.v1")
     if manifest.get("network") != "bittensor":
         fail("manifest network must be bittensor")
-    if manifest.get("semantic_database") != "bittensor_semantic":
-        fail("manifest semantic_database must be bittensor_semantic")
+    if manifest.get("database") != "bittensor":
+        fail("manifest database must be bittensor")
     # fixture_window.to_exclusive is pinned to a live coverage watermark on
     # every build, not a fixed historical literal, so this validates
     # internal consistency of the manifest's own declared window (a valid,
@@ -207,7 +207,7 @@ def main() -> None:
         fail("manifest coverage.substrate_rows must be positive")
     if int(coverage.get("evm_pallet_rows", 0)) <= 0:
         fail("manifest coverage.evm_pallet_rows must be positive")
-    for key in ("identity_count", "member_address_count", "flow_edge_count"):
+    for key in ("address_count", "linked_pair_count", "flow_edge_count"):
         if int(coverage.get(key, 0)) <= 0:
             fail(f"manifest coverage.{key} must be positive")
 
@@ -238,7 +238,7 @@ def main() -> None:
             if forbidden in lowered:
                 fail(f"manifest object {name} contains denylisted term {forbidden}")
         is_memgraph_object = name in MEMGRAPH_OBJECTS
-        expected_database = "memgraph" if is_memgraph_object else "bittensor_semantic"
+        expected_database = "memgraph" if is_memgraph_object else "bittensor"
         expected_format = "jsonl.gz" if is_memgraph_object else "tsv.gz"
         if entry.get("database") != expected_database:
             fail(f"manifest object {name} must use {expected_database}")
@@ -334,57 +334,57 @@ def check_symmetric_label_parity(object_paths: dict[str, list[Path]]) -> None:
     for row in _read_tsv_gz(addresses_paths):
         labels_text = (row.get("labels") or "").strip()
         if labels_text:
-            archive_labels[row["identity_id"]] = labels_text
+            archive_labels[row["address"]] = labels_text
 
     edge_connected: set[str] = set()
     for row in _read_tsv_gz(edges_paths):
-        edge_connected.add(row["from_identity"])
-        edge_connected.add(row["to_identity"])
+        edge_connected.add(row["from_address"])
+        edge_connected.add(row["to_address"])
 
     archive_labeled_and_connected = set(archive_labels) & edge_connected
 
     memgraph_labeled: dict[str, dict] = {}
     for row in _read_jsonl_gz(node_paths):
         properties = row.get("properties", {})
-        identity_id = properties.get("identity_id")
-        if identity_id is None:
+        address = properties.get("address")
+        if address is None:
             continue
         has_label_property = bool(properties.get("labels"))
         taxonomy_labels = set(row.get("labels", [])) & LABEL_TEXT_DERIVED_TAXONOMY
         if has_label_property or taxonomy_labels:
-            memgraph_labeled[identity_id] = {
+            memgraph_labeled[address] = {
                 "has_label_property": has_label_property,
                 "taxonomy_labels": taxonomy_labels,
             }
 
-    # Direction 1: every archive-labeled-and-edge-connected identity must
+    # Direction 1: every archive-labeled-and-edge-connected address must
     # exist in Memgraph with a non-empty labels property.
     missing_in_memgraph = [
-        identity_id
-        for identity_id in archive_labeled_and_connected
-        if identity_id not in memgraph_labeled or not memgraph_labeled[identity_id]["has_label_property"]
+        address
+        for address in archive_labeled_and_connected
+        if address not in memgraph_labeled or not memgraph_labeled[address]["has_label_property"]
     ]
     if missing_in_memgraph:
         fail(
             "manifest fixture fails cross-tier label parity: "
-            f"{len(missing_in_memgraph)} archive-labeled-and-connected identities missing "
+            f"{len(missing_in_memgraph)} archive-labeled-and-connected addresses missing "
             f"labels in the Memgraph dump, e.g. {sorted(missing_in_memgraph)[:10]}"
         )
 
     # Direction 2: no Memgraph node's labels property or
     # LABEL_TEXT_DERIVED_TAXONOMY structural label may reference an
-    # identity absent from the StarRocks-bounded allowlist (a
+    # address absent from the StarRocks-bounded allowlist (a
     # post-watermark leak through the Memgraph export leg).
     leaked = [
-        identity_id
-        for identity_id, state in memgraph_labeled.items()
-        if identity_id not in archive_labels
+        address
+        for address, state in memgraph_labeled.items()
+        if address not in archive_labels
         and (state["has_label_property"] or state["taxonomy_labels"])
     ]
     if leaked:
         fail(
             "manifest fixture fails cross-tier label parity: "
-            f"{len(leaked)} Memgraph identities carry labels/taxonomy absent from the "
+            f"{len(leaked)} Memgraph addresses carry labels/taxonomy absent from the "
             f"StarRocks-bounded allowlist (post-watermark leak), e.g. {sorted(leaked)[:10]}"
         )
 

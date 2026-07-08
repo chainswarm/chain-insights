@@ -25,11 +25,11 @@ function fakeClient(captured: BatchQuery[][]) {
         content: [{
           type: 'text',
           text: JSON.stringify(batchResponse(queries.map((q) => (
-            // Resolve any member-address lookup to itself so callers of
-            // traceVictimFunds/traceSuspectFunds (which resolve seeds via the
-            // :Address node before tracing) proceed to the forward query.
-            q.id.startsWith('resolve_member_address_')
-              ? { id: q.id, rows: [{ identity_id: q.query.match(/address:\s*"([^"]+)"/)?.[1] ?? '' }] }
+            // Confirm any seed existence probe so callers of
+            // traceVictimFunds/traceSuspectFunds (which pre-flight seeds
+            // against :Address before tracing) proceed to the forward query.
+            q.id.startsWith('seed_address_exists_')
+              ? { id: q.id, rows: [{ address: q.query.match(/address:\s*"([^"]+)"/)?.[1] ?? '' }] }
               : { id: q.id }
           )))),
         }],
