@@ -7,17 +7,18 @@ MCP_ENDPOINT="${CHAIN_INSIGHTS_GRAPH_ENDPOINT:-${CHAIN_INSIGHTS_GRAPH_MCP_ENDPOI
 DEBUG_TOKEN="${CHAIN_INSIGHTS_GRAPH_DEBUG_TOKEN:-chain-insights-dev-debug}"
 SERVER_PORT="${CHAIN_INSIGHTS_SERVER_PORT:-4321}"
 NETWORK="${NETWORK:-bittensor}"
-# UAT_ADDRESS is the SS58 substrate member address of the UAT identity; it is
-# asserted as a member address collected from the identity's
-# (:Identity)-[:HAS_ADDRESS]->(:Address) satellites and resolved through the
-# (:Address)<-[:HAS_ADDRESS]-(:Identity) lookup.
+# UAT_ADDRESS is the SS58 native address of the UAT fixture, a plain
+# (:Address {address, network}) node -- there is no separate identity key or
+# member-address resolution step.
 UAT_ADDRESS="${UAT_ADDRESS:-5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6}"
-UAT_MEMBER_NETWORK="${UAT_MEMBER_NETWORK:-substrate}"
-# All graph internals use the canonical identity key form
-# '<network>:<canonical_evm_address>' (deterministic H160 mapping of
-# UAT_ADDRESS). Public AML tool inputs use UAT_ADDRESS and should return member
-# addresses as the primary address surface.
-UAT_IDENTITY_KEY="${UAT_IDENTITY_KEY:-bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24}"
+# UAT_LINKED_NETWORK/UAT_LINKED_ADDRESS are the H160 cross-space counterpart
+# (:Address.network property value bittensor_evm -- same public
+# network=bittensor query network), connected to UAT_ADDRESS by a cross-space
+# (:Address)-[:LINKED]-(:Address) ownership-overlay edge (deterministic H160
+# mirror, basis=derived). AC5: the cross-space read below runs under
+# network=bittensor with no network switch.
+UAT_LINKED_NETWORK="${UAT_LINKED_NETWORK:-bittensor_evm}"
+UAT_LINKED_ADDRESS="${UAT_LINKED_ADDRESS:-0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24}"
 REPORT_DIR="${REPORT_DIR:-${CHAIN_INSIGHTS_DIR}/.tmp/uat}"
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
 RUN_DIR="${REPORT_DIR}/${RUN_ID}"
@@ -226,6 +227,9 @@ if (source?.tools?.graph_query !== 'available') errors.push(`${network} graph_qu
 for (const leaked of ['retention', 'window_days', 'aggregations']) {
   if (rawPayload.includes(leaked)) errors.push(`network_capabilities leaked ${leaked} implementation metadata`)
 }
+// GATE 3 / AC5: bittensor is the ONE public investigation network. The
+// SS58/H160 split is the :Address.network node property, never a second
+// public query network -- bittensor_evm is a source alias and must not leak.
 for (const alias of ['bittensor_evm', 'base', 'ethereum', 'tron']) {
   if (byName.has(alias)) errors.push(`network_capabilities leaked alias or unsupported network ${alias}`)
 }
@@ -233,9 +237,9 @@ if (errors.length) throw new Error(errors.join('; '))
 console.log(`[uat] network_capabilities ok: source=${network}`)
 NODE
 
-IDENTITY_TOPOLOGY_JSON="${RUN_DIR}/direct-live-topology.json"
-IDENTITY_TOPOLOGY_QUERY="USE live_topology MATCH (s:Identity)-[f:FLOWS_TO]->(d:Identity) RETURN count(f) AS identity_flows"
-log "checking public live_topology identity-grain edges (network=${NETWORK})"
+ADDRESS_TOPOLOGY_JSON="${RUN_DIR}/direct-live-topology.json"
+ADDRESS_TOPOLOGY_QUERY="USE live_topology MATCH (s:Address)-[f:FLOWS_TO]->(d:Address) RETURN count(f) AS address_flows"
+log "checking public live_topology address-grain edges (network=${NETWORK})"
 npx @modelcontextprotocol/inspector \
   --cli "${MCP_ENDPOINT}" \
   --transport http \
@@ -244,9 +248,9 @@ npx @modelcontextprotocol/inspector \
   --method tools/call \
   --tool-name graph_query \
   --tool-arg "network=${NETWORK}" \
-  --tool-arg "query=${IDENTITY_TOPOLOGY_QUERY}" >"${IDENTITY_TOPOLOGY_JSON}"
+  --tool-arg "query=${ADDRESS_TOPOLOGY_QUERY}" >"${ADDRESS_TOPOLOGY_JSON}"
 
-node - "${IDENTITY_TOPOLOGY_JSON}" "${NETWORK}" <<'NODE'
+node - "${ADDRESS_TOPOLOGY_JSON}" "${NETWORK}" <<'NODE'
 const fs = require('node:fs')
 const file = process.argv[2]
 const network = process.argv[3]
@@ -256,17 +260,17 @@ if (data.isError) errors.push(`live_topology query returned isError=true: ${data
 const facts = data.structuredContent?.facts
 const subject = facts?.subject
 const routing = facts?.routing
-const flows = facts?.query?.results?.[0]?.identity_flows
-if (subject?.network !== network) errors.push(`identity subject network mismatch: ${subject?.network}`)
-if (routing?.starrocks_database !== `${network}_semantic`) errors.push(`live_topology routing database mismatch: ${routing?.starrocks_database}`)
+const flows = facts?.query?.results?.[0]?.address_flows
+if (subject?.network !== network) errors.push(`address subject network mismatch: ${subject?.network}`)
+if (routing?.starrocks_database !== network) errors.push(`live_topology routing database mismatch: ${routing?.starrocks_database}`)
 if (!Number.isFinite(Number(flows)) || Number(flows) <= 0) errors.push(`live_topology FLOWS_TO count not positive: ${flows}`)
 if (errors.length) throw new Error(errors.join('; '))
-console.log(`[uat] public live_topology identity-grain edges ok: flows=${flows} routing=${routing.starrocks_database}`)
+console.log(`[uat] public live_topology address-grain edges ok: flows=${flows} routing=${routing.starrocks_database}`)
 NODE
 
-SEMANTIC_FACTS_JSON="${RUN_DIR}/direct-semantic-facts.json"
-SEMANTIC_FACTS_QUERY="USE facts MATCH (a:Identity {identity_id: '${UAT_IDENTITY_KEY}'}) RETURN a.identity_id AS identity_key, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 1"
-log "checking facts identity query"
+ADDRESS_FACTS_JSON="${RUN_DIR}/direct-address-facts.json"
+ADDRESS_FACTS_QUERY="USE facts MATCH (a:Address {address: '${UAT_ADDRESS}'}) RETURN a.address AS address, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 1"
+log "checking facts address query"
 npx @modelcontextprotocol/inspector \
   --cli "${MCP_ENDPOINT}" \
   --transport http \
@@ -275,43 +279,45 @@ npx @modelcontextprotocol/inspector \
   --method tools/call \
   --tool-name graph_query \
   --tool-arg "network=${NETWORK}" \
-  --tool-arg "query=${SEMANTIC_FACTS_QUERY}" >"${SEMANTIC_FACTS_JSON}"
+  --tool-arg "query=${ADDRESS_FACTS_QUERY}" >"${ADDRESS_FACTS_JSON}"
 
-node - "${SEMANTIC_FACTS_JSON}" "${NETWORK}" "${UAT_IDENTITY_KEY}" <<'NODE'
+node - "${ADDRESS_FACTS_JSON}" "${NETWORK}" "${UAT_ADDRESS}" <<'NODE'
 const fs = require('node:fs')
 const file = process.argv[2]
 const network = process.argv[3]
-const identityKey = process.argv[4]
+const address = process.argv[4]
 const data = JSON.parse(fs.readFileSync(file, 'utf8'))
 const errors = []
 if (data.isError) errors.push(`facts query returned isError=true: ${data.content?.[0]?.text || 'unknown error'}`)
 const subject = data.structuredContent?.facts?.subject
 const routing = data.structuredContent?.facts?.routing
 const results = data.structuredContent?.facts?.query?.results || []
-const match = results.find((row) => row.identity_key === identityKey)
+const match = results.find((row) => row.address === address)
 const labels = Array.isArray(match?.labels) ? match.labels.join(',') : (match?.labels || '')
-if (subject?.network !== network) errors.push(`semantic facts subject network mismatch: ${subject?.network}`)
-if (routing?.starrocks_database !== `${network}_semantic`) errors.push(`facts routing database mismatch: ${routing?.starrocks_database}`)
-if (!match) errors.push(`facts query did not return identity key ${identityKey}`)
-if (labels.length === 0) errors.push('facts query did not return identity labels')
+if (subject?.network !== network) errors.push(`address facts subject network mismatch: ${subject?.network}`)
+if (routing?.starrocks_database !== network) errors.push(`facts routing database mismatch: ${routing?.starrocks_database}`)
+if (!match) errors.push(`facts query did not return address ${address}`)
+if (labels.length === 0) errors.push('facts query did not return address labels')
 if (errors.length) throw new Error(errors.join('; '))
-console.log(`[uat] facts identity query ok: identity_key=${identityKey} labels=${labels}`)
+console.log(`[uat] facts address query ok: address=${address} labels=${labels}`)
 NODE
 
 # Run the CLI live-topology assertion before proxy tool checks so graph reads
-# fail close to their source if the local topology is unhealthy.
-GRAPH_QUERY_TEXT="${RUN_DIR}/graph-query-identity.txt"
+# fail close to their source if the local topology is unhealthy. Cross-space
+# LINKED is the only edge connecting a bittensor address to its bittensor_evm
+# counterpart (AC5).
+GRAPH_QUERY_TEXT="${RUN_DIR}/graph-query-linked.txt"
 log "calling Chain Insights CLI graph_query against real MCP"
 # Bounded retry: a busy graph store can transiently queue point reads past
 # the MCP per-query timeout (e.g. mid-resync); the assertion itself is
-# unchanged and still requires the exact UAT identity row.
+# unchanged and still requires the exact UAT cross-space LINKED edge.
 GRAPH_QUERY_ATTEMPTS="${GRAPH_QUERY_ATTEMPTS:-3}"
 for attempt in $(seq 1 "${GRAPH_QUERY_ATTEMPTS}"); do
   (
     cd "${WORKSPACE_ROOT}"
     node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
       "network=${NETWORK}" \
-      "query=USE live_topology MATCH (i:Identity {identity_id: '${UAT_IDENTITY_KEY}'})-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, collect(m.address) AS addresses"
+      "query=USE live_topology MATCH (a:Address {address: '${UAT_ADDRESS}'})-[l:LINKED]-(b:Address {address: '${UAT_LINKED_ADDRESS}'}) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis"
   ) >"${GRAPH_QUERY_TEXT}" || true
   if node -e "JSON.parse(require('node:fs').readFileSync(process.argv[1], 'utf8').trim())" "${GRAPH_QUERY_TEXT}" 2>/dev/null; then
     break
@@ -322,73 +328,70 @@ for attempt in $(seq 1 "${GRAPH_QUERY_ATTEMPTS}"); do
   fi
 done
 
-node - "${GRAPH_QUERY_TEXT}" "${UAT_IDENTITY_KEY}" "${UAT_ADDRESS}" <<'NODE'
+node - "${GRAPH_QUERY_TEXT}" "${UAT_ADDRESS}" "${UAT_LINKED_ADDRESS}" "${UAT_LINKED_NETWORK}" <<'NODE'
 const fs = require('node:fs')
 const file = process.argv[2]
-const identityKey = process.argv[3]
-const substrateAddress = process.argv[4]
+const address = process.argv[3]
+const linkedAddress = process.argv[4]
+const linkedNetwork = process.argv[5]
 const text = fs.readFileSync(file, 'utf8').trim()
 const data = JSON.parse(text)
 const first = data.facts?.query?.results?.[0] || data.results?.[0]
-if (!first || first.identity_id !== identityKey) {
-  throw new Error(`graph_query did not return expected identity ${identityKey}`)
+if (!first || first.address !== address) {
+  throw new Error(`graph_query did not return expected address ${address}`)
 }
-if (!Array.isArray(first.addresses) || first.addresses.length === 0) {
-  throw new Error(`HAS_ADDRESS satellite member addresses missing or empty: ${JSON.stringify(first.addresses)}`)
+if (first.linked_address !== linkedAddress || first.linked_network !== linkedNetwork) {
+  throw new Error(`cross-space LINKED edge missing or wrong counterpart: ${JSON.stringify(first)}`)
 }
-if (!first.addresses.includes(substrateAddress)) {
-  throw new Error(`HAS_ADDRESS satellites missing SS58 member form ${substrateAddress}: ${JSON.stringify(first.addresses)}`)
-}
-console.log(`[uat] graph_query ok: ${first.identity_id} (addresses=${first.addresses.join(',')})`)
+console.log(`[uat] graph_query ok: ${first.address} -[:LINKED]- ${first.linked_address} (${first.linked_network}, basis=${first.basis})`)
 NODE
 
-# Archive topology compatibility: historical StarRocks-backed topology must
-# expose the same Identity -> HAS_ADDRESS -> Address member-address shape.
-ARCHIVE_MEMBER_TEXT="${RUN_DIR}/graph-query-archive-member-address.txt"
-log "calling Chain Insights CLI graph_query for archive member-address compatibility"
+# Archive topology stays MONEY-ONLY (serving contract A1: the LINKED
+# ownership overlay is served on the live and facts tiers, never archive).
+# Assert the historical StarRocks-backed FLOWS_TO money shape for the UAT
+# address instead.
+ARCHIVE_MONEY_TEXT="${RUN_DIR}/graph-query-archive-money.txt"
+log "calling Chain Insights CLI graph_query for archive money-only compatibility"
 (
   cd "${WORKSPACE_ROOT}"
   node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
     "network=${NETWORK}" \
-    "query=USE archive_topology MATCH (i:Identity {identity_id: '${UAT_IDENTITY_KEY}'})-[:HAS_ADDRESS]->(m:Address {address: '${UAT_ADDRESS}'}) RETURN i.identity_id AS identity_id, m.address AS address, m.network AS network LIMIT 1"
-) >"${ARCHIVE_MEMBER_TEXT}"
+    "query=USE archive_topology MATCH (a:Address {address: '${UAT_ADDRESS}'})-[f:FLOWS_TO]->(b:Address) RETURN a.address AS address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum LIMIT 1"
+) >"${ARCHIVE_MONEY_TEXT}"
 
-node - "${ARCHIVE_MEMBER_TEXT}" "${UAT_IDENTITY_KEY}" "${UAT_ADDRESS}" "${UAT_MEMBER_NETWORK}" <<'NODE'
+node - "${ARCHIVE_MONEY_TEXT}" "${UAT_ADDRESS}" <<'NODE'
 const fs = require('node:fs')
 const file = process.argv[2]
-const identityKey = process.argv[3]
-const memberAddress = process.argv[4]
-const network = process.argv[5]
+const address = process.argv[3]
 const data = JSON.parse(fs.readFileSync(file, 'utf8').trim())
 const first = data.facts?.query?.results?.[0] || data.results?.[0]
-if (!first || first.identity_id !== identityKey || first.address !== memberAddress || first.network !== network) {
-  throw new Error(`archive HAS_ADDRESS lookup for ${memberAddress} did not return ${identityKey}: ${JSON.stringify(first)}`)
+if (!first || first.address !== address || !first.to_address) {
+  throw new Error(`archive money-flow lookup for ${address} did not return an outbound FLOWS_TO edge: ${JSON.stringify(first)}`)
 }
-console.log(`[uat] archive HAS_ADDRESS ok: ${first.identity_id} -> ${first.address} (${first.network})`)
+console.log(`[uat] archive money-only FLOWS_TO ok: ${first.address} -> ${first.to_address}`)
 NODE
 
-# Member-address resolution: an exact, index-backed lookup by any member
-# address form (here the SS58 substrate form) must return the identity.
-MEMBER_RESOLVE_TEXT="${RUN_DIR}/graph-query-member-resolve.txt"
-log "calling Chain Insights CLI graph_query for member-address resolution"
+# Address existence: an exact, index-backed lookup by the raw address must
+# return the address node directly -- there is no resolution step.
+ADDRESS_EXISTS_TEXT="${RUN_DIR}/graph-query-address-exists.txt"
+log "calling Chain Insights CLI graph_query for address existence"
 (
   cd "${WORKSPACE_ROOT}"
   node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
     "network=${NETWORK}" \
-    "query=USE live_topology MATCH (m:Address {address: '${UAT_ADDRESS}'})<-[:HAS_ADDRESS]-(i:Identity) RETURN i.identity_id AS identity_id LIMIT 1"
-) >"${MEMBER_RESOLVE_TEXT}"
+    "query=USE live_topology MATCH (a:Address {address: '${UAT_ADDRESS}'}) RETURN a.address AS address LIMIT 1"
+) >"${ADDRESS_EXISTS_TEXT}"
 
-node - "${MEMBER_RESOLVE_TEXT}" "${UAT_IDENTITY_KEY}" "${UAT_ADDRESS}" <<'NODE'
+node - "${ADDRESS_EXISTS_TEXT}" "${UAT_ADDRESS}" <<'NODE'
 const fs = require('node:fs')
 const file = process.argv[2]
-const identityKey = process.argv[3]
-const memberAddress = process.argv[4]
+const address = process.argv[3]
 const data = JSON.parse(fs.readFileSync(file, 'utf8').trim())
 const first = data.facts?.query?.results?.[0] || data.results?.[0]
-if (!first || first.identity_id !== identityKey) {
-  throw new Error(`member-address resolution for ${memberAddress} did not return ${identityKey}: ${JSON.stringify(first)}`)
+if (!first || first.address !== address) {
+  throw new Error(`address existence lookup for ${address} did not return it: ${JSON.stringify(first)}`)
 }
-console.log(`[uat] member-address resolution ok: ${memberAddress} -> ${first.identity_id}`)
+console.log(`[uat] address existence ok: ${first.address}`)
 NODE
 
 DIRECT_JSON="${RUN_DIR}/direct-address-risk.json"
@@ -403,7 +406,7 @@ if [[ "$(cat "${RUN_DIR}/direct-high-level-tools.txt")" == "yes" ]]; then
     --method tools/call \
     --tool-name aml_address_risk \
     --tool-arg "network=${NETWORK}" \
-    --tool-arg "address=${UAT_IDENTITY_KEY}" \
+    --tool-arg "address=${UAT_ADDRESS}" \
     --tool-arg include_attachments=true >"${DIRECT_JSON}"
 
   node - "${DIRECT_JSON}" <<'NODE'
@@ -507,11 +510,10 @@ try {
 NODE
 
 GRAPH_REPORT_URL="$(
-node - "${PROXY_JSON}" "${UAT_ADDRESS}" "${UAT_IDENTITY_KEY}" <<'NODE'
+node - "${PROXY_JSON}" "${UAT_ADDRESS}" <<'NODE'
 const fs = require('node:fs')
 const file = process.argv[2]
 const memberAddress = process.argv[3]
-const identityKey = process.argv[4]
 const data = JSON.parse(fs.readFileSync(file, 'utf8'))
 const errors = []
 const content = data.content || []
@@ -521,11 +523,7 @@ if (data.isError) errors.push('proxy aml_address_risk returned isError=true')
 if (content[0]?.type !== 'text') errors.push('proxy content[0] is not text')
 if (sc.schema !== 'chain-insights.result.v1') errors.push(`proxy structuredContent schema mismatch: ${sc.schema}`)
 const subjectAddresses = sc.facts?.subject?.addresses || []
-const identityResolution = sc.identity_resolution || []
-if (!subjectAddresses.includes(memberAddress)) errors.push(`proxy subject addresses do not include public member address ${memberAddress}`)
-if (!identityResolution.some((entry) => entry.canonical_identity_key === identityKey && entry.address === memberAddress)) {
-  errors.push('proxy identity_resolution does not map the public member address to the canonical identity key')
-}
+if (!subjectAddresses.includes(memberAddress)) errors.push(`proxy subject addresses do not include the public address ${memberAddress}`)
 for (const key of ['app_data', 'nodes', 'edges', 'flows', 'edge_anchors', 'transfers']) {
   if (JSON.stringify(sc).includes(`"${key}"`)) errors.push(`proxy structuredContent leaks ${key}`)
 }
@@ -563,7 +561,7 @@ NODE
 
 TRACE_TOOLS_JSON="${RUN_DIR}/proxy-aml-trace-tools.json"
 log "calling Chain Insights proxy AML trace tools"
-node --input-type=module - "${CHAIN_INSIGHTS_PROXY}" "${NETWORK}" "${UAT_ADDRESS}" "${UAT_IDENTITY_KEY}" "${TRACE_TOOLS_JSON}" <<'NODE'
+node --input-type=module - "${CHAIN_INSIGHTS_PROXY}" "${NETWORK}" "${UAT_ADDRESS}" "${TRACE_TOOLS_JSON}" <<'NODE'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import fs from 'node:fs'
@@ -571,8 +569,7 @@ import fs from 'node:fs'
 const proxy = process.argv[2]
 const network = process.argv[3]
 const memberAddress = process.argv[4]
-const identityKey = process.argv[5]
-const outputFile = process.argv[6]
+const outputFile = process.argv[5]
 const requestTimeoutMs = 5 * 60 * 1000
 const calls = [
   { name: 'aml_trace_victim_funds', arguments: { network, victim_addresses: memberAddress, max_hops: 2 } },
@@ -604,9 +601,6 @@ try {
     if (!Array.isArray(sc.input?.addresses) || !sc.input.addresses.includes(memberAddress)) {
       errors.push(`${call.name} input addresses do not include public member address ${memberAddress}`)
     }
-    if (!Array.isArray(sc.identity_resolution) || !sc.identity_resolution.some((entry) => entry.canonical_identity_key === identityKey && entry.address === memberAddress)) {
-      errors.push(`${call.name} identity_resolution does not map public member address to canonical identity key`)
-    }
     if (errors.length) throw new Error(errors.join('; '))
     results[call.name] = result
   }
@@ -631,8 +625,8 @@ Chain Insights against Chain Insights Graph UAT PASS
 
 Endpoint: ${MCP_ENDPOINT}
 Network: ${NETWORK}
-Identity key: ${UAT_IDENTITY_KEY}
-Substrate member address: ${UAT_ADDRESS}
+Address: ${UAT_ADDRESS}
+Cross-space LINKED counterpart (bittensor_evm): ${UAT_LINKED_ADDRESS}
 Graph report URL: ${GRAPH_REPORT_URL}
 
 Raw outputs:

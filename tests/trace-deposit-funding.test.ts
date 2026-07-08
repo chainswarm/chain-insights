@@ -39,7 +39,7 @@ function client(options: { failTraceback?: boolean } = {}) {
   return {
     callTool: vi.fn(async (req: { arguments: { queries: BatchQuery[] } }) => {
       const queries = req.arguments.queries.map((q) => {
-        if (q.id === 'resolve_member_address_1') return { id: q.id, ok: true, results: [{ identity_id: 'net:0xv1' }] }
+        if (q.id === 'seed_address_exists_1') return { id: q.id, ok: true, results: [{ address: 'net:0xv1' }] }
         if (q.id === 'forward_exchange_paths_2') return { id: q.id, ok: true, results: [FORWARD_ROW] }
         if (q.id.startsWith('backward_from_deposit_')) {
           if (options.failTraceback) return { id: q.id, ok: false, error: 'timeout' }

@@ -22,9 +22,9 @@ const { traceQueryBuilderContract } = await import(join(repoRoot, 'src/investiga
 
 const SCOPES = ['live_topology', 'archive_topology']
 // Escaping-sensitive values are part of the grid on purpose.
-const ADDR = 'corpus-identity-a'
+const ADDR = 'corpus-address-a'
 const ADDR_QUOTED = 'corpus"quote'
-const COMPARE = 'corpus-identity-b'
+const COMPARE = 'corpus-address-b'
 const DEPOSITS = ['corpus-dep-1', 'corpus-dep-2', 'corpus-dep-3']
 // TraceActivityWindow shape ({ fromMs, toMs }) — a wrong key here produces
 // `>= undefined` predicates; tests/query-corpus.test.ts pins their absence.
@@ -53,10 +53,7 @@ for (const scope of SCOPES) {
     add('exchangeOutflowQueries', { address }, scope, queryBuilderContract.exchangeOutflowQueries(address, scope))
     add('exchangeInflowQueries', { address }, scope, queryBuilderContract.exchangeInflowQueries(address, scope))
   }
-  add('memberAddressesQuery', { address: ADDR }, scope, queryBuilderContract.memberAddressesQuery(ADDR))
-  add('memberAddressResolutionQuery', { member: ADDR_QUOTED }, scope, queryBuilderContract.memberAddressResolutionQuery('resolve_0', ADDR_QUOTED))
-  add('identityExistenceQuery', { identity: ADDR }, scope, queryBuilderContract.identityExistenceQuery('exists_0', ADDR))
-  add('identityMemberAddressesQueries', { identities: [ADDR, COMPARE] }, scope, queryBuilderContract.identityMemberAddressesQueries([ADDR, COMPARE]))
+  add('compareAddressExistsQuery', { address: ADDR }, scope, queryBuilderContract.compareAddressExistsQuery(ADDR))
   add('connectionProbeQuery', { address: ADDR, compare: COMPARE }, scope, queryBuilderContract.connectionProbeQuery(ADDR, COMPARE))
 
   for (const minAmountSum of [0, 10]) {
@@ -93,6 +90,12 @@ for (const scope of SCOPES) {
 // Route evidence: live-only by design (shouldIncludeRouteQueries guard).
 add('connectionRouteQueries', { address: ADDR, compare: COMPARE }, 'live_topology', queryBuilderContract.connectionRouteQueries(ADDR, COMPARE))
 add('connectionRouteQueries', { address: ADDR_QUOTED, compare: COMPARE }, 'live_topology', queryBuilderContract.connectionRouteQueries(ADDR_QUOTED, COMPARE))
+
+// LINKED ownership overlay: live-only in the topology corpus (serving
+// contract A1 -- LINKED is served on the live and facts tiers;
+// archive_topology stays money-only, so no archive-scoped emission).
+add('linkedExposureQueries', { address: ADDR }, 'live_topology', queryBuilderContract.linkedExposureQueries(ADDR, 'live_topology'))
+add('crossSpaceLinkedQuery', { address: ADDR }, 'live_topology', queryBuilderContract.crossSpaceLinkedQuery(ADDR))
 
 // facts layer (USE facts hardcoded inside the builders)
 addFacts('addressFeatureQuery', { address: ADDR }, queryBuilderContract.addressFeatureQuery(ADDR))

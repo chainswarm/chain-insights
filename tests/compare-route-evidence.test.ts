@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
+  addressRisk,
   buildRouteEvidence,
   connectionRouteQueries,
   routeFromPathValue,
@@ -17,12 +18,12 @@ describe('connectionRouteQueries', () => {
       {
         id: 'connection_route_outbound',
         query:
-          'MATCH p = (src:Identity {identity_id: "idA"})-[:FLOWS_TO *BFS 1..4]->(dst:Identity {identity_id: "idB"}) RETURN p LIMIT 1',
+          'MATCH p = (src:Address {address: "idA"})-[:FLOWS_TO *BFS 1..4]->(dst:Address {address: "idB"}) RETURN p LIMIT 1',
       },
       {
         id: 'connection_route_inbound',
         query:
-          'MATCH p = (src:Identity {identity_id: "idB"})-[:FLOWS_TO *BFS 1..4]->(dst:Identity {identity_id: "idA"}) RETURN p LIMIT 1',
+          'MATCH p = (src:Address {address: "idB"})-[:FLOWS_TO *BFS 1..4]->(dst:Address {address: "idA"}) RETURN p LIMIT 1',
       },
     ])
   })
@@ -33,7 +34,7 @@ describe('connectionRouteQueries', () => {
     }
   })
 
-  it('escapes quotes in identity ids', () => {
+  it('escapes quotes in addresses', () => {
     const [outbound] = connectionRouteQueries('a"b', 'c')
     expect(outbound!.query).toContain('a\\"b')
     expect(outbound!.query).not.toContain('"a"b"')
@@ -51,13 +52,13 @@ describe('shouldIncludeRouteQueries', () => {
 
 describe('routeFromPathValue', () => {
   // Shape-tolerant: hydrated path values arrive as ordered node/edge
-  // structures; the parser walks them for identity_id / is_exchange /
+  // structures; the parser walks them for address / is_exchange /
   // amount_usd_sum regardless of the exact envelope.
   const path = {
     nodes: [
-      { identity_id: 'idA' },
-      { identity_id: 'mid1', is_exchange: 'binance' },
-      { identity_id: 'idB' },
+      { address: 'idA' },
+      { address: 'mid1', is_exchange: 'binance' },
+      { address: 'idB' },
     ],
     relationships: [
       { amount_usd_sum: 100 },
@@ -84,12 +85,12 @@ describe('routeFromPathValue', () => {
   it('falsy is_exchange encodings are never disclosed; name markers are', () => {
     const route = routeFromPathValue({
       nodes: [
-        { identity_id: 'idA' },
-        { identity_id: 'midFalse', is_exchange: false },
-        { identity_id: 'midFalseStr', is_exchange: 'false' },
-        { identity_id: 'midZero', is_exchange: 0 },
-        { identity_id: 'midName', is_exchange: 'binance' },
-        { identity_id: 'idB' },
+        { address: 'idA' },
+        { address: 'midFalse', is_exchange: false },
+        { address: 'midFalseStr', is_exchange: 'false' },
+        { address: 'midZero', is_exchange: 0 },
+        { address: 'midName', is_exchange: 'binance' },
+        { address: 'idB' },
       ],
       relationships: [
         { amount_usd_sum: 1 },
@@ -105,8 +106,8 @@ describe('routeFromPathValue', () => {
   it('endpoints are not counted as exchange intermediates', () => {
     const route = routeFromPathValue({
       nodes: [
-        { identity_id: 'idA', is_exchange: 'kraken' },
-        { identity_id: 'idB', is_exchange: 'binance' },
+        { address: 'idA', is_exchange: 'kraken' },
+        { address: 'idB', is_exchange: 'binance' },
       ],
       relationships: [{ amount_usd_sum: 10 }],
     })
@@ -115,7 +116,7 @@ describe('routeFromPathValue', () => {
 
   it('hops come from the node sequence even with partially hydrated edges', () => {
     const route = routeFromPathValue({
-      nodes: [{ identity_id: 'idA' }, { identity_id: 'mid' }, { identity_id: 'idB' }],
+      nodes: [{ address: 'idA' }, { address: 'mid' }, { address: 'idB' }],
       // One edge lacks a numeric amount — hop count must not shrink.
       relationships: [{ amount_usd_sum: 30 }, { amount_usd_sum: null }],
     })
@@ -130,9 +131,50 @@ describe('routeFromPathValue', () => {
   })
 })
 
+describe('addressRisk route suppression for an unresolved compare address', () => {
+  it('does not issue connection_route_* (or a real connection probe) when the compare existence probe fails', async () => {
+    const captured: Array<{ id: string; query: string }> = []
+    const remote = {
+      callTool: vi.fn(async (req: { name: string; arguments: { queries?: Array<{ id: string; query: string }> } }) => {
+        const queries = req.arguments.queries ?? []
+        captured.push(...queries)
+        const answered = queries.map((q) => (
+          q.id === 'address_profile'
+            ? { id: q.id, ok: true, results: [{ address: '5Known', network: 'bittensor' }] }
+            // compare_address_exists (and everything else) returns no rows:
+            // the compare address does not exist as an :Address node.
+            : { id: q.id, ok: true, results: [] }
+        ))
+        return { content: [{ type: 'text', text: JSON.stringify({ facts: { queries: answered } }) }], isError: false }
+      }),
+    }
+
+    const result = await addressRisk(remote as never, {
+      address: '5Known',
+      network: 'bittensor',
+      compareAddress: '5NoSuchCompare',
+      topologyScope: 'live_topology',
+    })
+
+    // Pre-revert contract restored: an unresolved compare address suppresses
+    // the *BFS route probes entirely -- they are never issued, not merely
+    // ignored -- and the 1-hop connection probe stays a noop.
+    expect(captured.some((q) => q.id.startsWith('connection_route_'))).toBe(false)
+    const connectionProbe = captured.find((q) => q.id === 'connection_probe')
+    expect(connectionProbe?.query).toContain('__chain_insights_noop__')
+    expect(connectionProbe?.query).not.toContain('5NoSuchCompare')
+    // The compare input is still probed for existence and reported unresolved.
+    expect(captured.some((q) => q.id === 'compare_address_exists' && q.query.includes('5NoSuchCompare'))).toBe(true)
+    const facts = (result.structuredContent as { facts: { unresolved?: string[]; connection?: unknown } }).facts
+    expect(facts.unresolved).toEqual(['5NoSuchCompare'])
+    expect(facts.connection).toBeUndefined()
+    expect(result.summaryText).toContain('Unresolved compare_address: no Address found for "5NoSuchCompare"')
+  })
+})
+
 describe('buildRouteEvidence', () => {
   const outboundRow = {
-    nodes: [{ identity_id: 'idA' }, { identity_id: 'idB' }],
+    nodes: [{ address: 'idA' }, { address: 'idB' }],
     relationships: [{ amount_usd_sum: 5 }],
   }
 

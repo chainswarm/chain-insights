@@ -258,12 +258,12 @@ function findPromptHandler(
   return call[2] as Function
 }
 
-// Non-canonical address inputs (anything that is not a 0x form) now trigger a
-// member-address resolution batch before the main tool batch. This response
-// resolves nothing: per R2/R3, an input that does not resolve is OMITTED from
-// tracing (never passed through as a raw-address identity_id), so callers that
-// need a seed to actually trace must use memberResolutionResolvesTo() instead.
-function memberResolutionPassthrough(): Record<string, unknown> {
+// Trace seed inputs trigger an address-grain existence pre-flight batch
+// before the main tool batch. This response confirms nothing: per R2/R3, a
+// seed whose :Address existence probe returns no row is OMITTED from tracing
+// (reported as unresolved), so callers that need a seed to actually trace
+// must use seedExistenceConfirms() instead.
+function seedExistencePassthrough(): Record<string, unknown> {
   return {
     content: [{
       type: 'text',
@@ -277,9 +277,9 @@ function memberResolutionPassthrough(): Record<string, unknown> {
   }
 }
 
-// Resolves each raw input (in order) to the given identity_id via the
-// Address-node lookup batch, mirroring a real :Address -> :Identity match.
-function memberResolutionResolvesTo(...identityIds: string[]): Record<string, unknown> {
+// Confirms each seed input (in order) exists as a real :Address node via the
+// seed_address_exists_N pre-flight batch, mirroring a real indexed match.
+function seedExistenceConfirms(...addresses: string[]): Record<string, unknown> {
   return {
     content: [{
       type: 'text',
@@ -287,10 +287,10 @@ function memberResolutionResolvesTo(...identityIds: string[]): Record<string, un
         schema: 'chain-insights.result.v1',
         tool: 'graph_query_batch',
         facts: {
-          queries: identityIds.map((identityId, index) => ({
-            id: `resolve_member_address_${index + 1}`,
+          queries: addresses.map((address, index) => ({
+            id: `seed_address_exists_${index + 1}`,
             ok: true,
-            results: [{ identity_id: identityId }],
+            results: [{ address }],
           })),
         },
       }),
@@ -522,14 +522,16 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).not.toContain('iframe')
     expect(instructions).toContain('FLOWS_TO')
     expect(instructions).toContain('first_tx_id')
-    expect(instructions).toContain('archive member-address lookup')
-    expect(instructions).toContain('(:Identity)-[:HAS_ADDRESS]->(:Address)')
-    expect(instructions).toContain('Address.network')
-    expect(instructions).toContain('member-ledger')
+    expect(instructions).toContain('Archive is MONEY-ONLY')
+    expect(instructions).toContain('LINKED is served on the live and facts tiers')
+    expect(instructions).toContain('the single public Bittensor investigation network')
+    expect(instructions).toContain('(:Address)-[:LINKED]-(:Address)')
+    expect(instructions).toContain('n.network AS network')
+    expect(instructions).toContain('declared_owner')
     expect(instructions).toContain('exchange hot wallets are terminal endpoints only')
     expect(instructions).toContain('schema discovery')
     expect(instructions).toContain('Select the graph with USE live_topology')
-    expect(instructions).toContain('identity is the node grain, not the topology name')
+    expect(instructions).toContain('address is the node grain, not the topology name')
     expect(instructions).toContain('NeuronEndpoint')
     expect(instructions).not.toContain('topology_scope accepts only identity')
     expect(instructions).not.toContain('topology_scope=identity')
@@ -966,7 +968,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       isError: false,
     })
     clientInstance.callTool
-      .mockResolvedValueOnce(memberResolutionResolvesTo('5Seed'))
+      .mockResolvedValueOnce(seedExistenceConfirms('5Seed'))
       .mockResolvedValueOnce(textResult([
         {
           id: 'forward_exchange_paths_2',
@@ -1342,7 +1344,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       callTool: ReturnType<typeof vi.fn>
     }
     clientInstance.callTool
-      .mockResolvedValueOnce(memberResolutionResolvesTo('5Addr'))
       .mockResolvedValueOnce({
         content: [{
           type: 'text',
@@ -1356,6 +1357,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                   ok: true,
                   results: [{
                     address: '5Addr',
+                    network: 'bittensor',
                     display_labels: ['validator'],
                     system_labels: ['Address', 'Validator'],
                     live_risk_score: 0.91,
@@ -1363,14 +1365,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                     degree_in: 3,
                     degree_out: 4,
                   }],
-                },
-                {
-                  id: 'member_addresses',
-                  ok: true,
-                  results: [
-                    { member_address: '0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24' },
-                    { member_address: '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6' },
-                  ],
                 },
                 {
                   id: 'address_risk_score',
@@ -1440,7 +1434,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('Address risk for bittensor:5Addr')
     expect(result.content[0].text).toContain('Risk: high (0.82)')
     expect(result.content[0].text).toContain('Live node triage: critical (0.91)')
-    expect(result.content[0].text).toContain('Member addresses: 0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24, 5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6.')
     expect(result.content[0].text).toContain('Exchange behavior')
     expect(result.content[0].text).toContain('5Exchange')
     expect(result.structuredContent.facts.risk).toMatchObject({
@@ -1453,10 +1446,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         source: 'live_topology_node',
       },
     })
-    expect(result.structuredContent.facts.subject.member_addresses).toEqual([
-      '0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24',
-      '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6',
-    ])
+    expect(result.structuredContent.facts.subject.addresses).toEqual(['5Addr'])
     expect(result.structuredContent.facts.exchange_behavior.outflows[0].exchange_address).toBe('5Exchange')
     expect(result._meta.chainInsights.graph.url).toContain('/graph-reports/')
     const graphUrl = result._meta.chainInsights.graph.url as string
@@ -1474,7 +1464,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const subjectNode = graph.nodes.find((node) => node.address === '5Addr')
     expect(subjectNode).toMatchObject({
       labels: ['validator'],
-      member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
       risk_score: 0.91,
       risk_level: 'critical',
     })
@@ -1517,10 +1506,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       timeout: 300_000,
       maxTotalTimeout: 300_000,
     }))
-    const resolutionQueries = clientInstance.callTool.mock.calls[0][0].arguments.queries as Array<{ id: string; query: string }>
-    expect(resolutionQueries[0]?.id).toBe('resolve_member_address_1')
-    expect(resolutionQueries[0]?.query).toContain('MATCH (m:Address {address: "5Addr"})<-[:HAS_ADDRESS]-(i:Identity)')
-    const riskQueries = clientInstance.callTool.mock.calls[1][0].arguments.queries as Array<{ id: string; query: string }>
+    // Address-grain: no identity-resolution pre-flight -- the first (and
+    // only) batch is the risk batch, keyed directly by the raw address.
+    const riskQueries = clientInstance.callTool.mock.calls[0][0].arguments.queries as Array<{ id: string; query: string }>
+    const profileQuery = riskQueries.find((query) => query.id === 'address_profile')?.query ?? ''
+    expect(profileQuery).toContain('MATCH (a:Address {address: "5Addr"})')
     const outflowQuery = riskQueries.find((query) => query.id === 'exchange_outflows_2')?.query ?? ''
     const inflowQuery = riskQueries.find((query) => query.id === 'exchange_inflows_2')?.query ?? ''
     expect(outflowQuery).toContain('exchange.is_exchange IS NOT NULL')
@@ -1541,7 +1531,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       callTool: ReturnType<typeof vi.fn>
     }
-    clientInstance.callTool.mockResolvedValueOnce(memberResolutionResolvesTo('5Addr'))
     clientInstance.callTool.mockResolvedValueOnce({
       content: [{
         type: 'text',
@@ -1553,6 +1542,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                 ok: true,
                 results: [{
                   address: '5Addr',
+                  network: 'bittensor',
                   display_labels: ['Address'],
                   system_labels: ['Address'],
                   address_subtypes: ['coldkey'],
@@ -1638,7 +1628,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const { addressRisk } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
       callTool: vi.fn()
-        .mockResolvedValueOnce(memberResolutionResolvesTo('5Addr'))
         .mockResolvedValueOnce({
           content: [{
             type: 'text',
@@ -1650,19 +1639,12 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                     ok: true,
                     results: [{
                       address: '5Addr',
+                      network: 'bittensor',
                       display_labels: ['validator'],
                       system_labels: ['Address', 'Validator'],
                       live_risk_score: 0.12,
                       live_risk_level: 'low',
                     }],
-                  },
-                  {
-                    id: 'member_addresses',
-                    ok: true,
-                    results: [
-                      { member_address: '0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24' },
-                      { member_address: '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6' },
-                    ],
                   },
                   { id: 'exchange_outflows', ok: true, results: [] },
                   { id: 'exchange_inflows', ok: true, results: [] },
@@ -1687,7 +1669,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(subjectNode).toMatchObject({
       labels: ['validator'],
       system_labels: ['Address', 'Validator'],
-      member_addresses: ['0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'],
       risk_score: 0.12,
       risk_level: 'low',
       roles: ['subject'],
@@ -1695,69 +1676,99 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(subjectNode).not.toHaveProperty('address_type')
   })
 
-  it('resolves SS58 member-address inputs through the Address lookup and CONFIRMS canonical 0x inputs exist as an Identity (MoA-review fix: canonical form is not proof of existence)', async () => {
-    const { resolveIdentityKeys } = await import('../src/investigation/public-tools.js')
-    const remoteClient = {
-      callTool: vi.fn().mockResolvedValueOnce({
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            facts: {
-              queries: [
-                {
-                  id: 'resolve_member_address_1',
-                  ok: true,
-                  results: [{ identity_id: 'bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24' }],
-                },
-                {
-                  id: 'resolve_identity_exists_1',
-                  ok: true,
-                  results: [{ identity_id: 'bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24' }],
-                },
-                {
-                  id: 'resolve_identity_exists_2',
-                  ok: true,
-                  results: [],
-                },
-              ],
-            },
-          }),
-        }],
-        isError: false,
-      }),
-    }
-
-    const resolved = await resolveIdentityKeys(remoteClient as never, 'bittensor', [
-      '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6',
-      'bittensor:0x1874A43D7C6D888F9EDA3D22A3A49704E3CADB24',
-      '0xABCDEF0123456789abcdef0123456789abcdef01',
+  it('trace seed pre-flight probes each seed as an :Address existence lookup (MoA-review lineage: a plausible-looking seed is not proof of existence)', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query_batch', description: 'Cypher topology query batch' },
     ])
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    await createProxy()
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    // First seed exists, second does not.
+    clientInstance.callTool.mockResolvedValueOnce({
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          facts: {
+            queries: [
+              { id: 'seed_address_exists_1', ok: true, results: [{ address: '5KnownSeed' }] },
+              { id: 'seed_address_exists_2', ok: true, results: [] },
+            ],
+          },
+        }),
+      }],
+      isError: false,
+    })
+    runFundFlowProbeMock.mockResolvedValueOnce({
+      summaryText: 'Trace complete for bittensor:5KnownSeed',
+      compactEvidence: {},
+      graphData: {
+        schema: 'chain-insights.graph.v1',
+        nodes: [],
+        edges: [],
+        flows: [],
+        deposits: [],
+        source_matches: [],
+        reverse_leads: [],
+      },
+      files: {
+        schema: '',
+        compactEvidence: '',
+        graph: '',
+        graphHtml: '',
+        table: '',
+        tableHtml: '',
+        report: '',
+      },
+      continuation: {
+        nextHopAddresses: [],
+        depositAddresses: [],
+        exchangeAddresses: [],
+        hint: 'No deposit candidates',
+      },
+      addressMap: {},
+      tracebackWarnings: [],
+    })
 
-    expect(resolved.get('5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6')).toBe('bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24')
-    expect(resolved.get('bittensor:0x1874A43D7C6D888F9EDA3D22A3A49704E3CADB24')).toBe('bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24')
-    // The second canonical-hex input's existence check returned no rows: it must NOT be resolved.
-    expect(resolved.has('0xABCDEF0123456789abcdef0123456789abcdef01')).toBe(false)
-    expect(remoteClient.callTool).toHaveBeenCalledTimes(1)
-    const queries = remoteClient.callTool.mock.calls[0]?.[0].arguments.queries as Array<{ id: string; query: string }>
-    expect(queries).toHaveLength(3)
-    expect(queries[0]?.id).toBe('resolve_member_address_1')
-    expect(queries[0]?.query).toContain('MATCH (m:Address {address: "5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6"})<-[:HAS_ADDRESS]-(i:Identity)')
-    expect(queries[0]?.query).toContain('RETURN i.identity_id AS identity_id')
-    expect(queries[1]?.id).toBe('resolve_identity_exists_1')
-    expect(queries[1]?.query).toContain('MATCH (i:Identity {identity_id: "bittensor:0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24"})')
-    expect(queries[2]?.id).toBe('resolve_identity_exists_2')
-    expect(queries[2]?.query).toContain('MATCH (i:Identity {identity_id: "bittensor:0xabcdef0123456789abcdef0123456789abcdef01"})')
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'aml_trace_victim_funds')
+    const result = await handler({
+      victim_addresses: '5KnownSeed,5MadeUpSeed',
+      network: 'bittensor',
+      write_artifacts: false,
+    })
+
+    expect(result.isError).toBe(false)
+    // The pre-flight batch probes each seed with an indexed :Address lookup.
+    const probeQueries = clientInstance.callTool.mock.calls[0]?.[0].arguments.queries as Array<{ id: string; query: string }>
+    expect(probeQueries).toHaveLength(2)
+    expect(probeQueries[0]?.id).toBe('seed_address_exists_1')
+    expect(probeQueries[0]?.query).toContain('MATCH (a:Address {address: "5KnownSeed"})')
+    expect(probeQueries[0]?.query).toContain('RETURN a.address AS address')
+    expect(probeQueries[1]?.id).toBe('seed_address_exists_2')
+    expect(probeQueries[1]?.query).toContain('MATCH (a:Address {address: "5MadeUpSeed"})')
+    // Only the existing seed is traced; the made-up one is reported unresolved.
+    expect(runFundFlowProbeMock).toHaveBeenCalledTimes(1)
+    expect(runFundFlowProbeMock.mock.calls[0]?.[2]).toMatchObject({ seedAddress: '5KnownSeed' })
+    expect(result.structuredContent.unresolved).toEqual(['5MadeUpSeed'])
+    expect(result.structuredContent.summary).toMatchObject({ seed_count: 1, unresolved_count: 1 })
   })
 
-  it('omits unresolvable non-0x member-address inputs from the resolved map (R2/R3: never fall back to a raw-address identity_id)', async () => {
-    const { resolveIdentityKeys } = await import('../src/investigation/public-tools.js')
+  it('omits non-existent seed addresses from tracing (R2/R3: never silently trace a made-up seed)', async () => {
+    const { traceVictimFunds } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
       callTool: vi.fn().mockResolvedValueOnce({
         content: [{
           type: 'text',
           text: JSON.stringify({
             facts: {
-              queries: [{ id: 'resolve_member_address_1', ok: true, results: [] }],
+              queries: [{ id: 'seed_address_exists_1', ok: true, results: [] }],
             },
           }),
         }],
@@ -1765,29 +1776,43 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       }),
     }
 
-    const resolved = await resolveIdentityKeys(remoteClient as never, 'bittensor', ['5UnknownMember'])
-    expect(resolved.has('5UnknownMember')).toBe(false)
+    const result = await traceVictimFunds(remoteClient as never, { dataDir: '/tmp/ci-test', serverPort: 4321 }, {
+      victimAddresses: '5UnknownMember',
+      network: 'bittensor',
+      writeArtifacts: false,
+    })
+    expect(runFundFlowProbeMock).not.toHaveBeenCalled()
+    expect((result.structuredContent as { unresolved: string[] }).unresolved).toEqual(['5UnknownMember'])
   })
 
-  it('resolveIdentityKeys defaults to live_topology and honors an explicit archive_topology scope', async () => {
-    const { resolveIdentityKeys } = await import('../src/investigation/public-tools.js')
+  it('seed existence pre-flight defaults to live_topology and honors an explicit archive_topology scope', async () => {
+    const { traceVictimFunds } = await import('../src/investigation/public-tools.js')
     const remoteClientDefault = {
       callTool: vi.fn().mockResolvedValueOnce({
-        content: [{ type: 'text', text: JSON.stringify({ facts: { queries: [{ id: 'resolve_member_address_1', ok: true, results: [] }] } }) }],
+        content: [{ type: 'text', text: JSON.stringify({ facts: { queries: [{ id: 'seed_address_exists_1', ok: true, results: [] }] } }) }],
         isError: false,
       }),
     }
-    await resolveIdentityKeys(remoteClientDefault as never, 'bittensor', ['5UnknownMember'])
+    await traceVictimFunds(remoteClientDefault as never, { dataDir: '/tmp/ci-test', serverPort: 4321 }, {
+      victimAddresses: '5UnknownMember',
+      network: 'bittensor',
+      writeArtifacts: false,
+    })
     const defaultQueries = remoteClientDefault.callTool.mock.calls[0]?.[0].arguments.queries as Array<{ query: string }>
     expect(defaultQueries[0]?.query).toMatch(/^USE live_topology/)
 
     const remoteClientArchive = {
       callTool: vi.fn().mockResolvedValueOnce({
-        content: [{ type: 'text', text: JSON.stringify({ facts: { queries: [{ id: 'resolve_member_address_1', ok: true, results: [] }] } }) }],
+        content: [{ type: 'text', text: JSON.stringify({ facts: { queries: [{ id: 'seed_address_exists_1', ok: true, results: [] }] } }) }],
         isError: false,
       }),
     }
-    await resolveIdentityKeys(remoteClientArchive as never, 'bittensor', ['5UnknownMember'], 'archive_topology')
+    await traceVictimFunds(remoteClientArchive as never, { dataDir: '/tmp/ci-test', serverPort: 4321 }, {
+      victimAddresses: '5UnknownMember',
+      network: 'bittensor',
+      writeArtifacts: false,
+      topologyScope: 'archive_topology',
+    })
     const archiveQueries = remoteClientArchive.callTool.mock.calls[0]?.[0].arguments.queries as Array<{ query: string }>
     expect(archiveQueries[0]?.query).toMatch(/^USE archive_topology/)
   })
@@ -1796,7 +1821,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const { addressRisk } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
       callTool: vi.fn()
-        .mockResolvedValueOnce(memberResolutionResolvesTo('5Addr'))
         .mockResolvedValueOnce({
         content: [{
           type: 'text',
@@ -1806,7 +1830,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                 {
                   id: 'address_profile',
                   ok: true,
-                  results: [{ address: '5Addr', display_labels: ['subject'] }],
+                  results: [{ address: '5Addr', network: 'bittensor', display_labels: ['subject'] }],
                 },
                 {
                   id: 'address_risk_score',
@@ -1892,7 +1916,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       callTool: ReturnType<typeof vi.fn>
     }
-    clientInstance.callTool.mockResolvedValueOnce(memberResolutionResolvesTo('5Suspect'))
+    clientInstance.callTool.mockResolvedValueOnce(seedExistenceConfirms('5Suspect'))
 
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
@@ -2031,7 +2055,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       callTool: ReturnType<typeof vi.fn>
     }
-    clientInstance.callTool.mockResolvedValueOnce(memberResolutionResolvesTo('5Victim'))
+    clientInstance.callTool.mockResolvedValueOnce(seedExistenceConfirms('5Victim'))
 
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
@@ -2067,26 +2091,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
   it('aml_trace_deposit_sources performs reverse tracing and reports shared upstream convergence', async () => {
     const { traceDepositSources } = await import('../src/investigation/public-tools.js')
-    const depositAIdentity = 'bittensor:0xdeposita'
-    const depositBIdentity = 'bittensor:0xdepositb'
-    const sharedSourceIdentity = 'bittensor:0xsharedsource'
-    const exchangeHotIdentity = 'bittensor:0xexchangehot'
     const remoteClient = {
       callTool: vi.fn()
-        .mockResolvedValueOnce({
-          content: [{
-            type: 'text',
-            text: JSON.stringify({
-              facts: {
-                queries: [
-                  { id: 'resolve_member_address_1', ok: true, results: [{ identity_id: depositAIdentity }] },
-                  { id: 'resolve_member_address_2', ok: true, results: [{ identity_id: depositBIdentity }] },
-                ],
-              },
-            }),
-          }],
-          isError: false,
-        })
+        .mockResolvedValueOnce(seedExistenceConfirms('5DepositA', '5DepositB'))
         .mockResolvedValueOnce({
         content: [{
           type: 'text',
@@ -2098,45 +2105,45 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                   ok: true,
                   results: [
                     {
-                      source_address: sharedSourceIdentity,
-                      deposit_address: depositAIdentity,
+                      source_address: '5SharedSource',
+                      deposit_address: '5DepositA',
                       hop: 1,
-                      addresses: [sharedSourceIdentity, depositAIdentity],
+                      addresses: ['5SharedSource', '5DepositA'],
                       amount_usd_sum: 11,
                       first_tx_id: 'a-1',
                     },
                     {
-                      source_address: sharedSourceIdentity,
-                      deposit_address: depositBIdentity,
+                      source_address: '5SharedSource',
+                      deposit_address: '5DepositB',
                       hop: 1,
-                      addresses: [sharedSourceIdentity, depositBIdentity],
+                      addresses: ['5SharedSource', '5DepositB'],
                       amount_usd_sum: 12,
                       first_tx_id: 'b-1',
                     },
                     {
-                      source_address: exchangeHotIdentity,
-                      deposit_address: depositAIdentity,
+                      source_address: '5ExchangeHot',
+                      deposit_address: '5DepositA',
                       source_is_exchange: true,
                       deposit_is_exchange: null,
                       hop: 1,
-                      addresses: [exchangeHotIdentity, depositAIdentity],
+                      addresses: ['5ExchangeHot', '5DepositA'],
                       path_nodes: [
-                        { address: exchangeHotIdentity, labels: ['Kraken Hot', 'exchange'], is_exchange: true },
-                        { address: depositAIdentity, is_exchange: null },
+                        { address: '5ExchangeHot', labels: ['Kraken Hot', 'exchange'], is_exchange: true },
+                        { address: '5DepositA', is_exchange: null },
                       ],
                       amount_usd_sum: 13,
                       first_tx_id: 'c-1',
                     },
                     {
-                      source_address: exchangeHotIdentity,
-                      deposit_address: depositBIdentity,
+                      source_address: '5ExchangeHot',
+                      deposit_address: '5DepositB',
                       source_is_exchange: true,
                       deposit_is_exchange: null,
                       hop: 1,
-                      addresses: [exchangeHotIdentity, depositBIdentity],
+                      addresses: ['5ExchangeHot', '5DepositB'],
                       path_nodes: [
-                        { address: exchangeHotIdentity, labels: ['Kraken Hot', 'exchange'], is_exchange: true },
-                        { address: depositBIdentity, is_exchange: null },
+                        { address: '5ExchangeHot', labels: ['Kraken Hot', 'exchange'], is_exchange: true },
+                        { address: '5DepositB', is_exchange: null },
                       ],
                       amount_usd_sum: 14,
                       first_tx_id: 'd-1',
@@ -2148,31 +2155,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
           }),
         }],
         isError: false,
-      })
-        .mockResolvedValueOnce({
-          content: [{
-            type: 'text',
-            text: JSON.stringify({
-              facts: {
-                queries: [
-                  {
-                    id: 'identity_member_addresses_0',
-                    ok: true,
-                    results: [
-                      // One row per member address (archive-safe builder
-                      // form — no collect(); see probe A07). Per-identity
-                      // queries; extra ids resolve empty in this stub.
-                      { identity_id: depositAIdentity, member_address: '5DepositA' },
-                      { identity_id: depositBIdentity, member_address: '5DepositB' },
-                      { identity_id: sharedSourceIdentity, member_address: '5SharedSource' },
-                    ],
-                  },
-                ],
-              },
-            }),
-          }],
-          isError: false,
-        }),
+      }),
     }
 
     const result = await traceDepositSources(remoteClient as never, { dataDir: testDataDir, serverPort: 4321 }, {
@@ -2187,10 +2170,12 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         network: 'bittensor',
       }),
     }), undefined, expect.anything())
+    // Address-grain: mock.calls[0] is the seed existence pre-flight;
+    // mock.calls[1] is the reverse traceback batch keyed by raw address.
     const query = remoteClient.callTool.mock.calls[1]?.[0].arguments.queries[0].query as string
-    expect(query).toContain('MATCH (source:Identity)-[r1:FLOWS_TO]->(deposit:Identity)')
-    expect(query).toContain(`deposit.identity_id = "${depositAIdentity}"`)
-    expect(query).toContain(`deposit.identity_id = "${depositBIdentity}"`)
+    expect(query).toContain('MATCH (source:Address)-[r1:FLOWS_TO]->(deposit:Address)')
+    expect(query).toContain('deposit.address = "5DepositA"')
+    expect(query).toContain('deposit.address = "5DepositB"')
     expect(query).toContain('source.is_exchange IS NULL')
     expect(query).toContain('deposit.is_exchange IS NULL')
     expect(result.structuredContent).toMatchObject({
@@ -2204,11 +2189,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         candidate_suspect_addresses: ['5SharedSource'],
       },
     })
-    expect(result.structuredContent.identity_resolution).toContainEqual(expect.objectContaining({
-      canonical_identity_key: depositAIdentity,
-      address: '5DepositA',
-      member_addresses: ['5DepositA'],
-    }))
+    // Public trace surface carries the raw addresses directly (address grain
+    // has no internal canonical-key form to leak or resolve).
     const publicTraceSurface = JSON.stringify({
       summaryText: result.summaryText,
       addresses: result.structuredContent.addresses,
@@ -2217,9 +2199,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       continuation: result.structuredContent.continuation,
       graphData: result.graphData,
     })
-    expect(publicTraceSurface).not.toContain(depositAIdentity)
-    expect(publicTraceSurface).not.toContain(depositBIdentity)
-    expect(publicTraceSurface).not.toContain(sharedSourceIdentity)
+    expect(publicTraceSurface).toContain('5DepositA')
+    expect(publicTraceSurface).toContain('5DepositB')
+    expect(publicTraceSurface).toContain('5SharedSource')
     expect(result.structuredContent.continuation.candidate_suspect_addresses).not.toContain('5ExchangeHot')
     expect(result.structuredContent.candidate_labels).not.toContainEqual(expect.objectContaining({
       address: '5ExchangeHot',
@@ -2279,7 +2261,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       callTool: ReturnType<typeof vi.fn>
     }
-    clientInstance.callTool.mockResolvedValueOnce(memberResolutionResolvesTo('5Victim', '5Victim2'))
+    clientInstance.callTool.mockResolvedValueOnce(seedExistenceConfirms('5Victim', '5Victim2'))
 
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
@@ -2485,7 +2467,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.messages[0].content.text).toContain('5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6')
   })
 
-  it('gives graph prompts schema-discovery guidance without address-grain wording', async () => {
+  it('gives graph prompts address-grain schema-discovery guidance', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)
 
@@ -2500,14 +2482,15 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const handler = findPromptHandler(serverInstance, 'graph-query')
     const result = await handler({
       network: 'bittensor',
-      query: 'USE live_topology MATCH (i:Identity) RETURN i.identity_id LIMIT 1',
+      query: 'USE live_topology MATCH (a:Address) RETURN a.address LIMIT 1',
     })
     const text = result.messages[0].content.text
 
     expect(text).toContain('schema context')
-    expect(text).toContain('keys(i) AS identity_properties')
+    expect(text).toContain('keys(a) AS address_properties')
     expect(text).toContain('keys(r) AS flow_properties')
-    expect(text).toContain('identity_id and member addresses')
+    expect(text).toContain('Return the full address')
+    expect(text).not.toContain('identity_id')
     expect(text).not.toContain('Return full address properties')
   })
 

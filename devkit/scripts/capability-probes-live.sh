@@ -69,22 +69,22 @@ PY
 echo "── capability probes: live lane (native Memgraph via $ENDPOINT) ──"
 
 # --- supported: the expanded native surface ---
-probe P01 supported "USE live_topology MATCH (n:Identity) RETURN n.identity_id AS id ORDER BY n.identity_id LIMIT 2;"
-probe P02 supported "USE live_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(a:Address) RETURN a.address AS addr LIMIT 1;"
-probe P03 supported "USE live_topology MATCH (a:Identity)-[:FLOWS_TO*1..3]->(t:Identity) RETURN t.identity_id AS t LIMIT 5;"
-probe P04 supported "USE live_topology MATCH p=(a:Identity)-[:FLOWS_TO *BFS 1..3]->(b:Identity) RETURN b.identity_id AS b LIMIT 5;"
-probe P05 supported "USE live_topology MATCH p=(a:Identity)-[:FLOWS_TO *WSHORTEST 5 (r,n | coalesce(r.amount_usd_sum,1)) w]->(b:Identity) RETURN b.identity_id AS b LIMIT 3;"
+probe P01 supported "USE live_topology MATCH (n:Address) RETURN n.address AS id ORDER BY n.address LIMIT 2;"
+probe P02 supported "USE live_topology MATCH (a:Address)-[:LINKED]-(b:Address) RETURN b.address AS addr LIMIT 1;"
+probe P03 supported "USE live_topology MATCH (a:Address)-[:FLOWS_TO*1..3]->(t:Address) RETURN t.address AS t LIMIT 5;"
+probe P04 supported "USE live_topology MATCH p=(a:Address)-[:FLOWS_TO *BFS 1..3]->(b:Address) RETURN b.address AS b LIMIT 5;"
+probe P05 supported "USE live_topology MATCH p=(a:Address)-[:FLOWS_TO *WSHORTEST 5 (r,n | coalesce(r.amount_usd_sum,1)) w]->(b:Address) RETURN b.address AS b LIMIT 3;"
 # KSHORTEST requires both endpoints matched first (Memgraph contract) — anchor
 # the pair via WITH, then expand. k (path count) is bounded by the MCP (see P11).
-probe P06 supported "USE live_topology MATCH (a:Identity), (b:Identity) WITH a, b LIMIT 1 MATCH p=(a)-[:FLOWS_TO *KSHORTEST|3]->(b) RETURN b.identity_id AS b LIMIT 3;"
-probe P07 supported "USE live_topology MATCH (a:Identity)-[:FLOWS_TO*1..3 (r,n | n.is_exchange IS NULL)]->(t:Identity) RETURN t.identity_id AS t LIMIT 5;"
+probe P06 supported "USE live_topology MATCH (a:Address), (b:Address) WITH a, b LIMIT 1 MATCH p=(a)-[:FLOWS_TO *KSHORTEST|3]->(b) RETURN b.address AS b LIMIT 3;"
+probe P07 supported "USE live_topology MATCH (a:Address)-[:FLOWS_TO*1..3 (r,n | n.is_exchange IS NULL)]->(t:Address) RETURN t.address AS t LIMIT 5;"
 
 # --- rejected: the live bounds + admission gate ---
-probe P08 rejected-bounds "USE live_topology MATCH (a:Identity)-[:FLOWS_TO*]->(b:Identity) RETURN b.identity_id AS b LIMIT 5;"
-probe P09 rejected-bounds "USE live_topology MATCH (a:Identity)-[:FLOWS_TO*1..9]->(b:Identity) RETURN b.identity_id AS b LIMIT 5;"
-probe P10 rejected-bounds "USE live_topology MATCH p=(a:Identity)-[:FLOWS_TO *BFS]->(b:Identity) RETURN b.identity_id AS b LIMIT 5;"
-probe P11 rejected-bounds "USE live_topology MATCH p=(a:Identity)-[:FLOWS_TO *KSHORTEST|50]->(b:Identity) RETURN b.identity_id AS b LIMIT 5;"
-probe P12 rejected-write "USE live_topology MATCH (a:Identity {identity_id:'X'}) CREATE (a)-[:FLOWS_TO]->(:Identity) RETURN 1;"
+probe P08 rejected-bounds "USE live_topology MATCH (a:Address)-[:FLOWS_TO*]->(b:Address) RETURN b.address AS b LIMIT 5;"
+probe P09 rejected-bounds "USE live_topology MATCH (a:Address)-[:FLOWS_TO*1..9]->(b:Address) RETURN b.address AS b LIMIT 5;"
+probe P10 rejected-bounds "USE live_topology MATCH p=(a:Address)-[:FLOWS_TO *BFS]->(b:Address) RETURN b.address AS b LIMIT 5;"
+probe P11 rejected-bounds "USE live_topology MATCH p=(a:Address)-[:FLOWS_TO *KSHORTEST|50]->(b:Address) RETURN b.address AS b LIMIT 5;"
+probe P12 rejected-write "USE live_topology MATCH (a:Address {address:'X'}) CREATE (a)-[:FLOWS_TO]->(:Address) RETURN 1;"
 
 python3 - "$OUT" "$ROWS_TMP" <<'PY'
 import json, sys

@@ -170,19 +170,19 @@ const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS = 5 * 60 * 1000
 const SCHEMA_QUERY_SET = [
   {
     id: 'node_labels',
-    query: 'MATCH (n:Identity) RETURN "Identity" AS node_label, count(n) AS sample_count LIMIT 1',
+    query: 'MATCH (n:Address) RETURN "Address" AS node_label, count(n) AS sample_count LIMIT 1',
   },
   {
     id: 'relationship_types',
-    query: 'MATCH (:Identity)-[r:FLOWS_TO]->(:Identity) RETURN "FLOWS_TO" AS rel_name, count(r) AS sample_count LIMIT 1',
+    query: 'MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN "FLOWS_TO" AS rel_name, count(r) AS sample_count LIMIT 1',
   },
   {
-    id: 'identity_property_keys',
-    query: 'MATCH (n:Identity) RETURN "identity_id" AS property_key, count(n) AS sample_count LIMIT 1',
+    id: 'address_property_keys',
+    query: 'MATCH (n:Address) RETURN "address" AS property_key, count(n) AS sample_count LIMIT 1',
   },
   {
     id: 'flows_to_property_keys',
-    query: 'MATCH (:Identity)-[r:FLOWS_TO]->(:Identity) RETURN "amount_usd_sum" AS property_key, count(r) AS sample_count LIMIT 1',
+    query: 'MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN "amount_usd_sum" AS property_key, count(r) AS sample_count LIMIT 1',
   },
 ]
 
@@ -271,11 +271,11 @@ function schemaFromGraphBatch(network: string, batch: ParsedGraphBatch): Record<
     source: 'graph_query_batch',
     node_labels: resultsFor(batch, 'node_labels'),
     relationship_types: resultsFor(batch, 'relationship_types'),
-    identity_property_keys: resultsFor(batch, 'identity_property_keys').map((row) => row['property_key']),
+    address_property_keys: resultsFor(batch, 'address_property_keys').map((row) => row['property_key']),
     flows_to_property_keys: resultsFor(batch, 'flows_to_property_keys').map((row) => row['property_key']),
     recommended_flow_projection: [
-      'src.identity_id AS src',
-      'dst.identity_id AS dst',
+      'src.address AS src',
+      'dst.address AS dst',
       'r.amount_usd_sum AS amount_usd_sum',
       'r.tx_count AS tx_count',
       'r.first_seen_timestamp AS first_seen_timestamp',
@@ -315,11 +315,11 @@ function flowEdgeMap(variableName: string): string {
 
 function pathNodeMap(variableName: string, topologyScope: TopologyScope): string {
   // risk_score/risk_level are a live_topology-only "slim live risk verdict" on
-  // :Identity (see data-pipeline ops/memgql/README.md); the archive_topology
+  // :Address (see data-pipeline ops/memgql/README.md); the archive_topology
   // StarRocks mapping never defines them, so projecting them there hard-errors
   // the whole query instead of nulling gracefully.
   const riskFields = topologyScope === 'archive_topology' ? '' : `, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level`
-  return `{address: ${variableName}.identity_id, labels: ${variableName}.labels, system_labels: ${variableName}.labels, is_exchange: ${variableName}.is_exchange${riskFields}}`
+  return `{address: ${variableName}.address, network: ${variableName}.network, labels: ${variableName}.labels, system_labels: ${variableName}.labels, is_exchange: ${variableName}.is_exchange${riskFields}}`
 }
 
 export function activityWindowPredicates(edgeVariables: string[], window: TraceActivityWindow | undefined): string[] {
@@ -341,22 +341,22 @@ function forwardExchangeQueryAtDepth(address: string, limit: number, minAmountSu
   const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
   const relationshipChain = edgeVariables.map((edgeVariable, index) => {
     const targetVariable = index === edgeVariables.length - 1 ? 't' : intermediateVariables[index]!
-    return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Identity)`
+    return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
   }).join('')
   const amountPredicates = edgeVariables.map((edgeVariable) => `${edgeVariable}.amount_usd_sum IS NOT NULL${minAmountSum > 0 ? ` AND ${edgeVariable}.amount_usd_sum >= ${minAmountSum}` : ''}`)
   const nonTerminalPredicates = ['s', ...intermediateVariables].map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
-  // Compare identity_id (property), not the node reference: StarRocks GQL
+  // Compare address (property), not the node reference: StarRocks GQL
   // (archive_topology) does not support direct node-to-node comparison (s <> t
   // / id(s) <> id(t)), only Memgraph/Cypher (live_topology) does. Property
   // comparison is equivalent here and works on both backends.
-  const predicates = ['s.identity_id <> t.identity_id', ...nonTerminalPredicates, 't.is_exchange IS NOT NULL', ...amountPredicates, ...activityWindowPredicates(edgeVariables, activityWindow)]
+  const predicates = ['s.address <> t.address', ...nonTerminalPredicates, 't.is_exchange IS NOT NULL', ...amountPredicates, ...activityWindowPredicates(edgeVariables, activityWindow)]
   const depositVariable = nodeVariables[nodeVariables.length - 2]!
   return {
     id: `forward_exchange_paths_${depth}`,
     query: [
-      `MATCH (s:Identity {identity_id: "${escapeCypherString(address)}"})${relationshipChain}`,
+      `MATCH (s:Address {address: "${escapeCypherString(address)}"})${relationshipChain}`,
       `WHERE ${predicates.join(' AND ')}`,
-      `RETURN [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(', ')}] AS node_labels, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable, topologyScope)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props, t.identity_id AS exchange_address, t.labels AS exchange_display_labels, t.labels AS exchange_labels, t.is_exchange AS exchange_is_exchange, ${depositVariable}.identity_id AS deposit_address, ${depositVariable}.is_exchange AS deposit_is_exchange, ${depth} AS hops`,
+      `RETURN [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(', ')}] AS node_labels, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable, topologyScope)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props, t.address AS exchange_address, t.labels AS exchange_display_labels, t.labels AS exchange_labels, t.is_exchange AS exchange_is_exchange, ${depositVariable}.address AS deposit_address, ${depositVariable}.is_exchange AS deposit_is_exchange, ${depth} AS hops`,
       'ORDER BY hops ASC',
       `LIMIT ${limit}`,
     ].join(' '),
@@ -373,30 +373,30 @@ function backwardSourceQueryAtDepth(id: string, depositAddress: string, depth: n
   const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
   const relationshipChain = edgeVariables.map((edgeVariable, index) => {
     const targetVariable = index === edgeVariables.length - 1 ? 'source' : intermediateVariables[index]!
-    return `<-[${edgeVariable}:FLOWS_TO]-(${targetVariable}:Identity)`
+    return `<-[${edgeVariable}:FLOWS_TO]-(${targetVariable}:Address)`
   }).join('')
   const intermediatePredicates = intermediateVariables.map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
   return {
     id,
     query: [
-      `MATCH (dep:Identity {identity_id: "${escapeCypherString(depositAddress)}"})`,
+      `MATCH (dep:Address {address: "${escapeCypherString(depositAddress)}"})`,
       `MATCH (dep)${relationshipChain}`,
-      `WHERE source.identity_id <> dep.identity_id AND source.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
-      `RETURN dep.identity_id AS deposit_address, source.identity_id AS source_exchange, source.labels AS source_display_labels, source.labels AS source_labels, ${depth} AS hops, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.identity_id`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(', ')}] AS node_labels, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable, topologyScope)).join(', ')}] AS path_nodes`,
+      `WHERE source.address <> dep.address AND source.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
+      `RETURN dep.address AS deposit_address, source.address AS source_exchange, source.labels AS source_display_labels, source.labels AS source_labels, ${depth} AS hops, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.labels`).join(', ')}] AS node_labels, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable, topologyScope)).join(', ')}] AS path_nodes`,
       'LIMIT 20',
     ].join(' '),
   }
 }
 
 function reverseLeadsQuery(depositAddresses: string[], topologyScope: TopologyScope): { id: string; query: string } {
-  const depositPredicates = depositAddresses.map((address) => `deposit.identity_id = "${escapeCypherString(address)}"`)
+  const depositPredicates = depositAddresses.map((address) => `deposit.address = "${escapeCypherString(address)}"`)
   const riskFields = topologyScope === 'archive_topology' ? '' : ', sender.risk_score AS risk_score, sender.risk_level AS risk_level'
   return {
     id: 'reverse_1hop',
     query: [
-      'MATCH (sender:Identity)-[r:FLOWS_TO]->(deposit:Identity)',
-      `WHERE (${depositPredicates.join(' OR ')}) AND sender.is_exchange IS NULL AND sender.identity_id <> deposit.identity_id`,
-      `RETURN DISTINCT sender.identity_id AS address, sender.labels AS display_labels, sender.labels AS system_labels${riskFields}, deposit.identity_id AS deposit_address, r.amount_usd_sum AS amount_usd`,
+      'MATCH (sender:Address)-[r:FLOWS_TO]->(deposit:Address)',
+      `WHERE (${depositPredicates.join(' OR ')}) AND sender.is_exchange IS NULL AND sender.address <> deposit.address`,
+      `RETURN DISTINCT sender.address AS address, sender.labels AS display_labels, sender.labels AS system_labels${riskFields}, deposit.address AS deposit_address, r.amount_usd_sum AS amount_usd`,
       'ORDER BY r.amount_usd_sum DESC',
       `LIMIT ${Math.max(50, depositAddresses.length * 50)}`,
     ].join(' '),
@@ -411,14 +411,14 @@ function directEdgePropsQuery(flows: TraceFlow[]): { id: string; query: string }
   const pairs = [...new Map(flows.map((flow) => [edgeKey(flow.src, flow.dst), { src: flow.src, dst: flow.dst }])).values()]
   if (pairs.length === 0) return null
   const predicates = pairs.map((pair) =>
-    `(a.identity_id = "${escapeCypherString(pair.src)}" AND b.identity_id = "${escapeCypherString(pair.dst)}")`
+    `(a.address = "${escapeCypherString(pair.src)}" AND b.address = "${escapeCypherString(pair.dst)}")`
   )
   return {
     id: 'direct_edge_props',
     query: [
-      'MATCH (a:Identity)-[r:FLOWS_TO]->(b:Identity)',
+      'MATCH (a:Address)-[r:FLOWS_TO]->(b:Address)',
       `WHERE (${predicates.join(' OR ')})`,
-      'RETURN a.identity_id AS src, b.identity_id AS dst, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count, r.first_tx_id AS first_tx_id, r.last_tx_id AS last_tx_id, r.first_seen_timestamp AS first_seen_timestamp, r.last_seen_timestamp AS last_seen_timestamp',
+      'RETURN a.address AS src, b.address AS dst, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count, r.first_tx_id AS first_tx_id, r.last_tx_id AS last_tx_id, r.first_seen_timestamp AS first_seen_timestamp, r.last_seen_timestamp AS last_seen_timestamp',
       `LIMIT ${pairs.length}`,
     ].join(' '),
   }

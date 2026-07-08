@@ -4,7 +4,7 @@
  "recipes": [
   {
    "id": "recipe_archive_topology_01",
-   "query": "USE archive_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, flow.period_granularity AS period_granularity, flow.period_start_date AS period_start_date, flow.period_end_date AS period_end_date, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10",
+   "query": "USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.period_granularity AS period_granularity, flow.period_start_date AS period_start_date, flow.period_end_date AS period_end_date, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10",
    "layer": "archive_topology",
    "description": "Archive FLOWS_TO edge sample with period granularity/start/end plus amount_usd_sum and tx_count",
    "features": [
@@ -13,20 +13,10 @@
    ]
   },
   {
-   "id": "recipe_archive_topology_02",
-   "query": "USE archive_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 10",
-   "layer": "archive_topology",
-   "description": "Archive identity-to-member-address sample (identity_id, member_address, member_network)",
-   "features": [
-    "fixed-hop",
-    "label-match"
-   ]
-  },
-  {
    "id": "recipe_archive_topology_03",
-   "query": "USE archive_topology MATCH (src:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[flow:FLOWS_TO]->(dst:Identity) RETURN dst.identity_id AS to_identity, flow.period_granularity AS period_granularity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.last_seen_timestamp DESC LIMIT 50",
+   "query": "USE archive_topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[flow:FLOWS_TO]->(dst:Address) RETURN dst.address AS to_address, flow.period_granularity AS period_granularity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.last_seen_timestamp DESC LIMIT 50",
    "layer": "archive_topology",
-   "description": "Archive flow history for one identity ordered by last_seen_timestamp descending",
+   "description": "Archive flow history for one address ordered by last_seen_timestamp descending",
    "features": [
     "fixed-hop",
     "label-match",
@@ -36,7 +26,7 @@
   },
   {
    "id": "recipe_archive_topology_04",
-   "query": "USE archive_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, flow.period_granularity AS period_granularity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.last_seen_timestamp DESC LIMIT 25",
+   "query": "USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.period_granularity AS period_granularity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.last_seen_timestamp DESC LIMIT 25",
    "layer": "archive_topology",
    "description": "Recent historical archive flow edges globally ordered by last_seen_timestamp",
    "features": [
@@ -48,7 +38,7 @@
   {
    "id": "recipe_archive_topology_05",
    "admits": false,
-   "query": "USE archive_topology MATCH (:Identity)-[flow:FLOWS_TO]->(:Identity) RETURN flow.period_granularity AS period_granularity, count(flow) AS flow_edges LIMIT 10",
+   "query": "USE archive_topology MATCH (:Address)-[flow:FLOWS_TO]->(:Address) RETURN flow.period_granularity AS period_granularity, count(flow) AS flow_edges LIMIT 10",
    "layer": "archive_topology",
    "description": "Count archive FLOWS_TO edges grouped by period_granularity",
    "features": [
@@ -60,7 +50,7 @@
   },
   {
    "id": "recipe_archive_topology_06",
-   "query": "USE archive_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) WHERE flow.period_granularity = \"daily\" RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count ORDER BY flow.amount_usd_sum DESC LIMIT 25",
+   "query": "USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) WHERE flow.period_granularity = \"daily\" RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count ORDER BY flow.amount_usd_sum DESC LIMIT 25",
    "layer": "archive_topology",
    "description": "Filter archive flows to daily granularity, ranked by USD sum",
    "features": [
@@ -81,7 +71,7 @@
   },
   {
    "id": "recipe_archive_topology_08",
-   "query": "USE archive_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) WHERE flow.amount_usd_sum IS NOT NULL RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, flow.amount_usd_sum AS amount_usd_sum, flow.period_granularity AS period_granularity ORDER BY flow.amount_usd_sum DESC LIMIT 25",
+   "query": "USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) WHERE flow.amount_usd_sum IS NOT NULL RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.period_granularity AS period_granularity ORDER BY flow.amount_usd_sum DESC LIMIT 25",
    "layer": "archive_topology",
    "description": "Archive FLOWS_TO with an IS NOT NULL WHERE filter and ORDER BY on amount_usd_sum \u2014 fills the missing archive-layer is-null filter (present on live_topology but not archive).",
    "features": [
@@ -94,7 +84,7 @@
   },
   {
    "id": "recipe_archive_topology_09",
-   "query": "USE archive_topology MATCH (:Identity)-[flow:FLOWS_TO]->(:Identity) RETURN DISTINCT flow.period_granularity AS period_granularity LIMIT 10",
+   "query": "USE archive_topology MATCH (:Address)-[flow:FLOWS_TO]->(:Address) RETURN DISTINCT flow.period_granularity AS period_granularity LIMIT 10",
    "layer": "archive_topology",
    "description": "DISTINCT projection of FLOWS_TO.period_granularity \u2014 fills the entirely-missing archive-layer DISTINCT feature.",
    "features": [
@@ -105,9 +95,9 @@
   },
   {
    "id": "recipe_archive_topology_10",
-   "query": "USE archive_topology MATCH (src:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[flow:FLOWS_TO]->(dst:Identity) WITH dst, sum(flow.amount_usd_sum) AS total_usd, count(flow) AS flow_edges RETURN dst.identity_id AS to_identity, total_usd, flow_edges ORDER BY total_usd DESC LIMIT 25",
+   "query": "USE archive_topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[flow:FLOWS_TO]->(dst:Address) WITH dst, sum(flow.amount_usd_sum) AS total_usd, count(flow) AS flow_edges RETURN dst.address AS to_address, total_usd, flow_edges ORDER BY total_usd DESC LIMIT 25",
    "layer": "archive_topology",
-   "description": "Archive top-counterparties aggregate from the fixture Identity: WITH sum(amount_usd_sum) + count grouped by destination, ORDER BY total DESC \u2014 the archive counterpart to recipe_live_topology_07, fills archive grouped SUM aggregate + order-by (archive_05 was count-only). [WITH-aggregate: out of archive translator scope \u2014 expected ErrUnsupportedShape]",
+   "description": "Archive top-counterparties aggregate from the fixture Address: WITH sum(amount_usd_sum) + count grouped by destination, ORDER BY total DESC \u2014 the archive counterpart to recipe_live_topology_07, fills archive grouped SUM aggregate + order-by (archive_05 was count-only). [WITH-aggregate: out of archive translator scope \u2014 expected ErrUnsupportedShape]",
    "features": [
     "fixed-hop",
     "label-match",
@@ -119,7 +109,7 @@
   },
   {
    "id": "recipe_archive_topology_11",
-   "query": "USE archive_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, CASE WHEN flow.amount_usd_sum > 100000 THEN \"high\" WHEN flow.amount_usd_sum > 1000 THEN \"medium\" ELSE \"low\" END AS amount_band LIMIT 25",
+   "query": "USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, CASE WHEN flow.amount_usd_sum > 100000 THEN \"high\" WHEN flow.amount_usd_sum > 1000 THEN \"medium\" ELSE \"low\" END AS amount_band LIMIT 25",
    "layer": "archive_topology",
    "description": "Archive FLOWS_TO CASE expression banding amount_usd_sum \u2014 the archive counterpart to recipe_live_topology_08, fills archive-layer case-expression coverage.",
    "features": [
@@ -132,9 +122,9 @@
   {
    "id": "recipe_archive_topology_12",
    "admits": false,
-   "query": "USE archive_topology MATCH (i:Identity) RETURN count(i) AS identity_count LIMIT 1",
+   "query": "USE archive_topology MATCH (a:Address) RETURN count(a) AS address_count LIMIT 1",
    "layer": "archive_topology",
-   "description": "Node-only Identity count on the archive layer \u2014 the archive counterpart to recipe_live_topology_14, fills archive node-only aggregate coverage.",
+   "description": "Node-only Address count on the archive layer \u2014 the archive counterpart to recipe_live_topology_14, fills archive node-only aggregate coverage.",
    "features": [
     "label-match",
     "aggregate"
@@ -142,9 +132,9 @@
   },
   {
    "id": "recipe_facts_01",
-   "query": "USE facts MATCH (i:Identity)-[:HAS_FEATURE]->(f:AddressFeature) RETURN i.identity_id AS identity_id, f.tx_out_count AS tx_out_count, f.tx_in_count AS tx_in_count LIMIT 10",
+   "query": "USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.tx_out_count AS tx_out_count, f.tx_in_count AS tx_in_count LIMIT 10",
    "layer": "facts",
-   "description": "Facts-layer identity feature enrichment via HAS_FEATURE (tx_out_count, tx_in_count)",
+   "description": "Facts-layer address feature enrichment via HAS_FEATURE (tx_out_count, tx_in_count)",
    "features": [
     "fixed-hop",
     "label-match"
@@ -152,9 +142,9 @@
   },
   {
    "id": "recipe_facts_02",
-   "query": "USE facts MATCH (i:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[:HAS_LABEL]->(label:AddressLabel) RETURN label.label AS label, label.entity_type AS entity_type, label.source AS source LIMIT 25",
+   "query": "USE facts MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:HAS_LABEL]->(label:AddressLabel) RETURN label.label AS label, label.entity_type AS entity_type, label.source AS source LIMIT 25",
    "layer": "facts",
-   "description": "Facts label lookup for one identity returning label, entity_type, source",
+   "description": "Facts label lookup for one address returning label, entity_type, source",
    "features": [
     "fixed-hop",
     "label-match",
@@ -163,16 +153,16 @@
   },
   {
    "id": "recipe_facts_03",
-   "query": "USE facts MATCH (i:Identity) RETURN i.identity_id AS identity_id, i.labels AS labels, i.is_exchange AS is_exchange LIMIT 25",
+   "query": "USE facts MATCH (a:Address) RETURN a.address AS address, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 25",
    "layer": "facts",
-   "description": "Facts Identity projection returning identity_id, labels, risk_level",
+   "description": "Facts Address projection returning address, labels, risk_level",
    "features": [
     "label-match"
    ]
   },
   {
    "id": "recipe_facts_04",
-   "query": "USE facts MATCH (i:Identity)-[:HAS_RISK_SCORE]->(r:RiskScore) RETURN i.identity_id AS identity_id, r.risk_score AS risk_score, r.window_days AS window_days, r.xgboost_model_version AS xgboost_model_version LIMIT 25",
+   "query": "USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r:RiskScore) RETURN a.address AS address, r.risk_score AS risk_score, r.window_days AS window_days, r.xgboost_model_version AS xgboost_model_version LIMIT 25",
    "layer": "facts",
    "description": "Join identities to their RiskScore facts (score, level, model version)",
    "features": [
@@ -184,7 +174,7 @@
    "id": "recipe_facts_05",
    "query": "USE facts MATCH (a:Asset) WHERE a.coingecko_id IS NOT NULL RETURN a.asset_symbol AS asset_symbol, a.asset_contract AS asset_contract, a.pricing_tier AS pricing_tier, a.verified AS verified ORDER BY a.asset_symbol ASC LIMIT 25",
    "layer": "facts",
-   "description": "Asset node projection through the facts_assets_view with an is-null WHERE filter and ORDER BY \u2014 fills the entirely-uncovered Asset label plus facts-layer is-null and order-by coverage. Asset has no edge to Identity in the mapping, so it is correctly a standalone node lookup.",
+   "description": "Asset node projection through the facts_assets_view with an is-null WHERE filter and ORDER BY \u2014 fills the entirely-uncovered Asset label plus facts-layer is-null and order-by coverage. Asset has no edge to Address in the mapping, so it is correctly a standalone node lookup.",
    "features": [
     "label-match",
     "where-clause",
@@ -205,9 +195,9 @@
   },
   {
    "id": "recipe_facts_07",
-   "query": "USE facts MATCH (i:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[hne:HAS_NEURON_ENDPOINT]->(n:NeuronEndpoint) RETURN n.endpoint_id AS endpoint_id, hne.netuid AS netuid, hne.hotkey_address AS hotkey_address, hne.ip_address AS ip_address, hne.last_seen_timestamp AS last_seen_timestamp ORDER BY hne.last_seen_timestamp DESC LIMIT 25",
+   "query": "USE facts MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[hne:HAS_NEURON_ENDPOINT]->(n:NeuronEndpoint) RETURN n.endpoint_id AS endpoint_id, hne.netuid AS netuid, hne.hotkey_address AS hotkey_address, hne.ip_address AS ip_address, hne.last_seen_timestamp AS last_seen_timestamp ORDER BY hne.last_seen_timestamp DESC LIMIT 25",
    "layer": "facts",
-   "description": "HAS_NEURON_ENDPOINT fixed-hop from the fixture Identity (coldkey_address join) to NeuronEndpoint, projecting relationship + node properties with ORDER BY \u2014 fills the HAS_NEURON_ENDPOINT edge.",
+   "description": "HAS_NEURON_ENDPOINT fixed-hop from the fixture Address (coldkey_address join) to NeuronEndpoint, projecting relationship + node properties with ORDER BY \u2014 fills the HAS_NEURON_ENDPOINT edge.",
    "features": [
     "fixed-hop",
     "label-match",
@@ -217,9 +207,9 @@
   },
   {
    "id": "recipe_facts_08",
-   "query": "USE facts MATCH (i:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[reg:REGISTERED_NEURON]->(h:Hotkey) WHERE reg.netuid = 15 RETURN h.address AS hotkey_address, reg.netuid AS netuid, reg.observation_count AS observation_count, reg.last_seen_timestamp AS last_seen_timestamp ORDER BY reg.last_seen_timestamp DESC LIMIT 25",
+   "query": "USE facts MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[reg:REGISTERED_NEURON]->(h:Hotkey) WHERE reg.netuid = 15 RETURN h.address AS hotkey_address, reg.netuid AS netuid, reg.observation_count AS observation_count, reg.last_seen_timestamp AS last_seen_timestamp ORDER BY reg.last_seen_timestamp DESC LIMIT 25",
    "layer": "facts",
-   "description": "REGISTERED_NEURON fixed-hop from the fixture Identity to Hotkey with a relationship netuid WHERE filter (fixture netuid 15) and ORDER BY \u2014 fills the REGISTERED_NEURON edge, the Hotkey label via edge target, and facts-layer relationship-property WHERE.",
+   "description": "REGISTERED_NEURON fixed-hop from the fixture Address to Hotkey with a relationship netuid WHERE filter (fixture netuid 15) and ORDER BY \u2014 fills the REGISTERED_NEURON edge, the Hotkey label via edge target, and facts-layer relationship-property WHERE.",
    "features": [
     "fixed-hop",
     "label-match",
@@ -240,9 +230,9 @@
   },
   {
    "id": "recipe_facts_10",
-   "query": "USE facts MATCH (i:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[:REGISTERED_NEURON]->(h:Hotkey)-[sf:SERVED_FROM]->(ip:IPAddress) RETURN h.address AS hotkey_address, ip.ip_address AS ip_address, sf.axon_port AS axon_port, sf.prometheus_port AS prometheus_port, sf.netuid AS netuid LIMIT 25",
+   "query": "USE facts MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:REGISTERED_NEURON]->(h:Hotkey)-[sf:SERVED_FROM]->(ip:IPAddress) RETURN h.address AS hotkey_address, ip.ip_address AS ip_address, sf.axon_port AS axon_port, sf.prometheus_port AS prometheus_port, sf.netuid AS netuid LIMIT 25",
    "layer": "facts",
-   "description": "Two-hop neuron join REGISTERED_NEURON then SERVED_FROM (Identity->Hotkey->IPAddress, all backed by facts_neuron_endpoints_view) \u2014 fills the SERVED_FROM edge, the IPAddress label via edge target, and multi-hop translator join coverage on the facts layer.",
+   "description": "Two-hop neuron join REGISTERED_NEURON then SERVED_FROM (Address->Hotkey->IPAddress, all backed by facts_neuron_endpoints_view) \u2014 fills the SERVED_FROM edge, the IPAddress label via edge target, and multi-hop translator join coverage on the facts layer.",
    "features": [
     "fixed-hop",
     "label-match",
@@ -251,9 +241,9 @@
   },
   {
    "id": "recipe_facts_11",
-   "query": "USE facts MATCH (i:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[op:OPERATED_FROM]->(ip:IPAddress) WHERE op.netuid = 15 RETURN ip.ip_address AS ip_address, op.netuid AS netuid, op.hotkey_address AS hotkey_address, op.axon_port AS axon_port, op.last_seen_timestamp AS last_seen_timestamp LIMIT 25",
+   "query": "USE facts MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[op:OPERATED_FROM]->(ip:IPAddress) WHERE op.netuid = 15 RETURN ip.ip_address AS ip_address, op.netuid AS netuid, op.hotkey_address AS hotkey_address, op.axon_port AS axon_port, op.last_seen_timestamp AS last_seen_timestamp LIMIT 25",
    "layer": "facts",
-   "description": "OPERATED_FROM fixed-hop from the fixture Identity (coldkey_address) directly to IPAddress with a relationship netuid WHERE filter (fixture netuid 15) \u2014 fills the OPERATED_FROM edge.",
+   "description": "OPERATED_FROM fixed-hop from the fixture Address (coldkey_address) directly to IPAddress with a relationship netuid WHERE filter (fixture netuid 15) \u2014 fills the OPERATED_FROM edge.",
    "features": [
     "fixed-hop",
     "label-match",
@@ -274,7 +264,7 @@
   {
    "id": "recipe_facts_13",
    "admits": false,
-   "query": "USE facts MATCH (i:Identity)-[:HAS_LABEL]->(l:AddressLabel) RETURN l.label AS label, count(l) AS label_count ORDER BY label_count DESC LIMIT 25",
+   "query": "USE facts MATCH (a:Address)-[:HAS_LABEL]->(l:AddressLabel) RETURN l.label AS label, count(l) AS label_count ORDER BY label_count DESC LIMIT 25",
    "layer": "facts",
    "description": "HAS_LABEL aggregate over AddressLabel grouped by label value with count and ORDER BY \u2014 fills the missing facts-layer aggregate and order-by (grouped GROUP BY projection through the translator).",
    "features": [
@@ -287,7 +277,7 @@
   },
   {
    "id": "recipe_facts_14",
-   "query": "USE facts MATCH (i:Identity)-[:HAS_LABEL]->(l:AddressLabel) RETURN DISTINCT l.entity_type AS entity_type LIMIT 25",
+   "query": "USE facts MATCH (a:Address)-[:HAS_LABEL]->(l:AddressLabel) RETURN DISTINCT l.entity_type AS entity_type LIMIT 25",
    "layer": "facts",
    "description": "DISTINCT projection of AddressLabel.entity_type over HAS_LABEL \u2014 fills the entirely-missing facts-layer DISTINCT feature.",
    "features": [
@@ -298,7 +288,7 @@
   },
   {
    "id": "recipe_facts_15",
-   "query": "USE facts MATCH (i:Identity)-[:HAS_RISK_SCORE]->(r:RiskScore) WHERE r.risk_score IS NOT NULL RETURN i.identity_id AS identity_id, r.risk_score AS risk_score, r.window_days AS window_days, r.processing_date AS processing_date ORDER BY r.risk_score DESC LIMIT 25",
+   "query": "USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r:RiskScore) WHERE r.risk_score IS NOT NULL RETURN a.address AS address, r.risk_score AS risk_score, r.window_days AS window_days, r.processing_date AS processing_date ORDER BY r.risk_score DESC LIMIT 25",
    "layer": "facts",
    "description": "HAS_RISK_SCORE with an IS NOT NULL WHERE filter and ORDER BY on risk_score \u2014 fills facts-layer is-null and WHERE-clause coverage on the RiskScore view.",
    "features": [
@@ -312,7 +302,7 @@
   {
    "id": "recipe_facts_16",
    "admits": false,
-   "query": "USE facts MATCH (i:Identity)-[:HAS_FEATURE]->(f:AddressFeature) RETURN f.feature_scope AS feature_scope, count(f) AS features, sum(f.total_volume_usd) AS total_volume_usd ORDER BY total_volume_usd DESC LIMIT 25",
+   "query": "USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN f.feature_scope AS feature_scope, count(f) AS features, sum(f.total_volume_usd) AS total_volume_usd ORDER BY total_volume_usd DESC LIMIT 25",
    "layer": "facts",
    "description": "HAS_FEATURE numeric aggregation: count and sum(total_volume_usd) grouped by feature_scope with ORDER BY \u2014 fills facts-layer numeric SUM aggregation (distinct from the count-only aggregate) over the AddressFeature view.",
    "features": [
@@ -326,9 +316,9 @@
   {
    "id": "recipe_facts_17",
    "admits": false,
-   "query": "USE facts MATCH (i:Identity) RETURN count(i) AS identity_count LIMIT 1",
+   "query": "USE facts MATCH (a:Address) RETURN count(a) AS address_count LIMIT 1",
    "layer": "facts",
-   "description": "Node-only Identity count on the facts layer \u2014 the facts-layer counterpart to recipe_live_topology_14, fills facts node-only aggregate coverage.",
+   "description": "Node-only Address count on the facts layer \u2014 the facts-layer counterpart to recipe_live_topology_14, fills facts node-only aggregate coverage.",
    "features": [
     "label-match",
     "aggregate"
@@ -336,16 +326,16 @@
   },
   {
    "id": "recipe_live_topology_01",
-   "query": "USE live_topology MATCH (i:Identity) RETURN i.identity_id AS identity_id, i.labels AS labels, i.risk_score AS risk_score, i.risk_level AS risk_level, i.is_exchange AS is_exchange LIMIT 10",
+   "query": "USE live_topology MATCH (a:Address) RETURN a.address AS address, a.labels AS labels, a.risk_score AS risk_score, a.risk_level AS risk_level, a.is_exchange AS is_exchange LIMIT 10",
    "layer": "live_topology",
-   "description": "Live Identity projection returning identity_id, labels, risk_score, risk_level, is_exchange",
+   "description": "Live Address projection returning address, labels, risk_score, risk_level, is_exchange",
    "features": [
     "label-match"
    ]
   },
   {
    "id": "recipe_live_topology_02",
-   "query": "USE live_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp LIMIT 10",
+   "query": "USE live_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp LIMIT 10",
    "layer": "live_topology",
    "description": "Live FLOWS_TO edge sample with from/to identity, amount_usd_sum, tx_count, first/last seen timestamps",
    "features": [
@@ -354,31 +344,10 @@
    ]
   },
   {
-   "id": "recipe_live_topology_03",
-   "query": "USE live_topology MATCH (i:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 10",
-   "layer": "live_topology",
-   "description": "Live identity-to-member-address sample (identity_id, member_address, member_network)",
-   "features": [
-    "fixed-hop",
-    "label-match"
-   ]
-  },
-  {
-   "id": "recipe_live_topology_04",
-   "query": "USE live_topology MATCH (m:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})<-[:HAS_ADDRESS]-(i:Identity) RETURN i.identity_id AS identity_id LIMIT 1",
-   "layer": "live_topology",
-   "description": "Resolve a member address (SS58 or 0x EVM-pallet) to its owning identity via reverse HAS_ADDRESS",
-   "features": [
-    "fixed-hop",
-    "label-match",
-    "inline-property-map"
-   ]
-  },
-  {
    "id": "recipe_live_topology_05",
-   "query": "USE live_topology MATCH (src:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[flow:FLOWS_TO]->(dst:Identity) RETURN dst.identity_id AS to_identity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 50",
+   "query": "USE live_topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[flow:FLOWS_TO]->(dst:Address) RETURN dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 50",
    "layer": "live_topology",
-   "description": "Top live outflows from one identity ordered by amount_usd_sum descending",
+   "description": "Top live outflows from one address ordered by amount_usd_sum descending",
    "features": [
     "fixed-hop",
     "label-match",
@@ -388,7 +357,7 @@
   },
   {
    "id": "recipe_live_topology_06",
-   "query": "USE live_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 25",
+   "query": "USE live_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 25",
    "layer": "live_topology",
    "description": "Top live FLOWS_TO edges globally ranked by USD sum (no source filter)",
    "features": [
@@ -399,7 +368,7 @@
   },
   {
    "id": "recipe_live_topology_07",
-   "query": "USE live_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) WITH src, count(dst) AS out_degree, sum(flow.amount_usd_sum) AS total_usd RETURN src.identity_id AS identity_id, out_degree, total_usd ORDER BY out_degree DESC LIMIT 25",
+   "query": "USE live_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) WITH src, count(dst) AS out_degree, sum(flow.amount_usd_sum) AS total_usd RETURN src.address AS address, out_degree, total_usd ORDER BY out_degree DESC LIMIT 25",
    "layer": "live_topology",
    "description": "Rank source identities by live out-degree and total transferred USD",
    "features": [
@@ -411,7 +380,7 @@
   },
   {
    "id": "recipe_live_topology_08",
-   "query": "USE live_topology MATCH (src:Identity)-[flow:FLOWS_TO]->(dst:Identity) RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, CASE WHEN flow.amount_usd_sum IS NULL THEN \"unknown\" WHEN flow.amount_usd_sum >= 100000 THEN \"large\" WHEN flow.amount_usd_sum >= 10000 THEN \"medium\" ELSE \"small\" END AS amount_bucket, flow.amount_usd_sum AS amount_usd_sum LIMIT 25",
+   "query": "USE live_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, CASE WHEN flow.amount_usd_sum IS NULL THEN \"unknown\" WHEN flow.amount_usd_sum >= 100000 THEN \"large\" WHEN flow.amount_usd_sum >= 10000 THEN \"medium\" ELSE \"small\" END AS amount_bucket, flow.amount_usd_sum AS amount_usd_sum LIMIT 25",
    "layer": "live_topology",
    "description": "Bucket live flow edges into unknown/large/medium/small by USD amount via CASE",
    "features": [
@@ -432,20 +401,8 @@
    ]
   },
   {
-   "id": "recipe_live_topology_10",
-   "query": "USE live_topology MATCH (:Identity)-[:HAS_ADDRESS]->(m:Address) RETURN m.network AS member_network, count(m) AS addresses ORDER BY addresses DESC LIMIT 10",
-   "layer": "live_topology",
-   "description": "Address-family census: count of member addresses grouped by network",
-   "features": [
-    "fixed-hop",
-    "label-match",
-    "aggregate",
-    "order-by"
-   ]
-  },
-  {
    "id": "recipe_live_topology_11",
-   "query": "USE live_topology MATCH (src:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[r1:FLOWS_TO]->(dst:Identity {identity_id: \"bittensor:5c5z7rcnbprwg2ehdpcwcqecvrquc2tqecpwtgvsb9v6hhz8\"}) RETURN src.identity_id AS from_identity, dst.identity_id AS to_identity, 1 AS hops, r1.amount_usd_sum AS amount_usd_sum, r1.tx_count AS tx_count LIMIT 25",
+   "query": "USE live_topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[r1:FLOWS_TO]->(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN src.address AS from_address, dst.address AS to_address, 1 AS hops, r1.amount_usd_sum AS amount_usd_sum, r1.tx_count AS tx_count LIMIT 25",
    "layer": "live_topology",
    "description": "Direct one-hop FLOWS_TO edge between two named identities (graph_query_batch hop_1)",
    "features": [
@@ -456,7 +413,7 @@
   },
   {
    "id": "recipe_live_topology_12",
-   "query": "USE live_topology MATCH (src:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[r1:FLOWS_TO]->(mid:Identity)-[r2:FLOWS_TO]->(dst:Identity) WHERE mid.is_exchange IS NULL RETURN src.identity_id AS from_identity, mid.identity_id AS mid_identity, dst.identity_id AS to_identity, 2 AS hops, r1.amount_usd_sum AS first_amount_usd, r2.amount_usd_sum AS second_amount_usd LIMIT 25",
+   "query": "USE live_topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[r1:FLOWS_TO]->(mid:Address)-[r2:FLOWS_TO]->(dst:Address) WHERE mid.is_exchange IS NULL RETURN src.address AS from_address, mid.address AS mid_address, dst.address AS to_address, 2 AS hops, r1.amount_usd_sum AS first_amount_usd, r2.amount_usd_sum AS second_amount_usd LIMIT 25",
    "layer": "live_topology",
    "description": "Fixed two-hop FLOWS_TO expansion from a source, skipping exchange intermediates (graph_query_batch hop_2)",
    "features": [
@@ -468,19 +425,8 @@
    ]
   },
   {
-   "id": "recipe_live_topology_13",
-   "query": "USE live_topology MATCH (i:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[:HAS_ADDRESS]->(m:Address) RETURN i.identity_id AS identity_id, m.address AS member_address, m.network AS member_network LIMIT 25",
-   "layer": "live_topology",
-   "description": "Forward member-address enumeration for one named identity (inline-filtered HAS_ADDRESS)",
-   "features": [
-    "fixed-hop",
-    "label-match",
-    "inline-property-map"
-   ]
-  },
-  {
    "id": "recipe_live_topology_14",
-   "query": "USE live_topology MATCH (i:Identity) RETURN count(i) AS count LIMIT 1",
+   "query": "USE live_topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1",
    "layer": "live_topology",
    "description": "Count of Identity nodes in live topology",
    "features": [
@@ -490,7 +436,7 @@
   },
   {
    "id": "recipe_live_topology_15",
-   "query": "USE live_topology MATCH p = (a:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[:FLOWS_TO *1..5]->(b:Identity {identity_id: \"bittensor:5c5z7rcnbprwg2ehdpcwcqecvrquc2tqecpwtgvsb9v6hhz8\"}) RETURN p LIMIT 3",
+   "query": "USE live_topology MATCH p = (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO *1..5]->(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 3",
    "layer": "live_topology",
    "description": "GQL quantified-path form: bind and return any single shortest FLOWS_TO path (1-5 hops) between two anonymous nodes",
    "features": [
@@ -501,7 +447,7 @@
   },
   {
    "id": "recipe_live_topology_16",
-   "query": "USE live_topology MATCH path = (src:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[:FLOWS_TO *BFS 1..5]->(dst:Identity {identity_id: \"bittensor:5c5z7rcnbprwg2ehdpcwcqecvrquc2tqecpwtgvsb9v6hhz8\"}) RETURN path LIMIT 5",
+   "query": "USE live_topology MATCH path = (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO *BFS 1..5]->(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path LIMIT 5",
    "layer": "live_topology",
    "description": "Direct-Memgraph reference (rejected by hosted path): native BFS path between two identities \u2014 retained as a negative/grammar-coverage shape",
    "features": [
@@ -514,7 +460,7 @@
   },
   {
    "id": "recipe_live_topology_17",
-   "query": "USE live_topology MATCH path = (src:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"})-[:FLOWS_TO *WSHORTEST 5 (r, n | coalesce(r.amount_usd_sum, 1)) total_weight]->(dst:Identity {identity_id: \"bittensor:5c5z7rcnbprwg2ehdpcwcqecvrquc2tqecpwtgvsb9v6hhz8\"}) RETURN path, total_weight LIMIT 5",
+   "query": "USE live_topology MATCH path = (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO *WSHORTEST 5 (r, n | coalesce(r.amount_usd_sum, 1)) total_weight]->(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path, total_weight LIMIT 5",
    "layer": "live_topology",
    "description": "Direct-Memgraph reference (rejected by hosted path): weighted shortest path minimizing summed amount_usd_sum weight \u2014 retained as a negative/grammar-coverage shape",
    "features": [
@@ -528,7 +474,7 @@
   },
   {
    "id": "recipe_live_topology_18",
-   "query": "USE live_topology MATCH (src:Identity {identity_id: \"bittensor:5hbdz6uluwzegamspas2kaufblmdaht5t48rcdrqatsggcar\"}), (dst:Identity {identity_id: \"bittensor:5c5z7rcnbprwg2ehdpcwcqecvrquc2tqecpwtgvsb9v6hhz8\"}) WITH src, dst MATCH path = (src)-[:FLOWS_TO *KSHORTEST|3]->(dst) RETURN path LIMIT 3",
+   "query": "USE live_topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"}), (dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) WITH src, dst MATCH path = (src)-[:FLOWS_TO *KSHORTEST|3]->(dst) RETURN path LIMIT 3",
    "layer": "live_topology",
    "description": "Direct-Memgraph reference (rejected by hosted path): K shortest (k=3) path alternatives between two identities \u2014 retained as a negative/grammar-coverage shape",
    "features": [
@@ -538,6 +484,39 @@
     "path-binding",
     "label-match",
     "inline-property-map"
+   ]
+  },
+  {
+   "id": "recipe_live_topology_19",
+   "query": "USE live_topology MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[l:LINKED]-(b:Address) RETURN b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence, l.source_event AS source_event, l.declared_owner AS declared_owner LIMIT 25",
+   "layer": "live_topology",
+   "description": "Live LINKED ownership-overlay probe for the fixture Address, projecting basis/confidence/source_event/declared_owner provenance",
+   "features": [
+    "fixed-hop",
+    "label-match",
+    "inline-property-map"
+   ]
+  },
+  {
+   "id": "recipe_live_topology_20",
+   "query": "USE live_topology MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[l:LINKED]-(owned:Address)-[r:FLOWS_TO]-(b:Address) WHERE owned.address <> b.address AND a.address <> b.address RETURN a.address AS subject_address, owned.address AS linked_via_address, b.address AS counterparty_address, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 25",
+   "layer": "live_topology",
+   "description": "AC11: FLOWS_TO reachability UNIONed over one LINKED hop \u2014 actor-level exposure surfaced through an ownership-linked address, not only the subject's own edges",
+   "features": [
+    "fixed-hop",
+    "label-match",
+    "where-clause"
+   ]
+  },
+  {
+   "id": "recipe_live_topology_21",
+   "query": "USE live_topology MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[l:LINKED]-(b:Address) WHERE a.network <> b.network RETURN a.address AS address, a.network AS network, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 25",
+   "layer": "live_topology",
+   "description": "AC5: cross-space LINKED probe \u2014 the only edge bridging the bittensor and bittensor_evm address-grain networks",
+   "features": [
+    "fixed-hop",
+    "label-match",
+    "where-clause"
    ]
   }
  ]

@@ -48,6 +48,19 @@ describe('graph query corpus', () => {
     }
   })
 
+  it('the corpus is address-grain: no Identity node or HAS_ADDRESS satellite edge appears', () => {
+    // Bittensor address-grain revert (2026-07-07): the money-flow graph is
+    // :Address {address, network}-primary. A (:Identity) node or
+    // -[:HAS_ADDRESS]- satellite hop in any emitted query would mean a
+    // builder regressed to the retired identity-grain shape.
+    const corpus = JSON.parse(readFileSync(committedPath, 'utf8'))
+    for (const entry of corpus.entries) {
+      expect(entry.query, `identity-grain node in ${entry.builder}`).not.toMatch(/\(\s*[a-zA-Z0-9_]*:Identity\b/)
+      expect(entry.query, `identity_id property in ${entry.builder}`).not.toMatch(/identity_id/)
+      expect(entry.query, `HAS_ADDRESS satellite edge in ${entry.builder}`).not.toMatch(/HAS_ADDRESS/)
+    }
+  })
+
   it('documented recipes cover the expanded native live surface', () => {
     const recipes = JSON.parse(
       readFileSync(join(repoRoot, 'tests/fixtures/documented-recipes.json'), 'utf8'),

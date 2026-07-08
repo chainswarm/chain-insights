@@ -8,11 +8,21 @@ export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=http://127.0.0.1:18012/mcp
 
 mkdir -p "$EVIDENCE_DIR"
 
-IDENTITY_ADDRESSES="$REPO_ROOT/repos/infra/chain-insights/devkit/data/memgraph/identity_addresses.csv"
-FLOWS="$REPO_ROOT/repos/infra/chain-insights/devkit/data/memgraph/flows.csv"
+FLOWS="$REPO_ROOT/repos/infra/chain-insights/devkit/data/memgraph/flows.csv.gz"
+# render-manifest.py / render-memgraph-csv-fixtures.py split any fixture
+# over ~40MB into sorted flows.csv.gz.part-NNN.gz siblings (GitHub's
+# 50MB/100MB blob limits; address-grain edge-count growth made this
+# routine) and remove the plain file when they do. zcat concatenates
+# multiple files transparently; the `$1 ~ /^5/` content filter already
+# excludes every part's own repeated header row (its from_address field
+# is the literal string "from_address", never starting with "5").
+if [ -f "$FLOWS" ]; then
+  FLOW_PARTS=("$FLOWS")
+else
+  FLOW_PARTS=("$FLOWS".part-*.gz)
+fi
 SEED_ADDRESS="$(
-  awk -F, '{ gsub(/\r/, "") } NR == FNR { if (FNR > 1 && $2 ~ /^5/) address[$1] = $2; next } FNR > 1 && ($1 in address) { print address[$1]; exit }' \
-    "$IDENTITY_ADDRESSES" "$FLOWS"
+  zcat "${FLOW_PARTS[@]}" | awk -F, '{ gsub(/\r/, "") } NR > 1 && $1 ~ /^5/ { print $1; exit }'
 )"
 test -n "$SEED_ADDRESS"
 

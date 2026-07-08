@@ -19,7 +19,7 @@ func TestInjectionLiteralsAreBoundNotInterpolated(t *testing.T) {
 		`c/*comment*/d`,
 	}
 	for _, val := range hostile {
-		q := `USE archive_topology MATCH (a:Identity {identity_id: "` + escapeForCypher(val) + `"}) RETURN a.identity_id AS id LIMIT 1`
+		q := `USE archive_topology MATCH (a:Address {address: "` + escapeForCypher(val) + `"}) RETURN a.address AS id LIMIT 1`
 		c, err := Compile(q)
 		if err != nil {
 			// A literal containing a comment sequence may be rejected at lex
@@ -38,10 +38,10 @@ func TestInjectionLiteralsAreBoundNotInterpolated(t *testing.T) {
 // Comments in the query body are rejected outright.
 func TestCommentsRejected(t *testing.T) {
 	for _, q := range []string{
-		`USE archive_topology MATCH (a:Identity) // comment
-		 RETURN a.identity_id AS id LIMIT 1`,
-		`USE archive_topology /* c */ MATCH (a:Identity) RETURN a.identity_id AS id LIMIT 1`,
-		`USE archive_topology MATCH (a:Identity) RETURN a.identity_id AS id LIMIT 1 -- tail`,
+		`USE archive_topology MATCH (a:Address) // comment
+		 RETURN a.address AS id LIMIT 1`,
+		`USE archive_topology /* c */ MATCH (a:Address) RETURN a.address AS id LIMIT 1`,
+		`USE archive_topology MATCH (a:Address) RETURN a.address AS id LIMIT 1 -- tail`,
 	} {
 		if _, err := Compile(q); err == nil {
 			t.Errorf("expected comment rejection for: %s", q)
@@ -51,14 +51,14 @@ func TestCommentsRejected(t *testing.T) {
 
 // NULL semantics preserved: IS NULL / IS NOT NULL map straight through.
 func TestNullSemantics(t *testing.T) {
-	c, err := Compile(`USE archive_topology MATCH (a:Identity) WHERE a.is_exchange IS NULL RETURN a.identity_id AS id ORDER BY a.identity_id ASC LIMIT 10`)
+	c, err := Compile(`USE archive_topology MATCH (a:Address) WHERE a.is_exchange IS NULL RETURN a.address AS id ORDER BY a.address ASC LIMIT 10`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(c.SQL, "IS NULL") {
 		t.Errorf("IS NULL not preserved: %s", c.SQL)
 	}
-	c, err = Compile(`USE archive_topology MATCH (a:Identity) WHERE a.is_exchange IS NOT NULL RETURN a.identity_id AS id LIMIT 10`)
+	c, err = Compile(`USE archive_topology MATCH (a:Address) WHERE a.is_exchange IS NOT NULL RETURN a.address AS id LIMIT 10`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,15 +70,15 @@ func TestNullSemantics(t *testing.T) {
 // Deterministic ordering: a stable id tiebreaker is appended so LIMIT
 // truncation is reproducible.
 func TestOrderByTiebreaker(t *testing.T) {
-	c, err := Compile(`USE archive_topology MATCH (a:Identity {identity_id: "x"})-[f:FLOWS_TO]->(b:Identity) RETURN b.identity_id AS to_id, f.amount_usd_sum AS amt ORDER BY f.amount_usd_sum DESC LIMIT 50`)
+	c, err := Compile(`USE archive_topology MATCH (a:Address {address: "x"})-[f:FLOWS_TO]->(b:Address) RETURN b.address AS to_id, f.amount_usd_sum AS amt ORDER BY f.amount_usd_sum DESC LIMIT 50`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(c.SQL, "ORDER BY") {
 		t.Fatalf("no ORDER BY: %s", c.SQL)
 	}
-	// tiebreaker on the terminal identity appended after the explicit sort
-	if !strings.Contains(c.SQL, "to_identity` ASC") {
+	// tiebreaker on the terminal address appended after the explicit sort
+	if !strings.Contains(c.SQL, "to_address` ASC") {
 		t.Errorf("missing id tiebreaker: %s", c.SQL)
 	}
 }
@@ -90,17 +90,17 @@ func TestNegativeShapes(t *testing.T) {
 		q    string
 		want error
 	}{
-		{"live scope", `USE live_topology MATCH (a:Identity) RETURN a.identity_id AS id LIMIT 1`, ErrUnsupportedShape},
-		{"unknown label", `USE archive_topology MATCH (a:Widget) RETURN a.identity_id AS id LIMIT 1`, ErrUnknownIdentifier},
-		{"unknown property", `USE archive_topology MATCH (a:Identity) RETURN a.nonexistent AS x LIMIT 1`, ErrUnknownIdentifier},
-		{"unknown edge", `USE archive_topology MATCH (a:Identity)-[r:BOGUS]->(b:Identity) RETURN a.identity_id AS id LIMIT 1`, ErrUnknownIdentifier},
-		{"variable length", `USE archive_topology MATCH (a:Identity)-[:FLOWS_TO*1..3]->(b:Identity) RETURN b.identity_id AS id LIMIT 1`, ErrUnsupportedShape},
-		{"missing limit", `USE archive_topology MATCH (a:Identity) RETURN a.identity_id AS id`, ErrLimitRequired},
-		{"limit too high", `USE archive_topology MATCH (a:Identity) RETURN a.identity_id AS id LIMIT 5000`, ErrLimitTooHigh},
-		{"offset", `USE archive_topology MATCH (a:Identity) RETURN a.identity_id AS id SKIP 5 LIMIT 10`, ErrOffsetForbidden},
-		{"with pipeline", `USE archive_topology MATCH (a:Identity) WITH a RETURN a.identity_id AS id LIMIT 1`, ErrUnsupportedShape},
-		{"collect", `USE archive_topology MATCH (a:Identity) RETURN collect(a.identity_id) AS ids LIMIT 1`, ErrUnsupportedShape},
-		{"write", `USE archive_topology MATCH (a:Identity) DELETE a LIMIT 1`, ErrParse},
+		{"live scope", `USE live_topology MATCH (a:Address) RETURN a.address AS id LIMIT 1`, ErrUnsupportedShape},
+		{"unknown label", `USE archive_topology MATCH (a:Widget) RETURN a.address AS id LIMIT 1`, ErrUnknownIdentifier},
+		{"unknown property", `USE archive_topology MATCH (a:Address) RETURN a.nonexistent AS x LIMIT 1`, ErrUnknownIdentifier},
+		{"unknown edge", `USE archive_topology MATCH (a:Address)-[r:BOGUS]->(b:Address) RETURN a.address AS id LIMIT 1`, ErrUnknownIdentifier},
+		{"variable length", `USE archive_topology MATCH (a:Address)-[:FLOWS_TO*1..3]->(b:Address) RETURN b.address AS id LIMIT 1`, ErrUnsupportedShape},
+		{"missing limit", `USE archive_topology MATCH (a:Address) RETURN a.address AS id`, ErrLimitRequired},
+		{"limit too high", `USE archive_topology MATCH (a:Address) RETURN a.address AS id LIMIT 5000`, ErrLimitTooHigh},
+		{"offset", `USE archive_topology MATCH (a:Address) RETURN a.address AS id SKIP 5 LIMIT 10`, ErrOffsetForbidden},
+		{"with pipeline", `USE archive_topology MATCH (a:Address) WITH a RETURN a.address AS id LIMIT 1`, ErrUnsupportedShape},
+		{"collect", `USE archive_topology MATCH (a:Address) RETURN collect(a.address) AS ids LIMIT 1`, ErrUnsupportedShape},
+		{"write", `USE archive_topology MATCH (a:Address) DELETE a LIMIT 1`, ErrParse},
 	}
 	for _, tc := range cases {
 		_, err := Compile(tc.q)
@@ -113,11 +113,11 @@ func TestNegativeShapes(t *testing.T) {
 // Cost bound: a 3-hop FLOWS_TO chain with both ends free is rejected;
 // anchoring one end makes it compile.
 func TestCostBound(t *testing.T) {
-	free := `USE archive_topology MATCH (a:Identity)-[r1:FLOWS_TO]->(n1:Identity)-[r2:FLOWS_TO]->(n2:Identity)-[r3:FLOWS_TO]->(b:Identity) RETURN b.identity_id AS id LIMIT 10`
+	free := `USE archive_topology MATCH (a:Address)-[r1:FLOWS_TO]->(n1:Address)-[r2:FLOWS_TO]->(n2:Address)-[r3:FLOWS_TO]->(b:Address) RETURN b.address AS id LIMIT 10`
 	if _, err := Compile(free); !errors.Is(err, ErrCostBound) {
 		t.Errorf("free-ended 3-hop chain: want ErrCostBound, got %v", err)
 	}
-	anchored := `USE archive_topology MATCH (a:Identity {identity_id: "x"})-[r1:FLOWS_TO]->(n1:Identity)-[r2:FLOWS_TO]->(n2:Identity)-[r3:FLOWS_TO]->(b:Identity) RETURN b.identity_id AS id LIMIT 10`
+	anchored := `USE archive_topology MATCH (a:Address {address: "x"})-[r1:FLOWS_TO]->(n1:Address)-[r2:FLOWS_TO]->(n2:Address)-[r3:FLOWS_TO]->(b:Address) RETURN b.address AS id LIMIT 10`
 	if _, err := Compile(anchored); err != nil {
 		t.Errorf("anchored 3-hop chain should compile, got %v", err)
 	}

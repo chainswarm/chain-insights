@@ -32,8 +32,8 @@ function clientWithCapabilities(archiveEnabled: boolean) {
         }
       }
       const queries = (req.arguments.queries ?? []).map((q) => (
-        q.id.startsWith('resolve_member_address_')
-          ? { id: q.id, ok: true, results: [{ identity_id: 'bittensor:0xresolved' }] }
+        q.id.startsWith('seed_address_exists_')
+          ? { id: q.id, ok: true, results: [{ address: q.query.match(/address:\s*"([^"]+)"/)?.[1] ?? '' }] }
           : { id: q.id, ok: true, results: [] }
       ))
       return { content: [{ type: 'text', text: JSON.stringify({ facts: { queries } }) }], isError: false }

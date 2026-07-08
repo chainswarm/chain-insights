@@ -73,11 +73,11 @@ rejected with a typed contract error before execution.
 
 | Construct | Notes |
 | --- | --- |
-| `MATCH` on a mapped node / single relationship | `(:Identity)-[:FLOWS_TO]->(:Identity)`, `(:Identity)-[:HAS_LABEL]->(:AddressLabel)`, etc. |
+| `MATCH` on a mapped node / single relationship | `(:Address)-[:FLOWS_TO]->(:Address)`, `(:Address)-[:HAS_LABEL]->(:AddressLabel)`, etc. `(:Address)-[:LINKED]-(:Address)` is facts-tier only — `archive_topology` is money-only. |
 | Chained fixed-hop patterns | up to 5 hops |
-| `WHERE` with an indexed predicate | `identity_id` / `address` equality or `IN`; date/height/timestamp range |
-| Inline property maps | `MATCH (i:Identity {identity_id:"…"})` |
-| Property projections with aliases | `RETURN i.identity_id AS id, f.amount_usd_sum AS amt` |
+| `WHERE` with an indexed predicate | `address` equality or `IN`; date/height/timestamp range |
+| Inline property maps | `MATCH (a:Address {address:"…"})` |
+| Property projections with aliases | `RETURN a.address AS address, f.amount_usd_sum AS amt` |
 | Aggregates **with** an indexed predicate | `count`, `sum`, `min`, `max` |
 | `ORDER BY`, `LIMIT` (≤ 1000), `OFFSET`-free paging | `LIMIT` required unless an indexed predicate is present |
 
@@ -105,7 +105,7 @@ StarRocks. Use the live layer, or restructure:
 | Grouped aggregates (`GROUP BY`-shaped) | Live layer, or per-key `graph_query_batch` |
 | `collect()` and other warehouse-dialect-gap aggregates | Live layer |
 | Untyped relationship `-[r]->` | Name the relationship type |
-| Node-to-node identity comparison `WHERE a <> b` | Compare key properties: `a.identity_id <> b.identity_id` |
+| Node-to-node comparison `WHERE a <> b` | Compare key properties: `a.address <> b.address` |
 | Metadata functions `keys(n)`, `labels(n)`, `type(r)` | Project known properties explicitly |
 | Cost-bound free-ended traversal (k ≥ 3 free-ended `FLOWS_TO`) | Add an anchor / narrower bound |
 
@@ -117,12 +117,12 @@ are pinned by `devkit/chain-insights-graph-devkit/internal/cyphersql`
 ## Taxonomy labels (live layer)
 
 Secondary node labels (exchange / scam classification labels maintained on live
-identities) are queryable on `live_topology`:
+addresses) are queryable on `live_topology`:
 
 | Form | Result |
 | --- | --- |
 | `MATCH (n:Exchange)` — bare secondary label | ✅ |
-| `MATCH (n:Identity:Exchange)` — colon-stacked labels | ✅ (native Cypher) |
+| `MATCH (n:Address:Exchange)` — colon-stacked labels | ✅ (native Cypher) |
 | `RETURN labels(n)` | project known properties instead |
 
 Caveats: taxonomy labels are sticky (never removed once assigned — presence means
@@ -133,8 +133,8 @@ mapped labels, so taxonomy-label patterns are live-only. The property-flag form
 ## Practical guidance
 
 - **Prefer inline property maps for equality lookups**:
-  `MATCH (n:Identity {identity_id:"X"})` over
-  `MATCH (n:Identity) WHERE n.identity_id = "X"`.
+  `MATCH (a:Address {address:"X"})` over
+  `MATCH (a:Address) WHERE a.address = "X"`.
 - **Bound every traversal and add `LIMIT`.** The live gate rejects unbounded and
   over-depth traversal outright; archive/facts reject predicate-less scans.
 - **Weighted / filtered deep traversal is now first-class on the live layer.**

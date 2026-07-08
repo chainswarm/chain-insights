@@ -1,187 +1,261 @@
 {
   "schema": "chain-insights.devkit.fixture.v1",
   "network": "bittensor",
-  "semantic_database": "bittensor_semantic",
-  "exported_at": "2026-07-05T06:55:03Z",
+  "database": "bittensor",
+  "exported_at": "2026-07-08T21:50:39Z",
   "fixture_window": {
     "from": "2024-01-01T00:00:00Z",
-    "to_exclusive": "2026-07-05T06:51:57Z"
+    "to_exclusive": "2026-07-09T00:00:00Z"
   },
   "source": {
-    "mapping": "repos/ml/data-pipeline/ops/memgql/chain_insights_starrocks_mapping.json",
+    "mapping": "workspace/sessions/2188ba13-2c30-45d6-9931-d7c15fc3c63d/ml/data-pipeline/internal/cyphersql/mapping.json",
     "live_topology": "memgraph"
   },
   "coverage": {
-    "substrate_rows": 483368,
-    "evm_pallet_rows": 483301,
-    "identity_count": 482624,
-    "member_address_count": 965254,
-    "flow_edge_count": 1229884,
-    "memgraph_node_count": 970416,
-    "memgraph_relationship_count": 1759526,
-    "memgraph_label_count": 11,
-    "scam_topology_edge_count": 25016
+    "substrate_rows": 482656,
+    "evm_pallet_rows": 5040,
+    "address_count": 488455,
+    "linked_pair_count": 5052,
+    "flow_edge_count": 1235428,
+    "memgraph_node_count": 462179,
+    "memgraph_relationship_count": 1278937,
+    "memgraph_label_count": 1,
+    "scam_topology_edge_count": 16986
   },
   "objects": [
     {
-      "database": "bittensor_semantic",
+      "database": "bittensor",
       "name": "archive_topology_edges_view",
       "format": "tsv.gz",
       "path": "starrocks/archive_topology_edges_view.tsv.gz",
-      "row_count": 1229884,
+      "row_count": 1235428,
       "source_min": "2024-01-01T00:11:24Z",
       "exported_min": "2024-01-01T00:11:24Z",
-      "exported_max": "2026-07-05T06:48:36Z",
-      "sha256": "da26ed1bc70e8276fb6480ce86e852de980e46a6efd5137e5451bd3bad0b0141",
+      "exported_max": "2026-07-07T14:24:12Z",
+      "sha256": "df13d161df5ea83871fa56c94845193efadaac99135a516200413a06a854744e",
       "parts": [
         {
           "path": "starrocks/archive_topology_edges_view.tsv.gz.part-000.gz",
-          "row_count": 600000,
-          "sha256": "7f81e0ee9d72f4bf1d68fa736371f7184657ee10721b9aaa9413127a8be7d611"
+          "row_count": 350000,
+          "sha256": "c4e05f00489a5a1030e21219a7e6b63fbddb31f70227c3b625a396b8d9871558"
         },
         {
           "path": "starrocks/archive_topology_edges_view.tsv.gz.part-001.gz",
-          "row_count": 600000,
-          "sha256": "f6b9f551a5339dbc398bd2b229d7324b53ef69b6ffe4b2d06f2c460780b6779c"
+          "row_count": 350000,
+          "sha256": "fe71e498a1906220a0e1c30bc78d3c265e8ab7ead6f3ad7bbca86886ffed7b4f"
         },
         {
           "path": "starrocks/archive_topology_edges_view.tsv.gz.part-002.gz",
-          "row_count": 29884,
-          "sha256": "0c7341a65c78ae6e5ecbb5ffe58425ce9f2f3c4a6cd0332d4a0490fce7389d01"
+          "row_count": 350000,
+          "sha256": "f0b5fcbecdac896d1ac4471c00fc1b51ba65d5b852b4f3b6b2a2bce9fb351e14"
+        },
+        {
+          "path": "starrocks/archive_topology_edges_view.tsv.gz.part-003.gz",
+          "row_count": 185428,
+          "sha256": "14523a9a6641b5e7f64082dcc442ad559c0629415f5c330fed629369d1740574"
         }
       ]
     },
     {
-      "database": "bittensor_semantic",
-      "name": "archive_identity_address_links_view",
+      "database": "bittensor",
+      "name": "linked_addresses_view",
       "format": "tsv.gz",
-      "path": "starrocks/archive_identity_address_links_view.tsv.gz",
-      "row_count": 965254,
+      "path": "starrocks/linked_addresses_view.tsv.gz",
+      "row_count": 5052,
       "source_min": "2024-01-01T00:00:00Z",
       "exported_min": "2024-01-01T00:00:00Z",
-      "exported_max": "2026-07-05T06:51:56Z",
-      "sha256": "beeac0c695c8112600037854ba25362b6bbb4b2a6da8b4ce1ec074b862ee49f9"
+      "exported_max": "2026-07-08T18:38:58Z",
+      "sha256": "27f219e69c316e5ab4cc4ba15b1ddced51d8a61caada55eba8067cfab5bfac93"
     },
     {
-      "database": "bittensor_semantic",
+      "database": "bittensor",
       "name": "archive_topology_addresses_view",
       "format": "tsv.gz",
       "path": "starrocks/archive_topology_addresses_view.tsv.gz",
-      "row_count": 482624,
+      "row_count": 482656,
       "source_min": "2024-01-01T00:00:00Z",
       "exported_min": "2024-01-01T00:00:00Z",
-      "exported_max": "2026-07-05T06:51:56Z",
-      "sha256": "f1695212be5c5f1fb8806b7830eb347a540c4ce6764406705a6114e11a53e8ca"
+      "exported_max": "2026-07-08T18:38:58Z",
+      "sha256": "cb6fc9ff328ce48d51926bd049aef93d199f460138050de689a8117abde870d7"
     },
     {
-      "database": "bittensor_semantic",
+      "database": "bittensor",
       "name": "archive_topology_snapshot_view",
       "format": "tsv.gz",
       "path": "starrocks/archive_topology_snapshot_view.tsv.gz",
-      "row_count": 1,
-      "source_min": "2024-01-01T00:00:00Z",
-      "exported_min": "2024-01-01T00:00:00Z",
-      "exported_max": "2026-07-04T00:00:00Z",
-      "sha256": "975aa7f625a1612c0940338cf4ef17f528e166465ee33df5dc0f16f0a31a4ee8"
+      "row_count": 0,
+      "source_min": "1970-01-01T00:00:00Z",
+      "exported_min": "1970-01-01T00:00:00Z",
+      "exported_max": "1970-01-01T00:00:00Z",
+      "sha256": "071aecd1a5b4a66744df444070a44fb96fddfe2989e4fcb553c2487848bbdc00"
     },
     {
-      "database": "bittensor_semantic",
+      "database": "bittensor",
       "name": "facts_address_labels_view",
       "format": "tsv.gz",
       "path": "starrocks/facts_address_labels_view.tsv.gz",
-      "row_count": 4860,
-      "source_min": "2025-01-09T18:57:00Z",
-      "exported_min": "2025-01-09T18:57:00Z",
-      "exported_max": "2026-07-05T05:57:08Z",
-      "sha256": "3e9c082238fb1eaf4c7bd2afecc313512f1ee4fad2ef2c851e01f3888b3d99bd"
+      "row_count": 0,
+      "source_min": "1970-01-01T00:00:00Z",
+      "exported_min": "1970-01-01T00:00:00Z",
+      "exported_max": "1970-01-01T00:00:00Z",
+      "sha256": "1d403925da5a145140203760dff3d2ec4d0f4cb8badc0f010d2dd4b91e16e352"
     },
     {
-      "database": "bittensor_semantic",
+      "database": "bittensor",
       "name": "facts_address_features_view",
       "format": "tsv.gz",
       "path": "starrocks/facts_address_features_view.tsv.gz",
-      "row_count": 881113,
+      "row_count": 439116,
       "source_min": "2024-01-01T00:11:24Z",
       "exported_min": "2024-01-01T00:11:24Z",
-      "exported_max": "2026-07-05T06:48:36Z",
-      "sha256": "c7e65f604afda0280e285efd293835895da2dfa0898866a229870e7cf7f09012"
+      "exported_max": "2026-07-07T14:24:12Z",
+      "sha256": "aae981428ae5702707628318bd40d9d9ae14ed7f3901e08be0ec56d2665c2bb0"
     },
     {
-      "database": "bittensor_semantic",
+      "database": "bittensor",
       "name": "facts_assets_view",
       "format": "tsv.gz",
       "path": "starrocks/facts_assets_view.tsv.gz",
-      "row_count": 463,
-      "source_min": "2024-12-30T14:30:36Z",
-      "exported_min": "2024-12-30T14:30:36Z",
-      "exported_max": "2026-07-05T06:46:24Z",
-      "sha256": "589e94172b8bbe67fca6099305888b999d952088d77600e240a545c4f1aa00a5"
+      "row_count": 128,
+      "source_min": "2025-12-16T14:05:12Z",
+      "exported_min": "2025-12-16T14:05:12Z",
+      "exported_max": "2026-07-07T14:24:12Z",
+      "sha256": "ae470cedfb3e751950e1be5503e7f41fc9488528a20b082af074341b10dc7fc0"
     },
     {
-      "database": "bittensor_semantic",
+      "database": "bittensor",
       "name": "facts_risk_scores_view",
       "format": "tsv.gz",
       "path": "starrocks/facts_risk_scores_view.tsv.gz",
-      "row_count": 23636,
-      "source_min": "2026-06-30T00:00:00Z",
-      "exported_min": "2026-06-30T00:00:00Z",
-      "exported_max": "2026-06-30T00:00:00Z",
-      "sha256": "ebe64f12ef4a7b4b26902aeced9a11dd8789ae180a40743c14bebf63b0a215d3"
+      "row_count": 0,
+      "source_min": "1970-01-01T00:00:00Z",
+      "exported_min": "1970-01-01T00:00:00Z",
+      "exported_max": "1970-01-01T00:00:00Z",
+      "sha256": "686ac486dbb11fba2e4988a91cdff68974406a375786e2185a6a86ff7e3b5247"
     },
     {
-      "database": "bittensor_semantic",
+      "database": "bittensor",
       "name": "facts_neuron_endpoints_view",
       "format": "tsv.gz",
       "path": "starrocks/facts_neuron_endpoints_view.tsv.gz",
-      "row_count": 298009,
-      "source_min": "2024-01-01T00:21:00Z",
-      "exported_min": "2024-01-01T00:21:00Z",
-      "exported_max": "2026-07-05T06:48:48Z",
-      "sha256": "c9656a9f4034e42212585472f55365609aa24030025f970c0768497070252036"
+      "row_count": 0,
+      "source_min": "1970-01-01T00:00:00Z",
+      "exported_min": "1970-01-01T00:00:00Z",
+      "exported_max": "1970-01-01T00:00:00Z",
+      "sha256": "928e38c042a0bb8955e62b8ec868fa9871b67456606d836b20fe5b192fa23d0e"
     },
     {
-      "database": "bittensor_semantic",
+      "database": "bittensor",
       "name": "facts_neuron_hotkeys_view",
       "format": "tsv.gz",
       "path": "starrocks/facts_neuron_hotkeys_view.tsv.gz",
-      "row_count": 156694,
-      "source_min": "2024-01-01T00:21:00Z",
-      "exported_min": "2024-01-01T00:21:00Z",
-      "exported_max": "2026-07-05T06:48:48Z",
-      "sha256": "83057b908ecfec332b1eb3f306c29ca84bc41401db9f4d47e546ae98f9b7e968"
+      "row_count": 0,
+      "source_min": "1970-01-01T00:00:00Z",
+      "exported_min": "1970-01-01T00:00:00Z",
+      "exported_max": "1970-01-01T00:00:00Z",
+      "sha256": "22db41b9bec4ccc6f0332bba62f0ac91c5db8785bf85a065edba17e70c99e2b7"
     },
     {
-      "database": "bittensor_semantic",
+      "database": "bittensor",
       "name": "facts_neuron_ip_addresses_view",
       "format": "tsv.gz",
       "path": "starrocks/facts_neuron_ip_addresses_view.tsv.gz",
-      "row_count": 45206,
-      "source_min": "2024-01-01T00:21:00Z",
-      "exported_min": "2024-01-01T00:21:00Z",
-      "exported_max": "2026-07-05T05:30:36Z",
-      "sha256": "005018bae299c79be22960a11e7e06f7e573ebd9362a7b5b40e371a164e086ce"
+      "row_count": 0,
+      "source_min": "1970-01-01T00:00:00Z",
+      "exported_min": "1970-01-01T00:00:00Z",
+      "exported_max": "1970-01-01T00:00:00Z",
+      "sha256": "a31cdd96d1e985f7aaace439785f29ba84deeba9a9b1052646b2ca688790f257"
     },
     {
       "database": "memgraph",
       "name": "memgraph_nodes",
       "format": "jsonl.gz",
       "path": "memgraph/nodes.jsonl.gz",
-      "row_count": 970416,
-      "source_min": "2026-06-26T01:25:12Z",
-      "exported_min": "2026-06-26T01:25:12Z",
-      "exported_max": "2026-07-05T06:49:24Z",
-      "sha256": "b2c73d575a54d469be353302f65517d33ba7f77adc5acbe0d114c6ce6f56beff"
+      "row_count": 462179,
+      "source_min": "2024-01-01T00:38:48Z",
+      "exported_min": "2024-01-01T00:38:48Z",
+      "exported_max": "2026-07-07T14:24:12Z",
+      "sha256": "f5f3aecc75a6e2ad8996ac24327dbe4bdc64725701d3905a87a5fe0ec946820b",
+      "parts": [
+        {
+          "path": "memgraph/nodes.jsonl.gz.part-000.gz",
+          "row_count": 150000,
+          "sha256": "52c4c837bb9067bfcdea6ebcac3cbdb73632b2fe743d43355c5b81b598172dbd"
+        },
+        {
+          "path": "memgraph/nodes.jsonl.gz.part-001.gz",
+          "row_count": 150000,
+          "sha256": "c1e7d892fab7fee65e1bfff26d5d1acb9ef39483d38c3fdadb26c2730682a5d8"
+        },
+        {
+          "path": "memgraph/nodes.jsonl.gz.part-002.gz",
+          "row_count": 150000,
+          "sha256": "f1fa6912cd7ec50bda53a9f90d10ab085f3bf6981993ce4120f9e2429569e596"
+        },
+        {
+          "path": "memgraph/nodes.jsonl.gz.part-003.gz",
+          "row_count": 12179,
+          "sha256": "c0df05a9236152e4a71aa7b1ed17cb829fa3c5c307e8731fe87ae119a84206ed"
+        }
+      ]
     },
     {
       "database": "memgraph",
       "name": "memgraph_relationships",
       "format": "jsonl.gz",
       "path": "memgraph/relationships.jsonl.gz",
-      "row_count": 1759526,
+      "row_count": 1278937,
       "source_min": "2024-01-01T00:04:36Z",
       "exported_min": "2024-01-01T00:04:36Z",
-      "exported_max": "2026-07-05T06:49:24Z",
-      "sha256": "5569b935690d47d02e65c15d5b28901d04b4329600cd19123b79ebdc9bc53197"
+      "exported_max": "2026-07-07T14:24:12Z",
+      "sha256": "958f0251a3a803009c141834fea5167dd78da5ae3b841a9d492da5d0900d7127",
+      "parts": [
+        {
+          "path": "memgraph/relationships.jsonl.gz.part-000.gz",
+          "row_count": 150000,
+          "sha256": "f674c0135ccaebab88606eac27ec3ab50c0b3b0baa67f37733aedc14773e15a0"
+        },
+        {
+          "path": "memgraph/relationships.jsonl.gz.part-001.gz",
+          "row_count": 150000,
+          "sha256": "a246055408ac10fc95ee345d593f94be153dd408fe0674a6137b52c6d95da21c"
+        },
+        {
+          "path": "memgraph/relationships.jsonl.gz.part-002.gz",
+          "row_count": 150000,
+          "sha256": "5f0a09eb372861b6f2967d988f62a4a9dd09a97133bddc1119c720a72160b408"
+        },
+        {
+          "path": "memgraph/relationships.jsonl.gz.part-003.gz",
+          "row_count": 150000,
+          "sha256": "e1fd58a84c24791bb41abf530d6a740097a134607d49a047e2e4313898a19d04"
+        },
+        {
+          "path": "memgraph/relationships.jsonl.gz.part-004.gz",
+          "row_count": 150000,
+          "sha256": "910b02509b23b5ad79dddba498a6b23ce6473a5f27fc7c2ab955bfeca7b375f0"
+        },
+        {
+          "path": "memgraph/relationships.jsonl.gz.part-005.gz",
+          "row_count": 150000,
+          "sha256": "c8795d9784fecf477eb69a29aebc673dea78d49121c9e372b8a331c90e229ec0"
+        },
+        {
+          "path": "memgraph/relationships.jsonl.gz.part-006.gz",
+          "row_count": 150000,
+          "sha256": "21a3c788b7d9eb2a844c34a605637ed8a72d7cf2659eb00c48f12642472a7384"
+        },
+        {
+          "path": "memgraph/relationships.jsonl.gz.part-007.gz",
+          "row_count": 150000,
+          "sha256": "901ac149d886ed22119d31bc29a37a19ba5ea90301a67d7848c061af0673ad2e"
+        },
+        {
+          "path": "memgraph/relationships.jsonl.gz.part-008.gz",
+          "row_count": 78937,
+          "sha256": "cdf8712f83ed1b7178345cff007f32fbb6e87c09bcb63041f3709325ebfb6ef9"
+        }
+      ]
     }
   ]
 }

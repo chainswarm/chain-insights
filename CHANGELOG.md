@@ -3,6 +3,34 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.9.0] - 2026-07-08
+
+- **Breaking: Bittensor money graph reverted from an identity flatten back to
+  address grain.** The `:Identity` money node (a canonical-address-links
+  flatten of SS58 + H160 addresses into one merged identity) is retired. The
+  graph node is now `:Address {address, network}` with
+  `network ∈ {bittensor, bittensor_evm}` — one public Bittensor investigation
+  network, with the SS58/EVM-pallet split expressed as a node property
+  instead of two separate identity-scoped networks.
+- New `LINKED` ownership overlay: an undirected `:Address-[:LINKED]-:Address`
+  edge (`basis`, `confidence`, `source_event`, `declared_owner`) replaces the
+  retired `HAS_ADDRESS` satellite hop and the identity-collapse join. Same-
+  owner SS58/H160 pairs are discoverable via one `-[:LINKED]-` hop instead of
+  being pre-merged into a single node — labels stay per-address (no rank-1
+  owner-label collapse) and cross-space actor-exposure queries expand
+  explicitly through `LINKED` rather than implicitly through the flatten.
+- Cross-space and actor-exposure recipes: `crossSpaceLinkedQuery` and
+  `linkedExposureQueries` (money-only totals vs. `LINKED`-expanded totals for
+  a dual-space owner).
+- The archive/facts money layer (StarRocks) stays money-only and
+  address-grain throughout — `archive_topology_addresses_view` now carries
+  `network`; `linked_addresses_view` replaces
+  `archive_identity_address_links_view` as the LINKED source.
+- cia CLI, devkit fixtures (StarRocks + Memgraph legs), and the Cypher→SQL
+  archive translator (all three tree copies) are rebuilt for the address-
+  grain contract; saved investigation corpora are re-keyed off `address`
+  instead of `identity_id`.
+
 ## [0.8.28] - 2026-07-07
 
 - MemGQL (Memgraph Zero) retired from the graph query surface. `graph_query` /

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
+import { gunzipSync } from 'node:zlib'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { addressRisk, type RouteEvidence } from '../src/investigation/public-tools.js'
@@ -16,24 +17,43 @@ const enabled = process.env.CAPABILITY_PROBES === '1'
 const endpoint = process.env.CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT ?? 'http://127.0.0.1:18012/mcp'
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
+// render-manifest.py / render-memgraph-csv-fixtures.py split any fixture
+// over ~40MB into sorted <name>.part-NNN.gz siblings (GitHub's 50MB/100MB
+// blob limits; address-grain edge-count growth made this routine) and
+// remove the plain file when they do. Read whichever shape is on disk.
+// Every part repeats the CSV header (each part.gz must be independently
+// loadable), so the header is stripped from EACH part before
+// concatenating, never just once off the front of the joined text.
+function readCsvGzFixtureDataRows(absolutePath: string): string[] {
+  const fileName = absolutePath.split('/').pop() as string
+  const partNames = readdirSync(dirname(absolutePath))
+    .filter((name) => name.startsWith(`${fileName}.part-`) && name.endsWith('.gz'))
+    .sort()
+  const paths = partNames.length > 0 ? partNames.map((name) => join(dirname(absolutePath), name)) : [absolutePath]
+  return paths.flatMap((path) =>
+    gunzipSync(readFileSync(path))
+      .toString('utf8')
+      .split('\n')
+      .slice(1),
+  )
+}
+
 function fixturePair(): { seed: string; peer: string } {
   // Same derivation as devkit/scripts/smoke-chain-insights-parity.sh:
-  // first flow edge whose endpoints both resolve to SS58 member addresses.
-  const identityRows = readFileSync(join(repoRoot, 'devkit/data/memgraph/identity_addresses.csv'), 'utf8')
-    .split('\n')
-    .slice(1)
-  const address = new Map<string, string>()
-  for (const row of identityRows) {
-    const [identity, member] = row.replace(/\r/g, '').split(',')
-    if (identity && member?.startsWith('5')) address.set(identity, member)
+  // first flow edge whose endpoints are both bittensor (SS58) :Address
+  // nodes -- address-grain has no identity indirection, so flows.csv's
+  // from_address/to_address columns are read directly.
+  const addressRows = readCsvGzFixtureDataRows(join(repoRoot, 'devkit/data/memgraph/addresses.csv.gz'))
+  const networkByAddress = new Map<string, string>()
+  for (const row of addressRows) {
+    const [address, network] = row.replace(/\r/g, '').split(',')
+    if (address) networkByAddress.set(address, network ?? '')
   }
-  const flowRows = readFileSync(join(repoRoot, 'devkit/data/memgraph/flows.csv'), 'utf8')
-    .split('\n')
-    .slice(1)
+  const flowRows = readCsvGzFixtureDataRows(join(repoRoot, 'devkit/data/memgraph/flows.csv.gz'))
   for (const row of flowRows) {
     const [from, to] = row.replace(/\r/g, '').split(',')
-    if (from && to && address.has(from) && address.has(to)) {
-      return { seed: address.get(from)!, peer: address.get(to)! }
+    if (from && to && networkByAddress.get(from) === 'bittensor' && networkByAddress.get(to) === 'bittensor') {
+      return { seed: from, peer: to }
     }
   }
   throw new Error('no connected fixture pair found')
@@ -109,16 +129,16 @@ describe.skipIf(!enabled)('route evidence against devkit fixture (AC8)', () => {
       // Discover a fixture triple a -> exchange -> b with NO direct a->b
       // edge, so the shortest route necessarily crosses the exchange.
       const triples = await rows(
-        'USE live_topology MATCH (a:Identity)-[:FLOWS_TO]->(e:Identity)-[:FLOWS_TO]->(b:Identity) ' +
-          'WHERE e.is_exchange IS NOT NULL AND a.identity_id <> b.identity_id ' +
+        'USE live_topology MATCH (a:Address)-[:FLOWS_TO]->(e:Address)-[:FLOWS_TO]->(b:Address) ' +
+          'WHERE e.is_exchange IS NOT NULL AND a.address <> b.address ' +
           'AND a.is_exchange IS NULL AND b.is_exchange IS NULL ' +
-          'RETURN a.identity_id AS a, e.identity_id AS e, b.identity_id AS b LIMIT 10',
+          'RETURN a.address AS a, e.address AS e, b.address AS b LIMIT 10',
       )
       let picked: { a: string; e: string; b: string } | undefined
       for (const t of triples) {
         const a = String(t['a']), e = String(t['e']), b = String(t['b'])
         const direct = await rows(
-          `USE live_topology MATCH (a:Identity {identity_id: "${a}"})-[:FLOWS_TO]->(b:Identity {identity_id: "${b}"}) RETURN 1 AS x LIMIT 1`,
+          `USE live_topology MATCH (a:Address {address: "${a}"})-[:FLOWS_TO]->(b:Address {address: "${b}"}) RETURN 1 AS x LIMIT 1`,
         )
         if (direct.length === 0) {
           picked = { a, e, b }
@@ -130,26 +150,20 @@ describe.skipIf(!enabled)('route evidence against devkit fixture (AC8)', () => {
       // fixture regressed or the discovery queries broke — fail, never skip.
       expect(picked, 'no indirect exchange-intermediate fixture pair found — AC8 cannot be verified').toBeDefined()
       if (!picked) throw new Error('unreachable')
-      const member = async (identity: string): Promise<string> => {
-        const m = await rows(
-          `USE live_topology MATCH (i:Identity {identity_id: "${identity}"})-[:HAS_ADDRESS]->(m:Address) RETURN m.address AS address LIMIT 1`,
-        )
-        return String(m[0]?.['address'] ?? identity)
-      }
       // Prefetch ground truth BEFORE the tool's heavy batch: post-batch
       // lookups have proven to return empty rows on the same backend
       // session (federation-layer session-state defect family, see the
       // capability matrix upstream issue pins).
       const exchangeRows = await rows(
-        'USE live_topology MATCH (i:Identity) WHERE i.is_exchange IS NOT NULL RETURN i.identity_id AS id LIMIT 100',
+        'USE live_topology MATCH (a:Address) WHERE a.is_exchange IS NOT NULL RETURN a.address AS id LIMIT 100',
       )
-      const exchangeSet = new Set(exchangeRows.map((r) => String(r['id']).replace(/^bittensor:/, '')))
-      expect(exchangeSet.size, 'fixture must contain exchange identities').toBeGreaterThan(0)
+      const exchangeSet = new Set(exchangeRows.map((r) => String(r['id'])))
+      expect(exchangeSet.size, 'fixture must contain exchange addresses').toBeGreaterThan(0)
       const { addressRisk } = await import('../src/investigation/public-tools.js')
       const result = await addressRisk(client, {
-        address: await member(picked.a),
+        address: picked.a,
         network: 'bittensor',
-        compareAddress: await member(picked.b),
+        compareAddress: picked.b,
         topologyScope: 'live_topology',
       })
       const structured = result.structuredContent as { facts?: Record<string, unknown> }
@@ -163,22 +177,14 @@ describe.skipIf(!enabled)('route evidence against devkit fixture (AC8)', () => {
       // Ground-truth disclosure check: ANY SHORTEST may pick any of the
       // equal-length routes, so verify against the route it actually
       // returned — every intermediate that IS an exchange must appear in
-      // exchange_intermediates, and nothing else may.
-      // Path-serialized node properties arrive display-normalized (network
-      // prefix stripped) while graph_query row values are prefixed keys —
-      // normalize both sides for the comparison and query ground truth
-      // with the prefixed form.
-      // Identity keys are `bittensor:<lowercased ss58>`, while the tool
-      // display-normalizes route identities to member SS58 form (mixed
-      // case) once the member map resolves — compare on the lowercase stem.
-      const stripPrefix = (identity: string): string => identity.replace(/^bittensor:/, '').toLowerCase()
+      // exchange_intermediates, and nothing else may. Address-grain has no
+      // display-normalization step (the graph node key IS the raw
+      // address), so no prefix-stripping or case-folding is needed.
       const intermediates = side!.identities.slice(1, -1)
       expect(intermediates.length).toBeGreaterThanOrEqual(1)
-      const actualExchanges = intermediates
-        .map(stripPrefix)
-        .filter((identity) => exchangeSet.has(identity))
+      const actualExchanges = intermediates.filter((address) => exchangeSet.has(address))
       expect(
-        side!.exchange_intermediates.map(stripPrefix).sort(),
+        [...side!.exchange_intermediates].sort(),
         'disclosed exchange intermediates must exactly match the exchanges on the returned route (real MemGQL path serialization)',
       ).toEqual(actualExchanges.sort())
     } finally {

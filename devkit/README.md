@@ -13,7 +13,7 @@ recipes; this devkit exposes only the graph backend primitives those tools use.
 
 `docker-compose.yml` starts:
 
-- StarRocks with physical `bittensor_semantic` facade tables loaded from
+- StarRocks with physical `bittensor` facade tables loaded from
   fixture files.
 - Memgraph with live topology imported from fixture files.
 - A devkit-only lite Chain Insights Graph backend, built entirely from this
