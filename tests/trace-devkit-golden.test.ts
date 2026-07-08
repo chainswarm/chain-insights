@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -28,22 +28,39 @@ const endpoint = process.env.CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT ?? 'http://127.0.
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const goldenPath = join(repoRoot, 'tests/fixtures/trace-victim-devkit-golden.json')
 
+// render-manifest.py / render-memgraph-csv-fixtures.py split any fixture
+// over ~40MB into sorted <name>.part-NNN.gz siblings (GitHub's 50MB/100MB
+// blob limits; address-grain edge-count growth made this routine) and
+// remove the plain file when they do. Read whichever shape is on disk.
+// Every part repeats the CSV header (each part.gz must be independently
+// loadable), so the header is stripped from EACH part before
+// concatenating, never just once off the front of the joined text.
+function readCsvGzFixtureDataRows(absolutePath: string): string[] {
+  const fileName = absolutePath.split('/').pop() as string
+  const partNames = readdirSync(dirname(absolutePath))
+    .filter((name) => name.startsWith(`${fileName}.part-`) && name.endsWith('.gz'))
+    .sort()
+  const paths = partNames.length > 0 ? partNames.map((name) => join(dirname(absolutePath), name)) : [absolutePath]
+  return paths.flatMap((path) =>
+    gunzipSync(readFileSync(path))
+      .toString('utf8')
+      .split('\n')
+      .slice(1),
+  )
+}
+
 function fixtureSeed(): string {
   // Address-grain has no identity indirection: flows.csv's from_address is
   // already the raw :Address key, so the seed is the first flow edge whose
   // source is a bittensor SS58 address (mirrors route-evidence-devkit's
   // fixturePair() and devkit/scripts/smoke-chain-insights-parity.sh).
-  const addressRows = gunzipSync(readFileSync(join(repoRoot, 'devkit/data/memgraph/addresses.csv.gz'))).toString('utf8')
-    .split('\n')
-    .slice(1)
+  const addressRows = readCsvGzFixtureDataRows(join(repoRoot, 'devkit/data/memgraph/addresses.csv.gz'))
   const networkByAddress = new Map<string, string>()
   for (const row of addressRows) {
     const [addr, network] = row.replace(/\r/g, '').split(',')
     if (addr) networkByAddress.set(addr, network ?? '')
   }
-  const flowRows = gunzipSync(readFileSync(join(repoRoot, 'devkit/data/memgraph/flows.csv.gz'))).toString('utf8')
-    .split('\n')
-    .slice(1)
+  const flowRows = readCsvGzFixtureDataRows(join(repoRoot, 'devkit/data/memgraph/flows.csv.gz'))
   for (const row of flowRows) {
     const [from] = row.replace(/\r/g, '').split(',')
     if (from && networkByAddress.get(from) === 'bittensor') return from

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -17,22 +17,39 @@ const enabled = process.env.CAPABILITY_PROBES === '1'
 const endpoint = process.env.CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT ?? 'http://127.0.0.1:18012/mcp'
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
+// render-manifest.py / render-memgraph-csv-fixtures.py split any fixture
+// over ~40MB into sorted <name>.part-NNN.gz siblings (GitHub's 50MB/100MB
+// blob limits; address-grain edge-count growth made this routine) and
+// remove the plain file when they do. Read whichever shape is on disk.
+// Every part repeats the CSV header (each part.gz must be independently
+// loadable), so the header is stripped from EACH part before
+// concatenating, never just once off the front of the joined text.
+function readCsvGzFixtureDataRows(absolutePath: string): string[] {
+  const fileName = absolutePath.split('/').pop() as string
+  const partNames = readdirSync(dirname(absolutePath))
+    .filter((name) => name.startsWith(`${fileName}.part-`) && name.endsWith('.gz'))
+    .sort()
+  const paths = partNames.length > 0 ? partNames.map((name) => join(dirname(absolutePath), name)) : [absolutePath]
+  return paths.flatMap((path) =>
+    gunzipSync(readFileSync(path))
+      .toString('utf8')
+      .split('\n')
+      .slice(1),
+  )
+}
+
 function fixturePair(): { seed: string; peer: string } {
   // Same derivation as devkit/scripts/smoke-chain-insights-parity.sh:
   // first flow edge whose endpoints are both bittensor (SS58) :Address
   // nodes -- address-grain has no identity indirection, so flows.csv's
   // from_address/to_address columns are read directly.
-  const addressRows = gunzipSync(readFileSync(join(repoRoot, 'devkit/data/memgraph/addresses.csv.gz'))).toString('utf8')
-    .split('\n')
-    .slice(1)
+  const addressRows = readCsvGzFixtureDataRows(join(repoRoot, 'devkit/data/memgraph/addresses.csv.gz'))
   const networkByAddress = new Map<string, string>()
   for (const row of addressRows) {
     const [address, network] = row.replace(/\r/g, '').split(',')
     if (address) networkByAddress.set(address, network ?? '')
   }
-  const flowRows = gunzipSync(readFileSync(join(repoRoot, 'devkit/data/memgraph/flows.csv.gz'))).toString('utf8')
-    .split('\n')
-    .slice(1)
+  const flowRows = readCsvGzFixtureDataRows(join(repoRoot, 'devkit/data/memgraph/flows.csv.gz'))
   for (const row of flowRows) {
     const [from, to] = row.replace(/\r/g, '').split(',')
     if (from && to && networkByAddress.get(from) === 'bittensor' && networkByAddress.get(to) === 'bittensor') {

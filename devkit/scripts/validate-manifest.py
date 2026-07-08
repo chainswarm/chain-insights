@@ -253,19 +253,26 @@ def main() -> None:
             if not file_path.is_file():
                 fail(f"manifest object {name} file missing: {file_path.relative_to(DEVKIT_ROOT / 'data')}")
         validate_parts(entry)
-        if not entry.get("parts"):
-            fail_on_placeholder_file(paths[0])
+        # Scan every part, not just paths[0]: once an object splits across
+        # multiple .part-NNN.gz files (address-grain revert edge-count
+        # growth made this routine for both TSV and, now, JSONL exports),
+        # a placeholder/forbidden marker landing in part 001+ must still
+        # fail the check -- restricting either scan to the single- or
+        # first-part case would silently stop covering split fixtures.
+        for part_path in paths:
+            fail_on_placeholder_file(part_path)
         expected_sha = entry.get("sha256", "")
         actual_sha = sha256_paths(paths) if entry.get("parts") else sha256(paths[0])
         if actual_sha != expected_sha:
             fail(f"manifest object {name} checksum mismatch: {actual_sha} != {expected_sha}")
         if is_memgraph_object:
-            opener = gzip.open if paths[0].suffix == ".gz" else open
-            with opener(paths[0], "rt", encoding="utf-8", errors="replace") as handle:
-                payload = handle.read()
-            for marker in FORBIDDEN_MEMGRAPH_MARKERS:
-                if marker in payload:
-                    fail(f"manifest object {name} contains forbidden Memgraph marker: {marker}")
+            for part_path in paths:
+                opener = gzip.open if part_path.suffix == ".gz" else open
+                with opener(part_path, "rt", encoding="utf-8", errors="replace") as handle:
+                    payload = handle.read()
+                for marker in FORBIDDEN_MEMGRAPH_MARKERS:
+                    if marker in payload:
+                        fail(f"manifest object {name} contains forbidden Memgraph marker: {marker}")
 
     object_paths = {entry.get("name", ""): fixture_part_paths(entry) for entry in objects}
     check_memgraph_endpoint_integrity(object_paths)

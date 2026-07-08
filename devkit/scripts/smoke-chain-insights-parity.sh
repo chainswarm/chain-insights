@@ -30,9 +30,19 @@ cia_in_workspace() {
 FLOWS="$REPO_ROOT/repos/infra/chain-insights/devkit/data/memgraph/flows.csv.gz"
 # The first flow edge whose endpoints are both SS58 :Address nodes
 # (address-grain revert: flows.csv carries from_address/to_address directly,
-# no identity indirection).
+# no identity indirection). render-manifest.py / render-memgraph-csv-
+# fixtures.py split any fixture over ~40MB into sorted
+# flows.csv.gz.part-NNN.gz siblings (GitHub's 50MB/100MB blob limits) and
+# remove the plain file when they do; zcat concatenates multiple files
+# transparently, and the `$1 ~ /^5/ && $2 ~ /^5/` content filter already
+# excludes every part's own repeated header row.
+if [ -f "$FLOWS" ]; then
+  FLOW_PARTS=("$FLOWS")
+else
+  FLOW_PARTS=("$FLOWS".part-*.gz)
+fi
 read -r SEED_ADDRESS PEER_ADDRESS <<<"$(
-  zcat "$FLOWS" | awk -F, '{ gsub(/\r/, "") } NR > 1 && $1 ~ /^5/ && $2 ~ /^5/ { print $1, $2; exit }'
+  zcat "${FLOW_PARTS[@]}" | awk -F, '{ gsub(/\r/, "") } NR > 1 && $1 ~ /^5/ && $2 ~ /^5/ { print $1, $2; exit }'
 )"
 test -n "$SEED_ADDRESS"
 test -n "$PEER_ADDRESS"

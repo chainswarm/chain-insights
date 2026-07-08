@@ -34,18 +34,32 @@ def cypher_relationship_type(relationship_type: str) -> str:
     return f"`{relationship_type}`"
 
 
+def resolve_fixture_parts(path: Path) -> list[Path]:
+    if path.is_file():
+        return [path]
+    # render-manifest.py splits any object over MAX_GIT_BLOB_BYTES into
+    # sorted <name>.part-NNN.gz siblings (GitHub's 50MB/100MB blob limits;
+    # the address-grain revert's edge-count growth made this routine for
+    # nodes.jsonl.gz/relationships.jsonl.gz, not just the StarRocks TSVs).
+    parts = sorted(path.parent.glob(f"{path.name}.part-*.gz"))
+    if not parts:
+        raise SystemExit(
+            f"missing Memgraph JSONL fixture file: {path} (and no {path.name}.part-*.gz siblings)"
+        )
+    return parts
+
+
 def read_json_lines(path: Path) -> Iterable[dict[str, Any]]:
-    if not path.is_file():
-        raise SystemExit(f"missing Memgraph JSONL fixture file: {path}")
-    with gzip.open(path, "rt", encoding="utf-8") as handle:
-        for line_number, line in enumerate(handle, start=1):
-            text = line.strip()
-            if not text:
-                continue
-            payload = json.loads(text)
-            if not isinstance(payload, dict):
-                raise SystemExit(f"{path}:{line_number} is not a JSON object")
-            yield payload
+    for part_path in resolve_fixture_parts(path):
+        with gzip.open(part_path, "rt", encoding="utf-8") as handle:
+            for line_number, line in enumerate(handle, start=1):
+                text = line.strip()
+                if not text:
+                    continue
+                payload = json.loads(text)
+                if not isinstance(payload, dict):
+                    raise SystemExit(f"{part_path}:{line_number} is not a JSON object")
+                yield payload
 
 
 def batches(rows: Iterable[dict[str, Any]], batch_size: int) -> Iterable[list[dict[str, Any]]]:
