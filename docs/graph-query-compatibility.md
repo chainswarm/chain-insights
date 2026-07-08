@@ -73,7 +73,7 @@ rejected with a typed contract error before execution.
 
 | Construct | Notes |
 | --- | --- |
-| `MATCH` on a mapped node / single relationship | `(:Address)-[:FLOWS_TO]->(:Address)`, `(:Address)-[:LINKED]-(:Address)`, `(:Address)-[:HAS_LABEL]->(:AddressLabel)`, etc. |
+| `MATCH` on a mapped node / single relationship | `(:Address)-[:FLOWS_TO]->(:Address)`, `(:Address)-[:HAS_LABEL]->(:AddressLabel)`, etc. `(:Address)-[:LINKED]-(:Address)` is facts-tier only — `archive_topology` is money-only. |
 | Chained fixed-hop patterns | up to 5 hops |
 | `WHERE` with an indexed predicate | `address` equality or `IN`; date/height/timestamp range |
 | Inline property maps | `MATCH (a:Address {address:"…"})` |

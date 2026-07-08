@@ -55,8 +55,6 @@ for (const scope of SCOPES) {
   }
   add('compareAddressExistsQuery', { address: ADDR }, scope, queryBuilderContract.compareAddressExistsQuery(ADDR))
   add('connectionProbeQuery', { address: ADDR, compare: COMPARE }, scope, queryBuilderContract.connectionProbeQuery(ADDR, COMPARE))
-  add('linkedExposureQueries', { address: ADDR }, scope, queryBuilderContract.linkedExposureQueries(ADDR, scope))
-  add('crossSpaceLinkedQuery', { address: ADDR }, scope, queryBuilderContract.crossSpaceLinkedQuery(ADDR))
 
   for (const minAmountSum of [0, 10]) {
     for (const window of [undefined, WINDOW]) {
@@ -92,6 +90,12 @@ for (const scope of SCOPES) {
 // Route evidence: live-only by design (shouldIncludeRouteQueries guard).
 add('connectionRouteQueries', { address: ADDR, compare: COMPARE }, 'live_topology', queryBuilderContract.connectionRouteQueries(ADDR, COMPARE))
 add('connectionRouteQueries', { address: ADDR_QUOTED, compare: COMPARE }, 'live_topology', queryBuilderContract.connectionRouteQueries(ADDR_QUOTED, COMPARE))
+
+// LINKED ownership overlay: live-only in the topology corpus (serving
+// contract A1 -- LINKED is served on the live and facts tiers;
+// archive_topology stays money-only, so no archive-scoped emission).
+add('linkedExposureQueries', { address: ADDR }, 'live_topology', queryBuilderContract.linkedExposureQueries(ADDR, 'live_topology'))
+add('crossSpaceLinkedQuery', { address: ADDR }, 'live_topology', queryBuilderContract.crossSpaceLinkedQuery(ADDR))
 
 // facts layer (USE facts hardcoded inside the builders)
 addFacts('addressFeatureQuery', { address: ADDR }, queryBuilderContract.addressFeatureQuery(ADDR))

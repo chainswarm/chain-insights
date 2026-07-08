@@ -418,9 +418,11 @@ function linkedExposureQueries(address: string, topologyScope: TopologyScope): A
   ]
 }
 
-// AC5: cross-space (bittensor <-> bittensor_evm) LINKED probe -- the only
-// edge that bridges the two address-grain networks (LINKED is written
-// cross-network by the graphsync bridge; FLOWS_TO never crosses networks).
+// AC5: cross-space LINKED probe. The SS58/H160 split is the :Address.network
+// node PROPERTY (bittensor / bittensor_evm) on the single public
+// network=bittensor graph -- LINKED is the ownership edge across that space
+// boundary (FLOWS_TO stays within one space), so this runs live-scope with
+// no network switch. LINKED is served on the live and facts tiers only.
 function crossSpaceLinkedQuery(address: string): { id: string; query: string } {
   return {
     id: 'cross_space_linked',

@@ -10,38 +10,43 @@ Bittensor address-grain schema and examples.
 
 ## Network Rule
 
-Bittensor native Substrate/SS58 addresses such as `5...` and EVM-pallet
-`0x...` addresses belong to two distinct address-grain networks:
+All Bittensor investigation runs on ONE public network: `network=bittensor`.
+Native Substrate/SS58 addresses such as `5...` and EVM-pallet `0x...` (H160)
+addresses live in the same graph:
 
-- Use `network=bittensor` for native SS58 addresses.
-- Use `network=bittensor_evm` for EVM-pallet `0x...` addresses.
-- Do not pass `network=bittensor` for a `0x...` address or vice versa.
-- `meta_network_capabilities` advertises `bittensor` and `bittensor_evm` as
-  two public networks.
+- Always pass `network=bittensor` — for SS58 and `0x...` inputs alike. There
+  is no separate public query network for the EVM-pallet space.
+- The SS58/H160 split is the `:Address.network` node PROPERTY
+  (`bittensor` for SS58, `bittensor_evm` for H160) — a per-node value, not a
+  `network` argument.
+- `FLOWS_TO` stays within one address space; a single `network=bittensor`
+  query spans both spaces by walking `FLOWS_TO` within a space and hopping
+  the bridge (money) or `LINKED` (ownership) edge across the boundary —
+  SS58 → (bridge or LINKED) → H160 and back, with no network switch.
 - `LINKED` (undirected, `basis`/`confidence`/`source_event`/`declared_owner`)
-  is the only edge that connects a `bittensor` address to a `bittensor_evm`
-  address — use it for cross-space resolution, never assume the two spaces
-  share a `FLOWS_TO`-reachable graph.
+  is the ownership edge across the space boundary — use it for cross-space
+  resolution, never assume the two spaces share a `FLOWS_TO`-reachable graph.
 - Preserve exact returned `address` and `network` fields.
 
 ## Current Schema Notes
 
 Observed against the address-serving contract on 2026-07-07:
 
-- `meta_network_capabilities` advertises `bittensor` and `bittensor_evm` with
-  topology, facts, risk, `graph_query`, and `graph_query_batch` available.
+- `meta_network_capabilities` advertises `bittensor` as the single public
+  investigation network with topology, facts, risk, `graph_query`, and
+  `graph_query_batch` available.
 - `live_topology` uses `Address` nodes and `FLOWS_TO` relationships, keyed by
-  the raw chain-native `address` (SS58 for `bittensor`, `0x...` for
-  `bittensor_evm`), plus a `network` property.
+  the raw chain-native `address` (SS58 or `0x...`), plus a `network` property
+  (`bittensor` / `bittensor_evm`) marking the address space.
 - `FLOWS_TO` is USD-only for AML value. Use `amount_usd_sum`, not native
   `amount_sum`.
 - `archive_topology` uses the same `Address` node surface with historical
-  `FLOWS_TO` relationships and a compatible `LINKED` ownership-overlay edge.
+  `FLOWS_TO` relationships — money-only; the `LINKED` ownership overlay is
+  served on the live and facts tiers, not archive.
 - `facts` contains address-keyed enrichment through `HAS_LABEL`,
-  `HAS_FEATURE`, and `HAS_RISK_SCORE`. Bittensor neuron facts may include
-  `REGISTERED_NEURON` and `SERVED_FROM` paths when the endpoint exposes them
-  (neuron/facts data lives in StarRocks DB `bittensor` with a `network`
-  column; query it through `network=bittensor`).
+  `HAS_FEATURE`, and `HAS_RISK_SCORE`, plus the `LINKED` ownership-overlay
+  pairs. Bittensor neuron facts may include `REGISTERED_NEURON` and
+  `SERVED_FROM` paths when the endpoint exposes them.
 - Use the generic skill reference `references/memgraph-examples.md` for tested
   examples and fixed-hop traversal fallbacks. Native Memgraph deep traversal
   operators such as `*BFS`, `*WSHORTEST`, `*ALLSHORTEST`, and `*KSHORTEST` may
@@ -112,7 +117,7 @@ Use this before a custom Bittensor query session:
 cia mcp call graph_query_batch \
   network=bittensor \
   per_query_timeout_seconds=5 \
-  'queries=[{"id":"live_address_projection","query":"USE live_topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_score AS risk_score, a.risk_level AS risk_level, a.is_exchange AS is_exchange LIMIT 10"},{"id":"live_flow_sample","query":"USE live_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"linked_sample","query":"USE live_topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.period_granularity AS period_granularity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"archive_linked_sample","query":"USE archive_topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"facts_feature_sample","query":"USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.tx_out_count AS tx_out_count LIMIT 10"}]'
+  'queries=[{"id":"live_address_projection","query":"USE live_topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_score AS risk_score, a.risk_level AS risk_level, a.is_exchange AS is_exchange LIMIT 10"},{"id":"live_flow_sample","query":"USE live_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"linked_sample","query":"USE live_topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.period_granularity AS period_granularity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"facts_linked_sample","query":"USE facts MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"facts_feature_sample","query":"USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.tx_out_count AS tx_out_count LIMIT 10"}]'
 ```
 
 Avoid `keys()`, `labels()`, `type()`, native BFS syntax, and variable-length

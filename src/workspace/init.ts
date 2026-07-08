@@ -170,7 +170,7 @@ with \`USE live_topology\`, historical topology reads with
 \`USE archive_topology\`, and fact reads with \`USE facts\`, for example:
 
 \`\`\`bash
-cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE live_topology MATCH (n:Address) RETURN \"Address\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.period_granularity AS granularity, f.amount_usd_sum AS amount_usd_sum LIMIT 20"},{"id":"archive_linked_sample","query":"USE archive_topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 20"}]'
+cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE live_topology MATCH (n:Address) RETURN \"Address\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.period_granularity AS granularity, f.amount_usd_sum AS amount_usd_sum LIMIT 20"},{"id":"facts_linked_sample","query":"USE facts MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 20"}]'
 \`\`\`
 
 Then update this file with observed labels, relationship types, and allowed
@@ -178,18 +178,23 @@ property names for the active network.
 
 The address-grain graph schema:
 
-- Every topology node is \`(:Address {address, network})\`, keyed by the raw
-  chain-native \`address\` (SS58 for \`network=bittensor\`, EVM-pallet
-  \`0x...\` for \`network=bittensor_evm\`). There is no separate identity
-  key and no member-address satellite: the address IS the graph node.
+- All Bittensor investigation runs on ONE public network: always pass
+  \`network=bittensor\`, for SS58 and EVM-pallet \`0x...\` (H160) inputs
+  alike. Every topology node is \`(:Address {address, network})\`, keyed by
+  the raw chain-native \`address\`; the SS58/H160 split is the node's
+  \`network\` PROPERTY (\`bittensor\` for SS58, \`bittensor_evm\` for H160),
+  not a separate query network. There is no separate identity key and no
+  member-address satellite: the address IS the graph node.
 - \`(:Address)-[:LINKED]-(:Address)\` is an **undirected** ownership-overlay
   edge (\`basis\` \`derived\`/\`associated\`, plus \`confidence\`,
   \`source_event\`, \`declared_owner\`) asserting the two addresses are
-  controlled by the same actor. \`LINKED\` is the only edge that can connect
-  a \`bittensor\` address to a \`bittensor_evm\` address — walk one visible
-  \`LINKED\` hop to surface actor-level exposure or to resolve an address's
-  counterpart in the other network; never treat linked addresses as a single
-  collapsed node.
+  controlled by the same actor. \`LINKED\` is the ownership edge across the
+  SS58/H160 space boundary — a single \`network=bittensor\` query traces
+  SS58 -> (bridge or LINKED) -> H160 and back with no network switch. Walk
+  one visible \`LINKED\` hop to surface actor-level exposure or to resolve
+  an address's counterpart in the other space; never treat linked addresses
+  as a single collapsed node. \`LINKED\` is served on the live and facts
+  tiers; \`archive_topology\` stays money-only.
 - Other Address properties: \`labels\` (array) and \`is_exchange\`
   (sparse true/null traversal hint).
 - Address nodes carry a slim live risk verdict for quick triage
@@ -230,8 +235,8 @@ Rules:
   risk scores, assets, and enrichment. Archived money-flow topology is
   exposed as \`(:Address)-[:FLOWS_TO]->(:Address)\` with
   \`period_granularity\`, \`period_start_date\`, and \`period_end_date\` on
-  the relationship. Archive \`LINKED\` ownership-overlay reads use the same
-  \`(:Address)-[:LINKED]-(:Address)\` shape as live_topology.
+  the relationship. The \`LINKED\` ownership overlay is served on the live
+  and facts tiers; archive_topology stays money-only (no LINKED reads there).
 - Preserve source schema field names in generated data files.
 - Do not rename, reinterpret, or add unit labels to graph fields unless the
   schema or query result explicitly supports that interpretation.

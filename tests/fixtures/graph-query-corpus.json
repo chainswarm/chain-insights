@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/generate-query-corpus.mjs",
- "entry_count": 180,
+ "entry_count": 176,
  "entries": [
   {
    "builder": "addressFeatureQuery",
@@ -223,14 +223,6 @@
    "params": {
     "address": "corpus-address-a"
    },
-   "scope": "archive_topology",
-   "query": "USE archive_topology MATCH (a:Address {address: \"corpus-address-a\"})-[l:LINKED]-(b:Address) WHERE a.network <> b.network RETURN a.address AS address, a.network AS network, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence, l.source_event AS source_event, l.declared_owner AS declared_owner LIMIT 50"
-  },
-  {
-   "builder": "crossSpaceLinkedQuery",
-   "params": {
-    "address": "corpus-address-a"
-   },
    "scope": "live_topology",
    "query": "USE live_topology MATCH (a:Address {address: \"corpus-address-a\"})-[l:LINKED]-(b:Address) WHERE a.network <> b.network RETURN a.address AS address, a.network AS network, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence, l.source_event AS source_event, l.declared_owner AS declared_owner LIMIT 50"
   },
@@ -369,18 +361,6 @@
    },
    "scope": "archive_topology",
    "query": "USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, CASE WHEN flow.amount_usd_sum > 100000 THEN \"high\" WHEN flow.amount_usd_sum > 1000 THEN \"medium\" ELSE \"low\" END AS amount_band LIMIT 25"
-  },
-  {
-   "builder": "documented-recipe",
-   "params": {
-    "id": "recipe_archive_topology_13",
-    "features": [
-     "fixed-hop",
-     "label-match"
-    ]
-   },
-   "scope": "archive_topology",
-   "query": "USE archive_topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 25"
   },
   {
    "builder": "documented-recipe",
@@ -1465,22 +1445,6 @@
    },
    "scope": "live_topology",
    "query": "USE live_topology MATCH (s:Address {address: \"corpus-address-a\"})-[r1:FLOWS_TO]->(t:Address) WHERE s.address <> t.address AND s.is_exchange IS NULL AND t.is_exchange IS NOT NULL AND r1.amount_usd_sum IS NOT NULL AND r1.amount_usd_sum >= 10 AND (r1.first_seen_timestamp >= 1704067200000 OR r1.last_seen_timestamp >= 1704067200000) AND r1.first_seen_timestamp <= 1735689600000 RETURN [s.address, t.address] AS addresses, [s.labels, t.labels] AS node_labels, [{address: s.address, network: s.network, labels: s.labels, system_labels: s.labels, is_exchange: s.is_exchange, risk_score: s.risk_score, risk_level: s.risk_level}, {address: t.address, network: t.network, labels: t.labels, system_labels: t.labels, is_exchange: t.is_exchange, risk_score: t.risk_score, risk_level: t.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp, first_tx_id: r1.first_tx_id, last_tx_id: r1.last_tx_id}] AS edge_props, t.address AS exchange_address, t.labels AS exchange_display_labels, t.labels AS exchange_labels, t.is_exchange AS exchange_is_exchange, s.address AS deposit_address, s.is_exchange AS deposit_is_exchange, 1 AS hops ORDER BY hops ASC LIMIT 25"
-  },
-  {
-   "builder": "linkedExposureQueries",
-   "params": {
-    "address": "corpus-address-a"
-   },
-   "scope": "archive_topology",
-   "query": "USE archive_topology MATCH (a:Address {address: \"corpus-address-a\"})-[l:LINKED]-(owned:Address)-[r:FLOWS_TO]-(b:Address) WHERE owned.address <> b.address AND a.address <> b.address RETURN a.address AS subject_address, b.address AS counterparty_address, b.network AS counterparty_network, \"via_linked\" AS exposure_basis, owned.address AS linked_via_address, l.basis AS link_basis, l.confidence AS link_confidence, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 200"
-  },
-  {
-   "builder": "linkedExposureQueries",
-   "params": {
-    "address": "corpus-address-a"
-   },
-   "scope": "archive_topology",
-   "query": "USE archive_topology MATCH (a:Address {address: \"corpus-address-a\"})-[r:FLOWS_TO]-(b:Address) WHERE a.address <> b.address RETURN a.address AS subject_address, b.address AS counterparty_address, b.network AS counterparty_network, \"direct\" AS exposure_basis, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 200"
   },
   {
    "builder": "linkedExposureQueries",

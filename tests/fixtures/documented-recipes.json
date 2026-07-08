@@ -487,16 +487,6 @@
    ]
   },
   {
-   "id": "recipe_archive_topology_13",
-   "query": "USE archive_topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 25",
-   "layer": "archive_topology",
-   "description": "Archive LINKED ownership-overlay edge sample (undirected) with basis and confidence",
-   "features": [
-    "fixed-hop",
-    "label-match"
-   ]
-  },
-  {
    "id": "recipe_live_topology_19",
    "query": "USE live_topology MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[l:LINKED]-(b:Address) RETURN b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence, l.source_event AS source_event, l.declared_owner AS declared_owner LIMIT 25",
    "layer": "live_topology",

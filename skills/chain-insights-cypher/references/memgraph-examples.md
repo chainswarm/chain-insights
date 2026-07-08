@@ -81,8 +81,9 @@ cia mcp call graph_query \
   'query=USE live_topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN b.network AS linked_network, count(b) AS linked_addresses ORDER BY linked_addresses DESC LIMIT 10'
 ```
 
-Cross-space `LINKED` resolution — the only edge bridging `bittensor` and
-`bittensor_evm` address-grain spaces:
+Cross-space `LINKED` resolution — the ownership edge across the SS58/H160
+space boundary (`:Address.network` values `bittensor` / `bittensor_evm`); all
+of this runs on the single public `network=bittensor`:
 
 ```bash
 cia mcp call graph_query \
@@ -116,12 +117,14 @@ cia mcp call graph_query \
   'query=USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) WHERE flow.period_granularity = "daily" RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count ORDER BY flow.amount_usd_sum DESC LIMIT 25'
 ```
 
-Archive `LINKED` ownership-overlay sample:
+`archive_topology` is money-only (per the serving contract, the `LINKED`
+ownership overlay is served on the live and facts tiers). Facts-tier `LINKED`
+sample:
 
 ```bash
 cia mcp call graph_query \
   network=bittensor \
-  'query=USE archive_topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 25'
+  'query=USE facts MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 25'
 ```
 
 Remember that archive numeric fields may arrive as strings.

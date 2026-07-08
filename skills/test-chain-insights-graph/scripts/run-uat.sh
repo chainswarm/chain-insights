@@ -11,9 +11,12 @@ NETWORK="${NETWORK:-bittensor}"
 # (:Address {address, network}) node -- there is no separate identity key or
 # member-address resolution step.
 UAT_ADDRESS="${UAT_ADDRESS:-5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6}"
-# UAT_LINKED_NETWORK/UAT_LINKED_ADDRESS are the network=bittensor_evm
-# counterpart, connected to UAT_ADDRESS by a cross-space (:Address)-[:LINKED]-(:Address)
-# ownership-overlay edge (deterministic H160 mirror, basis=derived).
+# UAT_LINKED_NETWORK/UAT_LINKED_ADDRESS are the H160 cross-space counterpart
+# (:Address.network property value bittensor_evm -- same public
+# network=bittensor query network), connected to UAT_ADDRESS by a cross-space
+# (:Address)-[:LINKED]-(:Address) ownership-overlay edge (deterministic H160
+# mirror, basis=derived). AC5: the cross-space read below runs under
+# network=bittensor with no network switch.
 UAT_LINKED_NETWORK="${UAT_LINKED_NETWORK:-bittensor_evm}"
 UAT_LINKED_ADDRESS="${UAT_LINKED_ADDRESS:-0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24}"
 REPORT_DIR="${REPORT_DIR:-${CHAIN_INSIGHTS_DIR}/.tmp/uat}"
@@ -224,8 +227,10 @@ if (source?.tools?.graph_query !== 'available') errors.push(`${network} graph_qu
 for (const leaked of ['retention', 'window_days', 'aggregations']) {
   if (rawPayload.includes(leaked)) errors.push(`network_capabilities leaked ${leaked} implementation metadata`)
 }
-if (!byName.has('bittensor_evm')) errors.push('network_capabilities missing the bittensor_evm address-grain network')
-for (const alias of ['base', 'ethereum', 'tron']) {
+// GATE 3 / AC5: bittensor is the ONE public investigation network. The
+// SS58/H160 split is the :Address.network node property, never a second
+// public query network -- bittensor_evm is a source alias and must not leak.
+for (const alias of ['bittensor_evm', 'base', 'ethereum', 'tron']) {
   if (byName.has(alias)) errors.push(`network_capabilities leaked alias or unsupported network ${alias}`)
 }
 if (errors.length) throw new Error(errors.join('; '))
@@ -341,29 +346,29 @@ if (first.linked_address !== linkedAddress || first.linked_network !== linkedNet
 console.log(`[uat] graph_query ok: ${first.address} -[:LINKED]- ${first.linked_address} (${first.linked_network}, basis=${first.basis})`)
 NODE
 
-# Archive topology compatibility: historical StarRocks-backed topology must
-# expose the same cross-space (:Address)-[:LINKED]-(:Address) shape.
-ARCHIVE_LINKED_TEXT="${RUN_DIR}/graph-query-archive-linked.txt"
-log "calling Chain Insights CLI graph_query for archive LINKED compatibility"
+# Archive topology stays MONEY-ONLY (serving contract A1: the LINKED
+# ownership overlay is served on the live and facts tiers, never archive).
+# Assert the historical StarRocks-backed FLOWS_TO money shape for the UAT
+# address instead.
+ARCHIVE_MONEY_TEXT="${RUN_DIR}/graph-query-archive-money.txt"
+log "calling Chain Insights CLI graph_query for archive money-only compatibility"
 (
   cd "${WORKSPACE_ROOT}"
   node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
     "network=${NETWORK}" \
-    "query=USE archive_topology MATCH (a:Address {address: '${UAT_ADDRESS}'})-[l:LINKED]-(b:Address {address: '${UAT_LINKED_ADDRESS}'}) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network LIMIT 1"
-) >"${ARCHIVE_LINKED_TEXT}"
+    "query=USE archive_topology MATCH (a:Address {address: '${UAT_ADDRESS}'})-[f:FLOWS_TO]->(b:Address) RETURN a.address AS address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum LIMIT 1"
+) >"${ARCHIVE_MONEY_TEXT}"
 
-node - "${ARCHIVE_LINKED_TEXT}" "${UAT_ADDRESS}" "${UAT_LINKED_ADDRESS}" "${UAT_LINKED_NETWORK}" <<'NODE'
+node - "${ARCHIVE_MONEY_TEXT}" "${UAT_ADDRESS}" <<'NODE'
 const fs = require('node:fs')
 const file = process.argv[2]
 const address = process.argv[3]
-const linkedAddress = process.argv[4]
-const linkedNetwork = process.argv[5]
 const data = JSON.parse(fs.readFileSync(file, 'utf8').trim())
 const first = data.facts?.query?.results?.[0] || data.results?.[0]
-if (!first || first.address !== address || first.linked_address !== linkedAddress || first.linked_network !== linkedNetwork) {
-  throw new Error(`archive LINKED lookup for ${address} did not return ${linkedAddress}: ${JSON.stringify(first)}`)
+if (!first || first.address !== address || !first.to_address) {
+  throw new Error(`archive money-flow lookup for ${address} did not return an outbound FLOWS_TO edge: ${JSON.stringify(first)}`)
 }
-console.log(`[uat] archive LINKED ok: ${first.address} -> ${first.linked_address} (${first.linked_network})`)
+console.log(`[uat] archive money-only FLOWS_TO ok: ${first.address} -> ${first.to_address}`)
 NODE
 
 # Address existence: an exact, index-backed lookup by the raw address must
