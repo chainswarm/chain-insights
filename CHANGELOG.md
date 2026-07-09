@@ -3,6 +3,30 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.9.1] - 2026-07-09
+
+- Regenerated the devkit fixture against a dev stack with real
+  `core_address_labels` data for the first time since the address-grain
+  revert (the previous fixture snapshot was captured while that table was
+  empty fleet-wide, a pre-existing gap unrelated to the revert itself).
+  The devkit now carries real exchange/scam/validator labels, including a
+  confirmed Kucoin exchange deposit — `aml_trace_victim_funds` and related
+  tools now surface real exchange exposure instead of an empty result.
+- Fixed a real bug this surfaced in the export tooling:
+  `export-memgraph-fixture.py`'s node/relationship export queries had no
+  pagination, so a single unbounded `ORDER BY` sort over the full graph
+  (~478k nodes / ~1.3M edges) exceeded the dev Memgraph instance's
+  query-execution timeout. Now paginated via keyset (id-cursor) batching.
+- Re-recorded `trace-{victim,suspect,deposit}-devkit-golden.json` against
+  the newly-labeled devkit (real path/exchange counts instead of the
+  previous all-zero empty-label state).
+- Documented a real interactive-dev trap in `CLAUDE.md`: `bin/cli.js`
+  loads the compiled `dist/cli.mjs` bundle, not `src/` directly, and
+  `dist/` does not auto-rebuild — a stale bundle silently ran pre-revert
+  `:Identity`-based seed resolution against a graph with zero `:Identity`
+  nodes, failing every trace as "unresolved" with no indication the
+  build (not the data) was the problem.
+
 ## [0.9.0] - 2026-07-08
 
 - **Breaking: Bittensor money graph reverted from an identity flatten back to

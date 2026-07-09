@@ -13,12 +13,12 @@
  "summary": {
   "seed_count": 1,
   "unresolved_count": 0,
-  "path_count": 0,
-  "edge_count": 0,
+  "path_count": 16,
+  "edge_count": 32,
   "candidate_suspect_count": 0,
-  "candidate_intermediate_count": 0,
-  "candidate_deposit_count": 0,
-  "exchange_count": 0
+  "candidate_intermediate_count": 16,
+  "candidate_deposit_count": 13,
+  "exchange_count": 4
  },
  "unresolved": [],
  "addresses": [
@@ -29,19 +29,4593 @@
    ],
    "confidence": "high",
    "rationale": [
-    "victim seed provided by caller"
+    "victim seed provided by caller",
+    "Address appears in traced FLOWS_TO path"
+   ]
+  },
+  {
+   "address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+   "roles": [
+    "candidate_intermediate",
+    "candidate_deposit"
+   ],
+   "confidence": "medium",
+   "rationale": [
+    "Address appears in traced FLOWS_TO path",
+    "Penultimate address before an exchange endpoint"
+   ]
+  },
+  {
+   "address": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+   "roles": [
+    "exchange"
+   ],
+   "is_exchange": true,
+   "confidence": "high",
+   "rationale": [
+    "Terminal exchange endpoint reached",
+    "Exchange endpoint reached"
+   ]
+  },
+  {
+   "address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+   "roles": [
+    "candidate_intermediate",
+    "candidate_deposit"
+   ],
+   "confidence": "medium",
+   "rationale": [
+    "Address appears in traced FLOWS_TO path",
+    "Penultimate address before an exchange endpoint"
+   ]
+  },
+  {
+   "address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+   "roles": [
+    "candidate_intermediate",
+    "candidate_deposit"
+   ],
+   "confidence": "medium",
+   "rationale": [
+    "Address appears in traced FLOWS_TO path",
+    "Penultimate address before an exchange endpoint"
+   ]
+  },
+  {
+   "address": "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+   "roles": [
+    "candidate_intermediate",
+    "candidate_deposit"
+   ],
+   "confidence": "medium",
+   "rationale": [
+    "Address appears in traced FLOWS_TO path",
+    "Penultimate address before an exchange endpoint"
+   ]
+  },
+  {
+   "address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+   "roles": [
+    "candidate_intermediate",
+    "candidate_deposit"
+   ],
+   "confidence": "medium",
+   "rationale": [
+    "Address appears in traced FLOWS_TO path",
+    "Penultimate address before an exchange endpoint"
+   ]
+  },
+  {
+   "address": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "roles": [
+    "exchange"
+   ],
+   "is_exchange": true,
+   "confidence": "high",
+   "rationale": [
+    "Terminal exchange endpoint reached",
+    "Exchange endpoint reached"
+   ]
+  },
+  {
+   "address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+   "roles": [
+    "candidate_intermediate",
+    "candidate_deposit"
+   ],
+   "confidence": "medium",
+   "rationale": [
+    "Address appears in traced FLOWS_TO path",
+    "Penultimate address before an exchange endpoint"
+   ]
+  },
+  {
+   "address": "5EUYMnKdHKjNvovUcdgGNGBY1Zj2thSiXeZmzX1e33LSByW1",
+   "roles": [
+    "candidate_intermediate",
+    "candidate_deposit"
+   ],
+   "confidence": "medium",
+   "rationale": [
+    "Address appears in traced FLOWS_TO path",
+    "Penultimate address before an exchange endpoint"
+   ]
+  },
+  {
+   "address": "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8",
+   "roles": [
+    "exchange"
+   ],
+   "is_exchange": true,
+   "confidence": "high",
+   "rationale": [
+    "Terminal exchange endpoint reached",
+    "Exchange endpoint reached"
+   ]
+  },
+  {
+   "address": "5EXYCA7tSDJtxd2ZeyeChmjfymcYcdxs6dKk1hkA7QCgeemF",
+   "roles": [
+    "candidate_intermediate",
+    "candidate_deposit"
+   ],
+   "confidence": "medium",
+   "rationale": [
+    "Address appears in traced FLOWS_TO path",
+    "Penultimate address before an exchange endpoint"
+   ]
+  },
+  {
+   "address": "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR",
+   "roles": [
+    "exchange"
+   ],
+   "is_exchange": true,
+   "confidence": "high",
+   "rationale": [
+    "Terminal exchange endpoint reached",
+    "Exchange endpoint reached"
+   ]
+  },
+  {
+   "address": "5FCg17qLyTrEBSKDYD6TxuAXd937Nx7ZEdEdMsuw97Po1sxx",
+   "roles": [
+    "candidate_intermediate",
+    "candidate_deposit"
+   ],
+   "confidence": "medium",
+   "rationale": [
+    "Address appears in traced FLOWS_TO path",
+    "Penultimate address before an exchange endpoint"
+   ]
+  },
+  {
+   "address": "5Gjc87n47b7X7ApX7p1yfmxBtHiUc24A4r4hDAUqNoH7oDP6",
+   "roles": [
+    "candidate_intermediate",
+    "candidate_deposit"
+   ],
+   "confidence": "medium",
+   "rationale": [
+    "Address appears in traced FLOWS_TO path",
+    "Penultimate address before an exchange endpoint"
+   ]
+  },
+  {
+   "address": "5Hhdw2M6Lp71VXk1qDFWwt4j3jBnRQRjjQ6HiEJx7DspyFKv",
+   "roles": [
+    "candidate_intermediate",
+    "candidate_deposit"
+   ],
+   "confidence": "medium",
+   "rationale": [
+    "Address appears in traced FLOWS_TO path",
+    "Penultimate address before an exchange endpoint"
+   ]
+  },
+  {
+   "address": "5Hp1QQ88Deee6Lqvga6giUBEvL9ZE5uRBLQ6x6KwzvABYh96",
+   "roles": [
+    "candidate_intermediate",
+    "candidate_deposit"
+   ],
+   "confidence": "medium",
+   "rationale": [
+    "Address appears in traced FLOWS_TO path",
+    "Penultimate address before an exchange endpoint"
+   ]
+  },
+  {
+   "address": "5F3nQfD5wiajofqTgAg4VDCjCcrTkGzHyNGfdzzpZNeD31SB",
+   "roles": [
+    "candidate_intermediate"
+   ],
+   "confidence": "medium",
+   "rationale": [
+    "Address appears in traced FLOWS_TO path"
+   ]
+  },
+  {
+   "address": "5FJQu3q5Mbr87hSLdm9qXYJPc63nFRJBje7F9cNyk8xRXPyX",
+   "roles": [
+    "candidate_intermediate",
+    "candidate_deposit"
+   ],
+   "confidence": "medium",
+   "rationale": [
+    "Address appears in traced FLOWS_TO path",
+    "Penultimate address before an exchange endpoint"
+   ]
+  },
+  {
+   "address": "5GHZoMMKdoEs6n8RJ2RdPEDLrskCdwbKHhci8XjbcksUTwyX",
+   "roles": [
+    "candidate_intermediate"
+   ],
+   "confidence": "medium",
+   "rationale": [
+    "Address appears in traced FLOWS_TO path"
+   ]
+  },
+  {
+   "address": "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+   "roles": [
+    "candidate_intermediate"
+   ],
+   "confidence": "medium",
+   "rationale": [
+    "Address appears in traced FLOWS_TO path"
    ]
   }
  ],
- "edges": [],
- "paths": [],
- "convergence": [],
- "exchange_exposure": [],
+ "edges": [
+  {
+   "edge_id": "e1",
+   "from_address": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "to_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 828.06431585,
+   "tx_count": 1,
+   "first_tx_id": "7634394-21",
+   "last_tx_id": "7634394-21"
+  },
+  {
+   "edge_id": "e2",
+   "from_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+   "to_address": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 23.08154777,
+   "tx_count": 1,
+   "first_tx_id": "7818675-12",
+   "last_tx_id": "7818675-12"
+  },
+  {
+   "edge_id": "e3",
+   "from_address": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "to_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 24124.45674662,
+   "tx_count": 4,
+   "first_tx_id": "8332500-14",
+   "last_tx_id": "8332681-13"
+  },
+  {
+   "edge_id": "e4",
+   "from_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+   "to_address": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 46972.67858143,
+   "tx_count": 1,
+   "first_tx_id": "8451093-10",
+   "last_tx_id": "8451093-10"
+  },
+  {
+   "edge_id": "e5",
+   "from_address": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "to_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 4192.45811025,
+   "tx_count": 2,
+   "first_tx_id": "7497250-18",
+   "last_tx_id": "7497317-12"
+  },
+  {
+   "edge_id": "e6",
+   "from_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+   "to_address": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 881.03598503,
+   "tx_count": 1,
+   "first_tx_id": "7459292-16",
+   "last_tx_id": "7459292-16"
+  },
+  {
+   "edge_id": "e7",
+   "from_address": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "to_address": "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 29.29130428,
+   "tx_count": 1,
+   "first_tx_id": "7818513-19",
+   "last_tx_id": "7818513-19"
+  },
+  {
+   "edge_id": "e8",
+   "from_address": "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+   "to_address": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 28.93980863,
+   "tx_count": 1,
+   "first_tx_id": "7818516-20",
+   "last_tx_id": "7818516-20"
+  },
+  {
+   "edge_id": "e9",
+   "from_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+   "to_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 246.63365523,
+   "tx_count": 1,
+   "first_tx_id": "8430260-23",
+   "last_tx_id": "8430260-23"
+  },
+  {
+   "edge_id": "e10",
+   "from_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+   "to_address": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 2946.82303588,
+   "tx_count": 1,
+   "first_tx_id": "3010197-14",
+   "last_tx_id": "3010197-14"
+  },
+  {
+   "edge_id": "e11",
+   "from_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+   "to_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 212.31074764,
+   "tx_count": 1,
+   "first_tx_id": "8467147-7",
+   "last_tx_id": "8467147-7"
+  },
+  {
+   "edge_id": "e12",
+   "from_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+   "to_address": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 214.69842465,
+   "tx_count": 1,
+   "first_tx_id": "8467188-28",
+   "last_tx_id": "8467188-28"
+  },
+  {
+   "edge_id": "e13",
+   "from_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+   "to_address": "5EUYMnKdHKjNvovUcdgGNGBY1Zj2thSiXeZmzX1e33LSByW1",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 289.12321403,
+   "tx_count": 1,
+   "first_tx_id": "8473867-15",
+   "last_tx_id": "8473867-15"
+  },
+  {
+   "edge_id": "e14",
+   "from_address": "5EUYMnKdHKjNvovUcdgGNGBY1Zj2thSiXeZmzX1e33LSByW1",
+   "to_address": "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 84958.72110272,
+   "tx_count": 1,
+   "first_tx_id": "7826800-27",
+   "last_tx_id": "7826800-27"
+  },
+  {
+   "edge_id": "e15",
+   "from_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+   "to_address": "5EXYCA7tSDJtxd2ZeyeChmjfymcYcdxs6dKk1hkA7QCgeemF",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 13.01333055,
+   "tx_count": 1,
+   "first_tx_id": "8538533-8",
+   "last_tx_id": "8538533-8"
+  },
+  {
+   "edge_id": "e16",
+   "from_address": "5EXYCA7tSDJtxd2ZeyeChmjfymcYcdxs6dKk1hkA7QCgeemF",
+   "to_address": "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 3.4445373,
+   "tx_count": 1,
+   "first_tx_id": "7831166-35",
+   "last_tx_id": "7831166-35"
+  },
+  {
+   "edge_id": "e17",
+   "from_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+   "to_address": "5FCg17qLyTrEBSKDYD6TxuAXd937Nx7ZEdEdMsuw97Po1sxx",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 893.38011427,
+   "tx_count": 1,
+   "first_tx_id": "8308385-9",
+   "last_tx_id": "8308385-9"
+  },
+  {
+   "edge_id": "e18",
+   "from_address": "5FCg17qLyTrEBSKDYD6TxuAXd937Nx7ZEdEdMsuw97Po1sxx",
+   "to_address": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 63.52305231,
+   "tx_count": 1,
+   "first_tx_id": "7466997-42",
+   "last_tx_id": "7466997-42"
+  },
+  {
+   "edge_id": "e19",
+   "from_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+   "to_address": "5Gjc87n47b7X7ApX7p1yfmxBtHiUc24A4r4hDAUqNoH7oDP6",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 36.49959234,
+   "tx_count": 1,
+   "first_tx_id": "8308055-10",
+   "last_tx_id": "8308055-10"
+  },
+  {
+   "edge_id": "e20",
+   "from_address": "5Gjc87n47b7X7ApX7p1yfmxBtHiUc24A4r4hDAUqNoH7oDP6",
+   "to_address": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 2.95467614,
+   "tx_count": 1,
+   "first_tx_id": "7096724-13",
+   "last_tx_id": "7096724-13"
+  },
+  {
+   "edge_id": "e21",
+   "from_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+   "to_address": "5Hhdw2M6Lp71VXk1qDFWwt4j3jBnRQRjjQ6HiEJx7DspyFKv",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 208.1876981,
+   "tx_count": 1,
+   "first_tx_id": "8515054-13",
+   "last_tx_id": "8515054-13"
+  },
+  {
+   "edge_id": "e22",
+   "from_address": "5Hhdw2M6Lp71VXk1qDFWwt4j3jBnRQRjjQ6HiEJx7DspyFKv",
+   "to_address": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 210.33620582,
+   "tx_count": 1,
+   "first_tx_id": "8515093-9",
+   "last_tx_id": "8515093-9"
+  },
+  {
+   "edge_id": "e23",
+   "from_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+   "to_address": "5Hp1QQ88Deee6Lqvga6giUBEvL9ZE5uRBLQ6x6KwzvABYh96",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 3330.28805809,
+   "tx_count": 1,
+   "first_tx_id": "8483238-33",
+   "last_tx_id": "8483238-33"
+  },
+  {
+   "edge_id": "e24",
+   "from_address": "5Hp1QQ88Deee6Lqvga6giUBEvL9ZE5uRBLQ6x6KwzvABYh96",
+   "to_address": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 4.51336567,
+   "tx_count": 1,
+   "first_tx_id": "8326849-19",
+   "last_tx_id": "8326849-19"
+  },
+  {
+   "edge_id": "e25",
+   "from_address": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "to_address": "5F3nQfD5wiajofqTgAg4VDCjCcrTkGzHyNGfdzzpZNeD31SB",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 967.745747,
+   "tx_count": 1,
+   "first_tx_id": "8356124-32",
+   "last_tx_id": "8356124-32"
+  },
+  {
+   "edge_id": "e26",
+   "from_address": "5F3nQfD5wiajofqTgAg4VDCjCcrTkGzHyNGfdzzpZNeD31SB",
+   "to_address": "5FJQu3q5Mbr87hSLdm9qXYJPc63nFRJBje7F9cNyk8xRXPyX",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 967.71359036,
+   "tx_count": 1,
+   "first_tx_id": "8356127-29",
+   "last_tx_id": "8356127-29"
+  },
+  {
+   "edge_id": "e27",
+   "from_address": "5FJQu3q5Mbr87hSLdm9qXYJPc63nFRJBje7F9cNyk8xRXPyX",
+   "to_address": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 967.68143371,
+   "tx_count": 1,
+   "first_tx_id": "8356148-8",
+   "last_tx_id": "8356148-8"
+  },
+  {
+   "edge_id": "e28",
+   "from_address": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "to_address": "5GHZoMMKdoEs6n8RJ2RdPEDLrskCdwbKHhci8XjbcksUTwyX",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 18.13527758,
+   "tx_count": 1,
+   "first_tx_id": "6866219-20",
+   "last_tx_id": "6866219-20"
+  },
+  {
+   "edge_id": "e29",
+   "from_address": "5GHZoMMKdoEs6n8RJ2RdPEDLrskCdwbKHhci8XjbcksUTwyX",
+   "to_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 38.47239819,
+   "tx_count": 1,
+   "first_tx_id": "8332347-20",
+   "last_tx_id": "8332347-20"
+  },
+  {
+   "edge_id": "e30",
+   "from_address": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "to_address": "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 1190.72848605,
+   "tx_count": 1,
+   "first_tx_id": "7417917-30",
+   "last_tx_id": "7417917-30"
+  },
+  {
+   "edge_id": "e31",
+   "from_address": "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+   "to_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 431.31984479,
+   "tx_count": 1,
+   "first_tx_id": "7681376-16",
+   "last_tx_id": "7681376-16"
+  },
+  {
+   "edge_id": "e32",
+   "from_address": "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+   "to_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+   "edge_type": "FLOWS_TO",
+   "amount_usd_sum": 832.73947231,
+   "tx_count": 1,
+   "first_tx_id": "7459289-46",
+   "last_tx_id": "7459289-46"
+  }
+ ],
+ "paths": [
+  {
+   "path_id": "p1",
+   "direction": "forward",
+   "source": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "target": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+   "addresses": [
+    "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+    "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+    "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+   ],
+   "edge_ids": [
+    "e1",
+    "e2"
+   ],
+   "hops": 2,
+   "terminal_role": "exchange",
+   "amount_usd_sum": 23.08154777
+  },
+  {
+   "path_id": "p2",
+   "direction": "forward",
+   "source": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "target": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+   "addresses": [
+    "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+    "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+   ],
+   "edge_ids": [
+    "e3",
+    "e4"
+   ],
+   "hops": 2,
+   "terminal_role": "exchange",
+   "amount_usd_sum": 46972.67858143
+  },
+  {
+   "path_id": "p3",
+   "direction": "forward",
+   "source": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "target": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+   "addresses": [
+    "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+    "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+   ],
+   "edge_ids": [
+    "e5",
+    "e6"
+   ],
+   "hops": 2,
+   "terminal_role": "exchange",
+   "amount_usd_sum": 881.03598503
+  },
+  {
+   "path_id": "p4",
+   "direction": "forward",
+   "source": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "target": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+   "addresses": [
+    "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+    "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+    "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+   ],
+   "edge_ids": [
+    "e7",
+    "e8"
+   ],
+   "hops": 2,
+   "terminal_role": "exchange",
+   "amount_usd_sum": 28.93980863
+  },
+  {
+   "path_id": "p5",
+   "direction": "forward",
+   "source": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "target": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "addresses": [
+    "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+    "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+   ],
+   "edge_ids": [
+    "e3",
+    "e9",
+    "e10"
+   ],
+   "hops": 3,
+   "terminal_role": "exchange",
+   "amount_usd_sum": 2946.82303588
+  },
+  {
+   "path_id": "p6",
+   "direction": "forward",
+   "source": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "target": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "addresses": [
+    "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+    "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+   ],
+   "edge_ids": [
+    "e3",
+    "e11",
+    "e12"
+   ],
+   "hops": 3,
+   "terminal_role": "exchange",
+   "amount_usd_sum": 214.69842465
+  },
+  {
+   "path_id": "p7",
+   "direction": "forward",
+   "source": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "target": "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8",
+   "addresses": [
+    "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+    "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "5EUYMnKdHKjNvovUcdgGNGBY1Zj2thSiXeZmzX1e33LSByW1",
+    "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8"
+   ],
+   "edge_ids": [
+    "e3",
+    "e13",
+    "e14"
+   ],
+   "hops": 3,
+   "terminal_role": "exchange",
+   "amount_usd_sum": 84958.72110272
+  },
+  {
+   "path_id": "p8",
+   "direction": "forward",
+   "source": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "target": "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR",
+   "addresses": [
+    "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+    "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "5EXYCA7tSDJtxd2ZeyeChmjfymcYcdxs6dKk1hkA7QCgeemF",
+    "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR"
+   ],
+   "edge_ids": [
+    "e3",
+    "e15",
+    "e16"
+   ],
+   "hops": 3,
+   "terminal_role": "exchange",
+   "amount_usd_sum": 3.4445373
+  },
+  {
+   "path_id": "p9",
+   "direction": "forward",
+   "source": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "target": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "addresses": [
+    "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+    "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "5FCg17qLyTrEBSKDYD6TxuAXd937Nx7ZEdEdMsuw97Po1sxx",
+    "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+   ],
+   "edge_ids": [
+    "e3",
+    "e17",
+    "e18"
+   ],
+   "hops": 3,
+   "terminal_role": "exchange",
+   "amount_usd_sum": 63.52305231
+  },
+  {
+   "path_id": "p10",
+   "direction": "forward",
+   "source": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "target": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "addresses": [
+    "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+    "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "5Gjc87n47b7X7ApX7p1yfmxBtHiUc24A4r4hDAUqNoH7oDP6",
+    "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+   ],
+   "edge_ids": [
+    "e3",
+    "e19",
+    "e20"
+   ],
+   "hops": 3,
+   "terminal_role": "exchange",
+   "amount_usd_sum": 2.95467614
+  },
+  {
+   "path_id": "p11",
+   "direction": "forward",
+   "source": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "target": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "addresses": [
+    "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+    "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "5Hhdw2M6Lp71VXk1qDFWwt4j3jBnRQRjjQ6HiEJx7DspyFKv",
+    "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+   ],
+   "edge_ids": [
+    "e3",
+    "e21",
+    "e22"
+   ],
+   "hops": 3,
+   "terminal_role": "exchange",
+   "amount_usd_sum": 210.33620582
+  },
+  {
+   "path_id": "p12",
+   "direction": "forward",
+   "source": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "target": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "addresses": [
+    "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+    "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "5Hp1QQ88Deee6Lqvga6giUBEvL9ZE5uRBLQ6x6KwzvABYh96",
+    "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+   ],
+   "edge_ids": [
+    "e3",
+    "e23",
+    "e24"
+   ],
+   "hops": 3,
+   "terminal_role": "exchange",
+   "amount_usd_sum": 4.51336567
+  },
+  {
+   "path_id": "p13",
+   "direction": "forward",
+   "source": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "target": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "addresses": [
+    "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+    "5F3nQfD5wiajofqTgAg4VDCjCcrTkGzHyNGfdzzpZNeD31SB",
+    "5FJQu3q5Mbr87hSLdm9qXYJPc63nFRJBje7F9cNyk8xRXPyX",
+    "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+   ],
+   "edge_ids": [
+    "e25",
+    "e26",
+    "e27"
+   ],
+   "hops": 3,
+   "terminal_role": "exchange",
+   "amount_usd_sum": 967.68143371
+  },
+  {
+   "path_id": "p14",
+   "direction": "forward",
+   "source": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "target": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+   "addresses": [
+    "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+    "5GHZoMMKdoEs6n8RJ2RdPEDLrskCdwbKHhci8XjbcksUTwyX",
+    "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+   ],
+   "edge_ids": [
+    "e28",
+    "e29",
+    "e4"
+   ],
+   "hops": 3,
+   "terminal_role": "exchange",
+   "amount_usd_sum": 46972.67858143
+  },
+  {
+   "path_id": "p15",
+   "direction": "forward",
+   "source": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "target": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+   "addresses": [
+    "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+    "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+    "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+    "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+   ],
+   "edge_ids": [
+    "e30",
+    "e31",
+    "e2"
+   ],
+   "hops": 3,
+   "terminal_role": "exchange",
+   "amount_usd_sum": 23.08154777
+  },
+  {
+   "path_id": "p16",
+   "direction": "forward",
+   "source": "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+   "target": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+   "addresses": [
+    "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+    "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+    "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+   ],
+   "edge_ids": [
+    "e30",
+    "e32",
+    "e6"
+   ],
+   "hops": 3,
+   "terminal_role": "exchange",
+   "amount_usd_sum": 881.03598503
+  }
+ ],
+ "convergence": [
+  {
+   "address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+   "role": "candidate_deposit",
+   "path_ids": [
+    "p1",
+    "p15"
+   ],
+   "reason": "Multiple traced paths converge into this deposit candidate."
+  },
+  {
+   "address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+   "role": "candidate_deposit",
+   "path_ids": [
+    "p2",
+    "p5",
+    "p6",
+    "p7",
+    "p8",
+    "p9",
+    "p10",
+    "p11",
+    "p12",
+    "p14"
+   ],
+   "reason": "Multiple traced paths converge into this deposit candidate."
+  },
+  {
+   "address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+   "role": "candidate_deposit",
+   "path_ids": [
+    "p3",
+    "p16"
+   ],
+   "reason": "Multiple traced paths converge into this deposit candidate."
+  }
+ ],
+ "exchange_exposure": [
+  {
+   "deposit_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+   "exchange_address": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+   "path_ids": [
+    "p1",
+    "p15"
+   ]
+  },
+  {
+   "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+   "exchange_address": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+   "path_ids": [
+    "p2",
+    "p5",
+    "p6",
+    "p7",
+    "p8",
+    "p9",
+    "p10",
+    "p11",
+    "p12",
+    "p14"
+   ]
+  },
+  {
+   "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+   "exchange_address": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+   "path_ids": [
+    "p3",
+    "p16"
+   ]
+  },
+  {
+   "deposit_address": "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+   "exchange_address": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+   "path_ids": [
+    "p4"
+   ]
+  },
+  {
+   "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+   "exchange_address": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "path_ids": [
+    "p5"
+   ]
+  },
+  {
+   "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+   "exchange_address": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "path_ids": [
+    "p6"
+   ]
+  },
+  {
+   "deposit_address": "5EUYMnKdHKjNvovUcdgGNGBY1Zj2thSiXeZmzX1e33LSByW1",
+   "exchange_address": "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8",
+   "path_ids": [
+    "p7"
+   ]
+  },
+  {
+   "deposit_address": "5EXYCA7tSDJtxd2ZeyeChmjfymcYcdxs6dKk1hkA7QCgeemF",
+   "exchange_address": "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR",
+   "path_ids": [
+    "p8"
+   ]
+  },
+  {
+   "deposit_address": "5FCg17qLyTrEBSKDYD6TxuAXd937Nx7ZEdEdMsuw97Po1sxx",
+   "exchange_address": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "path_ids": [
+    "p9"
+   ]
+  },
+  {
+   "deposit_address": "5Gjc87n47b7X7ApX7p1yfmxBtHiUc24A4r4hDAUqNoH7oDP6",
+   "exchange_address": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "path_ids": [
+    "p10"
+   ]
+  },
+  {
+   "deposit_address": "5Hhdw2M6Lp71VXk1qDFWwt4j3jBnRQRjjQ6HiEJx7DspyFKv",
+   "exchange_address": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "path_ids": [
+    "p11"
+   ]
+  },
+  {
+   "deposit_address": "5Hp1QQ88Deee6Lqvga6giUBEvL9ZE5uRBLQ6x6KwzvABYh96",
+   "exchange_address": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "path_ids": [
+    "p12"
+   ]
+  },
+  {
+   "deposit_address": "5FJQu3q5Mbr87hSLdm9qXYJPc63nFRJBje7F9cNyk8xRXPyX",
+   "exchange_address": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+   "path_ids": [
+    "p13"
+   ]
+  },
+  {
+   "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+   "exchange_address": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+   "path_ids": [
+    "p2",
+    "p5",
+    "p6",
+    "p7",
+    "p8",
+    "p9",
+    "p10",
+    "p11",
+    "p12",
+    "p14"
+   ]
+  },
+  {
+   "deposit_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+   "exchange_address": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+   "path_ids": [
+    "p1",
+    "p15"
+   ]
+  },
+  {
+   "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+   "exchange_address": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+   "path_ids": [
+    "p3",
+    "p16"
+   ]
+  }
+ ],
  "deposit_funding": {
-  "source_exchange_paths": [],
-  "reverse_leads": []
+  "source_exchange_paths": [
+   {
+    "deposit_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 2,
+    "path": [
+     "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+    "source_exchange": "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s",
+    "source_labels": [
+     "MEXC"
+    ],
+    "hops": 2,
+    "path": [
+     "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 2,
+    "path": [
+     "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+    "source_exchange": "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR",
+    "source_labels": [
+     "Bitget"
+    ],
+    "hops": 3,
+    "path": [
+     "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5CvWGgcdQoXxZHY9ZoRmA45NKrBiefaqmAySoQrnxiP6XSDT",
+     "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+    "source_exchange": "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux",
+    "source_labels": [
+     "Kraken Hot"
+    ],
+    "hops": 3,
+    "path": [
+     "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5GjY82vatSjbPCkt1cq2bmybG2kjJWQexKW4d6WbFFWUJD8X",
+     "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5GjY82vatSjbPCkt1cq2bmybG2kjJWQexKW4d6WbFFWUJD8X",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+    "source_exchange": "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s",
+    "source_labels": [
+     "MEXC"
+    ],
+    "hops": 3,
+    "path": [
+     "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5HikxmBMYhko5HRvVXrRDoEqESXiTC6K1DN5v44UtpftprVz",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+    "source_exchange": "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR",
+    "source_labels": [
+     "Bitget"
+    ],
+    "hops": 3,
+    "path": [
+     "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5CvWGgcdQoXxZHY9ZoRmA45NKrBiefaqmAySoQrnxiP6XSDT",
+     "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+    "source_exchange": "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux",
+    "source_labels": [
+     "Kraken Hot"
+    ],
+    "hops": 3,
+    "path": [
+     "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5GjY82vatSjbPCkt1cq2bmybG2kjJWQexKW4d6WbFFWUJD8X",
+     "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5GjY82vatSjbPCkt1cq2bmybG2kjJWQexKW4d6WbFFWUJD8X",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 1,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR",
+    "source_labels": [
+     "Bitget"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5DvY6YdiWbswF49RvLBz4sKesWjvhvXLBimUcW3rULZQTLoC",
+     "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5F9Qvcz22Fwq4cm58o2bShiL6n8BnJmhqXB1cispBpqRfN6w",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5H4J8bWpw3oZoZiLrSfpdeQTuuF4HPKyopB6okPGBJs58jvR",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5CNChyk2fnVgVSZDLAVVFb4QBTMGm6WfuQvseBG6hj8xWzKP",
+    "source_labels": [
+     "Gate.io"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HmQZCVaCqQftTaJYyYNku3BNJzK5JX5qHxWKtG3GjmDZT9H",
+     "5CNChyk2fnVgVSZDLAVVFb4QBTMGm6WfuQvseBG6hj8xWzKP"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s",
+    "source_labels": [
+     "MEXC"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5CVukQynVNYA5ojFmne1APDymjH9UpMgv38YuWrn2yJfQPf8",
+     "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5CVukQynVNYA5ojFmne1APDymjH9UpMgv38YuWrn2yJfQPf8",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s",
+    "source_labels": [
+     "MEXC"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5CsyLPX4N3BndrJwRsWZmv338uauac6M7rV7fU8kYNicDpkv",
+     "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5Ggu6kYZERYuVjbuadDxvisu8qExQfRihugDQevURKKgAUMT",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5EbnB2t4K7yvKPnnFnnDvStfSjg13mXqBLjTZajiThKikKUp",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5CNChyk2fnVgVSZDLAVVFb4QBTMGm6WfuQvseBG6hj8xWzKP",
+    "source_labels": [
+     "Gate.io"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5DRPQdQrCr7Sem8SXTemXtugYa3bnfkf8eBgA6Ukpo9hjwu3",
+     "5CNChyk2fnVgVSZDLAVVFb4QBTMGm6WfuQvseBG6hj8xWzKP"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s",
+    "source_labels": [
+     "MEXC"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5DRPQdQrCr7Sem8SXTemXtugYa3bnfkf8eBgA6Ukpo9hjwu3",
+     "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5CAG9dwsL8TWshPsTbDuoCbT1RGBSsxQR7YWAarsbCDQw364",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5CNChyk2fnVgVSZDLAVVFb4QBTMGm6WfuQvseBG6hj8xWzKP",
+    "source_labels": [
+     "Gate.io"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5CQ9kYzNME3PVn52gN5KqTsjvm1mnTDWD4WiNYFzzQ6ZDsnG",
+     "5CNChyk2fnVgVSZDLAVVFb4QBTMGm6WfuQvseBG6hj8xWzKP"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8",
+    "source_labels": [
+     "Crypto.com"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5EUYMnKdHKjNvovUcdgGNGBY1Zj2thSiXeZmzX1e33LSByW1",
+     "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8",
+    "source_labels": [
+     "Crypto.com"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5H865pZxsMPDnkpEp3dC7xYxrauMhtRn7pt77WzrwjfzdN4p",
+     "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8",
+    "source_labels": [
+     "Crypto.com"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5Gdsd3ZaTS6EJJHhSUxqLGpKuoH5qj3zFCXoPzLb7JsEQ4Sb",
+     "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5GumXDdFKiMW6BChNMREQNq9ghCoNXCs9ZbKSSgjRCn6bNE7",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux",
+    "source_labels": [
+     "Kraken Hot"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5EYexJMGs7U14qGTXEJLK6N5oNAUQu7CCRGBzGhbyc3eDcXR",
+     "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5H5r5NUv4avQiwkZB88dQiBrSctN7frLjbzMg7w9Mf9r8he1",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 2,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5H1Kpam5rSoUUFWV2XH6bTcPcgrCSnR3D5gsa1suVvHQKBVb",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5EJvKeKiVfEF9oyyM1V2xayCG5s2o7r82VR6ZSWiHJZWEsxZ",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux",
+    "source_labels": [
+     "Kraken Hot"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5EJvKeKiVfEF9oyyM1V2xayCG5s2o7r82VR6ZSWiHJZWEsxZ",
+     "5FqqXKb9zonSNKbZhEuHYjCXnmPbX9tdzMCU2gx8gir8Z8a5",
+     "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux",
+    "source_labels": [
+     "Kraken Hot"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5FHkc5T2UXgLjW2YRtWmvPtBU3UPAGa26bA5usYGLWm88wAG",
+     "5FqqXKb9zonSNKbZhEuHYjCXnmPbX9tdzMCU2gx8gir8Z8a5",
+     "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux",
+    "source_labels": [
+     "Kraken Hot"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5FR1kkESgfzfzSHckRgoWyRPH28j4cqBJFsq7oSY4yhjVRNH",
+     "5FqqXKb9zonSNKbZhEuHYjCXnmPbX9tdzMCU2gx8gir8Z8a5",
+     "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5FR1kkESgfzfzSHckRgoWyRPH28j4cqBJFsq7oSY4yhjVRNH",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5FvdMqtHTiRjYbfKU766vrqwWrAxLfDqtMwZWmW666YAEMSc",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5DkKvodjy8rGPkXxbM9DdVbWUXCB1HVEdathmRQ9kxh56HYV",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux",
+    "source_labels": [
+     "Kraken Hot"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5DkKvodjy8rGPkXxbM9DdVbWUXCB1HVEdathmRQ9kxh56HYV",
+     "5FqqXKb9zonSNKbZhEuHYjCXnmPbX9tdzMCU2gx8gir8Z8a5",
+     "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux",
+    "source_labels": [
+     "Kraken Hot"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5F9Qvcz22Fwq4cm58o2bShiL6n8BnJmhqXB1cispBpqRfN6w",
+     "5DAJ2hA52W6VJNrvsQ6AC3Usr8TCpgtw7sRBcUa4eMdjVcGX",
+     "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5EZAn8NPnmkawYjWoJXKPisrPGKKPLJ6cM1AzkKaPgxEUoUG",
+     "5HeUWqE6xkQjprHyEUDvaS4BYbx3cfDVQGpQpY3L82cT2TT9",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5EZAn8NPnmkawYjWoJXKPisrPGKKPLJ6cM1AzkKaPgxEUoUG",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5CXehU3ijxm2EkvBHy2pJEoNSVAgPbxcGVA633kJixGVyssf",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5FW7yqdHdfa5yssasKuV2EzNkhNhEV2cdm3DFmvbSsKA8TdS",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8",
+    "source_labels": [
+     "Crypto.com"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5FW7yqdHdfa5yssasKuV2EzNkhNhEV2cdm3DFmvbSsKA8TdS",
+     "5CW8rdA832Qrc8NkFrC5pn4dox7G5ysUaLHm1tDnG5NQUnnC",
+     "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5FW7yqdHdfa5yssasKuV2EzNkhNhEV2cdm3DFmvbSsKA8TdS",
+     "5CkdS2Vb7rjERNC6CRseHoqK6YTTJ8yZXNPYv8VZZ4AELJXK",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5FbNKt3t2oirQbUFD6Pso2vWkAZw3jXyaY9Ygs2w54n2bnjg",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux",
+    "source_labels": [
+     "Kraken Hot"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5H68TWhAwW1Rhm9x6HfdbqKjxigriru8ZeDYjJxhmo8t3dbP",
+     "5FqqXKb9zonSNKbZhEuHYjCXnmPbX9tdzMCU2gx8gir8Z8a5",
+     "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8",
+    "source_labels": [
+     "Crypto.com"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5GER5ydNzVn2QtvatQYeAW4FQhRBF93Cd1sneyTfTzSaanok",
+     "5CW8rdA832Qrc8NkFrC5pn4dox7G5ysUaLHm1tDnG5NQUnnC",
+     "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HmQZCVaCqQftTaJYyYNku3BNJzK5JX5qHxWKtG3GjmDZT9H",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5CVukQynVNYA5ojFmne1APDymjH9UpMgv38YuWrn2yJfQPf8",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 2,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux",
+    "source_labels": [
+     "Kraken Hot"
+    ],
+    "hops": 2,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5GjY82vatSjbPCkt1cq2bmybG2kjJWQexKW4d6WbFFWUJD8X",
+     "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 2,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5GjY82vatSjbPCkt1cq2bmybG2kjJWQexKW4d6WbFFWUJD8X",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s",
+    "source_labels": [
+     "MEXC"
+    ],
+    "hops": 2,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 2,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 2,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5HikxmBMYhko5HRvVXrRDoEqESXiTC6K1DN5v44UtpftprVz",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR",
+    "source_labels": [
+     "Bitget"
+    ],
+    "hops": 3,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5CvWGgcdQoXxZHY9ZoRmA45NKrBiefaqmAySoQrnxiP6XSDT",
+     "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux",
+    "source_labels": [
+     "Kraken Hot"
+    ],
+    "hops": 3,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5GjY82vatSjbPCkt1cq2bmybG2kjJWQexKW4d6WbFFWUJD8X",
+     "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5GjY82vatSjbPCkt1cq2bmybG2kjJWQexKW4d6WbFFWUJD8X",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s",
+    "source_labels": [
+     "MEXC"
+    ],
+    "hops": 3,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5HikxmBMYhko5HRvVXrRDoEqESXiTC6K1DN5v44UtpftprVz",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5FMU1URwUkywuRm83Cnvj3R4Mv5o2s7Z9YCu6hVXgBSzb7A4",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5GjY82vatSjbPCkt1cq2bmybG2kjJWQexKW4d6WbFFWUJD8X",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux",
+    "source_labels": [
+     "Kraken Hot"
+    ],
+    "hops": 3,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5GjY82vatSjbPCkt1cq2bmybG2kjJWQexKW4d6WbFFWUJD8X",
+     "5FqqXKb9zonSNKbZhEuHYjCXnmPbX9tdzMCU2gx8gir8Z8a5",
+     "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5GjY82vatSjbPCkt1cq2bmybG2kjJWQexKW4d6WbFFWUJD8X",
+     "5HikxmBMYhko5HRvVXrRDoEqESXiTC6K1DN5v44UtpftprVz",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR",
+    "source_labels": [
+     "Bitget"
+    ],
+    "hops": 3,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5CvWGgcdQoXxZHY9ZoRmA45NKrBiefaqmAySoQrnxiP6XSDT",
+     "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux",
+    "source_labels": [
+     "Kraken Hot"
+    ],
+    "hops": 3,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5GjY82vatSjbPCkt1cq2bmybG2kjJWQexKW4d6WbFFWUJD8X",
+     "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5GjY82vatSjbPCkt1cq2bmybG2kjJWQexKW4d6WbFFWUJD8X",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5HikxmBMYhko5HRvVXrRDoEqESXiTC6K1DN5v44UtpftprVz",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux",
+    "source_labels": [
+     "Kraken Hot"
+    ],
+    "hops": 3,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5HikxmBMYhko5HRvVXrRDoEqESXiTC6K1DN5v44UtpftprVz",
+     "5GjY82vatSjbPCkt1cq2bmybG2kjJWQexKW4d6WbFFWUJD8X",
+     "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+     "5HikxmBMYhko5HRvVXrRDoEqESXiTC6K1DN5v44UtpftprVz",
+     "5GjY82vatSjbPCkt1cq2bmybG2kjJWQexKW4d6WbFFWUJD8X",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 2,
+    "path": [
+     "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+    "source_exchange": "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR",
+    "source_labels": [
+     "Bitget"
+    ],
+    "hops": 3,
+    "path": [
+     "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5CvWGgcdQoXxZHY9ZoRmA45NKrBiefaqmAySoQrnxiP6XSDT",
+     "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+    "source_exchange": "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux",
+    "source_labels": [
+     "Kraken Hot"
+    ],
+    "hops": 3,
+    "path": [
+     "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5GjY82vatSjbPCkt1cq2bmybG2kjJWQexKW4d6WbFFWUJD8X",
+     "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5GjY82vatSjbPCkt1cq2bmybG2kjJWQexKW4d6WbFFWUJD8X",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+    "source_exchange": "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s",
+    "source_labels": [
+     "MEXC"
+    ],
+    "hops": 3,
+    "path": [
+     "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5GmeHmTzKBrcbYK9s4HNnewk4xG7AjKyXxqfYdnW5QCGSkKT",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+     "5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x",
+     "5HikxmBMYhko5HRvVXrRDoEqESXiTC6K1DN5v44UtpftprVz",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5CNChyk2fnVgVSZDLAVVFb4QBTMGm6WfuQvseBG6hj8xWzKP",
+    "source_labels": [
+     "Gate.io"
+    ],
+    "hops": 1,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5CNChyk2fnVgVSZDLAVVFb4QBTMGm6WfuQvseBG6hj8xWzKP"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s",
+    "source_labels": [
+     "MEXC"
+    ],
+    "hops": 1,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 1,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR",
+    "source_labels": [
+     "Bitget"
+    ],
+    "hops": 1,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 2,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EJH8ub1icdsMpvX7KwwAoeo5eoT5AuFaNmxZubE1q122ovE",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 2,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 2,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5DALJz7mndb2b4bAaxtokVSrKpd9PS48qYPyYerb4xFs7KDb",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s",
+    "source_labels": [
+     "MEXC"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5EeBsvypTKESVw4e3nDNpiBfZTfESKhUuL7BSJt4VmbZn5uC",
+     "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5EeBsvypTKESVw4e3nDNpiBfZTfESKhUuL7BSJt4VmbZn5uC",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5Gs88NDAZEmQJeHVFdseLzJm9K7VANwEpjoxg8AQ1kmh6mCC",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s",
+    "source_labels": [
+     "MEXC"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5CZc9WQg3WyaSwzvucY4SiskdtNnPE6HsTcgM9wcJv2w2prL",
+     "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5CaaSSQSKxDUJj8RjYJnVRmPV9yRs53TyV3BsMoV8kjd3eis",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR",
+    "source_labels": [
+     "Bitget"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5H74WdAJEpH1Bco6GsS6ZVjtXSNrCanKe9H1YpVq1cB4pqSj",
+     "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5EfH5YqqH1BFVLnXR5EE3s1MwnzKjoC4TtyPvknLCY98mq1Q",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s",
+    "source_labels": [
+     "MEXC"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5HHtnGfZcGwkaQHDPUvfaGxzkEAWK2bJH8VtHggQDcwnSfHb",
+     "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5HHtnGfZcGwkaQHDPUvfaGxzkEAWK2bJH8VtHggQDcwnSfHb",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5Dnk8x8k3F6rxqAWHdKTLndNGWXDt6tDgY29H1uBWZboC9JK",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5HTsESjzwjVwedrQVreja35SxisXV8U3PqcgekTsaHHPz7VB",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s",
+    "source_labels": [
+     "MEXC"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5CPboDj8pcuSNFCqZKW33ActVfxLpqM2xfHFQsWdWnCjgTQq",
+     "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s",
+    "source_labels": [
+     "MEXC"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5HE3tNz1GCbbdNPABf3Smie1MpuL2vG4mYdxA27uiQXA2od3",
+     "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5FEqfb1z47r2T9Bzhw4a52VRuFYs7VpzMbydvUiB9gzSN6wz",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s",
+    "source_labels": [
+     "MEXC"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5GYxBMZMCAo1KBushN32LeMKrmJKydUN8cFgcxioUpwxCAcz",
+     "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s",
+    "source_labels": [
+     "MEXC"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5C4yernrSgVTCRcFuSMdzhUCLrDrnSc73WEKLcyDqLY8mSJy",
+     "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5C4yernrSgVTCRcFuSMdzhUCLrDrnSc73WEKLcyDqLY8mSJy",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5ERMFW7ZVvttrGhqa657qqkqRYeAh22PHK4vFHRXjymAKqs6",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5EoAsHUxC3d91jwyHBzfi1kptRvrtsWfsi66XbUVe8mPX2xD",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+     "5EYCAe5jLQhn6ofDSw55w5K4ksKbiz7KVTwZHKiYJ6yYc62p",
+     "5GNpB6WRrGY2tFEi8gsAPxdtCQ9ztwkyt7ghngyqLF3sHTfv",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 2,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 2,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5FPj5pgLCkFdWPT5ssNj2SeQCFqecbt5QwQWk1n4RZinyjfV",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR",
+    "source_labels": [
+     "Bitget"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5DvY6YdiWbswF49RvLBz4sKesWjvhvXLBimUcW3rULZQTLoC",
+     "5HbDZ6ULuwZegAMSPaS2kaUfBLMDaht5t48RcDrQATSgGCAR"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv",
+    "source_labels": [
+     "Taobridge"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5F9Qvcz22Fwq4cm58o2bShiL6n8BnJmhqXB1cispBpqRfN6w",
+     "5HiveMEoWPmQmBAb8v63bKPcFhgTGCmST1TVZNvPHSTKFLCv"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5H4J8bWpw3oZoZiLrSfpdeQTuuF4HPKyopB6okPGBJs58jvR",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5CNChyk2fnVgVSZDLAVVFb4QBTMGm6WfuQvseBG6hj8xWzKP",
+    "source_labels": [
+     "Gate.io"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5HmQZCVaCqQftTaJYyYNku3BNJzK5JX5qHxWKtG3GjmDZT9H",
+     "5CNChyk2fnVgVSZDLAVVFb4QBTMGm6WfuQvseBG6hj8xWzKP"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s",
+    "source_labels": [
+     "MEXC"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5CVukQynVNYA5ojFmne1APDymjH9UpMgv38YuWrn2yJfQPf8",
+     "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5CVukQynVNYA5ojFmne1APDymjH9UpMgv38YuWrn2yJfQPf8",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s",
+    "source_labels": [
+     "MEXC"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5CsyLPX4N3BndrJwRsWZmv338uauac6M7rV7fU8kYNicDpkv",
+     "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5Ggu6kYZERYuVjbuadDxvisu8qExQfRihugDQevURKKgAUMT",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5EbnB2t4K7yvKPnnFnnDvStfSjg13mXqBLjTZajiThKikKUp",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5CNChyk2fnVgVSZDLAVVFb4QBTMGm6WfuQvseBG6hj8xWzKP",
+    "source_labels": [
+     "Gate.io"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5DRPQdQrCr7Sem8SXTemXtugYa3bnfkf8eBgA6Ukpo9hjwu3",
+     "5CNChyk2fnVgVSZDLAVVFb4QBTMGm6WfuQvseBG6hj8xWzKP"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s",
+    "source_labels": [
+     "MEXC"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5DRPQdQrCr7Sem8SXTemXtugYa3bnfkf8eBgA6Ukpo9hjwu3",
+     "5FqBL928choLPmeFz5UVAvonBD5k7K2mZSXVC9RkFzLxoy2s"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5CAG9dwsL8TWshPsTbDuoCbT1RGBSsxQR7YWAarsbCDQw364",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5CNChyk2fnVgVSZDLAVVFb4QBTMGm6WfuQvseBG6hj8xWzKP",
+    "source_labels": [
+     "Gate.io"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5CQ9kYzNME3PVn52gN5KqTsjvm1mnTDWD4WiNYFzzQ6ZDsnG",
+     "5CNChyk2fnVgVSZDLAVVFb4QBTMGm6WfuQvseBG6hj8xWzKP"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8",
+    "source_labels": [
+     "Crypto.com"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5EUYMnKdHKjNvovUcdgGNGBY1Zj2thSiXeZmzX1e33LSByW1",
+     "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8",
+    "source_labels": [
+     "Crypto.com"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5H865pZxsMPDnkpEp3dC7xYxrauMhtRn7pt77WzrwjfzdN4p",
+     "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8",
+    "source_labels": [
+     "Crypto.com"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5Gdsd3ZaTS6EJJHhSUxqLGpKuoH5qj3zFCXoPzLb7JsEQ4Sb",
+     "5CVSCaCXDRydd3Mkdbu2tHLNYxmNTSpy9yRixa1TRGvgRFS8"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5GumXDdFKiMW6BChNMREQNq9ghCoNXCs9ZbKSSgjRCn6bNE7",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux",
+    "source_labels": [
+     "Kraken Hot"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5EYexJMGs7U14qGTXEJLK6N5oNAUQu7CCRGBzGhbyc3eDcXR",
+     "5E2b2DcMd5W8MBhzTCFt63t2ZEN8RsRgL7oDd7BFYL9aMQux"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5H5r5NUv4avQiwkZB88dQiBrSctN7frLjbzMg7w9Mf9r8he1",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   },
+   {
+    "deposit_address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+    "source_exchange": "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi",
+    "source_labels": [
+     "Binance"
+    ],
+    "hops": 3,
+    "path": [
+     "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+     "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+     "5H1Kpam5rSoUUFWV2XH6bTcPcgrCSnR3D5gsa1suVvHQKBVb",
+     "5GBnPzvPghS8AuCoo6bfnK7JUFHuyUhWSFD4woBNsKnPiEUi"
+    ],
+    "reason": "Deposit candidate upstream cluster is exchange-funded (topology-grain CEX-to-CEX structure)."
+   }
+  ],
+  "reverse_leads": [
+   {
+    "address": "5EpTuf1tw1DEbzqT5UfwgAtFfS4iKmjYyk3vHAhURvBPycdD",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 1893647.78607516,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GbUmiAvh6sLfDKiTTd2LV6e95goLok6ePBGGoJqFxdPctVd",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 1856864.27537277,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GF87RtsiZka1K1NisBdMC7x73ZSSh34eg8suGrqMnnDpY1i",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 1664127.71976666,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5C5mRiupZWdbykDzGdwX5Erz8eLzysyhQaZEMdPEEDkpYTHA",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 1449373.43919937,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Fk1pfRtrbrsFFJMUMXLxLAjxda9fr6Rt2WkYS5Vv5ETHFDT",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 1297590.10389229,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CV4uLLBPSkpdffH9PgbfnGNsv8DXpcAyV95DRj2cTL6Mqov",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 1246294.28182939,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EZDECUSnER9CQ82c4oXfe5RJaX94ToKnSnyscoxnapn3bvD",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 1177771.93080881,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FUntfsHpzd7JaUohw3ezn9Gzsow6s3NJdyyQ5sDYHtDvhr7",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 1124146.5478398,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5E4CF1QTh2Sr7J6wKNQ3GjbiATesMoR8o7CrD2cHR1mgkEsp",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 1074806.6074165,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DM2txvjAfp4ASTWmnUvZX4iPNeou8RWPVbXYqtBGtSzvSGc",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 987952.0893558,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HbUBhvvCVsYYA1ghsHrVzSzARxhkF5yLFMctVgcENXjJ329",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 969791.14178077,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GVzyFqdovdjRwF5c48gmHHhSCjrLkD1oWhDCQg2WRacD8Ks",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 961687.06769786,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CASvQy3j7VduQdMeNhDEC6p2nkcAUfeo2rE2sP8yXM2Zegx",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 953211.78358298,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HeTEmkn3Tv8EiVtru5KA2eWiGHDYfHFeX16DrX78QMj7ac6",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 936355.50076922,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GVma4BMK813WLkGVQZLTCZVQqjX7DWp8VGT8GcC4nmBSgx2",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 898827.22284268,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Eo1Fr1VuB39XjcEyYUcr9UXYpumLKjVF2JwLp3beyGdZcCT",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 864793.358221,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GNCRJAYdvrQLiiz5zandJL687DEXQokdvDsZTeixbVvTfV3",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 847478.89768479,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GFASTQftoZcMXRuaML9brsMMZQJMqyTViMnYHQsN5mTi1hN",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 818977.90453816,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EAdYiz1M8BznMNE9WvTajEq64UpGKBFGZDJBNvMDj5fWpeG",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 802418.0627313,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HnLSrGBhM9FacaTyNqxLA34Q5yVj481GPgEx1Ck75crt59u",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 779770.11094872,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5F4DuF1wCEXukjyskQKJF3R9T6wef37WENJEvjFquCymfJpk",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 775878.98511564,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HDwgXch2EaNMPq1qnLnK4mPXGzN4CLZMmUpXHyKZQXKCozJ",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 741180.8433302,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HjTb7AkUX9g1gSdEd1z3RFSWxzkVbW87doWzvNz4dBShC62",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 725510.62918511,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HCcJJHB5unqvu9MLsm1saCqW51Bd2WJ1xLvzRzBFQTTPY4N",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 702936.04896174,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DwQnZoPF7rLJYESKmVKrpn7fWDXkoifFSBKUsxSP2pQNpKP",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 686832.604608,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DAqRxdSLMj2z96SrJhFiPcB3BWQeyuh9pCSvaLfvbQktc54",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 678924.67392,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Df4xvko99ih74WqczPpYsENggiLQF4AF9tkrbhDtD2fjPwS",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 653455.75549385,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GzGtUFNxufJoa5mASaC8pJjaz8WynzVZ4KBLzpGbXyJpmGm",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 621625.8374083,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5ExeoWeXN4wMfWXJ92mWBYfaKB686hWXAzpMW4uTBgu8Rpor",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 618918.76288005,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CyXXQeSXEgiwjqNPTqx1bP8waj6ghPGvQyJ6YuTse9HJyfY",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 616772.60305078,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5F9LSSxrEjTmnWtUNAj4tCHBQTwVgc4EjDFoSe9BeD3fN9Yi",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 594073.66264855,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FHvHM7WvFLkgtGez8NiDghZSkffa5wMrqMF1RTC9LPTA9Vv",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 584993.22579077,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HeWF2M4hHtsjeaKemfVUi427sM6caTGyqZo5XvCQLE8r7qc",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 578357.62865356,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HVReyU6zhVjBzKYdZbqbHF5yiZvoSMGa6S9tr4FfSPiXppN",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 567892.56660975,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EseFPj6kKGC3RyE16uzN684m15AT5BXgekLqgp4LUxuqWpo",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 565946.01637662,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EDqkcrhez8BsKUZfLUBQodzyvrQqsJha5y8khac3n7xjg8Y",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 560061.96068934,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EAgcTrYJ34JD8bJpEr2nLnB8C4AAuULZmCF2xv29kE8ZMJq",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 549849.11940051,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Dvr8tw4gQVpYmT9ofPnCyHcnPTAZoT9TfNUueKjNkPNMEhQ",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 542761.68636451,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Gs1zPdtVKJ9dh1DdTRYrNPbxnkBmLCBPQ5FVMjn7mV1kUNA",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 542665.92284631,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5G8V6XSeVGjoQjrEXgSzjXuuzvBiP7TDJJjrgUHvbrCSjuYo",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 537840.28807252,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DD7JLWGMjEvpaUhMRwumu5veRTwGAAoJ6mkmiu5mSk7L14J",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 530396.34994613,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GYaYaNbctddLvDCWEJFV6gaEmogokKJMiyFLtnbyLJeCMnx",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 528013.76555412,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FWcW4eQwzacUokc8oBZ5KLZRPDVtp8b2sSPzLzjNHbgW8c4",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 498424.102084,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FNLkwQaNaUUQp5ibXcKUF6wNu4hEZQNWKMSn7erdbSJRfcs",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 493988.03998345,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5ESTWEmsnMauXCC5Ev4Z46kkUuHCqreMEmmU6NGkz92gBzuo",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 475070.6363582,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HdVj6aq2YwQsSfkVSZuydVkPhNfxj4w8fZ6GArKpbSSf48y",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 474129.0634234,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GGofpctBTCSuB1cj4aafnkLogW5vexsb1HZYaNvaULsXLdZ",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 472428.20899354,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Fn33XT7QGEWCADEP5UXTL9wcTWZ1ayszYez8EypLg5oJAdv",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 471186.48392809,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EpdnTNenL5JFudKtMy4i7cP39StsskApzQK2Ryw3bgV8Fpu",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 470051.0637786,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CiCaF7j6Wu7osEvbeLSYSXXx3c39zYosk4rn8cz2vx1fpSj",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 459240.3413739,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5E1y6aos8me4RZsvmfy8Ne4CQtEQ55WNXdYrfuM56d9Np4tQ",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 446161.9673887,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GryWaL7FeLTAbgYs1PnrqjXuSXTWT3j5DsWemdJSS7YGDc2",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 438966.20407056,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CNWmZ14xn5wTpYPuAE2Uh4vMNh7FVWoAHvWxVNeEwDSc3L6",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 433523.32923987,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5D9ByTT2Dj5s5LFQzPzwWXJoE2NW6SH5uz7XJrfURyCNpD16",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 429877.04037341,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HBRTcmDiFXRzi5iFKpr9pgnHQ6vYNHWgzNrCPhMreyqRD1J",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 417599.60168048,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5ELcDMoiCfQqYK75MzBAj47USnZJqAtkiFgTBPixhA1YSizi",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 414747.07441716,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HTjivKxCcrRcFof4g3R6pqKzf3PmnwBN2T3hN5YbUeEJ7bi",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 406360.85370886,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CWy6F2PRYNSgHPZ3LxPwd4KqDBCM2BEZo4DdDDwboNAvHCd",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 398714.48747852,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5E3EnL1cfnFgptUx13aQc8aEQMDmQazQydbzqTA4xFfQcpRe",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 391127.0088135,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GZMwZHc4zbQDwWpUGtCZKmyqQcSRpPgS3UJsnok7KwFKunm",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 387129.06447672,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Hphcd8QyofT8rMPgYdw6kYF8CajMqup7HQen61vqd7RCxCt",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 364019.56071745,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HNeEopNztndd3frPWr6MdRnGeEbnk7E7nRAvKBWUayX8AQ5",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 363920.80789083,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FWJxcDKwesmM3BtpXQmq4VqgE5PPKj1AcSNZctfiav1mQbd",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 363842.66705613,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HC9rPRk3evpsBhC3dqwEhqhVDVuhmArpp6LAPdUgwk2DdSo",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 359937.86970741,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GxJmt3qLxWAaPCZoffdAkKVfSBgKi8twCbVpyqrwtjNwkLX",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 355561.04795781,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GEFXLTWVTTQTcPH1h6xn7pmNKHzM9BUvUcaDTy55iFQT1GG",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 354245.62723565,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CSBAT2UZCE8VGjhr3E3BzoatzXTGH1PtVdpaoiAUu7cbNDs",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 348167.74044726,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5E4wXrX56ktEbzhLKBd3vmk57xbpQtQVaJvgboFf5Q25ezdV",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 347705.06145187,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GZ5gN2igTGLiXUGKohhmyugHUVaz7y1rhBknM6bmVJ3z6Sa",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 341364.00656107,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DaUtBu6aqR4qJeCa86qgPvqJByKsXGYHHQpYVvPNYYJG55V",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 339462.33696,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EqjSBfGwENgbGNnaiKab9FVMZTTahYBfpTi8cS7YnrzXJHH",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 333178.54312412,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HbmWAwKrWABo8PQktm7aFAJvZSyb1FYA3PdeTG5GfYtFScy",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 328516.23246868,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FjP8fFbMb6pEHfRZyRegsmwRUMDuLFNcaBu1TerWMPEKgNh",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 328213.341424,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FxswiH1roGPZxu46XnqKJJ5mfr6uj6U6w9aKCbTkqeWNQ6C",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 316747.04910237,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5E5TfU6dWv3qce3vKssgiZSPSscc7bpDXv6Lqprigd7NR6P3",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 316699.073745,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DtrAibpwQRXoEM45e9cxqqvdi2XriUmq6C4mjRzTrxDrikA",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 315822.04556854,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GKmScKYjwbhQawUqC2UsJhGg7ztrr8vMqA82S5svNFz1yc2",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 314345.18639255,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Fxq9EzcDw1sj8oeVyiEzxAYgVZXpnTTm7XPAtZyQpb8ijV1",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 302909.870577,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5F4DuEUXMfhrjqcqL9wb1f9Je5C65AxodmDK94dyakYm5nwk",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 302124.69781592,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5G7BeJJ5G37SJwHEKg7vn3yPCTFPAacn2NscEeJn9Ac8XoVf",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 299891.29846554,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CiP1NLAyUvBsqi9mqiRTsuFSzG8WWA9qxPhkEE6fwB9zK4b",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 295082.73433463,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GN75PHLN3yUCazw2np1KZr8pwV8FUd1dDjwTr7EW2murDYy",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 294879.61670592,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Fv9WKg4n5Kkia3ApF5TqQNdiagZ5wFsJ1azHDvyz4vq679j",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 291696.76685805,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HpBngwkzMWFBMNAAoyuG8SXAnMZuTWtmBryXjZ438qn8BWJ",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 286285.82630623,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DVtqKVvhTMXCzfgrzeEfhiWC4kXPQR3Zy6zcQCyzrniN9BB",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 283258.15766894,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EoCu9FrPBeCt4wXmGCNLvkQT1eGu5Z8r9hasg5gwVGn69JE",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 281979.31005495,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5H6JVDicq9HGt1ibkSUcCH1hj6y5YK98x9mMBQx4KpP4rJ59",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 278377.89753052,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5C7fmCkDRUFLPrJUMED6reijRY19GjSZyS3VtLcB5E1eBiYf",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 269764.15685835,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FUaWtHckbHd94AjEqaN9mNgQ4SafNz5mhCiZnspTofr8LwT",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 263414.53070624,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FLhVvL3LHDXeiDfjkvggKjbqBLbPX852HCNEBm6Y9FQi7e9",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 262660.09706511,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GQ1McC3xv4bBxcTTvPjMxaysLqgDbGPpimkg892HF29WTu8",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 252859.98783526,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Dz16aF6r5RRgZidow7qrGsV3mn8hGt9JStJzMhrajNxCfL8",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 252611.52226,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Drh6mnfDTLTGRZhU9h8UiRScqi6rSmJoK9UVBNudFiV7BEL",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 252389.22412041,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FjekcuMbVYhyBVpEQfEGmSGzR3Dkmj6kVNfvvpxCFSrw49F",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 251078.00757843,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FEc3duRnq7jqZB5fGoLmQcMuefE2xPmhqSg2zi2EHR7Y1LX",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 246633.65523,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DjywpXWXrjftx5zPKDW8SwNeTRdtGcy73g2ZTZyTfxQKR84",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 246633.65523,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5G78cdbYPyfqQFXKc5whgAExDsUUfzoJFWr8qtw6TcdAzndL",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 236432.9419533,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Gfn6RLfiZjmcKjVT8cLucXJMBKEpuwVJwD15rAyUjPrWyQv",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 234858.182581,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5C4htsksoe7G7cSnL6HnJ8Ebkiq8GjgioAmSuZmfh2ma9vdJ",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 230070.07305035,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CA4c7QcpVBjnaRUghBt62q6fd8XsHfn7euRcuftsD1MWQrK",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 226448.61856799,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GzuYtSRcagS5XNqPBYsmc1bGfDhDAqAAtJqmv9db2m2e1U1",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 226293.55848064,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FUKoKk7zAvxUdneZ3zCBWHaCGhT4q5J3PW2SNjVn9tYkPLB",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 225647.78776372,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EFh8o1MoEeRoEYgngDi51qKmKimKWvUZscgNBRR1SRRRYFA",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 225357.49314044,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Hh1ozm3wmTK53Z45vgUDQPswZyxsgWqdY8PZ5XWMMkCCM7s",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 219659.41360275,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EszZNPaPkcykAj4Gwjye8Rg5U8GXEwinx4bivghLjpWoAfr",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 218622.3497172,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CS5dm4jBfuzdXSjiFCthuEoEyyYmPCrzWApdsUqfTNgpkC9",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 218161.12855296,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FxjcJs2Xah5ytjXQ8exrtf6wCC3QxKoGMxPHsCi9Q7282fg",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 217701.67219307,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GuKiT1SAZBKW4VEEA1WkLVfbc3167EVMTRRtAqBQBT2rcLi",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 217135.951259,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5E9LPDS2E5RFzoqRsF2D7NgJTFH3N2DVqeAodTksPJP7CT4x",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 215873.62432808,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CdJV5Kf4rRBoecqVeRUTCiw3QfCx4AtBUu9TdYcHQn61whj",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 215345.61517466,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DLcJXCgeKnpK6SpUCG2AJMZbrhAWjnVUWYEaQq8i2BjNpKh",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 213181.74782989,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5D6jRRVbX6V3DP7GTbFpP9Cvkf5hhpTmzjStNKhyK3AcTtZm",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 208589.66865817,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CywNgRimdhsGD2LP9Txfx3mPcSnzkh6zRd3PVWDDKXPMwNp",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 206393.10087168,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DEzAB3Yt6vXDzSuub6JFFBZnnN272KYN9LtABR9f6qJ5ixa",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 205553.80253659,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HKCK4f3ANpEJEqk5cVaEfsjopLJnaDttwo4G6VzrCtHpghD",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 203027.70956946,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HB2o9Sv7SxGrBMAjcyfarq5fY6zNSRFTV7Vr4NT5Zgk7jzj",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 202521.38747416,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FZt2zQMVcet6J6bTZTQjAeb1UAXkdEWHaruNUkopEqgrZQG",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 199398.6721272,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GNiFHRRU2a7A5s7rXGTd2n7uciC5hDMma3szUg1Qdi5SaTe",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 199305.58015254,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DCsibDQaJqv2TT5FDyDr1szhLLRUypn1PpAB215mA4zHPUb",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 197019.876054,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Dr5N1PpZzHw6ZbmeMeXJZiKGtqFU4YvpDZN5LmRzuUJEkaB",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 189286.26927939,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CtdXWd8CkvCJnjjXgZ5WodVpZxdBEpSgFjdqzgVAKLJm9bs",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 188257.59450221,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GdvDbb4d6bx8v1Lxb3ZU77LSnWZX5KHgLnv2vtFH9nNET4F",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 186132.46032078,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EWTGSLB58jeK1tHsWvvjgyzQ11W6V6g9HeU5a9BbTDNvE9j",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 182457.76687556,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FP53nFGXMb8drVJminFvyNFzdJRoCknTTxcqvypCTEH82pd",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 179842.37853647,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EhEssPEHD3WDB8PhmPLczYggCLdLbeLCYJ1e5RKWAC6SWLx",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 179774.44358966,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Cw6WkB4NGWEw4Feocyyv3iKjio5dKwMzf8CcMMXLyS1RZaN",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 179706.9991925,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HorGnvyWLzuhW5v1TYFfJkwDRj7rPBNEw3zzCuZGEauoYjE",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 176334.97026824,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FA1PkwKRcjVbRsTdhR31UZBRQvEXhHzcn3y9MSRBNNBHazj",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 170961.14370401,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5C7kddvTfPr9X8vbHADhXeCpBkzQhzD7aL2WUSYA6UpWuQKu",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 168499.53314306,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EEcUUoVADvGmBLn7gmSA6hSmVqd8YuwFC96B3eukatUuxRL",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 168472.88789637,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DtmXKf89BxbBBcvfybvxx7DnecmHio79UwbQbQXKeb9QqyE",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 166920.59536739,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GiQv3RA23ymbDJndAgJGqK9m1zP4qRLH3twNJ9Kr2vRTzVt",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 165459.55095718,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HiaUejyFvKfRKBeVYox19VBWPuEo9WQmKuKsTti7kEwu2Wi",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 165103.61873658,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5G3ZfUSgDQLqEJJouLRRNPfaciGM9hLAT4pYCG4fVNtoCtDv",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 165099.6611228,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EF5LZVJMWwgdmqVTbyGCYk35c4sxtQHLEk1VKNBsn9ZSvU2",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 164955.32403578,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CovfZQqu7ieqfWCiE6yg13VE3nTTPewHBzr7hhegCHttxhp",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 160891.787576,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5C9f3xL2qh9eXJ4tmFD3uSuNgLmRWB2nPr6EZNqDKvc5QwbE",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 160870.64419136,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HMd2fBQmv9VuTQoropmRnYnPstFVtpsqB94zfV9xUWSN3B4",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 158762.35573399,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HRNjxTRbR2ypFhkLuH3cz7F84u5RWEvTPn2L4DmAi6FMj9p",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 155537.023864,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FKipEhg4zDNiFkUtESMvmKQtaFpHiPLZsEP59G8u7oyv3rz",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 155537.023864,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HVhHz5n7sto4PMf1rWCX3mBY3LiDN9iqCstQMLQPS2T42Km",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 154567.07017217,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FPKxc3kxNANKDkqcxiB1UCbk6DEA52X9ALQ5K6e87Nprsx2",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 154236.80950805,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EqUG3oUuzT5siNv5bSE9PKzqp8t2ehYEX7SeEjTjymuJS9W",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 153813.57423187,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DG4rgPpurs2bqsr8hFeChEz3gXgdYru2kLDjVZTrLVMgrGE",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 146243.3312048,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HgY5tFUkfvhWD4jWx1ieVQRQZwKzXhmnyWiZLFNgnW5LWzS",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 142824.41439089,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DFoVFJ6K8cLbc6UNJU9t296KvsUMe2ajeZv8dT3z8iydmD4",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 139226.88842673,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FdtTQsRsckwVirLASe9sAeKZzCKoeqRYG6gHJnRDet9t8U2",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 138670.97735133,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DwRtBBm3uxtGVmcWgR15pvrWZKDALXupBb1sQGGQAQFnNnX",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 138183.16748319,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Dj9woHuaPJsUEvX5pTvd4J8QnaKBzb3gNTtCS7Yo2PAqkp2",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 137213.13821055,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GWRdZHebJU6cndTvZocmxssWJPhgFNEXHExoPrWbajKuw17",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 137200.35059874,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Fgx9Z38Ea3wKbg5dLPC4iwHXuYxpSZwKbMBH9dLrBQy562q",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 135776.45954874,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CUfxr6n1Gas9gE8dbAibngMETu3CTAnh1qr1cUCbsuHVG9v",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 133336.6699535,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DyND5UQXXjCjuW42SJGNXt9STnGuGxDpePuexx7d4WiQd9n",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 132328.15583099,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CTWErcGTx3LRP7Nps1RzZx4iNxK941o4h6P4YGwgZq1ihyV",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 131150.55268862,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EM51DVT1wa5wfN589uVaT5XKhM16mMJbSfUNmMppvqbYRGT",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 130362.19968835,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EPJr9HkZEGXtAF1j1a69AG51GX2Lrx7VU4vn8Zxx5kzxfj9",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 129891.8597559,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HeQJRivZR2GY5Vur6usWDSgmX71CiWrUxZ55QMsxu1xAUvr",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 124135.85832652,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FvGf9zrEABqR1TxRrMwvsZgwgt5zwKpLJrLvqt1XBvs2P6F",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 123880.05310746,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5H6DEAidtZm1Gns6r7dRTMipknDMJRNMvXhMt3vCnW38iuar",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 123050.38552011,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5G1PfRU9J3SFw63DczTiWRE2Skm1n3TmehPhGHYPgWzjSPY3",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 121704.84229271,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CcWRkdcp9pLZZrF9qCBwNedZpUsSejpMo3jPZf7AydUVYBR",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 120963.99889951,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5G3Qg5QnQ5i6PycjSf2wtuHueyaUkZdQHYC29rLrePBMAtuR",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 120618.40297332,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5G9qanVNRd8bcXv4aPFU8asQbje1mbucAWySNnwttKcSYvT9",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 119008.31746525,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CMAJXori5CsgaycbHG6wVt5VvD45ztUtMLpJSCextDzGV7N",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 118586.81664685,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Ggu6kYZERYuVjbuadDxvisu8qExQfRihugDQevURKKgAUMT",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 118052.19676483,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Gbkkpb5HWBjaZLvhoVW9zRodsJYvDkrHfqJhKHpuDiDxgdY",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 116548.7356896,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DLoBriJGLVpwx2rEBK4udmsWyK2cAAqpYgByW2g4JHnmQxG",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 116413.25520426,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DD1tJVSLbY5ZXrFSw3Co6imcLMpjtqfWXQAjUFagYqiwYTD",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 115395.77504602,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Edf8EkSwwGXM6AvFRncwPVnj81ecJxQ4xYm7FJAdQQ1poBe",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 114829.8260829,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FxfXfNkNawmW2WYgeDp4k6p3KZ3RThUnYnHefrscUw39vQ6",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 114293.26870251,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DLq7cYC7KR6zVaTd6Ve9dS3uLyG6f1CahRuTyb5Tt4GzWK6",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 113853.08977099,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5F71hNZfMUx29YE3g8VTb7aA8faG34W3wqSvUckmyGazrSwt",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 113213.08945744,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EvkiAJE1HGi4dw7AKgGEusDNRKUKYDuopwenfgcyVKAiUAd",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 111588.79187311,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5DfLQpreFCkrADXjXArYYjmrecMLsFaBcv6LdxmPrv1GcaW6",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 111282.1680651,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5FUaiRvBdGc2pExx8PDX43EVJJ1xjzybPWh2YbzrTE99vsiK",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 111257.76930522,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GzvyKfcY3K4jphDXAxwCuc64bFKo46NTzpG3WAN75FmvSp7",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 108563.02416608,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CRqeZBEHPY6U24bmeuKkJZ72D7say9SVwsiHsWVJ7ZXnEvY",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 107961.98862472,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CUyS9ZSd1usQuvnGRu7Y8voHYV7mGPZNgaMg8fQ7HFCwHPk",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 107529.67586375,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EnXsS82w5akG8MXk8x4VeZWciqnpTM7dy9z7vWrBGd5M15f",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 107526.21319045,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CAs9cxVweF7TecUHkcY87o7XfZbQq2uuMdE142hWV1TsWyE",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 107526.21319045,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5G9R2tz3BanyJmncYyrmBAruhDj9CGXiQmbTVcdWtPkF5rW5",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 107526.21319045,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Hahc5kYN1Rt3T74SX1y4j1JkDBV8YNL3JZNUqG8148UdXSa",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 107526.21319045,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5F55x7Q5hAiWUKWvLLHLXMVcZjAnBEA6p9JoFv2XmV5TRvG5",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 107526.21319045,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5D9wJfC3gvavDYFKCE2HzmX6NeQiJZQazGBYQou5WavMSmpB",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 106753.719355,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Cw1S8hpy5SijRU2CW1dbdWtWJsRmSn8VQ1q4ScxkbY4boJU",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 105855.66833889,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EqxaxMbFC5n3ehLCWWXWLFyta3H7cqGc4MRFW6aWjsRhxbD",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 105835.36864673,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5GWUHy633eu9Wjssi1aZKJ5TDiYXLnpsQUw8FcMXYHieBAkW",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 105205.92120277,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5Fsjwcci35UswucArQw9cBotnPgJXbrz7aVP1Hdrtozwa4FT",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 104103.21125662,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5F48e8jCL2kfDDJ9kJ82TWA7wAfGbVYdbvZy44ZakgyEdwTW",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 103875.77789988,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5D57dHhWerwh3DiaCg7XtRuQeRmQo1v7iDWoTJ7k88xaeNoW",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 102809.86722747,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5EpxhAUFLvTRKhW8MkqjJEygEBEiMAQQooZPHLTt5UNFLysz",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 102322.4662125,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HNB9Y9Ra9jKg2iUFVLgx4BfeZmiNeE1RC5b9dJZq9bfQG6d",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 100860.91380693,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5HjgdxF9Hr2LptwsPec8yvmZ44G1BW33LGaK5Vp4Pj5D95nP",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 100795.29240276,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5ED2Wj1BRTYCjwaaCmSdVSggA8B92epz2e8J68zpmdie58YG",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 100103.62855887,
+    "reason": "high_volume_sender"
+   },
+   {
+    "address": "5CiPLJKgPGjPKdoudV9Br8pZUfjB3vQ2LNmSNBQRcm9wZJTA",
+    "deposit_address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+    "labels": [],
+    "amount_usd": 100099.90613602,
+    "reason": "high_volume_sender"
+   }
+  ]
  },
- "candidate_labels": [],
+ "candidate_labels": [
+  {
+   "address": "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+   "candidate_label": "candidate_deposit",
+   "confidence": "medium",
+   "evidence_path_ids": [
+    "p1",
+    "p15"
+   ],
+   "reason": "Penultimate address before an exchange endpoint in bounded FLOWS_TO trace.",
+   "promote_to_core_label": false
+  },
+  {
+   "address": "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+   "candidate_label": "candidate_deposit",
+   "confidence": "medium",
+   "evidence_path_ids": [
+    "p2",
+    "p5",
+    "p6",
+    "p7",
+    "p8",
+    "p9",
+    "p10",
+    "p11",
+    "p12",
+    "p14"
+   ],
+   "reason": "Penultimate address before an exchange endpoint in bounded FLOWS_TO trace.",
+   "promote_to_core_label": false
+  },
+  {
+   "address": "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+   "candidate_label": "candidate_deposit",
+   "confidence": "medium",
+   "evidence_path_ids": [
+    "p3",
+    "p16"
+   ],
+   "reason": "Penultimate address before an exchange endpoint in bounded FLOWS_TO trace.",
+   "promote_to_core_label": false
+  },
+  {
+   "address": "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+   "candidate_label": "candidate_deposit",
+   "confidence": "medium",
+   "evidence_path_ids": [
+    "p4"
+   ],
+   "reason": "Penultimate address before an exchange endpoint in bounded FLOWS_TO trace.",
+   "promote_to_core_label": false
+  },
+  {
+   "address": "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+   "candidate_label": "candidate_deposit",
+   "confidence": "medium",
+   "evidence_path_ids": [
+    "p5"
+   ],
+   "reason": "Penultimate address before an exchange endpoint in bounded FLOWS_TO trace.",
+   "promote_to_core_label": false
+  },
+  {
+   "address": "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+   "candidate_label": "candidate_deposit",
+   "confidence": "medium",
+   "evidence_path_ids": [
+    "p6"
+   ],
+   "reason": "Penultimate address before an exchange endpoint in bounded FLOWS_TO trace.",
+   "promote_to_core_label": false
+  },
+  {
+   "address": "5EUYMnKdHKjNvovUcdgGNGBY1Zj2thSiXeZmzX1e33LSByW1",
+   "candidate_label": "candidate_deposit",
+   "confidence": "medium",
+   "evidence_path_ids": [
+    "p7"
+   ],
+   "reason": "Penultimate address before an exchange endpoint in bounded FLOWS_TO trace.",
+   "promote_to_core_label": false
+  },
+  {
+   "address": "5EXYCA7tSDJtxd2ZeyeChmjfymcYcdxs6dKk1hkA7QCgeemF",
+   "candidate_label": "candidate_deposit",
+   "confidence": "medium",
+   "evidence_path_ids": [
+    "p8"
+   ],
+   "reason": "Penultimate address before an exchange endpoint in bounded FLOWS_TO trace.",
+   "promote_to_core_label": false
+  },
+  {
+   "address": "5FCg17qLyTrEBSKDYD6TxuAXd937Nx7ZEdEdMsuw97Po1sxx",
+   "candidate_label": "candidate_deposit",
+   "confidence": "medium",
+   "evidence_path_ids": [
+    "p9"
+   ],
+   "reason": "Penultimate address before an exchange endpoint in bounded FLOWS_TO trace.",
+   "promote_to_core_label": false
+  },
+  {
+   "address": "5Gjc87n47b7X7ApX7p1yfmxBtHiUc24A4r4hDAUqNoH7oDP6",
+   "candidate_label": "candidate_deposit",
+   "confidence": "medium",
+   "evidence_path_ids": [
+    "p10"
+   ],
+   "reason": "Penultimate address before an exchange endpoint in bounded FLOWS_TO trace.",
+   "promote_to_core_label": false
+  },
+  {
+   "address": "5Hhdw2M6Lp71VXk1qDFWwt4j3jBnRQRjjQ6HiEJx7DspyFKv",
+   "candidate_label": "candidate_deposit",
+   "confidence": "medium",
+   "evidence_path_ids": [
+    "p11"
+   ],
+   "reason": "Penultimate address before an exchange endpoint in bounded FLOWS_TO trace.",
+   "promote_to_core_label": false
+  },
+  {
+   "address": "5Hp1QQ88Deee6Lqvga6giUBEvL9ZE5uRBLQ6x6KwzvABYh96",
+   "candidate_label": "candidate_deposit",
+   "confidence": "medium",
+   "evidence_path_ids": [
+    "p12"
+   ],
+   "reason": "Penultimate address before an exchange endpoint in bounded FLOWS_TO trace.",
+   "promote_to_core_label": false
+  },
+  {
+   "address": "5FJQu3q5Mbr87hSLdm9qXYJPc63nFRJBje7F9cNyk8xRXPyX",
+   "candidate_label": "candidate_deposit",
+   "confidence": "medium",
+   "evidence_path_ids": [
+    "p13"
+   ],
+   "reason": "Penultimate address before an exchange endpoint in bounded FLOWS_TO trace.",
+   "promote_to_core_label": false
+  }
+ ],
  "artifacts": {
   "graph_json": "<workspace>/reports/graphs/RUN_TS_aml_trace_victim_funds.graph.json",
   "graph_html": "<workspace>/reports/RUN_TS_aml_trace_victim_funds.graph.html",
@@ -83,16 +4657,28 @@
   }
  ],
  "continuation": {
-  "candidate_deposit_addresses": [],
+  "candidate_deposit_addresses": [
+   "5EUt1ZxqEjEAQazoJQVAv6k1xkmFwNjX3MYC5n5NXRLVEkat",
+   "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+   "5FTRZ6q3Vkx8sPzYWUC9dnaMiNiNmQWQufiJme2YaadhjrCQ",
+   "5Gzd46NqSgtYPQg3zyQCyupq7jbe4a7d9vZsqPeEV6z9mQ9k",
+   "5GT9ocwj9r8RN61HiGRqRm8jk3wY2DJXNkKNip5N7fSZw8cH",
+   "5CyP6miEDuCazMEDYCCYFp4RDLStf2sVVUFMmNHdbbMuAHvW",
+   "5EUYMnKdHKjNvovUcdgGNGBY1Zj2thSiXeZmzX1e33LSByW1",
+   "5EXYCA7tSDJtxd2ZeyeChmjfymcYcdxs6dKk1hkA7QCgeemF",
+   "5FCg17qLyTrEBSKDYD6TxuAXd937Nx7ZEdEdMsuw97Po1sxx",
+   "5Gjc87n47b7X7ApX7p1yfmxBtHiUc24A4r4hDAUqNoH7oDP6",
+   "5Hhdw2M6Lp71VXk1qDFWwt4j3jBnRQRjjQ6HiEJx7DspyFKv",
+   "5Hp1QQ88Deee6Lqvga6giUBEvL9ZE5uRBLQ6x6KwzvABYh96",
+   "5FJQu3q5Mbr87hSLdm9qXYJPc63nFRJBje7F9cNyk8xRXPyX"
+  ],
   "candidate_suspect_addresses": [],
   "candidate_victim_addresses": [],
   "recommended_next_tools": [
-   "aml_address_risk",
-   "graph_query_batch"
-  ]
+   "aml_trace_deposit_sources",
+   "aml_address_risk"
+  ],
+  "deposit_funding_note": "One or more deposit candidates are exchange-funded upstream; consider aml_trace_deposit_sources on those deposits."
  },
- "warnings": [
-  "No exchange deposit candidates were connected in the queried topology.",
-  "No results on live_topology; archive_topology is available for this network and covers full history -- retry with topology_scope=archive_topology."
- ]
+ "warnings": []
 }
