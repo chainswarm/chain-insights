@@ -1,0 +1,140 @@
+import { describe, expect, it, vi } from 'vitest'
+import {
+  FANIN_MIN,
+  LIFETIME_INBOUND_MIN_USD,
+  MAX_CANDIDATES,
+  RECIPROCITY_MAX,
+  exchangeLikeness,
+  exchangeLikenessQueryBuilderContract,
+} from '../src/investigation/exchange-likeness.js'
+
+type BatchQuery = { id: string; query: string }
+type CallToolRequest = { arguments: { queries: BatchQuery[] } }
+
+interface CandidateFixture {
+  degreeIn: number
+  totalInUsd: number
+  inCount: number
+  reciprocalCount: number
+}
+
+function client(addresses: string[], candidates: CandidateFixture[], opts: { failReciprocityIndex?: number; failMessage?: string } = {}) {
+  return {
+    callTool: vi.fn(async (req: CallToolRequest) => {
+      const results = req.arguments.queries.map((query) => {
+        const match = query.id.match(/^(profile|reciprocity)_(\d+)$/)
+        if (!match) return { id: query.id, ok: false, error: 'unknown query id' }
+        const kind = match[1]
+        const index = Number(match[2])
+        const address = addresses[index]
+        const candidate = candidates[index]
+        if (kind === 'profile') {
+          return { id: query.id, ok: true, results: [{ address, degree_in: candidate.degreeIn, total_in_usd: candidate.totalInUsd }] }
+        }
+        if (opts.failReciprocityIndex === index) {
+          return { id: query.id, ok: false, error: opts.failMessage ?? 'query timed out' }
+        }
+        return { id: query.id, ok: true, results: [{ address, in_count: candidate.inCount, reciprocal_count: candidate.reciprocalCount }] }
+      })
+      return { content: [{ type: 'text', text: JSON.stringify({ facts: { queries: results } }) }], isError: false }
+    }),
+  }
+}
+
+describe('exchangeLikeness thresholds (AC3)', () => {
+  it('classifies one positive and three single-threshold negatives', async () => {
+    const addresses = ['addr-positive', 'addr-low-fanin', 'addr-high-reciprocity', 'addr-low-lifetime']
+    const candidates: CandidateFixture[] = [
+      { degreeIn: 1500, totalInUsd: 60_000_000, inCount: 100, reciprocalCount: 2 }, // reciprocity 0.02, all clear
+      { degreeIn: 500, totalInUsd: 60_000_000, inCount: 100, reciprocalCount: 2 }, // fan-in fails alone
+      { degreeIn: 1500, totalInUsd: 60_000_000, inCount: 100, reciprocalCount: 10 }, // reciprocity 0.10 fails alone
+      { degreeIn: 1500, totalInUsd: 1_000_000, inCount: 100, reciprocalCount: 2 }, // lifetime fails alone
+    ]
+    const remote = client(addresses, candidates)
+    const result = await exchangeLikeness(remote as never, { addresses, network: 'bittensor', writeArtifacts: false })
+
+    expect(result.document.status).toBe('complete')
+    expect(result.candidates).toHaveLength(4)
+
+    expect(result.candidates[0]).toMatchObject({ address: 'addr-positive', exchange_like: true, failing_threshold: undefined })
+    expect(result.candidates[0].degree_in).toBeGreaterThanOrEqual(FANIN_MIN)
+    expect(result.candidates[0].reciprocity!).toBeLessThanOrEqual(RECIPROCITY_MAX)
+    expect(result.candidates[0].total_in_usd).toBeGreaterThanOrEqual(LIFETIME_INBOUND_MIN_USD)
+
+    expect(result.candidates[1]).toMatchObject({ address: 'addr-low-fanin', exchange_like: false, failing_threshold: 'fan_in' })
+    expect(result.candidates[2]).toMatchObject({ address: 'addr-high-reciprocity', exchange_like: false, failing_threshold: 'reciprocity' })
+    expect(result.candidates[3]).toMatchObject({ address: 'addr-low-lifetime', exchange_like: false, failing_threshold: 'lifetime_inbound_usd' })
+  })
+
+  it('names the failing threshold on each finding record', async () => {
+    const addresses = ['addr-low-fanin']
+    const candidates: CandidateFixture[] = [{ degreeIn: 1, totalInUsd: 60_000_000, inCount: 10, reciprocalCount: 0 }]
+    const remote = client(addresses, candidates)
+    const result = await exchangeLikeness(remote as never, { addresses, network: 'bittensor', writeArtifacts: false })
+    expect(result.document.findings[0].gate).toBe('failing_threshold:fan_in')
+  })
+})
+
+describe('exchangeLikeness reciprocity single-row aggregate (AC3 exact-or-inconclusive)', () => {
+  it('emits a single-row aggregate with no LIMIT clause', () => {
+    const { query } = exchangeLikenessQueryBuilderContract.reciprocityQuery('reciprocity_0', 'addr')
+    expect(query).not.toMatch(/LIMIT/i)
+    expect(query).toMatch(/OPTIONAL MATCH/)
+    expect(query).toMatch(/collect\(DISTINCT/)
+    expect(query).toMatch(/AS in_count/)
+    expect(query).toMatch(/AS reciprocal_count/)
+  })
+
+  it('yields exchange_like=null on a reciprocity aggregate timeout, never a classification', async () => {
+    const addresses = ['addr-timeout']
+    const candidates: CandidateFixture[] = [{ degreeIn: 1500, totalInUsd: 60_000_000, inCount: 0, reciprocalCount: 0 }]
+    const remote = client(addresses, candidates, { failReciprocityIndex: 0, failMessage: 'query timed out after 10s' })
+    const result = await exchangeLikeness(remote as never, { addresses, network: 'bittensor', writeArtifacts: false })
+    expect(result.candidates[0].exchange_like).toBeNull()
+    expect(result.candidates[0].inconclusive_reason).toBe('query_timeout')
+    expect(result.candidates[0].failing_threshold).toBeUndefined()
+    expect(result.document.status).toBe('inconclusive')
+    expect(result.document.findings[0].inconclusive).toBe(true)
+  })
+
+  it('yields exchange_like=null on a reciprocity aggregate admission rejection, never a classification', async () => {
+    const addresses = ['addr-rejected']
+    const candidates: CandidateFixture[] = [{ degreeIn: 1500, totalInUsd: 60_000_000, inCount: 0, reciprocalCount: 0 }]
+    const remote = client(addresses, candidates, { failReciprocityIndex: 0, failMessage: 'admission rejected: quota exceeded' })
+    const result = await exchangeLikeness(remote as never, { addresses, network: 'bittensor', writeArtifacts: false })
+    expect(result.candidates[0].exchange_like).toBeNull()
+    expect(result.candidates[0].inconclusive_reason).toBe('admission_rejected')
+    expect(result.document.status).toBe('inconclusive')
+  })
+})
+
+describe('exchangeLikeness candidate cap and read-only surface', () => {
+  it('rejects more than MAX_CANDIDATES addresses', async () => {
+    expect(MAX_CANDIDATES).toBe(25)
+    const addresses = Array.from({ length: 26 }, (_, index) => `addr-${index}`)
+    const remote = client(addresses, addresses.map(() => ({ degreeIn: 1, totalInUsd: 1, inCount: 1, reciprocalCount: 1 })))
+    await expect(exchangeLikeness(remote as never, { addresses, network: 'bittensor', writeArtifacts: false })).rejects.toThrow(/at most 25/)
+  })
+
+  const DENYLIST = /\b(MERGE|CREATE|SET|DELETE|REMOVE|DROP)\b/i
+  const PROCEDURE_CALL = /\bCALL\s+(?!\{)/i
+
+  it('neither profile nor reciprocity queries ever emit a denylisted write token', () => {
+    const profile = exchangeLikenessQueryBuilderContract.profileQuery('profile_0', 'addr-"quote"').query
+    const reciprocity = exchangeLikenessQueryBuilderContract.reciprocityQuery('reciprocity_0', 'addr-"quote"').query
+    for (const query of [profile, reciprocity]) {
+      expect(DENYLIST.test(query)).toBe(false)
+      expect(PROCEDURE_CALL.test(query)).toBe(false)
+    }
+  })
+
+  it('reaches the network exclusively through graph_query_batch', async () => {
+    const addresses = ['addr-a']
+    const candidates: CandidateFixture[] = [{ degreeIn: 1500, totalInUsd: 60_000_000, inCount: 10, reciprocalCount: 0 }]
+    const remote = client(addresses, candidates)
+    await exchangeLikeness(remote as never, { addresses, network: 'bittensor', writeArtifacts: false })
+    for (const call of remote.callTool.mock.calls) {
+      expect((call[0] as { name: string }).name).toBe('graph_query_batch')
+    }
+  })
+})
