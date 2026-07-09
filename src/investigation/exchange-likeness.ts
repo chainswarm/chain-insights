@@ -83,10 +83,21 @@ function normalizeAddresses(input: string | string[]): string[] {
 // Point-lookup of graphsync-materialized node props for one candidate. A
 // property-keyed MATCH naturally returns at most one row; LIMIT 1 is
 // defensive, not load-bearing.
+//
+// Reads the LIFETIME fan-in and inbound value from the facts tier
+// (facts_address_features_view, reached via the HAS_FEATURE edge), NOT the
+// live_topology Address node props: exchange-likeness is a lifetime-behavior
+// test, and the live-tier node's `total_in_usd` is a recent-window figure
+// that diverges from lifetime by ~10x on real exchanges (found in the
+// 2026-07-09 UAT: a curated exchange showed live total_in_usd $421M vs facts
+// $4.14B). degree_in happens to agree across tiers, but total_in_usd does
+// not, so both are read from facts to keep the $50M lifetime threshold
+// honest. This matches the spec (A2: "from facts_address_features_view via
+// USE facts") and the A2-pre calibration, which measured the same view.
 function profileQuery(id: string, address: string): { id: string; query: string } {
   return {
     id,
-    query: `MATCH (a:Address {address: "${escapeCypherString(address)}"}) RETURN a.address AS address, a.degree_in AS degree_in, a.total_in_usd AS total_in_usd LIMIT 1`,
+    query: `USE facts MATCH (a:Address {address: "${escapeCypherString(address)}"})-[:HAS_FEATURE]->(feat:AddressFeature) RETURN a.address AS address, feat.degree_in AS degree_in, feat.total_in_usd AS total_in_usd LIMIT 1`,
   }
 }
 
