@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.9.2] - 2026-07-09
+
+- Resynced the graph devkit's `cypheradmit`/`cyphersql` mirror of
+  production data-pipeline's identity-grain removal: `hasStarRocksIndexedPredicate`
+  no longer treats an inline `{identity_id: ...}` filter as a valid
+  StarRocks cost-bound anchor (closes a StarRocks cost-gate bypass); the
+  FLOWS_TO cost-bound error message and a doc-comment example now read
+  `{address: ...}`/`:Address` instead of the retired `identity_id`/`:Identity`
+  shape, matching canonical wording exactly.
+
 ## [0.9.1] - 2026-07-09
 
 - Regenerated the devkit fixture against a dev stack with real
