@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.9.3] - 2026-07-09
+
+- Added two read-only detection tools for AML investigators:
+  `aml-scam-corridor-trace` (per-seed scam-corridor propagation with
+  exchange/hub/boundary/mixer/shared-deposit gating and a bounded,
+  three-valued complete/partial/inconclusive result) and
+  `aml-exchange-likeness` (classifies an address as exchange-like from
+  fan-in, reciprocity, and lifetime inbound value). Both are strictly
+  read-only, emit reviewable findings artifacts, and stay off the public
+  MCP tool surface.
+
 ## [0.9.2] - 2026-07-09
 
 - Resynced the graph devkit's `cypheradmit`/`cyphersql` mirror of

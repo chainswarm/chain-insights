@@ -721,6 +721,56 @@ program
       })
   )
   .addCommand(
+    new Command('aml-scam-corridor-trace')
+      .description('[internal] Trace a scam seed address hop-by-hop for corridor/exchange/hub gate classification. Not on the public MCP surface — findings are proposals, not label writes.')
+      .requiredOption('--seed-address <address>', 'Full scam seed address to trace')
+      .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
+      .option('--max-hops <number>', 'Maximum trace hops, default 3, hard cap 4')
+      .action(async (opts: { seedAddress: string; network: string; maxHops?: string }) => {
+        try {
+          const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+          requireWorkspaceRoot()
+          await withGraphMcpClient('chain-insights-cli-aml-scam-corridor-trace', async (client) => {
+            const { scamCorridorTrace } = await import('./investigation/scam-corridor-trace.js')
+            const result = await scamCorridorTrace(client, {
+              seedAddress: opts.seedAddress,
+              network: opts.network,
+              maxHops: optionalNumber(opts.maxHops),
+            })
+            console.log(result.summaryText)
+            console.log(JSON.stringify(result.document, null, 2))
+          })
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
+    new Command('aml-exchange-likeness')
+      .description('[internal] Classify 1-25 candidate addresses for exchange-likeness via fan-in/reciprocity/lifetime-inbound thresholds. Not on the public MCP surface — findings are proposals, not label writes.')
+      .requiredOption('--addresses <addresses>', 'Comma-separated candidate addresses, max 25')
+      .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
+      .action(async (opts: { addresses: string; network: string }) => {
+        try {
+          const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+          requireWorkspaceRoot()
+          await withGraphMcpClient('chain-insights-cli-aml-exchange-likeness', async (client) => {
+            const { exchangeLikeness } = await import('./investigation/exchange-likeness.js')
+            const result = await exchangeLikeness(client, {
+              addresses: opts.addresses,
+              network: opts.network,
+            })
+            console.log(result.summaryText)
+            console.log(JSON.stringify(result.document, null, 2))
+          })
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
     new Command('call')
       .description('Call an MCP tool directly (debug)')
       .argument('<tool>', 'Tool name to call')
