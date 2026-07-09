@@ -68,11 +68,9 @@ var (
 		"MIN":   {},
 		"SUM":   {},
 	}
-	addressMapPredicatePattern    = regexp.MustCompile(`(?is)\{\s*` + "`?" + `address` + "`?" + `\s*:`)
-	addressWherePredicatePattern  = regexp.MustCompile(`(?is)\bWHERE\b.*(?:\.\s*` + "`?" + `address` + "`?" + `|\b` + "`?" + `address` + "`?" + `)\s*(?:=|IN\b)`)
-	identityMapPredicatePattern   = regexp.MustCompile(`(?is)\{\s*` + "`?" + `identity_id` + "`?" + `\s*:`)
-	identityWherePredicatePattern = regexp.MustCompile(`(?is)\bWHERE\b.*(?:\.\s*` + "`?" + `identity_id` + "`?" + `|\b` + "`?" + `identity_id` + "`?" + `)\s*(?:=|IN\b)`)
-	rangeWherePredicatePattern    = regexp.MustCompile(`(?is)\bWHERE\b.*\b(?:activity_date|block_date|block_height|block_timestamp|period_start_date|price_date|last_seen_timestamp|first_seen_timestamp)\b\s*(?:=|<|>|<=|>=|BETWEEN\b|IN\b)`)
+	addressMapPredicatePattern   = regexp.MustCompile(`(?is)\{\s*` + "`?" + `address` + "`?" + `\s*:`)
+	addressWherePredicatePattern = regexp.MustCompile(`(?is)\bWHERE\b.*(?:\.\s*` + "`?" + `address` + "`?" + `|\b` + "`?" + `address` + "`?" + `)\s*(?:=|IN\b)`)
+	rangeWherePredicatePattern   = regexp.MustCompile(`(?is)\bWHERE\b.*\b(?:activity_date|block_date|block_height|block_timestamp|period_start_date|price_date|last_seen_timestamp|first_seen_timestamp)\b\s*(?:=|<|>|<=|>=|BETWEEN\b|IN\b)`)
 )
 
 type cypherToken struct {
@@ -387,8 +385,6 @@ func ClassifyQueryTier(query string) QueryTier {
 func hasStarRocksIndexedPredicate(query string) bool {
 	return addressMapPredicatePattern.MatchString(query) ||
 		addressWherePredicatePattern.MatchString(query) ||
-		identityMapPredicatePattern.MatchString(query) ||
-		identityWherePredicatePattern.MatchString(query) ||
 		rangeWherePredicatePattern.MatchString(query)
 }
 

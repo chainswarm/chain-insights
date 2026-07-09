@@ -25,7 +25,7 @@ func (s *emitState) applyCostBound() error {
 		return nil
 	}
 	return newErr(ErrCostBound, s.q.nodes[0].pos,
-		"a %d-hop FLOWS_TO chain with no anchored endpoint would scan the full edge view; anchor the source or target with an inline {identity_id: ...} filter", flowsHops)
+		"a %d-hop FLOWS_TO chain with no anchored endpoint would scan the full edge view; anchor the source or target with an inline {address: ...} filter", flowsHops)
 }
 
 // hasInlineIDAnchor reports whether a node carries an inline filter on its
