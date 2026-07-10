@@ -19,24 +19,28 @@ function findingFor(document: { findings: Array<{ address: string }> }, address:
 // One hop-1 neighbor per gate arm, so a single canned response drives the
 // whole gate-precedence table in one traversal (maxHops: 1 — none of these
 // nodes need to be expanded further to prove their own classification).
+// node_labels is the labels(t) node-label taxonomy the gates read; entity_labels
+// is the free-text t.labels property array (lowercase/entity names) carried only
+// as evidence. Each gate-driving row sets its taxonomy label in node_labels — the
+// lowercase entity_labels below deliberately never drive a gate.
 const GATE_TABLE_ROWS = [
-  { address: 'addr-exchange-flag', degree_in: 5, is_exchange: true, labels: [], tx_count: 1, amount_usd_sum: 100 },
+  { address: 'addr-exchange-flag', degree_in: 5, is_exchange: true, node_labels: ['Address', 'Exchange'], entity_labels: ['Binance', 'exchange'], tx_count: 1, amount_usd_sum: 100 },
   // Proves precedence: the Exchange boundary-role label is shadowed by the
   // exchange gate (Gate 1) firing first, exactly like gates.go's
   // isExchangeNode(n) — it must resolve exchange_terminal, NOT
   // protected_infra, even though 'Exchange' is also in boundaryRoleLabels.
-  { address: 'addr-exchange-label', degree_in: 5, is_exchange: false, labels: ['Exchange'], tx_count: 1, amount_usd_sum: 100 },
-  { address: 'addr-hub', degree_in: 1500, is_exchange: false, labels: [], tx_count: 1, amount_usd_sum: 100 },
+  { address: 'addr-exchange-label', degree_in: 5, is_exchange: false, node_labels: ['Address', 'Exchange'], entity_labels: ['exchange'], tx_count: 1, amount_usd_sum: 100 },
+  { address: 'addr-hub', degree_in: 1500, is_exchange: false, node_labels: ['Address'], entity_labels: ['scam corridor hub'], tx_count: 1, amount_usd_sum: 100 },
   // High degree_in but Bridge is excluded from isHub (matches gates.go's
   // isBridgeNode guard inside isHub) — must fall through to protected_infra.
-  { address: 'addr-bridge', degree_in: 5000, is_exchange: false, labels: ['Bridge'], tx_count: 1, amount_usd_sum: 100 },
-  { address: 'addr-validator', degree_in: 5, is_exchange: false, labels: ['Validator'], tx_count: 1, amount_usd_sum: 100 },
-  { address: 'addr-miner', degree_in: 5, is_exchange: false, labels: ['Miner'], tx_count: 1, amount_usd_sum: 100 },
-  { address: 'addr-subnet', degree_in: 5, is_exchange: false, labels: ['Subnet'], tx_count: 1, amount_usd_sum: 100 },
-  { address: 'addr-mixer', degree_in: 5, is_exchange: false, labels: ['Mixer'], tx_count: 1, amount_usd_sum: 100 },
-  { address: 'addr-shared-tx', degree_in: 5, is_exchange: false, labels: [], tx_count: 1000, amount_usd_sum: 100 },
-  { address: 'addr-shared-usd', degree_in: 5, is_exchange: false, labels: [], tx_count: 1, amount_usd_sum: 5_000_000 },
-  { address: 'addr-mule', degree_in: 5, is_exchange: false, labels: [], tx_count: 1, amount_usd_sum: 100 },
+  { address: 'addr-bridge', degree_in: 5000, is_exchange: false, node_labels: ['Address', 'Bridge'], entity_labels: [], tx_count: 1, amount_usd_sum: 100 },
+  { address: 'addr-validator', degree_in: 5, is_exchange: false, node_labels: ['Address', 'Validator'], entity_labels: ['validator'], tx_count: 1, amount_usd_sum: 100 },
+  { address: 'addr-miner', degree_in: 5, is_exchange: false, node_labels: ['Address', 'Miner'], entity_labels: ['miner subnet 12'], tx_count: 1, amount_usd_sum: 100 },
+  { address: 'addr-subnet', degree_in: 5, is_exchange: false, node_labels: ['Address', 'Subnet'], entity_labels: ['subnet 7'], tx_count: 1, amount_usd_sum: 100 },
+  { address: 'addr-mixer', degree_in: 5, is_exchange: false, node_labels: ['Address', 'Mixer'], entity_labels: [], tx_count: 1, amount_usd_sum: 100 },
+  { address: 'addr-shared-tx', degree_in: 5, is_exchange: false, node_labels: ['Address'], entity_labels: [], tx_count: 1000, amount_usd_sum: 100 },
+  { address: 'addr-shared-usd', degree_in: 5, is_exchange: false, node_labels: ['Address'], entity_labels: [], tx_count: 1, amount_usd_sum: 5_000_000 },
+  { address: 'addr-mule', degree_in: 5, is_exchange: false, node_labels: ['Address'], entity_labels: ['scam'], tx_count: 1, amount_usd_sum: 100 },
 ]
 
 function stubClient(rows: Array<Record<string, unknown>>) {
@@ -80,6 +84,38 @@ describe('scamCorridorTrace gate precedence (AC1)', () => {
     expect(sharedUsd?.classification).toBeUndefined()
     expect(sharedUsd?.gate).toBe('shared_deposit_exchange_infra')
     expect(findingFor(result.document, 'addr-mule')).toMatchObject({ classification: 'propagated_scam', gate: 'propagated_scam' })
+  })
+})
+
+describe('scamCorridorTrace reads the labels(t) node-label taxonomy, not the free-text labels property (regression)', () => {
+  // Regression for the port bug: gates.go reads labels(g) (the PascalCase
+  // node-label set graphsync reconciles onto :Address), but the ported tool
+  // originally scanned the free-text t.labels property array — where the
+  // canonical tokens (Scam/Exchange/Validator/…) never appear (it holds
+  // lowercase tags + entity names like 'Binance', 'exchange', 'scam operator').
+  // Result: every label gate silently missed against real graph data.
+  it('emits labels(t) AS node_labels and does not select the labels property as the gate field', () => {
+    const { query } = scamCorridorQueryBuilderContract.frontierQuery('id', 'addr', 200)
+    expect(query).toContain('labels(t) AS node_labels')
+    // t.labels is still selected, but only as entity_labels (evidence), never
+    // aliased as the gate field `labels`.
+    expect(query).not.toMatch(/t\.labels AS labels\b/)
+  })
+
+  it('classifies from node_labels and ignores lowercase/entity tokens in the labels property', async () => {
+    const rows = [
+      // Real-graph exchange: :Exchange node-label + lowercase entity_labels.
+      { address: 'exch', degree_in: 5, is_exchange: true, node_labels: ['Address', 'Exchange'], entity_labels: ['Binance', 'exchange'], tx_count: 1, amount_usd_sum: 100 },
+      // Trap: canonical-looking tokens present ONLY in the free-text property
+      // array, with no matching node-label. If the gate ever scanned the
+      // property array again, this would misfire as exchange/validator/scam;
+      // it must fall through to the propagated_scam default instead.
+      { address: 'trap', degree_in: 5, is_exchange: false, node_labels: ['Address'], entity_labels: ['scam', 'exchange', 'validator', 'Exchange'], tx_count: 1, amount_usd_sum: 100 },
+    ]
+    const remote = stubClient(rows)
+    const result = await scamCorridorTrace(remote as never, { seedAddress: 'seed', network: 'bittensor', maxHops: 1, writeArtifacts: false })
+    expect(findingFor(result.document, 'exch')).toMatchObject({ classification: 'exchange_terminal', gate: 'exchange_terminal' })
+    expect(findingFor(result.document, 'trap')).toMatchObject({ classification: 'propagated_scam', gate: 'propagated_scam' })
   })
 })
 
@@ -139,7 +175,8 @@ describe('scamCorridorTrace hard caps (AC2)', () => {
       address: `mule-${index}`,
       degree_in: 5,
       is_exchange: false,
-      labels: [],
+      node_labels: ['Address'],
+      entity_labels: [],
       tx_count: 1,
       amount_usd_sum: 100,
     }))
@@ -157,7 +194,7 @@ describe('scamCorridorTrace hard caps (AC2)', () => {
   })
 
   it('reports complete only when no cap is hit', async () => {
-    const remote = stubClient([{ address: 'only-one', degree_in: 5, is_exchange: false, labels: [], tx_count: 1, amount_usd_sum: 100 }])
+    const remote = stubClient([{ address: 'only-one', degree_in: 5, is_exchange: false, node_labels: ['Address'], entity_labels: [], tx_count: 1, amount_usd_sum: 100 }])
     const result = await scamCorridorTrace(remote as never, { seedAddress: 'seed', network: 'bittensor', maxHops: 1, writeArtifacts: false })
     expect(result.document.status).toBe('complete')
   })

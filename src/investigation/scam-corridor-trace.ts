@@ -88,6 +88,9 @@ export interface ScamCorridorTraceResult {
 interface GateNode {
   degreeIn: number
   isExchange: boolean
+  // The `labels(t)` node-label taxonomy graphsync reconciles onto :Address
+  // (PascalCase :Scam/:Exchange/:Validator/…), never the free-text t.labels
+  // property array — matching gates.go's labels(g) gate signal.
   labels: string[]
 }
 
@@ -191,16 +194,26 @@ function stringArrayValue(value: unknown): string[] {
 
 // frontierQuery is the ONLY Cypher this tool ever emits: a bounded one-hop
 // outgoing FLOWS_TO expansion from a single source address, reading node
-// props (degree_in, is_exchange, labels) and edge props (tx_count,
-// amount_usd_sum). USE live_topology is applied by callGraphBatch, matching
-// trace-funds.ts's convention.
+// props (degree_in, is_exchange), the `labels(t)` node-label taxonomy, and
+// edge props (tx_count, amount_usd_sum). USE live_topology is applied by
+// callGraphBatch, matching trace-funds.ts's convention.
+//
+// The gates key on `labels(t) AS node_labels` — the PascalCase node-label set
+// (:Scam/:Victim/:Exchange/:Mixer/:Bridge/:Validator/:Miner/:Subnet) that
+// graphsync reconciles onto each :Address every sync pass — NOT the free-text
+// `t.labels` property array (entity names + lowercase tags like 'Binance',
+// 'exchange', 'scam corridor hub'). This is faithful to the server-side
+// original internal/scamtopology/gates.go, whose own comment states the gates
+// read `labels(g)` "instead of scanning the labels property array." The
+// free-text `t.labels` array is still selected as `entity_labels`, but only as
+// human-readable evidence — never on the gate path.
 function frontierQuery(id: string, address: string, limit: number): { id: string; query: string } {
   return {
     id,
     query: [
       `MATCH (s:Address {address: "${escapeCypherString(address)}"})-[r:FLOWS_TO]->(t:Address)`,
       'WHERE s.address <> t.address',
-      'RETURN t.address AS address, t.degree_in AS degree_in, t.is_exchange AS is_exchange, t.labels AS labels, r.tx_count AS tx_count, r.amount_usd_sum AS amount_usd_sum',
+      'RETURN t.address AS address, t.degree_in AS degree_in, t.is_exchange AS is_exchange, labels(t) AS node_labels, t.labels AS entity_labels, r.tx_count AS tx_count, r.amount_usd_sum AS amount_usd_sum',
       'ORDER BY r.amount_usd_sum DESC',
       `LIMIT ${limit}`,
     ].join(' '),
@@ -382,8 +395,11 @@ export async function scamCorridorTrace(remoteClient: Client, options: ScamCorri
           const node: GateNode = {
             degreeIn: numberValue(row['degree_in']),
             isExchange: boolValue(row['is_exchange']),
-            labels: stringArrayValue(row['labels']),
+            // Gate signal: the labels(t) node-label taxonomy, NOT the free-text
+            // t.labels property array (selected as entity_labels for evidence).
+            labels: stringArrayValue(row['node_labels']),
           }
+          const entityLabels = stringArrayValue(row['entity_labels'])
           const edge: GateEdge = {
             txCount: numberValue(row['tx_count']),
             amountUsd: numberValue(row['amount_usd_sum']),
@@ -396,7 +412,8 @@ export async function scamCorridorTrace(remoteClient: Client, options: ScamCorri
               hop,
               degree_in: node.degreeIn,
               is_exchange: node.isExchange,
-              labels: node.labels,
+              node_labels: node.labels,
+              entity_labels: entityLabels,
               tx_count: edge.txCount,
               amount_usd_sum: edge.amountUsd,
             },
