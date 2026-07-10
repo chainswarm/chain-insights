@@ -3,6 +3,22 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.9.4] - 2026-07-10
+
+- Fixed `aml-scam-corridor-trace` reading the wrong label field: the gates
+  now read the `labels(t)` node-label taxonomy (PascalCase
+  `:Scam`/`:Exchange`/`:Validator`/`:Miner`/`:Subnet`/`:Mixer`/`:Bridge`/`:Victim`)
+  that graphsync reconciles onto each `:Address`, matching the server-side
+  original `gates.go`. The first port matched those constants against the
+  free-text `t.labels` property array (entity names + lowercase tags such as
+  `exchange`, `scam corridor hub`), where they never appear — so every label
+  gate silently missed against real graph data and real exchanges/hubs were
+  traced through as `propagated_scam`. The free-text array is still surfaced
+  as `entity_labels` evidence. Added a regression test pinning the
+  `labels(t)` gate source, and a live UAT harness
+  (`scripts/devops/chain-insights-devkit/capture-scam-corridor-uat.sh` in
+  the control-plane repo) asserting exchange/hub gate diversity end-to-end.
+
 ## [0.9.3] - 2026-07-09
 
 - Added two read-only detection tools for AML investigators:
