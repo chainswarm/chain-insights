@@ -174,12 +174,12 @@ surface.
 
 ## Examples
 
-Run a direct live topology query:
+Run a direct topology query:
 
 ```bash
 cia mcp call graph_query \
   network=bittensor \
-  "query=USE live_topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level LIMIT 10"
+  "query=USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level LIMIT 10"
 ```
 
 Run a batch across graph views:
@@ -187,7 +187,7 @@ Run a batch across graph views:
 ```bash
 cia mcp call graph_query_batch \
   network=bittensor \
-  'queries=[{"id":"count","query":"USE live_topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"archive_flows","query":"USE archive_topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN f.period_granularity AS granularity, src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum LIMIT 3"},{"id":"facts_linked","query":"USE facts MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"},{"id":"facts_sample","query":"USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.tx_out_count AS tx_out_count LIMIT 3"}]'
+  'queries=[{"id":"count","query":"USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"flows","query":"USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 3"},{"id":"facts_linked","query":"USE facts MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"},{"id":"facts_sample","query":"USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.tx_out_count AS tx_out_count LIMIT 3"}]'
 ```
 
 For no-wallet public free-tier usage, prefer the single-query example first.
@@ -219,12 +219,11 @@ layers.
 
 ## Graph Access
 
-Graph queries must choose the right read layer explicitly:
+Graph queries must choose the right read graph explicitly:
 
-| Layer | Use it for |
+| Graph | Use it for |
 | --- | --- |
-| `live_topology` | Recent topology and fast traversal |
-| `archive_topology` | Historical fund-flow context |
+| `topology` | The unified address / FLOWS_TO / LINKED graph — recent and full historical fund-flow traversal in one place |
 | `facts` | Labels, features, risk scores, assets, and enrichment |
 
 Use `graph_query_batch` when related reads should share one call and one
