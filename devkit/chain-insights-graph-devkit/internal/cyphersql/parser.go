@@ -51,13 +51,13 @@ func (p *parser) parseQuery() (*query, error) {
 	if err := p.expectKeyword("USE"); err != nil {
 		return nil, err
 	}
-	scopeTok, err := p.expect(tIdent, "topology scope")
+	scopeTok, err := p.expect(tIdent, "graph scope")
 	if err != nil {
 		return nil, err
 	}
 	q.scope = scopeTok.Text
-	if q.scope != "archive_topology" && q.scope != "facts" {
-		return nil, newErr(ErrUnsupportedShape, scopeTok.Pos, "cyphersql compiles archive_topology/facts only, not %q (%s)", q.scope, supportedPatterns)
+	if q.scope != "facts" {
+		return nil, newErr(ErrUnsupportedShape, scopeTok.Pos, "cyphersql compiles facts only, not %q; topology runs natively on Memgraph (%s)", q.scope, supportedPatterns)
 	}
 	// MATCH pattern
 	if err := p.expectKeyword("MATCH"); err != nil {
@@ -75,9 +75,9 @@ func (p *parser) parseQuery() (*query, error) {
 		}
 		q.where = expr
 	}
-	// Reject WITH/UNWIND pipelines with a typed error (out of archive scope).
+	// Reject WITH/UNWIND pipelines with a typed error (out of facts scope).
 	if p.keyword("WITH") || p.keyword("UNWIND") {
-		return nil, newErr(ErrUnsupportedShape, p.cur().Pos, "%s pipelines are not supported on archive; %s", strings.ToUpper(p.cur().Text), supportedPatterns)
+		return nil, newErr(ErrUnsupportedShape, p.cur().Pos, "%s pipelines are not supported on facts; %s", strings.ToUpper(p.cur().Text), supportedPatterns)
 	}
 	// RETURN
 	if err := p.expectKeyword("RETURN") ; err != nil {
@@ -102,7 +102,7 @@ func (p *parser) parseQuery() (*query, error) {
 	}
 	// LIMIT (required)
 	if !p.keyword("LIMIT") {
-		return nil, newErr(ErrLimitRequired, p.cur().Pos, "every archive query must end with LIMIT <= %d", maxLimit)
+		return nil, newErr(ErrLimitRequired, p.cur().Pos, "every facts query must end with LIMIT <= %d", maxLimit)
 	}
 	p.next()
 	limTok, err := p.expect(tNumber, "LIMIT value")
@@ -236,7 +236,7 @@ func (p *parser) parseEdge() (edgePattern, error) {
 	e.relType = rel.Text
 	// Reject variable-length / quantified / shortest-path traversal.
 	if p.at(tStar) {
-		return e, newErr(ErrUnsupportedShape, p.cur().Pos, "variable-length/shortest-path traversal is not supported on archive; use fixed-hop patterns (%s)", supportedPatterns)
+		return e, newErr(ErrUnsupportedShape, p.cur().Pos, "variable-length/shortest-path traversal is not supported on facts; use fixed-hop patterns (%s)", supportedPatterns)
 	}
 	if _, err := p.expect(tRBracket, "]"); err != nil {
 		return e, err
@@ -282,10 +282,10 @@ func (p *parser) parseReturnItem() (returnItem, error) {
 	item := returnItem{pos: p.cur().Pos}
 	// Reject non-count aggregate/expression forms with a typed error.
 	if p.keyword("CASE") {
-		return item, newErr(ErrUnsupportedShape, p.cur().Pos, "CASE expressions are not supported on archive; %s", supportedPatterns)
+		return item, newErr(ErrUnsupportedShape, p.cur().Pos, "CASE expressions are not supported on facts; %s", supportedPatterns)
 	}
 	if p.keyword("sum") || p.keyword("avg") || p.keyword("min") || p.keyword("max") || p.keyword("collect") {
-		return item, newErr(ErrUnsupportedShape, p.cur().Pos, "the %s() aggregate is not supported on archive (only count()); %s", p.cur().Text, supportedPatterns)
+		return item, newErr(ErrUnsupportedShape, p.cur().Pos, "the %s() aggregate is not supported on facts (only count()); %s", p.cur().Text, supportedPatterns)
 	}
 	if p.keyword("count") {
 		p.next()
