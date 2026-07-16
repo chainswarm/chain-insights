@@ -138,9 +138,9 @@ describe('exchangeLikeness candidate cap and read-only surface', () => {
     }
   })
 
-  it('reads lifetime fan-in/inbound from the facts tier, not windowed live_topology', () => {
-    // Regression guard for the 2026-07-09 UAT finding: live-tier total_in_usd
-    // is a recent-window figure (~10x smaller than lifetime), so exchange-
+  it('reads lifetime fan-in/inbound from the facts tier, not the windowed topology node', () => {
+    // Regression guard for the 2026-07-09 UAT finding: the topology node's
+    // total_in_usd is a recent-window figure (~10x smaller than lifetime), so exchange-
     // likeness must source degree_in/total_in_usd from
     // facts_address_features_view via USE facts + HAS_FEATURE.
     const profile = exchangeLikenessQueryBuilderContract.profileQuery('profile_0', 'addr-a').query

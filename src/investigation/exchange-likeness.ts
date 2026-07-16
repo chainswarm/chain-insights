@@ -86,8 +86,8 @@ function normalizeAddresses(input: string | string[]): string[] {
 //
 // Reads the LIFETIME fan-in and inbound value from the facts tier
 // (facts_address_features_view, reached via the HAS_FEATURE edge), NOT the
-// live_topology Address node props: exchange-likeness is a lifetime-behavior
-// test, and the live-tier node's `total_in_usd` is a recent-window figure
+// topology Address node props: exchange-likeness is a lifetime-behavior
+// test, and the topology node's `total_in_usd` is a recent-window figure
 // that diverges from lifetime by ~10x on real exchanges (found in the
 // 2026-07-09 UAT: a curated exchange showed live total_in_usd $421M vs facts
 // $4.14B). degree_in happens to agree across tiers, but total_in_usd does
@@ -143,7 +143,7 @@ function parseGraphBatchResult(result: RemoteToolResult): ParsedGraphBatch {
 function topologyGraphQuery(query: string): string {
   const trimmed = query.trim()
   if (/^USE\s+/i.test(trimmed)) return trimmed
-  return `USE live_topology ${trimmed}`
+  return `USE topology ${trimmed}`
 }
 
 async function callGraphBatch(remoteClient: Client, network: string, queries: Array<{ id: string; query: string }>): Promise<ParsedGraphBatch> {

@@ -42,11 +42,9 @@ describe('connectionRouteQueries', () => {
 })
 
 describe('shouldIncludeRouteQueries', () => {
-  it('is true only for live_topology with a compare address', () => {
-    expect(shouldIncludeRouteQueries('live_topology', 'x')).toBe(true)
-    expect(shouldIncludeRouteQueries('archive_topology', 'x')).toBe(false)
-    expect(shouldIncludeRouteQueries('live_topology', undefined)).toBe(false)
-    expect(shouldIncludeRouteQueries('archive_topology', undefined)).toBe(false)
+  it('is true only when a compare address is given', () => {
+    expect(shouldIncludeRouteQueries('x')).toBe(true)
+    expect(shouldIncludeRouteQueries(undefined)).toBe(false)
   })
 })
 
@@ -153,7 +151,6 @@ describe('addressRisk route suppression for an unresolved compare address', () =
       address: '5Known',
       network: 'bittensor',
       compareAddress: '5NoSuchCompare',
-      topologyScope: 'live_topology',
     })
 
     // Pre-revert contract restored: an unresolved compare address suppresses
