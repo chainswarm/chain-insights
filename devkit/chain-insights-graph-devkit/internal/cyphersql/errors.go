@@ -6,7 +6,7 @@ import (
 )
 
 // Typed sentinel errors let callers branch on failure class (e.g.
-// ErrUnsupportedShape → HTTP 400, ErrCostBound → 429) via errors.Is.
+// ErrUnsupportedShape → HTTP 400, ErrLimitTooHigh → 400) via errors.Is.
 var (
 	// ErrUnsupportedShape means the query parsed as some Cypher but is not
 	// in the compiled facts subset (a non-facts scope such as topology,

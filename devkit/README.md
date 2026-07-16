@@ -147,9 +147,10 @@ StarRocks imports only the graph-mapped view objects (from the vendored
 devkit does not import raw block streams, sync state, indexer checkpoints,
 wallet/payment/quota metadata, or telemetry tables.
 
-Memgraph starts empty and imports live topology directly from fixture files.
-`USE live_topology` resolves to Memgraph directly (native Cypher); `USE
-archive_topology` and `USE facts` compile to StarRocks SQL via the vendored
-corpus-scoped translator (`internal/cyphersql`). MemGQL is retired.
+Memgraph starts empty and imports the unified topology graph directly from
+fixture files. `USE topology` resolves to Memgraph directly (native Cypher,
+unified recent + historical) and never compiles to SQL; `USE facts` compiles
+to StarRocks SQL via the vendored corpus-scoped translator
+(`internal/cyphersql`). MemGQL is retired.
 
 The production Chain Insights Graph assembly is not used by this devkit package.
