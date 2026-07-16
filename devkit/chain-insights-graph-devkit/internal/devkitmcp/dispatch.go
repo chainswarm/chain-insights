@@ -5,10 +5,14 @@ import (
 	"strings"
 )
 
-// DispatchRunner routes a query to the backend that owns its topology layer,
-// mirroring the production graphrag-mcp split after the MemGQL retirement:
-// live_topology → Memgraph (native Cypher, USE prefix stripped at
-// execution); archive_topology / facts → StarRocks via the translator.
+// DispatchRunner routes a query to the backend that owns its scope, mirroring
+// the production graphrag-mcp two-scope model: `USE topology` → Memgraph
+// (native Cypher, unified recent+historical, USE prefix stripped at
+// execution); `USE facts` → StarRocks via the corpus-scoped translator.
+//
+// The struct field names (`live`, `archive`) are historical: `live` is the
+// Memgraph runner that now serves the whole topology scope, and `archive` is
+// the StarRocks translator runner that now serves only facts.
 type DispatchRunner struct {
 	live    QueryRunner
 	archive QueryRunner
@@ -23,7 +27,8 @@ func (d *DispatchRunner) Run(ctx context.Context, network, query string) (QueryR
 	if tier == starrocksTierName {
 		return d.archive.Run(ctx, network, query)
 	}
-	// live (or unknown): strip the USE prefix so Memgraph accepts native Cypher.
+	// topology (or unknown): strip the USE prefix so Memgraph accepts native
+	// Cypher.
 	return d.live.Run(ctx, network, stripUsePrefix(query))
 }
 

@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// TraversalBounds caps the native live-topology read surface. Direct Memgraph
+// TraversalBounds caps the native topology read surface. Direct Memgraph
 // unlocks BFS/DFS/WSHORTEST/ALLSHORTEST/KSHORTEST and variable-length paths;
 // these bounds keep an admitted query from turning into an unbounded graph
 // walk. The devkit mirrors the production graphrag-mcp bounds exactly so a
@@ -39,16 +39,16 @@ func envIntBound(key string, fallback int) int {
 	return fallback
 }
 
-// queryTargetsLiveTopology reports whether the query is an explicit
-// `USE live_topology` read, mirroring production's graphQueryLayer gate:
-// bounds run only for explicit live topology, never for archive/facts (which
-// take the translator) or no-prefix queries.
-func queryTargetsLiveTopology(query string) bool {
+// queryTargetsTopology reports whether the query is an explicit
+// `USE topology` read, mirroring production's graph-scope gate: traversal
+// bounds run only for explicit topology reads (native Memgraph), never for
+// facts (which takes the translator) or no-prefix queries.
+func queryTargetsTopology(query string) bool {
 	fields := strings.Fields(strings.TrimSpace(query))
 	if len(fields) < 2 || !strings.EqualFold(fields[0], "USE") {
 		return false
 	}
-	return strings.EqualFold(strings.TrimSpace(fields[1]), "live_topology")
+	return strings.EqualFold(strings.TrimSpace(fields[1]), "topology")
 }
 
 // edgeBodyPattern captures the inside of any relationship whose body uses a
@@ -69,8 +69,8 @@ var standaloneLimitPattern = regexp.MustCompile(`(?i)\*\s*(?:BFS|DFS|WSHORTEST|A
 var unwindListPattern = regexp.MustCompile(`(?is)\bUNWIND\s*\[([^\]]*)\]`)
 
 // ValidateLiveTraversalBounds enforces TraversalBounds on a query already
-// admitted as read-only. It runs ONLY for live_topology (native Memgraph);
-// archive/facts go through the corpus-scoped translator instead. Returns an
+// admitted as read-only. It runs ONLY for topology reads (native Memgraph);
+// facts goes through the corpus-scoped translator instead. Returns an
 // error naming the exact violated bound.
 func ValidateLiveTraversalBounds(query string, b TraversalBounds) error {
 	for _, body := range edgeBodyPattern.FindAllString(query, -1) {

@@ -11,10 +11,9 @@ import (
 	"github.com/go-sql-driver/mysql"
 )
 
-// StarRocksRunner executes archive_topology / facts queries by compiling
-// them to StarRocks SQL (internal/cyphersql) and running against the devkit
-// warehouse — mirroring the production graphrag-mcp archive path. MemGQL is
-// no longer in the loop.
+// StarRocksRunner executes facts queries by compiling them to StarRocks SQL
+// (internal/cyphersql) and running against the devkit warehouse — mirroring
+// the production graphrag-mcp facts path. MemGQL is no longer in the loop.
 type StarRocksRunner struct {
 	db *sql.DB
 }
