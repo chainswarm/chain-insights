@@ -522,19 +522,16 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).not.toContain('iframe')
     expect(instructions).toContain('FLOWS_TO')
     expect(instructions).toContain('first_tx_id')
-    expect(instructions).toContain('Archive is MONEY-ONLY')
-    expect(instructions).toContain('LINKED is served on the live and facts tiers')
+    expect(instructions).toContain('LINKED is served on both the topology and facts graphs')
     expect(instructions).toContain('the single public Bittensor investigation network')
     expect(instructions).toContain('(:Address)-[:LINKED]-(:Address)')
     expect(instructions).toContain('n.network AS network')
     expect(instructions).toContain('declared_owner')
     expect(instructions).toContain('exchange hot wallets are terminal endpoints only')
     expect(instructions).toContain('schema discovery')
-    expect(instructions).toContain('Select the graph with USE live_topology')
+    expect(instructions).toContain('Select the graph with USE topology')
     expect(instructions).toContain('address is the node grain, not the topology name')
     expect(instructions).toContain('NeuronEndpoint')
-    expect(instructions).not.toContain('topology_scope accepts only identity')
-    expect(instructions).not.toContain('topology_scope=identity')
   })
 
   it('forwards tool call arguments to remoteClient.callTool', async () => {
@@ -854,7 +851,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(properties.per_query_timeout_seconds.maximum).toBe(600)
   })
 
-  it('exposes topology_scope (live_topology default, archive_topology option) on all four aml_* tools', async () => {
+  it('does not expose a retired graph-scope schema property on any of the four aml_* tools', async () => {
+    const retiredScopeArg = retiredName('topology', '_scope')
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       { name: 'graph_query', description: 'Federated graph query' },
@@ -876,41 +874,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         z.object(config.inputSchema as z.ZodRawShape),
       ) as Record<string, unknown>
       const properties = jsonSchema.properties as Record<string, Record<string, unknown>>
-      expect(properties.topology_scope, `${toolName} must expose topology_scope`).toBeDefined()
-      expect((jsonSchema.required as string[] | undefined) ?? []).not.toContain('topology_scope')
-      const anyOf = properties.topology_scope.anyOf as Array<{ enum?: string[] }> | undefined
-      const enumValues = properties.topology_scope.enum as string[] | undefined
-      const values = enumValues ?? anyOf?.flatMap((entry) => entry.enum ?? [])
-      expect(values, `${toolName} topology_scope must be an enum`).toEqual(expect.arrayContaining(['live_topology', 'archive_topology']))
-    }
-  })
-
-  it('describes the archive_topology cost/latency tradeoff on all four aml_* tools and the shared topology_scope parameter', async () => {
-    const { loadSchema } = await import('../src/mcp/schema-cache.js')
-    vi.mocked(loadSchema).mockResolvedValueOnce([
-      { name: 'graph_query', description: 'Federated graph query' },
-      { name: 'graph_query_batch', description: 'Federated graph query batch' },
-    ])
-
-    const { createProxy } = await import('../src/mcp/proxy.js')
-    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
-
-    await createProxy()
-
-    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
-      registerTool: ReturnType<typeof vi.fn>
-    }
-
-    for (const toolName of ['aml_address_risk', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources']) {
-      const config = findToolConfig(serverInstance, toolName)
-      expect(config.description, `${toolName} description must mention archive_topology's cost/latency tradeoff`).toContain('billed for the real time it takes')
-
-      const jsonSchema = z.toJSONSchema(
-        z.object(config.inputSchema as z.ZodRawShape),
-      ) as Record<string, unknown>
-      const properties = jsonSchema.properties as Record<string, Record<string, unknown>>
-      const topologyScopeDescription = (properties.topology_scope.description ?? (properties.topology_scope.anyOf as Array<{ description?: string }> | undefined)?.find((entry) => entry.description)?.description) as string | undefined
-      expect(topologyScopeDescription, `${toolName} topology_scope description must mention the cost/latency tradeoff`).toContain('billed for the extra real time it takes')
+      expect(properties[retiredScopeArg], `${toolName} must not expose a graph-scope argument`).toBeUndefined()
     }
   })
 
@@ -1104,7 +1068,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     })
     const forwardQueries = forwardCall?.[0].arguments.queries as Array<{ id: string; query: string }>
     const forwardQuery = forwardQueries.find((query) => query.id === 'forward_exchange_paths_2')?.query ?? ''
-    expect(forwardQuery).toContain('USE live_topology MATCH')
+    expect(forwardQuery).toContain('USE topology MATCH')
     expect(forwardQuery).toContain('r1.amount_usd_sum IS NOT NULL')
     expect(forwardQuery).toContain('r2.amount_usd_sum IS NOT NULL')
     expect(forwardQuery).not.toContain('address_type')
@@ -1443,7 +1407,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       live_node: {
         risk_score: 0.91,
         risk_level: 'critical',
-        source: 'live_topology_node',
+        source: 'topology_node',
       },
     })
     expect(result.structuredContent.facts.subject.addresses).toEqual(['5Addr'])
@@ -1785,36 +1749,21 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect((result.structuredContent as { unresolved: string[] }).unresolved).toEqual(['5UnknownMember'])
   })
 
-  it('seed existence pre-flight defaults to live_topology and honors an explicit archive_topology scope', async () => {
+  it('seed existence pre-flight always prefixes the unified USE topology graph', async () => {
     const { traceVictimFunds } = await import('../src/investigation/public-tools.js')
-    const remoteClientDefault = {
+    const remoteClient = {
       callTool: vi.fn().mockResolvedValueOnce({
         content: [{ type: 'text', text: JSON.stringify({ facts: { queries: [{ id: 'seed_address_exists_1', ok: true, results: [] }] } }) }],
         isError: false,
       }),
     }
-    await traceVictimFunds(remoteClientDefault as never, { dataDir: '/tmp/ci-test', serverPort: 4321 }, {
+    await traceVictimFunds(remoteClient as never, { dataDir: '/tmp/ci-test', serverPort: 4321 }, {
       victimAddresses: '5UnknownMember',
       network: 'bittensor',
       writeArtifacts: false,
     })
-    const defaultQueries = remoteClientDefault.callTool.mock.calls[0]?.[0].arguments.queries as Array<{ query: string }>
-    expect(defaultQueries[0]?.query).toMatch(/^USE live_topology/)
-
-    const remoteClientArchive = {
-      callTool: vi.fn().mockResolvedValueOnce({
-        content: [{ type: 'text', text: JSON.stringify({ facts: { queries: [{ id: 'seed_address_exists_1', ok: true, results: [] }] } }) }],
-        isError: false,
-      }),
-    }
-    await traceVictimFunds(remoteClientArchive as never, { dataDir: '/tmp/ci-test', serverPort: 4321 }, {
-      victimAddresses: '5UnknownMember',
-      network: 'bittensor',
-      writeArtifacts: false,
-      topologyScope: 'archive_topology',
-    })
-    const archiveQueries = remoteClientArchive.callTool.mock.calls[0]?.[0].arguments.queries as Array<{ query: string }>
-    expect(archiveQueries[0]?.query).toMatch(/^USE archive_topology/)
+    const queries = remoteClient.callTool.mock.calls[0]?.[0].arguments.queries as Array<{ query: string }>
+    expect(queries[0]?.query).toMatch(/^USE topology/)
   })
 
   it('aml_address_risk reports partial enrichment query failures without failing screening', async () => {
@@ -2482,7 +2431,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const handler = findPromptHandler(serverInstance, 'graph-query')
     const result = await handler({
       network: 'bittensor',
-      query: 'USE live_topology MATCH (a:Address) RETURN a.address LIMIT 1',
+      query: 'USE topology MATCH (a:Address) RETURN a.address LIMIT 1',
     })
     const text = result.messages[0].content.text
 
