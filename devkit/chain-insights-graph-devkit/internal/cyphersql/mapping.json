@@ -2,27 +2,10 @@
   "nodes": [
     {
       "label": "Address",
-      "table": "archive_topology_addresses_view",
+      "table": "facts_address_features_view",
       "id_column": "address",
       "properties": {
-        "address": "address",
-        "network": "network",
-        "labels": "labels",
-        "is_exchange": "is_exchange"
-      }
-    },
-    {
-      "label": "TopologySnapshot",
-      "table": "archive_topology_snapshot_view",
-      "id_column": "graph_name",
-      "properties": {
-        "graph_name": "graph_name",
-        "topology_tier": "topology_tier",
-        "default_period_granularity": "default_period_granularity",
-        "min_period_start_date": "min_period_start_date",
-        "max_period_end_date": "max_period_end_date",
-        "available_granularities": "available_granularities",
-        "generated_at": "generated_at"
+        "address": "address"
       }
     },
     {
@@ -252,34 +235,6 @@
         "first_seen_timestamp": "first_seen_timestamp",
         "last_seen_timestamp": "last_seen_timestamp",
         "observation_count": "observation_count"
-      }
-    },
-    {
-      "rel_type": "FLOWS_TO",
-      "table": "archive_topology_edges_view",
-      "id_column": "edge_id",
-      "source_column": "from_address",
-      "target_column": "to_address",
-      "source_label": "Address",
-      "target_label": "Address",
-      "properties": {
-        "edge_id": "edge_id",
-        "from_address": "from_address",
-        "to_address": "to_address",
-        "period_granularity": "period_granularity",
-        "period_start_date": "period_start_date",
-        "period_end_date": "period_end_date",
-        "asset_contract": "asset_contract",
-        "asset_symbol": "asset_symbol",
-        "tx_count": "tx_count",
-        "amount_sum": "amount_sum",
-        "amount_usd_sum": "amount_usd_sum",
-        "first_seen_timestamp": "first_seen_timestamp",
-        "last_seen_timestamp": "last_seen_timestamp",
-        "first_tx_id": "first_tx_id",
-        "last_tx_id": "last_tx_id",
-        "price_coverage_ratio": "price_coverage_ratio",
-        "has_missing_price": "has_missing_price"
       }
     },
     {

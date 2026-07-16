@@ -1,0 +1,183 @@
+{
+ "generated_by": "record-facts-goldens.sh",
+ "note": "facts result baselines recorded from the devkit lite MCP; baseline=memgql trusted (compile + row parity under -tags starrocks_it), baseline=unsupported must return ErrUnsupportedShape. Topology scope never compiles to SQL and is out of this fixture.",
+ "entries": [
+  {
+   "id": "recipe_facts_01",
+   "layer": "facts",
+   "query": "USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.tx_out_count AS tx_out_count, f.tx_in_count AS tx_in_count LIMIT 10",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "address": "5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM",
+     "tx_in_count": "55",
+     "tx_out_count": "0"
+    },
+    {
+     "address": "5C4hrfjw9DjXZTzV3MzNZow4u3YwXRrv66jVihVVQJGfinGb",
+     "tx_in_count": "1",
+     "tx_out_count": "0"
+    },
+    {
+     "address": "5C4hrfjw9DjXZTzV3NDLbD3cBzru6ZE8Zf1GPBXJoaB58qB9",
+     "tx_in_count": "2",
+     "tx_out_count": "0"
+    },
+    {
+     "address": "5C4hrfjw9DjXZTzV3NESQixSVfpDpzNvSkmRrk3qZwiLYjvu",
+     "tx_in_count": "4",
+     "tx_out_count": "0"
+    },
+    {
+     "address": "5C4hrfjw9DjXZTzV3NKFoKSvCCkbus7nhADrZCH7CFTXE15E",
+     "tx_in_count": "4",
+     "tx_out_count": "0"
+    },
+    {
+     "address": "5C4hrfjw9DjXZTzV3NL5rKPmyYA519cHipTNE88haPCqFFTm",
+     "tx_in_count": "1",
+     "tx_out_count": "0"
+    },
+    {
+     "address": "5C4hrfjw9DjXZTzV3NLNFHumCmVC2CnNkL8dvVkDDjsyZnZF",
+     "tx_in_count": "1",
+     "tx_out_count": "0"
+    },
+    {
+     "address": "5C4hrfjw9DjXZTzV3NNz9bjYbCxkAFTP3Wm5C3Lb3x2bEuAx",
+     "tx_in_count": "1",
+     "tx_out_count": "0"
+    },
+    {
+     "address": "5C4hrfjw9DjXZTzV3NTpvGgYp4DqUPPca8HPTPoeRmWpzjWG",
+     "tx_in_count": "1",
+     "tx_out_count": "0"
+    },
+    {
+     "address": "5C4hrfjw9DjXZTzV3NXYfVNuQFt8CUNKB4NgiF1NSSaNBKKF",
+     "tx_in_count": "2",
+     "tx_out_count": "0"
+    }
+   ]
+  },
+  {
+   "id": "recipe_facts_02",
+   "layer": "facts",
+   "query": "USE facts MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:HAS_LABEL]->(label:AddressLabel) RETURN label.label AS label, label.entity_type AS entity_type, label.source AS source LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": []
+  },
+  {
+   "id": "recipe_facts_04",
+   "layer": "facts",
+   "query": "USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r:RiskScore) RETURN a.address AS address, r.risk_score AS risk_score, r.window_days AS window_days, r.xgboost_model_version AS xgboost_model_version LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": []
+  },
+  {
+   "id": "recipe_facts_05",
+   "layer": "facts",
+   "query": "USE facts MATCH (a:Asset) WHERE a.coingecko_id IS NOT NULL RETURN a.asset_symbol AS asset_symbol, a.asset_contract AS asset_contract, a.pricing_tier AS pricing_tier, a.verified AS verified ORDER BY a.asset_symbol ASC LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "asset_contract": "native",
+     "asset_symbol": "TAO",
+     "pricing_tier": "1",
+     "verified": "1"
+    }
+   ]
+  },
+  {
+   "id": "recipe_facts_06",
+   "layer": "facts",
+   "query": "USE facts MATCH (n:NeuronEndpoint) WHERE n.netuid = 15 RETURN n.endpoint_id AS endpoint_id, n.coldkey_address AS coldkey_address, n.hotkey_address AS hotkey_address, n.netuid AS netuid, n.ip_address AS ip_address, n.axon_port AS axon_port ORDER BY n.last_seen_timestamp DESC LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": []
+  },
+  {
+   "id": "recipe_facts_07",
+   "layer": "facts",
+   "query": "USE facts MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[hne:HAS_NEURON_ENDPOINT]->(n:NeuronEndpoint) RETURN n.endpoint_id AS endpoint_id, hne.netuid AS netuid, hne.hotkey_address AS hotkey_address, hne.ip_address AS ip_address, hne.last_seen_timestamp AS last_seen_timestamp ORDER BY hne.last_seen_timestamp DESC LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": []
+  },
+  {
+   "id": "recipe_facts_08",
+   "layer": "facts",
+   "query": "USE facts MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[reg:REGISTERED_NEURON]->(h:Hotkey) WHERE reg.netuid = 15 RETURN h.address AS hotkey_address, reg.netuid AS netuid, reg.observation_count AS observation_count, reg.last_seen_timestamp AS last_seen_timestamp ORDER BY reg.last_seen_timestamp DESC LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": []
+  },
+  {
+   "id": "recipe_facts_09",
+   "layer": "facts",
+   "query": "USE facts MATCH (h:Hotkey) RETURN h.address AS address, h.netuids AS netuids, h.observation_count AS observation_count, h.first_seen_timestamp AS first_seen_timestamp, h.last_seen_timestamp AS last_seen_timestamp ORDER BY h.observation_count DESC LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": []
+  },
+  {
+   "id": "recipe_facts_10",
+   "layer": "facts",
+   "query": "USE facts MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:REGISTERED_NEURON]->(h:Hotkey)-[sf:SERVED_FROM]->(ip:IPAddress) RETURN h.address AS hotkey_address, ip.ip_address AS ip_address, sf.axon_port AS axon_port, sf.prometheus_port AS prometheus_port, sf.netuid AS netuid LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": []
+  },
+  {
+   "id": "recipe_facts_11",
+   "layer": "facts",
+   "query": "USE facts MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[op:OPERATED_FROM]->(ip:IPAddress) WHERE op.netuid = 15 RETURN ip.ip_address AS ip_address, op.netuid AS netuid, op.hotkey_address AS hotkey_address, op.axon_port AS axon_port, op.last_seen_timestamp AS last_seen_timestamp LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": []
+  },
+  {
+   "id": "recipe_facts_12",
+   "layer": "facts",
+   "query": "USE facts MATCH (ip:IPAddress) RETURN ip.ip_address AS ip_address, ip.netuids AS netuids, ip.observation_count AS observation_count, ip.last_seen_timestamp AS last_seen_timestamp ORDER BY ip.observation_count DESC LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": []
+  },
+  {
+   "id": "recipe_facts_13",
+   "layer": "facts",
+   "query": "USE facts MATCH (a:Address)-[:HAS_LABEL]->(l:AddressLabel) RETURN l.label AS label, count(l) AS label_count ORDER BY label_count DESC LIMIT 25",
+   "baseline": "unsupported",
+   "reason": "documented shape outside the archive translator's compiled subset (WITH/CASE/grouped aggregate)"
+  },
+  {
+   "id": "recipe_facts_14",
+   "layer": "facts",
+   "query": "USE facts MATCH (a:Address)-[:HAS_LABEL]->(l:AddressLabel) RETURN DISTINCT l.entity_type AS entity_type LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": []
+  },
+  {
+   "id": "recipe_facts_15",
+   "layer": "facts",
+   "query": "USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r:RiskScore) WHERE r.risk_score IS NOT NULL RETURN a.address AS address, r.risk_score AS risk_score, r.window_days AS window_days, r.processing_date AS processing_date ORDER BY r.risk_score DESC LIMIT 25",
+   "baseline": "memgql",
+   "expected_rows": []
+  },
+  {
+   "id": "recipe_facts_16",
+   "layer": "facts",
+   "query": "USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN f.feature_scope AS feature_scope, count(f) AS features, sum(f.total_volume_usd) AS total_volume_usd ORDER BY total_volume_usd DESC LIMIT 25",
+   "baseline": "unsupported",
+   "reason": "documented shape outside the archive translator's compiled subset (WITH/CASE/grouped aggregate)"
+  },
+  {
+   "id": "recipe_facts_17",
+   "layer": "facts",
+   "query": "USE facts MATCH (a:Address) RETURN count(a) AS address_count LIMIT 1",
+   "baseline": "rejected",
+   "rejected_reason": "Expecting value: line 1 column 1 (char 0)"
+  }
+ ],
+ "counts": {
+  "memgql": 13,
+  "sql_truth": 0,
+  "rejected": 1,
+  "unsupported": 2,
+  "total": 16
+ }
+}

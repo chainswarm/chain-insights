@@ -9,7 +9,7 @@ import { traceQueryBuilderContract } from '../src/investigation/trace-funds.js'
 // changes semantics) fails CI. Update these snapshots only under an
 // approved spec that explicitly changes trace query shapes.
 
-const SCOPES = ['live_topology', 'archive_topology'] as const
+const SCOPES = ['topology'] as const
 
 describe('trace fan-out builders emit pinned query text', () => {
   for (const scope of SCOPES) {
@@ -19,7 +19,6 @@ describe('trace fan-out builders emit pinned query text', () => {
         25,
         10,
         5,
-        scope,
         undefined,
       )
       expect(queries.map((q) => `${q.id}: ${q.query}`)).toMatchSnapshot()
@@ -30,18 +29,17 @@ describe('trace fan-out builders emit pinned query text', () => {
         'backward_from_deposit_0',
         'deposit-identity',
         5,
-        scope,
       )
       expect(queries.map((q) => `${q.id}: ${q.query}`)).toMatchSnapshot()
     })
 
     it(`exchangeOutflowQueries fixed 3 (${scope})`, () => {
-      const queries = queryBuilderContract.exchangeOutflowQueries('target-identity', scope)
+      const queries = queryBuilderContract.exchangeOutflowQueries('target-identity')
       expect(queries.map((q) => `${q.id}: ${q.query}`)).toMatchSnapshot()
     })
 
     it(`exchangeInflowQueries fixed 3 (${scope})`, () => {
-      const queries = queryBuilderContract.exchangeInflowQueries('target-identity', scope)
+      const queries = queryBuilderContract.exchangeInflowQueries('target-identity')
       expect(queries.map((q) => `${q.id}: ${q.query}`)).toMatchSnapshot()
     })
 
@@ -52,7 +50,6 @@ describe('trace fan-out builders emit pinned query text', () => {
           index + 1,
           10,
           undefined,
-          scope,
         ),
       )
       expect(queries.map((q) => `${q.id}: ${q.query}`)).toMatchSnapshot()
@@ -61,10 +58,10 @@ describe('trace fan-out builders emit pinned query text', () => {
 
   it('no fan-out builder ever emits quantifier-inner WHERE or SHORTEST k', () => {
     const all = [
-      ...traceQueryBuilderContract.forwardExchangeQueries('s', 25, 10, 5, 'live_topology', undefined),
-      ...traceQueryBuilderContract.backwardSourceQueries('b_0', 'd', 5, 'live_topology'),
-      ...queryBuilderContract.exchangeOutflowQueries('t', 'live_topology'),
-      ...queryBuilderContract.exchangeInflowQueries('t', 'live_topology'),
+      ...traceQueryBuilderContract.forwardExchangeQueries('s', 25, 10, 5, undefined),
+      ...traceQueryBuilderContract.backwardSourceQueries('b_0', 'd', 5),
+      ...queryBuilderContract.exchangeOutflowQueries('t'),
+      ...queryBuilderContract.exchangeInflowQueries('t'),
     ]
     for (const { query } of all) {
       // Hazard pins: memgraph/memgraph#4343 (inner WHERE silently ignored),

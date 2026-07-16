@@ -1,11 +1,10 @@
 package cyphersql
 
-// AST for the compiled archive_topology / facts Cypher subset. Only the
-// node shapes here can be produced by the parser; anything else is rejected
-// before an AST exists.
+// AST for the compiled facts Cypher subset. Only the node shapes here can be
+// produced by the parser; anything else is rejected before an AST exists.
 
 type query struct {
-	scope    string // archive_topology | facts
+	scope    string // facts
 	nodes    []nodePattern
 	edges    []edgePattern // len == len(nodes)-1; edges[i] links nodes[i] -> nodes[i+1]
 	where    boolExpr      // nil when absent

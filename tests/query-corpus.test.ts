@@ -37,11 +37,11 @@ describe('graph query corpus', () => {
       // A malformed generator parameter (wrong window/limit key) leaks
       // JS junk into the emitted query text — pin its absence.
       expect(entry.query, `malformed value in ${entry.builder}`).not.toMatch(/undefined|NaN|\[object /)
-      // Post-MemGQL: native traversal (BFS/WSHORTEST/KSHORTEST/*a..b) is
-      // legal on live_topology (executes directly against Memgraph) but
-      // must NOT appear on archive_topology/facts, which go through the
-      // corpus-scoped StarRocks translator that rejects those shapes.
-      if (entry.scope === 'archive_topology' || entry.scope === 'facts') {
+      // Native traversal (BFS/WSHORTEST/KSHORTEST/*a..b) is legal on the
+      // topology graph (executes directly against Memgraph) but must NOT
+      // appear on facts, which goes through the corpus-scoped StarRocks
+      // translator that rejects those shapes.
+      if (entry.scope === 'facts') {
         expect(entry.query, `native traversal on translator layer: ${entry.builder}`)
           .not.toMatch(/SHORTEST|\*\s*BFS|\*\s*DFS|\*\s*\d|\*\s*KSHORTEST|\*\s*WSHORTEST|\{\d+,\d*\}/)
       }
@@ -61,17 +61,17 @@ describe('graph query corpus', () => {
     }
   })
 
-  it('documented recipes cover the expanded native live surface', () => {
+  it('documented recipes cover the native topology traversal surface', () => {
     const recipes = JSON.parse(
       readFileSync(join(repoRoot, 'tests/fixtures/documented-recipes.json'), 'utf8'),
     ).recipes as Array<{ query: string; layer: string; features: string[] }>
-    const liveFeatures = new Set(
-      recipes.filter((r) => r.layer === 'live_topology').flatMap((r) => r.features),
+    const topologyFeatures = new Set(
+      recipes.filter((r) => r.layer === 'topology').flatMap((r) => r.features),
     )
-    // The whole point of the migration: these shapes MemGQL rejected and
-    // now run natively on live. The corpus must exercise them.
+    // Native traversal shapes run directly against Memgraph on the unified
+    // topology graph. The corpus must exercise them.
     for (const feature of ['bfs', 'wshortest', 'kshortest', 'variable-length', 'shortest-path']) {
-      expect(liveFeatures.has(feature), `missing native live feature: ${feature}`).toBe(true)
+      expect(topologyFeatures.has(feature), `missing native topology feature: ${feature}`).toBe(true)
     }
   })
 })

@@ -44,13 +44,12 @@ For manual graph-language guidance, use the shipped `chain-insights-cypher`
 skill. For Bittensor schema-specific queries, load
 `chain-insights-bittensor-cypher` after the generic skill.
 
-## Topology Language
+## Graph Language
 
 Use these names consistently:
 
-- `live_topology`: fast, cheaper, recent/hot topology.
-- `archive_topology`: wider historical topology; slower and potentially more
-  costly.
+- `topology`: the unified address / FLOWS_TO / LINKED graph — recent and full
+  historical activity in one graph.
 - `facts`: labels, features, risk scores, assets, and enrichment.
 
 Tell users to discover current network capabilities before assuming data is

@@ -53,11 +53,11 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   meta_usage_status: "Return the caller's public free graph_query quota for the current UTC day.",
   meta_help: 'Show a short guide to Chain Insights tools and workflow.',
   wallet_balance: 'Show the local Chain Insights payment wallet address, payment network, token, and amount.',
-  aml_address_risk: 'Screen one blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with another address. Set topology_scope=archive_topology to screen against full history instead of the default live_topology; archive_topology can take substantially longer and is billed for the real time it takes.',
-  aml_trace_victim_funds: 'Trace victim or trusted-source funds forward to intermediary and exchange deposit candidates. Defaults to topology_scope=live_topology (recent activity, fast); set topology_scope=archive_topology for older incidents or when live_topology finds nothing -- it can take substantially longer and is billed for the real time it takes.',
-  aml_trace_suspect_funds: 'Trace suspect-controlled scammer, mule, operator, or laundering-ring funds forward to cashout topology. Defaults to topology_scope=live_topology (recent activity, fast); set topology_scope=archive_topology for older incidents or when live_topology finds nothing -- it can take substantially longer and is billed for the real time it takes.',
-  aml_trace_deposit_sources: 'Trace suspected deposit or cashout addresses backward to upstream sources, shared funders, and convergence. Defaults to topology_scope=live_topology (recent activity, fast); set topology_scope=archive_topology for older incidents or when live_topology finds nothing -- it can take substantially longer and is billed for the real time it takes.',
-  graph_query: 'Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment. Cross-layer correlated joins may be limited by the active graph endpoint; preserve full addresses exactly.',
+  aml_address_risk: 'Screen one blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with another address. Topology reads cover full lifetime history in one unified graph.',
+  aml_trace_victim_funds: 'Trace victim or trusted-source funds forward to intermediary and exchange deposit candidates. Topology reads cover full lifetime history in one unified graph.',
+  aml_trace_suspect_funds: 'Trace suspect-controlled scammer, mule, operator, or laundering-ring funds forward to cashout topology. Topology reads cover full lifetime history in one unified graph.',
+  aml_trace_deposit_sources: 'Trace suspected deposit or cashout addresses backward to upstream sources, shared funders, and convergence. Topology reads cover full lifetime history in one unified graph.',
+  graph_query: 'Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical) and USE facts for labels, features, risk scores, assets, and enrichment. Preserve full addresses exactly.',
   graph_query_batch: 'Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads.',
 }
 const FALLBACK_GRAPH_PRIMITIVE_TOOL_NAMES = ['graph_query', 'graph_query_batch'] as const
@@ -76,8 +76,6 @@ type ChainInsightsGraphMeta = {
 
 const NETWORK_DESCRIPTION = 'Network to query, for example Bittensor or Base.'
 const BITTENSOR_NETWORK_SCHEMA = z.enum(['bittensor']).describe(NETWORK_DESCRIPTION)
-const TOPOLOGY_SCOPE_DESCRIPTION = 'Which topology graph to query: live_topology (default, fast, recent activity) or archive_topology (full history, slower and billed for the extra real time it takes at the same per-second rate). Use archive_topology for older incidents that may be outside the live window.'
-const TOPOLOGY_SCOPE_SCHEMA = z.enum(['live_topology', 'archive_topology']).optional().describe(TOPOLOGY_SCOPE_DESCRIPTION)
 const EMPTY_INPUT_SCHEMA = z.strictObject({})
 const REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS = 15 * 60 * 1000
 
@@ -93,18 +91,17 @@ const CHAIN_INSIGHTS_WORKFLOW = [
 const GRAPH_SCHEMA_HINTS = [
   'Graph query hints for network=bittensor (the single public Bittensor investigation network):',
   '- The graph is address-grain. Always pass network=bittensor, for SS58 and EVM-pallet 0x... (H160) inputs alike. The only topology money node label is Address, keyed by the raw chain-native address, for example 0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24; the SS58/H160 split is the Address.network node PROPERTY (bittensor for SS58, bittensor_evm for H160), never a separate query network. There is no separate identity key.',
-  '- Address nodes carry address, network, labels, and is_exchange. (:Address)-[:LINKED]-(:Address) is an undirected ownership-overlay edge (basis derived/associated, plus confidence, source_event, declared_owner) asserting the two addresses are controlled by the same actor; it is the ownership edge across the SS58/H160 space boundary, so a single network=bittensor query traces SS58 -> (bridge or LINKED) -> H160 and back with no network switch. LINKED is served on the live and facts tiers; archive_topology stays money-only. Enumerate LINKED neighbors with MATCH (a:Address {address: $addr})-[l:LINKED]-(b:Address) RETURN b.address, b.network, l.basis, l.confidence.',
-  '- Address nodes also carry a slim live risk verdict (risk_score float, risk_level string) plus base activity rollups: degree_in/degree_out/degree_total (distinct counterparty addresses), tx_in_count/tx_out_count/tx_total_count, total_in_usd/total_out_usd/total_volume_usd, net_flow_usd (in minus out; positive = net receiver) — all computed from external flows only — and first_activity_timestamp/last_activity_timestamp/activity_span_days, which include all flows (self-loops included). FLOWS_TO edges carry tx_count, amount_usd_sum, avg_tx_size_usd (understates when price_coverage_ratio < 1), first/last_seen_timestamp, first/last_tx_id, dominant_asset (largest USD share), price_coverage_ratio. Lifetime aggregates are the only serving window.',
+  '- Address nodes carry address, network, labels, and is_exchange. (:Address)-[:LINKED]-(:Address) is an undirected ownership-overlay edge (basis derived/associated, plus confidence, source_event, declared_owner) asserting the two addresses are controlled by the same actor; it is the ownership edge across the SS58/H160 space boundary, so a single network=bittensor query traces SS58 -> (bridge or LINKED) -> H160 and back with no network switch. LINKED is served on both the topology and facts graphs. Enumerate LINKED neighbors with MATCH (a:Address {address: $addr})-[l:LINKED]-(b:Address) RETURN b.address, b.network, l.basis, l.confidence.',
+  '- Address nodes also carry a risk verdict (risk_score float, risk_level string) plus base activity rollups: degree_in/degree_out/degree_total (distinct counterparty addresses), tx_in_count/tx_out_count/tx_total_count, total_in_usd/total_out_usd/total_volume_usd, net_flow_usd (in minus out; positive = net receiver) — all computed from external flows only — and first_activity_timestamp/last_activity_timestamp/activity_span_days, which include all flows (self-loops included). FLOWS_TO edges carry tx_count, amount_usd_sum, avg_tx_size_usd (understates when price_coverage_ratio < 1), first/last_seen_timestamp, first/last_tx_id, dominant_asset (largest USD share), price_coverage_ratio. Lifetime aggregates are the only serving window.',
   '- For actor-level exposure (AC11), UNION FLOWS_TO reachability over one visible LINKED hop instead of expanding through the LINKED edge itself: MATCH (a:Address {address: $addr})-[:LINKED]-(owned:Address)-[r:FLOWS_TO]-(b:Address) WHERE owned.address <> b.address AND a.address <> b.address RETURN owned.address, b.address, r.amount_usd_sum.',
   '- Detailed, provenanced scoring still comes from USE facts: (:Address)-[:HAS_RISK_SCORE]->(:RiskScore) for model versions/processing dates, (:Address)-[:HAS_LABEL]->(:AddressLabel) for label risk, (:Address)-[:HAS_FEATURE]->(:AddressFeature) for feature metrics. Use node risk_score/risk_level only as the quick-triage verdict; never read ml_* properties off topology nodes.',
-  '- Facts graph labels include Address, AddressLabel, AddressFeature, RiskScore, Asset, NeuronEndpoint, Hotkey, and IPAddress. Facts address keys match live address values exactly.',
-  '- Live topology relationships include FLOWS_TO, LINKED, and RISK_PROXIMITY between Address nodes. Bittensor live topology may also include the pure-Cypher neuron overlay: (:Address)-[:SERVES]->(:Subnet) and (:Address)-[:OWNS]->(:Address), with detailed neuron endpoint facts still served from USE facts.',
-  '- FLOWS_TO properties are scoped to the selected topology graph and commonly carry tx_count, amount_usd_sum, avg_tx_size_usd, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id, dominant_asset, price_coverage_ratio. Confirm available fields through runtime schema before relying on them.',
+  '- Facts graph labels include Address, AddressLabel, AddressFeature, RiskScore, Asset, NeuronEndpoint, Hotkey, and IPAddress. Facts address keys match topology address values exactly.',
+  '- Topology relationships include FLOWS_TO, LINKED, and RISK_PROXIMITY between Address nodes. Bittensor topology may also include the pure-Cypher neuron overlay: (:Address)-[:SERVES]->(:Subnet) and (:Address)-[:OWNS]->(:Address), with detailed neuron endpoint facts still served from USE facts.',
+  '- FLOWS_TO properties commonly carry tx_count, amount_usd_sum, avg_tx_size_usd, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id, dominant_asset, price_coverage_ratio. Confirm available fields through runtime schema before relying on them.',
   '- Traversal rule: for BFS, fixed-hop fallback, shortest-path, or manual FLOWS_TO traversal, exchange hot wallets are terminal endpoints only. Do not expand from, through, or classify exchange nodes as deposit, suspect, or intermediate candidates; filter every non-terminal node with is_exchange IS NULL.',
   '- Start schema discovery with endpoint-safe property reads: MATCH (n:Address) WHERE n.address IS NOT NULL RETURN n.address AS address, n.network AS network, n.labels AS labels, n.risk_score AS risk_score, n.risk_level AS risk_level LIMIT 20',
   '- Relationship discovery: MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 20',
-  '- graph_query uses the active Chain Insights graph endpoint. Select the graph with USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment. If an older endpoint surfaces a legacy topology_scope argument, treat it as compatibility routing only; address is the node grain, not the topology name.',
-  '- Archive topology labels include Address. Archive is MONEY-ONLY: archived money-flow topology is represented as (:Address)-[:FLOWS_TO]->(:Address) relationships with period_granularity, period_start_date, and period_end_date; the LINKED ownership overlay is not served there (read LINKED on live_topology or facts).',
+  '- graph_query uses the active Chain Insights graph endpoint. Select the graph with USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical) and USE facts for labels, features, risk scores, assets, and enrichment; address is the node grain, not the topology name.',
   '- All graph_query calls are read-only. Never use CREATE, INSERT, MERGE, SET, DELETE, REMOVE, DROP, DETACH, ADD, CONNECT, DISCONNECT, ALTER, TRUNCATE, GRANT, or REVOKE.',
   '- Use USE facts graph patterns for fact and enrichment reads. Do not query internal table namespaces directly.',
 ].join('\n')
@@ -197,7 +194,6 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
         network: BITTENSOR_NETWORK_SCHEMA,
         compare_address: z.string().optional().describe('Optional address to compare against the screened address.'),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
-        topology_scope: TOPOLOGY_SCOPE_SCHEMA,
       }
     case 'aml_trace_victim_funds':
       return {
@@ -207,7 +203,6 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
         incident_timestamp_ms: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
         max_hops: z.number().int().min(1).max(5).optional().describe('Trace depth in hops. Default 3.'),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
-        topology_scope: TOPOLOGY_SCOPE_SCHEMA,
       }
     case 'aml_trace_suspect_funds':
       return {
@@ -216,7 +211,6 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
         incident_timestamp_ms: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
         max_hops: z.number().int().min(1).max(5).optional().describe('Trace depth in hops. Default 3.'),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
-        topology_scope: TOPOLOGY_SCOPE_SCHEMA,
       }
     case 'aml_trace_deposit_sources':
       return {
@@ -224,11 +218,10 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
         deposit_addresses: z.string().min(1).describe('Suspected deposit or cashout addresses, comma-separated. Min 1, max 5.'),
         max_hops: z.number().int().min(1).max(5).optional().describe('Reverse trace depth in hops. Default 2.'),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
-        topology_scope: TOPOLOGY_SCOPE_SCHEMA,
       }
     case 'graph_query':
       return {
-        query: z.string().min(1).describe('Read-only GQL/Cypher query. Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment.'),
+        query: z.string().min(1).describe('Read-only GQL/Cypher query. Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical) and USE facts for labels, features, risk scores, assets, and enrichment.'),
         network: BITTENSOR_NETWORK_SCHEMA,
       }
     case 'graph_query_batch':
@@ -637,7 +630,7 @@ function registerLocalPrompts(server: McpServer): void {
         query,
         '```',
         '',
-        'Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment. If you need schema context, first run small discovery queries such as MATCH (a:Address) RETURN a.address AS address, keys(a) AS address_properties LIMIT 5 and MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN keys(r) AS flow_properties LIMIT 5. Return the full address when available; never shorten addresses with ellipses.',
+        'Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical) and USE facts for labels, features, risk scores, assets, and enrichment. If you need schema context, first run small discovery queries such as MATCH (a:Address) RETURN a.address AS address, keys(a) AS address_properties LIMIT 5 and MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN keys(r) AS flow_properties LIMIT 5. Return the full address when available; never shorten addresses with ellipses.',
       ].join('\n'),
       'Graph query',
     ),
@@ -663,7 +656,7 @@ function registerLocalPrompts(server: McpServer): void {
         '```',
         per_query_timeout_seconds ? `per_query_timeout_seconds: ${per_query_timeout_seconds}` : '',
         '',
-        'Use USE live_topology for recent topology, USE archive_topology for historical topology, and USE facts for labels, features, risk scores, assets, and enrichment. If you need schema context, first run small discovery queries such as MATCH (a:Address) RETURN a.address AS address, keys(a) AS address_properties LIMIT 5 and MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN keys(r) AS flow_properties LIMIT 5. Return the full address when available; never shorten addresses with ellipses.',
+        'Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical) and USE facts for labels, features, risk scores, assets, and enrichment. If you need schema context, first run small discovery queries such as MATCH (a:Address) RETURN a.address AS address, keys(a) AS address_properties LIMIT 5 and MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN keys(r) AS flow_properties LIMIT 5. Return the full address when available; never shorten addresses with ellipses.',
       ].filter(Boolean).join('\n'),
       'Graph query batch',
     ),
@@ -1216,7 +1209,6 @@ export async function createProxy(): Promise<void> {
           network: BITTENSOR_NETWORK_SCHEMA,
           compare_address: z.string().optional().describe('Optional address to compare against the screened address'),
           include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
-          topology_scope: TOPOLOGY_SCOPE_SCHEMA,
         },
         _meta: {
           ui: {
@@ -1230,7 +1222,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ address, network, compare_address, include_attachments, topology_scope }) => {
+      async ({ address, network, compare_address, include_attachments }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1247,7 +1239,6 @@ export async function createProxy(): Promise<void> {
             network,
             compareAddress: compare_address,
             writeArtifacts: workspaceArtifactsEnabled,
-            topologyScope: topology_scope,
           })
           const graph = await writeLocalGraphMeta(
             result.graphData,
@@ -1288,7 +1279,6 @@ export async function createProxy(): Promise<void> {
           include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
           incident_timestamp_ms: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
           max_hops: z.number().int().min(1).max(5).optional().describe('Trace depth in hops. Default 3.'),
-          topology_scope: TOPOLOGY_SCOPE_SCHEMA,
         },
         _meta: {
           ui: {
@@ -1302,7 +1292,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ victim_addresses, known_suspect_addresses, network, incident_timestamp_ms, max_hops, include_attachments, topology_scope }) => {
+      async ({ victim_addresses, known_suspect_addresses, network, incident_timestamp_ms, max_hops, include_attachments }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1321,7 +1311,6 @@ export async function createProxy(): Promise<void> {
             incidentTimestampMs: incident_timestamp_ms,
             maxHops: max_hops,
             writeArtifacts: workspaceArtifactsEnabled,
-            topologyScope: topology_scope,
           })
           const graph = await writeLocalGraphMeta(
             result.graphData,
@@ -1361,7 +1350,6 @@ export async function createProxy(): Promise<void> {
           incident_timestamp_ms: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
           max_hops: z.number().int().min(1).max(5).optional().describe('Trace depth in hops. Default 3.'),
           include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
-          topology_scope: TOPOLOGY_SCOPE_SCHEMA,
         },
         _meta: {
           ui: {
@@ -1375,7 +1363,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ suspect_addresses, incident_timestamp_ms, network, max_hops, include_attachments, topology_scope }) => {
+      async ({ suspect_addresses, incident_timestamp_ms, network, max_hops, include_attachments }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1393,7 +1381,6 @@ export async function createProxy(): Promise<void> {
             maxHops: max_hops,
             incidentTimestampMs: incident_timestamp_ms,
             writeArtifacts: workspaceArtifactsEnabled,
-            topologyScope: topology_scope,
           })
           const graph = await writeLocalGraphMeta(
             result.graphData,
@@ -1432,7 +1419,6 @@ export async function createProxy(): Promise<void> {
           deposit_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe('Suspected deposit or cashout addresses, comma-separated or an array. Min 1, max 5.'),
           max_hops: z.number().int().min(1).max(5).optional().describe('Reverse trace depth in hops. Default 2.'),
           include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
-          topology_scope: TOPOLOGY_SCOPE_SCHEMA,
         },
         _meta: {
           ui: {
@@ -1446,7 +1432,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ deposit_addresses, network, max_hops, include_attachments, topology_scope }) => {
+      async ({ deposit_addresses, network, max_hops, include_attachments }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1463,7 +1449,6 @@ export async function createProxy(): Promise<void> {
             network,
             maxHops: max_hops,
             writeArtifacts: workspaceArtifactsEnabled,
-            topologyScope: topology_scope,
           })
           const graph = await writeLocalGraphMeta(
             result.graphData,
@@ -1520,7 +1505,7 @@ export async function createProxy(): Promise<void> {
                 '- aml_trace_victim_funds: trace up to five victim/source addresses forward to exchange deposit candidates.',
                 '- aml_trace_deposit_sources: trace backward from suspected deposit/cashout addresses to upstream funders and shared-source convergence.',
                 '- aml_trace_suspect_funds: trace up to five suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology.',
-                '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE live_topology, USE archive_topology, or USE facts.',
+                '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
                 '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
                 '',
                 'Wallet tools:',
@@ -1541,7 +1526,7 @@ export async function createProxy(): Promise<void> {
                 '- aml_trace_victim_funds: trace up to five victim/source addresses forward to exchange deposit candidates.',
                 '- aml_trace_deposit_sources: trace backward from suspected deposit/cashout addresses to upstream funders and shared-source convergence.',
                 '- aml_trace_suspect_funds: trace up to five suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology.',
-                '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE live_topology, USE archive_topology, or USE facts.',
+                '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
                 '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
               ].join('\n'),
         },

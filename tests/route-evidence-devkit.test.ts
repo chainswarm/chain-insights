@@ -69,7 +69,6 @@ describe.skipIf(!enabled)('route evidence against devkit fixture (AC8)', () => {
         address: seed,
         network: 'bittensor',
         compareAddress: peer,
-        topologyScope: 'live_topology',
       })
       const structured = result.structuredContent as { facts?: Record<string, unknown> }
       const facts = (structured.facts ?? {}) as Record<string, unknown>
@@ -83,7 +82,7 @@ describe.skipIf(!enabled)('route evidence against devkit fixture (AC8)', () => {
       // Route evidence: the fixture pair is a direct flow edge, so the
       // known shortest route is exactly 1 hop seed -> peer.
       const evidence = connection!.route_evidence
-      expect(evidence, 'route_evidence missing on live scope').toBeDefined()
+      expect(evidence, 'route_evidence missing on topology scope').toBeDefined()
       expect(evidence!.search_strategy).toBe('any_shortest')
       expect(evidence!.route_rank_basis).toBe('hop_count')
       expect(evidence!.depth_bound).toBe(4)
@@ -129,7 +128,7 @@ describe.skipIf(!enabled)('route evidence against devkit fixture (AC8)', () => {
       // Discover a fixture triple a -> exchange -> b with NO direct a->b
       // edge, so the shortest route necessarily crosses the exchange.
       const triples = await rows(
-        'USE live_topology MATCH (a:Address)-[:FLOWS_TO]->(e:Address)-[:FLOWS_TO]->(b:Address) ' +
+        'USE topology MATCH (a:Address)-[:FLOWS_TO]->(e:Address)-[:FLOWS_TO]->(b:Address) ' +
           'WHERE e.is_exchange IS NOT NULL AND a.address <> b.address ' +
           'AND a.is_exchange IS NULL AND b.is_exchange IS NULL ' +
           'RETURN a.address AS a, e.address AS e, b.address AS b LIMIT 10',
@@ -138,7 +137,7 @@ describe.skipIf(!enabled)('route evidence against devkit fixture (AC8)', () => {
       for (const t of triples) {
         const a = String(t['a']), e = String(t['e']), b = String(t['b'])
         const direct = await rows(
-          `USE live_topology MATCH (a:Address {address: "${a}"})-[:FLOWS_TO]->(b:Address {address: "${b}"}) RETURN 1 AS x LIMIT 1`,
+          `USE topology MATCH (a:Address {address: "${a}"})-[:FLOWS_TO]->(b:Address {address: "${b}"}) RETURN 1 AS x LIMIT 1`,
         )
         if (direct.length === 0) {
           picked = { a, e, b }
@@ -155,7 +154,7 @@ describe.skipIf(!enabled)('route evidence against devkit fixture (AC8)', () => {
       // session (federation-layer session-state defect family, see the
       // capability matrix upstream issue pins).
       const exchangeRows = await rows(
-        'USE live_topology MATCH (a:Address) WHERE a.is_exchange IS NOT NULL RETURN a.address AS id LIMIT 100',
+        'USE topology MATCH (a:Address) WHERE a.is_exchange IS NOT NULL RETURN a.address AS id LIMIT 100',
       )
       const exchangeSet = new Set(exchangeRows.map((r) => String(r['id'])))
       expect(exchangeSet.size, 'fixture must contain exchange addresses').toBeGreaterThan(0)
@@ -164,7 +163,6 @@ describe.skipIf(!enabled)('route evidence against devkit fixture (AC8)', () => {
         address: picked.a,
         network: 'bittensor',
         compareAddress: picked.b,
-        topologyScope: 'live_topology',
       })
       const structured = result.structuredContent as { facts?: Record<string, unknown> }
       const facts = (structured.facts ?? {}) as Record<string, unknown>

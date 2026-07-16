@@ -26,7 +26,7 @@ When adding a tool, document:
 - User problem.
 - Required and optional inputs.
 - Chain Insights Graph primitive calls.
-- Use of `live_topology`, `archive_topology`, and `facts`.
+- Use of `topology` and `facts`.
 - Result contract.
 - Workspace artifact and report behavior.
 - Graph report behavior.

@@ -22,7 +22,7 @@ flowchart LR
 
 The CLI is the operator entry point. The MCP proxy exposes the same local
 framework to AI agents. Chain Insights Graph executes graph-language reads
-against live topology, archive topology, and facts.
+against the unified topology graph and facts.
 
 ## Module Responsibilities
 
@@ -42,8 +42,7 @@ against live topology, archive topology, and facts.
 1. The user or agent works inside an initialized investigation workspace.
 2. Chain Insights reads local config for endpoint and auth mode.
 3. Graph queries go to the configured Chain Insights Graph endpoint.
-4. The graph backend executes against `live_topology`, `archive_topology`, or
-   `facts`.
+4. The graph backend executes against `topology` or `facts`.
 5. Chain Insights stores compact evidence, graph JSON, HTML reports, CSVs, and
    summaries in the active workspace.
 6. Case evidence references report files instead of embedding large payloads.
@@ -131,7 +130,7 @@ Invited testers can use server-side test keys without x402 payment:
 ```bash
 chain-insights access-key set ci_test_REDACTED --endpoint https://staging-mcp.chain-insights.ai/mcp
 chain-insights access-key status
-chain-insights mcp call graph_query network=bittensor query='USE live_topology MATCH (n) RETURN n LIMIT 1'
+chain-insights mcp call graph_query network=bittensor query='USE topology MATCH (n) RETURN n LIMIT 1'
 ```
 
 Operators configure the server with `MCP_TEST_ACCESS_KEY_HASHES`, a

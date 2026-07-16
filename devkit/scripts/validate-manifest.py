@@ -26,9 +26,6 @@ MAPPING_CANDIDATES = [
 ]
 
 REQUIRED_TABLES = {
-    "archive_topology_addresses_view",
-    "archive_topology_edges_view",
-    "archive_topology_snapshot_view",
     "linked_addresses_view",
     "facts_address_labels_view",
     "facts_address_features_view",
@@ -276,7 +273,6 @@ def main() -> None:
 
     object_paths = {entry.get("name", ""): fixture_part_paths(entry) for entry in objects}
     check_memgraph_endpoint_integrity(object_paths)
-    check_symmetric_label_parity(object_paths)
 
     print(f"validated {len(objects)} devkit fixture objects")
 
@@ -288,24 +284,6 @@ def _read_jsonl_gz(paths: list[Path]):
                 line = line.strip()
                 if line:
                     yield json.loads(line)
-
-
-def _read_tsv_gz(paths: list[Path]):
-    import csv
-
-    for path in paths:
-        with gzip.open(path, "rt", encoding="utf-8", newline="") as handle:
-            yield from csv.DictReader(handle, delimiter="\t")
-
-
-# The AML label taxonomy entries that ARE derivable from
-# archive_topology_addresses_view's exported label text (mirrors
-# scripts/devops/chain-insights-devkit/export-memgraph-fixture.py's
-# LABEL_TEXT_DERIVED_TAXONOMY in the sibling RBMK root repo). Scam, Victim,
-# Propagated, Mixer, Bridge, Poisoned are out of scope for this parity
-# check -- they derive from address_type/source columns the exported
-# addresses view does not carry.
-LABEL_TEXT_DERIVED_TAXONOMY = {"Exchange", "Validator", "Miner", "Subnet"}
 
 
 def check_memgraph_endpoint_integrity(object_paths: dict[str, list[Path]]) -> None:
@@ -327,72 +305,6 @@ def check_memgraph_endpoint_integrity(object_paths: dict[str, list[Path]]) -> No
             "manifest Memgraph fixture is internally inconsistent: "
             f"{len(missing_endpoints)} relationship endpoint id(s) missing from the nodes dump, "
             f"e.g. {sorted(missing_endpoints)[:10]}"
-        )
-
-
-def check_symmetric_label_parity(object_paths: dict[str, list[Path]]) -> None:
-    addresses_paths = object_paths.get("archive_topology_addresses_view")
-    edges_paths = object_paths.get("archive_topology_edges_view")
-    node_paths = object_paths.get("memgraph_nodes")
-    if not addresses_paths or not edges_paths or not node_paths:
-        return
-
-    archive_labels: dict[str, str] = {}
-    for row in _read_tsv_gz(addresses_paths):
-        labels_text = (row.get("labels") or "").strip()
-        if labels_text:
-            archive_labels[row["address"]] = labels_text
-
-    edge_connected: set[str] = set()
-    for row in _read_tsv_gz(edges_paths):
-        edge_connected.add(row["from_address"])
-        edge_connected.add(row["to_address"])
-
-    archive_labeled_and_connected = set(archive_labels) & edge_connected
-
-    memgraph_labeled: dict[str, dict] = {}
-    for row in _read_jsonl_gz(node_paths):
-        properties = row.get("properties", {})
-        address = properties.get("address")
-        if address is None:
-            continue
-        has_label_property = bool(properties.get("labels"))
-        taxonomy_labels = set(row.get("labels", [])) & LABEL_TEXT_DERIVED_TAXONOMY
-        if has_label_property or taxonomy_labels:
-            memgraph_labeled[address] = {
-                "has_label_property": has_label_property,
-                "taxonomy_labels": taxonomy_labels,
-            }
-
-    # Direction 1: every archive-labeled-and-edge-connected address must
-    # exist in Memgraph with a non-empty labels property.
-    missing_in_memgraph = [
-        address
-        for address in archive_labeled_and_connected
-        if address not in memgraph_labeled or not memgraph_labeled[address]["has_label_property"]
-    ]
-    if missing_in_memgraph:
-        fail(
-            "manifest fixture fails cross-tier label parity: "
-            f"{len(missing_in_memgraph)} archive-labeled-and-connected addresses missing "
-            f"labels in the Memgraph dump, e.g. {sorted(missing_in_memgraph)[:10]}"
-        )
-
-    # Direction 2: no Memgraph node's labels property or
-    # LABEL_TEXT_DERIVED_TAXONOMY structural label may reference an
-    # address absent from the StarRocks-bounded allowlist (a
-    # post-watermark leak through the Memgraph export leg).
-    leaked = [
-        address
-        for address, state in memgraph_labeled.items()
-        if address not in archive_labels
-        and (state["has_label_property"] or state["taxonomy_labels"])
-    ]
-    if leaked:
-        fail(
-            "manifest fixture fails cross-tier label parity: "
-            f"{len(leaked)} Memgraph addresses carry labels/taxonomy absent from the "
-            f"StarRocks-bounded allowlist (post-watermark leak), e.g. {sorted(leaked)[:10]}"
         )
 
 

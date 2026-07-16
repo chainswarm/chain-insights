@@ -45,10 +45,10 @@ services:
   # backend source: third-party developers host only this graph MCP against
   # locally served StarRocks and Memgraph, with no billing, metering, or
   # usage-reporting surface. Post MemGQL retirement it routes exactly like
-  # production: USE live_topology → Memgraph directly (native Cypher), USE
-  # archive_topology / facts → StarRocks directly via the corpus-scoped
-  # translator. Its tool/tier contract is kept in sync with the production
-  # backend by contract + corpus-parity tests.
+  # production's two-scope model: USE topology → Memgraph directly (native
+  # Cypher, unified recent+historical), USE facts → StarRocks directly via the
+  # corpus-scoped translator. Its tool/tier contract is kept in sync with the
+  # production backend by contract + corpus-parity tests.
   chain-insights-graph-devkit:
     build:
       context: .

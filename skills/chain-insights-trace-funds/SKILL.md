@@ -35,7 +35,7 @@ Use the output as the source of truth:
 
 - `Topology: yes` is required for fund-flow tracing.
 - `Available tools` must include the role-specific trace tool, otherwise use
-  `graph_query` or `graph_query_batch` with `USE live_topology` for manual
+  `graph_query` or `graph_query_batch` with `USE topology` for manual
   topology diagnostics.
 - Do not infer dataset coverage ranges from the public support matrix. State
   coverage only when a tool result or query result explicitly returns it.
@@ -112,8 +112,8 @@ The JSON/CSV/Markdown reports carry the investigation structure.
 ## Graph Semantics
 
 Current Chain Insights AML tools define the behavior contract. Keep tracing
-implementation-neutral: Chain Insights Graph may serve Memgraph `live_topology` directly or
-proxy StarRocks-backed `archive_topology`/`facts`, but high-level AML workflows
+implementation-neutral: Chain Insights Graph may serve Memgraph `topology` directly or
+proxy StarRocks-backed `facts`, but high-level AML workflows
 must preserve role-specific semantics and return member addresses at the public
 boundary.
 
@@ -122,7 +122,7 @@ may use Chain Insights Graph primitives, but they must preserve the workflow sem
 through read-only `graph_query_batch` calls.
 
 Some Chain Insights Graph deployments do not parse backend-specific BFS or
-variable-length relationship syntax. In those cases, use generated fixed-depth `FLOWS_TO` query batches with `USE live_topology`. Exchange terminal safety
+variable-length relationship syntax. In those cases, use generated fixed-depth `FLOWS_TO` query batches with `USE topology`. Exchange terminal safety
 applies to all traversal algorithms: exchange hot wallets are terminal
 endpoints only. Do not expand from, through, or classify exchange nodes as
 deposit, suspect, or intermediate candidates. Forward victim/suspect tracing

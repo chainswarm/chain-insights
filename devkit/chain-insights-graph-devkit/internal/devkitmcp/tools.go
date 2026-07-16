@@ -12,7 +12,7 @@ import (
 )
 
 // Tier timeout ceilings mirror the production Chain Insights Graph backend
-// contract (live Memgraph tier vs StarRocks-backed archive/facts tier). The
+// contract (Memgraph topology tier vs StarRocks-backed facts tier). The
 // devkit is config-light by design; these are documented devkit constants,
 // not tunables. Keep them in sync with the production defaults.
 const (
@@ -117,31 +117,37 @@ func ToolNames() []string {
 }
 
 // ClassifyQueryTier resolves a query's execution tier and timeout ceiling
-// from its leading USE clause, mirroring production tier selection:
-// `USE archive_topology` and `USE facts` run on the StarRocks tier; anything
-// else (including `USE live_topology` and no USE clause) is the live tier.
+// from its leading USE clause, mirroring production tier selection in the
+// two-scope model: `USE facts` runs on the StarRocks translator tier; anything
+// else (including `USE topology`, an unknown scope, and no USE clause) is the
+// Memgraph topology tier.
+//
+// The default-to-topology behaviour for a missing/unknown USE clause is
+// deliberate: the strict fail-closed `invalid_scope` cutover (rejecting an
+// unrecognized scope outright) is a later server leaf (T10); the devkit will
+// mirror it in the same wave.
 func ClassifyQueryTier(query string) (string, int) {
 	fields := strings.Fields(strings.ToLower(query))
 	if len(fields) >= 2 && fields[0] == "use" {
 		switch fields[1] {
-		case "archive_topology", "facts":
+		case "facts":
 			return starrocksTierName, starrocksTierTimeoutSeconds
 		}
 	}
 	return liveTierName, liveTierTimeoutSeconds
 }
 
-// topologyKey resolves the USE-clause graph name for routing facts,
-// defaulting to live_topology when no recognized USE clause is present.
+// topologyKey resolves the USE-clause scope name for routing facts,
+// defaulting to topology when no recognized USE clause is present.
 func topologyKey(query string) string {
 	fields := strings.Fields(strings.ToLower(query))
 	if len(fields) >= 2 && fields[0] == "use" {
 		switch fields[1] {
-		case "archive_topology", "facts", "live_topology":
+		case "topology", "facts":
 			return fields[1]
 		}
 	}
-	return "live_topology"
+	return "topology"
 }
 
 // UsageStatusDocument reports the devkit's fixed unmetered usage contract:
@@ -183,7 +189,7 @@ func graphQueryHandler(runner QueryRunner) func(context.Context, *mcp.CallToolRe
 		if _, err := cypheradmit.ValidateReadOnlyGraphQuery(args.Query); err != nil {
 			return toolError(err.Error()), nil, nil
 		}
-		if queryTargetsLiveTopology(args.Query) {
+		if queryTargetsTopology(args.Query) {
 			if err := ValidateLiveTraversalBounds(args.Query, defaultTraversalBounds()); err != nil {
 				return toolError(err.Error()), nil, nil
 			}
@@ -239,7 +245,7 @@ func graphQueryBatchHandler(runner QueryRunner) func(context.Context, *mcp.CallT
 				queries = append(queries, ChainInsightsBatchQuery{ID: id, OK: false, Tier: tier, TimeoutSeconds: timeoutSeconds, Results: []map[string]any{}, Error: err.Error()})
 				continue
 			}
-			if queryTargetsLiveTopology(query.Query) {
+			if queryTargetsTopology(query.Query) {
 				if err := ValidateLiveTraversalBounds(query.Query, defaultTraversalBounds()); err != nil {
 					queries = append(queries, ChainInsightsBatchQuery{ID: id, OK: false, Tier: tier, TimeoutSeconds: timeoutSeconds, Results: []map[string]any{}, Error: err.Error()})
 					continue

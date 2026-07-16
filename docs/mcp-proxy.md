@@ -145,7 +145,7 @@ Daily free-tier graph usage:
 chain-insights mcp call meta_usage_status
 chain-insights mcp call graph_query \
   network=bittensor \
-  "query=USE live_topology MATCH (n) RETURN count(n) AS count LIMIT 1"
+  "query=USE topology MATCH (n) RETURN count(n) AS count LIMIT 1"
 ```
 
 Hosted Chain Insights Graph can allow anonymous `graph_query` calls before wallet
@@ -163,9 +163,9 @@ you want bounded result sets.
 Staging UAT on 2026-05-31 showed the 10-second free tier was enough for exact
 address checks, sample address reads, sample flow reads, and the
 free-to-paid handoff. The tested address
-`5EkTMF1noWnWupGxQqtPczW2FFB7ktdVwjaZ22Cam54U93Xx` returned no indexed live or
-archive rows on staging, but bounded sample reads still returned Bittensor
-topology data inside the same daily allowance.
+`5EkTMF1noWnWupGxQqtPczW2FFB7ktdVwjaZ22Cam54U93Xx` returned no indexed topology
+rows on staging, but bounded sample reads still returned Bittensor topology data
+inside the same daily allowance.
 
 For custom graph reads, install the shipped `chain-insights-cypher` skill. Its
 Memgraph examples reference distinguishes staging-tested Chain Insights Graph query
@@ -251,15 +251,15 @@ available tools exactly as returned.
 
 ```text
 Use Chain Insights graph_query on network bittensor with:
-USE live_topology MATCH (a:Address)
+USE topology MATCH (a:Address)
 RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level
 LIMIT 10
 ```
 
 ```text
 Use Chain Insights graph_query_batch on network bittensor with these read-only Cypher queries:
-1. USE live_topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1
-2. USE live_topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum LIMIT 3
+1. USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1
+2. USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum LIMIT 3
 ```
 
 ```text

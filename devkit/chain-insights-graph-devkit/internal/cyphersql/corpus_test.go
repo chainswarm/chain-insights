@@ -7,15 +7,15 @@ import (
 	"testing"
 )
 
-// corpusGoldens is the archive/facts result-baseline fixture recorded from
-// the pre-removal MemGQL devkit (chain-insights
-// tests/fixtures/archive-result-goldens.json, copied here). Each entry's
-// baseline field partitions the conformance contract:
-//   - "memgql":      MemGQL's translation was correct; our translator must
-//                    compile it AND (under -tags starrocks_it) reproduce the
-//                    rows.
-//   - "unsupported": a documented shape outside the compiled archive subset;
+// corpusGoldens is the facts result-baseline fixture recorded from the devkit
+// lite MCP (regenerable via devkit/scripts/record-facts-goldens.sh). Each
+// entry's baseline field partitions the conformance contract:
+//   - "memgql":      the recorded translation is trusted correct; our
+//                    translator must compile it AND (under -tags starrocks_it)
+//                    reproduce the rows.
+//   - "unsupported": a documented shape outside the compiled facts subset;
 //                    our translator must return ErrUnsupportedShape.
+// Topology scope never compiles to SQL and is out of this fixture.
 type corpusGoldens struct {
 	Entries []struct {
 		ID           string           `json:"id"`
@@ -28,7 +28,7 @@ type corpusGoldens struct {
 
 func loadGoldens(t *testing.T) corpusGoldens {
 	t.Helper()
-	raw, err := os.ReadFile("testdata/archive-goldens.json")
+	raw, err := os.ReadFile("testdata/facts-goldens.json")
 	if err != nil {
 		t.Fatalf("read goldens: %v", err)
 	}
@@ -42,8 +42,8 @@ func loadGoldens(t *testing.T) corpusGoldens {
 	return g
 }
 
-// TestCorpusCompileConformance: every trusted archive/facts recipe compiles
-// to SQL; every documented-unsupported recipe returns ErrUnsupportedShape.
+// TestCorpusCompileConformance: every trusted facts recipe compiles to SQL;
+// every documented-unsupported recipe returns ErrUnsupportedShape.
 // No StarRocks required — pure compile contract, safe for CI.
 func TestCorpusCompileConformance(t *testing.T) {
 	g := loadGoldens(t)
@@ -68,8 +68,8 @@ func TestCorpusCompileConformance(t *testing.T) {
 			}
 			compiled++
 		case "unsupported":
-			if !errors.Is(err, ErrUnsupportedShape) && !errors.Is(err, ErrCostBound) {
-				t.Errorf("%s: expected ErrUnsupportedShape/ErrCostBound, got %v", e.ID, err)
+			if !errors.Is(err, ErrUnsupportedShape) {
+				t.Errorf("%s: expected ErrUnsupportedShape, got %v", e.ID, err)
 			}
 			rejected++
 		}

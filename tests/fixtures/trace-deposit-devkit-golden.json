@@ -7,8 +7,7 @@
   ],
   "seed_role": "deposit",
   "time_filter": "none",
-  "max_hops": 2,
-  "topology_scope": "live_topology"
+  "max_hops": 2
  },
  "summary": {
   "seed_count": 1,

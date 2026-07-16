@@ -5,18 +5,18 @@ import (
 	"strings"
 )
 
-// Compiled is the result of translating one archive/facts Cypher query.
+// Compiled is the result of translating one facts Cypher query.
 type Compiled struct {
 	SQL     string
 	Args    []any
-	Scope   string // archive_topology | facts
+	Scope   string // facts
 	Columns []string
 }
 
-// Compile translates a USE archive_topology / USE facts Cypher query into
-// parameterized StarRocks SQL. All literal values become Args (bound via
-// database/sql); identifiers come only from the mapping. Returns a typed
-// error (errors.Is-friendly) for any shape outside the compiled subset.
+// Compile translates a USE facts Cypher query into parameterized StarRocks
+// SQL. All literal values become Args (bound via database/sql); identifiers
+// come only from the mapping. Returns a typed error (errors.Is-friendly) for
+// any shape outside the compiled subset.
 func Compile(query string) (*Compiled, error) {
 	q, err := parse(query)
 	if err != nil {
@@ -54,7 +54,7 @@ func emit(q *query) (*Compiled, error) {
 		nodeLabel:  map[string]string{},
 	}
 	// Reject implicit GROUP BY: mixing count() with a non-aggregate
-	// projection needs GROUP BY semantics, which are out of archive scope.
+	// projection needs GROUP BY semantics, which are out of facts scope.
 	countItems, propItems := 0, 0
 	for _, it := range q.items {
 		if it.count != nil {
@@ -64,7 +64,7 @@ func emit(q *query) (*Compiled, error) {
 		}
 	}
 	if countItems > 0 && propItems > 0 {
-		return nil, newErr(ErrUnsupportedShape, q.items[0].pos, "grouped aggregation (count() with a grouping key) is not supported on archive; %s", supportedPatterns)
+		return nil, newErr(ErrUnsupportedShape, q.items[0].pos, "grouped aggregation (count() with a grouping key) is not supported on facts; %s", supportedPatterns)
 	}
 	if err := s.planPattern(); err != nil {
 		return nil, err
@@ -187,7 +187,7 @@ func (s *emitState) planPattern() error {
 		s.nodeLabel[tgtNode.variable] = firstNonEmptyStr(tgtNode.label, tgtNM.Label)
 		prevTargetExpr = tgtExpr
 	}
-	return s.applyCostBound()
+	return nil
 }
 
 // ensureNodeView joins a node's own view (aliased) so its non-id properties

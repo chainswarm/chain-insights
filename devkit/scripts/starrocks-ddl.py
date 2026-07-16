@@ -31,15 +31,10 @@ COMPATIBILITY_COLUMNS_BY_TABLE = {
 }
 
 # Every column defaults to VARCHAR(4096) below; typed overrides go here.
-# is_exchange must be a real nullable TINYINT, not the blanket VARCHAR --
-# otherwise the exported \N NULL marker loads as the literal 2-character
-# string "\N" rather than a real SQL NULL, and `is_exchange IS NOT NULL`
-# silently matches every row instead of just the exchange-flagged ones.
-COLUMN_TYPE_OVERRIDES_BY_TABLE = {
-    "archive_topology_addresses_view": {
-        "is_exchange": "TINYINT NULL",
-    },
-}
+# The facts views the translator now serves carry no columns needing a typed
+# override (is_exchange and the other Address enrichment properties are a
+# native Memgraph/topology concern and never load through StarRocks).
+COLUMN_TYPE_OVERRIDES_BY_TABLE: dict[str, dict[str, str]] = {}
 
 
 def read_manifest() -> dict | None:

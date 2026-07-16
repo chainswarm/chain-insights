@@ -31,11 +31,11 @@ func TestClassifyQueryTier(t *testing.T) {
 		wantTier    string
 		wantTimeout int
 	}{
-		{name: "no use clause is live", query: "MATCH (i:Identity) RETURN i LIMIT 1", wantTier: "live", wantTimeout: liveTierTimeoutSeconds},
-		{name: "live topology is live", query: "USE live_topology MATCH (i) RETURN i", wantTier: "live", wantTimeout: liveTierTimeoutSeconds},
-		{name: "archive topology is starrocks", query: "USE archive_topology MATCH (i) RETURN i", wantTier: "starrocks", wantTimeout: starrocksTierTimeoutSeconds},
+		{name: "no use clause is topology", query: "MATCH (a:Address) RETURN a LIMIT 1", wantTier: "live", wantTimeout: liveTierTimeoutSeconds},
+		{name: "topology is topology tier", query: "USE topology MATCH (a) RETURN a", wantTier: "live", wantTimeout: liveTierTimeoutSeconds},
+		{name: "unknown scope defaults to topology", query: "USE mystery MATCH (a) RETURN a", wantTier: "live", wantTimeout: liveTierTimeoutSeconds},
 		{name: "facts is starrocks", query: "USE facts MATCH (f) RETURN f", wantTier: "starrocks", wantTimeout: starrocksTierTimeoutSeconds},
-		{name: "case insensitive", query: "use ARCHIVE_TOPOLOGY MATCH (i) RETURN i", wantTier: "starrocks", wantTimeout: starrocksTierTimeoutSeconds},
+		{name: "case insensitive", query: "use FACTS MATCH (f) RETURN f", wantTier: "starrocks", wantTimeout: starrocksTierTimeoutSeconds},
 		{name: "leading whitespace", query: "   USE facts MATCH (f) RETURN f", wantTier: "starrocks", wantTimeout: starrocksTierTimeoutSeconds},
 	}
 	for _, test := range tests {
@@ -56,8 +56,8 @@ func TestBatchAppliesPerTierTimeoutsAndReportsThem(t *testing.T) {
 	_, structured, err := handler(context.Background(), nil, GraphQueryBatchArgs{
 		Network: "bittensor",
 		Queries: []BatchQuery{
-			{ID: "live", Query: "USE live_topology MATCH (i) RETURN i"},
-			{ID: "archive", Query: "USE archive_topology MATCH (i) RETURN i"},
+			{ID: "topology", Query: "USE topology MATCH (a) RETURN a"},
+			{ID: "facts", Query: "USE facts MATCH (f) RETURN f"},
 		},
 	})
 	if err != nil {
@@ -74,11 +74,11 @@ func TestBatchAppliesPerTierTimeoutsAndReportsThem(t *testing.T) {
 	for _, query := range result.Facts.Queries {
 		byID[query.ID] = query
 	}
-	if byID["live"].Tier != "live" || byID["live"].TimeoutSeconds != liveTierTimeoutSeconds {
-		t.Fatalf("live query tier facts = %+v", byID["live"])
+	if byID["topology"].Tier != "live" || byID["topology"].TimeoutSeconds != liveTierTimeoutSeconds {
+		t.Fatalf("topology query tier facts = %+v", byID["topology"])
 	}
-	if byID["archive"].Tier != "starrocks" || byID["archive"].TimeoutSeconds != starrocksTierTimeoutSeconds {
-		t.Fatalf("archive query tier facts = %+v", byID["archive"])
+	if byID["facts"].Tier != "starrocks" || byID["facts"].TimeoutSeconds != starrocksTierTimeoutSeconds {
+		t.Fatalf("facts query tier facts = %+v", byID["facts"])
 	}
 }
 
@@ -90,7 +90,7 @@ func TestBatchCallerTimeoutOverrideOnlyLowers(t *testing.T) {
 	_, structured, err := handler(context.Background(), nil, GraphQueryBatchArgs{
 		Network:                "bittensor",
 		PerQueryTimeoutSeconds: 5,
-		Queries:                []BatchQuery{{ID: "archive", Query: "USE archive_topology MATCH (i) RETURN i"}},
+		Queries:                []BatchQuery{{ID: "facts", Query: "USE facts MATCH (f) RETURN f"}},
 	})
 	if err != nil {
 		t.Fatalf("handler returned error: %v", err)
@@ -244,7 +244,7 @@ func TestGraphQueryReturnsChainInsightsEnvelopeWithRouting(t *testing.T) {
 	handler := graphQueryHandler(fakeRunner{})
 	_, structured, err := handler(context.Background(), nil, GraphQueryArgs{
 		Network: "bittensor",
-		Query:   "USE archive_topology MATCH (i) RETURN i LIMIT 1",
+		Query:   "USE facts MATCH (f:AddressFeature) RETURN f.feature_scope AS feature_scope LIMIT 1",
 	})
 	if err != nil {
 		t.Fatalf("handler returned error: %v", err)
@@ -259,7 +259,7 @@ func TestGraphQueryReturnsChainInsightsEnvelopeWithRouting(t *testing.T) {
 	if result.Facts.Query.Tier != "starrocks" || result.Facts.Query.TimeoutSeconds != starrocksTierTimeoutSeconds {
 		t.Fatalf("query facts = %+v", result.Facts.Query)
 	}
-	if result.Facts.Routing.TopologyKey != "archive_topology" {
+	if result.Facts.Routing.TopologyKey != "facts" {
 		t.Fatalf("topology key = %q", result.Facts.Routing.TopologyKey)
 	}
 	if result.Facts.Routing.StarRocksDatabase != "bittensor" {

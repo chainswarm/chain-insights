@@ -57,9 +57,10 @@ var (
 )
 
 var (
+	// Only `USE facts` compiles to StarRocks now; `USE topology` runs natively
+	// on Memgraph and is never StarRocks-backed.
 	starRocksBackedGraphNames = map[string]struct{}{
-		"ARCHIVE_TOPOLOGY": {},
-		"FACTS":            {},
+		"FACTS": {},
 	}
 	starRocksAggregateFunctions = map[string]struct{}{
 		"AVG":   {},

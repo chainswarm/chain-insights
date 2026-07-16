@@ -132,7 +132,6 @@ describe.skipIf(!enabled)('trace tool devkit output goldens (AC4: victim, suspec
       traceSuspectFunds(client, { dataDir: join(ws, '.chain-insights'), serverPort: 0 }, {
         network: 'bittensor',
         suspectAddresses: seed,
-        topologyScope: 'live_topology',
       }))
   })
 
@@ -142,7 +141,6 @@ describe.skipIf(!enabled)('trace tool devkit output goldens (AC4: victim, suspec
       traceDepositSources(client, { dataDir: join(ws, '.chain-insights'), serverPort: 0 }, {
         network: 'bittensor',
         depositAddresses: seed,
-        topologyScope: 'live_topology',
       }))
   })
 
@@ -167,7 +165,6 @@ describe.skipIf(!enabled)('trace tool devkit output goldens (AC4: victim, suspec
         {
           network: 'bittensor',
           victimAddresses: fixtureSeed(),
-          topologyScope: 'live_topology',
         },
       )
       const actual = normalize(result.structuredContent, workspaceDir)

@@ -136,20 +136,6 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).not.toContain('--activity-policy <mode>')
   })
 
-  it.each([
-    ['aml-address-risk', ['--address', '5xTest', '--network', 'bittensor']],
-    ['aml-trace-victim-funds', ['--victim-addresses', '5xTest', '--network', 'bittensor']],
-    ['aml-trace-suspect-funds', ['--suspect-addresses', '5xTest', '--network', 'bittensor']],
-    ['aml-trace-deposit-sources', ['--deposit-addresses', '5xTest', '--network', 'bittensor']],
-  ])('mcp %s rejects an invalid --topology-scope before attempting a network call (AC7/AC8)', (command, requiredArgs) => {
-    const result = spawnSync('node', ['--import', tsxLoader, srcCli, 'mcp', command, ...requiredArgs, '--topology-scope', 'bogus_scope'], {
-      encoding: 'utf8',
-    })
-    expect(result.status).not.toBe(0)
-    expect(result.stderr).toContain('Invalid --topology-scope: bogus_scope')
-    expect(result.stderr).toContain('Allowed values: live_topology, archive_topology')
-  })
-
   it('fund-flow CLI help exposes only role-specific trace commands', () => {
     const out = execSync('node bin/cli.js mcp --help', { encoding: 'utf8' })
     expect(out).toContain('aml-trace-victim-funds')
@@ -263,8 +249,7 @@ describe('CLI scaffold (FOUND-02)', () => {
       const runtimeSkill = readFileSync(join(target, '.chain-insights', 'runtime-skill', 'SKILL.md'), 'utf8')
       expect(runtimeSkill).toContain('Runtime Graph Schema')
       expect(runtimeSkill).toContain('exchange hot wallets as terminal endpoints only')
-      expect(runtimeSkill).toContain('The `LINKED` ownership overlay is served on the live')
-      expect(runtimeSkill).toContain('archive_topology stays money-only (no LINKED reads there)')
+      expect(runtimeSkill).toContain('The `LINKED` ownership overlay is served on both the topology and')
       expect(runtimeSkill).toContain('always pass\n  `network=bittensor`')
       expect(readFileSync(join(target, '.chain-insights', 'schema', 'README.md'), 'utf8')).toContain('Runtime Schema Captures')
       expect(existsSync(join(target, 'artifacts'))).toBe(true)

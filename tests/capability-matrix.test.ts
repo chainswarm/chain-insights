@@ -4,18 +4,16 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-// Capability probe suite wrapper (post MemGQL retirement). The probe scripts
-// run every query THROUGH the running devkit graph MCP (:18012) and record the
-// admitted outcome + error_code; this test replays them and pins the native
-// surface:
-//   live_topology  — native Memgraph Cypher; `supported` for the bounded
-//                    traversal forms, `rejected-bounds`/`rejected-write` for the
-//                    admission + traversal gate.
-//   archive/facts  — corpus-scoped translator; `supported` for the compiled
-//                    subset, `rejected-cost`/`rejected-translation` otherwise.
+// Capability probe suite wrapper. The topology probe script runs every query
+// THROUGH the running devkit graph MCP (:18012) and records the admitted
+// outcome + error_code; this test replays it and pins the native topology
+// surface: `supported` for the bounded traversal forms,
+// `rejected-bounds`/`rejected-write` for the admission + traversal gate.
+// Facts-translator conformance is pinned separately by the devkit Go suite
+// (cyphersql corpus/goldens), not by a probe lane here.
 // Gated: requires a running devkit compose, so plain `npm test` skips it.
 // When an outcome or error_code drifts, re-evaluate the allowed query shapes
-// and update the expected-*.json (see docs/graph-query-compatibility.md).
+// and update expected-topology.json (see docs/graph-query-compatibility.md).
 
 const enabled = process.env.CAPABILITY_PROBES === '1'
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -44,35 +42,16 @@ function latestArtifact(pattern: RegExp): any {
   return JSON.parse(readFileSync(join(repoRoot, 'workspace', artifacts.sort().at(-1)!), 'utf8'))
 }
 
-describe.skipIf(!enabled)('Native graph capability matrix (live lane)', () => {
+describe.skipIf(!enabled)('Native graph capability matrix (topology lane)', () => {
   it('probe run matches pinned expectations', { timeout: 10 * 60 * 1000 }, () => {
-    execFileSync('bash', [join(repoRoot, 'devkit/scripts/capability-probes-live.sh')], {
+    execFileSync('bash', [join(repoRoot, 'devkit/scripts/capability-probes-topology.sh')], {
       stdio: 'inherit',
       timeout: 10 * 60 * 1000,
     })
     const artifact = latestArtifact(/^capability-matrix\..+\.json$/)
     const expected = JSON.parse(
-      readFileSync(join(repoRoot, 'devkit/capability-probes/expected-live.json'), 'utf8'),
+      readFileSync(join(repoRoot, 'devkit/capability-probes/expected-topology.json'), 'utf8'),
     )
-    assertRowsMatch(artifact.rows, expected.rows, 'live')
-  })
-})
-
-// Archive lane needs the devkit compose up as well, so it carries its own gate
-// on top of CAPABILITY_PROBES: set CAPABILITY_PROBES_ARCHIVE=1 with
-// `docker compose -f devkit/docker-compose.yml up -d` running.
-const archiveEnabled = enabled && process.env.CAPABILITY_PROBES_ARCHIVE === '1'
-
-describe.skipIf(!archiveEnabled)('Native graph capability matrix (archive lane, devkit)', () => {
-  it('archive probe run matches pinned expectations', { timeout: 10 * 60 * 1000 }, () => {
-    execFileSync('bash', [join(repoRoot, 'devkit/scripts/capability-probes-archive.sh')], {
-      stdio: 'inherit',
-      timeout: 10 * 60 * 1000,
-    })
-    const artifact = latestArtifact(/^capability-matrix-archive\..+\.json$/)
-    const expected = JSON.parse(
-      readFileSync(join(repoRoot, 'devkit/capability-probes/expected-archive.json'), 'utf8'),
-    )
-    assertRowsMatch(artifact.rows, expected.rows, 'archive')
+    assertRowsMatch(artifact.rows, expected.rows, 'topology')
   })
 })

@@ -165,12 +165,12 @@ Before the first investigation query, capture the live graph schema into:
 .chain-insights/schema/<network>.graph-schema.json
 \`\`\`
 
-Use \`graph_query_batch\` for schema capture. Prefix current topology reads
-with \`USE live_topology\`, historical topology reads with
-\`USE archive_topology\`, and fact reads with \`USE facts\`, for example:
+Use \`graph_query_batch\` for schema capture. Prefix topology reads with
+\`USE topology\` (address/FLOWS_TO/LINKED graph, unified recent+historical)
+and fact reads with \`USE facts\`, for example:
 
 \`\`\`bash
-cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE live_topology MATCH (n:Address) RETURN \"Address\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.period_granularity AS granularity, f.amount_usd_sum AS amount_usd_sum LIMIT 20"},{"id":"facts_linked_sample","query":"USE facts MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 20"}]'
+cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE topology MATCH (n:Address) RETURN \"Address\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"flow_sample","query":"USE topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 20"},{"id":"facts_linked_sample","query":"USE facts MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 20"}]'
 \`\`\`
 
 Then update this file with observed labels, relationship types, and allowed
@@ -193,11 +193,11 @@ The address-grain graph schema:
   SS58 -> (bridge or LINKED) -> H160 and back with no network switch. Walk
   one visible \`LINKED\` hop to surface actor-level exposure or to resolve
   an address's counterpart in the other space; never treat linked addresses
-  as a single collapsed node. \`LINKED\` is served on the live and facts
-  tiers; \`archive_topology\` stays money-only.
+  as a single collapsed node. \`LINKED\` is served on both the topology and
+  facts graphs.
 - Other Address properties: \`labels\` (array) and \`is_exchange\`
   (sparse true/null traversal hint).
-- Address nodes carry a slim live risk verdict for quick triage
+- Address nodes carry a risk verdict for quick triage
   (\`risk_score\` float, \`risk_level\` string) plus base activity rollups:
   \`degree_in\`/\`degree_out\`/\`degree_total\` (distinct counterparty
   addresses), \`tx_in_count\`/\`tx_out_count\`/\`tx_total_count\`,
@@ -218,7 +218,7 @@ The address-grain graph schema:
   \`(:Address)-[:HAS_RISK_SCORE]->(:RiskScore)\`; label risk:
   \`(:Address)-[:HAS_LABEL]->(:AddressLabel)\`; lifetime metrics:
   \`(:Address)-[:HAS_FEATURE]->(:AddressFeature)\`. Facts address keys
-  match live \`address\` values exactly. Node \`risk_score\`/
+  match topology \`address\` values exactly. Node \`risk_score\`/
   \`risk_level\` are quick-triage verdicts only; do not read \`ml_*\`,
   \`confluence_score\`, or \`pattern_flags\` off topology nodes — those
   properties do not exist.
@@ -226,17 +226,13 @@ The address-grain graph schema:
 Rules:
 
 - Prefer \`graph_query\` and \`graph_query_batch\` for graph-language reads.
-- Do not use legacy \`topology_scope\` arguments to choose a graph. If an
-  older endpoint surfaces that argument, treat it as compatibility routing
-  only. The live/archive/facts graph choice stays inside the query via
-  \`USE ...\`.
-- Use \`USE live_topology\` for recent topology, \`USE archive_topology\`
-  for historical topology, and \`USE facts\` for labels, features,
-  risk scores, assets, and enrichment. Archived money-flow topology is
-  exposed as \`(:Address)-[:FLOWS_TO]->(:Address)\` with
-  \`period_granularity\`, \`period_start_date\`, and \`period_end_date\` on
-  the relationship. The \`LINKED\` ownership overlay is served on the live
-  and facts tiers; archive_topology stays money-only (no LINKED reads there).
+- The graph choice stays inside the query via \`USE ...\`; there is no
+  tool argument to select a graph.
+- Use \`USE topology\` for topology (the address/FLOWS_TO/LINKED graph,
+  covering unified recent and full historical activity in one graph) and
+  \`USE facts\` for labels, features, risk scores, assets, and enrichment.
+  The \`LINKED\` ownership overlay is served on both the topology and facts
+  graphs.
 - Preserve source schema field names in generated data files.
 - Do not rename, reinterpret, or add unit labels to graph fields unless the
   schema or query result explicitly supports that interpretation.

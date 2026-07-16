@@ -67,25 +67,27 @@ PY
 
 mcp_post "tools/call" '{"name":"network_capabilities","arguments":{}}' "$EVIDENCE_DIR/network-capabilities.json"
 
-mcp_post "tools/call" '{"name":"graph_query","arguments":{"network":"bittensor","query":"USE live_topology MATCH (a:Address)-[:LINKED]-(b:Address) RETURN a.address, b.address LIMIT 1"}}' "$EVIDENCE_DIR/live-topology.json"
+mcp_post "tools/call" '{"name":"graph_query","arguments":{"network":"bittensor","query":"USE topology MATCH (a:Address)-[:LINKED]-(b:Address) RETURN a.address, b.address LIMIT 1"}}' "$EVIDENCE_DIR/topology-linked.json"
 
-# Bounded projections (not predicate-less aggregates): the devkit graph MCP now
-# enforces the production StarRocks cost-shape admission gate, which refuses
-# global count()/sum() over archive/facts without an indexed predicate. Coverage
-# is proven by an admitted bounded read that returns real rows.
-mcp_post "tools/call" '{"name":"graph_query","arguments":{"network":"bittensor","query":"USE archive_topology MATCH (i:Address)-[r:FLOWS_TO]->(j:Address) RETURN i.address AS from_address, j.address AS to_address LIMIT 1"}}' "$EVIDENCE_DIR/archive-coverage.json"
+# Money-flow coverage now runs natively on the unified topology graph
+# (Memgraph): FLOWS_TO is a topology traversal and never compiles to SQL. The
+# StarRocks cost-shape admission gate still applies to facts, refusing global
+# count()/sum() without an indexed predicate; facts coverage is proven by an
+# admitted bounded read that returns real rows.
+mcp_post "tools/call" '{"name":"graph_query","arguments":{"network":"bittensor","query":"USE topology MATCH (i:Address)-[r:FLOWS_TO]->(j:Address) RETURN i.address AS from_address, j.address AS to_address LIMIT 1"}}' "$EVIDENCE_DIR/topology-flows-coverage.json"
 
 mcp_post "tools/call" '{"name":"graph_query","arguments":{"network":"bittensor","query":"USE facts MATCH (f:AddressFeature) RETURN f.feature_scope AS feature_scope LIMIT 1"}}' "$EVIDENCE_DIR/facts.json"
 
-mcp_post "tools/call" '{"name":"graph_query_batch","arguments":{"network":"bittensor","queries":[{"id":"live","query":"USE live_topology MATCH (i:Address) RETURN count(i) AS addresses LIMIT 1"},{"id":"facts","query":"USE facts MATCH (f:AddressFeature) RETURN f.feature_scope AS feature_scope LIMIT 1"}]}}' "$EVIDENCE_DIR/graph-query-batch.json"
+mcp_post "tools/call" '{"name":"graph_query_batch","arguments":{"network":"bittensor","queries":[{"id":"topology","query":"USE topology MATCH (i:Address) RETURN count(i) AS addresses LIMIT 1"},{"id":"facts","query":"USE facts MATCH (f:AddressFeature) RETURN f.feature_scope AS feature_scope LIMIT 1"}]}}' "$EVIDENCE_DIR/graph-query-batch.json"
 
-# is_exchange typed-NULL integrity (D3 pin), now expressed as an admitted
-# bounded projection. Before the D3 fix, is_exchange loaded as the literal
-# varchar string "NULL"; then "IS NOT NULL" matched every row and projected the
-# string "NULL" back. A real typed NULL means IS NOT NULL returns only the
-# exchange-flagged addresses, each with is_exchange truthy (1/true) — never the
-# string "NULL", never 0/false.
-mcp_post "tools/call" '{"name":"graph_query","arguments":{"network":"bittensor","query":"USE archive_topology MATCH (i:Address) WHERE i.is_exchange IS NOT NULL RETURN i.address AS address, i.is_exchange AS is_exchange LIMIT 25"}}' "$EVIDENCE_DIR/is-exchange-not-null-projection.json"
+# is_exchange projection integrity, served natively by the topology graph
+# (Memgraph). is_exchange is a native Memgraph Address property (unified
+# recent+historical), so IS NOT NULL returns only the exchange-flagged
+# addresses, each with is_exchange truthy (1/true) — never a varchar "NULL",
+# never 0/false. (This replaces the StarRocks-era D3 typed-NULL check: with the
+# archive addresses view retired, is_exchange no longer loads through StarRocks
+# at all.)
+mcp_post "tools/call" '{"name":"graph_query","arguments":{"network":"bittensor","query":"USE topology MATCH (i:Address) WHERE i.is_exchange IS NOT NULL RETURN i.address AS address, i.is_exchange AS is_exchange LIMIT 25"}}' "$EVIDENCE_DIR/is-exchange-not-null-projection.json"
 
 python3 - "$EVIDENCE_DIR/is-exchange-not-null-projection.json" <<'PY'
 import json
@@ -95,21 +97,21 @@ from pathlib import Path
 payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 rows = payload["result"]["structuredContent"]["facts"]["query"]["results"]
 if not rows:
-    raise SystemExit("is_exchange typed-NULL check FAILED: IS NOT NULL returned no rows (expected exchange-flagged addresses)")
+    raise SystemExit("is_exchange projection check FAILED: IS NOT NULL returned no rows (expected exchange-flagged addresses)")
 truthy = {1, "1", True, "true", "True"}
 for row in rows:
     value = row.get("is_exchange")
     if value in {"NULL", "null", None}:
         raise SystemExit(
-            f"is_exchange typed-NULL check FAILED: IS NOT NULL projected value {value!r} "
-            "-- is_exchange is a varchar 'NULL', not a real typed NULL"
+            f"is_exchange projection check FAILED: IS NOT NULL projected value {value!r} "
+            "-- a NULL leaked past the topology IS NOT NULL filter"
         )
     if value not in truthy:
         raise SystemExit(
-            f"is_exchange typed-NULL check FAILED: non-truthy is_exchange {value!r} matched "
+            f"is_exchange projection check FAILED: non-truthy is_exchange {value!r} matched "
             "IS NOT NULL (every non-NULL is_exchange must be true, never false/0)"
         )
-print(f"is_exchange typed-NULL check OK: {len(rows)} exchange-flagged rows, all truthy, no varchar-NULL corruption")
+print(f"is_exchange projection check OK: {len(rows)} exchange-flagged rows, all truthy")
 PY
 
 "$SCRIPT_DIR/smoke-memgql-objects.py" > "$EVIDENCE_DIR/memgql-object-coverage.json"

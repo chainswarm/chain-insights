@@ -195,7 +195,7 @@ function stringArrayValue(value: unknown): string[] {
 // frontierQuery is the ONLY Cypher this tool ever emits: a bounded one-hop
 // outgoing FLOWS_TO expansion from a single source address, reading node
 // props (degree_in, is_exchange), the `labels(t)` node-label taxonomy, and
-// edge props (tx_count, amount_usd_sum). USE live_topology is applied by
+// edge props (tx_count, amount_usd_sum). USE topology is applied by
 // callGraphBatch, matching trace-funds.ts's convention.
 //
 // The gates key on `labels(t) AS node_labels` — the PascalCase node-label set
@@ -242,7 +242,7 @@ function parseGraphBatchResult(result: RemoteToolResult): ParsedGraphBatch {
 function topologyGraphQuery(query: string): string {
   const trimmed = query.trim()
   if (/^USE\s+/i.test(trimmed)) return trimmed
-  return `USE live_topology ${trimmed}`
+  return `USE topology ${trimmed}`
 }
 
 async function callGraphBatch(

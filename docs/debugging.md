@@ -65,7 +65,7 @@ npx @modelcontextprotocol/inspector \
 ```bash
 node bin/cli.js mcp call graph_query_batch \
   network=bittensor \
-  'queries=[{"id":"count","query":"USE live_topology MATCH (n) RETURN count(n) AS count LIMIT 1"}]'
+  'queries=[{"id":"count","query":"USE topology MATCH (n) RETURN count(n) AS count LIMIT 1"}]'
 node bin/cli.js wallet address
 node bin/cli.js wallet balance
 ```

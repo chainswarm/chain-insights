@@ -10,9 +10,9 @@ type Config struct {
 	MemgraphURI      string
 	MemgraphUser     string
 	MemgraphPassword string
-	// StarRocks warehouse for the archive_topology / facts layers, which now
-	// run directly against StarRocks via the corpus-scoped translator (the
-	// devkit mirrors the production graphrag-mcp split; MemGQL is retired).
+	// StarRocks warehouse for the facts scope, which runs directly against
+	// StarRocks via the corpus-scoped translator (the devkit mirrors the
+	// production graphrag-mcp two-scope model; MemGQL is retired).
 	StarRocksHost     string
 	StarRocksPort     int
 	StarRocksUser     string
