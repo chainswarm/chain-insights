@@ -49,7 +49,7 @@ cia debug off
 4. If `.chain-insights/schema/<network>.graph-schema.json` does not exist, capture schema before the first graph workflow:
    ```bash
    mkdir -p .chain-insights/schema
-   cia mcp call graph_query_batch network=<network> 'queries=[{"id":"address_labels","query":"USE live_topology MATCH (a:Address) RETURN \"Address\" AS node_label, count(a) AS sample_count LIMIT 1"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.period_granularity AS granularity, f.amount_usd_sum AS amount_usd_sum LIMIT 20"},{"id":"linked_sample","query":"USE live_topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 20"},{"id":"facts_linked_sample","query":"USE facts MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 20"}]' > .chain-insights/schema/<network>.graph-schema.raw.json
+   cia mcp call graph_query_batch network=<network> 'queries=[{"id":"address_labels","query":"USE topology MATCH (a:Address) RETURN \"Address\" AS node_label, count(a) AS sample_count LIMIT 1"},{"id":"flow_sample","query":"USE topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 20"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 20"},{"id":"facts_linked_sample","query":"USE facts MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 20"}]' > .chain-insights/schema/<network>.graph-schema.raw.json
    ```
 5. Make sure the canonical workspace output roots exist:
    ```bash
@@ -60,7 +60,7 @@ cia debug off
 
 - Always preserve full blockchain addresses exactly.
 - All Bittensor investigation runs on ONE public network: always pass `network=bittensor`, for native Substrate/SS58 (`5...`) and EVM-pallet `0x...` inputs alike. The SS58/H160 split is the `:Address.network` node property (`bittensor` / `bittensor_evm`), not a separate query network; a single query spans both spaces by hopping the bridge (money) or `LINKED` (ownership) edge across the boundary.
-- Live and archive topology are address-grain and graph-selected: use `USE live_topology` for Memgraph live topology and `USE archive_topology` for StarRocks-backed archive topology. Both support the `(:Address)-[:FLOWS_TO]->(:Address)` money shape; the `(:Address)-[:LINKED]-(:Address)` ownership overlay is served on the live and facts tiers (archive stays money-only).
+- Topology is address-grain and graph-selected: use `USE topology` for the Memgraph-backed unified graph, which serves ALL topology — recent and full historical activity — in one place. It supports the `(:Address)-[:FLOWS_TO]->(:Address)` money shape and the `(:Address)-[:LINKED]-(:Address)` ownership overlay; the `LINKED` overlay is served on both the topology and facts graphs.
 - Users operate on raw blockchain addresses directly. High-level `aml_*` tools accept addresses with no identity-resolution step; public results, artifacts, and follow-up candidate lists always return the raw address.
 - Use the current Chain Insights AML tool contract as the reference behavior; do not downgrade semantics to legacy implementation details from the old Python graph path.
 - Never call graph tools without an explicit `network`.
@@ -98,7 +98,7 @@ cia mcp trace-suspect-funds --network bittensor --suspect-addresses 5... --max-h
 
 All three tools return `chain-insights.trace.v1`, including `candidate_labels` and `continuation`. Candidate labels are reviewable, not automatic writes.
 
-Use manual `graph_query_batch` for custom topology or fact questions. Use `USE live_topology` for recent topology, `USE archive_topology` for historical topology, and `USE facts` for facts and enrichment.
+Use manual `graph_query_batch` for custom topology or fact questions. Use `USE topology` for topology (recent and full historical activity in one graph) and `USE facts` for facts and enrichment.
 When writing custom Cypher, use the shipped `chain-insights-cypher` skill; for Bittensor, also use `chain-insights-bittensor-cypher`.
 Treat exchange hot wallets as terminal endpoints only.
 exchange hot wallets are terminal endpoints only
@@ -115,7 +115,7 @@ For every material graph/tool query:
    ```bash
    cia mcp call graph_query_batch \
      network=<network> \
-     'queries=[{"id":"<stable_id>","query":"USE live_topology MATCH ... RETURN ... LIMIT 50"}]' \
+     'queries=[{"id":"<stable_id>","query":"USE topology MATCH ... RETURN ... LIMIT 50"}]' \
      > reports/tables/<stable_id>.raw.json
    ```
 2. Reduce the output if the tool returned extra fields:

@@ -35,14 +35,13 @@ Observed against the address-serving contract on 2026-07-07:
 - `meta_network_capabilities` advertises `bittensor` as the single public
   investigation network with topology, facts, risk, `graph_query`, and
   `graph_query_batch` available.
-- `live_topology` uses `Address` nodes and `FLOWS_TO` relationships, keyed by
+- `topology` uses `Address` nodes and `FLOWS_TO` relationships, keyed by
   the raw chain-native `address` (SS58 or `0x...`), plus a `network` property
-  (`bittensor` / `bittensor_evm`) marking the address space.
+  (`bittensor` / `bittensor_evm`) marking the address space. One unified graph
+  serves the full lifetime history — there is no separate historical tier to
+  opt into.
 - `FLOWS_TO` is USD-only for AML value. Use `amount_usd_sum`, not native
-  `amount_sum`.
-- `archive_topology` uses the same `Address` node surface with historical
-  `FLOWS_TO` relationships — money-only; the `LINKED` ownership overlay is
-  served on the live and facts tiers, not archive.
+  `amount_sum`. Edges are lifetime aggregates (first/last endpoints only).
 - `facts` contains address-keyed enrichment through `HAS_LABEL`,
   `HAS_FEATURE`, and `HAS_RISK_SCORE`, plus the `LINKED` ownership-overlay
   pairs. Bittensor neuron facts may include `REGISTERED_NEURON` and
@@ -54,10 +53,10 @@ Observed against the address-serving contract on 2026-07-07:
 
 ## Bittensor Shapes
 
-Live topology address grain:
+Topology address grain (covers full lifetime history):
 
 ```cypher
-USE live_topology
+USE topology
 MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address)
 RETURN src.address AS from_address,
        dst.address AS to_address,
@@ -71,7 +70,7 @@ LIMIT 25
 `LINKED` ownership-overlay lookup (cross-space, `bittensor` <-> `bittensor_evm`):
 
 ```cypher
-USE live_topology
+USE topology
 MATCH (a:Address {address: "5Ggf..."})-[l:LINKED]-(b:Address)
 RETURN a.address AS address,
        b.address AS linked_address,
@@ -80,21 +79,6 @@ RETURN a.address AS address,
        l.confidence AS confidence,
        l.source_event AS source_event,
        l.declared_owner AS declared_owner
-LIMIT 25
-```
-
-Archive topology:
-
-```cypher
-USE archive_topology
-MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address)
-RETURN src.address AS from_address,
-       dst.address AS to_address,
-       flow.period_granularity AS period_granularity,
-       flow.period_start_date AS period_start_date,
-       flow.period_end_date AS period_end_date,
-       flow.amount_usd_sum AS amount_usd_sum,
-       flow.tx_count AS tx_count
 LIMIT 25
 ```
 
@@ -117,7 +101,7 @@ Use this before a custom Bittensor query session:
 cia mcp call graph_query_batch \
   network=bittensor \
   per_query_timeout_seconds=5 \
-  'queries=[{"id":"live_address_projection","query":"USE live_topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_score AS risk_score, a.risk_level AS risk_level, a.is_exchange AS is_exchange LIMIT 10"},{"id":"live_flow_sample","query":"USE live_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"linked_sample","query":"USE live_topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"archive_flow_sample","query":"USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.period_granularity AS period_granularity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"facts_linked_sample","query":"USE facts MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"facts_feature_sample","query":"USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.tx_out_count AS tx_out_count LIMIT 10"}]'
+  'queries=[{"id":"address_projection","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_score AS risk_score, a.risk_level AS risk_level, a.is_exchange AS is_exchange LIMIT 10"},{"id":"flow_sample","query":"USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"facts_linked_sample","query":"USE facts MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"facts_feature_sample","query":"USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.tx_out_count AS tx_out_count LIMIT 10"}]'
 ```
 
 Avoid `keys()`, `labels()`, `type()`, native BFS syntax, and variable-length
@@ -131,7 +115,7 @@ Outflows from a Bittensor address:
 ```bash
 cia mcp call graph_query \
   network=bittensor \
-  'query=USE live_topology MATCH (src:Address {address: "5Ggf..."})-[flow:FLOWS_TO]->(dst:Address) RETURN dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 50'
+  'query=USE topology MATCH (src:Address {address: "5Ggf..."})-[flow:FLOWS_TO]->(dst:Address) RETURN dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 50'
 ```
 
 Find likely address completions from a prefix:
@@ -139,7 +123,7 @@ Find likely address completions from a prefix:
 ```bash
 cia mcp call graph_query \
   network=bittensor \
-  'query=USE live_topology MATCH (a:Address) WHERE a.address STARTS WITH "5Ggf" RETURN a.address AS address, a.network AS network LIMIT 10'
+  'query=USE topology MATCH (a:Address) WHERE a.address STARTS WITH "5Ggf" RETURN a.address AS address, a.network AS network LIMIT 10'
 ```
 
 Actor-level exposure via one visible `LINKED` hop (AC11):
@@ -147,7 +131,7 @@ Actor-level exposure via one visible `LINKED` hop (AC11):
 ```bash
 cia mcp call graph_query \
   network=bittensor \
-  'query=USE live_topology MATCH (a:Address {address: "5Ggf..."})-[l:LINKED]-(owned:Address)-[r:FLOWS_TO]-(b:Address) WHERE owned.address <> b.address AND a.address <> b.address RETURN owned.address AS linked_via_address, b.address AS counterparty_address, r.amount_usd_sum AS amount_usd_sum LIMIT 50'
+  'query=USE topology MATCH (a:Address {address: "5Ggf..."})-[l:LINKED]-(owned:Address)-[r:FLOWS_TO]-(b:Address) WHERE owned.address <> b.address AND a.address <> b.address RETURN owned.address AS linked_via_address, b.address AS counterparty_address, r.amount_usd_sum AS amount_usd_sum LIMIT 50'
 ```
 
 Resolve the `bittensor_evm` counterpart of a `bittensor` address (AC5, the only
@@ -156,8 +140,8 @@ cross-space edge):
 ```bash
 cia mcp call graph_query \
   network=bittensor \
-  'query=USE live_topology MATCH (a:Address {address: "5Ggf..."})-[l:LINKED]-(b:Address) WHERE a.network <> b.network RETURN b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 5'
+  'query=USE topology MATCH (a:Address {address: "5Ggf..."})-[l:LINKED]-(b:Address) WHERE a.network <> b.network RETURN b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 5'
 ```
 
-When comparing amounts, remember that archive StarRocks-backed numeric fields
-may arrive as strings while live Memgraph fields may arrive as numbers.
+When comparing amounts, remember that facts StarRocks-backed numeric fields
+may arrive as strings while topology Memgraph fields may arrive as numbers.

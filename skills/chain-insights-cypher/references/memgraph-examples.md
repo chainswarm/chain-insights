@@ -22,7 +22,7 @@ Accepted through Chain Insights Graph:
 - `CASE`
 - `ORDER BY`, explicit `LIMIT`
 - fixed-hop patterns written as explicit relationships
-- simple `archive_topology` counts and filtered projections
+- simple `facts` counts and filtered projections
 - `facts` `Address` projections and feature/label/risk relationships when the
   current schema probe proves them
 
@@ -39,14 +39,14 @@ Treat rejected syntax as direct-Memgraph reference material only unless the
 current endpoint accepts the exact query. For Chain Insights agents, use the
 fixed-hop `graph_query_batch` fallback below for traversal.
 
-## Live Topology Examples
+## Topology Examples
 
 Top outflows by amount:
 
 ```bash
 cia mcp call graph_query \
   network=bittensor \
-  'query=USE live_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 25'
+  'query=USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 25'
 ```
 
 Rank addresses by live out-degree and transferred USD:
@@ -54,7 +54,7 @@ Rank addresses by live out-degree and transferred USD:
 ```bash
 cia mcp call graph_query \
   network=bittensor \
-  'query=USE live_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) WITH src, count(dst) AS out_degree, sum(flow.amount_usd_sum) AS total_usd RETURN src.address AS address, out_degree, total_usd ORDER BY out_degree DESC LIMIT 25'
+  'query=USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) WITH src, count(dst) AS out_degree, sum(flow.amount_usd_sum) AS total_usd RETURN src.address AS address, out_degree, total_usd ORDER BY out_degree DESC LIMIT 25'
 ```
 
 Bucket flows for quick triage:
@@ -62,7 +62,7 @@ Bucket flows for quick triage:
 ```bash
 cia mcp call graph_query \
   network=bittensor \
-  'query=USE live_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, CASE WHEN flow.amount_usd_sum IS NULL THEN "unknown" WHEN flow.amount_usd_sum >= 100000 THEN "large" WHEN flow.amount_usd_sum >= 10000 THEN "medium" ELSE "small" END AS amount_bucket, flow.amount_usd_sum AS amount_usd_sum LIMIT 25'
+  'query=USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, CASE WHEN flow.amount_usd_sum IS NULL THEN "unknown" WHEN flow.amount_usd_sum >= 100000 THEN "large" WHEN flow.amount_usd_sum >= 10000 THEN "medium" ELSE "small" END AS amount_bucket, flow.amount_usd_sum AS amount_usd_sum LIMIT 25'
 ```
 
 Prefix search for address completion:
@@ -70,7 +70,7 @@ Prefix search for address completion:
 ```bash
 cia mcp call graph_query \
   network=bittensor \
-  'query=USE live_topology MATCH (a:Address) WHERE a.address STARTS WITH "5Ggf" RETURN a.address AS address, a.network AS network LIMIT 10'
+  'query=USE topology MATCH (a:Address) WHERE a.address STARTS WITH "5Ggf" RETURN a.address AS address, a.network AS network LIMIT 10'
 ```
 
 `LINKED` ownership-overlay census by network:
@@ -78,7 +78,7 @@ cia mcp call graph_query \
 ```bash
 cia mcp call graph_query \
   network=bittensor \
-  'query=USE live_topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN b.network AS linked_network, count(b) AS linked_addresses ORDER BY linked_addresses DESC LIMIT 10'
+  'query=USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN b.network AS linked_network, count(b) AS linked_addresses ORDER BY linked_addresses DESC LIMIT 10'
 ```
 
 Cross-space `LINKED` resolution — the ownership edge across the SS58/H160
@@ -88,38 +88,23 @@ of this runs on the single public `network=bittensor`:
 ```bash
 cia mcp call graph_query \
   network=bittensor \
-  'query=USE live_topology MATCH (a:Address {address: "0x20d09f2881602eee806147ceee9275d33ff31df8"})-[l:LINKED]-(b:Address) WHERE a.network <> b.network RETURN b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 5'
+  'query=USE topology MATCH (a:Address {address: "0x20d09f2881602eee806147ceee9275d33ff31df8"})-[l:LINKED]-(b:Address) WHERE a.network <> b.network RETURN b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 5'
 ```
 
-## Archive Topology Examples
+## Historical Flows
 
-Recent historical flows:
+`USE topology` already covers full lifetime history — there is no separate mode
+to opt into for older activity. Top lifetime outflows for one address:
 
 ```bash
 cia mcp call graph_query \
   network=bittensor \
-  'query=USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.period_granularity AS period_granularity, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.last_seen_timestamp DESC LIMIT 25'
+  'query=USE topology MATCH (src:Address {address: "5Ggf..."})-[flow:FLOWS_TO]->(dst:Address) RETURN dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.last_seen_timestamp DESC LIMIT 25'
 ```
 
-Count archive flow edges by granularity:
-
-```bash
-cia mcp call graph_query \
-  network=bittensor \
-  'query=USE archive_topology MATCH (:Address)-[flow:FLOWS_TO]->(:Address) RETURN flow.period_granularity AS period_granularity, count(flow) AS flow_edges LIMIT 10'
-```
-
-Filter daily archive flows:
-
-```bash
-cia mcp call graph_query \
-  network=bittensor \
-  'query=USE archive_topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) WHERE flow.period_granularity = "daily" RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count ORDER BY flow.amount_usd_sum DESC LIMIT 25'
-```
-
-`archive_topology` is money-only (per the serving contract, the `LINKED`
-ownership overlay is served on the live and facts tiers). Facts-tier `LINKED`
-sample:
+`FLOWS_TO` edges are lifetime aggregates (first/last endpoints only); there are
+no period-granular rollups. The `LINKED` ownership overlay is served on both the
+topology and facts graphs. Facts-tier `LINKED` sample:
 
 ```bash
 cia mcp call graph_query \
@@ -127,7 +112,7 @@ cia mcp call graph_query \
   'query=USE facts MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 25'
 ```
 
-Remember that archive numeric fields may arrive as strings.
+Remember that facts numeric fields may arrive as strings.
 
 ## Facts Examples
 
@@ -163,7 +148,7 @@ One-hop path:
 cia mcp call graph_query_batch \
   network=bittensor \
   per_query_timeout_seconds=5 \
-  'queries=[{"id":"hop_1","query":"USE live_topology MATCH (src:Address {address: \"FULL_SOURCE_ADDRESS\"})-[r1:FLOWS_TO]->(dst:Address {address: \"FULL_TARGET_ADDRESS\"}) RETURN src.address AS from_address, dst.address AS to_address, 1 AS hops, r1.amount_usd_sum AS amount_usd_sum, r1.tx_count AS tx_count LIMIT 25"}]'
+  'queries=[{"id":"hop_1","query":"USE topology MATCH (src:Address {address: \"FULL_SOURCE_ADDRESS\"})-[r1:FLOWS_TO]->(dst:Address {address: \"FULL_TARGET_ADDRESS\"}) RETURN src.address AS from_address, dst.address AS to_address, 1 AS hops, r1.amount_usd_sum AS amount_usd_sum, r1.tx_count AS tx_count LIMIT 25"}]'
 ```
 
 Two-hop expansion with exchange-stopped intermediate nodes:
@@ -172,7 +157,7 @@ Two-hop expansion with exchange-stopped intermediate nodes:
 cia mcp call graph_query_batch \
   network=bittensor \
   per_query_timeout_seconds=5 \
-  'queries=[{"id":"hop_2","query":"USE live_topology MATCH (src:Address {address: \"FULL_SOURCE_ADDRESS\"})-[r1:FLOWS_TO]->(mid:Address)-[r2:FLOWS_TO]->(dst:Address) WHERE mid.is_exchange IS NULL RETURN src.address AS from_address, mid.address AS mid_address, dst.address AS to_address, 2 AS hops, r1.amount_usd_sum AS first_amount_usd, r2.amount_usd_sum AS second_amount_usd LIMIT 25"}]'
+  'queries=[{"id":"hop_2","query":"USE topology MATCH (src:Address {address: \"FULL_SOURCE_ADDRESS\"})-[r1:FLOWS_TO]->(mid:Address)-[r2:FLOWS_TO]->(dst:Address) WHERE mid.is_exchange IS NULL RETURN src.address AS from_address, mid.address AS mid_address, dst.address AS to_address, 2 AS hops, r1.amount_usd_sum AS first_amount_usd, r2.amount_usd_sum AS second_amount_usd LIMIT 25"}]'
 ```
 
 Generate one query per depth when investigating a path. Keep each query

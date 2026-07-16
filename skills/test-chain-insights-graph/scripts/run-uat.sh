@@ -237,9 +237,9 @@ if (errors.length) throw new Error(errors.join('; '))
 console.log(`[uat] network_capabilities ok: source=${network}`)
 NODE
 
-ADDRESS_TOPOLOGY_JSON="${RUN_DIR}/direct-live-topology.json"
-ADDRESS_TOPOLOGY_QUERY="USE live_topology MATCH (s:Address)-[f:FLOWS_TO]->(d:Address) RETURN count(f) AS address_flows"
-log "checking public live_topology address-grain edges (network=${NETWORK})"
+ADDRESS_TOPOLOGY_JSON="${RUN_DIR}/direct-topology.json"
+ADDRESS_TOPOLOGY_QUERY="USE topology MATCH (s:Address)-[f:FLOWS_TO]->(d:Address) RETURN count(f) AS address_flows"
+log "checking public topology address-grain edges (network=${NETWORK})"
 npx @modelcontextprotocol/inspector \
   --cli "${MCP_ENDPOINT}" \
   --transport http \
@@ -256,16 +256,16 @@ const file = process.argv[2]
 const network = process.argv[3]
 const data = JSON.parse(fs.readFileSync(file, 'utf8'))
 const errors = []
-if (data.isError) errors.push(`live_topology query returned isError=true: ${data.content?.[0]?.text || 'unknown error'}`)
+if (data.isError) errors.push(`topology query returned isError=true: ${data.content?.[0]?.text || 'unknown error'}`)
 const facts = data.structuredContent?.facts
 const subject = facts?.subject
 const routing = facts?.routing
 const flows = facts?.query?.results?.[0]?.address_flows
 if (subject?.network !== network) errors.push(`address subject network mismatch: ${subject?.network}`)
-if (routing?.starrocks_database !== network) errors.push(`live_topology routing database mismatch: ${routing?.starrocks_database}`)
-if (!Number.isFinite(Number(flows)) || Number(flows) <= 0) errors.push(`live_topology FLOWS_TO count not positive: ${flows}`)
+if (routing?.starrocks_database !== network) errors.push(`topology routing database mismatch: ${routing?.starrocks_database}`)
+if (!Number.isFinite(Number(flows)) || Number(flows) <= 0) errors.push(`topology FLOWS_TO count not positive: ${flows}`)
 if (errors.length) throw new Error(errors.join('; '))
-console.log(`[uat] public live_topology address-grain edges ok: flows=${flows} routing=${routing.starrocks_database}`)
+console.log(`[uat] public topology address-grain edges ok: flows=${flows} routing=${routing.starrocks_database}`)
 NODE
 
 ADDRESS_FACTS_JSON="${RUN_DIR}/direct-address-facts.json"
@@ -302,7 +302,7 @@ if (errors.length) throw new Error(errors.join('; '))
 console.log(`[uat] facts address query ok: address=${address} labels=${labels}`)
 NODE
 
-# Run the CLI live-topology assertion before proxy tool checks so graph reads
+# Run the CLI topology assertion before proxy tool checks so graph reads
 # fail close to their source if the local topology is unhealthy. Cross-space
 # LINKED is the only edge connecting a bittensor address to its bittensor_evm
 # counterpart (AC5).
@@ -317,7 +317,7 @@ for attempt in $(seq 1 "${GRAPH_QUERY_ATTEMPTS}"); do
     cd "${WORKSPACE_ROOT}"
     node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
       "network=${NETWORK}" \
-      "query=USE live_topology MATCH (a:Address {address: '${UAT_ADDRESS}'})-[l:LINKED]-(b:Address {address: '${UAT_LINKED_ADDRESS}'}) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis"
+      "query=USE topology MATCH (a:Address {address: '${UAT_ADDRESS}'})-[l:LINKED]-(b:Address {address: '${UAT_LINKED_ADDRESS}'}) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis"
   ) >"${GRAPH_QUERY_TEXT}" || true
   if node -e "JSON.parse(require('node:fs').readFileSync(process.argv[1], 'utf8').trim())" "${GRAPH_QUERY_TEXT}" 2>/dev/null; then
     break
@@ -346,29 +346,29 @@ if (first.linked_address !== linkedAddress || first.linked_network !== linkedNet
 console.log(`[uat] graph_query ok: ${first.address} -[:LINKED]- ${first.linked_address} (${first.linked_network}, basis=${first.basis})`)
 NODE
 
-# Archive topology stays MONEY-ONLY (serving contract A1: the LINKED
-# ownership overlay is served on the live and facts tiers, never archive).
-# Assert the historical StarRocks-backed FLOWS_TO money shape for the UAT
-# address instead.
-ARCHIVE_MONEY_TEXT="${RUN_DIR}/graph-query-archive-money.txt"
-log "calling Chain Insights CLI graph_query for archive money-only compatibility"
+# Topology serves ALL history in one unified graph (serving contract A1: the
+# LINKED ownership overlay is served on both the topology and facts graphs).
+# Assert the topology FLOWS_TO money shape for the UAT address, which now
+# covers recent and full historical activity in one place.
+TOPOLOGY_MONEY_TEXT="${RUN_DIR}/graph-query-topology-money.txt"
+log "calling Chain Insights CLI graph_query for topology money-flow compatibility"
 (
   cd "${WORKSPACE_ROOT}"
   node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
     "network=${NETWORK}" \
-    "query=USE archive_topology MATCH (a:Address {address: '${UAT_ADDRESS}'})-[f:FLOWS_TO]->(b:Address) RETURN a.address AS address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum LIMIT 1"
-) >"${ARCHIVE_MONEY_TEXT}"
+    "query=USE topology MATCH (a:Address {address: '${UAT_ADDRESS}'})-[f:FLOWS_TO]->(b:Address) RETURN a.address AS address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum LIMIT 1"
+) >"${TOPOLOGY_MONEY_TEXT}"
 
-node - "${ARCHIVE_MONEY_TEXT}" "${UAT_ADDRESS}" <<'NODE'
+node - "${TOPOLOGY_MONEY_TEXT}" "${UAT_ADDRESS}" <<'NODE'
 const fs = require('node:fs')
 const file = process.argv[2]
 const address = process.argv[3]
 const data = JSON.parse(fs.readFileSync(file, 'utf8').trim())
 const first = data.facts?.query?.results?.[0] || data.results?.[0]
 if (!first || first.address !== address || !first.to_address) {
-  throw new Error(`archive money-flow lookup for ${address} did not return an outbound FLOWS_TO edge: ${JSON.stringify(first)}`)
+  throw new Error(`topology money-flow lookup for ${address} did not return an outbound FLOWS_TO edge: ${JSON.stringify(first)}`)
 }
-console.log(`[uat] archive money-only FLOWS_TO ok: ${first.address} -> ${first.to_address}`)
+console.log(`[uat] topology money-flow FLOWS_TO ok: ${first.address} -> ${first.to_address}`)
 NODE
 
 # Address existence: an exact, index-backed lookup by the raw address must
@@ -379,7 +379,7 @@ log "calling Chain Insights CLI graph_query for address existence"
   cd "${WORKSPACE_ROOT}"
   node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query \
     "network=${NETWORK}" \
-    "query=USE live_topology MATCH (a:Address {address: '${UAT_ADDRESS}'}) RETURN a.address AS address LIMIT 1"
+    "query=USE topology MATCH (a:Address {address: '${UAT_ADDRESS}'}) RETURN a.address AS address LIMIT 1"
 ) >"${ADDRESS_EXISTS_TEXT}"
 
 node - "${ADDRESS_EXISTS_TEXT}" "${UAT_ADDRESS}" <<'NODE'
