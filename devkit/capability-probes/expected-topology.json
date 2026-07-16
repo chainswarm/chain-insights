@@ -1,6 +1,6 @@
 {
   "meta": {
-    "description": "Native Memgraph live_topology capability expectations (post MemGQL retirement). Probed through the devkit graph MCP by capability-probes-live.sh. supported = native form accepted; rejected-bounds = live traversal gate (depth<=5, KSHORTEST k<=16, unbounded rejected); rejected-write = read-only admission.",
+    "description": "Native Memgraph topology capability expectations (post MemGQL retirement). Probed through the devkit graph MCP by capability-probes-topology.sh. supported = native form accepted; rejected-bounds = topology traversal gate (depth<=5, KSHORTEST k<=16, unbounded rejected); rejected-write = read-only admission.",
     "surface": "native-memgraph-cypher"
   },
   "rows": [

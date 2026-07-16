@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Capability probe suite — live lane (post MemGQL retirement).
+# Capability probe suite — topology lane (post MemGQL retirement).
 #
-# Probes the NATIVE Memgraph live_topology surface THROUGH the running devkit
-# graph MCP (:18012). The MCP enforces production admission (read-only) and the
-# live traversal bounds (depth<=5, KSHORTEST k<=16, UNWIND<=1000, unbounded
-# rejected). MemGQL is gone: there is no GQL parser gate and native traversal
-# (*1..n / *BFS / *WSHORTEST / *KSHORTEST + filter lambdas) is the SUPPORTED
-# surface, not a rejected one.
+# Probes the NATIVE Memgraph topology surface (unified recent+historical)
+# THROUGH the running devkit graph MCP (:18012). The MCP enforces production
+# admission (read-only) and the topology traversal bounds (depth<=5,
+# KSHORTEST k<=16, UNWIND<=1000, unbounded rejected). MemGQL is gone: there is
+# no GQL parser gate and native traversal (*1..n / *BFS / *WSHORTEST /
+# *KSHORTEST + filter lambdas) is the SUPPORTED surface, not a rejected one.
 #
 # Emits: workspace/capability-matrix.native.json
-# Compared against: devkit/capability-probes/expected-live.json
+# Compared against: devkit/capability-probes/expected-topology.json
 # (tests/capability-matrix.test.ts, gated by CAPABILITY_PROBES=1).
 set -uo pipefail
 
@@ -59,39 +59,39 @@ verdict = "PASS" if outcome == expected else "FAIL"
 print(f"{probe_id:<4} {outcome:<16} {verdict:<5} expected={expected} code={error_code or '-'}",
       file=sys.stderr)
 with open(rows_tmp, "a") as fh:
-    fh.write(json.dumps({"probe_id": probe_id, "layer": "live_topology", "query": query,
+    fh.write(json.dumps({"probe_id": probe_id, "layer": "topology", "query": query,
         "expected_outcome": expected, "actual_outcome": outcome, "error_code": error_code}) + "\n")
 sys.exit(0 if verdict == "PASS" else 7)
 PY
   [ $? -eq 0 ] || FAILED=1
 }
 
-echo "── capability probes: live lane (native Memgraph via $ENDPOINT) ──"
+echo "── capability probes: topology lane (native Memgraph via $ENDPOINT) ──"
 
 # --- supported: the expanded native surface ---
-probe P01 supported "USE live_topology MATCH (n:Address) RETURN n.address AS id ORDER BY n.address LIMIT 2;"
-probe P02 supported "USE live_topology MATCH (a:Address)-[:LINKED]-(b:Address) RETURN b.address AS addr LIMIT 1;"
-probe P03 supported "USE live_topology MATCH (a:Address)-[:FLOWS_TO*1..3]->(t:Address) RETURN t.address AS t LIMIT 5;"
-probe P04 supported "USE live_topology MATCH p=(a:Address)-[:FLOWS_TO *BFS 1..3]->(b:Address) RETURN b.address AS b LIMIT 5;"
-probe P05 supported "USE live_topology MATCH p=(a:Address)-[:FLOWS_TO *WSHORTEST 5 (r,n | coalesce(r.amount_usd_sum,1)) w]->(b:Address) RETURN b.address AS b LIMIT 3;"
+probe P01 supported "USE topology MATCH (n:Address) RETURN n.address AS id ORDER BY n.address LIMIT 2;"
+probe P02 supported "USE topology MATCH (a:Address)-[:LINKED]-(b:Address) RETURN b.address AS addr LIMIT 1;"
+probe P03 supported "USE topology MATCH (a:Address)-[:FLOWS_TO*1..3]->(t:Address) RETURN t.address AS t LIMIT 5;"
+probe P04 supported "USE topology MATCH p=(a:Address)-[:FLOWS_TO *BFS 1..3]->(b:Address) RETURN b.address AS b LIMIT 5;"
+probe P05 supported "USE topology MATCH p=(a:Address)-[:FLOWS_TO *WSHORTEST 5 (r,n | coalesce(r.amount_usd_sum,1)) w]->(b:Address) RETURN b.address AS b LIMIT 3;"
 # KSHORTEST requires both endpoints matched first (Memgraph contract) — anchor
 # the pair via WITH, then expand. k (path count) is bounded by the MCP (see P11).
-probe P06 supported "USE live_topology MATCH (a:Address), (b:Address) WITH a, b LIMIT 1 MATCH p=(a)-[:FLOWS_TO *KSHORTEST|3]->(b) RETURN b.address AS b LIMIT 3;"
-probe P07 supported "USE live_topology MATCH (a:Address)-[:FLOWS_TO*1..3 (r,n | n.is_exchange IS NULL)]->(t:Address) RETURN t.address AS t LIMIT 5;"
+probe P06 supported "USE topology MATCH (a:Address), (b:Address) WITH a, b LIMIT 1 MATCH p=(a)-[:FLOWS_TO *KSHORTEST|3]->(b) RETURN b.address AS b LIMIT 3;"
+probe P07 supported "USE topology MATCH (a:Address)-[:FLOWS_TO*1..3 (r,n | n.is_exchange IS NULL)]->(t:Address) RETURN t.address AS t LIMIT 5;"
 
 # --- rejected: the live bounds + admission gate ---
-probe P08 rejected-bounds "USE live_topology MATCH (a:Address)-[:FLOWS_TO*]->(b:Address) RETURN b.address AS b LIMIT 5;"
-probe P09 rejected-bounds "USE live_topology MATCH (a:Address)-[:FLOWS_TO*1..9]->(b:Address) RETURN b.address AS b LIMIT 5;"
-probe P10 rejected-bounds "USE live_topology MATCH p=(a:Address)-[:FLOWS_TO *BFS]->(b:Address) RETURN b.address AS b LIMIT 5;"
-probe P11 rejected-bounds "USE live_topology MATCH p=(a:Address)-[:FLOWS_TO *KSHORTEST|50]->(b:Address) RETURN b.address AS b LIMIT 5;"
-probe P12 rejected-write "USE live_topology MATCH (a:Address {address:'X'}) CREATE (a)-[:FLOWS_TO]->(:Address) RETURN 1;"
+probe P08 rejected-bounds "USE topology MATCH (a:Address)-[:FLOWS_TO*]->(b:Address) RETURN b.address AS b LIMIT 5;"
+probe P09 rejected-bounds "USE topology MATCH (a:Address)-[:FLOWS_TO*1..9]->(b:Address) RETURN b.address AS b LIMIT 5;"
+probe P10 rejected-bounds "USE topology MATCH p=(a:Address)-[:FLOWS_TO *BFS]->(b:Address) RETURN b.address AS b LIMIT 5;"
+probe P11 rejected-bounds "USE topology MATCH p=(a:Address)-[:FLOWS_TO *KSHORTEST|50]->(b:Address) RETURN b.address AS b LIMIT 5;"
+probe P12 rejected-write "USE topology MATCH (a:Address {address:'X'}) CREATE (a)-[:FLOWS_TO]->(:Address) RETURN 1;"
 
 python3 - "$OUT" "$ROWS_TMP" <<'PY'
 import json, sys
 out, rows_tmp = sys.argv[1:3]
 rows = [json.loads(l) for l in open(rows_tmp) if l.strip()]
 json.dump({
-    "meta": {"description": "Native Memgraph live_topology capability matrix (post MemGQL retirement), probed through the devkit graph MCP. rejected-bounds rows pin the live traversal gate.",
+    "meta": {"description": "Native Memgraph topology capability matrix (post MemGQL retirement), probed through the devkit graph MCP. rejected-bounds rows pin the topology traversal gate.",
              "surface": "native-memgraph-cypher"},
     "rows": rows,
 }, open(out, "w"), indent=2)
@@ -99,5 +99,5 @@ open(out, "a").write("\n")
 print(f"wrote {out} ({len(rows)} rows)", file=sys.stderr)
 PY
 
-[ "$FAILED" -eq 0 ] || { echo "capability probes (live): FAIL — outcome drift vs expected-live.json" >&2; exit 1; }
-echo "capability probes (live): all rows match expected-live.json"
+[ "$FAILED" -eq 0 ] || { echo "capability probes (topology): FAIL — outcome drift vs expected-topology.json" >&2; exit 1; }
+echo "capability probes (topology): all rows match expected-topology.json"

@@ -44,35 +44,16 @@ function latestArtifact(pattern: RegExp): any {
   return JSON.parse(readFileSync(join(repoRoot, 'workspace', artifacts.sort().at(-1)!), 'utf8'))
 }
 
-describe.skipIf(!enabled)('Native graph capability matrix (live lane)', () => {
+describe.skipIf(!enabled)('Native graph capability matrix (topology lane)', () => {
   it('probe run matches pinned expectations', { timeout: 10 * 60 * 1000 }, () => {
-    execFileSync('bash', [join(repoRoot, 'devkit/scripts/capability-probes-live.sh')], {
+    execFileSync('bash', [join(repoRoot, 'devkit/scripts/capability-probes-topology.sh')], {
       stdio: 'inherit',
       timeout: 10 * 60 * 1000,
     })
     const artifact = latestArtifact(/^capability-matrix\..+\.json$/)
     const expected = JSON.parse(
-      readFileSync(join(repoRoot, 'devkit/capability-probes/expected-live.json'), 'utf8'),
+      readFileSync(join(repoRoot, 'devkit/capability-probes/expected-topology.json'), 'utf8'),
     )
-    assertRowsMatch(artifact.rows, expected.rows, 'live')
-  })
-})
-
-// Archive lane needs the devkit compose up as well, so it carries its own gate
-// on top of CAPABILITY_PROBES: set CAPABILITY_PROBES_ARCHIVE=1 with
-// `docker compose -f devkit/docker-compose.yml up -d` running.
-const archiveEnabled = enabled && process.env.CAPABILITY_PROBES_ARCHIVE === '1'
-
-describe.skipIf(!archiveEnabled)('Native graph capability matrix (archive lane, devkit)', () => {
-  it('archive probe run matches pinned expectations', { timeout: 10 * 60 * 1000 }, () => {
-    execFileSync('bash', [join(repoRoot, 'devkit/scripts/capability-probes-archive.sh')], {
-      stdio: 'inherit',
-      timeout: 10 * 60 * 1000,
-    })
-    const artifact = latestArtifact(/^capability-matrix-archive\..+\.json$/)
-    const expected = JSON.parse(
-      readFileSync(join(repoRoot, 'devkit/capability-probes/expected-archive.json'), 'utf8'),
-    )
-    assertRowsMatch(artifact.rows, expected.rows, 'archive')
+    assertRowsMatch(artifact.rows, expected.rows, 'topology')
   })
 })

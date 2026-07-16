@@ -60,13 +60,13 @@ fi
 
 cia mcp call graph_query \
   network=bittensor \
-  "query=USE live_topology MATCH (a:Address {address: '${SEED_ADDRESS}'}) RETURN a.address, a.network LIMIT 1" \
-  > "$EVIDENCE_DIR/graph-query-live-topology.json"
+  "query=USE topology MATCH (a:Address {address: '${SEED_ADDRESS}'}) RETURN a.address, a.network LIMIT 1" \
+  > "$EVIDENCE_DIR/graph-query-topology.json"
 
 cia mcp call graph_query \
   network=bittensor \
-  'query=USE archive_topology MATCH (src:Address)-[r:FLOWS_TO]->(dst:Address) RETURN count(r) AS row_count LIMIT 1' \
-  > "$EVIDENCE_DIR/graph-query-archive-topology.json"
+  'query=USE topology MATCH (src:Address)-[r:FLOWS_TO]->(dst:Address) RETURN count(r) AS row_count LIMIT 1' \
+  > "$EVIDENCE_DIR/graph-query-topology-flows.json"
 
 cia mcp call graph_query \
   network=bittensor \
@@ -75,7 +75,7 @@ cia mcp call graph_query \
 
 cia mcp call graph_query_batch \
   network=bittensor \
-  'queries=[{"id":"live","query":"USE live_topology MATCH (a:Address) RETURN count(a) AS addresses LIMIT 1"},{"id":"archive","query":"USE archive_topology MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN count(r) AS flows LIMIT 1"},{"id":"facts","query":"USE facts MATCH (f:AddressFeature) RETURN count(f) AS features LIMIT 1"}]' \
+  'queries=[{"id":"topology","query":"USE topology MATCH (a:Address) RETURN count(a) AS addresses LIMIT 1"},{"id":"topology-flows","query":"USE topology MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN count(r) AS flows LIMIT 1"},{"id":"facts","query":"USE facts MATCH (f:AddressFeature) RETURN count(f) AS features LIMIT 1"}]' \
   > "$EVIDENCE_DIR/graph-query-batch.json"
 
 cia mcp call aml_address_risk "address=${SEED_ADDRESS}" network=bittensor \
@@ -122,8 +122,8 @@ required_terms = {
     "visible-tools.txt": ["graph_query", "graph_query_batch"],
     "meta-help.txt": ["aml_*", "graph_query", "graph_query_batch"],
     "wallet-balance.txt": ["Wallet not configured"],
-    "graph-query-live-topology.json": [seed],
-    "graph-query-archive-topology.json": ["row_count"],
+    "graph-query-topology.json": [seed],
+    "graph-query-topology-flows.json": ["row_count"],
     "graph-query-facts.json": ["row_count"],
     "graph-query-batch.json": ["chain-insights.result.v1", "facts"],
     "aml-address-risk.txt": ["Risk:", seed],
