@@ -4,18 +4,16 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-// Capability probe suite wrapper (post MemGQL retirement). The probe scripts
-// run every query THROUGH the running devkit graph MCP (:18012) and record the
-// admitted outcome + error_code; this test replays them and pins the native
-// surface:
-//   topology  — native Memgraph Cypher; `supported` for the bounded
-//               traversal forms, `rejected-bounds`/`rejected-write` for the
-//               admission + traversal gate.
-//   facts     — corpus-scoped translator; `supported` for the compiled
-//               subset, `rejected-cost`/`rejected-translation` otherwise.
+// Capability probe suite wrapper. The topology probe script runs every query
+// THROUGH the running devkit graph MCP (:18012) and records the admitted
+// outcome + error_code; this test replays it and pins the native topology
+// surface: `supported` for the bounded traversal forms,
+// `rejected-bounds`/`rejected-write` for the admission + traversal gate.
+// Facts-translator conformance is pinned separately by the devkit Go suite
+// (cyphersql corpus/goldens), not by a probe lane here.
 // Gated: requires a running devkit compose, so plain `npm test` skips it.
 // When an outcome or error_code drifts, re-evaluate the allowed query shapes
-// and update the expected-*.json (see docs/graph-query-compatibility.md).
+// and update expected-topology.json (see docs/graph-query-compatibility.md).
 
 const enabled = process.env.CAPABILITY_PROBES === '1'
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
