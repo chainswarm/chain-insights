@@ -9,7 +9,7 @@
   },
   "source": {
     "mapping": "workspace/sessions/2188ba13-2c30-45d6-9931-d7c15fc3c63d/ml/data-pipeline/internal/cyphersql/mapping.json",
-    "live_topology": "memgraph"
+    "topology": "memgraph"
   },
   "coverage": {
     "substrate_rows": 484440,
@@ -25,39 +25,6 @@
   "objects": [
     {
       "database": "bittensor",
-      "name": "archive_topology_edges_view",
-      "format": "tsv.gz",
-      "path": "starrocks/archive_topology_edges_view.tsv.gz",
-      "row_count": 1243779,
-      "source_min": "2024-01-01T00:11:24Z",
-      "exported_min": "2024-01-01T00:11:24Z",
-      "exported_max": "2026-07-09T06:45:36Z",
-      "sha256": "618911d0366e9b25c2a5bf1bc0ca3560b9a92ce6cad5076d67331a8a2973e099",
-      "parts": [
-        {
-          "path": "starrocks/archive_topology_edges_view.tsv.gz.part-000.gz",
-          "row_count": 350000,
-          "sha256": "6d8a5a7eeffd69b4ec853d5df19423d4632a5c563a3ea05bfc2cbc5a660508f0"
-        },
-        {
-          "path": "starrocks/archive_topology_edges_view.tsv.gz.part-001.gz",
-          "row_count": 350000,
-          "sha256": "519adc41fae259b10e2b332c6560175d4fc6c5771452b5c24b49503e2c7b5dfc"
-        },
-        {
-          "path": "starrocks/archive_topology_edges_view.tsv.gz.part-002.gz",
-          "row_count": 350000,
-          "sha256": "a561c89ed65d8d26c9d22ba0991f95bc55e32e4eebfb51d31ad3d0418cd88dc4"
-        },
-        {
-          "path": "starrocks/archive_topology_edges_view.tsv.gz.part-003.gz",
-          "row_count": 193779,
-          "sha256": "0d7a8368d95bf6fd9c8aeeeab223aeae6914de37fe577ebe820bb6d04b1cdd5e"
-        }
-      ]
-    },
-    {
-      "database": "bittensor",
       "name": "linked_addresses_view",
       "format": "tsv.gz",
       "path": "starrocks/linked_addresses_view.tsv.gz",
@@ -66,28 +33,6 @@
       "exported_min": "2024-01-01T00:00:00Z",
       "exported_max": "2026-07-09T06:47:04Z",
       "sha256": "8dec90399a5469921a12415b951d6b187d43b24697b3cb748a59599635410ee0"
-    },
-    {
-      "database": "bittensor",
-      "name": "archive_topology_addresses_view",
-      "format": "tsv.gz",
-      "path": "starrocks/archive_topology_addresses_view.tsv.gz",
-      "row_count": 483692,
-      "source_min": "2024-01-01T00:00:00Z",
-      "exported_min": "2024-01-01T00:00:00Z",
-      "exported_max": "2026-07-09T06:47:04Z",
-      "sha256": "150a18f04c14c282e1a52a80c92b4e12221622f725e72a4926fe556c0137d459"
-    },
-    {
-      "database": "bittensor",
-      "name": "archive_topology_snapshot_view",
-      "format": "tsv.gz",
-      "path": "starrocks/archive_topology_snapshot_view.tsv.gz",
-      "row_count": 0,
-      "source_min": "1970-01-01T00:00:00Z",
-      "exported_min": "1970-01-01T00:00:00Z",
-      "exported_max": "1970-01-01T00:00:00Z",
-      "sha256": "071aecd1a5b4a66744df444070a44fb96fddfe2989e4fcb553c2487848bbdc00"
     },
     {
       "database": "bittensor",
