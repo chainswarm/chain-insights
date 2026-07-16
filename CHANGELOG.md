@@ -3,6 +3,37 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.0] - 2026-07-16
+
+- BREAKING (public MCP surface): migrated to the unified two-scope graph
+  model — `USE topology` (Memgraph-native, unified recent + historical
+  lifetime graph) and `USE facts` (StarRocks facts allowlist). The
+  `topology_scope` tool argument is removed from `aml_address_risk`,
+  `aml_trace_victim_funds`, `aml_trace_suspect_funds`, and
+  `aml_trace_deposit_sources`, along with the `--topology-scope` CLI flag;
+  all emitted query text now uses `USE topology` instead of
+  `USE live_topology`/`USE archive_topology`. Because topology is now
+  unconditionally Memgraph-backed, `risk_score`/`risk_level` are always
+  projected on path nodes, native `*BFS` route evidence always runs when a
+  compare address is given, and the archive-retry hint
+  (`retry with topology_scope=archive_topology`) is retired.
+- Embedded devkit mirrors the new dispatch: `USE facts` routes to the
+  StarRocks translator tier; everything else (including `USE topology`)
+  runs natively on Memgraph. The vendored `cyphersql` translator is now
+  facts-only (topology never compiles to SQL); the archive topology
+  mapping (`Address`/`TopologySnapshot`/`FLOWS_TO` views), its cost bound,
+  archive fixture TSVs, archive capability probes, and archive goldens are
+  removed. The native capability probe surface is renamed to the
+  `USE topology` capability matrix.
+- Deleted 11 archive-only documented recipes (period-granular rollup
+  shapes with `period_granularity`/`period_start_date`/`period_end_date`
+  — retired StarRocks rollup schema with no equivalent in the lifetime
+  FLOWS_TO contract) and the orphaned archive result goldens; renamed the
+  17 live-topology recipes to `topology`; facts recipes unchanged.
+- Added a repo-wide CI gate (`tests/no-legacy-topology-scope-text.test.ts`)
+  asserting zero occurrences of `topology_scope`/`live_topology`/
+  `archive_topology` outside changelog history.
+
 ## [0.9.4] - 2026-07-10
 
 - Fixed `aml-scam-corridor-trace` reading the wrong label field: the gates
