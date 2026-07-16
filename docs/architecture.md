@@ -22,7 +22,7 @@ flowchart LR
 
 The CLI is the operator entry point. The MCP proxy exposes the same local
 framework to AI agents. Chain Insights Graph executes graph-language reads
-against live topology, archive topology, and facts.
+against the unified topology graph and facts.
 
 ## Module Responsibilities
 

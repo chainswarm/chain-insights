@@ -300,7 +300,7 @@
    "id": "recipe_topology_14",
    "query": "USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1",
    "layer": "topology",
-   "description": "Count of Identity nodes in live topology",
+   "description": "Count of Address nodes in the topology graph",
    "features": [
     "label-match",
     "aggregate"
