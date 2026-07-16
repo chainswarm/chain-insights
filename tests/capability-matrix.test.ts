@@ -8,11 +8,11 @@ import { describe, expect, it } from 'vitest'
 // run every query THROUGH the running devkit graph MCP (:18012) and record the
 // admitted outcome + error_code; this test replays them and pins the native
 // surface:
-//   live_topology  — native Memgraph Cypher; `supported` for the bounded
-//                    traversal forms, `rejected-bounds`/`rejected-write` for the
-//                    admission + traversal gate.
-//   archive/facts  — corpus-scoped translator; `supported` for the compiled
-//                    subset, `rejected-cost`/`rejected-translation` otherwise.
+//   topology  — native Memgraph Cypher; `supported` for the bounded
+//               traversal forms, `rejected-bounds`/`rejected-write` for the
+//               admission + traversal gate.
+//   facts     — corpus-scoped translator; `supported` for the compiled
+//               subset, `rejected-cost`/`rejected-translation` otherwise.
 // Gated: requires a running devkit compose, so plain `npm test` skips it.
 // When an outcome or error_code drifts, re-evaluate the allowed query shapes
 // and update the expected-*.json (see docs/graph-query-compatibility.md).

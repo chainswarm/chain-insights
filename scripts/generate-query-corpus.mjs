@@ -4,8 +4,7 @@
 // exact `USE <scope>` prefix the runtime batch wrapper applies. The
 // data-pipeline validator test (internal/graphmcp corpus test) runs
 // ValidateReadOnlyGraphQuery over every entry; the USE prefix matters
-// because the validator's StarRocks cost-shape gates key on
-// `USE archive_topology` / `USE facts`.
+// because the validator's StarRocks cost-shape gates key on `USE facts`.
 //
 // Deterministic by construction: fixed parameter grid, sorted output.
 // Runs under tsx (imports the TypeScript sources directly — dist/ is a
@@ -20,7 +19,7 @@ const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const { queryBuilderContract } = await import(join(repoRoot, 'src/investigation/public-tools.ts'))
 const { traceQueryBuilderContract } = await import(join(repoRoot, 'src/investigation/trace-funds.ts'))
 
-const SCOPES = ['live_topology', 'archive_topology']
+const SCOPES = ['topology']
 // Escaping-sensitive values are part of the grid on purpose.
 const ADDR = 'corpus-address-a'
 const ADDR_QUOTED = 'corpus"quote'
@@ -38,7 +37,7 @@ const add = (builder, params, scope, item) => {
       builder,
       params,
       scope,
-      query: queryBuilderContract.topologyGraphQuery(q.query, scope),
+      query: queryBuilderContract.topologyGraphQuery(q.query),
     })
   }
 }
@@ -49,9 +48,9 @@ const addFacts = (builder, params, item) => {
 
 for (const scope of SCOPES) {
   for (const address of [ADDR, ADDR_QUOTED]) {
-    add('addressProfileQuery', { address }, scope, queryBuilderContract.addressProfileQuery(address, scope))
-    add('exchangeOutflowQueries', { address }, scope, queryBuilderContract.exchangeOutflowQueries(address, scope))
-    add('exchangeInflowQueries', { address }, scope, queryBuilderContract.exchangeInflowQueries(address, scope))
+    add('addressProfileQuery', { address }, scope, queryBuilderContract.addressProfileQuery(address))
+    add('exchangeOutflowQueries', { address }, scope, queryBuilderContract.exchangeOutflowQueries(address))
+    add('exchangeInflowQueries', { address }, scope, queryBuilderContract.exchangeInflowQueries(address))
   }
   add('compareAddressExistsQuery', { address: ADDR }, scope, queryBuilderContract.compareAddressExistsQuery(ADDR))
   add('connectionProbeQuery', { address: ADDR, compare: COMPARE }, scope, queryBuilderContract.connectionProbeQuery(ADDR, COMPARE))
@@ -62,20 +61,20 @@ for (const scope of SCOPES) {
         'forwardExchangeQueries',
         { address: ADDR, limit: 25, minAmountSum, maxHops: 5, window: Boolean(window) },
         scope,
-        traceQueryBuilderContract.forwardExchangeQueries(ADDR, 25, minAmountSum, 5, scope, window),
+        traceQueryBuilderContract.forwardExchangeQueries(ADDR, 25, minAmountSum, 5, window),
       )
       for (let depth = 1; depth <= 5; depth += 1) {
         add(
           'reverseDepositSourceQueryAtDepth',
           { deposits: DEPOSITS.length, depth, minAmountSum, window: Boolean(window) },
           scope,
-          queryBuilderContract.reverseDepositSourceQueryAtDepth(DEPOSITS, depth, minAmountSum, window, scope),
+          queryBuilderContract.reverseDepositSourceQueryAtDepth(DEPOSITS, depth, minAmountSum, window),
         )
       }
     }
   }
-  add('backwardSourceQueries', { deposit: ADDR, maxHops: 5 }, scope, traceQueryBuilderContract.backwardSourceQueries('backward_from_deposit_0', ADDR, 5, scope))
-  add('reverseLeadsQuery', { deposits: DEPOSITS.length }, scope, traceQueryBuilderContract.reverseLeadsQuery(DEPOSITS, scope))
+  add('backwardSourceQueries', { deposit: ADDR, maxHops: 5 }, scope, traceQueryBuilderContract.backwardSourceQueries('backward_from_deposit_0', ADDR, 5))
+  add('reverseLeadsQuery', { deposits: DEPOSITS.length }, scope, traceQueryBuilderContract.reverseLeadsQuery(DEPOSITS))
   add(
     'directEdgePropsQuery',
     { pairs: 2 },
@@ -87,15 +86,13 @@ for (const scope of SCOPES) {
   )
 }
 
-// Route evidence: live-only by design (shouldIncludeRouteQueries guard).
-add('connectionRouteQueries', { address: ADDR, compare: COMPARE }, 'live_topology', queryBuilderContract.connectionRouteQueries(ADDR, COMPARE))
-add('connectionRouteQueries', { address: ADDR_QUOTED, compare: COMPARE }, 'live_topology', queryBuilderContract.connectionRouteQueries(ADDR_QUOTED, COMPARE))
+// Route evidence: native *BFS traversal on the unified topology graph.
+add('connectionRouteQueries', { address: ADDR, compare: COMPARE }, 'topology', queryBuilderContract.connectionRouteQueries(ADDR, COMPARE))
+add('connectionRouteQueries', { address: ADDR_QUOTED, compare: COMPARE }, 'topology', queryBuilderContract.connectionRouteQueries(ADDR_QUOTED, COMPARE))
 
-// LINKED ownership overlay: live-only in the topology corpus (serving
-// contract A1 -- LINKED is served on the live and facts tiers;
-// archive_topology stays money-only, so no archive-scoped emission).
-add('linkedExposureQueries', { address: ADDR }, 'live_topology', queryBuilderContract.linkedExposureQueries(ADDR, 'live_topology'))
-add('crossSpaceLinkedQuery', { address: ADDR }, 'live_topology', queryBuilderContract.crossSpaceLinkedQuery(ADDR))
+// LINKED ownership overlay: served on the topology graph (also on facts).
+add('linkedExposureQueries', { address: ADDR }, 'topology', queryBuilderContract.linkedExposureQueries(ADDR))
+add('crossSpaceLinkedQuery', { address: ADDR }, 'topology', queryBuilderContract.crossSpaceLinkedQuery(ADDR))
 
 // facts layer (USE facts hardcoded inside the builders)
 addFacts('addressFeatureQuery', { address: ADDR }, queryBuilderContract.addressFeatureQuery(ADDR))
@@ -105,8 +102,8 @@ addFacts('addressLabelRiskQuery', { address: ADDR_QUOTED }, queryBuilderContract
 // Documented-recipe demand curve (corpus v2, MemGQL retirement wave): the
 // full set of query shapes the docs + skills advertise, harvested and
 // runtime-verified. These extend the translator's required grammar beyond
-// what the builders emit today (native live traversal, neuron/asset facts
-// lookups). Real fixture values so archive/facts recipes also drive the
+// what the builders emit today (native topology traversal, neuron/asset
+// facts lookups). Real fixture values so facts recipes also drive the
 // T0b baselines and translator conformance. See tests/fixtures/documented-recipes.json.
 const documentedRecipes = JSON.parse(
   readFileSync(join(repoRoot, 'tests/fixtures/documented-recipes.json'), 'utf8'),
@@ -116,9 +113,8 @@ for (const recipe of documentedRecipes.recipes) {
   // graphmcp test asserts ValidateReadOnlyGraphQuery admits every entry, so a
   // query production deliberately refuses must not appear here. Recipes tagged
   // `admits: false` (StarRocks-backed global aggregates without an indexed
-  // predicate — refused by the cost-shape gate) document a surface boundary;
-  // their translator behaviour is still pinned by the archive-result goldens,
-  // just not by this admission corpus.
+  // predicate — refused by the cost-shape gate) document a surface boundary,
+  // just outside this admission corpus.
   if (recipe.admits === false) {
     continue
   }
