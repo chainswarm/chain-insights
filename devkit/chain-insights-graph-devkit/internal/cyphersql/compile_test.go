@@ -49,16 +49,35 @@ func TestCommentsRejected(t *testing.T) {
 	}
 }
 
+// The retired Asset facts label (facts_assets_view, dropped schema-side) is no
+// longer mapped: an :Asset query fails at COMPILE time with the unknown-label
+// validation error instead of reaching StarRocks.
+func TestAssetLabelRejectedAsUnmapped(t *testing.T) {
+	for _, q := range []string{
+		`USE facts MATCH (a:Asset) WHERE a.coingecko_id IS NULL RETURN a.asset_symbol AS id ORDER BY a.asset_symbol ASC LIMIT 10`,
+		`USE facts MATCH (a:Asset) WHERE a.coingecko_id IS NOT NULL RETURN a.asset_symbol AS id LIMIT 10`,
+	} {
+		_, err := Compile(q)
+		if err == nil {
+			t.Errorf("expected unmapped-label rejection for: %s", q)
+			continue
+		}
+		if !strings.Contains(err.Error(), `node label "Asset" is not mapped`) {
+			t.Errorf("error %q does not name the unmapped Asset label", err.Error())
+		}
+	}
+}
+
 // NULL semantics preserved: IS NULL / IS NOT NULL map straight through.
 func TestNullSemantics(t *testing.T) {
-	c, err := Compile(`USE facts MATCH (a:Asset) WHERE a.coingecko_id IS NULL RETURN a.asset_symbol AS id ORDER BY a.asset_symbol ASC LIMIT 10`)
+	c, err := Compile(`USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r:RiskScore) WHERE r.risk_score IS NULL RETURN a.address AS id ORDER BY a.address ASC LIMIT 10`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(c.SQL, "IS NULL") {
 		t.Errorf("IS NULL not preserved: %s", c.SQL)
 	}
-	c, err = Compile(`USE facts MATCH (a:Asset) WHERE a.coingecko_id IS NOT NULL RETURN a.asset_symbol AS id LIMIT 10`)
+	c, err = Compile(`USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r:RiskScore) WHERE r.risk_score IS NOT NULL RETURN a.address AS id LIMIT 10`)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -43,18 +43,6 @@
    ]
   },
   {
-   "id": "recipe_facts_05",
-   "query": "USE facts MATCH (a:Asset) WHERE a.coingecko_id IS NOT NULL RETURN a.asset_symbol AS asset_symbol, a.asset_contract AS asset_contract, a.pricing_tier AS pricing_tier, a.verified AS verified ORDER BY a.asset_symbol ASC LIMIT 25",
-   "layer": "facts",
-   "description": "Asset node projection through the facts_assets_view with an is-null WHERE filter and ORDER BY — fills the entirely-uncovered Asset label plus facts-layer is-null and order-by coverage. Asset has no edge to Address in the mapping, so it is correctly a standalone node lookup.",
-   "features": [
-    "label-match",
-    "where-clause",
-    "is-null",
-    "order-by"
-   ]
-  },
-  {
    "id": "recipe_facts_06",
    "query": "USE facts MATCH (n:NeuronEndpoint) WHERE n.netuid = 15 RETURN n.endpoint_id AS endpoint_id, n.coldkey_address AS coldkey_address, n.hotkey_address AS hotkey_address, n.netuid AS netuid, n.ip_address AS ip_address, n.axon_port AS axon_port ORDER BY n.last_seen_timestamp DESC LIMIT 25",
    "layer": "facts",

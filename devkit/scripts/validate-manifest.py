@@ -29,7 +29,6 @@ REQUIRED_TABLES = {
     "linked_addresses_view",
     "facts_address_labels_view",
     "facts_address_features_view",
-    "facts_assets_view",
     "facts_risk_scores_view",
     "facts_neuron_endpoints_view",
     "facts_neuron_hotkeys_view",

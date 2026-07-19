@@ -58,17 +58,6 @@
     },
     {
       "database": "bittensor",
-      "name": "facts_assets_view",
-      "format": "tsv.gz",
-      "path": "starrocks/facts_assets_view.tsv.gz",
-      "row_count": 121,
-      "source_min": "2025-12-16T14:05:12Z",
-      "exported_min": "2025-12-16T14:05:12Z",
-      "exported_max": "2026-07-09T06:46:36Z",
-      "sha256": "96335d088e3274310a4441febd669af80904cc8a02b7d5e80429a4244bf7c46f"
-    },
-    {
-      "database": "bittensor",
       "name": "facts_risk_scores_view",
       "format": "tsv.gz",
       "path": "starrocks/facts_risk_scores_view.tsv.gz",

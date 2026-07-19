@@ -69,26 +69,6 @@
       }
     },
     {
-      "label": "Asset",
-      "table": "facts_assets_view",
-      "id_column": "asset_contract",
-      "properties": {
-        "asset_contract": "asset_contract",
-        "asset_symbol": "asset_symbol",
-        "name": "name",
-        "symbol_lower": "symbol_lower",
-        "decimals": "decimals",
-        "verified": "verified",
-        "verification_source": "verification_source",
-        "coingecko_id": "coingecko_id",
-        "pricing_status": "pricing_status",
-        "pricing_tier": "pricing_tier",
-        "registry_source": "registry_source",
-        "first_seen_timestamp": "first_seen_timestamp",
-        "last_scanned_block_height": "last_scanned_block_height"
-      }
-    },
-    {
       "label": "NeuronEndpoint",
       "table": "facts_neuron_endpoints_view",
       "id_column": "endpoint_id",
