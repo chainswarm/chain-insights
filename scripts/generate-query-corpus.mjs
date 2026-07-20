@@ -96,7 +96,6 @@ add('crossSpaceLinkedQuery', { address: ADDR }, 'topology', queryBuilderContract
 
 // facts layer (USE facts hardcoded inside the builders)
 addFacts('addressFeatureQuery', { address: ADDR }, queryBuilderContract.addressFeatureQuery(ADDR))
-addFacts('addressRiskScoreQuery', { address: ADDR }, queryBuilderContract.addressRiskScoreQuery(ADDR))
 addFacts('addressLabelRiskQuery', { address: ADDR_QUOTED }, queryBuilderContract.addressLabelRiskQuery(ADDR_QUOTED))
 
 // Documented-recipe demand curve (corpus v2, MemGQL retirement wave): the

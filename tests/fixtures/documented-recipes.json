@@ -33,16 +33,6 @@
    ]
   },
   {
-   "id": "recipe_facts_04",
-   "query": "USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r:RiskScore) RETURN a.address AS address, r.risk_score AS risk_score, r.window_days AS window_days, r.xgboost_model_version AS xgboost_model_version LIMIT 25",
-   "layer": "facts",
-   "description": "Join identities to their RiskScore facts (score, level, model version)",
-   "features": [
-    "fixed-hop",
-    "label-match"
-   ]
-  },
-  {
    "id": "recipe_facts_06",
    "query": "USE facts MATCH (n:NeuronEndpoint) WHERE n.netuid = 15 RETURN n.endpoint_id AS endpoint_id, n.coldkey_address AS coldkey_address, n.hotkey_address AS hotkey_address, n.netuid AS netuid, n.ip_address AS ip_address, n.axon_port AS axon_port ORDER BY n.last_seen_timestamp DESC LIMIT 25",
    "layer": "facts",
@@ -144,19 +134,6 @@
     "fixed-hop",
     "label-match",
     "distinct"
-   ]
-  },
-  {
-   "id": "recipe_facts_15",
-   "query": "USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r:RiskScore) WHERE r.risk_score IS NOT NULL RETURN a.address AS address, r.risk_score AS risk_score, r.window_days AS window_days, r.processing_date AS processing_date ORDER BY r.risk_score DESC LIMIT 25",
-   "layer": "facts",
-   "description": "HAS_RISK_SCORE with an IS NOT NULL WHERE filter and ORDER BY on risk_score — fills facts-layer is-null and WHERE-clause coverage on the RiskScore view.",
-   "features": [
-    "fixed-hop",
-    "label-match",
-    "where-clause",
-    "is-null",
-    "order-by"
    ]
   },
   {

@@ -33,8 +33,8 @@ facts contract-error schema, read `docs/graph-query-compatibility.md`.
 
 | Graph | Use for | Query style |
 | --- | --- | --- |
-| `USE topology` | Route discovery and fund-flow topology reads over unified recent + full historical activity | Native Memgraph Cypher over topology nodes and relationships, bounded. Prefer directed `MATCH` patterns and narrow projections. |
-| `USE facts` | Labels, address features, risk scores, assets, and enrichment | Corpus-scoped Cypher subset compiled to StarRocks SQL. Verify the current network schema before assuming fact labels or relationships exist. |
+| `USE topology` | Route discovery and fund-flow topology reads over unified recent + full historical activity, plus the node risk verdict (`risk_score`/`risk_level`) | Native Memgraph Cypher over topology nodes and relationships, bounded. Prefer directed `MATCH` patterns and narrow projections. |
+| `USE facts` | Labels, address features, assets, and enrichment | Corpus-scoped Cypher subset compiled to StarRocks SQL. Verify the current network schema before assuming fact labels or relationships exist. |
 
 `topology` is **native Memgraph Cypher** (MemGQL retired). Bounded
 variable-length and path-algorithm traversal are first-class:
@@ -90,8 +90,8 @@ Topology is intentionally stable across address spaces:
   `price_coverage_ratio`. These are lifetime aggregates (first/last endpoints
   only). The public address contract is USD-only; do not rely on native
   `amount_sum`.
-- Facts may expose `Address`, `AddressFeature`, `AddressLabel`, `RiskScore`,
-  `Asset`, and network-specific fact nodes.
+- Facts may expose `Address`, `AddressFeature`, `AddressLabel`, `Asset`,
+  and network-specific fact nodes.
 
 Future networks may expose different schemas. Do not reuse a Bittensor
 relationship or feature query on another network unless that network advertises

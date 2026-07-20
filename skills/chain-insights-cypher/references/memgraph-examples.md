@@ -124,14 +124,6 @@ cia mcp call graph_query \
   'query=USE facts MATCH (a:Address) RETURN a.address AS address, a.labels AS labels, a.risk_level AS risk_level LIMIT 25'
 ```
 
-Risk scores after schema proof:
-
-```bash
-cia mcp call graph_query \
-  network=bittensor \
-  'query=USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r:RiskScore) RETURN a.address AS address, r.risk_score AS risk_score, r.risk_level AS risk_level, r.model_version AS model_version LIMIT 25'
-```
-
 Only use richer fact labels or relationships after a fresh schema probe proves
 the current network exposes them.
 

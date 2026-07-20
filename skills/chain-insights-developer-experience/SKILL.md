@@ -49,8 +49,9 @@ skill. For Bittensor schema-specific queries, load
 Use these names consistently:
 
 - `topology`: the unified address / FLOWS_TO / LINKED graph — recent and full
-  historical activity in one graph.
-- `facts`: labels, features, risk scores, assets, and enrichment.
+  historical activity in one graph, plus the node `risk_score`/`risk_level`
+  verdict.
+- `facts`: labels, features, assets, and enrichment.
 
 Tell users to discover current network capabilities before assuming data is
 available:

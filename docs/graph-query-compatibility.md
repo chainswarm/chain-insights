@@ -81,7 +81,7 @@ rejected with a typed contract error before execution.
 
 | Construct | Notes |
 | --- | --- |
-| `MATCH` on a mapped node / single relationship | `(:Address)-[:HAS_LABEL]->(:AddressLabel)`, `(:Address)-[:HAS_FEATURE]->(:AddressFeature)`, `(:Address)-[:HAS_RISK_SCORE]->(:RiskScore)`, neuron endpoint facts, plus a single fixed-hop `(:Address)-[:LINKED]-(:Address)`. Never serves `FLOWS_TO` or money-flow entities. |
+| `MATCH` on a mapped node / single relationship | `(:Address)-[:HAS_LABEL]->(:AddressLabel)`, `(:Address)-[:HAS_FEATURE]->(:AddressFeature)`, neuron endpoint facts, plus a single fixed-hop `(:Address)-[:LINKED]-(:Address)`. Never serves `FLOWS_TO` or money-flow entities. |
 | Chained fixed-hop patterns | up to 5 hops |
 | `WHERE` with an indexed predicate | `address` equality or `IN`; date/height/timestamp range |
 | Inline property maps | `MATCH (a:Address {address:"…"})` |
@@ -149,7 +149,7 @@ labels, so taxonomy-label patterns are topology-only. The property-flag form
   routing or `*BFS 1..k` for reachability, instead of enumerating hops client-side.
   The topology graph already covers full lifetime history — there is no separate
   mode to opt into for older activity.
-- **Facts stays fixed-hop.** For labels, features, risk scores, assets, and
+- **Facts stays fixed-hop.** For labels, features, assets, and
   neuron enrichment, write one explicit pattern per shape and batch them with
   `graph_query_batch`.
 - When a query is rejected, read the returned contract error — it names the exact

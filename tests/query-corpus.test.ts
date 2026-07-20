@@ -31,7 +31,9 @@ describe('graph query corpus', () => {
   it('every entry is production-shaped (USE-prefixed) and hazard-free', () => {
     const corpus = JSON.parse(readFileSync(committedPath, 'utf8'))
     expect(corpus.entry_count).toBe(corpus.entries.length)
-    expect(corpus.entries.length).toBeGreaterThan(100)
+    // Facts risk-score recipes were removed (rbmk#447 P2a); keep the guard
+    // below the post-removal corpus size.
+    expect(corpus.entries.length).toBeGreaterThan(90)
     for (const entry of corpus.entries) {
       expect(entry.query.startsWith('USE '), `not USE-prefixed: ${entry.builder}`).toBe(true)
       // A malformed generator parameter (wrong window/limit key) leaks

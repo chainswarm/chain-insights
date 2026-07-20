@@ -223,8 +223,8 @@ Graph queries must choose the right read graph explicitly:
 
 | Graph | Use it for |
 | --- | --- |
-| `topology` | The unified address / FLOWS_TO / LINKED graph — recent and full historical fund-flow traversal in one place |
-| `facts` | Labels, features, risk scores, assets, and enrichment |
+| `topology` | The unified address / FLOWS_TO / LINKED graph — recent and full historical fund-flow traversal in one place, plus the node `risk_score`/`risk_level` verdict |
+| `facts` | Labels, features, assets, and enrichment |
 
 Use `graph_query_batch` when related reads should share one call and one
 result envelope. Use explicit `LIMIT` and pagination in your query when you

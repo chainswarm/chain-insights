@@ -33,8 +33,9 @@ returns a local unmetered primitive-backend status instead.
 - `network` is required. Do not guess it in agent workflows.
 - GQL/Cypher must be read-only.
 - Use `USE topology` for topology (the address / FLOWS_TO / LINKED graph,
-  covering unified recent and full historical activity in one graph).
-- Use `USE facts` for labels, features, risk scores, assets, and enrichment.
+  covering unified recent and full historical activity in one graph, plus the
+  node `risk_score`/`risk_level` verdict).
+- Use `USE facts` for labels, features, assets, and enrichment.
 - Use `meta_usage_status` through Chain Insights before public hosted reads
   when you need the caller's remaining free-tier allowance.
 - Hosted endpoints can expose a public free tier for graph_query. The default
