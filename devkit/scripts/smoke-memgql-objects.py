@@ -17,7 +17,7 @@ NETWORK = os.environ.get("CHAIN_INSIGHTS_DEVKIT_NETWORK", "bittensor")
 
 def layer_for_table(table: str) -> str:
     # Every table the vendored translator now maps is served by the facts
-    # scope (facts_* views plus linked_addresses_view). Topology runs natively
+    # scope (facts_* views). Topology runs natively
     # on Memgraph and is never StarRocks-backed, so it never appears here.
     return "facts"
 

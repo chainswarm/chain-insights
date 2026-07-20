@@ -170,7 +170,7 @@ Use \`graph_query_batch\` for schema capture. Prefix topology reads with
 and fact reads with \`USE facts\`, for example:
 
 \`\`\`bash
-cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE topology MATCH (n:Address) RETURN \"Address\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"flow_sample","query":"USE topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 20"},{"id":"facts_linked_sample","query":"USE facts MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 20"}]'
+cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE topology MATCH (n:Address) RETURN \"Address\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"flow_sample","query":"USE topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 20"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 20"}]'
 \`\`\`
 
 Then update this file with observed labels, relationship types, and allowed
@@ -193,8 +193,8 @@ The address-grain graph schema:
   SS58 -> (bridge or LINKED) -> H160 and back with no network switch. Walk
   one visible \`LINKED\` hop to surface actor-level exposure or to resolve
   an address's counterpart in the other space; never treat linked addresses
-  as a single collapsed node. \`LINKED\` is served on both the topology and
-  facts graphs.
+  as a single collapsed node. \`LINKED\` is served on the topology graph
+  only.
 - Other Address properties: \`labels\` (array) and \`is_exchange\`
   (sparse true/null traversal hint).
 - Address nodes carry a risk verdict for quick triage
@@ -231,8 +231,7 @@ Rules:
 - Use \`USE topology\` for topology (the address/FLOWS_TO/LINKED graph,
   covering unified recent and full historical activity in one graph) and
   \`USE facts\` for labels, features, risk scores, assets, and enrichment.
-  The \`LINKED\` ownership overlay is served on both the topology and facts
-  graphs.
+  The \`LINKED\` ownership overlay is served on the topology graph only.
 - Preserve source schema field names in generated data files.
 - Do not rename, reinterpret, or add unit labels to graph fields unless the
   schema or query result explicitly supports that interpretation.

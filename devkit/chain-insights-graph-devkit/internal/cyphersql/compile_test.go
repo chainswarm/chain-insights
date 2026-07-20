@@ -68,6 +68,26 @@ func TestAssetLabelRejectedAsUnmapped(t *testing.T) {
 	}
 }
 
+// The retired LINKED facts edge (linked_addresses_view, dropped by migration
+// 0022) is no longer mapped: a facts-scope [:LINKED] query fails at COMPILE
+// time with the unknown-relationship validation error. LINKED is served only
+// on USE topology (native Memgraph).
+func TestLinkedEdgeRejectedAsUnmapped(t *testing.T) {
+	for _, q := range []string{
+		`USE facts MATCH (a:Address {address: "x"})-[:LINKED]->(b:Address) RETURN b.address AS id LIMIT 5`,
+		`USE facts MATCH (a:Address {address: "x"})-[l:LINKED]->(b:Address) RETURN b.address AS id, l.basis AS basis LIMIT 5`,
+	} {
+		_, err := Compile(q)
+		if err == nil {
+			t.Errorf("expected unmapped-relationship rejection for: %s", q)
+			continue
+		}
+		if !strings.Contains(err.Error(), `relationship type "LINKED" is not mapped`) {
+			t.Errorf("error %q does not name the unmapped LINKED relationship", err.Error())
+		}
+	}
+}
+
 // NULL semantics preserved: IS NULL / IS NOT NULL map straight through.
 func TestNullSemantics(t *testing.T) {
 	c, err := Compile(`USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r:RiskScore) WHERE r.risk_score IS NULL RETURN a.address AS id ORDER BY a.address ASC LIMIT 10`)

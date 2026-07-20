@@ -522,7 +522,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).not.toContain('iframe')
     expect(instructions).toContain('FLOWS_TO')
     expect(instructions).toContain('first_tx_id')
-    expect(instructions).toContain('LINKED is served on both the topology and facts graphs')
+    expect(instructions).toContain('LINKED is served on the topology graph only')
     expect(instructions).toContain('the single public Bittensor investigation network')
     expect(instructions).toContain('(:Address)-[:LINKED]-(:Address)')
     expect(instructions).toContain('n.network AS network')

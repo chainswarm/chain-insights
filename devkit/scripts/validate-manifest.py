@@ -26,7 +26,6 @@ MAPPING_CANDIDATES = [
 ]
 
 REQUIRED_TABLES = {
-    "linked_addresses_view",
     "facts_address_labels_view",
     "facts_address_features_view",
     "facts_risk_scores_view",

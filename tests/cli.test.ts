@@ -249,7 +249,7 @@ describe('CLI scaffold (FOUND-02)', () => {
       const runtimeSkill = readFileSync(join(target, '.chain-insights', 'runtime-skill', 'SKILL.md'), 'utf8')
       expect(runtimeSkill).toContain('Runtime Graph Schema')
       expect(runtimeSkill).toContain('exchange hot wallets as terminal endpoints only')
-      expect(runtimeSkill).toContain('The `LINKED` ownership overlay is served on both the topology and')
+      expect(runtimeSkill).toContain('The `LINKED` ownership overlay is served on the topology graph only.')
       expect(runtimeSkill).toContain('always pass\n  `network=bittensor`')
       expect(readFileSync(join(target, '.chain-insights', 'schema', 'README.md'), 'utf8')).toContain('Runtime Schema Captures')
       expect(existsSync(join(target, 'artifacts'))).toBe(true)

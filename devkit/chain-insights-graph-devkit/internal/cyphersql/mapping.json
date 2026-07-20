@@ -216,21 +216,6 @@
         "last_seen_timestamp": "last_seen_timestamp",
         "observation_count": "observation_count"
       }
-    },
-    {
-      "rel_type": "LINKED",
-      "table": "linked_addresses_view",
-      "id_column": "address_a",
-      "source_column": "address_a",
-      "target_column": "address_b",
-      "source_label": "Address",
-      "target_label": "Address",
-      "properties": {
-        "basis": "basis",
-        "confidence": "confidence",
-        "source_event": "source_event",
-        "declared_owner": "declared_owner"
-      }
     }
   ]
 }
