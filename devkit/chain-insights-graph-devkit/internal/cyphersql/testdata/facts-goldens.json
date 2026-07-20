@@ -68,13 +68,6 @@
    "expected_rows": []
   },
   {
-   "id": "recipe_facts_04",
-   "layer": "facts",
-   "query": "USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r:RiskScore) RETURN a.address AS address, r.risk_score AS risk_score, r.window_days AS window_days, r.xgboost_model_version AS xgboost_model_version LIMIT 25",
-   "baseline": "memgql",
-   "expected_rows": []
-  },
-  {
    "id": "recipe_facts_06",
    "layer": "facts",
    "query": "USE facts MATCH (n:NeuronEndpoint) WHERE n.netuid = 15 RETURN n.endpoint_id AS endpoint_id, n.coldkey_address AS coldkey_address, n.hotkey_address AS hotkey_address, n.netuid AS netuid, n.ip_address AS ip_address, n.axon_port AS axon_port ORDER BY n.last_seen_timestamp DESC LIMIT 25",
@@ -138,13 +131,6 @@
    "expected_rows": []
   },
   {
-   "id": "recipe_facts_15",
-   "layer": "facts",
-   "query": "USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r:RiskScore) WHERE r.risk_score IS NOT NULL RETURN a.address AS address, r.risk_score AS risk_score, r.window_days AS window_days, r.processing_date AS processing_date ORDER BY r.risk_score DESC LIMIT 25",
-   "baseline": "memgql",
-   "expected_rows": []
-  },
-  {
    "id": "recipe_facts_16",
    "layer": "facts",
    "query": "USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN f.feature_scope AS feature_scope, count(f) AS features, sum(f.total_volume_usd) AS total_volume_usd ORDER BY total_volume_usd DESC LIMIT 25",
@@ -160,10 +146,10 @@
   }
  ],
  "counts": {
-  "memgql": 13,
+  "memgql": 11,
   "sql_truth": 0,
   "rejected": 1,
   "unsupported": 2,
-  "total": 16
+  "total": 14
  }
 }

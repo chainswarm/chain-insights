@@ -47,17 +47,6 @@
     },
     {
       "database": "bittensor",
-      "name": "facts_risk_scores_view",
-      "format": "tsv.gz",
-      "path": "starrocks/facts_risk_scores_view.tsv.gz",
-      "row_count": 0,
-      "source_min": "1970-01-01T00:00:00Z",
-      "exported_min": "1970-01-01T00:00:00Z",
-      "exported_max": "1970-01-01T00:00:00Z",
-      "sha256": "686ac486dbb11fba2e4988a91cdff68974406a375786e2185a6a86ff7e3b5247"
-    },
-    {
-      "database": "bittensor",
       "name": "facts_neuron_endpoints_view",
       "format": "tsv.gz",
       "path": "starrocks/facts_neuron_endpoints_view.tsv.gz",

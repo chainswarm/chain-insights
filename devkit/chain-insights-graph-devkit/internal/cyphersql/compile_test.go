@@ -88,16 +88,51 @@ func TestLinkedEdgeRejectedAsUnmapped(t *testing.T) {
 	}
 }
 
+// The retired RiskScore facts label (facts_risk_scores_view, retired by
+// rbmk#447 P2a — ML risk verdict is topology-only) is no longer mapped: a
+// :RiskScore / [:HAS_RISK_SCORE] query fails at COMPILE time with the
+// unknown-label / unknown-relationship validation error.
+func TestRiskScoreRejectedAsUnmapped(t *testing.T) {
+	labelQueries := []string{
+		`USE facts MATCH (r:RiskScore) WHERE r.risk_score IS NULL RETURN r.risk_score_id AS id LIMIT 10`,
+		`USE facts MATCH (r:RiskScore) WHERE r.risk_score IS NOT NULL RETURN r.risk_score_id AS id LIMIT 10`,
+	}
+	for _, q := range labelQueries {
+		_, err := Compile(q)
+		if err == nil {
+			t.Errorf("expected unmapped-label rejection for: %s", q)
+			continue
+		}
+		if !strings.Contains(err.Error(), `node label "RiskScore" is not mapped`) {
+			t.Errorf("error %q does not name the unmapped RiskScore label", err.Error())
+		}
+	}
+	edgeQueries := []string{
+		`USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r:RiskScore) RETURN a.address AS id LIMIT 10`,
+		`USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r) RETURN a.address AS id LIMIT 10`,
+	}
+	for _, q := range edgeQueries {
+		_, err := Compile(q)
+		if err == nil {
+			t.Errorf("expected unmapped-relationship rejection for: %s", q)
+			continue
+		}
+		if !strings.Contains(err.Error(), `relationship type "HAS_RISK_SCORE" is not mapped`) {
+			t.Errorf("error %q does not name the unmapped HAS_RISK_SCORE relationship", err.Error())
+		}
+	}
+}
+
 // NULL semantics preserved: IS NULL / IS NOT NULL map straight through.
 func TestNullSemantics(t *testing.T) {
-	c, err := Compile(`USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r:RiskScore) WHERE r.risk_score IS NULL RETURN a.address AS id ORDER BY a.address ASC LIMIT 10`)
+	c, err := Compile(`USE facts MATCH (a:Address)-[:HAS_LABEL]->(l:AddressLabel) WHERE l.confidence_score IS NULL RETURN a.address AS id ORDER BY a.address ASC LIMIT 10`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(c.SQL, "IS NULL") {
 		t.Errorf("IS NULL not preserved: %s", c.SQL)
 	}
-	c, err = Compile(`USE facts MATCH (a:Address)-[:HAS_RISK_SCORE]->(r:RiskScore) WHERE r.risk_score IS NOT NULL RETURN a.address AS id LIMIT 10`)
+	c, err = Compile(`USE facts MATCH (a:Address)-[:HAS_LABEL]->(l:AddressLabel) WHERE l.confidence_score IS NOT NULL RETURN a.address AS id LIMIT 10`)
 	if err != nil {
 		t.Fatal(err)
 	}

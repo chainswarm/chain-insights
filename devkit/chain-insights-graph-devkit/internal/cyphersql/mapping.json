@@ -53,22 +53,6 @@
       }
     },
     {
-      "label": "RiskScore",
-      "table": "facts_risk_scores_view",
-      "id_column": "risk_score_id",
-      "properties": {
-        "risk_score_id": "risk_score_id",
-        "address": "address",
-        "processing_date": "processing_date",
-        "xgboost_model_version": "xgboost_model_version",
-        "window_days": "window_days",
-        "gnn_model_version": "gnn_model_version",
-        "risk_score": "risk_score",
-        "shap_top_features": "shap_top_features",
-        "shap_top_values": "shap_top_values"
-      }
-    },
-    {
       "label": "NeuronEndpoint",
       "table": "facts_neuron_endpoints_view",
       "id_column": "endpoint_id",
@@ -136,20 +120,6 @@
         "trust_level": "trust_level",
         "confidence_score": "confidence_score",
         "updated_timestamp": "updated_timestamp"
-      }
-    },
-    {
-      "rel_type": "HAS_RISK_SCORE",
-      "table": "facts_risk_scores_view",
-      "id_column": "risk_score_id",
-      "source_column": "address",
-      "target_column": "risk_score_id",
-      "source_label": "Address",
-      "target_label": "RiskScore",
-      "properties": {
-        "processing_date": "processing_date",
-        "window_days": "window_days",
-        "xgboost_model_version": "xgboost_model_version"
       }
     },
     {

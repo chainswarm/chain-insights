@@ -2,7 +2,7 @@
 
 ## Reads
 
-- **Chain Insights Graph MCP endpoint:** Topology queries (unified recent + full historical activity in one graph), fact queries (labels, features, risk scores), network capabilities, usage status
+- **Chain Insights Graph MCP endpoint:** Topology queries (unified recent + full historical activity in one graph, plus the Address-node risk verdict), fact queries (labels, features), network capabilities, usage status
 - **Local config:** ~/.chain-insights/config.json (graphMcpEndpoint, auth tokens, workspace paths, mode flags)
 - **Local wallet:** ~/.chain-insights/wallet.json (encrypted EVM private key for x402 payments)
 - **Workspace files:** Active workspace under initialized directory (existing cases, evidence manifests, session state)
