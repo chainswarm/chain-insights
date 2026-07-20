@@ -372,8 +372,8 @@ function linkedExposureQueries(address: string): Array<{ id: string; query: stri
 // node PROPERTY (bittensor / bittensor_evm) on the single public
 // network=bittensor graph -- LINKED is the ownership edge across that space
 // boundary (FLOWS_TO stays within one space), so this runs on the topology
-// graph with no network switch. LINKED is served on both the topology and
-// facts graphs.
+// graph with no network switch. LINKED is served on the topology graph
+// only.
 function crossSpaceLinkedQuery(address: string): { id: string; query: string } {
   return {
     id: 'cross_space_linked',

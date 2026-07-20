@@ -103,13 +103,13 @@ cia mcp call graph_query \
 ```
 
 `FLOWS_TO` edges are lifetime aggregates (first/last endpoints only); there are
-no period-granular rollups. The `LINKED` ownership overlay is served on both the
-topology and facts graphs. Facts-tier `LINKED` sample:
+no period-granular rollups. The `LINKED` ownership overlay is topology-only.
+Topology `LINKED` sample:
 
 ```bash
 cia mcp call graph_query \
   network=bittensor \
-  'query=USE facts MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 25'
+  'query=USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 25'
 ```
 
 Remember that facts numeric fields may arrive as strings.

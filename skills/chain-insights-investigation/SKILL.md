@@ -49,7 +49,7 @@ cia debug off
 4. If `.chain-insights/schema/<network>.graph-schema.json` does not exist, capture schema before the first graph workflow:
    ```bash
    mkdir -p .chain-insights/schema
-   cia mcp call graph_query_batch network=<network> 'queries=[{"id":"address_labels","query":"USE topology MATCH (a:Address) RETURN \"Address\" AS node_label, count(a) AS sample_count LIMIT 1"},{"id":"flow_sample","query":"USE topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 20"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 20"},{"id":"facts_linked_sample","query":"USE facts MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 20"}]' > .chain-insights/schema/<network>.graph-schema.raw.json
+   cia mcp call graph_query_batch network=<network> 'queries=[{"id":"address_labels","query":"USE topology MATCH (a:Address) RETURN \"Address\" AS node_label, count(a) AS sample_count LIMIT 1"},{"id":"flow_sample","query":"USE topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 20"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 20"}]' > .chain-insights/schema/<network>.graph-schema.raw.json
    ```
 5. Make sure the canonical workspace output roots exist:
    ```bash
@@ -60,7 +60,7 @@ cia debug off
 
 - Always preserve full blockchain addresses exactly.
 - All Bittensor investigation runs on ONE public network: always pass `network=bittensor`, for native Substrate/SS58 (`5...`) and EVM-pallet `0x...` inputs alike. The SS58/H160 split is the `:Address.network` node property (`bittensor` / `bittensor_evm`), not a separate query network; a single query spans both spaces by hopping the bridge (money) or `LINKED` (ownership) edge across the boundary.
-- Topology is address-grain and graph-selected: use `USE topology` for the Memgraph-backed unified graph, which serves ALL topology — recent and full historical activity — in one place. It supports the `(:Address)-[:FLOWS_TO]->(:Address)` money shape and the `(:Address)-[:LINKED]-(:Address)` ownership overlay; the `LINKED` overlay is served on both the topology and facts graphs.
+- Topology is address-grain and graph-selected: use `USE topology` for the Memgraph-backed unified graph, which serves ALL topology — recent and full historical activity — in one place. It supports the `(:Address)-[:FLOWS_TO]->(:Address)` money shape and the `(:Address)-[:LINKED]-(:Address)` ownership overlay; the `LINKED` overlay is topology-only.
 - Users operate on raw blockchain addresses directly. High-level `aml_*` tools accept addresses with no identity-resolution step; public results, artifacts, and follow-up candidate lists always return the raw address.
 - Use the current Chain Insights AML tool contract as the reference behavior; do not downgrade semantics to legacy implementation details from the old Python graph path.
 - Never call graph tools without an explicit `network`.

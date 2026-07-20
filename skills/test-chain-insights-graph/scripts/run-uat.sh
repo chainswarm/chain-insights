@@ -347,7 +347,7 @@ console.log(`[uat] graph_query ok: ${first.address} -[:LINKED]- ${first.linked_a
 NODE
 
 # Topology serves ALL history in one unified graph (serving contract A1: the
-# LINKED ownership overlay is served on both the topology and facts graphs).
+# LINKED ownership overlay is topology-only).
 # Assert the topology FLOWS_TO money shape for the UAT address, which now
 # covers recent and full historical activity in one place.
 TOPOLOGY_MONEY_TEXT="${RUN_DIR}/graph-query-topology-money.txt"
