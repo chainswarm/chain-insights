@@ -29,7 +29,7 @@ describe('exchange exposure fallback score', () => {
 describe('risk assessment precedence', () => {
   it('a lower-severity label never suppresses a more severe usable ML band', () => {
     const assessment = riskAssessment(
-      { ml_risk_score: 0.92, ml_risk_level: 'HIGH' },
+      { live_risk_score: 0.92, live_risk_level: 'HIGH' },
       [{ label: 'known-service', risk_level: 'low', confidence_score: 0.9 }],
       [],
     )
@@ -39,7 +39,7 @@ describe('risk assessment precedence', () => {
 
   it('labels stay first when equal or more severe than the ML band', () => {
     const assessment = riskAssessment(
-      { ml_risk_score: 0.45, ml_risk_level: 'MEDIUM' },
+      { live_risk_score: 0.45, live_risk_level: 'MEDIUM' },
       [{ label: 'scam', risk_level: 'high', confidence_score: 0.9 }],
       [],
     )
@@ -49,11 +49,12 @@ describe('risk assessment precedence', () => {
 
   it('an abstained ML verdict still never launders into a severity', () => {
     const assessment = riskAssessment(
-      { ml_risk_score: 0.83, ml_risk_level: 'UNSCORED' },
+      { live_risk_score: 0.83, live_risk_level: 'UNSCORED' },
       [],
       [],
     )
     expect(assessment['level']).toBe('unscored')
+    expect(assessment['ml_verdict']).toBe('unscored')
     expect(String(assessment['drivers'])).toContain('ml_abstained')
   })
 })

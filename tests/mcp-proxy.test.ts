@@ -1331,17 +1331,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                   }],
                 },
                 {
-                  id: 'address_risk_score',
-                  ok: true,
-                  results: [{
-                    ml_risk_score: 0.82,
-                    risk_window_days: 1095,
-                    risk_processing_date: '2026-06-09',
-                    xgboost_model_version: 'xgb_test_v1',
-                    gnn_model_version: 'gnn_test_v1',
-                  }],
-                },
-                {
                   id: 'address_label_risk',
                   ok: true,
                   results: [{
@@ -1396,13 +1385,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }))
     expect(result.isError).toBe(false)
     expect(result.content[0].text).toContain('Address risk for bittensor:5Addr')
-    expect(result.content[0].text).toContain('Risk: high (0.82)')
+    expect(result.content[0].text).toContain('Risk: critical (0.91)')
     expect(result.content[0].text).toContain('Live node triage: critical (0.91)')
     expect(result.content[0].text).toContain('Exchange behavior')
     expect(result.content[0].text).toContain('5Exchange')
     expect(result.structuredContent.facts.risk).toMatchObject({
-      level: 'high',
-      score: 0.82,
+      level: 'critical',
+      score: 0.91,
+      ml_risk_score: 0.91,
       confidence: 'high',
       live_node: {
         risk_score: 0.91,
@@ -1523,14 +1513,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                 }],
               },
               {
-                id: 'address_risk_score',
-                ok: true,
-                results: [{
-                  risk_score: 0.41,
-                  risk_level: 'medium',
-                }],
-              },
-              {
                 id: 'connection_probe',
                 ok: true,
                 results: [],
@@ -1624,11 +1606,12 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const result = await addressRisk(remoteClient as never, { address: '5Addr', network: 'bittensor' })
     const subjectNode = (result.graphData.nodes as Array<Record<string, unknown>>).find((node) => node['address'] === '5Addr')
 
-    expect(result.summaryText).toContain('Risk: low (0)')
+    expect(result.summaryText).toContain('Risk: low (0.12)')
     expect(result.structuredContent.facts.risk).toMatchObject({
       level: 'low',
-      score: 0,
-      confidence: 'low',
+      score: 0.12,
+      ml_risk_score: 0.12,
+      confidence: 'high',
     })
     expect(subjectNode).toMatchObject({
       labels: ['validator'],
@@ -1782,7 +1765,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                   results: [{ address: '5Addr', network: 'bittensor', display_labels: ['subject'] }],
                 },
                 {
-                  id: 'address_risk_score',
+                  id: 'address_feature',
                   ok: false,
                   error: 'An unexpected error occurred executing the query',
                   results: [],
@@ -1803,10 +1786,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     })
 
     expect(result.summaryText).toContain('Partial query failures')
-    expect(result.summaryText).toContain('address_risk_score')
+    expect(result.summaryText).toContain('address_feature')
     expect(result.structuredContent.facts.partial_query_errors).toEqual([
       {
-        id: 'address_risk_score',
+        id: 'address_feature',
         error: 'An unexpected error occurred executing the query',
       },
     ])

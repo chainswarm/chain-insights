@@ -141,10 +141,9 @@ function graphArray(graphData: Record<string, unknown>, key: string): Array<Reco
 }
 
 function addressProfileQuery(address: string): { id: string; query: string } {
-  // risk_score/risk_level are always projected: topology is now unconditionally
-  // Memgraph-backed, so the :Address slim risk verdict is always available.
-  // Detailed provenanced scores still come from the separate USE facts query
-  // (addressRiskScoreQuery).
+  // risk_score/risk_level are always projected: topology is now the only ML
+  // risk source (the retired facts_risk_scores_view never had a risk_level
+  // column, so UNSCORED abstention was invisible until this move).
   const riskFields = ', a.risk_score AS live_risk_score, a.risk_level AS live_risk_level'
   return {
     id: 'address_profile',
@@ -163,29 +162,6 @@ function addressFeatureQuery(address: string): { id: string; query: string } {
       'USE facts',
       `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[:HAS_FEATURE]->(feature:AddressFeature)`,
       'RETURN feature.degree_in AS degree_in, feature.degree_out AS degree_out, feature.degree_total AS degree_total, feature.tx_in_count AS tx_in_count, feature.tx_out_count AS tx_out_count, feature.tx_total_count AS tx_total_count, feature.total_volume_usd AS total_volume_usd, feature.total_in_usd AS total_in_usd, feature.total_out_usd AS total_out_usd, feature.net_flow_usd AS net_flow_usd, feature.first_activity_timestamp AS first_activity_timestamp, feature.last_activity_timestamp AS last_activity_timestamp, feature.activity_span_days AS activity_span_days',
-      'LIMIT 1',
-    ].join(' '),
-  }
-}
-
-function addressRiskScoreQuery(address: string): { id: string; query: string } {
-  // risk.risk_level does not exist: facts_risk_scores_view (and the RiskScore
-  // node mapping in chain_insights_starrocks_mapping.json) only ever defined
-  // risk_score_id, address, processing_date, xgboost_model_version,
-  // window_days, gnn_model_version, risk_score, shap_top_features,
-  // shap_top_values -- no risk_level/abstention column. Projecting it hard-
-  // errored the whole query (MemGQL: "cannot be resolved"), silently
-  // discarding every downstream field including the real ml_risk_score.
-  // riskAssessment() already treats a missing ml_risk_level as "not
-  // abstained" (isUnscoredRiskLevel(undefined) === false, see risk-level.ts)
-  // and uses the ML score normally -- the honest behavior when the upstream
-  // view has no way to signal abstention at all, rather than fabricating one.
-  return {
-    id: 'address_risk_score',
-    query: [
-      'USE facts',
-      `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[:HAS_RISK_SCORE]->(risk:RiskScore)`,
-      'RETURN risk.risk_score AS ml_risk_score, risk.window_days AS risk_window_days, risk.processing_date AS risk_processing_date, risk.xgboost_model_version AS xgboost_model_version, risk.gnn_model_version AS gnn_model_version, risk.shap_top_features AS shap_top_features',
       'LIMIT 1',
     ].join(' '),
   }
@@ -588,8 +564,6 @@ function riskDrivers(
   exchangeRows: Array<Record<string, unknown>>,
 ): string[] {
   const drivers: string[] = []
-  const shapDrivers = stringArrayValue(profile['shap_top_features'])
-  if (shapDrivers?.length) drivers.push(`Top model features: ${shapDrivers.join(', ')}`)
 
   const riskLabels = labelRows
     .map((row) => firstString(row['label']))
@@ -616,15 +590,12 @@ function strongestLabelRiskLevel(labelRows: Array<Record<string, unknown>>): str
 
 function riskScoreSources(profile: Record<string, unknown>, labelRows: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
   const sources: Array<Record<string, unknown>> = []
-  if (numberValue(profile['ml_risk_score']) !== undefined) {
+  if (numberValue(profile['live_risk_score']) !== undefined) {
     sources.push({
       family: 'ml_risk_score',
-      layer: 'facts',
-      view: 'facts_risk_scores_view',
-      xgboost_model_version: profile['xgboost_model_version'],
-      gnn_model_version: profile['gnn_model_version'],
-      processing_date: profile['risk_processing_date'],
-      window_days: profile['risk_window_days'],
+      layer: 'topology',
+      source: 'address_node',
+      fields: ['risk_score', 'risk_level'],
     })
   }
   if (labelRows.length > 0) {
@@ -697,13 +668,13 @@ export function riskAssessment(
   labelRows: Array<Record<string, unknown>>,
   exchangeRows: Array<Record<string, unknown>>,
 ): Record<string, unknown> {
-  const mlRiskScore = firstNumber(profile['ml_risk_score'])
+  const mlRiskScore = firstNumber(profile['live_risk_score'])
   // UNSCORED is the model's explicit abstention (calibrated-scoring release):
   // the score exists for transparency but carries no stance — deriving a
   // severity band from it would silently launder an abstention into a
   // confident verdict (typically "low"). Fall back to labels/exchange
   // exposure and say so.
-  const mlAbstained = isUnscoredRiskLevel(profile['ml_risk_level'])
+  const mlAbstained = isUnscoredRiskLevel(profile['live_risk_level'])
   const labelRiskLevel = strongestLabelRiskLevel(labelRows)
   const usableMlScore = mlAbstained ? undefined : mlRiskScore
   const score = usableMlScore ?? exchangeExposureFallbackScore(exchangeRows)
@@ -871,7 +842,6 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   const queries = [
     addressProfileQuery(address),
     addressFeatureQuery(address),
-    addressRiskScoreQuery(address),
     addressLabelRiskQuery(address),
     ...exchangeOutflowQueries(address),
     ...exchangeInflowQueries(address),
@@ -907,7 +877,6 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     address,
     ...(addressProfileRows[0] ?? {}),
     ...(optionalResultsFor(batch, 'address_feature', partialQueryFailures)[0] ?? {}),
-    ...(optionalResultsFor(batch, 'address_risk_score', partialQueryFailures)[0] ?? {}),
   }
   const labelRows = optionalResultsFor(batch, 'address_label_risk', partialQueryFailures)
   const outflows = enrichExchangeRows(optionalResultsWithPrefix(batch, 'exchange_outflows_', partialQueryFailures))
@@ -2207,7 +2176,6 @@ export const queryBuilderContract = {
   addressProfileQuery,
   compareAddressExistsQuery,
   addressFeatureQuery,
-  addressRiskScoreQuery,
   addressLabelRiskQuery,
   exchangeOutflowQueries,
   exchangeInflowQueries,
