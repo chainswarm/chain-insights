@@ -41,7 +41,14 @@ admission + bounds gate below. This includes clause- and pattern-level `WHERE`,
 projections, `UNION`, and the full traversal surface. The topology graph serves
 `Address` nodes (with `risk_score`/`risk_level` always present), `FLOWS_TO`
 lifetime money-flow edges, the `LINKED` ownership overlay, `RISK_PROXIMITY`, and
-the neuron overlay (`SERVES`/`OWNS`).
+a two-layer Bittensor neuron model: `(:Neuron {hotkey, netuid})` nodes labeled
+`:Miner` or `:Validator`, connected via `(:Neuron)-[:MINES|:VALIDATES]->(:Subnet
+{netuid, name, github_repo, url, discord, contact, owner_coldkey,
+owner_hotkey})`; `(:Address)-[:HOTKEY_OF|:COLDKEY_OF]->(:Neuron)` bridges
+addresses to neurons; `(:Address)-[:OWNS]->(:Subnet)` marks subnet ownership;
+and on-chain identity properties (`chain_name`, `chain_url`, `chain_github`,
+`chain_discord`) live on `:Address` directly. Validator/miner roles are
+chain-evidence-derived, not registry labels.
 
 ### Traversal (the expanded surface)
 
