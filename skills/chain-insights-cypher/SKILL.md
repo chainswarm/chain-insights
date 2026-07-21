@@ -33,8 +33,8 @@ facts contract-error schema, read `docs/graph-query-compatibility.md`.
 
 | Graph | Use for | Query style |
 | --- | --- | --- |
-| `USE topology` | Route discovery and fund-flow topology reads over unified recent + full historical activity, plus the node risk verdict (`risk_score`/`risk_level`) | Native Memgraph Cypher over topology nodes and relationships, bounded. Prefer directed `MATCH` patterns and narrow projections. |
-| `USE facts` | Labels, address features, assets, and enrichment | Corpus-scoped Cypher subset compiled to StarRocks SQL. Verify the current network schema before assuming fact labels or relationships exist. |
+| `USE topology` | Route discovery and fund-flow topology reads over unified recent + full historical activity, plus the node risk verdict (`risk_score`/`risk_level`) and labels + per-label risk (`labels`, `label_risk`) | Native Memgraph Cypher over topology nodes and relationships, bounded. Prefer directed `MATCH` patterns and narrow projections. |
+| `USE facts` | Address features, assets, and enrichment | Corpus-scoped Cypher subset compiled to StarRocks SQL. Verify the current network schema before assuming fact labels or relationships exist. |
 
 `topology` is **native Memgraph Cypher** (MemGQL retired). Bounded
 variable-length and path-algorithm traversal are first-class:
@@ -72,8 +72,10 @@ spaces by walking `FLOWS_TO` within a space and hopping the bridge (money) or
 Topology is intentionally stable across address spaces:
 
 - Node: `(:Address {address, network})` with sparse `labels`, `is_exchange`,
-  `risk_score`, `risk_level`, and activity rollups. `address` is the raw
-  chain-native form (SS58 or `0x...`); there is no separate identity key.
+  `risk_score`, `risk_level`, `label_risk` (per-label risk: a list of
+  `{label, risk_level, updated_timestamp}` maps), and activity rollups.
+  `address` is the raw chain-native form (SS58 or `0x...`); there is no
+  separate identity key.
 - Edge: `(:Address)-[:FLOWS_TO]->(:Address)` for money flow.
 - Ownership overlay: `(:Address)-[:LINKED]-(:Address)` is an **undirected**
   edge asserting the two addresses are owned/controlled by the same actor
@@ -90,7 +92,7 @@ Topology is intentionally stable across address spaces:
   `price_coverage_ratio`. These are lifetime aggregates (first/last endpoints
   only). The public address contract is USD-only; do not rely on native
   `amount_sum`.
-- Facts may expose `Address`, `AddressFeature`, `AddressLabel`, `Asset`,
+- Facts may expose `Address`, `AddressFeature`, `Asset`,
   and network-specific fact nodes.
 
 Future networks may expose different schemas. Do not reuse a Bittensor
@@ -128,7 +130,7 @@ Facts lookup after schema proof:
 ```bash
 cia mcp call graph_query \
   network=<network> \
-  'query=USE facts MATCH (a:Address {address: "FULL_ADDRESS"})-[:HAS_LABEL]->(label:AddressLabel) RETURN label.label AS label, label.entity_type AS entity_type, label.source AS source LIMIT 25'
+  'query=USE facts MATCH (a:Address {address: "FULL_ADDRESS"})-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.tx_out_count AS tx_out_count, f.tx_in_count AS tx_in_count LIMIT 10'
 ```
 
 Actor-level exposure via one visible `LINKED` hop (AC11 — FLOWS_TO reachability

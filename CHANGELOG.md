@@ -3,6 +3,25 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.2] - 2026-07-21
+
+- Remove the facts-tier `AddressLabel`/`HAS_LABEL` label surface everywhere
+  it was still mapped or documented (rbmk#447 P2b′ Task 4b), mirroring the
+  data-pipeline `cyphersql` mapping removal (`b1c3048c`): the devkit's
+  vendored `mapping.json`/`compile_test.go`/`facts-goldens.json` drop the
+  `AddressLabel` node and `HAS_LABEL` edge and gain
+  `TestLabelEdgeRejectedAsUnmapped`; the devkit fixture manifest drops the
+  `facts_address_labels_view` object and its `tsv.gz`, and
+  `REQUIRED_TABLES` in `validate-manifest.py` no longer requires it.
+  `tests/fixtures/documented-recipes.json` and the regenerated
+  `graph-query-corpus.json` drop the three label-driven recipes.
+  `src/mcp/proxy.ts`, `src/workspace/init.ts`, and the shipped
+  `chain-insights-cypher`/`chain-insights-bittensor-cypher` skills and
+  `docs/graph-query-compatibility.md` move the label mention to the
+  topology clause: labels and per-label risk live on the address node
+  (`labels` array + `label_risk` entries), and the facts clause now covers
+  only address features and neuron endpoints.
+
 ## [0.10.1] - 2026-07-21
 
 - Label risk read moves from the facts tier to the topology graph

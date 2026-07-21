@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/generate-query-corpus.mjs",
- "entry_count": 99,
+ "entry_count": 97,
  "entries": [
   {
    "builder": "addressFeatureQuery",
@@ -155,19 +155,6 @@
   {
    "builder": "documented-recipe",
    "params": {
-    "id": "recipe_facts_02",
-    "features": [
-     "fixed-hop",
-     "label-match",
-     "inline-property-map"
-    ]
-   },
-   "scope": "facts",
-   "query": "USE facts MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:HAS_LABEL]->(label:AddressLabel) RETURN label.label AS label, label.entity_type AS entity_type, label.source AS source LIMIT 25"
-  },
-  {
-   "builder": "documented-recipe",
-   "params": {
     "id": "recipe_facts_03",
     "features": [
      "label-match"
@@ -268,19 +255,6 @@
    },
    "scope": "facts",
    "query": "USE facts MATCH (ip:IPAddress) RETURN ip.ip_address AS ip_address, ip.netuids AS netuids, ip.observation_count AS observation_count, ip.last_seen_timestamp AS last_seen_timestamp ORDER BY ip.observation_count DESC LIMIT 25"
-  },
-  {
-   "builder": "documented-recipe",
-   "params": {
-    "id": "recipe_facts_14",
-    "features": [
-     "fixed-hop",
-     "label-match",
-     "distinct"
-    ]
-   },
-   "scope": "facts",
-   "query": "USE facts MATCH (a:Address)-[:HAS_LABEL]->(l:AddressLabel) RETURN DISTINCT l.entity_type AS entity_type LIMIT 25"
   },
   {
    "builder": "documented-recipe",

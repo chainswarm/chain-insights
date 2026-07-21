@@ -9,27 +9,6 @@
       }
     },
     {
-      "label": "AddressLabel",
-      "table": "facts_address_labels_view",
-      "id_column": "label_id",
-      "properties": {
-        "label_id": "label_id",
-        "address": "address",
-        "network_type": "network_type",
-        "label": "label",
-        "address_type": "address_type",
-        "entity_type": "entity_type",
-        "address_subtype": "address_subtype",
-        "trust_level": "trust_level",
-        "source": "source",
-        "risk_level": "risk_level",
-        "confidence_score": "confidence_score",
-        "block_height": "block_height",
-        "block_timestamp": "block_timestamp",
-        "updated_timestamp": "updated_timestamp"
-      }
-    },
-    {
       "label": "AddressFeature",
       "table": "facts_address_features_view",
       "id_column": "address",
@@ -105,21 +84,6 @@
       "target_label": "AddressFeature",
       "properties": {
         "feature_scope": "feature_scope"
-      }
-    },
-    {
-      "rel_type": "HAS_LABEL",
-      "table": "facts_address_labels_view",
-      "id_column": "label_id",
-      "source_column": "address",
-      "target_column": "label_id",
-      "source_label": "Address",
-      "target_label": "AddressLabel",
-      "properties": {
-        "source": "source",
-        "trust_level": "trust_level",
-        "confidence_score": "confidence_score",
-        "updated_timestamp": "updated_timestamp"
       }
     },
     {

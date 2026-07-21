@@ -13,17 +13,6 @@
    ]
   },
   {
-   "id": "recipe_facts_02",
-   "query": "USE facts MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:HAS_LABEL]->(label:AddressLabel) RETURN label.label AS label, label.entity_type AS entity_type, label.source AS source LIMIT 25",
-   "layer": "facts",
-   "description": "Facts label lookup for one address returning label, entity_type, source",
-   "features": [
-    "fixed-hop",
-    "label-match",
-    "inline-property-map"
-   ]
-  },
-  {
    "id": "recipe_facts_03",
    "query": "USE facts MATCH (a:Address) RETURN a.address AS address, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 25",
    "layer": "facts",
@@ -109,31 +98,6 @@
    "features": [
     "label-match",
     "order-by"
-   ]
-  },
-  {
-   "id": "recipe_facts_13",
-   "admits": false,
-   "query": "USE facts MATCH (a:Address)-[:HAS_LABEL]->(l:AddressLabel) RETURN l.label AS label, count(l) AS label_count ORDER BY label_count DESC LIMIT 25",
-   "layer": "facts",
-   "description": "HAS_LABEL aggregate over AddressLabel grouped by label value with count and ORDER BY — fills the missing facts-layer aggregate and order-by (grouped GROUP BY projection through the translator).",
-   "features": [
-    "fixed-hop",
-    "label-match",
-    "aggregate",
-    "order-by"
-   ],
-   "expect": "unsupported"
-  },
-  {
-   "id": "recipe_facts_14",
-   "query": "USE facts MATCH (a:Address)-[:HAS_LABEL]->(l:AddressLabel) RETURN DISTINCT l.entity_type AS entity_type LIMIT 25",
-   "layer": "facts",
-   "description": "DISTINCT projection of AddressLabel.entity_type over HAS_LABEL — fills the entirely-missing facts-layer DISTINCT feature.",
-   "features": [
-    "fixed-hop",
-    "label-match",
-    "distinct"
    ]
   },
   {

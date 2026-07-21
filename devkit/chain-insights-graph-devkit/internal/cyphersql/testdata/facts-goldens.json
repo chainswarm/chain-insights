@@ -61,13 +61,6 @@
    ]
   },
   {
-   "id": "recipe_facts_02",
-   "layer": "facts",
-   "query": "USE facts MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:HAS_LABEL]->(label:AddressLabel) RETURN label.label AS label, label.entity_type AS entity_type, label.source AS source LIMIT 25",
-   "baseline": "memgql",
-   "expected_rows": []
-  },
-  {
    "id": "recipe_facts_06",
    "layer": "facts",
    "query": "USE facts MATCH (n:NeuronEndpoint) WHERE n.netuid = 15 RETURN n.endpoint_id AS endpoint_id, n.coldkey_address AS coldkey_address, n.hotkey_address AS hotkey_address, n.netuid AS netuid, n.ip_address AS ip_address, n.axon_port AS axon_port ORDER BY n.last_seen_timestamp DESC LIMIT 25",
@@ -117,20 +110,6 @@
    "expected_rows": []
   },
   {
-   "id": "recipe_facts_13",
-   "layer": "facts",
-   "query": "USE facts MATCH (a:Address)-[:HAS_LABEL]->(l:AddressLabel) RETURN l.label AS label, count(l) AS label_count ORDER BY label_count DESC LIMIT 25",
-   "baseline": "unsupported",
-   "reason": "documented shape outside the archive translator's compiled subset (WITH/CASE/grouped aggregate)"
-  },
-  {
-   "id": "recipe_facts_14",
-   "layer": "facts",
-   "query": "USE facts MATCH (a:Address)-[:HAS_LABEL]->(l:AddressLabel) RETURN DISTINCT l.entity_type AS entity_type LIMIT 25",
-   "baseline": "memgql",
-   "expected_rows": []
-  },
-  {
    "id": "recipe_facts_16",
    "layer": "facts",
    "query": "USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN f.feature_scope AS feature_scope, count(f) AS features, sum(f.total_volume_usd) AS total_volume_usd ORDER BY total_volume_usd DESC LIMIT 25",
@@ -146,10 +125,10 @@
   }
  ],
  "counts": {
-  "memgql": 11,
+  "memgql": 9,
   "sql_truth": 0,
   "rejected": 1,
-  "unsupported": 2,
-  "total": 14
+  "unsupported": 1,
+  "total": 11
  }
 }

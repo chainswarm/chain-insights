@@ -42,10 +42,11 @@ Observed against the address-serving contract on 2026-07-07:
   opt into.
 - `FLOWS_TO` is USD-only for AML value. Use `amount_usd_sum`, not native
   `amount_sum`. Edges are lifetime aggregates (first/last endpoints only).
-- `facts` contains address-keyed enrichment through `HAS_LABEL` and
-  `HAS_FEATURE`, plus the `LINKED` ownership-overlay
-  pairs. Bittensor neuron facts may include `REGISTERED_NEURON` and
-  `SERVED_FROM` paths when the endpoint exposes them.
+- `facts` contains address-keyed enrichment through `HAS_FEATURE`, plus the
+  `LINKED` ownership-overlay pairs. Bittensor neuron facts may include
+  `REGISTERED_NEURON` and `SERVED_FROM` paths when the endpoint exposes
+  them. Labels and per-label risk live on the topology address node
+  (`labels` array + `label_risk` entries), not on `facts`.
 - Use the generic skill reference `references/memgraph-examples.md` for tested
   examples and fixed-hop traversal fallbacks. Native Memgraph deep traversal
   operators such as `*BFS`, `*WSHORTEST`, `*ALLSHORTEST`, and `*KSHORTEST` may

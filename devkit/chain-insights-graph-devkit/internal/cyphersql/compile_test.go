@@ -123,16 +123,37 @@ func TestRiskScoreRejectedAsUnmapped(t *testing.T) {
 	}
 }
 
+// The retired AddressLabel facts label and HAS_LABEL edge
+// (facts_address_labels_view, dropped schema-side; per-label risk now lives
+// on the topology address node as i.label_risk) are no longer mapped: a
+// facts [:HAS_LABEL] query fails at COMPILE time with the unknown-relationship
+// validation error instead of reaching StarRocks.
+func TestLabelEdgeRejectedAsUnmapped(t *testing.T) {
+	for _, q := range []string{
+		`USE facts MATCH (a:Address)-[:HAS_LABEL]->(l:AddressLabel) RETURN a.address AS id, l.label AS label LIMIT 25`,
+		`USE facts MATCH (a:Address {address: "x"})-[hl:HAS_LABEL]->(l:AddressLabel) RETURN a.address AS id, hl.updated_timestamp AS updated_timestamp LIMIT 5`,
+	} {
+		_, err := Compile(q)
+		if err == nil {
+			t.Errorf("expected unmapped-relationship rejection for: %s", q)
+			continue
+		}
+		if !strings.Contains(err.Error(), `relationship type "HAS_LABEL" is not mapped`) {
+			t.Errorf("error %q does not name the unmapped HAS_LABEL relationship", err.Error())
+		}
+	}
+}
+
 // NULL semantics preserved: IS NULL / IS NOT NULL map straight through.
 func TestNullSemantics(t *testing.T) {
-	c, err := Compile(`USE facts MATCH (a:Address)-[:HAS_LABEL]->(l:AddressLabel) WHERE l.confidence_score IS NULL RETURN a.address AS id ORDER BY a.address ASC LIMIT 10`)
+	c, err := Compile(`USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) WHERE f.net_flow_usd IS NULL RETURN a.address AS id ORDER BY a.address ASC LIMIT 10`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(c.SQL, "IS NULL") {
 		t.Errorf("IS NULL not preserved: %s", c.SQL)
 	}
-	c, err = Compile(`USE facts MATCH (a:Address)-[:HAS_LABEL]->(l:AddressLabel) WHERE l.confidence_score IS NOT NULL RETURN a.address AS id LIMIT 10`)
+	c, err = Compile(`USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) WHERE f.net_flow_usd IS NOT NULL RETURN a.address AS id LIMIT 10`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +165,7 @@ func TestNullSemantics(t *testing.T) {
 // Deterministic ordering: a stable id tiebreaker is appended so LIMIT
 // truncation is reproducible.
 func TestOrderByTiebreaker(t *testing.T) {
-	c, err := Compile(`USE facts MATCH (a:Address {address: "x"})-[:HAS_LABEL]->(l:AddressLabel) RETURN l.label AS label, l.confidence_score AS score ORDER BY l.confidence_score DESC LIMIT 50`)
+	c, err := Compile(`USE facts MATCH (a:Address {address: "x"})-[:HAS_FEATURE]->(f:AddressFeature) RETURN f.degree_in AS degree_in, f.net_flow_usd AS net_flow_usd ORDER BY f.net_flow_usd DESC LIMIT 50`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +173,7 @@ func TestOrderByTiebreaker(t *testing.T) {
 		t.Fatalf("no ORDER BY: %s", c.SQL)
 	}
 	// tiebreaker on the terminal label's id appended after the explicit sort
-	if !strings.Contains(c.SQL, "label_id` ASC") {
+	if !strings.Contains(c.SQL, "address` ASC") {
 		t.Errorf("missing id tiebreaker: %s", c.SQL)
 	}
 }
@@ -168,7 +189,7 @@ func TestNegativeShapes(t *testing.T) {
 		{"unknown label", `USE facts MATCH (a:Widget) RETURN a.address AS id LIMIT 1`, ErrUnknownIdentifier},
 		{"unknown property", `USE facts MATCH (a:AddressFeature) RETURN a.nonexistent AS x LIMIT 1`, ErrUnknownIdentifier},
 		{"unknown edge", `USE facts MATCH (a:Address)-[r:BOGUS]->(b:Address) RETURN a.address AS id LIMIT 1`, ErrUnknownIdentifier},
-		{"variable length", `USE facts MATCH (a:Address)-[:HAS_LABEL*1..3]->(l:AddressLabel) RETURN l.label AS id LIMIT 1`, ErrUnsupportedShape},
+		{"variable length", `USE facts MATCH (a:Address)-[:HAS_FEATURE*1..3]->(f:AddressFeature) RETURN f.degree_in AS id LIMIT 1`, ErrUnsupportedShape},
 		{"missing limit", `USE facts MATCH (a:Address) RETURN a.address AS id`, ErrLimitRequired},
 		{"limit too high", `USE facts MATCH (a:Address) RETURN a.address AS id LIMIT 5000`, ErrLimitTooHigh},
 		{"offset", `USE facts MATCH (a:Address) RETURN a.address AS id SKIP 5 LIMIT 10`, ErrOffsetForbidden},

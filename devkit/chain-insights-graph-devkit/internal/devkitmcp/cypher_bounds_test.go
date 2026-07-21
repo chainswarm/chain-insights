@@ -69,7 +69,7 @@ func TestQueryTargetsTopologyGate(t *testing.T) {
 		}
 	}
 	notTopology := []string{
-		`USE facts MATCH (l:AddressLabel) RETURN l LIMIT 5`,
+		`USE facts MATCH (f:AddressFeature) RETURN f LIMIT 5`,
 		`MATCH (n:Address) RETURN n LIMIT 1`, // no prefix
 	}
 	for _, q := range notTopology {

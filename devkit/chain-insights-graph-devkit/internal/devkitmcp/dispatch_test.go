@@ -29,7 +29,7 @@ func TestDispatchRoutesByScope(t *testing.T) {
 	// facts → StarRocks (archive) translator runner, query passed through
 	// (the translator consumes the USE facts prefix itself).
 	archive.lastQuery = ""
-	_, _ = d.Run(context.Background(), "bittensor", `USE facts MATCH (a:Address)-[:HAS_LABEL]->(l:AddressLabel) RETURN l.label LIMIT 5`)
+	_, _ = d.Run(context.Background(), "bittensor", `USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN f.tx_out_count LIMIT 5`)
 	if archive.lastQuery == "" {
 		t.Error("facts query was not routed to the StarRocks translator runner")
 	}

@@ -196,7 +196,9 @@ The address-grain graph schema:
   as a single collapsed node. \`LINKED\` is served on the topology graph
   only.
 - Other Address properties: \`labels\` (array) and \`is_exchange\`
-  (sparse true/null traversal hint).
+  (sparse true/null traversal hint). Labels and per-label risk live on the
+  address node: \`label_risk\` is a list of \`{label, risk_level,
+  updated_timestamp}\` maps, one per current label row.
 - Address nodes carry a risk verdict for quick triage
   (\`risk_score\` float, \`risk_level\` string) plus base activity rollups:
   \`degree_in\`/\`degree_out\`/\`degree_total\` (distinct counterparty
@@ -213,13 +215,14 @@ The address-grain graph schema:
   Lifetime aggregates are the only serving window.
 - Money flow is \`(:Address)-[:FLOWS_TO]->(:Address)\`. Public AML tools
   accept the raw blockchain address directly — there is no resolution step.
-- The risk verdict lives on topology nodes (\`risk_score\`/\`risk_level\`).
-  Detailed, provenanced label and feature detail still comes from
-  \`USE facts\`: label risk: \`(:Address)-[:HAS_LABEL]->(:AddressLabel)\`;
-  lifetime metrics: \`(:Address)-[:HAS_FEATURE]->(:AddressFeature)\`. Facts
-  address keys match topology \`address\` values exactly. Do not read
-  \`ml_*\`, \`confluence_score\`, or \`pattern_flags\` off topology nodes —
-  those properties do not exist.
+- The risk verdict lives on topology nodes (\`risk_score\`/\`risk_level\`),
+  and labels and per-label risk live on the address node (\`labels\` array
+  + \`label_risk\` entries). Detailed, provenanced feature detail still
+  comes from \`USE facts\`: lifetime metrics:
+  \`(:Address)-[:HAS_FEATURE]->(:AddressFeature)\`. Facts address keys match
+  topology \`address\` values exactly. Do not read \`ml_*\`,
+  \`confluence_score\`, or \`pattern_flags\` off topology nodes — those
+  properties do not exist.
 
 Rules:
 
@@ -228,8 +231,8 @@ Rules:
   tool argument to select a graph.
 - Use \`USE topology\` for topology (the address/FLOWS_TO/LINKED graph,
   covering unified recent and full historical activity in one graph, plus
-  the node \`risk_score\`/\`risk_level\` verdict) and \`USE facts\` for
-  labels, features, assets, and enrichment.
+  the node \`risk_score\`/\`risk_level\` verdict, and labels + per-label
+  risk) and \`USE facts\` for features, assets, and enrichment.
   The \`LINKED\` ownership overlay is served on the topology graph only.
 - Preserve source schema field names in generated data files.
 - Do not rename, reinterpret, or add unit labels to graph fields unless the

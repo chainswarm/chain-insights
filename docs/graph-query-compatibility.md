@@ -88,7 +88,7 @@ rejected with a typed contract error before execution.
 
 | Construct | Notes |
 | --- | --- |
-| `MATCH` on a mapped node / single relationship | `(:Address)-[:HAS_LABEL]->(:AddressLabel)`, `(:Address)-[:HAS_FEATURE]->(:AddressFeature)`, neuron endpoint facts, plus a single fixed-hop `(:Address)-[:LINKED]-(:Address)`. Never serves `FLOWS_TO` or money-flow entities. |
+| `MATCH` on a mapped node / single relationship | `(:Address)-[:HAS_FEATURE]->(:AddressFeature)`, neuron endpoint facts, plus a single fixed-hop `(:Address)-[:LINKED]-(:Address)`. Never serves `FLOWS_TO` or money-flow entities. Labels and per-label risk live on the topology address node, not on `facts`. |
 | Chained fixed-hop patterns | up to 5 hops |
 | `WHERE` with an indexed predicate | `address` equality or `IN`; date/height/timestamp range |
 | Inline property maps | `MATCH (a:Address {address:"…"})` |
