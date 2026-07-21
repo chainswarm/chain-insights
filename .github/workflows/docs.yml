@@ -31,7 +31,7 @@ jobs:
     runs-on: [self-hosted, chainswarm-runner]
     steps:
       - name: Checkout caller repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           # GHCR_TOKEN, when present, is a classic PAT belonging to an
@@ -54,7 +54,7 @@ jobs:
         # contents on any repo, so it can never be the identity the
         # commit-back push authenticates as.
         id: app-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.CHAINSWARM_GITHUB_APP_ID }}
           private-key: ${{ secrets.CHAINSWARM_GITHUB_APP_PRIVATE_KEY }}
@@ -64,7 +64,7 @@ jobs:
           # private rbmk checkout needs.
 
       - name: Checkout rbmk generators
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: chainswarm/rbmk
           ref: main
