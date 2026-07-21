@@ -41,7 +41,7 @@ jobs:
 
       - name: Mint chainswarm-ci app token (rbmk checkout only)
         id: app-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.CHAINSWARM_GITHUB_APP_ID }}
           private-key: ${{ secrets.CHAINSWARM_GITHUB_APP_PRIVATE_KEY }}

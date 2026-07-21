@@ -54,7 +54,7 @@ jobs:
         # contents on any repo, so it can never be the identity the
         # commit-back push authenticates as.
         id: app-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.CHAINSWARM_GITHUB_APP_ID }}
           private-key: ${{ secrets.CHAINSWARM_GITHUB_APP_PRIVATE_KEY }}
