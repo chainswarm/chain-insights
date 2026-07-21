@@ -290,7 +290,6 @@ data stays in the local workspace unless the operator exports or shares it.
 <!-- gsd: workers -->
 | Worker | Entrypoint | Component doc |
 |---|---|---|
-| `claude-desktop` | `src/claude-desktop` | [components/claude-desktop.md](docs/architecture/components/claude-desktop.md) |
 | `config` | `src/config` | [components/config.md](docs/architecture/components/config.md) |
 | `investigation` | `src/investigation` | [components/investigation.md](docs/architecture/components/investigation.md) |
 | `mcp` | `src/mcp` | [components/mcp.md](docs/architecture/components/mcp.md) |

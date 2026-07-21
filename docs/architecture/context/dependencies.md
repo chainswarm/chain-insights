@@ -1,15 +1,29 @@
 # Dependencies
 
+<!-- Generated from the C4 workspace.dsl — edit the DSL (and repos.json), not this file. -->
+
 ## Systems
 
-- **Chain Insights Graph (Data Pipeline GraphRAG MCP):** Primary upstream dependency for graph queries, AML primitives, network capabilities, and usage status. Required for all investigation tools except wallet_balance and meta_help. Accessed via configured HTTP MCP endpoint (default: http://127.0.0.1:8012/mcp).
-- **RBMK Control Plane:** Development smoke tests, release orchestration, and CI/CD validation. Uses npm package checks, devkit parity workflows, and staging validation for Chain Insights releases.
-- **x402 Payment Network:** Base Mainnet (eip155:8453) for USDC micropayments on paid graph tools. Wallet operations (import, ready, topup) require Base ETH for gas and USDC for payment settlement.
-- **npm Registry:** Public package distribution at https://www.npmjs.com/package/chain-insights. Releases require package.json, package-lock.json, and CHANGELOG.md updates.
+- RBMK Control Center — Runs npm release smoke checks, staging validation, and docs workflows.
+- Data Pipeline GraphRAG MCP — Public MCP endpoint serving graph queries, risk tools, quota, and report metadata.
+- AML ACP — Marketplace bridge that calls Chain Insights workflows through the proxy.
+- Obsidian / LLM Wiki — Optional local knowledge workspace and exported investigation bundle target.
 
 ## Contracts
 
-- **MCP Tool Contract:** Uses @modelcontextprotocol/sdk for stdio transport, tool registration, and remote HTTP client (StreamableHTTPClientTransport with SSE fallback). Exposes tools with inputSchema (Zod), annotations (readOnlyHint, idempotentHint), and structuredContent responses.
-- **Graph Query Contract:** topology (unified recent + full historical FLOWS_TO topology, Address nodes with labels/risk/is_exchange, plus the LINKED ownership overlay), facts (labels, features, enrichment). The ML risk verdict is topology-only. Reads only; no CREATE/MERGE/SET/DELETE.
-- **x402 Payment Contract:** HTTP 402 PaymentRequired responses with payment-required header containing JSON-encoded {error, accepts: [{scheme, network, amount, payTo}]}. Client wraps fetch with ExactEvmScheme and UptoEvmScheme from @x402/evm.
-- **Workspace Schema Contract:** Compact evidence uses chain-insights.probe_evidence.v1, graph data uses chain-insights.graph.v1, runtime schema uses chain-insights.runtime_graph_schema.v1. All workspace JSON files include schema version field.
+- cia CLI → Data Pipeline GraphRAG MCP: Calls graph tools and AML primitives
+- MCP Proxy → Data Pipeline GraphRAG MCP: Proxies configured tools
+- cia CLI → Obsidian / LLM Wiki: Opens or exports curated investigation bundles
+
+## Sibling Repositories
+
+- `ml-pipeline` (ml) — https://github.com/chainswarm/ml-pipeline.git
+- `data-pipeline` (ml) — https://github.com/chainswarm/data-pipeline.git
+- `aml-acp` (ml) — https://github.com/chainswarm/aml-acp.git
+- `pricing-oracle` (ml) — https://github.com/chainswarm/pricing-oracle.git
+- `starrocks-exporter` (ml) — https://github.com/chainswarm/starrocks-exporter.git
+- `indexer-evm` (indexers) — https://github.com/chainswarm/indexer-evm.git
+- `indexer-substrate` (indexers) — https://github.com/chainswarm/indexer-substrate.git
+- `devops` (infra) — https://github.com/chainswarm/devops.git
+- `website` (infra) — https://github.com/chainswarm/website.git
+- `chain-insights-publisher` (infra) — https://github.com/chainswarm/chain-insights-publisher.git

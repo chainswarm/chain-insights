@@ -36,7 +36,6 @@ One doc per `cmd/` worker under `components/`. Generator-owned header, human-own
 
 | Worker | Component doc |
 |---|---|
-| `claude-desktop` | [claude-desktop](components/claude-desktop.md) |
 | `config` | [config](components/config.md) |
 | `investigation` | [investigation](components/investigation.md) |
 | `mcp` | [mcp](components/mcp.md) |
@@ -49,10 +48,10 @@ One doc per `cmd/` worker under `components/`. Generator-owned header, human-own
 ### structurizr-chain-insights-components
 
 
-![structurizr-chain-insights-components](diagrams/rendered/structurizr-chain-insights-components.png)
+![structurizr-chain-insights-components](diagrams/rendered/global/structurizr-chain-insights-components.png)
 
 
-[vector SVG](diagrams/rendered/structurizr-chain-insights-components.svg) · [PNG](diagrams/rendered/structurizr-chain-insights-components.png)
+[vector SVG](diagrams/rendered/global/structurizr-chain-insights-components.svg) · [PNG](diagrams/rendered/global/structurizr-chain-insights-components.png)
 
 
 See [context/overview.md](context/overview.md) for context.
@@ -60,10 +59,10 @@ See [context/overview.md](context/overview.md) for context.
 ### structurizr-chain-insights-containers
 
 
-![structurizr-chain-insights-containers](diagrams/rendered/structurizr-chain-insights-containers.png)
+![structurizr-chain-insights-containers](diagrams/rendered/global/structurizr-chain-insights-containers.png)
 
 
-[vector SVG](diagrams/rendered/structurizr-chain-insights-containers.svg) · [PNG](diagrams/rendered/structurizr-chain-insights-containers.png)
+[vector SVG](diagrams/rendered/global/structurizr-chain-insights-containers.svg) · [PNG](diagrams/rendered/global/structurizr-chain-insights-containers.png)
 
 
 See [context/overview.md](context/overview.md) for context.
@@ -71,10 +70,10 @@ See [context/overview.md](context/overview.md) for context.
 ### structurizr-chain-insights-context
 
 
-![structurizr-chain-insights-context](diagrams/rendered/structurizr-chain-insights-context.png)
+![structurizr-chain-insights-context](diagrams/rendered/global/structurizr-chain-insights-context.png)
 
 
-[vector SVG](diagrams/rendered/structurizr-chain-insights-context.svg) · [PNG](diagrams/rendered/structurizr-chain-insights-context.png)
+[vector SVG](diagrams/rendered/global/structurizr-chain-insights-context.svg) · [PNG](diagrams/rendered/global/structurizr-chain-insights-context.png)
 
 
 See [context/overview.md](context/overview.md) for context.
