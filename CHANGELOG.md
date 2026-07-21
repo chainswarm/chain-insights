@@ -3,6 +3,18 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.7] - 2026-07-21
+
+- Adopt the open npm dependabot PRs in one batch (#193, #192, #182, #173):
+  `hono` 4.12.27→4.12.31, `@hono/node-server` 2.0.8→2.0.11 (via `npm update`,
+  supersedes the PR's 2.0.10 target), `@x402/evm` 2.17.0→2.19.0, `@x402/fetch`
+  2.17.0→2.19.0, `viem` 2.53.x→2.55.4, `@types/node` 26.0.1→26.1.1, `tsdown`
+  0.22.3→0.22.12, `tsx` 4.21.x→4.23.1, `vitest` 4.1.9→4.1.10, and `typescript`
+  6.0.3→7.0.2 (major bump, `package.json` range updated; the other bumps
+  already satisfied their existing `^` ranges so only `package-lock.json`
+  moved). Full suite (typecheck, build, test, release:check) green after the
+  bump.
+
 ## [0.10.6] - 2026-07-21
 
 - Ship the capped `facts_transfers_view` devkit fixture (rbmk#447 P5 final
