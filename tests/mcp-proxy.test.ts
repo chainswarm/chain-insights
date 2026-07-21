@@ -1469,6 +1469,105 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(inflowQuery).toContain('LIMIT 200')
   })
 
+  it('aml_address_risk escalates purely on topology label_risk when the ML verdict abstains, and drops labels beyond the top-10 deterministic window', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query_batch', description: 'Cypher topology query batch' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    // 11 label_risk entries with distinct updated_timestamp values: the
+    // oldest ('stale-label-oldest') must be dropped by the derived top-10
+    // window, and the strongest surviving label ('Scam laundering
+    // intermediate', risk_level critical) must drive escalation even though
+    // the ML verdict abstains (UNSCORED) -- this fails closed to "no
+    // signal" if deriveLabelRows reads the wrong field, breaks its sort, or
+    // returns [].
+    const labelRisk = [
+      { label: 'stale-label-oldest', risk_level: 'low', updated_timestamp: 1000 },
+      { label: 'Scam laundering intermediate', risk_level: 'critical', updated_timestamp: 1700000000000 },
+      { label: 'filler-label-2', risk_level: 'low', updated_timestamp: 1600000000009 },
+      { label: 'filler-label-3', risk_level: 'low', updated_timestamp: 1600000000008 },
+      { label: 'filler-label-4', risk_level: 'low', updated_timestamp: 1600000000007 },
+      { label: 'filler-label-5', risk_level: 'low', updated_timestamp: 1600000000006 },
+      { label: 'filler-label-6', risk_level: 'low', updated_timestamp: 1600000000005 },
+      { label: 'filler-label-7', risk_level: 'low', updated_timestamp: 1600000000004 },
+      { label: 'filler-label-8', risk_level: 'low', updated_timestamp: 1600000000003 },
+      { label: 'filler-label-9', risk_level: 'low', updated_timestamp: 1600000000002 },
+      { label: 'filler-label-10', risk_level: 'low', updated_timestamp: 1600000000001 },
+    ]
+    clientInstance.callTool
+      .mockResolvedValueOnce({
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            schema: 'chain-insights.result.v1',
+            tool: 'graph_query_batch',
+            facts: {
+              queries: [
+                {
+                  id: 'address_profile',
+                  ok: true,
+                  results: [{
+                    address: '5LabelOnly',
+                    network: 'bittensor',
+                    display_labels: ['scam laundering intermediate'],
+                    system_labels: ['Address'],
+                    live_risk_score: 0.12,
+                    live_risk_level: 'UNSCORED',
+                    label_risk: labelRisk,
+                    degree_in: 1,
+                    degree_out: 1,
+                  }],
+                },
+                { id: 'exchange_outflows_1', ok: true, results: [] },
+                { id: 'exchange_outflows_2', ok: true, results: [] },
+                { id: 'exchange_outflows_3', ok: true, results: [] },
+                { id: 'exchange_inflows_1', ok: true, results: [] },
+                { id: 'exchange_inflows_2', ok: true, results: [] },
+                { id: 'exchange_inflows_3', ok: true, results: [] },
+                { id: 'connection_probe', ok: true, results: [] },
+              ],
+            },
+          }),
+        }],
+        isError: false,
+      })
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'aml_address_risk')
+    const result = await handler({ address: '5LabelOnly', network: 'bittensor' })
+
+    expect(result.isError).toBe(false)
+    // (a) the escalated verdict level -- the strongest label (critical)
+    // drives the level even though the ML verdict abstained.
+    expect(result.structuredContent.facts.risk).toMatchObject({ level: 'critical' })
+    expect(result.content[0].text).toContain('Risk: critical')
+    // (b) the drivers line surfaces the escalating label by name.
+    const drivers = result.structuredContent.facts.risk.drivers as string[]
+    expect(drivers.some((driver) => driver.includes('Labels:') && driver.includes('Scam laundering intermediate'))).toBe(true)
+    // (c) sources carries the topology/address_node label_risk provenance
+    // with that label, and the oldest (11th) label is excluded by the
+    // top-10 deterministic window.
+    const sources = result.structuredContent.facts.risk.sources as Array<Record<string, unknown>>
+    const labelRiskSource = sources.find((source) => source['family'] === 'label_risk')
+    expect(labelRiskSource).toMatchObject({ family: 'label_risk', layer: 'topology', source: 'address_node' })
+    const sourceLabels = (labelRiskSource?.['labels'] as Array<Record<string, unknown>>).map((entry) => entry['label'])
+    expect(sourceLabels).toContain('Scam laundering intermediate')
+    expect(sourceLabels).not.toContain('stale-label-oldest')
+    expect(sourceLabels).toHaveLength(10)
+  })
+
   it('aml_address_risk writes workspace artifacts and references them in evidence', async () => {
     const { createProxy } = await import('../src/mcp/proxy.js')
     const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
