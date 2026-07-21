@@ -9,7 +9,7 @@ const DNS_LOOPBACK_LOOKALIKE_ENDPOINTS = [
 ] as const
 
 const CLUSTER_LOCAL_GRAPH_MCP_ENDPOINT =
-  'http://chainswarm-chain-insights-graph.chainswarm-staging.svc.cluster.local:8012/mcp'
+  'http://chainswarm-chain-insights-graph.chainswarm-pre-staging.svc.cluster.local:8012/mcp'
 
 describe('Config system (FOUND-05)', () => {
   let fakeHome: string
@@ -200,7 +200,7 @@ describe('Config system (FOUND-05)', () => {
   })
 
   it('rejects DNS hostnames that only look like Kubernetes service DNS', async () => {
-    const endpoint = 'http://chainswarm-chain-insights-graph.chainswarm-staging.svc.cluster.local.evil.com:8012/mcp'
+    const endpoint = 'http://chainswarm-chain-insights-graph.chainswarm-pre-staging.svc.cluster.local.evil.com:8012/mcp'
     const { saveConfig, resetConfigCache } = await import('../src/config/index.js')
     await resetConfigCache()
     await expect(saveConfig({ graphMcpEndpoint: endpoint }))
