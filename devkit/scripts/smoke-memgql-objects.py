@@ -20,6 +20,41 @@ NETWORK = os.environ.get("CHAIN_INSIGHTS_DEVKIT_NETWORK", "bittensor")
 # it no longer needs a coverage-check exemption here.
 ALLOWED_UNEXPORTED_TABLES: set[str] = set()
 
+# Tables whose facts-scope admission REQUIRES an indexed predicate even for a
+# LIMIT-1 row-select (the TRANSFER edge rule, rbmk#447 P5): a bare
+# `MATCH ()-[r:...]->() LIMIT 1` probe is rejected BY DESIGN, so the coverage
+# probe anchors on a real value read from the shipped fixture itself — which
+# also upgrades the check to prove imported DATA is served (rows_returned=1),
+# not merely that the shape compiles.
+BOUNDED_PROBE_TABLES: dict[str, str] = {
+    "facts_transfers_view": "from_address",
+}
+
+
+def fixture_anchor_value(table: str, column: str) -> str | None:
+    """First data row's value for `column` from the table's shipped fixture."""
+    import csv
+    import gzip
+
+    manifest_path = DEVKIT_ROOT / "data/manifest.json"
+    if not manifest_path.is_file():
+        return None
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for entry in manifest.get("objects", []):
+        if entry.get("name") != table:
+            continue
+        parts = entry.get("parts") or [{"path": entry.get("path", "")}]
+        for part in parts:
+            path = DEVKIT_ROOT / "data" / part.get("path", "")
+            if not path.is_file():
+                continue
+            with gzip.open(path, "rt", encoding="utf-8", newline="") as handle:
+                for row in csv.DictReader(handle, delimiter="\t"):
+                    value = (row.get(column) or "").strip()
+                    if value:
+                        return value
+    return None
+
 
 def layer_for_table(table: str) -> str:
     # Every table the vendored translator now maps is served by the facts
@@ -109,9 +144,20 @@ def main() -> None:
             if source_node
             else f"src.{edge['source_column']}"
         )
+        anchor_column = BOUNDED_PROBE_TABLES.get(edge["table"])
+        anchor_predicate = ""
+        if anchor_column:
+            anchor_value = fixture_anchor_value(edge["table"], anchor_column)
+            if anchor_value is None:
+                # No fixture data to anchor on; fall back to a syntactically
+                # admissible literal — proves admission+compile+serving path
+                # (rows_returned will be 0).
+                anchor_value = "coverage-probe-anchor"
+            escaped = anchor_value.replace('"', '')
+            anchor_predicate = f' {{address: "{escaped}"}}'
         query = (
             f"USE {layer_for_table(edge['table'])} "
-            f"MATCH (src:{edge['source_label']})-[r:{edge['rel_type']}]->(dst:{edge['target_label']}) "
+            f"MATCH (src:{edge['source_label']}{anchor_predicate})-[r:{edge['rel_type']}]->(dst:{edge['target_label']}) "
             f"RETURN {projection} AS probe LIMIT 1"
         )
         checks.append(
