@@ -197,7 +197,7 @@ def main() -> None:
 
     # StarRocks-derived coverage keys (substrate_rows, evm_pallet_rows,
     # address_count, linked_pair_count, flow_edge_count) retired 2026-07-21
-    # with the archive_topology_*/facts_address_labels_view exports (rbmk#447
+    # with the legacy archive-tier topology and facts_address_labels_view exports (rbmk#447
     # P2b'/P4'-lite; rbmk export-starrocks-fixture.sh no longer emits them).
     # Memgraph-side coverage keys remain asserted below where present; the
     # coverage object itself is optional pass-through now.
