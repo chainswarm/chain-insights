@@ -25,11 +25,17 @@ MAPPING_CANDIDATES = [
     VENDORED_MAPPING,
 ]
 
+# facts_neuron_endpoints_view, facts_neuron_hotkeys_view, and
+# facts_neuron_ip_addresses_view retired 2026-07-21 (rbmk migration 0031):
+# neuron identity, hotkey/coldkey pairing, and IP/axon-port observation now
+# live on the topology :Neuron node and MINES/VALIDATES/HOTKEY_OF/COLDKEY_OF
+# edges (rbmk#447 P4'-lite). The rbmk exporter no longer emits them and the
+# vendored cyphersql mapping no longer maps them (mirrors data-pipeline
+# 75ce9c96), so their tsv.gz fixtures are dead weight the devkit can never
+# serve -- dropped from the manifest and REQUIRED_TABLES together with this
+# retirement.
 REQUIRED_TABLES = {
     "facts_address_features_view",
-    "facts_neuron_endpoints_view",
-    "facts_neuron_hotkeys_view",
-    "facts_neuron_ip_addresses_view",
 }
 
 # facts_transfers_view (rbmk#447 P5) is mapped in the vendored cyphersql

@@ -144,6 +144,61 @@ func TestLabelEdgeRejectedAsUnmapped(t *testing.T) {
 	}
 }
 
+// The retired NeuronEndpoint/Hotkey/IPAddress facts labels and their
+// HAS_NEURON_ENDPOINT/REGISTERED_NEURON/SERVED_FROM/OPERATED_FROM edges
+// (facts_neuron_endpoints_view, facts_neuron_hotkeys_view,
+// facts_neuron_ip_addresses_view, dropped schema-side by rbmk migration 0031)
+// are no longer mapped: neuron identity, hotkey/coldkey pairing, and
+// IP/axon-port observation now live on the topology :Neuron node and
+// MINES/VALIDATES/HOTKEY_OF/COLDKEY_OF edges. A facts query against any of
+// the retired shapes fails at COMPILE time with the unknown-label/unknown-
+// relationship validation error instead of reaching StarRocks.
+func TestNeuronShapesRejectedAsUnmapped(t *testing.T) {
+	cases := []struct {
+		query   string
+		wantErr string
+	}{
+		{
+			`USE facts MATCH (n:NeuronEndpoint) WHERE n.netuid = 15 RETURN n.endpoint_id AS endpoint_id LIMIT 25`,
+			`node label "NeuronEndpoint" is not mapped`,
+		},
+		{
+			`USE facts MATCH (a:Address {address: "x"})-[hne:HAS_NEURON_ENDPOINT]->(n:NeuronEndpoint) RETURN n.endpoint_id AS endpoint_id LIMIT 25`,
+			`relationship type "HAS_NEURON_ENDPOINT" is not mapped`,
+		},
+		{
+			`USE facts MATCH (a:Address {address: "x"})-[reg:REGISTERED_NEURON]->(h:Hotkey) RETURN h.address AS hotkey_address LIMIT 25`,
+			`relationship type "REGISTERED_NEURON" is not mapped`,
+		},
+		{
+			`USE facts MATCH (h:Hotkey) RETURN h.address AS address LIMIT 25`,
+			`node label "Hotkey" is not mapped`,
+		},
+		{
+			`USE facts MATCH (h:Hotkey)-[sf:SERVED_FROM]->(ip:IPAddress) RETURN ip.ip_address AS ip_address LIMIT 25`,
+			`relationship type "SERVED_FROM" is not mapped`,
+		},
+		{
+			`USE facts MATCH (a:Address {address: "x"})-[op:OPERATED_FROM]->(ip:IPAddress) RETURN ip.ip_address AS ip_address LIMIT 25`,
+			`relationship type "OPERATED_FROM" is not mapped`,
+		},
+		{
+			`USE facts MATCH (ip:IPAddress) RETURN ip.ip_address AS ip_address LIMIT 25`,
+			`node label "IPAddress" is not mapped`,
+		},
+	}
+	for _, c := range cases {
+		_, err := Compile(c.query)
+		if err == nil {
+			t.Errorf("expected unmapped rejection for: %s", c.query)
+			continue
+		}
+		if !strings.Contains(err.Error(), c.wantErr) {
+			t.Errorf("error %q does not contain %q for query: %s", err.Error(), c.wantErr, c.query)
+		}
+	}
+}
+
 // The TRANSFER facts edge (facts_transfers_view) compiles the
 // (from:Address)-[t:TRANSFER]->(to:Address) shape: endpoint identity binds via
 // from_address/to_address (the Address node's "address" id column), and the

@@ -30,47 +30,6 @@
         "last_activity_timestamp": "last_activity_timestamp",
         "activity_span_days": "activity_span_days"
       }
-    },
-    {
-      "label": "NeuronEndpoint",
-      "table": "facts_neuron_endpoints_view",
-      "id_column": "endpoint_id",
-      "properties": {
-        "endpoint_id": "endpoint_id",
-        "coldkey_address": "coldkey_address",
-        "hotkey_address": "hotkey_address",
-        "netuid": "netuid",
-        "ip_address": "ip_address",
-        "axon_port": "axon_port",
-        "prometheus_port": "prometheus_port",
-        "first_seen_timestamp": "first_seen_timestamp",
-        "last_seen_timestamp": "last_seen_timestamp",
-        "observation_count": "observation_count"
-      }
-    },
-    {
-      "label": "Hotkey",
-      "table": "facts_neuron_hotkeys_view",
-      "id_column": "address",
-      "properties": {
-        "address": "address",
-        "netuids": "netuids",
-        "first_seen_timestamp": "first_seen_timestamp",
-        "last_seen_timestamp": "last_seen_timestamp",
-        "observation_count": "observation_count"
-      }
-    },
-    {
-      "label": "IPAddress",
-      "table": "facts_neuron_ip_addresses_view",
-      "id_column": "ip_address",
-      "properties": {
-        "ip_address": "ip_address",
-        "netuids": "netuids",
-        "first_seen_timestamp": "first_seen_timestamp",
-        "last_seen_timestamp": "last_seen_timestamp",
-        "observation_count": "observation_count"
-      }
     }
   ],
   "edges": [
@@ -84,71 +43,6 @@
       "target_label": "AddressFeature",
       "properties": {
         "feature_scope": "feature_scope"
-      }
-    },
-    {
-      "rel_type": "HAS_NEURON_ENDPOINT",
-      "table": "facts_neuron_endpoints_view",
-      "id_column": "endpoint_id",
-      "source_column": "coldkey_address",
-      "target_column": "endpoint_id",
-      "source_label": "Address",
-      "target_label": "NeuronEndpoint",
-      "properties": {
-        "netuid": "netuid",
-        "hotkey_address": "hotkey_address",
-        "ip_address": "ip_address",
-        "last_seen_timestamp": "last_seen_timestamp"
-      }
-    },
-    {
-      "rel_type": "REGISTERED_NEURON",
-      "table": "facts_neuron_endpoints_view",
-      "id_column": "endpoint_id",
-      "source_column": "coldkey_address",
-      "target_column": "hotkey_address",
-      "source_label": "Address",
-      "target_label": "Hotkey",
-      "properties": {
-        "netuid": "netuid",
-        "first_seen_timestamp": "first_seen_timestamp",
-        "last_seen_timestamp": "last_seen_timestamp",
-        "observation_count": "observation_count"
-      }
-    },
-    {
-      "rel_type": "SERVED_FROM",
-      "table": "facts_neuron_endpoints_view",
-      "id_column": "endpoint_id",
-      "source_column": "hotkey_address",
-      "target_column": "ip_address",
-      "source_label": "Hotkey",
-      "target_label": "IPAddress",
-      "properties": {
-        "netuid": "netuid",
-        "axon_port": "axon_port",
-        "prometheus_port": "prometheus_port",
-        "first_seen_timestamp": "first_seen_timestamp",
-        "last_seen_timestamp": "last_seen_timestamp",
-        "observation_count": "observation_count"
-      }
-    },
-    {
-      "rel_type": "OPERATED_FROM",
-      "table": "facts_neuron_endpoints_view",
-      "id_column": "endpoint_id",
-      "source_column": "coldkey_address",
-      "target_column": "ip_address",
-      "source_label": "Address",
-      "target_label": "IPAddress",
-      "properties": {
-        "netuid": "netuid",
-        "hotkey_address": "hotkey_address",
-        "axon_port": "axon_port",
-        "prometheus_port": "prometheus_port",
-        "first_seen_timestamp": "first_seen_timestamp",
-        "last_seen_timestamp": "last_seen_timestamp",
-        "observation_count": "observation_count"
       }
     },
     {

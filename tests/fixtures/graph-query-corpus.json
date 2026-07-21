@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/generate-query-corpus.mjs",
- "entry_count": 100,
+ "entry_count": 93,
  "entries": [
   {
    "builder": "addressFeatureQuery",
@@ -162,99 +162,6 @@
    },
    "scope": "facts",
    "query": "USE facts MATCH (a:Address) RETURN a.address AS address, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 25"
-  },
-  {
-   "builder": "documented-recipe",
-   "params": {
-    "id": "recipe_facts_06",
-    "features": [
-     "label-match",
-     "where-clause",
-     "order-by"
-    ]
-   },
-   "scope": "facts",
-   "query": "USE facts MATCH (n:NeuronEndpoint) WHERE n.netuid = 15 RETURN n.endpoint_id AS endpoint_id, n.coldkey_address AS coldkey_address, n.hotkey_address AS hotkey_address, n.netuid AS netuid, n.ip_address AS ip_address, n.axon_port AS axon_port ORDER BY n.last_seen_timestamp DESC LIMIT 25"
-  },
-  {
-   "builder": "documented-recipe",
-   "params": {
-    "id": "recipe_facts_07",
-    "features": [
-     "fixed-hop",
-     "label-match",
-     "inline-property-map",
-     "order-by"
-    ]
-   },
-   "scope": "facts",
-   "query": "USE facts MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[hne:HAS_NEURON_ENDPOINT]->(n:NeuronEndpoint) RETURN n.endpoint_id AS endpoint_id, hne.netuid AS netuid, hne.hotkey_address AS hotkey_address, hne.ip_address AS ip_address, hne.last_seen_timestamp AS last_seen_timestamp ORDER BY hne.last_seen_timestamp DESC LIMIT 25"
-  },
-  {
-   "builder": "documented-recipe",
-   "params": {
-    "id": "recipe_facts_08",
-    "features": [
-     "fixed-hop",
-     "label-match",
-     "inline-property-map",
-     "where-clause",
-     "order-by"
-    ]
-   },
-   "scope": "facts",
-   "query": "USE facts MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[reg:REGISTERED_NEURON]->(h:Hotkey) WHERE reg.netuid = 15 RETURN h.address AS hotkey_address, reg.netuid AS netuid, reg.observation_count AS observation_count, reg.last_seen_timestamp AS last_seen_timestamp ORDER BY reg.last_seen_timestamp DESC LIMIT 25"
-  },
-  {
-   "builder": "documented-recipe",
-   "params": {
-    "id": "recipe_facts_09",
-    "features": [
-     "label-match",
-     "order-by"
-    ]
-   },
-   "scope": "facts",
-   "query": "USE facts MATCH (h:Hotkey) RETURN h.address AS address, h.netuids AS netuids, h.observation_count AS observation_count, h.first_seen_timestamp AS first_seen_timestamp, h.last_seen_timestamp AS last_seen_timestamp ORDER BY h.observation_count DESC LIMIT 25"
-  },
-  {
-   "builder": "documented-recipe",
-   "params": {
-    "id": "recipe_facts_10",
-    "features": [
-     "fixed-hop",
-     "label-match",
-     "inline-property-map"
-    ]
-   },
-   "scope": "facts",
-   "query": "USE facts MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:REGISTERED_NEURON]->(h:Hotkey)-[sf:SERVED_FROM]->(ip:IPAddress) RETURN h.address AS hotkey_address, ip.ip_address AS ip_address, sf.axon_port AS axon_port, sf.prometheus_port AS prometheus_port, sf.netuid AS netuid LIMIT 25"
-  },
-  {
-   "builder": "documented-recipe",
-   "params": {
-    "id": "recipe_facts_11",
-    "features": [
-     "fixed-hop",
-     "label-match",
-     "inline-property-map",
-     "where-clause"
-    ]
-   },
-   "scope": "facts",
-   "query": "USE facts MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[op:OPERATED_FROM]->(ip:IPAddress) WHERE op.netuid = 15 RETURN ip.ip_address AS ip_address, op.netuid AS netuid, op.hotkey_address AS hotkey_address, op.axon_port AS axon_port, op.last_seen_timestamp AS last_seen_timestamp LIMIT 25"
-  },
-  {
-   "builder": "documented-recipe",
-   "params": {
-    "id": "recipe_facts_12",
-    "features": [
-     "label-match",
-     "order-by"
-    ]
-   },
-   "scope": "facts",
-   "query": "USE facts MATCH (ip:IPAddress) RETURN ip.ip_address AS ip_address, ip.netuids AS netuids, ip.observation_count AS observation_count, ip.last_seen_timestamp AS last_seen_timestamp ORDER BY ip.observation_count DESC LIMIT 25"
   },
   {
    "builder": "documented-recipe",

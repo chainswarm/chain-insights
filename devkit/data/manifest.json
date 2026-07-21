@@ -35,39 +35,6 @@
       "sha256": "9ffa45fb54acde0e5544cde3bfcda827fdbeec2f16a14c02f5239744bfd3b204"
     },
     {
-      "database": "bittensor",
-      "name": "facts_neuron_endpoints_view",
-      "format": "tsv.gz",
-      "path": "starrocks/facts_neuron_endpoints_view.tsv.gz",
-      "row_count": 144731,
-      "source_min": "2024-01-01T00:02:24Z",
-      "exported_min": "2024-01-01T00:02:24Z",
-      "exported_max": "2024-09-11T16:25:12Z",
-      "sha256": "9584f6bf3b22dd1109f4b1d4cd629af5303600bd28d45b45b133a0428f01b7d8"
-    },
-    {
-      "database": "bittensor",
-      "name": "facts_neuron_hotkeys_view",
-      "format": "tsv.gz",
-      "path": "starrocks/facts_neuron_hotkeys_view.tsv.gz",
-      "row_count": 46056,
-      "source_min": "2024-01-01T00:21:00Z",
-      "exported_min": "2024-01-01T00:21:00Z",
-      "exported_max": "2024-09-11T16:25:12Z",
-      "sha256": "0e2453ad6e5e8218a23f1a8b4ed970882232925ea99840cb643275df9b1e5c5d"
-    },
-    {
-      "database": "bittensor",
-      "name": "facts_neuron_ip_addresses_view",
-      "format": "tsv.gz",
-      "path": "starrocks/facts_neuron_ip_addresses_view.tsv.gz",
-      "row_count": 22480,
-      "source_min": "2024-01-01T00:21:00Z",
-      "exported_min": "2024-01-01T00:21:00Z",
-      "exported_max": "2024-09-11T16:19:24Z",
-      "sha256": "7bccb900141ab640116cd49dbe06bc354834a236585cee060e97fe40b6a017f7"
-    },
-    {
       "database": "memgraph",
       "name": "memgraph_nodes",
       "format": "jsonl.gz",

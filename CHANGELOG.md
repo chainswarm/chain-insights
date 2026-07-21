@@ -3,6 +3,52 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.4] - 2026-07-21
+
+- Retire the facts-scope `NeuronEndpoint`/`Hotkey`/`IPAddress` mappings and
+  their dead fixtures (rbmk#447 P4′-lite completion): `facts_neuron_endpoints_view`,
+  `facts_neuron_hotkeys_view`, and `facts_neuron_ip_addresses_view` dropped
+  from the warehouse (rbmk migration 0031) and stopped being exported by the
+  rbmk fixture exporter tonight. Mirrors data-pipeline's mapping removal
+  (`75ce9c96`/`67744b2f`): the devkit's vendored `mapping.json` drops the
+  three node entries and the `HAS_NEURON_ENDPOINT`/`REGISTERED_NEURON`/
+  `SERVED_FROM`/`OPERATED_FROM` edges (now byte-identical to
+  data-pipeline's mapping.json), `compile_test.go` gains
+  `TestNeuronShapesRejectedAsUnmapped` (all seven retired shapes reject as
+  unmapped at compile time), and `testdata/facts-goldens.json` drops the
+  seven neuron goldens (`recipe_facts_06..12`). `devkit/data/manifest.json`
+  drops the three neuron fixture objects and their `tsv.gz` files are
+  removed; `REQUIRED_TABLES` in `validate-manifest.py` shrinks to
+  `{facts_address_features_view}` with a retirement comment — validated
+  green: "validated 3 devkit fixture objects". No devkit import/smoke
+  script hardcoded the three table names (manifest-driven), so none needed
+  changes.
+  `tests/fixtures/documented-recipes.json` drops `recipe_facts_06..12` (the
+  corpus generator source, not just the fixture) and the regenerated
+  `graph-query-corpus.json` shrinks 100 -> 93 entries. Reconciliation:
+  the regenerated corpus's `documented-recipe` id set is now **exactly
+  identical** to data-pipeline's `internal/graphmcp/testdata/
+  chain_insights_query_corpus.json` mirror (both 93 entries, same ids) —
+  the P5 Task 3 neuron/TRANSFER divergence is fully closed. The only
+  remaining diff between the two files is pre-existing and unrelated to
+  tonight's work: chain-insights's `addressProfileQuery` builder entries
+  (params `{address: "corpus-address-a"}` and the quote-escaping variant,
+  topology scope) project an extra `a.label_risk AS label_risk` field that
+  data-pipeline's mirror lacks — a future dp-side sync should copy those 2
+  entries verbatim to reach full byte-identity.
+  `src/mcp/proxy.ts`, `src/workspace/init.ts`'s sibling skill
+  (`chain-insights-bittensor-cypher/SKILL.md`), and
+  `docs/graph-query-compatibility.md` drop the `NeuronEndpoint`/`Hotkey`/
+  `IPAddress` facts mentions and `REGISTERED_NEURON`/`SERVED_FROM`/
+  `HAS_NEURON_ENDPOINT`/`OPERATED_FROM` edge references, restating that
+  neuron identity/hotkey-coldkey pairing/IP-axon-port observation live
+  entirely on the topology `:Neuron` node and
+  `MINES`/`VALIDATES`/`HOTKEY_OF`/`COLDKEY_OF` edges.
+  `tests/skills-contract.test.ts` and `tests/mcp-proxy.test.ts` flip their
+  `REGISTERED_NEURON`/`SERVED_FROM`/`NeuronEndpoint` assertions to
+  `not.toContain` and add `toContain` coverage for the topology neuron
+  edges, per the `c7c888c`/`1a57b80` retirement-assertion pattern.
+
 ## [0.10.3] - 2026-07-21
 
 - Map the facts-scope `TRANSFER` edge onto `facts_transfers_view`

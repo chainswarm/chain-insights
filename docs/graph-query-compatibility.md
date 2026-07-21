@@ -88,7 +88,7 @@ rejected with a typed contract error before execution.
 
 | Construct | Notes |
 | --- | --- |
-| `MATCH` on a mapped node / single relationship | `(from:Address)-[t:TRANSFER]->(to:Address)` (bounded individual transfer rows from `facts_transfers_view`), `(:Address)-[:HAS_FEATURE]->(:AddressFeature)` (until P3), neuron endpoint facts. Never serves `FLOWS_TO` or `LINKED` — those are topology-only. Labels and per-label risk live on the topology address node, not on `facts`. |
+| `MATCH` on a mapped node / single relationship | `(from:Address)-[t:TRANSFER]->(to:Address)` (bounded individual transfer rows from `facts_transfers_view`), `(:Address)-[:HAS_FEATURE]->(:AddressFeature)` (until P3). Never serves `FLOWS_TO` or `LINKED` — those are topology-only. Neuron identity, hotkey/coldkey pairing, and IP/axon-port observation live on the topology `:Neuron` node, not on `facts`. Labels and per-label risk live on the topology address node, not on `facts`. |
 | Chained fixed-hop patterns | up to 5 hops |
 | `WHERE` with an indexed predicate | `address` equality or `IN`; `tx_id` equality or `IN` (the `TRANSFER` edge's row-level key); date/height/timestamp range |
 | Inline property maps | `MATCH (a:Address {address:"…"})` |
@@ -157,9 +157,9 @@ labels, so taxonomy-label patterns are topology-only. The property-flag form
   routing or `*BFS 1..k` for reachability, instead of enumerating hops client-side.
   The topology graph already covers full lifetime history — there is no separate
   mode to opt into for older activity.
-- **Facts stays fixed-hop.** For labels, features, assets, and
-  neuron enrichment, write one explicit pattern per shape and batch them with
-  `graph_query_batch`.
+- **Facts stays fixed-hop.** For bounded transfer rows and, until P3,
+  address features, write one explicit pattern per shape and batch them
+  with `graph_query_batch`.
 - When a query is rejected, read the returned contract error — it names the exact
   violated bound or unsupported shape.
 

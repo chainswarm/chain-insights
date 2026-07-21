@@ -531,7 +531,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).toContain('schema discovery')
     expect(instructions).toContain('Select the graph with USE topology')
     expect(instructions).toContain('address is the node grain, not the topology name')
-    expect(instructions).toContain('NeuronEndpoint')
+    expect(instructions).not.toContain('NeuronEndpoint')
+    expect(instructions).toContain('(:Neuron)-[:MINES|:VALIDATES]->(:Subnet')
+    expect(instructions).toContain('(:Address)-[:HOTKEY_OF|:COLDKEY_OF]->(:Neuron)')
   })
 
   it('forwards tool call arguments to remoteClient.callTool', async () => {

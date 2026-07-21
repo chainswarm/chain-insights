@@ -49,9 +49,10 @@ Observed against the address-serving contract on 2026-07-07:
   `price_missing`) — every `TRANSFER` query requires an indexed predicate
   (address equality on either endpoint, or `WHERE t.tx_id = "..."`); a bare
   `LIMIT` alone is rejected. Until P3, `facts` also carries address-keyed
-  enrichment through `HAS_FEATURE`. Bittensor neuron facts may include
-  `REGISTERED_NEURON` and `SERVED_FROM` paths when the endpoint exposes
-  them. Labels and per-label risk live on the topology address node
+  enrichment through `HAS_FEATURE`. Neuron identity, hotkey/coldkey
+  pairing, and IP/axon-port observation live on the topology `:Neuron`
+  node and `MINES`/`VALIDATES`/`HOTKEY_OF`/`COLDKEY_OF` edges, not on
+  `facts`. Labels and per-label risk live on the topology address node
   (`labels` array + `label_risk` entries), not on `facts`.
 - Use the generic skill reference `references/memgraph-examples.md` for tested
   examples and fixed-hop traversal fallbacks. Native Memgraph deep traversal
