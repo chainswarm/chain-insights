@@ -48,5 +48,6 @@ func newErr(sentinel error, pos int, format string, args ...any) *compileError {
 }
 
 const supportedPatterns = "supported facts shapes: single-node lookup/scan, " +
-	"node-edge-node, fixed 1..5-hop facts edge chains (HAS_* enrichment), count() — " +
-	"with WHERE (comparisons/AND/OR/IS [NOT] NULL), ORDER BY, and a required LIMIT<=1000"
+	"node-edge-node, fixed 1..5-hop facts edge chains (HAS_*/TRANSFER enrichment), " +
+	"count()/sum() — with WHERE (comparisons/AND/OR/IS [NOT] NULL), ORDER BY, and a " +
+	"required LIMIT<=1000"

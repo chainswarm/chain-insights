@@ -72,6 +72,11 @@ var (
 	addressMapPredicatePattern   = regexp.MustCompile(`(?is)\{\s*` + "`?" + `address` + "`?" + `\s*:`)
 	addressWherePredicatePattern = regexp.MustCompile(`(?is)\bWHERE\b.*(?:\.\s*` + "`?" + `address` + "`?" + `|\b` + "`?" + `address` + "`?" + `)\s*(?:=|IN\b)`)
 	rangeWherePredicatePattern   = regexp.MustCompile(`(?is)\bWHERE\b.*\b(?:activity_date|block_date|block_height|block_timestamp|period_start_date|price_date|last_seen_timestamp|first_seen_timestamp)\b\s*(?:=|<|>|<=|>=|BETWEEN\b|IN\b)`)
+	// txIDWherePredicatePattern recognizes tx_id equality/IN as an indexed
+	// predicate — the TRANSFER edge's natural row-level key alongside address
+	// endpoint equality (facts_transfers_view has no address-map-literal
+	// surface since tx_id is an edge property, not a node id).
+	txIDWherePredicatePattern = regexp.MustCompile(`(?is)\bWHERE\b.*(?:\.\s*` + "`?" + `tx_id` + "`?" + `|\b` + "`?" + `tx_id` + "`?" + `)\s*(?:=|IN\b)`)
 )
 
 type cypherToken struct {
@@ -341,10 +346,30 @@ func validateGraphQueryCostShape(query string) error {
 	if hasGlobalAggregateFunction(query, tokens, aliases) && !hasIndexedPredicate {
 		return errors.New("StarRocks-backed aggregate graph queries require an indexed predicate")
 	}
+	// facts_transfers_view is a full transfer-history table (unlike the
+	// smaller per-address dimension views): a LIMIT alone still forces an
+	// unindexed scan to find the first LIMIT rows. Row-select TRANSFER
+	// queries require an indexed predicate even when LIMIT is present.
+	if usesStarRocksTransferEdge(tokens) && !hasIndexedPredicate {
+		return errors.New("StarRocks-backed TRANSFER graph queries require an indexed predicate (address equality on either endpoint, or tx_id)")
+	}
 	if !hasLimit && !hasIndexedPredicate {
 		return errors.New("StarRocks-backed graph queries require an explicit LIMIT or indexed predicate")
 	}
 	return nil
+}
+
+// usesStarRocksTransferEdge reports whether the query's relationship pattern
+// references the TRANSFER edge type (a `:TRANSFER` token in rel-type
+// position). Purely lexical, like the rest of this file's cost-shape gate —
+// it does not consult the cyphersql mapping.
+func usesStarRocksTransferEdge(tokens []cypherToken) bool {
+	for _, token := range tokens {
+		if token.text == "TRANSFER" && token.precededByColon {
+			return true
+		}
+	}
+	return false
 }
 
 func usesStarRocksBackedGraph(tokens []cypherToken) bool {
@@ -386,7 +411,8 @@ func ClassifyQueryTier(query string) QueryTier {
 func hasStarRocksIndexedPredicate(query string) bool {
 	return addressMapPredicatePattern.MatchString(query) ||
 		addressWherePredicatePattern.MatchString(query) ||
-		rangeWherePredicatePattern.MatchString(query)
+		rangeWherePredicatePattern.MatchString(query) ||
+		txIDWherePredicatePattern.MatchString(query)
 }
 
 func hasGlobalAggregateFunction(query string, tokens []cypherToken, aliases map[string]struct{}) bool {

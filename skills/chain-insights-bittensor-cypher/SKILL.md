@@ -42,8 +42,14 @@ Observed against the address-serving contract on 2026-07-07:
   opt into.
 - `FLOWS_TO` is USD-only for AML value. Use `amount_usd_sum`, not native
   `amount_sum`. Edges are lifetime aggregates (first/last endpoints only).
-- `facts` contains address-keyed enrichment through `HAS_FEATURE`, plus the
-  `LINKED` ownership-overlay pairs. Bittensor neuron facts may include
+- `facts` serves bounded individual transfer rows via
+  `(from:Address)-[t:TRANSFER]->(to:Address)` (properties: `amount`,
+  `amount_usd`, `asset_symbol`, `asset_contract`, `tx_id`, `block_height`,
+  `block_timestamp`, `event_index`, `edge_index`, `price_usd`,
+  `price_missing`) — every `TRANSFER` query requires an indexed predicate
+  (address equality on either endpoint, or `WHERE t.tx_id = "..."`); a bare
+  `LIMIT` alone is rejected. Until P3, `facts` also carries address-keyed
+  enrichment through `HAS_FEATURE`. Bittensor neuron facts may include
   `REGISTERED_NEURON` and `SERVED_FROM` paths when the endpoint exposes
   them. Labels and per-label risk live on the topology address node
   (`labels` array + `label_risk` entries), not on `facts`.
@@ -93,6 +99,23 @@ RETURN address.address AS address,
        feature.tx_in_count AS tx_in_count
 LIMIT 25
 ```
+
+Individual transfer rows, bounded by an address endpoint predicate:
+
+```cypher
+USE facts
+MATCH (from:Address {address: "5Ggf..."})-[t:TRANSFER]->(to:Address)
+RETURN to.address AS to_address,
+       t.tx_id AS tx_id,
+       t.block_height AS block_height,
+       t.amount_usd AS amount_usd,
+       t.asset_symbol AS asset_symbol
+LIMIT 25
+```
+
+`TRANSFER` requires an indexed predicate on every query — address equality on
+either endpoint, or `WHERE t.tx_id = "..."` — regardless of `LIMIT`, since
+`facts_transfers_view` is a full transfer-history table.
 
 ## Schema Probe
 

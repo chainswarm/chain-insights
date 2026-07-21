@@ -3,6 +3,36 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.3] - 2026-07-21
+
+- Map the facts-scope `TRANSFER` edge onto `facts_transfers_view`
+  (rbmk#447 P5 Task 3), mirroring data-pipeline's `cyphersql` mapping
+  addition (`6f679c32`/`a5487cec`): the devkit's vendored
+  `mapping.json`/`ast.go`/`parser.go`/`emit.go`/`errors.go` gain
+  `(from:Address)-[t:TRANSFER]->(to:Address)`, `sum(variable.property)` as a
+  supported facts aggregate (`COALESCE(SUM(...), 0)` for StarRocks
+  empty-group NULL semantics), and a TRANSFER-specific indexed-predicate
+  admission rule in `internal/cypheradmit/cypher.go` (address equality on
+  either endpoint, or `tx_id` equality — required even with `LIMIT`, since
+  `facts_transfers_view` is a full transfer-history table, not a small
+  per-address dimension view); `compile_test.go` and
+  `testdata/facts-goldens.json` gain the TRANSFER golden coverage.
+  `tests/fixtures/documented-recipes.json` gains
+  `recipe_facts_transfer_01..05` (3 admitted row-select/aggregate shapes, 2
+  documented-rejected unbounded shapes), and the regenerated
+  `graph-query-corpus.json` gains the 3 admitted entries (97 -> 100).
+  `devkit/scripts/validate-manifest.py` tolerates `facts_transfers_view`'s
+  absence from the manifest until the devkit fixture export leg ships
+  (operator-side StarRocks export, separate from this change).
+  `src/mcp/proxy.ts`, `src/workspace/init.ts`, the shipped
+  `chain-insights-cypher`/`chain-insights-bittensor-cypher` skills, and
+  `docs/graph-query-compatibility.md` document the TRANSFER edge shape,
+  its properties (`amount`, `amount_usd`, `asset_symbol`, `asset_contract`,
+  `tx_id`, `block_height`, `block_timestamp`, `event_index`, `edge_index`,
+  `price_usd`, `price_missing`), and the mandatory indexed-predicate rule;
+  the facts clause now reads "bounded individual transfer rows (TRANSFER
+  edges) and, until P3, address features."
+
 ## [0.10.2] - 2026-07-21
 
 - Remove the facts-tier `AddressLabel`/`HAS_LABEL` label surface everywhere

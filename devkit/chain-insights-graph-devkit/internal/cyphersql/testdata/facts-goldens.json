@@ -122,13 +122,152 @@
    "query": "USE facts MATCH (a:Address) RETURN count(a) AS address_count LIMIT 1",
    "baseline": "rejected",
    "rejected_reason": "Expecting value: line 1 column 1 (char 0)"
+  },
+  {
+   "id": "recipe_facts_transfer_01",
+   "layer": "facts",
+   "query": "USE facts MATCH (from:Address {address: \"5CF6Ruq6u7DoF6TYxyaFzEuviWi7tjvJtz19XgPS2b7XDCFM\"})-[t:TRANSFER]->(to:Address) RETURN to.address AS to_address, t.tx_id AS tx_id, t.block_height AS block_height, t.amount_usd AS amount_usd, t.asset_symbol AS asset_symbol LIMIT 10",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "to_address": "5C4huVuZ2UNAnckkRvCuRzmdfZnBV4yAJtX7vUinZYvvLxEh",
+     "tx_id": "8556853-12",
+     "block_height": "8556853",
+     "amount_usd": "10.83702936",
+     "asset_symbol": "TAO"
+    },
+    {
+     "to_address": "5C5fddGoxJ4mxHB7Hj6hJK6D1HCmH1mxUYJGrrpxhM6YYUyk",
+     "tx_id": "8537436-16",
+     "block_height": "8537436",
+     "amount_usd": "6054.24159073",
+     "asset_symbol": "TAO"
+    },
+    {
+     "to_address": "5C5fddGoxJ4mxHB7Hj6hJK6D1HCmH1mxUYJGrrpxhM6YYUyk",
+     "tx_id": "8576545-25",
+     "block_height": "8576545",
+     "amount_usd": "6281.16131978",
+     "asset_symbol": "TAO"
+    },
+    {
+     "to_address": "5C7S9KJY9Ugz3BWURqHEVJoz6No2SEBznj9vKUSp1Q7uFdtC",
+     "tx_id": "8518663-17",
+     "block_height": "8518663",
+     "amount_usd": "2082.81252340",
+     "asset_symbol": "TAO"
+    },
+    {
+     "to_address": "5C8dE2PwahL5AjgYzdtovvxTk77dUaUqAxhF8f1Z3MyQi4qj",
+     "tx_id": "8650671-20",
+     "block_height": "8650671",
+     "amount_usd": "204.59825052",
+     "asset_symbol": "TAO"
+    },
+    {
+     "to_address": "5C8dE2PwahL5AjgYzdtovvxTk77dUaUqAxhF8f1Z3MyQi4qj",
+     "tx_id": "8650712-20",
+     "block_height": "8650712",
+     "amount_usd": "204.15492740",
+     "asset_symbol": "TAO"
+    },
+    {
+     "to_address": "5CDapnPD8uhMP2p3fpFrgf5gDgJSj2HBCjMz9eJ7bK15ZuQr",
+     "tx_id": "8632836-9",
+     "block_height": "8632836",
+     "amount_usd": "616.88754253",
+     "asset_symbol": "TAO"
+    },
+    {
+     "to_address": "5CDc3fRxgzqUWHkRcYsJgNetpMZRmB1GyTFzdApjqVcnJmWx",
+     "tx_id": "8515723-13",
+     "block_height": "8515723",
+     "amount_usd": "0.20828125",
+     "asset_symbol": "TAO"
+    },
+    {
+     "to_address": "5CDc3fRxgzqUWHkRcYsJgNetpMZRmB1GyTFzdApjqVcnJmWx",
+     "tx_id": "8524416-14",
+     "block_height": "8524416",
+     "amount_usd": "0.20169451",
+     "asset_symbol": "TAO"
+    },
+    {
+     "to_address": "5CDc3fRxgzqUWHkRcYsJgNetpMZRmB1GyTFzdApjqVcnJmWx",
+     "tx_id": "8552865-26",
+     "block_height": "8552865",
+     "amount_usd": "0.21674059",
+     "asset_symbol": "TAO"
+    }
+   ]
+  },
+  {
+   "id": "recipe_facts_transfer_02",
+   "layer": "facts",
+   "query": "USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.tx_id = \"8505939-10\" RETURN from.address AS from_address, to.address AS to_address, t.event_index AS event_index, t.edge_index AS edge_index, t.amount_usd AS amount_usd LIMIT 10",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "from_address": "5EYCAe5jLQhn6ofDSw26mnKbXRtRgtzhQ5bxDxAMD2MXeL6A",
+     "to_address": "5ETyBUhi3uVCzsk4gyTmtf41nheH7wALqQQxbUkmRPNqEMGS",
+     "event_index": "7",
+     "edge_index": "0",
+     "amount_usd": "0.31656638"
+    },
+    {
+     "from_address": "5EXQ62zRp89JJuQxtxjfxxeVv4E84sh3j2WZ763AnagBxyY2",
+     "to_address": "5EYCAe5jLQhn6ofDSw26mnKbXRtRgtzhQ5bxDxAMD2MXeL6A",
+     "event_index": "6",
+     "edge_index": "0",
+     "amount_usd": "628.67211297"
+    }
+   ]
+  },
+  {
+   "id": "recipe_facts_transfer_03",
+   "layer": "facts",
+   "query": "USE facts MATCH (from:Address {address: \"5CF6Ruq6u7DoF6TYxyaFzEuviWi7tjvJtz19XgPS2b7XDCFM\"})-[t:TRANSFER]->(to:Address) RETURN count(t) AS transfer_count, sum(t.amount_usd) AS total_amount_usd LIMIT 1",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "transfer_count": "19098",
+     "total_amount_usd": "2896922.66567411"
+    }
+   ]
+  },
+  {
+   "id": "recipe_facts_transfer_06",
+   "layer": "facts",
+   "note": "empty-group aggregate: this address has zero facts_transfers_view rows. Pins COALESCE(SUM(...), 0) \u2014 StarRocks SUM() over an empty group is NULL, but openCypher/Memgraph sum() = 0 (rbmk#447 P5 Task 2 review fix).",
+   "query": "USE facts MATCH (from:Address {address: \"5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM\"})-[t:TRANSFER]->(to:Address) RETURN count(t) AS transfer_count, sum(t.amount_usd) AS total_amount_usd LIMIT 1",
+   "baseline": "memgql",
+   "expected_rows": [
+    {
+     "transfer_count": "0",
+     "total_amount_usd": "0.00000000"
+    }
+   ]
+  },
+  {
+   "id": "recipe_facts_transfer_04",
+   "layer": "facts",
+   "query": "USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) RETURN t.tx_id AS tx_id LIMIT 10",
+   "baseline": "rejected",
+   "rejected_reason": "StarRocks-backed TRANSFER graph queries require an indexed predicate (address equality on either endpoint, or tx_id)"
+  },
+  {
+   "id": "recipe_facts_transfer_05",
+   "layer": "facts",
+   "query": "USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) RETURN count(t) AS transfer_count LIMIT 1",
+   "baseline": "rejected",
+   "rejected_reason": "StarRocks-backed aggregate graph queries require an indexed predicate"
   }
  ],
  "counts": {
-  "memgql": 9,
+  "memgql": 12,
   "sql_truth": 0,
-  "rejected": 1,
+  "rejected": 3,
   "unsupported": 1,
-  "total": 11
+  "total": 16
  }
 }

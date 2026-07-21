@@ -34,7 +34,7 @@ facts contract-error schema, read `docs/graph-query-compatibility.md`.
 | Graph | Use for | Query style |
 | --- | --- | --- |
 | `USE topology` | Route discovery and fund-flow topology reads over unified recent + full historical activity, plus the node risk verdict (`risk_score`/`risk_level`) and labels + per-label risk (`labels`, `label_risk`) | Native Memgraph Cypher over topology nodes and relationships, bounded. Prefer directed `MATCH` patterns and narrow projections. |
-| `USE facts` | Address features, assets, and enrichment | Corpus-scoped Cypher subset compiled to StarRocks SQL. Verify the current network schema before assuming fact labels or relationships exist. |
+| `USE facts` | Bounded individual transfer rows (`TRANSFER` edges) and, until P3, address features/enrichment | Corpus-scoped Cypher subset compiled to StarRocks SQL. Verify the current network schema before assuming fact labels or relationships exist. |
 
 `topology` is **native Memgraph Cypher** (MemGQL retired). Bounded
 variable-length and path-algorithm traversal are first-class:
@@ -131,6 +131,25 @@ Facts lookup after schema proof:
 cia mcp call graph_query \
   network=<network> \
   'query=USE facts MATCH (a:Address {address: "FULL_ADDRESS"})-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.tx_out_count AS tx_out_count, f.tx_in_count AS tx_in_count LIMIT 10'
+```
+
+Individual transfer rows by address (bounded — the `{address: ...}` endpoint
+predicate is the required indexed predicate for `TRANSFER`):
+
+```bash
+cia mcp call graph_query \
+  network=<network> \
+  'query=USE facts MATCH (from:Address {address: "FULL_ADDRESS"})-[t:TRANSFER]->(to:Address) RETURN to.address AS to_address, t.tx_id AS tx_id, t.block_height AS block_height, t.amount_usd AS amount_usd, t.asset_symbol AS asset_symbol LIMIT 25'
+```
+
+Individual transfer rows by `tx_id` (the indexed predicate for `TRANSFER` may
+be address equality on either endpoint OR a `tx_id` equality — a bare `LIMIT`
+alone is rejected):
+
+```bash
+cia mcp call graph_query \
+  network=<network> \
+  'query=USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.tx_id = "TX_ID" RETURN from.address AS from_address, to.address AS to_address, t.event_index AS event_index, t.amount_usd AS amount_usd LIMIT 25'
 ```
 
 Actor-level exposure via one visible `LINKED` hop (AC11 — FLOWS_TO reachability

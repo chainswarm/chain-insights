@@ -57,7 +57,7 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   aml_trace_victim_funds: 'Trace victim or trusted-source funds forward to intermediary and exchange deposit candidates. Topology reads cover full lifetime history in one unified graph.',
   aml_trace_suspect_funds: 'Trace suspect-controlled scammer, mule, operator, or laundering-ring funds forward to cashout topology. Topology reads cover full lifetime history in one unified graph.',
   aml_trace_deposit_sources: 'Trace suspected deposit or cashout addresses backward to upstream sources, shared funders, and convergence. Topology reads cover full lifetime history in one unified graph.',
-  graph_query: 'Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for features and enrichment. Preserve full addresses exactly.',
+  graph_query: 'Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for bounded TRANSFER rows and enrichment. Preserve full addresses exactly.',
   graph_query_batch: 'Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads.',
 }
 const FALLBACK_GRAPH_PRIMITIVE_TOOL_NAMES = ['graph_query', 'graph_query_batch'] as const
@@ -94,14 +94,15 @@ const GRAPH_SCHEMA_HINTS = [
   '- Address nodes carry address, network, labels, and is_exchange. (:Address)-[:LINKED]-(:Address) is an undirected ownership-overlay edge (basis derived/associated, plus confidence, source_event, declared_owner) asserting the two addresses are controlled by the same actor; it is the ownership edge across the SS58/H160 space boundary, so a single network=bittensor query traces SS58 -> (bridge or LINKED) -> H160 and back with no network switch. LINKED is served on the topology graph only. Enumerate LINKED neighbors with MATCH (a:Address {address: $addr})-[l:LINKED]-(b:Address) RETURN b.address, b.network, l.basis, l.confidence.',
   '- Address nodes also carry a risk verdict (risk_score float, risk_level string) plus base activity rollups: degree_in/degree_out/degree_total (distinct counterparty addresses), tx_in_count/tx_out_count/tx_total_count, total_in_usd/total_out_usd/total_volume_usd, net_flow_usd (in minus out; positive = net receiver) — all computed from external flows only — and first_activity_timestamp/last_activity_timestamp/activity_span_days, which include all flows (self-loops included). FLOWS_TO edges carry tx_count, amount_usd_sum, avg_tx_size_usd (understates when price_coverage_ratio < 1), first/last_seen_timestamp, first/last_tx_id, dominant_asset (largest USD share), price_coverage_ratio. Lifetime aggregates are the only serving window.',
   '- For actor-level exposure (AC11), UNION FLOWS_TO reachability over one visible LINKED hop instead of expanding through the LINKED edge itself: MATCH (a:Address {address: $addr})-[:LINKED]-(owned:Address)-[r:FLOWS_TO]-(b:Address) WHERE owned.address <> b.address AND a.address <> b.address RETURN owned.address, b.address, r.amount_usd_sum.',
-  '- The risk verdict lives on topology nodes (risk_score float, risk_level string). Labels and per-label risk also live on the address node (labels array + label_risk entries: label, risk_level, updated_timestamp). Provenanced feature detail still comes from USE facts: (:Address)-[:HAS_FEATURE]->(:AddressFeature).',
-  '- Facts graph labels include Address, AddressFeature, NeuronEndpoint, Hotkey, and IPAddress. Facts address keys match topology address values exactly.',
+  '- The risk verdict lives on topology nodes (risk_score float, risk_level string). Labels and per-label risk also live on the address node (labels array + label_risk entries: label, risk_level, updated_timestamp). USE facts serves bounded individual transfer rows (TRANSFER edges) and, until P3, address features: (:Address)-[:HAS_FEATURE]->(:AddressFeature).',
+  '- (from:Address)-[t:TRANSFER]->(to:Address) on USE facts returns individual transfer rows, not aggregates, with properties amount, amount_usd, asset_symbol, asset_contract, tx_id, block_height, block_timestamp, event_index, edge_index, price_usd, and price_missing. Every TRANSFER query — row-select or count()/sum() aggregate — requires an indexed predicate: address equality on either endpoint (for example {address: "..."} on from or to) or a WHERE t.tx_id = "..." equality; a bare LIMIT with no indexed predicate is rejected, since facts_transfers_view is a full transfer-history table, not a small per-address dimension view.',
+  '- Facts graph labels include Address, AddressFeature, NeuronEndpoint, Hotkey, and IPAddress; the TRANSFER relationship connects two Address nodes. Facts address keys match topology address values exactly.',
   '- Topology relationships include FLOWS_TO, LINKED, and RISK_PROXIMITY between Address nodes. Bittensor topology also carries a two-layer neuron model: (:Neuron {hotkey, netuid}) nodes labeled :Miner or :Validator connect via (:Neuron)-[:MINES|:VALIDATES]->(:Subnet {netuid, name, github_repo, url, discord, contact, owner_coldkey, owner_hotkey}); (:Address)-[:HOTKEY_OF|:COLDKEY_OF]->(:Neuron) bridges the address layer to the neuron layer; (:Address)-[:OWNS]->(:Subnet) marks subnet ownership; on-chain identity properties (chain_name, chain_url, chain_github, chain_discord) live directly on Address. Validator/miner status is chain-evidence-derived, not a label. Detailed neuron endpoint facts are still served from USE facts.',
   '- FLOWS_TO properties commonly carry tx_count, amount_usd_sum, avg_tx_size_usd, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id, dominant_asset, price_coverage_ratio. Confirm available fields through runtime schema before relying on them.',
   '- Traversal rule: for BFS, fixed-hop fallback, shortest-path, or manual FLOWS_TO traversal, exchange hot wallets are terminal endpoints only. Do not expand from, through, or classify exchange nodes as deposit, suspect, or intermediate candidates; filter every non-terminal node with is_exchange IS NULL.',
   '- Start schema discovery with endpoint-safe property reads: MATCH (n:Address) WHERE n.address IS NOT NULL RETURN n.address AS address, n.network AS network, n.labels AS labels, n.risk_score AS risk_score, n.risk_level AS risk_level LIMIT 20',
   '- Relationship discovery: MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 20',
-  '- graph_query uses the active Chain Insights graph endpoint. Select the graph with USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for features and enrichment; address is the node grain, not the topology name.',
+  '- graph_query uses the active Chain Insights graph endpoint. Select the graph with USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for bounded TRANSFER rows and enrichment; address is the node grain, not the topology name.',
   '- All graph_query calls are read-only. Never use CREATE, INSERT, MERGE, SET, DELETE, REMOVE, DROP, DETACH, ADD, CONNECT, DISCONNECT, ALTER, TRUNCATE, GRANT, or REVOKE.',
   '- Use USE facts graph patterns for fact and enrichment reads. Do not query internal table namespaces directly.',
 ].join('\n')
@@ -221,7 +222,7 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
       }
     case 'graph_query':
       return {
-        query: z.string().min(1).describe('Read-only GQL/Cypher query. Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for features and enrichment.'),
+        query: z.string().min(1).describe('Read-only GQL/Cypher query. Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for bounded TRANSFER rows and enrichment.'),
         network: BITTENSOR_NETWORK_SCHEMA,
       }
     case 'graph_query_batch':
@@ -630,7 +631,7 @@ function registerLocalPrompts(server: McpServer): void {
         query,
         '```',
         '',
-        'Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for features and enrichment. If you need schema context, first run small discovery queries such as MATCH (a:Address) RETURN a.address AS address, keys(a) AS address_properties LIMIT 5 and MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN keys(r) AS flow_properties LIMIT 5. Return the full address when available; never shorten addresses with ellipses.',
+        'Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for bounded TRANSFER rows and enrichment. If you need schema context, first run small discovery queries such as MATCH (a:Address) RETURN a.address AS address, keys(a) AS address_properties LIMIT 5 and MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN keys(r) AS flow_properties LIMIT 5. Return the full address when available; never shorten addresses with ellipses.',
       ].join('\n'),
       'Graph query',
     ),
@@ -656,7 +657,7 @@ function registerLocalPrompts(server: McpServer): void {
         '```',
         per_query_timeout_seconds ? `per_query_timeout_seconds: ${per_query_timeout_seconds}` : '',
         '',
-        'Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for features and enrichment. If you need schema context, first run small discovery queries such as MATCH (a:Address) RETURN a.address AS address, keys(a) AS address_properties LIMIT 5 and MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN keys(r) AS flow_properties LIMIT 5. Return the full address when available; never shorten addresses with ellipses.',
+        'Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for bounded TRANSFER rows and enrichment. If you need schema context, first run small discovery queries such as MATCH (a:Address) RETURN a.address AS address, keys(a) AS address_properties LIMIT 5 and MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN keys(r) AS flow_properties LIMIT 5. Return the full address when available; never shorten addresses with ellipses.',
       ].filter(Boolean).join('\n'),
       'Graph query batch',
     ),

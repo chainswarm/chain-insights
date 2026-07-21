@@ -144,6 +144,73 @@ func TestLabelEdgeRejectedAsUnmapped(t *testing.T) {
 	}
 }
 
+// The TRANSFER facts edge (facts_transfers_view) compiles the
+// (from:Address)-[t:TRANSFER]->(to:Address) shape: endpoint identity binds via
+// from_address/to_address (the Address node's "address" id column), and the
+// row's other columns are TRANSFER edge properties.
+func TestTransferEdgeCompiles(t *testing.T) {
+	c, err := Compile(`USE facts MATCH (from:Address {address: "5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM"})-[t:TRANSFER]->(to:Address) RETURN to.address AS to_address, t.tx_id AS tx_id, t.block_height AS block_height, t.amount_usd AS amount_usd LIMIT 10`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(c.SQL, "facts_transfers_view") {
+		t.Errorf("expected facts_transfers_view in SQL: %s", c.SQL)
+	}
+	if !strings.Contains(c.SQL, "from_address") || !strings.Contains(c.SQL, "to_address") {
+		t.Errorf("expected endpoint columns in SQL: %s", c.SQL)
+	}
+	if len(c.Args) != 1 || c.Args[0] != "5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM" {
+		t.Errorf("expected bound from_address arg, got %v", c.Args)
+	}
+}
+
+// Row-select by tx_id: tx_id is a TRANSFER edge property (not an endpoint id),
+// so it is filtered via WHERE rather than an inline node property.
+func TestTransferEdgeFiltersByTxID(t *testing.T) {
+	c, err := Compile(`USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.tx_id = "8505939-10" RETURN from.address AS from_address, to.address AS to_address, t.event_index AS event_index, t.edge_index AS edge_index LIMIT 10`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(c.SQL, "tx_id") {
+		t.Errorf("expected tx_id predicate in SQL: %s", c.SQL)
+	}
+	if len(c.Args) != 1 || c.Args[0] != "8505939-10" {
+		t.Errorf("expected bound tx_id arg, got %v", c.Args)
+	}
+}
+
+// Bounded aggregate: count + sum(amount_usd) anchored on an address endpoint.
+func TestTransferEdgeAggregateByAddress(t *testing.T) {
+	c, err := Compile(`USE facts MATCH (from:Address {address: "5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM"})-[t:TRANSFER]->(to:Address) RETURN count(t) AS transfer_count, sum(t.amount_usd) AS total_amount_usd LIMIT 1`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(c.SQL, "COUNT(*)") || !strings.Contains(c.SQL, "SUM(") {
+		t.Errorf("expected count/sum aggregate SQL: %s", c.SQL)
+	}
+	if !strings.Contains(c.SQL, "COALESCE(SUM(") {
+		t.Errorf("expected sum() to be wrapped in COALESCE(..., 0): %s", c.SQL)
+	}
+}
+
+// StarRocks returns NULL for SUM() over an empty group; openCypher/Memgraph
+// sum() = 0 for the same case. Every sum() aggregate must compile to
+// COALESCE(SUM(col), 0) so a bounded aggregate on a transfer-less address (or
+// any empty-group sum) serves 0, not NULL, alongside count: 0.
+func TestSumAggregateWrapsCoalesceForEmptyGroup(t *testing.T) {
+	c, err := Compile(`USE facts MATCH (from:Address {address: "5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM"})-[t:TRANSFER]->(to:Address) RETURN sum(t.amount_usd) AS total_amount_usd LIMIT 1`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "COALESCE(SUM(`e1`.`amount_usd`), 0) AS `total_amount_usd`"
+	if !strings.Contains(c.SQL, want) {
+		t.Errorf("SQL = %s, want it to contain %q", c.SQL, want)
+	}
+	if strings.Contains(c.SQL, "COALESCE(SUM(SUM(") {
+		t.Errorf("double-wrapped SUM: %s", c.SQL)
+	}
+}
+
 // NULL semantics preserved: IS NULL / IS NOT NULL map straight through.
 func TestNullSemantics(t *testing.T) {
 	c, err := Compile(`USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) WHERE f.net_flow_usd IS NULL RETURN a.address AS id ORDER BY a.address ASC LIMIT 10`)
@@ -195,6 +262,9 @@ func TestNegativeShapes(t *testing.T) {
 		{"offset", `USE facts MATCH (a:Address) RETURN a.address AS id SKIP 5 LIMIT 10`, ErrOffsetForbidden},
 		{"with pipeline", `USE facts MATCH (a:Address) WITH a RETURN a.address AS id LIMIT 1`, ErrUnsupportedShape},
 		{"collect", `USE facts MATCH (a:Address) RETURN collect(a.address) AS ids LIMIT 1`, ErrUnsupportedShape},
+		{"avg still rejected", `USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) RETURN avg(t.amount_usd) AS a LIMIT 1`, ErrUnsupportedShape},
+		{"sum star rejected", `USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) RETURN sum(*) AS a LIMIT 1`, ErrUnsupportedShape},
+		{"sum bare variable rejected", `USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) RETURN sum(t) AS a LIMIT 1`, ErrUnsupportedShape},
 		{"write", `USE facts MATCH (a:Address) DELETE a LIMIT 1`, ErrParse},
 	}
 	for _, tc := range cases {

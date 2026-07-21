@@ -42,7 +42,9 @@ type returnItem struct {
 	prop *propertyRef
 	// count(variable) or count(*)
 	count *countExpr
-	pos   int
+	// sum(variable.property)
+	sum *sumExpr
+	pos int
 }
 
 type propertyRef struct {
@@ -54,6 +56,14 @@ type propertyRef struct {
 type countExpr struct {
 	variable string // "" for count(*)
 	pos      int
+}
+
+// sumExpr is sum(variable.property) — the only non-count aggregate the facts
+// subset supports. Unlike count(), sum() always needs a numeric column
+// argument; there is no sum(*) or bare-variable form.
+type sumExpr struct {
+	ref propertyRef
+	pos int
 }
 
 type orderItem struct {

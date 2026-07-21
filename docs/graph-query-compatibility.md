@@ -88,13 +88,13 @@ rejected with a typed contract error before execution.
 
 | Construct | Notes |
 | --- | --- |
-| `MATCH` on a mapped node / single relationship | `(:Address)-[:HAS_FEATURE]->(:AddressFeature)`, neuron endpoint facts, plus a single fixed-hop `(:Address)-[:LINKED]-(:Address)`. Never serves `FLOWS_TO` or money-flow entities. Labels and per-label risk live on the topology address node, not on `facts`. |
+| `MATCH` on a mapped node / single relationship | `(from:Address)-[t:TRANSFER]->(to:Address)` (bounded individual transfer rows from `facts_transfers_view`), `(:Address)-[:HAS_FEATURE]->(:AddressFeature)` (until P3), neuron endpoint facts. Never serves `FLOWS_TO` or `LINKED` — those are topology-only. Labels and per-label risk live on the topology address node, not on `facts`. |
 | Chained fixed-hop patterns | up to 5 hops |
-| `WHERE` with an indexed predicate | `address` equality or `IN`; date/height/timestamp range |
+| `WHERE` with an indexed predicate | `address` equality or `IN`; `tx_id` equality or `IN` (the `TRANSFER` edge's row-level key); date/height/timestamp range |
 | Inline property maps | `MATCH (a:Address {address:"…"})` |
 | Property projections with aliases | `RETURN a.address AS address, f.tx_out_count AS tx_out_count` |
-| Aggregates **with** an indexed predicate | `count`, `sum`, `min`, `max` |
-| `ORDER BY`, `LIMIT` (≤ 1000), `OFFSET`-free paging | `LIMIT` required unless an indexed predicate is present |
+| Aggregates **with** an indexed predicate | `count`, `sum` |
+| `ORDER BY`, `LIMIT` (≤ 1000), `OFFSET`-free paging | `LIMIT` required unless an indexed predicate is present — except `TRANSFER`, where an indexed predicate is always required (see below) |
 
 ### Cost-shape gate
 
@@ -105,6 +105,7 @@ unbounded warehouse scan:
 | --- | --- |
 | Predicate-less global aggregate | `count(i)` with no indexed predicate → *StarRocks-backed aggregate graph queries require an indexed predicate* |
 | No `LIMIT` and no indexed predicate | → *StarRocks-backed graph queries require an explicit LIMIT or indexed predicate* |
+| `TRANSFER` row-select or aggregate with no indexed predicate, even with `LIMIT` | `facts_transfers_view` is a full transfer-history table — a bare `LIMIT` does not bound the scan → *StarRocks-backed TRANSFER graph queries require an indexed predicate (address equality on either endpoint, or tx_id)* |
 | `LIMIT` above the ceiling | `LIMIT 5000` → *StarRocks-backed graph query LIMIT exceeds maximum 1000* |
 
 ### Not in the facts grammar (contract error)

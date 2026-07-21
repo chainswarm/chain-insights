@@ -80,7 +80,7 @@ func (p *parser) parseQuery() (*query, error) {
 		return nil, newErr(ErrUnsupportedShape, p.cur().Pos, "%s pipelines are not supported on facts; %s", strings.ToUpper(p.cur().Text), supportedPatterns)
 	}
 	// RETURN
-	if err := p.expectKeyword("RETURN") ; err != nil {
+	if err := p.expectKeyword("RETURN"); err != nil {
 		return nil, err
 	}
 	if err := p.parseReturn(q); err != nil {
@@ -284,10 +284,25 @@ func (p *parser) parseReturnItem() (returnItem, error) {
 	if p.keyword("CASE") {
 		return item, newErr(ErrUnsupportedShape, p.cur().Pos, "CASE expressions are not supported on facts; %s", supportedPatterns)
 	}
-	if p.keyword("sum") || p.keyword("avg") || p.keyword("min") || p.keyword("max") || p.keyword("collect") {
-		return item, newErr(ErrUnsupportedShape, p.cur().Pos, "the %s() aggregate is not supported on facts (only count()); %s", p.cur().Text, supportedPatterns)
+	if p.keyword("avg") || p.keyword("min") || p.keyword("max") || p.keyword("collect") {
+		return item, newErr(ErrUnsupportedShape, p.cur().Pos, "the %s() aggregate is not supported on facts (only count()/sum()); %s", p.cur().Text, supportedPatterns)
 	}
-	if p.keyword("count") {
+	if p.keyword("sum") {
+		p.next()
+		if _, err := p.expect(tLParen, "("); err != nil {
+			return item, err
+		}
+		se := &sumExpr{pos: p.cur().Pos}
+		ref, err := p.parsePropertyRef()
+		if err != nil {
+			return item, newErr(ErrUnsupportedShape, p.cur().Pos, "sum() requires a variable.property argument; %s", supportedPatterns)
+		}
+		se.ref = ref
+		if _, err := p.expect(tRParen, ")"); err != nil {
+			return item, err
+		}
+		item.sum = se
+	} else if p.keyword("count") {
 		p.next()
 		if _, err := p.expect(tLParen, "("); err != nil {
 			return item, err

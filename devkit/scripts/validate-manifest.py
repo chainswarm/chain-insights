@@ -32,6 +32,17 @@ REQUIRED_TABLES = {
     "facts_neuron_ip_addresses_view",
 }
 
+# facts_transfers_view (rbmk#447 P5) is mapped in the vendored cyphersql
+# mapping ahead of the devkit fixture export leg: the capped TSV export is a
+# separate operator-side step (rbmk export-starrocks-fixture.sh, run against
+# live StarRocks with export credentials) that has not shipped yet. Tolerate
+# its absence from the manifest here -- once the fixture ships it becomes a
+# normal mapped table like every other REQUIRED_TABLES entry, validated by
+# the same missing_mapped/unknown checks below.
+ALLOWED_UNEXPORTED_TABLES = {
+    "facts_transfers_view",
+}
+
 MEMGRAPH_OBJECTS = {
     "memgraph_nodes",
     "memgraph_relationships",
@@ -210,7 +221,7 @@ def main() -> None:
     allowed = mapped_facade_tables()
     starrocks_names = names - MEMGRAPH_OBJECTS
     missing_required = REQUIRED_TABLES - starrocks_names
-    missing_mapped = allowed - starrocks_names
+    missing_mapped = allowed - starrocks_names - ALLOWED_UNEXPORTED_TABLES
     missing_memgraph = MEMGRAPH_OBJECTS - names
     unknown = names - allowed - MEMGRAPH_OBJECTS
     if missing_required:

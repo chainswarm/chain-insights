@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/generate-query-corpus.mjs",
- "entry_count": 97,
+ "entry_count": 100,
  "entries": [
   {
    "builder": "addressFeatureQuery",
@@ -255,6 +255,46 @@
    },
    "scope": "facts",
    "query": "USE facts MATCH (ip:IPAddress) RETURN ip.ip_address AS ip_address, ip.netuids AS netuids, ip.observation_count AS observation_count, ip.last_seen_timestamp AS last_seen_timestamp ORDER BY ip.observation_count DESC LIMIT 25"
+  },
+  {
+   "builder": "documented-recipe",
+   "params": {
+    "id": "recipe_facts_transfer_01",
+    "features": [
+     "fixed-hop",
+     "transfer-edge",
+     "address-predicate"
+    ]
+   },
+   "scope": "facts",
+   "query": "USE facts MATCH (from:Address {address: \"5CF6Ruq6u7DoF6TYxyaFzEuviWi7tjvJtz19XgPS2b7XDCFM\"})-[t:TRANSFER]->(to:Address) RETURN to.address AS to_address, t.tx_id AS tx_id, t.block_height AS block_height, t.amount_usd AS amount_usd, t.asset_symbol AS asset_symbol LIMIT 10"
+  },
+  {
+   "builder": "documented-recipe",
+   "params": {
+    "id": "recipe_facts_transfer_02",
+    "features": [
+     "fixed-hop",
+     "transfer-edge",
+     "tx-id-predicate"
+    ]
+   },
+   "scope": "facts",
+   "query": "USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.tx_id = \"8505939-10\" RETURN from.address AS from_address, to.address AS to_address, t.event_index AS event_index, t.edge_index AS edge_index, t.amount_usd AS amount_usd LIMIT 10"
+  },
+  {
+   "builder": "documented-recipe",
+   "params": {
+    "id": "recipe_facts_transfer_03",
+    "features": [
+     "fixed-hop",
+     "transfer-edge",
+     "aggregate",
+     "address-predicate"
+    ]
+   },
+   "scope": "facts",
+   "query": "USE facts MATCH (from:Address {address: \"5CF6Ruq6u7DoF6TYxyaFzEuviWi7tjvJtz19XgPS2b7XDCFM\"})-[t:TRANSFER]->(to:Address) RETURN count(t) AS transfer_count, sum(t.amount_usd) AS total_amount_usd LIMIT 1"
   },
   {
    "builder": "documented-recipe",

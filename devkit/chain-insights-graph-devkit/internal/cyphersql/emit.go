@@ -28,13 +28,13 @@ func Compile(query string) (*Compiled, error) {
 // emitState threads the SQL build: node identity expressions, joined views,
 // and bound args.
 type emitState struct {
-	q          *query
-	nodeIDExpr map[string]string // node var -> SQL expr yielding its join-key value
-	nodeIDCol  map[string]string // node var -> the node-view COLUMN that expr represents
-	nodeIDPos  map[string]int
-	edgeAlias  map[string]string // edge var -> SQL alias
-	joinedNode map[string]string // node var -> joined node-view alias (when needed)
-	nodeLabel  map[string]string // node var -> label
+	q           *query
+	nodeIDExpr  map[string]string // node var -> SQL expr yielding its join-key value
+	nodeIDCol   map[string]string // node var -> the node-view COLUMN that expr represents
+	nodeIDPos   map[string]int
+	edgeAlias   map[string]string // edge var -> SQL alias
+	joinedNode  map[string]string // node var -> joined node-view alias (when needed)
+	nodeLabel   map[string]string // node var -> label
 	from        []string
 	joins       []string
 	where       []string
@@ -53,11 +53,11 @@ func emit(q *query) (*Compiled, error) {
 		joinedNode: map[string]string{},
 		nodeLabel:  map[string]string{},
 	}
-	// Reject implicit GROUP BY: mixing count() with a non-aggregate
+	// Reject implicit GROUP BY: mixing count()/sum() with a non-aggregate
 	// projection needs GROUP BY semantics, which are out of facts scope.
 	countItems, propItems := 0, 0
 	for _, it := range q.items {
-		if it.count != nil {
+		if it.count != nil || it.sum != nil {
 			countItems++
 		} else {
 			propItems++
@@ -335,6 +335,20 @@ func (s *emitState) emitSelect() (string, []string, error) {
 			}
 			if alias == "" {
 				alias = "count"
+			}
+		case item.sum != nil:
+			c, err := s.columnExprForProperty(item.sum.ref.variable, item.sum.ref.property, item.sum.ref.pos)
+			if err != nil {
+				return "", nil, err
+			}
+			// StarRocks returns NULL for SUM() over an empty group;
+			// openCypher/Memgraph sum() = 0 for the same case. COALESCE to
+			// 0 so a bounded aggregate on a transfer-less address (or any
+			// empty-group sum) matches Cypher semantics instead of
+			// serving a NULL total beside count: 0.
+			expr = "COALESCE(SUM(" + c + "), 0)"
+			if alias == "" {
+				alias = "sum"
 			}
 		case item.prop != nil:
 			c, err := s.columnExprForProperty(item.prop.variable, item.prop.property, item.prop.pos)

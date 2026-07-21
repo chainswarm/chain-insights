@@ -217,12 +217,21 @@ The address-grain graph schema:
   accept the raw blockchain address directly — there is no resolution step.
 - The risk verdict lives on topology nodes (\`risk_score\`/\`risk_level\`),
   and labels and per-label risk live on the address node (\`labels\` array
-  + \`label_risk\` entries). Detailed, provenanced feature detail still
-  comes from \`USE facts\`: lifetime metrics:
-  \`(:Address)-[:HAS_FEATURE]->(:AddressFeature)\`. Facts address keys match
+  + \`label_risk\` entries). \`USE facts\` serves bounded individual
+  transfer rows and, until P3, address features. Facts address keys match
   topology \`address\` values exactly. Do not read \`ml_*\`,
   \`confluence_score\`, or \`pattern_flags\` off topology nodes — those
   properties do not exist.
+- \`(from:Address)-[t:TRANSFER]->(to:Address)\` on \`USE facts\` returns
+  individual transfer rows (not aggregates) from \`facts_transfers_view\`,
+  with edge properties \`amount\`, \`amount_usd\`, \`asset_symbol\`,
+  \`asset_contract\`, \`tx_id\`, \`block_height\`, \`block_timestamp\`,
+  \`event_index\`, \`edge_index\`, \`price_usd\`, and \`price_missing\`.
+  Every TRANSFER query (row-select or a \`count()\`/\`sum()\` aggregate)
+  requires an indexed predicate — address equality on either endpoint or
+  \`WHERE t.tx_id = "..."\` — a bare \`LIMIT\` alone is rejected. Detailed,
+  provenanced feature detail still comes from \`USE facts\`: lifetime
+  metrics: \`(:Address)-[:HAS_FEATURE]->(:AddressFeature)\`.
 
 Rules:
 

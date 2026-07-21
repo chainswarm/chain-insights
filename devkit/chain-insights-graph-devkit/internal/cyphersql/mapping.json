@@ -150,6 +150,29 @@
         "last_seen_timestamp": "last_seen_timestamp",
         "observation_count": "observation_count"
       }
+    },
+    {
+      "rel_type": "TRANSFER",
+      "table": "facts_transfers_view",
+      "id_column": "tx_id",
+      "source_column": "from_address",
+      "target_column": "to_address",
+      "source_label": "Address",
+      "target_label": "Address",
+      "properties": {
+        "block_date": "block_date",
+        "block_height": "block_height",
+        "block_timestamp": "block_timestamp",
+        "tx_id": "tx_id",
+        "event_index": "event_index",
+        "edge_index": "edge_index",
+        "asset_contract": "asset_contract",
+        "asset_symbol": "asset_symbol",
+        "amount": "amount",
+        "price_usd": "price_usd",
+        "amount_usd": "amount_usd",
+        "price_missing": "price_missing"
+      }
     }
   ]
 }
