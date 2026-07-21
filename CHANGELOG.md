@@ -3,6 +3,27 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.6] - 2026-07-21
+
+- Ship the capped `facts_transfers_view` devkit fixture (rbmk#447 P5 final
+  leg, owner ruling 2026-07-21): a full 23-day slice is ~1.38M rows / 256MB
+  raw, too heavy for a devkit fixture, so the rbmk exporter
+  (`scripts/devops/chain-insights-devkit/export_queries.py`) now emits a
+  capped, address-scoped `TRANSFER` export instead — rows touching the
+  devkit's own `facts_address_features_view` address universe (either
+  `from_address` or `to_address`), within the fixture window, ordered
+  `block_timestamp DESC, tx_id, event_index, edge_index`, `LIMIT 50000`.
+  Result: 50,000 rows / 1.63MB gz, well under the git-blob part-split
+  threshold, so it ships as a single `devkit/data/starrocks/facts_transfers_view.tsv.gz`
+  (no `.part-NNN.gz` split needed at this size — the existing parts
+  machinery in `render-manifest.py` would kick in automatically past
+  40MB). `devkit/data/manifest.json` gains the new object entry.
+  `devkit/scripts/validate-manifest.py` moves `facts_transfers_view` from
+  `ALLOWED_UNEXPORTED_TABLES` to `REQUIRED_TABLES`, and
+  `devkit/scripts/smoke-memgql-objects.py` drops it from its own
+  `ALLOWED_UNEXPORTED_TABLES` mirror (added in 0.10.5) — the `TRANSFER`
+  edge coverage probe now runs for real instead of being skipped.
+
 ## [0.10.5] - 2026-07-21
 
 - Fix Devkit Smoke CI failure on `c292b6e` ("MemGQL object coverage

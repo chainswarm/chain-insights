@@ -2,13 +2,13 @@
   "schema": "chain-insights.devkit.fixture.v1",
   "network": "bittensor",
   "database": "bittensor",
-  "exported_at": "2026-07-09T07:16:20Z",
+  "exported_at": "2026-07-21T06:09:41Z",
   "fixture_window": {
     "from": "2024-01-01T00:00:00Z",
     "to_exclusive": "2026-07-09T06:47:05Z"
   },
   "source": {
-    "mapping": "workspace/sessions/2188ba13-2c30-45d6-9931-d7c15fc3c63d/ml/data-pipeline/internal/cyphersql/mapping.json",
+    "mapping": "repos/ml/data-pipeline/internal/cyphersql/mapping.json",
     "topology": "memgraph"
   },
   "coverage": {
@@ -33,6 +33,17 @@
       "exported_min": "2024-01-01T00:11:24Z",
       "exported_max": "2026-07-09T06:42:48Z",
       "sha256": "9ffa45fb54acde0e5544cde3bfcda827fdbeec2f16a14c02f5239744bfd3b204"
+    },
+    {
+      "database": "bittensor",
+      "name": "facts_transfers_view",
+      "format": "tsv.gz",
+      "path": "starrocks/facts_transfers_view.tsv.gz",
+      "row_count": 50000,
+      "source_min": "2026-07-08T15:40:12Z",
+      "exported_min": "2026-07-08T15:40:12Z",
+      "exported_max": "2026-07-09T06:47:00Z",
+      "sha256": "c90870349641b3ae919eeb4c70abcb0a5af04e5cc783e4c62902576930b0b0cc"
     },
     {
       "database": "memgraph",

@@ -15,17 +15,10 @@ ENDPOINT = os.environ.get("CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT", "http://127.0.0.1
 NETWORK = os.environ.get("CHAIN_INSIGHTS_DEVKIT_NETWORK", "bittensor")
 
 # KEPT-IN-SYNC with ALLOWED_UNEXPORTED_TABLES in validate-manifest.py.
-# facts_transfers_view (rbmk#447 P5) is mapped in the vendored cyphersql
-# mapping ahead of the devkit fixture export leg: the capped TSV export is a
-# separate operator-side step (rbmk export-starrocks-fixture.sh, run against
-# live StarRocks with export credentials) that has not shipped yet, so it is
-# legitimately unqueryable here -- skip its coverage checks rather than
-# failing the smoke on a fixture gap that validate-manifest.py already
-# tolerates. Once the fixture ships, remove it from both sets so coverage
-# resumes asserting it like every other mapped table.
-ALLOWED_UNEXPORTED_TABLES = {
-    "facts_transfers_view",
-}
+# facts_transfers_view (rbmk#447 P5) shipped its capped, address-scoped
+# fixture export -- it is queryable like every other mapped table now, so
+# it no longer needs a coverage-check exemption here.
+ALLOWED_UNEXPORTED_TABLES: set[str] = set()
 
 
 def layer_for_table(table: str) -> str:

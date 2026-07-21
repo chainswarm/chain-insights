@@ -34,20 +34,19 @@ MAPPING_CANDIDATES = [
 # 75ce9c96), so their tsv.gz fixtures are dead weight the devkit can never
 # serve -- dropped from the manifest and REQUIRED_TABLES together with this
 # retirement.
+#
+# facts_transfers_view (rbmk#447 P5) shipped its capped, address-scoped
+# TSV export (rbmk export-starrocks-fixture.sh) -- it is now a normal
+# REQUIRED_TABLES entry like every other mapped table.
 REQUIRED_TABLES = {
     "facts_address_features_view",
-}
-
-# facts_transfers_view (rbmk#447 P5) is mapped in the vendored cyphersql
-# mapping ahead of the devkit fixture export leg: the capped TSV export is a
-# separate operator-side step (rbmk export-starrocks-fixture.sh, run against
-# live StarRocks with export credentials) that has not shipped yet. Tolerate
-# its absence from the manifest here -- once the fixture ships it becomes a
-# normal mapped table like every other REQUIRED_TABLES entry, validated by
-# the same missing_mapped/unknown checks below.
-ALLOWED_UNEXPORTED_TABLES = {
     "facts_transfers_view",
 }
+
+# Nothing currently belongs here -- kept in place, possibly empty, for a
+# future mapped table whose fixture export legitimately lags its mapping
+# landing (mirrors facts_transfers_view's own now-closed gap).
+ALLOWED_UNEXPORTED_TABLES: set[str] = set()
 
 MEMGRAPH_OBJECTS = {
     "memgraph_nodes",
