@@ -1,9 +1,10 @@
 name: Devkit Smoke
 
 # Boots the self-contained devkit fixture stack (StarRocks + Memgraph +
-# MemGQL + the lite Chain Insights Graph backend) and runs both smokes:
-# the backend smoke and the full cia CLI parity smoke. Runs on trusted
-# refs only — pull requests stay off self-hosted runners on purpose.
+# the lite Chain Insights Graph backend, direct-translator post MemGQL
+# retirement) and runs both smokes: the backend smoke and the full cia
+# CLI parity smoke. Runs on trusted refs only — pull requests stay off
+# self-hosted runners on purpose.
 on:
   workflow_dispatch: {}
   push:
@@ -39,23 +40,6 @@ jobs:
         with:
           path: repos/infra/chain-insights
 
-      - name: Mint cross-repo App token
-        id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ secrets.CHAINSWARM_GITHUB_APP_ID }}
-          private-key: ${{ secrets.CHAINSWARM_GITHUB_APP_PRIVATE_KEY }}
-          owner: chainswarm
-          repositories: data-pipeline
-
-      - name: Checkout MemGQL mapping (data-pipeline)
-        uses: actions/checkout@v7
-        with:
-          repository: chainswarm/data-pipeline
-          token: ${{ steps.app-token.outputs.token }}
-          path: repos/ml/data-pipeline
-          sparse-checkout: ops/memgql
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -66,7 +50,7 @@ jobs:
 
       - name: Start devkit databases
         working-directory: repos/infra/chain-insights/devkit
-        run: docker compose -p "$COMPOSE_PROJECT" up -d starrocks memgraph memgql
+        run: docker compose -p "$COMPOSE_PROJECT" up -d starrocks memgraph
 
       - name: Wait for StarRocks backend heartbeat
         working-directory: repos/infra/chain-insights/devkit
