@@ -155,6 +155,12 @@ assert coverage["summary"]["nodes"] > 0
 assert coverage["summary"]["relationships"] > 0
 assert coverage["summary"]["checks"] == coverage["summary"]["nodes"] + coverage["summary"]["relationships"]
 for check in coverage["checks"]:
+    # Mapped-but-legitimately-unexported tables (ALLOWED_UNEXPORTED_TABLES in
+    # validate-manifest.py / smoke-memgql-objects.py) surface as skipped=True
+    # with ok=None — a declared gap, not a coverage failure. Anything else
+    # non-ok still fails.
+    if check.get("skipped"):
+        continue
     if not check["ok"]:
         raise SystemExit(f"object coverage failed: {check}")
 
