@@ -14,6 +14,19 @@ MAPPING = DEVKIT_ROOT / "chain-insights-graph-devkit/internal/cyphersql/mapping.
 ENDPOINT = os.environ.get("CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT", "http://127.0.0.1:18012/mcp")
 NETWORK = os.environ.get("CHAIN_INSIGHTS_DEVKIT_NETWORK", "bittensor")
 
+# KEPT-IN-SYNC with ALLOWED_UNEXPORTED_TABLES in validate-manifest.py.
+# facts_transfers_view (rbmk#447 P5) is mapped in the vendored cyphersql
+# mapping ahead of the devkit fixture export leg: the capped TSV export is a
+# separate operator-side step (rbmk export-starrocks-fixture.sh, run against
+# live StarRocks with export credentials) that has not shipped yet, so it is
+# legitimately unqueryable here -- skip its coverage checks rather than
+# failing the smoke on a fixture gap that validate-manifest.py already
+# tolerates. Once the fixture ships, remove it from both sets so coverage
+# resumes asserting it like every other mapped table.
+ALLOWED_UNEXPORTED_TABLES = {
+    "facts_transfers_view",
+}
+
 
 def layer_for_table(table: str) -> str:
     # Every table the vendored translator now maps is served by the facts
@@ -121,7 +134,18 @@ def main() -> None:
         )
 
     failures: list[dict] = []
+    skipped: list[dict] = []
     for check in checks:
+        if check["table"] in ALLOWED_UNEXPORTED_TABLES:
+            check["ok"] = None
+            check["skipped"] = True
+            check["skip_reason"] = "fixture not yet exported"
+            print(
+                f"skipped (fixture not yet exported): {check['table']}",
+                file=sys.stderr,
+            )
+            skipped.append(check)
+            continue
         try:
             result = graph_query(check["query"])
             check["ok"] = True
@@ -140,6 +164,7 @@ def main() -> None:
             "checks": len(checks),
             "nodes": sum(1 for check in checks if check["kind"] == "node"),
             "relationships": sum(1 for check in checks if check["kind"] == "relationship"),
+            "skipped": len(skipped),
             "failures": len(failures),
         },
         "checks": checks,

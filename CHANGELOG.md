@@ -3,6 +3,32 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.5] - 2026-07-21
+
+- Fix Devkit Smoke CI failure on `c292b6e` ("MemGQL object coverage
+  failed: 1 failure(s)"): `devkit/scripts/smoke-memgql-objects.py`
+  asserts every mapped node/edge is queryable through the live devkit
+  MCP endpoint, but `TRANSFER`→`facts_transfers_view` is mapped while
+  its fixture is legitimately unexported (the capped TSV export is a
+  separate, not-yet-shipped operator-side step) — the coverage probe was
+  failing on a gap `validate-manifest.py` already tolerates via
+  `ALLOWED_UNEXPORTED_TABLES`. `smoke-memgql-objects.py` gains its own
+  `ALLOWED_UNEXPORTED_TABLES` (a duplicated 1-entry set with a
+  KEPT-IN-SYNC comment pointing at `validate-manifest.py` — kept simple
+  rather than a cross-script import, since these are standalone
+  operator scripts with no existing shared-module pattern): checks
+  against exempted tables are skipped with an explicit `"skipped
+  (fixture not yet exported): <table>"` stderr line and excluded from
+  the failure count, while coverage still fails for any mapped table
+  that is absent/unreachable and NOT in the exemption set (the
+  underlying `graph_query` call still executes and still raises for
+  every non-exempted table, unchanged from before — verified locally
+  with a monkeypatched `graph_query` since no pytest harness exists for
+  devkit Python scripts). No other script in the smoke chain
+  (`starrocks-ddl.py` also iterates the mapping, but only emits DDL
+  driven off manifest presence, never asserts live queryability) needed
+  the same fix.
+
 ## [0.10.4] - 2026-07-21
 
 - Retire the facts-scope `NeuronEndpoint`/`Hotkey`/`IPAddress` mappings and
