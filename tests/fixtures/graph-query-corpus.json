@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/generate-query-corpus.mjs",
- "entry_count": 100,
+ "entry_count": 99,
  "entries": [
   {
    "builder": "addressFeatureQuery",
@@ -11,20 +11,12 @@
    "query": "USE facts MATCH (a:Address {address: \"corpus-address-a\"})-[:HAS_FEATURE]->(feature:AddressFeature) RETURN feature.degree_in AS degree_in, feature.degree_out AS degree_out, feature.degree_total AS degree_total, feature.tx_in_count AS tx_in_count, feature.tx_out_count AS tx_out_count, feature.tx_total_count AS tx_total_count, feature.total_volume_usd AS total_volume_usd, feature.total_in_usd AS total_in_usd, feature.total_out_usd AS total_out_usd, feature.net_flow_usd AS net_flow_usd, feature.first_activity_timestamp AS first_activity_timestamp, feature.last_activity_timestamp AS last_activity_timestamp, feature.activity_span_days AS activity_span_days LIMIT 1"
   },
   {
-   "builder": "addressLabelRiskQuery",
-   "params": {
-    "address": "corpus\"quote"
-   },
-   "scope": "facts",
-   "query": "USE facts MATCH (a:Address {address: \"corpus\\\"quote\"})-[:HAS_LABEL]->(label:AddressLabel) RETURN label.label AS label, label.risk_level AS risk_level, label.trust_level AS trust_level, label.confidence_score AS confidence_score, label.source AS source, label.entity_type AS entity_type, label.updated_timestamp AS updated_timestamp ORDER BY label.updated_timestamp DESC LIMIT 10"
-  },
-  {
    "builder": "addressProfileQuery",
    "params": {
     "address": "corpus-address-a"
    },
    "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"}) RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level LIMIT 1"
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"}) RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level, a.label_risk AS label_risk LIMIT 1"
   },
   {
    "builder": "addressProfileQuery",
@@ -32,7 +24,7 @@
     "address": "corpus\"quote"
    },
    "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"corpus\\\"quote\"}) RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level LIMIT 1"
+   "query": "USE topology MATCH (a:Address {address: \"corpus\\\"quote\"}) RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level, a.label_risk AS label_risk LIMIT 1"
   },
   {
    "builder": "backwardSourceQueries",

@@ -145,11 +145,17 @@ function addressProfileQuery(address: string): { id: string; query: string } {
   // risk source (the retired facts_risk_scores_view never had a risk_level
   // column, so UNSCORED abstention was invisible until this move).
   const riskFields = ', a.risk_score AS live_risk_score, a.risk_level AS live_risk_level'
+  // label_risk is the per-label risk overlay graphsync now materializes
+  // directly on the node (P2b′): a list of {label, risk_level,
+  // updated_timestamp} maps, one per current label row. Missing/empty is "no
+  // label-risk signal," never an error -- the retired facts_address_labels_view
+  // read is gone; this replaces it entirely.
+  const labelRiskField = ', a.label_risk AS label_risk'
   return {
     id: 'address_profile',
     query: [
       `MATCH (a:Address {address: "${escapeCypherString(address)}"})`,
-      `RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange${riskFields}`,
+      `RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange${riskFields}${labelRiskField}`,
       'LIMIT 1',
     ].join(' '),
   }
@@ -163,22 +169,6 @@ function addressFeatureQuery(address: string): { id: string; query: string } {
       `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[:HAS_FEATURE]->(feature:AddressFeature)`,
       'RETURN feature.degree_in AS degree_in, feature.degree_out AS degree_out, feature.degree_total AS degree_total, feature.tx_in_count AS tx_in_count, feature.tx_out_count AS tx_out_count, feature.tx_total_count AS tx_total_count, feature.total_volume_usd AS total_volume_usd, feature.total_in_usd AS total_in_usd, feature.total_out_usd AS total_out_usd, feature.net_flow_usd AS net_flow_usd, feature.first_activity_timestamp AS first_activity_timestamp, feature.last_activity_timestamp AS last_activity_timestamp, feature.activity_span_days AS activity_span_days',
       'LIMIT 1',
-    ].join(' '),
-  }
-}
-
-function addressLabelRiskQuery(address: string): { id: string; query: string } {
-  return {
-    id: 'address_label_risk',
-    query: [
-      'USE facts',
-      `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[:HAS_LABEL]->(label:AddressLabel)`,
-      'RETURN label.label AS label, label.risk_level AS risk_level, label.trust_level AS trust_level, label.confidence_score AS confidence_score, label.source AS source, label.entity_type AS entity_type, label.updated_timestamp AS updated_timestamp',
-      // Deterministic subset: an unordered LIMIT let the surfaced labels —
-      // and therefore the derived risk level — flap between runs for
-      // label-heavy addresses.
-      'ORDER BY label.updated_timestamp DESC',
-      'LIMIT 10',
     ].join(' '),
   }
 }
@@ -578,6 +568,21 @@ function riskDrivers(
   return [...new Set(drivers)]
 }
 
+// Derives the deterministic labelRows subset from the profile row's
+// a.label_risk property (topology, P2b′), reproducing the retired
+// addressLabelRiskQuery's `ORDER BY label.updated_timestamp DESC LIMIT 10`
+// subset byte-for-byte: same sort, same cap. Each entry already carries
+// {label, risk_level, updated_timestamp} -- no separate name/level pairing
+// is needed. Missing/empty property -> empty array, same as "no labels"
+// behaved under the old facts read.
+function deriveLabelRows(profile: Record<string, unknown>): Array<Record<string, unknown>> {
+  const raw = profile['label_risk']
+  const rows = Array.isArray(raw) ? raw.filter((row): row is Record<string, unknown> => typeof row === 'object' && row !== null && !Array.isArray(row)) : []
+  return [...rows]
+    .sort((a, b) => (numberValue(b['updated_timestamp']) ?? 0) - (numberValue(a['updated_timestamp']) ?? 0))
+    .slice(0, 10)
+}
+
 const RISK_LEVEL_ORDER = ['critical', 'high', 'medium', 'low'] as const
 
 function strongestLabelRiskLevel(labelRows: Array<Record<string, unknown>>): string | undefined {
@@ -601,14 +606,11 @@ function riskScoreSources(profile: Record<string, unknown>, labelRows: Array<Rec
   if (labelRows.length > 0) {
     sources.push({
       family: 'label_risk',
-      layer: 'facts',
-      view: 'facts_address_labels_view',
+      layer: 'topology',
+      source: 'address_node',
       labels: labelRows.map((row) => ({
         label: row['label'],
         risk_level: row['risk_level'],
-        trust_level: row['trust_level'],
-        confidence_score: row['confidence_score'],
-        source: row['source'],
       })),
     })
   }
@@ -842,7 +844,6 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   const queries = [
     addressProfileQuery(address),
     addressFeatureQuery(address),
-    addressLabelRiskQuery(address),
     ...exchangeOutflowQueries(address),
     ...exchangeInflowQueries(address),
     ...(compareAddress ? [connectionProbeQuery(address, compareAddress)] : [{ id: 'connection_probe', query: 'MATCH (n:Address {address: "__chain_insights_noop__"}) RETURN n.address AS noop LIMIT 0' }]),
@@ -878,7 +879,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     ...(addressProfileRows[0] ?? {}),
     ...(optionalResultsFor(batch, 'address_feature', partialQueryFailures)[0] ?? {}),
   }
-  const labelRows = optionalResultsFor(batch, 'address_label_risk', partialQueryFailures)
+  const labelRows = deriveLabelRows(profile)
   const outflows = enrichExchangeRows(optionalResultsWithPrefix(batch, 'exchange_outflows_', partialQueryFailures))
   const inflows = enrichExchangeRows(optionalResultsWithPrefix(batch, 'exchange_inflows_', partialQueryFailures))
   const connections = compareAddress ? optionalResultsFor(batch, 'connection_probe', partialQueryFailures) : []
@@ -2176,7 +2177,6 @@ export const queryBuilderContract = {
   addressProfileQuery,
   compareAddressExistsQuery,
   addressFeatureQuery,
-  addressLabelRiskQuery,
   exchangeOutflowQueries,
   exchangeInflowQueries,
   connectionProbeQuery,

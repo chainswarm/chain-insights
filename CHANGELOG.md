@@ -3,6 +3,22 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.1] - 2026-07-21
+
+- Label risk read moves from the facts tier to the topology graph
+  (`facts_address_labels_view` retirement, P2b′): `addressProfileQuery` now
+  projects `a.label_risk` (per-label `{label, risk_level,
+  updated_timestamp}` maps materialized on the `:Address` node by
+  graphsync); the retired `addressLabelRiskQuery` (`USE facts`
+  `[:HAS_LABEL]->(:AddressLabel)`) is removed. `aml_address_risk` derives
+  the same deterministic `ORDER BY updated_timestamp DESC LIMIT 10` subset
+  from the profile row instead of a separate query — verdict escalation,
+  `ml_label_divergence`, and the label driver line are unchanged. The
+  `label_risk` entry in `riskScoreSources` now reports
+  `{layer: 'topology', source: 'address_node'}` in place of the retired
+  `facts_address_labels_view` provenance; `trust_level`/`confidence_score`/
+  `source` no longer appear in that output.
+
 ## [0.10.0] - 2026-07-16
 
 - BREAKING (public MCP surface): migrated to the unified two-scope graph

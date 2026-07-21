@@ -1326,19 +1326,13 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                     system_labels: ['Address', 'Validator'],
                     live_risk_score: 0.91,
                     live_risk_level: 'critical',
+                    label_risk: [{
+                      label: 'Scam laundering intermediate',
+                      risk_level: 'high',
+                      updated_timestamp: 1700000000000,
+                    }],
                     degree_in: 3,
                     degree_out: 4,
-                  }],
-                },
-                {
-                  id: 'address_label_risk',
-                  ok: true,
-                  results: [{
-                    label: 'Scam laundering intermediate',
-                    risk_level: 'high',
-                    trust_level: 'candidate',
-                    confidence_score: 0.9,
-                    source: 'scam_topology_trace',
                   }],
                 },
                 {

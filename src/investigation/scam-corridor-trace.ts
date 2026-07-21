@@ -89,8 +89,10 @@ interface GateNode {
   degreeIn: number
   isExchange: boolean
   // The `labels(t)` node-label taxonomy graphsync reconciles onto :Address
-  // (PascalCase :Scam/:Exchange/:Validator/…), never the free-text t.labels
-  // property array — matching gates.go's labels(g) gate signal.
+  // (PascalCase :Scam/:Exchange/…), never the free-text t.labels property
+  // array — matching gates.go's labels(g) gate signal. Two-layer graph model:
+  // :Validator/:Miner are stamped on :Neuron nodes, not :Address, and
+  // :Subnet is its own node type — neither reaches :Address's labels(t) set.
   labels: string[]
 }
 
@@ -199,14 +201,18 @@ function stringArrayValue(value: unknown): string[] {
 // callGraphBatch, matching trace-funds.ts's convention.
 //
 // The gates key on `labels(t) AS node_labels` — the PascalCase node-label set
-// (:Scam/:Victim/:Exchange/:Mixer/:Bridge/:Validator/:Miner/:Subnet) that
-// graphsync reconciles onto each :Address every sync pass — NOT the free-text
-// `t.labels` property array (entity names + lowercase tags like 'Binance',
-// 'exchange', 'scam corridor hub'). This is faithful to the server-side
-// original internal/scamtopology/gates.go, whose own comment states the gates
-// read `labels(g)` "instead of scanning the labels property array." The
+// (:Scam/:Victim/:Exchange/:Mixer/:Bridge) that graphsync reconciles onto
+// each :Address every sync pass — NOT the free-text `t.labels` property
+// array (entity names + lowercase tags like 'Binance', 'exchange', 'scam
+// corridor hub'). This is faithful to the server-side original
+// internal/scamtopology/gates.go, whose own comment states the gates read
+// `labels(g)` "instead of scanning the labels property array." The
 // free-text `t.labels` array is still selected as `entity_labels`, but only as
-// human-readable evidence — never on the gate path.
+// human-readable evidence — never on the gate path. Two-layer graph model:
+// :Validator/:Miner/:Subnet are boundary-role labels on paper
+// (BOUNDARY_ROLE_LABELS above) but, post the two-layer-graph landing,
+// :Validator/:Miner live on :Neuron nodes and :Subnet is its own node type —
+// none of the three ever appears in an :Address node's labels(t) set.
 function frontierQuery(id: string, address: string, limit: number): { id: string; query: string } {
   return {
     id,

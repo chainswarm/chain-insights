@@ -30,7 +30,7 @@ describe('risk assessment precedence', () => {
   it('a lower-severity label never suppresses a more severe usable ML band', () => {
     const assessment = riskAssessment(
       { live_risk_score: 0.92, live_risk_level: 'HIGH' },
-      [{ label: 'known-service', risk_level: 'low', confidence_score: 0.9 }],
+      [{ label: 'known-service', risk_level: 'low', updated_timestamp: 1700000000000 }],
       [],
     )
     expect(assessment['level']).toBe('critical')
@@ -40,7 +40,7 @@ describe('risk assessment precedence', () => {
   it('labels stay first when equal or more severe than the ML band', () => {
     const assessment = riskAssessment(
       { live_risk_score: 0.45, live_risk_level: 'MEDIUM' },
-      [{ label: 'scam', risk_level: 'high', confidence_score: 0.9 }],
+      [{ label: 'scam', risk_level: 'high', updated_timestamp: 1700000000000 }],
       [],
     )
     expect(assessment['level']).toBe('high')
