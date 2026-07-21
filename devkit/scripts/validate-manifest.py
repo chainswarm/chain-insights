@@ -195,14 +195,12 @@ def main() -> None:
     if upper_bound_dt <= lower_bound_dt:
         fail("manifest fixture_window.to_exclusive must be after fixture_window.from")
 
-    coverage = manifest.get("coverage", {})
-    if int(coverage.get("substrate_rows", 0)) <= 0:
-        fail("manifest coverage.substrate_rows must be positive")
-    if int(coverage.get("evm_pallet_rows", 0)) <= 0:
-        fail("manifest coverage.evm_pallet_rows must be positive")
-    for key in ("address_count", "linked_pair_count", "flow_edge_count"):
-        if int(coverage.get(key, 0)) <= 0:
-            fail(f"manifest coverage.{key} must be positive")
+    # StarRocks-derived coverage keys (substrate_rows, evm_pallet_rows,
+    # address_count, linked_pair_count, flow_edge_count) retired 2026-07-21
+    # with the archive_topology_*/facts_address_labels_view exports (rbmk#447
+    # P2b'/P4'-lite; rbmk export-starrocks-fixture.sh no longer emits them).
+    # Memgraph-side coverage keys remain asserted below where present; the
+    # coverage object itself is optional pass-through now.
 
     if "uat" in manifest:
         fail("manifest must not contain UAT-only metadata")
