@@ -3,6 +3,24 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.9] - 2026-07-22
+
+- Federation compatibility for the AML trace tools: `aml_trace_victim_funds`
+  and `aml_trace_suspect_funds` were refused end-to-end on the multi-shard
+  topology (`cross_shard_scalar_projection`) because their fan-out queries
+  projected `r.<prop>` scalars in the final RETURN (edge maps, reverse-lead
+  `ORDER BY r.amount_usd_sum`). All trace builders now project EDGE OBJECTS
+  and unwrap `properties` client-side (`edgeProperties`); `direct_edge_props`
+  gains exact lifetime edge totals from the federated sum-merge; reverse
+  leads order client-side. Golden trace snapshots updated under
+  SPEC-2026-07-22-FED-PLANNER.
+- `aml_address_risk` lifetime features (`address_feature`) read from
+  federated `USE topology` node-metric projections (13 metrics incl. the
+  activity window, oracle-verified exact via data-pipeline planner) instead
+  of `facts_address_features_view` via `HAS_FEATURE` — the view's last
+  reader is gone (rbmk#447 P3/P5). Prompt strings and the public cypher
+  skills drop the facts `AddressFeature` surface accordingly.
+
 ## [0.10.8] - 2026-07-22
 
 - `aml_exchange_likeness` reads the lifetime profile (degree_in,

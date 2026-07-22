@@ -229,9 +229,9 @@ The address-grain graph schema:
   \`event_index\`, \`edge_index\`, \`price_usd\`, and \`price_missing\`.
   Every TRANSFER query (row-select or a \`count()\`/\`sum()\` aggregate)
   requires an indexed predicate — address equality on either endpoint or
-  \`WHERE t.tx_id = "..."\` — a bare \`LIMIT\` alone is rejected. Detailed,
-  provenanced feature detail still comes from \`USE facts\`: lifetime
-  metrics: \`(:Address)-[:HAS_FEATURE]->(:AddressFeature)\`.
+  \`WHERE t.tx_id = "..."\` — a bare \`LIMIT\` alone is rejected. Lifetime
+  address metrics (degrees, totals, activity window) are node properties on
+  \`USE topology\`.
 
 Rules:
 
