@@ -3,6 +3,22 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.12] - 2026-07-23
+
+- Detection-to-CIA (rbmk#462), first slice: a client-side detection runtime and
+  the fake-token detector, relocated from the data-pipeline backend recipe.
+  `cia detect fake-token --network <net> [--full|--since-checkpoint] [--watch]`
+  scans the verified-token registry (facts_assets_view) for symbol-spoof
+  contracts and emits a `chain-insights.detection-findings.v1` document with the
+  reviewer deliberately unset — the curated-import gate stays the only path to a
+  label. Incremental checkpoints (`.chain-insights/detectors/`) advance only
+  after a findings file is durably written. The mixer hourglass classifier core
+  ships (candidate-driven, mirrors exchange-likeness); its interactive tool and
+  batch candidate-source wiring land next. Findings schema gains the four
+  relocated detectors' tool names + classifications; the rbmk import gate maps
+  them to curated labels. Backend recipes are untouched (operator-gated
+  retirement).
+
 ## [0.10.11] - 2026-07-22
 
 - Facts tier is transfers-only end-to-end: remove the two documented
