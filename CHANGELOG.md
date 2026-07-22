@@ -3,6 +3,21 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.8] - 2026-07-22
+
+- `aml_exchange_likeness` reads the lifetime profile (degree_in,
+  total_in_usd) from federated `USE topology` node-metric projections instead
+  of `facts_address_features_view` via `HAS_FEATURE`. The federation
+  typed-AST planner (rbmk#458) re-derives multi-shard node metrics exactly
+  (additive props summed across disjoint shard windows, degrees as distinct
+  counterparty set unions), oracle-verified — removing the tool's last facts
+  feature-view dependency (rbmk#447 P3/P5) and fixing the 2026-07-09 ~10x
+  window-vs-lifetime divergence at the $50M threshold.
+- Security: dedupe `@hono/node-server` to the patched 2.0.11 line via an npm
+  override (the MCP SDK's nested 1.19.x copy tripped GHSA-frvp-7c67-39w9);
+  `npm audit` clean at all levels. `npm audit fix` refreshed `body-parser`
+  and `fast-uri` advisories.
+
 ## [0.10.7] - 2026-07-21
 
 - Adopt the open npm dependabot PRs in one batch (#193, #192, #182, #173):
