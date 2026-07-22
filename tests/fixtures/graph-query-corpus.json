@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/generate-query-corpus.mjs",
- "entry_count": 93,
+ "entry_count": 92,
  "entries": [
   {
    "builder": "addressFeatureQuery",
@@ -139,18 +139,6 @@
    },
    "scope": "topology",
    "query": "USE topology MATCH (a:Address)-[r:FLOWS_TO]->(b:Address) WHERE ((a.address = \"corpus-address-a\" AND b.address = \"corpus-address-b\") OR (a.address = \"corpus-address-b\" AND b.address = \"corpus\\\"quote\")) RETURN a.address AS src, b.address AS dst, r AS flow LIMIT 2"
-  },
-  {
-   "builder": "documented-recipe",
-   "params": {
-    "id": "recipe_facts_01",
-    "features": [
-     "fixed-hop",
-     "label-match"
-    ]
-   },
-   "scope": "facts",
-   "query": "USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.tx_out_count AS tx_out_count, f.tx_in_count AS tx_in_count LIMIT 10"
   },
   {
    "builder": "documented-recipe",

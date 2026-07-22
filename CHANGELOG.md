@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.10] - 2026-07-22
+
+- Retire the last facts `AddressFeature`/`HAS_FEATURE` references: the two
+  documented recipes (`recipe_facts_01`, `recipe_facts_16`) are removed from
+  `tests/fixtures/documented-recipes.json` (query corpus regenerated, 92
+  entries), and `docs/graph-tools.md` / `docs/graph-query-compatibility.md`
+  now point lifetime address metrics at `USE topology` node properties. In
+  lockstep with rbmk migration 0033, which drops `facts_address_features_*`
+  and adds `facts_addresses_view` (rbmk#447 P3/P5).
+
 ## [0.10.9] - 2026-07-22
 
 - Federation compatibility for the AML trace tools: `aml_trace_victim_funds`
