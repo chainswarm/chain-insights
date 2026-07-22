@@ -304,8 +304,24 @@ async function loadOrCaptureTopologySchema(
   return { schema, filePath }
 }
 
+// Project the EDGE OBJECT, not a map of r.<prop> scalars: under the
+// federated multi-shard dispatch a relationship-property scalar projection in
+// the final RETURN is refused (cross_shard_scalar_projection), while edge
+// objects are served (and lifetime sum-merged when top-level). Properties are
+// unwrapped client-side via edgeProperties().
 function flowEdgeMap(variableName: string): string {
-  return `{amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_seen_timestamp: ${variableName}.first_seen_timestamp, last_seen_timestamp: ${variableName}.last_seen_timestamp, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`
+  return variableName
+}
+
+// Unwrap a serialized edge value: a graph edge object carries its fields
+// under `properties`; a plain map (legacy shape) IS the fields. Missing/null
+// yields an empty record.
+function edgeProperties(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object') return {}
+  const record = value as Record<string, unknown>
+  const props = record['properties']
+  if (props && typeof props === 'object') return props as Record<string, unknown>
+  return record
 }
 
 function pathNodeMap(variableName: string): string {
@@ -389,8 +405,7 @@ function reverseLeadsQuery(depositAddresses: string[]): { id: string; query: str
     query: [
       'MATCH (sender:Address)-[r:FLOWS_TO]->(deposit:Address)',
       `WHERE (${depositPredicates.join(' OR ')}) AND sender.is_exchange IS NULL AND sender.address <> deposit.address`,
-      `RETURN DISTINCT sender.address AS address, sender.labels AS display_labels, sender.labels AS system_labels${riskFields}, deposit.address AS deposit_address, r.amount_usd_sum AS amount_usd`,
-      'ORDER BY r.amount_usd_sum DESC',
+      `RETURN DISTINCT sender.address AS address, sender.labels AS display_labels, sender.labels AS system_labels${riskFields}, deposit.address AS deposit_address, r AS flow`,
       `LIMIT ${Math.max(50, depositAddresses.length * 50)}`,
     ].join(' '),
   }
@@ -411,7 +426,7 @@ function directEdgePropsQuery(flows: TraceFlow[]): { id: string; query: string }
     query: [
       'MATCH (a:Address)-[r:FLOWS_TO]->(b:Address)',
       `WHERE (${predicates.join(' OR ')})`,
-      'RETURN a.address AS src, b.address AS dst, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count, r.first_tx_id AS first_tx_id, r.last_tx_id AS last_tx_id, r.first_seen_timestamp AS first_seen_timestamp, r.last_seen_timestamp AS last_seen_timestamp',
+      'RETURN a.address AS src, b.address AS dst, r AS flow',
       `LIMIT ${pairs.length}`,
     ].join(' '),
   }
@@ -441,7 +456,7 @@ function rowTerminalAmount(row: Record<string, unknown>): number | undefined {
   const edgeProps = Array.isArray(row['edge_props']) ? row['edge_props'] as Array<Record<string, unknown>> : []
   const terminalEdge = edgeProps[edgeProps.length - 1]
   if (!terminalEdge) return undefined
-  return numberValue(terminalEdge['amount_usd_sum'])
+  return numberValue(edgeProperties(terminalEdge)['amount_usd_sum'])
 }
 
 function rowsMatchingMinimumAmount(rows: Array<Record<string, unknown>>, minAmountSum: number): Array<Record<string, unknown>> {
@@ -509,7 +524,7 @@ function depositFromRow(row: Record<string, unknown>): TraceDeposit | null {
   const nodeLabels = Array.isArray(row['node_labels']) ? row['node_labels'].map((labels) => stringArrayValue(labels) ?? []) : []
   const exchangeAddress = typeof row['exchange_address'] === 'string' ? row['exchange_address'] : pathAddresses[pathAddresses.length - 1]
   const edgeProps = Array.isArray(row['edge_props']) ? row['edge_props'] as Array<Record<string, unknown>> : []
-  const terminalEdge = edgeProps[edgeProps.length - 1] ?? {}
+  const terminalEdge = edgeProperties(edgeProps[edgeProps.length - 1])
   const pathNodes = Array.isArray(row['path_nodes'])
     ? row['path_nodes'].map((node, index) => nodeMetadataFromValue(node, pathAddresses[index])).filter((node): node is GraphNodeMetadata => Boolean(node))
     : undefined
@@ -551,7 +566,7 @@ function flowsFromForwardRows(rows: Array<Record<string, unknown>>): { flows: Tr
     for (let index = 0; index < pathAddresses.length - 1; index += 1) {
       const src = pathAddresses[index]!
       const dst = pathAddresses[index + 1]!
-      const edge = edgeProps[index] ?? {}
+      const edge = edgeProperties(edgeProps[index])
       const terminal = index === pathAddresses.length - 2
       const key = `${src}->${dst}`
       if (seenEdges.has(key)) continue
@@ -587,7 +602,7 @@ async function hydrateDirectEdgeProps(remoteClient: Client, network: string, flo
     const src = typeof row['src'] === 'string' ? row['src'] : ''
     const dst = typeof row['dst'] === 'string' ? row['dst'] : ''
     if (!src || !dst) continue
-    edgeProps.set(edgeKey(src, dst), row)
+    edgeProps.set(edgeKey(src, dst), edgeProperties(row['flow']))
   }
 
   for (const flow of flows) {
@@ -683,12 +698,16 @@ async function collectProbeTrace(
     } catch (err) {
       tracebackWarnings.push(`deposit traceback batch failed: ${(err as Error).message}`)
     }
+    // The server no longer orders by the flow amount (a relationship-property
+    // ORDER BY is refused under the federated dispatch); order client-side so
+    // lead selection keeps its largest-first bias.
+    reverseRows.sort((a, b) => (numberValue(edgeProperties(b['flow'])['amount_usd_sum']) ?? 0) - (numberValue(edgeProperties(a['flow'])['amount_usd_sum']) ?? 0))
     for (const row of reverseRows) {
       const address = typeof row['address'] === 'string' ? row['address'] : ''
       const depositAddress = typeof row['deposit_address'] === 'string' ? row['deposit_address'] : ''
       if (!address || !depositAddress) continue
       const labels = stringArrayValue(row['display_labels']) ?? stringArrayValue(row['labels']) ?? []
-      const amountUsd = numberValue(row['amount_usd']) ?? 0
+      const amountUsd = numberValue(edgeProperties(row['flow'])['amount_usd_sum']) ?? 0
       const reason = labels.length > 0 ? 'labeled_entity' : amountUsd > 100000 ? 'high_volume_sender' : ''
       if (!reason) continue
       reverseLeads.push({
@@ -703,7 +722,7 @@ async function collectProbeTrace(
           risk_level: typeof row['risk_level'] === 'string' && row['risk_level'].trim() ? row['risk_level'] : undefined,
         },
         deposit_address: depositAddress,
-        amount_usd: numberValue(row['amount_usd']),
+        amount_usd: numberValue(edgeProperties(row['flow'])['amount_usd_sum']),
         reason,
       })
     }

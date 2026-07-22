@@ -96,8 +96,12 @@ describe('forward trace activity window', () => {
       writeArtifacts: false,
     })
     const forward = captured.flat().find((q) => q.id === 'forward_exchange_paths_1')
-    expect(forward!.query).toContain('first_seen_timestamp: r1.first_seen_timestamp')
-    expect(forward!.query).toContain('last_seen_timestamp: r1.last_seen_timestamp')
+    // Edge OBJECTS (not r.<prop> maps) ride in edge_props: a relationship-
+    // property scalar projection in the final RETURN is refused by the
+    // federated multi-shard dispatch; timestamps are read client-side from
+    // the edge object's properties.
+    expect(forward!.query).toContain('[r1] AS edge_props')
+    expect(forward!.query).not.toContain('first_seen_timestamp: r1.first_seen_timestamp')
   })
 })
 

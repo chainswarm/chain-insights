@@ -161,13 +161,20 @@ function addressProfileQuery(address: string): { id: string; query: string } {
   }
 }
 
+// Lifetime address features from federated USE topology node-metric
+// projections (was: USE facts HAS_FEATURE -> facts_address_features_view,
+// the view's last reader — rbmk#447 P3/P5). The federation typed-AST planner
+// (rbmk#458) re-derives every projected metric EXACTLY across shards:
+// additive props summed over disjoint shard windows, degrees as distinct
+// counterparty set unions, first/last activity as min/max of per-shard baked
+// endpoints, span from the combined endpoints — oracle-verified.
 function addressFeatureQuery(address: string): { id: string; query: string } {
   return {
     id: 'address_feature',
     query: [
-      'USE facts',
-      `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[:HAS_FEATURE]->(feature:AddressFeature)`,
-      'RETURN feature.degree_in AS degree_in, feature.degree_out AS degree_out, feature.degree_total AS degree_total, feature.tx_in_count AS tx_in_count, feature.tx_out_count AS tx_out_count, feature.tx_total_count AS tx_total_count, feature.total_volume_usd AS total_volume_usd, feature.total_in_usd AS total_in_usd, feature.total_out_usd AS total_out_usd, feature.net_flow_usd AS net_flow_usd, feature.first_activity_timestamp AS first_activity_timestamp, feature.last_activity_timestamp AS last_activity_timestamp, feature.activity_span_days AS activity_span_days',
+      'USE topology',
+      `MATCH (a:Address {address: "${escapeCypherString(address)}"})`,
+      'RETURN a.degree_in AS degree_in, a.degree_out AS degree_out, a.degree_total AS degree_total, a.tx_in_count AS tx_in_count, a.tx_out_count AS tx_out_count, a.tx_total_count AS tx_total_count, a.total_volume_usd AS total_volume_usd, a.total_in_usd AS total_in_usd, a.total_out_usd AS total_out_usd, a.net_flow_usd AS net_flow_usd, a.first_activity_timestamp AS first_activity_timestamp, a.last_activity_timestamp AS last_activity_timestamp, a.activity_span_days AS activity_span_days',
       'LIMIT 1',
     ].join(' '),
   }

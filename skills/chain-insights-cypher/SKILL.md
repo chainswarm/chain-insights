@@ -92,8 +92,12 @@ Topology is intentionally stable across address spaces:
   `price_coverage_ratio`. These are lifetime aggregates (first/last endpoints
   only). The public address contract is USD-only; do not rely on native
   `amount_sum`.
-- Facts may expose `Address`, `AddressFeature`, `Asset`,
-  and network-specific fact nodes.
+- Facts may expose `Address`, `Asset`, and network-specific fact nodes.
+  Lifetime address metrics (`degree_in`/`degree_out`/`degree_total`,
+  `tx_in_count`/`tx_out_count`/`tx_total_count`, `total_in_usd`/
+  `total_out_usd`/`total_volume_usd`, `net_flow_usd`,
+  `first_activity_timestamp`/`last_activity_timestamp`/`activity_span_days`)
+  are node properties on `USE topology`, not facts.
 
 Future networks may expose different schemas. Do not reuse a Bittensor
 relationship or feature query on another network unless that network advertises
@@ -108,7 +112,7 @@ Memgraph-backed and mapped layers:
 cia mcp call graph_query_batch \
   network=<network> \
   per_query_timeout_seconds=5 \
-  'queries=[{"id":"address_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level, a.is_exchange AS is_exchange LIMIT 10"},{"id":"flow_sample","query":"USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp LIMIT 10"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"facts_feature_sample","query":"USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.tx_out_count AS tx_out_count LIMIT 10"}]'
+  'queries=[{"id":"address_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level, a.is_exchange AS is_exchange LIMIT 10"},{"id":"flow_sample","query":"USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp LIMIT 10"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"node_metric_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.tx_out_count AS tx_out_count LIMIT 10"}]'
 ```
 
 If a query fails with a generic backend error, narrow it before changing the
@@ -125,12 +129,12 @@ cia mcp call graph_query \
   'query=USE topology MATCH (src:Address {address: "FULL_ADDRESS"})-[flow:FLOWS_TO]->(dst:Address) RETURN dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 50'
 ```
 
-Facts lookup after schema proof:
+Lifetime node-metric lookup after schema proof:
 
 ```bash
 cia mcp call graph_query \
   network=<network> \
-  'query=USE facts MATCH (a:Address {address: "FULL_ADDRESS"})-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.tx_out_count AS tx_out_count, f.tx_in_count AS tx_in_count LIMIT 10'
+  'query=USE topology MATCH (a:Address {address: "FULL_ADDRESS"}) RETURN a.address AS address, a.tx_out_count AS tx_out_count, a.tx_in_count AS tx_in_count LIMIT 1'
 ```
 
 Individual transfer rows by address (bounded — the `{address: ...}` endpoint

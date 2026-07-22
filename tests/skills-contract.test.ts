@@ -396,7 +396,9 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('Chain Insights Graph does not append')
     expect(skill).toContain('per_query_timeout_seconds=5')
     expect(skill).toContain('Future networks may expose different schemas')
-    expect(skill).toContain('AddressFeature')
+    // Lifetime address metrics moved to topology node properties (rbmk#458
+    // planner / rbmk#447 P3): the facts AddressFeature surface is retired.
+    expect(skill).not.toContain('AddressFeature')
     expect(skill).toContain('tx_out_count')
     expect(skill).not.toContain('sent_count')
     expect(skill).not.toContain('AddressLabel')

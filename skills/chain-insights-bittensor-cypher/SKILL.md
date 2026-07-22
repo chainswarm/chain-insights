@@ -48,8 +48,8 @@ Observed against the address-serving contract on 2026-07-07:
   `block_timestamp`, `event_index`, `edge_index`, `price_usd`,
   `price_missing`) — every `TRANSFER` query requires an indexed predicate
   (address equality on either endpoint, or `WHERE t.tx_id = "..."`); a bare
-  `LIMIT` alone is rejected. Until P3, `facts` also carries address-keyed
-  enrichment through `HAS_FEATURE`. Neuron identity, hotkey/coldkey
+  `LIMIT` alone is rejected. Lifetime address metrics are node properties
+  on `USE topology`, not facts. Neuron identity, hotkey/coldkey
   pairing, and IP/axon-port observation live on the topology `:Neuron`
   node and `MINES`/`VALIDATES`/`HOTKEY_OF`/`COLDKEY_OF` edges, not on
   `facts`. Labels and per-label risk live on the topology address node
@@ -90,15 +90,15 @@ RETURN a.address AS address,
 LIMIT 25
 ```
 
-Facts, when the endpoint proves the mapping:
+Lifetime node metrics, on the topology graph:
 
 ```cypher
-USE facts
-MATCH (address:Address)-[:HAS_FEATURE]->(feature:AddressFeature)
+USE topology
+MATCH (address:Address {address: "FULL_ADDRESS"})
 RETURN address.address AS address,
-       feature.tx_out_count AS tx_out_count,
-       feature.tx_in_count AS tx_in_count
-LIMIT 25
+       address.tx_out_count AS tx_out_count,
+       address.tx_in_count AS tx_in_count
+LIMIT 1
 ```
 
 Individual transfer rows, bounded by an address endpoint predicate:
@@ -126,7 +126,7 @@ Use this before a custom Bittensor query session:
 cia mcp call graph_query_batch \
   network=bittensor \
   per_query_timeout_seconds=5 \
-  'queries=[{"id":"address_projection","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_score AS risk_score, a.risk_level AS risk_level, a.is_exchange AS is_exchange LIMIT 10"},{"id":"flow_sample","query":"USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"facts_feature_sample","query":"USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.tx_out_count AS tx_out_count LIMIT 10"}]'
+  'queries=[{"id":"address_projection","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_score AS risk_score, a.risk_level AS risk_level, a.is_exchange AS is_exchange LIMIT 10"},{"id":"flow_sample","query":"USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"node_metric_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.tx_out_count AS tx_out_count LIMIT 10"}]'
 ```
 
 Avoid `keys()`, `labels()`, `type()`, native BFS syntax, and variable-length
