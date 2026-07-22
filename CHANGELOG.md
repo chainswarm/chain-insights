@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.11] - 2026-07-22
+
+- Facts tier is transfers-only end-to-end: remove the two documented
+  single-node `USE facts MATCH (a:Address)` recipes (`recipe_facts_03`,
+  `recipe_facts_17`) — the serving layer now treats `Address` as an
+  endpoint-only facts label (valid on TRANSFER endpoints; bare single-node
+  facts MATCH refuses with a typed unsupported-shape error) after rbmk
+  migration 0034 dropped `facts_addresses_view`. Query corpus regenerated
+  (91 entries).
+
 ## [0.10.10] - 2026-07-22
 
 - Retire the last facts `AddressFeature`/`HAS_FEATURE` references: the two
