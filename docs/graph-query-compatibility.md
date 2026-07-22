@@ -88,7 +88,7 @@ rejected with a typed contract error before execution.
 
 | Construct | Notes |
 | --- | --- |
-| `MATCH` on a mapped node / single relationship | `(from:Address)-[t:TRANSFER]->(to:Address)` (bounded individual transfer rows from `facts_transfers_view`), `(:Address)-[:HAS_FEATURE]->(:AddressFeature)` (until P3). Never serves `FLOWS_TO` or `LINKED` — those are topology-only. Neuron identity, hotkey/coldkey pairing, and IP/axon-port observation live on the topology `:Neuron` node, not on `facts`. Labels and per-label risk live on the topology address node, not on `facts`. |
+| `MATCH` on a mapped node / single relationship | `(from:Address)-[t:TRANSFER]->(to:Address)` (bounded individual transfer rows from `facts_transfers_view`). Lifetime address metrics are node properties on `USE topology` (the facts `AddressFeature` surface is retired). Never serves `FLOWS_TO` or `LINKED` — those are topology-only. Neuron identity, hotkey/coldkey pairing, and IP/axon-port observation live on the topology `:Neuron` node, not on `facts`. Labels and per-label risk live on the topology address node, not on `facts`. |
 | Chained fixed-hop patterns | up to 5 hops |
 | `WHERE` with an indexed predicate | `address` equality or `IN`; `tx_id` equality or `IN` (the `TRANSFER` edge's row-level key); date/height/timestamp range |
 | Inline property maps | `MATCH (a:Address {address:"…"})` |
