@@ -3,26 +3,6 @@
   "note": "Documented + gap-filled Chain Insights graph query recipes. Native traversal forms (BFS/WSHORTEST/KSHORTEST/var-length) on USE topology are bounded per the R2 resource policy and verified against real Memgraph. Merged into the corpus by generate-query-corpus.mjs; facts recipes drive the translator conformance + T0b baselines.",
   "recipes": [
     {
-      "id": "recipe_facts_03",
-      "query": "USE facts MATCH (a:Address) RETURN a.address AS address, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 25",
-      "layer": "facts",
-      "description": "Facts Address projection returning address, labels, risk_level",
-      "features": [
-        "label-match"
-      ]
-    },
-    {
-      "id": "recipe_facts_17",
-      "admits": false,
-      "query": "USE facts MATCH (a:Address) RETURN count(a) AS address_count LIMIT 1",
-      "layer": "facts",
-      "description": "Node-only Address count on the facts layer \u2014 the facts-layer counterpart to recipe_topology_14, fills facts node-only aggregate coverage.",
-      "features": [
-        "label-match",
-        "aggregate"
-      ]
-    },
-    {
       "id": "recipe_facts_transfer_01",
       "query": "USE facts MATCH (from:Address {address: \"5CF6Ruq6u7DoF6TYxyaFzEuviWi7tjvJtz19XgPS2b7XDCFM\"})-[t:TRANSFER]->(to:Address) RETURN to.address AS to_address, t.tx_id AS tx_id, t.block_height AS block_height, t.amount_usd AS amount_usd, t.asset_symbol AS asset_symbol LIMIT 10",
       "layer": "facts",
