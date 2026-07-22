@@ -138,16 +138,20 @@ describe('exchangeLikeness candidate cap and read-only surface', () => {
     }
   })
 
-  it('reads lifetime fan-in/inbound from the facts tier, not the windowed topology node', () => {
-    // Regression guard for the 2026-07-09 UAT finding: the topology node's
-    // total_in_usd is a recent-window figure (~10x smaller than lifetime), so exchange-
-    // likeness must source degree_in/total_in_usd from
-    // facts_address_features_view via USE facts + HAS_FEATURE.
+  it('reads lifetime fan-in/inbound from federated topology node metrics, not the facts tier', () => {
+    // Since the federation typed-AST planner (rbmk#458), a multi-shard
+    // node-metric projection returns EXACT lifetime values (additive props
+    // summed across disjoint shard windows, degrees re-derived by distinct
+    // counterparty set union) — oracle-verified. Exchange-likeness therefore
+    // reads degree_in/total_in_usd straight off the topology Address node,
+    // dropping its last facts_address_features_view / HAS_FEATURE dependency
+    // (rbmk#447 P3/P5). The exact projection shape here is the difftest
+    // corpus case plan-node-metric-lifetime, which must stay exact-match.
     const profile = exchangeLikenessQueryBuilderContract.profileQuery('profile_0', 'addr-a').query
-    expect(profile).toMatch(/^USE facts\b/)
-    expect(profile).toContain('[:HAS_FEATURE]->(feat:AddressFeature)')
-    expect(profile).toContain('feat.degree_in AS degree_in')
-    expect(profile).toContain('feat.total_in_usd AS total_in_usd')
+    expect(profile).toMatch(/^USE topology\b/)
+    expect(profile).not.toContain('HAS_FEATURE')
+    expect(profile).toContain('a.degree_in AS degree_in')
+    expect(profile).toContain('a.total_in_usd AS total_in_usd')
     // reciprocity stays on the topology tier (FLOWS_TO edges)
     const reciprocity = exchangeLikenessQueryBuilderContract.reciprocityQuery('reciprocity_0', 'addr-a').query
     expect(reciprocity).not.toMatch(/^USE facts\b/)
