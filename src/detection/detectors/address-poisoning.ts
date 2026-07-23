@@ -11,7 +11,8 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { DetectionFinding } from '../../investigation/detection-findings.js'
 import { graphQueryRows, type GraphRow } from '../graph-client.js'
 import { addressFamily, isLookalike } from '../lookalike.js'
-import type { DetectorScan, DetectionWindow } from '../runtime.js'
+import { numParam } from '../params.js'
+import type { DetectorParams, DetectorScan, DetectionWindow } from '../runtime.js'
 
 // Cluster-key prefix length per family: the shared lead a vanity spray grinds.
 // A dust sender whose prefix cluster has many distinct members is far more
@@ -20,6 +21,32 @@ function clusterKey(addr: string): string {
   const fam = addressFamily(addr)
   const len = fam === 'ss58' ? 14 : fam === 'evm' ? 10 : 8
   return `${fam}:${addr.slice(0, len)}`
+}
+
+// Per-network default dust floors. Amounts in facts are decimals-normalized, so
+// the same order-of-magnitude floor works across networks today; the table
+// exists so a chain with a different token scale can be tuned without code.
+const POISONING_NETWORK_DEFAULTS: Record<string, { dustFloor: number }> = {
+  bittensor: { dustFloor: 0.0001 },
+  bittensor_evm: { dustFloor: 0.0001 },
+}
+
+export interface PoisoningConfig {
+  dustFloor: number
+  scanWindowMs: number
+  maxRows: number
+}
+
+// resolvePoisoningConfig layers operator `--param` overrides on the per-network
+// defaults. Params: dust_floor, scan_window_days, max_rows.
+export function resolvePoisoningConfig(network: string, params: DetectorParams): PoisoningConfig {
+  const base = POISONING_NETWORK_DEFAULTS[network] ?? { dustFloor: POISONING_DUST_FLOOR }
+  const windowDays = numParam(params, 'scan_window_days', 2)
+  return {
+    dustFloor: numParam(params, 'dust_floor', base.dustFloor),
+    scanWindowMs: windowDays * 24 * 60 * 60 * 1000,
+    maxRows: numParam(params, 'max_rows', MAX_ROWS),
+  }
 }
 
 const MAX_ROWS = 1000
@@ -102,16 +129,21 @@ function toDateStr(ms: number): string {
 export const addressPoisoningDetector: DetectorScan = {
   tool: 'aml_address_poisoning',
   id: 'address-poisoning',
-  thresholds: () => ({
-    ported_from: 'internal/recipes/addresspoisoning.go',
-    rule: 'vanity_lookalike_dust',
-    dust_floor: POISONING_DUST_FLOOR,
-    scan_window_ms: POISONING_SCAN_WINDOW_MS,
-  }),
-  async scan(window: DetectionWindow, client: Client, network: string): Promise<DetectionFinding[]> {
+  thresholds: (network, params) => {
+    const cfg = resolvePoisoningConfig(network, params)
+    return {
+      ported_from: 'internal/recipes/addresspoisoning.go',
+      rule: 'vanity_lookalike_dust',
+      dust_floor: cfg.dustFloor,
+      scan_window_ms: cfg.scanWindowMs,
+      max_rows: cfg.maxRows,
+    }
+  },
+  async scan(window: DetectionWindow, client: Client, network: string, params: DetectorParams): Promise<DetectionFinding[]> {
+    const cfg = resolvePoisoningConfig(network, params)
     // Clamp to the trailing bounded window so the facts scan stays cost-legal.
     const hiMs = window.toMs
-    const loMs = Math.max(window.fromMs, hiMs - POISONING_SCAN_WINDOW_MS)
+    const loMs = Math.max(window.fromMs, hiMs - cfg.scanWindowMs)
     const lo = toDateStr(loMs)
     const hi = toDateStr(hiMs)
     // from_address/to_address are the TRANSFER edge's endpoint NODES (facts
@@ -120,7 +152,7 @@ export const addressPoisoningDetector: DetectorScan = {
     const dustRows = await graphQueryRows(
       client,
       network,
-      `USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.block_date >= "${lo}" AND t.block_date <= "${hi}" AND t.amount < ${POISONING_DUST_FLOOR} RETURN from.address AS duster, to.address AS victim, t.amount AS amount LIMIT ${MAX_ROWS}`,
+      `USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.block_date >= "${lo}" AND t.block_date <= "${hi}" AND t.amount < ${cfg.dustFloor} RETURN from.address AS duster, to.address AS victim, t.amount AS amount LIMIT ${cfg.maxRows}`,
     )
     const dust: DustEdge[] = dustRows.map((r) => ({
       duster: str(r, 'duster'),
@@ -136,7 +168,7 @@ export const addressPoisoningDetector: DetectorScan = {
       const rows = await graphQueryRows(
         client,
         network,
-        `USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address {address: "${safe}"}) WHERE t.amount >= ${POISONING_DUST_FLOOR} RETURN DISTINCT from.address AS counterparty LIMIT ${MAX_ROWS}`,
+        `USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address {address: "${safe}"}) WHERE t.amount >= ${cfg.dustFloor} RETURN DISTINCT from.address AS counterparty LIMIT ${cfg.maxRows}`,
       )
       realByVictim.set(
         victim,

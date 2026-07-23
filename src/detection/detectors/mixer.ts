@@ -9,6 +9,7 @@
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { DetectionFinding } from '../../investigation/detection-findings.js'
 import { graphQueryRows, type GraphRow } from '../graph-client.js'
+import { listParam, numParam, strParam } from '../params.js'
 import type { DetectorParams, DetectorScan, DetectionWindow } from '../runtime.js'
 
 // Backward-compatible export: the generic default hourglass floor. Networks and
@@ -37,31 +38,18 @@ const MIXER_NETWORK_DEFAULTS: Record<string, { minIn: number; minOut: number }> 
   bittensor_evm: { minIn: 20, minOut: 20 },
 }
 
-function numParam(params: DetectorParams, key: string, fallback: number): number {
-  const raw = params[key]
-  if (raw === undefined) return fallback
-  const n = Number(raw)
-  return Number.isFinite(n) && n >= 0 ? n : fallback
-}
-
 // resolveMixerConfig layers operator `--param` overrides on top of the
 // per-network defaults. Recognized params: min_in, min_out, max_candidates,
 // time_scope, role_keywords (comma-separated). Anything unset falls back to the
 // network default, then the generic default.
 export function resolveMixerConfig(network: string, params: DetectorParams): MixerConfig {
   const base = MIXER_NETWORK_DEFAULTS[network] ?? { minIn: MIXER_MIN_INPUT_COUNT, minOut: MIXER_MIN_OUTPUT_COUNT }
-  const roleRaw = params.role_keywords
   return {
     minIn: numParam(params, 'min_in', base.minIn),
     minOut: numParam(params, 'min_out', base.minOut),
     maxCandidates: numParam(params, 'max_candidates', 1000),
-    timeScope: params.time_scope?.trim() || 'recent',
-    roleKeywords: roleRaw
-      ? roleRaw
-          .split(',')
-          .map((k) => k.trim().toLowerCase())
-          .filter(Boolean)
-      : DEFAULT_NON_MIXER_ROLE_KEYWORDS,
+    timeScope: strParam(params, 'time_scope', 'recent'),
+    roleKeywords: listParam(params, 'role_keywords', DEFAULT_NON_MIXER_ROLE_KEYWORDS),
   }
 }
 
