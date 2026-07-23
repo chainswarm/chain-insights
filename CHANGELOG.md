@@ -3,6 +3,20 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.18] - 2026-07-23
+
+- attack-attribution: fix a silent false-negative and a timeout, found by
+  exercising the label economy end-to-end (rbmk#461 L1). (1) The seed query
+  matched `a.address_subtype IN [...]`, but the graphsync overlay never projects
+  `address_subtype` onto Address nodes — it stamps the scam family as taxonomy
+  NODE LABELS (`:Scam`, `:Poisoned`). Seeds are now matched by node label
+  (default `:Scam`, operator-overridable via `--param seed_labels=Scam,Poisoned`;
+  labels are charset-validated before interpolation). (2) The walk did one or two
+  graph queries PER node and timed out on a wide graph; it now expands the whole
+  BFS frontier per hop in one chunked `WHERE a.address IN [...]` query that also
+  returns each downstream node's boundary flag. Live on bittensor: 0 → 1,572
+  attributed findings from 43 `:Scam` seeds in ~47s (was a timeout).
+
 ## [0.10.17] - 2026-07-23
 
 - All detectors are now parametrized like mixer: per-network default tables +
