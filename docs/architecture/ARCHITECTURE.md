@@ -37,6 +37,7 @@ One doc per `cmd/` worker under `components/`. Generator-owned header, human-own
 | Worker | Component doc |
 |---|---|
 | `config` | [config](components/config.md) |
+| `detection` | [detection](components/detection.md) |
 | `investigation` | [investigation](components/investigation.md) |
 | `mcp` | [mcp](components/mcp.md) |
 | `server` | [server](components/server.md) |
