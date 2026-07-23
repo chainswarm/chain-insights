@@ -7,7 +7,8 @@
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { DetectionFinding } from '../../investigation/detection-findings.js'
 import { graphQueryRows, type GraphRow } from '../graph-client.js'
-import type { DetectorScan, DetectionWindow } from '../runtime.js'
+import { numParam } from '../params.js'
+import type { DetectorParams, DetectorScan, DetectionWindow } from '../runtime.js'
 
 const MAX_ROWS = 1000
 
@@ -59,38 +60,62 @@ export function findSpoofs(verified: GraphRow[], candidates: GraphRow[]): Detect
   return findings
 }
 
+const MAX_ASSET_PAGES = 50
+
+export interface FakeTokenConfig {
+  maxPages: number
+  pageSize: number
+}
+
+// resolveFakeTokenConfig: operator `--param` overrides for the assets pull.
+// Params: max_pages, page_size. No per-network divergence today (the assets
+// dimension is small everywhere); the resolver is the extension point.
+export function resolveFakeTokenConfig(_network: string, params: DetectorParams): FakeTokenConfig {
+  return {
+    maxPages: numParam(params, 'max_pages', MAX_ASSET_PAGES),
+    pageSize: numParam(params, 'page_size', MAX_ROWS),
+  }
+}
+
 export const fakeTokenDetector: DetectorScan = {
   tool: 'aml_fake_token',
   id: 'fake-token',
-  thresholds: () => ({ ported_from: 'internal/recipes/faketoken.go', rule: 'verified_symbol_collision' }),
-  async scan(_window: DetectionWindow, client: Client, network: string): Promise<DetectionFinding[]> {
+  thresholds: (network, params) => {
+    const cfg = resolveFakeTokenConfig(network, params)
+    return {
+      ported_from: 'internal/recipes/faketoken.go',
+      rule: 'verified_symbol_collision',
+      max_pages: cfg.maxPages,
+      page_size: cfg.pageSize,
+    }
+  },
+  async scan(_window: DetectionWindow, client: Client, network: string, params: DetectorParams): Promise<DetectionFinding[]> {
     // The assets registry is a SMALL dimension (thousands of rows), so pull it
     // all via keyset pagination (ORDER BY asset_contract, WHERE > cursor) — an
     // unfiltered bounded Asset scan is cost-gate-allowed (not a transfer or
     // aggregate). A per-symbol query loop would issue one call per verified
     // symbol (thousands) and time out; the whole spoof-match runs client-side
     // over the pulled set instead (findSpoofs).
-    const all = await pullAllAssets(client, network)
+    const cfg = resolveFakeTokenConfig(network, params)
+    const all = await pullAllAssets(client, network, cfg)
     const verified = all.filter((a) => truthy(a, 'verified'))
     return findSpoofs(verified, all)
   },
 }
 
-const MAX_ASSET_PAGES = 50
-
-async function pullAllAssets(client: Client, network: string): Promise<GraphRow[]> {
+async function pullAllAssets(client: Client, network: string, cfg: FakeTokenConfig): Promise<GraphRow[]> {
   const out: GraphRow[] = []
   let cursor = ''
-  for (let page = 0; page < MAX_ASSET_PAGES; page += 1) {
+  for (let page = 0; page < cfg.maxPages; page += 1) {
     const where = cursor ? `WHERE t.asset_contract > "${cursor.replace(/"/g, '')}" ` : ''
     const rows = await graphQueryRows(
       client,
       network,
-      `USE facts MATCH (t:Asset) ${where}RETURN t.asset_contract AS asset_contract, t.symbol_lower AS symbol_lower, t.asset_symbol AS asset_symbol, t.verified AS verified, t.verification_source AS verification_source ORDER BY t.asset_contract LIMIT ${MAX_ROWS}`,
+      `USE facts MATCH (t:Asset) ${where}RETURN t.asset_contract AS asset_contract, t.symbol_lower AS symbol_lower, t.asset_symbol AS asset_symbol, t.verified AS verified, t.verification_source AS verification_source ORDER BY t.asset_contract LIMIT ${cfg.pageSize}`,
     )
     if (rows.length === 0) break
     out.push(...rows)
-    if (rows.length < MAX_ROWS) break
+    if (rows.length < cfg.pageSize) break
     cursor = str(rows[rows.length - 1], 'asset_contract')
     if (!cursor) break
   }

@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.17] - 2026-07-23
+
+- All detectors are now parametrized like mixer: per-network default tables +
+  operator `--param key=value` overrides, with the effective config echoed in
+  `threshold_provenance`. address-poisoning: `dust_floor`, `scan_window_days`,
+  `max_rows`. attack-attribution: `max_hops`, `max_frontier`, `max_rows`,
+  `seed_subtypes` (csv), `boundary_keywords` (csv). fake-token: `max_pages`,
+  `page_size`. Shared param coercion helpers live in `src/detection/params.ts`
+  (numbers fall back to the default on malformed input; csv lists are trimmed
+  and lowercased); mixer now uses them too.
+
 ## [0.10.16] - 2026-07-23
 
 - mixer is now a flexible, parametrized tool. It ships per-network default
