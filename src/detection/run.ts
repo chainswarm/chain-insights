@@ -14,6 +14,8 @@ export interface DetectRunOptions {
   full: boolean
   workspaceRoot: string
   nowMs: number
+  // Operator-supplied `--param key=value` bag; each detector reads its own keys.
+  params?: Record<string, string>
 }
 
 export interface DetectRunOutcome {
@@ -31,6 +33,7 @@ export async function runOneDetection(
     network: opts.network,
     full: opts.full,
     nowMs: opts.nowMs,
+    params: opts.params,
   })
   const findingsPath = await writeFindings(opts.workspaceRoot, opts.detector, document)
   // Advance the checkpoint ONLY after the findings are durably on disk.

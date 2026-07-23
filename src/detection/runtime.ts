@@ -20,22 +20,38 @@ export interface DetectionWindow {
   full: boolean
 }
 
+// DetectorParams is the operator-supplied argument bag (from `--param k=v`).
+// Each detector interprets its OWN keys; unknown keys are ignored. Values are
+// raw strings — detectors coerce as needed. This is the flexible-tool surface:
+// the operator decides which knobs to set; the detector supplies per-network
+// defaults for everything left unset.
+export type DetectorParams = Record<string, string>
+
 export interface DetectorScan {
   // The findings `tool` name this detector emits (must be a DetectionToolName).
   tool: DetectionToolName
   // The detector id used for CLI + checkpoint file naming (e.g. "fake-token").
   id: string
-  // Pure scan: given a window and a graph client, return findings. No IO beyond
-  // the client; deterministic given inputs so it is unit-testable with a fake.
-  scan(window: DetectionWindow, client: Client, network: string): Promise<DetectionFinding[]>
-  // Optional threshold provenance recorded on every document.
-  thresholds?(): Record<string, unknown>
+  // Pure scan: given a window, a graph client, the network, and the operator
+  // param bag, return findings. No IO beyond the client; deterministic given
+  // inputs so it is unit-testable with a fake.
+  scan(
+    window: DetectionWindow,
+    client: Client,
+    network: string,
+    params: DetectorParams,
+  ): Promise<DetectionFinding[]>
+  // Optional threshold provenance recorded on every document. Receives the
+  // network + resolved params so it can echo the EFFECTIVE configuration.
+  thresholds?(network: string, params: DetectorParams): Record<string, unknown>
 }
 
 export interface RunDetectionOptions {
   network: string
   full: boolean
   nowMs: number
+  // Operator-supplied per-run params (default empty).
+  params?: DetectorParams
 }
 
 export interface RunDetectionResult {
@@ -55,7 +71,8 @@ export async function runDetection(
   const checkpoint = await readCheckpoint(workspaceRoot, scanner.id, opts.network)
   const fromMs = opts.full ? 0 : checkpoint.last_block_timestamp_ms
   const window: DetectionWindow = { fromMs, toMs: opts.nowMs, full: opts.full }
-  const findings = await scanner.scan(window, client, opts.network)
+  const params = opts.params ?? {}
+  const findings = await scanner.scan(window, client, opts.network, params)
   const document: DetectionFindingsDocument = {
     schema: DETECTION_FINDINGS_SCHEMA_VERSION,
     tool: scanner.tool,
@@ -63,7 +80,7 @@ export async function runDetection(
     status: 'complete',
     generated_at_ms: opts.nowMs,
     findings,
-    ...(scanner.thresholds ? { threshold_provenance: scanner.thresholds() } : {}),
+    ...(scanner.thresholds ? { threshold_provenance: scanner.thresholds(opts.network, params) } : {}),
     // reviewer is intentionally NOT set here — the curated-import gate refuses
     // any findings document without a human reviewer identity.
   }
