@@ -875,6 +875,56 @@ program
     }
   })
 
+program
+  .command('detect')
+  .description('[internal] Run a relocated detection scan (rbmk#462) — emits reviewable findings, never a direct label. Available: fake-token, mixer.')
+  .argument('<detector>', 'Detector id: fake-token | mixer')
+  .requiredOption('--network <network>', 'Network to scan. Run `cia mcp networks` for supported networks.')
+  .option('--full', 'Scan from genesis (ignore the checkpoint)', false)
+  .option('--since-checkpoint', 'Scan only since the last checkpoint (default)', false)
+  .option('--watch', 'Loop the scan as a daemon', false)
+  .option('--interval <seconds>', 'Watch interval seconds', '3600')
+  .action(
+    async (
+      detector: string,
+      opts: { network: string; full?: boolean; sinceCheckpoint?: boolean; watch?: boolean; interval?: string },
+    ) => {
+      try {
+        const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+        const workspaceRoot = requireWorkspaceRoot()
+        const { runOneDetection } = await import('./detection/run.js')
+        const full = Boolean(opts.full)
+        const once = async () => {
+          await withGraphMcpClient('chain-insights-cli-detect', async (client) => {
+            const outcome = await runOneDetection(client, {
+              detector,
+              network: opts.network,
+              full,
+              workspaceRoot,
+              nowMs: Date.now(),
+            })
+            console.log(
+              `[detect] ${detector} ${opts.network}: ${outcome.findingsCount} finding(s), status=${outcome.status} -> ${outcome.findingsPath}`,
+            )
+          })
+        }
+        if (opts.watch) {
+          const intervalMs = Math.max(60, Number(opts.interval) || 3600) * 1000
+          // eslint-disable-next-line no-constant-condition
+          for (;;) {
+            await once()
+            await new Promise((resolve) => setTimeout(resolve, intervalMs))
+          }
+        } else {
+          await once()
+        }
+      } catch (err) {
+        console.error((err as Error).message)
+        process.exit(1)
+      }
+    },
+  )
+
 // parseAsync (not parse) so a rejected async action surfaces as a clean
 // one-line error and a non-zero exit, instead of an unhandled-rejection stack
 // trace. Commands with their own try/catch still exit(1) before this fires.

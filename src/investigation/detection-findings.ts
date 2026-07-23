@@ -10,7 +10,7 @@ import { workspaceOutputPaths } from '../workspace/output-root.js'
 
 export const DETECTION_FINDINGS_SCHEMA_VERSION = 'chain-insights.detection-findings.v1' as const
 
-export const DETECTION_TOOL_NAMES = ['aml_scam_corridor_trace', 'aml_exchange_likeness'] as const
+export const DETECTION_TOOL_NAMES = ['aml_scam_corridor_trace', 'aml_exchange_likeness', 'aml_address_poisoning', 'aml_fake_token', 'aml_attack_attribution', 'aml_mixer_likeness'] as const
 export type DetectionToolName = typeof DETECTION_TOOL_NAMES[number]
 
 export const DETECTION_RUN_STATUSES = ['complete', 'partial', 'inconclusive'] as const
@@ -27,6 +27,11 @@ export const DETECTION_CLASSIFICATIONS = [
   'corridor_hub',
   'exchange_terminal',
   'protected_infra',
+  // Detection-to-CIA (rbmk#462): the four relocated detectors' classifications.
+  'poisoning_duster',
+  'fake_token_contract',
+  'attributed_bad_actor',
+  'mixer_hourglass',
 ] as const
 export type DetectionClassification = typeof DETECTION_CLASSIFICATIONS[number]
 
