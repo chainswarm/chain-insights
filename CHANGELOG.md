@@ -3,6 +3,21 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.14] - 2026-07-23
+
+- address-poisoning: network-aware lookalike matching + vanity-cluster evidence.
+  The lookalike core now branches on address family — EVM (hex) still requires a
+  shared prefix AND suffix, but Substrate ss58 addresses match on a long shared
+  PREFIX only, because their trailing checksum can't be cheaply ground. This
+  fixes a false-negative that hid a live campaign: the detector now surfaces a
+  bittensor dusting operation of ~116 vanity addresses sharing the
+  `5EYCAe5jLQhn6o…` prefix, impersonating a ~2M-TAO hot wallet across scores of
+  victims. Findings gain `vanity_cluster_prefix` / `vanity_cluster_size`
+  evidence (the campaign fingerprint), and the scan's underlying facts query is
+  corrected to bind `from`/`to` as endpoint nodes (`(from:Address)-[t:TRANSFER]->
+  (to:Address)`) rather than reading non-existent edge scalars. Findings remain
+  reviewer-unset; the curated-import gate is unchanged.
+
 ## [0.10.13] - 2026-07-23
 
 - Detection-to-CIA (rbmk#462), remaining detectors: `address-poisoning`,
