@@ -20,14 +20,19 @@ export interface GraphRow {
 }
 
 // Runs one graph_query and returns its result rows. `query` must carry its own
-// `USE topology` / `USE facts` prefix.
+// `USE topology` / `USE facts` prefix. `timeScope` (optional) narrows a USE
+// topology query to a temporal-shard subset — "recent" (live shard only) makes
+// an otherwise-refused cross-shard node-metric projection exact (DEC-11).
 export async function graphQueryRows(
   client: Client,
   network: string,
   query: string,
+  timeScope?: string,
 ): Promise<GraphRow[]> {
+  const args: Record<string, unknown> = { network, query }
+  if (timeScope) args.time_scope = timeScope
   const result = (await client.callTool(
-    { name: 'graph_query', arguments: { network, query } },
+    { name: 'graph_query', arguments: args },
     undefined,
     { timeout: DETECTION_QUERY_TIMEOUT_MS, maxTotalTimeout: DETECTION_QUERY_TIMEOUT_MS },
   )) as RemoteToolResult

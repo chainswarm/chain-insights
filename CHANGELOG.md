@@ -3,6 +3,20 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.15] - 2026-07-23
+
+- mixer detector unblocked via `time_scope`. Its `degree_in`/`degree_out`
+  candidate query is a node-metric projection that could not merge across the
+  federated topology's temporal shards, so the batch scan errored. It now issues
+  the query with `time_scope: "recent"` (live shard only), making the projection
+  exact within that window — a deliberate live-window-vs-lifetime tradeoff for
+  mixer candidacy (DEC-11/DEC-19). `graphQueryRows` gains an optional
+  `timeScope` argument. Interim hourglass thresholds raised to 50/50 with a
+  deterministic degree ordering so the qualifying set fits under the candidate
+  cap (no silent truncation) on dense chains; hourglass-degree alone remains a
+  weak signal pending balance-ratio/pass-through features. Verified live on
+  bittensor: mixer runs federated-exact (was a hard federation error).
+
 ## [0.10.14] - 2026-07-23
 
 - address-poisoning: network-aware lookalike matching + vanity-cluster evidence.
