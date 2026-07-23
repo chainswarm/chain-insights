@@ -1,6 +1,6 @@
 ---
 name: rbmk-chain-insights-knowledge
-description: Use when working in the chain-insights repository — cia CLI, chain-insights-mcp-proxy, the canonical aml_*/graph_*/meta_*/wallet_* tool surface, tool-visibility, graphMcpEndpoint / CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT config, investigation workspaces, graph reports, x402 wallet payment, shipped chain-insights-* product skills, the local Bittensor graph devkit (devkit:smoke, parity smoke, 18012/mcp), or the release gate (release:check, CHANGELOG bump, npm pack).
+description: Use when working in the chain-insights repository — cia CLI, chain-insights-mcp-proxy, the canonical aml_*/graph_*/meta_*/wallet_* tool surface, tool-visibility, graphMcpEndpoint / CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT config, investigation workspaces, graph reports, x402 wallet payment, shipped chain-insights-* product skills, the local Bittensor graph devkit (devkit:smoke, parity smoke, 18012/mcp), internal detection scanners (cia detect), or the release gate (release:check, CHANGELOG bump, npm pack).
 ---
 
 # RBMK Chain Insights Knowledge
@@ -12,8 +12,9 @@ Load after `rbmk-knowledge-index` for work inside `repos/infra/chain-insights`.
 Public open-source AML investigation toolkit: npm package `chain-insights` providing the `cia` / `chain-insights` CLI and a stdio MCP proxy (`chain-insights-mcp-proxy`) over a Chain Insights Graph (GraphRAG MCP) endpoint, plus local wallet/x402 payment, investigation workspaces, graph reports/viz, shipped product skills, and a local Bittensor graph devkit.
 
 Owns:
-- CLI + MCP proxy source under `src/` (`src/cli.ts`, `src/mcp/proxy.ts`, `src/mcp/tool-visibility.ts`, `src/mcp/capabilities.ts`, `src/wallet/`, `src/investigation/`, `src/viz/`, `src/workspace/`).
+- CLI + MCP proxy source under `src/` (`src/cli.ts`, `src/mcp/proxy.ts`, `src/mcp/tool-visibility.ts`, `src/mcp/capabilities.ts`, `src/wallet/`, `src/investigation/`, `src/detection/`, `src/viz/`, `src/workspace/`).
 - The canonical prefixed public tool surface `aml_*`/`graph_*`/`meta_*`/`wallet_*`; unprefixed remote names are hidden via `HIDDEN_REMOTE_TOOL_NAMES` in `src/mcp/tool-visibility.ts`; local tools (`meta_network_capabilities`, `meta_usage_status`, `meta_help`, `wallet_balance`) live in `src/mcp/proxy.ts`.
+- Internal-only findings tooling relocated from data-pipeline's `internal/recipes/*.go` (rbmk#462): `src/detection/` (registry.ts, runtime.ts, run.ts, checkpoint.ts, emit.ts, graph-client.ts, lookalike.ts, detectors/{fake-token,mixer,address-poisoning,attack-attribution}.ts) plus `src/investigation/scam-corridor-trace.ts` and `exchange-likeness.ts`. All six `DETECTION_TOOL_NAMES` (`src/investigation/detection-findings.ts`) — `aml_scam_corridor_trace`, `aml_exchange_likeness`, `aml_address_poisoning`, `aml_fake_token`, `aml_attack_attribution`, `aml_mixer_likeness` — are CLI-only, absent from `tool-visibility.ts`'s public contracts (enforced by `tests/detection-tools-visibility.test.ts`), and never set a finding's reviewer/label directly.
 - Shipped PRODUCT skills under `skills/` (`chain-insights-*`, `ci-status`, `test-chain-insights-graph`) — a SEPARATE product surface packaged into the npm tarball (`package.json` files[]) and enforced by `tests/skills-contract.test.ts`. This RBMK knowledge skill must not duplicate or replace them.
 - `devkit/`: deterministic local Bittensor graph backend (StarRocks facade tables, Memgraph, and a devkit-only lite Go backend under `devkit/chain-insights-graph-devkit/`); the lite backend landed via PR #130, fixture parity via PRs #131/#132.
 - Public docs (`README.md`, `docs/mcp-proxy.md`, `docs/graph-tools.md`, `docs/architecture/`, `docs/acceptance/`, `docs/investigation-workspaces.md`, `docs/debugging.md`), release gate `scripts/check-release-gate.mjs`, and `CHANGELOG.md`.
@@ -30,7 +31,8 @@ Consumes (does NOT own):
 - `meta_network_capabilities` collapses backend networks into a single public `bittensor` entry (`BITTENSOR_SEMANTIC_NETWORKS` in `src/mcp/capabilities.ts`).
 - Endpoint precedence: `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` > legacy `GRAPH_MCP_ENDPOINT` > saved `graphMcpEndpoint` > default `http://127.0.0.1:8012/mcp`. `http://` only for loopback or Kubernetes `*.svc.cluster.local` service DNS (`validateMcpEndpoint` in `src/config/mcp-endpoint.ts`); other remote hosts must be `https://`; no credentials/query/fragment in the URL. Hosted staging: `https://staging-mcp.chain-insights.ai/mcp`; production not live yet.
 - Devkit backend exposes ONLY `network_capabilities`/`usage_status`/`graph_query`/`graph_query_batch` at `http://127.0.0.1:18012/mcp` and intentionally tracks production contract: two-graph query timeouts (topology 10s, facts 30s), topology/facts capability sublayers, unmetered usage_status; `USE topology`→Memgraph directly (the unified graph serving all recent and historical topology), `USE facts`→StarRocks via the corpus translator (MemGQL retired). Tier detail is owned by `rbmk-system-knowledge`.
-- Investigation output stays local in user workspace dirs: `.chain-insights/`, `cases/`, `reports/`, `artifacts/`.
+- The four `cia detect <detector>` scanners read only through `src/detection/graph-client.ts`'s `graph_query` wrapper (never direct warehouse access) and are pure `scan(window, client, network, params) → findings[]` cores (`DetectorScan` in `src/detection/runtime.ts`); the `mixer` detector (`src/detection/detectors/mixer.ts`) ships per-network default hourglass floors (`MIXER_NETWORK_DEFAULTS`: bittensor 50/50, bittensor_evm 20/20, generic fallback 5/5) layered with operator `--param min_in=`/`min_out=`/`max_candidates=`/`time_scope=`/`role_keywords=` overrides; its degree-qualified batch scan defaults `time_scope=recent` (live shard only) since node-metric degrees are window-exact, not mergeable across temporal shards.
+- Investigation output stays local in user workspace dirs: `.chain-insights/` (including per-detector-per-network scan checkpoints under `.chain-insights/detectors/`, `src/detection/checkpoint.ts`), `cases/`, `reports/` (`aml_scam_corridor_trace`/`aml_exchange_likeness` findings land under `reports/tables/*.detection-findings.json` via `serializeFindings()`), `artifacts/`, `detections/` (the four `cia detect` scanners' findings JSON, named `<generated_at_ms>-<detector>-<network>.findings.json` by `src/detection/emit.ts`).
 - Graph app UI resource `ui://chain-insights/graph` is attached to the four `aml_*` tools (`GRAPH_APP_TOOL_NAMES` in `src/mcp/proxy.ts`).
 - Devkit smoke evidence lands under `workspace/devkit-smoke/` and `workspace/devkit-smoke/chain-insights-parity/`.
 
@@ -48,12 +50,14 @@ Consumes (does NOT own):
 - The devkit fixture is a static export of real Bittensor semantic data 2024-01-01 → 2026-07-02; the largest topology object is chunked into Git-safe parts.
 - Keep docs product-first, user-workflow-first (install → init → configure graph access → run AML tools → review evidence); localhost endpoints are fine in debugging docs, private paths are not.
 - MCP proxy mode: `CHAIN_INSIGHTS_MCP_PROXY_MODE=workspace` (default) or stateless/no-workspace (`resolveMcpProxyMode` in `src/mcp/proxy.ts`).
+- Detection findings are artifacts, never a direct label write: `reviewer` stays intentionally unset on every generated findings document; only a separate RBMK-root quality-gated import path turns a reviewed findings document into curated `core_address_labels` rows.
 
 ## Layout & Entry Points
 
 - `bin/cli.js` → `src/cli.ts` (CLI bins: `cia`, `chain-insights`).
 - `bin/mcp-proxy.cjs` → `src/mcp/proxy.ts` (MCP server bin: `chain-insights-mcp-proxy`).
 - `src/index.ts` — library exports (`dist/index.mjs|cjs`).
+- `src/detection/` (registry.ts, runtime.ts, run.ts, checkpoint.ts, emit.ts, graph-client.ts, lookalike.ts, detectors/*) wired via `src/cli.ts`'s top-level `detect <detector>` command (`--full`, `--watch`, `--param k=v`); `src/investigation/scam-corridor-trace.ts` + `exchange-likeness.ts` are wired via the `cia mcp aml-scam-corridor-trace` / `aml-exchange-likeness` subcommands.
 - `devkit/docker-compose.yml` + `devkit/scripts/smoke.sh` + `devkit/scripts/smoke-chain-insights-parity.sh`.
 - `.github/workflows/verify.yml` (typecheck/build/release:check/test/npm pack contents), `security.yml`, `scorecard.yml`, `docs.yml`, `secret-stdout-mask-smoke.yml` (manual token-masking check).
 - `scripts/check-release-gate.mjs` — release gate.
@@ -83,6 +87,7 @@ Before finishing changes (per `AGENTS.md`), then escalate as needed:
 - Backend big-query memory limits can surface as generic timeout-like errors on archive queries — detail owned by `rbmk-system-knowledge`; do not diagnose as a proxy bug.
 - `package.json` files[] ships `bin`, `dist`, `skills`, `docs/*.md`, `docs/images` — adding a skill or doc changes the published tarball; `verify.yml` runs `npm pack` and lists contents.
 - npm overrides pin `ws` to 8.21.0 (`package.json`).
+- The `aml_*`-named detection/findings tool ids (`aml_scam_corridor_trace`, `aml_exchange_likeness`, `aml_address_poisoning`, `aml_fake_token`, `aml_attack_attribution`, `aml_mixer_likeness`) are CLI-only findings-document tags, not registered MCP tools, and do not appear in `tool-visibility.ts` — don't confuse them with the canonical public `aml_*` surface.
 
 ## Source Of Truth
 
@@ -92,6 +97,7 @@ Repo-relative, inside `repos/infra/chain-insights`:
 - `README.md` — install, quick start, endpoint config.
 - `docs/mcp-proxy.md`, `docs/graph-tools.md` — proxy and tool surface docs.
 - `src/mcp/tool-visibility.ts`, `src/mcp/proxy.ts`, `src/mcp/capabilities.ts` — public tool surface truth.
+- `src/investigation/detection-findings.ts`, `src/detection/registry.ts` — detection findings schema + detector id truth.
 - `devkit/README.md` — devkit contract, fixture, smoke procedures.
 - `.github/workflows/verify.yml` — CI truth.
 - `package.json` — scripts, bins, files[], engines, overrides.
