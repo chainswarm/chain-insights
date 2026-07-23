@@ -3,6 +3,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.16] - 2026-07-23
+
+- mixer is now a flexible, parametrized tool. It ships per-network default
+  hourglass thresholds (bittensor 50/50, bittensor_evm 20/20, generic 5/5 —
+  tuned to each chain's degree density) and the operator overrides any knob via
+  a repeatable `cia detect mixer --param key=value`: `min_in`, `min_out`,
+  `max_candidates`, `time_scope`, `role_keywords`. Unset knobs fall back to the
+  network default, then the generic default; the effective config is echoed in
+  the findings document's `threshold_provenance`. The detection runtime gains a
+  generic operator param bag (`DetectorParams`) threaded through `scan` and
+  `thresholds`, so any detector can expose its own tunables. `classifyMixer`,
+  `mixerScanBatch`, and `mixerScanCandidates` take an explicit `MixerConfig`.
+
 ## [0.10.15] - 2026-07-23
 
 - mixer detector unblocked via `time_scope`. Its `degree_in`/`degree_out`

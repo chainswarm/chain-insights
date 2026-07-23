@@ -877,17 +877,37 @@ program
 
 program
   .command('detect')
-  .description('[internal] Run a relocated detection scan (rbmk#462) — emits reviewable findings, never a direct label. Available: fake-token, mixer.')
-  .argument('<detector>', 'Detector id: fake-token | mixer')
+  .description(
+    '[internal] Run a relocated detection scan (rbmk#462) — emits reviewable findings, never a direct label. Available: fake-token, mixer, address-poisoning, attack-attribution.',
+  )
+  .argument('<detector>', 'Detector id: fake-token | mixer | address-poisoning | attack-attribution')
   .requiredOption('--network <network>', 'Network to scan. Run `cia mcp networks` for supported networks.')
   .option('--full', 'Scan from genesis (ignore the checkpoint)', false)
   .option('--since-checkpoint', 'Scan only since the last checkpoint (default)', false)
   .option('--watch', 'Loop the scan as a daemon', false)
   .option('--interval <seconds>', 'Watch interval seconds', '3600')
+  .option(
+    '--param <key=value>',
+    'Detector-specific tuning override (repeatable). E.g. mixer: --param min_in=80 --param time_scope=recent. Unset knobs use per-network defaults.',
+    (kv: string, acc: Record<string, string>) => {
+      const eq = kv.indexOf('=')
+      if (eq <= 0) throw new Error(`--param must be key=value, got "${kv}"`)
+      acc[kv.slice(0, eq).trim()] = kv.slice(eq + 1).trim()
+      return acc
+    },
+    {} as Record<string, string>,
+  )
   .action(
     async (
       detector: string,
-      opts: { network: string; full?: boolean; sinceCheckpoint?: boolean; watch?: boolean; interval?: string },
+      opts: {
+        network: string
+        full?: boolean
+        sinceCheckpoint?: boolean
+        watch?: boolean
+        interval?: string
+        param?: Record<string, string>
+      },
     ) => {
       try {
         const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
@@ -902,6 +922,7 @@ program
               full,
               workspaceRoot,
               nowMs: Date.now(),
+              params: opts.param ?? {},
             })
             console.log(
               `[detect] ${detector} ${opts.network}: ${outcome.findingsCount} finding(s), status=${outcome.status} -> ${outcome.findingsPath}`,
