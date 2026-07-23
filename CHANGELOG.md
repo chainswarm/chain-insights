@@ -3,6 +3,26 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.13] - 2026-07-23
+
+- Detection-to-CIA (rbmk#462), remaining detectors: `address-poisoning`,
+  `attack-attribution`, and the mixer batch candidate-source now run through the
+  same `cia detect <detector>` runtime as fake-token, completing the four-
+  detector relocation from the data-pipeline backend recipes.
+  `address-poisoning` scans a bounded recent facts window for dust transfers and
+  flags dusters that are vanity lookalikes (shared prefix/suffix) of a victim's
+  real prior counterparties. `attack-attribution` walks downstream FLOWS_TO from
+  seed-labeled bad actors (poisoning_duster / dusting_source /
+  fake_token_contract) up to a bounded hop depth, stopping at infrastructure
+  boundaries (exchange/bridge/mixer/contract/validator). `mixer` gains a
+  degree-qualified candidate source so its batch `scan()` enumerates hourglass
+  candidates instead of returning empty. All emit reviewer-unset
+  `chain-insights.detection-findings.v1` documents — the curated-import gate is
+  unchanged. Ported thresholds are recorded as tunables (DEC-7); full-history
+  poisoning sweeps beyond the bounded window are marked truncated pending the
+  time_scope follow-up (DEC-11). Backend recipes remain untouched (operator-
+  gated retirement, DEC-9).
+
 ## [0.10.12] - 2026-07-23
 
 - Detection-to-CIA (rbmk#462), first slice: a client-side detection runtime and
