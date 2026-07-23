@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { classifyMixer, MIXER_MIN_INPUT_COUNT } from '../../src/detection/detectors/mixer.js'
 
-const base = { address: '5Xmixer', degree_in: 20, degree_out: 20, labels: [] as string[], is_exchange: false }
+const base = { address: '5Xmixer', degree_in: 60, degree_out: 60, labels: [] as string[], is_exchange: false }
 
 describe('classifyMixer hourglass', () => {
   it('flags an unlabeled address clearing both thresholds', () => {
     const f = classifyMixer(base)
     expect(f?.classification).toBe('mixer_hourglass')
-    expect(f?.evidence.degree_in).toBe(20)
+    expect(f?.evidence.degree_in).toBe(60)
   })
   it('rejects below the input threshold', () => {
     expect(classifyMixer({ ...base, degree_in: MIXER_MIN_INPUT_COUNT - 1 })).toBeNull()

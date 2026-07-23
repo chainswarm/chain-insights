@@ -11,8 +11,16 @@ import type { DetectionFinding } from '../../investigation/detection-findings.js
 import { graphQueryRows, type GraphRow } from '../graph-client.js'
 import type { DetectorScan, DetectionWindow } from '../runtime.js'
 
-export const MIXER_MIN_INPUT_COUNT = 5
-export const MIXER_MIN_OUTPUT_COUNT = 5
+// INTERIM thresholds (DEC-19). The Go recipe's ported floor was 5/5, but on a
+// dense chain that returns pure noise and pins the candidate cap (bittensor
+// live shard: 7,270 clear 5/5, 1,758 clear 20/20, 814 clear 50/50). Raised to
+// 50/50 so the qualifying set fits under the candidate cap (no silent
+// truncation) while the real fix is pending: hourglass-degree ALONE is a weak
+// mixer signal — precise detection needs balance-ratio + pass-through/retention
+// features and per-network calibration. Findings are reviewer-gated, so this is
+// noise-reduction, not a correctness gate.
+export const MIXER_MIN_INPUT_COUNT = 50
+export const MIXER_MIN_OUTPUT_COUNT = 50
 
 // graphrag-sync's curated non-mixer role keywords + the EVM protocol sinks the
 // mixer SQL excludes (rbmk#461 L3 fix). On the graph, roles live as free-text
@@ -84,6 +92,7 @@ export async function mixerScanCandidates(
       client,
       network,
       `USE topology MATCH (a:Address {address: "${safe}"}) RETURN a.address AS address, a.degree_in AS degree_in, a.degree_out AS degree_out, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 1`,
+      'recent',
     )
     const row = rows[0]
     if (!row) continue
@@ -107,10 +116,17 @@ const MIXER_MAX_CANDIDATES = 1000
 // (degree-filtered node scan, no per-address round trips). Each row is then run
 // through classifyMixer so the boundary/protocol-sink exclusions still apply.
 export async function mixerScanBatch(client: Client, network: string): Promise<DetectionFinding[]> {
+  // degree_in/degree_out are node-metric projections that cannot merge exactly
+  // across temporal shards, so the scan runs with time_scope="recent" (the live
+  // shard only). Degrees are therefore live-window exact, not lifetime — a
+  // deliberate tradeoff: mixers are detected among recently-active addresses
+  // (DEC-11/DEC-19). A lifetime sweep would need per-shard scans + client-side
+  // degree recombination, which node metrics don't permit.
   const rows = await graphQueryRows(
     client,
     network,
-    `USE topology MATCH (a:Address) WHERE a.degree_in >= ${MIXER_MIN_INPUT_COUNT} AND a.degree_out >= ${MIXER_MIN_OUTPUT_COUNT} RETURN a.address AS address, a.degree_in AS degree_in, a.degree_out AS degree_out, a.labels AS labels, a.is_exchange AS is_exchange LIMIT ${MIXER_MAX_CANDIDATES}`,
+    `USE topology MATCH (a:Address) WHERE a.degree_in >= ${MIXER_MIN_INPUT_COUNT} AND a.degree_out >= ${MIXER_MIN_OUTPUT_COUNT} RETURN a.address AS address, a.degree_in AS degree_in, a.degree_out AS degree_out, a.labels AS labels, a.is_exchange AS is_exchange ORDER BY a.degree_in + a.degree_out DESC LIMIT ${MIXER_MAX_CANDIDATES}`,
+    'recent',
   )
   const findings: DetectionFinding[] = []
   for (const row of rows) {
