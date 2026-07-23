@@ -99,6 +99,33 @@ export async function mixerScanCandidates(
   return findings
 }
 
+const MIXER_MAX_CANDIDATES = 1000
+
+// mixerScanBatch is the candidate source (DEC-15 resolved): enumerate addresses
+// whose federated-exact lifetime degrees already clear BOTH hourglass
+// thresholds, pulling the classifier metrics inline in one topology query
+// (degree-filtered node scan, no per-address round trips). Each row is then run
+// through classifyMixer so the boundary/protocol-sink exclusions still apply.
+export async function mixerScanBatch(client: Client, network: string): Promise<DetectionFinding[]> {
+  const rows = await graphQueryRows(
+    client,
+    network,
+    `USE topology MATCH (a:Address) WHERE a.degree_in >= ${MIXER_MIN_INPUT_COUNT} AND a.degree_out >= ${MIXER_MIN_OUTPUT_COUNT} RETURN a.address AS address, a.degree_in AS degree_in, a.degree_out AS degree_out, a.labels AS labels, a.is_exchange AS is_exchange LIMIT ${MIXER_MAX_CANDIDATES}`,
+  )
+  const findings: DetectionFinding[] = []
+  for (const row of rows) {
+    const finding = classifyMixer({
+      address: str(row, 'address'),
+      degree_in: num(row, 'degree_in'),
+      degree_out: num(row, 'degree_out'),
+      labels: toLabels(row['labels']),
+      is_exchange: row['is_exchange'] === true || row['is_exchange'] === 1,
+    })
+    if (finding) findings.push(finding)
+  }
+  return findings
+}
+
 export const mixerDetector: DetectorScan = {
   tool: 'aml_mixer_likeness',
   id: 'mixer',
@@ -107,10 +134,10 @@ export const mixerDetector: DetectorScan = {
     min_input_count: MIXER_MIN_INPUT_COUNT,
     min_output_count: MIXER_MIN_OUTPUT_COUNT,
   }),
-  async scan(_window: DetectionWindow, _client: Client, _network: string): Promise<DetectionFinding[]> {
-    // Batch scan requires a candidate source (recent-active enumeration),
-    // deferred with time_scope/windowing (DEC-15). The interactive
-    // aml_mixer_likeness tool calls mixerScanCandidates directly.
-    return []
+  async scan(_window: DetectionWindow, client: Client, network: string): Promise<DetectionFinding[]> {
+    // Batch scan enumerates degree-qualified candidates and classifies each.
+    // The interactive aml_mixer_likeness tool can still call
+    // mixerScanCandidates directly with a caller-supplied candidate list.
+    return mixerScanBatch(client, network)
   },
 }
