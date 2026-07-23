@@ -10,8 +10,17 @@
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { DetectionFinding } from '../../investigation/detection-findings.js'
 import { graphQueryRows, type GraphRow } from '../graph-client.js'
-import { isLookalike } from '../lookalike.js'
+import { addressFamily, isLookalike } from '../lookalike.js'
 import type { DetectorScan, DetectionWindow } from '../runtime.js'
+
+// Cluster-key prefix length per family: the shared lead a vanity spray grinds.
+// A dust sender whose prefix cluster has many distinct members is far more
+// likely a deliberate campaign than an incidental small transfer.
+function clusterKey(addr: string): string {
+  const fam = addressFamily(addr)
+  const len = fam === 'ss58' ? 14 : fam === 'evm' ? 10 : 8
+  return `${fam}:${addr.slice(0, len)}`
+}
 
 const MAX_ROWS = 1000
 // Facts scans are cost-gated to a bounded window (FACTS_MAX_SCAN_WINDOW_DAYS,
@@ -42,6 +51,20 @@ export function findPoisoning(
   dust: DustEdge[],
   realCounterpartiesByVictim: Map<string, string[]>,
 ): DetectionFinding[] {
+  // Cluster signal: count distinct dusters sharing each ground prefix. A large
+  // cluster (many vanity senders, one prefix) is the campaign fingerprint.
+  const clusterMembers = new Map<string, Set<string>>()
+  for (const edge of dust) {
+    if (!edge.duster) continue
+    const key = clusterKey(edge.duster)
+    let set = clusterMembers.get(key)
+    if (!set) {
+      set = new Set<string>()
+      clusterMembers.set(key, set)
+    }
+    set.add(edge.duster)
+  }
+
   const findings: DetectionFinding[] = []
   const seen = new Set<string>()
   for (const edge of dust) {
@@ -52,6 +75,7 @@ export function findPoisoning(
     const key = `${edge.duster}->${edge.victim}`
     if (seen.has(key)) continue
     seen.add(key)
+    const clusterSize = clusterMembers.get(clusterKey(edge.duster))?.size ?? 1
     findings.push({
       address: edge.duster,
       classification: 'poisoning_duster',
@@ -60,6 +84,8 @@ export function findPoisoning(
         victim: edge.victim,
         impersonated_counterparty: impersonated,
         dust_amount: edge.amount,
+        vanity_cluster_prefix: clusterKey(edge.duster),
+        vanity_cluster_size: clusterSize,
       },
       truncated: false,
       inconclusive: false,
@@ -88,10 +114,13 @@ export const addressPoisoningDetector: DetectorScan = {
     const loMs = Math.max(window.fromMs, hiMs - POISONING_SCAN_WINDOW_MS)
     const lo = toDateStr(loMs)
     const hi = toDateStr(hiMs)
+    // from_address/to_address are the TRANSFER edge's endpoint NODES (facts
+    // source/target columns), not edge scalars — bind them as nodes and read
+    // `.address`. `amount`/`block_date` are genuine edge properties.
     const dustRows = await graphQueryRows(
       client,
       network,
-      `USE facts MATCH ()-[t:TRANSFER]->() WHERE t.block_date >= "${lo}" AND t.block_date <= "${hi}" AND t.amount < ${POISONING_DUST_FLOOR} RETURN t.from_address AS duster, t.to_address AS victim, t.amount AS amount LIMIT ${MAX_ROWS}`,
+      `USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.block_date >= "${lo}" AND t.block_date <= "${hi}" AND t.amount < ${POISONING_DUST_FLOOR} RETURN from.address AS duster, to.address AS victim, t.amount AS amount LIMIT ${MAX_ROWS}`,
     )
     const dust: DustEdge[] = dustRows.map((r) => ({
       duster: str(r, 'duster'),
@@ -107,7 +136,7 @@ export const addressPoisoningDetector: DetectorScan = {
       const rows = await graphQueryRows(
         client,
         network,
-        `USE facts MATCH ()-[t:TRANSFER]->() WHERE t.to_address = "${safe}" AND t.amount >= ${POISONING_DUST_FLOOR} RETURN DISTINCT t.from_address AS counterparty LIMIT ${MAX_ROWS}`,
+        `USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address {address: "${safe}"}) WHERE t.amount >= ${POISONING_DUST_FLOOR} RETURN DISTINCT from.address AS counterparty LIMIT ${MAX_ROWS}`,
       )
       realByVictim.set(
         victim,
