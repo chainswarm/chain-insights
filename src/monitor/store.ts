@@ -168,11 +168,59 @@ INGESTORS.push({
   },
 })
 
+interface CaseDoc {
+  case_id: string
+  type: string
+  network: string
+  status: string
+  seeds: string[]
+  created_at_ms: number
+  closed_at_ms?: number
+}
+
+INGESTORS.push({
+  kind: 'cases',
+  async listDocs(workspaceRoot) {
+    const dir = monitorPaths(workspaceRoot).casesDir
+    let ids: string[]
+    try {
+      ids = await readdir(dir)
+    } catch {
+      return []
+    }
+    const docs: string[] = []
+    for (const id of ids.sort()) {
+      const file = path.join(dir, id, 'case.json')
+      try {
+        await readFile(file, 'utf8')
+        docs.push(file)
+      } catch {
+        // A cases/ subdir without case.json is not a monitor case — skip.
+      }
+    }
+    return docs
+  },
+  async ingest(store, _workspaceRoot, filePath) {
+    const doc = JSON.parse(await readFile(filePath, 'utf8')) as CaseDoc
+    await store.run(
+      'INSERT INTO cases VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [doc.case_id, doc.type, doc.network, doc.status, doc.seeds.length, doc.created_at_ms, doc.closed_at_ms ?? null],
+    )
+  },
+})
+
+// Rewritable/growing sources: their canonical doc is appended-to (alerts,
+// acks logs) or rewritten in place (case.json via closeCase), so the derived
+// table cannot be trusted to already hold a prior ingest's rows — wipe the
+// table and re-ingest from scratch every pass.
+const REPLAY_TABLES: Partial<Record<string, string>> = { alerts: 'alerts', acks: 'alert_acks', cases: 'cases' }
+
 export async function ingestNewDocs(store: MonitorStore, workspaceRoot: string): Promise<number> {
   for (const ingestor of INGESTORS) {
-    if (ingestor.kind !== 'alerts' && ingestor.kind !== 'acks') continue
+    const table = REPLAY_TABLES[ingestor.kind]
+    if (!table) continue
     for (const filePath of await ingestor.listDocs(workspaceRoot)) {
-      await store.run(`DELETE FROM ${ingestor.kind === 'alerts' ? 'alerts' : 'alert_acks'}`)
+      await store.run(`DELETE FROM ${table}`)
       await store.run('DELETE FROM ingested_docs WHERE doc_path = $1', [filePath])
     }
   }
