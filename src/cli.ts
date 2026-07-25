@@ -946,6 +946,318 @@ program
     },
   )
 
+const monitor = program
+  .command('monitor')
+  .description('Continuous address monitoring: scheduled detector sweeps, case tracking, review, alerts. Docs: docs/monitoring.md')
+
+monitor
+  .command('run')
+  .description('One monitoring pass over the configured detector×network matrix and every open case')
+  .action(async () => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const workspaceRoot = requireWorkspaceRoot()
+      const { loadMonitorConfig } = await import('./monitor/config.js')
+      const { runMonitorOnce, MONITOR_EXIT_ISOLATED } = await import('./monitor/runner.js')
+      const { traceCase } = await import('./monitor/tracker.js')
+      const config = await loadMonitorConfig(workspaceRoot)
+      const doc = await withGraphMcpClient('chain-insights-cli-monitor', async (client) =>
+        runMonitorOnce(client, workspaceRoot, config, Date.now(), {
+          traceCase: (c, root, id, hops, now) => traceCase(c, root, id, hops, now),
+        }),
+      )
+      const failed = doc.cells.filter((c) => c.error)
+      console.log(`[monitor] run ${doc.run_ms}: ${doc.cells.length} cell(s), ${doc.alerts_emitted} alert(s)${doc.halted ? `, HALTED: ${doc.halted}` : ''}`)
+      for (const cell of failed) console.error(`[monitor]   ${cell.cell} FAILED: ${cell.error}`)
+      if (failed.length > 0) process.exit(MONITOR_EXIT_ISOLATED)
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+monitor
+  .command('watch')
+  .description('Loop `monitor run` on an interval (thin daemon; cron `cia monitor run` works too)')
+  .option('--interval <seconds>', 'Override the configured interval')
+  .action(async (opts: { interval?: string }) => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const workspaceRoot = requireWorkspaceRoot()
+      const { loadMonitorConfig } = await import('./monitor/config.js')
+      const { runMonitorOnce } = await import('./monitor/runner.js')
+      const { traceCase } = await import('./monitor/tracker.js')
+      const config = await loadMonitorConfig(workspaceRoot)
+      const intervalMs = Math.max(60, Number(opts.interval) || config.intervalSeconds) * 1000
+      // eslint-disable-next-line no-constant-condition
+      for (;;) {
+        await withGraphMcpClient('chain-insights-cli-monitor', async (client) =>
+          runMonitorOnce(client, workspaceRoot, config, Date.now(), {
+            traceCase: (c, root, id, hops, now) => traceCase(c, root, id, hops, now),
+          }),
+        ).catch((err) => console.error(`[monitor] run failed: ${(err as Error).message}`))
+        await new Promise((resolve) => setTimeout(resolve, intervalMs))
+      }
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+monitor
+  .command('status')
+  .description('Show monitor status: cells, open cases, pending reviews, unacked alerts, last run')
+  .action(async () => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const workspaceRoot = requireWorkspaceRoot()
+      const { loadMonitorConfig } = await import('./monitor/config.js')
+      const { statusText } = await import('./monitor/report.js')
+      const config = await loadMonitorConfig(workspaceRoot)
+      console.log(await statusText(workspaceRoot, config))
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+const monitorCase = monitor
+  .command('case')
+  .description('Manage incident-centric monitor cases (stolen-funds, scam-topology)')
+
+monitorCase
+  .command('add')
+  .description('Register a new monitor case with one or more seed addresses')
+  .argument('<case-id>', 'Case identifier (lowercase letters, digits, hyphens)')
+  .addOption(new Option('--type <type>', 'Case type').choices(['stolen-funds', 'scam-topology']).makeOptionMandatory())
+  .requiredOption('--network <network>', 'Network for this case. Run `cia mcp networks` for supported networks.')
+  .requiredOption('--seed <addresses...>', 'Seed address(es) for the case')
+  .option('--note <text>', 'Optional free-text note')
+  .action(async (caseId: string, opts: { type: 'stolen-funds' | 'scam-topology'; network: string; seed: string[]; note?: string }) => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const workspaceRoot = requireWorkspaceRoot()
+      const { addCase } = await import('./monitor/cases.js')
+      const created = await addCase(
+        workspaceRoot,
+        { case_id: caseId, type: opts.type, network: opts.network, seeds: opts.seed, note: opts.note },
+        Date.now(),
+      )
+      console.log(`Case created: ${created.case_id} (${created.type}, ${created.network}, ${created.seeds.length} seed(s))`)
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+monitorCase
+  .command('list')
+  .description('List monitor cases (open only by default)')
+  .option('--all', 'Include closed cases')
+  .action(async (opts: { all?: boolean }) => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const workspaceRoot = requireWorkspaceRoot()
+      const { listCases } = await import('./monitor/cases.js')
+      const cases = await listCases(workspaceRoot, { openOnly: !opts.all })
+      if (cases.length === 0) {
+        console.log('(no cases)')
+        return
+      }
+      console.log('case_id\ttype\tnetwork\tstatus\tseeds')
+      for (const c of cases) console.log(`${c.case_id}\t${c.type}\t${c.network}\t${c.status}\t${c.seeds.join(',')}`)
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+monitorCase
+  .command('close')
+  .description('Close a monitor case')
+  .argument('<case-id>', 'Case identifier')
+  .action(async (caseId: string) => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const workspaceRoot = requireWorkspaceRoot()
+      const { closeCase } = await import('./monitor/cases.js')
+      const closed = await closeCase(workspaceRoot, caseId, Date.now())
+      console.log(`Case closed: ${closed.case_id}`)
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+const monitorReview = monitor
+  .command('review')
+  .description('Human review of machine-produced findings before they become case expansion or labels')
+
+monitorReview
+  .command('list')
+  .description('List pending (undecided) findings documents')
+  .action(async () => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const workspaceRoot = requireWorkspaceRoot()
+      const { listPending } = await import('./monitor/review.js')
+      const pending = await listPending(workspaceRoot)
+      if (pending.length === 0) {
+        console.log('(no pending reviews)')
+        return
+      }
+      console.log('doc_path\ttool\tnetwork\tfindings_count')
+      for (const p of pending) console.log(`${p.doc_path}\t${p.tool}\t${p.network}\t${p.findings_count}`)
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+monitorReview
+  .command('approve')
+  .description('Approve a findings document: writes a reviewer-stamped copy plus a decision record')
+  .argument('<doc-path>', 'Path to the findings document to approve')
+  .option('--reviewer <id>', 'Reviewer identity (falls back to the configured reviewer)')
+  .action(async (docPath: string, opts: { reviewer?: string }) => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const workspaceRoot = requireWorkspaceRoot()
+      const { loadMonitorConfig } = await import('./monitor/config.js')
+      const config = await loadMonitorConfig(workspaceRoot)
+      const reviewer = opts.reviewer ?? config.reviewer
+      if (!reviewer) throw new Error('Reviewer identity is required: pass --reviewer <id> or set "reviewer" in monitor config')
+      const { approveDoc } = await import('./monitor/review.js')
+      const result = await approveDoc(workspaceRoot, docPath, reviewer, Date.now())
+      console.log(`Approved. Reviewed copy: ${result.reviewedCopy}`)
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+monitorReview
+  .command('reject')
+  .description('Reject a findings document: writes a decision record only, no reviewed copy')
+  .argument('<doc-path>', 'Path to the findings document to reject')
+  .option('--reviewer <id>', 'Reviewer identity (falls back to the configured reviewer)')
+  .action(async (docPath: string, opts: { reviewer?: string }) => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const workspaceRoot = requireWorkspaceRoot()
+      const { loadMonitorConfig } = await import('./monitor/config.js')
+      const config = await loadMonitorConfig(workspaceRoot)
+      const reviewer = opts.reviewer ?? config.reviewer
+      if (!reviewer) throw new Error('Reviewer identity is required: pass --reviewer <id> or set "reviewer" in monitor config')
+      const { rejectDoc } = await import('./monitor/review.js')
+      await rejectDoc(workspaceRoot, docPath, reviewer, Date.now())
+      console.log(`Rejected: ${docPath}`)
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+monitor
+  .command('report')
+  .description('Write a markdown rollup report over derived store state (runs, pending review, alerts, case timelines)')
+  .action(async () => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const workspaceRoot = requireWorkspaceRoot()
+      const { writeReport } = await import('./monitor/report.js')
+      const reportPath = await writeReport(workspaceRoot, Date.now())
+      console.log(`Report written: ${reportPath}`)
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+const monitorExport = monitor
+  .command('export')
+  .description('Export reviewer-approved findings as curated labels')
+
+monitorExport
+  .command('labels')
+  .description('Export approved findings to labels-<ms>.json and labels-<ms>.csv')
+  .action(async () => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const workspaceRoot = requireWorkspaceRoot()
+      const { exportLabels } = await import('./monitor/export.js')
+      const result = await exportLabels(workspaceRoot, Date.now())
+      console.log(`Exported ${result.rows.length} label row(s)`)
+      console.log(`JSON: ${result.jsonPath}`)
+      console.log(`CSV:  ${result.csvPath}`)
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+const monitorAlerts = monitor
+  .command('alerts')
+  .description('Monitor-emitted alert stream: new findings, case movements, cashout/frontier signals')
+
+monitorAlerts
+  .command('list')
+  .description('List alerts (unacked only by default)')
+  .option('--all', 'Include acked alerts')
+  .action(async (opts: { all?: boolean }) => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const workspaceRoot = requireWorkspaceRoot()
+      const { listAlerts } = await import('./monitor/alerts.js')
+      const alerts = await listAlerts(workspaceRoot, { unackedOnly: !opts.all })
+      if (alerts.length === 0) {
+        console.log('(no alerts)')
+        return
+      }
+      for (const a of alerts) {
+        const detectorOrCase = a.detector ?? a.case_id ?? ''
+        const addressOrCount = a.address ?? a.count ?? ''
+        console.log(`${a.alert_id} ${a.type} ${a.network} ${detectorOrCase} ${addressOrCount}`)
+      }
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+monitorAlerts
+  .command('ack')
+  .description('Acknowledge an alert')
+  .argument('<alert-id>', 'Alert identifier')
+  .action(async (alertId: string) => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const workspaceRoot = requireWorkspaceRoot()
+      const { ackAlert } = await import('./monitor/alerts.js')
+      await ackAlert(workspaceRoot, alertId, Date.now())
+      console.log(`Acked: ${alertId}`)
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+monitor
+  .command('rebuild')
+  .description('Rebuild the derived DuckDB store from canonical workspace JSON')
+  .action(async () => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const workspaceRoot = requireWorkspaceRoot()
+      const { rebuildStore } = await import('./monitor/store.js')
+      const count = await rebuildStore(workspaceRoot)
+      console.log(`Rebuilt store: ${count} doc(s) ingested`)
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
 // parseAsync (not parse) so a rejected async action surfaces as a clean
 // one-line error and a non-zero exit, instead of an unhandled-rejection stack
 // trace. Commands with their own try/catch still exit(1) before this fires.

@@ -3,6 +3,26 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.0] - 2026-07-26 — cia monitor
+
+- monitor: `cia monitor` command group for continuous coverage — `run`,
+  `watch`, `status`, `case add/list/close`, `review list/approve/reject`,
+  `report`, `export labels`, `alerts list/ack`, `rebuild`.
+- monitor: DuckDB-backed derived store indexing runs, findings, cases,
+  snapshots, movements, reviews, and alerts, with `cia monitor rebuild`
+  reconstructing it from canonical workspace JSON at any time.
+- monitor: incident-centric case tracking (`stolen-funds`, `scam-topology`)
+  with run-over-run snapshot diffs, derived movements, cashout-endpoint
+  alerts, and review-gated frontier expansion.
+- monitor: review workflow stamping a reviewer identity onto an immutable
+  copy under `detections/reviewed/`, feeding `cia monitor export labels`
+  from approved decisions only.
+- monitor: alert stream with webhook and exec sinks, best-effort delivery
+  that never fails a run.
+- deps: new dependency `@duckdb/node-api` for the monitor derived store.
+- docs: new `docs/monitoring.md` continuous monitoring guide, linked from
+  the README.
+
 ## [0.10.20] - 2026-07-25
 
 - devkit: restore admission parity with the product server. The bundled
