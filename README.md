@@ -265,6 +265,24 @@ When investigation output is large, tools can save compact evidence pointers and
 graph reports under the workspace instead of embedding large payloads in human
 notes.
 
+## Continuous Monitoring
+
+`cia monitor` turns one-shot investigation into a standing watch: scheduled
+detector sweeps for fake tokens, address poisoning, mixer-likeness, and attack
+attribution; stolen-funds case tracking with snapshot diffs and cashout
+alerts; review-gated scam-topology expansion; and label export from
+reviewer-approved findings only.
+
+```bash
+cia init .
+cia monitor run
+```
+
+Put `cia monitor run` on a schedule (cron, or the built-in `cia monitor
+watch`) for continuous coverage. See [Continuous monitoring](docs/monitoring.md)
+for the full command surface, configuration keys, storage model, and exit
+codes.
+
 ## Docs Map
 
 | Doc | Use it for |
@@ -273,6 +291,7 @@ notes.
 | [Graph query compatibility](docs/graph-query-compatibility.md) | GQL/Cypher construct support per layer, rejected→accepted rewrite recipes, traversal guidance |
 | Bittensor devkit parity workflow (RBMK) | Local Chain Insights Graph backend with deterministic Bittensor fixture data for Chain Insights development |
 | [Investigation workspaces](docs/investigation-workspaces.md) | `cia init`, workspace layout, artifacts, imports, templates, sessions, reports, and visualization outputs |
+| [Continuous monitoring](docs/monitoring.md) | `cia monitor` command group, case tracking, review and label export, alerts, storage model, exit codes |
 | [MCP proxy](docs/mcp-proxy.md) | Stdio proxy behavior, endpoint configuration, agent installers, local tools, auth modes, Inspector validation |
 | [Architecture](docs/architecture.md) | Product layers, data flow, local storage, security model, config keys |
 | [Development](docs/development.md) | Build, test, and local install commands |
