@@ -9,7 +9,7 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { monitorPaths } from './paths.js'
 
-interface ReviewDecisionDoc {
+export interface ReviewDecisionDoc {
   doc_path: string
   decision: 'approve' | 'reject'
   reviewer: string
@@ -19,7 +19,7 @@ interface ReviewDecisionDoc {
   case_id: string | null
 }
 
-async function listDecisionDocs(workspaceRoot: string): Promise<ReviewDecisionDoc[]> {
+export async function listDecisionDocs(workspaceRoot: string): Promise<ReviewDecisionDoc[]> {
   const dir = monitorPaths(workspaceRoot).reviewsDir
   let files: string[]
   try {
