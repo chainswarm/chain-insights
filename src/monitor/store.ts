@@ -6,6 +6,7 @@ import path from 'node:path'
 import { DuckDBInstance } from '@duckdb/node-api'
 import { parseFindingsDocument } from '../investigation/detection-findings.js'
 import { monitorPaths } from './paths.js'
+import { diffSnapshots, readSnapshots, type CaseSnapshot } from './tracker.js'
 
 export interface MonitorStore {
   run(sql: string, params?: unknown[]): Promise<void>
@@ -206,6 +207,52 @@ INGESTORS.push({
       'INSERT INTO cases VALUES ($1,$2,$3,$4,$5,$6,$7)',
       [doc.case_id, doc.type, doc.network, doc.status, doc.seeds.length, doc.created_at_ms, doc.closed_at_ms ?? null],
     )
+  },
+})
+
+INGESTORS.push({
+  kind: 'snapshots',
+  async listDocs(workspaceRoot) {
+    const dir = monitorPaths(workspaceRoot).casesDir
+    let ids: string[]
+    try {
+      ids = await readdir(dir)
+    } catch {
+      return []
+    }
+    const docs: string[] = []
+    for (const id of ids.sort()) {
+      const snapDir = path.join(dir, id, 'snapshots')
+      try {
+        const files = (await readdir(snapDir)).filter((f) => f.endsWith('.snapshot.json')).sort()
+        for (const f of files) docs.push(path.join(snapDir, f))
+      } catch {
+        // A case with no snapshots yet — skip.
+      }
+    }
+    return docs
+  },
+  async ingest(store, workspaceRoot, filePath) {
+    const doc = JSON.parse(await readFile(filePath, 'utf8')) as CaseSnapshot
+    await store.run(
+      'INSERT INTO case_snapshots VALUES ($1,$2,$3,$4,$5)',
+      [doc.case_id, doc.run_ms, filePath, doc.addresses.length, doc.seed_set.length],
+    )
+    // Movements are DERIVED, not canonical: recompute from the case's full
+    // ordered snapshot list and insert rows for THIS snapshot only. Diffing
+    // against the same predecessor every time this doc is ingested keeps the
+    // result deterministic per doc_path, so re-ingest (never happens under
+    // ingested_docs, but rebuildStore replays every doc) is idempotent.
+    const all = await readSnapshots(workspaceRoot, doc.case_id)
+    const index = all.findIndex((s) => s.run_ms === doc.run_ms)
+    const prev = index > 0 ? all[index - 1] : null
+    const movements = diffSnapshots(prev, doc)
+    for (const m of movements) {
+      await store.run(
+        'INSERT INTO case_movements VALUES ($1,$2,$3,$4,$5)',
+        [doc.case_id, doc.run_ms, m.type, m.address, JSON.stringify(m.details)],
+      )
+    }
   },
 })
 

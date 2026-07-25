@@ -11,7 +11,7 @@ import { emitAlerts } from './alerts.js'
 import type { MonitorConfig } from './config.js'
 import { monitorPaths } from './paths.js'
 import { ingestNewDocs, withStore } from './store.js'
-import { listCases } from './cases.js'   // Task 5; until then stub the import per Step 3 note
+import { listCases } from './cases.js'
 
 export const MONITOR_EXIT_ISOLATED = 2
 
