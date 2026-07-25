@@ -256,6 +256,36 @@ INGESTORS.push({
   },
 })
 
+interface ReviewDecisionDoc {
+  doc_path: string
+  decision: 'approve' | 'reject'
+  reviewer: string
+  decided_at_ms: number
+  reviewed_copy?: string
+}
+
+// Decision docs are IMMUTABLE (unique <decided_at_ms>-<decision>.review.json
+// filenames per approveDoc/rejectDoc, never rewritten in place), so this is
+// plain seen-once ingest — not one of the REPLAY_TABLES below.
+INGESTORS.push({
+  kind: 'reviews',
+  async listDocs(workspaceRoot) {
+    const dir = monitorPaths(workspaceRoot).reviewsDir
+    try {
+      return (await readdir(dir)).filter((f) => f.endsWith('.review.json')).map((f) => path.join(dir, f)).sort()
+    } catch {
+      return []
+    }
+  },
+  async ingest(store, _workspaceRoot, filePath) {
+    const doc = JSON.parse(await readFile(filePath, 'utf8')) as ReviewDecisionDoc
+    await store.run(
+      'INSERT INTO review_decisions VALUES ($1,$2,$3,$4,$5)',
+      [doc.doc_path, doc.decision, doc.reviewer, doc.decided_at_ms, doc.reviewed_copy ?? null],
+    )
+  },
+})
+
 // Rewritable/growing sources: their canonical doc is appended-to (alerts,
 // acks logs) or rewritten in place (case.json via closeCase), so the derived
 // table cannot be trusted to already hold a prior ingest's rows — wipe the
