@@ -11,7 +11,7 @@ import { writeFindings } from '../detection/emit.js'
 import type { DetectionFindingsDocument } from '../investigation/detection-findings.js'
 import type { AlertEvent } from './alerts.js'
 import { monitorPaths } from './paths.js'
-import { approvedAddressesForCase } from './review.js'  // Task 7; see Step-3 note
+import { approvedAddressesForCase } from './review.js'
 
 export interface SnapshotAddress { address: string; classification?: string; gate?: string }
 export interface CaseSnapshot { case_id: string; run_ms: number; seed_set: string[]; addresses: SnapshotAddress[] }

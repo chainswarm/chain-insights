@@ -5,6 +5,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { approveDoc, approvedAddressesForCase, listPending, rejectDoc } from '../../src/monitor/review.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
+import { exportLabels } from '../../src/monitor/export.js'
 
 async function ws(): Promise<string> {
   return mkdtemp(path.join(tmpdir(), 'cia-review-'))
@@ -67,5 +68,18 @@ describe('review workflow (AC-3)', () => {
     const doc = await seedDoc(root, '103-case-c1-bittensor.findings.json')
     await expect(approveDoc(root, doc, '  ', 800)).rejects.toThrow()
     await expect(rejectDoc(root, doc, '', 800)).rejects.toThrow()
+  })
+
+  it('approve with a RELATIVE docPath still clears from pending and does not duplicate the decision', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '104-case-c1-bittensor.findings.json')
+    // Exactly what devkit/scripts/smoke-monitor.sh does: pass a path relative
+    // to the current working directory (e.g. via `ls detections/...`), not
+    // the absolute path listPending compares decisions against.
+    const relativeDoc = path.relative(process.cwd(), doc)
+    await approveDoc(root, relativeDoc, 'ops', 900)
+    expect(await listPending(root)).toHaveLength(0)
+    const { rows } = await exportLabels(root, 950)
+    expect(rows).toHaveLength(1) // no duplicate decision doc from the path mismatch
   })
 })

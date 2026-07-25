@@ -69,7 +69,7 @@ describe('monitor store', () => {
     expect(n).toBe(1)
   })
 
-  it('ingests case_snapshots and derives case_movements for the new snapshot only, reproducibly under rebuild (Task 6 store wiring)', async () => {
+  it('ingests case_snapshots and derives case_movements for the new snapshot only, reproducibly under rebuild (snapshot ingest wiring)', async () => {
     const root = await ws()
     await addCase(root, { case_id: 'c1', type: 'stolen-funds', network: 'bittensor', seeds: ['seed1'] }, 50)
     const corridorOf = (addrs: Array<{ address: string; classification?: string }>) => async () => ({

@@ -37,7 +37,7 @@ RUNS=$(ls .chain-insights/monitor/runs/*.run.json | wc -l); [ "$RUNS" -eq 1 ]; c
 $CLI monitor status >/dev/null; check "U5/status renders" $?
 
 # M1: immediate second run is idempotent at the store level.
-BEFORE=$($CLI monitor rebuild | tail -1)
+$CLI monitor rebuild >/dev/null
 $CLI monitor run || [ $? -eq 2 ]
 $CLI monitor rebuild >/dev/null
 check "M1 second run + rebuild clean" $?
@@ -70,7 +70,7 @@ if [ "$PENDING" -gt 0 ]; then
   LAST=$(ls cases/theft-1/snapshots/*.snapshot.json | sort | tail -1)
   GREW=$(jq '.seed_set | length' "$LAST"); [ "$GREW" -gt 1 ]; check "U8 corridor expanded" $?
 else
-  echo "MONITOR-SMOKE PASS U8 (no frontier on static fixture — expansion covered by unit tests)"
+  echo "MONITOR-SMOKE PASS U8 (no frontier on static fixture — expansion seam covered by tests/monitor/tracker.test.ts)"
   PASS=$((PASS+1))
 fi
 

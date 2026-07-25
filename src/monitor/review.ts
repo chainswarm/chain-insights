@@ -66,25 +66,35 @@ async function writeDecision(workspaceRoot: string, decision: ReviewDecisionDoc)
 
 export async function approveDoc(workspaceRoot: string, docPath: string, reviewer: string, nowMs: number): Promise<{ reviewedCopy: string }> {
   if (!reviewer.trim()) throw new Error('reviewer identity is required to approve')
-  const raw = JSON.parse(await readFile(docPath, 'utf8')) as Record<string, unknown>
+  // Normalize BEFORE any read/write so a relative-path approval (e.g. `cia
+  // monitor review approve detections/foo.findings.json` from the workspace
+  // root) records the same doc_path that listPending matches against
+  // (absolute, via monitorPaths' path.join). Without this, a relative
+  // approval never clears from pending, and a later absolute-path retry
+  // writes a duplicate decision doc — duplicate rows in export labels.
+  const resolved = path.resolve(docPath)
+  const raw = JSON.parse(await readFile(resolved, 'utf8')) as Record<string, unknown>
   const p = monitorPaths(workspaceRoot)
   await mkdir(p.reviewedDir, { recursive: true })
-  const reviewedCopy = path.join(p.reviewedDir, path.basename(docPath))
+  const reviewedCopy = path.join(p.reviewedDir, path.basename(resolved))
   await writeFile(reviewedCopy, JSON.stringify({ ...raw, reviewer }, null, 2) + '\n', 'utf8')
   const findings = (raw.findings as Array<{ address: string }> | undefined) ?? []
   await writeDecision(workspaceRoot, {
-    doc_path: docPath, decision: 'approve', reviewer, decided_at_ms: nowMs, reviewed_copy: reviewedCopy,
-    addresses: findings.map((f) => f.address), case_id: caseIdFromDocPath(docPath),
+    doc_path: resolved, decision: 'approve', reviewer, decided_at_ms: nowMs, reviewed_copy: reviewedCopy,
+    addresses: findings.map((f) => f.address), case_id: caseIdFromDocPath(resolved),
   })
   return { reviewedCopy }
 }
 
 export async function rejectDoc(workspaceRoot: string, docPath: string, reviewer: string, nowMs: number): Promise<void> {
   if (!reviewer.trim()) throw new Error('reviewer identity is required to reject')
-  const raw = JSON.parse(await readFile(docPath, 'utf8')) as { findings?: Array<{ address: string }> }
+  // See approveDoc: normalize before use so relative-path rejects also match
+  // listPending's absolute doc_path comparison.
+  const resolved = path.resolve(docPath)
+  const raw = JSON.parse(await readFile(resolved, 'utf8')) as { findings?: Array<{ address: string }> }
   await writeDecision(workspaceRoot, {
-    doc_path: docPath, decision: 'reject', reviewer, decided_at_ms: nowMs,
-    addresses: (raw.findings ?? []).map((f) => f.address), case_id: caseIdFromDocPath(docPath),
+    doc_path: resolved, decision: 'reject', reviewer, decided_at_ms: nowMs,
+    addresses: (raw.findings ?? []).map((f) => f.address), case_id: caseIdFromDocPath(resolved),
   })
 }
 
