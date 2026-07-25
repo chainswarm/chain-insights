@@ -238,7 +238,14 @@ console.log(`[uat] network_capabilities ok: source=${network}`)
 NODE
 
 ADDRESS_TOPOLOGY_JSON="${RUN_DIR}/direct-topology.json"
-ADDRESS_TOPOLOGY_QUERY="USE topology MATCH (s:Address)-[f:FLOWS_TO]->(d:Address) RETURN count(f) AS address_flows"
+# Scoped to the UAT fixture address, not the whole graph. An unscoped
+# count(f) over every FLOWS_TO edge is a cross-shard aggregate re-derivation:
+# on a multi-shard deployment it exceeds the planner cardinality cap and is
+# refused (measured on dev: 1,460,339 edge rows vs a 250,000 cap), so the step
+# failed before its assertions ran. Scoping is also what the assertion
+# actually wants — that the FIXTURE address has flows, not that the graph is
+# non-empty.
+ADDRESS_TOPOLOGY_QUERY="USE topology MATCH (s:Address {address: '${UAT_ADDRESS}'})-[f:FLOWS_TO]->(d:Address) RETURN count(f) AS address_flows"
 log "checking public topology address-grain edges (network=${NETWORK})"
 npx @modelcontextprotocol/inspector \
   --cli "${MCP_ENDPOINT}" \
