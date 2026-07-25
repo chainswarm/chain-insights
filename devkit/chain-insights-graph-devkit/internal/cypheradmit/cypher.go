@@ -2,6 +2,7 @@ package cypheradmit
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -71,13 +72,31 @@ var (
 	}
 	addressMapPredicatePattern   = regexp.MustCompile(`(?is)\{\s*` + "`?" + `address` + "`?" + `\s*:`)
 	addressWherePredicatePattern = regexp.MustCompile(`(?is)\bWHERE\b.*(?:\.\s*` + "`?" + `address` + "`?" + `|\b` + "`?" + `address` + "`?" + `)\s*(?:=|IN\b)`)
-	rangeWherePredicatePattern   = regexp.MustCompile(`(?is)\bWHERE\b.*\b(?:activity_date|block_date|block_height|block_timestamp|period_start_date|price_date|last_seen_timestamp|first_seen_timestamp)\b\s*(?:=|<|>|<=|>=|BETWEEN\b|IN\b)`)
+	// backtickIdentifierPattern is the ONLY backtick-span content that is
+	// genuinely an identifier. Anything else inside backticks is caller data
+	// (internal/cyphersql/lexer.go lexes '`' in the same case as '\'' and '"',
+	// emitting a string token), so it must be blanked alongside the other
+	// literal forms — see stripCypherLiteralsAndComments.
+	backtickIdentifierPattern  = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+	rangeWherePredicatePattern = regexp.MustCompile(`(?is)\bWHERE\b.*` + "`?" + `\b(?:` + rangeIndexedColumns + `)\b` + "`?" + `\s*(?:` + rangeComparisonOperators + `|BETWEEN\b|IN\b)`)
 	// txIDWherePredicatePattern recognizes tx_id equality/IN as an indexed
 	// predicate — the TRANSFER edge's natural row-level key alongside address
 	// endpoint equality (facts_transfers_view has no address-map-literal
 	// surface since tx_id is an edge property, not a node id).
 	txIDWherePredicatePattern = regexp.MustCompile(`(?is)\bWHERE\b.*(?:\.\s*` + "`?" + `tx_id` + "`?" + `|\b` + "`?" + `tx_id` + "`?" + `)\s*(?:=|IN\b)`)
 )
+
+// rangeIndexedColumns are the StarRocks-partitioned/indexed range columns a
+// WHERE clause may use as a cost bound.
+const rangeIndexedColumns = `activity_date|block_date|block_height|block_timestamp|` +
+	`period_start_date|price_date|last_seen_timestamp|first_seen_timestamp`
+
+// rangeComparisonOperators is ordered longest-first ON PURPOSE. Go's regexp
+// alternation is leftmost-FIRST, so a single-character arm placed ahead of the
+// two-character operator it prefixes would swallow it: `<>` read as `<` is
+// exactly how anti-equality (`block_height <> 0`) used to register as an upper
+// bound. Do not reorder.
+const rangeComparisonOperators = `<>|!=|>=|<=|=|>|<`
 
 type cypherToken struct {
 	text            string
@@ -372,19 +391,42 @@ func usesStarRocksTransferEdge(tokens []cypherToken) bool {
 	return false
 }
 
+// usesStarRocksBackedGraph reports whether the query carries a real `USE
+// facts` graph clause.
+//
+// BOTH halves of the pair are guarded by isDotOrColonContext, mirroring
+// usesStarRocksTransferEdge and hasGlobalAggregateFunction: a property path
+// (`RETURN n.use.facts`), a label/type expression (`(n:use:facts)`) or a map
+// key (`RETURN {use: 1, facts: 2}`) is caller DATA, not a graph clause. Reading
+// it as one let any live-tier query self-upgrade to the StarRocks tier, which
+// triples the x402 pre-authorization (10s → 30s ceiling) and relaxes the
+// cost-shape gate's timeout. This is safe because ValidateReadOnlyGraphQuery is
+// reachable only through ValidateExplicitScopeGraphQuery, which already
+// requires a literal `USE topology` / `USE facts` opener — the clause we want
+// to see is always at token 0.
 func usesStarRocksBackedGraph(tokens []cypherToken) bool {
 	for index, token := range tokens {
-		if token.text != "USE" {
+		if token.text != "USE" || isDotOrColonContext(token) {
 			continue
 		}
 		if index+1 >= len(tokens) {
 			continue
 		}
-		if _, ok := starRocksBackedGraphNames[tokens[index+1].text]; ok {
+		next := tokens[index+1]
+		if isDotOrColonContext(next) {
+			continue
+		}
+		if _, ok := starRocksBackedGraphNames[next.text]; ok {
 			return true
 		}
 	}
 	return false
+}
+
+// isDotOrColonContext reports whether a token sits in a property-path, label,
+// relationship-type, or map-key position rather than clause position.
+func isDotOrColonContext(token cypherToken) bool {
+	return token.precededByDot || token.precededByColon || token.followedByColon
 }
 
 // QueryTier classifies a query by the backend it targets, for timeout/billing
@@ -409,10 +451,76 @@ func ClassifyQueryTier(query string) QueryTier {
 }
 
 func hasStarRocksIndexedPredicate(query string) bool {
-	return addressMapPredicatePattern.MatchString(query) ||
-		addressWherePredicatePattern.MatchString(query) ||
-		rangeWherePredicatePattern.MatchString(query) ||
-		txIDWherePredicatePattern.MatchString(query)
+	// Match against the query with string literals and comments blanked out,
+	// exactly as production does: a crafted literal like
+	// `WHERE t.asset_symbol = "junk tx_id = 1"` must not satisfy the
+	// indexed-predicate patterns lexically and forge an unbounded facts scan.
+	stripped := stripCypherLiteralsAndComments(query)
+	return addressMapPredicatePattern.MatchString(stripped) ||
+		addressWherePredicatePattern.MatchString(stripped) ||
+		rangeWherePredicatePattern.MatchString(stripped) ||
+		txIDWherePredicatePattern.MatchString(stripped)
+}
+
+// stripCypherLiteralsAndComments returns the query with string literals and
+// comments replaced by single spaces, using the exact same scanners as
+// cypherTokens so the two lexical views can never disagree.
+//
+// A backtick span is kept verbatim ONLY when its content is a bare identifier
+// (backtickIdentifierPattern); otherwise it is blanked like any other literal.
+// Backticks are not "identifiers, not data": internal/cyphersql/lexer.go lexes
+// the backtick in the same lexer case as the single and double quote and emits
+// a string token. A caller-supplied span such as {address: 1}, tx_id = 1, or
+// block_height >= 1 AND block_height <= 2 written inside backticks therefore
+// reached the predicate patterns as live text and forged an indexed predicate
+// the query did not actually have.
+func stripCypherLiteralsAndComments(query string) string {
+	var builder strings.Builder
+	builder.Grow(len(query))
+	for i := 0; i < len(query); {
+		switch query[i] {
+		case '\'', '"':
+			i = scanQuoted(query, i, query[i])
+			builder.WriteByte(' ')
+		case '`':
+			next := scanBacktick(query, i)
+			if isBareBacktickIdentifier(query[i:next]) {
+				builder.WriteString(query[i:next])
+			} else {
+				builder.WriteByte(' ')
+			}
+			i = next
+		case '/':
+			if i+1 < len(query) && query[i+1] == '/' {
+				i = scanLineComment(query, i+2)
+				builder.WriteByte(' ')
+				continue
+			}
+			if i+1 < len(query) && query[i+1] == '*' {
+				i = scanBlockComment(query, i+2)
+				builder.WriteByte(' ')
+				continue
+			}
+			builder.WriteByte(query[i])
+			i++
+		default:
+			builder.WriteByte(query[i])
+			i++
+		}
+	}
+	return builder.String()
+}
+
+// isBareBacktickIdentifier reports whether span — a complete backtick run as
+// returned by scanBacktick, opening and closing delimiters included — quotes a
+// bare identifier. An unterminated run (scanBacktick ran off the end) is not
+// one, and neither is a run holding an escaped backtick, since ` is outside
+// backtickIdentifierPattern's character class.
+func isBareBacktickIdentifier(span string) bool {
+	if len(span) < 2 || span[0] != '`' || span[len(span)-1] != '`' {
+		return false
+	}
+	return backtickIdentifierPattern.MatchString(span[1 : len(span)-1])
 }
 
 func hasGlobalAggregateFunction(query string, tokens []cypherToken, aliases map[string]struct{}) bool {
@@ -642,4 +750,69 @@ func onlyWhitespace(text string) bool {
 		}
 	}
 	return true
+}
+
+// allowedTopologyStatementOpeners is the positive allowlist for the FIRST
+// significant token of the statement that remains after `USE topology` is
+// stripped (the text actually handed to Memgraph). The read-clause allowlist
+// in ValidateReadOnlyCypher only inspects tokens[0] of the whole query, which
+// is `USE`; the real statement opener was never re-checked, so non-read admin
+// statements that use no denylisted keyword (`STORAGE MODE`, `SHOW`,
+// `TERMINATE TRANSACTIONS`, `FREE MEMORY`, `ANALYZE GRAPH`, `RECOVER SNAPSHOT`,
+// `REGISTER REPLICA`, a second `USE DATABASE`) were admitted and reached the
+// Bolt session — whose `AccessModeRead` Memgraph does not enforce. Requiring an
+// allowlisted read opener here rejects that whole class by default. `USE` is
+// intentionally excluded so a second `USE <db>` cannot cross databases.
+var allowedTopologyStatementOpeners = map[string]struct{}{
+	"MATCH":    {},
+	"OPTIONAL": {},
+	"UNWIND":   {},
+	"WITH":     {},
+	"RETURN":   {},
+	"EXPLAIN":  {},
+	"PROFILE":  {},
+}
+
+// ValidateTopologyStatementOpener mirrors production's
+// validateTopologyStatementOpener (data-pipeline internal/graphmcp/federation.go).
+// The read-clause allowlist in ValidateReadOnlyCypher only inspects tokens[0]
+// of the whole query, which for `USE topology ...` is `USE` — so the REAL
+// statement was screened by the write denylist alone and admin verbs that use
+// no denylisted keyword (SHOW, STORAGE MODE, TERMINATE TRANSACTIONS, FREE
+// MEMORY, ANALYZE GRAPH, RECOVER SNAPSHOT, REGISTER REPLICA, a second USE)
+// passed straight through to the Bolt session.
+//
+// Call it for `USE topology` queries so the devkit refuses exactly what
+// production refuses; without it a developer validates locally and is refused
+// upstream (rbmk#473).
+func ValidateTopologyStatementOpener(query string) error {
+	tokens := cypherTokens(StripLayerPrefix(query))
+	if len(tokens) == 0 {
+		return errors.New("invalid_scope: `USE topology` must be followed by a read statement (MATCH, OPTIONAL MATCH, UNWIND, WITH, RETURN, EXPLAIN, PROFILE)")
+	}
+	if _, ok := allowedTopologyStatementOpeners[tokens[0].text]; !ok {
+		return fmt.Errorf("invalid_scope: `USE topology` statement must open with a read clause (MATCH, OPTIONAL MATCH, UNWIND, WITH, RETURN, EXPLAIN, PROFILE), got %q", tokens[0].text)
+	}
+	return nil
+}
+
+// StripLayerPrefix removes exactly one leading `USE <layer>` clause so the
+// remainder is the statement the backend actually receives.
+func StripLayerPrefix(query string) string {
+	trimmed := strings.TrimLeft(query, " \t\n\r")
+	fields := strings.Fields(trimmed)
+	if len(fields) >= 2 && strings.EqualFold(fields[0], "USE") {
+		idx := strings.Index(strings.ToUpper(trimmed), strings.ToUpper(fields[1]))
+		if idx >= 0 {
+			return strings.TrimLeft(trimmed[idx+len(fields[1]):], " \t\n\r")
+		}
+	}
+	return query
+}
+
+// StripLiteralsAndComments exposes the shared lexical view to sibling packages
+// (the traversal-bounds gate needs it: a `..` inside a string literal or a
+// comment is not a hop bound).
+func StripLiteralsAndComments(query string) string {
+	return stripCypherLiteralsAndComments(query)
 }

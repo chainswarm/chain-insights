@@ -190,6 +190,12 @@ func graphQueryHandler(runner QueryRunner) func(context.Context, *mcp.CallToolRe
 			return toolError(err.Error()), nil, nil
 		}
 		if queryTargetsTopology(args.Query) {
+			// Parity with production (rbmk#473): the statement AFTER `USE
+			// topology` must itself open with a read clause, or admin verbs
+			// reach the Bolt session unchecked.
+			if err := cypheradmit.ValidateTopologyStatementOpener(args.Query); err != nil {
+				return toolError(err.Error()), nil, nil
+			}
 			if err := ValidateLiveTraversalBounds(args.Query, defaultTraversalBounds()); err != nil {
 				return toolError(err.Error()), nil, nil
 			}
@@ -246,6 +252,10 @@ func graphQueryBatchHandler(runner QueryRunner) func(context.Context, *mcp.CallT
 				continue
 			}
 			if queryTargetsTopology(query.Query) {
+				if err := cypheradmit.ValidateTopologyStatementOpener(query.Query); err != nil {
+					queries = append(queries, ChainInsightsBatchQuery{ID: id, OK: false, Tier: tier, TimeoutSeconds: timeoutSeconds, Results: []map[string]any{}, Error: err.Error()})
+					continue
+				}
 				if err := ValidateLiveTraversalBounds(query.Query, defaultTraversalBounds()); err != nil {
 					queries = append(queries, ChainInsightsBatchQuery{ID: id, OK: false, Tier: tier, TimeoutSeconds: timeoutSeconds, Results: []map[string]any{}, Error: err.Error()})
 					continue

@@ -2,6 +2,7 @@ package devkitmcp
 
 import (
 	"fmt"
+	"github.com/chainswarm/chain-insights/devkit/chain-insights-graph-devkit/internal/cypheradmit"
 	"os"
 	"regexp"
 	"strconv"
@@ -51,19 +52,102 @@ func queryTargetsTopology(query string) bool {
 	return strings.EqualFold(strings.TrimSpace(fields[1]), "topology")
 }
 
-// edgeBodyPattern captures the inside of any relationship whose body uses a
-// variable-length / algorithm marker '*': [ ... * ... ].
-var edgeBodyPattern = regexp.MustCompile(`\[[^\]]*\*[^\]]*\]`)
+// edgeBodies returns every relationship body `[ ... ]` that carries a
+// variable-length / algorithm marker '*', with NESTED brackets kept intact.
+//
+// This replaces a `\[[^\]]*\*[^\]]*\]` regex that stopped at the FIRST ']' and
+// therefore truncated any body containing a nested list index — e.g. an
+// algorithm lambda like `[:R *WSHORTEST (r,n | size(n.tags[0..2])) w]` was cut
+// at the slice's bracket. The truncated fragment still held `0..2`, which the
+// hop-range extractor then read as an upper bound of 2, so a genuinely
+// depth-UNBOUNDED expansion was admitted (rbmk#473 F5 — a fail-open in the
+// depth cap, not merely a missed optimization).
+func edgeBodies(query string) []string {
+	var bodies []string
+	for i := 0; i < len(query); i++ {
+		if query[i] != '[' {
+			continue
+		}
+		depth := 0
+		for j := i; j < len(query); j++ {
+			switch query[j] {
+			case '[':
+				depth++
+			case ']':
+				depth--
+			}
+			if depth != 0 {
+				continue
+			}
+			body := query[i : j+1]
+			if strings.Contains(body, "*") {
+				bodies = append(bodies, body)
+			}
+			i = j
+			break
+		}
+	}
+	return bodies
+}
+
+// hopBoundRegion returns the only part of an edge body that may legitimately
+// carry a hop bound: from the '*' marker up to an algorithm lambda '(' , with
+// any nested bracket content removed. Memgraph places the bound before the
+// lambda (`*WSHORTEST 5 (e,n | e.weight) w`), so a `..` appearing inside the
+// lambda or inside a list slice is data, never a traversal bound.
+func hopBoundRegion(body string) string {
+	star := strings.IndexByte(body, '*')
+	if star < 0 {
+		return ""
+	}
+	region := body[star:]
+	if p := strings.IndexByte(region, '('); p >= 0 {
+		region = region[:p]
+	}
+	var sb strings.Builder
+	depth := 0
+	for i := 0; i < len(region); i++ {
+		switch region[i] {
+		case '[':
+			depth++
+		case ']':
+			if depth > 0 {
+				depth--
+			}
+		default:
+			if depth == 0 {
+				sb.WriteByte(region[i])
+			}
+		}
+	}
+	return sb.String()
+}
 
 // hopRangePattern extracts an a..b, ..b, or a.. range: group1=a, group2=b.
-var hopRangePattern = regexp.MustCompile(`(\d*)\.\.(\d*)`)
+// Digit-group separators are matched so `*1..1_000_000` cannot read as `1..1`
+// (a bound of 1) while an engine honouring `_` walks a million hops.
+var hopRangePattern = regexp.MustCompile(`([0-9_]*)\.\.([0-9_]*)`)
+
+// parseHopNumber parses a hop bound, tolerating `_` digit grouping. An empty or
+// unparseable value reports absent so the caller fails closed.
+func parseHopNumber(raw string) (int, bool) {
+	cleaned := strings.ReplaceAll(raw, "_", "")
+	if cleaned == "" {
+		return 0, false
+	}
+	n, err := strconv.Atoi(cleaned)
+	if err != nil {
+		return 0, false
+	}
+	return n, true
+}
 
 // kshortestKPattern extracts the k in *KSHORTEST|k.
 var kshortestKPattern = regexp.MustCompile(`(?i)KSHORTEST\s*\|\s*(\d+)`)
 
 // standaloneLimitPattern extracts a bare hop/path limit like "*BFS 5" or
 // "*WSHORTEST 5" — a single number after the marker keyword.
-var standaloneLimitPattern = regexp.MustCompile(`(?i)\*\s*(?:BFS|DFS|WSHORTEST|ALLSHORTEST|KSHORTEST)?\s*(\d+)`)
+var standaloneLimitPattern = regexp.MustCompile(`(?i)\*\s*(?:BFS|DFS|WSHORTEST|ALLSHORTEST|KSHORTEST)?\s*([0-9][0-9_]*)`)
 
 // unwindListPattern captures the literal list of an UNWIND [ ... ] AS clause.
 var unwindListPattern = regexp.MustCompile(`(?is)\bUNWIND\s*\[([^\]]*)\]`)
@@ -73,7 +157,10 @@ var unwindListPattern = regexp.MustCompile(`(?is)\bUNWIND\s*\[([^\]]*)\]`)
 // facts goes through the corpus-scoped translator instead. Returns an
 // error naming the exact violated bound.
 func ValidateLiveTraversalBounds(query string, b TraversalBounds) error {
-	for _, body := range edgeBodyPattern.FindAllString(query, -1) {
+	// Scan with string literals and comments blanked out, exactly as
+	// production does: a `..` inside a literal or a comment is NOT a hop
+	// bound, but a raw scan read one and admitted an UNBOUNDED expansion.
+	for _, body := range edgeBodies(cypheradmit.StripLiteralsAndComments(query)) {
 		if err := validateEdgeBound(body, b); err != nil {
 			return err
 		}
@@ -107,17 +194,20 @@ func validateEdgeBound(body string, b TraversalBounds) error {
 // from an a..b / ..b range, or a standalone numeric limit after the marker.
 // Returns (bound, true) when an explicit upper bound exists.
 func extractUpperHop(body string) (int, bool) {
+	// Only the pre-lambda, bracket-free region can carry a bound; a `..` inside
+	// an algorithm lambda or a list slice is data (rbmk#473 F5).
+	body = hopBoundRegion(body)
 	if m := hopRangePattern.FindStringSubmatch(body); m != nil {
-		if m[2] != "" {
-			n, _ := strconv.Atoi(m[2])
+		if n, ok := parseHopNumber(m[2]); ok {
 			return n, true
 		}
 		// a.. with no upper bound is unbounded
 		return 0, false
 	}
-	if m := standaloneLimitPattern.FindStringSubmatch(body); m != nil && m[1] != "" {
-		n, _ := strconv.Atoi(m[1])
-		return n, true
+	if m := standaloneLimitPattern.FindStringSubmatch(body); m != nil {
+		if n, ok := parseHopNumber(m[1]); ok {
+			return n, true
+		}
 	}
 	// bare '*', '*BFS', '*WSHORTEST (r,n|w)' with no numeric bound → unbounded
 	return 0, false
