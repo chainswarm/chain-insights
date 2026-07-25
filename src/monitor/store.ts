@@ -118,7 +118,42 @@ const findingsIngestor: DocIngestor = {
 }
 INGESTORS.push(findingsIngestor)
 
+function jsonlIngestor(kind: 'alerts' | 'acks', logPathOf: (root: string) => string, insert: (store: MonitorStore, line: Record<string, unknown>) => Promise<void>): DocIngestor {
+  return {
+    kind,
+    async listDocs(workspaceRoot) {
+      const log = logPathOf(workspaceRoot)
+      try {
+        await readFile(log, 'utf8')
+        return [log]
+      } catch {
+        return []
+      }
+    },
+    async ingest(store, _workspaceRoot, filePath) {
+      const raw = await readFile(filePath, 'utf8')
+      for (const line of raw.split('\n').filter(Boolean)) await insert(store, JSON.parse(line))
+    },
+  }
+}
+
+INGESTORS.push(
+  jsonlIngestor('alerts', (root) => monitorPaths(root).alertsLog, async (store, e) => {
+    await store.run('INSERT INTO alerts VALUES ($1,$2,$3,$4,$5,$6,$7,$8)', [e.alert_id, e.type, e.network, e.detector ?? null, e.case_id ?? null, e.address ?? null, e.run_ms, e.emitted_at_ms])
+  }),
+  jsonlIngestor('acks', (root) => monitorPaths(root).acksLog, async (store, a) => {
+    await store.run('INSERT INTO alert_acks VALUES ($1,$2)', [a.alert_id, a.acked_at_ms])
+  }),
+)
+
 export async function ingestNewDocs(store: MonitorStore, workspaceRoot: string): Promise<number> {
+  for (const ingestor of INGESTORS) {
+    if (ingestor.kind !== 'alerts' && ingestor.kind !== 'acks') continue
+    for (const filePath of await ingestor.listDocs(workspaceRoot)) {
+      await store.run(`DELETE FROM ${ingestor.kind === 'alerts' ? 'alerts' : 'alert_acks'}`)
+      await store.run('DELETE FROM ingested_docs WHERE doc_path = $1', [filePath])
+    }
+  }
   const seen = new Set(
     (await store.all('SELECT doc_path FROM ingested_docs')).map((r) => String(r.doc_path)),
   )
