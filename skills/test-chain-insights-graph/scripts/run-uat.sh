@@ -238,7 +238,14 @@ console.log(`[uat] network_capabilities ok: source=${network}`)
 NODE
 
 ADDRESS_TOPOLOGY_JSON="${RUN_DIR}/direct-topology.json"
-ADDRESS_TOPOLOGY_QUERY="USE topology MATCH (s:Address)-[f:FLOWS_TO]->(d:Address) RETURN count(f) AS address_flows"
+# Scoped to the UAT fixture address, not the whole graph. An unscoped
+# count(f) over every FLOWS_TO edge is a cross-shard aggregate re-derivation:
+# on a multi-shard deployment it exceeds the planner cardinality cap and is
+# refused (measured on dev: 1,460,339 edge rows vs a 250,000 cap), so the step
+# failed before its assertions ran. Scoping is also what the assertion
+# actually wants — that the FIXTURE address has flows, not that the graph is
+# non-empty.
+ADDRESS_TOPOLOGY_QUERY="USE topology MATCH (s:Address {address: '${UAT_ADDRESS}'})-[f:FLOWS_TO]->(d:Address) RETURN count(f) AS address_flows"
 log "checking public topology address-grain edges (network=${NETWORK})"
 npx @modelcontextprotocol/inspector \
   --cli "${MCP_ENDPOINT}" \
@@ -269,7 +276,14 @@ console.log(`[uat] public topology address-grain edges ok: flows=${flows} routin
 NODE
 
 ADDRESS_FACTS_JSON="${RUN_DIR}/direct-address-facts.json"
-ADDRESS_FACTS_QUERY="USE facts MATCH (a:Address {address: '${UAT_ADDRESS}'}) RETURN a.address AS address, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 1"
+# The facts tier is TRANSFERS ONLY (rbmk#447 P3/P5, data-pipeline #223): a
+# single-node (a:Address) match is refused there with "label Address is served
+# only as a relationship endpoint". This query used that retired shape, so the
+# step could not pass from 2026-07-22 onward — the compiler rejected it before
+# any assertion ran. Address-grain labels/is_exchange now live on the topology
+# tier, where they are shard-invariant node properties; the facts tier is
+# exercised through a TRANSFER pattern, which is what it actually serves.
+ADDRESS_FACTS_QUERY="USE topology MATCH (a:Address {address: '${UAT_ADDRESS}'}) RETURN a.address AS address, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 1"
 log "checking facts address query"
 npx @modelcontextprotocol/inspector \
   --cli "${MCP_ENDPOINT}" \

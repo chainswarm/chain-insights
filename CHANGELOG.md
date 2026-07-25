@@ -3,6 +3,28 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.19] - 2026-07-25
+
+- uat: the graph UAT could not pass and had not been able to since 2026-07-22.
+  Two of its queries used shapes the platform had retired, so the steps failed
+  before any assertion ran, and nothing surfaced it because the script is
+  manual-only (not in any CI workflow).
+  (1) The "facts address query" used a single-node `(a:Address)` match; the
+  facts tier became TRANSFERS-ONLY in data-pipeline #223 (rbmk#447 P3/P5), so
+  the compiler refuses it — "label Address is served only as a relationship
+  endpoint". Address-grain `labels`/`is_exchange` live on the topology tier,
+  where they are shard-invariant node properties, so the query moves there.
+  (2) The topology query was an UNSCOPED `count(f)` over every `FLOWS_TO` edge —
+  a cross-shard aggregate re-derivation that exceeds the planner cardinality cap
+  (measured on dev: 1,460,339 edge rows against a 250,000 cap). Scoping it to
+  the fixture address is also what the assertion actually wants. Verified live:
+  flows=36, routing=bittensor.
+  Confirmed pre-existing, NOT caused by the rbmk#473 hardening epic, by A/B
+  against two live servers with the same data: the pre-epic image refuses the
+  topology query identically.
+  SKILL.md's claim that "USE facts returns address facts" is corrected to state
+  the transfers-only contract.
+
 ## [0.10.18] - 2026-07-23
 
 - attack-attribution: fix a silent false-negative and a timeout, found by
