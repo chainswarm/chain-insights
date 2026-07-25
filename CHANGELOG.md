@@ -3,6 +3,25 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.10.20] - 2026-07-25
+
+- devkit: restore admission parity with the product server. The bundled
+  `chain-insights-graph-devkit` had drifted from `graphrag-mcp` and accepted
+  seven query shapes the product now refuses, so a developer could build and
+  ship against the devkit and have the same query rejected in production
+  (rbmk#473).
+  Ported: (1) the topology read-statement opener allowlist, wired into BOTH
+  the single-query and batch dispatch paths — the batch path had no opener
+  check at all; (2) bracket-balanced edge-body scanning plus literal/comment
+  stripping, so `{asset:"0..2"}`, `/*1..3*/` and `*1..1_000_000` can no longer
+  forge a hop bound past the depth cap; (3) literal and comment blanking in the
+  indexed-predicate check, with a carve-out for backtick-quoted bare
+  identifiers; (4) the tier dot/colon-context guard; (5) the range-pattern
+  backtick wrapper and `!=` arm; (6) endpoint-label binding in the SQL emitter.
+  Adds parity suites (`internal/cypheradmit/parity_test.go`,
+  `internal/devkitmcp/bounds_parity_test.go`) that assert the forged-bound and
+  opener cases directly, verified red before green.
+
 ## [0.10.19] - 2026-07-25
 
 - uat: the graph UAT could not pass and had not been able to since 2026-07-22.

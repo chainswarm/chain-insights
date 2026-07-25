@@ -179,12 +179,20 @@ func (s *emitState) planPattern() error {
 			s.nodeIDExpr[srcNode.variable] = srcExpr
 			s.nodeIDCol[srcNode.variable] = srcCol
 			s.nodeIDPos[srcNode.variable] = srcNode.pos
-			s.nodeLabel[srcNode.variable] = firstNonEmptyStr(srcNode.label, srcNM.Label)
+			srcLabel, err := bindEndpointLabel(srcNode.label, srcNM.Label, srcNode.pos)
+			if err != nil {
+				return err
+			}
+			s.nodeLabel[srcNode.variable] = srcLabel
 		}
 		s.nodeIDExpr[tgtNode.variable] = tgtExpr
 		s.nodeIDCol[tgtNode.variable] = tgtCol
 		s.nodeIDPos[tgtNode.variable] = tgtNode.pos
-		s.nodeLabel[tgtNode.variable] = firstNonEmptyStr(tgtNode.label, tgtNM.Label)
+		tgtLabel, err := bindEndpointLabel(tgtNode.label, tgtNM.Label, tgtNode.pos)
+		if err != nil {
+			return err
+		}
+		s.nodeLabel[tgtNode.variable] = tgtLabel
 		prevTargetExpr = tgtExpr
 	}
 	return nil
@@ -466,9 +474,23 @@ func sqlOp(k tokenKind) string {
 	}
 }
 
-func firstNonEmptyStr(a, b string) string {
-	if a != "" {
-		return a
+// bindEndpointLabel resolves an endpoint's node label, rejecting a caller label
+// that CONTRADICTS the edge mapping's declared endpoint.
+//
+// The caller's label used to win unconditionally, so
+// `MATCH (a:Address)-[t:TRANSFER]->(b:Asset) RETURN b.verified` bound the target
+// to the Asset view and emitted a cross-table join
+// (facts_assets_view x facts_transfers_view ON asset_contract = to_address) on a
+// key the graph model never exposes — silently fusing asset attributes onto
+// wallet flows (rbmk#473 endpoint-label-spoof-cross-join). The relationship
+// mapping is authoritative about what its endpoints ARE; a caller may omit the
+// label, but may not redefine it.
+func bindEndpointLabel(callerLabel, declaredLabel string, pos int) (string, error) {
+	if callerLabel == "" {
+		return declaredLabel, nil
 	}
-	return b
+	if declaredLabel == "" || strings.EqualFold(callerLabel, declaredLabel) {
+		return callerLabel, nil
+	}
+	return "", fmt.Errorf("endpoint label %q contradicts the relationship's declared endpoint %q (at position %d)", callerLabel, declaredLabel, pos)
 }
