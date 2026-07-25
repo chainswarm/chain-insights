@@ -61,3 +61,63 @@ describe('mergeShardRows — nodes', () => {
     expect(merged.rows.map((r) => r.address).sort()).toEqual(['A', 'B'])
   })
 })
+
+describe('mergeShardRows — per-shard aggregates (A7)', () => {
+  it('returns named aggregates per shard instead of a merged scalar', () => {
+    const merged = mergeShardRows(
+      [
+        { __shard: 's1', total: 10 },
+        { __shard: 's2', total: 25 },
+      ],
+      { aggregateKeys: ['total'] },
+    )
+    expect(merged.perShard).toEqual({ s1: { total: 10 }, s2: { total: 25 } })
+  })
+
+  it('keeps aggregates out of the merged rows so they cannot be summed by accident', () => {
+    const merged = mergeShardRows(
+      [
+        { __shard: 's1', total: 10 },
+        { __shard: 's2', total: 25 },
+      ],
+      { aggregateKeys: ['total'] },
+    )
+    const summable = merged.rows.reduce((acc, r) => acc + (typeof r.total === 'number' ? r.total : 0), 0)
+    expect(summable).toBe(0)
+  })
+})
+
+describe('mergeShardRows — ordering marker (D3)', () => {
+  it('is exact for a shard-invariant sort key', () => {
+    const merged = mergeShardRows(
+      [
+        { __shard: 's2', address: 'B' },
+        { __shard: 's1', address: 'A' },
+      ],
+      { orderBy: { key: 'address' }, orderKeyClass: 'invariant', limit: 1 },
+    )
+    expect(merged.ordering).toBe('exact')
+    expect(merged.rows).toHaveLength(1)
+    expect(merged.rows[0].address).toBe('A')
+  })
+
+  it('is approximate for a merge-affected sort key', () => {
+    const merged = mergeShardRows(
+      [{ __shard: 's1', address: 'A', usd: 5 }],
+      { orderBy: { key: 'usd', desc: true }, orderKeyClass: 'merge-affected' },
+    )
+    expect(merged.ordering).toBe('approximate')
+  })
+
+  it('re-cuts the limit globally, after merging', () => {
+    const merged = mergeShardRows(
+      [
+        { __shard: 's1', address: 'C' },
+        { __shard: 's2', address: 'A' },
+        { __shard: 's3', address: 'B' },
+      ],
+      { orderBy: { key: 'address' }, orderKeyClass: 'invariant', limit: 2 },
+    )
+    expect(merged.rows.map((r) => r.address)).toEqual(['A', 'B'])
+  })
+})
