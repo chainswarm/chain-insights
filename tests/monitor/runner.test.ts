@@ -60,5 +60,34 @@ describe('runMonitorOnce', () => {
     })
     expect(doc.halted).toMatch(/remaining 50 below floor 100/)
     expect(doc.cells).toHaveLength(0)
+    // Halted runs still produce a canonical run doc on disk...
+    const runFiles = await readdir(monitorPaths(root).runsDir)
+    expect(runFiles).toEqual(['6000.run.json'])
+    // ...and exactly one '(run)' marker row in scan_runs (zero cells ingested).
+    const rows = await withStore(root, async (s) => s.all("SELECT cell, error FROM scan_runs WHERE run_ms = 6000"))
+    expect(rows).toHaveLength(1)
+    expect(rows[0].cell).toBe('(run)')
+  })
+
+  it('usage guard halts on the real usage_status nested shape (AC-5)', async () => {
+    const root = await ws()
+    const doc = await runMonitorOnce({} as Client, root, { ...CFG, stopIfRemainingBelow: 100 }, 7000, {
+      runDetection: async () => {
+        throw new Error('must not be called when halted')
+      },
+      usage: async () => ({ schema: 'chain-insights.result.v1', tool: 'usage_status', facts: { usage: { remaining_seconds: 50 } }, hint: null }),
+    })
+    expect(doc.halted).toMatch(/remaining 50 below floor 100/)
+    expect(doc.cells).toHaveLength(0)
+  })
+
+  it('skips the usage guard when the backend reports no quota shape at all', async () => {
+    const root = await ws()
+    const doc = await runMonitorOnce({} as Client, root, { ...CFG, stopIfRemainingBelow: 100 }, 8000, {
+      runDetection: async (_client, opts) => ({ findingsPath: '/tmp/x.json', findingsCount: opts.detector === 'mixer' ? 0 : 1, status: 'complete' }),
+      usage: async () => ({ schema: 'chain-insights.result.v1', tool: 'usage_status', facts: {}, hint: null }),
+    })
+    expect(doc.halted).toBeUndefined()
+    expect(doc.cells).toHaveLength(2)
   })
 })

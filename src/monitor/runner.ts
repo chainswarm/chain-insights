@@ -53,10 +53,17 @@ async function defaultUsage(client: Client): Promise<unknown | null> {
   }
 }
 
+// Reads the backend's remaining quota. The real usage_status tool response
+// (see src/mcp/proxy.ts structuredContent forwarding) nests it at
+// `facts.usage.remaining_seconds`; a simpler top-level `remaining` shape is
+// also accepted so synthetic/test usage hooks keep working. Neither present
+// means the backend does not carry quota data, so the guard is skipped.
 function remainingOf(usage: unknown): number | null {
   if (!usage || typeof usage !== 'object') return null
-  const value = (usage as { remaining?: unknown }).remaining
-  return typeof value === 'number' ? value : null
+  const nested = (usage as { facts?: { usage?: { remaining_seconds?: unknown } } }).facts?.usage?.remaining_seconds
+  if (typeof nested === 'number') return nested
+  const flat = (usage as { remaining?: unknown }).remaining
+  return typeof flat === 'number' ? flat : null
 }
 
 export async function runMonitorOnce(

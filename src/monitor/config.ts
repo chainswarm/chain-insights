@@ -13,6 +13,10 @@ const CellSchema = z.object({
 const MonitorConfigSchema = z.object({
   cells: z.array(CellSchema).min(1),
   intervalSeconds: z.number().int().positive().default(3600),
+  // Usage guard floor (runner.ts): compared against the backend's remaining
+  // quota — `facts.usage.remaining_seconds` on quota-bearing backends (the
+  // real usage_status tool shape), or a top-level `remaining` on simpler
+  // backends. A backend that reports neither skips the guard.
   stopIfRemainingBelow: z.number().nonnegative().optional(),
   reviewer: z.string().min(1).optional(),
   webhookUrl: z.string().url().optional(),
