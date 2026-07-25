@@ -146,6 +146,28 @@ INGESTORS.push(
   }),
 )
 
+INGESTORS.push({
+  kind: 'runs',
+  async listDocs(workspaceRoot) {
+    const dir = monitorPaths(workspaceRoot).runsDir
+    try {
+      return (await readdir(dir)).filter((f) => f.endsWith('.run.json')).map((f) => path.join(dir, f)).sort()
+    } catch {
+      return []
+    }
+  },
+  async ingest(store, _workspaceRoot, filePath) {
+    const doc = JSON.parse(await readFile(filePath, 'utf8')) as { run_ms: number; halted?: string; usage_before?: unknown; usage_after?: unknown; cells: Array<Record<string, unknown>> }
+    if (doc.cells.length === 0) {
+      await store.run('INSERT INTO scan_runs VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)', [doc.run_ms, '(run)', null, null, null, null, null, null, null, JSON.stringify(doc.usage_before ?? null), JSON.stringify(doc.usage_after ?? null), doc.halted ?? null])
+      return
+    }
+    for (const c of doc.cells) {
+      await store.run('INSERT INTO scan_runs VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)', [doc.run_ms, c.cell, c.detector ?? null, c.case_id ?? null, c.network, c.findings_count ?? null, c.movements_count ?? null, c.duration_ms, c.error ?? null, JSON.stringify(doc.usage_before ?? null), JSON.stringify(doc.usage_after ?? null), doc.halted ?? null])
+    }
+  },
+})
+
 export async function ingestNewDocs(store: MonitorStore, workspaceRoot: string): Promise<number> {
   for (const ingestor of INGESTORS) {
     if (ingestor.kind !== 'alerts' && ingestor.kind !== 'acks') continue
