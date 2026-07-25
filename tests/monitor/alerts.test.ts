@@ -4,7 +4,7 @@ import path from 'node:path'
 import http from 'node:http'
 import { describe, expect, it } from 'vitest'
 import { ackAlert, emitAlerts, listAlerts } from '../../src/monitor/alerts.js'
-import { ingestNewDocs, rebuildStore, withStore } from '../../src/monitor/store.js'
+import { rebuildStore, withStore } from '../../src/monitor/store.js'
 
 async function ws(): Promise<string> {
   return mkdtemp(path.join(tmpdir(), 'cia-alerts-'))

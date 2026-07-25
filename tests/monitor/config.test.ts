@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_MONITOR_CONFIG, loadMonitorConfig } from '../../src/monitor/config.js'
+import { loadMonitorConfig } from '../../src/monitor/config.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
 
 async function ws(): Promise<string> {
