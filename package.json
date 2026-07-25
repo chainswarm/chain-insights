@@ -52,6 +52,7 @@
     "dev": "tsx src/cli.ts",
     "devkit:smoke": "bash devkit/scripts/smoke.sh",
     "devkit:smoke:parity": "bash devkit/scripts/smoke-chain-insights-parity.sh",
+    "monitor:uat": "bash devkit/scripts/smoke-monitor.sh",
     "probe:capability": "bash devkit/scripts/capability-probes-topology.sh",
     "test:devkit": "CAPABILITY_PROBES=1 vitest run tests/capability-matrix.test.ts tests/route-evidence-devkit.test.ts && TRACE_DEVKIT_GOLDEN=1 vitest run tests/trace-devkit-golden.test.ts",
     "corpus:generate": "tsx scripts/generate-query-corpus.mjs",
