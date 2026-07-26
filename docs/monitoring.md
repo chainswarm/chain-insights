@@ -166,6 +166,74 @@ real time, configured in `.chain-insights/monitor/config.json`:
 Both sinks are best-effort: a failed webhook or hook never fails a run — the
 alert is already durable in the local log regardless of sink delivery.
 
+## Watchlist
+
+Cases are incident-centric ("this theft, this scam cluster"). The watchlist is
+**address-centric**: it tells you when the things monitoring already detects
+touch *your own* addresses.
+
+```bash
+cia monitor watchlist add 5GTj... --network bittensor --note "treasury cold"
+cia monitor watchlist list
+cia monitor watchlist remove 5GTj... --network bittensor
+```
+
+An address plus a network is the identity, so the same string on two networks
+is two entries, and re-adding an address updates its note instead of failing.
+The list lives in `.chain-insights/monitor/watchlist.json`, which is plain JSON
+and equally valid to hand-edit.
+
+Enable the feature by adding a `watchlist` block to
+`.chain-insights/monitor/config.json`. An empty block turns it on with
+defaults; no block at all means the feature is off and a run behaves exactly
+as before:
+
+```json
+{
+  "watchlist": {
+    "dustMaxUsd": 1.0,
+    "dustLookbackSeconds": 86400,
+    "enabled": true
+  }
+}
+```
+
+- `dustMaxUsd` (default `1.0`) — the incoming-transfer USD ceiling counted as
+  dust.
+- `dustLookbackSeconds` (default `86400`) — how far back the dust check looks.
+  Overlapping windows are safe: hits are deduplicated by their source
+  reference, so the same transfer never alerts twice.
+- `enabled` (default `true` when the block is present) — an off switch that
+  keeps your addresses in place.
+
+### The three triggers
+
+| Trigger | Alert type | What it means |
+| --- | --- | --- |
+| A detector finding names a watched address | `watchlist_finding` | A fake-token, address-poisoning, attack-attribution, or mixer sweep implicated one of your addresses. |
+| A tracked case's movement reaches a watched address | `watchlist_movement` | Funds from an open incident moved to an address you watch. |
+| Incoming dust below `dustMaxUsd` | `watchlist_dust` | The opening move of address poisoning: a tiny inbound transfer that a network-wide detector may not flag on its own, but that matters against *your* address. |
+
+All three flow through the normal alert stream — `alerts list`, `alerts ack`,
+webhook and exec sinks, and the report — rather than a parallel notification
+system. `cia monitor report` gains a **Watchlist** section listing each
+watched address with its hit counts by trigger.
+
+The first two triggers are answered entirely from data the run already
+produced locally, so they cost nothing extra. The dust check is one batched
+graph query per distinct network, so a 500-address watchlist costs the same as
+a 5-address one. Nothing in the watchlist scales with the number of addresses
+you watch.
+
+### Address risk is not a trigger
+
+Monitoring never polls an address risk score. Risk is a *final product* — an
+enrichment surface you read about an address once you have a reason to look at
+it — not a monitoring input. Polling it per watched address would spend
+metered allowance re-reading a downstream result rather than watching a
+threat. The watchlist watches the detectors and the case tracker; use
+`cia` risk screening when you want a verdict on a specific address.
+
 ## Storage Model
 
 Everything monitor writes is plain, human-readable JSON in the workspace:
@@ -179,6 +247,7 @@ cases/<case-id>/snapshots/           One snapshot per run that traced this case
 .chain-insights/monitor/runs/        One run document per `monitor run`
 .chain-insights/monitor/alerts/      Alert stream and acknowledgements
 .chain-insights/monitor/reviews/     Review decision records
+.chain-insights/monitor/watchlist.json  Watched addresses (address-centric alerting)
 ```
 
 This canonical JSON is always the source of truth. Alongside it,

@@ -1089,6 +1089,64 @@ monitorCase
     }
   })
 
+const monitorWatchlist = monitor
+  .command('watchlist')
+  .description('Manage the my-address watchlist (alerts when detections or case movements touch your addresses)')
+
+monitorWatchlist
+  .command('add')
+  .description('Watch an address for detector findings, case movements, and incoming dust')
+  .argument('<address>', 'Address to watch')
+  .requiredOption('--network <network>', 'Network for this address. Run `cia mcp networks` for supported networks.')
+  .option('--note <text>', 'Optional free-text note')
+  .action(async (address: string, opts: { network: string; note?: string }) => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const { addWatched } = await import('./monitor/watchlist.js')
+      const list = await addWatched(requireWorkspaceRoot(), { address, network: opts.network, note: opts.note })
+      console.log(`Watching ${address} (${opts.network}); ${list.length} address(es) on the watchlist`)
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+monitorWatchlist
+  .command('list')
+  .description('List watched addresses')
+  .action(async () => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const { listWatched } = await import('./monitor/watchlist.js')
+      const list = await listWatched(requireWorkspaceRoot())
+      if (list.length === 0) {
+        console.log('Watchlist is empty. Add one with: cia monitor watchlist add <address> --network <network>')
+        return
+      }
+      for (const e of list) console.log(`${e.network}\t${e.address}${e.note ? `\t${e.note}` : ''}`)
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+monitorWatchlist
+  .command('remove')
+  .description('Stop watching an address')
+  .argument('<address>', 'Address to stop watching')
+  .requiredOption('--network <network>', 'Network for this address')
+  .action(async (address: string, opts: { network: string }) => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const { removeWatched } = await import('./monitor/watchlist.js')
+      const list = await removeWatched(requireWorkspaceRoot(), address, opts.network)
+      console.log(`Stopped watching ${address} (${opts.network}); ${list.length} address(es) remain`)
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
 const monitorReview = monitor
   .command('review')
   .description('Human review of machine-produced findings before they become case expansion or labels')

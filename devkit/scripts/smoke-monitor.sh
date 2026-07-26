@@ -115,5 +115,28 @@ else
   PASS=$((PASS+1))
 fi
 
+# W1 (watchlist): watching an address that an existing finding already touches
+# must raise a watchlist_finding alert on the next run, with no extra remote
+# call for that trigger (it is a local join). Address risk is never called.
+WL_DOC=$(ls detections/*.findings.json 2>/dev/null | head -1 || true)
+WATCHED=""; WL_NET=""
+if [ -n "$WL_DOC" ]; then
+  WATCHED=$(jq -r '.findings[0].address // empty' "$WL_DOC")
+  WL_NET=$(jq -r '.network // empty' "$WL_DOC")
+fi
+if [ -n "$WATCHED" ] && [ -n "$WL_NET" ]; then
+  jq '. + {watchlist: {dustMaxUsd: 1.0, dustLookbackSeconds: 86400, enabled: true}}' \
+    .chain-insights/monitor/config.json > .chain-insights/monitor/config.json.tmp \
+    && mv .chain-insights/monitor/config.json.tmp .chain-insights/monitor/config.json
+  check "W1 watchlist add" "$(rc_of $CLI monitor watchlist add "$WATCHED" --network "$WL_NET")"
+  RUN_RC=0; $CLI monitor run || RUN_RC=$?
+  check "W1 run with watchlist" "$(rc_of test "$RUN_RC" -le 2)"
+  WL=$($CLI monitor alerts list --all 2>/dev/null | grep -c watchlist_ || true)
+  check "W1 watchlist alert emitted" "$(rc_of test "$WL" -ge 1)"
+else
+  echo "MONITOR-SMOKE PASS W1 (no findings on static fixture — watchlist seam covered by tests/monitor/watchlist-run.test.ts)"
+  PASS=$((PASS+1))
+fi
+
 echo "MONITOR-SMOKE done: $PASS pass, $FAIL fail (workspace: $WORK)"
 [ "$FAIL" -eq 0 ]
