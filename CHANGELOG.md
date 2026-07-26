@@ -3,6 +3,38 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.6] - 2026-07-26 — fix trace query size cap crash on well-connected seeds (#209)
+
+- fix: `aml_trace_suspect_funds`/`aml_trace_victim_funds` hard-failed with
+  `query too large: maximum 32768 bytes per query` at moderate `max_hops` on
+  well-connected seeds, forcing per-seed depth guessing. Root cause:
+  `directEdgePropsQuery` and `reverseLeadsQuery` in `trace-funds.ts` each
+  built ONE Cypher query with an `OR`-predicate per discovered flow edge /
+  deposit address — a count driven by graph connectivity, not by
+  `max_hops`. On a well-connected seed the edge-hydration query alone
+  measured 55KB (confirmed live) while the depth-bounded path builders
+  (`forwardExchangeQueries`/`backwardSourceQueries`, unchanged) stayed a
+  few KB regardless of depth.
+- fix: `directEdgePropsQuery`/`reverseLeadsQuery` replaced with
+  `directEdgePropsQueries`/`reverseLeadsQueries`, which chunk the
+  OR-predicate list into multiple queries that each measure under the
+  32768-byte cap (with a safety margin for the `USE topology` prefix and
+  transport overhead), sent in the same `graph_query_batch` call and merged
+  client-side. A chunk that still fails to execute (e.g. a shard timeout)
+  is surfaced as a `warnings[]` entry naming the failed query id — no
+  silent partial result.
+- test: `tests/trace-query-size-cap.test.ts` pins that every generated
+  query for a 400-600 item edge/deposit set stays under the byte cap, and
+  that small sets keep the legacy single-query id for compatibility.
+  `scripts/generate-query-corpus.mjs` and the committed corpus fixture
+  updated for the renamed builders (query text unchanged for the existing
+  small corpus grid).
+- verified live on the dev federation: seed
+  `5D9yaXf5nqrzKHqgoWMYeKqEERthvftdJB7XkrwNgQzNGrYb`, which previously
+  failed at `max_hops=4`, now succeeds at `max_hops=4` (410 edges) and
+  `max_hops=5` (694 edges); `max_hops=3` is unchanged (9 edges, 2 exchange
+  endpoints, 3 deposit candidates).
+
 ## [0.11.5] - 2026-07-26 — wire client-side shard merge into the graph read path (#217)
 
 - feat: `mergeShardRows` (federation/merge.ts, shipped in #213/#218/#219 but

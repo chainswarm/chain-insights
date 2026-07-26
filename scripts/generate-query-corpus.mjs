@@ -74,14 +74,14 @@ for (const scope of SCOPES) {
     }
   }
   add('backwardSourceQueries', { deposit: ADDR, maxHops: 5 }, scope, traceQueryBuilderContract.backwardSourceQueries('backward_from_deposit_0', ADDR, 5))
-  add('reverseLeadsQuery', { deposits: DEPOSITS.length }, scope, traceQueryBuilderContract.reverseLeadsQuery(DEPOSITS))
+  add('reverseLeadsQueries', { deposits: DEPOSITS.length }, scope, traceQueryBuilderContract.reverseLeadsQueries(DEPOSITS))
   add(
-    'directEdgePropsQuery',
+    'directEdgePropsQueries',
     { pairs: 2 },
     scope,
-    traceQueryBuilderContract.directEdgePropsQuery([
-      { src: ADDR, dst: COMPARE },
-      { src: COMPARE, dst: ADDR_QUOTED },
+    traceQueryBuilderContract.directEdgePropsQueries([
+      { src: ADDR, dst: COMPARE, hop: 1, amount_usd_sum: 0, terminal_exchange: false },
+      { src: COMPARE, dst: ADDR_QUOTED, hop: 2, amount_usd_sum: 0, terminal_exchange: true },
     ]),
   )
 }
