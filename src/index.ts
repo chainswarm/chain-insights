@@ -24,5 +24,7 @@ export {
 } from './wallet/tools.js'
 export { generateArtifactHtml, getTopupUrl, startTopupServer } from './wallet/topup-server.js'
 export { createMcpFetchClient } from './mcp/client.js'
+export { mergeShardRows } from './federation/merge.js'
+export type { ShardRow, MergeOptions, MergedResult } from './federation/merge.js'
 export { generateVisualization } from './viz/index.js'
 export type { GraphDataType, GraphNodeType, GraphEdgeType } from './viz/index.js'
