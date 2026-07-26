@@ -3,7 +3,7 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { findingHits, movementHits } from '../../src/monitor/watchlist-run.js'
+import { dustHits, findingHits, movementHits } from '../../src/monitor/watchlist-run.js'
 import { withStore } from '../../src/monitor/store.js'
 
 async function ws(): Promise<string> {
@@ -60,5 +60,80 @@ describe('watchlist free triggers', () => {
     const root = await ws()
     const hits = await withStore(root, async (store) => findingHits(store, [], 1000))
     expect(hits).toEqual([])
+  })
+})
+
+describe('watchlist dust probe', () => {
+  function stubClient(rowsByNetwork: Record<string, Array<Record<string, unknown>>>, calls: { n: number }) {
+    return {
+      async callTool({ name, arguments: args }: { name: string; arguments: Record<string, unknown> }) {
+        if (name === 'aml_address_risk') throw new Error('address risk must never be called by the watchlist')
+        calls.n += 1
+        const network = String(args.network)
+        return {
+          structuredContent: {
+            facts: { queries: [{ id: 'dust', results: rowsByNetwork[network] ?? [] }] },
+          },
+        }
+      },
+    } as never
+  }
+
+  it('an incoming transfer below the ceiling is a hit (AC-4)', async () => {
+    const root = await ws()
+    const calls = { n: 0 }
+    const client = stubClient(
+      { bittensor: [{ address: '5Mine', from_address: '5Attacker', amount_usd: 0.01, tx_ref: 'tx-1' }] },
+      calls,
+    )
+    const out = await withStore(root, async (store) =>
+      dustHits(client, store, WATCHED, { dustMaxUsd: 1, dustLookbackSeconds: 86400 }, 1000),
+    )
+    expect(out.hits).toEqual([
+      { address: '5Mine', network: 'bittensor', trigger: 'dust', source_ref: 'tx-1', detail: 'from 5Attacker, 0.01 USD' },
+    ])
+  })
+
+  it('makes one call per distinct network regardless of address count (AC-6)', async () => {
+    const root = await ws()
+    const calls = { n: 0 }
+    const many = [
+      ...Array.from({ length: 50 }, (_, i) => ({ address: `5A${i}`, network: 'bittensor' })),
+      ...Array.from({ length: 50 }, (_, i) => ({ address: `0xB${i}`, network: 'bittensor_evm' })),
+    ]
+    const client = stubClient({}, calls)
+    const out = await withStore(root, async (store) =>
+      dustHits(client, store, many, { dustMaxUsd: 1, dustLookbackSeconds: 86400 }, 1000),
+    )
+    expect(calls.n).toBe(2)
+    expect(out.calls).toBe(2)
+  })
+
+  it('an already-recorded dust hit is not re-emitted on an overlapping window (AC-11)', async () => {
+    const root = await ws()
+    const calls = { n: 0 }
+    const client = stubClient(
+      { bittensor: [{ address: '5Mine', from_address: '5Attacker', amount_usd: 0.01, tx_ref: 'tx-1' }] },
+      calls,
+    )
+    const out = await withStore(root, async (store) => {
+      await store.run("INSERT INTO watchlist_hits VALUES (900,'5Mine','bittensor','dust','tx-1',NULL)")
+      return dustHits(client, store, WATCHED, { dustMaxUsd: 1, dustLookbackSeconds: 86400 }, 1000)
+    })
+    expect(out.hits).toEqual([])
+  })
+
+  it('a probe failure degrades to no dust hits and records the error', async () => {
+    const root = await ws()
+    const client = {
+      async callTool() {
+        throw new Error('backend down')
+      },
+    } as never
+    const out = await withStore(root, async (store) =>
+      dustHits(client, store, WATCHED, { dustMaxUsd: 1, dustLookbackSeconds: 86400 }, 1000),
+    )
+    expect(out.hits).toEqual([])
+    expect(out.error).toMatch(/backend down/)
   })
 })

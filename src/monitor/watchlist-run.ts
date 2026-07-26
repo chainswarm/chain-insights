@@ -3,6 +3,7 @@
 // nothing remote; only the dust probe calls out, and it batches per network.
 // Address risk is deliberately NOT a trigger — it is a downstream product, not
 // a monitoring input.
+import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { MonitorStore } from './store.js'
 import type { WatchedAddress } from './watchlist.js'
 
@@ -81,4 +82,74 @@ export async function movementHits(
     source_ref: String(r.source_ref),
     detail: r.detail === null || r.detail === undefined ? undefined : String(r.detail),
   }))
+}
+
+// One graph_query_batch per distinct network — graph_query_batch takes a
+// single `network` argument, so this is the tightest possible grouping. Cost
+// is flat in address count.
+//
+// FLOWS_TO property names verified against the live topology graph: the edge
+// exposes `amount_usd_sum`, `last_tx_id`, and `last_seen_timestamp` (epoch ms).
+// There is no `last_transfer_ms`.
+function dustQuery(addresses: string[], dustMaxUsd: number, sinceMs: number): string {
+  const list = addresses.map((a) => `'${a.replace(/'/g, "\\'")}'`).join(',')
+  return `USE topology MATCH (src:Address)-[t:FLOWS_TO]->(dst:Address)
+ WHERE dst.address IN [${list}] AND t.amount_usd_sum <= ${dustMaxUsd} AND t.last_seen_timestamp >= ${sinceMs}
+ RETURN dst.address AS address, src.address AS from_address,
+        t.amount_usd_sum AS amount_usd, t.last_tx_id AS tx_ref
+ LIMIT 500`
+}
+
+export async function dustHits(
+  client: Client,
+  store: MonitorStore,
+  watched: WatchedAddress[],
+  opts: { dustMaxUsd: number; dustLookbackSeconds: number },
+  runMs: number,
+): Promise<{ hits: WatchlistHit[]; calls: number; error?: string }> {
+  if (watched.length === 0) return { hits: [], calls: 0 }
+  const byNetwork = new Map<string, string[]>()
+  for (const w of watched) {
+    const list = byNetwork.get(w.network) ?? []
+    list.push(w.address)
+    byNetwork.set(w.network, list)
+  }
+  const sinceMs = runMs - opts.dustLookbackSeconds * 1000
+  const hits: WatchlistHit[] = []
+  let calls = 0
+  let error: string | undefined
+  for (const [network, addresses] of byNetwork) {
+    try {
+      calls += 1
+      const result = (await client.callTool({
+        name: 'graph_query_batch',
+        arguments: { network, queries: [{ id: 'dust', query: dustQuery(addresses, opts.dustMaxUsd, sinceMs) }] },
+      })) as {
+        structuredContent?: {
+          facts?: { queries?: Array<{ id: string; results?: Array<Record<string, unknown>> }> }
+        }
+      }
+      const rows = result.structuredContent?.facts?.queries?.find((q) => q.id === 'dust')?.results ?? []
+      for (const row of rows) {
+        const sourceRef = String(row.tx_ref ?? `${row.from_address}->${row.address}`)
+        const already = await store.all(
+          `SELECT 1 FROM watchlist_hits
+            WHERE trigger = 'dust' AND address = $1 AND network = $2 AND source_ref = $3 LIMIT 1`,
+          [String(row.address), network, sourceRef],
+        )
+        if (already.length > 0) continue
+        hits.push({
+          address: String(row.address),
+          network,
+          trigger: 'dust',
+          source_ref: sourceRef,
+          detail: `from ${String(row.from_address)}, ${String(row.amount_usd)} USD`,
+        })
+      }
+    } catch (err) {
+      // Degrade, never block: the two free triggers must still report.
+      error = error ? `${error}; ${(err as Error).message}` : (err as Error).message
+    }
+  }
+  return { hits, calls, error }
 }
