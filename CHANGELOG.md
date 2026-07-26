@@ -3,6 +3,54 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.8] - 2026-07-26 — monitor robustness: torn alert logs, read-only reads, path base (#212, #214)
+
+- fix: a torn or truncated line in the append-only `alerts.jsonl` / `acks.jsonl`
+  monitor logs (what a process killed mid-append leaves behind) broke the two
+  readers in opposite directions. `cia monitor alerts list` swallowed the parse
+  error and returned NO alerts at all — silent total data loss from the user's
+  point of view — while the derived-store ingest threw on the same line, so
+  every subsequent `cia monitor run` exited 1 at its final ingest step and
+  `cia monitor rebuild` replayed the same bad line without recovering. Only
+  hand-editing the JSONL cleared it. Both paths now share one line-tolerant
+  reader: an unparseable line is skipped with a warning naming the file and the
+  1-based line number, every other record survives, list and ingest agree on
+  exactly which records survived, and `rebuild` recovers on its own. Tolerance
+  is deliberately scoped to the append-only logs — a malformed detection
+  findings document still fails loudly.
+- fix: emitting an alert after a torn line appended onto it, because the torn
+  line has no trailing newline. One crash therefore corrupted every alert
+  emitted afterwards, not just the one being written. The log is re-terminated
+  before an append, confining the damage to the single torn line.
+- fix: `cia monitor status` and `cia monitor report` opened the derived DuckDB
+  store read-write even though neither writes. DuckDB permits many concurrent
+  read-only holders of a file but only one read-write holder, so two ordinary
+  read commands conflicted with each other for no reason. Read paths now open
+  read-only, falling back to a normal open when the database does not exist yet
+  (read-only cannot create one). A lock conflict with a genuine concurrent
+  `monitor run` ingest is retried briefly and then reported as an actionable
+  message instead of a raw DuckDB IO error.
+- fix: `cia monitor review approve` / `reject` resolved a relative document path
+  against the current working directory, so the same relative path meant
+  different documents depending on which subdirectory of the workspace you ran
+  it from — it either failed outright or recorded a decision against the wrong
+  base. Relative document paths now resolve against the discovered workspace
+  root, matching the paths `cia monitor review list` prints.
+- fix: monitor config loading treated ANY read failure as "no config file" and
+  silently fell back to the built-in detector matrix. A permission or IO error
+  therefore changed what was being monitored with no indication. Only a genuine
+  missing file falls back now; anything else fails with a readable error.
+- fix: the derived-store helper leaked its DuckDB instance handle — and with it
+  the database file lock — if opening a connection failed after the instance was
+  created.
+- fix: CSV label export did not quote a field containing a bare carriage return,
+  which terminates a record early for strict RFC-4180 readers.
+- fix: in the monitor smoke script a failed hard assertion exited non-zero
+  *without* printing its `MONITOR-SMOKE FAIL` row or the summary line, hiding
+  the very failure it was there to report. Assertions now capture their exit
+  status without aborting the run, and the script covers the torn-alert-log
+  recovery path.
+
 ## [0.11.7] - 2026-07-26 — devkit graph_query parity: time_scope and the Asset label (#210)
 
 - fix: the devkit graph backend rejected the `graph_query` / `graph_query_batch`

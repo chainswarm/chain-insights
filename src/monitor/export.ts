@@ -33,7 +33,9 @@ interface ReviewedFindingsDoc {
 
 function csvField(value: string | number): string {
   const s = String(value)
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  // RFC 4180: quote on comma, double-quote, CR, or LF. A bare CR (no LF)
+  // still terminates a record for strict readers, so it must be quoted too.
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
 export async function exportLabels(workspaceRoot: string, nowMs: number): Promise<{ jsonPath: string; csvPath: string; rows: LabelRow[] }> {

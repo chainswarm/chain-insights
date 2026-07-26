@@ -38,7 +38,14 @@ export async function loadMonitorConfig(workspaceRoot: string): Promise<MonitorC
   let raw: string
   try {
     raw = await readFile(configPath, 'utf8')
-  } catch {
+  } catch (err) {
+    // "No config doc" is the ONLY condition that may fall back to the default
+    // A6 matrix. A permission or IO error means the operator DID write a
+    // config we simply cannot read — silently monitoring the default matrix
+    // instead would be a wrong, unnoticed change of what is being scanned.
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw new Error(`Cannot read monitor config ${configPath}: ${(err as Error).message}`)
+    }
     return DEFAULT_MONITOR_CONFIG
   }
   let parsed: unknown

@@ -32,6 +32,16 @@ export async function listDecisionDocs(workspaceRoot: string): Promise<ReviewDec
   return docs
 }
 
+// Relative doc paths are workspace-relative, NOT cwd-relative: the paths
+// listPending prints are built from the discovered workspace root, so
+// `cia monitor review approve detections/x.findings.json` must mean the same
+// document whether it is run from the workspace root or from any subdirectory
+// of it. Resolving against process.cwd() silently pointed at the wrong base
+// from a subdirectory.
+export function resolveDocPath(workspaceRoot: string, docPath: string): string {
+  return path.isAbsolute(docPath) ? path.normalize(docPath) : path.resolve(workspaceRoot, docPath)
+}
+
 function caseIdFromDocPath(docPath: string): string | null {
   // emit.ts filename: <ms>-<detector>-<network>.findings.json; tracker uses
   // detector `case-<id>`, so a case doc looks like 1700-case-c1-bittensor....
@@ -67,12 +77,12 @@ async function writeDecision(workspaceRoot: string, decision: ReviewDecisionDoc)
 export async function approveDoc(workspaceRoot: string, docPath: string, reviewer: string, nowMs: number): Promise<{ reviewedCopy: string }> {
   if (!reviewer.trim()) throw new Error('reviewer identity is required to approve')
   // Normalize BEFORE any read/write so a relative-path approval (e.g. `cia
-  // monitor review approve detections/foo.findings.json` from the workspace
-  // root) records the same doc_path that listPending matches against
-  // (absolute, via monitorPaths' path.join). Without this, a relative
-  // approval never clears from pending, and a later absolute-path retry
-  // writes a duplicate decision doc — duplicate rows in export labels.
-  const resolved = path.resolve(docPath)
+  // monitor review approve detections/foo.findings.json`) records the same
+  // doc_path that listPending matches against (absolute, via monitorPaths'
+  // path.join). Without this, a relative approval never clears from pending,
+  // and a later absolute-path retry writes a duplicate decision doc —
+  // duplicate rows in export labels.
+  const resolved = resolveDocPath(workspaceRoot, docPath)
   const raw = JSON.parse(await readFile(resolved, 'utf8')) as Record<string, unknown>
   const p = monitorPaths(workspaceRoot)
   await mkdir(p.reviewedDir, { recursive: true })
@@ -90,7 +100,7 @@ export async function rejectDoc(workspaceRoot: string, docPath: string, reviewer
   if (!reviewer.trim()) throw new Error('reviewer identity is required to reject')
   // See approveDoc: normalize before use so relative-path rejects also match
   // listPending's absolute doc_path comparison.
-  const resolved = path.resolve(docPath)
+  const resolved = resolveDocPath(workspaceRoot, docPath)
   const raw = JSON.parse(await readFile(resolved, 'utf8')) as { findings?: Array<{ address: string }> }
   await writeDecision(workspaceRoot, {
     doc_path: resolved, decision: 'reject', reviewer, decided_at_ms: nowMs,
