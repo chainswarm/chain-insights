@@ -120,12 +120,20 @@ def main() -> None:
         for table in sorted(mapped_columns):
             print(table_sql(table, mapped_columns[table]))
         return
+    exported: list[str] = []
     for entry in manifest["objects"]:
         if entry["database"] != "bittensor":
             continue
         table = entry["name"]
         if table not in mapped_columns:
             raise SystemExit(f"manifest object is not in MemGQL mapping: {table}")
+        exported.append(table)
+        print(table_sql(table, mapped_columns[table]))
+    # A mapped table the fixture does not export still needs to EXIST, or every
+    # query against its label fails with "table not found" instead of returning
+    # an empty result. The devkit contract tracks the production serving
+    # contract label-for-label; fixture coverage is a separate axis.
+    for table in sorted(set(mapped_columns) - set(exported)):
         print(table_sql(table, mapped_columns[table]))
 
 

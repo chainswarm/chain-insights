@@ -28,8 +28,12 @@ export const PUBLIC_MCP_TOOL_ALLOWED_ARGS: Record<string, string[]> = {
   aml_trace_victim_funds: ['victim_addresses', 'network', 'known_suspect_addresses', 'incident_timestamp_ms', 'max_hops', 'include_attachments'],
   aml_trace_suspect_funds: ['suspect_addresses', 'network', 'incident_timestamp_ms', 'max_hops', 'include_attachments'],
   aml_trace_deposit_sources: ['deposit_addresses', 'network', 'max_hops', 'include_attachments'],
-  graph_query: ['query', 'network'],
-  graph_query_batch: ['network', 'queries', 'per_query_timeout_seconds'],
+  // `time_scope` narrows a `USE topology` query to a temporal-shard subset
+  // (lifetime | recent | since_ms:<n>). The serving contract has accepted it
+  // since 0.10.15; it was missing here, so the proxy silently STRIPPED it from
+  // pass-through calls and every caller got a lifetime-scoped result.
+  graph_query: ['query', 'network', 'time_scope'],
+  graph_query_batch: ['network', 'queries', 'per_query_timeout_seconds', 'time_scope'],
 }
 
 export function isHiddenRemoteToolName(name: string): boolean {

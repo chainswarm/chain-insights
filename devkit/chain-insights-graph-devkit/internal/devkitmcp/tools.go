@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,14 +32,16 @@ const (
 )
 
 type GraphQueryArgs struct {
-	Network string `json:"network"`
-	Query   string `json:"query"`
+	Network   string `json:"network"`
+	Query     string `json:"query"`
+	TimeScope string `json:"time_scope,omitempty"`
 }
 
 type GraphQueryBatchArgs struct {
 	Network                string       `json:"network"`
 	Queries                []BatchQuery `json:"queries"`
 	PerQueryTimeoutSeconds int          `json:"per_query_timeout_seconds,omitempty"`
+	TimeScope              string       `json:"time_scope,omitempty"`
 }
 
 type BatchQuery struct {
@@ -137,6 +140,34 @@ func ClassifyQueryTier(query string) (string, int) {
 	return liveTierName, liveTierTimeoutSeconds
 }
 
+// ValidateTimeScope parses the graph_query `time_scope` argument, mirroring the
+// production serving contract's grammar:
+//
+//	"" | "lifetime"  → all temporal shards (the default)
+//	"recent"         → the single shard covering now (live window)
+//	"since_ms:<n>"   → every shard whose coverage overlaps [n, now)
+//
+// The devkit serves ONE topology graph, so every accepted directive selects the
+// same single covering shard and the scope is a semantic no-op here. It is
+// still parsed and validated so devkit clients (the mixer recipe sends
+// time_scope=recent by default) exercise the same argument contract and get the
+// same rejection text for a malformed directive as production.
+func ValidateTimeScope(raw string) error {
+	s := strings.ToLower(strings.TrimSpace(raw))
+	switch {
+	case s == "" || s == "lifetime" || s == "recent":
+		return nil
+	case strings.HasPrefix(s, "since_ms:"):
+		n, err := strconv.ParseInt(strings.TrimPrefix(s, "since_ms:"), 10, 64)
+		if err != nil || n < 0 {
+			return fmt.Errorf("invalid time_scope %q: since_ms must be a non-negative integer", raw)
+		}
+		return nil
+	default:
+		return fmt.Errorf("invalid time_scope %q: expected lifetime | recent | since_ms:<n>", raw)
+	}
+}
+
 // topologyKey resolves the USE-clause scope name for routing facts,
 // defaulting to topology when no recognized USE clause is present.
 func topologyKey(query string) string {
@@ -186,6 +217,9 @@ func handleUsageStatus(ctx context.Context, req *mcp.CallToolRequest, args struc
 
 func graphQueryHandler(runner QueryRunner) func(context.Context, *mcp.CallToolRequest, GraphQueryArgs) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, req *mcp.CallToolRequest, args GraphQueryArgs) (*mcp.CallToolResult, any, error) {
+		if err := ValidateTimeScope(args.TimeScope); err != nil {
+			return toolError(err.Error()), nil, nil
+		}
 		if _, err := cypheradmit.ValidateReadOnlyGraphQuery(args.Query); err != nil {
 			return toolError(err.Error()), nil, nil
 		}
@@ -228,6 +262,9 @@ func graphQueryHandler(runner QueryRunner) func(context.Context, *mcp.CallToolRe
 
 func graphQueryBatchHandler(runner QueryRunner) func(context.Context, *mcp.CallToolRequest, GraphQueryBatchArgs) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, req *mcp.CallToolRequest, args GraphQueryBatchArgs) (*mcp.CallToolResult, any, error) {
+		if err := ValidateTimeScope(args.TimeScope); err != nil {
+			return toolError(err.Error()), nil, nil
+		}
 		if len(args.Queries) > maxBatchQueries {
 			return toolError(fmt.Sprintf("queries must contain at most %d items", maxBatchQueries)), nil, nil
 		}

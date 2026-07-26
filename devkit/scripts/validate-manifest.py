@@ -43,10 +43,16 @@ REQUIRED_TABLES = {
     "facts_transfers_view",
 }
 
-# Nothing currently belongs here -- kept in place, possibly empty, for a
-# future mapped table whose fixture export legitimately lags its mapping
-# landing (mirrors facts_transfers_view's own now-closed gap).
-ALLOWED_UNEXPORTED_TABLES: set[str] = set()
+# A mapped table whose fixture export legitimately lags its mapping landing
+# (mirrors facts_transfers_view's own now-closed gap).
+#
+# facts_assets_view: the Asset label is part of the production serving contract
+# the devkit tracks (the fake-token recipe reads it), so it is mapped and its
+# empty facade table is created; the asset-registry fixture export is a
+# follow-up. Queries return zero rows instead of failing on an unmapped label.
+ALLOWED_UNEXPORTED_TABLES: set[str] = {
+    "facts_assets_view",
+}
 
 MEMGRAPH_OBJECTS = {
     "memgraph_nodes",

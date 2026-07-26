@@ -3,6 +3,29 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.7] - 2026-07-26 — devkit graph_query parity: time_scope and the Asset label (#210)
+
+- fix: the devkit graph backend rejected the `graph_query` / `graph_query_batch`
+  `time_scope` argument as an unexpected property, because its tool schema never
+  declared the field. The serving contract has accepted `time_scope` since
+  0.10.15 and the mixer detector sends `time_scope=recent` by default, so
+  `cia detect mixer` / `cia monitor mixer` cells failed against the devkit while
+  passing against the hosted backend. Both devkit tools now declare `time_scope`
+  and validate it with the serving contract's grammar
+  (`lifetime | recent | since_ms:<n>`, malformed values rejected with the same
+  message). The devkit serves a single topology graph, so every accepted
+  directive resolves to the same covering shard.
+- fix: the devkit graph mapping did not include the `Asset` node label, so the
+  fake-token detector's asset-registry lookups failed to compile against the
+  devkit. `Asset` is mapped to the assets facade view with the serving
+  contract's property set, and the facade table is now created even when the
+  local fixture does not ship an asset export — `:Asset` queries return an empty
+  result instead of an unmapped-label error. Populating the asset fixture is a
+  follow-up.
+- fix: the MCP proxy's `graph_query` / `graph_query_batch` argument allow-list
+  omitted `time_scope`, silently stripping it from pass-through calls so every
+  caller received a lifetime-scoped result. Both tools now allow it.
+
 ## [0.11.6] - 2026-07-26 — fix trace query size cap crash on well-connected seeds (#209)
 
 - fix: `aml_trace_suspect_funds`/`aml_trace_victim_funds` hard-failed with
