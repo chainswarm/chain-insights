@@ -3,6 +3,23 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.11] - 2026-07-26 — detectors scope by address network
+
+- fix: detector sweeps now scope their topology queries by the address network,
+  so two network views over one shared address-grain graph no longer return
+  identical findings. Previously the network argument selected the graph but
+  not the subset of addresses within it, so an attack-attribution sweep for a
+  chain's EVM view returned the same rows as its SS58 view — wrong-network
+  attributions published as reviewable findings, at double the metered cost.
+- fix: the change covers both the seed pull and the frontier expansion in
+  attack-attribution (both endpoints of the downstream walk), and the
+  degree-qualified candidate enumeration in mixer-likeness. Address-anchored
+  lookups are unchanged: an exact address is already a unique key, and
+  screening an EVM address under a chain's primary network name keeps working.
+- fix: transfer-registry detectors (address-poisoning, fake-token) are
+  unaffected — they read the bounded facts layer, which is already routed to a
+  per-network database.
+
 ## [0.11.10] - 2026-07-26 — monitor address watchlist
 
 - feat: `cia monitor` gains an address watchlist, so monitoring can answer
