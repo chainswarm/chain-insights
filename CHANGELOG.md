@@ -3,6 +3,33 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.3] - 2026-07-26 — federation merge exactness fixes
+
+- federation: `combineEdge` now correctly merges every FLOWS_TO property the
+  oracle differential harness checks, not just the four it special-cased
+  before. `last_tx_id`/`first_tx_id` follow the constituent shard whose
+  `last_seen_timestamp`/`first_seen_timestamp` won, instead of whichever
+  shard happened to merge first. `avg_tx_size_usd` is recomputed from the
+  merged `amount_usd_sum`/`tx_count` totals (guarded against divide-by-zero)
+  instead of carrying one shard's partial average. `dominant_asset` is
+  chosen from the constituent with the single largest individual
+  `amount_usd_sum` via an N-way fold over all contributing shards at once —
+  not a pairwise fold of a running accumulator, which cannot correctly pick
+  a winner once more than two shards contribute. `price_coverage_ratio` is a
+  tx-count-weighted mean across shards. `bucket_start_ms`/`bucket_end_ms`
+  merge to the outer span `[MIN start, MAX end]` of contributing shard
+  windows. Endpoint identity and lookalike flags are confirmed shard-invariant
+  and pass through unchanged.
+- federation: `MergedResult.perShard[shard]` is now an array of per-group
+  entries instead of a single object keyed by aggregate name. A GROUPED
+  aggregate (e.g. `RETURN counterparty, sum(...) AS usd`) previously
+  collided when the same shard returned more than one group, silently
+  losing every group but the last; the array representation can only grow,
+  never overwrite.
+- Found by the oracle differential harness (chainswarm/data-pipeline#289)
+  comparing client-merged federated results against a monolithic
+  genesis-to-tip oracle graph.
+
 ## [0.11.2] - 2026-07-26 — shard-merge filter for oracle verification
 
 - federation: `mergeShardRows` is now exported from the package entry point.

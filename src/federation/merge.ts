@@ -18,7 +18,11 @@ export interface MergeOptions {
   edgeKey?: (edge: Record<string, unknown>) => string | null
   /** Columns the caller asserts are non-mergeable aggregates. They are lifted
    *  out of the rows into `perShard` so no consumer can sum them by accident
-   *  (SPEC A7). The merge cannot infer these — naming them is the assertion. */
+   *  (SPEC A7). The merge cannot infer these — naming them is the assertion.
+   *  A shard may return more than one row for the same aggregate column when
+   *  the query groups by another column (e.g. `RETURN counterparty,
+   *  sum(...) AS usd`) — `perShard[shard]` holds one entry per such row, so
+   *  two differently-grouped rows from the same shard can never collide. */
   aggregateKeys?: string[]
   /** Whether the sort key survives merging. `invariant` keys (address, labels)
    *  give an exact global order; `merge-affected` keys (sums) do not, because a
@@ -28,17 +32,19 @@ export interface MergeOptions {
 
 export interface MergedResult {
   rows: Array<Record<string, unknown>>
-  perShard: Record<string, Record<string, unknown>>
+  /** One entry per aggregate row a shard returned (see `aggregateKeys`),
+   *  carrying that row's grouping columns alongside its aggregate columns.
+   *  An array, not a shard-keyed object, so a second group from the same
+   *  shard is appended rather than overwriting the first. */
+  perShard: Record<string, Array<Record<string, unknown>>>
   ordering: 'exact' | 'approximate' | 'unordered'
 }
 
 const SHARD_KEY = '__shard'
 
-/** Edge properties that are additive per-shard partials: disjoint shard
- *  windows mean summing them reconstructs the exact lifetime value. */
-const ADDITIVE_EDGE_PROPS = ['amount_usd_sum', 'tx_count']
-const MIN_EDGE_PROPS = ['first_seen_timestamp']
-const MAX_EDGE_PROPS = ['last_seen_timestamp']
+function numeric(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
 
 function isEdgeObject(value: unknown): value is { type: string; properties: Record<string, unknown> } {
   if (typeof value !== 'object' || value === null) return false
@@ -62,73 +68,202 @@ function rowKey(row: ShardRow): string {
   return parts.join('')
 }
 
-function numeric(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
+/**
+ * Combines every shard's contribution to the SAME logical edge (same
+ * from_address/to_address, the identity `rowKey` groups on) into one
+ * lifetime edge. `constituents` is every contributing shard's `.properties`
+ * object, in first-seen order.
+ *
+ * This is a single N-way fold over all constituents at once, not a pairwise
+ * fold of an accumulator. Folding two at a time and re-combining the running
+ * accumulator against each new shard would lose each individual shard's raw
+ * `amount_usd_sum` after the first fold — and `dominant_asset` needs each
+ * shard's own individual total, not an accumulated running sum, to pick the
+ * correct winner once more than two shards contribute (see the property
+ * rules below).
+ *
+ * Per-property rules (SPEC-2026-07-26-FED-THIN-FANOUT, mirrored from the
+ * retired server-side merge in data-pipeline internal/graphmcp/federation.go
+ * which solved the same problem before the merge moved client-side):
+ *
+ * - `amount_usd_sum`, `tx_count`: additive per-shard partials — summed.
+ * - `first_seen_timestamp`: MIN across shards. `first_tx_id` is NOT
+ *   shard-invariant — it identifies the transaction AT first_seen_timestamp
+ *   — so it must come from the SAME constituent that produced the min, not
+ *   whichever shard happened to merge first.
+ * - `last_seen_timestamp`: MAX across shards, with `last_tx_id` from the
+ *   constituent that produced the max (mirror of `first_tx_id`).
+ * - `avg_tx_size_usd`: an average is not carryable across shards — it is
+ *   recomputed from the merged totals (`amount_usd_sum / tx_count`, guarded
+ *   against division by zero) so it stays consistent with the summed totals
+ *   instead of leaking one shard's partial average.
+ * - `price_coverage_ratio`: a tx-count-weighted mean,
+ *   Σ(ratio·tx_count)/Σtx_count. The ratio's own denominator IS tx_count
+ *   (priced tx / total tx), so weighting by tx_count and dividing by the
+ *   summed tx_count reconstructs the exact lifetime ratio rather than
+ *   averaging shard ratios naively (which would over-weight a low-volume
+ *   shard's ratio as much as a high-volume one).
+ * - `dominant_asset`: the asset from the constituent with the single
+ *   largest individual `amount_usd_sum` (documented largest-bucket
+ *   approximation — the per-asset USD breakdown isn't carried on the edge,
+ *   so this is the best available signal; ties keep the first-seen
+ *   constituent, matching the reference implementation).
+ * - `bucket_start_ms` / `bucket_end_ms`: each describes ONE shard's own
+ *   coverage window. The merged edge's window is the outer span of every
+ *   contributing shard's window: `[MIN start, MAX end]`.
+ * - `from_address`, `to_address`, `from_address_lookalike`,
+ *   `to_address_lookalike`: identity — `rowKey` already grouped these
+ *   constituents by from_address+to_address, so these are equal on every
+ *   constituent by construction (address-derived lookalike flags do not
+ *   vary per shard). The first-seen value carries through untouched.
+ * - Any other property is outside the frozen FLOWS_TO contract this module
+ *   knows about; it keeps the first-seen constituent's value (unchanged
+ *   "first non-null wins" fallback).
+ */
+function combineEdge(constituents: Array<Record<string, unknown>>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  // First-non-null-wins baseline for identity fields and any unlisted
+  // property. Every property below this point is then explicitly
+  // recomputed/overridden with its correct merge rule.
+  for (const props of constituents) {
+    for (const [key, value] of Object.entries(props)) {
+      if (out[key] === undefined || out[key] === null) out[key] = value
+    }
+  }
 
-function combineEdge(into: Record<string, unknown>, from: Record<string, unknown>): void {
-  for (const prop of ADDITIVE_EDGE_PROPS) {
-    const a = numeric(into[prop])
-    const b = numeric(from[prop])
-    if (a !== null || b !== null) into[prop] = (a ?? 0) + (b ?? 0)
+  let amountSum = 0
+  let txSum = 0
+  let minFirst: number | null = null
+  let firstTxId: unknown
+  let maxLast: number | null = null
+  let lastTxId: unknown
+  let minBucketStart: number | null = null
+  let maxBucketEnd: number | null = null
+  let dominantAmount = -Infinity
+  let dominantAsset: unknown
+  let dominantSet = false
+  let weightedRatioNum = 0
+  let anyRatio = false
+
+  for (const p of constituents) {
+    const amount = numeric(p.amount_usd_sum) ?? 0
+    const tx = numeric(p.tx_count) ?? 0
+    amountSum += amount
+    txSum += tx
+
+    const first = numeric(p.first_seen_timestamp)
+    if (first !== null && (minFirst === null || first < minFirst)) {
+      minFirst = first
+      firstTxId = p.first_tx_id
+    }
+    const last = numeric(p.last_seen_timestamp)
+    if (last !== null && (maxLast === null || last > maxLast)) {
+      maxLast = last
+      lastTxId = p.last_tx_id
+    }
+    const bucketStart = numeric(p.bucket_start_ms)
+    if (bucketStart !== null && (minBucketStart === null || bucketStart < minBucketStart)) {
+      minBucketStart = bucketStart
+    }
+    const bucketEnd = numeric(p.bucket_end_ms)
+    if (bucketEnd !== null && (maxBucketEnd === null || bucketEnd > maxBucketEnd)) {
+      maxBucketEnd = bucketEnd
+    }
+    if (!dominantSet || amount > dominantAmount) {
+      dominantAmount = amount
+      dominantAsset = p.dominant_asset
+      dominantSet = true
+    }
+    const ratio = numeric(p.price_coverage_ratio)
+    if (ratio !== null) {
+      weightedRatioNum += ratio * tx
+      anyRatio = true
+    }
   }
-  for (const prop of MIN_EDGE_PROPS) {
-    const a = numeric(into[prop])
-    const b = numeric(from[prop])
-    if (a !== null && b !== null) into[prop] = Math.min(a, b)
-    else if (into[prop] === undefined || into[prop] === null) into[prop] = from[prop]
+
+  out.amount_usd_sum = amountSum
+  out.tx_count = txSum
+  if (minFirst !== null) {
+    out.first_seen_timestamp = minFirst
+    if (firstTxId !== undefined) out.first_tx_id = firstTxId
   }
-  for (const prop of MAX_EDGE_PROPS) {
-    const a = numeric(into[prop])
-    const b = numeric(from[prop])
-    if (a !== null && b !== null) into[prop] = Math.max(a, b)
-    else if (into[prop] === undefined || into[prop] === null) into[prop] = from[prop]
+  if (maxLast !== null) {
+    out.last_seen_timestamp = maxLast
+    if (lastTxId !== undefined) out.last_tx_id = lastTxId
   }
-  for (const [key, value] of Object.entries(from)) {
-    if (ADDITIVE_EDGE_PROPS.includes(key) || MIN_EDGE_PROPS.includes(key) || MAX_EDGE_PROPS.includes(key)) continue
-    if (into[key] === undefined || into[key] === null) into[key] = value
-  }
+  if (minBucketStart !== null) out.bucket_start_ms = minBucketStart
+  if (maxBucketEnd !== null) out.bucket_end_ms = maxBucketEnd
+  if (dominantSet && dominantAsset !== undefined) out.dominant_asset = dominantAsset
+  // Recomputed, never carried: an average from one shard is simply a wrong
+  // number once other shards contribute.
+  out.avg_tx_size_usd = txSum > 0 ? amountSum / txSum : 0
+  if (anyRatio) out.price_coverage_ratio = txSum > 0 ? weightedRatioNum / txSum : 0
+
+  return out
 }
 
 export function mergeShardRows(rows: ShardRow[], opts: MergeOptions = {}): MergedResult {
   const aggregateKeys = opts.aggregateKeys ?? []
-  const perShard: Record<string, Record<string, unknown>> = {}
+  const perShard: Record<string, Array<Record<string, unknown>>> = {}
   const mergeable: ShardRow[] = []
   for (const row of rows) {
     const shard = typeof row[SHARD_KEY] === 'string' ? (row[SHARD_KEY] as string) : ''
     const remainder: ShardRow = {}
+    const aggregateEntry: Record<string, unknown> = {}
     let liftedAny = false
     for (const [key, value] of Object.entries(row)) {
       if (aggregateKeys.includes(key)) {
-        if (shard !== '') {
-          perShard[shard] = { ...(perShard[shard] ?? {}), [key]: value }
-        }
+        aggregateEntry[key] = value
         liftedAny = true
         continue
       }
       remainder[key] = value
     }
+    if (liftedAny && shard !== '') {
+      // The grouping columns are whatever non-aggregate, non-__shard keys
+      // this row carries (e.g. a GROUP BY alias). Pushing a new entry per
+      // row — rather than assigning into an object keyed by shard alone —
+      // means a second group from the same shard can never overwrite the
+      // first: the array can only grow, never lose a write.
+      const groupCols: Record<string, unknown> = {}
+      for (const [key, value] of Object.entries(remainder)) {
+        if (key === SHARD_KEY) continue
+        groupCols[key] = value
+      }
+      perShard[shard] = perShard[shard] ?? []
+      perShard[shard].push({ ...groupCols, ...aggregateEntry })
+    }
     const hasContent = Object.keys(remainder).some((k) => k !== SHARD_KEY)
     if (!liftedAny || hasContent) mergeable.push(remainder)
   }
 
-  const byKey = new Map<string, Record<string, unknown>>()
+  // Group mergeable rows by identity key, preserving first-seen order, so
+  // combineEdge can fold ALL constituents for a key at once (see combineEdge
+  // for why pairwise folding of an accumulator is not equivalent).
+  const groups = new Map<string, ShardRow[]>()
   for (const row of mergeable) {
     const key = rowKey(row)
-    const existing = byKey.get(key)
-    if (!existing) {
-      // Deep copy so the caller's rows are never mutated.
-      const copy = JSON.parse(JSON.stringify(row)) as Record<string, unknown>
-      delete copy[SHARD_KEY]
-      byKey.set(key, copy)
-      continue
-    }
-    for (const [field, value] of Object.entries(row)) {
-      if (field === SHARD_KEY) continue
-      if (isEdgeObject(value) && isEdgeObject(existing[field])) {
-        combineEdge((existing[field] as { properties: Record<string, unknown> }).properties, value.properties)
+    const list = groups.get(key)
+    if (list) list.push(row)
+    else groups.set(key, [row])
+  }
+
+  const byKey = new Map<string, Record<string, unknown>>()
+  for (const [key, group] of groups) {
+    // Deep copy so the caller's rows are never mutated.
+    const copy = JSON.parse(JSON.stringify(group[0])) as Record<string, unknown>
+    delete copy[SHARD_KEY]
+    if (group.length > 1) {
+      for (const field of Object.keys(copy)) {
+        if (!isEdgeObject(copy[field])) continue
+        const constituents = group
+          .map((g) => g[field])
+          .filter(isEdgeObject)
+          .map((edge) => edge.properties)
+        ;(copy[field] as { properties: Record<string, unknown> }).properties = combineEdge(constituents)
       }
     }
+    byKey.set(key, copy)
   }
 
   let out = [...byKey.values()]
