@@ -66,3 +66,29 @@ function extractRowsFromText(text: string): GraphRow[] | null {
 
 // Shared timeout export for detectors that build their own tool calls.
 export const DETECTION_TIMEOUT_MS = DETECTION_QUERY_TIMEOUT_MS
+
+// A topology graph is shared by every network view that resolves to the same
+// shards (e.g. the SS58 and H160 views of one chain live in ONE address-grain
+// topology graph). Passing `network` to graph_query selects the GRAPH, not the
+// subset of addresses inside it, so a `USE topology` query that matches
+// `:Address` must additionally scope by the `network` NODE PROPERTY or it scans
+// every network's addresses and returns wrong-network rows.
+//
+// The value cannot be bound as a query parameter (graph_query takes only
+// `network` + `query`), so it is validated to a strict identifier charset
+// before interpolation rather than hand-escaped into the Cypher string.
+const NETWORK_IDENTIFIER_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/
+
+// networkPredicate returns `<alias>.network = "<network>"` for a validated
+// network identifier. Throws on anything outside the identifier charset — a
+// detector must fail loudly rather than emit an unscoped (cross-network) or
+// injected query.
+export function networkPredicate(alias: string, network: string): string {
+  if (!NETWORK_IDENTIFIER_PATTERN.test(alias)) {
+    throw new Error(`unsafe query alias for network scoping: ${alias}`)
+  }
+  if (!NETWORK_IDENTIFIER_PATTERN.test(network)) {
+    throw new Error(`unsafe network identifier for topology scoping: ${network}`)
+  }
+  return `${alias}.network = "${network}"`
+}
