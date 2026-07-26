@@ -10,6 +10,20 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j/db"
 )
 
+// topologyNetworks are the network names the devkit serves from the SINGLE
+// address-grain topology graph. Production models the Bittensor SS58 and
+// EVM-pallet views as two network names over that one shared graph, with
+// `Address.network` as the discriminator — which is precisely why
+// chain-insights#228 (missing `Address.network` predicates) was possible.
+// Refusing `bittensor_evm` here made that defect class untestable in the
+// devkit: only one of the two views could ever be exercised. Both are
+// accepted, and the routed Cypher is unchanged — the caller's
+// `Address.network` predicate is what selects the view.
+var topologyNetworks = map[string]bool{
+	"bittensor":     true,
+	"bittensor_evm": true,
+}
+
 type QueryResult struct {
 	Rows []map[string]any `json:"rows"`
 }
@@ -121,7 +135,7 @@ func (runner *MemgraphRunner) Close(ctx context.Context) error {
 }
 
 func (runner *MemgraphRunner) Run(ctx context.Context, network string, query string) (QueryResult, error) {
-	if network != "bittensor" {
+	if !topologyNetworks[network] {
 		return QueryResult{}, fmt.Errorf("unsupported network %q", network)
 	}
 	result, err := neo4j.ExecuteQuery(

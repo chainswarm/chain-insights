@@ -3,6 +3,41 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.14] - 2026-07-26 — monitoring UAT asserts results, not exit codes
+
+- fix: the monitoring acceptance suite asserted process exit codes where it
+  should have asserted results. Four detector scenarios shared a single
+  "did the run finish" check that passed whether a detector found everything
+  or nothing — and tolerated a permanently failing detector — so two of the
+  four scenarios had in fact never observed a finding. Every scenario now
+  reads the run record, the findings document, the review queue, or the alert
+  stream and asserts on its contents.
+- fix: the scenario for "a second scheduled run only covers the new window"
+  was specified but never implemented. It is now covered in both directions:
+  an incremental detector must advance its checkpoint and report nothing for
+  an empty new window, and a full-state detector must keep scanning in full
+  while emitting only findings it has not already reported. Three consecutive
+  runs over unchanged data, and a `--full` re-emit, are asserted end to end.
+- fix: the two network views over one shared address-grain graph are now
+  pinned by an executable case — each view must return only its own address
+  family, with no overlap — so a regression to unscoped queries fails the
+  suite instead of shipping.
+- fix: added scenarios for a forced detector failure staying isolated while
+  the run completes, for `watch` resuming after a hard kill with no lost or
+  duplicated alerts, for the curated-import contract (an approved document
+  carries a reviewer and identical findings; its unreviewed sibling does not),
+  and for watchlist alerts de-duplicating across runs.
+- fix: the local Bittensor development kit now serves both network views of
+  its shared topology graph instead of refusing the EVM one, which is what
+  made the network-scoping case testable at all. Its capability document
+  advertises the second view with its facts layer off, matching the data the
+  kit actually carries.
+- fix: scenarios that genuinely cannot assert anything on the local fixture —
+  the token-registry spoof case, the metered usage guard, and the exact
+  remote-call count — now print an explicit skip naming the blocker and the
+  unit test that covers them, instead of being silently absent or quietly
+  passing.
+
 ## [0.11.13] - 2026-07-26 — monitoring is discoverable
 
 - docs: new shipped skill `chain-insights-monitoring` routes an agent from

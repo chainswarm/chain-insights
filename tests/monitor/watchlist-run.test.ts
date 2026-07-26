@@ -3,7 +3,7 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { dustHits, findingHits, movementHits } from '../../src/monitor/watchlist-run.js'
+import { dustHits, findingHits, movementHits, runWatchlistPass } from '../../src/monitor/watchlist-run.js'
 import { withStore } from '../../src/monitor/store.js'
 import { addWatched, listWatched } from '../../src/monitor/watchlist.js'
 
@@ -136,6 +136,43 @@ describe('watchlist dust probe', () => {
     )
     expect(out.hits).toEqual([])
     expect(out.error).toMatch(/backend down/)
+  })
+})
+
+// AC-6 at WHOLE-PASS level. The per-probe test above covers dustHits in
+// isolation; this covers what a `monitor run` actually executes, because the
+// cost guarantee is a property of the pass, not of one helper. The devkit
+// smoke cannot assert it -- the run document carries no per-cell call counter
+// -- so it SKIPs with a pointer here (chain-insights#231).
+describe('watchlist pass cost guarantee (AC-6)', () => {
+  it('the watchlist pass never calls aml_address_risk (AC-6 cost guarantee)', async () => {
+    const root = await ws()
+    const called: string[] = []
+    const client = {
+      async callTool({ name, arguments: args }: { name: string; arguments: Record<string, unknown> }) {
+        called.push(name)
+        // Deliberately does NOT throw: a throwing stub would let a regression
+        // that swallows the error still look green. The call list is asserted.
+        void args
+        return { structuredContent: { facts: { queries: [{ id: 'dust', results: [] }] } } }
+      },
+    } as never
+
+    // 100 addresses over 2 networks. A per-address implementation would make
+    // 100 calls; the contract is 2.
+    for (let i = 0; i < 50; i += 1) {
+      await addWatched(root, { address: `5Watched${i}`, network: 'bittensor' })
+      await addWatched(root, { address: `0x${'a'.repeat(38)}${String(i).padStart(2, '0')}`, network: 'bittensor_evm' })
+    }
+    expect(await listWatched(root)).toHaveLength(100)
+
+    const pass = await withStore(root, async (store) =>
+      runWatchlistPass(client, root, store, { cells: [], intervalSeconds: 3600, caseMaxHops: 3, watchlist: { dustMaxUsd: 1, dustLookbackSeconds: 86400, enabled: true } }, 1000),
+    )
+
+    expect(pass.calls).toBe(2)
+    expect(called).toEqual(['graph_query_batch', 'graph_query_batch'])
+    expect(called).not.toContain('aml_address_risk')
   })
 })
 
