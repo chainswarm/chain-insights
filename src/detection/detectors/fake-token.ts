@@ -80,6 +80,15 @@ export function resolveFakeTokenConfig(_network: string, params: DetectorParams)
 export const fakeTokenDetector: DetectorScan = {
   tool: 'aml_fake_token',
   id: 'fake-token',
+  // Full-state, declared honestly. A symbol collision is a property of the
+  // WHOLE asset registry: a token registered today can only be judged a spoof
+  // against the verified token it impersonates, which was registered long
+  // before. Scanning only assets that appeared inside a window would leave the
+  // verified side of every collision outside the scan and report nothing — the
+  // detector would be wrong, not incremental. The registry is a small dimension
+  // (thousands of rows), so the full pull is cheap; no checkpoint is advanced,
+  // and the runtime emits only spoof contracts not already reported.
+  windowMode: 'full-state',
   thresholds: (network, params) => {
     const cfg = resolveFakeTokenConfig(network, params)
     return {
@@ -89,6 +98,8 @@ export const fakeTokenDetector: DetectorScan = {
       page_size: cfg.pageSize,
     }
   },
+  // `window` is intentionally unused — see windowMode above. The runtime always
+  // passes a full window here and de-duplicates the output across runs.
   async scan(_window: DetectionWindow, client: Client, network: string, params: DetectorParams): Promise<DetectionFinding[]> {
     // The assets registry is a SMALL dimension (thousands of rows), so pull it
     // all via keyset pagination (ORDER BY asset_contract, WHERE > cursor) — an
