@@ -2,6 +2,7 @@
 // JSONL; sinks are best-effort — a dead webhook must never fail a run.
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
+import { parseJsonlLines } from './jsonl.js'
 import { monitorPaths } from './paths.js'
 
 export interface AlertEvent {
@@ -17,12 +18,25 @@ export interface AlertEvent {
   emitted_at_ms: number
 }
 
+// A missing log is "no alerts yet" (normal). A torn line inside an existing log
+// costs that line only — never the whole file. See jsonl.ts for why.
 async function readJsonl<T>(filePath: string): Promise<T[]> {
+  let raw: string
   try {
-    const raw = await readFile(filePath, 'utf8')
-    return raw.split('\n').filter(Boolean).map((line) => JSON.parse(line) as T)
+    raw = await readFile(filePath, 'utf8')
   } catch {
     return []
+  }
+  return parseJsonlLines<T>(raw, filePath).records
+}
+
+/** True when the log exists, is non-empty, and does not end in a newline. */
+async function needsNewlineTerminator(filePath: string): Promise<boolean> {
+  try {
+    const raw = await readFile(filePath, 'utf8')
+    return raw.length > 0 && !raw.endsWith('\n')
+  } catch {
+    return false
   }
 }
 
@@ -38,6 +52,11 @@ export async function emitAlerts(
   const existing = await readJsonl<AlertEvent>(p.alertsLog)
   const seqBase = existing.filter((e) => e.run_ms === events[0].run_ms).length
   const stamped = events.map((e, i) => ({ ...e, alert_id: `${e.run_ms}-${seqBase + i}-${e.type}`, emitted_at_ms: nowMs }))
+  // A torn final line (kill mid-append) has no trailing newline, so a plain
+  // append would concatenate onto it and destroy the NEW record too — one
+  // crash would then cost every alert emitted afterwards. Re-terminate first
+  // so the damage stays confined to the single torn line.
+  await appendFile(p.alertsLog, (await needsNewlineTerminator(p.alertsLog)) ? '\n' : '', 'utf8')
   await appendFile(p.alertsLog, stamped.map((e) => JSON.stringify(e)).join('\n') + '\n', 'utf8')
   for (const event of stamped) {
     if (sinks?.webhookUrl) {

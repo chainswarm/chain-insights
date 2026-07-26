@@ -12,6 +12,13 @@ PASS=0; FAIL=0
 check() { # check <name> <condition-exit-code>
   if [ "$2" -eq 0 ]; then echo "MONITOR-SMOKE PASS $1"; PASS=$((PASS+1)); else echo "MONITOR-SMOKE FAIL $1"; FAIL=$((FAIL+1)); fi
 }
+# Capture a command's exit code WITHOUT tripping `set -e`. A bare
+# `cmd; check "..." $?` is a trap: under `set -e` a failing `cmd` kills the
+# script before `check` ever runs, so a hard assertion failure exited
+# non-zero with no `MONITOR-SMOKE FAIL` row and no summary — the one case
+# where you most need the output. The `|| rc=$?` here is what makes the
+# failure reportable instead of fatal.
+rc_of() { local rc=0; "$@" >/dev/null 2>&1 || rc=$?; echo "$rc"; }
 
 cd "$WORK"
 $CLI init . >/dev/null
@@ -28,19 +35,19 @@ cat > .chain-insights/monitor/config.json <<'EOF'
 EOF
 
 # U1–U4: one run executes all four sweep cells; run doc exists; store populated.
-$CLI monitor run || [ $? -eq 2 ]   # isolated failures allowed, hard failure not
-check "U1-U4 monitor run over 4 detector cells" $?
-RUNS=$(ls .chain-insights/monitor/runs/*.run.json | wc -l); [ "$RUNS" -eq 1 ]; check "U1 run doc written" $?
+RUN_RC=0; $CLI monitor run || RUN_RC=$?   # isolated failures (exit 2) allowed, hard failure not
+check "U1-U4 monitor run over 4 detector cells" "$(rc_of test "$RUN_RC" -le 2)"
+RUNS=$(ls .chain-insights/monitor/runs/*.run.json 2>/dev/null | wc -l); check "U1 run doc written" "$(rc_of test "$RUNS" -eq 1)"
 
 # U5: exchange-likeness machinery reachable (corridor gate classifications come
 # from the same graph): status renders without error.
-$CLI monitor status >/dev/null; check "U5/status renders" $?
+check "U5/status renders" "$(rc_of $CLI monitor status)"
 
 # M1: immediate second run is idempotent at the store level.
-$CLI monitor rebuild >/dev/null
-$CLI monitor run || [ $? -eq 2 ]
-$CLI monitor rebuild >/dev/null
-check "M1 second run + rebuild clean" $?
+M1_RC=$(rc_of $CLI monitor rebuild)
+[ "$M1_RC" -ne 0 ] || { RUN_RC=0; $CLI monitor run >/dev/null 2>&1 || RUN_RC=$?; [ "$RUN_RC" -le 2 ] || M1_RC=$RUN_RC; }
+[ "$M1_RC" -ne 0 ] || M1_RC=$(rc_of $CLI monitor rebuild)
+check "M1 second run + rebuild clean" "$M1_RC"
 
 # U6: case lifecycle on a devkit seed address (fixture-known active address).
 # 5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x is the first SS58 source
@@ -53,41 +60,60 @@ check "M1 second run + rebuild clean" $?
 # "query=USE topology MATCH (a:Address {address: '<seed>'}) RETURN
 # a.address, a.network LIMIT 1"` returns the address.
 SEED="5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x"
-$CLI monitor case add theft-1 --type stolen-funds --network bittensor --seed "$SEED"; check "U6 case add" $?
-$CLI monitor run || [ $? -eq 2 ]
-SNAPS=$(ls cases/theft-1/snapshots/*.snapshot.json | wc -l); [ "$SNAPS" -ge 1 ]; check "U6 snapshot written" $?
-$CLI monitor run || [ $? -eq 2 ]
+check "U6 case add" "$(rc_of $CLI monitor case add theft-1 --type stolen-funds --network bittensor --seed "$SEED")"
+RUN_RC=0; $CLI monitor run || RUN_RC=$?
+check "U6 run after case add" "$(rc_of test "$RUN_RC" -le 2)"
+SNAPS=$(ls cases/theft-1/snapshots/*.snapshot.json 2>/dev/null | wc -l); check "U6 snapshot written" "$(rc_of test "$SNAPS" -ge 1)"
+RUN_RC=0; $CLI monitor run || RUN_RC=$?
+check "U6 second run" "$(rc_of test "$RUN_RC" -le 2)"
 # Static fixture ⇒ second snapshot diff must be empty (zero case_movement alerts for run 2).
-MOVES=$($CLI monitor alerts list --all | grep -c case_movement || true)
-[ "$MOVES" -eq 0 ]; check "U6 zero movements on static fixture" $?
+MOVES=$($CLI monitor alerts list --all 2>/dev/null | grep -c case_movement || true)
+check "U6 zero movements on static fixture" "$(rc_of test "$MOVES" -eq 0)"
 
 # U8 expansion loop: approve any pending case doc, re-run, seed set must grow.
-PENDING=$($CLI monitor review list | grep -c 'case-theft-1' || true)
+PENDING=$($CLI monitor review list 2>/dev/null | grep -c 'case-theft-1' || true)
 if [ "$PENDING" -gt 0 ]; then
   DOC=$(ls detections/*case-theft-1*.findings.json | head -1)
-  $CLI monitor review approve "$DOC" --reviewer smoke; check "U8 approve frontier" $?
-  $CLI monitor run || [ $? -eq 2 ]
+  check "U8 approve frontier" "$(rc_of $CLI monitor review approve "$DOC" --reviewer smoke)"
+  RUN_RC=0; $CLI monitor run || RUN_RC=$?
+  check "U8 run after approve" "$(rc_of test "$RUN_RC" -le 2)"
   LAST=$(ls cases/theft-1/snapshots/*.snapshot.json | sort | tail -1)
-  GREW=$(jq '.seed_set | length' "$LAST"); [ "$GREW" -gt 1 ]; check "U8 corridor expanded" $?
+  GREW=$(jq '.seed_set | length' "$LAST"); check "U8 corridor expanded" "$(rc_of test "$GREW" -gt 1)"
 else
   echo "MONITOR-SMOKE PASS U8 (no frontier on static fixture — expansion seam covered by tests/monitor/tracker.test.ts)"
   PASS=$((PASS+1))
 fi
 
 # M2: rebuild equality.
-$CLI monitor rebuild >/dev/null; check "M2 rebuild from canonical JSON" $?
+check "M2 rebuild from canonical JSON" "$(rc_of $CLI monitor rebuild)"
 
 # M4: export labels (approved-only; may be empty rows, must produce files).
-$CLI monitor export labels | grep -q labels-; check "M4 export labels" $?
+EXPORT_OUT=$($CLI monitor export labels 2>&1 || true)
+check "M4 export labels" "$(rc_of grep -q labels- <<<"$EXPORT_OUT")"
 
 # M8: alerts list + ack round trip (ack the first alert if any exist). Do not
 # gate the exit-code capture behind the `if` test itself (that would report
 # $? of the `[ -n "$FIRST" ]` probe, not of the ack, on the legitimate
 # no-alerts path) — capture the ack's own status explicitly.
-FIRST=$($CLI monitor alerts list --all | head -1 | awk '{print $1}')
+FIRST=$($CLI monitor alerts list --all 2>/dev/null | head -1 | awk '{print $1}')
 ACK_RC=0
 if [ -n "$FIRST" ]; then $CLI monitor alerts ack "$FIRST" || ACK_RC=$?; fi
 check "M8 alerts list/ack" "$ACK_RC"
+
+# M9 (#212): a torn trailing line in alerts.jsonl must cost that line only —
+# `alerts list` must still return the good records, and `rebuild` must recover
+# without hand-editing the JSONL.
+ALERTS_LOG=.chain-insights/monitor/alerts/alerts.jsonl
+if [ -s "$ALERTS_LOG" ]; then
+  GOOD=$($CLI monitor alerts list --all 2>/dev/null | grep -c . || true)
+  printf '{"alert_id":"torn' >> "$ALERTS_LOG"
+  TORN=$($CLI monitor alerts list --all 2>/dev/null | grep -c . || true)
+  check "M9 torn alerts.jsonl keeps good alerts in list" "$(rc_of test "$TORN" -eq "$GOOD")"
+  check "M9 torn alerts.jsonl still rebuilds" "$(rc_of $CLI monitor rebuild)"
+else
+  echo "MONITOR-SMOKE PASS M9 (no alerts emitted on static fixture — torn-line seam covered by tests/monitor/alerts.test.ts)"
+  PASS=$((PASS+1))
+fi
 
 echo "MONITOR-SMOKE done: $PASS pass, $FAIL fail (workspace: $WORK)"
 [ "$FAIL" -eq 0 ]

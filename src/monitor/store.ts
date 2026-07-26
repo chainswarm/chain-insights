@@ -1,10 +1,12 @@
 // DuckDB derived index (spec invariant 1): NEVER authoritative. Everything in
 // here is reproducible from canonical workspace JSON via rebuildStore(). The
 // writer holds the DB only inside withStore() (one-writer-many-readers rule).
+import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { DuckDBInstance } from '@duckdb/node-api'
 import { parseFindingsDocument } from '../investigation/detection-findings.js'
+import { parseJsonlLines } from './jsonl.js'
 import { monitorPaths } from './paths.js'
 import { diffSnapshots, readSnapshots, type CaseSnapshot } from './tracker.js'
 
@@ -59,11 +61,41 @@ CREATE TABLE IF NOT EXISTS alert_acks (alert_id VARCHAR, acked_at_ms BIGINT);
 CREATE TABLE IF NOT EXISTS watchlist (address VARCHAR, network VARCHAR, note VARCHAR);
 `
 
-export async function withStore<T>(workspaceRoot: string, fn: (store: MonitorStore) => Promise<T>): Promise<T> {
+export interface WithStoreOptions {
+  /**
+   * Open the derived DB read-only. Read paths (`monitor status`, `monitor
+   * report`) MUST use this: DuckDB permits many concurrent read-only holders
+   * of one file but only ONE read-write holder, so two read-write readers
+   * conflict with each other for no reason (verified cross-process against
+   * @duckdb/node-api: RO+RO succeeds, RO+RW fails on the file lock).
+   *
+   * It does NOT make a read survive a concurrent WRITER — DuckDB's
+   * read-write lock is exclusive against read-only opens too. That window is
+   * handled by the bounded retry below, which is also what turns the raw
+   * "Could not set lock on file" IO error into an actionable message.
+   */
+  readOnly?: boolean
+}
+
+const LOCK_RETRIES = 5
+const LOCK_RETRY_DELAY_MS = 200
+
+function isLockError(err: unknown): boolean {
+  return /Could not set lock on file|Conflicting lock/i.test((err as Error)?.message ?? '')
+}
+
+export async function withStore<T>(
+  workspaceRoot: string,
+  fn: (store: MonitorStore) => Promise<T>,
+  options?: WithStoreOptions,
+): Promise<T> {
   const { dbPath } = monitorPaths(workspaceRoot)
   await mkdir(path.dirname(dbPath), { recursive: true })
-  const instance = await DuckDBInstance.create(dbPath)
-  const connection = await instance.connect()
+  // Read-only is only possible once the file exists — DuckDB cannot create a
+  // database in READ_ONLY mode. A first-ever `status`/`report` therefore falls
+  // back to a normal read-write open, which also lays down the DDL.
+  const readOnly = options?.readOnly === true && existsSync(dbPath)
+  const { instance, connection } = await openStore(dbPath, readOnly)
   const store: MonitorStore = {
     async run(sql, params) {
       await connection.run(sql, params as never)
@@ -74,12 +106,51 @@ export async function withStore<T>(workspaceRoot: string, fn: (store: MonitorSto
     },
   }
   try {
-    for (const stmt of DDL.split(';').map((s) => s.trim()).filter(Boolean)) await store.run(stmt)
+    // A read-only handle cannot run DDL, and does not need to: the file only
+    // exists because some earlier read-write open already created every table.
+    if (!readOnly) {
+      for (const stmt of DDL.split(';').map((s) => s.trim()).filter(Boolean)) await store.run(stmt)
+    }
     return await fn(store)
   } finally {
     connection.closeSync()
     instance.closeSync()
   }
+}
+
+/**
+ * Open instance + connection, retrying past a transient file-lock conflict
+ * (a concurrent `monitor run` ingest window). Two things matter here:
+ *  - if connect() throws after create() succeeded, the instance handle must be
+ *    closed, or the process leaks it AND keeps holding the file lock;
+ *  - a lock conflict that outlives the retries gets a message that names the
+ *    cause instead of a raw DuckDB IO error.
+ */
+async function openStore(
+  dbPath: string,
+  readOnly: boolean,
+): Promise<{ instance: DuckDBInstance; connection: Awaited<ReturnType<DuckDBInstance['connect']>> }> {
+  let lastErr: unknown
+  for (let attempt = 0; attempt <= LOCK_RETRIES; attempt += 1) {
+    let instance: DuckDBInstance | undefined
+    try {
+      instance = await DuckDBInstance.create(dbPath, readOnly ? { access_mode: 'READ_ONLY' } : undefined)
+      const connection = await instance.connect()
+      return { instance, connection }
+    } catch (err) {
+      // create() may have succeeded and connect() thrown — never leak it.
+      instance?.closeSync()
+      lastErr = err
+      if (!isLockError(err) || attempt === LOCK_RETRIES) break
+      await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_DELAY_MS))
+    }
+  }
+  if (isLockError(lastErr)) {
+    throw new Error(
+      `monitor store ${dbPath} is locked by another Chain Insights process (likely a "cia monitor run" ingest in progress). Retry in a moment.`,
+    )
+  }
+  throw lastErr
 }
 
 async function listFindingsDocs(workspaceRoot: string): Promise<string[]> {
@@ -131,9 +202,13 @@ function jsonlIngestor(kind: 'alerts' | 'acks', logPathOf: (root: string) => str
         return []
       }
     },
+    // Line-tolerant, exactly like the alerts.ts list path: a torn final line
+    // (kill mid-append) must not wedge the run loop's final ingest step, and
+    // must not make `monitor rebuild` unable to recover.
     async ingest(store, _workspaceRoot, filePath) {
       const raw = await readFile(filePath, 'utf8')
-      for (const line of raw.split('\n').filter(Boolean)) await insert(store, JSON.parse(line))
+      const { records } = parseJsonlLines<Record<string, unknown>>(raw, filePath)
+      for (const line of records) await insert(store, line)
     },
   }
 }
