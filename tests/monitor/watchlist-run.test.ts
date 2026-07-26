@@ -5,6 +5,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { dustHits, findingHits, movementHits } from '../../src/monitor/watchlist-run.js'
 import { withStore } from '../../src/monitor/store.js'
+import { addWatched, listWatched } from '../../src/monitor/watchlist.js'
 
 async function ws(): Promise<string> {
   return mkdtemp(path.join(tmpdir(), 'cia-wlrun-'))
@@ -135,5 +136,44 @@ describe('watchlist dust probe', () => {
     )
     expect(out.hits).toEqual([])
     expect(out.error).toMatch(/backend down/)
+  })
+})
+
+describe('watchlist query-injection defences', () => {
+  it('refuses to build a dust query for a non-address, rather than escaping it', async () => {
+    const root = await ws()
+    const calls = { n: 0 }
+    // A trailing backslash is the payload that defeats the naive
+    // replace(/'/g, "\\'") escaper: it escapes the closing quote and breaks
+    // out of the Cypher string literal.
+    const evil = [{ address: "5Mine\\", network: 'bittensor' }]
+    const client = {
+      async callTool() {
+        calls.n += 1
+        return { structuredContent: { facts: { queries: [{ id: 'dust', results: [] }] } } }
+      },
+    } as never
+    const out = await withStore(root, async (store) =>
+      dustHits(client, store, evil, { dustMaxUsd: 1, dustLookbackSeconds: 86400 }, 1000),
+    )
+    // Degrades to "no dust hits" with the error recorded; the malformed query
+    // is never sent.
+    expect(out.hits).toEqual([])
+    expect(out.error).toMatch(/not valid chain addresses/)
+    expect(calls.n).toBe(0)
+  })
+
+  it('rejects a non-address at the watchlist front door', async () => {
+    const root = await ws()
+    await expect(addWatched(root, { address: "5Mine'; MATCH (n) DETACH DELETE n //", network: 'bittensor' })).rejects.toThrow()
+    await expect(addWatched(root, { address: '5Mine\\', network: 'bittensor' })).rejects.toThrow()
+    expect(await listWatched(root)).toEqual([])
+  })
+
+  it('still accepts real SS58 and 0x-prefixed H160 addresses', async () => {
+    const root = await ws()
+    await addWatched(root, { address: '5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5', network: 'bittensor' })
+    await addWatched(root, { address: '0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', network: 'bittensor_evm' })
+    expect(await listWatched(root)).toHaveLength(2)
   })
 })

@@ -7,8 +7,15 @@ import path from 'node:path'
 import * as z from 'zod'
 import { monitorPaths } from './paths.js'
 
+// Chain addresses are alphanumeric (SS58 base58, or H160 as 0x-prefixed hex).
+// Validating here keeps anything else out of the watchlist entirely, so it can
+// never reach a query builder. watchlist-run.ts re-checks before building the
+// dust query — defence in depth, because a hand-edited watchlist.json is a
+// supported workflow and this file is not the only way in.
+const ADDRESS_RE = /^(0x)?[A-Za-z0-9]{1,128}$/
+
 const WatchedAddressSchema = z.object({
-  address: z.string().min(1),
+  address: z.string().min(1).regex(ADDRESS_RE, 'must be a chain address (alphanumeric, optionally 0x-prefixed)'),
   network: z.string().min(1),
   note: z.string().optional(),
 })

@@ -93,8 +93,20 @@ export async function movementHits(
 // FLOWS_TO property names verified against the live topology graph: the edge
 // exposes `amount_usd_sum`, `last_tx_id`, and `last_seen_timestamp` (epoch ms).
 // There is no `last_transfer_ms`.
+// Chain addresses are alphanumeric (SS58 base58, or H160 as 0x-prefixed hex).
+// Anything else cannot be a real address, so the query builder REFUSES it
+// rather than trying to escape it. Escaping a Cypher string literal by hand is
+// how injections happen: the obvious `replace(/'/g, "\\'")` leaves backslash
+// unescaped, so an address ending in `\` escapes the closing quote and breaks
+// out of the literal. An allow-list has no such failure mode.
+const SAFE_ADDRESS = /^[A-Za-z0-9]{1,128}$/
+
 function dustQuery(addresses: string[], dustMaxUsd: number, sinceMs: number): string {
-  const list = addresses.map((a) => `'${a.replace(/'/g, "\\'")}'`).join(',')
+  const unsafe = addresses.filter((a) => !SAFE_ADDRESS.test(a.startsWith('0x') ? a.slice(2) : a))
+  if (unsafe.length > 0) {
+    throw new Error(`watchlist contains ${unsafe.length} address(es) that are not valid chain addresses: ${unsafe.slice(0, 3).map((a) => JSON.stringify(a)).join(', ')}`)
+  }
+  const list = addresses.map((a) => `'${a}'`).join(',')
   return `USE topology MATCH (src:Address)-[t:FLOWS_TO]->(dst:Address)
  WHERE dst.address IN [${list}] AND t.amount_usd_sum <= ${dustMaxUsd} AND t.last_seen_timestamp >= ${sinceMs}
  RETURN dst.address AS address, src.address AS from_address,
