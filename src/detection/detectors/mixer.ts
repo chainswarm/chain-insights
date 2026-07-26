@@ -8,7 +8,7 @@
 // Emits reviewable findings, never a direct label. Thresholds ported (DEC-7).
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { DetectionFinding } from '../../investigation/detection-findings.js'
-import { graphQueryRows, type GraphRow } from '../graph-client.js'
+import { graphQueryRows, networkPredicate, type GraphRow } from '../graph-client.js'
 import { listParam, numParam, strParam } from '../params.js'
 import type { DetectorParams, DetectorScan, DetectionWindow } from '../runtime.js'
 
@@ -127,6 +127,13 @@ export async function mixerScanCandidates(
   candidates: string[],
   cfg: MixerConfig = resolveMixerConfig(network, {}),
 ): Promise<DetectionFinding[]> {
+  // DELIBERATELY NOT network-scoped (unlike mixerScanBatch). This path is
+  // address-anchored: the caller names an exact address, which is already a
+  // unique key in the shared topology graph, so there is no cross-network
+  // over-selection to fix. Adding a `network` predicate here would instead
+  // break the documented interactive contract that an EVM (H160) address is
+  // screened under the chain's primary network name — a fail-closed change of
+  // exactly the kind that previously broke every legitimate EVM topology query.
   const findings: DetectionFinding[] = []
   for (const address of candidates) {
     const safe = address.replace(/"/g, '')
@@ -172,7 +179,11 @@ export async function mixerScanBatch(
   const rows = await graphQueryRows(
     client,
     network,
-    `USE topology MATCH (a:Address) WHERE a.degree_in >= ${cfg.minIn} AND a.degree_out >= ${cfg.minOut} RETURN a.address AS address, a.degree_in AS degree_in, a.degree_out AS degree_out, a.labels AS labels, a.is_exchange AS is_exchange ORDER BY a.degree_in + a.degree_out DESC LIMIT ${cfg.maxCandidates}`,
+    // Network-scoped: the topology graph is shared by every network view over
+    // the same shards, so an unscoped degree filter enumerates candidates from
+    // ALL views and every network's sweep returns the same rows
+    // (chain-insights#228).
+    `USE topology MATCH (a:Address) WHERE ${networkPredicate('a', network)} AND a.degree_in >= ${cfg.minIn} AND a.degree_out >= ${cfg.minOut} RETURN a.address AS address, a.degree_in AS degree_in, a.degree_out AS degree_out, a.labels AS labels, a.is_exchange AS is_exchange ORDER BY a.degree_in + a.degree_out DESC LIMIT ${cfg.maxCandidates}`,
     cfg.timeScope,
   )
   const findings: DetectionFinding[] = []
