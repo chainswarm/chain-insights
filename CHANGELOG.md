@@ -3,6 +3,22 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.1] - 2026-07-26 — client-side shard merge (internal)
+
+- federation: `mergeShardRows` merges the per-shard results the Chain Insights
+  Graph now returns when it fans a query out across shards — deduplicates
+  nodes, sum-merges the same address pair into one lifetime flow, and re-sorts
+  and re-cuts the limit globally rather than per shard.
+- federation: aggregates that cannot be merged exactly (counts, averages) are
+  reported per shard instead of as a single total, so a caller cannot mistake
+  a partial for a lifetime figure.
+- federation: results say whether their ordering is exact or approximate.
+  Ordering by an address is exact after merging; ordering by a summed amount
+  is not, because a flow ranked low in every shard can rank highest once
+  merged.
+- Internal only: nothing routes through this module yet, so there is no change
+  to any command, tool, or output in this release.
+
 ## [0.11.0] - 2026-07-26 — cia monitor
 
 - monitor: `cia monitor` command group for continuous coverage — `run`,
