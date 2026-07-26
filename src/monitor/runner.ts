@@ -12,6 +12,7 @@ import type { MonitorConfig } from './config.js'
 import { monitorPaths } from './paths.js'
 import { ingestNewDocs, withStore } from './store.js'
 import { listCases } from './cases.js'
+import { runWatchlistPass } from './watchlist-run.js'
 
 export const MONITOR_EXIT_ISOLATED = 2
 
@@ -110,6 +111,30 @@ export async function runMonitorOnce(
         } catch (err) {
           outcome.error = (err as Error).message
         }
+        outcome.duration_ms = Date.now() - started
+        doc.cells.push(outcome)
+      }
+    }
+    // The watchlist pass runs LAST, because two of its three triggers are
+    // joins over what the detection and case cells just wrote. An empty
+    // watchlist returns calls: 0 and no hits, so no cell is pushed and
+    // behavior is byte-identical to a run without the feature (AC-7).
+    if (config.watchlist) {
+      const started = Date.now()
+      const outcome: CellOutcome = { cell: 'watchlist', network: '(all)', duration_ms: 0 }
+      try {
+        const pass = await withStore(workspaceRoot, async (store) =>
+          runWatchlistPass(client, workspaceRoot, store, config, nowMs),
+        )
+        if (pass.hits.length > 0 || pass.calls > 0) {
+          outcome.findings_count = pass.hits.length
+          if (pass.error) outcome.error = pass.error
+          alertsPending.push(...pass.alerts)
+          outcome.duration_ms = Date.now() - started
+          doc.cells.push(outcome)
+        }
+      } catch (err) {
+        outcome.error = (err as Error).message
         outcome.duration_ms = Date.now() - started
         doc.cells.push(outcome)
       }

@@ -7,7 +7,14 @@ import { monitorPaths } from './paths.js'
 
 export interface AlertEvent {
   alert_id: string
-  type: 'new_findings' | 'case_movement' | 'cashout_endpoint' | 'frontier_candidate'
+  type:
+    | 'new_findings'
+    | 'case_movement'
+    | 'cashout_endpoint'
+    | 'frontier_candidate'
+    | 'watchlist_finding'
+    | 'watchlist_movement'
+    | 'watchlist_dust'
   network: string
   detector?: string
   case_id?: string

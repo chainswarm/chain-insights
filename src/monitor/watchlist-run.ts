@@ -4,8 +4,10 @@
 // Address risk is deliberately NOT a trigger — it is a downstream product, not
 // a monitoring input.
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import type { AlertEvent } from './alerts.js'
+import type { MonitorConfig } from './config.js'
 import type { MonitorStore } from './store.js'
-import type { WatchedAddress } from './watchlist.js'
+import { loadWatchlist, type WatchedAddress } from './watchlist.js'
 
 export interface WatchlistHit {
   address: string
@@ -152,4 +154,60 @@ export async function dustHits(
     }
   }
   return { hits, calls, error }
+}
+
+const ALERT_TYPE = {
+  finding: 'watchlist_finding',
+  movement: 'watchlist_movement',
+  dust: 'watchlist_dust',
+} as const
+
+export async function runWatchlistPass(
+  client: Client,
+  workspaceRoot: string,
+  store: MonitorStore,
+  config: MonitorConfig,
+  runMs: number,
+): Promise<{
+  hits: WatchlistHit[]
+  alerts: Omit<AlertEvent, 'alert_id' | 'emitted_at_ms'>[]
+  calls: number
+  error?: string
+}> {
+  const watched = await loadWatchlist(workspaceRoot)
+  if (watched.length === 0 || config.watchlist?.enabled === false) return { hits: [], alerts: [], calls: 0 }
+  const hits: WatchlistHit[] = [
+    ...(await findingHits(store, watched, runMs)),
+    ...(await movementHits(store, watched, runMs)),
+  ]
+  const dust = await dustHits(
+    client,
+    store,
+    watched,
+    {
+      dustMaxUsd: config.watchlist?.dustMaxUsd ?? 1.0,
+      dustLookbackSeconds: config.watchlist?.dustLookbackSeconds ?? 86400,
+    },
+    runMs,
+  )
+  hits.push(...dust.hits)
+  for (const hit of hits) {
+    await store.run('INSERT INTO watchlist_hits VALUES ($1,$2,$3,$4,$5,$6)', [
+      runMs,
+      hit.address,
+      hit.network,
+      hit.trigger,
+      hit.source_ref,
+      hit.detail ?? null,
+    ])
+  }
+  const alerts = hits.map((hit) => ({
+    type: ALERT_TYPE[hit.trigger],
+    network: hit.network,
+    address: hit.address,
+    run_ms: runMs,
+    doc_path: hit.trigger === 'finding' ? hit.source_ref : undefined,
+    case_id: hit.trigger === 'movement' ? hit.source_ref : undefined,
+  }))
+  return { hits, alerts, calls: dust.calls, error: dust.error }
 }
