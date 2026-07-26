@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.12] - 2026-07-26 — review queue only lists documents that have something to review
+
+- fix: a detector run that found nothing still wrote a findings document, and
+  that empty document was queued as a pending review. Full-state detectors emit
+  one per suppressed cell on every run, so a standing monitor accumulated review
+  items indefinitely without any of them containing a finding — an eight-cell
+  hourly schedule added roughly 192 empty items a day, burying the handful that
+  were real. Empty documents are no longer listed as pending review work. They
+  are still written and still replayed by `monitor rebuild`, because they are
+  provenance: the run record and the suppression count they carry remain intact.
+
 ## [0.11.11] - 2026-07-26 — detectors scope by address network
 
 - fix: detector sweeps now scope their topology queries by the address network,

@@ -63,6 +63,13 @@ export async function listPending(workspaceRoot: string): Promise<Array<{ doc_pa
     const docPath = path.join(p.detectionsDir, f)
     if (decided.has(docPath)) continue
     const doc = JSON.parse(await readFile(docPath, 'utf8')) as { tool: string; network: string; findings: unknown[] }
+    // A document with no findings has nothing to review. Full-state detectors
+    // emit one per suppressed cell on every run (they record the suppression
+    // count in `warnings`), so enqueueing them buries the real items: a live
+    // workspace reached 64 pending reviews of which only 10 carried findings.
+    // The document is still written and still replayed by `rebuild` — it is
+    // provenance, not review work.
+    if (doc.findings.length === 0) continue
     pending.push({ doc_path: docPath, tool: doc.tool, network: doc.network, findings_count: doc.findings.length })
   }
   return pending
