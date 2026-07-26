@@ -157,3 +157,70 @@ describe('exchangeLikeness candidate cap and read-only surface', () => {
     expect(reciprocity).not.toMatch(/^USE facts\b/)
   })
 })
+
+// Wiring for rbmk chain-insights#217: the MCP graph read path must route
+// shard-tagged (`__shard`) fan-out responses through mergeShardRows before
+// they reach any investigation tool.
+describe('exchangeLikeness — shard-merge wiring (#217)', () => {
+  function shardedClient(addresses: string[], candidates: CandidateFixture[]) {
+    return {
+      callTool: vi.fn(async (req: CallToolRequest) => {
+        const results = req.arguments.queries.map((query) => {
+          const match = query.id.match(/^(profile|reciprocity)_(\d+)$/)
+          if (!match) return { id: query.id, ok: false, error: 'unknown query id' }
+          const kind = match[1]
+          const index = Number(match[2])
+          const address = addresses[index]
+          const candidate = candidates[index]
+          // Simulate graphrag-mcp thin fan-out: two shards, both returning
+          // the SAME exact lifetime-metric row for this address/edge-set (the
+          // federation typed-AST planner makes these values exact — see the
+          // 'reads lifetime fan-in ...' test above), each tagged `__shard`.
+          if (kind === 'profile') {
+            return {
+              id: query.id,
+              ok: true,
+              results: [
+                { __shard: 'shard-a', address, degree_in: candidate.degreeIn, total_in_usd: candidate.totalInUsd },
+                { __shard: 'shard-b', address, degree_in: candidate.degreeIn, total_in_usd: candidate.totalInUsd },
+              ],
+            }
+          }
+          return {
+            id: query.id,
+            ok: true,
+            results: [
+              { __shard: 'shard-a', address, in_count: candidate.inCount, reciprocal_count: candidate.reciprocalCount },
+              { __shard: 'shard-b', address, in_count: candidate.inCount, reciprocal_count: candidate.reciprocalCount },
+            ],
+          }
+        })
+        return { content: [{ type: 'text', text: JSON.stringify({ facts: { queries: results } }) }], isError: false }
+      }),
+    }
+  }
+
+  it('merges shard-tagged fan-out rows to the same result a single-shard response would produce, and never leaks __shard', async () => {
+    const addresses = ['addr-positive']
+    const candidates: CandidateFixture[] = [{ degreeIn: 1500, totalInUsd: 60_000_000, inCount: 100, reciprocalCount: 2 }]
+
+    const unsharded = await exchangeLikeness(client(addresses, candidates) as never, { addresses, network: 'bittensor', writeArtifacts: false })
+    const sharded = await exchangeLikeness(shardedClient(addresses, candidates) as never, { addresses, network: 'bittensor', writeArtifacts: false })
+
+    expect(sharded.candidates).toEqual(unsharded.candidates)
+    expect(sharded.candidates[0]).toMatchObject({ address: 'addr-positive', exchange_like: true })
+    expect(JSON.stringify(sharded.document)).not.toContain('__shard')
+  })
+
+  it('is a true no-op for a non-shard-tagged (single-shard / already-merged) response', async () => {
+    const addresses = ['addr-positive', 'addr-low-fanin']
+    const candidates: CandidateFixture[] = [
+      { degreeIn: 1500, totalInUsd: 60_000_000, inCount: 100, reciprocalCount: 2 },
+      { degreeIn: 500, totalInUsd: 60_000_000, inCount: 100, reciprocalCount: 2 },
+    ]
+    const remote = client(addresses, candidates)
+    const result = await exchangeLikeness(remote as never, { addresses, network: 'bittensor', writeArtifacts: false })
+    expect(result.candidates[0]).toMatchObject({ address: 'addr-positive', exchange_like: true })
+    expect(result.candidates[1]).toMatchObject({ address: 'addr-low-fanin', exchange_like: false, failing_threshold: 'fan_in' })
+  })
+})

@@ -3,6 +3,33 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.5] - 2026-07-26 — wire client-side shard merge into the graph read path (#217)
+
+- feat: `mergeShardRows` (federation/merge.ts, shipped in #213/#218/#219 but
+  never called) is now wired into every graph-read seam that can see
+  `__shard`-tagged rows: `graph_query_batch` parsing in
+  `scam-corridor-trace.ts`, `exchange-likeness.ts`, `trace-funds.ts`, and
+  `public-tools.ts`, plus the single-query `graph_query` path in
+  `detection/graph-client.ts` used by all detectors. A federated
+  (thin-fan-out) response is now merged and stripped of `__shard` before it
+  reaches any caller; a non-federated (single-shard) response passes through
+  byte-identical — the merge is a true no-op when the server is not in
+  fan-out mode.
+- feat: added `src/federation/apply-merge.ts`, deriving `MergeOptions` from
+  the query text already in hand rather than guessing: `aggregateKeys` from
+  RETURN-clause `count`/`sum`/`avg`/`min`/`max` aliases, `orderBy`/`limit`
+  from ORDER BY/LIMIT, and `orderKeyClass` (`invariant` vs `merge-affected`)
+  from whether the sort key is a shard-invariant node property (`address`,
+  `network`, `labels`, `is_exchange`, `risk_score`, `risk_level`,
+  `identity_id`, `label_risk`). No filtering is added anywhere on this path.
+- feat: batch `graph_query_batch` entries now carry `perShard`/`ordering`
+  alongside `results` when a merge happened, so a caller reading the raw
+  batch entry keeps the per-shard aggregate breakdown and the
+  exact/approximate ordering marker instead of losing them silently. The
+  single-query `graph_query` seam (`detection/graph-client.ts`) returns a
+  bare row array with no envelope slot for this metadata — that limitation
+  is documented in code rather than worked around.
+
 ## [0.11.4] - 2026-07-26 — aml_trace_deposit_sources: general upstream sources (#208)
 
 - fix: `aml_trace_deposit_sources` no longer restricts the reverse traceback
