@@ -11,6 +11,7 @@ export interface MonitorPaths {
   acksLog: string
   reviewsDir: string
   dbPath: string
+  watchlistPath: string
   detectionsDir: string
   reviewedDir: string
   casesDir: string
@@ -30,6 +31,7 @@ export function monitorPaths(workspaceRoot: string): MonitorPaths {
     acksLog: path.join(alertsDir, 'acks.jsonl'),
     reviewsDir: path.join(monitorDir, 'reviews'),
     dbPath: path.join(monitorDir, 'monitor.duckdb'),
+    watchlistPath: path.join(monitorDir, 'watchlist.json'),
     detectionsDir: path.join(root, 'detections'),
     reviewedDir: path.join(root, 'detections', 'reviewed'),
     casesDir: path.join(root, 'cases'),
