@@ -36,6 +36,71 @@ Consumes (does NOT own):
 - Graph app UI resource `ui://chain-insights/graph` is attached to the four `aml_*` tools (`GRAPH_APP_TOOL_NAMES` in `src/mcp/proxy.ts`).
 - Devkit smoke evidence lands under `workspace/devkit-smoke/` and `workspace/devkit-smoke/chain-insights-parity/`.
 
+## Shared-Graph Model (highest-value correction)
+
+`bittensor` and `bittensor_evm` are TWO VIEWS OVER ONE address-grain topology
+graph, not two graphs. EVM H160 addresses live INSIDE the bittensor Memgraph
+shards — 8,585 of them across the three temporal shards, verified live on the
+dev stack 2026-07-26 — separated from SS58 addresses only by the
+`Address.network` node PROPERTY. Consequences:
+
+- `network` passed to `graph_query` selects the GRAPH, not the address subset.
+  A `USE topology` match on `:Address` without an exact address MUST add a
+  `<alias>.network = "<network>"` predicate — that is exactly what
+  `networkPredicate()` in `src/detection/graph-client.ts` exists for (PR #229,
+  after unscoped sweeps published wrong-network attributions at double cost).
+  Address-anchored lookups stay unscoped on purpose: the address is a unique
+  key, and scoping fails closed on an H160 screened under `network=bittensor`.
+- `meta_network_capabilities` collapses the views into ONE public `bittensor`
+  network; there is no `network=bittensor_evm` public argument. Detector cells
+  may still name `bittensor_evm` because they scope by the node property.
+- `USE facts` is the inverse: it is the only tier where each network gets its
+  own backing database (`facts.routing.starrocks_database`), and the facts
+  `Address` label has NO mapped `network` property — projecting it hard-fails
+  with `unknown graph identifier: property "network" is not mapped on label
+  "Address"`. Facts also serves `Address` only as a `TRANSFER` endpoint, so a
+  single-node `MATCH (a:Address)` is refused (transfers-only tier).
+
+Getting this backwards caused a production regression and a wrong-network
+detector sweep in the same day. Verify against the live stack before restating
+it.
+
+## Monitor Surface (`src/monitor/`)
+
+`cia monitor` (shipped v0.11.x) is the standing-watch surface over the same
+detection machinery: `src/monitor/{runner,tracker,cases,review,alerts,export,
+watchlist,watchlist-run,store,report,config,paths,jsonl}.ts`, wired as the
+`monitor` command group in `src/cli.ts`.
+
+- `cia monitor run` is a ONE-SHOT (one pass, exits). Deliberate: one-shot
+  idempotent core, never a stateful service. Schedulers (cron, pm2,
+  `cia monitor watch`) supply only the schedule. Under pm2 that means
+  `autorestart: false` + `cron_restart` — without `autorestart: false` pm2
+  reads each clean exit as a crash and hot-loops the matrix.
+- Exit codes: `0` clean, `2` ISOLATED CELL FAILURE (pass completed, ≥1 cell
+  errored — `MONITOR_EXIT_ISOLATED`), `1` the run could not start. `2` is a
+  partial success and shows as `errored` in `pm2 list` by design.
+- Default matrix (only when the config file is ENOENT): four detectors ×
+  `bittensor`/`bittensor_evm`. An unreadable or invalid config throws — it must
+  never silently fall back.
+- Detector window modes: `address-poisoning` is `incremental` (advances a scan
+  checkpoint); `fake-token`, `mixer`, `attack-attribution` are `full-state`
+  (no checkpoint; an emitted-findings key set under `.chain-insights/detectors/
+  <detector>.<network>.emitted.json`, `src/detection/emitted-state.ts`). So an
+  unchanged run legitimately emits ZERO findings — that is the anti-backlog
+  design, not a broken sweep. `--full` (on `cia detect`, never on
+  `cia monitor run`) resets emitted state and re-emits everything. Empty
+  documents are written and replayed by `monitor rebuild` as provenance but are
+  NOT queued as pending review work (PR #233).
+- Review is the only path to a label: approve writes a reviewer-stamped COPY
+  under `detections/reviewed/`; the original findings document is never
+  modified; `export labels` reads approved decisions only.
+- Shipped skill `chain-insights-monitoring` (plus
+  `references/pm2-scheduling.md`) is the agent-facing surface; `docs/
+  monitoring.md` is the human one. Keep both in step with any monitor change —
+  `skills/` ships in the tarball, so a capability no skill mentions is
+  invisible to agents.
+
 ## Invariants & Operating Rules
 
 - `AGENTS.md` and `CLAUDE.md` are twin files kept byte-identical — edit both together or neither.

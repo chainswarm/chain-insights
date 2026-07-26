@@ -3,6 +3,49 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.13] - 2026-07-26 — monitoring is discoverable
+
+- docs: new shipped skill `chain-insights-monitoring` routes an agent from
+  "watch this" to `cia monitor` — workspace setup, the detector×network matrix,
+  cases, the review→labels boundary, alerts and sinks, the watchlist, exit
+  codes, and scheduling. Monitoring shipped across 0.11.x but no shipped skill
+  mentioned it, so an agent installing Chain Insights could not discover it.
+- docs: `chain-insights-monitoring/references/pm2-scheduling.md` documents
+  scheduling a one-shot with pm2. `cia monitor run` performs one pass and
+  exits by design, so `autorestart: false` is mandatory — pm2's default treats
+  each clean exit as a crash and hot-loops the detector matrix. Also covers
+  exit code 2 showing as `errored` (intended alerting, not a broken deploy),
+  the separate `pm2 save` and `pm2 startup` persistence steps, and when to
+  prefer pm2 over cron or `cia monitor watch`.
+- docs: `docs/monitoring.md` gains the scheduling section (cron, pm2, `watch`)
+  with a working `ecosystem.config.cjs`, full-state vs incremental detector
+  semantics and why an unchanged run legitimately yields an empty findings
+  document, the `--full` re-emit escape hatch, network scoping, and guidance to
+  quarantine bad findings by rejecting rather than deleting them.
+- docs: `chain-insights-cypher`, `chain-insights-bittensor-cypher`, and
+  `docs/graph-query-compatibility.md` now state the shared-graph model
+  explicitly: a chain's address spaces are two views over ONE address-grain
+  topology graph split by the `Address.network` node property, so the `network`
+  argument selects the graph and not the addresses inside it, and every
+  non-exact `:Address` match must scope itself. Under `USE facts` the inverse
+  holds — each network has its own backing database and `Address` carries no
+  mapped `network` property at all.
+- docs: `chain-insights-investigation` now routes standing-watch requests to
+  the monitoring skill instead of improvising a loop around the AML tools;
+  `test-chain-insights-graph` gains a monitoring UAT contract that will not
+  misreport exit 2 or an empty findings document as a failure.
+- docs: the `dist/` trap is called out in `chain-insights-developer-experience`,
+  `docs/development.md`, and `docs/debugging.md` — `dist/` is gitignored, does
+  not auto-rebuild, and is not rebuilt by `npm test`, so a stale build passes
+  CI and ships a plausible wrong answer with no error. `docs/development.md`
+  also documents worktrees for concurrent work.
+- docs: README expands the monitoring section into the full command surface
+  with the three non-obvious behaviors (one-shot, exit 2, empty-is-valid), and
+  replaces a stale `USE facts` example that referenced the retired address
+  feature surface.
+- docs: `docs/investigation-workspaces.md` explains how a monitor workspace
+  relates to an investigation workspace and when to keep them separate.
+
 ## [0.11.12] - 2026-07-26 — review queue only lists documents that have something to review
 
 - fix: a detector run that found nothing still wrote a findings document, and
@@ -13,7 +56,6 @@ All notable changes to Chain Insights are recorded here.
   were real. Empty documents are no longer listed as pending review work. They
   are still written and still replayed by `monitor rebuild`, because they are
   provenance: the run record and the suppression count they carry remain intact.
-
 ## [0.11.11] - 2026-07-26 — detectors scope by address network
 
 - fix: detector sweeps now scope their topology queries by the address network,

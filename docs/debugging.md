@@ -4,6 +4,46 @@ This document covers local Chain Insights Graph debugging, auth bypasses,
 Inspector checks, and UAT. Product quick starts belong in README; debugging
 details live here.
 
+## Check `dist/` First
+
+Before debugging anything reached through `cia` or `bin/cli.js`, rebuild:
+
+```bash
+npm run build
+```
+
+`bin/cli.js` imports `dist/`, never `src/`. `dist/` is gitignored, does not
+auto-rebuild, and is not rebuilt by `npm test`. A stale `dist/` therefore runs
+old compiled logic against current data and returns a plausible wrong answer
+with no error and no hint that the build is the cause — including symptoms that
+look exactly like bad data or a broken endpoint. Rule out the build before
+investigating the graph.
+
+## Monitoring Runs
+
+`cia monitor run` signals a pass through its exit code, so read the code before
+reading the logs:
+
+```bash
+cia monitor run; echo "exit=$?"
+```
+
+- `0` — clean pass.
+- `2` — **isolated cell failure**: the pass completed, at least one cell did
+  not. The failing cells are printed as `[monitor] <cell> FAILED: …`; every
+  other cell's findings and alerts landed. This is a partial success.
+- `1` — the run could not start (unreadable workspace, invalid monitor config).
+  Nothing was scanned.
+
+Under pm2, exit `2` shows the process as `errored` in `pm2 list`. That is the
+intended visibility for a partial pass, not a broken deployment.
+
+An empty findings document is also not a bug: full-state detectors emit only
+findings not already emitted for that network, so unchanged data yields zero
+new findings. Force a full re-emit with
+`cia detect <detector> --network <network> --full`. See
+[Continuous monitoring](monitoring.md).
+
 ## Bittensor Devkit Backend
 
 Use the bundled devkit when you need a deterministic local Chain Insights Graph

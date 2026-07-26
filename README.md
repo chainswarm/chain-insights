@@ -187,7 +187,7 @@ Run a batch across graph views:
 ```bash
 cia mcp call graph_query_batch \
   network=bittensor \
-  'queries=[{"id":"count","query":"USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"flows","query":"USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 3"},{"id":"linked","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"},{"id":"facts_sample","query":"USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.tx_out_count AS tx_out_count LIMIT 3"}]'
+  'queries=[{"id":"count","query":"USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"flows","query":"USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 3"},{"id":"linked","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"},{"id":"node_metrics","query":"USE topology MATCH (a:Address {address:\"FULL_ADDRESS\"}) RETURN a.address AS address, a.tx_out_count AS tx_out_count, a.tx_in_count AS tx_in_count LIMIT 1"},{"id":"facts_transfers","query":"USE facts MATCH (from:Address {address:\"FULL_ADDRESS\"})-[t:TRANSFER]->(to:Address) RETURN to.address AS to_address, t.tx_id AS tx_id, t.amount_usd AS amount_usd LIMIT 3"}]'
 ```
 
 For no-wallet public free-tier usage, prefer the single-query example first.
@@ -235,6 +235,16 @@ Agent installs include `chain-insights-cypher` for generic layer-aware
 GQL/Cypher work and `chain-insights-bittensor-cypher` for Bittensor-specific
 schema notes and examples.
 
+One rule is worth reading before you write a query by hand: a chain's address
+spaces (for Bittensor, native SS58 and EVM-pallet `0x…`) are **two views over
+one address-grain topology graph**, separated by the `:Address.network` node
+property. The `network` argument selects the graph, not the addresses inside
+it, so a `USE topology` match on `:Address` without an exact address must scope
+itself with `WHERE a.network = "..."`. On `USE facts` the opposite holds: each
+network has its own backing database and `Address` carries no `network`
+property at all. See
+[Graph query compatibility](docs/graph-query-compatibility.md).
+
 ## AML Tools
 
 The high-level AML tools are Chain Insights workflows built around graph access
@@ -267,21 +277,53 @@ notes.
 
 ## Continuous Monitoring
 
-`cia monitor` turns one-shot investigation into a standing watch: scheduled
-detector sweeps for fake tokens, address poisoning, mixer-likeness, and attack
-attribution; stolen-funds case tracking with snapshot diffs and cashout
-alerts; review-gated scam-topology expansion; and label export from
-reviewer-approved findings only.
+`cia monitor` turns one-shot investigation into a standing watch. Instead of an
+analyst re-running each check by hand, Chain Insights re-runs the sweeps and
+case traces on a schedule, diffs each result against the last, and surfaces the
+difference — while every result stays a plain file in the workspace, and
+nothing becomes a label until a human approves it.
+
+| Command | What it does |
+| --- | --- |
+| `cia monitor run` | One pass over the detector×network matrix and every open case |
+| `cia monitor watch` | Loop `run` on an interval without an external scheduler |
+| `cia monitor status` | Cells, open cases, pending reviews, unacked alerts, last run |
+| `cia monitor report` | Markdown rollup: recent runs, review queue, alerts, case timelines |
+| `cia monitor case` | Track a theft or scam cluster; re-traced and snapshot-diffed each pass |
+| `cia monitor watchlist` | Alert when detections or case movements touch *your* addresses |
+| `cia monitor review` | Approve or reject findings — the only path to a label |
+| `cia monitor alerts` | List and acknowledge alerts; optional webhook and exec sinks |
+| `cia monitor export labels` | Export reviewer-approved findings as curated labels |
+
+Get a first pass in two commands:
 
 ```bash
 cia init .
 cia monitor run
 ```
 
-Put `cia monitor run` on a schedule (cron, or the built-in `cia monitor
-watch`) for continuous coverage. See [Continuous monitoring](docs/monitoring.md)
-for the full command surface, configuration keys, storage model, and exit
-codes.
+Four detectors sweep on the matrix — fake tokens, address poisoning,
+mixer-likeness, and attack attribution — alongside stolen-funds case tracking
+with cashout alerts and review-gated scam-cluster expansion.
+
+Three things are worth knowing before you schedule it:
+
+- **`cia monitor run` is a one-shot.** One pass, then exit. That is deliberate:
+  the core is one-shot and idempotent, so cron, pm2, or `cia monitor watch` can
+  each drive it. Under pm2 this means `autorestart: false` is mandatory —
+  without it, pm2 reads each clean exit as a crash and hot-loops the matrix.
+- **Exit `2` means an isolated cell failed** while every other cell completed
+  and its findings landed. It is a partial success, not a crash; only exit `1`
+  means nothing ran.
+- **An unchanged run legitimately produces an empty findings document.**
+  Full-state detectors emit only what you have not already been shown, so a
+  quiet run means quiet data, not a broken sweep.
+
+See [Continuous monitoring](docs/monitoring.md) for the full command surface,
+configuration keys, scheduling (cron, pm2, and `watch`), detector semantics,
+storage model, and exit codes. Agent installs also include the
+`chain-insights-monitoring` skill, which routes an agent from "watch this" to
+the right commands.
 
 ## Docs Map
 

@@ -37,6 +37,47 @@ templates/                    Reusable workspace templates
 No investigation output belongs under `~/.chain-insights`. That directory is for
 local Chain Insights config, wallet, and schema cache state.
 
+## Monitor Workspaces
+
+A monitor workspace is not a different kind of workspace. `cia monitor` runs
+inside an ordinary initialized workspace and adds directories alongside the
+investigation ones:
+
+```text
+detections/                             Findings documents from sweeps and case traces
+detections/reviewed/                    Reviewer-stamped copies (the hand-off artifact)
+cases/<case-id>/case.json               Case definition
+cases/<case-id>/snapshots/              One snapshot per pass that traced this case
+reports/monitor/                        Exported curated labels (JSON + CSV)
+.chain-insights/monitor/config.json     Monitor configuration
+.chain-insights/monitor/runs/           One run document per pass
+.chain-insights/monitor/alerts/         Alert stream and acknowledgements
+.chain-insights/monitor/reviews/        Review decision records
+.chain-insights/monitor/watchlist.json  Watched addresses
+.chain-insights/detectors/              Per-detector, per-network scan state
+```
+
+The same rules apply: run every command from the workspace root, and no monitor
+output belongs under `~/.chain-insights`.
+
+Whether to share one workspace or keep two is a question of lifetime, not
+capability:
+
+- **One workspace** when monitoring exists to feed investigation — a tracked
+  theft whose case movements you then trace by hand. Case snapshots, findings,
+  and your `reports/` analysis sit next to each other and reference each other
+  by path.
+- **A dedicated monitoring workspace** when the watch is long-running and
+  general (a scheduled matrix, a treasury watchlist). It accumulates run
+  documents and findings indefinitely, on a schedule; an investigation
+  workspace is a bounded piece of work you eventually publish and close. Mixing
+  them buries a finished investigation under months of run documents.
+
+Do not point two schedules at the same workspace. Passes are idempotent, but
+overlapping schedules double the metered graph spend for no extra coverage.
+
+See [Continuous monitoring](monitoring.md) for the command surface.
+
 ## Imports
 
 `imports/` is for user-provided or third-party inputs before they become

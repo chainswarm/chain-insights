@@ -74,6 +74,25 @@ cia debug off
 - Use read-only Cypher only: no `CREATE`, `MERGE`, `SET`, `DELETE`, `REMOVE`, `DROP`, or `DETACH`.
 - Bound graph reads with `LIMIT`.
 
+## One-Shot Investigation vs Standing Watch
+
+This skill covers **one-shot** investigation: a question asked now, answered
+from current graph state, written into the workspace as evidence.
+
+If the user wants to be told when something *changes* — a scheduled sweep, a
+theft re-traced until funds reach a cashout endpoint, an alert when their own
+addresses are touched, findings queued for review over time — that is
+`cia monitor`, and the shipped `chain-insights-monitoring` skill owns it. Route
+there instead of improvising a loop around the AML tools.
+
+| Signal from the user | Route to |
+| --- | --- |
+| "screen this address", "trace these funds", "who funded X" | this skill |
+| "watch", "alert me", "on a schedule", "keep tracking", "notify when" | `chain-insights-monitoring` |
+
+Both operate in the same workspace and produce the same kind of file evidence,
+so switching between them costs nothing.
+
 ## Tool Selection
 
 Use `aml_address_risk` first for ordinary single-address screening.

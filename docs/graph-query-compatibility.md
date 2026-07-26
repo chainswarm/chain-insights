@@ -33,6 +33,61 @@ Two consequences drive everything below:
 > MemGQL 0.7.0 hazards (#4343/#4344/#4345), a per-call graph-scope tool argument,
 > or period-granular historical rollups are historical.
 
+## The shared-graph model — what `network` actually selects
+
+Read this before writing any query that matches `:Address` without an exact
+address.
+
+Several network views of one chain are **two views over ONE address-grain
+topology graph**, not two graphs. On Bittensor, native SS58 addresses and
+EVM-pallet H160 (`0x…`) addresses live in the *same* topology shards; the split
+between them is the `:Address.network` node **property** (`bittensor` /
+`bittensor_evm`), which is why `bittensor` is the single public query network
+and there is no `network=bittensor_evm` argument to pass.
+
+The consequence is exact and easy to get wrong:
+
+> **The `network` argument selects the GRAPH, not the subset of addresses
+> inside it.**
+
+So a `USE topology` query that matches `:Address` without a network predicate
+scans every view's addresses and returns rows from an address space you did not
+ask for:
+
+```cypher
+-- WRONG: returns SS58 and H160 addresses regardless of intent
+USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 100
+
+-- RIGHT: scope by the node property
+USE topology MATCH (a:Address) WHERE a.network = "bittensor_evm"
+RETURN a.address AS address LIMIT 100
+```
+
+Exact-address lookups (`MATCH (a:Address {address: "0x…"})`) need no predicate:
+the address is already a unique key, and adding a network predicate there fails
+closed on an EVM address screened under the chain's primary network name.
+
+### `USE facts` is the opposite case
+
+`facts` is the one place each network *does* get its own backing database —
+the routing metadata on a result reports it as
+`facts.routing.starrocks_database`. Because the database already scopes the
+network, the facts `Address` label has **no mapped `network` property at all**:
+
+```text
+USE facts MATCH (a:Address {address:"0x…"})-[t:TRANSFER]->(b:Address)
+          RETURN a.network AS from_network
+→ unknown graph identifier: property "network" is not mapped on label "Address"
+```
+
+`Address` on facts is served only as a `TRANSFER` relationship endpoint, so a
+single-node `MATCH (a:Address)` is refused there as well. Read address-grain
+node properties — including `network` — on `USE topology`.
+
+Getting these two rules backwards is not a stylistic problem. An unscoped
+topology sweep publishes wrong-network results at double the metered cost, and
+a facts query projecting `network` hard-fails rather than degrading.
+
 ## `topology` — native Memgraph Cypher
 
 Everything Memgraph accepts on a read-only session is accepted here, within the
