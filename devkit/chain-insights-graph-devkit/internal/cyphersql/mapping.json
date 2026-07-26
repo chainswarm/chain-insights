@@ -9,6 +9,19 @@
       }
     },
     {
+      "label": "Asset",
+      "table": "facts_assets_view",
+      "id_column": "asset_contract",
+      "properties": {
+        "asset_contract": "asset_contract",
+        "asset_symbol": "asset_symbol",
+        "symbol_lower": "symbol_lower",
+        "decimals": "decimals",
+        "verified": "verified",
+        "verification_source": "verification_source"
+      }
+    },
+    {
       "label": "AddressFeature",
       "table": "facts_address_features_view",
       "id_column": "address",

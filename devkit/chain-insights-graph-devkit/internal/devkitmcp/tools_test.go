@@ -269,3 +269,73 @@ func TestGraphQueryReturnsChainInsightsEnvelopeWithRouting(t *testing.T) {
 		t.Fatalf("results = %#v", result.Facts.Query.Results)
 	}
 }
+
+// graph_query must ACCEPT the production `time_scope` argument. The mixer
+// recipe sends time_scope=recent by default; a devkit schema without the field
+// rejected the whole call as an unexpected additional property.
+func TestGraphQueryAcceptsTimeScope(t *testing.T) {
+	t.Parallel()
+
+	handler := graphQueryHandler(fakeRunner{})
+	for _, scope := range []string{"", "lifetime", "recent", "RECENT", "since_ms:1700000000000"} {
+		callResult, _, err := handler(context.Background(), nil, GraphQueryArgs{
+			Network:   "bittensor",
+			Query:     "USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 1",
+			TimeScope: scope,
+		})
+		if err != nil {
+			t.Fatalf("time_scope %q: handler returned error: %v", scope, err)
+		}
+		if callResult != nil && callResult.IsError {
+			t.Fatalf("time_scope %q rejected: %+v", scope, callResult.Content)
+		}
+	}
+}
+
+func TestGraphQueryRejectsMalformedTimeScope(t *testing.T) {
+	t.Parallel()
+
+	handler := graphQueryHandler(fakeRunner{})
+	for _, scope := range []string{"yesterday", "since_ms:", "since_ms:-1", "since_ms:abc"} {
+		callResult, _, err := handler(context.Background(), nil, GraphQueryArgs{
+			Network:   "bittensor",
+			Query:     "USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 1",
+			TimeScope: scope,
+		})
+		if err != nil {
+			t.Fatalf("time_scope %q: handler returned error: %v", scope, err)
+		}
+		if callResult == nil || !callResult.IsError {
+			t.Fatalf("expected malformed time_scope %q to be rejected", scope)
+		}
+	}
+}
+
+func TestGraphQueryBatchAcceptsTimeScope(t *testing.T) {
+	t.Parallel()
+
+	handler := graphQueryBatchHandler(fakeRunner{})
+	callResult, _, err := handler(context.Background(), nil, GraphQueryBatchArgs{
+		Network:   "bittensor",
+		TimeScope: "recent",
+		Queries:   []BatchQuery{{ID: "a", Query: "USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 1"}},
+	})
+	if err != nil {
+		t.Fatalf("handler returned error: %v", err)
+	}
+	if callResult != nil && callResult.IsError {
+		t.Fatalf("batch time_scope rejected: %+v", callResult.Content)
+	}
+
+	callResult, _, err = handler(context.Background(), nil, GraphQueryBatchArgs{
+		Network:   "bittensor",
+		TimeScope: "yesterday",
+		Queries:   []BatchQuery{{ID: "a", Query: "USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 1"}},
+	})
+	if err != nil {
+		t.Fatalf("handler returned error: %v", err)
+	}
+	if callResult == nil || !callResult.IsError {
+		t.Fatalf("expected malformed batch time_scope to be rejected")
+	}
+}

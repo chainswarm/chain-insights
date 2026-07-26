@@ -49,22 +49,28 @@ func TestCommentsRejected(t *testing.T) {
 	}
 }
 
-// The retired Asset facts label (facts_assets_view, dropped schema-side) is no
-// longer mapped: an :Asset query fails at COMPILE time with the unknown-label
-// validation error instead of reaching StarRocks.
-func TestAssetLabelRejectedAsUnmapped(t *testing.T) {
+// The Asset facts label (facts_assets_view) is part of the production serving
+// contract the devkit tracks, and the fake-token recipe reads it. It compiles
+// for its mapped properties; unmapped properties are still rejected, so the
+// allowlist stays exact.
+func TestAssetLabelCompiles(t *testing.T) {
 	for _, q := range []string{
-		`USE facts MATCH (a:Asset) WHERE a.coingecko_id IS NULL RETURN a.asset_symbol AS id ORDER BY a.asset_symbol ASC LIMIT 10`,
-		`USE facts MATCH (a:Asset) WHERE a.coingecko_id IS NOT NULL RETURN a.asset_symbol AS id LIMIT 10`,
+		`USE facts MATCH (a:Asset) RETURN a.asset_contract AS asset_contract, a.symbol_lower AS symbol_lower, a.asset_symbol AS asset_symbol, a.verified AS verified, a.verification_source AS verification_source ORDER BY a.asset_contract LIMIT 10`,
+		`USE facts MATCH (a:Asset) WHERE a.asset_contract > "x" RETURN a.asset_contract AS asset_contract LIMIT 10`,
 	} {
-		_, err := Compile(q)
-		if err == nil {
-			t.Errorf("expected unmapped-label rejection for: %s", q)
+		compiled, err := Compile(q)
+		if err != nil {
+			t.Errorf("expected :Asset to compile, got %v for: %s", err, q)
 			continue
 		}
-		if !strings.Contains(err.Error(), `node label "Asset" is not mapped`) {
-			t.Errorf("error %q does not name the unmapped Asset label", err.Error())
+		if !strings.Contains(compiled.SQL, "facts_assets_view") {
+			t.Errorf("compiled SQL %q does not target facts_assets_view", compiled.SQL)
 		}
+	}
+
+	unmapped := `USE facts MATCH (a:Asset) WHERE a.coingecko_id IS NULL RETURN a.asset_symbol AS id LIMIT 10`
+	if _, err := Compile(unmapped); err == nil {
+		t.Errorf("expected unmapped-property rejection for: %s", unmapped)
 	}
 }
 
