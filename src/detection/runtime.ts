@@ -13,12 +13,27 @@ import {
   type DetectionToolName,
 } from '../investigation/detection-findings.js'
 import { readCheckpoint, writeCheckpoint, type DetectionCheckpoint } from './checkpoint.js'
+import { filterNewFindings, readEmittedState, writeEmittedState } from './emitted-state.js'
 
 export interface DetectionWindow {
   fromMs: number
   toMs: number
   full: boolean
 }
+
+// How a detector relates to the scan window, declared per detector so the
+// runtime can behave honestly instead of pretending every scan is incremental.
+//
+// - 'incremental': the detector BOUNDS its queries by `window` (events inside
+//   (from, to]). The checkpoint is meaningful and advances after each run.
+// - 'full-state':  the detector classifies from CURRENT cumulative graph state
+//   (node degree metrics, taxonomy labels, the asset registry), which carries no
+//   usable event timestamp. Bounding it by a window would not make it cheaper,
+//   it would make it WRONG. Such a detector always receives a full window, its
+//   checkpoint is NOT advanced (nothing reads it), and the runtime emits only
+//   findings not already emitted for that network so a run over unchanged data
+//   adds nothing to the review backlog.
+export type DetectorWindowMode = 'incremental' | 'full-state'
 
 // DetectorParams is the operator-supplied argument bag (from `--param k=v`).
 // Each detector interprets its OWN keys; unknown keys are ignored. Values are
@@ -32,6 +47,11 @@ export interface DetectorScan {
   tool: DetectionToolName
   // The detector id used for CLI + checkpoint file naming (e.g. "fake-token").
   id: string
+  // Declares whether this detector honors the scan window. Defaults to
+  // 'incremental' — a detector that ignores `window` MUST declare 'full-state'
+  // so the runtime stops advancing a checkpoint nothing reads and starts
+  // de-duplicating its output against previous runs.
+  windowMode?: DetectorWindowMode
   // Pure scan: given a window, a graph client, the network, and the operator
   // param bag, return findings. No IO beyond the client; deterministic given
   // inputs so it is unit-testable with a fake.
@@ -56,7 +76,13 @@ export interface RunDetectionOptions {
 
 export interface RunDetectionResult {
   document: DetectionFindingsDocument
-  checkpointAdvancedTo: number
+  // Timestamp the checkpoint should advance to, or null when this detector has
+  // no meaningful checkpoint (windowMode 'full-state'). A null here means the
+  // caller must NOT write a checkpoint.
+  checkpointAdvancedTo: number | null
+  // Present only for 'full-state' detectors: the emitted-findings key set to
+  // persist once the document is durably written.
+  emittedKeys?: string[]
 }
 
 // Runs one scan and builds the findings document. Does NOT write the checkpoint
@@ -68,12 +94,48 @@ export async function runDetection(
   workspaceRoot: string,
   opts: RunDetectionOptions,
 ): Promise<RunDetectionResult> {
-  const checkpoint = await readCheckpoint(workspaceRoot, scanner.id, opts.network)
-  const fromMs = opts.full ? 0 : checkpoint.last_block_timestamp_ms
-  const window: DetectionWindow = { fromMs, toMs: opts.nowMs, full: opts.full }
+  const mode: DetectorWindowMode = scanner.windowMode ?? 'incremental'
+  const fullState = mode === 'full-state'
+  // A full-state detector always gets an honest full window: it never reads the
+  // checkpoint, so handing it a narrowed one would misrepresent what it scanned.
+  const checkpoint = fullState
+    ? null
+    : await readCheckpoint(workspaceRoot, scanner.id, opts.network)
+  const fromMs = fullState || opts.full ? 0 : (checkpoint?.last_block_timestamp_ms ?? 0)
+  const window: DetectionWindow = { fromMs, toMs: opts.nowMs, full: fullState || opts.full }
   const params = opts.params ?? {}
-  const findings = await scanner.scan(window, client, opts.network, params)
-  const document: DetectionFindingsDocument = {
+  const scanned = await scanner.scan(window, client, opts.network, params)
+
+  // Incremental detectors bound their own queries, so what they return is
+  // already new-since-last-run and is emitted as-is.
+  if (!fullState) {
+    return { document: buildDocument(scanner, opts, scanned, params), checkpointAdvancedTo: opts.nowMs }
+  }
+
+  // Full-state detectors re-derive their whole result set every run. Emit only
+  // what the operator has not already been shown; a `--full` run deliberately
+  // resets the state and re-emits everything.
+  const previous = await readEmittedState(workspaceRoot, scanner.id, opts.network)
+  const { fresh, suppressed, nextKeys } = filterNewFindings(scanned, previous.finding_keys, opts.full)
+  const document = buildDocument(scanner, opts, fresh, params)
+  if (suppressed > 0) {
+    document.warnings = [
+      ...(document.warnings ?? []),
+      `full-state detector: suppressed ${suppressed} finding(s) already emitted for ${opts.network} in a previous run`,
+    ]
+  }
+  // checkpointAdvancedTo is null on purpose: this detector reads no checkpoint,
+  // so advancing one would fake an incremental scan that never happened.
+  return { document, checkpointAdvancedTo: null, emittedKeys: nextKeys }
+}
+
+function buildDocument(
+  scanner: DetectorScan,
+  opts: RunDetectionOptions,
+  findings: DetectionFinding[],
+  params: DetectorParams,
+): DetectionFindingsDocument {
+  return {
     schema: DETECTION_FINDINGS_SCHEMA_VERSION,
     tool: scanner.tool,
     network: opts.network,
@@ -84,7 +146,25 @@ export async function runDetection(
     // reviewer is intentionally NOT set here — the curated-import gate refuses
     // any findings document without a human reviewer identity.
   }
-  return { document, checkpointAdvancedTo: opts.nowMs }
+}
+
+// Persists the emitted-findings state for a full-state detector. Kept separate
+// from runDetection (like commitCheckpoint) so a caller that fails to write the
+// document never marks its findings as delivered.
+export async function commitEmittedState(
+  workspaceRoot: string,
+  scanner: DetectorScan,
+  network: string,
+  keys: string[],
+  nowMs: number,
+): Promise<void> {
+  await writeEmittedState(workspaceRoot, {
+    schema: 'chain-insights.detection-emitted.v1',
+    detector: scanner.id,
+    network,
+    updated_at_ms: nowMs,
+    finding_keys: keys,
+  })
 }
 
 // Advances the checkpoint after a document has been written. Kept separate from

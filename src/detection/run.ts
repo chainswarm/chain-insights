@@ -1,12 +1,15 @@
 // Detection run driver (rbmk#462): ties registry → runtime → emit → checkpoint
-// for the CLI. One invocation = one incremental (or full) scan: read window,
-// scan, write findings, then (and only then) advance the checkpoint. `--watch`
-// loops this. Findings never carry a reviewer — the import gate stays the only
-// path to labels.
+// for the CLI. One invocation = one scan: read window, scan, write findings,
+// then (and only then) advance the run state. Which run state depends on the
+// detector's declared windowMode — an incremental detector advances its scan
+// checkpoint; a full-state detector advances its emitted-findings set instead,
+// so repeated runs over unchanged data report nothing new. `--watch` loops this.
+// Findings never carry a reviewer — the import gate stays the only path to
+// labels.
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { writeFindings } from './emit.js'
 import { resolveDetector } from './registry.js'
-import { commitCheckpoint, runDetection } from './runtime.js'
+import { commitCheckpoint, commitEmittedState, runDetection } from './runtime.js'
 
 export interface DetectRunOptions {
   detector: string
@@ -29,14 +32,21 @@ export async function runOneDetection(
   opts: DetectRunOptions,
 ): Promise<DetectRunOutcome> {
   const scanner = resolveDetector(opts.detector)
-  const { document, checkpointAdvancedTo } = await runDetection(scanner, client, opts.workspaceRoot, {
+  const { document, checkpointAdvancedTo, emittedKeys } = await runDetection(scanner, client, opts.workspaceRoot, {
     network: opts.network,
     full: opts.full,
     nowMs: opts.nowMs,
     params: opts.params,
   })
   const findingsPath = await writeFindings(opts.workspaceRoot, opts.detector, document)
-  // Advance the checkpoint ONLY after the findings are durably on disk.
-  await commitCheckpoint(opts.workspaceRoot, scanner, opts.network, checkpointAdvancedTo)
+  // Advance run state ONLY after the findings are durably on disk.
+  if (checkpointAdvancedTo !== null) {
+    await commitCheckpoint(opts.workspaceRoot, scanner, opts.network, checkpointAdvancedTo)
+  }
+  // A full-state detector has no checkpoint; instead it records what it has
+  // already emitted so the next run only reports genuinely new findings.
+  if (emittedKeys) {
+    await commitEmittedState(opts.workspaceRoot, scanner, opts.network, emittedKeys, opts.nowMs)
+  }
   return { findingsPath, findingsCount: document.findings.length, status: document.status }
 }

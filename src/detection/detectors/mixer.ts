@@ -195,6 +195,16 @@ export async function mixerScanBatch(
 export const mixerDetector: DetectorScan = {
   tool: 'aml_mixer_likeness',
   id: 'mixer',
+  // Full-state, declared honestly. The hourglass test reads degree_in/degree_out
+  // — cumulative NODE METRIC projections with no event timestamp to filter on.
+  // There is no query shape that returns "addresses that became hourglass-shaped
+  // since T"; the temporal knob this detector does have is `time_scope` (which
+  // shard's metrics to read), not a scan window. Restricting candidates to
+  // addresses merely ACTIVE in the window would change what the detector means
+  // (an established mixer idle for an hour would drop out and re-appear later).
+  // So the full candidate scan stays, no checkpoint is advanced, and the runtime
+  // emits only candidates not already reported.
+  windowMode: 'full-state',
   thresholds: (network, params) => {
     const cfg = resolveMixerConfig(network, params)
     return {
@@ -206,6 +216,8 @@ export const mixerDetector: DetectorScan = {
       role_keywords: cfg.roleKeywords,
     }
   },
+  // `window` is intentionally unused — see windowMode above. The runtime always
+  // passes a full window here and de-duplicates the output across runs.
   async scan(_window: DetectionWindow, client: Client, network: string, params: DetectorParams): Promise<DetectionFinding[]> {
     // Resolve per-network defaults + operator `--param` overrides, then run the
     // degree-qualified candidate scan. The interactive aml_mixer_likeness tool

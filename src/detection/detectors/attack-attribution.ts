@@ -128,6 +128,15 @@ export async function bfsAttribution(
 export const attackAttributionDetector: DetectorScan = {
   tool: 'aml_attack_attribution',
   id: 'attack-attribution',
+  // Full-state, declared honestly. Attribution is only correct over the COMPLETE
+  // labelled seed set and the complete downstream reachability from it: a seed
+  // labelled months ago still owns every address it ever reached, and the
+  // shortest-hop attribution of an address depends on paths of any age. Bounding
+  // the seed pull or the FLOWS_TO walk by a scan window would silently drop
+  // seeds and mis-assign hops — a wrong attribution, not merely a cheaper one.
+  // So the full walk stays, no checkpoint is advanced, and the runtime emits
+  // only addresses not attributed in a previous run.
+  windowMode: 'full-state',
   thresholds: (network, params) => {
     const cfg = resolveAttributionConfig(network, params)
     return {
@@ -140,6 +149,8 @@ export const attackAttributionDetector: DetectorScan = {
       boundary_keywords: cfg.boundaryKeywords,
     }
   },
+  // `window` is intentionally unused — see windowMode above. The runtime always
+  // passes a full window here and de-duplicates the output across runs.
   async scan(_window: DetectionWindow, client: Client, network: string, params: DetectorParams): Promise<DetectionFinding[]> {
     const cfg = resolveAttributionConfig(network, params)
     const seeds = await pullSeeds(client, network, cfg)

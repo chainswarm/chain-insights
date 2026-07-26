@@ -3,6 +3,29 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.9] - 2026-07-26 — detection: scheduled runs stop re-emitting findings the reviewer has already seen
+
+- fix: three of the four detectors (`attack-attribution`, `fake-token`,
+  `mixer`) accepted the scan window and discarded it, so every scheduled run
+  re-derived and re-published its ENTIRE result set. Consecutive hourly runs
+  produced identical finding sets — around two thousand duplicate findings per
+  hour into `cia monitor review list` — while the scan checkpoint kept
+  advancing, making an inert scan look incremental. Each detector now declares
+  a `windowMode`. `address-poisoning` stays `incremental`: its dust transfers
+  carry a date, so its checkpoint is real. The other three are `full-state`:
+  they classify from cumulative graph state (degree metrics, taxonomy labels,
+  the verified-asset registry) that carries no event timestamp, and bounding
+  them by a window would make them wrong rather than cheaper — attribution
+  needs the complete labelled seed set, a symbol collision needs both sides of
+  the asset registry, and hourglass degree has no "became mixer-shaped since T"
+  form. A full-state detector therefore keeps its full scan, no longer advances
+  a checkpoint nothing reads, and emits only findings not already emitted for
+  that network. A run over unchanged data now produces an empty findings
+  document and adds nothing to the review backlog; the count of suppressed
+  findings is recorded in the document's warnings rather than hidden. Genuinely
+  new findings still surface on the next run, and `--full` re-emits everything
+  so a lost backlog can be rebuilt.
+
 ## [0.11.8] - 2026-07-26 — monitor robustness: torn alert logs, read-only reads, path base (#212, #214)
 
 - fix: a torn or truncated line in the append-only `alerts.jsonl` / `acks.jsonl`
