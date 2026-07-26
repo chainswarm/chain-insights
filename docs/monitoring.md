@@ -134,61 +134,36 @@ new-only path by design; `--full` stays a deliberate, manual act.
 
 `cia monitor run` is a **one-shot**: it performs a single pass and exits. That
 is deliberate — the monitor core is one-shot and idempotent, never a stateful
-service, so any scheduler can drive it and an interrupted process cannot leave
-half-written state. The scheduler supplies only the schedule.
+service, so an interrupted process cannot leave half-written state.
+
+For a standing watch, the recommended pairing is **pm2 supervising
+`cia monitor watch`**: `watch` owns the loop (interval from `intervalSeconds`
+in the monitor config), pm2 owns process lifetime (crash restart, logs, status,
+boot persistence). Each tool does the one job it is built for, and
+`pm2 list` showing `online` means exactly what it appears to mean.
 
 | Option | Choose it when | Cost |
 | --- | --- | --- |
-| `cia monitor watch` | Interactive session, ad-hoc coverage for a few hours. | Dies with the shell; no per-pass exit-code visibility. |
-| `cron` | The host already runs cron and you have external log plumbing. | No status surface; you own log capture and failure visibility. |
-| `pm2` | You want per-pass logs, a status surface, boot persistence, and non-zero exits made visible with no extra plumbing. | One config file, and `autorestart: false` is mandatory. |
+| **pm2 + `monitor watch`** | You want a supervised standing watch: crash restart, one log surface, one status command. | pm2 installed; one config file. |
+| `cron` + `monitor run` | The host already runs cron and you have external log plumbing. | No status surface; you own log capture and failure visibility. |
+| bare `cia monitor watch` | Interactive session, ad-hoc coverage for a few hours. | Dies with the shell; nothing restarts it. |
 
 Do not run two of these against the same workspace. Passes are idempotent, but
 overlapping schedules double the metered graph spend for no extra coverage.
 
-### cron
+### pm2 + watch (recommended)
 
-```text
-0 * * * * cd /path/to/workspace && cia monitor run
-```
-
-### Built-in watch
-
-`cia monitor watch` loops `monitor run` on `intervalSeconds` (or
-`--interval <seconds>`, floor 60s) with no external scheduler:
-
-```bash
-cia monitor watch --interval 1800
-```
-
-### pm2
-
-pm2 is not keeping a server alive here — it supplies the schedule for a
-one-shot. Two settings carry the whole design:
+A working `ecosystem.config.cjs`, run from the monitoring workspace root:
 
 ```js
-autorestart: false,
-cron_restart: '0 * * * *',
-```
-
-`autorestart: false` is **not optional**. pm2's default is to treat any process
-exit as a crash and relaunch immediately; a one-shot exits on every successful
-pass, so the default produces a hot loop that re-runs the full detector matrix
-continuously and burns metered graph allowance until someone notices.
-
-A working `ecosystem.config.cjs`:
-
-```js
-// pm2 process definition for a scheduled `cia monitor` pass.
+// pm2 supervises `cia monitor watch` — a long-running loop that re-runs a
+// monitoring pass on the interval configured in
+// .chain-insights/monitor/config.json (intervalSeconds).
 //
-// `cia monitor run` is a ONE-SHOT: one pass, then exit. pm2 supplies only the
-// schedule:
-//   autorestart: false  -> a clean exit is a finished pass, not a crash
-//   cron_restart        -> launch one pass at the top of every hour
-//
-// Exit codes: 0 = clean, 2 = isolated cell failure (pass completed, a cell did
-// not), 1 = the run could not start. pm2 surfaces non-zero exits in
-// `pm2 list` / `pm2 logs` — the intended alerting-of-last-resort.
+// pm2's job here is process lifetime: if the loop dies, pm2 restarts it, and
+// `watch` resumes cleanly — a killed and restarted watch loses no alerts and
+// re-emits nothing over unchanged data. A failed pass does NOT kill the loop:
+// `watch` logs it and keeps looping.
 module.exports = {
   apps: [
     {
@@ -197,11 +172,14 @@ module.exports = {
       // bin/cli.js plus `interpreter: 'node'` if you run from source, or if
       // `cia` is not on pm2's PATH.
       script: 'cia',
-      args: 'monitor run',
+      args: 'monitor watch',
       // The monitoring workspace root.
       cwd: './',
-      autorestart: false,
-      cron_restart: '0 * * * *',
+      autorestart: true,
+      // Backstop against a crash loop (e.g. a broken config that fails every
+      // start): give up after 10 rapid restarts instead of looping forever.
+      max_restarts: 10,
+      min_uptime: '30s',
       time: true,
       merge_logs: true,
       out_file: './.chain-insights/monitor/pm2-out.log',
@@ -218,29 +196,52 @@ Bring it up and confirm the first pass before walking away:
 
 ```bash
 pm2 start ecosystem.config.cjs
-pm2 list
+pm2 list                            # `online` = healthy
 pm2 logs cia-monitor --lines 50
-pm2 restart cia-monitor          # force a pass outside the schedule
 ```
+
+Reading the surface:
+
+- **`online`** — the loop is alive. This is the steady state.
+- **`errored` / climbing restart counter** — the loop itself is dying
+  (bad config, missing workspace). `watch` survives failed *passes*, so a
+  dying loop means something structural; read the error log.
+- A successful pass writes a run document under
+  `.chain-insights/monitor/runs/` and prints nothing — check `cia monitor
+  status` for `last run`, not the pm2 log, to confirm passes are landing.
 
 Persistence needs **two** separate steps; doing only the first is the usual
 mistake:
 
 ```bash
-pm2 save        # persist the process list so `pm2 resurrect` can restore it
+pm2 save           # persist the process list so `pm2 resurrect` can restore it
 sudo pm2 startup   # prints a platform-specific boot line — run what it prints
 ```
 
 `pm2 save` does not make pm2 itself start at boot. Run the command
-`pm2 startup` prints, then `pm2 save` again. Without both, the schedule stops
+`pm2 startup` prints, then `pm2 save` again. Without both, the watch stops
 silently at the next reboot.
 
-Under pm2, exit code `2` shows the process as `errored` in `pm2 list`. That is
-the **intended alerting-of-last-resort for an isolated cell failure**, not a
-broken deploy — see [Exit codes](#exit-codes). Do not "fix" it by removing
-`autorestart: false`; that trades one visible failing cell for an invisible hot
-loop.
+### cron
 
+```text
+0 * * * * cd /path/to/workspace && cia monitor run
+```
+
+Per-pass exit codes are visible to cron (`0` clean, `2` isolated cell failure,
+`1` run failed) — wire them to whatever alerting the host already has.
+
+### Do not pair pm2 with `monitor run`
+
+The tempting hybrid — pm2 launching the one-shot `monitor run` on a
+`cron_restart` schedule — works, but it is the worst of both worlds and one
+setting away from an expensive failure: pm2's default is to treat any process
+exit as a crash and relaunch immediately, and a one-shot exits on every
+successful pass. Without `autorestart: false` that default produces a hot loop
+that re-runs the full detector matrix continuously and burns metered graph
+allowance until someone notices. Between passes the process shows `stopped`,
+which reads as broken and hides nothing useful. If you want pm2, supervise
+`watch`; if you want one-shots, use cron.
 ## Cases
 
 A case anchors one investigation — a theft or a scam cluster — to one or more
@@ -463,9 +464,8 @@ halt reason in the run document. Leave it unset to run unconditionally.
 
 ## Exit Codes
 
-`cia monitor run` (and each iteration of `cia monitor watch`) uses its exit
-code to signal how the pass went, so cron and CI can tell a clean run from a
-partial one from a broken one:
+`cia monitor run` uses its exit code to signal how the pass went, so cron and
+CI can tell a clean run from a partial one from a broken one:
 
 | Code | Meaning |
 | --- | --- |
@@ -476,6 +476,12 @@ partial one from a broken one:
 Exit `2` is a **partial success**. Whatever scheduler you use must be able to
 express the difference between `1` and `2`, or a single flaky cell will page
 someone as though nothing ran.
+
+Under `cia monitor watch` the process does not exit between passes, so
+per-pass exit codes are not visible to the supervisor. An isolated cell
+failure is recorded on the cell entry in that pass's run document
+(`.chain-insights/monitor/runs/<run_ms>.run.json`, `error` field) — check
+there, or `cia monitor status`, rather than expecting pm2 to flag it.
 
 ## Related
 

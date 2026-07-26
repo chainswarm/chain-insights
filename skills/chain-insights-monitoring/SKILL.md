@@ -203,8 +203,7 @@ downstream result. Use `aml_address_risk` when you want a verdict.
 
 ## Exit Codes
 
-`cia monitor run` — and each iteration of `cia monitor watch` — signals the
-pass through its exit code:
+`cia monitor run` signals the pass through its exit code:
 
 | Code | Meaning | What to do |
 | --- | --- | --- |
@@ -215,30 +214,39 @@ pass through its exit code:
 `2` is a **partial success**, not a crash. Any scheduler you use must be able to
 express that difference, or you will page someone for a single flaky cell.
 
+Under `cia monitor watch` the process never exits between passes, so exit
+codes are not visible per pass. An isolated cell failure shows up as the
+`error` field on the cell entry in that pass's run document and in
+`cia monitor status` — not in the supervisor.
+
 ## Scheduling
 
-`cia monitor run` is a **one-shot**: one pass, then exit. It is deliberately not
-a daemon — the core is one-shot and idempotent so any scheduler can drive it and
-a killed process never corrupts state. The scheduler supplies only the schedule.
+`cia monitor run` is a **one-shot**: one pass, then exit. The core is one-shot
+and idempotent so a killed process never corrupts state. For a standing watch,
+the recommended pairing is **pm2 supervising `cia monitor watch`**: `watch`
+owns the loop (interval from the monitor config), pm2 owns process lifetime —
+crash restart, logs, status, boot persistence. `pm2 list` showing `online`
+means healthy; a killed and restarted watch loses no alerts and re-emits
+nothing over unchanged data.
 
 | Use | When |
 | --- | --- |
-| `cia monitor watch` | Interactive or short-lived sessions. Zero setup, but dies with the shell and gives you no exit-code visibility per pass. |
-| `cron` | A host that already has cron and no supervision requirement. Simplest durable option. |
-| **pm2** | You want per-pass logs, `pm2 list` status, restart-on-boot, and non-zero exits made visible. |
-
-```text
-0 * * * * cd /path/to/workspace && cia monitor run
-```
+| **pm2 + `monitor watch`** | Standing watch with supervision: crash restart, one log surface, one status command. Recommended. |
+| `cron` + `monitor run` | A host that already has cron and external log plumbing. Per-pass exit codes visible to cron. |
+| bare `cia monitor watch` | Interactive or short-lived sessions. Zero setup, but dies with the shell. |
 
 ```bash
 cia monitor watch --interval 1800   # floor 60s
 ```
 
-For pm2 — including the `autorestart: false` requirement that keeps pm2 from
-hot-looping the one-shot — read `references/pm2-scheduling.md`. Get that one
-flag wrong and pm2 will re-launch the pass continuously, burning metered graph
-allowance.
+```text
+0 * * * * cd /path/to/workspace && cia monitor run
+```
+
+For the pm2 setup read `references/pm2-scheduling.md`. **Do not point pm2 at
+the one-shot `monitor run`**: pm2's default treats every clean exit as a crash,
+and without `autorestart: false` it re-launches the pass continuously, burning
+metered graph allowance. Supervising `watch` avoids that trap entirely.
 
 ## Pulse Checks
 

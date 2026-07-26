@@ -3,6 +3,24 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.15] - 2026-07-27 — scheduling: recommend pm2 supervising `monitor watch`
+
+- docs: the recommended standing-watch setup is now pm2 supervising
+  `cia monitor watch` — the loop lives in `watch` (interval from the monitor
+  config), and pm2 does the job it is built for: restart on crash, one log
+  surface, one status command, boot persistence. Under this pairing `pm2 list`
+  showing `online` simply means healthy, instead of the previous hybrid where
+  the process read `stopped` between one-shot passes and the status needed
+  explaining away. The hybrid — pm2 launching the one-shot `monitor run` via
+  `cron_restart` — is now documented as an anti-pattern: it is one missing
+  `autorestart: false` away from a hot loop that re-runs the full detector
+  matrix continuously against metered graph allowance.
+- docs: corrected the exit-code section — under `watch` the process never
+  exits between passes, so per-pass exit codes are not visible to a
+  supervisor. An isolated cell failure is recorded on the cell entry in the
+  pass's run document and in `cia monitor status`, and the docs now say where
+  to look instead of implying pm2 would flag it.
+
 ## [0.11.14] - 2026-07-26 — monitoring UAT asserts results, not exit codes
 
 - fix: the monitoring acceptance suite asserted process exit codes where it
