@@ -83,3 +83,34 @@ describe('review workflow (AC-3)', () => {
     expect(rows).toHaveLength(1) // no duplicate decision doc from the path mismatch
   })
 })
+
+describe('empty findings documents (#232)', () => {
+  it('an empty findings doc is not a pending review item', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'cia-review-empty-'))
+    const p = monitorPaths(root)
+    await mkdir(p.detectionsDir, { recursive: true })
+    const empty = { tool: 'aml_mixer_likeness', network: 'bittensor', generated_at_ms: 1, findings: [], warnings: ['suppressed 819 already-emitted finding(s)'] }
+    const real = { tool: 'aml_mixer_likeness', network: 'bittensor', generated_at_ms: 2, findings: [{ address: '5A' }] }
+    await writeFile(path.join(p.detectionsDir, '1-mixer-bittensor.findings.json'), JSON.stringify(empty), 'utf8')
+    await writeFile(path.join(p.detectionsDir, '2-mixer-bittensor.findings.json'), JSON.stringify(real), 'utf8')
+
+    const pending = await listPending(root)
+    expect(pending).toHaveLength(1)
+    expect(pending[0].findings_count).toBe(1)
+  })
+
+  it('a run producing only empty docs does not grow the pending count', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'cia-review-empty-'))
+    const p = monitorPaths(root)
+    await mkdir(p.detectionsDir, { recursive: true })
+    const before = (await listPending(root)).length
+    for (const cell of ['mixer', 'fake-token', 'address-poisoning', 'attack-attribution']) {
+      await writeFile(
+        path.join(p.detectionsDir, `9-${cell}-bittensor.findings.json`),
+        JSON.stringify({ tool: `aml_${cell}`, network: 'bittensor', generated_at_ms: 9, findings: [] }),
+        'utf8',
+      )
+    }
+    expect((await listPending(root)).length).toBe(before)
+  })
+})
