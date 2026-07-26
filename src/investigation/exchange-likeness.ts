@@ -6,6 +6,7 @@
 // the threshold_provenance recorded on every findings document.
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
+import { applyShardMergeToBatchEntries } from '../federation/apply-merge.js'
 import {
   DETECTION_FINDINGS_SCHEMA_VERSION,
   serializeFindings,
@@ -26,6 +27,8 @@ interface ParsedGraphBatch {
       ok?: boolean
       results?: Array<Record<string, unknown>>
       error?: string
+      perShard?: Record<string, Array<Record<string, unknown>>>
+      ordering?: 'exact' | 'approximate' | 'unordered'
     }>
   }
 }
@@ -162,7 +165,9 @@ async function callGraphBatch(remoteClient: Client, network: string, queries: Ar
     { timeout: GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS, maxTotalTimeout: GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS },
   ) as RemoteToolResult
   if (result.isError) throw new Error(textFromToolResult(result) || 'graph_query_batch failed')
-  return parseGraphBatchResult(result)
+  const parsed = parseGraphBatchResult(result)
+  applyShardMergeToBatchEntries(parsed.facts?.queries, queries)
+  return parsed
 }
 
 type FailureReason = 'admission_rejected' | 'query_timeout' | 'query_failed'

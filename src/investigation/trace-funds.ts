@@ -3,6 +3,7 @@ import path from 'node:path'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import type { InvestigatorConfig } from '../config/schema.js'
+import { applyShardMergeToBatchEntries } from '../federation/apply-merge.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 import { normalizeRiskLevel } from './risk-level.js'
 import { workspaceOutputPaths, type WorkspaceOutputPaths } from '../workspace/output-root.js'
@@ -156,6 +157,8 @@ interface ParsedGraphBatch {
       ok?: boolean
       results?: Array<Record<string, unknown>>
       error?: string
+      perShard?: Record<string, Array<Record<string, unknown>>>
+      ordering?: 'exact' | 'approximate' | 'unordered'
     }>
   }
 }
@@ -249,7 +252,9 @@ async function callGraphBatch(
     },
   ) as RemoteToolResult
   if (result.isError) throw new Error(textFromToolResult(result) || 'graph_query_batch failed')
-  return parseGraphBatchResult(result)
+  const parsed = parseGraphBatchResult(result)
+  applyShardMergeToBatchEntries(parsed.facts?.queries, queries)
+  return parsed
 }
 
 function resultsFor(batch: ParsedGraphBatch, id: string): Array<Record<string, unknown>> {

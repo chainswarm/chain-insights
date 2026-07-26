@@ -3,6 +3,7 @@
 // from a single query's structuredContent, or throws with the tool error text.
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
+import { mergeGraphRows } from '../federation/apply-merge.js'
 
 type RemoteToolResult = { content?: ContentBlock[]; isError?: boolean; structuredContent?: unknown }
 
@@ -38,7 +39,12 @@ export async function graphQueryRows(
   )) as RemoteToolResult
   if (result.isError) throw new Error(textOf(result) || 'graph_query failed')
   const rows = extractRows(result.structuredContent) ?? extractRowsFromText(textOf(result))
-  return rows ?? []
+  if (!rows) return []
+  // graphQueryRows returns a bare row array — there is no envelope slot to
+  // carry perShard/ordering here, so a shard-tagged response is merged and
+  // stripped of __shard but its perShard/ordering metadata is necessarily
+  // dropped at this seam (see apply-merge.ts and the wiring report).
+  return mergeGraphRows(rows, query).rows
 }
 
 function extractRows(structured: unknown): GraphRow[] | null {
