@@ -3,6 +3,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.2] - 2026-07-26 — shard-merge filter for oracle verification
+
+- federation: `mergeShardRows` is now exported from the package entry point.
+- federation: `scripts/merge-shards.mjs` reads shard-tagged rows on stdin and
+  writes the merged result on stdout, so the oracle differential harness can
+  verify the exact merge implementation that ships rather than a second copy.
+  Not a public CLI surface — no bin entry, no command registration.
+- Internal only: no change to any command, tool, or output.
+
 ## [0.11.1] - 2026-07-26 — client-side shard merge (internal)
 
 - federation: `mergeShardRows` merges the per-shard results the Chain Insights
