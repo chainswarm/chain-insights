@@ -114,6 +114,12 @@ export const fakeTokenDetector: DetectorScan = {
   },
 }
 
+// DELIBERATELY NOT network-scoped by an `Address.network` predicate. Two
+// independent reasons: (1) this detector matches `:Asset` registry rows, not
+// `:Address` nodes — there is no address subset to narrow; (2) `USE facts`
+// routes each network to its OWN backing database, so the registry pulled here
+// already contains only the requested network's assets. The shared-graph
+// over-selection defect (chain-insights#228) is a `USE topology` problem only.
 async function pullAllAssets(client: Client, network: string, cfg: FakeTokenConfig): Promise<GraphRow[]> {
   const out: GraphRow[] = []
   let cursor = ''
