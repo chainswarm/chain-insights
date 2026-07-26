@@ -166,6 +166,51 @@ interface ParsedGraphBatch {
 const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 10
 const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS = 5 * 60 * 1000
 
+// The server enforces "query too large: maximum 32768 bytes per query" per
+// individual query string. forwardExchangeQueries/backwardSourceQueries are
+// bounded by max_hops (small, pinned by tests/trace-golden.test.ts) but
+// directEdgePropsQuery/reverseLeadsQuery build ONE query with an
+// OR-predicate per discovered flow edge / deposit address -- a count driven
+// by graph connectivity, not max_hops. On well-connected seeds that single
+// query can exceed the cap even at modest depths (chain-insights#209).
+// Chunk those into multiple queries that each stay under the cap, leaving a
+// safety margin for the "USE topology " prefix and JSON transport overhead.
+export const MAX_QUERY_TEXT_BYTES = 32768
+const QUERY_TEXT_SAFETY_MARGIN_BYTES = 2048
+export const MAX_SAFE_QUERY_TEXT_BYTES = MAX_QUERY_TEXT_BYTES - QUERY_TEXT_SAFETY_MARGIN_BYTES
+
+// Greedily packs items into chunks such that buildQuery(chunk) stays within
+// maxBytes, measuring the ACTUAL generated query text (not a per-item
+// estimate) so fixed overhead (MATCH/WHERE/RETURN scaffolding) is accounted
+// for exactly. An item whose own single-item query already exceeds maxBytes
+// is reported back via `oversized` rather than silently dropped, so callers
+// can surface it as a warning instead of a silent result gap.
+function chunkItemsByQueryBytes<T>(
+  items: T[],
+  buildQuery: (chunk: T[]) => string,
+  maxBytes: number,
+): { chunks: T[][]; oversized: T[] } {
+  const chunks: T[][] = []
+  const oversized: T[] = []
+  let current: T[] = []
+  for (const item of items) {
+    const candidate = [...current, item]
+    if (Buffer.byteLength(buildQuery(candidate), 'utf8') <= maxBytes) {
+      current = candidate
+      continue
+    }
+    if (current.length > 0) chunks.push(current)
+    if (Buffer.byteLength(buildQuery([item]), 'utf8') <= maxBytes) {
+      current = [item]
+    } else {
+      oversized.push(item)
+      current = []
+    }
+  }
+  if (current.length > 0) chunks.push(current)
+  return { chunks, oversized }
+}
+
 const SCHEMA_QUERY_SET = [
   {
     id: 'node_labels',
@@ -401,40 +446,82 @@ function backwardSourceQueryAtDepth(id: string, depositAddress: string, depth: n
   }
 }
 
-function reverseLeadsQuery(depositAddresses: string[]): { id: string; query: string } {
+function reverseLeadsQueryForAddresses(depositAddresses: string[]): string {
   const depositPredicates = depositAddresses.map((address) => `deposit.address = "${escapeCypherString(address)}"`)
   // risk fields are always available now that topology is Memgraph-backed.
   const riskFields = ', sender.risk_score AS risk_score, sender.risk_level AS risk_level'
-  return {
-    id: 'reverse_1hop',
-    query: [
-      'MATCH (sender:Address)-[r:FLOWS_TO]->(deposit:Address)',
-      `WHERE (${depositPredicates.join(' OR ')}) AND sender.is_exchange IS NULL AND sender.address <> deposit.address`,
-      `RETURN DISTINCT sender.address AS address, sender.labels AS display_labels, sender.labels AS system_labels${riskFields}, deposit.address AS deposit_address, r AS flow`,
-      `LIMIT ${Math.max(50, depositAddresses.length * 50)}`,
-    ].join(' '),
-  }
+  return [
+    'MATCH (sender:Address)-[r:FLOWS_TO]->(deposit:Address)',
+    `WHERE (${depositPredicates.join(' OR ')}) AND sender.is_exchange IS NULL AND sender.address <> deposit.address`,
+    `RETURN DISTINCT sender.address AS address, sender.labels AS display_labels, sender.labels AS system_labels${riskFields}, deposit.address AS deposit_address, r AS flow`,
+    `LIMIT ${Math.max(50, depositAddresses.length * 50)}`,
+  ].join(' ')
+}
+
+// depositAddresses is unbounded by max_hops -- it grows with how many
+// deposit candidates a well-connected seed surfaces. Chunk into multiple
+// under-cap queries instead of one OR-predicate query that can exceed the
+// server's 32768-byte-per-query limit (chain-insights#209).
+function reverseLeadsQueries(depositAddresses: string[], maxBytes = MAX_SAFE_QUERY_TEXT_BYTES): Array<{ id: string; query: string }> {
+  if (depositAddresses.length === 0) return []
+  const { chunks } = chunkItemsByQueryBytes(depositAddresses, reverseLeadsQueryForAddresses, maxBytes)
+  return chunks.map((chunk, index) => ({
+    id: chunks.length === 1 ? 'reverse_1hop' : `reverse_1hop_${index + 1}`,
+    query: reverseLeadsQueryForAddresses(chunk),
+  }))
+}
+
+// A single deposit-address predicate is a few dozen bytes; chunkItemsByQueryBytes
+// can only report an item as oversized if even a lone-item query exceeds the
+// cap, which is not reachable for address-length predicates in practice. We
+// still surface a count so a future pathological input degrades with a
+// visible warning instead of an assertion failure deep in chunking.
+function reverseLeadsOversizedCount(depositAddresses: string[], maxBytes = MAX_SAFE_QUERY_TEXT_BYTES): number {
+  if (depositAddresses.length === 0) return 0
+  return chunkItemsByQueryBytes(depositAddresses, reverseLeadsQueryForAddresses, maxBytes).oversized.length
 }
 
 function edgeKey(src: string, dst: string): string {
   return `${src}\u0000${dst}`
 }
 
-function directEdgePropsQuery(flows: TraceFlow[]): { id: string; query: string } | null {
-  const pairs = [...new Map(flows.map((flow) => [edgeKey(flow.src, flow.dst), { src: flow.src, dst: flow.dst }])).values()]
-  if (pairs.length === 0) return null
+type EdgePair = { src: string; dst: string }
+
+function directEdgePropsQueryForPairs(pairs: EdgePair[]): string {
   const predicates = pairs.map((pair) =>
     `(a.address = "${escapeCypherString(pair.src)}" AND b.address = "${escapeCypherString(pair.dst)}")`
   )
-  return {
-    id: 'direct_edge_props',
-    query: [
-      'MATCH (a:Address)-[r:FLOWS_TO]->(b:Address)',
-      `WHERE (${predicates.join(' OR ')})`,
-      'RETURN a.address AS src, b.address AS dst, r AS flow',
-      `LIMIT ${pairs.length}`,
-    ].join(' '),
-  }
+  return [
+    'MATCH (a:Address)-[r:FLOWS_TO]->(b:Address)',
+    `WHERE (${predicates.join(' OR ')})`,
+    'RETURN a.address AS src, b.address AS dst, r AS flow',
+    `LIMIT ${pairs.length}`,
+  ].join(' ')
+}
+
+// The number of distinct (src,dst) edges to hydrate scales with how
+// well-connected the seed's fan-out is, not with max_hops -- on
+// well-connected seeds a single OR-predicate query covering every edge can
+// exceed the server's 32768-byte-per-query cap (chain-insights#209, seen
+// live at 55KB for a single query on a well-connected seed at depth 4).
+// Chunk into multiple under-cap queries and merge results client-side so
+// hydration never silently drops edges.
+function directEdgePropsQueries(flows: TraceFlow[], maxBytes = MAX_SAFE_QUERY_TEXT_BYTES): Array<{ id: string; query: string }> {
+  const pairs = [...new Map(flows.map((flow) => [edgeKey(flow.src, flow.dst), { src: flow.src, dst: flow.dst }])).values()]
+  if (pairs.length === 0) return []
+  const { chunks } = chunkItemsByQueryBytes(pairs, directEdgePropsQueryForPairs, maxBytes)
+  return chunks.map((chunk, index) => ({
+    id: chunks.length === 1 ? 'direct_edge_props' : `direct_edge_props_${index + 1}`,
+    query: directEdgePropsQueryForPairs(chunk),
+  }))
+}
+
+// See reverseLeadsOversizedCount: an (src,dst) address-pair predicate can't
+// plausibly exceed the cap alone; kept for defensive warning visibility.
+function directEdgePropsOversizedCount(flows: TraceFlow[], maxBytes = MAX_SAFE_QUERY_TEXT_BYTES): number {
+  const pairs = [...new Map(flows.map((flow) => [edgeKey(flow.src, flow.dst), { src: flow.src, dst: flow.dst }])).values()]
+  if (pairs.length === 0) return 0
+  return chunkItemsByQueryBytes(pairs, directEdgePropsQueryForPairs, maxBytes).oversized.length
 }
 
 function numberValue(value: unknown): number | undefined {
@@ -597,17 +684,31 @@ function flowsFromForwardRows(rows: Array<Record<string, unknown>>): { flows: Tr
   return { flows, deposits }
 }
 
-async function hydrateDirectEdgeProps(remoteClient: Client, network: string, flows: TraceFlow[], deposits: TraceDeposit[]): Promise<void> {
-  const query = directEdgePropsQuery(flows)
-  if (!query) return
+async function hydrateDirectEdgeProps(remoteClient: Client, network: string, flows: TraceFlow[], deposits: TraceDeposit[]): Promise<string[]> {
+  const warnings: string[] = []
+  const oversizedCount = directEdgePropsOversizedCount(flows)
+  if (oversizedCount > 0) {
+    warnings.push(`direct edge property hydration could not fit ${oversizedCount} edge(s) under the query size cap; their transfer detail (amount/tx_count/timestamps) may be incomplete`)
+  }
+  const queries = directEdgePropsQueries(flows)
+  if (queries.length === 0) return warnings
 
-  const batch = await callGraphBatch(remoteClient, network, [query])
+  const batch = await callGraphBatch(remoteClient, network, queries)
   const edgeProps = new Map<string, Record<string, unknown>>()
-  for (const row of resultsFor(batch, 'direct_edge_props')) {
-    const src = typeof row['src'] === 'string' ? row['src'] : ''
-    const dst = typeof row['dst'] === 'string' ? row['dst'] : ''
-    if (!src || !dst) continue
-    edgeProps.set(edgeKey(src, dst), edgeProperties(row['flow']))
+  for (const query of queries) {
+    let rows: Array<Record<string, unknown>>
+    try {
+      rows = resultsFor(batch, query.id)
+    } catch (err) {
+      warnings.push(`direct edge property hydration query ${query.id} failed: ${(err as Error).message}; some edge amounts/tx_counts may be incomplete`)
+      continue
+    }
+    for (const row of rows) {
+      const src = typeof row['src'] === 'string' ? row['src'] : ''
+      const dst = typeof row['dst'] === 'string' ? row['dst'] : ''
+      if (!src || !dst) continue
+      edgeProps.set(edgeKey(src, dst), edgeProperties(row['flow']))
+    }
   }
 
   for (const flow of flows) {
@@ -626,6 +727,8 @@ async function hydrateDirectEdgeProps(remoteClient: Client, network: string, flo
     if (!props) continue
     deposit.amount_usd_sum = numberValue(props['amount_usd_sum'])
   }
+
+  return warnings
 }
 
 async function collectProbeTrace(
@@ -642,11 +745,11 @@ async function collectProbeTrace(
       return query.results ?? []
     }), options.minAmountSum)
   const { flows, deposits } = flowsFromForwardRows(forwardRows)
-  await hydrateDirectEdgeProps(remoteClient, options.network, flows, deposits)
+  const tracebackWarnings: string[] = []
+  tracebackWarnings.push(...await hydrateDirectEdgeProps(remoteClient, options.network, flows, deposits))
   const uniqueDepositAddresses = [...new Set(deposits.map((deposit) => deposit.address))]
 
   const sourceMatches: SourceMatch[] = []
-  const tracebackWarnings: string[] = []
   if (options.includeDepositTraceback !== false && uniqueDepositAddresses.length > 0) {
     let backwardQueries: NonNullable<NonNullable<ParsedGraphBatch['facts']>['queries']> = []
     try {
@@ -692,16 +795,25 @@ async function collectProbeTrace(
 
   const reverseLeads: ReverseLead[] = []
   if (options.includeDepositTraceback !== false && uniqueDepositAddresses.length > 0) {
+    const reverseOversizedCount = reverseLeadsOversizedCount(uniqueDepositAddresses)
+    if (reverseOversizedCount > 0) {
+      tracebackWarnings.push(`reverse 1-hop lead lookup could not fit ${reverseOversizedCount} deposit address(es) under the query size cap; some leads may be missing`)
+    }
     let reverseRows: Array<Record<string, unknown>> = []
-    try {
-      const reverseBatch = await callGraphBatch(remoteClient, options.network, [reverseLeadsQuery(uniqueDepositAddresses)])
+    const reverseQueries = reverseLeadsQueries(uniqueDepositAddresses)
+    if (reverseQueries.length > 0) {
       try {
-        reverseRows = resultsFor(reverseBatch, 'reverse_1hop')
+        const reverseBatch = await callGraphBatch(remoteClient, options.network, reverseQueries)
+        for (const query of reverseQueries) {
+          try {
+            reverseRows.push(...resultsFor(reverseBatch, query.id))
+          } catch (err) {
+            tracebackWarnings.push(`deposit traceback query ${query.id} failed: ${(err as Error).message}`)
+          }
+        }
       } catch (err) {
-        tracebackWarnings.push(`deposit traceback query reverse_1hop failed: ${(err as Error).message}`)
+        tracebackWarnings.push(`deposit traceback batch failed: ${(err as Error).message}`)
       }
-    } catch (err) {
-      tracebackWarnings.push(`deposit traceback batch failed: ${(err as Error).message}`)
     }
     // The server no longer orders by the flow amount (a relationship-property
     // ORDER BY is refused under the federated dispatch); order client-side so
@@ -1215,6 +1327,6 @@ export async function runFundFlowProbe(
 export const traceQueryBuilderContract = {
   forwardExchangeQueries,
   backwardSourceQueries,
-  reverseLeadsQuery,
-  directEdgePropsQuery,
+  reverseLeadsQueries,
+  directEdgePropsQueries,
 }
