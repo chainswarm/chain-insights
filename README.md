@@ -311,6 +311,7 @@ data stays in the local workspace unless the operator exports or shares it.
 |---|---|---|
 | `config` | `src/config` | [components/config.md](docs/architecture/components/config.md) |
 | `detection` | `src/detection` | [components/detection.md](docs/architecture/components/detection.md) |
+| `federation` | `src/federation` | [components/federation.md](docs/architecture/components/federation.md) |
 | `investigation` | `src/investigation` | [components/investigation.md](docs/architecture/components/investigation.md) |
 | `mcp` | `src/mcp` | [components/mcp.md](docs/architecture/components/mcp.md) |
 | `monitor` | `src/monitor` | [components/monitor.md](docs/architecture/components/monitor.md) |
