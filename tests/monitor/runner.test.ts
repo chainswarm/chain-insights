@@ -7,6 +7,7 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { runMonitorOnce } from '../../src/monitor/runner.js'
 import { listAlerts } from '../../src/monitor/alerts.js'
 import { withStore } from '../../src/monitor/store.js'
+import { addWatched } from '../../src/monitor/watchlist.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
 import type { MonitorConfig } from '../../src/monitor/config.js'
 
@@ -89,5 +90,43 @@ describe('runMonitorOnce', () => {
     })
     expect(doc.halted).toBeUndefined()
     expect(doc.cells).toHaveLength(2)
+  })
+
+  it('an empty watchlist changes nothing (AC-7)', async () => {
+    const root = await ws()
+    const calls = { n: 0 }
+    const client = {
+      async callTool() {
+        calls.n += 1
+        return { structuredContent: null }
+      },
+    } as never
+    const doc = await runMonitorOnce(client, root, { ...CFG, watchlist: { dustMaxUsd: 1, dustLookbackSeconds: 86400, enabled: true } }, 1000, {
+      runDetection: async () => ({ findingsCount: 0, findingsPath: 'x.json' }) as never,
+      usage: async () => null,
+    })
+    expect(doc.cells.some((c) => c.cell === 'watchlist')).toBe(false)
+  })
+
+  it('watchlist hits become alerts on the existing stream (AC-5)', async () => {
+    const root = await ws()
+    await addWatched(root, { address: '5Mine', network: 'bittensor' })
+    await withStore(root, async (store) => {
+      await store.run("INSERT INTO finding_addresses VALUES ('d1.json','bittensor','5Mine')")
+    })
+    const client = {
+      async callTool({ name }: { name: string }) {
+        if (name === 'aml_address_risk') throw new Error('must not be called')
+        return { structuredContent: { facts: { queries: [{ id: 'dust', results: [] }] } } }
+      },
+    } as never
+    const doc = await runMonitorOnce(client, root, { ...CFG, watchlist: { dustMaxUsd: 1, dustLookbackSeconds: 86400, enabled: true } }, 1000, {
+      runDetection: async () => ({ findingsCount: 0, findingsPath: 'x.json' }) as never,
+      usage: async () => null,
+    })
+    const cell = doc.cells.find((c) => c.cell === 'watchlist')
+    expect(cell).toBeDefined()
+    const alerts = await listAlerts(root)
+    expect(alerts.map((a) => a.type)).toContain('watchlist_finding')
   })
 })

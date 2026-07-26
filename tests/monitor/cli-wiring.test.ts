@@ -8,4 +8,13 @@ describe('cia monitor CLI surface', () => {
       expect(help).toContain(sub)
     }
   })
+
+  it('registers monitor watchlist add|list|remove', () => {
+    const help = execFileSync('npx', ['tsx', 'src/cli.ts', 'monitor', '--help'], { encoding: 'utf8' })
+    expect(help).toContain('watchlist')
+    const sub = execFileSync('npx', ['tsx', 'src/cli.ts', 'monitor', 'watchlist', '--help'], { encoding: 'utf8' })
+    for (const cmd of ['add', 'list', 'remove']) {
+      expect(sub).toContain(cmd)
+    }
+  })
 })

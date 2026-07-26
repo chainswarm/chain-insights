@@ -9,6 +9,7 @@ import { parseFindingsDocument } from '../investigation/detection-findings.js'
 import { parseJsonlLines } from './jsonl.js'
 import { monitorPaths } from './paths.js'
 import { diffSnapshots, readSnapshots, type CaseSnapshot } from './tracker.js'
+import { loadWatchlist } from './watchlist.js'
 
 export interface MonitorStore {
   run(sql: string, params?: unknown[]): Promise<void>
@@ -57,8 +58,12 @@ CREATE TABLE IF NOT EXISTS alerts (
   address VARCHAR, run_ms BIGINT, emitted_at_ms BIGINT
 );
 CREATE TABLE IF NOT EXISTS alert_acks (alert_id VARCHAR, acked_at_ms BIGINT);
--- Reserved for phase 2 (spec): created empty, never written in v1.
+-- Watchlist: derived from the operator-owned watchlist.json.
 CREATE TABLE IF NOT EXISTS watchlist (address VARCHAR, network VARCHAR, note VARCHAR);
+CREATE TABLE IF NOT EXISTS watchlist_hits (
+  run_ms BIGINT, address VARCHAR, network VARCHAR, trigger VARCHAR,
+  source_ref VARCHAR, detail VARCHAR
+);
 `
 
 export interface WithStoreOptions {
@@ -361,11 +366,32 @@ INGESTORS.push({
   },
 })
 
+// The watchlist is small, operator-owned, and fully replaced on every ingest —
+// it is a REPLAY_TABLES source (below) so an edited or shrunk watchlist
+// re-syncs instead of a removed address lingering.
+INGESTORS.push({
+  kind: 'watchlist',
+  async listDocs(workspaceRoot) {
+    const { watchlistPath } = monitorPaths(workspaceRoot)
+    try {
+      await readFile(watchlistPath, 'utf8')
+      return [watchlistPath]
+    } catch {
+      return []
+    }
+  },
+  async ingest(store, workspaceRoot) {
+    for (const entry of await loadWatchlist(workspaceRoot)) {
+      await store.run('INSERT INTO watchlist VALUES ($1,$2,$3)', [entry.address, entry.network, entry.note ?? null])
+    }
+  },
+})
+
 // Rewritable/growing sources: their canonical doc is appended-to (alerts,
 // acks logs) or rewritten in place (case.json via closeCase), so the derived
 // table cannot be trusted to already hold a prior ingest's rows — wipe the
 // table and re-ingest from scratch every pass.
-const REPLAY_TABLES: Partial<Record<string, string>> = { alerts: 'alerts', acks: 'alert_acks', cases: 'cases' }
+const REPLAY_TABLES: Partial<Record<string, string>> = { alerts: 'alerts', acks: 'alert_acks', cases: 'cases', watchlist: 'watchlist' }
 
 export async function ingestNewDocs(store: MonitorStore, workspaceRoot: string): Promise<number> {
   for (const ingestor of INGESTORS) {

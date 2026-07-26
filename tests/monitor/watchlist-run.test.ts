@@ -1,0 +1,179 @@
+// tests/monitor/watchlist-run.test.ts
+import { mkdtemp } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { describe, expect, it } from 'vitest'
+import { dustHits, findingHits, movementHits } from '../../src/monitor/watchlist-run.js'
+import { withStore } from '../../src/monitor/store.js'
+import { addWatched, listWatched } from '../../src/monitor/watchlist.js'
+
+async function ws(): Promise<string> {
+  return mkdtemp(path.join(tmpdir(), 'cia-wlrun-'))
+}
+
+const WATCHED = [{ address: '5Mine', network: 'bittensor' }]
+
+describe('watchlist free triggers', () => {
+  it('a finding touching a watched address is a hit (AC-2)', async () => {
+    const root = await ws()
+    const hits = await withStore(root, async (store) => {
+      await store.run("INSERT INTO finding_addresses VALUES ('d1.json','bittensor','5Mine')")
+      await store.run("INSERT INTO finding_addresses VALUES ('d1.json','bittensor','5NotMine')")
+      return findingHits(store, WATCHED, 1000)
+    })
+    expect(hits).toEqual([
+      { address: '5Mine', network: 'bittensor', trigger: 'finding', source_ref: 'd1.json', detail: undefined },
+    ])
+  })
+
+  it('a finding on another network is not a hit', async () => {
+    const root = await ws()
+    const hits = await withStore(root, async (store) => {
+      await store.run("INSERT INTO finding_addresses VALUES ('d1.json','bittensor_evm','5Mine')")
+      return findingHits(store, WATCHED, 1000)
+    })
+    expect(hits).toEqual([])
+  })
+
+  it('an already-recorded finding hit is not re-emitted (AC-11)', async () => {
+    const root = await ws()
+    const hits = await withStore(root, async (store) => {
+      await store.run("INSERT INTO finding_addresses VALUES ('d1.json','bittensor','5Mine')")
+      await store.run("INSERT INTO watchlist_hits VALUES (900,'5Mine','bittensor','finding','d1.json',NULL)")
+      return findingHits(store, WATCHED, 1000)
+    })
+    expect(hits).toEqual([])
+  })
+
+  it('a case movement reaching a watched address is a hit (AC-3)', async () => {
+    const root = await ws()
+    const hits = await withStore(root, async (store) => {
+      await store.run("INSERT INTO cases VALUES ('theft-1','stolen-funds','bittensor','open',1,10,NULL)")
+      await store.run("INSERT INTO case_movements VALUES ('theft-1',1000,'new_address','5Mine','hop 2')")
+      return movementHits(store, WATCHED, 1000)
+    })
+    expect(hits).toEqual([
+      { address: '5Mine', network: 'bittensor', trigger: 'movement', source_ref: 'theft-1', detail: 'new_address' },
+    ])
+  })
+
+  it('an empty watchlist yields no hits and runs no query (AC-7)', async () => {
+    const root = await ws()
+    const hits = await withStore(root, async (store) => findingHits(store, [], 1000))
+    expect(hits).toEqual([])
+  })
+})
+
+describe('watchlist dust probe', () => {
+  function stubClient(rowsByNetwork: Record<string, Array<Record<string, unknown>>>, calls: { n: number }) {
+    return {
+      async callTool({ name, arguments: args }: { name: string; arguments: Record<string, unknown> }) {
+        if (name === 'aml_address_risk') throw new Error('address risk must never be called by the watchlist')
+        calls.n += 1
+        const network = String(args.network)
+        return {
+          structuredContent: {
+            facts: { queries: [{ id: 'dust', results: rowsByNetwork[network] ?? [] }] },
+          },
+        }
+      },
+    } as never
+  }
+
+  it('an incoming transfer below the ceiling is a hit (AC-4)', async () => {
+    const root = await ws()
+    const calls = { n: 0 }
+    const client = stubClient(
+      { bittensor: [{ address: '5Mine', from_address: '5Attacker', amount_usd: 0.01, tx_ref: 'tx-1' }] },
+      calls,
+    )
+    const out = await withStore(root, async (store) =>
+      dustHits(client, store, WATCHED, { dustMaxUsd: 1, dustLookbackSeconds: 86400 }, 1000),
+    )
+    expect(out.hits).toEqual([
+      { address: '5Mine', network: 'bittensor', trigger: 'dust', source_ref: 'tx-1', detail: 'from 5Attacker, 0.01 USD' },
+    ])
+  })
+
+  it('makes one call per distinct network regardless of address count (AC-6)', async () => {
+    const root = await ws()
+    const calls = { n: 0 }
+    const many = [
+      ...Array.from({ length: 50 }, (_, i) => ({ address: `5A${i}`, network: 'bittensor' })),
+      ...Array.from({ length: 50 }, (_, i) => ({ address: `0xB${i}`, network: 'bittensor_evm' })),
+    ]
+    const client = stubClient({}, calls)
+    const out = await withStore(root, async (store) =>
+      dustHits(client, store, many, { dustMaxUsd: 1, dustLookbackSeconds: 86400 }, 1000),
+    )
+    expect(calls.n).toBe(2)
+    expect(out.calls).toBe(2)
+  })
+
+  it('an already-recorded dust hit is not re-emitted on an overlapping window (AC-11)', async () => {
+    const root = await ws()
+    const calls = { n: 0 }
+    const client = stubClient(
+      { bittensor: [{ address: '5Mine', from_address: '5Attacker', amount_usd: 0.01, tx_ref: 'tx-1' }] },
+      calls,
+    )
+    const out = await withStore(root, async (store) => {
+      await store.run("INSERT INTO watchlist_hits VALUES (900,'5Mine','bittensor','dust','tx-1',NULL)")
+      return dustHits(client, store, WATCHED, { dustMaxUsd: 1, dustLookbackSeconds: 86400 }, 1000)
+    })
+    expect(out.hits).toEqual([])
+  })
+
+  it('a probe failure degrades to no dust hits and records the error', async () => {
+    const root = await ws()
+    const client = {
+      async callTool() {
+        throw new Error('backend down')
+      },
+    } as never
+    const out = await withStore(root, async (store) =>
+      dustHits(client, store, WATCHED, { dustMaxUsd: 1, dustLookbackSeconds: 86400 }, 1000),
+    )
+    expect(out.hits).toEqual([])
+    expect(out.error).toMatch(/backend down/)
+  })
+})
+
+describe('watchlist query-injection defences', () => {
+  it('refuses to build a dust query for a non-address, rather than escaping it', async () => {
+    const root = await ws()
+    const calls = { n: 0 }
+    // A trailing backslash is the payload that defeats the naive
+    // replace(/'/g, "\\'") escaper: it escapes the closing quote and breaks
+    // out of the Cypher string literal.
+    const evil = [{ address: "5Mine\\", network: 'bittensor' }]
+    const client = {
+      async callTool() {
+        calls.n += 1
+        return { structuredContent: { facts: { queries: [{ id: 'dust', results: [] }] } } }
+      },
+    } as never
+    const out = await withStore(root, async (store) =>
+      dustHits(client, store, evil, { dustMaxUsd: 1, dustLookbackSeconds: 86400 }, 1000),
+    )
+    // Degrades to "no dust hits" with the error recorded; the malformed query
+    // is never sent.
+    expect(out.hits).toEqual([])
+    expect(out.error).toMatch(/not valid chain addresses/)
+    expect(calls.n).toBe(0)
+  })
+
+  it('rejects a non-address at the watchlist front door', async () => {
+    const root = await ws()
+    await expect(addWatched(root, { address: "5Mine'; MATCH (n) DETACH DELETE n //", network: 'bittensor' })).rejects.toThrow()
+    await expect(addWatched(root, { address: '5Mine\\', network: 'bittensor' })).rejects.toThrow()
+    expect(await listWatched(root)).toEqual([])
+  })
+
+  it('still accepts real SS58 and 0x-prefixed H160 addresses', async () => {
+    const root = await ws()
+    await addWatched(root, { address: '5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5', network: 'bittensor' })
+    await addWatched(root, { address: '0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', network: 'bittensor_evm' })
+    expect(await listWatched(root)).toHaveLength(2)
+  })
+})

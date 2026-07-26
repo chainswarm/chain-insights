@@ -28,6 +28,14 @@ interface CaseMovementRow {
   address: string
 }
 
+interface WatchlistRow {
+  network: string
+  address: string
+  findings: bigint | number | null
+  movements: bigint | number | null
+  dust: bigint | number | null
+}
+
 function num(value: bigint | number | null | undefined): number | null {
   return value === null || value === undefined ? null : Number(value)
 }
@@ -35,13 +43,23 @@ function num(value: bigint | number | null | undefined): number | null {
 export async function renderReport(workspaceRoot: string): Promise<string> {
   // readOnly: report never writes, and a read-write open would needlessly
   // conflict with any other concurrent reader on the same DuckDB file.
-  const { runs, movements } = await withStore(workspaceRoot, async (store) => ({
+  const { runs, movements, watchlist } = await withStore(workspaceRoot, async (store) => ({
     runs: (await store.all(
       'SELECT run_ms, cell, network, findings_count, movements_count, duration_ms, error FROM scan_runs ORDER BY run_ms DESC LIMIT 10',
     )) as unknown as ScanRunRow[],
     movements: (await store.all(
       'SELECT case_id, run_ms, movement, address FROM case_movements ORDER BY case_id, run_ms',
     )) as unknown as CaseMovementRow[],
+    watchlist: (await store.all(
+      `SELECT w.network AS network, w.address AS address,
+              sum(CASE WHEN h.trigger = 'finding' THEN 1 ELSE 0 END) AS findings,
+              sum(CASE WHEN h.trigger = 'movement' THEN 1 ELSE 0 END) AS movements,
+              sum(CASE WHEN h.trigger = 'dust' THEN 1 ELSE 0 END) AS dust
+         FROM watchlist w
+         LEFT JOIN watchlist_hits h ON h.address = w.address AND h.network = w.network
+        GROUP BY w.network, w.address
+        ORDER BY w.network, w.address`,
+    )) as unknown as WatchlistRow[],
   }), { readOnly: true })
   const pending = await listPending(workspaceRoot)
   const alerts = await listAlerts(workspaceRoot, { unackedOnly: true })
@@ -73,6 +91,18 @@ export async function renderReport(workspaceRoot: string): Promise<string> {
     lines.push('(none)')
   } else {
     for (const a of alerts) lines.push(`- ${a.alert_id} — ${a.type}:${a.network}${a.detector ? ` ${a.detector}` : ''}`)
+  }
+
+  // Omitted entirely when nothing is watched, so a report from a workspace
+  // without the feature is unchanged.
+  if (watchlist.length > 0) {
+    lines.push('', '## Watchlist', '')
+    lines.push('| network | address | findings | movements | dust |', '| --- | --- | --- | --- | --- |')
+    for (const w of watchlist) {
+      lines.push(
+        `| ${w.network} | ${w.address} | ${num(w.findings) ?? 0} | ${num(w.movements) ?? 0} | ${num(w.dust) ?? 0} |`,
+      )
+    }
   }
 
   lines.push('', '## Case timelines', '')

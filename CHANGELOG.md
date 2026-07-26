@@ -3,6 +3,35 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.10] - 2026-07-26 — monitor address watchlist
+
+- feat: `cia monitor` gains an address watchlist, so monitoring can answer
+  "did any of this touch *my* addresses?" and not only "what is happening on
+  the network". Manage it with `cia monitor watchlist add|list|remove`, or by
+  hand-editing `.chain-insights/monitor/watchlist.json` — address plus network
+  is the identity, and re-adding an address updates its note rather than
+  failing. Enable the pass with a `watchlist` block in the monitor config; with
+  no block, or with an empty watchlist, a run behaves exactly as before.
+- feat: three triggers raise alerts on the existing stream (`alerts list`,
+  `ack`, webhook and exec sinks, and the report): `watchlist_finding` when a
+  detector sweep names a watched address, `watchlist_movement` when a tracked
+  case's funds reach one, and `watchlist_dust` on a small incoming transfer
+  below the configured ceiling — the opening move of address poisoning, which a
+  network-wide detector may not flag on its own.
+- feat: the cost profile is flat in watchlist size. The finding and movement
+  triggers are answered entirely from data the run already produced locally and
+  cost nothing extra; the dust check is one batched graph query per distinct
+  network, so a 500-address watchlist costs the same as a 5-address one.
+  Repeated runs with overlapping dust windows never re-alert the same transfer.
+- feat: `cia monitor report` gains a Watchlist section listing each watched
+  address with its hit counts by trigger; the section is omitted entirely when
+  nothing is watched. Watched addresses and their hits live in the derived
+  store and are rebuilt by `cia monitor rebuild` like everything else.
+- note: monitoring deliberately never polls an address risk score. Risk is a
+  final enrichment product you read about an address, not a monitoring input —
+  polling it per watched address would spend metered allowance re-reading a
+  downstream result instead of watching a threat.
+
 ## [0.11.9] - 2026-07-26 — detection: scheduled runs stop re-emitting findings the reviewer has already seen
 
 - fix: three of the four detectors (`attack-attribution`, `fake-token`,
@@ -25,7 +54,6 @@ All notable changes to Chain Insights are recorded here.
   findings is recorded in the document's warnings rather than hidden. Genuinely
   new findings still surface on the next run, and `--full` re-emits everything
   so a lost backlog can be rebuilt.
-
 ## [0.11.8] - 2026-07-26 — monitor robustness: torn alert logs, read-only reads, path base (#212, #214)
 
 - fix: a torn or truncated line in the append-only `alerts.jsonl` / `acks.jsonl`

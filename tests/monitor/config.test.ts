@@ -42,4 +42,35 @@ describe('monitor config', () => {
     await writeFile(p.configPath, JSON.stringify({ cells: [{ detector: '', network: 'bittensor' }] }))
     await expect(loadMonitorConfig(root)).rejects.toThrow(/Invalid monitor config/)
   })
+
+  it('watchlist block defaults and validation', async () => {
+    const root = await ws()
+    const p = monitorPaths(root)
+    await mkdir(path.dirname(p.configPath), { recursive: true })
+    await writeFile(
+      p.configPath,
+      JSON.stringify({ cells: [{ detector: 'mixer', network: 'bittensor' }], watchlist: {} }),
+      'utf8',
+    )
+    const cfg = await loadMonitorConfig(root)
+    expect(cfg.watchlist).toEqual({ dustMaxUsd: 1.0, dustLookbackSeconds: 86400, enabled: true })
+  })
+
+  it('watchlist block is absent by default (feature off)', async () => {
+    const root = await ws()
+    const cfg = await loadMonitorConfig(root)
+    expect(cfg.watchlist).toBeUndefined()
+  })
+
+  it('rejects a negative dustMaxUsd', async () => {
+    const root = await ws()
+    const p = monitorPaths(root)
+    await mkdir(path.dirname(p.configPath), { recursive: true })
+    await writeFile(
+      p.configPath,
+      JSON.stringify({ cells: [{ detector: 'mixer', network: 'bittensor' }], watchlist: { dustMaxUsd: -1 } }),
+      'utf8',
+    )
+    await expect(loadMonitorConfig(root)).rejects.toThrow(/watchlist.dustMaxUsd/)
+  })
 })
