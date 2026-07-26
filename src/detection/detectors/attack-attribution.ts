@@ -9,7 +9,7 @@
 // reviewable findings (never a direct label). Thresholds ported (DEC-7).
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { DetectionFinding } from '../../investigation/detection-findings.js'
-import { graphQueryRows, type GraphRow } from '../graph-client.js'
+import { graphQueryRows, networkPredicate, type GraphRow } from '../graph-client.js'
 import { listParam, numParam } from '../params.js'
 import type { DetectorParams, DetectorScan, DetectionWindow } from '../runtime.js'
 
@@ -178,10 +178,14 @@ async function pullSeeds(client: Client, network: string, cfg: AttributionConfig
   // stamps :Scam/:Poisoned, not an address_subtype property). Labels are
   // pre-validated to a safe identifier charset in resolveAttributionConfig.
   const predicate = cfg.seedLabels.map((l) => `a:${l}`).join(' OR ')
+  // The topology graph is shared by every network view over the same shards, so
+  // the seed pull MUST scope by the Address.network node property. Without it
+  // each network's sweep returns the same rows and publishes wrong-network
+  // attributions (chain-insights#228).
   const rows = await graphQueryRows(
     client,
     network,
-    `USE topology MATCH (a:Address) WHERE ${predicate} RETURN a.address AS address LIMIT ${cfg.maxRows}`,
+    `USE topology MATCH (a:Address) WHERE ${networkPredicate('a', network)} AND (${predicate}) RETURN a.address AS address LIMIT ${cfg.maxRows}`,
   )
   return [...new Set(rows.map((r) => str(r, 'address')).filter(Boolean))]
 }
@@ -209,7 +213,14 @@ async function expandFrontier(
     const rows = await graphQueryRows(
       client,
       network,
-      `USE topology MATCH (a:Address)-[:FLOWS_TO]->(b:Address) WHERE a.address IN [${list}] RETURN a.address AS src, b.address AS address, b.labels AS labels, b.is_exchange AS is_exchange LIMIT ${cfg.maxFrontier}`,
+      // Both endpoints are network-scoped: the frontier stays inside the
+      // requested network view, and a downstream node belonging to a SIBLING
+      // view of the same shared topology graph is neither attributed nor
+      // expanded through. That is a deliberate bound — an attribution emitted
+      // under network X must be an X address (chain-insights#228). A cash-out
+      // that crosses the SS58/H160 boundary is therefore attributed only by the
+      // sweep whose seeds live on that side.
+      `USE topology MATCH (a:Address)-[:FLOWS_TO]->(b:Address) WHERE ${networkPredicate('a', network)} AND ${networkPredicate('b', network)} AND a.address IN [${list}] RETURN a.address AS src, b.address AS address, b.labels AS labels, b.is_exchange AS is_exchange LIMIT ${cfg.maxFrontier}`,
     )
     for (const row of rows) {
       const src = str(row, 'src')

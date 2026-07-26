@@ -149,6 +149,15 @@ export const addressPoisoningDetector: DetectorScan = {
     const loMs = Math.max(window.fromMs, hiMs - cfg.scanWindowMs)
     const lo = toDateStr(loMs)
     const hi = toDateStr(hiMs)
+    // Both queries below read `USE facts`, which routes each network to its OWN
+    // backing database — the dust edges and counterparties returned are already
+    // the requested network's and nothing else. They are therefore deliberately
+    // NOT given an `Address.network` predicate: the shared-graph over-selection
+    // defect (chain-insights#228) is a `USE topology` problem, and the facts
+    // `Address` label does not map a `network` property at all, so adding one
+    // would fail the query outright (verified live 2026-07-26: "property
+    // 'network' is not mapped on label 'Address'").
+    //
     // from_address/to_address are the TRANSFER edge's endpoint NODES (facts
     // source/target columns), not edge scalars — bind them as nodes and read
     // `.address`. `amount`/`block_date` are genuine edge properties.
