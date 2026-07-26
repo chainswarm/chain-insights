@@ -7,6 +7,7 @@ import { ingestNewDocs, rebuildStore, withStore } from '../../src/monitor/store.
 import { monitorPaths } from '../../src/monitor/paths.js'
 import { addCase } from '../../src/monitor/cases.js'
 import { traceCase } from '../../src/monitor/tracker.js'
+import { addWatched } from '../../src/monitor/watchlist.js'
 
 async function ws(): Promise<string> {
   return mkdtemp(path.join(tmpdir(), 'cia-store-'))
@@ -114,5 +115,24 @@ describe('monitor store', () => {
     expect(movesAfter.map((m) => ({ run_ms: Number(m.run_ms), movement: m.movement, address: m.address }))).toEqual(
       moves.map((m) => ({ run_ms: Number(m.run_ms), movement: m.movement, address: m.address })),
     )
+  })
+
+  it('watchlist.json populates the watchlist table and survives rebuild (AC-8)', async () => {
+    const root = await ws()
+    await addWatched(root, { address: '5Treasury', network: 'bittensor', note: 'cold' })
+    await rebuildStore(root)
+    const rows = await withStore(root, async (s) =>
+      s.all('SELECT address, network, note FROM watchlist ORDER BY address'),
+    )
+    expect(rows).toEqual([{ address: '5Treasury', network: 'bittensor', note: 'cold' }])
+  })
+
+  it('rebuild does not duplicate watchlist rows', async () => {
+    const root = await ws()
+    await addWatched(root, { address: '5A', network: 'bittensor' })
+    await rebuildStore(root)
+    await rebuildStore(root)
+    const rows = await withStore(root, async (s) => s.all('SELECT count(*) AS n FROM watchlist'))
+    expect(Number(rows[0].n)).toBe(1)
   })
 })
