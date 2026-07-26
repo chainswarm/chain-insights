@@ -46,6 +46,58 @@ describe('diffSnapshots (AC-12)', () => {
   })
 })
 
+// UAT U7 (spec-marked "(unit)"): the synthetic moved-funds snapshot pair. The
+// devkit fixture is static, so no real case ever moves funds between two runs
+// -- the devkit smoke asserts exactly that and SKIPs U7 with a pointer here.
+// diffSnapshots above proves the movement set; this proves the movement set
+// reaches the ALERT stream as a cashout, which is what an operator sees.
+describe('U7 moved-funds snapshot pair -> cashout alert', () => {
+  it('a moved-funds snapshot pair emits the cashout alert, not just the movement (U7)', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'u7', type: 'stolen-funds', network: 'bittensor', seeds: ['seed1'] }, 50)
+    const corridorOf = (addrs: Array<{ address: string; classification?: string; gate?: string }>) => async () => ({
+      document: {
+        schema: 'chain-insights.detection-findings.v1', tool: 'aml_scam_corridor_trace', network: 'bittensor',
+        status: 'complete', generated_at_ms: 0,
+        findings: addrs.map((a) => ({ ...a, evidence: {}, truncated: false, inconclusive: false })),
+      },
+      summaryText: 'fake',
+    })
+
+    // Snapshot 1: funds sit one hop from the seed.
+    const before = await traceCase({} as Client, root, 'u7', 3, 100, {
+      corridor: corridorOf([{ address: 'mule1', classification: 'propagated_scam' }]),
+    })
+    expect(before.movements_count).toBe(0) // baseline emits nothing
+
+    // Snapshot 2: the funds MOVED -- on to a second mule, into a shared
+    // deposit endpoint, and out through an exchange terminal.
+    const after = await traceCase({} as Client, root, 'u7', 3, 200, {
+      corridor: corridorOf([
+        { address: 'mule1', classification: 'propagated_scam' },
+        { address: 'mule2', classification: 'propagated_scam' },
+        { address: 'dep1', gate: 'shared_deposit_exchange_infra' },
+        { address: 'exch1', classification: 'exchange_terminal' },
+      ]),
+    })
+
+    // The exact expected movements for the pair: three new hops (dep1, exch1,
+    // mule2), plus the deposit-endpoint, cashout and frontier classifications
+    // layered on top of them.
+    expect(after.movements_count).toBe(6)
+    const byType = (t: string) =>
+      after.alerts.filter((a) => a.type === t).map((a) => a.address).sort()
+    // dep1 appears twice: once as a new hop, once as the deposit endpoint --
+    // both map to the generic movement alert type.
+    expect(byType('case_movement')).toEqual(['dep1', 'dep1', 'exch1', 'mule2'])
+    // The cashout is its own alert type, addressed to the terminal -- not
+    // folded into the generic movement stream.
+    expect(byType('cashout_endpoint')).toEqual(['exch1'])
+    expect(byType('frontier_candidate')).toEqual(['mule2'])
+    expect(after.alerts.every((a) => a.case_id === 'u7' && a.network === 'bittensor' && a.run_ms === 200)).toBe(true)
+  })
+})
+
 describe('traceCase (fake corridor)', () => {
   it('writes a snapshot, diffs against the previous one, maps alerts', async () => {
     const root = await ws()

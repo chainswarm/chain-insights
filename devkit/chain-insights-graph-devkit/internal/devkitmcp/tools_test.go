@@ -151,12 +151,24 @@ func TestNetworkDocument(t *testing.T) {
 	t.Parallel()
 
 	doc := NetworkDocument()
-	if len(doc.Networks) != 1 {
-		t.Fatalf("network count = %d, want 1", len(doc.Networks))
+	// Two NAMES over one shared address-grain topology graph (SS58 +
+	// EVM-pallet), mirroring production. See topologyNetworks in memgraph.go.
+	if len(doc.Networks) != 2 {
+		t.Fatalf("network count = %d, want 2", len(doc.Networks))
 	}
 	network := doc.Networks[0]
 	if network.Network != "bittensor" {
 		t.Fatalf("network = %q, want bittensor", network.Network)
+	}
+	evm := doc.Networks[1]
+	if evm.Network != "bittensor_evm" {
+		t.Fatalf("second network = %q, want bittensor_evm", evm.Network)
+	}
+	if !evm.Layers["topology"].Enabled {
+		t.Fatal("bittensor_evm topology layer is not enabled")
+	}
+	if evm.Layers["facts"].Enabled {
+		t.Fatal("bittensor_evm facts layer must stay disabled: the devkit warehouse holds only the SS58 database")
 	}
 	if network.FixtureWindow != "2024-01-01..2026-07-02" {
 		t.Fatalf("fixture window = %q", network.FixtureWindow)

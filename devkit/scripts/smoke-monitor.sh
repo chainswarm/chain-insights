@@ -1,142 +1,533 @@
 #!/usr/bin/env bash
-# Monitor UAT smokes (spec SPEC-2026-07-25 UAT plan; smoke-level per design
-# principle 1 — the sequence, not tool internals). Requires: devkit up on
-# 127.0.0.1:18012, `npm run build` done, jq.
+# Monitor UAT smokes: the spec's UAT plan U1-U8 / M1-M8, the W1 watchlist seam,
+# and regression cases for chain-insights#225 (full-state re-emission) and
+# chain-insights#228 (network scoping).
+#
+# Requires: devkit up on 127.0.0.1:18012, `npm run build` done, jq.
+#
+# ------------------------------------------------------------------------
+# WHY THIS SCRIPT ASSERTS PAYLOADS, NOT EXIT CODES (chain-insights#231)
+# ------------------------------------------------------------------------
+# The previous revision collapsed U1-U4 into ONE row:
+#
+#     check "U1-U4 monitor run over 4 detector cells" "$(rc_of test "$RUN_RC" -le 2)"
+#
+# `-le 2` is satisfied whether a cell found everything or nothing, and exit 2
+# is the ISOLATED-FAILURE code, so a cell that threw on every single run still
+# passed. Two of those four cells were in fact permanently broken against the
+# devkit ("unsupported network bittensor_evm") and the row stayed green.
+# That is the same failure class as chain-insights#225, where three detectors
+# accepted the scan window, discarded it, and re-emitted ~2,000 identical
+# findings an hour while the checkpoint advanced and made it look incremental.
+#
+# So: every scenario below reads the RUN DOCUMENT, the FINDINGS DOCUMENT, the
+# REVIEW QUEUE, or the ALERT STREAM and asserts on their contents. A scenario
+# that cannot assert anything meaningful on this fixture calls `skip` and says
+# why, naming the blocker. It never silently passes.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CLI="node $REPO_ROOT/bin/cli.js"
-WORK="$(mktemp -d)"
-export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT="http://127.0.0.1:18012/mcp"
-PASS=0; FAIL=0
-check() { # check <name> <condition-exit-code>
-  if [ "$2" -eq 0 ]; then echo "MONITOR-SMOKE PASS $1"; PASS=$((PASS+1)); else echo "MONITOR-SMOKE FAIL $1"; FAIL=$((FAIL+1)); fi
-}
+export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT="${CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT:-http://127.0.0.1:18012/mcp}"
+PASS=0; FAIL=0; SKIP=0
+
+pass() { echo "MONITOR-SMOKE PASS $1"; PASS=$((PASS+1)); }
+fail() { echo "MONITOR-SMOKE FAIL $1 -- $2"; FAIL=$((FAIL+1)); }
+# A deferred scenario is LOUD: it prints, it is counted in its own column, and
+# it names the blocker. "Absent" and "deferred" must never look the same here.
+skip() { echo "MONITOR-SMOKE SKIP $1 -- $2"; SKIP=$((SKIP+1)); }
+
+# check <name> <condition-exit-code>
+check() { if [ "$2" -eq 0 ]; then pass "$1"; else fail "$1" "condition failed"; fi; }
+# assert_eq <name> <actual> <expected>
+assert_eq() { if [ "$2" = "$3" ]; then pass "$1"; else fail "$1" "got '$2', want '$3'"; fi; }
+# assert_ge <name> <actual> <floor>
+assert_ge() { if [ "${2:-x}" -ge "$3" ] 2>/dev/null; then pass "$1"; else fail "$1" "got '$2', want >= $3"; fi; }
+# assert_contains <name> <haystack> <needle>
+assert_contains() { case "$2" in *"$3"*) pass "$1";; *) fail "$1" "'$3' not found in: $2";; esac; }
+
 # Capture a command's exit code WITHOUT tripping `set -e`. A bare
 # `cmd; check "..." $?` is a trap: under `set -e` a failing `cmd` kills the
 # script before `check` ever runs, so a hard assertion failure exited
-# non-zero with no `MONITOR-SMOKE FAIL` row and no summary — the one case
-# where you most need the output. The `|| rc=$?` here is what makes the
-# failure reportable instead of fatal.
+# non-zero with no `MONITOR-SMOKE FAIL` row and no summary -- the one case
+# where you most need the output.
 rc_of() { local rc=0; "$@" >/dev/null 2>&1 || rc=$?; echo "$rc"; }
 
-cd "$WORK"
-$CLI init . >/dev/null
+# Newest run document in a workspace, plus readers over run/findings payloads.
+newest_run() { ls "$1"/.chain-insights/monitor/runs/*.run.json 2>/dev/null | sort | tail -1; }
+# cell_field <run.json> <cell-name> <field> -> value, or empty when absent
+cell_field() { jq -r --arg c "$2" --arg f "$3" '(.cells[] | select(.cell == $c) | .[$f]) // "" | tostring' "$1"; }
+# findings_doc <workspace> <detector> <network> -> newest matching document
+findings_doc() { ls "$1"/detections/*-"$2"-"$3".findings.json 2>/dev/null | sort | tail -1; }
 
-# Config: one cheap cell per detector on bittensor_evm + bittensor (U1–U4 sweep coverage).
-mkdir -p .chain-insights/monitor
-cat > .chain-insights/monitor/config.json <<'EOF'
+WORKSPACES=()
+new_workspace() { local w; w="$(mktemp -d)"; ( cd "$w" && $CLI init . >/dev/null ); mkdir -p "$w/.chain-insights/monitor"; WORKSPACES+=("$w"); echo "$w"; }
+write_config() { cat > "$1/.chain-insights/monitor/config.json"; }
+
+########################################################################
+# Fixture capability probe.
+#
+# The devkit fixture is a checksum-pinned REAL export: devkit/data/manifest.json
+# is validated by validate-manifest.py, which fails the import outright on
+# synthetic placeholder markers, by design. A detector whose input table is not
+# in that export therefore cannot be handed a hand-authored known-answer case
+# here -- it is PROBED, and skipped loudly if its input is genuinely absent.
+# The probe is what makes the skip self-healing: the moment the export lands,
+# the same row starts asserting for real with no edit to this script.
+########################################################################
+ASSET_ROWS=$($CLI mcp call graph_query network=bittensor \
+  'query=USE facts MATCH (t:Asset) RETURN t.asset_contract AS c LIMIT 1' 2>/dev/null \
+  | jq -r '.facts.query.results | length' 2>/dev/null || echo 0)
+
+########################################################################
+# PHASE A -- the detector sweep (U1, U2, U4, U5), then U3 / #225 over reruns.
+#
+# All four cells run on `bittensor`, the network the devkit fixture carries end
+# to end. address-poisoning is given an explicit scan_window_days: its default
+# is a trailing 2-day window relative to NOW, and the fixture's transfers are a
+# fixed historical slice, so the default window is permanently empty. The old
+# smoke never set it -- its "U2" could not have observed a finding in principle.
+########################################################################
+WS_A="$(new_workspace)"
+write_config "$WS_A" <<'EOF'
 { "cells": [
-    { "detector": "fake-token", "network": "bittensor_evm" },
-    { "detector": "address-poisoning", "network": "bittensor_evm" },
+    { "detector": "fake-token", "network": "bittensor" },
+    { "detector": "address-poisoning", "network": "bittensor", "params": { "scan_window_days": "3650" } },
     { "detector": "attack-attribution", "network": "bittensor" },
     { "detector": "mixer", "network": "bittensor", "params": { "time_scope": "recent" } }
   ], "intervalSeconds": 3600, "caseMaxHops": 2 }
 EOF
 
-# U1–U4: one run executes all four sweep cells; run doc exists; store populated.
-RUN_RC=0; $CLI monitor run || RUN_RC=$?   # isolated failures (exit 2) allowed, hard failure not
-check "U1-U4 monitor run over 4 detector cells" "$(rc_of test "$RUN_RC" -le 2)"
-RUNS=$(ls .chain-insights/monitor/runs/*.run.json 2>/dev/null | wc -l); check "U1 run doc written" "$(rc_of test "$RUNS" -eq 1)"
+cd "$WS_A"
+RUN1_RC=0; $CLI monitor run >/dev/null 2>&1 || RUN1_RC=$?
+assert_eq "A/run 1 completes with no isolated cell failure" "$RUN1_RC" "0"
+RUN1="$(newest_run "$WS_A")"
+check "A/run 1 wrote a run document" "$(rc_of test -n "$RUN1")"
+assert_eq "A/run 1 executed all four configured cells" "$(jq '.cells | length' "$RUN1")" "4"
 
-# U5: exchange-likeness machinery reachable (corridor gate classifications come
-# from the same graph): status renders without error.
-check "U5/status renders" "$(rc_of $CLI monitor status)"
+# ---- U1: fake-token cell -> finding ingested, alert emitted ----------------
+if [ "$ASSET_ROWS" -eq 0 ]; then
+  # Proven, not assumed: the probe above asked the graph and got zero rows.
+  skip "U1 fake-token known-answer" \
+    "the devkit facts Asset registry is empty (mapped but unexported -- see ALLOWED_UNEXPORTED_TABLES in devkit/scripts/validate-manifest.py, chain-insights#210). The asset registry is this detector's ONLY input, so no spoof case can exist on this fixture. Unit coverage: tests/detection/fake-token.test.ts (findSpoofs known-answer)"
+  # What CAN be asserted is that the cell ran and did not fail. That is a
+  # strictly weaker claim, and it is labelled as such rather than sold as U1.
+  assert_eq "U1 fake-token cell ran without error" "$(cell_field "$RUN1" 'fake-token:bittensor' error)" ""
+  assert_eq "U1 fake-token cell reports an empty-registry count" "$(cell_field "$RUN1" 'fake-token:bittensor' findings_count)" "0"
+else
+  FT_COUNT="$(cell_field "$RUN1" 'fake-token:bittensor' findings_count)"
+  assert_ge "U1 fake-token finding ingested" "$FT_COUNT" 1
+  FT_DOC="$(findings_doc "$WS_A" fake-token bittensor)"
+  assert_eq "U1 fake-token finding is a spoof classification" \
+    "$(jq -r '[.findings[].classification] | unique | join(",")' "$FT_DOC")" "fake_token_contract"
+  assert_eq "U1 fake-token finding names the impersonated verified contract" \
+    "$(jq -r '[.findings[] | select((.evidence.spoofed_verified_contract // "") == "")] | length' "$FT_DOC")" "0"
+  assert_ge "U1 fake-token alert emitted" \
+    "$($CLI monitor alerts list --all 2>/dev/null | grep -c 'new_findings bittensor fake-token' || true)" 1
+fi
 
-# M1: immediate second run is idempotent at the store level.
-M1_RC=$(rc_of $CLI monitor rebuild)
-[ "$M1_RC" -ne 0 ] || { RUN_RC=0; $CLI monitor run >/dev/null 2>&1 || RUN_RC=$?; [ "$RUN_RC" -le 2 ] || M1_RC=$RUN_RC; }
-[ "$M1_RC" -ne 0 ] || M1_RC=$(rc_of $CLI monitor rebuild)
-check "M1 second run + rebuild clean" "$M1_RC"
+# ---- U2: poisoning cell on the dust+lookalike fixture ----------------------
+AP_COUNT="$(cell_field "$RUN1" 'address-poisoning:bittensor' findings_count)"
+assert_ge "U2 poisoning finding ingested" "$AP_COUNT" 1
+AP_DOC="$(findings_doc "$WS_A" address-poisoning bittensor)"
+assert_eq "U2 poisoning findings all carry the duster classification" \
+  "$(jq -r '[.findings[].classification] | unique | join(",")' "$AP_DOC")" "poisoning_duster"
+assert_eq "U2 poisoning findings all carry the vanity-lookalike gate" \
+  "$(jq -r '[.findings[].gate] | unique | join(",")' "$AP_DOC")" "vanity_lookalike_dust"
+# The whole point of the detector: each duster impersonates one of the VICTIM'S
+# OWN real prior counterparties. A finding without that pointer is not a
+# poisoning finding, it is just a small transfer.
+assert_eq "U2 every poisoning finding names its victim and the impersonated counterparty" \
+  "$(jq -r '[.findings[] | select(((.evidence.impersonated_counterparty // "") == "") or ((.evidence.victim // "") == ""))] | length' "$AP_DOC")" "0"
+assert_ge "U2 poisoning alert emitted" \
+  "$($CLI monitor alerts list --all 2>/dev/null | grep -c 'new_findings bittensor address-poisoning' || true)" 1
 
-# U6: case lifecycle on a devkit seed address (fixture-known active address).
+# ---- U4: mixer cell, hourglass fixture -------------------------------------
+MX_COUNT="$(cell_field "$RUN1" 'mixer:bittensor' findings_count)"
+assert_ge "U4 mixer candidate found" "$MX_COUNT" 1
+MX_DOC="$(findings_doc "$WS_A" mixer bittensor)"
+assert_eq "U4 mixer findings are hourglass candidates" \
+  "$(jq -r '[.findings[].gate] | unique | join(",")' "$MX_DOC")" "hourglass_in_out"
+# Protocol sinks (0x0, 0x..dead) must never be minted as mixers. Asserted on
+# the EMITTED set, not on the classifier's source.
+assert_eq "U4 protocol sinks excluded from mixer candidates" \
+  "$(jq -r '[.findings[] | select((.address | ascii_downcase) == "0x0000000000000000000000000000000000000000" or (.address | ascii_downcase) == "0x000000000000000000000000000000000000dead")] | length' "$MX_DOC")" "0"
+# "candidate in review queue": the findings doc is PENDING and unreviewed, and
+# the queue reports the same count the run doc did. This is the gate that keeps
+# a machine finding from becoming a label.
+MX_QUEUE_COUNT="$($CLI monitor review list 2>/dev/null | awk -F'\t' -v d="$MX_DOC" '$1 == d {print $4}')"
+assert_eq "U4 mixer candidates land in the review queue with the run's count" "$MX_QUEUE_COUNT" "$MX_COUNT"
+assert_eq "U4 queued mixer doc carries no reviewer (import gate stays shut)" \
+  "$(jq -r 'has("reviewer")' "$MX_DOC")" "false"
+
+# ---- U5: exchange-likeness machinery reachable -----------------------------
+STATUS_TEXT="$($CLI monitor status 2>&1)"
+check "U5/status renders" "$(rc_of test -n "$STATUS_TEXT")"
+assert_contains "U5/status reports the configured cell count" "$STATUS_TEXT" "cells: 4"
+# The queue the exchange-likeness/corridor gate feeds. Three, not four: the
+# review queue lists only documents that have something to review, and the
+# fake-token cell wrote an empty document (its registry is unexported, see U1).
+assert_contains "U5/status queues only the cells that found something" "$STATUS_TEXT" "pending reviews: 3"
+
+# ---- U3 + #225: the second run scans only the new window -------------------
+# The scenario the spec named and the old smoke never implemented -- and
+# exactly the defect that shipped as #225. It has two halves, because after the
+# #225 fix the detectors declare two honest window modes:
+#
+#   incremental (address-poisoning): bounds its own queries by the window, so
+#     the checkpoint is real. The second run scans (run1, run2] -- a window with
+#     no fixture data in it -- and therefore reports nothing.
+#
+#   full-state (attack-attribution, fake-token, mixer): classifies from current
+#     cumulative graph state, which carries no usable event timestamp. It keeps
+#     scanning in full every run (correctness), advances NO checkpoint (there is
+#     nothing to advance honestly), and emits only findings not already emitted.
+#
+# The #225 shape was a full-state detector wearing incremental clothes: it
+# advanced a checkpoint nothing read while re-emitting its whole result set
+# every hour. Both halves below fail if that behavior returns.
+sleep 1
+RUN2_RC=0; $CLI monitor run >/dev/null 2>&1 || RUN2_RC=$?
+assert_eq "U3/run 2 completes with no isolated cell failure" "$RUN2_RC" "0"
+RUN2="$(newest_run "$WS_A")"
+check "U3/run 2 wrote a second run document" "$(rc_of test "$RUN2" != "$RUN1")"
+
+CP="$WS_A/.chain-insights/detectors/address-poisoning.bittensor.checkpoint.json"
+check "U3 incremental detector wrote a checkpoint" "$(rc_of test -f "$CP")"
+RUN1_MS="$(jq -r '.run_ms' "$RUN1")"
+RUN2_MS="$(jq -r '.run_ms' "$RUN2")"
+assert_eq "U3 checkpoint advanced to run 2's watermark" "$(jq -r '.last_block_timestamp_ms' "$CP")" "$RUN2_MS"
+check "U3 checkpoint moved forward between runs" "$(rc_of test "$RUN2_MS" -gt "$RUN1_MS")"
+# The observable consequence of scanning only (run1, run2]: nothing new.
+assert_eq "U3 incremental second run reports nothing for the new window" \
+  "$(cell_field "$RUN2" 'address-poisoning:bittensor' findings_count)" "0"
+
+# #225 half: full-state detector, unchanged data.
+assert_eq "U3/#225 full-state second run emits nothing new" \
+  "$(cell_field "$RUN2" 'attack-attribution:bittensor' findings_count)" "0"
+AA_DOC2="$(findings_doc "$WS_A" attack-attribution bittensor)"
+# ... and it must still have SCANNED. A detector that stopped scanning would
+# also report 0; the suppression warning distinguishes "scanned, nothing new"
+# from "did not look".
+assert_contains "U3/#225 full-state run 2 still scanned (suppression recorded)" \
+  "$(jq -r '(.warnings // []) | join(" ")' "$AA_DOC2")" "already emitted"
+assert_eq "U3/#225 full-state detector advances no checkpoint it never reads" \
+  "$(rc_of test -f "$WS_A/.chain-insights/detectors/attack-attribution.bittensor.checkpoint.json")" "1"
+
+# Third run: still zero. Two runs could be an ordering fluke; three is the
+# steady state the #225 flood violated.
+sleep 1
+$CLI monitor run >/dev/null 2>&1 || true
+RUN3="$(newest_run "$WS_A")"
+assert_eq "#225 third run over unchanged data still emits nothing" \
+  "$(cell_field "$RUN3" 'attack-attribution:bittensor' findings_count)" "0"
+AA_RUN1_COUNT="$(cell_field "$RUN1" 'attack-attribution:bittensor' findings_count)"
+assert_ge "#225 the first run DID emit (suppression is not a mute button)" "$AA_RUN1_COUNT" 1
+
+# --full is the documented escape hatch: it must rebuild the whole backlog.
+FULL_COUNT="$($CLI detect attack-attribution --network bittensor --full 2>&1 | sed -nE 's/.*: ([0-9]+) finding\(s\).*/\1/p' | tail -1)"
+assert_eq "#225 --full re-emits the whole finding set" "$FULL_COUNT" "$AA_RUN1_COUNT"
+
+########################################################################
+# PHASE B -- #228 network scoping regression.
+#
+# Several network names share ONE address-grain topology graph; `network`
+# selects the GRAPH, not the address subset inside it. Before #228 every
+# `USE topology` MATCH on `:Address` lacked an `Address.network` predicate, so
+# both views returned the same wrong-network rows. Nothing pinned it.
+#
+# Known answer on this fixture: mixer/bittensor yields SS58 addresses only,
+# mixer/bittensor_evm yields 0x addresses only, and the two sets are disjoint.
+########################################################################
+WS_B="$(new_workspace)"
+cd "$WS_B"
+$CLI detect mixer --network bittensor >/dev/null 2>&1 || true
+$CLI detect mixer --network bittensor_evm >/dev/null 2>&1 || true
+B_SS58="$(findings_doc "$WS_B" mixer bittensor)"
+B_EVM="$(findings_doc "$WS_B" mixer bittensor_evm)"
+if [ -z "$B_SS58" ] || [ -z "$B_EVM" ]; then
+  fail "#228 network scoping" "one or both findings documents were not written (ss58='$B_SS58' evm='$B_EVM')"
+else
+  assert_ge "#228 SS58 view returns findings" "$(jq '.findings | length' "$B_SS58")" 1
+  assert_ge "#228 EVM view returns findings" "$(jq '.findings | length' "$B_EVM")" 1
+  assert_eq "#228 SS58 view returns ONLY SS58 addresses" \
+    "$(jq -r '[.findings[] | select(.address | startswith("5") | not)] | length' "$B_SS58")" "0"
+  assert_eq "#228 EVM view returns ONLY 0x addresses" \
+    "$(jq -r '[.findings[] | select(.address | startswith("0x") | not)] | length' "$B_EVM")" "0"
+  # The strongest form: the two views cannot overlap at all. An unscoped query
+  # would make these two sets identical.
+  OVERLAP="$(jq -s -r '[.[0].findings[].address] as $a | [.[1].findings[].address] | map(select(. as $x | $a | index($x))) | length' "$B_SS58" "$B_EVM")"
+  assert_eq "#228 the two views share no addresses" "$OVERLAP" "0"
+  assert_eq "#228 the two documents record different network provenance" \
+    "$(jq -s -r 'if .[0].network == .[1].network then "same" else "different" end' "$B_SS58" "$B_EVM")" "different"
+fi
+
+########################################################################
+# PHASE C -- M7: a forced detector failure is isolated, the run completes.
+########################################################################
+WS_C="$(new_workspace)"
+write_config "$WS_C" <<'EOF'
+{ "cells": [
+    { "detector": "mixer", "network": "bittensor", "params": { "time_scope": "recent" } },
+    { "detector": "no-such-detector", "network": "bittensor" }
+  ], "intervalSeconds": 3600, "caseMaxHops": 2 }
+EOF
+cd "$WS_C"
+M7_RC=0; $CLI monitor run >/dev/null 2>&1 || M7_RC=$?
+assert_eq "M7 forced detector failure exits with the isolated-failure code" "$M7_RC" "2"
+RUN_C="$(newest_run "$WS_C")"
+check "M7 the run still wrote its run document" "$(rc_of test -n "$RUN_C")"
+assert_eq "M7 the failing cell recorded an error" \
+  "$(rc_of test -n "$(cell_field "$RUN_C" 'no-such-detector:bittensor' error)")" "0"
+# Isolation is the whole claim: the healthy cell must have completed normally.
+assert_eq "M7 the healthy sibling cell recorded no error" "$(cell_field "$RUN_C" 'mixer:bittensor' error)" ""
+assert_ge "M7 the healthy sibling cell still produced findings" "$(cell_field "$RUN_C" 'mixer:bittensor' findings_count)" 1
+
+########################################################################
+# PHASE D -- U6 / U7 / U8 case lifecycle, then M3 import gate (on WS_A).
+########################################################################
+cd "$WS_A"
 # 5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x is the first SS58 source
-# address found in devkit/data/memgraph/flows.csv.gz (same fixture, same
-# selection technique devkit/scripts/smoke-chain-insights-parity.sh already
-# uses for its SEED_ADDRESS/PEER_ADDRESS: first NR>1 row whose from/to both
-# start with "5"). It carries 14 outbound / 25 total flow edges in the
-# fixture, so it is a real, active, non-placeholder address. Verified live
-# against this devkit: `cia mcp call graph_query network=bittensor
-# "query=USE topology MATCH (a:Address {address: '<seed>'}) RETURN
-# a.address, a.network LIMIT 1"` returns the address.
+# address in the devkit flows fixture (the same selection technique
+# devkit/scripts/smoke-chain-insights-parity.sh uses for its SEED_ADDRESS):
+# 14 outbound / 25 total flow edges -- a real, active, non-placeholder address.
 SEED="5ELUzkmGbBs5naVDyGfNN8RQCzrM6MC6nFESgyhuVvwxSb8x"
 check "U6 case add" "$(rc_of $CLI monitor case add theft-1 --type stolen-funds --network bittensor --seed "$SEED")"
-RUN_RC=0; $CLI monitor run || RUN_RC=$?
-check "U6 run after case add" "$(rc_of test "$RUN_RC" -le 2)"
-SNAPS=$(ls cases/theft-1/snapshots/*.snapshot.json 2>/dev/null | wc -l); check "U6 snapshot written" "$(rc_of test "$SNAPS" -ge 1)"
-RUN_RC=0; $CLI monitor run || RUN_RC=$?
-check "U6 second run" "$(rc_of test "$RUN_RC" -le 2)"
-# Static fixture ⇒ second snapshot diff must be empty (zero case_movement alerts for run 2).
-MOVES=$($CLI monitor alerts list --all 2>/dev/null | grep -c case_movement || true)
-check "U6 zero movements on static fixture" "$(rc_of test "$MOVES" -eq 0)"
+sleep 1
+$CLI monitor run >/dev/null 2>&1 || true
+SNAP1="$(ls "$WS_A"/cases/theft-1/snapshots/*.snapshot.json 2>/dev/null | sort | tail -1 || true)"
+check "U6 baseline snapshot written" "$(rc_of test -n "$SNAP1")"
+assert_contains "U6 the baseline snapshot seeds the case with its seed address" \
+  "$(jq -r '.seed_set | join(",")' "$SNAP1")" "$SEED"
+RUN_D1="$(newest_run "$WS_A")"
+assert_eq "U6 baseline case cell emits no movements" "$(cell_field "$RUN_D1" "case:theft-1" movements_count)" "0"
+sleep 1
+$CLI monitor run >/dev/null 2>&1 || true
+RUN_D2="$(newest_run "$WS_A")"
+assert_ge "U6 a second snapshot was taken" "$(ls "$WS_A"/cases/theft-1/snapshots/*.snapshot.json | wc -l)" 2
+# Static fixture => the run-over-run diff is empty, and no case_movement alert
+# may be invented from it.
+assert_eq "U6 second run over the static fixture yields zero movements" \
+  "$(cell_field "$RUN_D2" "case:theft-1" movements_count)" "0"
+assert_eq "U6 zero case_movement alerts on the static fixture" \
+  "$($CLI monitor alerts list --all 2>/dev/null | grep -c ' case_movement ' || true)" "0"
 
-# U8 expansion loop: approve any pending case doc, re-run, seed set must grow.
-PENDING=$($CLI monitor review list 2>/dev/null | grep -c 'case-theft-1' || true)
-if [ "$PENDING" -gt 0 ]; then
-  DOC=$(ls detections/*case-theft-1*.findings.json | head -1)
-  check "U8 approve frontier" "$(rc_of $CLI monitor review approve "$DOC" --reviewer smoke)"
-  RUN_RC=0; $CLI monitor run || RUN_RC=$?
-  check "U8 run after approve" "$(rc_of test "$RUN_RC" -le 2)"
-  LAST=$(ls cases/theft-1/snapshots/*.snapshot.json | sort | tail -1)
-  GREW=$(jq '.seed_set | length' "$LAST"); check "U8 corridor expanded" "$(rc_of test "$GREW" -gt 1)"
+# ---- U7: synthetic moved-funds snapshot pair -------------------------------
+# The spec marks U7 (unit), and the unit coverage EXISTS -- checked before
+# writing this row, not assumed:
+#   tests/monitor/tracker.test.ts
+#     "yields the exact expected movement set for a moved-funds pair"
+#       -> exact new_hop / cashout_endpoint / new_deposit_endpoint /
+#          frontier_candidate sets over a synthetic snapshot pair
+#     "a moved-funds snapshot pair emits the cashout alert, not just the
+#      movement (U7)" -> the cashout ALERT, with its address, reaches the
+#      alert stream
+# It cannot be re-derived here: the devkit fixture is static, so no real case
+# ever moves funds between two runs -- which is precisely what U6 above asserts.
+skip "U7 synthetic moved-funds snapshot pair" \
+  "spec-marked (unit); covered by tests/monitor/tracker.test.ts -- exact movement set incl. cashout, plus the cashout_endpoint alert. A static fixture cannot produce a real movement pair (see U6)"
+
+# ---- U8: approve frontier -> re-run -> corridor expands ---------------------
+PENDING_CASE_DOC="$(ls "$WS_A"/detections/*case-theft-1*.findings.json 2>/dev/null | head -1 || true)"
+if [ -n "$PENDING_CASE_DOC" ]; then
+  check "U8 approve frontier" "$(rc_of $CLI monitor review approve "$PENDING_CASE_DOC" --reviewer smoke)"
+  sleep 1
+  $CLI monitor run >/dev/null 2>&1 || true
+  LAST_SNAP="$(ls "$WS_A"/cases/theft-1/snapshots/*.snapshot.json | sort | tail -1)"
+  assert_ge "U8 the approved candidate expanded the corridor seed set" \
+    "$(jq '.seed_set | length' "$LAST_SNAP")" 2
+  assert_eq "U8 the approved address is now a case seed" \
+    "$(jq -r --arg a "$(jq -r '.findings[0].address' "$PENDING_CASE_DOC")" '[.seed_set[] | select(. == $a)] | length' "$LAST_SNAP")" "1"
 else
-  echo "MONITOR-SMOKE PASS U8 (no frontier on static fixture — expansion seam covered by tests/monitor/tracker.test.ts)"
-  PASS=$((PASS+1))
+  skip "U8 corridor expansion" \
+    "the seed's corridor produced no frontier candidate on this fixture (no propagated_scam / corridor_hub hop), and a labelled scam hub -- the seed that would produce one -- traverses for minutes on this fixture, which is not smoke-sized. Seam covered by tests/monitor/tracker.test.ts 'traceCase expansion seam (AC-13 approve -> re-trace)'"
 fi
 
-# M2: rebuild equality.
+# ---- M3: the curated-import gate ------------------------------------------
+# The importer itself is not part of this repository, so what is assertable
+# here is the CONTRACT it reads: an approved doc carries a reviewer identity
+# and identical findings; its unreviewed sibling carries no reviewer and is
+# therefore refused. U8's `approve` above only proved the command exits 0 --
+# it never looked at what the gate would read.
+# The OLDEST mixer doc, i.e. the one run 1 wrote with findings in it. Runs 2
+# and 3 wrote empty docs (full-state suppression, asserted above) -- approving
+# one of those would export zero label rows and make M4 below vacuous.
+M3_DOC="$(ls "$WS_A"/detections/*-mixer-bittensor.findings.json 2>/dev/null | sort | head -1 || true)"
+check "M3 an unreviewed sibling doc exists" "$(rc_of test -n "$M3_DOC")"
+assert_ge "M3 the doc under review actually carries findings" "$(jq '.findings | length' "$M3_DOC")" 1
+assert_eq "M3 unreviewed doc carries NO reviewer -> the gate refuses it" \
+  "$(jq -r 'has("reviewer")' "$M3_DOC")" "false"
+M3_COPY="$($CLI monitor review approve "$M3_DOC" --reviewer smoke-m3 2>&1 | sed -nE 's/^Approved\. Reviewed copy: //p')"
+check "M3 approve produced a reviewed copy" "$(rc_of test -f "$M3_COPY")"
+assert_eq "M3 approved doc carries the reviewer -> the gate accepts it" \
+  "$(jq -r '.reviewer' "$M3_COPY")" "smoke-m3"
+# The gate keys on the findings, so the approved copy must be the SAME findings:
+# an approval that silently dropped or rewrote rows would import wrong labels.
+assert_eq "M3 approved copy preserves the findings verbatim" \
+  "$(jq -S -c '.findings' "$M3_DOC" | sha256sum | cut -d' ' -f1)" \
+  "$(jq -S -c '.findings' "$M3_COPY" | sha256sum | cut -d' ' -f1)"
+assert_eq "M3 the approved doc leaves the pending review queue" \
+  "$($CLI monitor review list 2>/dev/null | grep -cF "$M3_DOC	" || true)" "0"
+
+########################################################################
+# PHASE E -- M1, M2, M4, M8, M9 store/alert mechanics (WS_A).
+########################################################################
+# M1: an immediate second run is idempotent at the store level.
+M1_RC="$(rc_of $CLI monitor rebuild)"
+[ "$M1_RC" -ne 0 ] || { RC=0; $CLI monitor run >/dev/null 2>&1 || RC=$?; [ "$RC" -le 2 ] || M1_RC=$RC; }
+[ "$M1_RC" -ne 0 ] || M1_RC="$(rc_of $CLI monitor rebuild)"
+check "M1 second run + rebuild clean" "$M1_RC"
+# "no duplicate rows": alert ids are unique across every run so far.
+ALERT_IDS="$($CLI monitor alerts list --all 2>/dev/null | awk '{print $1}' | sort)"
+assert_eq "M1 no duplicate alert ids across runs" \
+  "$(grep -c . <<<"$ALERT_IDS")" "$(sort -u <<<"$ALERT_IDS" | grep -c .)"
+
+# M2: rebuild reproduces identical contents including alerts/acks.
+BEFORE_REBUILD="$($CLI monitor alerts list --all 2>/dev/null | sort | sha256sum)"
 check "M2 rebuild from canonical JSON" "$(rc_of $CLI monitor rebuild)"
+assert_eq "M2 rebuild reproduces the alert stream identically" \
+  "$BEFORE_REBUILD" "$($CLI monitor alerts list --all 2>/dev/null | sort | sha256sum)"
 
-# M4: export labels (approved-only; may be empty rows, must produce files).
-EXPORT_OUT=$($CLI monitor export labels 2>&1 || true)
-check "M4 export labels" "$(rc_of grep -q labels- <<<"$EXPORT_OUT")"
+# M4: export labels -- approved-only.
+EXPORT_OUT="$($CLI monitor export labels 2>&1 || true)"
+assert_contains "M4 export labels writes JSON" "$EXPORT_OUT" ".json"
+assert_contains "M4 export labels writes CSV" "$EXPORT_OUT" ".csv"
+M4_JSON="$(sed -nE 's/^JSON: //p' <<<"$EXPORT_OUT")"
+if [ -n "$M4_JSON" ] && [ -f "$M4_JSON" ]; then
+  # Approved-only is the security property: rows from the doc approved above,
+  # and nothing from any still-pending doc.
+  assert_ge "M4 export contains the approved rows" "$(jq '. | length' "$M4_JSON")" 1
+  assert_eq "M4 export is approved-only (every row carries a reviewer)" \
+    "$(jq -r '[.[] | select((.reviewer // "") == "")] | length' "$M4_JSON")" "0"
+else
+  fail "M4 export labels" "no JSON path in output: $EXPORT_OUT"
+fi
 
-# M8: alerts list + ack round trip (ack the first alert if any exist). Do not
-# gate the exit-code capture behind the `if` test itself (that would report
-# $? of the `[ -n "$FIRST" ]` probe, not of the ack, on the legitimate
-# no-alerts path) — capture the ack's own status explicitly.
-FIRST=$($CLI monitor alerts list --all 2>/dev/null | head -1 | awk '{print $1}')
-ACK_RC=0
-if [ -n "$FIRST" ]; then $CLI monitor alerts ack "$FIRST" || ACK_RC=$?; fi
-check "M8 alerts list/ack" "$ACK_RC"
+# M8: alerts list + ack round trip. Capture the ack's OWN status -- gating the
+# capture behind an `if` would report the probe's exit code on the empty path.
+FIRST="$($CLI monitor alerts list --all 2>/dev/null | head -1 | awk '{print $1}')"
+if [ -n "$FIRST" ]; then
+  ACK_RC=0; $CLI monitor alerts ack "$FIRST" >/dev/null 2>&1 || ACK_RC=$?
+  assert_eq "M8 alert ack succeeds" "$ACK_RC" "0"
+  assert_eq "M8 the acked alert leaves the unacked list" \
+    "$($CLI monitor alerts list 2>/dev/null | grep -c "^$FIRST " || true)" "0"
+  assert_eq "M8 the acked alert remains in the full list" \
+    "$($CLI monitor alerts list --all 2>/dev/null | grep -c "^$FIRST " || true)" "1"
+else
+  fail "M8 alerts list/ack" "no alerts were emitted, so the ack round trip could not be exercised"
+fi
 
-# M9 (#212): a torn trailing line in alerts.jsonl must cost that line only —
-# `alerts list` must still return the good records, and `rebuild` must recover
-# without hand-editing the JSONL.
-ALERTS_LOG=.chain-insights/monitor/alerts/alerts.jsonl
+# M9 (#212): a torn trailing line in alerts.jsonl costs that line only.
+ALERTS_LOG="$WS_A/.chain-insights/monitor/alerts/alerts.jsonl"
 if [ -s "$ALERTS_LOG" ]; then
-  GOOD=$($CLI monitor alerts list --all 2>/dev/null | grep -c . || true)
+  GOOD="$($CLI monitor alerts list --all 2>/dev/null | grep -c . || true)"
   printf '{"alert_id":"torn' >> "$ALERTS_LOG"
-  TORN=$($CLI monitor alerts list --all 2>/dev/null | grep -c . || true)
-  check "M9 torn alerts.jsonl keeps good alerts in list" "$(rc_of test "$TORN" -eq "$GOOD")"
+  assert_eq "M9 torn alerts.jsonl keeps every good alert in the list" \
+    "$($CLI monitor alerts list --all 2>/dev/null | grep -c . || true)" "$GOOD"
   check "M9 torn alerts.jsonl still rebuilds" "$(rc_of $CLI monitor rebuild)"
 else
-  echo "MONITOR-SMOKE PASS M9 (no alerts emitted on static fixture — torn-line seam covered by tests/monitor/alerts.test.ts)"
-  PASS=$((PASS+1))
+  fail "M9 torn alerts.jsonl" "no alerts log to tear"
 fi
 
-# W1 (watchlist): watching an address that an existing finding already touches
-# must raise a watchlist_finding alert on the next run, with no extra remote
-# call for that trigger (it is a local join). Address risk is never called.
-WL_DOC=$(ls detections/*.findings.json 2>/dev/null | head -1 || true)
-WATCHED=""; WL_NET=""
-if [ -n "$WL_DOC" ]; then
-  WATCHED=$(jq -r '.findings[0].address // empty' "$WL_DOC")
-  WL_NET=$(jq -r '.network // empty' "$WL_DOC")
-fi
-if [ -n "$WATCHED" ] && [ -n "$WL_NET" ]; then
-  jq '. + {watchlist: {dustMaxUsd: 1.0, dustLookbackSeconds: 86400, enabled: true}}' \
-    .chain-insights/monitor/config.json > .chain-insights/monitor/config.json.tmp \
-    && mv .chain-insights/monitor/config.json.tmp .chain-insights/monitor/config.json
-  check "W1 watchlist add" "$(rc_of $CLI monitor watchlist add "$WATCHED" --network "$WL_NET")"
-  RUN_RC=0; $CLI monitor run || RUN_RC=$?
-  check "W1 run with watchlist" "$(rc_of test "$RUN_RC" -le 2)"
-  WL=$($CLI monitor alerts list --all 2>/dev/null | grep -c watchlist_ || true)
-  check "W1 watchlist alert emitted" "$(rc_of test "$WL" -ge 1)"
+########################################################################
+# PHASE F -- M5: usage guard on real quota. DEFERRED, LOUDLY.
+########################################################################
+# `stopIfRemainingBelow` reads the backend's remaining quota. The devkit MCP is
+# deliberately unmetered -- no billing, metering, or usage-reporting surface --
+# so its usage_status carries no quota fields at all. A guard test here would
+# either assert nothing or need a faked quota, which proves nothing about the
+# real halt path. The metered endpoint is chain-insights#215.
+skip "M5 stopIfRemainingBelow clean halt" \
+  "requires a metered usage_status endpoint (chain-insights#215); the devkit MCP is unmetered by design. Halt-path unit coverage: tests/monitor/runner.test.ts (usage guard reads facts.usage.remaining_seconds and records the halt reason)"
+
+########################################################################
+# PHASE G -- M6: `watch` kill/restart resumes, with no loss and no duplicates.
+########################################################################
+WS_G="$(new_workspace)"
+write_config "$WS_G" <<'EOF'
+{ "cells": [ { "detector": "mixer", "network": "bittensor", "params": { "time_scope": "recent" } } ],
+  "intervalSeconds": 3600, "caseMaxHops": 2 }
+EOF
+cd "$WS_G"
+# `watch` runs once immediately, then sleeps the interval -- so one pass, a
+# hard kill mid-sleep, and a restart is a complete resume cycle with no waiting.
+$CLI monitor watch --interval 3600 >/dev/null 2>&1 &
+WATCH_PID=$!
+for _ in $(seq 1 90); do [ -n "$(newest_run "$WS_G")" ] && break; sleep 1; done
+G_RUN1="$(newest_run "$WS_G")"
+check "M6 watch produced a first run before the kill" "$(rc_of test -n "$G_RUN1")"
+G_ALERTS1="$($CLI monitor alerts list --all 2>/dev/null | awk '{print $1}' | sort)"
+kill -9 "$WATCH_PID" 2>/dev/null || true
+wait "$WATCH_PID" 2>/dev/null || true
+assert_eq "M6 the watch daemon is gone" "$(rc_of kill -0 "$WATCH_PID")" "1"
+
+sleep 1
+$CLI monitor watch --interval 3600 >/dev/null 2>&1 &
+WATCH_PID2=$!
+for _ in $(seq 1 90); do [ "$(newest_run "$WS_G")" != "$G_RUN1" ] && break; sleep 1; done
+G_RUN2="$(newest_run "$WS_G")"
+kill -9 "$WATCH_PID2" 2>/dev/null || true
+wait "$WATCH_PID2" 2>/dev/null || true
+check "M6 watch resumed after the kill and produced a new run" "$(rc_of test "$G_RUN2" != "$G_RUN1")"
+# No loss: the pre-kill run document survives and the store still rebuilds.
+check "M6 the pre-kill run document survived" "$(rc_of test -f "$G_RUN1")"
+check "M6 the store rebuilds cleanly after the kill" "$(rc_of $CLI monitor rebuild)"
+# No duplicates: alert ids stay unique, and every pre-kill alert is still there.
+G_ALL="$($CLI monitor alerts list --all 2>/dev/null | awk '{print $1}' | sort)"
+assert_eq "M6 no duplicate alert ids after resume" \
+  "$(grep -c . <<<"$G_ALL")" "$(sort -u <<<"$G_ALL" | grep -c .)"
+assert_eq "M6 no pre-kill alert was lost on resume" \
+  "$(comm -23 <(printf '%s\n' "$G_ALERTS1") <(printf '%s\n' "$G_ALL") | grep -c . || true)" "0"
+# The resumed run must not re-emit the suppressed full-state findings -- that
+# would be #225 again, reached through the restart path.
+assert_eq "M6 the resumed run re-emits nothing over unchanged data" \
+  "$(cell_field "$G_RUN2" 'mixer:bittensor' findings_count)" "0"
+
+########################################################################
+# PHASE H -- W1 + watchlist dedupe by source_ref (AC-11) and cost (AC-6).
+#
+# W1 was written into the previous smoke but NEVER EXECUTED: it was gated
+# behind a findings probe that never fired under the old bittensor_evm config,
+# so the `else` branch printed PASS on every run.
+########################################################################
+WS_H="$(new_workspace)"
+write_config "$WS_H" <<'EOF'
+{ "cells": [ { "detector": "mixer", "network": "bittensor", "params": { "time_scope": "recent" } } ],
+  "intervalSeconds": 3600, "caseMaxHops": 2,
+  "watchlist": { "dustMaxUsd": 1.0, "dustLookbackSeconds": 86400, "enabled": true } }
+EOF
+cd "$WS_H"
+$CLI monitor run >/dev/null 2>&1 || true
+H_DOC="$(findings_doc "$WS_H" mixer bittensor)"
+if [ -z "$H_DOC" ] || [ "$(jq '.findings | length' "$H_DOC")" -eq 0 ]; then
+  fail "W1 watchlist" "the seeding run produced no findings to watch"
 else
-  echo "MONITOR-SMOKE PASS W1 (no findings on static fixture — watchlist seam covered by tests/monitor/watchlist-run.test.ts)"
-  PASS=$((PASS+1))
+  # Watch several addresses the run already flagged, on the SAME network.
+  # AC-6: the dust probe is one call per distinct NETWORK, never per address.
+  mapfile -t WATCHED < <(jq -r '.findings[0:5][].address' "$H_DOC")
+  for addr in "${WATCHED[@]}"; do
+    $CLI monitor watchlist add "$addr" --network bittensor >/dev/null 2>&1 || true
+  done
+  assert_eq "W1 five addresses are on the watchlist" "$($CLI monitor watchlist list 2>/dev/null | grep -c .)" "5"
+  sleep 1
+  $CLI monitor run >/dev/null 2>&1 || true
+  WL1="$($CLI monitor alerts list --all 2>/dev/null | grep -c ' watchlist_' || true)"
+  assert_ge "W1 a watched address touched by an existing finding raises an alert" "$WL1" 1
+  assert_ge "W1 the alert is a watchlist_finding (a local join, not a remote call)" \
+    "$($CLI monitor alerts list --all 2>/dev/null | grep -c ' watchlist_finding ' || true)" 1
+  # AC-11 dedupe by source_ref: the SAME finding document must not re-alert on
+  # the next run. This is the assertion that makes a watchlist survivable.
+  sleep 1
+  $CLI monitor run >/dev/null 2>&1 || true
+  assert_eq "W1 watchlist hits dedupe by source_ref across runs" \
+    "$($CLI monitor alerts list --all 2>/dev/null | grep -c ' watchlist_' || true)" "$WL1"
+  # AC-6's exact call count is not observable from the workspace: the run
+  # document carries no per-cell call counter. Stated, not silently dropped.
+  skip "W1/AC-6 exact remote-call count" \
+    "the run document records no per-cell call counter, so K-calls-for-K-networks and the never-call-aml_address_risk guarantee are asserted at unit level: tests/monitor/watchlist-run.test.ts 'makes one call per distinct network regardless of address count (AC-6)' and 'the watchlist pass never calls aml_address_risk (AC-6 cost guarantee)'"
 fi
 
-echo "MONITOR-SMOKE done: $PASS pass, $FAIL fail (workspace: $WORK)"
+########################################################################
+echo "MONITOR-SMOKE done: $PASS pass, $FAIL fail, $SKIP skip"
+for w in "${WORKSPACES[@]}"; do echo "MONITOR-SMOKE workspace: $w"; done
 [ "$FAIL" -eq 0 ]
