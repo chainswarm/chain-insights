@@ -10,6 +10,16 @@ const CellSchema = z.object({
   params: z.record(z.string(), z.string()).optional(),
 })
 
+// Watchlist. Absent = feature off. Present with {} = on with defaults.
+// Nothing here scales with address count: the dust probe is one
+// graph_query_batch per distinct network, and the other two triggers are
+// local joins.
+const WatchlistConfigSchema = z.object({
+  dustMaxUsd: z.number().nonnegative().default(1.0),
+  dustLookbackSeconds: z.number().int().positive().default(86400),
+  enabled: z.boolean().default(true),
+})
+
 const MonitorConfigSchema = z.object({
   cells: z.array(CellSchema).min(1),
   intervalSeconds: z.number().int().positive().default(3600),
@@ -22,6 +32,7 @@ const MonitorConfigSchema = z.object({
   webhookUrl: z.string().url().optional(),
   execHook: z.string().min(1).optional(),
   caseMaxHops: z.number().int().min(1).max(4).default(3),
+  watchlist: WatchlistConfigSchema.optional(),
 })
 
 export type MonitorConfig = z.infer<typeof MonitorConfigSchema>
