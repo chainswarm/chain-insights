@@ -129,6 +129,9 @@ function toDateStr(ms: number): string {
 export const addressPoisoningDetector: DetectorScan = {
   tool: 'aml_address_poisoning',
   id: 'address-poisoning',
+  // Event-shaped: dust TRANSFER edges carry block_date, so the scan is genuinely
+  // bounded by the window and the checkpoint is meaningful.
+  windowMode: 'incremental',
   thresholds: (network, params) => {
     const cfg = resolvePoisoningConfig(network, params)
     return {
