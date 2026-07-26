@@ -2203,8 +2203,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(query).toContain('MATCH (source:Address)-[r1:FLOWS_TO]->(deposit:Address)')
     expect(query).toContain('deposit.address = "5DepositA"')
     expect(query).toContain('deposit.address = "5DepositB"')
-    expect(query).toContain('source.is_exchange IS NULL')
     expect(query).toContain('deposit.is_exchange IS NULL')
+    // chain-insights#208: the reported upstream source is no longer
+    // constrained to non-exchange in the WHERE clause -- an exchange-funded
+    // path is real evidence, not a result to exclude at the query level.
+    expect(query).not.toContain('source.is_exchange IS NULL')
     expect(result.structuredContent).toMatchObject({
       schema: 'chain-insights.trace.v1',
       tool: 'aml_trace_deposit_sources',
@@ -2229,11 +2232,27 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(publicTraceSurface).toContain('5DepositA')
     expect(publicTraceSurface).toContain('5DepositB')
     expect(publicTraceSurface).toContain('5SharedSource')
+    // chain-insights#208: 5ExchangeHot is no longer dropped from the result
+    // -- it is returned and classified as 'exchange', distinguished from (and
+    // never counted as) a candidate_suspect/candidate_intermediate/deposit.
+    expect(publicTraceSurface).toContain('5ExchangeHot')
     expect(result.structuredContent.continuation.candidate_suspect_addresses).not.toContain('5ExchangeHot')
     expect(result.structuredContent.candidate_labels).not.toContainEqual(expect.objectContaining({
       address: '5ExchangeHot',
       candidate_label: 'candidate_suspect',
     }))
+    expect(result.structuredContent.addresses).toContainEqual(expect.objectContaining({
+      address: '5ExchangeHot',
+      roles: ['exchange'],
+    }))
+    expect(result.structuredContent.exchange_exposure).toContainEqual(expect.objectContaining({
+      address: '5ExchangeHot',
+    }))
+    expect(result.structuredContent.summary).toMatchObject({
+      exchange_count: 1,
+      candidate_suspect_count: 1,
+    })
+    expect(result.structuredContent.warnings).not.toContain('No upstream sources were connected in the queried topology.')
     expect(result.structuredContent.convergence).toContainEqual(expect.objectContaining({
       address: '5SharedSource',
       path_ids: expect.arrayContaining([expect.any(String)]),
