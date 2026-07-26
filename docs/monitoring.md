@@ -62,20 +62,8 @@ write `.chain-insights/monitor/config.json`:
 }
 ```
 
-For a standing watch, put `cia monitor run` on a schedule. Cron is the
-simplest option:
-
-```text
-0 * * * * cd /path/to/workspace && cia monitor run
-```
-
-`cia monitor watch` is a thin built-in alternative to cron — it loops
-`monitor run` on `intervalSeconds` (or `--interval <seconds>`, floor 60s)
-without needing an external scheduler:
-
-```bash
-cia monitor watch --interval 1800
-```
+For a standing watch, put `cia monitor run` on a schedule — see
+[Scheduling](#scheduling).
 
 Two read-only commands give you a pulse check without waiting for a report:
 
@@ -83,6 +71,175 @@ Two read-only commands give you a pulse check without waiting for a report:
 cia monitor status   # cells, open cases, pending reviews, unacked alerts, last run — one line
 cia monitor report   # markdown rollup: recent runs, pending review, unacked alerts, case timelines
 ```
+
+### Network scoping
+
+Several network views share ONE address-grain topology graph. The `network`
+value on a cell selects **the graph**, not the subset of addresses inside it —
+the split between address spaces lives on the `:Address.network` node property.
+`bittensor` and `bittensor_evm` cells therefore read the same underlying data
+and are separated by that property alone.
+
+The shipped detectors scope themselves by the node property, so a configured
+matrix sweeps the address space you asked for. It matters when you write your
+own monitoring query by hand: an unscoped `:Address` match returns every
+network's addresses, which means wrong-network findings at double the metered
+cost. See [Graph query compatibility](graph-query-compatibility.md) for the
+query-level rule.
+
+Only `USE facts` gives each network its own backing database, and the facts
+`Address` label carries no `network` property at all — a facts query that
+projects it fails outright.
+
+## Full-State vs Incremental Detectors
+
+Detectors come in two shapes, and they mean different things by "new":
+
+| Shape | Detectors | Run state |
+| --- | --- | --- |
+| **Incremental** | `address-poisoning` | Reads a bounded time window and advances a scan checkpoint. The next run starts where this one stopped. |
+| **Full-state** | `fake-token`, `mixer`, `attack-attribution` | Classifies an address from its *current* cumulative graph state (degree metrics, taxonomy labels, the verified-asset registry). A time window would make it wrong, so it keeps no checkpoint; it records the findings it has already emitted instead. |
+
+A full-state detector re-derives its entire result set on every run. Emitting
+that verbatim would republish thousands of already-reviewed findings every hour
+and drown the review backlog, so a run emits only the findings it has not shown
+you before, and notes any suppressed count in the document's `warnings`.
+
+**An unchanged run therefore legitimately produces a findings document with
+zero findings.** That is the intended behavior, not a failed sweep, a broken
+endpoint, or a misconfigured cell. Empty documents are still written and still
+replayed by `cia monitor rebuild` — they are provenance, carrying the run
+record and the suppression count — but they are not listed as pending review
+work, so a standing schedule does not bury the real items under empty ones.
+
+Both kinds of run state advance only *after*
+the findings document is durably on disk, so a pass that dies mid-write
+re-emits next time rather than losing findings.
+
+### The `--full` escape hatch
+
+To deliberately re-emit a detector's whole result set — after a bad review
+pass, a wiped workspace, or a changed threshold — run the detector directly
+with `--full`. It ignores the checkpoint, resets the emitted-findings state,
+and republishes everything:
+
+```bash
+cia detect mixer --network bittensor --full
+```
+
+`cia monitor run` never passes `--full`. A scheduled pass is always the
+new-only path by design; `--full` stays a deliberate, manual act.
+
+## Scheduling
+
+`cia monitor run` is a **one-shot**: it performs a single pass and exits. That
+is deliberate — the monitor core is one-shot and idempotent, never a stateful
+service, so any scheduler can drive it and an interrupted process cannot leave
+half-written state. The scheduler supplies only the schedule.
+
+| Option | Choose it when | Cost |
+| --- | --- | --- |
+| `cia monitor watch` | Interactive session, ad-hoc coverage for a few hours. | Dies with the shell; no per-pass exit-code visibility. |
+| `cron` | The host already runs cron and you have external log plumbing. | No status surface; you own log capture and failure visibility. |
+| `pm2` | You want per-pass logs, a status surface, boot persistence, and non-zero exits made visible with no extra plumbing. | One config file, and `autorestart: false` is mandatory. |
+
+Do not run two of these against the same workspace. Passes are idempotent, but
+overlapping schedules double the metered graph spend for no extra coverage.
+
+### cron
+
+```text
+0 * * * * cd /path/to/workspace && cia monitor run
+```
+
+### Built-in watch
+
+`cia monitor watch` loops `monitor run` on `intervalSeconds` (or
+`--interval <seconds>`, floor 60s) with no external scheduler:
+
+```bash
+cia monitor watch --interval 1800
+```
+
+### pm2
+
+pm2 is not keeping a server alive here — it supplies the schedule for a
+one-shot. Two settings carry the whole design:
+
+```js
+autorestart: false,
+cron_restart: '0 * * * *',
+```
+
+`autorestart: false` is **not optional**. pm2's default is to treat any process
+exit as a crash and relaunch immediately; a one-shot exits on every successful
+pass, so the default produces a hot loop that re-runs the full detector matrix
+continuously and burns metered graph allowance until someone notices.
+
+A working `ecosystem.config.cjs`:
+
+```js
+// pm2 process definition for a scheduled `cia monitor` pass.
+//
+// `cia monitor run` is a ONE-SHOT: one pass, then exit. pm2 supplies only the
+// schedule:
+//   autorestart: false  -> a clean exit is a finished pass, not a crash
+//   cron_restart        -> launch one pass at the top of every hour
+//
+// Exit codes: 0 = clean, 2 = isolated cell failure (pass completed, a cell did
+// not), 1 = the run could not start. pm2 surfaces non-zero exits in
+// `pm2 list` / `pm2 logs` — the intended alerting-of-last-resort.
+module.exports = {
+  apps: [
+    {
+      name: 'cia-monitor',
+      // Globally installed CLI; use an absolute path to a checkout's
+      // bin/cli.js plus `interpreter: 'node'` if you run from source, or if
+      // `cia` is not on pm2's PATH.
+      script: 'cia',
+      args: 'monitor run',
+      // The monitoring workspace root.
+      cwd: './',
+      autorestart: false,
+      cron_restart: '0 * * * *',
+      time: true,
+      merge_logs: true,
+      out_file: './.chain-insights/monitor/pm2-out.log',
+      error_file: './.chain-insights/monitor/pm2-err.log',
+      env: {
+        NODE_ENV: 'production',
+      },
+    },
+  ],
+}
+```
+
+Bring it up and confirm the first pass before walking away:
+
+```bash
+pm2 start ecosystem.config.cjs
+pm2 list
+pm2 logs cia-monitor --lines 50
+pm2 restart cia-monitor          # force a pass outside the schedule
+```
+
+Persistence needs **two** separate steps; doing only the first is the usual
+mistake:
+
+```bash
+pm2 save        # persist the process list so `pm2 resurrect` can restore it
+sudo pm2 startup   # prints a platform-specific boot line — run what it prints
+```
+
+`pm2 save` does not make pm2 itself start at boot. Run the command
+`pm2 startup` prints, then `pm2 save` again. Without both, the schedule stops
+silently at the next reboot.
+
+Under pm2, exit code `2` shows the process as `errored` in `pm2 list`. That is
+the **intended alerting-of-last-resort for an isolated cell failure**, not a
+broken deploy — see [Exit codes](#exit-codes). Do not "fix" it by removing
+`autorestart: false`; that trades one visible failing cell for an invisible hot
+loop.
 
 ## Cases
 
@@ -146,6 +303,30 @@ This reads **approved decisions only** and writes matching
 `labels-<timestamp>.json` and `labels-<timestamp>.csv` files under
 `reports/monitor/`, each row carrying the address, network, label,
 originating tool, reviewer, and decision timestamp.
+
+### Quarantine, do not delete
+
+When a findings document is wrong — a misconfigured threshold, a
+wrong-network sweep, a detector bug — **reject it rather than deleting the
+file**:
+
+```bash
+cia monitor review reject <doc-path> --reviewer alice
+```
+
+Deleting looks tidier and costs you the two things that matter. The decision
+record disappears, so nothing distinguishes "reviewed and wrong" from "never
+reviewed", and the audit trail of what monitoring proposed at a given time
+loses a document it once contained. A rejected document is inert: it feeds
+neither label export nor case expansion, and no reviewed copy is written.
+
+If you need the bad batch out of the working set entirely, move the raw
+documents into a workspace-local quarantine directory you keep alongside the
+originals — for example `detections/quarantine/` — after recording the
+rejection, so the reason travels with the files. Then fix the cause and
+re-emit with `--full` (see [The `--full` escape hatch](#the---full-escape-hatch))
+rather than hand-editing findings, which are machine output and are not meant
+to be edited.
 
 ## Alerts
 
@@ -291,3 +472,17 @@ partial one from a broken one:
 | `0` | Clean run — every sweep cell and case trace completed. |
 | `2` | One or more sweep cells or case traces failed in isolation; every other cell still ran, and any findings or alerts it produced still landed. |
 | `1` | Hard failure — the run could not start at all (for example, an unreadable workspace or an invalid monitor config). |
+
+Exit `2` is a **partial success**. Whatever scheduler you use must be able to
+express the difference between `1` and `2`, or a single flaky cell will page
+someone as though nothing ran.
+
+## Related
+
+- Skill `chain-insights-monitoring` — agent-facing routing, the detector
+  matrix, review boundary, and scheduling, including
+  `references/pm2-scheduling.md`.
+- [Investigation workspaces](investigation-workspaces.md) — how a monitor
+  workspace relates to an investigation workspace.
+- [Graph query compatibility](graph-query-compatibility.md) — the shared
+  address-grain topology graph and the network-scoping rule.

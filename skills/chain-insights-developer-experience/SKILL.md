@@ -8,6 +8,28 @@ description: Use when changing Chain Insights README, docs, skills, CLI UX, AML 
 Use this skill when improving Chain Insights as a product or developer-facing
 framework.
 
+## The `dist/` Trap — read this first
+
+`bin/cli.js` is a shim that imports `dist/`. It never reads `src/`. And:
+
+- `dist/` is gitignored and does **not** auto-rebuild.
+- **`npm test` does not rebuild it either** — vitest runs against `src/`.
+- Only `npm run build` rebuilds it.
+
+So a stale `dist/` passes the whole test suite and ships broken behavior to
+anyone using the CLI. The failure mode gives no hint that the build is the
+problem: the CLI runs old compiled logic against current data and reports a
+plausible-looking wrong answer.
+
+After ANY `src/` change, before testing through `cia` / `bin/cli.js`:
+
+```bash
+npm run build
+```
+
+`npm run build` is also not plain compilation — it copies template and asset
+directories into `dist/`, so skipping it stales packaged UI assets too.
+
 ## Product Frame
 
 Chain Insights is an AML tool framework layered on top of Chain Insights Graph.
@@ -28,6 +50,24 @@ names in debugging or contributor docs when the detail is necessary.
   addresses to upstream sources and shared-source convergence.
 - `aml_trace_suspect_funds`: trace suspected scammer, mule, operator, or
   laundering-ring addresses forward to cashout topology.
+
+## Monitoring Surface
+
+`cia monitor` is a first-class product surface, not an internal helper. When
+changing it, keep four documents in step or the capability becomes invisible:
+`docs/monitoring.md`, the `chain-insights-monitoring` skill, the README
+monitoring section, and `CHANGELOG.md`.
+
+Shipped skills are the agent-facing product surface — `skills/` is packaged in
+the npm tarball. A capability no skill mentions does not exist to an agent,
+however well the CLI works.
+
+Design rules that must survive any change:
+
+- `cia monitor run` is a one-shot; the scheduler is external. Do not turn the
+  core into a daemon.
+- Machine output is a proposal. Reviewer approval is the only path to a label.
+- Exit `2` means isolated cell failure — a partial success, distinct from `1`.
 
 ## Chain Insights Graph Layer
 

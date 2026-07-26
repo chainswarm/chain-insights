@@ -28,6 +28,35 @@ addresses live in the same graph:
   resolution, never assume the two spaces share a `FLOWS_TO`-reachable graph.
 - Preserve exact returned `address` and `network` fields.
 
+### Scope every non-exact `:Address` match by `a.network`
+
+`bittensor` and `bittensor_evm` are **two views over ONE address-grain
+topology graph**. Passing `network=bittensor` selects the GRAPH; it does not
+select the addresses inside it. Both spaces are in the same topology shards,
+and only the `:Address.network` node property separates them.
+
+```cypher
+-- WRONG: sweeps SS58 and H160 addresses together
+USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 100
+
+-- RIGHT
+USE topology MATCH (a:Address) WHERE a.network = "bittensor_evm"
+RETURN a.address AS address LIMIT 100
+```
+
+An unscoped sweep publishes wrong-space results at double the metered cost.
+Exact-address matches (`MATCH (a:Address {address: "0x…"})`) are exempt: the
+address is already a unique key, and scoping one fails closed on an H160
+address screened under `network=bittensor`.
+
+`USE facts` inverts this. Facts is the one place each network gets its own
+backing database (reported as `facts.routing.starrocks_database=bittensor`), so
+the facts `Address` label carries **no mapped `network` property at all** —
+projecting `a.network` there fails with
+`unknown graph identifier: property "network" is not mapped on label "Address"`.
+`Address` is served on facts only as a `TRANSFER` endpoint; a single-node
+`MATCH (a:Address)` is refused. Read `network` on `USE topology`.
+
 ## Current Schema Notes
 
 Observed against the address-serving contract on 2026-07-07:

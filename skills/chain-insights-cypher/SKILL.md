@@ -69,6 +69,40 @@ not as a separate query network: a single `network=bittensor` query spans both
 spaces by walking `FLOWS_TO` within a space and hopping the bridge (money) or
 `LINKED` (ownership) edge across the boundary.
 
+### The `network` argument selects the GRAPH, not the addresses in it
+
+This is the highest-value rule in this skill. Two network views of one chain
+are **two views over ONE address-grain topology graph** — the SS58 and H160
+address spaces live in the same topology shards, separated only by the
+`:Address.network` node property.
+
+So a `USE topology` query that matches `:Address` without an exact address
+**must** scope itself by that property, or it scans every view's addresses and
+returns rows from an address space you did not ask for — wrong-network results
+at double the metered cost:
+
+```cypher
+-- WRONG: returns SS58 and H160 addresses regardless of intent
+USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 100
+
+-- RIGHT
+USE topology MATCH (a:Address) WHERE a.network = "bittensor_evm"
+RETURN a.address AS address LIMIT 100
+```
+
+Exact-address lookups (`MATCH (a:Address {address: "0x…"})`) need no predicate:
+the address is already a unique key, and adding one fails closed on an EVM
+address screened under the chain's primary network name.
+
+`USE facts` is the opposite case. Facts is the one place each network gets its
+own backing database (reported as `facts.routing.starrocks_database`), and
+because the database already scopes the network, the facts `Address` label has
+**no mapped `network` property at all** — projecting it returns
+`unknown graph identifier: property "network" is not mapped on label "Address"`
+rather than degrading. `Address` on facts is served only as a `TRANSFER`
+relationship endpoint, so a single-node `MATCH (a:Address)` is refused there
+too. Read address-grain node properties, `network` included, on `USE topology`.
+
 Topology is intentionally stable across address spaces:
 
 - Node: `(:Address {address, network})` with sparse `labels`, `is_exchange`,

@@ -68,6 +68,42 @@ The UAT must verify all of these facts:
 - No investigation output is created under `~/.chain-insights/reports`.
 </uat_contract>
 
+<monitoring_uat>
+The bundled script covers the investigation path. `cia monitor` is a separate
+surface over the same endpoint and is not exercised by it. When a change
+touches monitoring, detection, or the graph reads they issue, add a manual pass
+from the temporary workspace:
+
+```bash
+cia monitor run; echo "exit=$?"
+cia monitor status
+cia monitor report
+```
+
+What to assert, and what NOT to treat as a failure:
+
+- Exit `0` is a clean pass; exit `2` is an **isolated cell failure** — the pass
+  completed and every other cell's findings and alerts landed. Only exit `1`
+  means the run could not start. A UAT that treats any non-zero exit as failure
+  will report a healthy partial pass as broken.
+- A findings document with **zero findings is a valid result** on unchanged
+  data: full-state detectors (`fake-token`, `mixer`, `attack-attribution`)
+  emit only findings not already emitted for that network. Assert the document
+  exists and parses, not that it is non-empty. To force a populated document,
+  re-emit deliberately with `cia detect <detector> --network <network> --full`.
+- Findings must carry no reviewer. The review step is the only path to a label,
+  so a generated document with a reviewer set is a contract violation.
+- Monitor output must stay workspace-local (`detections/`, `cases/`,
+  `.chain-insights/monitor/`) — the same rule as investigation output.
+- Detector sweeps must scope non-exact `:Address` matches by the
+  `:Address.network` node property. Network views share one address-grain
+  topology graph, so an unscoped sweep returns another view's addresses; two
+  cells differing only by network returning identical rows is the symptom.
+
+See `docs/monitoring.md` and the `chain-insights-monitoring` skill for the full
+command surface.
+</monitoring_uat>
+
 <process>
 1. Run the script. Do not replace it with hand-written equivalent commands unless the script itself is being fixed.
 2. Read the summary path printed by the script.
