@@ -1823,7 +1823,17 @@ function reverseDepositSourceQueryAtDepth(
     return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
   }).join('')
   const depositPredicates = depositAddresses.map((address) => `deposit.address = "${escapeCypherString(address)}"`)
-  const nonExchangePredicates = ['source', ...intermediateVariables, 'deposit'].map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
+  // Exchange hot wallets stay terminal (must never be walked THROUGH): an
+  // intermediate hop can never be an exchange. The immediate upstream funder
+  // ("source") is deliberately NOT constrained here -- an exchange can
+  // genuinely be the direct upstream funder of a deposit, and that funding
+  // path is real evidence an analyst needs to see, not a result to discard.
+  // reverseDepositSourceRowIsSourceExchange() classifies it after the fact
+  // instead of the query excluding it (chain-insights#208: the previous
+  // `source.is_exchange IS NULL` predicate here silently dropped every
+  // exchange-funded path, and non-exchange-funded deposits were separately
+  // reported as "no upstream sources" whenever every partial query failed).
+  const nonExchangePredicates = ['deposit', ...intermediateVariables].map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
   const amountPredicates = minAmountSum > 0 ? edgeVariables.map((edgeVariable) => `${edgeVariable}.amount_usd_sum >= ${minAmountSum}`) : []
   const windowPredicates = activityWindowPredicates(edgeVariables, window)
   return {
@@ -1845,10 +1855,22 @@ function rowNodeIsExchange(value: unknown): boolean {
     hasExactExchangeLabel(stringArrayValue(record['system_labels']))
 }
 
-function reverseDepositSourceRowUsesExchange(row: Record<string, unknown>): boolean {
-  if (isExchangeFlag(row['source_is_exchange']) || isExchangeFlag(row['deposit_is_exchange'])) return true
+// Defense in depth for the exchange-terminal rule: an intermediate hop
+// (neither the reported source nor the deposit seed) must never be an
+// exchange node, mirroring the server-side `n*.is_exchange IS NULL`
+// predicate. path_nodes is ordered [source, ...intermediates, deposit].
+function reverseDepositSourceRowIntermediateTouchesExchange(row: Record<string, unknown>): boolean {
   if (!Array.isArray(row['path_nodes'])) return false
-  return row['path_nodes'].some(rowNodeIsExchange)
+  return row['path_nodes'].slice(1, -1).some(rowNodeIsExchange)
+}
+
+// Classifies (never excludes) whether the reported upstream funder is itself
+// an exchange endpoint -- an exchange-funded path is a distinguished subset
+// of the result, not the only thing that matches and not a dropped row.
+function reverseDepositSourceRowIsSourceExchange(row: Record<string, unknown>): boolean {
+  if (isExchangeFlag(row['source_is_exchange'])) return true
+  const pathNodes = Array.isArray(row['path_nodes']) ? row['path_nodes'] : []
+  return rowNodeIsExchange(pathNodes[0])
 }
 
 function htmlEscape(value: unknown): string {
@@ -1889,10 +1911,11 @@ export async function traceDepositSources(
     : { facts: { queries: [] } }
   const failures: QueryFailure[] = []
   const rows: Array<Record<string, unknown>> = optionalResultsWithPrefix(batch, 'reverse_deposit_sources_', failures)
-    .filter((row) => !reverseDepositSourceRowUsesExchange(row))
+    .filter((row) => !reverseDepositSourceRowIntermediateTouchesExchange(row))
     .map((row, index) => ({
       ...row,
       path_id: `p${index + 1}`,
+      source_is_exchange: reverseDepositSourceRowIsSourceExchange(row),
     }))
   const truncationWarnings = (batch.facts?.queries ?? [])
     .filter((entry) => entry.id?.startsWith('reverse_deposit_sources_') && (entry.results?.length ?? 0) >= REVERSE_DEPOSIT_SOURCES_LIMIT)
@@ -1912,8 +1935,17 @@ export async function traceDepositSources(
   for (const row of rows) {
     const sourceAddress = typeof row['source_address'] === 'string' ? row['source_address'] : ''
     const depositAddress = typeof row['deposit_address'] === 'string' ? row['deposit_address'] : ''
+    const sourceIsExchange = isExchangeFlag(row['source_is_exchange'])
     const pathAddresses = stringArrayValue(row['addresses']) ?? [sourceAddress, depositAddress].filter(Boolean)
-    addTraceAddress(addresses, sourceAddress, 'candidate_suspect', 'Upstream address funds a suspected deposit/cashout seed')
+    // Exchange-funded upstream is a distinguished subset, not a dropped
+    // result and not a candidate_suspect: the exchange-terminal rule means an
+    // exchange hot wallet is never classified as a suspect/intermediate.
+    addTraceAddress(
+      addresses,
+      sourceAddress,
+      sourceIsExchange ? 'exchange' : 'candidate_suspect',
+      sourceIsExchange ? 'Upstream funder is a known exchange endpoint' : 'Upstream address funds a suspected deposit/cashout seed',
+    )
     addTraceAddress(addresses, depositAddress, 'seed_deposit', 'Deposit/cashout seed provided by caller')
     const edgeProps = Array.isArray(row['edge_props']) ? row['edge_props'] as Array<Record<string, unknown>> : []
     const edgeIds: string[] = []
@@ -1943,6 +1975,7 @@ export async function traceDepositSources(
       edge_ids: [...edgeIds].reverse(),
       hops: numberValue(row['hop']) ?? Math.max(pathAddresses.length - 1, 0),
       terminal_role: 'source',
+      source_is_exchange: sourceIsExchange,
       amount_usd_sum: numberValue(row['amount_usd_sum']),
       first_seen_ms: numberValue(row['first_seen_timestamp']),
       last_seen_ms: numberValue(row['last_seen_timestamp']),
@@ -1951,6 +1984,7 @@ export async function traceDepositSources(
 
   const sourceToPathIds = new Map<string, string[]>()
   const sourceToDeposits = new Map<string, Set<string>>()
+  const exchangeSourceAddresses = new Set<string>()
   for (const row of rows) {
     const source = typeof row['source_address'] === 'string' ? row['source_address'] : ''
     const deposit = typeof row['deposit_address'] === 'string' ? row['deposit_address'] : ''
@@ -1958,17 +1992,22 @@ export async function traceDepositSources(
     sourceToPathIds.set(source, [...(sourceToPathIds.get(source) ?? []), String(row['path_id'])])
     if (!sourceToDeposits.has(source)) sourceToDeposits.set(source, new Set())
     if (deposit) sourceToDeposits.get(source)!.add(deposit)
+    if (isExchangeFlag(row['source_is_exchange'])) exchangeSourceAddresses.add(source)
   }
-  const convergence = [...sourceToPathIds.entries()]
-    .filter(([address]) => (sourceToDeposits.get(address)?.size ?? 0) > 1)
-    .map(([address, pathIds]) => ({
+  // Exchange-funded sources are reported (exchange_exposure) but excluded
+  // from candidate_suspect/convergence: per the exchange-terminal rule they
+  // are never classified as suspect/intermediate candidates.
+  const nonExchangeSourceAddresses = [...sourceToPathIds.keys()].filter((address) => !exchangeSourceAddresses.has(address))
+  const convergence = nonExchangeSourceAddresses
+    .filter((address) => (sourceToDeposits.get(address)?.size ?? 0) > 1)
+    .map((address) => ({
       address,
       role: 'candidate_suspect',
-      path_ids: pathIds,
+      path_ids: sourceToPathIds.get(address) ?? [],
       reason: 'Same upstream source funds multiple provided deposit/cashout seeds.',
     }))
   const candidateSuspects = convergence.map((entry) => entry.address)
-  const candidateLabels = [...sourceToPathIds.keys()].map((address) => ({
+  const candidateLabels = nonExchangeSourceAddresses.map((address) => ({
     address,
     candidate_label: 'candidate_suspect',
     confidence: candidateSuspects.includes(address) ? 'high' : 'medium',
@@ -1977,6 +2016,12 @@ export async function traceDepositSources(
       ? 'Upstream source converges into multiple provided deposit/cashout seeds.'
       : 'Upstream source funds a provided deposit/cashout seed.',
     promote_to_core_label: false,
+  }))
+  const exchangeExposure = [...exchangeSourceAddresses].map((address) => ({
+    address,
+    role: 'exchange',
+    path_ids: sourceToPathIds.get(address) ?? [],
+    reason: 'Deposit/cashout seed is directly funded by a known exchange endpoint.',
   }))
   const graphData = normalizeGraphPayload({
     schema: 'chain-insights.graph.v1',
@@ -2040,10 +2085,10 @@ export async function traceDepositSources(
         unresolved_count: unresolvedDeposits.length,
         path_count: paths.length,
         edge_count: edges.length,
-        candidate_suspect_count: sourceToPathIds.size,
+        candidate_suspect_count: nonExchangeSourceAddresses.length,
         candidate_intermediate_count: 0,
         candidate_deposit_count: deposits.length,
-        exchange_count: 0,
+        exchange_count: exchangeSourceAddresses.size,
       },
       unresolved: unresolvedDeposits,
       addresses: [...addresses.values()].map((entry) => ({
@@ -2055,7 +2100,7 @@ export async function traceDepositSources(
       edges,
       paths,
       convergence,
-      exchange_exposure: [],
+      exchange_exposure: exchangeExposure,
       candidate_labels: candidateLabels,
       artifacts: statelessArtifacts(),
       evidence: failures.length > 0 ? [{ evidence_type: 'query_summary', summary: `partial query failures: ${failures.length}` }] : [],
@@ -2068,7 +2113,14 @@ export async function traceDepositSources(
           : ['aml_address_risk', 'graph_query_batch'],
       },
       warnings: [
-        ...(paths.length === 0 ? ['No upstream sources were connected in the queried topology.'] : []),
+        // Never claim "no upstream sources" when the reason paths.length is
+        // 0 is that the reverse traceback queries themselves failed (issue
+        // chain-insights#208) -- that is a partial-failure result, not a
+        // clean negative finding, and must be reported as such.
+        ...(failures.length > 0
+          ? [`${failures.length} reverse traceback quer${failures.length === 1 ? 'y' : 'ies'} failed and may be missing from these results: ${failures.map((failure) => `${failure.id} (${failure.error})`).join('; ')}`]
+          : []),
+        ...(paths.length === 0 && failures.length === 0 ? ['No upstream sources were connected in the queried topology.'] : []),
         ...(unresolvedDeposits.length > 0 ? [`${unresolvedDeposits.length} input address(es) did not resolve to a known Address and were not traced: ${unresolvedDeposits.join(', ')}.`] : []),
         ...truncationWarnings,
       ],

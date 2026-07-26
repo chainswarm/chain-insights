@@ -3,6 +3,32 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.4] - 2026-07-26 — aml_trace_deposit_sources: general upstream sources (#208)
+
+- fix: `aml_trace_deposit_sources` no longer restricts the reverse traceback
+  to exchange-funded upstream senders. The `source.is_exchange IS NULL`
+  predicate silently dropped every non-exchange-funded path, so a deposit
+  funded exclusively by non-exchange addresses reported `path_count: 0`
+  even when the topology showed dozens of real inbound funders.
+- fix: exchange-funded upstream sources are no longer discarded either. They
+  are returned and classified as a distinguished subset (`role: 'exchange'`,
+  `summary.exchange_count`, `exchange_exposure`) instead of being excluded
+  from the result and instead of being misclassified as
+  `candidate_suspect`/`candidate_intermediate` -- exchange hot wallets stay
+  terminal per the existing exchange-terminal rule.
+- fix: the `"No upstream sources were connected in the queried topology."`
+  warning is no longer emitted when the reverse traceback queries
+  themselves failed (a federation/partial-failure condition). A query
+  failure is now reported as a distinct warning naming the failed query
+  IDs and errors, so the tool never claims a clean negative finding when it
+  actually means "the query could not be answered."
+- Additive-only trace output: `paths[].source_is_exchange` is a new field;
+  `exchange_exposure` is now populated (previously always `[]`);
+  `chain-insights.trace.v1` shape is otherwise unchanged.
+- tests: `tests/trace-deposit-sources-filters.test.ts` pins the query-builder
+  and warning-text fixes; `tests/mcp-proxy.test.ts` updated to assert the
+  fixed classification instead of the previous exchange-required query text.
+
 ## [0.11.3] - 2026-07-26 — federation merge exactness fixes
 
 - federation: `combineEdge` now correctly merges every FLOWS_TO property the
