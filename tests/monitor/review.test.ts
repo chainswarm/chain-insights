@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import { approveDoc, approvedAddressesForCase, docHash8, docKey, effectiveDecisions, listDecisionDocs, listPending, rejectDoc } from '../../src/monitor/review.js'
+import { approveDoc, approvedAddressesForCase, docHash8, effectiveDecisions, listDecisionDocs, listPending, rejectDoc } from '../../src/monitor/review.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
 import { exportLabels } from '../../src/monitor/export.js'
 
