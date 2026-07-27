@@ -52,7 +52,6 @@ export function resolvePoisoningConfig(network: string, params: DetectorParams):
   }
 }
 
-const MAX_ROWS = LIMIT_SPECS.poisoning_max_rows.builtin
 // Facts scans are cost-gated to a bounded window (FACTS_MAX_SCAN_WINDOW_DAYS,
 // default 2 on the backend). A --full run over genesis→now would exceed it, so
 // the scan clamps to the trailing window and marks the run truncated. Chunked

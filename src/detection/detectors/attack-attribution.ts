@@ -22,7 +22,6 @@ import type { DetectorParams, DetectorScan, DetectionWindow } from '../runtime.j
 // exponentially with depth.
 export const ATTRIBUTION_MAX_HOPS = LIMIT_SPECS.attribution_max_hops.builtin
 export const ATTRIBUTION_MAX_FRONTIER = LIMIT_SPECS.attribution_max_frontier.builtin
-const MAX_ROWS = LIMIT_SPECS.attribution_max_rows.builtin
 // Seeds are matched by TAXONOMY NODE LABEL, not an address_subtype property:
 // the graphsync overlay stamps the scam family as node labels (:Scam, :Poisoned)
 // and never projects address_subtype onto Address nodes (verified live

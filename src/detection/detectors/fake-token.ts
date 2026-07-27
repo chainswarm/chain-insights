@@ -10,7 +10,6 @@ import { graphQueryRows, type GraphRow } from '../graph-client.js'
 import { LIMIT_SPECS, limitFromParams, limitLiteral } from '../../config/limits.js'
 import type { DetectorParams, DetectorScan, DetectionWindow } from '../runtime.js'
 
-const MAX_ROWS = LIMIT_SPECS.fake_token_max_rows.builtin
 
 function str(row: GraphRow, key: string): string {
   const v = row[key]
@@ -60,7 +59,6 @@ export function findSpoofs(verified: GraphRow[], candidates: GraphRow[]): Detect
   return findings
 }
 
-const MAX_ASSET_PAGES = LIMIT_SPECS.fake_token_max_asset_pages.builtin
 
 export interface FakeTokenConfig {
   maxPages: number
