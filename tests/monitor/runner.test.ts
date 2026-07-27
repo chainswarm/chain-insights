@@ -1,11 +1,13 @@
 // tests/monitor/runner.test.ts
 import { mkdtemp, readdir } from 'node:fs/promises'
+import { createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { runMonitorOnce } from '../../src/monitor/runner.js'
-import { listAlerts } from '../../src/monitor/alerts.js'
+import { appendAlerts, listAlerts, listUndelivered } from '../../src/monitor/alerts.js'
 import { withStore } from '../../src/monitor/store.js'
 import { addWatched } from '../../src/monitor/watchlist.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
@@ -128,5 +130,53 @@ describe('runMonitorOnce', () => {
     expect(cell).toBeDefined()
     const alerts = await listAlerts(root)
     expect(alerts.map((a) => a.type)).toContain('watchlist_finding')
+  })
+})
+
+describe('alert outbox in the runner (spec req 2)', () => {
+  it('re-emits undelivered alerts on run start (at-least-once after crash)', async () => {
+    const root = await ws()
+    // Simulate a prior run that crashed after the canonical append: alert in
+    // alerts.jsonl, no emitted.jsonl marker.
+    const [orphan] = await appendAlerts(root, [{ type: 'new_findings', network: 'bittensor', detector: 'mixer', count: 1, run_timestamp: 111 }], 111)
+    const received: string[] = []
+    const server = createServer((req, res) => {
+      let body = ''
+      req.on('data', (c) => (body += c))
+      req.on('end', () => { received.push(JSON.parse(body).alert_id); res.end() })
+    })
+    await new Promise<void>((resolve) => server.listen(0, resolve))
+    const port = (server.address() as AddressInfo).port
+    try {
+      await runMonitorOnce({} as Client, root, { ...CFG, cells: [], webhookUrl: `http://127.0.0.1:${port}/` }, 9000, {
+        runDetection: async () => ({ findingsCount: 0, findingsPath: 'x.json' }) as never,
+        usage: async () => null,
+      })
+    } finally {
+      server.close()
+    }
+    expect(received).toContain(orphan.alert_id)
+    expect(await listUndelivered(root)).toHaveLength(0)
+  })
+
+  it('appends alerts to canonical JSONL and commits the DB before sink delivery', async () => {
+    const root = await ws()
+    const order: string[] = []
+    const server = createServer((_req, res) => { order.push('sink'); res.end() })
+    await new Promise<void>((resolve) => server.listen(0, resolve))
+    const port = (server.address() as AddressInfo).port
+    try {
+      await runMonitorOnce({} as Client, root, { ...CFG, webhookUrl: `http://127.0.0.1:${port}/` }, 9500, {
+        runDetection: async () => { order.push('detect'); return { findingsPath: '/tmp/x.json', findingsCount: 1, status: 'complete' } as never },
+        usage: async () => null,
+      })
+    } finally {
+      server.close()
+    }
+    // DB rows for this run exist by the time the sink fired: the ingest step
+    // ran between append and delivery, so alerts are already in the store.
+    const rows = await withStore(root, (s) => s.all('SELECT alert_id FROM alerts WHERE run_timestamp = 9500'), { readOnly: true })
+    expect(rows.length).toBeGreaterThan(0)
+    expect(order.filter((o) => o === 'sink')).toHaveLength(2)
   })
 })

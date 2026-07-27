@@ -9,6 +9,7 @@ export interface MonitorPaths {
   alertsDir: string
   alertsLog: string
   acksLog: string
+  emittedLog: string
   logsDir: string
   watchlistHitsLog: string
   reviewsDir: string
@@ -32,6 +33,7 @@ export function monitorPaths(workspaceRoot: string): MonitorPaths {
     alertsDir,
     alertsLog: path.join(alertsDir, 'alerts.jsonl'),
     acksLog: path.join(alertsDir, 'acks.jsonl'),
+    emittedLog: path.join(alertsDir, 'emitted.jsonl'),
     logsDir,
     watchlistHitsLog: path.join(logsDir, 'watchlist-hits.jsonl'),
     reviewsDir: path.join(monitorDir, 'reviews'),

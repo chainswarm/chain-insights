@@ -8,7 +8,7 @@ import { writeJsonAtomic } from './atomic.js'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { runOneDetection } from '../detection/run.js'
 import type { AlertEvent } from './alerts.js'
-import { emitAlerts } from './alerts.js'
+import { appendAlerts, deliverAlerts, listUndelivered } from './alerts.js'
 import type { MonitorConfig } from './config.js'
 import { monitorPaths } from './paths.js'
 import { ingestNewDocs, withStore } from './store.js'
@@ -79,8 +79,15 @@ export async function runMonitorOnce(
   const detect = hooks.runDetection ?? runOneDetection
   const usage = hooks.usage ?? defaultUsage
   const doc: MonitorRunDoc = { run_timestamp: nowTimestamp, cells: [], alerts_emitted: 0 }
+  // Outbox re-delivery (at-least-once): alerts canonically recorded by a
+  // crashed prior run but never sink-delivered go out now, before new work.
+  const pending = await listUndelivered(workspaceRoot)
+  if (pending.length > 0) {
+    await deliverAlerts(workspaceRoot, pending, nowTimestamp, { webhookUrl: config.webhookUrl, execHook: config.execHook })
+  }
   doc.usage_before = await usage(client)
 
+  let stamped: AlertEvent[] = []
   const remaining = remainingOf(doc.usage_before)
   if (config.stopIfRemainingBelow !== undefined && remaining !== null && remaining < config.stopIfRemainingBelow) {
     doc.halted = `usage guard: remaining ${remaining} below floor ${config.stopIfRemainingBelow}`
@@ -142,8 +149,10 @@ export async function runMonitorOnce(
         doc.cells.push(outcome)
       }
     }
-    const emitted = await emitAlerts(workspaceRoot, alertsPending, nowTimestamp, { webhookUrl: config.webhookUrl, execHook: config.execHook })
-    doc.alerts_emitted = emitted.length
+    // Outbox ordering (durability spec req 2): canonical JSONL append here;
+    // DB commit below; sink delivery LAST, after the marker file exists.
+    stamped = await appendAlerts(workspaceRoot, alertsPending, nowTimestamp)
+    doc.alerts_emitted = stamped.length
   }
 
   doc.usage_after = await usage(client)
@@ -151,5 +160,6 @@ export async function runMonitorOnce(
   await mkdir(p.runsDir, { recursive: true })
   await writeJsonAtomic(path.join(p.runsDir, `${nowTimestamp}.run.json`), doc)
   await withStore(workspaceRoot, async (store) => ingestNewDocs(store, workspaceRoot))
+  await deliverAlerts(workspaceRoot, stamped, nowTimestamp, { webhookUrl: config.webhookUrl, execHook: config.execHook })
   return doc
 }
