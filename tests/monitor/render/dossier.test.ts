@@ -68,3 +68,17 @@ describe('writeDossier', () => {
     expect(await readFile(file, 'utf8')).toContain('# Case c1')
   })
 })
+
+describe('cross-doc dedupe (victim + suspect traces revisit the same paths)', () => {
+  it('fundsDestinationSummary counts each path once across docs', () => {
+    const rows = fundsDestinationSummary([DOC, { ...DOC, tool: 'aml_trace_suspect_funds' }])
+    expect(rows).toContainEqual({ endpointClass: 'exchange', totalAmountUsd: 450, pathCount: 1 })
+    expect(rows).toContainEqual({ endpointClass: 'deposit', totalAmountUsd: 50, pathCount: 1 })
+  })
+  it('exchange deposit endpoints aggregate one row per deposit→exchange pair', () => {
+    const md = renderDossier({ ...input(), docs: [DOC, { ...DOC, tool: 'aml_trace_suspect_funds' }] })
+    const rows = md.split('\n').filter((l) => l.startsWith('| dep1 | exch1 |'))
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toContain('| 450.00 | 1 |')
+  })
+})

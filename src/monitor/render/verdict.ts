@@ -15,7 +15,15 @@ export interface CaseVerdict {
 }
 
 function utcDate(ts: number): string {
-  return new Date(ts * 1000).toISOString().slice(0, 10)
+  return new Date(toSeconds(ts) * 1000).toISOString().slice(0, 10)
+}
+
+/** Timestamps arrive in mixed units: trace edges and render `nowTimestamp`
+ *  are seconds, while monitor case/run documents carry milliseconds
+ *  (`created_at_timestamp`). Anything past ~5138-11 in seconds is treated as
+ *  milliseconds. */
+export function toSeconds(ts: number): number {
+  return ts > 1e11 ? Math.round(ts / 1000) : ts
 }
 
 /** Newest of first_seen_timestamp/last_seen_timestamp over every edge of every
@@ -40,9 +48,17 @@ export function computeVerdict(
 ): CaseVerdict {
   const last = lastMovementTimestamp(docs)
   // Boundary rule: age exactly equal to the threshold is DORMANT.
-  if (last !== null && nowTimestamp - last < dormantAfterDays * 86400) {
+  if (last !== null && toSeconds(nowTimestamp) - toSeconds(last) < dormantAfterDays * 86400) {
     return { status: 'active', lastMovementTimestamp: last, headline: `ACTIVE (last movement ${utcDate(last)})` }
   }
-  const since = last ?? caseCreatedAtTimestamp
-  return { status: 'dormant', lastMovementTimestamp: last, headline: `DORMANT since ${utcDate(since)}` }
+  if (last === null) {
+    // Trace edges carry no timestamps: we cannot date the last movement, only
+    // say none was observed while monitoring.
+    return {
+      status: 'dormant',
+      lastMovementTimestamp: null,
+      headline: `DORMANT (no movement observed since monitoring began ${utcDate(caseCreatedAtTimestamp)})`,
+    }
+  }
+  return { status: 'dormant', lastMovementTimestamp: last, headline: `DORMANT since ${utcDate(last)}` }
 }
