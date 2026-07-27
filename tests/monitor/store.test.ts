@@ -1,4 +1,4 @@
-import { appendFile, mkdtemp, mkdir, readdir, writeFile } from 'node:fs/promises'
+import { appendFile, cp, mkdtemp, mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -167,7 +167,8 @@ describe('incremental JSONL replay (spec req 5)', () => {
     await withStore(root, async (s) => {
       await ingestNewDocs(s, root)
       expect(await s.all('SELECT alert_id FROM alerts ORDER BY alert_id')).toHaveLength(2)
-      const [cur] = await s.all('SELECT byte_offset FROM replay_cursors WHERE doc_path = $1', [p.alertsLog])
+      // Cursor keys are workspace-relative (R6).
+      const [cur] = await s.all('SELECT byte_offset FROM replay_cursors WHERE doc_path = $1', ['.chain-insights/monitor/alerts/alerts.jsonl'])
       expect(Number(cur.byte_offset)).toBe(Buffer.byteLength(line(1) + '\n' + line(2) + '\n'))
     })
     // Append one full line and one torn (no newline) line.
@@ -195,5 +196,38 @@ describe('incremental JSONL replay (spec req 5)', () => {
     await rebuildStore(root)
     const rows = await withStore(root, (s) => s.all('SELECT alert_id FROM alerts'), { readOnly: true })
     expect(rows).toHaveLength(2)
+  })
+})
+
+describe('workspace-relative doc keys (R6)', () => {
+  it('ingest records relative keys, and moving the workspace does not re-ingest', async () => {
+    const rootA = await ws()
+    await seedFindingsDoc(rootA)
+    await withStore(rootA, (s) => ingestNewDocs(s, rootA))
+    const rootB = path.join(await ws(), 'moved')
+    await cp(rootA, rootB, { recursive: true })
+    await rm(path.join(rootB, '.chain-insights', 'monitor', 'monitor.duckdb.wal'), { force: true })
+    const again = await withStore(rootB, (s) => ingestNewDocs(s, rootB))
+    expect(again).toBe(0) // relative key matches at the new location — no duplicate ingest
+    await withStore(rootB, async (s) => {
+      const rows = await s.all('SELECT doc_path FROM ingested_docs')
+      for (const r of rows) expect(path.isAbsolute(String(r.doc_path))).toBe(false)
+    }, { readOnly: true })
+  })
+
+  it('migrates legacy absolute keys transparently on store open', async () => {
+    const root = await ws()
+    const abs = path.join(root, 'detections', '201-mixer-bittensor.findings.json')
+    await withStore(root, async (s) => {
+      await s.run('INSERT INTO ingested_docs VALUES ($1,$2)', [abs, 'findings'])
+      await s.run('INSERT INTO finding_addresses VALUES ($1,$2,$3)', [abs, 'bittensor', 'mule2'])
+      await s.run('INSERT INTO watchlist_hits VALUES ($1,$2,$3,$4,$5,$6)', [1, 'mule2', 'bittensor', 'finding', abs, null])
+    })
+    await withStore(root, async (s) => {
+      const [d] = await s.all('SELECT doc_path FROM ingested_docs')
+      expect(d.doc_path).toBe('detections/201-mixer-bittensor.findings.json')
+      const [h] = await s.all(`SELECT source_ref FROM watchlist_hits WHERE trigger = 'finding'`)
+      expect(h.source_ref).toBe('detections/201-mixer-bittensor.findings.json')
+    })
   })
 })

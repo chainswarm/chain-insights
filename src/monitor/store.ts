@@ -88,6 +88,34 @@ export interface WithStoreOptions {
   readOnly?: boolean
 }
 
+/** Workspace-relative, forward-slash-normalized store doc key (R6): survives a
+ *  workspace move/rename without re-ingesting or losing dedup state. */
+function relDocKey(workspaceRoot: string, filePath: string): string {
+  return path.relative(path.resolve(workspaceRoot), filePath).split(path.sep).join('/')
+}
+
+// Transparent legacy migration (spec assumption): rows written before R6 hold
+// absolute paths under the CURRENT workspace root — strip the prefix in place.
+// Runs on every read-write open; rebuildStore produces relative keys natively.
+async function migrateAbsoluteDocKeys(store: MonitorStore, workspaceRoot: string): Promise<void> {
+  const prefix = path.resolve(workspaceRoot) + path.sep
+  const targets: Array<[table: string, column: string, extra: string]> = [
+    ['ingested_docs', 'doc_path', ''],
+    ['findings', 'doc_path', ''],
+    ['finding_addresses', 'doc_path', ''],
+    ['replay_cursors', 'doc_path', ''],
+    ['watchlist_hits', 'source_ref', " AND trigger = 'finding'"],
+  ]
+  for (const [table, column, extra] of targets) {
+    // substr only (1-based): the store only ever wrote path.join output on the
+    // current platform, so no separator rewrite is needed beyond the strip.
+    await store.run(
+      `UPDATE ${table} SET ${column} = substr(${column}, $2) WHERE ${column} LIKE $1 || '%'${extra}`,
+      [prefix, prefix.length + 1],
+    )
+  }
+}
+
 const LOCK_RETRIES = 5
 const LOCK_RETRY_DELAY_MS = 200
 
@@ -121,6 +149,10 @@ export async function withStore<T>(
     // exists because some earlier read-write open already created every table.
     if (!readOnly) {
       for (const stmt of DDL.split(';').map((s) => s.trim()).filter(Boolean)) await store.run(stmt)
+      // "On store open" migration contract (lifecycle spec R6): both monitor
+      // run and rebuild pass through a read-write open, so any legacy
+      // absolute keys are relativized before they can miss a dedup match.
+      await migrateAbsoluteDocKeys(store, workspaceRoot)
     }
     return await fn(store)
   } finally {
@@ -187,15 +219,18 @@ function detectorFromFilename(filePath: string): string {
 const findingsIngestor: DocIngestor = {
   kind: 'findings',
   listDocs: listFindingsDocs,
-  async ingest(store, _workspaceRoot, filePath) {
+  async ingest(store, workspaceRoot, filePath) {
     const doc = parseFindingsDocument(JSON.parse(await readFile(filePath, 'utf8')))
     const detector = detectorFromFilename(filePath)
+    // Relative doc keys (R6): findingHits' source_ref is workspace-relative
+    // from day one, so a moved workspace keeps its dedup history.
+    const key = relDocKey(workspaceRoot, filePath)
     for (const f of doc.findings) {
       await store.run(
         'INSERT INTO findings VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
-        [filePath, doc.tool, detector, doc.network, doc.generated_at_timestamp, f.address, f.classification ?? null, f.gate ?? null, f.truncated, f.inconclusive],
+        [key, doc.tool, detector, doc.network, doc.generated_at_timestamp, f.address, f.classification ?? null, f.gate ?? null, f.truncated, f.inconclusive],
       )
-      await store.run('INSERT INTO finding_addresses VALUES ($1,$2,$3)', [filePath, doc.network, f.address])
+      await store.run('INSERT INTO finding_addresses VALUES ($1,$2,$3)', [key, doc.network, f.address])
     }
   },
 }
@@ -219,9 +254,12 @@ function jsonlIngestor(kind: 'alerts' | 'acks' | 'watchlist_hits', logPathOf: (r
     // newline yet) stays unconsumed and is picked up whole on the next pass.
     // Still line-tolerant like the alerts.ts list path: a malformed complete
     // line costs that line only, never the run or the rebuild.
-    async ingest(store, _workspaceRoot, filePath) {
+    async ingest(store, workspaceRoot, filePath) {
       const raw = await readFile(filePath)
-      const [cur] = await store.all('SELECT byte_offset FROM replay_cursors WHERE doc_path = $1', [filePath])
+      // Cursor keys are workspace-relative too (R6), so a moved workspace
+      // does not restart every JSONL log from byte 0.
+      const key = relDocKey(workspaceRoot, filePath)
+      const [cur] = await store.all('SELECT byte_offset FROM replay_cursors WHERE doc_path = $1', [key])
       const offset = cur ? Number(cur.byte_offset) : 0
       if (raw.length <= offset) return
       const chunk = raw.subarray(offset)
@@ -232,7 +270,7 @@ function jsonlIngestor(kind: 'alerts' | 'acks' | 'watchlist_hits', logPathOf: (r
       for (const line of records) await insert(store, line)
       await store.run(
         'INSERT INTO replay_cursors VALUES ($1,$2) ON CONFLICT (doc_path) DO UPDATE SET byte_offset = excluded.byte_offset',
-        [filePath, offset + complete.length],
+        [key, offset + complete.length],
       )
     },
   }
@@ -445,7 +483,7 @@ export async function ingestNewDocs(store: MonitorStore, workspaceRoot: string):
     if (!table) continue
     for (const filePath of await ingestor.listDocs(workspaceRoot)) {
       await store.run(`DELETE FROM ${table}`)
-      await store.run('DELETE FROM ingested_docs WHERE doc_path = $1', [filePath])
+      await store.run('DELETE FROM ingested_docs WHERE doc_path = $1', [relDocKey(workspaceRoot, filePath)])
     }
   }
   // Cursor-managed JSONL sources run every pass, outside the seen-set: their
@@ -453,7 +491,7 @@ export async function ingestNewDocs(store: MonitorStore, workspaceRoot: string):
   // (cursor advanced) counts as one ingested doc toward the return value.
   let ingested = 0
   const cursorOf = async (filePath: string): Promise<number> => {
-    const [cur] = await store.all('SELECT byte_offset FROM replay_cursors WHERE doc_path = $1', [filePath])
+    const [cur] = await store.all('SELECT byte_offset FROM replay_cursors WHERE doc_path = $1', [relDocKey(workspaceRoot, filePath)])
     return cur ? Number(cur.byte_offset) : 0
   }
   for (const ingestor of INGESTORS) {
@@ -470,7 +508,8 @@ export async function ingestNewDocs(store: MonitorStore, workspaceRoot: string):
   for (const ingestor of INGESTORS) {
     if (ingestor.incremental) continue
     for (const filePath of await ingestor.listDocs(workspaceRoot)) {
-      if (seen.has(filePath)) continue
+      const key = relDocKey(workspaceRoot, filePath)
+      if (seen.has(key)) continue
       try {
         await ingestor.ingest(store, workspaceRoot, filePath)
       } catch (err) {
@@ -479,7 +518,7 @@ export async function ingestNewDocs(store: MonitorStore, workspaceRoot: string):
         await rename(filePath, `${filePath}.corrupt`)
         continue
       }
-      await store.run('INSERT INTO ingested_docs VALUES ($1,$2)', [filePath, ingestor.kind])
+      await store.run('INSERT INTO ingested_docs VALUES ($1,$2)', [key, ingestor.kind])
       ingested += 1
     }
   }
