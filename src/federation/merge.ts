@@ -108,7 +108,7 @@ function rowKey(row: ShardRow): string {
  *   approximation — the per-asset USD breakdown isn't carried on the edge,
  *   so this is the best available signal; ties keep the first-seen
  *   constituent, matching the reference implementation).
- * - `bucket_start_ms` / `bucket_end_ms`: each describes ONE shard's own
+ * - `bucket_start_timestamp` / `bucket_end_timestamp`: each describes ONE shard's own
  *   coverage window. The merged edge's window is the outer span of every
  *   contributing shard's window: `[MIN start, MAX end]`.
  * - `from_address`, `to_address`, `from_address_lookalike`,
@@ -161,11 +161,11 @@ function combineEdge(constituents: Array<Record<string, unknown>>): Record<strin
       maxLast = last
       lastTxId = p.last_tx_id
     }
-    const bucketStart = numeric(p.bucket_start_ms)
+    const bucketStart = numeric(p.bucket_start_timestamp)
     if (bucketStart !== null && (minBucketStart === null || bucketStart < minBucketStart)) {
       minBucketStart = bucketStart
     }
-    const bucketEnd = numeric(p.bucket_end_ms)
+    const bucketEnd = numeric(p.bucket_end_timestamp)
     if (bucketEnd !== null && (maxBucketEnd === null || bucketEnd > maxBucketEnd)) {
       maxBucketEnd = bucketEnd
     }
@@ -191,8 +191,8 @@ function combineEdge(constituents: Array<Record<string, unknown>>): Record<strin
     out.last_seen_timestamp = maxLast
     if (lastTxId !== undefined) out.last_tx_id = lastTxId
   }
-  if (minBucketStart !== null) out.bucket_start_ms = minBucketStart
-  if (maxBucketEnd !== null) out.bucket_end_ms = maxBucketEnd
+  if (minBucketStart !== null) out.bucket_start_timestamp = minBucketStart
+  if (maxBucketEnd !== null) out.bucket_end_timestamp = maxBucketEnd
   if (dominantSet && dominantAsset !== undefined) out.dominant_asset = dominantAsset
   // Recomputed, never carried: an average from one shard is simply a wrong
   // number once other shards contribute.

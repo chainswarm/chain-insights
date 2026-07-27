@@ -11,7 +11,7 @@ import { monitorPaths } from './paths.js'
 export interface CaseSeedEvent {
   action: 'add' | 'remove'
   addresses: string[]
-  at_ms: number
+  at_timestamp: number
   note?: string
 }
 
@@ -21,13 +21,13 @@ export interface MonitorCase {
   network: string
   seeds: string[]
   status: 'open' | 'closed'
-  created_at_ms: number
-  closed_at_ms?: number
+  created_at_timestamp: number
+  closed_at_timestamp?: number
   note?: string
   /** address -> when it became a seed, for seeds added after creation. Reading a
    *  snapshot next to this map is how a reader tells "the corridor grew because
    *  the aperture widened" from "the corridor grew because funds moved". */
-  seeds_added_at_ms?: Record<string, number>
+  seeds_added_at_timestamp?: Record<string, number>
   seed_events?: CaseSeedEvent[]
 }
 
@@ -87,7 +87,7 @@ function caseFile(workspaceRoot: string, caseId: string): string {
 export async function addCase(
   workspaceRoot: string,
   input: { case_id: string; type: MonitorCase['type']; network: string; seeds: string[]; note?: string },
-  nowMs: number,
+  nowTimestamp: number,
 ): Promise<MonitorCase> {
   if (!CASE_ID_RE.test(input.case_id)) throw new Error(`case_id must match ${CASE_ID_RE}, got "${input.case_id}"`)
   if (input.seeds.length === 0) throw new Error('a case needs at least one seed address')
@@ -95,7 +95,7 @@ export async function addCase(
   const file = caseFile(workspaceRoot, input.case_id)
   const exists = await readFile(file, 'utf8').then(() => true).catch(() => false)
   if (exists) throw new Error(`case "${input.case_id}" already exists`)
-  const created: MonitorCase = { ...input, seeds, status: 'open', created_at_ms: nowMs }
+  const created: MonitorCase = { ...input, seeds, status: 'open', created_at_timestamp: nowTimestamp }
   await mkdir(path.dirname(file), { recursive: true })
   await writeFile(file, JSON.stringify(created, null, 2) + '\n', 'utf8')
   return created
@@ -108,7 +108,7 @@ export async function addCaseSeeds(
   workspaceRoot: string,
   caseId: string,
   addresses: string[],
-  nowMs: number,
+  nowTimestamp: number,
   opts: { note?: string } = {},
 ): Promise<{ monitorCase: MonitorCase; added: string[] }> {
   const requested = assertAddresses(addresses)
@@ -117,13 +117,13 @@ export async function addCaseSeeds(
   const known = new Set(current.seeds)
   const added = requested.filter((a) => !known.has(a))
   if (added.length === 0) return { monitorCase: current, added: [] }
-  const seedsAddedAtMs = { ...(current.seeds_added_at_ms ?? {}) }
-  for (const a of added) seedsAddedAtMs[a] = nowMs
+  const seedsAddedAtTimestamp = { ...(current.seeds_added_at_timestamp ?? {}) }
+  for (const a of added) seedsAddedAtTimestamp[a] = nowTimestamp
   const next: MonitorCase = {
     ...current,
     seeds: [...current.seeds, ...added],
-    seeds_added_at_ms: seedsAddedAtMs,
-    seed_events: [...(current.seed_events ?? []), { action: 'add', addresses: added, at_ms: nowMs, ...(opts.note ? { note: opts.note } : {}) }],
+    seeds_added_at_timestamp: seedsAddedAtTimestamp,
+    seed_events: [...(current.seed_events ?? []), { action: 'add', addresses: added, at_timestamp: nowTimestamp, ...(opts.note ? { note: opts.note } : {}) }],
   }
   return { monitorCase: await writeCase(workspaceRoot, next), added }
 }
@@ -135,7 +135,7 @@ export async function removeCaseSeeds(
   workspaceRoot: string,
   caseId: string,
   addresses: string[],
-  nowMs: number,
+  nowTimestamp: number,
 ): Promise<{ monitorCase: MonitorCase; removed: string[] }> {
   const requested = assertAddresses(addresses)
   const current = await readCase(workspaceRoot, caseId)
@@ -145,15 +145,15 @@ export async function removeCaseSeeds(
   if (removed.length === 0) return { monitorCase: current, removed: [] }
   const seeds = current.seeds.filter((s) => !drop.has(s))
   if (seeds.length === 0) throw new Error(`case "${caseId}" needs at least one seed address; removing all ${removed.length} would empty it`)
-  const seedsAddedAtMs = { ...(current.seeds_added_at_ms ?? {}) }
-  for (const a of removed) delete seedsAddedAtMs[a]
+  const seedsAddedAtTimestamp = { ...(current.seeds_added_at_timestamp ?? {}) }
+  for (const a of removed) delete seedsAddedAtTimestamp[a]
   const next: MonitorCase = {
     ...current,
     seeds,
-    ...(Object.keys(seedsAddedAtMs).length > 0 ? { seeds_added_at_ms: seedsAddedAtMs } : {}),
-    seed_events: [...(current.seed_events ?? []), { action: 'remove', addresses: removed, at_ms: nowMs }],
+    ...(Object.keys(seedsAddedAtTimestamp).length > 0 ? { seeds_added_at_timestamp: seedsAddedAtTimestamp } : {}),
+    seed_events: [...(current.seed_events ?? []), { action: 'remove', addresses: removed, at_timestamp: nowTimestamp }],
   }
-  if (Object.keys(seedsAddedAtMs).length === 0) delete next.seeds_added_at_ms
+  if (Object.keys(seedsAddedAtTimestamp).length === 0) delete next.seeds_added_at_timestamp
   return { monitorCase: await writeCase(workspaceRoot, next), removed }
 }
 
@@ -177,10 +177,10 @@ export async function listCases(workspaceRoot: string, opts?: { openOnly?: boole
   return opts?.openOnly ? cases.filter((c) => c.status === 'open') : cases
 }
 
-export async function closeCase(workspaceRoot: string, caseId: string, nowMs: number): Promise<MonitorCase> {
+export async function closeCase(workspaceRoot: string, caseId: string, nowTimestamp: number): Promise<MonitorCase> {
   const file = caseFile(workspaceRoot, caseId)
   const current = JSON.parse(await readFile(file, 'utf8')) as MonitorCase
-  const closed: MonitorCase = { ...current, status: 'closed', closed_at_ms: nowMs }
+  const closed: MonitorCase = { ...current, status: 'closed', closed_at_timestamp: nowTimestamp }
   await writeFile(file, JSON.stringify(closed, null, 2) + '\n', 'utf8')
   return closed
 }

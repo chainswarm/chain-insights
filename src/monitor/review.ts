@@ -13,7 +13,7 @@ export interface ReviewDecisionDoc {
   doc_path: string
   decision: 'approve' | 'reject'
   reviewer: string
-  decided_at_ms: number
+  decided_at_timestamp: number
   reviewed_copy?: string
   addresses: string[]
   case_id: string | null
@@ -78,10 +78,10 @@ export async function listPending(workspaceRoot: string): Promise<Array<{ doc_pa
 async function writeDecision(workspaceRoot: string, decision: ReviewDecisionDoc): Promise<void> {
   const dir = monitorPaths(workspaceRoot).reviewsDir
   await mkdir(dir, { recursive: true })
-  await writeFile(path.join(dir, `${decision.decided_at_ms}-${decision.decision}.review.json`), JSON.stringify(decision, null, 2) + '\n', 'utf8')
+  await writeFile(path.join(dir, `${decision.decided_at_timestamp}-${decision.decision}.review.json`), JSON.stringify(decision, null, 2) + '\n', 'utf8')
 }
 
-export async function approveDoc(workspaceRoot: string, docPath: string, reviewer: string, nowMs: number): Promise<{ reviewedCopy: string }> {
+export async function approveDoc(workspaceRoot: string, docPath: string, reviewer: string, nowTimestamp: number): Promise<{ reviewedCopy: string }> {
   if (!reviewer.trim()) throw new Error('reviewer identity is required to approve')
   // Normalize BEFORE any read/write so a relative-path approval (e.g. `cia
   // monitor review approve detections/foo.findings.json`) records the same
@@ -97,20 +97,20 @@ export async function approveDoc(workspaceRoot: string, docPath: string, reviewe
   await writeFile(reviewedCopy, JSON.stringify({ ...raw, reviewer }, null, 2) + '\n', 'utf8')
   const findings = (raw.findings as Array<{ address: string }> | undefined) ?? []
   await writeDecision(workspaceRoot, {
-    doc_path: resolved, decision: 'approve', reviewer, decided_at_ms: nowMs, reviewed_copy: reviewedCopy,
+    doc_path: resolved, decision: 'approve', reviewer, decided_at_timestamp: nowTimestamp, reviewed_copy: reviewedCopy,
     addresses: findings.map((f) => f.address), case_id: caseIdFromDocPath(resolved),
   })
   return { reviewedCopy }
 }
 
-export async function rejectDoc(workspaceRoot: string, docPath: string, reviewer: string, nowMs: number): Promise<void> {
+export async function rejectDoc(workspaceRoot: string, docPath: string, reviewer: string, nowTimestamp: number): Promise<void> {
   if (!reviewer.trim()) throw new Error('reviewer identity is required to reject')
   // See approveDoc: normalize before use so relative-path rejects also match
   // listPending's absolute doc_path comparison.
   const resolved = resolveDocPath(workspaceRoot, docPath)
   const raw = JSON.parse(await readFile(resolved, 'utf8')) as { findings?: Array<{ address: string }> }
   await writeDecision(workspaceRoot, {
-    doc_path: resolved, decision: 'reject', reviewer, decided_at_ms: nowMs,
+    doc_path: resolved, decision: 'reject', reviewer, decided_at_timestamp: nowTimestamp,
     addresses: (raw.findings ?? []).map((f) => f.address), case_id: caseIdFromDocPath(resolved),
   })
 }

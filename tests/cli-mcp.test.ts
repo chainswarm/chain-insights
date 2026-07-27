@@ -161,14 +161,14 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
   }
   if (tool === 'aml_trace_suspect_funds') {
     const { traceSuspectFunds } = await import('../src/investigation/public-tools.js')
-    const incidentTimestampMs = args['incident_timestamp_ms'] === undefined
+    const incidentTimestamp = args['incident_timestamp'] === undefined
       ? undefined
-      : Number(args['incident_timestamp_ms'])
+      : Number(args['incident_timestamp'])
     const result = await traceSuspectFunds(client, config, {
       suspectAddresses: args['suspect_addresses'] as string | string[] | undefined ?? '',
       network: String(args['network'] ?? ''),
       maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
-      incidentTimestampMs: Number.isFinite(incidentTimestampMs) ? incidentTimestampMs : undefined,
+      incidentTimestamp: Number.isFinite(incidentTimestamp) ? incidentTimestamp : undefined,
     })
     console.log(result.summaryText)
     console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -480,14 +480,14 @@ describe('CLI mcp subcommand (MCP-02)', () => {
       'victim_addresses=5Seed',
       'network=bittensor',
       'max_hops=8',
-      'incident_timestamp_ms=1715500000000',
+      'incident_timestamp=1715500000000',
       'per_address_limit=10',
       'min_amount_sum=1.5',
     ])).toEqual({
       victim_addresses: '5Seed',
       network: 'bittensor',
       max_hops: 8,
-      incident_timestamp_ms: 1715500000000,
+      incident_timestamp: 1715500000000,
       per_address_limit: 10,
       min_amount_sum: '1.5',
     })
@@ -501,7 +501,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     ])).rejects.toThrow('process.exit(1)')
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Unsupported argument for aml_trace_suspect_funds: min_amount_sum. Allowed arguments: suspect_addresses, network, incident_timestamp_ms, max_hops, per_address_limit, include_attachments.'
+      'Unsupported argument for aml_trace_suspect_funds: min_amount_sum. Allowed arguments: suspect_addresses, network, incident_timestamp, max_hops, per_address_limit, include_attachments.'
     )
     expect(mockClientConnect).not.toHaveBeenCalled()
     expect(mockTraceSuspectFunds).not.toHaveBeenCalled()
@@ -516,7 +516,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     ])).rejects.toThrow('process.exit(1)')
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      `Unsupported argument for aml_trace_suspect_funds: ${retiredScopeArg}. Allowed arguments: suspect_addresses, network, incident_timestamp_ms, max_hops, per_address_limit, include_attachments.`
+      `Unsupported argument for aml_trace_suspect_funds: ${retiredScopeArg}. Allowed arguments: suspect_addresses, network, incident_timestamp, max_hops, per_address_limit, include_attachments.`
     )
     expect(mockClientConnect).not.toHaveBeenCalled()
     expect(mockTraceSuspectFunds).not.toHaveBeenCalled()
@@ -556,7 +556,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     expect(mockTraceSuspectFunds).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
       network: 'bittensor',
       suspectAddresses: '5Suspect',
-      incidentTimestampMs: undefined,
+      incidentTimestamp: undefined,
       maxHops: 2,
     }))
     expect(mockClientCallTool).not.toHaveBeenCalled()

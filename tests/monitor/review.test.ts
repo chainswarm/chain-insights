@@ -17,7 +17,7 @@ async function seedDoc(root: string, name: string, extra: Record<string, unknown
   const file = path.join(dir, name)
   await writeFile(file, JSON.stringify({
     schema: 'chain-insights.detection-findings.v1', tool: 'aml_scam_corridor_trace', network: 'bittensor',
-    status: 'complete', generated_at_ms: 1, query_count: 7,
+    status: 'complete', generated_at_timestamp: 1, query_count: 7,
     // Not part of DETECTION_FINDINGS_SCHEMA at all (unlike query_count, which
     // IS a defined optional field) — a zod parse→serialize round trip would
     // strip this key. Its survival is the only thing that distinguishes the
@@ -89,8 +89,8 @@ describe('empty findings documents (#232)', () => {
     const root = await mkdtemp(path.join(tmpdir(), 'cia-review-empty-'))
     const p = monitorPaths(root)
     await mkdir(p.detectionsDir, { recursive: true })
-    const empty = { tool: 'aml_mixer_likeness', network: 'bittensor', generated_at_ms: 1, findings: [], warnings: ['suppressed 819 already-emitted finding(s)'] }
-    const real = { tool: 'aml_mixer_likeness', network: 'bittensor', generated_at_ms: 2, findings: [{ address: '5A' }] }
+    const empty = { tool: 'aml_mixer_likeness', network: 'bittensor', generated_at_timestamp: 1, findings: [], warnings: ['suppressed 819 already-emitted finding(s)'] }
+    const real = { tool: 'aml_mixer_likeness', network: 'bittensor', generated_at_timestamp: 2, findings: [{ address: '5A' }] }
     await writeFile(path.join(p.detectionsDir, '1-mixer-bittensor.findings.json'), JSON.stringify(empty), 'utf8')
     await writeFile(path.join(p.detectionsDir, '2-mixer-bittensor.findings.json'), JSON.stringify(real), 'utf8')
 
@@ -107,7 +107,7 @@ describe('empty findings documents (#232)', () => {
     for (const cell of ['mixer', 'fake-token', 'address-poisoning', 'attack-attribution']) {
       await writeFile(
         path.join(p.detectionsDir, `9-${cell}-bittensor.findings.json`),
-        JSON.stringify({ tool: `aml_${cell}`, network: 'bittensor', generated_at_ms: 9, findings: [] }),
+        JSON.stringify({ tool: `aml_${cell}`, network: 'bittensor', generated_at_timestamp: 9, findings: [] }),
         'utf8',
       )
     }

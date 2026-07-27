@@ -14,9 +14,9 @@ const fakeScanner: DetectorScan = {
   id: 'fake-token',
   scan: async (window) => [
     {
-      address: `0xspoof-${window.fromMs}`,
+      address: `0xspoof-${window.fromTimestamp}`,
       classification: 'fake_token_contract',
-      evidence: { from_ms: window.fromMs, full: window.full },
+      evidence: { from_timestamp: window.fromTimestamp, full: window.full },
       truncated: false,
       inconclusive: false,
     },
@@ -28,7 +28,7 @@ describe('detection checkpoint', () => {
   it('missing checkpoint reads as scan-from-genesis', async () => {
     const root = await ws()
     const cp = await readCheckpoint(root, 'fake-token', 'ethereum')
-    expect(cp.last_block_timestamp_ms).toBe(0)
+    expect(cp.last_block_timestamp).toBe(0)
   })
 
   it('round-trips and advances', async () => {
@@ -36,11 +36,11 @@ describe('detection checkpoint', () => {
     await writeCheckpoint(root, {
       detector: 'fake-token',
       network: 'ethereum',
-      last_block_timestamp_ms: 12345,
-      last_scanned_at_ms: 999,
+      last_block_timestamp: 12345,
+      last_scanned_at_timestamp: 999,
     })
     const cp = await readCheckpoint(root, 'fake-token', 'ethereum')
-    expect(cp.last_block_timestamp_ms).toBe(12345)
+    expect(cp.last_block_timestamp).toBe(12345)
   })
 })
 
@@ -50,7 +50,7 @@ describe('runDetection', () => {
     const res = await runDetection(fakeScanner, {} as never, root, {
       network: 'ethereum',
       full: true,
-      nowMs: 1000,
+      nowTimestamp: 1000,
     })
     expect(res.document.schema).toBe('chain-insights.detection-findings.v1')
     expect(res.document.tool).toBe('aml_fake_token')
@@ -65,21 +65,21 @@ describe('runDetection', () => {
     await writeCheckpoint(root, {
       detector: 'fake-token',
       network: 'ethereum',
-      last_block_timestamp_ms: 500,
-      last_scanned_at_ms: 500,
+      last_block_timestamp: 500,
+      last_scanned_at_timestamp: 500,
     })
-    const full = await runDetection(fakeScanner, {} as never, root, { network: 'ethereum', full: true, nowMs: 1000 })
-    expect(full.document.findings[0].evidence.from_ms).toBe(0)
-    const incr = await runDetection(fakeScanner, {} as never, root, { network: 'ethereum', full: false, nowMs: 1000 })
-    expect(incr.document.findings[0].evidence.from_ms).toBe(500)
+    const full = await runDetection(fakeScanner, {} as never, root, { network: 'ethereum', full: true, nowTimestamp: 1000 })
+    expect(full.document.findings[0].evidence.from_timestamp).toBe(0)
+    const incr = await runDetection(fakeScanner, {} as never, root, { network: 'ethereum', full: false, nowTimestamp: 1000 })
+    expect(incr.document.findings[0].evidence.from_timestamp).toBe(500)
   })
 
   it('commitCheckpoint advances only when called (post-write)', async () => {
     const root = await ws()
-    await runDetection(fakeScanner, {} as never, root, { network: 'ethereum', full: true, nowMs: 2000 })
+    await runDetection(fakeScanner, {} as never, root, { network: 'ethereum', full: true, nowTimestamp: 2000 })
     // Not committed yet → still genesis.
-    expect((await readCheckpoint(root, 'fake-token', 'ethereum')).last_block_timestamp_ms).toBe(0)
+    expect((await readCheckpoint(root, 'fake-token', 'ethereum')).last_block_timestamp).toBe(0)
     await commitCheckpoint(root, fakeScanner, 'ethereum', 2000)
-    expect((await readCheckpoint(root, 'fake-token', 'ethereum')).last_block_timestamp_ms).toBe(2000)
+    expect((await readCheckpoint(root, 'fake-token', 'ethereum')).last_block_timestamp).toBe(2000)
   })
 })

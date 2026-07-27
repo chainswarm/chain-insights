@@ -31,37 +31,37 @@ const DDL = `
 CREATE TABLE IF NOT EXISTS ingested_docs (doc_path VARCHAR PRIMARY KEY, kind VARCHAR NOT NULL);
 CREATE TABLE IF NOT EXISTS findings (
   doc_path VARCHAR, tool VARCHAR, detector VARCHAR, network VARCHAR,
-  generated_at_ms BIGINT, address VARCHAR, classification VARCHAR, gate VARCHAR,
+  generated_at_timestamp BIGINT, address VARCHAR, classification VARCHAR, gate VARCHAR,
   truncated BOOLEAN, inconclusive BOOLEAN
 );
 CREATE TABLE IF NOT EXISTS finding_addresses (doc_path VARCHAR, network VARCHAR, address VARCHAR);
 CREATE TABLE IF NOT EXISTS scan_runs (
-  run_ms BIGINT, cell VARCHAR, detector VARCHAR, case_id VARCHAR, network VARCHAR,
+  run_timestamp BIGINT, cell VARCHAR, detector VARCHAR, case_id VARCHAR, network VARCHAR,
   findings_count INTEGER, movements_count INTEGER, duration_ms BIGINT,
   error VARCHAR, usage_before VARCHAR, usage_after VARCHAR, halted VARCHAR
 );
 CREATE TABLE IF NOT EXISTS cases (
   case_id VARCHAR, type VARCHAR, network VARCHAR, status VARCHAR,
-  seed_count INTEGER, created_at_ms BIGINT, closed_at_ms BIGINT
+  seed_count INTEGER, created_at_timestamp BIGINT, closed_at_timestamp BIGINT
 );
 CREATE TABLE IF NOT EXISTS case_snapshots (
-  case_id VARCHAR, run_ms BIGINT, doc_path VARCHAR, address_count INTEGER, seed_count INTEGER
+  case_id VARCHAR, run_timestamp BIGINT, doc_path VARCHAR, address_count INTEGER, seed_count INTEGER
 );
 CREATE TABLE IF NOT EXISTS case_movements (
-  case_id VARCHAR, run_ms BIGINT, movement VARCHAR, address VARCHAR, details VARCHAR
+  case_id VARCHAR, run_timestamp BIGINT, movement VARCHAR, address VARCHAR, details VARCHAR
 );
 CREATE TABLE IF NOT EXISTS review_decisions (
-  doc_path VARCHAR, decision VARCHAR, reviewer VARCHAR, decided_at_ms BIGINT, reviewed_copy VARCHAR
+  doc_path VARCHAR, decision VARCHAR, reviewer VARCHAR, decided_at_timestamp BIGINT, reviewed_copy VARCHAR
 );
 CREATE TABLE IF NOT EXISTS alerts (
   alert_id VARCHAR, type VARCHAR, network VARCHAR, detector VARCHAR, case_id VARCHAR,
-  address VARCHAR, run_ms BIGINT, emitted_at_ms BIGINT
+  address VARCHAR, run_timestamp BIGINT, emitted_at_timestamp BIGINT
 );
-CREATE TABLE IF NOT EXISTS alert_acks (alert_id VARCHAR, acked_at_ms BIGINT);
+CREATE TABLE IF NOT EXISTS alert_acks (alert_id VARCHAR, acked_at_timestamp BIGINT);
 -- Watchlist: derived from the operator-owned watchlist.json.
 CREATE TABLE IF NOT EXISTS watchlist (address VARCHAR, network VARCHAR, note VARCHAR);
 CREATE TABLE IF NOT EXISTS watchlist_hits (
-  run_ms BIGINT, address VARCHAR, network VARCHAR, trigger VARCHAR,
+  run_timestamp BIGINT, address VARCHAR, network VARCHAR, trigger VARCHAR,
   source_ref VARCHAR, detail VARCHAR
 );
 `
@@ -171,7 +171,7 @@ async function listFindingsDocs(workspaceRoot: string): Promise<string[]> {
   return entries.filter((f) => f.endsWith('.findings.json')).map((f) => path.join(dir, f)).sort()
 }
 
-// Filename shape (emit.ts): <generated_at_ms>-<detector>-<network>.findings.json
+// Filename shape (emit.ts): <generated_at_timestamp>-<detector>-<network>.findings.json
 function detectorFromFilename(filePath: string): string {
   const base = path.basename(filePath, '.findings.json')
   const parts = base.split('-')
@@ -187,7 +187,7 @@ const findingsIngestor: DocIngestor = {
     for (const f of doc.findings) {
       await store.run(
         'INSERT INTO findings VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
-        [filePath, doc.tool, detector, doc.network, doc.generated_at_ms, f.address, f.classification ?? null, f.gate ?? null, f.truncated, f.inconclusive],
+        [filePath, doc.tool, detector, doc.network, doc.generated_at_timestamp, f.address, f.classification ?? null, f.gate ?? null, f.truncated, f.inconclusive],
       )
       await store.run('INSERT INTO finding_addresses VALUES ($1,$2,$3)', [filePath, doc.network, f.address])
     }
@@ -220,10 +220,10 @@ function jsonlIngestor(kind: 'alerts' | 'acks', logPathOf: (root: string) => str
 
 INGESTORS.push(
   jsonlIngestor('alerts', (root) => monitorPaths(root).alertsLog, async (store, e) => {
-    await store.run('INSERT INTO alerts VALUES ($1,$2,$3,$4,$5,$6,$7,$8)', [e.alert_id, e.type, e.network, e.detector ?? null, e.case_id ?? null, e.address ?? null, e.run_ms, e.emitted_at_ms])
+    await store.run('INSERT INTO alerts VALUES ($1,$2,$3,$4,$5,$6,$7,$8)', [e.alert_id, e.type, e.network, e.detector ?? null, e.case_id ?? null, e.address ?? null, e.run_timestamp, e.emitted_at_timestamp])
   }),
   jsonlIngestor('acks', (root) => monitorPaths(root).acksLog, async (store, a) => {
-    await store.run('INSERT INTO alert_acks VALUES ($1,$2)', [a.alert_id, a.acked_at_ms])
+    await store.run('INSERT INTO alert_acks VALUES ($1,$2)', [a.alert_id, a.acked_at_timestamp])
   }),
 )
 
@@ -238,13 +238,13 @@ INGESTORS.push({
     }
   },
   async ingest(store, _workspaceRoot, filePath) {
-    const doc = JSON.parse(await readFile(filePath, 'utf8')) as { run_ms: number; halted?: string; usage_before?: unknown; usage_after?: unknown; cells: Array<Record<string, unknown>> }
+    const doc = JSON.parse(await readFile(filePath, 'utf8')) as { run_timestamp: number; halted?: string; usage_before?: unknown; usage_after?: unknown; cells: Array<Record<string, unknown>> }
     if (doc.cells.length === 0) {
-      await store.run('INSERT INTO scan_runs VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)', [doc.run_ms, '(run)', null, null, null, null, null, null, null, JSON.stringify(doc.usage_before ?? null), JSON.stringify(doc.usage_after ?? null), doc.halted ?? null])
+      await store.run('INSERT INTO scan_runs VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)', [doc.run_timestamp, '(run)', null, null, null, null, null, null, null, JSON.stringify(doc.usage_before ?? null), JSON.stringify(doc.usage_after ?? null), doc.halted ?? null])
       return
     }
     for (const c of doc.cells) {
-      await store.run('INSERT INTO scan_runs VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)', [doc.run_ms, c.cell, c.detector ?? null, c.case_id ?? null, c.network, c.findings_count ?? null, c.movements_count ?? null, c.duration_ms, c.error ?? null, JSON.stringify(doc.usage_before ?? null), JSON.stringify(doc.usage_after ?? null), doc.halted ?? null])
+      await store.run('INSERT INTO scan_runs VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)', [doc.run_timestamp, c.cell, c.detector ?? null, c.case_id ?? null, c.network, c.findings_count ?? null, c.movements_count ?? null, c.duration_ms, c.error ?? null, JSON.stringify(doc.usage_before ?? null), JSON.stringify(doc.usage_after ?? null), doc.halted ?? null])
     }
   },
 })
@@ -255,8 +255,8 @@ interface CaseDoc {
   network: string
   status: string
   seeds: string[]
-  created_at_ms: number
-  closed_at_ms?: number
+  created_at_timestamp: number
+  closed_at_timestamp?: number
 }
 
 INGESTORS.push({
@@ -285,7 +285,7 @@ INGESTORS.push({
     const doc = JSON.parse(await readFile(filePath, 'utf8')) as CaseDoc
     await store.run(
       'INSERT INTO cases VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [doc.case_id, doc.type, doc.network, doc.status, doc.seeds.length, doc.created_at_ms, doc.closed_at_ms ?? null],
+      [doc.case_id, doc.type, doc.network, doc.status, doc.seeds.length, doc.created_at_timestamp, doc.closed_at_timestamp ?? null],
     )
   },
 })
@@ -316,7 +316,7 @@ INGESTORS.push({
     const doc = JSON.parse(await readFile(filePath, 'utf8')) as CaseSnapshot
     await store.run(
       'INSERT INTO case_snapshots VALUES ($1,$2,$3,$4,$5)',
-      [doc.case_id, doc.run_ms, filePath, doc.addresses.length, doc.seed_set.length],
+      [doc.case_id, doc.run_timestamp, filePath, doc.addresses.length, doc.seed_set.length],
     )
     // Movements are DERIVED, not canonical: recompute from the case's full
     // ordered snapshot list and insert rows for THIS snapshot only. Diffing
@@ -324,7 +324,7 @@ INGESTORS.push({
     // result deterministic per doc_path, so re-ingest (never happens under
     // ingested_docs, but rebuildStore replays every doc) is idempotent.
     const all = await readSnapshots(workspaceRoot, doc.case_id)
-    const index = all.findIndex((s) => s.run_ms === doc.run_ms)
+    const index = all.findIndex((s) => s.run_timestamp === doc.run_timestamp)
     const prev = index > 0 ? all[index - 1] : null
     // Both halves of the diff land in case_movements, distinguished by the
     // `movement` value: scope_expansion rows explain a widened aperture and
@@ -333,7 +333,7 @@ INGESTORS.push({
     for (const m of movements) {
       await store.run(
         'INSERT INTO case_movements VALUES ($1,$2,$3,$4,$5)',
-        [doc.case_id, doc.run_ms, m.type, m.address, JSON.stringify(m.details)],
+        [doc.case_id, doc.run_timestamp, m.type, m.address, JSON.stringify(m.details)],
       )
     }
   },
@@ -343,11 +343,11 @@ interface ReviewDecisionDoc {
   doc_path: string
   decision: 'approve' | 'reject'
   reviewer: string
-  decided_at_ms: number
+  decided_at_timestamp: number
   reviewed_copy?: string
 }
 
-// Decision docs are IMMUTABLE (unique <decided_at_ms>-<decision>.review.json
+// Decision docs are IMMUTABLE (unique <decided_at_timestamp>-<decision>.review.json
 // filenames per approveDoc/rejectDoc, never rewritten in place), so this is
 // plain seen-once ingest — not one of the REPLAY_TABLES below.
 INGESTORS.push({
@@ -364,7 +364,7 @@ INGESTORS.push({
     const doc = JSON.parse(await readFile(filePath, 'utf8')) as ReviewDecisionDoc
     await store.run(
       'INSERT INTO review_decisions VALUES ($1,$2,$3,$4,$5)',
-      [doc.doc_path, doc.decision, doc.reviewer, doc.decided_at_ms, doc.reviewed_copy ?? null],
+      [doc.doc_path, doc.decision, doc.reviewer, doc.decided_at_timestamp, doc.reviewed_copy ?? null],
     )
   },
 })

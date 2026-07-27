@@ -106,7 +106,7 @@ Use `aml_trace_deposit_sources` when the user has suspected deposit/cashout addr
 Candidate labels are reviewable, not automatic writes.
 
 Use `aml_trace_suspect_funds` when the user has suspected scammer, mule, operator, or laundering-ring addresses.
-`incident_timestamp_ms` is optional.
+`incident_timestamp` is optional.
 Some Chain Insights Graph deployments do not parse backend-specific BFS or variable-length relationship syntax, so they reproduce this with generated fixed-depth `FLOWS_TO` query batches.
 
 ```bash

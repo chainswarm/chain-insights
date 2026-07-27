@@ -590,7 +590,7 @@ program
       .requiredOption('--victim-addresses <addresses>', 'Comma-separated full victim/source addresses, max 5')
       .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
       .option('--known-suspect-addresses <addresses>', 'Optional known suspect addresses for context only, max 5')
-      .option('--incident-timestamp-ms <milliseconds>', 'Optional incident timestamp in milliseconds')
+      .option('--incident-timestamp <milliseconds>', 'Optional incident timestamp in milliseconds')
       .option('--max-hops <number>', 'Maximum trace hops, 1-5')
       .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, default 5, max 50')
       .option('--min-amount-sum <number>', 'Minimum USD amount (amount_usd_sum) for traced edges')
@@ -598,7 +598,7 @@ program
         victimAddresses: string
         network: string
         knownSuspectAddresses?: string
-        incidentTimestampMs?: string
+        incidentTimestamp?: string
         maxHops?: string
         perAddressLimit?: string
         minAmountSum?: string
@@ -612,7 +612,7 @@ program
               victimAddresses: opts.victimAddresses,
               knownSuspectAddresses: opts.knownSuspectAddresses,
               network: opts.network,
-              incidentTimestampMs: optionalNumber(opts.incidentTimestampMs),
+              incidentTimestamp: optionalNumber(opts.incidentTimestamp),
               maxHops: optionalNumber(opts.maxHops),
               perAddressLimit: optionalNumber(opts.perAddressLimit),
               minAmountSum: optionalNumber(opts.minAmountSum),
@@ -631,14 +631,14 @@ program
       .description('Trace suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology')
       .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
       .requiredOption('--suspect-addresses <addresses>', 'Comma-separated full suspect-controlled addresses, max 5')
-      .option('--incident-timestamp-ms <milliseconds>', 'Optional incident timestamp in milliseconds')
+      .option('--incident-timestamp <milliseconds>', 'Optional incident timestamp in milliseconds')
       .option('--max-hops <number>', 'Maximum trace hops, default 3, max 5')
       .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, default 5, max 50')
       .option('--min-amount-sum <number>', 'Minimum USD amount (amount_usd_sum) for traced edges')
       .action(async (opts: {
         network: string
         suspectAddresses: string
-        incidentTimestampMs?: string
+        incidentTimestamp?: string
         maxHops?: string
         perAddressLimit?: string
         minAmountSum?: string
@@ -654,7 +654,7 @@ program
               maxHops: optionalNumber(opts.maxHops),
               perAddressLimit: optionalNumber(opts.perAddressLimit),
               minAmountSum: optionalNumber(opts.minAmountSum),
-              incidentTimestampMs: optionalNumber(opts.incidentTimestampMs),
+              incidentTimestamp: optionalNumber(opts.incidentTimestamp),
             })
             console.log(result.summaryText)
             console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -806,7 +806,7 @@ program
                 victimAddresses: args['victim_addresses'] as string | string[] | undefined ?? '',
                 knownSuspectAddresses: args['known_suspect_addresses'] as string | string[] | undefined,
                 network: String(args['network'] ?? ''),
-                incidentTimestampMs: optionalNumberArg(args['incident_timestamp_ms'], 'incident_timestamp_ms'),
+                incidentTimestamp: optionalNumberArg(args['incident_timestamp'], 'incident_timestamp'),
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
                 perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
               })
@@ -821,7 +821,7 @@ program
                 network: String(args['network'] ?? ''),
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
                 perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
-                incidentTimestampMs: optionalNumberArg(args['incident_timestamp_ms'], 'incident_timestamp_ms'),
+                incidentTimestamp: optionalNumberArg(args['incident_timestamp'], 'incident_timestamp'),
               })
               console.log(result.summaryText)
               console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -927,7 +927,7 @@ program
               network: opts.network,
               full,
               workspaceRoot,
-              nowMs: Date.now(),
+              nowTimestamp: Date.now(),
               params: opts.param ?? {},
             })
             console.log(
@@ -973,7 +973,7 @@ monitor
         }),
       )
       const failed = doc.cells.filter((c) => c.error)
-      console.log(`[monitor] run ${doc.run_ms}: ${doc.cells.length} cell(s), ${doc.alerts_emitted} alert(s)${doc.halted ? `, HALTED: ${doc.halted}` : ''}`)
+      console.log(`[monitor] run ${doc.run_timestamp}: ${doc.cells.length} cell(s), ${doc.alerts_emitted} alert(s)${doc.halted ? `, HALTED: ${doc.halted}` : ''}`)
       for (const cell of failed) console.error(`[monitor]   ${cell.cell} FAILED: ${cell.error}`)
       if (failed.length > 0) process.exit(MONITOR_EXIT_ISOLATED)
     } catch (err) {

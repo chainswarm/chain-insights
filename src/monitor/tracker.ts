@@ -25,11 +25,11 @@ export interface SnapshotAddress {
 }
 export interface CaseSnapshot {
   case_id: string
-  run_ms: number
+  run_timestamp: number
   seed_set: string[]
   addresses: SnapshotAddress[]
   /** Copied from case.json at trace time: address -> when it became a seed. */
-  seeds_added_at_ms?: Record<string, number>
+  seeds_added_at_timestamp?: Record<string, number>
 }
 export interface CaseMovement { type: 'new_hop' | 'new_deposit_endpoint' | 'cashout_endpoint' | 'frontier_candidate' | 'scope_expansion'; address: string; details: Record<string, unknown> }
 
@@ -118,7 +118,7 @@ export function diffScopeExpansion(prev: CaseSnapshot | null, next: CaseSnapshot
         classification: a.classification ?? null,
         gate: a.gate ?? null,
         via_seeds: a.via_seeds ?? [],
-        seeds_added_at_ms: (a.via_seeds ?? []).map((s) => next.seeds_added_at_ms?.[s] ?? null),
+        seeds_added_at_timestamp: (a.via_seeds ?? []).map((s) => next.seeds_added_at_timestamp?.[s] ?? null),
       },
     })
   }
@@ -139,7 +139,7 @@ export async function readSnapshots(workspaceRoot: string, caseId: string): Prom
   }
   const snaps: CaseSnapshot[] = []
   for (const f of files) snaps.push(JSON.parse(await readFile(path.join(dir, f), 'utf8')) as CaseSnapshot)
-  return snaps.sort((a, b) => a.run_ms - b.run_ms)
+  return snaps.sort((a, b) => a.run_timestamp - b.run_timestamp)
 }
 
 type CorridorFn = (client: Client, options: { seedAddress: string; network: string; maxHops?: number; limits?: LimitConfig; writeArtifacts?: boolean; workspaceRoot?: string }) => Promise<{ document: DetectionFindingsDocument; summaryText: string }>
@@ -149,14 +149,14 @@ export async function traceCase(
   workspaceRoot: string,
   caseId: string,
   maxHops: number,
-  nowMs: number,
+  nowTimestamp: number,
   hooks: { corridor?: CorridorFn } = {},
   // Config-file layer for the corridor's search bounds on unattended runs.
   limits?: LimitConfig,
-): Promise<{ movements_count: number; scope_expansions_count: number; alerts: Omit<AlertEvent, 'alert_id' | 'emitted_at_ms'>[] }> {
+): Promise<{ movements_count: number; scope_expansions_count: number; alerts: Omit<AlertEvent, 'alert_id' | 'emitted_at_timestamp'>[] }> {
   const corridor = hooks.corridor ?? scamCorridorTrace
   const caseFile = path.join(monitorPaths(workspaceRoot).casesDir, caseId, 'case.json')
-  const monitorCase = JSON.parse(await readFile(caseFile, 'utf8')) as { case_id: string; network: string; seeds: string[]; seeds_added_at_ms?: Record<string, number> }
+  const monitorCase = JSON.parse(await readFile(caseFile, 'utf8')) as { case_id: string; network: string; seeds: string[]; seeds_added_at_timestamp?: Record<string, number> }
   const approved = await approvedAddressesForCase(workspaceRoot, caseId)
   const seedSet = [...new Set([...monitorCase.seeds, ...approved])].sort()
 
@@ -175,8 +175,8 @@ export async function traceCase(
     }
   }
   const snapshot: CaseSnapshot = {
-    case_id: caseId, run_ms: nowMs, seed_set: seedSet,
-    ...(monitorCase.seeds_added_at_ms ? { seeds_added_at_ms: monitorCase.seeds_added_at_ms } : {}),
+    case_id: caseId, run_timestamp: nowTimestamp, seed_set: seedSet,
+    ...(monitorCase.seeds_added_at_timestamp ? { seeds_added_at_timestamp: monitorCase.seeds_added_at_timestamp } : {}),
     addresses: [
       ...seedSet.map((address) => ({ address })),
       ...[...byAddress.values()]
@@ -187,7 +187,7 @@ export async function traceCase(
   const previous = (await readSnapshots(workspaceRoot, caseId)).at(-1) ?? null
   const dir = snapshotsDir(workspaceRoot, caseId)
   await mkdir(dir, { recursive: true })
-  await writeFile(path.join(dir, `${nowMs}.snapshot.json`), JSON.stringify(snapshot, null, 2) + '\n', 'utf8')
+  await writeFile(path.join(dir, `${nowTimestamp}.snapshot.json`), JSON.stringify(snapshot, null, 2) + '\n', 'utf8')
 
   const movements = diffSnapshots(previous, snapshot)
   const expansions = diffScopeExpansion(previous, snapshot)
@@ -202,7 +202,7 @@ export async function traceCase(
   if (frontier.length > 0) {
     const doc: DetectionFindingsDocument = {
       schema: 'chain-insights.detection-findings.v1', tool: 'aml_scam_corridor_trace', network: monitorCase.network,
-      status: 'complete', generated_at_ms: nowMs,
+      status: 'complete', generated_at_timestamp: nowTimestamp,
       findings: frontier.map((m) => ({ address: m.address, classification: (m.details.classification ?? undefined) as never, evidence: { case_id: caseId }, truncated: false, inconclusive: false })),
       threshold_provenance: { source: 'cia-monitor-case-expansion', case_id: caseId },
     }
@@ -214,11 +214,11 @@ export async function traceCase(
   const alerts = [
     ...movements.map((m) => ({
       type: m.type === 'cashout_endpoint' ? 'cashout_endpoint' as const : m.type === 'frontier_candidate' ? 'frontier_candidate' as const : 'case_movement' as const,
-      network: monitorCase.network, case_id: caseId, address: m.address, run_ms: nowMs,
+      network: monitorCase.network, case_id: caseId, address: m.address, run_timestamp: nowTimestamp,
     })),
     ...expansions.flatMap((m) => {
-      const base = { network: monitorCase.network, case_id: caseId, address: m.address, run_ms: nowMs }
-      const out: Omit<AlertEvent, 'alert_id' | 'emitted_at_ms'>[] = [{ type: 'case_scope_expansion' as const, ...base }]
+      const base = { network: monitorCase.network, case_id: caseId, address: m.address, run_timestamp: nowTimestamp }
+      const out: Omit<AlertEvent, 'alert_id' | 'emitted_at_timestamp'>[] = [{ type: 'case_scope_expansion' as const, ...base }]
       if (m.details.classification === 'exchange_terminal') out.push({ type: 'cashout_endpoint' as const, ...base })
       if (m.details.classification === 'propagated_scam' || m.details.classification === 'corridor_hub') out.push({ type: 'frontier_candidate' as const, ...base })
       return out

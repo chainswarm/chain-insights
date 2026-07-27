@@ -16,7 +16,7 @@ const FIXTURE: DetectionFindingsDocument = {
   tool: 'aml_scam_corridor_trace',
   network: 'bittensor',
   status: 'complete',
-  generated_at_ms: 1_720_000_000_000,
+  generated_at_timestamp: 1_720_000_000_000,
   findings: [
     {
       address: '5Seed...',
@@ -69,7 +69,7 @@ describe('detection findings schema round-trip (AC5)', () => {
       tool: 'aml_exchange_likeness',
       network: 'bittensor',
       status: 'inconclusive',
-      generated_at_ms: 1_720_000_000_001,
+      generated_at_timestamp: 1_720_000_000_001,
       findings: [
         {
           address: '5Candidate...',

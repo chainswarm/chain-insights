@@ -290,7 +290,7 @@ cia monitor case remove-seed theft-1 --address 5AddrA...
 - Addresses approved through [review](#review--labels) join the traced seed set
   automatically and are not listed in `seeds`; `remove-seed` does not apply to
   them.
-- The addition is recorded on the case: `seeds_added_at_ms` (address → when it
+- The addition is recorded on the case: `seeds_added_at_timestamp` (address → when it
   became a seed) and a `seed_events` timeline entry carrying your `--note`.
 
 ### Why a widened corridor is not a movement
@@ -489,7 +489,7 @@ Everything monitor writes is plain, human-readable JSON in the workspace:
 ```text
 detections/                          Raw findings documents from sweeps and case traces
 detections/reviewed/                 Reviewer-stamped copies (the hand-off artifact)
-cases/<case-id>/case.json            Case definition (seeds, seeds_added_at_ms, seed_events)
+cases/<case-id>/case.json            Case definition (seeds, seeds_added_at_timestamp, seed_events)
 cases/<case-id>/snapshots/           One snapshot per run that traced this case
 .chain-insights/monitor/config.json  Monitor configuration
 .chain-insights/monitor/runs/        One run document per `monitor run`
@@ -546,7 +546,7 @@ someone as though nothing ran.
 Under `cia monitor watch` the process does not exit between passes, so
 per-pass exit codes are not visible to the supervisor. An isolated cell
 failure is recorded on the cell entry in that pass's run document
-(`.chain-insights/monitor/runs/<run_ms>.run.json`, `error` field) — check
+(`.chain-insights/monitor/runs/<run_timestamp>.run.json`, `error` field) — check
 there, or `cia monitor status`, rather than expecting pm2 to flag it.
 
 ## Related

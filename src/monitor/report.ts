@@ -12,7 +12,7 @@ import { listPending } from './review.js'
 import { withStore } from './store.js'
 
 interface ScanRunRow {
-  run_ms: bigint | number
+  run_timestamp: bigint | number
   cell: string
   network: string | null
   findings_count: number | null
@@ -23,7 +23,7 @@ interface ScanRunRow {
 
 interface CaseMovementRow {
   case_id: string
-  run_ms: bigint | number
+  run_timestamp: bigint | number
   movement: string
   address: string
 }
@@ -45,10 +45,10 @@ export async function renderReport(workspaceRoot: string): Promise<string> {
   // conflict with any other concurrent reader on the same DuckDB file.
   const { runs, movements, watchlist } = await withStore(workspaceRoot, async (store) => ({
     runs: (await store.all(
-      'SELECT run_ms, cell, network, findings_count, movements_count, duration_ms, error FROM scan_runs ORDER BY run_ms DESC LIMIT 10',
+      'SELECT run_timestamp, cell, network, findings_count, movements_count, duration_ms, error FROM scan_runs ORDER BY run_timestamp DESC LIMIT 10',
     )) as unknown as ScanRunRow[],
     movements: (await store.all(
-      'SELECT case_id, run_ms, movement, address FROM case_movements ORDER BY case_id, run_ms',
+      'SELECT case_id, run_timestamp, movement, address FROM case_movements ORDER BY case_id, run_timestamp',
     )) as unknown as CaseMovementRow[],
     watchlist: (await store.all(
       `SELECT w.network AS network, w.address AS address,
@@ -69,12 +69,12 @@ export async function renderReport(workspaceRoot: string): Promise<string> {
     lines.push('(no runs yet)')
   } else {
     lines.push(
-      '| run_ms | cell | network | findings | movements | duration_ms | error |',
+      '| run_timestamp | cell | network | findings | movements | duration_ms | error |',
       '| --- | --- | --- | --- | --- | --- | --- |',
     )
     for (const r of runs) {
       lines.push(
-        `| ${num(r.run_ms)} | ${r.cell} | ${r.network ?? ''} | ${r.findings_count ?? ''} | ${r.movements_count ?? ''} | ${num(r.duration_ms) ?? ''} | ${r.error ?? ''} |`,
+        `| ${num(r.run_timestamp)} | ${r.cell} | ${r.network ?? ''} | ${r.findings_count ?? ''} | ${r.movements_count ?? ''} | ${num(r.duration_ms) ?? ''} | ${r.error ?? ''} |`,
       )
     }
   }
@@ -117,7 +117,7 @@ export async function renderReport(workspaceRoot: string): Promise<string> {
     }
     for (const caseId of [...byCase.keys()].sort()) {
       lines.push(`### ${caseId}`, '')
-      for (const m of byCase.get(caseId) ?? []) lines.push(`${num(m.run_ms)} — ${m.movement} — ${m.address}`)
+      for (const m of byCase.get(caseId) ?? []) lines.push(`${num(m.run_timestamp)} — ${m.movement} — ${m.address}`)
       lines.push('')
     }
   }
@@ -125,11 +125,11 @@ export async function renderReport(workspaceRoot: string): Promise<string> {
   return lines.join('\n')
 }
 
-export async function writeReport(workspaceRoot: string, nowMs: number): Promise<string> {
+export async function writeReport(workspaceRoot: string, nowTimestamp: number): Promise<string> {
   const md = await renderReport(workspaceRoot)
   const dir = monitorPaths(workspaceRoot).reportsDir
   await mkdir(dir, { recursive: true })
-  const reportPath = path.join(dir, `report-${nowMs}.md`)
+  const reportPath = path.join(dir, `report-${nowTimestamp}.md`)
   await writeFile(reportPath, md, 'utf8')
   return reportPath
 }
@@ -139,7 +139,7 @@ export async function statusText(workspaceRoot: string, config: MonitorConfig): 
     listCases(workspaceRoot, { openOnly: true }),
     listPending(workspaceRoot),
     listAlerts(workspaceRoot, { unackedOnly: true }),
-    withStore(workspaceRoot, (store) => store.all('SELECT MAX(run_ms) AS last_run FROM scan_runs'), { readOnly: true }),
+    withStore(workspaceRoot, (store) => store.all('SELECT MAX(run_timestamp) AS last_run FROM scan_runs'), { readOnly: true }),
   ])
   const lastRun = num(lastRunRows[0]?.last_run as bigint | number | null | undefined)
   const lastRunText = lastRun === null ? 'never' : String(lastRun)

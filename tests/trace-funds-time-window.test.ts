@@ -49,7 +49,7 @@ describe('forward trace activity window', () => {
       network: 'bittensor',
       maxHops: 2,
       writeArtifacts: false,
-      activityWindow: { fromMs: 1715500000000, toMs: 1716000000000 },
+      activityWindow: { fromTimestamp: 1715500000000, toTimestamp: 1716000000000 },
     })
     const forward = captured.flat().filter((q) => q.id.startsWith('forward_exchange_paths_'))
     expect(forward).toHaveLength(2)
@@ -61,14 +61,14 @@ describe('forward trace activity window', () => {
     expect(forward[1]!.query).toContain('r2.first_seen_timestamp <= 1716000000000')
   })
 
-  it('renders only the from predicate when toMs is omitted', async () => {
+  it('renders only the from predicate when toTimestamp is omitted', async () => {
     const captured: BatchQuery[][] = []
     await runFundFlowProbe(fakeClient(captured) as never, config, {
       seedAddress: 'net:0xseed',
       network: 'bittensor',
       maxHops: 1,
       writeArtifacts: false,
-      activityWindow: { fromMs: 1715500000000 },
+      activityWindow: { fromTimestamp: 1715500000000 },
     })
     const forward = captured.flat().find((q) => q.id === 'forward_exchange_paths_1')
     expect(forward!.query).toContain('(r1.first_seen_timestamp >= 1715500000000 OR r1.last_seen_timestamp >= 1715500000000)')
@@ -106,19 +106,19 @@ describe('forward trace activity window', () => {
 })
 
 describe('public trace tools window wiring', () => {
-  it('derives the window from incident_timestamp_ms and reports time_filter', async () => {
+  it('derives the window from incident_timestamp and reports time_filter', async () => {
     const captured: BatchQuery[][] = []
     const result = await traceVictimFunds(fakeClient(captured) as never, config, {
       victimAddresses: 'net:0xv1',
       network: 'bittensor',
-      incidentTimestampMs: 1715500000000,
+      incidentTimestamp: 1715500000000,
       writeArtifacts: false,
     })
     const forward = captured.flat().filter((q) => q.id.startsWith('forward_exchange_paths_'))
     expect(forward.length).toBeGreaterThan(0)
     expect(forward[0]!.query).toContain('first_seen_timestamp >= 1715500000000')
     const input = (result.structuredContent as { input: Record<string, unknown> }).input
-    expect(input['time_filter']).toEqual({ from_ms: 1715500000000 })
+    expect(input['time_filter']).toEqual({ from_timestamp: 1715500000000 })
   })
 
   it('reports time_filter none when no window inputs are given', async () => {
@@ -137,12 +137,12 @@ describe('public trace tools window wiring', () => {
     const result = await traceSuspectFunds(fakeClient(captured) as never, config, {
       suspectAddresses: 'net:0xs1',
       network: 'bittensor',
-      incidentTimestampMs: 1715500000000,
+      incidentTimestamp: 1715500000000,
       writeArtifacts: false,
     })
     const forward = captured.flat().filter((q) => q.id.startsWith('forward_exchange_paths_'))
     expect(forward[0]!.query).toContain('first_seen_timestamp >= 1715500000000')
     const input = (result.structuredContent as { input: Record<string, unknown> }).input
-    expect(input['time_filter']).toEqual({ from_ms: 1715500000000 })
+    expect(input['time_filter']).toEqual({ from_timestamp: 1715500000000 })
   })
 })

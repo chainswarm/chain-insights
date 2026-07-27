@@ -60,7 +60,7 @@ export const DETECTION_FINDINGS_SCHEMA = z.object({
   tool: z.enum(DETECTION_TOOL_NAMES),
   network: z.string().min(1),
   status: z.enum(DETECTION_RUN_STATUSES),
-  generated_at_ms: z.number().int().nonnegative(),
+  generated_at_timestamp: z.number().int().nonnegative(),
   findings: z.array(DetectionFindingSchema),
   // aml_scam_corridor_trace only: hop indices where the frontier cap
   // overflowed (present/non-empty only when status === 'partial').
@@ -93,7 +93,7 @@ function sanitizeSlugSegment(value: string): string {
 }
 
 function defaultFindingsSlug(document: DetectionFindingsDocument): string {
-  const timestamp = new Date(document.generated_at_ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')
+  const timestamp = new Date(document.generated_at_timestamp).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')
   const toolSegment = document.tool.replace(/^aml_/, '')
   return `${timestamp}_${sanitizeSlugSegment(toolSegment)}`
 }

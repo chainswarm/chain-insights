@@ -57,7 +57,7 @@ upstream sources or candidate suspects when multiple deposits converge.
 Use `aml_trace_suspect_funds` when the user gives suspected scammer, mule,
 operator, or laundering-ring addresses and asks where suspect-controlled funds
 went. Required inputs are `suspect_addresses` and `network`.
-`incident_timestamp_ms` is optional; absence of a timestamp is valid.
+`incident_timestamp` is optional; absence of a timestamp is valid.
 
 Use `aml_address_risk` for single-address screening and enrichment. Use
 `graph_query_batch` only when the high-level tools do not answer the exact

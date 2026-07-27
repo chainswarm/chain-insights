@@ -117,7 +117,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(combined).toContain('aml_trace_deposit_sources')
     expect(combined).toContain('aml_trace_suspect_funds')
     expect(combined).toContain('victim/source traversal is outward from victim/source funds')
-    expect(combined).toContain('incident_timestamp_ms')
+    expect(combined).toContain('incident_timestamp')
     expect(combined).toContain('exchange terminal safety')
     expect(combined).toContain('penultimate non-exchange')
     expect(combined).toContain('reviewable, not automatic writes')

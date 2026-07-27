@@ -51,7 +51,7 @@ flowchart TB
 - **Bounded tracing:** maxHops clamped to 1-5, perAddressLimit clamped to 1-10, minAmountSum >= 0
 - **Exchange terminal rule:** Traversal stops at exchange nodes (is_exchange IS NOT NULL); no expansion through exchanges
 - **Address normalization:** All blockchain addresses preserved as full strings (no truncation, no ellipsis)
-- **Activity window predicates:** Optional fromMs/toMs filters edge timestamps in Cypher queries
+- **Activity window predicates:** Optional fromTimestamp/toTimestamp filters edge timestamps in Cypher queries
 - **Alias mapping:** V (victim/seed), D (deposit), I (intermediate), E (exchange), X (source exchange), L (reverse lead)
 - **Compact evidence:** Aliases compacted (max 20 intermediaries, sources, leads) for structuredContent; full addressMap in artifacts
 - **Stateless proxy mode:** When writeArtifacts=false, returns summary + structuredContent without workspace writes
@@ -74,7 +74,7 @@ cia mcp call trace-victim-funds \
     "network": "bittensor",
     "suspect_addresses": ["0xabc..."],
     "max_hops": 4,
-    "incident_timestamp_ms": 1704067200000
+    "incident_timestamp": 1704067200000
   }
 }
 # → Runs traceSuspectFunds(), deposits/sources/leads flows, writes artifacts

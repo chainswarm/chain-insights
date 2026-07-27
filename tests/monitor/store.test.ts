@@ -18,7 +18,7 @@ const DOC = {
   tool: 'aml_fake_token',
   network: 'bittensor_evm',
   status: 'complete',
-  generated_at_ms: 1111,
+  generated_at_timestamp: 1111,
   findings: [
     { address: '0xspoof', classification: 'fake_token_contract', evidence: {}, truncated: false, inconclusive: false },
     { address: '0xspoof2', classification: 'fake_token_contract', evidence: {}, truncated: false, inconclusive: false },
@@ -76,7 +76,7 @@ describe('monitor store', () => {
     const corridorOf = (addrs: Array<{ address: string; classification?: string }>) => async () => ({
       document: {
         schema: 'chain-insights.detection-findings.v1', tool: 'aml_scam_corridor_trace', network: 'bittensor',
-        status: 'complete', generated_at_ms: 0,
+        status: 'complete', generated_at_timestamp: 0,
         findings: addrs.map((a) => ({ ...a, evidence: {}, truncated: false, inconclusive: false })),
       },
       summaryText: 'fake',
@@ -89,31 +89,31 @@ describe('monitor store', () => {
     await withStore(root, async (store) => ingestNewDocs(store, root))
 
     const snaps = await withStore(root, async (store) =>
-      store.all('SELECT case_id, run_ms, address_count FROM case_snapshots ORDER BY run_ms'))
-    expect(snaps.map((s) => ({ case_id: s.case_id, run_ms: Number(s.run_ms), address_count: s.address_count }))).toEqual([
-      { case_id: 'c1', run_ms: 100, address_count: 2 }, // seed1, mule1
-      { case_id: 'c1', run_ms: 200, address_count: 3 }, // seed1, mule1, exch1
+      store.all('SELECT case_id, run_timestamp, address_count FROM case_snapshots ORDER BY run_timestamp'))
+    expect(snaps.map((s) => ({ case_id: s.case_id, run_timestamp: Number(s.run_timestamp), address_count: s.address_count }))).toEqual([
+      { case_id: 'c1', run_timestamp: 100, address_count: 2 }, // seed1, mule1
+      { case_id: 'c1', run_timestamp: 200, address_count: 3 }, // seed1, mule1, exch1
     ])
 
     const moves = await withStore(root, async (store) =>
-      store.all('SELECT run_ms, movement, address FROM case_movements ORDER BY run_ms, movement, address'))
-    // Baseline (run_ms=100) has no predecessor -> no movements. Snapshot 2
+      store.all('SELECT run_timestamp, movement, address FROM case_movements ORDER BY run_timestamp, movement, address'))
+    // Baseline (run_timestamp=100) has no predecessor -> no movements. Snapshot 2
     // only yields movements for the newly-appeared exch1 address.
-    expect(moves.map((m) => ({ run_ms: Number(m.run_ms), movement: m.movement, address: m.address }))).toEqual([
-      { run_ms: 200, movement: 'cashout_endpoint', address: 'exch1' },
-      { run_ms: 200, movement: 'new_hop', address: 'exch1' },
+    expect(moves.map((m) => ({ run_timestamp: Number(m.run_timestamp), movement: m.movement, address: m.address }))).toEqual([
+      { run_timestamp: 200, movement: 'cashout_endpoint', address: 'exch1' },
+      { run_timestamp: 200, movement: 'new_hop', address: 'exch1' },
     ])
 
     await rebuildStore(root)
     const snapsAfter = await withStore(root, async (store) =>
-      store.all('SELECT case_id, run_ms, address_count FROM case_snapshots ORDER BY run_ms'))
+      store.all('SELECT case_id, run_timestamp, address_count FROM case_snapshots ORDER BY run_timestamp'))
     const movesAfter = await withStore(root, async (store) =>
-      store.all('SELECT run_ms, movement, address FROM case_movements ORDER BY run_ms, movement, address'))
-    expect(snapsAfter.map((s) => ({ case_id: s.case_id, run_ms: Number(s.run_ms), address_count: s.address_count }))).toEqual(
-      snaps.map((s) => ({ case_id: s.case_id, run_ms: Number(s.run_ms), address_count: s.address_count })),
+      store.all('SELECT run_timestamp, movement, address FROM case_movements ORDER BY run_timestamp, movement, address'))
+    expect(snapsAfter.map((s) => ({ case_id: s.case_id, run_timestamp: Number(s.run_timestamp), address_count: s.address_count }))).toEqual(
+      snaps.map((s) => ({ case_id: s.case_id, run_timestamp: Number(s.run_timestamp), address_count: s.address_count })),
     )
-    expect(movesAfter.map((m) => ({ run_ms: Number(m.run_ms), movement: m.movement, address: m.address }))).toEqual(
-      moves.map((m) => ({ run_ms: Number(m.run_ms), movement: m.movement, address: m.address })),
+    expect(movesAfter.map((m) => ({ run_timestamp: Number(m.run_timestamp), movement: m.movement, address: m.address }))).toEqual(
+      moves.map((m) => ({ run_timestamp: Number(m.run_timestamp), movement: m.movement, address: m.address })),
     )
   })
 

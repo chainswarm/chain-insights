@@ -25,7 +25,7 @@ describe('aml_trace_deposit_sources filters', () => {
       network: 'bittensor',
       maxHops: 1,
       minAmountSum: 25,
-      timeRange: { from_ms: 1715500000000 },
+      timeRange: { from_timestamp: 1715500000000 },
       writeArtifacts: false,
     })
     const reverse = remote.captured.find((q) => q.id === 'reverse_deposit_sources_1')

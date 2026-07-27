@@ -263,14 +263,14 @@ describe('mergeShardRows — combineEdge property rules (oracle-verified discrep
     expect(props(merged).price_coverage_ratio).toBeCloseTo(0.8)
   })
 
-  it('bucket_start_ms/bucket_end_ms merge to the outer span of contributing shard windows', () => {
+  it('bucket_start_timestamp/bucket_end_timestamp merge to the outer span of contributing shard windows', () => {
     const merged = mergeShardRows([
-      fullEdge('s1', 'A', 'B', { bucket_start_ms: 2000, bucket_end_ms: 2500 }),
-      fullEdge('s2', 'A', 'B', { bucket_start_ms: 1000, bucket_end_ms: 3000 }),
+      fullEdge('s1', 'A', 'B', { bucket_start_timestamp: 2000, bucket_end_timestamp: 2500 }),
+      fullEdge('s2', 'A', 'B', { bucket_start_timestamp: 1000, bucket_end_timestamp: 3000 }),
     ])
     const p = props(merged)
-    expect(p.bucket_start_ms).toBe(1000)
-    expect(p.bucket_end_ms).toBe(3000)
+    expect(p.bucket_start_timestamp).toBe(1000)
+    expect(p.bucket_end_timestamp).toBe(3000)
   })
 
   it('endpoint identity and lookalike flags stay stable across constituents (shard-invariant)', () => {

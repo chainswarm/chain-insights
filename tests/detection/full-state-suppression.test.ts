@@ -29,7 +29,7 @@ function stableFullScanner(size: number, scanned: number[]): DetectorScan {
     id: 'attack-attribution',
     windowMode: 'full-state',
     scan: async (window) => {
-      scanned.push(window.fromMs)
+      scanned.push(window.fromTimestamp)
       return Array.from({ length: size }, (_, i) => ({
         address: `0xattributed${i}`,
         classification: 'attributed_bad_actor' as const,
@@ -43,7 +43,7 @@ function stableFullScanner(size: number, scanned: number[]): DetectorScan {
   }
 }
 
-async function runWith(scanner: DetectorScan, root: string, nowMs: number, full = false) {
+async function runWith(scanner: DetectorScan, root: string, nowTimestamp: number, full = false) {
   const original = DETECTORS[scanner.id]
   DETECTORS[scanner.id] = scanner
   try {
@@ -52,7 +52,7 @@ async function runWith(scanner: DetectorScan, root: string, nowMs: number, full 
       network: 'bittensor',
       full,
       workspaceRoot: root,
-      nowMs,
+      nowTimestamp,
     })
   } finally {
     DETECTORS[scanner.id] = original
@@ -90,8 +90,8 @@ describe('full-state detectors do not re-flood the review backlog', () => {
     const scanned: number[] = []
     await runWith(stableFullScanner(2, scanned), root, 5_000)
     const cp = await readCheckpoint(root, 'attack-attribution', 'bittensor')
-    expect(cp.last_block_timestamp_ms).toBe(0)
-    expect(cp.last_scanned_at_ms).toBe(0)
+    expect(cp.last_block_timestamp).toBe(0)
+    expect(cp.last_scanned_at_timestamp).toBe(0)
   })
 
   it('records the suppression in the document instead of hiding it', async () => {
@@ -127,7 +127,7 @@ describe('full-state detectors do not re-flood the review backlog', () => {
     }
     await runWith(incremental, root, 7_000)
     const cp = await readCheckpoint(root, 'address-poisoning', 'bittensor')
-    expect(cp.last_block_timestamp_ms).toBe(7_000)
+    expect(cp.last_block_timestamp).toBe(7_000)
   })
 })
 

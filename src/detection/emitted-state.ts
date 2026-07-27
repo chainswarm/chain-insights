@@ -27,7 +27,7 @@ export interface EmittedState {
   schema: typeof EMITTED_STATE_SCHEMA_VERSION
   detector: string
   network: string
-  updated_at_ms: number
+  updated_at_timestamp: number
   // Stable identity keys of every finding emitted so far (see findingKey).
   finding_keys: string[]
 }
@@ -60,7 +60,7 @@ export async function readEmittedState(
     schema: EMITTED_STATE_SCHEMA_VERSION,
     detector,
     network,
-    updated_at_ms: 0,
+    updated_at_timestamp: 0,
     finding_keys: [],
   }
   try {
@@ -71,7 +71,7 @@ export async function readEmittedState(
     const keys = Array.isArray(parsed.finding_keys)
       ? parsed.finding_keys.filter((k): k is string => typeof k === 'string')
       : []
-    return { ...empty, updated_at_ms: Number(parsed.updated_at_ms) || 0, finding_keys: keys }
+    return { ...empty, updated_at_timestamp: Number(parsed.updated_at_timestamp) || 0, finding_keys: keys }
   } catch {
     return empty
   }

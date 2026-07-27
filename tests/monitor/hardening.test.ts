@@ -23,7 +23,7 @@ function findingsDoc(address: string, network = 'bittensor'): string {
     tool: 'aml_mixer_likeness',
     network,
     status: 'complete',
-    generated_at_ms: 1,
+    generated_at_timestamp: 1,
     findings: [{ address, classification: 'mixer_hourglass', evidence: {}, truncated: false, inconclusive: false }],
   })
 }

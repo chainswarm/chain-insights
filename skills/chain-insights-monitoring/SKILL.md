@@ -157,7 +157,7 @@ Both are idempotent (re-adding an existing seed is a no-op, not an error), both
 are **refused on a closed case** — a closed case is a historical record and the
 run loop does not re-trace it, so open a new case with the wider seed set
 instead — and a case can never be left with zero seeds. The addition is stamped
-onto `case.json` as `seeds_added_at_ms` plus a `seed_events` entry carrying the
+onto `case.json` as `seeds_added_at_timestamp` plus a `seed_events` entry carrying the
 note. Never hand-edit `case.json` to expand a case; use `add-seed`, or the
 continuity below is lost.
 

@@ -22,8 +22,8 @@ async function seedTornAlertsLog(root: string): Promise<{ goodIds: string[]; ale
   const good = await emitAlerts(
     root,
     [
-      { type: 'new_findings', network: 'bittensor', detector: 'mixer', count: 3, run_ms: 500 },
-      { type: 'cashout_endpoint', network: 'bittensor', address: '0xexchange', run_ms: 500 },
+      { type: 'new_findings', network: 'bittensor', detector: 'mixer', count: 3, run_timestamp: 500 },
+      { type: 'cashout_endpoint', network: 'bittensor', address: '0xexchange', run_timestamp: 500 },
     ],
     1000,
   )
@@ -101,7 +101,7 @@ describe('torn alerts.jsonl (#212)', () => {
 
   it('a torn acks.jsonl line likewise costs only that ack', async () => {
     const root = await ws()
-    const [event] = await emitAlerts(root, [{ type: 'new_findings', network: 'bittensor', detector: 'mixer', count: 1, run_ms: 500 }], 1000)
+    const [event] = await emitAlerts(root, [{ type: 'new_findings', network: 'bittensor', detector: 'mixer', count: 1, run_timestamp: 500 }], 1000)
     await ackAlert(root, event.alert_id, 2000)
     await appendFile(monitorPaths(root).acksLog, '{"alert_id":"tor', 'utf8')
     expect(await listAlerts(root, { unackedOnly: true })).toHaveLength(0)
@@ -112,7 +112,7 @@ describe('torn alerts.jsonl (#212)', () => {
 
   it('an intact log still parses with no warning at all', async () => {
     const root = await ws()
-    await emitAlerts(root, [{ type: 'new_findings', network: 'bittensor', detector: 'mixer', count: 1, run_ms: 500 }], 1000)
+    await emitAlerts(root, [{ type: 'new_findings', network: 'bittensor', detector: 'mixer', count: 1, run_timestamp: 500 }], 1000)
     expect(await listAlerts(root)).toHaveLength(1)
     expect(warn).not.toHaveBeenCalled()
   })
@@ -120,8 +120,8 @@ describe('torn alerts.jsonl (#212)', () => {
   it('a torn line does not corrupt alert_id sequencing for the next emit', async () => {
     const root = await ws()
     await seedTornAlertsLog(root)
-    const [next] = await emitAlerts(root, [{ type: 'new_findings', network: 'bittensor', detector: 'mixer', count: 1, run_ms: 500 }], 3000)
-    // Two good run_ms=500 events survive, so the next sequence number is 2.
+    const [next] = await emitAlerts(root, [{ type: 'new_findings', network: 'bittensor', detector: 'mixer', count: 1, run_timestamp: 500 }], 3000)
+    // Two good run_timestamp=500 events survive, so the next sequence number is 2.
     expect(next.alert_id).toBe('500-2-new_findings')
     expect((await listAlerts(root)).map((a) => a.alert_id)).toContain(next.alert_id)
   })

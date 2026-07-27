@@ -153,7 +153,7 @@ Required input:
 Optional input:
 
 - `known_suspect_addresses`
-- `incident_timestamp_ms`
+- `incident_timestamp`
 - `max_hops`
 - `include_attachments`
 
@@ -204,7 +204,7 @@ cia mcp trace-deposit-sources \
 
 Use when the input addresses are suspected scammer, mule, operator, or
 laundering-ring addresses. The tool traces suspect-controlled funds forward to
-cashout topology. `incident_timestamp_ms` is optional.
+cashout topology. `incident_timestamp` is optional.
 
 Required input:
 
@@ -213,7 +213,7 @@ Required input:
 
 Optional input:
 
-- `incident_timestamp_ms`
+- `incident_timestamp`
 - `max_hops`
 - `include_attachments`
 

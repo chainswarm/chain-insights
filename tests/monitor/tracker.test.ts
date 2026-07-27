@@ -14,7 +14,7 @@ async function ws(): Promise<string> {
 }
 
 const PREV: CaseSnapshot = {
-  case_id: 'c1', run_ms: 100, seed_set: ['seed1'],
+  case_id: 'c1', run_timestamp: 100, seed_set: ['seed1'],
   addresses: [{ address: 'seed1' }, { address: 'mule1', classification: 'propagated_scam' }],
 }
 
@@ -25,7 +25,7 @@ describe('diffSnapshots (AC-12)', () => {
 
   it('yields the exact expected movement set for a moved-funds pair', () => {
     const next: CaseSnapshot = {
-      case_id: 'c1', run_ms: 200, seed_set: ['seed1'],
+      case_id: 'c1', run_timestamp: 200, seed_set: ['seed1'],
       addresses: [
         ...PREV.addresses,
         { address: 'mule2', classification: 'propagated_scam' },
@@ -42,7 +42,7 @@ describe('diffSnapshots (AC-12)', () => {
   })
 
   it('unchanged snapshot yields zero movements (AC-11 second run)', () => {
-    expect(diffSnapshots(PREV, { ...PREV, run_ms: 300 })).toEqual([])
+    expect(diffSnapshots(PREV, { ...PREV, run_timestamp: 300 })).toEqual([])
   })
 })
 
@@ -58,7 +58,7 @@ describe('U7 moved-funds snapshot pair -> cashout alert', () => {
     const corridorOf = (addrs: Array<{ address: string; classification?: string; gate?: string }>) => async () => ({
       document: {
         schema: 'chain-insights.detection-findings.v1', tool: 'aml_scam_corridor_trace', network: 'bittensor',
-        status: 'complete', generated_at_ms: 0,
+        status: 'complete', generated_at_timestamp: 0,
         findings: addrs.map((a) => ({ ...a, evidence: {}, truncated: false, inconclusive: false })),
       },
       summaryText: 'fake',
@@ -94,21 +94,21 @@ describe('U7 moved-funds snapshot pair -> cashout alert', () => {
     // folded into the generic movement stream.
     expect(byType('cashout_endpoint')).toEqual(['exch1'])
     expect(byType('frontier_candidate')).toEqual(['mule2'])
-    expect(after.alerts.every((a) => a.case_id === 'u7' && a.network === 'bittensor' && a.run_ms === 200)).toBe(true)
+    expect(after.alerts.every((a) => a.case_id === 'u7' && a.network === 'bittensor' && a.run_timestamp === 200)).toBe(true)
   })
 })
 
 // chain-insights#250: the aperture widened, the funds did not move.
 describe('seed addition is scope expansion, not movement', () => {
   const PREV_1SEED: CaseSnapshot = {
-    case_id: 'c1', run_ms: 100, seed_set: ['seedA'],
+    case_id: 'c1', run_timestamp: 100, seed_set: ['seedA'],
     addresses: [{ address: 'seedA' }, { address: 'mule1', classification: 'propagated_scam', via_seeds: ['seedA'] }],
   }
   // seedB was added between the two runs; its corridor exposes two addresses
   // that were ALWAYS there and one hop that the OLD aperture also now reaches.
   const NEXT_2SEEDS: CaseSnapshot = {
-    case_id: 'c1', run_ms: 200, seed_set: ['seedA', 'seedB'],
-    seeds_added_at_ms: { seedB: 150 },
+    case_id: 'c1', run_timestamp: 200, seed_set: ['seedA', 'seedB'],
+    seeds_added_at_timestamp: { seedB: 150 },
     addresses: [
       { address: 'seedA' }, { address: 'seedB' },
       { address: 'mule1', classification: 'propagated_scam', via_seeds: ['seedA', 'seedB'] },
@@ -132,7 +132,7 @@ describe('seed addition is scope expansion, not movement', () => {
     expect(grown.map((m) => m.address).sort()).toEqual(['depViaB', 'onlyViaB'])
     expect(grown.every((m) => m.type === 'scope_expansion')).toBe(true)
     expect(grown.find((m) => m.address === 'onlyViaB')!.details).toMatchObject({
-      via_seeds: ['seedB'], seeds_added_at_ms: [150],
+      via_seeds: ['seedB'], seeds_added_at_timestamp: [150],
     })
     // Genuine movement is never double-counted as expansion.
     expect(grown.some((m) => m.address === 'realHop')).toBe(false)
@@ -161,7 +161,7 @@ describe('seed addition is scope expansion, not movement', () => {
     const corridor = async (_c: unknown, o: { seedAddress: string }) => ({
       document: {
         schema: 'chain-insights.detection-findings.v1', tool: 'aml_scam_corridor_trace', network: 'bittensor',
-        status: 'complete', generated_at_ms: 0,
+        status: 'complete', generated_at_timestamp: 0,
         findings: (o.seedAddress === 'seedA'
           ? [{ address: 'mule1', classification: 'propagated_scam' }]
           : [{ address: 'hidden1', classification: 'propagated_scam' }, { address: 'hiddenExch', classification: 'exchange_terminal' }]
@@ -201,7 +201,7 @@ describe('traceCase (fake corridor)', () => {
     const corridorOf = (addrs: Array<{ address: string; classification?: string }>) => async () => ({
       document: {
         schema: 'chain-insights.detection-findings.v1', tool: 'aml_scam_corridor_trace', network: 'bittensor',
-        status: 'complete', generated_at_ms: 0,
+        status: 'complete', generated_at_timestamp: 0,
         findings: addrs.map((a) => ({ ...a, evidence: {}, truncated: false, inconclusive: false })),
       },
       summaryText: 'fake',
@@ -222,7 +222,7 @@ describe('traceCase expansion seam (AC-13 approve → re-trace)', () => {
     const corridorOf = (addrs: Array<{ address: string; classification?: string }>) => async () => ({
       document: {
         schema: 'chain-insights.detection-findings.v1', tool: 'aml_scam_corridor_trace', network: 'bittensor',
-        status: 'complete', generated_at_ms: 0,
+        status: 'complete', generated_at_timestamp: 0,
         findings: addrs.map((a) => ({ ...a, evidence: {}, truncated: false, inconclusive: false })),
       },
       summaryText: 'fake',

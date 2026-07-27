@@ -9,8 +9,8 @@ import path from 'node:path'
 export interface DetectionCheckpoint {
   detector: string
   network: string
-  last_block_timestamp_ms: number
-  last_scanned_at_ms: number
+  last_block_timestamp: number
+  last_scanned_at_timestamp: number
 }
 
 function checkpointDir(workspaceRoot: string): string {
@@ -21,7 +21,7 @@ function checkpointPath(workspaceRoot: string, detector: string, network: string
   return path.join(checkpointDir(workspaceRoot), `${detector}.${network}.checkpoint.json`)
 }
 
-// Returns last_block_timestamp_ms = 0 (scan-from-genesis) when the checkpoint
+// Returns last_block_timestamp = 0 (scan-from-genesis) when the checkpoint
 // is absent or unreadable — never throws for a first run.
 export async function readCheckpoint(
   workspaceRoot: string,
@@ -34,11 +34,11 @@ export async function readCheckpoint(
     return {
       detector,
       network,
-      last_block_timestamp_ms: Number(parsed.last_block_timestamp_ms) || 0,
-      last_scanned_at_ms: Number(parsed.last_scanned_at_ms) || 0,
+      last_block_timestamp: Number(parsed.last_block_timestamp) || 0,
+      last_scanned_at_timestamp: Number(parsed.last_scanned_at_timestamp) || 0,
     }
   } catch {
-    return { detector, network, last_block_timestamp_ms: 0, last_scanned_at_ms: 0 }
+    return { detector, network, last_block_timestamp: 0, last_scanned_at_timestamp: 0 }
   }
 }
 
