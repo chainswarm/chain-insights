@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.15.1] - 2026-07-28 — the action log now records CLI tool calls, not just proxy ones
+
+- fix: the action log was installed only on the MCP proxy's remote client. Every
+  `cia` command builds its own client, so an unattended instance driven by
+  `cia monitor watch` produced an empty log while the feature appeared to work —
+  a full ten-cell monitoring pass recorded nothing. The wrapper is now shared and
+  installed on both client paths; the same pass records 24 entries. The failure
+  mode mattered more than the missing rows: an audit log that is silently empty
+  on the one path that runs unattended is worse than no audit log, because it is
+  trusted.
+
 ## [0.15.0] - 2026-07-28 — label trigger & detector-cell cutover
 
 - feat: watchlist label trigger — a diff-based probe in the watchlist pass
