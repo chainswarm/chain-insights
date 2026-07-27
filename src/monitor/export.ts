@@ -6,7 +6,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { monitorPaths } from './paths.js'
-import { listDecisionDocs } from './review.js'
+import { effectiveDecisions } from './review.js'
 
 export interface LabelRow {
   address: string
@@ -40,7 +40,8 @@ function csvField(value: string | number): string {
 
 export async function exportLabels(workspaceRoot: string, nowTimestamp: number): Promise<{ jsonPath: string; csvPath: string; rows: LabelRow[] }> {
   const rows: LabelRow[] = []
-  for (const decision of await listDecisionDocs(workspaceRoot)) {
+  // effectiveDecisions: a decision superseded by --force must not export.
+  for (const decision of await effectiveDecisions(workspaceRoot)) {
     if (decision.decision !== 'approve' || !decision.reviewed_copy) continue
     // One read per decision doc — reviewer, tool, network, and findings all
     // come off this single parse (do NOT re-read reviewed_copy per field).

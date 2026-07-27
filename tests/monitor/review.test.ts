@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { approveDoc, approvedAddressesForCase, docHash8, docKey, listDecisionDocs, listPending, rejectDoc } from '../../src/monitor/review.js'
+import { approveDoc, approvedAddressesForCase, docHash8, docKey, effectiveDecisions, listDecisionDocs, listPending, rejectDoc } from '../../src/monitor/review.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
 import { exportLabels } from '../../src/monitor/export.js'
 
@@ -126,6 +126,49 @@ describe('decision identity (lifecycle hardening R1)', () => {
       doc_path: doc, decision: 'reject', reviewer: 'ops', decided_at_timestamp: 600, addresses: [], case_id: null,
     }) + '\n')
     expect(await listPending(root)).toHaveLength(0)
+  })
+})
+
+describe('decision idempotency + --force supersede (R1)', () => {
+  it('double-approve is refused', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '110-mixer-bittensor.findings.json')
+    await approveDoc(root, doc, 'ops', 500)
+    await expect(approveDoc(root, doc, 'ops', 600)).rejects.toThrow(/already has a review decision/)
+    expect(await listDecisionDocs(root)).toHaveLength(1)
+  })
+
+  it('approve-after-reject is refused without --force', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '111-mixer-bittensor.findings.json')
+    await rejectDoc(root, doc, 'ops', 500)
+    await expect(approveDoc(root, doc, 'ops', 600)).rejects.toThrow(/already has a review decision/)
+  })
+
+  it('--force writes a NEW superseding decision, never overwriting the old file', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '112-mixer-bittensor.findings.json')
+    await rejectDoc(root, doc, 'ops', 500)
+    const before = await readdir(monitorPaths(root).reviewsDir)
+    await approveDoc(root, doc, 'ops2', 600, { force: true })
+    const after = await readdir(monitorPaths(root).reviewsDir)
+    expect(after).toEqual(expect.arrayContaining(before)) // old file untouched
+    expect(after.length).toBe(before.length + 1)
+    const entries = await listDecisionDocs(root)
+    const forced = entries.find((d) => d.decision === 'approve')!
+    expect(forced.supersedes).toBe(before[0])
+  })
+
+  it('effectiveDecisions drops superseded decisions; export follows the live decision', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '113-mixer-bittensor.findings.json')
+    await approveDoc(root, doc, 'ops', 500)
+    await rejectDoc(root, doc, 'ops', 600, { force: true })
+    const effective = await effectiveDecisions(root)
+    expect(effective).toHaveLength(1)
+    expect(effective[0].decision).toBe('reject')
+    const { rows } = await exportLabels(root, 700)
+    expect(rows).toHaveLength(0) // superseded approve no longer exports
   })
 })
 

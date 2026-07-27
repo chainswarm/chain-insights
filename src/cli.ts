@@ -1253,7 +1253,8 @@ monitorReview
   .description('Approve a findings document: writes a reviewer-stamped copy plus a decision record')
   .argument('<doc-path>', 'Path to the findings document to approve')
   .option('--reviewer <id>', 'Reviewer identity (falls back to the configured reviewer)')
-  .action(async (docPath: string, opts: { reviewer?: string }) => {
+  .option('--force', 'Supersede an existing decision for this document (append-only: writes a new decision recording what it supersedes)')
+  .action(async (docPath: string, opts: { reviewer?: string; force?: boolean }) => {
     try {
       const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
       const workspaceRoot = requireWorkspaceRoot()
@@ -1262,7 +1263,8 @@ monitorReview
       const reviewer = opts.reviewer ?? config.reviewer
       if (!reviewer) throw new Error('Reviewer identity is required: pass --reviewer <id> or set "reviewer" in monitor config')
       const { approveDoc } = await import('./monitor/review.js')
-      const result = await approveDoc(workspaceRoot, docPath, reviewer, Date.now())
+      const result = await approveDoc(workspaceRoot, docPath, reviewer, Date.now(), { force: opts.force })
+      if (result.superseded) console.log(`Superseded prior decision: ${result.superseded}`)
       console.log(`Approved. Reviewed copy: ${result.reviewedCopy}`)
     } catch (err) {
       console.error((err as Error).message)
@@ -1275,7 +1277,8 @@ monitorReview
   .description('Reject a findings document: writes a decision record only, no reviewed copy')
   .argument('<doc-path>', 'Path to the findings document to reject')
   .option('--reviewer <id>', 'Reviewer identity (falls back to the configured reviewer)')
-  .action(async (docPath: string, opts: { reviewer?: string }) => {
+  .option('--force', 'Supersede an existing decision for this document (append-only: writes a new decision recording what it supersedes)')
+  .action(async (docPath: string, opts: { reviewer?: string; force?: boolean }) => {
     try {
       const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
       const workspaceRoot = requireWorkspaceRoot()
@@ -1284,7 +1287,8 @@ monitorReview
       const reviewer = opts.reviewer ?? config.reviewer
       if (!reviewer) throw new Error('Reviewer identity is required: pass --reviewer <id> or set "reviewer" in monitor config')
       const { rejectDoc } = await import('./monitor/review.js')
-      await rejectDoc(workspaceRoot, docPath, reviewer, Date.now())
+      const result = await rejectDoc(workspaceRoot, docPath, reviewer, Date.now(), { force: opts.force })
+      if (result.superseded) console.log(`Superseded prior decision: ${result.superseded}`)
       console.log(`Rejected: ${docPath}`)
     } catch (err) {
       console.error((err as Error).message)
