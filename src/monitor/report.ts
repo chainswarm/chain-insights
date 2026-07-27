@@ -44,7 +44,7 @@ function num(value: bigint | number | null | undefined): number | null {
 // table row it is interpolated into — escape/flatten before interpolation.
 function mdCell(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return ''
-  return String(value).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
+  return String(value).replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
 }
 
 export async function renderReport(workspaceRoot: string): Promise<string> {

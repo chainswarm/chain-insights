@@ -56,11 +56,11 @@ describe('report cell escaping (R6)', () => {
     await withStore(root, (s) => s.run(
       'INSERT INTO scan_runs VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
       [100, 'mixer:bittensor', 'mixer', null, 'bittensor', 0, 0, 5,
-       'boom | with pipe\nand newline', 'null', 'null', null],
+       'boom \\| with backslash-pipe | and pipe\nand newline', 'null', 'null', null],
     ))
     const md = await renderReport(root)
     const row = md.split('\n').find((l) => l.includes('boom'))!
-    expect(row).toContain('boom \\| with pipe and newline')
+    expect(row).toContain('boom \\\\\\| with backslash-pipe \\| and pipe and newline')
     expect(row).not.toMatch(/\nand newline/)
     // the row still has the exact column count of the runs table
     expect(row.split(/(?<!\\)\|/).length).toBe(9)
