@@ -513,6 +513,49 @@ For ad-hoc analysis, open the derived store directly with the DuckDB CLI:
 duckdb -readonly .chain-insights/monitor/monitor.duckdb -ui
 ```
 
+## Investigation Output
+
+Every run ends with a render pass that turns each open case into
+human-readable Markdown under `published/cases/<case_id>/`:
+
+- `dossier.md` — the case dossier: an **ACTIVE (last movement `<date>`)** or
+  **DORMANT since `<date>`** headline verdict, a funds-destination summary by
+  terminal endpoint class, exchange deposit endpoints with labels where known,
+  the scammer-cluster address list with roles, a bounded Mermaid diagram of
+  the money flow, and links to the HTML graph reports under `reports/`.
+- `addresses/<addr>.md` — one note per notable address (seeds, deposit
+  candidates, exchanges): roles, labels, first/last seen, link back to the
+  dossier. Rewritten on every render.
+- `timeline.md` — append-only, one line per alert. Existing lines are never
+  rewritten.
+
+The verdict, diagram, and tables are computed from persisted
+`chain-insights.trace.v1` artifacts written by the render pass itself: on a
+case **change** (new snapshot content, movement, or alert) the pass re-traces
+the case seeds as victim funds and as suspect funds through the standard trace
+tools, persists the trace documents under `cases/<case_id>/traces/`, and
+re-renders. An unchanged case skips tracing entirely, so the hourly cost of a
+quiet watch is near zero.
+
+Render on demand with:
+
+```bash
+cia monitor render            # all open cases (changed ones re-trace)
+cia monitor render my-case    # one case
+cia monitor render --force    # re-trace and re-render even when unchanged
+```
+
+A case with no traced movement for `render.dormant_after_days` days (default
+30) is reported DORMANT:
+
+```json
+{ "render": { "dormant_after_days": 30 } }
+```
+
+The workspace is plain Markdown, so it doubles as an Obsidian vault: open the
+workspace directory directly in Obsidian (or point an Obsidian MCP server at
+it) — no copy step, no second vault.
+
 ## Cost Controls
 
 Chain Insights Graph access is metered. Every run records the remaining
