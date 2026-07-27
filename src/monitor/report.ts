@@ -40,6 +40,13 @@ function num(value: bigint | number | null | undefined): number | null {
   return value === null || value === undefined ? null : Number(value)
 }
 
+// A `|` or newline in a value (e.g. an error message) would break the Markdown
+// table row it is interpolated into — escape/flatten before interpolation.
+function mdCell(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return ''
+  return String(value).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
+}
+
 export async function renderReport(workspaceRoot: string): Promise<string> {
   // readOnly: report never writes, and a read-write open would needlessly
   // conflict with any other concurrent reader on the same DuckDB file.
@@ -74,7 +81,7 @@ export async function renderReport(workspaceRoot: string): Promise<string> {
     )
     for (const r of runs) {
       lines.push(
-        `| ${num(r.run_timestamp)} | ${r.cell} | ${r.network ?? ''} | ${r.findings_count ?? ''} | ${r.movements_count ?? ''} | ${num(r.duration_ms) ?? ''} | ${r.error ?? ''} |`,
+        `| ${num(r.run_timestamp)} | ${mdCell(r.cell)} | ${mdCell(r.network)} | ${r.findings_count ?? ''} | ${r.movements_count ?? ''} | ${num(r.duration_ms) ?? ''} | ${mdCell(r.error)} |`,
       )
     }
   }
@@ -100,7 +107,7 @@ export async function renderReport(workspaceRoot: string): Promise<string> {
     lines.push('| network | address | findings | movements | dust |', '| --- | --- | --- | --- | --- |')
     for (const w of watchlist) {
       lines.push(
-        `| ${w.network} | ${w.address} | ${num(w.findings) ?? 0} | ${num(w.movements) ?? 0} | ${num(w.dust) ?? 0} |`,
+        `| ${mdCell(w.network)} | ${mdCell(w.address)} | ${num(w.findings) ?? 0} | ${num(w.movements) ?? 0} | ${num(w.dust) ?? 0} |`,
       )
     }
   }
