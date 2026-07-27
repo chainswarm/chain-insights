@@ -155,3 +155,45 @@ describe('ingestNewDocs quarantine', () => {
     expect(rows).toHaveLength(1)
   })
 })
+
+describe('incremental JSONL replay (spec req 5)', () => {
+  const line = (i: number) => JSON.stringify({ alert_id: `a-${i}`, type: 'new_findings', network: 'bittensor', run_timestamp: i, emitted_at_timestamp: i })
+
+  it('ingests only new bytes on the second pass and holds back a torn tail', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'cia-inc-'))
+    const p = monitorPaths(root)
+    await mkdir(p.alertsDir, { recursive: true })
+    await writeFile(p.alertsLog, line(1) + '\n' + line(2) + '\n', 'utf8')
+    await withStore(root, async (s) => {
+      await ingestNewDocs(s, root)
+      expect(await s.all('SELECT alert_id FROM alerts ORDER BY alert_id')).toHaveLength(2)
+      const [cur] = await s.all('SELECT byte_offset FROM replay_cursors WHERE doc_path = $1', [p.alertsLog])
+      expect(Number(cur.byte_offset)).toBe(Buffer.byteLength(line(1) + '\n' + line(2) + '\n'))
+    })
+    // Append one full line and one torn (no newline) line.
+    await appendFile(p.alertsLog, line(3) + '\n' + line(4).slice(0, 10), 'utf8')
+    await withStore(root, async (s) => {
+      await ingestNewDocs(s, root)
+      const rows = await s.all('SELECT alert_id FROM alerts ORDER BY alert_id')
+      expect(rows.map((r) => r.alert_id)).toEqual(['a-1', 'a-2', 'a-3'])
+    })
+    // Complete the torn line; only it is ingested (no duplicates of 1-3).
+    await appendFile(p.alertsLog, line(4).slice(10) + '\n', 'utf8')
+    await withStore(root, async (s) => {
+      await ingestNewDocs(s, root)
+      const rows = await s.all('SELECT alert_id FROM alerts ORDER BY alert_id')
+      expect(rows.map((r) => r.alert_id)).toEqual(['a-1', 'a-2', 'a-3', 'a-4'])
+    })
+  })
+
+  it('rebuildStore remains full replay from zero', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'cia-inc-'))
+    const p = monitorPaths(root)
+    await mkdir(p.alertsDir, { recursive: true })
+    await writeFile(p.alertsLog, line(1) + '\n' + line(2) + '\n', 'utf8')
+    await withStore(root, (s) => ingestNewDocs(s, root))
+    await rebuildStore(root)
+    const rows = await withStore(root, (s) => s.all('SELECT alert_id FROM alerts'), { readOnly: true })
+    expect(rows).toHaveLength(2)
+  })
+})
