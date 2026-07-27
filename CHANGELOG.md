@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.22] - 2026-07-27 — monitor smoke reads the renamed timestamp fields
+
+- fix: the devkit monitor smoke still read `run_ms`, `last_block_timestamp_ms`,
+  `seeds_added_at_ms`, `at_ms` and `closed_at_ms` through `jq`, which the
+  previous release renamed to `_timestamp`. Shell field reads are invisible to
+  the typechecker, so the rename left them behind and two assertions failed
+  against fields that were now always null. Reading a renamed field as null is
+  also how an assertion can pass for the wrong reason, so this is worth more
+  than the two visible failures suggested.
+
 ## [0.11.21] - 2026-07-27 — points in time are `_timestamp`, not `_ms`
 
 - chore: renamed every internal identifier that names a point in time from

@@ -194,9 +194,9 @@ check "U3/run 2 wrote a second run document" "$(rc_of test "$RUN2" != "$RUN1")"
 
 CP="$WS_A/.chain-insights/detectors/address-poisoning.bittensor.checkpoint.json"
 check "U3 incremental detector wrote a checkpoint" "$(rc_of test -f "$CP")"
-RUN1_MS="$(jq -r '.run_ms' "$RUN1")"
-RUN2_MS="$(jq -r '.run_ms' "$RUN2")"
-assert_eq "U3 checkpoint advanced to run 2's watermark" "$(jq -r '.last_block_timestamp_ms' "$CP")" "$RUN2_MS"
+RUN1_MS="$(jq -r '.run_timestamp' "$RUN1")"
+RUN2_MS="$(jq -r '.run_timestamp' "$RUN2")"
+assert_eq "U3 checkpoint advanced to run 2's watermark" "$(jq -r '.last_block_timestamp' "$CP")" "$RUN2_MS"
 check "U3 checkpoint moved forward between runs" "$(rc_of test "$RUN2_MS" -gt "$RUN1_MS")"
 # The observable consequence of scanning only (run1, run2]: nothing new.
 assert_eq "U3 incremental second run reports nothing for the new window" \
@@ -589,7 +589,7 @@ check "I/watch the convergence deposit" \
 check "I/add-seed expands the open case with the operator wallet" \
   "$(rc_of $CLI monitor case add-seed theft-corridor --address "$I_OPERATOR" --note 'operator wallet identified mid-case')"
 assert_eq "I/the added seed is stamped with the time it entered the case" \
-  "$(jq -r --arg a "$I_OPERATOR" '(.seeds_added_at_ms[$a] // "") | tostring | (. != "") | tostring' "$WS_I/cases/theft-corridor/case.json")" "true"
+  "$(jq -r --arg a "$I_OPERATOR" '(.seeds_added_at_timestamp[$a] // "") | tostring | (. != "") | tostring' "$WS_I/cases/theft-corridor/case.json")" "true"
 assert_eq "I/the seed addition is recorded as a case event with its note" \
   "$(jq -r '[.seed_events[] | select(.action == "add") | .note] | join(",")' "$WS_I/cases/theft-corridor/case.json")" \
   "operator wallet identified mid-case"
@@ -718,7 +718,7 @@ $CLI monitor case remove-seed theft-corridor --address "$I_OPERATOR" >/dev/null 
 assert_eq "#250 remove-seed drops the seed from the case" \
   "$(jq -r --arg a "$I_OPERATOR" '[.seeds[] | select(. == $a)] | length' "$J_CASE")" "0"
 assert_eq "#250 remove-seed clears that seed's addition timestamp" \
-  "$(jq -r --arg a "$I_OPERATOR" '(.seeds_added_at_ms // {}) | has($a) | tostring' "$J_CASE")" "false"
+  "$(jq -r --arg a "$I_OPERATOR" '(.seeds_added_at_timestamp // {}) | has($a) | tostring' "$J_CASE")" "false"
 assert_eq "#250 the removal is recorded as a case event" \
   "$(jq -r '[.seed_events[] | select(.action == "remove") | .addresses[]] | join(",")' "$J_CASE")" "$I_OPERATOR"
 # Idempotent: removing what is no longer a seed changes nothing.
@@ -750,7 +750,7 @@ assert_contains "#250 remove-seed on a closed case is refused, and says why" "$J
 assert_eq "#250 the closed case's seed set is untouched by the refused removal" \
   "$(jq -c '.seeds | sort' "$J_CASE")" "$J_CLOSED_SEEDS"
 assert_eq "#250 a refused mutation records no seed event" \
-  "$(jq '(.closed_at_ms // 0) as $c | [.seed_events[] | select(.at_ms > $c)] | length' "$J_CASE")" "0"
+  "$(jq '(.closed_at_timestamp // 0) as $c | [.seed_events[] | select(.at_timestamp > $c)] | length' "$J_CASE")" "0"
 # The store still rebuilds from the mutated canonical JSON.
 check "#250 the store rebuilds after the seed mutations" "$(rc_of $CLI monitor rebuild)"
 
