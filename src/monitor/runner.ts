@@ -25,6 +25,8 @@ export interface CellOutcome {
   findings_count?: number
   movements_count?: number
   scope_expansions_count?: number
+  confirmed_unchanged?: boolean
+  snapshot_hash?: string
   findings_path?: string
   duration_ms: number
   error?: string
@@ -41,7 +43,7 @@ export interface MonitorRunDoc {
 
 export interface RunnerHooks {
   runDetection?: typeof runOneDetection
-  traceCase?: (client: Client, workspaceRoot: string, caseId: string, maxHops: number, nowTimestamp: number, hooks?: unknown, limits?: { limits?: Record<string, number>; networkLimits?: Record<string, Record<string, number>> }) => Promise<{ movements_count: number; scope_expansions_count?: number; alerts: Omit<AlertEvent, 'alert_id' | 'emitted_at_timestamp'>[] }>
+  traceCase?: (client: Client, workspaceRoot: string, caseId: string, maxHops: number, nowTimestamp: number, hooks?: unknown, limits?: { limits?: Record<string, number>; networkLimits?: Record<string, Record<string, number>> }) => Promise<{ movements_count: number; scope_expansions_count?: number; confirmed_unchanged?: boolean; snapshot_hash?: string; alerts: Omit<AlertEvent, 'alert_id' | 'emitted_at_timestamp'>[] }>
   usage?: (client: Client) => Promise<unknown | null>
 }
 
@@ -117,6 +119,10 @@ export async function runMonitorOnce(
           const traced = await hooks.traceCase(client, workspaceRoot, openCase.case_id, config.caseMaxHops, nowTimestamp, undefined, { limits: config.limits, networkLimits: config.networkLimits })
           outcome.movements_count = traced.movements_count
           outcome.scope_expansions_count = traced.scope_expansions_count ?? 0
+          if (traced.confirmed_unchanged !== undefined) {
+            outcome.confirmed_unchanged = traced.confirmed_unchanged
+            outcome.snapshot_hash = traced.snapshot_hash
+          }
           alertsPending.push(...traced.alerts)
         } catch (err) {
           outcome.error = (err as Error).message
