@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { diffSnapshots, readSnapshots, traceCase, type CaseSnapshot } from '../../src/monitor/tracker.js'
-import { addCase } from '../../src/monitor/cases.js'
+import { diffScopeExpansion, diffSnapshots, readSnapshots, traceCase, type CaseSnapshot } from '../../src/monitor/tracker.js'
+import { addCase, addCaseSeeds } from '../../src/monitor/cases.js'
 import { approveDoc } from '../../src/monitor/review.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
 
@@ -95,6 +95,102 @@ describe('U7 moved-funds snapshot pair -> cashout alert', () => {
     expect(byType('cashout_endpoint')).toEqual(['exch1'])
     expect(byType('frontier_candidate')).toEqual(['mule2'])
     expect(after.alerts.every((a) => a.case_id === 'u7' && a.network === 'bittensor' && a.run_ms === 200)).toBe(true)
+  })
+})
+
+// chain-insights#250: the aperture widened, the funds did not move.
+describe('seed addition is scope expansion, not movement', () => {
+  const PREV_1SEED: CaseSnapshot = {
+    case_id: 'c1', run_ms: 100, seed_set: ['seedA'],
+    addresses: [{ address: 'seedA' }, { address: 'mule1', classification: 'propagated_scam', via_seeds: ['seedA'] }],
+  }
+  // seedB was added between the two runs; its corridor exposes two addresses
+  // that were ALWAYS there and one hop that the OLD aperture also now reaches.
+  const NEXT_2SEEDS: CaseSnapshot = {
+    case_id: 'c1', run_ms: 200, seed_set: ['seedA', 'seedB'],
+    seeds_added_at_ms: { seedB: 150 },
+    addresses: [
+      { address: 'seedA' }, { address: 'seedB' },
+      { address: 'mule1', classification: 'propagated_scam', via_seeds: ['seedA', 'seedB'] },
+      { address: 'onlyViaB', classification: 'propagated_scam', via_seeds: ['seedB'] },
+      { address: 'depViaB', gate: 'shared_deposit_exchange_infra', via_seeds: ['seedB'] },
+      { address: 'realHop', classification: 'exchange_terminal', via_seeds: ['seedA'] },
+    ],
+  }
+
+  it('reports no movement for addresses visible only through the new seed', () => {
+    const moves = diffSnapshots(PREV_1SEED, NEXT_2SEEDS)
+    // Only realHop moved: the pre-existing seedA reaches it now and did not
+    // before. onlyViaB / depViaB are aperture, not movement.
+    expect(moves.filter((m) => m.type === 'new_hop').map((m) => m.address)).toEqual(['realHop'])
+    expect(moves.map((m) => m.address).sort()).toEqual(['realHop', 'realHop'])
+    expect(moves.some((m) => m.address === 'onlyViaB' || m.address === 'depViaB')).toBe(false)
+  })
+
+  it('reports those addresses as scope expansion, with the seed and its timestamp', () => {
+    const grown = diffScopeExpansion(PREV_1SEED, NEXT_2SEEDS)
+    expect(grown.map((m) => m.address).sort()).toEqual(['depViaB', 'onlyViaB'])
+    expect(grown.every((m) => m.type === 'scope_expansion')).toBe(true)
+    expect(grown.find((m) => m.address === 'onlyViaB')!.details).toMatchObject({
+      via_seeds: ['seedB'], seeds_added_at_ms: [150],
+    })
+    // Genuine movement is never double-counted as expansion.
+    expect(grown.some((m) => m.address === 'realHop')).toBe(false)
+  })
+
+  it('an address reachable from a PRE-EXISTING seed stays a movement', () => {
+    const moves = diffSnapshots(PREV_1SEED, NEXT_2SEEDS)
+    expect(moves.some((m) => m.type === 'cashout_endpoint' && m.address === 'realHop')).toBe(true)
+  })
+
+  it('legacy snapshots without via_seeds are not suppressed (no silent under-reporting)', () => {
+    const legacy: CaseSnapshot = {
+      ...NEXT_2SEEDS,
+      addresses: NEXT_2SEEDS.addresses.map(({ via_seeds: _ignored, ...rest }) => rest),
+    }
+    expect(diffSnapshots(PREV_1SEED, legacy).filter((m) => m.type === 'new_hop').map((m) => m.address).sort())
+      .toEqual(['depViaB', 'onlyViaB', 'realHop'])
+    expect(diffScopeExpansion(PREV_1SEED, legacy)).toEqual([])
+  })
+
+  it('end to end: addCaseSeeds then re-trace emits zero movements and a scope_expansion alert', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'e2e', type: 'stolen-funds', network: 'bittensor', seeds: ['seedA'] }, 50)
+    // The corridor is a pure function of the seed: seedA sees mule1, seedB sees
+    // a hidden branch. Nothing MOVES between the two runs.
+    const corridor = async (_c: unknown, o: { seedAddress: string }) => ({
+      document: {
+        schema: 'chain-insights.detection-findings.v1', tool: 'aml_scam_corridor_trace', network: 'bittensor',
+        status: 'complete', generated_at_ms: 0,
+        findings: (o.seedAddress === 'seedA'
+          ? [{ address: 'mule1', classification: 'propagated_scam' }]
+          : [{ address: 'hidden1', classification: 'propagated_scam' }, { address: 'hiddenExch', classification: 'exchange_terminal' }]
+        ).map((a) => ({ ...a, evidence: {}, truncated: false, inconclusive: false })),
+      },
+      summaryText: 'fake',
+    })
+
+    const first = await traceCase({} as Client, root, 'e2e', 3, 100, { corridor: corridor as never })
+    expect(first.movements_count).toBe(0)
+
+    await addCaseSeeds(root, 'e2e', ['seedB'], 150, { note: 'operator wallet identified' })
+
+    const second = await traceCase({} as Client, root, 'e2e', 3, 200, { corridor: corridor as never })
+    // THE assertion: a widened aperture manufactures no movement.
+    expect(second.movements_count).toBe(0)
+    expect(second.alerts.some((a) => a.type === 'case_movement')).toBe(false)
+    // It is still surfaced — as expansion, and as the review-worthy signals.
+    expect(second.scope_expansions_count).toBe(2)
+    expect(second.alerts.filter((a) => a.type === 'case_scope_expansion').map((a) => a.address).sort())
+      .toEqual(['hidden1', 'hiddenExch'])
+    expect(second.alerts.some((a) => a.type === 'frontier_candidate' && a.address === 'hidden1')).toBe(true)
+    expect(second.alerts.some((a) => a.type === 'cashout_endpoint' && a.address === 'hiddenExch')).toBe(true)
+
+    // A third, unchanged run is quiet again: the expansion is baseline now.
+    const third = await traceCase({} as Client, root, 'e2e', 3, 300, { corridor: corridor as never })
+    expect(third.movements_count).toBe(0)
+    expect(third.scope_expansions_count).toBe(0)
+    expect(third.alerts).toEqual([])
   })
 })
 

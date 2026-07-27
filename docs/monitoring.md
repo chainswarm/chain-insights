@@ -261,6 +261,69 @@ cia monitor case close theft-1
 `scam-topology` (cluster expansion under review). A case ID is lowercase
 letters, digits, and hyphens.
 
+### Growing and narrowing a case
+
+Seeds are **not** fixed at creation. Investigations grow: an operator wallet
+surfaces, an intermediate coldkey turns out to fund the same exchange deposit,
+a new corridor branch resolves. Widen the case in place — its snapshot history
+and its movement timeline are preserved:
+
+```bash
+cia monitor case add-seed theft-1 \
+  --address 5Operator...address \
+  --note "second controlled wallet identified"
+
+cia monitor case add-seed theft-1 --address 5AddrA... 5AddrB...   # several at once
+cia monitor case remove-seed theft-1 --address 5AddrA...
+```
+
+- **Idempotent.** Re-adding an existing seed is a no-op, not an error, so a
+  scripted `add-seed` is safe to re-run. Same for removing an address that is
+  not a seed.
+- **Open cases only.** Both commands refuse on a closed case. A closed case is
+  a historical record of what was investigated and when; the run loop does not
+  re-trace it, so a seed added to it would sit in canonical JSON with no
+  snapshot behind it. If a closed investigation needs to grow, open a new case
+  with the wider seed set.
+- **A case always has at least one seed.** `remove-seed` refuses the removal
+  that would empty it.
+- Addresses approved through [review](#review--labels) join the traced seed set
+  automatically and are not listed in `seeds`; `remove-seed` does not apply to
+  them.
+- The addition is recorded on the case: `seeds_added_at_ms` (address → when it
+  became a seed) and a `seed_events` timeline entry carrying your `--note`.
+
+### Why a widened corridor is not a movement
+
+Movements are derived by diffing each snapshot against the one before it, so
+adding a seed poses a real hazard: the next run legitimately sees more
+addresses, and a naive diff would report every one of them as a new hop — as
+though funds had moved, when in fact only the aperture widened. On a theft case
+that is a fabricated forensic signal.
+
+Chain Insights separates the two. Each snapshot records, per address, which
+seed(s) reached it (`via_seeds`). On the next diff:
+
+| Address is reachable from | Reported as |
+| --- | --- |
+| a seed that already existed at the previous snapshot | **movement** — the corridor changed under a fixed aperture |
+| only seeds added since the previous snapshot | **scope expansion** — it was always there; you just could not see it |
+
+Scope expansion is not silently dropped: it appears in the run document as
+`scope_expansions_count`, in the derived store's `case_movements` table as
+`movement = 'scope_expansion'` (with the seed and its timestamp in the
+details), and on the alert stream as `case_scope_expansion`. That is what
+explains the discontinuity in the case timeline to whoever reads it later.
+
+Classification signals still apply to whatever is in the corridor however it
+got there: an exchange terminal or a scam hub that entered through a new seed
+still raises `cashout_endpoint` / `frontier_candidate` and still enters the
+review queue — suppressing it would hide the convergence the `add-seed` was
+performed to find. Only the *movement* claim is withheld.
+
+A subsequent run over unchanged data is quiet again: the expanded corridor is
+the new baseline.
+
 Each run re-traces every open case from its seed addresses (plus any
 approved expansion addresses — see [Review & labels](#review--labels)) and
 writes a **snapshot**: the full set of addresses reachable from the case at
@@ -332,7 +395,10 @@ to be edited.
 ## Alerts
 
 Every run emits alerts for new findings and for case movements worth
-attention (cashout endpoints, frontier candidates for review):
+attention (cashout endpoints, frontier candidates for review). A
+`case_scope_expansion` alert is distinct from `case_movement`: it says the case
+corridor grew because seeds were added, not because funds moved (see
+[Why a widened corridor is not a movement](#why-a-widened-corridor-is-not-a-movement)):
 
 ```bash
 cia monitor alerts list          # unacked only by default (--all for everything)
@@ -423,7 +489,7 @@ Everything monitor writes is plain, human-readable JSON in the workspace:
 ```text
 detections/                          Raw findings documents from sweeps and case traces
 detections/reviewed/                 Reviewer-stamped copies (the hand-off artifact)
-cases/<case-id>/case.json            Case definition
+cases/<case-id>/case.json            Case definition (seeds, seeds_added_at_ms, seed_events)
 cases/<case-id>/snapshots/           One snapshot per run that traced this case
 .chain-insights/monitor/config.json  Monitor configuration
 .chain-insights/monitor/runs/        One run document per `monitor run`

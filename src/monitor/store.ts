@@ -8,7 +8,7 @@ import { DuckDBInstance } from '@duckdb/node-api'
 import { parseFindingsDocument } from '../investigation/detection-findings.js'
 import { parseJsonlLines } from './jsonl.js'
 import { monitorPaths } from './paths.js'
-import { diffSnapshots, readSnapshots, type CaseSnapshot } from './tracker.js'
+import { diffScopeExpansion, diffSnapshots, readSnapshots, type CaseSnapshot } from './tracker.js'
 import { loadWatchlist } from './watchlist.js'
 
 export interface MonitorStore {
@@ -326,7 +326,10 @@ INGESTORS.push({
     const all = await readSnapshots(workspaceRoot, doc.case_id)
     const index = all.findIndex((s) => s.run_ms === doc.run_ms)
     const prev = index > 0 ? all[index - 1] : null
-    const movements = diffSnapshots(prev, doc)
+    // Both halves of the diff land in case_movements, distinguished by the
+    // `movement` value: scope_expansion rows explain a widened aperture and
+    // must never be read as funds having moved (#250).
+    const movements = [...diffSnapshots(prev, doc), ...diffScopeExpansion(prev, doc)]
     for (const m of movements) {
       await store.run(
         'INSERT INTO case_movements VALUES ($1,$2,$3,$4,$5)',
