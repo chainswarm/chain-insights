@@ -178,10 +178,14 @@ export async function listCases(workspaceRoot: string, opts?: { openOnly?: boole
   return opts?.openOnly ? cases.filter((c) => c.status === 'open') : cases
 }
 
-export async function closeCase(workspaceRoot: string, caseId: string, nowTimestamp: number): Promise<MonitorCase> {
-  const file = caseFile(workspaceRoot, caseId)
-  const current = JSON.parse(await readFile(file, 'utf8')) as MonitorCase
+export async function closeCase(
+  workspaceRoot: string, caseId: string, nowTimestamp: number,
+): Promise<{ monitorCase: MonitorCase; alreadyClosed: boolean }> {
+  // Through readCase: a missing case reports `no such case`, not an ENOENT
+  // stack. Re-closing is a no-op — rewriting closed_at_timestamp would
+  // falsify when the investigation actually ended.
+  const current = await readCase(workspaceRoot, caseId)
+  if (current.status === 'closed') return { monitorCase: current, alreadyClosed: true }
   const closed: MonitorCase = { ...current, status: 'closed', closed_at_timestamp: nowTimestamp }
-  await writeJsonAtomic(file, closed)
-  return closed
+  return { monitorCase: await writeCase(workspaceRoot, closed), alreadyClosed: false }
 }

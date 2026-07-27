@@ -16,7 +16,7 @@ describe('case registry', () => {
     await addCase(root, { case_id: 'theft-77', type: 'stolen-funds', network: 'bittensor', seeds: ['5Victim'] }, 100)
     expect(await listCases(root, { openOnly: true })).toHaveLength(1)
     const closed = await closeCase(root, 'theft-77', 200)
-    expect(closed.status).toBe('closed')
+    expect(closed.monitorCase.status).toBe('closed')
     expect(await listCases(root, { openOnly: true })).toHaveLength(0)
     expect(await listCases(root)).toHaveLength(1)
   })
@@ -91,6 +91,22 @@ describe('case registry', () => {
   it('reports a missing case by id rather than an ENOENT stack', async () => {
     const root = await ws()
     await expect(addCaseSeeds(root, 'nope', ['5Victim'], 100)).rejects.toThrow(/no such case "nope"/)
+  })
+
+  it('close of a missing case gives "no such case", not an ENOENT stack (R2)', async () => {
+    const root = await ws()
+    await expect(closeCase(root, 'ghost', 100)).rejects.toThrow('no such case "ghost"')
+  })
+
+  it('re-close is a warning no-op that preserves the original closed_at_timestamp (R2)', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'c1', type: 'stolen-funds', network: 'bittensor', seeds: ['a1'] }, 100)
+    const first = await closeCase(root, 'c1', 200)
+    expect(first.alreadyClosed).toBe(false)
+    expect(first.monitorCase.closed_at_timestamp).toBe(200)
+    const second = await closeCase(root, 'c1', 999)
+    expect(second.alreadyClosed).toBe(true)
+    expect(second.monitorCase.closed_at_timestamp).toBe(200) // NOT rewritten
   })
 
   it('cases land in the store and survive rebuild (AC-2)', async () => {

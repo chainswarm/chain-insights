@@ -1157,8 +1157,12 @@ monitorCase
       const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
       const workspaceRoot = requireWorkspaceRoot()
       const { closeCase } = await import('./monitor/cases.js')
-      const closed = await closeCase(workspaceRoot, caseId, Date.now())
-      console.log(`Case closed: ${closed.case_id}`)
+      const { monitorCase, alreadyClosed } = await closeCase(workspaceRoot, caseId, Date.now())
+      if (alreadyClosed) {
+        console.warn(`Warning: case "${caseId}" is already closed (closed_at ${monitorCase.closed_at_timestamp}); nothing changed.`)
+      } else {
+        console.log(`Case closed: ${monitorCase.case_id}`)
+      }
     } catch (err) {
       console.error((err as Error).message)
       process.exit(1)
