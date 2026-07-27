@@ -11,7 +11,7 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { DetectionFinding } from '../../investigation/detection-findings.js'
 import { graphQueryRows, type GraphRow } from '../graph-client.js'
 import { addressFamily, isLookalike } from '../lookalike.js'
-import { LIMIT_SPECS, limitFromParams, limitLiteral } from '../../config/limits.js'
+import { limitFromParams, limitLiteral } from '../../config/limits.js'
 import { numParam } from '../params.js'
 import type { DetectorParams, DetectorScan, DetectionWindow } from '../runtime.js'
 
