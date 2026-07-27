@@ -3,7 +3,9 @@
 // nothing remote; only the dust probe calls out, and it batches per network.
 // Address risk is deliberately NOT a trigger — it is a downstream product, not
 // a monitoring input.
+import { appendFile, mkdir } from 'node:fs/promises'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { monitorPaths } from './paths.js'
 import type { AlertEvent } from './alerts.js'
 import type { MonitorConfig } from './config.js'
 import type { MonitorStore } from './store.js'
@@ -203,6 +205,17 @@ export async function runWatchlistPass(
     runTimestamp,
   )
   hits.push(...dust.hits)
+  // Canonical-first (durability spec req 1): the JSONL is the source of truth
+  // for dedup; the DuckDB rows are a replay index rebuilt from it.
+  if (hits.length > 0) {
+    const p = monitorPaths(workspaceRoot)
+    await mkdir(p.logsDir, { recursive: true })
+    await appendFile(
+      p.watchlistHitsLog,
+      hits.map((h) => JSON.stringify({ run_timestamp: runTimestamp, ...h })).join('\n') + '\n',
+      'utf8',
+    )
+  }
   for (const hit of hits) {
     await store.run('INSERT INTO watchlist_hits VALUES ($1,$2,$3,$4,$5,$6)', [
       runTimestamp,

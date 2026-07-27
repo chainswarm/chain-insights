@@ -195,7 +195,7 @@ const findingsIngestor: DocIngestor = {
 }
 INGESTORS.push(findingsIngestor)
 
-function jsonlIngestor(kind: 'alerts' | 'acks', logPathOf: (root: string) => string, insert: (store: MonitorStore, line: Record<string, unknown>) => Promise<void>): DocIngestor {
+function jsonlIngestor(kind: 'alerts' | 'acks' | 'watchlist_hits', logPathOf: (root: string) => string, insert: (store: MonitorStore, line: Record<string, unknown>) => Promise<void>): DocIngestor {
   return {
     kind,
     async listDocs(workspaceRoot) {
@@ -224,6 +224,11 @@ INGESTORS.push(
   }),
   jsonlIngestor('acks', (root) => monitorPaths(root).acksLog, async (store, a) => {
     await store.run('INSERT INTO alert_acks VALUES ($1,$2)', [a.alert_id, a.acked_at_timestamp])
+  }),
+  // Replay index for the canonical watchlist-hits log (durability spec req 1):
+  // rebuildStore repopulates watchlist_hits from here, so dedup survives it.
+  jsonlIngestor('watchlist_hits', (root) => monitorPaths(root).watchlistHitsLog, async (store, h) => {
+    await store.run('INSERT INTO watchlist_hits VALUES ($1,$2,$3,$4,$5,$6)', [h.run_timestamp, h.address, h.network, h.trigger, h.source_ref, h.detail ?? null])
   }),
 )
 
@@ -394,7 +399,7 @@ INGESTORS.push({
 // acks logs) or rewritten in place (case.json via closeCase), so the derived
 // table cannot be trusted to already hold a prior ingest's rows — wipe the
 // table and re-ingest from scratch every pass.
-const REPLAY_TABLES: Partial<Record<string, string>> = { alerts: 'alerts', acks: 'alert_acks', cases: 'cases', watchlist: 'watchlist' }
+const REPLAY_TABLES: Partial<Record<string, string>> = { alerts: 'alerts', acks: 'alert_acks', watchlist_hits: 'watchlist_hits', cases: 'cases', watchlist: 'watchlist' }
 
 // Per-doc quarantine (durability spec req 3): a malformed doc costs THAT doc,
 // never the run or the rebuild. Rename-to-.corrupt makes the wedge cause
