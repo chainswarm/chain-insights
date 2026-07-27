@@ -3,6 +3,24 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.16] - 2026-07-27 — deposit tracing keeps the highest-value paths when it truncates
+
+- fix: `aml_trace_deposit_sources` capped each hop's reverse paths with a bare
+  row limit and no ordering, so the backend returned an arbitrary slice of
+  whatever matched. On a deposit with heavy fan-in that quietly discarded the
+  largest flows into it — the routes an investigation is actually looking for —
+  while keeping negligible ones, and raising `max_hops` made it worse rather
+  than better, because deeper hops fan out wider and reach the cap sooner.
+  Reverse paths are now ranked before the cap is applied, so truncation loses
+  the least value-bearing routes first. A path is ranked by its narrowest edge
+  rather than by a total: a route cannot carry more value than its bottleneck,
+  and ranking by a sum would favour long chains of small transfers over a short
+  chain of large ones.
+- fix: the truncation warning now states what survived instead of only that
+  something was cut — it reports the value of the weakest retained path, which
+  is the upper bound on anything dropped, so it is possible to tell at a glance
+  whether the missing rows could have mattered.
+
 ## [0.11.15] - 2026-07-27 — scheduling: recommend pm2 supervising `monitor watch`
 
 - docs: the recommended standing-watch setup is now pm2 supervising
