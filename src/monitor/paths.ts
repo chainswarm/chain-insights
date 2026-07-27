@@ -15,6 +15,7 @@ export interface MonitorPaths {
   reviewsDir: string
   dbPath: string
   watchlistPath: string
+  renderStatePath: string
   detectionsDir: string
   reviewedDir: string
   casesDir: string
@@ -40,6 +41,7 @@ export function monitorPaths(workspaceRoot: string): MonitorPaths {
     reviewsDir: path.join(monitorDir, 'reviews'),
     dbPath: path.join(monitorDir, 'monitor.duckdb'),
     watchlistPath: path.join(monitorDir, 'watchlist.json'),
+    renderStatePath: path.join(monitorDir, 'render-state.json'),
     detectionsDir: path.join(root, 'detections'),
     reviewedDir: path.join(root, 'detections', 'reviewed'),
     casesDir: path.join(root, 'cases'),

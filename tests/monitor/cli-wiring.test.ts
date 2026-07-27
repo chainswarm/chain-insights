@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 describe('cia monitor CLI surface', () => {
   it('registers every spec subcommand', () => {
     const help = execFileSync('npx', ['tsx', 'src/cli.ts', 'monitor', '--help'], { encoding: 'utf8' })
-    for (const sub of ['run', 'watch', 'status', 'case', 'review', 'report', 'export', 'alerts', 'rebuild']) {
+    for (const sub of ['run', 'watch', 'status', 'case', 'review', 'report', 'export', 'alerts', 'rebuild', 'render']) {
       expect(help).toContain(sub)
     }
   })
@@ -24,6 +24,18 @@ describe('cia monitor CLI surface', () => {
     for (const cmd of ['add', 'list', 'remove']) {
       expect(sub).toContain(cmd)
     }
+  })
+
+  it('registers monitor render with --force and optional case_id', () => {
+    const sub = execFileSync('npx', ['tsx', 'src/cli.ts', 'monitor', 'render', '--help'], { encoding: 'utf8' })
+    expect(sub).toContain('--force')
+    expect(sub).toContain('[case_id]')
+  })
+
+  it('monitor run and watch wire the render hook (spec req 1)', () => {
+    const src = readFileSync('src/cli.ts', 'utf8')
+    const matches = src.match(/renderCase: \(/g) ?? []
+    expect(matches.length).toBeGreaterThanOrEqual(2)
   })
 
   it('monitor run and watch acquire the PID run lock (spec req 4)', () => {

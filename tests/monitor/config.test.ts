@@ -73,6 +73,35 @@ describe('monitor config', () => {
     expect(cfg.watchlist).toBeUndefined()
   })
 
+  describe('render config (investigation output)', () => {
+    it('defaults render.dormant_after_days to 30 when absent', async () => {
+      const root = await ws()
+      expect((await loadMonitorConfig(root)).render.dormant_after_days).toBe(30)
+    })
+
+    it('accepts an explicit render.dormant_after_days', async () => {
+      const root = await ws()
+      const p = monitorPaths(root)
+      await mkdir(p.monitorDir, { recursive: true })
+      await writeFile(p.configPath, JSON.stringify({
+        cells: [{ detector: 'mixer', network: 'bittensor' }],
+        render: { dormant_after_days: 7 },
+      }), 'utf8')
+      expect((await loadMonitorConfig(root)).render.dormant_after_days).toBe(7)
+    })
+
+    it('rejects a non-positive dormant_after_days', async () => {
+      const root = await ws()
+      const p = monitorPaths(root)
+      await mkdir(p.monitorDir, { recursive: true })
+      await writeFile(p.configPath, JSON.stringify({
+        cells: [{ detector: 'mixer', network: 'bittensor' }],
+        render: { dormant_after_days: 0 },
+      }), 'utf8')
+      await expect(loadMonitorConfig(root)).rejects.toThrow(/render\.dormant_after_days/)
+    })
+  })
+
   it('rejects a negative dustMaxUsd', async () => {
     const root = await ws()
     const p = monitorPaths(root)

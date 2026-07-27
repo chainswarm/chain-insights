@@ -966,6 +966,7 @@ monitor
       const { loadMonitorConfig } = await import('./monitor/config.js')
       const { runMonitorOnce, MONITOR_EXIT_ISOLATED } = await import('./monitor/runner.js')
       const { traceCase } = await import('./monitor/tracker.js')
+      const { renderCase } = await import('./monitor/render/index.js')
       const { acquireRunLock } = await import('./monitor/lock.js')
       const lock = await acquireRunLock(workspaceRoot)
       if (!lock.acquired) {
@@ -980,6 +981,7 @@ monitor
         const doc = await withGraphMcpClient('chain-insights-cli-monitor', async (client) =>
           runMonitorOnce(client, workspaceRoot, config, Date.now(), {
             traceCase: (c, root, id, hops, now) => traceCase(c, root, id, hops, now),
+            renderCase: (c, root, id, cfg, now) => renderCase(c, root, id, cfg, now),
           }),
         )
         const failed = doc.cells.filter((c) => c.error)
@@ -1007,6 +1009,7 @@ monitor
       const { loadMonitorConfig } = await import('./monitor/config.js')
       const { runMonitorOnce } = await import('./monitor/runner.js')
       const { traceCase } = await import('./monitor/tracker.js')
+      const { renderCase } = await import('./monitor/render/index.js')
       const { acquireRunLock } = await import('./monitor/lock.js')
       const lock = await acquireRunLock(workspaceRoot)
       if (!lock.acquired) {
@@ -1021,12 +1024,42 @@ monitor
           await withGraphMcpClient('chain-insights-cli-monitor', async (client) =>
             runMonitorOnce(client, workspaceRoot, config, Date.now(), {
               traceCase: (c, root, id, hops, now) => traceCase(c, root, id, hops, now),
+              renderCase: (c, root, id, cfg, now) => renderCase(c, root, id, cfg, now),
             }),
           ).catch((err) => console.error(`[monitor] run failed: ${(err as Error).message}`))
           await new Promise((resolve) => setTimeout(resolve, intervalMs))
         }
       } finally {
         await lock.release()
+      }
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+monitor
+  .command('render')
+  .description('Render the human-readable case dossier, address notes and timeline (re-traces changed cases)')
+  .argument('[case_id]', 'Render one case instead of all open cases')
+  .option('--force', 'Re-trace and re-render even when the case is unchanged')
+  .action(async (caseId: string | undefined, opts: { force?: boolean }) => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const workspaceRoot = requireWorkspaceRoot()
+      const { loadMonitorConfig } = await import('./monitor/config.js')
+      const { renderCase, renderAllCases } = await import('./monitor/render/index.js')
+      const config = await loadMonitorConfig(workspaceRoot)
+      const outcomes = await withGraphMcpClient('chain-insights-cli-monitor-render', async (client) =>
+        caseId
+          ? [await renderCase(client, workspaceRoot, caseId, config, Math.floor(Date.now() / 1000), { force: opts.force })]
+          : renderAllCases(client, workspaceRoot, config, Math.floor(Date.now() / 1000), { force: opts.force }),
+      )
+      if (outcomes.length === 0) console.log('[render] no open cases')
+      for (const o of outcomes) {
+        console.log(o.rendered
+          ? `[render] ${o.case_id}: rendered → ${o.dossier_path}`
+          : `[render] ${o.case_id}: skipped (${o.skipped_reason})`)
       }
     } catch (err) {
       console.error((err as Error).message)

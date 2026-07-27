@@ -3,6 +3,27 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.13.0] - 2026-07-27 — monitor investigation output
+
+- feat: human-readable investigation output per open case under
+  `published/cases/<case_id>/` — a Markdown dossier with an ACTIVE/DORMANT
+  headline verdict, funds-destination summary by terminal endpoint class,
+  exchange deposit endpoints with labels, scammer-cluster address list, a
+  bounded Mermaid money-flow diagram, and links to the HTML graph reports;
+  per-address notes under `addresses/`; and an append-only, idempotent
+  `timeline.md` (one line per alert).
+- feat: change-triggered re-trace — on case change (new snapshot content,
+  case edits, or new alerts) the render pass re-traces the case seeds as
+  victim funds and as suspect funds through the standard trace tools and
+  persists `chain-insights.trace.v1` artifacts under `cases/<id>/traces/`;
+  unchanged cases skip tracing entirely (render state in
+  `.chain-insights/monitor/render-state.json`).
+- feat: `cia monitor render [--force] [case_id]` renders on demand;
+  `monitor run` and `monitor watch` run the render pass automatically after
+  case tracing, with per-case error isolation.
+- feat: `render.dormant_after_days` monitor config (default 30) controls the
+  DORMANT threshold.
+
 ## [0.12.1] - 2026-07-27 — monitor lifecycle hardening
 
 - feat: review decisions are content-addressed and append-only. Decision files

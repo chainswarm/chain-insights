@@ -21,6 +21,13 @@ const WatchlistConfigSchema = z.object({
   enabled: z.boolean().default(true),
 })
 
+// Investigation-output rendering (spec 3): dormancy threshold for the
+// ACTIVE/DORMANT dossier verdict. Always present on the parsed config —
+// configs without a `render` block get the documented default.
+const RenderConfigSchema = z.object({
+  dormant_after_days: z.number().int().positive().default(30),
+})
+
 const MonitorConfigSchema = z.object({
   cells: z.array(CellSchema).min(1),
   intervalSeconds: z.number().int().positive().default(3600),
@@ -44,6 +51,7 @@ const MonitorConfigSchema = z.object({
   // Sink execution bound (R4): webhook fetches and exec hooks are killed after
   // hook_timeout_ms so a hung sink can never hang the run loop.
   alerts: z.object({ hook_timeout_ms: z.number().int().positive().default(30000) }).optional(),
+  render: RenderConfigSchema.prefault({}),
 })
 
 export type MonitorConfig = z.infer<typeof MonitorConfigSchema>

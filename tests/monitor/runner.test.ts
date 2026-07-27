@@ -4,12 +4,13 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { runMonitorOnce } from '../../src/monitor/runner.js'
 import { appendAlerts, listAlerts, listUndelivered } from '../../src/monitor/alerts.js'
 import { withStore } from '../../src/monitor/store.js'
 import { addWatched } from '../../src/monitor/watchlist.js'
+import { addCase } from '../../src/monitor/cases.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
 import type { MonitorConfig } from '../../src/monitor/config.js'
 
@@ -24,6 +25,7 @@ const CFG: MonitorConfig = {
   ],
   intervalSeconds: 3600,
   caseMaxHops: 3,
+  render: { dormant_after_days: 30 },
 }
 
 describe('runMonitorOnce', () => {
@@ -130,6 +132,38 @@ describe('runMonitorOnce', () => {
     expect(cell).toBeDefined()
     const alerts = await listAlerts(root)
     expect(alerts.map((a) => a.type)).toContain('watchlist_finding')
+  })
+})
+
+describe('render pass in the runner (spec req 1)', () => {
+  const fakeDetect = async () => ({ findingsCount: 0, findingsPath: 'x.json' }) as never
+  const fakeTrace = async () => ({ movements_count: 0, alerts: [] })
+
+  it('runs the render hook per open case after tracing and records rendered cells', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'case-1', type: 'stolen-funds', network: 'bittensor', seeds: ['seed1'] }, 900)
+    const renderCase = vi.fn(async () => ({ rendered: true }))
+    const doc = await runMonitorOnce({} as Client, root, CFG, 1000, {
+      runDetection: fakeDetect, traceCase: fakeTrace, renderCase, usage: async () => null,
+    })
+    expect(renderCase).toHaveBeenCalledOnce()
+    expect(doc.cells.some((c) => c.cell === 'render:case-1' && c.rendered === true)).toBe(true)
+  })
+
+  it('a skipped render adds no cell and a failing render isolates the error', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'case-1', type: 'stolen-funds', network: 'bittensor', seeds: ['seed1'] }, 900)
+    const skipped = await runMonitorOnce({} as Client, root, CFG, 1000, {
+      runDetection: fakeDetect, traceCase: fakeTrace, usage: async () => null,
+      renderCase: async () => ({ rendered: false, skipped_reason: 'unchanged' }),
+    })
+    expect(skipped.cells.some((c) => c.cell.startsWith('render:'))).toBe(false)
+    const failing = await runMonitorOnce({} as Client, root, CFG, 2000, {
+      runDetection: fakeDetect, traceCase: fakeTrace, usage: async () => null,
+      renderCase: async () => { throw new Error('boom') },
+    })
+    const cell = failing.cells.find((c) => c.cell === 'render:case-1')
+    expect(cell?.error).toBe('boom')
   })
 })
 
