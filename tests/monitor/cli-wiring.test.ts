@@ -9,6 +9,13 @@ describe('cia monitor CLI surface', () => {
     }
   })
 
+  it('registers monitor case add|add-seed|remove-seed|list|close', () => {
+    const sub = execFileSync('npx', ['tsx', 'src/cli.ts', 'monitor', 'case', '--help'], { encoding: 'utf8' })
+    for (const cmd of ['add', 'add-seed', 'remove-seed', 'list', 'close']) {
+      expect(sub).toContain(cmd)
+    }
+  })
+
   it('registers monitor watchlist add|list|remove', () => {
     const help = execFileSync('npx', ['tsx', 'src/cli.ts', 'monitor', '--help'], { encoding: 'utf8' })
     expect(help).toContain('watchlist')

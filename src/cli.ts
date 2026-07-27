@@ -1079,6 +1079,52 @@ monitorCase
   })
 
 monitorCase
+  .command('add-seed')
+  .description('Add seed address(es) to an OPEN case. Idempotent; the next run widens the corridor without reporting the newly visible addresses as movements.')
+  .argument('<case-id>', 'Case identifier')
+  .requiredOption('--address <addresses...>', 'Address(es) to add as case seeds')
+  .option('--note <text>', 'Why the case is being widened (recorded on the seed event)')
+  .action(async (caseId: string, opts: { address: string[]; note?: string }) => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const workspaceRoot = requireWorkspaceRoot()
+      const { addCaseSeeds } = await import('./monitor/cases.js')
+      const { monitorCase: updated, added } = await addCaseSeeds(workspaceRoot, caseId, opts.address, Date.now(), { note: opts.note })
+      if (added.length === 0) {
+        console.log(`Case ${updated.case_id} unchanged: all ${opts.address.length} address(es) are already seeds (${updated.seeds.length} seed(s)).`)
+        return
+      }
+      console.log(`Case ${updated.case_id}: added ${added.length} seed(s) [${added.join(', ')}], now ${updated.seeds.length} seed(s).`)
+      console.log('The next `cia monitor run` re-traces the wider corridor. Addresses that appear only because of these seeds are recorded as scope_expansion, not as movements.')
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+monitorCase
+  .command('remove-seed')
+  .description('Remove seed address(es) from an OPEN case. Idempotent; a case may never be left with zero seeds.')
+  .argument('<case-id>', 'Case identifier')
+  .requiredOption('--address <addresses...>', 'Address(es) to remove from the case seeds')
+  .action(async (caseId: string, opts: { address: string[] }) => {
+    try {
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const workspaceRoot = requireWorkspaceRoot()
+      const { removeCaseSeeds } = await import('./monitor/cases.js')
+      const { monitorCase: updated, removed } = await removeCaseSeeds(workspaceRoot, caseId, opts.address, Date.now())
+      if (removed.length === 0) {
+        console.log(`Case ${updated.case_id} unchanged: none of the ${opts.address.length} address(es) is a seed (${updated.seeds.length} seed(s)).`)
+        return
+      }
+      console.log(`Case ${updated.case_id}: removed ${removed.length} seed(s) [${removed.join(', ')}], now ${updated.seeds.length} seed(s).`)
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+monitorCase
   .command('close')
   .description('Close a monitor case')
   .argument('<case-id>', 'Case identifier')

@@ -10,6 +10,8 @@ export interface AlertEvent {
   type:
     | 'new_findings'
     | 'case_movement'
+    // Corridor grew because seeds were added, not because funds moved (#250).
+    | 'case_scope_expansion'
     | 'cashout_endpoint'
     | 'frontier_candidate'
     | 'watchlist_finding'

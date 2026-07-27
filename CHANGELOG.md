@@ -3,6 +3,51 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.19] - 2026-07-27 — a case's seeds are no longer fixed at creation
+
+- feat: `cia monitor case add-seed <case-id> --address <addr...> [--note]` and
+  `cia monitor case remove-seed <case-id> --address <addr...>`, backed by
+  `addCaseSeeds` / `removeCaseSeeds`. Investigations grow — an operator wallet
+  surfaces, an intermediate coldkey funds the same exchange deposit — and until
+  now the only route was hand-editing canonical `cases/<id>/case.json`, which is
+  meant to be a fallback rather than the only door. Both commands are idempotent
+  (re-adding an existing seed is a no-op, not an error), both validate against
+  the same chain-address allow-list the watchlist uses so nothing outside it can
+  reach a query builder, and a case can never be left with zero seeds.
+- feat: seed mutations are recorded on the case — `seeds_added_at_ms`
+  (address → when it became a seed) plus a `seed_events` timeline carrying the
+  `--note`. That is what explains a corridor discontinuity to whoever reads the
+  case later.
+- fix: **a widened aperture is no longer reported as movement.** Case movements
+  are diffed against the previous snapshot, so adding a seed made the next run
+  report every newly visible address as a new hop — a fabricated forensic claim
+  that funds moved at a timestamp when they did not. Snapshots now record which
+  seed(s) reached each address (`via_seeds`), and the diff separates the two:
+  reachable from a pre-existing seed → movement; reachable only from a
+  newly added seed → **scope expansion**, surfaced as `scope_expansions_count`
+  on the run document, `movement = 'scope_expansion'` in the derived store, and
+  a `case_scope_expansion` alert. The split lives in the pure diff, so
+  `cia monitor rebuild` rederives it identically. Classification signals
+  (`cashout_endpoint`, `frontier_candidate`) still fire for scope-expanded
+  addresses and still reach the review queue — only the movement claim is
+  withheld.
+- feat: `add-seed` / `remove-seed` are refused on a closed case. The run loop
+  re-traces only open cases, so a seed added to a closed one would sit in
+  canonical JSON with no snapshot behind it and silently rewrite what was
+  investigated and when. There is no reopen path: a closed investigation that
+  needs to grow is a new case.
+- docs: `docs/monitoring.md` and the monitoring skill gain the seed-mutation
+  lifecycle and the movement-vs-scope-expansion rule; the case sections no
+  longer imply seeds are fixed at creation.
+- devkit: `smoke-monitor.sh` Phase I expands its known-answer theft case with
+  `case add-seed` instead of hand-editing `case.json`, and asserts the phantom
+  -movement guard on real data — zero movements and zero `case_movement` alerts
+  for the widened scope, accounted for as scope expansion instead, quiet again
+  on the next idle re-run. New Phase J covers the guards: removal cannot empty a
+  case, a Cypher-shaped address never reaches canonical JSON, the narrowed seed
+  set is traced on the next run, and both mutations are refused on a closed case
+  with the canonical document left untouched.
+
 ## [0.11.18] - 2026-07-27 — search bounds are tunable, bounded, and visible
 
 - feat: every search bound in the investigation and detection tools is now a
@@ -47,7 +92,6 @@ All notable changes to Chain Insights are recorded here.
 - note: defaults are unchanged. Every existing call that passes no override
   produces byte-identical query text and identical results, pinned by a test
   that asserts each default against its previously hardcoded literal.
-
 ## [0.11.17] - 2026-07-27 — devkit smoke: known-answer case tracking over a real theft corridor
 
 - devkit: `smoke-monitor.sh` gains Phase I, a known-answer case-tracking

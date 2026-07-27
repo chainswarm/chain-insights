@@ -143,6 +143,36 @@ the case's **movements** — a new hop, a shared deposit address, a
 cashout/exchange endpoint, or a frontier candidate worth reviewing. Movements
 that reach a cashout endpoint or open a review frontier raise alerts.
 
+### Seeds are not fixed at creation
+
+Investigations grow. Widen or narrow an **open** case in place, keeping its
+snapshot history and movement timeline:
+
+```bash
+cia monitor case add-seed theft-1 --address 5Operator...address --note "operator wallet identified"
+cia monitor case remove-seed theft-1 --address 5Wrong...address
+```
+
+Both are idempotent (re-adding an existing seed is a no-op, not an error), both
+are **refused on a closed case** — a closed case is a historical record and the
+run loop does not re-trace it, so open a new case with the wider seed set
+instead — and a case can never be left with zero seeds. The addition is stamped
+onto `case.json` as `seeds_added_at_ms` plus a `seed_events` entry carrying the
+note. Never hand-edit `case.json` to expand a case; use `add-seed`, or the
+continuity below is lost.
+
+**Do not read a post-`add-seed` corridor as movement.** The next pass sees more
+addresses because the aperture widened, not because funds moved. Chain Insights
+separates the two by recording which seed(s) reached each address (`via_seeds`):
+reachable from a pre-existing seed → **movement**; reachable only from a
+newly added seed → **scope expansion**, reported as `scope_expansions_count` on
+the run document, `movement = 'scope_expansion'` in the derived store, and a
+`case_scope_expansion` alert. Classification signals (`cashout_endpoint`,
+`frontier_candidate`) still fire either way, so the convergence you widened the
+case to find still reaches the review queue — only the movement claim is
+withheld. If you see `case_movement` after an `add-seed`, funds genuinely moved
+within the old aperture.
+
 ## Review → Labels
 
 Every detector finding and case movement is a **proposal**. The boundary is

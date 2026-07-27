@@ -6,6 +6,15 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { monitorPaths } from './paths.js'
 
+/** One mutation of the seed set, in order. The case timeline's explanation for
+ *  a corridor that suddenly got wider or narrower between two runs. */
+export interface CaseSeedEvent {
+  action: 'add' | 'remove'
+  addresses: string[]
+  at_ms: number
+  note?: string
+}
+
 export interface MonitorCase {
   case_id: string
   type: 'stolen-funds' | 'scam-topology'
@@ -15,9 +24,61 @@ export interface MonitorCase {
   created_at_ms: number
   closed_at_ms?: number
   note?: string
+  /** address -> when it became a seed, for seeds added after creation. Reading a
+   *  snapshot next to this map is how a reader tells "the corridor grew because
+   *  the aperture widened" from "the corridor grew because funds moved". */
+  seeds_added_at_ms?: Record<string, number>
+  seed_events?: CaseSeedEvent[]
 }
 
 const CASE_ID_RE = /^[a-z0-9][a-z0-9-]{1,63}$/
+
+// Same allow-list as the watchlist (src/monitor/watchlist.ts): chain addresses
+// are alphanumeric, SS58 base58 or 0x-prefixed H160. Seeds are interpolated
+// into corridor traversal queries downstream, so nothing outside this shape may
+// ever be persisted as a seed. Validate on the way IN — never hand-escape on
+// the way out.
+const ADDRESS_RE = /^(0x)?[A-Za-z0-9]{1,128}$/
+
+function assertAddresses(addresses: string[]): string[] {
+  if (addresses.length === 0) throw new Error('at least one --address is required')
+  for (const a of addresses) {
+    if (!ADDRESS_RE.test(a)) {
+      throw new Error(`"${a}" is not a chain address (alphanumeric, optionally 0x-prefixed, max 128 chars)`)
+    }
+  }
+  return [...new Set(addresses)]
+}
+
+async function readCase(workspaceRoot: string, caseId: string): Promise<MonitorCase> {
+  const file = caseFile(workspaceRoot, caseId)
+  try {
+    return JSON.parse(await readFile(file, 'utf8')) as MonitorCase
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') throw new Error(`no such case "${caseId}"`)
+    throw err
+  }
+}
+
+// Mutating a closed case would rewrite the record of what was investigated and
+// when, and the next run does not even re-trace it (the runner only walks OPEN
+// cases), so the change would sit in canonical JSON with no snapshot behind it.
+// Refusing outright, with no reopen path: a closed case that needs to grow is a
+// new case, seeded from the old one.
+function assertOpen(current: MonitorCase, verb: string): void {
+  if (current.status !== 'open') {
+    throw new Error(
+      `case "${current.case_id}" is closed and cannot ${verb}. A closed case is a historical record; open a new case with the wider seed set instead.`,
+    )
+  }
+}
+
+async function writeCase(workspaceRoot: string, next: MonitorCase): Promise<MonitorCase> {
+  const file = caseFile(workspaceRoot, next.case_id)
+  await mkdir(path.dirname(file), { recursive: true })
+  await writeFile(file, JSON.stringify(next, null, 2) + '\n', 'utf8')
+  return next
+}
 
 function caseFile(workspaceRoot: string, caseId: string): string {
   return path.join(monitorPaths(workspaceRoot).casesDir, caseId, 'case.json')
@@ -30,13 +91,70 @@ export async function addCase(
 ): Promise<MonitorCase> {
   if (!CASE_ID_RE.test(input.case_id)) throw new Error(`case_id must match ${CASE_ID_RE}, got "${input.case_id}"`)
   if (input.seeds.length === 0) throw new Error('a case needs at least one seed address')
+  const seeds = assertAddresses(input.seeds)
   const file = caseFile(workspaceRoot, input.case_id)
   const exists = await readFile(file, 'utf8').then(() => true).catch(() => false)
   if (exists) throw new Error(`case "${input.case_id}" already exists`)
-  const created: MonitorCase = { ...input, status: 'open', created_at_ms: nowMs }
+  const created: MonitorCase = { ...input, seeds, status: 'open', created_at_ms: nowMs }
   await mkdir(path.dirname(file), { recursive: true })
   await writeFile(file, JSON.stringify(created, null, 2) + '\n', 'utf8')
   return created
+}
+
+/** Widen an open case. Idempotent by address: re-adding an existing seed is a
+ *  no-op that neither errors nor records an event, so a scripted `case add-seed`
+ *  is safe to re-run (same contract as `watchlist add`). */
+export async function addCaseSeeds(
+  workspaceRoot: string,
+  caseId: string,
+  addresses: string[],
+  nowMs: number,
+  opts: { note?: string } = {},
+): Promise<{ monitorCase: MonitorCase; added: string[] }> {
+  const requested = assertAddresses(addresses)
+  const current = await readCase(workspaceRoot, caseId)
+  assertOpen(current, 'take new seeds')
+  const known = new Set(current.seeds)
+  const added = requested.filter((a) => !known.has(a))
+  if (added.length === 0) return { monitorCase: current, added: [] }
+  const seedsAddedAtMs = { ...(current.seeds_added_at_ms ?? {}) }
+  for (const a of added) seedsAddedAtMs[a] = nowMs
+  const next: MonitorCase = {
+    ...current,
+    seeds: [...current.seeds, ...added],
+    seeds_added_at_ms: seedsAddedAtMs,
+    seed_events: [...(current.seed_events ?? []), { action: 'add', addresses: added, at_ms: nowMs, ...(opts.note ? { note: opts.note } : {}) }],
+  }
+  return { monitorCase: await writeCase(workspaceRoot, next), added }
+}
+
+/** Narrow an open case. Idempotent: removing an address that is not a seed is a
+ *  no-op. A case may never be left with zero seeds — `addCase` refuses to create
+ *  one, so removal must not be able to produce one either. */
+export async function removeCaseSeeds(
+  workspaceRoot: string,
+  caseId: string,
+  addresses: string[],
+  nowMs: number,
+): Promise<{ monitorCase: MonitorCase; removed: string[] }> {
+  const requested = assertAddresses(addresses)
+  const current = await readCase(workspaceRoot, caseId)
+  assertOpen(current, 'have seeds removed')
+  const drop = new Set(requested)
+  const removed = current.seeds.filter((s) => drop.has(s))
+  if (removed.length === 0) return { monitorCase: current, removed: [] }
+  const seeds = current.seeds.filter((s) => !drop.has(s))
+  if (seeds.length === 0) throw new Error(`case "${caseId}" needs at least one seed address; removing all ${removed.length} would empty it`)
+  const seedsAddedAtMs = { ...(current.seeds_added_at_ms ?? {}) }
+  for (const a of removed) delete seedsAddedAtMs[a]
+  const next: MonitorCase = {
+    ...current,
+    seeds,
+    ...(Object.keys(seedsAddedAtMs).length > 0 ? { seeds_added_at_ms: seedsAddedAtMs } : {}),
+    seed_events: [...(current.seed_events ?? []), { action: 'remove', addresses: removed, at_ms: nowMs }],
+  }
+  if (Object.keys(seedsAddedAtMs).length === 0) delete next.seeds_added_at_ms
+  return { monitorCase: await writeCase(workspaceRoot, next), removed }
 }
 
 export async function listCases(workspaceRoot: string, opts?: { openOnly?: boolean }): Promise<MonitorCase[]> {

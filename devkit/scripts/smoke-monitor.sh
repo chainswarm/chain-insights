@@ -582,12 +582,25 @@ assert_eq "I/baseline emits no movements" "$(cell_field "$I_RUN1" 'case:theft-co
 # Watch the shared deposit BEFORE it is discovered -- the investigator's move.
 check "I/watch the convergence deposit" \
   "$(rc_of $CLI monitor watchlist add "$I_DEPOSIT_SHARED" --network bittensor)"
-# Expand the case with the operator seed via the case's canonical file
-# (cases/<id>/case.json IS the registry of record -- src/monitor/cases.ts;
-# there is no add-seed subcommand yet). This simulates the real investigative
-# event: a second controlled wallet is identified mid-case.
-jq --arg s "$I_OPERATOR" '.seeds += [$s]' "$WS_I/cases/theft-corridor/case.json" > "$WS_I/cases/theft-corridor/case.json.tmp" \
-  && mv "$WS_I/cases/theft-corridor/case.json.tmp" "$WS_I/cases/theft-corridor/case.json"
+# Expand the case with the operator seed -- the real investigative event: a
+# second controlled wallet is identified mid-case. This used to require
+# hand-editing cases/<id>/case.json (chain-insights#250); it is now a first
+# class command that also records WHEN the seed was added.
+check "I/add-seed expands the open case with the operator wallet" \
+  "$(rc_of $CLI monitor case add-seed theft-corridor --address "$I_OPERATOR" --note 'operator wallet identified mid-case')"
+assert_eq "I/the added seed is stamped with the time it entered the case" \
+  "$(jq -r --arg a "$I_OPERATOR" '(.seeds_added_at_ms[$a] // "") | tostring | (. != "") | tostring' "$WS_I/cases/theft-corridor/case.json")" "true"
+assert_eq "I/the seed addition is recorded as a case event with its note" \
+  "$(jq -r '[.seed_events[] | select(.action == "add") | .note] | join(",")' "$WS_I/cases/theft-corridor/case.json")" \
+  "operator wallet identified mid-case"
+# Idempotent: re-adding the same seed is a no-op, not an error, and must not
+# append a second event (a scripted add-seed has to be safe to re-run).
+check "I/add-seed is idempotent (re-add exits clean)" \
+  "$(rc_of $CLI monitor case add-seed theft-corridor --address "$I_OPERATOR")"
+assert_eq "I/an idempotent re-add records no second seed event" \
+  "$(jq '[.seed_events[] | select(.action == "add")] | length' "$WS_I/cases/theft-corridor/case.json")" "1"
+assert_eq "I/an idempotent re-add does not duplicate the seed" \
+  "$(jq --arg a "$I_OPERATOR" '[.seeds[] | select(. == $a)] | length' "$WS_I/cases/theft-corridor/case.json")" "1"
 sleep 1
 $CLI monitor run >/dev/null 2>&1 || true
 I_SNAP2="$(ls "$WS_I"/cases/theft-corridor/snapshots/*.snapshot.json | sort | tail -1)"
@@ -604,10 +617,29 @@ for role_addr in "shared-deposit:$I_DEPOSIT_SHARED" "mid-coldkey:$I_MID_COLDKEY"
     "propagated_scam"
 done
 I_RUN2="$(newest_run "$WS_I")"
-assert_ge "I/expansion produced movements" "$(cell_field "$I_RUN2" 'case:theft-corridor' movements_count)" 1
+# ---- #250 THE PHANTOM-MOVEMENT ASSERTION --------------------------------
+# Nothing moved on this fixture between the two runs: it is a static export,
+# and the baseline run above already proved the corridor is stable. Every
+# address the expanded run newly sees is visible ONLY because the aperture
+# widened. A diff that calls those "movements" is a fabricated forensic claim
+# -- it tells the analyst funds reached new hops at a timestamp when they did
+# not. So the run must report ZERO movements and account for the same
+# addresses as scope expansion instead.
+#
+# This is the row that fails without the via_seeds attribution in
+# src/monitor/tracker.ts: before it, the widened corridor reported
+# movements_count >= 1 and a case_movement alert per newly visible address.
+assert_eq "#250 the widened corridor manufactures NO movements" \
+  "$(cell_field "$I_RUN2" 'case:theft-corridor' movements_count)" "0"
+assert_ge "#250 the newly visible addresses are accounted for as scope expansion" \
+  "$(cell_field "$I_RUN2" 'case:theft-corridor' scope_expansions_count)" 1
 I_ALERTS2="$($CLI monitor alerts list --all 2>/dev/null)"
-assert_ge "I/the shared deposit raised a case_movement alert" \
-  "$(grep -c " case_movement bittensor theft-corridor $I_DEPOSIT_SHARED" <<<"$I_ALERTS2" || true)" 1
+assert_eq "#250 no case_movement alert is invented for the widened scope" \
+  "$(grep -c ' case_movement bittensor theft-corridor ' <<<"$I_ALERTS2" || true)" "0"
+assert_ge "#250 the shared deposit raised a case_scope_expansion alert instead" \
+  "$(grep -c " case_scope_expansion bittensor theft-corridor $I_DEPOSIT_SHARED" <<<"$I_ALERTS2" || true)" 1
+# Scope expansion is NOT suppression: the convergence the add-seed was
+# performed to find must still reach review and alerting.
 assert_ge "I/the shared deposit raised a frontier_candidate alert" \
   "$(grep -c " frontier_candidate bittensor theft-corridor $I_DEPOSIT_SHARED" <<<"$I_ALERTS2" || true)" 1
 assert_ge "I/the operator corridor exposed a cashout endpoint" \
@@ -647,9 +679,80 @@ assert_eq "#232 no zero-findings document is listed for review" \
 I_RUN4="$(newest_run "$WS_I")"
 assert_eq "#232 idle re-run derives no case movements" \
   "$(cell_field "$I_RUN4" 'case:theft-corridor' movements_count)" "0"
+# The expanded corridor is the new baseline: scope expansion is reported ONCE,
+# on the run that first sees the wider aperture, never again on every run after.
+assert_eq "#250 the widened corridor is quiet on the next idle re-run" \
+  "$(cell_field "$I_RUN4" 'case:theft-corridor' scope_expansions_count)" "0"
 # Watchlist dedupe by source_ref holds for case-sourced hits too.
 assert_eq "I/watchlist hits on the case dedupe across idle re-runs" \
   "$($CLI monitor alerts list --all 2>/dev/null | grep -c ' watchlist_' || true)" "$I_WL_COUNT_BEFORE"
+
+########################################################################
+# PHASE J -- chain-insights#250 seed mutation guards: remove-seed narrows a
+# live case, the seed set can never be emptied, a CLOSED case refuses both
+# mutations, and a Cypher-shaped address never reaches canonical JSON.
+#
+# Phase I already proved the two halves that need a real trace (add-seed grows
+# the corridor; the widened scope emits no phantom movement). What is left is
+# guard behavior, asserted on the canonical case document and the snapshot --
+# never on an exit code, so "refused" and "crashed" cannot look the same.
+########################################################################
+J_CASE="$WS_I/cases/theft-corridor/case.json"
+cd "$WS_I"
+
+# ---- the seed set can never be emptied ------------------------------------
+J_SEEDS_BEFORE="$(jq -c '.seeds | sort' "$J_CASE")"
+$CLI monitor case remove-seed theft-corridor --address "$I_VICTIM" "$I_OPERATOR" >/dev/null 2>&1 || true
+assert_eq "#250 removing every seed is refused and leaves the case untouched" \
+  "$(jq -c '.seeds | sort' "$J_CASE")" "$J_SEEDS_BEFORE"
+
+# ---- an address outside the allow-list never reaches canonical JSON --------
+# The seed is interpolated into corridor traversal downstream, so validation is
+# on the way IN. Asserted on the FILE, not on an exit code.
+$CLI monitor case add-seed theft-corridor --address "$I_OPERATOR' RETURN 1 //" >/dev/null 2>&1 || true
+assert_eq "#250 a Cypher-shaped seed is rejected before it is persisted" \
+  "$(jq -c '.seeds | sort' "$J_CASE")" "$J_SEEDS_BEFORE"
+
+# ---- remove-seed narrows the traced corridor on the next run ---------------
+$CLI monitor case remove-seed theft-corridor --address "$I_OPERATOR" >/dev/null 2>&1 || true
+assert_eq "#250 remove-seed drops the seed from the case" \
+  "$(jq -r --arg a "$I_OPERATOR" '[.seeds[] | select(. == $a)] | length' "$J_CASE")" "0"
+assert_eq "#250 remove-seed clears that seed's addition timestamp" \
+  "$(jq -r --arg a "$I_OPERATOR" '(.seeds_added_at_ms // {}) | has($a) | tostring' "$J_CASE")" "false"
+assert_eq "#250 the removal is recorded as a case event" \
+  "$(jq -r '[.seed_events[] | select(.action == "remove") | .addresses[]] | join(",")' "$J_CASE")" "$I_OPERATOR"
+# Idempotent: removing what is no longer a seed changes nothing.
+$CLI monitor case remove-seed theft-corridor --address "$I_OPERATOR" >/dev/null 2>&1 || true
+assert_eq "#250 remove-seed is idempotent (no second removal event)" \
+  "$(jq '[.seed_events[] | select(.action == "remove")] | length' "$J_CASE")" "1"
+sleep 1
+$CLI monitor run >/dev/null 2>&1 || true
+J_SNAP="$(ls "$WS_I"/cases/theft-corridor/snapshots/*.snapshot.json | sort | tail -1)"
+assert_eq "#250 the next run traces the narrowed seed set" \
+  "$(jq -r --arg a "$I_OPERATOR" '[.seed_set[] | select(. == $a)] | length' "$J_SNAP")" "0"
+J_RUN="$(newest_run "$WS_I")"
+assert_eq "#250 narrowing the case emits no movements either" \
+  "$(cell_field "$J_RUN" 'case:theft-corridor' movements_count)" "0"
+
+# ---- a CLOSED case is a historical record ---------------------------------
+# Refuse, with no reopen path: the run loop only re-traces OPEN cases, so a
+# seed added to a closed one would sit in canonical JSON with no snapshot
+# behind it and silently rewrite what was investigated and when.
+$CLI monitor case close theft-corridor >/dev/null 2>&1 || true
+assert_eq "#250 the case is closed" "$(jq -r '.status' "$J_CASE")" "closed"
+J_CLOSED_SEEDS="$(jq -c '.seeds | sort' "$J_CASE")"
+J_ADD_OUT="$($CLI monitor case add-seed theft-corridor --address "$I_MID_COLDKEY" 2>&1 || true)"
+assert_contains "#250 add-seed on a closed case is refused, and says why" "$J_ADD_OUT" "closed"
+assert_eq "#250 the closed case's seed set is untouched by the refused add" \
+  "$(jq -c '.seeds | sort' "$J_CASE")" "$J_CLOSED_SEEDS"
+J_RM_OUT="$($CLI monitor case remove-seed theft-corridor --address "$I_VICTIM" 2>&1 || true)"
+assert_contains "#250 remove-seed on a closed case is refused, and says why" "$J_RM_OUT" "closed"
+assert_eq "#250 the closed case's seed set is untouched by the refused removal" \
+  "$(jq -c '.seeds | sort' "$J_CASE")" "$J_CLOSED_SEEDS"
+assert_eq "#250 a refused mutation records no seed event" \
+  "$(jq '(.closed_at_ms // 0) as $c | [.seed_events[] | select(.at_ms > $c)] | length' "$J_CASE")" "0"
+# The store still rebuilds from the mutated canonical JSON.
+check "#250 the store rebuilds after the seed mutations" "$(rc_of $CLI monitor rebuild)"
 
 ########################################################################
 echo "MONITOR-SMOKE done: $PASS pass, $FAIL fail, $SKIP skip"
