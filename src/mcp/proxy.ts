@@ -16,6 +16,7 @@ import type { McpTool } from './schema-cache.js'
 import { HIDDEN_REMOTE_TOOL_NAMES, PUBLIC_MCP_TOOL_ALLOWED_ARGS, PUBLIC_MCP_TOOL_REQUIRED_ARGS } from './tool-visibility.js'
 import { PaymentRequiredError } from './client.js'
 import { primitiveBackendUsageStatus } from './usage-status.js'
+import { appendActionLog } from './action-log.js'
 
 const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -385,12 +386,36 @@ function installToolLogging(server: McpServer, logger: ReturnType<typeof createM
   server.registerTool = wrappedRegisterTool
 }
 
+// Where `warnings` and `search_limits` live depends on which public-tool
+// response schema the remote result carries — they are not both under a
+// `facts` object as an earlier draft of this file assumed:
+//   - chain-insights.trace.v1 (aml_trace_deposit_sources and friends,
+//     src/investigation/public-tools.ts ~lines 2174-2224): `warnings` sits at
+//     the structuredContent top level; `search_limits` is nested under
+//     `structuredContent.input.search_limits`.
+//   - chain-insights.result.v1 (aml_address_risk ~lines 995-1000,
+//     track_funds ~line 2318): a `facts` object exists, but it never carries
+//     either field — there is nothing to source there.
+function actionLogSignalsFromResult(result: unknown): { warnings?: string[]; search_limits?: Record<string, unknown> } {
+  const structuredContent = isRecord(result) ? result['structuredContent'] : undefined
+  if (!isRecord(structuredContent)) return {}
+  const warnings = Array.isArray(structuredContent['warnings'])
+    ? (structuredContent['warnings'] as string[])
+    : undefined
+  const input = structuredContent['input']
+  const search_limits = isRecord(input) && isRecord(input['search_limits'])
+    ? (input['search_limits'] as Record<string, unknown>)
+    : undefined
+  return { warnings, search_limits }
+}
+
 function installRemoteCypherLogging(remoteClient: RemoteToolCaller, logger: ReturnType<typeof createMcpLogger>): void {
   const existingCallTool = remoteClient.callTool
   const originalCallTool = existingCallTool.bind(remoteClient)
   const wrappedCallTool = (async (...args: Parameters<Client['callTool']>) => {
     const input = args[0] as ToolCallInput
     const queryPayload = cypherLogPayload(input.name, input.arguments)
+    const toolArgs = input.arguments ?? {}
     const startedAt = Date.now()
     if (queryPayload) {
       await logger.info('topology.start', {
@@ -407,6 +432,16 @@ function installRemoteCypherLogging(remoteClient: RemoteToolCaller, logger: Retu
           is_error: isRecord(result) && result.isError === true,
         })
       }
+      const { warnings, search_limits } = actionLogSignalsFromResult(result)
+      await appendActionLog({
+        ts_ms: startedAt,
+        tool: input.name,
+        args: toolArgs,
+        outcome: 'ok',
+        duration_ms: Date.now() - startedAt,
+        warnings,
+        search_limits,
+      })
       return result
     } catch (err) {
       if (queryPayload) {
@@ -416,6 +451,14 @@ function installRemoteCypherLogging(remoteClient: RemoteToolCaller, logger: Retu
           error: errorForLog(err),
         })
       }
+      await appendActionLog({
+        ts_ms: startedAt,
+        tool: input.name,
+        args: toolArgs,
+        outcome: 'error',
+        duration_ms: Date.now() - startedAt,
+        error: (err as Error).message,
+      })
       throw err
     }
   }) as typeof remoteClient.callTool

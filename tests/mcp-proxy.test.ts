@@ -308,6 +308,7 @@ let originalSigintListeners: NodeJS.SignalsListener[] = []
 let originalSigtermListeners: NodeJS.SignalsListener[] = []
 let originalWorkspace: string | undefined
 let originalProxyMode: string | undefined
+let originalActionLog: string | undefined
 
 function removeAddedSignalListeners(signal: NodeJS.Signals, original: NodeJS.SignalsListener[]): void {
   for (const listener of process.listeners(signal)) {
@@ -323,6 +324,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     originalSigtermListeners = process.listeners('SIGTERM')
     originalWorkspace = process.env['CHAIN_INSIGHTS_WORKSPACE']
     originalProxyMode = process.env['CHAIN_INSIGHTS_MCP_PROXY_MODE']
+    originalActionLog = process.env['CIA_ACTION_LOG']
     vi.clearAllMocks()
     const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
     vi.mocked(McpServer).mockClear()
@@ -342,6 +344,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     else process.env['CHAIN_INSIGHTS_WORKSPACE'] = originalWorkspace
     if (originalProxyMode === undefined) delete process.env['CHAIN_INSIGHTS_MCP_PROXY_MODE']
     else process.env['CHAIN_INSIGHTS_MCP_PROXY_MODE'] = originalProxyMode
+    if (originalActionLog === undefined) delete process.env['CIA_ACTION_LOG']
+    else process.env['CIA_ACTION_LOG'] = originalActionLog
     removeAddedSignalListeners('SIGINT', originalSigintListeners)
     removeAddedSignalListeners('SIGTERM', originalSigtermListeners)
   })
@@ -645,6 +649,102 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(JSON.stringify(cypherStart)).not.toContain('\n')
     expect(JSON.stringify(entries)).not.toContain('should-not-leak')
     expect(JSON.stringify(entries)).toContain('[redacted]')
+  })
+
+  it('action log captures warnings and search_limits from a chain-insights.trace.v1 result', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const actionLogFile = join(testDataDir, 'actions.jsonl')
+    process.env['CIA_ACTION_LOG'] = actionLogFile
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    // Realistic chain-insights.trace.v1 shape (aml_trace_deposit_sources etc.,
+    // src/investigation/public-tools.ts ~lines 2174-2224): warnings live at
+    // the structuredContent top level, search_limits under input.
+    clientInstance.callTool.mockResolvedValueOnce({
+      content: [{ type: 'text', text: 'trace result' }],
+      isError: false,
+      structuredContent: {
+        schema: 'chain-insights.trace.v1',
+        tool: 'aml_trace_deposit_sources',
+        input: {
+          search_limits: { hop_depth: { requested: 5, used: 3, ceiling: 5 } },
+        },
+        warnings: ['No upstream sources were connected in the queried topology.'],
+      },
+    })
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'graph_query_batch')
+    await handler({
+      network: 'bittensor',
+      queries: [{ id: 'q1', query: 'USE topology MATCH (n) RETURN n LIMIT 1' }],
+    })
+
+    const entries = await readJsonl(actionLogFile)
+    const entry = entries.find((e) => e['tool'] === 'graph_query_batch')
+    expect(entry).toBeTruthy()
+    expect(entry?.['warnings']).toEqual(['No upstream sources were connected in the queried topology.'])
+    expect(entry?.['search_limits']).toEqual({ hop_depth: { requested: 5, used: 3, ceiling: 5 } })
+  })
+
+  it('action log omits warnings and search_limits for a chain-insights.result.v1 result (neither field exists there)', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const actionLogFile = join(testDataDir, 'actions.jsonl')
+    process.env['CIA_ACTION_LOG'] = actionLogFile
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    // Realistic chain-insights.result.v1 shape (aml_address_risk ~lines
+    // 995-1000, track_funds ~line 2318): a `facts` object exists but never
+    // carries warnings or search_limits.
+    clientInstance.callTool.mockResolvedValueOnce({
+      content: [{ type: 'text', text: 'risk result' }],
+      isError: false,
+      structuredContent: {
+        schema: 'chain-insights.result.v1',
+        tool: 'aml_address_risk',
+        facts: {
+          subject: { network: 'bittensor', addresses: ['5Grw...'] },
+          risk: { level: 'low' },
+        },
+      },
+    })
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'graph_query_batch')
+    await handler({
+      network: 'bittensor',
+      queries: [{ id: 'q1', query: 'USE topology MATCH (n) RETURN n LIMIT 1' }],
+    })
+
+    const entries = await readJsonl(actionLogFile)
+    const entry = entries.find((e) => e['tool'] === 'graph_query_batch')
+    expect(entry).toBeTruthy()
+    expect(entry?.['warnings']).toBeUndefined()
+    expect(entry?.['search_limits']).toBeUndefined()
   })
 
   it('returns isError:true when remoteClient.callTool throws', async () => {

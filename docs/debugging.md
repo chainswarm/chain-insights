@@ -100,6 +100,12 @@ npx @modelcontextprotocol/inspector \
   --method tools/list
 ```
 
+## Environment Variables
+
+| Variable | Purpose |
+| --- | --- |
+| `CIA_ACTION_LOG` | Optional path to an append-only JSONL audit log of every MCP tool invocation (tool name, arguments, outcome, duration, and any `warnings`/`search_limits` surfaced by the result). Unset by default — no file is written. Intended for unattended runs where an operator or a later reviewing agent needs to see what ran and why a result looked the way it did. Never causes a tool call to fail: a write error (including an unwritable path) is swallowed silently. |
+
 ## Smoke Checks
 
 ```bash
