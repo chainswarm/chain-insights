@@ -119,6 +119,16 @@ async function writeDecision(workspaceRoot: string, decision: ReviewDecisionDoc)
   await writeFile(path.join(dir, name), JSON.stringify(decision, null, 2) + '\n', 'utf8')
 }
 
+// Only detection findings documents may be reviewed: anything outside the
+// workspace detections/ tree (traversal input, arbitrary files) is refused
+// before any read or write happens.
+function assertInDetections(workspaceRoot: string, resolved: string, docPath: string): void {
+  const rel = path.relative(monitorPaths(workspaceRoot).detectionsDir, resolved)
+  if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    throw new Error(`"${docPath}" is not inside the workspace detections/ tree; only detection findings documents can be reviewed`)
+  }
+}
+
 /** Prior decisions for a doc, by workspace-relative identity. */
 async function decisionsForDoc(workspaceRoot: string, resolved: string): Promise<Array<{ file: string; doc: ReviewDecisionDoc }>> {
   const key = docKey(workspaceRoot, resolved)
@@ -156,11 +166,14 @@ export async function approveDoc(
   // and a later absolute-path retry writes a duplicate decision doc —
   // duplicate rows in export labels.
   const resolved = resolveDocPath(workspaceRoot, docPath)
+  assertInDetections(workspaceRoot, resolved, docPath)
   const superseded = await assertUndecidedOrForced(workspaceRoot, resolved, opts?.force)
   const raw = JSON.parse(await readFile(resolved, 'utf8')) as Record<string, unknown>
   const p = monitorPaths(workspaceRoot)
   await mkdir(p.reviewedDir, { recursive: true })
-  const reviewedCopy = path.join(p.reviewedDir, path.basename(resolved))
+  // Keyed by doc identity, not bare basename: two docs with the same basename
+  // in future subtrees can no longer clobber each other's reviewed copy.
+  const reviewedCopy = path.join(p.reviewedDir, `${docHash8(workspaceRoot, resolved)}-${path.basename(resolved)}`)
   await writeFile(reviewedCopy, JSON.stringify({ ...raw, reviewer }, null, 2) + '\n', 'utf8')
   const findings = (raw.findings as Array<{ address: string }> | undefined) ?? []
   await writeDecision(workspaceRoot, {
@@ -179,6 +192,7 @@ export async function rejectDoc(
   // See approveDoc: normalize before use so relative-path rejects also match
   // listPending's absolute doc_path comparison.
   const resolved = resolveDocPath(workspaceRoot, docPath)
+  assertInDetections(workspaceRoot, resolved, docPath)
   const superseded = await assertUndecidedOrForced(workspaceRoot, resolved, opts?.force)
   const raw = JSON.parse(await readFile(resolved, 'utf8')) as { findings?: Array<{ address: string }> }
   await writeDecision(workspaceRoot, {

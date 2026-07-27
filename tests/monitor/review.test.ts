@@ -172,6 +172,25 @@ describe('decision idempotency + --force supersede (R1)', () => {
   })
 })
 
+describe('reviewed-copy keying + detections guard (R1)', () => {
+  it('keys the reviewed copy by doc identity, not bare basename', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '120-mixer-bittensor.findings.json')
+    const { reviewedCopy } = await approveDoc(root, doc, 'ops', 500)
+    expect(path.basename(reviewedCopy)).toBe(`${docHash8(root, doc)}-120-mixer-bittensor.findings.json`)
+    expect(path.dirname(reviewedCopy)).toBe(monitorPaths(root).reviewedDir)
+  })
+
+  it('refuses to approve a path outside the workspace detections/ tree', async () => {
+    const root = await ws()
+    await mkdir(path.join(root, 'elsewhere'), { recursive: true })
+    const outside = path.join(root, 'elsewhere', 'x.findings.json')
+    await writeFile(outside, JSON.stringify({ findings: [] }))
+    await expect(approveDoc(root, outside, 'ops', 500)).rejects.toThrow(/detections\//)
+    await expect(approveDoc(root, '../../../etc/passwd', 'ops', 500)).rejects.toThrow(/detections\//)
+  })
+})
+
 describe('empty findings documents (#232)', () => {
   it('an empty findings doc is not a pending review item', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'cia-review-empty-'))
