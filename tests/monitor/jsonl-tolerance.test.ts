@@ -4,6 +4,7 @@
 // directions — list silently returned [] (every alert vanished), ingest threw
 // (so every later `monitor run` exited 1 and `monitor rebuild` never
 // recovered). Both paths must now skip exactly the torn line and agree.
+import { existsSync } from 'node:fs'
 import { appendFile, mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -126,12 +127,17 @@ describe('torn alerts.jsonl (#212)', () => {
     expect((await listAlerts(root)).map((a) => a.alert_id)).toContain(next.alert_id)
   })
 
-  it('a findings doc is still strict — malformed detection JSON must NOT be silently skipped', async () => {
+  it('a malformed findings doc is quarantined to .corrupt with a warning, never silently skipped', async () => {
     const root = await ws()
     const dir = monitorPaths(root).detectionsDir
     await mkdir(dir, { recursive: true })
-    await writeFile(path.join(dir, '1-mixer-bittensor.findings.json'), '{ not json')
-    // Tolerance is scoped to append-only JSONL logs only.
-    await expect(withStore(root, (store) => ingestNewDocs(store, root))).rejects.toThrow()
+    const file = path.join(dir, '1-mixer-bittensor.findings.json')
+    await writeFile(file, '{ not json')
+    // Durability contract: the malformed doc costs THAT doc only — it is
+    // renamed to .corrupt (visible, never retried) and ingest proceeds.
+    await expect(withStore(root, (store) => ingestNewDocs(store, root))).resolves.toBe(0)
+    expect(existsSync(`${file}.corrupt`)).toBe(true)
+    expect(existsSync(file)).toBe(false)
+    expect(warn).toHaveBeenCalled()
   })
 })

@@ -2,7 +2,7 @@
 // here is reproducible from canonical workspace JSON via rebuildStore(). The
 // writer holds the DB only inside withStore() (one-writer-many-readers rule).
 import { existsSync } from 'node:fs'
-import { mkdir, readdir, readFile, rm } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rename, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { DuckDBInstance } from '@duckdb/node-api'
 import { parseFindingsDocument } from '../investigation/detection-findings.js'
@@ -396,6 +396,13 @@ INGESTORS.push({
 // table and re-ingest from scratch every pass.
 const REPLAY_TABLES: Partial<Record<string, string>> = { alerts: 'alerts', acks: 'alert_acks', cases: 'cases', watchlist: 'watchlist' }
 
+// Per-doc quarantine (durability spec req 3): a malformed doc costs THAT doc,
+// never the run or the rebuild. Rename-to-.corrupt makes the wedge cause
+// visible and stops the doc being retried forever. JSONL logs are exempt —
+// parseJsonlLines already tolerates torn lines, and renaming a whole log
+// would destroy its good records.
+const QUARANTINE_EXEMPT = new Set(['alerts', 'acks', 'watchlist_hits'])
+
 export async function ingestNewDocs(store: MonitorStore, workspaceRoot: string): Promise<number> {
   for (const ingestor of INGESTORS) {
     const table = REPLAY_TABLES[ingestor.kind]
@@ -412,7 +419,14 @@ export async function ingestNewDocs(store: MonitorStore, workspaceRoot: string):
   for (const ingestor of INGESTORS) {
     for (const filePath of await ingestor.listDocs(workspaceRoot)) {
       if (seen.has(filePath)) continue
-      await ingestor.ingest(store, workspaceRoot, filePath)
+      try {
+        await ingestor.ingest(store, workspaceRoot, filePath)
+      } catch (err) {
+        if (QUARANTINE_EXEMPT.has(ingestor.kind)) throw err
+        console.warn(`[monitor] quarantining malformed ${ingestor.kind} doc ${filePath}: ${(err as Error).message}`)
+        await rename(filePath, `${filePath}.corrupt`)
+        continue
+      }
       await store.run('INSERT INTO ingested_docs VALUES ($1,$2)', [filePath, ingestor.kind])
       ingested += 1
     }
