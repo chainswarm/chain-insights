@@ -2,6 +2,7 @@
 // Fail-fast validation; the only silent default is the documented A6 matrix.
 import { readFile } from 'node:fs/promises'
 import * as z from 'zod'
+import { LimitsSchema, NetworkLimitsSchema } from '../config/schema.js'
 import { monitorPaths } from './paths.js'
 
 const CellSchema = z.object({
@@ -32,6 +33,13 @@ const MonitorConfigSchema = z.object({
   webhookUrl: z.string().url().optional(),
   execHook: z.string().min(1).optional(),
   caseMaxHops: z.number().int().min(1).max(4).default(3),
+  // Config-file layer for the tunable search bounds (config/limits.ts), for
+  // unattended runs. `limits` applies to every network, `networkLimits.<net>`
+  // is more specific and wins. Per-cell `params` remain the most specific
+  // layer of all and override both. Validated here so a bad bound fails at
+  // config load, not eight hours into a watch loop.
+  limits: LimitsSchema.optional(),
+  networkLimits: NetworkLimitsSchema.optional(),
   watchlist: WatchlistConfigSchema.optional(),
 })
 

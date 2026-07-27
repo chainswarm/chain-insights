@@ -488,7 +488,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
       network: 'bittensor',
       max_hops: 8,
       incident_timestamp_ms: 1715500000000,
-      per_address_limit: '10',
+      per_address_limit: 10,
       min_amount_sum: '1.5',
     })
   })
@@ -501,7 +501,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     ])).rejects.toThrow('process.exit(1)')
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Unsupported argument for aml_trace_suspect_funds: min_amount_sum. Allowed arguments: suspect_addresses, network, incident_timestamp_ms, max_hops, include_attachments.'
+      'Unsupported argument for aml_trace_suspect_funds: min_amount_sum. Allowed arguments: suspect_addresses, network, incident_timestamp_ms, max_hops, per_address_limit, include_attachments.'
     )
     expect(mockClientConnect).not.toHaveBeenCalled()
     expect(mockTraceSuspectFunds).not.toHaveBeenCalled()
@@ -516,7 +516,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     ])).rejects.toThrow('process.exit(1)')
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      `Unsupported argument for aml_trace_suspect_funds: ${retiredScopeArg}. Allowed arguments: suspect_addresses, network, incident_timestamp_ms, max_hops, include_attachments.`
+      `Unsupported argument for aml_trace_suspect_funds: ${retiredScopeArg}. Allowed arguments: suspect_addresses, network, incident_timestamp_ms, max_hops, per_address_limit, include_attachments.`
     )
     expect(mockClientConnect).not.toHaveBeenCalled()
     expect(mockTraceSuspectFunds).not.toHaveBeenCalled()

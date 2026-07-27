@@ -4,6 +4,14 @@ import path from 'node:path'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import type { InvestigatorConfig } from '../config/schema.js'
+import {
+  LIMIT_SPECS,
+  limitLiteral,
+  limitsReport,
+  resolveLimitDetail,
+  type LimitConfig,
+  type ResolveLimitContext,
+} from '../config/limits.js'
 import { applyShardMergeToBatchEntries } from '../federation/apply-merge.js'
 import { activityWindowPredicates, runFundFlowProbe, type TraceActivityWindow, type TraceFundsResult } from './trace-funds.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
@@ -35,6 +43,29 @@ type QueryFailure = {
 
 const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 10
 const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS = 5 * 60 * 1000
+
+// The tool-level config object doubles as the config-file layer for search
+// bounds. Kept as its own type so every trace entry point takes the same
+// shape and a test can pass `{}` without knowing about limits at all.
+export type TraceToolConfig = Pick<InvestigatorConfig, 'dataDir' | 'serverPort'> & Partial<LimitConfig>
+
+function limitContext(network: string, config?: Partial<LimitConfig>): ResolveLimitContext {
+  return { network, config: { limits: config?.limits, networkLimits: config?.networkLimits } }
+}
+
+// Forward-trace knobs, resolved once at the tool boundary so both entry
+// points share identical precedence and identical rejection behaviour.
+function resolveForwardTraceLimits(
+  network: string,
+  config: Partial<LimitConfig> | undefined,
+  options: { maxHops?: number; perAddressLimit?: number },
+) {
+  const ctx = limitContext(network, config)
+  return {
+    hopDepth: resolveLimitDetail('trace_max_hops', options.maxHops ?? null, ctx),
+    perAddress: resolveLimitDetail('trace_per_address_limit', options.perAddressLimit ?? null, ctx),
+  }
+}
 
 export interface AddressRiskOptions {
   address: string
@@ -1055,6 +1086,13 @@ export interface TraceDepositSourcesOptions {
   network: string
   timeRange?: { from_ms?: number; to_ms?: number }
   maxHops?: number
+  /**
+   * Upstream paths retained per depth, value-ordered. Raising this is the
+   * cheapest way to reach a distant origin behind a high-fan-in deposit —
+   * measured: at 500 the origin was unreachable at four hops, at 5000 the
+   * same trace closed in six seconds. Bounded by `deposit_sources_row_limit`.
+   */
+  rowLimit?: number
   minAmountSum?: number
   writeArtifacts?: boolean
 }
@@ -1522,6 +1560,8 @@ function traceResultFromFundRuns(
     timeRange?: { from_ms?: number; to_ms?: number }
     activityWindow?: TraceActivityWindow
     maxHops?: number
+    /** Effective search bounds of this run (requested vs used vs ceiling). */
+    searchLimits?: ReturnType<typeof limitsReport>
     unresolved?: string[]
     } = {},
 ): { summaryText: string; structuredContent: Record<string, unknown>; graphData: Record<string, unknown> } {
@@ -1639,7 +1679,9 @@ function traceResultFromFundRuns(
       time_filter: options.activityWindow
         ? { from_ms: options.activityWindow.fromMs, ...(options.activityWindow.toMs !== undefined ? { to_ms: options.activityWindow.toMs } : {}) }
         : 'none',
-      max_hops: options.maxHops ?? 3,
+      max_hops: options.maxHops ?? LIMIT_SPECS.trace_max_hops.builtin,
+      // Effective bounds of THIS run: requested vs used vs ceiling.
+      ...(options.searchLimits ? { search_limits: options.searchLimits } : {}),
     },
     summary: {
       seed_count: runs.length,
@@ -1720,7 +1762,7 @@ function traceResultFromFundRuns(
 
 export async function traceVictimFunds(
   remoteClient: Client,
-  config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
+  config: TraceToolConfig,
   options: TraceVictimFundsOptions,
 ): Promise<TraceToolResult> {
   const network = options.network.trim()
@@ -1738,6 +1780,7 @@ export async function traceVictimFunds(
   const victims = uniqueVictims.filter((input) => existingVictims.has(input))
   const unresolvedVictims = uniqueVictims.filter((input) => !existingVictims.has(input))
   const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange)
+  const searchLimits = resolveForwardTraceLimits(network, config, options)
 
   const runs: TraceRun[] = []
   for (const address of victims) {
@@ -1747,8 +1790,8 @@ export async function traceVictimFunds(
       result: await runFundFlowProbe(remoteClient, config, {
         seedAddress: address,
         network,
-        maxHops: options.maxHops,
-        perAddressLimit: options.perAddressLimit,
+        maxHops: searchLimits.hopDepth.used,
+        perAddressLimit: searchLimits.perAddress.used,
         minAmountSum: options.minAmountSum,
         activityWindow,
         includeDepositTraceback: true,
@@ -1761,7 +1804,8 @@ export async function traceVictimFunds(
     incidentTimestampMs: options.incidentTimestampMs,
     timeRange: options.timeRange,
     activityWindow,
-    maxHops: options.maxHops,
+    maxHops: searchLimits.hopDepth.used,
+    searchLimits: limitsReport([searchLimits.hopDepth, searchLimits.perAddress]),
     unresolved: unresolvedVictims,
   })
   return publicizeTraceResult(network, result, options.writeArtifacts !== false)
@@ -1769,7 +1813,7 @@ export async function traceVictimFunds(
 
 export async function traceSuspectFunds(
   remoteClient: Client,
-  config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
+  config: TraceToolConfig,
   options: TraceSuspectFundsOptions,
 ): Promise<TraceToolResult> {
   const network = options.network.trim()
@@ -1783,6 +1827,7 @@ export async function traceSuspectFunds(
   const suspects = uniqueSuspects.filter((input) => existingSuspects.has(input))
   const unresolvedSuspects = uniqueSuspects.filter((input) => !existingSuspects.has(input))
   const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange)
+  const searchLimits = resolveForwardTraceLimits(network, config, options)
 
   const runs: TraceRun[] = []
   for (const address of suspects) {
@@ -1792,8 +1837,8 @@ export async function traceSuspectFunds(
       result: await runFundFlowProbe(remoteClient, config, {
         seedAddress: address,
         network,
-        maxHops: options.maxHops,
-        perAddressLimit: options.perAddressLimit,
+        maxHops: searchLimits.hopDepth.used,
+        perAddressLimit: searchLimits.perAddress.used,
         minAmountSum: options.minAmountSum,
         activityWindow,
         includeDepositTraceback: true,
@@ -1806,21 +1851,28 @@ export async function traceSuspectFunds(
     incidentTimestampMs: options.incidentTimestampMs,
     timeRange: options.timeRange,
     activityWindow,
-    maxHops: options.maxHops,
+    maxHops: searchLimits.hopDepth.used,
+    searchLimits: limitsReport([searchLimits.hopDepth, searchLimits.perAddress]),
     unresolved: unresolvedSuspects,
   })
   return publicizeTraceResult(network, result, options.writeArtifacts !== false)
 }
 
-const REVERSE_DEPOSIT_SOURCES_LIMIT = 500
+// Historical default, now the built-in value of the `deposit_sources_row_limit`
+// knob (see config/limits.ts). Kept as a named export so callers and tests can
+// assert the unconfigured default has not moved.
+export const REVERSE_DEPOSIT_SOURCES_LIMIT = LIMIT_SPECS.deposit_sources_row_limit.builtin
 
 // Exported for regression coverage of the value-ordered truncation
 // (chain-insights#237): the ORDER BY must survive future edits to the query.
+// `rowLimit` defaults to the built-in so the generated query text is
+// byte-identical to the pre-knob version when nothing overrides it.
 export function reverseDepositSourceQueryAtDepth(
   depositAddresses: string[],
   depth: number,
   minAmountSum: number,
   window: TraceActivityWindow | undefined,
+  rowLimit: number = REVERSE_DEPOSIT_SOURCES_LIMIT,
 ): { id: string; query: string } {
   const intermediateVariables = Array.from({ length: Math.max(depth - 1, 0) }, (_, index) => `n${index + 1}`)
   const nodeVariables = ['source', ...intermediateVariables, 'deposit']
@@ -1858,7 +1910,9 @@ export function reverseDepositSourceQueryAtDepth(
       // carry more than its bottleneck edge, so that is the honest measure of
       // how much actually moved along it.
       `ORDER BY path_value_usd DESC`,
-      `LIMIT ${REVERSE_DEPOSIT_SOURCES_LIMIT}`,
+      // limitLiteral re-proves the value is a non-negative integer at the
+      // interpolation site; the knob is already range-checked by resolveLimit.
+      `LIMIT ${limitLiteral(rowLimit)}`,
     ].join(' '),
   }
 }
@@ -1911,7 +1965,7 @@ function htmlEscape(value: unknown): string {
 
 export async function traceDepositSources(
   remoteClient: Client,
-  _config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
+  _config: TraceToolConfig,
   options: TraceDepositSourcesOptions,
 ): Promise<TraceToolResult> {
   const network = options.network.trim()
@@ -1925,7 +1979,13 @@ export async function traceDepositSources(
   const existingDeposits = await probeSeedAddresses(remoteClient, network, uniqueDeposits)
   const deposits = uniqueDeposits.filter((input) => existingDeposits.has(input))
   const unresolvedDeposits = uniqueDeposits.filter((input) => !existingDeposits.has(input))
-  const maxHops = clampInt(options.maxHops, 2, 1, 5)
+  const limitCtx = limitContext(network, _config)
+  // Hop depth and row cap are both tunable now, both hard-bounded, and both
+  // REJECT an over-ceiling request instead of clamping (config/limits.ts).
+  const hopDepth = resolveLimitDetail('deposit_sources_max_hops', options.maxHops ?? null, limitCtx)
+  const rowLimitDetail = resolveLimitDetail('deposit_sources_row_limit', options.rowLimit ?? null, limitCtx)
+  const maxHops = hopDepth.used
+  const rowLimit = rowLimitDetail.used
   const minAmountSum = Math.max(0, options.minAmountSum ?? 0)
   const window = traceActivityWindow(undefined, options.timeRange)
 
@@ -1933,7 +1993,7 @@ export async function traceDepositSources(
     ? await callGraphBatch(
         remoteClient,
         network,
-        Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1, minAmountSum, window)),
+        Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1, minAmountSum, window, rowLimit)),
       )
     : { facts: { queries: [] } }
   const failures: QueryFailure[] = []
@@ -1945,7 +2005,7 @@ export async function traceDepositSources(
       source_is_exchange: reverseDepositSourceRowIsSourceExchange(row),
     }))
   const truncationWarnings = (batch.facts?.queries ?? [])
-    .filter((entry) => entry.id?.startsWith('reverse_deposit_sources_') && (entry.results?.length ?? 0) >= REVERSE_DEPOSIT_SOURCES_LIMIT)
+    .filter((entry) => entry.id?.startsWith('reverse_deposit_sources_') && (entry.results?.length ?? 0) >= rowLimit)
     .map((entry) => {
       // Say what survived, not just that something was cut: rows are ordered
       // by path value, so the analyst needs the weakest retained path to know
@@ -1957,8 +2017,13 @@ export async function traceDepositSources(
         .reduce<number | undefined>((min, value) => (min === undefined || value < min ? value : min), undefined)
       const floor = weakest === undefined
         ? ''
-        : ` Kept the ${REVERSE_DEPOSIT_SOURCES_LIMIT} highest-value paths; the weakest retained path carries ${weakest.toFixed(2)} USD, so any dropped path carries no more than that.`
-      return `${entry.id} hit the ${REVERSE_DEPOSIT_SOURCES_LIMIT}-row limit; results are truncated.${floor}`
+        : ` Kept the ${rowLimit} highest-value paths; the weakest retained path carries ${weakest.toFixed(2)} USD, so any dropped path carries no more than that.`
+      // Name the knob that bit and its headroom, so raising it is a one-step
+      // action rather than a code read.
+      const knob = rowLimit < rowLimitDetail.ceiling
+        ? ` Raise row_limit (currently ${rowLimit}, max ${rowLimitDetail.ceiling}) to retain more.`
+        : ` row_limit is already at its ceiling of ${rowLimitDetail.ceiling}.`
+      return `${entry.id} hit the ${rowLimit}-row limit; results are truncated.${floor}${knob}`
     })
   const addresses = new Map<string, {
     address: string
@@ -2119,6 +2184,10 @@ export async function traceDepositSources(
           ? { from_ms: window.fromMs, ...(window.toMs !== undefined ? { to_ms: window.toMs } : {}) }
           : 'none',
         max_hops: maxHops,
+        // Effective bounds of THIS run: requested vs used vs ceiling. A
+        // bounded search must be visible in the result itself, not only in a
+        // warning an analyst may skim past.
+        search_limits: limitsReport([hopDepth, rowLimitDetail]),
       },
       summary: {
         seed_count: deposits.length,
@@ -2172,7 +2241,7 @@ export async function traceDepositSources(
 
 export async function trackFunds(
   remoteClient: Client,
-  config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
+  config: TraceToolConfig,
   options: TrackFundsOptions,
 ): Promise<{
   summaryText: string

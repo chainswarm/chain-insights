@@ -3,6 +3,51 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.18] - 2026-07-27 — search bounds are tunable, bounded, and visible
+
+- feat: every search bound in the investigation and detection tools is now a
+  named knob with a published default and a hard ceiling, instead of a constant
+  compiled into one call site. The motivating case was measured, not
+  hypothetical: on a real high-fan-in deposit the reverse-trace row cap of 500
+  left the origin unreachable at four hops, while 5000 closed the full
+  deposit-to-origin chain in about six seconds. The cap, not the depth, was the
+  binding constraint — and a value that generous would be badly wrong on a
+  quieter chain. See `docs/search-limits.md` for the full table.
+- feat: bounds resolve through four layers, highest first: the per-call
+  argument, then `networkLimits.<network>` in the config file, then `limits`
+  for all networks, then the per-network default table, then the built-in.
+  Unattended monitor runs read the same two config blocks, with per-cell
+  `params` remaining the most specific layer.
+- feat: `aml_trace_deposit_sources` accepts `row_limit`; `aml_trace_victim_funds`
+  and `aml_trace_suspect_funds` accept `per_address_limit`. Both are also
+  available as `cia` flags. Detector bounds stay on `--param`.
+- feat: trace results report `input.search_limits` — what was requested, what
+  was used, the unconfigured default, and the ceiling — so a bounded search is
+  visible without reading warnings. Truncation warnings now name the knob that
+  bit and how much headroom it still has.
+- change: a request above a ceiling is REJECTED with an error naming the knob
+  and its limit, rather than clamped. A silently clamped search returns a
+  result that reads as exhaustive when it is not, which is the same class of
+  failure as the arbitrary truncation this work exists to fix.
+- change: hop depth is bounded harder than any other knob, because its cost
+  grows exponentially rather than linearly — three hops produced 5,201 paths
+  against a real deposit where four produced 10,201, and five exhausted the
+  graph backend's memory outright. Hop ceilings are at most 5 and never more
+  than three above the shipped default, and they cannot be raised from the
+  per-call layer; a per-network entry may lower a ceiling, but only a code
+  change raises the absolute maximum.
+- fix: the attack-attribution detector accepted any non-negative `max_hops`,
+  `max_frontier`, or `max_rows` from a `--param` or a monitor config with no
+  upper bound at all — a live way to hang the graph from a config file. All
+  three are now range-checked.
+- fix: `per_address_limit` and `row_limit` are registered in the MCP proxy's
+  argument allowlist and in the CLI's numeric-argument set. An argument absent
+  from either is silently dropped with no error; a contract test now proves,
+  for every public tool, that each declared schema argument is allowlisted.
+- note: defaults are unchanged. Every existing call that passes no override
+  produces byte-identical query text and identical results, pinned by a test
+  that asserts each default against its previously hardcoded literal.
+
 ## [0.11.17] - 2026-07-27 — devkit smoke: known-answer case tracking over a real theft corridor
 
 - devkit: `smoke-monitor.sh` gains Phase I, a known-answer case-tracking
@@ -19,8 +64,7 @@ All notable changes to Chain Insights are recorded here.
   and `watchlist_movement` (via `case_movements`) on the next run, and both
   dedupe by `source_ref` across idle re-runs.
 - devkit: regression rows for #232 — an idle re-run adds no pending reviews,
-  and `review list` never lists a zero-findings document.
-## [0.11.16] - 2026-07-27 — deposit tracing keeps the highest-value paths when it truncates
+  and `review list` never lists a zero-findings document.## [0.11.16] - 2026-07-27 — deposit tracing keeps the highest-value paths when it truncates
 
 - fix: `aml_trace_deposit_sources` capped each hop's reverse paths with a bare
   row limit and no ordering, so the backend returned an arbitrary slice of

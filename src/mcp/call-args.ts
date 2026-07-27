@@ -1,7 +1,13 @@
+// `cia mcp call tool key=value` yields strings. A key listed here is coerced
+// to a number; anything else stays a string and is rejected by the tool's
+// numeric zod schema. Every tunable search bound must therefore appear here,
+// or passing it from the CLI fails with a confusing type error.
 const NUMERIC_ARG_KEYS = new Set([
   'per_query_timeout_seconds',
   'incident_timestamp_ms',
   'max_hops',
+  'per_address_limit',
+  'row_limit',
 ])
 
 function parseMcpArgValue(key: string, value: string): unknown {

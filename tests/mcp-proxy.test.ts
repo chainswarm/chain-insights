@@ -2005,10 +2005,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       registerTool: ReturnType<typeof vi.fn>
     }
     const config = findToolConfig(serverInstance, 'aml_trace_deposit_sources')
-    const inputSchema = config.inputSchema as Record<string, unknown>
+    const inputSchema = config.inputSchema as Record<string, { description?: string } | undefined>
     expect(inputSchema.max_hops).toBeDefined()
     expect(inputSchema.time_range).toBeUndefined()
     expect(inputSchema.min_amount_sum).toBeUndefined()
+    // row_limit IS exposed: it is the knob that decides whether a distant
+    // origin behind a high-fan-in deposit is reachable at all. Its description
+    // must advertise the default and the hard ceiling.
+    expect(inputSchema.row_limit?.description).toContain('Default 500, max 20000.')
     expect(inputSchema.per_address_limit).toBeUndefined()
 
     const handler = findToolHandler(serverInstance, 'aml_trace_deposit_sources')
@@ -2016,6 +2020,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       deposit_addresses: ['5Deposit'],
       network: 'bittensor',
       max_hops: 2,
+      // The tuning knob must survive the proxy's argument handling and land on
+      // the tool call. If it were missing from PUBLIC_MCP_TOOL_ALLOWED_ARGS it
+      // would be silently stripped here and the assertion below would fail
+      // with the caller none the wiser at runtime.
+      row_limit: 5000,
       min_amount_sum: 25,
       time_range: { from_ms: 1715500000000 },
     })
@@ -2025,6 +2034,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       depositAddresses: ['5Deposit'],
       network: 'bittensor',
       maxHops: 2,
+      rowLimit: 5000,
     }))
     expect(traceDepositSourcesMock.mock.calls[0]?.[2]).not.toHaveProperty('minAmountSum')
     expect(traceDepositSourcesMock.mock.calls[0]?.[2]).not.toHaveProperty('timeRange')
@@ -2094,7 +2104,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(inputSchema.max_hops?.description).toContain('Trace depth in hops')
     expect(inputSchema.time_range).toBeUndefined()
     expect(inputSchema.min_amount_sum).toBeUndefined()
-    expect(inputSchema.per_address_limit).toBeUndefined()
+    // per_address_limit IS exposed now: it is a bounded tuning knob, and its
+    // description must advertise the default and the hard ceiling.
+    expect(inputSchema.per_address_limit?.description).toContain('Default 5, max 50.')
 
     const handler = findToolHandler(serverInstance, 'aml_trace_victim_funds')
     const result = await handler({

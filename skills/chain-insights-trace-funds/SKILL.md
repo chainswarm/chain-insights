@@ -77,8 +77,48 @@ Example:
 ```bash
 cia mcp trace-victim-funds --network bittensor --victim-addresses 5... --max-hops 3
 cia mcp trace-deposit-sources --network bittensor --deposit-addresses 5... --max-hops 2
-cia mcp trace-suspect-funds --network bittensor --suspect-addresses 5... --max-hops 16
+cia mcp trace-suspect-funds --network bittensor --suspect-addresses 5... --max-hops 3
 ```
+
+## Search Limits
+
+Every trace is bounded. When a trace comes back empty or shallow, check
+whether a bound was the constraint before concluding the funds went nowhere.
+
+Read `input.search_limits` in the result. It reports, per knob, what was
+requested, what was used, the unconfigured default, and the hard ceiling:
+
+```json
+"search_limits": {
+  "deposit_sources_row_limit": { "used": 500, "default": 500, "ceiling": 20000 }
+}
+```
+
+Also read `warnings`. A cap that was actually hit reports what was lost, for
+example the weakest retained path value on a truncated reverse trace — anything
+dropped carries no more than that.
+
+Raising a bound, per call:
+
+| Tool | Argument | Default | Ceiling |
+| --- | --- | --- | --- |
+| `aml_trace_victim_funds` / `aml_trace_suspect_funds` | `max_hops` | 3 | 5 |
+| `aml_trace_victim_funds` / `aml_trace_suspect_funds` | `per_address_limit` | 5 | 50 |
+| `aml_trace_deposit_sources` | `max_hops` | 2 | 5 |
+| `aml_trace_deposit_sources` | `row_limit` | 500 | 20000 |
+
+Reach for `row_limit` before `max_hops`. Row-limit cost is close to linear;
+hop cost grows exponentially, and on a high-fan-in deposit the row cap is
+usually the binding constraint, not the depth. Raising `row_limit` from 500 to
+5000 on a real case made an origin reachable that four hops alone could not
+find, in about six seconds.
+
+Asking for more than a ceiling returns an error naming the knob and its limit.
+It is never silently reduced — a clamped search would look exhaustive when it
+is not.
+
+For persistent values across runs, set `limits` / `networkLimits` in
+`~/.chain-insights/config.json`. Per-call arguments always win over config.
 
 All three tools return `chain-insights.trace.v1` with:
 

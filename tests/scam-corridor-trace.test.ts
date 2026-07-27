@@ -128,11 +128,19 @@ describe('scamCorridorTrace hard caps (AC2)', () => {
     expect(WALL_CLOCK_BUDGET_MS).toBe(120_000)
   })
 
-  it('clamps maxHops to the hard cap even if a caller asks for more', async () => {
+  it('REJECTS an oversized maxHops instead of silently clamping it', async () => {
+    // Silently clamping 999 down to 4 would hand back a four-hop corridor that
+    // reads as the 999-hop search the caller asked for. Corridor cost grows
+    // exponentially with depth, so the ceiling is hard and the failure is loud.
     const remote = stubClient([])
-    await scamCorridorTrace(remote as never, { seedAddress: 'seed', network: 'bittensor', maxHops: 999, writeArtifacts: false })
-    // No neighbors returned, so the loop stops after hop 1 regardless; this
-    // test only proves the call does not reject/hang on an oversized maxHops.
+    await expect(scamCorridorTrace(remote as never, { seedAddress: 'seed', network: 'bittensor', maxHops: 999, writeArtifacts: false }))
+      .rejects.toThrow(/corridor_max_hops must be an integer between 1 and 4/)
+    expect(remote.callTool).not.toHaveBeenCalled()
+  })
+
+  it('accepts a maxHops at the ceiling', async () => {
+    const remote = stubClient([])
+    await scamCorridorTrace(remote as never, { seedAddress: 'seed', network: 'bittensor', maxHops: MAX_HOPS_CAP, writeArtifacts: false })
     expect(remote.callTool).toHaveBeenCalled()
   })
 
