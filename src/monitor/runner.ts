@@ -27,6 +27,7 @@ export interface CellOutcome {
   scope_expansions_count?: number
   confirmed_unchanged?: boolean
   snapshot_hash?: string
+  rendered?: boolean
   findings_path?: string
   duration_ms: number
   error?: string
@@ -45,6 +46,9 @@ export interface RunnerHooks {
   runDetection?: typeof runOneDetection
   traceCase?: (client: Client, workspaceRoot: string, caseId: string, maxHops: number, nowTimestamp: number, hooks?: unknown, limits?: { limits?: Record<string, number>; networkLimits?: Record<string, Record<string, number>> }) => Promise<{ movements_count: number; scope_expansions_count?: number; confirmed_unchanged?: boolean; snapshot_hash?: string; alerts: Omit<AlertEvent, 'alert_id' | 'emitted_at_timestamp'>[] }>
   usage?: (client: Client) => Promise<unknown | null>
+  // Investigation-output render pass (spec 3): optional hook, same pattern as
+  // traceCase — the CLI wires the real renderCase; tests inject fakes.
+  renderCase?: (client: Client, workspaceRoot: string, caseId: string, config: MonitorConfig, nowTimestamp: number) => Promise<{ rendered: boolean; skipped_reason?: string }>
 }
 
 // Remote usage_status is optional (devkit serves it unmetered; a backend that
@@ -124,6 +128,24 @@ export async function runMonitorOnce(
             outcome.snapshot_hash = traced.snapshot_hash
           }
           alertsPending.push(...traced.alerts)
+        } catch (err) {
+          outcome.error = (err as Error).message
+        }
+        outcome.duration_ms = Date.now() - started
+        doc.cells.push(outcome)
+      }
+    }
+    // Render pass: after tracing (it renders what the trace cells just
+    // wrote). A skip is byte-free — no cell — matching the watchlist no-op
+    // convention; errors are isolated per case exactly like trace cells.
+    if (hooks.renderCase) {
+      for (const openCase of await listCases(workspaceRoot, { openOnly: true })) {
+        const started = Date.now()
+        const outcome: CellOutcome = { cell: `render:${openCase.case_id}`, case_id: openCase.case_id, network: openCase.network, duration_ms: 0 }
+        try {
+          const result = await hooks.renderCase(client, workspaceRoot, openCase.case_id, config, nowTimestamp)
+          if (!result.rendered) continue
+          outcome.rendered = true
         } catch (err) {
           outcome.error = (err as Error).message
         }
