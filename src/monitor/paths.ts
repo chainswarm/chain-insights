@@ -19,6 +19,7 @@ export interface MonitorPaths {
   reviewedDir: string
   casesDir: string
   reportsDir: string
+  lockPath: string
 }
 
 export function monitorPaths(workspaceRoot: string): MonitorPaths {
@@ -43,5 +44,6 @@ export function monitorPaths(workspaceRoot: string): MonitorPaths {
     reviewedDir: path.join(root, 'detections', 'reviewed'),
     casesDir: path.join(root, 'cases'),
     reportsDir: path.join(root, 'reports', 'monitor'),
+    lockPath: path.join(root, '.cia-monitor.lock'),
   }
 }

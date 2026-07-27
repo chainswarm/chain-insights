@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 describe('cia monitor CLI surface', () => {
@@ -23,5 +24,14 @@ describe('cia monitor CLI surface', () => {
     for (const cmd of ['add', 'list', 'remove']) {
       expect(sub).toContain(cmd)
     }
+  })
+
+  it('monitor run and watch acquire the PID run lock (spec req 4)', () => {
+    // CLI actions are wired, not unit-run: assert at the source level that
+    // both loop entry points go through acquireRunLock.
+    const src = readFileSync('src/cli.ts', 'utf8')
+    const matches = src.match(/acquireRunLock\(workspaceRoot\)/g) ?? []
+    expect(matches.length).toBeGreaterThanOrEqual(2)
+    expect(src).toContain('already running (pid ')
   })
 })

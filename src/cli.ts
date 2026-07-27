@@ -966,16 +966,30 @@ monitor
       const { loadMonitorConfig } = await import('./monitor/config.js')
       const { runMonitorOnce, MONITOR_EXIT_ISOLATED } = await import('./monitor/runner.js')
       const { traceCase } = await import('./monitor/tracker.js')
-      const config = await loadMonitorConfig(workspaceRoot)
-      const doc = await withGraphMcpClient('chain-insights-cli-monitor', async (client) =>
-        runMonitorOnce(client, workspaceRoot, config, Date.now(), {
-          traceCase: (c, root, id, hops, now) => traceCase(c, root, id, hops, now),
-        }),
-      )
-      const failed = doc.cells.filter((c) => c.error)
-      console.log(`[monitor] run ${doc.run_timestamp}: ${doc.cells.length} cell(s), ${doc.alerts_emitted} alert(s)${doc.halted ? `, HALTED: ${doc.halted}` : ''}`)
-      for (const cell of failed) console.error(`[monitor]   ${cell.cell} FAILED: ${cell.error}`)
-      if (failed.length > 0) process.exit(MONITOR_EXIT_ISOLATED)
+      const { acquireRunLock } = await import('./monitor/lock.js')
+      const lock = await acquireRunLock(workspaceRoot)
+      if (!lock.acquired) {
+        console.log(`[monitor] already running (pid ${lock.holderPid}); exiting`)
+        return
+      }
+      // process.exit inside the try would skip the release, so the exit code is
+      // captured and applied only AFTER the lock is released.
+      let exitCode = 0
+      try {
+        const config = await loadMonitorConfig(workspaceRoot)
+        const doc = await withGraphMcpClient('chain-insights-cli-monitor', async (client) =>
+          runMonitorOnce(client, workspaceRoot, config, Date.now(), {
+            traceCase: (c, root, id, hops, now) => traceCase(c, root, id, hops, now),
+          }),
+        )
+        const failed = doc.cells.filter((c) => c.error)
+        console.log(`[monitor] run ${doc.run_timestamp}: ${doc.cells.length} cell(s), ${doc.alerts_emitted} alert(s)${doc.halted ? `, HALTED: ${doc.halted}` : ''}`)
+        for (const cell of failed) console.error(`[monitor]   ${cell.cell} FAILED: ${cell.error}`)
+        if (failed.length > 0) exitCode = MONITOR_EXIT_ISOLATED
+      } finally {
+        await lock.release()
+      }
+      if (exitCode !== 0) process.exit(exitCode)
     } catch (err) {
       console.error((err as Error).message)
       process.exit(1)
@@ -993,16 +1007,26 @@ monitor
       const { loadMonitorConfig } = await import('./monitor/config.js')
       const { runMonitorOnce } = await import('./monitor/runner.js')
       const { traceCase } = await import('./monitor/tracker.js')
-      const config = await loadMonitorConfig(workspaceRoot)
-      const intervalMs = Math.max(60, Number(opts.interval) || config.intervalSeconds) * 1000
-      // eslint-disable-next-line no-constant-condition
-      for (;;) {
-        await withGraphMcpClient('chain-insights-cli-monitor', async (client) =>
-          runMonitorOnce(client, workspaceRoot, config, Date.now(), {
-            traceCase: (c, root, id, hops, now) => traceCase(c, root, id, hops, now),
-          }),
-        ).catch((err) => console.error(`[monitor] run failed: ${(err as Error).message}`))
-        await new Promise((resolve) => setTimeout(resolve, intervalMs))
+      const { acquireRunLock } = await import('./monitor/lock.js')
+      const lock = await acquireRunLock(workspaceRoot)
+      if (!lock.acquired) {
+        console.log(`[monitor] already running (pid ${lock.holderPid}); exiting`)
+        return
+      }
+      try {
+        const config = await loadMonitorConfig(workspaceRoot)
+        const intervalMs = Math.max(60, Number(opts.interval) || config.intervalSeconds) * 1000
+        // eslint-disable-next-line no-constant-condition
+        for (;;) {
+          await withGraphMcpClient('chain-insights-cli-monitor', async (client) =>
+            runMonitorOnce(client, workspaceRoot, config, Date.now(), {
+              traceCase: (c, root, id, hops, now) => traceCase(c, root, id, hops, now),
+            }),
+          ).catch((err) => console.error(`[monitor] run failed: ${(err as Error).message}`))
+          await new Promise((resolve) => setTimeout(resolve, intervalMs))
+        }
+      } finally {
+        await lock.release()
       }
     } catch (err) {
       console.error((err as Error).message)
