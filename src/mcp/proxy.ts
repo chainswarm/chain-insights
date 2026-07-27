@@ -386,6 +386,29 @@ function installToolLogging(server: McpServer, logger: ReturnType<typeof createM
   server.registerTool = wrappedRegisterTool
 }
 
+// Where `warnings` and `search_limits` live depends on which public-tool
+// response schema the remote result carries — they are not both under a
+// `facts` object as an earlier draft of this file assumed:
+//   - chain-insights.trace.v1 (aml_trace_deposit_sources and friends,
+//     src/investigation/public-tools.ts ~lines 2174-2224): `warnings` sits at
+//     the structuredContent top level; `search_limits` is nested under
+//     `structuredContent.input.search_limits`.
+//   - chain-insights.result.v1 (aml_address_risk ~lines 995-1000,
+//     track_funds ~line 2318): a `facts` object exists, but it never carries
+//     either field — there is nothing to source there.
+function actionLogSignalsFromResult(result: unknown): { warnings?: string[]; search_limits?: Record<string, unknown> } {
+  const structuredContent = isRecord(result) ? result['structuredContent'] : undefined
+  if (!isRecord(structuredContent)) return {}
+  const warnings = Array.isArray(structuredContent['warnings'])
+    ? (structuredContent['warnings'] as string[])
+    : undefined
+  const input = structuredContent['input']
+  const search_limits = isRecord(input) && isRecord(input['search_limits'])
+    ? (input['search_limits'] as Record<string, unknown>)
+    : undefined
+  return { warnings, search_limits }
+}
+
 function installRemoteCypherLogging(remoteClient: RemoteToolCaller, logger: ReturnType<typeof createMcpLogger>): void {
   const existingCallTool = remoteClient.callTool
   const originalCallTool = existingCallTool.bind(remoteClient)
@@ -409,15 +432,15 @@ function installRemoteCypherLogging(remoteClient: RemoteToolCaller, logger: Retu
           is_error: isRecord(result) && result.isError === true,
         })
       }
-      const facts = (result as { structuredContent?: { facts?: Record<string, unknown> } })?.structuredContent?.facts
+      const { warnings, search_limits } = actionLogSignalsFromResult(result)
       await appendActionLog({
         ts_ms: startedAt,
         tool: input.name,
         args: toolArgs,
         outcome: 'ok',
         duration_ms: Date.now() - startedAt,
-        warnings: Array.isArray(facts?.['warnings']) ? (facts!['warnings'] as string[]) : undefined,
-        search_limits: (facts?.['search_limits'] as Record<string, unknown>) ?? undefined,
+        warnings,
+        search_limits,
       })
       return result
     } catch (err) {
