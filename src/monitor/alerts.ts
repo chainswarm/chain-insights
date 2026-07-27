@@ -59,8 +59,16 @@ export async function appendAlerts(
   const p = monitorPaths(workspaceRoot)
   await mkdir(p.alertsDir, { recursive: true })
   const existing = await readJsonl<AlertEvent>(p.alertsLog)
-  const seqBase = existing.filter((e) => e.run_timestamp === events[0].run_timestamp).length
-  const stamped = events.map((e, i) => ({ ...e, alert_id: `${e.run_timestamp}-${seqBase + i}-${e.type}`, emitted_at_timestamp: nowTimestamp }))
+  // Sequence numbers are PER run_timestamp: a mixed-run batch (outbox
+  // re-delivery + new work) must not mint an id that collides with a prior
+  // emit for another run.
+  const seq = new Map<number, number>()
+  for (const e of existing) seq.set(e.run_timestamp, (seq.get(e.run_timestamp) ?? 0) + 1)
+  const stamped = events.map((e) => {
+    const n = seq.get(e.run_timestamp) ?? 0
+    seq.set(e.run_timestamp, n + 1)
+    return { ...e, alert_id: `${e.run_timestamp}-${n}-${e.type}`, emitted_at_timestamp: nowTimestamp }
+  })
   // A torn final line (kill mid-append) has no trailing newline, so a plain
   // append would concatenate onto it and destroy the NEW record too — one
   // crash would then cost every alert emitted afterwards. Re-terminate first

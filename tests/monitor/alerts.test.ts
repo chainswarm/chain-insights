@@ -51,6 +51,24 @@ describe('monitor alerts', () => {
   })
 })
 
+describe('alert sequencing (R6)', () => {
+  it('a batch with mixed run_timestamps gets collision-free alert_ids', async () => {
+    const root = await ws()
+    await emitAlerts(root, [
+      { type: 'new_findings', network: 'bittensor', run_timestamp: 200 },
+      { type: 'case_movement', network: 'bittensor', run_timestamp: 200 },
+    ], 900) // existing ids: 200-0, 200-1
+    const emitted = await emitAlerts(root, [
+      { type: 'new_findings', network: 'bittensor', run_timestamp: 100 },
+      { type: 'cashout_endpoint', network: 'bittensor', run_timestamp: 200 }, // old seqBase keyed off events[0] (=100, count 0) → '200-1-...' collided with the prior emit
+    ], 901)
+    const all = await listAlerts(root)
+    const ids = all.map((a) => a.alert_id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(emitted.map((e) => e.alert_id)).toEqual(['100-0-new_findings', '200-2-cashout_endpoint'])
+  })
+})
+
 describe('hook timeouts (R4)', () => {
   it('kills a hung exec hook after hookTimeoutMs without failing the run', async () => {
     const root = await ws()
