@@ -16,6 +16,7 @@ import type { McpTool } from './schema-cache.js'
 import { HIDDEN_REMOTE_TOOL_NAMES, PUBLIC_MCP_TOOL_ALLOWED_ARGS, PUBLIC_MCP_TOOL_REQUIRED_ARGS } from './tool-visibility.js'
 import { PaymentRequiredError } from './client.js'
 import { primitiveBackendUsageStatus } from './usage-status.js'
+import { appendActionLog } from './action-log.js'
 
 const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -391,6 +392,7 @@ function installRemoteCypherLogging(remoteClient: RemoteToolCaller, logger: Retu
   const wrappedCallTool = (async (...args: Parameters<Client['callTool']>) => {
     const input = args[0] as ToolCallInput
     const queryPayload = cypherLogPayload(input.name, input.arguments)
+    const toolArgs = input.arguments ?? {}
     const startedAt = Date.now()
     if (queryPayload) {
       await logger.info('topology.start', {
@@ -407,6 +409,16 @@ function installRemoteCypherLogging(remoteClient: RemoteToolCaller, logger: Retu
           is_error: isRecord(result) && result.isError === true,
         })
       }
+      const facts = (result as { structuredContent?: { facts?: Record<string, unknown> } })?.structuredContent?.facts
+      await appendActionLog({
+        ts_ms: startedAt,
+        tool: input.name,
+        args: toolArgs,
+        outcome: 'ok',
+        duration_ms: Date.now() - startedAt,
+        warnings: Array.isArray(facts?.['warnings']) ? (facts!['warnings'] as string[]) : undefined,
+        search_limits: (facts?.['search_limits'] as Record<string, unknown>) ?? undefined,
+      })
       return result
     } catch (err) {
       if (queryPayload) {
@@ -416,6 +428,14 @@ function installRemoteCypherLogging(remoteClient: RemoteToolCaller, logger: Retu
           error: errorForLog(err),
         })
       }
+      await appendActionLog({
+        ts_ms: startedAt,
+        tool: input.name,
+        args: toolArgs,
+        outcome: 'error',
+        duration_ms: Date.now() - startedAt,
+        error: (err as Error).message,
+      })
       throw err
     }
   }) as typeof remoteClient.callTool

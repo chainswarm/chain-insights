@@ -3,6 +3,18 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.20] - 2026-07-27 — optional action log for unattended runs
+
+- feat: optional append-only JSONL action log of every MCP tool invocation,
+  gated behind the `CIA_ACTION_LOG` environment variable and off by default.
+  Each entry records the tool name, arguments, outcome, duration, and any
+  `warnings`/`search_limits` the result surfaced — the signal an operator or a
+  later reviewing agent needs to audit what ran unattended and tell "found
+  nothing" from "hit a cap" without re-running anything. A log write can never
+  fail or stall the tool call it observes: errors are swallowed, and the write
+  is bounded by a short internal timeout so a pathological target path cannot
+  hang the caller.
+
 ## [0.11.19] - 2026-07-27 — a case's seeds are no longer fixed at creation
 
 - feat: `cia monitor case add-seed <case-id> --address <addr...> [--note]` and
