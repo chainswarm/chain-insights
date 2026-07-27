@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { mkdtemp, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { approveDoc, approvedAddressesForCase, docHash8, docKey, effectiveDecisions, listDecisionDocs, listPending, rejectDoc } from '../../src/monitor/review.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
 import { exportLabels } from '../../src/monitor/export.js'
@@ -188,6 +188,19 @@ describe('reviewed-copy keying + detections guard (R1)', () => {
     await writeFile(outside, JSON.stringify({ findings: [] }))
     await expect(approveDoc(root, outside, 'ops', 500)).rejects.toThrow(/detections\//)
     await expect(approveDoc(root, '../../../etc/passwd', 'ops', 500)).rejects.toThrow(/detections\//)
+  })
+})
+
+describe('read-path tolerance (R5)', () => {
+  it('listPending skips a malformed findings file with a warning instead of throwing', async () => {
+    const root = await ws()
+    await seedDoc(root, '130-mixer-bittensor.findings.json')
+    await writeFile(path.join(monitorPaths(root).detectionsDir, '131-mixer-bittensor.findings.json'), '{ not json')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const pending = await listPending(root)
+    expect(pending).toHaveLength(1)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('131-mixer-bittensor.findings.json'))
+    warn.mockRestore()
   })
 })
 

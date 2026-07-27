@@ -32,7 +32,15 @@ export async function listDecisionEntries(workspaceRoot: string): Promise<Array<
     return []
   }
   const entries: Array<{ file: string; doc: ReviewDecisionDoc }> = []
-  for (const f of files.sort()) entries.push({ file: f, doc: JSON.parse(await readFile(path.join(dir, f), 'utf8')) as ReviewDecisionDoc })
+  for (const f of files.sort()) {
+    // Per-file tolerance (R5): one torn decision file must not take down
+    // review list, label export, or approvedAddressesForCase.
+    try {
+      entries.push({ file: f, doc: JSON.parse(await readFile(path.join(dir, f), 'utf8')) as ReviewDecisionDoc })
+    } catch (err) {
+      console.warn(`[monitor] skipping unreadable findings/decision file ${f}: ${(err as Error).message}`)
+    }
+  }
   return entries
 }
 
@@ -92,7 +100,17 @@ export async function listPending(workspaceRoot: string): Promise<Array<{ doc_pa
   for (const f of files.sort()) {
     const docPath = path.join(p.detectionsDir, f)
     if (decided.has(docKey(workspaceRoot, docPath))) continue
-    const doc = JSON.parse(await readFile(docPath, 'utf8')) as { tool: string; network: string; findings: unknown[] }
+    // Per-file tolerance (R5): a malformed findings file costs that file only,
+    // with a warning — never the whole review queue. A doc whose `findings` is
+    // not an array is malformed too, not "zero findings".
+    let doc: { tool: string; network: string; findings: unknown[] }
+    try {
+      doc = JSON.parse(await readFile(docPath, 'utf8')) as typeof doc
+      if (!Array.isArray(doc.findings)) throw new Error('findings is not an array')
+    } catch (err) {
+      console.warn(`[monitor] skipping unreadable findings/decision file ${f}: ${(err as Error).message}`)
+      continue
+    }
     // A document with no findings has nothing to review. Full-state detectors
     // emit one per suppressed cell on every run (they record the suppression
     // count in `warnings`), so enqueueing them buries the real items: a live

@@ -45,7 +45,16 @@ export async function exportLabels(workspaceRoot: string, nowTimestamp: number):
     if (decision.decision !== 'approve' || !decision.reviewed_copy) continue
     // One read per decision doc — reviewer, tool, network, and findings all
     // come off this single parse (do NOT re-read reviewed_copy per field).
-    const doc = JSON.parse(await readFile(decision.reviewed_copy, 'utf8')) as ReviewedFindingsDoc
+    // Per-decision tolerance (R5): an unreadable/malformed reviewed copy costs
+    // that decision only, with a warning — never the whole export.
+    let doc: ReviewedFindingsDoc
+    try {
+      doc = JSON.parse(await readFile(decision.reviewed_copy, 'utf8')) as ReviewedFindingsDoc
+      if (!Array.isArray(doc.findings)) throw new Error('findings is not an array')
+    } catch (err) {
+      console.warn(`[monitor] skipping unreadable findings/decision file ${decision.reviewed_copy}: ${(err as Error).message}`)
+      continue
+    }
     for (const f of doc.findings) {
       const label = f.classification ?? (f.exchange_like === true ? 'exchange candidate' : f.gate)
       if (!label) continue
