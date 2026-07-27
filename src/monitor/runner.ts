@@ -2,8 +2,9 @@
 // The monitor run loop (spec principle 1): a SEQUENCE of tool calls — detection
 // cores, case tracker, ingest, alert emit — with per-cell isolation. No
 // detection logic lives here.
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
+import { writeJsonAtomic } from './atomic.js'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { runOneDetection } from '../detection/run.js'
 import type { AlertEvent } from './alerts.js'
@@ -148,7 +149,7 @@ export async function runMonitorOnce(
   doc.usage_after = await usage(client)
   const p = monitorPaths(workspaceRoot)
   await mkdir(p.runsDir, { recursive: true })
-  await writeFile(path.join(p.runsDir, `${nowTimestamp}.run.json`), JSON.stringify(doc, null, 2) + '\n', 'utf8')
+  await writeJsonAtomic(path.join(p.runsDir, `${nowTimestamp}.run.json`), doc)
   await withStore(workspaceRoot, async (store) => ingestNewDocs(store, workspaceRoot))
   return doc
 }

@@ -2,8 +2,9 @@
 // Case registry (spec UC-6/UC-7). cases/<id>/case.json is canonical; the store
 // `cases` table is derived. A case is incident-centric (a theft, a scam
 // cluster) — distinct from the phase-2 my-address watchlist.
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
+import { writeJsonAtomic } from './atomic.js'
 import { monitorPaths } from './paths.js'
 
 /** One mutation of the seed set, in order. The case timeline's explanation for
@@ -76,7 +77,7 @@ function assertOpen(current: MonitorCase, verb: string): void {
 async function writeCase(workspaceRoot: string, next: MonitorCase): Promise<MonitorCase> {
   const file = caseFile(workspaceRoot, next.case_id)
   await mkdir(path.dirname(file), { recursive: true })
-  await writeFile(file, JSON.stringify(next, null, 2) + '\n', 'utf8')
+  await writeJsonAtomic(file, next)
   return next
 }
 
@@ -97,7 +98,7 @@ export async function addCase(
   if (exists) throw new Error(`case "${input.case_id}" already exists`)
   const created: MonitorCase = { ...input, seeds, status: 'open', created_at_timestamp: nowTimestamp }
   await mkdir(path.dirname(file), { recursive: true })
-  await writeFile(file, JSON.stringify(created, null, 2) + '\n', 'utf8')
+  await writeJsonAtomic(file, created)
   return created
 }
 
@@ -181,6 +182,6 @@ export async function closeCase(workspaceRoot: string, caseId: string, nowTimest
   const file = caseFile(workspaceRoot, caseId)
   const current = JSON.parse(await readFile(file, 'utf8')) as MonitorCase
   const closed: MonitorCase = { ...current, status: 'closed', closed_at_timestamp: nowTimestamp }
-  await writeFile(file, JSON.stringify(closed, null, 2) + '\n', 'utf8')
+  await writeJsonAtomic(file, closed)
   return closed
 }
