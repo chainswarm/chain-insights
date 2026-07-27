@@ -2,7 +2,7 @@
 import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { addCase, addCaseSeeds, closeCase, listCases, removeCaseSeeds } from '../../src/monitor/cases.js'
 import { rebuildStore, withStore } from '../../src/monitor/store.js'
 
@@ -107,6 +107,21 @@ describe('case registry', () => {
     const second = await closeCase(root, 'c1', 999)
     expect(second.alreadyClosed).toBe(true)
     expect(second.monitorCase.closed_at_timestamp).toBe(200) // NOT rewritten
+  })
+
+  describe('case-id validation everywhere (R3)', () => {
+    const traversal = '../../etc/passwd'
+    let ws1: string
+    beforeEach(async () => {
+      ws1 = await ws()
+    })
+    it.each([
+      ['addCaseSeeds', () => addCaseSeeds(ws1, traversal, ['a1'], 100)],
+      ['removeCaseSeeds', () => removeCaseSeeds(ws1, traversal, ['a1'], 100)],
+      ['closeCase', () => closeCase(ws1, traversal, 100)],
+    ])('%s rejects a traversal case id before touching the filesystem', async (_name, run) => {
+      await expect(run()).rejects.toThrow(/case_id must match/)
+    })
   })
 
   it('cases land in the store and survive rebuild (AC-2)', async () => {

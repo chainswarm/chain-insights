@@ -51,7 +51,15 @@ function assertAddresses(addresses: string[]): string[] {
   return [...new Set(addresses)]
 }
 
+// The case id is a path segment. Enforced before EVERY path join (readCase
+// covers addCaseSeeds/removeCaseSeeds/closeCase; addCase validates directly),
+// so caseFile can never be reached with a traversal id.
+function assertCaseId(caseId: string): void {
+  if (!CASE_ID_RE.test(caseId)) throw new Error(`case_id must match ${CASE_ID_RE}, got "${caseId}"`)
+}
+
 async function readCase(workspaceRoot: string, caseId: string): Promise<MonitorCase> {
+  assertCaseId(caseId)
   const file = caseFile(workspaceRoot, caseId)
   try {
     return JSON.parse(await readFile(file, 'utf8')) as MonitorCase
@@ -90,7 +98,7 @@ export async function addCase(
   input: { case_id: string; type: MonitorCase['type']; network: string; seeds: string[]; note?: string },
   nowTimestamp: number,
 ): Promise<MonitorCase> {
-  if (!CASE_ID_RE.test(input.case_id)) throw new Error(`case_id must match ${CASE_ID_RE}, got "${input.case_id}"`)
+  assertCaseId(input.case_id)
   if (input.seeds.length === 0) throw new Error('a case needs at least one seed address')
   const seeds = assertAddresses(input.seeds)
   const file = caseFile(workspaceRoot, input.case_id)
