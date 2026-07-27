@@ -2,7 +2,7 @@ import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import http from 'node:http'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ackAlert, appendAlerts, deliverAlerts, emitAlerts, listAlerts, listUndelivered } from '../../src/monitor/alerts.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
 import { rebuildStore, withStore } from '../../src/monitor/store.js'
@@ -48,6 +48,36 @@ describe('monitor alerts', () => {
     const acks = await withStore(root, async (s) => s.all('SELECT alert_id FROM alert_acks'))
     expect(alerts.map((r) => r.alert_id)).toEqual([event.alert_id])
     expect(acks.map((r) => r.alert_id)).toEqual([event.alert_id])
+  })
+})
+
+describe('hook timeouts (R4)', () => {
+  it('kills a hung exec hook after hookTimeoutMs without failing the run', async () => {
+    const root = await ws()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const started = Date.now()
+    const emitted = await emitAlerts(root,
+      [{ type: 'new_findings', network: 'bittensor', run_timestamp: 100 }], 200,
+      { execHook: 'sleep 60', hookTimeoutMs: 300 })
+    expect(Date.now() - started).toBeLessThan(5000)
+    expect(emitted).toHaveLength(1) // alert still recorded in JSONL, run not failed
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('timed out'))
+    warn.mockRestore()
+  })
+
+  it('aborts a hung webhook after hookTimeoutMs and logs a sink failure', async () => {
+    const root = await ws()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const server = http.createServer(() => { /* never respond */ })
+    await new Promise<void>((resolve) => server.listen(0, resolve))
+    const port = (server.address() as { port: number }).port
+    const emitted = await emitAlerts(root,
+      [{ type: 'new_findings', network: 'bittensor', run_timestamp: 100 }], 200,
+      { webhookUrl: `http://127.0.0.1:${port}/hook`, hookTimeoutMs: 300 })
+    expect(emitted).toHaveLength(1)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('timed out'))
+    server.close()
+    warn.mockRestore()
   })
 })
 

@@ -41,6 +41,9 @@ const MonitorConfigSchema = z.object({
   limits: LimitsSchema.optional(),
   networkLimits: NetworkLimitsSchema.optional(),
   watchlist: WatchlistConfigSchema.optional(),
+  // Sink execution bound (R4): webhook fetches and exec hooks are killed after
+  // hook_timeout_ms so a hung sink can never hang the run loop.
+  alerts: z.object({ hook_timeout_ms: z.number().int().positive().default(30000) }).optional(),
 })
 
 export type MonitorConfig = z.infer<typeof MonitorConfigSchema>
