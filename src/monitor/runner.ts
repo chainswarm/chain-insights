@@ -2,12 +2,13 @@
 // The monitor run loop (spec principle 1): a SEQUENCE of tool calls — detection
 // cores, case tracker, ingest, alert emit — with per-cell isolation. No
 // detection logic lives here.
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
+import { writeJsonAtomic } from './atomic.js'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { runOneDetection } from '../detection/run.js'
 import type { AlertEvent } from './alerts.js'
-import { emitAlerts } from './alerts.js'
+import { appendAlerts, deliverAlerts, listUndelivered } from './alerts.js'
 import type { MonitorConfig } from './config.js'
 import { monitorPaths } from './paths.js'
 import { ingestNewDocs, withStore } from './store.js'
@@ -24,6 +25,8 @@ export interface CellOutcome {
   findings_count?: number
   movements_count?: number
   scope_expansions_count?: number
+  confirmed_unchanged?: boolean
+  snapshot_hash?: string
   findings_path?: string
   duration_ms: number
   error?: string
@@ -40,7 +43,7 @@ export interface MonitorRunDoc {
 
 export interface RunnerHooks {
   runDetection?: typeof runOneDetection
-  traceCase?: (client: Client, workspaceRoot: string, caseId: string, maxHops: number, nowTimestamp: number, hooks?: unknown, limits?: { limits?: Record<string, number>; networkLimits?: Record<string, Record<string, number>> }) => Promise<{ movements_count: number; scope_expansions_count?: number; alerts: Omit<AlertEvent, 'alert_id' | 'emitted_at_timestamp'>[] }>
+  traceCase?: (client: Client, workspaceRoot: string, caseId: string, maxHops: number, nowTimestamp: number, hooks?: unknown, limits?: { limits?: Record<string, number>; networkLimits?: Record<string, Record<string, number>> }) => Promise<{ movements_count: number; scope_expansions_count?: number; confirmed_unchanged?: boolean; snapshot_hash?: string; alerts: Omit<AlertEvent, 'alert_id' | 'emitted_at_timestamp'>[] }>
   usage?: (client: Client) => Promise<unknown | null>
 }
 
@@ -78,8 +81,15 @@ export async function runMonitorOnce(
   const detect = hooks.runDetection ?? runOneDetection
   const usage = hooks.usage ?? defaultUsage
   const doc: MonitorRunDoc = { run_timestamp: nowTimestamp, cells: [], alerts_emitted: 0 }
+  // Outbox re-delivery (at-least-once): alerts canonically recorded by a
+  // crashed prior run but never sink-delivered go out now, before new work.
+  const pending = await listUndelivered(workspaceRoot)
+  if (pending.length > 0) {
+    await deliverAlerts(workspaceRoot, pending, nowTimestamp, { webhookUrl: config.webhookUrl, execHook: config.execHook })
+  }
   doc.usage_before = await usage(client)
 
+  let stamped: AlertEvent[] = []
   const remaining = remainingOf(doc.usage_before)
   if (config.stopIfRemainingBelow !== undefined && remaining !== null && remaining < config.stopIfRemainingBelow) {
     doc.halted = `usage guard: remaining ${remaining} below floor ${config.stopIfRemainingBelow}`
@@ -109,6 +119,10 @@ export async function runMonitorOnce(
           const traced = await hooks.traceCase(client, workspaceRoot, openCase.case_id, config.caseMaxHops, nowTimestamp, undefined, { limits: config.limits, networkLimits: config.networkLimits })
           outcome.movements_count = traced.movements_count
           outcome.scope_expansions_count = traced.scope_expansions_count ?? 0
+          if (traced.confirmed_unchanged !== undefined) {
+            outcome.confirmed_unchanged = traced.confirmed_unchanged
+            outcome.snapshot_hash = traced.snapshot_hash
+          }
           alertsPending.push(...traced.alerts)
         } catch (err) {
           outcome.error = (err as Error).message
@@ -141,14 +155,17 @@ export async function runMonitorOnce(
         doc.cells.push(outcome)
       }
     }
-    const emitted = await emitAlerts(workspaceRoot, alertsPending, nowTimestamp, { webhookUrl: config.webhookUrl, execHook: config.execHook })
-    doc.alerts_emitted = emitted.length
+    // Outbox ordering (durability spec req 2): canonical JSONL append here;
+    // DB commit below; sink delivery LAST, after the marker file exists.
+    stamped = await appendAlerts(workspaceRoot, alertsPending, nowTimestamp)
+    doc.alerts_emitted = stamped.length
   }
 
   doc.usage_after = await usage(client)
   const p = monitorPaths(workspaceRoot)
   await mkdir(p.runsDir, { recursive: true })
-  await writeFile(path.join(p.runsDir, `${nowTimestamp}.run.json`), JSON.stringify(doc, null, 2) + '\n', 'utf8')
+  await writeJsonAtomic(path.join(p.runsDir, `${nowTimestamp}.run.json`), doc)
   await withStore(workspaceRoot, async (store) => ingestNewDocs(store, workspaceRoot))
+  await deliverAlerts(workspaceRoot, stamped, nowTimestamp, { webhookUrl: config.webhookUrl, execHook: config.execHook })
   return doc
 }

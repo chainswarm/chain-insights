@@ -49,11 +49,11 @@ async function needsNewlineTerminator(filePath: string): Promise<boolean> {
   }
 }
 
-export async function emitAlerts(
+/** Canonical append only (outbox step 1). Stamps ids; delivers nothing. */
+export async function appendAlerts(
   workspaceRoot: string,
   events: Omit<AlertEvent, 'alert_id' | 'emitted_at_timestamp'>[],
   nowTimestamp: number,
-  sinks?: { webhookUrl?: string; execHook?: string },
 ): Promise<AlertEvent[]> {
   if (events.length === 0) return []
   const p = monitorPaths(workspaceRoot)
@@ -67,7 +67,22 @@ export async function emitAlerts(
   // so the damage stays confined to the single torn line.
   await appendFile(p.alertsLog, (await needsNewlineTerminator(p.alertsLog)) ? '\n' : '', 'utf8')
   await appendFile(p.alertsLog, stamped.map((e) => JSON.stringify(e)).join('\n') + '\n', 'utf8')
-  for (const event of stamped) {
+  return stamped
+}
+
+/** Sink delivery + emitted marker (outbox step 3). Sinks stay best-effort; the
+ *  marker is written per alert AFTER its sinks run, so a crash mid-delivery
+ *  re-delivers only the tail (at-least-once). */
+export async function deliverAlerts(
+  workspaceRoot: string,
+  events: AlertEvent[],
+  nowTimestamp: number,
+  sinks?: { webhookUrl?: string; execHook?: string },
+): Promise<void> {
+  if (events.length === 0) return
+  const p = monitorPaths(workspaceRoot)
+  await mkdir(p.alertsDir, { recursive: true })
+  for (const event of events) {
     if (sinks?.webhookUrl) {
       try {
         await fetch(sinks.webhookUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(event) })
@@ -83,7 +98,27 @@ export async function emitAlerts(
         child.stdin.end(JSON.stringify(event) + '\n')
       })
     }
+    await appendFile(p.emittedLog, (await needsNewlineTerminator(p.emittedLog)) ? '\n' : '', 'utf8')
+    await appendFile(p.emittedLog, JSON.stringify({ alert_id: event.alert_id, delivered_at_timestamp: nowTimestamp }) + '\n', 'utf8')
   }
+}
+
+/** Outbox read: alerts recorded canonically but never marked delivered. */
+export async function listUndelivered(workspaceRoot: string): Promise<AlertEvent[]> {
+  const p = monitorPaths(workspaceRoot)
+  const alerts = await readJsonl<AlertEvent>(p.alertsLog)
+  const delivered = new Set((await readJsonl<{ alert_id: string }>(p.emittedLog)).map((m) => m.alert_id))
+  return alerts.filter((a) => !delivered.has(a.alert_id))
+}
+
+export async function emitAlerts(
+  workspaceRoot: string,
+  events: Omit<AlertEvent, 'alert_id' | 'emitted_at_timestamp'>[],
+  nowTimestamp: number,
+  sinks?: { webhookUrl?: string; execHook?: string },
+): Promise<AlertEvent[]> {
+  const stamped = await appendAlerts(workspaceRoot, events, nowTimestamp)
+  await deliverAlerts(workspaceRoot, stamped, nowTimestamp, sinks)
   return stamped
 }
 

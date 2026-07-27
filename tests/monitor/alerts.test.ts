@@ -1,9 +1,10 @@
-import { mkdtemp } from 'node:fs/promises'
+import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import http from 'node:http'
 import { describe, expect, it } from 'vitest'
-import { ackAlert, emitAlerts, listAlerts } from '../../src/monitor/alerts.js'
+import { ackAlert, appendAlerts, deliverAlerts, emitAlerts, listAlerts, listUndelivered } from '../../src/monitor/alerts.js'
+import { monitorPaths } from '../../src/monitor/paths.js'
 import { rebuildStore, withStore } from '../../src/monitor/store.js'
 
 async function ws(): Promise<string> {
@@ -47,5 +48,26 @@ describe('monitor alerts', () => {
     const acks = await withStore(root, async (s) => s.all('SELECT alert_id FROM alert_acks'))
     expect(alerts.map((r) => r.alert_id)).toEqual([event.alert_id])
     expect(acks.map((r) => r.alert_id)).toEqual([event.alert_id])
+  })
+})
+
+describe('alert outbox (spec req 2)', () => {
+  it('appendAlerts records to JSONL without delivering; deliverAlerts marks emitted.jsonl', async () => {
+    const root = await ws()
+    const stamped = await appendAlerts(root, [{ type: 'new_findings', network: 'bittensor', run_timestamp: 100 }], 100)
+    expect(stamped).toHaveLength(1)
+    expect(await listUndelivered(root)).toHaveLength(1)
+    await deliverAlerts(root, stamped, 100)
+    expect(await listUndelivered(root)).toHaveLength(0)
+    const markers = (await readFile(monitorPaths(root).emittedLog, 'utf8')).trim().split('\n').map((l) => JSON.parse(l))
+    expect(markers[0]).toMatchObject({ alert_id: stamped[0].alert_id })
+  })
+
+  it('a crash between JSONL append and delivery leaves the alert undelivered (never lost)', async () => {
+    const root = await ws()
+    const stamped = await appendAlerts(root, [{ type: 'case_movement', network: 'bittensor', case_id: 'c1', run_timestamp: 200 }], 200)
+    // No deliverAlerts call = crash before sinks.
+    const pending = await listUndelivered(root)
+    expect(pending.map((a) => a.alert_id)).toEqual([stamped[0].alert_id])
   })
 })

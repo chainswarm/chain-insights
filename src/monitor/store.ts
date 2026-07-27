@@ -2,13 +2,13 @@
 // here is reproducible from canonical workspace JSON via rebuildStore(). The
 // writer holds the DB only inside withStore() (one-writer-many-readers rule).
 import { existsSync } from 'node:fs'
-import { mkdir, readdir, readFile, rm } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rename, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { DuckDBInstance } from '@duckdb/node-api'
 import { parseFindingsDocument } from '../investigation/detection-findings.js'
 import { parseJsonlLines } from './jsonl.js'
 import { monitorPaths } from './paths.js'
-import { diffScopeExpansion, diffSnapshots, readSnapshots, type CaseSnapshot } from './tracker.js'
+import { diffScopeExpansion, diffSnapshots, type CaseSnapshot } from './tracker.js'
 import { loadWatchlist } from './watchlist.js'
 
 export interface MonitorStore {
@@ -20,6 +20,8 @@ export interface DocIngestor {
   kind: string
   listDocs(workspaceRoot: string): Promise<string[]>
   ingest(store: MonitorStore, workspaceRoot: string, filePath: string): Promise<void>
+  /** Cursor-managed JSONL source: ingest() consumes only bytes past replay_cursors. */
+  incremental?: boolean
 }
 
 // Later tasks register their canonical sources here (runs, alerts, cases,
@@ -64,6 +66,10 @@ CREATE TABLE IF NOT EXISTS watchlist_hits (
   run_timestamp BIGINT, address VARCHAR, network VARCHAR, trigger VARCHAR,
   source_ref VARCHAR, detail VARCHAR
 );
+-- Incremental-ingest cursors (durability spec req 5). They live in the same
+-- DB file, so rebuildStore's rm resets them and rebuild stays full replay.
+CREATE TABLE IF NOT EXISTS replay_cursors (doc_path VARCHAR PRIMARY KEY, byte_offset BIGINT NOT NULL);
+CREATE TABLE IF NOT EXISTS snapshot_cursors (case_id VARCHAR PRIMARY KEY, last_run_timestamp BIGINT NOT NULL);
 `
 
 export interface WithStoreOptions {
@@ -195,7 +201,7 @@ const findingsIngestor: DocIngestor = {
 }
 INGESTORS.push(findingsIngestor)
 
-function jsonlIngestor(kind: 'alerts' | 'acks', logPathOf: (root: string) => string, insert: (store: MonitorStore, line: Record<string, unknown>) => Promise<void>): DocIngestor {
+function jsonlIngestor(kind: 'alerts' | 'acks' | 'watchlist_hits', logPathOf: (root: string) => string, insert: (store: MonitorStore, line: Record<string, unknown>) => Promise<void>): DocIngestor {
   return {
     kind,
     async listDocs(workspaceRoot) {
@@ -207,13 +213,27 @@ function jsonlIngestor(kind: 'alerts' | 'acks', logPathOf: (root: string) => str
         return []
       }
     },
-    // Line-tolerant, exactly like the alerts.ts list path: a torn final line
-    // (kill mid-append) must not wedge the run loop's final ingest step, and
-    // must not make `monitor rebuild` unable to recover.
+    incremental: true,
+    // Cursor-managed (spec req 5): read only bytes past the stored offset and
+    // advance the cursor to the last COMPLETE line — a torn tail (no trailing
+    // newline yet) stays unconsumed and is picked up whole on the next pass.
+    // Still line-tolerant like the alerts.ts list path: a malformed complete
+    // line costs that line only, never the run or the rebuild.
     async ingest(store, _workspaceRoot, filePath) {
-      const raw = await readFile(filePath, 'utf8')
-      const { records } = parseJsonlLines<Record<string, unknown>>(raw, filePath)
+      const raw = await readFile(filePath)
+      const [cur] = await store.all('SELECT byte_offset FROM replay_cursors WHERE doc_path = $1', [filePath])
+      const offset = cur ? Number(cur.byte_offset) : 0
+      if (raw.length <= offset) return
+      const chunk = raw.subarray(offset)
+      const lastNewline = chunk.lastIndexOf(0x0a)
+      if (lastNewline < 0) return
+      const complete = chunk.subarray(0, lastNewline + 1)
+      const { records } = parseJsonlLines<Record<string, unknown>>(complete.toString('utf8'), filePath)
       for (const line of records) await insert(store, line)
+      await store.run(
+        'INSERT INTO replay_cursors VALUES ($1,$2) ON CONFLICT (doc_path) DO UPDATE SET byte_offset = excluded.byte_offset',
+        [filePath, offset + complete.length],
+      )
     },
   }
 }
@@ -224,6 +244,11 @@ INGESTORS.push(
   }),
   jsonlIngestor('acks', (root) => monitorPaths(root).acksLog, async (store, a) => {
     await store.run('INSERT INTO alert_acks VALUES ($1,$2)', [a.alert_id, a.acked_at_timestamp])
+  }),
+  // Replay index for the canonical watchlist-hits log (durability spec req 1):
+  // rebuildStore repopulates watchlist_hits from here, so dedup survives it.
+  jsonlIngestor('watchlist_hits', (root) => monitorPaths(root).watchlistHitsLog, async (store, h) => {
+    await store.run('INSERT INTO watchlist_hits VALUES ($1,$2,$3,$4,$5,$6)', [h.run_timestamp, h.address, h.network, h.trigger, h.source_ref, h.detail ?? null])
   }),
 )
 
@@ -318,14 +343,21 @@ INGESTORS.push({
       'INSERT INTO case_snapshots VALUES ($1,$2,$3,$4,$5)',
       [doc.case_id, doc.run_timestamp, filePath, doc.addresses.length, doc.seed_set.length],
     )
-    // Movements are DERIVED, not canonical: recompute from the case's full
-    // ordered snapshot list and insert rows for THIS snapshot only. Diffing
-    // against the same predecessor every time this doc is ingested keeps the
-    // result deterministic per doc_path, so re-ingest (never happens under
-    // ingested_docs, but rebuildStore replays every doc) is idempotent.
-    const all = await readSnapshots(workspaceRoot, doc.case_id)
-    const index = all.findIndex((s) => s.run_timestamp === doc.run_timestamp)
-    const prev = index > 0 ? all[index - 1] : null
+    // Movements are DERIVED, not canonical. O(1) predecessor lookup (spec
+    // req 5): list filenames, parse ONLY the immediate predecessor snapshot
+    // instead of the whole history. Snapshots are append-only, so a given
+    // doc's predecessor never changes — the diff stays deterministic per
+    // doc_path and rebuildStore replay is idempotent.
+    const snapDir = path.join(monitorPaths(workspaceRoot).casesDir, doc.case_id, 'snapshots')
+    const stamps = (await readdir(snapDir))
+      .filter((f) => f.endsWith('.snapshot.json'))
+      .map((f) => Number(f.replace('.snapshot.json', '')))
+      .filter((t) => Number.isFinite(t) && t < doc.run_timestamp)
+      .sort((a, b) => a - b)
+    const prevStamp = stamps.at(-1)
+    const prev = prevStamp === undefined
+      ? null
+      : (JSON.parse(await readFile(path.join(snapDir, `${prevStamp}.snapshot.json`), 'utf8')) as CaseSnapshot)
     // Both halves of the diff land in case_movements, distinguished by the
     // `movement` value: scope_expansion rows explain a widened aperture and
     // must never be read as funds having moved (#250).
@@ -336,6 +368,10 @@ INGESTORS.push({
         [doc.case_id, doc.run_timestamp, m.type, m.address, JSON.stringify(m.details)],
       )
     }
+    await store.run(
+      'INSERT INTO snapshot_cursors VALUES ($1,$2) ON CONFLICT (case_id) DO UPDATE SET last_run_timestamp = excluded.last_run_timestamp',
+      [doc.case_id, doc.run_timestamp],
+    )
   },
 })
 
@@ -394,7 +430,14 @@ INGESTORS.push({
 // acks logs) or rewritten in place (case.json via closeCase), so the derived
 // table cannot be trusted to already hold a prior ingest's rows — wipe the
 // table and re-ingest from scratch every pass.
-const REPLAY_TABLES: Partial<Record<string, string>> = { alerts: 'alerts', acks: 'alert_acks', cases: 'cases', watchlist: 'watchlist' }
+const REPLAY_TABLES: Partial<Record<string, string>> = { cases: 'cases', watchlist: 'watchlist' }
+
+// Per-doc quarantine (durability spec req 3): a malformed doc costs THAT doc,
+// never the run or the rebuild. Rename-to-.corrupt makes the wedge cause
+// visible and stops the doc being retried forever. JSONL logs are exempt —
+// parseJsonlLines already tolerates torn lines, and renaming a whole log
+// would destroy its good records.
+const QUARANTINE_EXEMPT = new Set(['alerts', 'acks', 'watchlist_hits'])
 
 export async function ingestNewDocs(store: MonitorStore, workspaceRoot: string): Promise<number> {
   for (const ingestor of INGESTORS) {
@@ -405,14 +448,37 @@ export async function ingestNewDocs(store: MonitorStore, workspaceRoot: string):
       await store.run('DELETE FROM ingested_docs WHERE doc_path = $1', [filePath])
     }
   }
+  // Cursor-managed JSONL sources run every pass, outside the seen-set: their
+  // ingest() is O(new bytes) by construction. A pass that consumed new bytes
+  // (cursor advanced) counts as one ingested doc toward the return value.
+  let ingested = 0
+  const cursorOf = async (filePath: string): Promise<number> => {
+    const [cur] = await store.all('SELECT byte_offset FROM replay_cursors WHERE doc_path = $1', [filePath])
+    return cur ? Number(cur.byte_offset) : 0
+  }
+  for (const ingestor of INGESTORS) {
+    if (!ingestor.incremental) continue
+    for (const filePath of await ingestor.listDocs(workspaceRoot)) {
+      const before = await cursorOf(filePath)
+      await ingestor.ingest(store, workspaceRoot, filePath)
+      if ((await cursorOf(filePath)) > before) ingested += 1
+    }
+  }
   const seen = new Set(
     (await store.all('SELECT doc_path FROM ingested_docs')).map((r) => String(r.doc_path)),
   )
-  let ingested = 0
   for (const ingestor of INGESTORS) {
+    if (ingestor.incremental) continue
     for (const filePath of await ingestor.listDocs(workspaceRoot)) {
       if (seen.has(filePath)) continue
-      await ingestor.ingest(store, workspaceRoot, filePath)
+      try {
+        await ingestor.ingest(store, workspaceRoot, filePath)
+      } catch (err) {
+        if (QUARANTINE_EXEMPT.has(ingestor.kind)) throw err
+        console.warn(`[monitor] quarantining malformed ${ingestor.kind} doc ${filePath}: ${(err as Error).message}`)
+        await rename(filePath, `${filePath}.corrupt`)
+        continue
+      }
       await store.run('INSERT INTO ingested_docs VALUES ($1,$2)', [filePath, ingestor.kind])
       ingested += 1
     }

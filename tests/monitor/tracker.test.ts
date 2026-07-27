@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { diffScopeExpansion, diffSnapshots, readSnapshots, traceCase, type CaseSnapshot } from '../../src/monitor/tracker.js'
 import { addCase, addCaseSeeds } from '../../src/monitor/cases.js'
+import { detectionsDir, writeFindings } from '../../src/detection/emit.js'
 import { approveDoc } from '../../src/monitor/review.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
 
@@ -254,5 +255,62 @@ describe('traceCase expansion seam (AC-13 approve → re-trace)', () => {
     expect(latest.seed_set).toContain('mule1')
     expect(third.movements_count).toBe(0)
     expect(third.alerts.some((a) => a.address === 'mule1')).toBe(false)
+  })
+})
+
+describe('snapshot-on-change (spec req 6)', () => {
+  const corridorReturning = (addresses: string[]) => async () => ({
+    summaryText: '',
+    document: {
+      schema: 'chain-insights.detection-findings.v1', tool: 'aml_scam_corridor_trace', network: 'bittensor',
+      status: 'complete', generated_at_timestamp: 1,
+      findings: addresses.map((address) => ({ address, classification: 'corridor_hub', truncated: false, inconclusive: false })),
+    } as never,
+  })
+
+  it('an unchanged corridor writes no second snapshot and reports confirmed_unchanged with the hash', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'soc1', type: 'stolen-funds', network: 'bittensor', seeds: ['5Seed'] }, 500)
+    const first = await traceCase({} as Client, root, 'soc1', 3, 1000, { corridor: corridorReturning(['5Hop']) as never })
+    expect(first.confirmed_unchanged).toBe(false)
+    const second = await traceCase({} as Client, root, 'soc1', 3, 2000, { corridor: corridorReturning(['5Hop']) as never })
+    expect(second.confirmed_unchanged).toBe(true)
+    expect(second.snapshot_hash).toBe(first.snapshot_hash)
+    const snapDir = path.join(monitorPaths(root).casesDir, 'soc1', 'snapshots')
+    expect((await readdir(snapDir)).sort()).toEqual(['1000.snapshot.json'])
+  })
+
+  it('a changed corridor writes a snapshot with a new hash', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'soc2', type: 'stolen-funds', network: 'bittensor', seeds: ['5Seed'] }, 500)
+    const first = await traceCase({} as Client, root, 'soc2', 3, 1000, { corridor: corridorReturning(['5Hop']) as never })
+    const second = await traceCase({} as Client, root, 'soc2', 3, 2000, { corridor: corridorReturning(['5Hop', '5New']) as never })
+    expect(second.confirmed_unchanged).toBe(false)
+    expect(second.snapshot_hash).not.toBe(first.snapshot_hash)
+    const snapDir = path.join(monitorPaths(root).casesDir, 'soc2', 'snapshots')
+    expect((await readdir(snapDir)).sort()).toEqual(['1000.snapshot.json', '2000.snapshot.json'])
+  })
+})
+
+describe('empty findings docs are not re-written (spec req 6)', () => {
+  const emptyDoc = (ts: number) => ({
+    schema: 'chain-insights.detection-findings.v1', tool: 'aml_fake_token', network: 'bittensor',
+    status: 'complete', generated_at_timestamp: ts, findings: [],
+  }) as never
+
+  it('a second consecutive empty doc for the same detector/network reuses the prior file', async () => {
+    const root = await ws()
+    const first = await writeFindings(root, 'fake-token', emptyDoc(1000))
+    const second = await writeFindings(root, 'fake-token', emptyDoc(2000))
+    expect(second).toBe(first)
+    expect(await readdir(detectionsDir(root))).toEqual([path.basename(first)])
+  })
+
+  it('an empty doc after a NON-empty doc is still written (the transition is signal)', async () => {
+    const root = await ws()
+    const nonEmpty = { ...emptyDoc(1000) as object, findings: [{ address: '5A', truncated: false, inconclusive: false }] } as never
+    await writeFindings(root, 'fake-token', nonEmpty)
+    const second = await writeFindings(root, 'fake-token', emptyDoc(2000))
+    expect(path.basename(second)).toBe('2000-fake-token-bittensor.findings.json')
   })
 })

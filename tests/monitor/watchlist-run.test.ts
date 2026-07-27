@@ -1,10 +1,12 @@
 // tests/monitor/watchlist-run.test.ts
-import { mkdtemp } from 'node:fs/promises'
+import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { dustHits, findingHits, movementHits, runWatchlistPass } from '../../src/monitor/watchlist-run.js'
-import { withStore } from '../../src/monitor/store.js'
+import { rebuildStore, withStore } from '../../src/monitor/store.js'
+import { monitorPaths } from '../../src/monitor/paths.js'
+import type { MonitorConfig } from '../../src/monitor/config.js'
 import { addWatched, listWatched } from '../../src/monitor/watchlist.js'
 
 async function ws(): Promise<string> {
@@ -212,5 +214,35 @@ describe('watchlist query-injection defences', () => {
     await addWatched(root, { address: '5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5', network: 'bittensor' })
     await addWatched(root, { address: '0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24', network: 'bittensor_evm' })
     expect(await listWatched(root)).toHaveLength(2)
+  })
+})
+
+describe('watchlist hit dedup survives rebuild (spec req 1)', () => {
+  it('appends hits to logs/watchlist-hits.jsonl and re-runs zero re-alerts after rebuildStore', async () => {
+    const root = await ws()
+    await addWatched(root, { address: '5Mine', network: 'bittensor' })
+    const client = { async callTool() { return { structuredContent: { facts: { queries: [{ id: 'dust', results: [] }] } } } } } as never
+    const config = { cells: [], intervalSeconds: 3600, caseMaxHops: 3, watchlist: { dustMaxUsd: 1, dustLookbackSeconds: 86400, enabled: true } } as MonitorConfig
+    await withStore(root, async (store) => {
+      await store.run("INSERT INTO finding_addresses VALUES ('d1.json','bittensor','5Mine')")
+      const pass = await runWatchlistPass(client, root, store, config, 1000)
+      expect(pass.hits).toHaveLength(1)
+    })
+    // Canonical JSONL exists and holds the hit.
+    const raw = await readFile(monitorPaths(root).watchlistHitsLog, 'utf8')
+    const lines = raw.trim().split('\n').map((l) => JSON.parse(l))
+    expect(lines).toHaveLength(1)
+    expect(lines[0]).toMatchObject({ run_timestamp: 1000, address: '5Mine', network: 'bittensor', trigger: 'finding', source_ref: 'd1.json' })
+    // Rebuild drops the DB; the JSONL replays into watchlist_hits.
+    await rebuildStore(root)
+    await withStore(root, async (store) => {
+      const rows = await store.all("SELECT * FROM watchlist_hits WHERE trigger = 'finding'")
+      expect(rows).toHaveLength(1)
+      // The finding is still present post-rebuild; dedup must hold: zero new hits.
+      await store.run("INSERT INTO finding_addresses VALUES ('d1.json','bittensor','5Mine')")
+      const rerun = await runWatchlistPass(client, root, store, config, 2000)
+      expect(rerun.hits).toHaveLength(0)
+      expect(rerun.alerts).toHaveLength(0)
+    })
   })
 })

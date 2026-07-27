@@ -3,6 +3,32 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.12.0] - 2026-07-27 — monitor store and runner durability
+
+- fix: watchlist-hit dedup now survives `monitor rebuild`. Hits are appended
+  to the canonical `.chain-insights/monitor/logs/watchlist-hits.jsonl`; the
+  DuckDB `watchlist_hits` table is a pure replay index, so a rebuilt store no
+  longer re-alerts every historical hit.
+- fix: alerts are at-least-once. The runner appends alerts to the canonical
+  JSONL, commits the derived DB, and only then delivers sinks, marking each
+  delivery in `alerts/emitted.jsonl`; undelivered alerts are re-emitted at the
+  start of the next run instead of being lost to a crash.
+- fix: every canonical JSON doc (snapshots, run docs, findings, case docs) is
+  written atomically via tmp-file + rename, and a malformed doc found during
+  ingest is quarantined to `<name>.corrupt` with a warning instead of wedging
+  every later run and rebuild.
+- feat: a PID lockfile at the workspace root excludes concurrent
+  `monitor run`/`monitor watch` loops; a stale lock (dead pid) is taken over
+  and a live holder makes the second run exit 0 with a log line.
+- perf: ingest is O(new data). JSONL replay sources track byte offsets in
+  `replay_cursors` (a torn tail is held back until complete), and snapshot
+  ingest diffs against only the immediate predecessor file. `monitor rebuild`
+  still removes the DB, so rebuild remains full replay from zero.
+- fix: unchanged case snapshots are no longer re-written every run — snapshot
+  content is hashed (run timestamp excluded) and the run doc records
+  `confirmed_unchanged` with the hash; empty findings docs whose previous
+  same-detector doc was also empty are skipped.
+
 ## [0.11.22] - 2026-07-27 — monitor smoke reads the renamed timestamp fields
 
 - fix: the devkit monitor smoke still read `run_ms`, `last_block_timestamp_ms`,

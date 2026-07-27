@@ -3,8 +3,10 @@
 // corridor machinery over graph_query (spec invariant 3 — endpoint-portable,
 // no remote aml_trace_* dependency). Movements are DERIVED from the snapshot
 // sequence, so rebuild reproduces them.
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { mkdir, readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
+import { writeJsonAtomic } from './atomic.js'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { scamCorridorTrace } from '../investigation/scam-corridor-trace.js'
 import type { LimitConfig } from '../config/limits.js'
@@ -142,7 +144,14 @@ export async function readSnapshots(workspaceRoot: string, caseId: string): Prom
   return snaps.sort((a, b) => a.run_timestamp - b.run_timestamp)
 }
 
-type CorridorFn = (client: Client, options: { seedAddress: string; network: string; maxHops?: number; limits?: LimitConfig; writeArtifacts?: boolean; workspaceRoot?: string }) => Promise<{ document: DetectionFindingsDocument; summaryText: string }>
+/** Content hash over the run-invariant snapshot fields: everything except
+ *  run_timestamp. Two runs seeing the same corridor produce the same hash. */
+export function snapshotContentHash(snapshot: CaseSnapshot): string {
+  const { run_timestamp: _drop, ...normalized } = snapshot
+  return createHash('sha256').update(JSON.stringify(normalized)).digest('hex')
+}
+
+type CorridorFn =(client: Client, options: { seedAddress: string; network: string; maxHops?: number; limits?: LimitConfig; writeArtifacts?: boolean; workspaceRoot?: string }) => Promise<{ document: DetectionFindingsDocument; summaryText: string }>
 
 export async function traceCase(
   client: Client,
@@ -153,7 +162,7 @@ export async function traceCase(
   hooks: { corridor?: CorridorFn } = {},
   // Config-file layer for the corridor's search bounds on unattended runs.
   limits?: LimitConfig,
-): Promise<{ movements_count: number; scope_expansions_count: number; alerts: Omit<AlertEvent, 'alert_id' | 'emitted_at_timestamp'>[] }> {
+): Promise<{ movements_count: number; scope_expansions_count: number; alerts: Omit<AlertEvent, 'alert_id' | 'emitted_at_timestamp'>[]; confirmed_unchanged: boolean; snapshot_hash: string }> {
   const corridor = hooks.corridor ?? scamCorridorTrace
   const caseFile = path.join(monitorPaths(workspaceRoot).casesDir, caseId, 'case.json')
   const monitorCase = JSON.parse(await readFile(caseFile, 'utf8')) as { case_id: string; network: string; seeds: string[]; seeds_added_at_timestamp?: Record<string, number> }
@@ -185,9 +194,16 @@ export async function traceCase(
     ],
   }
   const previous = (await readSnapshots(workspaceRoot, caseId)).at(-1) ?? null
-  const dir = snapshotsDir(workspaceRoot, caseId)
-  await mkdir(dir, { recursive: true })
-  await writeFile(path.join(dir, `${nowTimestamp}.snapshot.json`), JSON.stringify(snapshot, null, 2) + '\n', 'utf8')
+  // Snapshot-on-change (durability spec req 6): identical content (modulo
+  // run_timestamp) writes no new file — the run doc records the confirmation.
+  // Skipping the write cannot suppress alerts: identical content diffs empty.
+  const snapshotHash = snapshotContentHash(snapshot)
+  const confirmedUnchanged = previous !== null && snapshotContentHash(previous) === snapshotHash
+  if (!confirmedUnchanged) {
+    const dir = snapshotsDir(workspaceRoot, caseId)
+    await mkdir(dir, { recursive: true })
+    await writeJsonAtomic(path.join(dir, `${nowTimestamp}.snapshot.json`), snapshot)
+  }
 
   const movements = diffSnapshots(previous, snapshot)
   const expansions = diffScopeExpansion(previous, snapshot)
@@ -224,5 +240,5 @@ export async function traceCase(
       return out
     }),
   ]
-  return { movements_count: movements.length, scope_expansions_count: expansions.length, alerts }
+  return { movements_count: movements.length, scope_expansions_count: expansions.length, alerts, confirmed_unchanged: confirmedUnchanged, snapshot_hash: snapshotHash }
 }

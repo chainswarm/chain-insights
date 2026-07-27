@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
+import { appendFile, mkdtemp, mkdir, readdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -134,5 +134,66 @@ describe('monitor store', () => {
     await rebuildStore(root)
     const rows = await withStore(root, async (s) => s.all('SELECT count(*) AS n FROM watchlist'))
     expect(Number(rows[0].n)).toBe(1)
+  })
+})
+
+describe('ingestNewDocs quarantine', () => {
+  it('renames a malformed doc to .corrupt and ingests the rest (torn doc proceeds)', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'cia-store-'))
+    const p = monitorPaths(root)
+    await mkdir(p.runsDir, { recursive: true })
+    // Torn doc: truncated JSON, as left by a crash mid-write pre-atomic-writes.
+    await writeFile(path.join(p.runsDir, '1000.run.json'), '{"run_timestamp": 1000, "cells": [', 'utf8')
+    await writeFile(path.join(p.runsDir, '2000.run.json'), JSON.stringify({ run_timestamp: 2000, cells: [] }) + '\n', 'utf8')
+    const n = await withStore(root, (s) => ingestNewDocs(s, root))
+    expect(n).toBe(1)
+    const files = (await readdir(p.runsDir)).sort()
+    expect(files).toEqual(['1000.run.json.corrupt', '2000.run.json'])
+    // Rebuild also proceeds and does not resurrect the corrupt doc.
+    await rebuildStore(root)
+    const rows = await withStore(root, (s) => s.all('SELECT run_timestamp FROM scan_runs'), { readOnly: true })
+    expect(rows).toHaveLength(1)
+  })
+})
+
+describe('incremental JSONL replay (spec req 5)', () => {
+  const line = (i: number) => JSON.stringify({ alert_id: `a-${i}`, type: 'new_findings', network: 'bittensor', run_timestamp: i, emitted_at_timestamp: i })
+
+  it('ingests only new bytes on the second pass and holds back a torn tail', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'cia-inc-'))
+    const p = monitorPaths(root)
+    await mkdir(p.alertsDir, { recursive: true })
+    await writeFile(p.alertsLog, line(1) + '\n' + line(2) + '\n', 'utf8')
+    await withStore(root, async (s) => {
+      await ingestNewDocs(s, root)
+      expect(await s.all('SELECT alert_id FROM alerts ORDER BY alert_id')).toHaveLength(2)
+      const [cur] = await s.all('SELECT byte_offset FROM replay_cursors WHERE doc_path = $1', [p.alertsLog])
+      expect(Number(cur.byte_offset)).toBe(Buffer.byteLength(line(1) + '\n' + line(2) + '\n'))
+    })
+    // Append one full line and one torn (no newline) line.
+    await appendFile(p.alertsLog, line(3) + '\n' + line(4).slice(0, 10), 'utf8')
+    await withStore(root, async (s) => {
+      await ingestNewDocs(s, root)
+      const rows = await s.all('SELECT alert_id FROM alerts ORDER BY alert_id')
+      expect(rows.map((r) => r.alert_id)).toEqual(['a-1', 'a-2', 'a-3'])
+    })
+    // Complete the torn line; only it is ingested (no duplicates of 1-3).
+    await appendFile(p.alertsLog, line(4).slice(10) + '\n', 'utf8')
+    await withStore(root, async (s) => {
+      await ingestNewDocs(s, root)
+      const rows = await s.all('SELECT alert_id FROM alerts ORDER BY alert_id')
+      expect(rows.map((r) => r.alert_id)).toEqual(['a-1', 'a-2', 'a-3', 'a-4'])
+    })
+  })
+
+  it('rebuildStore remains full replay from zero', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'cia-inc-'))
+    const p = monitorPaths(root)
+    await mkdir(p.alertsDir, { recursive: true })
+    await writeFile(p.alertsLog, line(1) + '\n' + line(2) + '\n', 'utf8')
+    await withStore(root, (s) => ingestNewDocs(s, root))
+    await rebuildStore(root)
+    const rows = await withStore(root, (s) => s.all('SELECT alert_id FROM alerts'), { readOnly: true })
+    expect(rows).toHaveLength(2)
   })
 })
