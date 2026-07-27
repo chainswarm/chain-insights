@@ -5,6 +5,7 @@
 // an append-only decision doc. RAW-JSON stamping is load-bearing: the zod
 // findings schema strips unknown keys, and `reviewer` is deliberately not in
 // the schema, so a parse→serialize round trip would silently drop it.
+import { createHash } from 'node:crypto'
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { monitorPaths } from './paths.js'
@@ -17,9 +18,12 @@ export interface ReviewDecisionDoc {
   reviewed_copy?: string
   addresses: string[]
   case_id: string | null
+  /** Filename of the prior decision this one supersedes (--force only). The
+   *  prior file is never rewritten or deleted — the trail is append-only. */
+  supersedes?: string
 }
 
-export async function listDecisionDocs(workspaceRoot: string): Promise<ReviewDecisionDoc[]> {
+export async function listDecisionEntries(workspaceRoot: string): Promise<Array<{ file: string; doc: ReviewDecisionDoc }>> {
   const dir = monitorPaths(workspaceRoot).reviewsDir
   let files: string[]
   try {
@@ -27,9 +31,28 @@ export async function listDecisionDocs(workspaceRoot: string): Promise<ReviewDec
   } catch {
     return []
   }
-  const docs: ReviewDecisionDoc[] = []
-  for (const f of files.sort()) docs.push(JSON.parse(await readFile(path.join(dir, f), 'utf8')) as ReviewDecisionDoc)
-  return docs
+  const entries: Array<{ file: string; doc: ReviewDecisionDoc }> = []
+  for (const f of files.sort()) {
+    // Per-file tolerance (R5): one torn decision file must not take down
+    // review list, label export, or approvedAddressesForCase.
+    try {
+      entries.push({ file: f, doc: JSON.parse(await readFile(path.join(dir, f), 'utf8')) as ReviewDecisionDoc })
+    } catch (err) {
+      console.warn(`[monitor] skipping unreadable findings/decision file ${f}: ${(err as Error).message}`)
+    }
+  }
+  return entries
+}
+
+export async function listDecisionDocs(workspaceRoot: string): Promise<ReviewDecisionDoc[]> {
+  return (await listDecisionEntries(workspaceRoot)).map((e) => e.doc)
+}
+
+/** Decisions minus any that a later --force decision names in `supersedes`. */
+export async function effectiveDecisions(workspaceRoot: string): Promise<ReviewDecisionDoc[]> {
+  const entries = await listDecisionEntries(workspaceRoot)
+  const superseded = new Set(entries.map((e) => e.doc.supersedes).filter(Boolean))
+  return entries.filter((e) => !superseded.has(e.file)).map((e) => e.doc)
 }
 
 // Relative doc paths are workspace-relative, NOT cwd-relative: the paths
@@ -40,6 +63,19 @@ export async function listDecisionDocs(workspaceRoot: string): Promise<ReviewDec
 // from a subdirectory.
 export function resolveDocPath(workspaceRoot: string, docPath: string): string {
   return path.isAbsolute(docPath) ? path.normalize(docPath) : path.resolve(workspaceRoot, docPath)
+}
+
+/** Workspace-relative, forward-slash-normalized doc identity. Idempotent on
+ *  already-relative input (resolveDocPath re-anchors, relative re-strips). */
+export function docKey(workspaceRoot: string, docPath: string): string {
+  return path.relative(path.resolve(workspaceRoot), resolveDocPath(workspaceRoot, docPath)).split(path.sep).join('/')
+}
+
+/** Content address for decision files/reviewed copies: first 8 hex chars of the
+ *  SHA-256 of the workspace-relative doc path — stable across machines,
+ *  collision-free across same-millisecond decisions. */
+export function docHash8(workspaceRoot: string, docPath: string): string {
+  return createHash('sha256').update(docKey(workspaceRoot, docPath)).digest('hex').slice(0, 8)
 }
 
 function caseIdFromDocPath(docPath: string): string | null {
@@ -57,12 +93,24 @@ export async function listPending(workspaceRoot: string): Promise<Array<{ doc_pa
   } catch {
     return []
   }
-  const decided = new Set((await listDecisionDocs(workspaceRoot)).map((d) => d.doc_path))
+  // Compare by workspace-relative doc identity so legacy absolute-path
+  // decisions and new relative-path decisions both count as decided.
+  const decided = new Set((await listDecisionDocs(workspaceRoot)).map((d) => docKey(workspaceRoot, d.doc_path)))
   const pending: Array<{ doc_path: string; tool: string; network: string; findings_count: number }> = []
   for (const f of files.sort()) {
     const docPath = path.join(p.detectionsDir, f)
-    if (decided.has(docPath)) continue
-    const doc = JSON.parse(await readFile(docPath, 'utf8')) as { tool: string; network: string; findings: unknown[] }
+    if (decided.has(docKey(workspaceRoot, docPath))) continue
+    // Per-file tolerance (R5): a malformed findings file costs that file only,
+    // with a warning — never the whole review queue. A doc whose `findings` is
+    // not an array is malformed too, not "zero findings".
+    let doc: { tool: string; network: string; findings: unknown[] }
+    try {
+      doc = JSON.parse(await readFile(docPath, 'utf8')) as typeof doc
+      if (!Array.isArray(doc.findings)) throw new Error('findings is not an array')
+    } catch (err) {
+      console.warn(`[monitor] skipping unreadable findings/decision file ${f}: ${(err as Error).message}`)
+      continue
+    }
     // A document with no findings has nothing to review. Full-state detectors
     // emit one per suppressed cell on every run (they record the suppression
     // count in `warnings`), so enqueueing them buries the real items: a live
@@ -78,10 +126,56 @@ export async function listPending(workspaceRoot: string): Promise<Array<{ doc_pa
 async function writeDecision(workspaceRoot: string, decision: ReviewDecisionDoc): Promise<void> {
   const dir = monitorPaths(workspaceRoot).reviewsDir
   await mkdir(dir, { recursive: true })
-  await writeFile(path.join(dir, `${decision.decided_at_timestamp}-${decision.decision}.review.json`), JSON.stringify(decision, null, 2) + '\n', 'utf8')
+  // Content-addressed by doc identity: same-millisecond decisions on
+  // DIFFERENT docs cannot collide (the old <timestamp>-<decision> name lost
+  // one of them silently). A --force supersede adds the timestamp so it can
+  // never clobber the base name or a prior supersede.
+  const hash8 = docHash8(workspaceRoot, decision.doc_path)
+  const name = decision.supersedes
+    ? `${hash8}-${decision.decision}-${decision.decided_at_timestamp}.review.json`
+    : `${hash8}-${decision.decision}.review.json`
+  await writeFile(path.join(dir, name), JSON.stringify(decision, null, 2) + '\n', 'utf8')
 }
 
-export async function approveDoc(workspaceRoot: string, docPath: string, reviewer: string, nowTimestamp: number): Promise<{ reviewedCopy: string }> {
+// Only detection findings documents may be reviewed: anything outside the
+// workspace detections/ tree (traversal input, arbitrary files) is refused
+// before any read or write happens.
+function assertInDetections(workspaceRoot: string, resolved: string, docPath: string): void {
+  const rel = path.relative(monitorPaths(workspaceRoot).detectionsDir, resolved)
+  if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    throw new Error(`"${docPath}" is not inside the workspace detections/ tree; only detection findings documents can be reviewed`)
+  }
+}
+
+/** Prior decisions for a doc, by workspace-relative identity. */
+async function decisionsForDoc(workspaceRoot: string, resolved: string): Promise<Array<{ file: string; doc: ReviewDecisionDoc }>> {
+  const key = docKey(workspaceRoot, resolved)
+  return (await listDecisionEntries(workspaceRoot)).filter((e) => docKey(workspaceRoot, e.doc.doc_path) === key)
+}
+
+/** Refuses a double decision unless forced; forced returns the newest prior
+ *  entry's filename for the new decision's `supersedes` field. */
+async function assertUndecidedOrForced(
+  workspaceRoot: string, resolved: string, force: boolean | undefined,
+): Promise<string | undefined> {
+  const prior = await decisionsForDoc(workspaceRoot, resolved)
+  if (prior.length === 0) return undefined
+  const newest = prior.reduce((a, b) => {
+    if (a.doc.decided_at_timestamp !== b.doc.decided_at_timestamp) return a.doc.decided_at_timestamp > b.doc.decided_at_timestamp ? a : b
+    return a.file > b.file ? a : b
+  })
+  if (!force) {
+    throw new Error(
+      `"${docKey(workspaceRoot, resolved)}" already has a review decision (${newest.doc.decision} by ${newest.doc.reviewer}); pass --force to supersede it`,
+    )
+  }
+  return newest.file
+}
+
+export async function approveDoc(
+  workspaceRoot: string, docPath: string, reviewer: string, nowTimestamp: number,
+  opts?: { force?: boolean },
+): Promise<{ reviewedCopy: string; superseded?: string }> {
   if (!reviewer.trim()) throw new Error('reviewer identity is required to approve')
   // Normalize BEFORE any read/write so a relative-path approval (e.g. `cia
   // monitor review approve detections/foo.findings.json`) records the same
@@ -90,33 +184,46 @@ export async function approveDoc(workspaceRoot: string, docPath: string, reviewe
   // and a later absolute-path retry writes a duplicate decision doc —
   // duplicate rows in export labels.
   const resolved = resolveDocPath(workspaceRoot, docPath)
+  assertInDetections(workspaceRoot, resolved, docPath)
+  const superseded = await assertUndecidedOrForced(workspaceRoot, resolved, opts?.force)
   const raw = JSON.parse(await readFile(resolved, 'utf8')) as Record<string, unknown>
   const p = monitorPaths(workspaceRoot)
   await mkdir(p.reviewedDir, { recursive: true })
-  const reviewedCopy = path.join(p.reviewedDir, path.basename(resolved))
+  // Keyed by doc identity, not bare basename: two docs with the same basename
+  // in future subtrees can no longer clobber each other's reviewed copy.
+  const reviewedCopy = path.join(p.reviewedDir, `${docHash8(workspaceRoot, resolved)}-${path.basename(resolved)}`)
   await writeFile(reviewedCopy, JSON.stringify({ ...raw, reviewer }, null, 2) + '\n', 'utf8')
   const findings = (raw.findings as Array<{ address: string }> | undefined) ?? []
   await writeDecision(workspaceRoot, {
-    doc_path: resolved, decision: 'approve', reviewer, decided_at_timestamp: nowTimestamp, reviewed_copy: reviewedCopy,
+    doc_path: docKey(workspaceRoot, resolved), decision: 'approve', reviewer, decided_at_timestamp: nowTimestamp, reviewed_copy: reviewedCopy,
     addresses: findings.map((f) => f.address), case_id: caseIdFromDocPath(resolved),
+    ...(superseded ? { supersedes: superseded } : {}),
   })
-  return { reviewedCopy }
+  return { reviewedCopy, ...(superseded ? { superseded } : {}) }
 }
 
-export async function rejectDoc(workspaceRoot: string, docPath: string, reviewer: string, nowTimestamp: number): Promise<void> {
+export async function rejectDoc(
+  workspaceRoot: string, docPath: string, reviewer: string, nowTimestamp: number,
+  opts?: { force?: boolean },
+): Promise<{ superseded?: string }> {
   if (!reviewer.trim()) throw new Error('reviewer identity is required to reject')
   // See approveDoc: normalize before use so relative-path rejects also match
   // listPending's absolute doc_path comparison.
   const resolved = resolveDocPath(workspaceRoot, docPath)
+  assertInDetections(workspaceRoot, resolved, docPath)
+  const superseded = await assertUndecidedOrForced(workspaceRoot, resolved, opts?.force)
   const raw = JSON.parse(await readFile(resolved, 'utf8')) as { findings?: Array<{ address: string }> }
   await writeDecision(workspaceRoot, {
-    doc_path: resolved, decision: 'reject', reviewer, decided_at_timestamp: nowTimestamp,
+    doc_path: docKey(workspaceRoot, resolved), decision: 'reject', reviewer, decided_at_timestamp: nowTimestamp,
     addresses: (raw.findings ?? []).map((f) => f.address), case_id: caseIdFromDocPath(resolved),
+    ...(superseded ? { supersedes: superseded } : {}),
   })
+  return superseded ? { superseded } : {}
 }
 
 export async function approvedAddressesForCase(workspaceRoot: string, caseId: string): Promise<string[]> {
-  const decisions = await listDecisionDocs(workspaceRoot)
+  // effectiveDecisions: a superseded approve must no longer feed the case.
+  const decisions = await effectiveDecisions(workspaceRoot)
   const addresses = new Set<string>()
   for (const d of decisions) {
     if (d.decision === 'approve' && d.case_id === caseId) for (const a of d.addresses) addresses.add(a)

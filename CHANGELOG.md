@@ -3,6 +3,36 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.12.1] - 2026-07-27 — monitor lifecycle hardening
+
+- feat: review decisions are content-addressed and append-only. Decision files
+  are named `<docHash8>-<decision>.review.json` from the findings doc's
+  workspace-relative path (no same-millisecond collisions), decision docs
+  record a workspace-relative `doc_path`, and a second decision for the same
+  doc is refused unless `--force` supersedes it with a NEW decision recording
+  `supersedes` — the prior file is never rewritten. Exports and case-address
+  unions follow the effective (non-superseded) decisions.
+- fix: reviewed copies are keyed by doc identity (`<docHash8>-<basename>`),
+  and approve/reject refuse any path outside the workspace `detections/` tree.
+- fix: `monitor case close` goes through the case state machine — a missing
+  case reports `no such case`, re-closing is a warning no-op that preserves
+  the original `closed_at_timestamp`, and the case-id shape is validated in
+  every case command before any path join.
+- feat: alert sinks are bounded by `alerts.hook_timeout_ms` (default 30s) —
+  a hung webhook is aborted and a hung exec hook is killed, logged as a sink
+  failure, and never fails the run.
+- fix: `monitor review list` and label export skip unreadable or malformed
+  findings/decision files with a warning instead of failing wholesale.
+- fix: alert ids are sequenced per `run_timestamp`, so a mixed-run batch
+  cannot mint duplicate `alert_id`s; dust hits are deduplicated by hit key
+  within a single probe batch.
+- fix: derived-store doc keys (`ingested_docs`, `findings`,
+  `finding_addresses`, replay cursors, finding-trigger `source_ref`) are
+  workspace-relative, with transparent migration of legacy absolute keys on
+  store open — moving the workspace no longer re-ingests or re-alerts.
+- fix: report table cells escape `|` and flatten newlines so an error message
+  cannot break the Markdown table.
+
 ## [0.12.0] - 2026-07-27 — monitor store and runner durability
 
 - fix: watchlist-hit dedup now survives `monitor rebuild`. Hits are appended

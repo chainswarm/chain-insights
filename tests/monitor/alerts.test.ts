@@ -2,7 +2,7 @@ import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import http from 'node:http'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ackAlert, appendAlerts, deliverAlerts, emitAlerts, listAlerts, listUndelivered } from '../../src/monitor/alerts.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
 import { rebuildStore, withStore } from '../../src/monitor/store.js'
@@ -48,6 +48,54 @@ describe('monitor alerts', () => {
     const acks = await withStore(root, async (s) => s.all('SELECT alert_id FROM alert_acks'))
     expect(alerts.map((r) => r.alert_id)).toEqual([event.alert_id])
     expect(acks.map((r) => r.alert_id)).toEqual([event.alert_id])
+  })
+})
+
+describe('alert sequencing (R6)', () => {
+  it('a batch with mixed run_timestamps gets collision-free alert_ids', async () => {
+    const root = await ws()
+    await emitAlerts(root, [
+      { type: 'new_findings', network: 'bittensor', run_timestamp: 200 },
+      { type: 'case_movement', network: 'bittensor', run_timestamp: 200 },
+    ], 900) // existing ids: 200-0, 200-1
+    const emitted = await emitAlerts(root, [
+      { type: 'new_findings', network: 'bittensor', run_timestamp: 100 },
+      { type: 'cashout_endpoint', network: 'bittensor', run_timestamp: 200 }, // old seqBase keyed off events[0] (=100, count 0) → '200-1-...' collided with the prior emit
+    ], 901)
+    const all = await listAlerts(root)
+    const ids = all.map((a) => a.alert_id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(emitted.map((e) => e.alert_id)).toEqual(['100-0-new_findings', '200-2-cashout_endpoint'])
+  })
+})
+
+describe('hook timeouts (R4)', () => {
+  it('kills a hung exec hook after hookTimeoutMs without failing the run', async () => {
+    const root = await ws()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const started = Date.now()
+    const emitted = await emitAlerts(root,
+      [{ type: 'new_findings', network: 'bittensor', run_timestamp: 100 }], 200,
+      { execHook: 'sleep 60', hookTimeoutMs: 300 })
+    expect(Date.now() - started).toBeLessThan(5000)
+    expect(emitted).toHaveLength(1) // alert still recorded in JSONL, run not failed
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('timed out'))
+    warn.mockRestore()
+  })
+
+  it('aborts a hung webhook after hookTimeoutMs and logs a sink failure', async () => {
+    const root = await ws()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const server = http.createServer(() => { /* never respond */ })
+    await new Promise<void>((resolve) => server.listen(0, resolve))
+    const port = (server.address() as { port: number }).port
+    const emitted = await emitAlerts(root,
+      [{ type: 'new_findings', network: 'bittensor', run_timestamp: 100 }], 200,
+      { webhookUrl: `http://127.0.0.1:${port}/hook`, hookTimeoutMs: 300 })
+    expect(emitted).toHaveLength(1)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('timed out'))
+    server.close()
+    warn.mockRestore()
   })
 })
 

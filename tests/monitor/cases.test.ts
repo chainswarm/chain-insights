@@ -2,7 +2,7 @@
 import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { addCase, addCaseSeeds, closeCase, listCases, removeCaseSeeds } from '../../src/monitor/cases.js'
 import { rebuildStore, withStore } from '../../src/monitor/store.js'
 
@@ -16,7 +16,7 @@ describe('case registry', () => {
     await addCase(root, { case_id: 'theft-77', type: 'stolen-funds', network: 'bittensor', seeds: ['5Victim'] }, 100)
     expect(await listCases(root, { openOnly: true })).toHaveLength(1)
     const closed = await closeCase(root, 'theft-77', 200)
-    expect(closed.status).toBe('closed')
+    expect(closed.monitorCase.status).toBe('closed')
     expect(await listCases(root, { openOnly: true })).toHaveLength(0)
     expect(await listCases(root)).toHaveLength(1)
   })
@@ -91,6 +91,37 @@ describe('case registry', () => {
   it('reports a missing case by id rather than an ENOENT stack', async () => {
     const root = await ws()
     await expect(addCaseSeeds(root, 'nope', ['5Victim'], 100)).rejects.toThrow(/no such case "nope"/)
+  })
+
+  it('close of a missing case gives "no such case", not an ENOENT stack (R2)', async () => {
+    const root = await ws()
+    await expect(closeCase(root, 'ghost', 100)).rejects.toThrow('no such case "ghost"')
+  })
+
+  it('re-close is a warning no-op that preserves the original closed_at_timestamp (R2)', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'c1', type: 'stolen-funds', network: 'bittensor', seeds: ['a1'] }, 100)
+    const first = await closeCase(root, 'c1', 200)
+    expect(first.alreadyClosed).toBe(false)
+    expect(first.monitorCase.closed_at_timestamp).toBe(200)
+    const second = await closeCase(root, 'c1', 999)
+    expect(second.alreadyClosed).toBe(true)
+    expect(second.monitorCase.closed_at_timestamp).toBe(200) // NOT rewritten
+  })
+
+  describe('case-id validation everywhere (R3)', () => {
+    const traversal = '../../etc/passwd'
+    let ws1: string
+    beforeEach(async () => {
+      ws1 = await ws()
+    })
+    it.each([
+      ['addCaseSeeds', () => addCaseSeeds(ws1, traversal, ['a1'], 100)],
+      ['removeCaseSeeds', () => removeCaseSeeds(ws1, traversal, ['a1'], 100)],
+      ['closeCase', () => closeCase(ws1, traversal, 100)],
+    ])('%s rejects a traversal case id before touching the filesystem', async (_name, run) => {
+      await expect(run()).rejects.toThrow(/case_id must match/)
+    })
   })
 
   it('cases land in the store and survive rebuild (AC-2)', async () => {

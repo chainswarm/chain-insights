@@ -59,8 +59,16 @@ export async function appendAlerts(
   const p = monitorPaths(workspaceRoot)
   await mkdir(p.alertsDir, { recursive: true })
   const existing = await readJsonl<AlertEvent>(p.alertsLog)
-  const seqBase = existing.filter((e) => e.run_timestamp === events[0].run_timestamp).length
-  const stamped = events.map((e, i) => ({ ...e, alert_id: `${e.run_timestamp}-${seqBase + i}-${e.type}`, emitted_at_timestamp: nowTimestamp }))
+  // Sequence numbers are PER run_timestamp: a mixed-run batch (outbox
+  // re-delivery + new work) must not mint an id that collides with a prior
+  // emit for another run.
+  const seq = new Map<number, number>()
+  for (const e of existing) seq.set(e.run_timestamp, (seq.get(e.run_timestamp) ?? 0) + 1)
+  const stamped = events.map((e) => {
+    const n = seq.get(e.run_timestamp) ?? 0
+    seq.set(e.run_timestamp, n + 1)
+    return { ...e, alert_id: `${e.run_timestamp}-${n}-${e.type}`, emitted_at_timestamp: nowTimestamp }
+  })
   // A torn final line (kill mid-append) has no trailing newline, so a plain
   // append would concatenate onto it and destroy the NEW record too — one
   // crash would then cost every alert emitted afterwards. Re-terminate first
@@ -70,33 +78,53 @@ export async function appendAlerts(
   return stamped
 }
 
+export const DEFAULT_HOOK_TIMEOUT_MS = 30000
+
 /** Sink delivery + emitted marker (outbox step 3). Sinks stay best-effort; the
  *  marker is written per alert AFTER its sinks run, so a crash mid-delivery
- *  re-delivers only the tail (at-least-once). */
+ *  re-delivers only the tail (at-least-once). Every sink is bounded by
+ *  hookTimeoutMs (R4): a hung webhook or hook script must never hang the run. */
 export async function deliverAlerts(
   workspaceRoot: string,
   events: AlertEvent[],
   nowTimestamp: number,
-  sinks?: { webhookUrl?: string; execHook?: string },
+  sinks?: { webhookUrl?: string; execHook?: string; hookTimeoutMs?: number },
 ): Promise<void> {
   if (events.length === 0) return
+  const timeoutMs = sinks?.hookTimeoutMs ?? DEFAULT_HOOK_TIMEOUT_MS
   const p = monitorPaths(workspaceRoot)
   await mkdir(p.alertsDir, { recursive: true })
   for (const event of events) {
     if (sinks?.webhookUrl) {
       try {
-        await fetch(sinks.webhookUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(event) })
-      } catch {
+        await fetch(sinks.webhookUrl, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(event),
+          signal: AbortSignal.timeout(timeoutMs),
+        })
+      } catch (err) {
         // Best-effort sink: recorded in JSONL regardless; never fails the run.
+        const name = (err as Error).name
+        const isTimeout = name === 'TimeoutError' || name === 'AbortError'
+        console.warn(`[monitor] webhook sink failed${isTimeout ? ` (timed out after ${timeoutMs}ms)` : ''}: ${(err as Error).message} (alert ${event.alert_id})`)
       }
     }
     if (sinks?.execHook) {
+      let timedOut = false
       await new Promise<void>((resolve) => {
         const child = spawn(sinks.execHook as string, { shell: true, stdio: ['pipe', 'ignore', 'ignore'] })
-        child.on('error', () => resolve())
-        child.on('exit', () => resolve())
+        const timer = setTimeout(() => {
+          timedOut = true
+          child.kill('SIGKILL')
+        }, timeoutMs)
+        child.on('error', () => { clearTimeout(timer); resolve() })
+        child.on('exit', () => { clearTimeout(timer); resolve() })
+        // A killed child's stdin raises EPIPE — swallow it, or the write throws.
+        child.stdin.on('error', () => {})
         child.stdin.end(JSON.stringify(event) + '\n')
       })
+      if (timedOut) console.warn(`[monitor] exec hook timed out after ${timeoutMs}ms and was killed (alert ${event.alert_id})`)
     }
     await appendFile(p.emittedLog, (await needsNewlineTerminator(p.emittedLog)) ? '\n' : '', 'utf8')
     await appendFile(p.emittedLog, JSON.stringify({ alert_id: event.alert_id, delivered_at_timestamp: nowTimestamp }) + '\n', 'utf8')
@@ -115,7 +143,7 @@ export async function emitAlerts(
   workspaceRoot: string,
   events: Omit<AlertEvent, 'alert_id' | 'emitted_at_timestamp'>[],
   nowTimestamp: number,
-  sinks?: { webhookUrl?: string; execHook?: string },
+  sinks?: { webhookUrl?: string; execHook?: string; hookTimeoutMs?: number },
 ): Promise<AlertEvent[]> {
   const stamped = await appendAlerts(workspaceRoot, events, nowTimestamp)
   await deliverAlerts(workspaceRoot, stamped, nowTimestamp, sinks)

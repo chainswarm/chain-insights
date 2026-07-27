@@ -85,7 +85,7 @@ export async function runMonitorOnce(
   // crashed prior run but never sink-delivered go out now, before new work.
   const pending = await listUndelivered(workspaceRoot)
   if (pending.length > 0) {
-    await deliverAlerts(workspaceRoot, pending, nowTimestamp, { webhookUrl: config.webhookUrl, execHook: config.execHook })
+    await deliverAlerts(workspaceRoot, pending, nowTimestamp, { webhookUrl: config.webhookUrl, execHook: config.execHook, hookTimeoutMs: config.alerts?.hook_timeout_ms })
   }
   doc.usage_before = await usage(client)
 
@@ -166,6 +166,6 @@ export async function runMonitorOnce(
   await mkdir(p.runsDir, { recursive: true })
   await writeJsonAtomic(path.join(p.runsDir, `${nowTimestamp}.run.json`), doc)
   await withStore(workspaceRoot, async (store) => ingestNewDocs(store, workspaceRoot))
-  await deliverAlerts(workspaceRoot, stamped, nowTimestamp, { webhookUrl: config.webhookUrl, execHook: config.execHook })
+  await deliverAlerts(workspaceRoot, stamped, nowTimestamp, { webhookUrl: config.webhookUrl, execHook: config.execHook, hookTimeoutMs: config.alerts?.hook_timeout_ms })
   return doc
 }

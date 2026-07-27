@@ -1,9 +1,10 @@
 // tests/monitor/review.test.ts
-import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { mkdtemp, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
-import { approveDoc, approvedAddressesForCase, listPending, rejectDoc } from '../../src/monitor/review.js'
+import { describe, expect, it, vi } from 'vitest'
+import { approveDoc, approvedAddressesForCase, docHash8, effectiveDecisions, listDecisionDocs, listPending, rejectDoc } from '../../src/monitor/review.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
 import { exportLabels } from '../../src/monitor/export.js'
 
@@ -81,6 +82,125 @@ describe('review workflow (AC-3)', () => {
     expect(await listPending(root)).toHaveLength(0)
     const { rows } = await exportLabels(root, 950)
     expect(rows).toHaveLength(1) // no duplicate decision doc from the path mismatch
+  })
+})
+
+describe('decision identity (lifecycle hardening R1)', () => {
+  it('names decision files <docHash8>-<decision>.review.json from the workspace-relative path', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '100-mixer-bittensor.findings.json')
+    await approveDoc(root, doc, 'ops', 500)
+    const expected = createHash('sha256')
+      .update('detections/100-mixer-bittensor.findings.json')
+      .digest('hex').slice(0, 8)
+    expect(docHash8(root, doc)).toBe(expected)
+    const files = await readdir(monitorPaths(root).reviewsDir)
+    expect(files).toContain(`${expected}-approve.review.json`)
+  })
+
+  it('same-millisecond decisions on different docs do not collide', async () => {
+    const root = await ws()
+    const a = await seedDoc(root, '100-mixer-bittensor.findings.json')
+    const b = await seedDoc(root, '101-mixer-bittensor.findings.json')
+    await approveDoc(root, a, 'ops', 500)
+    await approveDoc(root, b, 'ops', 500) // identical timestamp — the old naming lost one
+    expect(await listDecisionDocs(root)).toHaveLength(2)
+    expect(await listPending(root)).toHaveLength(0)
+  })
+
+  it('records workspace-relative doc_path and still clears pending', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '102-mixer-bittensor.findings.json')
+    await rejectDoc(root, doc, 'ops', 600)
+    const [d] = await listDecisionDocs(root)
+    expect(d.doc_path).toBe('detections/102-mixer-bittensor.findings.json')
+    expect(await listPending(root)).toHaveLength(0)
+  })
+
+  it('a legacy decision with an ABSOLUTE doc_path still counts as decided', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '103-mixer-bittensor.findings.json')
+    const dir = monitorPaths(root).reviewsDir
+    await mkdir(dir, { recursive: true })
+    await writeFile(path.join(dir, '600-reject.review.json'), JSON.stringify({
+      doc_path: doc, decision: 'reject', reviewer: 'ops', decided_at_timestamp: 600, addresses: [], case_id: null,
+    }) + '\n')
+    expect(await listPending(root)).toHaveLength(0)
+  })
+})
+
+describe('decision idempotency + --force supersede (R1)', () => {
+  it('double-approve is refused', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '110-mixer-bittensor.findings.json')
+    await approveDoc(root, doc, 'ops', 500)
+    await expect(approveDoc(root, doc, 'ops', 600)).rejects.toThrow(/already has a review decision/)
+    expect(await listDecisionDocs(root)).toHaveLength(1)
+  })
+
+  it('approve-after-reject is refused without --force', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '111-mixer-bittensor.findings.json')
+    await rejectDoc(root, doc, 'ops', 500)
+    await expect(approveDoc(root, doc, 'ops', 600)).rejects.toThrow(/already has a review decision/)
+  })
+
+  it('--force writes a NEW superseding decision, never overwriting the old file', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '112-mixer-bittensor.findings.json')
+    await rejectDoc(root, doc, 'ops', 500)
+    const before = await readdir(monitorPaths(root).reviewsDir)
+    await approveDoc(root, doc, 'ops2', 600, { force: true })
+    const after = await readdir(monitorPaths(root).reviewsDir)
+    expect(after).toEqual(expect.arrayContaining(before)) // old file untouched
+    expect(after.length).toBe(before.length + 1)
+    const entries = await listDecisionDocs(root)
+    const forced = entries.find((d) => d.decision === 'approve')!
+    expect(forced.supersedes).toBe(before[0])
+  })
+
+  it('effectiveDecisions drops superseded decisions; export follows the live decision', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '113-mixer-bittensor.findings.json')
+    await approveDoc(root, doc, 'ops', 500)
+    await rejectDoc(root, doc, 'ops', 600, { force: true })
+    const effective = await effectiveDecisions(root)
+    expect(effective).toHaveLength(1)
+    expect(effective[0].decision).toBe('reject')
+    const { rows } = await exportLabels(root, 700)
+    expect(rows).toHaveLength(0) // superseded approve no longer exports
+  })
+})
+
+describe('reviewed-copy keying + detections guard (R1)', () => {
+  it('keys the reviewed copy by doc identity, not bare basename', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '120-mixer-bittensor.findings.json')
+    const { reviewedCopy } = await approveDoc(root, doc, 'ops', 500)
+    expect(path.basename(reviewedCopy)).toBe(`${docHash8(root, doc)}-120-mixer-bittensor.findings.json`)
+    expect(path.dirname(reviewedCopy)).toBe(monitorPaths(root).reviewedDir)
+  })
+
+  it('refuses to approve a path outside the workspace detections/ tree', async () => {
+    const root = await ws()
+    await mkdir(path.join(root, 'elsewhere'), { recursive: true })
+    const outside = path.join(root, 'elsewhere', 'x.findings.json')
+    await writeFile(outside, JSON.stringify({ findings: [] }))
+    await expect(approveDoc(root, outside, 'ops', 500)).rejects.toThrow(/detections\//)
+    await expect(approveDoc(root, '../../../etc/passwd', 'ops', 500)).rejects.toThrow(/detections\//)
+  })
+})
+
+describe('read-path tolerance (R5)', () => {
+  it('listPending skips a malformed findings file with a warning instead of throwing', async () => {
+    const root = await ws()
+    await seedDoc(root, '130-mixer-bittensor.findings.json')
+    await writeFile(path.join(monitorPaths(root).detectionsDir, '131-mixer-bittensor.findings.json'), '{ not json')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const pending = await listPending(root)
+    expect(pending).toHaveLength(1)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('131-mixer-bittensor.findings.json'))
+    warn.mockRestore()
   })
 })
 

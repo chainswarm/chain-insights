@@ -35,6 +35,17 @@ describe('monitor config', () => {
     expect(cfg.stopIfRemainingBelow).toBe(100)
   })
 
+  it('parses alerts.hook_timeout_ms and rejects a non-positive value (R4)', async () => {
+    const root = await ws()
+    const p = monitorPaths(root)
+    await mkdir(p.monitorDir, { recursive: true })
+    await writeFile(p.configPath, JSON.stringify({ cells: [{ detector: 'mixer', network: 'bittensor' }], alerts: { hook_timeout_ms: 5000 } }))
+    const cfg = await loadMonitorConfig(root)
+    expect(cfg.alerts?.hook_timeout_ms).toBe(5000)
+    await writeFile(p.configPath, JSON.stringify({ cells: [{ detector: 'mixer', network: 'bittensor' }], alerts: { hook_timeout_ms: 0 } }))
+    await expect(loadMonitorConfig(root)).rejects.toThrow(/hook_timeout_ms/)
+  })
+
   it('throws a readable error on malformed config (never a raw ZodError)', async () => {
     const root = await ws()
     const p = monitorPaths(root)

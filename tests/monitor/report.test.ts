@@ -49,3 +49,20 @@ describe('report + status (AC-6)', () => {
     expect(md).toMatch(/\| bittensor \| 5Mine \| 1 \| 0 \| 1 \|/)
   })
 })
+
+describe('report cell escaping (R6)', () => {
+  it('escapes pipes and newlines in table cells so the Markdown table survives', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'cia-report-esc-'))
+    await withStore(root, (s) => s.run(
+      'INSERT INTO scan_runs VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
+      [100, 'mixer:bittensor', 'mixer', null, 'bittensor', 0, 0, 5,
+       'boom \\| with backslash-pipe | and pipe\nand newline', 'null', 'null', null],
+    ))
+    const md = await renderReport(root)
+    const row = md.split('\n').find((l) => l.includes('boom'))!
+    expect(row).toContain('boom \\\\\\| with backslash-pipe \\| and pipe and newline')
+    expect(row).not.toMatch(/\nand newline/)
+    // the row still has the exact column count of the runs table
+    expect(row.split(/(?<!\\)\|/).length).toBe(9)
+  })
+})

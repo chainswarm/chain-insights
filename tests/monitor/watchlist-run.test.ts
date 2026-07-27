@@ -97,6 +97,26 @@ describe('watchlist dust probe', () => {
     ])
   })
 
+  it('a dust batch with duplicate tx_ref yields one hit (R6)', async () => {
+    const root = await ws()
+    const calls = { n: 0 }
+    const client = stubClient(
+      {
+        bittensor: [
+          { address: 'watched1', from_address: 'srcA', amount_usd: 0.5, tx_ref: 'tx-1' },
+          { address: 'watched1', from_address: 'srcA', amount_usd: 0.5, tx_ref: 'tx-1' }, // duplicate row in one response
+        ],
+      },
+      calls,
+    )
+    await withStore(root, async (store) => {
+      const { hits } = await dustHits(client, store, [{ address: 'watched1', network: 'bittensor' }],
+        { dustMaxUsd: 1, dustLookbackSeconds: 86400 }, 1000)
+      expect(hits).toHaveLength(1)
+      expect(hits[0].source_ref).toBe('tx-1')
+    })
+  })
+
   it('makes one call per distinct network regardless of address count (AC-6)', async () => {
     const root = await ws()
     const calls = { n: 0 }
