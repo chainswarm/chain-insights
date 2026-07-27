@@ -23,8 +23,8 @@ export interface AlertEvent {
   address?: string
   count?: number
   doc_path?: string
-  run_ms: number
-  emitted_at_ms: number
+  run_timestamp: number
+  emitted_at_timestamp: number
 }
 
 // A missing log is "no alerts yet" (normal). A torn line inside an existing log
@@ -51,16 +51,16 @@ async function needsNewlineTerminator(filePath: string): Promise<boolean> {
 
 export async function emitAlerts(
   workspaceRoot: string,
-  events: Omit<AlertEvent, 'alert_id' | 'emitted_at_ms'>[],
-  nowMs: number,
+  events: Omit<AlertEvent, 'alert_id' | 'emitted_at_timestamp'>[],
+  nowTimestamp: number,
   sinks?: { webhookUrl?: string; execHook?: string },
 ): Promise<AlertEvent[]> {
   if (events.length === 0) return []
   const p = monitorPaths(workspaceRoot)
   await mkdir(p.alertsDir, { recursive: true })
   const existing = await readJsonl<AlertEvent>(p.alertsLog)
-  const seqBase = existing.filter((e) => e.run_ms === events[0].run_ms).length
-  const stamped = events.map((e, i) => ({ ...e, alert_id: `${e.run_ms}-${seqBase + i}-${e.type}`, emitted_at_ms: nowMs }))
+  const seqBase = existing.filter((e) => e.run_timestamp === events[0].run_timestamp).length
+  const stamped = events.map((e, i) => ({ ...e, alert_id: `${e.run_timestamp}-${seqBase + i}-${e.type}`, emitted_at_timestamp: nowTimestamp }))
   // A torn final line (kill mid-append) has no trailing newline, so a plain
   // append would concatenate onto it and destroy the NEW record too — one
   // crash would then cost every alert emitted afterwards. Re-terminate first
@@ -95,10 +95,10 @@ export async function listAlerts(workspaceRoot: string, opts?: { unackedOnly?: b
   return alerts.filter((a) => !acked.has(a.alert_id))
 }
 
-export async function ackAlert(workspaceRoot: string, alertId: string, nowMs: number): Promise<void> {
+export async function ackAlert(workspaceRoot: string, alertId: string, nowTimestamp: number): Promise<void> {
   const p = monitorPaths(workspaceRoot)
   const alerts = await readJsonl<AlertEvent>(p.alertsLog)
   if (!alerts.some((a) => a.alert_id === alertId)) throw new Error(`unknown alert "${alertId}"`)
   await mkdir(p.alertsDir, { recursive: true })
-  await appendFile(p.acksLog, JSON.stringify({ alert_id: alertId, acked_at_ms: nowMs }) + '\n', 'utf8')
+  await appendFile(p.acksLog, JSON.stringify({ alert_id: alertId, acked_at_timestamp: nowTimestamp }) + '\n', 'utf8')
 }

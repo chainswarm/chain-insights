@@ -500,7 +500,7 @@ export async function scamCorridorTrace(remoteClient: Client, options: ScamCorri
     tool: 'aml_scam_corridor_trace',
     network,
     status,
-    generated_at_ms: Date.now(),
+    generated_at_timestamp: Date.now(),
     findings,
     ...(frontierTruncated.length > 0 ? { frontier_truncated: frontierTruncated } : {}),
     query_count: queryCount,

@@ -4,7 +4,7 @@
 // or passing it from the CLI fails with a confusing type error.
 const NUMERIC_ARG_KEYS = new Set([
   'per_query_timeout_seconds',
-  'incident_timestamp_ms',
+  'incident_timestamp',
   'max_hops',
   'per_address_limit',
   'row_limit',

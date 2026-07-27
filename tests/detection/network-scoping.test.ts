@@ -12,7 +12,7 @@ import { addressPoisoningDetector } from '../../src/detection/detectors/address-
 import { fakeTokenDetector } from '../../src/detection/detectors/fake-token.js'
 import type { DetectionWindow } from '../../src/detection/runtime.js'
 
-const WINDOW: DetectionWindow = { fromMs: 0, toMs: Date.parse('2026-07-26T00:00:00Z'), full: true }
+const WINDOW: DetectionWindow = { fromTimestamp: 0, toTimestamp: Date.parse('2026-07-26T00:00:00Z'), full: true }
 
 // recordingClient captures every emitted graph_query and replays canned rows so
 // a detector's walk terminates without a live graph.

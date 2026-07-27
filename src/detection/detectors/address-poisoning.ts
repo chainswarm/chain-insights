@@ -147,10 +147,10 @@ export const addressPoisoningDetector: DetectorScan = {
   async scan(window: DetectionWindow, client: Client, network: string, params: DetectorParams): Promise<DetectionFinding[]> {
     const cfg = resolvePoisoningConfig(network, params)
     // Clamp to the trailing bounded window so the facts scan stays cost-legal.
-    const hiMs = window.toMs
-    const loMs = Math.max(window.fromMs, hiMs - cfg.scanWindowMs)
-    const lo = toDateStr(loMs)
-    const hi = toDateStr(hiMs)
+    const hiTimestamp = window.toTimestamp
+    const loTimestamp = Math.max(window.fromTimestamp, hiTimestamp - cfg.scanWindowMs)
+    const lo = toDateStr(loTimestamp)
+    const hi = toDateStr(hiTimestamp)
     // Both queries below read `USE facts`, which routes each network to its OWN
     // backing database — the dust edges and counterparties returned are already
     // the requested network's and nothing else. They are therefore deliberately
@@ -190,7 +190,7 @@ export const addressPoisoningDetector: DetectorScan = {
       )
     }
     const findings = findPoisoning(dust, realByVictim)
-    if (window.full && window.fromMs < loMs) {
+    if (window.full && window.fromTimestamp < loTimestamp) {
       // Full run could not cover pre-window history within the cost gate.
       for (const f of findings) f.truncated = true
     }

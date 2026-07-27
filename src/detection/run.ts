@@ -16,7 +16,7 @@ export interface DetectRunOptions {
   network: string
   full: boolean
   workspaceRoot: string
-  nowMs: number
+  nowTimestamp: number
   // Operator-supplied `--param key=value` bag; each detector reads its own keys.
   params?: Record<string, string>
 }
@@ -35,7 +35,7 @@ export async function runOneDetection(
   const { document, checkpointAdvancedTo, emittedKeys } = await runDetection(scanner, client, opts.workspaceRoot, {
     network: opts.network,
     full: opts.full,
-    nowMs: opts.nowMs,
+    nowTimestamp: opts.nowTimestamp,
     params: opts.params,
   })
   const findingsPath = await writeFindings(opts.workspaceRoot, opts.detector, document)
@@ -46,7 +46,7 @@ export async function runOneDetection(
   // A full-state detector has no checkpoint; instead it records what it has
   // already emitted so the next run only reports genuinely new findings.
   if (emittedKeys) {
-    await commitEmittedState(opts.workspaceRoot, scanner, opts.network, emittedKeys, opts.nowMs)
+    await commitEmittedState(opts.workspaceRoot, scanner, opts.network, emittedKeys, opts.nowTimestamp)
   }
   return { findingsPath, findingsCount: document.findings.length, status: document.status }
 }

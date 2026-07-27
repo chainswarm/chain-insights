@@ -270,7 +270,7 @@ Trace tool chaining:
 3. Pass high-confidence \`continuation.candidate_suspect_addresses\` from
    deposit traceback to \`aml_trace_suspect_funds\`.
 4. Use \`aml_trace_suspect_funds\` when the user gives suspected scammer, mule,
-   operator, or laundering-ring addresses. \`incident_timestamp_ms\` is
+   operator, or laundering-ring addresses. \`incident_timestamp\` is
    optional.
 5. Use \`aml_address_risk\` for single-address enrichment, and
    \`graph_query_batch\` only when the role-specific tools do not answer the

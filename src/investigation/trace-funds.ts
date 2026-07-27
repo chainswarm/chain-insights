@@ -15,8 +15,8 @@ type RemoteToolResult = {
 }
 
 export interface TraceActivityWindow {
-  fromMs: number
-  toMs?: number
+  fromTimestamp: number
+  toTimestamp?: number
 }
 
 export interface TraceFundsOptions {
@@ -385,8 +385,8 @@ function pathNodeMap(variableName: string): string {
 export function activityWindowPredicates(edgeVariables: string[], window: TraceActivityWindow | undefined): string[] {
   if (!window) return []
   return edgeVariables.map((edgeVariable) => {
-    const from = `(${edgeVariable}.first_seen_timestamp >= ${window.fromMs} OR ${edgeVariable}.last_seen_timestamp >= ${window.fromMs})`
-    const to = window.toMs !== undefined ? ` AND ${edgeVariable}.first_seen_timestamp <= ${window.toMs}` : ''
+    const from = `(${edgeVariable}.first_seen_timestamp >= ${window.fromTimestamp} OR ${edgeVariable}.last_seen_timestamp >= ${window.fromTimestamp})`
+    const to = window.toTimestamp !== undefined ? ` AND ${edgeVariable}.first_seen_timestamp <= ${window.toTimestamp}` : ''
     return `${from}${to}`
   })
 }
@@ -1243,7 +1243,7 @@ export async function runFundFlowProbe(
   const network = options.network.trim()
   if (!seedAddress) throw new Error('seed_address is required')
   if (!network) throw new Error('network is required')
-  if (options.activityWindow && (!Number.isFinite(options.activityWindow.fromMs) || (options.activityWindow.toMs !== undefined && !Number.isFinite(options.activityWindow.toMs)))) {
+  if (options.activityWindow && (!Number.isFinite(options.activityWindow.fromTimestamp) || (options.activityWindow.toTimestamp !== undefined && !Number.isFinite(options.activityWindow.toTimestamp)))) {
     throw new Error('activity window timestamps must be finite numbers')
   }
 

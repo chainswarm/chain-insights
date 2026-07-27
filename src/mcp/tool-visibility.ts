@@ -32,11 +32,11 @@ export const PUBLIC_MCP_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
 // tests/configurable-limits.test.ts.
 export const PUBLIC_MCP_TOOL_ALLOWED_ARGS: Record<string, string[]> = {
   aml_address_risk: ['address', 'network', 'compare_address', 'include_attachments'],
-  aml_trace_victim_funds: ['victim_addresses', 'network', 'known_suspect_addresses', 'incident_timestamp_ms', 'max_hops', 'per_address_limit', 'include_attachments'],
-  aml_trace_suspect_funds: ['suspect_addresses', 'network', 'incident_timestamp_ms', 'max_hops', 'per_address_limit', 'include_attachments'],
+  aml_trace_victim_funds: ['victim_addresses', 'network', 'known_suspect_addresses', 'incident_timestamp', 'max_hops', 'per_address_limit', 'include_attachments'],
+  aml_trace_suspect_funds: ['suspect_addresses', 'network', 'incident_timestamp', 'max_hops', 'per_address_limit', 'include_attachments'],
   aml_trace_deposit_sources: ['deposit_addresses', 'network', 'max_hops', 'row_limit', 'include_attachments'],
   // `time_scope` narrows a `USE topology` query to a temporal-shard subset
-  // (lifetime | recent | since_ms:<n>). The serving contract has accepted it
+  // (lifetime | recent | since_timestamp:<n>). The serving contract has accepted it
   // since 0.10.15; it was missing here, so the proxy silently STRIPPED it from
   // pass-through calls and every caller got a lifetime-scoped result.
   graph_query: ['query', 'network', 'time_scope'],

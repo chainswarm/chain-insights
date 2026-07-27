@@ -224,7 +224,7 @@ export function knownPublicToolInputSchema(toolName: string): ToolInputShape | n
         victim_addresses: z.string().min(1).describe('Victim or source addresses, comma-separated. Min 1, max 5.'),
         network: BITTENSOR_NETWORK_SCHEMA,
         known_suspect_addresses: z.string().optional().describe('Optional known suspect addresses for context only. Max 5.'),
-        incident_timestamp_ms: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
+        incident_timestamp: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
         max_hops: limitArgSchema('trace_max_hops', TRACE_HOPS_CAPTION),
         per_address_limit: limitArgSchema('trace_per_address_limit', PER_ADDRESS_CAPTION),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
@@ -233,7 +233,7 @@ export function knownPublicToolInputSchema(toolName: string): ToolInputShape | n
       return {
         network: BITTENSOR_NETWORK_SCHEMA,
         suspect_addresses: z.string().min(1).describe('Suspect-controlled addresses, comma-separated. Min 1, max 5.'),
-        incident_timestamp_ms: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
+        incident_timestamp: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
         max_hops: limitArgSchema('trace_max_hops', TRACE_HOPS_CAPTION),
         per_address_limit: limitArgSchema('trace_per_address_limit', PER_ADDRESS_CAPTION),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
@@ -434,7 +434,7 @@ function installRemoteCypherLogging(remoteClient: RemoteToolCaller, logger: Retu
       }
       const { warnings, search_limits } = actionLogSignalsFromResult(result)
       await appendActionLog({
-        ts_ms: startedAt,
+        timestamp: startedAt,
         tool: input.name,
         args: toolArgs,
         outcome: 'ok',
@@ -452,7 +452,7 @@ function installRemoteCypherLogging(remoteClient: RemoteToolCaller, logger: Retu
         })
       }
       await appendActionLog({
-        ts_ms: startedAt,
+        timestamp: startedAt,
         tool: input.name,
         args: toolArgs,
         outcome: 'error',
@@ -1346,7 +1346,7 @@ export async function createProxy(): Promise<void> {
           network: BITTENSOR_NETWORK_SCHEMA,
           known_suspect_addresses: z.union([z.string(), z.array(z.string())]).optional().describe('Known suspect addresses for context only. Max 5.'),
           include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
-          incident_timestamp_ms: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
+          incident_timestamp: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
           max_hops: limitArgSchema('trace_max_hops', TRACE_HOPS_CAPTION),
         per_address_limit: limitArgSchema('trace_per_address_limit', PER_ADDRESS_CAPTION),
         },
@@ -1362,7 +1362,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ victim_addresses, known_suspect_addresses, network, incident_timestamp_ms, max_hops, per_address_limit, include_attachments }) => {
+      async ({ victim_addresses, known_suspect_addresses, network, incident_timestamp, max_hops, per_address_limit, include_attachments }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1378,7 +1378,7 @@ export async function createProxy(): Promise<void> {
             victimAddresses: victim_addresses,
             knownSuspectAddresses: known_suspect_addresses,
             network,
-            incidentTimestampMs: incident_timestamp_ms,
+            incidentTimestamp: incident_timestamp,
             maxHops: max_hops,
             perAddressLimit: per_address_limit,
             writeArtifacts: workspaceArtifactsEnabled,
@@ -1418,7 +1418,7 @@ export async function createProxy(): Promise<void> {
         inputSchema: {
           network: BITTENSOR_NETWORK_SCHEMA,
           suspect_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe('Suspect-controlled addresses, comma-separated or an array. Min 1, max 5.'),
-          incident_timestamp_ms: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
+          incident_timestamp: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
           max_hops: limitArgSchema('trace_max_hops', TRACE_HOPS_CAPTION),
         per_address_limit: limitArgSchema('trace_per_address_limit', PER_ADDRESS_CAPTION),
           include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
@@ -1435,7 +1435,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ suspect_addresses, incident_timestamp_ms, network, max_hops, per_address_limit, include_attachments }) => {
+      async ({ suspect_addresses, incident_timestamp, network, max_hops, per_address_limit, include_attachments }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1452,7 +1452,7 @@ export async function createProxy(): Promise<void> {
             network,
             maxHops: max_hops,
             perAddressLimit: per_address_limit,
-            incidentTimestampMs: incident_timestamp_ms,
+            incidentTimestamp: incident_timestamp,
             writeArtifacts: workspaceArtifactsEnabled,
           })
           const graph = await writeLocalGraphMeta(

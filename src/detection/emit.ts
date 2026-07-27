@@ -16,7 +16,7 @@ export async function writeFindings(
 ): Promise<string> {
   const dir = detectionsDir(workspaceRoot)
   await mkdir(dir, { recursive: true })
-  const file = path.join(dir, `${doc.generated_at_ms}-${detector}-${doc.network}.findings.json`)
+  const file = path.join(dir, `${doc.generated_at_timestamp}-${detector}-${doc.network}.findings.json`)
   await writeFile(file, JSON.stringify(doc, null, 2) + '\n', 'utf8')
   return file
 }

@@ -14,7 +14,7 @@ export interface LabelRow {
   label: string
   source_tool: string
   reviewer: string
-  decided_at_ms: number
+  decided_at_timestamp: number
 }
 
 interface ReviewedFinding {
@@ -38,7 +38,7 @@ function csvField(value: string | number): string {
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
-export async function exportLabels(workspaceRoot: string, nowMs: number): Promise<{ jsonPath: string; csvPath: string; rows: LabelRow[] }> {
+export async function exportLabels(workspaceRoot: string, nowTimestamp: number): Promise<{ jsonPath: string; csvPath: string; rows: LabelRow[] }> {
   const rows: LabelRow[] = []
   for (const decision of await listDecisionDocs(workspaceRoot)) {
     if (decision.decision !== 'approve' || !decision.reviewed_copy) continue
@@ -54,19 +54,19 @@ export async function exportLabels(workspaceRoot: string, nowMs: number): Promis
         label,
         source_tool: doc.tool,
         reviewer: doc.reviewer,
-        decided_at_ms: decision.decided_at_ms,
+        decided_at_timestamp: decision.decided_at_timestamp,
       })
     }
   }
   const dir = monitorPaths(workspaceRoot).reportsDir
   await mkdir(dir, { recursive: true })
-  const jsonPath = path.join(dir, `labels-${nowMs}.json`)
-  const csvPath = path.join(dir, `labels-${nowMs}.csv`)
+  const jsonPath = path.join(dir, `labels-${nowTimestamp}.json`)
+  const csvPath = path.join(dir, `labels-${nowTimestamp}.csv`)
   await writeFile(jsonPath, JSON.stringify(rows, null, 2) + '\n', 'utf8')
-  const header = 'address,network,label,source_tool,reviewer,decided_at_ms'
+  const header = 'address,network,label,source_tool,reviewer,decided_at_timestamp'
   const csvLines = [
     header,
-    ...rows.map((r) => [r.address, r.network, r.label, r.source_tool, r.reviewer, r.decided_at_ms].map(csvField).join(',')),
+    ...rows.map((r) => [r.address, r.network, r.label, r.source_tool, r.reviewer, r.decided_at_timestamp].map(csvField).join(',')),
   ]
   await writeFile(csvPath, csvLines.join('\n') + '\n', 'utf8')
   return { jsonPath, csvPath, rows }

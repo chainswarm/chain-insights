@@ -10,7 +10,7 @@ import { appendFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
 export interface ActionLogEntry {
-  ts_ms: number
+  timestamp: number
   tool: string
   args: Record<string, unknown>
   outcome: 'ok' | 'error'

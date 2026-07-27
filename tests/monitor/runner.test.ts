@@ -34,7 +34,7 @@ describe('runMonitorOnce', () => {
       },
       usage: async () => ({ remaining: 999 }),
     })
-    expect(doc.run_ms).toBe(5000)
+    expect(doc.run_timestamp).toBe(5000)
     expect(doc.cells).toHaveLength(2)
     expect(doc.cells.find((c) => c.detector === 'mixer')?.error).toMatch(/boom/)
     expect(doc.cells.find((c) => c.detector === 'fake-token')?.findings_count).toBe(2)
@@ -65,7 +65,7 @@ describe('runMonitorOnce', () => {
     const runFiles = await readdir(monitorPaths(root).runsDir)
     expect(runFiles).toEqual(['6000.run.json'])
     // ...and exactly one '(run)' marker row in scan_runs (zero cells ingested).
-    const rows = await withStore(root, async (s) => s.all("SELECT cell, error FROM scan_runs WHERE run_ms = 6000"))
+    const rows = await withStore(root, async (s) => s.all("SELECT cell, error FROM scan_runs WHERE run_timestamp = 6000"))
     expect(rows).toHaveLength(1)
     expect(rows[0].cell).toBe('(run)')
   })

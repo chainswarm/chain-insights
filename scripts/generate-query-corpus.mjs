@@ -25,9 +25,10 @@ const ADDR = 'corpus-address-a'
 const ADDR_QUOTED = 'corpus"quote'
 const COMPARE = 'corpus-address-b'
 const DEPOSITS = ['corpus-dep-1', 'corpus-dep-2', 'corpus-dep-3']
-// TraceActivityWindow shape ({ fromMs, toMs }) — a wrong key here produces
-// `>= undefined` predicates; tests/query-corpus.test.ts pins their absence.
-const WINDOW = { fromMs: 1704067200000, toMs: 1735689600000 }
+// TraceActivityWindow shape ({ fromTimestamp, toTimestamp }) — a wrong key
+// here produces `>= undefined` predicates; tests/query-corpus.test.ts pins
+// their absence.
+const WINDOW = { fromTimestamp: 1704067200000, toTimestamp: 1735689600000 }
 
 const entries = []
 const add = (builder, params, scope, item) => {

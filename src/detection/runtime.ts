@@ -16,8 +16,8 @@ import { readCheckpoint, writeCheckpoint, type DetectionCheckpoint } from './che
 import { filterNewFindings, readEmittedState, writeEmittedState } from './emitted-state.js'
 
 export interface DetectionWindow {
-  fromMs: number
-  toMs: number
+  fromTimestamp: number
+  toTimestamp: number
   full: boolean
 }
 
@@ -69,7 +69,7 @@ export interface DetectorScan {
 export interface RunDetectionOptions {
   network: string
   full: boolean
-  nowMs: number
+  nowTimestamp: number
   // Operator-supplied per-run params (default empty).
   params?: DetectorParams
 }
@@ -86,7 +86,7 @@ export interface RunDetectionResult {
 }
 
 // Runs one scan and builds the findings document. Does NOT write the checkpoint
-// (the caller advances it only after durably writing the document). `nowMs` is
+// (the caller advances it only after durably writing the document). `nowTimestamp` is
 // injected for deterministic tests.
 export async function runDetection(
   scanner: DetectorScan,
@@ -101,15 +101,15 @@ export async function runDetection(
   const checkpoint = fullState
     ? null
     : await readCheckpoint(workspaceRoot, scanner.id, opts.network)
-  const fromMs = fullState || opts.full ? 0 : (checkpoint?.last_block_timestamp_ms ?? 0)
-  const window: DetectionWindow = { fromMs, toMs: opts.nowMs, full: fullState || opts.full }
+  const fromTimestamp = fullState || opts.full ? 0 : (checkpoint?.last_block_timestamp ?? 0)
+  const window: DetectionWindow = { fromTimestamp, toTimestamp: opts.nowTimestamp, full: fullState || opts.full }
   const params = opts.params ?? {}
   const scanned = await scanner.scan(window, client, opts.network, params)
 
   // Incremental detectors bound their own queries, so what they return is
   // already new-since-last-run and is emitted as-is.
   if (!fullState) {
-    return { document: buildDocument(scanner, opts, scanned, params), checkpointAdvancedTo: opts.nowMs }
+    return { document: buildDocument(scanner, opts, scanned, params), checkpointAdvancedTo: opts.nowTimestamp }
   }
 
   // Full-state detectors re-derive their whole result set every run. Emit only
@@ -140,7 +140,7 @@ function buildDocument(
     tool: scanner.tool,
     network: opts.network,
     status: 'complete',
-    generated_at_ms: opts.nowMs,
+    generated_at_timestamp: opts.nowTimestamp,
     findings,
     ...(scanner.thresholds ? { threshold_provenance: scanner.thresholds(opts.network, params) } : {}),
     // reviewer is intentionally NOT set here — the curated-import gate refuses
@@ -156,13 +156,13 @@ export async function commitEmittedState(
   scanner: DetectorScan,
   network: string,
   keys: string[],
-  nowMs: number,
+  nowTimestamp: number,
 ): Promise<void> {
   await writeEmittedState(workspaceRoot, {
     schema: 'chain-insights.detection-emitted.v1',
     detector: scanner.id,
     network,
-    updated_at_ms: nowMs,
+    updated_at_timestamp: nowTimestamp,
     finding_keys: keys,
   })
 }
@@ -173,13 +173,13 @@ export async function commitCheckpoint(
   workspaceRoot: string,
   scanner: DetectorScan,
   network: string,
-  advancedToMs: number,
+  advancedToTimestamp: number,
 ): Promise<void> {
   const checkpoint: DetectionCheckpoint = {
     detector: scanner.id,
     network,
-    last_block_timestamp_ms: advancedToMs,
-    last_scanned_at_ms: advancedToMs,
+    last_block_timestamp: advancedToTimestamp,
+    last_scanned_at_timestamp: advancedToTimestamp,
   }
   await writeCheckpoint(workspaceRoot, checkpoint)
 }

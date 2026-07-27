@@ -1062,8 +1062,8 @@ export interface TraceVictimFundsOptions {
   victimAddresses: string | string[]
   knownSuspectAddresses?: string | string[]
   network: string
-  incidentTimestampMs?: number
-  timeRange?: { from_ms?: number; to_ms?: number }
+  incidentTimestamp?: number
+  timeRange?: { from_timestamp?: number; to_timestamp?: number }
   maxHops?: number
   perAddressLimit?: number
   minAmountSum?: number
@@ -1073,8 +1073,8 @@ export interface TraceVictimFundsOptions {
 export interface TraceSuspectFundsOptions {
   suspectAddresses: string | string[]
   network: string
-  incidentTimestampMs?: number
-  timeRange?: { from_ms?: number; to_ms?: number }
+  incidentTimestamp?: number
+  timeRange?: { from_timestamp?: number; to_timestamp?: number }
   maxHops?: number
   perAddressLimit?: number
   minAmountSum?: number
@@ -1084,7 +1084,7 @@ export interface TraceSuspectFundsOptions {
 export interface TraceDepositSourcesOptions {
   depositAddresses: string | string[]
   network: string
-  timeRange?: { from_ms?: number; to_ms?: number }
+  timeRange?: { from_timestamp?: number; to_timestamp?: number }
   maxHops?: number
   /**
    * Upstream paths retained per depth, value-ordered. Raising this is the
@@ -1123,10 +1123,10 @@ function clampInt(value: number | undefined, fallback: number, min: number, max:
   return Math.max(min, Math.min(max, Math.trunc(value as number)))
 }
 
-function traceActivityWindow(incidentTimestampMs: number | undefined, timeRange: { from_ms?: number; to_ms?: number } | undefined): TraceActivityWindow | undefined {
-  const fromMs = timeRange?.from_ms ?? incidentTimestampMs
-  if (fromMs === undefined) return undefined
-  return { fromMs, ...(timeRange?.to_ms !== undefined ? { toMs: timeRange.to_ms } : {}) }
+function traceActivityWindow(incidentTimestamp: number | undefined, timeRange: { from_timestamp?: number; to_timestamp?: number } | undefined): TraceActivityWindow | undefined {
+  const fromTimestamp = timeRange?.from_timestamp ?? incidentTimestamp
+  if (fromTimestamp === undefined) return undefined
+  return { fromTimestamp, ...(timeRange?.to_timestamp !== undefined ? { toTimestamp: timeRange.to_timestamp } : {}) }
 }
 
 function graphRecords(graphData: Record<string, unknown>, key: string): Array<Record<string, unknown>> {
@@ -1556,8 +1556,8 @@ function traceResultFromFundRuns(
   network: string,
   runs: TraceRun[],
   options: {
-    incidentTimestampMs?: number
-    timeRange?: { from_ms?: number; to_ms?: number }
+    incidentTimestamp?: number
+    timeRange?: { from_timestamp?: number; to_timestamp?: number }
     activityWindow?: TraceActivityWindow
     maxHops?: number
     /** Effective search bounds of this run (requested vs used vs ceiling). */
@@ -1674,10 +1674,10 @@ function traceResultFromFundRuns(
     input: {
       addresses: runs.map((run) => run.address),
       seed_role: seedRole,
-      ...(options.incidentTimestampMs !== undefined ? { incident_timestamp_ms: options.incidentTimestampMs } : {}),
+      ...(options.incidentTimestamp !== undefined ? { incident_timestamp: options.incidentTimestamp } : {}),
       ...(options.timeRange ? { time_range: options.timeRange } : {}),
       time_filter: options.activityWindow
-        ? { from_ms: options.activityWindow.fromMs, ...(options.activityWindow.toMs !== undefined ? { to_ms: options.activityWindow.toMs } : {}) }
+        ? { from_timestamp: options.activityWindow.fromTimestamp, ...(options.activityWindow.toTimestamp !== undefined ? { to_timestamp: options.activityWindow.toTimestamp } : {}) }
         : 'none',
       max_hops: options.maxHops ?? LIMIT_SPECS.trace_max_hops.builtin,
       // Effective bounds of THIS run: requested vs used vs ceiling.
@@ -1779,7 +1779,7 @@ export async function traceVictimFunds(
   const existingVictims = await probeSeedAddresses(remoteClient, network, uniqueVictims)
   const victims = uniqueVictims.filter((input) => existingVictims.has(input))
   const unresolvedVictims = uniqueVictims.filter((input) => !existingVictims.has(input))
-  const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange)
+  const activityWindow = traceActivityWindow(options.incidentTimestamp, options.timeRange)
   const searchLimits = resolveForwardTraceLimits(network, config, options)
 
   const runs: TraceRun[] = []
@@ -1801,7 +1801,7 @@ export async function traceVictimFunds(
     })
   }
   const result = traceResultFromFundRuns('aml_trace_victim_funds', 'victim', network, runs, {
-    incidentTimestampMs: options.incidentTimestampMs,
+    incidentTimestamp: options.incidentTimestamp,
     timeRange: options.timeRange,
     activityWindow,
     maxHops: searchLimits.hopDepth.used,
@@ -1826,7 +1826,7 @@ export async function traceSuspectFunds(
   const existingSuspects = await probeSeedAddresses(remoteClient, network, uniqueSuspects)
   const suspects = uniqueSuspects.filter((input) => existingSuspects.has(input))
   const unresolvedSuspects = uniqueSuspects.filter((input) => !existingSuspects.has(input))
-  const activityWindow = traceActivityWindow(options.incidentTimestampMs, options.timeRange)
+  const activityWindow = traceActivityWindow(options.incidentTimestamp, options.timeRange)
   const searchLimits = resolveForwardTraceLimits(network, config, options)
 
   const runs: TraceRun[] = []
@@ -1848,7 +1848,7 @@ export async function traceSuspectFunds(
     })
   }
   const result = traceResultFromFundRuns('aml_trace_suspect_funds', 'suspect', network, runs, {
-    incidentTimestampMs: options.incidentTimestampMs,
+    incidentTimestamp: options.incidentTimestamp,
     timeRange: options.timeRange,
     activityWindow,
     maxHops: searchLimits.hopDepth.used,
@@ -2082,8 +2082,8 @@ export async function traceDepositSources(
       terminal_role: 'source',
       source_is_exchange: sourceIsExchange,
       amount_usd_sum: numberValue(row['amount_usd_sum']),
-      first_seen_ms: numberValue(row['first_seen_timestamp']),
-      last_seen_ms: numberValue(row['last_seen_timestamp']),
+      first_seen_timestamp: numberValue(row['first_seen_timestamp']),
+      last_seen_timestamp: numberValue(row['last_seen_timestamp']),
     })
   }
 
@@ -2181,7 +2181,7 @@ export async function traceDepositSources(
         ...(options.timeRange ? { time_range: options.timeRange } : {}),
         ...(minAmountSum > 0 ? { min_amount_sum: minAmountSum } : {}),
         time_filter: window
-          ? { from_ms: window.fromMs, ...(window.toMs !== undefined ? { to_ms: window.toMs } : {}) }
+          ? { from_timestamp: window.fromTimestamp, ...(window.toTimestamp !== undefined ? { to_timestamp: window.toTimestamp } : {}) }
           : 'none',
         max_hops: maxHops,
         // Effective bounds of THIS run: requested vs used vs ceiling. A

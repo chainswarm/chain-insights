@@ -27,7 +27,7 @@ function watchedPairs(watched: WatchedAddress[]): { sql: string; params: unknown
 export async function findingHits(
   store: MonitorStore,
   watched: WatchedAddress[],
-  _runMs: number,
+  _runTimestamp: number,
 ): Promise<WatchlistHit[]> {
   if (watched.length === 0) return []
   const { sql, params } = watchedPairs(watched)
@@ -57,7 +57,7 @@ export async function findingHits(
 export async function movementHits(
   store: MonitorStore,
   watched: WatchedAddress[],
-  _runMs: number,
+  _runTimestamp: number,
 ): Promise<WatchlistHit[]> {
   if (watched.length === 0) return []
   const { sql, params } = watchedPairs(watched)
@@ -101,14 +101,14 @@ export async function movementHits(
 // out of the literal. An allow-list has no such failure mode.
 const SAFE_ADDRESS = /^[A-Za-z0-9]{1,128}$/
 
-function dustQuery(addresses: string[], dustMaxUsd: number, sinceMs: number): string {
+function dustQuery(addresses: string[], dustMaxUsd: number, sinceTimestamp: number): string {
   const unsafe = addresses.filter((a) => !SAFE_ADDRESS.test(a.startsWith('0x') ? a.slice(2) : a))
   if (unsafe.length > 0) {
     throw new Error(`watchlist contains ${unsafe.length} address(es) that are not valid chain addresses: ${unsafe.slice(0, 3).map((a) => JSON.stringify(a)).join(', ')}`)
   }
   const list = addresses.map((a) => `'${a}'`).join(',')
   return `USE topology MATCH (src:Address)-[t:FLOWS_TO]->(dst:Address)
- WHERE dst.address IN [${list}] AND t.amount_usd_sum <= ${dustMaxUsd} AND t.last_seen_timestamp >= ${sinceMs}
+ WHERE dst.address IN [${list}] AND t.amount_usd_sum <= ${dustMaxUsd} AND t.last_seen_timestamp >= ${sinceTimestamp}
  RETURN dst.address AS address, src.address AS from_address,
         t.amount_usd_sum AS amount_usd, t.last_tx_id AS tx_ref
  LIMIT 500`
@@ -119,7 +119,7 @@ export async function dustHits(
   store: MonitorStore,
   watched: WatchedAddress[],
   opts: { dustMaxUsd: number; dustLookbackSeconds: number },
-  runMs: number,
+  runTimestamp: number,
 ): Promise<{ hits: WatchlistHit[]; calls: number; error?: string }> {
   if (watched.length === 0) return { hits: [], calls: 0 }
   const byNetwork = new Map<string, string[]>()
@@ -128,7 +128,7 @@ export async function dustHits(
     list.push(w.address)
     byNetwork.set(w.network, list)
   }
-  const sinceMs = runMs - opts.dustLookbackSeconds * 1000
+  const sinceTimestamp = runTimestamp - opts.dustLookbackSeconds * 1000
   const hits: WatchlistHit[] = []
   let calls = 0
   let error: string | undefined
@@ -137,7 +137,7 @@ export async function dustHits(
       calls += 1
       const result = (await client.callTool({
         name: 'graph_query_batch',
-        arguments: { network, queries: [{ id: 'dust', query: dustQuery(addresses, opts.dustMaxUsd, sinceMs) }] },
+        arguments: { network, queries: [{ id: 'dust', query: dustQuery(addresses, opts.dustMaxUsd, sinceTimestamp) }] },
       })) as {
         structuredContent?: {
           facts?: { queries?: Array<{ id: string; results?: Array<Record<string, unknown>> }> }
@@ -179,18 +179,18 @@ export async function runWatchlistPass(
   workspaceRoot: string,
   store: MonitorStore,
   config: MonitorConfig,
-  runMs: number,
+  runTimestamp: number,
 ): Promise<{
   hits: WatchlistHit[]
-  alerts: Omit<AlertEvent, 'alert_id' | 'emitted_at_ms'>[]
+  alerts: Omit<AlertEvent, 'alert_id' | 'emitted_at_timestamp'>[]
   calls: number
   error?: string
 }> {
   const watched = await loadWatchlist(workspaceRoot)
   if (watched.length === 0 || config.watchlist?.enabled === false) return { hits: [], alerts: [], calls: 0 }
   const hits: WatchlistHit[] = [
-    ...(await findingHits(store, watched, runMs)),
-    ...(await movementHits(store, watched, runMs)),
+    ...(await findingHits(store, watched, runTimestamp)),
+    ...(await movementHits(store, watched, runTimestamp)),
   ]
   const dust = await dustHits(
     client,
@@ -200,12 +200,12 @@ export async function runWatchlistPass(
       dustMaxUsd: config.watchlist?.dustMaxUsd ?? 1.0,
       dustLookbackSeconds: config.watchlist?.dustLookbackSeconds ?? 86400,
     },
-    runMs,
+    runTimestamp,
   )
   hits.push(...dust.hits)
   for (const hit of hits) {
     await store.run('INSERT INTO watchlist_hits VALUES ($1,$2,$3,$4,$5,$6)', [
-      runMs,
+      runTimestamp,
       hit.address,
       hit.network,
       hit.trigger,
@@ -217,7 +217,7 @@ export async function runWatchlistPass(
     type: ALERT_TYPE[hit.trigger],
     network: hit.network,
     address: hit.address,
-    run_ms: runMs,
+    run_timestamp: runTimestamp,
     doc_path: hit.trigger === 'finding' ? hit.source_ref : undefined,
     case_id: hit.trigger === 'movement' ? hit.source_ref : undefined,
   }))

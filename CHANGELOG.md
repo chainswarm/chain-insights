@@ -3,6 +3,42 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.21] - 2026-07-27 — points in time are `_timestamp`, not `_ms`
+
+- chore: renamed every internal identifier that names a point in time from
+  the `_ms` convention to `_timestamp`, matching the serving-layer convention
+  already used by Chain Insights Graph (`first_seen_timestamp`,
+  `last_seen_timestamp`, `block_timestamp`, etc.). Elapsed-time/duration
+  identifiers (`duration_ms`, `wall_clock_ms`, `scan_window_ms`) are
+  unchanged — only points in time convert. Renamed directly with no
+  compatibility shim, since Chain Insights is not yet in production: no
+  external callers and no workspace history to preserve.
+- fix: the public MCP tool argument `incident_timestamp_ms` on the
+  `aml_trace_victim_funds`/`aml_trace_suspect_funds` family is now
+  `incident_timestamp`, with `PUBLIC_MCP_TOOL_ALLOWED_ARGS` and
+  `NUMERIC_ARG_KEYS` updated to match, and a new proxy test proving the
+  renamed argument survives `normalizeRemoteToolArguments`'s allowlist
+  filter instead of being silently stripped.
+- Renamed identifiers include (non-exhaustive): `run_ms` → `run_timestamp`,
+  `incident_timestamp_ms` → `incident_timestamp`, `seeds_added_at_ms` →
+  `seeds_added_at_timestamp`, `decided_at_ms` → `decided_at_timestamp`,
+  `generated_at_ms` → `generated_at_timestamp`, `emitted_at_ms` →
+  `emitted_at_timestamp`, `from_ms`/`to_ms` → `from_timestamp`/
+  `to_timestamp`, `created_at_ms`/`closed_at_ms`/`updated_at_ms`/
+  `acked_at_ms`/`at_ms` → `..._timestamp`, `last_scanned_at_ms` →
+  `last_scanned_at_timestamp`, `last_block_timestamp_ms` →
+  `last_block_timestamp`, `since_ms` → `since_timestamp`, `first_seen_ms` →
+  `first_seen_timestamp`, `last_seen_ms` → `last_seen_timestamp`, `ts_ms` →
+  `timestamp`, and the federation merge fields `bucket_start_ms`/
+  `bucket_end_ms` → `bucket_start_timestamp`/`bucket_end_timestamp`
+  (matching the corresponding data-pipeline graph-property rename).
+- Persisted on-disk shape changed: DuckDB column names in
+  `src/monitor/store.ts`, the canonical JSON on `case.json`/`alerts.jsonl`/
+  checkpoints/run docs, and `detection/checkpoint.ts` state now use the
+  `_timestamp` names. An existing local `.chain-insights/` workspace is
+  incompatible with this release; rebuild with `cia monitor rebuild` or
+  recreate the workspace.
+
 ## [0.11.20] - 2026-07-27 — optional action log for unattended runs
 
 - feat: optional append-only JSONL action log of every MCP tool invocation,

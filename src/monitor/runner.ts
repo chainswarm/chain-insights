@@ -30,7 +30,7 @@ export interface CellOutcome {
 }
 
 export interface MonitorRunDoc {
-  run_ms: number
+  run_timestamp: number
   halted?: string
   usage_before?: unknown
   usage_after?: unknown
@@ -40,7 +40,7 @@ export interface MonitorRunDoc {
 
 export interface RunnerHooks {
   runDetection?: typeof runOneDetection
-  traceCase?: (client: Client, workspaceRoot: string, caseId: string, maxHops: number, nowMs: number, hooks?: unknown, limits?: { limits?: Record<string, number>; networkLimits?: Record<string, Record<string, number>> }) => Promise<{ movements_count: number; scope_expansions_count?: number; alerts: Omit<AlertEvent, 'alert_id' | 'emitted_at_ms'>[] }>
+  traceCase?: (client: Client, workspaceRoot: string, caseId: string, maxHops: number, nowTimestamp: number, hooks?: unknown, limits?: { limits?: Record<string, number>; networkLimits?: Record<string, Record<string, number>> }) => Promise<{ movements_count: number; scope_expansions_count?: number; alerts: Omit<AlertEvent, 'alert_id' | 'emitted_at_timestamp'>[] }>
   usage?: (client: Client) => Promise<unknown | null>
 }
 
@@ -72,28 +72,28 @@ export async function runMonitorOnce(
   client: Client,
   workspaceRoot: string,
   config: MonitorConfig,
-  nowMs: number,
+  nowTimestamp: number,
   hooks: RunnerHooks = {},
 ): Promise<MonitorRunDoc> {
   const detect = hooks.runDetection ?? runOneDetection
   const usage = hooks.usage ?? defaultUsage
-  const doc: MonitorRunDoc = { run_ms: nowMs, cells: [], alerts_emitted: 0 }
+  const doc: MonitorRunDoc = { run_timestamp: nowTimestamp, cells: [], alerts_emitted: 0 }
   doc.usage_before = await usage(client)
 
   const remaining = remainingOf(doc.usage_before)
   if (config.stopIfRemainingBelow !== undefined && remaining !== null && remaining < config.stopIfRemainingBelow) {
     doc.halted = `usage guard: remaining ${remaining} below floor ${config.stopIfRemainingBelow}`
   } else {
-    const alertsPending: Omit<AlertEvent, 'alert_id' | 'emitted_at_ms'>[] = []
+    const alertsPending: Omit<AlertEvent, 'alert_id' | 'emitted_at_timestamp'>[] = []
     for (const cell of config.cells) {
       const started = Date.now()
       const outcome: CellOutcome = { cell: `${cell.detector}:${cell.network}`, detector: cell.detector, network: cell.network, duration_ms: 0 }
       try {
-        const result = await detect(client, { detector: cell.detector, network: cell.network, full: false, workspaceRoot, nowMs, params: cell.params ?? {} })
+        const result = await detect(client, { detector: cell.detector, network: cell.network, full: false, workspaceRoot, nowTimestamp, params: cell.params ?? {} })
         outcome.findings_count = result.findingsCount
         outcome.findings_path = result.findingsPath
         if (result.findingsCount > 0) {
-          alertsPending.push({ type: 'new_findings', network: cell.network, detector: cell.detector, count: result.findingsCount, doc_path: result.findingsPath, run_ms: nowMs })
+          alertsPending.push({ type: 'new_findings', network: cell.network, detector: cell.detector, count: result.findingsCount, doc_path: result.findingsPath, run_timestamp: nowTimestamp })
         }
       } catch (err) {
         outcome.error = (err as Error).message
@@ -106,7 +106,7 @@ export async function runMonitorOnce(
         const started = Date.now()
         const outcome: CellOutcome = { cell: `case:${openCase.case_id}`, case_id: openCase.case_id, network: openCase.network, duration_ms: 0 }
         try {
-          const traced = await hooks.traceCase(client, workspaceRoot, openCase.case_id, config.caseMaxHops, nowMs, undefined, { limits: config.limits, networkLimits: config.networkLimits })
+          const traced = await hooks.traceCase(client, workspaceRoot, openCase.case_id, config.caseMaxHops, nowTimestamp, undefined, { limits: config.limits, networkLimits: config.networkLimits })
           outcome.movements_count = traced.movements_count
           outcome.scope_expansions_count = traced.scope_expansions_count ?? 0
           alertsPending.push(...traced.alerts)
@@ -126,7 +126,7 @@ export async function runMonitorOnce(
       const outcome: CellOutcome = { cell: 'watchlist', network: '(all)', duration_ms: 0 }
       try {
         const pass = await withStore(workspaceRoot, async (store) =>
-          runWatchlistPass(client, workspaceRoot, store, config, nowMs),
+          runWatchlistPass(client, workspaceRoot, store, config, nowTimestamp),
         )
         if (pass.hits.length > 0 || pass.calls > 0) {
           outcome.findings_count = pass.hits.length
@@ -141,14 +141,14 @@ export async function runMonitorOnce(
         doc.cells.push(outcome)
       }
     }
-    const emitted = await emitAlerts(workspaceRoot, alertsPending, nowMs, { webhookUrl: config.webhookUrl, execHook: config.execHook })
+    const emitted = await emitAlerts(workspaceRoot, alertsPending, nowTimestamp, { webhookUrl: config.webhookUrl, execHook: config.execHook })
     doc.alerts_emitted = emitted.length
   }
 
   doc.usage_after = await usage(client)
   const p = monitorPaths(workspaceRoot)
   await mkdir(p.runsDir, { recursive: true })
-  await writeFile(path.join(p.runsDir, `${nowMs}.run.json`), JSON.stringify(doc, null, 2) + '\n', 'utf8')
+  await writeFile(path.join(p.runsDir, `${nowTimestamp}.run.json`), JSON.stringify(doc, null, 2) + '\n', 'utf8')
   await withStore(workspaceRoot, async (store) => ingestNewDocs(store, workspaceRoot))
   return doc
 }

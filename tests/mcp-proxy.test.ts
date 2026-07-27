@@ -1991,7 +1991,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.graphData).toHaveProperty('schema', 'chain-insights.graph.v1')
   })
 
-  it('registers aml_trace_suspect_funds without requiring incident_timestamp_ms', async () => {
+  it('registers aml_trace_suspect_funds without requiring incident_timestamp', async () => {
     runFundFlowProbeMock.mockResolvedValue({
       summaryText: 'Trace complete for bittensor:5Suspect',
       compactEvidence: {},
@@ -2126,7 +2126,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       // with the caller none the wiser at runtime.
       row_limit: 5000,
       min_amount_sum: 25,
-      time_range: { from_ms: 1715500000000 },
+      time_range: { from_timestamp: 1715500000000 },
     })
 
     expect(result.isError).toBe(false)
@@ -2199,8 +2199,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
     const config = findToolConfig(serverInstance, 'aml_trace_victim_funds')
     const inputSchema = config.inputSchema as Record<string, { description?: string } | undefined>
-    expect(inputSchema.incident_timestamp_ms?.description).toContain('Unix timestamp in milliseconds')
-    expect(inputSchema.incident_timestamp_ms?.description).toContain('not a block number')
+    expect(inputSchema.incident_timestamp?.description).toContain('Unix timestamp in milliseconds')
+    expect(inputSchema.incident_timestamp?.description).toContain('not a block number')
     expect(inputSchema.max_hops?.description).toContain('Trace depth in hops')
     expect(inputSchema.time_range).toBeUndefined()
     expect(inputSchema.min_amount_sum).toBeUndefined()
@@ -2212,8 +2212,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const result = await handler({
       victim_addresses: ['5Victim'],
       network: 'bittensor',
-      incident_timestamp_ms: 1715500000000,
-      time_range: { from_ms: 1715500000000, to_ms: 1716000000000 },
+      incident_timestamp: 1715500000000,
+      time_range: { from_timestamp: 1715500000000, to_timestamp: 1716000000000 },
       min_amount_sum: 25,
     })
 
@@ -2221,11 +2221,58 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(runFundFlowProbeMock).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
       seedAddress: '5Victim',
       network: 'bittensor',
-      activityWindow: { fromMs: 1715500000000 },
+      activityWindow: { fromTimestamp: 1715500000000 },
       evidenceSource: 'aml_trace_victim_funds',
     }))
     expect(runFundFlowProbeMock.mock.calls[0]?.[2]?.minAmountSum).toBeUndefined()
     expect(runFundFlowProbeMock.mock.calls[0]?.[2]).not.toHaveProperty('timeRange')
+  })
+
+  // Renamed from `incident_timestamp_ms` (issue #254). When Chain Insights
+  // Graph natively exposes `aml_trace_victim_funds` (i.e. it appears in the
+  // remote tool list), registration takes the generic passthrough path:
+  // normalizeRemoteToolArguments filters the caller's arguments down to
+  // PUBLIC_MCP_TOOL_ALLOWED_ARGS before forwarding to remoteClient.callTool.
+  // An argument present on the schema but missing from that allowlist is
+  // silently dropped rather than rejected — this is the exact failure mode
+  // that shipped with `time_scope`. This test proves `incident_timestamp`
+  // survives that filter and reaches the remote call, not just the local
+  // fallback tool exercised by the test above.
+  it('incident_timestamp survives the proxy allowlist filter when the remote natively exposes aml_trace_victim_funds', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'aml_trace_victim_funds', description: 'Trace victim funds' },
+      { name: 'graph_query_batch', description: 'Cypher topology query batch' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool.mockResolvedValueOnce({
+      content: [{ type: 'text', text: 'remote trace result' }],
+      isError: false,
+    })
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'aml_trace_victim_funds')
+    const result = await handler({
+      victim_addresses: '5Victim',
+      network: 'bittensor',
+      incident_timestamp: 1715500000000,
+    })
+
+    expect(result.isError).toBe(false)
+    const forwardedArgs = clientInstance.callTool.mock.calls[0]?.[0]?.arguments as Record<string, unknown>
+    expect(forwardedArgs).toHaveProperty('incident_timestamp', 1715500000000)
+    expect(forwardedArgs).not.toHaveProperty('incident_timestamp_ms')
   })
 
   it('aml_trace_deposit_sources performs reverse tracing and reports shared upstream convergence', async () => {

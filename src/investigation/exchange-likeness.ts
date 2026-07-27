@@ -310,7 +310,7 @@ export async function exchangeLikeness(remoteClient: Client, options: ExchangeLi
     tool: 'aml_exchange_likeness',
     network,
     status,
-    generated_at_ms: Date.now(),
+    generated_at_timestamp: Date.now(),
     findings,
     threshold_provenance: THRESHOLD_PROVENANCE,
   }

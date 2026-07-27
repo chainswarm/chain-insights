@@ -36,9 +36,9 @@ describe('case registry', () => {
     const first = await addCaseSeeds(root, 'grow-1', ['5Operator'], 200, { note: 'second controlled wallet' })
     expect(first.added).toEqual(['5Operator'])
     expect(first.monitorCase.seeds).toEqual(['5Victim', '5Operator'])
-    expect(first.monitorCase.seeds_added_at_ms).toEqual({ '5Operator': 200 })
+    expect(first.monitorCase.seeds_added_at_timestamp).toEqual({ '5Operator': 200 })
     expect(first.monitorCase.seed_events).toEqual([
-      { action: 'add', addresses: ['5Operator'], at_ms: 200, note: 'second controlled wallet' },
+      { action: 'add', addresses: ['5Operator'], at_timestamp: 200, note: 'second controlled wallet' },
     ])
 
     // Idempotent: a re-add is a no-op, not an error, and records no event.
@@ -50,7 +50,7 @@ describe('case registry', () => {
     // Partial add: only the genuinely new address is recorded.
     const mixed = await addCaseSeeds(root, 'grow-1', ['5Operator', '5Mid'], 400)
     expect(mixed.added).toEqual(['5Mid'])
-    expect(mixed.monitorCase.seeds_added_at_ms).toEqual({ '5Operator': 200, '5Mid': 400 })
+    expect(mixed.monitorCase.seeds_added_at_timestamp).toEqual({ '5Operator': 200, '5Mid': 400 })
   })
 
   it('remove-seed narrows a case but can never empty it', async () => {
@@ -61,7 +61,7 @@ describe('case registry', () => {
     const removed = await removeCaseSeeds(root, 'shrink-1', ['5Operator'], 300)
     expect(removed.removed).toEqual(['5Operator'])
     expect(removed.monitorCase.seeds).toEqual(['5Victim'])
-    expect(removed.monitorCase.seeds_added_at_ms).toBeUndefined()
+    expect(removed.monitorCase.seeds_added_at_timestamp).toBeUndefined()
 
     // Idempotent: removing a non-seed changes nothing.
     expect((await removeCaseSeeds(root, 'shrink-1', ['5Operator'], 400)).removed).toEqual([])

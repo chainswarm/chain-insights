@@ -130,7 +130,7 @@ describe('CLI scaffold (FOUND-02)', () => {
   it('mcp aml-trace-suspect-funds help exposes suspect controls without requiring an incident timestamp', () => {
     const out = execFileSync('node', ['--import', 'tsx', srcCli, 'mcp', 'aml-trace-suspect-funds', '--help'], { encoding: 'utf8' })
     expect(out).toContain('--suspect-addresses <addresses>')
-    expect(out).toContain('--incident-timestamp-ms <milliseconds>')
+    expect(out).toContain('--incident-timestamp <milliseconds>')
     expect(out).toContain('--max-hops <number>')
     expect(out).not.toContain('--victim-address <address>')
     expect(out).not.toContain('--activity-policy <mode>')
