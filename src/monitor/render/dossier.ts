@@ -22,7 +22,7 @@ export interface DossierInput {
 
 // Addresses and labels are chain data interpolated into Markdown tables.
 function cell(text: string): string {
-  return text.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
+  return text.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
 }
 
 function utcDate(ts: number): string {
