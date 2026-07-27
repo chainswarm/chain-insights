@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.13.1] - 2026-07-27 — dossier verdict + dedupe fixes
+
+- fix: dossier verdict handles mixed timestamp units (case documents carry
+  milliseconds, trace docs seconds) — no more far-future DORMANT dates; when
+  traces carry no edge timestamps the headline reads "no movement observed
+  since monitoring began <date>".
+- fix: dossier deduplicates paths revisited by the victim and suspect traces —
+  funds-destination totals count each path once, and exchange deposit
+  endpoints aggregate one row per deposit→exchange pair with a path count.
+
 ## [0.13.0] - 2026-07-27 — monitor investigation output
 
 - feat: human-readable investigation output per open case under

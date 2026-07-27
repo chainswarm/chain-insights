@@ -6,7 +6,7 @@ import path from 'node:path'
 import { mkdir, writeFile } from 'node:fs/promises'
 import type { MonitorCase } from '../cases.js'
 import type { TraceV1Doc, TraceV1Address } from './trace-io.js'
-import type { CaseVerdict } from './verdict.js'
+import { toSeconds, type CaseVerdict } from './verdict.js'
 import { publishedCaseDir } from './notes.js'
 
 export interface DossierInput {
@@ -26,7 +26,7 @@ function cell(text: string): string {
 }
 
 function utcDate(ts: number): string {
-  return new Date(ts * 1000).toISOString().slice(0, 10)
+  return new Date(toSeconds(ts) * 1000).toISOString().slice(0, 10)
 }
 
 /** Traced value grouped by terminal endpoint class over docs[].paths:
@@ -37,8 +37,13 @@ export function fundsDestinationSummary(docs: TraceV1Doc[]): Array<{
   pathCount: number
 }> {
   const groups = new Map<string, { totalAmountUsd: number; pathCount: number }>()
+  // Victim and suspect traces revisit the same paths; count each once.
+  const seen = new Set<string>()
   for (const doc of docs) {
     for (const p of doc.paths) {
+      const signature = `${p.addresses.join('>')}|${p.amount_usd_sum ?? 0}`
+      if (seen.has(signature)) continue
+      seen.add(signature)
       const endpointClass = p.terminal_role === 'exchange' || p.terminal_role === 'deposit' ? p.terminal_role : 'unattributed'
       let g = groups.get(endpointClass)
       if (!g) groups.set(endpointClass, (g = { totalAmountUsd: 0, pathCount: 0 }))
@@ -78,7 +83,7 @@ export function renderDossier(input: DossierInput): string {
   lines.push(`- Type: ${monitorCase.type}`)
   lines.push(`- Status: ${monitorCase.status}`)
   lines.push(`- Seeds: ${monitorCase.seeds.map(cell).join(', ')}`)
-  lines.push(`- Generated: ${new Date(generatedAtTimestamp * 1000).toISOString()}`)
+  lines.push(`- Generated: ${new Date(toSeconds(generatedAtTimestamp) * 1000).toISOString()}`)
   if (verdict.lastMovementTimestamp !== null) lines.push(`- Last movement: ${utcDate(verdict.lastMovementTimestamp)}`)
   lines.push('')
 
@@ -93,15 +98,28 @@ export function renderDossier(input: DossierInput): string {
   }
 
   lines.push('## Exchange deposit endpoints', '')
-  const exchangePaths = docs.flatMap((d) => d.paths.filter((p) => p.terminal_role === 'exchange'))
-  if (exchangePaths.length === 0) {
+  // The victim and suspect traces revisit the same paths; dedupe identical
+  // paths across docs, then aggregate one row per deposit→exchange pair.
+  const seenPaths = new Set<string>()
+  const endpointRows = new Map<string, { deposit: string; exchange: string; totalAmountUsd: number; pathCount: number }>()
+  for (const p of docs.flatMap((d) => d.paths.filter((x) => x.terminal_role === 'exchange'))) {
+    const signature = `${p.addresses.join('>')}|${p.amount_usd_sum ?? 0}`
+    if (seenPaths.has(signature)) continue
+    seenPaths.add(signature)
+    const deposit = p.addresses.length >= 2 ? p.addresses[p.addresses.length - 2]! : p.source
+    const rowKey = `${deposit}|${p.target}`
+    let row = endpointRows.get(rowKey)
+    if (!row) endpointRows.set(rowKey, (row = { deposit, exchange: p.target, totalAmountUsd: 0, pathCount: 0 }))
+    row.totalAmountUsd += p.amount_usd_sum ?? 0
+    row.pathCount += 1
+  }
+  if (endpointRows.size === 0) {
     lines.push('None identified.', '')
   } else {
-    lines.push('| Deposit address | Exchange address | Exchange labels | Amount (USD) |', '| --- | --- | --- | ---: |')
-    for (const p of exchangePaths) {
-      const deposit = p.addresses.length >= 2 ? p.addresses[p.addresses.length - 2]! : p.source
-      const meta = addresses.get(p.target)
-      lines.push(`| ${cell(deposit)} | ${cell(p.target)} | ${cell(meta?.labels?.join(', ') ?? '')} | ${(p.amount_usd_sum ?? 0).toFixed(2)} |`)
+    lines.push('| Deposit address | Exchange address | Exchange labels | Amount (USD) | Paths |', '| --- | --- | --- | ---: | ---: |')
+    for (const row of [...endpointRows.values()].sort((a, b) => b.totalAmountUsd - a.totalAmountUsd)) {
+      const meta = addresses.get(row.exchange)
+      lines.push(`| ${cell(row.deposit)} | ${cell(row.exchange)} | ${cell(meta?.labels?.join(', ') ?? '')} | ${row.totalAmountUsd.toFixed(2)} | ${row.pathCount} |`)
     }
     lines.push('')
   }

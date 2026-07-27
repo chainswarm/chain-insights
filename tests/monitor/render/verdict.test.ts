@@ -32,7 +32,7 @@ describe('computeVerdict boundary', () => {
     expect(v.status).toBe('dormant')
     expect(v.headline).toMatch(/^DORMANT since \d{4}-\d{2}-\d{2}$/)
   })
-  it('no timestamps at all is DORMANT since case creation', () => {
+  it('no timestamps at all is DORMANT since monitoring began', () => {
     const v = computeVerdict([docWith([])], NOW, 30, created)
     expect(v.status).toBe('dormant')
     expect(v.lastMovementTimestamp).toBeNull()
@@ -42,5 +42,18 @@ describe('computeVerdict boundary', () => {
     const edges = [{ edge_id: 'e1', from_address: 'a', to_address: 'b', last_seen_timestamp: NOW - 10 * DAY }]
     expect(computeVerdict([docWith(edges)], NOW, 7, created).status).toBe('dormant')
     expect(computeVerdict([docWith(edges)], NOW, 30, created).status).toBe('active')
+  })
+})
+
+describe('mixed timestamp units (monitor docs are ms, traces are seconds)', () => {
+  it('millisecond case created_at renders a sane DORMANT headline', () => {
+    const createdMs = 1_785_155_920_153 // 2026-07-27 in ms — the real case.json unit
+    const v = computeVerdict([docWith([])], NOW, 30, createdMs)
+    expect(v.headline).toBe('DORMANT (no movement observed since monitoring began 2026-07-27)')
+  })
+  it('millisecond nowTimestamp still classifies correctly against second edges', () => {
+    const edges = [{ edge_id: 'e1', from_address: 'a', to_address: 'b', last_seen_timestamp: NOW - 10 * DAY }]
+    const v = computeVerdict([docWith(edges)], NOW * 1000, 30, NOW - 200 * DAY)
+    expect(v.status).toBe('active')
   })
 })
