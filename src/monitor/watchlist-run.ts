@@ -131,6 +131,9 @@ export async function dustHits(
     byNetwork.set(w.network, list)
   }
   const sinceTimestamp = runTimestamp - opts.dustLookbackSeconds * 1000
+  // In-batch dedup by hit key (R6): a backend response repeating the same row
+  // must yield one hit, whatever the store already knows.
+  const seenInBatch = new Set<string>()
   const hits: WatchlistHit[] = []
   let calls = 0
   let error: string | undefined
@@ -148,12 +151,15 @@ export async function dustHits(
       const rows = result.structuredContent?.facts?.queries?.find((q) => q.id === 'dust')?.results ?? []
       for (const row of rows) {
         const sourceRef = String(row.tx_ref ?? `${row.from_address}->${row.address}`)
+        const key = `${network}|${String(row.address)}|${sourceRef}`
+        if (seenInBatch.has(key)) continue
         const already = await store.all(
           `SELECT 1 FROM watchlist_hits
             WHERE trigger = 'dust' AND address = $1 AND network = $2 AND source_ref = $3 LIMIT 1`,
           [String(row.address), network, sourceRef],
         )
         if (already.length > 0) continue
+        seenInBatch.add(key)
         hits.push({
           address: String(row.address),
           network,
