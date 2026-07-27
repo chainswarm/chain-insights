@@ -1814,7 +1814,9 @@ export async function traceSuspectFunds(
 
 const REVERSE_DEPOSIT_SOURCES_LIMIT = 500
 
-function reverseDepositSourceQueryAtDepth(
+// Exported for regression coverage of the value-ordered truncation
+// (chain-insights#237): the ORDER BY must survive future edits to the query.
+export function reverseDepositSourceQueryAtDepth(
   depositAddresses: string[],
   depth: number,
   minAmountSum: number,
@@ -1846,10 +1848,30 @@ function reverseDepositSourceQueryAtDepth(
     query: [
       `MATCH (source:Address)${relationshipChain}`,
       `WHERE (${depositPredicates.join(' OR ')}) AND source.address <> deposit.address AND ${[...nonExchangePredicates, ...amountPredicates, ...windowPredicates].join(' AND ')}`,
-      `RETURN DISTINCT source.address AS source_address, source.is_exchange AS source_is_exchange, deposit.address AS deposit_address, deposit.is_exchange AS deposit_is_exchange, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `RETURN DISTINCT source.address AS source_address, source.is_exchange AS source_is_exchange, deposit.address AS deposit_address, deposit.is_exchange AS deposit_is_exchange, ${depth} AS hop, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props, ${pathValueExpression(edgeVariables)} AS path_value_usd`,
+      // Value-ordered BEFORE the cap. Without an ORDER BY the backend returns
+      // an arbitrary LIMIT-sized slice, so a deep high-fan-in deposit could
+      // silently drop the largest flows into it -- exactly the paths an
+      // analyst is looking for -- while keeping negligible ones
+      // (chain-insights#237). Ranking by the narrowest edge on the path means
+      // truncation loses the least value-bearing routes first: a path cannot
+      // carry more than its bottleneck edge, so that is the honest measure of
+      // how much actually moved along it.
+      `ORDER BY path_value_usd DESC`,
       `LIMIT ${REVERSE_DEPOSIT_SOURCES_LIMIT}`,
     ].join(' '),
   }
+}
+
+// The value a path actually carries is bounded by its narrowest edge: routing
+// $500k through a hop that only ever moved $10 moves $10. Ranking reverse
+// paths by that bottleneck (rather than by a sum, which rewards long paths
+// full of small edges) keeps the highest-value laundering routes when the
+// row cap truncates.
+function pathValueExpression(edgeVariables: string[]): string {
+  const amounts = edgeVariables.map((edgeVariable) => `${edgeVariable}.amount_usd_sum`)
+  if (amounts.length === 1) return amounts[0]!
+  return amounts.slice(1).reduce((acc, amount) => `CASE WHEN ${acc} < ${amount} THEN ${acc} ELSE ${amount} END`, amounts[0]!)
 }
 
 function rowNodeIsExchange(value: unknown): boolean {
@@ -1924,7 +1946,20 @@ export async function traceDepositSources(
     }))
   const truncationWarnings = (batch.facts?.queries ?? [])
     .filter((entry) => entry.id?.startsWith('reverse_deposit_sources_') && (entry.results?.length ?? 0) >= REVERSE_DEPOSIT_SOURCES_LIMIT)
-    .map((entry) => `${entry.id} hit the ${REVERSE_DEPOSIT_SOURCES_LIMIT}-row limit; results may be truncated.`)
+    .map((entry) => {
+      // Say what survived, not just that something was cut: rows are ordered
+      // by path value, so the analyst needs the weakest retained path to know
+      // whether anything they care about could have fallen below the cut.
+      const retained = entry.results ?? []
+      const weakest = retained
+        .map((row) => numberValue((row as Record<string, unknown>)['path_value_usd']))
+        .filter((value): value is number => value !== undefined)
+        .reduce<number | undefined>((min, value) => (min === undefined || value < min ? value : min), undefined)
+      const floor = weakest === undefined
+        ? ''
+        : ` Kept the ${REVERSE_DEPOSIT_SOURCES_LIMIT} highest-value paths; the weakest retained path carries ${weakest.toFixed(2)} USD, so any dropped path carries no more than that.`
+      return `${entry.id} hit the ${REVERSE_DEPOSIT_SOURCES_LIMIT}-row limit; results are truncated.${floor}`
+    })
   const addresses = new Map<string, {
     address: string
     roles: Set<TraceRole>
