@@ -5,6 +5,7 @@
 // an append-only decision doc. RAW-JSON stamping is load-bearing: the zod
 // findings schema strips unknown keys, and `reviewer` is deliberately not in
 // the schema, so a parse→serialize round trip would silently drop it.
+import { createHash } from 'node:crypto'
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { monitorPaths } from './paths.js'
@@ -42,6 +43,19 @@ export function resolveDocPath(workspaceRoot: string, docPath: string): string {
   return path.isAbsolute(docPath) ? path.normalize(docPath) : path.resolve(workspaceRoot, docPath)
 }
 
+/** Workspace-relative, forward-slash-normalized doc identity. Idempotent on
+ *  already-relative input (resolveDocPath re-anchors, relative re-strips). */
+export function docKey(workspaceRoot: string, docPath: string): string {
+  return path.relative(path.resolve(workspaceRoot), resolveDocPath(workspaceRoot, docPath)).split(path.sep).join('/')
+}
+
+/** Content address for decision files/reviewed copies: first 8 hex chars of the
+ *  SHA-256 of the workspace-relative doc path — stable across machines,
+ *  collision-free across same-millisecond decisions. */
+export function docHash8(workspaceRoot: string, docPath: string): string {
+  return createHash('sha256').update(docKey(workspaceRoot, docPath)).digest('hex').slice(0, 8)
+}
+
 function caseIdFromDocPath(docPath: string): string | null {
   // emit.ts filename: <ms>-<detector>-<network>.findings.json; tracker uses
   // detector `case-<id>`, so a case doc looks like 1700-case-c1-bittensor....
@@ -57,11 +71,13 @@ export async function listPending(workspaceRoot: string): Promise<Array<{ doc_pa
   } catch {
     return []
   }
-  const decided = new Set((await listDecisionDocs(workspaceRoot)).map((d) => d.doc_path))
+  // Compare by workspace-relative doc identity so legacy absolute-path
+  // decisions and new relative-path decisions both count as decided.
+  const decided = new Set((await listDecisionDocs(workspaceRoot)).map((d) => docKey(workspaceRoot, d.doc_path)))
   const pending: Array<{ doc_path: string; tool: string; network: string; findings_count: number }> = []
   for (const f of files.sort()) {
     const docPath = path.join(p.detectionsDir, f)
-    if (decided.has(docPath)) continue
+    if (decided.has(docKey(workspaceRoot, docPath))) continue
     const doc = JSON.parse(await readFile(docPath, 'utf8')) as { tool: string; network: string; findings: unknown[] }
     // A document with no findings has nothing to review. Full-state detectors
     // emit one per suppressed cell on every run (they record the suppression
@@ -78,7 +94,10 @@ export async function listPending(workspaceRoot: string): Promise<Array<{ doc_pa
 async function writeDecision(workspaceRoot: string, decision: ReviewDecisionDoc): Promise<void> {
   const dir = monitorPaths(workspaceRoot).reviewsDir
   await mkdir(dir, { recursive: true })
-  await writeFile(path.join(dir, `${decision.decided_at_timestamp}-${decision.decision}.review.json`), JSON.stringify(decision, null, 2) + '\n', 'utf8')
+  // Content-addressed by doc identity: same-millisecond decisions on
+  // DIFFERENT docs cannot collide (the old <timestamp>-<decision> name lost
+  // one of them silently).
+  await writeFile(path.join(dir, `${docHash8(workspaceRoot, decision.doc_path)}-${decision.decision}.review.json`), JSON.stringify(decision, null, 2) + '\n', 'utf8')
 }
 
 export async function approveDoc(workspaceRoot: string, docPath: string, reviewer: string, nowTimestamp: number): Promise<{ reviewedCopy: string }> {
@@ -97,7 +116,7 @@ export async function approveDoc(workspaceRoot: string, docPath: string, reviewe
   await writeFile(reviewedCopy, JSON.stringify({ ...raw, reviewer }, null, 2) + '\n', 'utf8')
   const findings = (raw.findings as Array<{ address: string }> | undefined) ?? []
   await writeDecision(workspaceRoot, {
-    doc_path: resolved, decision: 'approve', reviewer, decided_at_timestamp: nowTimestamp, reviewed_copy: reviewedCopy,
+    doc_path: docKey(workspaceRoot, resolved), decision: 'approve', reviewer, decided_at_timestamp: nowTimestamp, reviewed_copy: reviewedCopy,
     addresses: findings.map((f) => f.address), case_id: caseIdFromDocPath(resolved),
   })
   return { reviewedCopy }
@@ -110,7 +129,7 @@ export async function rejectDoc(workspaceRoot: string, docPath: string, reviewer
   const resolved = resolveDocPath(workspaceRoot, docPath)
   const raw = JSON.parse(await readFile(resolved, 'utf8')) as { findings?: Array<{ address: string }> }
   await writeDecision(workspaceRoot, {
-    doc_path: resolved, decision: 'reject', reviewer, decided_at_timestamp: nowTimestamp,
+    doc_path: docKey(workspaceRoot, resolved), decision: 'reject', reviewer, decided_at_timestamp: nowTimestamp,
     addresses: (raw.findings ?? []).map((f) => f.address), case_id: caseIdFromDocPath(resolved),
   })
 }

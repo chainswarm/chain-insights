@@ -1,9 +1,10 @@
 // tests/monitor/review.test.ts
-import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { mkdtemp, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { approveDoc, approvedAddressesForCase, listPending, rejectDoc } from '../../src/monitor/review.js'
+import { approveDoc, approvedAddressesForCase, docHash8, docKey, listDecisionDocs, listPending, rejectDoc } from '../../src/monitor/review.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
 import { exportLabels } from '../../src/monitor/export.js'
 
@@ -81,6 +82,50 @@ describe('review workflow (AC-3)', () => {
     expect(await listPending(root)).toHaveLength(0)
     const { rows } = await exportLabels(root, 950)
     expect(rows).toHaveLength(1) // no duplicate decision doc from the path mismatch
+  })
+})
+
+describe('decision identity (lifecycle hardening R1)', () => {
+  it('names decision files <docHash8>-<decision>.review.json from the workspace-relative path', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '100-mixer-bittensor.findings.json')
+    await approveDoc(root, doc, 'ops', 500)
+    const expected = createHash('sha256')
+      .update('detections/100-mixer-bittensor.findings.json')
+      .digest('hex').slice(0, 8)
+    expect(docHash8(root, doc)).toBe(expected)
+    const files = await readdir(monitorPaths(root).reviewsDir)
+    expect(files).toContain(`${expected}-approve.review.json`)
+  })
+
+  it('same-millisecond decisions on different docs do not collide', async () => {
+    const root = await ws()
+    const a = await seedDoc(root, '100-mixer-bittensor.findings.json')
+    const b = await seedDoc(root, '101-mixer-bittensor.findings.json')
+    await approveDoc(root, a, 'ops', 500)
+    await approveDoc(root, b, 'ops', 500) // identical timestamp — the old naming lost one
+    expect(await listDecisionDocs(root)).toHaveLength(2)
+    expect(await listPending(root)).toHaveLength(0)
+  })
+
+  it('records workspace-relative doc_path and still clears pending', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '102-mixer-bittensor.findings.json')
+    await rejectDoc(root, doc, 'ops', 600)
+    const [d] = await listDecisionDocs(root)
+    expect(d.doc_path).toBe('detections/102-mixer-bittensor.findings.json')
+    expect(await listPending(root)).toHaveLength(0)
+  })
+
+  it('a legacy decision with an ABSOLUTE doc_path still counts as decided', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '103-mixer-bittensor.findings.json')
+    const dir = monitorPaths(root).reviewsDir
+    await mkdir(dir, { recursive: true })
+    await writeFile(path.join(dir, '600-reject.review.json'), JSON.stringify({
+      doc_path: doc, decision: 'reject', reviewer: 'ops', decided_at_timestamp: 600, addresses: [], case_id: null,
+    }) + '\n')
+    expect(await listPending(root)).toHaveLength(0)
   })
 })
 

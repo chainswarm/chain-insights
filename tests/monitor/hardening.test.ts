@@ -98,7 +98,7 @@ describe('review doc path base (#214.2)', () => {
       process.chdir(cwd)
     }
     expect(await listPending(root)).toHaveLength(0)
-    expect((await listDecisionDocs(root))[0].doc_path).toBe(docPath)
+    expect((await listDecisionDocs(root))[0].doc_path).toBe('detections/1-mixer-bittensor.findings.json')
     // And the reviewed copy is the one the label export reads.
     const { rows } = await exportLabels(root, 999)
     expect(rows.map((r) => r.address)).toEqual(['mix1'])
@@ -120,7 +120,7 @@ describe('review doc path base (#214.2)', () => {
     } finally {
       process.chdir(cwd)
     }
-    expect((await listDecisionDocs(root))[0].doc_path).toBe(docPath)
+    expect((await listDecisionDocs(root))[0].doc_path).toBe('detections/2-mixer-bittensor.findings.json')
     expect(await listPending(root)).toHaveLength(0)
   })
 })
