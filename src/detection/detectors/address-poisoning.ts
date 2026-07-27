@@ -11,6 +11,7 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { DetectionFinding } from '../../investigation/detection-findings.js'
 import { graphQueryRows, type GraphRow } from '../graph-client.js'
 import { addressFamily, isLookalike } from '../lookalike.js'
+import { limitFromParams, limitLiteral } from '../../config/limits.js'
 import { numParam } from '../params.js'
 import type { DetectorParams, DetectorScan, DetectionWindow } from '../runtime.js'
 
@@ -45,11 +46,12 @@ export function resolvePoisoningConfig(network: string, params: DetectorParams):
   return {
     dustFloor: numParam(params, 'dust_floor', base.dustFloor),
     scanWindowMs: windowDays * 24 * 60 * 60 * 1000,
-    maxRows: numParam(params, 'max_rows', MAX_ROWS),
+    // Range-checked against the shared registry's hard ceiling; an
+    // out-of-range --param throws rather than being accepted.
+    maxRows: limitFromParams('poisoning_max_rows', params, 'max_rows', { network }),
   }
 }
 
-const MAX_ROWS = 1000
 // Facts scans are cost-gated to a bounded window (FACTS_MAX_SCAN_WINDOW_DAYS,
 // default 2 on the backend). A --full run over genesis→now would exceed it, so
 // the scan clamps to the trailing window and marks the run truncated. Chunked
@@ -164,7 +166,7 @@ export const addressPoisoningDetector: DetectorScan = {
     const dustRows = await graphQueryRows(
       client,
       network,
-      `USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.block_date >= "${lo}" AND t.block_date <= "${hi}" AND t.amount < ${cfg.dustFloor} RETURN from.address AS duster, to.address AS victim, t.amount AS amount LIMIT ${cfg.maxRows}`,
+      `USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.block_date >= "${lo}" AND t.block_date <= "${hi}" AND t.amount < ${cfg.dustFloor} RETURN from.address AS duster, to.address AS victim, t.amount AS amount LIMIT ${limitLiteral(cfg.maxRows)}`,
     )
     const dust: DustEdge[] = dustRows.map((r) => ({
       duster: str(r, 'duster'),
@@ -180,7 +182,7 @@ export const addressPoisoningDetector: DetectorScan = {
       const rows = await graphQueryRows(
         client,
         network,
-        `USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address {address: "${safe}"}) WHERE t.amount >= ${cfg.dustFloor} RETURN DISTINCT from.address AS counterparty LIMIT ${cfg.maxRows}`,
+        `USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address {address: "${safe}"}) WHERE t.amount >= ${cfg.dustFloor} RETURN DISTINCT from.address AS counterparty LIMIT ${limitLiteral(cfg.maxRows)}`,
       )
       realByVictim.set(
         victim,

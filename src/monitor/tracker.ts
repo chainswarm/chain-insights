@@ -7,6 +7,7 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { scamCorridorTrace } from '../investigation/scam-corridor-trace.js'
+import type { LimitConfig } from '../config/limits.js'
 import { writeFindings } from '../detection/emit.js'
 import type { DetectionFindingsDocument } from '../investigation/detection-findings.js'
 import type { AlertEvent } from './alerts.js'
@@ -50,7 +51,7 @@ export async function readSnapshots(workspaceRoot: string, caseId: string): Prom
   return snaps.sort((a, b) => a.run_ms - b.run_ms)
 }
 
-type CorridorFn = (client: Client, options: { seedAddress: string; network: string; maxHops?: number; writeArtifacts?: boolean; workspaceRoot?: string }) => Promise<{ document: DetectionFindingsDocument; summaryText: string }>
+type CorridorFn = (client: Client, options: { seedAddress: string; network: string; maxHops?: number; limits?: LimitConfig; writeArtifacts?: boolean; workspaceRoot?: string }) => Promise<{ document: DetectionFindingsDocument; summaryText: string }>
 
 export async function traceCase(
   client: Client,
@@ -59,6 +60,8 @@ export async function traceCase(
   maxHops: number,
   nowMs: number,
   hooks: { corridor?: CorridorFn } = {},
+  // Config-file layer for the corridor's search bounds on unattended runs.
+  limits?: LimitConfig,
 ): Promise<{ movements_count: number; alerts: Omit<AlertEvent, 'alert_id' | 'emitted_at_ms'>[] }> {
   const corridor = hooks.corridor ?? scamCorridorTrace
   const caseFile = path.join(monitorPaths(workspaceRoot).casesDir, caseId, 'case.json')
@@ -68,7 +71,7 @@ export async function traceCase(
 
   const byAddress = new Map<string, SnapshotAddress>()
   for (const seed of seedSet) {
-    const { document } = await corridor(client, { seedAddress: seed, network: monitorCase.network, maxHops, writeArtifacts: false, workspaceRoot })
+    const { document } = await corridor(client, { seedAddress: seed, network: monitorCase.network, maxHops, limits, writeArtifacts: false, workspaceRoot })
     for (const f of document.findings) {
       if (!byAddress.has(f.address)) byAddress.set(f.address, { address: f.address, classification: f.classification, gate: f.gate })
     }

@@ -7,10 +7,9 @@
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { DetectionFinding } from '../../investigation/detection-findings.js'
 import { graphQueryRows, type GraphRow } from '../graph-client.js'
-import { numParam } from '../params.js'
+import { limitFromParams, limitLiteral } from '../../config/limits.js'
 import type { DetectorParams, DetectorScan, DetectionWindow } from '../runtime.js'
 
-const MAX_ROWS = 1000
 
 function str(row: GraphRow, key: string): string {
   const v = row[key]
@@ -60,7 +59,6 @@ export function findSpoofs(verified: GraphRow[], candidates: GraphRow[]): Detect
   return findings
 }
 
-const MAX_ASSET_PAGES = 50
 
 export interface FakeTokenConfig {
   maxPages: number
@@ -70,10 +68,10 @@ export interface FakeTokenConfig {
 // resolveFakeTokenConfig: operator `--param` overrides for the assets pull.
 // Params: max_pages, page_size. No per-network divergence today (the assets
 // dimension is small everywhere); the resolver is the extension point.
-export function resolveFakeTokenConfig(_network: string, params: DetectorParams): FakeTokenConfig {
+export function resolveFakeTokenConfig(network: string, params: DetectorParams): FakeTokenConfig {
   return {
-    maxPages: numParam(params, 'max_pages', MAX_ASSET_PAGES),
-    pageSize: numParam(params, 'page_size', MAX_ROWS),
+    maxPages: limitFromParams('fake_token_max_asset_pages', params, 'max_pages', { network }),
+    pageSize: limitFromParams('fake_token_max_rows', params, 'page_size', { network }),
   }
 }
 
@@ -128,7 +126,7 @@ async function pullAllAssets(client: Client, network: string, cfg: FakeTokenConf
     const rows = await graphQueryRows(
       client,
       network,
-      `USE facts MATCH (t:Asset) ${where}RETURN t.asset_contract AS asset_contract, t.symbol_lower AS symbol_lower, t.asset_symbol AS asset_symbol, t.verified AS verified, t.verification_source AS verification_source ORDER BY t.asset_contract LIMIT ${cfg.pageSize}`,
+      `USE facts MATCH (t:Asset) ${where}RETURN t.asset_contract AS asset_contract, t.symbol_lower AS symbol_lower, t.asset_symbol AS asset_symbol, t.verified AS verified, t.verification_source AS verification_source ORDER BY t.asset_contract LIMIT ${limitLiteral(cfg.pageSize)}`,
     )
     if (rows.length === 0) break
     out.push(...rows)

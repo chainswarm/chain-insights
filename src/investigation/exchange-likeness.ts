@@ -5,6 +5,7 @@
 // calibration task; any drift correction belongs in the constants below plus
 // the threshold_provenance recorded on every findings document.
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { LIMIT_SPECS, resolveLimit, type LimitConfig } from '../config/limits.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import { applyShardMergeToBatchEntries } from '../federation/apply-merge.js'
 import {
@@ -36,7 +37,10 @@ interface ParsedGraphBatch {
 export const FANIN_MIN = 1000
 export const RECIPROCITY_MAX = 0.06
 export const LIFETIME_INBOUND_MIN_USD = 50_000_000
-export const MAX_CANDIDATES = 25
+// Built-in default; the ceiling lives in config/limits.ts. Each candidate
+// costs two graph queries, so this bounds a per-call fan-out, not a per-hop
+// one — hence the generous ceiling relative to the default.
+export const MAX_CANDIDATES = LIMIT_SPECS.exchange_likeness_max_candidates.builtin
 
 const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 10
 const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS = 5 * 60 * 1000
@@ -44,6 +48,10 @@ const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS = 5 * 60 * 1000
 export interface ExchangeLikenessOptions {
   addresses: string | string[]
   network: string
+  /** Candidates accepted per call. Bounded by `exchange_likeness_max_candidates`. */
+  maxCandidates?: number
+  /** Config-file layer for the tunable bounds (see config/limits.ts). */
+  limits?: LimitConfig
   writeArtifacts?: boolean
   workspaceRoot?: string
 }
@@ -249,7 +257,8 @@ export async function exchangeLikeness(remoteClient: Client, options: ExchangeLi
   if (!network) throw new Error('network is required')
   const addresses = normalizeAddresses(options.addresses)
   if (addresses.length === 0) throw new Error('at least one address is required')
-  if (addresses.length > MAX_CANDIDATES) throw new Error(`aml_exchange_likeness supports at most ${MAX_CANDIDATES} candidates per call (got ${addresses.length})`)
+  const maxCandidates = resolveLimit('exchange_likeness_max_candidates', options.maxCandidates ?? null, { network, config: options.limits })
+  if (addresses.length > maxCandidates) throw new Error(`aml_exchange_likeness supports at most ${maxCandidates} candidates per call (got ${addresses.length}); raise max_candidates up to ${LIMIT_SPECS.exchange_likeness_max_candidates.ceiling} if the case needs a wider sweep`)
 
   const profileQueries = addresses.map((address, index) => profileQuery(`profile_${index}`, address))
   const reciprocityQueries = addresses.map((address, index) => reciprocityQuery(`reciprocity_${index}`, address))

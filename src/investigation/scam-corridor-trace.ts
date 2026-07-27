@@ -15,6 +15,14 @@
 // (per gates.go's own doc comment: "a small validator/miner/subnet is
 // traversed through"), just never classified as scam.
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import {
+  LIMIT_SPECS,
+  limitLiteral,
+  resolveLimit,
+  resolveLimitDetail,
+  type LimitConfig,
+  type ResolveLimitContext,
+} from '../config/limits.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import { applyShardMergeToBatchEntries } from '../federation/apply-merge.js'
 import {
@@ -43,13 +51,25 @@ interface ParsedGraphBatch {
   }
 }
 
-// ── Hard caps (unit-pinned; see spec AC2) ──
-export const MAX_HOPS_CAP = 4
-export const FRONTIER_CAP = 50
+// ── Caps ──
+// The tunable ones (hops / frontier / row limit) now resolve through the
+// shared registry in config/limits.ts, which owns their defaults AND their
+// hard ceilings. MAX_HOPS_CAP / FRONTIER_CAP / QUERY_ROW_LIMIT keep their
+// names and values as the CEILINGS of those knobs, so existing importers and
+// the pinned-unit spec reference still read true.
+//
+// MAX_QUERIES_PER_BATCH and WALL_CLOCK_BUDGET_MS stay FIXED and are
+// deliberately not knobs: 20 is the backend's graph_query_batch protocol
+// maximum (a larger value is rejected server-side, not merely expensive), and
+// the wall-clock budget is the last stop that keeps a runaway trace from
+// holding a metered connection open indefinitely — a caller must not be able
+// to extend their own timeout.
+export const MAX_HOPS_CAP = LIMIT_SPECS.corridor_max_hops.ceiling
+export const FRONTIER_CAP = LIMIT_SPECS.corridor_frontier_cap.builtin
 export const MAX_QUERIES_PER_BATCH = 20
-export const QUERY_ROW_LIMIT = 200
+export const QUERY_ROW_LIMIT = LIMIT_SPECS.corridor_query_row_limit.builtin
 export const WALL_CLOCK_BUDGET_MS = 120_000
-export const DEFAULT_MAX_HOPS = 3
+export const DEFAULT_MAX_HOPS = LIMIT_SPECS.corridor_max_hops.builtin
 const RETRY_BACKOFF_MS = 50
 
 // ── Gate thresholds, faithful to internal/scamtopology/gates.go ──
@@ -71,13 +91,19 @@ export interface ScamCorridorTraceOptions {
   seedAddress: string
   network: string
   maxHops?: number
-  // Internal caps, overridable (mainly for tests). Each is clamped to at
-  // most its matching *_CAP/*_LIMIT/*_MS constant above — callers can tighten
-  // a run, never loosen it past the hard cap.
+  // Search bounds. frontierCap/queryRowLimit are real tuning knobs, bounded by
+  // the ceilings in config/limits.ts; a request above the ceiling is rejected.
   frontierCap?: number
-  maxQueriesPerBatch?: number
   queryRowLimit?: number
+  /**
+   * Accepted for backward compatibility and IGNORED: 20 is the backend's
+   * graph_query_batch protocol maximum, not a budget choice.
+   */
+  maxQueriesPerBatch?: number
+  /** Only ever tightens; a caller cannot extend their own wall-clock budget. */
   wallClockBudgetMs?: number
+  /** Config-file layer for the tunable bounds (see config/limits.ts). */
+  limits?: LimitConfig
   writeArtifacts?: boolean
   workspaceRoot?: string
 }
@@ -224,7 +250,7 @@ function frontierQuery(id: string, address: string, limit: number): { id: string
       'WHERE s.address <> t.address',
       'RETURN t.address AS address, t.degree_in AS degree_in, t.is_exchange AS is_exchange, labels(t) AS node_labels, t.labels AS entity_labels, r.tx_count AS tx_count, r.amount_usd_sum AS amount_usd_sum',
       'ORDER BY r.amount_usd_sum DESC',
-      `LIMIT ${limit}`,
+      `LIMIT ${limitLiteral(limit)}`,
     ].join(' '),
   }
 }
@@ -343,10 +369,17 @@ export async function scamCorridorTrace(remoteClient: Client, options: ScamCorri
   if (!seedAddress) throw new Error('seed_address is required')
   if (!network) throw new Error('network is required')
 
-  const maxHops = clampInt(options.maxHops, DEFAULT_MAX_HOPS, 1, MAX_HOPS_CAP)
-  const frontierCap = clampInt(options.frontierCap, FRONTIER_CAP, 1, FRONTIER_CAP)
-  const maxQueriesPerBatch = clampInt(options.maxQueriesPerBatch, MAX_QUERIES_PER_BATCH, 1, MAX_QUERIES_PER_BATCH)
-  const queryRowLimit = clampInt(options.queryRowLimit, QUERY_ROW_LIMIT, 1, QUERY_ROW_LIMIT)
+  // Tunable knobs: per-call value, else config file, else per-network default,
+  // else built-in. An over-ceiling request throws LimitRangeError — it is never
+  // clamped down to something that would look like a complete corridor.
+  const ctx: ResolveLimitContext = { network, config: options.limits }
+  const hopDepth = resolveLimitDetail('corridor_max_hops', options.maxHops ?? null, ctx)
+  const maxHops = hopDepth.used
+  const frontierDetail = resolveLimitDetail('corridor_frontier_cap', options.frontierCap ?? null, ctx)
+  const frontierCap = frontierDetail.used
+  const queryRowLimit = resolveLimit('corridor_query_row_limit', options.queryRowLimit ?? null, ctx)
+  // Fixed, not tunable — see the note on the constants above.
+  const maxQueriesPerBatch = MAX_QUERIES_PER_BATCH
   const wallClockBudgetMs = clampInt(options.wallClockBudgetMs, WALL_CLOCK_BUDGET_MS, 0, WALL_CLOCK_BUDGET_MS)
 
   const startedAt = Date.now()
@@ -439,6 +472,19 @@ export async function scamCorridorTrace(remoteClient: Client, options: ScamCorri
     if (discovered.length > frontierCap) {
       frontierTruncated.push(hop)
       hopNodes = discovered.slice(0, frontierCap)
+      // Say what was lost, not merely that something was. The discovered set
+      // is ordered by address, so the dropped tail is arbitrary with respect
+      // to value — an analyst must know that the missing nodes are not "the
+      // least important ones", and must be told the knob that would keep them.
+      const dropped = discovered.length - frontierCap
+      warnings.push(
+        `hop ${hop} discovered ${discovered.length} addresses and the frontier cap kept ${frontierCap}; ` +
+        `${dropped} address(es) were dropped in address order, so the omission is arbitrary rather than value-ranked, ` +
+        `and anything reachable only through them is absent from this corridor. ` +
+        (frontierCap < frontierDetail.ceiling
+          ? `Raise frontier_cap (currently ${frontierCap}, max ${frontierDetail.ceiling}) to widen this hop.`
+          : `frontier_cap is already at its ceiling of ${frontierDetail.ceiling}.`),
+      )
     }
 
     for (const node of hopNodes) findings.push(buildResultRowFinding(node))

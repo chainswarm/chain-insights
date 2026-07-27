@@ -1,4 +1,5 @@
 import * as z from 'zod'
+import { LIMIT_SPECS, resolveLimit } from '../config/limits.js'
 
 export const EntityType = z.enum(['eoa', 'contract', 'exchange', 'mixer', 'hub', 'unknown'])
 export type EntityType = z.infer<typeof EntityType>
@@ -42,12 +43,16 @@ export const GraphData = z.object({
 })
 export type GraphData = z.infer<typeof GraphData>
 
-const MAX_NODES = 100
+// Built-in default; ceiling in config/limits.ts. `maxNodes` lets a caller
+// render a denser view of a case they are actively working without changing
+// what any other view produces.
+const MAX_NODES = LIMIT_SPECS.viz_max_nodes.builtin
 
-export function truncateGraph(data: GraphData): GraphData {
-  if (data.nodes.length <= MAX_NODES) return data
+export function truncateGraph(data: GraphData, maxNodes: number = MAX_NODES): GraphData {
+  const cap = resolveLimit('viz_max_nodes', maxNodes === MAX_NODES ? null : maxNodes)
+  if (data.nodes.length <= cap) return data
   const sorted = [...data.nodes].sort((a, b) => (b.totalIn + b.totalOut) - (a.totalIn + a.totalOut))
-  const kept = sorted.slice(0, MAX_NODES)
+  const kept = sorted.slice(0, cap)
   const keptIds = new Set(kept.map(n => n.id))
   const filteredEdges = data.edges.filter(e => keptIds.has(e.source) && keptIds.has(e.target))
   return {
@@ -57,7 +62,7 @@ export function truncateGraph(data: GraphData): GraphData {
       ...data.metadata,
       truncated: true,
       totalNodes: data.nodes.length,
-      hiddenNodes: data.nodes.length - MAX_NODES,
+      hiddenNodes: data.nodes.length - cap,
     },
   }
 }

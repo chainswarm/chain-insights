@@ -332,6 +332,7 @@ the right commands.
 | [Graph tools](docs/graph-tools.md) | Chain Insights Graph layers, `graph_query`, `graph_query_batch`, AML tool contracts, graph reports, evidence pointers |
 | [Graph query compatibility](docs/graph-query-compatibility.md) | GQL/Cypher construct support per layer, rejected→accepted rewrite recipes, traversal guidance |
 | Bittensor devkit parity workflow (RBMK) | Local Chain Insights Graph backend with deterministic Bittensor fixture data for Chain Insights development |
+| [Search limits](docs/search-limits.md) | Tunable search/row/frontier/hop bounds, precedence, ceilings, per-network and config-file tuning |
 | [Investigation workspaces](docs/investigation-workspaces.md) | `cia init`, workspace layout, artifacts, imports, templates, sessions, reports, and visualization outputs |
 | [Continuous monitoring](docs/monitoring.md) | `cia monitor` command group, case tracking, review and label export, alerts, storage model, exit codes |
 | [MCP proxy](docs/mcp-proxy.md) | Stdio proxy behavior, endpoint configuration, agent installers, local tools, auth modes, Inspector validation |

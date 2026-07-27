@@ -39,7 +39,7 @@ export interface MonitorRunDoc {
 
 export interface RunnerHooks {
   runDetection?: typeof runOneDetection
-  traceCase?: (client: Client, workspaceRoot: string, caseId: string, maxHops: number, nowMs: number) => Promise<{ movements_count: number; alerts: Omit<AlertEvent, 'alert_id' | 'emitted_at_ms'>[] }>
+  traceCase?: (client: Client, workspaceRoot: string, caseId: string, maxHops: number, nowMs: number, hooks?: unknown, limits?: { limits?: Record<string, number>; networkLimits?: Record<string, Record<string, number>> }) => Promise<{ movements_count: number; alerts: Omit<AlertEvent, 'alert_id' | 'emitted_at_ms'>[] }>
   usage?: (client: Client) => Promise<unknown | null>
 }
 
@@ -105,7 +105,7 @@ export async function runMonitorOnce(
         const started = Date.now()
         const outcome: CellOutcome = { cell: `case:${openCase.case_id}`, case_id: openCase.case_id, network: openCase.network, duration_ms: 0 }
         try {
-          const traced = await hooks.traceCase(client, workspaceRoot, openCase.case_id, config.caseMaxHops, nowMs)
+          const traced = await hooks.traceCase(client, workspaceRoot, openCase.case_id, config.caseMaxHops, nowMs, undefined, { limits: config.limits, networkLimits: config.networkLimits })
           outcome.movements_count = traced.movements_count
           alertsPending.push(...traced.alerts)
         } catch (err) {

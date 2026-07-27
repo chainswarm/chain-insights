@@ -3,6 +3,7 @@ import path from 'node:path'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import type { InvestigatorConfig } from '../config/schema.js'
+import { LIMIT_SPECS } from '../config/limits.js'
 import { applyShardMergeToBatchEntries } from '../federation/apply-merge.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 import { normalizeRiskLevel } from './risk-level.js'
@@ -1246,8 +1247,12 @@ export async function runFundFlowProbe(
     throw new Error('activity window timestamps must be finite numbers')
   }
 
-  const maxHops = clampInt(options.maxHops, 3, 1, 5)
-  const perAddressLimit = clampInt(options.perAddressLimit, 5, 1, 10)
+  // The public trace tools resolve and range-check these knobs at their own
+  // boundary (config/limits.ts) and pass concrete values through. This clamp
+  // stays as the last line of defence for direct/internal callers, pinned to
+  // the same registry so there is exactly one place the numbers live.
+  const maxHops = clampInt(options.maxHops, LIMIT_SPECS.trace_max_hops.builtin, LIMIT_SPECS.trace_max_hops.min, LIMIT_SPECS.trace_max_hops.ceiling)
+  const perAddressLimit = clampInt(options.perAddressLimit, LIMIT_SPECS.trace_per_address_limit.builtin, LIMIT_SPECS.trace_per_address_limit.min, LIMIT_SPECS.trace_per_address_limit.ceiling)
   const minAmountSum = Math.max(0, options.minAmountSum ?? 0)
   const evidenceSource = options.evidenceSource ?? 'track_funds'
   const writeArtifacts = options.writeArtifacts !== false

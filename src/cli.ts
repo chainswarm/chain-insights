@@ -592,7 +592,7 @@ program
       .option('--known-suspect-addresses <addresses>', 'Optional known suspect addresses for context only, max 5')
       .option('--incident-timestamp-ms <milliseconds>', 'Optional incident timestamp in milliseconds')
       .option('--max-hops <number>', 'Maximum trace hops, 1-5')
-      .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, 1-10')
+      .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, default 5, max 50')
       .option('--min-amount-sum <number>', 'Minimum USD amount (amount_usd_sum) for traced edges')
       .action(async (opts: {
         victimAddresses: string
@@ -633,7 +633,7 @@ program
       .requiredOption('--suspect-addresses <addresses>', 'Comma-separated full suspect-controlled addresses, max 5')
       .option('--incident-timestamp-ms <milliseconds>', 'Optional incident timestamp in milliseconds')
       .option('--max-hops <number>', 'Maximum trace hops, default 3, max 5')
-      .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, 1-10')
+      .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, default 5, max 50')
       .option('--min-amount-sum <number>', 'Minimum USD amount (amount_usd_sum) for traced edges')
       .action(async (opts: {
         network: string
@@ -671,10 +671,12 @@ program
       .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
       .requiredOption('--deposit-addresses <addresses>', 'Comma-separated full suspected deposit/cashout addresses, max 5')
       .option('--max-hops <number>', 'Maximum reverse traceback hops, default 2, max 5')
+      .option('--row-limit <number>', 'Value-ordered upstream paths kept per depth, default 500, max 20000. Raise to reach a distant origin behind a high-fan-in deposit.')
       .action(async (opts: {
         network: string
         depositAddresses: string
         maxHops?: string
+        rowLimit?: string
       }) => {
         try {
           const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
@@ -685,6 +687,7 @@ program
               depositAddresses: opts.depositAddresses,
               network: opts.network,
               maxHops: optionalNumber(opts.maxHops),
+              rowLimit: optionalNumber(opts.rowLimit),
             })
             console.log(result.summaryText)
             console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -805,6 +808,7 @@ program
                 network: String(args['network'] ?? ''),
                 incidentTimestampMs: optionalNumberArg(args['incident_timestamp_ms'], 'incident_timestamp_ms'),
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
+                perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
               })
               console.log(result.summaryText)
               console.log(JSON.stringify(result.structuredContent, null, 2))
@@ -816,6 +820,7 @@ program
                 suspectAddresses: args['suspect_addresses'] as string | string[] | undefined ?? '',
                 network: String(args['network'] ?? ''),
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
+                perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
                 incidentTimestampMs: optionalNumberArg(args['incident_timestamp_ms'], 'incident_timestamp_ms'),
               })
               console.log(result.summaryText)
@@ -828,6 +833,7 @@ program
                 depositAddresses: args['deposit_addresses'] as string | string[] | undefined ?? '',
                 network: String(args['network'] ?? ''),
                 maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
+                rowLimit: typeof args['row_limit'] === 'number' ? args['row_limit'] : undefined,
               })
               console.log(result.summaryText)
               console.log(JSON.stringify(result.structuredContent, null, 2))

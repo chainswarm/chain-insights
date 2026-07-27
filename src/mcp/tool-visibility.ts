@@ -23,11 +23,18 @@ export const PUBLIC_MCP_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
   graph_query_batch: ['network', 'queries'],
 }
 
+// normalizeRemoteToolArguments FILTERS pass-through arguments to this list, so
+// an argument that is missing here is silently STRIPPED and the caller gets a
+// default-bounded result with no error and no warning. `time_scope` shipped
+// broken for exactly this reason. Every tunable search bound below
+// (per_address_limit, row_limit) must therefore be listed the moment it
+// appears on a tool schema, and is covered end-to-end through the proxy in
+// tests/configurable-limits.test.ts.
 export const PUBLIC_MCP_TOOL_ALLOWED_ARGS: Record<string, string[]> = {
   aml_address_risk: ['address', 'network', 'compare_address', 'include_attachments'],
-  aml_trace_victim_funds: ['victim_addresses', 'network', 'known_suspect_addresses', 'incident_timestamp_ms', 'max_hops', 'include_attachments'],
-  aml_trace_suspect_funds: ['suspect_addresses', 'network', 'incident_timestamp_ms', 'max_hops', 'include_attachments'],
-  aml_trace_deposit_sources: ['deposit_addresses', 'network', 'max_hops', 'include_attachments'],
+  aml_trace_victim_funds: ['victim_addresses', 'network', 'known_suspect_addresses', 'incident_timestamp_ms', 'max_hops', 'per_address_limit', 'include_attachments'],
+  aml_trace_suspect_funds: ['suspect_addresses', 'network', 'incident_timestamp_ms', 'max_hops', 'per_address_limit', 'include_attachments'],
+  aml_trace_deposit_sources: ['deposit_addresses', 'network', 'max_hops', 'row_limit', 'include_attachments'],
   // `time_scope` narrows a `USE topology` query to a temporal-shard subset
   // (lifetime | recent | since_ms:<n>). The serving contract has accepted it
   // since 0.10.15; it was missing here, so the proxy silently STRIPPED it from

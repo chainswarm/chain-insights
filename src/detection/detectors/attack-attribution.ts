@@ -10,12 +10,18 @@
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { DetectionFinding } from '../../investigation/detection-findings.js'
 import { graphQueryRows, networkPredicate, type GraphRow } from '../graph-client.js'
-import { listParam, numParam } from '../params.js'
+import { LIMIT_SPECS, limitFromParams, limitLiteral } from '../../config/limits.js'
+import { listParam } from '../params.js'
 import type { DetectorParams, DetectorScan, DetectionWindow } from '../runtime.js'
 
-export const ATTRIBUTION_MAX_HOPS = 3
-export const ATTRIBUTION_MAX_FRONTIER = 500
-const MAX_ROWS = 1000
+// Built-in defaults now live in the shared limits registry (config/limits.ts),
+// which is the generalization of the per-network default table this detector
+// pioneered. Re-exported here so existing importers and thresholds output are
+// unchanged. `max_hops` used to be overridable with NO ceiling at all via
+// numParam; it is now hard-bounded, because attribution cost grows
+// exponentially with depth.
+export const ATTRIBUTION_MAX_HOPS = LIMIT_SPECS.attribution_max_hops.builtin
+export const ATTRIBUTION_MAX_FRONTIER = LIMIT_SPECS.attribution_max_frontier.builtin
 // Seeds are matched by TAXONOMY NODE LABEL, not an address_subtype property:
 // the graphsync overlay stamps the scam family as node labels (:Scam, :Poisoned)
 // and never projects address_subtype onto Address nodes (verified live
@@ -49,15 +55,23 @@ export interface AttributionConfig {
   boundaryKeywords: string[]
 }
 
-// Per-network default overrides (none diverge yet; the table lets a chain tune
-// hop depth / seed labels without code).
-const ATTRIBUTION_NETWORK_DEFAULTS: Record<string, Partial<AttributionConfig>> = {}
+// Per-network NON-NUMERIC default overrides (seed labels / boundary keywords).
+// The numeric bounds moved to NETWORK_LIMIT_DEFAULTS in config/limits.ts so
+// every tool's caps are tuned from one table; this one keeps the parts that
+// are taxonomy, not budget.
+const ATTRIBUTION_NETWORK_DEFAULTS: Record<string, Pick<Partial<AttributionConfig>, 'seedLabels' | 'boundaryKeywords'>> = {}
 
-// resolveAttributionConfig layers operator `--param` overrides on the
-// per-network defaults. Params: max_hops, max_frontier, max_rows, seed_labels
-// (comma list of taxonomy node labels), boundary_keywords (comma list). Seed
-// labels are validated to a safe identifier charset (they interpolate into a
-// Cypher label position, which cannot be parameterized).
+// resolveAttributionConfig layers operator `--param` overrides (from a CLI
+// `--param key=value` or a monitor config cell's `params`) on the per-network
+// defaults. Params: max_hops, max_frontier, max_rows, seed_labels (comma list
+// of taxonomy node labels), boundary_keywords (comma list).
+//
+// The three numeric knobs resolve through the shared registry, so each one is
+// range-checked against a hard ceiling and an out-of-range value throws
+// LimitRangeError rather than being accepted (previously `numParam` accepted
+// any non-negative number, so `--param max_hops=40` was a live way to hang the
+// graph). Seed labels are validated to a safe identifier charset — they
+// interpolate into a Cypher label position, which cannot be parameterized.
 export function resolveAttributionConfig(network: string, params: DetectorParams): AttributionConfig {
   const base = ATTRIBUTION_NETWORK_DEFAULTS[network] ?? {}
   const rawLabels = params.seed_labels
@@ -65,9 +79,9 @@ export function resolveAttributionConfig(network: string, params: DetectorParams
     : base.seedLabels ?? ATTRIBUTION_SEED_LABELS
   const seedLabels = rawLabels.filter((l) => SEED_LABEL_PATTERN.test(l))
   return {
-    maxHops: numParam(params, 'max_hops', base.maxHops ?? ATTRIBUTION_MAX_HOPS),
-    maxFrontier: numParam(params, 'max_frontier', base.maxFrontier ?? ATTRIBUTION_MAX_FRONTIER),
-    maxRows: numParam(params, 'max_rows', base.maxRows ?? MAX_ROWS),
+    maxHops: limitFromParams('attribution_max_hops', params, 'max_hops', { network }),
+    maxFrontier: limitFromParams('attribution_max_frontier', params, 'max_frontier', { network }),
+    maxRows: limitFromParams('attribution_max_rows', params, 'max_rows', { network }),
     seedLabels: seedLabels.length > 0 ? seedLabels : ATTRIBUTION_SEED_LABELS,
     boundaryKeywords: listParam(params, 'boundary_keywords', base.boundaryKeywords ?? ATTRIBUTION_BOUNDARY_KEYWORDS),
   }
@@ -185,7 +199,7 @@ async function pullSeeds(client: Client, network: string, cfg: AttributionConfig
   const rows = await graphQueryRows(
     client,
     network,
-    `USE topology MATCH (a:Address) WHERE ${networkPredicate('a', network)} AND (${predicate}) RETURN a.address AS address LIMIT ${cfg.maxRows}`,
+    `USE topology MATCH (a:Address) WHERE ${networkPredicate('a', network)} AND (${predicate}) RETURN a.address AS address LIMIT ${limitLiteral(cfg.maxRows)}`,
   )
   return [...new Set(rows.map((r) => str(r, 'address')).filter(Boolean))]
 }

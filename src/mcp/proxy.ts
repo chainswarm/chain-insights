@@ -10,6 +10,7 @@ import type { ContentBlock, GetPromptResult } from '@modelcontextprotocol/sdk/ty
 import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server'
 import * as z from 'zod'
 import type { InvestigatorConfig } from '../config/schema.js'
+import { LIMIT_SPECS, type LimitKey } from '../config/limits.js'
 import { PACKAGE_VERSION } from '../version.js'
 import type { McpTool } from './schema-cache.js'
 import { HIDDEN_REMOTE_TOOL_NAMES, PUBLIC_MCP_TOOL_ALLOWED_ARGS, PUBLIC_MCP_TOOL_REQUIRED_ARGS } from './tool-visibility.js'
@@ -76,6 +77,22 @@ type ChainInsightsGraphMeta = {
 
 const NETWORK_DESCRIPTION = 'Network to query, for example Bittensor or Base.'
 const BITTENSOR_NETWORK_SCHEMA = z.enum(['bittensor']).describe(NETWORK_DESCRIPTION)
+
+// Tunable search bounds surface on the tool schema straight from the limits
+// registry, so the advertised min/max/default can never drift from the values
+// actually enforced. The schema bound is the BUILT-IN ceiling; a per-network
+// entry may enforce something lower, in which case the call is rejected with a
+// typed error naming that ceiling rather than being silently clamped.
+function limitArgSchema(key: LimitKey, caption: string) {
+  const spec = LIMIT_SPECS[key]
+  return z.number().int().min(spec.min).max(spec.ceiling).optional()
+    .describe(`${caption} Default ${spec.builtin}, max ${spec.ceiling}.`)
+}
+
+const TRACE_HOPS_CAPTION = 'Trace depth in hops. Cost grows exponentially with depth.'
+const DEPOSIT_HOPS_CAPTION = 'Reverse trace depth in hops. Cost grows exponentially with depth.'
+const PER_ADDRESS_CAPTION = 'Counterparties expanded per address per hop. Raise to widen a shallow trace.'
+const ROW_LIMIT_CAPTION = 'Value-ordered upstream paths retained per depth. Raise to reach a distant origin behind a high-fan-in deposit.'
 const EMPTY_INPUT_SCHEMA = z.strictObject({})
 const REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS = 15 * 60 * 1000
 
@@ -187,7 +204,12 @@ function graphToolMeta(tool: McpTool): Record<string, unknown> & { ui: { resourc
   }
 }
 
-function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
+// Exported so a test can prove, for EVERY public tool, that each declared
+// schema argument also appears in PUBLIC_MCP_TOOL_ALLOWED_ARGS. An argument
+// present here but missing there is silently stripped by
+// normalizeRemoteToolArguments and the caller never learns their override was
+// ignored — the failure mode that shipped with `time_scope`.
+export function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
   switch (toolName) {
     case 'aml_address_risk':
       return {
@@ -202,7 +224,8 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
         network: BITTENSOR_NETWORK_SCHEMA,
         known_suspect_addresses: z.string().optional().describe('Optional known suspect addresses for context only. Max 5.'),
         incident_timestamp_ms: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
-        max_hops: z.number().int().min(1).max(5).optional().describe('Trace depth in hops. Default 3.'),
+        max_hops: limitArgSchema('trace_max_hops', TRACE_HOPS_CAPTION),
+        per_address_limit: limitArgSchema('trace_per_address_limit', PER_ADDRESS_CAPTION),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
       }
     case 'aml_trace_suspect_funds':
@@ -210,14 +233,16 @@ function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
         network: BITTENSOR_NETWORK_SCHEMA,
         suspect_addresses: z.string().min(1).describe('Suspect-controlled addresses, comma-separated. Min 1, max 5.'),
         incident_timestamp_ms: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
-        max_hops: z.number().int().min(1).max(5).optional().describe('Trace depth in hops. Default 3.'),
+        max_hops: limitArgSchema('trace_max_hops', TRACE_HOPS_CAPTION),
+        per_address_limit: limitArgSchema('trace_per_address_limit', PER_ADDRESS_CAPTION),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
       }
     case 'aml_trace_deposit_sources':
       return {
         network: BITTENSOR_NETWORK_SCHEMA,
         deposit_addresses: z.string().min(1).describe('Suspected deposit or cashout addresses, comma-separated. Min 1, max 5.'),
-        max_hops: z.number().int().min(1).max(5).optional().describe('Reverse trace depth in hops. Default 2.'),
+        max_hops: limitArgSchema('deposit_sources_max_hops', DEPOSIT_HOPS_CAPTION),
+        row_limit: limitArgSchema('deposit_sources_row_limit', ROW_LIMIT_CAPTION),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
       }
     case 'graph_query':
@@ -1279,7 +1304,8 @@ export async function createProxy(): Promise<void> {
           known_suspect_addresses: z.union([z.string(), z.array(z.string())]).optional().describe('Known suspect addresses for context only. Max 5.'),
           include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
           incident_timestamp_ms: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
-          max_hops: z.number().int().min(1).max(5).optional().describe('Trace depth in hops. Default 3.'),
+          max_hops: limitArgSchema('trace_max_hops', TRACE_HOPS_CAPTION),
+        per_address_limit: limitArgSchema('trace_per_address_limit', PER_ADDRESS_CAPTION),
         },
         _meta: {
           ui: {
@@ -1293,7 +1319,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ victim_addresses, known_suspect_addresses, network, incident_timestamp_ms, max_hops, include_attachments }) => {
+      async ({ victim_addresses, known_suspect_addresses, network, incident_timestamp_ms, max_hops, per_address_limit, include_attachments }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1311,6 +1337,7 @@ export async function createProxy(): Promise<void> {
             network,
             incidentTimestampMs: incident_timestamp_ms,
             maxHops: max_hops,
+            perAddressLimit: per_address_limit,
             writeArtifacts: workspaceArtifactsEnabled,
           })
           const graph = await writeLocalGraphMeta(
@@ -1349,7 +1376,8 @@ export async function createProxy(): Promise<void> {
           network: BITTENSOR_NETWORK_SCHEMA,
           suspect_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe('Suspect-controlled addresses, comma-separated or an array. Min 1, max 5.'),
           incident_timestamp_ms: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
-          max_hops: z.number().int().min(1).max(5).optional().describe('Trace depth in hops. Default 3.'),
+          max_hops: limitArgSchema('trace_max_hops', TRACE_HOPS_CAPTION),
+        per_address_limit: limitArgSchema('trace_per_address_limit', PER_ADDRESS_CAPTION),
           include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
         },
         _meta: {
@@ -1364,7 +1392,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ suspect_addresses, incident_timestamp_ms, network, max_hops, include_attachments }) => {
+      async ({ suspect_addresses, incident_timestamp_ms, network, max_hops, per_address_limit, include_attachments }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1380,6 +1408,7 @@ export async function createProxy(): Promise<void> {
             suspectAddresses: suspect_addresses,
             network,
             maxHops: max_hops,
+            perAddressLimit: per_address_limit,
             incidentTimestampMs: incident_timestamp_ms,
             writeArtifacts: workspaceArtifactsEnabled,
           })
@@ -1418,7 +1447,8 @@ export async function createProxy(): Promise<void> {
         inputSchema: {
           network: BITTENSOR_NETWORK_SCHEMA,
           deposit_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe('Suspected deposit or cashout addresses, comma-separated or an array. Min 1, max 5.'),
-          max_hops: z.number().int().min(1).max(5).optional().describe('Reverse trace depth in hops. Default 2.'),
+          max_hops: limitArgSchema('deposit_sources_max_hops', DEPOSIT_HOPS_CAPTION),
+        row_limit: limitArgSchema('deposit_sources_row_limit', ROW_LIMIT_CAPTION),
           include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
         },
         _meta: {
@@ -1433,7 +1463,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ deposit_addresses, network, max_hops, include_attachments }) => {
+      async ({ deposit_addresses, network, max_hops, row_limit, include_attachments }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1449,6 +1479,7 @@ export async function createProxy(): Promise<void> {
             depositAddresses: deposit_addresses,
             network,
             maxHops: max_hops,
+            rowLimit: row_limit,
             writeArtifacts: workspaceArtifactsEnabled,
           })
           const graph = await writeLocalGraphMeta(
