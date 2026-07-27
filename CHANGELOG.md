@@ -3,6 +3,23 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.11.17] - 2026-07-27 — devkit smoke: known-answer case tracking over a real theft corridor
+
+- devkit: `smoke-monitor.sh` gains Phase I, a known-answer case-tracking
+  scenario over a real theft corridor present in the pinned fixture (actors
+  referenced by neutral on-chain role labels only). It asserts the exact
+  baseline corridor from the victim seed (theft hop plus a near-equal 3-way
+  split, all `propagated_scam`), expands the case with the second controlled
+  wallet via the canonical `cases/<id>/case.json`, and asserts the
+  convergence: the shared exchange deposit enters the corridor, raises
+  `case_movement` and `frontier_candidate` alerts, and lands in the case
+  findings document.
+- devkit: the same phase proves the watchlist end to end on a case address —
+  a watched deposit raises `watchlist_finding` (via the case findings doc)
+  and `watchlist_movement` (via `case_movements`) on the next run, and both
+  dedupe by `source_ref` across idle re-runs.
+- devkit: regression rows for #232 — an idle re-run adds no pending reviews,
+  and `review list` never lists a zero-findings document.
 ## [0.11.16] - 2026-07-27 — deposit tracing keeps the highest-value paths when it truncates
 
 - fix: `aml_trace_deposit_sources` capped each hop's reverse paths with a bare

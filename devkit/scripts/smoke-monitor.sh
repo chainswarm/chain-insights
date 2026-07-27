@@ -528,6 +528,130 @@ else
 fi
 
 ########################################################################
+# PHASE I -- known-answer case tracking over a real theft corridor, the
+# watchlist convergence alert, and the #232 pending-review regression.
+#
+# The devkit fixture carries a real, forensically traced theft incident whose
+# actors are referred to here by neutral on-chain role labels only:
+#
+#   VICTIM -> THEFT_HOP1 -> {SPLIT_A, SPLIT_B, SPLIT_C}   (near-equal 3-way
+#   split, the structuring signature), and a second, independently controlled
+#   OPERATOR wallet that funds the SAME exchange deposit the theft chain
+#   cashes out through -- the convergence that ties the two together.
+#
+# Unlike U6's generic seed, every address below is a pinned known answer: the
+# baseline corridor from the victim seed is EXACTLY the seed plus the theft
+# hop and the three split legs, all classified propagated_scam.
+########################################################################
+I_VICTIM="5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5"
+I_OPERATOR="5D9yaXf5nqrzKHqgoWMYeKqEERthvftdJB7XkrwNgQzNGrYb"
+I_THEFT_HOP1="5DABm6GGjNZXuJxL1DwjzDB9Bkxu7Tj7MwRWhvahKi3Qm6c8"
+I_SPLIT_A="5EXN8qJ7yhoAYLXi6Jw7gytTxyToVdNeoi3AR2p73tF7uGKn"
+I_SPLIT_B="5Eh17XkBu9QncfkoAF9dfhNFYi7woZiUeKZ3aKpA2zJB37nK"
+I_SPLIT_C="5GriNFfiqhtgXJ8kd4SRSQMNpyXt2HeY1A1orDHwhnawRwoi"
+I_MID_COLDKEY="5EkTMF1noWnWupGxQqtPczW2FFB7ktdVwjaZ22Cam54U93Xx"
+I_DEPOSIT_SHARED="5EVTetmsvVf47UyMfaYxhJMeJaGoeY9JMwgnqdWyx5taaTR6"
+
+WS_I="$(new_workspace)"
+write_config "$WS_I" <<'EOF'
+{ "cells": [ { "detector": "mixer", "network": "bittensor", "params": { "time_scope": "recent" } } ],
+  "intervalSeconds": 3600, "caseMaxHops": 2,
+  "watchlist": { "dustMaxUsd": 1.0, "dustLookbackSeconds": 86400, "enabled": true } }
+EOF
+cd "$WS_I"
+check "I/case add on the victim seed" \
+  "$(rc_of $CLI monitor case add theft-corridor --type stolen-funds --network bittensor --seed "$I_VICTIM")"
+sleep 1
+I_RUN1_RC=0; $CLI monitor run >/dev/null 2>&1 || I_RUN1_RC=$?
+assert_eq "I/baseline run completes" "$I_RUN1_RC" "0"
+I_SNAP1="$(ls "$WS_I"/cases/theft-corridor/snapshots/*.snapshot.json 2>/dev/null | sort | tail -1 || true)"
+check "I/baseline snapshot written" "$(rc_of test -n "$I_SNAP1")"
+# The known answer: the 2-hop corridor from the victim is EXACTLY the seed,
+# the theft hop, and the three split legs -- nothing else. An extra address
+# here means corridor over-reach; a missing one means the trace lost the theft.
+assert_eq "I/baseline corridor is exactly the victim + theft hop + 3-way split (5 addresses)" \
+  "$(jq -r '[.addresses[].address] | sort | join(",")' "$I_SNAP1")" \
+  "$(printf '%s\n' "$I_VICTIM" "$I_THEFT_HOP1" "$I_SPLIT_A" "$I_SPLIT_B" "$I_SPLIT_C" | sort | paste -sd,)"
+assert_eq "I/every non-seed corridor address is propagated_scam" \
+  "$(jq -r '[.addresses[] | select(.address != "'"$I_VICTIM"'") | .classification] | unique | join(",")' "$I_SNAP1")" \
+  "propagated_scam"
+I_RUN1="$(newest_run "$WS_I")"
+assert_eq "I/baseline emits no movements" "$(cell_field "$I_RUN1" 'case:theft-corridor' movements_count)" "0"
+
+# ---- convergence: the second actor joins the case ---------------------------
+# Watch the shared deposit BEFORE it is discovered -- the investigator's move.
+check "I/watch the convergence deposit" \
+  "$(rc_of $CLI monitor watchlist add "$I_DEPOSIT_SHARED" --network bittensor)"
+# Expand the case with the operator seed via the case's canonical file
+# (cases/<id>/case.json IS the registry of record -- src/monitor/cases.ts;
+# there is no add-seed subcommand yet). This simulates the real investigative
+# event: a second controlled wallet is identified mid-case.
+jq --arg s "$I_OPERATOR" '.seeds += [$s]' "$WS_I/cases/theft-corridor/case.json" > "$WS_I/cases/theft-corridor/case.json.tmp" \
+  && mv "$WS_I/cases/theft-corridor/case.json.tmp" "$WS_I/cases/theft-corridor/case.json"
+sleep 1
+$CLI monitor run >/dev/null 2>&1 || true
+I_SNAP2="$(ls "$WS_I"/cases/theft-corridor/snapshots/*.snapshot.json | sort | tail -1)"
+check "I/expansion took a new snapshot" "$(rc_of test "$I_SNAP2" != "$I_SNAP1")"
+assert_eq "I/expanded seed set carries both actors" \
+  "$(jq -r '.seed_set | sort | join(",")' "$I_SNAP2")" \
+  "$(printf '%s\n' "$I_OPERATOR" "$I_VICTIM" | sort | paste -sd,)"
+# The operator's corridor pulls in the SHARED deposit -- the convergence the
+# case exists to prove -- plus the mid coldkey leg of the theft chain.
+for role_addr in "shared-deposit:$I_DEPOSIT_SHARED" "mid-coldkey:$I_MID_COLDKEY"; do
+  role="${role_addr%%:*}"; addr="${role_addr#*:}"
+  assert_eq "I/expanded corridor contains the $role as propagated_scam" \
+    "$(jq -r --arg a "$addr" '[.addresses[] | select(.address == $a) | .classification] | join(",")' "$I_SNAP2")" \
+    "propagated_scam"
+done
+I_RUN2="$(newest_run "$WS_I")"
+assert_ge "I/expansion produced movements" "$(cell_field "$I_RUN2" 'case:theft-corridor' movements_count)" 1
+I_ALERTS2="$($CLI monitor alerts list --all 2>/dev/null)"
+assert_ge "I/the shared deposit raised a case_movement alert" \
+  "$(grep -c " case_movement bittensor theft-corridor $I_DEPOSIT_SHARED" <<<"$I_ALERTS2" || true)" 1
+assert_ge "I/the shared deposit raised a frontier_candidate alert" \
+  "$(grep -c " frontier_candidate bittensor theft-corridor $I_DEPOSIT_SHARED" <<<"$I_ALERTS2" || true)" 1
+assert_ge "I/the operator corridor exposed a cashout endpoint" \
+  "$(grep -c ' cashout_endpoint bittensor theft-corridor ' <<<"$I_ALERTS2" || true)" 1
+I_CASE_DOC="$(ls "$WS_I"/detections/*case-theft-corridor*.findings.json 2>/dev/null | sort | tail -1 || true)"
+check "I/frontier candidates were written as a case findings doc" "$(rc_of test -n "$I_CASE_DOC")"
+assert_ge "I/the case findings doc names the shared deposit" \
+  "$(jq -r --arg a "$I_DEPOSIT_SHARED" '[.findings[] | select(.address == $a)] | length' "$I_CASE_DOC")" 1
+
+# ---- the watchlist hit: run N+1 joins over what run N ingested --------------
+# findingHits/movementHits join the store's finding_addresses/case_movements
+# tables, which this run's own documents enter at ingest -- so the watched
+# deposit's hit surfaces on the NEXT run. That is the documented cadence, not
+# a race: the watchlist scopes "the signal the loop already produced".
+sleep 1
+$CLI monitor run >/dev/null 2>&1 || true
+I_ALERTS3="$($CLI monitor alerts list --all 2>/dev/null)"
+assert_ge "I/watched case address raised watchlist_finding (via the case findings doc)" \
+  "$(grep -c " watchlist_finding bittensor .*$I_DEPOSIT_SHARED" <<<"$I_ALERTS3" || true)" 1
+assert_ge "I/watched case address raised watchlist_movement (via case_movements)" \
+  "$(grep -c " watchlist_movement bittensor theft-corridor $I_DEPOSIT_SHARED" <<<"$I_ALERTS3" || true)" 1
+
+# ---- #232: a re-run over unchanged data adds no pending reviews -------------
+# The full-state mixer cell still writes one findings document per run --
+# empty after suppression. Before #232 every one of those entered the review
+# queue (~192/day at 8 hourly cells). The fix excludes findings_count = 0 docs
+# from listPending; the count must therefore be flat across idle re-runs.
+I_PENDING_BEFORE="$($CLI monitor review list 2>/dev/null | grep -c . || true)"
+I_WL_COUNT_BEFORE="$(grep -c ' watchlist_' <<<"$I_ALERTS3" || true)"
+sleep 1
+$CLI monitor run >/dev/null 2>&1 || true
+I_PENDING_AFTER="$($CLI monitor review list 2>/dev/null | grep -c . || true)"
+assert_eq "#232 idle re-run adds no pending reviews" "$I_PENDING_AFTER" "$I_PENDING_BEFORE"
+# ... and none of the listed items is an empty document.
+assert_eq "#232 no zero-findings document is listed for review" \
+  "$($CLI monitor review list 2>/dev/null | awk -F'\t' '$4 == 0' | grep -c . || true)" "0"
+I_RUN4="$(newest_run "$WS_I")"
+assert_eq "#232 idle re-run derives no case movements" \
+  "$(cell_field "$I_RUN4" 'case:theft-corridor' movements_count)" "0"
+# Watchlist dedupe by source_ref holds for case-sourced hits too.
+assert_eq "I/watchlist hits on the case dedupe across idle re-runs" \
+  "$($CLI monitor alerts list --all 2>/dev/null | grep -c ' watchlist_' || true)" "$I_WL_COUNT_BEFORE"
+
+########################################################################
 echo "MONITOR-SMOKE done: $PASS pass, $FAIL fail, $SKIP skip"
 for w in "${WORKSPACES[@]}"; do echo "MONITOR-SMOKE workspace: $w"; done
 [ "$FAIL" -eq 0 ]
