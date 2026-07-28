@@ -3,6 +3,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.15.5] - 2026-07-28 — ci: README lint becomes a hard gate
+
+- ci: drop `--warn-only` from the vendored docs workflow README lint,
+  matching the root `docs-reusable.yml` hard-gate flip. The README already
+  passes the anchored 11-section check.
+
 ## [0.15.4] - 2026-07-28 — docs: knowledge layer migration — skill into docs, README to standard
 
 - docs: migrate the retired repo knowledge skill into authored docs:
