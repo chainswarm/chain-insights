@@ -864,6 +864,94 @@ assert_eq "L1 case list --all still shows the closed record" \
   "$($CLI monitor case list --all 2>/dev/null | grep -c '^theft-1' || true)" "1"
 
 ########################################################################
+# PHASE J -- label-cutover spec: watchlist_label probe + detector deprecation.
+#
+# The fixture graph cannot carry a label DELTA (checksum-pinned real export;
+# a runtime write would poison parity goldens). So: run 1 proves the probe
+# runs and bootstraps SILENTLY on real overlay labels; then the delta is
+# seeded workspace-side by appending an empty-set baseline line for a REAL
+# labeled address (last line per (network,address) wins) -- on-disk state
+# identical to "watched before the platform labeled it" -- and run 2 must
+# alert exactly once, with dedup across run 3 and a rebuild.
+########################################################################
+WS_J="$(new_workspace)"
+write_config "$WS_J" <<'EOF'
+{ "cells": [], "intervalSeconds": 3600, "caseMaxHops": 2,
+  "watchlist": { "dustMaxUsd": 1.0, "dustLookbackSeconds": 86400, "enabled": true } }
+EOF
+cd "$WS_J"
+# A REAL labeled SS58 address, picked from the pinned fixture at runtime
+# (self-healing: any labeled bittensor address works). sed '1q' would SIGPIPE
+# zcat under pipefail (exit 141 kills the script); `sed -n 1p` drains stdin.
+J_LABELED="$(zcat "$REPO_ROOT"/devkit/data/memgraph/nodes.jsonl.gz.part-*.gz 2>/dev/null \
+  | jq -r 'select(.labels | index("Address"))
+           | select(.properties.network == "bittensor")
+           | select((.properties.labels // []) | length > 0)
+           | .properties.address' | sed -n 1p)"
+check "J/the fixture carries a labeled bittensor address" "$(rc_of test -n "$J_LABELED")"
+# A REAL unlabeled SS58 address, also fixture-picked (a hardcoded pick rots:
+# the pinned export may label any given address).
+J_UNLABELED="$(zcat "$REPO_ROOT"/devkit/data/memgraph/nodes.jsonl.gz.part-*.gz 2>/dev/null \
+  | jq -r 'select(.labels | index("Address"))
+           | select(.properties.network == "bittensor")
+           | select((.properties.labels // []) | length == 0)
+           | .properties.address' | sed -n 1p)"
+check "J/the fixture carries an unlabeled bittensor address" "$(rc_of test -n "$J_UNLABELED")"
+$CLI monitor watchlist add "$J_LABELED" --network bittensor >/dev/null 2>&1 || true
+$CLI monitor watchlist add "$J_UNLABELED" --network bittensor >/dev/null 2>&1 || true
+J_RC=0; $CLI monitor run >/dev/null 2>&1 || J_RC=$?
+assert_eq "J/run 1 (bootstrap) completes" "$J_RC" "0"
+J_BASELINE="$WS_J/.chain-insights/monitor/logs/label-baseline.jsonl"
+check "J/label probe ran: canonical baseline doc written" "$(rc_of test -f "$J_BASELINE")"
+assert_ge "J/baseline seeded the labeled address with its real overlay label set" \
+  "$(jq -r --arg a "$J_LABELED" 'select(.address == $a) | .pairs | length' "$J_BASELINE" | tail -1)" 1
+assert_eq "J/baseline seeded the unlabeled address with an EMPTY set (state, not absence)" \
+  "$(jq -r --arg a "$J_UNLABELED" 'select(.address == $a) | .pairs | length' "$J_BASELINE" | tail -1)" "0"
+assert_eq "J/bootstrap is SILENT -- pre-existing labels are state, not events" \
+  "$($CLI monitor alerts list --all 2>/dev/null | grep -c ' watchlist_label ' || true)" "0"
+
+# Seed the delta: an empty-set line for the labeled address (last line wins).
+printf '{"network":"bittensor","address":"%s","pairs":[],"run_timestamp":1}\n' "$J_LABELED" >> "$J_BASELINE"
+sleep 1
+$CLI monitor run >/dev/null 2>&1 || true
+J_ALERTS="$WS_J/.chain-insights/monitor/alerts/alerts.jsonl"
+J_N1="$(jq -r 'select(.type == "watchlist_label")' "$J_ALERTS" 2>/dev/null | jq -s 'length')"
+assert_ge "J/a new (label, source) pair raises watchlist_label" "$J_N1" 1
+assert_eq "J/the alert names the address" \
+  "$(jq -r 'select(.type == "watchlist_label") | .address' "$J_ALERTS" | sort -u)" "$J_LABELED"
+assert_eq "J/the alert names the source (topology overlay)" \
+  "$(jq -r 'select(.type == "watchlist_label") | .source' "$J_ALERTS" | sort -u)" "topology"
+assert_eq "J/every label alert names a non-empty label" \
+  "$(jq -r 'select(.type == "watchlist_label") | select((.label // "") == "")' "$J_ALERTS" | jq -s 'length')" "0"
+assert_eq "J/the hit is in the canonical watchlist-hits log with the <address>|<label>|<source> source_ref" \
+  "$(jq -r --arg a "$J_LABELED" 'select(.trigger == "label") | select(.source_ref | startswith($a + "|")) | select(.source_ref | endswith("|topology"))' \
+    "$WS_J/.chain-insights/monitor/logs/watchlist-hits.jsonl" | jq -s 'length')" "$J_N1"
+
+# Dedup across a third run and across a rebuild (rebuild-safe).
+sleep 1
+$CLI monitor run >/dev/null 2>&1 || true
+assert_eq "J/label alerts dedupe across runs" \
+  "$(jq -r 'select(.type == "watchlist_label")' "$J_ALERTS" | jq -s 'length')" "$J_N1"
+check "J/store rebuilds cleanly with label hits in the canonical logs" "$(rc_of $CLI monitor rebuild)"
+sleep 1
+$CLI monitor run >/dev/null 2>&1 || true
+assert_eq "J/rebuild-then-rerun re-alerts nothing (source_ref dedup survives rebuild)" \
+  "$(jq -r 'select(.type == "watchlist_label")' "$J_ALERTS" | jq -s 'length')" "$J_N1"
+
+# ---- Deprecation rows (spec req 3/4): migrated detectors warn; mixer not.
+for J_DET in address-poisoning fake-token attack-attribution; do
+  assert_contains "J/cia detect $J_DET prints the deprecation warning" \
+    "$($CLI detect "$J_DET" --network bittensor --param scan_window_days=3650 2>&1 || true)" "DEPRECATED"
+done
+assert_eq "J/cia detect mixer prints NO deprecation warning" \
+  "$($CLI detect mixer --network bittensor --param time_scope=recent 2>&1 | grep -ci DEPRECATED || true)" "0"
+# The monitor-cell surface: WS_A's run 1 executed all four detector cells.
+assert_contains "J/deprecated monitor cell records the warning on the run document" \
+  "$(cell_field "$RUN1" 'address-poisoning:bittensor' deprecation)" "deprecated"
+assert_eq "J/mixer monitor cell records no deprecation" \
+  "$(cell_field "$RUN1" 'mixer:bittensor' deprecation)" ""
+
+########################################################################
 echo "MONITOR-SMOKE done: $PASS pass, $FAIL fail, $SKIP skip"
 for w in "${WORKSPACES[@]}"; do echo "MONITOR-SMOKE workspace: $w"; done
 [ "$FAIL" -eq 0 ]
