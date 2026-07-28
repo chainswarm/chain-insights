@@ -304,7 +304,12 @@ assert_eq "U6 baseline case cell emits no movements" "$(cell_field "$RUN_D1" "ca
 sleep 1
 $CLI monitor run >/dev/null 2>&1 || true
 RUN_D2="$(newest_run "$WS_A")"
-assert_ge "U6 a second snapshot was taken" "$(ls "$WS_A"/cases/theft-1/snapshots/*.snapshot.json | wc -l)" 2
+# Snapshot-on-change (chain-insights#258): an identical topology writes NO
+# second snapshot file — the run document records confirmed_unchanged instead.
+assert_eq "U6 no second snapshot for an unchanged topology (snapshot-on-change)" \
+  "$(ls "$WS_A"/cases/theft-1/snapshots/*.snapshot.json | wc -l)" 1
+assert_eq "U6 the second run records the case as confirmed unchanged" \
+  "$(cell_field "$RUN_D2" "case:theft-1" confirmed_unchanged)" "true"
 # Static fixture => the run-over-run diff is empty, and no case_movement alert
 # may be invented from it.
 assert_eq "U6 second run over the static fixture yields zero movements" \

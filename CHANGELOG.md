@@ -3,6 +3,13 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.13.3] - 2026-07-28 — devkit U6 snapshot-on-change
+
+- test: monitor smoke U6 asserts the snapshot-on-change contract (no second
+  snapshot file for an unchanged topology; run document records
+  confirmed_unchanged) — verified against a fully regenerated devkit fixture
+  (131 pass, 0 fail).
+
 ## [0.13.2] - 2026-07-28 — uniform epoch-ms timestamps in the render layer
 
 - fix: `_timestamp` fields are epoch milliseconds everywhere — the render
