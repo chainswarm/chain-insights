@@ -30,6 +30,13 @@ export interface MonitorCase {
    *  the aperture widened" from "the corridor grew because funds moved". */
   seeds_added_at_timestamp?: Record<string, number>
   seed_events?: CaseSeedEvent[]
+  /** Victim lane (event-driven tracing, spec req 2/4): set by the activity
+   *  probe when a hit lands on a watchlist entry this case manages; cleared
+   *  by markCaseTraced after a successful trace. The EARLIEST pending hit
+   *  wins so a burst of hits reads as one pending window. */
+  dirty_since_timestamp?: number
+  /** Stamped by the runner after every successful trace (both trace modes). */
+  last_traced_at_timestamp?: number
 }
 
 const CASE_ID_RE = /^[a-z0-9][a-z0-9-]{1,63}$/
@@ -196,4 +203,21 @@ export async function closeCase(
   if (current.status === 'closed') return { monitorCase: current, alreadyClosed: true }
   const closed: MonitorCase = { ...current, status: 'closed', closed_at_timestamp: nowTimestamp }
   return { monitorCase: await writeCase(workspaceRoot, closed), alreadyClosed: false }
+}
+
+// The dirty/traced markers go through readCase, so case-id validation and the
+// `no such case` error come for free. assertOpen is deliberately NOT applied —
+// a closed case may be marked dirty (dormancy tripwire forward-compat); only
+// the runner refuses to trace it.
+export async function markCaseDirty(workspaceRoot: string, caseId: string, nowTimestamp: number): Promise<MonitorCase> {
+  const current = await readCase(workspaceRoot, caseId)
+  if (current.dirty_since_timestamp !== undefined) return current
+  return writeCase(workspaceRoot, { ...current, dirty_since_timestamp: nowTimestamp })
+}
+
+export async function markCaseTraced(workspaceRoot: string, caseId: string, nowTimestamp: number): Promise<MonitorCase> {
+  const current = await readCase(workspaceRoot, caseId)
+  const next: MonitorCase = { ...current, last_traced_at_timestamp: nowTimestamp }
+  delete next.dirty_since_timestamp
+  return writeCase(workspaceRoot, next)
 }
