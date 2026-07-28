@@ -11,7 +11,7 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { scamCorridorTrace } from '../investigation/scam-corridor-trace.js'
 import type { LimitConfig } from '../config/limits.js'
 import { writeFindings } from '../detection/emit.js'
-import type { DetectionFindingsDocument } from '../investigation/detection-findings.js'
+import type { CaseClusterRole, DetectionClassification, DetectionFindingsDocument } from '../investigation/detection-findings.js'
 import type { AlertEvent } from './alerts.js'
 import { monitorPaths } from './paths.js'
 import { approvedAddressesForCase } from './review.js'
@@ -35,6 +35,19 @@ export interface CaseSnapshot {
   seeds_added_at_timestamp?: Record<string, number>
 }
 export interface CaseMovement { type: 'new_hop' | 'new_deposit_endpoint' | 'cashout_endpoint' | 'frontier_candidate' | 'scope_expansion'; address: string; details: Record<string, unknown> }
+
+/** Cluster membership as a positive allow-list (shared definition with the
+ *  victim-lane managed-watchlist sync): a shared-deposit gate is a deposit
+ *  endpoint; a corridor-accepted scam hop (propagated_scam / corridor_hub)
+ *  is a candidate intermediate; EVERYTHING else — exchange terminals,
+ *  protected infra, failed-threshold probes, plain neighbors — is NOT
+ *  cluster material and must never become a label. Deposit wins over
+ *  classification: it is the more specific structural claim. */
+export function caseFindingRole(a: { classification?: string; gate?: string }): CaseClusterRole | null {
+  if (a.gate?.startsWith('shared_deposit')) return 'candidate_deposit'
+  if (a.classification === 'propagated_scam' || a.classification === 'corridor_hub') return 'candidate_intermediate'
+  return null
+}
 
 // ---------------------------------------------------------------------------
 // SCOPE GROWTH IS NOT A MOVEMENT (chain-insights#250)
@@ -221,19 +234,46 @@ export async function traceCase(
 
   const movements = diffSnapshots(previous, snapshot)
   const expansions = diffScopeExpansion(previous, snapshot)
-  // Classification signals apply to whatever is IN the corridor, however it got
-  // there: a scam hub that entered via a new seed is still a frontier candidate
-  // worth a human look, and suppressing it would hide the convergence the
-  // add-seed was performed to find. Only MOVEMENT semantics are withheld.
-  const frontier = [
-    ...movements.filter((m) => m.type === 'frontier_candidate'),
-    ...expansions.filter((m) => m.details.classification === 'propagated_scam' || m.details.classification === 'corridor_hub'),
-  ]
-  if (frontier.length > 0) {
+  // Reviewable cluster material (label-lifecycle spec req 1). The case doc
+  // the reviewer approves carries each address's cluster ROLE — the curated-
+  // label export maps roles to labels and never guesses them. Bootstrap
+  // (first trace): the full initial cluster, seeds included, so approving it
+  // yields the scam_seed labels. Later traces: only what is NEW — corridor
+  // entrants (frontier / shared-deposit) and operator-added seeds.
+  // Approval-fed seeds are excluded: they were already reviewed once as
+  // candidate intermediates and must not be re-reviewed (and re-labeled) as
+  // seeds.
+  const approvedSet = new Set(approved)
+  const reviewable: Array<{ address: string; classification?: string; gate?: string; role: CaseClusterRole }> = []
+  const pushCorridorEntrant = (a: SnapshotAddress): void => {
+    const role = caseFindingRole(a)
+    if (role) reviewable.push({ address: a.address, classification: a.classification, gate: a.gate, role })
+  }
+  if (previous === null) {
+    for (const address of seedSet) reviewable.push({ address, role: 'seed' })
+    for (const a of snapshot.addresses) {
+      if (!seedSet.includes(a.address)) pushCorridorEntrant(a)
+    }
+  } else {
+    for (const address of [...newSeedsOf(previous, snapshot)].sort()) {
+      if (!approvedSet.has(address)) reviewable.push({ address, role: 'seed' })
+    }
+    const newAddresses = new Set([...movements, ...expansions].map((m) => m.address))
+    for (const a of snapshot.addresses) {
+      if (newAddresses.has(a.address)) pushCorridorEntrant(a)
+    }
+  }
+  if (reviewable.length > 0) {
     const doc: DetectionFindingsDocument = {
       schema: 'chain-insights.detection-findings.v1', tool: 'aml_scam_corridor_trace', network: monitorCase.network,
       status: 'complete', generated_at_timestamp: nowTimestamp,
-      findings: frontier.map((m) => ({ address: m.address, classification: (m.details.classification ?? undefined) as never, evidence: { case_id: caseId }, truncated: false, inconclusive: false })),
+      findings: reviewable.map((r) => ({
+        address: r.address,
+        ...(r.classification ? { classification: r.classification as DetectionClassification } : {}),
+        ...(r.gate ? { gate: r.gate } : {}),
+        role: r.role,
+        evidence: { case_id: caseId }, truncated: false, inconclusive: false,
+      })),
       threshold_provenance: { source: 'cia-monitor-case-expansion', case_id: caseId },
     }
     await writeFindings(workspaceRoot, `case-${caseId}`, doc)

@@ -7,7 +7,7 @@ import { appendFile, mkdir } from 'node:fs/promises'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { monitorPaths } from './paths.js'
 import type { AlertEvent } from './alerts.js'
-import { markCaseDirty } from './cases.js'
+import { listCases, markCaseDirty, type MonitorCase } from './cases.js'
 import type { MonitorConfig } from './config.js'
 import { activityHits } from './probe.js'
 import type { MonitorStore } from './store.js'
@@ -178,6 +178,36 @@ export async function dustHits(
   return { hits, calls, error }
 }
 
+/** case_reactivated (label-lifecycle spec req 4): an activity hit on a
+ *  `managed_by: case:<id>` entry whose case is CLOSED. Pure over the CURRENT
+ *  pass's post-dedup hits — the canonical hits log's source_ref dedup is what
+ *  makes this exactly-once per observation, and a genuinely NEW movement
+ *  (new last_activity_timestamp) re-alerts by design. Open-case hits are the
+ *  dirty-mark path, not reactivation. No auto-reopen. */
+export function reactivationAlerts(
+  hits: WatchlistHit[],
+  watched: WatchedAddress[],
+  cases: MonitorCase[],
+  runTimestamp: number,
+): Omit<AlertEvent, 'alert_id' | 'emitted_at_timestamp'>[] {
+  const managedBy = new Map(watched.filter((w) => w.managed_by).map((w) => [`${w.network}:${w.address}`, w.managed_by as string]))
+  const statusOf = new Map(cases.map((c) => [c.case_id, c.status]))
+  const out: Omit<AlertEvent, 'alert_id' | 'emitted_at_timestamp'>[] = []
+  const seen = new Set<string>()
+  for (const hit of hits) {
+    if (hit.trigger !== 'activity') continue
+    const owner = managedBy.get(`${hit.network}:${hit.address}`)
+    if (!owner?.startsWith('case:')) continue
+    const caseId = owner.slice('case:'.length)
+    if (statusOf.get(caseId) !== 'closed') continue
+    const key = `${caseId}|${hit.network}|${hit.address}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({ type: 'case_reactivated', network: hit.network, case_id: caseId, address: hit.address, run_timestamp: runTimestamp })
+  }
+  return out
+}
+
 const ALERT_TYPE = {
   finding: 'watchlist_finding',
   movement: 'watchlist_movement',
@@ -249,14 +279,18 @@ export async function runWatchlistPass(
       hit.detail ?? null,
     ])
   }
-  const alerts = hits.map((hit) => ({
-    type: ALERT_TYPE[hit.trigger],
-    network: hit.network,
-    address: hit.address,
-    run_timestamp: runTimestamp,
-    doc_path: hit.trigger === 'finding' ? hit.source_ref : undefined,
-    case_id: hit.trigger === 'movement' ? hit.source_ref : undefined,
-  }))
+  const allCases = await listCases(workspaceRoot)
+  const alerts: Omit<AlertEvent, 'alert_id' | 'emitted_at_timestamp'>[] = [
+    ...hits.map((hit) => ({
+      type: ALERT_TYPE[hit.trigger],
+      network: hit.network,
+      address: hit.address,
+      run_timestamp: runTimestamp,
+      doc_path: hit.trigger === 'finding' ? hit.source_ref : undefined,
+      case_id: hit.trigger === 'movement' ? hit.source_ref : undefined,
+    })),
+    ...reactivationAlerts(hits, watched, allCases, runTimestamp),
+  ]
   return {
     hits,
     alerts,

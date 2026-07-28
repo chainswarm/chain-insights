@@ -343,6 +343,13 @@ cia monitor case list          # open cases (add --all for closed too)
 cia monitor case close theft-1
 ```
 
+Closing a case **keeps its `managed_by` watchlist entries** — they stay as a
+dormancy tripwire, and new activity on them raises a `case_reactivated`
+alert (the case itself is never auto-reopened). `monitor status` marks an
+open scam-topology case `closable` once its cluster is labeled (at least one
+approved decision) and its managed entries have been quiet for
+`render.dormant_after_days`.
+
 `--type` is `stolen-funds` (victim funds, cashout tracking) or
 `scam-topology` (cluster expansion under review). A case ID is lowercase
 letters, digits, and hyphens.
@@ -451,8 +458,16 @@ cia monitor export labels
 
 This reads **approved decisions only** and writes matching
 `labels-<timestamp>.json` and `labels-<timestamp>.csv` files under
-`reports/monitor/`, each row carrying the address, network, label,
-originating tool, reviewer, and decision timestamp.
+`reports/monitor/` in the frozen `chain-insights.curated-labels.v1` contract:
+one row per (address, label) with columns
+`address,network,label,case_id,decision_id,doc_ref,decided_at_timestamp,reviewer`.
+Case docs derive the label from each address's cluster role (`seed` ->
+`scam_seed`, `candidate_intermediate` -> `mule`, `candidate_deposit` ->
+`deposit_endpoint`; unknown roles are skipped with a warning); lane-A
+detector docs keep their classification as the label with an empty
+`case_id`. `decision_id` is the content-addressed decision filename stem, so
+downstream importers can dedup re-exports. The export is always a full
+snapshot.
 
 ### Quarantine, do not delete
 
@@ -550,6 +565,7 @@ as before:
 | A tracked case's movement reaches a watched address | `watchlist_movement` | Funds from an open incident moved to an address you watch. |
 | Incoming dust below `dustMaxUsd` | `watchlist_dust` | The opening move of address poisoning: a tiny inbound transfer that a network-wide detector may not flag on its own, but that matters against *your* address. |
 | A watched address became active | `watchlist_activity` | The address's on-chain `last_activity_timestamp` advanced past the probe cursor — the movement tripwire that wakes an `on_movement` case trace. |
+| New activity on a managed entry of a CLOSED case | `case_reactivated` | The labeled topology woke up again after the case was closed. The alert names the case and the active address; the case is never auto-reopened — open a new case if the investigation should resume. |
 
 All four flow through the normal alert stream — `alerts list`, `alerts ack`,
 webhook and exec sinks, and the report — rather than a parallel notification

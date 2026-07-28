@@ -3,13 +3,13 @@ import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { dustHits, findingHits, movementHits, runWatchlistPass } from '../../src/monitor/watchlist-run.js'
+import { dustHits, findingHits, movementHits, reactivationAlerts, runWatchlistPass, type WatchlistHit } from '../../src/monitor/watchlist-run.js'
 import { rebuildStore, withStore } from '../../src/monitor/store.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
 import type { MonitorConfig } from '../../src/monitor/config.js'
 import { addWatched, listWatched, syncManagedWatchlist } from '../../src/monitor/watchlist.js'
 import { activityHits, appendProbeCursor, readProbeCursors } from '../../src/monitor/probe.js'
-import { addCase } from '../../src/monitor/cases.js'
+import { addCase, closeCase, type MonitorCase } from '../../src/monitor/cases.js'
 
 async function ws(): Promise<string> {
   return mkdtemp(path.join(tmpdir(), 'cia-wlrun-'))
@@ -377,5 +377,78 @@ describe('watchlist activity probe (victim lane spec req 4-5)', () => {
     const pass = await withStore(root, async (store) => runWatchlistPass(client, root, store, WL_CFG, 1000))
     expect(pass.error).toMatch(/backend down/)
     expect(pass.hits).toEqual([])
+  })
+})
+
+describe('case_reactivated derivation (label-lifecycle spec req 4)', () => {
+  const activityHit = (over: Partial<WatchlistHit> = {}): WatchlistHit => ({
+    address: '5Mule', network: 'bittensor', trigger: 'activity' as WatchlistHit['trigger'],
+    source_ref: '5Mule|1700', detail: undefined, ...over,
+  })
+  const MANAGED = [{ address: '5Mule', network: 'bittensor', managed_by: 'case:ring1' }]
+  const casesWith = (status: 'open' | 'closed'): MonitorCase[] => [{
+    case_id: 'ring1', type: 'scam-topology', network: 'bittensor', seeds: ['5Seed'], status, created_at_timestamp: 1,
+  }]
+
+  it('an activity hit on a managed entry of a CLOSED case yields the alert, naming case and address', () => {
+    expect(reactivationAlerts([activityHit()], MANAGED, casesWith('closed'), 2000)).toEqual([
+      { type: 'case_reactivated', network: 'bittensor', case_id: 'ring1', address: '5Mule', run_timestamp: 2000 },
+    ])
+  })
+
+  it('an OPEN case never reactivates (open-case activity is the dirty-mark path)', () => {
+    expect(reactivationAlerts([activityHit()], MANAGED, casesWith('open'), 2000)).toEqual([])
+  })
+
+  it('a hit on a manual (unmanaged) entry never reactivates', () => {
+    expect(reactivationAlerts([activityHit()], [{ address: '5Mule', network: 'bittensor' }], casesWith('closed'), 2000)).toEqual([])
+  })
+
+  it('non-activity triggers never reactivate', () => {
+    expect(reactivationAlerts([activityHit({ trigger: 'dust' as WatchlistHit['trigger'], source_ref: 'tx-1' })], MANAGED, casesWith('closed'), 2000)).toEqual([])
+  })
+
+  it('a managed_by pointing at a case that does not exist is ignored', () => {
+    expect(reactivationAlerts([activityHit()], [{ address: '5Mule', network: 'bittensor', managed_by: 'case:ghost' }], casesWith('closed'), 2000)).toEqual([])
+  })
+
+  it('duplicate hits for one address collapse to one alert per case+address', () => {
+    const hits = [activityHit(), activityHit({ source_ref: '5Mule|1800' })]
+    expect(reactivationAlerts(hits, MANAGED, casesWith('closed'), 2000)).toHaveLength(1)
+  })
+})
+
+// End-to-end dedup: the canonical hits log's source_ref dedup (victim-lane
+// spec mechanics) is what makes reactivation exactly-once per observation.
+// The fake below mirrors the landed activity-probe fake above (per-network
+// graph_query_batch returning address+last_activity_timestamp rows for the
+// 'activity' query id, nothing for 'dust').
+describe('case_reactivated end-to-end dedup across passes', () => {
+  it('the same probe observation alerts once, not once per pass', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'ring1', type: 'scam-topology', network: 'bittensor', seeds: ['5Mule'] }, 100)
+    await closeCase(root, 'ring1', 150)
+    await addWatched(root, { address: '5Mule', network: 'bittensor', managed_by: 'case:ring1' })
+    const ROW = { address: '5Mule', last_activity_timestamp: 1_700_000_000_500 }
+    const client = {
+      async callTool({ arguments: args }: { name: string; arguments: Record<string, unknown> }) {
+        const queries = (args.queries as Array<{ id: string }> | undefined) ?? [{ id: 'activity' }]
+        return {
+          structuredContent: {
+            facts: {
+              queries: queries.map((q) => ({ id: q.id, results: q.id === 'dust' ? [] : [ROW] })),
+              results: [ROW],
+            },
+          },
+        }
+      },
+    } as never
+    const config = { cells: [], intervalSeconds: 3600, caseMaxHops: 3, watchlist: { dustMaxUsd: 1, dustLookbackSeconds: 86400, enabled: true } }
+    const pass1 = await withStore(root, (store) => runWatchlistPass(client, root, store, config as never, 1_700_000_001_000))
+    expect(pass1.alerts.filter((a) => a.type === 'case_reactivated')).toEqual([
+      { type: 'case_reactivated', network: 'bittensor', case_id: 'ring1', address: '5Mule', run_timestamp: 1_700_000_001_000 },
+    ])
+    const pass2 = await withStore(root, (store) => runWatchlistPass(client, root, store, config as never, 1_700_000_002_000))
+    expect(pass2.alerts.filter((a) => a.type === 'case_reactivated')).toEqual([])
   })
 })

@@ -332,21 +332,31 @@ assert_eq "U6 zero case_movement alerts on the static fixture" \
 skip "U7 synthetic moved-funds snapshot pair" \
   "spec-marked (unit); covered by tests/monitor/tracker.test.ts -- exact movement set incl. cashout, plus the cashout_endpoint alert. A static fixture cannot produce a real movement pair (see U6)"
 
-# ---- U8: approve frontier -> re-run -> corridor expands ---------------------
+# ---- U8: the bootstrap cluster doc carries roles; approval semantics -------
+# The first trace writes the case's initial CLUSTER for review — on this
+# static fixture that is at least the seed itself (role "seed"). Approving
+# seed-role findings must NOT widen the corridor aperture; only
+# candidate_intermediate approvals do.
 PENDING_CASE_DOC="$(ls "$WS_A"/detections/*case-theft-1*.findings.json 2>/dev/null | head -1 || true)"
-if [ -n "$PENDING_CASE_DOC" ]; then
-  check "U8 approve frontier" "$(rc_of $CLI monitor review approve "$PENDING_CASE_DOC" --reviewer smoke)"
-  sleep 1
-  $CLI monitor run >/dev/null 2>&1 || true
-  LAST_SNAP="$(ls "$WS_A"/cases/theft-1/snapshots/*.snapshot.json | sort | tail -1)"
-  assert_ge "U8 the approved candidate expanded the corridor seed set" \
+check "U8 the bootstrap trace wrote the case cluster doc for review" "$(rc_of test -n "$PENDING_CASE_DOC")"
+assert_eq "U8 every case-doc finding carries a cluster role" \
+  "$(jq '[.findings[] | select((.role // "") == "")] | length' "$PENDING_CASE_DOC")" "0"
+assert_eq "U8 the seed is in the cluster doc with role seed" \
+  "$(jq -r --arg a "$SEED" '[.findings[] | select(.address == $a)][0].role' "$PENDING_CASE_DOC")" "seed"
+check "U8 approve the cluster doc" "$(rc_of $CLI monitor review approve "$PENDING_CASE_DOC" --reviewer smoke)"
+sleep 1
+$CLI monitor run >/dev/null 2>&1 || true
+LAST_SNAP="$(ls "$WS_A"/cases/theft-1/snapshots/*.snapshot.json | sort | tail -1)"
+N_INTERMEDIATE="$(jq '[.findings[] | select(.role == "candidate_intermediate")] | length' "$PENDING_CASE_DOC")"
+if [ "$N_INTERMEDIATE" -ge 1 ]; then
+  assert_ge "U8 approved candidate intermediates expanded the corridor seed set" \
     "$(jq '.seed_set | length' "$LAST_SNAP")" 2
-  assert_eq "U8 the approved address is now a case seed" \
-    "$(jq -r --arg a "$(jq -r '.findings[0].address' "$PENDING_CASE_DOC")" '[.seed_set[] | select(. == $a)] | length' "$LAST_SNAP")" "1"
 else
-  skip "U8 corridor expansion" \
-    "the seed's corridor produced no frontier candidate on this fixture (no propagated_scam / corridor_hub hop), and a labelled scam hub -- the seed that would produce one -- traverses for minutes on this fixture, which is not smoke-sized. Seam covered by tests/monitor/tracker.test.ts 'traceCase expansion seam (AC-13 approve -> re-trace)'"
+  assert_eq "U8 a seed-role-only approval does NOT widen the corridor aperture" \
+    "$(jq '.seed_set | length' "$LAST_SNAP")" "1"
 fi
+assert_eq "U8 the approved cluster doc left the pending queue" \
+  "$($CLI monitor review list 2>/dev/null | grep -cF "$PENDING_CASE_DOC	" || true)" "0"
 
 # ---- M3: the curated-import gate ------------------------------------------
 # The importer itself is not part of this repository, so what is assertable
@@ -401,9 +411,13 @@ M4_JSON="$(sed -nE 's/^JSON: //p' <<<"$EXPORT_OUT")"
 if [ -n "$M4_JSON" ] && [ -f "$M4_JSON" ]; then
   # Approved-only is the security property: rows from the doc approved above,
   # and nothing from any still-pending doc.
-  assert_ge "M4 export contains the approved rows" "$(jq '. | length' "$M4_JSON")" 1
+  assert_eq "M4 export carries the curated-labels contract schema" \
+    "$(jq -r '.schema' "$M4_JSON")" "chain-insights.curated-labels.v1"
+  assert_ge "M4 export contains the approved rows" "$(jq '.rows | length' "$M4_JSON")" 1
   assert_eq "M4 export is approved-only (every row carries a reviewer)" \
-    "$(jq -r '[.[] | select((.reviewer // "") == "")] | length' "$M4_JSON")" "0"
+    "$(jq -r '[.rows[] | select((.reviewer // "") == "")] | length' "$M4_JSON")" "0"
+  assert_eq "M4 every row carries its decision provenance (decision_id + doc_ref)" \
+    "$(jq -r '[.rows[] | select((.decision_id // "") == "" or (.doc_ref // "") == "")] | length' "$M4_JSON")" "0"
 else
   fail "M4 export labels" "no JSON path in output: $EXPORT_OUT"
 fi
@@ -828,6 +842,26 @@ assert_eq "K/no second snapshot on the skipped pass" \
   "$(ls "$WS_K"/cases/victim-1/snapshots/*.snapshot.json | wc -l)" "1"
 assert_eq "K/the watchlist+probe cell reports no error (probe query admitted by the devkit)" \
   "$(cell_field "$K_RUN2" 'watchlist' error)" ""
+
+########################################################################
+# PHASE L -- label-lifecycle spec: case close keeps the managed tripwire.
+########################################################################
+# theft-1's cluster (its seed at minimum) was auto-watchlisted as
+# managed_by "case:theft-1" by the trace sync during Phase D. Closing the
+# case must KEEP those entries (they are the case_reactivated tripwire),
+# say so in the close output, and drop the case from the status open list.
+cd "$WS_A"
+L_WATCHLIST="$WS_A/.chain-insights/monitor/watchlist.json"
+L_MANAGED_BEFORE="$(jq '[.addresses[] | select(.managed_by == "case:theft-1")] | length' "$L_WATCHLIST" 2>/dev/null || echo 0)"
+assert_ge "L1 the smoke case carries managed watchlist entries before close" "$L_MANAGED_BEFORE" 1
+L_CLOSE_OUT="$($CLI monitor case close theft-1 2>&1)"
+assert_contains "L1 close says it kept the managed tripwire entries" "$L_CLOSE_OUT" "managed watchlist entr"
+assert_eq "L1 managed entries survive the close" \
+  "$(jq '[.addresses[] | select(.managed_by == "case:theft-1")] | length' "$L_WATCHLIST")" "$L_MANAGED_BEFORE"
+assert_eq "L1 status drops the closed case from the open list" \
+  "$($CLI monitor status 2>/dev/null | grep -c 'theft-1 \[' || true)" "0"
+assert_eq "L1 case list --all still shows the closed record" \
+  "$($CLI monitor case list --all 2>/dev/null | grep -c '^theft-1' || true)" "1"
 
 ########################################################################
 echo "MONITOR-SMOKE done: $PASS pass, $FAIL fail, $SKIP skip"

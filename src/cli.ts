@@ -1222,11 +1222,16 @@ monitorCase
       const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
       const workspaceRoot = requireWorkspaceRoot()
       const { closeCase } = await import('./monitor/cases.js')
-      const { monitorCase, alreadyClosed } = await closeCase(workspaceRoot, caseId, Date.now())
+      const { monitorCase, alreadyClosed, managedKept } = await closeCase(workspaceRoot, caseId, Date.now())
       if (alreadyClosed) {
         console.warn(`Warning: case "${caseId}" is already closed (closed_at ${monitorCase.closed_at_timestamp}); nothing changed.`)
       } else {
         console.log(`Case closed: ${monitorCase.case_id}`)
+      }
+      if (managedKept > 0) {
+        console.log(`Kept ${managedKept} managed watchlist entr${managedKept === 1 ? 'y' : 'ies'} (managed_by case:${caseId}) as the dormancy tripwire: new activity on them raises a case_reactivated alert. Remove them with \`cia monitor watchlist remove\` only if the topology should stop being watched.`)
+      } else {
+        console.log('No managed watchlist entries exist for this case; there is no reactivation tripwire to keep.')
       }
     } catch (err) {
       console.error((err as Error).message)

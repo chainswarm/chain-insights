@@ -1,10 +1,10 @@
 // tests/monitor/tracker.test.ts
-import { mkdtemp, readdir } from 'node:fs/promises'
+import { mkdtemp, readdir, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { diffScopeExpansion, diffSnapshots, readSnapshots, traceCase, type CaseSnapshot } from '../../src/monitor/tracker.js'
+import { caseFindingRole, diffScopeExpansion, diffSnapshots, readSnapshots, traceCase, type CaseSnapshot } from '../../src/monitor/tracker.js'
 import { addCase, addCaseSeeds } from '../../src/monitor/cases.js'
 import { detectionsDir, writeFindings } from '../../src/detection/emit.js'
 import { approveDoc } from '../../src/monitor/review.js'
@@ -243,7 +243,7 @@ describe('traceCase expansion seam (AC-13 approve → re-trace)', () => {
     expect(second.alerts.some((a) => a.type === 'frontier_candidate' && a.address === 'mule1')).toBe(true)
 
     const detDir = monitorPaths(root).detectionsDir
-    const findingsDoc = (await readdir(detDir)).find((f) => f.includes('-case-c1-') && f.endsWith('.findings.json'))
+    const findingsDoc = (await readdir(detDir)).find((f) => f.startsWith('200-') && f.includes('-case-c1-') && f.endsWith('.findings.json'))
     expect(findingsDoc).toBeDefined()
 
     // The human gate: approve the frontier candidate's findings doc.
@@ -359,5 +359,88 @@ describe('cluster auto-watchlist on trace (victim lane spec req 3)', () => {
     expect(list.find((e) => e.address === 'mule1')?.managed_by).toBeUndefined() // manual survived untouched
     expect(list.find((e) => e.address === 'mule2')).toBeUndefined()            // pruned with the cluster
     expect(list.filter((e) => e.managed_by === 'case:wl-2').map((e) => e.address).sort()).toEqual(['mule3', 'seed1'])
+  })
+})
+
+describe('role-typed case cluster docs (label-lifecycle spec req 1)', () => {
+  const corridorOf = (addrs: Array<{ address: string; classification?: string; gate?: string }>) => async () => ({
+    document: {
+      schema: 'chain-insights.detection-findings.v1', tool: 'aml_scam_corridor_trace', network: 'bittensor',
+      status: 'complete', generated_at_timestamp: 0,
+      findings: addrs.map((a) => ({ ...a, evidence: {}, truncated: false, inconclusive: false })),
+    },
+    summaryText: 'fake',
+  })
+
+  async function caseDocs(root: string, caseId: string): Promise<Array<{ file: string; doc: { findings: Array<{ address: string; role?: string }> } }>> {
+    const dir = monitorPaths(root).detectionsDir
+    const files = (await readdir(dir)).filter((f) => f.includes(`-case-${caseId}-`) && f.endsWith('.findings.json')).sort()
+    const out: Array<{ file: string; doc: { findings: Array<{ address: string; role?: string }> } }> = []
+    for (const f of files) out.push({ file: f, doc: JSON.parse(await readFile(path.join(dir, f), 'utf8')) })
+    return out
+  }
+
+  it('caseFindingRole is a positive allow-list: deposit gate > frontier classification > null', () => {
+    expect(caseFindingRole({ gate: 'shared_deposit_exchange_infra' })).toBe('candidate_deposit')
+    expect(caseFindingRole({ classification: 'propagated_scam', gate: 'shared_deposit_exchange_infra' })).toBe('candidate_deposit')
+    expect(caseFindingRole({ classification: 'propagated_scam' })).toBe('candidate_intermediate')
+    expect(caseFindingRole({ classification: 'corridor_hub' })).toBe('candidate_intermediate')
+    expect(caseFindingRole({ classification: 'exchange_terminal' })).toBeNull()
+    expect(caseFindingRole({ classification: 'protected_infra' })).toBeNull()
+    expect(caseFindingRole({ gate: 'failing_threshold:reciprocity' })).toBeNull()
+    expect(caseFindingRole({})).toBeNull()
+  })
+
+  it('the bootstrap trace writes the initial cluster with roles — seeds, intermediates, deposits, never exchanges or failed probes', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'r1', type: 'scam-topology', network: 'bittensor', seeds: ['seed1'] }, 50)
+    await traceCase({} as Client, root, 'r1', 3, 100, {
+      corridor: corridorOf([
+        { address: 'mule1', classification: 'propagated_scam' },
+        { address: 'hub1', classification: 'corridor_hub' },
+        { address: 'dep1', gate: 'shared_deposit_exchange_infra' },
+        { address: 'exch1', classification: 'exchange_terminal' },
+        { address: 'probe1', gate: 'failing_threshold:reciprocity' },
+      ]),
+    })
+    const docs = await caseDocs(root, 'r1')
+    expect(docs).toHaveLength(1)
+    const roleOf = Object.fromEntries(docs[0].doc.findings.map((f) => [f.address, f.role]))
+    expect(roleOf).toEqual({
+      seed1: 'seed',
+      mule1: 'candidate_intermediate',
+      hub1: 'candidate_intermediate',
+      dep1: 'candidate_deposit',
+    })
+  })
+
+  it('later docs carry only new material: frontier, new deposits, operator-added seeds — never approval-fed seeds', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'r2', type: 'scam-topology', network: 'bittensor', seeds: ['seed1'] }, 50)
+    await traceCase({} as Client, root, 'r2', 3, 100, { corridor: corridorOf([{ address: 'mule1', classification: 'propagated_scam' }]) })
+    const [bootstrap] = await caseDocs(root, 'r2')
+    // Approving feeds mule1 (candidate_intermediate) into the seed set; the
+    // next doc must NOT re-list it with role seed (it is already labeled).
+    await approveDoc(root, path.join(monitorPaths(root).detectionsDir, bootstrap.file), 'ops', 150)
+    await addCaseSeeds(root, 'r2', ['seedB'], 160)
+    await traceCase({} as Client, root, 'r2', 3, 200, {
+      corridor: corridorOf([
+        { address: 'mule1', classification: 'propagated_scam' },
+        { address: 'dep2', gate: 'shared_deposit_exchange_infra' },
+      ]),
+    })
+    const docs = await caseDocs(root, 'r2')
+    expect(docs).toHaveLength(2)
+    const roleOf = Object.fromEntries(docs[1].doc.findings.map((f) => [f.address, f.role]))
+    expect(roleOf).toEqual({ seedB: 'seed', dep2: 'candidate_deposit' })
+  })
+
+  it('a quiet re-trace writes no new case doc', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'r3', type: 'scam-topology', network: 'bittensor', seeds: ['seed1'] }, 50)
+    const corridor = corridorOf([{ address: 'mule1', classification: 'propagated_scam' }])
+    await traceCase({} as Client, root, 'r3', 3, 100, { corridor })
+    await traceCase({} as Client, root, 'r3', 3, 200, { corridor })
+    expect(await caseDocs(root, 'r3')).toHaveLength(1)
   })
 })

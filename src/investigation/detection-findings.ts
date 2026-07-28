@@ -35,6 +35,17 @@ export const DETECTION_CLASSIFICATIONS = [
 ] as const
 export type DetectionClassification = typeof DETECTION_CLASSIFICATIONS[number]
 
+// Case cluster roles (monitor label-lifecycle spec): the role a case findings
+// doc assigns an address inside its scam topology. The curated-label export
+// maps them to labels (seed -> scam_seed, candidate_intermediate -> mule,
+// candidate_deposit -> deposit_endpoint). `role` is a FREE STRING in the
+// schema on purpose: an unknown role must flow through to the export, which
+// skips it with a warning — a zod enum here would instead quarantine the
+// whole doc at store ingest (rename-to-.corrupt), destroying good findings
+// over one bad role value.
+export const CASE_CLUSTER_ROLES = ['seed', 'candidate_intermediate', 'candidate_deposit'] as const
+export type CaseClusterRole = typeof CASE_CLUSTER_ROLES[number]
+
 const DetectionFindingSchema = z.object({
   address: z.string().min(1),
   // Present for aml_scam_corridor_trace findings; absent for
@@ -48,6 +59,9 @@ const DetectionFindingSchema = z.object({
   // 'shared_deposit_exchange_infra', 'propagated_scam',
   // 'failing_threshold:reciprocity'.
   gate: z.string().optional(),
+  // Case docs only (written by the monitor tracker as detector `case-<id>`):
+  // the address's role in the case cluster. See CASE_CLUSTER_ROLES.
+  role: z.string().optional(),
   evidence: z.record(z.string(), z.unknown()).default({}),
   truncated: z.boolean().default(false),
   inconclusive: z.boolean().default(false),
