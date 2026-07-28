@@ -3,7 +3,7 @@
 
 All notable changes to Chain Insights are recorded here.
 
-## [0.14.0] - 2026-07-28 — victim lane & event-driven tracing
+## [0.14.0] - 2026-07-28 — victim lane, event-driven tracing & case -> label lifecycle
 
 - feat: monitor config gains `profile: "operator" | "victim"` and
   `trace_mode: "interval" | "on_movement"` (absent profile = operator;
@@ -33,6 +33,31 @@ All notable changes to Chain Insights are recorded here.
 - devkit: monitor smoke covers the victim profile — bootstrap trace, then
   steady-state `no_activity` skip on the static fixture (147 pass, 0 fail
   live).
+- feat: `cia monitor export labels` emits the frozen
+  `chain-insights.curated-labels.v1` contract — one row per (address, label)
+  from approved docs with columns
+  `address,network,label,case_id,decision_id,doc_ref,decided_at_timestamp,reviewer`.
+  Case-doc roles map seed -> `scam_seed`, candidate_intermediate -> `mule`,
+  candidate_deposit -> `deposit_endpoint`; unknown roles are skipped with a
+  warning; lane-A detector docs keep their classification as the label with
+  an empty case_id. `decision_id` is the content-addressed decision filename
+  stem, so downstream importers can dedup full-snapshot re-exports.
+- feat: case findings docs carry per-address cluster roles — the bootstrap
+  trace writes the full initial cluster (seeds included) for review; later
+  docs carry only new corridor entrants and operator-added seeds. Approvals
+  feed only candidate_intermediate addresses back into the corridor seed set.
+- feat: `monitor status` lists open cases and marks a scam-topology case
+  `-> closable` once its cluster is labeled and its managed watchlist
+  entries have been dormant for `render.dormant_after_days`. Close remains a
+  human action.
+- feat: `case close` keeps the case's `managed_by` watchlist entries as the
+  dormancy tripwire and says so; a new `case_reactivated` alert (deduped via
+  the canonical watchlist-hits log) fires when an activity hit lands on a
+  managed entry of a CLOSED case, naming the case and address. No
+  auto-reopen.
+- devkit: monitor smoke asserts the curated-labels envelope, the
+  role-carrying bootstrap cluster doc with seed-role approval semantics
+  (U8), and close-keeps-tripwire (PHASE L) (160 pass, 0 fail live).
 
 ## [0.13.3] - 2026-07-28 — devkit U6 snapshot-on-change
 
