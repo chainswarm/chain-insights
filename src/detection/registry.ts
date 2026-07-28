@@ -23,3 +23,24 @@ export function resolveDetector(id: string): DetectorScan {
   }
   return d
 }
+
+// Deprecation (label-cutover spec req 3): these three detections moved into
+// the platform backend (Spec A of the systemic-detection epic). The local
+// implementations stay in the repo as the shadow-comparison reference until
+// the epic's cutover completes; every run warns so nobody builds on a lane
+// that is going away. Mixer stays a monitor-run detector and never warns.
+export const DEPRECATED_DETECTORS: ReadonlySet<string> = new Set([
+  'address-poisoning',
+  'fake-token',
+  'attack-attribution',
+])
+
+export function deprecationWarning(id: string): string | undefined {
+  if (!DEPRECATED_DETECTORS.has(id)) return undefined
+  return (
+    `detector "${id}" is deprecated: this detection now runs on the platform backend and ` +
+    `surfaces as address labels (watchlist_label alerts on watched addresses, and ` +
+    `aml_address_risk enrichment). The local scan remains only as the cutover shadow ` +
+    `reference. See docs/monitoring.md.`
+  )
+}

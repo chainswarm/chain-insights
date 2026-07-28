@@ -93,11 +93,36 @@ The machinery behind the gate:
 
 ## Operator Lanes
 
-- **Fake-token surveillance** — sweeps for newly deployed lookalike or
+### Systemic detection runs on the platform
+
+Fake-token, address-poisoning, and attack-attribution detection are systemic:
+they scan the whole network, not your investigation. That work now runs on the
+platform backend, which writes its verdicts as **address labels**. The monitor
+does not re-run those scans; it *reacts to their labels*:
+
+- a watched address (manual or case-managed) that gains a new label raises a
+  `watchlist_label` alert naming the address, the label, and the label source
+  — for case-managed entries the alert also names the owning case, so a
+  victim learns the moment backend detection flags any address in their case
+  cluster;
+- `aml_address_risk` reads the same labels as an enrichment surface when you
+  want a verdict on a specific address.
+
+The corresponding `cia detect` subcommands and monitor cells still run but
+print a deprecation warning; they remain only as the cutover shadow
+reference. **Mixer-likeness is the only monitor-run detector going forward.**
+Pre-existing labels are state, not events: the first monitoring pass records
+what is already labeled without alerting, and only label *changes* alert
+after that.
+
+- **Fake-token surveillance** *(deprecated — platform-side, see above)* —
+  sweeps for newly deployed lookalike or
   scam-shaped token contracts before they spread.
-- **Address-poisoning surveillance** — watches for dust and lookalike
+- **Address-poisoning surveillance** *(deprecated — platform-side, see above)*
+  — watches for dust and lookalike
   transfers crafted to trick a victim into copying the wrong address.
-- **Attack attribution** — walks outward from known scam-labeled seed
+- **Attack attribution** *(deprecated — platform-side, see above)* — walks
+  outward from known scam-labeled seed
   addresses to attribute downstream activity to the same operator.
 - **Mixer-likeness surveillance** — flags addresses whose inbound/outbound
   flow shape resembles a mixing service.
@@ -557,7 +582,7 @@ as before:
 - `enabled` (default `true` when the block is present) — an off switch that
   keeps your addresses in place.
 
-### The four triggers
+### The watchlist triggers
 
 | Trigger | Alert type | What it means |
 | --- | --- | --- |
@@ -565,16 +590,18 @@ as before:
 | A tracked case's movement reaches a watched address | `watchlist_movement` | Funds from an open incident moved to an address you watch. |
 | Incoming dust below `dustMaxUsd` | `watchlist_dust` | The opening move of address poisoning: a tiny inbound transfer that a network-wide detector may not flag on its own, but that matters against *your* address. |
 | A watched address became active | `watchlist_activity` | The address's on-chain `last_activity_timestamp` advanced past the probe cursor — the movement tripwire that wakes an `on_movement` case trace. |
+| A watched address gained a new label | `watchlist_label` | Platform backend detection labeled the address. Diff-based against the canonical last-seen baseline (`logs/label-baseline.jsonl`); the first sighting of an address seeds the baseline silently. The alert names the address, label, and source; for `managed_by: "case:<id>"` entries it names the owning case. Deduped by `source_ref = <address>|<label>|<source>`, rebuild-safe. |
 | New activity on a managed entry of a CLOSED case | `case_reactivated` | The labeled topology woke up again after the case was closed. The alert names the case and the active address; the case is never auto-reopened — open a new case if the investigation should resume. |
 
-All four flow through the normal alert stream — `alerts list`, `alerts ack`,
+All of these flow through the normal alert stream — `alerts list`, `alerts ack`,
 webhook and exec sinks, and the report — rather than a parallel notification
 system. `cia monitor report` gains a **Watchlist** section listing each
 watched address with its hit counts by trigger.
 
 The finding and movement triggers are answered entirely from data the run
-already produced locally, so they cost nothing extra. The dust check and the
-activity probe are each one batched graph query per distinct network, so a
+already produced locally, so they cost nothing extra. The dust check, the
+activity probe, and the label probe are each one batched graph query per
+distinct network, so a
 500-address watchlist costs the same as a 5-address one. Nothing in the
 watchlist scales with the number of addresses you watch.
 

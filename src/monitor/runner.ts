@@ -7,6 +7,7 @@ import path from 'node:path'
 import { writeJsonAtomic } from './atomic.js'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { runOneDetection } from '../detection/run.js'
+import { deprecationWarning } from '../detection/registry.js'
 import type { AlertEvent } from './alerts.js'
 import { appendAlerts, deliverAlerts, listUndelivered } from './alerts.js'
 import { resolvedTraceMode, type MonitorConfig } from './config.js'
@@ -32,6 +33,9 @@ export interface CellOutcome {
   /** Set on gated-out case cells in on_movement mode (victim lane spec req
    *  2): the quiet monitor stays visibly healthy in the run document. */
   trace_skipped_reason?: 'no_activity'
+  /** Set on cells running a backend-migrated detector (label-cutover spec
+   *  req 3): warning only — the cell still runs (shadow reference). */
+  deprecation?: string
   duration_ms: number
   error?: string
 }
@@ -117,6 +121,11 @@ export async function runMonitorOnce(
     for (const cell of config.cells) {
       const started = Date.now()
       const outcome: CellOutcome = { cell: `${cell.detector}:${cell.network}`, detector: cell.detector, network: cell.network, duration_ms: 0 }
+      const warn = deprecationWarning(cell.detector)
+      if (warn) {
+        outcome.deprecation = warn
+        console.warn(`[monitor] DEPRECATED cell ${cell.detector}:${cell.network}: ${warn}`)
+      }
       try {
         const result = await detect(client, { detector: cell.detector, network: cell.network, full: false, workspaceRoot, nowTimestamp, params: cell.params ?? {} })
         outcome.findings_count = result.findingsCount

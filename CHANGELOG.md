@@ -3,6 +3,30 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.15.0] - 2026-07-28 — label trigger & detector-cell cutover
+
+- feat: watchlist label trigger — a diff-based probe in the watchlist pass
+  raises `watchlist_label` when a watched address gains a new
+  (label, source) pair from the platform's topology label overlay. One
+  batched graph query per distinct network per pass; last-seen label sets
+  live in the append-only canonical `logs/label-baseline.jsonl` (probe-
+  cursor discipline); hits land in the canonical watchlist-hits log with
+  `source_ref = <address>|<label>|<source>` (deduped, rebuild-safe).
+  Bootstrap is silent: pre-existing labels are state, not events. Managed
+  (`case:<id>`) entries name the owning case on the alert, so victim
+  workspaces are covered with no victim-specific code.
+- feat: `cia detect` and monitor cells for `address-poisoning`,
+  `fake-token`, and `attack-attribution` print a deprecation warning
+  (recorded as `deprecation` on the run document's cell outcome): these
+  detections now run on the platform backend and surface via
+  `watchlist_label` alerts and `aml_address_risk`. Mixer is untouched.
+  Detection code stays as the cutover shadow reference.
+- docs: `docs/monitoring.md` documents the platform-label flow and the
+  mixer-only monitor detector set.
+- devkit: monitor smoke asserts the label probe's silent bootstrap on real
+  fixture labels, a seeded label delta alerting exactly once (dedup across
+  runs and rebuild), and the deprecation warnings (absence for mixer).
+
 ## [0.14.1] - 2026-07-28 — scam-topology case -> label lifecycle
 
 - feat: `cia monitor export labels` emits the frozen
