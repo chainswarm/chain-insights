@@ -1,13 +1,97 @@
 # Continuous Monitoring
 
 `cia monitor` turns Chain Insights from a one-shot investigation tool into a
-standing watch: it re-runs detection sweeps and case traces on a schedule, so
-new scam activity, poisoning attempts, and stolen-funds movement surface
-without an analyst re-running each check by hand. Every result still lands as
-plain files in the workspace, and nothing becomes a label until a human
-reviews it.
+standing watch. One toolkit serves two operators: a **theft victim** watching
+their own stolen funds for movement toward a cashout, and a **detection
+operator** running scheduled scam sweeps over whole networks. Both get the
+same guarantees — every result lands as plain files in the workspace, and
+nothing becomes a label until a human reviews it. The victim path is the
+first-class quickstart below; the operator lanes follow.
 
-## What It Does
+## Victim Quick Start (stolen funds)
+
+One command takes you from "my wallet was drained" to a configured,
+event-driven watch:
+
+```bash
+cia init .
+cia monitor init victim --case-id my-theft --network bittensor \
+  --seed 5YourDrainedWallet... --note "drained 2026-07-27"
+cia monitor run     # bootstrap trace — the first pass always traces
+cia monitor watch   # hourly loop (pm2 snippet under "Scheduling")
+```
+
+`monitor init victim` writes the minimal config
+(`profile: victim`, `trace_mode: on_movement`, `cells: []`, `watchlist: {}`),
+creates the stolen-funds case, and watchlists your seed address(es) as
+case-managed entries. It **refuses if a monitor config already exists** — an
+initialized workspace is edited directly, never re-initialized over.
+
+What you get:
+
+- **The case dossier** — after the first trace, a human-readable Markdown
+  dossier lands at `published/cases/<case-id>/dossier.md`: where the funds
+  sit, exchange deposit endpoints, the cluster address list, a money-flow
+  diagram. Re-rendered whenever the case changes.
+- **Alerts** — `cia monitor alerts list` shows movement the watch caught,
+  including `watchlist_activity` (the movement tripwire) and cashout/new-hop
+  alerts from re-traces. Webhook and exec sinks work the same as for
+  operators.
+- **A victim-affordable cost model** — the expensive corridor re-trace runs
+  only on movement. A quiet pass costs at most **2 cheap graph queries per
+  network** (dust + activity probes), flat in the number of watched
+  addresses, and skips tracing entirely.
+
+## Event-Driven Tracing (trace_mode)
+
+Two config fields drive the split (both optional — an untouched config
+behaves exactly as before):
+
+| `profile` | `trace_mode` if unset | Meaning |
+| --- | --- | --- |
+| absent or `"operator"` | `"interval"` | every open case is re-traced every pass (the historical behavior) |
+| `"victim"` | `"on_movement"` | a case is re-traced only when something moved |
+
+An explicit `trace_mode` always wins over the profile default, in either
+direction.
+
+In `on_movement` mode the trace gate admits exactly three things:
+
+1. **Bootstrap** — a case that has never been traced (no snapshot yet).
+2. **Dirty** — the activity probe saw movement on one of the case's managed
+   watchlist entries since its last trace.
+3. **Force** — `cia monitor run --force-trace` (whole pass) or
+   `cia monitor render --force` (render-time re-trace).
+
+Everything else is skipped, and the skip is *visible*: the case's cell in the
+run document (`.chain-insights/monitor/runs/<ts>.run.json`) records
+`trace_skipped_reason: "no_activity"`, so a quiet monitor is provably healthy
+rather than silently idle. A failed trace keeps the dirty marker, so the next
+pass retries instead of skipping.
+
+The machinery behind the gate:
+
+- **Activity probe** — per network, ONE query over all watched addresses on
+  `Address.last_activity_timestamp` (epoch ms). Graph rows come back
+  per-shard; the client merges by address taking the MAX timestamp and
+  ignoring nulls. Hits are recorded canonically, alert as
+  `watchlist_activity`, and mark the owning case dirty.
+- **Probe cursors** — the per-network `$since` bound persists in append-only
+  `.chain-insights/monitor/logs/probe-cursors.jsonl` (last line per network
+  wins). It initializes at the case's first-trace timestamp, so
+  pre-monitoring history never fires, and advances to the newest activity
+  seen. The cursor is a cost optimization only — hit dedup by `source_ref`
+  is what prevents duplicate alerts, so a deleted cursor file cannot
+  re-alert.
+- **Managed watchlist** — every successful trace refreshes the case's
+  watchlist entries (`managed_by: "case:<id>"`) to the current cluster:
+  seeds, candidate intermediates, candidate deposit endpoints. Exchange
+  addresses are excluded (always active — they would make the tripwire a
+  constant alarm). Entries that left the cluster are pruned; manual entries
+  are never touched; closing the case KEEPS its managed entries as a
+  dormancy tripwire.
+
+## Operator Lanes
 
 - **Fake-token surveillance** — sweeps for newly deployed lookalike or
   scam-shaped token contracts before they spread.
@@ -21,7 +105,7 @@ reviews it.
   addresses by fan-in, reciprocity, and inbound lifetime, so exchange-shaped
   endpoints are proposed for review instead of assumed automatically.
 - **Stolen-funds case tracking** — re-traces the corridor from a theft's seed
-  addresses on every run, snapshots the reachable address set, and raises an
+  addresses, snapshots the reachable address set, and raises an
   alert the moment funds reach a new hop, a shared deposit address, or a
   cashout/exchange endpoint.
 - **Scam-topology expansion under review** — grows a scam cluster's seed set
@@ -30,10 +114,10 @@ reviews it.
 
 The first four are scheduled detector sweeps over a network matrix. The last
 three are case-centric: a monitor case anchors one investigation (a theft or a
-scam cluster) and is re-traced on every run so its own history — snapshots,
-movements, alerts — accumulates over time.
+scam cluster) and is traced per the resolved `trace_mode` so its own history —
+snapshots, movements, alerts — accumulates over time.
 
-## Quick Start
+### Operator quick start
 
 Initialize a workspace and run one monitoring pass:
 
@@ -62,13 +146,15 @@ write `.chain-insights/monitor/config.json`:
 }
 ```
 
+Detector `cells` may also be empty (`"cells": []`) for a case-only workspace.
+
 For a standing watch, put `cia monitor run` on a schedule — see
 [Scheduling](#scheduling).
 
 Two read-only commands give you a pulse check without waiting for a report:
 
 ```bash
-cia monitor status   # cells, open cases, pending reviews, unacked alerts, last run — one line
+cia monitor status   # profile, trace_mode, cells, open cases, pending reviews, unacked alerts, last run
 cia monitor report   # markdown rollup: recent runs, pending review, unacked alerts, case timelines
 ```
 
@@ -398,7 +484,9 @@ Every run emits alerts for new findings and for case movements worth
 attention (cashout endpoints, frontier candidates for review). A
 `case_scope_expansion` alert is distinct from `case_movement`: it says the case
 corridor grew because seeds were added, not because funds moved (see
-[Why a widened corridor is not a movement](#why-a-widened-corridor-is-not-a-movement)):
+[Why a widened corridor is not a movement](#why-a-widened-corridor-is-not-a-movement)).
+Watchlist triggers add `watchlist_finding`, `watchlist_movement`,
+`watchlist_dust`, and `watchlist_activity` (see [Watchlist](#watchlist)):
 
 ```bash
 cia monitor alerts list          # unacked only by default (--all for everything)
@@ -454,24 +542,37 @@ as before:
 - `enabled` (default `true` when the block is present) — an off switch that
   keeps your addresses in place.
 
-### The three triggers
+### The four triggers
 
 | Trigger | Alert type | What it means |
 | --- | --- | --- |
 | A detector finding names a watched address | `watchlist_finding` | A fake-token, address-poisoning, attack-attribution, or mixer sweep implicated one of your addresses. |
 | A tracked case's movement reaches a watched address | `watchlist_movement` | Funds from an open incident moved to an address you watch. |
 | Incoming dust below `dustMaxUsd` | `watchlist_dust` | The opening move of address poisoning: a tiny inbound transfer that a network-wide detector may not flag on its own, but that matters against *your* address. |
+| A watched address became active | `watchlist_activity` | The address's on-chain `last_activity_timestamp` advanced past the probe cursor — the movement tripwire that wakes an `on_movement` case trace. |
 
-All three flow through the normal alert stream — `alerts list`, `alerts ack`,
+All four flow through the normal alert stream — `alerts list`, `alerts ack`,
 webhook and exec sinks, and the report — rather than a parallel notification
 system. `cia monitor report` gains a **Watchlist** section listing each
 watched address with its hit counts by trigger.
 
-The first two triggers are answered entirely from data the run already
-produced locally, so they cost nothing extra. The dust check is one batched
-graph query per distinct network, so a 500-address watchlist costs the same as
-a 5-address one. Nothing in the watchlist scales with the number of addresses
-you watch.
+The finding and movement triggers are answered entirely from data the run
+already produced locally, so they cost nothing extra. The dust check and the
+activity probe are each one batched graph query per distinct network, so a
+500-address watchlist costs the same as a 5-address one. Nothing in the
+watchlist scales with the number of addresses you watch.
+
+### The activity trigger
+
+The activity probe asks the graph one question per network: *which of the
+watched addresses have `last_activity_timestamp` newer than the cursor?*
+Per-shard rows are merged client-side by MAX ignoring nulls, and each hit's
+`source_ref` is the natural key `<address>|<last_activity_timestamp>` — the
+same activity can never alert twice, even after `cia monitor rebuild`. When
+the hit lands on a `managed_by: "case:<id>"` entry, that case is marked dirty
+and the gated trace (see
+[Event-Driven Tracing](#event-driven-tracing-trace_mode)) re-traces it in the
+same pass.
 
 ### Address risk is not a trigger
 
@@ -496,7 +597,16 @@ cases/<case-id>/snapshots/           One snapshot per run that traced this case
 .chain-insights/monitor/alerts/      Alert stream and acknowledgements
 .chain-insights/monitor/reviews/     Review decision records
 .chain-insights/monitor/watchlist.json  Watched addresses (address-centric alerting)
+.chain-insights/monitor/logs/watchlist-hits.jsonl   Watchlist hits (append-only; source_ref dedup authority)
+.chain-insights/monitor/logs/probe-cursors.jsonl    Activity-probe cursors (append-only; last line per network wins)
 ```
+
+Two kinds of machine-managed fields ride on canonical files: `case.json`
+carries `dirty_since_timestamp` (set by the activity probe, cleared by a
+successful trace) and `last_traced_at_timestamp` (stamped after every
+successful trace), and watchlist entries carry `managed_by: "case:<id>"` for
+cluster-managed entries — hand-edit manual entries freely, but leave managed
+ones to the per-trace refresh.
 
 This canonical JSON is always the source of truth. Alongside it,
 `.chain-insights/monitor/monitor.duckdb` holds a **derived** index built
@@ -570,6 +680,11 @@ allowance you want to keep in reserve:
 When the remaining allowance drops below this floor, `cia monitor run` halts
 before running any sweep cells or case traces for that pass and records the
 halt reason in the run document. Leave it unset to run unconditionally.
+
+For victim workspaces (`trace_mode: on_movement`) the steady-state pass costs
+at most **2 graph queries per network** — the dust and activity probes — flat
+in watched-address count; the expensive corridor re-trace runs only on
+movement, bootstrap, or an explicit `--force-trace`.
 
 ## Exit Codes
 
