@@ -6,7 +6,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { listAlerts } from './alerts.js'
 import { listCases } from './cases.js'
-import type { MonitorConfig } from './config.js'
+import { resolvedProfile, resolvedTraceMode, type MonitorConfig } from './config.js'
 import { monitorPaths } from './paths.js'
 import { listPending } from './review.js'
 import { withStore } from './store.js'
@@ -150,5 +150,5 @@ export async function statusText(workspaceRoot: string, config: MonitorConfig): 
   ])
   const lastRun = num(lastRunRows[0]?.last_run as bigint | number | null | undefined)
   const lastRunText = lastRun === null ? 'never' : String(lastRun)
-  return `cells: ${config.cells.length} | open cases: ${cases.length} | pending reviews: ${pending.length} | unacked alerts: ${alerts.length} | last run: ${lastRunText}`
+  return `profile: ${resolvedProfile(config)} | trace_mode: ${resolvedTraceMode(config)} | cells: ${config.cells.length} | open cases: ${cases.length} | pending reviews: ${pending.length} | unacked alerts: ${alerts.length} | last run: ${lastRunText}`
 }
