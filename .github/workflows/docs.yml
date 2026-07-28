@@ -81,7 +81,7 @@ jobs:
           token: ${{ steps.app-token.outputs.token || github.token }}
 
       - name: README golden-standard lint (report-only for now)
-        run: python3 .rbmk/scripts/devops/check-readme-standard.py --repo-root . --warn-only
+        run: python3 .rbmk/scripts/devops/check-readme-standard.py --repo-root .
 
       - name: Render C4 diagrams (no-op when none)
         env:
