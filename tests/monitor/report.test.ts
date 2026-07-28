@@ -65,4 +65,10 @@ describe('report cell escaping (R6)', () => {
     // the row still has the exact column count of the runs table
     expect(row.split(/(?<!\\)\|/).length).toBe(9)
   })
+
+  it('status leads with profile and trace_mode (victim lane spec req 1)', async () => {
+    const root = await ws()
+    expect(await statusText(root, DEFAULT_MONITOR_CONFIG)).toContain('profile: operator | trace_mode: interval')
+    expect(await statusText(root, { ...DEFAULT_MONITOR_CONFIG, profile: 'victim' })).toContain('profile: victim | trace_mode: on_movement')
+  })
 })

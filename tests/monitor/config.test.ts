@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { loadMonitorConfig } from '../../src/monitor/config.js'
+import { loadMonitorConfig, resolvedProfile, resolvedTraceMode } from '../../src/monitor/config.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
 
 async function ws(): Promise<string> {
@@ -112,5 +112,54 @@ describe('monitor config', () => {
       'utf8',
     )
     await expect(loadMonitorConfig(root)).rejects.toThrow(/watchlist.dustMaxUsd/)
+  })
+
+  describe('profile & trace_mode resolution (victim lane spec req 1-2)', () => {
+    it('absent profile = operator, absent trace_mode = interval (back-compat)', async () => {
+      const root = await ws()
+      const cfg = await loadMonitorConfig(root)
+      expect(cfg.profile).toBeUndefined()
+      expect(cfg.trace_mode).toBeUndefined()
+      expect(resolvedProfile(cfg)).toBe('operator')
+      expect(resolvedTraceMode(cfg)).toBe('interval')
+    })
+
+    it('profile victim defaults trace_mode to on_movement', async () => {
+      const root = await ws()
+      const p = monitorPaths(root)
+      await mkdir(p.monitorDir, { recursive: true })
+      await writeFile(p.configPath, JSON.stringify({ profile: 'victim', cells: [] }), 'utf8')
+      const cfg = await loadMonitorConfig(root)
+      expect(resolvedProfile(cfg)).toBe('victim')
+      expect(resolvedTraceMode(cfg)).toBe('on_movement')
+    })
+
+    it('explicit trace_mode overrides the profile default in both directions', async () => {
+      const root = await ws()
+      const p = monitorPaths(root)
+      await mkdir(p.monitorDir, { recursive: true })
+      await writeFile(p.configPath, JSON.stringify({ profile: 'victim', trace_mode: 'interval', cells: [] }), 'utf8')
+      expect(resolvedTraceMode(await loadMonitorConfig(root))).toBe('interval')
+      await writeFile(p.configPath, JSON.stringify({ profile: 'operator', trace_mode: 'on_movement', cells: [] }), 'utf8')
+      expect(resolvedTraceMode(await loadMonitorConfig(root))).toBe('on_movement')
+    })
+
+    it('rejects an unknown profile or trace_mode fail-fast', async () => {
+      const root = await ws()
+      const p = monitorPaths(root)
+      await mkdir(p.monitorDir, { recursive: true })
+      await writeFile(p.configPath, JSON.stringify({ profile: 'bank', cells: [] }), 'utf8')
+      await expect(loadMonitorConfig(root)).rejects.toThrow(/Invalid monitor config/)
+      await writeFile(p.configPath, JSON.stringify({ trace_mode: 'sometimes', cells: [] }), 'utf8')
+      await expect(loadMonitorConfig(root)).rejects.toThrow(/Invalid monitor config/)
+    })
+
+    it('cells may be empty or absent (victim minimal config, spec req 7)', async () => {
+      const root = await ws()
+      const p = monitorPaths(root)
+      await mkdir(p.monitorDir, { recursive: true })
+      await writeFile(p.configPath, JSON.stringify({ profile: 'victim' }), 'utf8')
+      expect((await loadMonitorConfig(root)).cells).toEqual([])
+    })
   })
 })

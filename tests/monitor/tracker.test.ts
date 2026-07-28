@@ -9,6 +9,7 @@ import { addCase, addCaseSeeds } from '../../src/monitor/cases.js'
 import { detectionsDir, writeFindings } from '../../src/detection/emit.js'
 import { approveDoc } from '../../src/monitor/review.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
+import { addWatched, loadWatchlist } from '../../src/monitor/watchlist.js'
 
 async function ws(): Promise<string> {
   return mkdtemp(path.join(tmpdir(), 'cia-tracker-'))
@@ -312,5 +313,51 @@ describe('empty findings docs are not re-written (spec req 6)', () => {
     await writeFindings(root, 'fake-token', nonEmpty)
     const second = await writeFindings(root, 'fake-token', emptyDoc(2000))
     expect(path.basename(second)).toBe('2000-fake-token-bittensor.findings.json')
+  })
+})
+
+describe('cluster auto-watchlist on trace (victim lane spec req 3)', () => {
+  const corridorOf = (addrs: Array<{ address: string; classification?: string; gate?: string }>) => async () => ({
+    document: {
+      schema: 'chain-insights.detection-findings.v1' as const,
+      tool: 'aml_scam_corridor_trace',
+      network: 'bittensor',
+      status: 'complete' as const,
+      generated_at_timestamp: 1,
+      findings: addrs.map((a) => ({ ...a, evidence: {}, truncated: false, inconclusive: false })),
+      threshold_provenance: { source: 'test' },
+    },
+    summaryText: '',
+  })
+
+  it('a successful trace upserts seeds + intermediates + deposit endpoints, never exchanges', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'wl-1', type: 'stolen-funds', network: 'bittensor', seeds: ['seed1'] }, 50)
+    await traceCase({} as Client, root, 'wl-1', 2, 100, {
+      corridor: corridorOf([
+        { address: 'mule1', classification: 'propagated_scam' },
+        { address: 'dep1', gate: 'shared_deposit_exchange_infra' },
+        { address: 'exch1', classification: 'exchange_terminal' },
+      ]),
+    })
+    const managed = (await loadWatchlist(root)).filter((e) => e.managed_by === 'case:wl-1')
+    expect(managed.map((e) => e.address).sort()).toEqual(['dep1', 'mule1', 'seed1'])
+    expect(managed.every((e) => e.network === 'bittensor')).toBe(true)
+  })
+
+  it('the next trace refreshes the managed set and preserves manual entries', async () => {
+    const root = await ws()
+    await addWatched(root, { address: 'mule1', network: 'bittensor', note: 'manual' })
+    await addCase(root, { case_id: 'wl-2', type: 'stolen-funds', network: 'bittensor', seeds: ['seed1'] }, 50)
+    await traceCase({} as Client, root, 'wl-2', 2, 100, {
+      corridor: corridorOf([{ address: 'mule1', classification: 'propagated_scam' }, { address: 'mule2', classification: 'propagated_scam' }]),
+    })
+    await traceCase({} as Client, root, 'wl-2', 2, 200, {
+      corridor: corridorOf([{ address: 'mule3', classification: 'propagated_scam' }]),
+    })
+    const list = await loadWatchlist(root)
+    expect(list.find((e) => e.address === 'mule1')?.managed_by).toBeUndefined() // manual survived untouched
+    expect(list.find((e) => e.address === 'mule2')).toBeUndefined()            // pruned with the cluster
+    expect(list.filter((e) => e.managed_by === 'case:wl-2').map((e) => e.address).sort()).toEqual(['mule3', 'seed1'])
   })
 })

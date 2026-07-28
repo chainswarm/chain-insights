@@ -17,6 +17,8 @@ export interface AlertEvent {
     | 'watchlist_finding'
     | 'watchlist_movement'
     | 'watchlist_dust'
+    // Activity probe tripwire (victim lane spec req 4).
+    | 'watchlist_activity'
   network: string
   detector?: string
   case_id?: string

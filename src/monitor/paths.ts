@@ -12,6 +12,7 @@ export interface MonitorPaths {
   emittedLog: string
   logsDir: string
   watchlistHitsLog: string
+  probeCursorsLog: string
   reviewsDir: string
   dbPath: string
   watchlistPath: string
@@ -38,6 +39,7 @@ export function monitorPaths(workspaceRoot: string): MonitorPaths {
     emittedLog: path.join(alertsDir, 'emitted.jsonl'),
     logsDir,
     watchlistHitsLog: path.join(logsDir, 'watchlist-hits.jsonl'),
+    probeCursorsLog: path.join(logsDir, 'probe-cursors.jsonl'),
     reviewsDir: path.join(monitorDir, 'reviews'),
     dbPath: path.join(monitorDir, 'monitor.duckdb'),
     watchlistPath: path.join(monitorDir, 'watchlist.json'),

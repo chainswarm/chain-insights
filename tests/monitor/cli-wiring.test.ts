@@ -46,4 +46,16 @@ describe('cia monitor CLI surface', () => {
     expect(matches.length).toBeGreaterThanOrEqual(2)
     expect(src).toContain('already running (pid ')
   })
+
+  it('registers monitor init victim with the spec options (victim lane spec req 7)', () => {
+    const help = execFileSync('npx', ['tsx', 'src/cli.ts', 'monitor', '--help'], { encoding: 'utf8' })
+    expect(help).toContain('init')
+    const sub = execFileSync('npx', ['tsx', 'src/cli.ts', 'monitor', 'init', '--help'], { encoding: 'utf8' })
+    for (const opt of ['--case-id', '--network', '--seed', '--note']) expect(sub).toContain(opt)
+  })
+
+  it('monitor run registers --force-trace (victim lane spec req 2)', () => {
+    const sub = execFileSync('npx', ['tsx', 'src/cli.ts', 'monitor', 'run', '--help'], { encoding: 'utf8' })
+    expect(sub).toContain('--force-trace')
+  })
 })

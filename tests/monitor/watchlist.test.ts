@@ -3,7 +3,8 @@ import { mkdtemp, mkdir, writeFile, chmod } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { addWatched, listWatched, loadWatchlist, removeWatched } from '../../src/monitor/watchlist.js'
+import { addWatched, listWatched, loadWatchlist, removeWatched, syncManagedWatchlist } from '../../src/monitor/watchlist.js'
+import { addCase, closeCase } from '../../src/monitor/cases.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
 
 async function ws(): Promise<string> {
@@ -71,5 +72,58 @@ describe('watchlist canonical state', () => {
     }
     if (readable) return
     await expect(loadWatchlist(root)).rejects.toThrow(/Cannot read watchlist/)
+  })
+})
+
+describe('managed watchlist entries (victim lane spec req 3)', () => {
+  it('upserts cluster addresses with managed_by case:<id>', async () => {
+    const root = await ws()
+    await syncManagedWatchlist(root, 'theft-1', 'bittensor', ['5Seed', '5Hop1'])
+    const list = await loadWatchlist(root)
+    expect(list).toHaveLength(2)
+    for (const e of list) expect(e.managed_by).toBe('case:theft-1')
+  })
+
+  it('refresh prunes managed entries that left the cluster and keeps the rest', async () => {
+    const root = await ws()
+    await syncManagedWatchlist(root, 'theft-1', 'bittensor', ['5Seed', '5Hop1'])
+    const { added, pruned, kept } = await syncManagedWatchlist(root, 'theft-1', 'bittensor', ['5Seed', '5Hop2'])
+    expect(kept).toEqual(['5Seed'])
+    expect(pruned).toEqual(['5Hop1'])
+    expect(added).toEqual(['5Hop2'])
+    expect((await loadWatchlist(root)).map((e) => e.address).sort()).toEqual(['5Hop2', '5Seed'])
+  })
+
+  it('never touches manual entries or another case\'s managed entries', async () => {
+    const root = await ws()
+    await addWatched(root, { address: '5Manual', network: 'bittensor', note: 'mine' })
+    await syncManagedWatchlist(root, 'other-case', 'bittensor', ['5Other'])
+    // 5Manual is also in this cluster: the manual entry must survive as-is,
+    // with no managed duplicate minted next to it.
+    await syncManagedWatchlist(root, 'theft-1', 'bittensor', ['5Manual', '5Hop1'])
+    let list = await loadWatchlist(root)
+    const manual = list.find((e) => e.address === '5Manual')
+    expect(manual?.managed_by).toBeUndefined()
+    expect(manual?.note).toBe('mine')
+    expect(list.filter((e) => e.address === '5Manual')).toHaveLength(1)
+    expect(list.find((e) => e.address === '5Other')?.managed_by).toBe('case:other-case')
+    // Empty-cluster refresh prunes ONLY theft-1's entries.
+    await syncManagedWatchlist(root, 'theft-1', 'bittensor', [])
+    list = await loadWatchlist(root)
+    expect(list.map((e) => e.address).sort()).toEqual(['5Manual', '5Other'])
+  })
+
+  it('case close KEEPS managed entries (dormancy tripwire, spec req 3)', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'theft-2', type: 'stolen-funds', network: 'bittensor', seeds: ['5Seed'] }, 1000)
+    await syncManagedWatchlist(root, 'theft-2', 'bittensor', ['5Seed', '5Hop1'])
+    await closeCase(root, 'theft-2', 2000)
+    const list = await loadWatchlist(root)
+    expect(list.filter((e) => e.managed_by === 'case:theft-2')).toHaveLength(2)
+  })
+
+  it('refuses non-chain addresses in the cluster (allow-list, never escape)', async () => {
+    const root = await ws()
+    await expect(syncManagedWatchlist(root, 'theft-1', 'bittensor', ["5Seed' RETURN 1 //"])).rejects.toThrow(/chain address/)
   })
 })

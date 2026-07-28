@@ -2,17 +2,17 @@
 // The monitor run loop (spec principle 1): a SEQUENCE of tool calls — detection
 // cores, case tracker, ingest, alert emit — with per-cell isolation. No
 // detection logic lives here.
-import { mkdir } from 'node:fs/promises'
+import { mkdir, readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { writeJsonAtomic } from './atomic.js'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { runOneDetection } from '../detection/run.js'
 import type { AlertEvent } from './alerts.js'
 import { appendAlerts, deliverAlerts, listUndelivered } from './alerts.js'
-import type { MonitorConfig } from './config.js'
+import { resolvedTraceMode, type MonitorConfig } from './config.js'
 import { monitorPaths } from './paths.js'
 import { ingestNewDocs, withStore } from './store.js'
-import { listCases } from './cases.js'
+import { listCases, markCaseTraced } from './cases.js'
 import { runWatchlistPass } from './watchlist-run.js'
 
 export const MONITOR_EXIT_ISOLATED = 2
@@ -29,6 +29,9 @@ export interface CellOutcome {
   snapshot_hash?: string
   rendered?: boolean
   findings_path?: string
+  /** Set on gated-out case cells in on_movement mode (victim lane spec req
+   *  2): the quiet monitor stays visibly healthy in the run document. */
+  trace_skipped_reason?: 'no_activity'
   duration_ms: number
   error?: string
 }
@@ -75,12 +78,24 @@ function remainingOf(usage: unknown): number | null {
   return typeof flat === 'number' ? flat : null
 }
 
+// "Never traced" = no snapshot file. Cheap dirent check — the corridor
+// machinery is not imported for a gate decision.
+async function hasSnapshots(workspaceRoot: string, caseId: string): Promise<boolean> {
+  try {
+    const files = await readdir(path.join(monitorPaths(workspaceRoot).casesDir, caseId, 'snapshots'))
+    return files.some((f) => f.endsWith('.snapshot.json'))
+  } catch {
+    return false
+  }
+}
+
 export async function runMonitorOnce(
   client: Client,
   workspaceRoot: string,
   config: MonitorConfig,
   nowTimestamp: number,
   hooks: RunnerHooks = {},
+  opts: { forceTrace?: boolean } = {},
 ): Promise<MonitorRunDoc> {
   const detect = hooks.runDetection ?? runOneDetection
   const usage = hooks.usage ?? defaultUsage
@@ -115,10 +130,50 @@ export async function runMonitorOnce(
       outcome.duration_ms = Date.now() - started
       doc.cells.push(outcome)
     }
+    // Run order (victim lane spec req 6): watchlist + activity probe FIRST, so
+    // a probe hit can mark its owning case dirty and the gated trace pass below
+    // sees the marker in the same run. The finding/movement joins read store
+    // state ingested at the END of the previous run either way, so moving the
+    // pass changes nothing for them. An empty watchlist still pushes no cell.
+    if (config.watchlist) {
+      const started = Date.now()
+      const outcome: CellOutcome = { cell: 'watchlist', network: '(all)', duration_ms: 0 }
+      try {
+        const pass = await withStore(workspaceRoot, async (store) =>
+          runWatchlistPass(client, workspaceRoot, store, config, nowTimestamp),
+        )
+        if (pass.hits.length > 0 || pass.calls > 0) {
+          outcome.findings_count = pass.hits.length
+          if (pass.error) outcome.error = pass.error
+          alertsPending.push(...pass.alerts)
+          outcome.duration_ms = Date.now() - started
+          doc.cells.push(outcome)
+        }
+      } catch (err) {
+        outcome.error = (err as Error).message
+        outcome.duration_ms = Date.now() - started
+        doc.cells.push(outcome)
+      }
+    }
     if (hooks.traceCase) {
+      const traceMode = resolvedTraceMode(config)
       for (const openCase of await listCases(workspaceRoot, { openOnly: true })) {
-        const started = Date.now()
         const outcome: CellOutcome = { cell: `case:${openCase.case_id}`, case_id: openCase.case_id, network: openCase.network, duration_ms: 0 }
+        // Event-driven gate (spec req 2): in on_movement mode only a
+        // never-traced case (bootstrap), a case the activity probe marked
+        // dirty since its last trace, or an explicit force reaches traceCase.
+        // The skipped cell keeps a quiet monitor visibly healthy.
+        if (
+          traceMode === 'on_movement' &&
+          opts.forceTrace !== true &&
+          openCase.dirty_since_timestamp === undefined &&
+          (await hasSnapshots(workspaceRoot, openCase.case_id))
+        ) {
+          outcome.trace_skipped_reason = 'no_activity'
+          doc.cells.push(outcome)
+          continue
+        }
+        const started = Date.now()
         try {
           const traced = await hooks.traceCase(client, workspaceRoot, openCase.case_id, config.caseMaxHops, nowTimestamp, undefined, { limits: config.limits, networkLimits: config.networkLimits })
           outcome.movements_count = traced.movements_count
@@ -128,6 +183,10 @@ export async function runMonitorOnce(
             outcome.snapshot_hash = traced.snapshot_hash
           }
           alertsPending.push(...traced.alerts)
+          // Successful trace = the case is current: clear the dirty marker and
+          // stamp last_traced_at. A FAILED trace keeps the marker so the next
+          // pass retries instead of skipping (spec req 2).
+          await markCaseTraced(workspaceRoot, openCase.case_id, nowTimestamp)
         } catch (err) {
           outcome.error = (err as Error).message
         }
@@ -149,30 +208,6 @@ export async function runMonitorOnce(
         } catch (err) {
           outcome.error = (err as Error).message
         }
-        outcome.duration_ms = Date.now() - started
-        doc.cells.push(outcome)
-      }
-    }
-    // The watchlist pass runs LAST, because two of its three triggers are
-    // joins over what the detection and case cells just wrote. An empty
-    // watchlist returns calls: 0 and no hits, so no cell is pushed and
-    // behavior is byte-identical to a run without the feature (AC-7).
-    if (config.watchlist) {
-      const started = Date.now()
-      const outcome: CellOutcome = { cell: 'watchlist', network: '(all)', duration_ms: 0 }
-      try {
-        const pass = await withStore(workspaceRoot, async (store) =>
-          runWatchlistPass(client, workspaceRoot, store, config, nowTimestamp),
-        )
-        if (pass.hits.length > 0 || pass.calls > 0) {
-          outcome.findings_count = pass.hits.length
-          if (pass.error) outcome.error = pass.error
-          alertsPending.push(...pass.alerts)
-          outcome.duration_ms = Date.now() - started
-          doc.cells.push(outcome)
-        }
-      } catch (err) {
-        outcome.error = (err as Error).message
         outcome.duration_ms = Date.now() - started
         doc.cells.push(outcome)
       }

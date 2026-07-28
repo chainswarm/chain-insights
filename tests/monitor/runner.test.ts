@@ -1,5 +1,5 @@
 // tests/monitor/runner.test.ts
-import { mkdtemp, readdir } from 'node:fs/promises'
+import { mkdtemp, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -9,8 +9,8 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { runMonitorOnce } from '../../src/monitor/runner.js'
 import { appendAlerts, listAlerts, listUndelivered } from '../../src/monitor/alerts.js'
 import { withStore } from '../../src/monitor/store.js'
-import { addWatched } from '../../src/monitor/watchlist.js'
-import { addCase } from '../../src/monitor/cases.js'
+import { addWatched, syncManagedWatchlist } from '../../src/monitor/watchlist.js'
+import { addCase, markCaseDirty } from '../../src/monitor/cases.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
 import type { MonitorConfig } from '../../src/monitor/config.js'
 
@@ -212,5 +212,110 @@ describe('alert outbox in the runner (spec req 2)', () => {
     const rows = await withStore(root, (s) => s.all('SELECT alert_id FROM alerts WHERE run_timestamp = 9500'), { readOnly: true })
     expect(rows.length).toBeGreaterThan(0)
     expect(order.filter((o) => o === 'sink')).toHaveLength(2)
+  })
+})
+
+describe('event-driven trace gating (victim lane spec req 2/6)', () => {
+  const VICTIM_CFG: MonitorConfig = {
+    cells: [], intervalSeconds: 3600, caseMaxHops: 3, render: { dormant_after_days: 30 }, profile: 'victim',
+  }
+  const fakeDetectNone = async () => ({ findingsCount: 0, findingsPath: 'x.json' }) as never
+  const okTrace = (calls: { n: number }) => async () => {
+    calls.n += 1
+    return { movements_count: 0, alerts: [] }
+  }
+  async function writeSnapshot(root: string, caseId: string, runTimestamp: number): Promise<void> {
+    const dir = path.join(monitorPaths(root).casesDir, caseId, 'snapshots')
+    await mkdir(dir, { recursive: true })
+    await writeFile(path.join(dir, `${runTimestamp}.snapshot.json`), JSON.stringify({ case_id: caseId, run_timestamp: runTimestamp, seed_set: ['5Seed'], addresses: [{ address: '5Seed' }] }), 'utf8')
+  }
+
+  it('bootstrap: a never-traced case IS traced in on_movement mode', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'boot', type: 'stolen-funds', network: 'bittensor', seeds: ['5Seed'] }, 10)
+    const calls = { n: 0 }
+    const doc = await runMonitorOnce({} as Client, root, VICTIM_CFG, 1000, { runDetection: fakeDetectNone, usage: async () => null, traceCase: okTrace(calls) })
+    expect(calls.n).toBe(1)
+    const cell = doc.cells.find((c) => c.cell === 'case:boot')
+    expect(cell?.trace_skipped_reason).toBeUndefined()
+    // Successful trace stamps last_traced_at on the canonical case doc.
+    const caseDoc = JSON.parse(await readFile(path.join(monitorPaths(root).casesDir, 'boot', 'case.json'), 'utf8'))
+    expect(caseDoc.last_traced_at_timestamp).toBe(1000)
+  })
+
+  it('quiet: a traced, not-dirty case is SKIPPED with trace_skipped_reason no_activity', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'quiet', type: 'stolen-funds', network: 'bittensor', seeds: ['5Seed'] }, 10)
+    await writeSnapshot(root, 'quiet', 100)
+    const calls = { n: 0 }
+    const doc = await runMonitorOnce({} as Client, root, VICTIM_CFG, 1000, { runDetection: fakeDetectNone, usage: async () => null, traceCase: okTrace(calls) })
+    expect(calls.n).toBe(0)
+    expect(doc.cells.find((c) => c.cell === 'case:quiet')?.trace_skipped_reason).toBe('no_activity')
+  })
+
+  it('dirty: a probe-marked case is traced and the successful trace clears the marker', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'dirty', type: 'stolen-funds', network: 'bittensor', seeds: ['5Seed'] }, 10)
+    await writeSnapshot(root, 'dirty', 100)
+    await markCaseDirty(root, 'dirty', 500)
+    const calls = { n: 0 }
+    await runMonitorOnce({} as Client, root, VICTIM_CFG, 1000, { runDetection: fakeDetectNone, usage: async () => null, traceCase: okTrace(calls) })
+    expect(calls.n).toBe(1)
+    const caseDoc = JSON.parse(await readFile(path.join(monitorPaths(root).casesDir, 'dirty', 'case.json'), 'utf8'))
+    expect(caseDoc.dirty_since_timestamp).toBeUndefined()
+    expect(caseDoc.last_traced_at_timestamp).toBe(1000)
+  })
+
+  it('a FAILED trace keeps the dirty marker so the next pass retries', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'fail', type: 'stolen-funds', network: 'bittensor', seeds: ['5Seed'] }, 10)
+    await writeSnapshot(root, 'fail', 100)
+    await markCaseDirty(root, 'fail', 500)
+    const doc = await runMonitorOnce({} as Client, root, VICTIM_CFG, 1000, {
+      runDetection: fakeDetectNone, usage: async () => null,
+      traceCase: async () => { throw new Error('backend down') },
+    })
+    expect(doc.cells.find((c) => c.cell === 'case:fail')?.error).toMatch(/backend down/)
+    const caseDoc = JSON.parse(await readFile(path.join(monitorPaths(root).casesDir, 'fail', 'case.json'), 'utf8'))
+    expect(caseDoc.dirty_since_timestamp).toBe(500)
+  })
+
+  it('forceTrace overrides the quiet gate', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'forced', type: 'stolen-funds', network: 'bittensor', seeds: ['5Seed'] }, 10)
+    await writeSnapshot(root, 'forced', 100)
+    const calls = { n: 0 }
+    await runMonitorOnce({} as Client, root, VICTIM_CFG, 1000, { runDetection: fakeDetectNone, usage: async () => null, traceCase: okTrace(calls) }, { forceTrace: true })
+    expect(calls.n).toBe(1)
+  })
+
+  it('interval mode (operator default) always traces — back-compat', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'op', type: 'stolen-funds', network: 'bittensor', seeds: ['5Seed'] }, 10)
+    await writeSnapshot(root, 'op', 100)
+    const calls = { n: 0 }
+    await runMonitorOnce({} as Client, root, { ...VICTIM_CFG, profile: undefined }, 1000, { runDetection: fakeDetectNone, usage: async () => null, traceCase: okTrace(calls) })
+    expect(calls.n).toBe(1)
+  })
+
+  it('probe → dirty → gated trace in ONE pass: an activity hit on a managed entry triggers the trace this run (spec req 6)', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'live', type: 'stolen-funds', network: 'bittensor', seeds: ['5Seed'] }, 10)
+    await writeSnapshot(root, 'live', 100)
+    await syncManagedWatchlist(root, 'live', 'bittensor', ['5Seed'])
+    const calls = { n: 0 }
+    const client = {
+      async callTool({ arguments: args }: { name: string; arguments: Record<string, unknown> }) {
+        const id = (args.queries as Array<{ id: string }>)[0]?.id
+        return { structuredContent: { facts: { queries: [{ id, results: id === 'activity' ? [{ address: '5Seed', last_activity_timestamp: 900 }] : [] }] } } }
+      },
+    } as never
+    const doc = await runMonitorOnce(client, root, { ...VICTIM_CFG, watchlist: { dustMaxUsd: 1, dustLookbackSeconds: 86400, enabled: true } }, 1000, {
+      runDetection: fakeDetectNone, usage: async () => null, traceCase: okTrace(calls),
+    })
+    expect(calls.n).toBe(1)
+    expect(doc.cells.find((c) => c.cell === 'case:live')?.trace_skipped_reason).toBeUndefined()
+    const alerts = await listAlerts(root)
+    expect(alerts.map((a) => a.type)).toContain('watchlist_activity')
   })
 })

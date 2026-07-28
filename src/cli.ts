@@ -959,7 +959,8 @@ const monitor = program
 monitor
   .command('run')
   .description('One monitoring pass over the configured detector×network matrix and every open case')
-  .action(async () => {
+  .option('--force-trace', 'Trace every open case this pass even in on_movement mode')
+  .action(async (opts: { forceTrace?: boolean }) => {
     try {
       const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
       const workspaceRoot = requireWorkspaceRoot()
@@ -982,7 +983,7 @@ monitor
           runMonitorOnce(client, workspaceRoot, config, Date.now(), {
             traceCase: (c, root, id, hops, now) => traceCase(c, root, id, hops, now),
             renderCase: (c, root, id, cfg, now) => renderCase(c, root, id, cfg, now),
-          }),
+          }, { forceTrace: opts.forceTrace }),
         )
         const failed = doc.cells.filter((c) => c.error)
         console.log(`[monitor] run ${doc.run_timestamp}: ${doc.cells.length} cell(s), ${doc.alerts_emitted} alert(s)${doc.halted ? `, HALTED: ${doc.halted}` : ''}`)
@@ -1078,6 +1079,37 @@ monitor
       const { statusText } = await import('./monitor/report.js')
       const config = await loadMonitorConfig(workspaceRoot)
       console.log(await statusText(workspaceRoot, config))
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+monitor
+  .command('init')
+  .description('Bootstrap a monitor profile in this workspace (victim: stolen-funds watch with event-driven tracing)')
+  .argument('<profile>', 'Profile to initialize; only "victim" is supported (operators write config.json directly)')
+  .requiredOption('--case-id <id>', 'Case identifier (lowercase letters, digits, hyphens)')
+  .requiredOption('--network <network>', 'Network for the case. Run `cia networks` for supported networks.')
+  .requiredOption('--seed <addresses...>', 'Stolen-funds seed address(es) — usually the drained wallet(s)')
+  .option('--note <text>', 'Optional free-text note')
+  .action(async (profile: string, opts: { caseId: string; network: string; seed: string[]; note?: string }) => {
+    try {
+      if (profile !== 'victim') throw new Error(`unknown init profile "${profile}" — only "victim" is supported (operator workspaces write .chain-insights/monitor/config.json directly; see docs/monitoring.md)`)
+      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
+      const workspaceRoot = requireWorkspaceRoot()
+      const { initVictimWorkspace } = await import('./monitor/init.js')
+      const result = await initVictimWorkspace(workspaceRoot, { caseId: opts.caseId, network: opts.network, seeds: opts.seed, note: opts.note }, Date.now())
+      console.log('Victim monitoring initialized.')
+      console.log(`  case:      ${result.monitorCase.case_id} (stolen-funds, ${result.monitorCase.network}, ${result.monitorCase.seeds.length} seed(s))`)
+      console.log(`  config:    ${result.configPath} (profile: victim, trace_mode: on_movement)`)
+      console.log(`  watchlist: ${result.watchlisted.length} managed seed entr${result.watchlisted.length === 1 ? 'y' : 'ies'} (managed_by: case:${result.monitorCase.case_id})`)
+      console.log('')
+      console.log('Next steps:')
+      console.log('  cia monitor run          # bootstrap trace now — the first pass always traces')
+      console.log('  cia monitor watch        # hourly loop; keep it alive under pm2 (docs/monitoring.md "Scheduling")')
+      console.log('  cia monitor alerts list  # alerts, including watchlist_activity movement tripwires')
+      console.log(`Dossier after the first trace: published/cases/${result.monitorCase.case_id}/dossier.md`)
     } catch (err) {
       console.error((err as Error).message)
       process.exit(1)
@@ -1236,7 +1268,7 @@ monitorWatchlist
         console.log('Watchlist is empty. Add one with: cia monitor watchlist add <address> --network <network>')
         return
       }
-      for (const e of list) console.log(`${e.network}\t${e.address}${e.note ? `\t${e.note}` : ''}`)
+      for (const e of list) console.log(`${e.network}\t${e.address}${e.managed_by ? `\t[${e.managed_by}]` : ''}${e.note ? `\t${e.note}` : ''}`)
     } catch (err) {
       console.error((err as Error).message)
       process.exit(1)

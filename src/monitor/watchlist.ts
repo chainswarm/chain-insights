@@ -18,6 +18,10 @@ const WatchedAddressSchema = z.object({
   address: z.string().min(1).regex(ADDRESS_RE, 'must be a chain address (alphanumeric, optionally 0x-prefixed)'),
   network: z.string().min(1),
   note: z.string().optional(),
+  // Cluster auto-watchlist (victim lane spec req 3): "case:<id>" marks an
+  // entry as machine-managed by that case's per-trace refresh. Absent =
+  // manual entry, which sync NEVER touches.
+  managed_by: z.string().min(1).optional(),
 })
 
 const WatchlistSchema = z.object({ addresses: z.array(WatchedAddressSchema).default([]) })
@@ -84,4 +88,49 @@ export async function removeWatched(
     workspaceRoot,
     current.filter((e) => keyOf(e.address, e.network) !== keyOf(address, network)),
   )
+}
+
+/** Refresh one case's managed watchlist set to the given cluster (victim
+ *  lane spec req 3). Upserts missing cluster addresses as managed entries,
+ *  prunes this case's entries that left the cluster, and never touches
+ *  manual entries or entries managed by another case. When a manual entry
+ *  already watches a cluster address, the manual entry wins — no managed
+ *  duplicate is minted. Callers exclude exchange addresses BEFORE calling
+ *  (they are always active and would make the tripwire useless). */
+export async function syncManagedWatchlist(
+  workspaceRoot: string,
+  caseId: string,
+  network: string,
+  clusterAddresses: string[],
+): Promise<{ added: string[]; pruned: string[]; kept: string[] }> {
+  const tag = `case:${caseId}`
+  const current = await loadWatchlist(workspaceRoot)
+  const cluster = new Set(clusterAddresses)
+  const next: WatchedAddress[] = []
+  const added: string[] = []
+  const pruned: string[] = []
+  const kept: string[] = []
+  // (network, address) pairs owned by anyone OTHER than this case — a
+  // cluster address already covered there is left alone entirely.
+  const occupied = new Set(current.filter((e) => e.managed_by !== tag).map((e) => keyOf(e.address, e.network)))
+  for (const entry of current) {
+    if (entry.managed_by !== tag) {
+      next.push(entry)
+      continue
+    }
+    if (entry.network === network && cluster.has(entry.address)) {
+      next.push(entry)
+      kept.push(entry.address)
+    } else {
+      pruned.push(entry.address)
+    }
+  }
+  for (const address of clusterAddresses) {
+    if (occupied.has(keyOf(address, network))) continue
+    if (next.some((e) => e.managed_by === tag && e.address === address && e.network === network)) continue
+    next.push(WatchedAddressSchema.parse({ address, network, managed_by: tag }))
+    added.push(address)
+  }
+  await saveWatchlist(workspaceRoot, next)
+  return { added, pruned, kept }
 }

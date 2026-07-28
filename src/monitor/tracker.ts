@@ -15,6 +15,7 @@ import type { DetectionFindingsDocument } from '../investigation/detection-findi
 import type { AlertEvent } from './alerts.js'
 import { monitorPaths } from './paths.js'
 import { approvedAddressesForCase } from './review.js'
+import { syncManagedWatchlist } from './watchlist.js'
 
 export interface SnapshotAddress {
   address: string
@@ -204,6 +205,19 @@ export async function traceCase(
     await mkdir(dir, { recursive: true })
     await writeJsonAtomic(path.join(dir, `${nowTimestamp}.snapshot.json`), snapshot)
   }
+
+  // Cluster auto-watchlist (victim lane spec req 3): EVERY successful trace —
+  // unchanged included — refreshes this case's managed entries to the current
+  // cluster: seeds, candidate intermediates, candidate deposit endpoints.
+  // Exchange addresses are excluded outright (always active — they would turn
+  // the movement tripwire into a constant alarm). Manual entries are never
+  // touched, and case close keeps managed entries (dormancy tripwire).
+  await syncManagedWatchlist(
+    workspaceRoot,
+    caseId,
+    monitorCase.network,
+    snapshot.addresses.filter((a) => a.classification !== 'exchange_terminal').map((a) => a.address),
+  )
 
   const movements = diffSnapshots(previous, snapshot)
   const expansions = diffScopeExpansion(previous, snapshot)

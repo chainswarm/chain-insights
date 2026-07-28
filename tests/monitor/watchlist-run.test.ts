@@ -7,7 +7,9 @@ import { dustHits, findingHits, movementHits, runWatchlistPass } from '../../src
 import { rebuildStore, withStore } from '../../src/monitor/store.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
 import type { MonitorConfig } from '../../src/monitor/config.js'
-import { addWatched, listWatched } from '../../src/monitor/watchlist.js'
+import { addWatched, listWatched, syncManagedWatchlist } from '../../src/monitor/watchlist.js'
+import { activityHits, appendProbeCursor, readProbeCursors } from '../../src/monitor/probe.js'
+import { addCase } from '../../src/monitor/cases.js'
 
 async function ws(): Promise<string> {
   return mkdtemp(path.join(tmpdir(), 'cia-wlrun-'))
@@ -181,7 +183,8 @@ describe('watchlist pass cost guarantee (AC-6)', () => {
     } as never
 
     // 100 addresses over 2 networks. A per-address implementation would make
-    // 100 calls; the contract is 2.
+    // 100+ calls; the contract is ≤2 per network (dust + activity probes,
+    // victim lane cost target), flat in address count.
     for (let i = 0; i < 50; i += 1) {
       await addWatched(root, { address: `5Watched${i}`, network: 'bittensor' })
       await addWatched(root, { address: `0x${'a'.repeat(38)}${String(i).padStart(2, '0')}`, network: 'bittensor_evm' })
@@ -192,8 +195,8 @@ describe('watchlist pass cost guarantee (AC-6)', () => {
       runWatchlistPass(client, root, store, { cells: [], intervalSeconds: 3600, caseMaxHops: 3, watchlist: { dustMaxUsd: 1, dustLookbackSeconds: 86400, enabled: true } }, 1000),
     )
 
-    expect(pass.calls).toBe(2)
-    expect(called).toEqual(['graph_query_batch', 'graph_query_batch'])
+    expect(pass.calls).toBe(4)
+    expect(called).toEqual(['graph_query_batch', 'graph_query_batch', 'graph_query_batch', 'graph_query_batch'])
     expect(called).not.toContain('aml_address_risk')
   })
 })
@@ -264,5 +267,115 @@ describe('watchlist hit dedup survives rebuild (spec req 1)', () => {
       expect(rerun.hits).toHaveLength(0)
       expect(rerun.alerts).toHaveLength(0)
     })
+  })
+})
+
+describe('watchlist activity probe (victim lane spec req 4-5)', () => {
+  function activityClient(rowsByNetwork: Record<string, Array<Record<string, unknown>>>, seen: { calls: number; queries: string[] }) {
+    return {
+      async callTool({ name, arguments: args }: { name: string; arguments: Record<string, unknown> }) {
+        if (name === 'aml_address_risk') throw new Error('address risk must never be called by the watchlist')
+        seen.calls += 1
+        const network = String(args.network)
+        const queries = (args.queries as Array<{ id: string; query: string }>) ?? []
+        for (const q of queries) seen.queries.push(q.query)
+        const id = queries[0]?.id
+        return {
+          structuredContent: {
+            facts: { queries: [{ id, results: id === 'activity' ? (rowsByNetwork[network] ?? []) : [] }] },
+          },
+        }
+      },
+    } as never
+  }
+
+  const WL_CFG: MonitorConfig = {
+    cells: [], intervalSeconds: 3600, caseMaxHops: 3, render: { dormant_after_days: 30 },
+    watchlist: { dustMaxUsd: 1, dustLookbackSeconds: 86400, enabled: true },
+  }
+
+  it('one call per network; merged MAX row becomes ONE hit with the natural source_ref', async () => {
+    const root = await ws()
+    await addWatched(root, { address: '5Mine', network: 'bittensor' })
+    // Production-faithful cursor: the backend only returns rows with
+    // last_activity_timestamp > $since, so the persisted cursor sits BELOW
+    // the stub rows (the real query would never return rows at/under it).
+    await appendProbeCursor(root, 'bittensor', 50, 900)
+    const seen = { calls: 0, queries: [] as string[] }
+    const client = activityClient({
+      bittensor: [
+        { address: '5Mine', last_activity_timestamp: 100 },
+        { address: '5Mine', last_activity_timestamp: 250 },
+        { address: '5Mine', last_activity_timestamp: null },
+      ],
+    }, seen)
+    const hits = await withStore(root, async (store) => activityHits(client, store, root, await listWatched(root), 1000))
+    expect(hits.calls).toBe(1)
+    expect(hits.hits).toEqual([
+      { address: '5Mine', network: 'bittensor', trigger: 'activity', source_ref: '5Mine|250', detail: 'last_activity_timestamp=250' },
+    ])
+    // Cursor advanced to MAX(last_activity_timestamp) seen.
+    expect((await readProbeCursors(root)).get('bittensor')).toBe(250)
+  })
+
+  it('an already-recorded activity source_ref never re-hits (dedup is store-backed)', async () => {
+    const root = await ws()
+    await addWatched(root, { address: '5Mine', network: 'bittensor' })
+    const seen = { calls: 0, queries: [] as string[] }
+    const client = activityClient({ bittensor: [{ address: '5Mine', last_activity_timestamp: 250 }] }, seen)
+    const first = await withStore(root, async (store) => {
+      await store.run("INSERT INTO watchlist_hits VALUES (900,'5Mine','bittensor','activity','5Mine|250',NULL)")
+      return activityHits(client, store, root, await listWatched(root), 1000)
+    })
+    expect(first.hits).toEqual([])
+  })
+
+  it('runWatchlistPass records activity hits canonically, emits watchlist_activity, and marks the owning case dirty', async () => {
+    const root = await ws()
+    await addCase(root, { case_id: 'v1', type: 'stolen-funds', network: 'bittensor', seeds: ['5Mine'] }, 10)
+    await syncManagedWatchlist(root, 'v1', 'bittensor', ['5Mine'])
+    await addWatched(root, { address: '5Manual', network: 'bittensor' })
+    const seen = { calls: 0, queries: [] as string[] }
+    const client = activityClient({
+      bittensor: [
+        { address: '5Mine', last_activity_timestamp: 500 },
+        { address: '5Manual', last_activity_timestamp: 600 },
+      ],
+    }, seen)
+    const pass = await withStore(root, async (store) => runWatchlistPass(client, root, store, WL_CFG, 1000))
+    expect(pass.hits.filter((h) => h.trigger === 'activity')).toHaveLength(2)
+    expect(pass.alerts.map((a) => a.type)).toContain('watchlist_activity')
+    // Canonical log line for the hit (rebuild source of truth).
+    const raw = await readFile(monitorPaths(root).watchlistHitsLog, 'utf8')
+    expect(raw).toContain('"source_ref":"5Mine|500"')
+    // The managed hit marked the owning case dirty; the manual hit marked nothing.
+    const caseDoc = JSON.parse(await readFile(path.join(monitorPaths(root).casesDir, 'v1', 'case.json'), 'utf8'))
+    expect(caseDoc.dirty_since_timestamp).toBe(1000)
+  })
+
+  it('rebuild-then-rerun does not re-alert (source_ref dedup survives rebuildStore)', async () => {
+    const root = await ws()
+    await addWatched(root, { address: '5Mine', network: 'bittensor' })
+    const seen = { calls: 0, queries: [] as string[] }
+    const client = activityClient({ bittensor: [{ address: '5Mine', last_activity_timestamp: 250 }] }, seen)
+    const first = await withStore(root, async (store) => runWatchlistPass(client, root, store, WL_CFG, 1000))
+    expect(first.hits).toHaveLength(1)
+    await rebuildStore(root)
+    const second = await withStore(root, async (store) => runWatchlistPass(client, root, store, WL_CFG, 2000))
+    expect(second.hits).toEqual([])
+    expect(second.alerts).toEqual([])
+  })
+
+  it('a probe failure degrades to error text — free triggers still report', async () => {
+    const root = await ws()
+    await addWatched(root, { address: '5Mine', network: 'bittensor' })
+    const client = {
+      async callTool() {
+        throw new Error('backend down')
+      },
+    } as never
+    const pass = await withStore(root, async (store) => runWatchlistPass(client, root, store, WL_CFG, 1000))
+    expect(pass.error).toMatch(/backend down/)
+    expect(pass.hits).toEqual([])
   })
 })
