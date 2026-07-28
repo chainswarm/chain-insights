@@ -6,10 +6,16 @@
 // by source_ref in logs/watchlist-hits.jsonl is what prevents re-alerts, so
 // a deleted or stale cursor file can never fire a duplicate alert.
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
+import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { listCases } from './cases.js'
 import { parseJsonlLines } from './jsonl.js'
 import { monitorPaths } from './paths.js'
+import type { MonitorStore } from './store.js'
 import { readSnapshots } from './tracker.js'
+// Type-only import: watchlist-run.ts imports activityHits from here at
+// runtime, so this edge must stay erased to keep the module graph acyclic.
+import type { WatchlistHit } from './watchlist-run.js'
+import type { WatchedAddress } from './watchlist.js'
 
 export interface ProbeCursorRecord {
   network: string
@@ -104,4 +110,62 @@ export function mergeActivityRows(rows: Array<Record<string, unknown>>): Map<str
     if (prev === undefined || ts > prev) merged.set(address, ts)
   }
   return merged
+}
+
+/** The probe pass: one graph_query_batch per distinct network over every
+ *  watched address. Degrades per network like dustHits — a dead backend
+ *  yields error text, never a thrown pass. */
+export async function activityHits(
+  client: Client,
+  store: MonitorStore,
+  workspaceRoot: string,
+  watched: WatchedAddress[],
+  runTimestamp: number,
+): Promise<{ hits: WatchlistHit[]; calls: number; error?: string }> {
+  if (watched.length === 0) return { hits: [], calls: 0 }
+  const byNetwork = new Map<string, string[]>()
+  for (const w of watched) {
+    const list = byNetwork.get(w.network) ?? []
+    list.push(w.address)
+    byNetwork.set(w.network, list)
+  }
+  const cursors = await readProbeCursors(workspaceRoot)
+  const seenInBatch = new Set<string>()
+  const hits: WatchlistHit[] = []
+  let calls = 0
+  let error: string | undefined
+  for (const [network, addresses] of byNetwork) {
+    const since = cursors.get(network) ?? (await initialProbeCursor(workspaceRoot, network, runTimestamp))
+    try {
+      calls += 1
+      const result = (await client.callTool({
+        name: 'graph_query_batch',
+        arguments: { network, queries: [{ id: 'activity', query: activityQuery(addresses, since) }] },
+      })) as { structuredContent?: { facts?: { queries?: Array<{ id: string; results?: Array<Record<string, unknown>> }> } } }
+      const rows = result.structuredContent?.facts?.queries?.find((q) => q.id === 'activity')?.results ?? []
+      let advanced = since
+      for (const [address, lastActivity] of mergeActivityRows(rows)) {
+        if (lastActivity > advanced) advanced = lastActivity
+        const sourceRef = `${address}|${lastActivity}`
+        const key = `${network}|${address}|${sourceRef}`
+        if (seenInBatch.has(key)) continue
+        const already = await store.all(
+          `SELECT 1 FROM watchlist_hits
+            WHERE trigger = 'activity' AND address = $1 AND network = $2 AND source_ref = $3 LIMIT 1`,
+          [address, network, sourceRef],
+        )
+        if (already.length > 0) continue
+        seenInBatch.add(key)
+        hits.push({ address, network, trigger: 'activity', source_ref: sourceRef, detail: `last_activity_timestamp=${lastActivity}` })
+      }
+      // Advance (or persist the initial) cursor only when there is
+      // something new to record — the log stays quiet on quiet passes.
+      if (advanced !== since || !cursors.has(network)) {
+        await appendProbeCursor(workspaceRoot, network, advanced, runTimestamp)
+      }
+    } catch (err) {
+      error = error ? `${error}; ${(err as Error).message}` : (err as Error).message
+    }
+  }
+  return { hits, calls, error }
 }

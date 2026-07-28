@@ -7,14 +7,16 @@ import { appendFile, mkdir } from 'node:fs/promises'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { monitorPaths } from './paths.js'
 import type { AlertEvent } from './alerts.js'
+import { markCaseDirty } from './cases.js'
 import type { MonitorConfig } from './config.js'
+import { activityHits } from './probe.js'
 import type { MonitorStore } from './store.js'
 import { loadWatchlist, type WatchedAddress } from './watchlist.js'
 
 export interface WatchlistHit {
   address: string
   network: string
-  trigger: 'finding' | 'movement' | 'dust'
+  trigger: 'finding' | 'movement' | 'dust' | 'activity'
   source_ref: string
   detail?: string
 }
@@ -180,6 +182,7 @@ const ALERT_TYPE = {
   finding: 'watchlist_finding',
   movement: 'watchlist_movement',
   dust: 'watchlist_dust',
+  activity: 'watchlist_activity',
 } as const
 
 export async function runWatchlistPass(
@@ -211,6 +214,20 @@ export async function runWatchlistPass(
     runTimestamp,
   )
   hits.push(...dust.hits)
+  // Activity probe (victim lane spec req 4): the movement tripwire. One
+  // graph query per network over ALL watched addresses; per-shard rows are
+  // merged client-side; source_ref = "<address>|<last_activity_timestamp>"
+  // is the natural, rebuild-safe dedup key.
+  const activity = await activityHits(client, store, workspaceRoot, watched, runTimestamp)
+  hits.push(...activity.hits)
+  // A hit on a case-managed entry marks that case dirty — the gate that lets
+  // the runner's on_movement mode trace it this same pass (spec req 4/6).
+  for (const hit of activity.hits) {
+    const managedBy = watched.find((w) => w.address === hit.address && w.network === hit.network)?.managed_by
+    if (managedBy?.startsWith('case:')) {
+      await markCaseDirty(workspaceRoot, managedBy.slice('case:'.length), runTimestamp)
+    }
+  }
   // Canonical-first (durability spec req 1): the JSONL is the source of truth
   // for dedup; the DuckDB rows are a replay index rebuilt from it.
   if (hits.length > 0) {
@@ -240,5 +257,10 @@ export async function runWatchlistPass(
     doc_path: hit.trigger === 'finding' ? hit.source_ref : undefined,
     case_id: hit.trigger === 'movement' ? hit.source_ref : undefined,
   }))
-  return { hits, alerts, calls: dust.calls, error: dust.error }
+  return {
+    hits,
+    alerts,
+    calls: dust.calls + activity.calls,
+    error: [dust.error, activity.error].filter(Boolean).join('; ') || undefined,
+  }
 }
