@@ -29,7 +29,16 @@ const RenderConfigSchema = z.object({
 })
 
 const MonitorConfigSchema = z.object({
-  cells: z.array(CellSchema).min(1),
+  // Victim workspaces run zero detector cells (victim lane spec req 7):
+  // empty and absent are both allowed. The absent-CONFIG default matrix
+  // (DEFAULT_MONITOR_CONFIG) is unchanged.
+  cells: z.array(CellSchema).default([]),
+  // Monitor product split (victim lane spec req 1-2). Both OPTIONAL, not
+  // defaulted: absent profile = operator and absent trace_mode = the
+  // profile default, resolved through resolvedProfile/resolvedTraceMode —
+  // keeping every existing MonitorConfig literal type-valid (back-compat).
+  profile: z.enum(['operator', 'victim']).optional(),
+  trace_mode: z.enum(['interval', 'on_movement']).optional(),
   intervalSeconds: z.number().int().positive().default(3600),
   // Usage guard floor (runner.ts): compared against the backend's remaining
   // quota — `facts.usage.remaining_seconds` on quota-bearing backends (the
@@ -55,6 +64,15 @@ const MonitorConfigSchema = z.object({
 })
 
 export type MonitorConfig = z.infer<typeof MonitorConfigSchema>
+
+export function resolvedProfile(config: Pick<MonitorConfig, 'profile'>): 'operator' | 'victim' {
+  return config.profile ?? 'operator'
+}
+
+/** interval for operator, on_movement for victim; an explicit trace_mode wins. */
+export function resolvedTraceMode(config: Pick<MonitorConfig, 'profile' | 'trace_mode'>): 'interval' | 'on_movement' {
+  return config.trace_mode ?? (resolvedProfile(config) === 'victim' ? 'on_movement' : 'interval')
+}
 
 const DEFAULT_DETECTORS = ['fake-token', 'mixer', 'address-poisoning', 'attack-attribution'] as const
 const DEFAULT_NETWORKS = ['bittensor', 'bittensor_evm'] as const
