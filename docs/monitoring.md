@@ -565,6 +565,7 @@ as before:
 | A tracked case's movement reaches a watched address | `watchlist_movement` | Funds from an open incident moved to an address you watch. |
 | Incoming dust below `dustMaxUsd` | `watchlist_dust` | The opening move of address poisoning: a tiny inbound transfer that a network-wide detector may not flag on its own, but that matters against *your* address. |
 | A watched address became active | `watchlist_activity` | The address's on-chain `last_activity_timestamp` advanced past the probe cursor — the movement tripwire that wakes an `on_movement` case trace. |
+| New activity on a managed entry of a CLOSED case | `case_reactivated` | The labeled topology woke up again after the case was closed. The alert names the case and the active address; the case is never auto-reopened — open a new case if the investigation should resume. |
 
 All four flow through the normal alert stream — `alerts list`, `alerts ack`,
 webhook and exec sinks, and the report — rather than a parallel notification

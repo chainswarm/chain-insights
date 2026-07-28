@@ -19,6 +19,10 @@ export interface AlertEvent {
     | 'watchlist_dust'
     // Activity probe tripwire (victim lane spec req 4).
     | 'watchlist_activity'
+    // A managed entry of a CLOSED case moved again (label-lifecycle spec
+    // req 4). Dedup rides the canonical hits log's source_ref dedup. The
+    // case is NEVER auto-reopened — this alert is the whole mechanism.
+    | 'case_reactivated'
   network: string
   detector?: string
   case_id?: string
