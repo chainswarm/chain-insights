@@ -782,6 +782,54 @@ assert_eq "#250 a refused mutation records no seed event" \
 check "#250 the store rebuilds after the seed mutations" "$(rc_of $CLI monitor rebuild)"
 
 ########################################################################
+# PHASE K -- victim profile (victim lane spec req 2/7): init victim
+# bootstraps config + case + managed watchlist; the first pass TRACES
+# (bootstrap); the second pass on this static fixture SKIPS with
+# trace_skipped_reason=no_activity. The movement path (activity hit ->
+# dirty -> re-trace) stays unit-level: a static fixture cannot move funds.
+########################################################################
+WS_K="$(new_workspace)"
+cd "$WS_K"
+check "K/init victim bootstraps the workspace" \
+  "$(rc_of $CLI monitor init victim --case-id victim-1 --network bittensor --seed "$SEED" --note 'smoke victim')"
+K_CFG="$WS_K/.chain-insights/monitor/config.json"
+assert_eq "K/config carries profile victim" "$(jq -r '.profile' "$K_CFG")" "victim"
+assert_eq "K/config resolves trace_mode on_movement" "$(jq -r '.trace_mode' "$K_CFG")" "on_movement"
+assert_eq "K/config carries zero detector cells (empty allowed)" "$(jq '.cells | length' "$K_CFG")" "0"
+assert_eq "K/the case was created open" "$(jq -r '.status' "$WS_K/cases/victim-1/case.json")" "open"
+assert_eq "K/the seed is watched as a managed entry" \
+  "$(jq -r --arg a "$SEED" '[.addresses[] | select(.address == $a) | .managed_by] | join(",")' "$WS_K/.chain-insights/monitor/watchlist.json")" \
+  "case:victim-1"
+K_REINIT_OUT="$($CLI monitor init victim --case-id victim-2 --network bittensor --seed "$SEED" 2>&1 || true)"
+assert_contains "K/a second init is refused (config exists)" "$K_REINIT_OUT" "already exists"
+assert_eq "K/the refused init created no second case" "$(rc_of test -e "$WS_K/cases/victim-2/case.json")" "1"
+# Smoke-speed bound only: the config is operator-owned and hand-editable
+# (documented workflow); the init-written shape was asserted above first.
+jq '. + {caseMaxHops: 2}' "$K_CFG" > "$K_CFG.tmp" && mv "$K_CFG.tmp" "$K_CFG"
+
+sleep 1
+K_RUN1_RC=0; $CLI monitor run >/dev/null 2>&1 || K_RUN1_RC=$?
+assert_eq "K/bootstrap run completes" "$K_RUN1_RC" "0"
+K_RUN1="$(newest_run "$WS_K")"
+assert_eq "K/bootstrap pass TRACES the never-traced case (no skip reason)" \
+  "$(cell_field "$K_RUN1" 'case:victim-1' trace_skipped_reason)" ""
+check "K/bootstrap snapshot written" \
+  "$(rc_of test -n "$(ls "$WS_K"/cases/victim-1/snapshots/*.snapshot.json 2>/dev/null)")"
+assert_ge "K/the trace refreshed the managed watchlist to the cluster" \
+  "$(jq '[.addresses[] | select(.managed_by == "case:victim-1")] | length' "$WS_K/.chain-insights/monitor/watchlist.json")" 1
+
+sleep 1
+K_RUN2_RC=0; $CLI monitor run >/dev/null 2>&1 || K_RUN2_RC=$?
+assert_eq "K/steady-state run completes" "$K_RUN2_RC" "0"
+K_RUN2="$(newest_run "$WS_K")"
+assert_eq "K/the quiet steady-state pass SKIPS the trace with no_activity" \
+  "$(cell_field "$K_RUN2" 'case:victim-1' trace_skipped_reason)" "no_activity"
+assert_eq "K/no second snapshot on the skipped pass" \
+  "$(ls "$WS_K"/cases/victim-1/snapshots/*.snapshot.json | wc -l)" "1"
+assert_eq "K/the watchlist+probe cell reports no error (probe query admitted by the devkit)" \
+  "$(cell_field "$K_RUN2" 'watchlist' error)" ""
+
+########################################################################
 echo "MONITOR-SMOKE done: $PASS pass, $FAIL fail, $SKIP skip"
 for w in "${WORKSPACES[@]}"; do echo "MONITOR-SMOKE workspace: $w"; done
 [ "$FAIL" -eq 0 ]
