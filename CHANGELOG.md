@@ -3,6 +3,22 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.13.2] - 2026-07-28 — uniform epoch-ms timestamps in the render layer
+
+- fix: `_timestamp` fields are epoch milliseconds everywhere — the render
+  layer (verdict, dossier, notes) formats them directly and the unit-guessing
+  `toSeconds` heuristic is removed; `monitor render` passes `Date.now()` (ms)
+  so the Generated line and ACTIVE/DORMANT arithmetic use one unit.
+- feat: `chain-insights.trace.v1` evidence edges now carry
+  `first_seen_timestamp`/`last_seen_timestamp` (epoch ms) projected as the
+  min/max over their contributing traced hop rows, so case verdicts date
+  ACTIVE/DORMANT from real edge timestamps (omitted when the source rows
+  lack them).
+- devkit: seeded FLOWS_TO edges carry production-shaped properties
+  (`first_seen_timestamp`/`last_seen_timestamp` in ms, tx id anchors,
+  amount/count), and the monitor smoke asserts the rendered dossier headline
+  carries a sane date.
+
 ## [0.13.1] - 2026-07-27 — dossier verdict + dedupe fixes
 
 - fix: dossier verdict handles mixed timestamp units (case documents carry
