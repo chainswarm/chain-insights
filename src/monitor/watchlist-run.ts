@@ -10,6 +10,7 @@ import type { AlertEvent } from './alerts.js'
 import { listCases, markCaseDirty, type MonitorCase } from './cases.js'
 import type { MonitorConfig } from './config.js'
 import { activityHits } from './probe.js'
+import { labelHits } from './label-probe.js'
 import type { MonitorStore } from './store.js'
 import { loadWatchlist, type WatchedAddress } from './watchlist.js'
 
@@ -213,6 +214,14 @@ export function reactivationAlerts(
   return out
 }
 
+/** The owning case of a managed watchlist entry, if any — watchlist_label
+ *  alerts on `managed_by: case:<id>` entries name the case (spec req 1),
+ *  which is what makes the victim lane work with zero victim-specific code. */
+function managedCaseOf(watched: WatchedAddress[], network: string, address: string): string | undefined {
+  const owner = watched.find((w) => w.network === network && w.address === address)?.managed_by
+  return owner?.startsWith('case:') ? owner.slice('case:'.length) : undefined
+}
+
 const ALERT_TYPE = {
   finding: 'watchlist_finding',
   movement: 'watchlist_movement',
@@ -264,6 +273,12 @@ export async function runWatchlistPass(
       await markCaseDirty(workspaceRoot, managedBy.slice('case:'.length), runTimestamp)
     }
   }
+  // Label probe (label-cutover spec req 1): backend detection surfaces as
+  // topology labels; ONE query per network diffs current labels against the
+  // canonical last-seen baseline. Bootstrap is silent by design — the
+  // baseline seeds without alerting, so pre-existing labels never flood.
+  const label = await labelHits(client, store, workspaceRoot, watched, runTimestamp)
+  hits.push(...label.hits)
   // Canonical-first (durability spec req 1): the JSONL is the source of truth
   // for dedup; the DuckDB rows are a replay index rebuilt from it.
   if (hits.length > 0) {
@@ -293,14 +308,21 @@ export async function runWatchlistPass(
       address: hit.address,
       run_timestamp: runTimestamp,
       doc_path: hit.trigger === 'finding' ? hit.source_ref : undefined,
-      case_id: hit.trigger === 'movement' ? hit.source_ref : undefined,
+      case_id:
+        hit.trigger === 'movement'
+          ? hit.source_ref
+          : hit.trigger === 'label'
+            ? managedCaseOf(watched, hit.network, hit.address)
+            : undefined,
+      label: hit.trigger === 'label' ? hit.label : undefined,
+      source: hit.trigger === 'label' ? hit.source : undefined,
     })),
     ...reactivationAlerts(hits, watched, allCases, runTimestamp),
   ]
   return {
     hits,
     alerts,
-    calls: dust.calls + activity.calls,
-    error: [dust.error, activity.error].filter(Boolean).join('; ') || undefined,
+    calls: dust.calls + activity.calls + label.calls,
+    error: [dust.error, activity.error, label.error].filter(Boolean).join('; ') || undefined,
   }
 }

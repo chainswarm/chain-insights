@@ -183,8 +183,8 @@ describe('watchlist pass cost guarantee (AC-6)', () => {
     } as never
 
     // 100 addresses over 2 networks. A per-address implementation would make
-    // 100+ calls; the contract is ≤2 per network (dust + activity probes,
-    // victim lane cost target), flat in address count.
+    // 100+ calls; the contract is ≤3 per network (dust + activity + label
+    // probes, label-cutover spec req 2), flat in address count.
     for (let i = 0; i < 50; i += 1) {
       await addWatched(root, { address: `5Watched${i}`, network: 'bittensor' })
       await addWatched(root, { address: `0x${'a'.repeat(38)}${String(i).padStart(2, '0')}`, network: 'bittensor_evm' })
@@ -195,8 +195,8 @@ describe('watchlist pass cost guarantee (AC-6)', () => {
       runWatchlistPass(client, root, store, { cells: [], intervalSeconds: 3600, caseMaxHops: 3, watchlist: { dustMaxUsd: 1, dustLookbackSeconds: 86400, enabled: true } }, 1000),
     )
 
-    expect(pass.calls).toBe(4)
-    expect(called).toEqual(['graph_query_batch', 'graph_query_batch', 'graph_query_batch', 'graph_query_batch'])
+    expect(pass.calls).toBe(6)
+    expect(called).toEqual(Array(6).fill('graph_query_batch'))
     expect(called).not.toContain('aml_address_risk')
   })
 })

@@ -13,7 +13,10 @@ import {
   readLabelBaseline,
 } from '../../src/monitor/label-probe.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
-import { withStore } from '../../src/monitor/store.js'
+import { rebuildStore, withStore } from '../../src/monitor/store.js'
+import { runWatchlistPass } from '../../src/monitor/watchlist-run.js'
+import { addWatched } from '../../src/monitor/watchlist.js'
+import type { MonitorConfig } from '../../src/monitor/config.js'
 
 async function ws(): Promise<string> {
   return mkdtemp(path.join(tmpdir(), 'cia-lblprobe-'))
@@ -205,5 +208,72 @@ describe('labelHits (label-cutover spec req 1-2)', () => {
     const out = await withStore(root, async (store) => labelHits(stubClient({}, calls), store, root, [], 1000))
     expect(out).toEqual({ hits: [], calls: 0 })
     expect(calls.n).toBe(0)
+  })
+})
+
+// Serves the label probe; the dust and activity probes get empty result sets.
+function passClient(labelRows: Array<Record<string, unknown>>, calls: { n: number }) {
+  return {
+    async callTool({ name, arguments: args }: { name: string; arguments: { queries: Array<{ id: string }> } }) {
+      if (name === 'aml_address_risk') throw new Error('address risk must never be called by the watchlist')
+      calls.n += 1
+      const id = args.queries[0].id
+      return { structuredContent: { facts: { queries: [{ id, results: id === 'labels' ? labelRows : [] }] } } }
+    },
+  } as never
+}
+
+const CONFIG = { cells: [], intervalSeconds: 3600, caseMaxHops: 2, watchlist: { dustMaxUsd: 1, dustLookbackSeconds: 86400, enabled: true }, render: { dormant_after_days: 30 } } as unknown as MonitorConfig
+
+describe('runWatchlistPass label wiring (label-cutover spec req 1)', () => {
+  it('bootstrap pass emits NO watchlist_label alert; the delta pass emits one naming address, label, source', async () => {
+    const root = await ws()
+    await addWatched(root, { address: '5Mine', network: 'bittensor' })
+    const boot = await withStore(root, async (store) =>
+      runWatchlistPass(passClient([{ address: '5Mine', labels: ['MEXC'] }], { n: 0 }), root, store, CONFIG, 1000))
+    expect(boot.alerts.filter((a) => a.type === 'watchlist_label')).toEqual([])
+    const delta = await withStore(root, async (store) =>
+      runWatchlistPass(passClient([{ address: '5Mine', labels: ['MEXC', 'mule'] }], { n: 0 }), root, store, CONFIG, 2000))
+    expect(delta.alerts.filter((a) => a.type === 'watchlist_label')).toEqual([
+      { type: 'watchlist_label', network: 'bittensor', address: '5Mine', label: 'mule', source: 'topology', case_id: undefined, doc_path: undefined, run_timestamp: 2000 },
+    ])
+    expect(delta.hits.find((h) => h.trigger === 'label')?.source_ref).toBe('5Mine|mule|topology')
+  })
+
+  it('a managed entry names the owning case on the alert (victim-lane coverage)', async () => {
+    const root = await ws()
+    await addWatched(root, { address: '5Mule', network: 'bittensor', managed_by: 'case:theft-1' })
+    await withStore(root, async (store) =>
+      runWatchlistPass(passClient([], { n: 0 }), root, store, CONFIG, 1000)) // silent bootstrap
+    const out = await withStore(root, async (store) =>
+      runWatchlistPass(passClient([{ address: '5Mule', labels: ['mule'] }], { n: 0 }), root, store, CONFIG, 2000))
+    const alert = out.alerts.find((a) => a.type === 'watchlist_label')
+    expect(alert?.case_id).toBe('theft-1')
+    expect(alert?.address).toBe('5Mule')
+    expect(alert?.label).toBe('mule')
+  })
+
+  it('dedup across runs AND across rebuild: rebuild-then-rerun re-alerts nothing', async () => {
+    const root = await ws()
+    await addWatched(root, { address: '5Mine', network: 'bittensor' })
+    await withStore(root, async (store) =>
+      runWatchlistPass(passClient([], { n: 0 }), root, store, CONFIG, 1000)) // bootstrap
+    const first = await withStore(root, async (store) =>
+      runWatchlistPass(passClient([{ address: '5Mine', labels: ['mule'] }], { n: 0 }), root, store, CONFIG, 2000))
+    expect(first.hits.filter((h) => h.trigger === 'label')).toHaveLength(1)
+    await rebuildStore(root)
+    const again = await withStore(root, async (store) =>
+      runWatchlistPass(passClient([{ address: '5Mine', labels: ['mule'] }], { n: 0 }), root, store, CONFIG, 3000))
+    expect(again.hits.filter((h) => h.trigger === 'label')).toHaveLength(0)
+    expect(again.alerts.filter((a) => a.type === 'watchlist_label')).toHaveLength(0)
+  })
+
+  it('the pass makes exactly 3 remote calls per network (dust + activity + label): >=AC-6, spec req 2', async () => {
+    const root = await ws()
+    await addWatched(root, { address: '5A', network: 'bittensor' })
+    await addWatched(root, { address: '5B', network: 'bittensor' })
+    const calls = { n: 0 }
+    await withStore(root, async (store) => runWatchlistPass(passClient([], calls), root, store, CONFIG, 1000))
+    expect(calls.n).toBe(3)
   })
 })
