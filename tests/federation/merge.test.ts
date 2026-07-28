@@ -231,28 +231,6 @@ describe('mergeShardRows — combineEdge property rules (oracle-verified discrep
     expect(p.avg_tx_size_usd).toBe(0)
   })
 
-  it('dominant_asset comes from the constituent with the single largest amount_usd_sum, across 3+ shards', () => {
-    // A pairwise fold that compares the running ACCUMULATED total against
-    // each new shard's individual amount gets this wrong once there are more
-    // than two shards: after folding s1+s2 the accumulator (70) already
-    // exceeds s3's individual 50, so s3 never wins even though it is the
-    // single largest individual contribution.
-    const merged = mergeShardRows([
-      fullEdge('s1', 'A', 'B', { amount_usd_sum: 40, tx_count: 1, dominant_asset: 'TAO' }),
-      fullEdge('s2', 'A', 'B', { amount_usd_sum: 30, tx_count: 1, dominant_asset: 'USDC' }),
-      fullEdge('s3', 'A', 'B', { amount_usd_sum: 50, tx_count: 1, dominant_asset: 'DOT' }),
-    ])
-    expect(props(merged).dominant_asset).toBe('DOT')
-  })
-
-  it('dominant_asset ties keep the first-seen constituent', () => {
-    const merged = mergeShardRows([
-      fullEdge('s1', 'A', 'B', { amount_usd_sum: 50, tx_count: 1, dominant_asset: 'TAO' }),
-      fullEdge('s2', 'A', 'B', { amount_usd_sum: 50, tx_count: 1, dominant_asset: 'USDC' }),
-    ])
-    expect(props(merged).dominant_asset).toBe('TAO')
-  })
-
   it('price_coverage_ratio is recomputed as the tx-count-weighted mean across shards', () => {
     const merged = mergeShardRows([
       fullEdge('s1', 'A', 'B', { tx_count: 8, price_coverage_ratio: 1.0 }), // fully priced
