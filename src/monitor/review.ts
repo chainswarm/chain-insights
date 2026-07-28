@@ -48,11 +48,17 @@ export async function listDecisionDocs(workspaceRoot: string): Promise<ReviewDec
   return (await listDecisionEntries(workspaceRoot)).map((e) => e.doc)
 }
 
-/** Decisions minus any that a later --force decision names in `supersedes`. */
-export async function effectiveDecisions(workspaceRoot: string): Promise<ReviewDecisionDoc[]> {
+/** Decision entries (filename + doc) minus any that a later --force decision
+ *  names in `supersedes`. The filename is the export's decision_id source. */
+export async function effectiveDecisionEntries(workspaceRoot: string): Promise<Array<{ file: string; doc: ReviewDecisionDoc }>> {
   const entries = await listDecisionEntries(workspaceRoot)
   const superseded = new Set(entries.map((e) => e.doc.supersedes).filter(Boolean))
-  return entries.filter((e) => !superseded.has(e.file)).map((e) => e.doc)
+  return entries.filter((e) => !superseded.has(e.file))
+}
+
+/** Decisions minus any that a later --force decision names in `supersedes`. */
+export async function effectiveDecisions(workspaceRoot: string): Promise<ReviewDecisionDoc[]> {
+  return (await effectiveDecisionEntries(workspaceRoot)).map((e) => e.doc)
 }
 
 // Relative doc paths are workspace-relative, NOT cwd-relative: the paths

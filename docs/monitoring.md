@@ -451,8 +451,16 @@ cia monitor export labels
 
 This reads **approved decisions only** and writes matching
 `labels-<timestamp>.json` and `labels-<timestamp>.csv` files under
-`reports/monitor/`, each row carrying the address, network, label,
-originating tool, reviewer, and decision timestamp.
+`reports/monitor/` in the frozen `chain-insights.curated-labels.v1` contract:
+one row per (address, label) with columns
+`address,network,label,case_id,decision_id,doc_ref,decided_at_timestamp,reviewer`.
+Case docs derive the label from each address's cluster role (`seed` ->
+`scam_seed`, `candidate_intermediate` -> `mule`, `candidate_deposit` ->
+`deposit_endpoint`; unknown roles are skipped with a warning); lane-A
+detector docs keep their classification as the label with an empty
+`case_id`. `decision_id` is the content-addressed decision filename stem, so
+downstream importers can dedup re-exports. The export is always a full
+snapshot.
 
 ### Quarantine, do not delete
 
