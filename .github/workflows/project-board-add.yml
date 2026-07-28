@@ -49,7 +49,7 @@ jobs:
           repositories: rbmk
 
       - name: Checkout rbmk tooling (staging, actions/checkout requires an in-workspace path)
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           repository: chainswarm/rbmk
           ref: main

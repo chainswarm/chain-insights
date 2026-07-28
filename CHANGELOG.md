@@ -3,6 +3,22 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.15.3] - 2026-07-28 — adopt dependabot batch 2026-07-28 (10 PRs)
+
+- chore(deps): adopt the mcp-and-payments group (#266): `@modelcontextprotocol/ext-apps`
+  1.7.4 → 1.7.5, `@modelcontextprotocol/sdk` 1.29.0 → 1.30.0, `@x402/evm` and
+  `@x402/fetch` 2.19.0 → 2.20.0, `viem` 2.55.5 → 2.55.10.
+- chore(deps): `hono` 4.12.31 → 4.12.32 (#243), `@hono/node-server` 2.0.11 → 2.0.12
+  (#242), `@duckdb/node-api` 1.5.5-r.1 → 1.5.5-r.2 (#241).
+- chore(deps-dev): adopt the tooling group (#259): `@types/node` 26.1.1 → 26.1.2,
+  `tsdown` 0.22.13 → 0.22.14.
+- ci: adopt GitHub Actions bumps: `actions/checkout` 7.0.0 → 7.0.1 (#249),
+  `actions/setup-node` 4/6.4.0 → 7.0.0 (#248), `ossf/scorecard-action`
+  2.4.3 → 2.4.4 (#247), `github/codeql-action/upload-sarif` 4.37.1 → 4.37.3
+  (#246), `github/codeql-action/analyze` 4.37.1 → 4.37.3 (#245); `github/codeql-action/init`
+  is moved to 4.37.3 as well because CodeQL fails when its actions are not all on
+  the same version. SHA pins and version comments updated to match.
+
 ## [0.15.2] - 2026-07-28 — retire dominant_asset/asset_usd_totals from the FLOWS_TO contract
 
 - chore: `dominant_asset` and `asset_usd_totals` are address-level features
