@@ -1429,7 +1429,8 @@ monitorAlerts
       for (const a of alerts) {
         const detectorOrCase = a.detector ?? a.case_id ?? ''
         const addressOrCount = a.address ?? a.count ?? ''
-        console.log(`${a.alert_id} ${a.type} ${a.network} ${detectorOrCase} ${addressOrCount}`)
+        const labelPair = a.label ? ` ${a.label}(${a.source ?? ''})` : ''
+        console.log(`${a.alert_id} ${a.type} ${a.network} ${detectorOrCase} ${addressOrCount}${labelPair}`)
       }
     } catch (err) {
       console.error((err as Error).message)

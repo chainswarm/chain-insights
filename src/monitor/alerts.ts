@@ -19,6 +19,10 @@ export interface AlertEvent {
     | 'watchlist_dust'
     // Activity probe tripwire (victim lane spec req 4).
     | 'watchlist_activity'
+    // Backend detection labeled a watched address (label-cutover spec req 1).
+    // Diff-based: only a (label, source) pair NEW versus the canonical
+    // last-seen baseline alerts; bootstrap is silent by design.
+    | 'watchlist_label'
     // A managed entry of a CLOSED case moved again (label-lifecycle spec
     // req 4). Dedup rides the canonical hits log's source_ref dedup. The
     // case is NEVER auto-reopened — this alert is the whole mechanism.
@@ -29,6 +33,11 @@ export interface AlertEvent {
   address?: string
   count?: number
   doc_path?: string
+  // watchlist_label only: the new (label, source) pair. `source` is the
+  // constant "topology" until the overlay exposes per-label provenance —
+  // see the label-surface decision in the 2026-07-28 cutover plan.
+  label?: string
+  source?: string
   run_timestamp: number
   emitted_at_timestamp: number
 }
