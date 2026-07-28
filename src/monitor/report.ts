@@ -6,6 +6,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { listAlerts } from './alerts.js'
 import { listCases } from './cases.js'
+import { caseClosableStatus } from './closable.js'
 import { resolvedProfile, resolvedTraceMode, type MonitorConfig } from './config.js'
 import { monitorPaths } from './paths.js'
 import { listPending } from './review.js'
@@ -141,7 +142,7 @@ export async function writeReport(workspaceRoot: string, nowTimestamp: number): 
   return reportPath
 }
 
-export async function statusText(workspaceRoot: string, config: MonitorConfig): Promise<string> {
+export async function statusText(workspaceRoot: string, config: MonitorConfig, nowTimestamp: number = Date.now()): Promise<string> {
   const [cases, pending, alerts, lastRunRows] = await Promise.all([
     listCases(workspaceRoot, { openOnly: true }),
     listPending(workspaceRoot),
@@ -150,5 +151,22 @@ export async function statusText(workspaceRoot: string, config: MonitorConfig): 
   ])
   const lastRun = num(lastRunRows[0]?.last_run as bigint | number | null | undefined)
   const lastRunText = lastRun === null ? 'never' : String(lastRun)
-  return `profile: ${resolvedProfile(config)} | trace_mode: ${resolvedTraceMode(config)} | cells: ${config.cells.length} | open cases: ${cases.length} | pending reviews: ${pending.length} | unacked alerts: ${alerts.length} | last run: ${lastRunText}`
+  const lines = [
+    `profile: ${resolvedProfile(config)} | trace_mode: ${resolvedTraceMode(config)} | cells: ${config.cells.length} | open cases: ${cases.length} | pending reviews: ${pending.length} | unacked alerts: ${alerts.length} | last run: ${lastRunText}`,
+  ]
+  // Per-case lines (label-lifecycle spec req 2): scam-topology cases carry
+  // the labeled/dormant flags and the `-> closable` marker; other case types
+  // are listed without a marker. Close remains a human action.
+  if (cases.length > 0) {
+    lines.push('open cases:')
+    for (const c of cases) {
+      if (c.type === 'scam-topology') {
+        const s = await caseClosableStatus(workspaceRoot, c, config.render.dormant_after_days, nowTimestamp)
+        lines.push(`  ${c.case_id} [${c.type}/${c.network}] labeled=${s.labeled ? 'yes' : 'no'} dormant=${s.dormant ? 'yes' : 'no'}${s.closable ? ' -> closable' : ''}`)
+      } else {
+        lines.push(`  ${c.case_id} [${c.type}/${c.network}]`)
+      }
+    }
+  }
+  return lines.join('\n')
 }
