@@ -122,8 +122,8 @@ Topology is intentionally stable across address spaces:
   on both the topology and facts graphs.
 - Flow fields commonly include `tx_count`, `amount_usd_sum`,
   `avg_tx_size_usd`, `first_seen_timestamp`, `last_seen_timestamp`,
-  `first_tx_id`, `last_tx_id`, `dominant_asset`, and
-  `price_coverage_ratio`. These are lifetime aggregates (first/last endpoints
+  `first_tx_id`, `last_tx_id`, and `price_coverage_ratio`. These are
+  lifetime aggregates (first/last endpoints
   only). The public address contract is USD-only; do not rely on native
   `amount_sum`.
 - Facts may expose `Address`, `Asset`, and network-specific fact nodes.

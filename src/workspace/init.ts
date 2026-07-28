@@ -210,8 +210,8 @@ The address-grain graph schema:
   flows (self-loops included). FLOWS_TO edges carry \`tx_count\`,
   \`amount_usd_sum\`, \`avg_tx_size_usd\` (understates when
   \`price_coverage_ratio\` < 1), \`first_seen_timestamp\`/
-  \`last_seen_timestamp\`, \`first_tx_id\`/\`last_tx_id\`,
-  \`dominant_asset\` (largest USD share), and \`price_coverage_ratio\`.
+  \`last_seen_timestamp\`, \`first_tx_id\`/\`last_tx_id\`, and
+  \`price_coverage_ratio\`.
   Lifetime aggregates are the only serving window.
 - Money flow is \`(:Address)-[:FLOWS_TO]->(:Address)\`. Public AML tools
   accept the raw blockchain address directly — there is no resolution step.

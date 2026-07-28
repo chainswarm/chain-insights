@@ -75,12 +75,8 @@ function rowKey(row: ShardRow): string {
  * object, in first-seen order.
  *
  * This is a single N-way fold over all constituents at once, not a pairwise
- * fold of an accumulator. Folding two at a time and re-combining the running
- * accumulator against each new shard would lose each individual shard's raw
- * `amount_usd_sum` after the first fold — and `dominant_asset` needs each
- * shard's own individual total, not an accumulated running sum, to pick the
- * correct winner once more than two shards contribute (see the property
- * rules below).
+ * fold of an accumulator, so every per-property rule below reads each
+ * shard's raw values directly.
  *
  * Per-property rules (SPEC-2026-07-26-FED-THIN-FANOUT, mirrored from the
  * retired server-side merge in data-pipeline internal/graphmcp/federation.go
@@ -103,11 +99,11 @@ function rowKey(row: ShardRow): string {
  *   summed tx_count reconstructs the exact lifetime ratio rather than
  *   averaging shard ratios naively (which would over-weight a low-volume
  *   shard's ratio as much as a high-volume one).
- * - `dominant_asset`: the asset from the constituent with the single
- *   largest individual `amount_usd_sum` (documented largest-bucket
- *   approximation — the per-asset USD breakdown isn't carried on the edge,
- *   so this is the best available signal; ties keep the first-seen
- *   constituent, matching the reference implementation).
+ * - `dominant_asset` / `asset_usd_totals`: retired from the FLOWS_TO edge
+ *   contract (operator ruling 2026-07-28) — address-level asset features are
+ *   computed on demand, not carried as edge payload, so there is no merge
+ *   rule. A stale shard still returning them falls through to the
+ *   first-seen-wins fallback below.
  * - `bucket_start_timestamp` / `bucket_end_timestamp`: each describes ONE shard's own
  *   coverage window. The merged edge's window is the outer span of every
  *   contributing shard's window: `[MIN start, MAX end]`.
@@ -139,9 +135,6 @@ function combineEdge(constituents: Array<Record<string, unknown>>): Record<strin
   let lastTxId: unknown
   let minBucketStart: number | null = null
   let maxBucketEnd: number | null = null
-  let dominantAmount = -Infinity
-  let dominantAsset: unknown
-  let dominantSet = false
   let weightedRatioNum = 0
   let anyRatio = false
 
@@ -169,11 +162,6 @@ function combineEdge(constituents: Array<Record<string, unknown>>): Record<strin
     if (bucketEnd !== null && (maxBucketEnd === null || bucketEnd > maxBucketEnd)) {
       maxBucketEnd = bucketEnd
     }
-    if (!dominantSet || amount > dominantAmount) {
-      dominantAmount = amount
-      dominantAsset = p.dominant_asset
-      dominantSet = true
-    }
     const ratio = numeric(p.price_coverage_ratio)
     if (ratio !== null) {
       weightedRatioNum += ratio * tx
@@ -193,7 +181,6 @@ function combineEdge(constituents: Array<Record<string, unknown>>): Record<strin
   }
   if (minBucketStart !== null) out.bucket_start_timestamp = minBucketStart
   if (maxBucketEnd !== null) out.bucket_end_timestamp = maxBucketEnd
-  if (dominantSet && dominantAsset !== undefined) out.dominant_asset = dominantAsset
   // Recomputed, never carried: an average from one shard is simply a wrong
   // number once other shards contribute.
   out.avg_tx_size_usd = txSum > 0 ? amountSum / txSum : 0
@@ -239,7 +226,7 @@ export function mergeShardRows(rows: ShardRow[], opts: MergeOptions = {}): Merge
 
   // Group mergeable rows by identity key, preserving first-seen order, so
   // combineEdge can fold ALL constituents for a key at once (see combineEdge
-  // for why pairwise folding of an accumulator is not equivalent).
+  // for the per-property rules).
   const groups = new Map<string, ShardRow[]>()
   for (const row of mergeable) {
     const key = rowKey(row)
