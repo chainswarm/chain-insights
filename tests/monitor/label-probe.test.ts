@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest'
 import {
   appendLabelBaseline,
   LABEL_SOURCE,
+  labelQuery,
+  mergeLabelRows,
   pairKey,
   readLabelBaseline,
 } from '../../src/monitor/label-probe.js'
@@ -56,5 +58,38 @@ describe('label baseline canonical log (label-cutover spec req 1)', () => {
   it('pairKey and LABEL_SOURCE pin the contract shape', () => {
     expect(LABEL_SOURCE).toBe('topology')
     expect(pairKey('MEXC', 'topology')).toBe('MEXC|topology')
+  })
+})
+
+describe('label query + per-shard merge (label-cutover spec req 1-2)', () => {
+  it('builds ONE topology query over all watched addresses returning the label overlay', () => {
+    const q = labelQuery(['5Aaa', '0xAb12'])
+    expect(q).toContain('USE topology')
+    expect(q).toContain("a.address IN ['5Aaa','0xAb12']")
+    expect(q).toContain('a.labels IS NOT NULL')
+    expect(q).toContain('RETURN a.address AS address, a.labels AS labels')
+    expect(q).toContain('LIMIT 500')
+  })
+
+  it('refuses a non-chain address instead of escaping it', () => {
+    expect(() => labelQuery(["5Aaa' RETURN 1 //"])).toThrow(/not valid chain address/)
+  })
+
+  it('merges per-shard rows by UNION of labels per address, ignoring null/non-array labels', () => {
+    const merged = mergeLabelRows([
+      { address: '5Aaa', labels: ['MEXC'] },
+      { address: '5Aaa', labels: ['MEXC', 'mule'] },
+      { address: '5Aaa', labels: null },
+      { address: '5Bbb', labels: 'not-an-array' },
+      { address: '', labels: ['ghost'] },
+    ])
+    expect([...(merged.get('5Aaa') ?? [])].sort()).toEqual(['MEXC', 'mule'])
+    expect(merged.has('5Bbb')).toBe(false)
+    expect(merged.size).toBe(1)
+  })
+
+  it('coerces non-string label array members to strings and drops empties', () => {
+    const merged = mergeLabelRows([{ address: '5Aaa', labels: ['ok', 7, ''] }])
+    expect([...(merged.get('5Aaa') ?? [])].sort()).toEqual(['7', 'ok'])
   })
 })
