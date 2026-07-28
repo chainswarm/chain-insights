@@ -6,12 +6,14 @@ import { describe, expect, it } from 'vitest'
 import {
   appendLabelBaseline,
   LABEL_SOURCE,
+  labelHits,
   labelQuery,
   mergeLabelRows,
   pairKey,
   readLabelBaseline,
 } from '../../src/monitor/label-probe.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
+import { withStore } from '../../src/monitor/store.js'
 
 async function ws(): Promise<string> {
   return mkdtemp(path.join(tmpdir(), 'cia-lblprobe-'))
@@ -91,5 +93,117 @@ describe('label query + per-shard merge (label-cutover spec req 1-2)', () => {
   it('coerces non-string label array members to strings and drops empties', () => {
     const merged = mergeLabelRows([{ address: '5Aaa', labels: ['ok', 7, ''] }])
     expect([...(merged.get('5Aaa') ?? [])].sort()).toEqual(['7', 'ok'])
+  })
+})
+
+function stubClient(rowsByNetwork: Record<string, Array<Record<string, unknown>>>, calls: { n: number }) {
+  return {
+    async callTool({ name, arguments: args }: { name: string; arguments: Record<string, unknown> }) {
+      if (name === 'aml_address_risk') throw new Error('address risk must never be called by the watchlist')
+      calls.n += 1
+      const network = String(args.network)
+      const rows = rowsByNetwork[network]
+      if (rows === undefined) throw new Error(`backend down for ${network}`)
+      return { structuredContent: { facts: { queries: [{ id: 'labels', results: rows }] } } }
+    },
+  } as never
+}
+
+describe('labelHits (label-cutover spec req 1-2)', () => {
+  const WATCHED = [{ address: '5Mine', network: 'bittensor' }]
+
+  it('first sight seeds the baseline silently — even for an already-labeled address', async () => {
+    const root = await ws()
+    const calls = { n: 0 }
+    const client = stubClient({ bittensor: [{ address: '5Mine', labels: ['MEXC'] }] }, calls)
+    const out = await withStore(root, async (store) => labelHits(client, store, root, WATCHED, 1000))
+    expect(out.hits).toEqual([])
+    expect(out.calls).toBe(1)
+    const baseline = await readLabelBaseline(root)
+    expect(baseline.get('bittensor:5Mine')).toEqual([{ label: 'MEXC', source: 'topology' }])
+  })
+
+  it('an unlabeled watched address is ALSO seeded (empty set), so its first-ever label is a diff', async () => {
+    const root = await ws()
+    const client = stubClient({ bittensor: [] }, { n: 0 })
+    await withStore(root, async (store) => labelHits(client, store, root, WATCHED, 1000))
+    expect((await readLabelBaseline(root)).get('bittensor:5Mine')).toEqual([])
+    // Second pass: the platform labeled the address.
+    const calls = { n: 0 }
+    const labeled = stubClient({ bittensor: [{ address: '5Mine', labels: ['mule'] }] }, calls)
+    const out = await withStore(root, async (store) => labelHits(labeled, store, root, WATCHED, 2000))
+    expect(out.hits).toEqual([
+      {
+        address: '5Mine', network: 'bittensor', trigger: 'label',
+        source_ref: '5Mine|mule|topology', label: 'mule', source: 'topology',
+        detail: 'label=mule source=topology',
+      },
+    ])
+  })
+
+  it('a known pair never re-hits; only the NEW pair of a grown set alerts, and the baseline grows monotonically', async () => {
+    const root = await ws()
+    const one = stubClient({ bittensor: [{ address: '5Mine', labels: ['MEXC'] }] }, { n: 0 })
+    await withStore(root, async (store) => labelHits(one, store, root, WATCHED, 1000)) // bootstrap
+    const two = stubClient({ bittensor: [{ address: '5Mine', labels: ['MEXC', 'mule'] }] }, { n: 0 })
+    const out = await withStore(root, async (store) => labelHits(two, store, root, WATCHED, 2000))
+    expect(out.hits.map((h) => h.source_ref)).toEqual(['5Mine|mule|topology'])
+    expect((await readLabelBaseline(root)).get('bittensor:5Mine')).toEqual([
+      { label: 'MEXC', source: 'topology' },
+      { label: 'mule', source: 'topology' },
+    ])
+  })
+
+  it('a label that disappears and reappears never re-alerts (baseline is monotone; removal is not an event)', async () => {
+    const root = await ws()
+    const one = stubClient({ bittensor: [{ address: '5Mine', labels: ['MEXC'] }] }, { n: 0 })
+    await withStore(root, async (store) => labelHits(one, store, root, WATCHED, 1000)) // bootstrap
+    const gone = stubClient({ bittensor: [] }, { n: 0 })
+    await withStore(root, async (store) => labelHits(gone, store, root, WATCHED, 2000))
+    const back = stubClient({ bittensor: [{ address: '5Mine', labels: ['MEXC'] }] }, { n: 0 })
+    const out = await withStore(root, async (store) => labelHits(back, store, root, WATCHED, 3000))
+    expect(out.hits).toEqual([])
+  })
+
+  it('an already-recorded source_ref never re-hits (dedup is store-backed, AC-11 shape)', async () => {
+    const root = await ws()
+    await appendLabelBaseline(root, { network: 'bittensor', address: '5Mine', pairs: [], run_timestamp: 500 })
+    const client = stubClient({ bittensor: [{ address: '5Mine', labels: ['mule'] }] }, { n: 0 })
+    const out = await withStore(root, async (store) => {
+      await store.run("INSERT INTO watchlist_hits VALUES (900,'5Mine','bittensor','label','5Mine|mule|topology',NULL)")
+      return labelHits(client, store, root, WATCHED, 1000)
+    })
+    expect(out.hits).toEqual([])
+  })
+
+  it('makes ONE call per distinct network regardless of address count (spec req 2)', async () => {
+    const root = await ws()
+    const calls = { n: 0 }
+    const client = stubClient({ bittensor: [], bittensor_evm: [] }, calls)
+    const watched = [
+      { address: '5A', network: 'bittensor' },
+      { address: '5B', network: 'bittensor' },
+      { address: '5C', network: 'bittensor' },
+      { address: '0xAb1', network: 'bittensor_evm' },
+    ]
+    await withStore(root, async (store) => labelHits(client, store, root, watched, 1000))
+    expect(calls.n).toBe(2)
+  })
+
+  it('a failed network degrades to error text and seeds NO baseline (no retro-flood on recovery)', async () => {
+    const root = await ws()
+    const client = stubClient({}, { n: 0 }) // every network throws
+    const out = await withStore(root, async (store) => labelHits(client, store, root, WATCHED, 1000))
+    expect(out.hits).toEqual([])
+    expect(out.error).toMatch(/backend down for bittensor/)
+    expect((await readLabelBaseline(root)).size).toBe(0)
+  })
+
+  it('an empty watchlist yields no hits and runs no query', async () => {
+    const root = await ws()
+    const calls = { n: 0 }
+    const out = await withStore(root, async (store) => labelHits(stubClient({}, calls), store, root, [], 1000))
+    expect(out).toEqual({ hits: [], calls: 0 })
+    expect(calls.n).toBe(0)
   })
 })

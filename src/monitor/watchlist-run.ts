@@ -16,9 +16,14 @@ import { loadWatchlist, type WatchedAddress } from './watchlist.js'
 export interface WatchlistHit {
   address: string
   network: string
-  trigger: 'finding' | 'movement' | 'dust' | 'activity'
+  trigger: 'finding' | 'movement' | 'dust' | 'activity' | 'label'
   source_ref: string
   detail?: string
+  /** label trigger only: the new (label, source) pair, carried explicitly so
+   *  alert construction never has to parse source_ref (labels may contain
+   *  any character; addresses and sources cannot contain "|"). */
+  label?: string
+  source?: string
 }
 
 // Watched (network, address) pairs as a two-column VALUES list, so the join
@@ -213,6 +218,7 @@ const ALERT_TYPE = {
   movement: 'watchlist_movement',
   dust: 'watchlist_dust',
   activity: 'watchlist_activity',
+  label: 'watchlist_label',
 } as const
 
 export async function runWatchlistPass(
