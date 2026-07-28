@@ -21,7 +21,7 @@ Owns:
   server (source under `src/`).
 - The canonical public tool surface: prefixed `aml_*` / `graph_*` / `meta_*`
   / `wallet_*` tools.
-- Local wallet and x402 payment on Base mainnet (payment chain only).
+- Local wallet and payment on Base mainnet (payment chain only).
 - Investigation workspaces, graph reports, and visualization.
 - `cia monitor`: standing-watch detector sweeps and case tracking.
 - `cia detect`: internal findings scanners (fake tokens, address poisoning,
@@ -96,7 +96,7 @@ Upstream:
 - **Chain Insights Graph MCP endpoint** — all graph queries and AML
   primitives. Configured via `graphMcpEndpoint`; defaults to a local
   endpoint.
-- **Base mainnet RPC** — wallet balance and x402 payment only
+- **Base mainnet RPC** — wallet balance and payment only
   (`BASE_RPC_URL` override). Not a graph-support claim.
 - **Devkit fixture data** — generated from the ChainSwarm export path
   (`scripts/devops/chain-insights-devkit/build-fixture.sh` in the RBMK
@@ -168,6 +168,10 @@ an exact address must scope itself with `WHERE a.network = "..."`. On
 carries no `network` property at all. See
 [Graph query compatibility](docs/graph-query-compatibility.md).
 
+Agent installs include `chain-insights-cypher` for generic layer-aware
+GQL/Cypher work and `chain-insights-bittensor-cypher` for Bittensor-specific
+schema notes and examples.
+
 ## Prerequisites And Environment Setup
 
 - **Node.js 22 or newer** (`package.json` engines) and npm.
@@ -216,9 +220,26 @@ find reports -maxdepth 3 -type f | sort
 
 Workspaces are plain local folders. Reports, graph JSON, graph HTML, and
 published bundles live under the initialized workspace. Export only when
-sharing or archiving.
+you need to share, hand off, or archive a review checkpoint — the handoff
+package lands under `published/<workspace-slug>/`.
 
-More query examples (direct topology, batch, suspect tracing):
+Example queries. Direct topology:
+
+```bash
+cia mcp call graph_query \
+  network=bittensor \
+  "query=USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level LIMIT 10"
+```
+
+Batch across graph views:
+
+```bash
+cia mcp call graph_query_batch \
+  network=bittensor \
+  'queries=[{"id":"count","query":"USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"flows","query":"USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 3"},{"id":"linked","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"},{"id":"node_metrics","query":"USE topology MATCH (a:Address {address:\"FULL_ADDRESS\"}) RETURN a.address AS address, a.tx_out_count AS tx_out_count, a.tx_in_count AS tx_in_count LIMIT 1"}]'
+```
+
+More query examples (suspect tracing, pagination):
 [Graph tools](docs/graph-tools.md).
 
 ### Dev Compose (local devkit backend)
@@ -245,7 +266,7 @@ One-shot import services must exit 0. `starrocks`, `memgraph`, and
 export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=http://127.0.0.1:18012/mcp
 ```
 
-Full contract and procedures: [devkit/README.md](devkit/README.md).
+Full contract and procedures live in the devkit directory's own README.
 
 ## Configure
 
@@ -262,6 +283,12 @@ Hosted staging endpoint for approved testers (production is not live yet):
 
 ```bash
 cia config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
+```
+
+Optional one-shot override from the environment:
+
+```bash
+export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://staging-mcp.chain-insights.ai/mcp
 ```
 
 Configuration precedence:
@@ -386,7 +413,7 @@ Product docs:
 | [Development](docs/development.md) | Build, test, and local install commands |
 | [Contributing](docs/contributing.md) | Development workflow, pull requests, release expectations |
 | [Debugging](docs/debugging.md) | Local troubleshooting, diagnostics, debug workflows |
-| [Devkit](devkit/README.md) | Local Bittensor graph backend contract, fixture, smoke procedures |
+| Bittensor devkit (in this repo under `devkit/`) | Local Bittensor graph backend contract, fixture, smoke procedures |
 
 Architecture depth:
 
