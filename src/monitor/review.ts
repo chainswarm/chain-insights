@@ -223,10 +223,30 @@ export async function rejectDoc(
 
 export async function approvedAddressesForCase(workspaceRoot: string, caseId: string): Promise<string[]> {
   // effectiveDecisions: a superseded approve must no longer feed the case.
+  // Role scoping (label-lifecycle spec): only candidate_intermediate findings
+  // widen the corridor aperture. Feeding seed-role entries back is redundant
+  // (they are already seeds) and feeding candidate_deposit entries would
+  // trace onward FROM deposit endpoints into exchange infrastructure.
+  // Legacy roleless docs (pre-role frontier docs) keep the old behavior:
+  // every address was a frontier candidate then.
   const decisions = await effectiveDecisions(workspaceRoot)
   const addresses = new Set<string>()
   for (const d of decisions) {
-    if (d.decision === 'approve' && d.case_id === caseId) for (const a of d.addresses) addresses.add(a)
+    if (d.decision !== 'approve' || d.case_id !== caseId) continue
+    let corridorFeed = d.addresses
+    if (d.reviewed_copy) {
+      try {
+        const doc = JSON.parse(await readFile(d.reviewed_copy, 'utf8')) as { findings?: Array<{ address: string; role?: string }> }
+        if (Array.isArray(doc.findings)) {
+          corridorFeed = doc.findings.filter((f) => !f.role || f.role === 'candidate_intermediate').map((f) => f.address)
+        }
+      } catch (err) {
+        // Per-decision tolerance (R5): fall back to the decision's own address
+        // list — the pre-role behavior — rather than dropping the approval.
+        console.warn(`[monitor] skipping unreadable findings/decision file ${d.reviewed_copy}: ${(err as Error).message} (falling back to the decision's address list for case ${caseId})`)
+      }
+    }
+    for (const a of corridorFeed) addresses.add(a)
   }
   return [...addresses].sort()
 }

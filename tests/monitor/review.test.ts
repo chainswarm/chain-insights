@@ -1,6 +1,6 @@
 // tests/monitor/review.test.ts
 import { createHash } from 'node:crypto'
-import { mkdtemp, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
@@ -200,6 +200,39 @@ describe('read-path tolerance (R5)', () => {
     const pending = await listPending(root)
     expect(pending).toHaveLength(1)
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('131-mixer-bittensor.findings.json'))
+    warn.mockRestore()
+  })
+})
+
+describe('role-scoped corridor feedback (label-lifecycle spec)', () => {
+  it('only candidate_intermediate findings feed the case seed set; seed and deposit roles do not', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '200-case-c9-bittensor.findings.json', {
+      findings: [
+        { address: 'seedX', role: 'seed', evidence: {}, truncated: false, inconclusive: false },
+        { address: 'muleX', role: 'candidate_intermediate', classification: 'propagated_scam', evidence: {}, truncated: false, inconclusive: false },
+        { address: 'depX', role: 'candidate_deposit', gate: 'shared_deposit_exchange_infra', evidence: {}, truncated: false, inconclusive: false },
+      ],
+    })
+    await approveDoc(root, doc, 'ops', 700)
+    expect(await approvedAddressesForCase(root, 'c9')).toEqual(['muleX'])
+  })
+
+  it('legacy roleless approved docs keep feeding every address (back-compat)', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '201-case-c9-bittensor.findings.json') // default findings: mule2, no role
+    await approveDoc(root, doc, 'ops', 700)
+    expect(await approvedAddressesForCase(root, 'c9')).toEqual(['mule2'])
+  })
+
+  it('an unreadable reviewed copy falls back to the decision address list, with a warning', async () => {
+    const root = await ws()
+    const doc = await seedDoc(root, '202-case-c9-bittensor.findings.json')
+    const { reviewedCopy } = await approveDoc(root, doc, 'ops', 700)
+    await rm(reviewedCopy)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(await approvedAddressesForCase(root, 'c9')).toEqual(['mule2'])
+    expect(warn).toHaveBeenCalled()
     warn.mockRestore()
   })
 })
