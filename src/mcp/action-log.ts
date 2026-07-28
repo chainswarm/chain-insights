@@ -84,3 +84,48 @@ export async function appendActionLog(entry: ActionLogEntry): Promise<void> {
     // Intentionally swallowed.
   }
 }
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+// Exported so BOTH client paths log identically: the MCP proxy's remote client
+// and the CLI's own client. They are separate clients, and wiring only one is how
+// an unattended instance ends up with an empty log while the mechanism 'works'.
+export function actionLogSignalsFromResult(result: unknown): { warnings?: string[]; search_limits?: Record<string, unknown> } {
+  const structuredContent = isRecord(result) ? result['structuredContent'] : undefined
+  if (!isRecord(structuredContent)) return {}
+  const warnings = Array.isArray(structuredContent['warnings'])
+    ? (structuredContent['warnings'] as string[])
+    : undefined
+  const input = structuredContent['input']
+  const search_limits = isRecord(input) && isRecord(input['search_limits'])
+    ? (input['search_limits'] as Record<string, unknown>)
+    : undefined
+  return { warnings, search_limits }
+}
+
+type CallToolFn = (...args: never[]) => Promise<unknown>
+
+// Wrap a client's callTool so every invocation is recorded. Returns the client.
+// Idempotent-unsafe: call once per client.
+export function installActionLogging<T extends { callTool: CallToolFn }>(client: T): T {
+  const original = client.callTool.bind(client) as CallToolFn
+  const wrapped = (async (...args: never[]) => {
+    const startedAt = Date.now()
+    const input = (args[0] ?? {}) as { name?: unknown; arguments?: Record<string, unknown> }
+    const tool = String(input.name ?? 'unknown')
+    const toolArgs = input.arguments ?? {}
+    try {
+      const result = await original(...args)
+      const { warnings, search_limits } = actionLogSignalsFromResult(result)
+      await appendActionLog({ timestamp: startedAt, tool, args: toolArgs, outcome: 'ok', duration_ms: Date.now() - startedAt, warnings, search_limits })
+      return result
+    } catch (err) {
+      await appendActionLog({ timestamp: startedAt, tool, args: toolArgs, outcome: 'error', duration_ms: Date.now() - startedAt, error: (err as Error).message })
+      throw err
+    }
+  }) as CallToolFn
+  client.callTool = wrapped as T['callTool']
+  return client
+}

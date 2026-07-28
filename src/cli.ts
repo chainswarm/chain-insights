@@ -72,6 +72,11 @@ async function withGraphMcpClient<T>(name: string, fn: (client: import('@modelco
   const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
   const client = new Client({ name, version: PACKAGE_VERSION })
   await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }))
+  // Every CLI command builds its own client, separate from the MCP proxy's.
+  // Without this, an unattended instance driven by `cia monitor watch` writes
+  // nothing to the action log while the proxy path logs fine.
+  const { installActionLogging } = await import('./mcp/action-log.js')
+  installActionLogging(client)
   try {
     return await fn(client, config)
   } finally {
