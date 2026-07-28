@@ -15,8 +15,9 @@ All notable changes to Chain Insights are recorded here.
 - ci: adopt GitHub Actions bumps: `actions/checkout` 7.0.0 → 7.0.1 (#249),
   `actions/setup-node` 4/6.4.0 → 7.0.0 (#248), `ossf/scorecard-action`
   2.4.3 → 2.4.4 (#247), `github/codeql-action/upload-sarif` 4.37.1 → 4.37.3
-  (#246), `github/codeql-action/analyze` 4.37.1 → 4.37.3 (#245). SHA pins and
-  version comments updated to match.
+  (#246), `github/codeql-action/analyze` 4.37.1 → 4.37.3 (#245); `github/codeql-action/init`
+  is moved to 4.37.3 as well because CodeQL fails when its actions are not all on
+  the same version. SHA pins and version comments updated to match.
 
 ## [0.15.2] - 2026-07-28 — retire dominant_asset/asset_usd_totals from the FLOWS_TO contract
 
