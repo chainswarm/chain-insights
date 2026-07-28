@@ -884,7 +884,7 @@ program
 program
   .command('detect')
   .description(
-    '[internal] Run a relocated detection scan (rbmk#462) — emits reviewable findings, never a direct label. Available: fake-token, mixer, address-poisoning, attack-attribution.',
+    '[internal] Run a relocated detection scan (rbmk#462) — emits reviewable findings, never a direct label. Available: mixer, and the DEPRECATED fake-token, address-poisoning, attack-attribution (these now run on the platform backend and surface as watchlist_label alerts + aml_address_risk).',
   )
   .argument('<detector>', 'Detector id: fake-token | mixer | address-poisoning | attack-attribution')
   .requiredOption('--network <network>', 'Network to scan. Run `cia mcp networks` for supported networks.')
@@ -918,6 +918,9 @@ program
       try {
         const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
         const workspaceRoot = requireWorkspaceRoot()
+        const { deprecationWarning } = await import('./detection/registry.js')
+        const warn = deprecationWarning(detector)
+        if (warn) console.warn(`[detect] DEPRECATED: ${warn}`)
         const { runOneDetection } = await import('./detection/run.js')
         const full = Boolean(opts.full)
         const once = async () => {
