@@ -34,7 +34,7 @@ Consumes (does NOT own):
 - Endpoint precedence: `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` > legacy `GRAPH_MCP_ENDPOINT` > saved `graphMcpEndpoint` > default `http://127.0.0.1:8012/mcp`. `http://` only for loopback or Kubernetes `*.svc.cluster.local` service DNS (`validateMcpEndpoint` in `src/config/mcp-endpoint.ts`); other remote hosts must be `https://`; no credentials/query/fragment in the URL. Hosted staging: `https://staging-mcp.chain-insights.ai/mcp`; production not live yet.
 - Devkit backend exposes ONLY `network_capabilities`/`usage_status`/`graph_query`/`graph_query_batch` at `http://127.0.0.1:18012/mcp` and intentionally tracks production contract: two-graph query timeouts (topology 10s, facts 30s), topology/facts capability sublayers, unmetered usage_status; `USE topology`→Memgraph directly (the unified graph serving all recent and historical topology), `USE facts`→StarRocks via the corpus translator (MemGQL retired). Tier detail is owned by `rbmk-system-knowledge`.
 - The four `cia detect <detector>` scanners read only through `src/detection/graph-client.ts`'s `graph_query` wrapper (never direct warehouse access) and are pure `scan(window, client, network, params) → findings[]` cores (`DetectorScan` in `src/detection/runtime.ts`). All four are parametrized (rbmk#462): each ships a per-network default table layered with operator `--param key=value` overrides, and the effective config is always echoed in the findings document's `threshold_provenance`. Numeric search-bound knobs (attack-attribution's `max_hops`/`max_frontier`/`max_rows`, address-poisoning's `max_rows`, fake-token's `max_pages`/`page_size`) resolve through the shared `config/limits.ts` registry above via `limitFromParams` and reject an out-of-range `--param` with `LimitRangeError` (previously `numParam` accepted any non-negative number with no ceiling — a live way to hang the graph). Non-bounded knobs still use `src/detection/params.ts`'s coercion helpers (`numParam`/`strParam`/`listParam` — malformed numbers fall back to the default, csv lists are trimmed/lowercased). `mixer` (`src/detection/detectors/mixer.ts`) ships per-network default hourglass floors (`MIXER_NETWORK_DEFAULTS`: bittensor 50/50, bittensor_evm 20/20, generic fallback 5/5) with `min_in`/`min_out`/`max_candidates`/`time_scope`/`role_keywords` overrides — none of mixer's knobs moved to the shared registry; its degree-qualified batch scan defaults `time_scope=recent` (live shard only) since node-metric degrees are window-exact, not mergeable across temporal shards. `address-poisoning` ships a per-network dust floor (`POISONING_NETWORK_DEFAULTS`: bittensor and bittensor_evm both 0.0001) with `dust_floor`/`scan_window_days` via `numParam` and `max_rows` via the shared registry (`poisoning_max_rows`). `attack-attribution`'s per-network table (`ATTRIBUTION_NETWORK_DEFAULTS`) now holds only non-numeric taxonomy overrides (`seedLabels`/`boundaryKeywords`, empty today); its `max_hops`/`max_frontier`/`max_rows` are shared-registry knobs (`attribution_max_hops`/`attribution_max_frontier`/`attribution_max_rows`), and the seed override param is `seed_labels` (taxonomy node labels, default `Scam`) — `seed_subtypes` is kept only as a provenance/docs constant (`ATTRIBUTION_SEED_SUBTYPES`), not a live param. `fake-token` has no per-network divergence either (the assets dimension is small everywhere) but exposes `max_pages`/`page_size` as shared-registry knobs (`fake_token_max_asset_pages`/`fake_token_max_rows`).
-- Investigation output stays local in user workspace dirs: `.chain-insights/` (including per-detector-per-network scan checkpoints under `.chain-insights/detectors/`, `src/detection/checkpoint.ts`), `cases/`, `reports/` (`aml_scam_corridor_trace`/`aml_exchange_likeness` findings land under `reports/tables/*.detection-findings.json` via `serializeFindings()`), `artifacts/`, `detections/` (the four `cia detect` scanners' findings JSON, named `<generated_at_timestamp>-<detector>-<network>.findings.json` by `src/detection/emit.ts`).
+- Investigation output stays local in user workspace dirs: `.chain-insights/` (including per-detector-per-network scan checkpoints under `.chain-insights/detectors/`, `src/detection/checkpoint.ts`), `cases/`, `reports/` (`aml_scam_corridor_trace`/`aml_exchange_likeness` findings land under `reports/tables/*.detection-findings.json` via `serializeFindings()`), `artifacts/`, `detections/` (the four `cia detect` scanners' findings JSON, named `<generated_at_timestamp>-<detector>-<network>.findings.json` by `src/detection/emit.ts`), `published/cases/<case_id>/` (monitor case dossiers/notes/timeline rendered by `src/monitor/render/`, e.g. `dossier.md`).
 - Graph app UI resource `ui://chain-insights/graph` is attached to the four `aml_*` tools (`GRAPH_APP_TOOL_NAMES` in `src/mcp/proxy.ts`).
 - Devkit smoke evidence lands under `workspace/devkit-smoke/` and `workspace/devkit-smoke/chain-insights-parity/`.
 
@@ -71,9 +71,56 @@ it.
 
 `cia monitor` (shipped v0.11.x) is the standing-watch surface over the same
 detection machinery: `src/monitor/{runner,tracker,cases,review,alerts,export,
-watchlist,watchlist-run,store,report,config,paths,jsonl}.ts`, wired as the
-`monitor` command group in `src/cli.ts`.
+watchlist,watchlist-run,probe,init,store,report,config,paths,jsonl,atomic,
+lock}.ts` plus the case-render pipeline `src/monitor/render/{index,mermaid,
+trace-io,verdict,dossier,notes}.ts`, wired as the `monitor` command group in
+`src/cli.ts`.
 
+- Two profiles (victim lane, PR #268): `profile: 'operator'` (default) runs
+  the detector cell matrix on `intervalSeconds`; `profile: 'victim'` runs zero
+  detector cells and instead traces its one case only when new activity is
+  observed (`trace_mode` defaults to `on_movement` for this profile,
+  `interval` otherwise — `resolvedProfile`/`resolvedTraceMode` in
+  `src/monitor/config.ts` resolve both so every existing config literal stays
+  type-valid). `cia monitor init victim --case-id --network --seed ...`
+  (`src/monitor/init.ts`) bootstraps a fresh workspace in one command — case
+  first, managed watchlist second, `config.json` last as the commit point, so
+  a crash mid-init never leaves a configured monitor missing its case.
+- Event-driven trace gating (`runMonitorOnce` in `src/monitor/runner.ts`): in
+  `on_movement` mode an open case is traced only if it has no prior
+  `*.snapshot.json`, has `dirty_since_timestamp` set, or `--force-trace` was
+  passed on `cia monitor run`; otherwise the cell records
+  `trace_skipped_reason: 'no_activity'` so a quiet monitor still reads as
+  healthy rather than absent.
+- Activity probe (`src/monitor/probe.ts`, victim lane spec req 4/5): one
+  `graph_query_batch` per distinct watched network for
+  `last_activity_timestamp > $cursor` over every address that network
+  watches; per-shard rows are merged client-side by MAX, and a hit's
+  `source_ref` is `"<address>|<last_activity_timestamp>"`. Per-network cursors
+  persist in the append-only `logs/probe-cursors.jsonl` (last line wins) as a
+  pure cost optimization — dedup against `watchlist_hits` is what actually
+  prevents re-alerts, so a deleted or stale cursor can never fire a duplicate
+  alert. A probe hit on a case-managed watchlist entry calls `markCaseDirty`
+  (`src/monitor/cases.ts`), which is the gate letting `on_movement` mode trace
+  that case in the same pass.
+- Cluster auto-watchlist (`syncManagedWatchlist` in `src/monitor/watchlist.ts`,
+  called from `src/monitor/tracker.ts` after every successful trace, unchanged
+  traces included): refreshes each case's `managed_by: "case:<id>"` watchlist
+  entries to the current corridor (seeds plus candidate intermediates/deposit
+  endpoints), excluding `exchange_terminal` addresses (always active, so
+  watching them would turn the movement tripwire into a constant alarm), and
+  never touching manual entries or entries managed by another case.
+- Case render pipeline (`src/monitor/render/index.ts`'s `renderCase`, wired as
+  the runner's optional `renderCase` hook after the trace pass): on a changed
+  case (sha256 over the latest snapshot, `case.json`, and the case's alert
+  count — `caseRenderKey`) it re-traces both roles over the case seeds and
+  writes `published/cases/<case_id>/dossier.md` (ACTIVE/DORMANT headline from
+  `verdict.ts`, computed from the newest edge `first_seen_timestamp`/
+  `last_seen_timestamp` — epoch milliseconds — against
+  `render.dormant_after_days`, default 30), a bounded mermaid flow, per-address
+  notes, and a timeline; an unchanged case is skipped with
+  `skipped_reason: 'unchanged'`, tracked in
+  `.chain-insights/monitor/render-state.json`.
 - `cia monitor run` is a ONE-SHOT (one pass, exits). Deliberate: one-shot
   idempotent core, never a stateful service. The recommended standing-watch
   pairing is pm2 supervising `cia monitor watch` (`autorestart: true`; `watch`
