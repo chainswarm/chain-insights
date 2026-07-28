@@ -3,7 +3,7 @@ import { appendFile, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promise
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { appendProbeCursor, initialProbeCursor, readProbeCursors } from '../../src/monitor/probe.js'
+import { activityQuery, appendProbeCursor, initialProbeCursor, mergeActivityRows, readProbeCursors } from '../../src/monitor/probe.js'
 import { addCase } from '../../src/monitor/cases.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
 
@@ -64,5 +64,42 @@ describe('probe cursors (victim lane spec req 5)', () => {
   it('initialProbeCursor falls back to NOW when no case on the network was ever traced', async () => {
     const root = await ws()
     expect(await initialProbeCursor(root, 'bittensor', 4242)).toBe(4242)
+  })
+})
+
+describe('activity query + per-shard merge (victim lane spec req 4)', () => {
+  it('builds ONE query over all watched addresses with the strict > $since bound', () => {
+    const q = activityQuery(['5Aaa', '0xAb12'], 12345)
+    expect(q).toContain('USE topology')
+    expect(q).toContain("a.address IN ['5Aaa','0xAb12']")
+    expect(q).toContain('a.last_activity_timestamp > 12345')
+    expect(q).toContain('RETURN a.address AS address, a.last_activity_timestamp AS last_activity_timestamp')
+  })
+
+  it('refuses a non-chain address instead of escaping it', () => {
+    expect(() => activityQuery(["5Aaa' RETURN 1 //"], 0)).toThrow(/not valid chain address/)
+  })
+
+  it('merges per-shard rows by MAX(last_activity_timestamp) per address', () => {
+    const merged = mergeActivityRows([
+      { address: '5Aaa', last_activity_timestamp: 100 },
+      { address: '5Aaa', last_activity_timestamp: 300 },
+      { address: '5Aaa', last_activity_timestamp: 200 },
+      { address: '5Bbb', last_activity_timestamp: 50 },
+    ])
+    expect(merged.get('5Aaa')).toBe(300)
+    expect(merged.get('5Bbb')).toBe(50)
+  })
+
+  it('ignores null/absent/non-numeric per-shard timestamps (spec assumption)', () => {
+    const merged = mergeActivityRows([
+      { address: '5Aaa', last_activity_timestamp: null },
+      { address: '5Aaa' },
+      { address: '5Aaa', last_activity_timestamp: 'soon' },
+      { address: '5Bbb', last_activity_timestamp: null },
+      { address: '5Aaa', last_activity_timestamp: 77 },
+    ])
+    expect(merged.get('5Aaa')).toBe(77)
+    expect(merged.has('5Bbb')).toBe(false)
   })
 })

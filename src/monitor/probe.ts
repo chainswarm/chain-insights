@@ -67,3 +67,41 @@ export async function initialProbeCursor(
   }
   return earliest ?? runTimestamp
 }
+
+// Same allow-list stance as watchlist-run.ts dustQuery: refuse rather than
+// escape — hand-escaping Cypher string literals is how injections happen.
+const SAFE_ADDRESS = /^[A-Za-z0-9]{1,128}$/
+
+/** ONE query per network over all watched addresses (spec req 4). Strict
+ *  `>` on the cursor: rows AT the cursor were already seen. LIMIT bounds a
+ *  pathological fan-out; the source_ref dedup absorbs any truncation. */
+export function activityQuery(addresses: string[], sinceTimestamp: number): string {
+  const unsafe = addresses.filter((a) => !SAFE_ADDRESS.test(a.startsWith('0x') ? a.slice(2) : a))
+  if (unsafe.length > 0) {
+    throw new Error(
+      `watchlist contains ${unsafe.length} address(es) that are not valid chain addresses: ${unsafe.slice(0, 3).map((a) => JSON.stringify(a)).join(', ')}`,
+    )
+  }
+  const list = addresses.map((a) => `'${a}'`).join(',')
+  return `USE topology MATCH (a:Address)
+ WHERE a.address IN [${list}] AND a.last_activity_timestamp > ${sinceTimestamp}
+ RETURN a.address AS address, a.last_activity_timestamp AS last_activity_timestamp
+ LIMIT 500`
+}
+
+/** Thin fan-out federation returns PER-SHARD rows: the same address may
+ *  appear once per shard, some shards with null timestamps. The client —
+ *  never the backend — merges by address taking MAX(last_activity_timestamp)
+ *  and ignoring nulls (spec req 4 + assumption). */
+export function mergeActivityRows(rows: Array<Record<string, unknown>>): Map<string, number> {
+  const merged = new Map<string, number>()
+  for (const row of rows) {
+    const address = row.address
+    const ts = row.last_activity_timestamp
+    if (typeof address !== 'string' || address.length === 0) continue
+    if (typeof ts !== 'number' || !Number.isFinite(ts)) continue
+    const prev = merged.get(address)
+    if (prev === undefined || ts > prev) merged.set(address, ts)
+  }
+  return merged
+}
