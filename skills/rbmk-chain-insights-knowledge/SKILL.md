@@ -72,9 +72,9 @@ it.
 `cia monitor` (shipped v0.11.x) is the standing-watch surface over the same
 detection machinery: `src/monitor/{runner,tracker,cases,review,alerts,export,
 watchlist,watchlist-run,probe,init,store,report,config,paths,jsonl,atomic,
-lock}.ts` plus the case-render pipeline `src/monitor/render/{index,mermaid,
-trace-io,verdict,dossier,notes}.ts`, wired as the `monitor` command group in
-`src/cli.ts`.
+lock,closable}.ts` plus the case-render pipeline `src/monitor/render/{index,
+mermaid,trace-io,verdict,dossier,notes}.ts`, wired as the `monitor` command
+group in `src/cli.ts`.
 
 - Two profiles (victim lane, PR #268): `profile: 'operator'` (default) runs
   the detector cell matrix on `intervalSeconds`; `profile: 'victim'` runs zero
@@ -153,7 +153,32 @@ trace-io,verdict,dossier,notes}.ts`, wired as the `monitor` command group in
   NOT queued as pending review work (PR #233).
 - Review is the only path to a label: approve writes a reviewer-stamped COPY
   under `detections/reviewed/`; the original findings document is never
-  modified; `export labels` reads approved decisions only.
+  modified. `cia monitor export labels` (`src/monitor/export.ts`) emits the
+  frozen `chain-insights.curated-labels.v1` schema (`CURATED_LABELS_SCHEMA`)
+  from effective approve decisions only, one row per (address, label) with
+  columns `address,network,label,case_id,decision_id,doc_ref,
+  decided_at_timestamp,reviewer`; case-doc roles map `seed`→`scam_seed`,
+  `candidate_intermediate`→`mule`, `candidate_deposit`→`deposit_endpoint`
+  (`ROLE_LABELS`, keyed off `CASE_CLUSTER_ROLES` in
+  `src/investigation/detection-findings.ts`; an unknown role is skipped with a
+  warning), while lane-A detector docs keep their own classification as the
+  label with an empty `case_id`; `decision_id` is the content-addressed
+  decision filename stem so downstream importers can dedup full-snapshot
+  re-exports.
+- A scam-topology case becomes closable (`caseClosableStatus` in
+  `src/monitor/closable.ts`, surfaced by `cia monitor status`) once it has
+  ≥1 effective approve decision (`labeled`) AND its `managed_by:
+  "case:<id>"` watchlist entries have recorded no activity-probe hit within
+  `render.dormant_after_days` (`dormant`); both conditions are computed from
+  canonical files only (decisions, `watchlist.json`,
+  `logs/watchlist-hits.jsonl`), so the status is correct even against a
+  freshly rebuilt store. Closing remains a human action — `closeCase`
+  (`src/monitor/cases.ts`) deliberately KEEPS the case's managed watchlist
+  entries as the post-close dormancy tripwire instead of pruning them. A
+  later activity hit on a managed entry of a closed case fires a
+  `case_reactivated` alert (`reactivationAlerts` in
+  `src/monitor/watchlist-run.ts`, deduped via the canonical watchlist-hits
+  log, naming the case and address); there is no auto-reopen.
 - Shipped skill `chain-insights-monitoring` (plus
   `references/pm2-scheduling.md`) is the agent-facing surface; `docs/
   monitoring.md` is the human one. Keep both in step with any monitor change —
