@@ -6,7 +6,7 @@ import path from 'node:path'
 import { mkdir, writeFile } from 'node:fs/promises'
 import type { MonitorCase } from '../cases.js'
 import type { TraceV1Doc, TraceV1Address } from './trace-io.js'
-import { toSeconds, type CaseVerdict } from './verdict.js'
+import type { CaseVerdict } from './verdict.js'
 import { publishedCaseDir } from './notes.js'
 
 export interface DossierInput {
@@ -25,8 +25,8 @@ function cell(text: string): string {
   return text.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
 }
 
-function utcDate(ts: number): string {
-  return new Date(toSeconds(ts) * 1000).toISOString().slice(0, 10)
+function utcDate(tsMs: number): string {
+  return new Date(tsMs).toISOString().slice(0, 10)
 }
 
 /** Traced value grouped by terminal endpoint class over docs[].paths:
@@ -83,7 +83,7 @@ export function renderDossier(input: DossierInput): string {
   lines.push(`- Type: ${monitorCase.type}`)
   lines.push(`- Status: ${monitorCase.status}`)
   lines.push(`- Seeds: ${monitorCase.seeds.map(cell).join(', ')}`)
-  lines.push(`- Generated: ${new Date(toSeconds(generatedAtTimestamp) * 1000).toISOString()}`)
+  lines.push(`- Generated: ${new Date(generatedAtTimestamp).toISOString()}`)
   if (verdict.lastMovementTimestamp !== null) lines.push(`- Last movement: ${utcDate(verdict.lastMovementTimestamp)}`)
   lines.push('')
 

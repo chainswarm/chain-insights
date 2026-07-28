@@ -6,28 +6,22 @@ import type { TraceV1Doc } from './trace-io.js'
 
 export interface CaseVerdict {
   status: 'active' | 'dormant'
-  /** Newest movement timestamp (seconds) across all traced edges; null when
-   *  no traced edge carries a timestamp. */
+  /** Newest movement timestamp (epoch milliseconds) across all traced edges;
+   *  null when no traced edge carries a timestamp. */
   lastMovementTimestamp: number | null
   /** Headline line for the dossier, e.g. "ACTIVE (last movement 2026-07-20)"
    *  or "DORMANT since 2026-06-01". */
   headline: string
 }
 
-function utcDate(ts: number): string {
-  return new Date(toSeconds(ts) * 1000).toISOString().slice(0, 10)
-}
+const DAY_MS = 86_400_000
 
-/** Timestamps arrive in mixed units: trace edges and render `nowTimestamp`
- *  are seconds, while monitor case/run documents carry milliseconds
- *  (`created_at_timestamp`). Anything past ~5138-11 in seconds is treated as
- *  milliseconds. */
-export function toSeconds(ts: number): number {
-  return ts > 1e11 ? Math.round(ts / 1000) : ts
+function utcDate(tsMs: number): string {
+  return new Date(tsMs).toISOString().slice(0, 10)
 }
 
 /** Newest of first_seen_timestamp/last_seen_timestamp over every edge of every
- *  provided doc. Pure. */
+ *  provided doc. All `_timestamp` fields are epoch milliseconds. Pure. */
 export function lastMovementTimestamp(docs: TraceV1Doc[]): number | null {
   let newest: number | null = null
   for (const doc of docs) {
@@ -48,7 +42,7 @@ export function computeVerdict(
 ): CaseVerdict {
   const last = lastMovementTimestamp(docs)
   // Boundary rule: age exactly equal to the threshold is DORMANT.
-  if (last !== null && toSeconds(nowTimestamp) - toSeconds(last) < dormantAfterDays * 86400) {
+  if (last !== null && nowTimestamp - last < dormantAfterDays * DAY_MS) {
     return { status: 'active', lastMovementTimestamp: last, headline: `ACTIVE (last movement ${utcDate(last)})` }
   }
   if (last === null) {
