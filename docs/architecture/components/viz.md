@@ -1,10 +1,8 @@
-<!-- gsd: deterministic header -->
 Worker: viz
 Entrypoint: src/viz
 Package: viz
 Language: typescript
 Tests: (none detected)
-<!-- /gsd: deterministic header -->
 
 # viz
 

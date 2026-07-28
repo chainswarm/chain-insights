@@ -1,10 +1,8 @@
-<!-- gsd: deterministic header -->
 Worker: server
 Entrypoint: src/server
 Package: server
 Language: typescript
 Tests: (none detected)
-<!-- /gsd: deterministic header -->
 
 # server
 

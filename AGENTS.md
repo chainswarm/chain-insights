@@ -23,6 +23,16 @@ risk screening, fund-flow tracing, local case evidence, and graph reports.
 - CLI entry points: `bin/cli.js` and `bin/mcp-proxy.cjs`.
 - Source lives under `src/`; tests live under `tests/`; built output lives
   under `dist/`.
+- `bin/cli.js` is a CJS shim that dynamically imports `dist/cli.mjs` — it
+  never reads `src/` directly. `dist/` is gitignored and does not
+  auto-rebuild, so after ANY `src/` change, run `npm run build` before
+  testing via `cia`/`bin/cli.js` interactively, or you will silently run
+  stale compiled behavior with no error (found live 2026-07-09: a stale
+  `dist/cli.mjs` built before the address-grain revert's resolve-logic fix
+  landed kept doing `:Identity`-based seed resolution against a graph with
+  zero `:Identity` nodes — every trace failed as "unresolved" with no
+  indication `dist/` itself was the problem, not the data). `npm test`
+  does not rebuild `dist/` either — only `npm run build` does.
 - Before finishing changes, run:
   - `npm run typecheck`
   - `npm run build`

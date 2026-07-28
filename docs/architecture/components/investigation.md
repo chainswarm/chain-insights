@@ -1,10 +1,8 @@
-<!-- gsd: deterministic header -->
 Worker: investigation
 Entrypoint: src/investigation
 Package: investigation
 Language: typescript
 Tests: (none detected)
-<!-- /gsd: deterministic header -->
 
 # investigation
 

@@ -12,6 +12,10 @@ name: Docs
 # fine, which is what this vendored copy does. Logic below is inlined
 # from chainswarm/rbmk/.github/workflows/docs-reusable.yml; if that file
 # changes, re-sync this one by hand.
+#
+# Slimmed 2026-07-28 (docs-layer rework): the gsd architecture generator
+# and the knowledge-skill autorefresh are retired. Architecture docs are
+# human-authored; CI only lints the README and renders C4 diagrams.
 
 on:
   push:
@@ -84,35 +88,6 @@ jobs:
           DIAGRAM_REPO_ROOT: ${{ github.workspace }}
         run: bash .rbmk/scripts/devops/render-architecture-diagrams.sh
 
-      - name: Generate GSD architecture bundle (ARCHITECTURE.md, links rendered diagrams)
-        # Runs AFTER render so the C4 Diagrams section links the freshly-rendered SVGs.
-        run: python3 .rbmk/scripts/devops/generate-gsd-architecture.py --single-repo-root "$GITHUB_WORKSPACE"
-
-      - name: Ensure claude CLI is on PATH
-        # claude CLI is installed per-machine by the operator (same as
-        # codex/composer -- see rbmk's moa-pr-review-reusable.yml's
-        # equivalent step), typically under ~/.local/bin via a symlink
-        # into ~/.claude/. The installer only updates .bashrc for future
-        # interactive shells, not the current or later job steps, so this
-        # just persists the known location to $GITHUB_PATH. If a runner
-        # machine hasn't been bootstrapped yet, this is a no-op and the
-        # next step fails loudly with "claude: command not found" rather
-        # than silently.
-        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
-      - name: Refresh knowledge skill (validated, direct-commit)
-        # The proposing agent has Read/Grep/Glob only (--tools, --safe-mode)
-        # — it can look at the repo and the commit log since the skill was
-        # last touched, but it can only emit text, never write a file. A
-        # deterministic validator (validate-knowledge-skill-proposal.py)
-        # checks the proposal before anything touches disk, and an
-        # isolation check confirms nothing else changed. See rbmk's
-        # docs/architecture/decisions/2026-07-05-knowledge-skill-autorefresh.md
-        # for the two cross-model review rounds (one `stop`, one `revise`)
-        # this design went through before landing here.
-        if: always()
-        run: python3 .rbmk/scripts/devops/refresh-knowledge-skill.py --repo-root "$GITHUB_WORKSPACE"
-
       - name: Commit generated docs back to the repo
         run: |
           rm -rf .rbmk
@@ -122,37 +97,16 @@ jobs:
           # web refuses to inline-render repo SVGs), so the PNG must be tracked or
           # the embed 404s. SVG/puml in the same tree are added either way.
           git add -f docs/architecture/diagrams/rendered 2>/dev/null || true
-          # generate-gsd-architecture.py also writes two paths outside
-          # docs/architecture: it rewrites the `<!-- gsd: workers -->` region
-          # of README.md (inject_readme_worker_table) and scaffolds
-          # docs/acceptance/<component>.md for newly-discovered components
-          # (scaffold_acceptance_docs). Both are legitimate generated content
-          # meant to land in this same commit, not accidental noise -- stage
-          # them explicitly by exact path (never a blanket stage-everything
-          # add). Found live in production (chainswarm/indexer-ln, run
-          # 28753502077): the
-          # commit step staged 18 docs/architecture files and committed
-          # successfully, but the subsequent `git pull --rebase` failed with
-          # "You have unstaged changes" because a run that discovered new
-          # components left README.md's worker table modified and new
-          # docs/acceptance/*.md files untracked -- neither covered by the
-          # git add calls above. Reproduced locally against the same repo
-          # checkout: `git status --short` after generate-gsd-architecture.py
-          # showed exactly ` M README.md` plus `?? docs/acceptance/*.md`.
-          git add README.md 2>/dev/null || true
-          git add docs/acceptance 2>/dev/null || true
-          # Stage the knowledge skill only if the refresh step actually
-          # changed it — never a bare `git add skills/` or `git add -A`.
-          if [ -n "$(git status --porcelain -- 'skills/rbmk-*-knowledge/SKILL.md' 2>/dev/null)" ]; then
-            git add -- 'skills/rbmk-*-knowledge/SKILL.md'
-          fi
+          # (No README/docs-acceptance/knowledge-skill staging: the gsd
+          # generator and knowledge-skill autorefresh are retired; only
+          # docs/architecture + rendered diagrams are produced by CI.)
           if git diff --cached --quiet; then
             echo "No docs/architecture changes to commit."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -m "docs: regenerate architecture via rbmk docs subsystem [skip ci]"
+          git commit -m "docs: render architecture diagrams via rbmk docs subsystem [skip ci]"
 
           push_attempt() {
             git pull --rebase origin "${GITHUB_REF_NAME}" && \

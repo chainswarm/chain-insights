@@ -3,6 +3,29 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.15.4] - 2026-07-28 — docs: knowledge layer migration — skill into docs, README to standard
+
+- docs: migrate the retired repo knowledge skill into authored docs:
+  new `docs/architecture/data-contracts.md` (tool surface, search limits,
+  endpoint rules, shared-graph model, detection scanner contract, devkit
+  contract) and `docs/architecture/operating-rules.md` (repo invariants,
+  findings rules, CI gotchas, method ownership); the stub
+  `docs/architecture/components/monitor.md` and `detection.md` are now
+  fully authored from the same source.
+- docs: rewrite `README.md` to the RBMK 11-section standard (purpose,
+  boundaries, dependencies, architecture, setup, run, configure, test,
+  debug, release, links); the generated workers marker region is replaced
+  by a hand-maintained module table.
+- docs: remove all `<!-- gsd: ... -->` generation markers; architecture
+  docs are human-authored from here on.
+- ci: slim the vendored `docs.yml` to match the rbmk docs-reusable
+  slim-down — the gsd architecture generator, the claude CLI step, and the
+  knowledge-skill autorefresh are retired; the README lint and C4 render
+  steps stay.
+- chore: delete the retired knowledge skill directory. No shipped product
+  skill (`chain-insights-*`, `ci-status`, `test-chain-insights-graph`) is
+  touched.
+
 ## [0.15.3] - 2026-07-28 — adopt dependabot batch 2026-07-28 (10 PRs)
 
 - chore(deps): adopt the mcp-and-payments group (#266): `@modelcontextprotocol/ext-apps`
