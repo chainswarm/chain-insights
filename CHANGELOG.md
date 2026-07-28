@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.15.2] - 2026-07-28 — retire dominant_asset/asset_usd_totals from the FLOWS_TO contract
+
+- chore: `dominant_asset` and `asset_usd_totals` are address-level features
+  computed on demand, not FLOWS_TO edge payload — the data-pipeline write path
+  no longer writes them, so the advertised MCP schema text (`proxy.ts`,
+  `init.ts`, the chain-insights-cypher skill) stops listing them and the
+  dormant `dominant_asset` constituent-merge rule is dropped from the
+  federation client merge. Keeping them in the schema text advertised fields
+  that queries would never return, which is worse than a shorter schema: agents
+  write queries against what the schema promises.
+
 ## [0.15.1] - 2026-07-28 — the action log now records CLI tool calls, not just proxy ones
 
 - fix: the action log was installed only on the MCP proxy's remote client. Every
