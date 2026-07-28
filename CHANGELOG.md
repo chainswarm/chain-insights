@@ -3,6 +3,37 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.14.0] - 2026-07-28 — victim lane & event-driven tracing
+
+- feat: monitor config gains `profile: "operator" | "victim"` and
+  `trace_mode: "interval" | "on_movement"` (absent profile = operator;
+  resolved default interval for operator, on_movement for victim); detector
+  `cells` may now be empty.
+- feat: event-driven tracing — in on_movement mode `traceCase` runs only for
+  never-traced (bootstrap), probe-marked-dirty, or forced cases
+  (`monitor render --force`, new `monitor run --force-trace`); skipped cases
+  record `trace_skipped_reason: "no_activity"` in the run document.
+- feat: cluster auto-watchlist — every successful trace upserts the case's
+  cluster (seeds, intermediates, deposit endpoints; never exchanges) as
+  `managed_by: "case:<id>"` watchlist entries, refreshing and pruning per
+  trace; manual entries are never touched and case close keeps managed
+  entries.
+- feat: watchlist activity probe — one graph query per network over all
+  watched addresses on `Address.last_activity_timestamp` (epoch ms),
+  per-shard rows merged client-side by MAX ignoring nulls; hits land in
+  `logs/watchlist-hits.jsonl` with trigger `activity` and source_ref
+  `<address>|<last_activity_timestamp>`, emit `watchlist_activity` alerts,
+  and mark the owning case dirty. Per-network cursors persist in append-only
+  `logs/probe-cursors.jsonl` (last line wins, initialized at the case's
+  first trace, rebuild-safe).
+- feat: `cia monitor init victim --case-id --network --seed... [--note]`
+  bootstraps a victim workspace (minimal config, case, managed seed
+  watchlist) and refuses when a monitor config already exists.
+- docs: `docs/monitoring.md` restructured victim-first.
+- devkit: monitor smoke covers the victim profile — bootstrap trace, then
+  steady-state `no_activity` skip on the static fixture (147 pass, 0 fail
+  live).
+
 ## [0.13.3] - 2026-07-28 — devkit U6 snapshot-on-change
 
 - test: monitor smoke U6 asserts the snapshot-on-change contract (no second
