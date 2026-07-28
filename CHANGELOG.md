@@ -3,44 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
-## [0.14.0] - 2026-07-28 — victim lane, event-driven tracing & case -> label lifecycle
+## [0.14.1] - 2026-07-28 — scam-topology case -> label lifecycle
 
-- feat: monitor config gains `profile: "operator" | "victim"` and
-  `trace_mode: "interval" | "on_movement"` (absent profile = operator;
-  resolved default interval for operator, on_movement for victim); detector
-  `cells` may now be empty.
-- feat: event-driven tracing — in on_movement mode `traceCase` runs only for
-  never-traced (bootstrap), probe-marked-dirty, or forced cases
-  (`monitor render --force`, new `monitor run --force-trace`); skipped cases
-  record `trace_skipped_reason: "no_activity"` in the run document.
-- feat: cluster auto-watchlist — every successful trace upserts the case's
-  cluster (seeds, intermediates, deposit endpoints; never exchanges) as
-  `managed_by: "case:<id>"` watchlist entries, refreshing and pruning per
-  trace; manual entries are never touched and case close keeps managed
-  entries.
-- feat: watchlist activity probe — one graph query per network over all
-  watched addresses on `Address.last_activity_timestamp` (epoch ms),
-  per-shard rows merged client-side by MAX ignoring nulls; hits land in
-  `logs/watchlist-hits.jsonl` with trigger `activity` and source_ref
-  `<address>|<last_activity_timestamp>`, emit `watchlist_activity` alerts,
-  and mark the owning case dirty. Per-network cursors persist in append-only
-  `logs/probe-cursors.jsonl` (last line wins, initialized at the case's
-  first trace, rebuild-safe).
-- feat: `cia monitor init victim --case-id --network --seed... [--note]`
-  bootstraps a victim workspace (minimal config, case, managed seed
-  watchlist) and refuses when a monitor config already exists.
-- docs: `docs/monitoring.md` restructured victim-first.
-- devkit: monitor smoke covers the victim profile — bootstrap trace, then
-  steady-state `no_activity` skip on the static fixture (147 pass, 0 fail
-  live).
 - feat: `cia monitor export labels` emits the frozen
   `chain-insights.curated-labels.v1` contract — one row per (address, label)
   from approved docs with columns
   `address,network,label,case_id,decision_id,doc_ref,decided_at_timestamp,reviewer`.
   Case-doc roles map seed -> `scam_seed`, candidate_intermediate -> `mule`,
   candidate_deposit -> `deposit_endpoint`; unknown roles are skipped with a
-  warning; lane-A detector docs keep their classification as the label with
-  an empty case_id. `decision_id` is the content-addressed decision filename
+  warning; detector docs keep their classification as the label with an
+  empty case_id. `decision_id` is the content-addressed decision filename
   stem, so downstream importers can dedup full-snapshot re-exports.
 - feat: case findings docs carry per-address cluster roles — the bootstrap
   trace writes the full initial cluster (seeds included) for review; later
@@ -55,9 +27,34 @@ All notable changes to Chain Insights are recorded here.
   the canonical watchlist-hits log) fires when an activity hit lands on a
   managed entry of a CLOSED case, naming the case and address. No
   auto-reopen.
-- devkit: monitor smoke asserts the curated-labels envelope, the
-  role-carrying bootstrap cluster doc with seed-role approval semantics
-  (U8), and close-keeps-tripwire (PHASE L) (160 pass, 0 fail live).
+- devkit: monitor smoke asserts the curated-labels envelope and provenance
+  columns, the reworked U8 role-typed bootstrap doc, and a new close-keeps-
+  tripwire phase.
+
+## [0.14.0] - 2026-07-28 — victim lane & event-driven tracing
+
+- feat: monitor config gains `profile: "operator" | "victim"` and
+  `trace_mode: "interval" | "on_movement"` (absent profile = operator;
+  resolved default interval for operator, on_movement for victim); detector
+  `cells` may now be empty.
+- feat: event-driven tracing — in on_movement mode `traceCase` runs only for
+  never-traced (bootstrap), probe-marked-dirty, or forced cases
+  (`monitor render --force`, new `monitor run --force-trace`); skipped cases
+  record `trace_skipped_reason: "no_activity"` in the run document.
+- feat: cluster auto-watchlist — every successful trace upserts the case's
+  cluster (seeds, intermediates, deposit endpoints; never exchanges) as
+  `managed_by: "case:<id>"` watchlist entries, refreshing and pruning per
+  trace; manual entries are never touched and case close keeps managed
+  entries.
+- feat: activity probe — one cheap query per network over all watched
+  addresses on `last_activity_timestamp > cursor` with per-shard MAX merge;
+  hits are canonical (rebuild-safe), emit `watchlist_activity` alerts, and
+  mark the owning case dirty. Probe cursors live in append-only
+  `logs/probe-cursors.jsonl`.
+- feat: `cia monitor init victim --case-id <id> --network <net> --seed
+  <addr...>` one-shot victim bootstrap (refuses to clobber an existing
+  monitor config); `monitor status` is profile-aware.
+- docs: `docs/monitoring.md` restructured victim-first.
 
 ## [0.13.3] - 2026-07-28 — devkit U6 snapshot-on-change
 
