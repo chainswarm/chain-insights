@@ -1,10 +1,8 @@
-<!-- gsd: deterministic header -->
 Worker: mcp
 Entrypoint: src/mcp
 Package: mcp
 Language: typescript
 Tests: (none detected)
-<!-- /gsd: deterministic header -->
 
 # mcp
 

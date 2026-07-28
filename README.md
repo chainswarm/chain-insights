@@ -3,14 +3,43 @@
 [Website](https://chain-insights.ai) | [npm](https://www.npmjs.com/package/chain-insights)
 
 Chain Insights is an open-source AML investigation toolkit for AI agents and
-analysts. Install it from npm to screen blockchain addresses, trace role-specific
-fund flows, manage workspace evidence, and generate graph reports.
+analysts. It screens blockchain addresses, traces fund flows, manages local
+evidence workspaces, and generates graph reports.
 
-Graph access is configuration-driven. The package defaults to a local Chain
-Insights Graph endpoint for development; hosted endpoints are set explicitly with
-`graphMcpEndpoint` or `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT`.
+## Purpose And Ownership
 
-## What You Can Do Today
+One public npm package (`chain-insights`) providing the `cia` CLI and a
+stdio MCP proxy over a Chain Insights Graph endpoint.
+
+Owning group: chainswarm org, infra group.
+
+## What It Does
+
+Owns:
+
+- The `cia` / `chain-insights` CLI and the `chain-insights-mcp-proxy` MCP
+  server (source under `src/`).
+- The canonical public tool surface: prefixed `aml_*` / `graph_*` / `meta_*`
+  / `wallet_*` tools.
+- Local wallet and x402 payment on Base mainnet (payment chain only).
+- Investigation workspaces, graph reports, and visualization.
+- `cia monitor`: standing-watch detector sweeps and case tracking.
+- `cia detect`: internal findings scanners (fake tokens, address poisoning,
+  mixer likeness, attack attribution).
+- Shipped product skills under `skills/` (`chain-insights-*`), packaged
+  into the npm tarball.
+- The local Bittensor graph devkit under `devkit/`.
+
+Never touches:
+
+- Blockchain indexing, graph database storage, or graph serving — those
+  belong to the Chain Insights Graph backend.
+- Automatic risk labeling. A finding becomes a label only through human
+  review (`cia monitor review`).
+- Custodial wallets or hosted case databases. Investigation data stays in
+  the local workspace unless the operator exports it.
+
+### What You Can Do Today
 
 | Tool | Use it for |
 | --- | --- |
@@ -24,264 +53,16 @@ Insights Graph endpoint for development; hosted endpoints are set explicitly wit
 | `meta_usage_status` | Check the caller's daily free-tier graph query allowance |
 | `wallet_balance` | Show the local payment wallet amount |
 
-## Quick Start
-
-Install from npm:
-
-```bash
-npm install -g chain-insights
-```
-
-Check the CLI:
-
-```bash
-cia --version
-cia update --check
-```
-
-Run `cia update` to update a global npm install from the public npmjs registry.
-`cia init` also checks for a newer npm release in interactive terminals and
-prompts before updating.
-
-From a local checkout:
-
-```bash
-npm install
-npm run build
-npm install -g .
-cia --version
-```
-
-Create an investigation workspace:
-
-```bash
-mkdir -p ./chain-insights-investigations
-cd ./chain-insights-investigations
-cia init .
-```
-
-Chain Insights workspaces are plain local folders. Use any editor or agent
-tooling you want to inspect workspace files, graph reports, artifacts, and
-published outputs.
-
-## Configure Chain Insights Graph Endpoint
-
-`cia` uses `graphMcpEndpoint` for all Chain Insights Graph calls. The npm
-package does not hardcode a hosted endpoint. Configure the endpoint explicitly for the
-environment you intend to use.
-
-Local development endpoint (default):
-
-```bash
-cia config set graphMcpEndpoint http://127.0.0.1:8012/mcp
-```
-
-For a deterministic local Bittensor backend, use the RBMK-managed devkit
-runbook and point Chain Insights at it persistently:
-
-```bash
-cia debug on --token <any-string> --endpoint http://127.0.0.1:18012/mcp
-```
-
-The devkit backend is unmetered and never issues a paid challenge, so
-`cia config set graphMcpEndpoint http://127.0.0.1:18012/mcp` alone also works;
-`debug on` just skips payment negotiation outright.
-
-Hosted staging endpoint for approved testers:
-
-```bash
-cia config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
-```
-
-For now, use the staging endpoint only for tester activation. Production is not
-live yet.
-
-Hosted access also needs an access mode, such as an approved access key or a
-prepared wallet. Keep those credentials out of README examples; setup commands
-live in [MCP proxy](docs/mcp-proxy.md). For paid access, run
-`cia wallet ready`; it checks funding and finishes one-time payment setup.
-
-Optional one-shot override from the environment:
-
-```bash
-export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://staging-mcp.chain-insights.ai/mcp
-```
-
-Validation rules:
-
-- `http://` is accepted only for `localhost` / loopback addresses.
-- Remote hosts must use `https://`.
-- Endpoint URLs with credentials, query strings, or fragments are rejected.
-
-Configuration precedence for `graphMcpEndpoint`:
-
-1. `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` env var (`GRAPH_MCP_ENDPOINT` legacy alias also supported)
-2. `cia config set graphMcpEndpoint ...` saved value
-3. Local default `http://127.0.0.1:8012/mcp`
-
-Check the configured endpoint and current Chain Insights Graph capabilities:
-
-```bash
-cia config get graphMcpEndpoint
-cia mcp networks
-cia mcp call meta_usage_status
-cia mcp tools --refresh
-```
-
-If network or tool discovery fails, check the endpoint and access mode first.
-The CLI can still initialize workspaces and continue investigation workflow
-without a reachable Chain Insights Graph endpoint.
-
-Hosted Chain Insights Graph includes a small public free tier for `graph_query`
-before paid access is required. The default public free tier is 10 execution seconds
-per IP per UTC day. Use `meta_usage_status` to see the current caller allowance.
-Prepared wallet users receive the daily free tier first, then paid access
-continues automatically after the allowance is exhausted.
-If you do not have a prepared wallet yet, use bounded single `graph_query`
-calls within the free tier, then prepare a wallet or use an invited tester
-access key when the allowance is exhausted.
-
-Run a focused investigation in the initialized workspace:
-
-```bash
-cia init .
-
-cia mcp trace-victim-funds \
-  --network bittensor \
-  --victim-addresses 5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5
-```
-
-Then inspect:
-
-```bash
-find reports -maxdepth 3 -type f | sort
-```
-
-## Export Only When Sharing
-
-Normal local work happens in the workspace. Export only when you need
-to share, hand it off to a partner, ingest into LLM Wiki, or archive a
-review checkpoint.
-
-```bash
-# Use your configured workspace export flow to produce the handoff package.
-published/<workspace-slug>/
-```
-
-Workspace-generated reports, graph JSON, graph HTML, and published bundles live
-under the initialized workspace. Treat those files as the durable handoff
-surface.
-
-## Examples
-
-Run a direct topology query:
-
-```bash
-cia mcp call graph_query \
-  network=bittensor \
-  "query=USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level LIMIT 10"
-```
-
-Run a batch across graph views:
-
-```bash
-cia mcp call graph_query_batch \
-  network=bittensor \
-  'queries=[{"id":"count","query":"USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"flows","query":"USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 3"},{"id":"linked","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"},{"id":"node_metrics","query":"USE topology MATCH (a:Address {address:\"FULL_ADDRESS\"}) RETURN a.address AS address, a.tx_out_count AS tx_out_count, a.tx_in_count AS tx_in_count LIMIT 1"},{"id":"facts_transfers","query":"USE facts MATCH (from:Address {address:\"FULL_ADDRESS\"})-[t:TRANSFER]->(to:Address) RETURN to.address AS to_address, t.tx_id AS tx_id, t.amount_usd AS amount_usd LIMIT 3"}]'
-```
-
-For no-wallet public free-tier usage, prefer the single-query example first.
-Batch calls reserve worst-case execution time and can ask for paid access even
-when a small free allowance remains.
-
-Run suspect topology without requiring an incident timestamp:
-
-```bash
-cia mcp trace-suspect-funds \
-  --network bittensor \
-  --suspect-addresses 5... \
-  --max-hops 16
-```
-
-## How It Fits Together
-
-```text
-Agent or CLI user
-  -> Chain Insights CLI / MCP proxy
-  -> local config, wallet, workspace, artifacts, reports
-  -> Chain Insights Graph
-  -> graph intelligence for AML workflows
-```
-
-Chain Insights stores investigation outputs in initialized local workspaces.
-Chain Insights Graph performs graph-language reads against network-specific
-layers.
-
-## Graph Access
-
-Graph queries must choose the right read graph explicitly:
-
-| Graph | Use it for |
-| --- | --- |
-| `topology` | The unified address / FLOWS_TO / LINKED graph — recent and full historical fund-flow traversal in one place, plus the node `risk_score`/`risk_level` verdict |
-| `facts` | Labels, features, assets, and enrichment |
-
-Use `graph_query_batch` when related reads should share one call and one
-result envelope. Use explicit `LIMIT` and pagination in your query when you
-want bounded result sets. Endpoint access and authentication are configured
-separately; see [MCP proxy](docs/mcp-proxy.md).
-
-Agent installs include `chain-insights-cypher` for generic layer-aware
-GQL/Cypher work and `chain-insights-bittensor-cypher` for Bittensor-specific
-schema notes and examples.
-
-One rule is worth reading before you write a query by hand: a chain's address
-spaces (for Bittensor, native SS58 and EVM-pallet `0x…`) are **two views over
-one address-grain topology graph**, separated by the `:Address.network` node
-property. The `network` argument selects the graph, not the addresses inside
-it, so a `USE topology` match on `:Address` without an exact address must scope
-itself with `WHERE a.network = "..."`. On `USE facts` the opposite holds: each
-network has its own backing database and `Address` carries no `network`
-property at all. See
-[Graph query compatibility](docs/graph-query-compatibility.md).
-
-## AML Tools
-
-The high-level AML tools are Chain Insights workflows built around graph access
-and local workspace state:
-
-- `aml_address_risk` starts a single-address screen with risk, behavior,
-  neighborhood context, and exchange exposure.
-- `aml_trace_victim_funds` traces victim/source funds forward through
-  intermediaries to exchange deposit candidates.
-- `aml_trace_deposit_sources` traces backward from suspected deposit/cashout
-  addresses to upstream sources and shared-source convergence.
-- `aml_trace_suspect_funds` traces suspected scammer, mule, operator, or
-  laundering-ring funds forward to cashout topology.
-
-AML tools accept full blockchain addresses directly and return blockchain
-addresses as the public result surface — the graph is address-grain, so there
-is no identity-resolution step.
-
-The three trace tools share `chain-insights.trace.v1` and return compact,
-chainable results. Full graph/table/report artifacts remain on disk under the
-workspace, with pointers in the tool result and workspace evidence.
-
-Trace traversal treats exchange hot wallets as terminal endpoints only. Tools do
-not expand through exchange nodes or classify them as deposit, suspect, or
-intermediate candidates.
-
-When investigation output is large, tools can save compact evidence pointers and
-graph reports under the workspace instead of embedding large payloads in human
-notes.
-
-## Continuous Monitoring
-
-`cia monitor` turns one-shot investigation into a standing watch. Instead of an
-analyst re-running each check by hand, Chain Insights re-runs the sweeps and
-case traces on a schedule, diffs each result against the last, and surfaces the
-difference — while every result stays a plain file in the workspace, and
-nothing becomes a label until a human approves it.
+The three trace tools share the `chain-insights.trace.v1` schema and return
+compact, chainable results. Full artifacts stay on disk under the
+workspace. Trace traversal treats exchange hot wallets as terminal
+endpoints only.
+
+### Continuous Monitoring
+
+`cia monitor` turns one-shot investigation into a standing watch. It
+re-runs sweeps and case traces on a schedule, diffs each result against the
+last, and surfaces the difference.
 
 | Command | What it does |
 | --- | --- |
@@ -295,62 +76,57 @@ nothing becomes a label until a human approves it.
 | `cia monitor alerts` | List and acknowledge alerts; optional webhook and exec sinks |
 | `cia monitor export labels` | Export reviewer-approved findings as curated labels |
 
-Get a first pass in two commands:
+Three things to know before scheduling it:
 
-```bash
-cia init .
-cia monitor run
+- **`cia monitor run` is a one-shot.** One pass, then exit. Under pm2,
+  `autorestart: false` is mandatory for one-shot runs — otherwise pm2 reads
+  each clean exit as a crash and hot-loops the matrix. Prefer pm2
+  supervising `cia monitor watch` instead.
+- **Exit `2` means an isolated cell failed** while every other cell
+  completed. Partial success, not a crash. Only exit `1` means nothing ran.
+- **An unchanged run legitimately produces an empty findings document.**
+  Full-state detectors emit only what you have not already been shown.
+
+See [Continuous monitoring](docs/monitoring.md) for the full surface.
+
+## Dependencies
+
+Upstream:
+
+- **Chain Insights Graph MCP endpoint** — all graph queries and AML
+  primitives. Configured via `graphMcpEndpoint`; defaults to a local
+  endpoint.
+- **Base mainnet RPC** — wallet balance and x402 payment only
+  (`BASE_RPC_URL` override). Not a graph-support claim.
+- **Devkit fixture data** — generated from the ChainSwarm export path
+  (`scripts/devops/chain-insights-devkit/build-fixture.sh` in the RBMK
+  workspace), already committed under `devkit/data/`.
+
+Downstream:
+
+- Analysts and AI agents install the npm package and call the CLI or the
+  MCP tools.
+- Reviewed findings export as curated labels
+  (`cia monitor export labels`, frozen `chain-insights.curated-labels.v1`
+  schema) for import into an organization's label store.
+
+## Architecture
+
+Chain Insights is the investigation layer above the Chain Insights Graph.
+The CLI and MCP proxy call graph tools over one MCP endpoint, keep all
+evidence in local workspace folders, and never write to the graph.
+
+```text
+Agent or CLI user
+  -> Chain Insights CLI / MCP proxy
+  -> local config, wallet, workspace, artifacts, reports
+  -> Chain Insights Graph
+  -> graph intelligence for AML workflows
 ```
 
-Four detectors sweep on the matrix — fake tokens, address poisoning,
-mixer-likeness, and attack attribution — alongside stolen-funds case tracking
-with cashout alerts and review-gated scam-cluster expansion.
+Source modules (hand-maintained):
 
-Three things are worth knowing before you schedule it:
-
-- **`cia monitor run` is a one-shot.** One pass, then exit. That is deliberate:
-  the core is one-shot and idempotent, so cron, pm2, or `cia monitor watch` can
-  each drive it. Under pm2 this means `autorestart: false` is mandatory —
-  without it, pm2 reads each clean exit as a crash and hot-loops the matrix.
-- **Exit `2` means an isolated cell failed** while every other cell completed
-  and its findings landed. It is a partial success, not a crash; only exit `1`
-  means nothing ran.
-- **An unchanged run legitimately produces an empty findings document.**
-  Full-state detectors emit only what you have not already been shown, so a
-  quiet run means quiet data, not a broken sweep.
-
-See [Continuous monitoring](docs/monitoring.md) for the full command surface,
-configuration keys, scheduling (cron, pm2, and `watch`), detector semantics,
-storage model, and exit codes. Agent installs also include the
-`chain-insights-monitoring` skill, which routes an agent from "watch this" to
-the right commands.
-
-## Docs Map
-
-| Doc | Use it for |
-| --- | --- |
-| [Graph tools](docs/graph-tools.md) | Chain Insights Graph layers, `graph_query`, `graph_query_batch`, AML tool contracts, graph reports, evidence pointers |
-| [Graph query compatibility](docs/graph-query-compatibility.md) | GQL/Cypher construct support per layer, rejected→accepted rewrite recipes, traversal guidance |
-| Bittensor devkit parity workflow (RBMK) | Local Chain Insights Graph backend with deterministic Bittensor fixture data for Chain Insights development |
-| [Search limits](docs/search-limits.md) | Tunable search/row/frontier/hop bounds, precedence, ceilings, per-network and config-file tuning |
-| [Investigation workspaces](docs/investigation-workspaces.md) | `cia init`, workspace layout, artifacts, imports, templates, sessions, reports, and visualization outputs |
-| [Continuous monitoring](docs/monitoring.md) | `cia monitor` command group, case tracking, review and label export, alerts, storage model, exit codes |
-| [MCP proxy](docs/mcp-proxy.md) | Stdio proxy behavior, endpoint configuration, agent installers, local tools, auth modes, Inspector validation |
-| [Architecture](docs/architecture.md) | Product layers, data flow, local storage, security model, config keys |
-| [Development](docs/development.md) | Build, test, and local install commands |
-| [Contributing](docs/contributing.md) | Development workflow, pull requests, release expectations |
-| [Debugging](docs/debugging.md) | Local troubleshooting, diagnostics, debug workflows |
-
-## What It Is Not
-
-Chain Insights is not a custodial wallet, hosted case database, or replacement
-for analyst review. It does not write risk labels automatically. Investigation
-data stays in the local workspace unless the operator exports or shares it.
-
-## Workers
-
-<!-- gsd: workers -->
-| Worker | Entrypoint | Component doc |
+| Module | Entrypoint | Component doc |
 |---|---|---|
 | `config` | `src/config` | [components/config.md](docs/architecture/components/config.md) |
 | `detection` | `src/detection` | [components/detection.md](docs/architecture/components/detection.md) |
@@ -361,4 +137,266 @@ data stays in the local workspace unless the operator exports or shares it.
 | `server` | `src/server` | [components/server.md](docs/architecture/components/server.md) |
 | `viz` | `src/viz` | [components/viz.md](docs/architecture/components/viz.md) |
 | `wallet` | `src/wallet` | [components/wallet.md](docs/architecture/components/wallet.md) |
-<!-- /gsd: workers -->
+
+Entry points:
+
+- `bin/cli.js` → `src/cli.ts` (CLI bins: `cia`, `chain-insights`).
+- `bin/mcp-proxy.cjs` → `src/mcp/proxy.ts` (bin:
+  `chain-insights-mcp-proxy`).
+- `src/index.ts` — library exports.
+
+Full architecture docs: [docs/architecture/](docs/architecture/ARCHITECTURE.md),
+including C4 diagrams, [data contracts](docs/architecture/data-contracts.md),
+and [operating rules](docs/architecture/operating-rules.md).
+
+### Graph Access
+
+Graph queries choose the read graph explicitly:
+
+| Graph | Use it for |
+| --- | --- |
+| `topology` | The unified address / FLOWS_TO / LINKED graph — recent and full historical fund-flow traversal, plus the node `risk_score`/`risk_level` verdict |
+| `facts` | Labels, features, assets, and enrichment |
+
+One rule is worth reading before writing a query by hand: a chain's address
+spaces (for Bittensor, native SS58 and EVM-pallet `0x…`) are **two views
+over one address-grain topology graph**, separated by the
+`:Address.network` node property. The `network` argument selects the graph,
+not the addresses inside it. A `USE topology` match on `:Address` without
+an exact address must scope itself with `WHERE a.network = "..."`. On
+`USE facts` each network has its own backing database and `Address`
+carries no `network` property at all. See
+[Graph query compatibility](docs/graph-query-compatibility.md).
+
+## Prerequisites And Environment Setup
+
+- **Node.js 22 or newer** (`package.json` engines) and npm.
+- Optional: Docker with the Compose plugin, for the local devkit backend.
+- Optional: pm2 or cron, for standing-watch monitoring.
+
+`.env.example` documents the two supported overrides:
+
+| Variable | Purpose |
+| --- | --- |
+| `BASE_RPC_URL` | Base RPC override for wallet balance and the local top-up page |
+| `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` | Chain Insights Graph endpoint override; local HTTP loopback allowed, remote hosts must use `https://` |
+
+## Run
+
+### Local (from a checkout)
+
+```bash
+npm install
+npm run build
+npm install -g .
+cia --version
+```
+
+Or install the released package:
+
+```bash
+npm install -g chain-insights
+cia --version
+cia update --check
+```
+
+Create an investigation workspace and run a first trace:
+
+```bash
+mkdir -p ./chain-insights-investigations
+cd ./chain-insights-investigations
+cia init .
+
+cia mcp trace-victim-funds \
+  --network bittensor \
+  --victim-addresses 5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5
+
+find reports -maxdepth 3 -type f | sort
+```
+
+Workspaces are plain local folders. Reports, graph JSON, graph HTML, and
+published bundles live under the initialized workspace. Export only when
+sharing or archiving.
+
+More query examples (direct topology, batch, suspect tracing):
+[Graph tools](docs/graph-tools.md).
+
+### Dev Compose (local devkit backend)
+
+The devkit runs a deterministic local Bittensor Chain Insights Graph
+backend. Compose file: `devkit/docker-compose.yml` (default compose
+project network). Services: `starrocks`, `memgraph`,
+`starrocks-import`, `memgraph-import` (one-shot), and
+`chain-insights-graph-devkit`. Images build locally with
+`docker compose build` — never pulled from a registry.
+
+Start from a clean state:
+
+```bash
+docker compose -f devkit/docker-compose.yml down -v --remove-orphans
+docker compose -f devkit/docker-compose.yml up -d --build
+```
+
+One-shot import services must exit 0. `starrocks`, `memgraph`, and
+`chain-insights-graph-devkit` must stay running. The MCP endpoint is
+`http://127.0.0.1:18012/mcp`, unmetered:
+
+```bash
+export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=http://127.0.0.1:18012/mcp
+```
+
+Full contract and procedures: [devkit/README.md](devkit/README.md).
+
+## Configure
+
+`cia` uses `graphMcpEndpoint` for all Chain Insights Graph calls. The npm
+package does not hardcode a hosted endpoint.
+
+Local development endpoint (default):
+
+```bash
+cia config set graphMcpEndpoint http://127.0.0.1:8012/mcp
+```
+
+Hosted staging endpoint for approved testers (production is not live yet):
+
+```bash
+cia config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
+```
+
+Configuration precedence:
+
+1. `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` env var (`GRAPH_MCP_ENDPOINT`
+   legacy alias also supported).
+2. `cia config set graphMcpEndpoint ...` saved value.
+3. Local default `http://127.0.0.1:8012/mcp`.
+
+Validation rules:
+
+- `http://` is accepted only for localhost / loopback addresses.
+- Remote hosts must use `https://`.
+- Endpoint URLs with credentials, query strings, or fragments are rejected.
+
+Hosted access also needs an access mode, such as an approved access key or
+a prepared wallet. For paid access, run `cia wallet ready` — it checks
+funding and finishes one-time payment setup. Setup commands live in
+[MCP proxy](docs/mcp-proxy.md).
+
+The hosted graph includes a small public free tier for `graph_query`
+(default: 10 execution seconds per IP per UTC day). Use
+`meta_usage_status` to see the current caller allowance. Prepared wallet
+users receive the free tier first, then paid access continues
+automatically.
+
+Search bounds (hops, row limits, frontiers) are tunable per call, per
+network, or globally — see [Search limits](docs/search-limits.md).
+
+## Test
+
+Local gate, in order:
+
+```bash
+npm run typecheck
+npm run build
+npm test
+npm run release:check   # PR-only step in verify.yml
+```
+
+Devkit-backed tiers (need the dev compose lane running):
+
+```bash
+npm run devkit:smoke
+npm run devkit:smoke:parity
+npm run test:devkit
+```
+
+CI install step, when reproducing CI:
+
+```bash
+npm ci --ignore-scripts --audit=false --fund=false
+```
+
+CI workflows: `.github/workflows/verify.yml` (typecheck, build,
+release:check, tests, npm pack contents), `security.yml`, `scorecard.yml`,
+`docs.yml`.
+
+## Debug
+
+- Diagnostics and debug workflows: [docs/debugging.md](docs/debugging.md).
+- Skip payment negotiation against the unmetered devkit:
+  `cia debug on --token <any-string> --endpoint http://127.0.0.1:18012/mcp`.
+- MCP proxy structured logs: `~/.chain-insights/runtime/logs/mcp-proxy.jsonl`.
+
+Health checks (each is runnable):
+
+```bash
+# Configured endpoint
+cia config get graphMcpEndpoint
+
+# Endpoint reachable, networks listed
+cia mcp networks
+
+# Caller allowance / metering status
+cia mcp call meta_usage_status
+
+# Fresh tool discovery
+cia mcp tools --refresh
+
+# Installed CLI sanity
+cia --version && cia update --check
+
+# Devkit service state (all imports exited 0, backends running)
+docker compose -f devkit/docker-compose.yml ps -a
+```
+
+If network or tool discovery fails, check the endpoint and access mode
+first. The CLI can still initialize workspaces and continue local
+investigation workflow without a reachable endpoint.
+
+## Pre-Staging And Release
+
+**This repo never deploys.** There is no Helm chart, no k3s lane, and no
+server image. The product ships as an npm package; the only hosted surface
+(the Chain Insights Graph endpoint) is deployed from other repositories.
+
+Release path:
+
+1. Every PR bumps `package.json`, `package-lock.json`, and `CHANGELOG.md`.
+   `scripts/check-release-gate.mjs` enforces this in `verify.yml`.
+2. `verify.yml` runs `npm pack` and lists tarball contents on every PR.
+3. Releases publish to the public npmjs registry. Users update with
+   `cia update`.
+4. The hosted staging endpoint
+   (`https://staging-mcp.chain-insights.ai/mcp`) is for approved tester
+   activation only; production is not live yet.
+
+## Documentation Links
+
+Product docs:
+
+| Doc | Use it for |
+| --- | --- |
+| [Graph tools](docs/graph-tools.md) | Graph layers, `graph_query`, `graph_query_batch`, AML tool contracts, graph reports |
+| [Graph query compatibility](docs/graph-query-compatibility.md) | GQL/Cypher support per layer, rewrite recipes, traversal guidance |
+| [Search limits](docs/search-limits.md) | Tunable search/row/frontier/hop bounds, precedence, ceilings |
+| [Investigation workspaces](docs/investigation-workspaces.md) | `cia init`, workspace layout, artifacts, templates, reports, visualization |
+| [Continuous monitoring](docs/monitoring.md) | `cia monitor` commands, case tracking, review and label export, alerts, exit codes |
+| [MCP proxy](docs/mcp-proxy.md) | Stdio proxy behavior, endpoint configuration, agent installers, auth modes |
+| [Architecture overview](docs/architecture.md) | Product layers, data flow, local storage, security model, config keys |
+| [Development](docs/development.md) | Build, test, and local install commands |
+| [Contributing](docs/contributing.md) | Development workflow, pull requests, release expectations |
+| [Debugging](docs/debugging.md) | Local troubleshooting, diagnostics, debug workflows |
+| [Devkit](devkit/README.md) | Local Bittensor graph backend contract, fixture, smoke procedures |
+
+Architecture depth:
+
+- [docs/architecture/](docs/architecture/ARCHITECTURE.md) — index, C4
+  diagrams, context, containers, components.
+- [Data contracts](docs/architecture/data-contracts.md) — tool surface,
+  search limits, endpoint rules, shared-graph model, devkit contract.
+- [Operating rules](docs/architecture/operating-rules.md) — repo
+  invariants, findings rules, CI gotchas.
+- [docs/acceptance/](docs/acceptance/) — per-component acceptance evidence.
+
+In the ChainSwarm workspace, RBMK root holds the cross-repo docs
+(data-pipeline graph backend, dev stack, release coordination).

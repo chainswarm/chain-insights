@@ -4,7 +4,10 @@
 [Website](https://chain-insights.ai) | [npm](https://www.npmjs.com/package/chain-insights)
 
 
-> Depth lives in authored docs under `context/`, `containers/`, `components/`, and `acceptance/`. This file is a regenerable index.
+> Depth lives in authored docs under `context/`, `containers/`, and
+> `components/`. This index is human-authored; C4 diagrams render via CI.
+> Data contracts live in [data-contracts.md](data-contracts.md); repo
+> invariants and operating rules live in [operating-rules.md](operating-rules.md).
 
 
 ## Context
@@ -32,7 +35,7 @@
 
 ## Components
 
-One doc per `cmd/` worker under `components/`. Generator-owned header, human-owned body (Reads/Writes/Flow/Invariants/Run/Verify).
+One doc per source module under `components/`. Human-authored.
 
 | Worker | Component doc |
 |---|---|

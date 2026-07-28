@@ -1,10 +1,8 @@
-<!-- gsd: deterministic header -->
 Worker: wallet
 Entrypoint: src/wallet
 Package: wallet
 Language: typescript
 Tests: (none detected)
-<!-- /gsd: deterministic header -->
 
 # wallet
 

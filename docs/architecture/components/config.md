@@ -1,10 +1,8 @@
-<!-- gsd: deterministic header -->
 Worker: config
 Entrypoint: src/config
 Package: config
 Language: typescript
 Tests: (none detected)
-<!-- /gsd: deterministic header -->
 
 # config
 
