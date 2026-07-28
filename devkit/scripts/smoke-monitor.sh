@@ -578,6 +578,28 @@ assert_eq "I/every non-seed corridor address is propagated_scam" \
 I_RUN1="$(newest_run "$WS_I")"
 assert_eq "I/baseline emits no movements" "$(cell_field "$I_RUN1" 'case:theft-corridor' movements_count)" "0"
 
+# ---- verdict time path: the dossier headline must carry a SANE date ---------
+# All `_timestamp` fields are epoch MILLISECONDS end to end. A unit slip
+# anywhere (seconds fed to `new Date`, or ms multiplied by 1000 again) renders
+# a 1970 date or a `+057xxx` far-future year in the ACTIVE/DORMANT headline.
+# The devkit FLOWS_TO edges carry real ms timestamps, so this exercises
+# computeVerdict's time arithmetic against production-shaped data.
+I_DOSSIER="$WS_I/published/cases/theft-corridor/dossier.md"
+check "I/verdict dossier was rendered" "$(rc_of test -f "$I_DOSSIER")"
+if [ -f "$I_DOSSIER" ]; then
+  I_HEADLINE="$(head -1 "$I_DOSSIER")"
+  if grep -qE '(ACTIVE \(last movement 20[0-9]{2}-|DORMANT)' <<<"$I_HEADLINE"; then
+    pass "I/verdict headline carries a sane ACTIVE date or DORMANT"
+  else
+    fail "I/verdict headline carries a sane ACTIVE date or DORMANT" "headline: $I_HEADLINE"
+  fi
+  if grep -q '+0' <<<"$I_HEADLINE"; then
+    fail "I/verdict headline has no far-future +0-style year" "headline: $I_HEADLINE"
+  else
+    pass "I/verdict headline has no far-future +0-style year"
+  fi
+fi
+
 # ---- convergence: the second actor joins the case ---------------------------
 # Watch the shared deposit BEFORE it is discovered -- the investigator's move.
 check "I/watch the convergence deposit" \
