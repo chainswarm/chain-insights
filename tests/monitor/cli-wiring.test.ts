@@ -58,4 +58,10 @@ describe('cia monitor CLI surface', () => {
     const sub = execFileSync('npx', ['tsx', 'src/cli.ts', 'monitor', 'run', '--help'], { encoding: 'utf8' })
     expect(sub).toContain('--force-trace')
   })
+
+  it('case close tells the operator the managed tripwire entries were kept (label-lifecycle spec req 3)', () => {
+    const src = readFileSync('src/cli.ts', 'utf8')
+    expect(src).toContain('managed watchlist entr')
+    expect(src).toContain('case_reactivated')
+  })
 })

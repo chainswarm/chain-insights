@@ -343,6 +343,13 @@ cia monitor case list          # open cases (add --all for closed too)
 cia monitor case close theft-1
 ```
 
+Closing a case **keeps its `managed_by` watchlist entries** — they stay as a
+dormancy tripwire, and new activity on them raises a `case_reactivated`
+alert (the case itself is never auto-reopened). `monitor status` marks an
+open scam-topology case `closable` once its cluster is labeled (at least one
+approved decision) and its managed entries have been quiet for
+`render.dormant_after_days`.
+
 `--type` is `stolen-funds` (victim funds, cashout tracking) or
 `scam-topology` (cluster expansion under review). A case ID is lowercase
 letters, digits, and hyphens.

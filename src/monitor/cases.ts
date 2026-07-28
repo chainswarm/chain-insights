@@ -6,6 +6,7 @@ import { mkdir, readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { writeJsonAtomic } from './atomic.js'
 import { monitorPaths } from './paths.js'
+import { loadWatchlist } from './watchlist.js'
 
 /** One mutation of the seed set, in order. The case timeline's explanation for
  *  a corridor that suddenly got wider or narrower between two runs. */
@@ -195,14 +196,20 @@ export async function listCases(workspaceRoot: string, opts?: { openOnly?: boole
 
 export async function closeCase(
   workspaceRoot: string, caseId: string, nowTimestamp: number,
-): Promise<{ monitorCase: MonitorCase; alreadyClosed: boolean }> {
+): Promise<{ monitorCase: MonitorCase; alreadyClosed: boolean; managedKept: number }> {
   // Through readCase: a missing case reports `no such case`, not an ENOENT
   // stack. Re-closing is a no-op — rewriting closed_at_timestamp would
   // falsify when the investigation actually ended.
   const current = await readCase(workspaceRoot, caseId)
-  if (current.status === 'closed') return { monitorCase: current, alreadyClosed: true }
+  // Close KEEPS the case's managed watchlist entries (label-lifecycle spec
+  // req 3): they are the dormancy tripwire behind the case_reactivated
+  // alert. Nothing here touches watchlist.json — the count is reported so
+  // the close output can say so. (The trace-time managed refresh only runs
+  // for OPEN cases, so these entries are never pruned after close either.)
+  const managedKept = (await loadWatchlist(workspaceRoot)).filter((w) => w.managed_by === `case:${caseId}`).length
+  if (current.status === 'closed') return { monitorCase: current, alreadyClosed: true, managedKept }
   const closed: MonitorCase = { ...current, status: 'closed', closed_at_timestamp: nowTimestamp }
-  return { monitorCase: await writeCase(workspaceRoot, closed), alreadyClosed: false }
+  return { monitorCase: await writeCase(workspaceRoot, closed), alreadyClosed: false, managedKept }
 }
 
 // The dirty/traced markers go through readCase, so case-id validation and the
