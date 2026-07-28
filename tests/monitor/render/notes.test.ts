@@ -25,7 +25,7 @@ const DOC: TraceV1Doc = {
 
 const alert = (id: string, type: AlertEvent['type']): AlertEvent => ({
   alert_id: id, type, network: 'bittensor', case_id: 'c1', address: 'dep1',
-  run_timestamp: 1_753_000_000, emitted_at_timestamp: 1_753_000_000,
+  run_timestamp: 1_753_000_000_000, emitted_at_timestamp: 1_753_000_000_000,
 })
 
 describe('writeAddressNotes', () => {

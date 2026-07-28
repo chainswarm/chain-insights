@@ -10,7 +10,7 @@ import { writeTraceDoc } from '../../../src/monitor/render/trace-io.js'
 import { monitorPaths } from '../../../src/monitor/paths.js'
 
 const client = {} as Client
-const NOW = 1_753_600_000
+const NOW = 1_753_600_000_000
 
 async function ws(): Promise<string> {
   const root = await mkdtemp(path.join(tmpdir(), 'cia-render-'))
@@ -23,7 +23,7 @@ function fakeTraceStep(root: string) {
     await writeTraceDoc(root, 'c1', 'victim', NOW, {
       schema: 'chain-insights.trace.v1', tool: 'aml_trace_victim_funds', network: 'bittensor',
       addresses: [{ address: 'seed1', roles: ['victim'] }, { address: 'exch1', roles: ['exchange'], labels: ['Binance'] }],
-      edges: [{ edge_id: 'e1', from_address: 'seed1', to_address: 'exch1', amount_usd_sum: 9, last_seen_timestamp: NOW - 86400 }],
+      edges: [{ edge_id: 'e1', from_address: 'seed1', to_address: 'exch1', amount_usd_sum: 9, last_seen_timestamp: NOW - 86_400_000 }],
       paths: [{ path_id: 'p1', direction: 'forward', source: 'seed1', target: 'exch1', addresses: ['seed1', 'exch1'], edge_ids: ['e1'], hops: 1, terminal_role: 'exchange', amount_usd_sum: 9 }],
     })
     return { reportArtifacts: ['reports/fake.graph.html'] }

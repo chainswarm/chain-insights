@@ -22,10 +22,10 @@ const DOC: TraceV1Doc = {
     { path_id: 'p2', direction: 'forward', source: 'seed1', target: 'dep2', addresses: ['seed1', 'dep2'], edge_ids: [], hops: 1, terminal_role: 'deposit', amount_usd_sum: 50 },
   ],
 }
-const CASE: MonitorCase = { case_id: 'c1', type: 'stolen-funds', network: 'bittensor', seeds: ['seed1'], status: 'open', created_at_timestamp: 1_750_000_000 }
-const VERDICT = { status: 'active' as const, lastMovementTimestamp: 1_753_500_000, headline: 'ACTIVE (last movement 2026-07-26)' }
+const CASE: MonitorCase = { case_id: 'c1', type: 'stolen-funds', network: 'bittensor', seeds: ['seed1'], status: 'open', created_at_timestamp: 1_750_000_000_000 }
+const VERDICT = { status: 'active' as const, lastMovementTimestamp: 1_753_500_000_000, headline: 'ACTIVE (last movement 2026-07-26)' }
 
-const input = () => ({ monitorCase: CASE, verdict: VERDICT, docs: [DOC], reportArtifacts: ['reports/20260727T000000Z_aml_trace_victim_funds.graph.html'], mermaid: 'flowchart LR\n  a0["seed1"] --> a1["dep1"]', generatedAtTimestamp: 1_753_600_000 })
+const input = () => ({ monitorCase: CASE, verdict: VERDICT, docs: [DOC], reportArtifacts: ['reports/20260727T000000Z_aml_trace_victim_funds.graph.html'], mermaid: 'flowchart LR\n  a0["seed1"] --> a1["dep1"]', generatedAtTimestamp: 1_753_600_000_000 })
 
 describe('fundsDestinationSummary', () => {
   it('groups traced value by terminal endpoint class', () => {

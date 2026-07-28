@@ -11,8 +11,8 @@ export function publishedCaseDir(workspaceRoot: string, caseId: string): string 
   return path.join(path.resolve(workspaceRoot), 'published', 'cases', caseId)
 }
 
-function utcDate(ts: number): string {
-  return new Date(ts * 1000).toISOString().slice(0, 10)
+function utcDate(tsMs: number): string {
+  return new Date(tsMs).toISOString().slice(0, 10)
 }
 
 function safeFilename(address: string): string {
@@ -108,7 +108,7 @@ export async function appendTimeline(
   }
   if (fresh.length === 0) return 0
   const lines = fresh.map((a) =>
-    `- ${new Date(a.emitted_at_timestamp * 1000).toISOString()} — ${a.type} — ${a.address ?? a.detector ?? ''} (${a.alert_id})`,
+    `- ${new Date(a.emitted_at_timestamp).toISOString()} — ${a.type} — ${a.address ?? a.detector ?? ''} (${a.alert_id})`,
   )
   await appendFile(file, lines.join('\n') + '\n', 'utf8')
   return fresh.length

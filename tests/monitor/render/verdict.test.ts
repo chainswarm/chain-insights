@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { computeVerdict, lastMovementTimestamp } from '../../../src/monitor/render/verdict.js'
 import type { TraceV1Doc } from '../../../src/monitor/render/trace-io.js'
 
-const DAY = 86400
-const NOW = 1_753_600_000
+const DAY = 86_400_000
+const NOW = 1_753_600_000_000 // epoch ms
 const docWith = (edges: TraceV1Doc['edges']): TraceV1Doc => ({
   schema: 'chain-insights.trace.v1', tool: 'aml_trace_victim_funds',
   network: 'bittensor', addresses: [], edges, paths: [],
@@ -20,7 +20,7 @@ describe('lastMovementTimestamp', () => {
   })
 })
 
-describe('computeVerdict boundary', () => {
+describe('computeVerdict boundary (all timestamps epoch ms)', () => {
   const created = NOW - 200 * DAY
   it('movement 29 days ago with 30-day threshold is ACTIVE', () => {
     const v = computeVerdict([docWith([{ edge_id: 'e1', from_address: 'a', to_address: 'b', last_seen_timestamp: NOW - 29 * DAY }])], NOW, 30, created)
@@ -36,24 +36,21 @@ describe('computeVerdict boundary', () => {
     const v = computeVerdict([docWith([])], NOW, 30, created)
     expect(v.status).toBe('dormant')
     expect(v.lastMovementTimestamp).toBeNull()
-    expect(v.headline).toContain(new Date(created * 1000).toISOString().slice(0, 10))
+    expect(v.headline).toContain(new Date(created).toISOString().slice(0, 10))
   })
   it('respects a configured non-default threshold', () => {
     const edges = [{ edge_id: 'e1', from_address: 'a', to_address: 'b', last_seen_timestamp: NOW - 10 * DAY }]
     expect(computeVerdict([docWith(edges)], NOW, 7, created).status).toBe('dormant')
     expect(computeVerdict([docWith(edges)], NOW, 30, created).status).toBe('active')
   })
-})
-
-describe('mixed timestamp units (monitor docs are ms, traces are seconds)', () => {
-  it('millisecond case created_at renders a sane DORMANT headline', () => {
+  it('ms case created_at renders a sane DORMANT headline', () => {
     const createdMs = 1_785_155_920_153 // 2026-07-27 in ms — the real case.json unit
     const v = computeVerdict([docWith([])], NOW, 30, createdMs)
     expect(v.headline).toBe('DORMANT (no movement observed since monitoring began 2026-07-27)')
   })
-  it('millisecond nowTimestamp still classifies correctly against second edges', () => {
-    const edges = [{ edge_id: 'e1', from_address: 'a', to_address: 'b', last_seen_timestamp: NOW - 10 * DAY }]
-    const v = computeVerdict([docWith(edges)], NOW * 1000, 30, NOW - 200 * DAY)
-    expect(v.status).toBe('active')
+  it('renders real dates, never 1970 or +0-style far-future years', () => {
+    const v = computeVerdict([docWith([{ edge_id: 'e1', from_address: 'a', to_address: 'b', last_seen_timestamp: NOW - DAY }])], NOW, 30, created)
+    expect(v.headline).not.toContain('1970')
+    expect(v.headline).not.toContain('+0')
   })
 })

@@ -1052,8 +1052,8 @@ monitor
       const config = await loadMonitorConfig(workspaceRoot)
       const outcomes = await withGraphMcpClient('chain-insights-cli-monitor-render', async (client) =>
         caseId
-          ? [await renderCase(client, workspaceRoot, caseId, config, Math.floor(Date.now() / 1000), { force: opts.force })]
-          : renderAllCases(client, workspaceRoot, config, Math.floor(Date.now() / 1000), { force: opts.force }),
+          ? [await renderCase(client, workspaceRoot, caseId, config, Date.now(), { force: opts.force })]
+          : renderAllCases(client, workspaceRoot, config, Date.now(), { force: opts.force }),
       )
       if (outcomes.length === 0) console.log('[render] no open cases')
       for (const o of outcomes) {

@@ -1575,6 +1575,22 @@ function traceResultFromFundRuns(
     addTraceAddress(addresses, run.address, traceAddressRoleForSeed(seedRole), `${seedRole} seed provided by caller`)
   }
 
+  // Timestamp span per (src,dst) pair: min first_seen / max last_seen over
+  // every contributing flow row (epoch ms). Fields are omitted when no
+  // contributing row carries them — the monitor verdict dates ACTIVE/DORMANT
+  // off exactly these evidence-edge fields.
+  const seenByPair = new Map<string, { first?: number; last?: number }>()
+  for (const flow of flows) {
+    const src = typeof flow['src'] === 'string' ? flow['src'] : ''
+    const dst = typeof flow['dst'] === 'string' ? flow['dst'] : ''
+    const first = numberValue(flow['first_seen_timestamp'])
+    const last = numberValue(flow['last_seen_timestamp'])
+    let span = seenByPair.get(edgeKey(src, dst))
+    if (!span) seenByPair.set(edgeKey(src, dst), (span = {}))
+    if (first !== undefined && (span.first === undefined || first < span.first)) span.first = first
+    if (last !== undefined && (span.last === undefined || last > span.last)) span.last = last
+  }
+
   const edgeIdsByPair = new Map<string, string>()
   const edges = flows.map((flow, index) => {
     const src = typeof flow['src'] === 'string' ? flow['src'] : ''
@@ -1593,6 +1609,8 @@ function traceResultFromFundRuns(
       tx_count: numberValue(flow['tx_count']),
       first_tx_id: typeof flow['first_tx_id'] === 'string' ? flow['first_tx_id'] : undefined,
       last_tx_id: typeof flow['last_tx_id'] === 'string' ? flow['last_tx_id'] : undefined,
+      first_seen_timestamp: seenByPair.get(edgeKey(src, dst))?.first,
+      last_seen_timestamp: seenByPair.get(edgeKey(src, dst))?.last,
     }
   }).filter((edge) => edge.from_address && edge.to_address)
 

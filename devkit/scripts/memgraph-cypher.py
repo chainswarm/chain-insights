@@ -49,11 +49,25 @@ def main() -> None:
         'LOAD CSV FROM "/data/memgraph/addresses.csv" WITH HEADER AS row '
         "MERGE (:Address {address: row.address, network: row.network});"
     )
+    # Production FLOWS_TO edges carry first/last_seen_timestamp (epoch
+    # MILLISECONDS -- `_timestamp` fields are points in time in ms
+    # everywhere), first/last_tx_id anchors, and amount/count fields. The
+    # flows.csv fixture has only from/to columns, so seed deterministic
+    # production-shaped properties: a bare edge would leave the render-layer
+    # verdict path (computeVerdict over edge timestamps) unexercised locally.
+    first_seen_ms = 1735569036000  # 2024-12-30T13:50:36Z, fixture era
+    last_seen_ms = 1753000000000  # 2025-07-20T08:26:40Z
     print(
         'LOAD CSV FROM "/data/memgraph/flows.csv" WITH HEADER AS row '
         "MATCH (from:Address {address: row.from_address}) "
         "MATCH (to:Address {address: row.to_address}) "
-        "MERGE (from)-[:FLOWS_TO]->(to);"
+        "MERGE (from)-[r:FLOWS_TO]->(to) "
+        f"ON CREATE SET r.first_seen_timestamp = {first_seen_ms}, "
+        f"r.last_seen_timestamp = {last_seen_ms}, "
+        'r.first_tx_id = "devkit-first-" + row.from_address + "-" + row.to_address, '
+        'r.last_tx_id = "devkit-last-" + row.from_address + "-" + row.to_address, '
+        "r.amount_usd_sum = 0.0, "
+        "r.tx_count = 1;"
     )
 
 
