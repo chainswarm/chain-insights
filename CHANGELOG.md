@@ -3,6 +3,23 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.16.0] - 2026-07-29 — Permit2 payments on Robinhood Chain + payment-asset preference
+
+- feat(mcp): the x402 payment client now accepts Permit2-based `upto` offers
+  on Robinhood Chain (`eip155:4663`, RPC `https://rpc.mainnet.chain.robinhood.com`)
+  alongside Base Mainnet — no viem chain-registry entry is needed, the x402
+  SDK resolves RPC per CAIP-2 chain ID directly.
+- feat(mcp): `CHAIN_INSIGHTS_PAYMENT_ASSET_PREFERENCE` (comma-separated
+  symbols or addresses, e.g. `CHOICE,USDG,USDC`) re-orders a 402 response's
+  `accepts` offers before the payment scheme picks one, so an operator can
+  route payments to a preferred asset without a server change. New pure
+  `src/mcp/payment-asset-preference.ts` module (`orderPaymentOptions`).
+- fix(mcp): when a Permit2 allowance is missing for an asset/network this
+  client cannot auto-approve (anything other than USDC on Base), it now
+  throws a clear error naming the token, the canonical Permit2 address
+  (`0x000000000022D473030F116dDEE9F6B43aC78BA3`), and the exact `approve(...)`
+  call — instead of silently attempting the Base-only auto-approval flow.
+
 ## [0.15.5] - 2026-07-28 — ci: README lint becomes a hard gate
 
 - ci: drop `--warn-only` from the vendored docs workflow README lint,
