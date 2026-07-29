@@ -29,6 +29,8 @@ vi.mock('viem/accounts', () => ({
 vi.mock('../src/wallet/tools.js', () => ({
   prepareWalletForPaidCalls: mockPrepareWalletForPaidCalls,
   resolveMaxAutoApprovalUnits: vi.fn(() => 10_000_000n),
+  USDC_ADDRESS: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  PERMIT2_ADDRESS: '0x000000000022D473030F116dDEE9F6B43aC78BA3',
 }))
 
 const mockIsWalletConfigured = vi.hoisted(() => vi.fn())
@@ -86,7 +88,7 @@ describe('MCP client (02-01)', () => {
     const config = mockFn.mock.calls[0][1] as {
       schemes: Array<{ network: string; client: { _isUptoEvmScheme?: boolean; _isExactEvmScheme?: boolean } }>
     }
-    expect(config.schemes).toHaveLength(2)
+    expect(config.schemes).toHaveLength(3)
     expect(config.schemes[0]).toMatchObject({
       network: 'eip155:8453',
       client: { _isUptoEvmScheme: true },
@@ -94,6 +96,24 @@ describe('MCP client (02-01)', () => {
     expect(config.schemes[1]).toMatchObject({
       network: 'eip155:8453',
       client: { _isExactEvmScheme: true },
+    })
+  })
+
+  it('registers the upto/Permit2 scheme for robinhood chain (eip155:4663) too', async () => {
+    const { wrapFetchWithPaymentFromConfig } = await import('@x402/fetch')
+    const { createMcpFetchClient, ROBINHOOD_NETWORK } = await import('../src/mcp/client.js')
+    const testKey = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as const
+    createMcpFetchClient(testKey)
+
+    const mockFn = vi.mocked(wrapFetchWithPaymentFromConfig)
+    const config = mockFn.mock.calls[0][1] as {
+      schemes: Array<{ network: string; client: { _isUptoEvmScheme?: boolean } }>
+    }
+    expect(ROBINHOOD_NETWORK).toBe('eip155:4663')
+    const robinhoodEntry = config.schemes.find((scheme) => scheme.network === ROBINHOOD_NETWORK)
+    expect(robinhoodEntry).toMatchObject({
+      network: 'eip155:4663',
+      client: { _isUptoEvmScheme: true },
     })
   })
 
@@ -107,14 +127,24 @@ describe('MCP client (02-01)', () => {
     expect(vi.mocked(ExactEvmScheme)).toHaveBeenCalledWith(account)
   })
 
-  it('UptoEvmScheme constructed with the viem account from privateKeyToAccount', async () => {
+  it('UptoEvmScheme constructed with the viem account and robinhood chain (4663) RPC options', async () => {
     const { UptoEvmScheme } = await import('@x402/evm/upto/client')
     const { privateKeyToAccount } = await import('viem/accounts')
-    const { createMcpFetchClient } = await import('../src/mcp/client.js')
+    const { createMcpFetchClient, ROBINHOOD_CHAIN_ID, ROBINHOOD_RPC_URL } = await import('../src/mcp/client.js')
     const testKey = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as const
     createMcpFetchClient(testKey)
     const account = vi.mocked(privateKeyToAccount).mock.results[0].value
-    expect(vi.mocked(UptoEvmScheme)).toHaveBeenCalledWith(account)
+    expect(vi.mocked(UptoEvmScheme)).toHaveBeenCalledWith(account, {
+      [ROBINHOOD_CHAIN_ID]: { rpcUrl: ROBINHOOD_RPC_URL },
+    })
+  })
+
+  it('UptoEvmScheme is constructed once and reused for both eip155:8453 and eip155:4663', async () => {
+    const { UptoEvmScheme } = await import('@x402/evm/upto/client')
+    const { createMcpFetchClient } = await import('../src/mcp/client.js')
+    const testKey = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as const
+    createMcpFetchClient(testKey)
+    expect(vi.mocked(UptoEvmScheme)).toHaveBeenCalledTimes(1)
   })
 
   it('createMcpFetchClient surfaces x402 payment-required errors from final 402 responses', async () => {
@@ -187,6 +217,7 @@ describe('MCP client (02-01)', () => {
         scheme: 'upto',
         network: 'eip155:8453',
         amount: '2000000',
+        asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
       }],
     })).toString('base64')
     mockWrappedFetch
@@ -222,6 +253,7 @@ describe('MCP client (02-01)', () => {
         scheme: 'upto',
         network: 'eip155:8453',
         amount: '2000000',
+        asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
       }],
     })).toString('base64')
     mockWrappedFetch.mockResolvedValue(new Response('null', {
@@ -236,6 +268,40 @@ describe('MCP client (02-01)', () => {
 
     await expect(client('https://staging-mcp.chain-insights.ai/mcp')).rejects.toThrow(
       'chain-insights wallet ready',
+    )
+  })
+
+  it('createMcpFetchClient surfaces a clear Permit2-approval error for non-Base-USDC assets instead of attempting Base-only auto-approval', async () => {
+    const choiceAsset = '0x6e30a5f8FC61cd4e8550d2Dd3CDDea2A0196DC69'
+    const paymentRequired = Buffer.from(JSON.stringify({
+      x402Version: 2,
+      error: 'invalid_upto_evm_permit2_payload_allowance_required: simulation failed',
+      accepts: [{
+        scheme: 'upto',
+        network: 'eip155:4663',
+        amount: '102000000000000000',
+        asset: choiceAsset,
+      }],
+    })).toString('base64')
+    mockWrappedFetch.mockResolvedValue(new Response('null', {
+      status: 402,
+      headers: { 'payment-required': paymentRequired },
+    }))
+
+    const { createMcpFetchClient, PaymentRequiredError } = await import('../src/mcp/client.js')
+    const testKey = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as const
+    const client = createMcpFetchClient(testKey)
+
+    // No Base-only auto-approval attempted for this asset/network.
+    await expect(client('https://staging-mcp.chain-insights.ai/mcp')).rejects.toBeInstanceOf(PaymentRequiredError)
+    expect(mockPrepareWalletForPaidCalls).not.toHaveBeenCalled()
+
+    await expect(client('https://staging-mcp.chain-insights.ai/mcp')).rejects.toThrow(choiceAsset)
+    await expect(client('https://staging-mcp.chain-insights.ai/mcp')).rejects.toThrow(
+      '0x000000000022D473030F116dDEE9F6B43aC78BA3',
+    )
+    await expect(client('https://staging-mcp.chain-insights.ai/mcp')).rejects.toThrow(
+      `approve(0x000000000022D473030F116dDEE9F6B43aC78BA3, <amount>)`,
     )
   })
 
@@ -442,5 +508,73 @@ describe('MCP client (02-01)', () => {
     expect((paymentFetch as any)._isMockWrapped).toBe(true)
     expect(mockIsWalletConfigured).toHaveBeenCalledOnce()
     expect(mockDecryptKey).toHaveBeenCalledOnce()
+  })
+
+  it('reorders 402 accepts by CHAIN_INSIGHTS_PAYMENT_ASSET_PREFERENCE before the payment scheme picks', async () => {
+    const prevPreference = process.env['CHAIN_INSIGHTS_PAYMENT_ASSET_PREFERENCE']
+    process.env['CHAIN_INSIGHTS_PAYMENT_ASSET_PREFERENCE'] = 'CHOICE,USDC'
+
+    const originalPaymentRequired = Buffer.from(JSON.stringify({
+      x402Version: 2,
+      error: 'payment_required',
+      accepts: [
+        { scheme: 'upto', network: 'eip155:8453', amount: '100000', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
+        { scheme: 'upto', network: 'eip155:4663', amount: '100000', asset: '0x5fc5360d0400A0Fd4F2aF552aDd042D716f1D168' },
+        { scheme: 'upto', network: 'eip155:4663', amount: '102000000000000000', asset: '0x6e30a5f8FC61cd4e8550d2Dd3CDDea2A0196DC69' },
+      ],
+    })).toString('base64')
+    const rawFetch = vi.fn(async () => new Response('null', {
+      status: 402,
+      headers: { 'payment-required': originalPaymentRequired },
+    }))
+    vi.stubGlobal('fetch', rawFetch)
+
+    try {
+      const { wrapFetchWithPaymentFromConfig } = await import('@x402/fetch')
+      const { createMcpFetchClient } = await import('../src/mcp/client.js')
+      const testKey = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as const
+      createMcpFetchClient(testKey)
+
+      // The first arg to wrapFetchWithPaymentFromConfig is the raw transport
+      // fetch client.ts wraps with asset-preference reordering; call it
+      // directly to observe the reordering independent of the (mocked) x402
+      // selection internals.
+      const mockFn = vi.mocked(wrapFetchWithPaymentFromConfig)
+      const reorderingFetch = mockFn.mock.calls[0][0] as (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+
+      const response = await reorderingFetch('https://staging-mcp.chain-insights.ai/mcp')
+      const reencoded = response.headers.get('payment-required')
+      const decoded = JSON.parse(Buffer.from(reencoded ?? '', 'base64').toString('utf8')) as {
+        accepts: Array<{ asset: string }>
+      }
+      expect(decoded.accepts.map((option) => option.asset.toLowerCase())).toEqual([
+        '0x6e30a5f8fc61cd4e8550d2dd3cddea2a0196dc69', // CHOICE — first preference
+        '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', // USDC — second preference
+        '0x5fc5360d0400a0fd4f2af552add042d716f1d168', // USDG — unlisted, kept last
+      ])
+    } finally {
+      vi.unstubAllGlobals()
+      if (prevPreference === undefined) delete process.env['CHAIN_INSIGHTS_PAYMENT_ASSET_PREFERENCE']
+      else process.env['CHAIN_INSIGHTS_PAYMENT_ASSET_PREFERENCE'] = prevPreference
+    }
+  })
+
+  it('does not wrap fetch for asset-preference reordering when CHAIN_INSIGHTS_PAYMENT_ASSET_PREFERENCE is unset', async () => {
+    const prevPreference = process.env['CHAIN_INSIGHTS_PAYMENT_ASSET_PREFERENCE']
+    delete process.env['CHAIN_INSIGHTS_PAYMENT_ASSET_PREFERENCE']
+
+    try {
+      const { wrapFetchWithPaymentFromConfig } = await import('@x402/fetch')
+      const { createMcpFetchClient } = await import('../src/mcp/client.js')
+      const testKey = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as const
+      createMcpFetchClient(testKey)
+
+      const mockFn = vi.mocked(wrapFetchWithPaymentFromConfig)
+      const passedFetch = mockFn.mock.calls[0][0]
+      expect(passedFetch).toBe(fetch)
+    } finally {
+      if (prevPreference === undefined) delete process.env['CHAIN_INSIGHTS_PAYMENT_ASSET_PREFERENCE']
+      else process.env['CHAIN_INSIGHTS_PAYMENT_ASSET_PREFERENCE'] = prevPreference
+    }
   })
 })
