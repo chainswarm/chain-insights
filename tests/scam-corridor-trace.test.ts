@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  decideGate,
   FRONTIER_CAP,
   MAX_HOPS_CAP,
   MAX_QUERIES_PER_BATCH,
@@ -55,6 +56,21 @@ function stubClient(rows: Array<Record<string, unknown>>) {
 function throwingClient(message: string) {
   return { callTool: vi.fn(async () => { throw new Error(message) }) }
 }
+
+describe('decideGate label family (label-governance Plan 3 D4 guard)', () => {
+  // :Attributed is context and must never seed detection (spec :744) — it
+  // must not be treated as the :Scam/:Victim "already confirmed" family that
+  // this gate uses to bypass boundary-role protection. A Bridge node that
+  // ALSO carries Attributed must still resolve protected_infra (Attributed
+  // stays inert here), not fall through toward propagated_scam.
+  it('Attributed alone is not scam/victim: a Bridge+Attributed node still resolves protected_infra', () => {
+    const decision = decideGate(
+      { degreeIn: 5, isExchange: false, labels: ['Address', 'Bridge', 'Attributed'] },
+      { txCount: 1, amountUsd: 100 },
+    )
+    expect(decision).toMatchObject({ kind: 'protected_infra', gate: 'boundary_role:Bridge' })
+  })
+})
 
 describe('scamCorridorTrace gate precedence (AC1)', () => {
   it('drives every gate arm from one hop of canned rows', async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bfsAttribution, type DownstreamNode } from '../../src/detection/detectors/attack-attribution.js'
+import { ATTRIBUTION_SEED_LABELS, bfsAttribution, type DownstreamNode } from '../../src/detection/detectors/attack-attribution.js'
 
 // In-memory batched expander for the pure BFS core: given a frontier, return
 // each src's downstream nodes tagged with their boundary flag.
@@ -14,6 +14,16 @@ function expander(edges: Record<string, string[]>, boundaries: string[] = []) {
     return out
   }
 }
+
+describe('ATTRIBUTION_SEED_LABELS (label-governance Plan 3 D4 guard)', () => {
+  // :Attributed is context, never a seed family (spec :744) — this detector's
+  // seed set must stay exactly ['Scam'], the graph-expressible form of the
+  // curated poisoning_duster/dusting_source/fake_token_contract seed
+  // subtypes; :Attributed must never be added here.
+  it('is exactly [\'Scam\'] and does not include Attributed', () => {
+    expect(ATTRIBUTION_SEED_LABELS).toEqual(['Scam'])
+  })
+})
 
 describe('bfsAttribution', () => {
   it('attributes downstream nodes to their reaching seed with the shortest hop', async () => {
