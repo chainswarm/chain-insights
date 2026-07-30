@@ -5,7 +5,9 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   appendLabelBaseline,
+  dominantFamily,
   extractFamilies,
+  familyForLabel,
   LABEL_SOURCE,
   labelHits,
   labelQuery,
@@ -158,6 +160,40 @@ describe('severity mapping (label-governance Plan 3 D2)', () => {
   })
 })
 
+// label-governance Plan 3 D3 (cutover-proof dedup re-key, #270 class): the
+// per-pair family used to build a NEW row's source_ref. Label-text
+// vocabulary wins first — it is what makes a v2 label and its v3 rename
+// resolve to the SAME family — then the address's dominant extracted
+// family, then the literal label text if nothing else is known.
+describe('familyForLabel (label-governance Plan 3 D3)', () => {
+  it.each([
+    ['v3 transport text maps to Scam', 'attribution_transport', [], 'Scam'],
+    ['v3 holding text maps to Scam', 'attribution_holding', [], 'Scam'],
+    ['v3 peripheral text maps to Attributed', 'attribution_peripheral', [], 'Attributed'],
+    ['v3 funder text maps to Attributed', 'attribution_funder', [], 'Attributed'],
+    ['retired v2 text maps to Scam (same family as its v3 replacement)', 'attack_attributed', [], 'Scam'],
+    ['a poisoning_-prefixed label maps to Poisoned', 'poisoning_dust', [], 'Poisoned'],
+    ['a poisoning_-prefixed label maps to Poisoned even with families known', 'poisoning_address', ['Attributed'], 'Poisoned'],
+    ['an unknown label falls back to the address dominant family', 'MEXC', ['Attributed'], 'Attributed'],
+    ['dominant family fallback prefers a verdict family over a context one', 'random_note', ['Attributed', 'Scam'], 'Scam'],
+    ['an unknown label with no known families falls back to the literal text', 'MEXC', [], 'MEXC'],
+  ])('%s', (_name, label, families, expected) => {
+    expect(familyForLabel(label, new Set(families))).toBe(expected)
+  })
+})
+
+describe('dominantFamily (label-governance Plan 3 D3 fallback ordering)', () => {
+  it.each([
+    ['empty set has no dominant family', [], undefined],
+    ['a single family is its own dominant', ['Attributed'], 'Attributed'],
+    ['a verdict family outranks a context family', ['Attributed', 'Scam'], 'Scam'],
+    ['Poisoned outranks Attributed', ['Attributed', 'Poisoned'], 'Poisoned'],
+    ['Victim/Exchange never outrank a verdict family', ['Victim', 'Exchange', 'Mixer'], 'Mixer'],
+  ])('%s', (_name, families, expected) => {
+    expect(dominantFamily(new Set(families))).toBe(expected)
+  })
+})
+
 function stubClient(rowsByNetwork: Record<string, Array<Record<string, unknown>>>, calls: { n: number }) {
   return {
     async callTool({ name, arguments: args }: { name: string; arguments: Record<string, unknown> }) {
@@ -295,6 +331,115 @@ describe('labelHits (label-cutover spec req 1-2)', () => {
     const out = await withStore(root, async (store) => labelHits(stubClient({}, calls), store, root, [], 1000))
     expect(out).toEqual({ hits: [], calls: 0 })
     expect(calls.n).toBe(0)
+  })
+})
+
+// label-governance Plan 3 D3: cutover-proof dedup re-key — the #270
+// retro-flood class guard. source_ref is now address|family|source; a
+// one-time transparent migration on store open (migrateLabelSourceRefs in
+// store.ts, same idiom as migrateAbsoluteDocKeys) re-keys pre-existing
+// trigger='label' watchlist_hits rows from the v2/v3 label TEXT to the
+// family, so a label-text rename can never mint a colliding-free new ref
+// for an address that was already known.
+describe('cutover-proof dedup re-key (label-governance Plan 3 D3, #270 class)', () => {
+  const WATCHED = [{ address: '5Mine', network: 'bittensor' }]
+
+  it('THE #270 regression: a v2-recorded address (attack_attributed) produces NO alert for its v3 replacement (attribution_transport, same family Scam)', async () => {
+    const root = await ws()
+    // Baseline has nothing useful for this address (simulates a baseline
+    // that never captured the v2 text, or was reset) — the ONLY thing
+    // standing between this address and a re-alert is the re-keyed DB row.
+    await appendLabelBaseline(root, { network: 'bittensor', address: '5Mine', pairs: [], run_timestamp: 500 })
+    // A legacy hit, recorded under the retired v2 label text, before this
+    // migration existed.
+    await withStore(root, async (store) => {
+      await store.run("INSERT INTO watchlist_hits VALUES (900,'5Mine','bittensor','label','5Mine|attack_attributed|topology',NULL)")
+    })
+    const client = stubClient(
+      { bittensor: [{ address: '5Mine', labels: ['attribution_transport'], families: ['Address', 'Scam'] }] },
+      { n: 0 },
+    )
+    // A separate withStore open runs the re-key migration transparently
+    // BEFORE labelHits ever sees the store.
+    const out = await withStore(root, async (store) => labelHits(client, store, root, WATCHED, 1000))
+    expect(out.hits).toEqual([])
+  })
+
+  it('a genuinely new address still alerts under the v3 label text (the guard suppresses re-alerts, not new evidence)', async () => {
+    const root = await ws()
+    const boot = stubClient({ bittensor: [{ address: '5Mine', labels: [], families: ['Address'] }] }, { n: 0 })
+    await withStore(root, async (store) => labelHits(boot, store, root, WATCHED, 1000)) // silent bootstrap
+    const client = stubClient(
+      { bittensor: [{ address: '5Mine', labels: ['attribution_transport'], families: ['Address', 'Scam'] }] },
+      { n: 0 },
+    )
+    const out = await withStore(root, async (store) => labelHits(client, store, root, WATCHED, 2000))
+    expect(out.hits.map((h) => ({ label: h.label, severity: h.severity, source_ref: h.source_ref }))).toEqual([
+      { label: 'attribution_transport', severity: 'alert', source_ref: '5Mine|Scam|topology' },
+    ])
+  })
+
+  it('the legacy re-key is idempotent: running it again is a no-op', async () => {
+    const root = await ws()
+    await withStore(root, async (store) => {
+      await store.run("INSERT INTO watchlist_hits VALUES (900,'5Mine','bittensor','label','5Mine|attack_attributed|topology',NULL)")
+    })
+    await withStore(root, async () => {}) // first migration pass
+    const once = await withStore(
+      root,
+      (store) => store.all(`SELECT source_ref FROM watchlist_hits WHERE trigger = 'label'`),
+      { readOnly: true },
+    )
+    expect(once).toEqual([{ source_ref: '5Mine|Scam|topology' }])
+    await withStore(root, async () => {}) // second pass: must not double-transform
+    const twice = await withStore(
+      root,
+      (store) => store.all(`SELECT source_ref FROM watchlist_hits WHERE trigger = 'label'`),
+      { readOnly: true },
+    )
+    expect(twice).toEqual(once)
+  })
+
+  it('a poisoning_-prefixed legacy label re-keys to family Poisoned', async () => {
+    const root = await ws()
+    await withStore(root, async (store) => {
+      await store.run("INSERT INTO watchlist_hits VALUES (900,'5Mine','bittensor','label','5Mine|poisoning_dust|topology',NULL)")
+    })
+    await withStore(root, async () => {}) // migration pass
+    const rows = await withStore(
+      root,
+      (store) => store.all(`SELECT source_ref FROM watchlist_hits WHERE trigger = 'label'`),
+      { readOnly: true },
+    )
+    expect(rows).toEqual([{ source_ref: '5Mine|Poisoned|topology' }])
+  })
+
+  it('unmappable legacy label text keeps the old source_ref unchanged (D3): it can no longer collide with a new-format ref', async () => {
+    const root = await ws()
+    await withStore(root, async (store) => {
+      await store.run("INSERT INTO watchlist_hits VALUES (900,'5Mine','bittensor','label','5Mine|mystery_label|topology',NULL)")
+    })
+    await withStore(root, async () => {}) // migration pass
+    const rows = await withStore(
+      root,
+      (store) => store.all(`SELECT source_ref FROM watchlist_hits WHERE trigger = 'label'`),
+      { readOnly: true },
+    )
+    expect(rows).toEqual([{ source_ref: '5Mine|mystery_label|topology' }])
+  })
+
+  it('a non-label trigger row is never touched by the label re-key', async () => {
+    const root = await ws()
+    await withStore(root, async (store) => {
+      await store.run("INSERT INTO watchlist_hits VALUES (900,'5Mine','bittensor','finding','5Mine|attack_attributed|topology',NULL)")
+    })
+    await withStore(root, async () => {}) // migration pass
+    const rows = await withStore(
+      root,
+      (store) => store.all(`SELECT source_ref FROM watchlist_hits WHERE trigger = 'finding'`),
+      { readOnly: true },
+    )
+    expect(rows).toEqual([{ source_ref: '5Mine|attack_attributed|topology' }])
   })
 })
 
