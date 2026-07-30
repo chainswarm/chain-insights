@@ -365,6 +365,29 @@ describe('cutover-proof dedup re-key (label-governance Plan 3 D3, #270 class)', 
     expect(out.hits).toEqual([])
   })
 
+  // D3/D4-intended family-collapse dedup (spec :744): transport and holding
+  // are DELIBERATELY the same family (Scam) — once one of them is known for
+  // an address+source, the OTHER is not a distinct alert, it is the same
+  // verdict restated under different label text. This is proven by code
+  // trace (both map through vocabularyFamily to 'Scam', so they share one
+  // baseline/source_ref key) but was previously pinned by NO test — a
+  // future edit to LABEL_TEXT_FAMILY/FAMILY_PRIORITY could silently break
+  // (or un-break) this collapse with nothing turning red.
+  it('family collapse: holding suppressed when transport already known (D3 intended)', async () => {
+    const root = await ws()
+    const known = stubClient(
+      { bittensor: [{ address: '5Mine', labels: ['attribution_transport'], families: ['Address', 'Scam'] }] },
+      { n: 0 },
+    )
+    await withStore(root, async (store) => labelHits(known, store, root, WATCHED, 1000)) // silent bootstrap: transport becomes known
+    const holding = stubClient(
+      { bittensor: [{ address: '5Mine', labels: ['attribution_holding'], families: ['Address', 'Scam'] }] },
+      { n: 0 },
+    )
+    const out = await withStore(root, async (store) => labelHits(holding, store, root, WATCHED, 2000))
+    expect(out.hits).toEqual([])
+  })
+
   it('a genuinely new address still alerts under the v3 label text (the guard suppresses re-alerts, not new evidence)', async () => {
     const root = await ws()
     const boot = stubClient({ bittensor: [{ address: '5Mine', labels: [], families: ['Address'] }] }, { n: 0 })
