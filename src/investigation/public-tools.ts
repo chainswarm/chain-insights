@@ -227,6 +227,113 @@ function pathNodeMap(variableName: string): string {
   return `{address: ${variableName}.address, network: ${variableName}.network, labels: ${variableName}.labels, system_labels: ${variableName}.labels, is_exchange: ${variableName}.is_exchange${riskFields}}`
 }
 
+// money-trail enrichment: incident MONEY_TRAIL edges on the subject address
+// (either direction), and the TRAIL_ENDS_AT fan-out of whichever seed
+// generated the trail -- both are optional-results reads, so a graph with no
+// money-trail layer (or a failed query) never fails aml_address_risk itself.
+export function moneyTrailIncidentQuery(address: string): string {
+  return [
+    'USE topology',
+    `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[r:MONEY_TRAIL]-()`,
+    'RETURN r.edge_class AS edge_class, r.value AS value, r.min_hop AS min_hop, r.seed_count AS seed_count, r.primary_seed AS primary_seed, r.generation AS generation, r.network AS network, r.first_ts AS first_ts, r.last_ts AS last_ts',
+    'LIMIT 200',
+  ].join(' ')
+}
+
+export function moneyTrailEndsQuery(seed: string): string {
+  return [
+    'USE topology',
+    `MATCH (s:Address {address: "${escapeCypherString(seed)}"})-[r:TRAIL_ENDS_AT]->(t:Address)`,
+    'RETURN t.address AS address, r.fact_type AS fact_type, r.direction AS direction, r.terminal_role AS terminal_role, r.hop AS hop, r.value AS value, r.generation AS generation',
+    'LIMIT 200',
+  ].join(' ')
+}
+
+// Task 2 (trace fast path): a resolved trace target IS a money-trail seed
+// when it has outgoing TRAIL_ENDS_AT edges -- same shape as
+// moneyTrailEndsQuery, reused here under a probe-specific name so the
+// trace-tool call site reads as "check whether this address is a seed"
+// rather than "fetch the ends fan of a known seed" (they happen to be the
+// same read).
+export function moneyTrailSeedProbeQuery(address: string): string {
+  return moneyTrailEndsQuery(address)
+}
+
+// Precomputed MONEY_TRAIL corridor from a confirmed seed: bounded to 6 hops
+// (min_hop is a property baked onto the edge by the walk engine, not a
+// variable-length path depth) and excludes peripheral-only continuation --
+// peripheral is the "touched funds" floor (see MONEY_TRAIL_CLASS_RANK), not
+// a real trail hop, so it never extends the fast-path corridor.
+export function moneyTrailCorridorQuery(seed: string): string {
+  return [
+    'USE topology',
+    `MATCH (s:Address {address: "${escapeCypherString(seed)}"})-[r:MONEY_TRAIL]->(t:Address)`,
+    'WHERE r.min_hop <= 6 AND r.edge_class <> "peripheral"',
+    'RETURN t.address AS address, r.edge_class AS edge_class, r.value AS value, r.min_hop AS min_hop, r.seed_count AS seed_count, r.primary_seed AS primary_seed, r.generation AS generation, r.network AS network',
+    'ORDER BY r.min_hop ASC',
+    'LIMIT 200',
+  ].join(' ')
+}
+
+export interface MoneyTrailBlock {
+  on_trail: true
+  class: string
+  min_hop: number
+  primary_seed: string
+  generation: number
+  nearest_trail_end?: { address: string; fact_type: string; value: string }
+}
+
+const MONEY_TRAIL_CLASS_RANK: Record<string, number> = { transport: 3, holding: 2, peripheral: 1 }
+
+export function buildMoneyTrailBlock(
+  incidentRows: Array<Record<string, unknown>>,
+  endRows: Array<Record<string, unknown>>,
+): MoneyTrailBlock | undefined {
+  if (incidentRows.length === 0) return undefined
+
+  const winningClassRank = Math.max(
+    ...incidentRows.map((row) => MONEY_TRAIL_CLASS_RANK[firstString(row['edge_class']) ?? ''] ?? 0),
+  )
+  const winningClass = Object.entries(MONEY_TRAIL_CLASS_RANK).find(([, rank]) => rank === winningClassRank)?.[0]
+    ?? firstString(incidentRows[0]?.['edge_class']) ?? 'peripheral'
+  const rowsOfWinningClass = incidentRows.filter((row) => firstString(row['edge_class']) === winningClass)
+  const bestRow = rowsOfWinningClass.reduce((best, row) => {
+    const rowHop = numberValue(row['min_hop']) ?? Number.POSITIVE_INFINITY
+    const bestHop = numberValue(best['min_hop']) ?? Number.POSITIVE_INFINITY
+    return rowHop < bestHop ? row : best
+  }, rowsOfWinningClass[0]!)
+
+  const nearestEnd = endRows.reduce<Record<string, unknown> | undefined>((best, row) => {
+    const rowValue = numberValue(row['value']) ?? Number.NEGATIVE_INFINITY
+    const bestValue = best ? numberValue(best['value']) ?? Number.NEGATIVE_INFINITY : Number.NEGATIVE_INFINITY
+    return !best || rowValue > bestValue ? row : best
+  }, undefined)
+
+  return {
+    on_trail: true,
+    class: winningClass,
+    min_hop: numberValue(bestRow['min_hop']) ?? 0,
+    primary_seed: firstString(bestRow['primary_seed']) ?? '',
+    generation: numberValue(bestRow['generation']) ?? 0,
+    ...(nearestEnd
+      ? {
+          nearest_trail_end: {
+            address: firstString(nearestEnd['address']) ?? '',
+            fact_type: firstString(nearestEnd['fact_type']) ?? '',
+            value: String(nearestEnd['value'] ?? ''),
+          },
+        }
+      : {}),
+  }
+}
+
+export function moneyTrailSummarySentence(block: MoneyTrailBlock): string {
+  return block.class === 'peripheral'
+    ? `This address touched money-trail funds (${block.class}, min hop ${block.min_hop}).`
+    : `This address sits on a money trail (${block.class}, min hop ${block.min_hop}).`
+}
+
 function exchangeOutflowQueries(address: string): Array<{ id: string; query: string }> {
   return Array.from({ length: 3 }, (_, index) => exchangeOutflowQueryAtDepth(address, index + 1))
 }
@@ -887,6 +994,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   const queries = [
     addressProfileQuery(address),
     addressFeatureQuery(address),
+    { id: 'money_trail_incident', query: moneyTrailIncidentQuery(address) },
     ...exchangeOutflowQueries(address),
     ...exchangeInflowQueries(address),
     ...(compareAddress ? [connectionProbeQuery(address, compareAddress)] : [{ id: 'connection_probe', query: 'MATCH (n:Address {address: "__chain_insights_noop__"}) RETURN n.address AS noop LIMIT 0' }]),
@@ -944,6 +1052,30 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     (failure) => failure.id.startsWith('exchange_outflows_') || failure.id.startsWith('exchange_inflows_'),
   )
   const exchangeSearchComplete = exchangeSearchFailures.length === 0
+  // money-trail enrichment (optional): a preliminary block resolves the
+  // primary_seed off the incident-only rows, then a second batch call fans
+  // out TRAIL_ENDS_AT for that seed so the block can pick the highest-value
+  // terminal fact. Both reads are optional-results -- a graph with no
+  // money-trail layer never fails the tool.
+  const moneyTrailIncidentRows = optionalResultsFor(batch, 'money_trail_incident', partialQueryFailures)
+  const preliminaryMoneyTrail = buildMoneyTrailBlock(moneyTrailIncidentRows, [])
+  let moneyTrailEndRows: Array<Record<string, unknown>> = []
+  if (preliminaryMoneyTrail?.primary_seed) {
+    try {
+      const endsBatch = await callGraphBatch(remoteClient, network, [
+        { id: 'money_trail_ends', query: moneyTrailEndsQuery(preliminaryMoneyTrail.primary_seed) },
+      ])
+      moneyTrailEndRows = optionalResultsFor(endsBatch, 'money_trail_ends', partialQueryFailures)
+    } catch (error) {
+      // Degrade, don't fail: a transport/parse error on the second batch call
+      // (unlike a query-level ok:false, which optionalResultsFor already
+      // absorbs) must not blow up the whole tool -- the incident rows are
+      // already in hand, so the block still reports on_trail without
+      // nearest_trail_end.
+      collectQueryFailure(partialQueryFailures, 'money_trail_ends', error instanceof Error ? error.message : String(error))
+    }
+  }
+  const moneyTrail = buildMoneyTrailBlock(moneyTrailIncidentRows, moneyTrailEndRows)
   const graphData = buildRiskGraph(address, profile, exchangeRows, network)
   const risk = riskAssessment(profile, labelRows, exchangeRows)
   const liveRiskScore = numberValue(profile['live_risk_score'])
@@ -982,6 +1114,9 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   if (Array.isArray(risk['drivers']) && risk['drivers'].length > 0) {
     lines.push('', 'Risk drivers', risk['drivers'].map((driver) => `- ${driver}`).join('\n'))
   }
+  if (moneyTrail) {
+    lines.push('', moneyTrailSummarySentence(moneyTrail))
+  }
   if (compareAddress) {
     lines.push('', `Connection compare target: ${compareAddress}`, connections.length > 0 ? `Connection paths found: ${connections.length}` : 'Connection paths found: 0')
   }
@@ -1017,6 +1152,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
             ...(routeEvidence ? { route_evidence: routeEvidence } : {}),
           }
         : undefined,
+      money_trail: moneyTrail,
       unresolved: compareUnresolved ? [compareInput] : undefined,
       partial_query_errors: partialQueryFailures.length > 0 ? partialQueryFailures : undefined,
     },
@@ -1079,6 +1215,14 @@ export interface TraceSuspectFundsOptions {
   perAddressLimit?: number
   minAmountSum?: number
   writeArtifacts?: boolean
+  /**
+   * Force the live per-seed traversal, skipping the money-trail fast path
+   * (see traceResultFromMoneyTrail) even when the trace target resolves as
+   * a precomputed money-trail seed. Default false -- the fast path is tried
+   * first and degrades to this same live path on an empty probe or any
+   * probe/corridor failure.
+   */
+  live?: boolean
 }
 
 export interface TraceDepositSourcesOptions {
@@ -1778,6 +1922,136 @@ function traceResultFromFundRuns(
   }
 }
 
+// Task 2 (trace fast path): assembles a TraceToolResult straight from the
+// precomputed money-trail layer -- MONEY_TRAIL corridor rows off the seed
+// (bounded depth 6, peripheral-only continuation excluded, see
+// moneyTrailCorridorQuery) plus its TRAIL_ENDS_AT fan -- instead of running
+// the live per-seed FLOWS_TO traversal (runFundFlowProbe). Shares the
+// chain-insights.trace.v1 schema and publicizeTraceResult artifact path with
+// traceResultFromFundRuns so downstream consumers (CLI, MCP, artifacts) see
+// the same contract; only the provenance stamp (trace_source,
+// money_trail_generation) and the summary sentence say this came from the
+// precomputed layer rather than a live traversal.
+export function traceResultFromMoneyTrail(
+  network: string,
+  seed: string,
+  corridorRows: Array<Record<string, unknown>>,
+  endRows: Array<Record<string, unknown>>,
+): TraceToolResult {
+  const generation = [...corridorRows, ...endRows]
+    .map((row) => numberValue(row['generation']) ?? 0)
+    .reduce((max, value) => Math.max(max, value), 0)
+
+  const edges = corridorRows
+    .map((row, index) => ({
+      edge_id: `mt${index + 1}`,
+      from_address: seed,
+      to_address: firstString(row['address']) ?? '',
+      edge_type: 'MONEY_TRAIL',
+      edge_class: firstString(row['edge_class']),
+      amount_usd_sum: numberValue(row['value']),
+      tx_count: undefined,
+      first_tx_id: undefined,
+      last_tx_id: undefined,
+    }))
+    .filter((edge) => edge.to_address)
+
+  const corridorAddresses = uniqueStrings(corridorRows.map((row) => firstString(row['address'])))
+  const endAddresses = uniqueStrings(endRows.map((row) => firstString(row['address'])))
+
+  const addresses = [
+    { address: seed, roles: ['seed_suspect'], confidence: 'high', rationale: ['suspect seed provided by caller'] },
+    ...corridorAddresses.map((address) => ({
+      address,
+      roles: ['candidate_intermediate'],
+      confidence: 'medium',
+      rationale: ['Address appears in precomputed MONEY_TRAIL corridor'],
+    })),
+    ...endAddresses.map((address) => ({
+      address,
+      roles: ['candidate_deposit'],
+      confidence: 'medium',
+      rationale: ['Precomputed TRAIL_ENDS_AT terminal'],
+    })),
+  ]
+
+  const paths = endRows.map((row, index) => ({
+    path_id: `p${index + 1}`,
+    direction: 'forward',
+    source: seed,
+    target: firstString(row['address']) ?? '',
+    addresses: [seed, firstString(row['address']) ?? ''].filter(Boolean),
+    edge_ids: [] as string[],
+    hops: numberValue(row['hop']) ?? 0,
+    terminal_role: firstString(row['terminal_role']) ?? 'deposit',
+    amount_usd_sum: numberValue(row['value']),
+  }))
+
+  const graphData = normalizeGraphPayload({
+    schema: 'chain-insights.graph.v1',
+    nodes: [],
+    edges,
+    flows: [],
+    deposits: endRows.map((row) => ({ address: firstString(row['address']), run_role: 'suspect', run_address: seed })),
+    source_matches: [],
+    reverse_leads: [],
+    edge_anchors: [],
+    metadata: { network, generated_at: new Date().toISOString(), trace_tools: true, trace_source: 'money_trail' },
+  })
+
+  const structuredContent = {
+    schema: 'chain-insights.trace.v1',
+    tool: 'aml_trace_suspect_funds',
+    network,
+    trace_source: 'money_trail',
+    money_trail_generation: generation,
+    input: {
+      addresses: [seed],
+      seed_role: 'suspect',
+    },
+    summary: {
+      seed_count: 1,
+      unresolved_count: 0,
+      path_count: paths.length,
+      edge_count: edges.length,
+      candidate_suspect_count: 1,
+      candidate_intermediate_count: corridorAddresses.length,
+      candidate_deposit_count: endAddresses.length,
+      exchange_count: 0,
+    },
+    unresolved: [],
+    addresses,
+    edges,
+    paths,
+    convergence: [],
+    exchange_exposure: [],
+    deposit_funding: { source_exchange_paths: [], reverse_leads: [] },
+    candidate_labels: [],
+    artifacts: {},
+    evidence: [],
+    continuation: {
+      candidate_deposit_addresses: endAddresses,
+      candidate_suspect_addresses: [seed],
+      candidate_victim_addresses: [],
+      recommended_next_tools: endAddresses.length > 0
+        ? ['aml_trace_deposit_sources', 'aml_address_risk']
+        : ['aml_address_risk', 'graph_query_batch'],
+    },
+    warnings: [],
+  }
+
+  return {
+    summaryText: [
+      `Trace suspect funds complete for ${network}`,
+      '',
+      `## suspect: ${seed}`,
+      `Result derived from precomputed money trail, investigation round ${generation}.`,
+    ].join('\n'),
+    structuredContent,
+    graphData,
+  }
+}
+
 export async function traceVictimFunds(
   remoteClient: Client,
   config: TraceToolConfig,
@@ -1846,6 +2120,39 @@ export async function traceSuspectFunds(
   const unresolvedSuspects = uniqueSuspects.filter((input) => !existingSuspects.has(input))
   const activityWindow = traceActivityWindow(options.incidentTimestamp, options.timeRange)
   const searchLimits = resolveForwardTraceLimits(network, config, options)
+
+  // Money-trail fast path (Task 2): a single resolved suspect target is
+  // probed for outgoing TRAIL_ENDS_AT before falling back to the live
+  // per-seed traversal below. Scoped to exactly one resolved seed --
+  // traceResultFromMoneyTrail assembles one seed's corridor+ends into a
+  // single result, so a multi-seed request always takes the live path.
+  // `live: true` skips the probe entirely; any probe/corridor failure or an
+  // empty probe both degrade to the unchanged live path (never fails the
+  // tool).
+  if (!options.live && suspects.length === 1) {
+    const seed = suspects[0]!
+    try {
+      const probeBatch = await callGraphBatch(remoteClient, network, [
+        { id: 'money_trail_seed_probe', query: moneyTrailSeedProbeQuery(seed) },
+      ])
+      const probeFailures: QueryFailure[] = []
+      const probeRows = optionalResultsFor(probeBatch, 'money_trail_seed_probe', probeFailures)
+      if (probeFailures.length === 0 && probeRows.length > 0) {
+        const corridorBatch = await callGraphBatch(remoteClient, network, [
+          { id: 'money_trail_corridor', query: moneyTrailCorridorQuery(seed) },
+        ])
+        const corridorFailures: QueryFailure[] = []
+        const corridorRows = optionalResultsFor(corridorBatch, 'money_trail_corridor', corridorFailures)
+        if (corridorFailures.length === 0) {
+          const fastResult = traceResultFromMoneyTrail(network, seed, corridorRows, probeRows)
+          return publicizeTraceResult(network, fastResult, options.writeArtifacts !== false)
+        }
+      }
+    } catch {
+      // Transport/parse-level failure on the probe or corridor call:
+      // degrade to the live path below, never fail the tool.
+    }
+  }
 
   const runs: TraceRun[] = []
   for (const address of suspects) {

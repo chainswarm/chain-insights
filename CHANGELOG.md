@@ -3,6 +3,23 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.0] - 2026-07-31 — money-trail enrichment for risk, tracing, and reports
+
+### Added
+
+- **Risk screening** (`aml_address_risk`): when an address sits on a known
+  money trail, the result now carries a `money_trail` block — whether it is
+  the operation's own plumbing or just touched the funds, how many hops from
+  the source, and where the trail ends (exchange, mixer, bridge). Addresses
+  off any trail are unaffected.
+- **Suspect tracing** (`aml_trace_suspect_funds`): when the target is a known
+  source, the trace is answered instantly from the precomputed money trail
+  instead of re-walking the graph, stamped with the investigation round it
+  came from. Live tracing stays the default for everything else and can be
+  forced with `live`.
+- **Graph reports and dossiers**: money-trail steps and trail-end shortcuts
+  now render as their own labelled layer, distinct from ordinary fund flow.
+
 ## [0.17.1] - 2026-07-30 — monitor: :OnMoneyTrail family rename with dedup re-key
 
 - fix(monitor): the graph-layer node-label family `:Attributed` is renamed

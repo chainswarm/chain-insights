@@ -1,0 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`money-trail query builders > moneyTrailEndsQuery emits pinned query text with an escaped seed literal 1`] = `"USE topology MATCH (s:Address {address: "seed\\"1"})-[r:TRAIL_ENDS_AT]->(t:Address) RETURN t.address AS address, r.fact_type AS fact_type, r.direction AS direction, r.terminal_role AS terminal_role, r.hop AS hop, r.value AS value, r.generation AS generation LIMIT 200"`;
+
+exports[`money-trail query builders > moneyTrailIncidentQuery emits pinned query text with an escaped address literal 1`] = `"USE topology MATCH (a:Address {address: "addr\\"1"})-[r:MONEY_TRAIL]-() RETURN r.edge_class AS edge_class, r.value AS value, r.min_hop AS min_hop, r.seed_count AS seed_count, r.primary_seed AS primary_seed, r.generation AS generation, r.network AS network, r.first_ts AS first_ts, r.last_ts AS last_ts LIMIT 200"`;

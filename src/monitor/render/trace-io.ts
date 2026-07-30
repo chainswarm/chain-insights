@@ -11,6 +11,9 @@ export interface TraceV1Edge {
   edge_id: string
   from_address: string
   to_address: string
+  // MONEY_TRAIL / TRAIL_ENDS_AT mark precomputed money-trail edges; the
+  // renderer styles them as their own layer instead of a plain flow edge.
+  edge_type?: string
   amount_usd_sum?: number
   tx_count?: number
   first_tx_id?: string

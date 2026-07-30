@@ -22,14 +22,15 @@ export function buildMermaidFlow(
   maxEdges: number = DEFAULT_MERMAID_MAX_EDGES,
 ): string {
   // Dedupe edges by from->to; the highest observed amount wins.
-  const merged = new Map<string, { from: string; to: string; amount?: number }>()
+  const merged = new Map<string, { from: string; to: string; amount?: number; edgeType?: string }>()
   for (const doc of docs) {
     for (const edge of doc.edges) {
       const key = `${edge.from_address} ${edge.to_address}`
       const existing = merged.get(key)
       const amount = edge.amount_usd_sum
+      const edgeType = edge.edge_type?.toLowerCase()
       if (!existing) {
-        merged.set(key, { from: edge.from_address, to: edge.to_address, amount })
+        merged.set(key, { from: edge.from_address, to: edge.to_address, amount, edgeType })
       } else if (amount !== undefined && (existing.amount === undefined || amount > existing.amount)) {
         existing.amount = amount
       }
@@ -67,12 +68,26 @@ export function buildMermaidFlow(
     }
     return id
   }
+  const trailLinkStyles: string[] = []
+  let linkIndex = 0
   for (const edge of kept) {
     const from = declare(edge.from)
     const to = declare(edge.to)
-    const label = edge.amount !== undefined ? `|"$${edge.amount.toFixed(2)}"|` : ''
+    // MONEY_TRAIL / TRAIL_ENDS_AT are the precomputed money-trail layer --
+    // labeled and dashed so they read as their own layer, never as an
+    // ordinary flow edge (D3/D4: distinct types, "money trail" wording).
+    const isTrail = edge.edgeType === 'money_trail' || edge.edgeType === 'trail_ends_at'
+    const trailWords = edge.edgeType === 'trail_ends_at' ? 'trail ends at' : isTrail ? 'money trail' : undefined
+    const amountText = edge.amount !== undefined ? `$${edge.amount.toFixed(2)}` : ''
+    const labelText = trailWords ? [trailWords, amountText].filter(Boolean).join(' ') : amountText
+    const label = labelText ? `|"${labelText}"|` : ''
     lines.push(`  ${from} -->${label} ${to}`)
+    if (isTrail) {
+      trailLinkStyles.push(`  linkStyle ${linkIndex} stroke:#f97316,stroke-width:2px,stroke-dasharray:5 5`)
+    }
+    linkIndex += 1
   }
+  lines.push(...trailLinkStyles)
   lines.push('  classDef seed fill:#fde68a,stroke:#b45309')
   lines.push('  classDef exchange fill:#bfdbfe,stroke:#1d4ed8')
   lines.push('  classDef deposit fill:#bbf7d0,stroke:#15803d')
