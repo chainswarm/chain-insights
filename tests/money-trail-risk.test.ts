@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest'
-import { buildMoneyTrailBlock, moneyTrailEndsQuery, moneyTrailIncidentQuery, moneyTrailSummarySentence } from '../src/investigation/public-tools.js'
+import { describe, expect, it, vi } from 'vitest'
+import { addressRisk, buildMoneyTrailBlock, moneyTrailEndsQuery, moneyTrailIncidentQuery, moneyTrailSummarySentence } from '../src/investigation/public-tools.js'
+
+type BatchQuery = { id: string; query: string }
 
 describe('money-trail query builders', () => {
   it('moneyTrailIncidentQuery emits pinned query text with an escaped address literal', () => {
@@ -79,5 +81,59 @@ describe('moneyTrailSummarySentence', () => {
   it('never contains the word "attribution"', () => {
     const block = buildMoneyTrailBlock([{ edge_class: 'peripheral', min_hop: 1, primary_seed: 'seedA', generation: 1 }], [])
     expect(moneyTrailSummarySentence(block!).toLowerCase()).not.toContain('attribution')
+  })
+})
+
+describe('aml_address_risk money_trail_ends round trip degrades on failure', () => {
+  // Simulates a transport/parse-level error on the SECOND callGraphBatch
+  // call (the money_trail_ends fan-out), which throws rather than
+  // returning an ok:false query row -- distinct from the ok:false path
+  // optionalResultsFor already absorbs. The tool must still return a
+  // result, with the money_trail block built from the incident rows alone
+  // (no nearest_trail_end) and the failure recorded.
+  it('ends-call throws -> tool result still returned, block present without nearest_trail_end, failure recorded', async () => {
+    let callCount = 0
+    const remote = {
+      callTool: vi.fn(async (req: { name: string; arguments: { queries?: BatchQuery[] } }) => {
+        if (req.name === 'network_capabilities') {
+          return { content: [{ type: 'text', text: JSON.stringify({ networks: [] }) }], isError: false }
+        }
+        callCount += 1
+        const queries = req.arguments.queries ?? []
+        if (queries.some((q) => q.id === 'money_trail_ends')) {
+          throw new Error('transport error: connection reset')
+        }
+        const results = queries.map((q) => {
+          if (q.id === 'address_profile') return { id: q.id, ok: true, results: [{ address: '5Known', network: 'bittensor' }] }
+          if (q.id === 'money_trail_incident') {
+            return {
+              id: q.id,
+              ok: true,
+              results: [{ edge_class: 'transport', min_hop: 2, primary_seed: '5Seed', generation: 1 }],
+            }
+          }
+          return { id: q.id, ok: true, results: [] }
+        })
+        return { content: [{ type: 'text', text: JSON.stringify({ facts: { queries: results } }) }], isError: false }
+      }),
+    }
+
+    const result = await addressRisk(remote as never, { address: '5Known', network: 'bittensor' })
+
+    expect(callCount).toBeGreaterThanOrEqual(2)
+    const facts = (result.structuredContent as {
+      facts: {
+        money_trail?: { on_trail: true; class: string; nearest_trail_end?: unknown }
+        partial_query_errors?: Array<{ id: string; error: string }>
+      }
+    }).facts
+    expect(facts.money_trail).toBeDefined()
+    expect(facts.money_trail?.on_trail).toBe(true)
+    expect(facts.money_trail?.class).toBe('transport')
+    expect(facts.money_trail?.nearest_trail_end).toBeUndefined()
+    expect(facts.partial_query_errors).toContainEqual(
+      expect.objectContaining({ id: 'money_trail_ends', error: expect.stringContaining('connection reset') }),
+    )
+    expect(result.summaryText).toContain('sits on a money trail')
   })
 })

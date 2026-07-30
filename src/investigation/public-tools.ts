@@ -1035,10 +1035,19 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   const preliminaryMoneyTrail = buildMoneyTrailBlock(moneyTrailIncidentRows, [])
   let moneyTrailEndRows: Array<Record<string, unknown>> = []
   if (preliminaryMoneyTrail?.primary_seed) {
-    const endsBatch = await callGraphBatch(remoteClient, network, [
-      { id: 'money_trail_ends', query: moneyTrailEndsQuery(preliminaryMoneyTrail.primary_seed) },
-    ])
-    moneyTrailEndRows = optionalResultsFor(endsBatch, 'money_trail_ends', partialQueryFailures)
+    try {
+      const endsBatch = await callGraphBatch(remoteClient, network, [
+        { id: 'money_trail_ends', query: moneyTrailEndsQuery(preliminaryMoneyTrail.primary_seed) },
+      ])
+      moneyTrailEndRows = optionalResultsFor(endsBatch, 'money_trail_ends', partialQueryFailures)
+    } catch (error) {
+      // Degrade, don't fail: a transport/parse error on the second batch call
+      // (unlike a query-level ok:false, which optionalResultsFor already
+      // absorbs) must not blow up the whole tool -- the incident rows are
+      // already in hand, so the block still reports on_trail without
+      // nearest_trail_end.
+      collectQueryFailure(partialQueryFailures, 'money_trail_ends', error instanceof Error ? error.message : String(error))
+    }
   }
   const moneyTrail = buildMoneyTrailBlock(moneyTrailIncidentRows, moneyTrailEndRows)
   const graphData = buildRiskGraph(address, profile, exchangeRows, network)
