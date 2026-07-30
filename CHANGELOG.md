@@ -3,6 +3,24 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.17.1] - 2026-07-30 — monitor: :OnMoneyTrail family rename with dedup re-key
+
+- fix(monitor): the graph-layer node-label family `:Attributed` is renamed
+  `:OnMoneyTrail` (money-trail graph rebuild, projection version bump). The
+  label probe's overlay vocabulary (`OVERLAY_FAMILIES`, `label-probe.ts`)
+  now recognizes `OnMoneyTrail` and drops `Attributed`; severity stays
+  `context` under the new name (`severityForFamilies`); the label-text ->
+  family map (`attribution_peripheral`/`attribution_funder`) now resolves
+  to `OnMoneyTrail`.
+- fix(monitor): a new one-time transparent re-key pass (`migrateFamilyRename`,
+  wired into `withStore` alongside `migrateLabelSourceRefs`) maps any
+  pre-existing `watchlist_hits` row already shaped `address|Attributed|source`
+  to `address|OnMoneyTrail|source`, idempotently, on store open — so the
+  graph rebuild's `:OnMoneyTrail` label cannot mint a fresh, non-colliding
+  `source_ref` for an address already known under the retired `:Attributed`
+  family (the #270 retro-flood class, one layer further than the Plan 3 D3
+  label-text guard).
+
 ## [0.17.0] - 2026-07-30 — monitor: overlay-family severity on label alerts
 
 - feat(monitor): the label probe (`src/monitor/label-probe.ts`) now reads

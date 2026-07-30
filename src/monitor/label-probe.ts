@@ -95,9 +95,11 @@ export function labelQuery(addresses: string[]): string {
   // labels(a) AS families (label-governance Plan 3 D2) rides the SAME row as
   // a.labels — one query, no extra round trip. It is the graphsync overlay
   // taxonomy (PascalCase node labels: Scam/Mixer/Bridge/Victim/Exchange/
-  // Poisoned/Propagated/Attributed, plus Address on every node and layer-2
-  // knowledge labels like Neuron/Subnet) — see extractFamilies for the
-  // vocabulary filter and severityForFamilies for the D2 mapping.
+  // Poisoned/Propagated/OnMoneyTrail (label-governance Task 6: renamed from
+  // Attributed on the money-trail graph-layer rebuild), plus Address on
+  // every node and layer-2 knowledge labels like Neuron/Subnet) — see
+  // extractFamilies for the vocabulary filter and severityForFamilies for
+  // the D2 mapping.
   return `USE topology MATCH (a:Address)
  WHERE a.address IN [${list}] AND a.labels IS NOT NULL
  RETURN a.address AS address, a.labels AS labels, labels(a) AS families
@@ -154,7 +156,7 @@ export function mergeFamilyRows(rows: Array<Record<string, unknown>>): Map<strin
 // severity mapping happens. A new family (e.g. a future overlay addition)
 // must be added HERE and to ALERT_FAMILIES below, or it silently falls back
 // to the conservative "no families extracted" branch.
-export const OVERLAY_FAMILIES = ['Scam', 'Mixer', 'Bridge', 'Victim', 'Exchange', 'Poisoned', 'Propagated', 'Attributed'] as const
+export const OVERLAY_FAMILIES = ['Scam', 'Mixer', 'Bridge', 'Victim', 'Exchange', 'Poisoned', 'Propagated', 'OnMoneyTrail'] as const
 const OVERLAY_FAMILY_SET: ReadonlySet<string> = new Set(OVERLAY_FAMILIES)
 
 /** Filters a raw labels(a) node-label list down to the overlay vocabulary.
@@ -172,12 +174,13 @@ export function extractFamilies(rawFamilies: unknown): Set<string> {
 }
 
 // Verdict families (D2): transport, holding, and mixing findings that alert
-// on their own. Attributed alone, and Victim/Exchange alone, are
-// informational context — see severityForFamilies.
+// on their own. OnMoneyTrail alone (label-governance Task 6: renamed from
+// Attributed), and Victim/Exchange alone, are informational context — see
+// severityForFamilies.
 const ALERT_FAMILIES: ReadonlySet<string> = new Set(['Scam', 'Mixer', 'Bridge', 'Poisoned', 'Propagated'])
 
 /** D2 family -> severity mapping. Any verdict family present (Scam, Mixer,
- *  Bridge, Poisoned, Propagated) is 'alert'. Only Attributed and/or Victim/
+ *  Bridge, Poisoned, Propagated) is 'alert'. Only OnMoneyTrail and/or Victim/
  *  Exchange present is 'context'. NO families extracted at all — the
  *  address's node-label overlay carries nothing (labels-text-only) — maps
  *  to 'alert': today's behavior, conservative until the overlay backfills. */
@@ -199,8 +202,10 @@ export function severityForFamilies(families: ReadonlySet<string>): 'alert' | 'c
 const LABEL_TEXT_FAMILY: ReadonlyMap<string, string> = new Map([
   ['attribution_transport', 'Scam'],
   ['attribution_holding', 'Scam'],
-  ['attribution_peripheral', 'Attributed'],
-  ['attribution_funder', 'Attributed'],
+  // label-governance Task 6: the graph-layer family these two resolve to is
+  // renamed OnMoneyTrail (was Attributed) on the money-trail graph rebuild.
+  ['attribution_peripheral', 'OnMoneyTrail'],
+  ['attribution_funder', 'OnMoneyTrail'],
   ['attack_attributed', 'Scam'], // retired v2 text — kept for the cutover only
 ])
 
@@ -227,7 +232,7 @@ export function vocabularyFamily(label: string): string | undefined {
 // TEXT vocabulary (D3 adopted rule): verdict families outrank context
 // families, matching the ALERT_FAMILIES/severityForFamilies priority; ties
 // within a tier break on OVERLAY_FAMILIES declaration order.
-const FAMILY_PRIORITY: readonly string[] = ['Scam', 'Poisoned', 'Propagated', 'Mixer', 'Bridge', 'Attributed', 'Victim', 'Exchange']
+const FAMILY_PRIORITY: readonly string[] = ['Scam', 'Poisoned', 'Propagated', 'Mixer', 'Bridge', 'OnMoneyTrail', 'Victim', 'Exchange']
 
 /** The single family this address's extracted overlay families would present
  *  as, for the fallback branch of familyForLabel. Returns undefined for an
@@ -295,6 +300,54 @@ export async function migrateLabelSourceRefs(store: MonitorStore): Promise<void>
     if (!family) continue // unmappable (D3): keep the old ref unchanged
     const newRef = `${address}|${family}|${source}`
     if (newRef === sourceRef) continue
+    await store.run(
+      `UPDATE watchlist_hits SET source_ref = $1
+        WHERE trigger = 'label' AND address = $2 AND network = $3 AND source_ref = $4`,
+      [newRef, address, network, sourceRef],
+    )
+  }
+}
+
+// Family name the graph-layer node label carried before the money-trail
+// rebuild (label-governance Task 6). Kept as a literal, not folded into
+// LABEL_TEXT_FAMILY: this is a FAMILY-shaped legacy value (already the
+// output of a prior familyForLabel/migrateLabelSourceRefs pass), not a label
+// TEXT, so it cannot be looked up through vocabularyFamily.
+const RETIRED_FAMILY = 'Attributed'
+const RENAMED_FAMILY = 'OnMoneyTrail'
+
+/** D3-shaped legacy source_ref re-key, second edition (label-governance
+ *  Task 6, #270 class again): rows already re-keyed by migrateLabelSourceRefs
+ *  to `address|Attributed|source` predate the money-trail graph-layer
+ *  rebuild, which renames the node-label family :Attributed -> :OnMoneyTrail
+ *  (projection version bump). This transparently re-keys those FAMILY-shaped
+ *  rows to `address|OnMoneyTrail|source` so the rebuild's new :OnMoneyTrail
+ *  label cannot mint a fresh, non-colliding ref for an address already known
+ *  under the retired :Attributed family — same retro-flood guard as
+ *  migrateLabelSourceRefs, one layer further down the family lineage.
+ *
+ *  Same "on store open" trigger idiom as migrateAbsoluteDocKeys/
+ *  migrateLabelSourceRefs (see store.ts withStore). Naturally idempotent for
+ *  the identical reason: once a row's middle segment is OnMoneyTrail, it no
+ *  longer equals RETIRED_FAMILY, so the WHERE-driven UPDATE finds nothing
+ *  left to change on a later pass. */
+export async function migrateFamilyRename(store: MonitorStore): Promise<void> {
+  const rows = await store.all(
+    `SELECT DISTINCT address, network, source_ref FROM watchlist_hits WHERE trigger = 'label'`,
+  )
+  for (const row of rows) {
+    const address = String(row.address)
+    const network = String(row.network)
+    const sourceRef = String(row.source_ref)
+    const prefix = `${address}|`
+    if (!sourceRef.startsWith(prefix)) continue // not this ref's shape — defensive, never throws
+    const rest = sourceRef.slice(prefix.length)
+    const lastPipe = rest.lastIndexOf('|')
+    if (lastPipe < 0) continue
+    const family = rest.slice(0, lastPipe)
+    const source = rest.slice(lastPipe + 1)
+    if (family !== RETIRED_FAMILY) continue // not the retired family — nothing to repair
+    const newRef = `${address}|${RENAMED_FAMILY}|${source}`
     await store.run(
       `UPDATE watchlist_hits SET source_ref = $1
         WHERE trigger = 'label' AND address = $2 AND network = $3 AND source_ref = $4`,

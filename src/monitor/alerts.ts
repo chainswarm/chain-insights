@@ -42,8 +42,10 @@ export interface AlertEvent {
   // severity. 'alert' = a verdict family (Scam/Mixer/Bridge/Poisoned/
   // Propagated) is present, OR no overlay family was extracted at all
   // (labels-text-only — today's behavior, conservative). 'context' = only
-  // Attributed and/or Victim/Exchange are present. Other alert types leave
-  // this undefined for now — not yet classified, never defaulted to 'alert'.
+  // OnMoneyTrail (label-governance Task 6: renamed from Attributed on the
+  // money-trail graph-layer rebuild) and/or Victim/Exchange are present.
+  // Other alert types leave this undefined for now — not yet classified,
+  // never defaulted to 'alert'.
   severity?: 'alert' | 'context'
   run_timestamp: number
   emitted_at_timestamp: number

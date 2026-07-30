@@ -7,7 +7,7 @@ import path from 'node:path'
 import { DuckDBInstance } from '@duckdb/node-api'
 import { parseFindingsDocument } from '../investigation/detection-findings.js'
 import { parseJsonlLines } from './jsonl.js'
-import { migrateLabelSourceRefs } from './label-probe.js'
+import { migrateFamilyRename, migrateLabelSourceRefs } from './label-probe.js'
 import { monitorPaths } from './paths.js'
 import { diffScopeExpansion, diffSnapshots, type CaseSnapshot } from './tracker.js'
 import { loadWatchlist } from './watchlist.js'
@@ -159,6 +159,12 @@ export async function withStore<T>(
       // address|label|source to address|family|source before anything else
       // touches the store this open.
       await migrateLabelSourceRefs(store)
+      // Same "on store open" contract, one layer further (label-governance
+      // Task 6, #270 class again): re-key any legacy trigger='label'
+      // watchlist_hits rows already family-shaped under the retired
+      // :Attributed graph-layer family to :OnMoneyTrail (money-trail graph
+      // rebuild) before anything else touches the store this open.
+      await migrateFamilyRename(store)
     }
     return await fn(store)
   } finally {
