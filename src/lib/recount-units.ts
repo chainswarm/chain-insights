@@ -82,7 +82,9 @@ export function recountBillableUnits(
 ): { rows: number; nodes: number; edges: number; total: number } {
   const counts: Counts = { nodes: 0, edges: 0 }
 
-  for (const row of results) countGraphValue(row, counts)
+  for (const row of results) {
+    for (const value of Object.values(row)) countGraphValue(value, counts)
+  }
 
   const rows = results.length
   return { rows, nodes: counts.nodes, edges: counts.edges, total: rows + counts.nodes + counts.edges }

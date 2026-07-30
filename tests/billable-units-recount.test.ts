@@ -28,4 +28,9 @@ describe('recountBillableUnits', () => {
     expect(recount.total).toBe(facts.query.billable_units)
     expect(recount).toMatchObject({ rows: 2, nodes: 1, edges: 0 })
   })
+
+  it('never recognizes the row wrapper itself as a node/edge/path (server RowUnits walks row VALUES, not the row)', () => {
+    const rowShapedLikeNode = node('1')
+    expect(recountBillableUnits([rowShapedLikeNode])).toEqual({ rows: 1, nodes: 0, edges: 0, total: 1 })
+  })
 })
