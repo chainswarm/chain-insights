@@ -5,12 +5,14 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   appendLabelBaseline,
+  extractFamilies,
   LABEL_SOURCE,
   labelHits,
   labelQuery,
   mergeLabelRows,
   pairKey,
   readLabelBaseline,
+  severityForFamilies,
 } from '../../src/monitor/label-probe.js'
 import { monitorPaths } from '../../src/monitor/paths.js'
 import { rebuildStore, withStore } from '../../src/monitor/store.js'
@@ -76,6 +78,14 @@ describe('label query + per-shard merge (label-cutover spec req 1-2)', () => {
     expect(q).toContain('LIMIT 500')
   })
 
+  // labelQuery shape pin (label-governance Plan 3 D2): the query gains
+  // labels(a) AS families ALONGSIDE a.labels — the free-text property stays,
+  // families is additive, never a replacement.
+  it('pins the RETURN shape: a.labels AND labels(a) AS families both present', () => {
+    const q = labelQuery(['5Aaa'])
+    expect(q).toContain('RETURN a.address AS address, a.labels AS labels, labels(a) AS families')
+  })
+
   it('refuses a non-chain address instead of escaping it', () => {
     expect(() => labelQuery(["5Aaa' RETURN 1 //"])).toThrow(/not valid chain address/)
   })
@@ -96,6 +106,55 @@ describe('label query + per-shard merge (label-cutover spec req 1-2)', () => {
   it('coerces non-string label array members to strings and drops empties', () => {
     const merged = mergeLabelRows([{ address: '5Aaa', labels: ['ok', 7, ''] }])
     expect([...(merged.get('5Aaa') ?? [])].sort()).toEqual(['7', 'ok'])
+  })
+})
+
+// label-governance Plan 3 D2: labels(a) returns EVERY node label on the
+// address — Address (on every node) and layer-2 knowledge labels (Neuron,
+// Subnet) included. extractFamilies filters that raw list down to the
+// overlay vocabulary the severity mapping understands; nothing else is
+// alert-relevant.
+describe('overlay family extraction (label-governance Plan 3 D2)', () => {
+  it.each([
+    ['Address only — no overlay family present', ['Address'], []],
+    ['a verdict family alongside Address', ['Address', 'Scam'], ['Scam']],
+    ['layer-2 knowledge labels are ignored (Neuron/Subnet)', ['Address', 'Neuron', 'Subnet'], []],
+    ['Attributed alone', ['Address', 'Attributed'], ['Attributed']],
+    ['a mixed scam+attributed address keeps BOTH', ['Address', 'Scam', 'Attributed'], ['Attributed', 'Scam']],
+    ['Victim and Exchange both pass through', ['Victim', 'Exchange'], ['Exchange', 'Victim']],
+    ['every vocabulary family at once', ['Scam', 'Mixer', 'Bridge', 'Victim', 'Exchange', 'Poisoned', 'Propagated', 'Attributed'],
+      ['Attributed', 'Bridge', 'Exchange', 'Mixer', 'Poisoned', 'Propagated', 'Scam', 'Victim']],
+    ['an empty node-label list', [], []],
+    ['null is defensive-empty', null, []],
+    ['undefined is defensive-empty', undefined, []],
+    ['a non-array value is defensive-empty', 'not-an-array', []],
+    ['non-vocabulary values never match', [1, 2, 'Foo'], []],
+  ])('%s', (_name, raw, expected) => {
+    expect([...extractFamilies(raw)].sort()).toEqual([...(expected as string[])].sort())
+  })
+})
+
+// label-governance Plan 3 D2 mapping: any verdict family (Scam/Mixer/Bridge/
+// Poisoned/Propagated) alerts; Attributed and/or Victim/Exchange ALONE is
+// context; no families extracted at all (labels-text-only) is the
+// conservative default — today's behavior, alert.
+describe('severity mapping (label-governance Plan 3 D2)', () => {
+  it.each([
+    ['no families extracted at all is conservative alert (labels-text-only)', [], 'alert'],
+    ['Scam alone alerts', ['Scam'], 'alert'],
+    ['Mixer alone alerts', ['Mixer'], 'alert'],
+    ['Bridge alone alerts', ['Bridge'], 'alert'],
+    ['Poisoned alone alerts', ['Poisoned'], 'alert'],
+    ['Propagated alone alerts', ['Propagated'], 'alert'],
+    ['Attributed alone is context', ['Attributed'], 'context'],
+    ['Victim alone is context', ['Victim'], 'context'],
+    ['Exchange alone is context', ['Exchange'], 'context'],
+    ['Attributed + Victim is still context', ['Attributed', 'Victim'], 'context'],
+    ['Attributed + Exchange is still context', ['Attributed', 'Exchange'], 'context'],
+    ['Attributed + Scam: any verdict family wins -> alert', ['Attributed', 'Scam'], 'alert'],
+    ['Victim + Bridge: any verdict family wins -> alert', ['Victim', 'Bridge'], 'alert'],
+  ])('%s', (_name, families, expected) => {
+    expect(severityForFamilies(new Set(families))).toBe(expected)
   })
 })
 
@@ -139,7 +198,7 @@ describe('labelHits (label-cutover spec req 1-2)', () => {
       {
         address: '5Mine', network: 'bittensor', trigger: 'label',
         source_ref: '5Mine|mule|topology', label: 'mule', source: 'topology',
-        detail: 'label=mule source=topology',
+        detail: 'label=mule source=topology', severity: 'alert',
       },
     ])
   })
@@ -177,6 +236,34 @@ describe('labelHits (label-cutover spec req 1-2)', () => {
       return labelHits(client, store, root, WATCHED, 1000)
     })
     expect(out.hits).toEqual([])
+  })
+
+  it("a hit's severity is the overlay-family verdict, not the label text (D2)", async () => {
+    const root = await ws()
+    const boot = stubClient({ bittensor: [{ address: '5Mine', labels: ['MEXC'], families: ['Address'] }] }, { n: 0 })
+    await withStore(root, async (store) => labelHits(boot, store, root, WATCHED, 1000)) // bootstrap
+    const verdict = stubClient(
+      { bittensor: [{ address: '5Mine', labels: ['MEXC', 'attribution_transport'], families: ['Address', 'Scam'] }] },
+      { n: 0 },
+    )
+    const out = await withStore(root, async (store) => labelHits(verdict, store, root, WATCHED, 2000))
+    expect(out.hits.map((h) => ({ label: h.label, severity: h.severity }))).toEqual([
+      { label: 'attribution_transport', severity: 'alert' },
+    ])
+  })
+
+  it("Attributed-only families map to 'context' severity (D2)", async () => {
+    const root = await ws()
+    const boot = stubClient({ bittensor: [{ address: '5Mine', labels: [], families: ['Address'] }] }, { n: 0 })
+    await withStore(root, async (store) => labelHits(boot, store, root, WATCHED, 1000)) // bootstrap
+    const context = stubClient(
+      { bittensor: [{ address: '5Mine', labels: ['attribution_hop'], families: ['Address', 'Attributed'] }] },
+      { n: 0 },
+    )
+    const out = await withStore(root, async (store) => labelHits(context, store, root, WATCHED, 2000))
+    expect(out.hits.map((h) => ({ label: h.label, severity: h.severity }))).toEqual([
+      { label: 'attribution_hop', severity: 'context' },
+    ])
   })
 
   it('makes ONE call per distinct network regardless of address count (spec req 2)', async () => {
@@ -235,9 +322,27 @@ describe('runWatchlistPass label wiring (label-cutover spec req 1)', () => {
     const delta = await withStore(root, async (store) =>
       runWatchlistPass(passClient([{ address: '5Mine', labels: ['MEXC', 'mule'] }], { n: 0 }), root, store, CONFIG, 2000))
     expect(delta.alerts.filter((a) => a.type === 'watchlist_label')).toEqual([
-      { type: 'watchlist_label', network: 'bittensor', address: '5Mine', label: 'mule', source: 'topology', case_id: undefined, doc_path: undefined, run_timestamp: 2000 },
+      { type: 'watchlist_label', network: 'bittensor', address: '5Mine', label: 'mule', source: 'topology', case_id: undefined, doc_path: undefined, run_timestamp: 2000, severity: 'alert' },
     ])
     expect(delta.hits.find((h) => h.trigger === 'label')?.source_ref).toBe('5Mine|mule|topology')
+  })
+
+  it('AlertEvent.severity is populated for watchlist_label alerts from the overlay family (D2)', async () => {
+    const root = await ws()
+    await addWatched(root, { address: '5Mine', network: 'bittensor' })
+    await withStore(root, async (store) =>
+      runWatchlistPass(passClient([{ address: '5Mine', labels: [], families: ['Address'] }], { n: 0 }), root, store, CONFIG, 1000)) // bootstrap
+    const alertPass = await withStore(root, async (store) =>
+      runWatchlistPass(passClient([{ address: '5Mine', labels: ['attribution_transport'], families: ['Address', 'Scam'] }], { n: 0 }), root, store, CONFIG, 2000))
+    expect(alertPass.alerts.find((a) => a.type === 'watchlist_label')?.severity).toBe('alert')
+
+    const root2 = await ws()
+    await addWatched(root2, { address: '5Ctx', network: 'bittensor' })
+    await withStore(root2, async (store) =>
+      runWatchlistPass(passClient([{ address: '5Ctx', labels: [], families: ['Address'] }], { n: 0 }), root2, store, CONFIG, 1000)) // bootstrap
+    const contextPass = await withStore(root2, async (store) =>
+      runWatchlistPass(passClient([{ address: '5Ctx', labels: ['attribution_hop'], families: ['Address', 'Attributed'] }], { n: 0 }), root2, store, CONFIG, 2000))
+    expect(contextPass.alerts.find((a) => a.type === 'watchlist_label')?.severity).toBe('context')
   })
 
   it('a managed entry names the owning case on the alert (victim-lane coverage)', async () => {

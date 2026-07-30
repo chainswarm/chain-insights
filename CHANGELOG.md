@@ -3,6 +3,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.17.0] - 2026-07-30 — monitor: overlay-family severity on label alerts
+
+- feat(monitor): the label probe (`src/monitor/label-probe.ts`) now reads
+  `labels(a) AS families` alongside the free-text `a.labels` property, and
+  derives a `severity: 'alert' | 'context'` from the graph's node-label
+  overlay (`extractFamilies`, `severityForFamilies`) — never from the label
+  text itself, so a future label-text rename cannot move severity.
+  `Scam`/`Mixer`/`Bridge`/`Poisoned`/`Propagated` alert; `Attributed` alone
+  and/or `Victim`/`Exchange` alone are `context`; no overlay family at all
+  (labels-text-only) stays `alert`, the conservative prior behavior.
+  `AlertEvent` and `WatchlistHit` gain the optional `severity` field,
+  populated for `watchlist_label` alerts only (label-governance Plan 3, D2).
+
 ## [0.16.0] - 2026-07-29 — Permit2 payments on Robinhood Chain + payment-asset preference
 
 - feat(mcp): the x402 payment client now accepts Permit2-based `upto` offers

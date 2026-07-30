@@ -25,6 +25,11 @@ export interface WatchlistHit {
    *  any character; addresses and sources cannot contain "|"). */
   label?: string
   source?: string
+  /** label trigger only (label-governance Plan 3 D2): overlay-family-derived
+   *  severity, computed once per address per pass from labels(a) node
+   *  labels — never from the free-text label. See label-probe.ts
+   *  severityForFamilies for the mapping. */
+  severity?: 'alert' | 'context'
 }
 
 // Watched (network, address) pairs as a two-column VALUES list, so the join
@@ -316,6 +321,10 @@ export async function runWatchlistPass(
             : undefined,
       label: hit.trigger === 'label' ? hit.label : undefined,
       source: hit.trigger === 'label' ? hit.source : undefined,
+      // Only watchlist_label alerts carry severity today (D2); every other
+      // alert type leaves it undefined rather than defaulting to 'alert' —
+      // an absent field reads as "not yet classified", not "safe".
+      severity: hit.trigger === 'label' ? hit.severity : undefined,
     })),
     ...reactivationAlerts(hits, watched, allCases, runTimestamp),
   ]

@@ -83,9 +83,15 @@ export function labelQuery(addresses: string[]): string {
     )
   }
   const list = addresses.map((a) => `'${a}'`).join(',')
+  // labels(a) AS families (label-governance Plan 3 D2) rides the SAME row as
+  // a.labels — one query, no extra round trip. It is the graphsync overlay
+  // taxonomy (PascalCase node labels: Scam/Mixer/Bridge/Victim/Exchange/
+  // Poisoned/Propagated/Attributed, plus Address on every node and layer-2
+  // knowledge labels like Neuron/Subnet) — see extractFamilies for the
+  // vocabulary filter and severityForFamilies for the D2 mapping.
   return `USE topology MATCH (a:Address)
  WHERE a.address IN [${list}] AND a.labels IS NOT NULL
- RETURN a.address AS address, a.labels AS labels
+ RETURN a.address AS address, a.labels AS labels, labels(a) AS families
  LIMIT 500`
 }
 
@@ -108,6 +114,68 @@ export function mergeLabelRows(rows: Array<Record<string, unknown>>): Map<string
     merged.set(address, set)
   }
   return merged
+}
+
+/** Per-shard merge of the families(a) column — same UNION semantics as
+ *  mergeLabelRows (labels(a) is shard-invariant so union == the value, and
+ *  tolerates a lagging shard). RAW node-label set, not yet filtered to the
+ *  overlay vocabulary: callers run extractFamilies on the result before
+ *  mapping severity. */
+export function mergeFamilyRows(rows: Array<Record<string, unknown>>): Map<string, Set<string>> {
+  const merged = new Map<string, Set<string>>()
+  for (const row of rows) {
+    const address = row.address
+    const families = row.families
+    if (typeof address !== 'string' || address.length === 0) continue
+    if (!Array.isArray(families)) continue
+    const set = merged.get(address) ?? new Set<string>()
+    for (const f of families) {
+      const family = String(f)
+      if (family.length > 0) set.add(family)
+    }
+    merged.set(address, set)
+  }
+  return merged
+}
+
+// The overlay-family vocabulary the monitor understands (label-governance
+// Plan 3 D2). labels(a) returns EVERY node label on the address — Address
+// (stamped on every node) and layer-2 knowledge labels (Neuron, Subnet, ...)
+// included — so extractFamilies filters down to exactly this set before any
+// severity mapping happens. A new family (e.g. a future overlay addition)
+// must be added HERE and to ALERT_FAMILIES below, or it silently falls back
+// to the conservative "no families extracted" branch.
+export const OVERLAY_FAMILIES = ['Scam', 'Mixer', 'Bridge', 'Victim', 'Exchange', 'Poisoned', 'Propagated', 'Attributed'] as const
+const OVERLAY_FAMILY_SET: ReadonlySet<string> = new Set(OVERLAY_FAMILIES)
+
+/** Filters a raw labels(a) node-label list down to the overlay vocabulary.
+ *  Defensive against untrusted backend shapes, same stance as mergeLabelRows/
+ *  mergeFamilyRows: a non-array input (including null/undefined) yields an
+ *  empty set rather than throwing. */
+export function extractFamilies(rawFamilies: unknown): Set<string> {
+  const out = new Set<string>()
+  if (!Array.isArray(rawFamilies)) return out
+  for (const f of rawFamilies) {
+    const family = String(f)
+    if (OVERLAY_FAMILY_SET.has(family)) out.add(family)
+  }
+  return out
+}
+
+// Verdict families (D2): transport, holding, and mixing findings that alert
+// on their own. Attributed alone, and Victim/Exchange alone, are
+// informational context — see severityForFamilies.
+const ALERT_FAMILIES: ReadonlySet<string> = new Set(['Scam', 'Mixer', 'Bridge', 'Poisoned', 'Propagated'])
+
+/** D2 family -> severity mapping. Any verdict family present (Scam, Mixer,
+ *  Bridge, Poisoned, Propagated) is 'alert'. Only Attributed and/or Victim/
+ *  Exchange present is 'context'. NO families extracted at all — the
+ *  address's node-label overlay carries nothing (labels-text-only) — maps
+ *  to 'alert': today's behavior, conservative until the overlay backfills. */
+export function severityForFamilies(families: ReadonlySet<string>): 'alert' | 'context' {
+  if (families.size === 0) return 'alert'
+  for (const family of families) if (ALERT_FAMILIES.has(family)) return 'alert'
+  return 'context'
 }
 
 /** The label probe pass: one graph_query_batch per distinct network over
@@ -137,13 +205,19 @@ export async function labelHits(
   let error: string | undefined
   for (const [network, addresses] of byNetwork) {
     let merged: Map<string, Set<string>>
+    let families: Map<string, Set<string>>
     try {
       calls += 1
       const result = (await client.callTool({
         name: 'graph_query_batch',
         arguments: { network, queries: [{ id: 'labels', query: labelQuery(addresses) }] },
       })) as { structuredContent?: { facts?: { queries?: Array<{ id: string; results?: Array<Record<string, unknown>> }> } } }
-      merged = mergeLabelRows(result.structuredContent?.facts?.queries?.find((q) => q.id === 'labels')?.results ?? [])
+      const rows = result.structuredContent?.facts?.queries?.find((q) => q.id === 'labels')?.results ?? []
+      merged = mergeLabelRows(rows)
+      // families(a) rides the same rows as labels(a) — one query, one extra
+      // merge pass. Severity (D2) is derived from this, never from the
+      // free-text label, so the v2->v3 label-text rename cannot move it.
+      families = mergeFamilyRows(rows)
     } catch (err) {
       error = error ? `${error}; ${(err as Error).message}` : (err as Error).message
       continue
@@ -152,6 +226,7 @@ export async function labelHits(
       const currentPairs: LabelPair[] = [...(merged.get(address) ?? [])]
         .sort()
         .map((label) => ({ label, source: LABEL_SOURCE }))
+      const severity = severityForFamilies(extractFamilies([...(families.get(address) ?? [])]))
       const key = `${network}:${address}`
       const seenPairs = baseline.get(key)
       if (seenPairs === undefined) {
@@ -186,6 +261,7 @@ export async function labelHits(
           label: pair.label,
           source: pair.source,
           detail: `label=${pair.label} source=${pair.source}`,
+          severity,
         })
         newHits.push(pair)
       }
