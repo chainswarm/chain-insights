@@ -121,11 +121,11 @@ describe('overlay family extraction (label-governance Plan 3 D2)', () => {
     ['Address only — no overlay family present', ['Address'], []],
     ['a verdict family alongside Address', ['Address', 'Scam'], ['Scam']],
     ['layer-2 knowledge labels are ignored (Neuron/Subnet)', ['Address', 'Neuron', 'Subnet'], []],
-    ['Attributed alone', ['Address', 'Attributed'], ['Attributed']],
-    ['a mixed scam+attributed address keeps BOTH', ['Address', 'Scam', 'Attributed'], ['Attributed', 'Scam']],
+    ['OnMoneyTrail alone', ['Address', 'OnMoneyTrail'], ['OnMoneyTrail']],
+    ['a mixed scam+attributed address keeps BOTH', ['Address', 'Scam', 'OnMoneyTrail'], ['OnMoneyTrail', 'Scam']],
     ['Victim and Exchange both pass through', ['Victim', 'Exchange'], ['Exchange', 'Victim']],
-    ['every vocabulary family at once', ['Scam', 'Mixer', 'Bridge', 'Victim', 'Exchange', 'Poisoned', 'Propagated', 'Attributed'],
-      ['Attributed', 'Bridge', 'Exchange', 'Mixer', 'Poisoned', 'Propagated', 'Scam', 'Victim']],
+    ['every vocabulary family at once', ['Scam', 'Mixer', 'Bridge', 'Victim', 'Exchange', 'Poisoned', 'Propagated', 'OnMoneyTrail'],
+      ['OnMoneyTrail', 'Bridge', 'Exchange', 'Mixer', 'Poisoned', 'Propagated', 'Scam', 'Victim']],
     ['an empty node-label list', [], []],
     ['null is defensive-empty', null, []],
     ['undefined is defensive-empty', undefined, []],
@@ -137,7 +137,7 @@ describe('overlay family extraction (label-governance Plan 3 D2)', () => {
 })
 
 // label-governance Plan 3 D2 mapping: any verdict family (Scam/Mixer/Bridge/
-// Poisoned/Propagated) alerts; Attributed and/or Victim/Exchange ALONE is
+// Poisoned/Propagated) alerts; OnMoneyTrail and/or Victim/Exchange ALONE is
 // context; no families extracted at all (labels-text-only) is the
 // conservative default — today's behavior, alert.
 describe('severity mapping (label-governance Plan 3 D2)', () => {
@@ -148,12 +148,12 @@ describe('severity mapping (label-governance Plan 3 D2)', () => {
     ['Bridge alone alerts', ['Bridge'], 'alert'],
     ['Poisoned alone alerts', ['Poisoned'], 'alert'],
     ['Propagated alone alerts', ['Propagated'], 'alert'],
-    ['Attributed alone is context', ['Attributed'], 'context'],
+    ['OnMoneyTrail alone is context', ['OnMoneyTrail'], 'context'],
     ['Victim alone is context', ['Victim'], 'context'],
     ['Exchange alone is context', ['Exchange'], 'context'],
-    ['Attributed + Victim is still context', ['Attributed', 'Victim'], 'context'],
-    ['Attributed + Exchange is still context', ['Attributed', 'Exchange'], 'context'],
-    ['Attributed + Scam: any verdict family wins -> alert', ['Attributed', 'Scam'], 'alert'],
+    ['OnMoneyTrail + Victim is still context', ['OnMoneyTrail', 'Victim'], 'context'],
+    ['OnMoneyTrail + Exchange is still context', ['OnMoneyTrail', 'Exchange'], 'context'],
+    ['OnMoneyTrail + Scam: any verdict family wins -> alert', ['OnMoneyTrail', 'Scam'], 'alert'],
     ['Victim + Bridge: any verdict family wins -> alert', ['Victim', 'Bridge'], 'alert'],
   ])('%s', (_name, families, expected) => {
     expect(severityForFamilies(new Set(families))).toBe(expected)
@@ -169,13 +169,13 @@ describe('familyForLabel (label-governance Plan 3 D3)', () => {
   it.each([
     ['v3 transport text maps to Scam', 'attribution_transport', [], 'Scam'],
     ['v3 holding text maps to Scam', 'attribution_holding', [], 'Scam'],
-    ['v3 peripheral text maps to Attributed', 'attribution_peripheral', [], 'Attributed'],
-    ['v3 funder text maps to Attributed', 'attribution_funder', [], 'Attributed'],
+    ['v3 peripheral text maps to OnMoneyTrail', 'attribution_peripheral', [], 'OnMoneyTrail'],
+    ['v3 funder text maps to OnMoneyTrail', 'attribution_funder', [], 'OnMoneyTrail'],
     ['retired v2 text maps to Scam (same family as its v3 replacement)', 'attack_attributed', [], 'Scam'],
     ['a poisoning_-prefixed label maps to Poisoned', 'poisoning_dust', [], 'Poisoned'],
-    ['a poisoning_-prefixed label maps to Poisoned even with families known', 'poisoning_address', ['Attributed'], 'Poisoned'],
-    ['an unknown label falls back to the address dominant family', 'MEXC', ['Attributed'], 'Attributed'],
-    ['dominant family fallback prefers a verdict family over a context one', 'random_note', ['Attributed', 'Scam'], 'Scam'],
+    ['a poisoning_-prefixed label maps to Poisoned even with families known', 'poisoning_address', ['OnMoneyTrail'], 'Poisoned'],
+    ['an unknown label falls back to the address dominant family', 'MEXC', ['OnMoneyTrail'], 'OnMoneyTrail'],
+    ['dominant family fallback prefers a verdict family over a context one', 'random_note', ['OnMoneyTrail', 'Scam'], 'Scam'],
     ['an unknown label with no known families falls back to the literal text', 'MEXC', [], 'MEXC'],
   ])('%s', (_name, label, families, expected) => {
     expect(familyForLabel(label, new Set(families))).toBe(expected)
@@ -185,9 +185,9 @@ describe('familyForLabel (label-governance Plan 3 D3)', () => {
 describe('dominantFamily (label-governance Plan 3 D3 fallback ordering)', () => {
   it.each([
     ['empty set has no dominant family', [], undefined],
-    ['a single family is its own dominant', ['Attributed'], 'Attributed'],
-    ['a verdict family outranks a context family', ['Attributed', 'Scam'], 'Scam'],
-    ['Poisoned outranks Attributed', ['Attributed', 'Poisoned'], 'Poisoned'],
+    ['a single family is its own dominant', ['OnMoneyTrail'], 'OnMoneyTrail'],
+    ['a verdict family outranks a context family', ['OnMoneyTrail', 'Scam'], 'Scam'],
+    ['Poisoned outranks OnMoneyTrail', ['OnMoneyTrail', 'Poisoned'], 'Poisoned'],
     ['Victim/Exchange never outrank a verdict family', ['Victim', 'Exchange', 'Mixer'], 'Mixer'],
   ])('%s', (_name, families, expected) => {
     expect(dominantFamily(new Set(families))).toBe(expected)
@@ -288,12 +288,12 @@ describe('labelHits (label-cutover spec req 1-2)', () => {
     ])
   })
 
-  it("Attributed-only families map to 'context' severity (D2)", async () => {
+  it("OnMoneyTrail-only families map to 'context' severity (D2)", async () => {
     const root = await ws()
     const boot = stubClient({ bittensor: [{ address: '5Mine', labels: [], families: ['Address'] }] }, { n: 0 })
     await withStore(root, async (store) => labelHits(boot, store, root, WATCHED, 1000)) // bootstrap
     const context = stubClient(
-      { bittensor: [{ address: '5Mine', labels: ['attribution_hop'], families: ['Address', 'Attributed'] }] },
+      { bittensor: [{ address: '5Mine', labels: ['attribution_hop'], families: ['Address', 'OnMoneyTrail'] }] },
       { n: 0 },
     )
     const out = await withStore(root, async (store) => labelHits(context, store, root, WATCHED, 2000))
@@ -466,6 +466,83 @@ describe('cutover-proof dedup re-key (label-governance Plan 3 D3, #270 class)', 
   })
 })
 
+// Task 6 (label-governance): the graph-layer node-label family :Attributed
+// is renamed :OnMoneyTrail (projection version bump, graph rebuild). A
+// pre-existing watchlist_hits row already re-keyed to the FAMILY (not label
+// text) shape — address|Attributed|source — predates this rename and must be
+// re-keyed transparently to address|OnMoneyTrail|source on store open, same
+// "on store open" idiom as migrateLabelSourceRefs. Without this, the graph
+// rebuild's new :OnMoneyTrail node label would mint a fresh, non-colliding
+// source_ref for an address already known under the retired :Attributed
+// family — the #270 retro-flood class regression, this time at the family
+// layer instead of the label-text layer.
+describe('family rename re-key: :Attributed -> :OnMoneyTrail (label-governance Task 6, #270 class)', () => {
+  const WATCHED = [{ address: '5Mine', network: 'bittensor' }]
+
+  it('a pre-rename family-shaped row (address|Attributed|source) re-keys to address|OnMoneyTrail|source on store open', async () => {
+    const root = await ws()
+    await withStore(root, async (store) => {
+      await store.run("INSERT INTO watchlist_hits VALUES (900,'5Mine','bittensor','label','5Mine|Attributed|topology',NULL)")
+    })
+    await withStore(root, async () => {}) // migration pass
+    const rows = await withStore(
+      root,
+      (store) => store.all(`SELECT source_ref FROM watchlist_hits WHERE trigger = 'label'`),
+      { readOnly: true },
+    )
+    expect(rows).toEqual([{ source_ref: '5Mine|OnMoneyTrail|topology' }])
+  })
+
+  it('is idempotent: running the migration twice does not double-transform', async () => {
+    const root = await ws()
+    await withStore(root, async (store) => {
+      await store.run("INSERT INTO watchlist_hits VALUES (900,'5Mine','bittensor','label','5Mine|Attributed|topology',NULL)")
+    })
+    await withStore(root, async () => {}) // first pass
+    await withStore(root, async () => {}) // second pass: must not error or re-transform
+    const rows = await withStore(
+      root,
+      (store) => store.all(`SELECT source_ref FROM watchlist_hits WHERE trigger = 'label'`),
+      { readOnly: true },
+    )
+    expect(rows).toEqual([{ source_ref: '5Mine|OnMoneyTrail|topology' }])
+  })
+
+  it('THE regression: an address already known under the retired :Attributed family produces NO new alert after the graph rebuild relabels it :OnMoneyTrail', async () => {
+    const root = await ws()
+    // Baseline never captured the old label text (simulates a reset/missing
+    // baseline) — the ONLY thing preventing a retro-flood is the re-keyed row.
+    await appendLabelBaseline(root, { network: 'bittensor', address: '5Mine', pairs: [], run_timestamp: 500 })
+    // A hit recorded BEFORE the graph rebuild, already family-shaped under
+    // the retired :Attributed family (post-D3, pre-Task-6 shape).
+    await withStore(root, async (store) => {
+      await store.run("INSERT INTO watchlist_hits VALUES (900,'5Mine','bittensor','label','5Mine|Attributed|topology',NULL)")
+    })
+    // After the graph rebuild, the same address now carries :OnMoneyTrail
+    // instead of :Attributed.
+    const client = stubClient(
+      { bittensor: [{ address: '5Mine', labels: ['attribution_peripheral'], families: ['Address', 'OnMoneyTrail'] }] },
+      { n: 0 },
+    )
+    const out = await withStore(root, async (store) => labelHits(client, store, root, WATCHED, 1000))
+    expect(out.hits).toEqual([])
+  })
+
+  it('a genuinely new address still alerts (context severity) under the new :OnMoneyTrail family text', async () => {
+    const root = await ws()
+    const boot = stubClient({ bittensor: [{ address: '5Mine', labels: [], families: ['Address'] }] }, { n: 0 })
+    await withStore(root, async (store) => labelHits(boot, store, root, WATCHED, 1000)) // silent bootstrap
+    const client = stubClient(
+      { bittensor: [{ address: '5Mine', labels: ['attribution_peripheral'], families: ['Address', 'OnMoneyTrail'] }] },
+      { n: 0 },
+    )
+    const out = await withStore(root, async (store) => labelHits(client, store, root, WATCHED, 2000))
+    expect(out.hits.map((h) => ({ label: h.label, severity: h.severity, source_ref: h.source_ref }))).toEqual([
+      { label: 'attribution_peripheral', severity: 'context', source_ref: '5Mine|OnMoneyTrail|topology' },
+    ])
+  })
+})
+
 // Serves the label probe; the dust and activity probes get empty result sets.
 function passClient(labelRows: Array<Record<string, unknown>>, calls: { n: number }) {
   return {
@@ -509,7 +586,7 @@ describe('runWatchlistPass label wiring (label-cutover spec req 1)', () => {
     await withStore(root2, async (store) =>
       runWatchlistPass(passClient([{ address: '5Ctx', labels: [], families: ['Address'] }], { n: 0 }), root2, store, CONFIG, 1000)) // bootstrap
     const contextPass = await withStore(root2, async (store) =>
-      runWatchlistPass(passClient([{ address: '5Ctx', labels: ['attribution_hop'], families: ['Address', 'Attributed'] }], { n: 0 }), root2, store, CONFIG, 2000))
+      runWatchlistPass(passClient([{ address: '5Ctx', labels: ['attribution_hop'], families: ['Address', 'OnMoneyTrail'] }], { n: 0 }), root2, store, CONFIG, 2000))
     expect(contextPass.alerts.find((a) => a.type === 'watchlist_label')?.severity).toBe('context')
   })
 
