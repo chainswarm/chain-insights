@@ -38,6 +38,13 @@ export interface AlertEvent {
   // see the label-surface decision in the 2026-07-28 cutover plan.
   label?: string
   source?: string
+  // watchlist_label only (label-governance Plan 3 D2): overlay-family-derived
+  // severity. 'alert' = a verdict family (Scam/Mixer/Bridge/Poisoned/
+  // Propagated) is present, OR no overlay family was extracted at all
+  // (labels-text-only — today's behavior, conservative). 'context' = only
+  // Attributed and/or Victim/Exchange are present. Other alert types leave
+  // this undefined for now — not yet classified, never defaulted to 'alert'.
+  severity?: 'alert' | 'context'
   run_timestamp: number
   emitted_at_timestamp: number
 }

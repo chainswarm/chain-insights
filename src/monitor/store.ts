@@ -7,6 +7,7 @@ import path from 'node:path'
 import { DuckDBInstance } from '@duckdb/node-api'
 import { parseFindingsDocument } from '../investigation/detection-findings.js'
 import { parseJsonlLines } from './jsonl.js'
+import { migrateLabelSourceRefs } from './label-probe.js'
 import { monitorPaths } from './paths.js'
 import { diffScopeExpansion, diffSnapshots, type CaseSnapshot } from './tracker.js'
 import { loadWatchlist } from './watchlist.js'
@@ -153,6 +154,11 @@ export async function withStore<T>(
       // run and rebuild pass through a read-write open, so any legacy
       // absolute keys are relativized before they can miss a dedup match.
       await migrateAbsoluteDocKeys(store, workspaceRoot)
+      // Same "on store open" contract (label-governance Plan 3 D3, #270
+      // class): re-key any legacy trigger='label' watchlist_hits rows from
+      // address|label|source to address|family|source before anything else
+      // touches the store this open.
+      await migrateLabelSourceRefs(store)
     }
     return await fn(store)
   } finally {

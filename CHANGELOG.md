@@ -3,6 +3,32 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.17.0] - 2026-07-30 — monitor: overlay-family severity on label alerts
+
+- feat(monitor): the label probe (`src/monitor/label-probe.ts`) now reads
+  `labels(a) AS families` alongside the free-text `a.labels` property, and
+  derives a `severity: 'alert' | 'context'` from the graph's node-label
+  overlay (`extractFamilies`, `severityForFamilies`) — never from the label
+  text itself, so a future label-text rename cannot move severity.
+  `Scam`/`Mixer`/`Bridge`/`Poisoned`/`Propagated` alert; `Attributed` alone
+  and/or `Victim`/`Exchange` alone are `context`; no overlay family at all
+  (labels-text-only) stays `alert`, the conservative prior behavior.
+  `AlertEvent` and `WatchlistHit` gain the optional `severity` field,
+  populated for `watchlist_label` alerts only (label-governance Plan 3, D2).
+- fix(monitor): cutover-proof label dedup re-key — the #270 retro-flood class
+  guard (label-governance Plan 3, D3). `source_ref` for label hits is now
+  `address|family|source` instead of `address|label|source`, and the
+  monotone label baseline keys freshness on `(family, source)` too — both via
+  a strict label-text vocabulary (`vocabularyFamily`/`familyForLabel` in
+  `src/monitor/label-probe.ts`) that maps the retired v2 detector text
+  (`attack_attributed`) and its v3 replacement (`attribution_transport`)
+  to the SAME family (`Scam`), so a label-text rename can never mint a
+  fresh, non-colliding ref for an address already known. A one-time,
+  transparent migration (`migrateLabelSourceRefs`, wired into `withStore`
+  the same way as the existing `migrateAbsoluteDocKeys`) re-keys
+  pre-existing `trigger='label'` `watchlist_hits` rows on every read-write
+  store open; unmappable legacy label text keeps its old ref unchanged.
+
 ## [0.16.0] - 2026-07-29 — Permit2 payments on Robinhood Chain + payment-asset preference
 
 - feat(mcp): the x402 payment client now accepts Permit2-based `upto` offers

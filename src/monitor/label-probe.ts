@@ -6,6 +6,15 @@
 // base, never the correctness dependency: hit dedup by source_ref in
 // logs/watchlist-hits.jsonl is what prevents re-alerts, so a deleted or
 // stale baseline can only re-bootstrap silently, never fire a duplicate.
+//
+// label-governance Plan 3 D3 (cutover-proof dedup re-key, #270 class): both
+// the source_ref shape (address|family|source, see labelHits) and the
+// baseline freshness comparison key on the overlay FAMILY, not the label
+// text — so a label-text rename (v2 "attack_attributed" -> v3
+// "attribution_transport", both family Scam) can never mint a fresh,
+// non-colliding ref for an address already known under the retired text.
+// See vocabularyFamily/familyForLabel below and migrateLabelSourceRefs,
+// which one-time re-keys pre-existing DB rows the same way.
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { parseJsonlLines } from './jsonl.js'
@@ -83,9 +92,15 @@ export function labelQuery(addresses: string[]): string {
     )
   }
   const list = addresses.map((a) => `'${a}'`).join(',')
+  // labels(a) AS families (label-governance Plan 3 D2) rides the SAME row as
+  // a.labels — one query, no extra round trip. It is the graphsync overlay
+  // taxonomy (PascalCase node labels: Scam/Mixer/Bridge/Victim/Exchange/
+  // Poisoned/Propagated/Attributed, plus Address on every node and layer-2
+  // knowledge labels like Neuron/Subnet) — see extractFamilies for the
+  // vocabulary filter and severityForFamilies for the D2 mapping.
   return `USE topology MATCH (a:Address)
  WHERE a.address IN [${list}] AND a.labels IS NOT NULL
- RETURN a.address AS address, a.labels AS labels
+ RETURN a.address AS address, a.labels AS labels, labels(a) AS families
  LIMIT 500`
 }
 
@@ -108,6 +123,184 @@ export function mergeLabelRows(rows: Array<Record<string, unknown>>): Map<string
     merged.set(address, set)
   }
   return merged
+}
+
+/** Per-shard merge of the families(a) column — same UNION semantics as
+ *  mergeLabelRows (labels(a) is shard-invariant so union == the value, and
+ *  tolerates a lagging shard). RAW node-label set, not yet filtered to the
+ *  overlay vocabulary: callers run extractFamilies on the result before
+ *  mapping severity. */
+export function mergeFamilyRows(rows: Array<Record<string, unknown>>): Map<string, Set<string>> {
+  const merged = new Map<string, Set<string>>()
+  for (const row of rows) {
+    const address = row.address
+    const families = row.families
+    if (typeof address !== 'string' || address.length === 0) continue
+    if (!Array.isArray(families)) continue
+    const set = merged.get(address) ?? new Set<string>()
+    for (const f of families) {
+      const family = String(f)
+      if (family.length > 0) set.add(family)
+    }
+    merged.set(address, set)
+  }
+  return merged
+}
+
+// The overlay-family vocabulary the monitor understands (label-governance
+// Plan 3 D2). labels(a) returns EVERY node label on the address — Address
+// (stamped on every node) and layer-2 knowledge labels (Neuron, Subnet, ...)
+// included — so extractFamilies filters down to exactly this set before any
+// severity mapping happens. A new family (e.g. a future overlay addition)
+// must be added HERE and to ALERT_FAMILIES below, or it silently falls back
+// to the conservative "no families extracted" branch.
+export const OVERLAY_FAMILIES = ['Scam', 'Mixer', 'Bridge', 'Victim', 'Exchange', 'Poisoned', 'Propagated', 'Attributed'] as const
+const OVERLAY_FAMILY_SET: ReadonlySet<string> = new Set(OVERLAY_FAMILIES)
+
+/** Filters a raw labels(a) node-label list down to the overlay vocabulary.
+ *  Defensive against untrusted backend shapes, same stance as mergeLabelRows/
+ *  mergeFamilyRows: a non-array input (including null/undefined) yields an
+ *  empty set rather than throwing. */
+export function extractFamilies(rawFamilies: unknown): Set<string> {
+  const out = new Set<string>()
+  if (!Array.isArray(rawFamilies)) return out
+  for (const f of rawFamilies) {
+    const family = String(f)
+    if (OVERLAY_FAMILY_SET.has(family)) out.add(family)
+  }
+  return out
+}
+
+// Verdict families (D2): transport, holding, and mixing findings that alert
+// on their own. Attributed alone, and Victim/Exchange alone, are
+// informational context — see severityForFamilies.
+const ALERT_FAMILIES: ReadonlySet<string> = new Set(['Scam', 'Mixer', 'Bridge', 'Poisoned', 'Propagated'])
+
+/** D2 family -> severity mapping. Any verdict family present (Scam, Mixer,
+ *  Bridge, Poisoned, Propagated) is 'alert'. Only Attributed and/or Victim/
+ *  Exchange present is 'context'. NO families extracted at all — the
+ *  address's node-label overlay carries nothing (labels-text-only) — maps
+ *  to 'alert': today's behavior, conservative until the overlay backfills. */
+export function severityForFamilies(families: ReadonlySet<string>): 'alert' | 'context' {
+  if (families.size === 0) return 'alert'
+  for (const family of families) if (ALERT_FAMILIES.has(family)) return 'alert'
+  return 'context'
+}
+
+// D3 label-text vocabulary -> family (label-governance Plan 3 Task 4). Covers
+// BOTH the label text the detector emits TODAY (v3) and the text it emitted
+// before the rename (v2) — 'attack_attributed' is the retired predecessor of
+// 'attribution_transport'/'attribution_holding' (both resolve to Scam). That
+// overlap is exactly what makes a legacy baseline/DB entry and its v3
+// replacement compare EQUAL at the family layer: the #270 class regression
+// (a label-text rename minting a fresh, non-colliding ref for an
+// already-known address) cannot happen for any label in this table, in
+// either direction of the rename.
+const LABEL_TEXT_FAMILY: ReadonlyMap<string, string> = new Map([
+  ['attribution_transport', 'Scam'],
+  ['attribution_holding', 'Scam'],
+  ['attribution_peripheral', 'Attributed'],
+  ['attribution_funder', 'Attributed'],
+  ['attack_attributed', 'Scam'], // retired v2 text — kept for the cutover only
+])
+
+/** Strict vocabulary lookup: a KNOWN label text (either era) resolves to its
+ *  family; anything else is undefined — no dominant-family fallback here.
+ *  Three call sites share this exact function so the mapping cannot drift
+ *  between them: (1) the source_ref family for a NEW row (familyForLabel,
+ *  below), (2) the baseline freshness-comparison key inside labelHits, and
+ *  (3) the one-time legacy watchlist_hits re-key (migrateLabelSourceRefs).
+ *  The fallback in familyForLabel is deliberately NOT folded in here: reusing
+ *  the address's dominant family for baseline/migration matching would
+ *  wrongly conflate two UNRELATED generic labels that merely share an
+ *  address's dominant family (e.g. an exchange name and an unrelated note),
+ *  so anything outside this explicit vocabulary keys on its own literal text,
+ *  exactly as before this task. */
+export function vocabularyFamily(label: string): string | undefined {
+  const known = LABEL_TEXT_FAMILY.get(label)
+  if (known) return known
+  if (label.startsWith('poisoning_')) return 'Poisoned'
+  return undefined
+}
+
+// Fallback priority when a label's family cannot be derived from the label
+// TEXT vocabulary (D3 adopted rule): verdict families outrank context
+// families, matching the ALERT_FAMILIES/severityForFamilies priority; ties
+// within a tier break on OVERLAY_FAMILIES declaration order.
+const FAMILY_PRIORITY: readonly string[] = ['Scam', 'Poisoned', 'Propagated', 'Mixer', 'Bridge', 'Attributed', 'Victim', 'Exchange']
+
+/** The single family this address's extracted overlay families would present
+ *  as, for the fallback branch of familyForLabel. Returns undefined for an
+ *  empty set — there is nothing to fall back to. */
+export function dominantFamily(families: ReadonlySet<string>): string | undefined {
+  for (const family of FAMILY_PRIORITY) if (families.has(family)) return family
+  return undefined
+}
+
+/** D3 per-pair family resolution for a NEW alert row's source_ref (adopted
+ *  mapping rule): the label TEXT vocabulary first (vocabularyFamily — this is
+ *  what survives the v2->v3 rename); then the address's dominant extracted
+ *  family (dominantFamily); then the literal label text itself if nothing
+ *  else is known. Severity is NOT derived here — that stays
+ *  severityForFamilies over the address's whole families set; this only
+ *  picks the source_ref KEY for one label pair. */
+export function familyForLabel(label: string, addressFamilies: ReadonlySet<string>): string {
+  return vocabularyFamily(label) ?? dominantFamily(addressFamilies) ?? label
+}
+
+/** D3 legacy source_ref re-key (label-governance Plan 3 Task 4, the #270
+ *  retro-flood class guard): every trigger='label' watchlist_hits row
+ *  written before this task shipped holds the OLD `address|label|source`
+ *  shape with the v2/v3 label TEXT embedded in the middle segment. This
+ *  transparently re-keys it to `address|family|source`, using the SAME
+ *  strict vocabulary as familyForLabel/baseline matching (vocabularyFamily) —
+ *  a label text outside that vocabulary keeps its OLD ref unchanged (D3):
+ *  its shape can no longer collide with a new-format ref, so there is
+ *  nothing to repair.
+ *
+ *  Trigger mechanism (documented choice): runs on every read-write store
+ *  open, called from withStore right after migrateAbsoluteDocKeys — the SAME
+ *  "transparent migration on open" idiom already used there. No version
+ *  marker row and no separate migration command: this monitor's DuckDB store
+ *  is a disposable derived index (rebuildStore already wipes and replays it
+ *  from canonical JSON), so a plain re-run-safe UPDATE is the simplest
+ *  option that fits how this monitor already handles DB-only state repair.
+ *  Naturally idempotent, with no explicit marker needed: once a row's middle
+ *  segment IS a family name (Scam/Poisoned/Attributed/...), it can never
+ *  match vocabularyFamily again on a later pass (no family name collides
+ *  with a legacy label-text key), so the WHERE-driven UPDATE below simply
+ *  finds nothing left to change. */
+export async function migrateLabelSourceRefs(store: MonitorStore): Promise<void> {
+  const rows = await store.all(
+    `SELECT DISTINCT address, network, source_ref FROM watchlist_hits WHERE trigger = 'label'`,
+  )
+  for (const row of rows) {
+    const address = String(row.address)
+    const network = String(row.network)
+    const sourceRef = String(row.source_ref)
+    const prefix = `${address}|`
+    if (!sourceRef.startsWith(prefix)) continue // not this ref's shape — defensive, never throws
+    const rest = sourceRef.slice(prefix.length)
+    // The middle segment (label or, post-migration, family) may itself
+    // contain "|" (label text is unconstrained); the source segment is a
+    // controlled constant (LABEL_SOURCE) and never is. Anchoring on the
+    // LAST "|" recovers the split exactly, same reasoning as WatchlistHit's
+    // doc comment on why source_ref is never parsed for the label/source
+    // pair elsewhere in this codebase.
+    const lastPipe = rest.lastIndexOf('|')
+    if (lastPipe < 0) continue
+    const label = rest.slice(0, lastPipe)
+    const source = rest.slice(lastPipe + 1)
+    const family = vocabularyFamily(label)
+    if (!family) continue // unmappable (D3): keep the old ref unchanged
+    const newRef = `${address}|${family}|${source}`
+    if (newRef === sourceRef) continue
+    await store.run(
+      `UPDATE watchlist_hits SET source_ref = $1
+        WHERE trigger = 'label' AND address = $2 AND network = $3 AND source_ref = $4`,
+      [newRef, address, network, sourceRef],
+    )
+  }
 }
 
 /** The label probe pass: one graph_query_batch per distinct network over
@@ -137,13 +330,19 @@ export async function labelHits(
   let error: string | undefined
   for (const [network, addresses] of byNetwork) {
     let merged: Map<string, Set<string>>
+    let families: Map<string, Set<string>>
     try {
       calls += 1
       const result = (await client.callTool({
         name: 'graph_query_batch',
         arguments: { network, queries: [{ id: 'labels', query: labelQuery(addresses) }] },
       })) as { structuredContent?: { facts?: { queries?: Array<{ id: string; results?: Array<Record<string, unknown>> }> } } }
-      merged = mergeLabelRows(result.structuredContent?.facts?.queries?.find((q) => q.id === 'labels')?.results ?? [])
+      const rows = result.structuredContent?.facts?.queries?.find((q) => q.id === 'labels')?.results ?? []
+      merged = mergeLabelRows(rows)
+      // families(a) rides the same rows as labels(a) — one query, one extra
+      // merge pass. Severity (D2) is derived from this, never from the
+      // free-text label, so the v2->v3 label-text rename cannot move it.
+      families = mergeFamilyRows(rows)
     } catch (err) {
       error = error ? `${error}; ${(err as Error).message}` : (err as Error).message
       continue
@@ -152,6 +351,11 @@ export async function labelHits(
       const currentPairs: LabelPair[] = [...(merged.get(address) ?? [])]
         .sort()
         .map((label) => ({ label, source: LABEL_SOURCE }))
+      // Computed ONCE per address per pass and reused for both severity (D2)
+      // and the per-pair family key (D3) — one extractFamilies call, one
+      // consistent view of the address's overlay for this whole address.
+      const addressFamilies = extractFamilies([...(families.get(address) ?? [])])
+      const severity = severityForFamilies(addressFamilies)
       const key = `${network}:${address}`
       const seenPairs = baseline.get(key)
       if (seenPairs === undefined) {
@@ -161,11 +365,24 @@ export async function labelHits(
         await appendLabelBaseline(workspaceRoot, { network, address, pairs: currentPairs, run_timestamp: runTimestamp })
         continue
       }
-      const seenKeys = new Set(seenPairs.map((p) => pairKey(p.label, p.source)))
-      const fresh = currentPairs.filter((p) => !seenKeys.has(pairKey(p.label, p.source)))
+      // D3 baseline freshness key: (vocabulary family, source), not
+      // (label, source). vocabularyFamily is the STRICT lookup (no dominant-
+      // family fallback — see its doc comment), so a v2-baselined pair (e.g.
+      // "attack_attributed") and its v3 replacement ("attribution_transport")
+      // compare EQUAL here; any label outside that explicit vocabulary keys
+      // on its own literal text exactly as before this task.
+      const baselineKey = (p: LabelPair): string => pairKey(vocabularyFamily(p.label) ?? p.label, p.source)
+      const seenKeys = new Set(seenPairs.map(baselineKey))
+      const fresh = currentPairs.filter((p) => !seenKeys.has(baselineKey(p)))
       const newHits: LabelPair[] = []
       for (const pair of fresh) {
-        const sourceRef = `${address}|${pair.label}|${pair.source}`
+        // D3: source_ref keys on the FAMILY, not the label text (familyForLabel:
+        // vocabulary first, then the address's dominant family, then the
+        // literal text) — this is what makes the v2->v3 rename produce the
+        // SAME source_ref shape a pre-existing DB row can still match after
+        // migrateLabelSourceRefs re-keys it (the #270 class guard).
+        const family = familyForLabel(pair.label, addressFamilies)
+        const sourceRef = `${address}|${family}|${pair.source}`
         const batchKey = `${network}|${sourceRef}`
         if (seenInBatch.has(batchKey)) continue
         const already = await store.all(
@@ -186,6 +403,7 @@ export async function labelHits(
           label: pair.label,
           source: pair.source,
           detail: `label=${pair.label} source=${pair.source}`,
+          severity,
         })
         newHits.push(pair)
       }

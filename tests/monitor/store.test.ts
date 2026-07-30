@@ -230,4 +230,22 @@ describe('workspace-relative doc keys (R6)', () => {
       expect(h.source_ref).toBe('detections/201-mixer-bittensor.findings.json')
     })
   })
+
+  // label-governance Plan 3 D3 (#270 class): the SAME "on store open"
+  // transparent-migration idiom as the absolute-doc-key migration above,
+  // scoped to trigger='label' watchlist_hits rows. Full behavioral coverage
+  // (idempotency, unmappable-keeps-ref, poisoning_ prefix, the end-to-end
+  // labelHits regression) lives in label-probe.test.ts next to
+  // migrateLabelSourceRefs itself; this pins that withStore actually wires
+  // it in on every read-write open.
+  it('migrates a legacy label source_ref transparently on store open (D3, #270 class)', async () => {
+    const root = await ws()
+    await withStore(root, async (s) => {
+      await s.run('INSERT INTO watchlist_hits VALUES ($1,$2,$3,$4,$5,$6)', [1, '5Mine', 'bittensor', 'label', '5Mine|attack_attributed|topology', null])
+    })
+    await withStore(root, async (s) => {
+      const [h] = await s.all(`SELECT source_ref FROM watchlist_hits WHERE trigger = 'label'`)
+      expect(h.source_ref).toBe('5Mine|Scam|topology')
+    })
+  })
 })
