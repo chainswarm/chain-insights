@@ -24,6 +24,9 @@ export const GraphEdge = z.object({
   source:      z.string().min(1),
   target:      z.string().min(1),
   value:       z.number(),
+  // Distinct visual layer for money-trail edges (MONEY_TRAIL / TRAIL_ENDS_AT);
+  // absent-layer callers never set this and keep rendering as flows_to.
+  edgeType:    z.string().default('flows_to'),
   txHash:      z.string().optional(),
   blockNumber: z.number().int().optional(),
   timestamp:   z.string().optional(),

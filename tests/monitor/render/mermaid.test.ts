@@ -61,4 +61,28 @@ describe('buildMermaidFlow', () => {
     expect(mermaidNodeText(addr)).toBe(addr.slice(0, 8) + '…' + addr.slice(-6))
     expect(mermaidNodeText('short')).toBe('short')
   })
+
+  it('styles MONEY_TRAIL edges as a distinct labeled/dashed layer ("money trail" wording)', () => {
+    const out = buildMermaidFlow([doc([
+      { edge_id: 'e1', from_address: 'seedAAAAAAAAAAAAAAAA', to_address: 'hop1', amount_usd_sum: 100, edge_type: 'MONEY_TRAIL' },
+    ])], ['seedAAAAAAAAAAAAAAAA'])
+    expect(out).toContain('money trail')
+    expect(out).toMatch(/linkStyle 0 .*stroke-dasharray/)
+  })
+
+  it('styles TRAIL_ENDS_AT edges distinctly, labeled "trail ends at" (seed to venue shortcut)', () => {
+    const out = buildMermaidFlow([doc([
+      { edge_id: 'e1', from_address: 'seedAAAAAAAAAAAAAAAA', to_address: 'venue1', amount_usd_sum: 100, edge_type: 'TRAIL_ENDS_AT' },
+    ])], ['seedAAAAAAAAAAAAAAAA'])
+    expect(out).toContain('trail ends at')
+    expect(out).toMatch(/linkStyle 0 .*stroke-dasharray/)
+  })
+
+  it('does not apply trail styling to plain flow edges', () => {
+    const out = buildMermaidFlow([doc([
+      { edge_id: 'e1', from_address: 'a', to_address: 'b', amount_usd_sum: 5 },
+    ])], [])
+    expect(out).not.toContain('linkStyle')
+    expect(out).not.toContain('money trail')
+  })
 })

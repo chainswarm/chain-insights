@@ -114,6 +114,31 @@ describe('normalizeGraphPayload', () => {
     }
   })
 
+  it('does not collapse money_trail/trail_ends_at edges into flows_to (own visual layer)', async () => {
+    const { normalizeGraphPayload } = await import('../src/viz/graph-normalizer.js')
+
+    const result = normalizeGraphPayload({
+      schema: 'chain-insights.graph.v1',
+      nodes: [],
+      edges: [
+        { from_address: 'seed', to_address: 'hop1', edge_type: 'MONEY_TRAIL' },
+        { from_address: 'seed', to_address: 'term1', type: 'TRAIL_ENDS_AT' },
+        { from_address: 'seed', to_address: 'hop2', edge_type: 'money_trail' },
+        { from_address: 'seed', to_address: 'term2', edge_type: 'trail_ends_at' },
+      ],
+      flows: [],
+      edge_anchors: [],
+    })
+
+    expect(result.edges[0]).toMatchObject({ source: 'seed', target: 'hop1', edge_type: 'money_trail' })
+    expect(result.edges[1]).toMatchObject({ source: 'seed', target: 'term1', edge_type: 'trail_ends_at' })
+    expect(result.edges[2]).toMatchObject({ source: 'seed', target: 'hop2', edge_type: 'money_trail' })
+    expect(result.edges[3]).toMatchObject({ source: 'seed', target: 'term2', edge_type: 'trail_ends_at' })
+    for (const edge of result.edges) {
+      expect(edge['edge_type']).not.toBe('flows_to')
+    }
+  })
+
   it('preserves optional address_subtypes only when non-empty', async () => {
     const { normalizeGraphPayload } = await import('../src/viz/graph-normalizer.js')
 

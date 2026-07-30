@@ -704,7 +704,7 @@ function applyDataMode() {
   for (var i=0; i<graphData.edges.length; i++) {
     var e = graphData.edges[i];
     var eType = edgeType(e);
-    if (eType !== 'FLOWS_TO') continue;  // skip pattern edges
+    if (eType !== 'FLOWS_TO' && eType !== 'MONEY_TRAIL' && eType !== 'TRAIL_ENDS_AT') continue;  // skip pattern edges
     var src = nodeMap[edgeSourceId(e)];
     var tgt = nodeMap[edgeTargetId(e)];
     if (!src || !tgt) continue;
@@ -809,9 +809,10 @@ function drawEdges() {
     var l = links[i];
     var s = l.source, t = l.target;
     if (!s || !t) continue;
-    var isPattern = l.type !== 'FLOWS_TO' && l.type !== 'TRANSFER';
+    var isTrail = l.type === 'MONEY_TRAIL' || l.type === 'TRAIL_ENDS_AT';
+    var isPattern = l.type !== 'FLOWS_TO' && l.type !== 'TRANSFER' && !isTrail;
     if (isPattern) continue;  // skip pattern edges entirely
-    // Pass 0: behind, Pass 1: on top (only flow/transfer now)
+    // Pass 0: behind, Pass 1: on top (only flow/transfer/trail now)
     if (pass === 0) continue;
 
     var dx = t.x-s.x, dy = t.y-s.y;
@@ -843,6 +844,48 @@ function drawEdges() {
 
     if (isPattern) {
       if (isPattern) continue; // skip pattern edges entirely
+    } else if (isTrail) {
+      // MONEY_TRAIL / TRAIL_ENDS_AT: own visual layer, distinct color +
+      // dashed stroke so the precomputed trail never reads as an ordinary
+      // flow edge. TRAIL_ENDS_AT is the seed→venue shortcut; MONEY_TRAIL is
+      // the corridor itself.
+      var trailCol = '#f97316';
+      ctx.strokeStyle = trailCol;
+      ctx.fillStyle   = trailCol;
+      ctx.lineWidth = l.type === 'TRAIL_ENDS_AT' ? 2.5 : 2;
+      ctx.setLineDash([6, 4]);
+
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y);
+      if (totalInPair > 1) {
+        ctx.quadraticCurveTo(cpx, cpy, ex, ey);
+      } else {
+        ctx.lineTo(ex, ey);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      var trailAng = Math.atan2(tay, tax);
+      if (totalInPair <= 1) trailAng = Math.atan2(dy, dx);
+      var taw = 8, taa = Math.PI/7;
+      ctx.beginPath();
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex - taw*Math.cos(trailAng-taa), ey - taw*Math.sin(trailAng-taa));
+      ctx.lineTo(ex - taw*Math.cos(trailAng+taa), ey - taw*Math.sin(trailAng+taa));
+      ctx.closePath();
+      ctx.fill();
+
+      var tmx = 0.25*s.x + 0.5*cpx + 0.25*t.x;
+      var tmy = 0.25*s.y + 0.5*cpy + 0.25*t.y;
+      ctx.save();
+      ctx.font = '9px Inter, -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillStyle = trailCol;
+      var trailLabel = l.type === 'MONEY_TRAIL' ? 'MONEY TRAIL' : 'TRAIL ENDS AT';
+      var trailText = l.usd_amount ? trailLabel + ' · ' + fmtUSD(l.usd_amount) : trailLabel;
+      ctx.fillText(trailText, tmx, tmy - 4);
+      ctx.restore();
     } else {
       // FLOWS_TO / TRANSFER edges: solid, gold gradient by amount, arrow
       // Main-path edges (from address_connection_risk's disjoint routes) are

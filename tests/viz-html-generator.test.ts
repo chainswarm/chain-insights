@@ -239,6 +239,21 @@ describe('generateHtml (VIZ-02) — graph.html template', () => {
     expect(html).toContain('function edgeType(e)')
     expect(html).toContain("return String(e.edge_type || e.type || 'flows_to').toUpperCase()")
   })
+
+  it('graph template renders MONEY_TRAIL/TRAIL_ENDS_AT edges as their own distinct styled layer', async () => {
+    const { generateHtml } = await import('../src/viz/html-generator.js')
+    const { GraphData } = await import('../src/viz/graph-model.js')
+    const data = GraphData.parse(validData)
+    const html = generateHtml(data, 'Test Viz')
+
+    // Trail edges must be kept in the render loop, not skipped with the
+    // other non-flow "pattern" edge types.
+    expect(html).toContain("eType !== 'FLOWS_TO' && eType !== 'MONEY_TRAIL' && eType !== 'TRAIL_ENDS_AT'")
+    // Distinct dashed style + "money trail" wording, not the gold flow gradient.
+    expect(html).toContain('isTrail')
+    expect(html).toContain('setLineDash([6, 4])')
+    expect(html).toContain("l.type === 'MONEY_TRAIL' ? 'MONEY TRAIL' : 'TRAIL ENDS AT'")
+  })
 })
 
 describe('transformToGraphHtml (data schema mapping)', () => {
@@ -268,6 +283,36 @@ describe('transformToGraphHtml (data schema mapping)', () => {
     expect(result.edges[0]).not.toHaveProperty('from_address')
     expect(result.edges[0]).not.toHaveProperty('to_address')
     expect(result.edges[0]).not.toHaveProperty('type')
+  })
+
+  it('passes real edgeType through instead of hardcoding flows_to', async () => {
+    const { transformToGraphHtml } = await import('../src/viz/html-generator.js')
+    const { GraphData } = await import('../src/viz/graph-model.js')
+    const data = GraphData.parse({
+      nodes: [
+        { id: '0xseed', entityType: 'eoa', riskLevel: 'low', totalIn: 0, totalOut: 0, txCount: 0 },
+        { id: '0xterm', entityType: 'eoa', riskLevel: 'low', totalIn: 0, totalOut: 0, txCount: 0 },
+      ],
+      edges: [{ source: '0xseed', target: '0xterm', value: 10, edgeType: 'MONEY_TRAIL' }],
+      metadata: { generatedAt: '2024-01-01T00:00:00Z' },
+    })
+    const result = transformToGraphHtml(data)
+    expect(result.edges[0].edge_type).toBe('MONEY_TRAIL')
+  })
+
+  it('defaults edgeType to flows_to when absent (absent-layer behavior unchanged)', async () => {
+    const { transformToGraphHtml } = await import('../src/viz/html-generator.js')
+    const { GraphData } = await import('../src/viz/graph-model.js')
+    const data = GraphData.parse({
+      nodes: [
+        { id: '0x1234', entityType: 'eoa', riskLevel: 'low', totalIn: 0, totalOut: 0, txCount: 0 },
+        { id: '0xabcd', entityType: 'eoa', riskLevel: 'low', totalIn: 0, totalOut: 0, txCount: 0 },
+      ],
+      edges: [{ source: '0x1234', target: '0xabcd', value: 10 }],
+      metadata: { generatedAt: '2024-01-01T00:00:00Z' },
+    })
+    const result = transformToGraphHtml(data)
+    expect(result.edges[0].edge_type).toBe('flows_to')
   })
 
   it('maps hub entityType to a non-null role', async () => {

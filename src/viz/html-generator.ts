@@ -60,7 +60,7 @@ export function transformToGraphHtml(data: GraphData): GraphHtmlData {
     target: e.target,
     usd_amount: e.value,
     tx_count: 1,
-    edge_type: 'flows_to',
+    edge_type: e.edgeType,
   }))
 
   return {
