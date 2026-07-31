@@ -17,6 +17,7 @@ import { activityWindowPredicates, runFundFlowProbe, type TraceActivityWindow, t
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 import { isUnscoredRiskLevel, normalizeRiskLevel, riskSeverityRank } from './risk-level.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
+import { createUsageAccumulator, usageBlock, wrapClientForUsageTracking, type UsageTotals } from '../lib/usage-accumulator.js'
 
 type RemoteToolResult = {
   content?: ContentBlock[]
@@ -975,6 +976,12 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   if (!address) throw new Error('address is required')
   if (!network) throw new Error('network is required')
 
+  // Every internal graph_query_batch round trip this workflow makes is
+  // observed here and totaled into a usage block on the response (never
+  // blocks/throws on a backend that doesn't emit billing fields yet).
+  const usage = createUsageAccumulator()
+  const trackedClient = wrapClientForUsageTracking(remoteClient, usage)
+
   // Address-grain has no separate resolution step for the SUBJECT address:
   // the input address IS the graph node key. Its existence is inferred
   // post-hoc from the address_profile row (below) instead of the pre-revert
@@ -985,7 +992,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   // never issued route probes for an unresolved compare input.
   let compareUnresolved = false
   if (compareInput) {
-    const compareBatch = await callGraphBatch(remoteClient, network, [compareAddressExistsQuery(compareInput)])
+    const compareBatch = await callGraphBatch(trackedClient, network, [compareAddressExistsQuery(compareInput)])
     const compareRows = optionalResultsFor(compareBatch, 'compare_address_exists', [])
     compareUnresolved = !firstString(compareRows[0]?.['address'])
   }
@@ -1005,7 +1012,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
       ? connectionRouteQueries(address, compareAddress)
       : []),
   ]
-  const batch = await callGraphBatch(remoteClient, network, queries)
+  const batch = await callGraphBatch(trackedClient, network, queries)
   const partialQueryFailures: QueryFailure[] = []
   // Deliberate post-hoc existence inference (address grain): an empty
   // address_profile result means the subject :Address does not exist ->
@@ -1020,6 +1027,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
         facts: {
           subject: { network, addresses: [address] },
           unresolved: [address],
+          usage: usageBlock(usage),
         },
       },
       graphData: { schema: 'chain-insights.graph.v1', nodes: [], edges: [], flows: [], edge_anchors: [], metadata: { address, network, generated_at: new Date().toISOString() } },
@@ -1062,7 +1070,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   let moneyTrailEndRows: Array<Record<string, unknown>> = []
   if (preliminaryMoneyTrail?.primary_seed) {
     try {
-      const endsBatch = await callGraphBatch(remoteClient, network, [
+      const endsBatch = await callGraphBatch(trackedClient, network, [
         { id: 'money_trail_ends', query: moneyTrailEndsQuery(preliminaryMoneyTrail.primary_seed) },
       ])
       moneyTrailEndRows = optionalResultsFor(endsBatch, 'money_trail_ends', partialQueryFailures)
@@ -1155,6 +1163,7 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
       money_trail: moneyTrail,
       unresolved: compareUnresolved ? [compareInput] : undefined,
       partial_query_errors: partialQueryFailures.length > 0 ? partialQueryFailures : undefined,
+      usage: usageBlock(usage),
     },
   }
   const artifacts = options.writeArtifacts ? await writeAddressRiskArtifacts(
@@ -1707,7 +1716,8 @@ function traceResultFromFundRuns(
     /** Effective search bounds of this run (requested vs used vs ceiling). */
     searchLimits?: ReturnType<typeof limitsReport>
     unresolved?: string[]
-    } = {},
+    usage: UsageTotals
+    },
 ): { summaryText: string; structuredContent: Record<string, unknown>; graphData: Record<string, unknown> } {
   const graphData = normalizeTraceGraphData(runs, network)
   const flows = graphRecords(graphData, 'flows')
@@ -1906,6 +1916,7 @@ function traceResultFromFundRuns(
       ...(options.unresolved && options.unresolved.length > 0 ? [`${options.unresolved.length} input address(es) did not resolve to a known Address and were not traced: ${options.unresolved.join(', ')}.`] : []),
       ...runs.flatMap((run) => run.result.tracebackWarnings ?? []),
     ],
+    usage: usageBlock(options.usage),
   }
 
   return {
@@ -1937,6 +1948,7 @@ export function traceResultFromMoneyTrail(
   seed: string,
   corridorRows: Array<Record<string, unknown>>,
   endRows: Array<Record<string, unknown>>,
+  usage: UsageTotals = createUsageAccumulator(),
 ): TraceToolResult {
   const generation = [...corridorRows, ...endRows]
     .map((row) => numberValue(row['generation']) ?? 0)
@@ -2038,6 +2050,7 @@ export function traceResultFromMoneyTrail(
         : ['aml_address_risk', 'graph_query_batch'],
     },
     warnings: [],
+    usage: usageBlock(usage),
   }
 
   return {
@@ -2064,11 +2077,15 @@ export async function traceVictimFunds(
   if (victimInputs.length < 1) throw new Error('victim_addresses must contain at least 1 address')
   if (victimInputs.length > 5) throw new Error('victim_addresses cannot exceed 5 addresses')
   if (knownSuspects.length > 5) throw new Error('known_suspect_addresses cannot exceed 5 addresses')
+  // Every internal graph_query_batch round trip this workflow makes is
+  // observed here and totaled into a usage block on the response.
+  const usage = createUsageAccumulator()
+  const trackedClient = wrapClientForUsageTracking(remoteClient, usage)
   // Address-grain seed pre-flight (R2/R3): the input address IS the graph
   // node key, but a seed that does not exist as an :Address must be reported
   // as unresolved, never silently traced into an empty result.
   const uniqueVictims = [...new Set(victimInputs)]
-  const existingVictims = await probeSeedAddresses(remoteClient, network, uniqueVictims)
+  const existingVictims = await probeSeedAddresses(trackedClient, network, uniqueVictims)
   const victims = uniqueVictims.filter((input) => existingVictims.has(input))
   const unresolvedVictims = uniqueVictims.filter((input) => !existingVictims.has(input))
   const activityWindow = traceActivityWindow(options.incidentTimestamp, options.timeRange)
@@ -2079,7 +2096,7 @@ export async function traceVictimFunds(
     runs.push({
       role: 'victim',
       address,
-      result: await runFundFlowProbe(remoteClient, config, {
+      result: await runFundFlowProbe(trackedClient, config, {
         seedAddress: address,
         network,
         maxHops: searchLimits.hopDepth.used,
@@ -2099,6 +2116,7 @@ export async function traceVictimFunds(
     maxHops: searchLimits.hopDepth.used,
     searchLimits: limitsReport([searchLimits.hopDepth, searchLimits.perAddress]),
     unresolved: unresolvedVictims,
+    usage,
   })
   return publicizeTraceResult(network, result, options.writeArtifacts !== false)
 }
@@ -2113,9 +2131,13 @@ export async function traceSuspectFunds(
   if (!network) throw new Error('network is required')
   if (suspectInputs.length < 1) throw new Error('suspect_addresses must contain at least 1 address')
   if (suspectInputs.length > 5) throw new Error('suspect_addresses cannot exceed 5 addresses')
+  // Every internal graph_query_batch round trip this workflow makes is
+  // observed here and totaled into a usage block on the response.
+  const usage = createUsageAccumulator()
+  const trackedClient = wrapClientForUsageTracking(remoteClient, usage)
   // Address-grain seed pre-flight (R2/R3): see traceVictimFunds.
   const uniqueSuspects = [...new Set(suspectInputs)]
-  const existingSuspects = await probeSeedAddresses(remoteClient, network, uniqueSuspects)
+  const existingSuspects = await probeSeedAddresses(trackedClient, network, uniqueSuspects)
   const suspects = uniqueSuspects.filter((input) => existingSuspects.has(input))
   const unresolvedSuspects = uniqueSuspects.filter((input) => !existingSuspects.has(input))
   const activityWindow = traceActivityWindow(options.incidentTimestamp, options.timeRange)
@@ -2132,19 +2154,19 @@ export async function traceSuspectFunds(
   if (!options.live && suspects.length === 1) {
     const seed = suspects[0]!
     try {
-      const probeBatch = await callGraphBatch(remoteClient, network, [
+      const probeBatch = await callGraphBatch(trackedClient, network, [
         { id: 'money_trail_seed_probe', query: moneyTrailSeedProbeQuery(seed) },
       ])
       const probeFailures: QueryFailure[] = []
       const probeRows = optionalResultsFor(probeBatch, 'money_trail_seed_probe', probeFailures)
       if (probeFailures.length === 0 && probeRows.length > 0) {
-        const corridorBatch = await callGraphBatch(remoteClient, network, [
+        const corridorBatch = await callGraphBatch(trackedClient, network, [
           { id: 'money_trail_corridor', query: moneyTrailCorridorQuery(seed) },
         ])
         const corridorFailures: QueryFailure[] = []
         const corridorRows = optionalResultsFor(corridorBatch, 'money_trail_corridor', corridorFailures)
         if (corridorFailures.length === 0) {
-          const fastResult = traceResultFromMoneyTrail(network, seed, corridorRows, probeRows)
+          const fastResult = traceResultFromMoneyTrail(network, seed, corridorRows, probeRows, usage)
           return publicizeTraceResult(network, fastResult, options.writeArtifacts !== false)
         }
       }
@@ -2159,7 +2181,7 @@ export async function traceSuspectFunds(
     runs.push({
       role: 'suspect',
       address,
-      result: await runFundFlowProbe(remoteClient, config, {
+      result: await runFundFlowProbe(trackedClient, config, {
         seedAddress: address,
         network,
         maxHops: searchLimits.hopDepth.used,
@@ -2179,6 +2201,7 @@ export async function traceSuspectFunds(
     maxHops: searchLimits.hopDepth.used,
     searchLimits: limitsReport([searchLimits.hopDepth, searchLimits.perAddress]),
     unresolved: unresolvedSuspects,
+    usage,
   })
   return publicizeTraceResult(network, result, options.writeArtifacts !== false)
 }
@@ -2298,10 +2321,14 @@ export async function traceDepositSources(
   if (!network) throw new Error('network is required')
   if (depositInputs.length < 1) throw new Error('deposit_addresses must contain at least 1 address')
   if (depositInputs.length > 5) throw new Error('deposit_addresses cannot exceed 5 addresses')
+  // Every internal graph_query_batch round trip this workflow makes is
+  // observed here and totaled into a usage block on the response.
+  const usage = createUsageAccumulator()
+  const trackedClient = wrapClientForUsageTracking(remoteClient, usage)
   // Address-grain seed pre-flight (R2/R3): see traceVictimFunds. With zero
   // resolved deposits, no reverse_deposit_sources_* query is ever issued.
   const uniqueDeposits = [...new Set(depositInputs)]
-  const existingDeposits = await probeSeedAddresses(remoteClient, network, uniqueDeposits)
+  const existingDeposits = await probeSeedAddresses(trackedClient, network, uniqueDeposits)
   const deposits = uniqueDeposits.filter((input) => existingDeposits.has(input))
   const unresolvedDeposits = uniqueDeposits.filter((input) => !existingDeposits.has(input))
   const limitCtx = limitContext(network, _config)
@@ -2316,7 +2343,7 @@ export async function traceDepositSources(
 
   const batch = deposits.length > 0
     ? await callGraphBatch(
-        remoteClient,
+        trackedClient,
         network,
         Array.from({ length: maxHops }, (_, index) => reverseDepositSourceQueryAtDepth(deposits, index + 1, minAmountSum, window, rowLimit)),
       )
@@ -2558,6 +2585,7 @@ export async function traceDepositSources(
         ...(unresolvedDeposits.length > 0 ? [`${unresolvedDeposits.length} input address(es) did not resolve to a known Address and were not traced: ${unresolvedDeposits.join(', ')}.`] : []),
         ...truncationWarnings,
       ],
+      usage: usageBlock(usage),
     },
     graphData,
   }

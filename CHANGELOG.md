@@ -3,6 +3,29 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.2] - 2026-07-31 — per-workflow billable-units usage on aml_* responses
+
+### Added
+
+- **Usage block on every `aml_*` workflow response**
+  (`src/lib/usage-accumulator.ts`): `aml_address_risk`,
+  `aml_trace_victim_funds`, `aml_trace_suspect_funds`, and
+  `aml_trace_deposit_sources` each make many internal `graph_query_batch`
+  calls to answer one question. Every response now carries a `usage` block
+  (`billable_units`, `query_count`, `truncated_queries`) totaling those
+  internal calls, so downstream pricing and cost-aware callers see the real
+  cost of the workflow, not just of `graph_query` itself.
+- Capture point: each tool wraps its MCP client once
+  (`wrapClientForUsageTracking`) before making any internal calls; the
+  wrapper observes `graph_query_batch`/`graph_query` responses in transit
+  and totals them, without changing what any call returns. A backend that
+  does not yet emit billing fields contributes 0 units but still counts the
+  query — this never blocks or fails a workflow.
+- `usage` lives inside `facts` for `aml_address_risk`
+  (`chain-insights.result.v1`) and at the top level of structuredContent for
+  the three trace tools (`chain-insights.trace.v1`, which has no `facts`
+  wrapper) — same key name, same place in each schema's factual payload.
+
 ## [0.18.1] - 2026-07-31 — client-side billable-units recount
 
 ### Added

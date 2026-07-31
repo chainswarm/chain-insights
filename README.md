@@ -191,6 +191,21 @@ cut off. When you see `truncated: true`:
 - Page through results with `SKIP` to fetch the next batch.
 - Add a tighter `WHERE` filter before raising the limit.
 
+**Workflow tools carry a `usage` block.** The `aml_*` tools
+(`aml_address_risk`, `aml_trace_victim_funds`, `aml_trace_suspect_funds`,
+`aml_trace_deposit_sources`) each run many graph queries behind the scenes
+to answer one question. Every response includes a `usage` block with the
+total cost of all of them:
+
+- **`billable_units`** — total units billed across every internal graph
+  query this workflow ran.
+- **`query_count`** — how many internal graph queries it took.
+- **`truncated_queries`** — how many of those internal queries hit their
+  row limit and got cut off.
+
+Use `usage` to see the real cost of a workflow call, not just of one
+`graph_query`.
+
 ## Prerequisites And Environment Setup
 
 - **Node.js 22 or newer** (`package.json` engines) and npm.
