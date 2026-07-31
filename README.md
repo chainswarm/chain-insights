@@ -172,6 +172,25 @@ Agent installs include `chain-insights-cypher` for generic layer-aware
 GQL/Cypher work and `chain-insights-bittensor-cypher` for Bittensor-specific
 schema notes and examples.
 
+## Billing: Billable Units
+
+Chain Insights Graph bills by **billable units**, not query time.
+
+- A **billable unit** is one row, node, or edge in your returned payload.
+- Bigger responses cost more. Narrow queries cost less.
+- The server reports `billable_units` on every graph response.
+
+**Check your own count.** `src/lib/recount-units.ts` mirrors the server's
+counting logic. Use it client-side to recount units in a response and
+confirm the billed amount matches what you received.
+
+**Watch for `truncated: true`.** A response can hit the row limit and get
+cut off. When you see `truncated: true`:
+
+- Narrow the query with `LIMIT` to ask for fewer rows.
+- Page through results with `SKIP` to fetch the next batch.
+- Add a tighter `WHERE` filter before raising the limit.
+
 ## Prerequisites And Environment Setup
 
 - **Node.js 22 or newer** (`package.json` engines) and npm.

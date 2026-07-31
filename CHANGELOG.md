@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.1] - 2026-07-31 — client-side billable-units recount
+
+### Added
+
+- **Billable-units recount** (`src/lib/recount-units.ts`): counts the rows,
+  nodes, and edges in a query payload the same way the server bills them.
+  Clients can recount their own results to verify a bill. Audit-parity test
+  proves the recount equals the server-reported `billable_units`.
+- **README**: new "Billing: billable units" section — what a unit is, how to
+  recount, and how to page with `LIMIT`/`SKIP` when a result is `truncated`.
+
 ## [0.18.0] - 2026-07-31 — money-trail enrichment for risk, tracing, and reports
 
 ### Added
