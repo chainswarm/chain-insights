@@ -3,6 +3,21 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.4] - 2026-08-05 — retire three empty acceptance stubs
+
+### Removed
+
+- `docs/acceptance/detection.md`, `federation.md`, `monitor.md`. Each held
+  685-694 bytes with exactly two non-placeholder lines: a `---` rule and a
+  "See components/x.md" pointer. Every scenario section read "No acceptance
+  evidence detected for this component".
+- The generator that emitted them is retired (rbmk
+  `docs-reusable.yml:106`), so nothing recreates them and nothing will fill
+  them in. They surfaced as `placeholder,no-triples` in the RBMK vault
+  review queue.
+- The other six acceptance docs are real authored scenarios and are
+  untouched. `docs/acceptance/` remains a sanctioned category.
+
 ## [0.18.3] - 2026-08-05 — patch three production dependency vulnerabilities
 
 ### Security
