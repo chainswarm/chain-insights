@@ -3,6 +3,26 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.3] - 2026-08-05 — patch three production dependency vulnerabilities
+
+### Security
+
+- `ip-address` 10.2.0 -> 10.4.0. Three **high** SSRF and trust-boundary
+  bypasses: leading-zero octets decoded as decimal while resolvers decode
+  them as octal; a CIDR suffix suppressing special-use classification; and
+  misclassified IPv4-mapped/NAT64 IPv6 addresses.
+- `fast-uri` 3.1.4 -> 3.1.5. **High** — host confusion via a backslash
+  authority introducer.
+- `hono` 4.12.32 -> 4.13.0. **Moderate** — ReDoS in the CORS middleware via
+  `Access-Control-Request-Headers`.
+- `postcss` 8.5.22 -> 8.5.25 pulled in by the same resolution.
+
+All semver-compatible; `npm audit fix` with no `--force`. Lockfile only.
+`npm audit --omit=dev` now reports 0 vulnerabilities.
+
+npm Audit is a REQUIRED check, so these three were blocking every pull
+request in this repository, not just one.
+
 ## [0.18.2] - 2026-07-31 — per-workflow billable-units usage on aml_* responses
 
 ### Added
