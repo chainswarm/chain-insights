@@ -3,6 +3,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.5] - 2026-08-05 — codeql-action 4.37.3 -> 4.37.4
+
+### Changed
+
+- `github/codeql-action/{init,analyze,upload-sarif}` pinned SHA moved from
+  `e4fba868` (v4.37.3) to `f205ea1c` (v4.37.4), across `security.yml` and
+  `scorecard.yml`.
+
+Combines dependabot #284, #285 and #286. They could not merge on their own:
+the release gate requires a version bump plus a CHANGELOG entry on every
+pull request, and a workflow-only change has no `package.json` to bump. All
+three were stuck behind a gate they had no way to satisfy.
+
 ## [0.18.4] - 2026-08-05 — retire three empty acceptance stubs
 
 ### Removed
