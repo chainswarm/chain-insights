@@ -162,6 +162,45 @@ Avoid `keys()`, `labels()`, `type()`, native BFS syntax, and variable-length
 paths in schema probes. They may be valid in a direct Memgraph console but are
 not portable across the Chain Insights Graph federation path.
 
+## Connectivity Checks: BFS First
+
+When the question is "is address A connected to address B" — for example,
+victim → exchange — default to one bounded BFS path query. Do not start with
+manual hop-by-hop `FLOWS_TO` expansion.
+
+```cypher
+USE topology
+MATCH path=(a:Address {address: "SOURCE_ADDRESS"})-[:FLOWS_TO *BFS]->(b:Address {address: "TARGET_ADDRESS"})
+RETURN size(path) AS hops
+LIMIT 1
+```
+
+Rules (observed live 2026-07-29):
+
+- **Plain `*BFS` is the default.** Do not add hop bounds to a connectivity
+  check. If the endpoint refuses with "unbounded traversal is not
+  permitted", that is the Chain Insights Graph server depth guard
+  (`MCP_MAX_TRAVERSAL_DEPTH`, default 5) — raise the guard on the
+  deployment; do not paper over it with an arbitrary bound in the query.
+- **BFS runs on one shard only.** With more than one covering shard the
+  federation refuses with `cross_shard_unsafe_path`. Path stitching across
+  shards is a permanent non-goal.
+- **Narrow shards with `time_scope`.** Pass it as a `graph_query` argument:
+  `time_scope=recent` selects the single live shard. `since_timestamp:<ms>`
+  works only when it overlaps exactly one shard; the live shard is
+  open-ended, so a historical lower bound usually still selects 2+ shards.
+
+```bash
+cia mcp call graph_query network=bittensor time_scope=recent \
+  'query=USE topology MATCH path=(a:Address {address: "SOURCE"})-[:FLOWS_TO *BFS]->(b:Address {address: "TARGET"}) RETURN size(path) AS hops LIMIT 1'
+```
+
+- **Cross-shard or historical connectivity:** use the `aml_trace_*` tools or
+  generated fixed-hop `FLOWS_TO` batches. They federate hop by hop and merge
+  client-side, so shard boundaries do not hide paths.
+- **Never name a node variable `in`.** It is a reserved keyword and fails the
+  federation parser with a misleading `cross_shard_unsafe_path` error.
+
 ## Investigation Patterns
 
 Outflows from a Bittensor address:
