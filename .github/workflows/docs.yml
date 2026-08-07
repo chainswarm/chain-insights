@@ -21,7 +21,7 @@ name: Docs
 # copy — it cannot `uses:` private rbmk docs-reusable.yml.
 on:
   schedule:
-    - cron: "45 2 * * *"
+    - cron: "5 3 * * *"
   workflow_dispatch:
 
 permissions:
