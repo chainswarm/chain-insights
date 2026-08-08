@@ -3,6 +3,11 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.6] - 2026-08-08
+
+### Changed
+- Docs CI: nightly schedule (03:05 UTC) instead of every push to main.
+
 ## [0.18.5] - 2026-08-05 — codeql-action 4.37.3 -> 4.37.4
 
 ### Changed
