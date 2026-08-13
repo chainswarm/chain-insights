@@ -17,7 +17,7 @@ concurrency:
 jobs:
   verify:
     name: Typecheck, Test, Build, Pack
-    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || 'chainswarm-runner' }}
+    runs-on: [self-hosted, chainswarm-runner, X64]
     timeout-minutes: 20
 
     steps:
@@ -45,8 +45,22 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Check release metadata
+      - name: Detect release-bearing changes
         if: github.event_name == 'pull_request'
+        id: release-scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet "$BASE_SHA...$HEAD_SHA" -- . ':(exclude).github/**'; then
+            echo "required=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "required=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check release metadata
+        if: github.event_name == 'pull_request' && steps.release-scope.outputs.required == 'true'
         run: npm run release:check
 
       - name: Test
