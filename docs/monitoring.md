@@ -210,7 +210,7 @@ Reading the surface:
   (bad config, missing workspace). `watch` survives failed *passes*, so a
   dying loop means something structural; read the error log.
 - A successful pass writes a run document under
-  `.chain-insights/monitor/runs/` and prints nothing — check
+  `.chain-insights/monitor/logs/monitor-runs.jsonl` and prints nothing — check
   `cia monitor status` for `last run`, not the pm2 log, to confirm passes are
   landing.
 

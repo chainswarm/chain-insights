@@ -27,8 +27,8 @@ debug bearer token used by the script.
 - MCP endpoint: `http://localhost:8012/mcp`
 - Debug bearer token: `chain-insights-dev-debug`
 - Chain Insights local server port: `4321`
-- UAT address: `5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6`
-- UAT cross-space LINKED address (H160, `:Address.network` = `bittensor_evm`): `0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24`
+- UAT address (H160 EVM, `robinhood`): `0x20d09f2881602eee806147ceee9275d33ff31df8`
+- UAT LINKED address (H160, same `robinhood` network): `0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24`
 </defaults>
 
 <environment_overrides>
@@ -39,7 +39,7 @@ CHAIN_INSIGHTS_DIR=/path/to/chain-insights \
 CHAIN_INSIGHTS_GRAPH_ENDPOINT=http://localhost:8012/mcp \
 CHAIN_INSIGHTS_GRAPH_DEBUG_TOKEN=chain-insights-dev-debug \
 CHAIN_INSIGHTS_SERVER_PORT=4321 \
-UAT_ADDRESS=5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6 \
+UAT_ADDRESS=0x20d09f2881602eee806147ceee9275d33ff31df8 \
 UAT_LINKED_ADDRESS=0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24 \
 skills/test-chain-insights-graph/scripts/run-uat.sh
 ```
@@ -51,10 +51,10 @@ Set `SKIP_BUILD=1` only when deliberately reusing an existing Chain Insights `di
 The UAT must verify all of these facts:
 
 - Direct Chain Insights Graph exposes `network_capabilities`, `graph_query`, and `graph_query_batch` through debug bearer auth.
-- Direct Chain Insights Graph `network_capabilities` exposes ONE public Bittensor investigation network, `bittensor` (SS58 and EVM-pallet H160 addresses in the same graph, split by the `:Address.network` property); it must not advertise alias/source databases (such as `bittensor_evm`) or unsupported networks such as `base`, `ethereum`, or `tron`.
-- Direct Chain Insights Graph `graph_query` with `network=bittensor` and `USE topology` returns topology (recent and full historical activity in one graph) as `Address FLOWS_TO Address` edges, and `USE facts` serves the transfers-only tier (rbmk#447 P3/P5: a single-node `(a:Address)` match is refused there — match through a `TRANSFER` pattern, or read address-grain properties on `USE topology`) with routing metadata `facts.routing.starrocks_database=bittensor`; no internal semantic-database alias or legacy per-call graph-scope tool argument is used as a public tool input.
-- Address facts are keyed by the raw chain-native address directly (set `UAT_ADDRESS`, and `UAT_LINKED_ADDRESS` for the H160 cross-space counterpart, `:Address.network` = `bittensor_evm`); labels for the default address are guaranteed by the RBMK verification harness seed or any real label on the address.
-- Direct Chain Insights Graph `graph_query` defaults to address-grain topology for the single `bittensor` network: `(:Address)-[:FLOWS_TO]->(:Address)` plus the undirected `(:Address)-[:LINKED]-(:Address)` ownership-overlay edge across the SS58/H160 space boundary — the AC5 single-network cross-space recipe (SS58 -> LINKED -> H160 and back) runs under `network=bittensor` with no network switch. Public tools remain address-facing: they accept and return the raw address directly, with no identity-resolution step.
+- Direct Chain Insights Graph `network_capabilities` exposes ONE public Robinhood investigation network, `robinhood` (EVM H160 `0x...` addresses); it must not advertise alias/source databases or unsupported networks such as `base`, `ethereum`, or `tron`.
+- Direct Chain Insights Graph `graph_query` with `network=robinhood` and `USE topology` returns topology (recent and full historical activity in one graph) as `Address FLOWS_TO Address` edges, and `USE facts` serves the transfers-only tier (rbmk#447 P3/P5: a single-node `(a:Address)` match is refused there — match through a `TRANSFER` pattern, or read address-grain properties on `USE topology`) with routing metadata `facts.routing.starrocks_database=robinhood`; no internal semantic-database alias or legacy per-call graph-scope tool argument is used as a public tool input.
+- Address facts are keyed by the raw chain-native address directly (set `UAT_ADDRESS`, and `UAT_LINKED_ADDRESS` for the `robinhood`-network LINKED counterpart); labels for the default address are guaranteed by the RBMK verification harness seed or any real label on the address.
+- Direct Chain Insights Graph `graph_query` defaults to address-grain topology for the single `robinhood` network: `(:Address)-[:FLOWS_TO]->(:Address)` plus the undirected `(:Address)-[:LINKED]-(:Address)` ownership-overlay edge. Public tools remain address-facing: they accept and return the raw address directly, with no identity-resolution step.
 - If direct Chain Insights Graph also exposes high-level `aml_address_risk`, that direct tool succeeds, returns `content` text and `structuredContent.schema = chain-insights.result.v1`, does not expose `app_data`, `nodes`, `edges`, `flows`, `edge_anchors`, or `transfers` in `structuredContent`, and puts graph data only in `_meta.chainInsights.graph.data`.
 - If direct Chain Insights Graph is primitive-only, Chain Insights proxy high-level tools are still mandatory and must build their graph reports from the primitive graph path.
 - Chain Insights proxy `tools/list` exposes local `wallet_balance`, `meta_help`, `meta_network_capabilities`, `meta_usage_status`, `aml_address_risk`, plus public proxied Chain Insights Graph tools.

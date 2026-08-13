@@ -48,8 +48,8 @@ Example:
 
 ```bash
 cia mcp aml-address-risk \
-  --network bittensor \
-  --address 5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5 \
+  --network robinhood \
+  --address 0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24 \
   --include-attachments
 ```
 

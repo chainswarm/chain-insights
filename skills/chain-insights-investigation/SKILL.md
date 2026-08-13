@@ -59,7 +59,7 @@ cia debug off
 ## Hard Rules
 
 - Always preserve full blockchain addresses exactly.
-- All Bittensor investigation runs on ONE public network: always pass `network=bittensor`, for native Substrate/SS58 (`5...`) and EVM-pallet `0x...` inputs alike. The SS58/H160 split is the `:Address.network` node property (`bittensor` / `bittensor_evm`), not a separate query network; a single query spans both spaces by hopping the bridge (money) or `LINKED` (ownership) edge across the boundary.
+- All Robinhood investigation runs on ONE public network: always pass `network=robinhood`, for EVM-pallet `0x...` (H160) inputs alike. Robinhood is EVM-only, so every address is H160 in a single address space: the `:Address.network` node property is `robinhood` throughout — it is a node property, not a separate query network, and there is no cross-space hop to make.
 - Topology is address-grain and graph-selected: use `USE topology` for the Memgraph-backed unified graph, which serves ALL topology — recent and full historical activity — in one place. It supports the `(:Address)-[:FLOWS_TO]->(:Address)` money shape and the `(:Address)-[:LINKED]-(:Address)` ownership overlay; the `LINKED` overlay is topology-only.
 - Users operate on raw blockchain addresses directly. High-level `aml_*` tools accept addresses with no identity-resolution step; public results, artifacts, and follow-up candidate lists always return the raw address.
 - Use the current Chain Insights AML tool contract as the reference behavior; do not downgrade semantics to legacy implementation details from the old Python graph path.
