@@ -32,7 +32,7 @@ env:
 jobs:
   devkit-smoke:
     name: Devkit + cia parity smoke
-    runs-on: [self-hosted, chainswarm-runner]
+    runs-on: [self-hosted, chainswarm-runner, X64]
     timeout-minutes: 75
     steps:
       - name: Checkout chain-insights
