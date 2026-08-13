@@ -17,7 +17,6 @@ import { fileURLToPath } from 'node:url'
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const { queryBuilderContract } = await import(join(repoRoot, 'src/investigation/public-tools.ts'))
-const { traceQueryBuilderContract } = await import(join(repoRoot, 'src/investigation/trace-funds.ts'))
 
 const SCOPES = ['topology']
 // Escaping-sensitive values are part of the grid on purpose.
@@ -56,35 +55,6 @@ for (const scope of SCOPES) {
   add('compareAddressExistsQuery', { address: ADDR }, scope, queryBuilderContract.compareAddressExistsQuery(ADDR))
   add('connectionProbeQuery', { address: ADDR, compare: COMPARE }, scope, queryBuilderContract.connectionProbeQuery(ADDR, COMPARE))
 
-  for (const minAmountSum of [0, 10]) {
-    for (const window of [undefined, WINDOW]) {
-      add(
-        'forwardExchangeQueries',
-        { address: ADDR, limit: 25, minAmountSum, maxHops: 5, window: Boolean(window) },
-        scope,
-        traceQueryBuilderContract.forwardExchangeQueries(ADDR, 25, minAmountSum, 5, window),
-      )
-      for (let depth = 1; depth <= 5; depth += 1) {
-        add(
-          'reverseDepositSourceQueryAtDepth',
-          { deposits: DEPOSITS.length, depth, minAmountSum, window: Boolean(window) },
-          scope,
-          queryBuilderContract.reverseDepositSourceQueryAtDepth(DEPOSITS, depth, minAmountSum, window),
-        )
-      }
-    }
-  }
-  add('backwardSourceQueries', { deposit: ADDR, maxHops: 5 }, scope, traceQueryBuilderContract.backwardSourceQueries('backward_from_deposit_0', ADDR, 5))
-  add('reverseLeadsQueries', { deposits: DEPOSITS.length }, scope, traceQueryBuilderContract.reverseLeadsQueries(DEPOSITS))
-  add(
-    'directEdgePropsQueries',
-    { pairs: 2 },
-    scope,
-    traceQueryBuilderContract.directEdgePropsQueries([
-      { src: ADDR, dst: COMPARE, hop: 1, amount_usd_sum: 0, terminal_exchange: false },
-      { src: COMPARE, dst: ADDR_QUOTED, hop: 2, amount_usd_sum: 0, terminal_exchange: true },
-    ]),
-  )
 }
 
 // Route evidence: native *BFS traversal on the unified topology graph.

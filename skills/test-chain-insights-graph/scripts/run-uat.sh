@@ -192,7 +192,7 @@ const required = ['network_capabilities', 'graph_query', 'graph_query_batch']
 const missing = required.filter((name) => !names.has(name))
 if (missing.length) throw new Error(`direct tools/list missing tools: ${missing.join(', ')}`)
 if (JSON.stringify(tools).includes('app_data')) throw new Error('direct tools/list still contains app_data')
-const hasHighLevel = ['aml_address_risk', 'aml_trace_victim_funds'].every((name) => names.has(name))
+const hasHighLevel = ['aml_address_risk'].every((name) => names.has(name))
 fs.writeFileSync(highLevelFile, hasHighLevel ? 'yes\n' : 'no\n')
 console.log(`[uat] direct tools/list ok: ${tools.length} tools (${hasHighLevel ? 'high-level' : 'primitive-only'})`)
 NODE
@@ -465,7 +465,7 @@ const file = process.argv[2]
 const data = JSON.parse(fs.readFileSync(file, 'utf8'))
 const tools = data.tools || []
 const names = new Set(tools.map((tool) => tool.name))
-const required = ['wallet_balance', 'meta_help', 'meta_network_capabilities', 'meta_usage_status', 'aml_address_risk', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources', 'graph_query', 'graph_query_batch']
+const required = ['wallet_balance', 'meta_help', 'meta_network_capabilities', 'meta_usage_status', 'aml_address_risk', 'graph_query', 'graph_query_batch']
 const missing = required.filter((name) => !names.has(name))
 if (missing.length) throw new Error(`proxy tools/list missing tools: ${missing.join(', ')}`)
 if (names.size !== required.length) {
@@ -474,7 +474,7 @@ if (names.size !== required.length) {
 }
 if (JSON.stringify(tools).includes('app_data')) throw new Error('proxy tools/list still contains app_data')
 const graphTools = tools.filter((tool) => tool._meta?.ui?.resourceUri === 'ui://chain-insights/graph').map((tool) => tool.name)
-for (const name of ['aml_address_risk', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources']) {
+for (const name of ['aml_address_risk']) {
   if (!graphTools.includes(name)) throw new Error(`proxy graph app metadata missing for ${name}`)
 }
 console.log(`[uat] proxy tools/list ok: ${tools.length} tools`)
@@ -573,25 +573,91 @@ if (errors.length) throw new Error(errors.join('; '))
 console.log(`[uat] graph report ok: nodes=${data.nodes.length} edges=${data.edges.length} flows=${data.flows.length} edge_anchors=${data.edge_anchors.length}`)
 NODE
 
-TRACE_TOOLS_JSON="${RUN_DIR}/proxy-aml-trace-tools.json"
-log "calling Chain Insights proxy AML trace tools"
-node --input-type=module - "${CHAIN_INSIGHTS_PROXY}" "${NETWORK}" "${UAT_ADDRESS}" "${TRACE_TOOLS_JSON}" <<'NODE'
+SUMMARY="- direct aml_address_risk skipped: direct endpoint is primitive-only"
+if [[ "$(cat "${RUN_DIR}/direct-high-level-tools.txt")" == "yes" ]]; then
+  log "calling direct Chain Insights Graph aml_address_risk"
+  npx @modelcontextprotocol/inspector \
+    --cli "${MCP_ENDPOINT}" \
+    --transport http \
+    --header "Authorization: Bearer ${DEBUG_TOKEN}" \
+    --header "X-MCP-Debug-Token: ${DEBUG_TOKEN}" \
+    --method tools/call \
+    --tool-name aml_address_risk \
+    --tool-arg "network=${NETWORK}" \
+    --tool-arg "address=${UAT_ADDRESS}" \
+    --tool-arg include_attachments=true >"${DIRECT_JSON}"
+
+  node - "${DIRECT_JSON}" <<'NODE'
+const fs = require('node:fs')
+const file = process.argv[2]
+const data = JSON.parse(fs.readFileSync(file, 'utf8'))
+const errors = []
+const content = data.content || []
+const sc = data.structuredContent || {}
+const graphData = data._meta?.chainInsights?.graph?.data
+const graphArrayKeys = ['app_data', 'nodes', 'edges', 'flows', 'edge_anchors', 'transfers']
+if (data.isError) errors.push('direct aml_address_risk returned isError=true')
+if (content[0]?.type !== 'text') errors.push('direct content[0] is not text')
+if (sc.schema !== 'chain-insights.result.v1') errors.push(`direct structuredContent schema mismatch: ${sc.schema}`)
+for (const key of graphArrayKeys) {
+  if (Object.prototype.hasOwnProperty.call(sc, key)) errors.push(`direct structuredContent leaks ${key}`)
+}
+if (!graphData) errors.push('direct _meta.chainInsights.graph.data missing')
+if (graphData?.schema !== 'chain-insights.graph.v1') errors.push(`direct graph schema mismatch: ${graphData?.schema}`)
+for (const key of ['nodes', 'edges', 'flows', 'edge_anchors']) {
+  if (!Array.isArray(graphData?.[key])) errors.push(`direct graph ${key} is not an array`)
+}
+if (Object.prototype.hasOwnProperty.call(graphData || {}, 'transfers')) errors.push('direct graph includes transfers')
+if (errors.length) throw new Error(errors.join('; '))
+console.log(`[uat] direct aml_address_risk ok: nodes=${graphData.nodes.length} edges=${graphData.edges.length} flows=${graphData.flows.length} edge_anchors=${graphData.edge_anchors.length}`)
+NODE
+  DIRECT_ADDRESS_RISK_SUMMARY="- ${DIRECT_JSON}"
+else
+  log "direct Chain Insights Graph high-level tools absent; primitive-only endpoint, skipping direct aml_address_risk check"
+fi
+
+PROXY_TOOLS_JSON="${RUN_DIR}/proxy-tools-list.json"
+log "checking Chain Insights proxy tools/list"
+npx @modelcontextprotocol/inspector \
+  --cli node "${CHAIN_INSIGHTS_PROXY}" \
+  --transport stdio \
+  --method tools/list >"${PROXY_TOOLS_JSON}"
+
+node - "${PROXY_TOOLS_JSON}" <<'NODE'
+const fs = require('node:fs')
+const file = process.argv[2]
+const data = JSON.parse(fs.readFileSync(file, 'utf8'))
+const tools = data.tools || []
+const names = new Set(tools.map((tool) => tool.name))
+const required = ['wallet_balance', 'meta_help', 'meta_network_capabilities', 'meta_usage_status', 'aml_address_risk', 'graph_query', 'graph_query_batch']
+const missing = required.filter((name) => !names.has(name))
+if (missing.length) throw new Error(`proxy tools/list missing tools: ${missing.join(', ')}`)
+if (names.size !== required.length) {
+  const unexpected = [...names].filter((name) => !required.includes(name))
+  throw new Error(`proxy tools/list exposed unexpected tools: ${unexpected.join(', ')}`)
+}
+if (JSON.stringify(tools).includes('app_data')) throw new Error('proxy tools/list still contains app_data')
+const graphTools = tools.filter((tool) => tool._meta?.ui?.resourceUri === 'ui://chain-insights/graph').map((tool) => tool.name)
+for (const name of ['aml_address_risk']) {
+  if (!graphTools.includes(name)) throw new Error(`proxy graph app metadata missing for ${name}`)
+}
+console.log(`[uat] proxy tools/list ok: ${tools.length} tools`)
+NODE
+
+PROXY_JSON="${RUN_DIR}/proxy-address-risk.json"
+log "calling Chain Insights proxy aml_address_risk"
+node --input-type=module - "${CHAIN_INSIGHTS_PROXY}" "${NETWORK}" "${UAT_ADDRESS}" "${PROXY_JSON}" <<'NODE'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import fs from 'node:fs'
 
 const proxy = process.argv[2]
 const network = process.argv[3]
-const memberAddress = process.argv[4]
+const address = process.argv[4]
 const outputFile = process.argv[5]
 const requestTimeoutMs = 5 * 60 * 1000
-const calls = [
-  { name: 'aml_trace_victim_funds', arguments: { network, victim_addresses: memberAddress, max_hops: 2 } },
-  { name: 'aml_trace_suspect_funds', arguments: { network, suspect_addresses: memberAddress, max_hops: 2 } },
-  { name: 'aml_trace_deposit_sources', arguments: { network, deposit_addresses: memberAddress, max_hops: 2 } },
-]
 
-const client = new Client({ name: 'chain-insights-uat-aml-traces', version: '0.0.0' })
+const client = new Client({ name: 'chain-insights-uat', version: '0.0.0' })
 const transport = new StdioClientTransport({
   command: process.execPath,
   args: [proxy],
@@ -600,37 +666,75 @@ const transport = new StdioClientTransport({
 
 try {
   await client.connect(transport)
-  const results = {}
-  for (const call of calls) {
-    const result = await client.callTool(call, undefined, {
+  const result = await client.callTool(
+    {
+      name: 'aml_address_risk',
+      arguments: {
+        network,
+        address,
+        include_attachments: true,
+      },
+    },
+    undefined,
+    {
       timeout: requestTimeoutMs,
       maxTotalTimeout: requestTimeoutMs,
-    })
-    const sc = result.structuredContent || {}
-    const errors = []
-    if (result.isError) errors.push(`${call.name} returned isError=true`)
-    if (result.content?.[0]?.type !== 'text') errors.push(`${call.name} content[0] is not text`)
-    if (sc.schema !== 'chain-insights.trace.v1') errors.push(`${call.name} schema mismatch: ${sc.schema}`)
-    if (sc.tool !== call.name) errors.push(`${call.name} tool mismatch: ${sc.tool}`)
-    if (!Array.isArray(sc.input?.addresses) || !sc.input.addresses.includes(memberAddress)) {
-      errors.push(`${call.name} input addresses do not include public member address ${memberAddress}`)
-    }
-    if (errors.length) throw new Error(errors.join('; '))
-    results[call.name] = result
-  }
-  fs.writeFileSync(outputFile, `${JSON.stringify({ results }, null, 2)}\n`)
+    },
+  )
+  fs.writeFileSync(outputFile, `${JSON.stringify(result, null, 2)}\n`)
 } finally {
   await client.close()
 }
 NODE
 
-node - "${TRACE_TOOLS_JSON}" <<'NODE'
+GRAPH_REPORT_URL="$(
+node - "${PROXY_JSON}" "${UAT_ADDRESS}" <<'NODE'
+const fs = require('node:fs')
+const file = process.argv[2]
+const memberAddress = process.argv[3]
+const data = JSON.parse(fs.readFileSync(file, 'utf8'))
+const errors = []
+const content = data.content || []
+const sc = data.structuredContent || {}
+const graph = data._meta?.chainInsights?.graph
+if (data.isError) errors.push('proxy aml_address_risk returned isError=true')
+if (content[0]?.type !== 'text') errors.push('proxy content[0] is not text')
+if (sc.schema !== 'chain-insights.result.v1') errors.push(`proxy structuredContent schema mismatch: ${sc.schema}`)
+const subjectAddresses = sc.facts?.subject?.addresses || []
+if (!subjectAddresses.includes(memberAddress)) errors.push(`proxy subject addresses do not include the public address ${memberAddress}`)
+for (const key of ['app_data', 'nodes', 'edges', 'flows', 'edge_anchors', 'transfers']) {
+  if (JSON.stringify(sc).includes(`"${key}"`)) errors.push(`proxy structuredContent leaks ${key}`)
+}
+if (!graph) errors.push('proxy _meta.chainInsights.graph missing')
+if (graph?.data) errors.push('proxy _meta.chainInsights.graph.data leaked')
+if (graph?.schema !== 'chain-insights.graph.v1') errors.push(`proxy graph schema mismatch: ${graph?.schema}`)
+if (graph?.id) errors.push('proxy graph id should not be returned')
+if (!/^http:\/\/127\.0\.0\.1:\d+\/graph-reports\/[A-Za-z0-9._-]+\.graph\.json$/.test(graph?.url || '')) {
+  errors.push(`proxy graph url is not a local graph report URL: ${graph?.url}`)
+}
+if (errors.length) throw new Error(errors.join('; '))
+console.error(`[uat] proxy aml_address_risk ok: graph_report=${graph.url}`)
+process.stdout.write(graph.url)
+NODE
+)"
+printf '%s\n' "${GRAPH_REPORT_URL}" >"${RUN_DIR}/graph-report-url.txt"
+
+GRAPH_REPORT_JSON="${RUN_DIR}/graph-report.json"
+log "fetching local graph report"
+curl -sf "${GRAPH_REPORT_URL}" >"${GRAPH_REPORT_JSON}"
+
+node - "${GRAPH_REPORT_JSON}" <<'NODE'
 const fs = require('node:fs')
 const file = process.argv[2]
 const data = JSON.parse(fs.readFileSync(file, 'utf8'))
-const tools = Object.keys(data.results || {})
-if (tools.length !== 3) throw new Error(`expected 3 AML trace tool results, got ${tools.length}`)
-console.log(`[uat] AML trace tools ok: ${tools.join(', ')}`)
+const errors = []
+if (data.schema !== 'chain-insights.graph.v1') errors.push(`graph report schema mismatch: ${data.schema}`)
+for (const key of ['nodes', 'edges', 'flows', 'edge_anchors']) {
+  if (!Array.isArray(data[key])) errors.push(`graph report ${key} is not an array`)
+}
+if (Object.prototype.hasOwnProperty.call(data, 'transfers')) errors.push('graph report includes transfers')
+if (errors.length) throw new Error(errors.join('; '))
+console.log(`[uat] graph report ok: nodes=${data.nodes.length} edges=${data.edges.length} flows=${data.flows.length} edge_anchors=${data.edge_anchors.length}`)
 NODE
 
 SUMMARY="${RUN_DIR}/summary.txt"
@@ -650,7 +754,6 @@ ${DIRECT_ADDRESS_RISK_SUMMARY}
 - ${PROXY_TOOLS_JSON}
 - ${PROXY_JSON}
 - ${GRAPH_REPORT_JSON}
-- ${TRACE_TOOLS_JSON}
 - ${GRAPH_QUERY_TEXT}
 
 Workspace:

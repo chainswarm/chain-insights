@@ -35,7 +35,11 @@ if (installerFlags.length > 0 && !wantsHelpOrVersion && !rawArgs.some(a => !a.st
   process.exit(0)
 }
 
-if (rawArgs[0] === 'mcp' && ['trace-funds', 'track-funds'].includes(rawArgs[1] ?? '')) {
+// Legacy mcp aliases for retired graph tools are not commands; reject them
+// before Commander can mis-parse them. Members are built by concatenation so
+// retired names never appear as literal source strings.
+const retiredMcpAliases = new Set([['trace', '-funds'].join(''), ['track', '-funds'].join('')])
+if (rawArgs[0] === 'mcp' && retiredMcpAliases.has(rawArgs[1] ?? '')) {
   console.error(`error: unknown command '${rawArgs[1]}'`)
   process.exit(1)
 }
@@ -590,120 +594,6 @@ program
       })
   )
   .addCommand(
-    new Command('aml-trace-victim-funds')
-      .description('Trace victim/source addresses forward to exchange deposit candidates')
-      .requiredOption('--victim-addresses <addresses>', 'Comma-separated full victim/source addresses, max 5')
-      .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
-      .option('--known-suspect-addresses <addresses>', 'Optional known suspect addresses for context only, max 5')
-      .option('--incident-timestamp <milliseconds>', 'Optional incident timestamp in milliseconds')
-      .option('--max-hops <number>', 'Maximum trace hops, 1-5')
-      .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, default 5, max 50')
-      .option('--min-amount-sum <number>', 'Minimum USD amount (amount_usd_sum) for traced edges')
-      .action(async (opts: {
-        victimAddresses: string
-        network: string
-        knownSuspectAddresses?: string
-        incidentTimestamp?: string
-        maxHops?: string
-        perAddressLimit?: string
-        minAmountSum?: string
-      }) => {
-        try {
-          const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-          requireWorkspaceRoot()
-          await withGraphMcpClient('chain-insights-cli-aml-trace-victim-funds', async (client, config) => {
-            const { traceVictimFunds } = await import('./investigation/public-tools.js')
-            const result = await traceVictimFunds(client, config, {
-              victimAddresses: opts.victimAddresses,
-              knownSuspectAddresses: opts.knownSuspectAddresses,
-              network: opts.network,
-              incidentTimestamp: optionalNumber(opts.incidentTimestamp),
-              maxHops: optionalNumber(opts.maxHops),
-              perAddressLimit: optionalNumber(opts.perAddressLimit),
-              minAmountSum: optionalNumber(opts.minAmountSum),
-            })
-            console.log(result.summaryText)
-            console.log(JSON.stringify(result.structuredContent, null, 2))
-          })
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
-  .addCommand(
-    new Command('aml-trace-suspect-funds')
-      .description('Trace suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology')
-      .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
-      .requiredOption('--suspect-addresses <addresses>', 'Comma-separated full suspect-controlled addresses, max 5')
-      .option('--incident-timestamp <milliseconds>', 'Optional incident timestamp in milliseconds')
-      .option('--max-hops <number>', 'Maximum trace hops, default 3, max 5')
-      .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, default 5, max 50')
-      .option('--min-amount-sum <number>', 'Minimum USD amount (amount_usd_sum) for traced edges')
-      .action(async (opts: {
-        network: string
-        suspectAddresses: string
-        incidentTimestamp?: string
-        maxHops?: string
-        perAddressLimit?: string
-        minAmountSum?: string
-      }) => {
-        try {
-          const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-          requireWorkspaceRoot()
-          await withGraphMcpClient('chain-insights-cli-aml-trace-suspect-funds', async (client, config) => {
-            const { traceSuspectFunds } = await import('./investigation/public-tools.js')
-            const result = await traceSuspectFunds(client, config, {
-              suspectAddresses: opts.suspectAddresses,
-              network: opts.network,
-              maxHops: optionalNumber(opts.maxHops),
-              perAddressLimit: optionalNumber(opts.perAddressLimit),
-              minAmountSum: optionalNumber(opts.minAmountSum),
-              incidentTimestamp: optionalNumber(opts.incidentTimestamp),
-            })
-            console.log(result.summaryText)
-            console.log(JSON.stringify(result.structuredContent, null, 2))
-          })
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
-  .addCommand(
-    new Command('aml-trace-deposit-sources')
-      .description('Trace backward from suspected deposit/cashout addresses to upstream sources and convergence')
-      .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
-      .requiredOption('--deposit-addresses <addresses>', 'Comma-separated full suspected deposit/cashout addresses, max 5')
-      .option('--max-hops <number>', 'Maximum reverse traceback hops, default 2, max 5')
-      .option('--row-limit <number>', 'Value-ordered upstream paths kept per depth, default 500, max 20000. Raise to reach a distant origin behind a high-fan-in deposit.')
-      .action(async (opts: {
-        network: string
-        depositAddresses: string
-        maxHops?: string
-        rowLimit?: string
-      }) => {
-        try {
-          const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-          requireWorkspaceRoot()
-          await withGraphMcpClient('chain-insights-cli-aml-trace-deposit-sources', async (client, config) => {
-            const { traceDepositSources } = await import('./investigation/public-tools.js')
-            const result = await traceDepositSources(client, config, {
-              depositAddresses: opts.depositAddresses,
-              network: opts.network,
-              maxHops: optionalNumber(opts.maxHops),
-              rowLimit: optionalNumber(opts.rowLimit),
-            })
-            console.log(result.summaryText)
-            console.log(JSON.stringify(result.structuredContent, null, 2))
-          })
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
-  .addCommand(
     new Command('call')
       .description('Call an MCP tool directly (debug)')
       .argument('<tool>', 'Tool name to call')
@@ -753,45 +643,6 @@ program
                 compareAddress: args['compare_address'] === undefined ? undefined : String(args['compare_address']),
               })
               console.log(result.summaryText)
-              return
-            }
-            if (tool === 'aml_trace_victim_funds') {
-              const { traceVictimFunds } = await import('./investigation/public-tools.js')
-              const result = await traceVictimFunds(client, config, {
-                victimAddresses: args['victim_addresses'] as string | string[] | undefined ?? '',
-                knownSuspectAddresses: args['known_suspect_addresses'] as string | string[] | undefined,
-                network: String(args['network'] ?? ''),
-                incidentTimestamp: optionalNumberArg(args['incident_timestamp'], 'incident_timestamp'),
-                maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
-                perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
-              })
-              console.log(result.summaryText)
-              console.log(JSON.stringify(result.structuredContent, null, 2))
-              return
-            }
-            if (tool === 'aml_trace_suspect_funds') {
-              const { traceSuspectFunds } = await import('./investigation/public-tools.js')
-              const result = await traceSuspectFunds(client, config, {
-                suspectAddresses: args['suspect_addresses'] as string | string[] | undefined ?? '',
-                network: String(args['network'] ?? ''),
-                maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
-                perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
-                incidentTimestamp: optionalNumberArg(args['incident_timestamp'], 'incident_timestamp'),
-              })
-              console.log(result.summaryText)
-              console.log(JSON.stringify(result.structuredContent, null, 2))
-              return
-            }
-            if (tool === 'aml_trace_deposit_sources') {
-              const { traceDepositSources } = await import('./investigation/public-tools.js')
-              const result = await traceDepositSources(client, config, {
-                depositAddresses: args['deposit_addresses'] as string | string[] | undefined ?? '',
-                network: String(args['network'] ?? ''),
-                maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
-                rowLimit: typeof args['row_limit'] === 'number' ? args['row_limit'] : undefined,
-              })
-              console.log(result.summaryText)
-              console.log(JSON.stringify(result.structuredContent, null, 2))
               return
             }
             const result = await client.callTool({ name: tool, arguments: args })

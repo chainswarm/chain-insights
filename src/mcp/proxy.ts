@@ -10,7 +10,6 @@ import type { ContentBlock, GetPromptResult } from '@modelcontextprotocol/sdk/ty
 import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server'
 import * as z from 'zod'
 import type { InvestigatorConfig } from '../config/schema.js'
-import { LIMIT_SPECS, type LimitKey } from '../config/limits.js'
 import { PACKAGE_VERSION } from '../version.js'
 import type { McpTool } from './schema-cache.js'
 import { HIDDEN_REMOTE_TOOL_NAMES, PUBLIC_MCP_TOOL_ALLOWED_ARGS, PUBLIC_MCP_TOOL_REQUIRED_ARGS } from './tool-visibility.js'
@@ -27,9 +26,6 @@ const LOCAL_TOOL_NAMES = new Set([
 const GRAPH_RESOURCE_URI = 'ui://chain-insights/graph'
 const GRAPH_APP_TOOL_NAMES = new Set([
   'aml_address_risk',
-  'aml_trace_victim_funds',
-  'aml_trace_suspect_funds',
-  'aml_trace_deposit_sources',
 ])
 const GRAPH_ARRAY_KEYS = ['nodes', 'edges', 'flows', 'edge_anchors'] as const
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -43,22 +39,12 @@ export function resolveMcpProxyMode(env: NodeJS.ProcessEnv = process.env): McpPr
   throw new Error(`CHAIN_INSIGHTS_MCP_PROXY_MODE must be workspace or stateless; got "${raw}"`)
 }
 
-const COMMA_SEPARATED_ADDRESS_FIELDS = new Set([
-  'victim_addresses',
-  'known_suspect_addresses',
-  'suspect_addresses',
-  'deposit_addresses',
-])
-
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   meta_network_capabilities: 'Return the current Chain Insights network and tool support matrix.',
   meta_usage_status: "Return the caller's public free graph_query quota for the current UTC day.",
   meta_help: 'Show a short guide to Chain Insights tools and workflow.',
   wallet_balance: 'Show the local Chain Insights payment wallet address, payment network, token, and amount.',
   aml_address_risk: 'Screen one blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with another address. Topology reads cover full lifetime history in one unified graph.',
-  aml_trace_victim_funds: 'Trace victim or trusted-source funds forward to intermediary and exchange deposit candidates. Topology reads cover full lifetime history in one unified graph.',
-  aml_trace_suspect_funds: 'Trace suspect-controlled scammer, mule, operator, or laundering-ring funds forward to cashout topology. Topology reads cover full lifetime history in one unified graph.',
-  aml_trace_deposit_sources: 'Trace suspected deposit or cashout addresses backward to upstream sources, shared funders, and convergence. Topology reads cover full lifetime history in one unified graph.',
   graph_query: 'Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for bounded TRANSFER rows and enrichment. Preserve full addresses exactly.',
   graph_query_batch: 'Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads.',
 }
@@ -79,21 +65,6 @@ type ChainInsightsGraphMeta = {
 const NETWORK_DESCRIPTION = 'Network to query, for example Bittensor or Base.'
 const BITTENSOR_NETWORK_SCHEMA = z.enum(['bittensor']).describe(NETWORK_DESCRIPTION)
 
-// Tunable search bounds surface on the tool schema straight from the limits
-// registry, so the advertised min/max/default can never drift from the values
-// actually enforced. The schema bound is the BUILT-IN ceiling; a per-network
-// entry may enforce something lower, in which case the call is rejected with a
-// typed error naming that ceiling rather than being silently clamped.
-function limitArgSchema(key: LimitKey, caption: string) {
-  const spec = LIMIT_SPECS[key]
-  return z.number().int().min(spec.min).max(spec.ceiling).optional()
-    .describe(`${caption} Default ${spec.builtin}, max ${spec.ceiling}.`)
-}
-
-const TRACE_HOPS_CAPTION = 'Trace depth in hops. Cost grows exponentially with depth.'
-const DEPOSIT_HOPS_CAPTION = 'Reverse trace depth in hops. Cost grows exponentially with depth.'
-const PER_ADDRESS_CAPTION = 'Counterparties expanded per address per hop. Raise to widen a shallow trace.'
-const ROW_LIMIT_CAPTION = 'Value-ordered upstream paths retained per depth. Raise to reach a distant origin behind a high-fan-in deposit.'
 const EMPTY_INPUT_SCHEMA = z.strictObject({})
 const REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS = 15 * 60 * 1000
 
@@ -101,7 +72,7 @@ const CHAIN_INSIGHTS_WORKFLOW = [
   'Workflow:',
   '1. Chain Insights workspaces are append-only local working directories. Bootstrap with cia init before workflows that persist artifacts.',
   '2. Do not call investigation tools until required arguments are known. Network is required; use meta_network_capabilities to check supported networks and available tools, or ask the user if missing.',
-  '3. Use aml_address_risk for single-address enrichment. Use aml_trace_victim_funds for victim/source forward tracing and aml_trace_suspect_funds for suspect-controlled outbound laundering/cashout topology; both include a bounded deposit_funding traceback preview for discovered deposit candidates. Use aml_trace_deposit_sources for deeper reverse traceback from suspected deposit endpoints. Use graph_query(_batch) only when the high-level tools do not answer the exact question.',
+  '3. Use aml_address_risk for single-address enrichment. Use graph_query(_batch) for graph-level questions that aml_address_risk does not answer.',
   '4. Persisted outputs belong in the initialized workspace under reports/, reports/graphs/, reports/tables/, artifacts/, entities/, sessions/, and published/.',
   '5. For local review, inspect the generated Markdown and graph/table artifacts directly in the workspace.',
 ].join('\n')
@@ -143,7 +114,7 @@ const SERVER_INSTRUCTIONS = [
 const STATELESS_SERVER_INSTRUCTIONS = [
   'Chain Insights is running as a stateless AML proxy for a host application.',
   'Do not use local workspace persistence, wallet, or graph report workflows in this mode.',
-  'Use meta_network_capabilities first when network support is unknown, then call aml_address_risk, aml_trace_victim_funds, aml_trace_suspect_funds, aml_trace_deposit_sources, graph_query, or graph_query_batch as needed.',
+  'Use meta_network_capabilities first when network support is unknown, then call aml_address_risk, graph_query, or graph_query_batch as needed.',
   GRAPH_SCHEMA_HINTS,
   'Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses or identity_resolution audit mappings.',
 ].join('\n\n')
@@ -217,33 +188,6 @@ export function knownPublicToolInputSchema(toolName: string): ToolInputShape | n
         address: z.string().min(1).describe('Blockchain address to screen.'),
         network: BITTENSOR_NETWORK_SCHEMA,
         compare_address: z.string().optional().describe('Optional address to compare against the screened address.'),
-        include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
-      }
-    case 'aml_trace_victim_funds':
-      return {
-        victim_addresses: z.string().min(1).describe('Victim or source addresses, comma-separated. Min 1, max 5.'),
-        network: BITTENSOR_NETWORK_SCHEMA,
-        known_suspect_addresses: z.string().optional().describe('Optional known suspect addresses for context only. Max 5.'),
-        incident_timestamp: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
-        max_hops: limitArgSchema('trace_max_hops', TRACE_HOPS_CAPTION),
-        per_address_limit: limitArgSchema('trace_per_address_limit', PER_ADDRESS_CAPTION),
-        include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
-      }
-    case 'aml_trace_suspect_funds':
-      return {
-        network: BITTENSOR_NETWORK_SCHEMA,
-        suspect_addresses: z.string().min(1).describe('Suspect-controlled addresses, comma-separated. Min 1, max 5.'),
-        incident_timestamp: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
-        max_hops: limitArgSchema('trace_max_hops', TRACE_HOPS_CAPTION),
-        per_address_limit: limitArgSchema('trace_per_address_limit', PER_ADDRESS_CAPTION),
-        include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
-      }
-    case 'aml_trace_deposit_sources':
-      return {
-        network: BITTENSOR_NETWORK_SCHEMA,
-        deposit_addresses: z.string().min(1).describe('Suspected deposit or cashout addresses, comma-separated. Min 1, max 5.'),
-        max_hops: limitArgSchema('deposit_sources_max_hops', DEPOSIT_HOPS_CAPTION),
-        row_limit: limitArgSchema('deposit_sources_row_limit', ROW_LIMIT_CAPTION),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
       }
     case 'graph_query':
@@ -386,17 +330,6 @@ function installToolLogging(server: McpServer, logger: ReturnType<typeof createM
   server.registerTool = wrappedRegisterTool
 }
 
-// Where `warnings` and `search_limits` live depends on which public-tool
-// response schema the remote result carries — they are not both under a
-// `facts` object as an earlier draft of this file assumed:
-//   - chain-insights.trace.v1 (aml_trace_deposit_sources and friends,
-//     src/investigation/public-tools.ts ~lines 2174-2224): `warnings` sits at
-//     the structuredContent top level; `search_limits` is nested under
-//     `structuredContent.input.search_limits`.
-//   - chain-insights.result.v1 (aml_address_risk ~lines 995-1000,
-//     track_funds ~line 2318): a `facts` object exists, but it never carries
-//     either field — there is nothing to source there.
-
 function installRemoteCypherLogging(remoteClient: RemoteToolCaller, logger: ReturnType<typeof createMcpLogger>): void {
   const existingCallTool = remoteClient.callTool
   const originalCallTool = existingCallTool.bind(remoteClient)
@@ -474,16 +407,6 @@ function isBlankArgument(value: unknown): boolean {
 function normalizeRemoteToolArguments(toolName: string, args: unknown): Record<string, unknown> {
   const normalized = isRecord(args) ? { ...args } : {}
   if (!(toolName in PUBLIC_MCP_TOOL_REQUIRED_ARGS)) return normalized
-
-  for (const fieldName of COMMA_SEPARATED_ADDRESS_FIELDS) {
-    const value = normalized[fieldName]
-    if (Array.isArray(value)) {
-      normalized[fieldName] = value
-        .map((entry) => String(entry).trim())
-        .filter(Boolean)
-        .join(',')
-    }
-  }
 
   const allowedArgs = PUBLIC_MCP_TOOL_ALLOWED_ARGS[toolName]
   if (!allowedArgs) return normalized
@@ -579,68 +502,6 @@ function registerLocalPrompts(server: McpServer): void {
       ].filter(Boolean).join('\n'),
       'AML address risk screening',
     ),
-  )
-
-  server.registerPrompt(
-    'aml-trace-victim-funds',
-    {
-      title: 'AML Trace Victim Funds',
-      description: 'Trace victim or trusted-source funds forward to deposit candidates.',
-      argsSchema: {
-        network: BITTENSOR_NETWORK_SCHEMA,
-        victim_addresses: z.string().describe('Victim/source addresses, comma-separated'),
-        known_suspect_addresses: z.string().optional().describe('Optional known suspect addresses for context only'),
-      },
-    },
-    async ({ network, victim_addresses, known_suspect_addresses }) => promptResult([
-      `Use Chain Insights aml_trace_victim_funds on ${network}.`,
-      '',
-      'Victim/source addresses:',
-      victim_addresses,
-      known_suspect_addresses ? `\nKnown suspects for context only:\n${known_suspect_addresses}` : '',
-      '',
-      'Present the summary as-is and use continuation.recommended_next_tools for follow-up.',
-    ].filter(Boolean).join('\n'), 'AML victim/source trace'),
-  )
-
-  server.registerPrompt(
-    'aml-trace-suspect-funds',
-    {
-      title: 'AML Trace Suspect Funds',
-      description: 'Trace suspect-controlled funds forward to cashout topology.',
-      argsSchema: {
-        network: BITTENSOR_NETWORK_SCHEMA,
-        suspect_addresses: z.string().describe('Suspect-controlled addresses, comma-separated'),
-      },
-    },
-    async ({ network, suspect_addresses }) => promptResult([
-      `Use Chain Insights aml_trace_suspect_funds on ${network}.`,
-      '',
-      'Suspect-controlled addresses:',
-      suspect_addresses,
-      '',
-      'Present the summary as-is and use continuation.recommended_next_tools for follow-up.',
-    ].join('\n'), 'AML suspect trace'),
-  )
-
-  server.registerPrompt(
-    'aml-trace-deposit-sources',
-    {
-      title: 'AML Trace Deposit Sources',
-      description: 'Trace suspected deposit or cashout addresses backward to upstream sources.',
-      argsSchema: {
-        network: BITTENSOR_NETWORK_SCHEMA,
-        deposit_addresses: z.string().describe('Suspected deposit/cashout addresses, comma-separated'),
-      },
-    },
-    async ({ network, deposit_addresses }) => promptResult([
-      `Use Chain Insights aml_trace_deposit_sources on ${network}.`,
-      '',
-      'Suspected deposit/cashout addresses:',
-      deposit_addresses,
-      '',
-      'Present the summary as-is and use continuation.recommended_next_tools for follow-up.',
-    ].join('\n'), 'AML deposit-source trace'),
   )
 
   server.registerPrompt(
@@ -1322,222 +1183,6 @@ export async function createProxy(): Promise<void> {
     )
   }
 
-  if (!remoteToolNames.has('aml_trace_victim_funds')) {
-    registerAppTool(
-      server,
-      'aml_trace_victim_funds',
-      {
-        title: 'Trace Victim Funds',
-        description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.aml_trace_victim_funds,
-        inputSchema: {
-          victim_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe('Victim or source addresses, comma-separated or an array. Min 1, max 5.'),
-          network: BITTENSOR_NETWORK_SCHEMA,
-          known_suspect_addresses: z.union([z.string(), z.array(z.string())]).optional().describe('Known suspect addresses for context only. Max 5.'),
-          include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
-          incident_timestamp: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
-          max_hops: limitArgSchema('trace_max_hops', TRACE_HOPS_CAPTION),
-        per_address_limit: limitArgSchema('trace_per_address_limit', PER_ADDRESS_CAPTION),
-        },
-        _meta: {
-          ui: {
-            resourceUri: GRAPH_RESOURCE_URI,
-          },
-        },
-        annotations: {
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: true,
-        },
-      },
-      async ({ victim_addresses, known_suspect_addresses, network, incident_timestamp, max_hops, per_address_limit, include_attachments }) => {
-        try {
-          if (!remoteConnected) {
-            return {
-              content: [{
-                type: 'text' as const,
-                text: `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
-              }],
-              isError: true,
-            }
-          }
-          const { traceVictimFunds } = await import('../investigation/public-tools.js')
-          const result = await traceVictimFunds(remoteClient, config, {
-            victimAddresses: victim_addresses,
-            knownSuspectAddresses: known_suspect_addresses,
-            network,
-            incidentTimestamp: incident_timestamp,
-            maxHops: max_hops,
-            perAddressLimit: per_address_limit,
-            writeArtifacts: workspaceArtifactsEnabled,
-          })
-          const graph = await writeLocalGraphMeta(
-            result.graphData,
-            config,
-            `trace-victim-funds-${network}`,
-            shouldIncludeAttachments({ include_attachments }, workspaceArtifactsEnabled),
-          )
-          return {
-            content: [{ type: 'text' as const, text: result.summaryText }],
-            structuredContent: result.structuredContent,
-            _meta: graphMetaResult(graph),
-            isError: false,
-          }
-        } catch (err) {
-          if (err instanceof PaymentRequiredError) {
-            return { content: [{ type: 'text' as const, text: err.message }], isError: true }
-          }
-          return {
-            content: [{ type: 'text' as const, text: `Trace victim funds failed: ${(err as Error).message}` }],
-            isError: true,
-          }
-        }
-      },
-    )
-  }
-
-  if (!remoteToolNames.has('aml_trace_suspect_funds')) {
-    registerAppTool(
-      server,
-      'aml_trace_suspect_funds',
-      {
-        title: 'Trace Suspect Funds',
-        description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.aml_trace_suspect_funds,
-        inputSchema: {
-          network: BITTENSOR_NETWORK_SCHEMA,
-          suspect_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe('Suspect-controlled addresses, comma-separated or an array. Min 1, max 5.'),
-          incident_timestamp: z.number().min(0).optional().describe('Optional incident time as a Unix timestamp in milliseconds, not a block number.'),
-          max_hops: limitArgSchema('trace_max_hops', TRACE_HOPS_CAPTION),
-        per_address_limit: limitArgSchema('trace_per_address_limit', PER_ADDRESS_CAPTION),
-          include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
-        },
-        _meta: {
-          ui: {
-            resourceUri: GRAPH_RESOURCE_URI,
-          },
-        },
-        annotations: {
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: true,
-        },
-      },
-      async ({ suspect_addresses, incident_timestamp, network, max_hops, per_address_limit, include_attachments }) => {
-        try {
-          if (!remoteConnected) {
-            return {
-              content: [{
-                type: 'text' as const,
-                text: `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
-              }],
-              isError: true,
-            }
-          }
-          const { traceSuspectFunds } = await import('../investigation/public-tools.js')
-          const result = await traceSuspectFunds(remoteClient, config, {
-            suspectAddresses: suspect_addresses,
-            network,
-            maxHops: max_hops,
-            perAddressLimit: per_address_limit,
-            incidentTimestamp: incident_timestamp,
-            writeArtifacts: workspaceArtifactsEnabled,
-          })
-          const graph = await writeLocalGraphMeta(
-            result.graphData,
-            config,
-            `trace-suspect-funds-${network}`,
-            shouldIncludeAttachments({ include_attachments }, workspaceArtifactsEnabled),
-          )
-          return {
-            content: [{ type: 'text' as const, text: result.summaryText }],
-            structuredContent: result.structuredContent,
-            _meta: graphMetaResult(graph),
-            isError: false,
-          }
-        } catch (err) {
-          if (err instanceof PaymentRequiredError) {
-            return { content: [{ type: 'text' as const, text: err.message }], isError: true }
-          }
-          return {
-            content: [{ type: 'text' as const, text: `Trace suspect funds failed: ${(err as Error).message}` }],
-            isError: true,
-          }
-        }
-      },
-    )
-  }
-
-  if (!remoteToolNames.has('aml_trace_deposit_sources')) {
-    registerAppTool(
-      server,
-      'aml_trace_deposit_sources',
-      {
-        title: 'Trace Deposit Sources',
-        description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.aml_trace_deposit_sources,
-        inputSchema: {
-          network: BITTENSOR_NETWORK_SCHEMA,
-          deposit_addresses: z.union([z.string().min(1), z.array(z.string().min(1))]).describe('Suspected deposit or cashout addresses, comma-separated or an array. Min 1, max 5.'),
-          max_hops: limitArgSchema('deposit_sources_max_hops', DEPOSIT_HOPS_CAPTION),
-        row_limit: limitArgSchema('deposit_sources_row_limit', ROW_LIMIT_CAPTION),
-          include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
-        },
-        _meta: {
-          ui: {
-            resourceUri: GRAPH_RESOURCE_URI,
-          },
-        },
-        annotations: {
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: true,
-        },
-      },
-      async ({ deposit_addresses, network, max_hops, row_limit, include_attachments }) => {
-        try {
-          if (!remoteConnected) {
-            return {
-              content: [{
-                type: 'text' as const,
-                text: `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
-              }],
-              isError: true,
-            }
-          }
-          const { traceDepositSources } = await import('../investigation/public-tools.js')
-          const result = await traceDepositSources(remoteClient, config, {
-            depositAddresses: deposit_addresses,
-            network,
-            maxHops: max_hops,
-            rowLimit: row_limit,
-            writeArtifacts: workspaceArtifactsEnabled,
-          })
-          const graph = await writeLocalGraphMeta(
-            result.graphData,
-            config,
-            `trace-deposit-sources-${network}`,
-            shouldIncludeAttachments({ include_attachments }, workspaceArtifactsEnabled),
-          )
-          return {
-            content: [{ type: 'text' as const, text: result.summaryText }],
-            structuredContent: result.structuredContent,
-            _meta: graphMetaResult(graph),
-            isError: false,
-          }
-        } catch (err) {
-          if (err instanceof PaymentRequiredError) {
-            return { content: [{ type: 'text' as const, text: err.message }], isError: true }
-          }
-          return {
-            content: [{ type: 'text' as const, text: `Trace deposit sources failed: ${(err as Error).message}` }],
-            isError: true,
-          }
-        }
-      },
-    )
-  }
-
   server.registerTool(
     'meta_help',
     {
@@ -1565,9 +1210,6 @@ export async function createProxy(): Promise<void> {
                 '- meta_network_capabilities: inspect supported networks and available tools.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- aml_address_risk: screen one blockchain address; optionally compare it with another address.',
-                '- aml_trace_victim_funds: trace up to five victim/source addresses forward to exchange deposit candidates.',
-                '- aml_trace_deposit_sources: trace backward from suspected deposit/cashout addresses to upstream funders and shared-source convergence.',
-                '- aml_trace_suspect_funds: trace up to five suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
                 '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
                 '',
@@ -1586,9 +1228,6 @@ export async function createProxy(): Promise<void> {
                 '- meta_network_capabilities: inspect supported networks and available tools.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- aml_address_risk: screen one blockchain address; optionally compare it with another address.',
-                '- aml_trace_victim_funds: trace up to five victim/source addresses forward to exchange deposit candidates.',
-                '- aml_trace_deposit_sources: trace backward from suspected deposit/cashout addresses to upstream funders and shared-source convergence.',
-                '- aml_trace_suspect_funds: trace up to five suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
                 '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
               ].join('\n'),

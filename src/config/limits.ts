@@ -10,9 +10,8 @@
 // deposit -> victim chain in six seconds. The cap, not the depth, was the
 // binding constraint.
 //
-// This module generalizes the pattern already proven in
-// detection/detectors/attack-attribution.ts (a per-network default table plus
-// a `resolve*Config(network, params)` function) into ONE registry the whole
+// This module generalizes the per-network default-table pattern (a
+// `resolve*Config(network, params)` function) into ONE registry the whole
 // codebase shares, so a knob is declared once with its default, its floor, and
 // its hard ceiling.
 //
@@ -48,46 +47,10 @@ export interface LimitSpec {
   description: string
 }
 
-// `hops` knobs are called out separately because their cost grows
-// EXPONENTIALLY with the value, not linearly: on a real deposit, hops 3
-// yielded 5,201 paths and hops 4 yielded 10,201 at the same row cap, and each
-// extra hop widens the fan-out so the row cap bites sooner. Their ceilings are
-// deliberately tight; the row/frontier ceilings are generous because their
-// cost is close to linear in the value.
-export const HOP_LIMIT_KEYS = [
-  'trace_max_hops',
-  'deposit_sources_max_hops',
-] as const
-
+// Row/frontier ceilings are generous because their cost is close to linear
+// in the value; hop caps that grow exponentially with depth were removed
+// with the aml_trace_* tools.
 export const LIMIT_SPECS = {
-  // ── investigation/trace-funds.ts (aml_trace_victim_funds / _suspect_funds) ──
-  trace_max_hops: {
-    builtin: 3,
-    min: 1,
-    ceiling: 5,
-    description: 'Forward trace depth in hops for victim/suspect fund tracing.',
-  },
-  trace_per_address_limit: {
-    builtin: 5,
-    min: 1,
-    ceiling: 50,
-    description: 'Counterparties expanded per address per hop during a forward trace.',
-  },
-
-  // ── investigation/public-tools.ts (aml_trace_deposit_sources) ──
-  deposit_sources_max_hops: {
-    builtin: 2,
-    min: 1,
-    ceiling: 5,
-    description: 'Reverse trace depth in hops from a deposit/cashout seed.',
-  },
-  deposit_sources_row_limit: {
-    builtin: 500,
-    min: 1,
-    ceiling: 20_000,
-    description: 'Value-ordered upstream paths retained per reverse-trace depth.',
-  },
-
   // ── viz/graph-model.ts ──
   viz_max_nodes: {
     builtin: 100,

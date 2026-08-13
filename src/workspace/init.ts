@@ -261,27 +261,16 @@ Rules:
 - Markdown reports should be short provenance records with key facts and
   pointers. Large JSON belongs in \`reports/tables/\`, not inline in reports.
 
-Trace tool chaining:
+AML tool guidance:
 
-1. Use \`aml_trace_victim_funds\` when the user gives victim/source addresses.
-2. Pass returned \`continuation.candidate_deposit_addresses\` to
-   \`aml_trace_deposit_sources\`; do not make victim tracing run deposit traceback
-   internally.
-3. Pass high-confidence \`continuation.candidate_suspect_addresses\` from
-   deposit traceback to \`aml_trace_suspect_funds\`.
-4. Use \`aml_trace_suspect_funds\` when the user gives suspected scammer, mule,
-   operator, or laundering-ring addresses. \`incident_timestamp\` is
-   optional.
-5. Use \`aml_address_risk\` for single-address enrichment, and
-   \`graph_query_batch\` only when the role-specific tools do not answer the
-   exact question.
+1. Use \`aml_address_risk\` for single-address enrichment and optional
+   comparison with another address.
+2. Use \`graph_query_batch\` only when the high-level tools do not answer the
+   exact question, and \`graph_query\` for single read-only queries.
 
-All trace tools take raw blockchain addresses as inputs directly — there is no
-identity-resolution step — and return \`chain-insights.trace.v1\`. Preserve
-full blockchain addresses in
-\`input.addresses\`, \`addresses[].address\`, \`edges[].from_address\`,
-\`edges[].to_address\`, \`paths[].addresses\`, \`candidate_labels[].address\`,
-and \`continuation\` address lists.
+\`aml_address_risk\` takes a raw blockchain address as input directly — there
+is no identity-resolution step — and returns \`chain-insights.result.v1\`. Preserve
+full blockchain addresses in the summary and all workspace artifacts.
 `
 
 const SCHEMA_README = `# Runtime Schema Captures

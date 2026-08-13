@@ -89,9 +89,6 @@ describe('MCP network capabilities', () => {
       display_name: 'Bittensor',
       tools: expect.objectContaining({
         aml_address_risk: 'available',
-        aml_trace_victim_funds: 'available',
-        aml_trace_deposit_sources: 'available',
-        aml_trace_suspect_funds: 'available',
         graph_query: 'available',
         graph_query_batch: 'available',
         meta_network_capabilities: 'available',
@@ -184,19 +181,15 @@ describe('MCP network capabilities', () => {
     expect(output).toContain('yes')
     expect(output).toContain('84..7440268 / 2023-03-20..2026-01-31')
     expect(output).toContain('aml_address_risk')
-    expect(output).toContain('aml_trace_victim_funds')
-    expect(output).toContain('aml_trace_deposit_sources')
-    expect(output).toContain('aml_trace_suspect_funds')
     expect(output).toContain('graph_query')
     expect(output).toContain('graph_query_batch')
     expect(output).toContain('meta_network_capabilities')
     expect(output).toContain('meta_usage_status')
     expect(output).toContain('wallet_balance')
     expect(output).toContain('Dataset')
-    expect(output).toContain('aml_address_risk, aml_trace_deposit_sources, aml_trace_suspect_funds')
-    expect(output).toContain('aml_trace_victim_funds, graph_query, graph_query_batch')
+    expect(output).toContain('aml_address_risk, graph_query, graph_query_batch')
     expect(output).toContain('meta_network_capabilities, meta_usage_status, wallet_balance')
-    expect(output).not.toContain('aml_address_risk, aml_trace_deposit_sources, aml_trace_suspect_funds, aml_trace_victim_funds')
+    expect(output).not.toContain('aml_trace')
   })
 
   it('formats no available tools for unsupported networks', async () => {

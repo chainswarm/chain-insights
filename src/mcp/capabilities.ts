@@ -50,9 +50,6 @@ export interface NetworkCapabilitiesDocument {
 const BITTENSOR_SEMANTIC_NETWORKS = new Set(['bittensor', 'bittensor_evm', 'bittensor_semantic'])
 const PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS = {
   aml_address_risk: 'available',
-  aml_trace_victim_funds: 'available',
-  aml_trace_deposit_sources: 'available',
-  aml_trace_suspect_funds: 'available',
   graph_query: 'available',
   graph_query_batch: 'available',
   meta_network_capabilities: 'available',
