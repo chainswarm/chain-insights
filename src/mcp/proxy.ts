@@ -15,6 +15,7 @@ import type { McpTool } from './schema-cache.js'
 import { HIDDEN_REMOTE_TOOL_NAMES, PUBLIC_MCP_TOOL_ALLOWED_ARGS, PUBLIC_MCP_TOOL_REQUIRED_ARGS } from './tool-visibility.js'
 import { PaymentRequiredError } from './client.js'
 import { primitiveBackendUsageStatus } from './usage-status.js'
+import { PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS } from './capabilities.js'
 import { actionLogSignalsFromResult, appendActionLog } from './action-log.js'
 
 const LOCAL_TOOL_NAMES = new Set([
@@ -79,8 +80,8 @@ const CHAIN_INSIGHTS_WORKFLOW = [
 
 const GRAPH_SCHEMA_HINTS = [
   'Graph query hints for network=robinhood (the single public robinhood investigation network):',
-  '- The graph is address-grain. Always pass network=robinhood, for SS58 and EVM-pallet 0x... (H160) inputs alike. The only topology money node label is Address, keyed by the raw chain-native address, for example 0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24; the SS58/H160 split is the Address.network node PROPERTY (bittensor for SS58, bittensor_evm for H160), never a separate query network. There is no separate identity key.',
-  '- Address nodes carry address, network, labels, and is_exchange. (:Address)-[:LINKED]-(:Address) is an undirected ownership-overlay edge (basis derived/associated, plus confidence, source_event, declared_owner) asserting the two addresses are controlled by the same actor; it is the ownership edge across the SS58/H160 space boundary, so a single network=robinhood query traces SS58 -> (bridge or LINKED) -> H160 and back with no network switch. LINKED is served on the topology graph only. Enumerate LINKED neighbors with MATCH (a:Address {address: $addr})-[l:LINKED]-(b:Address) RETURN b.address, b.network, l.basis, l.confidence.',
+  '- The graph is address-grain. Always pass network=robinhood. The only topology money node label is Address, keyed by the raw chain-native H160 address, for example 0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24; the network value on Address nodes is always robinhood. There is no separate identity key.',
+  '- Address nodes carry address, network, labels, and is_exchange. (:Address)-[:LINKED]-(:Address) is an undirected ownership-overlay edge (basis derived/associated, plus confidence, source_event, declared_owner) asserting the two addresses are controlled by the same actor. LINKED is served on the topology graph only. Enumerate LINKED neighbors with MATCH (a:Address {address: $addr})-[l:LINKED]-(b:Address) RETURN b.address, b.network, l.basis, l.confidence.',
   '- Address nodes also carry a risk verdict (risk_score float, risk_level string) plus base activity rollups: degree_in/degree_out/degree_total (distinct counterparty addresses), tx_in_count/tx_out_count/tx_total_count, total_in_usd/total_out_usd/total_volume_usd, net_flow_usd (in minus out; positive = net receiver) — all computed from external flows only — and first_activity_timestamp/last_activity_timestamp/activity_span_days, which include all flows (self-loops included). FLOWS_TO edges carry tx_count, amount_usd_sum, avg_tx_size_usd (understates when price_coverage_ratio < 1), first/last_seen_timestamp, first/last_tx_id, price_coverage_ratio. Lifetime aggregates are the only serving window.',
   '- For actor-level exposure (AC11), UNION FLOWS_TO reachability over one visible LINKED hop instead of expanding through the LINKED edge itself: MATCH (a:Address {address: $addr})-[:LINKED]-(owned:Address)-[r:FLOWS_TO]-(b:Address) WHERE owned.address <> b.address AND a.address <> b.address RETURN owned.address, b.address, r.amount_usd_sum.',
   '- The risk verdict lives on topology nodes (risk_score float, risk_level string). Labels and per-label risk also live on the address node (labels array + label_risk entries: label, risk_level, updated_timestamp). USE facts serves bounded individual transfer rows (TRANSFER edges) only; lifetime address metrics (degrees, totals, activity window) are node properties on USE topology.',
@@ -730,36 +731,14 @@ function graphMetaResult(graph: ChainInsightsGraphMeta | undefined): Record<stri
     : undefined
 }
 
-function cleanCapabilityLayers(value: unknown): Record<string, unknown> {
-  const layers = isRecord(value) ? value : {}
-  const topologySource = isRecord(layers.topology) ? layers.topology : {}
-  const topology: Record<string, unknown> = {
-    enabled: isRecord(layers.topology) ? topologySource.enabled === true : true,
-  }
-  if (isRecord(topologySource.live)) topology.live = topologySource.live
-  if (isRecord(topologySource.archive)) topology.archive = topologySource.archive
-  return {
-    facts: { enabled: isRecord(layers.facts) ? layers.facts.enabled === true : true },
-    risk: { enabled: isRecord(layers.risk) ? layers.risk.enabled === true : false },
-    topology,
-  }
-}
-
 function defaultRobinhoodCapability() {
   return {
     network: 'robinhood',
     display_name: 'Robinhood',
     status: 'live',
     default: true,
-    layers: {
-      facts: { enabled: true },
-      risk: { enabled: false },
-      topology: { enabled: true, live: { enabled: true }, archive: { enabled: true } },
-    },
-    tools: {
-      graph_query: 'available',
-      graph_query_batch: 'available',
-    },
+    layers: {},
+    tools: PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS,
   }
 }
 
@@ -780,11 +759,8 @@ function cleanNetworkCapabilities(value: unknown) {
         display_name: typeof robinhood.display_name === 'string' ? robinhood.display_name : 'Robinhood',
         status: typeof robinhood.status === 'string' ? robinhood.status : 'live',
         default: robinhood.default === false ? false : true,
-        layers: cleanCapabilityLayers(robinhood.layers),
-        tools: {
-          graph_query: 'available',
-          graph_query_batch: 'available',
-        },
+        layers: {},
+        tools: PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS,
       }
     : defaultRobinhoodCapability()
 

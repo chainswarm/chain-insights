@@ -48,7 +48,7 @@ export interface NetworkCapabilitiesDocument {
 }
 
 const ROBINHOOD_SEMANTIC_NETWORKS = new Set(['robinhood'])
-const PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS = {
+export const PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS = {
   aml_address_risk: 'available',
   graph_query: 'available',
   graph_query_batch: 'available',
@@ -74,6 +74,8 @@ function publicNetworkCapabilities(document: NetworkCapabilitiesDocument): Netwo
         ...(source.freshness ? { freshness: source.freshness } : {}),
         tools: PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS,
       }]
+      // Transitional: pre-cut remote metadata still advertises bittensor; the
+      // mirror reports no networks until the coordinated cutover.
       : [],
   }
 }

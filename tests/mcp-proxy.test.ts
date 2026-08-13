@@ -474,6 +474,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).not.toContain('NeuronEndpoint')
     expect(instructions).not.toContain('(:Neuron)-[:MINES|:VALIDATES]->(:Subnet')
     expect(instructions).not.toContain('(:Address)-[:HOTKEY_OF|:COLDKEY_OF]->(:Neuron)')
+    expect(instructions).not.toContain('bittensor')
+    expect(instructions).not.toContain('SS58')
+    expect(instructions).toContain('raw chain-native H160 address')
   })
 
   it('forwards tool call arguments to remoteClient.callTool', async () => {
@@ -843,6 +846,124 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       },
     })
     expect(result.content[0].text).toContain('"usage_status_tool": "unavailable"')
+  })
+
+  it('mirrors meta_network_capabilities as one robinhood graph with no layer rows and the seven public tools', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'network_capabilities', description: 'Network capabilities' },
+      { name: 'graph_query', description: 'Federated graph query' },
+      { name: 'graph_query_batch', description: 'Federated graph query batch' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool.mockResolvedValueOnce({
+      content: [{ type: 'text', text: 'remote network capabilities' }],
+      structuredContent: {
+        schema: 'chain-insights.result.v1',
+        tool: 'network_capabilities',
+        hint: null,
+        facts: {
+          capabilities: {
+            schema: 'chain-insights.network-capabilities.v1',
+            networks: [
+              {
+                network: 'bittensor',
+                display_name: 'Bittensor',
+                status: 'live',
+                layers: { topology: { enabled: true }, facts: { enabled: true }, risk: { enabled: false } },
+                tools: { graph_query: 'available', graph_query_batch: 'available' },
+              },
+              {
+                network: 'robinhood',
+                display_name: 'Robinhood',
+                status: 'live',
+                layers: { topology: { enabled: true }, facts: { enabled: true }, risk: { enabled: false } },
+                tools: { graph_query: 'available', graph_query_batch: 'available' },
+              },
+            ],
+          },
+        },
+      },
+      isError: false,
+    })
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'meta_network_capabilities')
+    const result = await handler({})
+
+    expect(clientInstance.callTool).toHaveBeenCalledWith({ name: 'network_capabilities', arguments: {} })
+    const networks = result.structuredContent.facts.capabilities.networks as Array<Record<string, unknown>>
+    expect(networks).toEqual([expect.objectContaining({
+      network: 'robinhood',
+      layers: {},
+      tools: {
+        aml_address_risk: 'available',
+        graph_query: 'available',
+        graph_query_batch: 'available',
+        meta_network_capabilities: 'available',
+        meta_usage_status: 'available',
+        meta_help: 'available',
+        wallet_balance: 'available',
+      },
+    })])
+    expect(networks).toHaveLength(1)
+    expect(result.structuredContent.facts.capabilities.networks[0]?.tools).not.toHaveProperty('network_capabilities')
+    expect(result.content[0].text).not.toContain('bittensor')
+    expect(result.content[0].text).not.toContain('"topology"')
+    expect(result.content[0].text).not.toContain('"risk"')
+    expect(result.content[0].text).not.toContain('"enabled"')
+  })
+
+  it('falls back to one robinhood graph with no layer rows and the seven public tools when remote capabilities are absent', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query', description: 'Federated graph query' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'meta_network_capabilities')
+    const result = await handler({})
+
+    expect(clientInstance.callTool).not.toHaveBeenCalledWith({ name: 'network_capabilities', arguments: {} })
+    expect(result.isError).not.toBe(true)
+    const networks = result.structuredContent.facts.capabilities.networks as Array<Record<string, unknown>>
+    expect(networks).toEqual([expect.objectContaining({
+      network: 'robinhood',
+      layers: {},
+      tools: {
+        aml_address_risk: 'available',
+        graph_query: 'available',
+        graph_query_batch: 'available',
+        meta_network_capabilities: 'available',
+        meta_usage_status: 'available',
+        meta_help: 'available',
+        wallet_balance: 'available',
+      },
+    })])
+    expect(networks).toHaveLength(1)
+    expect(result.content[0].text).not.toContain('"topology"')
+    expect(result.content[0].text).not.toContain('"enabled"')
   })
 
   it('advertises canonical graph, metadata, and wallet tools but not hidden remote tools', async () => {
