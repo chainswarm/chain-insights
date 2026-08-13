@@ -3,6 +3,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.8] - 2026-08-13 — devkit parity pins post-cut contract
+
+The devkit parity smoke now pins the post-cut capabilities contract: the
+CLI's public view reports no networks against the bittensor-serving devkit
+(robinhood-only public surface, by design), while the devkit backend's own
+document still advertises `bittensor` with the topology/facts layers.
+
+### Fixed
+
+- Devkit parity smoke crashed (`IndexError`) reading the pre-cut
+  `cia mcp networks` shape; it now fetches the backend capabilities document
+  directly and asserts both sides of the cut contract.
+
 ## [0.18.7] - 2026-08-13 — ACP/CIA production cut
 
 The production cut retires the internal detection realm and the fund-flow
