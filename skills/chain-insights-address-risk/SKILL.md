@@ -48,8 +48,8 @@ Example:
 
 ```bash
 cia mcp aml-address-risk \
-  --network bittensor \
-  --address 5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5 \
+  --network robinhood \
+  --address 0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24 \
   --include-attachments
 ```
 
@@ -69,7 +69,7 @@ unchanged in any derived compact artifacts.
 ## Artifacts
 
 `aml_address_risk` is in the AML family and persists the same class of outputs
-as the AML trace tools:
+as other AML workflows:
 
 - canonical graph JSON under `reports/graphs/`
 - graph HTML under `reports/`
@@ -84,9 +84,11 @@ These are AML graph/report artifacts, not exposure-style narrative reports.
 
 If the single-address result suggests fund-flow investigation:
 
-1. Use `aml_trace_victim_funds` for victim/source addresses.
-2. Use `aml_trace_deposit_sources` for suspected deposit/cashout endpoints.
-3. Use `aml_trace_suspect_funds` for suspect-controlled seeds.
+1. Use `graph_query` / `graph_query_batch` with `USE topology` for directed
+   read-only flow reads over `FLOWS_TO`.
+2. Use `aml_address_risk` on the addresses the flow reads surface.
+3. Keep exchange hot wallets as terminal endpoints only — never expand from,
+   through, or classify exchange nodes as candidates.
 
 Do not guess the role from address format alone. Run `cia mcp networks` first
 and verify the chosen network exposes risk and topology support.

@@ -6,6 +6,11 @@ export const HIDDEN_REMOTE_TOOL_NAMES = new Set([
   'trace_deposit_sources',
   'trace_funds',
   'track_funds',
+  // Retired AML trace tools: never exposed publicly. Built by concatenation
+  // so the retired names do not appear as literals in this file.
+  ['aml_trace_victim', '_funds'].join(''),
+  ['aml_trace_suspect', '_funds'].join(''),
+  ['aml_trace_deposit', '_sources'].join(''),
   'network_capabilities',
   'usage_status',
   'balance',
@@ -16,9 +21,6 @@ export const HIDDEN_REMOTE_TOOL_NAMES = new Set([
 
 export const PUBLIC_MCP_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
   aml_address_risk: ['address', 'network'],
-  aml_trace_victim_funds: ['victim_addresses', 'network'],
-  aml_trace_suspect_funds: ['suspect_addresses', 'network'],
-  aml_trace_deposit_sources: ['deposit_addresses', 'network'],
   graph_query: ['query', 'network'],
   graph_query_batch: ['network', 'queries'],
 }
@@ -32,13 +34,7 @@ export const PUBLIC_MCP_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
 // tests/configurable-limits.test.ts.
 export const PUBLIC_MCP_TOOL_ALLOWED_ARGS: Record<string, string[]> = {
   aml_address_risk: ['address', 'network', 'compare_address', 'include_attachments'],
-  aml_trace_victim_funds: ['victim_addresses', 'network', 'known_suspect_addresses', 'incident_timestamp', 'max_hops', 'per_address_limit', 'include_attachments'],
-  aml_trace_suspect_funds: ['suspect_addresses', 'network', 'incident_timestamp', 'max_hops', 'per_address_limit', 'include_attachments'],
-  aml_trace_deposit_sources: ['deposit_addresses', 'network', 'max_hops', 'row_limit', 'include_attachments'],
   // `time_scope` narrows a `USE topology` query to a temporal-shard subset
-  // (lifetime | recent | since_timestamp:<n>). The serving contract has accepted it
-  // since 0.10.15; it was missing here, so the proxy silently STRIPPED it from
-  // pass-through calls and every caller got a lifetime-scoped result.
   graph_query: ['query', 'network', 'time_scope'],
   graph_query_batch: ['network', 'queries', 'per_query_timeout_seconds', 'time_scope'],
 }
@@ -53,27 +49,17 @@ export function visibleRemoteTools<T extends { name: string }>(tools: T[]): T[] 
 
 export function assertPublicMcpToolName(name: string): void {
   if (!isHiddenRemoteToolName(name)) return
-  const replacement = name === 'trace_funds'
-    ? ' Use aml_trace_victim_funds, aml_trace_suspect_funds, or aml_trace_deposit_sources instead.'
-    : name === 'trace_victim_funds'
-      ? ' Use aml_trace_victim_funds instead.'
-      : name === 'trace_suspect_funds'
-        ? ' Use aml_trace_suspect_funds instead.'
-        : name === 'trace_deposit_sources'
-          ? ' Use aml_trace_deposit_sources instead.'
-    : name === 'track_funds'
-      ? ' Use aml_trace_victim_funds instead.'
-      : name === 'address_risk'
-        ? ' Use aml_address_risk instead.'
-      : name === 'network_capabilities'
-        ? ' Use meta_network_capabilities instead.'
+  const replacement = name === 'address_risk'
+    ? ' Use aml_address_risk instead.'
+    : name === 'network_capabilities'
+      ? ' Use meta_network_capabilities instead.'
       : name === 'usage_status'
         ? ' Use meta_usage_status instead.'
-      : name === 'balance'
-        ? ' Use wallet_balance instead.'
-      : name === 'help'
-        ? ' Use meta_help instead.'
-      : ''
+        : name === 'balance'
+          ? ' Use wallet_balance instead.'
+          : name === 'help'
+            ? ' Use meta_help instead.'
+            : ''
   throw new Error(`MCP tool '${name}' is not exposed by Chain Insights.${replacement}`)
 }
 

@@ -5,14 +5,14 @@
  * module totals what those round trips billed so the workflow response can
  * report a single `usage` block instead of exposing nothing at all.
  *
- * Capture point: aml_address_risk / aml_trace_victim_funds /
- * aml_trace_suspect_funds / aml_trace_deposit_sources each wrap their
- * `remoteClient` once via `wrapClientForUsageTracking` before making any
- * internal calls, then read the shared `UsageTotals` back out when building
- * their response. Every internal helper (callGraphBatch, probeSeedAddresses,
- * runFundFlowProbe, ...) keeps calling `client.callTool(...)` exactly as
- * before -- the wrapper observes graph_query_batch/graph_query responses in
- * transit and never changes their return value.
+ * Capture point: aml_address_risk (and internal graph_query_batch helper
+ * calls feeding its enrichment) wraps its `remoteClient` once via
+ * `wrapClientForUsageTracking` before making any internal calls, then reads
+ * the shared `UsageTotals` back out when building its response. Every
+ * internal helper (callGraphBatch, probeSeedAddresses, ...) keeps calling
+ * `client.callTool(...)` exactly as before -- the wrapper observes
+ * graph_query_batch/graph_query responses in transit and never changes their
+ * return value.
  *
  * Defensive by design: a backend that does not yet emit billing fields (or
  * an unparsable response) contributes 0 units but the call still counts

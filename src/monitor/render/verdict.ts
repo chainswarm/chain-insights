@@ -1,15 +1,15 @@
 // src/monitor/render/verdict.ts
-// ACTIVE/DORMANT headline verdict from persisted trace timestamps. Pure — no
-// fs, no network (spec req 3: verdict computed from the newest movement
-// timestamp across the traced topology).
-import type { TraceV1Doc } from './trace-io.js'
+// ACTIVE/DORMANT headline verdict from the case document. Pure — no fs, no
+// network. Without trace data, activity means changes to the case itself:
+// creation and seed events (add/remove).
+import type { MonitorCase } from '../cases.js'
 
 export interface CaseVerdict {
   status: 'active' | 'dormant'
-  /** Newest movement timestamp (epoch milliseconds) across all traced edges;
-   *  null when no traced edge carries a timestamp. */
-  lastMovementTimestamp: number | null
-  /** Headline line for the dossier, e.g. "ACTIVE (last movement 2026-07-20)"
+  /** Newest case-activity timestamp (epoch milliseconds): creation or the
+   *  latest seed event. Null when the case carries neither. */
+  lastActivityTimestamp: number | null
+  /** Headline line for the dossier, e.g. "ACTIVE (last activity 2026-07-20)"
    *  or "DORMANT since 2026-06-01". */
   headline: string
 }
@@ -20,39 +20,31 @@ function utcDate(tsMs: number): string {
   return new Date(tsMs).toISOString().slice(0, 10)
 }
 
-/** Newest of first_seen_timestamp/last_seen_timestamp over every edge of every
- *  provided doc. All `_timestamp` fields are epoch milliseconds. Pure. */
-export function lastMovementTimestamp(docs: TraceV1Doc[]): number | null {
-  let newest: number | null = null
-  for (const doc of docs) {
-    for (const edge of doc.edges) {
-      for (const ts of [edge.first_seen_timestamp, edge.last_seen_timestamp]) {
-        if (typeof ts === 'number' && (newest === null || ts > newest)) newest = ts
-      }
-    }
+/** Newest of created_at and every seed event timestamp. Pure. */
+export function lastCaseActivity(monitorCase: MonitorCase): number | null {
+  let newest: number | null = monitorCase.created_at_timestamp
+  for (const e of monitorCase.seed_events ?? []) {
+    if (e.at_timestamp > newest) newest = e.at_timestamp
   }
   return newest
 }
 
 export function computeVerdict(
-  docs: TraceV1Doc[],
+  monitorCase: MonitorCase,
   nowTimestamp: number,
   dormantAfterDays: number,
-  caseCreatedAtTimestamp: number,
 ): CaseVerdict {
-  const last = lastMovementTimestamp(docs)
+  const last = lastCaseActivity(monitorCase)
   // Boundary rule: age exactly equal to the threshold is DORMANT.
   if (last !== null && nowTimestamp - last < dormantAfterDays * DAY_MS) {
-    return { status: 'active', lastMovementTimestamp: last, headline: `ACTIVE (last movement ${utcDate(last)})` }
+    return { status: 'active', lastActivityTimestamp: last, headline: `ACTIVE (last activity ${utcDate(last)})` }
   }
   if (last === null) {
-    // Trace edges carry no timestamps: we cannot date the last movement, only
-    // say none was observed while monitoring.
     return {
       status: 'dormant',
-      lastMovementTimestamp: null,
-      headline: `DORMANT (no movement observed since monitoring began ${utcDate(caseCreatedAtTimestamp)})`,
+      lastActivityTimestamp: null,
+      headline: `DORMANT (no activity recorded since monitoring began ${utcDate(monitorCase.created_at_timestamp)})`,
     }
   }
-  return { status: 'dormant', lastMovementTimestamp: last, headline: `DORMANT since ${utcDate(last)}` }
+  return { status: 'dormant', lastActivityTimestamp: last, headline: `DORMANT since ${utcDate(last)}` }
 }

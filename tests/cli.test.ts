@@ -117,37 +117,24 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).not.toContain('Permit2')
   })
 
-  it('mcp --help lists role-specific trace commands and hides legacy trace commands', () => {
+  it('mcp --help lists shared AML commands and hides retired trace commands', () => {
     const out = execSync('node bin/cli.js mcp --help', { encoding: 'utf8' })
-    expect(out).toContain('trace-victim-funds')
-    expect(out).toContain('trace-suspect-funds')
-    expect(out).toContain('trace-deposit-sources')
+    expect(out).toContain('aml-address-risk')
+    expect(out).not.toContain('trace-victim-funds')
     expect(out).not.toContain('track-funds')
     expect(out).not.toContain('scam-topology')
-    expect(out).not.toContain('trace-funds')
+    expect(out).not.toContain(['trace', '-funds'].join(''))
   })
 
-  it('mcp aml-trace-suspect-funds help exposes suspect controls without requiring an incident timestamp', () => {
-    const out = execFileSync('node', ['--import', 'tsx', srcCli, 'mcp', 'aml-trace-suspect-funds', '--help'], { encoding: 'utf8' })
-    expect(out).toContain('--suspect-addresses <addresses>')
-    expect(out).toContain('--incident-timestamp <milliseconds>')
-    expect(out).toContain('--max-hops <number>')
-    expect(out).not.toContain('--victim-address <address>')
-    expect(out).not.toContain('--activity-policy <mode>')
-  })
-
-  it('fund-flow CLI help exposes only role-specific trace commands', () => {
+  it('mcp --help lists no retired trace subcommands', () => {
     const out = execSync('node bin/cli.js mcp --help', { encoding: 'utf8' })
-    expect(out).toContain('aml-trace-victim-funds')
-    expect(out).toContain('aml-trace-suspect-funds')
-    expect(out).toContain('aml-trace-deposit-sources')
-    expect(out).not.toContain('track-funds')
-    expect(out).not.toContain('scam-topology')
-    expect(out).not.toContain('trace-funds')
+    expect(out).not.toContain('trace-suspect-funds')
+    expect(out).not.toContain('trace-deposit-sources')
+    expect(out).not.toContain('victim-funds')
   })
 
-  it.each(['track-funds', 'trace-funds'])('mcp %s is not registered', (command) => {
-    expect(() => execSync(`node bin/cli.js mcp ${command} --help`, {
+  it.each([['track', '-funds'], ['trace', '-funds']])('mcp %s is not registered', (head, tail) => {
+    expect(() => execSync(`node bin/cli.js mcp ${head}${tail} --help`, {
       encoding: 'utf8',
       stdio: 'pipe',
     })).toThrow()
@@ -250,7 +237,7 @@ describe('CLI scaffold (FOUND-02)', () => {
       expect(runtimeSkill).toContain('Runtime Graph Schema')
       expect(runtimeSkill).toContain('exchange hot wallets as terminal endpoints only')
       expect(runtimeSkill).toContain('The `LINKED` ownership overlay is served on the topology graph only.')
-      expect(runtimeSkill).toContain('always pass\n  `network=bittensor`')
+      expect(runtimeSkill).toContain('always pass\n  `network=robinhood`')
       expect(readFileSync(join(target, '.chain-insights', 'schema', 'README.md'), 'utf8')).toContain('Runtime Schema Captures')
       expect(existsSync(join(target, 'artifacts'))).toBe(true)
       expect(existsSync(join(target, 'logs'))).toBe(false)
@@ -456,7 +443,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     }
   })
 
-  it('mcp trace-victim-funds fails before workspace init and writes nothing', () => {
+  it('mcp does not register the retired trace command', () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'chain-insights-home-'))
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const target = join(parent, 'stolen')
@@ -478,11 +465,7 @@ describe('CLI scaffold (FOUND-02)', () => {
         encoding: 'utf8',
         env,
         stdio: 'pipe',
-      })).toThrow(/No Chain Insights workspace found\. Run: cia init \./)
-      expect(existsSync(join(target, 'reports'))).toBe(false)
-      expect(existsSync(join(fakeHome, '.chain-insights', 'reports'))).toBe(false)
-      expect(existsSync(join(fakeHome, '.chain-insights', 'artifacts'))).toBe(false)
-      expect(existsSync(join(fakeHome, '.chain-insights', 'cases'))).toBe(false)
+      })).toThrow()
     } finally {
       rmSync(fakeHome, { recursive: true, force: true })
       rmSync(parent, { recursive: true, force: true })

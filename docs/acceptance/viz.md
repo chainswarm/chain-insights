@@ -14,7 +14,10 @@
 # Initialize workspace and generate investigation artifacts
 mkdir -p /tmp/ci-viz-test && cd /tmp/ci-viz-test
 cia init .
-cia mcp call trace-victim-funds --network bittensor --victim-addresses 0xtest...
+cia mcp call aml_address_risk \
+  network=robinhood \
+  address=0x1234... \
+  include_attachments=true
 
 # Extract graph ID from workspace
 GRAPH_ID=$(ls reports/graphs/*.graph.json | head -1 | xargs -n1 basename | sed 's/\.graph\.json//')

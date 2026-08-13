@@ -17,9 +17,8 @@ The Chain Insights Graph surface is intentionally small:
 | `graph_query` | Run one read-only GQL/Cypher query through the universal graph endpoint |
 | `graph_query_batch` | Run related read-only graph-language queries as one MCP call |
 
-Chain Insights tools such as `aml_address_risk`,
-`aml_trace_victim_funds`, `aml_trace_deposit_sources`, and `aml_trace_suspect_funds` are
-recipes built over `graph_query_batch`. They are not assumed to exist on the
+Chain Insights tools such as `aml_address_risk` are recipes built over
+`graph_query_batch`. They are not assumed to exist on the
 Chain Insights Graph endpoint.
 
 The Chain Insights MCP proxy adds product-facing local metadata tools such as
@@ -60,8 +59,10 @@ Agent installers ship two graph-query skills:
   recipes, archive/facts reads, and fixed-hop traversal fallbacks for native
   Memgraph deep traversal syntax that the hosted Chain Insights Graph path may
   reject.
-- `chain-insights-bittensor-cypher`: Bittensor-specific schema notes for SS58
-  and EVM-pallet addresses under `network=bittensor`.
+- `chain-insights-bittensor-cypher`: Bittensor devkit fixture lane —
+  Bittensor-specific schema notes for SS58 and EVM-pallet addresses under
+  `network=bittensor` (the public production network is `robinhood`; this
+  skill applies to the devkit fixture only).
 
 Check public-free usage:
 
@@ -73,7 +74,7 @@ Example single query:
 
 ```bash
 chain-insights mcp call graph_query \
-  network=bittensor \
+  network=robinhood \
   "query=USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level LIMIT 10"
 ```
 
@@ -81,7 +82,7 @@ Example batch query:
 
 ```bash
 chain-insights mcp call graph_query_batch \
-  network=bittensor \
+  network=robinhood \
   'queries=[{"id":"count","query":"USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"flows","query":"USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 3"},{"id":"linked","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"}]'
 ```
 
@@ -129,146 +130,23 @@ The tool can emit graph report metadata when attachments are requested. Store
 large graph payloads under workspace reports and save compact evidence pointers
 to workspace artifacts.
 
-## Trace Tools
+## Manual Fund-Flow Traversal
 
-All role-specific trace tools return `chain-insights.trace.v1`. The compact
-return is for agent reasoning and chaining; durable graph, table, CSV, and
-Markdown artifacts stay on disk under the initialized workspace.
+Fund-flow investigation now runs through `graph_query` / `graph_query_batch`
+with `USE topology` (read-only). Exchange hot wallets are terminal endpoints
+only: manual traversal must not expand from, through, or classify exchange
+nodes as deposit, suspect, or intermediate candidates; every non-terminal
+traversal node must be non-exchange.
 
-Traversal safety is the same across trace tools and manual Cypher fallbacks:
-exchange hot wallets are terminal endpoints only. Trace workflows do not expand
-from, through, or classify exchange nodes as deposit, suspect, or intermediate
-candidates; every non-terminal traversal node must be non-exchange.
-
-### `aml_trace_victim_funds`
-
-Use when the input addresses are victims or trusted source addresses.
-The tool traces forward over `FLOWS_TO` to exchange deposit candidates.
-
-Required input:
-
-- `network`
-- `victim_addresses`
-
-Optional input:
-
-- `known_suspect_addresses`
-- `incident_timestamp`
-- `max_hops`
-- `include_attachments`
-
-Victim/source addresses are role labels for workflow intent, not risky labels. This tool does not
-trace backward from deposits; pass returned
-`continuation.candidate_deposit_addresses` to `aml_trace_deposit_sources`.
-Deposit candidates are the penultimate non-exchange nodes before exchange
-endpoints, not exchange hot wallets themselves.
-
-CLI example:
-
-```bash
-cia mcp trace-victim-funds \
-  --network bittensor \
-  --victim-addresses 5...
-```
-
-### `aml_trace_deposit_sources`
-
-Use when the input addresses are suspected deposit/cashout endpoints. The tool
-traces backward over `FLOWS_TO` to upstream sources and reports shared-source
-convergence.
-
-Required input:
-
-- `network`
-- `deposit_addresses`
-
-Optional input:
-
-- `max_hops`
-- `include_attachments`
-
-Deposit seeds are not scammers by default. Candidate suspect and victim roles
-are hypotheses requiring review. If the supplied seed is already a known
-exchange hot wallet, use `aml_address_risk` or a narrow manual exchange-exposure
-query instead of treating it as a deposit-source seed.
-
-CLI example:
-
-```bash
-cia mcp trace-deposit-sources \
-  --network bittensor \
-  --deposit-addresses 5...
-```
-
-### `aml_trace_suspect_funds`
-
-Use when the input addresses are suspected scammer, mule, operator, or
-laundering-ring addresses. The tool traces suspect-controlled funds forward to
-cashout topology. `incident_timestamp` is optional.
-
-Required input:
-
-- `network`
-- `suspect_addresses`
-
-Optional input:
-
-- `incident_timestamp`
-- `max_hops`
-- `include_attachments`
-
-CLI example:
-
-```bash
-cia mcp trace-suspect-funds \
-  --network bittensor \
-  --suspect-addresses 5... \
-  --max-hops 16
-```
-
-## Trace Result Contract
-
-Trace tools return `chain-insights.trace.v1` JSON with this stable top-level
-shape:
-
-```json
-{
-  "schema": "chain-insights.trace.v1",
-  "tool": "aml_trace_victim_funds",
-  "network": "bittensor",
-  "input": { "addresses": ["5..."], "seed_role": "victim", "max_hops": 3 },
-  "summary": { "seed_count": 1, "path_count": 0, "edge_count": 0 },
-  "addresses": [],
-  "edges": [],
-  "paths": [],
-  "convergence": [],
-  "exchange_exposure": [],
-  "candidate_labels": [],
-  "artifacts": {},
-  "evidence": [],
-  "continuation": {
-    "candidate_deposit_addresses": [],
-    "candidate_suspect_addresses": [],
-    "candidate_victim_addresses": [],
-    "recommended_next_tools": []
-  },
-  "warnings": []
-}
-```
-
-Candidate labels are reviewable hypotheses. They are not automatic writes to
-warehouse address labels and carry `promote_to_core_label: false`.
+The traversal-safety rule above is the only trace norm; role labels such as
+victim, suspect, or deposit are hypotheses for review, not automatic writes.
 
 ## Graph Reports
 
 Graph reports use `chain-insights.graph.v1` JSON. Visual edges use the
 canonical `source` / `target` convention.
 
-Trace graph reports emit primary flow edges in `flows`, exchange deposit
-candidates in `deposits`, and reverse/source enrichment only when the selected
-tool actually performs traceback.
-
-Trace tools store
+Graph-backed tools store
 `chain-insights.evidence_pointer.v1` evidence entries.
 The pointer references workspace-local compact evidence JSON, graph JSON, graph
 HTML, CSV or table files, and Markdown reports.
@@ -287,14 +165,16 @@ Fresh workspaces include a runtime schema skill and schema capture directory.
 Before the first graph query against a network, capture the live graph schema and
 use the observed labels, relationship types, and property names in subsequent
 queries. The current public Chain Insights Graph investigation network is
-Bittensor only; do not infer support for unadvertised networks from internal
-database names or historical examples.
+the single robinhood network; the network argument selects the graph, and
+the address-space split lives on the `:Address.network` node property. Do not
+infer support for unadvertised networks from internal database names or
+historical examples.
 
 Useful schema probes:
 
 ```bash
 cia mcp call graph_query_batch \
-  network=bittensor \
+  network=robinhood \
   per_query_timeout_seconds=5 \
   'queries=[{"id":"address_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level, a.is_exchange AS is_exchange LIMIT 10"},{"id":"flow_sample","query":"USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"node_metric_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.tx_out_count AS tx_out_count LIMIT 10"}]'
 ```

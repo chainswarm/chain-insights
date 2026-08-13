@@ -1,85 +1,25 @@
 // Monitor config doc: operator-owned JSON (never derived, never ingested).
-// Fail-fast validation; the only silent default is the documented A6 matrix.
+// Fail-fast validation; the only silent default is the documented render
+// dormancy threshold.
 import { readFile } from 'node:fs/promises'
 import * as z from 'zod'
-import { LimitsSchema, NetworkLimitsSchema } from '../config/schema.js'
 import { monitorPaths } from './paths.js'
 
-const CellSchema = z.object({
-  detector: z.string().min(1),
-  network: z.string().min(1),
-  params: z.record(z.string(), z.string()).optional(),
-})
-
-// Watchlist. Absent = feature off. Present with {} = on with defaults.
-// Nothing here scales with address count: the dust probe is one
-// graph_query_batch per distinct network, and the other two triggers are
-// local joins.
-const WatchlistConfigSchema = z.object({
-  dustMaxUsd: z.number().nonnegative().default(1.0),
-  dustLookbackSeconds: z.number().int().positive().default(86400),
-  enabled: z.boolean().default(true),
-})
-
-// Investigation-output rendering (spec 3): dormancy threshold for the
-// ACTIVE/DORMANT dossier verdict. Always present on the parsed config —
-// configs without a `render` block get the documented default.
+// Investigation-output rendering: dormancy threshold for the ACTIVE/DORMANT
+// dossier verdict. Always present on the parsed config — configs without a
+// `render` block get the documented default.
 const RenderConfigSchema = z.object({
   dormant_after_days: z.number().int().positive().default(30),
 })
 
 const MonitorConfigSchema = z.object({
-  // Victim workspaces run zero detector cells (victim lane spec req 7):
-  // empty and absent are both allowed. The absent-CONFIG default matrix
-  // (DEFAULT_MONITOR_CONFIG) is unchanged.
-  cells: z.array(CellSchema).default([]),
-  // Monitor product split (victim lane spec req 1-2). Both OPTIONAL, not
-  // defaulted: absent profile = operator and absent trace_mode = the
-  // profile default, resolved through resolvedProfile/resolvedTraceMode —
-  // keeping every existing MonitorConfig literal type-valid (back-compat).
-  profile: z.enum(['operator', 'victim']).optional(),
-  trace_mode: z.enum(['interval', 'on_movement']).optional(),
   intervalSeconds: z.number().int().positive().default(3600),
-  // Usage guard floor (runner.ts): compared against the backend's remaining
-  // quota — `facts.usage.remaining_seconds` on quota-bearing backends (the
-  // real usage_status tool shape), or a top-level `remaining` on simpler
-  // backends. A backend that reports neither skips the guard.
-  stopIfRemainingBelow: z.number().nonnegative().optional(),
-  reviewer: z.string().min(1).optional(),
-  webhookUrl: z.string().url().optional(),
-  execHook: z.string().min(1).optional(),
-  caseMaxHops: z.number().int().min(1).max(4).default(3),
-  // Config-file layer for the tunable search bounds (config/limits.ts), for
-  // unattended runs. `limits` applies to every network, `networkLimits.<net>`
-  // is more specific and wins. Per-cell `params` remain the most specific
-  // layer of all and override both. Validated here so a bad bound fails at
-  // config load, not eight hours into a watch loop.
-  limits: LimitsSchema.optional(),
-  networkLimits: NetworkLimitsSchema.optional(),
-  watchlist: WatchlistConfigSchema.optional(),
-  // Sink execution bound (R4): webhook fetches and exec hooks are killed after
-  // hook_timeout_ms so a hung sink can never hang the run loop.
-  alerts: z.object({ hook_timeout_ms: z.number().int().positive().default(30000) }).optional(),
   render: RenderConfigSchema.prefault({}),
 })
 
 export type MonitorConfig = z.infer<typeof MonitorConfigSchema>
 
-export function resolvedProfile(config: Pick<MonitorConfig, 'profile'>): 'operator' | 'victim' {
-  return config.profile ?? 'operator'
-}
-
-/** interval for operator, on_movement for victim; an explicit trace_mode wins. */
-export function resolvedTraceMode(config: Pick<MonitorConfig, 'profile' | 'trace_mode'>): 'interval' | 'on_movement' {
-  return config.trace_mode ?? (resolvedProfile(config) === 'victim' ? 'on_movement' : 'interval')
-}
-
-const DEFAULT_DETECTORS = ['fake-token', 'mixer', 'address-poisoning', 'attack-attribution'] as const
-const DEFAULT_NETWORKS = ['bittensor', 'bittensor_evm'] as const
-
-export const DEFAULT_MONITOR_CONFIG: MonitorConfig = MonitorConfigSchema.parse({
-  cells: DEFAULT_DETECTORS.flatMap((detector) => DEFAULT_NETWORKS.map((network) => ({ detector, network }))),
-})
+export const DEFAULT_MONITOR_CONFIG: MonitorConfig = MonitorConfigSchema.parse({})
 
 export async function loadMonitorConfig(workspaceRoot: string): Promise<MonitorConfig> {
   const { configPath } = monitorPaths(workspaceRoot)
@@ -87,10 +27,10 @@ export async function loadMonitorConfig(workspaceRoot: string): Promise<MonitorC
   try {
     raw = await readFile(configPath, 'utf8')
   } catch (err) {
-    // "No config doc" is the ONLY condition that may fall back to the default
-    // A6 matrix. A permission or IO error means the operator DID write a
-    // config we simply cannot read — silently monitoring the default matrix
-    // instead would be a wrong, unnoticed change of what is being scanned.
+    // "No config doc" is the ONLY condition that may fall back to the default.
+    // A permission or IO error means the operator DID write a config we simply
+    // cannot read — silently monitoring something else would be a wrong,
+    // unnoticed change of what is being tracked.
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
       throw new Error(`Cannot read monitor config ${configPath}: ${(err as Error).message}`)
     }

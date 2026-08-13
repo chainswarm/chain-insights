@@ -2,60 +2,36 @@ import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { fundsDestinationSummary, renderDossier, writeDossier } from '../../../src/monitor/render/dossier.js'
-import type { TraceV1Doc } from '../../../src/monitor/render/trace-io.js'
+import { renderDossier, writeDossier } from '../../../src/monitor/render/dossier.js'
 import type { MonitorCase } from '../../../src/monitor/cases.js'
 
-const DOC: TraceV1Doc = {
-  schema: 'chain-insights.trace.v1', tool: 'aml_trace_victim_funds', network: 'bittensor',
-  addresses: [
-    { address: 'seed1', roles: ['victim'] },
-    { address: 'dep1', roles: ['candidate_deposit'] },
-    { address: 'exch1', roles: ['exchange'], labels: ['Binance'], is_exchange: true },
-  ],
-  edges: [
-    { edge_id: 'e1', from_address: 'seed1', to_address: 'dep1', amount_usd_sum: 500 },
-    { edge_id: 'e2', from_address: 'dep1', to_address: 'exch1', amount_usd_sum: 450 },
-  ],
-  paths: [
-    { path_id: 'p1', direction: 'forward', source: 'seed1', target: 'exch1', addresses: ['seed1', 'dep1', 'exch1'], edge_ids: ['e1', 'e2'], hops: 2, terminal_role: 'exchange', amount_usd_sum: 450 },
-    { path_id: 'p2', direction: 'forward', source: 'seed1', target: 'dep2', addresses: ['seed1', 'dep2'], edge_ids: [], hops: 1, terminal_role: 'deposit', amount_usd_sum: 50 },
-  ],
+const CASE: MonitorCase = {
+  case_id: 'c1', type: 'stolen-funds', network: 'bittensor', seeds: ['seed1', 'seed2'],
+  status: 'open', created_at_timestamp: 1_750_000_000_000,
 }
-const CASE: MonitorCase = { case_id: 'c1', type: 'stolen-funds', network: 'bittensor', seeds: ['seed1'], status: 'open', created_at_timestamp: 1_750_000_000_000 }
-const VERDICT = { status: 'active' as const, lastMovementTimestamp: 1_753_500_000_000, headline: 'ACTIVE (last movement 2026-07-26)' }
+const VERDICT = { status: 'active' as const, lastActivityTimestamp: 1_753_500_000_000, headline: 'ACTIVE (last activity 2026-07-26)' }
 
-const input = () => ({ monitorCase: CASE, verdict: VERDICT, docs: [DOC], reportArtifacts: ['reports/20260727T000000Z_aml_trace_victim_funds.graph.html'], mermaid: 'flowchart LR\n  a0["seed1"] --> a1["dep1"]', generatedAtTimestamp: 1_753_600_000_000 })
-
-describe('fundsDestinationSummary', () => {
-  it('groups traced value by terminal endpoint class', () => {
-    const rows = fundsDestinationSummary([DOC])
-    expect(rows).toContainEqual({ endpointClass: 'exchange', totalAmountUsd: 450, pathCount: 1 })
-    expect(rows).toContainEqual({ endpointClass: 'deposit', totalAmountUsd: 50, pathCount: 1 })
-  })
-})
+const input = () => ({ monitorCase: CASE, verdict: VERDICT, mermaid: 'flowchart LR\n  a0["seed1"]', generatedAtTimestamp: 1_753_600_000_000 })
 
 describe('renderDossier', () => {
   it('contains every required section', () => {
     const md = renderDossier(input())
-    expect(md).toContain('ACTIVE (last movement 2026-07-26)')
-    for (const section of ['## Funds destination summary', '## Exchange deposit endpoints', '## Scammer cluster', '## Money flow', '## Reports', '## Timeline']) {
+    expect(md).toContain('ACTIVE (last activity 2026-07-26)')
+    for (const section of ['## Seed set', '## Timeline']) {
       expect(md).toContain(section)
     }
     expect(md).toContain('```mermaid')
-    expect(md).toContain('Binance')
-    expect(md).toContain('reports/20260727T000000Z_aml_trace_victim_funds.graph.html')
+    expect(md).toContain('seed1, seed2')
     expect(md).toContain('timeline.md')
   })
 
   it('shows DORMANT headline verbatim', () => {
-    const md = renderDossier({ ...input(), verdict: { status: 'dormant', lastMovementTimestamp: null, headline: 'DORMANT since 2026-06-01' } })
+    const md = renderDossier({ ...input(), verdict: { status: 'dormant', lastActivityTimestamp: null, headline: 'DORMANT since 2026-06-01' } })
     expect(md).toContain('DORMANT since 2026-06-01')
   })
 
-  it('escapes pipes in table cells', () => {
-    const doc: TraceV1Doc = { ...DOC, addresses: [{ address: 'bad', roles: ['candidate_suspect'], labels: ['a|b'] }] }
-    const md = renderDossier({ ...input(), docs: [doc] })
+  it('escapes pipes in seed cells', () => {
+    const md = renderDossier({ ...input(), monitorCase: { ...CASE, seeds: ['seed1', 'a|b'] } })
     expect(md).toContain('a\\|b')
   })
 })
@@ -66,19 +42,5 @@ describe('writeDossier', () => {
     const file = await writeDossier(root, 'c1', renderDossier(input()))
     expect(file).toBe(path.join(root, 'published', 'cases', 'c1', 'dossier.md'))
     expect(await readFile(file, 'utf8')).toContain('# Case c1')
-  })
-})
-
-describe('cross-doc dedupe (victim + suspect traces revisit the same paths)', () => {
-  it('fundsDestinationSummary counts each path once across docs', () => {
-    const rows = fundsDestinationSummary([DOC, { ...DOC, tool: 'aml_trace_suspect_funds' }])
-    expect(rows).toContainEqual({ endpointClass: 'exchange', totalAmountUsd: 450, pathCount: 1 })
-    expect(rows).toContainEqual({ endpointClass: 'deposit', totalAmountUsd: 50, pathCount: 1 })
-  })
-  it('exchange deposit endpoints aggregate one row per deposit→exchange pair', () => {
-    const md = renderDossier({ ...input(), docs: [DOC, { ...DOC, tool: 'aml_trace_suspect_funds' }] })
-    const rows = md.split('\n').filter((l) => l.startsWith('| dep1 | exch1 |'))
-    expect(rows).toHaveLength(1)
-    expect(rows[0]).toContain('| 450.00 | 1 |')
   })
 })

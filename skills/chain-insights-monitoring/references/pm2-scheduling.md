@@ -9,8 +9,8 @@ watch`**. Each tool does the one job it is built for:
   does not kill the loop: `watch` logs it and keeps looping.
 - pm2 owns **process lifetime** — restart on crash, one log surface, one
   status command, boot persistence. If the loop dies, pm2 restarts it, and
-  `watch` resumes cleanly: a killed and restarted watch loses no alerts and
-  re-emits nothing over unchanged data.
+  `watch` resumes cleanly: a killed and restarted watch loses no state and
+  re-renders nothing over unchanged cases.
 
 Under this pairing `pm2 list` means what it appears to mean: **`online` =
 healthy**, and a climbing restart counter = the loop itself is dying
@@ -66,9 +66,10 @@ pm2 logs cia-monitor --lines 50
 ```
 
 `watch` runs its first pass immediately on start, then sleeps for the
-interval. A **successful pass prints nothing** — it writes a run document
-under `.chain-insights/monitor/runs/`. Confirm passes are landing with
-`cia monitor status` (`last run`), not by watching the pm2 log.
+interval. A **successful pass prints nothing** — it appends a line to
+`.chain-insights/monitor/logs/monitor-runs.jsonl`. Confirm passes are
+landing with `cia monitor status` (`last run`), not by watching the pm2
+log.
 
 ## Reading failures
 
@@ -77,9 +78,9 @@ exits between passes. Where each failure shows up:
 
 | Failure | Where it shows |
 | --- | --- |
-| Isolated cell failure (one detector errored, pass completed) | `error` field on the cell entry in that pass's run document; `cia monitor status`. |
+| Isolated case failure (one case errored, run completed) | `error` field on the case entry in that pass's run document; `cia monitor status`. |
 | Whole pass failed | `[monitor] run failed: …` line in the pm2 log; loop continues. |
-| Loop itself dying | pm2 restart counter climbs; `errored` after `max_restarts`. Read the error log — this is structural, not a flaky cell. |
+| Loop itself dying | pm2 restart counter climbs; `errored` after `max_restarts`. Read the error log — this is structural, not a flaky case. |
 
 ## Persistence
 
@@ -104,8 +105,7 @@ command to install the init service; run the command it prints, then
 | bare `cia monitor watch` | Interactive session, ad-hoc coverage for a few hours. | Dies with the shell; nothing restarts it. |
 
 Do not run two of these against the same workspace. Passes are idempotent, but
-overlapping schedules double the metered graph spend for no additional
-coverage.
+overlapping schedules double the work for no additional coverage.
 
 ## Do not pair pm2 with `monitor run`
 
@@ -113,7 +113,6 @@ The tempting hybrid — pm2 launching the one-shot `monitor run` via
 `cron_restart` — is the worst of both worlds and one setting away from an
 expensive failure. pm2's default treats any process exit as a crash and
 relaunches immediately; a one-shot exits on every successful pass, so without
-`autorestart: false` the default produces a **hot loop** that re-runs the full
-detector matrix continuously and burns metered graph allowance until someone
-notices. Between passes the process shows `stopped`, which reads as broken.
+`autorestart: false` the default produces a **hot loop** that re-runs the
+pass continuously until someone notices. Between passes the process shows `stopped`, which reads as broken.
 If you want pm2, supervise `watch`; if you want one-shots, use cron.

@@ -10,14 +10,13 @@
 // deposit -> victim chain in six seconds. The cap, not the depth, was the
 // binding constraint.
 //
-// This module generalizes the pattern already proven in
-// detection/detectors/attack-attribution.ts (a per-network default table plus
-// a `resolve*Config(network, params)` function) into ONE registry the whole
+// This module generalizes the per-network default-table pattern (a
+// `resolve*Config(network, params)` function) into ONE registry the whole
 // codebase shares, so a knob is declared once with its default, its floor, and
 // its hard ceiling.
 //
 // ── Precedence (highest wins) ──────────────────────────────────────────────
-//   1. per-call      — an argument on the MCP tool / CLI flag / detector param
+//   1. per-call      — an argument on the MCP tool / CLI flag
 //   2. config file   — `networkLimits[network][key]` in ~/.chain-insights/config.json
 //   3. config file   — `limits[key]` (all networks)
 //   4. per-network   — NETWORK_LIMIT_DEFAULTS[network].defaults[key]
@@ -48,118 +47,10 @@ export interface LimitSpec {
   description: string
 }
 
-// `hops` knobs are called out separately because their cost grows
-// EXPONENTIALLY with the value, not linearly: on a real deposit, hops 3
-// yielded 5,201 paths and hops 4 yielded 10,201 at the same row cap, and each
-// extra hop widens the fan-out so the row cap bites sooner. Their ceilings are
-// deliberately tight; the row/frontier ceilings are generous because their
-// cost is close to linear in the value.
-export const HOP_LIMIT_KEYS = [
-  'trace_max_hops',
-  'deposit_sources_max_hops',
-  'corridor_max_hops',
-  'attribution_max_hops',
-] as const
-
+// Row/frontier ceilings are generous because their cost is close to linear
+// in the value; the exponential hop caps (corridor/attribution and the
+// aml_trace_* tools) were removed with the retired detection realm.
 export const LIMIT_SPECS = {
-  // ── investigation/trace-funds.ts (aml_trace_victim_funds / _suspect_funds) ──
-  trace_max_hops: {
-    builtin: 3,
-    min: 1,
-    ceiling: 5,
-    description: 'Forward trace depth in hops for victim/suspect fund tracing.',
-  },
-  trace_per_address_limit: {
-    builtin: 5,
-    min: 1,
-    ceiling: 50,
-    description: 'Counterparties expanded per address per hop during a forward trace.',
-  },
-
-  // ── investigation/public-tools.ts (aml_trace_deposit_sources) ──
-  deposit_sources_max_hops: {
-    builtin: 2,
-    min: 1,
-    ceiling: 5,
-    description: 'Reverse trace depth in hops from a deposit/cashout seed.',
-  },
-  deposit_sources_row_limit: {
-    builtin: 500,
-    min: 1,
-    ceiling: 20_000,
-    description: 'Value-ordered upstream paths retained per reverse-trace depth.',
-  },
-
-  // ── investigation/scam-corridor-trace.ts ──
-  corridor_max_hops: {
-    builtin: 3,
-    min: 1,
-    ceiling: 4,
-    description: 'Corridor BFS depth in hops.',
-  },
-  corridor_frontier_cap: {
-    builtin: 50,
-    min: 1,
-    ceiling: 500,
-    description: 'Addresses carried forward per corridor hop.',
-  },
-  corridor_query_row_limit: {
-    builtin: 200,
-    min: 1,
-    ceiling: 5_000,
-    description: 'Rows returned per corridor frontier query.',
-  },
-
-  // ── investigation/exchange-likeness.ts ──
-  exchange_likeness_max_candidates: {
-    builtin: 25,
-    min: 1,
-    ceiling: 100,
-    description: 'Candidate addresses screened per exchange-likeness call.',
-  },
-
-  // ── detection/detectors/attack-attribution.ts ──
-  attribution_max_hops: {
-    builtin: 3,
-    min: 1,
-    ceiling: 5,
-    description: 'Downstream attribution walk depth in hops.',
-  },
-  attribution_max_frontier: {
-    builtin: 500,
-    min: 1,
-    ceiling: 10_000,
-    description: 'Downstream nodes emitted per attribution hop.',
-  },
-  attribution_max_rows: {
-    builtin: 1_000,
-    min: 1,
-    ceiling: 50_000,
-    description: 'Seed rows pulled per attribution sweep.',
-  },
-
-  // ── detection/detectors/address-poisoning.ts ──
-  poisoning_max_rows: {
-    builtin: 1_000,
-    min: 1,
-    ceiling: 50_000,
-    description: 'Rows scanned per address-poisoning sweep query.',
-  },
-
-  // ── detection/detectors/fake-token.ts ──
-  fake_token_max_rows: {
-    builtin: 1_000,
-    min: 1,
-    ceiling: 50_000,
-    description: 'Assets returned per fake-token pagination page.',
-  },
-  fake_token_max_asset_pages: {
-    builtin: 50,
-    min: 1,
-    ceiling: 500,
-    description: 'Pages of assets walked per fake-token sweep.',
-  },
-
   // ── viz/graph-model.ts ──
   viz_max_nodes: {
     builtin: 100,

@@ -44,12 +44,6 @@ names in debugging or contributor docs when the detail is necessary.
 
 - `aml_address_risk`: screen one address for risk, behavior, neighborhood context,
   and exchange exposure.
-- `aml_trace_victim_funds`: trace victim/source funds forward to exchange deposit
-  candidates.
-- `aml_trace_deposit_sources`: trace backward from suspected deposit/cashout
-  addresses to upstream sources and shared-source convergence.
-- `aml_trace_suspect_funds`: trace suspected scammer, mule, operator, or
-  laundering-ring addresses forward to cashout topology.
 
 ## Monitoring Surface
 

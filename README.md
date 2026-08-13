@@ -23,9 +23,8 @@ Owns:
   / `wallet_*` tools.
 - Local wallet and payment on Base mainnet (payment chain only).
 - Investigation workspaces, graph reports, and visualization.
-- `cia monitor`: standing-watch detector sweeps and case tracking.
-- `cia detect`: internal findings scanners (fake tokens, address poisoning,
-  mixer likeness, attack attribution).
+- `cia monitor`: per-case tracking with rendered dossiers over the
+  configured interval.
 - Shipped product skills under `skills/` (`chain-insights-*`), packaged
   into the npm tarball.
 - The local Bittensor graph devkit under `devkit/`.
@@ -34,8 +33,9 @@ Never touches:
 
 - Blockchain indexing, graph database storage, or graph serving — those
   belong to the Chain Insights Graph backend.
-- Automatic risk labeling. A finding becomes a label only through human
-  review (`cia monitor review`).
+- Automatic risk labeling. Address labels are served by the Chain Insights
+  Graph backend and read through `aml_address_risk`; the CLI never writes
+  labels.
 - Custodial wallets or hosted case databases. Investigation data stays in
   the local workspace unless the operator exports it.
 
@@ -44,48 +44,42 @@ Never touches:
 | Tool | Use it for |
 | --- | --- |
 | `aml_address_risk` | Screen one address for risk, behavior, neighborhood context, and exchange exposure |
-| `aml_trace_victim_funds` | Trace victim/source funds forward to exchange deposit candidates |
-| `aml_trace_deposit_sources` | Trace backward from suspected deposit/cashout addresses to upstream sources and convergence |
-| `aml_trace_suspect_funds` | Trace suspected scammer, mule, operator, or laundering-ring funds forward to cashout topology |
 | `graph_query` | Run one read-only GQL/Cypher query against a Chain Insights Graph layer |
 | `graph_query_batch` | Run related read-only graph queries as one MCP call |
 | `meta_network_capabilities` | Check supported Chain Insights networks and graph tools |
 | `meta_usage_status` | Check the caller's daily free-tier graph query allowance |
 | `wallet_balance` | Show the local payment wallet amount |
 
-The three trace tools share the `chain-insights.trace.v1` schema and return
-compact, chainable results. Full artifacts stay on disk under the
-workspace. Trace traversal treats exchange hot wallets as terminal
-endpoints only.
-
 ### Continuous Monitoring
 
-`cia monitor` turns one-shot investigation into a standing watch. It
-re-runs sweeps and case traces on a schedule, diffs each result against the
-last, and surfaces the difference.
+`cia monitor` re-renders each open case's dossier on a schedule. It turns one
+investigation into a standing view: seeds, scope changes, and render state
+stay as plain files in the workspace.
 
 | Command | What it does |
 | --- | --- |
-| `cia monitor run` | One pass over the detector×network matrix and every open case |
+| `cia monitor run` | One pass: render the dossier of every open case |
 | `cia monitor watch` | Loop `run` on an interval without an external scheduler |
-| `cia monitor status` | Cells, open cases, pending reviews, unacked alerts, last run |
-| `cia monitor report` | Markdown rollup: recent runs, review queue, alerts, case timelines |
-| `cia monitor case` | Track a theft or scam cluster; re-traced and snapshot-diffed each pass |
-| `cia monitor watchlist` | Alert when detections or case movements touch *your* addresses |
-| `cia monitor review` | Approve or reject findings — the only path to a label |
-| `cia monitor alerts` | List and acknowledge alerts; optional webhook and exec sinks |
-| `cia monitor export labels` | Export reviewer-approved findings as curated labels |
+| `cia monitor status` | Open cases and the last run |
+| `cia monitor render` | Re-render all open cases (or one case) from the case document |
+| `cia monitor init victim` | Bootstrap a stolen-funds case-tracking config in one command |
+| `cia monitor case add` | Register a monitor case with one or more seed addresses |
+| `cia monitor case list` | List monitor cases (open by default, `--all` for closed) |
+| `cia monitor case add-seed` | Widen an open case's seed set, timestamped |
+| `cia monitor case remove-seed` | Narrow an open case's seed set |
+| `cia monitor case close` | Close a case; the run loop stops re-tracing it |
 
 Three things to know before scheduling it:
 
 - **`cia monitor run` is a one-shot.** One pass, then exit. Under pm2,
   `autorestart: false` is mandatory for one-shot runs — otherwise pm2 reads
-  each clean exit as a crash and hot-loops the matrix. Prefer pm2
-  supervising `cia monitor watch` instead.
-- **Exit `2` means an isolated cell failed** while every other cell
+  each clean exit as a crash and hot-loops. Prefer pm2 supervising
+  `cia monitor watch` instead.
+- **Exit `2` means an isolated case failed** while every other case
   completed. Partial success, not a crash. Only exit `1` means nothing ran.
-- **An unchanged run legitimately produces an empty findings document.**
-  Full-state detectors emit only what you have not already been shown.
+- **An unchanged case is skipped, not re-rendered.** The run document
+  records `skipped_reason: 'unchanged'`, so a quiet watch reads as healthy
+  by design.
 
 See [Continuous monitoring](docs/monitoring.md) for the full surface.
 
@@ -106,9 +100,8 @@ Downstream:
 
 - Analysts and AI agents install the npm package and call the CLI or the
   MCP tools.
-- Reviewed findings export as curated labels
-  (`cia monitor export labels`, frozen `chain-insights.curated-labels.v1`
-  schema) for import into an organization's label store.
+- Monitor case dossiers render as Markdown under the workspace
+  (`published/cases/<case_id>/`), ready for review and handoff.
 
 ## Architecture
 
@@ -129,7 +122,6 @@ Source modules (hand-maintained):
 | Module | Entrypoint | Component doc |
 |---|---|---|
 | `config` | `src/config` | [components/config.md](docs/architecture/components/config.md) |
-| `detection` | `src/detection` | [components/detection.md](docs/architecture/components/detection.md) |
 | `federation` | `src/federation` | [components/federation.md](docs/architecture/components/federation.md) |
 | `investigation` | `src/investigation` | [components/investigation.md](docs/architecture/components/investigation.md) |
 | `mcp` | `src/mcp` | [components/mcp.md](docs/architecture/components/mcp.md) |
@@ -158,19 +150,17 @@ Graph queries choose the read graph explicitly:
 | `topology` | The unified address / FLOWS_TO / LINKED graph — recent and full historical fund-flow traversal, plus the node `risk_score`/`risk_level` verdict |
 | `facts` | Labels, features, assets, and enrichment |
 
-One rule is worth reading before writing a query by hand: a chain's address
-spaces (for Bittensor, native SS58 and EVM-pallet `0x…`) are **two views
-over one address-grain topology graph**, separated by the
-`:Address.network` node property. The `network` argument selects the graph,
-not the addresses inside it. A `USE topology` match on `:Address` without
-an exact address must scope itself with `WHERE a.network = "..."`. On
-`USE facts` each network has its own backing database and `Address`
-carries no `network` property at all. See
+One rule is worth reading before writing a query by hand: the `network`
+argument selects the graph, not the addresses inside it. The address-space
+split lives on the `:Address.network` node property. A `USE topology` match
+on `:Address` without an exact address must scope itself with
+`WHERE a.network = "..."`. On `USE facts` each network has its own backing
+database and `Address` carries no `network` property at all. See
 [Graph query compatibility](docs/graph-query-compatibility.md).
 
 Agent installs include `chain-insights-cypher` for generic layer-aware
 GQL/Cypher work and `chain-insights-bittensor-cypher` for Bittensor-specific
-schema notes and examples.
+schema notes and examples (the bundled devkit serves a Bittensor fixture).
 
 ## Billing: Billable Units
 
@@ -191,11 +181,9 @@ cut off. When you see `truncated: true`:
 - Page through results with `SKIP` to fetch the next batch.
 - Add a tighter `WHERE` filter before raising the limit.
 
-**Workflow tools carry a `usage` block.** The `aml_*` tools
-(`aml_address_risk`, `aml_trace_victim_funds`, `aml_trace_suspect_funds`,
-`aml_trace_deposit_sources`) each run many graph queries behind the scenes
-to answer one question. Every response includes a `usage` block with the
-total cost of all of them:
+**Workflow tools carry a `usage` block.** `aml_address_risk` runs many graph
+queries behind the scenes to answer one question. Every response includes a
+`usage` block with the total cost of all of them:
 
 - **`billable_units`** — total units billed across every internal graph
   query this workflow ran.
@@ -238,16 +226,15 @@ cia --version
 cia update --check
 ```
 
-Create an investigation workspace and run a first trace:
+Create an investigation workspace and run a first screen:
 
 ```bash
 mkdir -p ./chain-insights-investigations
 cd ./chain-insights-investigations
 cia init .
 
-cia mcp trace-victim-funds \
-  --network bittensor \
-  --victim-addresses 5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5
+cia mcp call aml_address_risk \
+  network=robinhood address=0xYourAddressHere
 
 find reports -maxdepth 3 -type f | sort
 ```
@@ -261,7 +248,7 @@ Example queries. Direct topology:
 
 ```bash
 cia mcp call graph_query \
-  network=bittensor \
+  network=robinhood \
   "query=USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level LIMIT 10"
 ```
 
@@ -269,11 +256,11 @@ Batch across graph views:
 
 ```bash
 cia mcp call graph_query_batch \
-  network=bittensor \
+  network=robinhood \
   'queries=[{"id":"count","query":"USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"flows","query":"USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 3"},{"id":"linked","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"},{"id":"node_metrics","query":"USE topology MATCH (a:Address {address:\"FULL_ADDRESS\"}) RETURN a.address AS address, a.tx_out_count AS tx_out_count, a.tx_in_count AS tx_in_count LIMIT 1"}]'
 ```
 
-More query examples (suspect tracing, pagination):
+More query examples (manual fund-flow reads, pagination):
 [Graph tools](docs/graph-tools.md).
 
 ### Dev Compose (local devkit backend)

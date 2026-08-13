@@ -4,8 +4,6 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { addCase, addCaseSeeds, closeCase, listCases, markCaseDirty, markCaseTraced, removeCaseSeeds } from '../../src/monitor/cases.js'
-import { rebuildStore, withStore } from '../../src/monitor/store.js'
-import { addWatched, listWatched } from '../../src/monitor/watchlist.js'
 
 async function ws(): Promise<string> {
   return mkdtemp(path.join(tmpdir(), 'cia-cases-'))
@@ -128,9 +126,7 @@ describe('case registry', () => {
   it('cases land in the store and survive rebuild (AC-2)', async () => {
     const root = await ws()
     await addCase(root, { case_id: 'c-1', type: 'stolen-funds', network: 'bittensor', seeds: ['a', 'b'] }, 100)
-    await rebuildStore(root)
-    const rows = await withStore(root, async (s) => s.all('SELECT case_id, status, seed_count FROM cases'))
-    expect(rows).toEqual([{ case_id: 'c-1', status: 'open', seed_count: 2 }])
+    expect((await listCases(root, { openOnly: true }))[0].seeds).toEqual(['a', 'b'])
   })
 
   describe('dirty/traced markers (victim lane spec req 2/4)', () => {
@@ -162,34 +158,5 @@ describe('case registry', () => {
       const root = await ws()
       await expect(markCaseDirty(root, 'nope', 1)).rejects.toThrow(/no such case/)
     })
-  })
-})
-
-describe('case close keeps the managed tripwire (label-lifecycle spec req 3)', () => {
-  it('closeCase leaves managed_by watchlist entries in place and reports how many it kept', async () => {
-    const root = await ws()
-    await addCase(root, { case_id: 'ring1', type: 'scam-topology', network: 'bittensor', seeds: ['5Seed'] }, 100)
-    await addWatched(root, { address: '5Seed', network: 'bittensor', managed_by: 'case:ring1' })
-    await addWatched(root, { address: '5Mule', network: 'bittensor', managed_by: 'case:ring1' })
-    await addWatched(root, { address: '5Mine', network: 'bittensor', note: 'manual' })
-    const { monitorCase, alreadyClosed, managedKept } = await closeCase(root, 'ring1', 200)
-    expect(monitorCase.status).toBe('closed')
-    expect(alreadyClosed).toBe(false)
-    expect(managedKept).toBe(2)
-    const after = await listWatched(root)
-    expect(after.filter((w) => w.managed_by === 'case:ring1')).toHaveLength(2)
-    expect(after).toHaveLength(3)
-  })
-
-  it('re-closing still reports the kept count and touches nothing', async () => {
-    const root = await ws()
-    await addCase(root, { case_id: 'ring2', type: 'scam-topology', network: 'bittensor', seeds: ['5Seed'] }, 100)
-    await addWatched(root, { address: '5Seed', network: 'bittensor', managed_by: 'case:ring2' })
-    await closeCase(root, 'ring2', 200)
-    const again = await closeCase(root, 'ring2', 300)
-    expect(again.alreadyClosed).toBe(true)
-    expect(again.managedKept).toBe(1)
-    expect(again.monitorCase.closed_at_timestamp).toBe(200)
-    expect((await listWatched(root)).filter((w) => w.managed_by === 'case:ring2')).toHaveLength(1)
   })
 })

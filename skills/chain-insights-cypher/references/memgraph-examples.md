@@ -12,7 +12,7 @@ Official Memgraph references:
 ## Staging Validation
 
 Validated against the address-serving contract on 2026-07-07 with
-`network=bittensor` and `per_query_timeout_seconds=5`.
+`network=robinhood` and `per_query_timeout_seconds=5`.
 
 Accepted through Chain Insights Graph:
 
@@ -45,7 +45,7 @@ Top outflows by amount:
 
 ```bash
 cia mcp call graph_query \
-  network=bittensor \
+  network=robinhood \
   'query=USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 25'
 ```
 
@@ -53,7 +53,7 @@ Rank addresses by live out-degree and transferred USD:
 
 ```bash
 cia mcp call graph_query \
-  network=bittensor \
+  network=robinhood \
   'query=USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) WITH src, count(dst) AS out_degree, sum(flow.amount_usd_sum) AS total_usd RETURN src.address AS address, out_degree, total_usd ORDER BY out_degree DESC LIMIT 25'
 ```
 
@@ -61,7 +61,7 @@ Bucket flows for quick triage:
 
 ```bash
 cia mcp call graph_query \
-  network=bittensor \
+  network=robinhood \
   'query=USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, CASE WHEN flow.amount_usd_sum IS NULL THEN "unknown" WHEN flow.amount_usd_sum >= 100000 THEN "large" WHEN flow.amount_usd_sum >= 10000 THEN "medium" ELSE "small" END AS amount_bucket, flow.amount_usd_sum AS amount_usd_sum LIMIT 25'
 ```
 
@@ -69,26 +69,26 @@ Prefix search for address completion:
 
 ```bash
 cia mcp call graph_query \
-  network=bittensor \
-  'query=USE topology MATCH (a:Address) WHERE a.address STARTS WITH "5Ggf" RETURN a.address AS address, a.network AS network LIMIT 10'
+  network=robinhood \
+  'query=USE topology MATCH (a:Address) WHERE a.address STARTS WITH "0x1874" RETURN a.address AS address, a.network AS network LIMIT 10'
 ```
 
 `LINKED` ownership-overlay census by network:
 
 ```bash
 cia mcp call graph_query \
-  network=bittensor \
+  network=robinhood \
   'query=USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN b.network AS linked_network, count(b) AS linked_addresses ORDER BY linked_addresses DESC LIMIT 10'
 ```
 
-Cross-space `LINKED` resolution — the ownership edge across the SS58/H160
-space boundary (`:Address.network` values `bittensor` / `bittensor_evm`); all
-of this runs on the single public `network=bittensor`:
+`LINKED` ownership-overlay resolution — the undirected edge asserting two
+addresses are owned/controlled by the same actor; all of this runs on the
+single public `network=robinhood`:
 
 ```bash
 cia mcp call graph_query \
-  network=bittensor \
-  'query=USE topology MATCH (a:Address {address: "0x20d09f2881602eee806147ceee9275d33ff31df8"})-[l:LINKED]-(b:Address) WHERE a.network <> b.network RETURN b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 5'
+  network=robinhood \
+  'query=USE topology MATCH (a:Address {address: "0x20d09f2881602eee806147ceee9275d33ff31df8"})-[l:LINKED]-(b:Address) RETURN b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 5'
 ```
 
 ## Historical Flows
@@ -98,8 +98,8 @@ to opt into for older activity. Top lifetime outflows for one address:
 
 ```bash
 cia mcp call graph_query \
-  network=bittensor \
-  'query=USE topology MATCH (src:Address {address: "5Ggf..."})-[flow:FLOWS_TO]->(dst:Address) RETURN dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.last_seen_timestamp DESC LIMIT 25'
+  network=robinhood \
+  'query=USE topology MATCH (src:Address {address: "0x1874..."})-[flow:FLOWS_TO]->(dst:Address) RETURN dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.last_seen_timestamp DESC LIMIT 25'
 ```
 
 `FLOWS_TO` edges are lifetime aggregates (first/last endpoints only); there are
@@ -108,7 +108,7 @@ Topology `LINKED` sample:
 
 ```bash
 cia mcp call graph_query \
-  network=bittensor \
+  network=robinhood \
   'query=USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 25'
 ```
 
@@ -120,7 +120,7 @@ Facts `Address` projection:
 
 ```bash
 cia mcp call graph_query \
-  network=bittensor \
+  network=robinhood \
   'query=USE facts MATCH (a:Address) RETURN a.address AS address, a.labels AS labels, a.risk_level AS risk_level LIMIT 25'
 ```
 
@@ -138,7 +138,7 @@ One-hop path:
 
 ```bash
 cia mcp call graph_query_batch \
-  network=bittensor \
+  network=robinhood \
   per_query_timeout_seconds=5 \
   'queries=[{"id":"hop_1","query":"USE topology MATCH (src:Address {address: \"FULL_SOURCE_ADDRESS\"})-[r1:FLOWS_TO]->(dst:Address {address: \"FULL_TARGET_ADDRESS\"}) RETURN src.address AS from_address, dst.address AS to_address, 1 AS hops, r1.amount_usd_sum AS amount_usd_sum, r1.tx_count AS tx_count LIMIT 25"}]'
 ```
@@ -147,7 +147,7 @@ Two-hop expansion with exchange-stopped intermediate nodes:
 
 ```bash
 cia mcp call graph_query_batch \
-  network=bittensor \
+  network=robinhood \
   per_query_timeout_seconds=5 \
   'queries=[{"id":"hop_2","query":"USE topology MATCH (src:Address {address: \"FULL_SOURCE_ADDRESS\"})-[r1:FLOWS_TO]->(mid:Address)-[r2:FLOWS_TO]->(dst:Address) WHERE mid.is_exchange IS NULL RETURN src.address AS from_address, mid.address AS mid_address, dst.address AS to_address, 2 AS hops, r1.amount_usd_sum AS first_amount_usd, r2.amount_usd_sum AS second_amount_usd LIMIT 25"}]'
 ```

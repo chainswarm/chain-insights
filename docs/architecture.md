@@ -130,7 +130,7 @@ Invited testers can use server-side test keys without x402 payment:
 ```bash
 chain-insights access-key set ci_test_REDACTED --endpoint https://staging-mcp.chain-insights.ai/mcp
 chain-insights access-key status
-chain-insights mcp call graph_query network=bittensor query='USE topology MATCH (n) RETURN n LIMIT 1'
+chain-insights mcp call graph_query network=robinhood query='USE topology MATCH (n) RETURN n LIMIT 1'
 ```
 
 Operators configure the server with `MCP_TEST_ACCESS_KEY_HASHES`, a

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { addressRisk, traceDepositSources, traceSuspectFunds, traceVictimFunds } from '../src/investigation/public-tools.js'
+import { addressRisk } from '../src/investigation/public-tools.js'
 
 type BatchQuery = { id: string; query: string }
 type CallToolRequest = { name: string; arguments: { queries?: BatchQuery[] } }
@@ -67,77 +67,9 @@ describe('aml_* workflow responses carry a usage block', () => {
     })
   })
 
-  it('aml_trace_victim_funds totals usage across seed pre-flight + probe batches', async () => {
-    const remote = billedClient(5, (id) => (id === 'seed_address_exists_1' ? { address: '5Victim' } : undefined))
-    const result = await traceVictimFunds(remote as never, config, {
-      victimAddresses: '5Victim',
-      network: 'bittensor',
-      writeArtifacts: false,
-    })
 
-    const usage = (result.structuredContent as { usage: { billable_units: number; query_count: number; truncated_queries: number } }).usage
-    expect(usage).toEqual({
-      billable_units: 5 * batchCallCount(remote),
-      query_count: expectedQueryCount(remote),
-      truncated_queries: 0,
-    })
-    expect(usage.query_count).toBeGreaterThan(0)
-  })
 
-  it('aml_trace_suspect_funds totals usage on the live traversal path (no money-trail hit)', async () => {
-    const remote = billedClient(4, (id) => (id === 'seed_address_exists_1' ? { address: '5Suspect' } : undefined))
-    const result = await traceSuspectFunds(remote as never, config, {
-      suspectAddresses: '5Suspect',
-      network: 'bittensor',
-      live: true,
-      writeArtifacts: false,
-    })
 
-    const usage = (result.structuredContent as { usage: { billable_units: number; query_count: number; truncated_queries: number } }).usage
-    expect(usage).toEqual({
-      billable_units: 4 * batchCallCount(remote),
-      query_count: expectedQueryCount(remote),
-      truncated_queries: 0,
-    })
-  })
-
-  it('aml_trace_suspect_funds totals usage on the money-trail fast path', async () => {
-    const remote = billedClient(6, (id) => {
-      if (id === 'seed_address_exists_1') return { address: '5Suspect' }
-      if (id === 'money_trail_seed_probe') return { address: '5End', fact_type: 'x', hop: 1, terminal_role: 'deposit', value: 10 }
-      return undefined
-    })
-    const result = await traceSuspectFunds(remote as never, config, {
-      suspectAddresses: '5Suspect',
-      network: 'bittensor',
-      writeArtifacts: false,
-    })
-
-    const content = result.structuredContent as { trace_source?: string; usage: { billable_units: number; query_count: number; truncated_queries: number } }
-    expect(content.trace_source).toBe('money_trail')
-    expect(content.usage).toEqual({
-      billable_units: 6 * batchCallCount(remote),
-      query_count: expectedQueryCount(remote),
-      truncated_queries: 0,
-    })
-  })
-
-  it('aml_trace_deposit_sources totals usage across pre-flight + reverse traceback batches', async () => {
-    const remote = billedClient(2, (id) => (id === 'seed_address_exists_1' ? { address: '5Deposit' } : undefined))
-    const result = await traceDepositSources(remote as never, config, {
-      depositAddresses: '5Deposit',
-      network: 'bittensor',
-      maxHops: 1,
-      writeArtifacts: false,
-    })
-
-    const usage = (result.structuredContent as { usage: { billable_units: number; query_count: number; truncated_queries: number } }).usage
-    expect(usage).toEqual({
-      billable_units: 2 * batchCallCount(remote),
-      query_count: expectedQueryCount(remote),
-      truncated_queries: 0,
-    })
-  })
 
   it('defensive: a backend that never emits billing fields yields zero units but never blocks the workflow', async () => {
     const remote = {

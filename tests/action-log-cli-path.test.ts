@@ -30,9 +30,9 @@ describe('installActionLogging wraps any client', () => {
       }),
     }
     installActionLogging(client as never)
-    await (client.callTool as never as (a: unknown) => Promise<unknown>)({ name: 'aml_trace_deposit_sources', arguments: { network: 'bittensor' } })
+    await (client.callTool as never as (a: unknown) => Promise<unknown>)({ name: 'graph_query', arguments: { network: 'robinhood' } })
     const entry = JSON.parse((await readFile(file, 'utf8')).trim())
-    expect(entry.tool).toBe('aml_trace_deposit_sources')
+    expect(entry.tool).toBe('graph_query')
     expect(entry.outcome).toBe('ok')
     expect(entry.warnings).toEqual(['hit the cap'])
     expect(entry.search_limits).toEqual({ row_limit: 500 })
