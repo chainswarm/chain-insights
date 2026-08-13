@@ -47,36 +47,29 @@ export interface NetworkCapabilitiesDocument {
   networks: NetworkCapability[]
 }
 
-const BITTENSOR_SEMANTIC_NETWORKS = new Set(['bittensor', 'bittensor_evm', 'bittensor_semantic'])
+const ROBINHOOD_SEMANTIC_NETWORKS = new Set(['robinhood'])
 const PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS = {
   aml_address_risk: 'available',
   graph_query: 'available',
   graph_query_batch: 'available',
   meta_network_capabilities: 'available',
   meta_usage_status: 'available',
+  meta_help: 'available',
   wallet_balance: 'available',
 } as const
 const AVAILABLE_TOOLS_PER_LINE = 3
 
 function publicNetworkCapabilities(document: NetworkCapabilitiesDocument): NetworkCapabilitiesDocument {
-  const source = document.networks.find((network) => BITTENSOR_SEMANTIC_NETWORKS.has(network.network))
+  const source = document.networks.find((network) => ROBINHOOD_SEMANTIC_NETWORKS.has(network.network))
   return {
     schema: 'chain-insights.network-capabilities.v1',
     networks: source
       ? [{
-        network: 'bittensor',
-        display_name: 'Bittensor',
+        network: 'robinhood',
+        display_name: 'Robinhood',
         status: source.status || 'live',
         default: source.default !== false,
-        layers: {
-          facts: { enabled: source.layers.facts?.enabled === true },
-          risk: { enabled: source.layers.risk?.enabled === true },
-          topology: {
-            enabled: source.layers.topology?.enabled === true,
-            ...(source.layers.topology?.live ? { live: source.layers.topology.live } : {}),
-            ...(source.layers.topology?.archive ? { archive: source.layers.topology.archive } : {}),
-          },
-        },
+        layers: {},
         ...(source.coverage ? { coverage: source.coverage } : {}),
         ...(source.freshness ? { freshness: source.freshness } : {}),
         tools: PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS,
@@ -126,7 +119,7 @@ function layerValue(network: NetworkCapability, layer: string): string {
 }
 
 function availableTools(network: NetworkCapability): string[] {
-  const effectiveTools = BITTENSOR_SEMANTIC_NETWORKS.has(network.network) && network.layers.topology?.enabled === true
+  const effectiveTools = ROBINHOOD_SEMANTIC_NETWORKS.has(network.network)
     ? {
       ...(network.tools ?? {}),
       ...PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS,

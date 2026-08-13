@@ -9,8 +9,8 @@ describe('MCP network capabilities', () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({
       schema: 'chain-insights.network-capabilities.v1',
       networks: [{
-        network: 'bittensor',
-        display_name: 'Bittensor',
+        network: 'robinhood',
+        display_name: 'Robinhood',
         status: 'live',
         default: true,
         layers: {
@@ -46,7 +46,8 @@ describe('MCP network capabilities', () => {
     expect(headers.get('X-MCP-Test-Key')).toBe('debug-token')
     expect(headers.get('X-Chain-Insights-Test-Key')).toBe('debug-token')
     expect(headers.get('Authorization')).toBe('Bearer debug-token')
-    expect(result.networks[0]?.network).toBe('bittensor')
+    expect(result.networks[0]?.network).toBe('robinhood')
+    expect(result.networks[0]?.layers).toEqual({})
     expect(result.networks[0]?.coverage).toEqual({
       from_block: 84,
       to_block: 7440268,
@@ -55,12 +56,12 @@ describe('MCP network capabilities', () => {
     })
   })
 
-  it('merges internal Bittensor aliases into the public bittensor semantic network', async () => {
+  it('collapses capabilities to one robinhood graph with the seven public tools', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({
       schema: 'chain-insights.network-capabilities.v1',
       networks: [{
-        network: 'bittensor_evm',
-        display_name: 'Bittensor EVM',
+        network: 'robinhood',
+        display_name: 'Robinhood',
         status: 'live',
         layers: {
           topology: { enabled: true },
@@ -85,27 +86,38 @@ describe('MCP network capabilities', () => {
     })
 
     expect(result.networks).toEqual([expect.objectContaining({
-      network: 'bittensor',
-      display_name: 'Bittensor',
-      tools: expect.objectContaining({
+      network: 'robinhood',
+      layers: {},
+      tools: {
         aml_address_risk: 'available',
         graph_query: 'available',
         graph_query_batch: 'available',
         meta_network_capabilities: 'available',
         meta_usage_status: 'available',
+        meta_help: 'available',
         wallet_balance: 'available',
-      }),
+      },
     })])
-    expect(JSON.stringify(result)).not.toContain('bittensor_evm')
+    expect(result.networks).toHaveLength(1)
+    expect(Object.keys(result.networks[0]?.tools ?? {})).toEqual([
+      'aml_address_risk',
+      'graph_query',
+      'graph_query_batch',
+      'meta_network_capabilities',
+      'meta_usage_status',
+      'meta_help',
+      'wallet_balance',
+    ])
     expect(JSON.stringify(result)).not.toContain('aggregations')
+    expect(JSON.stringify(result)).not.toContain('bittensor')
   })
 
-  it('passes through live/archive topology sub-layers (AC4/AC11: dual-layer capability reporting)', async () => {
+  it('drops per-layer topology/facts/risk passthrough (one graph, no layer rows)', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({
       schema: 'chain-insights.network-capabilities.v1',
       networks: [{
-        network: 'bittensor',
-        display_name: 'Bittensor',
+        network: 'robinhood',
+        display_name: 'Robinhood',
         status: 'live',
         default: true,
         layers: {
@@ -128,13 +140,9 @@ describe('MCP network capabilities', () => {
       graphMcpAuthToken: 'debug-token',
     })
 
-    const topology = result.networks[0]?.layers.topology
-    // Backward-compat field preserved.
-    expect(topology?.enabled).toBe(true)
-    // New dual-layer fields.
-    expect(topology?.live?.enabled).toBe(true)
-    expect(topology?.archive?.enabled).toBe(true)
-    expect(topology?.live?.coverage).toEqual({ from_block: 8512012, to_block: 8513977 })
+    expect(result.networks[0]?.layers).toEqual({})
+    expect(JSON.stringify(result)).not.toContain('8512012')
+    expect(JSON.stringify(result)).not.toContain('topology')
   })
 
   it('includes the metadata URL when network capability fetch fails', async () => {
@@ -155,15 +163,11 @@ describe('MCP network capabilities', () => {
     const output = formatNetworkCapabilities({
       schema: 'chain-insights.network-capabilities.v1',
       networks: [{
-        network: 'bittensor',
-        display_name: 'Bittensor',
+        network: 'robinhood',
+        display_name: 'Robinhood',
         status: 'live',
         default: true,
-        layers: {
-          topology: { enabled: true },
-          facts: { enabled: true },
-          risk: { enabled: false },
-        },
+        layers: {},
         coverage: {
           from_block: 84,
           to_block: 7440268,
@@ -177,18 +181,19 @@ describe('MCP network capabilities', () => {
       }],
     })
 
-    expect(output).toContain('Bittensor')
-    expect(output).toContain('yes')
+    expect(output).toContain('Robinhood')
     expect(output).toContain('84..7440268 / 2023-03-20..2026-01-31')
     expect(output).toContain('aml_address_risk')
     expect(output).toContain('graph_query')
     expect(output).toContain('graph_query_batch')
     expect(output).toContain('meta_network_capabilities')
     expect(output).toContain('meta_usage_status')
+    expect(output).toContain('meta_help')
     expect(output).toContain('wallet_balance')
     expect(output).toContain('Dataset')
     expect(output).toContain('aml_address_risk, graph_query, graph_query_batch')
-    expect(output).toContain('meta_network_capabilities, meta_usage_status, wallet_balance')
+    expect(output).toContain('meta_help, meta_network_capabilities, meta_usage_status')
+    expect(output).toContain('wallet_balance')
     expect(output).not.toContain('aml_trace')
   })
 
@@ -201,11 +206,7 @@ describe('MCP network capabilities', () => {
         network: 'future_network',
         display_name: 'Future Network',
         status: 'unavailable',
-        layers: {
-          topology: { enabled: false },
-          facts: { enabled: false },
-          risk: { enabled: false },
-        },
+        layers: {},
         tools: {
           graph_query: 'unavailable',
           graph_query_batch: 'unavailable',
@@ -223,14 +224,10 @@ describe('MCP network capabilities', () => {
     const output = formatNetworkCapabilities({
       schema: 'chain-insights.network-capabilities.v1',
       networks: [{
-        network: 'bittensor',
-        display_name: 'Bittensor',
+        network: 'robinhood',
+        display_name: 'Robinhood',
         status: 'live',
-        layers: {
-          topology: { enabled: true },
-          facts: { enabled: true },
-          risk: { enabled: false },
-        },
+        layers: {},
         coverage: {
           from_timestamp: '2026-05-19T00:00:00Z',
           to_timestamp: '2026-05-20T00:00:00Z',
@@ -242,7 +239,7 @@ describe('MCP network capabilities', () => {
       }],
     })
 
-    expect(output).toContain('Bittensor')
+    expect(output).toContain('Robinhood')
     expect(output).toContain('2026-05-19..2026-05-20')
     expect(output).not.toContain('blocks unknown')
   })
@@ -253,14 +250,10 @@ describe('MCP network capabilities', () => {
     const output = formatNetworkCapabilities({
       schema: 'chain-insights.network-capabilities.v1',
       networks: [{
-        network: 'bittensor',
-        display_name: 'Bittensor',
+        network: 'robinhood',
+        display_name: 'Robinhood',
         status: 'live',
-        layers: {
-          topology: { enabled: true },
-          facts: { enabled: true },
-          risk: { enabled: false },
-        },
+        layers: {},
         tools: {},
       }],
     })

@@ -463,7 +463,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).toContain('FLOWS_TO')
     expect(instructions).toContain('first_tx_id')
     expect(instructions).toContain('LINKED is served on the topology graph only')
-    expect(instructions).toContain('the single public Bittensor investigation network')
+    expect(instructions).toContain('the single public robinhood investigation network')
     expect(instructions).toContain('(:Address)-[:LINKED]-(:Address)')
     expect(instructions).toContain('n.network AS network')
     expect(instructions).toContain('declared_owner')
@@ -472,8 +472,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).toContain('Select the graph with USE topology')
     expect(instructions).toContain('address is the node grain, not the topology name')
     expect(instructions).not.toContain('NeuronEndpoint')
-    expect(instructions).toContain('(:Neuron)-[:MINES|:VALIDATES]->(:Subnet')
-    expect(instructions).toContain('(:Address)-[:HOTKEY_OF|:COLDKEY_OF]->(:Neuron)')
+    expect(instructions).not.toContain('(:Neuron)-[:MINES|:VALIDATES]->(:Subnet')
+    expect(instructions).not.toContain('(:Address)-[:HOTKEY_OF|:COLDKEY_OF]->(:Neuron)')
   })
 
   it('forwards tool call arguments to remoteClient.callTool', async () => {
@@ -1709,7 +1709,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(inputSchema.address).toBeDefined()
     expect(inputSchema.network).toBeDefined()
     expect((inputSchema.network as { description?: string }).description).toContain('Network to query')
-    expect((inputSchema.network as { description?: string }).description).toContain('Bittensor')
+    expect((inputSchema.network as { description?: string }).description).toContain('robinhood is the only supported network')
     expect(config.description).toContain('Required arguments: address, network.')
     expect(config.description).toContain('Do not guess a default network')
   })

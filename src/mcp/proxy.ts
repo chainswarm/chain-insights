@@ -62,8 +62,8 @@ type ChainInsightsGraphMeta = {
   url: string
 }
 
-const NETWORK_DESCRIPTION = 'Network to query, for example Bittensor or Base.'
-const BITTENSOR_NETWORK_SCHEMA = z.enum(['bittensor']).describe(NETWORK_DESCRIPTION)
+const NETWORK_DESCRIPTION = 'Network to query. robinhood is the only supported network.'
+const NETWORK_SCHEMA = z.enum(['robinhood']).describe(NETWORK_DESCRIPTION)
 
 const EMPTY_INPUT_SCHEMA = z.strictObject({})
 const REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS = 15 * 60 * 1000
@@ -78,15 +78,15 @@ const CHAIN_INSIGHTS_WORKFLOW = [
 ].join('\n')
 
 const GRAPH_SCHEMA_HINTS = [
-  'Graph query hints for network=bittensor (the single public Bittensor investigation network):',
-  '- The graph is address-grain. Always pass network=bittensor, for SS58 and EVM-pallet 0x... (H160) inputs alike. The only topology money node label is Address, keyed by the raw chain-native address, for example 0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24; the SS58/H160 split is the Address.network node PROPERTY (bittensor for SS58, bittensor_evm for H160), never a separate query network. There is no separate identity key.',
-  '- Address nodes carry address, network, labels, and is_exchange. (:Address)-[:LINKED]-(:Address) is an undirected ownership-overlay edge (basis derived/associated, plus confidence, source_event, declared_owner) asserting the two addresses are controlled by the same actor; it is the ownership edge across the SS58/H160 space boundary, so a single network=bittensor query traces SS58 -> (bridge or LINKED) -> H160 and back with no network switch. LINKED is served on the topology graph only. Enumerate LINKED neighbors with MATCH (a:Address {address: $addr})-[l:LINKED]-(b:Address) RETURN b.address, b.network, l.basis, l.confidence.',
+  'Graph query hints for network=robinhood (the single public robinhood investigation network):',
+  '- The graph is address-grain. Always pass network=robinhood, for SS58 and EVM-pallet 0x... (H160) inputs alike. The only topology money node label is Address, keyed by the raw chain-native address, for example 0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24; the SS58/H160 split is the Address.network node PROPERTY (bittensor for SS58, bittensor_evm for H160), never a separate query network. There is no separate identity key.',
+  '- Address nodes carry address, network, labels, and is_exchange. (:Address)-[:LINKED]-(:Address) is an undirected ownership-overlay edge (basis derived/associated, plus confidence, source_event, declared_owner) asserting the two addresses are controlled by the same actor; it is the ownership edge across the SS58/H160 space boundary, so a single network=robinhood query traces SS58 -> (bridge or LINKED) -> H160 and back with no network switch. LINKED is served on the topology graph only. Enumerate LINKED neighbors with MATCH (a:Address {address: $addr})-[l:LINKED]-(b:Address) RETURN b.address, b.network, l.basis, l.confidence.',
   '- Address nodes also carry a risk verdict (risk_score float, risk_level string) plus base activity rollups: degree_in/degree_out/degree_total (distinct counterparty addresses), tx_in_count/tx_out_count/tx_total_count, total_in_usd/total_out_usd/total_volume_usd, net_flow_usd (in minus out; positive = net receiver) — all computed from external flows only — and first_activity_timestamp/last_activity_timestamp/activity_span_days, which include all flows (self-loops included). FLOWS_TO edges carry tx_count, amount_usd_sum, avg_tx_size_usd (understates when price_coverage_ratio < 1), first/last_seen_timestamp, first/last_tx_id, price_coverage_ratio. Lifetime aggregates are the only serving window.',
   '- For actor-level exposure (AC11), UNION FLOWS_TO reachability over one visible LINKED hop instead of expanding through the LINKED edge itself: MATCH (a:Address {address: $addr})-[:LINKED]-(owned:Address)-[r:FLOWS_TO]-(b:Address) WHERE owned.address <> b.address AND a.address <> b.address RETURN owned.address, b.address, r.amount_usd_sum.',
   '- The risk verdict lives on topology nodes (risk_score float, risk_level string). Labels and per-label risk also live on the address node (labels array + label_risk entries: label, risk_level, updated_timestamp). USE facts serves bounded individual transfer rows (TRANSFER edges) only; lifetime address metrics (degrees, totals, activity window) are node properties on USE topology.',
   '- (from:Address)-[t:TRANSFER]->(to:Address) on USE facts returns individual transfer rows, not aggregates, with properties amount, amount_usd, asset_symbol, asset_contract, tx_id, block_height, block_timestamp, event_index, edge_index, price_usd, and price_missing. Every TRANSFER query — row-select or count()/sum() aggregate — requires an indexed predicate: address equality on either endpoint (for example {address: "..."} on from or to) or a WHERE t.tx_id = "..." equality; a bare LIMIT with no indexed predicate is rejected, since facts_transfers_view is a full transfer-history table, not a small per-address dimension view.',
-  '- Facts graph labels include Address; the TRANSFER relationship connects two Address nodes. Neuron identity, hotkey/coldkey pairing, and IP/axon-port observation live on the topology Neuron node, not on facts. Facts address keys match topology address values exactly.',
-  '- Topology relationships include FLOWS_TO, LINKED, and RISK_PROXIMITY between Address nodes. Bittensor topology also carries a two-layer neuron model: (:Neuron {hotkey, netuid}) nodes labeled :Miner or :Validator connect via (:Neuron)-[:MINES|:VALIDATES]->(:Subnet {netuid, name, github_repo, url, discord, contact, owner_coldkey, owner_hotkey}); (:Address)-[:HOTKEY_OF|:COLDKEY_OF]->(:Neuron) bridges the address layer to the neuron layer; (:Address)-[:OWNS]->(:Subnet) marks subnet ownership; on-chain identity properties (chain_name, chain_url, chain_github, chain_discord) live directly on Address. Validator/miner status is chain-evidence-derived, not a label. Neuron identity, hotkey/coldkey pairing, and IP/axon-port observation are served entirely on this topology graph; USE facts no longer carries neuron endpoint detail.',
+  '- Facts graph labels include Address; the TRANSFER relationship connects two Address nodes. Facts address keys match topology address values exactly.',
+  '- Topology relationships include FLOWS_TO, LINKED, and RISK_PROXIMITY between Address nodes.',
   '- FLOWS_TO properties commonly carry tx_count, amount_usd_sum, avg_tx_size_usd, first_seen_timestamp, last_seen_timestamp, first_tx_id, last_tx_id, price_coverage_ratio. Confirm available fields through runtime schema before relying on them.',
   '- Traversal rule: for BFS, fixed-hop fallback, shortest-path, or manual FLOWS_TO traversal, exchange hot wallets are terminal endpoints only. Do not expand from, through, or classify exchange nodes as deposit, suspect, or intermediate candidates; filter every non-terminal node with is_exchange IS NULL.',
   '- Start schema discovery with endpoint-safe property reads: MATCH (n:Address) WHERE n.address IS NOT NULL RETURN n.address AS address, n.network AS network, n.labels AS labels, n.risk_score AS risk_score, n.risk_level AS risk_level LIMIT 20',
@@ -186,18 +186,18 @@ export function knownPublicToolInputSchema(toolName: string): ToolInputShape | n
     case 'aml_address_risk':
       return {
         address: z.string().min(1).describe('Blockchain address to screen.'),
-        network: BITTENSOR_NETWORK_SCHEMA,
+        network: NETWORK_SCHEMA,
         compare_address: z.string().optional().describe('Optional address to compare against the screened address.'),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
       }
     case 'graph_query':
       return {
         query: z.string().min(1).describe('Read-only GQL/Cypher query. Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for bounded TRANSFER rows and enrichment.'),
-        network: BITTENSOR_NETWORK_SCHEMA,
+        network: NETWORK_SCHEMA,
       }
     case 'graph_query_batch':
       return {
-        network: BITTENSOR_NETWORK_SCHEMA,
+        network: NETWORK_SCHEMA,
         queries: z.array(z.object({
           id: z.string().optional(),
           query: z.string().min(1).describe('Read-only GQL/Cypher query'),
@@ -486,7 +486,7 @@ function registerLocalPrompts(server: McpServer): void {
       title: 'AML Address Risk',
       description: 'Screen a blockchain address for AML risk, behavioral patterns, neighborhood profile, member addresses, and exchange links.',
       argsSchema: {
-        network: BITTENSOR_NETWORK_SCHEMA,
+        network: NETWORK_SCHEMA,
         address: z.string().describe('Blockchain address to screen'),
         compare_address: z.string().optional().describe('Optional address to compare against the screened address'),
       },
@@ -536,7 +536,7 @@ function registerLocalPrompts(server: McpServer): void {
       title: 'Graph Query',
       description: 'Run a read-only GQL/Cypher query through the Chain Insights graph endpoint.',
       argsSchema: {
-        network: BITTENSOR_NETWORK_SCHEMA,
+        network: NETWORK_SCHEMA,
         query: z.string().describe('Read-only GQL/Cypher query'),
       },
     },
@@ -560,7 +560,7 @@ function registerLocalPrompts(server: McpServer): void {
       title: 'Graph Query Batch',
       description: 'Run related read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch.',
       argsSchema: {
-        network: BITTENSOR_NETWORK_SCHEMA,
+        network: NETWORK_SCHEMA,
         queries: z.string().describe('JSON array of query objects with optional id and required query fields'),
         per_query_timeout_seconds: z.string().optional().describe('Optional integer timeout per query, 1-600 seconds'),
       },
@@ -745,10 +745,10 @@ function cleanCapabilityLayers(value: unknown): Record<string, unknown> {
   }
 }
 
-function defaultBittensorCapability() {
+function defaultRobinhoodCapability() {
   return {
-    network: 'bittensor',
-    display_name: 'Bittensor',
+    network: 'robinhood',
+    display_name: 'Robinhood',
     status: 'live',
     default: true,
     layers: {
@@ -770,23 +770,23 @@ function cleanNetworkCapabilities(value: unknown) {
   const networks = isRecord(capabilities) && Array.isArray(capabilities.networks)
     ? capabilities.networks
     : []
-  const bittensor = networks.find((network): network is Record<string, unknown> => (
-    isRecord(network) && network.network === 'bittensor'
+  const robinhood = networks.find((network): network is Record<string, unknown> => (
+    isRecord(network) && network.network === 'robinhood'
   ))
 
-  const cleaned = bittensor
+  const cleaned = robinhood
     ? {
-        network: 'bittensor',
-        display_name: typeof bittensor.display_name === 'string' ? bittensor.display_name : 'Bittensor',
-        status: typeof bittensor.status === 'string' ? bittensor.status : 'live',
-        default: bittensor.default === false ? false : true,
-        layers: cleanCapabilityLayers(bittensor.layers),
+        network: 'robinhood',
+        display_name: typeof robinhood.display_name === 'string' ? robinhood.display_name : 'Robinhood',
+        status: typeof robinhood.status === 'string' ? robinhood.status : 'live',
+        default: robinhood.default === false ? false : true,
+        layers: cleanCapabilityLayers(robinhood.layers),
         tools: {
           graph_query: 'available',
           graph_query_batch: 'available',
         },
       }
-    : defaultBittensorCapability()
+    : defaultRobinhoodCapability()
 
   return {
     schema: 'chain-insights.result.v1' as const,
@@ -1124,7 +1124,7 @@ export async function createProxy(): Promise<void> {
         description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.aml_address_risk,
         inputSchema: {
           address: z.string().min(1).describe('Blockchain address to screen'),
-          network: BITTENSOR_NETWORK_SCHEMA,
+          network: NETWORK_SCHEMA,
           compare_address: z.string().optional().describe('Optional address to compare against the screened address'),
           include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
         },
