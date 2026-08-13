@@ -34,7 +34,7 @@ concurrency:
 jobs:
   docs:
     name: Generate repo docs
-    runs-on: [self-hosted, chainswarm-runner]
+    runs-on: [self-hosted, chainswarm-runner, X64]
     steps:
       - name: Checkout caller repo
         uses: actions/checkout@v7.0.1

@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   add-to-board:
-    runs-on: [self-hosted, chainswarm-runner]
+    runs-on: [self-hosted, chainswarm-runner, X64]
     steps:
       - name: Ensure gh CLI is available
         run: |
