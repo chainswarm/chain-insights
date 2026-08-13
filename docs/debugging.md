@@ -28,20 +28,19 @@ reading the logs:
 cia monitor run; echo "exit=$?"
 ```
 
-- `0` — clean pass.
-- `2` — **isolated cell failure**: the pass completed, at least one cell did
-  not. The failing cells are printed as `[monitor] <cell> FAILED: …`; every
-  other cell's findings and alerts landed. This is a partial success.
+- `0` — clean pass; every open case rendered.
+- `2` — **isolated case failure**: the pass completed, at least one case did
+  not. The failing cases are printed as `[monitor]   <case_id> FAILED: …`;
+  every other case's dossier still rendered. This is a partial success.
 - `1` — the run could not start (unreadable workspace, invalid monitor config).
-  Nothing was scanned.
+  Nothing ran.
 
 Under pm2, exit `2` shows the process as `errored` in `pm2 list`. That is the
 intended visibility for a partial pass, not a broken deployment.
 
-An empty findings document is also not a bug: full-state detectors emit only
-findings not already emitted for that network, so unchanged data yields zero
-new findings. Force a full re-emit with
-`cia detect <detector> --network <network> --full`. See
+An unchanged case is also not a bug: rendering is content-keyed, so a case
+whose document did not change since the last pass is skipped
+(`skipped_reason: 'unchanged'`) rather than re-rendered. See
 [Continuous monitoring](monitoring.md).
 
 ## Bittensor Devkit Backend
@@ -110,7 +109,7 @@ npx @modelcontextprotocol/inspector \
 
 ```bash
 node bin/cli.js mcp call graph_query_batch \
-  network=bittensor \
+  network=robinhood \
   'queries=[{"id":"count","query":"USE topology MATCH (n) RETURN count(n) AS count LIMIT 1"}]'
 node bin/cli.js wallet address
 node bin/cli.js wallet balance

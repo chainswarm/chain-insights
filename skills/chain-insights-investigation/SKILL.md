@@ -79,11 +79,10 @@ cia debug off
 This skill covers **one-shot** investigation: a question asked now, answered
 from current graph state, written into the workspace as evidence.
 
-If the user wants to be told when something *changes* — a scheduled sweep, a
-theft re-traced until funds reach a cashout endpoint, an alert when their own
-addresses are touched, findings queued for review over time — that is
-`cia monitor`, and the shipped `chain-insights-monitoring` skill owns it. Route
-there instead of improvising a loop around the AML tools.
+If the user wants to be told when something *changes* — a case re-rendered
+until the investigation concludes, a standing watch over seed addresses —
+that is `cia monitor`, and the shipped `chain-insights-monitoring` skill
+owns it. Route there instead of improvising a loop around the AML tools.
 
 | Signal from the user | Route to |
 | --- | --- |
@@ -97,31 +96,28 @@ so switching between them costs nothing.
 
 Use `aml_address_risk` first for ordinary single-address screening.
 
-Use `aml_trace_victim_funds` when the user has victim/source addresses.
-The victim/source traversal is outward from victim/source funds.
-Use exchange terminal safety and treat the penultimate non-exchange address as the deposit candidate.
-Required input field: `victim_addresses`.
-
-Use `aml_trace_deposit_sources` when the user has suspected deposit/cashout addresses and wants to find direct funders, upstream funders, and shared-source convergence.
-Candidate labels are reviewable, not automatic writes.
-
-Use `aml_trace_suspect_funds` when the user has suspected scammer, mule, operator, or laundering-ring addresses.
-`incident_timestamp` is optional.
-Some Chain Insights Graph deployments do not parse backend-specific BFS or variable-length relationship syntax, so they reproduce this with generated fixed-depth `FLOWS_TO` query batches.
+For fund-flow questions, drive the graph directly with read-only
+`graph_query_batch` over `USE topology` (`(:Address)-[:FLOWS_TO]->(:Address)`
+money edges, `(:Address)-[:LINKED]-(:Address)` ownership overlay). Treat
+addresses as role-labeled hypotheses: victim/source, deposit, or suspect are
+reviewable labels, not automatic writes. Some Chain Insights Graph deployments do not
+parse backend-specific BFS or variable-length relationship syntax, so
+they reproduce this with generated fixed-depth `FLOWS_TO` query batches.
 
 ```bash
-cia mcp trace-victim-funds --network bittensor --victim-addresses 5... --max-hops 3
-cia mcp trace-deposit-sources --network bittensor --deposit-addresses 5... --max-hops 2
-cia mcp trace-suspect-funds --network bittensor --suspect-addresses 5... --max-hops 16
+cia mcp call graph_query_batch \
+  network=<network> \
+  "queries=[{\"id\":\"flows\",\"query\":\"USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum LIMIT 20\"}]"
 ```
 
-All three tools return `chain-insights.trace.v1`, including `candidate_labels` and `continuation`. Candidate labels are reviewable, not automatic writes.
-
-Use manual `graph_query_batch` for custom topology or fact questions. Use `USE topology` for topology (recent and full historical activity in one graph) and `USE facts` for facts and enrichment.
-When writing custom Cypher, use the shipped `chain-insights-cypher` skill; for Bittensor, also use `chain-insights-bittensor-cypher`.
+When writing custom Cypher, use the shipped `chain-insights-cypher` skill; for
+the Bittensor devkit, also use `chain-insights-bittensor-cypher`.
 Treat exchange hot wallets as terminal endpoints only.
 exchange hot wallets are terminal endpoints only
-Use `chain-insights.evidence_pointer.v1` style compact provenance when a workflow points to saved workspace files.
+Use `USE topology` for topology (recent and full historical activity in one
+graph) and `USE facts` for facts and enrichment.
+Use `chain-insights.evidence_pointer.v1` style compact provenance when a
+workflow points to saved workspace files.
 LLM Wiki is a downstream view over exported workspace evidence, not the source of truth.
 
 ## Query And Persistence Loop

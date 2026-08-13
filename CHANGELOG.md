@@ -3,16 +3,40 @@
 
 All notable changes to Chain Insights are recorded here.
 
-## [0.18.7] - 2026-08-13
+## [0.18.7] - 2026-08-13 — ACP/CIA production cut
+
+The production cut retires the internal detection realm and the fund-flow
+trace tools, reduces `cia monitor` to case tracking only, and collapses the
+public surface to one robinhood graph with seven tools.
 
 ### Removed
+
 - Detection realm (`src/detection/`) and the experimental internal tools
   `aml-scam-corridor-trace`, `aml-exchange-likeness`, and their detection
   findings plumbing. The detection scan CLI (`cia detect`) is gone too;
   detection now surfaces on the platform backend as watchlist_label alerts
-  and `aml_address_risk`.
+  and on `aml_address_risk`.
 - Detection limit keys from `src/config/limits.ts` (corridor, attribution,
   poisoning, fake-token, exchange-likeness caps).
+- The public trace tools `aml_trace_victim_funds`, `aml_trace_deposit_sources`,
+  and `aml_trace_suspect_funds`: CLI subcommands, `chain-insights.trace.v1`
+  contract, limit keys, and the `chain-insights-trace-funds` skill. Fund-flow
+  work now runs through `graph_query` / `graph_query_batch` with
+  `USE topology`.
+- The monitor detection/watching surface: detector cells, review/approve,
+  alerts, watchlist, and label export are retired. `cia monitor` now tracks
+  cases only: `run`, `watch`, `render`, `status`, `init victim`, and
+  `case add|list|add-seed|remove-seed|close`. The `monitor:uat` devkit
+  script is retired with it.
+
+### Changed
+
+- `meta_network_capabilities` collapses to one public `robinhood` network
+  with `layers: {}` and seven public tools
+  (`aml_address_risk`, `graph_query`, `graph_query_batch`,
+  `meta_network_capabilities`, `meta_usage_status`, `meta_help`,
+  `wallet_balance`).
+- Docs and skills that referenced the removed surface are swept to match.
 
 ## [0.18.6] - 2026-08-08
 

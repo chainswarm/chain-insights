@@ -107,21 +107,12 @@ backends it can reflect remote quota telemetry. On primitive-only local
 backends such as the Bittensor devkit, it returns a local unmetered
 primitive-backend status.
 
-Chain Insights adds high-level local graph recipes such as `aml_address_risk`,
-`aml_trace_victim_funds`, `aml_trace_deposit_sources`, and
-`aml_trace_suspect_funds` when the remote endpoint only exposes primitives.
+Chain Insights adds the high-level local graph recipe `aml_address_risk`
+when the remote endpoint only exposes primitives.
 
 AML recipes accept full blockchain addresses directly and return blockchain
 addresses as the public result surface — the graph is address-grain, so there
 is no identity-resolution step.
-
-The trace tools share `chain-insights.trace.v1` and are role-specific:
-
-- `aml_trace_victim_funds` for victim/source forward tracing.
-- `aml_trace_deposit_sources` for reverse traceback from suspected deposit
-  endpoints.
-- `aml_trace_suspect_funds` for suspect-controlled outbound laundering/cashout
-  topology.
 
 ## Auth Modes
 
@@ -144,7 +135,7 @@ Daily free-tier graph usage:
 ```bash
 chain-insights mcp call meta_usage_status
 chain-insights mcp call graph_query \
-  network=bittensor \
+  network=robinhood \
   "query=USE topology MATCH (n) RETURN count(n) AS count LIMIT 1"
 ```
 
@@ -162,9 +153,7 @@ you want bounded result sets.
 
 Staging UAT on 2026-05-31 showed the 10-second free tier was enough for exact
 address checks, sample address reads, sample flow reads, and the
-free-to-paid handoff. The tested address
-`5EkTMF1noWnWupGxQqtPczW2FFB7ktdVwjaZ22Cam54U93Xx` returned no indexed topology
-rows on staging, but bounded sample reads still returned Bittensor topology data
+free-to-paid handoff, but bounded sample reads still returned topology data
 inside the same daily allowance.
 
 For custom graph reads, install the shipped `chain-insights-cypher` skill. Its
@@ -206,7 +195,7 @@ After installing, open an initialized investigation workspace in the agent and
 operate over the workspace files.
 
 For manual graph-language work, agents should use the shipped
-`chain-insights-cypher` skill. For Bittensor queries, load
+`chain-insights-cypher` skill. For the Bittensor devkit fixture, load
 `chain-insights-bittensor-cypher` after the generic skill so SS58 and
 EVM-pallet addresses stay under `network=bittensor`.
 
@@ -228,9 +217,6 @@ surface.
 Current MCP prompts exposed by the local proxy:
 
 - `aml-address-risk`
-- `aml-trace-victim-funds`
-- `aml-trace-suspect-funds`
-- `aml-trace-deposit-sources`
 - `meta-network-capabilities`
 - `meta-usage-status`
 - `graph-query`
@@ -250,14 +236,14 @@ available tools exactly as returned.
 ```
 
 ```text
-Use Chain Insights graph_query on network bittensor with:
+Use Chain Insights graph_query on network robinhood with:
 USE topology MATCH (a:Address)
 RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level
 LIMIT 10
 ```
 
 ```text
-Use Chain Insights graph_query_batch on network bittensor with these read-only Cypher queries:
+Use Chain Insights graph_query_batch on network robinhood with these read-only Cypher queries:
 1. USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1
 2. USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum LIMIT 3
 ```

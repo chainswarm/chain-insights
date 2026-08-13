@@ -90,12 +90,6 @@ cia mcp call aml_address_risk "address=${SEED_ADDRESS}" network=bittensor \
   > "$EVIDENCE_DIR/aml-address-risk.txt"
 
 cia_in_workspace init . > "$EVIDENCE_DIR/workspace-init.txt"
-cia_in_workspace mcp call aml_trace_victim_funds "victim_addresses=${SEED_ADDRESS}" network=bittensor max_hops=2 \
-  > "$EVIDENCE_DIR/aml-trace-victim-funds.txt"
-cia_in_workspace mcp call aml_trace_suspect_funds "suspect_addresses=${SEED_ADDRESS}" network=bittensor max_hops=2 \
-  > "$EVIDENCE_DIR/aml-trace-suspect-funds.txt"
-cia_in_workspace mcp call aml_trace_deposit_sources "deposit_addresses=${PEER_ADDRESS}" network=bittensor max_hops=2 \
-  > "$EVIDENCE_DIR/aml-trace-deposit-sources.txt"
 
 "$SCRIPT_DIR/smoke-memgql-objects.py" > "$EVIDENCE_DIR/memgql-object-coverage.json"
 
@@ -135,9 +129,6 @@ required_terms = {
     "graph-query-facts.json": ["row_count"],
     "graph-query-batch.json": ["chain-insights.result.v1", "facts"],
     "aml-address-risk.txt": ["Risk:", seed],
-    "aml-trace-victim-funds.txt": ["Trace victim funds complete", seed],
-    "aml-trace-suspect-funds.txt": ["Trace suspect funds complete", seed],
-    "aml-trace-deposit-sources.txt": ["Trace deposit sources complete", peer],
 }
 for filename, terms in required_terms.items():
     content = text(filename)
@@ -177,9 +168,6 @@ summary = {
         "graph_query",
         "graph_query_batch",
         "aml_address_risk",
-        "aml_trace_victim_funds",
-        "aml_trace_suspect_funds",
-        "aml_trace_deposit_sources",
     ],
     "mapping_object_checks": coverage["summary"],
 }

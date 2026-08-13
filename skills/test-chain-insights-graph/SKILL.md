@@ -57,7 +57,7 @@ The UAT must verify all of these facts:
 - Direct Chain Insights Graph `graph_query` defaults to address-grain topology for the single `bittensor` network: `(:Address)-[:FLOWS_TO]->(:Address)` plus the undirected `(:Address)-[:LINKED]-(:Address)` ownership-overlay edge across the SS58/H160 space boundary — the AC5 single-network cross-space recipe (SS58 -> LINKED -> H160 and back) runs under `network=bittensor` with no network switch. Public tools remain address-facing: they accept and return the raw address directly, with no identity-resolution step.
 - If direct Chain Insights Graph also exposes high-level `aml_address_risk`, that direct tool succeeds, returns `content` text and `structuredContent.schema = chain-insights.result.v1`, does not expose `app_data`, `nodes`, `edges`, `flows`, `edge_anchors`, or `transfers` in `structuredContent`, and puts graph data only in `_meta.chainInsights.graph.data`.
 - If direct Chain Insights Graph is primitive-only, Chain Insights proxy high-level tools are still mandatory and must build their graph reports from the primitive graph path.
-- Chain Insights proxy `tools/list` exposes local `wallet_balance`, `meta_help`, `meta_network_capabilities`, `meta_usage_status`, `aml_address_risk`, `aml_trace_victim_funds`, `aml_trace_suspect_funds`, and `aml_trace_deposit_sources`, plus public proxied Chain Insights Graph tools.
+- Chain Insights proxy `tools/list` exposes local `wallet_balance`, `meta_help`, `meta_network_capabilities`, `meta_usage_status`, `aml_address_risk`, plus public proxied Chain Insights Graph tools.
 - `chain-insights mcp networks` reports each supported network with topology support, risk support, and available tools.
 - Chain Insights proxy tool descriptions must not contain stale `app_data` wording after schema refresh.
 - Chain Insights proxy `aml_address_risk` returns only local graph report metadata in `_meta.chainInsights.graph = { schema, url }`.
@@ -70,35 +70,28 @@ The UAT must verify all of these facts:
 
 <monitoring_uat>
 The bundled script covers the investigation path. `cia monitor` is a separate
-surface over the same endpoint and is not exercised by it. When a change
-touches monitoring, detection, or the graph reads they issue, add a manual pass
-from the temporary workspace:
+surface over the same workspace and is not exercised by it. When a change
+touches monitor rendering or the case commands, add a manual pass from the
+temporary workspace:
 
 ```bash
 cia monitor run; echo "exit=$?"
 cia monitor status
-cia monitor report
+cia monitor render
 ```
 
 What to assert, and what NOT to treat as a failure:
 
-- Exit `0` is a clean pass; exit `2` is an **isolated cell failure** — the pass
-  completed and every other cell's findings and alerts landed. Only exit `1`
-  means the run could not start. A UAT that treats any non-zero exit as failure
-  will report a healthy partial pass as broken.
-- A findings document with **zero findings is a valid result** on unchanged
-  data: full-state detectors (`fake-token`, `mixer`, `attack-attribution`)
-  emit only findings not already emitted for that network. Assert the document
-  exists and parses, not that it is non-empty. To force a populated document,
-  re-emit deliberately with `cia detect <detector> --network <network> --full`.
-- Findings must carry no reviewer. The review step is the only path to a label,
-  so a generated document with a reviewer set is a contract violation.
-- Monitor output must stay workspace-local (`detections/`, `cases/`,
-  `.chain-insights/monitor/`) — the same rule as investigation output.
-- Detector sweeps must scope non-exact `:Address` matches by the
-  `:Address.network` node property. Network views share one address-grain
-  topology graph, so an unscoped sweep returns another view's addresses; two
-  cells differing only by network returning identical rows is the symptom.
+- Exit `0` is a clean pass; exit `2` is an **isolated case failure** — the
+  run completed and every other case's dossier still rendered. Only exit `1`
+  means the run could not start. A UAT that treats any non-zero exit as a
+  failure will report a healthy partial pass as broken.
+- An **unchanged case renders as skipped, not re-rendered**: the run document
+  records `skipped_reason: 'unchanged'` (content-keyed rendering). Assert the
+  run document exists and parses, not that it re-rendered every case.
+- Monitor output must stay workspace-local (`cases/`,
+  `.chain-insights/monitor/`, `published/cases/`) — the same rule as
+  investigation output.
 
 See `docs/monitoring.md` and the `chain-insights-monitoring` skill for the full
 command surface.

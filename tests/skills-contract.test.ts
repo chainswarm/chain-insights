@@ -29,7 +29,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('cia init .')
     expect(skill).toContain('No investigation output belongs under ~/.chain-insights')
     expect(skill).toContain('single-address')
-    expect(skill).toContain('victim_addresses')
+    expect(skill).toContain('role-labeled hypotheses')
     expect(skill).toContain('Topology is address-grain and graph-selected')
     expect(skill).toContain('High-level `aml_*` tools accept addresses with no identity-resolution step')
     expect(skill).toContain('public results, artifacts, and follow-up candidate lists always return the raw address')

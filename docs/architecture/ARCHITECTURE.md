@@ -40,7 +40,6 @@ One doc per source module under `components/`. Human-authored.
 | Worker | Component doc |
 |---|---|
 | `config` | [config](components/config.md) |
-| `detection` | [detection](components/detection.md) |
 | `federation` | [federation](components/federation.md) |
 | `investigation` | [investigation](components/investigation.md) |
 | `mcp` | [mcp](components/mcp.md) |
