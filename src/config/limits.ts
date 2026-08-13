@@ -57,8 +57,6 @@ export interface LimitSpec {
 export const HOP_LIMIT_KEYS = [
   'trace_max_hops',
   'deposit_sources_max_hops',
-  'corridor_max_hops',
-  'attribution_max_hops',
 ] as const
 
 export const LIMIT_SPECS = {
@@ -88,76 +86,6 @@ export const LIMIT_SPECS = {
     min: 1,
     ceiling: 20_000,
     description: 'Value-ordered upstream paths retained per reverse-trace depth.',
-  },
-
-  // ── investigation/scam-corridor-trace.ts ──
-  corridor_max_hops: {
-    builtin: 3,
-    min: 1,
-    ceiling: 4,
-    description: 'Corridor BFS depth in hops.',
-  },
-  corridor_frontier_cap: {
-    builtin: 50,
-    min: 1,
-    ceiling: 500,
-    description: 'Addresses carried forward per corridor hop.',
-  },
-  corridor_query_row_limit: {
-    builtin: 200,
-    min: 1,
-    ceiling: 5_000,
-    description: 'Rows returned per corridor frontier query.',
-  },
-
-  // ── investigation/exchange-likeness.ts ──
-  exchange_likeness_max_candidates: {
-    builtin: 25,
-    min: 1,
-    ceiling: 100,
-    description: 'Candidate addresses screened per exchange-likeness call.',
-  },
-
-  // ── detection/detectors/attack-attribution.ts ──
-  attribution_max_hops: {
-    builtin: 3,
-    min: 1,
-    ceiling: 5,
-    description: 'Downstream attribution walk depth in hops.',
-  },
-  attribution_max_frontier: {
-    builtin: 500,
-    min: 1,
-    ceiling: 10_000,
-    description: 'Downstream nodes emitted per attribution hop.',
-  },
-  attribution_max_rows: {
-    builtin: 1_000,
-    min: 1,
-    ceiling: 50_000,
-    description: 'Seed rows pulled per attribution sweep.',
-  },
-
-  // ── detection/detectors/address-poisoning.ts ──
-  poisoning_max_rows: {
-    builtin: 1_000,
-    min: 1,
-    ceiling: 50_000,
-    description: 'Rows scanned per address-poisoning sweep query.',
-  },
-
-  // ── detection/detectors/fake-token.ts ──
-  fake_token_max_rows: {
-    builtin: 1_000,
-    min: 1,
-    ceiling: 50_000,
-    description: 'Assets returned per fake-token pagination page.',
-  },
-  fake_token_max_asset_pages: {
-    builtin: 50,
-    min: 1,
-    ceiling: 500,
-    description: 'Pages of assets walked per fake-token sweep.',
   },
 
   // ── viz/graph-model.ts ──

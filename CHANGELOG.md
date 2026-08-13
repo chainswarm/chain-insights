@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.7] - 2026-08-13
+
+### Removed
+- Detection realm (`src/detection/`) and the experimental internal tools
+  `aml-scam-corridor-trace`, `aml-exchange-likeness`, and their detection
+  findings plumbing. The detection scan CLI (`cia detect`) is gone too;
+  detection now surfaces on the platform backend as watchlist_label alerts
+  and `aml_address_risk`.
+- Detection limit keys from `src/config/limits.ts` (corridor, attribution,
+  poisoning, fake-token, exchange-likeness caps).
+
 ## [0.18.6] - 2026-08-08
 
 ### Changed

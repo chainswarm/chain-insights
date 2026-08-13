@@ -704,56 +704,6 @@ program
       })
   )
   .addCommand(
-    new Command('aml-scam-corridor-trace')
-      .description('[internal] Trace a scam seed address hop-by-hop for corridor/exchange/hub gate classification. Not on the public MCP surface — findings are proposals, not label writes.')
-      .requiredOption('--seed-address <address>', 'Full scam seed address to trace')
-      .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
-      .option('--max-hops <number>', 'Maximum trace hops, default 3, hard cap 4')
-      .action(async (opts: { seedAddress: string; network: string; maxHops?: string }) => {
-        try {
-          const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-          requireWorkspaceRoot()
-          await withGraphMcpClient('chain-insights-cli-aml-scam-corridor-trace', async (client) => {
-            const { scamCorridorTrace } = await import('./investigation/scam-corridor-trace.js')
-            const result = await scamCorridorTrace(client, {
-              seedAddress: opts.seedAddress,
-              network: opts.network,
-              maxHops: optionalNumber(opts.maxHops),
-            })
-            console.log(result.summaryText)
-            console.log(JSON.stringify(result.document, null, 2))
-          })
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
-  .addCommand(
-    new Command('aml-exchange-likeness')
-      .description('[internal] Classify 1-25 candidate addresses for exchange-likeness via fan-in/reciprocity/lifetime-inbound thresholds. Not on the public MCP surface — findings are proposals, not label writes.')
-      .requiredOption('--addresses <addresses>', 'Comma-separated candidate addresses, max 25')
-      .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
-      .action(async (opts: { addresses: string; network: string }) => {
-        try {
-          const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-          requireWorkspaceRoot()
-          await withGraphMcpClient('chain-insights-cli-aml-exchange-likeness', async (client) => {
-            const { exchangeLikeness } = await import('./investigation/exchange-likeness.js')
-            const result = await exchangeLikeness(client, {
-              addresses: opts.addresses,
-              network: opts.network,
-            })
-            console.log(result.summaryText)
-            console.log(JSON.stringify(result.document, null, 2))
-          })
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
-  .addCommand(
     new Command('call')
       .description('Call an MCP tool directly (debug)')
       .argument('<tool>', 'Tool name to call')
@@ -885,80 +835,6 @@ program
       process.exit(1)
     }
   })
-
-program
-  .command('detect')
-  .description(
-    '[internal] Run a relocated detection scan (rbmk#462) — emits reviewable findings, never a direct label. Available: mixer, and the DEPRECATED fake-token, address-poisoning, attack-attribution (these now run on the platform backend and surface as watchlist_label alerts + aml_address_risk).',
-  )
-  .argument('<detector>', 'Detector id: fake-token | mixer | address-poisoning | attack-attribution')
-  .requiredOption('--network <network>', 'Network to scan. Run `cia mcp networks` for supported networks.')
-  .option('--full', 'Scan from genesis (ignore the checkpoint)', false)
-  .option('--since-checkpoint', 'Scan only since the last checkpoint (default)', false)
-  .option('--watch', 'Loop the scan as a daemon', false)
-  .option('--interval <seconds>', 'Watch interval seconds', '3600')
-  .option(
-    '--param <key=value>',
-    'Detector-specific tuning override (repeatable). E.g. mixer: --param min_in=80 --param time_scope=recent. Unset knobs use per-network defaults.',
-    (kv: string, acc: Record<string, string>) => {
-      const eq = kv.indexOf('=')
-      if (eq <= 0) throw new Error(`--param must be key=value, got "${kv}"`)
-      acc[kv.slice(0, eq).trim()] = kv.slice(eq + 1).trim()
-      return acc
-    },
-    {} as Record<string, string>,
-  )
-  .action(
-    async (
-      detector: string,
-      opts: {
-        network: string
-        full?: boolean
-        sinceCheckpoint?: boolean
-        watch?: boolean
-        interval?: string
-        param?: Record<string, string>
-      },
-    ) => {
-      try {
-        const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-        const workspaceRoot = requireWorkspaceRoot()
-        const { deprecationWarning } = await import('./detection/registry.js')
-        const warn = deprecationWarning(detector)
-        if (warn) console.warn(`[detect] DEPRECATED: ${warn}`)
-        const { runOneDetection } = await import('./detection/run.js')
-        const full = Boolean(opts.full)
-        const once = async () => {
-          await withGraphMcpClient('chain-insights-cli-detect', async (client) => {
-            const outcome = await runOneDetection(client, {
-              detector,
-              network: opts.network,
-              full,
-              workspaceRoot,
-              nowTimestamp: Date.now(),
-              params: opts.param ?? {},
-            })
-            console.log(
-              `[detect] ${detector} ${opts.network}: ${outcome.findingsCount} finding(s), status=${outcome.status} -> ${outcome.findingsPath}`,
-            )
-          })
-        }
-        if (opts.watch) {
-          const intervalMs = Math.max(60, Number(opts.interval) || 3600) * 1000
-          // eslint-disable-next-line no-constant-condition
-          for (;;) {
-            await once()
-            await new Promise((resolve) => setTimeout(resolve, intervalMs))
-          }
-        } else {
-          await once()
-        }
-      } catch (err) {
-        console.error((err as Error).message)
-        process.exit(1)
-      }
-    },
-  )
 
 const MONITOR_EXIT_ISOLATED = 2
 
