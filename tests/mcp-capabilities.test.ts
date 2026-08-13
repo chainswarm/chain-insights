@@ -195,6 +195,12 @@ describe('MCP network capabilities', () => {
     expect(output).toContain('meta_help, meta_network_capabilities, meta_usage_status')
     expect(output).toContain('wallet_balance')
     expect(output).not.toContain('aml_trace')
+    expect(output.split('\n')[0]).toBe(
+      'Network'.padEnd(14) + '  ' + 'Dataset'.padEnd(38) + '  ' + 'Available tools'.padEnd(64),
+    )
+    expect(output).not.toContain('Topology')
+    expect(output).not.toContain('Facts')
+    expect(output).not.toContain('Risk')
   })
 
   it('formats no available tools for unsupported networks', async () => {

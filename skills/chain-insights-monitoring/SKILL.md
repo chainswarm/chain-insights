@@ -76,7 +76,7 @@ below is lost.
 Every pass renders each open case from its document:
 
 - `published/cases/<case_id>/dossier.md` — headline verdict, seeds, and a
-  money-flow diagram.
+  seed-set diagram.
 - `published/cases/<case_id>/addresses/<addr>.md` — one note per seed.
 - `published/cases/<case_id>/timeline.md` — seed events in order.
 

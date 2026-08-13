@@ -5,7 +5,6 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { listCases } from './cases.js'
-import type { MonitorConfig } from './config.js'
 import { monitorPaths } from './paths.js'
 
 async function lastRunTimestamp(workspaceRoot: string): Promise<number | null> {
@@ -26,7 +25,7 @@ async function lastRunTimestamp(workspaceRoot: string): Promise<number | null> {
   }
 }
 
-export async function statusText(workspaceRoot: string, config: MonitorConfig, nowTimestamp: number = Date.now()): Promise<string> {
+export async function statusText(workspaceRoot: string): Promise<string> {
   const [cases, lastRun] = await Promise.all([
     listCases(workspaceRoot, { openOnly: true }),
     lastRunTimestamp(workspaceRoot),

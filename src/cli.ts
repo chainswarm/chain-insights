@@ -597,7 +597,7 @@ program
     new Command('call')
       .description('Call an MCP tool directly (debug)')
       .argument('<tool>', 'Tool name to call')
-      .argument('[args...]', 'Key=value arguments (e.g. address=5Seed network=bittensor)')
+      .argument('[args...]', 'Key=value arguments (e.g. address=0x1234... network=robinhood)')
       .action(async (tool: string, rawArgs: string[]) => {
         try {
           const { parseMcpCallArgs } = await import('./mcp/call-args.js')
@@ -807,10 +807,8 @@ monitor
     try {
       const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
       const workspaceRoot = requireWorkspaceRoot()
-      const { loadMonitorConfig } = await import('./monitor/config.js')
       const { statusText } = await import('./monitor/report.js')
-      const config = await loadMonitorConfig(workspaceRoot)
-      console.log(await statusText(workspaceRoot, config))
+      console.log(await statusText(workspaceRoot))
     } catch (err) {
       console.error((err as Error).message)
       process.exit(1)

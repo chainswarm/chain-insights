@@ -59,8 +59,10 @@ Agent installers ship two graph-query skills:
   recipes, archive/facts reads, and fixed-hop traversal fallbacks for native
   Memgraph deep traversal syntax that the hosted Chain Insights Graph path may
   reject.
-- `chain-insights-bittensor-cypher`: Bittensor-specific schema notes for SS58
-  and EVM-pallet addresses under `network=bittensor`.
+- `chain-insights-bittensor-cypher`: Bittensor devkit fixture lane —
+  Bittensor-specific schema notes for SS58 and EVM-pallet addresses under
+  `network=bittensor` (the public production network is `robinhood`; this
+  skill applies to the devkit fixture only).
 
 Check public-free usage:
 

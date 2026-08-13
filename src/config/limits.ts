@@ -16,7 +16,7 @@
 // its hard ceiling.
 //
 // ── Precedence (highest wins) ──────────────────────────────────────────────
-//   1. per-call      — an argument on the MCP tool / CLI flag / detector param
+//   1. per-call      — an argument on the MCP tool / CLI flag
 //   2. config file   — `networkLimits[network][key]` in ~/.chain-insights/config.json
 //   3. config file   — `limits[key]` (all networks)
 //   4. per-network   — NETWORK_LIMIT_DEFAULTS[network].defaults[key]
@@ -48,8 +48,8 @@ export interface LimitSpec {
 }
 
 // Row/frontier ceilings are generous because their cost is close to linear
-// in the value; hop caps that grow exponentially with depth were removed
-// with the aml_trace_* tools.
+// in the value; the exponential hop caps (corridor/attribution and the
+// aml_trace_* tools) were removed with the retired detection realm.
 export const LIMIT_SPECS = {
   // ── viz/graph-model.ts ──
   viz_max_nodes: {

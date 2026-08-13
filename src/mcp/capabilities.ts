@@ -114,12 +114,6 @@ export async function fetchNetworkCapabilities(
   return publicNetworkCapabilities(parsed)
 }
 
-function layerValue(network: NetworkCapability, layer: string): string {
-  const capability = network.layers[layer]
-  if (!capability?.enabled) return 'no'
-  return 'yes'
-}
-
 function availableTools(network: NetworkCapability): string[] {
   const effectiveTools = ROBINHOOD_SEMANTIC_NETWORKS.has(network.network)
     ? {
@@ -165,16 +159,13 @@ function datasetLabel(network: NetworkCapability): string {
 
 export function formatNetworkCapabilities(document: NetworkCapabilitiesDocument): string {
   if (document.networks.length === 0) return 'No supported networks advertised.'
-  const headers = ['Network', 'Topology', 'Facts', 'Risk', 'Dataset', 'Available tools']
-  const widths = [14, 10, 8, 8, 38, 64]
+  const headers = ['Network', 'Dataset', 'Available tools']
+  const widths = [14, 38, 64]
   const row = (values: string[]) => values.map((value, index) => value.padEnd(widths[index]!)).join('  ')
   const networkRows = document.networks.flatMap((network) => {
     const toolLines = availableToolLines(network)
     return toolLines.map((toolLine, index) => row([
       index === 0 ? network.display_name || network.network : '',
-      index === 0 ? layerValue(network, 'topology') : '',
-      index === 0 ? layerValue(network, 'facts') : '',
-      index === 0 ? layerValue(network, 'risk') : '',
       index === 0 ? datasetLabel(network) : '',
       toolLine,
     ]))

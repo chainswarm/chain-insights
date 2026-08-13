@@ -10,13 +10,13 @@ async function ws(): Promise<string> {
   return mkdtemp(path.join(tmpdir(), 'cia-report-'))
 }
 
-const CFG = { intervalSeconds: 60, render: { dormant_after_days: 30 } }
+
 
 describe('statusText (case-tracking shape)', () => {
   it('shows open cases and never when no run has happened', async () => {
     const root = await ws()
     await addCase(root, { case_id: 'c1', type: 'stolen-funds', network: 'bittensor', seeds: ['5Seed'] }, 100)
-    const status = await statusText(root, CFG)
+    const status = await statusText(root)
     expect(status).toContain('open cases: 1')
     expect(status).toContain('c1 [stolen-funds/bittensor]')
     expect(status).toContain('last run: never')
@@ -27,6 +27,6 @@ describe('statusText (case-tracking shape)', () => {
     const logDir = path.join(monitorPaths(root).logsDir)
     await import('node:fs/promises').then((fs) => fs.mkdir(logDir, { recursive: true }))
     await writeFile(path.join(logDir, 'monitor-runs.jsonl'), `${JSON.stringify({ run_timestamp: 1000 })}\n${JSON.stringify({ run_timestamp: 2000 })}\n`, 'utf8')
-    expect(await statusText(root, CFG)).toContain('last run: 2000')
+    expect(await statusText(root)).toContain('last run: 2000')
   })
 })

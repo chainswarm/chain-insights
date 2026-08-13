@@ -14,8 +14,8 @@ public surface to one robinhood graph with seven tools.
 - Detection realm (`src/detection/`) and the experimental internal tools
   `aml-scam-corridor-trace`, `aml-exchange-likeness`, and their detection
   findings plumbing. The detection scan CLI (`cia detect`) is gone too;
-  detection now surfaces on the platform backend as watchlist_label alerts
-  and on `aml_address_risk`.
+  detection now surfaces through the curated label set that supervises
+  `aml_address_risk`.
 - Detection limit keys from `src/config/limits.ts` (corridor, attribution,
   poisoning, fake-token, exchange-likeness caps).
 - The public trace tools `aml_trace_victim_funds`, `aml_trace_deposit_sources`,

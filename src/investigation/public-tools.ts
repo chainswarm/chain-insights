@@ -444,12 +444,10 @@ function linkedExposureQueries(address: string): Array<{ id: string; query: stri
   ]
 }
 
-// AC5: cross-space LINKED probe. The SS58/H160 split is the :Address.network
-// node PROPERTY (bittensor / bittensor_evm) on the single public
-// network=bittensor graph -- LINKED is the ownership edge across that space
-// boundary (FLOWS_TO stays within one space), so this runs on the topology
-// graph with no network switch. LINKED is served on the topology graph
-// only.
+// AC5: LINKED ownership-overlay probe. On the single public robinhood graph,
+// :Address.network is a node PROPERTY (robinhood), never a second query
+// network: LINKED is the ownership edge within that one space, served on the
+// topology graph only, with no network switch.
 function crossSpaceLinkedQuery(address: string): { id: string; query: string } {
   return {
     id: 'cross_space_linked',

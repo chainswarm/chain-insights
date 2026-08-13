@@ -178,21 +178,20 @@ property names for the active network.
 
 The address-grain graph schema:
 
-- All Bittensor investigation runs on ONE public network: always pass
-  \`network=bittensor\`, for SS58 and EVM-pallet \`0x...\` (H160) inputs
-  alike. Every topology node is \`(:Address {address, network})\`, keyed by
-  the raw chain-native \`address\`; the SS58/H160 split is the node's
-  \`network\` PROPERTY (\`bittensor\` for SS58, \`bittensor_evm\` for H160),
-  not a separate query network. There is no separate identity key and no
+- All Chain Insights investigation runs on ONE public network: always pass
+  \`network=robinhood\` — one EVM H160 (\`0x...\`) address space, no SS58.
+  Every topology node is \`(:Address {address, network})\`, keyed by
+  the raw chain-native \`address\`; there is no SS58/H160 split and no
+  second query network. There is no separate identity key and no
   member-address satellite: the address IS the graph node.
 - \`(:Address)-[:LINKED]-(:Address)\` is an **undirected** ownership-overlay
   edge (\`basis\` \`derived\`/\`associated\`, plus \`confidence\`,
   \`source_event\`, \`declared_owner\`) asserting the two addresses are
-  controlled by the same actor. \`LINKED\` is the ownership edge across the
-  SS58/H160 space boundary — a single \`network=bittensor\` query traces
-  SS58 -> (bridge or LINKED) -> H160 and back with no network switch. Walk
-  one visible \`LINKED\` hop to surface actor-level exposure or to resolve
-  an address's counterpart in the other space; never treat linked addresses
+  controlled by the same actor. \`LINKED\` is the ownership edge within the
+  single \`network=robinhood\` space — a same-network query traces
+  (\`LINKED\` or \`FLOWS_TO\`) with no network switch. Walk
+  one visible \`LINKED\` hop to surface actor-level exposure; never treat
+  linked addresses
   as a single collapsed node. \`LINKED\` is served on the topology graph
   only.
 - Other Address properties: \`labels\` (array) and \`is_exchange\`
