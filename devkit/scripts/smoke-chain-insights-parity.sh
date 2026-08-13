@@ -8,6 +8,7 @@ EVIDENCE_DIR="$REPO_ROOT/workspace/devkit-smoke/chain-insights-parity"
 WORKSPACE_DIR="$EVIDENCE_DIR/workspace"
 HOME_DIR="$EVIDENCE_DIR/home"
 export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT="${CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT:-http://127.0.0.1:18012/mcp}"
+MCP_BASE="${CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT%/mcp}"
 export HOME="$HOME_DIR"
 
 mkdir -p "$EVIDENCE_DIR" "$HOME_DIR"
@@ -49,6 +50,9 @@ test -n "$PEER_ADDRESS"
 
 cia --version > "$EVIDENCE_DIR/chain-insights-version.txt"
 cia mcp networks --json > "$EVIDENCE_DIR/meta-network-capabilities.json"
+# The devkit backend's own capabilities document (bypasses the CLI's public
+# robinhood-only filter so the devkit contract is pinned as served).
+curl -fsS "$MCP_BASE/metadata/networks" > "$EVIDENCE_DIR/meta-network-backend.json"
 cia mcp tools --refresh > "$EVIDENCE_DIR/visible-tools.txt"
 cia mcp call meta_help > "$EVIDENCE_DIR/meta-help.txt"
 cia mcp call meta_network_capabilities > "$EVIDENCE_DIR/meta-network-capabilities-call.json"
@@ -106,8 +110,17 @@ peer = sys.argv[3]
 def text(name: str) -> str:
     return (evidence / name).read_text(encoding="utf-8")
 
+# Post-cut contract (2026-08-13): the public surface is robinhood-only, so the
+# CLI's public view finds NO network on the bittensor-serving devkit (by
+# design); the devkit's own backend document still advertises bittensor with
+# the topology/facts layers. Both sides are pinned here.
 networks = json.loads(text("meta-network-capabilities.json"))
-network = networks["networks"][0]
+cli_call = json.loads(text("meta-network-capabilities-call.json"))
+assert networks["networks"] == []
+assert cli_call["networks"] == []
+
+backend = json.loads(text("meta-network-backend.json"))
+network = backend["networks"][0]
 assert network["network"] == "bittensor"
 assert network["layers"]["topology"]["enabled"] is True
 assert network["layers"]["facts"]["enabled"] is True
