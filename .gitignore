@@ -33,3 +33,6 @@ dist/
 
 __pycache__/
 *.pyc
+
+# Coverage output
+/coverage/
