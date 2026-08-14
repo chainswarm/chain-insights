@@ -44,17 +44,11 @@ inside an ordinary initialized workspace and adds directories alongside the
 investigation ones:
 
 ```text
-detections/                             Findings documents from sweeps and case traces
-detections/reviewed/                    Reviewer-stamped copies (the hand-off artifact)
-cases/<case-id>/case.json               Case definition
-cases/<case-id>/snapshots/              One snapshot per pass that traced this case
-reports/monitor/                        Exported curated labels (JSON + CSV)
-.chain-insights/monitor/config.json     Monitor configuration
-.chain-insights/monitor/runs/           One run document per pass
-.chain-insights/monitor/alerts/         Alert stream and acknowledgements
-.chain-insights/monitor/reviews/        Review decision records
-.chain-insights/monitor/watchlist.json  Watched addresses
-.chain-insights/detectors/              Per-detector, per-network scan state
+cases/<case-id>/case.json               Case definition (seeds, seed events)
+.chain-insights/monitor/config.json    Monitor configuration (render)
+.chain-insights/monitor/render-state.json  Per-case render keys
+.chain-insights/monitor/logs/          Append-only run log (monitor-runs.jsonl)
+published/cases/<case-id>/             Rendered case dossiers, per-address notes, timelines
 ```
 
 The same rules apply: run every command from the workspace root, and no monitor
@@ -64,17 +58,17 @@ Whether to share one workspace or keep two is a question of lifetime, not
 capability:
 
 - **One workspace** when monitoring exists to feed investigation — a tracked
-  theft whose case movements you then trace by hand. Case snapshots, findings,
-  and your `reports/` analysis sit next to each other and reference each other
-  by path.
+  theft whose case dossiers you then read alongside your `reports/` analysis.
+  The rendered case output and your analysis sit next to each other and
+  reference each other by path.
 - **A dedicated monitoring workspace** when the watch is long-running and
-  general (a scheduled matrix, a treasury watchlist). It accumulates run
-  documents and findings indefinitely, on a schedule; an investigation
-  workspace is a bounded piece of work you eventually publish and close. Mixing
-  them buries a finished investigation under months of run documents.
+  general (a standing case-tracking schedule). It accumulates run documents
+  and rendered cases indefinitely; an investigation workspace is a bounded
+  piece of work you eventually publish and close. Mixing them buries a
+  finished investigation under months of run documents.
 
 Do not point two schedules at the same workspace. Passes are idempotent, but
-overlapping schedules double the metered graph spend for no extra coverage.
+overlapping schedules double the work for no extra coverage.
 
 See [Continuous monitoring](monitoring.md) for the command surface.
 

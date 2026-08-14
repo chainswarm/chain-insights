@@ -1,280 +1,174 @@
 # Continuous Monitoring
 
 `cia monitor` turns Chain Insights from a one-shot investigation tool into a
-standing watch. One toolkit serves two operators: a **theft victim** watching
-their own stolen funds for movement toward a cashout, and a **detection
-operator** running scheduled scam sweeps over whole networks. Both get the
-same guarantees — every result lands as plain files in the workspace, and
-nothing becomes a label until a human reviews it. The victim path is the
-first-class quickstart below; the operator lanes follow.
+standing view of your cases. It re-renders each open case's dossier on a
+schedule. The typical operator is a **theft victim** watching their own stolen
+funds, or an analyst tracking a scam cluster over time.
+
+Everything lands as plain files in the workspace. Nothing is pushed anywhere:
+render output stays local until the operator exports or publishes it.
 
 ## Victim Quick Start (stolen funds)
 
 One command takes you from "my wallet was drained" to a configured,
-event-driven watch:
+tracked case:
 
 ```bash
 cia init .
-cia monitor init victim --case-id my-theft --network bittensor \
-  --seed 5YourDrainedWallet... --note "drained 2026-07-27"
-cia monitor run     # bootstrap trace — the first pass always traces
-cia monitor watch   # hourly loop (pm2 snippet under "Scheduling")
+cia monitor init victim --case-id my-theft --network robinhood \
+  --seed 0xYourDrainedWallet... --note "drained 2026-07-27"
+cia monitor run     # first pass: renders the dossier
 ```
 
-`monitor init victim` writes the minimal config
-(`profile: victim`, `trace_mode: on_movement`, `cells: []`, `watchlist: {}`),
-creates the stolen-funds case, and watchlists your seed address(es) as
-case-managed entries. It **refuses if a monitor config already exists** — an
-initialized workspace is edited directly, never re-initialized over.
+`monitor init victim` writes the minimal config (every key defaults),
+creates the stolen-funds case, and refuses to overwrite an existing monitor
+config. Editing an initialized workspace is a direct config edit, never a
+re-init. To keep the dossier fresh, schedule `cia monitor run` — see
+"Scheduling" below.
 
 What you get:
 
-- **The case dossier** — after the first trace, a human-readable Markdown
-  dossier lands at `published/cases/<case-id>/dossier.md`: where the funds
-  sit, exchange deposit endpoints, the cluster address list, a money-flow
-  diagram. Re-rendered whenever the case changes.
-- **Alerts** — `cia monitor alerts list` shows movement the watch caught,
-  including `watchlist_activity` (the movement tripwire) and cashout/new-hop
-  alerts from re-traces. Webhook and exec sinks work the same as for
-  operators.
-- **A victim-affordable cost model** — the expensive corridor re-trace runs
-  only on movement. A quiet pass costs at most **2 cheap graph queries per
-  network** (dust + activity probes), flat in the number of watched
-  addresses, and skips tracing entirely.
+- **The case dossier** — after the first pass, a human-readable Markdown
+  dossier lands at `published/cases/<case-id>/dossier.md`: the seeds, the
+  case verdict (ACTIVE/DORMANT), a money-flow diagram, per-address notes,
+  and a timeline. Re-rendered whenever the case document changes.
 
-## Event-Driven Tracing (trace_mode)
-
-Two config fields drive the split (both optional — an untouched config
-behaves exactly as before):
-
-| `profile` | `trace_mode` if unset | Meaning |
-| --- | --- | --- |
-| absent or `"operator"` | `"interval"` | every open case is re-traced every pass (the historical behavior) |
-| `"victim"` | `"on_movement"` | a case is re-traced only when something moved |
-
-An explicit `trace_mode` always wins over the profile default, in either
-direction.
-
-In `on_movement` mode the trace gate admits exactly three things:
-
-1. **Bootstrap** — a case that has never been traced (no snapshot yet).
-2. **Dirty** — the activity probe saw movement on one of the case's managed
-   watchlist entries since its last trace.
-3. **Force** — `cia monitor run --force-trace` (whole pass) or
-   `cia monitor render --force` (render-time re-trace).
-
-Everything else is skipped, and the skip is *visible*: the case's cell in the
-run document (`.chain-insights/monitor/runs/<ts>.run.json`) records
-`trace_skipped_reason: "no_activity"`, so a quiet monitor is provably healthy
-rather than silently idle. A failed trace keeps the dirty marker, so the next
-pass retries instead of skipping.
-
-The machinery behind the gate:
-
-- **Activity probe** — per network, ONE query over all watched addresses on
-  `Address.last_activity_timestamp` (epoch ms). Graph rows come back
-  per-shard; the client merges by address taking the MAX timestamp and
-  ignoring nulls. Hits are recorded canonically, alert as
-  `watchlist_activity`, and mark the owning case dirty.
-- **Probe cursors** — the per-network `$since` bound persists in append-only
-  `.chain-insights/monitor/logs/probe-cursors.jsonl` (last line per network
-  wins). It initializes at the case's first-trace timestamp, so
-  pre-monitoring history never fires, and advances to the newest activity
-  seen. The cursor is a cost optimization only — hit dedup by `source_ref`
-  is what prevents duplicate alerts, so a deleted cursor file cannot
-  re-alert.
-- **Managed watchlist** — every successful trace refreshes the case's
-  watchlist entries (`managed_by: "case:<id>"`) to the current cluster:
-  seeds, candidate intermediates, candidate deposit endpoints. Exchange
-  addresses are excluded (always active — they would make the tripwire a
-  constant alarm). Entries that left the cluster are pruned; manual entries
-  are never touched; closing the case KEEPS its managed entries as a
-  dormancy tripwire.
-
-## Operator Lanes
-
-### Systemic detection runs on the platform
-
-Fake-token, address-poisoning, and attack-attribution detection are systemic:
-they scan the whole network, not your investigation. That work now runs on the
-platform backend, which writes its verdicts as **address labels**. The monitor
-does not re-run those scans; it *reacts to their labels*:
-
-- a watched address (manual or case-managed) that gains a new label raises a
-  `watchlist_label` alert naming the address, the label, and the label source
-  — for case-managed entries the alert also names the owning case, so a
-  victim learns the moment backend detection flags any address in their case
-  cluster;
-- `aml_address_risk` reads the same labels as an enrichment surface when you
-  want a verdict on a specific address.
-
-The corresponding `cia detect` subcommands and monitor cells still run but
-print a deprecation warning; they remain only as the cutover shadow
-reference. **Mixer-likeness is the only monitor-run detector going forward.**
-Pre-existing labels are state, not events: the first monitoring pass records
-what is already labeled without alerting, and only label *changes* alert
-after that.
-
-- **Fake-token surveillance** *(deprecated — platform-side, see above)* —
-  sweeps for newly deployed lookalike or
-  scam-shaped token contracts before they spread.
-- **Address-poisoning surveillance** *(deprecated — platform-side, see above)*
-  — watches for dust and lookalike
-  transfers crafted to trick a victim into copying the wrong address.
-- **Attack attribution** *(deprecated — platform-side, see above)* — walks
-  outward from known scam-labeled seed
-  addresses to attribute downstream activity to the same operator.
-- **Mixer-likeness surveillance** — flags addresses whose inbound/outbound
-  flow shape resembles a mixing service.
-- **Exchange-likeness mapping** — classifies candidate deposit and cashout
-  addresses by fan-in, reciprocity, and inbound lifetime, so exchange-shaped
-  endpoints are proposed for review instead of assumed automatically.
-- **Stolen-funds case tracking** — re-traces the corridor from a theft's seed
-  addresses, snapshots the reachable address set, and raises an
-  alert the moment funds reach a new hop, a shared deposit address, or a
-  cashout/exchange endpoint.
-- **Scam-topology expansion under review** — grows a scam cluster's seed set
-  only after a human approves the newly discovered addresses, so automated
-  corridor growth never becomes a label without sign-off.
-
-The first four are scheduled detector sweeps over a network matrix. The last
-three are case-centric: a monitor case anchors one investigation (a theft or a
-scam cluster) and is traced per the resolved `trace_mode` so its own history —
-snapshots, movements, alerts — accumulates over time.
-
-### Operator quick start
-
-Initialize a workspace and run one monitoring pass:
-
-```bash
-cia init .
-cia monitor run
-```
-
-With no config file, `cia monitor run` uses a default matrix covering all four
-detectors against `bittensor` and `bittensor_evm`. To customize the matrix,
-write `.chain-insights/monitor/config.json`:
+The ACTIVE/DORMANT verdict measures case activity: creation and seed
+events (add/remove). A case with no activity for `render.dormant_after_days`
+(days, default 30) reads DORMANT:
 
 ```json
-{
-  "cells": [
-    { "detector": "fake-token", "network": "bittensor_evm" },
-    { "detector": "address-poisoning", "network": "bittensor_evm" },
-    { "detector": "attack-attribution", "network": "bittensor" },
-    { "detector": "mixer", "network": "bittensor", "params": { "time_scope": "recent" } }
-  ],
-  "intervalSeconds": 3600,
-  "stopIfRemainingBelow": 30,
-  "reviewer": "analyst@example.com",
-  "webhookUrl": "https://hooks.example.com/monitor",
-  "caseMaxHops": 3
-}
+{ "render": { "dormant_after_days": 30 } }
 ```
+- **A standing view** — `cia monitor status` shows open cases and the last
+  run; `cia monitor run` is safe to put on any schedule.
 
-Detector `cells` may also be empty (`"cells": []`) for a case-only workspace.
+## The Command Surface
 
-For a standing watch, put `cia monitor run` on a schedule — see
-[Scheduling](#scheduling).
+| Command | What it does |
+| --- | --- |
+| `cia monitor run` | One pass: render the dossier of every open case |
+| `cia monitor render` | Re-render all open cases, or one case by id; `--force` re-renders unchanged cases |
+| `cia monitor status` | Open cases and the timestamp of the last run |
+| `cia monitor init victim` | Bootstrap the victim profile (case + config in one command) |
+| `cia monitor case add` | Register a case with one or more seed addresses |
+| `cia monitor case list` | List cases (open by default; `--all` includes closed) |
+| `cia monitor case add-seed` | Add seed addresses to an open case (timestamped, idempotent) |
+| `cia monitor case remove-seed` | Remove seed addresses from an open case (idempotent) |
+| `cia monitor case close` | Close a case; passes skip it |
 
-Two read-only commands give you a pulse check without waiting for a report:
+Every command runs from the workspace root. No monitor output belongs under
+`~/.chain-insights`.
+
+## Cases
+
+A case anchors one investigation — a stolen-funds corridor or a scam cluster —
+to one or more seed addresses:
 
 ```bash
-cia monitor status   # profile, trace_mode, cells, open cases, pending reviews, unacked alerts, last run
-cia monitor report   # markdown rollup: recent runs, pending review, unacked alerts, case timelines
+cia monitor case add theft-1 \
+  --type stolen-funds \
+  --network robinhood \
+  --seed 0xSeed...address
+
+cia monitor case list
+cia monitor case close theft-1
 ```
 
-### Network scoping
+Case rules:
 
-Several network views share ONE address-grain topology graph. The `network`
-value on a cell selects **the graph**, not the subset of addresses inside it —
-the split between address spaces lives on the `:Address.network` node property.
-`bittensor` and `bittensor_evm` cells therefore read the same underlying data
-and are separated by that property alone.
+- `--type` is `stolen-funds` (victim funds, cashout tracking) or
+  `scam-topology` (cluster expansion under review). A case ID is lowercase
+  letters, digits, and hyphens.
+- A case always has at least one seed. `remove-seed` refuses the removal
+  that would empty it.
+- Only open cases are re-run. A closed case is a historical record; the run
+  loop skips it.
 
-The shipped detectors scope themselves by the node property, so a configured
-matrix sweeps the address space you asked for. It matters when you write your
-own monitoring query by hand: an unscoped `:Address` match returns every
-network's addresses, which means wrong-network findings at double the metered
-cost. See [Graph query compatibility](graph-query-compatibility.md) for the
-query-level rule.
+### Growing and narrowing a case
 
-Only `USE facts` gives each network its own backing database, and the facts
-`Address` label carries no `network` property at all — a facts query that
-projects it fails outright.
-
-## Full-State vs Incremental Detectors
-
-Detectors come in two shapes, and they mean different things by "new":
-
-| Shape | Detectors | Run state |
-| --- | --- | --- |
-| **Incremental** | `address-poisoning` | Reads a bounded time window and advances a scan checkpoint. The next run starts where this one stopped. |
-| **Full-state** | `fake-token`, `mixer`, `attack-attribution` | Classifies an address from its *current* cumulative graph state (degree metrics, taxonomy labels, the verified-asset registry). A time window would make it wrong, so it keeps no checkpoint; it records the findings it has already emitted instead. |
-
-A full-state detector re-derives its entire result set on every run. Emitting
-that verbatim would republish thousands of already-reviewed findings every hour
-and drown the review backlog, so a run emits only the findings it has not shown
-you before, and notes any suppressed count in the document's `warnings`.
-
-**An unchanged run therefore legitimately produces a findings document with
-zero findings.** That is the intended behavior, not a failed sweep, a broken
-endpoint, or a misconfigured cell. Empty documents are still written and still
-replayed by `cia monitor rebuild` — they are provenance, carrying the run
-record and the suppression count — but they are not listed as pending review
-work, so a standing schedule does not bury the real items under empty ones.
-
-Both kinds of run state advance only *after*
-the findings document is durably on disk, so a pass that dies mid-write
-re-emits next time rather than losing findings.
-
-### The `--full` escape hatch
-
-To deliberately re-emit a detector's whole result set — after a bad review
-pass, a wiped workspace, or a changed threshold — run the detector directly
-with `--full`. It ignores the checkpoint, resets the emitted-findings state,
-and republishes everything:
+Seeds are not fixed at creation. Investigations grow — an operator wallet
+surfaces, a new corridor branch resolves. Widen the case in place; its seed
+history is preserved:
 
 ```bash
-cia detect mixer --network bittensor --full
+cia monitor case add-seed theft-1 \
+  --address 0xSecondOperator... \
+  --note "second controlled wallet identified"
+
+cia monitor case remove-seed theft-1 --address 0xWrong...
 ```
 
-`cia monitor run` never passes `--full`. A scheduled pass is always the
-new-only path by design; `--full` stays a deliberate, manual act.
+- **Idempotent.** Re-adding an existing seed is a no-op, not an error.
+  Removing an address that is not a seed is a no-op too.
+- **Open cases only.** Both commands refuse on a closed case. To re-open an
+  investigation, create a new case with the wider seed set.
+- The addition is recorded on the case: `seeds_added_at_timestamp` (address
+  → when it became a seed) and a `seed_events` timeline entry carrying your
+  `--note`.
+
+## Dossier Rendering
+
+Every pass renders each open case's dossier from the case document:
+
+- `published/cases/<case_id>/` — the dossier
+  - `dossier.md` — headline **ACTIVE** / **DORMANT** verdict, seed list,
+    money-flow diagram, per-address notes, and the case timeline.
+  - `addresses/<addr>.md` — one note per seed address: roles, first/last
+    seen, link back to the dossier.
+  - `timeline.md` — seed events in order.
+
+Rendering is content-keyed: a case whose document is unchanged since the last
+render is **skipped** (`skipped_reason: 'unchanged'`), so a quiet watch costs
+nothing. A closed case is skipped with `skipped_reason: 'closed'`. Render on
+demand with:
+
+```bash
+cia monitor render            # all open cases
+cia monitor render theft-1    # one case
+cia monitor render --force    # re-render even when unchanged
+```
+
+The workspace is plain Markdown, so it doubles as an Obsidian vault. Open the
+workspace directory directly in Obsidian — no copy step, no second vault.
 
 ## Scheduling
 
-`cia monitor run` is a **one-shot**: it performs a single pass and exits. That
-is deliberate — the monitor core is one-shot and idempotent, never a stateful
-service, so an interrupted process cannot leave half-written state.
-
-For a standing watch, the recommended pairing is **pm2 supervising
-`cia monitor watch`**: `watch` owns the loop (interval from `intervalSeconds`
-in the monitor config), pm2 owns process lifetime (crash restart, logs, status,
-boot persistence). Each tool does the one job it is built for, and
-`pm2 list` showing `online` means exactly what it appears to mean.
+`cia monitor run` is a **one-shot**: one pass and exit. That is deliberate —
+the monitor core is one-shot and idempotent, so an interrupted process cannot
+leave half-written state. There is no built-in loop: an external scheduler
+owns the interval.
 
 | Option | Choose it when | Cost |
 | --- | --- | --- |
-| **pm2 + `monitor watch`** | You want a supervised standing watch: crash restart, one log surface, one status command. | pm2 installed; one config file. |
-| `cron` + `monitor run` | The host already runs cron and you have external log plumbing. | No status surface; you own log capture and failure visibility. |
-| bare `cia monitor watch` | Interactive session, ad-hoc coverage for a few hours. | Dies with the shell; nothing restarts it. |
+| `cron` + `monitor run` | The host already runs cron. Per-pass exit codes (`0`/`2`/`1`) are visible to cron. | You own log capture and failure visibility. |
+| pm2 `cron_restart` + `monitor run` | You already supervise other processes with pm2 and want one log surface. | `autorestart: false` is mandatory — see below. |
+| Agent harness scheduled tasks | An agent already runs on a schedule in this workspace. | The harness owns cadence and logs. |
 
 Do not run two of these against the same workspace. Passes are idempotent, but
-overlapping schedules double the metered graph spend for no extra coverage.
+overlapping schedules double the work for no extra coverage.
 
-### pm2 + watch (recommended)
+### cron
 
-A working `ecosystem.config.cjs`, run from the monitoring workspace root:
+```text
+0 * * * * cd /path/to/workspace && cia monitor run
+```
+
+Per-pass exit codes are visible to cron (`0` clean, `2` isolated case
+failure, `1` run failed) — wire them to whatever alerting the host already
+has.
+
+### pm2
+
+pm2 can launch the one-shot on a `cron_restart` schedule. One setting is
+mandatory: **`autorestart: false`**. Without it pm2 treats every clean exit
+as a crash and immediately relaunches — a hot loop instead of a scheduled
+pass.
 
 ```js
-// pm2 supervises `cia monitor watch` — a long-running loop that re-runs a
-// monitoring pass on the interval configured in
-// .chain-insights/monitor/config.json (intervalSeconds).
-//
-// pm2's job here is process lifetime: if the loop dies, pm2 restarts it, and
-// `watch` resumes cleanly — a killed and restarted watch loses no alerts and
-// re-emits nothing over unchanged data. A failed pass does NOT kill the loop:
-// `watch` logs it and keeps looping.
+// pm2 runs `cia monitor run` hourly. autorestart: false is what makes the
+// one-shot safe under pm2: a finished pass stays finished until the next
+// cron_restart tick.
 module.exports = {
   apps: [
     {
@@ -283,14 +177,11 @@ module.exports = {
       // bin/cli.js plus `interpreter: 'node'` if you run from source, or if
       // `cia` is not on pm2's PATH.
       script: 'cia',
-      args: 'monitor watch',
+      args: 'monitor run',
       // The monitoring workspace root.
       cwd: './',
-      autorestart: true,
-      // Backstop against a crash loop (e.g. a broken config that fails every
-      // start): give up after 10 rapid restarts instead of looping forever.
-      max_restarts: 10,
-      min_uptime: '30s',
+      autorestart: false,
+      cron_restart: '0 * * * *',
       time: true,
       merge_logs: true,
       out_file: './.chain-insights/monitor/pm2-out.log',
@@ -307,19 +198,14 @@ Bring it up and confirm the first pass before walking away:
 
 ```bash
 pm2 start ecosystem.config.cjs
-pm2 list                            # `online` = healthy
 pm2 logs cia-monitor --lines 50
+cia monitor status   # `last run` confirms passes are landing
 ```
 
-Reading the surface:
-
-- **`online`** — the loop is alive. This is the steady state.
-- **`errored` / climbing restart counter** — the loop itself is dying
-  (bad config, missing workspace). `watch` survives failed *passes*, so a
-  dying loop means something structural; read the error log.
-- A successful pass writes a run document under
-  `.chain-insights/monitor/runs/` and prints nothing — check `cia monitor
-  status` for `last run`, not the pm2 log, to confirm passes are landing.
+Between passes pm2 shows the process as `stopped` — that is the expected
+state for a scheduled one-shot, not a failure. A successful pass writes a run
+document under `.chain-insights/monitor/logs/monitor-runs.jsonl`; check
+`cia monitor status` for `last run`, not the pm2 process state.
 
 Persistence needs **two** separate steps; doing only the first is the usual
 mistake:
@@ -330,432 +216,64 @@ sudo pm2 startup   # prints a platform-specific boot line — run what it prints
 ```
 
 `pm2 save` does not make pm2 itself start at boot. Run the command
-`pm2 startup` prints, then `pm2 save` again. Without both, the watch stops
+`pm2 startup` prints, then `pm2 save` again. Without both, the schedule stops
 silently at the next reboot.
-
-### cron
-
-```text
-0 * * * * cd /path/to/workspace && cia monitor run
-```
-
-Per-pass exit codes are visible to cron (`0` clean, `2` isolated cell failure,
-`1` run failed) — wire them to whatever alerting the host already has.
-
-### Do not pair pm2 with `monitor run`
-
-The tempting hybrid — pm2 launching the one-shot `monitor run` on a
-`cron_restart` schedule — works, but it is the worst of both worlds and one
-setting away from an expensive failure: pm2's default is to treat any process
-exit as a crash and relaunch immediately, and a one-shot exits on every
-successful pass. Without `autorestart: false` that default produces a hot loop
-that re-runs the full detector matrix continuously and burns metered graph
-allowance until someone notices. Between passes the process shows `stopped`,
-which reads as broken and hides nothing useful. If you want pm2, supervise
-`watch`; if you want one-shots, use cron.
-## Cases
-
-A case anchors one investigation — a theft or a scam cluster — to one or more
-seed addresses, and is re-traced automatically on every `cia monitor run`.
-
-```bash
-cia monitor case add theft-1 \
-  --type stolen-funds \
-  --network bittensor \
-  --seed 5Seed...address
-
-cia monitor case list          # open cases (add --all for closed too)
-cia monitor case close theft-1
-```
-
-Closing a case **keeps its `managed_by` watchlist entries** — they stay as a
-dormancy tripwire, and new activity on them raises a `case_reactivated`
-alert (the case itself is never auto-reopened). `monitor status` marks an
-open scam-topology case `closable` once its cluster is labeled (at least one
-approved decision) and its managed entries have been quiet for
-`render.dormant_after_days`.
-
-`--type` is `stolen-funds` (victim funds, cashout tracking) or
-`scam-topology` (cluster expansion under review). A case ID is lowercase
-letters, digits, and hyphens.
-
-### Growing and narrowing a case
-
-Seeds are **not** fixed at creation. Investigations grow: an operator wallet
-surfaces, an intermediate coldkey turns out to fund the same exchange deposit,
-a new corridor branch resolves. Widen the case in place — its snapshot history
-and its movement timeline are preserved:
-
-```bash
-cia monitor case add-seed theft-1 \
-  --address 5Operator...address \
-  --note "second controlled wallet identified"
-
-cia monitor case add-seed theft-1 --address 5AddrA... 5AddrB...   # several at once
-cia monitor case remove-seed theft-1 --address 5AddrA...
-```
-
-- **Idempotent.** Re-adding an existing seed is a no-op, not an error, so a
-  scripted `add-seed` is safe to re-run. Same for removing an address that is
-  not a seed.
-- **Open cases only.** Both commands refuse on a closed case. A closed case is
-  a historical record of what was investigated and when; the run loop does not
-  re-trace it, so a seed added to it would sit in canonical JSON with no
-  snapshot behind it. If a closed investigation needs to grow, open a new case
-  with the wider seed set.
-- **A case always has at least one seed.** `remove-seed` refuses the removal
-  that would empty it.
-- Addresses approved through [review](#review--labels) join the traced seed set
-  automatically and are not listed in `seeds`; `remove-seed` does not apply to
-  them.
-- The addition is recorded on the case: `seeds_added_at_timestamp` (address → when it
-  became a seed) and a `seed_events` timeline entry carrying your `--note`.
-
-### Why a widened corridor is not a movement
-
-Movements are derived by diffing each snapshot against the one before it, so
-adding a seed poses a real hazard: the next run legitimately sees more
-addresses, and a naive diff would report every one of them as a new hop — as
-though funds had moved, when in fact only the aperture widened. On a theft case
-that is a fabricated forensic signal.
-
-Chain Insights separates the two. Each snapshot records, per address, which
-seed(s) reached it (`via_seeds`). On the next diff:
-
-| Address is reachable from | Reported as |
-| --- | --- |
-| a seed that already existed at the previous snapshot | **movement** — the corridor changed under a fixed aperture |
-| only seeds added since the previous snapshot | **scope expansion** — it was always there; you just could not see it |
-
-Scope expansion is not silently dropped: it appears in the run document as
-`scope_expansions_count`, in the derived store's `case_movements` table as
-`movement = 'scope_expansion'` (with the seed and its timestamp in the
-details), and on the alert stream as `case_scope_expansion`. That is what
-explains the discontinuity in the case timeline to whoever reads it later.
-
-Classification signals still apply to whatever is in the corridor however it
-got there: an exchange terminal or a scam hub that entered through a new seed
-still raises `cashout_endpoint` / `frontier_candidate` and still enters the
-review queue — suppressing it would hide the convergence the `add-seed` was
-performed to find. Only the *movement* claim is withheld.
-
-A subsequent run over unchanged data is quiet again: the expanded corridor is
-the new baseline.
-
-Each run re-traces every open case from its seed addresses (plus any
-approved expansion addresses — see [Review & labels](#review--labels)) and
-writes a **snapshot**: the full set of addresses reachable from the case at
-that point in time. Comparing a snapshot to the one before it produces the
-case's **movements** — a new hop, a new shared-deposit address, a
-cashout/exchange endpoint, or a frontier candidate worth reviewing for
-expansion. Movements that reach a cashout/exchange endpoint or open a new
-review frontier are raised as alerts (see [Alerts](#alerts)) so a stolen-funds
-case surfaces cashout activity as soon as the next run sees it, not only when
-someone remembers to check.
-
-## Review & labels
-
-Anything a detector sweep or a case trace finds is a **proposal**, not a
-label. It lands in the workspace as a findings document and waits for a human
-decision:
-
-```bash
-cia monitor review list                       # pending findings documents
-cia monitor review approve <doc-path> --reviewer alice
-cia monitor review reject  <doc-path> --reviewer alice
-```
-
-`--reviewer` falls back to the `reviewer` key in
-`.chain-insights/monitor/config.json` if set, otherwise it is required.
-
-Approving a document **stamps the reviewer's identity onto a copy** written
-under `detections/reviewed/`; the original findings document is never
-modified. That reviewed copy is the hand-off artifact — it is what downstream
-label-ingestion and case expansion consume, never the raw machine output.
-Rejecting a document records the decision only; no reviewed copy is written
-and it does not feed case expansion.
-
-Once findings are approved, export them as curated labels:
-
-```bash
-cia monitor export labels
-```
-
-This reads **approved decisions only** and writes matching
-`labels-<timestamp>.json` and `labels-<timestamp>.csv` files under
-`reports/monitor/` in the frozen `chain-insights.curated-labels.v1` contract:
-one row per (address, label) with columns
-`address,network,label,case_id,decision_id,doc_ref,decided_at_timestamp,reviewer`.
-Case docs derive the label from each address's cluster role (`seed` ->
-`scam_seed`, `candidate_intermediate` -> `mule`, `candidate_deposit` ->
-`deposit_endpoint`; unknown roles are skipped with a warning); lane-A
-detector docs keep their classification as the label with an empty
-`case_id`. `decision_id` is the content-addressed decision filename stem, so
-downstream importers can dedup re-exports. The export is always a full
-snapshot.
-
-### Quarantine, do not delete
-
-When a findings document is wrong — a misconfigured threshold, a
-wrong-network sweep, a detector bug — **reject it rather than deleting the
-file**:
-
-```bash
-cia monitor review reject <doc-path> --reviewer alice
-```
-
-Deleting looks tidier and costs you the two things that matter. The decision
-record disappears, so nothing distinguishes "reviewed and wrong" from "never
-reviewed", and the audit trail of what monitoring proposed at a given time
-loses a document it once contained. A rejected document is inert: it feeds
-neither label export nor case expansion, and no reviewed copy is written.
-
-If you need the bad batch out of the working set entirely, move the raw
-documents into a workspace-local quarantine directory you keep alongside the
-originals — for example `detections/quarantine/` — after recording the
-rejection, so the reason travels with the files. Then fix the cause and
-re-emit with `--full` (see [The `--full` escape hatch](#the---full-escape-hatch))
-rather than hand-editing findings, which are machine output and are not meant
-to be edited.
-
-## Alerts
-
-Every run emits alerts for new findings and for case movements worth
-attention (cashout endpoints, frontier candidates for review). A
-`case_scope_expansion` alert is distinct from `case_movement`: it says the case
-corridor grew because seeds were added, not because funds moved (see
-[Why a widened corridor is not a movement](#why-a-widened-corridor-is-not-a-movement)).
-Watchlist triggers add `watchlist_finding`, `watchlist_movement`,
-`watchlist_dust`, and `watchlist_activity` (see [Watchlist](#watchlist)):
-
-```bash
-cia monitor alerts list          # unacked only by default (--all for everything)
-cia monitor alerts ack <alert-id>
-```
-
-Alerts are always recorded locally first. Two optional sinks fan them out in
-real time, configured in `.chain-insights/monitor/config.json`:
-
-- `webhookUrl` — each alert is POSTed as JSON to this URL.
-- `execHook` — each alert is piped as JSON (on stdin) to this shell command.
-
-Both sinks are best-effort: a failed webhook or hook never fails a run — the
-alert is already durable in the local log regardless of sink delivery.
-
-## Watchlist
-
-Cases are incident-centric ("this theft, this scam cluster"). The watchlist is
-**address-centric**: it tells you when the things monitoring already detects
-touch *your own* addresses.
-
-```bash
-cia monitor watchlist add 5GTj... --network bittensor --note "treasury cold"
-cia monitor watchlist list
-cia monitor watchlist remove 5GTj... --network bittensor
-```
-
-An address plus a network is the identity, so the same string on two networks
-is two entries, and re-adding an address updates its note instead of failing.
-The list lives in `.chain-insights/monitor/watchlist.json`, which is plain JSON
-and equally valid to hand-edit.
-
-Enable the feature by adding a `watchlist` block to
-`.chain-insights/monitor/config.json`. An empty block turns it on with
-defaults; no block at all means the feature is off and a run behaves exactly
-as before:
-
-```json
-{
-  "watchlist": {
-    "dustMaxUsd": 1.0,
-    "dustLookbackSeconds": 86400,
-    "enabled": true
-  }
-}
-```
-
-- `dustMaxUsd` (default `1.0`) — the incoming-transfer USD ceiling counted as
-  dust.
-- `dustLookbackSeconds` (default `86400`) — how far back the dust check looks.
-  Overlapping windows are safe: hits are deduplicated by their source
-  reference, so the same transfer never alerts twice.
-- `enabled` (default `true` when the block is present) — an off switch that
-  keeps your addresses in place.
-
-### The watchlist triggers
-
-| Trigger | Alert type | What it means |
-| --- | --- | --- |
-| A detector finding names a watched address | `watchlist_finding` | A fake-token, address-poisoning, attack-attribution, or mixer sweep implicated one of your addresses. |
-| A tracked case's movement reaches a watched address | `watchlist_movement` | Funds from an open incident moved to an address you watch. |
-| Incoming dust below `dustMaxUsd` | `watchlist_dust` | The opening move of address poisoning: a tiny inbound transfer that a network-wide detector may not flag on its own, but that matters against *your* address. |
-| A watched address became active | `watchlist_activity` | The address's on-chain `last_activity_timestamp` advanced past the probe cursor — the movement tripwire that wakes an `on_movement` case trace. |
-| A watched address gained a new label | `watchlist_label` | Platform backend detection labeled the address. Diff-based against the canonical last-seen baseline (`logs/label-baseline.jsonl`); the first sighting of an address seeds the baseline silently. The alert names the address, label, and source; for `managed_by: "case:<id>"` entries it names the owning case. Deduped by `source_ref = <address>|<label>|<source>`, rebuild-safe. |
-| New activity on a managed entry of a CLOSED case | `case_reactivated` | The labeled topology woke up again after the case was closed. The alert names the case and the active address; the case is never auto-reopened — open a new case if the investigation should resume. |
-
-All of these flow through the normal alert stream — `alerts list`, `alerts ack`,
-webhook and exec sinks, and the report — rather than a parallel notification
-system. `cia monitor report` gains a **Watchlist** section listing each
-watched address with its hit counts by trigger.
-
-The finding and movement triggers are answered entirely from data the run
-already produced locally, so they cost nothing extra. The dust check, the
-activity probe, and the label probe are each one batched graph query per
-distinct network, so a
-500-address watchlist costs the same as a 5-address one. Nothing in the
-watchlist scales with the number of addresses you watch.
-
-### The activity trigger
-
-The activity probe asks the graph one question per network: *which of the
-watched addresses have `last_activity_timestamp` newer than the cursor?*
-Per-shard rows are merged client-side by MAX ignoring nulls, and each hit's
-`source_ref` is the natural key `<address>|<last_activity_timestamp>` — the
-same activity can never alert twice, even after `cia monitor rebuild`. When
-the hit lands on a `managed_by: "case:<id>"` entry, that case is marked dirty
-and the gated trace (see
-[Event-Driven Tracing](#event-driven-tracing-trace_mode)) re-traces it in the
-same pass.
-
-### Address risk is not a trigger
-
-Monitoring never polls an address risk score. Risk is a *final product* — an
-enrichment surface you read about an address once you have a reason to look at
-it — not a monitoring input. Polling it per watched address would spend
-metered allowance re-reading a downstream result rather than watching a
-threat. The watchlist watches the detectors and the case tracker; use
-`cia` risk screening when you want a verdict on a specific address.
 
 ## Storage Model
 
 Everything monitor writes is plain, human-readable JSON in the workspace:
 
 ```text
-detections/                          Raw findings documents from sweeps and case traces
-detections/reviewed/                 Reviewer-stamped copies (the hand-off artifact)
-cases/<case-id>/case.json            Case definition (seeds, seeds_added_at_timestamp, seed_events)
-cases/<case-id>/snapshots/           One snapshot per run that traced this case
-.chain-insights/monitor/config.json  Monitor configuration
-.chain-insights/monitor/runs/        One run document per `monitor run`
-.chain-insights/monitor/alerts/      Alert stream and acknowledgements
-.chain-insights/monitor/reviews/     Review decision records
-.chain-insights/monitor/watchlist.json  Watched addresses (address-centric alerting)
-.chain-insights/monitor/logs/watchlist-hits.jsonl   Watchlist hits (append-only; source_ref dedup authority)
-.chain-insights/monitor/logs/probe-cursors.jsonl    Activity-probe cursors (append-only; last line per network wins)
+cases/<case-id>/case.json                The case definition (seeds, seed events, timestamps)
+.chain-insights/monitor/config.json      Monitor configuration (render)
+.chain-insights/monitor/render-state.json  Per-case render keys (sha256 of case.json)
+.chain-insights/monitor/logs/monitor-runs.jsonl  Append-only run log (one line per pass)
+.cia-monitor.lock                        Run lock (pid of the active pass)
+published/cases/<case-id>/dossier.md     Rendered case dossier
+published/cases/<case-id>/addresses/     Per-address notes
+published/cases/<case-id>/timeline.md    Append-only timeline (one line per seed event)
 ```
 
-Two kinds of machine-managed fields ride on canonical files: `case.json`
-carries `dirty_since_timestamp` (set by the activity probe, cleared by a
-successful trace) and `last_traced_at_timestamp` (stamped after every
-successful trace), and watchlist entries carry `managed_by: "case:<id>"` for
-cluster-managed entries — hand-edit manual entries freely, but leave managed
-ones to the per-trace refresh.
-
-This canonical JSON is always the source of truth. Alongside it,
-`.chain-insights/monitor/monitor.duckdb` holds a **derived** index built
-purely from that JSON — fast to query, never authoritative, and always
-reconstructable:
-
-```bash
-cia monitor rebuild
-```
-
-For ad-hoc analysis, open the derived store directly with the DuckDB CLI:
-
-```bash
-duckdb -readonly .chain-insights/monitor/monitor.duckdb -ui
-```
-
-## Investigation Output
-
-Every run ends with a render pass that turns each open case into
-human-readable Markdown under `published/cases/<case_id>/`:
-
-- `dossier.md` — the case dossier: an **ACTIVE (last movement `<date>`)** or
-  **DORMANT since `<date>`** headline verdict, a funds-destination summary by
-  terminal endpoint class, exchange deposit endpoints with labels where known,
-  the scammer-cluster address list with roles, a bounded Mermaid diagram of
-  the money flow, and links to the HTML graph reports under `reports/`.
-- `addresses/<addr>.md` — one note per notable address (seeds, deposit
-  candidates, exchanges): roles, labels, first/last seen, link back to the
-  dossier. Rewritten on every render.
-- `timeline.md` — append-only, one line per alert. Existing lines are never
-  rewritten.
-
-The verdict, diagram, and tables are computed from persisted
-`chain-insights.trace.v1` artifacts written by the render pass itself: on a
-case **change** (new snapshot content, movement, or alert) the pass re-traces
-the case seeds as victim funds and as suspect funds through the standard trace
-tools, persists the trace documents under `cases/<case_id>/traces/`, and
-re-renders. An unchanged case skips tracing entirely, so the hourly cost of a
-quiet watch is near zero.
-
-Render on demand with:
-
-```bash
-cia monitor render            # all open cases (changed ones re-trace)
-cia monitor render my-case    # one case
-cia monitor render --force    # re-trace and re-render even when unchanged
-```
-
-A case with no traced movement for `render.dormant_after_days` days (default
-30) is reported DORMANT:
-
-```json
-{ "render": { "dormant_after_days": 30 } }
-```
-
-The workspace is plain Markdown, so it doubles as an Obsidian vault: open the
-workspace directory directly in Obsidian (or point an Obsidian MCP server at
-it) — no copy step, no second vault.
-
-## Cost Controls
-
-Chain Insights Graph access is metered. Every run records the remaining
-execution-time allowance before and after it runs, in the run document under
-`.chain-insights/monitor/runs/`. Set a floor to stop a run before it spends
-allowance you want to keep in reserve:
-
-```json
-{ "stopIfRemainingBelow": 30 }
-```
-
-When the remaining allowance drops below this floor, `cia monitor run` halts
-before running any sweep cells or case traces for that pass and records the
-halt reason in the run document. Leave it unset to run unconditionally.
-
-For victim workspaces (`trace_mode: on_movement`) the steady-state pass costs
-at most **2 graph queries per network** — the dust and activity probes — flat
-in watched-address count; the expensive corridor re-trace runs only on
-movement, bootstrap, or an explicit `--force-trace`.
+`case.json` is canonical. `render-state.json` is derived and optional; the
+renderer rebuilds it from the case files. `monitor-runs.jsonl` is
+append-only (last line wins on read). The run lock serializes concurrent
+passes — a second `monitor run` while one is active exits with
+`[monitor] already running`.
 
 ## Exit Codes
 
-`cia monitor run` uses its exit code to signal how the pass went, so cron and
-CI can tell a clean run from a partial one from a broken one:
+`cia monitor run` signals the pass through its exit code, so cron and CI can
+tell a clean run from a partial one from a broken one:
 
 | Code | Meaning |
 | --- | --- |
-| `0` | Clean run — every sweep cell and case trace completed. |
-| `2` | One or more sweep cells or case traces failed in isolation; every other cell still ran, and any findings or alerts it produced still landed. |
-| `1` | Hard failure — the run could not start at all (for example, an unreadable workspace or an invalid monitor config). |
+| `0` | Clean pass — every open case rendered. |
+| `2` | One or more cases failed in isolation; every other case still rendered. |
+| `1` | Hard failure — the run could not start at all (unreadable workspace, invalid monitor config). |
 
-Exit `2` is a **partial success**. Whatever scheduler you use must be able to
-express the difference between `1` and `2`, or a single flaky cell will page
-someone as though nothing ran.
+Exit `2` is a **partial success**. Whatever scheduler you use must be able
+to express the difference between `1` and `2` — or a single flaky case will
+page someone as though nothing ran.
 
-Under `cia monitor watch` the process does not exit between passes, so
-per-pass exit codes are not visible to the supervisor. An isolated cell
-failure is recorded on the cell entry in that pass's run document
-(`.chain-insights/monitor/runs/<run_timestamp>.run.json`, `error` field) — check
-there, or `cia monitor status`, rather than expecting pm2 to flag it.
+## Monitor Config
+
+`.chain-insights/monitor/config.json` is operator-owned JSON. Fail-fast
+validation: an unreadable or invalid config fails the run loudly rather than
+silently monitoring something else.
+
+```json
+{
+  "render": { "dormant_after_days": 30 }
+}
+```
+
+Every key is optional:
+
+- `render.dormant_after_days` (default `30`) — the DORMANT threshold
 
 ## Related
 
-- Skill `chain-insights-monitoring` — agent-facing routing, the detector
-  matrix, review boundary, and scheduling, including
-  `references/pm2-scheduling.md`.
+- Skill `chain-insights-monitoring` — agent-facing routing, case tracking,
+  and scheduling, including `references/pm2-scheduling.md`.
 - [Investigation workspaces](investigation-workspaces.md) — how a monitor
   workspace relates to an investigation workspace.
-- [Graph query compatibility](graph-query-compatibility.md) — the shared
-  address-grain topology graph and the network-scoping rule.

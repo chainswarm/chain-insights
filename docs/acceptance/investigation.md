@@ -6,7 +6,7 @@
 
 - Active workspace initialized (`cia init .`)
 - Chain Insights Graph endpoint configured and reachable
-- Network supported (bittensor)
+- Network supported (robinhood)
 
 ### Run
 
@@ -14,53 +14,60 @@
 # Initialize workspace
 mkdir -p /tmp/ci-test && cd /tmp/ci-test
 cia init .
-# Expected: Creates .chain-insights/workspace-root marker
+# Expected: Creates .chain-insights/workspace.json marker
 
-# Trace victim funds
-cia mcp call trace-victim-funds \
-  --network bittensor \
-  --victim-addresses 5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5 \
-  --max-hops 2
+# Screen an address
+cia mcp call aml_address_risk \
+  network=robinhood \
+  address=0x1234... \
+  include_attachments=true
 
 # Expected artifacts written:
 ls -la reports/
-# Expected: <timestamp>_trace-report.md
+# Expected: <timestamp>_aml_address_risk_<network>_<address>
+#           .aml-address-report.md, .table.html, .graph.html
 ls -la reports/graphs/
-# Expected: <timestamp>_graph.json, <timestamp>_graph.html
+# Expected: <timestamp>_aml_address_risk_<network>_<address>.graph.json
 ls -la reports/tables/
-# Expected: <timestamp>_flows.csv, <timestamp>_compact-evidence.json, <timestamp>_table.html
+# Expected: <timestamp>_aml_address_risk_<network>_<address>
+#           .compact-evidence.json, .flows.csv
 ls -la artifacts/
 # Expected: <network>.graph-schema.json (runtime schema capture)
 
-# Verify compact evidence structure
-cat reports/tables/*.compact-evidence.json | jq '.schema, .source, .network, .address_map'
-# Expected: chain-insights.probe_evidence.v1 schema, non-empty address_map, fund_flows array
+# Verify evidence structure
+cat reports/tables/*.compact-evidence.json | jq '.schema, .tool, .network'
+# Expected: signature schema, aml_address_risk tool, robinhood network
 
 # Verify graph payload
 cat reports/graphs/*.graph.json | jq '.schema, .nodes | length, .edges | length'
-# Expected: chain-insights.graph.v1 schema, nodes with labels/risk_score, edges with amount_usd_sum
+# Expected: graph schema, nodes with risk metadata, edges with amounts
 
 # Verify report content
-cat reports/*.trace-report.md | head -20
-# Expected: Markdown with header, network, seed_address, probe summary, flow table
+cat reports/*.aml-address-report.md | head -20
+# Expected: Markdown with header, network, address, profile summary
 
-# Test bounded tracing (max hops respected)
-cia mcp call trace-victim-funds --max-hops 1 --victim-addresses 0xtest...
-# Expected: Trace limited to 1 hop, fewer flows generated
+# Direct public graph access
+cia mcp call graph_query \
+  network=robinhood \
+  "query=USE topology MATCH (a:Address {address: '0x1234...'})-[f:FLOWS_TO]->(b:Address) RETURN a.address AS address, sum(f.amount_usd_sum) AS amount_usd_sum LIMIT 1"
+# Expected: money-flow rows for the address from the public graph
 
-# Test min amount sum filter
-cia mcp call trace-victim-funds --min-amount-sum 10000 --victim-addresses 0xtest...
-# Expected: Only flows with amount_usd_sum >= 10000 included
+# Compare two addresses
+cia mcp call aml_address_risk \
+  network=robinhood \
+  address=0x1234... \
+  compare_address=0xabcd...
+# Expected: Comparison lane, results in the returned summary and report
 ```
 
 ### Expected
 
 - Workspace artifacts created in correct directories
-- Compact evidence contains alias mapping and flow paths
+- Evidence JSON contains the screened address, profile, and exchange rows
 - Graph payload contains nodes with risk metadata and edges with amounts
-- Report contains Markdown summary, Mermaid diagram, file references
-- Bounded tracing respects max hops and min amount filters
-- Schema files capture runtime topology structure
+- Report contains Markdown summary and file references
+- The public robinhood graph resolves raw addresses directly by key
+- Comparison screening returns both addresses in the profile
 
 ---
 

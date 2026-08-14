@@ -69,6 +69,7 @@ Supported config keys:
 | --- | --- |
 | `graphMcpEndpoint` | Chain Insights Graph endpoint used by CLI and proxy |
 | `graphMcpAuthToken` | Chain Insights Graph bearer credential for test access keys or local debug UAT |
+| `graphMcpMode` | Endpoint access mode: `paid` (default) or `debug` |
 | `walletAddress` | Optional wallet metadata |
 | `serverPort` | Local visualization and graph report server port |
 | `dataDir` | Local Chain Insights data directory |
@@ -86,7 +87,6 @@ Default local data directory:
   config.json
   wallet.json
   mcp-schema-*.json
-  chain-insights.duckdb
 ```
 
 Investigation outputs belong in initialized workspaces, not in the global data
@@ -130,7 +130,7 @@ Invited testers can use server-side test keys without x402 payment:
 ```bash
 chain-insights access-key set ci_test_REDACTED --endpoint https://staging-mcp.chain-insights.ai/mcp
 chain-insights access-key status
-chain-insights mcp call graph_query network=bittensor query='USE topology MATCH (n) RETURN n LIMIT 1'
+chain-insights mcp call graph_query network=robinhood query='USE topology MATCH (n) RETURN n LIMIT 1'
 ```
 
 Operators configure the server with `MCP_TEST_ACCESS_KEY_HASHES`, a

@@ -61,32 +61,30 @@ final exchange endpoint should use `is_exchange IS NOT NULL`.
 ## Common Schema
 
 The public graph surface is address-grain. The current public Chain Insights
-Graph investigation network is `bittensor` — always pass `network=bittensor`,
-for native SS58 and EVM-pallet `0x...` (H160) inputs alike; do not invent or
-query other network names. The SS58/H160 split lives on the node as the
-`:Address.network` PROPERTY (`bittensor` for SS58, `bittensor_evm` for H160),
-not as a separate query network: a single `network=bittensor` query spans both
-spaces by walking `FLOWS_TO` within a space and hopping the bridge (money) or
-`LINKED` (ownership) edge across the boundary.
+Graph investigation network is `robinhood` — always pass `network=robinhood`,
+for EVM-pallet `0x...` (H160) inputs; do not invent or query other network
+names. Robinhood is EVM-only, so every address is H160 in a single address
+space: the `:Address.network` node property is `robinhood` throughout, there
+is one address space, and no cross-space hop exists to make.
 
 ### The `network` argument selects the GRAPH, not the addresses in it
 
-This is the highest-value rule in this skill. Two network views of one chain
-are **two views over ONE address-grain topology graph** — the SS58 and H160
-address spaces live in the same topology shards, separated only by the
-`:Address.network` node property.
+This is the highest-value rule in this skill. The public surface is a single
+`robinhood` network, so today a query cannot hit a foreign address space.
+Keep the rule anyway: future networks share the same address-grain topology
+shards, separated only by the `:Address.network` node property.
 
 So a `USE topology` query that matches `:Address` without an exact address
-**must** scope itself by that property, or it scans every view's addresses and
-returns rows from an address space you did not ask for — wrong-network results
-at double the metered cost:
+**must** scope itself by that property once more than one network is
+reachable, or it scans every view's addresses and returns rows from an address
+space you did not ask for — wrong-network results at double the metered cost:
 
 ```cypher
--- WRONG: returns SS58 and H160 addresses regardless of intent
+-- WRONG: unscoped :Address sweep pulls every reachable view
 USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 100
 
 -- RIGHT
-USE topology MATCH (a:Address) WHERE a.network = "bittensor_evm"
+USE topology MATCH (a:Address) WHERE a.network = "robinhood"
 RETURN a.address AS address LIMIT 100
 ```
 
@@ -108,18 +106,16 @@ Topology is intentionally stable across address spaces:
 - Node: `(:Address {address, network})` with sparse `labels`, `is_exchange`,
   `risk_score`, `risk_level`, `label_risk` (per-label risk: a list of
   `{label, risk_level, updated_timestamp}` maps), and activity rollups.
-  `address` is the raw chain-native form (SS58 or `0x...`); there is no
+  `address` is the raw chain-native form (`0x...`, H160); there is no
   separate identity key.
 - Edge: `(:Address)-[:FLOWS_TO]->(:Address)` for money flow.
 - Ownership overlay: `(:Address)-[:LINKED]-(:Address)` is an **undirected**
   edge asserting the two addresses are owned/controlled by the same actor
   (`basis` is `derived` or `associated`, plus `confidence`, `source_event`,
-  `declared_owner`). `LINKED` is the ownership edge across the SS58/H160
-  space boundary — use it for cross-space investigation (see the cross-space
-  recipe below) and for actor-level exposure (surface a counterparty's
-  exposure by walking one visible `LINKED` hop before `FLOWS_TO`, not by
-  treating linked addresses as a single collapsed node). `LINKED` is served
-  on both the topology and facts graphs.
+  `declared_owner`). Use it for actor-level exposure — surface a
+  counterparty's exposure by walking one visible `LINKED` hop before
+  `FLOWS_TO`, not by treating linked addresses as a single collapsed node.
+  `LINKED` is served on both the topology and facts graphs.
 - Flow fields commonly include `tx_count`, `amount_usd_sum`,
   `avg_tx_size_usd`, `first_seen_timestamp`, `last_seen_timestamp`,
   `first_tx_id`, `last_tx_id`, and `price_coverage_ratio`. These are
@@ -133,7 +129,7 @@ Topology is intentionally stable across address spaces:
   `first_activity_timestamp`/`last_activity_timestamp`/`activity_span_days`)
   are node properties on `USE topology`, not facts.
 
-Future networks may expose different schemas. Do not reuse a Bittensor
+Future networks may expose different schemas. Do not reuse a Robinhood
 relationship or feature query on another network unless that network advertises
 support and proves the same labels and fields.
 
@@ -200,13 +196,14 @@ cia mcp call graph_query \
   'query=USE topology MATCH (a:Address {address: "FULL_ADDRESS"})-[l:LINKED]-(owned:Address)-[r:FLOWS_TO]-(b:Address) WHERE owned.address <> b.address AND a.address <> b.address RETURN owned.address AS linked_via_address, b.address AS counterparty_address, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 50'
 ```
 
-Cross-space `LINKED` probe (the ownership edge across the SS58/H160 space
-boundary; runs on the single public `network=bittensor`):
+`LINKED` ownership-overlay probe (the undirected edge asserting two addresses
+are owned/controlled by the same actor; runs on the single public
+`network=robinhood`):
 
 ```bash
 cia mcp call graph_query \
   network=<network> \
-  'query=USE topology MATCH (a:Address {address: "FULL_ADDRESS"})-[l:LINKED]-(b:Address) WHERE a.network <> b.network RETURN b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence, l.source_event AS source_event, l.declared_owner AS declared_owner LIMIT 25'
+  'query=USE topology MATCH (a:Address {address: "FULL_ADDRESS"})-[l:LINKED]-(b:Address) RETURN b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence, l.source_event AS source_event, l.declared_owner AS declared_owner LIMIT 25'
 ```
 
 More examples: `references/memgraph-examples.md`.

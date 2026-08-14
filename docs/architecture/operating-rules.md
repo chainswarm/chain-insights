@@ -15,17 +15,17 @@ knowledge skill during the 2026-07-28 docs-layer rework.
   paths, internal planning catalogs, private deployment details, or
   org-only workflow names in tracked files. Use the name
   "Chain Insights Graph" for the graph layer.
-- Public workflow network support is Bittensor-only. The wallet pays on
-  Base mainnet as the payment chain only — not a graph-support claim.
+- Public workflow network support is one network: robinhood. The wallet
+  pays on Base mainnet as the payment chain only — not a graph-support
+  claim.
 - Node 22 or newer is required (`package.json` engines). CI installs with
   `npm ci --ignore-scripts`.
 
 ## Data And Findings Invariants
 
-- Detection findings are artifacts, never a direct label write. `reviewer`
-  stays intentionally unset on every generated findings document. Only a
-  separate quality-gated import path (outside this repo) turns a reviewed
-  findings document into curated label rows.
+- Address labels are served by the Chain Insights Graph backend, never
+  written by this CLI. `aml_address_risk` reads them as enrichment; monitor
+  case dossiers are document-derived and never claim a label verdict.
 - The devkit exposes graph primitives only — never `aml_*`, wallet, x402,
   payment, quota, ACP, or telemetry tools. See
   [data-contracts.md](data-contracts.md#devkit-contract).

@@ -1,0 +1,29 @@
+name: PR Title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  conventional-title:
+    name: Conventional commit title
+    runs-on: [self-hosted, chainswarm-runner, X64]
+    timeout-minutes: 5
+    steps:
+      - name: Check PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          pattern='^(feat|fix|docs|chore|ci|refactor|perf|test|build|revert)(\([^)]+\))?!?: .+'
+          if [[ "$PR_TITLE" =~ $pattern ]]; then
+            echo "Title OK: $PR_TITLE"
+          else
+            echo "::error::PR title must be a conventional commit: <type>(<scope>): <summary>."
+            echo "::error::Allowed types: feat fix docs chore ci refactor perf test build revert."
+            echo "::error::Got: $PR_TITLE"
+            exit 1
+          fi

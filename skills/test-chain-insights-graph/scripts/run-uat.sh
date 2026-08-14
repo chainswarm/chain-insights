@@ -6,18 +6,18 @@ CHAIN_INSIGHTS_DIR="${CHAIN_INSIGHTS_DIR:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}
 MCP_ENDPOINT="${CHAIN_INSIGHTS_GRAPH_ENDPOINT:-${CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT:-http://localhost:8012/mcp}}"
 DEBUG_TOKEN="${CHAIN_INSIGHTS_GRAPH_DEBUG_TOKEN:-chain-insights-dev-debug}"
 SERVER_PORT="${CHAIN_INSIGHTS_SERVER_PORT:-4321}"
-NETWORK="${NETWORK:-bittensor}"
-# UAT_ADDRESS is the SS58 native address of the UAT fixture, a plain
+NETWORK="${NETWORK:-robinhood}"
+# UAT_ADDRESS is the H160 native address of the UAT fixture, a plain
 # (:Address {address, network}) node -- there is no separate identity key or
 # member-address resolution step.
-UAT_ADDRESS="${UAT_ADDRESS:-5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6}"
-# UAT_LINKED_NETWORK/UAT_LINKED_ADDRESS are the H160 cross-space counterpart
-# (:Address.network property value bittensor_evm -- same public
-# network=bittensor query network), connected to UAT_ADDRESS by a cross-space
+UAT_ADDRESS="${UAT_ADDRESS:-0x20d09f2881602eee806147ceee9275d33ff31df8}"
+# UAT_LINKED_NETWORK/UAT_LINKED_ADDRESS are the H160 same-network counterpart
+# (:Address.network property value robinhood -- same public
+# network=robinhood query network), connected to UAT_ADDRESS by a same-network
 # (:Address)-[:LINKED]-(:Address) ownership-overlay edge (deterministic H160
-# mirror, basis=derived). AC5: the cross-space read below runs under
-# network=bittensor with no network switch.
-UAT_LINKED_NETWORK="${UAT_LINKED_NETWORK:-bittensor_evm}"
+# mirror, basis=derived). AC5: the cross-network read below runs under
+# network=robinhood with no network switch.
+UAT_LINKED_NETWORK="${UAT_LINKED_NETWORK:-robinhood}"
 UAT_LINKED_ADDRESS="${UAT_LINKED_ADDRESS:-0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24}"
 REPORT_DIR="${REPORT_DIR:-${CHAIN_INSIGHTS_DIR}/.tmp/uat}"
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -192,7 +192,7 @@ const required = ['network_capabilities', 'graph_query', 'graph_query_batch']
 const missing = required.filter((name) => !names.has(name))
 if (missing.length) throw new Error(`direct tools/list missing tools: ${missing.join(', ')}`)
 if (JSON.stringify(tools).includes('app_data')) throw new Error('direct tools/list still contains app_data')
-const hasHighLevel = ['aml_address_risk', 'aml_trace_victim_funds'].every((name) => names.has(name))
+const hasHighLevel = ['aml_address_risk'].every((name) => names.has(name))
 fs.writeFileSync(highLevelFile, hasHighLevel ? 'yes\n' : 'no\n')
 console.log(`[uat] direct tools/list ok: ${tools.length} tools (${hasHighLevel ? 'high-level' : 'primitive-only'})`)
 NODE
@@ -227,10 +227,10 @@ if (source?.tools?.graph_query !== 'available') errors.push(`${network} graph_qu
 for (const leaked of ['retention', 'window_days', 'aggregations']) {
   if (rawPayload.includes(leaked)) errors.push(`network_capabilities leaked ${leaked} implementation metadata`)
 }
-// GATE 3 / AC5: bittensor is the ONE public investigation network. The
-// SS58/H160 split is the :Address.network node property, never a second
-// public query network -- bittensor_evm is a source alias and must not leak.
-for (const alias of ['bittensor_evm', 'base', 'ethereum', 'tron']) {
+// GATE 3 / AC5: robinhood is the ONE public investigation network. The
+// H160 address space is the :Address.network node property, never a second
+// public query network -- base/ethereum/tron aliases must not leak.
+for (const alias of ['base', 'ethereum', 'tron']) {
   if (byName.has(alias)) errors.push(`network_capabilities leaked alias or unsupported network ${alias}`)
 }
 if (errors.length) throw new Error(errors.join('; '))
@@ -317,14 +317,14 @@ console.log(`[uat] facts address query ok: address=${address} labels=${labels}`)
 NODE
 
 # Run the CLI topology assertion before proxy tool checks so graph reads
-# fail close to their source if the local topology is unhealthy. Cross-space
-# LINKED is the only edge connecting a bittensor address to its bittensor_evm
-# counterpart (AC5).
+# fail close to their source if the local topology is unhealthy. Same-network
+# LINKED is the only ownership-overlay edge connecting addresses on the one
+# public robinhood network (AC5).
 GRAPH_QUERY_TEXT="${RUN_DIR}/graph-query-linked.txt"
 log "calling Chain Insights CLI graph_query against real MCP"
 # Bounded retry: a busy graph store can transiently queue point reads past
 # the MCP per-query timeout (e.g. mid-resync); the assertion itself is
-# unchanged and still requires the exact UAT cross-space LINKED edge.
+# unchanged and still requires the exact UAT same-network LINKED edge.
 GRAPH_QUERY_ATTEMPTS="${GRAPH_QUERY_ATTEMPTS:-3}"
 for attempt in $(seq 1 "${GRAPH_QUERY_ATTEMPTS}"); do
   (
@@ -355,7 +355,7 @@ if (!first || first.address !== address) {
   throw new Error(`graph_query did not return expected address ${address}`)
 }
 if (first.linked_address !== linkedAddress || first.linked_network !== linkedNetwork) {
-  throw new Error(`cross-space LINKED edge missing or wrong counterpart: ${JSON.stringify(first)}`)
+  throw new Error(`same-network LINKED edge missing or wrong counterpart: ${JSON.stringify(first)}`)
 }
 console.log(`[uat] graph_query ok: ${first.address} -[:LINKED]- ${first.linked_address} (${first.linked_network}, basis=${first.basis})`)
 NODE
@@ -465,7 +465,7 @@ const file = process.argv[2]
 const data = JSON.parse(fs.readFileSync(file, 'utf8'))
 const tools = data.tools || []
 const names = new Set(tools.map((tool) => tool.name))
-const required = ['wallet_balance', 'meta_help', 'meta_network_capabilities', 'meta_usage_status', 'aml_address_risk', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources', 'graph_query', 'graph_query_batch']
+const required = ['wallet_balance', 'meta_help', 'meta_network_capabilities', 'meta_usage_status', 'aml_address_risk', 'graph_query', 'graph_query_batch']
 const missing = required.filter((name) => !names.has(name))
 if (missing.length) throw new Error(`proxy tools/list missing tools: ${missing.join(', ')}`)
 if (names.size !== required.length) {
@@ -474,7 +474,7 @@ if (names.size !== required.length) {
 }
 if (JSON.stringify(tools).includes('app_data')) throw new Error('proxy tools/list still contains app_data')
 const graphTools = tools.filter((tool) => tool._meta?.ui?.resourceUri === 'ui://chain-insights/graph').map((tool) => tool.name)
-for (const name of ['aml_address_risk', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources']) {
+for (const name of ['aml_address_risk']) {
   if (!graphTools.includes(name)) throw new Error(`proxy graph app metadata missing for ${name}`)
 }
 console.log(`[uat] proxy tools/list ok: ${tools.length} tools`)
@@ -573,66 +573,6 @@ if (errors.length) throw new Error(errors.join('; '))
 console.log(`[uat] graph report ok: nodes=${data.nodes.length} edges=${data.edges.length} flows=${data.flows.length} edge_anchors=${data.edge_anchors.length}`)
 NODE
 
-TRACE_TOOLS_JSON="${RUN_DIR}/proxy-aml-trace-tools.json"
-log "calling Chain Insights proxy AML trace tools"
-node --input-type=module - "${CHAIN_INSIGHTS_PROXY}" "${NETWORK}" "${UAT_ADDRESS}" "${TRACE_TOOLS_JSON}" <<'NODE'
-import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
-import fs from 'node:fs'
-
-const proxy = process.argv[2]
-const network = process.argv[3]
-const memberAddress = process.argv[4]
-const outputFile = process.argv[5]
-const requestTimeoutMs = 5 * 60 * 1000
-const calls = [
-  { name: 'aml_trace_victim_funds', arguments: { network, victim_addresses: memberAddress, max_hops: 2 } },
-  { name: 'aml_trace_suspect_funds', arguments: { network, suspect_addresses: memberAddress, max_hops: 2 } },
-  { name: 'aml_trace_deposit_sources', arguments: { network, deposit_addresses: memberAddress, max_hops: 2 } },
-]
-
-const client = new Client({ name: 'chain-insights-uat-aml-traces', version: '0.0.0' })
-const transport = new StdioClientTransport({
-  command: process.execPath,
-  args: [proxy],
-  env: process.env,
-})
-
-try {
-  await client.connect(transport)
-  const results = {}
-  for (const call of calls) {
-    const result = await client.callTool(call, undefined, {
-      timeout: requestTimeoutMs,
-      maxTotalTimeout: requestTimeoutMs,
-    })
-    const sc = result.structuredContent || {}
-    const errors = []
-    if (result.isError) errors.push(`${call.name} returned isError=true`)
-    if (result.content?.[0]?.type !== 'text') errors.push(`${call.name} content[0] is not text`)
-    if (sc.schema !== 'chain-insights.trace.v1') errors.push(`${call.name} schema mismatch: ${sc.schema}`)
-    if (sc.tool !== call.name) errors.push(`${call.name} tool mismatch: ${sc.tool}`)
-    if (!Array.isArray(sc.input?.addresses) || !sc.input.addresses.includes(memberAddress)) {
-      errors.push(`${call.name} input addresses do not include public member address ${memberAddress}`)
-    }
-    if (errors.length) throw new Error(errors.join('; '))
-    results[call.name] = result
-  }
-  fs.writeFileSync(outputFile, `${JSON.stringify({ results }, null, 2)}\n`)
-} finally {
-  await client.close()
-}
-NODE
-
-node - "${TRACE_TOOLS_JSON}" <<'NODE'
-const fs = require('node:fs')
-const file = process.argv[2]
-const data = JSON.parse(fs.readFileSync(file, 'utf8'))
-const tools = Object.keys(data.results || {})
-if (tools.length !== 3) throw new Error(`expected 3 AML trace tool results, got ${tools.length}`)
-console.log(`[uat] AML trace tools ok: ${tools.join(', ')}`)
-NODE
-
 SUMMARY="${RUN_DIR}/summary.txt"
 cat >"${SUMMARY}" <<EOF
 Chain Insights against Chain Insights Graph UAT PASS
@@ -640,7 +580,7 @@ Chain Insights against Chain Insights Graph UAT PASS
 Endpoint: ${MCP_ENDPOINT}
 Network: ${NETWORK}
 Address: ${UAT_ADDRESS}
-Cross-space LINKED counterpart (bittensor_evm): ${UAT_LINKED_ADDRESS}
+Same-network LINKED ownership-overlay counterpart (robinhood): ${UAT_LINKED_ADDRESS}
 Graph report URL: ${GRAPH_REPORT_URL}
 
 Raw outputs:
@@ -650,7 +590,6 @@ ${DIRECT_ADDRESS_RISK_SUMMARY}
 - ${PROXY_TOOLS_JSON}
 - ${PROXY_JSON}
 - ${GRAPH_REPORT_JSON}
-- ${TRACE_TOOLS_JSON}
 - ${GRAPH_QUERY_TEXT}
 
 Workspace:

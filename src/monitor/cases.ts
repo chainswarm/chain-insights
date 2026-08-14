@@ -1,12 +1,10 @@
 // src/monitor/cases.ts
-// Case registry (spec UC-6/UC-7). cases/<id>/case.json is canonical; the store
-// `cases` table is derived. A case is incident-centric (a theft, a scam
-// cluster) — distinct from the phase-2 my-address watchlist.
+// Case registry (spec UC-6/UC-7). cases/<id>/case.json is canonical. A case
+// is incident-centric (a theft, a scam cluster).
 import { mkdir, readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { writeJsonAtomic } from './atomic.js'
 import { monitorPaths } from './paths.js'
-import { loadWatchlist } from './watchlist.js'
 
 /** One mutation of the seed set, in order. The case timeline's explanation for
  *  a corridor that suddenly got wider or narrower between two runs. */
@@ -31,22 +29,15 @@ export interface MonitorCase {
    *  the aperture widened" from "the corridor grew because funds moved". */
   seeds_added_at_timestamp?: Record<string, number>
   seed_events?: CaseSeedEvent[]
-  /** Victim lane (event-driven tracing, spec req 2/4): set by the activity
-   *  probe when a hit lands on a watchlist entry this case manages; cleared
-   *  by markCaseTraced after a successful trace. The EARLIEST pending hit
-   *  wins so a burst of hits reads as one pending window. */
-  dirty_since_timestamp?: number
-  /** Stamped by the runner after every successful trace (both trace modes). */
-  last_traced_at_timestamp?: number
 }
 
 const CASE_ID_RE = /^[a-z0-9][a-z0-9-]{1,63}$/
 
-// Same allow-list as the watchlist (src/monitor/watchlist.ts): chain addresses
-// are alphanumeric, SS58 base58 or 0x-prefixed H160. Seeds are interpolated
-// into corridor traversal queries downstream, so nothing outside this shape may
-// ever be persisted as a seed. Validate on the way IN — never hand-escape on
-// the way out.
+// Same allow-list as the watchlist before the case-tracking cut: chain
+// addresses are alphanumeric, SS58 base58 or 0x-prefixed H160. Seeds are
+// interpolated into corridor traversal queries downstream, so nothing outside
+// this shape may ever be persisted as a seed. Validate on the way IN — never
+// hand-escape on the way out.
 const ADDRESS_RE = /^(0x)?[A-Za-z0-9]{1,128}$/
 
 function assertAddresses(addresses: string[]): string[] {
@@ -120,7 +111,7 @@ export async function addCase(
 
 /** Widen an open case. Idempotent by address: re-adding an existing seed is a
  *  no-op that neither errors nor records an event, so a scripted `case add-seed`
- *  is safe to re-run (same contract as `watchlist add`). */
+ *  is safe to re-run. */
 export async function addCaseSeeds(
   workspaceRoot: string,
   caseId: string,
@@ -196,35 +187,12 @@ export async function listCases(workspaceRoot: string, opts?: { openOnly?: boole
 
 export async function closeCase(
   workspaceRoot: string, caseId: string, nowTimestamp: number,
-): Promise<{ monitorCase: MonitorCase; alreadyClosed: boolean; managedKept: number }> {
+): Promise<{ monitorCase: MonitorCase; alreadyClosed: boolean }> {
   // Through readCase: a missing case reports `no such case`, not an ENOENT
   // stack. Re-closing is a no-op — rewriting closed_at_timestamp would
   // falsify when the investigation actually ended.
   const current = await readCase(workspaceRoot, caseId)
-  // Close KEEPS the case's managed watchlist entries (label-lifecycle spec
-  // req 3): they are the dormancy tripwire behind the case_reactivated
-  // alert. Nothing here touches watchlist.json — the count is reported so
-  // the close output can say so. (The trace-time managed refresh only runs
-  // for OPEN cases, so these entries are never pruned after close either.)
-  const managedKept = (await loadWatchlist(workspaceRoot)).filter((w) => w.managed_by === `case:${caseId}`).length
-  if (current.status === 'closed') return { monitorCase: current, alreadyClosed: true, managedKept }
+  if (current.status === 'closed') return { monitorCase: current, alreadyClosed: true }
   const closed: MonitorCase = { ...current, status: 'closed', closed_at_timestamp: nowTimestamp }
-  return { monitorCase: await writeCase(workspaceRoot, closed), alreadyClosed: false, managedKept }
-}
-
-// The dirty/traced markers go through readCase, so case-id validation and the
-// `no such case` error come for free. assertOpen is deliberately NOT applied —
-// a closed case may be marked dirty (dormancy tripwire forward-compat); only
-// the runner refuses to trace it.
-export async function markCaseDirty(workspaceRoot: string, caseId: string, nowTimestamp: number): Promise<MonitorCase> {
-  const current = await readCase(workspaceRoot, caseId)
-  if (current.dirty_since_timestamp !== undefined) return current
-  return writeCase(workspaceRoot, { ...current, dirty_since_timestamp: nowTimestamp })
-}
-
-export async function markCaseTraced(workspaceRoot: string, caseId: string, nowTimestamp: number): Promise<MonitorCase> {
-  const current = await readCase(workspaceRoot, caseId)
-  const next: MonitorCase = { ...current, last_traced_at_timestamp: nowTimestamp }
-  delete next.dirty_since_timestamp
-  return writeCase(workspaceRoot, next)
+  return { monitorCase: await writeCase(workspaceRoot, closed), alreadyClosed: false }
 }

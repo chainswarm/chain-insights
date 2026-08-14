@@ -33,7 +33,6 @@ cia debug off
    cia init .
    ```
    No investigation output belongs under `~/.chain-insights`.
-   No investigation output belongs under ~/.chain-insights.
 2. Inspect live network support before choosing tools:
    ```bash
    cia mcp networks
@@ -59,7 +58,7 @@ cia debug off
 ## Hard Rules
 
 - Always preserve full blockchain addresses exactly.
-- All Bittensor investigation runs on ONE public network: always pass `network=bittensor`, for native Substrate/SS58 (`5...`) and EVM-pallet `0x...` inputs alike. The SS58/H160 split is the `:Address.network` node property (`bittensor` / `bittensor_evm`), not a separate query network; a single query spans both spaces by hopping the bridge (money) or `LINKED` (ownership) edge across the boundary.
+- All Robinhood investigation runs on ONE public network: always pass `network=robinhood`, for EVM-pallet `0x...` (H160) inputs alike. Robinhood is EVM-only, so every address is H160 in a single address space: the `:Address.network` node property is `robinhood` throughout — it is a node property, not a separate query network, and there is no cross-space hop to make.
 - Topology is address-grain and graph-selected: use `USE topology` for the Memgraph-backed unified graph, which serves ALL topology — recent and full historical activity — in one place. It supports the `(:Address)-[:FLOWS_TO]->(:Address)` money shape and the `(:Address)-[:LINKED]-(:Address)` ownership overlay; the `LINKED` overlay is topology-only.
 - Users operate on raw blockchain addresses directly. High-level `aml_*` tools accept addresses with no identity-resolution step; public results, artifacts, and follow-up candidate lists always return the raw address.
 - Use the current Chain Insights AML tool contract as the reference behavior; do not downgrade semantics to legacy implementation details from the old Python graph path.
@@ -79,11 +78,10 @@ cia debug off
 This skill covers **one-shot** investigation: a question asked now, answered
 from current graph state, written into the workspace as evidence.
 
-If the user wants to be told when something *changes* — a scheduled sweep, a
-theft re-traced until funds reach a cashout endpoint, an alert when their own
-addresses are touched, findings queued for review over time — that is
-`cia monitor`, and the shipped `chain-insights-monitoring` skill owns it. Route
-there instead of improvising a loop around the AML tools.
+If the user wants to be told when something *changes* — a case re-rendered
+until the investigation concludes, a standing watch over seed addresses —
+that is `cia monitor`, and the shipped `chain-insights-monitoring` skill
+owns it. Route there instead of improvising a loop around the AML tools.
 
 | Signal from the user | Route to |
 | --- | --- |
@@ -97,31 +95,27 @@ so switching between them costs nothing.
 
 Use `aml_address_risk` first for ordinary single-address screening.
 
-Use `aml_trace_victim_funds` when the user has victim/source addresses.
-The victim/source traversal is outward from victim/source funds.
-Use exchange terminal safety and treat the penultimate non-exchange address as the deposit candidate.
-Required input field: `victim_addresses`.
-
-Use `aml_trace_deposit_sources` when the user has suspected deposit/cashout addresses and wants to find direct funders, upstream funders, and shared-source convergence.
-Candidate labels are reviewable, not automatic writes.
-
-Use `aml_trace_suspect_funds` when the user has suspected scammer, mule, operator, or laundering-ring addresses.
-`incident_timestamp` is optional.
-Some Chain Insights Graph deployments do not parse backend-specific BFS or variable-length relationship syntax, so they reproduce this with generated fixed-depth `FLOWS_TO` query batches.
+For fund-flow questions, drive the graph directly with read-only
+`graph_query_batch` over `USE topology` (`(:Address)-[:FLOWS_TO]->(:Address)`
+money edges, `(:Address)-[:LINKED]-(:Address)` ownership overlay). Treat
+addresses as role-labeled hypotheses: victim/source, deposit, or suspect are
+reviewable labels, not automatic writes. Some Chain Insights Graph deployments do not
+parse backend-specific BFS or variable-length relationship syntax, so
+they reproduce this with generated fixed-depth `FLOWS_TO` query batches.
 
 ```bash
-cia mcp trace-victim-funds --network bittensor --victim-addresses 5... --max-hops 3
-cia mcp trace-deposit-sources --network bittensor --deposit-addresses 5... --max-hops 2
-cia mcp trace-suspect-funds --network bittensor --suspect-addresses 5... --max-hops 16
+cia mcp call graph_query_batch \
+  network=<network> \
+  "queries=[{\"id\":\"flows\",\"query\":\"USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum LIMIT 20\"}]"
 ```
 
-All three tools return `chain-insights.trace.v1`, including `candidate_labels` and `continuation`. Candidate labels are reviewable, not automatic writes.
-
-Use manual `graph_query_batch` for custom topology or fact questions. Use `USE topology` for topology (recent and full historical activity in one graph) and `USE facts` for facts and enrichment.
-When writing custom Cypher, use the shipped `chain-insights-cypher` skill; for Bittensor, also use `chain-insights-bittensor-cypher`.
+When writing custom Cypher, use the shipped `chain-insights-cypher` skill; for
+the Bittensor devkit, also use `chain-insights-bittensor-cypher`.
 Treat exchange hot wallets as terminal endpoints only.
-exchange hot wallets are terminal endpoints only
-Use `chain-insights.evidence_pointer.v1` style compact provenance when a workflow points to saved workspace files.
+Use `USE topology` for topology (recent and full historical activity in one
+graph) and `USE facts` for facts and enrichment.
+Use `chain-insights.evidence_pointer.v1` style compact provenance when a
+workflow points to saved workspace files.
 LLM Wiki is a downstream view over exported workspace evidence, not the source of truth.
 
 ## Query And Persistence Loop

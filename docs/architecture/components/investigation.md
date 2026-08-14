@@ -8,94 +8,105 @@ Tests: (none detected)
 
 ## Purpose
 
-Implements AML investigation workflows: address risk screening, victim/suspect/deposit fund tracing, and evidence artifact generation. Orchestrates graph queries (forward/backward topology traversal, fact lookups), builds compact evidence (alias mapping, fund flows, traceback results), writes workspace artifacts (Markdown reports, graph JSON/HTML, table CSV/HTML, compact evidence JSON), and returns continuation hints for follow-up tools.
+Implements AML investigation workflows: address risk screening and comparison,
+direct public graph access, and evidence artifact generation. Orchestrates
+graph queries (topology/facts reads via graph_query, graph_query_batch),
+builds the risk profile (labels, exchange likeness, money-trail lanes), writes
+workspace artifacts (Markdown reports, graph JSON/HTML, table CSV/HTML,
+compact evidence JSON), and returns the profile summary.
 
 ## Reads
 
 - **Remote MCP Client:** Calls Chain Insights Graph tools (graph_query, graph_query_batch) via proxy client
 - **Workspace output paths:** Reads/creates workspace directory structure (reports/graphs/, reports/tables/, artifacts/, schema/)
-- **Investigation config:** seed addresses, network, max hops, min amount sum, activity window, evidence source
+- **Investigation config:** address, network, optional compare address, writeArtifacts toggle
 
 ## Writes
 
 - **Workspace schema files:** <network>.graph-schema.json (runtime topology schema: node labels, relationship types, property keys)
-- **Compact evidence JSON:** <timestamp>_<address>.compact-evidence.json (alias map, fund flows, deposits, source matches, reverse leads)
-- **Graph JSON/HTML:** <timestamp>_<address>.graph.json and .graph.html (nodes, edges, flow metadata, graph app view)
-- **Table CSV/HTML:** <timestamp>_<address>.flows.csv and .table.html (hop-by-hop flow table with amounts and timestamps)
-- **Report Markdown:** <timestamp>_<address>.trace-report.md (summary, Mermaid diagram, file references, continuation hint)
+- **Compact evidence JSON:** <timestamp>_aml_address_risk_<network>_<address>.compact-evidence.json (address risk profile: screen, exchange rows, report summary)
+- **Graph JSON/HTML:** <timestamp>_aml_address_risk_<network>_<address>.graph.json and .graph.html (nodes, edges, flow metadata, graph app view)
+- **Table CSV/HTML:** <timestamp>_aml_address_risk_<network>_<address>.flows.csv and .table.html (exchange likeness rows with direction, hops, amounts)
+- **Report Markdown:** <timestamp>_aml_address_risk_<network>_<address>.aml-address-report.md (summary, file references)
 
 ## Flow
 
 ```mermaid
 flowchart TB
-  A[runFundFlowProbe] --> B[Load/capture topology schema]
-  B --> C[Collect probe trace]
-  C --> D[Forward exchange queries]
-  D --> E[Batch graph_query_batch]
-  E --> F[Parse flows and deposits]
-  F --> G{Include traceback?}
-  G -->|Yes| H[Backward source queries]
-  H --> I[Reverse 1-hop leads]
-  I --> J[Hydrate edge props]
-  G -->|No| J
-  J --> K[Build aliases]
-  K --> L[Build graph payload]
-  L --> M[Write artifacts]
-  M --> N[Return result with summary]
+  A[addressRisk] --> B[Load/capture topology schema]
+  B --> C[Batch graph_query_batch probes]
+  C --> D[Parse address profile + exchange rows]
+  D --> E{Compare lane?}
+  E -->|Yes| F[Second address profile]
+  E -->|No| G
+  F --> G[Build risk profile]
+  G --> H[Build graph payload]
+  H --> I[Write artifacts]
+  I --> J[Return result with summary]
 ```
 
 ## Invariants
 
-- **Bounded tracing:** maxHops clamped to 1-5, perAddressLimit clamped to 1-10, minAmountSum >= 0
-- **Exchange terminal rule:** Traversal stops at exchange nodes (is_exchange IS NOT NULL); no expansion through exchanges
+- **Exact-address keying:** Addresses are resolved by their raw chain-native
+  key directly; there is no identity-resolution step and no member-address
+  satellite.
+- **One public network:** `robinhood` (EVM H160); `graph_query`/`graph_query_batch`
+  route by `USE topology` / `USE facts` with no network switch.
 - **Address normalization:** All blockchain addresses preserved as full strings (no truncation, no ellipsis)
-- **Activity window predicates:** Optional fromTimestamp/toTimestamp filters edge timestamps in Cypher queries
-- **Alias mapping:** V (victim/seed), D (deposit), I (intermediate), E (exchange), X (source exchange), L (reverse lead)
-- **Compact evidence:** Aliases compacted (max 20 intermediaries, sources, leads) for structuredContent; full addressMap in artifacts
+- **Compact evidence:** Address risk profile (labels, exchange likeness,
+  money-trail lanes) in structuredContent; artifacts hold the full profile
 - **Stateless proxy mode:** When writeArtifacts=false, returns summary + structuredContent without workspace writes
-- **Traceback warnings:** Deposit traceback failures collected and returned (do not fail entire trace)
 
 ## Run
 
 ```bash
-# Trace victim funds (CLI)
-cia mcp call trace-victim-funds \
-  --network bittensor \
-  --victim-addresses 5GTjfJaLpBNrgybhY24NqhDnKW9r94z72RSYLxeodxJfSkj5 \
-  --max-hops 3
-# → Calls runFundFlowProbe(), writes artifacts to active workspace, returns summary
+# Screen an address (CLI)
+cia mcp call aml_address_risk \
+  network=robinhood \
+  address=0x1234... \
+  include_attachments=true
+# → Calls addressRisk(), writes artifacts to active workspace, returns summary
 
-# Trace suspect funds (MCP tool call)
+# Compare two addresses (MCP tool call)
 {
-  "name": "aml_trace_suspect_funds",
+  "name": "aml_address_risk",
   "arguments": {
-    "network": "bittensor",
-    "suspect_addresses": ["0xabc..."],
-    "max_hops": 4,
-    "incident_timestamp": 1704067200000
+    "network": "robinhood",
+    "address": "0xabc...",
+    "compare_address": "0xdef..."
   }
 }
-# → Runs traceSuspectFunds(), deposits/sources/leads flows, writes artifacts
+# → Runs the compare lane, writes artifacts
+
+# Direct public graph access (MCP tool call)
+{
+  "name": "graph_query",
+  "arguments": {
+    "network": "robinhood",
+    "query": "USE topology MATCH (a:Address {address: '0x1234...'})-[f:FLOWS_TO]->(b:Address) RETURN a.address AS address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum LIMIT 5"
+  }
+}
+# → Serves address-grain topology: FLOWS_TO money flow, LINKED ownership overlay
 ```
 
 ## Verify
 
 ```bash
-# Manual trace execution
-cia mcp call trace-victim-funds --network bittensor --victim-addresses 0xtest...
+# Manual risk screen
+cia mcp call aml_address_risk network=robinhood address=0x1234...
 # Check workspace artifacts:
 ls -la reports/ reports/graphs/ reports/tables/
-# Should show timestamped files: *.trace-report.md, *.graph.json, *.graph.html, *.flows.csv, *.table.html, *.compact-evidence.json
+# Should show timestamped files: *.graph.json, *.graph.html, *.flows.csv, *.table.html, *.compact-evidence.json
 
 # Verify compact evidence structure
-cat reports/tables/*.compact-evidence.json | jq '.schema, .source, .network, .address_map, .fund_flows'
-# Should contain chain-insights.probe_evidence.v1, alias mappings, flow paths
+cat reports/tables/*.compact-evidence.json | jq '.schema, .tool, .network, .profile'
+# Should contain evidence schema, aml_address_risk tool, network, profile rows
 
 # Verify graph payload
 cat reports/graphs/*.graph.json | jq '.schema, .nodes | length, .edges | length'
-# Should contain chain-insights.graph.v1, nodes with labels/risk_score, edges with amount_usd_sum
+# Should contain graph schema, nodes with labels/risk_score, edges with amount_usd_sum
 
-# Test bounded tracing (max hops, min amount)
-cia mcp call trace-victim-funds --max-hops 2 --min-amount-sum 1000 ...
-# Should respect limits in generated Cypher queries and result counts
+# Direct topology access (exact address key)
+cia mcp call graph_query network=robinhood "query=USE topology MATCH (a:Address {address:0x1234...}) RETURN a.address AS address LIMIT 1"
+# Should return the address node directly, no resolution step
 ```

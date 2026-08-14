@@ -27,13 +27,13 @@ describe('MCP schema cache (MCP-02)', () => {
 
   it('loadSchema() returns tools array within 24h TTL', async () => {
     const schemaPath = join(fakeHome, '.chain-insights', 'mcp-schema.json')
-    const tools = [{ name: 'trace_address', description: 'Trace address funds' }]
+    const tools = [{ name: 'graph_query', description: 'Trace address funds' }]
     await writeFile(schemaPath, JSON.stringify({ tools, cachedAt: Date.now() }), { mode: 0o600 })
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     const result = await loadSchema()
     expect(result).not.toBeNull()
     expect(result).toHaveLength(1)
-    expect(result![0]!.name).toBe('trace_address')
+    expect(result![0]!.name).toBe('graph_query')
   })
 
   it('loadSchema(endpoint) returns null for cache without matching endpoint', async () => {
@@ -60,7 +60,7 @@ describe('MCP schema cache (MCP-02)', () => {
 
   it('loadSchema() returns null when cachedAt is 25 hours old (TTL expired)', async () => {
     const schemaPath = join(fakeHome, '.chain-insights', 'mcp-schema.json')
-    const tools = [{ name: 'trace_address' }]
+    const tools = [{ name: 'graph_query' }]
     const staleTime = Date.now() - 25 * 60 * 60 * 1000
     await writeFile(schemaPath, JSON.stringify({ tools, cachedAt: staleTime }), { mode: 0o600 })
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
@@ -71,14 +71,14 @@ describe('MCP schema cache (MCP-02)', () => {
   it('saveSchema(tools) → loadSchema() round-trip returns same tools', async () => {
     const { saveSchema, loadSchema } = await import('../src/mcp/schema-cache.js')
     const tools = [
-      { name: 'trace_address', description: 'Trace address' },
+      { name: 'graph_query', description: 'Trace address' },
       { name: 'risk_score', description: 'Risk scoring', inputSchema: { type: 'object' } },
     ]
     await saveSchema(tools)
     const result = await loadSchema()
     expect(result).not.toBeNull()
     expect(result).toHaveLength(2)
-    expect(result![0]!.name).toBe('trace_address')
+    expect(result![0]!.name).toBe('graph_query')
     expect(result![1]!.name).toBe('risk_score')
     expect(result![1]!.inputSchema).toEqual({ type: 'object' })
   })
@@ -119,9 +119,9 @@ describe('MCP tool table formatter (MCP-02)', () => {
 
   it('formatToolsTable renders tool name and description', async () => {
     const { formatToolsTable } = await import('../src/mcp/format.js')
-    const result = formatToolsTable([{ name: 'trace-funds', description: 'Trace fund flows' }])
-    expect(result).toContain('trace-funds')
-    expect(result).toContain('Trace fund flows')
+    const result = formatToolsTable([{ name: 'meta_help', description: 'Chain Insights Help' }])
+    expect(result).toContain('meta_help')
+    expect(result).toContain('Chain Insights Help')
   })
 
   it('formatToolsTable pads name to 30 chars', async () => {

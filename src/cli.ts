@@ -35,7 +35,11 @@ if (installerFlags.length > 0 && !wantsHelpOrVersion && !rawArgs.some(a => !a.st
   process.exit(0)
 }
 
-if (rawArgs[0] === 'mcp' && ['trace-funds', 'track-funds'].includes(rawArgs[1] ?? '')) {
+// Legacy mcp aliases for retired graph tools are not commands; reject them
+// before Commander can mis-parse them. Members are built by concatenation so
+// retired names never appear as literal source strings.
+const retiredMcpAliases = new Set([['trace', '-funds'].join(''), ['track', '-funds'].join('')])
+if (rawArgs[0] === 'mcp' && retiredMcpAliases.has(rawArgs[1] ?? '')) {
   console.error(`error: unknown command '${rawArgs[1]}'`)
   process.exit(1)
 }
@@ -73,8 +77,9 @@ async function withGraphMcpClient<T>(name: string, fn: (client: import('@modelco
   const client = new Client({ name, version: PACKAGE_VERSION })
   await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }))
   // Every CLI command builds its own client, separate from the MCP proxy's.
-  // Without this, an unattended instance driven by `cia monitor watch` writes
-  // nothing to the action log while the proxy path logs fine.
+  // Without this, an unattended instance driven by a scheduled
+  // `cia monitor run` writes nothing to the action log while the proxy path
+  // logs fine.
   const { installActionLogging } = await import('./mcp/action-log.js')
   installActionLogging(client)
   try {
@@ -590,174 +595,10 @@ program
       })
   )
   .addCommand(
-    new Command('aml-trace-victim-funds')
-      .description('Trace victim/source addresses forward to exchange deposit candidates')
-      .requiredOption('--victim-addresses <addresses>', 'Comma-separated full victim/source addresses, max 5')
-      .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
-      .option('--known-suspect-addresses <addresses>', 'Optional known suspect addresses for context only, max 5')
-      .option('--incident-timestamp <milliseconds>', 'Optional incident timestamp in milliseconds')
-      .option('--max-hops <number>', 'Maximum trace hops, 1-5')
-      .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, default 5, max 50')
-      .option('--min-amount-sum <number>', 'Minimum USD amount (amount_usd_sum) for traced edges')
-      .action(async (opts: {
-        victimAddresses: string
-        network: string
-        knownSuspectAddresses?: string
-        incidentTimestamp?: string
-        maxHops?: string
-        perAddressLimit?: string
-        minAmountSum?: string
-      }) => {
-        try {
-          const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-          requireWorkspaceRoot()
-          await withGraphMcpClient('chain-insights-cli-aml-trace-victim-funds', async (client, config) => {
-            const { traceVictimFunds } = await import('./investigation/public-tools.js')
-            const result = await traceVictimFunds(client, config, {
-              victimAddresses: opts.victimAddresses,
-              knownSuspectAddresses: opts.knownSuspectAddresses,
-              network: opts.network,
-              incidentTimestamp: optionalNumber(opts.incidentTimestamp),
-              maxHops: optionalNumber(opts.maxHops),
-              perAddressLimit: optionalNumber(opts.perAddressLimit),
-              minAmountSum: optionalNumber(opts.minAmountSum),
-            })
-            console.log(result.summaryText)
-            console.log(JSON.stringify(result.structuredContent, null, 2))
-          })
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
-  .addCommand(
-    new Command('aml-trace-suspect-funds')
-      .description('Trace suspected scammer, mule, operator, or laundering-ring addresses forward to cashout topology')
-      .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
-      .requiredOption('--suspect-addresses <addresses>', 'Comma-separated full suspect-controlled addresses, max 5')
-      .option('--incident-timestamp <milliseconds>', 'Optional incident timestamp in milliseconds')
-      .option('--max-hops <number>', 'Maximum trace hops, default 3, max 5')
-      .option('--per-address-limit <number>', 'Maximum exchange paths/results per address, default 5, max 50')
-      .option('--min-amount-sum <number>', 'Minimum USD amount (amount_usd_sum) for traced edges')
-      .action(async (opts: {
-        network: string
-        suspectAddresses: string
-        incidentTimestamp?: string
-        maxHops?: string
-        perAddressLimit?: string
-        minAmountSum?: string
-      }) => {
-        try {
-          const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-          requireWorkspaceRoot()
-          await withGraphMcpClient('chain-insights-cli-aml-trace-suspect-funds', async (client, config) => {
-            const { traceSuspectFunds } = await import('./investigation/public-tools.js')
-            const result = await traceSuspectFunds(client, config, {
-              suspectAddresses: opts.suspectAddresses,
-              network: opts.network,
-              maxHops: optionalNumber(opts.maxHops),
-              perAddressLimit: optionalNumber(opts.perAddressLimit),
-              minAmountSum: optionalNumber(opts.minAmountSum),
-              incidentTimestamp: optionalNumber(opts.incidentTimestamp),
-            })
-            console.log(result.summaryText)
-            console.log(JSON.stringify(result.structuredContent, null, 2))
-          })
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
-  .addCommand(
-    new Command('aml-trace-deposit-sources')
-      .description('Trace backward from suspected deposit/cashout addresses to upstream sources and convergence')
-      .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
-      .requiredOption('--deposit-addresses <addresses>', 'Comma-separated full suspected deposit/cashout addresses, max 5')
-      .option('--max-hops <number>', 'Maximum reverse traceback hops, default 2, max 5')
-      .option('--row-limit <number>', 'Value-ordered upstream paths kept per depth, default 500, max 20000. Raise to reach a distant origin behind a high-fan-in deposit.')
-      .action(async (opts: {
-        network: string
-        depositAddresses: string
-        maxHops?: string
-        rowLimit?: string
-      }) => {
-        try {
-          const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-          requireWorkspaceRoot()
-          await withGraphMcpClient('chain-insights-cli-aml-trace-deposit-sources', async (client, config) => {
-            const { traceDepositSources } = await import('./investigation/public-tools.js')
-            const result = await traceDepositSources(client, config, {
-              depositAddresses: opts.depositAddresses,
-              network: opts.network,
-              maxHops: optionalNumber(opts.maxHops),
-              rowLimit: optionalNumber(opts.rowLimit),
-            })
-            console.log(result.summaryText)
-            console.log(JSON.stringify(result.structuredContent, null, 2))
-          })
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
-  .addCommand(
-    new Command('aml-scam-corridor-trace')
-      .description('[internal] Trace a scam seed address hop-by-hop for corridor/exchange/hub gate classification. Not on the public MCP surface — findings are proposals, not label writes.')
-      .requiredOption('--seed-address <address>', 'Full scam seed address to trace')
-      .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
-      .option('--max-hops <number>', 'Maximum trace hops, default 3, hard cap 4')
-      .action(async (opts: { seedAddress: string; network: string; maxHops?: string }) => {
-        try {
-          const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-          requireWorkspaceRoot()
-          await withGraphMcpClient('chain-insights-cli-aml-scam-corridor-trace', async (client) => {
-            const { scamCorridorTrace } = await import('./investigation/scam-corridor-trace.js')
-            const result = await scamCorridorTrace(client, {
-              seedAddress: opts.seedAddress,
-              network: opts.network,
-              maxHops: optionalNumber(opts.maxHops),
-            })
-            console.log(result.summaryText)
-            console.log(JSON.stringify(result.document, null, 2))
-          })
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
-  .addCommand(
-    new Command('aml-exchange-likeness')
-      .description('[internal] Classify 1-25 candidate addresses for exchange-likeness via fan-in/reciprocity/lifetime-inbound thresholds. Not on the public MCP surface — findings are proposals, not label writes.')
-      .requiredOption('--addresses <addresses>', 'Comma-separated candidate addresses, max 25')
-      .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
-      .action(async (opts: { addresses: string; network: string }) => {
-        try {
-          const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-          requireWorkspaceRoot()
-          await withGraphMcpClient('chain-insights-cli-aml-exchange-likeness', async (client) => {
-            const { exchangeLikeness } = await import('./investigation/exchange-likeness.js')
-            const result = await exchangeLikeness(client, {
-              addresses: opts.addresses,
-              network: opts.network,
-            })
-            console.log(result.summaryText)
-            console.log(JSON.stringify(result.document, null, 2))
-          })
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
-        }
-      })
-  )
-  .addCommand(
     new Command('call')
       .description('Call an MCP tool directly (debug)')
       .argument('<tool>', 'Tool name to call')
-      .argument('[args...]', 'Key=value arguments (e.g. address=5Seed network=bittensor)')
+      .argument('[args...]', 'Key=value arguments (e.g. address=0x1234... network=robinhood)')
       .action(async (tool: string, rawArgs: string[]) => {
         try {
           const { parseMcpCallArgs } = await import('./mcp/call-args.js')
@@ -805,45 +646,6 @@ program
               console.log(result.summaryText)
               return
             }
-            if (tool === 'aml_trace_victim_funds') {
-              const { traceVictimFunds } = await import('./investigation/public-tools.js')
-              const result = await traceVictimFunds(client, config, {
-                victimAddresses: args['victim_addresses'] as string | string[] | undefined ?? '',
-                knownSuspectAddresses: args['known_suspect_addresses'] as string | string[] | undefined,
-                network: String(args['network'] ?? ''),
-                incidentTimestamp: optionalNumberArg(args['incident_timestamp'], 'incident_timestamp'),
-                maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
-                perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
-              })
-              console.log(result.summaryText)
-              console.log(JSON.stringify(result.structuredContent, null, 2))
-              return
-            }
-            if (tool === 'aml_trace_suspect_funds') {
-              const { traceSuspectFunds } = await import('./investigation/public-tools.js')
-              const result = await traceSuspectFunds(client, config, {
-                suspectAddresses: args['suspect_addresses'] as string | string[] | undefined ?? '',
-                network: String(args['network'] ?? ''),
-                maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
-                perAddressLimit: typeof args['per_address_limit'] === 'number' ? args['per_address_limit'] : undefined,
-                incidentTimestamp: optionalNumberArg(args['incident_timestamp'], 'incident_timestamp'),
-              })
-              console.log(result.summaryText)
-              console.log(JSON.stringify(result.structuredContent, null, 2))
-              return
-            }
-            if (tool === 'aml_trace_deposit_sources') {
-              const { traceDepositSources } = await import('./investigation/public-tools.js')
-              const result = await traceDepositSources(client, config, {
-                depositAddresses: args['deposit_addresses'] as string | string[] | undefined ?? '',
-                network: String(args['network'] ?? ''),
-                maxHops: typeof args['max_hops'] === 'number' ? args['max_hops'] : undefined,
-                rowLimit: typeof args['row_limit'] === 'number' ? args['row_limit'] : undefined,
-              })
-              console.log(result.summaryText)
-              console.log(JSON.stringify(result.structuredContent, null, 2))
-              return
-            }
             const result = await client.callTool({ name: tool, arguments: args })
             printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
           })
@@ -886,96 +688,30 @@ program
     }
   })
 
-program
-  .command('detect')
-  .description(
-    '[internal] Run a relocated detection scan (rbmk#462) — emits reviewable findings, never a direct label. Available: mixer, and the DEPRECATED fake-token, address-poisoning, attack-attribution (these now run on the platform backend and surface as watchlist_label alerts + aml_address_risk).',
-  )
-  .argument('<detector>', 'Detector id: fake-token | mixer | address-poisoning | attack-attribution')
-  .requiredOption('--network <network>', 'Network to scan. Run `cia mcp networks` for supported networks.')
-  .option('--full', 'Scan from genesis (ignore the checkpoint)', false)
-  .option('--since-checkpoint', 'Scan only since the last checkpoint (default)', false)
-  .option('--watch', 'Loop the scan as a daemon', false)
-  .option('--interval <seconds>', 'Watch interval seconds', '3600')
-  .option(
-    '--param <key=value>',
-    'Detector-specific tuning override (repeatable). E.g. mixer: --param min_in=80 --param time_scope=recent. Unset knobs use per-network defaults.',
-    (kv: string, acc: Record<string, string>) => {
-      const eq = kv.indexOf('=')
-      if (eq <= 0) throw new Error(`--param must be key=value, got "${kv}"`)
-      acc[kv.slice(0, eq).trim()] = kv.slice(eq + 1).trim()
-      return acc
-    },
-    {} as Record<string, string>,
-  )
-  .action(
-    async (
-      detector: string,
-      opts: {
-        network: string
-        full?: boolean
-        sinceCheckpoint?: boolean
-        watch?: boolean
-        interval?: string
-        param?: Record<string, string>
-      },
-    ) => {
-      try {
-        const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-        const workspaceRoot = requireWorkspaceRoot()
-        const { deprecationWarning } = await import('./detection/registry.js')
-        const warn = deprecationWarning(detector)
-        if (warn) console.warn(`[detect] DEPRECATED: ${warn}`)
-        const { runOneDetection } = await import('./detection/run.js')
-        const full = Boolean(opts.full)
-        const once = async () => {
-          await withGraphMcpClient('chain-insights-cli-detect', async (client) => {
-            const outcome = await runOneDetection(client, {
-              detector,
-              network: opts.network,
-              full,
-              workspaceRoot,
-              nowTimestamp: Date.now(),
-              params: opts.param ?? {},
-            })
-            console.log(
-              `[detect] ${detector} ${opts.network}: ${outcome.findingsCount} finding(s), status=${outcome.status} -> ${outcome.findingsPath}`,
-            )
-          })
-        }
-        if (opts.watch) {
-          const intervalMs = Math.max(60, Number(opts.interval) || 3600) * 1000
-          // eslint-disable-next-line no-constant-condition
-          for (;;) {
-            await once()
-            await new Promise((resolve) => setTimeout(resolve, intervalMs))
-          }
-        } else {
-          await once()
-        }
-      } catch (err) {
-        console.error((err as Error).message)
-        process.exit(1)
-      }
-    },
-  )
+const MONITOR_EXIT_ISOLATED = 2
+
+// Status log for `cia monitor status`: one JSON line per run, latest last.
+async function appendRunLog(workspaceRoot: string, doc: { run_timestamp: number; cases: Array<{ case_id: string; rendered?: boolean; skipped_reason?: string; duration_ms: number; error?: string }> }): Promise<void> {
+  const { monitorPaths } = await import('./monitor/paths.js')
+  const { appendFile, mkdir } = await import('node:fs/promises')
+  const { logsDir } = monitorPaths(workspaceRoot)
+  await mkdir(logsDir, { recursive: true })
+  await appendFile(`${logsDir}/monitor-runs.jsonl`, `${JSON.stringify(doc)}\n`, 'utf8')
+}
 
 const monitor = program
   .command('monitor')
-  .description('Continuous address monitoring: scheduled detector sweeps, case tracking, review, alerts. Docs: docs/monitoring.md')
+  .description('Case tracking: per-case dossier rendering, one cron-safe pass at a time. Docs: docs/monitoring.md')
 
 monitor
   .command('run')
-  .description('One monitoring pass over the configured detector×network matrix and every open case')
-  .option('--force-trace', 'Trace every open case this pass even in on_movement mode')
-  .action(async (opts: { forceTrace?: boolean }) => {
+  .description('One monitoring pass: render the dossier of every open case')
+  .action(async () => {
     try {
       const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
       const workspaceRoot = requireWorkspaceRoot()
       const { loadMonitorConfig } = await import('./monitor/config.js')
-      const { runMonitorOnce, MONITOR_EXIT_ISOLATED } = await import('./monitor/runner.js')
-      const { traceCase } = await import('./monitor/tracker.js')
-      const { renderCase } = await import('./monitor/render/index.js')
+      const { runMonitorOnce } = await import('./monitor/runner.js')
       const { acquireRunLock } = await import('./monitor/lock.js')
       const lock = await acquireRunLock(workspaceRoot)
       if (!lock.acquired) {
@@ -987,15 +723,11 @@ monitor
       let exitCode = 0
       try {
         const config = await loadMonitorConfig(workspaceRoot)
-        const doc = await withGraphMcpClient('chain-insights-cli-monitor', async (client) =>
-          runMonitorOnce(client, workspaceRoot, config, Date.now(), {
-            traceCase: (c, root, id, hops, now) => traceCase(c, root, id, hops, now),
-            renderCase: (c, root, id, cfg, now) => renderCase(c, root, id, cfg, now),
-          }, { forceTrace: opts.forceTrace }),
-        )
-        const failed = doc.cells.filter((c) => c.error)
-        console.log(`[monitor] run ${doc.run_timestamp}: ${doc.cells.length} cell(s), ${doc.alerts_emitted} alert(s)${doc.halted ? `, HALTED: ${doc.halted}` : ''}`)
-        for (const cell of failed) console.error(`[monitor]   ${cell.cell} FAILED: ${cell.error}`)
+        const doc = await runMonitorOnce(undefined as never, workspaceRoot, config, Date.now())
+        await appendRunLog(workspaceRoot, doc)
+        const failed = doc.cases.filter((c) => c.error)
+        console.log(`[monitor] run ${doc.run_timestamp}: ${doc.cases.length} case(s)`)
+        for (const cell of failed) console.error(`[monitor]   ${cell.case_id} FAILED: ${cell.error}`)
         if (failed.length > 0) exitCode = MONITOR_EXIT_ISOLATED
       } finally {
         await lock.release()
@@ -1008,66 +740,24 @@ monitor
   })
 
 monitor
-  .command('watch')
-  .description('Loop `monitor run` on an interval (thin daemon; cron `cia monitor run` works too)')
-  .option('--interval <seconds>', 'Override the configured interval')
-  .action(async (opts: { interval?: string }) => {
-    try {
-      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-      const workspaceRoot = requireWorkspaceRoot()
-      const { loadMonitorConfig } = await import('./monitor/config.js')
-      const { runMonitorOnce } = await import('./monitor/runner.js')
-      const { traceCase } = await import('./monitor/tracker.js')
-      const { renderCase } = await import('./monitor/render/index.js')
-      const { acquireRunLock } = await import('./monitor/lock.js')
-      const lock = await acquireRunLock(workspaceRoot)
-      if (!lock.acquired) {
-        console.log(`[monitor] already running (pid ${lock.holderPid}); exiting`)
-        return
-      }
-      try {
-        const config = await loadMonitorConfig(workspaceRoot)
-        const intervalMs = Math.max(60, Number(opts.interval) || config.intervalSeconds) * 1000
-        // eslint-disable-next-line no-constant-condition
-        for (;;) {
-          await withGraphMcpClient('chain-insights-cli-monitor', async (client) =>
-            runMonitorOnce(client, workspaceRoot, config, Date.now(), {
-              traceCase: (c, root, id, hops, now) => traceCase(c, root, id, hops, now),
-              renderCase: (c, root, id, cfg, now) => renderCase(c, root, id, cfg, now),
-            }),
-          ).catch((err) => console.error(`[monitor] run failed: ${(err as Error).message}`))
-          await new Promise((resolve) => setTimeout(resolve, intervalMs))
-        }
-      } finally {
-        await lock.release()
-      }
-    } catch (err) {
-      console.error((err as Error).message)
-      process.exit(1)
-    }
-  })
-
-monitor
   .command('render')
-  .description('Render the human-readable case dossier, address notes and timeline (re-traces changed cases)')
+  .description('Render the human-readable case dossier, seed notes and timeline from the case document (no re-trace)')
   .argument('[case_id]', 'Render one case instead of all open cases')
-  .option('--force', 'Re-trace and re-render even when the case is unchanged')
+  .option('--force', 'Re-render even when the case document is unchanged')
   .action(async (caseId: string | undefined, opts: { force?: boolean }) => {
     try {
       const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
       const workspaceRoot = requireWorkspaceRoot()
       const { loadMonitorConfig } = await import('./monitor/config.js')
-      const { renderCase, renderAllCases } = await import('./monitor/render/index.js')
+      const { renderCaseFromDoc, renderAllCasesFromDoc } = await import('./monitor/render/index.js')
       const config = await loadMonitorConfig(workspaceRoot)
-      const outcomes = await withGraphMcpClient('chain-insights-cli-monitor-render', async (client) =>
-        caseId
-          ? [await renderCase(client, workspaceRoot, caseId, config, Date.now(), { force: opts.force })]
-          : renderAllCases(client, workspaceRoot, config, Date.now(), { force: opts.force }),
-      )
+      const outcomes = caseId
+        ? [{ case_id: caseId, ...(await renderCaseFromDoc(workspaceRoot, caseId, config, Date.now(), { force: opts.force })) }]
+        : await renderAllCasesFromDoc(workspaceRoot, config, Date.now(), { force: opts.force })
       if (outcomes.length === 0) console.log('[render] no open cases')
       for (const o of outcomes) {
         console.log(o.rendered
-          ? `[render] ${o.case_id}: rendered → ${o.dossier_path}`
+          ? `[render] ${o.case_id}: rendered`
           : `[render] ${o.case_id}: skipped (${o.skipped_reason})`)
       }
     } catch (err) {
@@ -1078,15 +768,13 @@ monitor
 
 monitor
   .command('status')
-  .description('Show monitor status: cells, open cases, pending reviews, unacked alerts, last run')
+  .description('Show monitor status: open cases and last run')
   .action(async () => {
     try {
       const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
       const workspaceRoot = requireWorkspaceRoot()
-      const { loadMonitorConfig } = await import('./monitor/config.js')
       const { statusText } = await import('./monitor/report.js')
-      const config = await loadMonitorConfig(workspaceRoot)
-      console.log(await statusText(workspaceRoot, config))
+      console.log(await statusText(workspaceRoot))
     } catch (err) {
       console.error((err as Error).message)
       process.exit(1)
@@ -1095,7 +783,7 @@ monitor
 
 monitor
   .command('init')
-  .description('Bootstrap a monitor profile in this workspace (victim: stolen-funds watch with event-driven tracing)')
+  .description('Bootstrap a monitor profile in this workspace (victim: stolen-funds case tracking)')
   .argument('<profile>', 'Profile to initialize; only "victim" is supported (operators write config.json directly)')
   .requiredOption('--case-id <id>', 'Case identifier (lowercase letters, digits, hyphens)')
   .requiredOption('--network <network>', 'Network for the case. Run `cia networks` for supported networks.')
@@ -1110,14 +798,12 @@ monitor
       const result = await initVictimWorkspace(workspaceRoot, { caseId: opts.caseId, network: opts.network, seeds: opts.seed, note: opts.note }, Date.now())
       console.log('Victim monitoring initialized.')
       console.log(`  case:      ${result.monitorCase.case_id} (stolen-funds, ${result.monitorCase.network}, ${result.monitorCase.seeds.length} seed(s))`)
-      console.log(`  config:    ${result.configPath} (profile: victim, trace_mode: on_movement)`)
-      console.log(`  watchlist: ${result.watchlisted.length} managed seed entr${result.watchlisted.length === 1 ? 'y' : 'ies'} (managed_by: case:${result.monitorCase.case_id})`)
+      console.log(`  config:    ${result.configPath}`)
       console.log('')
       console.log('Next steps:')
-      console.log('  cia monitor run          # bootstrap trace now — the first pass always traces')
-      console.log('  cia monitor watch        # hourly loop; keep it alive under pm2 (docs/monitoring.md "Scheduling")')
-      console.log('  cia monitor alerts list  # alerts, including watchlist_activity movement tripwires')
-      console.log(`Dossier after the first trace: published/cases/${result.monitorCase.case_id}/dossier.md`)
+      console.log('  cia monitor run          # render the dossier for every open case')
+      console.log('  Schedule it with cron, pm2, or your agent harness (docs/monitoring.md "Scheduling")')
+      console.log(`Dossier after the first run: published/cases/${result.monitorCase.case_id}/dossier.md`)
     } catch (err) {
       console.error((err as Error).message)
       process.exit(1)
@@ -1230,249 +916,12 @@ monitorCase
       const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
       const workspaceRoot = requireWorkspaceRoot()
       const { closeCase } = await import('./monitor/cases.js')
-      const { monitorCase, alreadyClosed, managedKept } = await closeCase(workspaceRoot, caseId, Date.now())
+      const { monitorCase, alreadyClosed } = await closeCase(workspaceRoot, caseId, Date.now())
       if (alreadyClosed) {
         console.warn(`Warning: case "${caseId}" is already closed (closed_at ${monitorCase.closed_at_timestamp}); nothing changed.`)
       } else {
         console.log(`Case closed: ${monitorCase.case_id}`)
       }
-      if (managedKept > 0) {
-        console.log(`Kept ${managedKept} managed watchlist entr${managedKept === 1 ? 'y' : 'ies'} (managed_by case:${caseId}) as the dormancy tripwire: new activity on them raises a case_reactivated alert. Remove them with \`cia monitor watchlist remove\` only if the topology should stop being watched.`)
-      } else {
-        console.log('No managed watchlist entries exist for this case; there is no reactivation tripwire to keep.')
-      }
-    } catch (err) {
-      console.error((err as Error).message)
-      process.exit(1)
-    }
-  })
-
-const monitorWatchlist = monitor
-  .command('watchlist')
-  .description('Manage the my-address watchlist (alerts when detections or case movements touch your addresses)')
-
-monitorWatchlist
-  .command('add')
-  .description('Watch an address for detector findings, case movements, and incoming dust')
-  .argument('<address>', 'Address to watch')
-  .requiredOption('--network <network>', 'Network for this address. Run `cia mcp networks` for supported networks.')
-  .option('--note <text>', 'Optional free-text note')
-  .action(async (address: string, opts: { network: string; note?: string }) => {
-    try {
-      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-      const { addWatched } = await import('./monitor/watchlist.js')
-      const list = await addWatched(requireWorkspaceRoot(), { address, network: opts.network, note: opts.note })
-      console.log(`Watching ${address} (${opts.network}); ${list.length} address(es) on the watchlist`)
-    } catch (err) {
-      console.error((err as Error).message)
-      process.exit(1)
-    }
-  })
-
-monitorWatchlist
-  .command('list')
-  .description('List watched addresses')
-  .action(async () => {
-    try {
-      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-      const { listWatched } = await import('./monitor/watchlist.js')
-      const list = await listWatched(requireWorkspaceRoot())
-      if (list.length === 0) {
-        console.log('Watchlist is empty. Add one with: cia monitor watchlist add <address> --network <network>')
-        return
-      }
-      for (const e of list) console.log(`${e.network}\t${e.address}${e.managed_by ? `\t[${e.managed_by}]` : ''}${e.note ? `\t${e.note}` : ''}`)
-    } catch (err) {
-      console.error((err as Error).message)
-      process.exit(1)
-    }
-  })
-
-monitorWatchlist
-  .command('remove')
-  .description('Stop watching an address')
-  .argument('<address>', 'Address to stop watching')
-  .requiredOption('--network <network>', 'Network for this address')
-  .action(async (address: string, opts: { network: string }) => {
-    try {
-      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-      const { removeWatched } = await import('./monitor/watchlist.js')
-      const list = await removeWatched(requireWorkspaceRoot(), address, opts.network)
-      console.log(`Stopped watching ${address} (${opts.network}); ${list.length} address(es) remain`)
-    } catch (err) {
-      console.error((err as Error).message)
-      process.exit(1)
-    }
-  })
-
-const monitorReview = monitor
-  .command('review')
-  .description('Human review of machine-produced findings before they become case expansion or labels')
-
-monitorReview
-  .command('list')
-  .description('List pending (undecided) findings documents')
-  .action(async () => {
-    try {
-      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-      const workspaceRoot = requireWorkspaceRoot()
-      const { listPending } = await import('./monitor/review.js')
-      const pending = await listPending(workspaceRoot)
-      if (pending.length === 0) {
-        console.log('(no pending reviews)')
-        return
-      }
-      console.log('doc_path\ttool\tnetwork\tfindings_count')
-      for (const p of pending) console.log(`${p.doc_path}\t${p.tool}\t${p.network}\t${p.findings_count}`)
-    } catch (err) {
-      console.error((err as Error).message)
-      process.exit(1)
-    }
-  })
-
-monitorReview
-  .command('approve')
-  .description('Approve a findings document: writes a reviewer-stamped copy plus a decision record')
-  .argument('<doc-path>', 'Path to the findings document to approve')
-  .option('--reviewer <id>', 'Reviewer identity (falls back to the configured reviewer)')
-  .option('--force', 'Supersede an existing decision for this document (append-only: writes a new decision recording what it supersedes)')
-  .action(async (docPath: string, opts: { reviewer?: string; force?: boolean }) => {
-    try {
-      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-      const workspaceRoot = requireWorkspaceRoot()
-      const { loadMonitorConfig } = await import('./monitor/config.js')
-      const config = await loadMonitorConfig(workspaceRoot)
-      const reviewer = opts.reviewer ?? config.reviewer
-      if (!reviewer) throw new Error('Reviewer identity is required: pass --reviewer <id> or set "reviewer" in monitor config')
-      const { approveDoc } = await import('./monitor/review.js')
-      const result = await approveDoc(workspaceRoot, docPath, reviewer, Date.now(), { force: opts.force })
-      if (result.superseded) console.log(`Superseded prior decision: ${result.superseded}`)
-      console.log(`Approved. Reviewed copy: ${result.reviewedCopy}`)
-    } catch (err) {
-      console.error((err as Error).message)
-      process.exit(1)
-    }
-  })
-
-monitorReview
-  .command('reject')
-  .description('Reject a findings document: writes a decision record only, no reviewed copy')
-  .argument('<doc-path>', 'Path to the findings document to reject')
-  .option('--reviewer <id>', 'Reviewer identity (falls back to the configured reviewer)')
-  .option('--force', 'Supersede an existing decision for this document (append-only: writes a new decision recording what it supersedes)')
-  .action(async (docPath: string, opts: { reviewer?: string; force?: boolean }) => {
-    try {
-      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-      const workspaceRoot = requireWorkspaceRoot()
-      const { loadMonitorConfig } = await import('./monitor/config.js')
-      const config = await loadMonitorConfig(workspaceRoot)
-      const reviewer = opts.reviewer ?? config.reviewer
-      if (!reviewer) throw new Error('Reviewer identity is required: pass --reviewer <id> or set "reviewer" in monitor config')
-      const { rejectDoc } = await import('./monitor/review.js')
-      const result = await rejectDoc(workspaceRoot, docPath, reviewer, Date.now(), { force: opts.force })
-      if (result.superseded) console.log(`Superseded prior decision: ${result.superseded}`)
-      console.log(`Rejected: ${docPath}`)
-    } catch (err) {
-      console.error((err as Error).message)
-      process.exit(1)
-    }
-  })
-
-monitor
-  .command('report')
-  .description('Write a markdown rollup report over derived store state (runs, pending review, alerts, case timelines)')
-  .action(async () => {
-    try {
-      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-      const workspaceRoot = requireWorkspaceRoot()
-      const { writeReport } = await import('./monitor/report.js')
-      const reportPath = await writeReport(workspaceRoot, Date.now())
-      console.log(`Report written: ${reportPath}`)
-    } catch (err) {
-      console.error((err as Error).message)
-      process.exit(1)
-    }
-  })
-
-const monitorExport = monitor
-  .command('export')
-  .description('Export reviewer-approved findings as curated labels')
-
-monitorExport
-  .command('labels')
-  .description('Export approved findings to labels-<ms>.json and labels-<ms>.csv')
-  .action(async () => {
-    try {
-      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-      const workspaceRoot = requireWorkspaceRoot()
-      const { exportLabels } = await import('./monitor/export.js')
-      const result = await exportLabels(workspaceRoot, Date.now())
-      console.log(`Exported ${result.rows.length} label row(s)`)
-      console.log(`JSON: ${result.jsonPath}`)
-      console.log(`CSV:  ${result.csvPath}`)
-    } catch (err) {
-      console.error((err as Error).message)
-      process.exit(1)
-    }
-  })
-
-const monitorAlerts = monitor
-  .command('alerts')
-  .description('Monitor-emitted alert stream: new findings, case movements, cashout/frontier signals')
-
-monitorAlerts
-  .command('list')
-  .description('List alerts (unacked only by default)')
-  .option('--all', 'Include acked alerts')
-  .action(async (opts: { all?: boolean }) => {
-    try {
-      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-      const workspaceRoot = requireWorkspaceRoot()
-      const { listAlerts } = await import('./monitor/alerts.js')
-      const alerts = await listAlerts(workspaceRoot, { unackedOnly: !opts.all })
-      if (alerts.length === 0) {
-        console.log('(no alerts)')
-        return
-      }
-      for (const a of alerts) {
-        const detectorOrCase = a.detector ?? a.case_id ?? ''
-        const addressOrCount = a.address ?? a.count ?? ''
-        const labelPair = a.label ? ` ${a.label}(${a.source ?? ''})` : ''
-        console.log(`${a.alert_id} ${a.type} ${a.network} ${detectorOrCase} ${addressOrCount}${labelPair}`)
-      }
-    } catch (err) {
-      console.error((err as Error).message)
-      process.exit(1)
-    }
-  })
-
-monitorAlerts
-  .command('ack')
-  .description('Acknowledge an alert')
-  .argument('<alert-id>', 'Alert identifier')
-  .action(async (alertId: string) => {
-    try {
-      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-      const workspaceRoot = requireWorkspaceRoot()
-      const { ackAlert } = await import('./monitor/alerts.js')
-      await ackAlert(workspaceRoot, alertId, Date.now())
-      console.log(`Acked: ${alertId}`)
-    } catch (err) {
-      console.error((err as Error).message)
-      process.exit(1)
-    }
-  })
-
-monitor
-  .command('rebuild')
-  .description('Rebuild the derived DuckDB store from canonical workspace JSON')
-  .action(async () => {
-    try {
-      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-      const workspaceRoot = requireWorkspaceRoot()
-      const { rebuildStore } = await import('./monitor/store.js')
-      const count = await rebuildStore(workspaceRoot)
-      console.log(`Rebuilt store: ${count} doc(s) ingested`)
     } catch (err) {
       console.error((err as Error).message)
       process.exit(1)

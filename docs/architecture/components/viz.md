@@ -2,7 +2,7 @@ Worker: viz
 Entrypoint: src/viz
 Package: viz
 Language: typescript
-Tests: (none detected)
+Tests: tests/viz-cli.test.ts, tests/viz-data-extractor.test.ts, tests/viz-graph-model.test.ts, tests/viz-html-generator.test.ts, tests/viz-server.test.ts
 
 # viz
 
@@ -51,7 +51,7 @@ flowchart TB
 - **Source ID sanitization:** Must match /^[A-Za-z0-9._-]+$/ (no path traversal, no ..)
 - **Graph truncation:** Large graphs truncated to prevent browser crashes (configurable limits)
 - **Self-contained HTML:** No external CDN dependencies; Cytoscape.js embedded in HTML
-- **Workspace precedence:** sourceId reads from active workspace report-graphs/ directory
+- **Workspace precedence:** sourceId reads from the active workspace reports/graphs/ directory
 - **Ad-hoc mode:** dataFile bypasses workspace, generates one-off visualization
 - **Node styling:** Color-coded by risk_level (red=T1, orange=T2, yellow=T3, green=T6), sized by flow volume
 - **Edge styling:** Width proportional to amount_usd_sum, color-coded by direction (outflows blue, inflows gray)
@@ -61,37 +61,36 @@ flowchart TB
 
 ```bash
 # Generate visualization from workspace graph
-cia viz generate --source-id 2026-06-26_012345_0xabc123
+cia viz 2026-06-26_012345_0xabc123
 # → Reads reports/graphs/2026-06-26_012345_0xabc123.graph.json
-# → Writes reports/2026-06-26_012345_0xabc123.graph.html
+# → Writes published/viz/2026-06-26_012345_0xabc123.html
+# → Prints "Visualization: http://127.0.0.1:4321/viz/<id>", starts the local
+#   server, and opens the URL in a browser
 
 # Generate ad-hoc visualization from external JSON
-cia viz generate --data-file transactions.json
-# → Reads external JSON, extracts graph, generates HTML with timestamp ID
-
-# Serve visualization (browser)
-# HTML files are self-contained; open directly in browser or serve via local HTTP server
+cia viz --data transactions.json
+# → Reads external JSON, extracts graph, generates HTML with an adhoc_<timestamp> ID
 ```
 
 ## Verify
 
 ```bash
 # Test workspace visualization generation
-cia viz generate --source-id <existing-graph-id>
+cia viz <existing-graph-id>
 # Check output:
-ls -la reports/*.html
+ls -la published/viz/*.html
 # Should show new .html file with same base name as source graph
 
 # Test HTML content
-cat reports/*.html | grep -o '<title>.*</title>'
+cat published/viz/*.html | grep -o '<title>.*</title>'
 # Should show graph title with source ID
 
 # Verify Cytoscape.js embedding
-cat reports/*.html | grep -o 'cytoscape.*\.js' | head -1
+cat published/viz/*.html | grep -o 'cytoscape.*\.js' | head -1
 # Should show embedded Cytoscape.js script (not CDN link)
 
 # Test ad-hoc mode
 echo '[{"from":"0xaaa","to":"0xbbb","value":100}]' > /tmp/tx.json
-cia viz generate --data-file /tmp/tx.json
+cia viz --data /tmp/tx.json
 # Should generate visualization with 2 nodes, 1 edge
 ```

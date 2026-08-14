@@ -178,21 +178,20 @@ property names for the active network.
 
 The address-grain graph schema:
 
-- All Bittensor investigation runs on ONE public network: always pass
-  \`network=bittensor\`, for SS58 and EVM-pallet \`0x...\` (H160) inputs
-  alike. Every topology node is \`(:Address {address, network})\`, keyed by
-  the raw chain-native \`address\`; the SS58/H160 split is the node's
-  \`network\` PROPERTY (\`bittensor\` for SS58, \`bittensor_evm\` for H160),
-  not a separate query network. There is no separate identity key and no
+- All Chain Insights investigation runs on ONE public network: always pass
+  \`network=robinhood\` — one EVM H160 (\`0x...\`) address space, no SS58.
+  Every topology node is \`(:Address {address, network})\`, keyed by
+  the raw chain-native \`address\`; there is no SS58/H160 split and no
+  second query network. There is no separate identity key and no
   member-address satellite: the address IS the graph node.
 - \`(:Address)-[:LINKED]-(:Address)\` is an **undirected** ownership-overlay
   edge (\`basis\` \`derived\`/\`associated\`, plus \`confidence\`,
   \`source_event\`, \`declared_owner\`) asserting the two addresses are
-  controlled by the same actor. \`LINKED\` is the ownership edge across the
-  SS58/H160 space boundary — a single \`network=bittensor\` query traces
-  SS58 -> (bridge or LINKED) -> H160 and back with no network switch. Walk
-  one visible \`LINKED\` hop to surface actor-level exposure or to resolve
-  an address's counterpart in the other space; never treat linked addresses
+  controlled by the same actor. \`LINKED\` is the ownership edge within the
+  single \`network=robinhood\` space — a same-network query traces
+  (\`LINKED\` or \`FLOWS_TO\`) with no network switch. Walk
+  one visible \`LINKED\` hop to surface actor-level exposure; never treat
+  linked addresses
   as a single collapsed node. \`LINKED\` is served on the topology graph
   only.
 - Other Address properties: \`labels\` (array) and \`is_exchange\`
@@ -261,27 +260,16 @@ Rules:
 - Markdown reports should be short provenance records with key facts and
   pointers. Large JSON belongs in \`reports/tables/\`, not inline in reports.
 
-Trace tool chaining:
+AML tool guidance:
 
-1. Use \`aml_trace_victim_funds\` when the user gives victim/source addresses.
-2. Pass returned \`continuation.candidate_deposit_addresses\` to
-   \`aml_trace_deposit_sources\`; do not make victim tracing run deposit traceback
-   internally.
-3. Pass high-confidence \`continuation.candidate_suspect_addresses\` from
-   deposit traceback to \`aml_trace_suspect_funds\`.
-4. Use \`aml_trace_suspect_funds\` when the user gives suspected scammer, mule,
-   operator, or laundering-ring addresses. \`incident_timestamp\` is
-   optional.
-5. Use \`aml_address_risk\` for single-address enrichment, and
-   \`graph_query_batch\` only when the role-specific tools do not answer the
-   exact question.
+1. Use \`aml_address_risk\` for single-address enrichment and optional
+   comparison with another address.
+2. Use \`graph_query_batch\` only when the high-level tools do not answer the
+   exact question, and \`graph_query\` for single read-only queries.
 
-All trace tools take raw blockchain addresses as inputs directly — there is no
-identity-resolution step — and return \`chain-insights.trace.v1\`. Preserve
-full blockchain addresses in
-\`input.addresses\`, \`addresses[].address\`, \`edges[].from_address\`,
-\`edges[].to_address\`, \`paths[].addresses\`, \`candidate_labels[].address\`,
-and \`continuation\` address lists.
+\`aml_address_risk\` takes a raw blockchain address as input directly — there
+is no identity-resolution step — and returns \`chain-insights.result.v1\`. Preserve
+full blockchain addresses in the summary and all workspace artifacts.
 `
 
 const SCHEMA_README = `# Runtime Schema Captures

@@ -2,7 +2,7 @@ Worker: wallet
 Entrypoint: src/wallet
 Package: wallet
 Language: typescript
-Tests: (none detected)
+Tests: tests/wallet.test.ts, tests/wallet-tools.test.ts
 
 # wallet
 

@@ -1,7 +1,8 @@
 // The action log was originally installed only on the MCP proxy's remote
 // client. Every `cia` CLI command builds its own client, so an unattended
-// instance driven by `cia monitor watch` wrote nothing while the mechanism
-// "worked" on the path nobody was using. This pins the wrapper itself.
+// instance driven by a scheduled `cia monitor run` wrote nothing while the
+// mechanism "worked" on the path nobody was using. This pins the wrapper
+// itself.
 import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -30,9 +31,9 @@ describe('installActionLogging wraps any client', () => {
       }),
     }
     installActionLogging(client as never)
-    await (client.callTool as never as (a: unknown) => Promise<unknown>)({ name: 'aml_trace_deposit_sources', arguments: { network: 'bittensor' } })
+    await (client.callTool as never as (a: unknown) => Promise<unknown>)({ name: 'graph_query', arguments: { network: 'robinhood' } })
     const entry = JSON.parse((await readFile(file, 'utf8')).trim())
-    expect(entry.tool).toBe('aml_trace_deposit_sources')
+    expect(entry.tool).toBe('graph_query')
     expect(entry.outcome).toBe('ok')
     expect(entry.warnings).toEqual(['hit the cap'])
     expect(entry.search_limits).toEqual({ row_limit: 500 })
