@@ -90,10 +90,13 @@ jobs:
           DIAGRAM_REPO_ROOT: ${{ github.workspace }}
         run: bash .rbmk/scripts/devops/render-architecture-diagrams.sh
 
+      - name: Render root Architecture tab (ARCHITECTURE.md)
+        run: python3 .rbmk/scripts/devops/render-github-doc-tabs.py --repo-root . --only architecture
+
       - name: Commit generated docs back to the repo
         run: |
           rm -rf .rbmk
-          git add docs/architecture
+          git add docs/architecture ARCHITECTURE.md
           # Force-add the rendered diagram tree so committed PNGs survive a
           # repo-level `*.png` .gitignore. ARCHITECTURE.md embeds the PNG (GitHub
           # web refuses to inline-render repo SVGs), so the PNG must be tracked or
@@ -103,7 +106,7 @@ jobs:
           # generator and knowledge-skill autorefresh are retired; only
           # docs/architecture + rendered diagrams are produced by CI.)
           if git diff --cached --quiet; then
-            echo "No docs/architecture changes to commit."
+            echo "No docs/architecture / ARCHITECTURE.md changes to commit."
             exit 0
           fi
           git config user.name "github-actions[bot]"
