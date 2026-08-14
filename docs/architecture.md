@@ -69,6 +69,7 @@ Supported config keys:
 | --- | --- |
 | `graphMcpEndpoint` | Chain Insights Graph endpoint used by CLI and proxy |
 | `graphMcpAuthToken` | Chain Insights Graph bearer credential for test access keys or local debug UAT |
+| `graphMcpMode` | Endpoint access mode: `paid` (default) or `debug` |
 | `walletAddress` | Optional wallet metadata |
 | `serverPort` | Local visualization and graph report server port |
 | `dataDir` | Local Chain Insights data directory |
@@ -86,7 +87,6 @@ Default local data directory:
   config.json
   wallet.json
   mcp-schema-*.json
-  chain-insights.duckdb
 ```
 
 Investigation outputs belong in initialized workspaces, not in the global data

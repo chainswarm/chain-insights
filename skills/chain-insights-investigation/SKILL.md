@@ -33,7 +33,6 @@ cia debug off
    cia init .
    ```
    No investigation output belongs under `~/.chain-insights`.
-   No investigation output belongs under ~/.chain-insights.
 2. Inspect live network support before choosing tools:
    ```bash
    cia mcp networks
@@ -113,7 +112,6 @@ cia mcp call graph_query_batch \
 When writing custom Cypher, use the shipped `chain-insights-cypher` skill; for
 the Bittensor devkit, also use `chain-insights-bittensor-cypher`.
 Treat exchange hot wallets as terminal endpoints only.
-exchange hot wallets are terminal endpoints only
 Use `USE topology` for topology (recent and full historical activity in one
 graph) and `USE facts` for facts and enrichment.
 Use `chain-insights.evidence_pointer.v1` style compact provenance when a

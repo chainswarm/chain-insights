@@ -27,7 +27,7 @@ describe('shipped Chain Insights skills contract', () => {
     const skill = read('skills/chain-insights-investigation/SKILL.md')
 
     expect(skill).toContain('cia init .')
-    expect(skill).toContain('No investigation output belongs under ~/.chain-insights')
+    expect(skill).toContain('No investigation output belongs under `~/.chain-insights`')
     expect(skill).toContain('single-address')
     expect(skill).toContain('role-labeled hypotheses')
     expect(skill).toContain('Topology is address-grain and graph-selected')
@@ -52,7 +52,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('LINKED` overlay is topology-only')
     expect(skill).toContain('Some Chain Insights Graph deployments do not')
     expect(skill).toContain('generated fixed-depth `FLOWS_TO` query batches')
-    expect(skill).toContain('exchange hot wallets are terminal endpoints only')
+    expect(skill).toContain('Treat exchange hot wallets as terminal endpoints only')
     expect(skill).toContain('chain-insights.evidence_pointer.v1')
     expect(skill).toContain('LLM Wiki')
     expect(skill).not.toContain(retiredName('track', '_funds'))

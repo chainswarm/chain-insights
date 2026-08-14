@@ -41,7 +41,7 @@ events (add/remove). A case with no activity for `render.dormant_after_days`
 { "render": { "dormant_after_days": 30 } }
 ```
 - **A standing view** — `cia monitor status` shows open cases and the last
-  successful run; `cia monitor run` is safe to put on any schedule.
+  run; `cia monitor run` is safe to put on any schedule.
 
 ## The Command Surface
 

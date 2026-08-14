@@ -24,9 +24,10 @@ cia config get graphMcpEndpoint
 # Expected: Returns "https://staging-mcp.chain-insights.ai/mcp"
 
 # Test env override
-export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=http://custom:9999/mcp
+export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=http://127.0.0.1:9999/mcp
 cia config get graphMcpEndpoint
-# Expected: Returns "http://custom:9999/mcp" (overrides saved value)
+# Expected: Returns "http://127.0.0.1:9999/mcp" (overrides saved value)
+# Note: http:// is accepted only for loopback hosts; remote hosts must use https://
 
 # Test invalid config (corrupt JSON)
 echo "{invalid json" > ~/.chain-insights/config.json

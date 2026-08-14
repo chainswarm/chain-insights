@@ -3,6 +3,41 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.10] - 2026-08-14 — post-cut consistency pass
+
+Docs, skills, and dependency cleanup after the detector-cell/watchlist cut
+(#300) and the `cia monitor watch` cut (#305). No behavior change.
+
+### Removed
+
+- `@duckdb/node-api` dependency. The DuckDB store was retired in the earlier
+  cut; the package had zero importers left in `src/`.
+- `limitFromParams` in `src/config/limits.ts`. Dead code: its only callers
+  were the retired detector params path.
+
+### Fixed
+
+- Acceptance docs now match the real CLI surface: `cia viz [source-id]
+  --data <file>` (served URL, not a written-file path), `cia serve` instead
+  of the never-built `dist/server.mjs`, loopback-only `http://` endpoint
+  override, and `cia wallet import` overwrite refusal with the `--force`
+  path documented.
+- README: `cia monitor` renders dossiers on an external schedule, and the
+  tool table lists all seven tools including `meta_help`.
+- Architecture docs: dropped the retired `chain-insights.duckdb` data file,
+  the phantom `mcpAuthToken` config key, the Export Builder container and
+  trace/Obsidian flows in the C4 model, and tracing wording in the context
+  overview; added the real `graphMcpMode` config key; corrected the
+  workspace marker name (`.chain-insights/workspace.json`) and component
+  test-file headers; filled the `federation` component placeholder.
+- Skills: removed the phantom `--include-attachments` CLI flag from the
+  address-risk example, reworded retired trace-tool framing, dropped the
+  retired reviewer-approval label path, fixed the exit-2 wording
+  ("isolated case failure"), and removed duplicated sentences.
+- `docs/monitoring.md` and `docs/acceptance/mcp.md`: `cia monitor status`
+  shows the last run (failed passes are recorded too), and the structured
+  log path is `~/.chain-insights/runtime/logs/mcp-proxy.jsonl`.
+
 ## [0.18.9] - 2026-08-14 — monitor slim-down: watch loop removed
 
 `cia monitor` is now one-shot only: `monitor run` renders every open case's

@@ -9,7 +9,7 @@
 
 ## Internal Flows
 
-- cia CLI → Local Workspace Store: Writes local cases, evidence, config, and exports
+- cia CLI → Local Workspace Store: Writes local cases, evidence, and config
 - MCP Proxy → Local Workspace Store: Uses local workspace configuration
 - NPM Package → cia CLI: Packages CLI entrypoint
 - NPM Package → MCP Proxy: Packages proxy entrypoint
@@ -18,4 +18,3 @@
 
 - cia CLI → Data Pipeline GraphRAG MCP: Calls graph tools and AML primitives
 - MCP Proxy → Data Pipeline GraphRAG MCP: Proxies configured tools
-- cia CLI → Obsidian / LLM Wiki: Opens or exports curated investigation bundles

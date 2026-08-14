@@ -17,28 +17,24 @@ left to right direction
 !include <C4/C4_Component>
 
 System(DataPipelineGraphRAGMCP, "Data Pipeline GraphRAG MCP", $descr="Public MCP endpoint serving graph queries, risk tools, quota, and report metadata.", $tags="", $link="")
-System(ObsidianLLMWiki, "Obsidian / LLM Wiki", $descr="Optional local knowledge workspace and exported investigation bundle target.", $tags="", $link="")
 
 System_Boundary("ChainInsightsToolkit_boundary", "Chain Insights Toolkit", $tags="") {
   Container_Boundary("ChainInsightsToolkit.ciaCLI_boundary", "cia CLI", $tags="") {
-    Component(ChainInsightsToolkit.ciaCLI.AMLWorkflowCommands, "AML Workflow Commands", $techn="src/workflows", $descr="Runs address risk, staking, trace, and graph query workflows.", $tags="", $link="")
+    Component(ChainInsightsToolkit.ciaCLI.AMLWorkflowCommands, "AML Workflow Commands", $techn="src/investigation", $descr="Runs address risk and graph query workflows.", $tags="", $link="")
     Component(ChainInsightsToolkit.ciaCLI.CaseManager, "Case Manager", $techn="src/cases", $descr="Creates, resumes, verifies, and updates local case evidence manifests.", $tags="", $link="")
-    Component(ChainInsightsToolkit.ciaCLI.ExportBuilder, "Export Builder", $techn="src/export", $descr="Builds Obsidian, LLM Wiki, Codex, Claude Code, and ChatGPT handoff bundles.", $tags="", $link="")
     Component(ChainInsightsToolkit.ciaCLI.AgentInstaller, "Agent Installer", $techn="src/install", $descr="Installs MCP proxy configuration for local agent clients.", $tags="", $link="")
     Component(ChainInsightsToolkit.ciaCLI.ConfigResolver, "Config Resolver", $techn="src/config", $descr="Resolves graphMcpEndpoint, auth token, workspace paths, and hosted/local endpoint precedence.", $tags="", $link="")
     Component(ChainInsightsToolkit.ciaCLI.GraphMCPClient, "Graph MCP Client", $techn="src/mcp", $descr="Calls GraphRAG MCP tools and refreshes tool catalogues.", $tags="", $link="")
   }
 
-  Container(ChainInsightsToolkit.LocalWorkspaceStore, "Local Workspace Store", $techn="Files", $descr="Filesystem workspace containing cases, evidence manifests, dossiers, exports, and config.", $tags="", $link="")
+  Container(ChainInsightsToolkit.LocalWorkspaceStore, "Local Workspace Store", $techn="Files", $descr="Filesystem workspace containing cases, evidence manifests, dossiers, and config.", $tags="", $link="")
 }
 
 Rel(ChainInsightsToolkit.ciaCLI.ConfigResolver, ChainInsightsToolkit.ciaCLI.GraphMCPClient, "Provides endpoint and auth config", $techn="", $tags="", $link="")
 Rel(ChainInsightsToolkit.ciaCLI.GraphMCPClient, DataPipelineGraphRAGMCP, "Calls public MCP tools", $techn="", $tags="", $link="")
-Rel(ChainInsightsToolkit.ciaCLI.AMLWorkflowCommands, ChainInsightsToolkit.ciaCLI.GraphMCPClient, "Composes graph and trace calls", $techn="", $tags="", $link="")
+Rel(ChainInsightsToolkit.ciaCLI.AMLWorkflowCommands, ChainInsightsToolkit.ciaCLI.GraphMCPClient, "Composes graph tool calls", $techn="", $tags="", $link="")
 Rel(ChainInsightsToolkit.ciaCLI.AMLWorkflowCommands, ChainInsightsToolkit.ciaCLI.CaseManager, "Stores compact evidence pointers", $techn="", $tags="", $link="")
 Rel(ChainInsightsToolkit.ciaCLI.CaseManager, ChainInsightsToolkit.LocalWorkspaceStore, "Writes manifests, dossiers, and sessions", $techn="", $tags="", $link="")
-Rel(ChainInsightsToolkit.ciaCLI.ExportBuilder, ChainInsightsToolkit.LocalWorkspaceStore, "Reads cases and evidence", $techn="", $tags="", $link="")
-Rel(ChainInsightsToolkit.ciaCLI.ExportBuilder, ObsidianLLMWiki, "Writes handoff bundles", $techn="", $tags="", $link="")
 Rel(ChainInsightsToolkit.ciaCLI.AgentInstaller, ChainInsightsToolkit.LocalWorkspaceStore, "Writes client proxy configuration", $techn="", $tags="", $link="")
 
 SHOW_LEGEND(true)

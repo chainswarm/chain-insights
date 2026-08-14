@@ -6,13 +6,13 @@
 
 - Chain Insights installed and built (npm run build completed)
 - Config serverPort set (optional, defaults to 4321)
-- Workspace with artifacts (optional, for testing artifact serving)
+- Initialized workspace (`cia init .`); artifacts optional, for testing artifact serving
 
 ### Run
 
 ```bash
 # Start server in background
-node dist/server.mjs &
+cia serve &
 SERVER_PID=$!
 sleep 2
 
@@ -36,7 +36,7 @@ curl -s http://127.0.0.1:4321/artifacts/nonexistent
 # This requires external network access; skip in automated tests
 
 # Test port conflict (start second server)
-node dist/server.mjs &
+cia serve &
 SERVER_PID_2=$!
 sleep 1
 # Expected: Second start fails with "Port already in use" message
