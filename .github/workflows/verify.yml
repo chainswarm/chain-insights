@@ -69,7 +69,10 @@ jobs:
           fi
 
       - name: Check release metadata
-        if: github.event_name == 'pull_request' && steps.release-scope.outputs.required == 'true'
+        # Dependabot PRs bump dependencies only; they cannot carry a package
+        # version bump + CHANGELOG entry, so the release gate would hard-fail
+        # every dependency PR. Typecheck/build/test/audit still gate them.
+        if: github.event_name == 'pull_request' && steps.release-scope.outputs.required == 'true' && github.event.pull_request.user.login != 'dependabot[bot]'
         run: npm run release:check
 
       - name: Test
