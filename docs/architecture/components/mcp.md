@@ -2,7 +2,7 @@ Worker: mcp
 Entrypoint: src/mcp
 Package: mcp
 Language: typescript
-Tests: (none detected)
+Tests: tests/mcp-proxy.test.ts, tests/mcp-client.test.ts, tests/mcp-capabilities.test.ts, tests/mcp-graph-client.test.ts, tests/mcp-graph-reports.test.ts, tests/mcp-print-result.test.ts, tests/mcp-schema-cache.test.ts
 
 # mcp
 
@@ -12,7 +12,7 @@ Implements MCP proxy server (stdio transport) and remote MCP client (HTTP/SSE to
 
 ## Reads
 
-- **~/.chain-insights/config.json:** graphMcpEndpoint, graphMcpMode, mcpAuthToken, graphMcpAuthToken, dataDir, serverPort
+- **~/.chain-insights/config.json:** graphMcpEndpoint, graphMcpMode, graphMcpAuthToken, dataDir, serverPort
 - **~/.chain-insights/wallet.json:** Encrypted EVM private key for x402 payment (via wallet decryptKey)
 - **Chain Insights Graph MCP endpoint:** Remote tool catalog (listTools), tool responses, network capabilities, usage status
 - **stdin (stdio transport):** MCP protocol messages from agent client (JSON-RPC tool calls, prompts)

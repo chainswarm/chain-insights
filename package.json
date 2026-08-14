@@ -1,7 +1,7 @@
 {
   "name": "chain-insights",
-  "version": "0.18.5",
-  "description": "AML investigation CLI and MCP proxy for blockchain risk, fund-flow tracing, workspace reports, and Chain Insights Graph access",
+  "version": "0.18.16",
+  "description": "AML investigation CLI and MCP proxy for blockchain risk screening, case tracking, workspace reports, and Chain Insights Graph access",
   "homepage": "https://chain-insights.ai",
   "repository": {
     "type": "git",
@@ -23,6 +23,12 @@
     "investigations"
   ],
   "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "engines": {
     "node": ">=22.0.0"
   },
@@ -52,18 +58,22 @@
     "dev": "tsx src/cli.ts",
     "devkit:smoke": "bash devkit/scripts/smoke.sh",
     "devkit:smoke:parity": "bash devkit/scripts/smoke-chain-insights-parity.sh",
-    "monitor:uat": "bash devkit/scripts/smoke-monitor.sh",
     "probe:capability": "bash devkit/scripts/capability-probes-topology.sh",
-    "test:devkit": "CAPABILITY_PROBES=1 vitest run tests/capability-matrix.test.ts tests/route-evidence-devkit.test.ts && TRACE_DEVKIT_GOLDEN=1 vitest run tests/trace-devkit-golden.test.ts",
+    "test:devkit": "CAPABILITY_PROBES=1 vitest run tests/capability-matrix.test.ts tests/route-evidence-devkit.test.ts",
     "corpus:generate": "tsx scripts/generate-query-corpus.mjs",
     "release:check": "node scripts/check-release-gate.mjs",
+    "lint:package": "publint",
+    "check:types-resolution": "attw --pack .",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "lint": "oxlint src tests",
+    "lint:format": "prettier --check .",
+    "format": "prettier --write .",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@duckdb/node-api": "^1.5.5-r.2",
     "@hono/node-server": "^2.0.12",
     "@modelcontextprotocol/ext-apps": "^1.7.5",
     "@modelcontextprotocol/sdk": "^1.30.0",
@@ -76,7 +86,12 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
     "@types/node": "^26.1.2",
+    "@vitest/coverage-v8": "^4.1.9",
+    "oxlint": "^1.0.0",
+    "prettier": "^3.0.0",
+    "publint": "^0.3.23",
     "tsdown": "^0.22.14",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",

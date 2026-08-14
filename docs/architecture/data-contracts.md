@@ -17,34 +17,31 @@ Every statement here was verified against the source files it names.
 - Local tools live in `src/mcp/proxy.ts`: `meta_network_capabilities`,
   `meta_usage_status`, `meta_help`, `wallet_balance`.
 - `meta_network_capabilities` collapses backend networks into one public
-  `bittensor` entry (`BITTENSOR_SEMANTIC_NETWORKS` in
-  `src/mcp/capabilities.ts`). There is no public `network=bittensor_evm`
-  argument.
-- The graph app UI resource `ui://chain-insights/graph` attaches to the four
-  `aml_*` trace/screen tools (`GRAPH_APP_TOOL_NAMES` in `src/mcp/proxy.ts`).
+  `robinhood` entry (`ROBINHOOD_SEMANTIC_NETWORKS` in
+  `src/mcp/capabilities.ts`). The mirror exposes no other network and
+  advertises no layer detail (`layers: {}`).
+- The graph app UI resource `ui://chain-insights/graph` attaches to
+  `aml_address_risk` (`GRAPH_APP_TOOL_NAMES` in `src/mcp/proxy.ts`).
 
 ### Tool Argument Contracts
 
 - `PUBLIC_MCP_TOOL_REQUIRED_ARGS` / `PUBLIC_MCP_TOOL_ALLOWED_ARGS` in
   `src/mcp/tool-visibility.ts` define the public arg contract. Examples:
   `aml_address_risk` requires address + network; `graph_query_batch` allows
-  `per_query_timeout_seconds`; `aml_trace_deposit_sources` allows
-  `max_hops` / `row_limit`; `aml_trace_victim_funds` /
-  `aml_trace_suspect_funds` allow `max_hops` / `per_address_limit`.
+  `per_query_timeout_seconds`; `graph_query` allows `time_scope`.
 - An argument absent from the allowlist is silently stripped by
   `normalizeRemoteToolArguments`. Every new tunable arg must be added here
   and to the numeric-argument set in `src/mcp/call-args.ts` the moment it
-  appears on a tool schema. `tests/configurable-limits.test.ts` covers this
-  end to end.
+  appears on a tool schema.
 
 ## Search Limits Registry
 
-Every search bound across investigation and detection tools resolves through
-one shared registry: `LIMIT_SPECS` in `src/config/limits.ts`.
+Every remaining search bound resolves through one shared registry:
+`LIMIT_SPECS` in `src/config/limits.ts`.
 
 Precedence, highest layer first:
 
-1. Per-call argument (MCP arg / CLI flag / detector `--param`).
+1. Per-call argument (MCP arg / CLI flag).
 2. `networkLimits.<network>.<key>` in `~/.chain-insights/config.json`.
 3. `limits.<key>` (all networks).
 4. Per-network default table (`NETWORK_LIMIT_DEFAULTS`, empty today).
@@ -56,27 +53,13 @@ Rules:
   raise it. A per-network entry may only lower it.
 - An out-of-range request throws `LimitRangeError`. It is never silently
   clamped.
-- Hop-depth knobs (`HOP_LIMIT_KEYS`) carry the tightest ceilings. Cost grows
-  exponentially with depth, not linearly.
 - Results report `input.search_limits` (requested / used / default / ceiling
   per knob, via `limitsReport()`), so a bounded search is visible without
   reading warnings.
-- Covered knobs include `trace_max_hops`, `trace_per_address_limit`,
-  `deposit_sources_max_hops`, `deposit_sources_row_limit`,
-  `corridor_max_hops`, `corridor_frontier_cap`, `corridor_query_row_limit`,
-  `exchange_likeness_max_candidates`, `viz_max_nodes`, and the detection
-  numeric caps.
+- The covered knob is `viz_max_nodes` (nodes rendered in a generated graph
+  view before truncation).
 
 Full table: [../search-limits.md](../search-limits.md).
-
-## Deposit-Source Value Ordering
-
-`aml_trace_deposit_sources` ranks upstream paths by their narrowest
-(bottleneck) edge value before `deposit_sources_row_limit` truncates
-(`reverseDepositSourceQueryAtDepth` in `src/investigation/public-tools.ts`).
-A high-fan-in deposit loses its least value-bearing routes first, not an
-arbitrary slice. The truncation warning names the weakest retained path's
-value and the remaining `row_limit` ceiling headroom.
 
 ## Endpoint Configuration
 
@@ -101,77 +84,33 @@ MCP proxy mode: `CHAIN_INSIGHTS_MCP_PROXY_MODE=workspace` (default) or
 
 ## Shared-Graph Model
 
-`bittensor` and `bittensor_evm` are **two views over one address-grain
-topology graph**, not two graphs. EVM H160 addresses live inside the
-bittensor Memgraph shards, separated from SS58 addresses only by the
-`Address.network` node property.
+The public surface exposes **one network** (`robinhood`, see Public MCP
+Tool Surface). Address space details are a chain property, not a separate
+query network.
 
 Consequences:
 
 - The `network` argument to `graph_query` selects the graph, not the address
   subset. A `USE topology` match on `:Address` without an exact address must
-  add a `<alias>.network = "<network>"` predicate — that is what
-  `networkPredicate()` in `src/detection/graph-client.ts` exists for.
-  Address-anchored lookups stay unscoped on purpose: the address is a unique
-  key, and scoping fails closed on an H160 screened under
-  `network=bittensor`.
+  add a `<alias>.network = "<network>"` predicate. Address-anchored lookups
+  stay unscoped on purpose: the address is a unique key.
 - `USE facts` is the inverse. Each network gets its own backing database
   there, and the facts `Address` label has no mapped `network` property —
   projecting it hard-fails. Facts serves `Address` only as a `TRANSFER`
   endpoint, so a single-node `MATCH (a:Address)` is refused.
 
 Getting this backwards caused a production regression and a wrong-network
-detector sweep in the same day (2026-07). Verify against the live stack
-before restating it. Query-side detail:
+sweep in the same day (2026-07). Verify against the live stack before
+restating it. Query-side detail:
 [../graph-query-compatibility.md](../graph-query-compatibility.md).
-
-## Detection Scanner Contract
-
-The four `cia detect <detector>` scanners (`fake-token`, `mixer`,
-`address-poisoning`, `attack-attribution`):
-
-- Read only through the `graph_query` wrapper in
-  `src/detection/graph-client.ts`. Never direct warehouse access.
-- Are pure `scan(window, client, network, params) → findings[]` cores
-  (`DetectorScan` in `src/detection/runtime.ts`).
-- Each ships a per-network default table layered with operator
-  `--param key=value` overrides. The effective config is echoed in the
-  findings document's `threshold_provenance`.
-- Numeric search-bound knobs resolve through the shared `limits.ts` registry
-  via `limitFromParams` and reject an out-of-range `--param` with
-  `LimitRangeError`. Non-bounded knobs use the coercion helpers in
-  `src/detection/params.ts` (`numParam` / `strParam` / `listParam`).
-- Per-network defaults: `MIXER_NETWORK_DEFAULTS` (hourglass floors),
-  `POISONING_NETWORK_DEFAULTS` (dust floor), `ATTRIBUTION_NETWORK_DEFAULTS`
-  (taxonomy overrides only; its numeric knobs are shared-registry).
-
-Component detail: [components/detection.md](components/detection.md).
-
-### CLI-Only Findings Tool IDs
-
-The six `DETECTION_TOOL_NAMES` (`src/investigation/detection-findings.ts`) —
-`aml_scam_corridor_trace`, `aml_exchange_likeness`, `aml_address_poisoning`,
-`aml_fake_token`, `aml_attack_attribution`, `aml_mixer_likeness` — are
-CLI-only findings-document tags. They are absent from the public contracts
-in `tool-visibility.ts` (enforced by
-`tests/detection-tools-visibility.test.ts`) and never set a finding's
-reviewer or label directly. Do not confuse them with the canonical public
-`aml_*` MCP surface.
 
 ## Workspace Output Layout
 
 Investigation output stays local in user workspace directories:
 
-- `.chain-insights/` — including per-detector-per-network scan checkpoints
-  under `.chain-insights/detectors/` (`src/detection/checkpoint.ts`) and
-  full-state emitted-findings key sets
-  (`<detector>.<network>.emitted.json`, `src/detection/emitted-state.ts`).
-- `cases/`, `reports/`, `artifacts/`, `detections/`.
-- Findings from `aml_scam_corridor_trace` / `aml_exchange_likeness` land
-  under `reports/tables/*.detection-findings.json` via `serializeFindings()`.
-- The four `cia detect` scanners write findings JSON named
-  `<generated_at_timestamp>-<detector>-<network>.findings.json`
-  (`src/detection/emit.ts`) under `detections/`.
+- `.chain-insights/` — monitor runtime state under
+  `.chain-insights/monitor/` (config, render state, append-only run log).
+- `cases/`, `reports/`, `artifacts/`.
 - Monitor case dossiers render under `published/cases/<case_id>/`
   (`src/monitor/render/`), for example `dossier.md`.
 

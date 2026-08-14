@@ -47,43 +47,35 @@ export interface NetworkCapabilitiesDocument {
   networks: NetworkCapability[]
 }
 
-const BITTENSOR_SEMANTIC_NETWORKS = new Set(['bittensor', 'bittensor_evm', 'bittensor_semantic'])
-const PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS = {
+const ROBINHOOD_SEMANTIC_NETWORKS = new Set(['robinhood'])
+export const PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS = {
   aml_address_risk: 'available',
-  aml_trace_victim_funds: 'available',
-  aml_trace_deposit_sources: 'available',
-  aml_trace_suspect_funds: 'available',
   graph_query: 'available',
   graph_query_batch: 'available',
   meta_network_capabilities: 'available',
   meta_usage_status: 'available',
+  meta_help: 'available',
   wallet_balance: 'available',
 } as const
 const AVAILABLE_TOOLS_PER_LINE = 3
 
 function publicNetworkCapabilities(document: NetworkCapabilitiesDocument): NetworkCapabilitiesDocument {
-  const source = document.networks.find((network) => BITTENSOR_SEMANTIC_NETWORKS.has(network.network))
+  const source = document.networks.find((network) => ROBINHOOD_SEMANTIC_NETWORKS.has(network.network))
   return {
     schema: 'chain-insights.network-capabilities.v1',
     networks: source
       ? [{
-        network: 'bittensor',
-        display_name: 'Bittensor',
+        network: 'robinhood',
+        display_name: 'Robinhood',
         status: source.status || 'live',
         default: source.default !== false,
-        layers: {
-          facts: { enabled: source.layers.facts?.enabled === true },
-          risk: { enabled: source.layers.risk?.enabled === true },
-          topology: {
-            enabled: source.layers.topology?.enabled === true,
-            ...(source.layers.topology?.live ? { live: source.layers.topology.live } : {}),
-            ...(source.layers.topology?.archive ? { archive: source.layers.topology.archive } : {}),
-          },
-        },
+        layers: {},
         ...(source.coverage ? { coverage: source.coverage } : {}),
         ...(source.freshness ? { freshness: source.freshness } : {}),
         tools: PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS,
       }]
+      // Transitional: pre-cut remote metadata still advertises bittensor; the
+      // mirror reports no networks until the coordinated cutover.
       : [],
   }
 }
@@ -122,14 +114,8 @@ export async function fetchNetworkCapabilities(
   return publicNetworkCapabilities(parsed)
 }
 
-function layerValue(network: NetworkCapability, layer: string): string {
-  const capability = network.layers[layer]
-  if (!capability?.enabled) return 'no'
-  return 'yes'
-}
-
 function availableTools(network: NetworkCapability): string[] {
-  const effectiveTools = BITTENSOR_SEMANTIC_NETWORKS.has(network.network) && network.layers.topology?.enabled === true
+  const effectiveTools = ROBINHOOD_SEMANTIC_NETWORKS.has(network.network)
     ? {
       ...(network.tools ?? {}),
       ...PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS,
@@ -173,16 +159,13 @@ function datasetLabel(network: NetworkCapability): string {
 
 export function formatNetworkCapabilities(document: NetworkCapabilitiesDocument): string {
   if (document.networks.length === 0) return 'No supported networks advertised.'
-  const headers = ['Network', 'Topology', 'Facts', 'Risk', 'Dataset', 'Available tools']
-  const widths = [14, 10, 8, 8, 38, 64]
+  const headers = ['Network', 'Dataset', 'Available tools']
+  const widths = [14, 38, 64]
   const row = (values: string[]) => values.map((value, index) => value.padEnd(widths[index]!)).join('  ')
   const networkRows = document.networks.flatMap((network) => {
     const toolLines = availableToolLines(network)
     return toolLines.map((toolLine, index) => row([
       index === 0 ? network.display_name || network.network : '',
-      index === 0 ? layerValue(network, 'topology') : '',
-      index === 0 ? layerValue(network, 'facts') : '',
-      index === 0 ? layerValue(network, 'risk') : '',
       index === 0 ? datasetLabel(network) : '',
       toolLine,
     ]))

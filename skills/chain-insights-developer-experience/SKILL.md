@@ -44,12 +44,6 @@ names in debugging or contributor docs when the detail is necessary.
 
 - `aml_address_risk`: screen one address for risk, behavior, neighborhood context,
   and exchange exposure.
-- `aml_trace_victim_funds`: trace victim/source funds forward to exchange deposit
-  candidates.
-- `aml_trace_deposit_sources`: trace backward from suspected deposit/cashout
-  addresses to upstream sources and shared-source convergence.
-- `aml_trace_suspect_funds`: trace suspected scammer, mule, operator, or
-  laundering-ring addresses forward to cashout topology.
 
 ## Monitoring Surface
 
@@ -66,8 +60,7 @@ Design rules that must survive any change:
 
 - `cia monitor run` is a one-shot; the scheduler is external. Do not turn the
   core into a daemon.
-- Machine output is a proposal. Reviewer approval is the only path to a label.
-- Exit `2` means isolated cell failure — a partial success, distinct from `1`.
+- Exit `2` means isolated case failure — a partial success, distinct from `1`.
 
 ## Chain Insights Graph Layer
 

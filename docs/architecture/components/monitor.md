@@ -4,145 +4,92 @@ Entrypoint: `src/monitor` · Language: typescript · Tests: `tests/monitor/`
 
 ## Purpose
 
-`cia monitor` is the standing-watch surface over the detection machinery.
-It re-runs detector sweeps and case traces on a schedule, diffs each result
-against the last, and surfaces the difference. Every result stays a plain
-file in the workspace. Nothing becomes a label until a human approves it.
+`cia monitor` is the standing-view surface over investigation cases. It
+re-renders each open case's dossier, one cron-safe pass at a time. The case
+document (`cases/<id>/case.json`) is canonical; the dossier, per-address
+notes, and timeline are derived output. Everything stays a plain file in the
+workspace.
 
-Wired as the `monitor` command group in `src/cli.ts`. Files:
-`runner`, `tracker`, `cases`, `review`, `alerts`, `export`, `watchlist`,
-`watchlist-run`, `probe`, `init`, `store`, `report`, `config`, `paths`,
-`jsonl`, `atomic`, `lock`, `closable`, `label-probe` (all `.ts`), plus the
-case-render pipeline `render/{index,mermaid,trace-io,verdict,dossier,notes}.ts`.
+Wired as the `monitor` command group in `src/cli.ts` (run, render,
+status, init, case). Files: `runner`, `cases`, `config`, `init`,
+`report`, `paths`, `atomic`, `lock` (all `.ts`), plus the
+case-render pipeline `render/{index,mermaid,verdict,dossier,notes}.ts`.
 
 ## Profiles
 
-Two profiles (`resolvedProfile` / `resolvedTraceMode` in
-`src/monitor/config.ts` resolve both so every existing config literal stays
-type-valid):
-
-- `profile: 'operator'` (default) — runs the detector × network matrix on
-  `intervalSeconds`.
-- `profile: 'victim'` (victim lane) — runs zero detector cells and traces
-  its one case only when new activity is observed. `trace_mode` defaults to
-  `on_movement` for this profile, `interval` otherwise.
-
 `cia monitor init victim --case-id --network --seed ...`
-(`src/monitor/init.ts`) bootstraps a fresh workspace in one command: case
-first, managed watchlist second, `config.json` last as the commit point. A
-crash mid-init never leaves a configured monitor missing its case.
+(`src/monitor/init.ts`) bootstraps a case-tracking workspace in one command:
+case first, `config.json` last as the commit point. A crash mid-init never
+leaves a configured monitor missing its case. The `victim` profile is the
+only supported init profile; operators edit `config.json` directly for
+anything else.
 
 ## Reads
 
-- `config.json` monitor config (profiles, intervals, detector matrix,
-  `render.dormant_after_days` — default 30).
-- Case files, watchlist.json, snapshot files (`*.snapshot.json`).
-- Append-only logs: `logs/probe-cursors.jsonl`, `logs/watchlist-hits.jsonl`.
-- Chain Insights Graph via `graph_query` / `graph_query_batch` only.
+- `config.json` monitor config (`render.dormant_after_days` — default 30).
+- Case files under `cases/<case-id>/case.json` (open cases only).
+- Append-only run log `logs/monitor-runs.jsonl` (last line wins on read).
 
 ## Writes
 
-- Findings documents under `detections/`, snapshots, run documents.
 - Rendered case output under `published/cases/<case_id>/`: `dossier.md`,
   bounded mermaid flow, per-address notes, timeline.
-- Render state in `.chain-insights/monitor/render-state.json`.
-- Reviewer-stamped decision copies under `detections/reviewed/`.
-- Curated-label export (`chain-insights.curated-labels.v1` schema) via
-  `cia monitor export labels`.
+- Render state in `.chain-insights/monitor/render-state.json` (per-case
+  sha256 content keys).
+- One JSON line per pass appended to
+  `.chain-insights/monitor/logs/monitor-runs.jsonl`.
+- Run lock at the workspace root (`.cia-monitor.lock`).
 
 ## Flow
 
-1. **Trace gating** (`runMonitorOnce` in `src/monitor/runner.ts`): in
-   `on_movement` mode an open case is traced only if it has no prior
-   snapshot, has `dirty_since_timestamp` set, or `--force-trace` was passed.
-   Otherwise the cell records `trace_skipped_reason: 'no_activity'` so a
-   quiet monitor still reads as healthy.
-2. **Activity probe** (`src/monitor/probe.ts`): one `graph_query_batch` per
-   distinct watched network for `last_activity_timestamp > $cursor` over
-   every watched address. Per-shard rows merge client-side by MAX. A hit's
-   `source_ref` is `"<address>|<last_activity_timestamp>"`. Per-network
-   cursors persist in `logs/probe-cursors.jsonl` (last line wins) as a pure
-   cost optimization — dedup against `watchlist_hits` is what prevents
-   re-alerts, so a stale cursor can never fire a duplicate alert. A probe
-   hit on a case-managed entry calls `markCaseDirty`
-   (`src/monitor/cases.ts`), the gate that lets `on_movement` mode trace
-   that case in the same pass.
-3. **Cluster auto-watchlist** (`syncManagedWatchlist` in
-   `src/monitor/watchlist.ts`, called from `src/monitor/tracker.ts` after
-   every successful trace): refreshes each case's
-   `managed_by: "case:<id>"` entries to the current corridor (seeds plus
-   candidate intermediates/deposit endpoints), excluding
-   `exchange_terminal` addresses (always active — watching them would turn
-   the tripwire into a constant alarm). Manual entries and other cases'
-   entries are never touched.
-4. **Case render** (`renderCase` in `src/monitor/render/index.ts`, the
-   runner's optional hook after the trace pass): on a changed case (sha256
-   over the latest snapshot, `case.json`, and the case's alert count —
-   `caseRenderKey`) it re-traces both roles over the case seeds and writes
-   `published/cases/<case_id>/dossier.md` (ACTIVE/DORMANT headline from
-   `verdict.ts`, computed from newest-edge epoch-millisecond timestamps
-   against `render.dormant_after_days`), a bounded mermaid flow, notes, and
-   a timeline. An unchanged case is skipped with
-   `skipped_reason: 'unchanged'`.
+1. **Run lock** (`acquireRunLock` in `src/monitor/lock.ts`): a second pass
+   while one is active exits immediately — `[monitor] already running`.
+2. **One pass per open case** (`runMonitorOnce` in `src/monitor/runner.ts`):
+   list open cases, then render each dossier from its case document
+   (`renderCaseFromDoc` in `src/monitor/render/index.ts`). No MCP client,
+   no graph reads, no re-trace — freshness is a case-doc content key.
+3. **Content-keyed render**: a case whose `case.json` digest is unchanged
+   since the last render is skipped with `skipped_reason: 'unchanged'`
+   (or `'closed'` for a closed case). `--force` bypasses the key.
+4. **Commit point**: the CLI appends the run document to
+   `logs/monitor-runs.jsonl` (in `src/cli.ts`) only after every case
+   outcome is recorded, so a killed pass reads as last-pass-with-errors,
+   never as a newer clean pass.
 
 ## Invariants
 
 - **One-shot core.** `cia monitor run` is one pass, then exit. Deliberate:
-  one-shot idempotent core, never a stateful service. The recommended
-  standing-watch pairing is pm2 supervising `cia monitor watch`
-  (`autorestart: true`; `watch` owns the loop, pm2 owns process lifetime).
-  Pairing pm2 with one-shot `monitor run` via `cron_restart` is an
-  anti-pattern: one missing `autorestart: false` and pm2 treats every clean
-  exit as a crash and hot-loops the full detector matrix against metered
-  graph allowance. Plain `cron` + `monitor run` remains fine.
-- **Exit codes** (`monitor run` / cron only): `0` clean; `2` isolated cell
-  failure (pass completed, at least one cell errored —
-  `MONITOR_EXIT_ISOLATED`); `1` the run could not start. Under
-  `monitor watch` the process never exits between passes; an isolated cell
-  failure lands on the cell entry in the pass's run document and in
-  `cia monitor status` — check there, not the supervisor's process state.
-- **Config fallback.** The default matrix (four detectors ×
-  `bittensor`/`bittensor_evm`) applies only when the config file is missing.
-  An unreadable or invalid config throws — it must never silently fall back.
-- **Window modes.** `address-poisoning` is `incremental` (advances a scan
-  checkpoint). `fake-token`, `mixer`, `attack-attribution` are `full-state`
-  (no checkpoint; an emitted-findings key set under
-  `.chain-insights/detectors/<detector>.<network>.emitted.json`,
-  `src/detection/emitted-state.ts`). An unchanged run legitimately emits
-  zero findings — the anti-backlog design, not a broken sweep. `--full`
-  (on `cia detect`, never on `monitor run`) resets emitted state.
-- **Review is the only path to a label.** Approve writes a reviewer-stamped
-  copy under `detections/reviewed/`; the original findings document is
-  never modified. `cia monitor export labels` (`src/monitor/export.ts`)
-  emits the frozen `chain-insights.curated-labels.v1` schema
-  (`CURATED_LABELS_SCHEMA`) from effective approve decisions only, one row
-  per (address, label). Case-doc roles map `seed`→`scam_seed`,
-  `candidate_intermediate`→`mule`, `candidate_deposit`→`deposit_endpoint`
-  (`ROLE_LABELS`, keyed off `CASE_CLUSTER_ROLES`); lane-A detector docs
-  keep their own classification with an empty `case_id`. `decision_id` is
-  the content-addressed decision filename stem, so downstream importers can
-  dedup full-snapshot re-exports.
-- **Closable cases** (`caseClosableStatus` in `src/monitor/closable.ts`):
-  a case becomes closable once it has at least one effective approve
-  decision (`labeled`) AND its managed watchlist entries recorded no
-  activity-probe hit within `render.dormant_after_days` (`dormant`). Both
-  conditions compute from canonical files only, so the status is correct
-  even against a freshly rebuilt store. Closing stays a human action —
-  `closeCase` deliberately keeps the case's managed watchlist entries as
-  the post-close dormancy tripwire. A later hit on a managed entry of a
-  closed case fires a `case_reactivated` alert (`reactivationAlerts` in
-  `src/monitor/watchlist-run.ts`, deduped via the watchlist-hits log).
-  There is no auto-reopen.
-- **Empty documents.** Empty findings documents are written and replayed by
-  `monitor rebuild` as provenance, but are not queued as pending review
-  work.
+  one-shot idempotent core, never a stateful service. There is no built-in
+  loop — an external scheduler owns the interval (cron, pm2
+  `cron_restart` with `autorestart: false`, or an agent harness's scheduled
+  tasks). Under pm2, `autorestart: false` is mandatory: the default treats
+  every clean exit as a crash and hot-loops passes.
+- **Exit codes**: `0` clean; `2` isolated case
+  failure (pass completed, at least one case errored —
+  `MONITOR_EXIT_ISOLATED`); `1` the run could not start.
+- **Config fallback.** The default config applies
+  only when the config file is missing. An unreadable or invalid config
+  throws — it must never silently fall back.
+- **Case-ID safety.** Every case ID is validated against
+  `^[a-z0-9][a-z0-9-]{1,63}$` before any path join
+  (`assertCaseId` in `src/monitor/cases.ts`) — `case.json` paths can never
+  be reached through a traversal id.
+- **Seed-grain persistence.** Seeds, `seeds_added_at_timestamp`, and
+  `seed_events` are recorded on `case.json`; `add-seed` / `remove-seed` are
+  idempotent, refuse on a closed case, and never leave a case with zero
+  seeds.
+- **Closed cases are historical records.** The runner walks only open
+  cases. Closing is human-only; there is no reopen path.
+- **Dormancy verdict.** DORMANT/ACTIVE is computed from the case document
+  record (`verdict.ts`) against `render.dormant_after_days`; it is a
+  state-color, not an event.
 
 ## Run
 
 ```bash
-cia monitor run        # one pass over the detector matrix and open cases
-cia monitor watch      # loop run on intervalSeconds without an external scheduler
-cia monitor status     # cells, cases, pending reviews, unacked alerts, last run
+cia monitor run            # one pass over open cases
+cia monitor status         # open cases and the last run
+cia monitor render         # render one or all open cases from case documents
 ```
 
 ## Verify

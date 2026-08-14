@@ -17,9 +17,6 @@ node bin/cli.js --help
 Current AML tools live in the Chain Insights layer:
 
 - `aml_address_risk`
-- `aml_trace_victim_funds`
-- `aml_trace_deposit_sources`
-- `aml_trace_suspect_funds`
 
 When adding a tool, document:
 

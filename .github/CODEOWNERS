@@ -1,0 +1,8 @@
+# Chain Insights maintainers
+# Single-maintainer project for now; replace @aph5nt with a team when one exists.
+
+* @aph5nt
+
+# CI, release, and security-sensitive paths always need maintainer review.
+/.github/ @aph5nt
+/scripts/check-release-gate.mjs @aph5nt

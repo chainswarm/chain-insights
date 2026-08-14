@@ -1,0 +1,175 @@
+name: Publish to npm
+
+# npm trusted publishing (OIDC): no long-lived npm token lives anywhere.
+# One-time npmjs.com setup (package Settings → Trusted Publishers → GitHub
+# Actions): organization "chainswarm", repository "chain-insights", workflow
+# filename "publish.yml", environment "npm-publish". The npm-publish
+# environment carries the human approval gate for every real publish.
+# Runs on GitHub-hosted runners: npm trusted publishing does not support
+# self-hosted runners (npm docs, docs.npmjs.com/trusted-publishers).
+
+on:
+  workflow_dispatch:
+    inputs:
+      dist_tag:
+        description: "npm dist-tag (latest, next, beta)"
+        required: true
+        default: "latest"
+        type: string
+      dry_run:
+        description: "Build and pack only; do not publish"
+        required: true
+        default: true
+        type: boolean
+      confirm_publish:
+        description: "Must be true to actually publish"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chain-insights-npm-publish
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build & verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      pkg_name: ${{ steps.pkg.outputs.name }}
+      pkg_version: ${{ steps.pkg.outputs.version }}
+    steps:
+      - name: Guard default branch only
+        run: |
+          set -euo pipefail
+          expected="refs/heads/${{ github.event.repository.default_branch }}"
+          if [ "${{ github.ref }}" != "$expected" ]; then
+            echo "::error::Publish workflow must run from the default branch only."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --audit=false --fund=false
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Resolve package identity
+        id: pkg
+        run: |
+          set -euo pipefail
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Pack and verify contents
+        run: |
+          set -euo pipefail
+          # `npm pack` runs the `prepare` lifecycle script (tsdown build); that
+          # child process's stdout is not silenced by --silent and is
+          # interleaved with npm's own printed tarball filename. The tarball
+          # filename is always npm's final line of output, so take the last
+          # line rather than the whole capture (same fix as verify.yml, #138).
+          file="$(npm pack --silent | tail -n1)"
+          tar -tf "$file"
+          mv "$file" package.tgz
+
+      - name: Guard against republish
+        run: |
+          set -euo pipefail
+          name="${{ steps.pkg.outputs.name }}"
+          version="${{ steps.pkg.outputs.version }}"
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo "::warning::$name@$version already on npm; a real publish of this version would be blocked."
+            else
+              echo "::error::$name@$version already published; npm versions are immutable."
+              exit 1
+            fi
+          fi
+
+      - name: Verification summary
+        run: |
+          {
+            echo "### Build verification"
+            echo "- package: ${{ steps.pkg.outputs.name }}"
+            echo "- version: ${{ steps.pkg.outputs.version }}"
+            echo "- source_ref: ${{ github.ref }}"
+            echo "- dist_tag: ${{ inputs.dist_tag }}"
+            echo "- dry_run: ${{ inputs.dry_run }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload package tarball
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4
+        with:
+          name: npm-package
+          path: package.tgz
+          if-no-files-found: error
+
+  publish:
+    name: Publish to npm (trusted publishing)
+    needs: build
+    if: ${{ inputs.dry_run == false && inputs.confirm_publish == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: npm-publish
+    permissions:
+      contents: read
+      # OIDC token for npm trusted publishing; provenance attestation is
+      # generated automatically for public packages from public repos.
+      id-token: write
+    steps:
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Update npm for trusted publishing
+        # Trusted publishing requires npm CLI >= 11.5.1; Node 22 ships npm 10.
+        run: npm install -g npm@latest
+
+      - name: Download package tarball
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: npm-package
+
+      - name: Publish
+        run: npm publish package.tgz --access public --tag "${{ inputs.dist_tag }}" --provenance
+
+      - name: Publication evidence
+        run: |
+          {
+            echo "### Published"
+            echo "- package: ${{ needs.build.outputs.pkg_name }}"
+            echo "- version: ${{ needs.build.outputs.pkg_version }}"
+            echo "- npm: https://www.npmjs.com/package/${{ needs.build.outputs.pkg_name }}/v/${{ needs.build.outputs.pkg_version }}"
+            echo "- source_ref: ${{ github.ref }}"
+            echo "- run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "- provenance: npm registry provenance (sigstore) via trusted publishing OIDC"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -3,6 +3,213 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.16] - 2026-08-14 — state-of-the-art: adoption surface
+
+Docs and README polish. No behavior change.
+
+### Added
+
+- README quickstart: `npx` one-liner, install, `cia init`, `cia networks`,
+  plus a recorded terminal demo (`docs/images/quickstart-demo.svg`).
+
+### Fixed
+
+- README intro no longer says "traces fund flows" — trace tools were
+  retired in 0.18.7; it now describes graph-query exploration.
+
+## [0.18.15] - 2026-08-14 — state-of-the-art: quality gates
+
+Lint and coverage plumbing. No behavior change.
+
+### Added
+
+- `npm run lint` (oxlint) and a Lint step in `verify.yml`. First-pass result:
+  0 errors, warnings only. Prettier config included for formatting
+  (`npm run format` / `lint:format`, advisory — not CI-gated, no mass
+  reformat).
+- v8 coverage via `npm run test:coverage`: json-summary + lcov, with ratchet
+  thresholds measured on 2026-08-14 (lines 73, statements 72, functions 79,
+  branches 69 — only raise them). Coverage summary lands in the CI job
+  summary; lcov uploads as an artifact.
+- `pr-title.yml`: conventional-commit PR title check.
+
+### Fixed
+
+- The 0.18.14 entry below advertised a `dependency-review.yml` workflow; it
+  was removed hours later (#311) because the repo's Dependency graph is not
+  enabled. It returns once the graph is on.
+
+## [0.18.14] - 2026-08-14 — state-of-the-art: release automation and supply chain
+
+CI/release plumbing. No behavior change.
+
+### Added
+
+- `release.yml`: on a push to `main` whose `package.json` version has no tag
+  yet, CI creates the `v<version>` tag and a **draft** GitHub Release with
+  generated notes and a CycloneDX SBOM attached (`sbom.cyclonedx.json`).
+  Draft-only by design — a human reviews and publishes; npm publication stays
+  behind the manual publisher gate.
+- `dependency-review.yml`: PR dependency-diff review, failing on
+  high-severity advisories.
+
+### Changed
+
+- All GitHub Actions across every workflow are now pinned to full commit
+  SHAs (docs, devkit-smoke, and project-board-add workflows previously used
+  tag refs).
+
+## [0.18.13] - 2026-08-14 — state-of-the-art: community health
+
+Contributor-facing surface. No behavior change.
+
+### Added
+
+- Root `CONTRIBUTING.md` with setup, PR rules, and check commands.
+- `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1 by reference).
+- GitHub issue templates (bug report, feature request) with blank issues
+  disabled and a security-report contact link.
+- Pull request template with the release-metadata checklist.
+- `.github/CODEOWNERS` (single maintainer for now).
+- `docs/stability.md`: the stability and deprecation policy covering CLI
+  exit codes, the seven public MCP tool names, workspace layout, config
+  keys, and how deprecation works.
+
+## [0.18.12] - 2026-08-14 — state-of-the-art: package metadata
+
+Packaging and metadata pass. No behavior change.
+
+### Added
+
+- `license: MIT` in `package.json`. Matches the existing LICENSE file.
+- `publishConfig` with public access and provenance for npm publishing.
+- `sideEffects: false`. No `src/` module runs import-time side effects.
+- `publint` and `@arethetypeswrong/cli` dev dependencies.
+- `lint:package` and `check:types-resolution` scripts, wired into the
+  Verify workflow after the Build step.
+- README badges: npm version, CI, OpenSSF Scorecard, and license. Each
+  badge links to its live page.
+
+## [0.18.11] - 2026-08-14 — architecture diagram drift fix
+
+Docs-only change. No behavior change.
+
+### Fixed
+
+- C4 model drift: `caseManager` now points at `src/monitor` and
+  `installer` at `bin/install.cjs` (previously `src/cases` / `src/install`,
+  neither of which exists).
+- Re-rendered the structurizr PlantUML/SVG/PNG outputs so the committed
+  diagrams match the current model.
+
+## [0.18.10] - 2026-08-14 — post-cut consistency pass
+
+Docs, skills, and dependency cleanup after the detector-cell/watchlist cut
+(#300) and the `cia monitor watch` cut (#305). No behavior change.
+
+### Removed
+
+- `@duckdb/node-api` dependency. The DuckDB store was retired in the earlier
+  cut; the package had zero importers left in `src/`.
+- `limitFromParams` in `src/config/limits.ts`. Dead code: its only callers
+  were the retired detector params path.
+
+### Fixed
+
+- Acceptance docs now match the real CLI surface: `cia viz [source-id]
+  --data <file>` (served URL, not a written-file path), `cia serve` instead
+  of the never-built `dist/server.mjs`, loopback-only `http://` endpoint
+  override, and `cia wallet import` overwrite refusal with the `--force`
+  path documented.
+- README: `cia monitor` renders dossiers on an external schedule, and the
+  tool table lists all seven tools including `meta_help`.
+- Architecture docs: dropped the retired `chain-insights.duckdb` data file,
+  the phantom `mcpAuthToken` config key, the Export Builder container and
+  trace/Obsidian flows in the C4 model, and tracing wording in the context
+  overview; added the real `graphMcpMode` config key; corrected the
+  workspace marker name (`.chain-insights/workspace.json`) and component
+  test-file headers; filled the `federation` component placeholder.
+- Skills: removed the phantom `--include-attachments` CLI flag from the
+  address-risk example, reworded retired trace-tool framing, dropped the
+  retired reviewer-approval label path, fixed the exit-2 wording
+  ("isolated case failure"), and removed duplicated sentences.
+- `docs/monitoring.md` and `docs/acceptance/mcp.md`: `cia monitor status`
+  shows the last run (failed passes are recorded too), and the structured
+  log path is `~/.chain-insights/runtime/logs/mcp-proxy.jsonl`.
+
+## [0.18.9] - 2026-08-14 — monitor slim-down: watch loop removed
+
+`cia monitor` is now one-shot only: `monitor run` renders every open case's
+dossier and exits, and an external scheduler (cron, pm2 `cron_restart`, or
+an agent harness's scheduled tasks) owns the interval.
+
+### Removed
+
+- `cia monitor watch`, the self-scheduled interval loop. Schedule
+  `cia monitor run` instead — see the "Scheduling" section of
+  `docs/monitoring.md`.
+- The `intervalSeconds` monitor config key. Its only consumer was `watch`;
+  existing configs that carry it are still read (the key is ignored).
+- Dead residue from the earlier monitoring cut: the shared JSONL reader
+  (`src/monitor/jsonl.ts`), unused workspace path constants (alerts,
+  watchlist, probe, review, detections, DuckDB store paths), and the
+  case-document dirty/traced markers (`markCaseDirty`, `markCaseTraced`,
+  `dirty_since_timestamp`, `last_traced_at_timestamp`), which had no
+  production callers.
+
+## [0.18.8] - 2026-08-13 — devkit parity pins post-cut contract
+
+The devkit parity smoke now pins the post-cut capabilities contract: the
+CLI's public view reports no networks against the bittensor-serving devkit
+(robinhood-only public surface, by design), while the devkit backend's own
+document still advertises `bittensor` with the topology/facts layers.
+
+### Fixed
+
+- Devkit parity smoke crashed (`IndexError`) reading the pre-cut
+  `cia mcp networks` shape; it now fetches the backend capabilities document
+  directly and asserts both sides of the cut contract.
+
+## [0.18.7] - 2026-08-13 — ACP/CIA production cut
+
+The production cut retires the internal detection realm and the fund-flow
+trace tools, reduces `cia monitor` to case tracking only, and collapses the
+public surface to one robinhood graph with seven tools.
+
+### Removed
+
+- Detection realm (`src/detection/`) and the experimental internal tools
+  `aml-scam-corridor-trace`, `aml-exchange-likeness`, and their detection
+  findings plumbing. The detection scan CLI (`cia detect`) is gone too;
+  detection now surfaces through the curated label set that supervises
+  `aml_address_risk`.
+- Detection limit keys from `src/config/limits.ts` (corridor, attribution,
+  poisoning, fake-token, exchange-likeness caps).
+- The public trace tools `aml_trace_victim_funds`, `aml_trace_deposit_sources`,
+  and `aml_trace_suspect_funds`: CLI subcommands, `chain-insights.trace.v1`
+  contract, limit keys, and the `chain-insights-trace-funds` skill. Fund-flow
+  work now runs through `graph_query` / `graph_query_batch` with
+  `USE topology`.
+- The monitor detection/watching surface: detector cells, review/approve,
+  alerts, watchlist, and label export are retired. `cia monitor` now tracks
+  cases only: `run`, `watch`, `render`, `status`, `init victim`, and
+  `case add|list|add-seed|remove-seed|close`. The `monitor:uat` devkit
+  script is retired with it.
+
+### Changed
+
+- `meta_network_capabilities` collapses to one public `robinhood` network
+  with `layers: {}` and seven public tools
+  (`aml_address_risk`, `graph_query`, `graph_query_batch`,
+  `meta_network_capabilities`, `meta_usage_status`, `meta_help`,
+  `wallet_balance`).
+- Docs and skills that referenced the removed surface are swept to match.
+
+## [0.18.6] - 2026-08-08
+
+### Changed
+- Docs CI: nightly schedule (03:05 UTC) instead of every push to main.
+
 ## [0.18.5] - 2026-08-05 — codeql-action 4.37.3 -> 4.37.4
 
 ### Changed

@@ -2,7 +2,7 @@ Worker: server
 Entrypoint: src/server
 Package: server
 Language: typescript
-Tests: (none detected)
+Tests: tests/server.test.ts, tests/resolve-port.test.ts, tests/viz-server.test.ts, tests/topup-server.test.ts, tests/topup-server-proxy-hardening.test.ts
 
 # server
 
@@ -52,13 +52,13 @@ flowchart LR
 ## Run
 
 ```bash
-# Start server directly (Node.js)
-node dist/server.mjs
+# Start server from an initialized workspace
+cia serve
 # → Listens on http://127.0.0.1:4321
 
 # Start with custom port (config override)
 cia config set serverPort 9999
-node dist/server.mjs
+cia serve
 # → Listens on http://127.0.0.1:9999
 
 # Server auto-started by MCP proxy when graph app resources requested
@@ -69,7 +69,7 @@ node dist/server.mjs
 
 ```bash
 # Test server startup
-node dist/server.mjs &
+cia serve &
 SERVER_PID=$!
 sleep 2
 

@@ -2,35 +2,45 @@ Worker: federation
 Entrypoint: src/federation
 Package: federation
 Language: typescript
-Tests: (none detected)
+Tests: tests/federation-apply-merge.test.ts, tests/federation/merge.test.ts
 
 # federation
 
 ## Purpose
 
-_No purpose evidence found (doc comment, package description, or README) — author what this component is for._
+Client-side merge for federated topology results. graphrag-mcp's thin fan-out
+pushes the caller's query verbatim to every covering shard and returns rows
+tagged with `__shard`, merging nothing. Merge semantics (max-over-shards vs
+sum-over-shards) are a caller decision, so this module is the reference
+implementation on the client side.
 
 ## Reads
 
-_No inputs detected from source analysis — author what this component reads (imports, config, upstream data)._
+- **Shard rows:** Result rows tagged with `__shard` from graphrag-mcp thin fan-out
+- **Query text:** `apply-merge.ts` derives merge options (`aggregateKeys`, `orderBy`/`limit`, `orderKeyClass`) from the caller's flat `RETURN ... ORDER BY ... LIMIT n` query text
 
 ## Writes
 
-_No outputs detected from source analysis — author what this component writes or exposes._
+- **Merged result:** `mergeShardRows` returns merged rows plus `perShard` aggregates, lifted out of the rows so no consumer can sum them by accident
 
 ## Flow
 
-_No call-sequence evidence detected — author the main flow through this component._
+1. graphrag-mcp returns rows tagged `__shard`, unmerged.
+2. `apply-merge.ts` derives merge options from the query text the caller already holds.
+3. `merge.ts` merges the rows client-side.
 
 ## Invariants
 
-_No invariants documented yet. Replace this note with the properties that must always hold for this component (ordering, idempotency, security boundaries)._
+- The merge is pure: no network, no config, no mutation of the caller's rows
+- Non-mergeable aggregate columns are named by the caller, never inferred from rows
+- Query-text parsing is deliberately narrow; anything it cannot confidently classify is treated as merge-affected (the safer default), never guessed
 
 ## Run
 
-_No runtime wiring detected — author how to run this component locally._
+Library module only — no standalone runtime. Exercised through the graph read path.
 
 ## Verify
 
-_No test files detected for this component — add tests to derive verification steps here._
-
+```bash
+npx vitest run tests/federation-apply-merge.test.ts tests/federation/merge.test.ts
+```

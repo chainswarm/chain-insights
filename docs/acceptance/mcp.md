@@ -26,10 +26,10 @@ echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"meta_help"
 
 # Test remote tool with Graph connection
 echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"meta_network_capabilities","arguments":{}}}' | chain-insights-mcp-proxy | jq '.result.structuredContent'
-# Expected: Returns structured content with network capabilities (bittensor, tools, layers)
+# Expected: Returns structured content with network capabilities (robinhood, tools, layers)
 
 # Test payment-required scenario (if wallet not configured)
-echo '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"aml_trace_victim_funds","arguments":{"network":"bittensor","victim_addresses":"0xtest"}}}' | chain-insights-mcp-proxy 2>&1 | grep -i "payment"
+echo '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"aml_address_risk","arguments":{"network":"robinhood","address":"0xtest"}}}' | chain-insights-mcp-proxy 2>&1 | grep -i "payment"
 # Expected: Error message mentioning "Payment required" and next steps (wallet ready, access-key set)
 
 # Test structured logging
@@ -39,7 +39,7 @@ tail -f ~/.chain-insights/runtime/logs/mcp-proxy.jsonl | head -5
 # Test proxy shutdown
 kill $PROXY_PID
 sleep 1
-# Expected: Clean exit, proxy.log contains "proxy.shutdown" event
+# Expected: Clean exit, mcp-proxy.jsonl contains "proxy.shutdown" event
 ```
 
 ### Expected

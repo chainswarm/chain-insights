@@ -3,10 +3,17 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 describe('cia monitor CLI surface', () => {
-  it('registers every spec subcommand', () => {
+  it('registers every case-tracking subcommand', () => {
     const help = execFileSync('npx', ['tsx', 'src/cli.ts', 'monitor', '--help'], { encoding: 'utf8' })
-    for (const sub of ['run', 'watch', 'status', 'case', 'review', 'report', 'export', 'alerts', 'rebuild', 'render']) {
+    for (const sub of ['run', 'status', 'case', 'render', 'init']) {
       expect(help).toContain(sub)
+    }
+  })
+
+  it('removes the retired subcommands from the help surface', () => {
+    const help = execFileSync('npx', ['tsx', 'src/cli.ts', 'monitor', '--help'], { encoding: 'utf8' })
+    for (const sub of ['watch', 'watchlist', 'review', 'report', 'export', 'alerts', 'rebuild']) {
+      expect(help).not.toContain(sub)
     }
   })
 
@@ -17,33 +24,25 @@ describe('cia monitor CLI surface', () => {
     }
   })
 
-  it('registers monitor watchlist add|list|remove', () => {
-    const help = execFileSync('npx', ['tsx', 'src/cli.ts', 'monitor', '--help'], { encoding: 'utf8' })
-    expect(help).toContain('watchlist')
-    const sub = execFileSync('npx', ['tsx', 'src/cli.ts', 'monitor', 'watchlist', '--help'], { encoding: 'utf8' })
-    for (const cmd of ['add', 'list', 'remove']) {
-      expect(sub).toContain(cmd)
-    }
-  })
-
   it('registers monitor render with --force and optional case_id', () => {
     const sub = execFileSync('npx', ['tsx', 'src/cli.ts', 'monitor', 'render', '--help'], { encoding: 'utf8' })
     expect(sub).toContain('--force')
     expect(sub).toContain('[case_id]')
   })
 
-  it('monitor run and watch wire the render hook (spec req 1)', () => {
+  it('monitor run calls the new runMonitorOnce signature (no hooks, no client wiring)', () => {
     const src = readFileSync('src/cli.ts', 'utf8')
-    const matches = src.match(/renderCase: \(/g) ?? []
-    expect(matches.length).toBeGreaterThanOrEqual(2)
+    expect(src).toContain('runMonitorOnce(undefined as never, workspaceRoot, config, Date.now())')
+    expect(src).not.toContain('traceCase: (')
+    expect(src).not.toContain('renderCase: (')
   })
 
-  it('monitor run and watch acquire the PID run lock (spec req 4)', () => {
+  it('monitor run acquires the PID run lock (spec req 4)', () => {
     // CLI actions are wired, not unit-run: assert at the source level that
-    // both loop entry points go through acquireRunLock.
+    // the run entry point goes through acquireRunLock.
     const src = readFileSync('src/cli.ts', 'utf8')
     const matches = src.match(/acquireRunLock\(workspaceRoot\)/g) ?? []
-    expect(matches.length).toBeGreaterThanOrEqual(2)
+    expect(matches.length).toBeGreaterThanOrEqual(1)
     expect(src).toContain('already running (pid ')
   })
 
@@ -54,14 +53,9 @@ describe('cia monitor CLI surface', () => {
     for (const opt of ['--case-id', '--network', '--seed', '--note']) expect(sub).toContain(opt)
   })
 
-  it('monitor run registers --force-trace (victim lane spec req 2)', () => {
-    const sub = execFileSync('npx', ['tsx', 'src/cli.ts', 'monitor', 'run', '--help'], { encoding: 'utf8' })
-    expect(sub).toContain('--force-trace')
-  })
-
-  it('case close tells the operator the managed tripwire entries were kept (label-lifecycle spec req 3)', () => {
+  it('init output references no watchlist or alerts tripwires', () => {
     const src = readFileSync('src/cli.ts', 'utf8')
-    expect(src).toContain('managed watchlist entr')
-    expect(src).toContain('case_reactivated')
+    expect(src).not.toContain('managed seed entr')
+    expect(src).not.toContain('cia monitor alerts list')
   })
 })

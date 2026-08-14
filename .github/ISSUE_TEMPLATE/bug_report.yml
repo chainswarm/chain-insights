@@ -1,0 +1,38 @@
+name: Bug report
+description: Report broken or unexpected behavior
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `cia --version` (or the npm package version)
+      placeholder: 0.18.12
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command or action
+      description: The exact command you ran, or the MCP tool call you made
+      placeholder: cia mcp aml-address-risk --network robinhood --address 0x...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      description: Include the error text. Redact tokens, keys, and wallet material.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: OS, Node version, workspace state, config keys you changed

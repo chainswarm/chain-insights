@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   add-to-board:
-    runs-on: [self-hosted, chainswarm-runner]
+    runs-on: [self-hosted, chainswarm-runner, X64]
     steps:
       - name: Ensure gh CLI is available
         run: |
@@ -41,7 +41,7 @@ jobs:
 
       - name: Mint chainswarm-ci app token (rbmk checkout only)
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           app-id: ${{ secrets.CHAINSWARM_GITHUB_APP_ID }}
           private-key: ${{ secrets.CHAINSWARM_GITHUB_APP_PRIVATE_KEY }}
@@ -49,7 +49,7 @@ jobs:
           repositories: rbmk
 
       - name: Checkout rbmk tooling (staging, actions/checkout requires an in-workspace path)
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: chainswarm/rbmk
           ref: main

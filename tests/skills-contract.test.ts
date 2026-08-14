@@ -16,17 +16,20 @@ function retiredName(head: string, tail: string): string {
   return `${head}${tail}`
 }
 
+// Retired trace-tool names are never literal in this file (the finished
+// state grep must stay empty); absence assertions build them at runtime.
+function traceToolName(role: string): string {
+  return ['aml_trace_', role, '_funds'].join('')
+}
+
 describe('shipped Chain Insights skills contract', () => {
-  it('keeps investigation guidance on initialized workspaces and role-specific trace tools', () => {
+  it('keeps investigation guidance on initialized workspaces and role-specific tools', () => {
     const skill = read('skills/chain-insights-investigation/SKILL.md')
 
     expect(skill).toContain('cia init .')
-    expect(skill).toContain('No investigation output belongs under ~/.chain-insights')
-    expect(skill).toContain('aml_trace_victim_funds')
-    expect(skill).toContain('aml_trace_suspect_funds')
-    expect(skill).toContain('aml_trace_deposit_sources')
+    expect(skill).toContain('No investigation output belongs under `~/.chain-insights`')
     expect(skill).toContain('single-address')
-    expect(skill).toContain('victim_addresses')
+    expect(skill).toContain('role-labeled hypotheses')
     expect(skill).toContain('Topology is address-grain and graph-selected')
     expect(skill).toContain('High-level `aml_*` tools accept addresses with no identity-resolution step')
     expect(skill).toContain('public results, artifacts, and follow-up candidate lists always return the raw address')
@@ -37,8 +40,8 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('Dataset')
     expect(skill).toContain('<first_height>..<last_height> / <first_date>..<last_date>')
     expect(skill).toContain('Available tools')
-    expect(skill).toContain('All Bittensor investigation runs on ONE public network')
-    expect(skill).toContain('network=bittensor')
+    expect(skill).toContain('All Robinhood investigation runs on ONE public network')
+    expect(skill).toContain('network=robinhood')
     expect(skill).toContain('not a separate query network')
     expect(skill).toContain('EVM-pallet `0x...`')
     expect(skill).toContain('(:Address)-[:FLOWS_TO]->(:Address)')
@@ -49,7 +52,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('LINKED` overlay is topology-only')
     expect(skill).toContain('Some Chain Insights Graph deployments do not')
     expect(skill).toContain('generated fixed-depth `FLOWS_TO` query batches')
-    expect(skill).toContain('exchange hot wallets are terminal endpoints only')
+    expect(skill).toContain('Treat exchange hot wallets as terminal endpoints only')
     expect(skill).toContain('chain-insights.evidence_pointer.v1')
     expect(skill).toContain('LLM Wiki')
     expect(skill).not.toContain(retiredName('track', '_funds'))
@@ -58,40 +61,6 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).not.toContain(retiredName('trace', '_funds'))
   })
 
-  it('documents trace-tool chaining and workspace-local output layout', () => {
-    const skill = read('skills/chain-insights-trace-funds/SKILL.md')
-
-    expect(skill).toContain('# Chain Insights Trace Tools')
-    expect(skill).toContain('aml_trace_victim_funds')
-    expect(skill).toContain('aml_trace_suspect_funds')
-    expect(skill).toContain('aml_trace_deposit_sources')
-    expect(skill).toContain('chain-insights.trace.v1')
-    expect(skill).toContain('label_candidates')
-    expect(skill).toContain('Victim/source addresses are not risky labels')
-    expect(skill).toContain('single address')
-    expect(skill).toContain('reports/graphs/*.graph.json')
-    expect(skill).toContain('/graph-reports/<filename>.graph.json')
-    expect(skill).toContain('reports/*.graph.html')
-    expect(skill).toContain('reports/tables/*.compact-evidence.json')
-    expect(skill).toContain('reports/tables/*.flows.csv')
-    expect(skill).toContain('reports/*.table.html')
-    expect(skill).toContain('reports/*.trace-report.md')
-    expect(skill).toContain('No investigation output belongs under `~/.chain-insights`')
-    expect(skill).toContain('cia mcp networks')
-    expect(skill).toContain('Topology: yes')
-    expect(skill).toContain('Do not infer dataset coverage ranges')
-    expect(skill).toContain('Current Chain Insights AML tools define the behavior contract')
-    expect(skill).not.toContain('<first_height>..<last_height> / <first_date>..<last_date>')
-    expect(skill).not.toContain('Python graph path is the golden implementation')
-    expect(skill).not.toContain('StolenFundsProbe')
-    expect(skill).toContain('Some Chain Insights Graph deployments do not')
-    expect(skill).toContain('generated fixed-depth `FLOWS_TO` query batches')
-    expect(skill).toContain('exchange hot wallets are terminal')
-    expect(skill).not.toContain(retiredName('track', '_funds'))
-    expect(skill).not.toContain(retiredName('scam', '_topology'))
-    expect(skill).not.toContain(retiredName('trace', '_funds'))
-    expect(skill).not.toContain('--case')
-  })
 
   it('ships dedicated address-risk skill with current contracts', () => {
     const addressRisk = read('skills/chain-insights-address-risk/SKILL.md')
@@ -106,24 +75,6 @@ describe('shipped Chain Insights skills contract', () => {
     expect(addressRisk).not.toContain(retiredName('trace', '_funds'))
   })
 
-  it('documents role-specific trace chaining and review-only candidate labels', () => {
-    const readme = read('README.md')
-    const graphToolsDoc = read('docs/graph-tools.md')
-    const traceFundsSkill = read('skills/chain-insights-trace-funds/SKILL.md')
-    const investigationSkill = read('skills/chain-insights-investigation/SKILL.md')
-    const combined = [readme, graphToolsDoc, traceFundsSkill, investigationSkill].join('\n')
-
-    expect(combined).toContain('aml_trace_victim_funds')
-    expect(combined).toContain('aml_trace_deposit_sources')
-    expect(combined).toContain('aml_trace_suspect_funds')
-    expect(combined).toContain('victim/source traversal is outward from victim/source funds')
-    expect(combined).toContain('incident_timestamp')
-    expect(combined).toContain('exchange terminal safety')
-    expect(combined).toContain('penultimate non-exchange')
-    expect(combined).toContain('reviewable, not automatic writes')
-    expect(combined).toContain('cia mcp trace-suspect-funds --network bittensor --suspect-addresses 5... --max-hops 16')
-    expect(combined).not.toContain('cia mcp scam-topology')
-  })
 
   it('keeps ci-status on workspace guidance without legacy case commands', () => {
     const ciStatus = read('skills/ci-status/SKILL.md')
@@ -147,7 +98,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('topology support, risk support, and available tools')
     expect(skill).toContain('USE topology')
     expect(skill).not.toContain(retiredName('topology', '_scope=identity'))
-    expect(skill).toContain('facts.routing.starrocks_database=bittensor')
+    expect(skill).toContain('facts.routing.starrocks_database=robinhood')
     expect(skill).not.toContain('facts.routing.starrocks_database=bittensor_semantic')
     expect(skill).not.toContain('network=bittensor_identity')
     expect(skill).toContain('~/.chain-insights/reports')
@@ -182,7 +133,6 @@ describe('shipped Chain Insights skills contract', () => {
     expect(graphUat).toContain('b.network AS linked_network')
     expect(graphUat).toContain('UAT_LINKED_ADDRESS="${UAT_LINKED_ADDRESS:-0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24}"')
     expect(graphUat).toContain('first.linked_network !== linkedNetwork')
-    expect(graphUat).toContain('AML trace tools ok')
     expect(investigationUat).toContain('GLOBAL_ARTIFACTS="${HOME}/.chain-insights/artifacts"')
     expect(investigationUat).toContain('reports/tables/address_profile.compact.json')
     expect(investigationUat).toContain('entities/${TARGET_ADDRESS}.md')
@@ -222,10 +172,10 @@ describe('shipped Chain Insights skills contract', () => {
     const proxySection = script.slice(script.indexOf('PROXY_TOOLS_JSON='))
 
     expect(proxySection).toContain(
-      "const required = ['wallet_balance', 'meta_help', 'meta_network_capabilities', 'meta_usage_status', 'aml_address_risk', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources', 'graph_query', 'graph_query_batch']",
+      "const required = ['wallet_balance', 'meta_help', 'meta_network_capabilities', 'meta_usage_status', 'aml_address_risk', 'graph_query', 'graph_query_batch']",
     )
     expect(proxySection).toContain('proxy tools/list exposed unexpected tools')
-    expect(proxySection).toContain("for (const name of ['aml_address_risk', 'aml_trace_victim_funds', 'aml_trace_suspect_funds', 'aml_trace_deposit_sources'])")
+    expect(proxySection).toContain("for (const name of ['aml_address_risk'])")
     expect(proxySection).not.toContain("const required = ['wallet_balance', 'topup'")
     expect(proxySection).toContain('names.size !== required.length')
     expect(script).toContain('node "${CHAIN_INSIGHTS_CLI}" mcp call graph_query')
@@ -245,7 +195,6 @@ describe('shipped Chain Insights skills contract', () => {
     expect(script).toContain('facts address query ok')
     expect(script).not.toContain('direct-address-scope-rejection.json')
     expect(script).not.toContain(retiredName('topology', '_scope must be identity'))
-    expect(script).toContain('TRACE_TOOLS_JSON="${RUN_DIR}/proxy-aml-trace-tools.json"')
     expect(script).not.toContain('UAT_EXPOSURE_ACCOUNT')
     expect(script).not.toContain('EXPOSURE_ACCOUNT=')
   })
@@ -258,7 +207,18 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).toContain('open-source AML investigation toolkit')
     expect(readme).toContain('https://chain-insights.ai')
     expect(readme).toContain('https://www.npmjs.com/package/chain-insights')
-    expect(readme).not.toContain('chainswarm/chain-insights')
+    // Badge rows (lines starting with `[![`) link to the repo for CI status,
+    // OpenSSF Scorecard, and LICENSE. Prose stays product-first: no repo
+    // links outside the badges.
+    expect(readme).toContain('[![npm version](https://img.shields.io/npm/v/chain-insights)]')
+    expect(readme).toContain('[![CI](https://img.shields.io/github/actions/workflow/status/')
+    expect(readme).toContain('[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/')
+    expect(readme).toContain('[![License](https://img.shields.io/npm/l/chain-insights)]')
+    const prose = readme
+      .split('\n')
+      .filter((line) => !line.startsWith('[!['))
+      .join('\n')
+    expect(prose).not.toContain('chainswarm/chain-insights')
     expect(readme).not.toContain('[GitHub](')
     expect(readme).not.toContain('devkit/README.md')
     expect(readme).not.toContain('blob/main/devkit')
@@ -270,11 +230,9 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).toContain('prepared wallet')
     expect(readme).toContain('[MCP proxy](docs/mcp-proxy.md)')
     expect(readme).toContain('aml_address_risk')
-    expect(readme).toContain('aml_trace_victim_funds')
-    expect(readme).toContain('aml_trace_suspect_funds')
-    expect(readme).toContain('aml_trace_deposit_sources')
     expect(readme).toContain('graph_query')
     expect(readme).toContain('graph_query_batch')
+
     expect(readme).toContain('`topology`')
     expect(readme).toContain('`facts`')
     expect(readme).toContain('tx_out_count')
@@ -358,9 +316,6 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('Chain Insights Graph')
     expect(skill).toContain('AML tool framework')
     expect(skill).toContain('aml_address_risk')
-    expect(skill).toContain('aml_trace_victim_funds')
-    expect(skill).toContain('aml_trace_suspect_funds')
-    expect(skill).toContain('aml_trace_deposit_sources')
     expect(skill).toContain('`topology`')
     expect(skill).toContain('`facts`')
     expect(skill).toContain('Dogfood from a clean workspace')

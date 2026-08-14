@@ -38,34 +38,32 @@ Two consequences drive everything below:
 Read this before writing any query that matches `:Address` without an exact
 address.
 
-Several network views of one chain are **two views over ONE address-grain
-topology graph**, not two graphs. On Bittensor, native SS58 addresses and
-EVM-pallet H160 (`0x…`) addresses live in the *same* topology shards; the split
-between them is the `:Address.network` node **property** (`bittensor` /
-`bittensor_evm`), which is why `bittensor` is the single public query network
-and there is no `network=bittensor_evm` argument to pass.
+Robinhood is the single public query network: one EVM H160 (`0x…`) address
+space over ONE address-grain topology graph. There is no SS58/H160 split and
+no second query network — `network=robinhood` selects the one public graph and
+there is no `network=robinhood_evm` argument to pass.
 
 The consequence is exact and easy to get wrong:
 
 > **The `network` argument selects the GRAPH, not the subset of addresses
 > inside it.**
 
-So a `USE topology` query that matches `:Address` without a network predicate
-scans every view's addresses and returns rows from an address space you did not
-ask for:
+A `USE topology` query that matches `:Address` without a network predicate
+scans the whole public H160 space; scope by the node property when you want an
+explicit subset:
 
 ```cypher
--- WRONG: returns SS58 and H160 addresses regardless of intent
+-- WRONG: unbounded sweep — returns every H160 address in the public space
 USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 100
 
 -- RIGHT: scope by the node property
-USE topology MATCH (a:Address) WHERE a.network = "bittensor_evm"
+USE topology MATCH (a:Address) WHERE a.network = "robinhood"
 RETURN a.address AS address LIMIT 100
 ```
 
 Exact-address lookups (`MATCH (a:Address {address: "0x…"})`) need no predicate:
 the address is already a unique key, and adding a network predicate there fails
-closed on an EVM address screened under the chain's primary network name.
+closed on an H160 address screened under the chain's primary network name.
 
 ### `USE facts` is the opposite case
 
