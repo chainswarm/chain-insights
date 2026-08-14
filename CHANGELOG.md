@@ -3,6 +3,28 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.15] - 2026-08-14 — state-of-the-art: quality gates
+
+Lint and coverage plumbing. No behavior change.
+
+### Added
+
+- `npm run lint` (oxlint) and a Lint step in `verify.yml`. First-pass result:
+  0 errors, warnings only. Prettier config included for formatting
+  (`npm run format` / `lint:format`, advisory — not CI-gated, no mass
+  reformat).
+- v8 coverage via `npm run test:coverage`: json-summary + lcov, with ratchet
+  thresholds measured on 2026-08-14 (lines 73, statements 72, functions 79,
+  branches 69 — only raise them). Coverage summary lands in the CI job
+  summary; lcov uploads as an artifact.
+- `pr-title.yml`: conventional-commit PR title check.
+
+### Fixed
+
+- The 0.18.14 entry below advertised a `dependency-review.yml` workflow; it
+  was removed hours later (#311) because the repo's Dependency graph is not
+  enabled. It returns once the graph is on.
+
 ## [0.18.14] - 2026-08-14 — state-of-the-art: release automation and supply chain
 
 CI/release plumbing. No behavior change.
