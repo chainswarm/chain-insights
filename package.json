@@ -1,6 +1,6 @@
 {
   "name": "chain-insights",
-  "version": "0.18.14",
+  "version": "0.18.15",
   "description": "AML investigation CLI and MCP proxy for blockchain risk screening, case tracking, workspace reports, and Chain Insights Graph access",
   "homepage": "https://chain-insights.ai",
   "repository": {
@@ -67,7 +67,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "lint": "oxlint src tests",
+    "lint:format": "prettier --check .",
+    "format": "prettier --write .",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.12",
@@ -84,6 +88,9 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
     "@types/node": "^26.1.2",
+    "@vitest/coverage-v8": "^4.1.9",
+    "oxlint": "^1.0.0",
+    "prettier": "^3.0.0",
     "publint": "^0.3.23",
     "tsdown": "^0.22.14",
     "tsx": "^4.21.0",
