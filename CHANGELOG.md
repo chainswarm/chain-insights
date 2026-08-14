@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.17] - 2026-08-14 — skill: BFS-first connectivity checks
+
+Docs-only change to the Bittensor Cypher skill. No behavior change.
+
+### Added
+
+- `skills/chain-insights-bittensor-cypher/SKILL.md`: new "Connectivity
+  Checks: BFS First" section — one bounded `*BFS` path query for
+  address-to-address connectivity, shard narrowing via `time_scope`.
+
 ## [0.18.16] - 2026-08-14 — state-of-the-art: adoption surface
 
 Docs and README polish. No behavior change.

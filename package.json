@@ -1,6 +1,6 @@
 {
   "name": "chain-insights",
-  "version": "0.18.16",
+  "version": "0.18.17",
   "description": "AML investigation CLI and MCP proxy for blockchain risk screening, case tracking, workspace reports, and Chain Insights Graph access",
   "homepage": "https://chain-insights.ai",
   "repository": {
@@ -74,15 +74,15 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@hono/node-server": "^2.0.12",
+    "@hono/node-server": "^2.1.0",
     "@modelcontextprotocol/ext-apps": "^1.7.5",
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "@x402/evm": "^2.20.0",
-    "@x402/fetch": "^2.20.0",
+    "@x402/evm": "^2.21.0",
+    "@x402/fetch": "^2.21.0",
     "commander": "^14.0.3",
-    "hono": "^4.12.32",
+    "hono": "^4.13.1",
     "open": "^11.0.0",
-    "viem": "^2.55.10",
+    "viem": "^2.55.13",
     "zod": "^4.4.3"
   },
   "devDependencies": {
