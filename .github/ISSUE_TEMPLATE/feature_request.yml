@@ -1,0 +1,20 @@
+name: Feature request
+description: Propose a new capability
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The user problem
+      description: One paragraph. What are you trying to do that you cannot do today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Your proposal
+      description: Command shape, MCP tool, or workflow you have in mind. Sketches welcome.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
