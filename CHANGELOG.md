@@ -3,6 +3,18 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.11] - 2026-08-14 — architecture diagram drift fix
+
+Docs-only change. No behavior change.
+
+### Fixed
+
+- C4 model drift: `caseManager` now points at `src/monitor` and
+  `installer` at `bin/install.cjs` (previously `src/cases` / `src/install`,
+  neither of which exists).
+- Re-rendered the structurizr PlantUML/SVG/PNG outputs so the committed
+  diagrams match the current model.
+
 ## [0.18.10] - 2026-08-14 — post-cut consistency pass
 
 Docs, skills, and dependency cleanup after the detector-cell/watchlist cut
