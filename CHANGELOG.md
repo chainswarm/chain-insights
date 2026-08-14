@@ -3,6 +3,20 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.16] - 2026-08-14 — state-of-the-art: adoption surface
+
+Docs and README polish. No behavior change.
+
+### Added
+
+- README quickstart: `npx` one-liner, install, `cia init`, `cia networks`,
+  plus a recorded terminal demo (`docs/images/quickstart-demo.svg`).
+
+### Fixed
+
+- README intro no longer says "traces fund flows" — trace tools were
+  retired in 0.18.7; it now describes graph-query exploration.
+
 ## [0.18.15] - 2026-08-14 — state-of-the-art: quality gates
 
 Lint and coverage plumbing. No behavior change.
