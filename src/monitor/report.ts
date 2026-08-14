@@ -1,7 +1,7 @@
 // src/monitor/report.ts
 // Human-readable monitor status: open cases + the last run timestamp. Read-only
-// view, safe to call any time. The run log is written by the CLI run/watch
-// actions (one JSON line per run).
+// view, safe to call any time. The run log is written by the CLI run action
+// (one JSON line per run).
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { listCases } from './cases.js'

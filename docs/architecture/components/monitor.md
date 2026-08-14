@@ -5,14 +5,14 @@ Entrypoint: `src/monitor` · Language: typescript · Tests: `tests/monitor/`
 ## Purpose
 
 `cia monitor` is the standing-view surface over investigation cases. It
-re-renders each open case's dossier on the configured interval. The case
+re-renders each open case's dossier, one cron-safe pass at a time. The case
 document (`cases/<id>/case.json`) is canonical; the dossier, per-address
 notes, and timeline are derived output. Everything stays a plain file in the
 workspace.
 
-Wired as the `monitor` command group in `src/cli.ts` (run, watch, render,
+Wired as the `monitor` command group in `src/cli.ts` (run, render,
 status, init, case). Files: `runner`, `cases`, `config`, `init`,
-`report`, `paths`, `jsonl`, `atomic`, `lock` (all `.ts`), plus the
+`report`, `paths`, `atomic`, `lock` (all `.ts`), plus the
 case-render pipeline `render/{index,mermaid,verdict,dossier,notes}.ts`.
 
 ## Profiles
@@ -26,8 +26,7 @@ anything else.
 
 ## Reads
 
-- `config.json` monitor config (`intervalSeconds` — default 3600,
-  `render.dormant_after_days` — default 30).
+- `config.json` monitor config (`render.dormant_after_days` — default 30).
 - Case files under `cases/<case-id>/case.json` (open cases only).
 - Append-only run log `logs/monitor-runs.jsonl` (last line wins on read).
 
@@ -60,19 +59,15 @@ anything else.
 ## Invariants
 
 - **One-shot core.** `cia monitor run` is one pass, then exit. Deliberate:
-  one-shot idempotent core, never a stateful service. The recommended
-  standing-watch pairing is pm2 supervising `cia monitor watch`
-  (`autorestart: true`; `watch` owns the loop, pm2 owns process lifetime).
-  Pairing pm2 with one-shot `monitor run` is an anti-pattern: one missing
-  `autorestart: false` and pm2 treats every clean exit as a crash and
-  hot-loops passes.
-- **Exit codes** (`monitor run` / cron only): `0` clean; `2` isolated case
+  one-shot idempotent core, never a stateful service. There is no built-in
+  loop — an external scheduler owns the interval (cron, pm2
+  `cron_restart` with `autorestart: false`, or an agent harness's scheduled
+  tasks). Under pm2, `autorestart: false` is mandatory: the default treats
+  every clean exit as a crash and hot-loops passes.
+- **Exit codes**: `0` clean; `2` isolated case
   failure (pass completed, at least one case errored —
-  `MONITOR_EXIT_ISOLATED`); `1` the run could not start. Under
-  `monitor watch` the process never exits between passes; an isolated case
-  failure lands on the case entry in the pass's run document and in
-  `cia monitor status` — check there, not the supervisor's process state.
-- **Config fallback.** The default config (`intervalSeconds: 3600`) applies
+  `MONITOR_EXIT_ISOLATED`); `1` the run could not start.
+- **Config fallback.** The default config applies
   only when the config file is missing. An unreadable or invalid config
   throws — it must never silently fall back.
 - **Case-ID safety.** Every case ID is validated against
@@ -93,7 +88,6 @@ anything else.
 
 ```bash
 cia monitor run            # one pass over open cases
-cia monitor watch          # loop run on intervalSeconds without an external scheduler
 cia monitor status         # open cases and the last run
 cia monitor render         # render one or all open cases from case documents
 ```

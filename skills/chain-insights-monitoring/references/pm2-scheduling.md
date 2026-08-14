@@ -1,30 +1,26 @@
 # Scheduling `cia monitor` with pm2
 
-The recommended standing-watch setup is **pm2 supervising `cia monitor
-watch`**. Each tool does the one job it is built for:
+`cia monitor run` is a one-shot: one pass, then exit. pm2 can own the
+schedule with `cron_restart`. One setting is mandatory:
 
-- `cia monitor watch` owns the **loop** — it re-runs a monitoring pass on the
-  interval configured in `.chain-insights/monitor/config.json`
-  (`intervalSeconds`, or `--interval <seconds>`, floor 60s). A failed pass
-  does not kill the loop: `watch` logs it and keeps looping.
-- pm2 owns **process lifetime** — restart on crash, one log surface, one
-  status command, boot persistence. If the loop dies, pm2 restarts it, and
-  `watch` resumes cleanly: a killed and restarted watch loses no state and
-  re-renders nothing over unchanged cases.
+- **`autorestart: false`** — pm2's default treats any process exit as a
+  crash and relaunches immediately. A one-shot exits on every successful
+  pass, so the default produces a **hot loop** that re-runs the pass
+  continuously until someone notices.
+- **`cron_restart`** owns the interval — pm2 starts a fresh pass on the
+  cron expression, independent of process state.
 
-Under this pairing `pm2 list` means what it appears to mean: **`online` =
-healthy**, and a climbing restart counter = the loop itself is dying
-(something structural — bad config, missing workspace — since failed passes
-do not end the loop).
+Between passes pm2 shows the process as `stopped`. That is the expected
+steady state for a scheduled one-shot, not a failure.
 
 ## Example `ecosystem.config.cjs`
 
 Place this in the monitoring workspace root.
 
 ```js
-// pm2 supervises `cia monitor watch` — a long-running loop that re-runs a
-// monitoring pass on the interval configured in
-// .chain-insights/monitor/config.json (intervalSeconds).
+// pm2 runs `cia monitor run` hourly. autorestart: false is what makes the
+// one-shot safe under pm2: a finished pass stays finished until the next
+// cron_restart tick.
 module.exports = {
   apps: [
     {
@@ -32,15 +28,12 @@ module.exports = {
       // Globally installed CLI; use an absolute path to a checkout's
       // bin/cli.js instead if you run from source.
       script: 'cia',
-      args: 'monitor watch',
+      args: 'monitor run',
       // The monitoring workspace root — every monitor command is
       // workspace-relative.
       cwd: './',
-      autorestart: true,
-      // Backstop against a crash loop (e.g. a broken config that fails every
-      // start): give up after 10 rapid restarts instead of looping forever.
-      max_restarts: 10,
-      min_uptime: '30s',
+      autorestart: false,
+      cron_restart: '0 * * * *',
       time: true,
       merge_logs: true,
       out_file: './.chain-insights/monitor/pm2-out.log',
@@ -61,26 +54,25 @@ set `script` to the absolute path of the installed `bin/cli.js` and
 
 ```bash
 pm2 start ecosystem.config.cjs
-pm2 list                        # online = healthy
 pm2 logs cia-monitor --lines 50
+cia monitor status   # `last run` confirms passes are landing
 ```
 
-`watch` runs its first pass immediately on start, then sleeps for the
-interval. A **successful pass prints nothing** — it appends a line to
-`.chain-insights/monitor/logs/monitor-runs.jsonl`. Confirm passes are
-landing with `cia monitor status` (`last run`), not by watching the pm2
-log.
+A **successful pass prints little** — it appends a line to
+`.chain-insights/monitor/logs/monitor-runs.jsonl`. Confirm passes are landing
+with `cia monitor status` (`last run`), not by watching the pm2 process
+state.
 
 ## Reading failures
 
-Per-pass exit codes are **not visible** under `watch` — the process never
-exits between passes. Where each failure shows up:
+Per-pass exit codes are visible in the pm2 logs and to whatever wraps the
+schedule. Where each failure shows up:
 
 | Failure | Where it shows |
 | --- | --- |
-| Isolated case failure (one case errored, run completed) | `error` field on the case entry in that pass's run document; `cia monitor status`. |
-| Whole pass failed | `[monitor] run failed: …` line in the pm2 log; loop continues. |
-| Loop itself dying | pm2 restart counter climbs; `errored` after `max_restarts`. Read the error log — this is structural, not a flaky case. |
+| Clean pass | Exit `0`; run document appended to `monitor-runs.jsonl`. |
+| Isolated case failure (one case errored, run completed) | Exit `2`; `error` field on the case entry in that pass's run document; `cia monitor status`. |
+| Run could not start (bad config, missing workspace) | Exit `1`; error line in the pm2 log. Fix before the next tick — nothing ran. |
 
 ## Persistence
 
@@ -94,25 +86,15 @@ sudo pm2 startup               # print the boot-time init line, then run it
 `pm2 save` records the process list so `pm2 resurrect` can restore it. It does
 **not** make pm2 itself start at boot. `pm2 startup` prints a platform-specific
 command to install the init service; run the command it prints, then
-`pm2 save` again. Without both, the watch silently stops at the next reboot.
+`pm2 save` again. Without both, the schedule silently stops at the next reboot.
 
-## Choosing pm2 + watch, cron, or bare watch
+## Choosing pm2, cron, or a harness
 
 | Option | Choose it when | Cost |
 | --- | --- | --- |
-| **pm2 + `monitor watch`** | You want a supervised standing watch: crash restart, one log surface, one status command, boot persistence. | pm2 installed; one config file. |
 | `cron` + `monitor run` | The host already runs cron and you have external log/alert plumbing. Per-pass exit codes (`0`/`2`/`1`) are visible to cron. | No status surface; you own log capture and failure visibility. |
-| bare `cia monitor watch` | Interactive session, ad-hoc coverage for a few hours. | Dies with the shell; nothing restarts it. |
+| pm2 `cron_restart` + `monitor run` | You already supervise other processes with pm2 and want one log surface. | `autorestart: false` is mandatory; between passes the process reads `stopped`. |
+| Agent harness scheduled tasks | An agent already runs on a schedule in this workspace. | The harness owns cadence and logs. |
 
 Do not run two of these against the same workspace. Passes are idempotent, but
 overlapping schedules double the work for no additional coverage.
-
-## Do not pair pm2 with `monitor run`
-
-The tempting hybrid — pm2 launching the one-shot `monitor run` via
-`cron_restart` — is the worst of both worlds and one setting away from an
-expensive failure. pm2's default treats any process exit as a crash and
-relaunches immediately; a one-shot exits on every successful pass, so without
-`autorestart: false` the default produces a **hot loop** that re-runs the
-pass continuously until someone notices. Between passes the process shows `stopped`, which reads as broken.
-If you want pm2, supervise `watch`; if you want one-shots, use cron.

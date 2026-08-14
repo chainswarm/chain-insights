@@ -59,7 +59,6 @@ stay as plain files in the workspace.
 | Command | What it does |
 | --- | --- |
 | `cia monitor run` | One pass: render the dossier of every open case |
-| `cia monitor watch` | Loop `run` on an interval without an external scheduler |
 | `cia monitor status` | Open cases and the last run |
 | `cia monitor render` | Re-render all open cases (or one case) from the case document |
 | `cia monitor init victim` | Bootstrap a stolen-funds case-tracking config in one command |
@@ -67,14 +66,13 @@ stay as plain files in the workspace.
 | `cia monitor case list` | List monitor cases (open by default, `--all` for closed) |
 | `cia monitor case add-seed` | Widen an open case's seed set, timestamped |
 | `cia monitor case remove-seed` | Narrow an open case's seed set |
-| `cia monitor case close` | Close a case; the run loop stops re-tracing it |
+| `cia monitor case close` | Close a case; passes skip it |
 
 Three things to know before scheduling it:
 
-- **`cia monitor run` is a one-shot.** One pass, then exit. Under pm2,
-  `autorestart: false` is mandatory for one-shot runs — otherwise pm2 reads
-  each clean exit as a crash and hot-loops. Prefer pm2 supervising
-  `cia monitor watch` instead.
+- **`cia monitor run` is a one-shot.** One pass, then exit. Schedule it with
+  cron, pm2 (`cron_restart` plus `autorestart: false`), or your agent
+  harness's scheduled tasks.
 - **Exit `2` means an isolated case failed** while every other case
   completed. Partial success, not a crash. Only exit `1` means nothing ran.
 - **An unchanged case is skipped, not re-rendered.** The run document
@@ -428,7 +426,7 @@ Product docs:
 | [Graph query compatibility](docs/graph-query-compatibility.md) | GQL/Cypher support per layer, rewrite recipes, traversal guidance |
 | [Search limits](docs/search-limits.md) | Tunable search/row/frontier/hop bounds, precedence, ceilings |
 | [Investigation workspaces](docs/investigation-workspaces.md) | `cia init`, workspace layout, artifacts, templates, reports, visualization |
-| [Continuous monitoring](docs/monitoring.md) | `cia monitor` commands, case tracking, review and label export, alerts, exit codes |
+| [Continuous monitoring](docs/monitoring.md) | `cia monitor` commands, case tracking, dossier rendering, scheduling, exit codes |
 | [MCP proxy](docs/mcp-proxy.md) | Stdio proxy behavior, endpoint configuration, agent installers, auth modes |
 | [Architecture overview](docs/architecture.md) | Product layers, data flow, local storage, security model, config keys |
 | [Development](docs/development.md) | Build, test, and local install commands |

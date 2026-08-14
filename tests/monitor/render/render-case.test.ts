@@ -7,7 +7,7 @@ import { addCase, addCaseSeeds, closeCase } from '../../../src/monitor/cases.js'
 import { monitorPaths } from '../../../src/monitor/paths.js'
 
 const NOW = 1_753_600_000_000
-const CFG = { intervalSeconds: 3600, render: { dormant_after_days: 30 } }
+const CFG = { render: { dormant_after_days: 30 } }
 
 async function ws(): Promise<string> {
   const root = await mkdtemp(path.join(tmpdir(), 'cia-render-'))

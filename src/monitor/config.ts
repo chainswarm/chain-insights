@@ -13,7 +13,6 @@ const RenderConfigSchema = z.object({
 })
 
 const MonitorConfigSchema = z.object({
-  intervalSeconds: z.number().int().positive().default(3600),
   render: RenderConfigSchema.prefault({}),
 })
 

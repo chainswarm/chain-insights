@@ -114,39 +114,29 @@ cia monitor render --force    # re-render even when unchanged
 `2` is a **partial success**, not a crash. Any scheduler you use must be able
 to express that difference, or you will page someone for a single flaky case.
 
-Under `cia monitor watch` the process never exits between passes, so exit
-codes are not visible per pass. An isolated case failure shows up as the
-`error` field on the case entry in that pass's run document and in
-`cia monitor status` — not in the supervisor.
+An isolated case failure also shows up as the `error` field on the case entry
+in that pass's run document and in `cia monitor status`.
 
 ## Scheduling
 
 `cia monitor run` is a **one-shot**: one pass, then exit. The core is one-shot
-and idempotent so a killed process never corrupts state. For a standing watch,
-the recommended pairing is **pm2 supervising `cia monitor watch`**: `watch`
-owns the loop (interval from the monitor config), pm2 owns process lifetime —
-crash restart, logs, status, boot persistence. `pm2 list` showing `online`
-means healthy; a killed and restarted watch loses no state and re-renders
-nothing over unchanged cases.
+and idempotent so a killed process never corrupts state. There is no built-in
+loop — an external scheduler owns the interval.
 
 | Use | When |
 | --- | --- |
-| **pm2 + `monitor watch`** | Standing watch with supervision: crash restart, one log surface, one status command. Recommended. |
 | `cron` + `monitor run` | A host that already has cron and external log plumbing. Per-pass exit codes visible to cron. |
-| bare `cia monitor watch` | Interactive or short-lived sessions. Zero setup, but dies with the shell. |
-
-```bash
-cia monitor watch --interval 1800   # floor 60s
-```
+| pm2 `cron_restart` + `monitor run` | You already supervise with pm2 and want one log surface. `autorestart: false` is mandatory. |
+| Agent harness scheduled tasks | An agent already runs on a schedule in this workspace. |
 
 ```text
 0 * * * * cd /path/to/workspace && cia monitor run
 ```
 
-For the pm2 setup read `references/pm2-scheduling.md`. **Do not point pm2 at
-the one-shot `monitor run`**: pm2's default treats every clean exit as a
-crash, and without `autorestart: false` it re-launches the pass continuously.
-Supervising `watch` avoids that trap entirely.
+For the pm2 setup read `references/pm2-scheduling.md`. **Never point pm2 at
+`monitor run` without `autorestart: false`**: pm2's default treats every clean
+exit as a crash and re-launches the pass continuously — a hot loop instead of
+a schedule.
 
 ## Pulse Checks
 
