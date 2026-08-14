@@ -14,7 +14,7 @@
 # Initialize workspace
 mkdir -p /tmp/ci-test && cd /tmp/ci-test
 cia init .
-# Expected: Creates .chain-insights/workspace-root marker
+# Expected: Creates .chain-insights/workspace.json marker
 
 # Screen an address
 cia mcp call aml_address_risk \

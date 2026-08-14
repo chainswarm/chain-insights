@@ -23,8 +23,8 @@ Owns:
   / `wallet_*` tools.
 - Local wallet and payment on Base mainnet (payment chain only).
 - Investigation workspaces, graph reports, and visualization.
-- `cia monitor`: per-case tracking with rendered dossiers over the
-  configured interval.
+- `cia monitor`: per-case tracking with rendered dossiers on an external
+  schedule.
 - Shipped product skills under `skills/` (`chain-insights-*`), packaged
   into the npm tarball.
 - The local Bittensor graph devkit under `devkit/`.
@@ -48,6 +48,7 @@ Never touches:
 | `graph_query_batch` | Run related read-only graph queries as one MCP call |
 | `meta_network_capabilities` | Check supported Chain Insights networks and graph tools |
 | `meta_usage_status` | Check the caller's daily free-tier graph query allowance |
+| `meta_help` | Show Chain Insights tool and workflow guidance |
 | `wallet_balance` | Show the local payment wallet amount |
 
 ### Continuous Monitoring

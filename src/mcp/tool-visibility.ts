@@ -31,7 +31,7 @@ export const PUBLIC_MCP_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
 // broken for exactly this reason. Every tunable search bound below
 // (per_address_limit, row_limit) must therefore be listed the moment it
 // appears on a tool schema, and is covered end-to-end through the proxy in
-// tests/configurable-limits.test.ts.
+// tests/mcp-proxy.test.ts.
 export const PUBLIC_MCP_TOOL_ALLOWED_ARGS: Record<string, string[]> = {
   aml_address_risk: ['address', 'network', 'compare_address', 'include_attachments'],
   // `time_scope` narrows a `USE topology` query to a temporal-shard subset

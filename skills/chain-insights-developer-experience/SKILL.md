@@ -60,8 +60,7 @@ Design rules that must survive any change:
 
 - `cia monitor run` is a one-shot; the scheduler is external. Do not turn the
   core into a daemon.
-- Machine output is a proposal. Reviewer approval is the only path to a label.
-- Exit `2` means isolated cell failure — a partial success, distinct from `1`.
+- Exit `2` means isolated case failure — a partial success, distinct from `1`.
 
 ## Chain Insights Graph Layer
 

@@ -39,7 +39,7 @@ tail -f ~/.chain-insights/runtime/logs/mcp-proxy.jsonl | head -5
 # Test proxy shutdown
 kill $PROXY_PID
 sleep 1
-# Expected: Clean exit, proxy.log contains "proxy.shutdown" event
+# Expected: Clean exit, mcp-proxy.jsonl contains "proxy.shutdown" event
 ```
 
 ### Expected

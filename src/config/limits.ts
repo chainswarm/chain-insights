@@ -234,22 +234,3 @@ export function limitLiteral(value: number): string {
   return String(value)
 }
 
-/**
- * Detector params arrive as a string bag (`--param key=value`, or a monitor
- * config cell's `params`). Parses one knob out of it with full validation, so
- * a typo is rejected rather than silently zeroing a bound.
- */
-export function limitFromParams(
-  key: LimitKey,
-  params: Record<string, string | undefined>,
-  paramName: string,
-  ctx: ResolveLimitContext = {},
-): number {
-  const raw = params[paramName]
-  if (raw === undefined || raw.trim() === '') return resolveLimit(key, undefined, ctx)
-  const parsed = Number(raw)
-  if (!Number.isFinite(parsed)) {
-    throw new LimitRangeError(key, Number.NaN, LIMIT_SPECS[key].min, limitCeiling(key, ctx.network), `param ${paramName}`)
-  }
-  return resolveLimit(key, Math.trunc(parsed), ctx)
-}

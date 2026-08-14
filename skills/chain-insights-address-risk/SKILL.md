@@ -6,8 +6,8 @@ description: Use when screening one address with aml_address_risk, comparing two
 # Chain Insights Address Risk
 
 Use `aml_address_risk` for single-address AML screening. Do not substitute a
-trace tool when the question is about one address or one address versus one
-comparison address.
+manual graph traversal when the question is about one address or one address
+versus one comparison address.
 
 Before running persistence-producing commands, confirm the current directory is
 an initialized Chain Insights workspace:
@@ -31,8 +31,8 @@ Use `aml_address_risk` when the user asks:
 - whether one address looks risky
 - whether an address behaves like an exchange deposit, hot wallet, or service
 - whether two addresses should be compared for neighborhood or behavior overlap
-- for a compact single-address artifact set before deciding whether trace tools
-  are needed
+- for a compact single-address artifact set before deciding whether manual
+  fund-flow traversal is needed
 
 Required inputs:
 
@@ -49,8 +49,7 @@ Example:
 ```bash
 cia mcp aml-address-risk \
   --network robinhood \
-  --address 0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24 \
-  --include-attachments
+  --address 0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24
 ```
 
 ## Result Contract

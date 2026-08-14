@@ -2,7 +2,7 @@ Worker: config
 Entrypoint: src/config
 Package: config
 Language: typescript
-Tests: (none detected)
+Tests: tests/config.test.ts
 
 # config
 
@@ -12,7 +12,7 @@ Manages Chain Insights user configuration: graph MCP endpoint, authentication to
 
 ## Reads
 
-- **~/.chain-insights/config.json:** Stored user configuration (graphMcpEndpoint, mcpAuthToken, graphMcpAuthToken, graphMcpMode, dataDir, serverPort)
+- **~/.chain-insights/config.json:** Stored user configuration (graphMcpEndpoint, graphMcpAuthToken, graphMcpMode, dataDir, serverPort)
 - **CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT env var:** Optional override for graph endpoint (GRAPH_MCP_ENDPOINT legacy alias also supported)
 - **DEFAULT_CONFIG constant:** Fallback defaults when config.json is absent
 
@@ -66,7 +66,7 @@ cia config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
 
 # Set access key
 cia access-key set test-key-abc123
-# → Calls saveConfig({mcpAuthToken: ...}) or saveConfig({graphMcpAuthToken: ...})
+# → Calls saveConfig({graphMcpAuthToken: ...})
 ```
 
 ## Verify
