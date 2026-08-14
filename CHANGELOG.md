@@ -3,6 +3,26 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.14] - 2026-08-14 — state-of-the-art: release automation and supply chain
+
+CI/release plumbing. No behavior change.
+
+### Added
+
+- `release.yml`: on a push to `main` whose `package.json` version has no tag
+  yet, CI creates the `v<version>` tag and a **draft** GitHub Release with
+  generated notes and a CycloneDX SBOM attached (`sbom.cyclonedx.json`).
+  Draft-only by design — a human reviews and publishes; npm publication stays
+  behind the manual publisher gate.
+- `dependency-review.yml`: PR dependency-diff review, failing on
+  high-severity advisories.
+
+### Changed
+
+- All GitHub Actions across every workflow are now pinned to full commit
+  SHAs (docs, devkit-smoke, and project-board-add workflows previously used
+  tag refs).
+
 ## [0.18.13] - 2026-08-14 — state-of-the-art: community health
 
 Contributor-facing surface. No behavior change.
