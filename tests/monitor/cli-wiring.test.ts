@@ -5,14 +5,14 @@ import { describe, expect, it } from 'vitest'
 describe('cia monitor CLI surface', () => {
   it('registers every case-tracking subcommand', () => {
     const help = execFileSync('npx', ['tsx', 'src/cli.ts', 'monitor', '--help'], { encoding: 'utf8' })
-    for (const sub of ['run', 'watch', 'status', 'case', 'render', 'init']) {
+    for (const sub of ['run', 'status', 'case', 'render', 'init']) {
       expect(help).toContain(sub)
     }
   })
 
   it('removes the retired subcommands from the help surface', () => {
     const help = execFileSync('npx', ['tsx', 'src/cli.ts', 'monitor', '--help'], { encoding: 'utf8' })
-    for (const sub of ['watchlist', 'review', 'report', 'export', 'alerts', 'rebuild']) {
+    for (const sub of ['watch', 'watchlist', 'review', 'report', 'export', 'alerts', 'rebuild']) {
       expect(help).not.toContain(sub)
     }
   })
@@ -30,19 +30,19 @@ describe('cia monitor CLI surface', () => {
     expect(sub).toContain('[case_id]')
   })
 
-  it('monitor run and watch call the new runMonitorOnce signature (no hooks, no client wiring)', () => {
+  it('monitor run calls the new runMonitorOnce signature (no hooks, no client wiring)', () => {
     const src = readFileSync('src/cli.ts', 'utf8')
     expect(src).toContain('runMonitorOnce(undefined as never, workspaceRoot, config, Date.now())')
     expect(src).not.toContain('traceCase: (')
     expect(src).not.toContain('renderCase: (')
   })
 
-  it('monitor run and watch acquire the PID run lock (spec req 4)', () => {
+  it('monitor run acquires the PID run lock (spec req 4)', () => {
     // CLI actions are wired, not unit-run: assert at the source level that
-    // both loop entry points go through acquireRunLock.
+    // the run entry point goes through acquireRunLock.
     const src = readFileSync('src/cli.ts', 'utf8')
     const matches = src.match(/acquireRunLock\(workspaceRoot\)/g) ?? []
-    expect(matches.length).toBeGreaterThanOrEqual(2)
+    expect(matches.length).toBeGreaterThanOrEqual(1)
     expect(src).toContain('already running (pid ')
   })
 

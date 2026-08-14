@@ -3,6 +3,26 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.9] - 2026-08-14 — monitor slim-down: watch loop removed
+
+`cia monitor` is now one-shot only: `monitor run` renders every open case's
+dossier and exits, and an external scheduler (cron, pm2 `cron_restart`, or
+an agent harness's scheduled tasks) owns the interval.
+
+### Removed
+
+- `cia monitor watch`, the self-scheduled interval loop. Schedule
+  `cia monitor run` instead — see the "Scheduling" section of
+  `docs/monitoring.md`.
+- The `intervalSeconds` monitor config key. Its only consumer was `watch`;
+  existing configs that carry it are still read (the key is ignored).
+- Dead residue from the earlier monitoring cut: the shared JSONL reader
+  (`src/monitor/jsonl.ts`), unused workspace path constants (alerts,
+  watchlist, probe, review, detections, DuckDB store paths), and the
+  case-document dirty/traced markers (`markCaseDirty`, `markCaseTraced`,
+  `dirty_since_timestamp`, `last_traced_at_timestamp`), which had no
+  production callers.
+
 ## [0.18.8] - 2026-08-13 — devkit parity pins post-cut contract
 
 The devkit parity smoke now pins the post-cut capabilities contract: the

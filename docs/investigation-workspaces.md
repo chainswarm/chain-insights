@@ -45,7 +45,7 @@ investigation ones:
 
 ```text
 cases/<case-id>/case.json               Case definition (seeds, seed events)
-.chain-insights/monitor/config.json    Monitor configuration (intervalSeconds, render)
+.chain-insights/monitor/config.json    Monitor configuration (render)
 .chain-insights/monitor/render-state.json  Per-case render keys
 .chain-insights/monitor/logs/          Append-only run log (monitor-runs.jsonl)
 published/cases/<case-id>/             Rendered case dossiers, per-address notes, timelines

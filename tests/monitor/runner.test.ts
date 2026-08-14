@@ -14,13 +14,12 @@ async function ws(): Promise<string> {
 }
 
 const CFG: MonitorConfig = {
-  intervalSeconds: 3600,
   render: { dormant_after_days: 30 },
 }
 
 describe('runMonitorOnce case-only pass', () => {
   it('reports one outcome per open case and no detection cells', async () => {
-    const doc = await runMonitorOnce({} as Client, '/nonexistent', { intervalSeconds: 60, render: { dormant_after_days: 30 } }, 123)
+    const doc = await runMonitorOnce({} as Client, '/nonexistent', { render: { dormant_after_days: 30 } }, 123)
     expect(doc.cases).toEqual([])
     expect(doc.run_timestamp).toBe(123)
   })

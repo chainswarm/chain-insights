@@ -11,20 +11,20 @@ render output stays local until the operator exports or publishes it.
 ## Victim Quick Start (stolen funds)
 
 One command takes you from "my wallet was drained" to a configured,
-scheduled watch:
+tracked case:
 
 ```bash
 cia init .
 cia monitor init victim --case-id my-theft --network robinhood \
   --seed 0xYourDrainedWallet... --note "drained 2026-07-27"
 cia monitor run     # first pass: renders the dossier
-cia monitor watch   # hourly loop (pm2 snippet under "Scheduling")
 ```
 
-`monitor init victim` writes the minimal config
-(`intervalSeconds: 3600`), creates the stolen-funds case, and refuses to
-overwrite an existing monitor config. Editing an initialized workspace is a
-direct config edit, never a re-init.
+`monitor init victim` writes the minimal config (every key defaults),
+creates the stolen-funds case, and refuses to overwrite an existing monitor
+config. Editing an initialized workspace is a direct config edit, never a
+re-init. To keep the dossier fresh, schedule `cia monitor run` — see
+"Scheduling" below.
 
 What you get:
 
@@ -48,7 +48,6 @@ events (add/remove). A case with no activity for `render.dormant_after_days`
 | Command | What it does |
 | --- | --- |
 | `cia monitor run` | One pass: render the dossier of every open case |
-| `cia monitor watch` | Loop `monitor run` on an interval (thin daemon; cron + `monitor run` works too) |
 | `cia monitor render` | Re-render all open cases, or one case by id; `--force` re-renders unchanged cases |
 | `cia monitor status` | Open cases and the timestamp of the last run |
 | `cia monitor init victim` | Bootstrap the victim profile (case + config in one command) |
@@ -56,7 +55,7 @@ events (add/remove). A case with no activity for `render.dormant_after_days`
 | `cia monitor case list` | List cases (open by default; `--all` includes closed) |
 | `cia monitor case add-seed` | Add seed addresses to an open case (timestamped, idempotent) |
 | `cia monitor case remove-seed` | Remove seed addresses from an open case (idempotent) |
-| `cia monitor case close` | Close a case; the run loop stops re-tracing it |
+| `cia monitor case close` | Close a case; passes skip it |
 
 Every command runs from the workspace root. No monitor output belongs under
 `~/.chain-insights`.
@@ -137,36 +136,39 @@ workspace directory directly in Obsidian — no copy step, no second vault.
 
 `cia monitor run` is a **one-shot**: one pass and exit. That is deliberate —
 the monitor core is one-shot and idempotent, so an interrupted process cannot
-leave half-written state.
-
-For a standing watch, the recommended pairing is **pm2 supervising
-`cia monitor watch`**: `watch` owns the loop (interval from `intervalSeconds`
-in the monitor config), pm2 owns process lifetime (restart on crash, logs,
-status, boot persistence). Each tool does the one job it is built for, and
-`pm2 list` showing `online` means exactly what it appears to mean.
+leave half-written state. There is no built-in loop: an external scheduler
+owns the interval.
 
 | Option | Choose it when | Cost |
 | --- | --- | --- |
-| **pm2 + `monitor watch`** | You want a supervised standing watch: crash restart, one log surface, one status command. | pm2 installed; one config file. |
-| `cron` + `monitor run` | The host already runs cron and you have external log plumbing. | No status surface; you own log capture and failure visibility. |
-| bare `cia monitor watch` | Interactive session, ad-hoc coverage for a few hours. | Dies with the shell; nothing restarts it. |
+| `cron` + `monitor run` | The host already runs cron. Per-pass exit codes (`0`/`2`/`1`) are visible to cron. | You own log capture and failure visibility. |
+| pm2 `cron_restart` + `monitor run` | You already supervise other processes with pm2 and want one log surface. | `autorestart: false` is mandatory — see below. |
+| Agent harness scheduled tasks | An agent already runs on a schedule in this workspace. | The harness owns cadence and logs. |
 
 Do not run two of these against the same workspace. Passes are idempotent, but
 overlapping schedules double the work for no extra coverage.
 
-### pm2 + watch (recommended)
+### cron
 
-A working `ecosystem.config.cjs`, run from the workspace root:
+```text
+0 * * * * cd /path/to/workspace && cia monitor run
+```
+
+Per-pass exit codes are visible to cron (`0` clean, `2` isolated case
+failure, `1` run failed) — wire them to whatever alerting the host already
+has.
+
+### pm2
+
+pm2 can launch the one-shot on a `cron_restart` schedule. One setting is
+mandatory: **`autorestart: false`**. Without it pm2 treats every clean exit
+as a crash and immediately relaunches — a hot loop instead of a scheduled
+pass.
 
 ```js
-// pm2 supervises `cia monitor watch` — a long-running loop that re-runs a
-// monitoring pass on the interval configured in
-// .chain-insights/monitor/config.json (intervalSeconds).
-//
-// pm2's job here is process lifetime: if the loop dies, pm2 restarts it, and
-// `watch` resumes cleanly — a killed and restarted watch loses no state and
-// re-renders nothing over unchanged cases. A failed pass does NOT kill the
-// loop: `watch` logs it and keeps looping.
+// pm2 runs `cia monitor run` hourly. autorestart: false is what makes the
+// one-shot safe under pm2: a finished pass stays finished until the next
+// cron_restart tick.
 module.exports = {
   apps: [
     {
@@ -175,14 +177,11 @@ module.exports = {
       // bin/cli.js plus `interpreter: 'node'` if you run from source, or if
       // `cia` is not on pm2's PATH.
       script: 'cia',
-      args: 'monitor watch',
+      args: 'monitor run',
       // The monitoring workspace root.
       cwd: './',
-      autorestart: true,
-      // Backstop against a crash loop (e.g. a broken config that fails every
-      // start): give up after 25 rapid restarts instead of looping forever.
-      max_restarts: 25,
-      min_uptime: '30s',
+      autorestart: false,
+      cron_restart: '0 * * * *',
       time: true,
       merge_logs: true,
       out_file: './.chain-insights/monitor/pm2-out.log',
@@ -199,20 +198,14 @@ Bring it up and confirm the first pass before walking away:
 
 ```bash
 pm2 start ecosystem.config.cjs
-pm2 list                            # `online` = healthy
 pm2 logs cia-monitor --lines 50
+cia monitor status   # `last run` confirms passes are landing
 ```
 
-Reading the surface:
-
-- **`online`** — the loop is alive. This is the steady state.
-- **`errored` / climbing restart counter** — the loop itself is dying
-  (bad config, missing workspace). `watch` survives failed *passes*, so a
-  dying loop means something structural; read the error log.
-- A successful pass writes a run document under
-  `.chain-insights/monitor/logs/monitor-runs.jsonl` and prints nothing — check
-  `cia monitor status` for `last run`, not the pm2 log, to confirm passes are
-  landing.
+Between passes pm2 shows the process as `stopped` — that is the expected
+state for a scheduled one-shot, not a failure. A successful pass writes a run
+document under `.chain-insights/monitor/logs/monitor-runs.jsonl`; check
+`cia monitor status` for `last run`, not the pm2 process state.
 
 Persistence needs **two** separate steps; doing only the first is the usual
 mistake:
@@ -223,27 +216,8 @@ sudo pm2 startup   # prints a platform-specific boot line — run what it prints
 ```
 
 `pm2 save` does not make pm2 itself start at boot. Run the command
-`pm2 startup` prints, then `pm2 save` again. Without both, the watch stops
+`pm2 startup` prints, then `pm2 save` again. Without both, the schedule stops
 silently at the next reboot.
-
-### cron
-
-```text
-0 * * * * cd /path/to/workspace && cia monitor run
-```
-
-Per-pass exit codes are visible to cron (`0` clean, `2` isolated case
-failure, `1` run failed) — wire them to whatever alerting the host already
-has.
-
-### Do not pair pm2 with `monitor run`
-
-The tempting hybrid — pm2 launching the one-shot on a `cron_restart`
-schedule — is the worst of both worlds: pm2's default treats every clean
-exit as a crash and immediately relaunches, and the input flips a hot loop
-instead of a scheduled pass. Between passes the process shows `stopped`,
-which reads as broken and hides nothing useful. If you want pm2, supervise
-`watch`; if you want one-shots, use cron.
 
 ## Storage Model
 
@@ -251,7 +225,7 @@ Everything monitor writes is plain, human-readable JSON in the workspace:
 
 ```text
 cases/<case-id>/case.json                The case definition (seeds, seed events, timestamps)
-.chain-insights/monitor/config.json      Monitor configuration (intervalSeconds, render)
+.chain-insights/monitor/config.json      Monitor configuration (render)
 .chain-insights/monitor/render-state.json  Per-case render keys (sha256 of case.json)
 .chain-insights/monitor/logs/monitor-runs.jsonl  Append-only run log (one line per pass)
 .cia-monitor.lock                        Run lock (pid of the active pass)
@@ -281,11 +255,6 @@ Exit `2` is a **partial success**. Whatever scheduler you use must be able
 to express the difference between `1` and `2` — or a single flaky case will
 page someone as though nothing ran.
 
-Under `cia monitor watch` the process does not exit between passes, so
-per-pass exit codes are not visible to the supervisor. An isolated failure
-is recorded in the pass's run document and in the per-pass case outcomes —
-check there, or `cia monitor status`, rather than expecting pm2 to flag it.
-
 ## Monitor Config
 
 `.chain-insights/monitor/config.json` is operator-owned JSON. Fail-fast
@@ -294,14 +263,12 @@ silently monitoring something else.
 
 ```json
 {
-  "intervalSeconds": 3600,
   "render": { "dormant_after_days": 30 }
 }
 ```
 
-Both keys are optional:
+Every key is optional:
 
-- `intervalSeconds` (default `3600`) — the loop delay for `monitor watch`
 - `render.dormant_after_days` (default `30`) — the DORMANT threshold
 
 ## Related

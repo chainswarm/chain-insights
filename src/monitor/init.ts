@@ -21,9 +21,9 @@ export interface VictimInitResult {
   monitorCase: MonitorCase
 }
 
-// The minimal victim config (spec req 7): case tracking only — no detector
-// cells, no watchlist, no alerts.
-const VICTIM_CONFIG = { intervalSeconds: 3600 } as const
+// The minimal victim config (spec req 7): case tracking only — every key
+// defaults. The file's presence is the init commit point.
+const VICTIM_CONFIG = {} as const
 
 export async function initVictimWorkspace(
   workspaceRoot: string,

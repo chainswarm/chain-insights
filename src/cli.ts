@@ -77,8 +77,9 @@ async function withGraphMcpClient<T>(name: string, fn: (client: import('@modelco
   const client = new Client({ name, version: PACKAGE_VERSION })
   await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }))
   // Every CLI command builds its own client, separate from the MCP proxy's.
-  // Without this, an unattended instance driven by `cia monitor watch` writes
-  // nothing to the action log while the proxy path logs fine.
+  // Without this, an unattended instance driven by a scheduled
+  // `cia monitor run` writes nothing to the action log while the proxy path
+  // logs fine.
   const { installActionLogging } = await import('./mcp/action-log.js')
   installActionLogging(client)
   try {
@@ -700,7 +701,7 @@ async function appendRunLog(workspaceRoot: string, doc: { run_timestamp: number;
 
 const monitor = program
   .command('monitor')
-  .description('Continuous case tracking: per-case dossier rendering over the configured interval. Docs: docs/monitoring.md')
+  .description('Case tracking: per-case dossier rendering, one cron-safe pass at a time. Docs: docs/monitoring.md')
 
 monitor
   .command('run')
@@ -732,41 +733,6 @@ monitor
         await lock.release()
       }
       if (exitCode !== 0) process.exit(exitCode)
-    } catch (err) {
-      console.error((err as Error).message)
-      process.exit(1)
-    }
-  })
-
-monitor
-  .command('watch')
-  .description('Loop `monitor run` on an interval (thin daemon; cron `cia monitor run` works too)')
-  .option('--interval <seconds>', 'Override the configured interval')
-  .action(async (opts: { interval?: string }) => {
-    try {
-      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-      const workspaceRoot = requireWorkspaceRoot()
-      const { loadMonitorConfig } = await import('./monitor/config.js')
-      const { runMonitorOnce } = await import('./monitor/runner.js')
-      const { acquireRunLock } = await import('./monitor/lock.js')
-      const lock = await acquireRunLock(workspaceRoot)
-      if (!lock.acquired) {
-        console.log(`[monitor] already running (pid ${lock.holderPid}); exiting`)
-        return
-      }
-      try {
-        const config = await loadMonitorConfig(workspaceRoot)
-        const intervalMs = Math.max(60, Number(opts.interval) || config.intervalSeconds) * 1000
-        // eslint-disable-next-line no-constant-condition
-        for (;;) {
-          const doc = await runMonitorOnce(undefined as never, workspaceRoot, config, Date.now())
-            .catch((err) => { console.error(`[monitor] run failed: ${(err as Error).message}`); return null })
-          if (doc) await appendRunLog(workspaceRoot, doc)
-          await new Promise((resolve) => setTimeout(resolve, intervalMs))
-        }
-      } finally {
-        await lock.release()
-      }
     } catch (err) {
       console.error((err as Error).message)
       process.exit(1)
@@ -836,7 +802,7 @@ monitor
       console.log('')
       console.log('Next steps:')
       console.log('  cia monitor run          # render the dossier for every open case')
-      console.log('  cia monitor watch        # interval loop; keep it alive under pm2 (docs/monitoring.md "Scheduling")')
+      console.log('  Schedule it with cron, pm2, or your agent harness (docs/monitoring.md "Scheduling")')
       console.log(`Dossier after the first run: published/cases/${result.monitorCase.case_id}/dossier.md`)
     } catch (err) {
       console.error((err as Error).message)
