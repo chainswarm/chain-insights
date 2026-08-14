@@ -437,6 +437,7 @@ Product docs:
 | [Architecture overview](docs/architecture.md) | Product layers, data flow, local storage, security model, config keys |
 | [Development](docs/development.md) | Build, test, and local install commands |
 | [Contributing](docs/contributing.md) | Development workflow, pull requests, release expectations |
+| [Stability policy](docs/stability.md) | Guaranteed surfaces (exit codes, MCP tool names, workspace layout), deprecation rules |
 | [Debugging](docs/debugging.md) | Local troubleshooting, diagnostics, debug workflows |
 | Bittensor devkit (in this repo under `devkit/`) | Local Bittensor graph backend contract, fixture, smoke procedures |
 

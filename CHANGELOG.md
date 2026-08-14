@@ -3,6 +3,22 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.13] - 2026-08-14 — state-of-the-art: community health
+
+Contributor-facing surface. No behavior change.
+
+### Added
+
+- Root `CONTRIBUTING.md` with setup, PR rules, and check commands.
+- `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1 by reference).
+- GitHub issue templates (bug report, feature request) with blank issues
+  disabled and a security-report contact link.
+- Pull request template with the release-metadata checklist.
+- `.github/CODEOWNERS` (single maintainer for now).
+- `docs/stability.md`: the stability and deprecation policy covering CLI
+  exit codes, the seven public MCP tool names, workspace layout, config
+  keys, and how deprecation works.
+
 ## [0.18.12] - 2026-08-14 — state-of-the-art: package metadata
 
 Packaging and metadata pass. No behavior change.
