@@ -1,5 +1,10 @@
 # Chain Insights
 
+[![npm version](https://img.shields.io/npm/v/chain-insights)](https://www.npmjs.com/package/chain-insights)
+[![CI](https://img.shields.io/github/actions/workflow/status/chainswarm/chain-insights/verify.yml?branch=main)](https://github.com/chainswarm/chain-insights/actions/workflows/verify.yml)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/chainswarm/chain-insights)](https://securityscorecards.dev/viewer/?uri=github.com/chainswarm/chain-insights)
+[![License](https://img.shields.io/npm/l/chain-insights)](https://github.com/chainswarm/chain-insights/blob/main/LICENSE)
+
 [Website](https://chain-insights.ai) | [npm](https://www.npmjs.com/package/chain-insights)
 
 Chain Insights is an open-source AML investigation toolkit for AI agents and

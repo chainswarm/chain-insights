@@ -3,6 +3,21 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.12] - 2026-08-14 — state-of-the-art: package metadata
+
+Packaging and metadata pass. No behavior change.
+
+### Added
+
+- `license: MIT` in `package.json`. Matches the existing LICENSE file.
+- `publishConfig` with public access and provenance for npm publishing.
+- `sideEffects: false`. No `src/` module runs import-time side effects.
+- `publint` and `@arethetypeswrong/cli` dev dependencies.
+- `lint:package` and `check:types-resolution` scripts, wired into the
+  Verify workflow after the Build step.
+- README badges: npm version, CI, OpenSSF Scorecard, and license. Each
+  badge links to its live page.
+
 ## [0.18.11] - 2026-08-14 — architecture diagram drift fix
 
 Docs-only change. No behavior change.

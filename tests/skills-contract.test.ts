@@ -207,7 +207,18 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).toContain('open-source AML investigation toolkit')
     expect(readme).toContain('https://chain-insights.ai')
     expect(readme).toContain('https://www.npmjs.com/package/chain-insights')
-    expect(readme).not.toContain('chainswarm/chain-insights')
+    // Badge rows (lines starting with `[![`) link to the repo for CI status,
+    // OpenSSF Scorecard, and LICENSE. Prose stays product-first: no repo
+    // links outside the badges.
+    expect(readme).toContain('[![npm version](https://img.shields.io/npm/v/chain-insights)]')
+    expect(readme).toContain('[![CI](https://img.shields.io/github/actions/workflow/status/')
+    expect(readme).toContain('[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/')
+    expect(readme).toContain('[![License](https://img.shields.io/npm/l/chain-insights)]')
+    const prose = readme
+      .split('\n')
+      .filter((line) => !line.startsWith('[!['))
+      .join('\n')
+    expect(prose).not.toContain('chainswarm/chain-insights')
     expect(readme).not.toContain('[GitHub](')
     expect(readme).not.toContain('devkit/README.md')
     expect(readme).not.toContain('blob/main/devkit')

@@ -45,6 +45,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Lint package metadata
+        run: npm run lint:package
+
+      - name: Check types resolution
+        run: npm run check:types-resolution
+
       - name: Detect release-bearing changes
         if: github.event_name == 'pull_request'
         id: release-scope
