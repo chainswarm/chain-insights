@@ -30,3 +30,9 @@ updates:
       codeql-action:
         patterns:
           - "github/codeql-action*"
+      # upload/download-artifact must move in lockstep; cross-major artifact
+      # handoff between jobs breaks (happened 2026-08, #318/#319).
+      artifact-actions:
+        patterns:
+          - "actions/upload-artifact"
+          - "actions/download-artifact"
