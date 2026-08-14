@@ -20,11 +20,11 @@ System(DataPipelineGraphRAGMCP, "Data Pipeline GraphRAG MCP", $descr="Public MCP
 
 System_Boundary("ChainInsightsToolkit_boundary", "Chain Insights Toolkit", $tags="") {
   Container_Boundary("ChainInsightsToolkit.ciaCLI_boundary", "cia CLI", $tags="") {
-    Component(ChainInsightsToolkit.ciaCLI.AMLWorkflowCommands, "AML Workflow Commands", $techn="src/investigation", $descr="Runs address risk and graph query workflows.", $tags="", $link="")
-    Component(ChainInsightsToolkit.ciaCLI.CaseManager, "Case Manager", $techn="src/cases", $descr="Creates, resumes, verifies, and updates local case evidence manifests.", $tags="", $link="")
-    Component(ChainInsightsToolkit.ciaCLI.AgentInstaller, "Agent Installer", $techn="src/install", $descr="Installs MCP proxy configuration for local agent clients.", $tags="", $link="")
+    Component(ChainInsightsToolkit.ciaCLI.CaseManager, "Case Manager", $techn="src/monitor", $descr="Creates, resumes, verifies, and updates local case evidence manifests.", $tags="", $link="")
+    Component(ChainInsightsToolkit.ciaCLI.AgentInstaller, "Agent Installer", $techn="bin/install.cjs", $descr="Installs MCP proxy configuration for local agent clients.", $tags="", $link="")
     Component(ChainInsightsToolkit.ciaCLI.ConfigResolver, "Config Resolver", $techn="src/config", $descr="Resolves graphMcpEndpoint, auth token, workspace paths, and hosted/local endpoint precedence.", $tags="", $link="")
     Component(ChainInsightsToolkit.ciaCLI.GraphMCPClient, "Graph MCP Client", $techn="src/mcp", $descr="Calls GraphRAG MCP tools and refreshes tool catalogues.", $tags="", $link="")
+    Component(ChainInsightsToolkit.ciaCLI.AMLWorkflowCommands, "AML Workflow Commands", $techn="src/investigation", $descr="Runs address risk and graph query workflows.", $tags="", $link="")
   }
 
   Container(ChainInsightsToolkit.LocalWorkspaceStore, "Local Workspace Store", $techn="Files", $descr="Filesystem workspace containing cases, evidence manifests, dossiers, and config.", $tags="", $link="")
