@@ -17,7 +17,7 @@
 
 - [data flow](context/data-flow.md) — end-to-end pipeline
 
-- [dependencies](context/dependencies.md) — contracts with indexers / ml-pipeline / rbmk / chain-insights
+- [dependencies](context/dependencies.md) — contracts with the graph backend and the ACP marketplace bridge
 
 
 ## Containers

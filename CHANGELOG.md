@@ -3,6 +3,28 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.18] - 2026-08-15 — docs: public-surface cleanup
+
+Docs-only changes. No behavior change.
+
+### Changed
+
+- Billing wording: Chain Insights Graph bills by billable units (dropped
+  the legacy query-time contrast).
+- Shell snippets now state they target Linux (bash); they work as-is on
+  macOS, on Windows use WSL.
+- Endpoint examples use a placeholder host; hosted endpoints are operator
+  configuration, never package defaults.
+
+### Removed
+
+- Retired hosted staging endpoint URL and tester-activation notes from
+  README and docs.
+- "Pre-Staging And Release" README section and internal workspace
+  references (release-orchestration internals, staging workflow mentions);
+  the architecture C4 model no longer includes internal systems — diagram
+  re-render follows via the docs subsystem.
+
 ## [0.18.17] - 2026-08-14 — skill: BFS-first connectivity checks
 
 Docs-only change to the Bittensor Cypher skill. No behavior change.

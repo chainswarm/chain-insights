@@ -13,6 +13,9 @@ queries, manages local evidence workspaces, and generates graph reports.
 
 ## Quickstart
 
+All shell snippets in this documentation are for **Linux** (bash). They work
+as-is on macOS; on Windows use WSL.
+
 ```bash
 npx chain-insights@latest --help   # run without installing
 npm install -g chain-insights      # or install the cia CLI globally
@@ -111,9 +114,8 @@ Upstream:
   endpoint.
 - **Base mainnet RPC** — wallet balance and payment only
   (`BASE_RPC_URL` override). Not a graph-support claim.
-- **Devkit fixture data** — generated from the ChainSwarm export path
-  (`scripts/devops/chain-insights-devkit/build-fixture.sh` in the RBMK
-  workspace), already committed under `devkit/data/`.
+- **Devkit fixture data** — pre-generated from the upstream export path
+  and committed under `devkit/data/`.
 
 Downstream:
 
@@ -183,7 +185,7 @@ schema notes and examples (the bundled devkit serves a Bittensor fixture).
 
 ## Billing: Billable Units
 
-Chain Insights Graph bills by **billable units**, not query time.
+Chain Insights Graph bills by **billable units**.
 
 - A **billable unit** is one row, node, or edge in your returned payload.
 - Bigger responses cost more. Narrow queries cost less.
@@ -215,6 +217,8 @@ Use `usage` to see the real cost of a workflow call, not just of one
 
 ## Prerequisites And Environment Setup
 
+- **Linux** is the reference platform; shell snippets use bash (macOS works
+  the same; on Windows use WSL).
 - **Node.js 22 or newer** (`package.json` engines) and npm.
 - Optional: Docker with the Compose plugin, for the local devkit backend.
 - Optional: pm2 or cron, for standing-watch monitoring.
@@ -319,16 +323,17 @@ Local development endpoint (default):
 cia config set graphMcpEndpoint http://127.0.0.1:8012/mcp
 ```
 
-Hosted staging endpoint for approved testers (production is not live yet):
+Hosted endpoint (when you have one; it is operator configuration, never a
+package default):
 
 ```bash
-cia config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
+cia config set graphMcpEndpoint https://graph.example.com/mcp
 ```
 
 Optional one-shot override from the environment:
 
 ```bash
-export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://staging-mcp.chain-insights.ai/mcp
+export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://graph.example.com/mcp
 ```
 
 Configuration precedence:
@@ -420,23 +425,6 @@ If network or tool discovery fails, check the endpoint and access mode
 first. The CLI can still initialize workspaces and continue local
 investigation workflow without a reachable endpoint.
 
-## Pre-Staging And Release
-
-**This repo never deploys.** There is no Helm chart, no k3s lane, and no
-server image. The product ships as an npm package; the only hosted surface
-(the Chain Insights Graph endpoint) is deployed from other repositories.
-
-Release path:
-
-1. Every PR bumps `package.json`, `package-lock.json`, and `CHANGELOG.md`.
-   `scripts/check-release-gate.mjs` enforces this in `verify.yml`.
-2. `verify.yml` runs `npm pack` and lists tarball contents on every PR.
-3. Releases publish to the public npmjs registry. Users update with
-   `cia update`.
-4. The hosted staging endpoint
-   (`https://staging-mcp.chain-insights.ai/mcp`) is for approved tester
-   activation only; production is not live yet.
-
 ## Documentation Links
 
 Product docs:
@@ -465,6 +453,3 @@ Architecture depth:
 - [Operating rules](docs/architecture/operating-rules.md) — repo
   invariants, findings rules, CI gotchas.
 - [docs/acceptance/](docs/acceptance/) — per-component acceptance evidence.
-
-In the ChainSwarm workspace, RBMK root holds the cross-repo docs
-(data-pipeline graph backend, dev stack, release coordination).

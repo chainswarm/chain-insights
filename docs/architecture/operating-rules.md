@@ -61,12 +61,12 @@ knowledge skill during the 2026-07-28 docs-layer rework.
 ## Method Ownership (Reference, Do Not Restate)
 
 - Inspector / ACP surface audits (tools/list, prompts/list, prefixed-name
-  sync): root skill `rbmk-cia-mcp-inspector` (RBMK workspace only).
-- ACP release method: root skill `rbmk-acp-release`.
-- Real local UAT against the GraphRAG MCP: root skill
-  `test-chain-insights-graphrag-mcp`.
-- npm release testing: root skill `test-chain-insights-npm-release`.
-- Graph serving tiers and sync detail: RBMK system knowledge, not this repo.
+  sync): internal maintainer tooling, not part of this package.
+- ACP release method: internal maintainer tooling.
+- Real local UAT against the GraphRAG MCP: internal maintainer tooling.
+- npm release testing: internal maintainer tooling.
+- Graph serving tiers and sync detail: internal system knowledge, not this
+  repo.
 
 ## Documentation Rules
 
