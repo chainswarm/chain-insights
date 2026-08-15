@@ -1,7 +1,6 @@
 workspace "Chain Insights Repository" "Repository-scoped C4 model for repos/infra/chain-insights." {
     model {
         investigator = person "Investigator / Agent" "Uses CLI, ChatGPT, Codex, Claude Code, or MCP clients to investigate blockchain activity."
-        rbmk = softwareSystem "RBMK Control Center" "Runs npm release smoke checks, staging validation, and docs workflows."
         graphMcp = softwareSystem "Data Pipeline GraphRAG MCP" "Public MCP endpoint serving graph queries, risk tools, quota, and report metadata."
         amlAcp = softwareSystem "AML ACP" "Marketplace bridge that calls Chain Insights workflows through the proxy."
 
@@ -20,7 +19,6 @@ workspace "Chain Insights Repository" "Repository-scoped C4 model for repos/infr
 
         investigator -> ciaCli "Runs investigation and setup commands"
         investigator -> mcpProxy "Calls tools from agent clients"
-        rbmk -> npmPackage "Validates release smoke checks"
         amlAcp -> mcpProxy "Uses proxy mode for curated paid workflows"
         ciaCli -> graphMcp "Calls graph tools and AML primitives"
         mcpProxy -> graphMcp "Proxies configured tools"

@@ -61,7 +61,7 @@ cia config get graphMcpEndpoint
 # → Calls loadConfig(), reads config.json, applies env overrides, returns value
 
 # Set config value
-cia config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
+cia config set graphMcpEndpoint https://graph.example.com/mcp
 # → Calls saveConfig({graphMcpEndpoint: ...}), validates, writes, updates cache
 
 # Set access key

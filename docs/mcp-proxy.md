@@ -36,18 +36,16 @@ Set local development:
 chain-insights config set graphMcpEndpoint http://127.0.0.1:8012/mcp
 ```
 
-Set hosted staging for approved testers:
+Set a hosted endpoint:
 
 ```bash
-chain-insights config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
+chain-insights config set graphMcpEndpoint https://graph.example.com/mcp
 ```
-
-For now, use staging only for tester activation. Production is not live yet.
 
 Use a one-shot environment override:
 
 ```bash
-export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://staging-mcp.chain-insights.ai/mcp
+export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://graph.example.com/mcp
 ```
 
 Configuration precedence:
@@ -126,7 +124,7 @@ chain-insights mcp tools --refresh
 Invited tester access key mode:
 
 ```bash
-chain-insights access-key set ci_test_REDACTED --endpoint https://staging-mcp.chain-insights.ai/mcp
+chain-insights access-key set ci_test_REDACTED --endpoint https://graph.example.com/mcp
 chain-insights access-key status
 ```
 
@@ -151,20 +149,20 @@ not include `graph_query_batch`; use a tester access key or paid x402 mode for
 regular usage and batches. Use explicit LIMIT and pagination in your query when
 you want bounded result sets.
 
-Staging UAT on 2026-05-31 showed the 10-second free tier was enough for exact
+UAT on 2026-05-31 showed the 10-second free tier was enough for exact
 address checks, sample address reads, sample flow reads, and the
 free-to-paid handoff, but bounded sample reads still returned topology data
 inside the same daily allowance.
 
 For custom graph reads, install the shipped `chain-insights-cypher` skill. Its
-Memgraph examples reference distinguishes staging-tested Chain Insights Graph query
+Memgraph examples reference distinguishes Chain Insights Graph query
 patterns from direct Memgraph deep traversal syntax that needs a fixed-hop
 `graph_query_batch` fallback through the hosted endpoint.
 
 Paid x402 mode:
 
 ```bash
-chain-insights config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
+chain-insights config set graphMcpEndpoint https://graph.example.com/mcp
 chain-insights debug off
 chain-insights wallet import 0xYOUR_EVM_PRIVATE_KEY
 chain-insights wallet ready

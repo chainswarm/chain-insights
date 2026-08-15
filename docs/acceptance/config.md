@@ -16,12 +16,12 @@ cia config get graphMcpEndpoint
 # Expected: Returns default "http://127.0.0.1:8012/mcp"
 
 # Test config write
-cia config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
+cia config set graphMcpEndpoint https://graph.example.com/mcp
 # Expected: Writes ~/.chain-insights/config.json with graphMcpEndpoint field
 
 # Test config read
 cia config get graphMcpEndpoint
-# Expected: Returns "https://staging-mcp.chain-insights.ai/mcp"
+# Expected: Returns "https://graph.example.com/mcp"
 
 # Test env override
 export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=http://127.0.0.1:9999/mcp

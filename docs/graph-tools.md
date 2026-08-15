@@ -55,7 +55,7 @@ Agent installers ship two graph-query skills:
 
 - `chain-insights-cypher`: generic layer selection, schema capture, and
   portable read-only GQL/Cypher examples. Its
-  `references/memgraph-examples.md` file includes staging-tested Memgraph-style
+  `references/memgraph-examples.md` file includes Memgraph-style
   recipes, archive/facts reads, and fixed-hop traversal fallbacks for native
   Memgraph deep traversal syntax that the hosted Chain Insights Graph path may
   reject.

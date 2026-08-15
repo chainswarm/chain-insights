@@ -4,7 +4,6 @@
 
 ## Systems
 
-- RBMK Control Center — Runs npm release smoke checks, staging validation, and docs workflows.
 - Data Pipeline GraphRAG MCP — Public MCP endpoint serving graph queries, risk tools, quota, and report metadata.
 - AML ACP — Marketplace bridge that calls Chain Insights workflows through the proxy.
 

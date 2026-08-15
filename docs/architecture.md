@@ -56,8 +56,8 @@ Primary Chain Insights Graph config:
 
 ```bash
 chain-insights config get graphMcpEndpoint
-chain-insights config set graphMcpEndpoint https://staging-mcp.chain-insights.ai/mcp
-export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://staging-mcp.chain-insights.ai/mcp
+chain-insights config set graphMcpEndpoint https://graph.example.com/mcp
+export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://graph.example.com/mcp
 ```
 
 The runtime default is local loopback: `http://127.0.0.1:8012/mcp`. Hosted
@@ -128,7 +128,7 @@ templates/
 Invited testers can use server-side test keys without x402 payment:
 
 ```bash
-chain-insights access-key set ci_test_REDACTED --endpoint https://staging-mcp.chain-insights.ai/mcp
+chain-insights access-key set ci_test_REDACTED --endpoint https://graph.example.com/mcp
 chain-insights access-key status
 chain-insights mcp call graph_query network=robinhood query='USE topology MATCH (n) RETURN n LIMIT 1'
 ```

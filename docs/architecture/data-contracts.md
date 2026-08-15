@@ -76,9 +76,6 @@ Validation (`validateMcpEndpoint` in `src/config/mcp-endpoint.ts`):
 - Other remote hosts must use `https://`.
 - No credentials, query string, or fragment in the URL.
 
-Hosted staging: `https://staging-mcp.chain-insights.ai/mcp`. Production is
-not live yet.
-
 MCP proxy mode: `CHAIN_INSIGHTS_MCP_PROXY_MODE=workspace` (default) or
 `stateless` (`resolveMcpProxyMode` in `src/mcp/proxy.ts`).
 
