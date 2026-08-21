@@ -323,17 +323,17 @@ Local development endpoint (default):
 cia config set graphMcpEndpoint http://127.0.0.1:8012/mcp
 ```
 
-Hosted endpoint (when you have one; it is operator configuration, never a
-package default):
+Public production Graph (operator configuration, never a package default).
+Use the host root. Do not add `/mcp`.
 
 ```bash
-cia config set graphMcpEndpoint https://graph.example.com/mcp
+cia config set graphMcpEndpoint https://mcp.chain-insights.ai/
 ```
 
 Optional one-shot override from the environment:
 
 ```bash
-export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://graph.example.com/mcp
+export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://mcp.chain-insights.ai/
 ```
 
 Configuration precedence:
