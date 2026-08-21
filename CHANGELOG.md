@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.19] - 2026-08-22 — docs: public production Graph URL
+
+Docs-only change. No behavior change.
+
+### Changed
+
+- Hosted endpoint examples now use public production
+  `https://mcp.chain-insights.ai/` (host root, no `/mcp` path).
+- The npm package default is still local `http://127.0.0.1:8012/mcp`.
+
 ## [0.18.18] - 2026-08-15 — docs: public-surface cleanup
 
 Docs-only changes. No behavior change.

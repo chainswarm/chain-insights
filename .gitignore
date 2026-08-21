@@ -1,4 +1,5 @@
 node_modules/
+.worktrees/
 
 # Local Chain Insights runtime/investigation output.
 .chain-insights/

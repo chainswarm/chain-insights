@@ -28,7 +28,10 @@ The proxy reads the same local Chain Insights config as the CLI.
 
 The endpoint lives in Chain Insights config, not in the MCP client registration.
 The npm package default is the local development endpoint
-`http://127.0.0.1:8012/mcp`; hosted endpoints must be set explicitly.
+`http://127.0.0.1:8012/mcp`. Public production is
+`https://mcp.chain-insights.ai/` (host root, no `/mcp` path). Set it
+explicitly. Do not bake that URL into MCP client JSON, source, or
+workspace templates.
 
 Set local development:
 
@@ -36,16 +39,16 @@ Set local development:
 chain-insights config set graphMcpEndpoint http://127.0.0.1:8012/mcp
 ```
 
-Set a hosted endpoint:
+Set public production:
 
 ```bash
-chain-insights config set graphMcpEndpoint https://graph.example.com/mcp
+chain-insights config set graphMcpEndpoint https://mcp.chain-insights.ai/
 ```
 
 Use a one-shot environment override:
 
 ```bash
-export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://graph.example.com/mcp
+export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://mcp.chain-insights.ai/
 ```
 
 Configuration precedence:
@@ -124,7 +127,7 @@ chain-insights mcp tools --refresh
 Invited tester access key mode:
 
 ```bash
-chain-insights access-key set ci_test_REDACTED --endpoint https://graph.example.com/mcp
+chain-insights access-key set ci_test_REDACTED --endpoint https://mcp.chain-insights.ai/
 chain-insights access-key status
 ```
 
@@ -162,7 +165,7 @@ patterns from direct Memgraph deep traversal syntax that needs a fixed-hop
 Paid x402 mode:
 
 ```bash
-chain-insights config set graphMcpEndpoint https://graph.example.com/mcp
+chain-insights config set graphMcpEndpoint https://mcp.chain-insights.ai/
 chain-insights debug off
 chain-insights wallet import 0xYOUR_EVM_PRIVATE_KEY
 chain-insights wallet ready

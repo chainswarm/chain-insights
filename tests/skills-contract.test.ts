@@ -223,8 +223,9 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).not.toContain('devkit/README.md')
     expect(readme).not.toContain('blob/main/devkit')
     expect(readme).toContain('Chain Insights Graph')
-    expect(readme).toContain('cia config set graphMcpEndpoint https://graph.example.com/mcp')
-    expect(readme).toContain('CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://graph.example.com/mcp')
+    expect(readme).toContain('cia config set graphMcpEndpoint https://mcp.chain-insights.ai/')
+    expect(readme).toContain('CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://mcp.chain-insights.ai/')
+    expect(readme).toContain('Do not add `/mcp`')
     expect(readme).toContain('http://127.0.0.1:8012/mcp')
     expect(readme).toContain('approved access key')
     expect(readme).toContain('prepared wallet')
@@ -256,12 +257,12 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).not.toContain('Release rules:')
 
     expect(packageJson).not.toContain('x402-paid')
-    expect(mcpProxy).toContain('https://graph.example.com/mcp')
+    expect(mcpProxy).toContain('https://mcp.chain-insights.ai/')
     expect(mcpProxy).toContain('The endpoint lives in Chain Insights config, not in the MCP client registration.')
     expect(mcpProxy).toContain('Do not')
     expect(mcpProxy).toContain('bake hosted endpoint URLs into MCP client JSON, source code, or workspace')
     expect(mcpProxy).toContain('x402')
-    expectNoRetiredHostedMcpHost(readme + mcpProxy + read('docs/architecture.md'))
+    expect(readme + mcpProxy + read('docs/architecture.md')).toContain('https://mcp.chain-insights.ai/')
   })
 
   it('positions Chain Insights as an editor-neutral workspace', () => {
