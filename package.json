@@ -1,6 +1,6 @@
 {
   "name": "chain-insights",
-  "version": "0.20.0",
+  "version": "0.19.0",
   "description": "AML investigation CLI and MCP proxy for blockchain risk screening, case tracking, workspace reports, and Chain Insights Graph access",
   "homepage": "https://chain-insights.ai",
   "repository": {
