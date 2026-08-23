@@ -3,6 +3,44 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.22] - 2026-08-24 — fix: teach bounded hop lambdas
+
+The Cypher skill now shows the three Memgraph hop-lambda forms. Each
+form keeps an explicit hop bound of 5 or less.
+
+### Changed
+
+- `chain-insights-cypher` teaches 2-arg, 3-arg, and weighted 4-arg hop
+  lambdas. No unbounded `*BFS`. No official Memgraph write recipes.
+
+## [0.18.21] - 2026-08-23 — fix: public agent skill set
+
+Agent installs now ship a short address-risk skill, two GraphRAG schema
+skills, and a Memgraph Cypher skill. Upgrades remove six stale skill
+copies without touching user skills.
+
+### Added
+
+- `chain-insights-schema-evm` — EVM / Robinhood GraphRAG map.
+- `chain-insights-schema-bittensor` — Bittensor GraphRAG map. Not a public
+  hosted MCP network claim.
+
+### Changed
+
+- Rewrote `chain-insights-address-risk` around `aml_address_risk` only.
+- Rewrote `chain-insights-cypher` as Memgraph dialect only. No query cookbook.
+- Claude Code, Codex, Hermes, and local installs use one reviewed skill
+  allow-list.
+
+### Removed
+
+- `chain-insights-bittensor-cypher`
+- `chain-insights-developer-experience`
+- `chain-insights-investigation`
+- `chain-insights-monitoring`
+- `ci-status`
+- `test-chain-insights-graph`
+
 ## [0.18.20] - 2026-08-23 — feat: signed burnhole wallet proof
 
 CIA attaches `X-CIA-Wallet-Proof` on Graph MCP calls when a wallet is loaded.

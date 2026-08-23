@@ -115,11 +115,6 @@ node bin/cli.js wallet address
 node bin/cli.js wallet balance
 ```
 
-## UAT Script
+## UAT
 
-```bash
-skills/test-chain-insights-graph/scripts/run-uat.sh
-```
-
-The UAT script uses a temporary initialized workspace, calls the real Chain
-Insights Graph endpoint, verifies proxy tools, and checks graph report serving.
+Public Graph UAT is maintainer tooling. It is not a shipped agent skill.

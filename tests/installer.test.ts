@@ -5,6 +5,28 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { execSync } from 'node:child_process'
 
+const reviewedSkills = [
+  'chain-insights-address-risk',
+  'chain-insights-cypher',
+  'chain-insights-schema-bittensor',
+  'chain-insights-schema-evm',
+]
+
+const retiredSkills = [
+  'chain-insights-bittensor-cypher',
+  'chain-insights-developer-experience',
+  'chain-insights-investigation',
+  'chain-insights-monitoring',
+  'ci-status',
+  'test-chain-insights-graph',
+]
+
+const installTargets = [
+  ['--claude', '.claude/skills'],
+  ['--codex', '.codex/skills'],
+  ['--hermes', '.hermes/skills/chain-insights'],
+] as const
+
 describe('Installer (FOUND-01)', () => {
   let fakeHome: string
   let prevHome: string | undefined
@@ -21,25 +43,30 @@ describe('Installer (FOUND-01)', () => {
     await rm(fakeHome, { recursive: true, force: true })
   })
 
-  it('--claude copies ci-status SKILL.md to ~/.claude/skills/ci-status/', () => {
-    execSync(`HOME=${fakeHome} node bin/install.cjs --claude`, { stdio: 'pipe' })
-    const skillPath = join(fakeHome, '.claude', 'skills', 'ci-status', 'SKILL.md')
-    expect(existsSync(skillPath)).toBe(true)
-  })
+  for (const [flag, relativeTarget] of installTargets) {
+    it(`${flag} installs only the reviewed set and cleans known stale skills`, () => {
+      const target = join(fakeHome, relativeTarget)
+      const userSkillDir = join(target, 'ci-my-user-skill')
+      mkdirSync(userSkillDir, { recursive: true })
+      writeFileSync(join(userSkillDir, 'SKILL.md'), '# my own skill\n', 'utf8')
 
-  it('--claude preserves a user-owned ci-* skill dir it does not ship', () => {
-    // A user's own skill that merely shares the "ci-" prefix must not be
-    // deleted by a clean reinstall.
-    const userSkillDir = join(fakeHome, '.claude', 'skills', 'ci-my-user-skill')
-    mkdirSync(userSkillDir, { recursive: true })
-    writeFileSync(join(userSkillDir, 'SKILL.md'), '# my own skill\n', 'utf8')
+      for (const name of retiredSkills) {
+        const staleSkillDir = join(target, name)
+        mkdirSync(staleSkillDir, { recursive: true })
+        writeFileSync(join(staleSkillDir, 'SKILL.md'), '# stale\n', 'utf8')
+      }
 
-    execSync(`HOME=${fakeHome} node bin/install.cjs --claude`, { stdio: 'pipe' })
+      execSync(`HOME=${fakeHome} node bin/install.cjs ${flag}`, { stdio: 'pipe' })
 
-    // User skill survives; the shipped ci-status skill is still installed.
-    expect(existsSync(join(userSkillDir, 'SKILL.md'))).toBe(true)
-    expect(existsSync(join(fakeHome, '.claude', 'skills', 'ci-status', 'SKILL.md'))).toBe(true)
-  })
+      for (const name of reviewedSkills) {
+        expect(existsSync(join(target, name, 'SKILL.md'))).toBe(true)
+      }
+      for (const name of retiredSkills) {
+        expect(existsSync(join(target, name))).toBe(false)
+      }
+      expect(existsSync(join(userSkillDir, 'SKILL.md'))).toBe(true)
+    })
+  }
 
   it('--claude creates ~/.chain-insights/config.json', () => {
     execSync(`HOME=${fakeHome} node bin/install.cjs --claude`, { stdio: 'pipe' })
@@ -85,7 +112,7 @@ describe('Installer (FOUND-01)', () => {
 
   it('--hermes copies Chain Insights skills to ~/.hermes/skills/chain-insights/', () => {
     execSync(`HOME=${fakeHome} node bin/install.cjs --hermes`, { stdio: 'pipe' })
-    const skillPath = join(fakeHome, '.hermes', 'skills', 'chain-insights', 'chain-insights-investigation', 'SKILL.md')
+    const skillPath = join(fakeHome, '.hermes', 'skills', 'chain-insights', 'chain-insights-cypher', 'SKILL.md')
     expect(existsSync(skillPath)).toBe(true)
   })
 

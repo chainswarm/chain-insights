@@ -273,7 +273,5 @@ Every key is optional:
 
 ## Related
 
-- Skill `chain-insights-monitoring` — agent-facing routing, case tracking,
-  and scheduling, including `references/pm2-scheduling.md`.
 - [Investigation workspaces](investigation-workspaces.md) — how a monitor
   workspace relates to an investigation workspace.

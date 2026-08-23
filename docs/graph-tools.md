@@ -51,18 +51,16 @@ returns a local unmetered primitive-backend status instead.
 - `per_query_timeout_seconds` is optional and capped at `10` by default.
 - Returned rows live in `structuredContent.facts`.
 
-Agent installers ship two graph-query skills:
+Agent installers ship four skills:
 
-- `chain-insights-cypher`: generic layer selection, schema capture, and
-  portable read-only GQL/Cypher examples. Its
-  `references/memgraph-examples.md` file includes Memgraph-style
-  recipes, archive/facts reads, and fixed-hop traversal fallbacks for native
-  Memgraph deep traversal syntax that the hosted Chain Insights Graph path may
-  reject.
-- `chain-insights-bittensor-cypher`: Bittensor devkit fixture lane —
-  Bittensor-specific schema notes for SS58 and EVM-pallet addresses under
-  `network=bittensor` (the public production network is `robinhood`; this
-  skill applies to the devkit fixture only).
+- `chain-insights-address-risk`: one-address screen via `aml_address_risk`.
+- `chain-insights-cypher`: Memgraph dialect and layer rules for
+  `graph_query` and `graph_query_batch`. No query cookbook.
+- `chain-insights-schema-evm`: EVM / Robinhood GraphRAG labels,
+  relationships, and properties.
+- `chain-insights-schema-bittensor`: Bittensor GraphRAG labels,
+  relationships, and properties. This is a schema map, not a claim that
+  Bittensor is on the public hosted endpoint.
 
 Check public-free usage:
 

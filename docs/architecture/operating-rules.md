@@ -73,10 +73,12 @@ knowledge skill during the 2026-07-28 docs-layer rework.
 - Keep docs product-first and user-workflow-first: install → init →
   configure graph access → run AML tools → review evidence.
 - Localhost endpoints are fine in debugging docs. Private paths are not.
-- The shipped product skills under `skills/` (`chain-insights-*`,
-  `ci-status`, `test-chain-insights-graph`) are a separate product surface
+- The shipped product skills under `skills/` are
+  `chain-insights-address-risk`, `chain-insights-cypher`,
+  `chain-insights-schema-evm`, and `chain-insights-schema-bittensor`.
+  They are a separate product surface
   packaged into the npm tarball and enforced by
   `tests/skills-contract.test.ts`. A capability no skill mentions is
   invisible to agents — keep the relevant skill in step with any change.
-  `docs/monitoring.md` is the human surface for the monitor;
-  `skills/chain-insights-monitoring/` is the agent one. Keep both in step.
+  `docs/monitoring.md` is the human surface for the monitor. Do not add
+  an agent monitor skill unless the public skill set is reviewed again.
