@@ -11,9 +11,6 @@ This skill is dialect only. It is not a query cookbook. Load
 `chain-insights-schema-evm` or `chain-insights-schema-bittensor` for the
 label, relationship, and property map.
 
-For the construct matrix and contract errors, read
-`docs/graph-query-compatibility.md`.
-
 ## Tools
 
 | Tool | Use |

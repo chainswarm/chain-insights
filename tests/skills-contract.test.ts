@@ -202,6 +202,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).not.toContain('HAS_RISK_SCORE')
     expect(skill).not.toContain('sent_count')
     expect(skill).not.toContain('references/memgraph-examples.md')
+    expect(skill).not.toContain('docs/graph-query-compatibility.md')
     expect(openai).toContain('Chain Insights Cypher')
     expect(graphTools).toContain('chain-insights-cypher')
     expect(graphTools).toContain('chain-insights-address-risk')
