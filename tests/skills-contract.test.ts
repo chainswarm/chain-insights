@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -22,7 +22,42 @@ function traceToolName(role: string): string {
   return ['aml_trace_', role, '_funds'].join('')
 }
 
+const reviewedSkills = [
+  'chain-insights-address-risk',
+  'chain-insights-cypher',
+  'chain-insights-investigation',
+]
+
+const liveTools = [
+  'aml_address_risk',
+  'graph_query',
+  'graph_query_batch',
+  'meta_network_capabilities',
+  'meta_usage_status',
+  'meta_help',
+  'wallet_balance',
+]
+
 describe('shipped Chain Insights skills contract', () => {
+  it('ships exactly the reviewed public skill directories', () => {
+    const actual = readdirSync(join(root, 'skills'), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort()
+
+    expect(actual).toEqual(reviewedSkills)
+  })
+
+  it('maps every live public tool and excludes retired product guidance', () => {
+    const content = reviewedSkills
+      .map((name) => read(`skills/${name}/SKILL.md`))
+      .join('\n')
+
+    for (const tool of liveTools) expect(content).toContain(tool)
+    expect(content).toContain('network=robinhood')
+    expect(content).not.toMatch(/workspace|debug MCP|cia monitor|Bittensor/i)
+  })
+
   it('keeps investigation guidance on initialized workspaces and role-specific tools', () => {
     const skill = read('skills/chain-insights-investigation/SKILL.md')
 
