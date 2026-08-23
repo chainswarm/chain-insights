@@ -3,6 +3,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.20] - 2026-08-23 — feat: signed burnhole wallet proof
+
+CIA attaches `X-CIA-Wallet-Proof` on Graph MCP calls when a wallet is loaded.
+The till stays on MCP. CIA does not add a quota gate.
+
+### Added
+
+- EIP-191 `cia-mcp-permit` header for burnhole permits.
+
 ## [0.18.19] - 2026-08-22 — docs: public production Graph URL
 
 Docs-only change. No behavior change.

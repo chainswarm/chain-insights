@@ -571,7 +571,10 @@ describe('MCP client (02-01)', () => {
 
       const mockFn = vi.mocked(wrapFetchWithPaymentFromConfig)
       const passedFetch = mockFn.mock.calls[0][0]
-      expect(passedFetch).toBe(fetch)
+      // Preference unset skips reorder, but a loaded wallet still wraps
+      // fetch to attach X-CIA-Wallet-Proof.
+      expect(passedFetch).not.toBe(fetch)
+      expect(typeof passedFetch).toBe('function')
     } finally {
       if (prevPreference === undefined) delete process.env['CHAIN_INSIGHTS_PAYMENT_ASSET_PREFERENCE']
       else process.env['CHAIN_INSIGHTS_PAYMENT_ASSET_PREFERENCE'] = prevPreference
