@@ -3,6 +3,23 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.21] - 2026-08-23 — fix: public agent skill set
+
+Agent installs now teach only the live public MCP product.
+Upgrades remove known stale Chain Insights skill copies without touching user skills.
+
+### Changed
+
+- Rewrote investigation, address-risk, and Cypher guidance around Robinhood
+  and the seven live public MCP tools.
+- Claude Code, Codex, Hermes, and local installs use one reviewed skill
+  allow-list.
+
+### Removed
+
+- Retired Bittensor, monitoring, developer, graph-test, and CI-status skills
+  from the npm package and agent install targets.
+
 ## [0.18.20] - 2026-08-23 — feat: signed burnhole wallet proof
 
 CIA attaches `X-CIA-Wallet-Proof` on Graph MCP calls when a wallet is loaded.
