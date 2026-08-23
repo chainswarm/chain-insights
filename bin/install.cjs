@@ -39,6 +39,20 @@ const homeDir    = os.homedir();
 const dataDir    = path.join(homeDir, '.chain-insights');
 const configPath = path.join(dataDir, 'config.json');
 const srcSkillsDir = path.join(__dirname, '..', 'skills');
+const PUBLIC_SKILL_NAMES = Object.freeze([
+  'chain-insights-cypher',
+  'chain-insights-schema-bittensor',
+  'chain-insights-schema-evm',
+]);
+const RETIRED_SKILL_NAMES = Object.freeze([
+  'chain-insights-address-risk',
+  'chain-insights-bittensor-cypher',
+  'chain-insights-developer-experience',
+  'chain-insights-investigation',
+  'chain-insights-monitoring',
+  'ci-status',
+  'test-chain-insights-graph',
+]);
 
 // Determine skills targets
 const skillsTargets = [];
@@ -51,16 +65,14 @@ if (hasLocal) skillsTargets.push({ name: 'Local Claude commands', dir: path.join
 
 function copyCommandsAsClaudeSkills(srcDir, targetDir) {
   if (!fs.existsSync(srcDir)) {
-    console.error(`Skills source not found: ${srcDir}`);
-    return;
+    throw new Error(`Skills source not found: ${srcDir}`);
   }
 
   fs.mkdirSync(targetDir, { recursive: true });
 
-  // NOTE: do NOT blanket-delete by prefix here. The target is a shared skills
-  // directory that may hold the user's own skills (including unrelated `ci-*`
-  // ones). Clean reinstall is handled per shipped skill below — each skill dir
-  // we ship is removed and recopied, and nothing else is touched.
+  // The target is shared with user-owned skills. Remove only the exact retired
+  // names from older Chain Insights releases, then replace the reviewed set.
+  // Never delete by prefix or enumerate arbitrary source directories.
 
   const copyTree = (src, dest) => {
     const stat = fs.statSync(src);
@@ -76,13 +88,16 @@ function copyCommandsAsClaudeSkills(srcDir, targetDir) {
     }
   };
 
-  // Recurse into skills/ directory; each subdirectory becomes a skill dir.
-  const skillDirs = fs.readdirSync(srcDir, { withFileTypes: true })
-    .filter(e => e.isDirectory());
+  for (const skillName of RETIRED_SKILL_NAMES) {
+    fs.rmSync(path.join(targetDir, skillName), { recursive: true, force: true });
+  }
 
-  for (const skillDir of skillDirs) {
-    const skillSrc  = path.join(srcDir, skillDir.name);
-    const skillDest = path.join(targetDir, skillDir.name);
+  for (const skillName of PUBLIC_SKILL_NAMES) {
+    const skillSrc  = path.join(srcDir, skillName);
+    const skillDest = path.join(targetDir, skillName);
+    if (!fs.existsSync(skillSrc) || !fs.statSync(skillSrc).isDirectory()) {
+      throw new Error(`Reviewed skill source not found: ${skillSrc}`);
+    }
     fs.rmSync(skillDest, { recursive: true, force: true });
     copyTree(skillSrc, skillDest);
   }

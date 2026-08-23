@@ -219,4 +219,6 @@ labels, so taxonomy-label patterns are topology-only. The property-flag form
 ## Related documentation
 
 - `docs/graph-tools.md` — tool tiers, timeouts, and capability transparency
-- Skill `chain-insights-cypher` — schema, graph choice, and query recipes
+- Skill `chain-insights-cypher` — Memgraph dialect and layer rules
+- Skill `chain-insights-schema-evm` — EVM / Robinhood GraphRAG map
+- Skill `chain-insights-schema-bittensor` — Bittensor GraphRAG map

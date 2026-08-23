@@ -1,4 +1,0 @@
-interface:
-  display_name: "Test Chain Insights Graph"
-  short_description: "Run Chain Insights Graph UAT"
-  default_prompt: "Run the Chain Insights Graph UAT and report pass/fail evidence."
