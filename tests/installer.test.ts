@@ -6,13 +6,13 @@ import { tmpdir } from 'node:os'
 import { execSync } from 'node:child_process'
 
 const reviewedSkills = [
+  'chain-insights-address-risk',
   'chain-insights-cypher',
   'chain-insights-schema-bittensor',
   'chain-insights-schema-evm',
 ]
 
 const retiredSkills = [
-  'chain-insights-address-risk',
   'chain-insights-bittensor-cypher',
   'chain-insights-developer-experience',
   'chain-insights-investigation',

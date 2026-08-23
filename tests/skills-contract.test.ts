@@ -17,6 +17,7 @@ function retiredName(head: string, tail: string): string {
 }
 
 const reviewedSkills = [
+  'chain-insights-address-risk',
   'chain-insights-cypher',
   'chain-insights-schema-bittensor',
   'chain-insights-schema-evm',
@@ -36,13 +37,17 @@ describe('shipped Chain Insights skills contract', () => {
     const evm = read('skills/chain-insights-schema-evm/SKILL.md')
     const bittensor = read('skills/chain-insights-schema-bittensor/SKILL.md')
     const cypher = read('skills/chain-insights-cypher/SKILL.md')
+    const addressRisk = read('skills/chain-insights-address-risk/SKILL.md')
 
     expect(evm).toMatch(/label|relationship|property/i)
     expect(bittensor).toMatch(/Bittensor/i)
     expect(cypher).toMatch(/Memgraph/i)
     expect(cypher).toContain('graph_query')
+    expect(addressRisk).toContain('aml_address_risk')
+    expect(addressRisk).toContain('network=robinhood')
+    expect(addressRisk).toContain('compare_address')
 
-    const content = [evm, bittensor, cypher].join('\n')
+    const content = [evm, bittensor, cypher, addressRisk].join('\n')
     expect(content).not.toMatch(/workspace|debug MCP|cia monitor/i)
     expect(bittensor).not.toMatch(/public hosted MCP|mcp\.chain-insights\.ai/i)
   })
@@ -199,11 +204,13 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).not.toContain('references/memgraph-examples.md')
     expect(openai).toContain('Chain Insights Cypher')
     expect(graphTools).toContain('chain-insights-cypher')
+    expect(graphTools).toContain('chain-insights-address-risk')
     expect(graphTools).toContain('chain-insights-schema-evm')
     expect(graphTools).toContain('chain-insights-schema-bittensor')
     expect(graphTools).not.toContain('chain-insights-bittensor-cypher')
     expect(graphTools).not.toContain('references/memgraph-examples.md')
     expect(mcpProxy).toContain('chain-insights-cypher')
+    expect(mcpProxy).toContain('chain-insights-address-risk')
     expect(mcpProxy).toContain('chain-insights-schema-evm')
     expect(mcpProxy).toContain('chain-insights-schema-bittensor')
     expect(mcpProxy).not.toContain('chain-insights-bittensor-cypher')
@@ -232,6 +239,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).not.toContain('REGISTERED_NEURON')
     expect(skill).not.toContain('SERVED_FROM')
     expect(skill).not.toMatch(/public hosted MCP|mcp\.chain-insights\.ai/i)
+    expect(readme).toContain('chain-insights-address-risk')
     expect(readme).toContain('chain-insights-schema-evm')
     expect(readme).toContain('chain-insights-schema-bittensor')
     expect(readme).not.toContain('chain-insights-bittensor-cypher')

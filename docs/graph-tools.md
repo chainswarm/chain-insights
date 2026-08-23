@@ -51,8 +51,9 @@ returns a local unmetered primitive-backend status instead.
 - `per_query_timeout_seconds` is optional and capped at `10` by default.
 - Returned rows live in `structuredContent.facts`.
 
-Agent installers ship three graph-query skills:
+Agent installers ship four skills:
 
+- `chain-insights-address-risk`: one-address screen via `aml_address_risk`.
 - `chain-insights-cypher`: Memgraph dialect and layer rules for
   `graph_query` and `graph_query_batch`. No query cookbook.
 - `chain-insights-schema-evm`: EVM / Robinhood GraphRAG labels,

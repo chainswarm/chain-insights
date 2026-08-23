@@ -5,8 +5,9 @@ All notable changes to Chain Insights are recorded here.
 
 ## [0.18.21] - 2026-08-23 — fix: public agent skill set
 
-Agent installs now ship two GraphRAG schema skills and a Memgraph Cypher
-skill. Upgrades remove seven stale skill copies without touching user skills.
+Agent installs now ship a short address-risk skill, two GraphRAG schema
+skills, and a Memgraph Cypher skill. Upgrades remove six stale skill
+copies without touching user skills.
 
 ### Added
 
@@ -16,13 +17,13 @@ skill. Upgrades remove seven stale skill copies without touching user skills.
 
 ### Changed
 
+- Rewrote `chain-insights-address-risk` around `aml_address_risk` only.
 - Rewrote `chain-insights-cypher` as Memgraph dialect only. No query cookbook.
 - Claude Code, Codex, Hermes, and local installs use one reviewed skill
   allow-list.
 
 ### Removed
 
-- `chain-insights-address-risk`
 - `chain-insights-bittensor-cypher`
 - `chain-insights-developer-experience`
 - `chain-insights-investigation`

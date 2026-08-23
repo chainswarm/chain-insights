@@ -179,7 +179,8 @@ on `:Address` without an exact address must scope itself with
 database and `Address` carries no `network` property at all. See
 [Graph query compatibility](docs/graph-query-compatibility.md).
 
-Agent installs include `chain-insights-cypher` for graph-query dialect rules,
+Agent installs include `chain-insights-address-risk` for one-address
+screens, `chain-insights-cypher` for graph-query dialect rules,
 `chain-insights-schema-evm` for the EVM / Robinhood graph map, and
 `chain-insights-schema-bittensor` for the Bittensor graph map.
 

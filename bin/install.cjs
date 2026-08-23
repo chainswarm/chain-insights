@@ -40,12 +40,12 @@ const dataDir    = path.join(homeDir, '.chain-insights');
 const configPath = path.join(dataDir, 'config.json');
 const srcSkillsDir = path.join(__dirname, '..', 'skills');
 const PUBLIC_SKILL_NAMES = Object.freeze([
+  'chain-insights-address-risk',
   'chain-insights-cypher',
   'chain-insights-schema-bittensor',
   'chain-insights-schema-evm',
 ]);
 const RETIRED_SKILL_NAMES = Object.freeze([
-  'chain-insights-address-risk',
   'chain-insights-bittensor-cypher',
   'chain-insights-developer-experience',
   'chain-insights-investigation',
