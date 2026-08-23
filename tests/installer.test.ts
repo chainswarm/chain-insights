@@ -6,14 +6,16 @@ import { tmpdir } from 'node:os'
 import { execSync } from 'node:child_process'
 
 const reviewedSkills = [
-  'chain-insights-address-risk',
   'chain-insights-cypher',
-  'chain-insights-investigation',
+  'chain-insights-schema-bittensor',
+  'chain-insights-schema-evm',
 ]
 
 const retiredSkills = [
+  'chain-insights-address-risk',
   'chain-insights-bittensor-cypher',
   'chain-insights-developer-experience',
+  'chain-insights-investigation',
   'chain-insights-monitoring',
   'ci-status',
   'test-chain-insights-graph',
@@ -110,7 +112,7 @@ describe('Installer (FOUND-01)', () => {
 
   it('--hermes copies Chain Insights skills to ~/.hermes/skills/chain-insights/', () => {
     execSync(`HOME=${fakeHome} node bin/install.cjs --hermes`, { stdio: 'pipe' })
-    const skillPath = join(fakeHome, '.hermes', 'skills', 'chain-insights', 'chain-insights-investigation', 'SKILL.md')
+    const skillPath = join(fakeHome, '.hermes', 'skills', 'chain-insights', 'chain-insights-cypher', 'SKILL.md')
     expect(existsSync(skillPath)).toBe(true)
   })
 
