@@ -5,6 +5,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import type { InvestigatorConfig } from '../config/schema.js'
 import { prepareWalletForPaidCalls, resolveMaxAutoApprovalUnits, PERMIT2_ADDRESS, USDC_ADDRESS } from '../wallet/tools.js'
 import { orderPaymentOptions, KNOWN_PAYMENT_ASSET_SYMBOLS, type PaymentOptionLike } from './payment-asset-preference.js'
+import { createWalletProofFetch } from './wallet-proof.js'
 
 type FetchLike = typeof fetch
 type FetchInput = Parameters<FetchLike>[0]
@@ -251,7 +252,7 @@ export function createMcpFetchClient(privateKey: `0x${string}`, authToken?: stri
   // stays unavailable there too, unchanged from prior behavior).
   const uptoScheme = new UptoEvmScheme(account, EVM_SCHEME_OPTIONS)
   const paymentFetch = wrapFetchWithPaymentFromConfig(
-    createAssetPreferenceReorderingFetch(fetch, resolvePaymentAssetPreference()),
+    createAssetPreferenceReorderingFetch(createWalletProofFetch(account, fetch), resolvePaymentAssetPreference()),
     {
       schemes: [
         {
