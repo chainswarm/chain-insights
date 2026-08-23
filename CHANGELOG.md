@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.18.22] - 2026-08-24 — fix: teach bounded hop lambdas
+
+The Cypher skill now shows the three Memgraph hop-lambda forms. Each
+form keeps an explicit hop bound of 5 or less.
+
+### Changed
+
+- `chain-insights-cypher` teaches 2-arg, 3-arg, and weighted 4-arg hop
+  lambdas. No unbounded `*BFS`. No official Memgraph write recipes.
+
 ## [0.18.21] - 2026-08-23 — fix: public agent skill set
 
 Agent installs now ship a short address-risk skill, two GraphRAG schema

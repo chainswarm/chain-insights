@@ -218,6 +218,22 @@ describe('shipped Chain Insights skills contract', () => {
     expect(mcpProxy).not.toContain('Memgraph examples reference')
   })
 
+  it('teaches the three Memgraph hop lambdas with an explicit hop bound', () => {
+    const skill = read('skills/chain-insights-cypher/SKILL.md')
+
+    expect(skill).toContain('(r, n |')
+    expect(skill).toContain('(r, n, p |')
+    expect(skill).toContain('(r, n, p, w |')
+    expect(skill).toContain('*1..5')
+    expect(skill).toContain('*BFS 1..5')
+    expect(skill).toContain('*WSHORTEST 5')
+    expect(skill).toContain('amount_usd_sum')
+    expect(skill).not.toMatch(/-\[\s*\*BFS\s*\]->/)
+    expect(skill).not.toContain('USING HOPS LIMIT')
+    expect(skill).not.toContain('DROP GRAPH')
+    expect(skill).not.toContain('eu_border')
+  })
+
   it('ships Bittensor schema guidance without claiming a public hosted MCP network', () => {
     const skill = read('skills/chain-insights-schema-bittensor/SKILL.md')
     const readme = read('README.md')

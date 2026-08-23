@@ -45,8 +45,26 @@ Accepted, with bounds:
 - Directed `MATCH` and narrow projections
 - `WHERE`, `WITH`, `CASE`, `collect()`, `UNION`, `UNWIND`
 - Bounded variable-length: `-[:FLOWS_TO*1..5]->`
-- Path forms: `*BFS`, `*WSHORTEST`, `*ALLSHORTEST`, `*KSHORTEST`
-- Per-hop filter lambdas
+- Path forms: `*BFS 1..5`, `*WSHORTEST 5`, `*ALLSHORTEST 5`, `*KSHORTEST`
+- Per-hop filter lambdas, always with an upper hop bound
+
+### Hop filter lambdas
+
+Topology only. Always set an upper hop bound of 5 or less.
+
+2-argument `(r, n | predicate)` — r is the relationship, n is the next node:
+
+`-[:FLOWS_TO *1..5 (r, n | n.is_exchange IS NULL)]->`
+
+3-argument `(r, n, p | predicate)` — p is the current path:
+
+`-[:FLOWS_TO *BFS 1..5 (r, n, p | n.is_exchange IS NULL)]->`
+
+Weighted shortest plus filter. 4-argument adds `w` (current weight):
+
+`-[:FLOWS_TO *WSHORTEST 5 (r, n | coalesce(r.amount_usd_sum, 1)) total (r, n, p, w | w < $cap)]->`
+
+Do not write unbounded `*BFS`. The Graph rejects it.
 
 Rejected on topology:
 
