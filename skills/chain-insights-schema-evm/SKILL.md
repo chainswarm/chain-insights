@@ -5,8 +5,8 @@ description: Use when reading the EVM / Robinhood GraphRAG map — node labels, 
 
 # Chain Insights schema: EVM / Robinhood
 
-This is the GraphRAG map for EVM addresses. The current public query
-network is `robinhood`. Always pass `network=robinhood`.
+This is the GraphRAG map for EVM addresses. When GraphRAG advertises
+`robinhood`, pass `network=robinhood`.
 
 Robinhood is EVM-only. Addresses are H160 `0x...`. The node property
 `:Address.network` is `robinhood`.

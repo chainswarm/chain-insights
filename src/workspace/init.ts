@@ -178,17 +178,17 @@ property names for the active network.
 
 The address-grain graph schema:
 
-- All Chain Insights investigation runs on ONE public network: always pass
-  \`network=robinhood\` — one EVM H160 (\`0x...\`) address space, no SS58.
-  Every topology node is \`(:Address {address, network})\`, keyed by
-  the raw chain-native \`address\`; there is no SS58/H160 split and no
-  second query network. There is no separate identity key and no
-  member-address satellite: the address IS the graph node.
+- Call \`meta_network_capabilities\` first. Pass \`network=\` exactly as
+  GraphRAG advertised it. CIA does not pick a default network.
+  Address format follows that network. Every topology node is
+  \`(:Address {address, network})\`, keyed by the raw chain-native
+  \`address\`. There is no separate identity key and no member-address
+  satellite: the address IS the graph node.
 - \`(:Address)-[:LINKED]-(:Address)\` is an **undirected** ownership-overlay
   edge (\`basis\` \`derived\`/\`associated\`, plus \`confidence\`,
   \`source_event\`, \`declared_owner\`) asserting the two addresses are
   controlled by the same actor. \`LINKED\` is the ownership edge within the
-  single \`network=robinhood\` space — a same-network query traces
+  advertised network — a same-network query traces
   (\`LINKED\` or \`FLOWS_TO\`) with no network switch. Walk
   one visible \`LINKED\` hop to surface actor-level exposure; never treat
   linked addresses

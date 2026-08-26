@@ -8,14 +8,16 @@ description: Use when screening one address with aml_address_risk, or comparing 
 Use `aml_address_risk` for a single-address AML screen. Do not replace it
 with a hand-written `graph_query` when the question is one address.
 
-The public hosted network is `network=robinhood`. Pass a full `0x...`
-address.
+Call `meta_network_capabilities` first. Pass `network=` as GraphRAG
+advertised it. CIA does not pick a default network.
+
+Robinhood example: `network=robinhood` with a full `0x...` address.
 
 ## Inputs
 
 Required:
 
-- `network=robinhood`
+- `network` — a name from `meta_network_capabilities`
 - `address`
 
 Optional:
@@ -29,5 +31,6 @@ The screen covers risk, behavior, neighborhood context, and exchange
 exposure. Treat exchange hot wallets as terminals, not as intermediate
 hops.
 
-After the screen, load `chain-insights-schema-evm` for the Robinhood
-graph map. Use `chain-insights-cypher` only for extra graph reads.
+After the screen, load the schema skill for that network:
+`chain-insights-schema-evm` or `chain-insights-schema-bittensor`.
+Use `chain-insights-cypher` only for extra graph reads.
