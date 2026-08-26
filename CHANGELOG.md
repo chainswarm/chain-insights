@@ -3,6 +3,21 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.19.0] - 2026-08-26 — breaking: networks follow GraphRAG MCP
+
+CIA no longer hardcodes Robinhood as the only public network. It lists
+what GraphRAG advertises. `network=` is a string. GraphRAG refuses a
+miss.
+
+### Changed
+
+- `meta_network_capabilities` mirrors every GraphRAG network and
+  overlays the seven public CIA tools. Layers stay `{}`.
+- `network` tool args accept any non-empty string. Call
+  `meta_network_capabilities` first. CIA does not invent a default.
+- Empty or missing GraphRAG list returns no networks.
+- Address-risk skill and workspace schema notes teach the same rule.
+
 ## [0.18.22] - 2026-08-24 — fix: teach bounded hop lambdas
 
 The Cypher skill now shows the three Memgraph hop-lambda forms. Each

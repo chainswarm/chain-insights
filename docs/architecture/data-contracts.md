@@ -16,10 +16,10 @@ Every statement here was verified against the source files it names.
   `HIDDEN_REMOTE_TOOL_NAMES`. They never surface publicly.
 - Local tools live in `src/mcp/proxy.ts`: `meta_network_capabilities`,
   `meta_usage_status`, `meta_help`, `wallet_balance`.
-- `meta_network_capabilities` collapses backend networks into one public
-  `robinhood` entry (`ROBINHOOD_SEMANTIC_NETWORKS` in
-  `src/mcp/capabilities.ts`). The mirror exposes no other network and
-  advertises no layer detail (`layers: {}`).
+- `meta_network_capabilities` repeats GraphRAG's advertised networks
+  (`mirrorGraphNetworkCapabilities` in `src/mcp/capabilities.ts`). CIA
+  overlays its seven public tools. It does not drop or invent names.
+  Layer rows stay empty (`layers: {}`).
 - The graph app UI resource `ui://chain-insights/graph` attaches to
   `aml_address_risk` (`GRAPH_APP_TOOL_NAMES` in `src/mcp/proxy.ts`).
 

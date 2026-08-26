@@ -15,7 +15,7 @@ import type { McpTool } from './schema-cache.js'
 import { HIDDEN_REMOTE_TOOL_NAMES, PUBLIC_MCP_TOOL_ALLOWED_ARGS, PUBLIC_MCP_TOOL_REQUIRED_ARGS } from './tool-visibility.js'
 import { PaymentRequiredError } from './client.js'
 import { primitiveBackendUsageStatus } from './usage-status.js'
-import { PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS } from './capabilities.js'
+import { mirrorGraphNetworkCapabilities } from './capabilities.js'
 import { actionLogSignalsFromResult, appendActionLog } from './action-log.js'
 
 const LOCAL_TOOL_NAMES = new Set([
@@ -63,8 +63,8 @@ type ChainInsightsGraphMeta = {
   url: string
 }
 
-const NETWORK_DESCRIPTION = 'Network to query. robinhood is the only supported network.'
-const NETWORK_SCHEMA = z.enum(['robinhood']).describe(NETWORK_DESCRIPTION)
+const NETWORK_DESCRIPTION = 'Network to query. Call meta_network_capabilities first and pass a name GraphRAG advertised. CIA does not pick a default network.'
+const NETWORK_SCHEMA = z.string().min(1).describe(NETWORK_DESCRIPTION)
 
 const EMPTY_INPUT_SCHEMA = z.strictObject({})
 const REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS = 15 * 60 * 1000
@@ -79,8 +79,9 @@ const CHAIN_INSIGHTS_WORKFLOW = [
 ].join('\n')
 
 const GRAPH_SCHEMA_HINTS = [
-  'Graph query hints for network=robinhood (the single public robinhood investigation network):',
-  '- The graph is address-grain. Always pass network=robinhood. The only topology money node label is Address, keyed by the raw chain-native H160 address, for example 0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24; the network value on Address nodes is always robinhood. There is no separate identity key.',
+  'Graph query hints:',
+  '- Call meta_network_capabilities first. Pass network= exactly as GraphRAG advertised it. CIA does not pick a default network.',
+  '- The graph is address-grain. The only topology money node label is Address, keyed by the raw chain-native H160 address on EVM networks, for example 0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24. The network value on Address nodes matches the tool argument. There is no separate identity key.',
   '- Address nodes carry address, network, labels, and is_exchange. (:Address)-[:LINKED]-(:Address) is an undirected ownership-overlay edge (basis derived/associated, plus confidence, source_event, declared_owner) asserting the two addresses are controlled by the same actor. LINKED is served on the topology graph only. Enumerate LINKED neighbors with MATCH (a:Address {address: $addr})-[l:LINKED]-(b:Address) RETURN b.address, b.network, l.basis, l.confidence.',
   '- Address nodes also carry a risk verdict (risk_score float, risk_level string) plus base activity rollups: degree_in/degree_out/degree_total (distinct counterparty addresses), tx_in_count/tx_out_count/tx_total_count, total_in_usd/total_out_usd/total_volume_usd, net_flow_usd (in minus out; positive = net receiver) — all computed from external flows only — and first_activity_timestamp/last_activity_timestamp/activity_span_days, which include all flows (self-loops included). FLOWS_TO edges carry tx_count, amount_usd_sum, avg_tx_size_usd (understates when price_coverage_ratio < 1), first/last_seen_timestamp, first/last_tx_id, price_coverage_ratio. Lifetime aggregates are the only serving window.',
   '- For actor-level exposure (AC11), UNION FLOWS_TO reachability over one visible LINKED hop instead of expanding through the LINKED edge itself: MATCH (a:Address {address: $addr})-[:LINKED]-(owned:Address)-[r:FLOWS_TO]-(b:Address) WHERE owned.address <> b.address AND a.address <> b.address RETURN owned.address, b.address, r.amount_usd_sum.',
@@ -731,17 +732,6 @@ function graphMetaResult(graph: ChainInsightsGraphMeta | undefined): Record<stri
     : undefined
 }
 
-function defaultRobinhoodCapability() {
-  return {
-    network: 'robinhood',
-    display_name: 'Robinhood',
-    status: 'live',
-    default: true,
-    layers: {},
-    tools: PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS,
-  }
-}
-
 function cleanNetworkCapabilities(value: unknown) {
   const structuredContent = isRecord(value) ? value.structuredContent : undefined
   const facts = isRecord(structuredContent) ? structuredContent.facts : undefined
@@ -749,30 +739,13 @@ function cleanNetworkCapabilities(value: unknown) {
   const networks = isRecord(capabilities) && Array.isArray(capabilities.networks)
     ? capabilities.networks
     : []
-  const robinhood = networks.find((network): network is Record<string, unknown> => (
-    isRecord(network) && network.network === 'robinhood'
-  ))
-
-  const cleaned = robinhood
-    ? {
-        network: 'robinhood',
-        display_name: typeof robinhood.display_name === 'string' ? robinhood.display_name : 'Robinhood',
-        status: typeof robinhood.status === 'string' ? robinhood.status : 'live',
-        default: robinhood.default === false ? false : true,
-        layers: {},
-        tools: PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS,
-      }
-    : defaultRobinhoodCapability()
 
   return {
     schema: 'chain-insights.result.v1' as const,
     tool: 'meta_network_capabilities',
     hint: null,
     facts: {
-      capabilities: {
-        schema: 'chain-insights.network-capabilities.v1' as const,
-        networks: [cleaned],
-      },
+      capabilities: mirrorGraphNetworkCapabilities({ networks }),
     },
   }
 }

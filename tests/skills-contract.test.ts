@@ -44,6 +44,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(cypher).toMatch(/Memgraph/i)
     expect(cypher).toContain('graph_query')
     expect(addressRisk).toContain('aml_address_risk')
+    expect(addressRisk).toContain('meta_network_capabilities')
     expect(addressRisk).toContain('network=robinhood')
     expect(addressRisk).toContain('compare_address')
 
