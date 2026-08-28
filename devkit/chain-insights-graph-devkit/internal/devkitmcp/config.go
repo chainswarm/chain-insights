@@ -18,6 +18,13 @@ type Config struct {
 	StarRocksUser     string
 	StarRocksPassword string
 	StarRocksDatabase string
+	// FactsRecencyWindowDays is the recency-window floor auto-applied to
+	// address-kind facts queries (spec D2): the compiled SQL gains a bare
+	// `block_date >= now - window` bound. Mirrors the production config key
+	// FACTS_RECENCY_WINDOW_DAYS, default 90. Zero/negative is rejected at
+	// runner construction — a disabled floor would silently restore
+	// full-history scans.
+	FactsRecencyWindowDays int
 }
 
 func ConfigFromEnvironment() Config {
@@ -32,6 +39,9 @@ func ConfigFromEnvironment() Config {
 		StarRocksUser:     getenv("STARROCKS_USER", "root"),
 		StarRocksPassword: os.Getenv("STARROCKS_PASSWORD"),
 		StarRocksDatabase: getenv("STARROCKS_DATABASE", "bittensor"),
+		// non-numeric falls back to 90 (getenvInt's contract); zero/negative
+		// is rejected at NewStarRocksRunner.
+		FactsRecencyWindowDays: getenvInt("FACTS_RECENCY_WINDOW_DAYS", 90),
 	}
 }
 
