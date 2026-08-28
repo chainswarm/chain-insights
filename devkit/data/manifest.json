@@ -25,17 +25,6 @@
   "objects": [
     {
       "database": "bittensor",
-      "name": "facts_address_features_view",
-      "format": "tsv.gz",
-      "path": "starrocks/facts_address_features_view.tsv.gz",
-      "row_count": 440145,
-      "source_min": "2024-01-01T00:11:24Z",
-      "exported_min": "2024-01-01T00:11:24Z",
-      "exported_max": "2026-07-09T06:42:48Z",
-      "sha256": "9ffa45fb54acde0e5544cde3bfcda827fdbeec2f16a14c02f5239744bfd3b204"
-    },
-    {
-      "database": "bittensor",
       "name": "facts_transfers_view",
       "format": "tsv.gz",
       "path": "starrocks/facts_transfers_view.tsv.gz",

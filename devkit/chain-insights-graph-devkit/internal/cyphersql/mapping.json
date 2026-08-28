@@ -2,8 +2,11 @@
   "nodes": [
     {
       "label": "Address",
-      "table": "facts_address_features_view",
+      "table": "facts_transfers_view",
       "id_column": "address",
+      "endpoint_only": true,
+      "partition_column": null,
+      "partition_granularity": null,
       "properties": {
         "address": "address"
       }
@@ -12,6 +15,8 @@
       "label": "Asset",
       "table": "facts_assets_view",
       "id_column": "asset_contract",
+      "partition_column": null,
+      "partition_granularity": null,
       "properties": {
         "asset_contract": "asset_contract",
         "asset_symbol": "asset_symbol",
@@ -20,44 +25,9 @@
         "verified": "verified",
         "verification_source": "verification_source"
       }
-    },
-    {
-      "label": "AddressFeature",
-      "table": "facts_address_features_view",
-      "id_column": "address",
-      "properties": {
-        "address": "address",
-        "feature_scope": "feature_scope",
-        "network": "network",
-        "degree_in": "degree_in",
-        "degree_out": "degree_out",
-        "degree_total": "degree_total",
-        "tx_in_count": "tx_in_count",
-        "tx_out_count": "tx_out_count",
-        "tx_total_count": "tx_total_count",
-        "total_volume_usd": "total_volume_usd",
-        "total_in_usd": "total_in_usd",
-        "total_out_usd": "total_out_usd",
-        "net_flow_usd": "net_flow_usd",
-        "first_activity_timestamp": "first_activity_timestamp",
-        "last_activity_timestamp": "last_activity_timestamp",
-        "activity_span_days": "activity_span_days"
-      }
     }
   ],
   "edges": [
-    {
-      "rel_type": "HAS_FEATURE",
-      "table": "facts_address_features_view",
-      "id_column": "address",
-      "source_column": "address",
-      "target_column": "address",
-      "source_label": "Address",
-      "target_label": "AddressFeature",
-      "properties": {
-        "feature_scope": "feature_scope"
-      }
-    },
     {
       "rel_type": "TRANSFER",
       "table": "facts_transfers_view",
@@ -66,6 +36,8 @@
       "target_column": "to_address",
       "source_label": "Address",
       "target_label": "Address",
+      "partition_column": "block_date",
+      "partition_granularity": "day",
       "properties": {
         "block_date": "block_date",
         "block_height": "block_height",

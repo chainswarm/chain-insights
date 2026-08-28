@@ -24,11 +24,12 @@ MAPPING_CANDIDATES = [
     VENDORED_MAPPING,
 ]
 
-COMPATIBILITY_COLUMNS_BY_TABLE = {
-    "facts_address_features_view": {
-        "active_days": "activity_span_days",
-    },
-}
+# facts_address_features_view was dropped in production (rbmk migration
+# 0033) and is no longer mapped: no compatibility columns remain. The
+# mapping alignment (facts partition-pruning wave, plan
+# 2026-08-28-facts-serving-partition-pruning Task 5) retired its facade
+# table together with the AddressFeature/HAS_FEATURE surface.
+COMPATIBILITY_COLUMNS_BY_TABLE: dict[str, dict[str, str]] = {}
 
 # Every column defaults to VARCHAR(4096) below; typed overrides go here.
 # The facts views the translator now serves carry no columns needing a typed

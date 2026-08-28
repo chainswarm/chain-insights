@@ -35,11 +35,17 @@ MAPPING_CANDIDATES = [
 # serve -- dropped from the manifest and REQUIRED_TABLES together with this
 # retirement.
 #
+# facts_address_features_view retired 2026-08-28 (rbmk migration 0033): the
+# view was dropped in production and the vendored cyphersql mapping no longer
+# maps AddressFeature / HAS_FEATURE (Address stays a TRANSFER endpoint only),
+# so its tsv.gz fixture is dead weight too -- dropped from the manifest and
+# REQUIRED_TABLES together with the mapping alignment (facts partition-pruning
+# wave, plan 2026-08-28-facts-serving-partition-pruning Task 5).
+#
 # facts_transfers_view (rbmk#447 P5) shipped its capped, address-scoped
 # TSV export (rbmk export-starrocks-fixture.sh) -- it is now a normal
 # REQUIRED_TABLES entry like every other mapped table.
 REQUIRED_TABLES = {
-    "facts_address_features_view",
     "facts_transfers_view",
 }
 

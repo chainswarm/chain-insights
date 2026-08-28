@@ -25,6 +25,21 @@ func Compile(query string) (*Compiled, error) {
 	return emit(q)
 }
 
+// CompileWithWindow compiles like Compile and additionally appends a bare
+// `partition_column >= ?` conjunct — the recency-window floor — when the
+// query does not already bound the partition column. The column and its arg
+// come from the edge mapping's partition metadata; the caller computes the
+// window start (spec D2: bounds are computed in the caller, never
+// DATE_SUB(...) in SQL). A caller-written block_date bound wins: it gets no
+// second bound. The empty window compiles exactly like Compile.
+func CompileWithWindow(query, windowStartDate string) (*Compiled, error) {
+	q, err := parse(query)
+	if err != nil {
+		return nil, err
+	}
+	return emitWithWindow(q, windowStartDate)
+}
+
 // emitState threads the SQL build: node identity expressions, joined views,
 // and bound args.
 type emitState struct {
@@ -44,6 +59,10 @@ type emitState struct {
 }
 
 func emit(q *query) (*Compiled, error) {
+	return emitWithWindow(q, "")
+}
+
+func emitWithWindow(q *query, windowStart string) (*Compiled, error) {
 	s := &emitState{
 		q:          q,
 		nodeIDExpr: map[string]string{},
@@ -79,6 +98,16 @@ func emit(q *query) (*Compiled, error) {
 		}
 		s.where = append(s.where, clause)
 	}
+	// Recency-window injection (spec D2): on an address-kind admission the
+	// compiler appends one bare partition-column floor. The column comes from
+	// the edge mapping's partition metadata — never a hardcoded string — and
+	// the bound is skipped when the caller already bounds the partition
+	// column (caller wins; lifetime reads stay lifetime).
+	if windowStart != "" {
+		if err := s.applyWindowFloor(windowStart); err != nil {
+			return nil, err
+		}
+	}
 	sel, cols, err := s.emitSelect()
 	if err != nil {
 		return nil, err
@@ -113,6 +142,54 @@ func emit(q *query) (*Compiled, error) {
 	return &Compiled{SQL: sb.String(), Args: s.args, Scope: q.scope, Columns: cols}, nil
 }
 
+// applyWindowFloor appends the recency-window floor conjunct for the first
+// edge that carries partition metadata, unless the query already bounds the
+// partition column itself. A query without an edge (a standalone node has no
+// partition column on facts) compiles unchanged.
+func (s *emitState) applyWindowFloor(windowStart string) error {
+	if len(s.q.edges) == 0 {
+		return nil
+	}
+	em, err := mapping.resolveEdge(s.q.edges[0].relType, s.q.edges[0].pos)
+	if err != nil {
+		return err
+	}
+	if em.PartitionColumn == "" {
+		return nil
+	}
+	if s.boundsPartitionColumn(s.q.edges[0].variable, em.PartitionColumn) {
+		return nil // caller bound wins
+	}
+	alias := s.edgeAlias[s.q.edges[0].variable]
+	s.where = append(s.where, fmt.Sprintf("`%s`.`%s` >= ?", alias, em.PartitionColumn))
+	s.args = append(s.args, windowStart)
+	return nil
+}
+
+// boundsPartitionColumn reports whether the WHERE tree already carries a
+// comparison on the edge variable's partition column. Any comparison is a
+// bound — the caller asked for that range, and the injected floor would
+// narrow lifetime reads the caller explicitly requested.
+func (s *emitState) boundsPartitionColumn(edgeVariable, partitionColumn string) bool {
+	if edgeVariable == "" || s.q.where == nil {
+		return false
+	}
+	var walk func(e boolExpr) bool
+	walk = func(e boolExpr) bool {
+		switch v := e.(type) {
+		case andExpr:
+			return walk(v.left) || walk(v.right)
+		case orExpr:
+			return walk(v.left) || walk(v.right)
+		case comparison:
+			return v.left.variable == edgeVariable &&
+				strings.EqualFold(v.left.property, partitionColumn)
+		}
+		return false
+	}
+	return walk(s.q.where)
+}
+
 // planPattern establishes the FROM/JOIN backbone and each node's identity
 // expression. Single node: FROM its view. Edge chain: FROM the edge views,
 // joined on shared node ids; node identity comes from edge source/target
@@ -123,6 +200,13 @@ func (s *emitState) planPattern() error {
 		nm, err := mapping.resolveNode(n.label, n.pos)
 		if err != nil {
 			return err
+		}
+		// EndpointOnly labels (Address on facts) are served only as
+		// relationship endpoints — a standalone single-node MATCH refuses
+		// exactly as production does (prod emit.go:127-130).
+		if nm.EndpointOnly {
+			return newErr(ErrUnsupportedShape, n.pos,
+				"label %q is served only as a relationship endpoint in the facts tier (facts = transfers only); match it through a TRANSFER pattern, or query the node on USE topology", n.label)
 		}
 		alias := s.newAlias("n")
 		s.from = append(s.from, fmt.Sprintf("`%s` AS `%s`", nm.Table, alias))
