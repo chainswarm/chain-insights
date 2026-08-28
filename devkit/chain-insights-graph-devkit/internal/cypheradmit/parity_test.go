@@ -69,10 +69,18 @@ func TestIndexedPredicateCannotBeForged(t *testing.T) {
 		`USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.asset_symbol = 'junk address = 1' RETURN t.tx_id AS tx_id LIMIT 10`,
 		"USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.asset_symbol <> `tx_id = 1` RETURN sum(t.amount_usd) AS s LIMIT 1",
 		`USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) /* tx_id = 1 */ RETURN sum(t.amount_usd) AS s LIMIT 1`,
+		// the facts partition-pruning wave (plan 2026-08-28, Task 2): forged
+		// block_date forms are blanked the same way — a crafted literal must
+		// not buy an unbounded facts scan under the kind-aware gate.
+		`USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.asset_symbol = "junk block_date = 1" RETURN t.tx_id AS tx_id LIMIT 10`,
+		"USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.asset_symbol <> `block_date >= 1` RETURN sum(t.amount_usd) AS s LIMIT 1",
 	}
 	for _, query := range forged {
 		if _, err := ValidateReadOnlyGraphQuery(query); err == nil {
 			t.Errorf("forged indexed predicate admitted locally but refused upstream: %s", query)
+		}
+		if kind, _ := FactsPredicateKind(query); kind != FactsPredicateNone {
+			t.Errorf("forged indexed predicate classified as kind %v: %s", kind, query)
 		}
 	}
 }
@@ -84,12 +92,80 @@ func TestGenuineIndexedPredicatesStillAdmitted(t *testing.T) {
 		`USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.tx_id = "8505939-10" RETURN t.tx_id AS tx_id LIMIT 10`,
 		"USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.`tx_id` = \"8505939-10\" RETURN t.tx_id AS tx_id LIMIT 10",
 		`USE facts MATCH (a:Address {address: "5C4h"})-[t:TRANSFER]->(b:Address) RETURN t.tx_id AS tx_id LIMIT 10`,
-		`USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.block_height >= 100 AND t.block_height <= 200 RETURN t.tx_id AS tx_id LIMIT 10`,
 		// one-sided ranges STAY admitted — production deliberately did not narrow this
 		`USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.block_date >= '2026-07-01' RETURN t.tx_id AS tx_id LIMIT 10`,
 	} {
 		if _, err := ValidateReadOnlyGraphQuery(query); err != nil {
 			t.Errorf("genuine predicate refused locally but admitted upstream: %s -> %v", query, err)
+		}
+	}
+}
+
+// TestFactsPredicateKindAdmitsTheThreeBoundedShapes mirrors data-pipeline's
+// facts partition-pruning gate (plan 2026-08-28-facts-serving-partition-pruning
+// Task 2, spec S1-S3): the three admitted predicate kinds are bare block_date
+// bounds, tx_id equality/IN, and address equality/IN (map or WHERE). Precedence
+// is blockDate > txID > address.
+func TestFactsPredicateKindAdmitsTheThreeBoundedShapes(t *testing.T) {
+	cases := []struct {
+		name  string
+		query string
+		want  factsPredicateKind
+	}{
+		{"address map", `USE facts MATCH (a:Address {address: "5C4h"})-[t:TRANSFER]->(b:Address) RETURN t.tx_id AS tx_id LIMIT 10`, FactsPredicateAddress},
+		{"address where equality", `USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE a.address = "5C4h" RETURN t.tx_id AS tx_id LIMIT 10`, FactsPredicateAddress},
+		{"address where in", `USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE a.address IN ["5C4h", "5D1x"] RETURN t.tx_id AS tx_id LIMIT 10`, FactsPredicateAddress},
+		{"address and tx_id precedence", `USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE a.address = "5C4h" AND t.tx_id = "8505939-10" RETURN t.tx_id AS tx_id LIMIT 10`, FactsPredicateTxID},
+		{"tx_id equality", `USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.tx_id = "8505939-10" RETURN t.tx_id AS tx_id LIMIT 10`, FactsPredicateTxID},
+		{"tx_id in", `USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.tx_id IN ["8505939-10"] RETURN t.tx_id AS tx_id LIMIT 10`, FactsPredicateTxID},
+		{"block_date ge", `USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.block_date >= '2026-07-01' RETURN t.tx_id AS tx_id LIMIT 10`, FactsPredicateBlockDate},
+		{"block_date two-sided", `USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.block_date >= '2026-06-01' AND t.block_date < '2026-09-01' RETURN t.tx_id AS tx_id LIMIT 10`, FactsPredicateBlockDate},
+		{"block_date equality", `USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.block_date = '2026-07-01' RETURN t.tx_id AS tx_id LIMIT 10`, FactsPredicateBlockDate},
+		{"block_date between", `USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.block_date BETWEEN '2026-06-01' AND '2026-09-01' RETURN t.tx_id AS tx_id LIMIT 10`, FactsPredicateBlockDate},
+		{"block_date in", `USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.block_date IN ['2026-06-01', '2026-07-01'] RETURN t.tx_id AS tx_id LIMIT 10`, FactsPredicateBlockDate},
+		{"full range stays lifetime", `USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.block_date >= '1970-01-01' RETURN t.tx_id AS tx_id LIMIT 10`, FactsPredicateBlockDate},
+		{"grouped or arm admits", `USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.block_date >= '2026-06-01' AND (a.address = "5C4h" OR b.address = "5D1x") RETURN t.tx_id AS tx_id LIMIT 10`, FactsPredicateBlockDate},
+	}
+	for _, tc := range cases {
+		kind, err := FactsPredicateKind(tc.query)
+		if err != nil {
+			t.Errorf("%s: FactsPredicateKind error: %v", tc.name, err)
+			continue
+		}
+		if kind != tc.want {
+			t.Errorf("%s: kind = %v, want %v", tc.name, kind, tc.want)
+		}
+		if _, err := ValidateReadOnlyGraphQuery(tc.query); err != nil {
+			t.Errorf("%s: query refused locally but admitted upstream: %v", tc.name, err)
+		}
+	}
+}
+
+// TestFactsPredicateKindRejectsUnboundedShapes mirrors data-pipeline Task 2,
+// spec S4/S5: block_height/block_timestamp-only bounds, function-wrapped
+// block_date, and block_date inside an OR arm do not bound the partition scan.
+// Each is rejected with the naming-remedy error. This includes the deliberate
+// rbmk#473 narrowing executed here: the two-sided block_height range pin
+// (:87) flips from ADMITTED to REJECTED in the same wave as upstream.
+func TestFactsPredicateKindRejectsUnboundedShapes(t *testing.T) {
+	for _, query := range []string{
+		`USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.block_height >= 100 AND t.block_height <= 200 RETURN t.tx_id AS tx_id LIMIT 10`,
+		`USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.block_height >= 100 RETURN t.tx_id AS tx_id LIMIT 10`,
+		`USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.block_timestamp > 0 RETURN t.tx_id AS tx_id LIMIT 10`,
+		`USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE DATE(t.block_date) >= '2026-06-01' RETURN t.tx_id AS tx_id LIMIT 10`,
+		`USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.block_height >= 0 OR t.block_date >= '2026-06-01' RETURN t.tx_id AS tx_id LIMIT 10`,
+		`USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE (t.block_date >= '2026-06-01') OR (b.address = "5C4h") RETURN t.tx_id AS tx_id LIMIT 10`,
+		`USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE a.address = "5C4h" AND (t.block_date >= '2026-06-01' OR t.block_date <= '2026-08-01') RETURN t.tx_id AS tx_id LIMIT 10`,
+	} {
+		kind, err := FactsPredicateKind(query)
+		if kind != FactsPredicateNone {
+			t.Errorf("unbounded shape classified as kind %v: %s", kind, query)
+		}
+		if err == nil || !strings.Contains(err.Error(), FactsPredicateRemedy) {
+			t.Errorf("rejection error does not carry the remedy: %v (query: %s)", err, query)
+		}
+		if _, err := ValidateReadOnlyGraphQuery(query); err == nil {
+			t.Errorf("unbounded shape admitted locally but refused upstream: %s", query)
 		}
 	}
 }

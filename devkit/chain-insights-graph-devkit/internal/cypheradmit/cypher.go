@@ -70,33 +70,26 @@ var (
 		"MIN":   {},
 		"SUM":   {},
 	}
-	addressMapPredicatePattern   = regexp.MustCompile(`(?is)\{\s*` + "`?" + `address` + "`?" + `\s*:`)
+	addressMapPredicatePattern = regexp.MustCompile(`(?is)\{\s*` + "`?" + `address` + "`?" + `\s*:`)
+	// addressWherePredicatePattern / txIDWherePredicatePattern back the
+	// kind-aware gate's address/tx_id kinds: they recognize equality/IN in the
+	// WHERE clause over literal-blanked text (backtick-quoted columns survive
+	// stripping, so `t.`tx_id`` keeps working). They are OR-signals only — the
+	// block_date partition-bound rules (bare + conjunctive) are enforced by
+	// factsPredicateKind itself.
 	addressWherePredicatePattern = regexp.MustCompile(`(?is)\bWHERE\b.*(?:\.\s*` + "`?" + `address` + "`?" + `|\b` + "`?" + `address` + "`?" + `)\s*(?:=|IN\b)`)
 	// backtickIdentifierPattern is the ONLY backtick-span content that is
 	// genuinely an identifier. Anything else inside backticks is caller data
 	// (internal/cyphersql/lexer.go lexes '`' in the same case as '\'' and '"',
 	// emitting a string token), so it must be blanked alongside the other
 	// literal forms — see stripCypherLiteralsAndComments.
-	backtickIdentifierPattern  = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
-	rangeWherePredicatePattern = regexp.MustCompile(`(?is)\bWHERE\b.*` + "`?" + `\b(?:` + rangeIndexedColumns + `)\b` + "`?" + `\s*(?:` + rangeComparisonOperators + `|BETWEEN\b|IN\b)`)
+	backtickIdentifierPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 	// txIDWherePredicatePattern recognizes tx_id equality/IN as an indexed
 	// predicate — the TRANSFER edge's natural row-level key alongside address
 	// endpoint equality (facts_transfers_view has no address-map-literal
 	// surface since tx_id is an edge property, not a node id).
 	txIDWherePredicatePattern = regexp.MustCompile(`(?is)\bWHERE\b.*(?:\.\s*` + "`?" + `tx_id` + "`?" + `|\b` + "`?" + `tx_id` + "`?" + `)\s*(?:=|IN\b)`)
 )
-
-// rangeIndexedColumns are the StarRocks-partitioned/indexed range columns a
-// WHERE clause may use as a cost bound.
-const rangeIndexedColumns = `activity_date|block_date|block_height|block_timestamp|` +
-	`period_start_date|price_date|last_seen_timestamp|first_seen_timestamp`
-
-// rangeComparisonOperators is ordered longest-first ON PURPOSE. Go's regexp
-// alternation is leftmost-FIRST, so a single-character arm placed ahead of the
-// two-character operator it prefixes would swallow it: `<>` read as `<` is
-// exactly how anti-equality (`block_height <> 0`) used to register as an upper
-// bound. Do not reorder.
-const rangeComparisonOperators = `<>|!=|>=|<=|=|>|<`
 
 type cypherToken struct {
 	text            string
@@ -105,6 +98,392 @@ type cypherToken struct {
 	precededByDot   bool
 	precededByColon bool
 	followedByColon bool
+}
+
+// factsPredicateKind classifies a facts query's cost-bounding predicate. The
+// admission gate admits exactly three kinds (spec
+// 2026-08-28-facts-serving-partition-pruning, D1); anything else is
+// factsPredicateNone and rejected with the remedy error. Every kind except
+// None bounds the core_transfers day-partition scan.
+type factsPredicateKind int
+
+const (
+	// factsPredicateNone means no admitted predicate: the query would scan
+	// every day partition (height/timestamp-only ranges, function-wrapped
+	// block_date, OR-arm block_date, or no predicate at all).
+	factsPredicateNone factsPredicateKind = iota
+	// factsPredicateBlockDate is a bare conjunctive block_date bound
+	// (>=/<, =, BETWEEN, IN) — the caller's own range, passed through.
+	factsPredicateBlockDate
+	// factsPredicateTxID is a tx_id equality / IN — a point lookup on the
+	// row key.
+	factsPredicateTxID
+	// factsPredicateAddress is address equality / IN (map literal or WHERE);
+	// the compiler injects the recency-window block_date floor.
+	factsPredicateAddress
+)
+
+// Exported kind constants for cross-package comparison (devkitmcp re-derives
+// the kind in StarRocksRunner and switches on it). The type itself stays
+// unexported, mirroring the plan's interface
+// `cypheradmit.FactsPredicateKind(query) (factsPredicateKind, error)`.
+const (
+	FactsPredicateNone      = factsPredicateNone
+	FactsPredicateBlockDate = factsPredicateBlockDate
+	FactsPredicateTxID      = factsPredicateTxID
+	FactsPredicateAddress   = factsPredicateAddress
+)
+
+// FactsPredicateRemedy is the shared remedy text carried by every rejection
+// error of the kind-aware gate (and by the runner's fail-closed path).
+const FactsPredicateRemedy = "add a bare block_date bound, or query by tx_id, or filter by address (a recency window is auto-applied)"
+
+// FactsPredicateKind classifies the query's predicate, mirroring the
+// production admission gate's kind-aware rule (data-pipeline Task 2): bare
+// block_date bound > tx_id equality/IN > address equality/IN. None returns
+// an error carrying FactsPredicateRemedy.
+//
+// Detection reuses the token machinery and literal stripping — no regexes
+// over raw text. A block_date bound is BARE only when the column token is a
+// dotted property reference outside any function call, and CONJUNCTIVE only
+// when it is not an OR arm (an OR-composed bound does not bound the scan).
+func FactsPredicateKind(query string) (factsPredicateKind, error) {
+	stripped := stripCypherLiteralsAndComments(query)
+	tokens := cypherTokens(stripped)
+	region, regionStart, regionEnd := whereRegion(stripped, tokens)
+	backtickProps := scanBacktickProps(stripped, regionStart, regionEnd)
+
+	if hasBareBlockDateBound(stripped, region, backtickProps) {
+		if blockDateBoundInOrArm(stripped, regionStart, regionEnd, region, backtickProps) {
+			return FactsPredicateNone, errors.New("facts query bounds block_date only inside an OR arm: " + FactsPredicateRemedy)
+		}
+		return FactsPredicateBlockDate, nil
+	}
+	if hasTxIDEquality(stripped, region, backtickProps) || txIDWherePredicatePattern.MatchString(stripped) {
+		return FactsPredicateTxID, nil
+	}
+	if hasAddressEquality(stripped, region, backtickProps) || addressWherePredicatePattern.MatchString(stripped) || addressMapPredicatePattern.MatchString(stripped) {
+		return FactsPredicateAddress, nil
+	}
+	return FactsPredicateNone, errors.New("facts query has no partition-bounding predicate: " + FactsPredicateRemedy)
+}
+
+// regionProp is a backtick-quoted property reference (var.`col`) found in a
+// WHERE region. cypherTokens skips backtick spans entirely, so these are
+// invisible to the token stream; the stripped text keeps bare backtick
+// identifiers verbatim, so they are recoverable here.
+type regionProp struct {
+	column  string // upper-cased
+	start   int
+	end     int
+	wrapped bool
+}
+
+// whereRegion returns the tokens of the first WHERE clause (between the WHERE
+// keyword and the next clause boundary) plus the byte offsets of the clause
+// text in stripped. A missing WHERE yields nil tokens and a zero-width region.
+func whereRegion(stripped string, tokens []cypherToken) ([]cypherToken, int, int) {
+	aliases := declaredAliases(stripped, tokens)
+	whereIdx := -1
+	for i, tok := range tokens {
+		if tok.text == "WHERE" && !isNonClauseContext(stripped, tokens, i, aliases) {
+			whereIdx = i
+			break
+		}
+	}
+	if whereIdx < 0 {
+		return nil, 0, 0
+	}
+	region := []cypherToken{}
+	end := len(stripped)
+	for i := whereIdx + 1; i < len(tokens); i++ {
+		if isClauseBoundary(tokens[i].text) && !isNonClauseContext(stripped, tokens, i, aliases) {
+			end = tokens[i].start
+			break
+		}
+		region = append(region, tokens[i])
+	}
+	return region, tokens[whereIdx].end, end
+}
+
+// scanBacktickProps finds backtick-quoted dotted property references in the
+// text span [start, end): a bare backtick identifier preceded by a dot is a
+// var.`col` reference.
+func scanBacktickProps(stripped string, start, end int) []regionProp {
+	if start >= end || start < 0 || end > len(stripped) {
+		return nil
+	}
+	text := stripped[start:end]
+	var props []regionProp
+	for i := 0; i < len(text); i++ {
+		if text[i] != '`' {
+			continue
+		}
+		next := scanBacktick(text, i)
+		span := text[i:next]
+		if !isBareBacktickIdentifier(span) {
+			i = next - 1
+			continue
+		}
+		j := i - 1
+		for j >= 0 && isSpaceByte(text[j]) {
+			j--
+		}
+		if j < 0 || text[j] != '.' {
+			i = next - 1
+			continue
+		}
+		props = append(props, regionProp{
+			column:  strings.ToUpper(span[1 : len(span)-1]),
+			start:   start + i,
+			end:     start + next,
+			wrapped: functionWrapped(stripped, start+i),
+		})
+		i = next - 1
+	}
+	return props
+}
+
+// hasBareBlockDateBound reports a dotted, unwrapped block_date reference with
+// a comparison operator after it. The column must not be function-wrapped:
+// DATE(t.block_date) does not bound the partition scan; a grouping paren
+// (t.block_date >= ?) does.
+func hasBareBlockDateBound(stripped string, region []cypherToken, backtickProps []regionProp) bool {
+	for _, tok := range region {
+		if tok.text != "BLOCK_DATE" || !tok.precededByDot {
+			continue
+		}
+		if functionWrapped(stripped, tok.start) {
+			continue
+		}
+		if followsComparisonOperator(stripped, tok.end) == "" {
+			continue
+		}
+		return true
+	}
+	for _, p := range backtickProps {
+		if p.column != "BLOCK_DATE" || p.wrapped {
+			continue
+		}
+		if followsComparisonOperator(stripped, p.end) == "" {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+// blockDateBoundInOrArm reports whether a bare block_date bound sits inside
+// an OR arm. An OR-composed date bound does not bound the scan: the optimizer
+// cannot prune the partitions of the other arm. `A OR t.block_date >= ?`,
+// `(t.block_date >= ?) OR …`, and `a.address = ? AND (t.block_date >= ? OR
+// …)` all reject; `t.block_date >= ? AND (a = ? OR b = ?)` admits.
+func blockDateBoundInOrArm(stripped string, regionStart, regionEnd int, region []cypherToken, backtickProps []regionProp) bool {
+	if len(region) == 0 {
+		return false
+	}
+	// byte offsets of '(' and ')' in the region, with the paren depth at the
+	// paren itself (the depth of the level it opens/closes).
+	type paren struct {
+		pos   int
+		depth int
+	}
+	var parens []paren
+	depth := 0
+	for i := regionStart; i < regionEnd; i++ {
+		switch stripped[i] {
+		case '(':
+			parens = append(parens, paren{pos: i, depth: depth})
+			depth++
+		case ')':
+			depth--
+			parens = append(parens, paren{pos: i, depth: depth})
+		}
+	}
+	tokenDepth := make([]int, len(region))
+	for i, tok := range region {
+		d := 0
+		for j := regionStart; j < tok.start; j++ {
+			switch stripped[j] {
+			case '(':
+				d++
+			case ')':
+				d--
+			}
+		}
+		tokenDepth[i] = d
+	}
+	// a block_date occurrence is an OR-arm when it lies inside some OR's
+	// operand span: between the OR and the previous/next AND/OR at the same
+	// depth, or the paren level that encloses it, or the region boundary.
+	inOrSpan := func(pos int) bool {
+		for i, tok := range region {
+			if tok.text != "OR" {
+				continue
+			}
+			d := tokenDepth[i]
+			left := regionStart
+			for j := i - 1; j >= 0; j-- {
+				if tokenDepth[j] == d && (region[j].text == "AND" || region[j].text == "OR") {
+					left = region[j].end
+					break
+				}
+			}
+			for _, p := range parens {
+				if p.depth == d-1 && p.pos < tok.start && p.pos >= left {
+					left = p.pos
+				}
+			}
+			right := regionEnd
+			for j := i + 1; j < len(region); j++ {
+				if tokenDepth[j] == d && (region[j].text == "AND" || region[j].text == "OR") {
+					right = region[j].start
+					break
+				}
+			}
+			for _, p := range parens {
+				if p.depth == d-1 && p.pos > tok.end && p.pos <= right {
+					right = p.pos
+				}
+			}
+			if pos > left && pos < right {
+				return true
+			}
+		}
+		return false
+	}
+	for _, tok := range region {
+		if tok.text == "BLOCK_DATE" && tok.precededByDot && !functionWrapped(stripped, tok.start) {
+			if inOrSpan(tok.start) {
+				return true
+			}
+		}
+	}
+	for _, p := range backtickProps {
+		if p.column == "BLOCK_DATE" && !p.wrapped && inOrSpan(p.start) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasTxIDEquality reports a dotted, unwrapped tx_id reference followed by
+// equality or IN — the row-key point lookup.
+func hasTxIDEquality(stripped string, region []cypherToken, backtickProps []regionProp) bool {
+	for _, tok := range region {
+		if tok.text != "TX_ID" || !tok.precededByDot {
+			continue
+		}
+		if functionWrapped(stripped, tok.start) {
+			continue
+		}
+		switch followsComparisonOperator(stripped, tok.end) {
+		case "=", "IN":
+			return true
+		}
+	}
+	for _, p := range backtickProps {
+		if p.column != "TX_ID" || p.wrapped {
+			continue
+		}
+		switch followsComparisonOperator(stripped, p.end) {
+		case "=", "IN":
+			return true
+		}
+	}
+	return false
+}
+
+// hasAddressEquality reports a dotted, unwrapped address reference followed
+// by equality or IN (the WHERE form; the map-literal form is detected
+// separately by addressMapPredicatePattern).
+func hasAddressEquality(stripped string, region []cypherToken, backtickProps []regionProp) bool {
+	for _, tok := range region {
+		if tok.text != "ADDRESS" || !tok.precededByDot {
+			continue
+		}
+		if functionWrapped(stripped, tok.start) {
+			continue
+		}
+		switch followsComparisonOperator(stripped, tok.end) {
+		case "=", "IN":
+			return true
+		}
+	}
+	for _, p := range backtickProps {
+		if p.column != "ADDRESS" || p.wrapped {
+			continue
+		}
+		switch followsComparisonOperator(stripped, p.end) {
+		case "=", "IN":
+			return true
+		}
+	}
+	return false
+}
+
+// followsComparisonOperator returns the operator following a column
+// reference, or "". Longest-first so `>=` is not read as `>`. A ')' between
+// the column and the operator (a function call like DATE(t.block_date) >= ?)
+// yields "" — the reference is not a bare comparison subject.
+func followsComparisonOperator(stripped string, pos int) string {
+	i := pos
+	for i < len(stripped) && isSpaceByte(stripped[i]) {
+		i++
+	}
+	for _, op := range []string{">=", "<=", "<>", "!=", "BETWEEN", "IN", "=", ">", "<"} {
+		if len(stripped) >= i+len(op) && strings.EqualFold(stripped[i:i+len(op)], op) {
+			return op
+		}
+	}
+	return ""
+}
+
+// functionWrapped reports whether the dotted property reference whose column
+// starts at pos sits inside a function call: DATE(t.block_date) wraps the
+// column, a grouping paren `(t.block_date >= ?)` does not. The word before
+// the '(' decides: clause keywords are grouping; anything else is a call.
+func functionWrapped(stripped string, pos int) bool {
+	i := pos - 1
+	for i >= 0 && isSpaceByte(stripped[i]) {
+		i--
+	}
+	if i < 0 || stripped[i] != '.' {
+		return false
+	}
+	i--
+	for i >= 0 && isSpaceByte(stripped[i]) {
+		i--
+	}
+	for i >= 0 && isIdentifierByte(stripped[i]) {
+		i--
+	}
+	for i >= 0 && isSpaceByte(stripped[i]) {
+		i--
+	}
+	if i < 0 || stripped[i] != '(' {
+		return false
+	}
+	j := i - 1
+	for j >= 0 && isIdentifierByte(stripped[j]) {
+		j--
+	}
+	if j == i-1 {
+		return false // '(' preceded by an operator or another '(' — grouping
+	}
+	switch strings.ToUpper(stripped[j+1 : i]) {
+	case "WHERE", "AND", "OR", "MATCH", "RETURN", "WITH", "NOT", "USE":
+		return false // clause keyword — grouping paren
+	}
+	return true
+}
+
+func isSpaceByte(b byte) bool {
+	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
+}
+
+func isIdentifierByte(b byte) bool {
+	return b == '_' || (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
 }
 
 func ValidateReadOnlyCypher(query string) (string, error) {
@@ -354,7 +733,11 @@ func validateGraphQueryCostShape(query string) error {
 	if !usesStarRocksBackedGraph(tokens) {
 		return nil
 	}
-	hasIndexedPredicate := hasStarRocksIndexedPredicate(query)
+	// The kind-aware gate: only the three admitted predicate kinds bound the
+	// core_transfers day-partition scan (spec D1). Everything else is
+	// FactsPredicateNone and each branch below rejects with the remedy.
+	kind, _ := FactsPredicateKind(query)
+	hasBoundedPredicate := kind != FactsPredicateNone
 	finalLimit, hasLimit, err := finalLiteralLimit(query, tokens, aliases)
 	if err != nil {
 		return err
@@ -362,18 +745,19 @@ func validateGraphQueryCostShape(query string) error {
 	if hasLimit && finalLimit > maxStarRocksBackedGraphLimit {
 		return errors.New("StarRocks-backed graph query LIMIT exceeds maximum 1000")
 	}
-	if hasGlobalAggregateFunction(query, tokens, aliases) && !hasIndexedPredicate {
-		return errors.New("StarRocks-backed aggregate graph queries require an indexed predicate")
+	if hasGlobalAggregateFunction(query, tokens, aliases) && !hasBoundedPredicate {
+		return errors.New("StarRocks-backed aggregate graph queries require a partition-bounding predicate: " + FactsPredicateRemedy)
 	}
 	// facts_transfers_view is a full transfer-history table (unlike the
 	// smaller per-address dimension views): a LIMIT alone still forces an
 	// unindexed scan to find the first LIMIT rows. Row-select TRANSFER
-	// queries require an indexed predicate even when LIMIT is present.
-	if usesStarRocksTransferEdge(tokens) && !hasIndexedPredicate {
-		return errors.New("StarRocks-backed TRANSFER graph queries require an indexed predicate (address equality on either endpoint, or tx_id)")
+	// queries require a partition-bounding predicate even when LIMIT is
+	// present.
+	if usesStarRocksTransferEdge(tokens) && !hasBoundedPredicate {
+		return errors.New("StarRocks-backed TRANSFER graph queries require a partition-bounding predicate: " + FactsPredicateRemedy)
 	}
-	if !hasLimit && !hasIndexedPredicate {
-		return errors.New("StarRocks-backed graph queries require an explicit LIMIT or indexed predicate")
+	if !hasLimit && !hasBoundedPredicate {
+		return errors.New("StarRocks-backed graph queries require an explicit LIMIT or partition-bounding predicate: " + FactsPredicateRemedy)
 	}
 	return nil
 }
@@ -448,18 +832,6 @@ func ClassifyQueryTier(query string) QueryTier {
 		return QueryTierStarRocks
 	}
 	return QueryTierLive
-}
-
-func hasStarRocksIndexedPredicate(query string) bool {
-	// Match against the query with string literals and comments blanked out,
-	// exactly as production does: a crafted literal like
-	// `WHERE t.asset_symbol = "junk tx_id = 1"` must not satisfy the
-	// indexed-predicate patterns lexically and forge an unbounded facts scan.
-	stripped := stripCypherLiteralsAndComments(query)
-	return addressMapPredicatePattern.MatchString(stripped) ||
-		addressWherePredicatePattern.MatchString(stripped) ||
-		rangeWherePredicatePattern.MatchString(stripped) ||
-		txIDWherePredicatePattern.MatchString(stripped)
 }
 
 // stripCypherLiteralsAndComments returns the query with string literals and
