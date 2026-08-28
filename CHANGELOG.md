@@ -3,6 +3,33 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.19.1] - 2026-08-28 — feat: kind-aware facts admission + partition metadata
+
+The devkit mirrors the production facts partition-pruning gate: every facts
+`TRANSFER` query must carry a bare `block_date` bound, a `tx_id` equality/IN,
+or an address filter (a 90-day recency window is auto-applied). Height /
+timestamp-only ranges, function-wrapped `block_date`, and `block_date` inside
+an `OR` arm are rejected with a remedy error. The stale
+`facts_address_features_view` mapping, `AddressFeature` label, and
+`HAS_FEATURE` edge are removed (the view was dropped by migration 0033);
+`Address` stays a TRANSFER endpoint only. The mapping gains
+`partition_column` / `partition_granularity` metadata.
+
+### Changed
+
+- `USE facts` cost-shape gate is kind-aware (bare `block_date`, `tx_id`,
+  address), mirroring production; rejection errors name the remedy.
+- Address-only facts queries compile with a bare `block_date >= now − 90
+  days` floor (`FACTS_RECENCY_WINDOW_DAYS`); `block_date`-bounded and
+  `tx_id` queries keep lifetime semantics.
+- `docs/graph-query-compatibility.md` states the admitted shapes, the window
+  default, and the new rejection rows.
+
+### Removed
+
+- `facts_address_features_view` mapping + fixture (migration 0033); the
+  `AddressFeature` label and `HAS_FEATURE` edge are unmapped.
+
 ## [0.19.0] - 2026-08-26 — breaking: networks follow GraphRAG MCP
 
 CIA no longer hardcodes Robinhood as the only public network. It lists
