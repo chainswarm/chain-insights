@@ -16,21 +16,26 @@ import (
 var mappingJSON []byte
 
 type nodeMapping struct {
-	Label      string            `json:"label"`
-	Table      string            `json:"table"`
-	IDColumn   string            `json:"id_column"`
-	Properties map[string]string `json:"properties"`
+	Label                string            `json:"label"`
+	Table                string            `json:"table"`
+	IDColumn             string            `json:"id_column"`
+	EndpointOnly         bool              `json:"endpoint_only"`
+	PartitionColumn      string            `json:"partition_column"`
+	PartitionGranularity string            `json:"partition_granularity"`
+	Properties           map[string]string `json:"properties"`
 }
 
 type edgeMapping struct {
-	RelType      string            `json:"rel_type"`
-	Table        string            `json:"table"`
-	IDColumn     string            `json:"id_column"`
-	SourceColumn string            `json:"source_column"`
-	TargetColumn string            `json:"target_column"`
-	SourceLabel  string            `json:"source_label"`
-	TargetLabel  string            `json:"target_label"`
-	Properties   map[string]string `json:"properties"`
+	RelType              string            `json:"rel_type"`
+	Table                string            `json:"table"`
+	IDColumn             string            `json:"id_column"`
+	SourceColumn         string            `json:"source_column"`
+	TargetColumn         string            `json:"target_column"`
+	SourceLabel          string            `json:"source_label"`
+	TargetLabel          string            `json:"target_label"`
+	PartitionColumn      string            `json:"partition_column"`
+	PartitionGranularity string            `json:"partition_granularity"`
+	Properties           map[string]string `json:"properties"`
 }
 
 type schemaMapping struct {

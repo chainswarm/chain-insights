@@ -19,7 +19,9 @@ func TestInjectionLiteralsAreBoundNotInterpolated(t *testing.T) {
 		`c/*comment*/d`,
 	}
 	for _, val := range hostile {
-		q := `USE facts MATCH (a:Address {address: "` + escapeForCypher(val) + `"}) RETURN a.address AS id LIMIT 1`
+		// Asset is a standalone-mappable facts label (Address is endpoint-only
+		// and refuses single-node MATCH at compile time).
+		q := `USE facts MATCH (a:Asset {asset_contract: "` + escapeForCypher(val) + `"}) RETURN a.asset_contract AS id LIMIT 1`
 		c, err := Compile(q)
 		if err != nil {
 			// A literal containing a comment sequence may be rejected at lex
@@ -274,14 +276,14 @@ func TestSumAggregateWrapsCoalesceForEmptyGroup(t *testing.T) {
 
 // NULL semantics preserved: IS NULL / IS NOT NULL map straight through.
 func TestNullSemantics(t *testing.T) {
-	c, err := Compile(`USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) WHERE f.net_flow_usd IS NULL RETURN a.address AS id ORDER BY a.address ASC LIMIT 10`)
+	c, err := Compile(`USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.price_missing IS NULL RETURN from.address AS id LIMIT 10`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(c.SQL, "IS NULL") {
 		t.Errorf("IS NULL not preserved: %s", c.SQL)
 	}
-	c, err = Compile(`USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) WHERE f.net_flow_usd IS NOT NULL RETURN a.address AS id LIMIT 10`)
+	c, err = Compile(`USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.price_missing IS NOT NULL RETURN from.address AS id LIMIT 10`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,15 +295,16 @@ func TestNullSemantics(t *testing.T) {
 // Deterministic ordering: a stable id tiebreaker is appended so LIMIT
 // truncation is reproducible.
 func TestOrderByTiebreaker(t *testing.T) {
-	c, err := Compile(`USE facts MATCH (a:Address {address: "x"})-[:HAS_FEATURE]->(f:AddressFeature) RETURN f.degree_in AS degree_in, f.net_flow_usd AS net_flow_usd ORDER BY f.net_flow_usd DESC LIMIT 50`)
+	c, err := Compile(`USE facts MATCH (from:Address {address: "x"})-[t:TRANSFER]->(to:Address) RETURN t.amount_usd AS amount_usd, t.tx_id AS tx_id ORDER BY t.amount_usd DESC LIMIT 50`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(c.SQL, "ORDER BY") {
 		t.Fatalf("no ORDER BY: %s", c.SQL)
 	}
-	// tiebreaker on the terminal label's id appended after the explicit sort
-	if !strings.Contains(c.SQL, "address` ASC") {
+	// tiebreaker on the terminal label's id (the TRANSFER target endpoint)
+	// appended after the explicit sort
+	if !strings.Contains(c.SQL, "to_address` ASC") {
 		t.Errorf("missing id tiebreaker: %s", c.SQL)
 	}
 }
@@ -314,15 +317,16 @@ func TestNegativeShapes(t *testing.T) {
 		want error
 	}{
 		{"topology scope", `USE topology MATCH (a:Address) RETURN a.address AS id LIMIT 1`, ErrUnsupportedShape},
+		{"standalone address endpoint-only", `USE facts MATCH (a:Address) RETURN a.address AS id LIMIT 1`, ErrUnsupportedShape},
 		{"unknown label", `USE facts MATCH (a:Widget) RETURN a.address AS id LIMIT 1`, ErrUnknownIdentifier},
-		{"unknown property", `USE facts MATCH (a:AddressFeature) RETURN a.nonexistent AS x LIMIT 1`, ErrUnknownIdentifier},
+		{"retired AddressFeature label", `USE facts MATCH (a:AddressFeature) RETURN a.nonexistent AS x LIMIT 1`, ErrUnknownIdentifier},
 		{"unknown edge", `USE facts MATCH (a:Address)-[r:BOGUS]->(b:Address) RETURN a.address AS id LIMIT 1`, ErrUnknownIdentifier},
-		{"variable length", `USE facts MATCH (a:Address)-[:HAS_FEATURE*1..3]->(f:AddressFeature) RETURN f.degree_in AS id LIMIT 1`, ErrUnsupportedShape},
-		{"missing limit", `USE facts MATCH (a:Address) RETURN a.address AS id`, ErrLimitRequired},
-		{"limit too high", `USE facts MATCH (a:Address) RETURN a.address AS id LIMIT 5000`, ErrLimitTooHigh},
-		{"offset", `USE facts MATCH (a:Address) RETURN a.address AS id SKIP 5 LIMIT 10`, ErrOffsetForbidden},
-		{"with pipeline", `USE facts MATCH (a:Address) WITH a RETURN a.address AS id LIMIT 1`, ErrUnsupportedShape},
-		{"collect", `USE facts MATCH (a:Address) RETURN collect(a.address) AS ids LIMIT 1`, ErrUnsupportedShape},
+		{"variable length", `USE facts MATCH (a:Address)-[:TRANSFER*1..3]->(f:Address) RETURN f.address AS id LIMIT 1`, ErrUnsupportedShape},
+		{"missing limit", `USE facts MATCH (a:Asset) RETURN a.asset_contract AS id`, ErrLimitRequired},
+		{"limit too high", `USE facts MATCH (a:Asset) RETURN a.asset_contract AS id LIMIT 5000`, ErrLimitTooHigh},
+		{"offset", `USE facts MATCH (a:Asset) RETURN a.asset_contract AS id SKIP 5 LIMIT 10`, ErrOffsetForbidden},
+		{"with pipeline", `USE facts MATCH (a:Asset) WITH a RETURN a.asset_contract AS id LIMIT 1`, ErrUnsupportedShape},
+		{"collect", `USE facts MATCH (a:Asset) RETURN collect(a.asset_contract) AS ids LIMIT 1`, ErrUnsupportedShape},
 		{"avg still rejected", `USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) RETURN avg(t.amount_usd) AS a LIMIT 1`, ErrUnsupportedShape},
 		{"sum star rejected", `USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) RETURN sum(*) AS a LIMIT 1`, ErrUnsupportedShape},
 		{"sum bare variable rejected", `USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) RETURN sum(t) AS a LIMIT 1`, ErrUnsupportedShape},
@@ -333,6 +337,143 @@ func TestNegativeShapes(t *testing.T) {
 		if !errors.Is(err, tc.want) {
 			t.Errorf("%s: got %v, want %v", tc.name, err, tc.want)
 		}
+	}
+}
+
+// The retired AddressFeature facts label and HAS_FEATURE edge
+// (facts_address_features_view, dropped by migration 0033) are no longer
+// mapped — a facts :AddressFeature / [:HAS_FEATURE] query fails at COMPILE
+// time with the unknown-identifier error, mirroring the production mapping.
+func TestAddressFeatureRejectedAsUnmapped(t *testing.T) {
+	cases := []struct {
+		query   string
+		wantErr string
+	}{
+		{`USE facts MATCH (f:AddressFeature) RETURN f.feature_scope AS feature_scope LIMIT 10`, `node label "AddressFeature" is not mapped`},
+		{`USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN f.net_flow_usd AS net_flow_usd LIMIT 10`, `relationship type "HAS_FEATURE" is not mapped`},
+		{`USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f) RETURN f.feature_scope AS feature_scope LIMIT 10`, `relationship type "HAS_FEATURE" is not mapped`},
+	}
+	for _, c := range cases {
+		_, err := Compile(c.query)
+		if err == nil {
+			t.Errorf("expected unmapped rejection for: %s", c.query)
+			continue
+		}
+		if !strings.Contains(err.Error(), c.wantErr) {
+			t.Errorf("error %q does not contain %q for query: %s", err.Error(), c.wantErr, c.query)
+		}
+	}
+}
+
+// CompileWithWindow appends the recency-window floor: on an address-kind
+// query (no caller date bound) the compiled SQL gains one bare
+// `block_date >= ?` conjunct with the window date as the trailing arg. The
+// column comes from the edge mapping's partition metadata, never hardcoded.
+func TestCompileWithWindowInjectsWindowForAddressKind(t *testing.T) {
+	q := `USE facts MATCH (from:Address {address: "5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM"})-[t:TRANSFER]->(to:Address) RETURN to.address AS to_address, t.amount_usd AS amount_usd LIMIT 10`
+	window := "2026-05-30"
+	c, err := CompileWithWindow(q, window)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(c.SQL, "`block_date` >= ?") {
+		t.Errorf("compiled SQL lacks the bare block_date floor: %s", c.SQL)
+	}
+	// the window arg is appended AFTER the caller's address arg
+	wantArgs := []any{"5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM", window}
+	if len(c.Args) != len(wantArgs) {
+		t.Fatalf("args = %v, want %v", c.Args, wantArgs)
+	}
+	for i := range wantArgs {
+		if c.Args[i] != wantArgs[i] {
+			t.Fatalf("args = %v, want %v", c.Args, wantArgs)
+		}
+	}
+	// the floor is a bare partition-column conjunct: no function wrapping
+	if strings.Contains(c.SQL, "DATE(") || strings.Contains(c.SQL, "date_trunc") {
+		t.Errorf("window floor wraps the partition column: %s", c.SQL)
+	}
+}
+
+// A caller-written block_date bound wins: CompileWithWindow adds NO second
+// bound when the query already bounds block_date (lifetime reads stay
+// lifetime; caller bounds pass through untouched).
+func TestCompileWithWindowCallerBoundWins(t *testing.T) {
+	q := `USE facts MATCH (from:Address {address: "5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM"})-[t:TRANSFER]->(to:Address) WHERE t.block_date >= '2026-06-01' RETURN t.tx_id AS tx_id LIMIT 10`
+	c, err := CompileWithWindow(q, "2026-05-30")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(c.SQL, "`block_date` >= ?") {
+		t.Fatalf("caller's block_date bound missing: %s", c.SQL)
+	}
+	if got := strings.Count(c.SQL, "`block_date`"); got != 1 {
+		t.Errorf("block_date appears %d times (expected exactly the caller's bound): %s", got, c.SQL)
+	}
+	wantArgs := []any{"5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM", "2026-06-01"}
+	if len(c.Args) != len(wantArgs) {
+		t.Fatalf("args = %v, want %v (no injected window arg)", c.Args, wantArgs)
+	}
+	for i := range wantArgs {
+		if c.Args[i] != wantArgs[i] {
+			t.Fatalf("args = %v, want %v", c.Args, wantArgs)
+		}
+	}
+}
+
+// CompileWithWindow with an empty window is exactly Compile (the golden
+// path — zero-window callers and the plain Compile entry point).
+func TestCompileWithWindowEmptyWindowMatchesCompile(t *testing.T) {
+	q := `USE facts MATCH (from:Address {address: "5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM"})-[t:TRANSFER]->(to:Address) RETURN t.tx_id AS tx_id LIMIT 10`
+	plain, err := Compile(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	withWindow, err := CompileWithWindow(q, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plain.SQL != withWindow.SQL {
+		t.Errorf("CompileWithWindow(q, \"\") SQL differs from Compile:\n  %s\n  %s", plain.SQL, withWindow.SQL)
+	}
+	if len(plain.Args) != len(withWindow.Args) {
+		t.Errorf("CompileWithWindow(q, \"\") args differ from Compile: %v vs %v", plain.Args, withWindow.Args)
+	}
+}
+
+// CompileWithWindow on a shape without a partition column (a standalone
+// Asset node, which is not date-partitioned) compiles unchanged — there is
+// nothing to inject.
+func TestCompileWithWindowNoPartitionColumnCompilesUnchanged(t *testing.T) {
+	q := `USE facts MATCH (a:Asset) WHERE a.asset_symbol = "TAO" RETURN a.asset_contract AS asset_contract LIMIT 10`
+	c, err := CompileWithWindow(q, "2026-05-30")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(c.SQL, "block_date") {
+		t.Errorf("no partition column — window must not be injected: %s", c.SQL)
+	}
+}
+
+// The partition metadata in mapping.json pins the TRANSFER edge's partition
+// column/granularity — the compiler's window floor must use it.
+func TestTransferEdgePartitionMetadata(t *testing.T) {
+	em, err := mapping.resolveEdge("TRANSFER", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if em.PartitionColumn != "block_date" {
+		t.Errorf("TRANSFER partition_column = %q, want block_date", em.PartitionColumn)
+	}
+	if em.PartitionGranularity != "day" {
+		t.Errorf("TRANSFER partition_granularity = %q, want day", em.PartitionGranularity)
+	}
+	nm, err := mapping.resolveNode("Address", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !nm.EndpointOnly {
+		t.Error("Address node mapping must be endpoint_only (facts = transfers only)")
 	}
 }
 

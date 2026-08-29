@@ -6,7 +6,7 @@
    "id": "recipe_facts_01",
    "layer": "facts",
    "query": "USE facts MATCH (a:Address)-[:HAS_FEATURE]->(f:AddressFeature) RETURN a.address AS address, f.tx_out_count AS tx_out_count, f.tx_in_count AS tx_in_count LIMIT 10",
-   "baseline": "memgql",
+   "baseline": "rejected",
    "expected_rows": [
     {
      "address": "5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM",
