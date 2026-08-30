@@ -66,6 +66,10 @@ export const ConfigSchema = z.object({
   version:           z.string().default('1'),
   limits:            LimitsSchema.optional(),
   networkLimits:     NetworkLimitsSchema.optional(),
+  // Paths only. Never store or log certificate or key bytes.
+  truthIngressCertPath: z.string().min(1).optional(),
+  truthIngressKeyPath:  z.string().min(1).optional(),
+  truthIngressCaPath:   z.string().min(1).optional(),
 })
 
 export type InvestigatorConfig = z.infer<typeof ConfigSchema>

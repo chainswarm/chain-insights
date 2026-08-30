@@ -10,6 +10,9 @@ import { isUnscoredRiskLevel, normalizeRiskLevel, riskSeverityRank } from './ris
 import { workspaceOutputPaths } from '../workspace/output-root.js'
 import { createUsageAccumulator, usageBlock, wrapClientForUsageTracking, type UsageTotals } from '../lib/usage-accumulator.js'
 
+export { buildTruthProposal, resolveTruthIngressTlsPaths } from './truth-proposal.js'
+export type { TruthProposalCommand } from './truth-proposal.js'
+
 type RemoteToolResult = {
   content?: ContentBlock[]
   isError?: boolean
