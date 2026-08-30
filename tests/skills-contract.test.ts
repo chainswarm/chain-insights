@@ -44,11 +44,12 @@ describe('shipped Chain Insights skills contract', () => {
     expect(cypher).toMatch(/Memgraph/i)
     expect(cypher).toContain('graph_query')
     expect(addressRisk).toContain('aml_address_risk')
+    expect(addressRisk).toContain('meta_network_capabilities')
     expect(addressRisk).toContain('network=robinhood')
     expect(addressRisk).toContain('compare_address')
 
     const content = [evm, bittensor, cypher, addressRisk].join('\n')
-    expect(content).not.toMatch(/workspace|debug MCP|cia monitor/i)
+    expect(content).not.toMatch(/workspace|debug MCP/i)
     expect(bittensor).not.toMatch(/public hosted MCP|mcp\.chain-insights\.ai/i)
   })
 

@@ -11,8 +11,8 @@ the old behavior for at least one minor release when technically possible.
 
 - `0` — success.
 - `1` — usage or runtime error (bad arguments, unreachable endpoint, failed command).
-- `2` — partial failure in batch-style commands (for example `cia monitor run`
-  where individual cases fail but the pass completes).
+- `2` — reserved for partial failure in batch-style commands. No current
+  command exits `2`.
 
 Exit codes are contract. Scripts and agent harnesses may rely on them.
 
@@ -38,7 +38,6 @@ A workspace is marked by `.chain-insights/workspace.json`. These paths are
 contract:
 
 - `.chain-insights/workspace.json` — workspace config.
-- `.chain-insights/monitor/` — monitor config, cases, logs, render state.
 - `published/` — rendered dossiers, viz artifacts, and reports.
 - `reports/` — report output.
 

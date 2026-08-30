@@ -463,7 +463,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).toContain('FLOWS_TO')
     expect(instructions).toContain('first_tx_id')
     expect(instructions).toContain('LINKED is served on the topology graph only')
-    expect(instructions).toContain('the single public robinhood investigation network')
+    expect(instructions).toContain('Call meta_network_capabilities first')
+    expect(instructions).toContain('CIA does not pick a default network')
     expect(instructions).toContain('(:Address)-[:LINKED]-(:Address)')
     expect(instructions).toContain('n.network AS network')
     expect(instructions).toContain('declared_owner')
@@ -848,7 +849,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('"usage_status_tool": "unavailable"')
   })
 
-  it('mirrors meta_network_capabilities as one robinhood graph with no layer rows and the seven public tools', async () => {
+  it('mirrors meta_network_capabilities as every GraphRAG network with no layer rows and the seven public tools', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       { name: 'network_capabilities', description: 'Network capabilities' },
@@ -903,28 +904,39 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     expect(clientInstance.callTool).toHaveBeenCalledWith({ name: 'network_capabilities', arguments: {} })
     const networks = result.structuredContent.facts.capabilities.networks as Array<Record<string, unknown>>
-    expect(networks).toEqual([expect.objectContaining({
-      network: 'robinhood',
-      layers: {},
-      tools: {
-        aml_address_risk: 'available',
-        graph_query: 'available',
-        graph_query_batch: 'available',
-        meta_network_capabilities: 'available',
-        meta_usage_status: 'available',
-        meta_help: 'available',
-        wallet_balance: 'available',
-      },
-    })])
-    expect(networks).toHaveLength(1)
+    const publicTools = {
+      aml_address_risk: 'available',
+      graph_query: 'available',
+      graph_query_batch: 'available',
+      meta_network_capabilities: 'available',
+      meta_usage_status: 'available',
+      meta_help: 'available',
+      wallet_balance: 'available',
+    }
+    expect(networks).toEqual([
+      expect.objectContaining({
+        network: 'bittensor',
+        display_name: 'Bittensor',
+        layers: {},
+        tools: publicTools,
+      }),
+      expect.objectContaining({
+        network: 'robinhood',
+        display_name: 'Robinhood',
+        layers: {},
+        tools: publicTools,
+      }),
+    ])
+    expect(networks).toHaveLength(2)
     expect(result.structuredContent.facts.capabilities.networks[0]?.tools).not.toHaveProperty('network_capabilities')
-    expect(result.content[0].text).not.toContain('bittensor')
+    expect(result.content[0].text).toContain('bittensor')
+    expect(result.content[0].text).toContain('robinhood')
     expect(result.content[0].text).not.toContain('"topology"')
     expect(result.content[0].text).not.toContain('"risk"')
     expect(result.content[0].text).not.toContain('"enabled"')
   })
 
-  it('falls back to one robinhood graph with no layer rows and the seven public tools when remote capabilities are absent', async () => {
+  it('returns an empty network list when remote capabilities are absent', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       { name: 'graph_query', description: 'Federated graph query' },
@@ -948,20 +960,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(clientInstance.callTool).not.toHaveBeenCalledWith({ name: 'network_capabilities', arguments: {} })
     expect(result.isError).not.toBe(true)
     const networks = result.structuredContent.facts.capabilities.networks as Array<Record<string, unknown>>
-    expect(networks).toEqual([expect.objectContaining({
-      network: 'robinhood',
-      layers: {},
-      tools: {
-        aml_address_risk: 'available',
-        graph_query: 'available',
-        graph_query_batch: 'available',
-        meta_network_capabilities: 'available',
-        meta_usage_status: 'available',
-        meta_help: 'available',
-        wallet_balance: 'available',
-      },
-    })])
-    expect(networks).toHaveLength(1)
+    expect(networks).toEqual([])
+    expect(result.content[0].text).not.toContain('robinhood')
     expect(result.content[0].text).not.toContain('"topology"')
     expect(result.content[0].text).not.toContain('"enabled"')
   })
@@ -1830,7 +1830,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(inputSchema.address).toBeDefined()
     expect(inputSchema.network).toBeDefined()
     expect((inputSchema.network as { description?: string }).description).toContain('Network to query')
-    expect((inputSchema.network as { description?: string }).description).toContain('robinhood is the only supported network')
+    expect((inputSchema.network as { description?: string }).description).toContain('meta_network_capabilities')
+    expect((inputSchema.network as { description?: string }).description).not.toContain('robinhood is the only supported network')
     expect(config.description).toContain('Required arguments: address, network.')
     expect(config.description).toContain('Do not guess a default network')
   })

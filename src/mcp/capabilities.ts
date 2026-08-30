@@ -47,7 +47,6 @@ export interface NetworkCapabilitiesDocument {
   networks: NetworkCapability[]
 }
 
-const ROBINHOOD_SEMANTIC_NETWORKS = new Set(['robinhood'])
 export const PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS = {
   aml_address_risk: 'available',
   graph_query: 'available',
@@ -59,25 +58,45 @@ export const PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS = {
 } as const
 const AVAILABLE_TOOLS_PER_LINE = 3
 
-function publicNetworkCapabilities(document: NetworkCapabilitiesDocument): NetworkCapabilitiesDocument {
-  const source = document.networks.find((network) => ROBINHOOD_SEMANTIC_NETWORKS.has(network.network))
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function advertisedNetwork(raw: unknown): NetworkCapability | null {
+  if (!isRecord(raw) || typeof raw.network !== 'string' || raw.network.trim() === '') {
+    return null
+  }
+  const network = raw.network.trim()
+  const capability: NetworkCapability = {
+    network,
+    display_name: typeof raw.display_name === 'string' && raw.display_name.trim() !== ''
+      ? raw.display_name
+      : network,
+    status: typeof raw.status === 'string' && raw.status.trim() !== '' ? raw.status : 'live',
+    layers: {},
+    tools: { ...PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS },
+  }
+  if (raw.default === true) capability.default = true
+  if (raw.default === false) capability.default = false
+  if (isRecord(raw.coverage)) capability.coverage = raw.coverage as NetworkCapability['coverage']
+  if (isRecord(raw.freshness)) capability.freshness = raw.freshness as NetworkCapability['freshness']
+  return capability
+}
+
+/** Repeat GraphRAG's network list. CIA does not add, drop, or invent names. */
+export function mirrorGraphNetworkCapabilities(
+  document: { networks: unknown[] },
+): NetworkCapabilitiesDocument {
   return {
     schema: 'chain-insights.network-capabilities.v1',
-    networks: source
-      ? [{
-        network: 'robinhood',
-        display_name: 'Robinhood',
-        status: source.status || 'live',
-        default: source.default !== false,
-        layers: {},
-        ...(source.coverage ? { coverage: source.coverage } : {}),
-        ...(source.freshness ? { freshness: source.freshness } : {}),
-        tools: PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS,
-      }]
-      // Transitional: pre-cut remote metadata still advertises bittensor; the
-      // mirror reports no networks until the coordinated cutover.
-      : [],
+    networks: document.networks
+      .map((network) => advertisedNetwork(network))
+      .filter((network): network is NetworkCapability => network !== null),
   }
+}
+
+function publicNetworkCapabilities(document: NetworkCapabilitiesDocument): NetworkCapabilitiesDocument {
+  return mirrorGraphNetworkCapabilities(document)
 }
 
 function metadataNetworksUrl(endpoint: string): URL {
@@ -115,12 +134,10 @@ export async function fetchNetworkCapabilities(
 }
 
 function availableTools(network: NetworkCapability): string[] {
-  const effectiveTools = ROBINHOOD_SEMANTIC_NETWORKS.has(network.network)
-    ? {
-      ...(network.tools ?? {}),
-      ...PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS,
-    }
-    : network.tools ?? {}
+  const effectiveTools = {
+    ...(network.tools ?? {}),
+    ...PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS,
+  }
   const tools = Object.entries(effectiveTools)
     .filter(([, status]) => status === 'available')
     .map(([name]) => name)

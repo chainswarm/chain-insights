@@ -143,22 +143,32 @@ rejected with a typed contract error before execution.
 | --- | --- |
 | `MATCH` on a mapped node / single relationship | `(from:Address)-[t:TRANSFER]->(to:Address)` (bounded individual transfer rows from `facts_transfers_view`). Lifetime address metrics are node properties on `USE topology` (the facts `AddressFeature` surface is retired). Never serves `FLOWS_TO` or `LINKED` — those are topology-only. Neuron identity, hotkey/coldkey pairing, and IP/axon-port observation live on the topology `:Neuron` node, not on `facts`. Labels and per-label risk live on the topology address node, not on `facts`. |
 | Chained fixed-hop patterns | up to 5 hops |
-| `WHERE` with an indexed predicate | `address` equality or `IN`; `tx_id` equality or `IN` (the `TRANSFER` edge's row-level key); date/height/timestamp range |
+| Bare `block_date` bound | `t.block_date >= ?` / `<`, `=`, `BETWEEN`, `IN` — the caller's own day range, passed through. The bound must be bare (no function around the column) and conjunctive (not inside an `OR` arm). An explicit full-range bound (`>= '1970-01-01'`) stays lifetime. |
+| `tx_id` equality / `IN` | `t.tx_id = "…"` — a point lookup on the `TRANSFER` edge's row-level key. Lifetime semantics. |
+| Address equality / `IN` | `{address:"…"}` map or `a.address = "…"` / `IN` — **a recency window is auto-applied** (bare `block_date >= now − 90 days`; the window is `FACTS_RECENCY_WINDOW_DAYS`, default 90). Address-only queries return the last 90 days. |
 | Inline property maps | `MATCH (a:Address {address:"…"})` |
-| Property projections with aliases | `RETURN a.address AS address, f.tx_out_count AS tx_out_count` |
-| Aggregates **with** an indexed predicate | `count`, `sum` |
-| `ORDER BY`, `LIMIT` (≤ 1000), `OFFSET`-free paging | `LIMIT` required unless an indexed predicate is present — except `TRANSFER`, where an indexed predicate is always required (see below) |
+| Property projections with aliases | `RETURN a.address AS address, t.amount_usd AS amount_usd` |
+| Aggregates **with** a partition-bounding predicate | `count`, `sum` |
+| `ORDER BY`, `LIMIT` (≤ 1000), `OFFSET`-free paging | `LIMIT` required unless a partition-bounding predicate is present — except `TRANSFER`, where a partition-bounding predicate is always required (see below) |
 
 ### Cost-shape gate
 
 `facts` rejects full-scan shapes so a mapped-graph read cannot turn into an
-unbounded warehouse scan:
+unbounded warehouse scan. `core_transfers` is split into one partition per
+day, keyed on `block_date` — a query without a bare `block_date` bound, a
+`tx_id` point lookup, or an address filter (window auto-applied) touches
+every partition and is refused before any SQL runs. The refusal names the
+remedy: *add a bare `block_date` bound, or query by `tx_id`, or filter by
+address (a recency window is auto-applied)*.
 
 | Rejected shape | Contract error |
 | --- | --- |
-| Predicate-less global aggregate | `count(i)` with no indexed predicate → *StarRocks-backed aggregate graph queries require an indexed predicate* |
-| No `LIMIT` and no indexed predicate | → *StarRocks-backed graph queries require an explicit LIMIT or indexed predicate* |
-| `TRANSFER` row-select or aggregate with no indexed predicate, even with `LIMIT` | `facts_transfers_view` is a full transfer-history table — a bare `LIMIT` does not bound the scan → *StarRocks-backed TRANSFER graph queries require an indexed predicate (address equality on either endpoint, or tx_id)* |
+| Predicate-less global aggregate | `count(i)` with no partition-bounding predicate → *StarRocks-backed aggregate graph queries require a partition-bounding predicate: add a bare `block_date` bound, or query by `tx_id`, or filter by address (a recency window is auto-applied)* |
+| No `LIMIT` and no partition-bounding predicate | → *StarRocks-backed graph queries require an explicit LIMIT or partition-bounding predicate: add a bare `block_date` bound, or query by `tx_id`, or filter by address (a recency window is auto-applied)* |
+| `TRANSFER` row-select or aggregate with no partition-bounding predicate, even with `LIMIT` | `facts_transfers_view` is a full transfer-history table — a bare `LIMIT` does not bound the scan → *StarRocks-backed TRANSFER graph queries require a partition-bounding predicate: add a bare `block_date` bound, or query by `tx_id`, or filter by address (a recency window is auto-applied)* |
+| `block_height` / `block_timestamp` range only | `t.block_height >= ?` bounds the sort key, not the day partitions → rejected with the remedy error |
+| Wrapped `block_date` | `DATE(t.block_date) >= ?` wraps the partition column → rejected with the remedy error |
+| `block_date` bound inside an `OR` arm | `t.block_height >= 0 OR t.block_date >= ?` — the optimizer cannot prune the unbounded arm → rejected with the remedy error |
 | `LIMIT` above the ceiling | `LIMIT 5000` → *StarRocks-backed graph query LIMIT exceeds maximum 1000* |
 
 ### Not in the facts grammar (contract error)

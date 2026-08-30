@@ -46,8 +46,6 @@ Owns:
   / `wallet_*` tools.
 - Local wallet and payment on Base mainnet (payment chain only).
 - Investigation workspaces, graph reports, and visualization.
-- `cia monitor`: per-case tracking with rendered dossiers on an external
-  schedule.
 - Shipped product skills under `skills/` (`chain-insights-*`), packaged
   into the npm tarball.
 - The local Bittensor graph devkit under `devkit/`.
@@ -74,37 +72,6 @@ Never touches:
 | `meta_help` | Show Chain Insights tool and workflow guidance |
 | `wallet_balance` | Show the local payment wallet amount |
 
-### Continuous Monitoring
-
-`cia monitor` re-renders each open case's dossier on a schedule. It turns one
-investigation into a standing view: seeds, scope changes, and render state
-stay as plain files in the workspace.
-
-| Command | What it does |
-| --- | --- |
-| `cia monitor run` | One pass: render the dossier of every open case |
-| `cia monitor status` | Open cases and the last run |
-| `cia monitor render` | Re-render all open cases (or one case) from the case document |
-| `cia monitor init victim` | Bootstrap a stolen-funds case-tracking config in one command |
-| `cia monitor case add` | Register a monitor case with one or more seed addresses |
-| `cia monitor case list` | List monitor cases (open by default, `--all` for closed) |
-| `cia monitor case add-seed` | Widen an open case's seed set, timestamped |
-| `cia monitor case remove-seed` | Narrow an open case's seed set |
-| `cia monitor case close` | Close a case; passes skip it |
-
-Three things to know before scheduling it:
-
-- **`cia monitor run` is a one-shot.** One pass, then exit. Schedule it with
-  cron, pm2 (`cron_restart` plus `autorestart: false`), or your agent
-  harness's scheduled tasks.
-- **Exit `2` means an isolated case failed** while every other case
-  completed. Partial success, not a crash. Only exit `1` means nothing ran.
-- **An unchanged case is skipped, not re-rendered.** The run document
-  records `skipped_reason: 'unchanged'`, so a quiet watch reads as healthy
-  by design.
-
-See [Continuous monitoring](docs/monitoring.md) for the full surface.
-
 ## Dependencies
 
 Upstream:
@@ -121,8 +88,6 @@ Downstream:
 
 - Analysts and AI agents install the npm package and call the CLI or the
   MCP tools.
-- Monitor case dossiers render as Markdown under the workspace
-  (`published/cases/<case_id>/`), ready for review and handoff.
 
 ## Architecture
 
@@ -146,7 +111,6 @@ Source modules (hand-maintained):
 | `federation` | `src/federation` | [components/federation.md](docs/architecture/components/federation.md) |
 | `investigation` | `src/investigation` | [components/investigation.md](docs/architecture/components/investigation.md) |
 | `mcp` | `src/mcp` | [components/mcp.md](docs/architecture/components/mcp.md) |
-| `monitor` | `src/monitor` | [components/monitor.md](docs/architecture/components/monitor.md) |
 | `server` | `src/server` | [components/server.md](docs/architecture/components/server.md) |
 | `viz` | `src/viz` | [components/viz.md](docs/architecture/components/viz.md) |
 | `wallet` | `src/wallet` | [components/wallet.md](docs/architecture/components/wallet.md) |
@@ -222,7 +186,6 @@ Use `usage` to see the real cost of a workflow call, not just of one
   the same; on Windows use WSL).
 - **Node.js 22 or newer** (`package.json` engines) and npm.
 - Optional: Docker with the Compose plugin, for the local devkit backend.
-- Optional: pm2 or cron, for standing-watch monitoring.
 
 `.env.example` documents the two supported overrides:
 
@@ -436,7 +399,6 @@ Product docs:
 | [Graph query compatibility](docs/graph-query-compatibility.md) | GQL/Cypher support per layer, rewrite recipes, traversal guidance |
 | [Search limits](docs/search-limits.md) | Tunable search/row/frontier/hop bounds, precedence, ceilings |
 | [Investigation workspaces](docs/investigation-workspaces.md) | `cia init`, workspace layout, artifacts, templates, reports, visualization |
-| [Continuous monitoring](docs/monitoring.md) | `cia monitor` commands, case tracking, dossier rendering, scheduling, exit codes |
 | [MCP proxy](docs/mcp-proxy.md) | Stdio proxy behavior, endpoint configuration, agent installers, auth modes |
 | [Architecture overview](docs/architecture.md) | Product layers, data flow, local storage, security model, config keys |
 | [Development](docs/development.md) | Build, test, and local install commands |

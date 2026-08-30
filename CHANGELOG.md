@@ -3,6 +3,71 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.20.0] - 2026-08-30 — feat!: remove `cia monitor` (case tracking and dossiers)
+
+**Removed in this release (no deprecation window):** the `cia monitor`
+command family is gone. It rendered case dossiers from local case
+documents only and never read chain data, so it did not earn its place
+in a lean production surface. Dossiers, run logs, and
+`.chain-insights/monitor/` state are no longer produced;
+`docs/monitoring.md` and the monitor component documentation are
+removed. Workspaces that contain monitor artifacts from earlier
+releases keep them on disk; nothing reads or rewrites them.
+
+### Removed
+
+- `cia monitor` and every subcommand (`run`, `status`, `render`,
+  `init victim`, `case add/list/add-seed/remove-seed/close`).
+- `src/monitor/`, `tests/monitor/`, `docs/monitoring.md`, and
+  `docs/architecture/components/monitor.md`.
+- The `monitor` module entry from the architecture module table and
+  the monitor workspace section from the workspace docs.
+- `.chain-insights/monitor/` from the guaranteed workspace layout in
+  the stability policy. Exit code `2` stays defined for batch-style
+  commands but no current command exits `2`.
+
+## [0.19.1] - 2026-08-28 — feat: kind-aware facts admission + partition metadata
+
+The devkit mirrors the production facts partition-pruning gate: every facts
+`TRANSFER` query must carry a bare `block_date` bound, a `tx_id` equality/IN,
+or an address filter (a 90-day recency window is auto-applied). Height /
+timestamp-only ranges, function-wrapped `block_date`, and `block_date` inside
+an `OR` arm are rejected with a remedy error. The stale
+`facts_address_features_view` mapping, `AddressFeature` label, and
+`HAS_FEATURE` edge are removed (the view was dropped by migration 0033);
+`Address` stays a TRANSFER endpoint only. The mapping gains
+`partition_column` / `partition_granularity` metadata.
+
+### Changed
+
+- `USE facts` cost-shape gate is kind-aware (bare `block_date`, `tx_id`,
+  address), mirroring production; rejection errors name the remedy.
+- Address-only facts queries compile with a bare `block_date >= now − 90
+  days` floor (`FACTS_RECENCY_WINDOW_DAYS`); `block_date`-bounded and
+  `tx_id` queries keep lifetime semantics.
+- `docs/graph-query-compatibility.md` states the admitted shapes, the window
+  default, and the new rejection rows.
+
+### Removed
+
+- `facts_address_features_view` mapping + fixture (migration 0033); the
+  `AddressFeature` label and `HAS_FEATURE` edge are unmapped.
+
+## [0.19.0] - 2026-08-26 — breaking: networks follow GraphRAG MCP
+
+CIA no longer hardcodes Robinhood as the only public network. It lists
+what GraphRAG advertises. `network=` is a string. GraphRAG refuses a
+miss.
+
+### Changed
+
+- `meta_network_capabilities` mirrors every GraphRAG network and
+  overlays the seven public CIA tools. Layers stay `{}`.
+- `network` tool args accept any non-empty string. Call
+  `meta_network_capabilities` first. CIA does not invent a default.
+- Empty or missing GraphRAG list returns no networks.
+- Address-risk skill and workspace schema notes teach the same rule.
+
 ## [0.18.22] - 2026-08-24 — fix: teach bounded hop lambdas
 
 The Cypher skill now shows the three Memgraph hop-lambda forms. Each
