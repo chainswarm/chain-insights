@@ -3,6 +3,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.22.3] - 2026-08-30 — fix: make fresh installs usable
+
+A new installation now connects to the hosted Chain Insights Graph by default.
+Users can run `cia networks` immediately after installing the package. Local
+development remains available through an explicit loopback endpoint override.
+
+### Changed
+
+- Use `https://mcp.chain-insights.ai/` as the CLI and workspace default.
+- Keep `http://127.0.0.1:8012/mcp` available for explicit local development.
+- Update the first-run documentation, acceptance contract, and release smoke
+  test to cover zero-configuration hosted use.
+
 ## [0.22.2] - 2026-08-30 — fix: align hosted MCP tests with production
 
 Hosted Chain Insights Graph now exposes the Robinhood network and the current

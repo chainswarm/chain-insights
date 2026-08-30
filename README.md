@@ -80,8 +80,8 @@ Never touches:
 Upstream:
 
 - **Chain Insights Graph MCP endpoint** — all graph queries and AML
-  primitives. Configured via `graphMcpEndpoint`; defaults to a local
-  endpoint.
+  primitives. Configured via `graphMcpEndpoint`; defaults to the public
+  production endpoint `https://mcp.chain-insights.ai/`.
 - **Base mainnet RPC** — wallet balance and payment only
   (`BASE_RPC_URL` override). Not a graph-support claim.
 
@@ -253,16 +253,17 @@ More query examples (manual fund-flow reads, pagination):
 ## Configure
 
 `cia` uses `graphMcpEndpoint` for all Chain Insights Graph calls. The npm
-package does not hardcode a hosted endpoint.
+package uses the public production endpoint by default, so a fresh install can
+run `cia networks` immediately.
 
-Local development endpoint (default):
+For local development, override the default explicitly:
 
 ```bash
 cia config set graphMcpEndpoint http://127.0.0.1:8012/mcp
 ```
 
-Public production Graph (operator configuration, never a package default).
-Use the host root. Do not add `/mcp`.
+The public production Graph is already the default. Use the host root. Do not
+add `/mcp`.
 
 ```bash
 cia config set graphMcpEndpoint https://mcp.chain-insights.ai/
@@ -279,7 +280,7 @@ Configuration precedence:
 1. `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` env var (`GRAPH_MCP_ENDPOINT`
    legacy alias also supported).
 2. `cia config set graphMcpEndpoint ...` saved value.
-3. Local default `http://127.0.0.1:8012/mcp`.
+3. Public production default `https://mcp.chain-insights.ai/`.
 
 Validation rules:
 

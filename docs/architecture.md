@@ -60,8 +60,9 @@ chain-insights config set graphMcpEndpoint https://mcp.chain-insights.ai/
 export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://mcp.chain-insights.ai/
 ```
 
-The runtime default is local loopback: `http://127.0.0.1:8012/mcp`. Hosted
-endpoints are operator configuration, not hardcoded package defaults.
+The runtime default is the hosted production endpoint
+`https://mcp.chain-insights.ai/`. Local loopback
+`http://127.0.0.1:8012/mcp` remains available through explicit configuration.
 
 Supported config keys:
 

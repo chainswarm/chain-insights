@@ -13,7 +13,7 @@
 ```bash
 # Test default config load (no file exists)
 cia config get graphMcpEndpoint
-# Expected: Returns default "http://127.0.0.1:8012/mcp"
+# Expected: Returns default "https://mcp.chain-insights.ai/"
 
 # Test config write
 cia config set graphMcpEndpoint https://mcp.chain-insights.ai/

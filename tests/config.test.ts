@@ -50,7 +50,7 @@ describe('Config system (FOUND-05)', () => {
     expect(config.serverPort).toBe(4321)
     expect(config.version).toBe('1')
     expect(config.graphMcpMode).toBe('paid')
-    expect(config.graphMcpEndpoint).toBe('http://127.0.0.1:8012/mcp')
+    expect(config.graphMcpEndpoint).toBe('https://mcp.chain-insights.ai/')
   })
 
   it('loads config values from config.json on disk', async () => {

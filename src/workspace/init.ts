@@ -1,6 +1,6 @@
 import { access, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { LOCAL_GRAPH_MCP_ENDPOINT } from '../config/mcp-endpoint.js'
+import { DEFAULT_GRAPH_MCP_ENDPOINT } from '../config/mcp-endpoint.js'
 
 export interface InitWorkspaceOptions {
   targetDir: string
@@ -43,7 +43,7 @@ function workspaceJson(workspaceRoot: string): string {
         name: 'Chain Insights Workspace',
         workspace_root: workspaceRoot,
         default_network: 'robinhood',
-        graph_mcp_endpoint: LOCAL_GRAPH_MCP_ENDPOINT,
+        graph_mcp_endpoint: DEFAULT_GRAPH_MCP_ENDPOINT,
         artifacts_dir: 'artifacts',
         imports_dir: 'imports',
         reports_dir: 'reports',

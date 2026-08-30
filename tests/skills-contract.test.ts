@@ -9,7 +9,7 @@ function read(path: string): string {
 }
 
 function expectNoRetiredHostedMcpHost(content: string): void {
-  expect(content).not.toMatch(/(^|[^a-z0-9-])mcp\.chain-insights\.ai(?=\/|[\s`'")\]}]|$)/i)
+  expect(content).not.toMatch(/(^|[^a-z0-9-])staging-mcp\.chain-insights\.ai(?=\/|[\s`'")\]}]|$)/i)
 }
 
 function retiredName(head: string, tail: string): string {
@@ -88,7 +88,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).toContain('Chain Insights Graph')
     expect(readme).toContain('cia config set graphMcpEndpoint https://mcp.chain-insights.ai/')
     expect(readme).toContain('CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://mcp.chain-insights.ai/')
-    expect(readme).toContain('Do not add `/mcp`')
+    expect(readme).toMatch(/Do not\s+add `\/mcp`/)
     expect(readme).toContain('http://127.0.0.1:8012/mcp')
     expect(readme).toContain('approved access key')
     expect(readme).toContain('prepared wallet')
@@ -124,10 +124,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(mcpProxy).toContain(
       'The endpoint lives in Chain Insights config, not in the MCP client registration.'
     )
-    expect(mcpProxy).toContain('Do not')
-    expect(mcpProxy).toContain(
-      'bake hosted endpoint URLs into MCP client JSON, source code, or workspace'
-    )
+    expect(mcpProxy).toMatch(/MCP client JSON does not carry\s+the endpoint/)
     expect(mcpProxy).toContain('x402')
     expect(readme + mcpProxy + read('docs/architecture.md')).toContain(
       'https://mcp.chain-insights.ai/'
@@ -163,7 +160,7 @@ describe('shipped Chain Insights skills contract', () => {
     }
   })
 
-  it('does not hardcode hosted Chain Insights Graph endpoints in runtime source defaults', () => {
+  it('uses hosted Chain Insights Graph by default and preserves local development overrides', () => {
     const runtimeSources = [
       'src/config/mcp-endpoint.ts',
       'src/config/schema.ts',
@@ -173,6 +170,7 @@ describe('shipped Chain Insights skills contract', () => {
       .map(read)
       .join('\n')
 
+    expect(runtimeSources).toContain('https://mcp.chain-insights.ai/')
     expect(runtimeSources).toContain('http://127.0.0.1:8012/mcp')
     expectNoRetiredHostedMcpHost(runtimeSources)
   })
