@@ -1,7 +1,7 @@
 import * as z from 'zod'
 import os from 'node:os'
 import path from 'node:path'
-import { LOCAL_GRAPH_MCP_ENDPOINT, validateMcpEndpoint } from './mcp-endpoint.js'
+import { DEFAULT_GRAPH_MCP_ENDPOINT, validateMcpEndpoint } from './mcp-endpoint.js'
 import { LIMIT_SPECS, isLimitKey, limitCeiling, type LimitKey } from './limits.js'
 
 // Config-file layer for the tunable search bounds (see config/limits.ts).
@@ -59,7 +59,7 @@ function endpointSchema(key: 'graphMcpEndpoint') {
 }
 
 export const ConfigSchema = z.object({
-  graphMcpEndpoint: endpointSchema('graphMcpEndpoint').default(LOCAL_GRAPH_MCP_ENDPOINT),
+  graphMcpEndpoint: endpointSchema('graphMcpEndpoint').default(DEFAULT_GRAPH_MCP_ENDPOINT),
   graphMcpAuthToken: z.string().optional(),
   graphMcpMode: z.enum(['paid', 'debug']).default('paid'),
   walletAddress: z.string().optional(),

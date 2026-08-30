@@ -235,7 +235,7 @@ describe('CLI scaffold (FOUND-02)', () => {
         `"workspace_root": "${target}"`
       )
       expect(readFileSync(join(target, '.chain-insights', 'workspace.json'), 'utf8')).toContain(
-        '"graph_mcp_endpoint": "http://127.0.0.1:8012/mcp"'
+        '"graph_mcp_endpoint": "https://mcp.chain-insights.ai/"'
       )
       expect(readFileSync(join(target, '.chain-insights', 'workspace.json'), 'utf8')).toContain(
         '"default_network": "robinhood"'

@@ -27,11 +27,10 @@ The proxy reads the same local Chain Insights config as the CLI.
 ## Chain Insights Graph Endpoint Configuration
 
 The endpoint lives in Chain Insights config, not in the MCP client registration.
-The npm package default is the local development endpoint
-`http://127.0.0.1:8012/mcp`. Public production is
-`https://mcp.chain-insights.ai/` (host root, no `/mcp` path). Set it
-explicitly. Do not bake that URL into MCP client JSON, source, or
-workspace templates.
+The npm package defaults to public production:
+`https://mcp.chain-insights.ai/` (host root, no `/mcp` path). A fresh install
+can use `cia networks` without endpoint setup. MCP client JSON does not carry
+the endpoint; use Chain Insights config for the default or an override.
 
 Set local development:
 
@@ -56,7 +55,7 @@ Configuration precedence:
 1. `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT`
 2. `GRAPH_MCP_ENDPOINT` legacy alias
 3. saved `graphMcpEndpoint`
-4. local default `http://127.0.0.1:8012/mcp`
+4. hosted production default `https://mcp.chain-insights.ai/`
 
 Validation rules:
 
@@ -64,9 +63,8 @@ Validation rules:
 - remote endpoints must use `https://`
 - endpoint URLs with credentials, query strings, or fragments are rejected
 
-Keep hosted endpoint values in operator config or environment variables. Do not
-bake hosted endpoint URLs into MCP client JSON, source code, or workspace
-templates.
+Keep endpoint overrides in operator config or environment variables. Do not
+put endpoint configuration in MCP client JSON.
 
 ## Behavior
 

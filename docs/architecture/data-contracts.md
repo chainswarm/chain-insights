@@ -68,7 +68,7 @@ Precedence for the Chain Insights Graph endpoint:
 1. `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` environment variable.
 2. Legacy `GRAPH_MCP_ENDPOINT` environment variable.
 3. Saved `graphMcpEndpoint` config value.
-4. Default `http://127.0.0.1:8012/mcp`.
+4. Default `https://mcp.chain-insights.ai/`.
 
 Validation (`validateMcpEndpoint` in `src/config/mcp-endpoint.ts`):
 

@@ -23,7 +23,7 @@ Provides the primary user-facing interface for Chain Insights investigations. Ex
 ## Invariants
 
 - All workspace writes go through active workspace detection (`.chain-insights/workspace.json` marker or `cia init` current directory)
-- Config resolution follows precedence: CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT env var -> saved graphMcpEndpoint -> default http://127.0.0.1:8012/mcp
+- Config resolution follows precedence: CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT env var -> saved graphMcpEndpoint -> hosted production default https://mcp.chain-insights.ai/
 - Remote HTTP URLs must use https://; localhost/loopback may use http://
 - Exit codes: 0 for success, 1 for errors (config validation, MCP connection failure, wallet issues)
 - File permissions: config.json 0o600, wallet.json 0o600, workspace artifacts 0o600 for sensitive files
