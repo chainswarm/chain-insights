@@ -1,18 +1,17 @@
 workspace "Chain Insights Repository" "Repository-scoped C4 model for repos/infra/chain-insights." {
     model {
         investigator = person "Investigator / Agent" "Uses CLI, ChatGPT, Codex, Claude Code, or MCP clients to investigate blockchain activity."
-        graphMcp = softwareSystem "Data Pipeline GraphRAG MCP" "Public MCP endpoint serving graph queries, risk tools, quota, and report metadata."
+        graphMcp = softwareSystem "Data Pipeline GraphRAG MCP" "Public MCP endpoint serving graph queries, risk tools, and quota metadata."
         amlAcp = softwareSystem "AML ACP" "Marketplace bridge that calls Chain Insights workflows through the proxy."
 
-        chainInsights = softwareSystem "Chain Insights Toolkit" "Open-source AML investigation package, CLI, workspace manager, MCP proxy, and case evidence tooling." {
-            ciaCli = container "cia CLI" "Command-line interface for workspace setup, case workflows, and graph tool calls." "TypeScript CLI" {
-                configResolver = component "Config Resolver" "Resolves graphMcpEndpoint, auth token, workspace paths, and hosted/local endpoint precedence." "src/config"
+        chainInsights = softwareSystem "Chain Insights Toolkit" "Open-source AML investigation package, CLI, MCP proxy, and graph analysis tooling." {
+            ciaCli = container "cia CLI" "Command-line interface for configuration, wallet operations, and graph tool calls." "TypeScript CLI" {
+                configResolver = component "Config Resolver" "Resolves graphMcpEndpoint, auth token, and hosted/local endpoint precedence." "src/config"
                 mcpClient = component "Graph MCP Client" "Calls GraphRAG MCP tools and refreshes tool catalogues." "src/mcp"
                 amlWorkflows = component "AML Workflow Commands" "Runs address risk and graph query workflows." "src/investigation"
                 installer = component "Agent Installer" "Installs MCP proxy configuration for local agent clients." "bin/install.cjs"
             }
             mcpProxy = container "MCP Proxy" "Stdio or local proxy surface that lets agent clients call Chain Insights tools." "TypeScript / MCP"
-            workspaceStore = container "Local Workspace Store" "Filesystem workspace containing cases, evidence manifests, dossiers, and config." "Files"
             npmPackage = container "NPM Package" "Published package containing CLI, proxy, docs, and installer assets." "npm"
         }
 
@@ -21,15 +20,12 @@ workspace "Chain Insights Repository" "Repository-scoped C4 model for repos/infr
         amlAcp -> mcpProxy "Uses proxy mode for curated paid workflows"
         ciaCli -> graphMcp "Calls graph tools and AML primitives"
         mcpProxy -> graphMcp "Proxies configured tools"
-        ciaCli -> workspaceStore "Writes local cases, evidence, and config"
-        mcpProxy -> workspaceStore "Uses local workspace configuration"
         npmPackage -> ciaCli "Packages CLI entrypoint"
         npmPackage -> mcpProxy "Packages proxy entrypoint"
 
         configResolver -> mcpClient "Provides endpoint and auth config"
         mcpClient -> graphMcp "Calls public MCP tools"
         amlWorkflows -> mcpClient "Composes graph tool calls"
-        installer -> workspaceStore "Writes client proxy configuration"
     }
 
     views {

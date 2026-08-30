@@ -20,8 +20,6 @@ Every statement here was verified against the source files it names.
   (`mirrorGraphNetworkCapabilities` in `src/mcp/capabilities.ts`). CIA
   overlays its seven public tools. It does not drop or invent names.
   Layer rows stay empty (`layers: {}`).
-- The graph app UI resource `ui://chain-insights/graph` attaches to
-  `aml_address_risk` (`GRAPH_APP_TOOL_NAMES` in `src/mcp/proxy.ts`).
 
 ### Tool Argument Contracts
 
@@ -33,33 +31,6 @@ Every statement here was verified against the source files it names.
   `normalizeRemoteToolArguments`. Every new tunable arg must be added here
   and to the numeric-argument set in `src/mcp/call-args.ts` the moment it
   appears on a tool schema.
-
-## Search Limits Registry
-
-Every remaining search bound resolves through one shared registry:
-`LIMIT_SPECS` in `src/config/limits.ts`.
-
-Precedence, highest layer first:
-
-1. Per-call argument (MCP arg / CLI flag).
-2. `networkLimits.<network>.<key>` in `~/.chain-insights/config.json`.
-3. `limits.<key>` (all networks).
-4. Per-network default table (`NETWORK_LIMIT_DEFAULTS`, empty today).
-5. Built-in default.
-
-Rules:
-
-- Every knob carries a hard `ceiling`. Only a code change to `limits.ts` may
-  raise it. A per-network entry may only lower it.
-- An out-of-range request throws `LimitRangeError`. It is never silently
-  clamped.
-- Results report `input.search_limits` (requested / used / default / ceiling
-  per knob, via `limitsReport()`), so a bounded search is visible without
-  reading warnings.
-- The covered knob is `viz_max_nodes` (nodes rendered in a generated graph
-  view before truncation).
-
-Full table: [../search-limits.md](../search-limits.md).
 
 ## Endpoint Configuration
 
@@ -76,8 +47,8 @@ Validation (`validateMcpEndpoint` in `src/config/mcp-endpoint.ts`):
 - Other remote hosts must use `https://`.
 - No credentials, query string, or fragment in the URL.
 
-MCP proxy mode: `CHAIN_INSIGHTS_MCP_PROXY_MODE=workspace` (default) or
-`stateless` (`resolveMcpProxyMode` in `src/mcp/proxy.ts`).
+The MCP proxy uses stateless operation by default. It returns tool results to
+the caller and does not create local investigation files.
 
 ## Shared-Graph Model
 
@@ -100,10 +71,3 @@ Getting this backwards caused a production regression and a wrong-network
 sweep in the same day (2026-07). Verify against the live stack before
 restating it. Query-side detail:
 [../graph-query-compatibility.md](../graph-query-compatibility.md).
-
-## Workspace Output Layout
-
-Investigation output stays local in user workspace directories:
-
-- `.chain-insights/` — local config, wallet, and schema cache state.
-- `cases/`, `reports/`, `artifacts/`.

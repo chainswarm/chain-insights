@@ -5,7 +5,7 @@
 # Chain Insights Agent Guide
 
 Chain Insights is a public AML investigation CLI and MCP proxy for blockchain
-risk screening, fund-flow tracing, local case evidence, and graph reports.
+risk screening and fund-flow tracing.
 
 ## Public Repository Rules
 
@@ -14,8 +14,9 @@ risk screening, fund-flow tracing, local case evidence, and graph reports.
 - Do not include private repository names, local workspace paths, internal
   planning catalogs, private deployment details, or organization-only workflow
   names in tracked files.
-- Keep investigation output local to user workspaces such as `.chain-insights/`,
-  `cases/`, `reports/`, and `artifacts/`.
+- The first release returns investigation results through the CLI and MCP
+  surfaces. Local workspace initialization, serving, and visualization are
+  not public commands.
 
 ## Development
 
@@ -49,8 +50,8 @@ Every PR that changes tracked files must update:
 
 ## Public Documentation
 
-- README and docs should start from user workflows: install, initialize,
-  configure Chain Insights Graph access, run AML tools, and review evidence.
+- README and docs should start from user workflows: install, configure Chain
+  Insights Graph access, and run AML tools.
 - Local debugging docs may mention localhost endpoints and environment
   variables, but must avoid private filesystem paths and private repository
   topology.

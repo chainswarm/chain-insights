@@ -1,17 +1,10 @@
-import { readFileSync } from 'node:fs'
 import { appendFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { ContentBlock, GetPromptResult } from '@modelcontextprotocol/sdk/types.js'
-import {
-  registerAppResource,
-  registerAppTool,
-  RESOURCE_MIME_TYPE,
-} from '@modelcontextprotocol/ext-apps/server'
 import * as z from 'zod'
 import type { InvestigatorConfig } from '../config/schema.js'
 import { PACKAGE_VERSION } from '../version.js'
@@ -32,17 +25,15 @@ const LOCAL_TOOL_NAMES = new Set([
   'meta_help',
   'wallet_balance',
 ])
-const GRAPH_RESOURCE_URI = 'ui://chain-insights/graph'
-const GRAPH_APP_TOOL_NAMES = new Set(['aml_address_risk'])
 const GRAPH_ARRAY_KEYS = ['nodes', 'edges', 'flows', 'edge_anchors'] as const
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export type McpProxyMode = 'workspace' | 'stateless'
 
 export function resolveMcpProxyMode(env: NodeJS.ProcessEnv = process.env): McpProxyMode {
   const raw = env['CHAIN_INSIGHTS_MCP_PROXY_MODE']?.trim().toLowerCase()
-  if (!raw || raw === 'workspace') return 'workspace'
-  if (raw === 'stateless' || raw === 'no-workspace' || raw === 'workspace-less') return 'stateless'
+  if (!raw || raw === 'stateless') return 'stateless'
+  if (raw === 'workspace') return 'workspace'
+  if (raw === 'no-workspace' || raw === 'workspace-less') return 'stateless'
   throw new Error(`CHAIN_INSIGHTS_MCP_PROXY_MODE must be workspace or stateless; got "${raw}"`)
 }
 
@@ -68,11 +59,6 @@ type ToolCallInput = { name: string; arguments?: Record<string, unknown> }
 type RemoteToolCaller = {
   callTool: Client['callTool']
 }
-type ChainInsightsGraphMeta = {
-  schema: string
-  url: string
-}
-
 const NETWORK_DESCRIPTION =
   'Network to query. Call meta_network_capabilities first and pass a name GraphRAG advertised. CIA does not pick a default network.'
 const NETWORK_SCHEMA = z.string().min(1).describe(NETWORK_DESCRIPTION)
@@ -82,11 +68,9 @@ const REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS = 15 * 60 * 1000
 
 const CHAIN_INSIGHTS_WORKFLOW = [
   'Workflow:',
-  '1. Chain Insights workspaces are append-only local working directories. Bootstrap with cia init before workflows that persist artifacts.',
-  '2. Do not call investigation tools until required arguments are known. Network is required; use meta_network_capabilities to check supported networks and available tools, or ask the user if missing.',
-  '3. Use aml_address_risk for single-address enrichment. Use graph_query(_batch) for graph-level questions that aml_address_risk does not answer.',
-  '4. Persisted outputs belong in the initialized workspace under reports/, reports/graphs/, reports/tables/, artifacts/, entities/, sessions/, and published/.',
-  '5. For local review, inspect the generated Markdown and graph/table artifacts directly in the workspace.',
+  '1. Do not call investigation tools until required arguments are known. Network is required; use meta_network_capabilities to check supported networks and available tools, or ask the user if missing.',
+  '2. Use aml_address_risk for single-address enrichment. Use graph_query(_batch) for graph-level questions that aml_address_risk does not answer.',
+  '3. Preserve tool summaries and structured facts as returned. Keep full blockchain addresses intact.',
 ].join('\n')
 
 const GRAPH_SCHEMA_HINTS = [
@@ -109,82 +93,20 @@ const GRAPH_SCHEMA_HINTS = [
   '- Use USE facts graph patterns for fact and enrichment reads. Do not query internal table namespaces directly.',
 ].join('\n')
 
-const GRAPH_REPORT_HINTS = [
-  'Graph visualization behavior:',
-  '- Graph-backed tools return the investigator report as text content and keep raw graph data out of LLM-visible structuredContent.',
-  '- Chain Insights prepares the graph view automatically from local workspace report files when graph metadata is available.',
-  '- If the graph view cannot load a report, retry the graph-backed tool call so Chain Insights can recreate the local graph report.',
-].join('\n')
-
 const SERVER_INSTRUCTIONS = [
-  'Chain Insights is a local graph-analysis workspace for AI agents.',
+  'Chain Insights is an AML and graph-analysis MCP server for AI agents.',
   CHAIN_INSIGHTS_WORKFLOW,
-  GRAPH_REPORT_HINTS,
   GRAPH_SCHEMA_HINTS,
   'Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses or identity_resolution audit mappings.',
 ].join('\n\n')
 
 const STATELESS_SERVER_INSTRUCTIONS = [
   'Chain Insights is running as a stateless AML proxy for a host application.',
-  'Do not use local workspace persistence, wallet, or graph report workflows in this mode.',
   'Use meta_network_capabilities first when network support is unknown, then call aml_address_risk, graph_query, or graph_query_batch as needed.',
+  'Use wallet_balance to inspect the local payment wallet when payment setup is needed.',
   GRAPH_SCHEMA_HINTS,
   'Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses or identity_resolution audit mappings.',
 ].join('\n\n')
-
-function readGraphAppHtml(): string {
-  const candidates = [
-    path.resolve(__dirname, 'templates', 'graph.html'),
-    path.resolve(__dirname, '..', 'templates', 'graph.html'),
-    path.resolve(__dirname, '..', 'viz', 'templates', 'graph.html'),
-  ]
-
-  for (const candidate of candidates) {
-    try {
-      return readFileSync(candidate, 'utf8')
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
-    }
-  }
-
-  throw new Error(`Chain Insights Graph app template not found. Tried: ${candidates.join(', ')}`)
-}
-
-function graphArtifactOrigins(config: Pick<InvestigatorConfig, 'serverPort'>): string[] {
-  return [`http://127.0.0.1:${config.serverPort}`, `http://localhost:${config.serverPort}`]
-}
-
-function hasGraphApp(tool: McpTool): boolean {
-  const configuredUri = tool._meta?.ui
-  if (
-    configuredUri &&
-    typeof configuredUri === 'object' &&
-    'resourceUri' in configuredUri &&
-    configuredUri.resourceUri === GRAPH_RESOURCE_URI
-  ) {
-    return true
-  }
-
-  if (tool._meta?.['ui/resourceUri'] === GRAPH_RESOURCE_URI) return true
-  if (GRAPH_APP_TOOL_NAMES.has(tool.name)) return true
-  return JSON.stringify(tool.outputSchema ?? {}).includes('"app_data"')
-}
-
-function graphToolMeta(tool: McpTool): Record<string, unknown> & { ui: { resourceUri: string } } {
-  const meta = { ...(tool._meta ?? {}) }
-  const ui =
-    meta.ui && typeof meta.ui === 'object' && !Array.isArray(meta.ui)
-      ? { ...(meta.ui as Record<string, unknown>) }
-      : {}
-
-  return {
-    ...meta,
-    ui: {
-      ...ui,
-      resourceUri: GRAPH_RESOURCE_URI,
-    },
-  }
-}
 
 // Exported so a test can prove, for EVERY public tool, that each declared
 // schema argument also appears in PUBLIC_MCP_TOOL_ALLOWED_ARGS. An argument
@@ -201,7 +123,6 @@ export function knownPublicToolInputSchema(toolName: string): ToolInputShape | n
           .string()
           .optional()
           .describe('Optional address to compare against the screened address.'),
-        include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
       }
     case 'graph_query':
       return {
@@ -666,21 +587,15 @@ function registerLocalPrompts(server: McpServer): void {
     'meta-help',
     {
       title: 'Chain Insights Help',
-      description: 'Show available Chain Insights tools and workspace workflow.',
+      description: 'Show available Chain Insights tools and workflow guidance.',
       argsSchema: {},
     },
     async () =>
       promptResult(
-        'Use Chain Insights meta_help. Summarize the available tools and workspace workflow without inventing capabilities.',
+        'Use Chain Insights meta_help. Summarize the available tools and workflow guidance without inventing capabilities.',
         'Chain Insights help'
       )
   )
-}
-
-function hasGraphArrayFields(value: unknown): boolean {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
-  const record = value as Record<string, unknown>
-  return GRAPH_ARRAY_KEYS.some((key) => Array.isArray(record[key]))
 }
 
 function sanitizeStructuredContentForGraphPayload(
@@ -708,103 +623,30 @@ function sanitizeStructuredValue(value: unknown): unknown {
   return sanitized
 }
 
-function getRemoteGraphPayload(result: RemoteToolResult): Record<string, unknown> | null {
-  const chainInsights = result._meta?.chainInsights
-  if (!chainInsights || typeof chainInsights !== 'object' || Array.isArray(chainInsights))
-    return null
-  const graph = (chainInsights as Record<string, unknown>).graph
-  if (graph === undefined) return null
-  if (!graph || typeof graph !== 'object' || Array.isArray(graph)) {
-    throw new Error('Invalid remote graph payload')
+function sanitizeRemoteMeta(metaValue: RemoteToolResult['_meta']): RemoteToolResult['_meta'] {
+  if (!metaValue || typeof metaValue !== 'object' || Array.isArray(metaValue)) return undefined
+
+  const meta = { ...metaValue } as Record<string, unknown>
+  delete meta.ui
+  delete meta['ui/resourceUri']
+
+  const chainInsights = meta.chainInsights
+  if (chainInsights && typeof chainInsights === 'object' && !Array.isArray(chainInsights)) {
+    const { graph: _graph, ...withoutGraph } = chainInsights as Record<string, unknown>
+    if (Object.keys(withoutGraph).length > 0) meta.chainInsights = withoutGraph
+    else delete meta.chainInsights
   }
 
-  const graphRecord = graph as Record<string, unknown>
-  if (!('data' in graphRecord)) {
-    if ('url' in graphRecord || hasGraphArrayFields(graphRecord)) {
-      throw new Error('Invalid remote graph payload')
-    }
-    return null
-  }
-
-  const data = graphRecord.data
-  if (!data || typeof data !== 'object' || Array.isArray(data)) {
-    throw new Error('Invalid remote graph payload')
-  }
-
-  return data as Record<string, unknown>
+  return Object.keys(meta).length > 0 ? (meta as RemoteToolResult['_meta']) : undefined
 }
 
-async function normalizeRemoteToolResult(
-  result: RemoteToolResult,
-  config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
-  toolName = 'remote-graph',
-  includeAttachments = true
-) {
-  const graphPayload = getRemoteGraphPayload(result)
-  const meta = { ...(result._meta ?? {}) }
-
-  if (graphPayload && includeAttachments) {
-    const { writeGraphReport } = await import('./graph-reports.js')
-    const { ensureArtifactServer } = await import('./artifact-server.js')
-    const report = await writeGraphReport(graphPayload as never, {
-      serverPort: config.serverPort,
-      slug: toolName || 'remote-graph',
-    })
-    await ensureArtifactServer(config.serverPort)
-    meta.chainInsights = {
-      ...((meta.chainInsights as Record<string, unknown>) ?? {}),
-      graph: {
-        schema: report.schema,
-        url: report.url,
-      },
-    }
-  }
-
+function normalizeRemoteToolResult(result: RemoteToolResult) {
   return {
     content: result.content ?? [],
     structuredContent: sanitizeStructuredContentForGraphPayload(result.structuredContent),
-    _meta: Object.keys(meta).length > 0 ? meta : undefined,
+    _meta: sanitizeRemoteMeta(result._meta),
     isError: result.isError,
   }
-}
-
-function shouldIncludeAttachments(
-  args: Record<string, unknown>,
-  workspaceArtifactsEnabled: boolean
-): boolean {
-  return workspaceArtifactsEnabled && args['include_attachments'] !== false
-}
-
-async function writeLocalGraphMeta(
-  graphData: unknown,
-  config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
-  slug: string,
-  includeAttachments: boolean
-): Promise<ChainInsightsGraphMeta | undefined> {
-  if (!includeAttachments) return undefined
-  const { writeGraphReport } = await import('./graph-reports.js')
-  const { ensureArtifactServer } = await import('./artifact-server.js')
-  const report = await writeGraphReport(graphData as never, {
-    serverPort: config.serverPort,
-    slug,
-  })
-  await ensureArtifactServer(config.serverPort)
-  return {
-    schema: report.schema,
-    url: report.url,
-  }
-}
-
-function graphMetaResult(
-  graph: ChainInsightsGraphMeta | undefined
-): Record<string, unknown> | undefined {
-  return graph
-    ? {
-        chainInsights: {
-          graph,
-        },
-      }
-    : undefined
 }
 
 function cleanNetworkCapabilities(value: unknown) {
@@ -979,21 +821,6 @@ export async function createProxy(): Promise<void> {
 
   registerLocalPrompts(server)
 
-  const caseToolError = (label: string, err: unknown) => ({
-    content: [{ type: 'text' as const, text: `${label} failed: ${(err as Error).message}` }],
-    isError: true,
-  })
-
-  const parseTags = (tags: string | string[] | undefined): string[] => {
-    if (Array.isArray(tags)) return tags.map((tag) => tag.trim()).filter(Boolean)
-    if (typeof tags === 'string')
-      return tags
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter(Boolean)
-    return []
-  }
-
   server.registerTool(
     'meta_network_capabilities',
     {
@@ -1086,85 +913,40 @@ export async function createProxy(): Promise<void> {
     }
   )
 
-  if (workspaceArtifactsEnabled) {
-    server.registerTool(
-      'wallet_balance',
-      {
-        title: 'Wallet Balance',
-        description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.wallet_balance,
-        inputSchema: EMPTY_INPUT_SCHEMA,
-        annotations: {
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: true,
-        },
-      },
-      async () => {
-        try {
-          const { formatWalletBalanceResult, getWalletAccount, getWalletBalanceResult } =
-            await import('../wallet/tools.js')
-          const account = await getWalletAccount()
-          const structuredContent = await getWalletBalanceResult(account)
-          return {
-            content: [
-              { type: 'text' as const, text: formatWalletBalanceResult(structuredContent) },
-            ],
-            structuredContent: structuredContent as unknown as Record<string, unknown>,
-            isError: false,
-          }
-        } catch (err) {
-          return {
-            content: [{ type: 'text' as const, text: `Balance failed: ${(err as Error).message}` }],
-            isError: true,
-          }
-        }
-      }
-    )
-  }
-  // NOTE: only wallet_balance is workspace-only. Everything below — the graph
-  // app resource, the aml_*/graph tools, and server.connect() — is shared and
-  // MUST run in stateless mode too. (Regression #136: this brace had drifted to
-  // the end of the function, so stateless mode skipped server.connect entirely.)
-
-  registerAppResource(
-    server,
-    'Fund Flow Graph',
-    GRAPH_RESOURCE_URI,
+  server.registerTool(
+    'wallet_balance',
     {
-      description:
-        'Interactive fund-flow and pattern graph for Chain Insights investigation reports.',
-      _meta: {
-        ui: {
-          csp: {
-            resourceDomains: graphArtifactOrigins(config),
-            connectDomains: graphArtifactOrigins(config),
-          },
-        },
+      title: 'Wallet Balance',
+      description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.wallet_balance,
+      inputSchema: EMPTY_INPUT_SCHEMA,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
       },
     },
-    async () => ({
-      contents: [
-        {
-          uri: GRAPH_RESOURCE_URI,
-          mimeType: RESOURCE_MIME_TYPE,
-          text: readGraphAppHtml(),
-          _meta: {
-            ui: {
-              csp: {
-                resourceDomains: graphArtifactOrigins(config),
-                connectDomains: graphArtifactOrigins(config),
-              },
-            },
-          },
-        },
-      ],
-    })
+    async () => {
+      try {
+        const { formatWalletBalanceResult, getWalletAccount, getWalletBalanceResult } =
+          await import('../wallet/tools.js')
+        const account = await getWalletAccount()
+        const structuredContent = await getWalletBalanceResult(account)
+        return {
+          content: [{ type: 'text' as const, text: formatWalletBalanceResult(structuredContent) }],
+          structuredContent: structuredContent as unknown as Record<string, unknown>,
+          isError: false,
+        }
+      } catch (err) {
+        return {
+          content: [{ type: 'text' as const, text: `Balance failed: ${(err as Error).message}` }],
+          isError: true,
+        }
+      }
+    }
   )
-
   if (!remoteToolNames.has('aml_address_risk')) {
-    registerAppTool(
-      server,
+    server.registerTool(
       'aml_address_risk',
       {
         title: 'Address Risk',
@@ -1176,12 +958,6 @@ export async function createProxy(): Promise<void> {
             .string()
             .optional()
             .describe('Optional address to compare against the screened address'),
-          include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
-        },
-        _meta: {
-          ui: {
-            resourceUri: GRAPH_RESOURCE_URI,
-          },
         },
         annotations: {
           readOnlyHint: true,
@@ -1190,7 +966,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ address, network, compare_address, include_attachments }) => {
+      async ({ address, network, compare_address }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -1210,16 +986,9 @@ export async function createProxy(): Promise<void> {
             compareAddress: compare_address,
             writeArtifacts: workspaceArtifactsEnabled,
           })
-          const graph = await writeLocalGraphMeta(
-            result.graphData,
-            config,
-            `address-risk-${network}-${address}`,
-            shouldIncludeAttachments({ include_attachments }, workspaceArtifactsEnabled)
-          )
           return {
             content: [{ type: 'text' as const, text: result.summaryText }],
             structuredContent: result.structuredContent,
-            _meta: graphMetaResult(graph),
             isError: false,
           }
         } catch (err) {
@@ -1256,7 +1025,7 @@ export async function createProxy(): Promise<void> {
           type: 'text' as const,
           text: workspaceArtifactsEnabled
             ? [
-                'Chain Insights helps AI agents run AML investigation workflows and keep evidence in local workspace files.',
+                'Chain Insights helps AI agents run AML investigation workflows.',
                 '',
                 CHAIN_INSIGHTS_WORKFLOW,
                 '',
@@ -1270,13 +1039,9 @@ export async function createProxy(): Promise<void> {
                 'Wallet tools:',
                 '- wallet_balance: show the local payment wallet address, payment network, token, and amount.',
                 '- meta_help: show this overview.',
-                '',
-                GRAPH_REPORT_HINTS,
               ].join('\n')
             : [
                 'Chain Insights stateless AML proxy for host applications.',
-                '',
-                'Local workspace persistence, wallet, and graph report attachment tools are disabled in this mode.',
                 '',
                 'Available graph-backed tools:',
                 '- meta_network_capabilities: inspect supported networks and available tools.',
@@ -1325,12 +1090,7 @@ export async function createProxy(): Promise<void> {
         const result = requestOptions
           ? await remoteClient.callTool(request, undefined, requestOptions)
           : await remoteClient.callTool(request)
-        return await normalizeRemoteToolResult(
-          result as RemoteToolResult,
-          config,
-          tool.name,
-          shouldIncludeAttachments(normalizedArgs, workspaceArtifactsEnabled)
-        )
+        return normalizeRemoteToolResult(result as RemoteToolResult)
       } catch (err) {
         if (err instanceof PaymentRequiredError) {
           return {
@@ -1370,19 +1130,7 @@ export async function createProxy(): Promise<void> {
         : {}),
     }
 
-    if (hasGraphApp(tool)) {
-      registerAppTool(
-        server,
-        tool.name,
-        {
-          ...toolConfig,
-          _meta: graphToolMeta(tool),
-        },
-        handler
-      )
-    } else {
-      server.registerTool(tool.name, toolConfig, handler)
-    }
+    server.registerTool(tool.name, toolConfig, handler)
   }
 
   // Connect to stdio transport — after this line, stdout belongs to MCP

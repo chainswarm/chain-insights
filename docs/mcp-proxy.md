@@ -2,11 +2,7 @@
 
 The Chain Insights stdio proxy lets AI agents consume Chain Insights tools as
 an MCP server. It connects to the configured Chain Insights Graph endpoint and
-adds local wallet and graph-report behavior.
-
-Chain Insights workspaces are plain local folders. Use local workspace files
-for normal review. Use published workspace outputs only when an agent needs a
-handoff, rendered HTML, or a durable bundle inside the workspace.
+adds local wallet behavior.
 
 ## Basic Configuration
 
@@ -76,9 +72,8 @@ The proxy:
 - Caches remote tool schemas per endpoint for 24 hours.
 - Exposes graph tools returned by the endpoint.
 - Adds local `meta_*` and `wallet_*` tools.
-- Starts the local graph report server when graph report URLs are returned.
-- Publishes instructions with required argument rules, workflow guidance, graph
-  report behavior, and schema hints.
+- Publishes instructions with required argument rules, workflow guidance, and
+  schema hints.
 
 ## Local Tools
 
@@ -88,12 +83,6 @@ The proxy:
 | `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                  |
 | `meta_help`                 | Show Chain Insights tool and workflow guidance                            |
 | `wallet_balance`            | Show the local payment wallet address, payment network, token, and amount |
-
-For normal local review, inspect local workspace files directly and keep your
-preferred editor or agent tooling open to the same workspace while you work.
-
-`published/` contains the generated shareable artifacts. Use it after
-workspace validation when an agent needs rendered HTML or handoff-ready files.
 
 Remote graph tools are discovered from the configured Chain Insights Graph endpoint.
 The minimum graph primitive surface is `graph_query` and `graph_query_batch`;
@@ -189,9 +178,6 @@ chain-insights --hermes
 The Hermes installer writes Chain Insights skills under the Hermes skills
 directory and registers the stdio MCP proxy in the Hermes config.
 
-After installing, open an initialized investigation workspace in the agent and
-operate over the workspace files.
-
 For a one-address screen, agents should use `chain-insights-address-risk`.
 For manual graph-language work, use `chain-insights-cypher` plus
 `chain-insights-schema-evm` or `chain-insights-schema-bittensor`.
@@ -269,13 +255,3 @@ npx @modelcontextprotocol/inspector \
   --cli chain-insights-mcp-proxy \
   --method tools/list
 ```
-
-## Graph Reports
-
-Graph-backed tools can prepare a local graph view for the report. Chain
-Insights stores graph report files under `reports/graphs/*.graph.json` in the
-active workspace and exposes them to compatible MCP clients through app
-metadata.
-
-The local graph report server binds to localhost. Chain Insights does not
-create duplicated `artifacts/` graph payloads; `reports/graphs/` is canonical.
