@@ -72,7 +72,7 @@ describe('shipped Chain Insights skills contract', () => {
     const mcpProxy = read('docs/mcp-proxy.md')
     const packageJson = read('package.json')
 
-    expect(readme).toContain('open-source AML investigation toolkit')
+    expect(readme).toContain('open-source AML and forensics infrastructure')
     expect(readme).toContain('https://chain-insights.ai')
     expect(readme).toContain('https://www.npmjs.com/package/chain-insights')
     expect(readme).toContain('[![npm version](https://img.shields.io/npm/v/chain-insights)]')
