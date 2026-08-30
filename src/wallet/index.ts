@@ -119,7 +119,7 @@ export async function setWalletPrivateKey(
       const which = existing ? ` (${existing})` : ''
       throw new Error(
         `A payment wallet already exists${which}. Importing a new key overwrites it and permanently ` +
-          `discards the old key. Re-run \`chain-insights wallet import <key> --force\` to replace it; ` +
+          `discards the old key. Re-run \`cia wallet import <key> --force\` to replace it; ` +
           `the previous encrypted key is backed up next to wallet.json first.`
       )
     }
@@ -144,7 +144,7 @@ export async function decryptKey(): Promise<string> {
     const nodeErr = err as NodeJS.ErrnoException
     if (nodeErr.code === 'ENOENT') {
       throw new Error(
-        'Wallet not configured. Run `chain-insights wallet import <private-key>`, then `chain-insights wallet ready`.'
+        'Wallet not configured. Run `cia wallet create` to generate one, or `cia wallet import <private-key>` to use an existing key. Then run `cia wallet ready`.'
       )
     }
     throw err
@@ -167,7 +167,7 @@ export async function decryptKey(): Promise<string> {
     return decrypted.toString('utf8')
   } catch {
     throw new Error(
-      'Wallet decryption failed. If you changed your hostname or username, re-import it with `chain-insights wallet import <private-key>`.'
+      'Wallet decryption failed. If you changed your hostname or username, re-import it with `cia wallet import <private-key>`.'
     )
   }
 }

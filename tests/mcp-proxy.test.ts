@@ -435,7 +435,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     const mcpClient = await import('../src/mcp/client.js')
     vi.mocked(mcpClient.createConfiguredGraphMcpFetch).mockRejectedValueOnce(
-      new Error('Wallet not configured. Run `chain-insights wallet ready`.')
+      new Error('Wallet not configured. Run `cia wallet ready`.')
     )
 
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
@@ -744,7 +744,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.isError).toBe(true)
     expect(result.content[0].type).toBe('text')
     expect(result.content[0].text).toContain('Payment required for trace_address')
-    expect(result.content[0].text).toContain('chain-insights wallet ready')
+    expect(result.content[0].text).toContain('cia wallet ready')
   })
 
   it('calls remoteClient.connect but not listTools when schema cache has tools (WR-01: always connect)', async () => {

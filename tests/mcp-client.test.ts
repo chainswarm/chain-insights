@@ -224,9 +224,7 @@ describe('MCP client (02-01)', () => {
     const testKey = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as const
     const client = createMcpFetchClient(testKey)
 
-    await expect(client('https://mcp.example.test/mcp')).rejects.toThrow(
-      'chain-insights wallet ready'
-    )
+    await expect(client('https://mcp.example.test/mcp')).rejects.toThrow('cia wallet ready')
   })
 
   it('createMcpFetchClient prepares the wallet and retries once when approval is missing', async () => {
@@ -298,9 +296,7 @@ describe('MCP client (02-01)', () => {
     const testKey = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as const
     const client = createMcpFetchClient(testKey)
 
-    await expect(client('https://mcp.example.test/mcp')).rejects.toThrow(
-      'chain-insights wallet ready'
-    )
+    await expect(client('https://mcp.example.test/mcp')).rejects.toThrow('cia wallet ready')
   })
 
   it('createMcpFetchClient surfaces a clear Permit2-approval error for non-Base-USDC assets instead of attempting Base-only auto-approval', async () => {
@@ -434,9 +430,7 @@ describe('MCP client (02-01)', () => {
     await expect(authedFetch('http://localhost:8011/mcp')).rejects.toBeInstanceOf(
       PaymentRequiredError
     )
-    await expect(authedFetch('http://localhost:8011/mcp')).rejects.toThrow(
-      'chain-insights wallet ready'
-    )
+    await expect(authedFetch('http://localhost:8011/mcp')).rejects.toThrow('cia wallet ready')
   })
 
   it('createMcpAuthFetchClient gives guidance even for 402 without x402 header', async () => {
@@ -445,9 +439,7 @@ describe('MCP client (02-01)', () => {
     const { createMcpAuthFetchClient } = await import('../src/mcp/client.js')
     const authedFetch = createMcpAuthFetchClient('debug-secret', baseFetch)
 
-    await expect(authedFetch('http://localhost:8011/mcp')).rejects.toThrow(
-      'chain-insights wallet ready'
-    )
+    await expect(authedFetch('http://localhost:8011/mcp')).rejects.toThrow('cia wallet ready')
   })
 
   it('resolveGraphMcpEndpoint returns the configured graphMcpEndpoint', async () => {
@@ -553,14 +545,10 @@ describe('MCP client (02-01)', () => {
         graphMcpMode: 'paid',
       })
 
+      await expect(graphFetch('https://mcp.example.test/mcp')).rejects.toThrow('cia wallet ready')
+      await expect(graphFetch('https://mcp.example.test/mcp')).rejects.toThrow('cia wallet topup')
       await expect(graphFetch('https://mcp.example.test/mcp')).rejects.toThrow(
-        'chain-insights wallet ready'
-      )
-      await expect(graphFetch('https://mcp.example.test/mcp')).rejects.toThrow(
-        'chain-insights wallet topup'
-      )
-      await expect(graphFetch('https://mcp.example.test/mcp')).rejects.toThrow(
-        'chain-insights access-key set <key>'
+        'cia access-key set <key>'
       )
     } finally {
       vi.unstubAllGlobals()

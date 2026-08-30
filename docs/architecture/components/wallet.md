@@ -8,13 +8,13 @@ Tests: tests/wallet.test.ts, tests/wallet-tools.test.ts
 
 ## Purpose
 
-Manages encrypted EVM private key storage for x402 micropayments on Chain Insights Graph tools. Imports private keys, encrypts with machine-identity-derived key (hostname + username + random salt), stores at ~/.chain-insights/wallet.json (0o600 permissions), decrypts for payment operations, and provides wallet account/balance tools for MCP clients.
+Manages encrypted EVM private key storage for x402 micropayments on Chain Insights Graph tools. Creates or imports private keys, encrypts with a machine-identity-derived key (hostname + username + random salt), stores at ~/.chain-insights/wallet.json (0o600 permissions), decrypts for payment operations, and provides wallet account/balance tools for MCP clients.
 
 ## Reads
 
 - **~/.chain-insights/wallet.json:** Encrypted wallet data (salt, iv, tag, data fields)
 - **Machine identity:** os.hostname(), os.userInfo().username for key derivation
-- **Private key input:** User-provided 0x-prefixed EVM private key (via `cia wallet import`)
+- **Private key input:** Generated locally by `cia wallet create` or provided by the user through `cia wallet import`
 
 ## Writes
 
@@ -26,7 +26,7 @@ Manages encrypted EVM private key storage for x402 micropayments on Chain Insigh
 
 ```mermaid
 flowchart TB
-  A[cia wallet import] --> B[Validate private key]
+  A[cia wallet create or import] --> B[Generate or validate private key]
   B --> C[Generate random salt]
   C --> D[Derive key from hostname+username+salt]
   D --> E[Generate random IV]
@@ -58,9 +58,13 @@ flowchart TB
 ## Run
 
 ```bash
+# Create a new wallet (CLI)
+cia wallet create
+# → Displays the private key once, requires `BACKED UP`, then encrypts and stores it
+
 # Import wallet (CLI)
 cia wallet import 0x1234...cdef (example 64-hex private key)
-# → Validates key, encrypts, writes ~/.chain-insights/wallet.json, returns address
+# → Validates key, reminds the user to retain the original backup, encrypts, writes wallet.json, returns address
 
 # Check wallet ready for payments
 cia wallet ready

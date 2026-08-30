@@ -12,7 +12,7 @@ const installerPath = path.resolve(__dirname, '..', 'bin', 'install.cjs')
 const program = new Command()
 
 program
-  .name('chain-insights')
+  .name('cia')
   .description('AML investigation toolkit for blockchain analysis')
   .version(PACKAGE_INFO.version)
   .option('--claude', 'Install Claude Code skills globally to ~/.claude/skills/')
@@ -103,14 +103,47 @@ async function printNetworkCapabilities(opts: { json?: boolean }): Promise<void>
   }
 }
 
+async function printNetworkCapability(name: string, opts: { json?: boolean }): Promise<void> {
+  const { loadConfig } = await import('./config/index.js')
+  const { fetchNetworkCapabilities, findNetworkCapability, formatNetworkCapability } =
+    await import('./mcp/capabilities.js')
+  const document = await fetchNetworkCapabilities(await loadConfig())
+  const network = findNetworkCapability(document, name)
+  if (!network) {
+    const available = document.networks.map((candidate) => candidate.network).join(', ')
+    const suffix = available ? ` Available networks: ${available}.` : ''
+    throw new Error(
+      `Network "${name}" is not supported.${suffix} Run \`cia networks\` to list supported networks.`
+    )
+  }
+  if (opts.json) {
+    console.log(JSON.stringify(network, null, 2))
+  } else {
+    console.log(formatNetworkCapability(network))
+  }
+}
+
 program
   .command('networks')
-  .alias('network')
   .description('List supported graph networks, capability layers, and available tools')
   .option('--json', 'Print raw capability JSON')
   .action(async (opts: { json?: boolean }) => {
     try {
       await printNetworkCapabilities(opts)
+    } catch (err) {
+      console.error((err as Error).message)
+      process.exit(1)
+    }
+  })
+
+program
+  .command('network')
+  .description('Show details for one supported graph network')
+  .argument('<name>', 'Network identifier or display name (for example: robinhood)')
+  .option('--json', 'Print raw capability JSON for this network')
+  .action(async (name: string, opts: { json?: boolean }) => {
+    try {
+      await printNetworkCapability(name, opts)
     } catch (err) {
       console.error((err as Error).message)
       process.exit(1)
@@ -374,6 +407,48 @@ program
   .command('wallet')
   .description('Manage the local Base USDC payment wallet')
   .addCommand(
+    new Command('create')
+      .description('Generate a new local Base payment wallet')
+      .action(async () => {
+        try {
+          const { isWalletConfigured, setWalletPrivateKey, walletPath } =
+            await import('./wallet/index.js')
+          const { createInterface } = await import('node:readline/promises')
+          const { formatWalletBackupWarning, generateWalletPrivateKey, isWalletBackupConfirmed } =
+            await import('./wallet/create.js')
+
+          if (await isWalletConfigured()) {
+            throw new Error(
+              'A payment wallet already exists. Run `cia wallet address` to view it or use `cia wallet import <private-key> --force` to replace it.'
+            )
+          }
+
+          const privateKey = generateWalletPrivateKey()
+          const color = process.stderr.isTTY === true && process.env['NO_COLOR'] === undefined
+          process.stderr.write(`${formatWalletBackupWarning(privateKey, { color })}\n`)
+          const prompt = createInterface({ input: process.stdin, output: process.stderr })
+          let answer: string
+          try {
+            answer = await prompt.question('> ')
+          } finally {
+            prompt.close()
+          }
+          process.stderr.write('\n')
+          if (!isWalletBackupConfirmed(answer)) {
+            throw new Error('Wallet creation cancelled. The wallet was not saved.')
+          }
+
+          const address = await setWalletPrivateKey(privateKey)
+          console.log(`Wallet created: ${address}`)
+          console.log(`Encrypted local copy: ${walletPath()}`)
+          console.log('Next: cia wallet ready')
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
     new Command('import')
       .description('Import a Base payment wallet')
       .argument('<private-key>', '0x-prefixed EVM private key')
@@ -390,7 +465,11 @@ program
             console.log('Previous wallet key backed up next to ~/.chain-insights/wallet.json')
           }
           console.log(`Wallet imported: ${address}`)
-          console.log('Next: run `chain-insights wallet ready`')
+          console.log(
+            'Keep your original private key backed up securely; it cannot be recovered from the encrypted local copy.'
+          )
+          console.log('Encrypted local copy: ~/.chain-insights/wallet.json')
+          console.log('Next: cia wallet ready')
         } catch (err) {
           console.error((err as Error).message)
           process.exit(1)

@@ -67,8 +67,8 @@ metadata.
 ## Start
 
 \`\`\`bash
-chain-insights mcp tools --refresh
-chain-insights wallet ready --check-only
+cia mcp tools --refresh
+cia wallet ready --check-only
 \`\`\`
 
 ## Layout

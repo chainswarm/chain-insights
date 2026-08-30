@@ -18,9 +18,10 @@ const cliBin = join(process.cwd(), 'bin', 'cli.js')
 const cli = `node ${JSON.stringify(cliBin)}`
 
 describe('CLI scaffold (FOUND-02)', () => {
-  it('--help prints chain-insights name', () => {
+  it('--help prints the cia command name', () => {
     const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
-    expect(out).toContain('chain-insights')
+    expect(out).toMatch(/^Usage: cia/m)
+    expect(out).not.toMatch(/^Usage: chain-insights/m)
   })
 
   it('--help omits deferred local commands', () => {
@@ -80,9 +81,10 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('networks')
   })
 
-  it('network --help works as a top-level alias for network capabilities', () => {
+  it('network --help describes single-network details', () => {
     const out = execSync('node bin/cli.js network --help', { encoding: 'utf8' })
-    expect(out).toContain('List supported graph networks')
+    expect(out).toContain('<name>')
+    expect(out).toContain('Show details for one supported graph network')
   })
 
   it('--help lists Hermes installer flag', () => {
@@ -90,11 +92,58 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('--hermes')
   })
 
-  it('wallet --help lists balance, ready, and topup subcommands', () => {
+  it('wallet --help lists create, balance, ready, and topup subcommands', () => {
     const out = execSync('node bin/cli.js wallet --help', { encoding: 'utf8' })
+    expect(out).toContain('create')
     expect(out).toContain('balance')
     expect(out).toContain('ready')
     expect(out).toContain('topup')
+  })
+
+  it('wallet create requires explicit backup confirmation before persisting', () => {
+    const home = mkdtempSync(join(tmpdir(), 'chain-insights-wallet-create-'))
+    try {
+      const result = spawnSync(
+        process.execPath,
+        ['--import', tsxLoader, srcCli, 'wallet', 'create'],
+        {
+          encoding: 'utf8',
+          input: 'NO\n',
+          env: { ...process.env, HOME: home, NO_COLOR: '1' },
+        }
+      )
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain('BACK UP YOUR PRIVATE KEY NOW')
+      expect(result.stderr).toContain('Type BACKED UP to continue')
+      expect(result.stderr).toContain('Wallet creation cancelled')
+      expect(existsSync(join(home, '.chain-insights', 'wallet.json'))).toBe(false)
+    } finally {
+      rmSync(home, { recursive: true, force: true })
+    }
+  })
+
+  it('wallet create stores the wallet only after backup confirmation', () => {
+    const home = mkdtempSync(join(tmpdir(), 'chain-insights-wallet-create-'))
+    try {
+      const result = spawnSync(
+        process.execPath,
+        ['--import', tsxLoader, srcCli, 'wallet', 'create'],
+        {
+          encoding: 'utf8',
+          input: 'BACKED UP\n',
+          env: { ...process.env, HOME: home, NO_COLOR: '1' },
+        }
+      )
+      expect(result.status).toBe(0)
+      expect(result.stderr).toContain('BACK UP YOUR PRIVATE KEY NOW')
+      expect(result.stderr).toMatch(/Type BACKED UP to continue:[\s\S]*> \n$/)
+      expect(result.stdout).toContain('Wallet created: 0x')
+      expect(result.stdout).toContain('Encrypted local copy:')
+      expect(result.stdout).toContain('Next: cia wallet ready')
+      expect(existsSync(join(home, '.chain-insights', 'wallet.json'))).toBe(true)
+    } finally {
+      rmSync(home, { recursive: true, force: true })
+    }
   })
 
   it('wallet --help exposes a user-facing wallet import command', () => {

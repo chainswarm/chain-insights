@@ -11,6 +11,11 @@ export {
   walletAddressFromPrivateKey,
 } from './wallet/index.js'
 export {
+  formatWalletBackupWarning,
+  generateWalletPrivateKey,
+  isWalletBackupConfirmed,
+} from './wallet/create.js'
+export {
   buildTopupInfo,
   formatWalletBalance,
   formatWalletBalanceResult,
