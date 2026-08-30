@@ -22,22 +22,26 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNode(value: Record<string, unknown>): boolean {
   const keys = Object.keys(value)
-  return keys.length === 3
-    && typeof value['id'] === 'string'
-    && (value['id'] as string).startsWith('n:')
-    && 'labels' in value
-    && 'properties' in value
+  return (
+    keys.length === 3 &&
+    typeof value['id'] === 'string' &&
+    (value['id'] as string).startsWith('n:') &&
+    'labels' in value &&
+    'properties' in value
+  )
 }
 
 function isEdge(value: Record<string, unknown>): boolean {
   const keys = Object.keys(value)
-  return keys.length === 5
-    && typeof value['id'] === 'string'
-    && (value['id'] as string).startsWith('r:')
-    && 'type' in value
-    && 'start' in value
-    && 'end' in value
-    && 'properties' in value
+  return (
+    keys.length === 5 &&
+    typeof value['id'] === 'string' &&
+    (value['id'] as string).startsWith('r:') &&
+    'type' in value &&
+    'start' in value &&
+    'end' in value &&
+    'properties' in value
+  )
 }
 
 function isPath(value: Record<string, unknown>): boolean {
@@ -77,9 +81,12 @@ function countGraphValue(value: unknown, counts: Counts): void {
   for (const key of Object.keys(value)) countGraphValue(value[key], counts)
 }
 
-export function recountBillableUnits(
-  results: Array<Record<string, unknown>>,
-): { rows: number; nodes: number; edges: number; total: number } {
+export function recountBillableUnits(results: Array<Record<string, unknown>>): {
+  rows: number
+  nodes: number
+  edges: number
+  total: number
+} {
   const counts: Counts = { nodes: 0, edges: 0 }
 
   for (const row of results) {
@@ -87,5 +94,10 @@ export function recountBillableUnits(
   }
 
   const rows = results.length
-  return { rows, nodes: counts.nodes, edges: counts.edges, total: rows + counts.nodes + counts.edges }
+  return {
+    rows,
+    nodes: counts.nodes,
+    edges: counts.edges,
+    total: rows + counts.nodes + counts.edges,
+  }
 }

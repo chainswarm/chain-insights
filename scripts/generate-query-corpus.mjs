@@ -48,22 +48,66 @@ const addFacts = (builder, params, item) => {
 
 for (const scope of SCOPES) {
   for (const address of [ADDR, ADDR_QUOTED]) {
-    add('addressProfileQuery', { address }, scope, queryBuilderContract.addressProfileQuery(address))
-    add('exchangeOutflowQueries', { address }, scope, queryBuilderContract.exchangeOutflowQueries(address))
-    add('exchangeInflowQueries', { address }, scope, queryBuilderContract.exchangeInflowQueries(address))
+    add(
+      'addressProfileQuery',
+      { address },
+      scope,
+      queryBuilderContract.addressProfileQuery(address)
+    )
+    add(
+      'exchangeOutflowQueries',
+      { address },
+      scope,
+      queryBuilderContract.exchangeOutflowQueries(address)
+    )
+    add(
+      'exchangeInflowQueries',
+      { address },
+      scope,
+      queryBuilderContract.exchangeInflowQueries(address)
+    )
   }
-  add('compareAddressExistsQuery', { address: ADDR }, scope, queryBuilderContract.compareAddressExistsQuery(ADDR))
-  add('connectionProbeQuery', { address: ADDR, compare: COMPARE }, scope, queryBuilderContract.connectionProbeQuery(ADDR, COMPARE))
-
+  add(
+    'compareAddressExistsQuery',
+    { address: ADDR },
+    scope,
+    queryBuilderContract.compareAddressExistsQuery(ADDR)
+  )
+  add(
+    'connectionProbeQuery',
+    { address: ADDR, compare: COMPARE },
+    scope,
+    queryBuilderContract.connectionProbeQuery(ADDR, COMPARE)
+  )
 }
 
 // Route evidence: native *BFS traversal on the unified topology graph.
-add('connectionRouteQueries', { address: ADDR, compare: COMPARE }, 'topology', queryBuilderContract.connectionRouteQueries(ADDR, COMPARE))
-add('connectionRouteQueries', { address: ADDR_QUOTED, compare: COMPARE }, 'topology', queryBuilderContract.connectionRouteQueries(ADDR_QUOTED, COMPARE))
+add(
+  'connectionRouteQueries',
+  { address: ADDR, compare: COMPARE },
+  'topology',
+  queryBuilderContract.connectionRouteQueries(ADDR, COMPARE)
+)
+add(
+  'connectionRouteQueries',
+  { address: ADDR_QUOTED, compare: COMPARE },
+  'topology',
+  queryBuilderContract.connectionRouteQueries(ADDR_QUOTED, COMPARE)
+)
 
 // LINKED ownership overlay: served on the topology graph (also on facts).
-add('linkedExposureQueries', { address: ADDR }, 'topology', queryBuilderContract.linkedExposureQueries(ADDR))
-add('crossSpaceLinkedQuery', { address: ADDR }, 'topology', queryBuilderContract.crossSpaceLinkedQuery(ADDR))
+add(
+  'linkedExposureQueries',
+  { address: ADDR },
+  'topology',
+  queryBuilderContract.linkedExposureQueries(ADDR)
+)
+add(
+  'crossSpaceLinkedQuery',
+  { address: ADDR },
+  'topology',
+  queryBuilderContract.crossSpaceLinkedQuery(ADDR)
+)
 
 // facts layer (USE facts hardcoded inside the builders)
 addFacts('addressFeatureQuery', { address: ADDR }, queryBuilderContract.addressFeatureQuery(ADDR))
@@ -75,7 +119,7 @@ addFacts('addressFeatureQuery', { address: ADDR }, queryBuilderContract.addressF
 // facts lookups). Real fixture values so facts recipes also drive the
 // T0b baselines and translator conformance. See tests/fixtures/documented-recipes.json.
 const documentedRecipes = JSON.parse(
-  readFileSync(join(repoRoot, 'tests/fixtures/documented-recipes.json'), 'utf8'),
+  readFileSync(join(repoRoot, 'tests/fixtures/documented-recipes.json'), 'utf8')
 )
 for (const recipe of documentedRecipes.recipes) {
   // This corpus is the production ADMISSION contract: the the upstream pipeline
@@ -95,11 +139,12 @@ for (const recipe of documentedRecipes.recipes) {
   })
 }
 
-entries.sort((a, b) =>
-  a.builder.localeCompare(b.builder) ||
-  a.scope.localeCompare(b.scope) ||
-  JSON.stringify(a.params).localeCompare(JSON.stringify(b.params)) ||
-  a.query.localeCompare(b.query),
+entries.sort(
+  (a, b) =>
+    a.builder.localeCompare(b.builder) ||
+    a.scope.localeCompare(b.scope) ||
+    JSON.stringify(a.params).localeCompare(JSON.stringify(b.params)) ||
+    a.query.localeCompare(b.query)
 )
 
 const corpus = {
@@ -107,6 +152,7 @@ const corpus = {
   entry_count: entries.length,
   entries,
 }
-const outPath = process.env['CORPUS_OUT'] ?? join(repoRoot, 'tests/fixtures/graph-query-corpus.json')
+const outPath =
+  process.env['CORPUS_OUT'] ?? join(repoRoot, 'tests/fixtures/graph-query-corpus.json')
 writeFileSync(outPath, JSON.stringify(corpus, null, 1) + '\n')
 console.log(`wrote ${outPath} (${entries.length} entries)`)

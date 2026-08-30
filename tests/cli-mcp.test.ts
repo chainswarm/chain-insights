@@ -57,7 +57,9 @@ const mockCreateConfiguredGraphMcpFetch = vi.fn()
 vi.mock('../src/mcp/client.js', () => ({
   createMcpFetchClient: mockCreateMcpFetchClient,
   createConfiguredGraphMcpFetch: mockCreateConfiguredGraphMcpFetch,
-  resolveGraphMcpEndpoint: vi.fn((config: { graphMcpEndpoint: string }) => config.graphMcpEndpoint.trim()),
+  resolveGraphMcpEndpoint: vi.fn((config: { graphMcpEndpoint: string }) =>
+    config.graphMcpEndpoint.trim()
+  ),
 }))
 
 // Mock MCP SDK Client
@@ -94,16 +96,20 @@ async function runMcpToolsAction(opts: { refresh?: boolean } = {}): Promise<void
   const { formatToolsTable } = await import('../src/mcp/format.js')
   const { visibleRemoteTools } = await import('../src/mcp/tool-visibility.js')
   const { loadConfig } = await import('../src/config/index.js')
-  const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import('../src/mcp/client.js')
+  const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } =
+    await import('../src/mcp/client.js')
   const config = await loadConfig()
   const graphMcpEndpoint = resolveGraphMcpEndpoint(config)
   let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint)
   if (!tools) {
     const paymentFetch = await createConfiguredGraphMcpFetch(config)
     const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
-    const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
+    const { StreamableHTTPClientTransport } =
+      await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
     const client = new Client({ name: 'chain-insights-cli', version: '0.2.0' })
-    await client.connect(new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: paymentFetch }))
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: paymentFetch })
+    )
     const result = await client.listTools()
     tools = result.tools as Array<{ name: string; description?: string }>
     await saveSchema(tools, graphMcpEndpoint)
@@ -119,7 +125,8 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
   let args: Record<string, unknown>
   try {
     const { parseMcpCallArgs } = await import('../src/mcp/call-args.js')
-    const { assertPublicMcpToolName, validatePublicMcpToolArguments } = await import('../src/mcp/tool-visibility.js')
+    const { assertPublicMcpToolName, validatePublicMcpToolArguments } =
+      await import('../src/mcp/tool-visibility.js')
     args = parseMcpCallArgs(rawArgs)
     assertPublicMcpToolName(tool)
     validatePublicMcpToolArguments(tool, args)
@@ -129,12 +136,18 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
   }
   const { loadConfig } = await import('../src/config/index.js')
   const config = await loadConfig()
-  const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import('../src/mcp/client.js')
+  const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } =
+    await import('../src/mcp/client.js')
   const paymentFetch = await createConfiguredGraphMcpFetch(config)
   const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
-  const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
+  const { StreamableHTTPClientTransport } =
+    await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
   const client = new Client({ name: 'chain-insights-cli-call', version: '0.2.0' })
-  await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }))
+  await client.connect(
+    new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), {
+      fetch: paymentFetch,
+    })
+  )
   if (tool === 'meta_usage_status') {
     try {
       const result = await client.callTool({ name: 'usage_status', arguments: {} })
@@ -143,7 +156,8 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
         if (item.type === 'text') console.log(item.text)
       }
     } catch (err) {
-      const { isMissingUsageStatusToolError, primitiveBackendUsageStatus, usageStatusText } = await import('../src/mcp/usage-status.js')
+      const { isMissingUsageStatusToolError, primitiveBackendUsageStatus, usageStatusText } =
+        await import('../src/mcp/usage-status.js')
       if (!isMissingUsageStatusToolError(err)) throw err
       console.log(usageStatusText(primitiveBackendUsageStatus(resolveGraphMcpEndpoint(config))))
     }
@@ -177,13 +191,14 @@ async function runConfigSetAction(key: string, value: string): Promise<void> {
   const { loadConfig, saveConfig } = await import('../src/config/index.js')
   const { CONFIG_KEYS, DEFAULT_CONFIG } = await import('../src/config/schema.js')
   const current = await loadConfig()
-  if (!CONFIG_KEYS.includes(key as typeof CONFIG_KEYS[number])) {
+  if (!CONFIG_KEYS.includes(key as (typeof CONFIG_KEYS)[number])) {
     console.error(`Unknown config key: ${key}`)
     process.exit(1)
   }
   const existing = (current as Record<string, unknown>)[key]
   const defaultValue = (DEFAULT_CONFIG as Record<string, unknown>)[key]
-  const coerced = typeof existing === 'number' || typeof defaultValue === 'number' ? Number(value) : value
+  const coerced =
+    typeof existing === 'number' || typeof defaultValue === 'number' ? Number(value) : value
   await saveConfig({ [key]: coerced } as Parameters<typeof saveConfig>[0])
   const displayed = key.toLowerCase().includes('token') ? '[redacted]' : coerced
   console.log(`Set ${key} = ${displayed}`)
@@ -277,7 +292,9 @@ describe('CLI mcp subcommand (MCP-02)', () => {
 
     expect(mockLoadSchema).toHaveBeenCalledOnce()
     expect(mockLoadSchema).toHaveBeenCalledWith('http://127.0.0.1:8012/mcp')
-    expect(mockCreateConfiguredGraphMcpFetch).toHaveBeenCalledWith({ graphMcpEndpoint: 'http://127.0.0.1:8012/mcp' })
+    expect(mockCreateConfiguredGraphMcpFetch).toHaveBeenCalledWith({
+      graphMcpEndpoint: 'http://127.0.0.1:8012/mcp',
+    })
     expect(mockClientConnect).toHaveBeenCalledOnce()
     expect(mockClientListTools).toHaveBeenCalledOnce()
     expect(mockSaveSchema).toHaveBeenCalledWith(remoteTools, 'http://127.0.0.1:8012/mcp')
@@ -314,7 +331,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
     expect(MockStreamableHTTPClientTransport).toHaveBeenCalledWith(
       new URL('http://localhost:8012/mcp'),
-      { fetch },
+      { fetch }
     )
   })
 
@@ -449,21 +466,29 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
   })
 
-
-
-
-
-
   it.each([
-    [retiredName('trace', '_funds'), `MCP tool '${retiredName('trace', '_funds')}' is not exposed by Chain Insights.`],
-    [retiredName('track', '_funds'), `MCP tool '${retiredName('track', '_funds')}' is not exposed by Chain Insights.`],
-    ['network_capabilities', "MCP tool 'network_capabilities' is not exposed by Chain Insights. Use meta_network_capabilities instead."],
-    ['usage_status', "MCP tool 'usage_status' is not exposed by Chain Insights. Use meta_usage_status instead."],
+    [
+      retiredName('trace', '_funds'),
+      `MCP tool '${retiredName('trace', '_funds')}' is not exposed by Chain Insights.`,
+    ],
+    [
+      retiredName('track', '_funds'),
+      `MCP tool '${retiredName('track', '_funds')}' is not exposed by Chain Insights.`,
+    ],
+    [
+      'network_capabilities',
+      "MCP tool 'network_capabilities' is not exposed by Chain Insights. Use meta_network_capabilities instead.",
+    ],
+    [
+      'usage_status',
+      "MCP tool 'usage_status' is not exposed by Chain Insights. Use meta_usage_status instead.",
+    ],
     ['balance', "MCP tool 'balance' is not exposed by Chain Insights. Use wallet_balance instead."],
     ['help', "MCP tool 'help' is not exposed by Chain Insights. Use meta_help instead."],
   ])('mcp call rejects hidden tool %s before remote passthrough', async (tool, message) => {
-    await expect(runMcpCallAction(tool, ['trusted_addresses=5Seed', 'network=bittensor']))
-      .rejects.toThrow('process.exit(1)')
+    await expect(
+      runMcpCallAction(tool, ['trusted_addresses=5Seed', 'network=bittensor'])
+    ).rejects.toThrow('process.exit(1)')
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(message)
     expect(mockClientConnect).not.toHaveBeenCalled()
@@ -476,7 +501,9 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     mockClientCallTool.mockResolvedValueOnce({
       content: [{ type: 'text', text: '## Risk Report' }],
       structuredContent: { facts: { risk: { level: 'critical' } } },
-      _meta: { chainInsights: { graph: { url: 'http://127.0.0.1:4321/graph-reports/a.graph.json' } } },
+      _meta: {
+        chainInsights: { graph: { url: 'http://127.0.0.1:4321/graph-reports/a.graph.json' } },
+      },
     })
     mockClientClose.mockResolvedValue(undefined)
 
@@ -491,9 +518,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
 
   it('mcp call — invalid arg format: exits 1 with Invalid arg format', async () => {
     await expect(runMcpCallAction('wallet-risk', ['badarg'])).rejects.toThrow('process.exit(1)')
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Invalid arg format')
-    )
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Invalid arg format'))
   })
 
   // ─── mcp call — missing wallet ────────────────────────────────────────────
@@ -516,7 +541,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     expect(mockDecryptKey).not.toHaveBeenCalled()
     expect(MockStreamableHTTPClientTransport).toHaveBeenCalledWith(
       new URL('http://localhost:8012/mcp'),
-      { fetch },
+      { fetch }
     )
     expect(mockClientCallTool).toHaveBeenCalledWith({
       name: 'aml_address_risk',
@@ -546,22 +571,33 @@ describe('config set walletPrivateKey interceptor (D-01)', () => {
   it('config set walletPrivateKey — stores key, prints derived address, and does NOT call saveConfig', async () => {
     mockSetWalletPrivateKey.mockResolvedValue('0xC96aAa54E2d44c299564da76e1cD3184A2386B8D')
 
-    await runConfigSetAction('walletPrivateKey', '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef')
+    await runConfigSetAction(
+      'walletPrivateKey',
+      '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+    )
 
-    expect(mockSetWalletPrivateKey).toHaveBeenCalledWith('0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef')
+    expect(mockSetWalletPrivateKey).toHaveBeenCalledWith(
+      '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+    )
     // Critical per D-01: saveConfig must NEVER be called for walletPrivateKey
     expect(mockSaveConfig).not.toHaveBeenCalled()
+    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('encrypted and stored'))
     expect(consoleLogSpy).toHaveBeenCalledWith(
-      expect.stringContaining('encrypted and stored')
+      'Wallet address: 0xC96aAa54E2d44c299564da76e1cD3184A2386B8D'
     )
-    expect(consoleLogSpy).toHaveBeenCalledWith('Wallet address: 0xC96aAa54E2d44c299564da76e1cD3184A2386B8D')
   })
 
   it('config set walletPrivateKey — setWalletPrivateKey throws: exits 1 with error message', async () => {
-    mockSetWalletPrivateKey.mockRejectedValue(new Error('Stored wallet private key is not a valid 0x-prefixed EVM private key'))
+    mockSetWalletPrivateKey.mockRejectedValue(
+      new Error('Stored wallet private key is not a valid 0x-prefixed EVM private key')
+    )
 
-    await expect(runConfigSetAction('walletPrivateKey', '0xbadkey')).rejects.toThrow('process.exit(1)')
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Stored wallet private key is not a valid 0x-prefixed EVM private key')
+    await expect(runConfigSetAction('walletPrivateKey', '0xbadkey')).rejects.toThrow(
+      'process.exit(1)'
+    )
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Stored wallet private key is not a valid 0x-prefixed EVM private key'
+    )
     expect(mockSaveConfig).not.toHaveBeenCalled()
   })
 

@@ -96,11 +96,11 @@ export class LimitRangeError extends Error {
     readonly requested: number,
     readonly min: number,
     readonly ceiling: number,
-    readonly source: string,
+    readonly source: string
   ) {
     super(
       `${key} must be an integer between ${min} and ${ceiling} (got ${requested} from ${source}). ` +
-      `${LIMIT_SPECS[key].description} The ceiling is a hard bound and cannot be raised per call.`,
+        `${LIMIT_SPECS[key].description} The ceiling is a hard bound and cannot be raised per call.`
     )
     this.name = 'LimitRangeError'
   }
@@ -171,7 +171,7 @@ export interface LimitResolution {
 export function resolveLimitDetail(
   key: LimitKey,
   requested: number | undefined | null,
-  ctx: ResolveLimitContext = {},
+  ctx: ResolveLimitContext = {}
 ): LimitResolution {
   const spec = LIMIT_SPECS[key]
   const ceiling = limitCeiling(key, ctx.network)
@@ -192,7 +192,7 @@ export function resolveLimitDetail(
 export function resolveLimit(
   key: LimitKey,
   requested: number | undefined | null,
-  ctx: ResolveLimitContext = {},
+  ctx: ResolveLimitContext = {}
 ): number {
   return resolveLimitDetail(key, requested, ctx).used
 }
@@ -204,18 +204,26 @@ export function resolveLimit(
  * makes "I asked for 4 and got 4" and "I asked for nothing and got 3"
  * distinguishable at a glance.
  */
-export function limitsReport(resolutions: LimitResolution[]): Record<string, {
-  requested?: number
-  used: number
-  default: number
-  ceiling: number
-}> {
-  return Object.fromEntries(resolutions.map((resolution) => [resolution.key, {
-    ...(resolution.requested !== undefined ? { requested: resolution.requested } : {}),
-    used: resolution.used,
-    default: resolution.fallback,
-    ceiling: resolution.ceiling,
-  }]))
+export function limitsReport(resolutions: LimitResolution[]): Record<
+  string,
+  {
+    requested?: number
+    used: number
+    default: number
+    ceiling: number
+  }
+> {
+  return Object.fromEntries(
+    resolutions.map((resolution) => [
+      resolution.key,
+      {
+        ...(resolution.requested !== undefined ? { requested: resolution.requested } : {}),
+        used: resolution.used,
+        default: resolution.fallback,
+        ceiling: resolution.ceiling,
+      },
+    ])
+  )
 }
 
 /**
@@ -233,4 +241,3 @@ export function limitLiteral(value: number): string {
   }
   return String(value)
 }
-

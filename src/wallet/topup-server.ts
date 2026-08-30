@@ -40,7 +40,12 @@ function toWalletAddress(account: PaymentWalletAccount | string): string {
   return address
 }
 
-function send(res: ServerResponse, status: number, body: string | Buffer, contentType: string): void {
+function send(
+  res: ServerResponse,
+  status: number,
+  body: string | Buffer,
+  contentType: string
+): void {
   res.writeHead(status, {
     'content-type': contentType,
     'cache-control': 'no-store',
@@ -79,7 +84,7 @@ function normalizeProxyTarget(reqUrl: string): NormalizedProxyTarget {
 async function proxyToCopiedServer(
   proxyTarget: NormalizedProxyTarget,
   res: ServerResponse,
-  assetServerUrl: string,
+  assetServerUrl: string
 ): Promise<void> {
   const allowedOrigin = new URL(assetServerUrl).origin
   const upstreamUrl = new URL(proxyTarget.pathAndSearch, assetServerUrl)
@@ -116,7 +121,10 @@ export async function stopTopupServer(): Promise<void> {
 export async function startTopupServer(account: PaymentWalletAccount | string): Promise<string> {
   const walletAddress = toWalletAddress(account)
 
-  if (artifactServerState && artifactServerState.address.toLowerCase() === walletAddress.toLowerCase()) {
+  if (
+    artifactServerState &&
+    artifactServerState.address.toLowerCase() === walletAddress.toLowerCase()
+  ) {
     return artifactServerState.url
   }
 
@@ -133,10 +141,20 @@ export async function startTopupServer(account: PaymentWalletAccount | string): 
       proxyTarget = normalizeProxyTarget(reqUrl)
     } catch (err) {
       if (err instanceof ProxyRequestError) {
-        send(res, err.status, JSON.stringify({ error: err.message }) + '\n', 'application/json; charset=utf-8')
+        send(
+          res,
+          err.status,
+          JSON.stringify({ error: err.message }) + '\n',
+          'application/json; charset=utf-8'
+        )
         return
       }
-      send(res, 400, JSON.stringify({ error: 'Invalid request target' }) + '\n', 'application/json; charset=utf-8')
+      send(
+        res,
+        400,
+        JSON.stringify({ error: 'Invalid request target' }) + '\n',
+        'application/json; charset=utf-8'
+      )
       return
     }
     const { pathname } = proxyTarget
@@ -150,10 +168,20 @@ export async function startTopupServer(account: PaymentWalletAccount | string): 
     if (pathname.startsWith('/assets/') || pathname.startsWith('/api/')) {
       void proxyToCopiedServer(proxyTarget, res, assetServerUrl).catch((err) => {
         if (err instanceof ProxyRequestError) {
-          send(res, err.status, JSON.stringify({ error: err.message }) + '\n', 'application/json; charset=utf-8')
+          send(
+            res,
+            err.status,
+            JSON.stringify({ error: err.message }) + '\n',
+            'application/json; charset=utf-8'
+          )
           return
         }
-        send(res, 502, JSON.stringify({ error: (err as Error).message }) + '\n', 'application/json; charset=utf-8')
+        send(
+          res,
+          502,
+          JSON.stringify({ error: (err as Error).message }) + '\n',
+          'application/json; charset=utf-8'
+        )
       })
       return
     }

@@ -12,10 +12,13 @@ export function classifyGraphResultShape(rows: unknown): GraphShape {
 
     const hasSourceTarget = typeof row['source'] === 'string' && typeof row['target'] === 'string'
     const hasSrcDst = typeof row['src'] === 'string' && typeof row['dst'] === 'string'
-    const hasPathTopology = Array.isArray(row['path'])
-      || Array.isArray(row['nodes'])
-      || Array.isArray(row['relationships'])
+    const hasPathTopology =
+      Array.isArray(row['path']) ||
+      Array.isArray(row['nodes']) ||
+      Array.isArray(row['relationships'])
 
     return hasSourceTarget || hasSrcDst || hasPathTopology
-  }) ? 'graph' : 'table'
+  })
+    ? 'graph'
+    : 'table'
 }

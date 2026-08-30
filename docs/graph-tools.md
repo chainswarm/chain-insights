@@ -11,11 +11,11 @@ local review and `published/` only for rendered HTML or handoff-ready outputs.
 
 The Chain Insights Graph surface is intentionally small:
 
-| Tool | Purpose |
-| --- | --- |
+| Tool                   | Purpose                                                                                 |
+| ---------------------- | --------------------------------------------------------------------------------------- |
 | `network_capabilities` | Return supported networks and graph layers when the backend exposes capability metadata |
-| `graph_query` | Run one read-only GQL/Cypher query through the universal graph endpoint |
-| `graph_query_batch` | Run related read-only graph-language queries as one MCP call |
+| `graph_query`          | Run one read-only GQL/Cypher query through the universal graph endpoint                 |
+| `graph_query_batch`    | Run related read-only graph-language queries as one MCP call                            |
 
 Chain Insights tools such as `aml_address_risk` are recipes built over
 `graph_query_batch`. They are not assumed to exist on the

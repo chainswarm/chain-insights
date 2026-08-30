@@ -39,16 +39,18 @@ export async function buildWalletProof(opts: {
 export function createWalletProofFetch(
   account: Pick<Account, 'address' | 'signMessage'>,
   baseFetch: FetchLike,
-  now: () => Date = () => new Date(),
+  now: () => Date = () => new Date()
 ): FetchLike {
   return (async (input: FetchInput, init?: FetchInit) => {
     if (!account.signMessage) {
       return baseFetch(input, init)
     }
-    const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined))
+    const headers = new Headers(
+      init?.headers ?? (input instanceof Request ? input.headers : undefined)
+    )
     headers.set(
       CIA_WALLET_PROOF_HEADER,
-      await buildWalletProof({ account, host: proofHostFromUrl(input), now: now() }),
+      await buildWalletProof({ account, host: proofHostFromUrl(input), now: now() })
     )
     return baseFetch(input, { ...init, headers })
   }) as FetchLike

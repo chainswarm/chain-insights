@@ -8,7 +8,12 @@ import { applyShardMergeToBatchEntries } from '../federation/apply-merge.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 import { isUnscoredRiskLevel, normalizeRiskLevel, riskSeverityRank } from './risk-level.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
-import { createUsageAccumulator, usageBlock, wrapClientForUsageTracking, type UsageTotals } from '../lib/usage-accumulator.js'
+import {
+  createUsageAccumulator,
+  usageBlock,
+  wrapClientForUsageTracking,
+  type UsageTotals,
+} from '../lib/usage-accumulator.js'
 
 export { buildTruthProposal, resolveTruthIngressTlsPaths } from './truth-proposal.js'
 export type { TruthProposalCommand } from './truth-proposal.js'
@@ -61,7 +66,8 @@ function parseGraphBatchResult(result: RemoteToolResult): ParsedGraphBatch {
   const text = textFromToolResult(result).trim()
   if (!text) throw new Error('graph_query_batch returned no text content')
   const parsed = JSON.parse(text) as ParsedGraphBatch
-  if (!parsed.facts?.queries) throw new Error('graph_query_batch response did not include facts.queries')
+  if (!parsed.facts?.queries)
+    throw new Error('graph_query_batch response did not include facts.queries')
   return parsed
 }
 
@@ -71,11 +77,19 @@ function topologyGraphQuery(query: string): string {
   return `USE topology ${trimmed}`
 }
 
-function collectQueryFailure(failures: QueryFailure[], id: string, error: string | undefined): void {
+function collectQueryFailure(
+  failures: QueryFailure[],
+  id: string,
+  error: string | undefined
+): void {
   failures.push({ id, error: error || 'unknown error' })
 }
 
-function optionalResultsFor(batch: ParsedGraphBatch, id: string, failures: QueryFailure[]): Array<Record<string, unknown>> {
+function optionalResultsFor(
+  batch: ParsedGraphBatch,
+  id: string,
+  failures: QueryFailure[]
+): Array<Record<string, unknown>> {
   const query = batch.facts?.queries?.find((entry) => entry.id === id)
   if (!query) return []
   if (query.ok === false) {
@@ -85,7 +99,11 @@ function optionalResultsFor(batch: ParsedGraphBatch, id: string, failures: Query
   return query.results ?? []
 }
 
-function optionalResultsWithPrefix(batch: ParsedGraphBatch, prefix: string, failures: QueryFailure[]): Array<Record<string, unknown>> {
+function optionalResultsWithPrefix(
+  batch: ParsedGraphBatch,
+  prefix: string,
+  failures: QueryFailure[]
+): Array<Record<string, unknown>> {
   return (batch.facts?.queries ?? [])
     .filter((entry) => entry.id?.startsWith(prefix))
     .flatMap((entry) => {
@@ -100,9 +118,9 @@ function optionalResultsWithPrefix(batch: ParsedGraphBatch, prefix: string, fail
 async function callGraphBatch(
   remoteClient: Client,
   network: string,
-  queries: Array<{ id: string; query: string }>,
+  queries: Array<{ id: string; query: string }>
 ): Promise<ParsedGraphBatch> {
-  const result = await remoteClient.callTool(
+  const result = (await remoteClient.callTool(
     {
       name: 'graph_query_batch',
       arguments: {
@@ -118,8 +136,8 @@ async function callGraphBatch(
     {
       timeout: GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS,
       maxTotalTimeout: GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS,
-    },
-  ) as RemoteToolResult
+    }
+  )) as RemoteToolResult
   if (result.isError) throw new Error(textFromToolResult(result) || 'graph_query_batch failed')
   const parsed = parseGraphBatchResult(result)
   applyShardMergeToBatchEntries(parsed.facts?.queries, queries)
@@ -127,16 +145,24 @@ async function callGraphBatch(
 }
 
 function parseAddressList(value: string | string[] | undefined): string[] {
-  const raw = Array.isArray(value) ? value.join(',') : value ?? ''
+  const raw = Array.isArray(value) ? value.join(',') : (value ?? '')
   return raw
     .split(',')
     .map((entry) => entry.trim())
     .filter(Boolean)
 }
 
-function graphArray(graphData: Record<string, unknown>, key: string): Array<Record<string, unknown>> {
+function graphArray(
+  graphData: Record<string, unknown>,
+  key: string
+): Array<Record<string, unknown>> {
   const value = graphData[key]
-  return Array.isArray(value) ? value.filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null && !Array.isArray(item)) : []
+  return Array.isArray(value)
+    ? value.filter(
+        (item): item is Record<string, unknown> =>
+          typeof item === 'object' && item !== null && !Array.isArray(item)
+      )
+    : []
 }
 
 function addressProfileQuery(address: string): { id: string; query: string } {
@@ -251,16 +277,20 @@ const MONEY_TRAIL_CLASS_RANK: Record<string, number> = { transport: 3, holding: 
 
 export function buildMoneyTrailBlock(
   incidentRows: Array<Record<string, unknown>>,
-  endRows: Array<Record<string, unknown>>,
+  endRows: Array<Record<string, unknown>>
 ): MoneyTrailBlock | undefined {
   if (incidentRows.length === 0) return undefined
 
   const winningClassRank = Math.max(
-    ...incidentRows.map((row) => MONEY_TRAIL_CLASS_RANK[firstString(row['edge_class']) ?? ''] ?? 0),
+    ...incidentRows.map((row) => MONEY_TRAIL_CLASS_RANK[firstString(row['edge_class']) ?? ''] ?? 0)
   )
-  const winningClass = Object.entries(MONEY_TRAIL_CLASS_RANK).find(([, rank]) => rank === winningClassRank)?.[0]
-    ?? firstString(incidentRows[0]?.['edge_class']) ?? 'peripheral'
-  const rowsOfWinningClass = incidentRows.filter((row) => firstString(row['edge_class']) === winningClass)
+  const winningClass =
+    Object.entries(MONEY_TRAIL_CLASS_RANK).find(([, rank]) => rank === winningClassRank)?.[0] ??
+    firstString(incidentRows[0]?.['edge_class']) ??
+    'peripheral'
+  const rowsOfWinningClass = incidentRows.filter(
+    (row) => firstString(row['edge_class']) === winningClass
+  )
   const bestRow = rowsOfWinningClass.reduce((best, row) => {
     const rowHop = numberValue(row['min_hop']) ?? Number.POSITIVE_INFINITY
     const bestHop = numberValue(best['min_hop']) ?? Number.POSITIVE_INFINITY
@@ -269,7 +299,9 @@ export function buildMoneyTrailBlock(
 
   const nearestEnd = endRows.reduce<Record<string, unknown> | undefined>((best, row) => {
     const rowValue = numberValue(row['value']) ?? Number.NEGATIVE_INFINITY
-    const bestValue = best ? numberValue(best['value']) ?? Number.NEGATIVE_INFINITY : Number.NEGATIVE_INFINITY
+    const bestValue = best
+      ? (numberValue(best['value']) ?? Number.NEGATIVE_INFINITY)
+      : Number.NEGATIVE_INFINITY
     return !best || rowValue > bestValue ? row : best
   }, undefined)
 
@@ -301,15 +333,26 @@ function exchangeOutflowQueries(address: string): Array<{ id: string; query: str
   return Array.from({ length: 3 }, (_, index) => exchangeOutflowQueryAtDepth(address, index + 1))
 }
 
-function exchangeOutflowQueryAtDepth(address: string, depth: number): { id: string; query: string } {
-  const intermediateVariables = Array.from({ length: Math.max(depth - 1, 0) }, (_, index) => `n${index + 1}`)
+function exchangeOutflowQueryAtDepth(
+  address: string,
+  depth: number
+): { id: string; query: string } {
+  const intermediateVariables = Array.from(
+    { length: Math.max(depth - 1, 0) },
+    (_, index) => `n${index + 1}`
+  )
   const nodeVariables = ['a', ...intermediateVariables, 'exchange']
   const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
-  const relationshipChain = edgeVariables.map((edgeVariable, index) => {
-    const targetVariable = index === edgeVariables.length - 1 ? 'exchange' : intermediateVariables[index]!
-    return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
-  }).join('')
-  const intermediatePredicates = intermediateVariables.map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
+  const relationshipChain = edgeVariables
+    .map((edgeVariable, index) => {
+      const targetVariable =
+        index === edgeVariables.length - 1 ? 'exchange' : intermediateVariables[index]!
+      return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
+    })
+    .join('')
+  const intermediatePredicates = intermediateVariables.map(
+    (nodeVariable) => `${nodeVariable}.is_exchange IS NULL`
+  )
   const depositVariable = nodeVariables[nodeVariables.length - 2]!
   const terminalEdgeVariable = edgeVariables[edgeVariables.length - 1]!
   return {
@@ -329,14 +372,22 @@ function exchangeInflowQueries(address: string): Array<{ id: string; query: stri
 }
 
 function exchangeInflowQueryAtDepth(address: string, depth: number): { id: string; query: string } {
-  const intermediateVariables = Array.from({ length: Math.max(depth - 1, 0) }, (_, index) => `n${index + 1}`)
+  const intermediateVariables = Array.from(
+    { length: Math.max(depth - 1, 0) },
+    (_, index) => `n${index + 1}`
+  )
   const nodeVariables = ['exchange', ...intermediateVariables, 'a']
   const edgeVariables = Array.from({ length: depth }, (_, index) => `r${index + 1}`)
-  const relationshipChain = edgeVariables.map((edgeVariable, index) => {
-    const targetVariable = index === edgeVariables.length - 1 ? 'a' : intermediateVariables[index]!
-    return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
-  }).join('')
-  const intermediatePredicates = intermediateVariables.map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`)
+  const relationshipChain = edgeVariables
+    .map((edgeVariable, index) => {
+      const targetVariable =
+        index === edgeVariables.length - 1 ? 'a' : intermediateVariables[index]!
+      return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
+    })
+    .join('')
+  const intermediatePredicates = intermediateVariables.map(
+    (nodeVariable) => `${nodeVariable}.is_exchange IS NULL`
+  )
   const withdrawalVariable = nodeVariables[1]!
   const terminalEdgeVariable = edgeVariables[edgeVariables.length - 1]!
   return {
@@ -351,7 +402,10 @@ function exchangeInflowQueryAtDepth(address: string, depth: number): { id: strin
   }
 }
 
-function connectionProbeQuery(address: string, compareAddress: string): { id: string; query: string } {
+function connectionProbeQuery(
+  address: string,
+  compareAddress: string
+): { id: string; query: string } {
   return {
     id: 'connection_probe',
     query: [
@@ -397,7 +451,7 @@ function seedAddressExistsQuery(id: string, address: string): { id: string; quer
 async function probeSeedAddresses(
   remoteClient: Client,
   network: string,
-  inputs: string[],
+  inputs: string[]
 ): Promise<Set<string>> {
   if (inputs.length === 0) return new Set()
   const queries = inputs.map((input, index) => ({
@@ -407,7 +461,7 @@ async function probeSeedAddresses(
   const batch = await callGraphBatch(
     remoteClient,
     network,
-    queries.map(({ id, query }) => ({ id, query })),
+    queries.map(({ id, query }) => ({ id, query }))
   )
   const failures: QueryFailure[] = []
   const existing = new Set<string>()
@@ -472,9 +526,7 @@ function crossSpaceLinkedQuery(address: string): { id: string; query: string } {
 
 export const CONNECTION_ROUTE_DEPTH_BOUND = 4
 
-export function shouldIncludeRouteQueries(
-  compareAddress: string | undefined,
-): boolean {
+export function shouldIncludeRouteQueries(compareAddress: string | undefined): boolean {
   // Native traversal (*BFS) always fires when a compare address is given:
   // topology is unconditionally Memgraph-native.
   return Boolean(compareAddress)
@@ -482,7 +534,7 @@ export function shouldIncludeRouteQueries(
 
 export function connectionRouteQueries(
   address: string,
-  compareAddress: string,
+  compareAddress: string
 ): Array<{ id: string; query: string }> {
   const routeQuery = (fromAddress: string, toAddress: string): string =>
     [
@@ -505,7 +557,7 @@ export interface RouteEvidenceSide {
 
 function collectOrdered(
   value: unknown,
-  matches: (candidate: Record<string, unknown>) => boolean,
+  matches: (candidate: Record<string, unknown>) => boolean
 ): Array<Record<string, unknown>> {
   const collected: Array<Record<string, unknown>> = []
   const walk = (node: unknown): void => {
@@ -534,7 +586,9 @@ export function isExchangeMarker(value: unknown): boolean {
   if (typeof value === 'number') return value !== 0
   if (typeof value === 'string') {
     const normalized = value.trim().toLowerCase()
-    return normalized !== '' && normalized !== 'false' && normalized !== '0' && normalized !== 'null'
+    return (
+      normalized !== '' && normalized !== 'false' && normalized !== '0' && normalized !== 'null'
+    )
   }
   return value === true
 }
@@ -548,7 +602,7 @@ export function routeFromPathValue(value: unknown): RouteEvidenceSide | null {
   if (nodes.length < 2) return null
   const edges = collectOrdered(
     value,
-    (candidate) => typeof candidate['amount_usd_sum'] === 'number' && !('address' in candidate),
+    (candidate) => typeof candidate['amount_usd_sum'] === 'number' && !('address' in candidate)
   )
   const identities = nodes.map((node) => String(node['address']))
   const exchangeIntermediates = nodes
@@ -577,7 +631,7 @@ export interface RouteEvidence {
 
 export function buildRouteEvidence(
   outboundRows: Array<Record<string, unknown>>,
-  inboundRows: Array<Record<string, unknown>>,
+  inboundRows: Array<Record<string, unknown>>
 ): RouteEvidence {
   const sideFrom = (rows: Array<Record<string, unknown>>): RouteEvidenceSide | null => {
     const first = rows[0]
@@ -662,7 +716,7 @@ function riskRecommendation(level: string): string {
 function riskDrivers(
   profile: Record<string, unknown>,
   labelRows: Array<Record<string, unknown>>,
-  exchangeRows: Array<Record<string, unknown>>,
+  exchangeRows: Array<Record<string, unknown>>
 ): string[] {
   const drivers: string[] = []
 
@@ -673,8 +727,10 @@ function riskDrivers(
 
   const outflowCount = exchangeRows.filter((row) => row['direction'] === 'outflow').length
   const inflowCount = exchangeRows.filter((row) => row['direction'] === 'inflow').length
-  if (outflowCount > 0) drivers.push(`Forward bounded search reached ${outflowCount} exchange path(s).`)
-  if (inflowCount > 0) drivers.push(`Backward bounded search found ${inflowCount} source exchange path(s).`)
+  if (outflowCount > 0)
+    drivers.push(`Forward bounded search reached ${outflowCount} exchange path(s).`)
+  if (inflowCount > 0)
+    drivers.push(`Backward bounded search found ${inflowCount} source exchange path(s).`)
 
   return [...new Set(drivers)]
 }
@@ -688,9 +744,17 @@ function riskDrivers(
 // behaved under the old facts read.
 function deriveLabelRows(profile: Record<string, unknown>): Array<Record<string, unknown>> {
   const raw = profile['label_risk']
-  const rows = Array.isArray(raw) ? raw.filter((row): row is Record<string, unknown> => typeof row === 'object' && row !== null && !Array.isArray(row)) : []
+  const rows = Array.isArray(raw)
+    ? raw.filter(
+        (row): row is Record<string, unknown> =>
+          typeof row === 'object' && row !== null && !Array.isArray(row)
+      )
+    : []
   return [...rows]
-    .sort((a, b) => (numberValue(b['updated_timestamp']) ?? 0) - (numberValue(a['updated_timestamp']) ?? 0))
+    .sort(
+      (a, b) =>
+        (numberValue(b['updated_timestamp']) ?? 0) - (numberValue(a['updated_timestamp']) ?? 0)
+    )
     .slice(0, 10)
 }
 
@@ -699,12 +763,17 @@ const RISK_LEVEL_ORDER = ['critical', 'high', 'medium', 'low'] as const
 function strongestLabelRiskLevel(labelRows: Array<Record<string, unknown>>): string | undefined {
   const levels = labelRows
     .map((row) => firstString(row['risk_level'])?.toLowerCase())
-    .filter((level): level is string => Boolean(level && (RISK_LEVEL_ORDER as readonly string[]).includes(level)))
+    .filter((level): level is string =>
+      Boolean(level && (RISK_LEVEL_ORDER as readonly string[]).includes(level))
+    )
   if (levels.length === 0) return undefined
   return RISK_LEVEL_ORDER.find((candidate) => levels.includes(candidate))
 }
 
-function riskScoreSources(profile: Record<string, unknown>, labelRows: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+function riskScoreSources(
+  profile: Record<string, unknown>,
+  labelRows: Array<Record<string, unknown>>
+): Array<Record<string, unknown>> {
   const sources: Array<Record<string, unknown>> = []
   if (numberValue(profile['live_risk_score']) !== undefined) {
     sources.push({
@@ -729,7 +798,9 @@ function riskScoreSources(profile: Record<string, unknown>, labelRows: Array<Rec
 }
 
 function terminalEdgeProperties(row: Record<string, unknown>): Record<string, unknown> | undefined {
-  const edgeProps = Array.isArray(row['edge_props']) ? row['edge_props'] as Array<Record<string, unknown>> : []
+  const edgeProps = Array.isArray(row['edge_props'])
+    ? (row['edge_props'] as Array<Record<string, unknown>>)
+    : []
   return edgeProps[edgeProps.length - 1]
 }
 
@@ -762,7 +833,9 @@ const FALLBACK_MAX_SCORE = 0.6
  * (high tx_count or USD throughput) dampened, bounded in (0, 0.6] so a
  * fallback can never impersonate a high ML score band.
  */
-export function exchangeExposureFallbackScore(exchangeRows: Array<Record<string, unknown>>): number {
+export function exchangeExposureFallbackScore(
+  exchangeRows: Array<Record<string, unknown>>
+): number {
   if (exchangeRows.length === 0) return 0
   let weightedUsd = 0
   for (const row of exchangeRows) {
@@ -773,13 +846,16 @@ export function exchangeExposureFallbackScore(exchangeRows: Array<Record<string,
   }
   const capped = Math.min(weightedUsd, FALLBACK_VALUE_SATURATION_USD)
   const factor = Math.log10(1 + capped) / Math.log10(1 + FALLBACK_VALUE_SATURATION_USD)
-  return Math.min(FALLBACK_MAX_SCORE, FALLBACK_BASE_SCORE + (FALLBACK_MAX_SCORE - FALLBACK_BASE_SCORE) * factor)
+  return Math.min(
+    FALLBACK_MAX_SCORE,
+    FALLBACK_BASE_SCORE + (FALLBACK_MAX_SCORE - FALLBACK_BASE_SCORE) * factor
+  )
 }
 
 export function riskAssessment(
   profile: Record<string, unknown>,
   labelRows: Array<Record<string, unknown>>,
-  exchangeRows: Array<Record<string, unknown>>,
+  exchangeRows: Array<Record<string, unknown>>
 ): Record<string, unknown> {
   const mlRiskScore = firstNumber(profile['live_risk_score'])
   // UNSCORED is the model's explicit abstention (calibrated-scoring release):
@@ -791,9 +867,14 @@ export function riskAssessment(
   const labelRiskLevel = strongestLabelRiskLevel(labelRows)
   const usableMlScore = mlAbstained ? undefined : mlRiskScore
   const score = usableMlScore ?? exchangeExposureFallbackScore(exchangeRows)
-  let level = labelRiskLevel ?? (mlAbstained && exchangeRows.length === 0 ? 'unscored' : riskLevelFromScore(score))
+  let level =
+    labelRiskLevel ??
+    (mlAbstained && exchangeRows.length === 0 ? 'unscored' : riskLevelFromScore(score))
   const drivers = riskDrivers(profile, labelRows, exchangeRows)
-  if (mlAbstained) drivers.push('ml_abstained: ML verdict is UNSCORED (insufficient labeled graph context); level derived from labels/exchange exposure only')
+  if (mlAbstained)
+    drivers.push(
+      'ml_abstained: ML verdict is UNSCORED (insufficient labeled graph context); level derived from labels/exchange exposure only'
+    )
   // Labels are curated truth and stay first — but a lower-severity label
   // must never SUPPRESS a more severe usable ML band. Failing toward
   // "looks safe" is the one direction an AML triage tool may not fail.
@@ -804,15 +885,25 @@ export function riskAssessment(
     riskSeverityRank(usableMlBand) > riskSeverityRank(labelRiskLevel)
   ) {
     level = usableMlBand
-    drivers.push(`ml_label_divergence: usable ML band ${usableMlBand} exceeds strongest label level ${labelRiskLevel}; reporting the more severe band — review the label`)
+    drivers.push(
+      `ml_label_divergence: usable ML band ${usableMlBand} exceeds strongest label level ${labelRiskLevel}; reporting the more severe band — review the label`
+    )
   }
   return {
     level,
     score,
     ...(mlRiskScore !== undefined ? { ml_risk_score: mlRiskScore } : {}),
     ...(mlAbstained ? { ml_verdict: 'unscored' } : {}),
-    confidence: (usableMlScore !== undefined || labelRiskLevel) ? 'high' : exchangeRows.length > 0 ? 'medium' : 'low',
-    recommendation: level === 'unscored' ? 'Model abstained and no label/exchange signal found; gather more context before clearing.' : riskRecommendation(level),
+    confidence:
+      usableMlScore !== undefined || labelRiskLevel
+        ? 'high'
+        : exchangeRows.length > 0
+          ? 'medium'
+          : 'low',
+    recommendation:
+      level === 'unscored'
+        ? 'Model abstained and no label/exchange signal found; gather more context before clearing.'
+        : riskRecommendation(level),
     drivers,
     sources: riskScoreSources(profile, labelRows),
   }
@@ -830,49 +921,94 @@ function stringArrayValue(value: unknown): string[] | undefined {
   return undefined
 }
 
-function restoreSystemLabels(graph: Record<string, unknown>, rawNodes: Array<Record<string, unknown>>): Record<string, unknown> {
+function restoreSystemLabels(
+  graph: Record<string, unknown>,
+  rawNodes: Array<Record<string, unknown>>
+): Record<string, unknown> {
   if (!Array.isArray(graph['nodes'])) return graph
-  const labelsByAddress = new Map(rawNodes
-    .map((node) => [typeof node['address'] === 'string' ? node['address'] : typeof node['id'] === 'string' ? node['id'] : '', stringArrayValue(node['system_labels'])] as const)
-    .filter((entry): entry is readonly [string, string[]] => Boolean(entry[0]) && Array.isArray(entry[1]) && entry[1].length > 0))
+  const labelsByAddress = new Map(
+    rawNodes
+      .map(
+        (node) =>
+          [
+            typeof node['address'] === 'string'
+              ? node['address']
+              : typeof node['id'] === 'string'
+                ? node['id']
+                : '',
+            stringArrayValue(node['system_labels']),
+          ] as const
+      )
+      .filter(
+        (entry): entry is readonly [string, string[]] =>
+          Boolean(entry[0]) && Array.isArray(entry[1]) && entry[1].length > 0
+      )
+  )
   return {
     ...graph,
     nodes: graph['nodes'].map((node) => {
       if (typeof node !== 'object' || node === null || Array.isArray(node)) return node
       const record = node as Record<string, unknown>
-      const address = typeof record['address'] === 'string' ? record['address'] : typeof record['id'] === 'string' ? record['id'] : ''
+      const address =
+        typeof record['address'] === 'string'
+          ? record['address']
+          : typeof record['id'] === 'string'
+            ? record['id']
+            : ''
       const systemLabels = labelsByAddress.get(address)
       return systemLabels ? { ...record, system_labels: systemLabels } : record
     }),
   }
 }
 
-function buildRiskGraph(address: string, profile: Record<string, unknown>, rows: Array<Record<string, unknown>>, network: string): Record<string, unknown> {
+function buildRiskGraph(
+  address: string,
+  profile: Record<string, unknown>,
+  rows: Array<Record<string, unknown>>,
+  network: string
+): Record<string, unknown> {
   const nodes = new Map<string, Record<string, unknown>>()
   nodes.set(address, {
     id: address,
     address,
     node_type: 'address',
     labels: stringArrayValue(profile['display_labels']) ?? [],
-    ...(stringArrayValue(profile['system_labels']) ? { system_labels: stringArrayValue(profile['system_labels']) } : {}),
-    ...(stringArrayValue(profile['member_addresses'])?.length ? { member_addresses: stringArrayValue(profile['member_addresses']) } : {}),
-    ...(numberValue(profile['live_risk_score']) !== undefined ? { risk_score: numberValue(profile['live_risk_score']) } : {}),
-    ...(firstString(profile['live_risk_level']) ? { risk_level: firstString(profile['live_risk_level']) } : {}),
+    ...(stringArrayValue(profile['system_labels'])
+      ? { system_labels: stringArrayValue(profile['system_labels']) }
+      : {}),
+    ...(stringArrayValue(profile['member_addresses'])?.length
+      ? { member_addresses: stringArrayValue(profile['member_addresses']) }
+      : {}),
+    ...(numberValue(profile['live_risk_score']) !== undefined
+      ? { risk_score: numberValue(profile['live_risk_score']) }
+      : {}),
+    ...(firstString(profile['live_risk_level'])
+      ? { risk_level: firstString(profile['live_risk_level']) }
+      : {}),
     roles: ['subject'],
   })
   const edges: Array<Record<string, unknown>> = []
   const mergeNode = (entry: string, metadata?: Record<string, unknown>) => {
-    const existing = nodes.get(entry) ?? { id: entry, address: entry, node_type: 'address', labels: [] }
+    const existing = nodes.get(entry) ?? {
+      id: entry,
+      address: entry,
+      node_type: 'address',
+      labels: [],
+    }
     const labels = stringArrayValue(metadata?.['labels']) ?? existing['labels']
     const systemLabels = stringArrayValue(metadata?.['system_labels']) ?? existing['system_labels']
-    const memberAddresses = stringArrayValue(metadata?.['member_addresses']) ?? existing['member_addresses']
+    const memberAddresses =
+      stringArrayValue(metadata?.['member_addresses']) ?? existing['member_addresses']
     const riskScore = numberValue(metadata?.['risk_score']) ?? existing['risk_score']
-    const riskLevel = normalizeRiskLevel(firstString(metadata?.['risk_level'])) ?? existing['risk_level']
+    const riskLevel =
+      normalizeRiskLevel(firstString(metadata?.['risk_level'])) ?? existing['risk_level']
     nodes.set(entry, {
       ...existing,
       labels,
       ...(systemLabels ? { system_labels: systemLabels } : {}),
-      ...(Array.isArray(memberAddresses) && memberAddresses.length > 0 ? { member_addresses: memberAddresses } : {}),
+      ...(Array.isArray(memberAddresses) && memberAddresses.length > 0
+        ? { member_addresses: memberAddresses }
+        : {}),
       ...(riskScore !== undefined ? { risk_score: riskScore } : {}),
       ...(riskLevel ? { risk_level: riskLevel } : {}),
     })
@@ -880,7 +1016,9 @@ function buildRiskGraph(address: string, profile: Record<string, unknown>, rows:
   for (const row of rows) {
     const rawPath = Array.isArray(row['path']) ? row['path'] : row['addresses']
     const path = Array.isArray(rawPath) ? rawPath.map(String) : []
-    const pathNodes = Array.isArray(row['path_nodes']) ? row['path_nodes'] as Array<Record<string, unknown>> : []
+    const pathNodes = Array.isArray(row['path_nodes'])
+      ? (row['path_nodes'] as Array<Record<string, unknown>>)
+      : []
     for (let index = 0; index < path.length; index += 1) {
       const entry = path[index]!
       mergeNode(entry, pathNodes[index])
@@ -888,7 +1026,10 @@ function buildRiskGraph(address: string, profile: Record<string, unknown>, rows:
     const exchange = typeof row['exchange_address'] === 'string' ? row['exchange_address'] : ''
     if (exchange) {
       const displayLabels = stringArrayValue(row['exchange_display_labels']) ?? []
-      const systemLabels = stringArrayValue(row['exchange_system_labels']) ?? stringArrayValue(row['exchange_labels']) ?? []
+      const systemLabels =
+        stringArrayValue(row['exchange_system_labels']) ??
+        stringArrayValue(row['exchange_labels']) ??
+        []
       nodes.set(exchange, {
         id: exchange,
         address: exchange,
@@ -899,7 +1040,9 @@ function buildRiskGraph(address: string, profile: Record<string, unknown>, rows:
       })
     }
     for (let index = 0; index < path.length - 1; index += 1) {
-      const edgeProps = Array.isArray(row['edge_props']) ? row['edge_props'] as Array<Record<string, unknown>> : []
+      const edgeProps = Array.isArray(row['edge_props'])
+        ? (row['edge_props'] as Array<Record<string, unknown>>)
+        : []
       const edge = edgeProps[index] ?? row
       edges.push({
         source: path[index],
@@ -915,17 +1058,23 @@ function buildRiskGraph(address: string, profile: Record<string, unknown>, rows:
     }
   }
   const rawNodes = [...nodes.values()]
-  return restoreSystemLabels(normalizeGraphPayload({
-    schema: 'chain-insights.graph.v1',
-    nodes: rawNodes,
-    edges,
-    flows: [],
-    edge_anchors: [],
-    metadata: { address, network, generated_at: new Date().toISOString() },
-  }), rawNodes)
+  return restoreSystemLabels(
+    normalizeGraphPayload({
+      schema: 'chain-insights.graph.v1',
+      nodes: rawNodes,
+      edges,
+      flows: [],
+      edge_anchors: [],
+      metadata: { address, network, generated_at: new Date().toISOString() },
+    }),
+    rawNodes
+  )
 }
 
-export async function addressRisk(remoteClient: Client, options: AddressRiskOptions): Promise<{
+export async function addressRisk(
+  remoteClient: Client,
+  options: AddressRiskOptions
+): Promise<{
   summaryText: string
   structuredContent: Record<string, unknown>
   graphData: Record<string, unknown>
@@ -952,7 +1101,9 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   // never issued route probes for an unresolved compare input.
   let compareUnresolved = false
   if (compareInput) {
-    const compareBatch = await callGraphBatch(trackedClient, network, [compareAddressExistsQuery(compareInput)])
+    const compareBatch = await callGraphBatch(trackedClient, network, [
+      compareAddressExistsQuery(compareInput),
+    ])
     const compareRows = optionalResultsFor(compareBatch, 'compare_address_exists', [])
     compareUnresolved = !firstString(compareRows[0]?.['address'])
   }
@@ -964,7 +1115,15 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     { id: 'money_trail_incident', query: moneyTrailIncidentQuery(address) },
     ...exchangeOutflowQueries(address),
     ...exchangeInflowQueries(address),
-    ...(compareAddress ? [connectionProbeQuery(address, compareAddress)] : [{ id: 'connection_probe', query: 'MATCH (n:Address {address: "__chain_insights_noop__"}) RETURN n.address AS noop LIMIT 0' }]),
+    ...(compareAddress
+      ? [connectionProbeQuery(address, compareAddress)]
+      : [
+          {
+            id: 'connection_probe',
+            query:
+              'MATCH (n:Address {address: "__chain_insights_noop__"}) RETURN n.address AS noop LIMIT 0',
+          },
+        ]),
     // Route evidence is additive: native *BFS traversal always fires for a
     // compare address whose existence probe succeeded (the 1-hop probe above
     // always runs).
@@ -990,7 +1149,14 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
           usage: usageBlock(usage),
         },
       },
-      graphData: { schema: 'chain-insights.graph.v1', nodes: [], edges: [], flows: [], edge_anchors: [], metadata: { address, network, generated_at: new Date().toISOString() } },
+      graphData: {
+        schema: 'chain-insights.graph.v1',
+        nodes: [],
+        edges: [],
+        flows: [],
+        edge_anchors: [],
+        metadata: { address, network, generated_at: new Date().toISOString() },
+      },
     }
   }
   const profile: Record<string, unknown> = {
@@ -999,13 +1165,19 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     ...(optionalResultsFor(batch, 'address_feature', partialQueryFailures)[0] ?? {}),
   }
   const labelRows = deriveLabelRows(profile)
-  const outflows = enrichExchangeRows(optionalResultsWithPrefix(batch, 'exchange_outflows_', partialQueryFailures))
-  const inflows = enrichExchangeRows(optionalResultsWithPrefix(batch, 'exchange_inflows_', partialQueryFailures))
-  const connections = compareAddress ? optionalResultsFor(batch, 'connection_probe', partialQueryFailures) : []
+  const outflows = enrichExchangeRows(
+    optionalResultsWithPrefix(batch, 'exchange_outflows_', partialQueryFailures)
+  )
+  const inflows = enrichExchangeRows(
+    optionalResultsWithPrefix(batch, 'exchange_inflows_', partialQueryFailures)
+  )
+  const connections = compareAddress
+    ? optionalResultsFor(batch, 'connection_probe', partialQueryFailures)
+    : []
   const routeEvidence = shouldIncludeRouteQueries(compareAddress)
     ? buildRouteEvidence(
         optionalResultsFor(batch, 'connection_route_outbound', partialQueryFailures),
-        optionalResultsFor(batch, 'connection_route_inbound', partialQueryFailures),
+        optionalResultsFor(batch, 'connection_route_inbound', partialQueryFailures)
       )
     : undefined
   const exchangeRows = [...outflows, ...inflows]
@@ -1017,7 +1189,8 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   // tool that silently reports a false-clean verdict on a partial search
   // failure is a real risk (found during MoA review, 2026-07-05).
   const exchangeSearchFailures = partialQueryFailures.filter(
-    (failure) => failure.id.startsWith('exchange_outflows_') || failure.id.startsWith('exchange_inflows_'),
+    (failure) =>
+      failure.id.startsWith('exchange_outflows_') || failure.id.startsWith('exchange_inflows_')
   )
   const exchangeSearchComplete = exchangeSearchFailures.length === 0
   // money-trail enrichment (optional): a preliminary block resolves the
@@ -1025,7 +1198,11 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   // out TRAIL_ENDS_AT for that seed so the block can pick the highest-value
   // terminal fact. Both reads are optional-results -- a graph with no
   // money-trail layer never fails the tool.
-  const moneyTrailIncidentRows = optionalResultsFor(batch, 'money_trail_incident', partialQueryFailures)
+  const moneyTrailIncidentRows = optionalResultsFor(
+    batch,
+    'money_trail_incident',
+    partialQueryFailures
+  )
   const preliminaryMoneyTrail = buildMoneyTrailBlock(moneyTrailIncidentRows, [])
   let moneyTrailEndRows: Array<Record<string, unknown>> = []
   if (preliminaryMoneyTrail?.primary_seed) {
@@ -1040,7 +1217,11 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
       // absorbs) must not blow up the whole tool -- the incident rows are
       // already in hand, so the block still reports on_trail without
       // nearest_trail_end.
-      collectQueryFailure(partialQueryFailures, 'money_trail_ends', error instanceof Error ? error.message : String(error))
+      collectQueryFailure(
+        partialQueryFailures,
+        'money_trail_ends',
+        error instanceof Error ? error.message : String(error)
+      )
     }
   }
   const moneyTrail = buildMoneyTrailBlock(moneyTrailIncidentRows, moneyTrailEndRows)
@@ -1048,13 +1229,14 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
   const risk = riskAssessment(profile, labelRows, exchangeRows)
   const liveRiskScore = numberValue(profile['live_risk_score'])
   const liveRiskLevel = firstString(profile['live_risk_level'])
-  const liveNodeVerdict = liveRiskScore !== undefined || liveRiskLevel
-    ? {
-        ...(liveRiskScore !== undefined ? { risk_score: liveRiskScore } : {}),
-        ...(liveRiskLevel ? { risk_level: liveRiskLevel } : {}),
-        source: 'topology_node',
-      }
-    : undefined
+  const liveNodeVerdict =
+    liveRiskScore !== undefined || liveRiskLevel
+      ? {
+          ...(liveRiskScore !== undefined ? { risk_score: liveRiskScore } : {}),
+          ...(liveRiskLevel ? { risk_level: liveRiskLevel } : {}),
+          source: 'topology_node',
+        }
+      : undefined
 
   const lines = [
     `Address risk for ${network}:${address}`,
@@ -1062,7 +1244,9 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     `Risk: ${risk['level']} (${formatRiskScore(risk['score'])})`,
     `Confidence: ${risk['confidence']}`,
     `Recommendation: ${risk['recommendation']}`,
-    ...(liveNodeVerdict ? [`Live node triage: ${liveRiskLevel ?? 'unknown'} (${formatRiskScore(liveRiskScore)})`] : []),
+    ...(liveNodeVerdict
+      ? [`Live node triage: ${liveRiskLevel ?? 'unknown'} (${formatRiskScore(liveRiskScore)})`]
+      : []),
     `Graph degree: in ${profile['degree_in'] ?? 'unknown'}, out ${profile['degree_out'] ?? 'unknown'}.`,
     '',
     'Exchange behavior',
@@ -1071,7 +1255,9 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
           formatExchangeRows(exchangeRows).join('\n'),
           ...(exchangeSearchComplete
             ? []
-            : [`(incomplete: ${exchangeSearchFailures.length} other hop-depth quer${exchangeSearchFailures.length === 1 ? 'y' : 'ies'} failed -- there may be more exchange exposure than shown here)`]),
+            : [
+                `(incomplete: ${exchangeSearchFailures.length} other hop-depth quer${exchangeSearchFailures.length === 1 ? 'y' : 'ies'} failed -- there may be more exchange exposure than shown here)`,
+              ]),
         ]
       : [
           exchangeSearchComplete
@@ -1086,13 +1272,26 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     lines.push('', moneyTrailSummarySentence(moneyTrail))
   }
   if (compareAddress) {
-    lines.push('', `Connection compare target: ${compareAddress}`, connections.length > 0 ? `Connection paths found: ${connections.length}` : 'Connection paths found: 0')
+    lines.push(
+      '',
+      `Connection compare target: ${compareAddress}`,
+      connections.length > 0
+        ? `Connection paths found: ${connections.length}`
+        : 'Connection paths found: 0'
+    )
   }
   if (compareUnresolved) {
-    lines.push('', `Unresolved compare_address: no Address found for "${compareInput}"; comparison skipped.`)
+    lines.push(
+      '',
+      `Unresolved compare_address: no Address found for "${compareInput}"; comparison skipped.`
+    )
   }
   if (partialQueryFailures.length > 0) {
-    lines.push('', 'Partial query failures', partialQueryFailures.map((failure) => `- ${failure.id}: ${failure.error}`).join('\n'))
+    lines.push(
+      '',
+      'Partial query failures',
+      partialQueryFailures.map((failure) => `- ${failure.id}: ${failure.error}`).join('\n')
+    )
   }
   const summaryText = lines.join('\n')
   const structuredContent = {
@@ -1111,7 +1310,9 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
         outflows,
         inflows,
         search_status: exchangeSearchComplete ? 'complete' : 'incomplete',
-        ...(exchangeSearchComplete ? {} : { failed_query_ids: exchangeSearchFailures.map((failure) => failure.id) }),
+        ...(exchangeSearchComplete
+          ? {}
+          : { failed_query_ids: exchangeSearchFailures.map((failure) => failure.id) }),
       },
       connection: compareAddress
         ? {
@@ -1126,14 +1327,16 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
       usage: usageBlock(usage),
     },
   }
-  const artifacts = options.writeArtifacts ? await writeAddressRiskArtifacts(
-    network,
-    address,
-    compareAddress,
-    graphData,
-    exchangeRows,
-    summaryText,
-  ) : statelessArtifacts()
+  const artifacts = options.writeArtifacts
+    ? await writeAddressRiskArtifacts(
+        network,
+        address,
+        compareAddress,
+        graphData,
+        exchangeRows,
+        summaryText
+      )
+    : statelessArtifacts()
   const evidence = artifactEvidence(artifacts)
 
   return {
@@ -1141,10 +1344,13 @@ export async function addressRisk(remoteClient: Client, options: AddressRiskOpti
     structuredContent: {
       ...structuredContent,
       artifacts,
-      evidence: [...evidence, {
-        evidence_type: 'tool_summary',
-        summary: `aml_address_risk ${address} completed for ${network}`,
-      }],
+      evidence: [
+        ...evidence,
+        {
+          evidence_type: 'tool_summary',
+          summary: `aml_address_risk ${address} completed for ${network}`,
+        },
+      ],
     },
     graphData,
   }
@@ -1157,26 +1363,40 @@ function toCsvValue(value: unknown): string {
 function subjectNodeForExchangeRow(row: Record<string, unknown>, fallbackAddress: string): string {
   return String(
     row['direction'] === 'inflow'
-      ? row['withdrawal_address'] ?? row['deposit_address'] ?? fallbackAddress
-      : row['deposit_address'] ?? row['withdrawal_address'] ?? fallbackAddress,
+      ? (row['withdrawal_address'] ?? row['deposit_address'] ?? fallbackAddress)
+      : (row['deposit_address'] ?? row['withdrawal_address'] ?? fallbackAddress)
   )
 }
 
-function buildAddressRiskTableHtml(tool: string, network: string, rows: Array<Record<string, unknown>>, subject: string): string {
-  const headers = ['direction', 'exchange_address', 'subject_path_node', 'hops', 'amount_usd_sum', 'tx_count'] as const
-  const body = rows.map((row) => {
-    const exchangeAddress = String(row['exchange_address'] ?? '')
-    const subjectNode = subjectNodeForExchangeRow(row, subject)
-    const rowValues = [
-      row['direction'] ?? '',
-      exchangeAddress,
-      subjectNode,
-      row['hops'] ?? '',
-      row['amount_usd_sum'] ?? '',
-      row['tx_count'] ?? '',
-    ]
-    return `<tr>${rowValues.map((value) => `<td>${htmlEscape(toCsvValue(value))}</td>`).join('')}</tr>`
-  }).join('\n')
+function buildAddressRiskTableHtml(
+  tool: string,
+  network: string,
+  rows: Array<Record<string, unknown>>,
+  subject: string
+): string {
+  const headers = [
+    'direction',
+    'exchange_address',
+    'subject_path_node',
+    'hops',
+    'amount_usd_sum',
+    'tx_count',
+  ] as const
+  const body = rows
+    .map((row) => {
+      const exchangeAddress = String(row['exchange_address'] ?? '')
+      const subjectNode = subjectNodeForExchangeRow(row, subject)
+      const rowValues = [
+        row['direction'] ?? '',
+        exchangeAddress,
+        subjectNode,
+        row['hops'] ?? '',
+        row['amount_usd_sum'] ?? '',
+        row['tx_count'] ?? '',
+      ]
+      return `<tr>${rowValues.map((value) => `<td>${htmlEscape(toCsvValue(value))}</td>`).join('')}</tr>`
+    })
+    .join('\n')
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -1214,7 +1434,7 @@ async function writeAddressRiskArtifacts(
   compareAddress: string | undefined,
   graphData: Record<string, unknown>,
   exchangeRows: Array<Record<string, unknown>>,
-  summaryText: string,
+  summaryText: string
 ): Promise<Record<string, string>> {
   const paths = workspaceOutputPaths()
   await Promise.all([
@@ -1224,7 +1444,10 @@ async function writeAddressRiskArtifacts(
   ])
   const safeNetwork = network.replace(/[^A-Za-z0-9._-]+/g, '_')
   const safeAddress = address.replace(/[^A-Za-z0-9._-]+/g, '_')
-  const slug = `${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}_aml_address_risk_${safeNetwork}_${safeAddress}`
+  const slug = `${new Date()
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/\.\d{3}Z$/, 'Z')}_aml_address_risk_${safeNetwork}_${safeAddress}`
   const graphPath = path.join(paths.reportGraphsRoot, `${slug}.graph.json`)
   const tableJsonPath = path.join(paths.reportTablesRoot, `${slug}.compact-evidence.json`)
   const csvPath = path.join(paths.reportTablesRoot, `${slug}.flows.csv`)
@@ -1240,21 +1463,24 @@ async function writeAddressRiskArtifacts(
     'amount_usd_sum',
     'tx_count',
   ]
-  const csv = [
-    header.join(','),
-    ...exchangeRows.map((row) => {
-      const exchangeAddress = String(row['exchange_address'] ?? '')
-      const subjectPathNode = subjectNodeForExchangeRow(row, address)
-      return [
-        row['direction'] ?? '',
-        exchangeAddress,
-        subjectPathNode,
-        row['hops'] ?? '',
-        row['amount_usd_sum'] ?? '',
-        row['tx_count'] ?? '',
-      ].map((value) => JSON.stringify(String(value))).join(',')
-    }),
-  ].join('\n') + '\n'
+  const csv =
+    [
+      header.join(','),
+      ...exchangeRows.map((row) => {
+        const exchangeAddress = String(row['exchange_address'] ?? '')
+        const subjectPathNode = subjectNodeForExchangeRow(row, address)
+        return [
+          row['direction'] ?? '',
+          exchangeAddress,
+          subjectPathNode,
+          row['hops'] ?? '',
+          row['amount_usd_sum'] ?? '',
+          row['tx_count'] ?? '',
+        ]
+          .map((value) => JSON.stringify(String(value)))
+          .join(',')
+      }),
+    ].join('\n') + '\n'
   const evidence = {
     schema: 'chain-insights.trace.v1',
     tool: 'aml_address_risk',
@@ -1278,7 +1504,11 @@ async function writeAddressRiskArtifacts(
   await writeFile(graphPath, JSON.stringify(graphData, null, 2) + '\n', { mode: 0o600 })
   await writeFile(tableJsonPath, JSON.stringify(evidence, null, 2) + '\n', { mode: 0o600 })
   await writeFile(csvPath, csv, { mode: 0o600 })
-  await writeFile(tableHtmlPath, buildAddressRiskTableHtml('aml_address_risk', network, exchangeRows, address), { mode: 0o600 })
+  await writeFile(
+    tableHtmlPath,
+    buildAddressRiskTableHtml('aml_address_risk', network, exchangeRows, address),
+    { mode: 0o600 }
+  )
   await writeFile(graphHtmlPath, generateInlineGraphHtml(graphData), { mode: 0o600 })
   await writeFile(
     reportPath,
@@ -1292,7 +1522,7 @@ async function writeAddressRiskArtifacts(
       '',
       summaryText,
     ].join('\n'),
-    { mode: 0o600 },
+    { mode: 0o600 }
   )
 
   return {
@@ -1305,7 +1535,6 @@ async function writeAddressRiskArtifacts(
   }
 }
 
-
 function statelessArtifacts(): Record<string, unknown> {
   return {
     artifacts_written: false,
@@ -1315,7 +1544,10 @@ function statelessArtifacts(): Record<string, unknown> {
 
 function artifactEvidence(artifacts: Record<string, unknown>): Array<Record<string, unknown>> {
   return Object.entries(artifacts)
-    .filter((entry): entry is [string, string] => entry[0] !== 'artifact_mode' && typeof entry[1] === 'string' && entry[1].length > 0)
+    .filter(
+      (entry): entry is [string, string] =>
+        entry[0] !== 'artifact_mode' && typeof entry[1] === 'string' && entry[1].length > 0
+    )
     .map(([kind, filePath]) => ({
       evidence_type: 'artifact_pointer',
       path: filePath,
@@ -1331,7 +1563,6 @@ function htmlEscape(value: unknown): string {
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;')
 }
-
 
 // Deterministic query-builder surface for the committed corpus and
 // query-with-a-documented-call-contract tests. Reflects the retained

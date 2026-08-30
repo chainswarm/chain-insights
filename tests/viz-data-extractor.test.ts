@@ -63,9 +63,7 @@ describe('extractGraphFromJson (VIZ-01)', () => {
       nodes: [
         { id: '0xaaa', entityType: 'eoa', riskLevel: 'low', totalIn: 0, totalOut: 100, txCount: 1 },
       ],
-      edges: [
-        { source: '0xaaa', target: '0xbbb', value: 100 },
-      ],
+      edges: [{ source: '0xaaa', target: '0xbbb', value: 100 }],
       metadata: { title: 'Test', generatedAt: '2026-01-01T00:00:00Z' },
     }
     const result = extractGraphFromJson(input)
@@ -90,11 +88,11 @@ describe('extractGraphFromJson (VIZ-01)', () => {
       expect(node.riskLevel).toBe('unknown')
     }
     // Computed totals
-    const nodeAaa = result.nodes.find(n => n.id === '0xaaa')
+    const nodeAaa = result.nodes.find((n) => n.id === '0xaaa')
     expect(nodeAaa).toBeDefined()
     expect(nodeAaa!.totalOut).toBe(100)
     expect(nodeAaa!.txCount).toBe(1)
-    const nodeBbb = result.nodes.find(n => n.id === '0xbbb')
+    const nodeBbb = result.nodes.find((n) => n.id === '0xbbb')
     expect(nodeBbb).toBeDefined()
     expect(nodeBbb!.totalIn).toBe(100)
     expect(nodeBbb!.totalOut).toBe(50)
@@ -110,19 +108,28 @@ describe('extractGraphFromJson (VIZ-01)', () => {
 
   it('maps compact evidence outgoing_flows using the amount_usd_sum field', () => {
     const { extractGraphFromJson } = extractors
-    const input = [{
-      schema: 'chain-insights.compact_evidence.v1',
-      outgoing_flows: [{
-        src: '5src',
-        dst: '5dst',
-        amount_usd_sum: 42,
-        tx_count: 1,
-        first_tx_id: '294-1',
-      }],
-    }]
+    const input = [
+      {
+        schema: 'chain-insights.compact_evidence.v1',
+        outgoing_flows: [
+          {
+            src: '5src',
+            dst: '5dst',
+            amount_usd_sum: 42,
+            tx_count: 1,
+            first_tx_id: '294-1',
+          },
+        ],
+      },
+    ]
     const result = extractGraphFromJson(input)
     expect(result.edges).toHaveLength(1)
-    expect(result.edges[0]).toMatchObject({ source: '5src', target: '5dst', value: 42, txHash: '294-1' })
+    expect(result.edges[0]).toMatchObject({
+      source: '5src',
+      target: '5dst',
+      value: 42,
+      txHash: '294-1',
+    })
   })
 
   it('throws "Invalid transaction data" for non-array non-GraphData input', () => {

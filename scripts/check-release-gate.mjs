@@ -3,7 +3,10 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 
 export function parseSemver(version) {
-  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/.exec(version)
+  const match =
+    /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/.exec(
+      version
+    )
   if (!match) {
     throw new Error(`Invalid semver version: ${version}`)
   }
@@ -104,8 +107,9 @@ function ensureBaseRef(baseRef) {
 }
 
 function fileChanged(baseRef, path) {
-  const committedDiff = gitOrNull(['diff', '--name-only', `${baseRef}...HEAD`])
-    ?? git(['diff', '--name-only', baseRef, 'HEAD'])
+  const committedDiff =
+    gitOrNull(['diff', '--name-only', `${baseRef}...HEAD`]) ??
+    git(['diff', '--name-only', baseRef, 'HEAD'])
   const changedFiles = [
     ...committedDiff.split('\n').filter(Boolean),
     ...git(['diff', '--name-only']).split('\n').filter(Boolean),
@@ -149,16 +153,22 @@ export function runReleaseGate({ baseRef = resolveBaseRef() } = {}) {
   }
 
   if (lock.version !== version) {
-    failures.push(`package-lock.json top-level version ${lock.version} does not match package.json ${version}`)
+    failures.push(
+      `package-lock.json top-level version ${lock.version} does not match package.json ${version}`
+    )
   }
 
   if (lock.packages?.['']?.version !== version) {
-    failures.push(`package-lock.json packages[""].version ${lock.packages?.['']?.version} does not match package.json ${version}`)
+    failures.push(
+      `package-lock.json packages[""].version ${lock.packages?.['']?.version} does not match package.json ${version}`
+    )
   }
 
   const missingEntrypoints = missingPackageEntrypoints(pkg)
   if (missingEntrypoints.length > 0) {
-    failures.push(`package.json entrypoints are missing from the built package: ${missingEntrypoints.join(', ')}`)
+    failures.push(
+      `package.json entrypoints are missing from the built package: ${missingEntrypoints.join(', ')}`
+    )
   }
 
   const trackedTarballs = committedPackageTarballs(git(['ls-files', '*.tgz']).split('\n'))
@@ -171,7 +181,9 @@ export function runReleaseGate({ baseRef = resolveBaseRef() } = {}) {
   } else {
     const changelog = readFileSync('CHANGELOG.md', 'utf8')
     if (!changelogHasVersionEntry(changelog, version)) {
-      failures.push(`CHANGELOG.md must include a heading for version ${version}, for example: ## [${version}] - YYYY-MM-DD`)
+      failures.push(
+        `CHANGELOG.md must include a heading for version ${version}, for example: ## [${version}] - YYYY-MM-DD`
+      )
     }
   }
 

@@ -39,14 +39,17 @@ describe('graph query corpus', () => {
       expect(entry.query.startsWith('USE '), `not USE-prefixed: ${entry.builder}`).toBe(true)
       // A malformed generator parameter (wrong window/limit key) leaks
       // JS junk into the emitted query text — pin its absence.
-      expect(entry.query, `malformed value in ${entry.builder}`).not.toMatch(/undefined|NaN|\[object /)
+      expect(entry.query, `malformed value in ${entry.builder}`).not.toMatch(
+        /undefined|NaN|\[object /
+      )
       // Native traversal (BFS/WSHORTEST/KSHORTEST/*a..b) is legal on the
       // topology graph (executes directly against Memgraph) but must NOT
       // appear on facts, which goes through the corpus-scoped StarRocks
       // translator that rejects those shapes.
       if (entry.scope === 'facts') {
-        expect(entry.query, `native traversal on translator layer: ${entry.builder}`)
-          .not.toMatch(/SHORTEST|\*\s*BFS|\*\s*DFS|\*\s*\d|\*\s*KSHORTEST|\*\s*WSHORTEST|\{\d+,\d*\}/)
+        expect(entry.query, `native traversal on translator layer: ${entry.builder}`).not.toMatch(
+          /SHORTEST|\*\s*BFS|\*\s*DFS|\*\s*\d|\*\s*KSHORTEST|\*\s*WSHORTEST|\{\d+,\d*\}/
+        )
       }
     }
   })
@@ -58,23 +61,29 @@ describe('graph query corpus', () => {
     // builder regressed to the retired identity-grain shape.
     const corpus = JSON.parse(readFileSync(committedPath, 'utf8'))
     for (const entry of corpus.entries) {
-      expect(entry.query, `identity-grain node in ${entry.builder}`).not.toMatch(/\(\s*[a-zA-Z0-9_]*:Identity\b/)
+      expect(entry.query, `identity-grain node in ${entry.builder}`).not.toMatch(
+        /\(\s*[a-zA-Z0-9_]*:Identity\b/
+      )
       expect(entry.query, `identity_id property in ${entry.builder}`).not.toMatch(/identity_id/)
-      expect(entry.query, `HAS_ADDRESS satellite edge in ${entry.builder}`).not.toMatch(/HAS_ADDRESS/)
+      expect(entry.query, `HAS_ADDRESS satellite edge in ${entry.builder}`).not.toMatch(
+        /HAS_ADDRESS/
+      )
     }
   })
 
   it('documented recipes cover the native topology traversal surface', () => {
     const recipes = JSON.parse(
-      readFileSync(join(repoRoot, 'tests/fixtures/documented-recipes.json'), 'utf8'),
+      readFileSync(join(repoRoot, 'tests/fixtures/documented-recipes.json'), 'utf8')
     ).recipes as Array<{ query: string; layer: string; features: string[] }>
     const topologyFeatures = new Set(
-      recipes.filter((r) => r.layer === 'topology').flatMap((r) => r.features),
+      recipes.filter((r) => r.layer === 'topology').flatMap((r) => r.features)
     )
     // Native traversal shapes run directly against Memgraph on the unified
     // topology graph. The corpus must exercise them.
     for (const feature of ['bfs', 'wshortest', 'kshortest', 'variable-length', 'shortest-path']) {
-      expect(topologyFeatures.has(feature), `missing native topology feature: ${feature}`).toBe(true)
+      expect(topologyFeatures.has(feature), `missing native topology feature: ${feature}`).toBe(
+        true
+      )
     }
   })
 })

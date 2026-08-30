@@ -32,7 +32,10 @@ describe('Installer (FOUND-01)', () => {
   let prevHome: string | undefined
 
   beforeEach(async () => {
-    fakeHome = join(tmpdir(), `ci-install-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    fakeHome = join(
+      tmpdir(),
+      `ci-install-test-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    )
     await mkdir(fakeHome, { recursive: true })
     prevHome = process.env['HOME']
     process.env['HOME'] = fakeHome
@@ -112,7 +115,14 @@ describe('Installer (FOUND-01)', () => {
 
   it('--hermes copies Chain Insights skills to ~/.hermes/skills/chain-insights/', () => {
     execSync(`HOME=${fakeHome} node bin/install.cjs --hermes`, { stdio: 'pipe' })
-    const skillPath = join(fakeHome, '.hermes', 'skills', 'chain-insights', 'chain-insights-cypher', 'SKILL.md')
+    const skillPath = join(
+      fakeHome,
+      '.hermes',
+      'skills',
+      'chain-insights',
+      'chain-insights-cypher',
+      'SKILL.md'
+    )
     expect(existsSync(skillPath)).toBe(true)
   })
 
@@ -131,19 +141,23 @@ describe('Installer (FOUND-01)', () => {
     const hermesDir = join(fakeHome, '.hermes')
     mkdirSync(hermesDir, { recursive: true })
     const configPath = join(hermesDir, 'config.yaml')
-    writeFileSync(configPath, [
-      'mcp_servers:',
-      '  other:',
-      '    command: "npx"',
-      '    args:',
-      '    - "other-server"',
-      '  chain-insights:',
-      '    command: "old"',
-      '    args:',
-      '    - "old.js"',
-      '    enabled: false',
-      '',
-    ].join('\n'), 'utf8')
+    writeFileSync(
+      configPath,
+      [
+        'mcp_servers:',
+        '  other:',
+        '    command: "npx"',
+        '    args:',
+        '    - "other-server"',
+        '  chain-insights:',
+        '    command: "old"',
+        '    args:',
+        '    - "old.js"',
+        '    enabled: false',
+        '',
+      ].join('\n'),
+      'utf8'
+    )
 
     execSync(`HOME=${fakeHome} node bin/install.cjs --hermes`, { stdio: 'pipe' })
 

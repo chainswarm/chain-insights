@@ -31,7 +31,10 @@ describe('wallet tools', () => {
     vi.clearAllMocks()
     waitForTransactionReceiptMock.mockResolvedValue({ status: 'success' })
     writeContractMock.mockResolvedValue('0xapproval')
-    fakeHome = join(tmpdir(), `ci-wallet-tools-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    fakeHome = join(
+      tmpdir(),
+      `ci-wallet-tools-test-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    )
     await mkdir(join(fakeHome, '.chain-insights'), { recursive: true })
     prevHome = process.env['HOME']
     process.env['HOME'] = fakeHome
@@ -69,7 +72,7 @@ describe('wallet tools', () => {
         address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
         functionName: 'balanceOf',
         args: ['0x0000000000000000000000000000000000000001'],
-      }),
+      })
     )
   })
 
@@ -88,9 +91,7 @@ describe('wallet tools', () => {
   it('falls back across public Base RPC endpoints before returning unknown', async () => {
     const { getBalanceUsdc } = await import('../src/wallet/tools.js')
     const { http } = await import('viem')
-    readContractMock
-      .mockRejectedValueOnce(new Error('forbidden'))
-      .mockResolvedValueOnce(2_000_000n)
+    readContractMock.mockRejectedValueOnce(new Error('forbidden')).mockResolvedValueOnce(2_000_000n)
 
     const balance = await getBalanceUsdc('0x0000000000000000000000000000000000000001')
 
@@ -106,7 +107,9 @@ describe('wallet tools', () => {
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('USDC on Base: 2.500000')
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Gas on Base: 0.0001 ETH')
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Payment network: Base')
-    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain('Base ETH is used only for one-time payment setup gas.')
+    expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).toContain(
+      'Base ETH is used only for one-time payment setup gas.'
+    )
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).not.toContain('Network: Base')
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).not.toContain('Permit2')
     expect(formatWalletBalance('0xabc', '2.500000', '0.0001')).not.toContain('approval')
@@ -115,7 +118,8 @@ describe('wallet tools', () => {
   })
 
   it('builds structured wallet balance facts', async () => {
-    const { formatWalletBalanceResult, getWalletBalanceResult } = await import('../src/wallet/tools.js')
+    const { formatWalletBalanceResult, getWalletBalanceResult } =
+      await import('../src/wallet/tools.js')
     readContractMock.mockResolvedValueOnce(2_500_000n)
     getBalanceMock.mockResolvedValueOnce(100_000_000_000_000n)
 
@@ -159,7 +163,7 @@ describe('wallet tools', () => {
           '0x0000000000000000000000000000000000000001',
           '0x000000000022D473030F116dDEE9F6B43aC78BA3',
         ],
-      }),
+      })
     )
   })
 
@@ -185,27 +189,35 @@ describe('wallet tools', () => {
         address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
         functionName: 'approve',
         args: ['0x000000000022D473030F116dDEE9F6B43aC78BA3', 1_000_000n],
-      }),
+      })
     )
   })
 
   it('renders wallet readiness without exposing payment approval mechanics', async () => {
     const { formatWalletReadiness } = await import('../src/wallet/tools.js')
 
-    const text = formatWalletReadiness({
-      address: '0x0000000000000000000000000000000000000001',
-      balanceUsdc: '2',
-      balanceEth: '0.0001',
-      paymentApprovalUsdc: '1',
-      paymentApprovalUnits: 1_000_000n,
-      minimumApprovalUnits: 1_000_000n,
-      hasUsdc: true,
-      hasGas: true,
-      hasPaymentApproval: true,
-      needsPaymentApproval: false,
-      ready: true,
-      nextSteps: [],
-    }, { status: 'approved', txHash: '0xapproval', paymentApprovalUnits: 1_000_000n, minimumApprovalUnits: 1_000_000n })
+    const text = formatWalletReadiness(
+      {
+        address: '0x0000000000000000000000000000000000000001',
+        balanceUsdc: '2',
+        balanceEth: '0.0001',
+        paymentApprovalUsdc: '1',
+        paymentApprovalUnits: 1_000_000n,
+        minimumApprovalUnits: 1_000_000n,
+        hasUsdc: true,
+        hasGas: true,
+        hasPaymentApproval: true,
+        needsPaymentApproval: false,
+        ready: true,
+        nextSteps: [],
+      },
+      {
+        status: 'approved',
+        txHash: '0xapproval',
+        paymentApprovalUnits: 1_000_000n,
+        minimumApprovalUnits: 1_000_000n,
+      }
+    )
 
     expect(text).toContain('Ready for paid Chain Insights Graph calls')
     expect(text).toContain('Payment setup: ready')
@@ -251,12 +263,13 @@ describe('wallet tools', () => {
         network: 'Base',
         token: 'USDC',
         topup_url: 'http://127.0.0.1:4500',
-      }),
+      })
     )
   })
 
   it('refuses an auto-approval above the ceiling without touching the chain', async () => {
-    const { prepareWalletForPaidCalls, DEFAULT_MAX_AUTO_APPROVAL_UNITS } = await import('../src/wallet/tools.js')
+    const { prepareWalletForPaidCalls, DEFAULT_MAX_AUTO_APPROVAL_UNITS } =
+      await import('../src/wallet/tools.js')
     const account = {
       address: '0x0000000000000000000000000000000000000001' as const,
       privateKey: '0x0000000000000000000000000000000000000000000000000000000000000001' as const,
@@ -267,7 +280,7 @@ describe('wallet tools', () => {
         account,
         minimumApprovalUnits: DEFAULT_MAX_AUTO_APPROVAL_UNITS + 1n,
         maxApprovalUnits: DEFAULT_MAX_AUTO_APPROVAL_UNITS,
-      }),
+      })
     ).rejects.toThrow(/exceeds the automatic payment-approval ceiling/)
 
     // No RPC reads and, crucially, no on-chain approve is submitted.
@@ -276,7 +289,8 @@ describe('wallet tools', () => {
   })
 
   it('approves an endpoint amount at or below the ceiling', async () => {
-    const { prepareWalletForPaidCalls, DEFAULT_MAX_AUTO_APPROVAL_UNITS } = await import('../src/wallet/tools.js')
+    const { prepareWalletForPaidCalls, DEFAULT_MAX_AUTO_APPROVAL_UNITS } =
+      await import('../src/wallet/tools.js')
     const account = {
       address: '0x0000000000000000000000000000000000000001' as const,
       privateKey: '0x0000000000000000000000000000000000000000000000000000000000000001' as const,
@@ -299,15 +313,20 @@ describe('wallet tools', () => {
       expect.objectContaining({
         functionName: 'approve',
         args: ['0x000000000022D473030F116dDEE9F6B43aC78BA3', 2_000_000n],
-      }),
+      })
     )
   })
 
   it('resolveMaxAutoApprovalUnits honors a valid env override and rejects a bad one', async () => {
-    const { resolveMaxAutoApprovalUnits, DEFAULT_MAX_AUTO_APPROVAL_UNITS } = await import('../src/wallet/tools.js')
+    const { resolveMaxAutoApprovalUnits, DEFAULT_MAX_AUTO_APPROVAL_UNITS } =
+      await import('../src/wallet/tools.js')
 
     expect(resolveMaxAutoApprovalUnits({})).toBe(DEFAULT_MAX_AUTO_APPROVAL_UNITS)
-    expect(resolveMaxAutoApprovalUnits({ CHAIN_INSIGHTS_MAX_AUTO_APPROVAL_USDC: '25' })).toBe(25_000_000n)
-    expect(() => resolveMaxAutoApprovalUnits({ CHAIN_INSIGHTS_MAX_AUTO_APPROVAL_USDC: '-1' })).toThrow()
+    expect(resolveMaxAutoApprovalUnits({ CHAIN_INSIGHTS_MAX_AUTO_APPROVAL_USDC: '25' })).toBe(
+      25_000_000n
+    )
+    expect(() =>
+      resolveMaxAutoApprovalUnits({ CHAIN_INSIGHTS_MAX_AUTO_APPROVAL_USDC: '-1' })
+    ).toThrow()
   })
 })

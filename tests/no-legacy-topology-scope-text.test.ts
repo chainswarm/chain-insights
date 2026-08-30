@@ -27,26 +27,36 @@ const ALLOWED_FILES = new Set([
 // Fixed-string, case-insensitive patterns: `archive_topology`/`live_topology`/
 // `topology_scope` as identifiers or query text, plus the retired
 // `TopologyScope` TS type name (no underscore, so it needs its own pattern).
-const LEGACY_PATTERNS = [
-  'topology_scope',
-  'TopologyScope',
-  'live_topology',
-  'archive_topology',
-]
+const LEGACY_PATTERNS = ['topology_scope', 'TopologyScope', 'live_topology', 'archive_topology']
 
 function trackedFiles(): string[] {
   const output = execFileSync('git', ['ls-files'], { cwd: repoRoot, encoding: 'utf8' })
-  return output.split('\n').map((line) => line.trim()).filter(Boolean)
+  return output
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
 }
 
 function gitGrepMatches(pattern: string): string[] {
   try {
     const output = execFileSync(
       'git',
-      ['grep', '-I', '--ignore-case', '--fixed-strings', '--files-with-matches', pattern, '--', '.'],
-      { cwd: repoRoot, encoding: 'utf8' },
+      [
+        'grep',
+        '-I',
+        '--ignore-case',
+        '--fixed-strings',
+        '--files-with-matches',
+        pattern,
+        '--',
+        '.',
+      ],
+      { cwd: repoRoot, encoding: 'utf8' }
     )
-    return output.split('\n').map((line) => line.trim()).filter(Boolean)
+    return output
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
   } catch (err) {
     // git grep exits 1 with no output when there are zero matches -- not an error.
     const status = (err as { status?: number }).status
@@ -63,7 +73,10 @@ describe('zero legacy topology-scope text repo-wide', () => {
   for (const pattern of LEGACY_PATTERNS) {
     it(`no tracked file outside CHANGELOG/history references "${pattern}"`, () => {
       const matches = gitGrepMatches(pattern).filter((file) => !ALLOWED_FILES.has(file))
-      expect(matches, `unexpected "${pattern}" reference(s) outside CHANGELOG/history:\n${matches.join('\n')}`).toEqual([])
+      expect(
+        matches,
+        `unexpected "${pattern}" reference(s) outside CHANGELOG/history:\n${matches.join('\n')}`
+      ).toEqual([])
     })
   }
 })

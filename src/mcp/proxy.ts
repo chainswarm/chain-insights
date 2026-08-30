@@ -7,12 +7,20 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { ContentBlock, GetPromptResult } from '@modelcontextprotocol/sdk/types.js'
-import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server'
+import {
+  registerAppResource,
+  registerAppTool,
+  RESOURCE_MIME_TYPE,
+} from '@modelcontextprotocol/ext-apps/server'
 import * as z from 'zod'
 import type { InvestigatorConfig } from '../config/schema.js'
 import { PACKAGE_VERSION } from '../version.js'
 import type { McpTool } from './schema-cache.js'
-import { HIDDEN_REMOTE_TOOL_NAMES, PUBLIC_MCP_TOOL_ALLOWED_ARGS, PUBLIC_MCP_TOOL_REQUIRED_ARGS } from './tool-visibility.js'
+import {
+  HIDDEN_REMOTE_TOOL_NAMES,
+  PUBLIC_MCP_TOOL_ALLOWED_ARGS,
+  PUBLIC_MCP_TOOL_REQUIRED_ARGS,
+} from './tool-visibility.js'
 import { PaymentRequiredError } from './client.js'
 import { primitiveBackendUsageStatus } from './usage-status.js'
 import { mirrorGraphNetworkCapabilities } from './capabilities.js'
@@ -25,9 +33,7 @@ const LOCAL_TOOL_NAMES = new Set([
   'wallet_balance',
 ])
 const GRAPH_RESOURCE_URI = 'ui://chain-insights/graph'
-const GRAPH_APP_TOOL_NAMES = new Set([
-  'aml_address_risk',
-])
+const GRAPH_APP_TOOL_NAMES = new Set(['aml_address_risk'])
 const GRAPH_ARRAY_KEYS = ['nodes', 'edges', 'flows', 'edge_anchors'] as const
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -44,10 +50,14 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   meta_network_capabilities: 'Return the current Chain Insights network and tool support matrix.',
   meta_usage_status: "Return the caller's public free graph_query quota for the current UTC day.",
   meta_help: 'Show a short guide to Chain Insights tools and workflow.',
-  wallet_balance: 'Show the local Chain Insights payment wallet address, payment network, token, and amount.',
-  aml_address_risk: 'Screen one blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with another address. Topology reads cover full lifetime history in one unified graph.',
-  graph_query: 'Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for bounded TRANSFER rows and enrichment. Preserve full addresses exactly.',
-  graph_query_batch: 'Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads.',
+  wallet_balance:
+    'Show the local Chain Insights payment wallet address, payment network, token, and amount.',
+  aml_address_risk:
+    'Screen one blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with another address. Topology reads cover full lifetime history in one unified graph.',
+  graph_query:
+    'Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for bounded TRANSFER rows and enrichment. Preserve full addresses exactly.',
+  graph_query_batch:
+    'Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads.',
 }
 const FALLBACK_GRAPH_PRIMITIVE_TOOL_NAMES = ['graph_query', 'graph_query_batch'] as const
 
@@ -63,7 +73,8 @@ type ChainInsightsGraphMeta = {
   url: string
 }
 
-const NETWORK_DESCRIPTION = 'Network to query. Call meta_network_capabilities first and pass a name GraphRAG advertised. CIA does not pick a default network.'
+const NETWORK_DESCRIPTION =
+  'Network to query. Call meta_network_capabilities first and pass a name GraphRAG advertised. CIA does not pick a default network.'
 const NETWORK_SCHEMA = z.string().min(1).describe(NETWORK_DESCRIPTION)
 
 const EMPTY_INPUT_SCHEMA = z.strictObject({})
@@ -140,10 +151,7 @@ function readGraphAppHtml(): string {
 }
 
 function graphArtifactOrigins(config: Pick<InvestigatorConfig, 'serverPort'>): string[] {
-  return [
-    `http://127.0.0.1:${config.serverPort}`,
-    `http://localhost:${config.serverPort}`,
-  ]
+  return [`http://127.0.0.1:${config.serverPort}`, `http://localhost:${config.serverPort}`]
 }
 
 function hasGraphApp(tool: McpTool): boolean {
@@ -189,21 +197,34 @@ export function knownPublicToolInputSchema(toolName: string): ToolInputShape | n
       return {
         address: z.string().min(1).describe('Blockchain address to screen.'),
         network: NETWORK_SCHEMA,
-        compare_address: z.string().optional().describe('Optional address to compare against the screened address.'),
+        compare_address: z
+          .string()
+          .optional()
+          .describe('Optional address to compare against the screened address.'),
         include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
       }
     case 'graph_query':
       return {
-        query: z.string().min(1).describe('Read-only GQL/Cypher query. Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for bounded TRANSFER rows and enrichment.'),
+        query: z
+          .string()
+          .min(1)
+          .describe(
+            'Read-only GQL/Cypher query. Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for bounded TRANSFER rows and enrichment.'
+          ),
         network: NETWORK_SCHEMA,
       }
     case 'graph_query_batch':
       return {
         network: NETWORK_SCHEMA,
-        queries: z.array(z.object({
-          id: z.string().optional(),
-          query: z.string().min(1).describe('Read-only GQL/Cypher query'),
-        })).min(1).max(20),
+        queries: z
+          .array(
+            z.object({
+              id: z.string().optional(),
+              query: z.string().min(1).describe('Read-only GQL/Cypher query'),
+            })
+          )
+          .min(1)
+          .max(20),
         per_query_timeout_seconds: z.number().int().min(1).max(600).optional(),
       }
     default:
@@ -225,10 +246,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function redactLogValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(redactLogValue)
   if (!isRecord(value)) return value
-  return Object.fromEntries(Object.entries(value).map(([key, entry]) => {
-    if (/token|secret|password|private.?key|authorization/i.test(key)) return [key, '[redacted]']
-    return [key, redactLogValue(entry)]
-  }))
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => {
+      if (/token|secret|password|private.?key|authorization/i.test(key)) return [key, '[redacted]']
+      return [key, redactLogValue(entry)]
+    })
+  )
 }
 
 function errorForLog(err: unknown): Record<string, unknown> {
@@ -248,10 +271,12 @@ function cypherLogPayload(tool: string, args: unknown): Record<string, unknown> 
   if (tool === 'graph_query') {
     return {
       network: args.network,
-      queries: [{
-        id: tool,
-        query: typeof args.query === 'string' ? sanitizeCypher(args.query) : args.query,
-      }],
+      queries: [
+        {
+          id: tool,
+          query: typeof args.query === 'string' ? sanitizeCypher(args.query) : args.query,
+        },
+      ],
     }
   }
   if (tool === 'graph_query_batch') {
@@ -260,12 +285,14 @@ function cypherLogPayload(tool: string, args: unknown): Record<string, unknown> 
       network: args.network,
       per_query_timeout_seconds: args.per_query_timeout_seconds,
       query_count: queries.length,
-      queries: queries.map((entry, index) => isRecord(entry)
-        ? {
-            id: typeof entry.id === 'string' ? entry.id : `q${index + 1}`,
-            query: typeof entry.query === 'string' ? sanitizeCypher(entry.query) : entry.query,
-          }
-        : { id: `q${index + 1}`, query: entry }),
+      queries: queries.map((entry, index) =>
+        isRecord(entry)
+          ? {
+              id: typeof entry.id === 'string' ? entry.id : `q${index + 1}`,
+              query: typeof entry.query === 'string' ? sanitizeCypher(entry.query) : entry.query,
+            }
+          : { id: `q${index + 1}`, query: entry }
+      ),
     }
   }
   return null
@@ -273,19 +300,29 @@ function cypherLogPayload(tool: string, args: unknown): Record<string, unknown> 
 
 function createMcpLogger(config: Pick<InvestigatorConfig, 'dataDir'>) {
   const disabled = process.env.CHAIN_INSIGHTS_MCP_LOG === '0'
-  const filePath = process.env.CHAIN_INSIGHTS_MCP_LOG_PATH?.trim() || path.join(config.dataDir, '.chain-insights', 'runtime', 'logs', 'mcp-proxy.jsonl')
+  const filePath =
+    process.env.CHAIN_INSIGHTS_MCP_LOG_PATH?.trim() ||
+    path.join(config.dataDir, '.chain-insights', 'runtime', 'logs', 'mcp-proxy.jsonl')
 
-  async function write(level: 'info' | 'error', event: string, fields: Record<string, unknown> = {}): Promise<void> {
+  async function write(
+    level: 'info' | 'error',
+    event: string,
+    fields: Record<string, unknown> = {}
+  ): Promise<void> {
     if (disabled) return
     try {
       await mkdir(path.dirname(filePath), { recursive: true })
-      await appendFile(filePath, JSON.stringify({
-        ts: new Date().toISOString(),
-        level,
-        event,
-        pid: process.pid,
-        ...fields,
-      }) + '\n', { mode: 0o600 })
+      await appendFile(
+        filePath,
+        JSON.stringify({
+          ts: new Date().toISOString(),
+          level,
+          event,
+          pid: process.pid,
+          ...fields,
+        }) + '\n',
+        { mode: 0o600 }
+      )
     } catch {
       // Logging must never break the stdio MCP server.
     }
@@ -301,7 +338,11 @@ function createMcpLogger(config: Pick<InvestigatorConfig, 'dataDir'>) {
 function installToolLogging(server: McpServer, logger: ReturnType<typeof createMcpLogger>): void {
   const existingRegisterTool = server.registerTool
   const originalRegisterTool = existingRegisterTool.bind(server)
-  const wrappedRegisterTool = ((name: string, config: ToolRegistrationConfig, handler: ToolHandler) => {
+  const wrappedRegisterTool = ((
+    name: string,
+    config: ToolRegistrationConfig,
+    handler: ToolHandler
+  ) => {
     const wrapped: ToolHandler = async (args, extra) => {
       const startedAt = Date.now()
       await logger.info('tool.start', {
@@ -332,7 +373,10 @@ function installToolLogging(server: McpServer, logger: ReturnType<typeof createM
   server.registerTool = wrappedRegisterTool
 }
 
-function installRemoteCypherLogging(remoteClient: RemoteToolCaller, logger: ReturnType<typeof createMcpLogger>): void {
+function installRemoteCypherLogging(
+  remoteClient: RemoteToolCaller,
+  logger: ReturnType<typeof createMcpLogger>
+): void {
   const existingCallTool = remoteClient.callTool
   const originalCallTool = existingCallTool.bind(remoteClient)
   const wrappedCallTool = (async (...args: Parameters<Client['callTool']>) => {
@@ -417,7 +461,7 @@ function normalizeRemoteToolArguments(toolName: string, args: unknown): Record<s
 
 function validateKnownPublicToolArguments(
   toolName: string,
-  args: Record<string, unknown>,
+  args: Record<string, unknown>
 ): string | null {
   const requiredArgs = PUBLIC_MCP_TOOL_REQUIRED_ARGS[toolName]
   if (!requiredArgs) return null
@@ -486,24 +530,31 @@ function registerLocalPrompts(server: McpServer): void {
     'aml-address-risk',
     {
       title: 'AML Address Risk',
-      description: 'Screen a blockchain address for AML risk, behavioral patterns, neighborhood profile, member addresses, and exchange links.',
+      description:
+        'Screen a blockchain address for AML risk, behavioral patterns, neighborhood profile, member addresses, and exchange links.',
       argsSchema: {
         network: NETWORK_SCHEMA,
         address: z.string().describe('Blockchain address to screen'),
-        compare_address: z.string().optional().describe('Optional address to compare against the screened address'),
+        compare_address: z
+          .string()
+          .optional()
+          .describe('Optional address to compare against the screened address'),
       },
     },
-    async ({ network, address, compare_address }) => promptResult(
-      [
-        `Use Chain Insights aml_address_risk on ${network} for:`,
-        '',
-        `\`${address}\``,
-        compare_address ? `\nCompare with: \`${compare_address}\`` : '',
-        '',
-        'Present the summary as-is. Do not add analysis, verdicts, or risk assessments; the tool output already contains the risk assessment.',
-      ].filter(Boolean).join('\n'),
-      'AML address risk screening',
-    ),
+    async ({ network, address, compare_address }) =>
+      promptResult(
+        [
+          `Use Chain Insights aml_address_risk on ${network} for:`,
+          '',
+          `\`${address}\``,
+          compare_address ? `\nCompare with: \`${compare_address}\`` : '',
+          '',
+          'Present the summary as-is. Do not add analysis, verdicts, or risk assessments; the tool output already contains the risk assessment.',
+        ]
+          .filter(Boolean)
+          .join('\n'),
+        'AML address risk screening'
+      )
   )
 
   server.registerPrompt(
@@ -513,10 +564,11 @@ function registerLocalPrompts(server: McpServer): void {
       description: 'Inspect supported networks and available tools before selecting a network.',
       argsSchema: {},
     },
-    async () => promptResult(
-      'Use Chain Insights meta_network_capabilities. Report only the supported networks and available tools exactly as returned; do not infer unsupported networks.',
-      'Network capabilities',
-    ),
+    async () =>
+      promptResult(
+        'Use Chain Insights meta_network_capabilities. Report only the supported networks and available tools exactly as returned; do not infer unsupported networks.',
+        'Network capabilities'
+      )
   )
 
   server.registerPrompt(
@@ -526,10 +578,11 @@ function registerLocalPrompts(server: McpServer): void {
       description: "Check the caller's public free graph_query quota.",
       argsSchema: {},
     },
-    async () => promptResult(
-      'Use Chain Insights meta_usage_status. Report the quota fields exactly as returned.',
-      'Usage status',
-    ),
+    async () =>
+      promptResult(
+        'Use Chain Insights meta_usage_status. Report the quota fields exactly as returned.',
+        'Usage status'
+      )
   )
 
   server.registerPrompt(
@@ -542,57 +595,71 @@ function registerLocalPrompts(server: McpServer): void {
         query: z.string().describe('Read-only GQL/Cypher query'),
       },
     },
-    async ({ network, query }) => promptResult(
-      [
-        `Use Chain Insights graph_query on ${network} with this read-only GQL/Cypher query:`,
-        '',
-        '```gql',
-        query,
-        '```',
-        '',
-        'Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for bounded TRANSFER rows and enrichment. If you need schema context, first run small discovery queries such as MATCH (a:Address) RETURN a.address AS address, keys(a) AS address_properties LIMIT 5 and MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN keys(r) AS flow_properties LIMIT 5. Return the full address when available; never shorten addresses with ellipses.',
-      ].join('\n'),
-      'Graph query',
-    ),
+    async ({ network, query }) =>
+      promptResult(
+        [
+          `Use Chain Insights graph_query on ${network} with this read-only GQL/Cypher query:`,
+          '',
+          '```gql',
+          query,
+          '```',
+          '',
+          'Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for bounded TRANSFER rows and enrichment. If you need schema context, first run small discovery queries such as MATCH (a:Address) RETURN a.address AS address, keys(a) AS address_properties LIMIT 5 and MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN keys(r) AS flow_properties LIMIT 5. Return the full address when available; never shorten addresses with ellipses.',
+        ].join('\n'),
+        'Graph query'
+      )
   )
 
   server.registerPrompt(
     'graph-query-batch',
     {
       title: 'Graph Query Batch',
-      description: 'Run related read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch.',
+      description:
+        'Run related read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch.',
       argsSchema: {
         network: NETWORK_SCHEMA,
-        queries: z.string().describe('JSON array of query objects with optional id and required query fields'),
-        per_query_timeout_seconds: z.string().optional().describe('Optional integer timeout per query, 1-600 seconds'),
+        queries: z
+          .string()
+          .describe('JSON array of query objects with optional id and required query fields'),
+        per_query_timeout_seconds: z
+          .string()
+          .optional()
+          .describe('Optional integer timeout per query, 1-600 seconds'),
       },
     },
-    async ({ network, queries, per_query_timeout_seconds }) => promptResult(
-      [
-        `Use Chain Insights graph_query_batch on ${network} with these read-only GQL/Cypher queries:`,
-        '',
-        '```json',
-        queries,
-        '```',
-        per_query_timeout_seconds ? `per_query_timeout_seconds: ${per_query_timeout_seconds}` : '',
-        '',
-        'Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for bounded TRANSFER rows and enrichment. If you need schema context, first run small discovery queries such as MATCH (a:Address) RETURN a.address AS address, keys(a) AS address_properties LIMIT 5 and MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN keys(r) AS flow_properties LIMIT 5. Return the full address when available; never shorten addresses with ellipses.',
-      ].filter(Boolean).join('\n'),
-      'Graph query batch',
-    ),
+    async ({ network, queries, per_query_timeout_seconds }) =>
+      promptResult(
+        [
+          `Use Chain Insights graph_query_batch on ${network} with these read-only GQL/Cypher queries:`,
+          '',
+          '```json',
+          queries,
+          '```',
+          per_query_timeout_seconds
+            ? `per_query_timeout_seconds: ${per_query_timeout_seconds}`
+            : '',
+          '',
+          'Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for bounded TRANSFER rows and enrichment. If you need schema context, first run small discovery queries such as MATCH (a:Address) RETURN a.address AS address, keys(a) AS address_properties LIMIT 5 and MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN keys(r) AS flow_properties LIMIT 5. Return the full address when available; never shorten addresses with ellipses.',
+        ]
+          .filter(Boolean)
+          .join('\n'),
+        'Graph query batch'
+      )
   )
 
   server.registerPrompt(
     'wallet-balance',
     {
       title: 'Wallet Balance',
-      description: 'Show the local Chain Insights payment wallet address, payment network, token, and amount.',
+      description:
+        'Show the local Chain Insights payment wallet address, payment network, token, and amount.',
       argsSchema: {},
     },
-    async () => promptResult(
-      'Use Chain Insights wallet_balance. Show the wallet address, payment network, token, and amount exactly as returned.',
-      'Wallet balance',
-    ),
+    async () =>
+      promptResult(
+        'Use Chain Insights wallet_balance. Show the wallet address, payment network, token, and amount exactly as returned.',
+        'Wallet balance'
+      )
   )
 
   server.registerPrompt(
@@ -602,13 +669,12 @@ function registerLocalPrompts(server: McpServer): void {
       description: 'Show available Chain Insights tools and workspace workflow.',
       argsSchema: {},
     },
-    async () => promptResult(
-      'Use Chain Insights meta_help. Summarize the available tools and workspace workflow without inventing capabilities.',
-      'Chain Insights help',
-    ),
+    async () =>
+      promptResult(
+        'Use Chain Insights meta_help. Summarize the available tools and workspace workflow without inventing capabilities.',
+        'Chain Insights help'
+      )
   )
-
-
 }
 
 function hasGraphArrayFields(value: unknown): boolean {
@@ -618,7 +684,7 @@ function hasGraphArrayFields(value: unknown): boolean {
 }
 
 function sanitizeStructuredContentForGraphPayload(
-  structuredContent: Record<string, unknown> | undefined,
+  structuredContent: Record<string, unknown> | undefined
 ): Record<string, unknown> | undefined {
   if (!structuredContent) return undefined
   return sanitizeStructuredValue(structuredContent) as Record<string, unknown>
@@ -630,7 +696,10 @@ function sanitizeStructuredValue(value: unknown): unknown {
   const sanitized: Record<string, unknown> = {}
   for (const [key, childValue] of Object.entries(value)) {
     if (key === 'app_data') continue
-    if (GRAPH_ARRAY_KEYS.includes(key as (typeof GRAPH_ARRAY_KEYS)[number]) && Array.isArray(childValue)) {
+    if (
+      GRAPH_ARRAY_KEYS.includes(key as (typeof GRAPH_ARRAY_KEYS)[number]) &&
+      Array.isArray(childValue)
+    ) {
       continue
     }
     sanitized[key] = sanitizeStructuredValue(childValue)
@@ -641,7 +710,8 @@ function sanitizeStructuredValue(value: unknown): unknown {
 
 function getRemoteGraphPayload(result: RemoteToolResult): Record<string, unknown> | null {
   const chainInsights = result._meta?.chainInsights
-  if (!chainInsights || typeof chainInsights !== 'object' || Array.isArray(chainInsights)) return null
+  if (!chainInsights || typeof chainInsights !== 'object' || Array.isArray(chainInsights))
+    return null
   const graph = (chainInsights as Record<string, unknown>).graph
   if (graph === undefined) return null
   if (!graph || typeof graph !== 'object' || Array.isArray(graph)) {
@@ -668,7 +738,7 @@ async function normalizeRemoteToolResult(
   result: RemoteToolResult,
   config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
   toolName = 'remote-graph',
-  includeAttachments = true,
+  includeAttachments = true
 ) {
   const graphPayload = getRemoteGraphPayload(result)
   const meta = { ...(result._meta ?? {}) }
@@ -698,7 +768,10 @@ async function normalizeRemoteToolResult(
   }
 }
 
-function shouldIncludeAttachments(args: Record<string, unknown>, workspaceArtifactsEnabled: boolean): boolean {
+function shouldIncludeAttachments(
+  args: Record<string, unknown>,
+  workspaceArtifactsEnabled: boolean
+): boolean {
   return workspaceArtifactsEnabled && args['include_attachments'] !== false
 }
 
@@ -706,7 +779,7 @@ async function writeLocalGraphMeta(
   graphData: unknown,
   config: Pick<InvestigatorConfig, 'dataDir' | 'serverPort'>,
   slug: string,
-  includeAttachments: boolean,
+  includeAttachments: boolean
 ): Promise<ChainInsightsGraphMeta | undefined> {
   if (!includeAttachments) return undefined
   const { writeGraphReport } = await import('./graph-reports.js')
@@ -722,7 +795,9 @@ async function writeLocalGraphMeta(
   }
 }
 
-function graphMetaResult(graph: ChainInsightsGraphMeta | undefined): Record<string, unknown> | undefined {
+function graphMetaResult(
+  graph: ChainInsightsGraphMeta | undefined
+): Record<string, unknown> | undefined {
   return graph
     ? {
         chainInsights: {
@@ -736,9 +811,8 @@ function cleanNetworkCapabilities(value: unknown) {
   const structuredContent = isRecord(value) ? value.structuredContent : undefined
   const facts = isRecord(structuredContent) ? structuredContent.facts : undefined
   const capabilities = isRecord(facts) ? facts.capabilities : undefined
-  const networks = isRecord(capabilities) && Array.isArray(capabilities.networks)
-    ? capabilities.networks
-    : []
+  const networks =
+    isRecord(capabilities) && Array.isArray(capabilities.networks) ? capabilities.networks : []
 
   return {
     schema: 'chain-insights.result.v1' as const,
@@ -808,14 +882,14 @@ export async function createProxy(): Promise<void> {
     })
     remoteUnavailableMessage = `Chain Insights Graph setup unavailable at ${graphMcpEndpoint}: ${(err as Error).message}`
     process.stderr.write(
-      `Chain Insights MCP graph tools unavailable: ${remoteUnavailableMessage}. Local Chain Insights tools are still available.\n`,
+      `Chain Insights MCP graph tools unavailable: ${remoteUnavailableMessage}. Local Chain Insights tools are still available.\n`
     )
   }
 
   if (mcpFetch) {
     try {
       await remoteClient.connect(
-        new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: mcpFetch }),
+        new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: mcpFetch })
       )
       remoteConnected = true
       await logger.info('remote.connect', {
@@ -831,7 +905,7 @@ export async function createProxy(): Promise<void> {
       try {
         const { SSEClientTransport } = await import('@modelcontextprotocol/sdk/client/sse.js')
         await remoteClient.connect(
-          new SSEClientTransport(new URL(graphMcpEndpoint), { fetch: mcpFetch }),
+          new SSEClientTransport(new URL(graphMcpEndpoint), { fetch: mcpFetch })
         )
         remoteConnected = true
         await logger.info('remote.connect', {
@@ -846,12 +920,13 @@ export async function createProxy(): Promise<void> {
         })
         remoteUnavailableMessage = `Chain Insights Graph unreachable at ${graphMcpEndpoint}: ${(err2 as Error).message}`
         process.stderr.write(
-          `Chain Insights MCP graph tools unavailable: ${remoteUnavailableMessage}. Local Chain Insights tools are still available.\n`,
+          `Chain Insights MCP graph tools unavailable: ${remoteUnavailableMessage}. Local Chain Insights tools are still available.\n`
         )
       }
     }
   }
-  if (remoteConnected) installRemoteCypherLogging(remoteClient as unknown as RemoteToolCaller, logger)
+  if (remoteConnected)
+    installRemoteCypherLogging(remoteClient as unknown as RemoteToolCaller, logger)
 
   // Schema cache check — skip remote listTools call on cache hit
   let tools: McpTool[] | null = await loadSchema(graphMcpEndpoint)
@@ -882,7 +957,9 @@ export async function createProxy(): Promise<void> {
   // Build local stdio proxy server
   const server = new McpServer(
     { name: 'chain-insights', version: PACKAGE_VERSION },
-    { instructions: workspaceArtifactsEnabled ? SERVER_INSTRUCTIONS : STATELESS_SERVER_INSTRUCTIONS },
+    {
+      instructions: workspaceArtifactsEnabled ? SERVER_INSTRUCTIONS : STATELESS_SERVER_INSTRUCTIONS,
+    }
   )
   installToolLogging(server, logger)
 
@@ -895,7 +972,7 @@ export async function createProxy(): Promise<void> {
         error: errorForLog(err),
       })
       process.stderr.write(
-        `Chain Insights MCP remote prompt metadata unavailable at ${graphMcpEndpoint}: ${(err as Error).message}\n`,
+        `Chain Insights MCP remote prompt metadata unavailable at ${graphMcpEndpoint}: ${(err as Error).message}\n`
       )
     }
   }
@@ -909,7 +986,11 @@ export async function createProxy(): Promise<void> {
 
   const parseTags = (tags: string | string[] | undefined): string[] => {
     if (Array.isArray(tags)) return tags.map((tag) => tag.trim()).filter(Boolean)
-    if (typeof tags === 'string') return tags.split(',').map((tag) => tag.trim()).filter(Boolean)
+    if (typeof tags === 'string')
+      return tags
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean)
     return []
   }
 
@@ -929,17 +1010,25 @@ export async function createProxy(): Promise<void> {
     async () => {
       if (remoteConnected && remoteToolNames.has('network_capabilities')) {
         try {
-          const result = await remoteClient.callTool({ name: 'network_capabilities', arguments: {} })
+          const result = await remoteClient.callTool({
+            name: 'network_capabilities',
+            arguments: {},
+          })
           return jsonTextResult(cleanNetworkCapabilities(result))
         } catch (err) {
           return {
-            content: [{ type: 'text' as const, text: `Network capabilities failed: ${(err as Error).message}` }],
+            content: [
+              {
+                type: 'text' as const,
+                text: `Network capabilities failed: ${(err as Error).message}`,
+              },
+            ],
             isError: true,
           }
         }
       }
       return jsonTextResult(cleanNetworkCapabilities(undefined))
-    },
+    }
   )
 
   server.registerTool(
@@ -959,69 +1048,79 @@ export async function createProxy(): Promise<void> {
       try {
         if (!remoteConnected) {
           return {
-            content: [{
-              type: 'text' as const,
-              text: `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
-            }],
+            content: [
+              {
+                type: 'text' as const,
+                text: `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
+              },
+            ],
             isError: true,
           }
         }
         if (!remoteToolNames.has('usage_status')) {
           return jsonTextResult(primitiveBackendUsageStatus(graphMcpEndpoint))
         }
-        const result = await remoteClient.callTool({ name: 'usage_status', arguments: {} }) as RemoteToolResult
+        const result = (await remoteClient.callTool({
+          name: 'usage_status',
+          arguments: {},
+        })) as RemoteToolResult
         const structuredContent = isRecord(result.structuredContent)
           ? { ...result.structuredContent, tool: 'meta_usage_status' }
           : undefined
         return {
           content: structuredContent
             ? [{ type: 'text' as const, text: JSON.stringify(structuredContent, null, 2) }]
-            : result.content ?? [],
+            : (result.content ?? []),
           structuredContent,
           _meta: result._meta,
           isError: result.isError,
         }
       } catch (err) {
         return {
-          content: [{ type: 'text' as const, text: `Usage status failed: ${(err as Error).message}` }],
+          content: [
+            { type: 'text' as const, text: `Usage status failed: ${(err as Error).message}` },
+          ],
           isError: true,
         }
       }
-    },
+    }
   )
 
   if (workspaceArtifactsEnabled) {
-  server.registerTool(
-    'wallet_balance',
-    {
-      title: 'Wallet Balance',
-      description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.wallet_balance,
-      inputSchema: EMPTY_INPUT_SCHEMA,
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
+    server.registerTool(
+      'wallet_balance',
+      {
+        title: 'Wallet Balance',
+        description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.wallet_balance,
+        inputSchema: EMPTY_INPUT_SCHEMA,
+        annotations: {
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: true,
+        },
       },
-    },
-    async () => {
-      try {
-        const { formatWalletBalanceResult, getWalletAccount, getWalletBalanceResult } = await import('../wallet/tools.js')
-        const account = await getWalletAccount()
-        const structuredContent = await getWalletBalanceResult(account)
-        return {
-          content: [{ type: 'text' as const, text: formatWalletBalanceResult(structuredContent) }],
-          structuredContent: structuredContent as unknown as Record<string, unknown>,
-          isError: false,
-        }
-      } catch (err) {
-        return {
-          content: [{ type: 'text' as const, text: `Balance failed: ${(err as Error).message}` }],
-          isError: true,
+      async () => {
+        try {
+          const { formatWalletBalanceResult, getWalletAccount, getWalletBalanceResult } =
+            await import('../wallet/tools.js')
+          const account = await getWalletAccount()
+          const structuredContent = await getWalletBalanceResult(account)
+          return {
+            content: [
+              { type: 'text' as const, text: formatWalletBalanceResult(structuredContent) },
+            ],
+            structuredContent: structuredContent as unknown as Record<string, unknown>,
+            isError: false,
+          }
+        } catch (err) {
+          return {
+            content: [{ type: 'text' as const, text: `Balance failed: ${(err as Error).message}` }],
+            isError: true,
+          }
         }
       }
-    },
-  )
+    )
   }
   // NOTE: only wallet_balance is workspace-only. Everything below — the graph
   // app resource, the aml_*/graph tools, and server.connect() — is shared and
@@ -1033,7 +1132,8 @@ export async function createProxy(): Promise<void> {
     'Fund Flow Graph',
     GRAPH_RESOURCE_URI,
     {
-      description: 'Interactive fund-flow and pattern graph for Chain Insights investigation reports.',
+      description:
+        'Interactive fund-flow and pattern graph for Chain Insights investigation reports.',
       _meta: {
         ui: {
           csp: {
@@ -1059,10 +1159,8 @@ export async function createProxy(): Promise<void> {
           },
         },
       ],
-    }),
+    })
   )
-
-
 
   if (!remoteToolNames.has('aml_address_risk')) {
     registerAppTool(
@@ -1074,7 +1172,10 @@ export async function createProxy(): Promise<void> {
         inputSchema: {
           address: z.string().min(1).describe('Blockchain address to screen'),
           network: NETWORK_SCHEMA,
-          compare_address: z.string().optional().describe('Optional address to compare against the screened address'),
+          compare_address: z
+            .string()
+            .optional()
+            .describe('Optional address to compare against the screened address'),
           include_attachments: z.boolean().optional().describe('Include graph app report metadata'),
         },
         _meta: {
@@ -1093,10 +1194,12 @@ export async function createProxy(): Promise<void> {
         try {
           if (!remoteConnected) {
             return {
-              content: [{
-                type: 'text' as const,
-                text: `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
-              }],
+              content: [
+                {
+                  type: 'text' as const,
+                  text: `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
+                },
+              ],
               isError: true,
             }
           }
@@ -1111,7 +1214,7 @@ export async function createProxy(): Promise<void> {
             result.graphData,
             config,
             `address-risk-${network}-${address}`,
-            shouldIncludeAttachments({ include_attachments }, workspaceArtifactsEnabled),
+            shouldIncludeAttachments({ include_attachments }, workspaceArtifactsEnabled)
           )
           return {
             content: [{ type: 'text' as const, text: result.summaryText }],
@@ -1124,11 +1227,13 @@ export async function createProxy(): Promise<void> {
             return { content: [{ type: 'text' as const, text: err.message }], isError: true }
           }
           return {
-            content: [{ type: 'text' as const, text: `Address risk failed: ${(err as Error).message}` }],
+            content: [
+              { type: 'text' as const, text: `Address risk failed: ${(err as Error).message}` },
+            ],
             isError: true,
           }
         }
-      },
+      }
     )
   }
 
@@ -1183,7 +1288,7 @@ export async function createProxy(): Promise<void> {
         },
       ],
       isError: false,
-    }),
+    })
   )
 
   // Register each remote tool locally — passthrough proxy pattern
@@ -1195,10 +1300,12 @@ export async function createProxy(): Promise<void> {
       try {
         if (!remoteConnected) {
           return {
-            content: [{
-              type: 'text' as const,
-              text: `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
-            }],
+            content: [
+              {
+                type: 'text' as const,
+                text: `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
+              },
+            ],
             isError: true,
           }
         }
@@ -1222,7 +1329,7 @@ export async function createProxy(): Promise<void> {
           result as RemoteToolResult,
           config,
           tool.name,
-          shouldIncludeAttachments(normalizedArgs, workspaceArtifactsEnabled),
+          shouldIncludeAttachments(normalizedArgs, workspaceArtifactsEnabled)
         )
       } catch (err) {
         if (err instanceof PaymentRequiredError) {
@@ -1235,13 +1342,16 @@ export async function createProxy(): Promise<void> {
         const isTransport402 = /\b402\b/.test(msg) || msg.toLowerCase().includes('payment')
         if (isTransport402) {
           return {
-            content: [{
-              type: 'text' as const,
-              text: `Payment required for ${tool.name}. This tool costs USDC on Base via x402 micropayments. ` +
-                'Next steps: run `chain-insights wallet ready` to check funding and finish one-time payment setup, ' +
-                'run `chain-insights wallet topup` if it says the wallet needs USDC, ' +
-                'or `chain-insights access-key set <key>` if you have been given test access.',
-            }],
+            content: [
+              {
+                type: 'text' as const,
+                text:
+                  `Payment required for ${tool.name}. This tool costs USDC on Base via x402 micropayments. ` +
+                  'Next steps: run `chain-insights wallet ready` to check funding and finish one-time payment setup, ' +
+                  'run `chain-insights wallet topup` if it says the wallet needs USDC, ' +
+                  'or `chain-insights access-key set <key>` if you have been given test access.',
+              },
+            ],
             isError: true,
           }
         }
@@ -1255,7 +1365,9 @@ export async function createProxy(): Promise<void> {
       title: tool.title,
       description: claudeFacingToolDescription(tool),
       inputSchema,
-      ...(knownPublicToolAnnotations(tool.name) ? { annotations: knownPublicToolAnnotations(tool.name) } : {}),
+      ...(knownPublicToolAnnotations(tool.name)
+        ? { annotations: knownPublicToolAnnotations(tool.name) }
+        : {}),
     }
 
     if (hasGraphApp(tool)) {
@@ -1266,7 +1378,7 @@ export async function createProxy(): Promise<void> {
           ...toolConfig,
           _meta: graphToolMeta(tool),
         },
-        handler,
+        handler
       )
     } else {
       server.registerTool(tool.name, toolConfig, handler)
@@ -1279,7 +1391,9 @@ export async function createProxy(): Promise<void> {
   await logger.info('proxy.ready', {
     tools: [
       ...LOCAL_TOOL_NAMES,
-      ...(tools ?? []).map((tool) => tool.name).filter((name) => !HIDDEN_REMOTE_TOOL_NAMES.has(name) && !LOCAL_TOOL_NAMES.has(name)),
+      ...(tools ?? [])
+        .map((tool) => tool.name)
+        .filter((name) => !HIDDEN_REMOTE_TOOL_NAMES.has(name) && !LOCAL_TOOL_NAMES.has(name)),
     ].length,
   })
 
@@ -1289,10 +1403,13 @@ export async function createProxy(): Promise<void> {
     transport.close()
     process.exit(0)
   }
-  process.on('SIGINT', () => { void shutdown() })
-  process.on('SIGTERM', () => { void shutdown() })
+  process.on('SIGINT', () => {
+    void shutdown()
+  })
+  process.on('SIGTERM', () => {
+    void shutdown()
+  })
 }
-
 
 // Entry point — only execute when run as the main module (not when imported by tests)
 // Using process.argv check to detect direct execution vs import

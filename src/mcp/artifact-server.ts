@@ -42,7 +42,9 @@ export async function ensureArtifactServer(port: number): Promise<void> {
   servers.set(port, server)
   server.on('error', (err) => {
     servers.delete(port)
-    process.stderr.write(`Chain Insights graph report server failed on 127.0.0.1:${port}: ${(err as Error).message}\n`)
+    process.stderr.write(
+      `Chain Insights graph report server failed on 127.0.0.1:${port}: ${(err as Error).message}\n`
+    )
   })
 
   try {

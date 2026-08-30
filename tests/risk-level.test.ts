@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  isUnscoredRiskLevel,
-  normalizeRiskLevel,
-} from '../src/investigation/risk-level.js'
+import { isUnscoredRiskLevel, normalizeRiskLevel } from '../src/investigation/risk-level.js'
 
 describe('normalizeRiskLevel', () => {
   it('lowercases known severities from any graph casing', () => {

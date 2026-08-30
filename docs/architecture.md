@@ -26,16 +26,16 @@ against the unified topology graph and facts.
 
 ## Module Responsibilities
 
-| Module area | Responsibility |
-| --- | --- |
-| CLI | Command routing and user-facing workflows |
-| Config | Local config schema and owner-only storage |
-| Wallet | Encrypted EVM wallet and Base USDC balance checks |
-| MCP client/proxy | x402, debug-token, test-key auth, schema cache, stdio proxy |
-| Workspace evidence | Evidence, dossiers, reports, and workspace sessions |
-| Visualization | Graph data model and self-contained HTML generation |
-| Server | Local report and visualization server |
-| Workspace init | Investigation workspace scaffold and runtime schema notes |
+| Module area        | Responsibility                                              |
+| ------------------ | ----------------------------------------------------------- |
+| CLI                | Command routing and user-facing workflows                   |
+| Config             | Local config schema and owner-only storage                  |
+| Wallet             | Encrypted EVM wallet and Base USDC balance checks           |
+| MCP client/proxy   | x402, debug-token, test-key auth, schema cache, stdio proxy |
+| Workspace evidence | Evidence, dossiers, reports, and workspace sessions         |
+| Visualization      | Graph data model and self-contained HTML generation         |
+| Server             | Local report and visualization server                       |
+| Workspace init     | Investigation workspace scaffold and runtime schema notes   |
 
 ## Data Flow
 
@@ -65,15 +65,15 @@ endpoints are operator configuration, not hardcoded package defaults.
 
 Supported config keys:
 
-| Key | Purpose |
-| --- | --- |
-| `graphMcpEndpoint` | Chain Insights Graph endpoint used by CLI and proxy |
+| Key                 | Purpose                                                                        |
+| ------------------- | ------------------------------------------------------------------------------ |
+| `graphMcpEndpoint`  | Chain Insights Graph endpoint used by CLI and proxy                            |
 | `graphMcpAuthToken` | Chain Insights Graph bearer credential for test access keys or local debug UAT |
-| `graphMcpMode` | Endpoint access mode: `paid` (default) or `debug` |
-| `walletAddress` | Optional wallet metadata |
-| `serverPort` | Local visualization and graph report server port |
-| `dataDir` | Local Chain Insights data directory |
-| `version` | Config schema version |
+| `graphMcpMode`      | Endpoint access mode: `paid` (default) or `debug`                              |
+| `walletAddress`     | Optional wallet metadata                                                       |
+| `serverPort`        | Local visualization and graph report server port                               |
+| `dataDir`           | Local Chain Insights data directory                                            |
+| `version`           | Config schema version                                                          |
 
 Wallet private keys are intercepted before config write and stored encrypted in
 `~/.chain-insights/wallet.json`.

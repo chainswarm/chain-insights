@@ -1,15 +1,26 @@
 import { describe, expect, it } from 'vitest'
 import { mergeShardRows } from '../../src/federation/merge.js'
 
-function edgeRow(shard: string, from: string, to: string, usd: number, tx: number, first = 100, last = 200) {
+function edgeRow(
+  shard: string,
+  from: string,
+  to: string,
+  usd: number,
+  tx: number,
+  first = 100,
+  last = 200
+) {
   return {
     __shard: shard,
     r: {
       type: 'FLOWS_TO',
       properties: {
-        from_address: from, to_address: to,
-        amount_usd_sum: usd, tx_count: tx,
-        first_seen_timestamp: first, last_seen_timestamp: last,
+        from_address: from,
+        to_address: to,
+        amount_usd_sum: usd,
+        tx_count: tx,
+        first_seen_timestamp: first,
+        last_seen_timestamp: last,
       },
     },
   }
@@ -30,10 +41,7 @@ describe('mergeShardRows — edges', () => {
   })
 
   it('keeps distinct pairs separate', () => {
-    const merged = mergeShardRows([
-      edgeRow('s1', 'A', 'B', 10, 2),
-      edgeRow('s2', 'A', 'C', 5, 3),
-    ])
+    const merged = mergeShardRows([edgeRow('s1', 'A', 'B', 10, 2), edgeRow('s2', 'A', 'C', 5, 3)])
     expect(merged.rows).toHaveLength(2)
   })
 
@@ -69,7 +77,7 @@ describe('mergeShardRows — per-shard aggregates (A7)', () => {
         { __shard: 's1', total: 10 },
         { __shard: 's2', total: 25 },
       ],
-      { aggregateKeys: ['total'] },
+      { aggregateKeys: ['total'] }
     )
     // perShard[shard] is an array of group entries (see the grouped-aggregate
     // describe block below for why: a plain object keyed by shard alone
@@ -83,9 +91,12 @@ describe('mergeShardRows — per-shard aggregates (A7)', () => {
         { __shard: 's1', total: 10 },
         { __shard: 's2', total: 25 },
       ],
-      { aggregateKeys: ['total'] },
+      { aggregateKeys: ['total'] }
     )
-    const summable = merged.rows.reduce((acc, r) => acc + (typeof r.total === 'number' ? r.total : 0), 0)
+    const summable = merged.rows.reduce(
+      (acc, r) => acc + (typeof r.total === 'number' ? r.total : 0),
+      0
+    )
     expect(summable).toBe(0)
   })
 })
@@ -100,13 +111,13 @@ describe('mergeShardRows — grouped per-shard aggregates do not overwrite (defe
         { __shard: 's1', counterparty: 'Y', usd: 5 },
         { __shard: 's2', counterparty: 'X', usd: 50 },
       ],
-      { aggregateKeys: ['usd'] },
+      { aggregateKeys: ['usd'] }
     )
     expect(merged.perShard.s1).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ counterparty: 'X', usd: 100 }),
         expect.objectContaining({ counterparty: 'Y', usd: 5 }),
-      ]),
+      ])
     )
     expect(merged.perShard.s1).toHaveLength(2)
     expect(merged.perShard.s2).toEqual([{ counterparty: 'X', usd: 50 }])
@@ -118,9 +129,12 @@ describe('mergeShardRows — grouped per-shard aggregates do not overwrite (defe
         { __shard: 's1', counterparty: 'X', usd: 100 },
         { __shard: 's1', counterparty: 'Y', usd: 5 },
       ],
-      { aggregateKeys: ['usd'] },
+      { aggregateKeys: ['usd'] }
     )
-    const summable = merged.rows.reduce((acc, r) => acc + (typeof r.usd === 'number' ? r.usd : 0), 0)
+    const summable = merged.rows.reduce(
+      (acc, r) => acc + (typeof r.usd === 'number' ? r.usd : 0),
+      0
+    )
     expect(summable).toBe(0)
   })
 })
@@ -132,7 +146,7 @@ describe('mergeShardRows — ordering marker (D3)', () => {
         { __shard: 's2', address: 'B' },
         { __shard: 's1', address: 'A' },
       ],
-      { orderBy: { key: 'address' }, orderKeyClass: 'invariant', limit: 1 },
+      { orderBy: { key: 'address' }, orderKeyClass: 'invariant', limit: 1 }
     )
     expect(merged.ordering).toBe('exact')
     expect(merged.rows).toHaveLength(1)
@@ -140,10 +154,10 @@ describe('mergeShardRows — ordering marker (D3)', () => {
   })
 
   it('is approximate for a merge-affected sort key', () => {
-    const merged = mergeShardRows(
-      [{ __shard: 's1', address: 'A', usd: 5 }],
-      { orderBy: { key: 'usd', desc: true }, orderKeyClass: 'merge-affected' },
-    )
+    const merged = mergeShardRows([{ __shard: 's1', address: 'A', usd: 5 }], {
+      orderBy: { key: 'usd', desc: true },
+      orderKeyClass: 'merge-affected',
+    })
     expect(merged.ordering).toBe('approximate')
   })
 
@@ -154,7 +168,7 @@ describe('mergeShardRows — ordering marker (D3)', () => {
         { __shard: 's2', address: 'A' },
         { __shard: 's3', address: 'B' },
       ],
-      { orderBy: { key: 'address' }, orderKeyClass: 'invariant', limit: 2 },
+      { orderBy: { key: 'address' }, orderKeyClass: 'invariant', limit: 2 }
     )
     expect(merged.rows.map((r) => r.address)).toEqual(['A', 'B'])
   })
@@ -163,7 +177,12 @@ describe('mergeShardRows — ordering marker (D3)', () => {
 /** Full-property edge helper: every FLOWS_TO property combineEdge knows
  *  about, with neutral defaults so a test only has to override what it
  *  cares about. */
-function fullEdge(shard: string, from: string, to: string, overrides: Record<string, unknown> = {}) {
+function fullEdge(
+  shard: string,
+  from: string,
+  to: string,
+  overrides: Record<string, unknown> = {}
+) {
   return {
     __shard: shard,
     r: {

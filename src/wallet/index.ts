@@ -13,11 +13,7 @@ export function walletPath(): string {
 // Derive a 32-byte key from the machine identity (hostname + username) and a
 // random per-wallet salt. The salt prevents precomputation attacks across wallets.
 function deriveKey(salt: Buffer): Buffer {
-  return crypto.scryptSync(
-    `${os.hostname()}:${os.userInfo().username}`,
-    salt,
-    32,
-  )
+  return crypto.scryptSync(`${os.hostname()}:${os.userInfo().username}`, salt, 32)
 }
 
 interface WalletData {
@@ -52,10 +48,7 @@ export async function encryptKey(privateKey: string): Promise<void> {
   const iv = crypto.randomBytes(12)
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
 
-  const encrypted = Buffer.concat([
-    cipher.update(normalizedPrivateKey, 'utf8'),
-    cipher.final(),
-  ])
+  const encrypted = Buffer.concat([cipher.update(normalizedPrivateKey, 'utf8'), cipher.final()])
 
   // getAuthTag() MUST be called after final()
   const tag = cipher.getAuthTag()
@@ -115,7 +108,7 @@ async function backupExistingWallet(): Promise<void> {
  */
 export async function setWalletPrivateKey(
   privateKey: string,
-  options: SetWalletPrivateKeyOptions = {},
+  options: SetWalletPrivateKeyOptions = {}
 ): Promise<Address> {
   const normalizedPrivateKey = normalizeWalletPrivateKey(privateKey)
   const address = walletAddressFromPrivateKey(normalizedPrivateKey)
@@ -126,8 +119,8 @@ export async function setWalletPrivateKey(
       const which = existing ? ` (${existing})` : ''
       throw new Error(
         `A payment wallet already exists${which}. Importing a new key overwrites it and permanently ` +
-        `discards the old key. Re-run \`chain-insights wallet import <key> --force\` to replace it; ` +
-        `the previous encrypted key is backed up next to wallet.json first.`,
+          `discards the old key. Re-run \`chain-insights wallet import <key> --force\` to replace it; ` +
+          `the previous encrypted key is backed up next to wallet.json first.`
       )
     }
     await backupExistingWallet()
@@ -151,7 +144,7 @@ export async function decryptKey(): Promise<string> {
     const nodeErr = err as NodeJS.ErrnoException
     if (nodeErr.code === 'ENOENT') {
       throw new Error(
-        'Wallet not configured. Run `chain-insights wallet import <private-key>`, then `chain-insights wallet ready`.',
+        'Wallet not configured. Run `chain-insights wallet import <private-key>`, then `chain-insights wallet ready`.'
       )
     }
     throw err
@@ -169,15 +162,12 @@ export async function decryptKey(): Promise<string> {
     // setAuthTag() MUST be called before update()
     decipher.setAuthTag(tag)
 
-    const decrypted = Buffer.concat([
-      decipher.update(encrypted),
-      decipher.final(),
-    ])
+    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()])
 
     return decrypted.toString('utf8')
   } catch {
     throw new Error(
-      'Wallet decryption failed. If you changed your hostname or username, re-import it with `chain-insights wallet import <private-key>`.',
+      'Wallet decryption failed. If you changed your hostname or username, re-import it with `chain-insights wallet import <private-key>`.'
     )
   }
 }

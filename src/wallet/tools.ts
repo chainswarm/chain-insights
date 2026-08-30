@@ -1,4 +1,13 @@
-import { createPublicClient, createWalletClient, formatEther, formatUnits, http, parseUnits, type Address, type Hex } from 'viem'
+import {
+  createPublicClient,
+  createWalletClient,
+  formatEther,
+  formatUnits,
+  http,
+  parseUnits,
+  type Address,
+  type Hex,
+} from 'viem'
 import { base } from 'viem/chains'
 import { privateKeyToAccount } from 'viem/accounts'
 import { decryptKey, normalizeWalletPrivateKey } from './index.js'
@@ -150,7 +159,7 @@ function baseRpcUrls(rpcUrl = process.env['BASE_RPC_URL']): string[] {
 
 export async function getBalanceUsdc(
   address: Address | string,
-  rpcUrl = process.env['BASE_RPC_URL'],
+  rpcUrl = process.env['BASE_RPC_URL']
 ): Promise<string> {
   for (const url of baseRpcUrls(rpcUrl)) {
     try {
@@ -175,7 +184,7 @@ export async function getBalanceUsdc(
 
 export async function getBalanceEth(
   address: Address | string,
-  rpcUrl = process.env['BASE_RPC_URL'],
+  rpcUrl = process.env['BASE_RPC_URL']
 ): Promise<string> {
   for (const url of baseRpcUrls(rpcUrl)) {
     try {
@@ -195,7 +204,7 @@ export async function getBalanceEth(
 
 export async function getPaymentApprovalUnits(
   address: Address | string,
-  rpcUrl = process.env['BASE_RPC_URL'],
+  rpcUrl = process.env['BASE_RPC_URL']
 ): Promise<bigint | null> {
   for (const url of baseRpcUrls(rpcUrl)) {
     try {
@@ -219,7 +228,7 @@ export async function getPaymentApprovalUnits(
 
 export async function getPaymentApprovalUsdc(
   address: Address | string,
-  rpcUrl = process.env['BASE_RPC_URL'],
+  rpcUrl = process.env['BASE_RPC_URL']
 ): Promise<string> {
   const allowance = await getPaymentApprovalUnits(address, rpcUrl)
   return allowance === null ? 'unknown' : formatUnits(allowance, 6)
@@ -243,13 +252,17 @@ function decimalStatus(value: string): boolean | null {
   return value === 'unknown' ? null : isPositiveDecimal(value)
 }
 
-function readinessNextSteps(readiness: Pick<WalletReadiness, 'hasUsdc' | 'hasGas' | 'needsPaymentApproval'>): string[] {
+function readinessNextSteps(
+  readiness: Pick<WalletReadiness, 'hasUsdc' | 'hasGas' | 'needsPaymentApproval'>
+): string[] {
   const nextSteps: string[] = []
   if (readiness.hasUsdc === false) {
     nextSteps.push('Run `chain-insights wallet topup` and send USDC on Base to this wallet.')
   }
   if (readiness.hasUsdc === null) {
-    nextSteps.push('Base USDC balance could not be confirmed; retry or set BASE_RPC_URL to a working Base RPC endpoint.')
+    nextSteps.push(
+      'Base USDC balance could not be confirmed; retry or set BASE_RPC_URL to a working Base RPC endpoint.'
+    )
   }
   if (readiness.needsPaymentApproval && readiness.hasGas === false) {
     nextSteps.push('Add a small amount of ETH on Base for the one-time payment setup gas.')
@@ -258,7 +271,9 @@ function readinessNextSteps(readiness: Pick<WalletReadiness, 'hasUsdc' | 'hasGas
     nextSteps.push('Run `chain-insights wallet ready` to finish the one-time payment setup.')
   }
   if (readiness.hasGas === null) {
-    nextSteps.push('Base ETH gas balance could not be confirmed; retry or set BASE_RPC_URL to a working Base RPC endpoint.')
+    nextSteps.push(
+      'Base ETH gas balance could not be confirmed; retry or set BASE_RPC_URL to a working Base RPC endpoint.'
+    )
   }
   return nextSteps
 }
@@ -280,7 +295,8 @@ function buildWalletReadiness(params: {
     address: params.address,
     balanceUsdc: params.balanceUsdc,
     balanceEth: params.balanceEth,
-    paymentApprovalUsdc: params.paymentApprovalUnits === null ? 'unknown' : formatUnits(paymentApprovalUnits, 6),
+    paymentApprovalUsdc:
+      params.paymentApprovalUnits === null ? 'unknown' : formatUnits(paymentApprovalUnits, 6),
     paymentApprovalUnits,
     minimumApprovalUnits: params.minimumApprovalUnits,
     hasUsdc,
@@ -298,9 +314,9 @@ function buildWalletReadiness(params: {
 
 export async function getWalletReadiness(
   account?: PaymentWalletAccount,
-  minimumApprovalUnits = DEFAULT_PAYMENT_APPROVAL_UNITS,
+  minimumApprovalUnits = DEFAULT_PAYMENT_APPROVAL_UNITS
 ): Promise<WalletReadiness> {
-  const wallet = account ?? await getWalletAccount()
+  const wallet = account ?? (await getWalletAccount())
   const [balanceUsdc, balanceEth, paymentApprovalUnits] = await Promise.all([
     getBalanceUsdc(wallet.address),
     getBalanceEth(wallet.address),
@@ -315,14 +331,18 @@ export async function getWalletReadiness(
   })
 }
 
-export function formatWalletReadiness(readiness: WalletReadiness, approval?: PaymentApprovalResult): string {
-  const status = readiness.ready ? 'Ready for paid Chain Insights Graph calls' : 'Action needed before paid Chain Insights Graph calls'
+export function formatWalletReadiness(
+  readiness: WalletReadiness,
+  approval?: PaymentApprovalResult
+): string {
+  const status = readiness.ready
+    ? 'Ready for paid Chain Insights Graph calls'
+    : 'Action needed before paid Chain Insights Graph calls'
   const setup = readiness.needsPaymentApproval
     ? `Payment setup: needs one-time setup for up to ${formatUnits(readiness.minimumApprovalUnits, 6)} USDC of paid calls`
     : 'Payment setup: ready'
-  const setupCompletedLine = approval?.status === 'approved'
-    ? 'Payment setup completed.'
-    : undefined
+  const setupCompletedLine =
+    approval?.status === 'approved' ? 'Payment setup completed.' : undefined
   return [
     status,
     `Balance: ${readiness.balanceUsdc} USDC`,
@@ -332,15 +352,17 @@ export function formatWalletReadiness(readiness: WalletReadiness, approval?: Pay
     'Payment network: Base',
     `Address: ${readiness.address}`,
     ...readiness.nextSteps.map((step) => `Next: ${step}`),
-  ].filter(Boolean).join('\n')
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 
 export async function approvePaymentAllowance(
   account?: PaymentWalletAccount,
   minimumApprovalUnits = DEFAULT_PAYMENT_APPROVAL_UNITS,
-  rpcUrl = process.env['BASE_RPC_URL'],
+  rpcUrl = process.env['BASE_RPC_URL']
 ): Promise<PaymentApprovalResult> {
-  const wallet = account ?? await getWalletAccount()
+  const wallet = account ?? (await getWalletAccount())
   const initialApprovalUnits = await getPaymentApprovalUnits(wallet.address, rpcUrl)
   if (initialApprovalUnits !== null && initialApprovalUnits >= minimumApprovalUnits) {
     return {
@@ -384,18 +406,20 @@ export async function approvePaymentAllowance(
   throw new Error('Unable to submit payment setup transaction on Base.')
 }
 
-export async function prepareWalletForPaidCalls(options: PrepareWalletOptions = {}): Promise<PrepareWalletResult> {
+export async function prepareWalletForPaidCalls(
+  options: PrepareWalletOptions = {}
+): Promise<PrepareWalletResult> {
   const minimumApprovalUnits = options.minimumApprovalUnits ?? DEFAULT_PAYMENT_APPROVAL_UNITS
   if (options.maxApprovalUnits !== undefined && minimumApprovalUnits > options.maxApprovalUnits) {
     const requested = formatUnits(minimumApprovalUnits, 6)
     throw new Error(
       `Requested payment approval of ${requested} USDC exceeds the automatic payment-approval ceiling ` +
-      `of ${formatUnits(options.maxApprovalUnits, 6)} USDC. If this amount is expected, approve it deliberately with ` +
-      `\`chain-insights wallet ready --payment-usdc ${requested}\`, or raise the ceiling via ` +
-      `CHAIN_INSIGHTS_MAX_AUTO_APPROVAL_USDC.`,
+        `of ${formatUnits(options.maxApprovalUnits, 6)} USDC. If this amount is expected, approve it deliberately with ` +
+        `\`chain-insights wallet ready --payment-usdc ${requested}\`, or raise the ceiling via ` +
+        `CHAIN_INSIGHTS_MAX_AUTO_APPROVAL_USDC.`
     )
   }
-  const wallet = options.account ?? await getWalletAccount()
+  const wallet = options.account ?? (await getWalletAccount())
   const readiness = await getWalletReadiness(wallet, minimumApprovalUnits)
 
   if (!readiness.needsPaymentApproval) {
@@ -423,18 +447,26 @@ export async function prepareWalletForPaidCalls(options: PrepareWalletOptions = 
   return { readiness: updatedReadiness, approval }
 }
 
-export function formatWalletBalance(address: string, balanceUsdc: string, balanceEth?: string): string {
+export function formatWalletBalance(
+  address: string,
+  balanceUsdc: string,
+  balanceEth?: string
+): string {
   return [
     `Payment wallet: ${address}`,
     `USDC on Base: ${balanceUsdc}`,
     balanceEth === undefined ? undefined : `Gas on Base: ${balanceEth} ETH`,
     'Payment network: Base',
     'Base ETH is used only for one-time payment setup gas.',
-  ].filter(Boolean).join('\n')
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 
-export async function getWalletBalanceResult(account?: PaymentWalletAccount): Promise<WalletBalanceResult> {
-  const wallet = account ?? await getWalletAccount()
+export async function getWalletBalanceResult(
+  account?: PaymentWalletAccount
+): Promise<WalletBalanceResult> {
+  const wallet = account ?? (await getWalletAccount())
   const [balanceUsdc, balanceEth] = await Promise.all([
     getBalanceUsdc(wallet.address),
     getBalanceEth(wallet.address),

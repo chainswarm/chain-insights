@@ -36,7 +36,11 @@ export function createUsageAccumulator(): UsageTotals {
 // Snapshot as a plain object for embedding in a response -- callers should
 // not hand out the live mutable accumulator.
 export function usageBlock(totals: UsageTotals): UsageTotals {
-  return { billable_units: totals.billable_units, query_count: totals.query_count, truncated_queries: totals.truncated_queries }
+  return {
+    billable_units: totals.billable_units,
+    query_count: totals.query_count,
+    truncated_queries: totals.truncated_queries,
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -57,7 +61,10 @@ function textOfToolResult(result: unknown): string {
   const content = result['content']
   if (!Array.isArray(content)) return ''
   return content
-    .filter((item): item is { type: 'text'; text: string } => isRecord(item) && item['type'] === 'text' && typeof item['text'] === 'string')
+    .filter(
+      (item): item is { type: 'text'; text: string } =>
+        isRecord(item) && item['type'] === 'text' && typeof item['text'] === 'string'
+    )
     .map((item) => item.text)
     .join('\n')
 }
@@ -114,14 +121,20 @@ function recordGraphQueryBatchResult(totals: UsageTotals, rawResult: unknown): v
   try {
     const text = textOfToolResult(rawResult).trim()
     if (text) facts = (JSON.parse(text) as { facts?: unknown }).facts
-    else if (isRecord(rawResult) && isRecord((rawResult as Record<string, unknown>)['structuredContent'])) {
-      facts = ((rawResult as Record<string, unknown>)['structuredContent'] as Record<string, unknown>)['facts']
+    else if (
+      isRecord(rawResult) &&
+      isRecord((rawResult as Record<string, unknown>)['structuredContent'])
+    ) {
+      facts = (
+        (rawResult as Record<string, unknown>)['structuredContent'] as Record<string, unknown>
+      )['facts']
     }
   } catch {
     facts = undefined
   }
 
-  const queries = isRecord(facts) && Array.isArray(facts['queries']) ? (facts['queries'] as unknown[]) : undefined
+  const queries =
+    isRecord(facts) && Array.isArray(facts['queries']) ? (facts['queries'] as unknown[]) : undefined
   totals.query_count += queries ? queries.length : 1
   accumulateFacts(totals, facts)
 }
@@ -131,8 +144,13 @@ function recordGraphQueryResult(totals: UsageTotals, rawResult: unknown): void {
   totals.query_count += 1
   let facts: unknown
   try {
-    if (isRecord(rawResult) && isRecord((rawResult as Record<string, unknown>)['structuredContent'])) {
-      facts = ((rawResult as Record<string, unknown>)['structuredContent'] as Record<string, unknown>)['facts']
+    if (
+      isRecord(rawResult) &&
+      isRecord((rawResult as Record<string, unknown>)['structuredContent'])
+    ) {
+      facts = (
+        (rawResult as Record<string, unknown>)['structuredContent'] as Record<string, unknown>
+      )['facts']
     } else {
       const text = textOfToolResult(rawResult).trim()
       if (text) facts = (JSON.parse(text) as { facts?: unknown }).facts
@@ -147,14 +165,18 @@ function recordGraphQueryResult(totals: UsageTotals, rawResult: unknown): void {
 // every graph_query_batch/graph_query call it makes is observed and totaled
 // into `totals`, without changing what the call returns. Any other method
 // or property passes through untouched.
-export function wrapClientForUsageTracking<T extends CallToolLike>(client: T, totals: UsageTotals): T {
+export function wrapClientForUsageTracking<T extends CallToolLike>(
+  client: T,
+  totals: UsageTotals
+): T {
   return new Proxy(client as object, {
     get(target, prop, receiver) {
       if (prop === 'callTool') {
         return async (...args: unknown[]) => {
           const result = await (target as CallToolLike).callTool(...args)
           const request = args[0]
-          const toolName = isRecord(request) && typeof request['name'] === 'string' ? request['name'] : undefined
+          const toolName =
+            isRecord(request) && typeof request['name'] === 'string' ? request['name'] : undefined
           if (toolName === 'graph_query_batch') {
             recordGraphQueryBatchResult(totals, result)
           } else if (toolName === 'graph_query') {

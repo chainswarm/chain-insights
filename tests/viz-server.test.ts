@@ -12,14 +12,23 @@ describe('Hono viz routes (VIZ-03)', () => {
 
   beforeEach(async () => {
     vi.resetModules()
-    fakeHome = join(tmpdir(), `ci-viz-server-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
-    workspace = join(tmpdir(), `ci-viz-server-workspace-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    fakeHome = join(
+      tmpdir(),
+      `ci-viz-server-test-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    )
+    workspace = join(
+      tmpdir(),
+      `ci-viz-server-workspace-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    )
     await mkdir(join(fakeHome, '.chain-insights'), { recursive: true })
     await mkdir(join(workspace, '.chain-insights'), { recursive: true })
-    await writeFile(join(workspace, '.chain-insights', 'workspace.json'), JSON.stringify({
-      schema: 'chain-insights.workspace.v1',
-      workspace_root: workspace,
-    }) + '\n')
+    await writeFile(
+      join(workspace, '.chain-insights', 'workspace.json'),
+      JSON.stringify({
+        schema: 'chain-insights.workspace.v1',
+        workspace_root: workspace,
+      }) + '\n'
+    )
     prevHome = process.env['HOME']
     prevWorkspace = process.env['CHAIN_INSIGHTS_WORKSPACE']
     process.env['HOME'] = fakeHome
@@ -27,7 +36,10 @@ describe('Hono viz routes (VIZ-03)', () => {
   })
 
   afterEach(async () => {
-    if (stop) { stop(); stop = null }
+    if (stop) {
+      stop()
+      stop = null
+    }
     process.env['HOME'] = prevHome
     if (prevWorkspace === undefined) delete process.env['CHAIN_INSIGHTS_WORKSPACE']
     else process.env['CHAIN_INSIGHTS_WORKSPACE'] = prevWorkspace
@@ -40,7 +52,7 @@ describe('Hono viz routes (VIZ-03)', () => {
     const { startServer } = await import('../src/server/index.js')
     const stopFn = startServer(port)
     // Allow server to bind
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await new Promise((resolve) => setTimeout(resolve, 100))
     return stopFn
   }
 
@@ -48,7 +60,7 @@ describe('Hono viz routes (VIZ-03)', () => {
     stop = await startTestServer(14400)
     const res = await fetch('http://127.0.0.1:14400/viz/nonexistent')
     expect(res.status).toBe(404)
-    const body = await res.json() as { error: string }
+    const body = (await res.json()) as { error: string }
     expect(body.error).toBe('Visualization not found')
   })
 
@@ -57,7 +69,7 @@ describe('Hono viz routes (VIZ-03)', () => {
     // Dots are not in the [a-zA-Z0-9_-]+ regex, so they should return 400
     const res = await fetch('http://127.0.0.1:14401/viz/test..attempt')
     expect(res.status).toBe(400)
-    const body = await res.json() as { error: string }
+    const body = (await res.json()) as { error: string }
     expect(body.error).toBe('Invalid visualization ID')
   })
 
@@ -99,7 +111,7 @@ describe('Hono viz routes (VIZ-03)', () => {
     stop = await startTestServer(14406)
     const res = await fetch('http://127.0.0.1:14406/graph-reports/test..attempt.graph.json')
     expect(res.status).toBe(400)
-    const body = await res.json() as { error: string }
+    const body = (await res.json()) as { error: string }
     expect(body.error).toBe('Invalid graph report filename')
   })
 
@@ -107,21 +119,27 @@ describe('Hono viz routes (VIZ-03)', () => {
     stop = await startTestServer(14408)
     const res = await fetch('http://127.0.0.1:14408/graph-reports/..%2Fsecret.graph.json')
     expect(res.status).toBe(400)
-    const body = await res.json() as { error: string }
+    const body = (await res.json()) as { error: string }
     expect(body.error).toBe('Invalid graph report filename')
   })
 
   it('GET /graph-reports/:filename does not follow symlink escapes', async () => {
-    const outside = join(tmpdir(), `ci-viz-server-outside-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    const outside = join(
+      tmpdir(),
+      `ci-viz-server-outside-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    )
     await mkdir(outside, { recursive: true })
     await writeFile(join(outside, 'leak.graph.json'), '{"leaked":true}\n')
     await mkdir(join(workspace, 'reports', 'graphs'), { recursive: true })
-    await symlink(join(outside, 'leak.graph.json'), join(workspace, 'reports', 'graphs', 'link.graph.json'))
+    await symlink(
+      join(outside, 'leak.graph.json'),
+      join(workspace, 'reports', 'graphs', 'link.graph.json')
+    )
 
     stop = await startTestServer(14410)
     const res = await fetch('http://127.0.0.1:14410/graph-reports/link.graph.json')
     expect(res.status).toBe(404)
-    const body = await res.json() as { error: string }
+    const body = (await res.json()) as { error: string }
     expect(body.error).toBe('Graph report not found')
 
     await rm(outside, { recursive: true, force: true })
@@ -131,7 +149,7 @@ describe('Hono viz routes (VIZ-03)', () => {
     stop = await startTestServer(14407)
     const res = await fetch('http://127.0.0.1:14407/graph-reports/missing.graph.json')
     expect(res.status).toBe(404)
-    const body = await res.json() as { error: string }
+    const body = (await res.json()) as { error: string }
     expect(body.error).toBe('Graph report not found')
   })
 
@@ -146,13 +164,16 @@ describe('Hono viz routes (VIZ-03)', () => {
     await writeFile(join(workspace, 'reports', 'summary.md'), 'summary\n')
     await writeFile(join(workspace, 'reports', 'graphs', 'sample.graph.json'), '{"nodes":[]}\n')
     await writeFile(join(workspace, 'sessions', 'session-001.md'), 'session\n')
-    await writeFile(join(workspace, '.chain-insights', 'schema', 'graph.json'), '{"schema":"test"}\n')
+    await writeFile(
+      join(workspace, '.chain-insights', 'schema', 'graph.json'),
+      '{"schema":"test"}\n'
+    )
     await writeFile(join(workspace, '..', 'outside-secret.txt'), 'outside\n')
 
     stop = await startTestServer(14409)
     const res = await fetch('http://127.0.0.1:14409/workspace/tree')
     expect(res.status).toBe(200)
-    const body = await res.json() as {
+    const body = (await res.json()) as {
       schema: string
       root: string
       entries: Array<{ path: string; type: string; size?: number }>
@@ -171,12 +192,15 @@ describe('Hono viz routes (VIZ-03)', () => {
         expect.objectContaining({ path: '.chain-insights/schema/graph.json', type: 'file' }),
       ])
     )
-    expect(body.entries.every(entry => !entry.path.includes('outside-secret'))).toBe(true)
-    expect(body.entries.every(entry => !entry.path.startsWith('..'))).toBe(true)
+    expect(body.entries.every((entry) => !entry.path.includes('outside-secret'))).toBe(true)
+    expect(body.entries.every((entry) => !entry.path.startsWith('..'))).toBe(true)
   })
 
   it('GET /workspace/tree does not descend into symlink escapes', async () => {
-    const outside = join(tmpdir(), `ci-viz-tree-outside-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    const outside = join(
+      tmpdir(),
+      `ci-viz-tree-outside-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    )
     await mkdir(outside, { recursive: true })
     await writeFile(join(outside, 'secret.txt'), 'outside\n')
     await mkdir(join(workspace, 'artifacts'), { recursive: true })
@@ -185,7 +209,7 @@ describe('Hono viz routes (VIZ-03)', () => {
     stop = await startTestServer(14411)
     const res = await fetch('http://127.0.0.1:14411/workspace/tree')
     expect(res.status).toBe(200)
-    const body = await res.json() as {
+    const body = (await res.json()) as {
       entries: Array<{ path: string; type: string }>
     }
 
@@ -207,7 +231,7 @@ describe('Hono viz routes (VIZ-03)', () => {
     stop = await startTestServer(14404)
     const res = await fetch('http://127.0.0.1:14404/health')
     expect(res.status).toBe(200)
-    const body = await res.json() as { ok: boolean }
+    const body = (await res.json()) as { ok: boolean }
     expect(body.ok).toBe(true)
   })
 })

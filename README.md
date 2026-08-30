@@ -65,15 +65,15 @@ Never touches:
 
 ### What You Can Do Today
 
-| Tool | Use it for |
-| --- | --- |
-| `aml_address_risk` | Screen one address for risk, behavior, neighborhood context, and exchange exposure |
-| `graph_query` | Run one read-only GQL/Cypher query against a Chain Insights Graph layer |
-| `graph_query_batch` | Run related read-only graph queries as one MCP call |
-| `meta_network_capabilities` | Check supported Chain Insights networks and graph tools |
-| `meta_usage_status` | Check the caller's daily free-tier graph query allowance |
-| `meta_help` | Show Chain Insights tool and workflow guidance |
-| `wallet_balance` | Show the local payment wallet amount |
+| Tool                        | Use it for                                                                         |
+| --------------------------- | ---------------------------------------------------------------------------------- |
+| `aml_address_risk`          | Screen one address for risk, behavior, neighborhood context, and exchange exposure |
+| `graph_query`               | Run one read-only GQL/Cypher query against a Chain Insights Graph layer            |
+| `graph_query_batch`         | Run related read-only graph queries as one MCP call                                |
+| `meta_network_capabilities` | Check supported Chain Insights networks and graph tools                            |
+| `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                           |
+| `meta_help`                 | Show Chain Insights tool and workflow guidance                                     |
+| `wallet_balance`            | Show the local payment wallet amount                                               |
 
 ## Dependencies
 
@@ -106,15 +106,15 @@ Agent or CLI user
 
 Source modules (hand-maintained):
 
-| Module | Entrypoint | Component doc |
-|---|---|---|
-| `config` | `src/config` | [components/config.md](docs/architecture/components/config.md) |
-| `federation` | `src/federation` | [components/federation.md](docs/architecture/components/federation.md) |
+| Module          | Entrypoint          | Component doc                                                                |
+| --------------- | ------------------- | ---------------------------------------------------------------------------- |
+| `config`        | `src/config`        | [components/config.md](docs/architecture/components/config.md)               |
+| `federation`    | `src/federation`    | [components/federation.md](docs/architecture/components/federation.md)       |
 | `investigation` | `src/investigation` | [components/investigation.md](docs/architecture/components/investigation.md) |
-| `mcp` | `src/mcp` | [components/mcp.md](docs/architecture/components/mcp.md) |
-| `server` | `src/server` | [components/server.md](docs/architecture/components/server.md) |
-| `viz` | `src/viz` | [components/viz.md](docs/architecture/components/viz.md) |
-| `wallet` | `src/wallet` | [components/wallet.md](docs/architecture/components/wallet.md) |
+| `mcp`           | `src/mcp`           | [components/mcp.md](docs/architecture/components/mcp.md)                     |
+| `server`        | `src/server`        | [components/server.md](docs/architecture/components/server.md)               |
+| `viz`           | `src/viz`           | [components/viz.md](docs/architecture/components/viz.md)                     |
+| `wallet`        | `src/wallet`        | [components/wallet.md](docs/architecture/components/wallet.md)               |
 
 Entry points:
 
@@ -131,10 +131,10 @@ and [operating rules](docs/architecture/operating-rules.md).
 
 Graph queries choose the read graph explicitly:
 
-| Graph | Use it for |
-| --- | --- |
+| Graph      | Use it for                                                                                                                                      |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `topology` | The unified address / FLOWS_TO / LINKED graph — recent and full historical fund-flow traversal, plus the node `risk_score`/`risk_level` verdict |
-| `facts` | Labels, features, assets, and enrichment |
+| `facts`    | Labels, features, assets, and enrichment                                                                                                        |
 
 One rule is worth reading before writing a query by hand: the `network`
 argument selects the graph, not the addresses inside it. The address-space
@@ -189,9 +189,9 @@ Use `usage` to see the real cost of a workflow call, not just of one
 
 `.env.example` documents the two supported overrides:
 
-| Variable | Purpose |
-| --- | --- |
-| `BASE_RPC_URL` | Base RPC override for wallet balance and the local top-up page |
+| Variable                            | Purpose                                                                                               |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `BASE_RPC_URL`                      | Base RPC override for wallet balance and the local top-up page                                        |
 | `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` | Chain Insights Graph endpoint override; local HTTP loopback allowed, remote hosts must use `https://` |
 
 ## Run
@@ -355,18 +355,18 @@ investigation workflow without a reachable endpoint.
 
 Product docs:
 
-| Doc | Use it for |
-| --- | --- |
-| [Graph tools](docs/graph-tools.md) | Graph layers, `graph_query`, `graph_query_batch`, AML tool contracts, graph reports |
-| [Graph query compatibility](docs/graph-query-compatibility.md) | GQL/Cypher support per layer, rewrite recipes, traversal guidance |
-| [Search limits](docs/search-limits.md) | Tunable search/row/frontier/hop bounds, precedence, ceilings |
-| [Investigation workspaces](docs/investigation-workspaces.md) | `cia init`, workspace layout, artifacts, templates, reports, visualization |
-| [MCP proxy](docs/mcp-proxy.md) | Stdio proxy behavior, endpoint configuration, agent installers, auth modes |
-| [Architecture overview](docs/architecture.md) | Product layers, data flow, local storage, security model, config keys |
-| [Development](docs/development.md) | Build, test, and local install commands |
-| [Contributing](docs/contributing.md) | Development workflow, pull requests, release expectations |
-| [Stability policy](docs/stability.md) | Guaranteed surfaces (exit codes, MCP tool names, workspace layout), deprecation rules |
-| [Debugging](docs/debugging.md) | Local troubleshooting, diagnostics, debug workflows |
+| Doc                                                            | Use it for                                                                            |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| [Graph tools](docs/graph-tools.md)                             | Graph layers, `graph_query`, `graph_query_batch`, AML tool contracts, graph reports   |
+| [Graph query compatibility](docs/graph-query-compatibility.md) | GQL/Cypher support per layer, rewrite recipes, traversal guidance                     |
+| [Search limits](docs/search-limits.md)                         | Tunable search/row/frontier/hop bounds, precedence, ceilings                          |
+| [Investigation workspaces](docs/investigation-workspaces.md)   | `cia init`, workspace layout, artifacts, templates, reports, visualization            |
+| [MCP proxy](docs/mcp-proxy.md)                                 | Stdio proxy behavior, endpoint configuration, agent installers, auth modes            |
+| [Architecture overview](docs/architecture.md)                  | Product layers, data flow, local storage, security model, config keys                 |
+| [Development](docs/development.md)                             | Build, test, and local install commands                                               |
+| [Contributing](docs/contributing.md)                           | Development workflow, pull requests, release expectations                             |
+| [Stability policy](docs/stability.md)                          | Guaranteed surfaces (exit codes, MCP tool names, workspace layout), deprecation rules |
+| [Debugging](docs/debugging.md)                                 | Local troubleshooting, diagnostics, debug workflows                                   |
 
 Architecture depth:
 

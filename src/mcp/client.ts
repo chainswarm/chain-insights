@@ -3,8 +3,17 @@ import { ExactEvmScheme } from '@x402/evm'
 import { UptoEvmScheme, type UptoEvmSchemeConfigByChainId } from '@x402/evm/upto/client'
 import { privateKeyToAccount } from 'viem/accounts'
 import type { InvestigatorConfig } from '../config/schema.js'
-import { prepareWalletForPaidCalls, resolveMaxAutoApprovalUnits, PERMIT2_ADDRESS, USDC_ADDRESS } from '../wallet/tools.js'
-import { orderPaymentOptions, KNOWN_PAYMENT_ASSET_SYMBOLS, type PaymentOptionLike } from './payment-asset-preference.js'
+import {
+  prepareWalletForPaidCalls,
+  resolveMaxAutoApprovalUnits,
+  PERMIT2_ADDRESS,
+  USDC_ADDRESS,
+} from '../wallet/tools.js'
+import {
+  orderPaymentOptions,
+  KNOWN_PAYMENT_ASSET_SYMBOLS,
+  type PaymentOptionLike,
+} from './payment-asset-preference.js'
 import { createWalletProofFetch } from './wallet-proof.js'
 
 type FetchLike = typeof fetch
@@ -58,7 +67,9 @@ function createAssetPreferenceReorderingFetch(baseFetch: FetchLike, preference: 
     if (!Array.isArray(parsed.accepts) || parsed.accepts.length === 0) return response
 
     const reordered = orderPaymentOptions(parsed.accepts, preference, KNOWN_PAYMENT_ASSET_SYMBOLS)
-    const reencoded = Buffer.from(JSON.stringify({ ...parsed, accepts: reordered })).toString('base64')
+    const reencoded = Buffer.from(JSON.stringify({ ...parsed, accepts: reordered })).toString(
+      'base64'
+    )
     const headers = new Headers(response.headers)
     headers.set('payment-required', reencoded)
     return new Response(response.body, {
@@ -120,19 +131,31 @@ function paymentRequirementFromResponse(response: Response): PaymentRequirementD
     const decoded = Buffer.from(encoded, 'base64').toString('utf8')
     const parsed = JSON.parse(decoded) as {
       error?: unknown
-      accepts?: Array<{ scheme?: unknown; network?: unknown; amount?: unknown; payTo?: unknown; asset?: unknown }>
+      accepts?: Array<{
+        scheme?: unknown
+        network?: unknown
+        amount?: unknown
+        payTo?: unknown
+        asset?: unknown
+      }>
     }
-    const reason = typeof parsed.error === 'string' && parsed.error.trim() ? parsed.error.trim() : 'payment_required'
+    const reason =
+      typeof parsed.error === 'string' && parsed.error.trim()
+        ? parsed.error.trim()
+        : 'payment_required'
     const firstRequirement = Array.isArray(parsed.accepts) ? parsed.accepts[0] : undefined
-    const amount = typeof firstRequirement?.amount === 'string' ? firstRequirement.amount.trim() : undefined
+    const amount =
+      typeof firstRequirement?.amount === 'string' ? firstRequirement.amount.trim() : undefined
     return {
       reason,
       scheme: typeof firstRequirement?.scheme === 'string' ? firstRequirement.scheme : undefined,
       network: typeof firstRequirement?.network === 'string' ? firstRequirement.network : undefined,
       amount,
       amountUnits: amount && /^\d+$/.test(amount) ? BigInt(amount) : undefined,
-      payTo: typeof firstRequirement?.payTo === 'string' ? firstRequirement.payTo.trim() : undefined,
-      asset: typeof firstRequirement?.asset === 'string' ? firstRequirement.asset.trim() : undefined,
+      payTo:
+        typeof firstRequirement?.payTo === 'string' ? firstRequirement.payTo.trim() : undefined,
+      asset:
+        typeof firstRequirement?.asset === 'string' ? firstRequirement.asset.trim() : undefined,
     }
   } catch {
     return null
@@ -171,7 +194,8 @@ function describePermit2ApprovalNeededError(requirement: PaymentRequirementDetai
 
 function describePaymentRequiredResponse(response: Response, payerAddress?: string): string {
   const requirement = paymentRequirementFromResponse(response)
-  if (!requirement) return `Payment required — this tool costs USDC on Base via x402 micropayments. ${PAYMENT_NEXT_STEPS}`
+  if (!requirement)
+    return `Payment required — this tool costs USDC on Base via x402 micropayments. ${PAYMENT_NEXT_STEPS}`
 
   try {
     const { reason, payTo } = requirement
@@ -182,8 +206,12 @@ function describePaymentRequiredResponse(response: Response, payerAddress?: stri
       requirement.scheme ? `scheme=${requirement.scheme}` : undefined,
       requirement.network ? `network=${requirement.network}` : undefined,
       requirement.amount ? `amount=${requirement.amount}` : undefined,
-    ].filter(Boolean).join(' ')
-    const message = details ? `x402 payment failed: ${reason} (${details})` : `x402 payment failed: ${reason}`
+    ]
+      .filter(Boolean)
+      .join(' ')
+    const message = details
+      ? `x402 payment failed: ${reason} (${details})`
+      : `x402 payment failed: ${reason}`
     if (reason.includes('allowance_required')) {
       return `${message}. The payment wallet needs one-time setup before paid MCP calls can settle. Run \`chain-insights wallet ready\`; Base ETH is used for the setup gas.`
     }
@@ -199,7 +227,7 @@ function describePaymentRequiredResponse(response: Response, payerAddress?: stri
 function createPaymentFailureReportingFetch(
   baseFetch: FetchLike,
   payerAddress?: string,
-  paymentWallet?: { address: `0x${string}`; privateKey: `0x${string}` },
+  paymentWallet?: { address: `0x${string}`; privateKey: `0x${string}` }
 ): FetchLike {
   const reportingFetch = (async (input: FetchInput, init?: FetchInit) => {
     const response = await baseFetch(input, init)
@@ -215,12 +243,14 @@ function createPaymentFailureReportingFetch(
           // The endpoint dictates requirement.amountUnits; cap it so a hostile
           // endpoint cannot drive an unbounded Permit2 approval / wallet drain.
           maxApprovalUnits: resolveMaxAutoApprovalUnits(),
-          ...(requirement.amountUnits === undefined ? {} : { minimumApprovalUnits: requirement.amountUnits }),
+          ...(requirement.amountUnits === undefined
+            ? {}
+            : { minimumApprovalUnits: requirement.amountUnits }),
         })
       } catch (err) {
         throw new PaymentRequiredError(
           'Payment setup is not ready yet. Run `chain-insights wallet ready` and try again. ' +
-          `${(err as Error).message}`,
+            `${(err as Error).message}`
         )
       }
       const retryResponse = await baseFetch(input, init)
@@ -252,7 +282,10 @@ export function createMcpFetchClient(privateKey: `0x${string}`, authToken?: stri
   // stays unavailable there too, unchanged from prior behavior).
   const uptoScheme = new UptoEvmScheme(account, EVM_SCHEME_OPTIONS)
   const paymentFetch = wrapFetchWithPaymentFromConfig(
-    createAssetPreferenceReorderingFetch(createWalletProofFetch(account, fetch), resolvePaymentAssetPreference()),
+    createAssetPreferenceReorderingFetch(
+      createWalletProofFetch(account, fetch),
+      resolvePaymentAssetPreference()
+    ),
     {
       schemes: [
         {
@@ -268,13 +301,12 @@ export function createMcpFetchClient(privateKey: `0x${string}`, authToken?: stri
           client: uptoScheme,
         },
       ],
-    },
+    }
   )
-  const reportingFetch = createPaymentFailureReportingFetch(
-    paymentFetch,
-    account.address,
-    { address: account.address, privateKey },
-  )
+  const reportingFetch = createPaymentFailureReportingFetch(paymentFetch, account.address, {
+    address: account.address,
+    privateKey,
+  })
   return authToken ? createHeaderFetch(authToken, reportingFetch) : reportingFetch
 }
 
@@ -290,12 +322,17 @@ export function createMcpFetchClient(privateKey: `0x${string}`, authToken?: stri
  * (e.g. token not accepted for paid tools), the user sees actionable guidance
  * instead of a generic transport error.
  */
-export function createMcpAuthFetchClient(authToken: string, baseFetch: FetchLike = fetch): FetchLike {
+export function createMcpAuthFetchClient(
+  authToken: string,
+  baseFetch: FetchLike = fetch
+): FetchLike {
   const headerFetch = createHeaderFetch(authToken, baseFetch)
   return createPaymentFailureReportingFetch(headerFetch)
 }
 
-export function resolveGraphMcpEndpoint(config: Pick<InvestigatorConfig, 'graphMcpEndpoint'>): string {
+export function resolveGraphMcpEndpoint(
+  config: Pick<InvestigatorConfig, 'graphMcpEndpoint'>
+): string {
   return config.graphMcpEndpoint.trim()
 }
 
@@ -310,12 +347,14 @@ async function createConfiguredGraphPaidOrFreeFetch(): Promise<FetchLike> {
 }
 
 export async function createConfiguredGraphMcpFetch(
-  config: Pick<InvestigatorConfig, 'graphMcpAuthToken' | 'graphMcpMode'>,
+  config: Pick<InvestigatorConfig, 'graphMcpAuthToken' | 'graphMcpMode'>
 ): Promise<FetchLike> {
   if (config.graphMcpMode === 'debug') {
     const authToken = config.graphMcpAuthToken?.trim()
     if (!authToken) {
-      throw new Error('Chain Insights Graph debug mode requires graphMcpAuthToken. Run `cia access-key set <key>` or `cia debug on --token <token>`.')
+      throw new Error(
+        'Chain Insights Graph debug mode requires graphMcpAuthToken. Run `cia access-key set <key>` or `cia debug on --token <token>`.'
+      )
     }
     return createMcpAuthFetchClient(authToken)
   }

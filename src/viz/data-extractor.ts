@@ -51,12 +51,19 @@ function extractEmbeddedJson(text: string): string | null {
   const trimmed = text.trim()
   const start = [...trimmed]
     .map((char, index) => (char === '{' || char === '[' ? index : -1))
-    .find(index => index >= 0)
+    .find((index) => index >= 0)
   if (start === undefined) return null
   return trimmed.slice(start)
 }
 
-type SimpleTx = { from: string; to: string; value: number; txHash?: string; blockNumber?: number; timestamp?: string }
+type SimpleTx = {
+  from: string
+  to: string
+  value: number
+  txHash?: string
+  blockNumber?: number
+  timestamp?: string
+}
 
 type CompactEvidence = {
   schema?: string
@@ -100,8 +107,13 @@ function compactEvidenceToSimpleTxs(item: unknown): SimpleTx[] {
   }
 
   return compact.outgoing_flows
-    .filter(flow => typeof flow.src === 'string' && typeof flow.dst === 'string' && typeof flow.amount_usd_sum === 'number')
-    .map(flow => ({
+    .filter(
+      (flow) =>
+        typeof flow.src === 'string' &&
+        typeof flow.dst === 'string' &&
+        typeof flow.amount_usd_sum === 'number'
+    )
+    .map((flow) => ({
       from: flow.src!,
       to: flow.dst!,
       value: flow.amount_usd_sum!,
@@ -115,14 +127,16 @@ function compactEvidenceToSimpleTxs(item: unknown): SimpleTx[] {
  */
 function buildGraphFromSimpleTxs(items: SimpleTx[]): { nodes: GraphNode[]; edges: GraphEdge[] } {
   // Build edges first
-  const edges: GraphEdge[] = items.map(tx => GraphEdge.parse({
-    source: tx.from,
-    target: tx.to,
-    value: tx.value,
-    txHash: tx.txHash,
-    blockNumber: tx.blockNumber,
-    timestamp: tx.timestamp,
-  }))
+  const edges: GraphEdge[] = items.map((tx) =>
+    GraphEdge.parse({
+      source: tx.from,
+      target: tx.to,
+      value: tx.value,
+      txHash: tx.txHash,
+      blockNumber: tx.blockNumber,
+      timestamp: tx.timestamp,
+    })
+  )
 
   // Collect unique addresses
   const addresses = new Set<string>()
@@ -149,7 +163,7 @@ function buildGraphFromSimpleTxs(items: SimpleTx[]): { nodes: GraphNode[]; edges
     }
   }
 
-  const nodes: GraphNode[] = [...addresses].map(addr =>
+  const nodes: GraphNode[] = [...addresses].map((addr) =>
     GraphNode.parse({
       id: addr,
       entityType: 'unknown',

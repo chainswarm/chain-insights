@@ -49,17 +49,18 @@ export function visibleRemoteTools<T extends { name: string }>(tools: T[]): T[] 
 
 export function assertPublicMcpToolName(name: string): void {
   if (!isHiddenRemoteToolName(name)) return
-  const replacement = name === 'address_risk'
-    ? ' Use aml_address_risk instead.'
-    : name === 'network_capabilities'
-      ? ' Use meta_network_capabilities instead.'
-      : name === 'usage_status'
-        ? ' Use meta_usage_status instead.'
-        : name === 'balance'
-          ? ' Use wallet_balance instead.'
-          : name === 'help'
-            ? ' Use meta_help instead.'
-            : ''
+  const replacement =
+    name === 'address_risk'
+      ? ' Use aml_address_risk instead.'
+      : name === 'network_capabilities'
+        ? ' Use meta_network_capabilities instead.'
+        : name === 'usage_status'
+          ? ' Use meta_usage_status instead.'
+          : name === 'balance'
+            ? ' Use wallet_balance instead.'
+            : name === 'help'
+              ? ' Use meta_help instead.'
+              : ''
   throw new Error(`MCP tool '${name}' is not exposed by Chain Insights.${replacement}`)
 }
 
@@ -70,8 +71,10 @@ export function validatePublicMcpToolArguments(name: string, args: Record<string
   const unsupportedArgs = Object.keys(args).filter((argName) => !allowedArgs.includes(argName))
   if (unsupportedArgs.length === 0) return
 
-  throw new Error([
-    `Unsupported argument${unsupportedArgs.length === 1 ? '' : 's'} for ${name}: ${unsupportedArgs.join(', ')}.`,
-    `Allowed arguments: ${allowedArgs.join(', ')}.`,
-  ].join(' '))
+  throw new Error(
+    [
+      `Unsupported argument${unsupportedArgs.length === 1 ? '' : 's'} for ${name}: ${unsupportedArgs.join(', ')}.`,
+      `Allowed arguments: ${allowedArgs.join(', ')}.`,
+    ].join(' ')
+  )
 }

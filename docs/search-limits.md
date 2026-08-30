@@ -20,9 +20,9 @@ Highest wins:
 
 ## Knobs
 
-| Key | Bounds | Default | Ceiling | Per-call argument |
-| --- | --- | --- | --- | --- |
-| `viz_max_nodes` | nodes rendered before truncation | 100 | 2000 | `maxNodes` |
+| Key             | Bounds                           | Default | Ceiling | Per-call argument |
+| --------------- | -------------------------------- | ------- | ------- | ----------------- |
+| `viz_max_nodes` | nodes rendered before truncation | 100     | 2000    | `maxNodes`        |
 
 Defaults are exactly the values that used to be hardcoded, so an existing call
 that passes no override behaves identically.
@@ -66,8 +66,8 @@ that had no effect.
 
 These are protocol or safety limits, not budget choices:
 
-| Bound | Why it stays fixed |
-| --- | --- |
-| Max query text size (32 KiB) | A hard backend limit. Exceeding it fails the query; it is not a cost trade-off. |
-| Queries per `graph_query_batch` (20) | The backend's protocol maximum. A larger batch is rejected server-side. |
-| Per-query and per-request timeouts | Transport-level, not search breadth. |
+| Bound                                | Why it stays fixed                                                              |
+| ------------------------------------ | ------------------------------------------------------------------------------- |
+| Max query text size (32 KiB)         | A hard backend limit. Exceeding it fails the query; it is not a cost trade-off. |
+| Queries per `graph_query_batch` (20) | The backend's protocol maximum. A larger batch is rejected server-side.         |
+| Per-query and per-request timeouts   | Transport-level, not search breadth.                                            |

@@ -78,11 +78,13 @@ describe('MCP graph batch client', () => {
       callTool: vi.fn(async () => resultEnvelope()),
     }
 
-    await expect(callGraphQueryBatch({
-      client,
-      network: '  ',
-      queries: [{ query: 'MATCH (n) RETURN n LIMIT 1' }],
-    })).rejects.toThrow('network is required')
+    await expect(
+      callGraphQueryBatch({
+        client,
+        network: '  ',
+        queries: [{ query: 'MATCH (n) RETURN n LIMIT 1' }],
+      })
+    ).rejects.toThrow('network is required')
     expect(client.callTool).not.toHaveBeenCalled()
   })
 
@@ -91,11 +93,13 @@ describe('MCP graph batch client', () => {
       callTool: vi.fn(async () => resultEnvelope()),
     }
 
-    await expect(callGraphQueryBatch({
-      client,
-      network: 'base',
-      queries: [],
-    })).rejects.toThrow('at least one query is required')
+    await expect(
+      callGraphQueryBatch({
+        client,
+        network: 'base',
+        queries: [],
+      })
+    ).rejects.toThrow('at least one query is required')
     expect(client.callTool).not.toHaveBeenCalled()
   })
 
@@ -134,10 +138,12 @@ describe('MCP graph batch client', () => {
       })),
     }
 
-    await expect(callGraphQueryBatch({
-      client,
-      network: 'ethereum',
-      queries: [{ query: 'MATCH (n) RETURN n LIMIT 1' }],
-    })).rejects.toThrow('invalid facts')
+    await expect(
+      callGraphQueryBatch({
+        client,
+        network: 'ethereum',
+        queries: [{ query: 'MATCH (n) RETURN n LIMIT 1' }],
+      })
+    ).rejects.toThrow('invalid facts')
   })
 })

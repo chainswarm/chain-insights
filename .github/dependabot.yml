@@ -6,14 +6,14 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: "05:30"
+      time: '05:30'
     open-pull-requests-limit: 10
     groups:
       mcp-and-payments:
         patterns:
-          - "@modelcontextprotocol/*"
-          - "@x402/*"
-          - "viem"
+          - '@modelcontextprotocol/*'
+          - '@x402/*'
+          - 'viem'
       tooling:
         dependency-type: development
 
@@ -22,17 +22,17 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: "05:45"
+      time: '05:45'
     open-pull-requests-limit: 5
     groups:
       # init/analyze/upload-sarif must move in lockstep; split PRs break
       # CodeQL with a version mismatch (happened 2026-08, #297/#298/#299).
       codeql-action:
         patterns:
-          - "github/codeql-action*"
+          - 'github/codeql-action*'
       # upload/download-artifact must move in lockstep; cross-major artifact
       # handoff between jobs breaks (happened 2026-08, #318/#319).
       artifact-actions:
         patterns:
-          - "actions/upload-artifact"
-          - "actions/download-artifact"
+          - 'actions/upload-artifact'
+          - 'actions/download-artifact'

@@ -31,31 +31,40 @@ describe('release gate helpers', () => {
   })
 
   it('collects package entrypoint paths from main, module, and exports', () => {
-    expect(packageEntrypointPaths({
-      main: './dist/index.cjs',
-      module: './dist/index.mjs',
-      exports: {
-        '.': {
-          import: './dist/index.mjs',
-          require: './dist/index.cjs',
+    expect(
+      packageEntrypointPaths({
+        main: './dist/index.cjs',
+        module: './dist/index.mjs',
+        exports: {
+          '.': {
+            import: './dist/index.mjs',
+            require: './dist/index.cjs',
+          },
+          './cli': './dist/cli.mjs',
         },
-        './cli': './dist/cli.mjs',
-      },
-    })).toEqual(['dist/cli.mjs', 'dist/index.cjs', 'dist/index.mjs'])
+      })
+    ).toEqual(['dist/cli.mjs', 'dist/index.cjs', 'dist/index.mjs'])
   })
 
   it('reports missing package entrypoints', () => {
-    expect(missingPackageEntrypoints({
-      main: './dist/index.cjs',
-      module: './dist/index.mjs',
-    }, (path: string) => path === 'dist/index.cjs')).toEqual(['dist/index.mjs'])
+    expect(
+      missingPackageEntrypoints(
+        {
+          main: './dist/index.cjs',
+          module: './dist/index.mjs',
+        },
+        (path: string) => path === 'dist/index.cjs'
+      )
+    ).toEqual(['dist/index.mjs'])
   })
 
   it('finds committed npm package tarballs', () => {
-    expect(committedPackageTarballs([
-      'chain-insights-0.2.17.tgz',
-      'docs/archive.tgz',
-      'package-lock.json',
-    ])).toEqual(['chain-insights-0.2.17.tgz', 'docs/archive.tgz'])
+    expect(
+      committedPackageTarballs([
+        'chain-insights-0.2.17.tgz',
+        'docs/archive.tgz',
+        'package-lock.json',
+      ])
+    ).toEqual(['chain-insights-0.2.17.tgz', 'docs/archive.tgz'])
   })
 })

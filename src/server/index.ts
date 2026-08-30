@@ -2,9 +2,9 @@ import { serve } from '@hono/node-server'
 import { createApp } from './app.js'
 
 export function startServer(port = 4321): () => void {
-  const app    = createApp()
+  const app = createApp()
   const server = serve({
-    fetch:    app.fetch,
+    fetch: app.fetch,
     hostname: '127.0.0.1', // localhost-only — REQUIRED (default 0.0.0.0 is insecure)
     port,
   })
@@ -32,8 +32,13 @@ export function startServer(port = 4321): () => void {
     process.off('SIGTERM', onSigterm)
     server.close(callback)
   }
-  const onSigint = () => { stop(); process.exit(0) }
-  const onSigterm = () => { stop(() => process.exit(0)) }
+  const onSigint = () => {
+    stop()
+    process.exit(0)
+  }
+  const onSigterm = () => {
+    stop(() => process.exit(0))
+  }
 
   process.on('SIGINT', onSigint)
   process.on('SIGTERM', onSigterm)

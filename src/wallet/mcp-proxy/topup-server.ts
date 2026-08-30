@@ -1,132 +1,156 @@
-import { createServer, type Server } from "node:http";
-import { readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { isAddress } from "viem";
-import type { WalletData } from "./types.js";
-import { generateQrSvg } from "./qr.js";
-import { getBalanceEth, getBalanceUsdc } from "./tools.js";
+import { createServer, type Server } from 'node:http'
+import { readFileSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { isAddress } from 'viem'
+import type { WalletData } from './types.js'
+import { generateQrSvg } from './qr.js'
+import { getBalanceEth, getBalanceUsdc } from './tools.js'
 
-const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-const BASE_CHAIN_ID = "0x2105"; // 8453
+const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
+const BASE_CHAIN_ID = '0x2105' // 8453
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 // Pre-load assets — try dist/assets first (installed), then src/assets (dev)
 function loadAsset(name: string): Buffer {
   const paths = [
-    join(__dirname, "assets", name),           // dist/assets/ (global install)
-    join(__dirname, "..", "src", "assets", name), // src/assets/ (dev)
-  ];
+    join(__dirname, 'assets', name), // dist/assets/ (global install)
+    join(__dirname, '..', 'src', 'assets', name), // src/assets/ (dev)
+  ]
   for (const p of paths) {
-    try { return readFileSync(p); } catch { /* try next */ }
+    try {
+      return readFileSync(p)
+    } catch {
+      /* try next */
+    }
   }
-  console.error(`[chain-insights] Warning: asset ${name} not found`);
-  return Buffer.alloc(0);
+  console.error(`[chain-insights] Warning: asset ${name} not found`)
+  return Buffer.alloc(0)
 }
 
-const logoPng = loadAsset("logo.png");
-const bgPatternPng = loadAsset("bg-pattern.png");
+const logoPng = loadAsset('logo.png')
+const bgPatternPng = loadAsset('bg-pattern.png')
 
-let server: Server | null = null;
-let serverPort: number | null = null;
+let server: Server | null = null
+let serverPort: number | null = null
 
 function assertWalletAddress(wallet: WalletData | string): string {
-  const walletAddress = typeof wallet === "string" ? wallet : wallet.address;
+  const walletAddress = typeof wallet === 'string' ? wallet : wallet.address
   if (!isAddress(walletAddress)) {
-    throw new Error("Wallet address must be a valid 0x-prefixed 20-byte EVM address");
+    throw new Error('Wallet address must be a valid 0x-prefixed 20-byte EVM address')
   }
-  return walletAddress;
+  return walletAddress
 }
 
 function escapeHtml(value: string): string {
   return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
 }
 
 function jsonForScript(value: string): string {
   return JSON.stringify(value)
-    .replaceAll("<", "\\u003c")
-    .replaceAll(">", "\\u003e")
-    .replaceAll("&", "\\u0026");
+    .replaceAll('<', '\\u003c')
+    .replaceAll('>', '\\u003e')
+    .replaceAll('&', '\\u0026')
 }
 
 export function getTopupUrl(): string | null {
-  return serverPort ? `http://localhost:${serverPort}` : null;
+  return serverPort ? `http://localhost:${serverPort}` : null
 }
 
 export async function startTopupServer(wallet: WalletData | string): Promise<string> {
-  const walletAddress = assertWalletAddress(wallet);
+  const walletAddress = assertWalletAddress(wallet)
 
   if (server && serverPort) {
-    return `http://localhost:${serverPort}`;
+    return `http://localhost:${serverPort}`
   }
 
   return new Promise((resolve, reject) => {
     server = createServer((req, res) => {
-      if (req.url === "/api/wallet") {
-        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
-        res.end(JSON.stringify({ address: walletAddress }));
-        return;
+      if (req.url === '/api/wallet') {
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        })
+        res.end(JSON.stringify({ address: walletAddress }))
+        return
       }
 
-      if (req.url === "/api/balance") {
-        Promise.all([getBalanceUsdc(walletAddress), getBalanceEth(walletAddress)]).then(([balanceUsdc, balanceEth]) => {
-          res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
-          res.end(JSON.stringify({ balance_usdc: balanceUsdc, balance_eth: balanceEth }));
-        }).catch(() => {
-          res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
-          res.end(JSON.stringify({ balance_usdc: "unknown", balance_eth: "unknown" }));
-        });
-        return;
+      if (req.url === '/api/balance') {
+        Promise.all([getBalanceUsdc(walletAddress), getBalanceEth(walletAddress)])
+          .then(([balanceUsdc, balanceEth]) => {
+            res.writeHead(200, {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            })
+            res.end(JSON.stringify({ balance_usdc: balanceUsdc, balance_eth: balanceEth }))
+          })
+          .catch(() => {
+            res.writeHead(200, {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            })
+            res.end(JSON.stringify({ balance_usdc: 'unknown', balance_eth: 'unknown' }))
+          })
+        return
       }
 
-      if (req.url === "/assets/logo.png") {
-        res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" });
-        res.end(logoPng);
-        return;
+      if (req.url === '/assets/logo.png') {
+        res.writeHead(200, {
+          'Content-Type': 'image/png',
+          'Cache-Control': 'public, max-age=86400',
+          'Access-Control-Allow-Origin': '*',
+        })
+        res.end(logoPng)
+        return
       }
 
-      if (req.url === "/assets/bg-pattern.png") {
-        res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" });
-        res.end(bgPatternPng);
-        return;
+      if (req.url === '/assets/bg-pattern.png') {
+        res.writeHead(200, {
+          'Content-Type': 'image/png',
+          'Cache-Control': 'public, max-age=86400',
+          'Access-Control-Allow-Origin': '*',
+        })
+        res.end(bgPatternPng)
+        return
       }
 
-      res.writeHead(200, { "Content-Type": "text/html" });
-      res.end(generatePage(walletAddress));
-    });
+      res.writeHead(200, { 'Content-Type': 'text/html' })
+      res.end(generatePage(walletAddress))
+    })
 
-    server.listen(0, "127.0.0.1", () => {
-      const addr = server!.address();
-      if (addr && typeof addr === "object") {
-        serverPort = addr.port;
-        const url = `http://localhost:${serverPort}`;
-        console.error(`[chain-insights] Topup server running at ${url}`);
-        resolve(url);
+    server.listen(0, '127.0.0.1', () => {
+      const addr = server!.address()
+      if (addr && typeof addr === 'object') {
+        serverPort = addr.port
+        const url = `http://localhost:${serverPort}`
+        console.error(`[chain-insights] Topup server running at ${url}`)
+        resolve(url)
       } else {
-        reject(new Error("Failed to start topup server"));
+        reject(new Error('Failed to start topup server'))
       }
-    });
+    })
 
-    server.on("error", reject);
-  });
+    server.on('error', reject)
+  })
 }
 
 export function generateArtifactHtml(walletAddressInput: string, topupUrl: string): string {
-  const walletAddress = assertWalletAddress(walletAddressInput);
-  const safeWalletAddress = escapeHtml(walletAddress);
-  const safeTopupUrl = escapeHtml(topupUrl);
-  const topupUrlJson = jsonForScript(topupUrl);
+  const walletAddress = assertWalletAddress(walletAddressInput)
+  const safeWalletAddress = escapeHtml(walletAddress)
+  const safeTopupUrl = escapeHtml(topupUrl)
+  const topupUrlJson = jsonForScript(topupUrl)
 
-  const LOGO_B64 = "data:image/png;base64,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";
+  const LOGO_B64 =
+    'data:image/png;base64,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'
 
   // Generate QR code SVG server-side — standard B&W, 2x size
-  const qrSvg = generateQrSvg(walletAddress, { cellSize: 8 });
+  const qrSvg = generateQrSvg(walletAddress, { cellSize: 8 })
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -329,13 +353,13 @@ function selectAndCopy() {
 }
 <\/script>
 </body>
-</html>`;
+</html>`
 }
 
 function generatePage(walletAddressInput: string): string {
-  const walletAddress = assertWalletAddress(walletAddressInput);
-  const safeWalletAddress = escapeHtml(walletAddress);
-  const walletAddressJson = jsonForScript(walletAddress);
+  const walletAddress = assertWalletAddress(walletAddressInput)
+  const safeWalletAddress = escapeHtml(walletAddress)
+  const walletAddressJson = jsonForScript(walletAddress)
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -647,5 +671,5 @@ setInterval(fetchBalance, 15000);
 
 </script>
 </body>
-</html>`;
+</html>`
 }

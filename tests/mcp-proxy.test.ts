@@ -11,11 +11,13 @@ function retiredName(head: string, tail: string): string {
 
 const testDataDir = vi.hoisted(() => `/tmp/chain-insights-mcp-proxy-test-${process.pid}`)
 const dossierAppendFindingMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
-const sessionStartMock = vi.hoisted(() => vi.fn().mockResolvedValue({
-  sessionId: '20260512_001_exchange-deposit-clustering_s001',
-  startTime: '2026-05-12T20:00:00.000Z',
-  status: 'active',
-}))
+const sessionStartMock = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({
+    sessionId: '20260512_001_exchange-deposit-clustering_s001',
+    startTime: '2026-05-12T20:00:00.000Z',
+    status: 'active',
+  })
+)
 const sessionEndMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const sessionArchiveOldMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const ensureArtifactServerMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
@@ -33,7 +35,9 @@ vi.mock('../src/config/index.js', () => ({
 
 vi.mock('../src/wallet/index.js', () => ({
   isWalletConfigured: vi.fn().mockResolvedValue(true),
-  decryptKey: vi.fn().mockResolvedValue('0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'),
+  decryptKey: vi
+    .fn()
+    .mockResolvedValue('0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'),
 }))
 
 vi.mock('../src/wallet/tools.js', () => ({
@@ -58,19 +62,27 @@ vi.mock('../src/wallet/tools.js', () => ({
       },
     },
   }),
-  formatWalletBalanceResult: vi.fn().mockReturnValue([
-    'Payment wallet: 0x0000000000000000000000000000000000000001',
-    'USDC on Base: 4.200000',
-    'Gas on Base: 0.0001 ETH',
-    'Payment network: Base',
-    'Base ETH is used only for one-time payment setup gas.',
-  ].join('\n')),
-  getWalletBalanceText: vi.fn().mockResolvedValue([
-    'Payment wallet: 0x0000000000000000000000000000000000000001',
-    'USDC on Base: 4.200000',
-    'Gas on Base: 0.0001 ETH',
-    'Payment network: Base',
-  ].join('\n')),
+  formatWalletBalanceResult: vi
+    .fn()
+    .mockReturnValue(
+      [
+        'Payment wallet: 0x0000000000000000000000000000000000000001',
+        'USDC on Base: 4.200000',
+        'Gas on Base: 0.0001 ETH',
+        'Payment network: Base',
+        'Base ETH is used only for one-time payment setup gas.',
+      ].join('\n')
+    ),
+  getWalletBalanceText: vi
+    .fn()
+    .mockResolvedValue(
+      [
+        'Payment wallet: 0x0000000000000000000000000000000000000001',
+        'USDC on Base: 4.200000',
+        'Gas on Base: 0.0001 ETH',
+        'Payment network: Base',
+      ].join('\n')
+    ),
 }))
 
 vi.mock('../src/wallet/topup-server.js', () => ({
@@ -81,16 +93,20 @@ vi.mock('../src/wallet/topup-server.js', () => ({
 vi.mock('@modelcontextprotocol/ext-apps/server', () => ({
   RESOURCE_MIME_TYPE: 'text/html;profile=mcp-app',
   registerAppResource: vi.fn((_server, _name, _uri, _config, _handler) => ({})),
-  registerAppTool: vi.fn((server, name, config, handler) => server.registerTool(name, config, handler)),
+  registerAppTool: vi.fn((server, name, config, handler) =>
+    server.registerTool(name, config, handler)
+  ),
 }))
 
 vi.mock('../src/mcp/client.js', async (importOriginal) => {
-  const actual = await importOriginal() as Record<string, unknown>
+  const actual = (await importOriginal()) as Record<string, unknown>
   return {
     ...actual,
     createMcpFetchClient: vi.fn().mockReturnValue(fetch),
     createConfiguredGraphMcpFetch: vi.fn().mockResolvedValue(fetch),
-    resolveGraphMcpEndpoint: vi.fn((config: { graphMcpEndpoint: string }) => config.graphMcpEndpoint.trim()),
+    resolveGraphMcpEndpoint: vi.fn((config: { graphMcpEndpoint: string }) =>
+      config.graphMcpEndpoint.trim()
+    ),
   }
 })
 
@@ -199,7 +215,7 @@ vi.mock('@modelcontextprotocol/sdk/client/streamableHttp.js', () => ({
 
 function findToolHandler(
   serverInstance: { registerTool: ReturnType<typeof vi.fn> },
-  name: string,
+  name: string
 ): Function {
   const call = serverInstance.registerTool.mock.calls.find((entry) => entry[0] === name)
   if (!call) {
@@ -210,7 +226,7 @@ function findToolHandler(
 
 function findToolConfig(
   serverInstance: { registerTool: ReturnType<typeof vi.fn> },
-  name: string,
+  name: string
 ): Record<string, unknown> {
   const call = serverInstance.registerTool.mock.calls.find((entry) => entry[0] === name)
   if (!call) {
@@ -221,7 +237,7 @@ function findToolConfig(
 
 function findPromptHandler(
   serverInstance: { registerPrompt: ReturnType<typeof vi.fn> },
-  name: string,
+  name: string
 ): Function {
   const call = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === name)
   if (!call) {
@@ -239,7 +255,11 @@ function findPromptHandler(
 // seed_address_exists_N pre-flight batch, mirroring a real indexed match.
 async function readJsonl(path: string): Promise<Array<Record<string, unknown>>> {
   const text = await readFile(path, 'utf8')
-  return text.trim().split('\n').filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>)
+  return text
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as Record<string, unknown>)
 }
 
 let originalSigintListeners: NodeJS.SignalsListener[] = []
@@ -248,7 +268,10 @@ let originalWorkspace: string | undefined
 let originalProxyMode: string | undefined
 let originalActionLog: string | undefined
 
-function removeAddedSignalListeners(signal: NodeJS.Signals, original: NodeJS.SignalsListener[]): void {
+function removeAddedSignalListeners(
+  signal: NodeJS.Signals,
+  original: NodeJS.SignalsListener[]
+): void {
   for (const listener of process.listeners(signal)) {
     if (!original.includes(listener)) {
       process.removeListener(signal, listener)
@@ -268,10 +291,13 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     vi.mocked(McpServer).mockClear()
     rmSync(testDataDir, { recursive: true, force: true })
     mkdirSync(join(testDataDir, '.chain-insights'), { recursive: true })
-    writeFileSync(join(testDataDir, '.chain-insights', 'workspace.json'), JSON.stringify({
-      schema: 'chain-insights.workspace.v1',
-      workspace_root: testDataDir,
-    }) + '\n')
+    writeFileSync(
+      join(testDataDir, '.chain-insights', 'workspace.json'),
+      JSON.stringify({
+        schema: 'chain-insights.workspace.v1',
+        workspace_root: testDataDir,
+      }) + '\n'
+    )
     process.env['CHAIN_INSIGHTS_WORKSPACE'] = testDataDir
   })
 
@@ -292,7 +318,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(resolveMcpProxyMode({})).toBe('workspace')
     expect(resolveMcpProxyMode({ CHAIN_INSIGHTS_MCP_PROXY_MODE: 'stateless' })).toBe('stateless')
     expect(resolveMcpProxyMode({ CHAIN_INSIGHTS_MCP_PROXY_MODE: 'no-workspace' })).toBe('stateless')
-    expect(() => resolveMcpProxyMode({ CHAIN_INSIGHTS_MCP_PROXY_MODE: 'cases-only' })).toThrow('CHAIN_INSIGHTS_MCP_PROXY_MODE')
+    expect(() => resolveMcpProxyMode({ CHAIN_INSIGHTS_MCP_PROXY_MODE: 'cases-only' })).toThrow(
+      'CHAIN_INSIGHTS_MCP_PROXY_MODE'
+    )
   })
 
   it('registers remote tool on the local server by name', async () => {
@@ -318,7 +346,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(serverInstance.registerTool).toHaveBeenCalledWith(
       'trace_address',
       expect.objectContaining({ description: 'Trace address on-chain' }),
-      expect.any(Function),
+      expect.any(Function)
     )
   })
 
@@ -415,7 +443,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     const mcpClient = await import('../src/mcp/client.js')
     vi.mocked(mcpClient.createConfiguredGraphMcpFetch).mockRejectedValueOnce(
-      new Error('Wallet not configured. Run `chain-insights wallet ready`.'),
+      new Error('Wallet not configured. Run `chain-insights wallet ready`.')
     )
 
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
@@ -451,7 +479,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       { name: 'chain-insights', version: PACKAGE_VERSION },
       expect.objectContaining({
         instructions: expect.stringContaining('Workflow:'),
-      }),
+      })
     )
     const instructions = vi.mocked(McpServer).mock.calls[0]?.[1]?.instructions
     expect(instructions).toContain('aml_address_risk')
@@ -535,16 +563,20 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       queries: [{ id: 'slow_facts', query: 'USE facts MATCH (n) RETURN n LIMIT 1' }],
     })
 
-    expect(clientInstance.callTool).toHaveBeenCalledWith({
-      name: 'graph_query_batch',
-      arguments: expect.objectContaining({
-        network: 'bittensor',
-        per_query_timeout_seconds: 120,
-      }),
-    }, undefined, expect.objectContaining({
-      timeout: expect.any(Number),
-      maxTotalTimeout: expect.any(Number),
-    }))
+    expect(clientInstance.callTool).toHaveBeenCalledWith(
+      {
+        name: 'graph_query_batch',
+        arguments: expect.objectContaining({
+          network: 'bittensor',
+          per_query_timeout_seconds: 120,
+        }),
+      },
+      undefined,
+      expect.objectContaining({
+        timeout: expect.any(Number),
+        maxTotalTimeout: expect.any(Number),
+      })
+    )
     expect(clientInstance.callTool.mock.calls[0]?.[2]?.timeout).toBeGreaterThan(60_000)
   })
 
@@ -576,12 +608,20 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       ],
     })
 
-    const entries = await readJsonl(join(testDataDir, '.chain-insights', 'runtime', 'logs', 'mcp-proxy.jsonl'))
+    const entries = await readJsonl(
+      join(testDataDir, '.chain-insights', 'runtime', 'logs', 'mcp-proxy.jsonl')
+    )
     expect(entries.some((entry) => entry.event === 'proxy.start')).toBe(true)
-    expect(entries.some((entry) => entry.event === 'tool.start' && entry.tool === 'graph_query_batch')).toBe(true)
-    expect(entries.some((entry) => entry.event === 'tool.end' && entry.tool === 'graph_query_batch')).toBe(true)
+    expect(
+      entries.some((entry) => entry.event === 'tool.start' && entry.tool === 'graph_query_batch')
+    ).toBe(true)
+    expect(
+      entries.some((entry) => entry.event === 'tool.end' && entry.tool === 'graph_query_batch')
+    ).toBe(true)
 
-    const cypherStart = entries.find((entry) => entry.event === 'topology.start' && entry.tool === 'graph_query_batch')
+    const cypherStart = entries.find(
+      (entry) => entry.event === 'topology.start' && entry.tool === 'graph_query_batch'
+    )
     expect(cypherStart).toBeTruthy()
     expect(cypherStart?.network).toBe('bittensor')
     expect(cypherStart?.query_count).toBe(1)
@@ -634,7 +674,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const entries = await readJsonl(actionLogFile)
     const entry = entries.find((e) => e['tool'] === 'graph_query_batch')
     expect(entry).toBeTruthy()
-    expect(entry?.['warnings']).toEqual(['No upstream sources were connected in the queried topology.'])
+    expect(entry?.['warnings']).toEqual([
+      'No upstream sources were connected in the queried topology.',
+    ])
     expect(entry?.['search_limits']).toEqual({ hop_depth: { requested: 5, used: 3, ceiling: 5 } })
   })
 
@@ -834,7 +876,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const handler = findToolHandler(serverInstance, 'meta_usage_status')
     const result = await handler({})
 
-    expect(clientInstance.callTool).not.toHaveBeenCalledWith({ name: 'usage_status', arguments: {} })
+    expect(clientInstance.callTool).not.toHaveBeenCalledWith({
+      name: 'usage_status',
+      arguments: {},
+    })
     expect(result.isError).not.toBe(true)
     expect(result.structuredContent).toMatchObject({
       schema: 'chain-insights.result.v1',
@@ -880,14 +925,22 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                 network: 'bittensor',
                 display_name: 'Bittensor',
                 status: 'live',
-                layers: { topology: { enabled: true }, facts: { enabled: true }, risk: { enabled: false } },
+                layers: {
+                  topology: { enabled: true },
+                  facts: { enabled: true },
+                  risk: { enabled: false },
+                },
                 tools: { graph_query: 'available', graph_query_batch: 'available' },
               },
               {
                 network: 'robinhood',
                 display_name: 'Robinhood',
                 status: 'live',
-                layers: { topology: { enabled: true }, facts: { enabled: true }, risk: { enabled: false } },
+                layers: {
+                  topology: { enabled: true },
+                  facts: { enabled: true },
+                  risk: { enabled: false },
+                },
                 tools: { graph_query: 'available', graph_query_batch: 'available' },
               },
             ],
@@ -902,8 +955,13 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const handler = findToolHandler(serverInstance, 'meta_network_capabilities')
     const result = await handler({})
 
-    expect(clientInstance.callTool).toHaveBeenCalledWith({ name: 'network_capabilities', arguments: {} })
-    const networks = result.structuredContent.facts.capabilities.networks as Array<Record<string, unknown>>
+    expect(clientInstance.callTool).toHaveBeenCalledWith({
+      name: 'network_capabilities',
+      arguments: {},
+    })
+    const networks = result.structuredContent.facts.capabilities.networks as Array<
+      Record<string, unknown>
+    >
     const publicTools = {
       aml_address_risk: 'available',
       graph_query: 'available',
@@ -928,7 +986,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       }),
     ])
     expect(networks).toHaveLength(2)
-    expect(result.structuredContent.facts.capabilities.networks[0]?.tools).not.toHaveProperty('network_capabilities')
+    expect(result.structuredContent.facts.capabilities.networks[0]?.tools).not.toHaveProperty(
+      'network_capabilities'
+    )
     expect(result.content[0].text).toContain('bittensor')
     expect(result.content[0].text).toContain('robinhood')
     expect(result.content[0].text).not.toContain('"topology"')
@@ -957,9 +1017,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const handler = findToolHandler(serverInstance, 'meta_network_capabilities')
     const result = await handler({})
 
-    expect(clientInstance.callTool).not.toHaveBeenCalledWith({ name: 'network_capabilities', arguments: {} })
+    expect(clientInstance.callTool).not.toHaveBeenCalledWith({
+      name: 'network_capabilities',
+      arguments: {},
+    })
     expect(result.isError).not.toBe(true)
-    const networks = result.structuredContent.facts.capabilities.networks as Array<Record<string, unknown>>
+    const networks = result.structuredContent.facts.capabilities.networks as Array<
+      Record<string, unknown>
+    >
     expect(networks).toEqual([])
     expect(result.content[0].text).not.toContain('robinhood')
     expect(result.content[0].text).not.toContain('"topology"')
@@ -1002,7 +1067,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     const graphQueryBatch = findToolConfig(serverInstance, 'graph_query_batch')
     const jsonSchema = z.toJSONSchema(
-      z.object(graphQueryBatch.inputSchema as z.ZodRawShape),
+      z.object(graphQueryBatch.inputSchema as z.ZodRawShape)
     ) as Record<string, unknown>
     const properties = jsonSchema.properties as Record<string, Record<string, unknown>>
     expect(jsonSchema.required).toEqual(['network', 'queries'])
@@ -1028,11 +1093,15 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     for (const toolName of ['aml_address_risk']) {
       const config = findToolConfig(serverInstance, toolName)
-      const jsonSchema = z.toJSONSchema(
-        z.object(config.inputSchema as z.ZodRawShape),
-      ) as Record<string, unknown>
+      const jsonSchema = z.toJSONSchema(z.object(config.inputSchema as z.ZodRawShape)) as Record<
+        string,
+        unknown
+      >
       const properties = jsonSchema.properties as Record<string, Record<string, unknown>>
-      expect(properties[retiredScopeArg], `${toolName} must not expose a graph-scope argument`).toBeUndefined()
+      expect(
+        properties[retiredScopeArg],
+        `${toolName} must not expose a graph-scope argument`
+      ).toBeUndefined()
     }
   })
 
@@ -1063,9 +1132,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(toolNames).not.toContain(staleTrack)
   })
 
-
-
-
   it('registers local aml_address_risk recipe with incorporated exchange behavior when remote is topology-query-only', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
@@ -1081,9 +1147,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       callTool: ReturnType<typeof vi.fn>
     }
-    clientInstance.callTool
-      .mockResolvedValueOnce({
-        content: [{
+    clientInstance.callTool.mockResolvedValueOnce({
+      content: [
+        {
           type: 'text',
           text: JSON.stringify({
             schema: 'chain-insights.result.v1',
@@ -1093,48 +1159,65 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                 {
                   id: 'address_profile',
                   ok: true,
-                  results: [{
-                    address: '5Addr',
-                    network: 'bittensor',
-                    display_labels: ['validator'],
-                    system_labels: ['Address', 'Validator'],
-                    live_risk_score: 0.91,
-                    live_risk_level: 'critical',
-                    label_risk: [{
-                      label: 'Scam laundering intermediate',
-                      risk_level: 'high',
-                      updated_timestamp: 1700000000000,
-                    }],
-                    degree_in: 3,
-                    degree_out: 4,
-                  }],
+                  results: [
+                    {
+                      address: '5Addr',
+                      network: 'bittensor',
+                      display_labels: ['validator'],
+                      system_labels: ['Address', 'Validator'],
+                      live_risk_score: 0.91,
+                      live_risk_level: 'critical',
+                      label_risk: [
+                        {
+                          label: 'Scam laundering intermediate',
+                          risk_level: 'high',
+                          updated_timestamp: 1700000000000,
+                        },
+                      ],
+                      degree_in: 3,
+                      degree_out: 4,
+                    },
+                  ],
                 },
                 {
                   id: 'exchange_outflows_2',
                   ok: true,
-                  results: [{
-                    direction: 'outflow',
-                    exchange_address: '5Exchange',
-                    exchange_labels: ['Address', 'Exchange'],
-                    exchange_display_labels: ['Binance'],
-                    deposit_address: '5Deposit',
-                    hops: 2,
-                    amount_usd_sum: 88,
-                    edge_props: [
-                      { amount_usd_sum: 22, tx_count: 1, first_tx_id: 'risk-1', last_tx_id: 'risk-1' },
-                      { amount_usd_sum: 88, tx_count: 2, first_tx_id: 'risk-2', last_tx_id: 'risk-2' },
-                    ],
-                    path: ['5Addr', '5Deposit', '5Exchange'],
-                  }],
+                  results: [
+                    {
+                      direction: 'outflow',
+                      exchange_address: '5Exchange',
+                      exchange_labels: ['Address', 'Exchange'],
+                      exchange_display_labels: ['Binance'],
+                      deposit_address: '5Deposit',
+                      hops: 2,
+                      amount_usd_sum: 88,
+                      edge_props: [
+                        {
+                          amount_usd_sum: 22,
+                          tx_count: 1,
+                          first_tx_id: 'risk-1',
+                          last_tx_id: 'risk-1',
+                        },
+                        {
+                          amount_usd_sum: 88,
+                          tx_count: 2,
+                          first_tx_id: 'risk-2',
+                          last_tx_id: 'risk-2',
+                        },
+                      ],
+                      path: ['5Addr', '5Deposit', '5Exchange'],
+                    },
+                  ],
                 },
                 { id: 'exchange_inflows_1', ok: true, results: [] },
                 { id: 'connection_probe', ok: true, results: [] },
               ],
             },
           }),
-        }],
-        isError: false,
-      })
+        },
+      ],
+      isError: false,
+    })
 
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
@@ -1142,15 +1225,19 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const handler = findToolHandler(serverInstance, 'aml_address_risk')
     const result = await handler({ address: '5Addr', network: 'bittensor' })
 
-    expect(clientInstance.callTool).toHaveBeenCalledWith(expect.objectContaining({
-      name: 'graph_query_batch',
-      arguments: expect.objectContaining({
-        per_query_timeout_seconds: 10,
+    expect(clientInstance.callTool).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'graph_query_batch',
+        arguments: expect.objectContaining({
+          per_query_timeout_seconds: 10,
+        }),
       }),
-    }), undefined, expect.objectContaining({
-      timeout: expect.any(Number),
-      maxTotalTimeout: expect.any(Number),
-    }))
+      undefined,
+      expect.objectContaining({
+        timeout: expect.any(Number),
+        maxTotalTimeout: expect.any(Number),
+      })
+    )
     expect(result.isError).toBe(false)
     expect(result.content[0].text).toContain('Address risk for bittensor:5Addr')
     expect(result.content[0].text).toContain('Risk: critical (0.91)')
@@ -1169,15 +1256,21 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       },
     })
     expect(result.structuredContent.facts.subject.addresses).toEqual(['5Addr'])
-    expect(result.structuredContent.facts.exchange_behavior.outflows[0].exchange_address).toBe('5Exchange')
+    expect(result.structuredContent.facts.exchange_behavior.outflows[0].exchange_address).toBe(
+      '5Exchange'
+    )
     expect(result._meta.chainInsights.graph.url).toContain('/graph-reports/')
     const graphUrl = result._meta.chainInsights.graph.url as string
     const filename = graphUrl.split('/graph-reports/')[1]
     expect(filename).toMatch(/\.graph\.json$/)
     const graphRaw = await readFile(join(testDataDir, 'reports', 'graphs', filename), 'utf8')
     const graph = JSON.parse(graphRaw) as {
-      nodes: Array<Record<string, unknown> & { address: string; labels?: string[]; roles?: string[] }>
-      edges: Array<Record<string, unknown> & { source?: string; target?: string; edge_type?: string }>
+      nodes: Array<
+        Record<string, unknown> & { address: string; labels?: string[]; roles?: string[] }
+      >
+      edges: Array<
+        Record<string, unknown> & { source?: string; target?: string; edge_type?: string }
+      >
     }
     expect(graph.nodes[0]).toHaveProperty('node_type', 'address')
     expect(graph.nodes[0]).not.toHaveProperty('entity_kind')
@@ -1197,14 +1290,18 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(exchangeNode?.roles).toContain('exchange')
     expect(exchangeNode?.labels).toEqual(['Binance'])
     expect(exchangeNode).not.toHaveProperty('address_type')
-    expect(graph.edges.find((edge) => edge.source === '5Addr' && edge.target === '5Deposit')).toMatchObject({
+    expect(
+      graph.edges.find((edge) => edge.source === '5Addr' && edge.target === '5Deposit')
+    ).toMatchObject({
       amount_usd_sum: 22,
       usd_amount: 22,
       tx_count: 1,
       first_tx_id: 'risk-1',
       last_tx_id: 'risk-1',
     })
-    expect(graph.edges.find((edge) => edge.source === '5Deposit' && edge.target === '5Exchange')).toMatchObject({
+    expect(
+      graph.edges.find((edge) => edge.source === '5Deposit' && edge.target === '5Exchange')
+    ).toMatchObject({
       amount_usd_sum: 88,
       usd_amount: 88,
       tx_count: 2,
@@ -1215,25 +1312,33 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(graph.edges[0]).not.toHaveProperty('from_address')
     expect(graph.edges[0]).not.toHaveProperty('to_address')
     expect(graph.edges[0]).not.toHaveProperty('type')
-    expect(clientInstance.callTool).toHaveBeenCalledWith({
-      name: 'graph_query_batch',
-      arguments: expect.objectContaining({
-        network: 'bittensor',
-        queries: expect.arrayContaining([
-          expect.objectContaining({ id: 'exchange_outflows_1' }),
-          expect.objectContaining({ id: 'exchange_inflows_1' }),
-        ]),
-      }),
-    }, undefined, expect.objectContaining({
-      timeout: 300_000,
-      maxTotalTimeout: 300_000,
-    }))
+    expect(clientInstance.callTool).toHaveBeenCalledWith(
+      {
+        name: 'graph_query_batch',
+        arguments: expect.objectContaining({
+          network: 'bittensor',
+          queries: expect.arrayContaining([
+            expect.objectContaining({ id: 'exchange_outflows_1' }),
+            expect.objectContaining({ id: 'exchange_inflows_1' }),
+          ]),
+        }),
+      },
+      undefined,
+      expect.objectContaining({
+        timeout: 300_000,
+        maxTotalTimeout: 300_000,
+      })
+    )
     // Address-grain: no identity-resolution pre-flight -- the first (and
     // only) batch is the risk batch, keyed directly by the raw address.
-    const riskQueries = clientInstance.callTool.mock.calls[0][0].arguments.queries as Array<{ id: string; query: string }>
+    const riskQueries = clientInstance.callTool.mock.calls[0][0].arguments.queries as Array<{
+      id: string
+      query: string
+    }>
     const profileQuery = riskQueries.find((query) => query.id === 'address_profile')?.query ?? ''
     expect(profileQuery).toContain('MATCH (a:Address {address: "5Addr"})')
-    const outflowQuery = riskQueries.find((query) => query.id === 'exchange_outflows_2')?.query ?? ''
+    const outflowQuery =
+      riskQueries.find((query) => query.id === 'exchange_outflows_2')?.query ?? ''
     const inflowQuery = riskQueries.find((query) => query.id === 'exchange_inflows_2')?.query ?? ''
     expect(outflowQuery).toContain('exchange.is_exchange IS NOT NULL')
     expect(inflowQuery).toContain('exchange.is_exchange IS NOT NULL')
@@ -1267,7 +1372,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     // returns [].
     const labelRisk = [
       { label: 'stale-label-oldest', risk_level: 'low', updated_timestamp: 1000 },
-      { label: 'Scam laundering intermediate', risk_level: 'critical', updated_timestamp: 1700000000000 },
+      {
+        label: 'Scam laundering intermediate',
+        risk_level: 'critical',
+        updated_timestamp: 1700000000000,
+      },
       { label: 'filler-label-2', risk_level: 'low', updated_timestamp: 1600000000009 },
       { label: 'filler-label-3', risk_level: 'low', updated_timestamp: 1600000000008 },
       { label: 'filler-label-4', risk_level: 'low', updated_timestamp: 1600000000007 },
@@ -1278,9 +1387,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       { label: 'filler-label-9', risk_level: 'low', updated_timestamp: 1600000000002 },
       { label: 'filler-label-10', risk_level: 'low', updated_timestamp: 1600000000001 },
     ]
-    clientInstance.callTool
-      .mockResolvedValueOnce({
-        content: [{
+    clientInstance.callTool.mockResolvedValueOnce({
+      content: [
+        {
           type: 'text',
           text: JSON.stringify({
             schema: 'chain-insights.result.v1',
@@ -1290,17 +1399,19 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                 {
                   id: 'address_profile',
                   ok: true,
-                  results: [{
-                    address: '5LabelOnly',
-                    network: 'bittensor',
-                    display_labels: ['scam laundering intermediate'],
-                    system_labels: ['Address'],
-                    live_risk_score: 0.12,
-                    live_risk_level: 'UNSCORED',
-                    label_risk: labelRisk,
-                    degree_in: 1,
-                    degree_out: 1,
-                  }],
+                  results: [
+                    {
+                      address: '5LabelOnly',
+                      network: 'bittensor',
+                      display_labels: ['scam laundering intermediate'],
+                      system_labels: ['Address'],
+                      live_risk_score: 0.12,
+                      live_risk_level: 'UNSCORED',
+                      label_risk: labelRisk,
+                      degree_in: 1,
+                      degree_out: 1,
+                    },
+                  ],
                 },
                 { id: 'exchange_outflows_1', ok: true, results: [] },
                 { id: 'exchange_outflows_2', ok: true, results: [] },
@@ -1312,9 +1423,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
               ],
             },
           }),
-        }],
-        isError: false,
-      })
+        },
+      ],
+      isError: false,
+    })
 
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
@@ -1329,14 +1441,24 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('Risk: critical')
     // (b) the drivers line surfaces the escalating label by name.
     const drivers = result.structuredContent.facts.risk.drivers as string[]
-    expect(drivers.some((driver) => driver.includes('Labels:') && driver.includes('Scam laundering intermediate'))).toBe(true)
+    expect(
+      drivers.some(
+        (driver) => driver.includes('Labels:') && driver.includes('Scam laundering intermediate')
+      )
+    ).toBe(true)
     // (c) sources carries the topology/address_node label_risk provenance
     // with that label, and the oldest (11th) label is excluded by the
     // top-10 deterministic window.
     const sources = result.structuredContent.facts.risk.sources as Array<Record<string, unknown>>
     const labelRiskSource = sources.find((source) => source['family'] === 'label_risk')
-    expect(labelRiskSource).toMatchObject({ family: 'label_risk', layer: 'topology', source: 'address_node' })
-    const sourceLabels = (labelRiskSource?.['labels'] as Array<Record<string, unknown>>).map((entry) => entry['label'])
+    expect(labelRiskSource).toMatchObject({
+      family: 'label_risk',
+      layer: 'topology',
+      source: 'address_node',
+    })
+    const sourceLabels = (labelRiskSource?.['labels'] as Array<Record<string, unknown>>).map(
+      (entry) => entry['label']
+    )
     expect(sourceLabels).toContain('Scam laundering intermediate')
     expect(sourceLabels).not.toContain('stale-label-oldest')
     expect(sourceLabels).toHaveLength(10)
@@ -1353,41 +1475,47 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       callTool: ReturnType<typeof vi.fn>
     }
     clientInstance.callTool.mockResolvedValueOnce({
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          facts: {
-            queries: [
-              {
-                id: 'address_profile',
-                ok: true,
-                results: [{
-                  address: '5Addr',
-                  network: 'bittensor',
-                  display_labels: ['Address'],
-                  system_labels: ['Address'],
-                  address_subtypes: ['coldkey'],
-                }],
-              },
-              {
-                id: 'address_feature',
-                ok: true,
-                results: [{
-                  degree_in: 12,
-                  degree_out: 3,
-                  tx_in_count: 5,
-                  tx_out_count: 2,
-                }],
-              },
-              {
-                id: 'connection_probe',
-                ok: true,
-                results: [],
-              },
-            ],
-          },
-        }),
-      }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            facts: {
+              queries: [
+                {
+                  id: 'address_profile',
+                  ok: true,
+                  results: [
+                    {
+                      address: '5Addr',
+                      network: 'bittensor',
+                      display_labels: ['Address'],
+                      system_labels: ['Address'],
+                      address_subtypes: ['coldkey'],
+                    },
+                  ],
+                },
+                {
+                  id: 'address_feature',
+                  ok: true,
+                  results: [
+                    {
+                      degree_in: 12,
+                      degree_out: 3,
+                      tx_in_count: 5,
+                      tx_out_count: 2,
+                    },
+                  ],
+                },
+                {
+                  id: 'connection_probe',
+                  ok: true,
+                  results: [],
+                },
+              ],
+            },
+          }),
+        },
+      ],
       structuredContent: {
         schema: 'chain-insights.graph.v1',
         facts: {},
@@ -1430,7 +1558,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       input: { address: '5Addr' },
     })
 
-    const evidence = result.structuredContent.evidence as Array<{ evidence_type: string; path: string }>
+    const evidence = result.structuredContent.evidence as Array<{
+      evidence_type: string
+      path: string
+    }>
     const evidencePaths = evidence
       .filter((entry) => entry.evidence_type === 'artifact_pointer')
       .map((entry) => entry.path)
@@ -1440,9 +1571,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
   it('aml_address_risk graphData preserves subject profile metadata before report normalization', async () => {
     const { addressRisk } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
-      callTool: vi.fn()
-        .mockResolvedValueOnce({
-          content: [{
+      callTool: vi.fn().mockResolvedValueOnce({
+        content: [
+          {
             type: 'text',
             text: JSON.stringify({
               facts: {
@@ -1450,14 +1581,16 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                   {
                     id: 'address_profile',
                     ok: true,
-                    results: [{
-                      address: '5Addr',
-                      network: 'bittensor',
-                      display_labels: ['validator'],
-                      system_labels: ['Address', 'Validator'],
-                      live_risk_score: 0.12,
-                      live_risk_level: 'low',
-                    }],
+                    results: [
+                      {
+                        address: '5Addr',
+                        network: 'bittensor',
+                        display_labels: ['validator'],
+                        system_labels: ['Address', 'Validator'],
+                        live_risk_score: 0.12,
+                        live_risk_level: 'low',
+                      },
+                    ],
                   },
                   { id: 'exchange_outflows', ok: true, results: [] },
                   { id: 'exchange_inflows', ok: true, results: [] },
@@ -1465,13 +1598,19 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                 ],
               },
             }),
-          }],
-          isError: false,
-        }),
+          },
+        ],
+        isError: false,
+      }),
     }
 
-    const result = await addressRisk(remoteClient as never, { address: '5Addr', network: 'bittensor' })
-    const subjectNode = (result.graphData.nodes as Array<Record<string, unknown>>).find((node) => node['address'] === '5Addr')
+    const result = await addressRisk(remoteClient as never, {
+      address: '5Addr',
+      network: 'bittensor',
+    })
+    const subjectNode = (result.graphData.nodes as Array<Record<string, unknown>>).find(
+      (node) => node['address'] === '5Addr'
+    )
 
     expect(result.summaryText).toContain('Risk: low (0.12)')
     expect(result.structuredContent.facts.risk).toMatchObject({
@@ -1490,36 +1629,36 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(subjectNode).not.toHaveProperty('address_type')
   })
 
-
-
-
   it('aml_address_risk reports partial enrichment query failures without failing screening', async () => {
     const { addressRisk } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
-      callTool: vi.fn()
-        .mockResolvedValueOnce({
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            facts: {
-              queries: [
-                {
-                  id: 'address_profile',
-                  ok: true,
-                  results: [{ address: '5Addr', network: 'bittensor', display_labels: ['subject'] }],
-                },
-                {
-                  id: 'address_feature',
-                  ok: false,
-                  error: 'An unexpected error occurred executing the query',
-                  results: [],
-                },
-                { id: 'exchange_outflows_1', ok: true, results: [] },
-                { id: 'exchange_inflows_1', ok: true, results: [] },
-              ],
-            },
-          }),
-        }],
+      callTool: vi.fn().mockResolvedValueOnce({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              facts: {
+                queries: [
+                  {
+                    id: 'address_profile',
+                    ok: true,
+                    results: [
+                      { address: '5Addr', network: 'bittensor', display_labels: ['subject'] },
+                    ],
+                  },
+                  {
+                    id: 'address_feature',
+                    ok: false,
+                    error: 'An unexpected error occurred executing the query',
+                    results: [],
+                  },
+                  { id: 'exchange_outflows_1', ok: true, results: [] },
+                  { id: 'exchange_inflows_1', ok: true, results: [] },
+                ],
+              },
+            }),
+          },
+        ],
         isError: false,
       }),
     }
@@ -1540,9 +1679,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.graphData).toHaveProperty('schema', 'chain-insights.graph.v1')
   })
 
-
-
-
   // Renamed from `incident_timestamp_ms` (issue #254). When Chain Insights
   // When a remote tool appears in the remote tool list, registration takes
   // the generic passthrough path:
@@ -1553,8 +1689,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
   // that shipped with `time_scope`. This test proves `incident_timestamp`
   // survives that filter and reaches the remote call, not just the local
   // fallback tool exercised by the test above.
-
-
 
   it('registers graph MCP app resource and preserves graph-backed remote tools', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
@@ -1577,7 +1711,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     ])
 
     const { createProxy } = await import('../src/mcp/proxy.js')
-    const { registerAppResource, registerAppTool } = await import('@modelcontextprotocol/ext-apps/server')
+    const { registerAppResource, registerAppTool } =
+      await import('@modelcontextprotocol/ext-apps/server')
 
     await createProxy()
 
@@ -1588,7 +1723,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       expect.objectContaining({
         description: expect.stringContaining('Interactive fund-flow and pattern graph'),
       }),
-      expect.any(Function),
+      expect.any(Function)
     )
     const graphResourceConfig = vi
       .mocked(registerAppResource)
@@ -1608,7 +1743,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
           },
         }),
       }),
-      expect.any(Function),
+      expect.any(Function)
     )
 
     const graphCall = vi
@@ -1644,15 +1779,17 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
     const promptNames = serverInstance.registerPrompt.mock.calls.map((entry) => entry[0])
 
-    expect(promptNames).toEqual(expect.arrayContaining([
-      'aml-address-risk',
-      'meta-network-capabilities',
-      'meta-usage-status',
-      'graph-query',
-      'graph-query-batch',
-      'wallet-balance',
-      'meta-help',
-    ]))
+    expect(promptNames).toEqual(
+      expect.arrayContaining([
+        'aml-address-risk',
+        'meta-network-capabilities',
+        'meta-usage-status',
+        'graph-query',
+        'graph-query-batch',
+        'wallet-balance',
+        'meta-help',
+      ])
+    )
     expect(promptNames).not.toContain('address-risk')
     expect(promptNames).not.toContain('trace-tools')
     expect(promptNames).not.toContain('network-capabilities')
@@ -1663,10 +1800,18 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(promptNames).not.toContain('address-connection-risk')
     expect(promptNames).not.toContain('address-poisoning-funding-probe')
 
-    const addressRiskPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'aml-address-risk')
-    const networkCapabilitiesPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'meta-network-capabilities')
-    const graphQueryPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'graph-query')
-    const graphQueryBatchPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'graph-query-batch')
+    const addressRiskPrompt = serverInstance.registerPrompt.mock.calls.find(
+      (entry) => entry[0] === 'aml-address-risk'
+    )
+    const networkCapabilitiesPrompt = serverInstance.registerPrompt.mock.calls.find(
+      (entry) => entry[0] === 'meta-network-capabilities'
+    )
+    const graphQueryPrompt = serverInstance.registerPrompt.mock.calls.find(
+      (entry) => entry[0] === 'graph-query'
+    )
+    const graphQueryBatchPrompt = serverInstance.registerPrompt.mock.calls.find(
+      (entry) => entry[0] === 'graph-query-batch'
+    )
     expect(addressRiskPrompt?.[1].argsSchema.network).toBeDefined()
     expect(graphQueryPrompt?.[1].argsSchema.network).toBeDefined()
     expect(graphQueryBatchPrompt?.[1].argsSchema.network).toBeDefined()
@@ -1702,7 +1847,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(clientInstance.getPrompt).not.toHaveBeenCalled()
     expect(result.messages[0].content.text).toContain('aml_address_risk')
     expect(result.messages[0].content.text).toContain('on bittensor')
-    expect(result.messages[0].content.text).toContain('5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6')
+    expect(result.messages[0].content.text).toContain(
+      '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'
+    )
   })
 
   it('gives graph prompts address-grain schema-discovery guidance', async () => {
@@ -1747,20 +1894,24 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
           ],
         }),
         listPrompts: vi.fn().mockResolvedValue({
-          prompts: [{
-            name: 'aml-address-risk',
-            title: 'Remote AML Address Risk',
-            description: 'Remote prompt should not win',
-            arguments: [
-              { name: 'address', description: 'Address', required: true },
-              { name: 'network', description: 'Free-text network', required: true },
-            ],
-          }],
+          prompts: [
+            {
+              name: 'aml-address-risk',
+              title: 'Remote AML Address Risk',
+              description: 'Remote prompt should not win',
+              arguments: [
+                { name: 'address', description: 'Address', required: true },
+                { name: 'network', description: 'Free-text network', required: true },
+              ],
+            },
+          ],
         }),
         getPrompt: vi.fn().mockResolvedValue({
           messages: [{ role: 'user', content: { type: 'text', text: 'remote canonical prompt' } }],
         }),
-        callTool: vi.fn().mockResolvedValue({ content: [{ type: 'text', text: 'result' }], isError: false }),
+        callTool: vi
+          .fn()
+          .mockResolvedValue({ content: [{ type: 'text', text: 'result' }], isError: false }),
       }
     } as never)
 
@@ -1775,7 +1926,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       getPrompt: ReturnType<typeof vi.fn>
     }
-    const addressRiskPrompt = serverInstance.registerPrompt.mock.calls.find((entry) => entry[0] === 'aml-address-risk')
+    const addressRiskPrompt = serverInstance.registerPrompt.mock.calls.find(
+      (entry) => entry[0] === 'aml-address-risk'
+    )
     expect(addressRiskPrompt?.[1].title).toBe('AML Address Risk')
     expect(addressRiskPrompt?.[1].argsSchema.network).toBeDefined()
 
@@ -1829,9 +1982,15 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     expect(inputSchema.address).toBeDefined()
     expect(inputSchema.network).toBeDefined()
-    expect((inputSchema.network as { description?: string }).description).toContain('Network to query')
-    expect((inputSchema.network as { description?: string }).description).toContain('meta_network_capabilities')
-    expect((inputSchema.network as { description?: string }).description).not.toContain('robinhood is the only supported network')
+    expect((inputSchema.network as { description?: string }).description).toContain(
+      'Network to query'
+    )
+    expect((inputSchema.network as { description?: string }).description).toContain(
+      'meta_network_capabilities'
+    )
+    expect((inputSchema.network as { description?: string }).description).not.toContain(
+      'robinhood is the only supported network'
+    )
     expect(config.description).toContain('Required arguments: address, network.')
     expect(config.description).toContain('Do not guess a default network')
   })
@@ -1894,7 +2053,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(clientInstance.callTool).not.toHaveBeenCalled()
   })
 
-
   it('persists remote graph _meta and returns only local graph report pointer', async () => {
     const remoteGraphData = {
       schema: 'chain-insights.graph.v1',
@@ -1956,7 +2114,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.structuredContent).not.toHaveProperty('app_data')
     expect(result._meta.chainInsights.graph.data).toBeUndefined()
     expect(result._meta.chainInsights.graph).not.toHaveProperty('id')
-    expect(result._meta.chainInsights.graph.url).toMatch(/^http:\/\/127\.0\.0\.1:4321\/graph-reports\/.+\.graph\.json$/)
+    expect(result._meta.chainInsights.graph.url).toMatch(
+      /^http:\/\/127\.0\.0\.1:4321\/graph-reports\/.+\.graph\.json$/
+    )
 
     const graphUrl = result._meta.chainInsights.graph.url as string
     const filename = graphUrl.split('/graph-reports/')[1]
@@ -2269,7 +2429,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     expect(config.title).toBe('Chain Insights Help')
     expect(result.isError).toBe(false)
-    expect(result.content[0].text).toContain('Chain Insights helps AI agents run AML investigation workflows')
+    expect(result.content[0].text).toContain(
+      'Chain Insights helps AI agents run AML investigation workflows'
+    )
     expect(result.content[0].text).toContain('Workflow:')
     expect(result.content[0].text).toContain('Network is required')
     expect(result.content[0].text).toContain('aml_address_risk')

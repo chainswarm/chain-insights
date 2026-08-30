@@ -126,7 +126,9 @@ export function deriveMergeOptionsFromQuery(query: string): MergeOptions {
     if (resolvedKey && !aggregateKeys.includes(resolvedKey)) {
       options.orderBy = { key: resolvedKey, desc }
       const bareKey = bareProperty(matched ? matched.expr : exprText)
-      options.orderKeyClass = INVARIANT_ORDER_PROPERTIES.has(bareKey) ? 'invariant' : 'merge-affected'
+      options.orderKeyClass = INVARIANT_ORDER_PROPERTIES.has(bareKey)
+        ? 'invariant'
+        : 'merge-affected'
     }
   }
 
@@ -149,7 +151,10 @@ export interface GraphRowMergeResult extends MergedResult {
  * response passes through byte-identical, `perShard` empty, `ordering`
  * `'unordered'`.
  */
-export function mergeGraphRows(rows: Array<Record<string, unknown>>, query: string): GraphRowMergeResult {
+export function mergeGraphRows(
+  rows: Array<Record<string, unknown>>,
+  query: string
+): GraphRowMergeResult {
   const isSharded = rows.some((row) => typeof row[SHARD_KEY] === 'string')
   if (!isSharded) {
     return { rows, perShard: {}, ordering: 'unordered', merged: false }
@@ -180,7 +185,7 @@ export interface BatchQueryEntry {
  */
 export function applyShardMergeToBatchEntries(
   entries: BatchQueryEntry[] | undefined,
-  queries: Array<{ id: string; query: string }>,
+  queries: Array<{ id: string; query: string }>
 ): void {
   if (!entries || entries.length === 0) return
   const queryById = new Map(queries.map((q) => [q.id, q.query]))

@@ -12,7 +12,10 @@ vi.mock('../src/wallet/mcp-proxy/topup-server.js', async (importOriginal) => {
   }
 })
 
-async function requestRaw(baseUrl: string, path: string): Promise<{ body: string; status: number }> {
+async function requestRaw(
+  baseUrl: string,
+  path: string
+): Promise<{ body: string; status: number }> {
   const base = new URL(baseUrl)
   const port = Number(base.port)
   if (!port) {
@@ -36,7 +39,7 @@ async function requestRaw(baseUrl: string, path: string): Promise<{ body: string
             status: res.statusCode ?? 0,
           })
         })
-      },
+      }
     )
 
     req.on('error', reject)
@@ -64,7 +67,7 @@ describe('topup artifact proxy request hardening', () => {
       new Response('{"ok":true}', {
         headers: { 'content-type': 'application/json' },
         status: 200,
-      }),
+      })
     )
     vi.stubGlobal('fetch', fetchMock)
   })
