@@ -24,8 +24,8 @@ Chain Insights Graph endpoint.
 The Chain Insights MCP proxy adds product-facing local metadata tools such as
 `meta_network_capabilities`, `meta_usage_status`, and `meta_help`. On hosted
 backends, `meta_usage_status` can reflect remote quota telemetry. On
-primitive-only local backends such as the Bittensor devkit, Chain Insights
-returns a local unmetered primitive-backend status instead.
+backends without a quota tool, Chain Insights returns a local unmetered
+primitive-backend status instead.
 
 ## Query Rules
 

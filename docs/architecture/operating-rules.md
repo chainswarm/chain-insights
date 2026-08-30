@@ -25,12 +25,6 @@ knowledge skill during the 2026-07-28 docs-layer rework.
 
 - Address labels are served by the Chain Insights Graph backend, never
   written by this CLI. `aml_address_risk` reads them as enrichment.
-- The devkit exposes graph primitives only — never `aml_*`, wallet, x402,
-  payment, quota, ACP, or telemetry tools. See
-  [data-contracts.md](data-contracts.md#devkit-contract).
-- The production Chain Insights Graph assembly is not used by the devkit.
-  `devkit/chain-insights-graph-devkit` is a separate lite Go backend built
-  entirely from this repository.
 
 ## Development Workflow Rules
 

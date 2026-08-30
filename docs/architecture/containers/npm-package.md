@@ -16,11 +16,11 @@ Distributes Chain Insights as a public npm package for global installation (`npm
 -> ciaCli: Packages CLI entrypoint from dist/cli.mjs
 -> mcpProxy: Packages proxy entrypoint from bin/mcp-proxy.cjs
 -> npm registry: Publishes to https://www.npmjs.com/package/chain-insights
--> GitHub Actions CI: Validates release smoke tests and runs devkit parity
+-> GitHub Actions CI: Validates release smoke tests
 
 ## Invariants
 - Node.js >=22.0.0 required (engines field enforces via npm)
-- Files field limits published scope (bin, dist, skills, docs/*.md, docs/images/) - excludes src/, tests/, devkit/
+- Files field limits published scope (bin, dist, skills, docs/*.md, docs/images/) - excludes src/ and tests/
 - Bin commands: `chain-insights`, `cia` (CLI), `chain-insights-mcp-proxy` (stdio proxy)
 - Version bumps require CHANGELOG.md update (release:check validates this)
 - Release artifacts: package.json, package-lock.json, CHANGELOG.md must all be updated in release PRs

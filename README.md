@@ -52,7 +52,6 @@ Owns:
 - Investigation workspaces, graph reports, and visualization.
 - Shipped product skills under `skills/` (`chain-insights-*`), packaged
   into the npm tarball.
-- The local Bittensor graph devkit under `devkit/`.
 
 Never touches:
 
@@ -85,8 +84,6 @@ Upstream:
   endpoint.
 - **Base mainnet RPC** — wallet balance and payment only
   (`BASE_RPC_URL` override). Not a graph-support claim.
-- **Devkit fixture data** — pre-generated from the upstream export path
-  and committed under `devkit/data/`.
 
 Downstream:
 
@@ -189,7 +186,6 @@ Use `usage` to see the real cost of a workflow call, not just of one
 - **Linux** is the reference platform; shell snippets use bash (macOS works
   the same; on Windows use WSL).
 - **Node.js 22 or newer** (`package.json` engines) and npm.
-- Optional: Docker with the Compose plugin, for the local devkit backend.
 
 `.env.example` documents the two supported overrides:
 
@@ -254,32 +250,6 @@ cia mcp call graph_query_batch \
 More query examples (manual fund-flow reads, pagination):
 [Graph tools](docs/graph-tools.md).
 
-### Dev Compose (local devkit backend)
-
-The devkit runs a deterministic local Bittensor Chain Insights Graph
-backend. Compose file: `devkit/docker-compose.yml` (default compose
-project network). Services: `starrocks`, `memgraph`,
-`starrocks-import`, `memgraph-import` (one-shot), and
-`chain-insights-graph-devkit`. Images build locally with
-`docker compose build` — never pulled from a registry.
-
-Start from a clean state:
-
-```bash
-docker compose -f devkit/docker-compose.yml down -v --remove-orphans
-docker compose -f devkit/docker-compose.yml up -d --build
-```
-
-One-shot import services must exit 0. `starrocks`, `memgraph`, and
-`chain-insights-graph-devkit` must stay running. The MCP endpoint is
-`http://127.0.0.1:18012/mcp`, unmetered:
-
-```bash
-export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=http://127.0.0.1:18012/mcp
-```
-
-Full contract and procedures live in the devkit directory's own README.
-
 ## Configure
 
 `cia` uses `graphMcpEndpoint` for all Chain Insights Graph calls. The npm
@@ -342,14 +312,6 @@ npm test
 npm run release:check   # PR-only step in verify.yml
 ```
 
-Devkit-backed tiers (need the dev compose lane running):
-
-```bash
-npm run devkit:smoke
-npm run devkit:smoke:parity
-npm run test:devkit
-```
-
 CI install step, when reproducing CI:
 
 ```bash
@@ -363,8 +325,6 @@ release:check, tests, npm pack contents), `security.yml`, `scorecard.yml`,
 ## Debug
 
 - Diagnostics and debug workflows: [docs/debugging.md](docs/debugging.md).
-- Skip payment negotiation against the unmetered devkit:
-  `cia debug on --token <any-string> --endpoint http://127.0.0.1:18012/mcp`.
 - MCP proxy structured logs: `~/.chain-insights/runtime/logs/mcp-proxy.jsonl`.
 
 Health checks (each is runnable):
@@ -385,8 +345,6 @@ cia mcp tools --refresh
 # Installed CLI sanity
 cia --version && cia update --check
 
-# Devkit service state (all imports exited 0, backends running)
-docker compose -f devkit/docker-compose.yml ps -a
 ```
 
 If network or tool discovery fails, check the endpoint and access mode
@@ -409,14 +367,13 @@ Product docs:
 | [Contributing](docs/contributing.md) | Development workflow, pull requests, release expectations |
 | [Stability policy](docs/stability.md) | Guaranteed surfaces (exit codes, MCP tool names, workspace layout), deprecation rules |
 | [Debugging](docs/debugging.md) | Local troubleshooting, diagnostics, debug workflows |
-| Bittensor devkit (in this repo under `devkit/`) | Local Bittensor graph backend contract, fixture, smoke procedures |
 
 Architecture depth:
 
 - [docs/architecture/](docs/architecture/ARCHITECTURE.md) — index, C4
   diagrams, context, containers, components.
 - [Data contracts](docs/architecture/data-contracts.md) — tool surface,
-  search limits, endpoint rules, shared-graph model, devkit contract.
+  search limits, endpoint rules, shared-graph model.
 - [Operating rules](docs/architecture/operating-rules.md) — repo
   invariants, findings rules, CI gotchas.
 - [docs/acceptance/](docs/acceptance/) — per-component acceptance evidence.
