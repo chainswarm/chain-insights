@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.21.0] - 2026-08-30 — feat: reviewed truth proposals
+
+Reviewed investigation findings can become evidence proposals.
+They never become a final label.
+
+### Added
+
+- `buildTruthProposal` refuses self-review and model-only evidence.
+- Mutual TLS paths stay in config. Secret bytes are not logged.
+
 ## [0.20.0] - 2026-08-30 — feat!: remove `cia monitor` (case tracking and dossiers)
 
 **Removed in this release (no deprecation window):** the `cia monitor`
