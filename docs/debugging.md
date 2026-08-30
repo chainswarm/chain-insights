@@ -19,30 +19,6 @@ with no error and no hint that the build is the cause — including symptoms tha
 look exactly like bad data or a broken endpoint. Rule out the build before
 investigating the graph.
 
-## Monitoring Runs
-
-`cia monitor run` signals a pass through its exit code, so read the code before
-reading the logs:
-
-```bash
-cia monitor run; echo "exit=$?"
-```
-
-- `0` — clean pass; every open case rendered.
-- `2` — **isolated case failure**: the pass completed, at least one case did
-  not. The failing cases are printed as `[monitor]   <case_id> FAILED: …`;
-  every other case's dossier still rendered. This is a partial success.
-- `1` — the run could not start (unreadable workspace, invalid monitor config).
-  Nothing ran.
-
-Under pm2, exit `2` shows the process as `errored` in `pm2 list`. That is the
-intended visibility for a partial pass, not a broken deployment.
-
-An unchanged case is also not a bug: rendering is content-keyed, so a case
-whose document did not change since the last pass is skipped
-(`skipped_reason: 'unchanged'`) rather than re-rendered. See
-[Continuous monitoring](monitoring.md).
-
 ## Bittensor Devkit Backend
 
 Use the bundled devkit when you need a deterministic local Chain Insights Graph

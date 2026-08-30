@@ -37,41 +37,6 @@ templates/                    Reusable workspace templates
 No investigation output belongs under `~/.chain-insights`. That directory is for
 local Chain Insights config, wallet, and schema cache state.
 
-## Monitor Workspaces
-
-A monitor workspace is not a different kind of workspace. `cia monitor` runs
-inside an ordinary initialized workspace and adds directories alongside the
-investigation ones:
-
-```text
-cases/<case-id>/case.json               Case definition (seeds, seed events)
-.chain-insights/monitor/config.json    Monitor configuration (render)
-.chain-insights/monitor/render-state.json  Per-case render keys
-.chain-insights/monitor/logs/          Append-only run log (monitor-runs.jsonl)
-published/cases/<case-id>/             Rendered case dossiers, per-address notes, timelines
-```
-
-The same rules apply: run every command from the workspace root, and no monitor
-output belongs under `~/.chain-insights`.
-
-Whether to share one workspace or keep two is a question of lifetime, not
-capability:
-
-- **One workspace** when monitoring exists to feed investigation — a tracked
-  theft whose case dossiers you then read alongside your `reports/` analysis.
-  The rendered case output and your analysis sit next to each other and
-  reference each other by path.
-- **A dedicated monitoring workspace** when the watch is long-running and
-  general (a standing case-tracking schedule). It accumulates run documents
-  and rendered cases indefinitely; an investigation workspace is a bounded
-  piece of work you eventually publish and close. Mixing them buries a
-  finished investigation under months of run documents.
-
-Do not point two schedules at the same workspace. Passes are idempotent, but
-overlapping schedules double the work for no extra coverage.
-
-See [Continuous monitoring](monitoring.md) for the command surface.
-
 ## Imports
 
 `imports/` is for user-provided or third-party inputs before they become

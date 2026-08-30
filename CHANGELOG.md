@@ -3,6 +3,29 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.20.0] - 2026-08-30 — feat!: remove `cia monitor` (case tracking and dossiers)
+
+**Removed in this release (no deprecation window):** the `cia monitor`
+command family is gone. It rendered case dossiers from local case
+documents only and never read chain data, so it did not earn its place
+in a lean production surface. Dossiers, run logs, and
+`.chain-insights/monitor/` state are no longer produced;
+`docs/monitoring.md` and the monitor component documentation are
+removed. Workspaces that contain monitor artifacts from earlier
+releases keep them on disk; nothing reads or rewrites them.
+
+### Removed
+
+- `cia monitor` and every subcommand (`run`, `status`, `render`,
+  `init victim`, `case add/list/add-seed/remove-seed/close`).
+- `src/monitor/`, `tests/monitor/`, `docs/monitoring.md`, and
+  `docs/architecture/components/monitor.md`.
+- The `monitor` module entry from the architecture module table and
+  the monitor workspace section from the workspace docs.
+- `.chain-insights/monitor/` from the guaranteed workspace layout in
+  the stability policy. Exit code `2` stays defined for batch-style
+  commands but no current command exits `2`.
+
 ## [0.19.1] - 2026-08-28 — feat: kind-aware facts admission + partition metadata
 
 The devkit mirrors the production facts partition-pruning gate: every facts

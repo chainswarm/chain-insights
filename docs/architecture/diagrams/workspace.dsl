@@ -9,7 +9,6 @@ workspace "Chain Insights Repository" "Repository-scoped C4 model for repos/infr
                 configResolver = component "Config Resolver" "Resolves graphMcpEndpoint, auth token, workspace paths, and hosted/local endpoint precedence." "src/config"
                 mcpClient = component "Graph MCP Client" "Calls GraphRAG MCP tools and refreshes tool catalogues." "src/mcp"
                 amlWorkflows = component "AML Workflow Commands" "Runs address risk and graph query workflows." "src/investigation"
-                caseManager = component "Case Manager" "Creates, resumes, verifies, and updates local case evidence manifests." "src/monitor"
                 installer = component "Agent Installer" "Installs MCP proxy configuration for local agent clients." "bin/install.cjs"
             }
             mcpProxy = container "MCP Proxy" "Stdio or local proxy surface that lets agent clients call Chain Insights tools." "TypeScript / MCP"
@@ -30,8 +29,6 @@ workspace "Chain Insights Repository" "Repository-scoped C4 model for repos/infr
         configResolver -> mcpClient "Provides endpoint and auth config"
         mcpClient -> graphMcp "Calls public MCP tools"
         amlWorkflows -> mcpClient "Composes graph tool calls"
-        amlWorkflows -> caseManager "Stores compact evidence pointers"
-        caseManager -> workspaceStore "Writes manifests, dossiers, and sessions"
         installer -> workspaceStore "Writes client proxy configuration"
     }
 

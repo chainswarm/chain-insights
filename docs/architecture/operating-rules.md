@@ -24,8 +24,7 @@ knowledge skill during the 2026-07-28 docs-layer rework.
 ## Data And Findings Invariants
 
 - Address labels are served by the Chain Insights Graph backend, never
-  written by this CLI. `aml_address_risk` reads them as enrichment; monitor
-  case dossiers are document-derived and never claim a label verdict.
+  written by this CLI. `aml_address_risk` reads them as enrichment.
 - The devkit exposes graph primitives only — never `aml_*`, wallet, x402,
   payment, quota, ACP, or telemetry tools. See
   [data-contracts.md](data-contracts.md#devkit-contract).
@@ -80,5 +79,3 @@ knowledge skill during the 2026-07-28 docs-layer rework.
   packaged into the npm tarball and enforced by
   `tests/skills-contract.test.ts`. A capability no skill mentions is
   invisible to agents — keep the relevant skill in step with any change.
-  `docs/monitoring.md` is the human surface for the monitor. Do not add
-  an agent monitor skill unless the public skill set is reviewed again.

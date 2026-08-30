@@ -43,7 +43,6 @@ One doc per source module under `components/`. Human-authored.
 | `federation` | [federation](components/federation.md) |
 | `investigation` | [investigation](components/investigation.md) |
 | `mcp` | [mcp](components/mcp.md) |
-| `monitor` | [monitor](components/monitor.md) |
 | `server` | [server](components/server.md) |
 | `viz` | [viz](components/viz.md) |
 | `wallet` | [wallet](components/wallet.md) |
