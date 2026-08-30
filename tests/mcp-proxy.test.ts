@@ -426,8 +426,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(toolNames).not.toContain(retiredName('aml_trace_victim', '_funds'))
     expect(toolNames).not.toContain(retiredName('aml_trace_suspect', '_funds'))
     expect(toolNames).not.toContain(retiredName('aml_trace_deposit', '_sources'))
-    // The wallet tool stays workspace-only and must NOT appear in stateless mode.
-    expect(toolNames).not.toContain('wallet_balance')
+    expect(toolNames).toContain('wallet_balance')
   })
 
   it('starts local Chain Insights tools when paid Chain Insights Graph fetch setup needs wallet configuration', async () => {

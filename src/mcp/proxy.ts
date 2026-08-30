@@ -103,6 +103,7 @@ const SERVER_INSTRUCTIONS = [
 const STATELESS_SERVER_INSTRUCTIONS = [
   'Chain Insights is running as a stateless AML proxy for a host application.',
   'Use meta_network_capabilities first when network support is unknown, then call aml_address_risk, graph_query, or graph_query_batch as needed.',
+  'Use wallet_balance to inspect the local payment wallet when payment setup is needed.',
   GRAPH_SCHEMA_HINTS,
   'Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses or identity_resolution audit mappings.',
 ].join('\n\n')
@@ -912,42 +913,38 @@ export async function createProxy(): Promise<void> {
     }
   )
 
-  if (workspaceArtifactsEnabled) {
-    server.registerTool(
-      'wallet_balance',
-      {
-        title: 'Wallet Balance',
-        description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.wallet_balance,
-        inputSchema: EMPTY_INPUT_SCHEMA,
-        annotations: {
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: true,
-        },
+  server.registerTool(
+    'wallet_balance',
+    {
+      title: 'Wallet Balance',
+      description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.wallet_balance,
+      inputSchema: EMPTY_INPUT_SCHEMA,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
       },
-      async () => {
-        try {
-          const { formatWalletBalanceResult, getWalletAccount, getWalletBalanceResult } =
-            await import('../wallet/tools.js')
-          const account = await getWalletAccount()
-          const structuredContent = await getWalletBalanceResult(account)
-          return {
-            content: [
-              { type: 'text' as const, text: formatWalletBalanceResult(structuredContent) },
-            ],
-            structuredContent: structuredContent as unknown as Record<string, unknown>,
-            isError: false,
-          }
-        } catch (err) {
-          return {
-            content: [{ type: 'text' as const, text: `Balance failed: ${(err as Error).message}` }],
-            isError: true,
-          }
+    },
+    async () => {
+      try {
+        const { formatWalletBalanceResult, getWalletAccount, getWalletBalanceResult } =
+          await import('../wallet/tools.js')
+        const account = await getWalletAccount()
+        const structuredContent = await getWalletBalanceResult(account)
+        return {
+          content: [{ type: 'text' as const, text: formatWalletBalanceResult(structuredContent) }],
+          structuredContent: structuredContent as unknown as Record<string, unknown>,
+          isError: false,
+        }
+      } catch (err) {
+        return {
+          content: [{ type: 'text' as const, text: `Balance failed: ${(err as Error).message}` }],
+          isError: true,
         }
       }
-    )
-  }
+    }
+  )
   if (!remoteToolNames.has('aml_address_risk')) {
     server.registerTool(
       'aml_address_risk',
