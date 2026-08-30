@@ -10,8 +10,8 @@
 Chain Insights is open-source AML and forensics infrastructure for AI agents
 and analysts: a hosted Chain Insights Graph you reach over MCP, screened
 through one CLI. It screens blockchain addresses for risk, explores fund flows
-through read-only graph queries, and renders graph reports from your own
-investigation folders. Every new account gets a free tier — a daily allowance
+through read-only graph queries, and returns structured investigation facts.
+Every new account gets a free tier — a daily allowance
 of graph queries, no payment setup — so you can run a first screen in minutes.
 
 ## Quickstart
@@ -22,14 +22,11 @@ as-is on macOS; on Windows use WSL.
 ```bash
 npx chain-insights@latest --help   # run without installing
 npm install -g chain-insights      # or install the cia CLI globally
-cia init ~/cases                   # optional local investigation folder
 cia mcp call aml_address_risk network=robinhood address=0xYourAddressHere
 cia networks                       # supported networks + public tool surface
 ```
 
-![Terminal demo: help, workspace init, and the network tool surface in under a minute](docs/images/quickstart-demo.svg)
-
-Sixty seconds gets you the CLI, a workspace, and the live tool catalog.
+Sixty seconds gets you the CLI and the live tool catalog.
 To call the same tools from an agent, register the MCP proxy:
 `cia setup claude-code` (or `codex` / `hermes`).
 
@@ -49,7 +46,6 @@ Owns:
 - The canonical public tool surface: prefixed `aml_*` / `graph_*` / `meta_*`
   / `wallet_*` tools.
 - Local wallet and payment on Base mainnet (payment chain only).
-- Investigation workspaces, graph reports, and visualization.
 - Shipped product skills under `skills/` (`chain-insights-*`), packaged
   into the npm tarball.
 
@@ -60,8 +56,8 @@ Never touches:
 - Automatic risk labeling. Address labels are served by the Chain Insights
   Graph backend and read through `aml_address_risk`; the CLI never writes
   labels.
-- Custodial wallets or hosted case databases. Investigation data stays in
-  the local workspace unless the operator exports it.
+- Custodial wallets or hosted case databases. Investigation data stays with
+  the caller.
 
 ### What You Can Do Today
 
@@ -93,13 +89,13 @@ Downstream:
 ## Architecture
 
 Chain Insights is the investigation layer above the Chain Insights Graph.
-The CLI and MCP proxy call graph tools over one MCP endpoint, keep all
-evidence in local workspace folders, and never write to the graph.
+The CLI and MCP proxy call graph tools over one MCP endpoint and never write
+to the graph.
 
 ```text
 Agent or CLI user
   -> Chain Insights CLI / MCP proxy
-  -> local config, wallet, workspace, artifacts, reports
+  -> local config and wallet
   -> Chain Insights Graph
   -> graph intelligence for AML workflows
 ```
@@ -112,8 +108,6 @@ Source modules (hand-maintained):
 | `federation`    | `src/federation`    | [components/federation.md](docs/architecture/components/federation.md)       |
 | `investigation` | `src/investigation` | [components/investigation.md](docs/architecture/components/investigation.md) |
 | `mcp`           | `src/mcp`           | [components/mcp.md](docs/architecture/components/mcp.md)                     |
-| `server`        | `src/server`        | [components/server.md](docs/architecture/components/server.md)               |
-| `viz`           | `src/viz`           | [components/viz.md](docs/architecture/components/viz.md)                     |
 | `wallet`        | `src/wallet`        | [components/wallet.md](docs/architecture/components/wallet.md)               |
 
 Entry points:
@@ -213,23 +207,12 @@ cia --version
 cia update --check
 ```
 
-Create an investigation workspace and run a first screen:
+Run a first screen from any directory:
 
 ```bash
-mkdir -p ./chain-insights-investigations
-cd ./chain-insights-investigations
-cia init .
-
 cia mcp call aml_address_risk \
   network=robinhood address=0xYourAddressHere
-
-find reports -maxdepth 3 -type f | sort
 ```
-
-Workspaces are plain local folders. Reports, graph JSON, graph HTML, and
-published bundles live under the initialized workspace. Export only when
-you need to share, hand off, or archive a review checkpoint — the handoff
-package lands under `published/<workspace-slug>/`.
 
 Example queries. Direct topology:
 
@@ -299,9 +282,6 @@ The hosted graph includes a small public free tier for `graph_query`
 users receive the free tier first, then paid access continues
 automatically.
 
-Search bounds (hops, row limits, frontiers) are tunable per call, per
-network, or globally — see [Search limits](docs/search-limits.md).
-
 ## Test
 
 Local gate, in order:
@@ -349,25 +329,23 @@ cia --version && cia update --check
 ```
 
 If network or tool discovery fails, check the endpoint and access mode
-first. The CLI can still initialize workspaces and continue local
-investigation workflow without a reachable endpoint.
+first. Confirm the endpoint with `cia config get graphMcpEndpoint` and retry
+the command.
 
 ## Documentation Links
 
 Product docs:
 
-| Doc                                                            | Use it for                                                                            |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| [Graph tools](docs/graph-tools.md)                             | Graph layers, `graph_query`, `graph_query_batch`, AML tool contracts, graph reports   |
-| [Graph query compatibility](docs/graph-query-compatibility.md) | GQL/Cypher support per layer, rewrite recipes, traversal guidance                     |
-| [Search limits](docs/search-limits.md)                         | Tunable search/row/frontier/hop bounds, precedence, ceilings                          |
-| [Investigation workspaces](docs/investigation-workspaces.md)   | `cia init`, workspace layout, artifacts, templates, reports, visualization            |
-| [MCP proxy](docs/mcp-proxy.md)                                 | Stdio proxy behavior, endpoint configuration, agent installers, auth modes            |
-| [Architecture overview](docs/architecture.md)                  | Product layers, data flow, local storage, security model, config keys                 |
-| [Development](docs/development.md)                             | Build, test, and local install commands                                               |
-| [Contributing](docs/contributing.md)                           | Development workflow, pull requests, release expectations                             |
-| [Stability policy](docs/stability.md)                          | Guaranteed surfaces (exit codes, MCP tool names, workspace layout), deprecation rules |
-| [Debugging](docs/debugging.md)                                 | Local troubleshooting, diagnostics, debug workflows                                   |
+| Doc                                                            | Use it for                                                                 |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [Graph tools](docs/graph-tools.md)                             | Graph layers, `graph_query`, `graph_query_batch`, and AML tool contracts   |
+| [Graph query compatibility](docs/graph-query-compatibility.md) | GQL/Cypher support per layer, rewrite recipes, traversal guidance          |
+| [MCP proxy](docs/mcp-proxy.md)                                 | Stdio proxy behavior, endpoint configuration, agent installers, auth modes |
+| [Architecture overview](docs/architecture.md)                  | Product layers, data flow, security model, and config keys                 |
+| [Development](docs/development.md)                             | Build, test, and local install commands                                    |
+| [Contributing](docs/contributing.md)                           | Development workflow, pull requests, release expectations                  |
+| [Stability policy](docs/stability.md)                          | Guaranteed surfaces, deprecation rules, and compatibility expectations     |
+| [Debugging](docs/debugging.md)                                 | Local troubleshooting, diagnostics, debug workflows                        |
 
 Architecture depth:
 

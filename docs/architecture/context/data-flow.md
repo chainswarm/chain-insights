@@ -9,8 +9,8 @@
 
 ## Internal Flows
 
-- cia CLI → Local Workspace Store: Writes local cases, evidence, and config
-- MCP Proxy → Local Workspace Store: Uses local workspace configuration
+- cia CLI → Local config: Reads endpoint and payment configuration
+- MCP Proxy → Local config: Reads endpoint and payment configuration
 - NPM Package → cia CLI: Packages CLI entrypoint
 - NPM Package → MCP Proxy: Packages proxy entrypoint
 

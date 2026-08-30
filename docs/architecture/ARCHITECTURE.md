@@ -17,11 +17,9 @@
 
 ## Containers
 
-- [cia CLI](containers/cia-cli.md) — Command-line interface for workspace setup, case workflows, exports, and graph tool calls.
+- [cia CLI](containers/cia-cli.md) — Command-line interface for configuration, graph tool calls, and wallet operations.
 
 - [MCP Proxy](containers/mcp-proxy.md) — Stdio or local proxy surface that lets agent clients call Chain Insights tools.
-
-- [Local Workspace Store](containers/local-workspace-store.md) — Filesystem workspace containing cases, evidence manifests, dossiers, exports, and config.
 
 - [NPM Package](containers/npm-package.md) — Published package containing CLI, proxy, docs, and installer assets.
 
@@ -35,8 +33,6 @@ One doc per source module under `components/`. Human-authored.
 | `federation`    | [federation](components/federation.md)       |
 | `investigation` | [investigation](components/investigation.md) |
 | `mcp`           | [mcp](components/mcp.md)                     |
-| `server`        | [server](components/server.md)               |
-| `viz`           | [viz](components/viz.md)                     |
 | `wallet`        | [wallet](components/wallet.md)               |
 
 ## C4 Diagrams

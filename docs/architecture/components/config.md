@@ -8,11 +8,11 @@ Tests: tests/config.test.ts
 
 ## Purpose
 
-Manages Chain Insights user configuration: graph MCP endpoint, authentication tokens, workspace paths, and runtime mode flags. Provides load/save APIs with Zod schema validation, environment variable overrides, and cached reads for performance.
+Manages Chain Insights user configuration: graph MCP endpoint, authentication tokens, local data paths, and runtime mode flags. Provides load/save APIs with Zod schema validation, environment variable overrides, and cached reads for performance.
 
 ## Reads
 
-- **~/.chain-insights/config.json:** Stored user configuration (graphMcpEndpoint, graphMcpAuthToken, graphMcpMode, dataDir, serverPort)
+- **~/.chain-insights/config.json:** Stored user configuration (graphMcpEndpoint, graphMcpAuthToken, graphMcpMode, dataDir)
 - **CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT env var:** Optional override for graph endpoint (GRAPH_MCP_ENDPOINT legacy alias also supported)
 - **DEFAULT_CONFIG constant:** Fallback defaults when config.json is absent
 
@@ -74,7 +74,7 @@ cia access-key set test-key-abc123
 ```bash
 # Manual verification
 cat ~/.chain-insights/config.json
-# Should contain: graphMcpEndpoint, dataDir, serverPort, optional auth tokens
+# Should contain: graphMcpEndpoint, dataDir, and optional auth tokens
 
 # Test env override
 export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=http://localhost:9999/mcp

@@ -103,7 +103,6 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).not.toContain('sent_count')
     expect(readme).toContain('cia mcp networks')
     expect(readme).toContain('cia mcp tools --refresh')
-    expect(readme).toContain('published/<workspace-slug>/')
     expect(readme).toContain('docs/contributing.md')
     expect(readme).toContain('docs/debugging.md')
 
@@ -131,35 +130,6 @@ describe('shipped Chain Insights skills contract', () => {
     )
   })
 
-  it('positions Chain Insights as an editor-neutral workspace', () => {
-    const readme = read('README.md')
-    const investigation = read('docs/investigation-workspaces.md')
-    const mcpProxy = read('docs/mcp-proxy.md')
-    const graphTools = read('docs/graph-tools.md')
-
-    expect(readme).toContain('Create an investigation workspace')
-    expect(readme).not.toContain('obsidian')
-    expect(readme).not.toMatch(/open as\s+(?:a\s+)?vault/i)
-
-    for (const content of [investigation, mcpProxy, graphTools]) {
-      expect(content.toLowerCase()).not.toContain('obsidian')
-      expect(content).not.toMatch(/open as\s+(?:a\s+)?vault/i)
-    }
-  })
-
-  it('documents workspace-local published outputs instead of external vault/export workflows', () => {
-    const readme = read('README.md')
-    const graphTools = read('docs/graph-tools.md')
-    const investigation = read('docs/investigation-workspaces.md')
-    const mcpProxy = read('docs/mcp-proxy.md')
-
-    for (const content of [readme, graphTools, investigation, mcpProxy]) {
-      expect(content).toContain('published/')
-      expect(content.toLowerCase()).not.toContain('obsidian')
-      expect(content).not.toMatch(/open as\s+(?:a\s+)?vault/i)
-    }
-  })
-
   it('uses hosted Chain Insights Graph by default and preserves local development overrides', () => {
     const runtimeSources = [
       'src/config/mcp-endpoint.ts',
@@ -181,7 +151,6 @@ describe('shipped Chain Insights skills contract', () => {
     const development = read('docs/development.md')
 
     expect(contributing).toContain('Adding AML Tools')
-    expect(contributing).toContain('Workspace artifact and report behavior.')
     expect(contributing).toContain('npm run release:check')
     expect(debugging).toContain('Chain Insights Graph')
     expect(debugging).toContain('Inspector')

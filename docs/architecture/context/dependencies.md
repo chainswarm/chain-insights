@@ -4,7 +4,7 @@
 
 ## Systems
 
-- Data Pipeline GraphRAG MCP — Public MCP endpoint serving graph queries, risk tools, quota, and report metadata.
+- Data Pipeline GraphRAG MCP — Public MCP endpoint serving graph queries, risk tools, and quota metadata.
 - AML ACP — Marketplace bridge that calls Chain Insights workflows through the proxy.
 
 ## Contracts

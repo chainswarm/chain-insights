@@ -60,20 +60,6 @@ function runInstaller(flag: '--claude' | '--codex' | '--hermes'): void {
   }
 }
 
-function optionalNumber(value: string | undefined): number | undefined {
-  if (value === undefined) return undefined
-  const parsed = Number(value)
-  if (!Number.isFinite(parsed)) throw new Error(`Invalid number: ${value}`)
-  return parsed
-}
-
-function optionalNumberArg(value: unknown, name: string): number | undefined {
-  if (value === undefined) return undefined
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string') return optionalNumber(value)
-  throw new Error(`Invalid number for ${name}: ${String(value)}`)
-}
-
 async function withGraphMcpClient<T>(
   name: string,
   fn: (
@@ -132,41 +118,16 @@ program
   })
 
 program
-  .command('serve')
-  .description('Start local visualization server')
-  .option('-p, --port <number>', 'Port to bind (defaults to the configured serverPort)')
-  .action(async (opts: { port?: string }) => {
-    try {
-      const { requireWorkspaceRoot } = await import('./workspace/output-root.js')
-      const workspaceRoot = requireWorkspaceRoot()
-      const { loadConfig } = await import('./config/index.js')
-      const { resolveServerPort } = await import('./server/resolve-port.js')
-      const config = await loadConfig()
-      const port = resolveServerPort(opts.port, config.serverPort)
-      const { startServer } = await import('./server/index.js')
-      console.log(`Workspace: ${workspaceRoot}`)
-      startServer(port)
-    } catch (err) {
-      console.error((err as Error).message)
-      process.exit(1)
-    }
-  })
-
-program
   .command('status')
   .description('Show toolkit status and configuration')
   .action(async () => {
     const { loadConfig } = await import('./config/index.js')
-    const { findActiveWorkspace, activeDataDir } = await import('./workspace/active.js')
     const config = await loadConfig()
-    const workspace = findActiveWorkspace()
     const graphMcpStatus =
       config.graphMcpMode === 'debug' && config.graphMcpAuthToken?.trim()
         ? 'bearer access mode'
         : `${config.graphMcpMode} mode`
-    console.log('Config: ', activeDataDir(config.dataDir))
-    if (workspace) console.log('Workspace:', workspace.root)
-    console.log('Server: ', `http://127.0.0.1:${config.serverPort}`)
+    console.log('Config: ', config.dataDir)
     console.log('Chain Insights Graph:', graphMcpStatus)
     console.log('Graph endpoint:', config.graphMcpEndpoint)
   })
@@ -330,25 +291,6 @@ program
         }
       })
   )
-
-program
-  .command('init')
-  .description('Initialize an investigation workspace')
-  .argument('[dir]', 'Workspace directory to initialize', '.')
-  .option('--force', 'Overwrite existing workspace files')
-  .action(async (dir: string, opts: { force?: boolean }) => {
-    try {
-      const { initWorkspace } = await import('./workspace/init.js')
-      const result = await initWorkspace({ targetDir: dir, force: opts.force })
-      console.log(`Workspace initialized: ${result.workspaceRoot}`)
-      console.log(`Files written: ${result.filesWritten.length}`)
-      const { maybePromptForUpdate } = await import('./update.js')
-      await maybePromptForUpdate()
-    } catch (err) {
-      console.error((err as Error).message)
-      process.exit(1)
-    }
-  })
 
 program
   .command('setup')
@@ -726,36 +668,6 @@ program
         }
       })
   )
-
-program
-  .command('viz')
-  .description('Generate a workspace visualization')
-  .argument('[source-id]', 'Workspace graph report ID to render')
-  .option('--data <file>', 'Raw transaction JSON file for ad-hoc visualization')
-  .option('-p, --port <number>', 'Server port (defaults to the configured serverPort)')
-  .action(async (sourceId: string | undefined, opts: { data?: string; port?: string }) => {
-    try {
-      if (!sourceId && !opts.data) {
-        console.error('Provide either a visualization source ID or --data <file.json>')
-        process.exit(1)
-      }
-      const { loadConfig } = await import('./config/index.js')
-      const { resolveServerPort } = await import('./server/resolve-port.js')
-      const config = await loadConfig()
-      const port = resolveServerPort(opts.port, config.serverPort)
-      const { generateVisualization } = await import('./viz/index.js')
-      const result = await generateVisualization({ sourceId, dataFile: opts.data })
-      const { startServer } = await import('./server/index.js')
-      startServer(port)
-      const url = `http://127.0.0.1:${port}/viz/${result.vizId}`
-      console.log(`Visualization: ${url}`)
-      const open = (await import('open')).default
-      await open(url)
-    } catch (err) {
-      console.error((err as Error).message)
-      process.exit(1)
-    }
-  })
 
 // parseAsync (not parse) so a rejected async action surfaces as a clean
 // one-line error and a non-zero exit, instead of an unhandled-rejection stack

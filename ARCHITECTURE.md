@@ -13,15 +13,13 @@
 
 - [data flow](docs/architecture/context/data-flow.md) — end-to-end pipeline
 
-- [dependencies](docs/architecture/context/dependencies.md) — contracts with indexers / ml-pipeline / chain-insights
+- [dependencies](docs/architecture/context/dependencies.md) — contracts with the graph backend and the ACP marketplace bridge
 
 ## Containers
 
-- [cia CLI](docs/architecture/containers/cia-cli.md) — Command-line interface for workspace setup, case workflows, exports, and graph tool calls.
+- [cia CLI](docs/architecture/containers/cia-cli.md) — Command-line interface for configuration, graph tool calls, and wallet operations.
 
 - [MCP Proxy](docs/architecture/containers/mcp-proxy.md) — Stdio or local proxy surface that lets agent clients call Chain Insights tools.
-
-- [Local Workspace Store](docs/architecture/containers/local-workspace-store.md) — Filesystem workspace containing cases, evidence manifests, dossiers, exports, and config.
 
 - [NPM Package](docs/architecture/containers/npm-package.md) — Published package containing CLI, proxy, docs, and installer assets.
 
@@ -35,9 +33,6 @@ One doc per source module under `components/`. Human-authored.
 | `federation`    | [federation](docs/architecture/components/federation.md)       |
 | `investigation` | [investigation](docs/architecture/components/investigation.md) |
 | `mcp`           | [mcp](docs/architecture/components/mcp.md)                     |
-| `monitor`       | [monitor](docs/architecture/components/monitor.md)             |
-| `server`        | [server](docs/architecture/components/server.md)               |
-| `viz`           | [viz](docs/architecture/components/viz.md)                     |
 | `wallet`        | [wallet](docs/architecture/components/wallet.md)               |
 
 ## C4 Diagrams

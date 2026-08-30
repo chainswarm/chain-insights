@@ -3,6 +3,27 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.23.0] - 2026-08-30 — release: ship the focused CLI and MCP surface
+
+The first public release keeps the install-to-first-screen path focused on
+AML screening and graph facts. Local workspaces, the local server, and graph
+visualizations are deferred until they are ready for general use.
+
+### Removed from the public surface
+
+- `cia init`, `cia serve`, and `cia viz` commands.
+- MCP Apps graph resources, visualization metadata, and graph attachments.
+- Public workspace, graph-report, and visualization instructions and docs.
+- The unused MCP Apps runtime dependency and bundled graph template.
+
+### Changed
+
+- Default MCP proxy behavior is stateless.
+- `cia status` reports configuration and Graph connectivity without a local
+  server or workspace.
+- README, architecture docs, shipped skills, and tests describe only the
+  supported first-release workflow.
+
 ## [0.22.3] - 2026-08-30 — fix: make fresh installs usable
 
 A new installation now connects to the hosted Chain Insights Graph by default.

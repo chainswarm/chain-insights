@@ -23,7 +23,6 @@ Required:
 Optional:
 
 - `compare_address` — second address for a pairwise compare
-- `include_attachments` — graph report metadata
 
 The tool returns raw addresses. There is no identity-resolution step.
 

@@ -248,7 +248,7 @@ export function generateArtifactHtml(walletAddressInput: string, topupUrl: strin
   <p class="balance-line" id="balLine">Current balance: <span class="amount" id="bal">--</span> USDC<br>Gas balance: <span class="gas" id="gas">--</span> ETH<br>Base ETH is used for one-time payment setup gas.</p>
 </div>
 <script>
-// MCP Apps protocol handshake (matches @modelcontextprotocol/ext-apps App.connect())
+// MCP Apps protocol handshake for the wallet top-up page.
 (function() {
   var initId = 1;
 

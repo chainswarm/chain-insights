@@ -3,9 +3,8 @@
 This document covers the graph-facing tools and the result contracts that
 agents should rely on during investigations.
 
-Chain Insights workspaces are plain local folders. Graph tools write workspace
-evidence and report pointers into the workspace; use live workspace files for
-local review and `published/` only for rendered HTML or handoff-ready outputs.
+The first release exposes graph analysis through the hosted MCP endpoint and
+the `cia mcp` commands. Results are returned as text and structured facts.
 
 ## Chain Insights Graph Surface
 
@@ -122,11 +121,6 @@ Required input:
 Optional input:
 
 - `compare_address`
-- `include_attachments`
-
-The tool can emit graph report metadata when attachments are requested. Store
-large graph payloads under workspace reports and save compact evidence pointers
-to workspace artifacts.
 
 ## Manual Fund-Flow Traversal
 
@@ -139,30 +133,11 @@ traversal node must be non-exchange.
 The traversal-safety rule above is the only trace norm; role labels such as
 victim, suspect, or deposit are hypotheses for review, not automatic writes.
 
-## Graph Reports
-
-Graph reports use `chain-insights.graph.v1` JSON. Visual edges use the
-canonical `source` / `target` convention.
-
-Graph-backed tools store
-`chain-insights.evidence_pointer.v1` evidence entries.
-The pointer references workspace-local compact evidence JSON, graph JSON, graph
-HTML, CSV or table files, and Markdown reports.
-
-Evidence Markdown should be a provenance record with key facts and pointers.
-Large JSON belongs under workspace report directories, not inline in evidence.
-
-After evidence is collected, keep workspace notes and `published/` artifacts in
-sync for a handoff. Use workspace-generated graph JSON, graph HTML, table
-extracts, and Markdown reports as the review surface over canonical workspace
-artifacts.
-
 ## Runtime Schema Capture
 
-Fresh workspaces include a runtime schema skill and schema capture directory.
-Before the first graph query against a network, capture the live graph schema and
+Before the first graph query against a network, inspect the live graph schema and
 use the observed labels, relationship types, and property names in subsequent
-queries. The current public Chain Insights Graph investigation network is
+queries. The current public Chain Insights Graph network is
 the single robinhood network; the network argument selects the graph, and
 the address-space split lives on the `:Address.network` node property. Do not
 infer support for unadvertised networks from internal database names or

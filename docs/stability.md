@@ -32,18 +32,6 @@ Tool names are contract. Removing or renaming one is a deprecation event.
 Tool _arguments_ may grow additively at any time; existing argument names and
 meanings are stable.
 
-### Workspace layout
-
-A workspace is marked by `.chain-insights/workspace.json`. These paths are
-contract:
-
-- `.chain-insights/workspace.json` — workspace config.
-- `published/` — rendered dossiers, viz artifacts, and reports.
-- `reports/` — report output.
-
-New files and directories may appear inside a workspace at any time. Existing
-contract paths keep their meaning.
-
 ### Config keys
 
 Documented config keys (see `docs/architecture.md`, "Supported config keys")

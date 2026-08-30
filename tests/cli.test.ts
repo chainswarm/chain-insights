@@ -23,9 +23,9 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('chain-insights')
   })
 
-  it('--help lists serve subcommand', () => {
+  it('--help omits deferred local commands', () => {
     const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
-    expect(out).toContain('serve')
+    expect(out).not.toMatch(/\b(init|serve|viz)\b/)
   })
 
   it('--help lists status subcommand', () => {
@@ -58,11 +58,6 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('hermes')
     expect(out).not.toContain('claude-desktop')
     expect(out).not.toContain('Claude Desktop')
-  })
-
-  it('--help lists init subcommand', () => {
-    const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
-    expect(out).toContain('init')
   })
 
   it('--help lists wallet subcommand', () => {
@@ -223,7 +218,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(pkg.bin['cia']).toBe('./bin/cli.js')
   })
 
-  it('init creates an investigation workspace in the target directory', () => {
+  it.skip('init creates an investigation workspace in the target directory', () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const target = join(parent, 'investigations')
     try {
@@ -314,7 +309,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     }
   })
 
-  it('bin/cli.js init creates a generic workspace', () => {
+  it.skip('bin/cli.js init creates a generic workspace', () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const target = join(parent, 'packaged-investigations')
     const packageFixturesRoot = join(process.cwd(), 'workspace')
@@ -364,7 +359,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     }
   }, 20_000)
 
-  it('init creates a generic workspace without vault scaffolding', () => {
+  it.skip('init creates a generic workspace without vault scaffolding', () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const target = join(parent, 'investigations')
     try {
@@ -385,7 +380,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     }
   })
 
-  it('init returns workspace files in filesWritten', async () => {
+  it.skip('init returns workspace files in filesWritten', async () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const target = join(parent, 'investigations')
     try {
@@ -404,7 +399,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     }
   })
 
-  it('init refuses to overwrite existing workspace files without --force', () => {
+  it.skip('init refuses to overwrite existing workspace files without --force', () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const target = join(parent, 'investigations')
     try {
@@ -422,7 +417,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     }
   })
 
-  it('init preflights existing files before creating a partial workspace', () => {
+  it.skip('init preflights existing files before creating a partial workspace', () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const target = join(parent, 'investigations')
     try {
@@ -444,7 +439,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     }
   })
 
-  it('init refuses existing workspace files before creating a partial workspace', () => {
+  it.skip('init refuses existing workspace files before creating a partial workspace', () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const target = join(parent, 'investigations')
     try {
@@ -467,7 +462,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     }
   })
 
-  it('serve reports an occupied port without an unhandled Node error', () => {
+  it.skip('serve reports an occupied port without an unhandled Node error', () => {
     const script = `
       const http = require('node:http');
       const { spawnSync } = require('node:child_process');
@@ -507,7 +502,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(result.stdout).not.toContain('Chain Insights server running')
   })
 
-  it('serve requires an initialized workspace', () => {
+  it.skip('serve requires an initialized workspace', () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const fakeHome = mkdtempSync(join(tmpdir(), 'chain-insights-home-'))
     const env = { ...process.env, HOME: fakeHome, CHAIN_INSIGHTS_WORKSPACE: '' }
