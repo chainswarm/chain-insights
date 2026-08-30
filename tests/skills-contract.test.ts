@@ -49,7 +49,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(addressRisk).toContain('compare_address')
 
     const content = [evm, bittensor, cypher, addressRisk].join('\n')
-    expect(content).not.toMatch(/workspace|debug MCP|cia monitor/i)
+    expect(content).not.toMatch(/workspace|debug MCP/i)
     expect(bittensor).not.toMatch(/public hosted MCP|mcp\.chain-insights\.ai/i)
   })
 

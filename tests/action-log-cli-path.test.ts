@@ -1,6 +1,6 @@
 // The action log was originally installed only on the MCP proxy's remote
 // client. Every `cia` CLI command builds its own client, so an unattended
-// instance driven by a scheduled `cia monitor run` wrote nothing while the
+// instance driven by a scheduled CLI command wrote nothing while the
 // mechanism "worked" on the path nobody was using. This pins the wrapper
 // itself.
 import { mkdtemp, readFile } from 'node:fs/promises'

@@ -105,11 +105,8 @@ restating it. Query-side detail:
 
 Investigation output stays local in user workspace directories:
 
-- `.chain-insights/` — monitor runtime state under
-  `.chain-insights/monitor/` (config, render state, append-only run log).
+- `.chain-insights/` — local config, wallet, and schema cache state.
 - `cases/`, `reports/`, `artifacts/`.
-- Monitor case dossiers render under `published/cases/<case_id>/`
-  (`src/monitor/render/`), for example `dossier.md`.
 
 ## Devkit Contract
 
