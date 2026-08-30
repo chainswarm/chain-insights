@@ -104,9 +104,8 @@ Chain Insights presents this as local, prefixed metadata through
 `meta_network_capabilities`.
 
 `meta_usage_status` is a Chain Insights proxy tool. On hosted Chain Insights Graph
-backends it can reflect remote quota telemetry. On primitive-only local
-backends such as the Bittensor devkit, it returns a local unmetered
-primitive-backend status.
+backends it can reflect remote quota telemetry. On backends without a quota
+tool, it returns a local unmetered primitive-backend status.
 
 Chain Insights adds the high-level local graph recipe `aml_address_risk`
 when the remote endpoint only exposes primitives.

@@ -30,7 +30,7 @@ export function primitiveBackendUsageStatus(endpoint: string): UsageStatusResult
         reason: 'The graph backend exposes primitive graph tools but no usage_status quota tool.',
       },
     },
-    hint: 'This backend does not expose Chain Insights quota telemetry; local devkit calls are treated as unmetered by Chain Insights.',
+    hint: 'This backend does not expose Chain Insights quota telemetry; calls against it are treated as unmetered by Chain Insights.',
   }
 }
 

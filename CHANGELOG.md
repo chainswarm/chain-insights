@@ -3,6 +3,28 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.22.0] - 2026-08-30 — feat!: remove the local Bittensor devkit (#342)
+
+The devkit (deterministic local Chain Insights Graph backend: StarRocks,
+Memgraph, importers, Bittensor fixture data, lite Go MCP server) is removed,
+together with its CI workflow, npm script tiers, probe tests, and all
+user-facing devkit documentation. The hosted free tier (`graph_query` daily
+allowance, visible via `meta_usage_status`) is the supported way to use
+Chain Insights without running local infrastructure.
+
+### Removed
+
+- `devkit/` (74 tracked files) and `.github/workflows/devkit-smoke.yml`.
+- The `devkit:smoke`, `devkit:smoke:parity`, `probe:capability`, and
+  `test:devkit` npm script tiers.
+- The devkit-gated capability-matrix and route-evidence probe tests.
+- Devkit sections in README, development, debugging, and architecture docs.
+
+### Changed
+
+- The `meta_usage_status` primitive-backend fallback hint no longer names
+  the devkit.
+
 ## [0.21.3] - 2026-08-30 — chore: public-repo hygiene sweep — private references removed (#281)
 
 Completed the hygiene sweep: private repository names, internal epic/

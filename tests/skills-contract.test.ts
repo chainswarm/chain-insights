@@ -85,8 +85,6 @@ describe('shipped Chain Insights skills contract', () => {
       .join('\n')
     expect(prose).not.toContain('chainswarm/chain-insights')
     expect(readme).not.toContain('[GitHub](')
-    expect(readme).not.toContain('devkit/README.md')
-    expect(readme).not.toContain('blob/main/devkit')
     expect(readme).toContain('Chain Insights Graph')
     expect(readme).toContain('cia config set graphMcpEndpoint https://mcp.chain-insights.ai/')
     expect(readme).toContain('CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://mcp.chain-insights.ai/')

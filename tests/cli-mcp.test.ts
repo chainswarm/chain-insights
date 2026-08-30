@@ -412,7 +412,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('{"usage":{"remaining_seconds":10}}')
   })
 
-  it('mcp call returns a devkit usage status when upstream usage_status is absent', async () => {
+  it('mcp call returns a primitive-backend usage status when upstream usage_status is absent', async () => {
     mockLoadConfig.mockResolvedValue({
       graphMcpEndpoint: 'http://127.0.0.1:18012/mcp',
     })

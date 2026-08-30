@@ -188,9 +188,8 @@ StarRocks. Use the topology graph, or restructure:
 | Untyped relationship `-[r]->` | Name the relationship type |
 | Metadata functions `keys(n)`, `labels(n)`, `type(r)` | Project known properties explicitly |
 
-The facts result baselines and the exact supported/rejected shape set are pinned
-by `devkit/chain-insights-graph-devkit/internal/cyphersql`
-(`corpus_test.go`, `conformance_starrocks_test.go`).
+There is no longer a local pinned conformance suite; verify supported and
+rejected shapes against a live Chain Insights Graph endpoint.
 
 ## Taxonomy labels (topology graph)
 

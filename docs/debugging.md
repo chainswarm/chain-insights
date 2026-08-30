@@ -19,22 +19,6 @@ with no error and no hint that the build is the cause — including symptoms tha
 look exactly like bad data or a broken endpoint. Rule out the build before
 investigating the graph.
 
-## Bittensor Devkit Backend
-
-Use the bundled devkit when you need a deterministic local Chain Insights Graph
-backend for Chain Insights workflows:
-
-```bash
-docker compose -f devkit/docker-compose.yml down -v --remove-orphans
-docker compose -f devkit/docker-compose.yml up -d --build
-export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=http://127.0.0.1:18012/mcp
-npm run devkit:smoke
-npm run devkit:smoke:parity
-```
-
-The devkit backend exposes graph primitives only. It does not need a debug
-token, wallet, x402 payment, quota state, or hosted tester access key.
-
 ## Local Chain Insights Graph Debug
 
 Start your local Chain Insights Graph development endpoint with debug bearer

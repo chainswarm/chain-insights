@@ -3,8 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-// Legacy topology-scope retirement gate: Chain Insights (including the
-// embedded devkit) sends and expects ONLY the unified `USE topology` /
+// Legacy topology-scope retirement gate: Chain Insights sends and expects ONLY the unified `USE topology` /
 // `USE facts` graph scopes. This test is the mechanical, CI-able proof that
 // zero legacy scope text remains anywhere in the tracked tree, outside
 // append-only history (CHANGELOG.md) and this test file's own pattern
