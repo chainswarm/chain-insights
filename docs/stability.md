@@ -29,7 +29,7 @@ The public MCP surface is these seven tools:
 - `wallet_balance`
 
 Tool names are contract. Removing or renaming one is a deprecation event.
-Tool *arguments* may grow additively at any time; existing argument names and
+Tool _arguments_ may grow additively at any time; existing argument names and
 meanings are stable.
 
 ### Workspace layout
@@ -51,7 +51,7 @@ are contract. Unknown keys in config files are ignored, never errors.
 
 ## Not covered
 
-- Command *output text* not consumed as JSON (headings, wording, colors).
+- Command _output text_ not consumed as JSON (headings, wording, colors).
 - Anything under `src/` — internal APIs are not public.
 - Experimental or hidden flags, even if visible in `--help` output marked
   experimental.

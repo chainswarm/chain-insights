@@ -27,11 +27,17 @@ describe('installActionLogging wraps any client', () => {
     const file = await logFile()
     const client = {
       callTool: async () => ({
-        structuredContent: { warnings: ['hit the cap'], input: { search_limits: { row_limit: 500 } } },
+        structuredContent: {
+          warnings: ['hit the cap'],
+          input: { search_limits: { row_limit: 500 } },
+        },
       }),
     }
     installActionLogging(client as never)
-    await (client.callTool as never as (a: unknown) => Promise<unknown>)({ name: 'graph_query', arguments: { network: 'robinhood' } })
+    await (client.callTool as never as (a: unknown) => Promise<unknown>)({
+      name: 'graph_query',
+      arguments: { network: 'robinhood' },
+    })
     const entry = JSON.parse((await readFile(file, 'utf8')).trim())
     expect(entry.tool).toBe('graph_query')
     expect(entry.outcome).toBe('ok')
@@ -41,9 +47,18 @@ describe('installActionLogging wraps any client', () => {
 
   it('records a failed call and still rethrows', async () => {
     const file = await logFile()
-    const client = { callTool: async () => { throw new Error('backend down') } }
+    const client = {
+      callTool: async () => {
+        throw new Error('backend down')
+      },
+    }
     installActionLogging(client as never)
-    await expect((client.callTool as never as (a: unknown) => Promise<unknown>)({ name: 'graph_query', arguments: {} })).rejects.toThrow('backend down')
+    await expect(
+      (client.callTool as never as (a: unknown) => Promise<unknown>)({
+        name: 'graph_query',
+        arguments: {},
+      })
+    ).rejects.toThrow('backend down')
     const entry = JSON.parse((await readFile(file, 'utf8')).trim())
     expect(entry.outcome).toBe('error')
     expect(entry.error).toContain('backend down')
@@ -54,6 +69,11 @@ describe('installActionLogging wraps any client', () => {
     const payload = { structuredContent: { facts: { count: 3 } } }
     const client = { callTool: async () => payload }
     installActionLogging(client as never)
-    expect(await (client.callTool as never as (a: unknown) => Promise<unknown>)({ name: 't', arguments: {} })).toBe(payload)
+    expect(
+      await (client.callTool as never as (a: unknown) => Promise<unknown>)({
+        name: 't',
+        arguments: {},
+      })
+    ).toBe(payload)
   })
 })

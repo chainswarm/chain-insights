@@ -22,7 +22,9 @@ describe('exchange exposure fallback score', () => {
   })
 
   it('never exceeds 0.6', () => {
-    expect(exchangeExposureFallbackScore([{ amount_usd_sum: 50_000_000, tx_count: 1 }])).toBeLessThanOrEqual(0.6)
+    expect(
+      exchangeExposureFallbackScore([{ amount_usd_sum: 50_000_000, tx_count: 1 }])
+    ).toBeLessThanOrEqual(0.6)
   })
 })
 
@@ -31,7 +33,7 @@ describe('risk assessment precedence', () => {
     const assessment = riskAssessment(
       { live_risk_score: 0.92, live_risk_level: 'HIGH' },
       [{ label: 'known-service', risk_level: 'low', updated_timestamp: 1700000000000 }],
-      [],
+      []
     )
     expect(assessment['level']).toBe('critical')
     expect(String(assessment['drivers'])).toContain('ml_label_divergence')
@@ -41,7 +43,7 @@ describe('risk assessment precedence', () => {
     const assessment = riskAssessment(
       { live_risk_score: 0.45, live_risk_level: 'MEDIUM' },
       [{ label: 'scam', risk_level: 'high', updated_timestamp: 1700000000000 }],
-      [],
+      []
     )
     expect(assessment['level']).toBe('high')
     expect(String(assessment['drivers'])).not.toContain('ml_label_divergence')
@@ -51,7 +53,7 @@ describe('risk assessment precedence', () => {
     const assessment = riskAssessment(
       { live_risk_score: 0.83, live_risk_level: 'UNSCORED' },
       [],
-      [],
+      []
     )
     expect(assessment['level']).toBe('unscored')
     expect(assessment['ml_verdict']).toBe('unscored')

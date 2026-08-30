@@ -19,25 +19,28 @@ describe('CLI update checks', () => {
 
   it('defaults to the public npmjs registry', () => {
     expect(resolveUpdateRegistryUrl({})).toBe('https://registry.npmjs.org')
-    expect(resolveUpdateRegistryUrl({ CHAIN_INSIGHTS_NPM_REGISTRY_URL: 'https://registry.example.test' })).toBe(
-      'https://registry.example.test',
-    )
+    expect(
+      resolveUpdateRegistryUrl({ CHAIN_INSIGHTS_NPM_REGISTRY_URL: 'https://registry.example.test' })
+    ).toBe('https://registry.example.test')
   })
 
   it('builds npm latest URLs with encoded package names', () => {
     expect(buildPackageLatestUrl('chain-insights', 'https://registry.npmjs.org/')).toBe(
-      'https://registry.npmjs.org/chain-insights/latest',
+      'https://registry.npmjs.org/chain-insights/latest'
     )
     expect(buildPackageLatestUrl('@scope/pkg', 'https://registry.example.test')).toBe(
-      'https://registry.example.test/%40scope%2Fpkg/latest',
+      'https://registry.example.test/%40scope%2Fpkg/latest'
     )
   })
 
   it('reports an available update from npmjs metadata', async () => {
-    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ version: '0.3.9' }), {
-      headers: { 'content-type': 'application/json' },
-      status: 200,
-    })) as unknown as typeof fetch
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ version: '0.3.9' }), {
+          headers: { 'content-type': 'application/json' },
+          status: 200,
+        })
+    ) as unknown as typeof fetch
 
     const result = await checkForUpdate({
       packageName: 'chain-insights',
@@ -57,12 +60,14 @@ describe('CLI update checks', () => {
       'https://registry.example.test/chain-insights/latest',
       expect.objectContaining({
         headers: expect.objectContaining({ accept: 'application/json' }),
-      }),
+      })
     )
   })
 
   it('turns registry failures into non-throwing check results', async () => {
-    const fetchImpl = vi.fn(async () => new Response('missing', { status: 404 })) as unknown as typeof fetch
+    const fetchImpl = vi.fn(
+      async () => new Response('missing', { status: 404 })
+    ) as unknown as typeof fetch
 
     const result = await checkForUpdate({
       packageName: 'chain-insights',
@@ -80,7 +85,12 @@ describe('CLI update checks', () => {
     })
 
     expect(result.command).toBe(process.execPath)
-    expect(result.args).toEqual(['/opt/npm/bin/npm-cli.js', 'install', '-g', 'chain-insights@latest'])
+    expect(result.args).toEqual([
+      '/opt/npm/bin/npm-cli.js',
+      'install',
+      '-g',
+      'chain-insights@latest',
+    ])
     expect(result.displayCommand).toBe('npm install -g chain-insights@latest')
   })
 
@@ -90,11 +100,15 @@ describe('CLI update checks', () => {
 
     expect(shouldPromptForUpdate({ input, output, env: {} })).toBe(true)
     expect(shouldPromptForUpdate({ input, output, env: { CI: 'true' } })).toBe(false)
-    expect(shouldPromptForUpdate({ input, output, env: { CHAIN_INSIGHTS_SKIP_UPDATE_CHECK: '1' } })).toBe(false)
-    expect(shouldPromptForUpdate({
-      input: { isTTY: false } as NodeJS.ReadStream & Readable,
-      output,
-      env: {},
-    })).toBe(false)
+    expect(
+      shouldPromptForUpdate({ input, output, env: { CHAIN_INSIGHTS_SKIP_UPDATE_CHECK: '1' } })
+    ).toBe(false)
+    expect(
+      shouldPromptForUpdate({
+        input: { isTTY: false } as NodeJS.ReadStream & Readable,
+        output,
+        env: {},
+      })
+    ).toBe(false)
   })
 })

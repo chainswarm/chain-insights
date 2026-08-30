@@ -1,5 +1,16 @@
-export { GraphData, GraphNode, GraphEdge, EntityType, RiskLevel, truncateGraph } from './graph-model.js'
-export type { GraphData as GraphDataType, GraphNode as GraphNodeType, GraphEdge as GraphEdgeType } from './graph-model.js'
+export {
+  GraphData,
+  GraphNode,
+  GraphEdge,
+  EntityType,
+  RiskLevel,
+  truncateGraph,
+} from './graph-model.js'
+export type {
+  GraphData as GraphDataType,
+  GraphNode as GraphNodeType,
+  GraphEdge as GraphEdgeType,
+} from './graph-model.js'
 export { generateHtml, writeVizHtml, transformToGraphHtml } from './html-generator.js'
 export { DataExtractor, extractGraphFromJson } from './data-extractor.js'
 
@@ -31,7 +42,9 @@ export async function generateVisualization(opts: {
     try {
       parsed = JSON.parse(content)
     } catch {
-      throw new Error('Invalid transaction data. The input file must contain a JSON array of transaction objects with `from`, `to`, and `value` fields.')
+      throw new Error(
+        'Invalid transaction data. The input file must contain a JSON array of transaction objects with `from`, `to`, and `value` fields.'
+      )
     }
     rawData = extractGraphFromJson(parsed)
     vizId = `adhoc_${Date.now()}`

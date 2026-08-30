@@ -69,9 +69,10 @@ function advertisedNetwork(raw: unknown): NetworkCapability | null {
   const network = raw.network.trim()
   const capability: NetworkCapability = {
     network,
-    display_name: typeof raw.display_name === 'string' && raw.display_name.trim() !== ''
-      ? raw.display_name
-      : network,
+    display_name:
+      typeof raw.display_name === 'string' && raw.display_name.trim() !== ''
+        ? raw.display_name
+        : network,
     status: typeof raw.status === 'string' && raw.status.trim() !== '' ? raw.status : 'live',
     layers: {},
     tools: { ...PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS },
@@ -79,14 +80,15 @@ function advertisedNetwork(raw: unknown): NetworkCapability | null {
   if (raw.default === true) capability.default = true
   if (raw.default === false) capability.default = false
   if (isRecord(raw.coverage)) capability.coverage = raw.coverage as NetworkCapability['coverage']
-  if (isRecord(raw.freshness)) capability.freshness = raw.freshness as NetworkCapability['freshness']
+  if (isRecord(raw.freshness))
+    capability.freshness = raw.freshness as NetworkCapability['freshness']
   return capability
 }
 
 /** Repeat GraphRAG's network list. CIA does not add, drop, or invent names. */
-export function mirrorGraphNetworkCapabilities(
-  document: { networks: unknown[] },
-): NetworkCapabilitiesDocument {
+export function mirrorGraphNetworkCapabilities(document: {
+  networks: unknown[]
+}): NetworkCapabilitiesDocument {
   return {
     schema: 'chain-insights.network-capabilities.v1',
     networks: document.networks
@@ -95,7 +97,9 @@ export function mirrorGraphNetworkCapabilities(
   }
 }
 
-function publicNetworkCapabilities(document: NetworkCapabilitiesDocument): NetworkCapabilitiesDocument {
+function publicNetworkCapabilities(
+  document: NetworkCapabilitiesDocument
+): NetworkCapabilitiesDocument {
   return mirrorGraphNetworkCapabilities(document)
 }
 
@@ -108,7 +112,7 @@ function metadataNetworksUrl(endpoint: string): URL {
 }
 
 export async function fetchNetworkCapabilities(
-  config: Pick<InvestigatorConfig, 'graphMcpAuthToken' | 'graphMcpMode' | 'graphMcpEndpoint'>,
+  config: Pick<InvestigatorConfig, 'graphMcpAuthToken' | 'graphMcpMode' | 'graphMcpEndpoint'>
 ): Promise<NetworkCapabilitiesDocument> {
   const endpoint = resolveGraphMcpEndpoint(config)
   const request = metadataNetworksUrl(endpoint)
@@ -126,8 +130,11 @@ export async function fetchNetworkCapabilities(
   if (!response.ok) {
     throw new Error(`network capabilities unavailable at ${request}: HTTP ${response.status}`)
   }
-  const parsed = await response.json() as NetworkCapabilitiesDocument
-  if (parsed.schema !== 'chain-insights.network-capabilities.v1' || !Array.isArray(parsed.networks)) {
+  const parsed = (await response.json()) as NetworkCapabilitiesDocument
+  if (
+    parsed.schema !== 'chain-insights.network-capabilities.v1' ||
+    !Array.isArray(parsed.networks)
+  ) {
     throw new Error('network capabilities response has unsupported schema')
   }
   return publicNetworkCapabilities(parsed)
@@ -162,12 +169,14 @@ function shortDate(value?: string): string {
 function datasetLabel(network: NetworkCapability): string {
   const coverage = network.coverage
   if (!coverage) return 'unknown'
-  const blockRange = coverage.from_block !== undefined && coverage.to_block !== undefined
-    ? `${coverage.from_block}..${coverage.to_block}`
-    : 'blocks unknown'
-  const dateRange = coverage.from_timestamp && coverage.to_timestamp
-    ? `${shortDate(coverage.from_timestamp)}..${shortDate(coverage.to_timestamp)}`
-    : ''
+  const blockRange =
+    coverage.from_block !== undefined && coverage.to_block !== undefined
+      ? `${coverage.from_block}..${coverage.to_block}`
+      : 'blocks unknown'
+  const dateRange =
+    coverage.from_timestamp && coverage.to_timestamp
+      ? `${shortDate(coverage.from_timestamp)}..${shortDate(coverage.to_timestamp)}`
+      : ''
   if (blockRange === 'blocks unknown' && dateRange === '') return 'unknown'
   if (blockRange === 'blocks unknown') return dateRange
   if (dateRange === '') return blockRange
@@ -178,18 +187,19 @@ export function formatNetworkCapabilities(document: NetworkCapabilitiesDocument)
   if (document.networks.length === 0) return 'No supported networks advertised.'
   const headers = ['Network', 'Dataset', 'Available tools']
   const widths = [14, 38, 64]
-  const row = (values: string[]) => values.map((value, index) => value.padEnd(widths[index]!)).join('  ')
+  const row = (values: string[]) =>
+    values.map((value, index) => value.padEnd(widths[index]!)).join('  ')
   const networkRows = document.networks.flatMap((network) => {
     const toolLines = availableToolLines(network)
-    return toolLines.map((toolLine, index) => row([
-      index === 0 ? network.display_name || network.network : '',
-      index === 0 ? datasetLabel(network) : '',
-      toolLine,
-    ]))
+    return toolLines.map((toolLine, index) =>
+      row([
+        index === 0 ? network.display_name || network.network : '',
+        index === 0 ? datasetLabel(network) : '',
+        toolLine,
+      ])
+    )
   })
-  return [
-    row(headers),
-    widths.map((width) => '-'.repeat(width)).join('  '),
-    ...networkRows,
-  ].join('\n')
+  return [row(headers), widths.map((width) => '-'.repeat(width)).join('  '), ...networkRows].join(
+    '\n'
+  )
 }

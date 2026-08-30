@@ -1,17 +1,13 @@
 # chain-insights Architecture
 
-
 [Website](https://chain-insights.ai) | [npm](https://www.npmjs.com/package/chain-insights)
-
 
 > Depth lives in authored docs under `context/`, `containers/`, and
 > `components/`. This index is human-authored; C4 diagrams render via CI.
 > Data contracts live in [data-contracts.md](data-contracts.md); repo
 > invariants and operating rules live in [operating-rules.md](operating-rules.md).
 
-
 ## Context
-
 
 - [overview](context/overview.md) — purpose, bounded context, external systems
 
@@ -19,9 +15,7 @@
 
 - [dependencies](context/dependencies.md) — contracts with the graph backend and the ACP marketplace bridge
 
-
 ## Containers
-
 
 - [cia CLI](containers/cia-cli.md) — Command-line interface for workspace setup, case workflows, exports, and graph tool calls.
 
@@ -31,57 +25,45 @@
 
 - [NPM Package](containers/npm-package.md) — Published package containing CLI, proxy, docs, and installer assets.
 
-
-
 ## Components
 
 One doc per source module under `components/`. Human-authored.
 
-| Worker | Component doc |
-|---|---|
-| `config` | [config](components/config.md) |
-| `federation` | [federation](components/federation.md) |
+| Worker          | Component doc                                |
+| --------------- | -------------------------------------------- |
+| `config`        | [config](components/config.md)               |
+| `federation`    | [federation](components/federation.md)       |
 | `investigation` | [investigation](components/investigation.md) |
-| `mcp` | [mcp](components/mcp.md) |
-| `server` | [server](components/server.md) |
-| `viz` | [viz](components/viz.md) |
-| `wallet` | [wallet](components/wallet.md) |
+| `mcp`           | [mcp](components/mcp.md)                     |
+| `server`        | [server](components/server.md)               |
+| `viz`           | [viz](components/viz.md)                     |
+| `wallet`        | [wallet](components/wallet.md)               |
 
 ## C4 Diagrams
 
 ### structurizr-chain-insights-components
 
-
 ![structurizr-chain-insights-components](diagrams/rendered/global/structurizr-chain-insights-components.png)
 
-
 [vector SVG](diagrams/rendered/global/structurizr-chain-insights-components.svg) · [PNG](diagrams/rendered/global/structurizr-chain-insights-components.png)
-
 
 See [context/overview.md](context/overview.md) for context.
 
 ### structurizr-chain-insights-containers
 
-
 ![structurizr-chain-insights-containers](diagrams/rendered/global/structurizr-chain-insights-containers.png)
 
-
 [vector SVG](diagrams/rendered/global/structurizr-chain-insights-containers.svg) · [PNG](diagrams/rendered/global/structurizr-chain-insights-containers.png)
-
 
 See [context/overview.md](context/overview.md) for context.
 
 ### structurizr-chain-insights-context
 
-
 ![structurizr-chain-insights-context](diagrams/rendered/global/structurizr-chain-insights-context.png)
-
 
 [vector SVG](diagrams/rendered/global/structurizr-chain-insights-context.svg) · [PNG](diagrams/rendered/global/structurizr-chain-insights-context.png)
 
-
 See [context/overview.md](context/overview.md) for context.
-
 
 ## Verification
 

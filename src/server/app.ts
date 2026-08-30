@@ -3,7 +3,13 @@ import { lstat, readFile, readdir, realpath } from 'node:fs/promises'
 import path from 'node:path'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
 
-const WORKSPACE_TREE_ROOTS = ['artifacts', 'entities', 'reports', 'sessions', '.chain-insights/schema']
+const WORKSPACE_TREE_ROOTS = [
+  'artifacts',
+  'entities',
+  'reports',
+  'sessions',
+  '.chain-insights/schema',
+]
 const WORKSPACE_TREE_MAX_DEPTH = 4
 
 interface WorkspaceTreeEntry {
@@ -49,7 +55,13 @@ async function listWorkspaceEntries(
       return
     }
 
-    const type = info.isSymbolicLink() ? 'symlink' : info.isDirectory() ? 'directory' : info.isFile() ? 'file' : null
+    const type = info.isSymbolicLink()
+      ? 'symlink'
+      : info.isDirectory()
+        ? 'directory'
+        : info.isFile()
+          ? 'file'
+          : null
     if (!type) return
 
     const entry: WorkspaceTreeEntry = {
@@ -60,7 +72,7 @@ async function listWorkspaceEntries(
     entries.push(entry)
 
     if (type !== 'directory' || depth >= maxDepth) return
-    if (!await realPathWithinRoot(root, resolved)) return
+    if (!(await realPathWithinRoot(root, resolved))) return
 
     let children: string[]
     try {
@@ -142,7 +154,7 @@ export function createApp(): Hono {
     if (!withinRoot(paths.reportGraphsRoot, graphPath)) {
       return c.json({ error: 'Invalid graph report filename' }, 400)
     }
-    if (!await realPathWithinRoot(paths.reportGraphsRoot, graphPath)) {
+    if (!(await realPathWithinRoot(paths.reportGraphsRoot, graphPath))) {
       return c.json({ error: 'Graph report not found' }, 404)
     }
 

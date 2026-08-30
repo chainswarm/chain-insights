@@ -1,0 +1,11 @@
+# Append-only release history; formatting edits would rewrite history lines.
+CHANGELOG.md
+
+# Byte-pinned contracts: tests compare these files literally against a
+# deterministic regeneration (tests/query-corpus.test.ts) and recipe consumers
+# diff them verbatim. Formatting changes would break the pins.
+tests/fixtures/
+
+# Bundled UI template: hand-authored HTML with inlined brand CSS and SVG.
+# Prettier reflow multiplies its size ~13x and churns the shipped asset.
+src/viz/templates/graph.html

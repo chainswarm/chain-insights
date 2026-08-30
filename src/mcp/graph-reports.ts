@@ -5,13 +5,15 @@ import * as z from 'zod'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
 
-const GraphReportInputSchema = z.object({
-  schema: z.literal('chain-insights.graph.v1'),
-  nodes: z.array(z.unknown()),
-  edges: z.array(z.unknown()),
-  flows: z.array(z.unknown()).optional(),
-  edge_anchors: z.array(z.unknown()).optional(),
-}).passthrough()
+const GraphReportInputSchema = z
+  .object({
+    schema: z.literal('chain-insights.graph.v1'),
+    nodes: z.array(z.unknown()),
+    edges: z.array(z.unknown()),
+    flows: z.array(z.unknown()).optional(),
+    edge_anchors: z.array(z.unknown()).optional(),
+  })
+  .passthrough()
 
 export type GraphReportRef = {
   schema: 'chain-insights.graph.v1'
@@ -56,7 +58,7 @@ async function ensurePrivateDirectory(dir: string): Promise<void> {
 
 export async function writeGraphReport(
   graphData: unknown,
-  options: WriteGraphReportOptions,
+  options: WriteGraphReportOptions
 ): Promise<GraphReportRef> {
   const parsed = GraphReportInputSchema.safeParse(graphData)
   if (!parsed.success) {
@@ -65,7 +67,9 @@ export async function writeGraphReport(
       throw new Error(`Unsupported graph payload schema: ${schema}`)
     }
 
-    throw new Error('Invalid graph payload: nodes and edges must be arrays; flows and edge_anchors must be arrays when present')
+    throw new Error(
+      'Invalid graph payload: nodes and edges must be arrays; flows and edge_anchors must be arrays when present'
+    )
   }
 
   const normalized = normalizeGraphPayload({

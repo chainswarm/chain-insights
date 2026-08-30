@@ -33,7 +33,10 @@ describe('CLI viz command (VIZ-03)', () => {
 
   it('viz --data with nonexistent file exits with error', () => {
     try {
-      execSync(`node ${CLI} viz --data /tmp/nonexistent_viz_test_file.json`, { encoding: 'utf8', stdio: 'pipe' })
+      execSync(`node ${CLI} viz --data /tmp/nonexistent_viz_test_file.json`, {
+        encoding: 'utf8',
+        stdio: 'pipe',
+      })
       expect.unreachable('should have thrown')
     } catch (err: unknown) {
       const e = err as { status?: number }

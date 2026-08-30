@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createUsageAccumulator, usageBlock, wrapClientForUsageTracking } from '../src/lib/usage-accumulator.js'
+import {
+  createUsageAccumulator,
+  usageBlock,
+  wrapClientForUsageTracking,
+} from '../src/lib/usage-accumulator.js'
 
 function batchResult(facts: unknown) {
   return { content: [{ type: 'text', text: JSON.stringify({ facts }) }], isError: false }
@@ -12,8 +16,11 @@ describe('usage accumulator math', () => {
       callTool: vi.fn(async () =>
         batchResult({
           batch: { billable_units: 42 },
-          queries: [{ id: 'a', ok: true }, { id: 'b', ok: true }],
-        }),
+          queries: [
+            { id: 'a', ok: true },
+            { id: 'b', ok: true },
+          ],
+        })
       ),
     }
     const tracked = wrapClientForUsageTracking(client, totals)
@@ -32,7 +39,7 @@ describe('usage accumulator math', () => {
             { id: 'b', ok: true, billable_units: 5 },
             { id: 'c', ok: true },
           ],
-        }),
+        })
       ),
     }
     const tracked = wrapClientForUsageTracking(client, totals)
@@ -52,7 +59,7 @@ describe('usage accumulator math', () => {
             { id: 'b', ok: true, truncated: false },
             { id: 'c', ok: true, truncated: true },
           ],
-        }),
+        })
       ),
     }
     const tracked = wrapClientForUsageTracking(client, totals)
@@ -64,9 +71,14 @@ describe('usage accumulator math', () => {
   it('accumulates across multiple round trips', async () => {
     const totals = createUsageAccumulator()
     const client = {
-      callTool: vi.fn()
-        .mockResolvedValueOnce(batchResult({ batch: { billable_units: 5 }, queries: [{ id: 'a' }] }))
-        .mockResolvedValueOnce(batchResult({ batch: { billable_units: 7 }, queries: [{ id: 'b' }, { id: 'c' }] })),
+      callTool: vi
+        .fn()
+        .mockResolvedValueOnce(
+          batchResult({ batch: { billable_units: 5 }, queries: [{ id: 'a' }] })
+        )
+        .mockResolvedValueOnce(
+          batchResult({ batch: { billable_units: 7 }, queries: [{ id: 'b' }, { id: 'c' }] })
+        ),
     }
     const tracked = wrapClientForUsageTracking(client, totals)
     await tracked.callTool({ name: 'graph_query_batch', arguments: {} })
@@ -78,7 +90,10 @@ describe('usage accumulator math', () => {
   it('defensive: absent facts/billing fields contribute 0 units but still count the query', async () => {
     const totals = createUsageAccumulator()
     const client = {
-      callTool: vi.fn(async () => ({ content: [{ type: 'text', text: JSON.stringify({}) }], isError: false })),
+      callTool: vi.fn(async () => ({
+        content: [{ type: 'text', text: JSON.stringify({}) }],
+        isError: false,
+      })),
     }
     const tracked = wrapClientForUsageTracking(client, totals)
     await tracked.callTool({ name: 'graph_query_batch', arguments: {} })
@@ -89,10 +104,15 @@ describe('usage accumulator math', () => {
   it('defensive: malformed (non-JSON) response text never throws', async () => {
     const totals = createUsageAccumulator()
     const client = {
-      callTool: vi.fn(async () => ({ content: [{ type: 'text', text: 'not json' }], isError: true })),
+      callTool: vi.fn(async () => ({
+        content: [{ type: 'text', text: 'not json' }],
+        isError: true,
+      })),
     }
     const tracked = wrapClientForUsageTracking(client, totals)
-    await expect(tracked.callTool({ name: 'graph_query_batch', arguments: {} })).resolves.toBeDefined()
+    await expect(
+      tracked.callTool({ name: 'graph_query_batch', arguments: {} })
+    ).resolves.toBeDefined()
 
     expect(usageBlock(totals)).toEqual({ billable_units: 0, query_count: 1, truncated_queries: 0 })
   })
@@ -110,7 +130,14 @@ describe('usage accumulator math', () => {
     const totals = createUsageAccumulator()
     const client = {
       callTool: vi.fn(async () =>
-        batchResult({ query: { results: [{ n: 1 }], billable_units: 4, units: { rows: 1, nodes: 0, edges: 0 }, truncated: true } }),
+        batchResult({
+          query: {
+            results: [{ n: 1 }],
+            billable_units: 4,
+            units: { rows: 1, nodes: 0, edges: 0 },
+            truncated: true,
+          },
+        })
       ),
     }
     const tracked = wrapClientForUsageTracking(client, totals)

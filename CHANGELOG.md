@@ -3,6 +3,28 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.22.1] - 2026-08-30 — chore: prettier formatting baseline (#349)
+
+`npm run lint:format` is declared over the whole tree but had never been
+enforced: 114 tracked files carried pre-existing formatting drift. This
+establishes the baseline so the check is meaningful from now on.
+
+### Changed
+
+- Formatting only (prettier: quotes, semicolons, indentation, markdown table
+  alignment and emphasis normalization) across src, tests, bin shims, scripts,
+  workflows, docs, and shipped skill files. No behavior change.
+- Added `.prettierignore` for the files that must not be reformatted:
+  `CHANGELOG.md` (append-only history), `tests/fixtures/` (byte-pinned
+  contracts), and `src/viz/templates/graph.html` (hand-authored bundled UI
+  template that prettier would inflate ~13x).
+
+### Validation
+
+- Fixture byte-pins verified unchanged (sha256) and full local gate green.
+- `npm run lint:format` now passes and stays in the local + CI-reproducible
+  gate.
+
 ## [0.22.0] - 2026-08-30 — feat!: remove the local Bittensor devkit (#342)
 
 The devkit (deterministic local Chain Insights Graph backend: StarRocks,

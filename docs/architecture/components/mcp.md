@@ -8,7 +8,7 @@ Tests: tests/mcp-proxy.test.ts, tests/mcp-client.test.ts, tests/mcp-capabilities
 
 ## Purpose
 
-Implements MCP proxy server (stdio transport) and remote MCP client (HTTP/SSE to Chain Insights Graph). Registers local tools (wallet_balance, meta_help), proxies remote graph tools (aml_*, graph_query*), wraps x402 payment fetch, and logs structured tool/topology events. Supports workspace mode (artifact persistence) and stateless mode (proxy-only).
+Implements MCP proxy server (stdio transport) and remote MCP client (HTTP/SSE to Chain Insights Graph). Registers local tools (wallet_balance, meta_help), proxies remote graph tools (aml__, graph_query_), wraps x402 payment fetch, and logs structured tool/topology events. Supports workspace mode (artifact persistence) and stateless mode (proxy-only).
 
 ## Reads
 

@@ -84,12 +84,12 @@ The proxy:
 
 ## Local Tools
 
-| Tool | Purpose |
-| --- | --- |
-| `meta_network_capabilities` | Show the current Chain Insights network/tool support matrix |
-| `meta_usage_status` | Check the caller's daily free-tier graph query allowance |
-| `meta_help` | Show Chain Insights tool and workflow guidance |
-| `wallet_balance` | Show the local payment wallet address, payment network, token, and amount |
+| Tool                        | Purpose                                                                   |
+| --------------------------- | ------------------------------------------------------------------------- |
+| `meta_network_capabilities` | Show the current Chain Insights network/tool support matrix               |
+| `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                  |
+| `meta_help`                 | Show Chain Insights tool and workflow guidance                            |
+| `wallet_balance`            | Show the local payment wallet address, payment network, token, and amount |
 
 For normal local review, inspect local workspace files directly and keep your
 preferred editor or agent tooling open to the same workspace while you work.

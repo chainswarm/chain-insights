@@ -13,9 +13,9 @@ label, relationship, and property map.
 
 ## Tools
 
-| Tool | Use |
-| --- | --- |
-| `graph_query` | One read-only query. |
+| Tool                | Use                        |
+| ------------------- | -------------------------- |
+| `graph_query`       | One read-only query.       |
 | `graph_query_batch` | Related reads in one call. |
 
 Always pass an explicit `network`. Always add your own `LIMIT`. Chain
@@ -25,10 +25,10 @@ Insights Graph does not append one.
 
 ## Layer choice
 
-| Graph | Backend | Dialect |
-| --- | --- | --- |
-| `USE topology` | Memgraph over Bolt | native Memgraph Cypher, bounded. |
-| `USE facts` | Warehouse, compiled | Cypher subset. Not full Memgraph. |
+| Graph          | Backend             | Dialect                           |
+| -------------- | ------------------- | --------------------------------- |
+| `USE topology` | Memgraph over Bolt  | native Memgraph Cypher, bounded.  |
+| `USE facts`    | Warehouse, compiled | Cypher subset. Not full Memgraph. |
 
 `topology` serves the address graph, money flow, the `LINKED` overlay, and
 node risk. `facts` serves bounded `TRANSFER` rows.

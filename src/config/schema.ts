@@ -32,15 +32,17 @@ function limitBagSchema(network?: string) {
 
 export const LimitsSchema = limitBagSchema()
 
-export const NetworkLimitsSchema = z.record(z.string(), z.record(z.string(), z.number())).superRefine((byNetwork, ctx) => {
-  for (const [network, bag] of Object.entries(byNetwork)) {
-    const parsed = limitBagSchema(network).safeParse(bag)
-    if (parsed.success) continue
-    for (const issue of parsed.error.issues) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: issue.message })
+export const NetworkLimitsSchema = z
+  .record(z.string(), z.record(z.string(), z.number()))
+  .superRefine((byNetwork, ctx) => {
+    for (const [network, bag] of Object.entries(byNetwork)) {
+      const parsed = limitBagSchema(network).safeParse(bag)
+      if (parsed.success) continue
+      for (const issue of parsed.error.issues) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: issue.message })
+      }
     }
-  }
-})
+  })
 
 function endpointSchema(key: 'graphMcpEndpoint') {
   return z.string().transform((value, ctx) => {
@@ -57,19 +59,19 @@ function endpointSchema(key: 'graphMcpEndpoint') {
 }
 
 export const ConfigSchema = z.object({
-  graphMcpEndpoint:  endpointSchema('graphMcpEndpoint').default(LOCAL_GRAPH_MCP_ENDPOINT),
+  graphMcpEndpoint: endpointSchema('graphMcpEndpoint').default(LOCAL_GRAPH_MCP_ENDPOINT),
   graphMcpAuthToken: z.string().optional(),
-  graphMcpMode:      z.enum(['paid', 'debug']).default('paid'),
-  walletAddress:     z.string().optional(),
-  serverPort:        z.number().int().min(1024).max(65535).default(4321),
-  dataDir:           z.string().default(path.join(os.homedir(), '.chain-insights')),
-  version:           z.string().default('1'),
-  limits:            LimitsSchema.optional(),
-  networkLimits:     NetworkLimitsSchema.optional(),
+  graphMcpMode: z.enum(['paid', 'debug']).default('paid'),
+  walletAddress: z.string().optional(),
+  serverPort: z.number().int().min(1024).max(65535).default(4321),
+  dataDir: z.string().default(path.join(os.homedir(), '.chain-insights')),
+  version: z.string().default('1'),
+  limits: LimitsSchema.optional(),
+  networkLimits: NetworkLimitsSchema.optional(),
   // Paths only. Never store or log certificate or key bytes.
   truthIngressCertPath: z.string().min(1).optional(),
-  truthIngressKeyPath:  z.string().min(1).optional(),
-  truthIngressCaPath:   z.string().min(1).optional(),
+  truthIngressKeyPath: z.string().min(1).optional(),
+  truthIngressCaPath: z.string().min(1).optional(),
 })
 
 export type InvestigatorConfig = z.infer<typeof ConfigSchema>
@@ -99,4 +101,4 @@ export const CONFIG_KEYS = [
   // ~/.chain-insights/config.json; they are validated on load.
 ] as const
 
-export type ConfigKey = typeof CONFIG_KEYS[number]
+export type ConfigKey = (typeof CONFIG_KEYS)[number]

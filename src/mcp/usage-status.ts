@@ -40,8 +40,10 @@ export function usageStatusText(result: UsageStatusResult): string {
 
 export function isMissingUsageStatusToolError(err: unknown): boolean {
   const message = String((err as Error).message ?? err).toLowerCase()
-  return message.includes('unknown tool') ||
+  return (
+    message.includes('unknown tool') ||
     message.includes('tool not found') ||
     message.includes('method not found') ||
     message.includes('usage_status')
+  )
 }

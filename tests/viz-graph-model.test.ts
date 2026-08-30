@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { GraphData, GraphNode, GraphEdge, EntityType, RiskLevel, truncateGraph } from '../src/viz/graph-model.js'
+import {
+  GraphData,
+  GraphNode,
+  GraphEdge,
+  EntityType,
+  RiskLevel,
+  truncateGraph,
+} from '../src/viz/graph-model.js'
 
 const validNode = {
   id: '0x1234567890abcdef',
@@ -130,14 +137,14 @@ describe('truncateGraph (VIZ-01)', () => {
     })
     const result = truncateGraph(data)
     // Top nodes should have highest volume (i=50..149, volume=51..150)
-    const minVolumeKept = Math.min(...result.nodes.map(n => n.totalIn + n.totalOut))
+    const minVolumeKept = Math.min(...result.nodes.map((n) => n.totalIn + n.totalOut))
     expect(minVolumeKept).toBeGreaterThanOrEqual(51)
   })
 
   it('filters edges to only include both endpoints in kept nodes', () => {
     const nodes = Array.from({ length: 150 }, (_, i) => makeNode(`n${i}`, i + 1))
     const edges = [
-      { source: 'n0', target: 'n1', value: 1 },  // n0 and n1 have low volume (1 and 2), should be dropped
+      { source: 'n0', target: 'n1', value: 1 }, // n0 and n1 have low volume (1 and 2), should be dropped
       { source: 'n148', target: 'n149', value: 5 }, // high volume nodes, should be kept
     ]
     const data = GraphData.parse({
@@ -147,12 +154,12 @@ describe('truncateGraph (VIZ-01)', () => {
     })
     const result = truncateGraph(data)
     // n0 and n1 (volume 1 and 2) should be cut; n148/n149 (volume 149/150) should be kept
-    const keptIds = new Set(result.nodes.map(n => n.id))
+    const keptIds = new Set(result.nodes.map((n) => n.id))
     expect(keptIds.has('n0')).toBe(false)
     expect(keptIds.has('n148')).toBe(true)
     expect(keptIds.has('n149')).toBe(true)
     // edge for n148->n149 should be kept
-    const edgeKept = result.edges.some(e => e.source === 'n148' && e.target === 'n149')
+    const edgeKept = result.edges.some((e) => e.source === 'n148' && e.target === 'n149')
     expect(edgeKept).toBe(true)
   })
 })

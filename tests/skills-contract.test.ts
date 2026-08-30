@@ -121,11 +121,17 @@ describe('shipped Chain Insights skills contract', () => {
 
     expect(packageJson).not.toContain('x402-paid')
     expect(mcpProxy).toContain('https://mcp.chain-insights.ai/')
-    expect(mcpProxy).toContain('The endpoint lives in Chain Insights config, not in the MCP client registration.')
+    expect(mcpProxy).toContain(
+      'The endpoint lives in Chain Insights config, not in the MCP client registration.'
+    )
     expect(mcpProxy).toContain('Do not')
-    expect(mcpProxy).toContain('bake hosted endpoint URLs into MCP client JSON, source code, or workspace')
+    expect(mcpProxy).toContain(
+      'bake hosted endpoint URLs into MCP client JSON, source code, or workspace'
+    )
     expect(mcpProxy).toContain('x402')
-    expect(readme + mcpProxy + read('docs/architecture.md')).toContain('https://mcp.chain-insights.ai/')
+    expect(readme + mcpProxy + read('docs/architecture.md')).toContain(
+      'https://mcp.chain-insights.ai/'
+    )
   })
 
   it('positions Chain Insights as an editor-neutral workspace', () => {
@@ -163,9 +169,11 @@ describe('shipped Chain Insights skills contract', () => {
       'src/config/schema.ts',
       'src/config/index.ts',
       'src/workspace/init.ts',
-    ].map(read).join('\n')
+    ]
+      .map(read)
+      .join('\n')
 
-    expect(runtimeSources).toContain("http://127.0.0.1:8012/mcp")
+    expect(runtimeSources).toContain('http://127.0.0.1:8012/mcp')
     expect(runtimeSources).not.toContain('staging-mcp.chain-insights.ai')
     expectNoRetiredHostedMcpHost(runtimeSources)
   })

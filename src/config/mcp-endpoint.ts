@@ -16,8 +16,8 @@ function isKubernetesServiceHost(hostname: string): boolean {
 }
 
 export function graphMcpEndpointEnvOverride(): string | undefined {
-  const envEndpoint = process.env.CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT?.trim()
-    || process.env.GRAPH_MCP_ENDPOINT?.trim()
+  const envEndpoint =
+    process.env.CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT?.trim() || process.env.GRAPH_MCP_ENDPOINT?.trim()
   return envEndpoint ? validateMcpEndpoint(envEndpoint, 'graphMcpEndpoint') : undefined
 }
 
@@ -32,7 +32,7 @@ export function validateMcpEndpoint(value: string, key: string): string {
     parsed = new URL(trimmed)
   } catch {
     throw new Error(
-      `${key} must be an absolute URL (example: https://mcp.example.com/mcp or http://127.0.0.1:8012/mcp).`,
+      `${key} must be an absolute URL (example: https://mcp.example.com/mcp or http://127.0.0.1:8012/mcp).`
     )
   }
 
@@ -45,9 +45,13 @@ export function validateMcpEndpoint(value: string, key: string): string {
   if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
     throw new Error(`${key} must use either https:// or http://.`)
   }
-  if (parsed.protocol === 'http:' && !isLoopbackHost(parsed.hostname) && !isKubernetesServiceHost(parsed.hostname)) {
+  if (
+    parsed.protocol === 'http:' &&
+    !isLoopbackHost(parsed.hostname) &&
+    !isKubernetesServiceHost(parsed.hostname)
+  ) {
     throw new Error(
-      `${key} must use https:// for remote hosts. http:// is allowed only for localhost, loopback addresses, or Kubernetes *.svc.cluster.local service DNS.`,
+      `${key} must use https:// for remote hosts. http:// is allowed only for localhost, loopback addresses, or Kubernetes *.svc.cluster.local service DNS.`
     )
   }
 

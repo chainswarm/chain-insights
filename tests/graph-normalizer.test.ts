@@ -130,10 +130,26 @@ describe('normalizeGraphPayload', () => {
       edge_anchors: [],
     })
 
-    expect(result.edges[0]).toMatchObject({ source: 'seed', target: 'hop1', edge_type: 'money_trail' })
-    expect(result.edges[1]).toMatchObject({ source: 'seed', target: 'term1', edge_type: 'trail_ends_at' })
-    expect(result.edges[2]).toMatchObject({ source: 'seed', target: 'hop2', edge_type: 'money_trail' })
-    expect(result.edges[3]).toMatchObject({ source: 'seed', target: 'term2', edge_type: 'trail_ends_at' })
+    expect(result.edges[0]).toMatchObject({
+      source: 'seed',
+      target: 'hop1',
+      edge_type: 'money_trail',
+    })
+    expect(result.edges[1]).toMatchObject({
+      source: 'seed',
+      target: 'term1',
+      edge_type: 'trail_ends_at',
+    })
+    expect(result.edges[2]).toMatchObject({
+      source: 'seed',
+      target: 'hop2',
+      edge_type: 'money_trail',
+    })
+    expect(result.edges[3]).toMatchObject({
+      source: 'seed',
+      target: 'term2',
+      edge_type: 'trail_ends_at',
+    })
     for (const edge of result.edges) {
       expect(edge['edge_type']).not.toBe('flows_to')
     }
@@ -178,7 +194,15 @@ describe('normalizeGraphPayload', () => {
         },
         {
           address: '5ExchangeValidator',
-          labels: ['Address', 'Exchange', 'Binance', 'exchange', 'validator', 'miner subnet 27', 'IPAddress'],
+          labels: [
+            'Address',
+            'Exchange',
+            'Binance',
+            'exchange',
+            'validator',
+            'miner subnet 27',
+            'IPAddress',
+          ],
           system_labels: ['Address', 'Exchange', 'IPAddress'],
         },
       ],

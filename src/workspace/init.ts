@@ -36,19 +36,25 @@ function todayIso(): string {
 }
 
 function workspaceJson(workspaceRoot: string): string {
-  return JSON.stringify({
-    schema: 'chain-insights.workspace.v1',
-    name: 'Chain Insights Workspace',
-    workspace_root: workspaceRoot,
-    default_network: 'bittensor',
-    graph_mcp_endpoint: LOCAL_GRAPH_MCP_ENDPOINT,
-    artifacts_dir: 'artifacts',
-    imports_dir: 'imports',
-    reports_dir: 'reports',
-    templates_dir: 'templates',
-    domain_hints: DEFAULT_DOMAIN_HINTS,
-    created_at: todayIso(),
-  }, null, 2) + '\n'
+  return (
+    JSON.stringify(
+      {
+        schema: 'chain-insights.workspace.v1',
+        name: 'Chain Insights Workspace',
+        workspace_root: workspaceRoot,
+        default_network: 'bittensor',
+        graph_mcp_endpoint: LOCAL_GRAPH_MCP_ENDPOINT,
+        artifacts_dir: 'artifacts',
+        imports_dir: 'imports',
+        reports_dir: 'reports',
+        templates_dir: 'templates',
+        domain_hints: DEFAULT_DOMAIN_HINTS,
+        created_at: todayIso(),
+      },
+      null,
+      2
+    ) + '\n'
+  )
 }
 
 const README = `# Chain Insights Workspace
@@ -305,7 +311,9 @@ async function assertNoFileCollisions(workspaceRoot: string): Promise<void> {
     const filePath = path.join(workspaceRoot, relativePath)
     try {
       await access(filePath)
-      throw new Error(`Refusing to overwrite ${filePath}. Re-run with --force to replace workspace files.`)
+      throw new Error(
+        `Refusing to overwrite ${filePath}. Re-run with --force to replace workspace files.`
+      )
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
         continue
@@ -334,7 +342,9 @@ export async function initWorkspace(options: InitWorkspaceOptions): Promise<Init
       filesWritten.push(relativePath)
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
-        throw new Error(`Refusing to overwrite ${filePath}. Re-run with --force to replace workspace files.`)
+        throw new Error(
+          `Refusing to overwrite ${filePath}. Re-run with --force to replace workspace files.`
+        )
       }
       throw err
     }

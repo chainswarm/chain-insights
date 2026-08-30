@@ -10,7 +10,7 @@ describe('wallet top-up browser page', () => {
     const { generateArtifactHtml } = await import('../src/wallet/topup-server.js')
     const html = generateArtifactHtml(
       '0x0000000000000000000000000000000000000001',
-      'http://localhost:4500',
+      'http://localhost:4500'
     )
 
     expect(html).toContain('0x0000000000000000000000000000000000000001')
@@ -32,16 +32,16 @@ describe('wallet top-up browser page', () => {
   it('rejects invalid wallet addresses before rendering artifact HTML', async () => {
     const { generateArtifactHtml } = await import('../src/wallet/topup-server.js')
 
-    expect(() => generateArtifactHtml('"><script>alert(1)</script>', 'http://localhost:4500')).toThrow(
-      'Wallet address must be a valid 0x-prefixed 20-byte EVM address',
-    )
+    expect(() =>
+      generateArtifactHtml('"><script>alert(1)</script>', 'http://localhost:4500')
+    ).toThrow('Wallet address must be a valid 0x-prefixed 20-byte EVM address')
   })
 
   it('serializes dynamic topup URLs safely for script contexts', async () => {
     const { generateArtifactHtml } = await import('../src/wallet/topup-server.js')
     const html = generateArtifactHtml(
       '0x0000000000000000000000000000000000000001',
-      'http://localhost:4500/</script><script>alert(1)</script>',
+      'http://localhost:4500/</script><script>alert(1)</script>'
     )
 
     expect(html).not.toContain('</script><script>alert(1)</script>')
@@ -52,7 +52,7 @@ describe('wallet top-up browser page', () => {
     const { startTopupServer } = await import('../src/wallet/topup-server.js')
 
     await expect(startTopupServer('not-an-evm-address')).rejects.toThrow(
-      'Wallet address must be a valid 0x-prefixed 20-byte EVM address',
+      'Wallet address must be a valid 0x-prefixed 20-byte EVM address'
     )
   })
 
@@ -60,7 +60,7 @@ describe('wallet top-up browser page', () => {
     const { startTopupServer } = await import('../src/wallet/mcp-proxy/topup-server.js')
 
     await expect(startTopupServer('not-an-evm-address')).rejects.toThrow(
-      'Wallet address must be a valid 0x-prefixed 20-byte EVM address',
+      'Wallet address must be a valid 0x-prefixed 20-byte EVM address'
     )
   })
 
@@ -90,12 +90,18 @@ describe('wallet top-up browser page', () => {
 
   it('points package entry artifacts at the scanned topup runtime chunk', () => {
     const distDir = join(REPO_ROOT, 'dist')
-    const topupArtifacts = new Set(readdirSync(distDir).filter((name) => /^topup-server-.*\.(cjs|mjs)$/.test(name)))
+    const topupArtifacts = new Set(
+      readdirSync(distDir).filter((name) => /^topup-server-.*\.(cjs|mjs)$/.test(name))
+    )
     const entryFiles = ['cli.cjs', 'cli.mjs', 'index.cjs', 'index.mjs']
     const missingReferences = entryFiles.flatMap((entryFile) => {
       const body = readFileSync(join(distDir, entryFile), 'utf8')
-      const references = [...body.matchAll(/\.\/(topup-server-[^'"]+\.(?:cjs|mjs))/g)].map((match) => match[1]!)
-      return references.filter((reference) => !topupArtifacts.has(reference)).map((reference) => `${entryFile}: ${reference}`)
+      const references = [...body.matchAll(/\.\/(topup-server-[^'"]+\.(?:cjs|mjs))/g)].map(
+        (match) => match[1]!
+      )
+      return references
+        .filter((reference) => !topupArtifacts.has(reference))
+        .map((reference) => `${entryFile}: ${reference}`)
     })
 
     expect(missingReferences).toEqual([])

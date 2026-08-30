@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { execFileSync, execSync, spawnSync } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -31,7 +39,9 @@ describe('CLI scaffold (FOUND-02)', () => {
   })
 
   it('update --help exposes check and dry-run flags', () => {
-    const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'update', '--help'], { encoding: 'utf8' })
+    const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'update', '--help'], {
+      encoding: 'utf8',
+    })
     expect(out).toContain('--check')
     expect(out).toContain('--dry-run')
   })
@@ -93,20 +103,28 @@ describe('CLI scaffold (FOUND-02)', () => {
   })
 
   it('wallet --help exposes a user-facing wallet import command', () => {
-    const out = execFileSync('node', ['--import', 'tsx', srcCli, 'wallet', '--help'], { encoding: 'utf8' })
+    const out = execFileSync('node', ['--import', 'tsx', srcCli, 'wallet', '--help'], {
+      encoding: 'utf8',
+    })
     expect(out).toContain('import')
     expect(out).toContain('Import a Base payment wallet')
     expect(out).not.toContain('walletPrivateKey')
   })
 
   it('wallet import help documents the --force overwrite guard', () => {
-    const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'wallet', 'import', '--help'], { encoding: 'utf8' })
+    const out = execFileSync(
+      'node',
+      ['--import', tsxLoader, srcCli, 'wallet', 'import', '--help'],
+      { encoding: 'utf8' }
+    )
     expect(out).toContain('--force')
     expect(out).toContain('Replace an existing wallet')
   })
 
   it('wallet ready help uses user-facing payment setup language', () => {
-    const out = execFileSync('node', ['--import', 'tsx', srcCli, 'wallet', 'ready', '--help'], { encoding: 'utf8' })
+    const out = execFileSync('node', ['--import', 'tsx', srcCli, 'wallet', 'ready', '--help'], {
+      encoding: 'utf8',
+    })
 
     expect(out).toContain('--check-only')
     expect(out).toContain('--payment-usdc <amount>')
@@ -133,11 +151,16 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).not.toContain('victim-funds')
   })
 
-  it.each([['track', '-funds'], ['trace', '-funds']])('mcp %s is not registered', (head, tail) => {
-    expect(() => execSync(`node bin/cli.js mcp ${head}${tail} --help`, {
-      encoding: 'utf8',
-      stdio: 'pipe',
-    })).toThrow()
+  it.each([
+    ['track', '-funds'],
+    ['trace', '-funds'],
+  ])('mcp %s is not registered', (head, tail) => {
+    expect(() =>
+      execSync(`node bin/cli.js mcp ${head}${tail} --help`, {
+        encoding: 'utf8',
+        stdio: 'pipe',
+      })
+    ).toThrow()
   })
 
   it('--version prints version from package.json', () => {
@@ -204,7 +227,9 @@ describe('CLI scaffold (FOUND-02)', () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const target = join(parent, 'investigations')
     try {
-      const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'init', target], { encoding: 'utf8' })
+      const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'init', target], {
+        encoding: 'utf8',
+      })
       expect(out).toContain(`Workspace initialized: ${target}`)
       expect(readFileSync(join(target, '.chain-insights', 'workspace.json'), 'utf8')).toContain(
         `"workspace_root": "${target}"`
@@ -219,27 +244,50 @@ describe('CLI scaffold (FOUND-02)', () => {
       expect(readme).toContain('Chain Insights Workspace')
       expect(readme).not.toContain('Obsidian')
       expect(readme).toContain('reports/graphs/    Graph JSON for visualization')
-      expect(readme).not.toContain('logs/              Workspace-local investigation and preview logs')
-      expect(readme).toContain('.chain-insights/runtime/        Workspace-local runtime process state and debug logs')
+      expect(readme).not.toContain(
+        'logs/              Workspace-local investigation and preview logs'
+      )
+      expect(readme).toContain(
+        '.chain-insights/runtime/        Workspace-local runtime process state and debug logs'
+      )
       expect(readme).toContain('published/         Published bundles and handoff-ready exports')
-      expect(readFileSync(join(target, 'imports', 'README.md'), 'utf8')).toContain('External Investigation Inputs')
-      expect(readFileSync(join(target, 'templates', 'README.md'), 'utf8')).toContain('Reusable Workspace Templates')
+      expect(readFileSync(join(target, 'imports', 'README.md'), 'utf8')).toContain(
+        'External Investigation Inputs'
+      )
+      expect(readFileSync(join(target, 'templates', 'README.md'), 'utf8')).toContain(
+        'Reusable Workspace Templates'
+      )
       const agents = readFileSync(join(target, 'AGENTS.md'), 'utf8')
       const claude = readFileSync(join(target, 'CLAUDE.md'), 'utf8')
       for (const body of [agents, claude]) {
-      expect(body).toContain('If this directory is not initialized, run `cia init .` before persistence-producing commands.')
-      expect(body).toContain('Do not rerun init in an existing workspace unless replacing scaffolding with `--force`.')
-      expect(body).toContain('Workspace output must stay in this initialized workspace.')
-      expect(body).toContain('Never write artifacts, reports, graph JSON, HTML, schema captures, or logs to ~/.chain-insights.')
+        expect(body).toContain(
+          'If this directory is not initialized, run `cia init .` before persistence-producing commands.'
+        )
+        expect(body).toContain(
+          'Do not rerun init in an existing workspace unless replacing scaffolding with `--force`.'
+        )
+        expect(body).toContain('Workspace output must stay in this initialized workspace.')
+        expect(body).toContain(
+          'Never write artifacts, reports, graph JSON, HTML, schema captures, or logs to ~/.chain-insights.'
+        )
       }
-      expect(readFileSync(join(target, 'templates', 'workspace-brief.md'), 'utf8')).toContain('# Workspace Brief')
-      const runtimeSkill = readFileSync(join(target, '.chain-insights', 'runtime-skill', 'SKILL.md'), 'utf8')
+      expect(readFileSync(join(target, 'templates', 'workspace-brief.md'), 'utf8')).toContain(
+        '# Workspace Brief'
+      )
+      const runtimeSkill = readFileSync(
+        join(target, '.chain-insights', 'runtime-skill', 'SKILL.md'),
+        'utf8'
+      )
       expect(runtimeSkill).toContain('Runtime Graph Schema')
       expect(runtimeSkill).toContain('exchange hot wallets as terminal endpoints only')
-      expect(runtimeSkill).toContain('The `LINKED` ownership overlay is served on the topology graph only.')
+      expect(runtimeSkill).toContain(
+        'The `LINKED` ownership overlay is served on the topology graph only.'
+      )
       expect(runtimeSkill).toContain('CIA does not pick a default network')
       expect(runtimeSkill).toContain('meta_network_capabilities')
-      expect(readFileSync(join(target, '.chain-insights', 'schema', 'README.md'), 'utf8')).toContain('Runtime Schema Captures')
+      expect(
+        readFileSync(join(target, '.chain-insights', 'schema', 'README.md'), 'utf8')
+      ).toContain('Runtime Schema Captures')
       expect(existsSync(join(target, 'artifacts'))).toBe(true)
       expect(existsSync(join(target, 'logs'))).toBe(false)
       expect(existsSync(join(target, '.chain-insights', 'runtime', 'logs', '.keep'))).toBe(true)
@@ -270,23 +318,33 @@ describe('CLI scaffold (FOUND-02)', () => {
       mkdirSync(join(packageRoot, 'bin'), { recursive: true })
       copyFileSync(join(process.cwd(), 'bin', 'cli.js'), join(packageRoot, 'bin', 'cli.js'))
       copyFileSync(join(process.cwd(), 'package.json'), join(packageRoot, 'package.json'))
-      execFileSync('npx', [
-        'tsdown',
-        'src/cli.ts',
-        '--no-config',
-        '--format',
-        'esm',
-        '--platform',
-        'node',
-        '--out-dir',
-        join(packageRoot, 'dist'),
-        '--shims',
-        '--logLevel',
-        'error',
-      ], { encoding: 'utf8' })
+      execFileSync(
+        'npx',
+        [
+          'tsdown',
+          'src/cli.ts',
+          '--no-config',
+          '--format',
+          'esm',
+          '--platform',
+          'node',
+          '--out-dir',
+          join(packageRoot, 'dist'),
+          '--shims',
+          '--logLevel',
+          'error',
+        ],
+        { encoding: 'utf8' }
+      )
 
-      const out = execFileSync('node', ['bin/cli.js', 'init', target], { cwd: packageRoot, encoding: 'utf8' })
-      const help = execFileSync('node', ['bin/cli.js', '--help'], { cwd: packageRoot, encoding: 'utf8' })
+      const out = execFileSync('node', ['bin/cli.js', 'init', target], {
+        cwd: packageRoot,
+        encoding: 'utf8',
+      })
+      const help = execFileSync('node', ['bin/cli.js', '--help'], {
+        cwd: packageRoot,
+        encoding: 'utf8',
+      })
 
       expect(out).toContain('Workspace initialized:')
       expect(help).not.toContain('obsidian')
@@ -346,7 +404,12 @@ describe('CLI scaffold (FOUND-02)', () => {
     try {
       execFileSync('node', ['--import', tsxLoader, srcCli, 'init', target], { encoding: 'utf8' })
       writeFileSync(join(target, 'README.md'), 'custom notes\n')
-      expect(() => execFileSync('node', ['--import', tsxLoader, srcCli, 'init', target], { encoding: 'utf8', stdio: 'pipe' })).toThrow()
+      expect(() =>
+        execFileSync('node', ['--import', tsxLoader, srcCli, 'init', target], {
+          encoding: 'utf8',
+          stdio: 'pipe',
+        })
+      ).toThrow()
       expect(readFileSync(join(target, 'README.md'), 'utf8')).toBe('custom notes\n')
     } finally {
       rmSync(parent, { recursive: true, force: true })
@@ -359,7 +422,12 @@ describe('CLI scaffold (FOUND-02)', () => {
     try {
       mkdirSync(target, { recursive: true })
       writeFileSync(join(target, 'README.md'), 'existing notes\n')
-      expect(() => execFileSync('node', ['--import', tsxLoader, srcCli, 'init', target], { encoding: 'utf8', stdio: 'pipe' })).toThrow()
+      expect(() =>
+        execFileSync('node', ['--import', tsxLoader, srcCli, 'init', target], {
+          encoding: 'utf8',
+          stdio: 'pipe',
+        })
+      ).toThrow()
       expect(readFileSync(join(target, 'README.md'), 'utf8')).toBe('existing notes\n')
       expect(existsSync(join(target, '.chain-insights', 'workspace.json'))).toBe(false)
       expect(existsSync(join(target, 'templates'))).toBe(false)
@@ -376,8 +444,15 @@ describe('CLI scaffold (FOUND-02)', () => {
     try {
       mkdirSync(target, { recursive: true })
       writeFileSync(join(target, 'AGENTS.md'), '# Existing workspace instructions\n')
-      expect(() => execFileSync('node', ['--import', tsxLoader, srcCli, 'init', target], { encoding: 'utf8', stdio: 'pipe' })).toThrow()
-      expect(readFileSync(join(target, 'AGENTS.md'), 'utf8')).toBe('# Existing workspace instructions\n')
+      expect(() =>
+        execFileSync('node', ['--import', tsxLoader, srcCli, 'init', target], {
+          encoding: 'utf8',
+          stdio: 'pipe',
+        })
+      ).toThrow()
+      expect(readFileSync(join(target, 'AGENTS.md'), 'utf8')).toBe(
+        '# Existing workspace instructions\n'
+      )
       expect(existsSync(join(target, '.chain-insights', 'workspace.json'))).toBe(false)
       expect(existsSync(join(target, 'templates'))).toBe(false)
       expect(existsSync(join(target, '.obsidian', 'app.json'))).toBe(false)
@@ -431,13 +506,19 @@ describe('CLI scaffold (FOUND-02)', () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'chain-insights-home-'))
     const env = { ...process.env, HOME: fakeHome, CHAIN_INSIGHTS_WORKSPACE: '' }
     try {
-      expect(() => execFileSync(process.execPath, ['--import', tsxLoader, srcCli, 'serve', '--port', '14501'], {
-        cwd: parent,
-        encoding: 'utf8',
-        env,
-        stdio: 'pipe',
-        timeout: 2000,
-      })).toThrow(/No Chain Insights workspace found\. Run: cia init \./)
+      expect(() =>
+        execFileSync(
+          process.execPath,
+          ['--import', tsxLoader, srcCli, 'serve', '--port', '14501'],
+          {
+            cwd: parent,
+            encoding: 'utf8',
+            env,
+            stdio: 'pipe',
+            timeout: 2000,
+          }
+        )
+      ).toThrow(/No Chain Insights workspace found\. Run: cia init \./)
     } finally {
       rmSync(parent, { recursive: true, force: true })
       rmSync(fakeHome, { recursive: true, force: true })
@@ -451,37 +532,45 @@ describe('CLI scaffold (FOUND-02)', () => {
     const env = { ...process.env, HOME: fakeHome, CHAIN_INSIGHTS_WORKSPACE: '' }
     try {
       mkdirSync(target, { recursive: true })
-      expect(() => execFileSync(process.execPath, [
-        '--import',
-        tsxLoader,
-        srcCli,
-        'mcp',
-        'aml-trace-victim-funds',
-        '--victim-addresses',
-        '5GT',
-        '--network',
-        'bittensor',
-      ], {
-        cwd: target,
-        encoding: 'utf8',
-        env,
-        stdio: 'pipe',
-      })).toThrow()
+      expect(() =>
+        execFileSync(
+          process.execPath,
+          [
+            '--import',
+            tsxLoader,
+            srcCli,
+            'mcp',
+            'aml-trace-victim-funds',
+            '--victim-addresses',
+            '5GT',
+            '--network',
+            'bittensor',
+          ],
+          {
+            cwd: target,
+            encoding: 'utf8',
+            env,
+            stdio: 'pipe',
+          }
+        )
+      ).toThrow()
     } finally {
       rmSync(fakeHome, { recursive: true, force: true })
       rmSync(parent, { recursive: true, force: true })
     }
   })
 
-
   it('debug on/off/status configures graph MCP debug mode without exposing token', () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'chain-insights-home-'))
     const env = { ...process.env, HOME: fakeHome }
     try {
-      const on = execSync('node bin/cli.js debug on --token test-debug-token --endpoint http://localhost:8012/mcp', {
-        encoding: 'utf8',
-        env,
-      })
+      const on = execSync(
+        'node bin/cli.js debug on --token test-debug-token --endpoint http://localhost:8012/mcp',
+        {
+          encoding: 'utf8',
+          env,
+        }
+      )
       expect(on).toContain('Chain Insights Graph debug mode enabled')
       expect(on).not.toContain('test-debug-token')
       const status = execSync('node bin/cli.js debug status', { encoding: 'utf8', env })
@@ -502,10 +591,22 @@ describe('CLI scaffold (FOUND-02)', () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'chain-insights-home-'))
     const env = { ...process.env, HOME: fakeHome }
     try {
-      const result = spawnSync('node', ['bin/cli.js', 'debug', 'on', '--token', 'test-debug-token', '--endpoint', 'http://staging-mcp.chain-insights.ai/mcp'], {
-        encoding: 'utf8',
-        env,
-      })
+      const result = spawnSync(
+        'node',
+        [
+          'bin/cli.js',
+          'debug',
+          'on',
+          '--token',
+          'test-debug-token',
+          '--endpoint',
+          'http://staging-mcp.chain-insights.ai/mcp',
+        ],
+        {
+          encoding: 'utf8',
+          env,
+        }
+      )
       expect(result.status).toBe(1)
       expect(result.stderr).toContain('graphMcpEndpoint must use https:// for remote hosts')
     } finally {
@@ -517,10 +618,13 @@ describe('CLI scaffold (FOUND-02)', () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'chain-insights-home-'))
     const env = { ...process.env, HOME: fakeHome }
     try {
-      const set = execSync('node bin/cli.js access-key set ci_test_secret_123456789012345678 --endpoint https://staging-mcp.chain-insights.ai/mcp', {
-        encoding: 'utf8',
-        env,
-      })
+      const set = execSync(
+        'node bin/cli.js access-key set ci_test_secret_123456789012345678 --endpoint https://staging-mcp.chain-insights.ai/mcp',
+        {
+          encoding: 'utf8',
+          env,
+        }
+      )
       expect(set).toContain('Chain Insights Graph test access key configured')
       expect(set).toContain('Graph endpoint: https://staging-mcp.chain-insights.ai/mcp')
       expect(set).not.toContain('ci_test_secret')

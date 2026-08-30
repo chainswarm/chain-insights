@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { recountBillableUnits } from '../src/lib/recount-units'
 
-const node = (id: string) => ({ id: `n:${id}`, labels: ['Address'], properties: { address: '0xabc' } })
-const edge = (id: string) => ({ id: `r:${id}`, type: 'FLOWS_TO', start: 'n:1', end: 'n:2', properties: {} })
+const node = (id: string) => ({
+  id: `n:${id}`,
+  labels: ['Address'],
+  properties: { address: '0xabc' },
+})
+const edge = (id: string) => ({
+  id: `r:${id}`,
+  type: 'FLOWS_TO',
+  start: 'n:1',
+  end: 'n:2',
+  properties: {},
+})
 
 describe('recountBillableUnits', () => {
   it('mirrors the server walker: rows + nodes + edges, containers walked, no dedup', () => {
@@ -31,6 +41,11 @@ describe('recountBillableUnits', () => {
 
   it('never recognizes the row wrapper itself as a node/edge/path (server RowUnits walks row VALUES, not the row)', () => {
     const rowShapedLikeNode = node('1')
-    expect(recountBillableUnits([rowShapedLikeNode])).toEqual({ rows: 1, nodes: 0, edges: 0, total: 1 })
+    expect(recountBillableUnits([rowShapedLikeNode])).toEqual({
+      rows: 1,
+      nodes: 0,
+      edges: 0,
+      total: 1,
+    })
   })
 })

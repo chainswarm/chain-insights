@@ -66,7 +66,9 @@ function normalizeChainInsightsResult(value: unknown): ChainInsightsResult {
   }
 }
 
-export async function callGraphQueryBatch(input: CallGraphQueryBatchInput): Promise<ChainInsightsResult> {
+export async function callGraphQueryBatch(
+  input: CallGraphQueryBatchInput
+): Promise<ChainInsightsResult> {
   const network = input.network.trim()
   if (!network) {
     throw new Error('network is required')

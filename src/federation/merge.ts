@@ -46,10 +46,16 @@ function numeric(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
-function isEdgeObject(value: unknown): value is { type: string; properties: Record<string, unknown> } {
+function isEdgeObject(
+  value: unknown
+): value is { type: string; properties: Record<string, unknown> } {
   if (typeof value !== 'object' || value === null) return false
   const candidate = value as Record<string, unknown>
-  return typeof candidate.type === 'string' && typeof candidate.properties === 'object' && candidate.properties !== null
+  return (
+    typeof candidate.type === 'string' &&
+    typeof candidate.properties === 'object' &&
+    candidate.properties !== null
+  )
 }
 
 /** Identity of a row for dedup/merge purposes. Edge rows key on the edge's
@@ -247,7 +253,8 @@ export function mergeShardRows(rows: ShardRow[], opts: MergeOptions = {}): Merge
           .map((g) => g[field])
           .filter(isEdgeObject)
           .map((edge) => edge.properties)
-        ;(copy[field] as { properties: Record<string, unknown> }).properties = combineEdge(constituents)
+        ;(copy[field] as { properties: Record<string, unknown> }).properties =
+          combineEdge(constituents)
       }
     }
     byKey.set(key, copy)

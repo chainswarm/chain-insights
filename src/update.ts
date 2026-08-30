@@ -50,14 +50,17 @@ export function resolveUpdateRegistryUrl(env: NodeJS.ProcessEnv = process.env): 
   return env['CHAIN_INSIGHTS_NPM_REGISTRY_URL']?.trim() || DEFAULT_REGISTRY_URL
 }
 
-export function buildPackageLatestUrl(packageName: string, registryUrl = DEFAULT_REGISTRY_URL): string {
+export function buildPackageLatestUrl(
+  packageName: string,
+  registryUrl = DEFAULT_REGISTRY_URL
+): string {
   const base = registryUrl.endsWith('/') ? registryUrl.slice(0, -1) : registryUrl
   return `${base}/${encodeURIComponent(packageName)}/latest`
 }
 
 export function resolveNpmUpdateInvocation(
   packageName = PACKAGE_INFO.name,
-  env: NodeJS.ProcessEnv = process.env,
+  env: NodeJS.ProcessEnv = process.env
 ): NpmInvocation {
   const packageSpec = `${packageName}@latest`
   const displayCommand = `npm install -g ${packageSpec}`
@@ -94,7 +97,7 @@ export async function fetchLatestPackageVersion(options: UpdateCheckOptions = {}
     if (!response.ok) {
       throw new Error(`npmjs registry returned ${response.status}`)
     }
-    const body = await response.json() as { version?: unknown }
+    const body = (await response.json()) as { version?: unknown }
     if (typeof body.version !== 'string' || !body.version.trim()) {
       throw new Error('npmjs registry response did not include a version')
     }
@@ -135,7 +138,9 @@ export function runPackageUpdate(packageName = PACKAGE_INFO.name): void {
     throw result.error
   }
   if (result.status !== 0) {
-    const detail = result.signal ? `signal ${result.signal}` : `exit code ${result.status ?? 'unknown'}`
+    const detail = result.signal
+      ? `signal ${result.signal}`
+      : `exit code ${result.status ?? 'unknown'}`
     throw new Error(`Update failed with ${detail}`)
   }
 }
@@ -156,7 +161,9 @@ export async function maybePromptForUpdate(options: UpdatePromptOptions = {}): P
   if (check.error || !check.updateAvailable || !check.latestVersion) return
 
   const output = options.output ?? stdout
-  output.write(`\nChain Insights ${check.latestVersion} is available (current ${check.currentVersion}).\n`)
+  output.write(
+    `\nChain Insights ${check.latestVersion} is available (current ${check.currentVersion}).\n`
+  )
   output.write(`Update command: ${check.updateCommand}\n`)
 
   const rl = createInterface({

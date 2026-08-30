@@ -17,15 +17,22 @@ program
   .version(PACKAGE_INFO.version)
   .option('--claude', 'Install Claude Code skills globally to ~/.claude/skills/')
   .option('--codex', 'Install Codex skills globally to ~/.codex/skills/ and register MCP')
-  .option('--hermes', 'Install Hermes skills globally to ~/.hermes/skills/chain-insights/ and register MCP')
+  .option(
+    '--hermes',
+    'Install Hermes skills globally to ~/.hermes/skills/chain-insights/ and register MCP'
+  )
 
 // Handle installer flags when invoked with no subcommand (bare `chain-insights --claude`)
 const rawArgs = process.argv.slice(2)
-const installerFlags = rawArgs.filter(a => a === '--claude' || a === '--codex' || a === '--hermes')
+const installerFlags = rawArgs.filter(
+  (a) => a === '--claude' || a === '--codex' || a === '--hermes'
+)
 // A help/version request must never trigger a global install side effect — let
 // commander handle it and print help/version instead.
-const wantsHelpOrVersion = rawArgs.some(a => a === '--help' || a === '-h' || a === '--version' || a === '-V')
-if (installerFlags.length > 0 && !wantsHelpOrVersion && !rawArgs.some(a => !a.startsWith('-'))) {
+const wantsHelpOrVersion = rawArgs.some(
+  (a) => a === '--help' || a === '-h' || a === '--version' || a === '-V'
+)
+if (installerFlags.length > 0 && !wantsHelpOrVersion && !rawArgs.some((a) => !a.startsWith('-'))) {
   try {
     execFileSync(process.execPath, [installerPath, ...installerFlags], { stdio: 'inherit' })
   } catch (err) {
@@ -67,15 +74,26 @@ function optionalNumberArg(value: unknown, name: string): number | undefined {
   throw new Error(`Invalid number for ${name}: ${String(value)}`)
 }
 
-async function withGraphMcpClient<T>(name: string, fn: (client: import('@modelcontextprotocol/sdk/client/index.js').Client, config: Awaited<ReturnType<typeof import('./config/index.js').loadConfig>>) => Promise<T>): Promise<T> {
+async function withGraphMcpClient<T>(
+  name: string,
+  fn: (
+    client: import('@modelcontextprotocol/sdk/client/index.js').Client,
+    config: Awaited<ReturnType<typeof import('./config/index.js').loadConfig>>
+  ) => Promise<T>
+): Promise<T> {
   const { loadConfig } = await import('./config/index.js')
   const config = await loadConfig()
   const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import('./mcp/client.js')
   const paymentFetch = await createConfiguredGraphMcpFetch(config)
   const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
-  const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
+  const { StreamableHTTPClientTransport } =
+    await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
   const client = new Client({ name, version: PACKAGE_VERSION })
-  await client.connect(new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), { fetch: paymentFetch }))
+  await client.connect(
+    new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), {
+      fetch: paymentFetch,
+    })
+  )
   // Every CLI command builds its own client, separate from the MCP proxy's
   // one, so unattended scheduled CLI runs also write to the action log.
   const { installActionLogging } = await import('./mcp/action-log.js')
@@ -89,7 +107,8 @@ async function withGraphMcpClient<T>(name: string, fn: (client: import('@modelco
 
 async function printNetworkCapabilities(opts: { json?: boolean }): Promise<void> {
   const { loadConfig } = await import('./config/index.js')
-  const { fetchNetworkCapabilities, formatNetworkCapabilities } = await import('./mcp/capabilities.js')
+  const { fetchNetworkCapabilities, formatNetworkCapabilities } =
+    await import('./mcp/capabilities.js')
   const document = await fetchNetworkCapabilities(await loadConfig())
   if (opts.json) {
     console.log(JSON.stringify(document, null, 2))
@@ -141,9 +160,10 @@ program
     const { findActiveWorkspace, activeDataDir } = await import('./workspace/active.js')
     const config = await loadConfig()
     const workspace = findActiveWorkspace()
-    const graphMcpStatus = config.graphMcpMode === 'debug' && config.graphMcpAuthToken?.trim()
-      ? 'bearer access mode'
-      : `${config.graphMcpMode} mode`
+    const graphMcpStatus =
+      config.graphMcpMode === 'debug' && config.graphMcpAuthToken?.trim()
+        ? 'bearer access mode'
+        : `${config.graphMcpMode} mode`
     console.log('Config: ', activeDataDir(config.dataDir))
     if (workspace) console.log('Workspace:', workspace.root)
     console.log('Server: ', `http://127.0.0.1:${config.serverPort}`)
@@ -168,7 +188,9 @@ program
         return
       }
 
-      console.log(`Chain Insights ${result.latestVersion} is available (current ${result.currentVersion}).`)
+      console.log(
+        `Chain Insights ${result.latestVersion} is available (current ${result.currentVersion}).`
+      )
       if (opts.check) {
         console.log(`Run: ${result.updateCommand}`)
         return
@@ -235,7 +257,9 @@ program
           const config = await loadConfig()
           console.log(`Chain Insights Graph mode: ${config.graphMcpMode}`)
           console.log(`Graph endpoint: ${config.graphMcpEndpoint}`)
-          console.log(`Debug token:    ${config.graphMcpAuthToken?.trim() ? 'configured' : 'not configured'}`)
+          console.log(
+            `Debug token:    ${config.graphMcpAuthToken?.trim() ? 'configured' : 'not configured'}`
+          )
           console.log(`Payments:       ${config.graphMcpMode === 'debug' ? 'disabled' : 'enabled'}`)
         } catch (err) {
           console.error((err as Error).message)
@@ -294,8 +318,12 @@ program
           const { loadConfig } = await import('./config/index.js')
           const config = await loadConfig()
           console.log(`Graph endpoint: ${config.graphMcpEndpoint}`)
-          console.log(`Access key:     ${config.graphMcpAuthToken?.trim() ? 'configured' : 'not configured'}`)
-          console.log(`Payments:       ${config.graphMcpAuthToken?.trim() ? 'disabled when accepted by server' : 'enabled'}`)
+          console.log(
+            `Access key:     ${config.graphMcpAuthToken?.trim() ? 'configured' : 'not configured'}`
+          )
+          console.log(
+            `Payments:       ${config.graphMcpAuthToken?.trim() ? 'disabled when accepted by server' : 'enabled'}`
+          )
         } catch (err) {
           console.error((err as Error).message)
           process.exit(1)
@@ -352,19 +380,17 @@ program
   .command('config')
   .description('Read or write configuration values')
   .addCommand(
-    new Command('get')
-      .argument('<key>', 'Config key to read')
-      .action(async (key: string) => {
-        const { loadConfig } = await import('./config/index.js')
-        const { CONFIG_KEYS } = await import('./config/schema.js')
-        if (!CONFIG_KEYS.includes(key as typeof CONFIG_KEYS[number])) {
-          console.error(`Unknown config key: ${key}`)
-          process.exit(1)
-        }
-        const config = await loadConfig()
-        const value = (config as Record<string, unknown>)[key]
-        console.log(value ?? '')
-      })
+    new Command('get').argument('<key>', 'Config key to read').action(async (key: string) => {
+      const { loadConfig } = await import('./config/index.js')
+      const { CONFIG_KEYS } = await import('./config/schema.js')
+      if (!CONFIG_KEYS.includes(key as (typeof CONFIG_KEYS)[number])) {
+        console.error(`Unknown config key: ${key}`)
+        process.exit(1)
+      }
+      const config = await loadConfig()
+      const value = (config as Record<string, unknown>)[key]
+      console.log(value ?? '')
+    })
   )
   .addCommand(
     new Command('set')
@@ -388,13 +414,14 @@ program
         const { loadConfig, saveConfig } = await import('./config/index.js')
         const { CONFIG_KEYS, DEFAULT_CONFIG } = await import('./config/schema.js')
         const current = await loadConfig()
-        if (!CONFIG_KEYS.includes(key as typeof CONFIG_KEYS[number])) {
+        if (!CONFIG_KEYS.includes(key as (typeof CONFIG_KEYS)[number])) {
           console.error(`Unknown config key: ${key}`)
           process.exit(1)
         }
         const existing = (current as Record<string, unknown>)[key]
         const defaultValue = (DEFAULT_CONFIG as Record<string, unknown>)[key]
-        const coerced = typeof existing === 'number' || typeof defaultValue === 'number' ? Number(value) : value
+        const coerced =
+          typeof existing === 'number' || typeof defaultValue === 'number' ? Number(value) : value
         await saveConfig({ [key]: coerced } as Parameters<typeof saveConfig>[0])
         const displayed = key.toLowerCase().includes('token') ? '[redacted]' : coerced
         console.log(`Set ${key} = ${displayed}`)
@@ -408,11 +435,14 @@ program
     new Command('import')
       .description('Import a Base payment wallet')
       .argument('<private-key>', '0x-prefixed EVM private key')
-      .option('--force', 'Replace an existing wallet (the previous key is backed up next to wallet.json)')
+      .option(
+        '--force',
+        'Replace an existing wallet (the previous key is backed up next to wallet.json)'
+      )
       .action(async (privateKey: string, opts: { force?: boolean }) => {
         try {
           const { setWalletPrivateKey, isWalletConfigured } = await import('./wallet/index.js')
-          const replacing = opts.force === true && await isWalletConfigured()
+          const replacing = opts.force === true && (await isWalletConfigured())
           const address = await setWalletPrivateKey(privateKey, { force: opts.force })
           if (replacing) {
             console.log('Previous wallet key backed up next to ~/.chain-insights/wallet.json')
@@ -458,30 +488,47 @@ program
       .option('--check-only', 'Only check readiness; do not submit the one-time payment setup')
       .addOption(new Option('--no-approve', 'Deprecated alias for --check-only').hideHelp())
       .option('--payment-usdc <amount>', 'USDC setup cap to prepare for paid calls', '1')
-      .addOption(new Option('--approval-usdc <amount>', 'Deprecated alias for --payment-usdc').hideHelp())
+      .addOption(
+        new Option('--approval-usdc <amount>', 'Deprecated alias for --payment-usdc').hideHelp()
+      )
       .option('--json', 'Print machine-readable readiness metadata')
-      .action(async (opts: { checkOnly?: boolean; approve?: boolean; paymentUsdc?: string; approvalUsdc?: string; json?: boolean }) => {
-        try {
-          const { formatWalletReadiness, parsePaymentApprovalUnits, prepareWalletForPaidCalls } = await import('./wallet/tools.js')
-          const minimumApprovalUnits = parsePaymentApprovalUnits(opts.paymentUsdc ?? opts.approvalUsdc ?? '1')
-          const result = await prepareWalletForPaidCalls({
-            minimumApprovalUnits,
-            approve: opts.checkOnly ? false : opts.approve !== false,
-          })
+      .action(
+        async (opts: {
+          checkOnly?: boolean
+          approve?: boolean
+          paymentUsdc?: string
+          approvalUsdc?: string
+          json?: boolean
+        }) => {
+          try {
+            const { formatWalletReadiness, parsePaymentApprovalUnits, prepareWalletForPaidCalls } =
+              await import('./wallet/tools.js')
+            const minimumApprovalUnits = parsePaymentApprovalUnits(
+              opts.paymentUsdc ?? opts.approvalUsdc ?? '1'
+            )
+            const result = await prepareWalletForPaidCalls({
+              minimumApprovalUnits,
+              approve: opts.checkOnly ? false : opts.approve !== false,
+            })
 
-          if (opts.json) {
-            console.log(JSON.stringify(result, (_key, value) => (
-              typeof value === 'bigint' ? value.toString() : value
-            ), 2))
-            return
+            if (opts.json) {
+              console.log(
+                JSON.stringify(
+                  result,
+                  (_key, value) => (typeof value === 'bigint' ? value.toString() : value),
+                  2
+                )
+              )
+              return
+            }
+
+            console.log(formatWalletReadiness(result.readiness, result.approval))
+          } catch (err) {
+            console.error((err as Error).message)
+            process.exit(1)
           }
-
-          console.log(formatWalletReadiness(result.readiness, result.approval))
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
         }
-      })
+      )
   )
   .addCommand(
     new Command('topup')
@@ -523,7 +570,9 @@ program
   .allowExcessArguments(false)
   .addCommand(
     new Command('networks')
-      .description('List supported graph networks, capability layers, dataset coverage, and available tools')
+      .description(
+        'List supported graph networks, capability layers, dataset coverage, and available tools'
+      )
       .option('--json', 'Print raw capability JSON')
       .action(async (opts: { json?: boolean }) => {
         try {
@@ -544,16 +593,20 @@ program
           const { formatToolsTable } = await import('./mcp/format.js')
           const { visibleRemoteTools } = await import('./mcp/tool-visibility.js')
           const { loadConfig } = await import('./config/index.js')
-          const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import('./mcp/client.js')
+          const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } =
+            await import('./mcp/client.js')
           const config = await loadConfig()
           const graphMcpEndpoint = resolveGraphMcpEndpoint(config)
           let tools = opts.refresh ? null : await loadSchema(graphMcpEndpoint)
           if (!tools) {
             const paymentFetch = await createConfiguredGraphMcpFetch(config)
             const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
-            const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
+            const { StreamableHTTPClientTransport } =
+              await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
             const client = new Client({ name: 'chain-insights-cli', version: PACKAGE_VERSION })
-            await client.connect(new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: paymentFetch }))
+            await client.connect(
+              new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: paymentFetch })
+            )
             try {
               const result = await client.listTools()
               tools = result.tools as Array<{ name: string; description?: string }>
@@ -571,10 +624,18 @@ program
   )
   .addCommand(
     new Command('aml-address-risk')
-      .description('Screen an address for AML risk, exchange behavior, and optional comparison with another address')
+      .description(
+        'Screen an address for AML risk, exchange behavior, and optional comparison with another address'
+      )
       .requiredOption('--address <address>', 'Full blockchain address to screen')
-      .requiredOption('--network <network>', 'Network to query. Run `cia mcp networks` for supported networks.')
-      .option('--compare-address <address>', 'Optional second address to compare against the screened address')
+      .requiredOption(
+        '--network <network>',
+        'Network to query. Run `cia mcp networks` for supported networks.'
+      )
+      .option(
+        '--compare-address <address>',
+        'Optional second address to compare against the screened address'
+      )
       .action(async (opts: { address: string; network: string; compareAddress?: string }) => {
         try {
           await withGraphMcpClient('chain-insights-cli-aml-address-risk', async (client) => {
@@ -600,7 +661,8 @@ program
       .action(async (tool: string, rawArgs: string[]) => {
         try {
           const { parseMcpCallArgs } = await import('./mcp/call-args.js')
-          const { assertPublicMcpToolName, validatePublicMcpToolArguments } = await import('./mcp/tool-visibility.js')
+          const { assertPublicMcpToolName, validatePublicMcpToolArguments } =
+            await import('./mcp/tool-visibility.js')
           const args = parseMcpCallArgs(rawArgs)
           assertPublicMcpToolName(tool)
           validatePublicMcpToolArguments(tool, args)
@@ -617,7 +679,9 @@ program
           }
 
           if (tool === 'meta_help') {
-            console.log('Chain Insights tools: aml_*, graph_query, graph_query_batch, meta_*, and wallet_balance.')
+            console.log(
+              'Chain Insights tools: aml_*, graph_query, graph_query_batch, meta_*, and wallet_balance.'
+            )
             return
           }
 
@@ -627,10 +691,16 @@ program
                 const result = await client.callTool({ name: 'usage_status', arguments: {} })
                 printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
               } catch (err) {
-                const { isMissingUsageStatusToolError, primitiveBackendUsageStatus, usageStatusText } = await import('./mcp/usage-status.js')
+                const {
+                  isMissingUsageStatusToolError,
+                  primitiveBackendUsageStatus,
+                  usageStatusText,
+                } = await import('./mcp/usage-status.js')
                 if (!isMissingUsageStatusToolError(err)) throw err
                 const { resolveGraphMcpEndpoint } = await import('./mcp/client.js')
-                console.log(usageStatusText(primitiveBackendUsageStatus(resolveGraphMcpEndpoint(config))))
+                console.log(
+                  usageStatusText(primitiveBackendUsageStatus(resolveGraphMcpEndpoint(config)))
+                )
               }
               return
             }
@@ -639,7 +709,10 @@ program
               const result = await addressRisk(client, {
                 address: String(args['address'] ?? ''),
                 network: String(args['network'] ?? ''),
-                compareAddress: args['compare_address'] === undefined ? undefined : String(args['compare_address']),
+                compareAddress:
+                  args['compare_address'] === undefined
+                    ? undefined
+                    : String(args['compare_address']),
               })
               console.log(result.summaryText)
               return
@@ -653,8 +726,6 @@ program
         }
       })
   )
-
-
 
 program
   .command('viz')

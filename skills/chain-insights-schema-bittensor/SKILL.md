@@ -25,25 +25,25 @@ Load `chain-insights-cypher` for Memgraph dialect rules.
 
 ## Topology labels
 
-| Label | What it is |
-| --- | --- |
-| `Address` | One chain address. SS58 or H160. |
-| `Neuron` | Hotkey on a subnet. Also labeled `:Miner` or `:Validator`. |
-| `Subnet` | One netuid. |
+| Label     | What it is                                                 |
+| --------- | ---------------------------------------------------------- |
+| `Address` | One chain address. SS58 or H160.                           |
+| `Neuron`  | Hotkey on a subnet. Also labeled `:Miner` or `:Validator`. |
+| `Subnet`  | One netuid.                                                |
 
 Validator and miner roles come from chain evidence, not registry labels.
 
 ## Topology relationships
 
-| Relationship | Shape | Meaning |
-| --- | --- | --- |
-| `FLOWS_TO` | `(:Address)-[:FLOWS_TO]->(:Address)` | Lifetime TAO / USD flow. |
-| `LINKED` | `(:Address)-[:LINKED]-(:Address)` | Same-actor overlay. Topology only. |
-| `MINES` | `(:Neuron)-[:MINES]->(:Subnet)` | Miner role. |
-| `VALIDATES` | `(:Neuron)-[:VALIDATES]->(:Subnet)` | Validator role. |
-| `HOTKEY_OF` | `(:Address)-[:HOTKEY_OF]->(:Neuron)` | Address is the hotkey. |
-| `COLDKEY_OF` | `(:Address)-[:COLDKEY_OF]->(:Neuron)` | Address is the coldkey. |
-| `OWNS` | `(:Address)-[:OWNS]->(:Subnet)` | Subnet owner. |
+| Relationship | Shape                                 | Meaning                            |
+| ------------ | ------------------------------------- | ---------------------------------- |
+| `FLOWS_TO`   | `(:Address)-[:FLOWS_TO]->(:Address)`  | Lifetime TAO / USD flow.           |
+| `LINKED`     | `(:Address)-[:LINKED]-(:Address)`     | Same-actor overlay. Topology only. |
+| `MINES`      | `(:Neuron)-[:MINES]->(:Subnet)`       | Miner role.                        |
+| `VALIDATES`  | `(:Neuron)-[:VALIDATES]->(:Subnet)`   | Validator role.                    |
+| `HOTKEY_OF`  | `(:Address)-[:HOTKEY_OF]->(:Neuron)`  | Address is the hotkey.             |
+| `COLDKEY_OF` | `(:Address)-[:COLDKEY_OF]->(:Neuron)` | Address is the coldkey.            |
+| `OWNS`       | `(:Address)-[:OWNS]->(:Subnet)`       | Subnet owner.                      |
 
 `LINKED` is not a facts edge.
 
@@ -51,24 +51,24 @@ Validator and miner roles come from chain evidence, not registry labels.
 
 Same lifetime metrics as other address-grain graphs, plus:
 
-| Property | Notes |
-| --- | --- |
-| `address` | Raw SS58 or H160. Keep the returned form. |
-| `network` | `bittensor` or `bittensor_evm`. |
-| `labels` / `label_risk` | Labels and per-label risk on the node. |
-| `is_exchange` | Exchange terminal when set. |
-| `risk_score` / `risk_level` | Node verdict. |
-| `chain_name` / `chain_url` / `chain_github` / `chain_discord` | On-chain name fields. |
-| `tx_in_count` / `tx_out_count` | Lifetime counts. |
+| Property                                                      | Notes                                     |
+| ------------------------------------------------------------- | ----------------------------------------- |
+| `address`                                                     | Raw SS58 or H160. Keep the returned form. |
+| `network`                                                     | `bittensor` or `bittensor_evm`.           |
+| `labels` / `label_risk`                                       | Labels and per-label risk on the node.    |
+| `is_exchange`                                                 | Exchange terminal when set.               |
+| `risk_score` / `risk_level`                                   | Node verdict.                             |
+| `chain_name` / `chain_url` / `chain_github` / `chain_discord` | On-chain name fields.                     |
+| `tx_in_count` / `tx_out_count`                                | Lifetime counts.                          |
 
 Address-to-neuron links are `HOTKEY_OF` and `COLDKEY_OF` only. Risk lives
 on the address node, not on a satellite edge.
 
 ## Neuron and subnet properties
 
-| Label | Properties |
-| --- | --- |
-| `Neuron` | `hotkey`, `netuid`. IP / axon-port observation lives here. |
+| Label    | Properties                                                                                     |
+| -------- | ---------------------------------------------------------------------------------------------- |
+| `Neuron` | `hotkey`, `netuid`. IP / axon-port observation lives here.                                     |
 | `Subnet` | `netuid`, `name`, `github_repo`, `url`, `discord`, `contact`, `owner_coldkey`, `owner_hotkey`. |
 
 ## FLOWS_TO and LINKED properties

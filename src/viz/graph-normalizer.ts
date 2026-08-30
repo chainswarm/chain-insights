@@ -1,4 +1,12 @@
-const GRAPH_TYPE_LABELS = new Set(['Address', 'Exchange', 'Miner', 'Validator', 'Hotkey', 'Subnet', 'IPAddress'])
+const GRAPH_TYPE_LABELS = new Set([
+  'Address',
+  'Exchange',
+  'Miner',
+  'Validator',
+  'Hotkey',
+  'Subnet',
+  'IPAddress',
+])
 const FLOW_EDGE_TYPES = new Set(['flows_to', 'transfer', 'transfer_to', 'transfers_to'])
 
 type GraphRecord = Record<string, unknown>
@@ -57,7 +65,10 @@ function normalizeRoles(node: GraphRecord): string[] {
   else if (role) roles.push(role)
 
   const display = stringArray(node['labels']).map(lowerSnake)
-  if (systemLabels(node).some((label) => lowerSnake(label) === 'exchange') || display.includes('exchange')) {
+  if (
+    systemLabels(node).some((label) => lowerSnake(label) === 'exchange') ||
+    display.includes('exchange')
+  ) {
     roles.push('exchange')
   }
 
@@ -99,7 +110,12 @@ function normalizeNode(node: unknown): GraphRecord {
     normalized[key] = value
   }
 
-  const id = typeof node['id'] === 'string' ? node['id'] : typeof node['address'] === 'string' ? node['address'] : undefined
+  const id =
+    typeof node['id'] === 'string'
+      ? node['id']
+      : typeof node['address'] === 'string'
+        ? node['address']
+        : undefined
   if (id) normalized['id'] = id
 
   const address = typeof node['address'] === 'string' ? node['address'] : id
@@ -114,7 +130,11 @@ function normalizeNode(node: unknown): GraphRecord {
   const roles = normalizeRoles(node)
   if (roles.length > 0) normalized['roles'] = roles
 
-  if (!Array.isArray(node['flags']) && Array.isArray(node['pattern_flags']) && node['pattern_flags'].length > 0) {
+  if (
+    !Array.isArray(node['flags']) &&
+    Array.isArray(node['pattern_flags']) &&
+    node['pattern_flags'].length > 0
+  ) {
     normalized['flags'] = node['pattern_flags'].map(String)
   }
 
@@ -139,7 +159,8 @@ function normalizeEdge(edge: unknown): GraphRecord {
 
   const normalized: GraphRecord = {}
   for (const [key, value] of Object.entries(edge)) {
-    if (['edge_type', 'from_address', 'relationship_type', 'to_address', 'type'].includes(key)) continue
+    if (['edge_type', 'from_address', 'relationship_type', 'to_address', 'type'].includes(key))
+      continue
     normalized[key] = value
   }
 

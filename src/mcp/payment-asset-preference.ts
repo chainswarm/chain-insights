@@ -40,7 +40,7 @@ export const KNOWN_PAYMENT_ASSET_SYMBOLS: Record<string, string> = {
 export function orderPaymentOptions(
   accepts: PaymentOptionLike[],
   preference: string,
-  assetSymbols: Record<string, string>,
+  assetSymbols: Record<string, string>
 ): PaymentOptionLike[] {
   const preferenceList = preference
     .split(',')
@@ -52,7 +52,9 @@ export function orderPaymentOptions(
   const rankOf = (option: PaymentOptionLike): number => {
     const addressLower = option.asset.toLowerCase()
     const symbolLower = assetSymbols[addressLower]?.toLowerCase()
-    const rank = preferenceList.findIndex((entry) => entry === symbolLower || entry === addressLower)
+    const rank = preferenceList.findIndex(
+      (entry) => entry === symbolLower || entry === addressLower
+    )
     return rank === -1 ? preferenceList.length : rank
   }
 

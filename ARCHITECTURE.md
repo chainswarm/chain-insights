@@ -29,16 +29,16 @@
 
 One doc per source module under `components/`. Human-authored.
 
-| Worker | Component doc |
-|---|---|
-| `config` | [config](docs/architecture/components/config.md) |
-| `federation` | [federation](docs/architecture/components/federation.md) |
+| Worker          | Component doc                                                  |
+| --------------- | -------------------------------------------------------------- |
+| `config`        | [config](docs/architecture/components/config.md)               |
+| `federation`    | [federation](docs/architecture/components/federation.md)       |
 | `investigation` | [investigation](docs/architecture/components/investigation.md) |
-| `mcp` | [mcp](docs/architecture/components/mcp.md) |
-| `monitor` | [monitor](docs/architecture/components/monitor.md) |
-| `server` | [server](docs/architecture/components/server.md) |
-| `viz` | [viz](docs/architecture/components/viz.md) |
-| `wallet` | [wallet](docs/architecture/components/wallet.md) |
+| `mcp`           | [mcp](docs/architecture/components/mcp.md)                     |
+| `monitor`       | [monitor](docs/architecture/components/monitor.md)             |
+| `server`        | [server](docs/architecture/components/server.md)               |
+| `viz`           | [viz](docs/architecture/components/viz.md)                     |
+| `wallet`        | [wallet](docs/architecture/components/wallet.md)               |
 
 ## C4 Diagrams
 
@@ -71,6 +71,5 @@ See [context/overview.md](docs/architecture/context/overview.md) for context.
 - `npm test`
 
 - `npm run build`
-
 
 > GitHub **Architecture** tab index. Canonical depth lives under `docs/architecture/`.

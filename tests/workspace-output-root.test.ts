@@ -29,7 +29,7 @@ describe('workspace output root', () => {
       JSON.stringify({
         schema: 'chain-insights.workspace.v1',
         workspace_root: root,
-      }) + '\n',
+      }) + '\n'
     )
   }
 
@@ -39,7 +39,7 @@ describe('workspace output root', () => {
     const { requireWorkspaceRoot } = await import('../src/workspace/output-root.js')
 
     expect(() => requireWorkspaceRoot(dir)).toThrow(
-      'No Chain Insights workspace found. Run: cia init .',
+      'No Chain Insights workspace found. Run: cia init .'
     )
   })
 

@@ -74,24 +74,30 @@ describe('Config system (FOUND-05)', () => {
   it('saveConfig rejects remote http graphMcpEndpoint values with deterministic validation text', async () => {
     const { saveConfig, resetConfigCache } = await import('../src/config/index.js')
     await resetConfigCache()
-    await expect(saveConfig({ graphMcpEndpoint: 'http://staging-mcp.chain-insights.ai/mcp' }))
-      .rejects
-      .toThrow('graphMcpEndpoint must use https:// for remote hosts')
+    await expect(
+      saveConfig({ graphMcpEndpoint: 'http://staging-mcp.chain-insights.ai/mcp' })
+    ).rejects.toThrow('graphMcpEndpoint must use https:// for remote hosts')
   })
 
   it('loadConfig rejects malformed endpoint values instead of silently falling back to defaults', async () => {
     const configPath = join(fakeHome, '.chain-insights', 'config.json')
-    await writeFile(configPath, JSON.stringify({ graphMcpEndpoint: 'http://example.com/mcp' }), { mode: 0o600 })
+    await writeFile(configPath, JSON.stringify({ graphMcpEndpoint: 'http://example.com/mcp' }), {
+      mode: 0o600,
+    })
     const { loadConfig, resetConfigCache } = await import('../src/config/index.js')
     await resetConfigCache()
     await expect(loadConfig()).rejects.toThrow(
-      `Invalid configuration in ${configPath}: graphMcpEndpoint must use https:// for remote hosts`,
+      `Invalid configuration in ${configPath}: graphMcpEndpoint must use https:// for remote hosts`
     )
   })
 
   it('allows Kubernetes service DNS http graphMcpEndpoint values for in-cluster proxy use', async () => {
     const configPath = join(fakeHome, '.chain-insights', 'config.json')
-    await writeFile(configPath, JSON.stringify({ graphMcpEndpoint: CLUSTER_LOCAL_GRAPH_MCP_ENDPOINT }), { mode: 0o600 })
+    await writeFile(
+      configPath,
+      JSON.stringify({ graphMcpEndpoint: CLUSTER_LOCAL_GRAPH_MCP_ENDPOINT }),
+      { mode: 0o600 }
+    )
     const { loadConfig, resetConfigCache } = await import('../src/config/index.js')
     await resetConfigCache()
     const config = await loadConfig()
@@ -100,7 +106,9 @@ describe('Config system (FOUND-05)', () => {
 
   it('CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT overrides saved graphMcpEndpoint', async () => {
     const configPath = join(fakeHome, '.chain-insights', 'config.json')
-    await writeFile(configPath, JSON.stringify({ graphMcpEndpoint: 'http://127.0.0.1:8012/mcp' }), { mode: 0o600 })
+    await writeFile(configPath, JSON.stringify({ graphMcpEndpoint: 'http://127.0.0.1:8012/mcp' }), {
+      mode: 0o600,
+    })
     process.env['CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT'] = 'https://prod-mcp.example.com/mcp'
     const { loadConfig, resetConfigCache } = await import('../src/config/index.js')
     await resetConfigCache()
@@ -110,7 +118,9 @@ describe('Config system (FOUND-05)', () => {
 
   it('GRAPH_MCP_ENDPOINT legacy env var overrides saved graphMcpEndpoint', async () => {
     const configPath = join(fakeHome, '.chain-insights', 'config.json')
-    await writeFile(configPath, JSON.stringify({ graphMcpEndpoint: 'http://127.0.0.1:8012/mcp' }), { mode: 0o600 })
+    await writeFile(configPath, JSON.stringify({ graphMcpEndpoint: 'http://127.0.0.1:8012/mcp' }), {
+      mode: 0o600,
+    })
     process.env['GRAPH_MCP_ENDPOINT'] = 'https://legacy-mcp.example.com/mcp'
     const { loadConfig, resetConfigCache } = await import('../src/config/index.js')
     await resetConfigCache()
@@ -123,7 +133,7 @@ describe('Config system (FOUND-05)', () => {
     const { loadConfig, resetConfigCache } = await import('../src/config/index.js')
     await resetConfigCache()
     await expect(loadConfig()).rejects.toThrow(
-      'Invalid configuration in environment: graphMcpEndpoint must use https:// for remote hosts',
+      'Invalid configuration in environment: graphMcpEndpoint must use https:// for remote hosts'
     )
   })
 
@@ -140,7 +150,7 @@ describe('Config system (FOUND-05)', () => {
     const { loadConfig, resetConfigCache } = await import('../src/config/index.js')
     await resetConfigCache()
     await expect(loadConfig()).rejects.toThrow(
-      'Invalid configuration in environment: graphMcpEndpoint must use https:// for remote hosts',
+      'Invalid configuration in environment: graphMcpEndpoint must use https:// for remote hosts'
     )
   })
 
@@ -155,7 +165,9 @@ describe('Config system (FOUND-05)', () => {
     for (const [endpoint, message] of invalidEndpoints) {
       process.env['CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT'] = endpoint
       await resetConfigCache()
-      await expect(loadConfig()).rejects.toThrow(`Invalid configuration in environment: graphMcpEndpoint ${message}`)
+      await expect(loadConfig()).rejects.toThrow(
+        `Invalid configuration in environment: graphMcpEndpoint ${message}`
+      )
     }
   })
 
@@ -164,9 +176,9 @@ describe('Config system (FOUND-05)', () => {
 
     for (const endpoint of DNS_LOOPBACK_LOOKALIKE_ENDPOINTS) {
       await resetConfigCache()
-      await expect(saveConfig({ graphMcpEndpoint: endpoint }))
-        .rejects
-        .toThrow('graphMcpEndpoint must use https:// for remote hosts')
+      await expect(saveConfig({ graphMcpEndpoint: endpoint })).rejects.toThrow(
+        'graphMcpEndpoint must use https:// for remote hosts'
+      )
     }
   })
 
@@ -178,7 +190,7 @@ describe('Config system (FOUND-05)', () => {
       await writeFile(configPath, JSON.stringify({ graphMcpEndpoint: endpoint }), { mode: 0o600 })
       await resetConfigCache()
       await expect(loadConfig()).rejects.toThrow(
-        `Invalid configuration in ${configPath}: graphMcpEndpoint must use https:// for remote hosts`,
+        `Invalid configuration in ${configPath}: graphMcpEndpoint must use https:// for remote hosts`
       )
     }
   })
@@ -192,7 +204,7 @@ describe('Config system (FOUND-05)', () => {
         process.env[envKey] = endpoint
         await resetConfigCache()
         await expect(loadConfig()).rejects.toThrow(
-          'Invalid configuration in environment: graphMcpEndpoint must use https:// for remote hosts',
+          'Invalid configuration in environment: graphMcpEndpoint must use https:// for remote hosts'
         )
         delete process.env[envKey]
       }
@@ -200,12 +212,13 @@ describe('Config system (FOUND-05)', () => {
   })
 
   it('rejects DNS hostnames that only look like Kubernetes service DNS', async () => {
-    const endpoint = 'http://chainswarm-chain-insights-graph.chainswarm-pre-staging.svc.cluster.local.evil.com:8012/mcp'
+    const endpoint =
+      'http://chainswarm-chain-insights-graph.chainswarm-pre-staging.svc.cluster.local.evil.com:8012/mcp'
     const { saveConfig, resetConfigCache } = await import('../src/config/index.js')
     await resetConfigCache()
-    await expect(saveConfig({ graphMcpEndpoint: endpoint }))
-      .rejects
-      .toThrow('graphMcpEndpoint must use https:// for remote hosts')
+    await expect(saveConfig({ graphMcpEndpoint: endpoint })).rejects.toThrow(
+      'graphMcpEndpoint must use https:// for remote hosts'
+    )
   })
 
   it('.env.example documents the Chain Insights Graph endpoint override with a safe local value', async () => {
@@ -215,7 +228,10 @@ describe('Config system (FOUND-05)', () => {
   })
 
   it('activeDataDir prefers CHAIN_INSIGHTS_WORKSPACE over global dataDir', async () => {
-    const workspace = join(tmpdir(), `ci-workspace-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    const workspace = join(
+      tmpdir(),
+      `ci-workspace-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    )
     const globalDataDir = join(fakeHome, '.chain-insights-global')
     try {
       const { initWorkspace } = await import('../src/workspace/init.js')

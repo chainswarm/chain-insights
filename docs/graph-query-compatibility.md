@@ -4,10 +4,10 @@ Chain Insights Graph accepts Cypher through `graph_query` and
 `graph_query_batch`. A query is routed by its leading `USE <graph>` clause to
 one of two backends, each with its own accepted surface:
 
-| Graph | Backend | Query surface |
-| --- | --- | --- |
+| Graph      | Backend                      | Query surface                                             |
+| ---------- | ---------------------------- | --------------------------------------------------------- |
 | `topology` | Memgraph, directly over Bolt | **Native Memgraph Cypher**, bounded (see topology bounds) |
-| `facts` | StarRocks warehouse | Corpus-scoped Cypher subset, compiled to SQL |
+| `facts`    | StarRocks warehouse          | Corpus-scoped Cypher subset, compiled to SQL              |
 
 Two consequences drive everything below:
 
@@ -18,10 +18,10 @@ Two consequences drive everything below:
    `*KSHORTEST`, `*ALLSHORTEST`) are first-class — subject to traversal bounds
    enforced before execution. There is no separate query dialect and no
    federation parser in front of it.
-2. **`facts` is a compiled Cypher *subset*.** A corpus-scoped translator
+2. **`facts` is a compiled Cypher _subset_.** A corpus-scoped translator
    (`internal/cyphersql`) compiles a defined shape of `MATCH` / `WHERE` /
    projection / aggregate / `ORDER BY` / `LIMIT` to StarRocks SQL. Shapes outside
-   that grammar are rejected with a typed contract error *before* any SQL runs —
+   that grammar are rejected with a typed contract error _before_ any SQL runs —
    they do not reach the warehouse.
 
 > **History.** Chain Insights Graph previously split topology into a fast
@@ -67,7 +67,7 @@ closed on an H160 address screened under the chain's primary network name.
 
 ### `USE facts` is the opposite case
 
-`facts` is the one place each network *does* get its own backing database —
+`facts` is the one place each network _does_ get its own backing database —
 the routing metadata on a result reports it as
 `facts.routing.starrocks_database`. Because the database already scopes the
 network, the facts `Address` label has **no mapped `network` property at all**:
@@ -105,14 +105,14 @@ chain-evidence-derived, not registry labels.
 
 ### Traversal (the expanded surface)
 
-| Form | Syntax | Supported |
-| --- | --- | --- |
-| Bounded variable-length | `-[:FLOWS_TO*1..5]->` | ✅ upper bound ≤ 5 |
-| BFS to depth | `-[:FLOWS_TO *BFS 1..5]->` | ✅ upper bound ≤ 5 |
-| Weighted shortest path | `-[:FLOWS_TO *WSHORTEST 5 (r,n \| coalesce(r.amount_usd_sum,1)) w]->` | ✅ hop bound ≤ 5, weight lambda supported |
-| All shortest paths | `-[:FLOWS_TO *ALLSHORTEST 5 (r,n \| 1) w]->` | ✅ hop bound ≤ 5 |
-| K shortest paths | `-[:FLOWS_TO *KSHORTEST\|3]->` | ✅ path count k ≤ 16 |
-| Traversal filter lambda | `-[:FLOWS_TO *1..5 (r,n \| n.is_exchange IS NULL)]->` | ✅ |
+| Form                    | Syntax                                                                | Supported                                 |
+| ----------------------- | --------------------------------------------------------------------- | ----------------------------------------- |
+| Bounded variable-length | `-[:FLOWS_TO*1..5]->`                                                 | ✅ upper bound ≤ 5                        |
+| BFS to depth            | `-[:FLOWS_TO *BFS 1..5]->`                                            | ✅ upper bound ≤ 5                        |
+| Weighted shortest path  | `-[:FLOWS_TO *WSHORTEST 5 (r,n \| coalesce(r.amount_usd_sum,1)) w]->` | ✅ hop bound ≤ 5, weight lambda supported |
+| All shortest paths      | `-[:FLOWS_TO *ALLSHORTEST 5 (r,n \| 1) w]->`                          | ✅ hop bound ≤ 5                          |
+| K shortest paths        | `-[:FLOWS_TO *KSHORTEST\|3]->`                                        | ✅ path count k ≤ 16                      |
+| Traversal filter lambda | `-[:FLOWS_TO *1..5 (r,n \| n.is_exchange IS NULL)]->`                 | ✅                                        |
 
 ### Topology admission + bounds gate
 
@@ -120,12 +120,12 @@ Admission mirrors the production graph MCP exactly (read-only, byte size ≤ 327
 single statement, must start with a read clause). On top of that, traversal is
 bounded so an admitted query cannot become an unbounded graph walk:
 
-| Bound | Limit | Rejected example |
-| --- | --- | --- |
-| Traversal depth (upper hop bound) | ≤ 5 | `-[:FLOWS_TO*1..9]->` → *traversal depth 9 exceeds the maximum of 5* |
-| Unbounded traversal | forbidden | `-[:FLOWS_TO*]->`, `-[:FLOWS_TO *BFS]->`, `-[:FLOWS_TO*3..]->` → *unbounded traversal … add an explicit upper hop bound* |
-| KSHORTEST path count `k` | ≤ 16 | `*KSHORTEST\|50` → *KSHORTEST k=50 exceeds the maximum of 16* |
-| `UNWIND` literal list length | ≤ 1000 | `UNWIND [ …1001 items… ] AS x` → *UNWIND list of 1001 items exceeds the maximum of 1000* |
+| Bound                             | Limit     | Rejected example                                                                                                         |
+| --------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Traversal depth (upper hop bound) | ≤ 5       | `-[:FLOWS_TO*1..9]->` → _traversal depth 9 exceeds the maximum of 5_                                                     |
+| Unbounded traversal               | forbidden | `-[:FLOWS_TO*]->`, `-[:FLOWS_TO *BFS]->`, `-[:FLOWS_TO*3..]->` → _unbounded traversal … add an explicit upper hop bound_ |
+| KSHORTEST path count `k`          | ≤ 16      | `*KSHORTEST\|50` → _KSHORTEST k=50 exceeds the maximum of 16_                                                            |
+| `UNWIND` literal list length      | ≤ 1000    | `UNWIND [ …1001 items… ] AS x` → _UNWIND list of 1001 items exceeds the maximum of 1000_                                 |
 
 Always add an explicit upper hop bound and a `LIMIT`. Writes/DDL (`CREATE`,
 `MERGE`, `SET`, `DELETE`, `DROP`, `CALL`, …) are always rejected — the surface is
@@ -139,17 +139,17 @@ rejected with a typed contract error before execution.
 
 ### Supported
 
-| Construct | Notes |
-| --- | --- |
-| `MATCH` on a mapped node / single relationship | `(from:Address)-[t:TRANSFER]->(to:Address)` (bounded individual transfer rows from `facts_transfers_view`). Lifetime address metrics are node properties on `USE topology` (the facts `AddressFeature` surface is retired). Never serves `FLOWS_TO` or `LINKED` — those are topology-only. Neuron identity, hotkey/coldkey pairing, and IP/axon-port observation live on the topology `:Neuron` node, not on `facts`. Labels and per-label risk live on the topology address node, not on `facts`. |
-| Chained fixed-hop patterns | up to 5 hops |
-| Bare `block_date` bound | `t.block_date >= ?` / `<`, `=`, `BETWEEN`, `IN` — the caller's own day range, passed through. The bound must be bare (no function around the column) and conjunctive (not inside an `OR` arm). An explicit full-range bound (`>= '1970-01-01'`) stays lifetime. |
-| `tx_id` equality / `IN` | `t.tx_id = "…"` — a point lookup on the `TRANSFER` edge's row-level key. Lifetime semantics. |
-| Address equality / `IN` | `{address:"…"}` map or `a.address = "…"` / `IN` — **a recency window is auto-applied** (bare `block_date >= now − 90 days`; the window is `FACTS_RECENCY_WINDOW_DAYS`, default 90). Address-only queries return the last 90 days. |
-| Inline property maps | `MATCH (a:Address {address:"…"})` |
-| Property projections with aliases | `RETURN a.address AS address, t.amount_usd AS amount_usd` |
-| Aggregates **with** a partition-bounding predicate | `count`, `sum` |
-| `ORDER BY`, `LIMIT` (≤ 1000), `OFFSET`-free paging | `LIMIT` required unless a partition-bounding predicate is present — except `TRANSFER`, where a partition-bounding predicate is always required (see below) |
+| Construct                                          | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MATCH` on a mapped node / single relationship     | `(from:Address)-[t:TRANSFER]->(to:Address)` (bounded individual transfer rows from `facts_transfers_view`). Lifetime address metrics are node properties on `USE topology` (the facts `AddressFeature` surface is retired). Never serves `FLOWS_TO` or `LINKED` — those are topology-only. Neuron identity, hotkey/coldkey pairing, and IP/axon-port observation live on the topology `:Neuron` node, not on `facts`. Labels and per-label risk live on the topology address node, not on `facts`. |
+| Chained fixed-hop patterns                         | up to 5 hops                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Bare `block_date` bound                            | `t.block_date >= ?` / `<`, `=`, `BETWEEN`, `IN` — the caller's own day range, passed through. The bound must be bare (no function around the column) and conjunctive (not inside an `OR` arm). An explicit full-range bound (`>= '1970-01-01'`) stays lifetime.                                                                                                                                                                                                                                    |
+| `tx_id` equality / `IN`                            | `t.tx_id = "…"` — a point lookup on the `TRANSFER` edge's row-level key. Lifetime semantics.                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Address equality / `IN`                            | `{address:"…"}` map or `a.address = "…"` / `IN` — **a recency window is auto-applied** (bare `block_date >= now − 90 days`; the window is `FACTS_RECENCY_WINDOW_DAYS`, default 90). Address-only queries return the last 90 days.                                                                                                                                                                                                                                                                  |
+| Inline property maps                               | `MATCH (a:Address {address:"…"})`                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Property projections with aliases                  | `RETURN a.address AS address, t.amount_usd AS amount_usd`                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Aggregates **with** a partition-bounding predicate | `count`, `sum`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `ORDER BY`, `LIMIT` (≤ 1000), `OFFSET`-free paging | `LIMIT` required unless a partition-bounding predicate is present — except `TRANSFER`, where a partition-bounding predicate is always required (see below)                                                                                                                                                                                                                                                                                                                                         |
 
 ### Cost-shape gate
 
@@ -158,35 +158,35 @@ unbounded warehouse scan. `core_transfers` is split into one partition per
 day, keyed on `block_date` — a query without a bare `block_date` bound, a
 `tx_id` point lookup, or an address filter (window auto-applied) touches
 every partition and is refused before any SQL runs. The refusal names the
-remedy: *add a bare `block_date` bound, or query by `tx_id`, or filter by
-address (a recency window is auto-applied)*.
+remedy: _add a bare `block_date` bound, or query by `tx_id`, or filter by
+address (a recency window is auto-applied)_.
 
-| Rejected shape | Contract error |
-| --- | --- |
-| Predicate-less global aggregate | `count(i)` with no partition-bounding predicate → *StarRocks-backed aggregate graph queries require a partition-bounding predicate: add a bare `block_date` bound, or query by `tx_id`, or filter by address (a recency window is auto-applied)* |
-| No `LIMIT` and no partition-bounding predicate | → *StarRocks-backed graph queries require an explicit LIMIT or partition-bounding predicate: add a bare `block_date` bound, or query by `tx_id`, or filter by address (a recency window is auto-applied)* |
-| `TRANSFER` row-select or aggregate with no partition-bounding predicate, even with `LIMIT` | `facts_transfers_view` is a full transfer-history table — a bare `LIMIT` does not bound the scan → *StarRocks-backed TRANSFER graph queries require a partition-bounding predicate: add a bare `block_date` bound, or query by `tx_id`, or filter by address (a recency window is auto-applied)* |
-| `block_height` / `block_timestamp` range only | `t.block_height >= ?` bounds the sort key, not the day partitions → rejected with the remedy error |
-| Wrapped `block_date` | `DATE(t.block_date) >= ?` wraps the partition column → rejected with the remedy error |
-| `block_date` bound inside an `OR` arm | `t.block_height >= 0 OR t.block_date >= ?` — the optimizer cannot prune the unbounded arm → rejected with the remedy error |
-| `LIMIT` above the ceiling | `LIMIT 5000` → *StarRocks-backed graph query LIMIT exceeds maximum 1000* |
+| Rejected shape                                                                             | Contract error                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Predicate-less global aggregate                                                            | `count(i)` with no partition-bounding predicate → _StarRocks-backed aggregate graph queries require a partition-bounding predicate: add a bare `block_date` bound, or query by `tx_id`, or filter by address (a recency window is auto-applied)_                                                 |
+| No `LIMIT` and no partition-bounding predicate                                             | → _StarRocks-backed graph queries require an explicit LIMIT or partition-bounding predicate: add a bare `block_date` bound, or query by `tx_id`, or filter by address (a recency window is auto-applied)_                                                                                        |
+| `TRANSFER` row-select or aggregate with no partition-bounding predicate, even with `LIMIT` | `facts_transfers_view` is a full transfer-history table — a bare `LIMIT` does not bound the scan → _StarRocks-backed TRANSFER graph queries require a partition-bounding predicate: add a bare `block_date` bound, or query by `tx_id`, or filter by address (a recency window is auto-applied)_ |
+| `block_height` / `block_timestamp` range only                                              | `t.block_height >= ?` bounds the sort key, not the day partitions → rejected with the remedy error                                                                                                                                                                                               |
+| Wrapped `block_date`                                                                       | `DATE(t.block_date) >= ?` wraps the partition column → rejected with the remedy error                                                                                                                                                                                                            |
+| `block_date` bound inside an `OR` arm                                                      | `t.block_height >= 0 OR t.block_date >= ?` — the optimizer cannot prune the unbounded arm → rejected with the remedy error                                                                                                                                                                       |
+| `LIMIT` above the ceiling                                                                  | `LIMIT 5000` → _StarRocks-backed graph query LIMIT exceeds maximum 1000_                                                                                                                                                                                                                         |
 
 ### Not in the facts grammar (contract error)
 
 These compile-reject (`ErrUnsupportedShape` / related) — they never reach
 StarRocks. Use the topology graph, or restructure:
 
-| Construct | Instead |
-| --- | --- |
-| `FLOWS_TO` / money-flow traversal | The topology graph — facts never serves money flow |
-| Native traversal (`*1..3`, `*BFS`, `*WSHORTEST`, …) | The topology graph, or a single fixed-hop `LINKED` pattern |
-| `WITH` pipelines | The topology graph |
-| `CASE … END` | The topology graph, or post-process client-side |
-| Grouped aggregates (`GROUP BY`-shaped) | The topology graph, or per-key `graph_query_batch` |
-| `collect()` and other warehouse-dialect-gap aggregates | The topology graph |
-| Self-joins / node-to-node comparison `WHERE a <> b` | Compare key properties: `a.address <> b.address` |
-| Untyped relationship `-[r]->` | Name the relationship type |
-| Metadata functions `keys(n)`, `labels(n)`, `type(r)` | Project known properties explicitly |
+| Construct                                              | Instead                                                    |
+| ------------------------------------------------------ | ---------------------------------------------------------- |
+| `FLOWS_TO` / money-flow traversal                      | The topology graph — facts never serves money flow         |
+| Native traversal (`*1..3`, `*BFS`, `*WSHORTEST`, …)    | The topology graph, or a single fixed-hop `LINKED` pattern |
+| `WITH` pipelines                                       | The topology graph                                         |
+| `CASE … END`                                           | The topology graph, or post-process client-side            |
+| Grouped aggregates (`GROUP BY`-shaped)                 | The topology graph, or per-key `graph_query_batch`         |
+| `collect()` and other warehouse-dialect-gap aggregates | The topology graph                                         |
+| Self-joins / node-to-node comparison `WHERE a <> b`    | Compare key properties: `a.address <> b.address`           |
+| Untyped relationship `-[r]->`                          | Name the relationship type                                 |
+| Metadata functions `keys(n)`, `labels(n)`, `type(r)`   | Project known properties explicitly                        |
 
 There is no longer a local pinned conformance suite; verify supported and
 rejected shapes against a live Chain Insights Graph endpoint.
@@ -196,11 +196,11 @@ rejected shapes against a live Chain Insights Graph endpoint.
 Secondary node labels (exchange / scam classification labels maintained on
 addresses) are queryable on `topology`:
 
-| Form | Result |
-| --- | --- |
-| `MATCH (n:Exchange)` — bare secondary label | ✅ |
-| `MATCH (n:Address:Exchange)` — colon-stacked labels | ✅ (native Cypher) |
-| `RETURN labels(n)` | project known properties instead |
+| Form                                                | Result                           |
+| --------------------------------------------------- | -------------------------------- |
+| `MATCH (n:Exchange)` — bare secondary label         | ✅                               |
+| `MATCH (n:Address:Exchange)` — colon-stacked labels | ✅ (native Cypher)               |
+| `RETURN labels(n)`                                  | project known properties instead |
 
 Caveats: taxonomy labels are sticky (never removed once assigned — presence means
 "was ever classified", not "currently active"); facts carries only its mapped

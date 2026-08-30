@@ -26,13 +26,24 @@ function extractGraphUrlValidator(html: string): (graphUrl: string) => boolean {
   if (!prefixDeclaration) throw new Error('GRAPH_REPORT_PATH_PREFIX declaration not found')
 
   const validatorSource = extractFunctionSource(html, 'isLocalGraphReportUrl')
-  return new Function('URL', `${prefixDeclaration}\n${validatorSource}\nreturn isLocalGraphReportUrl;`)(URL) as (graphUrl: string) => boolean
+  return new Function(
+    'URL',
+    `${prefixDeclaration}\n${validatorSource}\nreturn isLocalGraphReportUrl;`
+  )(URL) as (graphUrl: string) => boolean
 }
 
 describe('generateHtml (VIZ-02) — graph.html template', () => {
   const validData = {
     nodes: [
-      { id: '0x1234', label: 'Source Wallet', entityType: 'eoa' as const, riskLevel: 'low' as const, totalIn: 100, totalOut: 50, txCount: 5 },
+      {
+        id: '0x1234',
+        label: 'Source Wallet',
+        entityType: 'eoa' as const,
+        riskLevel: 'low' as const,
+        totalIn: 100,
+        totalOut: 50,
+        txCount: 5,
+      },
     ],
     edges: [{ source: '0x1234', target: '0xabcd', value: 10 }],
     metadata: { generatedAt: '2024-01-01T00:00:00Z', title: 'Test' },
@@ -126,12 +137,22 @@ describe('generateHtml (VIZ-02) — graph.html template', () => {
     const html = generateHtml(data, 'Test Viz')
     const isLocalGraphReportUrl = extractGraphUrlValidator(html)
 
-    expect(isLocalGraphReportUrl('http://127.0.0.1:4321/graph-reports/sample.graph.json')).toBe(true)
-    expect(isLocalGraphReportUrl('http://localhost:4321/graph-reports/20260517T010203Z_slug-abc.graph.json')).toBe(true)
+    expect(isLocalGraphReportUrl('http://127.0.0.1:4321/graph-reports/sample.graph.json')).toBe(
+      true
+    )
+    expect(
+      isLocalGraphReportUrl(
+        'http://localhost:4321/graph-reports/20260517T010203Z_slug-abc.graph.json'
+      )
+    ).toBe(true)
 
     expect(isLocalGraphReportUrl(`http://127.0.0.1:4321/art${'ifacts'}/a/graph.json`)).toBe(false)
-    expect(isLocalGraphReportUrl('http://example.com:4321/graph-reports/sample.graph.json')).toBe(false)
-    expect(isLocalGraphReportUrl('https://127.0.0.1:4321/graph-reports/sample.graph.json')).toBe(false)
+    expect(isLocalGraphReportUrl('http://example.com:4321/graph-reports/sample.graph.json')).toBe(
+      false
+    )
+    expect(isLocalGraphReportUrl('https://127.0.0.1:4321/graph-reports/sample.graph.json')).toBe(
+      false
+    )
     expect(isLocalGraphReportUrl('http://127.0.0.1:4321/graph-reports/../x.graph.json')).toBe(false)
     expect(isLocalGraphReportUrl('http://127.0.0.1:4321/graph-reports/bad.json')).toBe(false)
     expect(isLocalGraphReportUrl('http://127.0.0.1:4321/graph-reports/.graph.json')).toBe(false)
@@ -197,7 +218,7 @@ describe('generateHtml (VIZ-02) — graph.html template', () => {
     expect(html).toContain('localStorage.setItem(key, JSON.stringify(pos))')
     expect(html).toContain("return 'graph_pos_' + storageId + '_' + layout")
     expect(html).toContain("localStorage.setItem('graph_view_' + storageId")
-    expect(html).not.toContain("edgeMode")
+    expect(html).not.toContain('edgeMode')
   })
 
   it('graph template keeps risk score and visible adjacent-node role colors', async () => {
@@ -248,7 +269,9 @@ describe('generateHtml (VIZ-02) — graph.html template', () => {
 
     // Trail edges must be kept in the render loop, not skipped with the
     // other non-flow "pattern" edge types.
-    expect(html).toContain("eType !== 'FLOWS_TO' && eType !== 'MONEY_TRAIL' && eType !== 'TRAIL_ENDS_AT'")
+    expect(html).toContain(
+      "eType !== 'FLOWS_TO' && eType !== 'MONEY_TRAIL' && eType !== 'TRAIL_ENDS_AT'"
+    )
     // Distinct dashed style + "money trail" wording, not the gold flow gradient.
     expect(html).toContain('isTrail')
     expect(html).toContain('setLineDash([6, 4])')
@@ -262,8 +285,23 @@ describe('transformToGraphHtml (data schema mapping)', () => {
     const { GraphData } = await import('../src/viz/graph-model.js')
     const data = GraphData.parse({
       nodes: [
-        { id: '0x1234', label: 'Binance', entityType: 'exchange', riskLevel: 'medium', totalIn: 500, totalOut: 480, txCount: 15 },
-        { id: '0xabcd', entityType: 'mixer', riskLevel: 'critical', totalIn: 100, totalOut: 90, txCount: 3 },
+        {
+          id: '0x1234',
+          label: 'Binance',
+          entityType: 'exchange',
+          riskLevel: 'medium',
+          totalIn: 500,
+          totalOut: 480,
+          txCount: 15,
+        },
+        {
+          id: '0xabcd',
+          entityType: 'mixer',
+          riskLevel: 'critical',
+          totalIn: 100,
+          totalOut: 90,
+          txCount: 3,
+        },
       ],
       edges: [{ source: '0x1234', target: '0xabcd', value: 200 }],
       metadata: { generatedAt: '2024-01-01T00:00:00Z', title: 'Test Flow' },
@@ -319,7 +357,16 @@ describe('transformToGraphHtml (data schema mapping)', () => {
     const { transformToGraphHtml } = await import('../src/viz/html-generator.js')
     const { GraphData } = await import('../src/viz/graph-model.js')
     const data = GraphData.parse({
-      nodes: [{ id: '0xhub1', entityType: 'hub', riskLevel: 'high', totalIn: 300, totalOut: 280, txCount: 42 }],
+      nodes: [
+        {
+          id: '0xhub1',
+          entityType: 'hub',
+          riskLevel: 'high',
+          totalIn: 300,
+          totalOut: 280,
+          txCount: 42,
+        },
+      ],
       edges: [],
       metadata: { generatedAt: '2024-01-01T00:00:00Z' },
     })
@@ -332,7 +379,16 @@ describe('transformToGraphHtml (data schema mapping)', () => {
     const { transformToGraphHtml } = await import('../src/viz/html-generator.js')
     const { GraphData } = await import('../src/viz/graph-model.js')
     const data = GraphData.parse({
-      nodes: [{ id: '0x1234', entityType: 'unknown', riskLevel: 'unknown', totalIn: 0, totalOut: 0, txCount: 0 }],
+      nodes: [
+        {
+          id: '0x1234',
+          entityType: 'unknown',
+          riskLevel: 'unknown',
+          totalIn: 0,
+          totalOut: 0,
+          txCount: 0,
+        },
+      ],
       edges: [],
       metadata: { generatedAt: '2024-01-01T00:00:00Z' },
     })
@@ -351,13 +407,19 @@ describe('writeVizHtml and generateVisualization (VIZ-02)', () => {
   beforeEach(async () => {
     vi.resetModules()
     fakeHome = join(tmpdir(), `ci-viz-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
-    workspace = join(tmpdir(), `ci-viz-workspace-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    workspace = join(
+      tmpdir(),
+      `ci-viz-workspace-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    )
     await mkdir(join(fakeHome, '.chain-insights'), { recursive: true })
     await mkdir(join(workspace, '.chain-insights'), { recursive: true })
-    await writeFile(join(workspace, '.chain-insights', 'workspace.json'), JSON.stringify({
-      schema: 'chain-insights.workspace.v1',
-      workspace_root: workspace,
-    }) + '\n')
+    await writeFile(
+      join(workspace, '.chain-insights', 'workspace.json'),
+      JSON.stringify({
+        schema: 'chain-insights.workspace.v1',
+        workspace_root: workspace,
+      }) + '\n'
+    )
     prevHome = process.env['HOME']
     prevWorkspace = process.env['CHAIN_INSIGHTS_WORKSPACE']
     process.env['HOME'] = fakeHome
@@ -397,7 +459,16 @@ describe('writeVizHtml and generateVisualization (VIZ-02)', () => {
 
   it('generateVisualization with dataFile writes .html to workspace published/viz and returns vizId starting with "adhoc_"', async () => {
     const testData = JSON.stringify({
-      nodes: [{ id: '0x1234', entityType: 'eoa', riskLevel: 'low', totalIn: 100, totalOut: 50, txCount: 5 }],
+      nodes: [
+        {
+          id: '0x1234',
+          entityType: 'eoa',
+          riskLevel: 'low',
+          totalIn: 100,
+          totalOut: 50,
+          txCount: 5,
+        },
+      ],
       edges: [{ source: '0x1234', target: '0xabcd', value: 10 }],
       metadata: { generatedAt: '2024-01-01T00:00:00Z' },
     })

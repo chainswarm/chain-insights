@@ -18,9 +18,7 @@ function applyRuntimeEnvOverrides(config: InvestigatorConfig): InvestigatorConfi
   } catch (err) {
     throw new Error(`Invalid configuration in environment: ${(err as Error).message}`)
   }
-  return graphMcpEndpoint
-    ? parseInvestigatorConfig({ ...config, graphMcpEndpoint })
-    : config
+  return graphMcpEndpoint ? parseInvestigatorConfig({ ...config, graphMcpEndpoint }) : config
 }
 
 async function loadStoredConfig(): Promise<InvestigatorConfig> {

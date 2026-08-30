@@ -28,7 +28,9 @@ function workspaceFromRoot(rootCandidate: string): ActiveWorkspace | null {
   const workspaceRoot = path.resolve(parsed.workspace_root ?? root)
   const artifactsDir = parsed.artifacts_dir ?? 'artifacts'
   const domainHints = Array.isArray(parsed.domain_hints)
-    ? parsed.domain_hints.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    ? parsed.domain_hints.filter(
+        (value): value is string => typeof value === 'string' && value.trim().length > 0
+      )
     : []
   return {
     root: workspaceRoot,
@@ -61,9 +63,13 @@ export function activeMetadataDir(): string {
 }
 
 export function activeArtifactsRoot(): string {
-  return findActiveWorkspace()?.artifactsRoot ?? path.join(os.homedir(), '.chain-insights', 'artifacts')
+  return (
+    findActiveWorkspace()?.artifactsRoot ?? path.join(os.homedir(), '.chain-insights', 'artifacts')
+  )
 }
 
 export function activeDataDir(fallbackDataDir?: string): string {
-  return findActiveWorkspace()?.root ?? fallbackDataDir ?? path.join(os.homedir(), '.chain-insights')
+  return (
+    findActiveWorkspace()?.root ?? fallbackDataDir ?? path.join(os.homedir(), '.chain-insights')
+  )
 }

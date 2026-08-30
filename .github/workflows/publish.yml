@@ -12,17 +12,17 @@ on:
   workflow_dispatch:
     inputs:
       dist_tag:
-        description: "npm dist-tag (latest, next, beta)"
+        description: 'npm dist-tag (latest, next, beta)'
         required: true
-        default: "latest"
+        default: 'latest'
         type: string
       dry_run:
-        description: "Build and pack only; do not publish"
+        description: 'Build and pack only; do not publish'
         required: true
         default: true
         type: boolean
       confirm_publish:
-        description: "Must be true to actually publish"
+        description: 'Must be true to actually publish'
         required: true
         default: false
         type: boolean
@@ -64,7 +64,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          registry-url: "https://registry.npmjs.org"
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies without lifecycle scripts
         run: npm ci --ignore-scripts --audit=false --fund=false
@@ -148,7 +148,7 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
-          registry-url: "https://registry.npmjs.org"
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Update npm for trusted publishing
         # Trusted publishing requires npm CLI >= 11.5.1; Node 22 ships npm 10.

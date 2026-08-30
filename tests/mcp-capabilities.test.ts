@@ -6,30 +6,37 @@ describe('MCP network capabilities', () => {
   })
 
   it('fetches metadata networks from graph MCP root without requiring wallet payment setup', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({
-      schema: 'chain-insights.network-capabilities.v1',
-      networks: [{
-        network: 'robinhood',
-        display_name: 'Robinhood',
-        status: 'live',
-        default: true,
-        layers: {
-          topology: { enabled: true },
-          facts: { enabled: true },
-          risk: { enabled: false },
-        },
-        coverage: {
-          from_block: 84,
-          to_block: 7440268,
-          from_timestamp: '2023-03-20T22:25:48Z',
-          to_timestamp: '2026-01-31T04:26:00Z',
-        },
-        tools: {
-          graph_query: 'available',
-          graph_query_batch: 'available',
-        },
-      }],
-    }), { status: 200 }))
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          schema: 'chain-insights.network-capabilities.v1',
+          networks: [
+            {
+              network: 'robinhood',
+              display_name: 'Robinhood',
+              status: 'live',
+              default: true,
+              layers: {
+                topology: { enabled: true },
+                facts: { enabled: true },
+                risk: { enabled: false },
+              },
+              coverage: {
+                from_block: 84,
+                to_block: 7440268,
+                from_timestamp: '2023-03-20T22:25:48Z',
+                to_timestamp: '2026-01-31T04:26:00Z',
+              },
+              tools: {
+                graph_query: 'available',
+                graph_query_batch: 'available',
+              },
+            },
+          ],
+        }),
+        { status: 200 }
+      )
+    )
 
     const { fetchNetworkCapabilities } = await import('../src/mcp/capabilities.js')
     const result = await fetchNetworkCapabilities({
@@ -38,9 +45,12 @@ describe('MCP network capabilities', () => {
       graphMcpAuthToken: 'debug-token',
     })
 
-    expect(fetchMock).toHaveBeenCalledWith(new URL('https://staging-mcp.chain-insights.ai/metadata/networks'), {
-      headers: expect.any(Headers),
-    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL('https://staging-mcp.chain-insights.ai/metadata/networks'),
+      {
+        headers: expect.any(Headers),
+      }
+    )
     const headers = fetchMock.mock.calls[0]?.[1]?.headers as Headers
     expect(headers.get('X-MCP-Debug-Token')).toBe('debug-token')
     expect(headers.get('X-MCP-Test-Key')).toBe('debug-token')
@@ -57,39 +67,47 @@ describe('MCP network capabilities', () => {
   })
 
   it('mirrors every GraphRAG network and overlays the seven public CIA tools', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({
-      schema: 'chain-insights.network-capabilities.v1',
-      networks: [{
-        network: 'bittensor',
-        display_name: 'Bittensor',
-        status: 'live',
-        layers: {
-          topology: { enabled: true },
-          facts: { enabled: true },
-          risk: { enabled: false },
-        },
-        aggregations: {
-          transfers: [{ level: 'daily', enabled: true }],
-        },
-        tools: {
-          graph_query: 'available',
-          graph_query_batch: 'available',
-        },
-      }, {
-        network: 'robinhood',
-        display_name: 'Robinhood',
-        status: 'live',
-        layers: {
-          topology: { enabled: true },
-          facts: { enabled: true },
-          risk: { enabled: false },
-        },
-        tools: {
-          graph_query: 'available',
-          graph_query_batch: 'available',
-        },
-      }],
-    }), { status: 200 }))
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          schema: 'chain-insights.network-capabilities.v1',
+          networks: [
+            {
+              network: 'bittensor',
+              display_name: 'Bittensor',
+              status: 'live',
+              layers: {
+                topology: { enabled: true },
+                facts: { enabled: true },
+                risk: { enabled: false },
+              },
+              aggregations: {
+                transfers: [{ level: 'daily', enabled: true }],
+              },
+              tools: {
+                graph_query: 'available',
+                graph_query_batch: 'available',
+              },
+            },
+            {
+              network: 'robinhood',
+              display_name: 'Robinhood',
+              status: 'live',
+              layers: {
+                topology: { enabled: true },
+                facts: { enabled: true },
+                risk: { enabled: false },
+              },
+              tools: {
+                graph_query: 'available',
+                graph_query_batch: 'available',
+              },
+            },
+          ],
+        }),
+        { status: 200 }
+      )
+    )
 
     const { fetchNetworkCapabilities } = await import('../src/mcp/capabilities.js')
     const result = await fetchNetworkCapabilities({
@@ -135,16 +153,23 @@ describe('MCP network capabilities', () => {
   })
 
   it('lists only bittensor when GraphRAG advertises only bittensor', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({
-      schema: 'chain-insights.network-capabilities.v1',
-      networks: [{
-        network: 'bittensor',
-        display_name: 'Bittensor',
-        status: 'live',
-        layers: { topology: { enabled: true } },
-        tools: { graph_query: 'available' },
-      }],
-    }), { status: 200 }))
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          schema: 'chain-insights.network-capabilities.v1',
+          networks: [
+            {
+              network: 'bittensor',
+              display_name: 'Bittensor',
+              status: 'live',
+              layers: { topology: { enabled: true } },
+              tools: { graph_query: 'available' },
+            },
+          ],
+        }),
+        { status: 200 }
+      )
+    )
 
     const { fetchNetworkCapabilities } = await import('../src/mcp/capabilities.js')
     const result = await fetchNetworkCapabilities({
@@ -163,10 +188,15 @@ describe('MCP network capabilities', () => {
   })
 
   it('returns an empty list when GraphRAG advertises no networks', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({
-      schema: 'chain-insights.network-capabilities.v1',
-      networks: [],
-    }), { status: 200 }))
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          schema: 'chain-insights.network-capabilities.v1',
+          networks: [],
+        }),
+        { status: 200 }
+      )
+    )
 
     const { fetchNetworkCapabilities } = await import('../src/mcp/capabilities.js')
     const result = await fetchNetworkCapabilities({
@@ -179,25 +209,32 @@ describe('MCP network capabilities', () => {
   })
 
   it('drops per-layer topology/facts/risk passthrough (one graph, no layer rows)', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({
-      schema: 'chain-insights.network-capabilities.v1',
-      networks: [{
-        network: 'robinhood',
-        display_name: 'Robinhood',
-        status: 'live',
-        default: true,
-        layers: {
-          topology: {
-            enabled: true,
-            live: { enabled: true, coverage: { from_block: 8512012, to_block: 8513977 } },
-            archive: { enabled: true, coverage: { from_block: 8512012, to_block: 8513977 } },
-          },
-          facts: { enabled: true },
-          risk: { enabled: false },
-        },
-        tools: { graph_query: 'available', graph_query_batch: 'available' },
-      }],
-    }), { status: 200 }))
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          schema: 'chain-insights.network-capabilities.v1',
+          networks: [
+            {
+              network: 'robinhood',
+              display_name: 'Robinhood',
+              status: 'live',
+              default: true,
+              layers: {
+                topology: {
+                  enabled: true,
+                  live: { enabled: true, coverage: { from_block: 8512012, to_block: 8513977 } },
+                  archive: { enabled: true, coverage: { from_block: 8512012, to_block: 8513977 } },
+                },
+                facts: { enabled: true },
+                risk: { enabled: false },
+              },
+              tools: { graph_query: 'available', graph_query_batch: 'available' },
+            },
+          ],
+        }),
+        { status: 200 }
+      )
+    )
 
     const { fetchNetworkCapabilities } = await import('../src/mcp/capabilities.js')
     const result = await fetchNetworkCapabilities({
@@ -216,11 +253,15 @@ describe('MCP network capabilities', () => {
 
     const { fetchNetworkCapabilities } = await import('../src/mcp/capabilities.js')
 
-    await expect(fetchNetworkCapabilities({
-      graphMcpEndpoint: 'http://localhost:8012/mcp',
-      graphMcpMode: 'debug',
-      graphMcpAuthToken: 'debug-token',
-    })).rejects.toThrow('network capabilities unavailable at http://localhost:8012/metadata/networks: fetch failed')
+    await expect(
+      fetchNetworkCapabilities({
+        graphMcpEndpoint: 'http://localhost:8012/mcp',
+        graphMcpMode: 'debug',
+        graphMcpAuthToken: 'debug-token',
+      })
+    ).rejects.toThrow(
+      'network capabilities unavailable at http://localhost:8012/metadata/networks: fetch failed'
+    )
   })
 
   it('formats layer support and available tools for CLI output', async () => {
@@ -228,23 +269,25 @@ describe('MCP network capabilities', () => {
 
     const output = formatNetworkCapabilities({
       schema: 'chain-insights.network-capabilities.v1',
-      networks: [{
-        network: 'robinhood',
-        display_name: 'Robinhood',
-        status: 'live',
-        default: true,
-        layers: {},
-        coverage: {
-          from_block: 84,
-          to_block: 7440268,
-          from_timestamp: '2023-03-20T22:25:48Z',
-          to_timestamp: '2026-01-31T04:26:00Z',
+      networks: [
+        {
+          network: 'robinhood',
+          display_name: 'Robinhood',
+          status: 'live',
+          default: true,
+          layers: {},
+          coverage: {
+            from_block: 84,
+            to_block: 7440268,
+            from_timestamp: '2023-03-20T22:25:48Z',
+            to_timestamp: '2026-01-31T04:26:00Z',
+          },
+          tools: {
+            graph_query: 'available',
+            graph_query_batch: 'available',
+          },
         },
-        tools: {
-          graph_query: 'available',
-          graph_query_batch: 'available',
-        },
-      }],
+      ],
     })
 
     expect(output).toContain('Robinhood')
@@ -262,7 +305,7 @@ describe('MCP network capabilities', () => {
     expect(output).toContain('wallet_balance')
     expect(output).not.toContain('aml_trace')
     expect(output.split('\n')[0]).toBe(
-      'Network'.padEnd(14) + '  ' + 'Dataset'.padEnd(38) + '  ' + 'Available tools'.padEnd(64),
+      'Network'.padEnd(14) + '  ' + 'Dataset'.padEnd(38) + '  ' + 'Available tools'.padEnd(64)
     )
     expect(output).not.toContain('Topology')
     expect(output).not.toContain('Facts')
@@ -274,16 +317,18 @@ describe('MCP network capabilities', () => {
 
     const output = formatNetworkCapabilities({
       schema: 'chain-insights.network-capabilities.v1',
-      networks: [{
-        network: 'future_network',
-        display_name: 'Future Network',
-        status: 'unavailable',
-        layers: {},
-        tools: {
-          graph_query: 'unavailable',
-          graph_query_batch: 'unavailable',
+      networks: [
+        {
+          network: 'future_network',
+          display_name: 'Future Network',
+          status: 'unavailable',
+          layers: {},
+          tools: {
+            graph_query: 'unavailable',
+            graph_query_batch: 'unavailable',
+          },
         },
-      }],
+      ],
     })
 
     expect(output).toContain('Future Network')
@@ -297,20 +342,22 @@ describe('MCP network capabilities', () => {
 
     const output = formatNetworkCapabilities({
       schema: 'chain-insights.network-capabilities.v1',
-      networks: [{
-        network: 'robinhood',
-        display_name: 'Robinhood',
-        status: 'live',
-        layers: {},
-        coverage: {
-          from_timestamp: '2026-05-19T00:00:00Z',
-          to_timestamp: '2026-05-20T00:00:00Z',
+      networks: [
+        {
+          network: 'robinhood',
+          display_name: 'Robinhood',
+          status: 'live',
+          layers: {},
+          coverage: {
+            from_timestamp: '2026-05-19T00:00:00Z',
+            to_timestamp: '2026-05-20T00:00:00Z',
+          },
+          tools: {
+            graph_query: 'available',
+            graph_query_batch: 'available',
+          },
         },
-        tools: {
-          graph_query: 'available',
-          graph_query_batch: 'available',
-        },
-      }],
+      ],
     })
 
     expect(output).toContain('Robinhood')
@@ -323,13 +370,15 @@ describe('MCP network capabilities', () => {
 
     const output = formatNetworkCapabilities({
       schema: 'chain-insights.network-capabilities.v1',
-      networks: [{
-        network: 'robinhood',
-        display_name: 'Robinhood',
-        status: 'live',
-        layers: {},
-        tools: {},
-      }],
+      networks: [
+        {
+          network: 'robinhood',
+          display_name: 'Robinhood',
+          status: 'live',
+          layers: {},
+          tools: {},
+        },
+      ],
     })
 
     expect(output).not.toContain('Transfers')
