@@ -1107,9 +1107,9 @@ export async function createProxy(): Promise<void> {
                 type: 'text' as const,
                 text:
                   `Payment required for ${tool.name}. This tool costs USDC on Base via x402 micropayments. ` +
-                  'Next steps: run `chain-insights wallet ready` to check funding and finish one-time payment setup, ' +
-                  'run `chain-insights wallet topup` if it says the wallet needs USDC, ' +
-                  'or `chain-insights access-key set <key>` if you have been given test access.',
+                  'Next steps: run `cia wallet ready` to check funding and finish one-time payment setup, ' +
+                  'run `cia wallet topup` if it says the wallet needs USDC, ' +
+                  'or `cia access-key set <key>` if you have been given test access.',
               },
             ],
             isError: true,

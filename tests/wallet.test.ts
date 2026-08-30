@@ -48,6 +48,40 @@ describe('Wallet module (MCP-01)', () => {
     expect(recovered).toBe(testKey)
   })
 
+  it('generates a valid EVM private key for a new wallet', async () => {
+    const { generateWalletPrivateKey } = await import('../src/wallet/create.js')
+    const generated = generateWalletPrivateKey()
+    expect(generated).toMatch(/^0x[0-9a-f]{64}$/i)
+  })
+
+  it('formats a boxed backup warning with a no-color fallback', async () => {
+    const { formatWalletBackupWarning } = await import('../src/wallet/create.js')
+    const key = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+    const output = formatWalletBackupWarning(key, { color: false })
+    const lines = output.split('\n')
+
+    expect(lines[0]).toMatch(/^┌─+┐$/)
+    expect(lines.at(-1)).toMatch(/^└─+┘$/)
+    expect(output).toContain('BACK UP YOUR PRIVATE KEY NOW')
+    expect(output).toContain(key)
+    expect(output).toContain('Type BACKED UP to continue')
+    expect(output).not.toContain('\u001b[')
+    expect(lines.every((line) => line.startsWith('│ ') || /^┌|^└/.test(line))).toBe(true)
+  })
+
+  it('adds terminal color to the backup warning when enabled', async () => {
+    const { formatWalletBackupWarning } = await import('../src/wallet/create.js')
+    const key = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+    expect(formatWalletBackupWarning(key, { color: true })).toContain('\u001b[')
+  })
+
+  it('accepts only the explicit backup confirmation phrase', async () => {
+    const { isWalletBackupConfirmed } = await import('../src/wallet/create.js')
+    expect(isWalletBackupConfirmed('BACKED UP')).toBe(true)
+    expect(isWalletBackupConfirmed(' backed up ')).toBe(false)
+    expect(isWalletBackupConfirmed('')).toBe(false)
+  })
+
   it('setWalletPrivateKey refuses to overwrite an existing wallet without force', async () => {
     const { setWalletPrivateKey, decryptKey } = await import('../src/wallet/index.js')
     const firstKey = '0x1111111111111111111111111111111111111111111111111111111111111111'

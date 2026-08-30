@@ -203,3 +203,28 @@ export function formatNetworkCapabilities(document: NetworkCapabilitiesDocument)
     '\n'
   )
 }
+
+export function findNetworkCapability(
+  document: NetworkCapabilitiesDocument,
+  name: string
+): NetworkCapability | undefined {
+  const normalizedName = name.trim().toLowerCase()
+  if (!normalizedName) return undefined
+  return document.networks.find((network) =>
+    [network.network, network.display_name].some(
+      (candidate) => candidate?.trim().toLowerCase() === normalizedName
+    )
+  )
+}
+
+export function formatNetworkCapability(network: NetworkCapability): string {
+  const rows = [
+    ['Network', network.display_name || network.network],
+    ['Identifier', network.network],
+    ['Status', network.default ? `${network.status} (default)` : network.status],
+    ['Dataset', datasetLabel(network)],
+    ['Available tools', availableTools(network).join(', ') || 'none'],
+  ]
+  const labelWidth = Math.max(...rows.map(([label]) => label.length))
+  return rows.map(([label, value]) => `${label.padEnd(labelWidth)}  ${value}`).join('\n')
+}

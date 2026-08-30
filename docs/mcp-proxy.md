@@ -31,13 +31,13 @@ the endpoint; use Chain Insights config for the default or an override.
 Set local development:
 
 ```bash
-chain-insights config set graphMcpEndpoint http://127.0.0.1:8012/mcp
+cia config set graphMcpEndpoint http://127.0.0.1:8012/mcp
 ```
 
 Set public production:
 
 ```bash
-chain-insights config set graphMcpEndpoint https://mcp.chain-insights.ai/
+cia config set graphMcpEndpoint https://mcp.chain-insights.ai/
 ```
 
 Use a one-shot environment override:
@@ -106,22 +106,22 @@ is no identity-resolution step.
 Local debug mode:
 
 ```bash
-chain-insights debug on --token chain-insights-dev-debug --endpoint http://localhost:8012/mcp
-chain-insights mcp tools --refresh
+cia debug on --token chain-insights-dev-debug --endpoint http://localhost:8012/mcp
+cia mcp tools --refresh
 ```
 
 Invited tester access key mode:
 
 ```bash
-chain-insights access-key set ci_test_REDACTED --endpoint https://mcp.chain-insights.ai/
-chain-insights access-key status
+cia access-key set ci_test_REDACTED --endpoint https://mcp.chain-insights.ai/
+cia access-key status
 ```
 
 Daily free-tier graph usage:
 
 ```bash
-chain-insights mcp call meta_usage_status
-chain-insights mcp call graph_query \
+cia mcp call meta_usage_status
+cia mcp call graph_query \
   network=robinhood \
   "query=USE topology MATCH (n) RETURN count(n) AS count LIMIT 1"
 ```
@@ -151,10 +151,19 @@ Schema skills hold the GraphRAG map.
 Paid x402 mode:
 
 ```bash
-chain-insights config set graphMcpEndpoint https://mcp.chain-insights.ai/
-chain-insights debug off
-chain-insights wallet import 0xYOUR_EVM_PRIVATE_KEY
-chain-insights wallet ready
+cia config set graphMcpEndpoint https://mcp.chain-insights.ai/
+cia debug off
+cia wallet create
+# Save the private key, then type BACKED UP when prompted.
+cia wallet topup
+cia wallet ready
+```
+
+To use an existing wallet instead:
+
+```bash
+cia wallet import 0xYOUR_EVM_PRIVATE_KEY
+cia wallet ready
 ```
 
 If `graphMcpAuthToken` is set, Chain Insights sends both
@@ -162,7 +171,7 @@ If `graphMcpAuthToken` is set, Chain Insights sends both
 Chain Insights uses the encrypted wallet private key with x402 payment
 handling. `wallet ready` is the user-facing preflight: it checks Base USDC,
 Base ETH gas, and one-time payment setup. A normal user does not need payment
-protocol details; run `chain-insights wallet ready` and retry the paid tool
+protocol details; run `cia wallet ready` and retry the paid tool
 after it reports ready.
 
 ## Agent Installers
@@ -170,9 +179,9 @@ after it reports ready.
 Install skills and MCP registration:
 
 ```bash
-chain-insights --claude
-chain-insights --codex
-chain-insights --hermes
+cia --claude
+cia --codex
+cia --hermes
 ```
 
 The Hermes installer writes Chain Insights skills under the Hermes skills
@@ -188,12 +197,12 @@ The supported setup targets are the same ones advertised by top-level installer
 flags:
 
 ```bash
-chain-insights setup claude-code
-chain-insights setup codex
-chain-insights setup hermes
+cia setup claude-code
+cia setup codex
+cia setup hermes
 ```
 
-`chain-insights setup claude` is an alias for `chain-insights setup
+`cia setup claude` is an alias for `cia setup
 claude-code`. Claude Desktop configuration is not exposed by the CLI setup
 surface.
 

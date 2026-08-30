@@ -3,6 +3,25 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.24.0] - 2026-08-31 — feat: improve first-run CLI onboarding
+
+The CLI now uses `cia` consistently in public help and guidance. Users can
+inspect one network directly and create a local payment wallet with an
+explicit private-key backup confirmation.
+
+### Added
+
+- `cia network <name>` for details about one supported network.
+- `cia wallet create` for local wallet generation.
+- A colorized, aligned wallet backup warning with a plain-text fallback.
+
+### Changed
+
+- Wallet creation keeps the generated key in memory until the user enters
+  `BACKED UP`.
+- Wallet guidance explains the encrypted local storage path and recovery limit.
+- Public CLI help, errors, payment guidance, and command examples use `cia`.
+
 ## [0.23.0] - 2026-08-30 — release: ship the focused CLI and MCP surface
 
 The first public release keeps the install-to-first-screen path focused on

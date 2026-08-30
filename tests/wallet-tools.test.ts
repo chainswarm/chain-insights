@@ -242,7 +242,7 @@ describe('wallet tools', () => {
       hasPaymentApproval: false,
       needsPaymentApproval: true,
       ready: false,
-      nextSteps: ['Run `chain-insights wallet ready` to finish the one-time payment setup.'],
+      nextSteps: ['Run `cia wallet ready` to finish the one-time payment setup.'],
     })
 
     expect(text).toContain('Action needed before paid Chain Insights Graph calls')

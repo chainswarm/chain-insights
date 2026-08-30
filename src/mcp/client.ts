@@ -109,9 +109,9 @@ function createHeaderFetch(authToken: string, baseFetch: FetchLike): FetchLike {
 }
 
 export const PAYMENT_NEXT_STEPS =
-  'Next steps: run `chain-insights wallet ready` to check funding and finish one-time payment setup, ' +
-  'run `chain-insights wallet topup` if it says the wallet needs USDC, ' +
-  'or `chain-insights access-key set <key>` if you have been given test access.'
+  'Next steps: run `cia wallet ready` to check funding and finish one-time payment setup, ' +
+  'run `cia wallet topup` if it says the wallet needs USDC, ' +
+  'or `cia access-key set <key>` if you have been given test access.'
 
 interface PaymentRequirementDetails {
   reason: string
@@ -213,7 +213,7 @@ function describePaymentRequiredResponse(response: Response, payerAddress?: stri
       ? `x402 payment failed: ${reason} (${details})`
       : `x402 payment failed: ${reason}`
     if (reason.includes('allowance_required')) {
-      return `${message}. The payment wallet needs one-time setup before paid MCP calls can settle. Run \`chain-insights wallet ready\`; Base ETH is used for the setup gas.`
+      return `${message}. The payment wallet needs one-time setup before paid MCP calls can settle. Run \`cia wallet ready\`; Base ETH is used for the setup gas.`
     }
     if (reason === 'payment_required') {
       return `${message}. ${PAYMENT_NEXT_STEPS}`
@@ -249,7 +249,7 @@ function createPaymentFailureReportingFetch(
         })
       } catch (err) {
         throw new PaymentRequiredError(
-          'Payment setup is not ready yet. Run `chain-insights wallet ready` and try again. ' +
+          'Payment setup is not ready yet. Run `cia wallet ready` and try again. ' +
             `${(err as Error).message}`
         )
       }

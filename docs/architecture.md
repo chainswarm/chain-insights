@@ -46,8 +46,8 @@ permissions.
 Primary Chain Insights Graph config:
 
 ```bash
-chain-insights config get graphMcpEndpoint
-chain-insights config set graphMcpEndpoint https://mcp.chain-insights.ai/
+cia config get graphMcpEndpoint
+cia config set graphMcpEndpoint https://mcp.chain-insights.ai/
 export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://mcp.chain-insights.ai/
 ```
 
@@ -98,9 +98,9 @@ Default local data directory:
 Invited testers can use server-side test keys without x402 payment:
 
 ```bash
-chain-insights access-key set ci_test_REDACTED --endpoint https://mcp.chain-insights.ai/
-chain-insights access-key status
-chain-insights mcp call graph_query network=robinhood query='USE topology MATCH (n) RETURN n LIMIT 1'
+cia access-key set ci_test_REDACTED --endpoint https://mcp.chain-insights.ai/
+cia access-key status
+cia mcp call graph_query network=robinhood query='USE topology MATCH (n) RETURN n LIMIT 1'
 ```
 
 Operators configure the server with `MCP_TEST_ACCESS_KEY_HASHES`, a

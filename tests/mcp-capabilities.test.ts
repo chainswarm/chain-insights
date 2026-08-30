@@ -309,6 +309,59 @@ describe('MCP network capabilities', () => {
     expect(output).not.toContain('Risk')
   })
 
+  it('selects a network by identifier without changing the advertised document', async () => {
+    const { findNetworkCapability } = await import('../src/mcp/capabilities.js')
+
+    const document = {
+      schema: 'chain-insights.network-capabilities.v1' as const,
+      networks: [
+        {
+          network: 'robinhood',
+          display_name: 'Robinhood',
+          status: 'live',
+          layers: {},
+          tools: {},
+        },
+      ],
+    }
+
+    expect(findNetworkCapability(document, ' Robinhood ')).toBe(document.networks[0])
+    expect(findNetworkCapability(document, 'missing')).toBeUndefined()
+  })
+
+  it('formats one network as a readable detail table', async () => {
+    const { formatNetworkCapability } = await import('../src/mcp/capabilities.js')
+
+    const output = formatNetworkCapability({
+      network: 'robinhood',
+      display_name: 'Robinhood',
+      status: 'live',
+      default: true,
+      layers: {},
+      coverage: {
+        from_block: 84,
+        to_block: 7440268,
+        from_timestamp: '2023-03-20T22:25:48Z',
+        to_timestamp: '2026-01-31T04:26:00Z',
+      },
+      tools: {
+        graph_query: 'available',
+      },
+    })
+
+    expect(output).toContain('Network')
+    expect(output).toContain('Robinhood')
+    expect(output).toContain('Identifier')
+    expect(output).toContain('robinhood')
+    expect(output).toContain('Status')
+    expect(output).toContain('live (default)')
+    expect(output).toContain('Dataset')
+    expect(output).toContain('84..7440268 / 2023-03-20..2026-01-31')
+    expect(output).toContain('Available tools')
+    expect(output).toContain('aml_address_risk')
+    expect(output).not.toContain('undefined')
+  })
+
   it('overlays CIA tools on every advertised network in CLI output', async () => {
     const { formatNetworkCapabilities } = await import('../src/mcp/capabilities.js')
 

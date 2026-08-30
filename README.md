@@ -23,7 +23,8 @@ as-is on macOS; on Windows use WSL.
 npx chain-insights@latest --help   # run without installing
 npm install -g chain-insights      # or install the cia CLI globally
 cia mcp call aml_address_risk network=robinhood address=0xYourAddressHere
-cia networks                       # supported networks + public tool surface
+cia networks                       # all supported networks
+cia network robinhood              # details for one network
 ```
 
 Sixty seconds gets you the CLI and the live tool catalog.
@@ -213,6 +214,18 @@ Run a first screen from any directory:
 cia mcp call aml_address_risk \
   network=robinhood address=0xYourAddressHere
 ```
+
+Create a local payment wallet when paid access is needed:
+
+```bash
+cia wallet create
+```
+
+The command shows the private key once in a clearly marked warning panel.
+Save it in a secure password manager or offline backup, then type `BACKED UP`
+to finish. The encrypted local copy is stored at
+`~/.chain-insights/wallet.json`. Continue with `cia wallet ready` when you are
+ready to enable paid access.
 
 Example queries. Direct topology:
 

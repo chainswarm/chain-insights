@@ -64,13 +64,13 @@ Agent installers ship four skills:
 Check public-free usage:
 
 ```bash
-chain-insights mcp call meta_usage_status
+cia mcp call meta_usage_status
 ```
 
 Example single query:
 
 ```bash
-chain-insights mcp call graph_query \
+cia mcp call graph_query \
   network=robinhood \
   "query=USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level LIMIT 10"
 ```
@@ -78,7 +78,7 @@ chain-insights mcp call graph_query \
 Example batch query:
 
 ```bash
-chain-insights mcp call graph_query_batch \
+cia mcp call graph_query_batch \
   network=robinhood \
   'queries=[{"id":"count","query":"USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"flows","query":"USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 3"},{"id":"linked","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"}]'
 ```
