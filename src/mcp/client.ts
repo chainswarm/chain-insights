@@ -314,7 +314,7 @@ export function createMcpFetchClient(privateKey: `0x${string}`, authToken?: stri
  * Creates a bearer/debug-token fetch for local Chain Insights Graph testing.
  *
  * Chain Insights Graph deployments accept test access through the public debug header,
- * staging test-key headers, or Authorization: Bearer depending on the route.
+ * test-key headers, or Authorization: Bearer depending on the route.
  * Sending all supported auth headers lets one config value work across hosted
  * MCP calls, metadata reads, and private M2M endpoints.
  *

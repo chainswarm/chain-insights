@@ -42,7 +42,7 @@ function workspaceJson(workspaceRoot: string): string {
         schema: 'chain-insights.workspace.v1',
         name: 'Chain Insights Workspace',
         workspace_root: workspaceRoot,
-        default_network: 'bittensor',
+        default_network: 'robinhood',
         graph_mcp_endpoint: LOCAL_GRAPH_MCP_ENDPOINT,
         artifacts_dir: 'artifacts',
         imports_dir: 'imports',
@@ -283,7 +283,7 @@ const SCHEMA_README = `# Runtime Schema Captures
 Store graph schema captures here, for example:
 
 \`\`\`text
-bittensor.graph-schema.json
+robinhood.graph-schema.json
 \`\`\`
 
 Schema captures should be generated before the first graph workflow in a fresh

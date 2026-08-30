@@ -174,7 +174,6 @@ describe('shipped Chain Insights skills contract', () => {
       .join('\n')
 
     expect(runtimeSources).toContain('http://127.0.0.1:8012/mcp')
-    expect(runtimeSources).not.toContain('staging-mcp.chain-insights.ai')
     expectNoRetiredHostedMcpHost(runtimeSources)
   })
 
