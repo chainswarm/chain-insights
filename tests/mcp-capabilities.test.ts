@@ -40,17 +40,14 @@ describe('MCP network capabilities', () => {
 
     const { fetchNetworkCapabilities } = await import('../src/mcp/capabilities.js')
     const result = await fetchNetworkCapabilities({
-      graphMcpEndpoint: 'https://staging-mcp.chain-insights.ai/mcp',
+      graphMcpEndpoint: 'https://mcp.example.test/',
       graphMcpMode: 'debug',
       graphMcpAuthToken: 'debug-token',
     })
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      new URL('https://staging-mcp.chain-insights.ai/metadata/networks'),
-      {
-        headers: expect.any(Headers),
-      }
-    )
+    expect(fetchMock).toHaveBeenCalledWith(new URL('https://mcp.example.test/metadata/networks'), {
+      headers: expect.any(Headers),
+    })
     const headers = fetchMock.mock.calls[0]?.[1]?.headers as Headers
     expect(headers.get('X-MCP-Debug-Token')).toBe('debug-token')
     expect(headers.get('X-MCP-Test-Key')).toBe('debug-token')
@@ -111,7 +108,7 @@ describe('MCP network capabilities', () => {
 
     const { fetchNetworkCapabilities } = await import('../src/mcp/capabilities.js')
     const result = await fetchNetworkCapabilities({
-      graphMcpEndpoint: 'https://staging-mcp.chain-insights.ai/mcp',
+      graphMcpEndpoint: 'https://mcp.example.test/',
       graphMcpMode: 'debug',
       graphMcpAuthToken: 'debug-token',
     })

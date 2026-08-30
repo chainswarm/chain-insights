@@ -3,6 +3,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.22.2] - 2026-08-30 — fix: align hosted MCP tests with production
+
+Hosted Chain Insights Graph now exposes the Robinhood network and the current
+`topology` and `facts` scopes. The release smoke path and production-facing
+tests use those current capabilities.
+
+### Changed
+
+- Default fresh workspaces to the hosted `robinhood` network.
+- Update hosted MCP smoke checks and CLI tests to use the production endpoint.
+- Remove stale staging endpoint references from mocked tests.
+- Replace retired `live_topology` assumptions with `USE topology`.
+
 ## [0.22.1] - 2026-08-30 — chore: prettier formatting baseline (#349)
 
 `npm run lint:format` is declared over the whole tree but had never been

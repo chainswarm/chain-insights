@@ -238,6 +238,9 @@ describe('CLI scaffold (FOUND-02)', () => {
         '"graph_mcp_endpoint": "http://127.0.0.1:8012/mcp"'
       )
       expect(readFileSync(join(target, '.chain-insights', 'workspace.json'), 'utf8')).toContain(
+        '"default_network": "robinhood"'
+      )
+      expect(readFileSync(join(target, '.chain-insights', 'workspace.json'), 'utf8')).toContain(
         '"domain_hints": [\n    "aml"\n  ]'
       )
       const readme = readFileSync(join(target, 'README.md'), 'utf8')
@@ -257,6 +260,9 @@ describe('CLI scaffold (FOUND-02)', () => {
       expect(readFileSync(join(target, 'templates', 'README.md'), 'utf8')).toContain(
         'Reusable Workspace Templates'
       )
+      expect(
+        readFileSync(join(target, '.chain-insights', 'schema', 'README.md'), 'utf8')
+      ).toContain('robinhood.graph-schema.json')
       const agents = readFileSync(join(target, 'AGENTS.md'), 'utf8')
       const claude = readFileSync(join(target, 'CLAUDE.md'), 'utf8')
       for (const body of [agents, claude]) {
@@ -600,7 +606,7 @@ describe('CLI scaffold (FOUND-02)', () => {
           '--token',
           'test-debug-token',
           '--endpoint',
-          'http://staging-mcp.chain-insights.ai/mcp',
+          'http://mcp.example.test/',
         ],
         {
           encoding: 'utf8',
@@ -619,18 +625,18 @@ describe('CLI scaffold (FOUND-02)', () => {
     const env = { ...process.env, HOME: fakeHome }
     try {
       const set = execSync(
-        'node bin/cli.js access-key set ci_test_secret_123456789012345678 --endpoint https://staging-mcp.chain-insights.ai/mcp',
+        'node bin/cli.js access-key set ci_test_secret_123456789012345678 --endpoint https://mcp.example.test/',
         {
           encoding: 'utf8',
           env,
         }
       )
       expect(set).toContain('Chain Insights Graph test access key configured')
-      expect(set).toContain('Graph endpoint: https://staging-mcp.chain-insights.ai/mcp')
+      expect(set).toContain('Graph endpoint: https://mcp.example.test/')
       expect(set).not.toContain('ci_test_secret')
 
       const status = execSync('node bin/cli.js access-key status', { encoding: 'utf8', env })
-      expect(status).toContain('Graph endpoint: https://staging-mcp.chain-insights.ai/mcp')
+      expect(status).toContain('Graph endpoint: https://mcp.example.test/')
       expect(status).toContain('Access key:     configured')
       expect(status).not.toContain('ci_test_secret')
 

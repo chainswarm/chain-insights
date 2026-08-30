@@ -393,16 +393,18 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     mockClientClose.mockResolvedValue(undefined)
 
     await runMcpCallAction('graph_query_batch', [
-      'network=bittensor',
-      'queries=[{"id":"count","query":"MATCH (n) RETURN count(n) AS count LIMIT 1"}]',
+      'network=robinhood',
+      'queries=[{"id":"count","query":"USE topology MATCH (n) RETURN count(n) AS count LIMIT 1"}]',
       'per_query_timeout_seconds=10',
     ])
 
     expect(mockClientCallTool).toHaveBeenCalledWith({
       name: 'graph_query_batch',
       arguments: {
-        network: 'bittensor',
-        queries: [{ id: 'count', query: 'MATCH (n) RETURN count(n) AS count LIMIT 1' }],
+        network: 'robinhood',
+        queries: [
+          { id: 'count', query: 'USE topology MATCH (n) RETURN count(n) AS count LIMIT 1' },
+        ],
         per_query_timeout_seconds: 10,
       },
     })
@@ -410,7 +412,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
 
   it('mcp call sends meta_usage_status through the upstream usage_status primitive', async () => {
     mockLoadConfig.mockResolvedValue({
-      graphMcpEndpoint: 'https://staging-mcp.chain-insights.ai/mcp',
+      graphMcpEndpoint: 'https://mcp.example.test/',
     })
     mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
     mockClientConnect.mockResolvedValue(undefined)
@@ -487,7 +489,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     ['help', "MCP tool 'help' is not exposed by Chain Insights. Use meta_help instead."],
   ])('mcp call rejects hidden tool %s before remote passthrough', async (tool, message) => {
     await expect(
-      runMcpCallAction(tool, ['trusted_addresses=5Seed', 'network=bittensor'])
+      runMcpCallAction(tool, ['trusted_addresses=0xSeed', 'network=robinhood'])
     ).rejects.toThrow('process.exit(1)')
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(message)
@@ -507,7 +509,10 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
     mockClientClose.mockResolvedValue(undefined)
 
-    await runMcpCallAction('aml_address_risk', ['network=bittensor', 'address=5Addr'])
+    await runMcpCallAction('aml_address_risk', [
+      'network=robinhood',
+      'address=0x0000000000000000000000000000000000000abc',
+    ])
 
     expect(consoleLogSpy).toHaveBeenCalledWith('## Risk Report')
     expect(JSON.stringify(consoleLogSpy.mock.calls)).not.toContain('graph.json')
@@ -535,7 +540,10 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
     mockClientClose.mockResolvedValue(undefined)
 
-    await runMcpCallAction('aml_address_risk', ['address=5abc', 'network=bittensor'])
+    await runMcpCallAction('aml_address_risk', [
+      'address=0x0000000000000000000000000000000000000abc',
+      'network=robinhood',
+    ])
 
     expect(mockIsWalletConfigured).not.toHaveBeenCalled()
     expect(mockDecryptKey).not.toHaveBeenCalled()
@@ -545,7 +553,10 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     )
     expect(mockClientCallTool).toHaveBeenCalledWith({
       name: 'aml_address_risk',
-      arguments: { address: '5abc', network: 'bittensor' },
+      arguments: {
+        address: '0x0000000000000000000000000000000000000abc',
+        network: 'robinhood',
+      },
     })
   })
 })
