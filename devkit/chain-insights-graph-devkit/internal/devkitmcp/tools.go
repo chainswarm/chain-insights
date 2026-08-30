@@ -224,7 +224,7 @@ func graphQueryHandler(runner QueryRunner) func(context.Context, *mcp.CallToolRe
 			return toolError(err.Error()), nil, nil
 		}
 		if queryTargetsTopology(args.Query) {
-			// Parity with production (rbmk#473): the statement AFTER `USE
+			// Parity with production (internal epic): the statement AFTER `USE
 			// topology` must itself open with a read clause, or admin verbs
 			// reach the Bolt session unchecked.
 			if err := cypheradmit.ValidateTopologyStatementOpener(args.Query); err != nil {

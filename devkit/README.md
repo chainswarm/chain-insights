@@ -29,10 +29,11 @@ The MCP endpoint is:
 http://127.0.0.1:18012/mcp
 ```
 
-Fixture data is generated from the RBMK-controlled StarRocks export path:
+Fixture data is generated from the internal StarRocks export path
+(maintainer access required; the committed fixture is what most workflows
+consume):
 
 ```bash
-cd /path/to/rbmk
 bash scripts/devops/chain-insights-devkit/build-fixture.sh
 ```
 

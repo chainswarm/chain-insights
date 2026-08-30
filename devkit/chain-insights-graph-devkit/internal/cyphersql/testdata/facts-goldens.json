@@ -189,7 +189,7 @@
   {
    "id": "recipe_facts_transfer_06",
    "layer": "facts",
-   "note": "empty-group aggregate: this address has zero facts_transfers_view rows. Pins COALESCE(SUM(...), 0) \u2014 StarRocks SUM() over an empty group is NULL, but openCypher/Memgraph sum() = 0 (rbmk#447 P5 Task 2 review fix).",
+   "note": "empty-group aggregate: this address has zero facts_transfers_view rows. Pins COALESCE(SUM(...), 0) \u2014 StarRocks SUM() over an empty group is NULL, but openCypher/Memgraph sum() = 0 (internal epic).",
    "query": "USE facts MATCH (from:Address {address: \"5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM\"})-[t:TRANSFER]->(to:Address) RETURN count(t) AS transfer_count, sum(t.amount_usd) AS total_amount_usd LIMIT 1",
    "baseline": "memgql",
    "expected_rows": [

@@ -1,6 +1,6 @@
 # Devkit Fixture Data
 
-This directory is populated by the RBMK real-data export:
+This directory is populated by the internal real-data export:
 
 ```bash
 bash scripts/devops/chain-insights-devkit/build-fixture.sh

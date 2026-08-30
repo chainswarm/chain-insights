@@ -2,7 +2,7 @@
 // Generates tests/fixtures/graph-query-corpus.json: every graph query the
 // cia AML builders can emit, in PRODUCTION SHAPE — i.e. wrapped with the
 // exact `USE <scope>` prefix the runtime batch wrapper applies. The
-// data-pipeline validator test (internal/graphmcp corpus test) runs
+// the upstream pipeline's internal corpus test runs
 // ValidateReadOnlyGraphQuery over every entry; the USE prefix matters
 // because the validator's StarRocks cost-shape gates key on `USE facts`.
 //
@@ -78,8 +78,8 @@ const documentedRecipes = JSON.parse(
   readFileSync(join(repoRoot, 'tests/fixtures/documented-recipes.json'), 'utf8'),
 )
 for (const recipe of documentedRecipes.recipes) {
-  // This corpus is the production ADMISSION contract: the data-pipeline
-  // graphmcp test asserts ValidateReadOnlyGraphQuery admits every entry, so a
+  // This corpus is the production ADMISSION contract: the the upstream pipeline
+  // the internal corpus test asserts ValidateReadOnlyGraphQuery admits every entry, so a
   // query production deliberately refuses must not appear here. Recipes tagged
   // `admits: false` (StarRocks-backed global aggregates without an indexed
   // predicate — refused by the cost-shape gate) document a surface boundary,

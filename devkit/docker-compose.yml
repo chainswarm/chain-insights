@@ -23,7 +23,7 @@ services:
       # Graph node/edge → StarRocks table+column mapping, sourced from the
       # devkit's own vendored translator asset (internal/cyphersql/mapping.json).
       # Keeps the devkit self-contained so the MemGQL retirement can delete the
-      # old federation mapping in data-pipeline without breaking devkit boot.
+      # old federation mapping upstream without breaking devkit boot.
       - ./chain-insights-graph-devkit/internal/cyphersql/mapping.json:/mapping/chain_insights_starrocks_mapping.json:ro
     depends_on:
       - starrocks

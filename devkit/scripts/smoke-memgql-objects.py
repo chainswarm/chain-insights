@@ -9,19 +9,19 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEVKIT_ROOT = SCRIPT_DIR.parent
 # Post MemGQL retirement the graph mapping is the devkit's own vendored
-# translator asset (the old data-pipeline federation mapping is deleted).
+# translator asset (the old the upstream pipeline federation mapping is deleted).
 MAPPING = DEVKIT_ROOT / "chain-insights-graph-devkit/internal/cyphersql/mapping.json"
 ENDPOINT = os.environ.get("CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT", "http://127.0.0.1:18012/mcp")
 NETWORK = os.environ.get("CHAIN_INSIGHTS_DEVKIT_NETWORK", "bittensor")
 
 # KEPT-IN-SYNC with ALLOWED_UNEXPORTED_TABLES in validate-manifest.py.
-# facts_transfers_view (rbmk#447 P5) shipped its capped, address-scoped
+# facts_transfers_view (internal epic) shipped its capped, address-scoped
 # fixture export -- it is queryable like every other mapped table now, so
 # it no longer needs a coverage-check exemption here.
 ALLOWED_UNEXPORTED_TABLES: set[str] = set()
 
 # Tables whose facts-scope admission REQUIRES an indexed predicate even for a
-# LIMIT-1 row-select (the TRANSFER edge rule, rbmk#447 P5): a bare
+# LIMIT-1 row-select (the TRANSFER edge rule, internal epic): a bare
 # `MATCH ()-[r:...]->() LIMIT 1` probe is rejected BY DESIGN, so the coverage
 # probe anchors on a real value read from the shipped fixture itself — which
 # also upgrades the check to prove imported DATA is served (rows_returned=1),

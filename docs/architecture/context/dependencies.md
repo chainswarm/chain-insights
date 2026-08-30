@@ -15,7 +15,6 @@
 ## Sibling Repositories
 
 - `ml-pipeline` (ml) — https://github.com/chainswarm/ml-pipeline.git
-- `data-pipeline` (ml) — https://github.com/chainswarm/data-pipeline.git
 - `aml-acp` (ml) — https://github.com/chainswarm/aml-acp.git
 - `pricing-oracle` (ml) — https://github.com/chainswarm/pricing-oracle.git
 - `starrocks-exporter` (ml) — https://github.com/chainswarm/starrocks-exporter.git

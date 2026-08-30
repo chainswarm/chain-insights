@@ -13,7 +13,7 @@
 
 - [data flow](docs/architecture/context/data-flow.md) — end-to-end pipeline
 
-- [dependencies](docs/architecture/context/dependencies.md) — contracts with indexers / ml-pipeline / rbmk / chain-insights
+- [dependencies](docs/architecture/context/dependencies.md) — contracts with indexers / ml-pipeline / chain-insights
 
 ## Containers
 

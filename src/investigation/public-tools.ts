@@ -162,8 +162,8 @@ function addressProfileQuery(address: string): { id: string; query: string } {
 
 // Lifetime address features from federated USE topology node-metric
 // projections (was: USE facts HAS_FEATURE -> facts_address_features_view,
-// the view's last reader — rbmk#447 P3/P5). The federation typed-AST planner
-// (rbmk#458) re-derives every projected metric EXACTLY across shards:
+// the view's last reader — internal epic). The federation typed-AST planner
+// (internal epic) re-derives every projected metric EXACTLY across shards:
 // additive props summed over disjoint shard windows, degrees as distinct
 // counterparty set unions, first/last activity as min/max of per-shard baked
 // endpoints, span from the combined endpoints — oracle-verified.

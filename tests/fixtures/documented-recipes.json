@@ -6,7 +6,7 @@
       "id": "recipe_facts_transfer_01",
       "query": "USE facts MATCH (from:Address {address: \"5CF6Ruq6u7DoF6TYxyaFzEuviWi7tjvJtz19XgPS2b7XDCFM\"})-[t:TRANSFER]->(to:Address) RETURN to.address AS to_address, t.tx_id AS tx_id, t.block_height AS block_height, t.amount_usd AS amount_usd, t.asset_symbol AS asset_symbol LIMIT 10",
       "layer": "facts",
-      "description": "Bounded row-select of individual TRANSFER edges by from_address (indexed predicate: address equality on the source endpoint) \u2014 fills the facts_transfers_view TRANSFER edge shape (rbmk#447 P5).",
+      "description": "Bounded row-select of individual TRANSFER edges by from_address (indexed predicate: address equality on the source endpoint) \u2014 fills the facts_transfers_view TRANSFER edge shape (internal epic).",
       "features": [
         "fixed-hop",
         "transfer-edge",
@@ -17,7 +17,7 @@
       "id": "recipe_facts_transfer_02",
       "query": "USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.tx_id = \"8505939-10\" RETURN from.address AS from_address, to.address AS to_address, t.event_index AS event_index, t.edge_index AS edge_index, t.amount_usd AS amount_usd LIMIT 10",
       "layer": "facts",
-      "description": "Bounded row-select of TRANSFER edges by tx_id equality (indexed predicate: the TRANSFER edge's row-level key, since tx_id is an edge property rather than a node id) \u2014 fills the tx_id-predicate TRANSFER shape (rbmk#447 P5).",
+      "description": "Bounded row-select of TRANSFER edges by tx_id equality (indexed predicate: the TRANSFER edge's row-level key, since tx_id is an edge property rather than a node id) \u2014 fills the tx_id-predicate TRANSFER shape (internal epic).",
       "features": [
         "fixed-hop",
         "transfer-edge",
@@ -28,7 +28,7 @@
       "id": "recipe_facts_transfer_03",
       "query": "USE facts MATCH (from:Address {address: \"5CF6Ruq6u7DoF6TYxyaFzEuviWi7tjvJtz19XgPS2b7XDCFM\"})-[t:TRANSFER]->(to:Address) RETURN count(t) AS transfer_count, sum(t.amount_usd) AS total_amount_usd LIMIT 1",
       "layer": "facts",
-      "description": "Bounded count()/sum() aggregate over TRANSFER edges anchored on an address endpoint (indexed predicate required for facts_transfers_view aggregates) \u2014 fills the TRANSFER count+sum aggregate shape (rbmk#447 P5).",
+      "description": "Bounded count()/sum() aggregate over TRANSFER edges anchored on an address endpoint (indexed predicate required for facts_transfers_view aggregates) \u2014 fills the TRANSFER count+sum aggregate shape (internal epic).",
       "features": [
         "fixed-hop",
         "transfer-edge",
@@ -41,7 +41,7 @@
       "admits": false,
       "query": "USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) RETURN t.tx_id AS tx_id LIMIT 10",
       "layer": "facts",
-      "description": "Unbounded TRANSFER row-select with only a LIMIT and no indexed predicate \u2014 facts_transfers_view is a full transfer-history table, so a bare LIMIT does not bound the scan; rejected by the StarRocks cost-shape gate (rbmk#447 P5 Task 2).",
+      "description": "Unbounded TRANSFER row-select with only a LIMIT and no indexed predicate \u2014 facts_transfers_view is a full transfer-history table, so a bare LIMIT does not bound the scan; rejected by the StarRocks cost-shape gate (internal epic).",
       "features": [
         "fixed-hop",
         "transfer-edge"
@@ -52,7 +52,7 @@
       "admits": false,
       "query": "USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) RETURN count(t) AS transfer_count LIMIT 1",
       "layer": "facts",
-      "description": "Unbounded TRANSFER aggregate with no indexed predicate \u2014 StarRocks-backed aggregate graph queries require an indexed predicate; rejected by the cost-shape gate (rbmk#447 P5 Task 2).",
+      "description": "Unbounded TRANSFER aggregate with no indexed predicate \u2014 StarRocks-backed aggregate graph queries require an indexed predicate; rejected by the cost-shape gate (internal epic).",
       "features": [
         "fixed-hop",
         "transfer-edge",

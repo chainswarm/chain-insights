@@ -11,7 +11,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 DEVKIT_ROOT = SCRIPT_DIR.parent
 MANIFEST = DEVKIT_ROOT / "data/manifest.json"
 # Post MemGQL retirement the graph mapping is sourced from the devkit's own
-# vendored translator asset (the old data-pipeline federation mapping is
+# vendored translator asset (the old the upstream pipeline federation mapping is
 # deleted). In-container it is bind-mounted at /mapping; on host it is read
 # directly.
 VENDORED_MAPPING = (
@@ -26,24 +26,24 @@ MAPPING_CANDIDATES = [
 ]
 
 # facts_neuron_endpoints_view, facts_neuron_hotkeys_view, and
-# facts_neuron_ip_addresses_view retired 2026-07-21 (rbmk migration 0031):
+# facts_neuron_ip_addresses_view retired 2026-07-21 (internal migration 0031):
 # neuron identity, hotkey/coldkey pairing, and IP/axon-port observation now
 # live on the topology :Neuron node and MINES/VALIDATES/HOTKEY_OF/COLDKEY_OF
-# edges (rbmk#447 P4'-lite). The rbmk exporter no longer emits them and the
-# vendored cyphersql mapping no longer maps them (mirrors data-pipeline
+# edges (internal epic). The internal fixture exporter no longer emits them and the
+# vendored cyphersql mapping no longer maps them (mirrors the upstream pipeline
 # 75ce9c96), so their tsv.gz fixtures are dead weight the devkit can never
 # serve -- dropped from the manifest and REQUIRED_TABLES together with this
 # retirement.
 #
-# facts_address_features_view retired 2026-08-28 (rbmk migration 0033): the
+# facts_address_features_view retired 2026-08-28 (internal migration 0033): the
 # view was dropped in production and the vendored cyphersql mapping no longer
 # maps AddressFeature / HAS_FEATURE (Address stays a TRANSFER endpoint only),
 # so its tsv.gz fixture is dead weight too -- dropped from the manifest and
 # REQUIRED_TABLES together with the mapping alignment (facts partition-pruning
 # wave, plan 2026-08-28-facts-serving-partition-pruning Task 5).
 #
-# facts_transfers_view (rbmk#447 P5) shipped its capped, address-scoped
-# TSV export (rbmk export-starrocks-fixture.sh) -- it is now a normal
+# facts_transfers_view (internal epic) shipped its capped, address-scoped
+# TSV export (the internal fixture exporter) -- it is now a normal
 # REQUIRED_TABLES entry like every other mapped table.
 REQUIRED_TABLES = {
     "facts_transfers_view",
@@ -198,7 +198,7 @@ def parse_iso8601(value: object):
 
 def main() -> None:
     if not MANIFEST.is_file():
-        fail("manifest missing; run bash scripts/devops/chain-insights-devkit/build-fixture.sh from the RBMK root with StarRocks export credentials")
+        fail("manifest missing; run bash scripts/devops/chain-insights-devkit/build-fixture.sh from the internal export root with StarRocks export credentials")
     manifest = read_json(MANIFEST)
     if manifest.get("schema") != "chain-insights.devkit.fixture.v1":
         fail("manifest schema must be chain-insights.devkit.fixture.v1")
@@ -225,8 +225,7 @@ def main() -> None:
 
     # StarRocks-derived coverage keys (substrate_rows, evm_pallet_rows,
     # address_count, linked_pair_count, flow_edge_count) retired 2026-07-21
-    # with the legacy archive-tier topology and facts_address_labels_view exports (rbmk#447
-    # P2b'/P4'-lite; rbmk export-starrocks-fixture.sh no longer emits them).
+    # with the legacy archive-tier topology and facts_address_labels_view exports (internal epic.sh no longer emits them).
     # Memgraph-side coverage keys remain asserted below where present; the
     # coverage object itself is optional pass-through now.
 
