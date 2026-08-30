@@ -7,9 +7,12 @@
 
 [Website](https://chain-insights.ai) | [npm](https://www.npmjs.com/package/chain-insights)
 
-Chain Insights is an open-source AML investigation toolkit for AI agents and
-analysts. It screens blockchain addresses, explores fund flows through graph
-queries, manages local evidence workspaces, and generates graph reports.
+Chain Insights is open-source AML and forensics infrastructure for AI agents
+and analysts: a hosted Chain Insights Graph you reach over MCP, screened
+through one CLI. It screens blockchain addresses for risk, explores fund flows
+through read-only graph queries, and renders graph reports from your own
+investigation folders. Every new account gets a free tier — a daily allowance
+of graph queries, no payment setup — so you can run a first screen in minutes.
 
 ## Quickstart
 
@@ -19,7 +22,8 @@ as-is on macOS; on Windows use WSL.
 ```bash
 npx chain-insights@latest --help   # run without installing
 npm install -g chain-insights      # or install the cia CLI globally
-cia init ~/cases                   # scaffold an investigation workspace
+cia init ~/cases                   # optional local investigation folder
+cia mcp call aml_address_risk network=robinhood address=0xYourAddressHere
 cia networks                       # supported networks + public tool surface
 ```
 

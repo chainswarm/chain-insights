@@ -3,6 +3,20 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.21.1] - 2026-08-30 — docs: README opening — AML/forensics positioning, MCP access, free tier (#343)
+
+The opening paragraph now states what the product actually is: AML and
+forensics infrastructure reached over a hosted Chain Insights Graph MCP
+endpoint. It drops the claim that we manage workspaces (a workspace is an
+optional plain local folder, created with `cia init`), confirms the graph
+report/viz surface, and puts the free tier — a daily graph-query allowance
+with no payment setup — in the first screen along with the fastest first
+call.
+
+### Changed
+
+- README opening paragraph and quickstart sequence.
+
 ## [0.21.0] - 2026-08-30 — feat: reviewed truth proposals
 
 Reviewed investigation findings can become evidence proposals.
