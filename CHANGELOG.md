@@ -3,6 +3,18 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.21.2] - 2026-08-30 — docs: adopt the No Code of Conduct (#341)
+
+`CODE_OF_CONDUCT.md` is replaced with the [No Code of
+Conduct](https://nocodeofconduct.com) text (canonical stub plus the short
+tenets and contact information), per the maintainer's decision in #341.
+The file stays at the repository root so GitHub's community profile keeps
+detecting it.
+
+### Changed
+
+- `CODE_OF_CONDUCT.md` content.
+
 ## [0.21.1] - 2026-08-30 — docs: README opening — AML/forensics positioning, MCP access, free tier (#343)
 
 The opening paragraph now states what the product actually is: AML and

@@ -1,23 +1,16 @@
-# Code of Conduct
+# Contributor Code of Conduct
 
-This project follows the [Contributor Covenant](https://www.contributor-covenant.org),
-version 2.1, in full:
+This project adheres to No Code of Conduct. We are all adults. We accept anyone's contributions. Nothing else matters.
 
-https://www.contributor-covenant.org/version/2/1/code_of_conduct/
+For more information please visit the [No Code of Conduct](https://nocodeofconduct.com) homepage.
 
 ## The short version
 
-- Be respectful and constructive.
-- No harassment, personal attacks, or discriminatory language.
-- Assume good intent; critique code, not people.
-- Maintainers may remove content and ban participants who violate these rules.
+1. We are all adults, capable of having adult discussions.
+2. We accept everyone's contributions. We do not care where you are from,
+   who you are, or what you believe - and we will not ask.
+3. Nothing else matters.
 
-## Reporting
-
-Report conduct issues privately to the maintainer via the contact listed in
-[SECURITY.md](SECURITY.md). Do not open public issues for conduct matters.
-
-## Scope
-
-This code applies in all project spaces — issues, pull requests, discussions,
-and any public channel representing the project.
+Reports about behavior go to the maintainers via GitHub. There is no
+enforcement bureaucracy beyond what GitHub's own Terms of Service already
+provide.
