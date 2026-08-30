@@ -6,17 +6,16 @@ import (
 )
 
 // This package is a MIRROR of the production admission gate
-// (chainswarm/data-pipeline internal/graphmcp). It had 645 lines and zero
+// (the retired internal federation module). It had 645 lines and zero
 // tracked tests, which is why it silently drifted four days behind production
-// during the rbmk#473 hardening epic: every hardening landed upstream and none
-// of it here, so a query a developer validated locally could be refused by the
+// during the internal epic, so a query a developer validated locally could be refused by the
 // real endpoint.
 //
 // These tests pin the parity rules that drifted. Each case names the upstream
 // PR it mirrors. When production's gate changes, port the change AND its case
 // here in the same wave.
 
-// TestTopologyStatementOpenerRefusesAdminVerbs mirrors data-pipeline #248.
+// TestTopologyStatementOpenerRefusesAdminVerbs mirrors the upstream pipeline #248.
 // The read-clause allowlist only inspects tokens[0] of the whole query, which
 // for `USE topology ...` is `USE` — so without this check the REAL statement is
 // screened by the write denylist alone, and admin verbs that use no denylisted
@@ -59,7 +58,7 @@ func TestTopologyStatementOpenerAdmitsReadClauses(t *testing.T) {
 	}
 }
 
-// TestIndexedPredicateCannotBeForged mirrors data-pipeline #240 and #260. The
+// TestIndexedPredicateCannotBeForged mirrors the upstream pipeline #240 and #260. The
 // cost-shape patterns must run over text with string literals and comments
 // blanked out, or a crafted literal forges an indexed predicate the query does
 // not have and buys an unbounded facts scan.
@@ -101,7 +100,7 @@ func TestGenuineIndexedPredicatesStillAdmitted(t *testing.T) {
 	}
 }
 
-// TestFactsPredicateKindAdmitsTheThreeBoundedShapes mirrors data-pipeline's
+// TestFactsPredicateKindAdmitsTheThreeBoundedShapes mirrors the upstream pipeline's
 // facts partition-pruning gate (plan 2026-08-28-facts-serving-partition-pruning
 // Task 2, spec S1-S3): the three admitted predicate kinds are bare block_date
 // bounds, tx_id equality/IN, and address equality/IN (map or WHERE). Precedence
@@ -141,12 +140,11 @@ func TestFactsPredicateKindAdmitsTheThreeBoundedShapes(t *testing.T) {
 	}
 }
 
-// TestFactsPredicateKindRejectsUnboundedShapes mirrors data-pipeline Task 2,
+// TestFactsPredicateKindRejectsUnboundedShapes mirrors the upstream pipeline Task 2,
 // spec S4/S5: block_height/block_timestamp-only bounds, function-wrapped
 // block_date, and block_date inside an OR arm do not bound the partition scan.
 // Each is rejected with the naming-remedy error. This includes the deliberate
-// rbmk#473 narrowing executed here: the two-sided block_height range pin
-// (:87) flips from ADMITTED to REJECTED in the same wave as upstream.
+// internal epic) flips from ADMITTED to REJECTED in the same wave as upstream.
 func TestFactsPredicateKindRejectsUnboundedShapes(t *testing.T) {
 	for _, query := range []string{
 		`USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.block_height >= 100 AND t.block_height <= 200 RETURN t.tx_id AS tx_id LIMIT 10`,
@@ -170,7 +168,7 @@ func TestFactsPredicateKindRejectsUnboundedShapes(t *testing.T) {
 	}
 }
 
-// TestTierClassifierIgnoresDottedUseFacts mirrors data-pipeline #260: a
+// TestTierClassifierIgnoresDottedUseFacts mirrors the upstream pipeline #260: a
 // property path like `n.use.facts` must not flip the billing tier.
 func TestTierClassifierIgnoresDottedUseFacts(t *testing.T) {
 	for _, query := range []string{

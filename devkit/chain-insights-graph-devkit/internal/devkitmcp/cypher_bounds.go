@@ -60,8 +60,7 @@ func queryTargetsTopology(query string) bool {
 // algorithm lambda like `[:R *WSHORTEST (r,n | size(n.tags[0..2])) w]` was cut
 // at the slice's bracket. The truncated fragment still held `0..2`, which the
 // hop-range extractor then read as an upper bound of 2, so a genuinely
-// depth-UNBOUNDED expansion was admitted (rbmk#473 F5 — a fail-open in the
-// depth cap, not merely a missed optimization).
+// depth-UNBOUNDED expansion was admitted (internal epic, not merely a missed optimization).
 func edgeBodies(query string) []string {
 	var bodies []string
 	for i := 0; i < len(query); i++ {
@@ -195,7 +194,7 @@ func validateEdgeBound(body string, b TraversalBounds) error {
 // Returns (bound, true) when an explicit upper bound exists.
 func extractUpperHop(body string) (int, bool) {
 	// Only the pre-lambda, bracket-free region can carry a bound; a `..` inside
-	// an algorithm lambda or a list slice is data (rbmk#473 F5).
+	// an algorithm lambda or a list slice is data (internal epic).
 	body = hopBoundRegion(body)
 	if m := hopRangePattern.FindStringSubmatch(body); m != nil {
 		if n, ok := parseHopNumber(m[2]); ok {

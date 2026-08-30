@@ -79,7 +79,7 @@ function rowKey(row: ShardRow): string {
  * shard's raw values directly.
  *
  * Per-property rules (SPEC-2026-07-26-FED-THIN-FANOUT, mirrored from the
- * retired server-side merge in data-pipeline internal/graphmcp/federation.go
+ * retired server-side merge in the retired internal federation merger
  * which solved the same problem before the merge moved client-side):
  *
  * - `amount_usd_sum`, `tx_count`: additive per-shard partials — summed.

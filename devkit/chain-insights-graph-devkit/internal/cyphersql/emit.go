@@ -566,7 +566,7 @@ func sqlOp(k tokenKind) string {
 // to the Asset view and emitted a cross-table join
 // (facts_assets_view x facts_transfers_view ON asset_contract = to_address) on a
 // key the graph model never exposes — silently fusing asset attributes onto
-// wallet flows (rbmk#473 endpoint-label-spoof-cross-join). The relationship
+// wallet flows (internal epic). The relationship
 // mapping is authoritative about what its endpoints ARE; a caller may omit the
 // label, but may not redefine it.
 func bindEndpointLabel(callerLabel, declaredLabel string, pos int) (string, error) {

@@ -2,7 +2,7 @@ package devkitmcp
 
 import "testing"
 
-// Mirror-parity for the traversal-bounds gate (data-pipeline #252 and #266).
+// Mirror-parity for the traversal-bounds gate (internal parity epics).
 // The devkit copy is what a developer validates against locally; when it is
 // looser than production, a locally-green query is refused by the real
 // endpoint. Port upstream bounds changes together with their case here.

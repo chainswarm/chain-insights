@@ -97,7 +97,7 @@ func TestLinkedEdgeRejectedAsUnmapped(t *testing.T) {
 }
 
 // The retired RiskScore facts label (facts_risk_scores_view, retired by
-// rbmk#447 P2a — ML risk verdict is topology-only) is no longer mapped: a
+// internal epic) is no longer mapped: a
 // :RiskScore / [:HAS_RISK_SCORE] query fails at COMPILE time with the
 // unknown-label / unknown-relationship validation error.
 func TestRiskScoreRejectedAsUnmapped(t *testing.T) {
@@ -155,7 +155,7 @@ func TestLabelEdgeRejectedAsUnmapped(t *testing.T) {
 // The retired NeuronEndpoint/Hotkey/IPAddress facts labels and their
 // HAS_NEURON_ENDPOINT/REGISTERED_NEURON/SERVED_FROM/OPERATED_FROM edges
 // (facts_neuron_endpoints_view, facts_neuron_hotkeys_view,
-// facts_neuron_ip_addresses_view, dropped schema-side by rbmk migration 0031)
+// facts_neuron_ip_addresses_view, dropped schema-side by internal migration 0031)
 // are no longer mapped: neuron identity, hotkey/coldkey pairing, and
 // IP/axon-port observation now live on the topology :Neuron node and
 // MINES/VALIDATES/HOTKEY_OF/COLDKEY_OF edges. A facts query against any of

@@ -11,7 +11,7 @@ MANIFEST = DEVKIT_ROOT / "data/manifest.json"
 # Graph node/edge → StarRocks table+column mapping. Post MemGQL retirement the
 # canonical source is the devkit's own vendored translator asset
 # (chain-insights-graph-devkit/internal/cyphersql/mapping.json); the old
-# data-pipeline federation mapping is deleted. In-container it is provided at
+# the upstream pipeline federation mapping is deleted. In-container it is provided at
 # /mapping via a compose bind; on host it is read directly.
 VENDORED_MAPPING = (
     DEVKIT_ROOT / "chain-insights-graph-devkit/internal/cyphersql/mapping.json"
@@ -24,7 +24,7 @@ MAPPING_CANDIDATES = [
     VENDORED_MAPPING,
 ]
 
-# facts_address_features_view was dropped in production (rbmk migration
+# facts_address_features_view was dropped in production (an internal migration
 # 0033) and is no longer mapped: no compatibility columns remain. The
 # mapping alignment (facts partition-pruning wave, plan
 # 2026-08-28-facts-serving-partition-pruning Task 5) retired its facade

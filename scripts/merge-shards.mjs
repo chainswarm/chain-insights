@@ -2,7 +2,7 @@
 /**
  * Shard-merge filter: reads a JSON payload on stdin, writes merged JSON on stdout.
  *
- * Exists so the oracle differential harness (chainswarm/data-pipeline#289) can
+ * Exists so the oracle differential harness (an internal differential audit) can
  * prove the EXACT merge implementation that ships, rather than a second copy
  * written in Go. Two implementations would drift, and a proof of the copy that
  * does not ship certifies nothing.

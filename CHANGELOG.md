@@ -3,6 +3,21 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.21.3] - 2026-08-30 — chore: public-repo hygiene sweep — private references removed (#281)
+
+Completed the hygiene sweep: private repository names, internal epic/
+migration numbers, and internal module paths no longer appear in the
+CHANGELOG, source comments, devkit sources and scripts, test fixtures,
+architecture context docs, or the rendered docs inputs. Functional CI
+references (the vendored docs workflow's private checkout) are
+intentionally retained. Historical CHANGELOG entries were edited in place
+with neutral phrasing ("internal epic", "the upstream pipeline"); no
+behavioral change.
+
+### Changed
+
+- Documentation, comments, and fixture metadata only. No runtime behavior.
+
 ## [0.21.2] - 2026-08-30 — docs: adopt the No Code of Conduct (#341)
 
 `CODE_OF_CONDUCT.md` is replaced with the [No Code of
@@ -581,7 +596,7 @@ request in this repository, not just one.
   by a hand-maintained module table.
 - docs: remove all `<!-- gsd: ... -->` generation markers; architecture
   docs are human-authored from here on.
-- ci: slim the vendored `docs.yml` to match the rbmk docs-reusable
+- ci: slim the vendored `docs.yml` to match the upstream docs-reusable
   slim-down — the gsd architecture generator, the claude CLI step, and the
   knowledge-skill autorefresh are retired; the README lint and C4 render
   steps stay.
@@ -608,7 +623,7 @@ request in this repository, not just one.
 ## [0.15.2] - 2026-07-28 — retire dominant_asset/asset_usd_totals from the FLOWS_TO contract
 
 - chore: `dominant_asset` and `asset_usd_totals` are address-level features
-  computed on demand, not FLOWS_TO edge payload — the data-pipeline write path
+  computed on demand, not FLOWS_TO edge payload — the upstream pipeline write path
   no longer writes them, so the advertised MCP schema text (`proxy.ts`,
   `init.ts`, the chain-insights-cypher skill) stops listing them and the
   dormant `dominant_asset` constituent-merge rule is dropped from the
@@ -640,7 +655,7 @@ request in this repository, not just one.
   (`case:<id>`) entries name the owning case on the alert, so victim
   workspaces are covered with no victim-specific code.
 - feat: `cia detect` and monitor cells for `address-poisoning`,
-  `fake-token`, and `attack-attribution` print a deprecation warning
+  `fake-token`, and `attack-pattern` print a deprecation warning
   (recorded as `deprecation` on the run document's cell outcome): these
   detections now run on the platform backend and surface via
   `watchlist_label` alerts and `aml_address_risk`. Mixer is untouched.
@@ -852,7 +867,7 @@ request in this repository, not just one.
   `first_seen_timestamp`, `last_seen_ms` → `last_seen_timestamp`, `ts_ms` →
   `timestamp`, and the federation merge fields `bucket_start_ms`/
   `bucket_end_ms` → `bucket_start_timestamp`/`bucket_end_timestamp`
-  (matching the corresponding data-pipeline graph-property rename).
+  (matching the corresponding upstream graph-property rename).
 - Persisted on-disk shape changed: DuckDB column names in
   `src/monitor/store.ts`, the canonical JSON on `case.json`/`alerts.jsonl`/
   checkpoints/run docs, and `detection/checkpoint.ts` state now use the
@@ -950,7 +965,7 @@ request in this repository, not just one.
   than three above the shipped default, and they cannot be raised from the
   per-call layer; a per-network entry may lower a ceiling, but only a code
   change raises the absolute maximum.
-- fix: the attack-attribution detector accepted any non-negative `max_hops`,
+- fix: the attack-pattern detector accepted any non-negative `max_hops`,
   `max_frontier`, or `max_rows` from a `--param` or a monitor config with no
   upper bound at all — a live way to hang the graph from a config file. All
   three are now range-checked.
@@ -1106,11 +1121,11 @@ request in this repository, not just one.
 - fix: detector sweeps now scope their topology queries by the address network,
   so two network views over one shared address-grain graph no longer return
   identical findings. Previously the network argument selected the graph but
-  not the subset of addresses within it, so an attack-attribution sweep for a
+  not the subset of addresses within it, so an attack-pattern sweep for a
   chain's EVM view returned the same rows as its SS58 view — wrong-network
   attributions published as reviewable findings, at double the metered cost.
 - fix: the change covers both the seed pull and the frontier expansion in
-  attack-attribution (both endpoints of the downstream walk), and the
+  attack-pattern (both endpoints of the downstream walk), and the
   degree-qualified candidate enumeration in mixer-likeness. Address-anchored
   lookups are unchanged: an exact address is already a unique key, and
   screening an EVM address under a chain's primary network name keeps working.
@@ -1149,7 +1164,7 @@ request in this repository, not just one.
 
 ## [0.11.9] - 2026-07-26 — detection: scheduled runs stop re-emitting findings the reviewer has already seen
 
-- fix: three of the four detectors (`attack-attribution`, `fake-token`,
+- fix: three of the four detectors (`attack-pattern`, `fake-token`,
   `mixer`) accepted the scan window and discarded it, so every scheduled run
   re-derived and re-published its ENTIRE result set. Consecutive hourly runs
   produced identical finding sets — around two thousand duplicate findings per
@@ -1348,7 +1363,7 @@ request in this repository, not just one.
   collided when the same shard returned more than one group, silently
   losing every group but the last; the array representation can only grow,
   never overwrite.
-- Found by the oracle differential harness (chainswarm/data-pipeline#289)
+- Found by the oracle differential harness (an internal differential audit)
   comparing client-merged federated results against a monolithic
   genesis-to-tip oracle graph.
 
@@ -1403,7 +1418,7 @@ request in this repository, not just one.
   `chain-insights-graph-devkit` had drifted from `graphrag-mcp` and accepted
   seven query shapes the product now refuses, so a developer could build and
   ship against the devkit and have the same query rejected in production
-  (rbmk#473).
+  (internal epic).
   Ported: (1) the topology read-statement opener allowlist, wired into BOTH
   the single-query and batch dispatch paths — the batch path had no opener
   check at all; (2) bracket-balanced edge-body scanning plus literal/comment
@@ -1423,7 +1438,7 @@ request in this repository, not just one.
   before any assertion ran, and nothing surfaced it because the script is
   manual-only (not in any CI workflow).
   (1) The "facts address query" used a single-node `(a:Address)` match; the
-  facts tier became TRANSFERS-ONLY in data-pipeline #223 (rbmk#447 P3/P5), so
+  facts tier became TRANSFERS-ONLY in an upstream pipeline change (internal epic), so
   the compiler refuses it — "label Address is served only as a relationship
   endpoint". Address-grain `labels`/`is_exchange` live on the topology tier,
   where they are shard-invariant node properties, so the query moves there.
@@ -1432,7 +1447,7 @@ request in this repository, not just one.
   (measured on dev: 1,460,339 edge rows against a 250,000 cap). Scoping it to
   the fixture address is also what the assertion actually wants. Verified live:
   flows=36, routing=bittensor.
-  Confirmed pre-existing, NOT caused by the rbmk#473 hardening epic, by A/B
+  Confirmed pre-existing, NOT caused by the internal epic hardening epic, by A/B
   against two live servers with the same data: the pre-epic image refuses the
   topology query identically.
   SKILL.md's claim that "USE facts returns address facts" is corrected to state
@@ -1440,8 +1455,8 @@ request in this repository, not just one.
 
 ## [0.10.18] - 2026-07-23
 
-- attack-attribution: fix a silent false-negative and a timeout, found by
-  exercising the label economy end-to-end (rbmk#461 L1). (1) The seed query
+- attack-pattern: fix a silent false-negative and a timeout, found by
+  exercising the label economy end-to-end (internal epic). (1) The seed query
   matched `a.address_subtype IN [...]`, but the graphsync overlay never projects
   `address_subtype` onto Address nodes — it stamps the scam family as taxonomy
   NODE LABELS (`:Scam`, `:Poisoned`). Seeds are now matched by node label
@@ -1457,7 +1472,7 @@ request in this repository, not just one.
 - All detectors are now parametrized like mixer: per-network default tables +
   operator `--param key=value` overrides, with the effective config echoed in
   `threshold_provenance`. address-poisoning: `dust_floor`, `scan_window_days`,
-  `max_rows`. attack-attribution: `max_hops`, `max_frontier`, `max_rows`,
+  `max_rows`. attack-pattern: `max_hops`, `max_frontier`, `max_rows`,
   `seed_subtypes` (csv), `boundary_keywords` (csv). fake-token: `max_pages`,
   `page_size`. Shared param coercion helpers live in `src/detection/params.ts`
   (numbers fall back to the default on malformed input; csv lists are trimmed
@@ -1507,13 +1522,13 @@ request in this repository, not just one.
 
 ## [0.10.13] - 2026-07-23
 
-- Detection-to-CIA (rbmk#462), remaining detectors: `address-poisoning`,
-  `attack-attribution`, and the mixer batch candidate-source now run through the
+- Detection-to-CIA (internal epic), remaining detectors: `address-poisoning`,
+  `attack-pattern`, and the mixer batch candidate-source now run through the
   same `cia detect <detector>` runtime as fake-token, completing the four-
-  detector relocation from the data-pipeline backend recipes.
+  detector relocation from the upstream pipeline backend recipes.
   `address-poisoning` scans a bounded recent facts window for dust transfers and
   flags dusters that are vanity lookalikes (shared prefix/suffix) of a victim's
-  real prior counterparties. `attack-attribution` walks downstream FLOWS_TO from
+  real prior counterparties. `attack-pattern` walks downstream FLOWS_TO from
   seed-labeled bad actors (poisoning_duster / dusting_source /
   fake_token_contract) up to a bounded hop depth, stopping at infrastructure
   boundaries (exchange/bridge/mixer/contract/validator). `mixer` gains a
@@ -1527,8 +1542,8 @@ request in this repository, not just one.
 
 ## [0.10.12] - 2026-07-23
 
-- Detection-to-CIA (rbmk#462), first slice: a client-side detection runtime and
-  the fake-token detector, relocated from the data-pipeline backend recipe.
+- Detection-to-CIA (internal epic), first slice: a client-side detection runtime and
+  the fake-token detector, relocated from the upstream pipeline backend recipe.
   `cia detect fake-token --network <net> [--full|--since-checkpoint] [--watch]`
   scans the verified-token registry (facts_assets_view) for symbol-spoof
   contracts and emits a `chain-insights.detection-findings.v1` document with the
@@ -1547,7 +1562,7 @@ request in this repository, not just one.
   single-node `USE facts MATCH (a:Address)` recipes (`recipe_facts_03`,
   `recipe_facts_17`) — the serving layer now treats `Address` as an
   endpoint-only facts label (valid on TRANSFER endpoints; bare single-node
-  facts MATCH refuses with a typed unsupported-shape error) after rbmk
+  facts MATCH refuses with a typed unsupported-shape error) after an internal hardening epic
   migration 0034 dropped `facts_addresses_view`. Query corpus regenerated
   (91 entries).
 
@@ -1558,8 +1573,8 @@ request in this repository, not just one.
   `tests/fixtures/documented-recipes.json` (query corpus regenerated, 92
   entries), and `docs/graph-tools.md` / `docs/graph-query-compatibility.md`
   now point lifetime address metrics at `USE topology` node properties. In
-  lockstep with rbmk migration 0033, which drops `facts_address_features_*`
-  and adds `facts_addresses_view` (rbmk#447 P3/P5).
+  lockstep with internal migration 0033, which drops `facts_address_features_*`
+  and adds `facts_addresses_view` (internal epic).
 
 ## [0.10.9] - 2026-07-22
 
@@ -1574,9 +1589,9 @@ request in this repository, not just one.
   SPEC-2026-07-22-FED-PLANNER.
 - `aml_address_risk` lifetime features (`address_feature`) read from
   federated `USE topology` node-metric projections (13 metrics incl. the
-  activity window, oracle-verified exact via data-pipeline planner) instead
+  activity window, oracle-verified exact via the upstream pipeline planner) instead
   of `facts_address_features_view` via `HAS_FEATURE` — the view's last
-  reader is gone (rbmk#447 P3/P5). Prompt strings and the public cypher
+  reader is gone (internal epic). Prompt strings and the public cypher
   skills drop the facts `AddressFeature` surface accordingly.
 
 ## [0.10.8] - 2026-07-22
@@ -1584,10 +1599,10 @@ request in this repository, not just one.
 - `aml_exchange_likeness` reads the lifetime profile (degree_in,
   total_in_usd) from federated `USE topology` node-metric projections instead
   of `facts_address_features_view` via `HAS_FEATURE`. The federation
-  typed-AST planner (rbmk#458) re-derives multi-shard node metrics exactly
+  typed-AST planner (internal epic) re-derives multi-shard node metrics exactly
   (additive props summed across disjoint shard windows, degrees as distinct
   counterparty set unions), oracle-verified — removing the tool's last facts
-  feature-view dependency (rbmk#447 P3/P5) and fixing the 2026-07-09 ~10x
+  feature-view dependency (internal epic) and fixing the 2026-07-09 ~10x
   window-vs-lifetime divergence at the $50M threshold.
 - Security: dedupe `@hono/node-server` to the patched 2.0.11 line via an npm
   override (the MCP SDK's nested 1.19.x copy tripped GHSA-frvp-7c67-39w9);
@@ -1608,8 +1623,7 @@ request in this repository, not just one.
 
 ## [0.10.6] - 2026-07-21
 
-- Ship the capped `facts_transfers_view` devkit fixture (rbmk#447 P5 final
-  leg, owner ruling 2026-07-21): a full 23-day slice is ~1.38M rows / 256MB
+- Ship the capped `facts_transfers_view` devkit fixture (internal epic): a full 23-day slice is ~1.38M rows / 256MB
   raw, too heavy for a devkit fixture, so the rbmk exporter
   (`scripts/devops/chain-insights-devkit/export_queries.py`) now emits a
   capped, address-scoped `TRANSFER` export instead — rows touching the
@@ -1656,14 +1670,14 @@ request in this repository, not just one.
 ## [0.10.4] - 2026-07-21
 
 - Retire the facts-scope `NeuronEndpoint`/`Hotkey`/`IPAddress` mappings and
-  their dead fixtures (rbmk#447 P4′-lite completion): `facts_neuron_endpoints_view`,
+  their dead fixtures (internal epic): `facts_neuron_endpoints_view`,
   `facts_neuron_hotkeys_view`, and `facts_neuron_ip_addresses_view` dropped
-  from the warehouse (rbmk migration 0031) and stopped being exported by the
-  rbmk fixture exporter tonight. Mirrors data-pipeline's mapping removal
+  from the warehouse (internal migration 0031) and stopped being exported by the
+  internal fixture exporter tonight. Mirrors the upstream pipeline's mapping removal
   (`75ce9c96`/`67744b2f`): the devkit's vendored `mapping.json` drops the
   three node entries and the `HAS_NEURON_ENDPOINT`/`REGISTERED_NEURON`/
   `SERVED_FROM`/`OPERATED_FROM` edges (now byte-identical to
-  data-pipeline's mapping.json), `compile_test.go` gains
+  the upstream pipeline's mapping.json), `compile_test.go` gains
   `TestNeuronShapesRejectedAsUnmapped` (all seven retired shapes reject as
   unmapped at compile time), and `testdata/facts-goldens.json` drops the
   seven neuron goldens (`recipe_facts_06..12`). `devkit/data/manifest.json`
@@ -1677,14 +1691,14 @@ request in this repository, not just one.
   corpus generator source, not just the fixture) and the regenerated
   `graph-query-corpus.json` shrinks 100 -> 93 entries. Reconciliation:
   the regenerated corpus's `documented-recipe` id set is now **exactly
-  identical** to data-pipeline's `internal/graphmcp/testdata/
+  identical** to the upstream pipeline's `internal/graphmcp/testdata/
   chain_insights_query_corpus.json` mirror (both 93 entries, same ids) —
   the P5 Task 3 neuron/TRANSFER divergence is fully closed. The only
   remaining diff between the two files is pre-existing and unrelated to
   tonight's work: chain-insights's `addressProfileQuery` builder entries
   (params `{address: "corpus-address-a"}` and the quote-escaping variant,
   topology scope) project an extra `a.label_risk AS label_risk` field that
-  data-pipeline's mirror lacks — a future dp-side sync should copy those 2
+  the upstream pipeline's mirror lacks — a future dp-side sync should copy those 2
   entries verbatim to reach full byte-identity.
   `src/mcp/proxy.ts`, `src/workspace/init.ts`'s sibling skill
   (`chain-insights-bittensor-cypher/SKILL.md`), and
@@ -1702,7 +1716,7 @@ request in this repository, not just one.
 ## [0.10.3] - 2026-07-21
 
 - Map the facts-scope `TRANSFER` edge onto `facts_transfers_view`
-  (rbmk#447 P5 Task 3), mirroring data-pipeline's `cyphersql` mapping
+  (internal epic), mirroring the upstream pipeline's `cyphersql` mapping
   addition (`6f679c32`/`a5487cec`): the devkit's vendored
   `mapping.json`/`ast.go`/`parser.go`/`emit.go`/`errors.go` gain
   `(from:Address)-[t:TRANSFER]->(to:Address)`, `sum(variable.property)` as a
@@ -1732,8 +1746,8 @@ request in this repository, not just one.
 ## [0.10.2] - 2026-07-21
 
 - Remove the facts-tier `AddressLabel`/`HAS_LABEL` label surface everywhere
-  it was still mapped or documented (rbmk#447 P2b′ Task 4b), mirroring the
-  data-pipeline `cyphersql` mapping removal (`b1c3048c`): the devkit's
+  it was still mapped or documented (internal epic), mirroring the
+  the upstream pipeline `cyphersql` mapping removal (`b1c3048c`): the devkit's
   vendored `mapping.json`/`compile_test.go`/`facts-goldens.json` drop the
   `AddressLabel` node and `HAS_LABEL` edge and gain
   `TestLabelEdgeRejectedAsUnmapped`; the devkit fixture manifest drops the
@@ -1825,7 +1839,7 @@ request in this repository, not just one.
 ## [0.9.2] - 2026-07-09
 
 - Resynced the graph devkit's `cypheradmit`/`cyphersql` mirror of
-  production data-pipeline's identity-grain removal: `hasStarRocksIndexedPredicate`
+  the production pipeline's identity-grain removal: `hasStarRocksIndexedPredicate`
   no longer treats an inline `{identity_id: ...}` filter as a valid
   StarRocks cost-bound anchor (closes a StarRocks cost-gate bypass); the
   FLOWS_TO cost-bound error message and a doc-comment example now read
@@ -1957,7 +1971,7 @@ request in this repository, not just one.
 ## [0.8.25] - 2026-07-05
 
 - Regenerated the devkit fixture (data only, no source changes here) to
-  pick up two upstream export fixes (RBMK-root `chainswarm/rbmk`): a
+  pick up two upstream export fixes (the internal monorepo root): a
   label-window boundary-precision fix and a fix bounding
   `facts_address_labels_view`'s declared `exported_max` correctly by
   whichever window branch each row actually qualified through, instead of
@@ -2203,7 +2217,7 @@ request in this repository, not just one.
 
 ## [0.8.3] - 2026-07-02
 
-- Devkit now runs the real Chain Insights Graph backend binary (built from the sibling `data-pipeline` checkout) instead of the bespoke lite MCP, with x402 billing, telemetry, and dynamic capabilities disabled and production two-tier query timeouts (live 10s, archive/facts 30s). The bespoke Go module and `Dockerfile.mcp` are removed.
+- Devkit now runs the real Chain Insights Graph backend binary (built from a sibling internal checkout) instead of the bespoke lite MCP, with x402 billing, telemetry, and dynamic capabilities disabled and production two-tier query timeouts (live 10s, archive/facts 30s). The bespoke Go module and `Dockerfile.mcp` are removed.
 - Devkit smoke expects the backend's four tools (`network_capabilities`, `usage_status`, `graph_query`, `graph_query_batch`); the parity smoke accepts the backend-served usage status alongside the primitive fallback.
 - Devkit parity smoke derives MemGQL object-coverage totals from the live mapping instead of pinning node/relationship counts (the pinned 12/13 counts predated the exposure-surface removal and failed against the current 10/9 mapping).
 
@@ -2401,7 +2415,7 @@ request in this repository, not just one.
   `scam_topology` hidden-remote-tool registration plus its
   `assertPublicMcpToolName` redirect branch. Use `aml_trace_suspect_funds` for
   on-demand suspect fund-flow tracing. Confirmed scam/victim seeds are managed
-  through the data-pipeline seed corpus.
+  through the upstream pipeline seed corpus.
 
 ## [0.5.6] - 2026-06-12
 

@@ -139,7 +139,7 @@ const (
 const FactsPredicateRemedy = "add a bare block_date bound, or query by tx_id, or filter by address (a recency window is auto-applied)"
 
 // FactsPredicateKind classifies the query's predicate, mirroring the
-// production admission gate's kind-aware rule (data-pipeline Task 2): bare
+// production admission gate's kind-aware rule (the upstream pipeline Task 2): bare
 // block_date bound > tx_id equality/IN > address equality/IN. None returns
 // an error carrying FactsPredicateRemedy.
 //
@@ -1146,7 +1146,7 @@ var allowedTopologyStatementOpeners = map[string]struct{}{
 }
 
 // ValidateTopologyStatementOpener mirrors production's
-// validateTopologyStatementOpener (data-pipeline internal/graphmcp/federation.go).
+// validateTopologyStatementOpener (the retired internal federation merger).
 // The read-clause allowlist in ValidateReadOnlyCypher only inspects tokens[0]
 // of the whole query, which for `USE topology ...` is `USE` — so the REAL
 // statement was screened by the write denylist alone and admin verbs that use
@@ -1156,7 +1156,7 @@ var allowedTopologyStatementOpeners = map[string]struct{}{
 //
 // Call it for `USE topology` queries so the devkit refuses exactly what
 // production refuses; without it a developer validates locally and is refused
-// upstream (rbmk#473).
+// upstream (internal epic).
 func ValidateTopologyStatementOpener(query string) error {
 	tokens := cypherTokens(StripLayerPrefix(query))
 	if len(tokens) == 0 {

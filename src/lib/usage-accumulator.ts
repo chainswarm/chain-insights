@@ -1,5 +1,5 @@
 /**
- * Per-workflow billable-units accounting for the aml_* tools (rbmk feat:
+ * Per-workflow billable-units accounting for the aml_* tools (internal feature:
  * usage-units-propagation). The `aml_*` workflow tools make MANY internal
  * graph_query_batch round trips to answer one high-level question; this
  * module totals what those round trips billed so the workflow response can
