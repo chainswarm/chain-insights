@@ -132,12 +132,18 @@ describe('MCP tool table formatter (MCP-02)', () => {
     expect(result).toContain('short' + ' '.repeat(25) + '  desc')
   })
 
-  it('formatToolsTable truncates description at 60 chars', async () => {
+  it('formatToolsTable wraps long descriptions without cutting them off', async () => {
     const { formatToolsTable } = await import('../src/mcp/format.js')
-    const longDesc = 'A'.repeat(80)
-    const result = formatToolsTable([{ name: 'tool', description: longDesc }])
-    expect(result).toContain('A'.repeat(60))
-    expect(result).not.toContain('A'.repeat(61))
+    const description = 'Run one read-only Cypher query against the Chain Insights Graph endpoint.'
+    const result = formatToolsTable([{ name: 'tool', description }])
+    expect(result.replace(/\n\s+/g, ' ')).toContain(description)
+    expect(result).not.toContain('Chain Insights gr')
+    expect(
+      result
+        .split('\n')
+        .slice(2)
+        .every((line) => line.length <= 92)
+    ).toBe(true)
   })
 
   it('formatToolsTable handles tool with no description', async () => {

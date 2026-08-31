@@ -20,6 +20,10 @@ Chain Insights tools such as `aml_address_risk` are recipes built over
 `graph_query_batch`. They are not assumed to exist on the
 Chain Insights Graph endpoint.
 
+`cia mcp tools` lists this remote GraphRAG surface. Use `cia networks` for the
+short network overview and `cia mcp networks` for the full Chain Insights
+capability matrix, which also reports local workflow and wallet tools.
+
 The Chain Insights MCP proxy adds product-facing local metadata tools such as
 `meta_network_capabilities`, `meta_usage_status`, and `meta_help`. On hosted
 backends, `meta_usage_status` can reflect remote quota telemetry. On

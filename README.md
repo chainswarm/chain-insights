@@ -23,11 +23,11 @@ as-is on macOS; on Windows use WSL.
 npx chain-insights@latest --help   # run without installing
 npm install -g chain-insights      # or install the cia CLI globally
 cia mcp call aml_address_risk network=robinhood address=0xYourAddressHere
-cia networks                       # all supported networks
+cia networks                       # network status + dataset overview
 cia network robinhood              # details for one network
 ```
 
-Sixty seconds gets you the CLI and the live tool catalog.
+Sixty seconds gets you the CLI, a network overview, and the remote tool catalog.
 To call the same tools from an agent, register the MCP proxy:
 `cia setup claude-code` (or `codex` / `hermes`).
 
@@ -327,13 +327,16 @@ Health checks (each is runnable):
 # Configured endpoint
 cia config get graphMcpEndpoint
 
-# Endpoint reachable, networks listed
+# User-facing network overview
+cia networks
+
+# Detailed Chain Insights capability matrix
 cia mcp networks
 
 # Caller allowance / metering status
 cia mcp call meta_usage_status
 
-# Fresh tool discovery
+# Fresh remote tool discovery
 cia mcp tools --refresh
 
 # Installed CLI sanity

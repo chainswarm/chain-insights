@@ -103,6 +103,17 @@ async function printNetworkCapabilities(opts: { json?: boolean }): Promise<void>
   }
 }
 
+async function printNetworkOverview(opts: { json?: boolean }): Promise<void> {
+  const { loadConfig } = await import('./config/index.js')
+  const { fetchNetworkCapabilities, formatNetworkOverview } = await import('./mcp/capabilities.js')
+  const document = await fetchNetworkCapabilities(await loadConfig())
+  if (opts.json) {
+    console.log(JSON.stringify(document, null, 2))
+  } else {
+    console.log(formatNetworkOverview(document))
+  }
+}
+
 async function printNetworkCapability(name: string, opts: { json?: boolean }): Promise<void> {
   const { loadConfig } = await import('./config/index.js')
   const { fetchNetworkCapabilities, findNetworkCapability, formatNetworkCapability } =
@@ -125,11 +136,11 @@ async function printNetworkCapability(name: string, opts: { json?: boolean }): P
 
 program
   .command('networks')
-  .description('List supported graph networks, capability layers, and available tools')
+  .description('Show supported network status and dataset overview')
   .option('--json', 'Print raw capability JSON')
   .action(async (opts: { json?: boolean }) => {
     try {
-      await printNetworkCapabilities(opts)
+      await printNetworkOverview(opts)
     } catch (err) {
       console.error((err as Error).message)
       process.exit(1)
@@ -591,9 +602,7 @@ program
   .allowExcessArguments(false)
   .addCommand(
     new Command('networks')
-      .description(
-        'List supported graph networks, capability layers, dataset coverage, and available tools'
-      )
+      .description('List the detailed Chain Insights capability matrix and tool support')
       .option('--json', 'Print raw capability JSON')
       .action(async (opts: { json?: boolean }) => {
         try {
@@ -606,7 +615,7 @@ program
   )
   .addCommand(
     new Command('tools')
-      .description('List available MCP tools (cached 24h)')
+      .description('List remote GraphRAG MCP tools (cached for 24 hours)')
       .option('--refresh', 'Force refresh schema cache')
       .action(async (opts: { refresh?: boolean }) => {
         try {

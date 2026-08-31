@@ -183,25 +183,50 @@ function datasetLabel(network: NetworkCapability): string {
   return `${blockRange} / ${dateRange}`
 }
 
-export function formatNetworkCapabilities(document: NetworkCapabilitiesDocument): string {
-  if (document.networks.length === 0) return 'No supported networks advertised.'
-  const headers = ['Network', 'Dataset', 'Available tools']
-  const widths = [14, 38, 64]
+function displayName(network: NetworkCapability): string {
+  return network.display_name || network.network
+}
+
+function statusLabel(network: NetworkCapability): string {
+  return network.default ? `${network.status} (default)` : network.status
+}
+
+function formatTable(headers: string[], rows: string[][], minimumWidths: number[]): string {
+  const widths = headers.map((header, index) =>
+    Math.max(
+      minimumWidths[index] ?? 0,
+      header.length,
+      ...rows.map((row) => row[index]?.length ?? 0)
+    )
+  )
   const row = (values: string[]) =>
     values.map((value, index) => value.padEnd(widths[index]!)).join('  ')
-  const networkRows = document.networks.flatMap((network) => {
-    const toolLines = availableToolLines(network)
-    return toolLines.map((toolLine, index) =>
-      row([
-        index === 0 ? network.display_name || network.network : '',
-        index === 0 ? datasetLabel(network) : '',
-        toolLine,
-      ])
-    )
-  })
-  return [row(headers), widths.map((width) => '-'.repeat(width)).join('  '), ...networkRows].join(
+  return [row(headers), widths.map((width) => '-'.repeat(width)).join('  '), ...rows.map(row)].join(
     '\n'
   )
+}
+
+export function formatNetworkOverview(document: NetworkCapabilitiesDocument): string {
+  if (document.networks.length === 0) return 'No supported networks advertised.'
+  const rows = document.networks.map((network) => [
+    displayName(network),
+    statusLabel(network),
+    datasetLabel(network),
+  ])
+  return formatTable(['Network', 'Status', 'Dataset'], rows, [14, 10, 38])
+}
+
+export function formatNetworkCapabilities(document: NetworkCapabilitiesDocument): string {
+  if (document.networks.length === 0) return 'No supported networks advertised.'
+  const networkRows = document.networks.flatMap((network) => {
+    const toolLines = availableToolLines(network)
+    return toolLines.map((toolLine, index) => [
+      index === 0 ? displayName(network) : '',
+      index === 0 ? datasetLabel(network) : '',
+      toolLine,
+    ])
+  })
+  return formatTable(['Network', 'Dataset', 'Chain Insights tools'], networkRows, [14, 38, 64])
 }
 
 export function findNetworkCapability(

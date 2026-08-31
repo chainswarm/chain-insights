@@ -76,9 +76,31 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('access-key')
   })
 
-  it('--help lists networks top-level alias command', () => {
+  it('--help lists the top-level network overview command', () => {
     const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
     expect(out).toContain('networks')
+  })
+
+  it('networks --help describes the compact user network overview', () => {
+    const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'networks', '--help'], {
+      encoding: 'utf8',
+    })
+    expect(out).toContain('network status and dataset overview')
+  })
+
+  it('mcp networks --help describes the detailed Chain Insights capability matrix', () => {
+    const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'mcp', 'networks', '--help'], {
+      encoding: 'utf8',
+    })
+    expect(out).toContain('Chain Insights capability matrix')
+  })
+
+  it('mcp tools --help identifies remote GraphRAG tools and cache behavior', () => {
+    const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'mcp', 'tools', '--help'], {
+      encoding: 'utf8',
+    })
+    expect(out).toContain('remote GraphRAG MCP tools')
+    expect(out).toContain('cached for 24 hours')
   })
 
   it('network --help describes single-network details', () => {
