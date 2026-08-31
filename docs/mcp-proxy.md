@@ -90,6 +90,11 @@ backends can also expose capability metadata such as `network_capabilities`.
 Chain Insights presents this as local, prefixed metadata through
 `meta_network_capabilities`.
 
+The CLI keeps these catalogs distinct: `cia mcp tools` lists remote GraphRAG
+tools and caches that schema for 24 hours, while `cia mcp networks` reports the
+Chain Insights capability matrix, including local workflow and wallet tools.
+Use `cia mcp tools --refresh` after a backend tool change.
+
 `meta_usage_status` is a Chain Insights proxy tool. On hosted Chain Insights Graph
 backends it can reflect remote quota telemetry. On backends without a quota
 tool, it returns a local unmetered primitive-backend status.

@@ -302,7 +302,7 @@ describe('MCP network capabilities', () => {
     expect(output).toContain('wallet_balance')
     expect(output).not.toContain('aml_trace')
     expect(output.split('\n')[0]).toBe(
-      'Network'.padEnd(14) + '  ' + 'Dataset'.padEnd(38) + '  ' + 'Available tools'.padEnd(64)
+      'Network'.padEnd(14) + '  ' + 'Dataset'.padEnd(38) + '  ' + 'Chain Insights tools'.padEnd(64)
     )
     expect(output).not.toContain('Topology')
     expect(output).not.toContain('Facts')
@@ -327,6 +327,35 @@ describe('MCP network capabilities', () => {
 
     expect(findNetworkCapability(document, ' Robinhood ')).toBe(document.networks[0])
     expect(findNetworkCapability(document, 'missing')).toBeUndefined()
+  })
+
+  it('formats a compact user network overview without duplicating the tool matrix', async () => {
+    const { formatNetworkOverview } = await import('../src/mcp/capabilities.js')
+
+    const output = formatNetworkOverview({
+      schema: 'chain-insights.network-capabilities.v1',
+      networks: [
+        {
+          network: 'robinhood',
+          display_name: 'Robinhood Chain',
+          status: 'live',
+          layers: {},
+          coverage: {
+            from_block: 84,
+            to_block: 7440268,
+            from_timestamp: '2023-03-20T22:25:48Z',
+            to_timestamp: '2026-01-31T04:26:00Z',
+          },
+          tools: {},
+        },
+      ],
+    })
+
+    expect(output).toContain('Robinhood Chain')
+    expect(output).toContain('live')
+    expect(output).toContain('84..7440268 / 2023-03-20..2026-01-31')
+    expect(output).not.toContain('Chain Insights tools')
+    expect(output).not.toContain('graph_query')
   })
 
   it('formats one network as a readable detail table', async () => {

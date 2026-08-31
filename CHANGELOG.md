@@ -3,6 +3,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.24.1] - 2026-08-31 — fix: clarify CLI network and tool catalogs
+
+The CLI now separates the user network overview from the detailed MCP
+capability matrix and labels remote GraphRAG tool discovery clearly.
+
+### Changed
+
+- `cia networks` shows network status and dataset coverage without repeating
+  the tool matrix.
+- `cia mcp networks` labels its tool column as Chain Insights tools.
+- `cia mcp tools` identifies its remote GraphRAG tool catalog and cache period.
+- Tool descriptions wrap cleanly instead of being cut off mid-word.
+
 ## [0.24.0] - 2026-08-31 — feat: improve first-run CLI onboarding
 
 The CLI now uses `cia` consistently in public help and guidance. Users can
