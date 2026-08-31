@@ -2,6 +2,13 @@
 # Changelog
 
 All notable changes to Chain Insights are recorded here.
+## [0.27.3] - 2026-08-31 — ci: use hosted runners for docs and Scorecard
+
+### Fixed
+
+- Moved Docs to `ubuntu-latest` so it does not wait for the saturated x64 runner pool.
+- Moved OpenSSF Scorecard to `ubuntu-latest`, as required to publish public score results.
+
 ## [0.27.2] - 2026-08-31 — ci: fix docs gate and scope workflow permissions
 
 ### Fixed
