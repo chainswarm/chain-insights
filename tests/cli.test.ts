@@ -17,6 +17,63 @@ const tsxLoader = join(process.cwd(), 'node_modules', 'tsx', 'dist', 'loader.mjs
 const cliBin = join(process.cwd(), 'bin', 'cli.js')
 const cli = `node ${JSON.stringify(cliBin)}`
 
+const commandHelpPaths: string[][] = [
+  [],
+  ['networks'],
+  ['network'],
+  ['status'],
+  ['update'],
+  ['debug'],
+  ['debug', 'on'],
+  ['debug', 'off'],
+  ['debug', 'status'],
+  ['access-key'],
+  ['access-key', 'set'],
+  ['access-key', 'clear'],
+  ['access-key', 'status'],
+  ['setup'],
+  ['setup', 'claude-code'],
+  ['setup', 'claude'],
+  ['setup', 'codex'],
+  ['setup', 'hermes'],
+  ['config'],
+  ['config', 'get'],
+  ['config', 'set'],
+  ['wallet'],
+  ['wallet', 'create'],
+  ['wallet', 'import'],
+  ['wallet', 'address'],
+  ['wallet', 'balance'],
+  ['wallet', 'ready'],
+  ['wallet', 'topup'],
+  ['mcp'],
+  ['mcp', 'networks'],
+  ['mcp', 'tools'],
+  ['mcp', 'aml-address-risk'],
+  ['mcp', 'call'],
+  ['help'],
+  ['help', 'network'],
+  ['aml-address-risk'],
+]
+
+const incompleteCommandCases: Array<{ args: string[]; usage: string }> = [
+  { args: ['network'], usage: 'Usage: cia network [options] <name>' },
+  { args: ['debug', 'on'], usage: 'Usage: cia debug on [options]' },
+  { args: ['access-key', 'set'], usage: 'Usage: cia access-key set [options] <key>' },
+  { args: ['config', 'get'], usage: 'Usage: cia config get [options] <key>' },
+  {
+    args: ['config', 'set', 'graphMcpEndpoint'],
+    usage: 'Usage: cia config set [options] <key> <value>',
+  },
+  { args: ['wallet', 'import'], usage: 'Usage: cia wallet import [options] <private-key>' },
+  {
+    args: ['mcp', 'aml-address-risk'],
+    usage: 'Usage: cia mcp aml-address-risk [options]',
+  },
+  { args: ['mcp', 'call'], usage: 'Usage: cia mcp call [options] <tool> [args...]' },
+  { args: ['aml-address-risk'], usage: 'Usage: cia aml-address-risk [options]' },
+]
+
 describe('CLI scaffold (FOUND-02)', () => {
   it('--help prints the cia command name', () => {
     const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
@@ -80,6 +137,44 @@ describe('CLI scaffold (FOUND-02)', () => {
     const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
     expect(out).toContain('networks')
   })
+
+  it('--help lists the direct AML address risk command', () => {
+    const out = execFileSync('node', ['--import', tsxLoader, srcCli, '--help'], {
+      encoding: 'utf8',
+    })
+    expect(out).toContain('aml-address-risk')
+  })
+
+  it.each(commandHelpPaths.map((path) => [path.join(' ') || '<root>', path] as const))(
+    '%s --help is a registered command path with usable help',
+    (_label, path) => {
+      const result = spawnSync(
+        process.execPath,
+        ['--import', tsxLoader, srcCli, ...path, '--help'],
+        {
+          encoding: 'utf8',
+        }
+      )
+
+      expect(result.status).toBe(0)
+      expect(result.stderr).toBe('')
+      expect(result.stdout).toMatch(/^Usage: cia /)
+      expect(result.stdout).not.toContain('error:')
+    }
+  )
+
+  it.each(incompleteCommandCases)(
+    '$args shows the relevant command help after an input error',
+    ({ args, usage }) => {
+      const result = spawnSync(process.execPath, ['--import', tsxLoader, srcCli, ...args], {
+        encoding: 'utf8',
+      })
+      const output = `${result.stdout}\n${result.stderr}`
+
+      expect(result.status).toBe(1)
+      expect(output).toContain(usage)
+    }
+  )
 
   it('networks --help describes the compact user network overview', () => {
     const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'networks', '--help'], {
@@ -199,6 +294,16 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).not.toContain('--approval-usdc')
     expect(out).not.toContain('approval')
     expect(out).not.toContain('Permit2')
+  })
+
+  it.each([
+    ['get', 'Read one Chain Insights configuration value'],
+    ['set', 'Write one Chain Insights configuration value'],
+  ])('config %s --help includes a leaf description', (command, description) => {
+    const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'config', command, '--help'], {
+      encoding: 'utf8',
+    })
+    expect(out).toContain(description)
   })
 
   it('mcp --help lists shared AML commands and hides retired trace commands', () => {

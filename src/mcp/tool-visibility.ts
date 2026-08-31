@@ -64,6 +64,14 @@ export function assertPublicMcpToolName(name: string): void {
   throw new Error(`MCP tool '${name}' is not exposed by Chain Insights.${replacement}`)
 }
 
+export function formatMcpCallError(tool: string, err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err)
+  if (/\bunknown tool\b|\btool\b.*\bnot found\b/i.test(message)) {
+    return `Unknown MCP tool "${tool}". Run \`cia mcp tools --refresh\` to list available tools.`
+  }
+  return message
+}
+
 export function validatePublicMcpToolArguments(name: string, args: Record<string, unknown>): void {
   const allowedArgs = PUBLIC_MCP_TOOL_ALLOWED_ARGS[name]
   if (!allowedArgs) return

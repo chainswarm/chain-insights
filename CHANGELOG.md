@@ -3,6 +3,23 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.24.2] - 2026-08-31 — fix: make CLI command paths self-guiding
+
+The CLI now keeps its command tree consistent and shows the relevant command
+help when an invocation is incomplete.
+
+### Added
+
+- `cia aml-address-risk` as a direct shortcut for address screening.
+- Automated help coverage for every public command node and leaf.
+
+### Changed
+
+- Incomplete command invocations now print the affected command's usage and
+  options.
+- Unknown MCP tools now point users to `cia mcp tools --refresh`.
+- Configuration get/set leaves now include descriptions in their help.
+
 ## [0.24.1] - 2026-08-31 — fix: clarify CLI network and tool catalogs
 
 The CLI now separates the user network overview from the detailed MCP
