@@ -32,7 +32,7 @@ The screen covers risk, behavior, neighborhood context, and exchange
 exposure. Treat exchange hot wallets as terminals, not as intermediate
 hops.
 
-For the CLI, use `cia aml-address-risk` for the readable summary. Add
+For the CLI, use `cia mcp aml-address-risk` for the readable summary. Add
 `--json` for indented structured output. When using `cia mcp call`, pass the
 version as `version=v1`.
 

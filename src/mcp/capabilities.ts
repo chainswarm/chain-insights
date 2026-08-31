@@ -47,19 +47,19 @@ export interface NetworkCapabilitiesDocument {
   networks: NetworkCapability[]
 }
 
-export const PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS = {
-  aml_address_risk: 'available',
-  graph_query: 'available',
-  graph_query_batch: 'available',
-  meta_network_capabilities: 'available',
-  meta_usage_status: 'available',
-  meta_help: 'available',
-  wallet_balance: 'available',
-} as const
 const AVAILABLE_TOOLS_PER_LINE = 3
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function advertisedTools(raw: unknown): Record<string, string> {
+  if (!isRecord(raw)) return {}
+  const tools: Record<string, string> = {}
+  for (const [name, status] of Object.entries(raw)) {
+    if (name.trim() !== '' && typeof status === 'string') tools[name] = status
+  }
+  return tools
 }
 
 function advertisedNetwork(raw: unknown): NetworkCapability | null {
@@ -75,7 +75,7 @@ function advertisedNetwork(raw: unknown): NetworkCapability | null {
         : network,
     status: typeof raw.status === 'string' && raw.status.trim() !== '' ? raw.status : 'live',
     layers: {},
-    tools: { ...PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS },
+    tools: advertisedTools(raw.tools),
   }
   if (raw.default === true) capability.default = true
   if (raw.default === false) capability.default = false
@@ -141,11 +141,7 @@ export async function fetchNetworkCapabilities(
 }
 
 function availableTools(network: NetworkCapability): string[] {
-  const effectiveTools = {
-    ...(network.tools ?? {}),
-    ...PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS,
-  }
-  const tools = Object.entries(effectiveTools)
+  const tools = Object.entries(network.tools ?? {})
     .filter(([, status]) => status === 'available')
     .map(([name]) => name)
   return tools.sort()

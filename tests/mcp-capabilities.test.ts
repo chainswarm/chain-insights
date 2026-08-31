@@ -61,9 +61,13 @@ describe('MCP network capabilities', () => {
       from_timestamp: '2023-03-20T22:25:48Z',
       to_timestamp: '2026-01-31T04:26:00Z',
     })
+    expect(result.networks[0]?.tools).toEqual({
+      graph_query: 'available',
+      graph_query_batch: 'available',
+    })
   })
 
-  it('mirrors every GraphRAG network and overlays the seven public CIA tools', async () => {
+  it('mirrors every GraphRAG network with only its advertised tools', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -97,7 +101,7 @@ describe('MCP network capabilities', () => {
               },
               tools: {
                 graph_query: 'available',
-                graph_query_batch: 'available',
+                graph_query_batch: 'unavailable',
               },
             },
           ],
@@ -113,38 +117,30 @@ describe('MCP network capabilities', () => {
       graphMcpAuthToken: 'debug-token',
     })
 
-    const publicTools = {
-      aml_address_risk: 'available',
-      graph_query: 'available',
-      graph_query_batch: 'available',
-      meta_network_capabilities: 'available',
-      meta_usage_status: 'available',
-      meta_help: 'available',
-      wallet_balance: 'available',
-    }
     expect(result.networks).toEqual([
       expect.objectContaining({
         network: 'bittensor',
         display_name: 'Bittensor',
         layers: {},
-        tools: publicTools,
+        tools: {
+          graph_query: 'available',
+          graph_query_batch: 'available',
+        },
       }),
       expect.objectContaining({
         network: 'robinhood',
         display_name: 'Robinhood',
         layers: {},
-        tools: publicTools,
+        tools: {
+          graph_query: 'available',
+          graph_query_batch: 'unavailable',
+        },
       }),
     ])
     expect(result.networks).toHaveLength(2)
     expect(Object.keys(result.networks[0]?.tools ?? {})).toEqual([
-      'aml_address_risk',
       'graph_query',
       'graph_query_batch',
-      'meta_network_capabilities',
-      'meta_usage_status',
-      'meta_help',
-      'wallet_balance',
     ])
     expect(JSON.stringify(result)).not.toContain('aggregations')
   })
@@ -178,8 +174,7 @@ describe('MCP network capabilities', () => {
     expect(result.networks).toHaveLength(1)
     expect(result.networks[0]?.network).toBe('bittensor')
     expect(result.networks[0]?.layers).toEqual({})
-    expect(result.networks[0]?.tools).toMatchObject({
-      aml_address_risk: 'available',
+    expect(result.networks[0]?.tools).toEqual({
       graph_query: 'available',
     })
   })
@@ -289,17 +284,15 @@ describe('MCP network capabilities', () => {
 
     expect(output).toContain('Robinhood')
     expect(output).toContain('84..7440268 / 2023-03-20..2026-01-31')
-    expect(output).toContain('aml_address_risk')
     expect(output).toContain('graph_query')
     expect(output).toContain('graph_query_batch')
-    expect(output).toContain('meta_network_capabilities')
-    expect(output).toContain('meta_usage_status')
-    expect(output).toContain('meta_help')
-    expect(output).toContain('wallet_balance')
     expect(output).toContain('Dataset')
-    expect(output).toContain('aml_address_risk, graph_query, graph_query_batch')
-    expect(output).toContain('meta_help, meta_network_capabilities, meta_usage_status')
-    expect(output).toContain('wallet_balance')
+    expect(output).toContain('graph_query, graph_query_batch')
+    expect(output).not.toContain('aml_address_risk')
+    expect(output).not.toContain('meta_network_capabilities')
+    expect(output).not.toContain('meta_usage_status')
+    expect(output).not.toContain('meta_help')
+    expect(output).not.toContain('wallet_balance')
     expect(output).not.toContain('aml_trace')
     expect(output.split('\n')[0]).toBe(
       'Network'.padEnd(14) + '  ' + 'Dataset'.padEnd(38) + '  ' + 'Chain Insights tools'.padEnd(64)
@@ -387,11 +380,12 @@ describe('MCP network capabilities', () => {
     expect(output).toContain('Dataset')
     expect(output).toContain('84..7440268 / 2023-03-20..2026-01-31')
     expect(output).toContain('Available tools')
-    expect(output).toContain('aml_address_risk')
+    expect(output).toContain('graph_query')
+    expect(output).not.toContain('aml_address_risk')
     expect(output).not.toContain('undefined')
   })
 
-  it('overlays CIA tools on every advertised network in CLI output', async () => {
+  it('does not show tools a network did not advertise in CLI output', async () => {
     const { formatNetworkCapabilities } = await import('../src/mcp/capabilities.js')
 
     const output = formatNetworkCapabilities({
@@ -411,9 +405,9 @@ describe('MCP network capabilities', () => {
     })
 
     expect(output).toContain('Future Network')
-    expect(output).toContain('aml_address_risk')
-    expect(output).toContain('graph_query')
-    expect(output).not.toContain('none')
+    expect(output).toContain('none')
+    expect(output).not.toContain('aml_address_risk')
+    expect(output).not.toContain('graph_query')
   })
 
   it('formats partial dataset coverage without hiding missing heights', async () => {

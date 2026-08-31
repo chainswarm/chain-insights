@@ -22,12 +22,13 @@ as-is on macOS; on Windows use WSL.
 ```bash
 npx chain-insights@latest --help   # run without installing
 npm install -g chain-insights      # or install the cia CLI globally
-cia aml-address-risk --address 0xYourAddressHere --network robinhood
+cia mcp aml-address-risk --address 0xYourAddressHere --network robinhood
 cia networks                       # network status + dataset overview
 cia network robinhood              # details for one network
 ```
 
-Sixty seconds gets you the CLI, a network overview, and the remote tool catalog.
+Sixty seconds gets you the CLI, a network overview, and the available tools for
+Robinhood.
 To call the same tools from an agent, register the MCP proxy:
 `cia setup claude-code` (or `codex` / `hermes`).
 
@@ -38,7 +39,7 @@ script needs indented JSON:
 cia mcp call --json graph_query \
   network=robinhood \
   "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 10"
-cia aml-address-risk --json --address 0xYourAddressHere --network robinhood
+cia mcp aml-address-risk --json --address 0xYourAddressHere --network robinhood
 ```
 
 The AML address-risk contract uses the latest version when `version` is
@@ -143,7 +144,7 @@ Graph queries choose the read graph explicitly:
 | Graph      | Use it for                                                                                                                                      |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `topology` | The unified address / FLOWS_TO / LINKED graph — recent and full historical fund-flow traversal, plus the node `risk_score`/`risk_level` verdict |
-| `facts`    | Labels, features, assets, and enrichment                                                                                                        |
+| `facts`    | Bounded individual `TRANSFER` rows with amount, `amount_usd`, asset, transaction, and block facts                                               |
 
 One rule is worth reading before writing a query by hand: the `network`
 argument selects the graph, not the addresses inside it. The address-space
@@ -225,7 +226,7 @@ cia update --check
 Run a first screen from any directory:
 
 ```bash
-cia aml-address-risk \
+cia mcp aml-address-risk \
   --address 0xYourAddressHere --network robinhood
 ```
 

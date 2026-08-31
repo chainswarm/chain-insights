@@ -21,8 +21,8 @@ Chain Insights tools such as `aml_address_risk` are recipes built over
 Chain Insights Graph endpoint.
 
 `cia mcp tools` lists this remote GraphRAG surface. Use `cia networks` for the
-short network overview and `cia mcp networks` for the full Chain Insights
-capability matrix, which also reports local workflow and wallet tools.
+short network overview, `cia network <name>` for one network's details and
+available tools, and `cia mcp networks` for the full network capability matrix.
 
 The Chain Insights MCP proxy adds product-facing local metadata tools such as
 `meta_network_capabilities`, `meta_usage_status`, and `meta_help`. On hosted
@@ -37,7 +37,10 @@ primitive-backend status instead.
 - Use `USE topology` for topology (the address / FLOWS_TO / LINKED graph,
   covering unified recent and full historical activity in one graph, plus the
   node `risk_score`/`risk_level` verdict).
-- Use `USE facts` for labels, features, assets, and enrichment.
+- Use `USE facts` for bounded individual `TRANSFER` rows and their amount,
+  `amount_usd`, asset, transaction, and block facts. Address labels, risk,
+  lifetime metrics, and `FLOWS_TO`/`LINKED` relationships belong to
+  `USE topology`.
 - Use `meta_usage_status` through Chain Insights before public hosted reads
   when you need the caller's remaining free-tier allowance.
 - Hosted endpoints can expose a public free tier for graph_query. The default
