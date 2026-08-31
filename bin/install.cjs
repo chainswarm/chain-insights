@@ -132,7 +132,7 @@ if (!fs.existsSync(dataDir)) {
 
 if (!fs.existsSync(configPath)) {
   const defaultConfig = {
-    graphMcpEndpoint: 'http://127.0.0.1:8012/mcp',
+    graphMcpEndpoint: 'https://mcp.chain-insights.ai/',
     walletAddress: '',
     graphMcpMode: 'paid',
     serverPort: 4321,
