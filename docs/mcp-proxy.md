@@ -2,11 +2,7 @@
 
 The Chain Insights stdio proxy lets AI agents consume Chain Insights tools as
 an MCP server. It connects to the configured Chain Insights Graph endpoint and
-adds local wallet and graph-report behavior.
-
-Chain Insights workspaces are plain local folders. Use local workspace files
-for normal review. Use published workspace outputs only when an agent needs a
-handoff, rendered HTML, or a durable bundle inside the workspace.
+adds local wallet behavior.
 
 ## Basic Configuration
 
@@ -27,22 +23,21 @@ The proxy reads the same local Chain Insights config as the CLI.
 ## Chain Insights Graph Endpoint Configuration
 
 The endpoint lives in Chain Insights config, not in the MCP client registration.
-The npm package default is the local development endpoint
-`http://127.0.0.1:8012/mcp`. Public production is
-`https://mcp.chain-insights.ai/` (host root, no `/mcp` path). Set it
-explicitly. Do not bake that URL into MCP client JSON, source, or
-workspace templates.
+The npm package defaults to public production:
+`https://mcp.chain-insights.ai/` (host root, no `/mcp` path). A fresh install
+can use `cia networks` without endpoint setup. MCP client JSON does not carry
+the endpoint; use Chain Insights config for the default or an override.
 
 Set local development:
 
 ```bash
-chain-insights config set graphMcpEndpoint http://127.0.0.1:8012/mcp
+cia config set graphMcpEndpoint http://127.0.0.1:8012/mcp
 ```
 
 Set public production:
 
 ```bash
-chain-insights config set graphMcpEndpoint https://mcp.chain-insights.ai/
+cia config set graphMcpEndpoint https://mcp.chain-insights.ai/
 ```
 
 Use a one-shot environment override:
@@ -56,7 +51,7 @@ Configuration precedence:
 1. `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT`
 2. `GRAPH_MCP_ENDPOINT` legacy alias
 3. saved `graphMcpEndpoint`
-4. local default `http://127.0.0.1:8012/mcp`
+4. hosted production default `https://mcp.chain-insights.ai/`
 
 Validation rules:
 
@@ -64,9 +59,8 @@ Validation rules:
 - remote endpoints must use `https://`
 - endpoint URLs with credentials, query strings, or fragments are rejected
 
-Keep hosted endpoint values in operator config or environment variables. Do not
-bake hosted endpoint URLs into MCP client JSON, source code, or workspace
-templates.
+Keep endpoint overrides in operator config or environment variables. Do not
+put endpoint configuration in MCP client JSON.
 
 ## Behavior
 
@@ -78,9 +72,8 @@ The proxy:
 - Caches remote tool schemas per endpoint for 24 hours.
 - Exposes graph tools returned by the endpoint.
 - Adds local `meta_*` and `wallet_*` tools.
-- Starts the local graph report server when graph report URLs are returned.
-- Publishes instructions with required argument rules, workflow guidance, graph
-  report behavior, and schema hints.
+- Publishes instructions with required argument rules, workflow guidance, and
+  schema hints.
 
 ## Local Tools
 
@@ -91,17 +84,22 @@ The proxy:
 | `meta_help`                 | Show Chain Insights tool and workflow guidance                            |
 | `wallet_balance`            | Show the local payment wallet address, payment network, token, and amount |
 
-For normal local review, inspect local workspace files directly and keep your
-preferred editor or agent tooling open to the same workspace while you work.
-
-`published/` contains the generated shareable artifacts. Use it after
-workspace validation when an agent needs rendered HTML or handoff-ready files.
-
 Remote graph tools are discovered from the configured Chain Insights Graph endpoint.
 The minimum graph primitive surface is `graph_query` and `graph_query_batch`;
 backends can also expose capability metadata such as `network_capabilities`.
 Chain Insights presents this as local, prefixed metadata through
 `meta_network_capabilities`.
+
+The CLI keeps these catalogs distinct: `cia workflows` lists high-level CIA
+workflow tools, while `cia mcp tools` lists remote GraphRAG tools and caches
+that schema for 24 hours. `cia networks` and `cia network <name>` report the
+network list and each network's advertised remote tools. `cia mcp networks`
+exposes the same full network capability matrix. Use `cia mcp tools --refresh`
+after a backend tool change.
+
+Run the address-risk workflow with `cia workflow aml-address-risk`. Use
+`cia mcp call graph_query` or `cia mcp call graph_query_batch` for low-level
+agent-authored graph reads.
 
 `meta_usage_status` is a Chain Insights proxy tool. On hosted Chain Insights Graph
 backends it can reflect remote quota telemetry. On backends without a quota
@@ -119,22 +117,22 @@ is no identity-resolution step.
 Local debug mode:
 
 ```bash
-chain-insights debug on --token chain-insights-dev-debug --endpoint http://localhost:8012/mcp
-chain-insights mcp tools --refresh
+cia debug on --token chain-insights-dev-debug --endpoint http://localhost:8012/mcp
+cia mcp tools --refresh
 ```
 
 Invited tester access key mode:
 
 ```bash
-chain-insights access-key set ci_test_REDACTED --endpoint https://mcp.chain-insights.ai/
-chain-insights access-key status
+cia access-key set ci_test_REDACTED --endpoint https://mcp.chain-insights.ai/
+cia access-key status
 ```
 
 Daily free-tier graph usage:
 
 ```bash
-chain-insights mcp call meta_usage_status
-chain-insights mcp call graph_query \
+cia mcp call meta_usage_status
+cia mcp call graph_query \
   network=robinhood \
   "query=USE topology MATCH (n) RETURN count(n) AS count LIMIT 1"
 ```
@@ -151,6 +149,34 @@ not include `graph_query_batch`; use a tester access key or paid x402 mode for
 regular usage and batches. Use explicit LIMIT and pagination in your query when
 you want bounded result sets.
 
+### CLI Output And Tool Versions
+
+The CLI renders JSON graph results as a readable summary and table by default.
+Use `--json` for indented machine-readable output:
+
+```bash
+cia mcp call graph_query \
+  network=robinhood \
+  "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 10"
+
+cia mcp call --json graph_query \
+  network=robinhood \
+  "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 10"
+```
+
+The CIA address-risk workflow also supports JSON output and version selection:
+
+```bash
+cia workflow aml-address-risk --json \
+  --address 0xYourAddressHere --network robinhood
+
+cia workflow aml-address-risk --version v1 \
+  --address 0xYourAddressHere --network robinhood
+```
+
+Omit the version to route to the latest supported AML contract. The package
+version shown by `cia --version` is separate from tool contract versions.
+
 UAT on 2026-05-31 showed the 10-second free tier was enough for exact
 address checks, sample address reads, sample flow reads, and the
 free-to-paid handoff, but bounded sample reads still returned topology data
@@ -164,10 +190,19 @@ Schema skills hold the GraphRAG map.
 Paid x402 mode:
 
 ```bash
-chain-insights config set graphMcpEndpoint https://mcp.chain-insights.ai/
-chain-insights debug off
-chain-insights wallet import 0xYOUR_EVM_PRIVATE_KEY
-chain-insights wallet ready
+cia config set graphMcpEndpoint https://mcp.chain-insights.ai/
+cia debug off
+cia wallet create
+# Save the private key, then type BACKED UP when prompted.
+cia wallet topup
+cia wallet ready
+```
+
+To use an existing wallet instead:
+
+```bash
+cia wallet import 0xYOUR_EVM_PRIVATE_KEY
+cia wallet ready
 ```
 
 If `graphMcpAuthToken` is set, Chain Insights sends both
@@ -175,7 +210,7 @@ If `graphMcpAuthToken` is set, Chain Insights sends both
 Chain Insights uses the encrypted wallet private key with x402 payment
 handling. `wallet ready` is the user-facing preflight: it checks Base USDC,
 Base ETH gas, and one-time payment setup. A normal user does not need payment
-protocol details; run `chain-insights wallet ready` and retry the paid tool
+protocol details; run `cia wallet ready` and retry the paid tool
 after it reports ready.
 
 ## Agent Installers
@@ -183,16 +218,13 @@ after it reports ready.
 Install skills and MCP registration:
 
 ```bash
-chain-insights --claude
-chain-insights --codex
-chain-insights --hermes
+cia --claude
+cia --codex
+cia --hermes
 ```
 
 The Hermes installer writes Chain Insights skills under the Hermes skills
 directory and registers the stdio MCP proxy in the Hermes config.
-
-After installing, open an initialized investigation workspace in the agent and
-operate over the workspace files.
 
 For a one-address screen, agents should use `chain-insights-address-risk`.
 For manual graph-language work, use `chain-insights-cypher` plus
@@ -204,12 +236,12 @@ The supported setup targets are the same ones advertised by top-level installer
 flags:
 
 ```bash
-chain-insights setup claude-code
-chain-insights setup codex
-chain-insights setup hermes
+cia setup claude-code
+cia setup codex
+cia setup hermes
 ```
 
-`chain-insights setup claude` is an alias for `chain-insights setup
+`cia setup claude` is an alias for `cia setup
 claude-code`. Claude Desktop configuration is not exposed by the CLI setup
 surface.
 
@@ -271,13 +303,3 @@ npx @modelcontextprotocol/inspector \
   --cli chain-insights-mcp-proxy \
   --method tools/list
 ```
-
-## Graph Reports
-
-Graph-backed tools can prepare a local graph view for the report. Chain
-Insights stores graph report files under `reports/graphs/*.graph.json` in the
-active workspace and exposes them to compatible MCP clients through app
-metadata.
-
-The local graph report server binds to localhost. Chain Insights does not
-create duplicated `artifacts/` graph payloads; `reports/graphs/` is canonical.

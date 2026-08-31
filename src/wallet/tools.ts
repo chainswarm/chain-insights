@@ -257,7 +257,7 @@ function readinessNextSteps(
 ): string[] {
   const nextSteps: string[] = []
   if (readiness.hasUsdc === false) {
-    nextSteps.push('Run `chain-insights wallet topup` and send USDC on Base to this wallet.')
+    nextSteps.push('Run `cia wallet topup` and send USDC on Base to this wallet.')
   }
   if (readiness.hasUsdc === null) {
     nextSteps.push(
@@ -268,7 +268,7 @@ function readinessNextSteps(
     nextSteps.push('Add a small amount of ETH on Base for the one-time payment setup gas.')
   }
   if (readiness.needsPaymentApproval && readiness.hasGas !== false) {
-    nextSteps.push('Run `chain-insights wallet ready` to finish the one-time payment setup.')
+    nextSteps.push('Run `cia wallet ready` to finish the one-time payment setup.')
   }
   if (readiness.hasGas === null) {
     nextSteps.push(
@@ -415,7 +415,7 @@ export async function prepareWalletForPaidCalls(
     throw new Error(
       `Requested payment approval of ${requested} USDC exceeds the automatic payment-approval ceiling ` +
         `of ${formatUnits(options.maxApprovalUnits, 6)} USDC. If this amount is expected, approve it deliberately with ` +
-        `\`chain-insights wallet ready --payment-usdc ${requested}\`, or raise the ceiling via ` +
+        `\`cia wallet ready --payment-usdc ${requested}\`, or raise the ceiling via ` +
         `CHAIN_INSIGHTS_MAX_AUTO_APPROVAL_USDC.`
     )
   }

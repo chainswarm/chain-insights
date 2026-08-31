@@ -28,9 +28,8 @@ knowledge skill during the 2026-07-28 docs-layer rework.
 
 ## Development Workflow Rules
 
-- `npm run build` is not plain compilation. It also copies
-  `src/viz/templates` to `dist/templates` and wallet MCP-proxy assets to
-  `dist/assets`. Skipping it stales the packaged UI assets. See the
+- `npm run build` is not plain compilation. It also copies wallet MCP-proxy
+  assets to `dist/assets`. Skipping it stales the packaged assets. See the
   `dist/` trap in [../development.md](../development.md).
 - `package.json` `files[]` ships `bin`, `dist`, `skills`, `docs/*.md`, and
   `docs/images`. Adding a skill or doc changes the published tarball.
@@ -63,8 +62,8 @@ knowledge skill during the 2026-07-28 docs-layer rework.
 
 ## Documentation Rules
 
-- Keep docs product-first and user-workflow-first: install → init →
-  configure graph access → run AML tools → review evidence.
+- Keep docs product-first and user-workflow-first: install → configure graph
+  access → run AML tools.
 - Localhost endpoints are fine in debugging docs. Private paths are not.
 - The shipped product skills under `skills/` are
   `chain-insights-address-risk`, `chain-insights-cypher`,

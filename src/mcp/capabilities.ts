@@ -47,19 +47,19 @@ export interface NetworkCapabilitiesDocument {
   networks: NetworkCapability[]
 }
 
-export const PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS = {
-  aml_address_risk: 'available',
-  graph_query: 'available',
-  graph_query_batch: 'available',
-  meta_network_capabilities: 'available',
-  meta_usage_status: 'available',
-  meta_help: 'available',
-  wallet_balance: 'available',
-} as const
 const AVAILABLE_TOOLS_PER_LINE = 3
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function advertisedTools(raw: unknown): Record<string, string> {
+  if (!isRecord(raw)) return {}
+  const tools: Record<string, string> = {}
+  for (const [name, status] of Object.entries(raw)) {
+    if (name.trim() !== '' && typeof status === 'string') tools[name] = status
+  }
+  return tools
 }
 
 function advertisedNetwork(raw: unknown): NetworkCapability | null {
@@ -75,7 +75,7 @@ function advertisedNetwork(raw: unknown): NetworkCapability | null {
         : network,
     status: typeof raw.status === 'string' && raw.status.trim() !== '' ? raw.status : 'live',
     layers: {},
-    tools: { ...PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS },
+    tools: advertisedTools(raw.tools),
   }
   if (raw.default === true) capability.default = true
   if (raw.default === false) capability.default = false
@@ -141,11 +141,7 @@ export async function fetchNetworkCapabilities(
 }
 
 function availableTools(network: NetworkCapability): string[] {
-  const effectiveTools = {
-    ...(network.tools ?? {}),
-    ...PUBLIC_CHAIN_INSIGHTS_TOOL_STATUS,
-  }
-  const tools = Object.entries(effectiveTools)
+  const tools = Object.entries(network.tools ?? {})
     .filter(([, status]) => status === 'available')
     .map(([name]) => name)
   return tools.sort()
@@ -183,23 +179,73 @@ function datasetLabel(network: NetworkCapability): string {
   return `${blockRange} / ${dateRange}`
 }
 
-export function formatNetworkCapabilities(document: NetworkCapabilitiesDocument): string {
-  if (document.networks.length === 0) return 'No supported networks advertised.'
-  const headers = ['Network', 'Dataset', 'Available tools']
-  const widths = [14, 38, 64]
+function displayName(network: NetworkCapability): string {
+  return network.display_name || network.network
+}
+
+function statusLabel(network: NetworkCapability): string {
+  return network.default ? `${network.status} (default)` : network.status
+}
+
+function formatTable(headers: string[], rows: string[][], minimumWidths: number[]): string {
+  const widths = headers.map((header, index) =>
+    Math.max(
+      minimumWidths[index] ?? 0,
+      header.length,
+      ...rows.map((row) => row[index]?.length ?? 0)
+    )
+  )
   const row = (values: string[]) =>
     values.map((value, index) => value.padEnd(widths[index]!)).join('  ')
-  const networkRows = document.networks.flatMap((network) => {
-    const toolLines = availableToolLines(network)
-    return toolLines.map((toolLine, index) =>
-      row([
-        index === 0 ? network.display_name || network.network : '',
-        index === 0 ? datasetLabel(network) : '',
-        toolLine,
-      ])
-    )
-  })
-  return [row(headers), widths.map((width) => '-'.repeat(width)).join('  '), ...networkRows].join(
+  return [row(headers), widths.map((width) => '-'.repeat(width)).join('  '), ...rows.map(row)].join(
     '\n'
   )
+}
+
+export function formatNetworkOverview(document: NetworkCapabilitiesDocument): string {
+  if (document.networks.length === 0) return 'No supported networks advertised.'
+  const rows = document.networks.map((network) => [
+    displayName(network),
+    statusLabel(network),
+    datasetLabel(network),
+  ])
+  return formatTable(['Network', 'Status', 'Dataset'], rows, [14, 10, 38])
+}
+
+export function formatNetworkCapabilities(document: NetworkCapabilitiesDocument): string {
+  if (document.networks.length === 0) return 'No supported networks advertised.'
+  const networkRows = document.networks.flatMap((network) => {
+    const toolLines = availableToolLines(network)
+    return toolLines.map((toolLine, index) => [
+      index === 0 ? displayName(network) : '',
+      index === 0 ? datasetLabel(network) : '',
+      toolLine,
+    ])
+  })
+  return formatTable(['Network', 'Dataset', 'Chain Insights tools'], networkRows, [14, 38, 64])
+}
+
+export function findNetworkCapability(
+  document: NetworkCapabilitiesDocument,
+  name: string
+): NetworkCapability | undefined {
+  const normalizedName = name.trim().toLowerCase()
+  if (!normalizedName) return undefined
+  return document.networks.find((network) =>
+    [network.network, network.display_name].some(
+      (candidate) => candidate?.trim().toLowerCase() === normalizedName
+    )
+  )
+}
+
+export function formatNetworkCapability(network: NetworkCapability): string {
+  const rows = [
+    ['Network', network.display_name || network.network],
+    ['Identifier', network.network],
+    ['Status', network.default ? `${network.status} (default)` : network.status],
+    ['Dataset', datasetLabel(network)],
+    ['Available tools', availableTools(network).join(', ') || 'none'],
+  ]
+  const labelWidth = Math.max(...rows.map(([label]) => label.length))
+  return rows.map(([label, value]) => `${label.padEnd(labelWidth)}  ${value}`).join('\n')
 }

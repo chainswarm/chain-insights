@@ -3,9 +3,9 @@
 This document covers the graph-facing tools and the result contracts that
 agents should rely on during investigations.
 
-Chain Insights workspaces are plain local folders. Graph tools write workspace
-evidence and report pointers into the workspace; use live workspace files for
-local review and `published/` only for rendered HTML or handoff-ready outputs.
+The first release exposes graph analysis through the hosted MCP endpoint and
+the `cia mcp` commands. High-level CIA workflows are listed by `cia workflows`
+and run with `cia workflow`. Results are returned as text and structured facts.
 
 ## Chain Insights Graph Surface
 
@@ -21,6 +21,14 @@ Chain Insights tools such as `aml_address_risk` are recipes built over
 `graph_query_batch`. They are not assumed to exist on the
 Chain Insights Graph endpoint.
 
+`cia workflows` lists local, high-level CIA workflow tools. Use
+`cia workflow aml-address-risk` for the address-risk workflow.
+
+`cia mcp tools` lists the remote GraphRAG surface only. Use `cia networks` for
+the short network overview, `cia network <name>` for one network's details and
+remote tools, and `cia mcp networks` for the full network capability matrix.
+Use `cia mcp call` for low-level GraphRAG calls and custom read-only queries.
+
 The Chain Insights MCP proxy adds product-facing local metadata tools such as
 `meta_network_capabilities`, `meta_usage_status`, and `meta_help`. On hosted
 backends, `meta_usage_status` can reflect remote quota telemetry. On
@@ -34,7 +42,10 @@ primitive-backend status instead.
 - Use `USE topology` for topology (the address / FLOWS_TO / LINKED graph,
   covering unified recent and full historical activity in one graph, plus the
   node `risk_score`/`risk_level` verdict).
-- Use `USE facts` for labels, features, assets, and enrichment.
+- Use `USE facts` for bounded individual `TRANSFER` rows and their amount,
+  `amount_usd`, asset, transaction, and block facts. Address labels, risk,
+  lifetime metrics, and `FLOWS_TO`/`LINKED` relationships belong to
+  `USE topology`.
 - Use `meta_usage_status` through Chain Insights before public hosted reads
   when you need the caller's remaining free-tier allowance.
 - Hosted endpoints can expose a public free tier for graph_query. The default
@@ -65,13 +76,13 @@ Agent installers ship four skills:
 Check public-free usage:
 
 ```bash
-chain-insights mcp call meta_usage_status
+cia mcp call meta_usage_status
 ```
 
 Example single query:
 
 ```bash
-chain-insights mcp call graph_query \
+cia mcp call graph_query \
   network=robinhood \
   "query=USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level LIMIT 10"
 ```
@@ -79,7 +90,7 @@ chain-insights mcp call graph_query \
 Example batch query:
 
 ```bash
-chain-insights mcp call graph_query_batch \
+cia mcp call graph_query_batch \
   network=robinhood \
   'queries=[{"id":"count","query":"USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"flows","query":"USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 3"},{"id":"linked","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"}]'
 ```
@@ -122,11 +133,17 @@ Required input:
 Optional input:
 
 - `compare_address`
-- `include_attachments`
+- `version` — omit it to use the latest contract, or set it to `v1` to pin the
+  current AML contract.
 
-The tool can emit graph report metadata when attachments are requested. Store
-large graph payloads under workspace reports and save compact evidence pointers
-to workspace artifacts.
+CLI output is human-readable by default. Add `--json` to print indented JSON:
+
+```bash
+cia workflow aml-address-risk --json \
+  --address 0xYourAddressHere --network robinhood
+cia mcp call --json graph_query network=robinhood \
+  "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 10"
+```
 
 ## Manual Fund-Flow Traversal
 
@@ -139,30 +156,11 @@ traversal node must be non-exchange.
 The traversal-safety rule above is the only trace norm; role labels such as
 victim, suspect, or deposit are hypotheses for review, not automatic writes.
 
-## Graph Reports
-
-Graph reports use `chain-insights.graph.v1` JSON. Visual edges use the
-canonical `source` / `target` convention.
-
-Graph-backed tools store
-`chain-insights.evidence_pointer.v1` evidence entries.
-The pointer references workspace-local compact evidence JSON, graph JSON, graph
-HTML, CSV or table files, and Markdown reports.
-
-Evidence Markdown should be a provenance record with key facts and pointers.
-Large JSON belongs under workspace report directories, not inline in evidence.
-
-After evidence is collected, keep workspace notes and `published/` artifacts in
-sync for a handoff. Use workspace-generated graph JSON, graph HTML, table
-extracts, and Markdown reports as the review surface over canonical workspace
-artifacts.
-
 ## Runtime Schema Capture
 
-Fresh workspaces include a runtime schema skill and schema capture directory.
-Before the first graph query against a network, capture the live graph schema and
+Before the first graph query against a network, inspect the live graph schema and
 use the observed labels, relationship types, and property names in subsequent
-queries. The current public Chain Insights Graph investigation network is
+queries. The current public Chain Insights Graph network is
 the single robinhood network; the network argument selects the graph, and
 the address-space split lives on the `:Address.network` node property. Do not
 infer support for unadvertised networks from internal database names or

@@ -46,7 +46,6 @@ user problem is enough to start the conversation.
 
 - Product-first overview: `README.md`.
 - Graph tool contracts: `docs/graph-tools.md`.
-- Workspace behavior: `docs/investigation-workspaces.md`.
 - MCP proxy setup: `docs/mcp-proxy.md`.
 - Agent-facing guidance: `skills/`.
 - Deeper contributor detail: `docs/contributing.md`, `docs/development.md`.
@@ -55,5 +54,5 @@ user problem is enough to start the conversation.
 
 Public surface guarantees are documented in
 [docs/stability.md](docs/stability.md). If your change alters a guaranteed
-surface (CLI exit codes, MCP tool names, workspace layout), say so explicitly
+surface (CLI exit codes or MCP tool names), say so explicitly
 in the PR — it changes the versioning and the CHANGELOG wording.

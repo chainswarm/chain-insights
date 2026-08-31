@@ -18,6 +18,10 @@ label, relationship, and property map.
 | `graph_query`       | One read-only query.       |
 | `graph_query_batch` | Related reads in one call. |
 
+Use `cia workflows` to discover high-level CIA workflows. Use `cia mcp tools`
+to inspect remote GraphRAG tools, and `cia mcp call graph_query` or
+`cia mcp call graph_query_batch` for agent-authored low-level reads.
+
 Always pass an explicit `network`. Always add your own `LIMIT`. Chain
 Insights Graph does not append one.
 

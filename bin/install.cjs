@@ -132,7 +132,7 @@ if (!fs.existsSync(dataDir)) {
 
 if (!fs.existsSync(configPath)) {
   const defaultConfig = {
-    graphMcpEndpoint: 'http://127.0.0.1:8012/mcp',
+    graphMcpEndpoint: 'https://mcp.chain-insights.ai/',
     walletAddress: '',
     graphMcpMode: 'paid',
     serverPort: 4321,
@@ -282,5 +282,5 @@ for (const target of skillsTargets) {
 console.log(`  ${cyan}Config:${reset}   ${configPath}`)
 console.log(`  ${cyan}Data dir:${reset} ${dataDir}`)
 console.log(
-  `\n${dim}Run ${reset}${cyan}chain-insights status${reset}${dim} to verify the installation.${reset}\n`
+  `\n${dim}Run ${reset}${cyan}cia status${reset}${dim} to verify the installation.${reset}\n`
 )

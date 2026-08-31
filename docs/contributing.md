@@ -25,15 +25,12 @@ When adding a tool, document:
 - Chain Insights Graph primitive calls.
 - Use of `topology` and `facts`.
 - Result contract.
-- Workspace artifact and report behavior.
-- Graph report behavior.
 - Tests and dogfood path.
 
 ## Documentation Updates
 
 - README stays product-first.
 - Detailed graph contracts belong in `docs/graph-tools.md`.
-- Workspace behavior belongs in `docs/investigation-workspaces.md`.
 - MCP proxy/client setup belongs in `docs/mcp-proxy.md`.
 - Debug and UAT details belong in `docs/debugging.md`.
 - Agent-facing contributor guidance belongs in shipped skills under `skills/`.

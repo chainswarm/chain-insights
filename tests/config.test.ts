@@ -50,7 +50,7 @@ describe('Config system (FOUND-05)', () => {
     expect(config.serverPort).toBe(4321)
     expect(config.version).toBe('1')
     expect(config.graphMcpMode).toBe('paid')
-    expect(config.graphMcpEndpoint).toBe('http://127.0.0.1:8012/mcp')
+    expect(config.graphMcpEndpoint).toBe('https://mcp.chain-insights.ai/')
   })
 
   it('loads config values from config.json on disk', async () => {
@@ -74,9 +74,9 @@ describe('Config system (FOUND-05)', () => {
   it('saveConfig rejects remote http graphMcpEndpoint values with deterministic validation text', async () => {
     const { saveConfig, resetConfigCache } = await import('../src/config/index.js')
     await resetConfigCache()
-    await expect(
-      saveConfig({ graphMcpEndpoint: 'http://staging-mcp.chain-insights.ai/mcp' })
-    ).rejects.toThrow('graphMcpEndpoint must use https:// for remote hosts')
+    await expect(saveConfig({ graphMcpEndpoint: 'http://mcp.example.test/' })).rejects.toThrow(
+      'graphMcpEndpoint must use https:// for remote hosts'
+    )
   })
 
   it('loadConfig rejects malformed endpoint values instead of silently falling back to defaults', async () => {
@@ -129,7 +129,7 @@ describe('Config system (FOUND-05)', () => {
   })
 
   it('env endpoint override rejects remote http before use', async () => {
-    process.env['CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT'] = 'http://staging-mcp.chain-insights.ai/mcp'
+    process.env['CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT'] = 'http://mcp.example.test/'
     const { loadConfig, resetConfigCache } = await import('../src/config/index.js')
     await resetConfigCache()
     await expect(loadConfig()).rejects.toThrow(
@@ -146,7 +146,7 @@ describe('Config system (FOUND-05)', () => {
   })
 
   it('legacy env endpoint override rejects remote http before use', async () => {
-    process.env['GRAPH_MCP_ENDPOINT'] = 'http://staging-mcp.chain-insights.ai/mcp'
+    process.env['GRAPH_MCP_ENDPOINT'] = 'http://mcp.example.test/'
     const { loadConfig, resetConfigCache } = await import('../src/config/index.js')
     await resetConfigCache()
     await expect(loadConfig()).rejects.toThrow(

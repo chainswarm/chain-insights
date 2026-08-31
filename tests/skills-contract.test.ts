@@ -9,7 +9,7 @@ function read(path: string): string {
 }
 
 function expectNoRetiredHostedMcpHost(content: string): void {
-  expect(content).not.toMatch(/(^|[^a-z0-9-])mcp\.chain-insights\.ai(?=\/|[\s`'")\]}]|$)/i)
+  expect(content).not.toMatch(/(^|[^a-z0-9-])staging-mcp\.chain-insights\.ai(?=\/|[\s`'")\]}]|$)/i)
 }
 
 function retiredName(head: string, tail: string): string {
@@ -47,6 +47,9 @@ describe('shipped Chain Insights skills contract', () => {
     expect(addressRisk).toContain('meta_network_capabilities')
     expect(addressRisk).toContain('network=robinhood')
     expect(addressRisk).toContain('compare_address')
+    expect(addressRisk).toContain('cia workflows')
+    expect(addressRisk).toContain('cia workflow aml-address-risk')
+    expect(cypher).toContain('cia mcp call graph_query')
 
     const content = [evm, bittensor, cypher, addressRisk].join('\n')
     expect(content).not.toMatch(/workspace|debug MCP/i)
@@ -88,7 +91,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).toContain('Chain Insights Graph')
     expect(readme).toContain('cia config set graphMcpEndpoint https://mcp.chain-insights.ai/')
     expect(readme).toContain('CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://mcp.chain-insights.ai/')
-    expect(readme).toContain('Do not add `/mcp`')
+    expect(readme).toMatch(/Do not\s+add `\/mcp`/)
     expect(readme).toContain('http://127.0.0.1:8012/mcp')
     expect(readme).toContain('approved access key')
     expect(readme).toContain('prepared wallet')
@@ -103,7 +106,8 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).not.toContain('sent_count')
     expect(readme).toContain('cia mcp networks')
     expect(readme).toContain('cia mcp tools --refresh')
-    expect(readme).toContain('published/<workspace-slug>/')
+    expect(readme).toContain('cia workflows')
+    expect(readme).toContain('cia workflow aml-address-risk')
     expect(readme).toContain('docs/contributing.md')
     expect(readme).toContain('docs/debugging.md')
 
@@ -124,46 +128,14 @@ describe('shipped Chain Insights skills contract', () => {
     expect(mcpProxy).toContain(
       'The endpoint lives in Chain Insights config, not in the MCP client registration.'
     )
-    expect(mcpProxy).toContain('Do not')
-    expect(mcpProxy).toContain(
-      'bake hosted endpoint URLs into MCP client JSON, source code, or workspace'
-    )
+    expect(mcpProxy).toMatch(/MCP client JSON does not carry\s+the endpoint/)
     expect(mcpProxy).toContain('x402')
     expect(readme + mcpProxy + read('docs/architecture.md')).toContain(
       'https://mcp.chain-insights.ai/'
     )
   })
 
-  it('positions Chain Insights as an editor-neutral workspace', () => {
-    const readme = read('README.md')
-    const investigation = read('docs/investigation-workspaces.md')
-    const mcpProxy = read('docs/mcp-proxy.md')
-    const graphTools = read('docs/graph-tools.md')
-
-    expect(readme).toContain('Create an investigation workspace')
-    expect(readme).not.toContain('obsidian')
-    expect(readme).not.toMatch(/open as\s+(?:a\s+)?vault/i)
-
-    for (const content of [investigation, mcpProxy, graphTools]) {
-      expect(content.toLowerCase()).not.toContain('obsidian')
-      expect(content).not.toMatch(/open as\s+(?:a\s+)?vault/i)
-    }
-  })
-
-  it('documents workspace-local published outputs instead of external vault/export workflows', () => {
-    const readme = read('README.md')
-    const graphTools = read('docs/graph-tools.md')
-    const investigation = read('docs/investigation-workspaces.md')
-    const mcpProxy = read('docs/mcp-proxy.md')
-
-    for (const content of [readme, graphTools, investigation, mcpProxy]) {
-      expect(content).toContain('published/')
-      expect(content.toLowerCase()).not.toContain('obsidian')
-      expect(content).not.toMatch(/open as\s+(?:a\s+)?vault/i)
-    }
-  })
-
-  it('does not hardcode hosted Chain Insights Graph endpoints in runtime source defaults', () => {
+  it('uses hosted Chain Insights Graph by default and preserves local development overrides', () => {
     const runtimeSources = [
       'src/config/mcp-endpoint.ts',
       'src/config/schema.ts',
@@ -173,8 +145,8 @@ describe('shipped Chain Insights skills contract', () => {
       .map(read)
       .join('\n')
 
+    expect(runtimeSources).toContain('https://mcp.chain-insights.ai/')
     expect(runtimeSources).toContain('http://127.0.0.1:8012/mcp')
-    expect(runtimeSources).not.toContain('staging-mcp.chain-insights.ai')
     expectNoRetiredHostedMcpHost(runtimeSources)
   })
 
@@ -184,7 +156,6 @@ describe('shipped Chain Insights skills contract', () => {
     const development = read('docs/development.md')
 
     expect(contributing).toContain('Adding AML Tools')
-    expect(contributing).toContain('Workspace artifact and report behavior.')
     expect(contributing).toContain('npm run release:check')
     expect(debugging).toContain('Chain Insights Graph')
     expect(debugging).toContain('Inspector')

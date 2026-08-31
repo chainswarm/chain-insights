@@ -3,6 +3,162 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.27.1] - 2026-08-31 — fix: use production endpoint in agent setup
+
+Fresh `cia --claude`, `cia --codex`, and `cia --hermes` setup now starts with
+the hosted production Chain Insights Graph endpoint. Local endpoints remain
+available only through explicit configuration.
+
+### Fixed
+
+- Removed the stale loopback endpoint from the installer-created config.
+
+## [0.27.0] - 2026-08-31 — feat: separate workflows from MCP primitives
+
+The CLI now separates high-level CIA workflows from low-level GraphRAG MCP
+access so each command group has one clear purpose.
+
+### Added
+
+- `cia workflows` to discover high-level CIA workflow tools.
+- `cia workflow aml-address-risk` to run the address-risk workflow with JSON
+  output and version selection.
+
+### Changed
+
+- `cia mcp` now documents low-level GraphRAG access and remote tool discovery.
+- README, documentation, generated workspace guidance, and shipped skills now
+  describe the workflow and GraphRAG command boundaries.
+
+### Removed
+
+- `cia mcp aml-address-risk`; use `cia workflow aml-address-risk`.
+- High-level AML execution through `cia mcp call aml_address_risk`; use the
+  workflow command instead.
+
+## [0.26.0] - 2026-08-31 — change: scope tool discovery to networks
+
+The CLI now keeps address-risk screening under `cia mcp`. Network capability
+output reports only the tools advertised for each network by Chain Insights
+Graph.
+
+### Changed
+
+- Removed the root `cia aml-address-risk` command.
+- Added per-network tool discovery to `cia network <name>` and the network
+  capability tables.
+- Updated CLI, workspace, documentation, and skill examples for the current
+  `USE topology` and `USE facts` graph split.
+
+## [0.25.0] - 2026-08-31 — feat: improve CLI output and tool versioning
+
+The CLI now presents graph results in a readable terminal format and supports
+explicit machine-readable output. AML tool contracts can be pinned separately
+from the package version.
+
+### Added
+
+- `--json` output for graph and AML CLI commands.
+- Human-readable graph result summaries and aligned result tables by default.
+- `v1` routing for `aml_address_risk`; omitted versions use the latest contract.
+- CLI, MCP schema, and documentation coverage for AML tool versions.
+
+## [0.24.2] - 2026-08-31 — fix: make CLI command paths self-guiding
+
+The CLI now keeps its command tree consistent and shows the relevant command
+help when an invocation is incomplete.
+
+### Added
+
+- `cia aml-address-risk` as a direct shortcut for address screening.
+- Automated help coverage for every public command node and leaf.
+
+### Changed
+
+- Incomplete command invocations now print the affected command's usage and
+  options.
+- Unknown MCP tools now point users to `cia mcp tools --refresh`.
+- Configuration get/set leaves now include descriptions in their help.
+
+## [0.24.1] - 2026-08-31 — fix: clarify CLI network and tool catalogs
+
+The CLI now separates the user network overview from the detailed MCP
+capability matrix and labels remote GraphRAG tool discovery clearly.
+
+### Changed
+
+- `cia networks` shows network status and dataset coverage without repeating
+  the tool matrix.
+- `cia mcp networks` labels its tool column as Chain Insights tools.
+- `cia mcp tools` identifies its remote GraphRAG tool catalog and cache period.
+- Tool descriptions wrap cleanly instead of being cut off mid-word.
+
+## [0.24.0] - 2026-08-31 — feat: improve first-run CLI onboarding
+
+The CLI now uses `cia` consistently in public help and guidance. Users can
+inspect one network directly and create a local payment wallet with an
+explicit private-key backup confirmation.
+
+### Added
+
+- `cia network <name>` for details about one supported network.
+- `cia wallet create` for local wallet generation.
+- A colorized, aligned wallet backup warning with a plain-text fallback.
+
+### Changed
+
+- Wallet creation keeps the generated key in memory until the user enters
+  `BACKED UP`.
+- Wallet guidance explains the encrypted local storage path and recovery limit.
+- Public CLI help, errors, payment guidance, and command examples use `cia`.
+
+## [0.23.0] - 2026-08-30 — release: ship the focused CLI and MCP surface
+
+The first public release keeps the install-to-first-screen path focused on
+AML screening and graph facts. Local workspaces, the local server, and graph
+visualizations are deferred until they are ready for general use.
+
+### Removed from the public surface
+
+- `cia init`, `cia serve`, and `cia viz` commands.
+- MCP Apps graph resources, visualization metadata, and graph attachments.
+- Public workspace, graph-report, and visualization instructions and docs.
+- The unused MCP Apps runtime dependency and bundled graph template.
+
+### Changed
+
+- Default MCP proxy behavior is stateless.
+- `cia status` reports configuration and Graph connectivity without a local
+  server or workspace.
+- README, architecture docs, shipped skills, and tests describe only the
+  supported first-release workflow.
+
+## [0.22.3] - 2026-08-30 — fix: make fresh installs usable
+
+A new installation now connects to the hosted Chain Insights Graph by default.
+Users can run `cia networks` immediately after installing the package. Local
+development remains available through an explicit loopback endpoint override.
+
+### Changed
+
+- Use `https://mcp.chain-insights.ai/` as the CLI and workspace default.
+- Keep `http://127.0.0.1:8012/mcp` available for explicit local development.
+- Update the first-run documentation, acceptance contract, and release smoke
+  test to cover zero-configuration hosted use.
+
+## [0.22.2] - 2026-08-30 — fix: align hosted MCP tests with production
+
+Hosted Chain Insights Graph now exposes the Robinhood network and the current
+`topology` and `facts` scopes. The release smoke path and production-facing
+tests use those current capabilities.
+
+### Changed
+
+- Default fresh workspaces to the hosted `robinhood` network.
+- Update hosted MCP smoke checks and CLI tests to use the production endpoint.
+- Remove stale staging endpoint references from mocked tests.
+- Replace retired `live_topology` assumptions with `USE topology`.
+
 ## [0.22.1] - 2026-08-30 — chore: prettier formatting baseline (#349)
 
 `npm run lint:format` is declared over the whole tree but had never been

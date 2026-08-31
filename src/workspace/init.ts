@@ -1,6 +1,6 @@
 import { access, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { LOCAL_GRAPH_MCP_ENDPOINT } from '../config/mcp-endpoint.js'
+import { DEFAULT_GRAPH_MCP_ENDPOINT } from '../config/mcp-endpoint.js'
 
 export interface InitWorkspaceOptions {
   targetDir: string
@@ -42,8 +42,8 @@ function workspaceJson(workspaceRoot: string): string {
         schema: 'chain-insights.workspace.v1',
         name: 'Chain Insights Workspace',
         workspace_root: workspaceRoot,
-        default_network: 'bittensor',
-        graph_mcp_endpoint: LOCAL_GRAPH_MCP_ENDPOINT,
+        default_network: 'robinhood',
+        graph_mcp_endpoint: DEFAULT_GRAPH_MCP_ENDPOINT,
         artifacts_dir: 'artifacts',
         imports_dir: 'imports',
         reports_dir: 'reports',
@@ -67,8 +67,9 @@ metadata.
 ## Start
 
 \`\`\`bash
-chain-insights mcp tools --refresh
-chain-insights wallet ready --check-only
+cia workflows
+cia mcp tools --refresh
+cia wallet ready --check-only
 \`\`\`
 
 ## Layout
@@ -223,8 +224,8 @@ The address-grain graph schema:
 - The risk verdict lives on topology nodes (\`risk_score\`/\`risk_level\`),
   and labels and per-label risk live on the address node (\`labels\` array
   + \`label_risk\` entries). \`USE facts\` serves bounded individual
-  transfer rows and, until P3, address features. Facts address keys match
-  topology \`address\` values exactly. Do not read \`ml_*\`,
+  transfer rows only. Facts address keys match topology \`address\` values
+  exactly. Do not read \`ml_*\`,
   \`confluence_score\`, or \`pattern_flags\` off topology nodes — those
   properties do not exist.
 - \`(from:Address)-[t:TRANSFER]->(to:Address)\` on \`USE facts\` returns
@@ -246,7 +247,8 @@ Rules:
 - Use \`USE topology\` for topology (the address/FLOWS_TO/LINKED graph,
   covering unified recent and full historical activity in one graph, plus
   the node \`risk_score\`/\`risk_level\` verdict, and labels + per-label
-  risk) and \`USE facts\` for features, assets, and enrichment.
+  risk) and \`USE facts\` for bounded individual \`TRANSFER\` rows and their
+  amount, \`amount_usd\`, asset, transaction, and block facts.
   The \`LINKED\` ownership overlay is served on the topology graph only.
 - Preserve source schema field names in generated data files.
 - Do not rename, reinterpret, or add unit labels to graph fields unless the
@@ -268,10 +270,12 @@ Rules:
 
 AML tool guidance:
 
-1. Use \`aml_address_risk\` for single-address enrichment and optional
-   comparison with another address.
-2. Use \`graph_query_batch\` only when the high-level tools do not answer the
-   exact question, and \`graph_query\` for single read-only queries.
+1. Discover high-level CIA workflows with \`cia workflows\`.
+2. Use the \`cia workflow aml-address-risk\` command for single-address
+   enrichment and optional comparison with another address.
+3. Use \`cia mcp call graph_query_batch\` only when the high-level tools do not
+   answer the exact question, and \`cia mcp call graph_query\` for single
+   read-only queries.
 
 \`aml_address_risk\` takes a raw blockchain address as input directly — there
 is no identity-resolution step — and returns \`chain-insights.result.v1\`. Preserve
@@ -283,7 +287,7 @@ const SCHEMA_README = `# Runtime Schema Captures
 Store graph schema captures here, for example:
 
 \`\`\`text
-bittensor.graph-schema.json
+robinhood.graph-schema.json
 \`\`\`
 
 Schema captures should be generated before the first graph workflow in a fresh

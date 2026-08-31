@@ -1,8 +1,6 @@
 // Public API surface for programmatic use.
 // CLI users go through bin/cli.js → dist/cli.js.
 export { loadConfig, saveConfig, resetConfigCache } from './config/index.js'
-export { createApp } from './server/app.js'
-export { startServer } from './server/index.js'
 export type { InvestigatorConfig } from './config/schema.js'
 export {
   encryptKey,
@@ -12,6 +10,11 @@ export {
   setWalletPrivateKey,
   walletAddressFromPrivateKey,
 } from './wallet/index.js'
+export {
+  formatWalletBackupWarning,
+  generateWalletPrivateKey,
+  isWalletBackupConfirmed,
+} from './wallet/create.js'
 export {
   buildTopupInfo,
   formatWalletBalance,
@@ -26,5 +29,3 @@ export { generateArtifactHtml, getTopupUrl, startTopupServer } from './wallet/to
 export { createMcpFetchClient } from './mcp/client.js'
 export { mergeShardRows } from './federation/merge.js'
 export type { ShardRow, MergeOptions, MergedResult } from './federation/merge.js'
-export { generateVisualization } from './viz/index.js'
-export type { GraphDataType, GraphNodeType, GraphEdgeType } from './viz/index.js'

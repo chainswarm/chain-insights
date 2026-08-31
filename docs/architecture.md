@@ -1,8 +1,7 @@
 # Architecture
 
-Chain Insights is a local investigation framework around a remote graph
-execution endpoint. It keeps sensitive workspace outputs as normal local files
-and leaves graph computation to the configured Chain Insights Graph backend.
+Chain Insights is a CLI and MCP proxy around a remote graph execution endpoint.
+It leaves graph computation to the configured Chain Insights Graph backend.
 
 ## Product Layers
 
@@ -12,12 +11,10 @@ flowchart LR
   Agent --> CLI[Chain Insights CLI]
   CLI --> Config[Local config]
   CLI --> Wallet[Encrypted wallet]
-  CLI --> Workspace[Investigation workspace]
   Proxy --> ChainInsightsGraph[Chain Insights Graph]
   CLI --> ChainInsightsGraph
   ChainInsightsGraph --> GraphData[(Graph intelligence)]
   Wallet --> Base[Base RPC]
-  Workspace --> Browser[Local browser reports]
 ```
 
 The CLI is the operator entry point. The MCP proxy exposes the same local
@@ -26,26 +23,20 @@ against the unified topology graph and facts.
 
 ## Module Responsibilities
 
-| Module area        | Responsibility                                              |
-| ------------------ | ----------------------------------------------------------- |
-| CLI                | Command routing and user-facing workflows                   |
-| Config             | Local config schema and owner-only storage                  |
-| Wallet             | Encrypted EVM wallet and Base USDC balance checks           |
-| MCP client/proxy   | x402, debug-token, test-key auth, schema cache, stdio proxy |
-| Workspace evidence | Evidence, dossiers, reports, and workspace sessions         |
-| Visualization      | Graph data model and self-contained HTML generation         |
-| Server             | Local report and visualization server                       |
-| Workspace init     | Investigation workspace scaffold and runtime schema notes   |
+| Module area      | Responsibility                                              |
+| ---------------- | ----------------------------------------------------------- |
+| CLI              | Command routing and user-facing workflows                   |
+| Config           | Local config schema and owner-only storage                  |
+| Wallet           | Encrypted EVM wallet and Base USDC balance checks           |
+| MCP client/proxy | x402, debug-token, test-key auth, schema cache, stdio proxy |
 
 ## Data Flow
 
-1. The user or agent works inside an initialized investigation workspace.
-2. Chain Insights reads local config for endpoint and auth mode.
-3. Graph queries go to the configured Chain Insights Graph endpoint.
-4. The graph backend executes against `topology` or `facts`.
-5. Chain Insights stores compact evidence, graph JSON, HTML reports, CSVs, and
-   summaries in the active workspace.
-6. Case evidence references report files instead of embedding large payloads.
+1. Chain Insights reads local config for endpoint and auth mode.
+2. Graph queries go to the configured Chain Insights Graph endpoint.
+3. The graph backend executes against `topology` or `facts`.
+4. Chain Insights returns tool summaries and structured facts through the CLI
+   or MCP proxy.
 
 ## Config
 
@@ -55,13 +46,14 @@ permissions.
 Primary Chain Insights Graph config:
 
 ```bash
-chain-insights config get graphMcpEndpoint
-chain-insights config set graphMcpEndpoint https://mcp.chain-insights.ai/
+cia config get graphMcpEndpoint
+cia config set graphMcpEndpoint https://mcp.chain-insights.ai/
 export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://mcp.chain-insights.ai/
 ```
 
-The runtime default is local loopback: `http://127.0.0.1:8012/mcp`. Hosted
-endpoints are operator configuration, not hardcoded package defaults.
+The runtime default is the hosted production endpoint
+`https://mcp.chain-insights.ai/`. Local loopback
+`http://127.0.0.1:8012/mcp` remains available through explicit configuration.
 
 Supported config keys:
 
@@ -71,7 +63,6 @@ Supported config keys:
 | `graphMcpAuthToken` | Chain Insights Graph bearer credential for test access keys or local debug UAT |
 | `graphMcpMode`      | Endpoint access mode: `paid` (default) or `debug`                              |
 | `walletAddress`     | Optional wallet metadata                                                       |
-| `serverPort`        | Local visualization and graph report server port                               |
 | `dataDir`           | Local Chain Insights data directory                                            |
 | `version`           | Config schema version                                                          |
 
@@ -89,25 +80,6 @@ Default local data directory:
   mcp-schema-*.json
 ```
 
-Investigation outputs belong in initialized workspaces, not in the global data
-directory.
-
-Workspace outputs include:
-
-```text
-artifacts/
-entities/
-imports/
-reports/
-reports/graphs/
-reports/tables/
-sessions/
-templates/
-.chain-insights/schema/
-.chain-insights/runtime/
-.chain-insights/runtime-skill/
-```
-
 ## Security Model
 
 - `wallet.json`, `config.json`, and schema cache files use owner-only
@@ -116,8 +88,6 @@ templates/
 - Debug bearer tokens are redacted in CLI output.
 - Test access keys are payment bypass credentials.
 - Production x402 should use a hot wallet with limited funds.
-- Graph report JSON is stored in the active workspace and served from
-  `127.0.0.1`.
 - Chain Insights does not custody user funds.
 - CI runs typecheck, tests, build, npm package packing, vulnerability audit,
   registry signature verification, secret-pattern scanning, CodeQL, OpenSSF
@@ -128,9 +98,9 @@ templates/
 Invited testers can use server-side test keys without x402 payment:
 
 ```bash
-chain-insights access-key set ci_test_REDACTED --endpoint https://mcp.chain-insights.ai/
-chain-insights access-key status
-chain-insights mcp call graph_query network=robinhood query='USE topology MATCH (n) RETURN n LIMIT 1'
+cia access-key set ci_test_REDACTED --endpoint https://mcp.chain-insights.ai/
+cia access-key status
+cia mcp call graph_query network=robinhood query='USE topology MATCH (n) RETURN n LIMIT 1'
 ```
 
 Operators configure the server with `MCP_TEST_ACCESS_KEY_HASHES`, a

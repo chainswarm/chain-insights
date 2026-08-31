@@ -17,15 +17,73 @@ const tsxLoader = join(process.cwd(), 'node_modules', 'tsx', 'dist', 'loader.mjs
 const cliBin = join(process.cwd(), 'bin', 'cli.js')
 const cli = `node ${JSON.stringify(cliBin)}`
 
+const commandHelpPaths: string[][] = [
+  [],
+  ['networks'],
+  ['network'],
+  ['status'],
+  ['update'],
+  ['debug'],
+  ['debug', 'on'],
+  ['debug', 'off'],
+  ['debug', 'status'],
+  ['access-key'],
+  ['access-key', 'set'],
+  ['access-key', 'clear'],
+  ['access-key', 'status'],
+  ['setup'],
+  ['setup', 'claude-code'],
+  ['setup', 'claude'],
+  ['setup', 'codex'],
+  ['setup', 'hermes'],
+  ['config'],
+  ['config', 'get'],
+  ['config', 'set'],
+  ['wallet'],
+  ['wallet', 'create'],
+  ['wallet', 'import'],
+  ['wallet', 'address'],
+  ['wallet', 'balance'],
+  ['wallet', 'ready'],
+  ['wallet', 'topup'],
+  ['workflows'],
+  ['workflow'],
+  ['workflow', 'aml-address-risk'],
+  ['mcp'],
+  ['mcp', 'networks'],
+  ['mcp', 'tools'],
+  ['mcp', 'call'],
+  ['help'],
+  ['help', 'network'],
+]
+
+const incompleteCommandCases: Array<{ args: string[]; usage: string }> = [
+  { args: ['network'], usage: 'Usage: cia network [options] <name>' },
+  { args: ['debug', 'on'], usage: 'Usage: cia debug on [options]' },
+  { args: ['access-key', 'set'], usage: 'Usage: cia access-key set [options] <key>' },
+  { args: ['config', 'get'], usage: 'Usage: cia config get [options] <key>' },
+  {
+    args: ['config', 'set', 'graphMcpEndpoint'],
+    usage: 'Usage: cia config set [options] <key> <value>',
+  },
+  { args: ['wallet', 'import'], usage: 'Usage: cia wallet import [options] <private-key>' },
+  {
+    args: ['workflow', 'aml-address-risk'],
+    usage: 'Usage: cia workflow aml-address-risk [options]',
+  },
+  { args: ['mcp', 'call'], usage: 'Usage: cia mcp call [options] <tool> [args...]' },
+]
+
 describe('CLI scaffold (FOUND-02)', () => {
-  it('--help prints chain-insights name', () => {
+  it('--help prints the cia command name', () => {
     const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
-    expect(out).toContain('chain-insights')
+    expect(out).toMatch(/^Usage: cia/m)
+    expect(out).not.toMatch(/^Usage: chain-insights/m)
   })
 
-  it('--help lists serve subcommand', () => {
+  it('--help omits deferred local commands', () => {
     const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
-    expect(out).toContain('serve')
+    expect(out).not.toMatch(/\b(init|serve|viz)\b/)
   })
 
   it('--help lists status subcommand', () => {
@@ -60,9 +118,47 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).not.toContain('Claude Desktop')
   })
 
-  it('--help lists init subcommand', () => {
-    const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
-    expect(out).toContain('init')
+  it('AML workflow exposes JSON output and version selection', () => {
+    const out = execFileSync(
+      'node',
+      ['--import', tsxLoader, srcCli, 'workflow', 'aml-address-risk', '--help'],
+      { encoding: 'utf8' }
+    )
+    expect(out).toContain('--json')
+    expect(out).toContain('--version <version>')
+  })
+
+  it('AML tool version is not swallowed by the package version flag', () => {
+    const path = ['workflow', 'aml-address-risk']
+    const helpResult = spawnSync(
+      'node',
+      ['--import', tsxLoader, srcCli, ...path, '--version', 'v1', '--help'],
+      { encoding: 'utf8' }
+    )
+    expect(helpResult.status).toBe(0)
+    expect(`${helpResult.stdout}\n${helpResult.stderr}`).toContain(`Usage: cia ${path.join(' ')}`)
+    expect(`${helpResult.stdout}\n${helpResult.stderr}`).not.toMatch(/^0\.24\.2$/m)
+
+    const result = spawnSync(
+      'node',
+      [
+        '--import',
+        tsxLoader,
+        srcCli,
+        ...path,
+        '--version',
+        'v2',
+        '--address',
+        '0xabc',
+        '--network',
+        'robinhood',
+      ],
+      { encoding: 'utf8' }
+    )
+    const output = `${result.stdout}\n${result.stderr}`
+    expect(result.status).toBe(1)
+    expect(output).toContain('Unsupported aml_address_risk version "v2"')
+    expect(output).not.toMatch(/^0\.24\.2$/m)
   })
 
   it('--help lists wallet subcommand', () => {
@@ -80,14 +176,140 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('access-key')
   })
 
-  it('--help lists networks top-level alias command', () => {
+  it('--help lists the top-level network overview command', () => {
     const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
     expect(out).toContain('networks')
   })
 
-  it('network --help works as a top-level alias for network capabilities', () => {
+  it('--help lists the CIA workflow catalog and execution namespace', () => {
+    const out = execFileSync('node', ['--import', tsxLoader, srcCli, '--help'], {
+      encoding: 'utf8',
+    })
+    expect(out).toContain('workflows')
+    expect(out).toContain('workflow')
+    expect(out).not.toMatch(/^\s+aml-address-risk\b/m)
+  })
+
+  it('does not register the direct AML address risk command', () => {
+    const result = spawnSync(
+      process.execPath,
+      ['--import', tsxLoader, srcCli, 'aml-address-risk'],
+      { encoding: 'utf8' }
+    )
+    expect(result.status).not.toBe(0)
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/unknown command/i)
+  })
+
+  it('does not register AML address risk under mcp', () => {
+    const result = spawnSync(
+      process.execPath,
+      ['--import', tsxLoader, srcCli, 'mcp', 'aml-address-risk'],
+      { encoding: 'utf8' }
+    )
+    expect(result.status).not.toBe(0)
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/unknown command/i)
+  })
+
+  it('does not run CIA workflows through the low-level mcp call', () => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        '--import',
+        tsxLoader,
+        srcCli,
+        'mcp',
+        'call',
+        'aml_address_risk',
+        'address=0xabc',
+        'network=robinhood',
+      ],
+      { encoding: 'utf8' }
+    )
+    expect(result.status).toBe(1)
+    expect(`${result.stdout}\n${result.stderr}`).toContain(
+      'aml_address_risk is a CIA workflow. Run `cia workflow aml-address-risk` instead.'
+    )
+  })
+
+  it('workflows lists the canonical workflow execution command without network access', () => {
+    const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'workflows'], {
+      encoding: 'utf8',
+      env: { ...process.env, HOME: '/tmp/chain-insights-workflows-test' },
+    })
+    expect(out).toContain('CIA workflow tools')
+    expect(out).toContain('aml-address-risk')
+    expect(out).toContain('cia workflow aml-address-risk')
+  })
+
+  it('workflows --json prints the workflow catalog', () => {
+    const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'workflows', '--json'], {
+      encoding: 'utf8',
+    })
+    const parsed = JSON.parse(out) as Array<{ name: string; tool: string }>
+    expect(parsed).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'aml-address-risk', tool: 'aml_address_risk' }),
+      ])
+    )
+  })
+
+  it.each(commandHelpPaths.map((path) => [path.join(' ') || '<root>', path] as const))(
+    '%s --help is a registered command path with usable help',
+    (_label, path) => {
+      const result = spawnSync(
+        process.execPath,
+        ['--import', tsxLoader, srcCli, ...path, '--help'],
+        {
+          encoding: 'utf8',
+        }
+      )
+
+      expect(result.status).toBe(0)
+      expect(result.stderr).toBe('')
+      expect(result.stdout).toMatch(/^Usage: cia /)
+      expect(result.stdout).not.toContain('error:')
+    }
+  )
+
+  it.each(incompleteCommandCases)(
+    '$args shows the relevant command help after an input error',
+    ({ args, usage }) => {
+      const result = spawnSync(process.execPath, ['--import', tsxLoader, srcCli, ...args], {
+        encoding: 'utf8',
+      })
+      const output = `${result.stdout}\n${result.stderr}`
+
+      expect(result.status).toBe(1)
+      expect(output).toContain(usage)
+    }
+  )
+
+  it('networks --help describes the compact user network overview', () => {
+    const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'networks', '--help'], {
+      encoding: 'utf8',
+    })
+    expect(out).toContain('network status and dataset overview')
+  })
+
+  it('mcp networks --help describes the detailed Chain Insights capability matrix', () => {
+    const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'mcp', 'networks', '--help'], {
+      encoding: 'utf8',
+    })
+    expect(out).toContain('Chain Insights capability matrix')
+  })
+
+  it('mcp tools --help identifies remote GraphRAG tools and cache behavior', () => {
+    const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'mcp', 'tools', '--help'], {
+      encoding: 'utf8',
+    })
+    expect(out).toContain('remote GraphRAG MCP tools')
+    expect(out).toContain('cached for 24 hours')
+  })
+
+  it('network --help describes single-network details', () => {
     const out = execSync('node bin/cli.js network --help', { encoding: 'utf8' })
-    expect(out).toContain('List supported graph networks')
+    expect(out).toContain('<name>')
+    expect(out).toContain('Show details for one supported graph network')
   })
 
   it('--help lists Hermes installer flag', () => {
@@ -95,11 +317,58 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('--hermes')
   })
 
-  it('wallet --help lists balance, ready, and topup subcommands', () => {
+  it('wallet --help lists create, balance, ready, and topup subcommands', () => {
     const out = execSync('node bin/cli.js wallet --help', { encoding: 'utf8' })
+    expect(out).toContain('create')
     expect(out).toContain('balance')
     expect(out).toContain('ready')
     expect(out).toContain('topup')
+  })
+
+  it('wallet create requires explicit backup confirmation before persisting', () => {
+    const home = mkdtempSync(join(tmpdir(), 'chain-insights-wallet-create-'))
+    try {
+      const result = spawnSync(
+        process.execPath,
+        ['--import', tsxLoader, srcCli, 'wallet', 'create'],
+        {
+          encoding: 'utf8',
+          input: 'NO\n',
+          env: { ...process.env, HOME: home, NO_COLOR: '1' },
+        }
+      )
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain('BACK UP YOUR PRIVATE KEY NOW')
+      expect(result.stderr).toContain('Type BACKED UP to continue')
+      expect(result.stderr).toContain('Wallet creation cancelled')
+      expect(existsSync(join(home, '.chain-insights', 'wallet.json'))).toBe(false)
+    } finally {
+      rmSync(home, { recursive: true, force: true })
+    }
+  })
+
+  it('wallet create stores the wallet only after backup confirmation', () => {
+    const home = mkdtempSync(join(tmpdir(), 'chain-insights-wallet-create-'))
+    try {
+      const result = spawnSync(
+        process.execPath,
+        ['--import', tsxLoader, srcCli, 'wallet', 'create'],
+        {
+          encoding: 'utf8',
+          input: 'BACKED UP\n',
+          env: { ...process.env, HOME: home, NO_COLOR: '1' },
+        }
+      )
+      expect(result.status).toBe(0)
+      expect(result.stderr).toContain('BACK UP YOUR PRIVATE KEY NOW')
+      expect(result.stderr).toMatch(/Type BACKED UP to continue:[\s\S]*> \n$/)
+      expect(result.stdout).toContain('Wallet created: 0x')
+      expect(result.stdout).toContain('Encrypted local copy:')
+      expect(result.stdout).toContain('Next: cia wallet ready')
+      expect(existsSync(join(home, '.chain-insights', 'wallet.json'))).toBe(true)
+    } finally {
+      rmSync(home, { recursive: true, force: true })
+    }
   })
 
   it('wallet --help exposes a user-facing wallet import command', () => {
@@ -135,9 +404,20 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).not.toContain('Permit2')
   })
 
-  it('mcp --help lists shared AML commands and hides retired trace commands', () => {
+  it.each([
+    ['get', 'Read one Chain Insights configuration value'],
+    ['set', 'Write one Chain Insights configuration value'],
+  ])('config %s --help includes a leaf description', (command, description) => {
+    const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'config', command, '--help'], {
+      encoding: 'utf8',
+    })
+    expect(out).toContain(description)
+  })
+
+  it('mcp --help describes low-level access and hides CIA workflows and retired trace commands', () => {
     const out = execSync('node bin/cli.js mcp --help', { encoding: 'utf8' })
-    expect(out).toContain('aml-address-risk')
+    expect(out).toContain('low-level')
+    expect(out).not.toContain('aml-address-risk')
     expect(out).not.toContain('trace-victim-funds')
     expect(out).not.toContain('track-funds')
     expect(out).not.toContain('scam-topology')
@@ -223,7 +503,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(pkg.bin['cia']).toBe('./bin/cli.js')
   })
 
-  it('init creates an investigation workspace in the target directory', () => {
+  it.skip('init creates an investigation workspace in the target directory', () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const target = join(parent, 'investigations')
     try {
@@ -235,7 +515,10 @@ describe('CLI scaffold (FOUND-02)', () => {
         `"workspace_root": "${target}"`
       )
       expect(readFileSync(join(target, '.chain-insights', 'workspace.json'), 'utf8')).toContain(
-        '"graph_mcp_endpoint": "http://127.0.0.1:8012/mcp"'
+        '"graph_mcp_endpoint": "https://mcp.chain-insights.ai/"'
+      )
+      expect(readFileSync(join(target, '.chain-insights', 'workspace.json'), 'utf8')).toContain(
+        '"default_network": "robinhood"'
       )
       expect(readFileSync(join(target, '.chain-insights', 'workspace.json'), 'utf8')).toContain(
         '"domain_hints": [\n    "aml"\n  ]'
@@ -257,6 +540,9 @@ describe('CLI scaffold (FOUND-02)', () => {
       expect(readFileSync(join(target, 'templates', 'README.md'), 'utf8')).toContain(
         'Reusable Workspace Templates'
       )
+      expect(
+        readFileSync(join(target, '.chain-insights', 'schema', 'README.md'), 'utf8')
+      ).toContain('robinhood.graph-schema.json')
       const agents = readFileSync(join(target, 'AGENTS.md'), 'utf8')
       const claude = readFileSync(join(target, 'CLAUDE.md'), 'utf8')
       for (const body of [agents, claude]) {
@@ -308,7 +594,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     }
   })
 
-  it('bin/cli.js init creates a generic workspace', () => {
+  it.skip('bin/cli.js init creates a generic workspace', () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const target = join(parent, 'packaged-investigations')
     const packageFixturesRoot = join(process.cwd(), 'workspace')
@@ -358,7 +644,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     }
   }, 20_000)
 
-  it('init creates a generic workspace without vault scaffolding', () => {
+  it.skip('init creates a generic workspace without vault scaffolding', () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const target = join(parent, 'investigations')
     try {
@@ -379,7 +665,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     }
   })
 
-  it('init returns workspace files in filesWritten', async () => {
+  it.skip('init returns workspace files in filesWritten', async () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const target = join(parent, 'investigations')
     try {
@@ -398,7 +684,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     }
   })
 
-  it('init refuses to overwrite existing workspace files without --force', () => {
+  it.skip('init refuses to overwrite existing workspace files without --force', () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const target = join(parent, 'investigations')
     try {
@@ -416,7 +702,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     }
   })
 
-  it('init preflights existing files before creating a partial workspace', () => {
+  it.skip('init preflights existing files before creating a partial workspace', () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const target = join(parent, 'investigations')
     try {
@@ -438,7 +724,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     }
   })
 
-  it('init refuses existing workspace files before creating a partial workspace', () => {
+  it.skip('init refuses existing workspace files before creating a partial workspace', () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const target = join(parent, 'investigations')
     try {
@@ -461,7 +747,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     }
   })
 
-  it('serve reports an occupied port without an unhandled Node error', () => {
+  it.skip('serve reports an occupied port without an unhandled Node error', () => {
     const script = `
       const http = require('node:http');
       const { spawnSync } = require('node:child_process');
@@ -501,7 +787,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(result.stdout).not.toContain('Chain Insights server running')
   })
 
-  it('serve requires an initialized workspace', () => {
+  it.skip('serve requires an initialized workspace', () => {
     const parent = mkdtempSync(join(tmpdir(), 'chain-insights-cli-'))
     const fakeHome = mkdtempSync(join(tmpdir(), 'chain-insights-home-'))
     const env = { ...process.env, HOME: fakeHome, CHAIN_INSIGHTS_WORKSPACE: '' }
@@ -600,7 +886,7 @@ describe('CLI scaffold (FOUND-02)', () => {
           '--token',
           'test-debug-token',
           '--endpoint',
-          'http://staging-mcp.chain-insights.ai/mcp',
+          'http://mcp.example.test/',
         ],
         {
           encoding: 'utf8',
@@ -619,18 +905,18 @@ describe('CLI scaffold (FOUND-02)', () => {
     const env = { ...process.env, HOME: fakeHome }
     try {
       const set = execSync(
-        'node bin/cli.js access-key set ci_test_secret_123456789012345678 --endpoint https://staging-mcp.chain-insights.ai/mcp',
+        'node bin/cli.js access-key set ci_test_secret_123456789012345678 --endpoint https://mcp.example.test/',
         {
           encoding: 'utf8',
           env,
         }
       )
       expect(set).toContain('Chain Insights Graph test access key configured')
-      expect(set).toContain('Graph endpoint: https://staging-mcp.chain-insights.ai/mcp')
+      expect(set).toContain('Graph endpoint: https://mcp.example.test/')
       expect(set).not.toContain('ci_test_secret')
 
       const status = execSync('node bin/cli.js access-key status', { encoding: 'utf8', env })
-      expect(status).toContain('Graph endpoint: https://staging-mcp.chain-insights.ai/mcp')
+      expect(status).toContain('Graph endpoint: https://mcp.example.test/')
       expect(status).toContain('Access key:     configured')
       expect(status).not.toContain('ci_test_secret')
 

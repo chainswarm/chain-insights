@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { printMcpTextContent } from '../src/mcp/print-result.js'
 
 function retiredName(head: string, tail: string): string {
   return `${head}${tail}`
@@ -121,7 +122,11 @@ async function runMcpToolsAction(opts: { refresh?: boolean } = {}): Promise<void
 /**
  * Simulate the `mcp call` action handler logic extracted from cli.ts.
  */
-async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> {
+async function runMcpCallAction(
+  tool: string,
+  rawArgs: string[],
+  opts: { json?: boolean } = {}
+): Promise<void> {
   let args: Record<string, unknown>
   try {
     const { parseMcpCallArgs } = await import('../src/mcp/call-args.js')
@@ -151,10 +156,10 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
   if (tool === 'meta_usage_status') {
     try {
       const result = await client.callTool({ name: 'usage_status', arguments: {} })
-      const content = result.content as Array<{ type: string; text?: string }>
-      for (const item of content) {
-        if (item.type === 'text') console.log(item.text)
-      }
+      printMcpTextContent(
+        result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+        { tool, json: opts.json }
+      )
     } catch (err) {
       const { isMissingUsageStatusToolError, primitiveBackendUsageStatus, usageStatusText } =
         await import('../src/mcp/usage-status.js')
@@ -165,10 +170,10 @@ async function runMcpCallAction(tool: string, rawArgs: string[]): Promise<void> 
     return
   }
   const result = await client.callTool({ name: tool, arguments: args })
-  const content = result.content as Array<{ type: string; text?: string }>
-  for (const item of content) {
-    if (item.type === 'text') console.log(item.text)
-  }
+  printMcpTextContent(
+    result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    { tool, json: opts.json }
+  )
   await client.close()
 }
 
@@ -393,24 +398,43 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     mockClientClose.mockResolvedValue(undefined)
 
     await runMcpCallAction('graph_query_batch', [
-      'network=bittensor',
-      'queries=[{"id":"count","query":"MATCH (n) RETURN count(n) AS count LIMIT 1"}]',
+      'network=robinhood',
+      'queries=[{"id":"count","query":"USE topology MATCH (n) RETURN count(n) AS count LIMIT 1"}]',
       'per_query_timeout_seconds=10',
     ])
 
     expect(mockClientCallTool).toHaveBeenCalledWith({
       name: 'graph_query_batch',
       arguments: {
-        network: 'bittensor',
-        queries: [{ id: 'count', query: 'MATCH (n) RETURN count(n) AS count LIMIT 1' }],
+        network: 'robinhood',
+        queries: [
+          { id: 'count', query: 'USE topology MATCH (n) RETURN count(n) AS count LIMIT 1' },
+        ],
         per_query_timeout_seconds: 10,
       },
     })
   })
 
+  it('mcp call --json pretty-prints structured graph results', async () => {
+    mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
+    mockClientConnect.mockResolvedValue(undefined)
+    mockClientCallTool.mockResolvedValue({
+      content: [{ type: 'text', text: '{"facts":{"query":{"count":1}}}' }],
+    })
+    mockClientClose.mockResolvedValue(undefined)
+
+    await runMcpCallAction('graph_query', ['network=robinhood', 'query=USE topology ...'], {
+      json: true,
+    })
+
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '{\n  "facts": {\n    "query": {\n      "count": 1\n    }\n  }\n}'
+    )
+  })
+
   it('mcp call sends meta_usage_status through the upstream usage_status primitive', async () => {
     mockLoadConfig.mockResolvedValue({
-      graphMcpEndpoint: 'https://staging-mcp.chain-insights.ai/mcp',
+      graphMcpEndpoint: 'https://mcp.example.test/',
     })
     mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
     mockClientConnect.mockResolvedValue(undefined)
@@ -426,7 +450,9 @@ describe('CLI mcp subcommand (MCP-02)', () => {
       name: 'usage_status',
       arguments: {},
     })
-    expect(consoleLogSpy).toHaveBeenCalledWith('{"usage":{"remaining_seconds":10}}')
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '{\n  "usage": {\n    "remaining_seconds": 10\n  }\n}'
+    )
   })
 
   it('mcp call returns a primitive-backend usage status when upstream usage_status is absent', async () => {
@@ -487,7 +513,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     ['help', "MCP tool 'help' is not exposed by Chain Insights. Use meta_help instead."],
   ])('mcp call rejects hidden tool %s before remote passthrough', async (tool, message) => {
     await expect(
-      runMcpCallAction(tool, ['trusted_addresses=5Seed', 'network=bittensor'])
+      runMcpCallAction(tool, ['trusted_addresses=0xSeed', 'network=robinhood'])
     ).rejects.toThrow('process.exit(1)')
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(message)
@@ -507,7 +533,10 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
     mockClientClose.mockResolvedValue(undefined)
 
-    await runMcpCallAction('aml_address_risk', ['network=bittensor', 'address=5Addr'])
+    await runMcpCallAction('graph_query', [
+      'network=robinhood',
+      'query=USE topology MATCH (n) RETURN n LIMIT 1',
+    ])
 
     expect(consoleLogSpy).toHaveBeenCalledWith('## Risk Report')
     expect(JSON.stringify(consoleLogSpy.mock.calls)).not.toContain('graph.json')
@@ -535,7 +564,10 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
     mockClientClose.mockResolvedValue(undefined)
 
-    await runMcpCallAction('aml_address_risk', ['address=5abc', 'network=bittensor'])
+    await runMcpCallAction('graph_query', [
+      'query=USE topology MATCH (n) RETURN n LIMIT 1',
+      'network=robinhood',
+    ])
 
     expect(mockIsWalletConfigured).not.toHaveBeenCalled()
     expect(mockDecryptKey).not.toHaveBeenCalled()
@@ -544,8 +576,11 @@ describe('CLI mcp subcommand (MCP-02)', () => {
       { fetch }
     )
     expect(mockClientCallTool).toHaveBeenCalledWith({
-      name: 'aml_address_risk',
-      arguments: { address: '5abc', network: 'bittensor' },
+      name: 'graph_query',
+      arguments: {
+        query: 'USE topology MATCH (n) RETURN n LIMIT 1',
+        network: 'robinhood',
+      },
     })
   })
 })

@@ -27,9 +27,8 @@ After ANY change under `src/`, before exercising it through `cia` or
 npm run build
 ```
 
-`npm run build` is more than compilation — it also copies template and asset
-directories into `dist/`, so skipping it stales packaged assets as well as
-logic.
+`npm run build` is more than compilation — it also copies wallet assets into
+`dist/`, so skipping it stales packaged assets as well as logic.
 
 ## Concurrent Work
 
@@ -60,7 +59,7 @@ npm run release:check
 git diff --check
 ```
 
-Focused docs and workspace tests:
+Focused documentation and CLI tests:
 
 ```bash
 npm test -- tests/skills-contract.test.ts tests/cli.test.ts
@@ -79,4 +78,3 @@ cia --version
 - Contributor workflow: `docs/contributing.md`
 - Debugging and UAT: `docs/debugging.md`
 - Graph tool contracts: `docs/graph-tools.md`
-- Investigation workspace layout: `docs/investigation-workspaces.md`
