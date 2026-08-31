@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: docs-${{ github.repository }}-${{ github.ref }}
@@ -34,6 +34,8 @@ concurrency:
 jobs:
   docs:
     name: Generate repo docs
+    permissions:
+      contents: write
     runs-on: [self-hosted, chainswarm-runner, X64]
     steps:
       - name: Checkout caller repo
