@@ -4,7 +4,8 @@ This document covers the graph-facing tools and the result contracts that
 agents should rely on during investigations.
 
 The first release exposes graph analysis through the hosted MCP endpoint and
-the `cia mcp` commands. Results are returned as text and structured facts.
+the `cia mcp` commands. High-level CIA workflows are listed by `cia workflows`
+and run with `cia workflow`. Results are returned as text and structured facts.
 
 ## Chain Insights Graph Surface
 
@@ -20,9 +21,13 @@ Chain Insights tools such as `aml_address_risk` are recipes built over
 `graph_query_batch`. They are not assumed to exist on the
 Chain Insights Graph endpoint.
 
-`cia mcp tools` lists this remote GraphRAG surface. Use `cia networks` for the
-short network overview, `cia network <name>` for one network's details and
-available tools, and `cia mcp networks` for the full network capability matrix.
+`cia workflows` lists local, high-level CIA workflow tools. Use
+`cia workflow aml-address-risk` for the address-risk workflow.
+
+`cia mcp tools` lists the remote GraphRAG surface only. Use `cia networks` for
+the short network overview, `cia network <name>` for one network's details and
+remote tools, and `cia mcp networks` for the full network capability matrix.
+Use `cia mcp call` for low-level GraphRAG calls and custom read-only queries.
 
 The Chain Insights MCP proxy adds product-facing local metadata tools such as
 `meta_network_capabilities`, `meta_usage_status`, and `meta_help`. On hosted
@@ -134,7 +139,8 @@ Optional input:
 CLI output is human-readable by default. Add `--json` to print indented JSON:
 
 ```bash
-cia mcp aml-address-risk --json --address 0xYourAddressHere --network robinhood
+cia workflow aml-address-risk --json \
+  --address 0xYourAddressHere --network robinhood
 cia mcp call --json graph_query network=robinhood \
   "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 10"
 ```

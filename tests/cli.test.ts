@@ -46,10 +46,12 @@ const commandHelpPaths: string[][] = [
   ['wallet', 'balance'],
   ['wallet', 'ready'],
   ['wallet', 'topup'],
+  ['workflows'],
+  ['workflow'],
+  ['workflow', 'aml-address-risk'],
   ['mcp'],
   ['mcp', 'networks'],
   ['mcp', 'tools'],
-  ['mcp', 'aml-address-risk'],
   ['mcp', 'call'],
   ['help'],
   ['help', 'network'],
@@ -66,8 +68,8 @@ const incompleteCommandCases: Array<{ args: string[]; usage: string }> = [
   },
   { args: ['wallet', 'import'], usage: 'Usage: cia wallet import [options] <private-key>' },
   {
-    args: ['mcp', 'aml-address-risk'],
-    usage: 'Usage: cia mcp aml-address-risk [options]',
+    args: ['workflow', 'aml-address-risk'],
+    usage: 'Usage: cia workflow aml-address-risk [options]',
   },
   { args: ['mcp', 'call'], usage: 'Usage: cia mcp call [options] <tool> [args...]' },
 ]
@@ -116,10 +118,10 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).not.toContain('Claude Desktop')
   })
 
-  it('AML risk commands expose JSON output and version selection', () => {
+  it('AML workflow exposes JSON output and version selection', () => {
     const out = execFileSync(
       'node',
-      ['--import', tsxLoader, srcCli, 'mcp', 'aml-address-risk', '--help'],
+      ['--import', tsxLoader, srcCli, 'workflow', 'aml-address-risk', '--help'],
       { encoding: 'utf8' }
     )
     expect(out).toContain('--json')
@@ -127,7 +129,7 @@ describe('CLI scaffold (FOUND-02)', () => {
   })
 
   it('AML tool version is not swallowed by the package version flag', () => {
-    const path = ['mcp', 'aml-address-risk']
+    const path = ['workflow', 'aml-address-risk']
     const helpResult = spawnSync(
       'node',
       ['--import', tsxLoader, srcCli, ...path, '--version', 'v1', '--help'],
@@ -179,10 +181,12 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('networks')
   })
 
-  it('--help keeps AML address risk under the MCP command', () => {
+  it('--help lists the CIA workflow catalog and execution namespace', () => {
     const out = execFileSync('node', ['--import', tsxLoader, srcCli, '--help'], {
       encoding: 'utf8',
     })
+    expect(out).toContain('workflows')
+    expect(out).toContain('workflow')
     expect(out).not.toMatch(/^\s+aml-address-risk\b/m)
   })
 
@@ -194,6 +198,59 @@ describe('CLI scaffold (FOUND-02)', () => {
     )
     expect(result.status).not.toBe(0)
     expect(`${result.stdout}\n${result.stderr}`).toMatch(/unknown command/i)
+  })
+
+  it('does not register AML address risk under mcp', () => {
+    const result = spawnSync(
+      process.execPath,
+      ['--import', tsxLoader, srcCli, 'mcp', 'aml-address-risk'],
+      { encoding: 'utf8' }
+    )
+    expect(result.status).not.toBe(0)
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/unknown command/i)
+  })
+
+  it('does not run CIA workflows through the low-level mcp call', () => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        '--import',
+        tsxLoader,
+        srcCli,
+        'mcp',
+        'call',
+        'aml_address_risk',
+        'address=0xabc',
+        'network=robinhood',
+      ],
+      { encoding: 'utf8' }
+    )
+    expect(result.status).toBe(1)
+    expect(`${result.stdout}\n${result.stderr}`).toContain(
+      'aml_address_risk is a CIA workflow. Run `cia workflow aml-address-risk` instead.'
+    )
+  })
+
+  it('workflows lists the canonical workflow execution command without network access', () => {
+    const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'workflows'], {
+      encoding: 'utf8',
+      env: { ...process.env, HOME: '/tmp/chain-insights-workflows-test' },
+    })
+    expect(out).toContain('CIA workflow tools')
+    expect(out).toContain('aml-address-risk')
+    expect(out).toContain('cia workflow aml-address-risk')
+  })
+
+  it('workflows --json prints the workflow catalog', () => {
+    const out = execFileSync('node', ['--import', tsxLoader, srcCli, 'workflows', '--json'], {
+      encoding: 'utf8',
+    })
+    const parsed = JSON.parse(out) as Array<{ name: string; tool: string }>
+    expect(parsed).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'aml-address-risk', tool: 'aml_address_risk' }),
+      ])
+    )
   })
 
   it.each(commandHelpPaths.map((path) => [path.join(' ') || '<root>', path] as const))(
@@ -357,9 +414,10 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain(description)
   })
 
-  it('mcp --help lists shared AML commands and hides retired trace commands', () => {
+  it('mcp --help describes low-level access and hides CIA workflows and retired trace commands', () => {
     const out = execSync('node bin/cli.js mcp --help', { encoding: 'utf8' })
-    expect(out).toContain('aml-address-risk')
+    expect(out).toContain('low-level')
+    expect(out).not.toContain('aml-address-risk')
     expect(out).not.toContain('trace-victim-funds')
     expect(out).not.toContain('track-funds')
     expect(out).not.toContain('scam-topology')

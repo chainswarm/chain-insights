@@ -29,9 +29,13 @@ describe('first-release public surface', () => {
     expect(content).not.toMatch(/graph report|graph-report|published\/viz|visualization/i)
   })
 
-  it('keeps the supported direct MCP workflow visible', () => {
+  it('keeps workflow discovery and low-level MCP access visible', () => {
+    const root = execFileSync(process.execPath, [cli, '--help'], { encoding: 'utf8' })
+    expect(root).toContain('workflows')
+    expect(root).toContain('workflow')
+
     const out = execFileSync(process.execPath, [cli, 'mcp', '--help'], { encoding: 'utf8' })
-    expect(out).toContain('aml-address-risk')
+    expect(out).not.toContain('aml-address-risk')
     expect(out).toContain('tools')
   })
 })

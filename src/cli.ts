@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { PACKAGE_INFO, PACKAGE_VERSION } from './version.js'
+import { CIA_WORKFLOWS, formatCiaWorkflows } from './investigation/workflows.js'
 import { printMcpTextContent } from './mcp/print-result.js'
 
 // Resolve bin/install.cjs relative to this file's location in dist/
@@ -34,13 +35,13 @@ const installerFlags = rawArgs.filter(
 )
 
 // Commander treats the root package `--version` option as global, so it would
-// consume the same flag on the AML child command before the child can route a
-// tool contract. Rewrite only the child-command form to a hidden alias. The
+// consume the same flag on the AML workflow command before the child can route
+// a tool contract. Rewrite only the child-command form to a hidden alias. The
 // visible child help still documents `--version`, while root `cia --version`
 // remains the package version.
 function normalizeAmlToolVersionArgv(argv: string[]): string[] {
   const commandIndex = rawArgs.findIndex(
-    (arg, index) => arg === 'aml-address-risk' && index === 1 && rawArgs[0] === 'mcp'
+    (arg, index) => arg === 'aml-address-risk' && index === 1 && rawArgs[0] === 'workflow'
   )
   if (commandIndex === -1) return argv
 
@@ -163,7 +164,7 @@ function addAmlAddressRiskCommand(parent: Command, networksCommand: string): voi
   parent.addCommand(
     createCliCommand('aml-address-risk')
       .description(
-        'Screen an address for AML risk, exchange behavior, and optional comparison with another address'
+        'CIA workflow: screen an address for AML risk, exchange behavior, and optional comparison with another address'
       )
       .requiredOption('--address <address>', 'Full blockchain address to screen')
       .requiredOption(
@@ -245,6 +246,22 @@ program
       process.exit(1)
     }
   })
+
+program
+  .command('workflows')
+  .description('List CIA workflow tools')
+  .option('--json', 'Print the workflow catalog as JSON')
+  .action((opts: { json?: boolean }) => {
+    if (opts.json) {
+      console.log(JSON.stringify(CIA_WORKFLOWS, null, 2))
+      return
+    }
+    console.log(formatCiaWorkflows(CIA_WORKFLOWS))
+  })
+
+const workflowCommand = program.command('workflow').description('Run a high-level CIA workflow')
+
+addAmlAddressRiskCommand(workflowCommand, 'cia networks')
 
 program
   .command('status')
@@ -687,7 +704,7 @@ program
 
 const mcpCommand = program
   .command('mcp')
-  .description('Interact with the Chain Insights MCP endpoint')
+  .description('Low-level access to the Chain Insights MCP endpoint')
   .allowExcessArguments(false)
   .addCommand(
     createCliCommand('networks')
@@ -704,7 +721,7 @@ const mcpCommand = program
   )
   .addCommand(
     createCliCommand('tools')
-      .description('List remote GraphRAG MCP tools (cached for 24 hours)')
+      .description('List remote GraphRAG MCP tools only (cached for 24 hours)')
       .option('--refresh', 'Force refresh schema cache')
       .action(async (opts: { refresh?: boolean }) => {
         try {
@@ -742,11 +759,9 @@ const mcpCommand = program
       })
   )
 
-addAmlAddressRiskCommand(mcpCommand, 'cia mcp networks')
-
 mcpCommand.addCommand(
   createCliCommand('call')
-    .description('Call an MCP tool directly (debug)')
+    .description('Call a low-level MCP tool directly (advanced)')
     .option('--json', 'Print machine-readable JSON output')
     .argument('<tool>', 'Tool name to call')
     .argument('[args...]', 'Key=value arguments (e.g. address=0x1234... network=robinhood)')
@@ -757,14 +772,12 @@ mcpCommand.addCommand(
           await import('./mcp/tool-visibility.js')
         const args = parseMcpCallArgs(rawArgs)
         assertPublicMcpToolName(tool)
-        validatePublicMcpToolArguments(tool, args)
-
         if (tool === 'aml_address_risk') {
-          const { resolveAmlAddressRiskVersion } = await import('./investigation/public-tools.js')
-          resolveAmlAddressRiskVersion(
-            args['version'] === undefined ? undefined : String(args['version'])
+          throw new Error(
+            'aml_address_risk is a CIA workflow. Run `cia workflow aml-address-risk` instead.'
           )
         }
+        validatePublicMcpToolArguments(tool, args)
 
         if (tool === 'wallet_balance') {
           const { getWalletBalanceText } = await import('./wallet/tools.js')
@@ -779,7 +792,7 @@ mcpCommand.addCommand(
 
         if (tool === 'meta_help') {
           console.log(
-            'Chain Insights tools: aml_*, graph_query, graph_query_batch, meta_*, and wallet_balance.'
+            'Chain Insights workflow tools: aml_address_risk. Low-level GraphRAG tools: graph_query and graph_query_batch. Metadata and payment tools: meta_* and wallet_balance.'
           )
           return
         }
@@ -804,25 +817,6 @@ mcpCommand.addCommand(
                 usageStatusText(primitiveBackendUsageStatus(resolveGraphMcpEndpoint(config)))
               )
             }
-            return
-          }
-          if (tool === 'aml_address_risk') {
-            const { runAmlAddressRisk } = await import('./investigation/public-tools.js')
-            const result = await runAmlAddressRisk(
-              client,
-              {
-                address: String(args['address'] ?? ''),
-                network: String(args['network'] ?? ''),
-                compareAddress:
-                  args['compare_address'] === undefined
-                    ? undefined
-                    : String(args['compare_address']),
-              },
-              args['version'] === undefined ? undefined : String(args['version'])
-            )
-            console.log(
-              opts.json ? JSON.stringify(result.structuredContent, null, 2) : result.summaryText
-            )
             return
           }
           const result = await client.callTool({ name: tool, arguments: args })
