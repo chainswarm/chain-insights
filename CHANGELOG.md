@@ -3,6 +3,29 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.27.0] - 2026-08-31 — feat: separate workflows from MCP primitives
+
+The CLI now separates high-level CIA workflows from low-level GraphRAG MCP
+access so each command group has one clear purpose.
+
+### Added
+
+- `cia workflows` to discover high-level CIA workflow tools.
+- `cia workflow aml-address-risk` to run the address-risk workflow with JSON
+  output and version selection.
+
+### Changed
+
+- `cia mcp` now documents low-level GraphRAG access and remote tool discovery.
+- README, documentation, generated workspace guidance, and shipped skills now
+  describe the workflow and GraphRAG command boundaries.
+
+### Removed
+
+- `cia mcp aml-address-risk`; use `cia workflow aml-address-risk`.
+- High-level AML execution through `cia mcp call aml_address_risk`; use the
+  workflow command instead.
+
 ## [0.26.0] - 2026-08-31 — change: scope tool discovery to networks
 
 The CLI now keeps address-risk screening under `cia mcp`. Network capability

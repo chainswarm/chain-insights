@@ -32,9 +32,15 @@ The screen covers risk, behavior, neighborhood context, and exchange
 exposure. Treat exchange hot wallets as terminals, not as intermediate
 hops.
 
-For the CLI, use `cia mcp aml-address-risk` for the readable summary. Add
-`--json` for indented structured output. When using `cia mcp call`, pass the
-version as `version=v1`.
+For the CLI, discover this workflow with `cia workflows` and run
+`cia workflow aml-address-risk` for the readable summary. Add `--json` for
+indented structured output. Omit the version to use the latest contract, or
+pass `--version v1` to pin the current contract.
+
+`cia mcp tools` is the remote GraphRAG catalog only. Use `cia mcp call
+graph_query` or `cia mcp call graph_query_batch` for custom low-level reads.
+The MCP proxy exposes `aml_address_risk` directly to AI agents as a
+Chain Insights workflow tool.
 
 After the screen, load the schema skill for that network:
 `chain-insights-schema-evm` or `chain-insights-schema-bittensor`.

@@ -90,11 +90,16 @@ backends can also expose capability metadata such as `network_capabilities`.
 Chain Insights presents this as local, prefixed metadata through
 `meta_network_capabilities`.
 
-The CLI keeps these catalogs distinct: `cia mcp tools` lists remote GraphRAG
-tools and caches that schema for 24 hours, while `cia networks` and
-`cia network <name>` report the network list and each network's advertised
-tools. `cia mcp networks` exposes the same full network capability matrix.
-Use `cia mcp tools --refresh` after a backend tool change.
+The CLI keeps these catalogs distinct: `cia workflows` lists high-level CIA
+workflow tools, while `cia mcp tools` lists remote GraphRAG tools and caches
+that schema for 24 hours. `cia networks` and `cia network <name>` report the
+network list and each network's advertised remote tools. `cia mcp networks`
+exposes the same full network capability matrix. Use `cia mcp tools --refresh`
+after a backend tool change.
+
+Run the address-risk workflow with `cia workflow aml-address-risk`. Use
+`cia mcp call graph_query` or `cia mcp call graph_query_batch` for low-level
+agent-authored graph reads.
 
 `meta_usage_status` is a Chain Insights proxy tool. On hosted Chain Insights Graph
 backends it can reflect remote quota telemetry. On backends without a quota
@@ -159,16 +164,14 @@ cia mcp call --json graph_query \
   "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 10"
 ```
 
-`aml_address_risk` also supports JSON output and version selection:
+The CIA address-risk workflow also supports JSON output and version selection:
 
 ```bash
-cia mcp aml-address-risk --json \
+cia workflow aml-address-risk --json \
   --address 0xYourAddressHere --network robinhood
 
-cia mcp aml-address-risk --version v1 \
+cia workflow aml-address-risk --version v1 \
   --address 0xYourAddressHere --network robinhood
-cia mcp call aml_address_risk \
-  network=robinhood address=0xYourAddressHere version=v1
 ```
 
 Omit the version to route to the latest supported AML contract. The package

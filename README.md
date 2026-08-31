@@ -22,13 +22,16 @@ as-is on macOS; on Windows use WSL.
 ```bash
 npx chain-insights@latest --help   # run without installing
 npm install -g chain-insights      # or install the cia CLI globally
-cia mcp aml-address-risk --address 0xYourAddressHere --network robinhood
+cia workflows                      # list high-level CIA workflow tools
+cia workflow aml-address-risk \
+  --address 0xYourAddressHere --network robinhood
 cia networks                       # network status + dataset overview
 cia network robinhood              # details for one network
+cia mcp tools                      # list remote graph tools
 ```
 
-Sixty seconds gets you the CLI, a network overview, and the available tools for
-Robinhood.
+Sixty seconds gets you the CLI, a network overview, a CIA workflow, and the
+available remote graph tools for Robinhood.
 To call the same tools from an agent, register the MCP proxy:
 `cia setup claude-code` (or `codex` / `hermes`).
 
@@ -39,12 +42,12 @@ script needs indented JSON:
 cia mcp call --json graph_query \
   network=robinhood \
   "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 10"
-cia mcp aml-address-risk --json --address 0xYourAddressHere --network robinhood
+cia workflow aml-address-risk --json \
+  --address 0xYourAddressHere --network robinhood
 ```
 
 The AML address-risk contract uses the latest version when `version` is
-omitted. Pin the current contract with `--version v1` on the AML command, or
-with `version=v1` when using `cia mcp call aml_address_risk`.
+omitted. Pin the current contract with `--version v1` on the workflow command.
 
 ## Purpose And Ownership
 
@@ -226,15 +229,8 @@ cia update --check
 Run a first screen from any directory:
 
 ```bash
-cia mcp aml-address-risk \
+cia workflow aml-address-risk \
   --address 0xYourAddressHere --network robinhood
-```
-
-The same screen is available through the generic MCP caller:
-
-```bash
-cia mcp call aml_address_risk \
-  network=robinhood address=0xYourAddressHere
 ```
 
 Create a local payment wallet when paid access is needed:

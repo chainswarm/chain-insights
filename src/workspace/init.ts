@@ -67,6 +67,7 @@ metadata.
 ## Start
 
 \`\`\`bash
+cia workflows
 cia mcp tools --refresh
 cia wallet ready --check-only
 \`\`\`
@@ -269,10 +270,12 @@ Rules:
 
 AML tool guidance:
 
-1. Use \`aml_address_risk\` for single-address enrichment and optional
-   comparison with another address.
-2. Use \`graph_query_batch\` only when the high-level tools do not answer the
-   exact question, and \`graph_query\` for single read-only queries.
+1. Discover high-level CIA workflows with \`cia workflows\`.
+2. Use the \`cia workflow aml-address-risk\` command for single-address
+   enrichment and optional comparison with another address.
+3. Use \`cia mcp call graph_query_batch\` only when the high-level tools do not
+   answer the exact question, and \`cia mcp call graph_query\` for single
+   read-only queries.
 
 \`aml_address_risk\` takes a raw blockchain address as input directly — there
 is no identity-resolution step — and returns \`chain-insights.result.v1\`. Preserve

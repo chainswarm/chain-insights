@@ -533,9 +533,9 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
     mockClientClose.mockResolvedValue(undefined)
 
-    await runMcpCallAction('aml_address_risk', [
+    await runMcpCallAction('graph_query', [
       'network=robinhood',
-      'address=0x0000000000000000000000000000000000000abc',
+      'query=USE topology MATCH (n) RETURN n LIMIT 1',
     ])
 
     expect(consoleLogSpy).toHaveBeenCalledWith('## Risk Report')
@@ -564,8 +564,8 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
     mockClientClose.mockResolvedValue(undefined)
 
-    await runMcpCallAction('aml_address_risk', [
-      'address=0x0000000000000000000000000000000000000abc',
+    await runMcpCallAction('graph_query', [
+      'query=USE topology MATCH (n) RETURN n LIMIT 1',
       'network=robinhood',
     ])
 
@@ -576,9 +576,9 @@ describe('CLI mcp subcommand (MCP-02)', () => {
       { fetch }
     )
     expect(mockClientCallTool).toHaveBeenCalledWith({
-      name: 'aml_address_risk',
+      name: 'graph_query',
       arguments: {
-        address: '0x0000000000000000000000000000000000000abc',
+        query: 'USE topology MATCH (n) RETURN n LIMIT 1',
         network: 'robinhood',
       },
     })
