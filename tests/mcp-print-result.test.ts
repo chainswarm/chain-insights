@@ -46,6 +46,53 @@ describe('printMcpTextContent', () => {
     expect(formatted).not.toContain('"schema"')
   })
 
+  it('handles sparse graph metadata and tabular values', () => {
+    const result = JSON.stringify({
+      facts: {
+        subject: { network: 'robinhood' },
+        query: {
+          results: [{ address: null, active: false, metadata: { source: 'test' } }, 'ignored'],
+        },
+      },
+    })
+
+    const formatted = formatMcpTextContent(result)
+
+    expect(formatted).toContain('Tool: MCP result')
+    expect(formatted).toContain('Network: robinhood')
+    expect(formatted).toContain('Rows: 1')
+    expect(formatted).toContain('active')
+    expect(formatted).toContain('{"source":"test"}')
+  })
+
+  it('renders batch query errors and empty results', () => {
+    const result = JSON.stringify({
+      facts: {
+        queries: [
+          null,
+          { id: '', results: 'invalid', error: 'partial failure' },
+          { count: 0, results: [] },
+        ],
+      },
+    })
+
+    const formatted = formatMcpTextContent(result, 'graph_query_batch')
+
+    expect(formatted).toContain('Tool: graph_query_batch')
+    expect(formatted).toContain('Queries: 3')
+    expect(formatted).toContain('Error: partial failure')
+    expect(formatted).toContain('[query]')
+    expect(formatted).toContain('Rows: 0')
+    expect(formatted).toContain('Results: none')
+  })
+
+  it('preserves plain text and formats non-graph JSON', () => {
+    expect(formatMcpTextContent('not json')).toBe('not json')
+    expect(formatMcpTextContent('{"ok":true}')).toBe('{\n  "ok": true\n}')
+    expect(formatMcpTextContent('true')).toBe('true')
+    expect(formatMcpTextContent('null')).toBe('')
+  })
+
   it('pretty-prints JSON when JSON output is requested', () => {
     const result = '{"schema":"chain-insights.result.v1","facts":{"ok":true}}'
 
