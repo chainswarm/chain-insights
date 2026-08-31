@@ -2,6 +2,14 @@
 # Changelog
 
 All notable changes to Chain Insights are recorded here.
+## [0.27.2] - 2026-08-31 — ci: fix docs gate and scope workflow permissions
+
+### Fixed
+
+- Added the release guidance required by the scheduled README quality gate.
+- Scoped write permissions to only the workflow jobs that commit changes.
+- Added a direct link for private GitHub vulnerability reports.
+
 
 ## [0.27.1] - 2026-08-31 — fix: use production endpoint in agent setup
 
