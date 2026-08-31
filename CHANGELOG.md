@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.27.1] - 2026-08-31 — fix: use production endpoint in agent setup
+
+Fresh `cia --claude`, `cia --codex`, and `cia --hermes` setup now starts with
+the hosted production Chain Insights Graph endpoint. Local endpoints remain
+available only through explicit configuration.
+
+### Fixed
+
+- Removed the stale loopback endpoint from the installer-created config.
+
 ## [0.27.0] - 2026-08-31 — feat: separate workflows from MCP primitives
 
 The CLI now separates high-level CIA workflows from low-level GraphRAG MCP
