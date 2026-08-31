@@ -118,6 +118,50 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).not.toContain('Claude Desktop')
   })
 
+  it('AML risk commands expose JSON output and version selection', () => {
+    for (const path of [['aml-address-risk'], ['mcp', 'aml-address-risk']]) {
+      const out = execFileSync('node', ['--import', tsxLoader, srcCli, ...path, '--help'], {
+        encoding: 'utf8',
+      })
+      expect(out).toContain('--json')
+      expect(out).toContain('--version <version>')
+    }
+  })
+
+  it('AML tool version is not swallowed by the package version flag', () => {
+    for (const path of [['aml-address-risk'], ['mcp', 'aml-address-risk']]) {
+      const helpResult = spawnSync(
+        'node',
+        ['--import', tsxLoader, srcCli, ...path, '--version', 'v1', '--help'],
+        { encoding: 'utf8' }
+      )
+      expect(helpResult.status).toBe(0)
+      expect(`${helpResult.stdout}\n${helpResult.stderr}`).toContain(`Usage: cia ${path.join(' ')}`)
+      expect(`${helpResult.stdout}\n${helpResult.stderr}`).not.toMatch(/^0\.24\.2$/m)
+
+      const result = spawnSync(
+        'node',
+        [
+          '--import',
+          tsxLoader,
+          srcCli,
+          ...path,
+          '--version',
+          'v2',
+          '--address',
+          '0xabc',
+          '--network',
+          'robinhood',
+        ],
+        { encoding: 'utf8' }
+      )
+      const output = `${result.stdout}\n${result.stderr}`
+      expect(result.status).toBe(1)
+      expect(output).toContain('Unsupported aml_address_risk version "v2"')
+      expect(output).not.toMatch(/^0\.24\.2$/m)
+    }
+  })
+
   it('--help lists wallet subcommand', () => {
     const out = execSync('node bin/cli.js --help', { encoding: 'utf8' })
     expect(out).toContain('wallet')

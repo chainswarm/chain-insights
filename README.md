@@ -22,7 +22,7 @@ as-is on macOS; on Windows use WSL.
 ```bash
 npx chain-insights@latest --help   # run without installing
 npm install -g chain-insights      # or install the cia CLI globally
-cia mcp call aml_address_risk network=robinhood address=0xYourAddressHere
+cia aml-address-risk --address 0xYourAddressHere --network robinhood
 cia networks                       # network status + dataset overview
 cia network robinhood              # details for one network
 ```
@@ -30,6 +30,20 @@ cia network robinhood              # details for one network
 Sixty seconds gets you the CLI, a network overview, and the remote tool catalog.
 To call the same tools from an agent, register the MCP proxy:
 `cia setup claude-code` (or `codex` / `hermes`).
+
+CLI results are human-readable by default. Add `--json` when another tool or
+script needs indented JSON:
+
+```bash
+cia mcp call --json graph_query \
+  network=robinhood \
+  "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 10"
+cia aml-address-risk --json --address 0xYourAddressHere --network robinhood
+```
+
+The AML address-risk contract uses the latest version when `version` is
+omitted. Pin the current contract with `--version v1` on the AML command, or
+with `version=v1` when using `cia mcp call aml_address_risk`.
 
 ## Purpose And Ownership
 
@@ -209,6 +223,13 @@ cia update --check
 ```
 
 Run a first screen from any directory:
+
+```bash
+cia aml-address-risk \
+  --address 0xYourAddressHere --network robinhood
+```
+
+The same screen is available through the generic MCP caller:
 
 ```bash
 cia mcp call aml_address_risk \

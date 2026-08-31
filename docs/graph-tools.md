@@ -125,6 +125,16 @@ Required input:
 Optional input:
 
 - `compare_address`
+- `version` — omit it to use the latest contract, or set it to `v1` to pin the
+  current AML contract.
+
+CLI output is human-readable by default. Add `--json` to print indented JSON:
+
+```bash
+cia mcp aml-address-risk --json --address 0xYourAddressHere --network robinhood
+cia mcp call --json graph_query network=robinhood \
+  "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 10"
+```
 
 ## Manual Fund-Flow Traversal
 

@@ -143,6 +143,36 @@ not include `graph_query_batch`; use a tester access key or paid x402 mode for
 regular usage and batches. Use explicit LIMIT and pagination in your query when
 you want bounded result sets.
 
+### CLI Output And Tool Versions
+
+The CLI renders JSON graph results as a readable summary and table by default.
+Use `--json` for indented machine-readable output:
+
+```bash
+cia mcp call graph_query \
+  network=robinhood \
+  "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 10"
+
+cia mcp call --json graph_query \
+  network=robinhood \
+  "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 10"
+```
+
+`aml_address_risk` also supports JSON output and version selection:
+
+```bash
+cia mcp aml-address-risk --json \
+  --address 0xYourAddressHere --network robinhood
+
+cia mcp aml-address-risk --version v1 \
+  --address 0xYourAddressHere --network robinhood
+cia mcp call aml_address_risk \
+  network=robinhood address=0xYourAddressHere version=v1
+```
+
+Omit the version to route to the latest supported AML contract. The package
+version shown by `cia --version` is separate from tool contract versions.
+
 UAT on 2026-05-31 showed the 10-second free tier was enough for exact
 address checks, sample address reads, sample flow reads, and the
 free-to-paid handoff, but bounded sample reads still returned topology data

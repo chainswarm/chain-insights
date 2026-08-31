@@ -23,12 +23,18 @@ Required:
 Optional:
 
 - `compare_address` — second address for a pairwise compare
+- `version` — omit to use the latest AML contract, or set `v1` to pin the
+  current contract
 
 The tool returns raw addresses. There is no identity-resolution step.
 
 The screen covers risk, behavior, neighborhood context, and exchange
 exposure. Treat exchange hot wallets as terminals, not as intermediate
 hops.
+
+For the CLI, use `cia aml-address-risk` for the readable summary. Add
+`--json` for indented structured output. When using `cia mcp call`, pass the
+version as `version=v1`.
 
 After the screen, load the schema skill for that network:
 `chain-insights-schema-evm` or `chain-insights-schema-bittensor`.

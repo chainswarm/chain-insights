@@ -3,6 +3,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.25.0] - 2026-08-31 — feat: improve CLI output and tool versioning
+
+The CLI now presents graph results in a readable terminal format and supports
+explicit machine-readable output. AML tool contracts can be pinned separately
+from the package version.
+
+### Added
+
+- `--json` output for graph and AML CLI commands.
+- Human-readable graph result summaries and aligned result tables by default.
+- `v1` routing for `aml_address_risk`; omitted versions use the latest contract.
+- CLI, MCP schema, and documentation coverage for AML tool versions.
+
 ## [0.24.2] - 2026-08-31 — fix: make CLI command paths self-guiding
 
 The CLI now keeps its command tree consistent and shows the relevant command

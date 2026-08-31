@@ -1881,6 +1881,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     expect(inputSchema.address).toBeDefined()
     expect(inputSchema.network).toBeDefined()
+    expect(inputSchema.version).toBeDefined()
     expect((inputSchema.network as { description?: string }).description).toContain(
       'Network to query'
     )
@@ -1892,6 +1893,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     )
     expect(config.description).toContain('Required arguments: address, network.')
     expect(config.description).toContain('Do not guess a default network')
+    expect(config.description).toContain('version=v1')
   })
 
   it('uses Chain Insights-owned descriptions for known public tools', async () => {

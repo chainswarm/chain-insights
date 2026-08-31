@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { printMcpTextContent } from '../src/mcp/print-result.js'
+import { formatMcpTextContent, printMcpTextContent } from '../src/mcp/print-result.js'
 
 describe('printMcpTextContent', () => {
   afterEach(() => vi.restoreAllMocks())
@@ -14,6 +14,44 @@ describe('printMcpTextContent', () => {
     })
     expect(log).toHaveBeenCalledWith('hello')
     expect(log).toHaveBeenCalledWith('world')
+  })
+
+  it('renders graph query JSON as a readable result table by default', () => {
+    const result = JSON.stringify({
+      schema: 'chain-insights.result.v1',
+      tool: 'graph_query',
+      facts: {
+        query: {
+          count: 2,
+          billable_units: 2,
+          elapsed_ms: 7,
+          truncated: false,
+          results: [
+            { address: '0xabc', tx_count: 3 },
+            { address: '0xdef', tx_count: 4 },
+          ],
+        },
+      },
+      subject: { network: 'robinhood' },
+    })
+
+    const formatted = formatMcpTextContent(result, 'graph_query')
+
+    expect(formatted).toContain('Tool: graph_query')
+    expect(formatted).toContain('Network: robinhood')
+    expect(formatted).toContain('Rows: 2')
+    expect(formatted).toContain('Billed units: 2')
+    expect(formatted).toContain('0xabc')
+    expect(formatted).toContain('0xdef')
+    expect(formatted).not.toContain('"schema"')
+  })
+
+  it('pretty-prints JSON when JSON output is requested', () => {
+    const result = '{"schema":"chain-insights.result.v1","facts":{"ok":true}}'
+
+    expect(formatMcpTextContent(result, 'graph_query', { json: true })).toBe(
+      '{\n  "schema": "chain-insights.result.v1",\n  "facts": {\n    "ok": true\n  }\n}'
+    )
   })
 
   it('throws the joined error text when the result is an error', () => {

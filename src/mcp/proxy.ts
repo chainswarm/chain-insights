@@ -44,7 +44,7 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   wallet_balance:
     'Show the local Chain Insights payment wallet address, payment network, token, and amount.',
   aml_address_risk:
-    'Screen one blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with another address. Topology reads cover full lifetime history in one unified graph.',
+    'Screen one blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with another address. Topology reads cover full lifetime history in one unified graph. Omit version to use the latest contract, or pass version=v1 to pin the v1 contract.',
   graph_query:
     'Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. Use USE topology for topology (address/FLOWS_TO/LINKED graph, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for bounded TRANSFER rows and enrichment. Preserve full addresses exactly.',
   graph_query_batch:
@@ -123,6 +123,10 @@ export function knownPublicToolInputSchema(toolName: string): ToolInputShape | n
           .string()
           .optional()
           .describe('Optional address to compare against the screened address.'),
+        version: z
+          .string()
+          .optional()
+          .describe('Optional AML tool contract version. Omit to use the latest version.'),
       }
     case 'graph_query':
       return {
@@ -460,12 +464,16 @@ function registerLocalPrompts(server: McpServer): void {
           .string()
           .optional()
           .describe('Optional address to compare against the screened address'),
+        version: z
+          .string()
+          .optional()
+          .describe('Optional AML tool contract version. Omit to use the latest version'),
       },
     },
-    async ({ network, address, compare_address }) =>
+    async ({ network, address, compare_address, version }) =>
       promptResult(
         [
-          `Use Chain Insights aml_address_risk on ${network} for:`,
+          `Use Chain Insights aml_address_risk${version ? ` version ${version}` : ''} on ${network} for:`,
           '',
           `\`${address}\``,
           compare_address ? `\nCompare with: \`${compare_address}\`` : '',
@@ -958,6 +966,10 @@ export async function createProxy(): Promise<void> {
             .string()
             .optional()
             .describe('Optional address to compare against the screened address'),
+          version: z
+            .string()
+            .optional()
+            .describe('Optional AML tool contract version. Omit to use the latest version'),
         },
         annotations: {
           readOnlyHint: true,
@@ -966,7 +978,7 @@ export async function createProxy(): Promise<void> {
           openWorldHint: true,
         },
       },
-      async ({ address, network, compare_address }) => {
+      async ({ address, network, compare_address, version }) => {
         try {
           if (!remoteConnected) {
             return {
@@ -979,13 +991,17 @@ export async function createProxy(): Promise<void> {
               isError: true,
             }
           }
-          const { addressRisk } = await import('../investigation/public-tools.js')
-          const result = await addressRisk(remoteClient, {
-            address,
-            network,
-            compareAddress: compare_address,
-            writeArtifacts: workspaceArtifactsEnabled,
-          })
+          const { runAmlAddressRisk } = await import('../investigation/public-tools.js')
+          const result = await runAmlAddressRisk(
+            remoteClient,
+            {
+              address,
+              network,
+              compareAddress: compare_address,
+              writeArtifacts: workspaceArtifactsEnabled,
+            },
+            version
+          )
           return {
             content: [{ type: 'text' as const, text: result.summaryText }],
             structuredContent: result.structuredContent,
