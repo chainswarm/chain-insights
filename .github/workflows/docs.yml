@@ -36,7 +36,7 @@ jobs:
     name: Generate repo docs
     permissions:
       contents: write
-    runs-on: [self-hosted, chainswarm-runner, X64]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout caller repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
