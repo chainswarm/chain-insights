@@ -32,6 +32,10 @@ Tool names are contract. Removing or renaming one is a deprecation event.
 Tool _arguments_ may grow additively at any time; existing argument names and
 meanings are stable.
 
+The CLI supports `--json` for indented structured output. The
+`aml_address_risk` tool accepts an optional `version`; omitting it routes to
+the latest contract, while `version=v1` pins the current contract.
+
 ### Config keys
 
 Documented config keys (see `docs/architecture.md`, "Supported config keys")

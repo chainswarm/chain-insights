@@ -3,6 +3,83 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.27.1] - 2026-08-31 — fix: use production endpoint in agent setup
+
+Fresh `cia --claude`, `cia --codex`, and `cia --hermes` setup now starts with
+the hosted production Chain Insights Graph endpoint. Local endpoints remain
+available only through explicit configuration.
+
+### Fixed
+
+- Removed the stale loopback endpoint from the installer-created config.
+
+## [0.27.0] - 2026-08-31 — feat: separate workflows from MCP primitives
+
+The CLI now separates high-level CIA workflows from low-level GraphRAG MCP
+access so each command group has one clear purpose.
+
+### Added
+
+- `cia workflows` to discover high-level CIA workflow tools.
+- `cia workflow aml-address-risk` to run the address-risk workflow with JSON
+  output and version selection.
+
+### Changed
+
+- `cia mcp` now documents low-level GraphRAG access and remote tool discovery.
+- README, documentation, generated workspace guidance, and shipped skills now
+  describe the workflow and GraphRAG command boundaries.
+
+### Removed
+
+- `cia mcp aml-address-risk`; use `cia workflow aml-address-risk`.
+- High-level AML execution through `cia mcp call aml_address_risk`; use the
+  workflow command instead.
+
+## [0.26.0] - 2026-08-31 — change: scope tool discovery to networks
+
+The CLI now keeps address-risk screening under `cia mcp`. Network capability
+output reports only the tools advertised for each network by Chain Insights
+Graph.
+
+### Changed
+
+- Removed the root `cia aml-address-risk` command.
+- Added per-network tool discovery to `cia network <name>` and the network
+  capability tables.
+- Updated CLI, workspace, documentation, and skill examples for the current
+  `USE topology` and `USE facts` graph split.
+
+## [0.25.0] - 2026-08-31 — feat: improve CLI output and tool versioning
+
+The CLI now presents graph results in a readable terminal format and supports
+explicit machine-readable output. AML tool contracts can be pinned separately
+from the package version.
+
+### Added
+
+- `--json` output for graph and AML CLI commands.
+- Human-readable graph result summaries and aligned result tables by default.
+- `v1` routing for `aml_address_risk`; omitted versions use the latest contract.
+- CLI, MCP schema, and documentation coverage for AML tool versions.
+
+## [0.24.2] - 2026-08-31 — fix: make CLI command paths self-guiding
+
+The CLI now keeps its command tree consistent and shows the relevant command
+help when an invocation is incomplete.
+
+### Added
+
+- `cia aml-address-risk` as a direct shortcut for address screening.
+- Automated help coverage for every public command node and leaf.
+
+### Changed
+
+- Incomplete command invocations now print the affected command's usage and
+  options.
+- Unknown MCP tools now point users to `cia mcp tools --refresh`.
+- Configuration get/set leaves now include descriptions in their help.
+
 ## [0.24.1] - 2026-08-31 — fix: clarify CLI network and tool catalogs
 
 The CLI now separates the user network overview from the detailed MCP

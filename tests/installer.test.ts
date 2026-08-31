@@ -92,6 +92,16 @@ describe('Installer (FOUND-01)', () => {
     expect(parsed.serverPort).toBe(4321)
   })
 
+  for (const flag of ['--claude', '--codex', '--hermes']) {
+    it(`${flag} fresh setup defaults Chain Insights Graph to production`, () => {
+      execSync(`HOME=${fakeHome} node bin/install.cjs ${flag}`, { stdio: 'pipe' })
+      const configPath = join(fakeHome, '.chain-insights', 'config.json')
+      const raw = readFileSync(configPath, 'utf8')
+      const parsed = JSON.parse(raw) as { graphMcpEndpoint: string }
+      expect(parsed.graphMcpEndpoint).toBe('https://mcp.chain-insights.ai/')
+    })
+  }
+
   it('--claude does not throw even when claude CLI registration step fails', () => {
     // The installer must complete successfully even when claude mcp add fails
     // (claude CLI may not be on PATH in CI environments)

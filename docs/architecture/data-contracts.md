@@ -18,7 +18,8 @@ Every statement here was verified against the source files it names.
   `meta_usage_status`, `meta_help`, `wallet_balance`.
 - `meta_network_capabilities` repeats GraphRAG's advertised networks
   (`mirrorGraphNetworkCapabilities` in `src/mcp/capabilities.ts`). CIA
-  overlays its seven public tools. It does not drop or invent names.
+  preserves the tool status advertised for each network. It does not add
+  tools that the network did not advertise.
   Layer rows stay empty (`layers: {}`).
 
 ### Tool Argument Contracts

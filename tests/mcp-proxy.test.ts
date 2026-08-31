@@ -886,7 +886,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('"usage_status_tool": "unavailable"')
   })
 
-  it('mirrors meta_network_capabilities as every GraphRAG network with no layer rows and the seven public tools', async () => {
+  it('mirrors meta_network_capabilities as every GraphRAG network with no layer rows and per-network tools', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       { name: 'network_capabilities', description: 'Network capabilities' },
@@ -954,30 +954,30 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const networks = result.structuredContent.facts.capabilities.networks as Array<
       Record<string, unknown>
     >
-    const publicTools = {
-      aml_address_risk: 'available',
-      graph_query: 'available',
-      graph_query_batch: 'available',
-      meta_network_capabilities: 'available',
-      meta_usage_status: 'available',
-      meta_help: 'available',
-      wallet_balance: 'available',
-    }
     expect(networks).toEqual([
       expect.objectContaining({
         network: 'bittensor',
         display_name: 'Bittensor',
         layers: {},
-        tools: publicTools,
+        tools: {
+          graph_query: 'available',
+          graph_query_batch: 'available',
+        },
       }),
       expect.objectContaining({
         network: 'robinhood',
         display_name: 'Robinhood',
         layers: {},
-        tools: publicTools,
+        tools: {
+          graph_query: 'available',
+          graph_query_batch: 'available',
+        },
       }),
     ])
     expect(networks).toHaveLength(2)
+    expect(result.structuredContent.facts.capabilities.networks[0]?.tools).not.toHaveProperty(
+      'aml_address_risk'
+    )
     expect(result.structuredContent.facts.capabilities.networks[0]?.tools).not.toHaveProperty(
       'network_capabilities'
     )
@@ -1881,6 +1881,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     expect(inputSchema.address).toBeDefined()
     expect(inputSchema.network).toBeDefined()
+    expect(inputSchema.version).toBeDefined()
     expect((inputSchema.network as { description?: string }).description).toContain(
       'Network to query'
     )
@@ -1892,6 +1893,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     )
     expect(config.description).toContain('Required arguments: address, network.')
     expect(config.description).toContain('Do not guess a default network')
+    expect(config.description).toContain('version=v1')
   })
 
   it('uses Chain Insights-owned descriptions for known public tools', async () => {

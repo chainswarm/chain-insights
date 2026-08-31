@@ -47,6 +47,9 @@ describe('shipped Chain Insights skills contract', () => {
     expect(addressRisk).toContain('meta_network_capabilities')
     expect(addressRisk).toContain('network=robinhood')
     expect(addressRisk).toContain('compare_address')
+    expect(addressRisk).toContain('cia workflows')
+    expect(addressRisk).toContain('cia workflow aml-address-risk')
+    expect(cypher).toContain('cia mcp call graph_query')
 
     const content = [evm, bittensor, cypher, addressRisk].join('\n')
     expect(content).not.toMatch(/workspace|debug MCP/i)
@@ -103,6 +106,8 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).not.toContain('sent_count')
     expect(readme).toContain('cia mcp networks')
     expect(readme).toContain('cia mcp tools --refresh')
+    expect(readme).toContain('cia workflows')
+    expect(readme).toContain('cia workflow aml-address-risk')
     expect(readme).toContain('docs/contributing.md')
     expect(readme).toContain('docs/debugging.md')
 

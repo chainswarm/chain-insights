@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { PACKAGE_INFO, PACKAGE_VERSION } from './version.js'
+import { CIA_WORKFLOWS, formatCiaWorkflows } from './investigation/workflows.js'
 import { printMcpTextContent } from './mcp/print-result.js'
 
 // Resolve bin/install.cjs relative to this file's location in dist/
@@ -11,10 +12,15 @@ const installerPath = path.resolve(__dirname, '..', 'bin', 'install.cjs')
 
 const program = new Command()
 
+function createCliCommand(name: string): Command {
+  return new Command(name).showHelpAfterError()
+}
+
 program
   .name('cia')
   .description('AML investigation toolkit for blockchain analysis')
   .version(PACKAGE_INFO.version)
+  .showHelpAfterError()
   .option('--claude', 'Install Claude Code skills globally to ~/.claude/skills/')
   .option('--codex', 'Install Codex skills globally to ~/.codex/skills/ and register MCP')
   .option(
@@ -27,6 +33,26 @@ const rawArgs = process.argv.slice(2)
 const installerFlags = rawArgs.filter(
   (a) => a === '--claude' || a === '--codex' || a === '--hermes'
 )
+
+// Commander treats the root package `--version` option as global, so it would
+// consume the same flag on the AML workflow command before the child can route
+// a tool contract. Rewrite only the child-command form to a hidden alias. The
+// visible child help still documents `--version`, while root `cia --version`
+// remains the package version.
+function normalizeAmlToolVersionArgv(argv: string[]): string[] {
+  const commandIndex = rawArgs.findIndex(
+    (arg, index) => arg === 'aml-address-risk' && index === 1 && rawArgs[0] === 'workflow'
+  )
+  if (commandIndex === -1) return argv
+
+  return argv.map((arg, index) => {
+    const userArgIndex = index - 2
+    if (userArgIndex <= commandIndex) return arg
+    if (arg === '--version') return '--tool-version'
+    if (arg.startsWith('--version=')) return `--tool-version=${arg.slice('--version='.length)}`
+    return arg
+  })
+}
 // A help/version request must never trigger a global install side effect — let
 // commander handle it and print help/version instead.
 const wantsHelpOrVersion = rawArgs.some(
@@ -134,6 +160,66 @@ async function printNetworkCapability(name: string, opts: { json?: boolean }): P
   }
 }
 
+function addAmlAddressRiskCommand(parent: Command, networksCommand: string): void {
+  parent.addCommand(
+    createCliCommand('aml-address-risk')
+      .description(
+        'CIA workflow: screen an address for AML risk, exchange behavior, and optional comparison with another address'
+      )
+      .requiredOption('--address <address>', 'Full blockchain address to screen')
+      .requiredOption(
+        '--network <network>',
+        `Network to query. Run \`${networksCommand}\` for supported networks.`
+      )
+      .option(
+        '--compare-address <address>',
+        'Optional second address to compare against the screened address'
+      )
+      .option('--json', 'Print machine-readable JSON output')
+      .option(
+        '--version <version>',
+        'AML tool contract version. Omit to use the latest version (currently v1)'
+      )
+      .addOption(
+        new Option('--tool-version <version>', 'Internal alias for the AML tool version').hideHelp()
+      )
+      .action(
+        async (opts: {
+          address: string
+          network: string
+          compareAddress?: string
+          json?: boolean
+          version?: string
+          toolVersion?: string
+        }) => {
+          try {
+            const { resolveAmlAddressRiskVersion } = await import('./investigation/public-tools.js')
+            const requestedVersion = opts.toolVersion ?? opts.version
+            resolveAmlAddressRiskVersion(requestedVersion)
+            await withGraphMcpClient('chain-insights-cli-aml-address-risk', async (client) => {
+              const { runAmlAddressRisk } = await import('./investigation/public-tools.js')
+              const result = await runAmlAddressRisk(
+                client,
+                {
+                  address: opts.address,
+                  network: opts.network,
+                  compareAddress: opts.compareAddress,
+                },
+                requestedVersion
+              )
+              console.log(
+                opts.json ? JSON.stringify(result.structuredContent, null, 2) : result.summaryText
+              )
+            })
+          } catch (err) {
+            console.error((err as Error).message)
+            process.exit(1)
+          }
+        }
+      )
+  )
+}
+
 program
   .command('networks')
   .description('Show supported network status and dataset overview')
@@ -160,6 +246,22 @@ program
       process.exit(1)
     }
   })
+
+program
+  .command('workflows')
+  .description('List CIA workflow tools')
+  .option('--json', 'Print the workflow catalog as JSON')
+  .action((opts: { json?: boolean }) => {
+    if (opts.json) {
+      console.log(JSON.stringify(CIA_WORKFLOWS, null, 2))
+      return
+    }
+    console.log(formatCiaWorkflows(CIA_WORKFLOWS))
+  })
+
+const workflowCommand = program.command('workflow').description('Run a high-level CIA workflow')
+
+addAmlAddressRiskCommand(workflowCommand, 'cia networks')
 
 program
   .command('status')
@@ -217,7 +319,7 @@ program
   .command('debug')
   .description('Configure Chain Insights Graph debug mode')
   .addCommand(
-    new Command('on')
+    createCliCommand('on')
       .description('Enable Chain Insights Graph debug mode without x402 payments')
       .requiredOption('--token <token>', 'Debug bearer token')
       .option('--endpoint <url>', 'Chain Insights Graph endpoint')
@@ -239,7 +341,7 @@ program
       })
   )
   .addCommand(
-    new Command('off')
+    createCliCommand('off')
       .description('Disable Chain Insights Graph debug mode and use paid x402 calls')
       .action(async () => {
         try {
@@ -254,7 +356,7 @@ program
       })
   )
   .addCommand(
-    new Command('status')
+    createCliCommand('status')
       .description('Show Chain Insights Graph payment/debug mode')
       .action(async () => {
         try {
@@ -277,7 +379,7 @@ program
   .command('access-key')
   .description('Configure Chain Insights Graph test access key mode')
   .addCommand(
-    new Command('set')
+    createCliCommand('set')
       .description('Use a Chain Insights Graph test access key without x402 payments')
       .argument('<key>', 'Test access key')
       .option('--endpoint <url>', 'Chain Insights Graph endpoint')
@@ -301,7 +403,7 @@ program
       })
   )
   .addCommand(
-    new Command('clear')
+    createCliCommand('clear')
       .description('Remove the Chain Insights Graph test access key and use paid x402 calls')
       .action(async () => {
         try {
@@ -316,7 +418,7 @@ program
       })
   )
   .addCommand(
-    new Command('status')
+    createCliCommand('status')
       .description('Show Chain Insights Graph test access key status')
       .action(async () => {
         try {
@@ -340,7 +442,7 @@ program
   .command('setup')
   .description('Configure external MCP clients')
   .addCommand(
-    new Command('claude-code')
+    createCliCommand('claude-code')
       .alias('claude')
       .description('Install Claude Code skills and register the MCP proxy')
       .action(() => {
@@ -348,14 +450,14 @@ program
       })
   )
   .addCommand(
-    new Command('codex')
+    createCliCommand('codex')
       .description('Install Codex skills and register the MCP proxy')
       .action(() => {
         runInstaller('--codex')
       })
   )
   .addCommand(
-    new Command('hermes')
+    createCliCommand('hermes')
       .description('Install Hermes skills and register the MCP proxy')
       .action(() => {
         runInstaller('--hermes')
@@ -366,20 +468,24 @@ program
   .command('config')
   .description('Read or write configuration values')
   .addCommand(
-    new Command('get').argument('<key>', 'Config key to read').action(async (key: string) => {
-      const { loadConfig } = await import('./config/index.js')
-      const { CONFIG_KEYS } = await import('./config/schema.js')
-      if (!CONFIG_KEYS.includes(key as (typeof CONFIG_KEYS)[number])) {
-        console.error(`Unknown config key: ${key}`)
-        process.exit(1)
-      }
-      const config = await loadConfig()
-      const value = (config as Record<string, unknown>)[key]
-      console.log(value ?? '')
-    })
+    createCliCommand('get')
+      .description('Read one Chain Insights configuration value')
+      .argument('<key>', 'Config key to read')
+      .action(async (key: string) => {
+        const { loadConfig } = await import('./config/index.js')
+        const { CONFIG_KEYS } = await import('./config/schema.js')
+        if (!CONFIG_KEYS.includes(key as (typeof CONFIG_KEYS)[number])) {
+          console.error(`Unknown config key: ${key}`)
+          process.exit(1)
+        }
+        const config = await loadConfig()
+        const value = (config as Record<string, unknown>)[key]
+        console.log(value ?? '')
+      })
   )
   .addCommand(
-    new Command('set')
+    createCliCommand('set')
+      .description('Write one Chain Insights configuration value')
       .argument('<key>', 'Config key to write')
       .argument('<value>', 'Value to set')
       .action(async (key: string, value: string) => {
@@ -418,7 +524,7 @@ program
   .command('wallet')
   .description('Manage the local Base USDC payment wallet')
   .addCommand(
-    new Command('create')
+    createCliCommand('create')
       .description('Generate a new local Base payment wallet')
       .action(async () => {
         try {
@@ -460,7 +566,7 @@ program
       })
   )
   .addCommand(
-    new Command('import')
+    createCliCommand('import')
       .description('Import a Base payment wallet')
       .argument('<private-key>', '0x-prefixed EVM private key')
       .option(
@@ -488,7 +594,7 @@ program
       })
   )
   .addCommand(
-    new Command('address')
+    createCliCommand('address')
       .description('Print the local payment wallet address')
       .action(async () => {
         try {
@@ -502,7 +608,7 @@ program
       })
   )
   .addCommand(
-    new Command('balance')
+    createCliCommand('balance')
       .description('Show the local payment wallet Base USDC balance')
       .action(async () => {
         try {
@@ -515,7 +621,7 @@ program
       })
   )
   .addCommand(
-    new Command('ready')
+    createCliCommand('ready')
       .description('Check and prepare the wallet for paid Chain Insights Graph calls')
       .option('--check-only', 'Only check readiness; do not submit the one-time payment setup')
       .addOption(new Option('--no-approve', 'Deprecated alias for --check-only').hideHelp())
@@ -563,7 +669,7 @@ program
       )
   )
   .addCommand(
-    new Command('topup')
+    createCliCommand('topup')
       .description('Open a local browser page to top up the payment wallet')
       .option('--no-open', 'Print the top-up URL without opening a browser')
       .option('--json', 'Print machine-readable top-up metadata')
@@ -596,12 +702,12 @@ program
       })
   )
 
-program
+const mcpCommand = program
   .command('mcp')
-  .description('Interact with the Chain Insights MCP endpoint')
+  .description('Low-level access to the Chain Insights MCP endpoint')
   .allowExcessArguments(false)
   .addCommand(
-    new Command('networks')
+    createCliCommand('networks')
       .description('List the detailed Chain Insights capability matrix and tool support')
       .option('--json', 'Print raw capability JSON')
       .action(async (opts: { json?: boolean }) => {
@@ -614,8 +720,8 @@ program
       })
   )
   .addCommand(
-    new Command('tools')
-      .description('List remote GraphRAG MCP tools (cached for 24 hours)')
+    createCliCommand('tools')
+      .description('List remote GraphRAG MCP tools only (cached for 24 hours)')
       .option('--refresh', 'Force refresh schema cache')
       .action(async (opts: { refresh?: boolean }) => {
         try {
@@ -652,115 +758,85 @@ program
         }
       })
   )
-  .addCommand(
-    new Command('aml-address-risk')
-      .description(
-        'Screen an address for AML risk, exchange behavior, and optional comparison with another address'
-      )
-      .requiredOption('--address <address>', 'Full blockchain address to screen')
-      .requiredOption(
-        '--network <network>',
-        'Network to query. Run `cia mcp networks` for supported networks.'
-      )
-      .option(
-        '--compare-address <address>',
-        'Optional second address to compare against the screened address'
-      )
-      .action(async (opts: { address: string; network: string; compareAddress?: string }) => {
-        try {
-          await withGraphMcpClient('chain-insights-cli-aml-address-risk', async (client) => {
-            const { addressRisk } = await import('./investigation/public-tools.js')
-            const result = await addressRisk(client, {
-              address: opts.address,
-              network: opts.network,
-              compareAddress: opts.compareAddress,
-            })
-            console.log(result.summaryText)
-          })
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
+
+mcpCommand.addCommand(
+  createCliCommand('call')
+    .description('Call a low-level MCP tool directly (advanced)')
+    .option('--json', 'Print machine-readable JSON output')
+    .argument('<tool>', 'Tool name to call')
+    .argument('[args...]', 'Key=value arguments (e.g. address=0x1234... network=robinhood)')
+    .action(async (tool: string, rawArgs: string[], opts: { json?: boolean }) => {
+      try {
+        const { parseMcpCallArgs } = await import('./mcp/call-args.js')
+        const { assertPublicMcpToolName, validatePublicMcpToolArguments } =
+          await import('./mcp/tool-visibility.js')
+        const args = parseMcpCallArgs(rawArgs)
+        assertPublicMcpToolName(tool)
+        if (tool === 'aml_address_risk') {
+          throw new Error(
+            'aml_address_risk is a CIA workflow. Run `cia workflow aml-address-risk` instead.'
+          )
         }
-      })
-  )
-  .addCommand(
-    new Command('call')
-      .description('Call an MCP tool directly (debug)')
-      .argument('<tool>', 'Tool name to call')
-      .argument('[args...]', 'Key=value arguments (e.g. address=0x1234... network=robinhood)')
-      .action(async (tool: string, rawArgs: string[]) => {
-        try {
-          const { parseMcpCallArgs } = await import('./mcp/call-args.js')
-          const { assertPublicMcpToolName, validatePublicMcpToolArguments } =
-            await import('./mcp/tool-visibility.js')
-          const args = parseMcpCallArgs(rawArgs)
-          assertPublicMcpToolName(tool)
-          validatePublicMcpToolArguments(tool, args)
+        validatePublicMcpToolArguments(tool, args)
 
-          if (tool === 'wallet_balance') {
-            const { getWalletBalanceText } = await import('./wallet/tools.js')
-            console.log(await getWalletBalanceText())
-            return
-          }
-
-          if (tool === 'meta_network_capabilities') {
-            await printNetworkCapabilities({ json: true })
-            return
-          }
-
-          if (tool === 'meta_help') {
-            console.log(
-              'Chain Insights tools: aml_*, graph_query, graph_query_batch, meta_*, and wallet_balance.'
-            )
-            return
-          }
-
-          await withGraphMcpClient('chain-insights-cli-call', async (client, config) => {
-            if (tool === 'meta_usage_status') {
-              try {
-                const result = await client.callTool({ name: 'usage_status', arguments: {} })
-                printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
-              } catch (err) {
-                const {
-                  isMissingUsageStatusToolError,
-                  primitiveBackendUsageStatus,
-                  usageStatusText,
-                } = await import('./mcp/usage-status.js')
-                if (!isMissingUsageStatusToolError(err)) throw err
-                const { resolveGraphMcpEndpoint } = await import('./mcp/client.js')
-                console.log(
-                  usageStatusText(primitiveBackendUsageStatus(resolveGraphMcpEndpoint(config)))
-                )
-              }
-              return
-            }
-            if (tool === 'aml_address_risk') {
-              const { addressRisk } = await import('./investigation/public-tools.js')
-              const result = await addressRisk(client, {
-                address: String(args['address'] ?? ''),
-                network: String(args['network'] ?? ''),
-                compareAddress:
-                  args['compare_address'] === undefined
-                    ? undefined
-                    : String(args['compare_address']),
-              })
-              console.log(result.summaryText)
-              return
-            }
-            const result = await client.callTool({ name: tool, arguments: args })
-            printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
-          })
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
+        if (tool === 'wallet_balance') {
+          const { getWalletBalanceText } = await import('./wallet/tools.js')
+          console.log(await getWalletBalanceText())
+          return
         }
-      })
-  )
+
+        if (tool === 'meta_network_capabilities') {
+          await printNetworkCapabilities({ json: opts.json })
+          return
+        }
+
+        if (tool === 'meta_help') {
+          console.log(
+            'Chain Insights workflow tools: aml_address_risk. Low-level GraphRAG tools: graph_query and graph_query_batch. Metadata and payment tools: meta_* and wallet_balance.'
+          )
+          return
+        }
+
+        await withGraphMcpClient('chain-insights-cli-call', async (client, config) => {
+          if (tool === 'meta_usage_status') {
+            try {
+              const result = await client.callTool({ name: 'usage_status', arguments: {} })
+              printMcpTextContent(
+                result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+                { tool, json: opts.json }
+              )
+            } catch (err) {
+              const {
+                isMissingUsageStatusToolError,
+                primitiveBackendUsageStatus,
+                usageStatusText,
+              } = await import('./mcp/usage-status.js')
+              if (!isMissingUsageStatusToolError(err)) throw err
+              const { resolveGraphMcpEndpoint } = await import('./mcp/client.js')
+              console.log(
+                usageStatusText(primitiveBackendUsageStatus(resolveGraphMcpEndpoint(config)))
+              )
+            }
+            return
+          }
+          const result = await client.callTool({ name: tool, arguments: args })
+          printMcpTextContent(
+            result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+            { tool, json: opts.json }
+          )
+        })
+      } catch (err) {
+        const { formatMcpCallError } = await import('./mcp/tool-visibility.js')
+        console.error(formatMcpCallError(tool, err))
+        process.exit(1)
+      }
+    })
+)
 
 // parseAsync (not parse) so a rejected async action surfaces as a clean
 // one-line error and a non-zero exit, instead of an unhandled-rejection stack
 // trace. Commands with their own try/catch still exit(1) before this fires.
-program.parseAsync(process.argv).catch((err) => {
+program.parseAsync(normalizeAmlToolVersionArgv(process.argv)).catch((err) => {
   console.error((err as Error).message)
   process.exit(1)
 })
