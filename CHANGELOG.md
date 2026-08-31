@@ -2,6 +2,14 @@
 # Changelog
 
 All notable changes to Chain Insights are recorded here.
+## [0.27.4] - 2026-08-31 — ci: make docs self-contained
+
+### Changed
+
+- Moved Docs validation and architecture rendering helpers into this repository.
+- Removed private cross-repository checkout and protected-branch commit-back from Docs.
+- Docs now verifies that rendered architecture files are committed with their source changes.
+
 ## [0.27.3] - 2026-08-31 — ci: use hosted runners for docs and Scorecard
 
 ### Fixed

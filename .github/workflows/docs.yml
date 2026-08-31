@@ -1,24 +1,8 @@
 name: Docs
 
-# Vendored from rbmk docs-reusable.yml (public repo cannot call private
-# reusable workflows) — keep in sync manually; owner ruling 2026-07-21.
-#
-# chain-insights is a PUBLIC repo. GitHub hard-blocks a public caller's
-# `uses:` of a PRIVATE reusable workflow (chainswarm/rbmk is private), so
-# the previous thin-caller form (`uses: chainswarm/rbmk/.github/workflows/
-# docs-reusable.yml@main`) failed in 0s on every push. That block applies
-# ONLY to the reusable-workflow `uses:` mechanism — checking out the
-# private rbmk repo with the org App token inside a normal job step is
-# fine, which is what this vendored copy does. Logic below is inlined
-# from chainswarm/rbmk/.github/workflows/docs-reusable.yml; if that file
-# changes, re-sync this one by hand.
-#
-# Slimmed 2026-07-28 (docs-layer rework): the gsd architecture generator
-# and the knowledge-skill autorefresh are retired. Architecture docs are
-# human-authored; CI only lints the README and renders C4 diagrams.
-
-# Nightly only (+ workflow_dispatch). Public repo keeps this vendored
-# copy — it cannot `uses:` private rbmk docs-reusable.yml.
+# Chain Insights owns this validation. Architecture docs and their rendering
+# helpers live in this repository. The workflow never fetches another repo or
+# writes to protected branches.
 on:
   schedule:
     - cron: '5 3 * * *'
@@ -33,96 +17,23 @@ concurrency:
 
 jobs:
   docs:
-    name: Generate repo docs
-    permissions:
-      contents: write
+    name: Validate repository docs
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout caller repo
+      - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          # GHCR_TOKEN, when present, is a classic PAT belonging to an
-          # org-admin user (confirmed live: scopes include `repo`,
-          # `permission: admin` on a real repo) -- persisting ITS
-          # credentials here means the commit-back push at the bottom of
-          # this job authenticates as that admin user, which IS covered
-          # by every ruleset's OrganizationAdmin bypass_actor. Falls back
-          # to the default GITHUB_TOKEN (works for repos with no
-          # moa-pr-review ruleset yet; rejected by GH013 for repos that
-          # have one, same as before this token was wired in -- see rbmk
-          # git history for the chainswarm-ci App token attempt that
-          # turned out to have no write access at all).
-          token: ${{ secrets.GHCR_TOKEN || github.token }}
 
-      - name: Mint chainswarm-ci app token (org-scoped)
-        # Used only for the cross-repo private rbmk checkout below, which
-        # only needs read access. This App's actual configured permission
-        # is `"contents": "read"` -- it has NO write access to repo
-        # contents on any repo, so it can never be the identity the
-        # commit-back push authenticates as.
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          app-id: ${{ secrets.CHAINSWARM_GITHUB_APP_ID }}
-          private-key: ${{ secrets.CHAINSWARM_GITHUB_APP_PRIVATE_KEY }}
-          owner: chainswarm
-          # owner set + repositories omitted => token covers every repo the App
-          # is installed on (installed as "All repositories") — what cross-repo
-          # private rbmk checkout needs.
+      - name: README documentation lint
+        run: python3 scripts/docs/check-readme-standard.py --repo-root .
 
-      - name: Checkout rbmk generators
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: chainswarm/rbmk
-          ref: main
-          path: .rbmk
-          # rbmk is private; the caller's scoped GITHUB_TOKEN cannot read it.
-          # Use the chainswarm-ci App installation token (org-scoped). The
-          # mint step above has no continue-on-error guard, so this step is
-          # only ever reached with a populated app-token output — org App
-          # secrets are assumed always present, not optionally missing.
-          token: ${{ steps.app-token.outputs.token || github.token }}
+      - name: Render C4 diagrams
+        run: bash scripts/docs/render-architecture-diagrams.sh
 
-      - name: README golden-standard lint
-        run: python3 .rbmk/scripts/devops/check-readme-standard.py --repo-root .
-
-      - name: Render C4 diagrams (no-op when none)
-        env:
-          DIAGRAM_REPO_ROOT: ${{ github.workspace }}
-        run: bash .rbmk/scripts/devops/render-architecture-diagrams.sh
-
-      - name: Render root Architecture tab (ARCHITECTURE.md)
-        run: python3 .rbmk/scripts/devops/render-github-doc-tabs.py --repo-root . --only architecture
-
-      - name: Commit generated docs back to the repo
+      - name: Verify rendered docs are committed
         run: |
-          rm -rf .rbmk
-          git add docs/architecture ARCHITECTURE.md
-          # Force-add the rendered diagram tree so committed PNGs survive a
-          # repo-level `*.png` .gitignore. ARCHITECTURE.md embeds the PNG (GitHub
-          # web refuses to inline-render repo SVGs), so the PNG must be tracked or
-          # the embed 404s. SVG/puml in the same tree are added either way.
-          git add -f docs/architecture/diagrams/rendered 2>/dev/null || true
-          # (No README/docs-acceptance/knowledge-skill staging: the gsd
-          # generator and knowledge-skill autorefresh are retired; only
-          # docs/architecture + rendered diagrams are produced by CI.)
-          if git diff --cached --quiet; then
-            echo "No docs/architecture / ARCHITECTURE.md changes to commit."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -m "docs: render architecture diagrams via rbmk docs subsystem [skip ci]"
-
-          push_attempt() {
-            git pull --rebase origin "${GITHUB_REF_NAME}" && \
-              git push origin "HEAD:${GITHUB_REF_NAME}"
-          }
-          if ! push_attempt; then
-            echo "push/rebase failed once, retrying"
-            if ! push_attempt; then
-              echo "::error::push/rebase failed twice, giving up"
-              exit 1
-            fi
+          if ! git diff --exit-code -- docs/architecture; then
+            echo "::error::Rendered architecture docs are stale. Regenerate and commit them in this repository."
+            exit 1
           fi
