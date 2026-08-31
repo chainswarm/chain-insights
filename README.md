@@ -366,6 +366,16 @@ If network or tool discovery fails, check the endpoint and access mode
 first. Confirm the endpoint with `cia config get graphMcpEndpoint` and retry
 the command.
 
+## Pre-staging / Release
+
+Every pull request to `main` must bump `package.json` and
+`package-lock.json`, add a matching `CHANGELOG.md` entry, and pass the GitHub
+verification checks. Before pre-staging or release, run the full local gate
+and confirm the release metadata is consistent.
+
+See [Release Discipline](docs/contributing.md#release-discipline) for the
+complete contributor requirements.
+
 ## Documentation Links
 
 Product docs:

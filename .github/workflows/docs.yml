@@ -82,7 +82,7 @@ jobs:
           # secrets are assumed always present, not optionally missing.
           token: ${{ steps.app-token.outputs.token || github.token }}
 
-      - name: README golden-standard lint (report-only for now)
+      - name: README golden-standard lint
         run: python3 .rbmk/scripts/devops/check-readme-standard.py --repo-root .
 
       - name: Render C4 diagrams (no-op when none)
