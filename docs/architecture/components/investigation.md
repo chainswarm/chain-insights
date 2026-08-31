@@ -38,7 +38,10 @@ addressRisk
 ## Run
 
 ```bash
-cia mcp call aml_address_risk \
-  network=robinhood \
-  address=0x1234...
+cia aml-address-risk \
+  --address 0x1234... \
+  --network robinhood
 ```
+
+Use `--json` for indented structured output. Omit the tool version to use the
+latest AML contract, or pin it with `--version v1`.

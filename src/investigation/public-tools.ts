@@ -51,6 +51,25 @@ export interface AddressRiskOptions {
   writeArtifacts?: boolean
 }
 
+const AML_ADDRESS_RISK_SUPPORTED_VERSIONS = ['v1'] as const
+export type AmlAddressRiskVersion = (typeof AML_ADDRESS_RISK_SUPPORTED_VERSIONS)[number]
+export const LATEST_AML_ADDRESS_RISK_VERSION: AmlAddressRiskVersion = 'v1'
+
+export function resolveAmlAddressRiskVersion(requested?: string): AmlAddressRiskVersion {
+  const normalized = requested?.trim().toLowerCase()
+  if (!normalized) return LATEST_AML_ADDRESS_RISK_VERSION
+  if (
+    AML_ADDRESS_RISK_SUPPORTED_VERSIONS.includes(
+      normalized as (typeof AML_ADDRESS_RISK_SUPPORTED_VERSIONS)[number]
+    )
+  ) {
+    return normalized as AmlAddressRiskVersion
+  }
+  throw new Error(
+    `Unsupported aml_address_risk version "${requested?.trim() ?? ''}". Supported versions: ${AML_ADDRESS_RISK_SUPPORTED_VERSIONS.join(', ')}.`
+  )
+}
+
 function escapeCypherString(value: string): string {
   return value.replaceAll('\\', '\\\\').replaceAll('"', '\\"')
 }
@@ -1353,6 +1372,30 @@ export async function addressRisk(
       ],
     },
     graphData,
+  }
+}
+
+/**
+ * Routes the public AML tool contract to the requested implementation. An
+ * omitted version always follows the latest supported contract.
+ */
+export async function runAmlAddressRisk(
+  remoteClient: Client,
+  options: AddressRiskOptions,
+  requestedVersion?: string
+) {
+  const version = resolveAmlAddressRiskVersion(requestedVersion)
+  switch (version) {
+    case 'v1': {
+      const result = await addressRisk(remoteClient, options)
+      return {
+        ...result,
+        structuredContent: {
+          ...result.structuredContent,
+          tool_version: version,
+        },
+      }
+    }
   }
 }
 

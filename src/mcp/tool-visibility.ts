@@ -33,7 +33,7 @@ export const PUBLIC_MCP_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
 // appears on a tool schema, and is covered end-to-end through the proxy in
 // tests/mcp-proxy.test.ts.
 export const PUBLIC_MCP_TOOL_ALLOWED_ARGS: Record<string, string[]> = {
-  aml_address_risk: ['address', 'network', 'compare_address'],
+  aml_address_risk: ['address', 'network', 'compare_address', 'version'],
   // `time_scope` narrows a `USE topology` query to a temporal-shard subset
   graph_query: ['query', 'network', 'time_scope'],
   graph_query_batch: ['network', 'queries', 'per_query_timeout_seconds', 'time_scope'],

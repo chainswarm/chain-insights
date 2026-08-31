@@ -32,6 +32,27 @@ const rawArgs = process.argv.slice(2)
 const installerFlags = rawArgs.filter(
   (a) => a === '--claude' || a === '--codex' || a === '--hermes'
 )
+
+// Commander treats the root package `--version` option as global, so it would
+// consume the same flag on the AML child command before the child can route a
+// tool contract. Rewrite only the child-command form to a hidden alias. The
+// visible child help still documents `--version`, while root `cia --version`
+// remains the package version.
+function normalizeAmlToolVersionArgv(argv: string[]): string[] {
+  const commandIndex = rawArgs.findIndex(
+    (arg, index) =>
+      arg === 'aml-address-risk' && (index === 0 || (index === 1 && rawArgs[0] === 'mcp'))
+  )
+  if (commandIndex === -1) return argv
+
+  return argv.map((arg, index) => {
+    const userArgIndex = index - 2
+    if (userArgIndex <= commandIndex) return arg
+    if (arg === '--version') return '--tool-version'
+    if (arg.startsWith('--version=')) return `--tool-version=${arg.slice('--version='.length)}`
+    return arg
+  })
+}
 // A help/version request must never trigger a global install side effect — let
 // commander handle it and print help/version instead.
 const wantsHelpOrVersion = rawArgs.some(
@@ -154,22 +175,48 @@ function addAmlAddressRiskCommand(parent: Command, networksCommand: string): voi
         '--compare-address <address>',
         'Optional second address to compare against the screened address'
       )
-      .action(async (opts: { address: string; network: string; compareAddress?: string }) => {
-        try {
-          await withGraphMcpClient('chain-insights-cli-aml-address-risk', async (client) => {
-            const { addressRisk } = await import('./investigation/public-tools.js')
-            const result = await addressRisk(client, {
-              address: opts.address,
-              network: opts.network,
-              compareAddress: opts.compareAddress,
+      .option('--json', 'Print machine-readable JSON output')
+      .option(
+        '--version <version>',
+        'AML tool contract version. Omit to use the latest version (currently v1)'
+      )
+      .addOption(
+        new Option('--tool-version <version>', 'Internal alias for the AML tool version').hideHelp()
+      )
+      .action(
+        async (opts: {
+          address: string
+          network: string
+          compareAddress?: string
+          json?: boolean
+          version?: string
+          toolVersion?: string
+        }) => {
+          try {
+            const { resolveAmlAddressRiskVersion } = await import('./investigation/public-tools.js')
+            const requestedVersion = opts.toolVersion ?? opts.version
+            resolveAmlAddressRiskVersion(requestedVersion)
+            await withGraphMcpClient('chain-insights-cli-aml-address-risk', async (client) => {
+              const { runAmlAddressRisk } = await import('./investigation/public-tools.js')
+              const result = await runAmlAddressRisk(
+                client,
+                {
+                  address: opts.address,
+                  network: opts.network,
+                  compareAddress: opts.compareAddress,
+                },
+                requestedVersion
+              )
+              console.log(
+                opts.json ? JSON.stringify(result.structuredContent, null, 2) : result.summaryText
+              )
             })
-            console.log(result.summaryText)
-          })
-        } catch (err) {
-          console.error((err as Error).message)
-          process.exit(1)
+          } catch (err) {
+            console.error((err as Error).message)
+            process.exit(1)
+          }
         }
-      })
+      )
   )
 }
 
@@ -703,9 +750,10 @@ addAmlAddressRiskCommand(mcpCommand, 'cia mcp networks')
 mcpCommand.addCommand(
   createCliCommand('call')
     .description('Call an MCP tool directly (debug)')
+    .option('--json', 'Print machine-readable JSON output')
     .argument('<tool>', 'Tool name to call')
     .argument('[args...]', 'Key=value arguments (e.g. address=0x1234... network=robinhood)')
-    .action(async (tool: string, rawArgs: string[]) => {
+    .action(async (tool: string, rawArgs: string[], opts: { json?: boolean }) => {
       try {
         const { parseMcpCallArgs } = await import('./mcp/call-args.js')
         const { assertPublicMcpToolName, validatePublicMcpToolArguments } =
@@ -714,6 +762,13 @@ mcpCommand.addCommand(
         assertPublicMcpToolName(tool)
         validatePublicMcpToolArguments(tool, args)
 
+        if (tool === 'aml_address_risk') {
+          const { resolveAmlAddressRiskVersion } = await import('./investigation/public-tools.js')
+          resolveAmlAddressRiskVersion(
+            args['version'] === undefined ? undefined : String(args['version'])
+          )
+        }
+
         if (tool === 'wallet_balance') {
           const { getWalletBalanceText } = await import('./wallet/tools.js')
           console.log(await getWalletBalanceText())
@@ -721,7 +776,7 @@ mcpCommand.addCommand(
         }
 
         if (tool === 'meta_network_capabilities') {
-          await printNetworkCapabilities({ json: true })
+          await printNetworkCapabilities({ json: opts.json })
           return
         }
 
@@ -736,7 +791,10 @@ mcpCommand.addCommand(
           if (tool === 'meta_usage_status') {
             try {
               const result = await client.callTool({ name: 'usage_status', arguments: {} })
-              printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
+              printMcpTextContent(
+                result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+                { tool, json: opts.json }
+              )
             } catch (err) {
               const {
                 isMissingUsageStatusToolError,
@@ -752,18 +810,29 @@ mcpCommand.addCommand(
             return
           }
           if (tool === 'aml_address_risk') {
-            const { addressRisk } = await import('./investigation/public-tools.js')
-            const result = await addressRisk(client, {
-              address: String(args['address'] ?? ''),
-              network: String(args['network'] ?? ''),
-              compareAddress:
-                args['compare_address'] === undefined ? undefined : String(args['compare_address']),
-            })
-            console.log(result.summaryText)
+            const { runAmlAddressRisk } = await import('./investigation/public-tools.js')
+            const result = await runAmlAddressRisk(
+              client,
+              {
+                address: String(args['address'] ?? ''),
+                network: String(args['network'] ?? ''),
+                compareAddress:
+                  args['compare_address'] === undefined
+                    ? undefined
+                    : String(args['compare_address']),
+              },
+              args['version'] === undefined ? undefined : String(args['version'])
+            )
+            console.log(
+              opts.json ? JSON.stringify(result.structuredContent, null, 2) : result.summaryText
+            )
             return
           }
           const result = await client.callTool({ name: tool, arguments: args })
-          printMcpTextContent(result as { content?: Array<{ type: string; text?: string }> })
+          printMcpTextContent(
+            result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+            { tool, json: opts.json }
+          )
         })
       } catch (err) {
         const { formatMcpCallError } = await import('./mcp/tool-visibility.js')
@@ -776,7 +845,7 @@ mcpCommand.addCommand(
 // parseAsync (not parse) so a rejected async action surfaces as a clean
 // one-line error and a non-zero exit, instead of an unhandled-rejection stack
 // trace. Commands with their own try/catch still exit(1) before this fires.
-program.parseAsync(process.argv).catch((err) => {
+program.parseAsync(normalizeAmlToolVersionArgv(process.argv)).catch((err) => {
   console.error((err as Error).message)
   process.exit(1)
 })
