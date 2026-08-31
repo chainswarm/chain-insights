@@ -3,6 +3,20 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.26.0] - 2026-08-31 — change: scope tool discovery to networks
+
+The CLI now keeps address-risk screening under `cia mcp`. Network capability
+output reports only the tools advertised for each network by Chain Insights
+Graph.
+
+### Changed
+
+- Removed the root `cia aml-address-risk` command.
+- Added per-network tool discovery to `cia network <name>` and the network
+  capability tables.
+- Updated CLI, workspace, documentation, and skill examples for the current
+  `USE topology` and `USE facts` graph split.
+
 ## [0.25.0] - 2026-08-31 — feat: improve CLI output and tool versioning
 
 The CLI now presents graph results in a readable terminal format and supports

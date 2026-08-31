@@ -40,8 +40,7 @@ const installerFlags = rawArgs.filter(
 // remains the package version.
 function normalizeAmlToolVersionArgv(argv: string[]): string[] {
   const commandIndex = rawArgs.findIndex(
-    (arg, index) =>
-      arg === 'aml-address-risk' && (index === 0 || (index === 1 && rawArgs[0] === 'mcp'))
+    (arg, index) => arg === 'aml-address-risk' && index === 1 && rawArgs[0] === 'mcp'
   )
   if (commandIndex === -1) return argv
 
@@ -685,8 +684,6 @@ program
         }
       })
   )
-
-addAmlAddressRiskCommand(program, 'cia networks')
 
 const mcpCommand = program
   .command('mcp')

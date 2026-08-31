@@ -223,8 +223,8 @@ The address-grain graph schema:
 - The risk verdict lives on topology nodes (\`risk_score\`/\`risk_level\`),
   and labels and per-label risk live on the address node (\`labels\` array
   + \`label_risk\` entries). \`USE facts\` serves bounded individual
-  transfer rows and, until P3, address features. Facts address keys match
-  topology \`address\` values exactly. Do not read \`ml_*\`,
+  transfer rows only. Facts address keys match topology \`address\` values
+  exactly. Do not read \`ml_*\`,
   \`confluence_score\`, or \`pattern_flags\` off topology nodes — those
   properties do not exist.
 - \`(from:Address)-[t:TRANSFER]->(to:Address)\` on \`USE facts\` returns
@@ -246,7 +246,8 @@ Rules:
 - Use \`USE topology\` for topology (the address/FLOWS_TO/LINKED graph,
   covering unified recent and full historical activity in one graph, plus
   the node \`risk_score\`/\`risk_level\` verdict, and labels + per-label
-  risk) and \`USE facts\` for features, assets, and enrichment.
+  risk) and \`USE facts\` for bounded individual \`TRANSFER\` rows and their
+  amount, \`amount_usd\`, asset, transaction, and block facts.
   The \`LINKED\` ownership overlay is served on the topology graph only.
 - Preserve source schema field names in generated data files.
 - Do not rename, reinterpret, or add unit labels to graph fields unless the

@@ -38,7 +38,7 @@ addressRisk
 ## Run
 
 ```bash
-cia aml-address-risk \
+cia mcp aml-address-risk \
   --address 0x1234... \
   --network robinhood
 ```

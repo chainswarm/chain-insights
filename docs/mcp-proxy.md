@@ -91,8 +91,9 @@ Chain Insights presents this as local, prefixed metadata through
 `meta_network_capabilities`.
 
 The CLI keeps these catalogs distinct: `cia mcp tools` lists remote GraphRAG
-tools and caches that schema for 24 hours, while `cia mcp networks` reports the
-Chain Insights capability matrix, including local workflow and wallet tools.
+tools and caches that schema for 24 hours, while `cia networks` and
+`cia network <name>` report the network list and each network's advertised
+tools. `cia mcp networks` exposes the same full network capability matrix.
 Use `cia mcp tools --refresh` after a backend tool change.
 
 `meta_usage_status` is a Chain Insights proxy tool. On hosted Chain Insights Graph

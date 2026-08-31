@@ -53,7 +53,6 @@ const commandHelpPaths: string[][] = [
   ['mcp', 'call'],
   ['help'],
   ['help', 'network'],
-  ['aml-address-risk'],
 ]
 
 const incompleteCommandCases: Array<{ args: string[]; usage: string }> = [
@@ -71,7 +70,6 @@ const incompleteCommandCases: Array<{ args: string[]; usage: string }> = [
     usage: 'Usage: cia mcp aml-address-risk [options]',
   },
   { args: ['mcp', 'call'], usage: 'Usage: cia mcp call [options] <tool> [args...]' },
-  { args: ['aml-address-risk'], usage: 'Usage: cia aml-address-risk [options]' },
 ]
 
 describe('CLI scaffold (FOUND-02)', () => {
@@ -119,47 +117,46 @@ describe('CLI scaffold (FOUND-02)', () => {
   })
 
   it('AML risk commands expose JSON output and version selection', () => {
-    for (const path of [['aml-address-risk'], ['mcp', 'aml-address-risk']]) {
-      const out = execFileSync('node', ['--import', tsxLoader, srcCli, ...path, '--help'], {
-        encoding: 'utf8',
-      })
-      expect(out).toContain('--json')
-      expect(out).toContain('--version <version>')
-    }
+    const out = execFileSync(
+      'node',
+      ['--import', tsxLoader, srcCli, 'mcp', 'aml-address-risk', '--help'],
+      { encoding: 'utf8' }
+    )
+    expect(out).toContain('--json')
+    expect(out).toContain('--version <version>')
   })
 
   it('AML tool version is not swallowed by the package version flag', () => {
-    for (const path of [['aml-address-risk'], ['mcp', 'aml-address-risk']]) {
-      const helpResult = spawnSync(
-        'node',
-        ['--import', tsxLoader, srcCli, ...path, '--version', 'v1', '--help'],
-        { encoding: 'utf8' }
-      )
-      expect(helpResult.status).toBe(0)
-      expect(`${helpResult.stdout}\n${helpResult.stderr}`).toContain(`Usage: cia ${path.join(' ')}`)
-      expect(`${helpResult.stdout}\n${helpResult.stderr}`).not.toMatch(/^0\.24\.2$/m)
+    const path = ['mcp', 'aml-address-risk']
+    const helpResult = spawnSync(
+      'node',
+      ['--import', tsxLoader, srcCli, ...path, '--version', 'v1', '--help'],
+      { encoding: 'utf8' }
+    )
+    expect(helpResult.status).toBe(0)
+    expect(`${helpResult.stdout}\n${helpResult.stderr}`).toContain(`Usage: cia ${path.join(' ')}`)
+    expect(`${helpResult.stdout}\n${helpResult.stderr}`).not.toMatch(/^0\.24\.2$/m)
 
-      const result = spawnSync(
-        'node',
-        [
-          '--import',
-          tsxLoader,
-          srcCli,
-          ...path,
-          '--version',
-          'v2',
-          '--address',
-          '0xabc',
-          '--network',
-          'robinhood',
-        ],
-        { encoding: 'utf8' }
-      )
-      const output = `${result.stdout}\n${result.stderr}`
-      expect(result.status).toBe(1)
-      expect(output).toContain('Unsupported aml_address_risk version "v2"')
-      expect(output).not.toMatch(/^0\.24\.2$/m)
-    }
+    const result = spawnSync(
+      'node',
+      [
+        '--import',
+        tsxLoader,
+        srcCli,
+        ...path,
+        '--version',
+        'v2',
+        '--address',
+        '0xabc',
+        '--network',
+        'robinhood',
+      ],
+      { encoding: 'utf8' }
+    )
+    const output = `${result.stdout}\n${result.stderr}`
+    expect(result.status).toBe(1)
+    expect(output).toContain('Unsupported aml_address_risk version "v2"')
+    expect(output).not.toMatch(/^0\.24\.2$/m)
   })
 
   it('--help lists wallet subcommand', () => {
@@ -182,11 +179,21 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('networks')
   })
 
-  it('--help lists the direct AML address risk command', () => {
+  it('--help keeps AML address risk under the MCP command', () => {
     const out = execFileSync('node', ['--import', tsxLoader, srcCli, '--help'], {
       encoding: 'utf8',
     })
-    expect(out).toContain('aml-address-risk')
+    expect(out).not.toMatch(/^\s+aml-address-risk\b/m)
+  })
+
+  it('does not register the direct AML address risk command', () => {
+    const result = spawnSync(
+      process.execPath,
+      ['--import', tsxLoader, srcCli, 'aml-address-risk'],
+      { encoding: 'utf8' }
+    )
+    expect(result.status).not.toBe(0)
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/unknown command/i)
   })
 
   it.each(commandHelpPaths.map((path) => [path.join(' ') || '<root>', path] as const))(
