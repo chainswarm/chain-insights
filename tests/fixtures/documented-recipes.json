@@ -6,7 +6,7 @@
       "id": "recipe_facts_transfer_01",
       "query": "USE facts MATCH (from:Address {address: \"5CF6Ruq6u7DoF6TYxyaFzEuviWi7tjvJtz19XgPS2b7XDCFM\"})-[t:TRANSFER]->(to:Address) RETURN to.address AS to_address, t.tx_id AS tx_id, t.block_height AS block_height, t.amount_usd AS amount_usd, t.asset_symbol AS asset_symbol LIMIT 10",
       "layer": "facts",
-      "description": "Bounded row-select of individual TRANSFER edges by from_address (indexed predicate: address equality on the source endpoint) \u2014 fills the facts_transfers_view TRANSFER edge shape (internal epic).",
+      "description": "Bounded row-select of individual TRANSFER edges by from_address (indexed predicate: address equality on the source endpoint) — fills the facts_transfers_view TRANSFER edge shape (internal epic).",
       "features": [
         "fixed-hop",
         "transfer-edge",
@@ -17,7 +17,7 @@
       "id": "recipe_facts_transfer_02",
       "query": "USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.tx_id = \"8505939-10\" RETURN from.address AS from_address, to.address AS to_address, t.event_index AS event_index, t.edge_index AS edge_index, t.amount_usd AS amount_usd LIMIT 10",
       "layer": "facts",
-      "description": "Bounded row-select of TRANSFER edges by tx_id equality (indexed predicate: the TRANSFER edge's row-level key, since tx_id is an edge property rather than a node id) \u2014 fills the tx_id-predicate TRANSFER shape (internal epic).",
+      "description": "Bounded row-select of TRANSFER edges by tx_id equality (indexed predicate: the TRANSFER edge's row-level key, since tx_id is an edge property rather than a node id) — fills the tx_id-predicate TRANSFER shape (internal epic).",
       "features": [
         "fixed-hop",
         "transfer-edge",
@@ -28,7 +28,7 @@
       "id": "recipe_facts_transfer_03",
       "query": "USE facts MATCH (from:Address {address: \"5CF6Ruq6u7DoF6TYxyaFzEuviWi7tjvJtz19XgPS2b7XDCFM\"})-[t:TRANSFER]->(to:Address) RETURN count(t) AS transfer_count, sum(t.amount_usd) AS total_amount_usd LIMIT 1",
       "layer": "facts",
-      "description": "Bounded count()/sum() aggregate over TRANSFER edges anchored on an address endpoint (indexed predicate required for facts_transfers_view aggregates) \u2014 fills the TRANSFER count+sum aggregate shape (internal epic).",
+      "description": "Bounded count()/sum() aggregate over TRANSFER edges anchored on an address endpoint (indexed predicate required for facts_transfers_view aggregates) — fills the TRANSFER count+sum aggregate shape (internal epic).",
       "features": [
         "fixed-hop",
         "transfer-edge",
@@ -41,7 +41,7 @@
       "admits": false,
       "query": "USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) RETURN t.tx_id AS tx_id LIMIT 10",
       "layer": "facts",
-      "description": "Unbounded TRANSFER row-select with only a LIMIT and no indexed predicate \u2014 facts_transfers_view is a full transfer-history table, so a bare LIMIT does not bound the scan; rejected by the StarRocks cost-shape gate (internal epic).",
+      "description": "Unbounded TRANSFER row-select with only a LIMIT and no indexed predicate — facts_transfers_view is a full transfer-history table, so a bare LIMIT does not bound the scan; rejected by the StarRocks cost-shape gate (internal epic).",
       "features": [
         "fixed-hop",
         "transfer-edge"
@@ -52,7 +52,7 @@
       "admits": false,
       "query": "USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) RETURN count(t) AS transfer_count LIMIT 1",
       "layer": "facts",
-      "description": "Unbounded TRANSFER aggregate with no indexed predicate \u2014 StarRocks-backed aggregate graph queries require an indexed predicate; rejected by the cost-shape gate (internal epic).",
+      "description": "Unbounded TRANSFER aggregate with no indexed predicate — StarRocks-backed aggregate graph queries require an indexed predicate; rejected by the cost-shape gate (internal epic).",
       "features": [
         "fixed-hop",
         "transfer-edge",
@@ -184,7 +184,7 @@
       "id": "recipe_topology_16",
       "query": "USE topology MATCH path = (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO *BFS 1..5]->(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path LIMIT 5",
       "layer": "topology",
-      "description": "Direct-Memgraph reference (rejected by hosted path): native BFS path between two identities \u2014 retained as a negative/grammar-coverage shape",
+      "description": "Direct-Memgraph reference (rejected by hosted path): native BFS path between two identities — retained as a negative/grammar-coverage shape",
       "features": [
         "bfs",
         "variable-length",
@@ -197,7 +197,7 @@
       "id": "recipe_topology_17",
       "query": "USE topology MATCH path = (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO *WSHORTEST 5 (r, n | coalesce(r.amount_usd_sum, 1)) total_weight]->(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path, total_weight LIMIT 5",
       "layer": "topology",
-      "description": "Direct-Memgraph reference (rejected by hosted path): weighted shortest path minimizing summed amount_usd_sum weight \u2014 retained as a negative/grammar-coverage shape",
+      "description": "Direct-Memgraph reference (rejected by hosted path): weighted shortest path minimizing summed amount_usd_sum weight — retained as a negative/grammar-coverage shape",
       "features": [
         "wshortest",
         "shortest-path",
@@ -211,7 +211,7 @@
       "id": "recipe_topology_18",
       "query": "USE topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"}), (dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) WITH src, dst MATCH path = (src)-[:FLOWS_TO *KSHORTEST|3]->(dst) RETURN path LIMIT 3",
       "layer": "topology",
-      "description": "Direct-Memgraph reference (rejected by hosted path): K shortest (k=3) path alternatives between two identities \u2014 retained as a negative/grammar-coverage shape",
+      "description": "Direct-Memgraph reference (rejected by hosted path): K shortest (k=3) path alternatives between two identities — retained as a negative/grammar-coverage shape",
       "features": [
         "kshortest",
         "shortest-path",
@@ -236,7 +236,7 @@
       "id": "recipe_topology_20",
       "query": "USE topology MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[l:LINKED]-(owned:Address)-[r:FLOWS_TO]-(b:Address) WHERE owned.address <> b.address AND a.address <> b.address RETURN a.address AS subject_address, owned.address AS linked_via_address, b.address AS counterparty_address, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 25",
       "layer": "topology",
-      "description": "AC11: FLOWS_TO reachability UNIONed over one LINKED hop \u2014 actor-level exposure surfaced through an ownership-linked address, not only the subject's own edges",
+      "description": "AC11: FLOWS_TO reachability UNIONed over one LINKED hop — actor-level exposure surfaced through an ownership-linked address, not only the subject's own edges",
       "features": [
         "fixed-hop",
         "label-match",
@@ -247,11 +247,23 @@
       "id": "recipe_topology_21",
       "query": "USE topology MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[l:LINKED]-(b:Address) WHERE a.network <> b.network RETURN a.address AS address, a.network AS network, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 25",
       "layer": "topology",
-      "description": "AC5: cross-space LINKED probe \u2014 the only edge bridging the bittensor and bittensor_evm address-grain networks",
+      "description": "AC5: cross-space LINKED probe — the only edge bridging the bittensor and bittensor_evm address-grain networks",
       "features": [
         "fixed-hop",
         "label-match",
         "where-clause"
+      ]
+    },
+    {
+      "id": "recipe_topology_operated_by_01",
+      "query": "USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \"0xdd509c9f91f66a18802ef5b3d54c73b62ea1ca08\"}) RETURN owner.address AS owner_address, operation.tx_count AS tx_count, operation.amount_usd_sum AS amount_usd_sum, coalesce(operation.token_standard, \"mixed\") AS token_standard, operation.last_seen_timestamp AS last_seen_timestamp ORDER BY operation.tx_count DESC LIMIT 10",
+      "layer": "topology",
+      "description": "Canonical point-anchored OPERATED_BY probe (chain-insights#257): given one operator address, its top owners by mediated transfer count. Topology-only edge; anchored to a live high-fan-in operator verified 2026-09-01; zero rows is healthy.",
+      "features": [
+        "topology-edge",
+        "operated-by-edge",
+        "address-predicate",
+        "bounded-limit"
       ]
     }
   ]

@@ -56,6 +56,35 @@ describe('shipped Chain Insights skills contract', () => {
     expect(bittensor).not.toMatch(/public hosted MCP|mcp\.chain-insights\.ai/i)
   })
 
+  it('documents the OPERATED_BY owner-to-operator topology edge as topology-only and never as an automatic risk label', () => {
+    const evmSkill = read('skills/chain-insights-schema-evm/SKILL.md')
+    const graphTools = read('docs/graph-tools.md')
+    const compatibility = read('docs/graph-query-compatibility.md')
+    const combined = [evmSkill, graphTools, compatibility].join('\n')
+
+    // The relationship is named across the shipped surfaces.
+    expect(evmSkill).toContain('OPERATED_BY')
+    expect(graphTools).toContain('OPERATED_BY')
+    expect(compatibility).toContain('OPERATED_BY')
+
+    // The documented direction is owner to operator.
+    expect(evmSkill).toContain('(:Address)-[:OPERATED_BY]->(:Address)')
+    expect(combined).toMatch(/source is the (transfer )?owner/i)
+    expect(combined).toMatch(/destination is the approved operator/i)
+
+    // The relation is topology only — never served through USE facts.
+    expect(combined).not.toContain('USE facts MATCH (owner:Address)-[operation:OPERATED_BY]->')
+
+    // The canonical query is graph-scoped by the tool argument and bounded.
+    expect(graphTools).toContain('network=robinhood')
+    expect(graphTools).toMatch(/MATCH \(owner:Address\)-\[operation:OPERATED_BY\]->\(operator:Address \{address: \\?"0x/)
+    expect(graphTools).toMatch(/OPERATED_BY[\s\S]*?LIMIT 10/)
+
+    // The text never describes the relation as an automatic risk label.
+    expect(combined).not.toMatch(/OPERATED_BY (is |as an? )?(automatic |inherent )?(risk|drainer|scam) (label|verdict)/i)
+    expect(evmSkill).toMatch(/not proof of malicious intent/i)
+  })
+
   it('documents topology LINKED ownership-overlay probes wherever schema probes are shipped (LINKED is topology-only)', () => {
     const readme = read('README.md')
     const graphTools = read('docs/graph-tools.md')

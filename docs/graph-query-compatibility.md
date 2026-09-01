@@ -93,7 +93,8 @@ admission + bounds gate below. This includes clause- and pattern-level `WHERE`,
 `WITH` pipelines, `CASE`, `collect()`, temporal functions, `UNWIND`, map
 projections, `UNION`, and the full traversal surface. The topology graph serves
 `Address` nodes (with `risk_score`/`risk_level` always present), `FLOWS_TO`
-lifetime money-flow edges, the `LINKED` ownership overlay, `RISK_PROXIMITY`, and
+lifetime money-flow edges, `OPERATED_BY` operator-mediated topology edges (the
+next section), the `LINKED` ownership overlay, `RISK_PROXIMITY`, and
 a two-layer Bittensor neuron model: `(:Neuron {hotkey, netuid})` nodes labeled
 `:Miner` or `:Validator`, connected via `(:Neuron)-[:MINES|:VALIDATES]->(:Subnet
 {netuid, name, github_repo, url, discord, contact, owner_coldkey,
@@ -102,6 +103,81 @@ addresses to neurons; `(:Address)-[:OWNS]->(:Subnet)` marks subnet ownership;
 and on-chain identity properties (`chain_name`, `chain_url`, `chain_github`,
 `chain_discord`) live on `:Address` directly. Validator/miner roles are
 chain-evidence-derived, not registry labels.
+
+### `OPERATED_BY` — operator-mediated topology (topology only)
+
+`OPERATED_BY` is a directed topology relationship between two `Address` nodes:
+
+```text
+(:Address)-[:OPERATED_BY]->(:Address)
+    owner                         operator
+```
+
+The source is the transfer owner (`from_address`). The destination is the
+approved operator that executed the transfer (`operator_address`). One edge
+aggregates one owner/operator pair.
+
+Rules that follow from the grain:
+
+- Direct transfers with an empty `operator_address` create no edge.
+- ERC-20, ERC-721, and ERC-1155 transfers share the one relationship type.
+- `to_address` never participates in edge identity.
+- The relation is topology only. It is not available through `USE facts`.
+- It is a topology fact, not a risk verdict — see the caveat below.
+
+Edge aggregate properties (as the live backend provides them):
+
+| Property             | Meaning                                            |
+| -------------------- | -------------------------------------------------- |
+| `tx_count`           | Operator-mediated transfers in the aggregate.      |
+| `amount_usd_sum`     | Sum of priced transfer value in USD.               |
+| `first_seen_timestamp` / `last_seen_timestamp` | First and last transfer time (Unix milliseconds). |
+| `bucket_start_timestamp` / `bucket_end_timestamp` | Graph-shard window bounds, Unix milliseconds.     |
+| `token_standard`     | `ERC20`, `ERC721`, or `ERC1155` when the pair's transfers share one unambiguous standard. Absent when mixed. Optional — do not assume it is present. |
+| `owner_address` / `operator_address` / `pair_id` | Endpoint identity copied onto the edge.            |
+
+The canonical probe is point-anchored and sub-second on the hosted endpoint:
+given one operator address, its top owners. Scope comes from the tool's
+`network=robinhood` argument (it selects the graph — see the shared-graph
+model above), so no in-query network predicate is needed:
+
+```cypher
+USE topology
+MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: "0x…"})
+RETURN owner.address AS owner_address,
+       operation.tx_count AS tx_count,
+       operation.amount_usd_sum AS amount_usd_sum,
+       coalesce(operation.token_standard, "mixed") AS token_standard,
+       operation.last_seen_timestamp AS last_seen_timestamp
+ORDER BY operation.tx_count DESC
+LIMIT 10
+```
+
+The reverse direction — who an owner delegated to — swaps the anchor onto the
+owner node. A high owner count or transfer count on the probe result is an
+investigation lead, not a drainer
+accusation. Legitimate spend-permission contracts (routers, aggregators,
+sweepers) produce the same shape. `OPERATED_BY` carries no scam, victim, or
+risk label. Confirm with money-flow and label context before acting.
+
+The whole-graph high-fan-in sweep — every operator grouped by distinct owner
+count — is a valid shape but a heavy one: at millions of edges it exceeds the
+hosted per-query timeout (10 seconds by default). Bound it by a recent
+`last_seen_timestamp` window when the endpoint budget allows, or start from
+the point-anchored probe and expand along candidates:
+
+```cypher
+USE topology
+MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address)
+WHERE operation.last_seen_timestamp >= 1787631843154
+WITH operator,
+     count(DISTINCT owner) AS owner_count,
+     sum(operation.tx_count) AS transfer_count
+WHERE owner_count >= 1000
+RETURN operator.address AS operator_address, owner_count, transfer_count
+ORDER BY owner_count DESC
+LIMIT 25
+```
 
 ### Traversal (the expanded surface)
 
@@ -179,6 +255,7 @@ StarRocks. Use the topology graph, or restructure:
 | Construct                                              | Instead                                                    |
 | ------------------------------------------------------ | ---------------------------------------------------------- |
 | `FLOWS_TO` / money-flow traversal                      | The topology graph — facts never serves money flow         |
+| `OPERATED_BY`                                          | The topology graph — operator topology is topology-only    |
 | Native traversal (`*1..3`, `*BFS`, `*WSHORTEST`, …)    | The topology graph, or a single fixed-hop `LINKED` pattern |
 | `WITH` pipelines                                       | The topology graph                                         |
 | `CASE … END`                                           | The topology graph, or post-process client-side            |

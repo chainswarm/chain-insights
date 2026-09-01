@@ -95,6 +95,36 @@ cia mcp call graph_query_batch \
   'queries=[{"id":"count","query":"USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"flows","query":"USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 3"},{"id":"linked","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"}]'
 ```
 
+## Operator topology recipe
+
+`OPERATED_BY` is the owner-to-operator topology edge: the approved operator
+that executed a transfer on the owner's behalf. Use it to see who delegated
+to an operator, and how much moved — the shape behind drainer
+investigations. It is topology-only and carries no risk label; a high owner
+count alone is not an accusation.
+
+The hosted-endpoint recipe is point-anchored and sub-second. Pass
+`network=robinhood` explicitly — the tool argument scopes the graph — and
+own the `LIMIT`:
+
+```bash
+cia mcp call graph_query \
+  network=robinhood \
+  "query=USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \"0x…\"}) RETURN owner.address AS owner_address, operation.tx_count AS tx_count, operation.amount_usd_sum AS amount_usd_sum, coalesce(operation.token_standard, \"mixed\") AS token_standard, operation.last_seen_timestamp AS last_seen_timestamp ORDER BY operation.tx_count DESC LIMIT 10"
+```
+
+Notes:
+
+- Use `USE topology`. `OPERATED_BY` is not available on `USE facts`.
+- Zero rows is a healthy result — the address simply has no mediated
+  transfers.
+- Whole-graph high-fan-in sweeps (every operator grouped by distinct owner)
+  are valid but heavy; at millions of edges they exceed the hosted 10-second
+  per-query budget. See `docs/graph-query-compatibility.md` for the
+  time-bounded sweep shape.
+- Confirm any lead with `FLOWS_TO` money-flow context and address labels
+  before drawing conclusions.
+
 Batch calls reserve worst-case execution time from their timeout settings. On
 public hosted endpoints, they can ask for paid x402 access even when a small
 free-tier allowance remains.
