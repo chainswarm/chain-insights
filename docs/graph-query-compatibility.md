@@ -127,14 +127,14 @@ Rules that follow from the grain:
 
 Edge aggregate properties (as the live backend provides them):
 
-| Property             | Meaning                                            |
-| -------------------- | -------------------------------------------------- |
-| `tx_count`           | Operator-mediated transfers in the aggregate.      |
-| `amount_usd_sum`     | Sum of priced transfer value in USD.               |
-| `first_seen_timestamp` / `last_seen_timestamp` | First and last transfer time (Unix milliseconds). |
-| `bucket_start_timestamp` / `bucket_end_timestamp` | Graph-shard window bounds, Unix milliseconds.     |
-| `token_standard`     | `ERC20`, `ERC721`, or `ERC1155` when the pair's transfers share one unambiguous standard. Absent when mixed. Optional — do not assume it is present. |
-| `owner_address` / `operator_address` / `pair_id` | Endpoint identity copied onto the edge.            |
+| Property                                          | Meaning                                                                                                                                              |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tx_count`                                        | Operator-mediated transfers in the aggregate.                                                                                                        |
+| `amount_usd_sum`                                  | Sum of priced transfer value in USD.                                                                                                                 |
+| `first_seen_timestamp` / `last_seen_timestamp`    | First and last transfer time (Unix milliseconds).                                                                                                    |
+| `bucket_start_timestamp` / `bucket_end_timestamp` | Graph-shard window bounds, Unix milliseconds.                                                                                                        |
+| `token_standard`                                  | `ERC20`, `ERC721`, or `ERC1155` when the pair's transfers share one unambiguous standard. Absent when mixed. Optional — do not assume it is present. |
+| `owner_address` / `operator_address` / `pair_id`  | Endpoint identity copied onto the edge.                                                                                                              |
 
 The canonical probe is point-anchored and sub-second on the hosted endpoint:
 given one operator address, its top owners. Scope comes from the tool's

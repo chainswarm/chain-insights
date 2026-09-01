@@ -21,12 +21,12 @@ Load `chain-insights-cypher` for Memgraph dialect rules.
 
 ## Topology relationships
 
-| Relationship     | Shape                                    | Meaning                                        |
-| ---------------- | ---------------------------------------- | ---------------------------------------------- |
-| `FLOWS_TO`       | `(:Address)-[:FLOWS_TO]->(:Address)`     | Lifetime money flow. Directed.                 |
-| `OPERATED_BY`    | `(:Address)-[:OPERATED_BY]->(:Address)`  | Owner to approved operator. Directed. Topology only. |
-| `LINKED`         | `(:Address)-[:LINKED]-(:Address)`        | Same-actor overlay. Undirected. Topology only. |
-| `RISK_PROXIMITY` | address-to-address                       | Nearby risk. Do not treat as money flow.       |
+| Relationship     | Shape                                   | Meaning                                              |
+| ---------------- | --------------------------------------- | ---------------------------------------------------- |
+| `FLOWS_TO`       | `(:Address)-[:FLOWS_TO]->(:Address)`    | Lifetime money flow. Directed.                       |
+| `OPERATED_BY`    | `(:Address)-[:OPERATED_BY]->(:Address)` | Owner to approved operator. Directed. Topology only. |
+| `LINKED`         | `(:Address)-[:LINKED]-(:Address)`       | Same-actor overlay. Undirected. Topology only.       |
+| `RISK_PROXIMITY` | address-to-address                      | Nearby risk. Do not treat as money flow.             |
 
 `LINKED` is topology-only. Do not query it on facts.
 
@@ -69,14 +69,14 @@ edge. ERC-20, ERC-721, and ERC-1155 share this relationship type.
 
 Topology only. Do not query `OPERATED_BY` on facts.
 
-| Property                                       | Notes                                            |
-| ---------------------------------------------- | ------------------------------------------------ |
-| `tx_count`                                     | Operator-mediated transfers in the aggregate.    |
-| `amount_usd_sum`                               | Lifetime USD through the operator.               |
-| `first_seen_timestamp` / `last_seen_timestamp` | First and last mediated transfer.                |
-| `bucket_start_timestamp` / `bucket_end_timestamp` | Graph-shard window bounds, milliseconds.      |
-| `token_standard`                               | `ERC20`/`ERC721`/`ERC1155` when unambiguous. Optional — mixed-standard pairs omit it. |
-| `owner_address` / `operator_address` / `pair_id` | Endpoint identity on the edge.                 |
+| Property                                          | Notes                                                                                 |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `tx_count`                                        | Operator-mediated transfers in the aggregate.                                         |
+| `amount_usd_sum`                                  | Lifetime USD through the operator.                                                    |
+| `first_seen_timestamp` / `last_seen_timestamp`    | First and last mediated transfer.                                                     |
+| `bucket_start_timestamp` / `bucket_end_timestamp` | Graph-shard window bounds, milliseconds.                                              |
+| `token_standard`                                  | `ERC20`/`ERC721`/`ERC1155` when unambiguous. Optional — mixed-standard pairs omit it. |
+| `owner_address` / `operator_address` / `pair_id`  | Endpoint identity on the edge.                                                        |
 
 `OPERATED_BY` is a topology fact. It is not proof of malicious intent and
 carries no risk label. Routers, aggregators, and sweepers look like drainers

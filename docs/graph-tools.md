@@ -39,7 +39,7 @@ primitive-backend status instead.
 
 - `network` is required. Do not guess it in agent workflows.
 - GQL/Cypher must be read-only.
-- Use `USE topology` for topology (the address / FLOWS_TO / LINKED graph,
+- Use `USE topology` for topology (the address / FLOWS_TO / OPERATED_BY / LINKED graph,
   covering unified recent and full historical activity in one graph, plus the
   node `risk_score`/`risk_level` verdict).
 - Use `USE facts` for bounded individual `TRANSFER` rows and their amount,
@@ -95,6 +95,26 @@ cia mcp call graph_query_batch \
   'queries=[{"id":"count","query":"USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"flows","query":"USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 3"},{"id":"linked","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"}]'
 ```
 
+Batch calls reserve worst-case execution time from their timeout settings. On
+public hosted endpoints, they can ask for paid x402 access even when a small
+free-tier allowance remains.
+
+Batch result facts include:
+
+```json
+{
+  "batch": {
+    "count": 2,
+    "completed": 2,
+    "failed": 0,
+    "per_query_timeout_seconds": 10,
+    "total_query_elapsed_ms": 1345,
+    "billable_seconds": 2,
+    "estimated_usdc": "0.02"
+  }
+}
+```
+
 ## Operator topology recipe
 
 `OPERATED_BY` is the owner-to-operator topology edge: the approved operator
@@ -124,26 +144,6 @@ Notes:
   time-bounded sweep shape.
 - Confirm any lead with `FLOWS_TO` money-flow context and address labels
   before drawing conclusions.
-
-Batch calls reserve worst-case execution time from their timeout settings. On
-public hosted endpoints, they can ask for paid x402 access even when a small
-free-tier allowance remains.
-
-Batch result facts include:
-
-```json
-{
-  "batch": {
-    "count": 2,
-    "completed": 2,
-    "failed": 0,
-    "per_query_timeout_seconds": 10,
-    "total_query_elapsed_ms": 1345,
-    "billable_seconds": 2,
-    "estimated_usdc": "0.02"
-  }
-}
-```
 
 ## Address Risk
 
@@ -202,7 +202,7 @@ Useful schema probes:
 cia mcp call graph_query_batch \
   network=robinhood \
   per_query_timeout_seconds=5 \
-  'queries=[{"id":"address_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level, a.is_exchange AS is_exchange LIMIT 10"},{"id":"flow_sample","query":"USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"node_metric_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.tx_out_count AS tx_out_count LIMIT 10"}]'
+  'queries=[{"id":"address_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level, a.is_exchange AS is_exchange LIMIT 10"},{"id":"flow_sample","query":"USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"operated_by_sample","query":"USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \"0x...\"}) RETURN owner.address AS owner_address, operation.tx_count AS tx_count, operation.amount_usd_sum AS amount_usd_sum LIMIT 10"},{"id":"node_metric_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.tx_out_count AS tx_out_count LIMIT 10"}]'
 ```
 
 Use endpoint-safe property projections like `a.address` and `flow.tx_count`

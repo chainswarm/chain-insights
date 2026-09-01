@@ -77,11 +77,15 @@ describe('shipped Chain Insights skills contract', () => {
 
     // The canonical query is graph-scoped by the tool argument and bounded.
     expect(graphTools).toContain('network=robinhood')
-    expect(graphTools).toMatch(/MATCH \(owner:Address\)-\[operation:OPERATED_BY\]->\(operator:Address \{address: \\?"0x/)
+    expect(graphTools).toMatch(
+      /MATCH \(owner:Address\)-\[operation:OPERATED_BY\]->\(operator:Address \{address: \\?"0x/
+    )
     expect(graphTools).toMatch(/OPERATED_BY[\s\S]*?LIMIT 10/)
 
     // The text never describes the relation as an automatic risk label.
-    expect(combined).not.toMatch(/OPERATED_BY (is |as an? )?(automatic |inherent )?(risk|drainer|scam) (label|verdict)/i)
+    expect(combined).not.toMatch(
+      /OPERATED_BY (is |as an? )?(automatic |inherent )?(risk|drainer|scam) (label|verdict)/i
+    )
     expect(evmSkill).toMatch(/not proof of malicious intent/i)
   })
 

@@ -173,11 +173,11 @@ Before the first investigation query, capture the live graph schema into:
 \`\`\`
 
 Use \`graph_query_batch\` for schema capture. Prefix topology reads with
-\`USE topology\` (address/FLOWS_TO/LINKED graph, unified recent+historical)
+\`USE topology\` (address/FLOWS_TO/OPERATED_BY/LINKED graph, unified recent+historical)
 and fact reads with \`USE facts\`, for example:
 
 \`\`\`bash
-cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE topology MATCH (n:Address) RETURN \\"Address\\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"flow_sample","query":"USE topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 20"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 20"}]'
+cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE topology MATCH (n:Address) RETURN \\"Address\\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"flow_sample","query":"USE topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 20"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 20"}{"id":"operated_by_sample","query":"USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \\\"0x...\\\"}) RETURN owner.address AS owner_address, operation.tx_count AS tx_count, operation.amount_usd_sum AS amount_usd_sum LIMIT 20"}}]'
 \`\`\`
 
 Then update this file with observed labels, relationship types, and allowed
@@ -244,7 +244,7 @@ Rules:
 - Prefer \`graph_query\` and \`graph_query_batch\` for graph-language reads.
 - The graph choice stays inside the query via \`USE ...\`; there is no
   tool argument to select a graph.
-- Use \`USE topology\` for topology (the address/FLOWS_TO/LINKED graph,
+- Use \`USE topology\` for topology (the address/FLOWS_TO/OPERATED_BY/LINKED graph,
   covering unified recent and full historical activity in one graph, plus
   the node \`risk_score\`/\`risk_level\` verdict, and labels + per-label
   risk) and \`USE facts\` for bounded individual \`TRANSFER\` rows and their
