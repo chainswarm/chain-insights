@@ -2,6 +2,12 @@
 # Changelog
 
 All notable changes to Chain Insights are recorded here.
+## [0.27.5] - 2026-09-01 — fix: emit valid workspace query JSON
+
+### Fixed
+
+- Workspace initialization now preserves valid JSON quoting in its generated node-label query example.
+
 ## [0.27.4] - 2026-08-31 — ci: make docs self-contained
 
 ### Changed
