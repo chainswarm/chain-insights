@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" role="img" aria-labelledby="journey-title journey-desc">
+  <title id="journey-title">Chain Insights investigation journey</title>
+  <desc id="journey-desc">A four-step flow from a blockchain address through risk screening and fund-flow tracing to structured evidence.</desc>
+  <defs>
+    <linearGradient id="journey-background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#081426"/>
+      <stop offset="0.55" stop-color="#10264a"/>
+      <stop offset="1" stop-color="#173d5f"/>
+    </linearGradient>
+    <linearGradient id="journey-accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#818cf8"/>
+    </linearGradient>
+    <filter id="journey-shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#020617" flood-opacity="0.3"/>
+    </filter>
+    <marker id="journey-arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
+      <path d="M 1 1 L 11 6 L 1 11 z" fill="#7dd3fc"/>
+    </marker>
+    <pattern id="journey-dots" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.5" fill="#ffffff" opacity="0.09"/>
+    </pattern>
+    <style>
+      text { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .eyebrow { fill: #7dd3fc; font-size: 17px; font-weight: 750; letter-spacing: 2.2px; }
+      .heading { fill: #f8fafc; font-size: 42px; font-weight: 800; letter-spacing: -1px; }
+      .subheading { fill: #cbd5e1; font-size: 20px; font-weight: 500; }
+      .step-number { fill: #082f49; font-size: 18px; font-weight: 850; text-anchor: middle; dominant-baseline: middle; }
+      .card-title { fill: #f8fafc; font-size: 27px; font-weight: 800; }
+      .card-copy { fill: #cbd5e1; font-size: 19px; font-weight: 500; }
+      .code { fill: #e0f2fe; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 16px; font-weight: 650; }
+      .pill { fill: #dbeafe; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 16px; font-weight: 700; }
+      .footer { fill: #bae6fd; font-size: 17px; font-weight: 650; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="640" rx="32" fill="url(#journey-background)"/>
+  <rect width="1200" height="640" rx="32" fill="url(#journey-dots)"/>
+  <rect x="58" y="36" width="256" height="34" rx="17" fill="#0c4a6e" stroke="#38bdf8" stroke-opacity="0.55"/>
+  <text x="78" y="59" class="eyebrow">CHAIN INSIGHTS</text>
+  <text x="58" y="119" class="heading">Turn an address into clear evidence</text>
+  <text x="58" y="153" class="subheading">Screen risk. Trace fund flows. Keep the facts structured.</text>
+
+  <path d="M 280 335 H 342" fill="none" stroke="#7dd3fc" stroke-width="5" stroke-linecap="round" marker-end="url(#journey-arrow)"/>
+  <path d="M 562 335 H 624" fill="none" stroke="#7dd3fc" stroke-width="5" stroke-linecap="round" marker-end="url(#journey-arrow)"/>
+  <path d="M 844 335 H 906" fill="none" stroke="#7dd3fc" stroke-width="5" stroke-linecap="round" marker-end="url(#journey-arrow)"/>
+
+  <g filter="url(#journey-shadow)">
+    <rect x="58" y="190" width="222" height="292" rx="24" fill="#101d34" stroke="#38bdf8" stroke-width="2"/>
+    <rect x="340" y="190" width="222" height="292" rx="24" fill="#101d34" stroke="#34d399" stroke-width="2"/>
+    <rect x="622" y="190" width="222" height="292" rx="24" fill="#101d34" stroke="#a78bfa" stroke-width="2"/>
+    <rect x="904" y="190" width="238" height="292" rx="24" fill="#101d34" stroke="#fbbf24" stroke-width="2"/>
+  </g>
+
+  <g>
+    <circle cx="92" cy="226" r="19" fill="#7dd3fc"/>
+    <text x="92" y="227" class="step-number">1</text>
+    <text x="82" y="278" class="card-title">Address</text>
+    <text x="82" y="317" class="card-copy">Start with one</text>
+    <text x="82" y="344" class="card-copy">blockchain address</text>
+    <rect x="82" y="383" width="174" height="50" rx="12" fill="#082f49"/>
+    <text x="98" y="414" class="code">0x… or SS58</text>
+  </g>
+
+  <g>
+    <circle cx="374" cy="226" r="19" fill="#6ee7b7"/>
+    <text x="374" y="227" class="step-number">2</text>
+    <text x="364" y="278" class="card-title">Screen</text>
+    <text x="364" y="317" class="card-copy">Check risk and</text>
+    <text x="364" y="344" class="card-copy">nearby exposure</text>
+    <rect x="364" y="383" width="174" height="50" rx="12" fill="#064e3b"/>
+    <text x="379" y="414" class="code">aml_address_risk</text>
+  </g>
+
+  <g>
+    <circle cx="656" cy="226" r="19" fill="#c4b5fd"/>
+    <text x="656" y="227" class="step-number">3</text>
+    <text x="646" y="278" class="card-title">Trace</text>
+    <text x="646" y="317" class="card-copy">Follow flows and</text>
+    <text x="646" y="344" class="card-copy">linked addresses</text>
+    <rect x="646" y="383" width="174" height="50" rx="12" fill="#3b0764"/>
+    <text x="662" y="405" class="code">topology</text>
+    <text x="662" y="425" class="code">facts</text>
+  </g>
+
+  <g>
+    <circle cx="938" cy="226" r="19" fill="#fde68a"/>
+    <text x="938" y="227" class="step-number">4</text>
+    <text x="928" y="278" class="card-title">Evidence</text>
+    <text x="928" y="317" class="card-copy">Return structured</text>
+    <text x="928" y="344" class="card-copy">facts and usage</text>
+    <rect x="928" y="383" width="190" height="50" rx="12" fill="#713f12"/>
+    <text x="945" y="405" class="code">risk • paths</text>
+    <text x="945" y="425" class="code">billable units</text>
+  </g>
+
+  <rect x="58" y="524" width="520" height="54" rx="16" fill="#0c4a6e" stroke="#38bdf8" stroke-opacity="0.55"/>
+  <text x="82" y="557" class="pill">cia workflow aml-address-risk</text>
+  <rect x="600" y="524" width="542" height="54" rx="16" fill="#312e81" stroke="#818cf8" stroke-opacity="0.7"/>
+  <text x="624" y="557" class="pill">MCP tools for AI agents</text>
+  <text x="58" y="615" class="footer">Read-only graph access • Investigation data stays with the caller</text>
+</svg>

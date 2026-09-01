@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" role="img" aria-labelledby="architecture-title architecture-desc">
+  <title id="architecture-title">Chain Insights product architecture</title>
+  <desc id="architecture-desc">The chain-insights npm package provides a command-line interface and an MCP proxy. Both use local configuration and an optional wallet to read topology and facts from Chain Insights Graph.</desc>
+  <defs>
+    <linearGradient id="architecture-background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="0.55" stop-color="#eff6ff"/>
+      <stop offset="1" stop-color="#eef2ff"/>
+    </linearGradient>
+    <linearGradient id="architecture-package" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f3b66"/>
+      <stop offset="1" stop-color="#075985"/>
+    </linearGradient>
+    <filter id="architecture-shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.14"/>
+    </filter>
+    <marker id="architecture-arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 1 1 L 11 6 L 1 11 z" fill="#0369a1"/>
+    </marker>
+    <style>
+      text { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .eyebrow { fill: #0369a1; font-size: 17px; font-weight: 800; letter-spacing: 2px; }
+      .heading { fill: #0f172a; font-size: 40px; font-weight: 820; letter-spacing: -0.8px; }
+      .subheading { fill: #475569; font-size: 20px; font-weight: 500; }
+      .card-label { fill: #475569; font-size: 16px; font-weight: 800; letter-spacing: 1.2px; }
+      .card-title { fill: #0f172a; font-size: 24px; font-weight: 820; }
+      .card-copy { fill: #475569; font-size: 17px; font-weight: 520; }
+      .package-label { fill: #bae6fd; font-size: 16px; font-weight: 800; letter-spacing: 1.2px; }
+      .package-title { fill: #ffffff; font-size: 25px; font-weight: 820; }
+      .package-copy { fill: #dbeafe; font-size: 17px; font-weight: 550; }
+      .agent-title { fill: #0f172a; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 21px; font-weight: 800; }
+      .graph-label { fill: #bae6fd; font-size: 13px; font-weight: 800; letter-spacing: 1px; }
+      .graph-title { fill: #ffffff; font-size: 23px; font-weight: 820; }
+      .graph-copy { fill: #dbeafe; font-size: 15px; font-weight: 600; }
+      .code { fill: #0c4a6e; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 18px; font-weight: 750; }
+      .code-small { fill: #312e81; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 17px; font-weight: 750; }
+      .flow-label { fill: #0369a1; font-size: 15px; font-weight: 750; text-anchor: middle; }
+      .footer { fill: #334155; font-size: 17px; font-weight: 650; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="720" rx="32" fill="url(#architecture-background)"/>
+  <circle cx="1104" cy="82" r="115" fill="#bfdbfe" opacity="0.42"/>
+  <circle cx="1127" cy="60" r="63" fill="#c4b5fd" opacity="0.38"/>
+  <text x="52" y="52" class="eyebrow">ONE PACKAGE • TWO ENTRY POINTS</text>
+  <text x="52" y="105" class="heading">A small client for a powerful graph</text>
+  <text x="52" y="139" class="subheading">The CLI and MCP proxy share the same safe path to investigation facts.</text>
+
+  <path d="M 270 300 C 298 300 298 235 328 235" fill="none" stroke="#0369a1" stroke-width="4" stroke-linecap="round" marker-end="url(#architecture-arrow)"/>
+  <path d="M 270 300 C 298 300 298 395 328 395" fill="none" stroke="#0369a1" stroke-width="4" stroke-linecap="round" marker-end="url(#architecture-arrow)"/>
+  <path d="M 630 235 C 654 235 654 300 678 300" fill="none" stroke="#0369a1" stroke-width="4" stroke-linecap="round" marker-end="url(#architecture-arrow)"/>
+  <path d="M 630 395 C 654 395 654 300 678 300" fill="none" stroke="#0369a1" stroke-width="4" stroke-linecap="round" marker-end="url(#architecture-arrow)"/>
+  <path d="M 890 300 H 948" fill="none" stroke="#0369a1" stroke-width="4" stroke-linecap="round" marker-end="url(#architecture-arrow)"/>
+  <path d="M 1060 394 V 462" fill="none" stroke="#0369a1" stroke-width="4" stroke-linecap="round"/>
+  <path d="M 1060 462 H 925 V 497" fill="none" stroke="#0369a1" stroke-width="4" stroke-linecap="round" marker-end="url(#architecture-arrow)"/>
+  <path d="M 1060 462 H 1100 V 497" fill="none" stroke="#0369a1" stroke-width="4" stroke-linecap="round" marker-end="url(#architecture-arrow)"/>
+
+  <g filter="url(#architecture-shadow)">
+    <rect x="40" y="214" width="230" height="172" rx="24" fill="url(#architecture-package)"/>
+    <rect x="330" y="170" width="300" height="130" rx="22" fill="#ffffff" stroke="#38bdf8" stroke-width="2"/>
+    <rect x="330" y="322" width="300" height="146" rx="22" fill="#ffffff" stroke="#818cf8" stroke-width="2"/>
+    <rect x="680" y="214" width="210" height="172" rx="24" fill="#ffffff" stroke="#34d399" stroke-width="2"/>
+    <rect x="950" y="206" width="220" height="188" rx="26" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
+    <rect x="840" y="500" width="170" height="104" rx="20" fill="#e0f2fe" stroke="#0284c7" stroke-width="2"/>
+    <rect x="1030" y="500" width="140" height="104" rx="20" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+  </g>
+
+  <text x="64" y="250" class="package-label">NPM PACKAGE</text>
+  <text x="64" y="292" class="package-title">chain-insights</text>
+  <text x="64" y="327" class="package-copy">Install once.</text>
+  <text x="64" y="351" class="package-copy">Use from any folder.</text>
+
+  <text x="354" y="204" class="card-label">HUMAN ENTRY</text>
+  <text x="354" y="246" class="card-title">cia CLI</text>
+  <text x="354" y="276" class="code">cia workflow …</text>
+
+  <text x="354" y="356" class="card-label">AGENT ENTRY</text>
+  <text x="354" y="397" class="agent-title">chain-insights-</text>
+  <text x="354" y="423" class="agent-title">mcp-proxy</text>
+  <text x="354" y="450" class="card-copy">stdio tools for AI agents</text>
+
+  <text x="704" y="252" class="card-label">LOCAL CONTROL</text>
+  <text x="704" y="293" class="card-title">Config</text>
+  <text x="704" y="321" class="card-copy">Graph endpoint</text>
+  <line x1="704" y1="340" x2="866" y2="340" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="704" y="371" class="card-title">Wallet</text>
+
+  <text x="974" y="235" class="graph-label">READ-ONLY</text>
+  <text x="974" y="252" class="graph-label">GRAPH ACCESS</text>
+  <text x="974" y="292" class="graph-title">Chain Insights</text>
+  <text x="974" y="325" class="graph-title">Graph</text>
+  <text x="974" y="361" class="graph-copy">Hosted graph tools</text>
+
+  <text x="925" y="539" class="code" text-anchor="middle">topology</text>
+  <text x="925" y="568" class="card-copy" text-anchor="middle">Risk and flows</text>
+  <text x="1100" y="539" class="code-small" text-anchor="middle">facts</text>
+  <text x="1100" y="568" class="card-copy" text-anchor="middle">Transfers</text>
+
+  <text x="299" y="225" class="flow-label">run</text>
+  <text x="648" y="207" class="flow-label">read</text>
+  <text x="920" y="284" class="flow-label">call</text>
+
+  <rect x="164" y="646" width="872" height="44" rx="22" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="600" y="674" class="footer">No graph writes • No hosted case database • Investigation data stays with the caller</text>
+</svg>
