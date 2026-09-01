@@ -177,7 +177,7 @@ Use \`graph_query_batch\` for schema capture. Prefix topology reads with
 and fact reads with \`USE facts\`, for example:
 
 \`\`\`bash
-cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE topology MATCH (n:Address) RETURN \"Address\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"flow_sample","query":"USE topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 20"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 20"}]'
+cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE topology MATCH (n:Address) RETURN \\"Address\\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"flow_sample","query":"USE topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 20"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 20"}]'
 \`\`\`
 
 Then update this file with observed labels, relationship types, and allowed
