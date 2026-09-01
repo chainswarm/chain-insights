@@ -62,31 +62,62 @@ describe('shipped Chain Insights skills contract', () => {
     const compatibility = read('docs/graph-query-compatibility.md')
     const combined = [evmSkill, graphTools, compatibility].join('\n')
 
-    // The relationship is named across the shipped surfaces.
-    expect(evmSkill).toContain('OPERATED_BY')
-    expect(graphTools).toContain('OPERATED_BY')
-    expect(compatibility).toContain('OPERATED_BY')
+    // The relationship is named across the shipped surfaces, including the
+    // runtime MCP instructions and the dialect skill agents load first.
+    for (const surface of [evmSkill, graphTools, compatibility]) {
+      expect(surface).toContain('OPERATED_BY')
+    }
+    expect(read('skills/chain-insights-cypher/SKILL.md')).toContain('`OPERATED_BY`')
+    expect(read('src/mcp/proxy.ts')).toContain('(:Address)-[:OPERATED_BY]->(:Address)')
+    expect(read('src/workspace/init.ts')).toContain('operated_by_sample')
+    expect(read('src/workspace/init.ts')).toContain('OPERATED_BY]->(operator:Address {address:')
 
     // The documented direction is owner to operator.
     expect(evmSkill).toContain('(:Address)-[:OPERATED_BY]->(:Address)')
     expect(combined).toMatch(/source is the (transfer )?owner/i)
     expect(combined).toMatch(/destination is the approved operator/i)
 
-    // The relation is topology only — never served through USE facts.
-    expect(combined).not.toContain('USE facts MATCH (owner:Address)-[operation:OPERATED_BY]->')
+    // The relation is topology only — never served through USE facts, on any
+    // variable spelling, and named in the facts-rejection enumerations.
+    expect(combined).not.toMatch(/USE facts MATCH[^"\n]*OPERATED_BY/)
+    expect(read('skills/chain-insights-cypher/SKILL.md')).toMatch(
+      /Facts rejects[^.\n]*`OPERATED_BY`/
+    )
 
-    // The canonical query is graph-scoped by the tool argument and bounded.
-    expect(graphTools).toContain('network=robinhood')
+    // The canonical probe is pinned on the shipped recipe fixture: anchored
+    // by an exact operator address, projecting the aggregate contract, and
+    // bounded by LIMIT. The graph-tools CLI example carries the same anchor.
+    const recipes = JSON.parse(read('tests/fixtures/documented-recipes.json')) as {
+      recipes: { id: string; query: string; layer: string }[]
+    }
+    const probe = recipes.recipes.find((r) => r.id === 'recipe_topology_operated_by_01')
+    expect(probe).toBeDefined()
+    expect(probe!.layer).toBe('topology')
+    expect(probe!.query).toContain(
+      'MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: "0x'
+    )
+    expect(probe!.query).toContain('ORDER BY operation.tx_count DESC LIMIT 10')
+    expect(probe!.query).toContain('coalesce(operation.token_standard, "mixed")')
     expect(graphTools).toMatch(
       /MATCH \(owner:Address\)-\[operation:OPERATED_BY\]->\(operator:Address \{address: \\?"0x/
     )
-    expect(graphTools).toMatch(/OPERATED_BY[\s\S]*?LIMIT 10/)
 
-    // The text never describes the relation as an automatic risk label.
+    // The shipped batch examples carry the named probe, anchored.
+    expect(graphTools).toContain('"id":"operated_by_sample"')
+    expect(graphTools).toContain('OPERATED_BY]->(operator:Address {address:')
+
+    // The unanchored sweep scopes both endpoints by the network property.
+    expect(compatibility).toMatch(
+      /MATCH \(owner:Address\)-\[operation:OPERATED_BY\]->\(operator:Address\)[\s\S]{0,200}WHERE owner\.network = "robinhood"[\s\S]{0,200}AND operator\.network = "robinhood"/
+    )
+
+    // The text never describes the relation as a risk signal, in any of the
+    // phrasings a doc edit would realistically introduce.
     expect(combined).not.toMatch(
-      /OPERATED_BY (is |as an? )?(automatic |inherent )?(risk|drainer|scam) (label|verdict)/i
+      /OPERATED_BY[^.\n]{0,80}(risk (label|signal|verdict)|drainer|scam (label|signal))/i
     )
     expect(evmSkill).toMatch(/not proof of malicious intent/i)
+    expect(read('src/mcp/proxy.ts')).toContain('not a risk label')
   })
 
   it('documents topology LINKED ownership-overlay probes wherever schema probes are shipped (LINKED is topology-only)', () => {

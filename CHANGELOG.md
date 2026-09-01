@@ -18,7 +18,6 @@ All notable changes to Chain Insights are recorded here.
   canonical high-fan-in operator query, and the not-a-risk-label caveat.
 - Contract test pinning the documented direction, network scoping, bounds,
   and the absence of any automatic risk-label claim.
->>>>>>> 898444e (feat: OPERATED_BY operator topology surface)
 
 ## [0.27.4] - 2026-08-31 — ci: make docs self-contained
 

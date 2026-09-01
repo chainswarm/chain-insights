@@ -82,8 +82,10 @@ Topology only. Do not query `OPERATED_BY` on facts.
 carries no risk label. Routers, aggregators, and sweepers look like drainers
 on owner count alone. Confirm with `FLOWS_TO` and label context.
 
-Point-anchored probe (sub-second on the hosted endpoint; the `network`
-tool argument does the scoping, so no in-query network predicate):
+Point-anchored probe (sub-second on the hosted endpoint). It needs no
+network predicate for the same reason any exact-address lookup does not: the
+address is already a unique key, so the match cannot leave the selected
+address space:
 
 ```cypher
 USE topology
@@ -98,9 +100,11 @@ LIMIT 10
 ```
 
 Call that probe `operated_by_sample` in `graph_query_batch`. Zero rows is a
-healthy result. Whole-graph high-fan-in sweeps are valid but heavy; see
-`docs/graph-query-compatibility.md` for the bounded shape and its scale
-caveat.
+healthy result. Whole-graph high-fan-in sweeps (every operator grouped by distinct owner
+count) are valid but heavy: at millions of edges they exceed the hosted
+10-second per-query budget and can burn metered seconds. Scope both endpoints
+by `network`, bound by a recent `last_seen_timestamp` window (recompute the
+cutoff), and prefer the point-anchored probe on metered endpoints.
 
 ## LINKED properties
 
