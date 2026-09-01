@@ -34,7 +34,7 @@ Insights Graph does not append one.
 | `USE topology` | Memgraph over Bolt  | native Memgraph Cypher, bounded.  |
 | `USE facts`    | Warehouse, compiled | Cypher subset. Not full Memgraph. |
 
-`topology` serves the address graph, money flow, the `LINKED` overlay, and
+`topology` serves the address graph, money flow (`FLOWS_TO`, `OPERATED_BY`), the `LINKED` overlay, and
 node risk. `facts` serves bounded `TRANSFER` rows.
 
 The `network` argument selects the graph. On topology, unscoped
@@ -83,7 +83,7 @@ Treat exchange hot wallets as terminals. Filter intermediate nodes with
 
 ## Facts is not full Memgraph
 
-Facts rejects native traversal, `FLOWS_TO`, `LINKED`, `WITH` pipelines,
+Facts rejects native traversal, `FLOWS_TO`, `OPERATED_BY`, `LINKED`, `WITH` pipelines,
 `CASE`, grouped aggregates, `collect()`, and metadata functions
 (`keys()`, `labels()`, `type()`). Predicate-less global aggregates are
 refused. `TRANSFER` always needs an indexed predicate: address equality

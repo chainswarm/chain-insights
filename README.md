@@ -144,10 +144,10 @@ and [operating rules](docs/architecture/operating-rules.md).
 
 Graph queries choose the read graph explicitly:
 
-| Graph      | Use it for                                                                                                                                      |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `topology` | The unified address / FLOWS_TO / LINKED graph — recent and full historical fund-flow traversal, plus the node `risk_score`/`risk_level` verdict |
-| `facts`    | Bounded individual `TRANSFER` rows with amount, `amount_usd`, asset, transaction, and block facts                                               |
+| Graph      | Use it for                                                                                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `topology` | The unified address / FLOWS_TO / OPERATED_BY / LINKED graph — recent and full historical fund-flow traversal, plus the node `risk_score`/`risk_level` verdict |
+| `facts`    | Bounded individual `TRANSFER` rows with amount, `amount_usd`, asset, transaction, and block facts                                                             |
 
 One rule is worth reading before writing a query by hand: the `network`
 argument selects the graph, not the addresses inside it. The address-space

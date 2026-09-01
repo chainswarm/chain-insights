@@ -483,6 +483,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).toContain('FLOWS_TO')
     expect(instructions).toContain('first_tx_id')
     expect(instructions).toContain('LINKED is served on the topology graph only')
+    expect(instructions).toContain('(:Address)-[:OPERATED_BY]->(:Address)')
+    expect(instructions).toContain('not a risk label')
     expect(instructions).toContain('Call meta_network_capabilities first')
     expect(instructions).toContain('CIA does not pick a default network')
     expect(instructions).toContain('(:Address)-[:LINKED]-(:Address)')

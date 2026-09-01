@@ -39,7 +39,7 @@ primitive-backend status instead.
 
 - `network` is required. Do not guess it in agent workflows.
 - GQL/Cypher must be read-only.
-- Use `USE topology` for topology (the address / FLOWS_TO / LINKED graph,
+- Use `USE topology` for topology (the address / FLOWS_TO / OPERATED_BY / LINKED graph,
   covering unified recent and full historical activity in one graph, plus the
   node `risk_score`/`risk_level` verdict).
 - Use `USE facts` for bounded individual `TRANSFER` rows and their amount,
@@ -115,6 +115,36 @@ Batch result facts include:
 }
 ```
 
+## Operator topology recipe
+
+`OPERATED_BY` is the owner-to-operator topology edge: the approved operator
+that executed a transfer on the owner's behalf. Use it to see who delegated
+to an operator, and how much moved — the shape behind drainer
+investigations. It is topology-only and carries no risk label; a high owner
+count alone is not an accusation.
+
+The hosted-endpoint recipe is point-anchored and sub-second. Pass
+`network=robinhood` explicitly — the tool argument scopes the graph — and
+own the `LIMIT`:
+
+```bash
+cia mcp call graph_query \
+  network=robinhood \
+  "query=USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \"0x…\"}) RETURN owner.address AS owner_address, operation.tx_count AS tx_count, operation.amount_usd_sum AS amount_usd_sum, coalesce(operation.token_standard, \"mixed\") AS token_standard, operation.last_seen_timestamp AS last_seen_timestamp ORDER BY operation.tx_count DESC LIMIT 10"
+```
+
+Notes:
+
+- Use `USE topology`. `OPERATED_BY` is not available on `USE facts`.
+- Zero rows is a healthy result — the address simply has no mediated
+  transfers.
+- Whole-graph high-fan-in sweeps (every operator grouped by distinct owner)
+  are valid but heavy; at millions of edges they exceed the hosted 10-second
+  per-query budget. See `docs/graph-query-compatibility.md` for the
+  time-bounded sweep shape.
+- Confirm any lead with `FLOWS_TO` money-flow context and address labels
+  before drawing conclusions.
+
 ## Address Risk
 
 `aml_address_risk` screens one address for AML risk, behavior patterns,
@@ -172,7 +202,7 @@ Useful schema probes:
 cia mcp call graph_query_batch \
   network=robinhood \
   per_query_timeout_seconds=5 \
-  'queries=[{"id":"address_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level, a.is_exchange AS is_exchange LIMIT 10"},{"id":"flow_sample","query":"USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"node_metric_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.tx_out_count AS tx_out_count LIMIT 10"}]'
+  'queries=[{"id":"address_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level, a.is_exchange AS is_exchange LIMIT 10"},{"id":"flow_sample","query":"USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"operated_by_sample","query":"USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \"0x...\"}) RETURN owner.address AS owner_address, operation.tx_count AS tx_count, operation.amount_usd_sum AS amount_usd_sum LIMIT 10"},{"id":"node_metric_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.tx_out_count AS tx_out_count LIMIT 10"}]'
 ```
 
 Use endpoint-safe property projections like `a.address` and `flow.tx_count`

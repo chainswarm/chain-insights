@@ -93,7 +93,8 @@ admission + bounds gate below. This includes clause- and pattern-level `WHERE`,
 `WITH` pipelines, `CASE`, `collect()`, temporal functions, `UNWIND`, map
 projections, `UNION`, and the full traversal surface. The topology graph serves
 `Address` nodes (with `risk_score`/`risk_level` always present), `FLOWS_TO`
-lifetime money-flow edges, the `LINKED` ownership overlay, `RISK_PROXIMITY`, and
+lifetime money-flow edges, `OPERATED_BY` operator-mediated topology edges (the
+next section), the `LINKED` ownership overlay, `RISK_PROXIMITY`, and
 a two-layer Bittensor neuron model: `(:Neuron {hotkey, netuid})` nodes labeled
 `:Miner` or `:Validator`, connected via `(:Neuron)-[:MINES|:VALIDATES]->(:Subnet
 {netuid, name, github_repo, url, discord, contact, owner_coldkey,
@@ -102,6 +103,87 @@ addresses to neurons; `(:Address)-[:OWNS]->(:Subnet)` marks subnet ownership;
 and on-chain identity properties (`chain_name`, `chain_url`, `chain_github`,
 `chain_discord`) live on `:Address` directly. Validator/miner roles are
 chain-evidence-derived, not registry labels.
+
+### `OPERATED_BY` — operator-mediated topology (topology only)
+
+`OPERATED_BY` is a directed topology relationship between two `Address` nodes:
+
+```text
+(:Address)-[:OPERATED_BY]->(:Address)
+    owner                         operator
+```
+
+The source is the transfer owner (`from_address`). The destination is the
+approved operator that executed the transfer (`operator_address`). One edge
+aggregates one owner/operator pair.
+
+Rules that follow from the grain:
+
+- Direct transfers with an empty `operator_address` create no edge.
+- A transfer whose owner is also its operator creates no edge.
+- ERC-20, ERC-721, and ERC-1155 transfers share the one relationship type.
+- `to_address` never participates in edge identity.
+- The relation is topology only. It is not available through `USE facts`.
+- It is a topology fact, not a risk verdict — see the caveat below.
+
+Edge aggregate properties (as the live backend provides them):
+
+| Property                                          | Meaning                                                                                                                                              |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tx_count`                                        | Operator-mediated transfers in the aggregate.                                                                                                        |
+| `amount_usd_sum`                                  | Sum of priced transfer value in USD.                                                                                                                 |
+| `first_seen_timestamp` / `last_seen_timestamp`    | First and last transfer time (Unix milliseconds).                                                                                                    |
+| `bucket_start_timestamp` / `bucket_end_timestamp` | Graph-shard window bounds, Unix milliseconds.                                                                                                        |
+| `token_standard`                                  | `ERC20`, `ERC721`, or `ERC1155` when the pair's transfers share one unambiguous standard. Absent when mixed. Optional — do not assume it is present. |
+| `owner_address` / `operator_address` / `pair_id`  | Endpoint identity copied onto the edge.                                                                                                              |
+
+The canonical probe is point-anchored and sub-second on the hosted endpoint:
+given one operator address, its top owners. Scope comes from the tool's
+`network=robinhood` argument (it selects the graph — see the shared-graph
+model above), so no in-query network predicate is needed:
+
+```cypher
+USE topology
+MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: "0x…"})
+RETURN owner.address AS owner_address,
+       operation.tx_count AS tx_count,
+       operation.amount_usd_sum AS amount_usd_sum,
+       coalesce(operation.token_standard, "mixed") AS token_standard,
+       operation.last_seen_timestamp AS last_seen_timestamp
+ORDER BY operation.tx_count DESC
+LIMIT 10
+```
+
+The reverse direction — who an owner delegated to — swaps the anchor onto the
+owner node. A high owner count or transfer count on the probe result is an
+investigation lead, not a drainer
+accusation. Legitimate spend-permission contracts (routers, aggregators,
+sweepers) produce the same shape. `OPERATED_BY` carries no scam, victim, or
+risk label. Confirm with money-flow and label context before acting.
+
+The whole-graph high-fan-in sweep — every operator grouped by distinct owner
+count — is a valid shape but a heavy one: at millions of edges it exceeds the
+hosted per-query timeout (10 seconds by default), and a sweep that times out
+can still consume the metered seconds. Scope both endpoints by the network
+property (this match has no exact-address key, so the shared-graph rule
+applies), bound it by a recent `last_seen_timestamp` window — recompute the
+cutoff rather than copying a literal, for example now minus 7 days in Unix
+milliseconds — and prefer the point-anchored probe on metered endpoints:
+
+```cypher
+USE topology
+MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address)
+WHERE owner.network = "robinhood"
+  AND operator.network = "robinhood"
+  AND operation.last_seen_timestamp >= 1787631843154  -- now minus 7 days, ms
+WITH operator,
+     count(DISTINCT owner) AS owner_count,
+     sum(operation.tx_count) AS transfer_count
+WHERE owner_count >= 1000
+RETURN operator.address AS operator_address, owner_count, transfer_count
+ORDER BY owner_count DESC
+LIMIT 25
+```
 
 ### Traversal (the expanded surface)
 
@@ -139,17 +221,17 @@ rejected with a typed contract error before execution.
 
 ### Supported
 
-| Construct                                          | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MATCH` on a mapped node / single relationship     | `(from:Address)-[t:TRANSFER]->(to:Address)` (bounded individual transfer rows from `facts_transfers_view`). Lifetime address metrics are node properties on `USE topology` (the facts `AddressFeature` surface is retired). Never serves `FLOWS_TO` or `LINKED` — those are topology-only. Neuron identity, hotkey/coldkey pairing, and IP/axon-port observation live on the topology `:Neuron` node, not on `facts`. Labels and per-label risk live on the topology address node, not on `facts`. |
-| Chained fixed-hop patterns                         | up to 5 hops                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Bare `block_date` bound                            | `t.block_date >= ?` / `<`, `=`, `BETWEEN`, `IN` — the caller's own day range, passed through. The bound must be bare (no function around the column) and conjunctive (not inside an `OR` arm). An explicit full-range bound (`>= '1970-01-01'`) stays lifetime.                                                                                                                                                                                                                                    |
-| `tx_id` equality / `IN`                            | `t.tx_id = "…"` — a point lookup on the `TRANSFER` edge's row-level key. Lifetime semantics.                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Address equality / `IN`                            | `{address:"…"}` map or `a.address = "…"` / `IN` — **a recency window is auto-applied** (bare `block_date >= now − 90 days`; the window is `FACTS_RECENCY_WINDOW_DAYS`, default 90). Address-only queries return the last 90 days.                                                                                                                                                                                                                                                                  |
-| Inline property maps                               | `MATCH (a:Address {address:"…"})`                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Property projections with aliases                  | `RETURN a.address AS address, t.amount_usd AS amount_usd`                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Aggregates **with** a partition-bounding predicate | `count`, `sum`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `ORDER BY`, `LIMIT` (≤ 1000), `OFFSET`-free paging | `LIMIT` required unless a partition-bounding predicate is present — except `TRANSFER`, where a partition-bounding predicate is always required (see below)                                                                                                                                                                                                                                                                                                                                         |
+| Construct                                          | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `MATCH` on a mapped node / single relationship     | `(from:Address)-[t:TRANSFER]->(to:Address)` (bounded individual transfer rows from `facts_transfers_view`). Lifetime address metrics are node properties on `USE topology` (the facts `AddressFeature` surface is retired). Never serves `FLOWS_TO`, `OPERATED_BY`, or `LINKED` — those are topology-only. Neuron identity, hotkey/coldkey pairing, and IP/axon-port observation live on the topology `:Neuron` node, not on `facts`. Labels and per-label risk live on the topology address node, not on `facts`. |
+| Chained fixed-hop patterns                         | up to 5 hops                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Bare `block_date` bound                            | `t.block_date >= ?` / `<`, `=`, `BETWEEN`, `IN` — the caller's own day range, passed through. The bound must be bare (no function around the column) and conjunctive (not inside an `OR` arm). An explicit full-range bound (`>= '1970-01-01'`) stays lifetime.                                                                                                                                                                                                                                                    |
+| `tx_id` equality / `IN`                            | `t.tx_id = "…"` — a point lookup on the `TRANSFER` edge's row-level key. Lifetime semantics.                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Address equality / `IN`                            | `{address:"…"}` map or `a.address = "…"` / `IN` — **a recency window is auto-applied** (bare `block_date >= now − 90 days`; the window is `FACTS_RECENCY_WINDOW_DAYS`, default 90). Address-only queries return the last 90 days.                                                                                                                                                                                                                                                                                  |
+| Inline property maps                               | `MATCH (a:Address {address:"…"})`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Property projections with aliases                  | `RETURN a.address AS address, t.amount_usd AS amount_usd`                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Aggregates **with** a partition-bounding predicate | `count`, `sum`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `ORDER BY`, `LIMIT` (≤ 1000), `OFFSET`-free paging | `LIMIT` required unless a partition-bounding predicate is present — except `TRANSFER`, where a partition-bounding predicate is always required (see below)                                                                                                                                                                                                                                                                                                                                                         |
 
 ### Cost-shape gate
 
@@ -178,7 +260,8 @@ StarRocks. Use the topology graph, or restructure:
 
 | Construct                                              | Instead                                                    |
 | ------------------------------------------------------ | ---------------------------------------------------------- |
-| `FLOWS_TO` / money-flow traversal                      | The topology graph — facts never serves money flow         |
+| `FLOWS_TO` / `OPERATED_BY` topology edges              | The topology graph — facts never serves either             |
+| `OPERATED_BY`                                          | The topology graph — operator topology is topology-only    |
 | Native traversal (`*1..3`, `*BFS`, `*WSHORTEST`, …)    | The topology graph, or a single fixed-hop `LINKED` pattern |
 | `WITH` pipelines                                       | The topology graph                                         |
 | `CASE … END`                                           | The topology graph, or post-process client-side            |

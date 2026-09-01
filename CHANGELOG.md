@@ -8,6 +8,17 @@ All notable changes to Chain Insights are recorded here.
 
 - Workspace initialization now preserves valid JSON quoting in its generated node-label query example.
 
+## [0.28.0] - 2026-09-01 — feat: OPERATED_BY operator topology surface
+
+### Added
+
+- `OPERATED_BY` owner-to-operator topology edge across the compatibility
+  matrix, the EVM schema skill, the graph tool guide, and the documented
+  recipe corpus: direction, aggregate properties, topology-only scope, the
+  canonical high-fan-in operator query, and the not-a-risk-label caveat.
+- Contract test pinning the documented direction, network scoping, bounds,
+  and the absence of any automatic risk-label claim.
+
 ## [0.27.4] - 2026-08-31 — ci: make docs self-contained
 
 ### Changed
