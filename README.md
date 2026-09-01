@@ -8,231 +8,208 @@
 [Website](https://chain-insights.ai) | [npm](https://www.npmjs.com/package/chain-insights)
 
 Chain Insights is open-source AML and forensics infrastructure for AI agents
-and analysts. It turns blockchain addresses and fund flows into clear,
-structured investigation facts.
-
-![Chain Insights investigation journey](docs/images/chain-insights-investigation-journey.svg)
-
-Every new account gets a free daily graph-query allowance.
-No payment setup is needed for a first screen.
+and analysts: a hosted Chain Insights Graph you reach over MCP, screened
+through one CLI. It screens blockchain addresses for risk, explores fund flows
+through read-only graph queries, and returns structured investigation facts.
+Every new account gets a free tier — a daily allowance
+of graph queries, no payment setup — so you can run a first screen in minutes.
 
 ## Quickstart
 
-Install the `cia` command-line interface (CLI), then screen one address.
+All shell snippets in this documentation are for **Linux** (bash). They work
+as-is on macOS; on Windows use WSL.
 
 ```bash
-npx chain-insights@latest --help
-npm install -g chain-insights
-cia networks
-cia workflows
+npx chain-insights@latest --help   # run without installing
+npm install -g chain-insights      # or install the cia CLI globally
+cia workflows                      # list high-level CIA workflow tools
 cia workflow aml-address-risk \
-  --address 0xYourAddressHere \
-  --network robinhood
+  --address 0xYourAddressHere --network robinhood
+cia networks                       # network status + dataset overview
+cia network robinhood              # details for one network
+cia mcp tools                      # list remote graph tools
 ```
 
-Success means you see the network overview, workflow list, and address-risk
-result.
+Sixty seconds gets you the CLI, a network overview, a CIA workflow, and the
+available remote graph tools for Robinhood.
+To call the same tools from an agent, register the MCP proxy:
+`cia setup claude-code` (or `codex` / `hermes`).
 
-Use `--json` when another tool needs indented JSON.
+CLI results are human-readable by default. Add `--json` when another tool or
+script needs indented JSON:
 
 ```bash
+cia mcp call --json graph_query \
+  network=robinhood \
+  "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 10"
 cia workflow aml-address-risk --json \
-  --address 0xYourAddressHere \
-  --network robinhood
+  --address 0xYourAddressHere --network robinhood
 ```
 
-The address-risk workflow uses the latest contract when `version` is omitted.
-Pin the current contract with `--version v1`.
-
-Connect the same tools to an AI agent.
-
-```bash
-cia setup claude-code
-# Or: cia setup codex
-# Or: cia setup hermes
-```
+The AML address-risk contract uses the latest version when `version` is
+omitted. Pin the current contract with `--version v1` on the workflow command.
 
 ## Purpose And Ownership
 
-The public `chain-insights` npm package provides the `cia` CLI and a stdio
-Model Context Protocol (MCP) proxy for Chain Insights Graph.
+One public npm package (`chain-insights`) providing the `cia` CLI and a
+stdio MCP proxy over a Chain Insights Graph endpoint.
 
 Owning group: chainswarm org, infra group.
 
 ## What It Does
 
-### Owns
+Owns:
 
-- The `cia` and `chain-insights` CLI commands.
-- The `chain-insights-mcp-proxy` MCP server.
-- High-level AML investigation workflows.
-- Read-only graph and metadata tool access.
-- Local configuration and an optional payment wallet.
-- Reviewed `chain-insights-*` agent skills shipped in the npm package.
+- The `cia` / `chain-insights` CLI and the `chain-insights-mcp-proxy` MCP
+  server (source under `src/`).
+- The canonical public tool surface: prefixed `aml_*` / `graph_*` / `meta_*`
+  / `wallet_*` tools.
+- Local wallet and payment on Base mainnet (payment chain only).
+- Shipped product skills under `skills/` (`chain-insights-*`), packaged
+  into the npm tarball.
 
-### Never Touches
+Never touches:
 
-- Blockchain indexing or graph database storage.
-- Automatic risk labeling.
-- Custodial wallets.
-- Hosted case databases.
-- Caller investigation data.
+- Blockchain indexing, graph database storage, or graph serving — those
+  belong to the Chain Insights Graph backend.
+- Automatic risk labeling. Address labels are served by the Chain Insights
+  Graph backend and read through `aml_address_risk`; the CLI never writes
+  labels.
+- Custodial wallets or hosted case databases. Investigation data stays with
+  the caller.
 
 ### What You Can Do Today
 
-| Tool                        | Use it for                                                                   |
-| --------------------------- | ---------------------------------------------------------------------------- |
-| `aml_address_risk`          | Screen one address for risk, behavior, nearby context, and exchange exposure |
-| `graph_query`               | Run one read-only query against a Chain Insights Graph layer                 |
-| `graph_query_batch`         | Run related read-only queries as one MCP call                                |
-| `meta_network_capabilities` | Check supported networks and tools                                           |
-| `meta_usage_status`         | Check the caller's free daily allowance                                      |
-| `meta_help`                 | Show tool and workflow guidance                                              |
-| `wallet_balance`            | Show the local payment-wallet amount                                         |
-
-Investigation results stay with the caller.
-The CLI never writes labels or graph data.
+| Tool                        | Use it for                                                                         |
+| --------------------------- | ---------------------------------------------------------------------------------- |
+| `aml_address_risk`          | Screen one address for risk, behavior, neighborhood context, and exchange exposure |
+| `graph_query`               | Run one read-only GQL/Cypher query against a Chain Insights Graph layer            |
+| `graph_query_batch`         | Run related read-only graph queries as one MCP call                                |
+| `meta_network_capabilities` | Check supported Chain Insights networks and graph tools                            |
+| `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                           |
+| `meta_help`                 | Show Chain Insights tool and workflow guidance                                     |
+| `wallet_balance`            | Show the local payment wallet amount                                               |
 
 ## Dependencies
 
-### Upstream
+Upstream:
 
-- **Chain Insights Graph MCP endpoint** supplies graph queries, AML
-  primitives, and network metadata.
-- **Base mainnet RPC** supports local wallet balance and payment only.
+- **Chain Insights Graph MCP endpoint** — all graph queries and AML
+  primitives. Configured via `graphMcpEndpoint`; defaults to the public
+  production endpoint `https://mcp.chain-insights.ai/`.
+- **Base mainnet RPC** — wallet balance and payment only
+  (`BASE_RPC_URL` override). Not a graph-support claim.
 
-The default graph endpoint is `https://mcp.chain-insights.ai/`.
+Downstream:
 
-### Downstream
-
-- Analysts use the `cia` CLI.
-- AI agents use the MCP proxy.
-- Scripts can use `--json` output or the package exports.
+- Analysts and AI agents install the npm package and call the CLI or the
+  MCP tools.
 
 ## Architecture
 
-![Chain Insights product architecture](docs/images/chain-insights-product-architecture.svg)
+Chain Insights is the investigation layer above the Chain Insights Graph.
+The CLI and MCP proxy call graph tools over one MCP endpoint and never write
+to the graph.
 
-One npm package exposes two entry points.
+```text
+Agent or CLI user
+  -> Chain Insights CLI / MCP proxy
+  -> local config and wallet
+  -> Chain Insights Graph
+  -> graph intelligence for AML workflows
+```
 
-- People use the `cia` CLI.
-- Agents use `chain-insights-mcp-proxy` over stdio MCP.
-- Both read local configuration and the optional wallet.
-- Both call Chain Insights Graph without writing to it.
+Source modules (hand-maintained):
 
-| Module        | Entrypoint          | Deeper documentation                                                     |
-| ------------- | ------------------- | ------------------------------------------------------------------------ |
-| Config        | `src/config`        | [Config component](docs/architecture/components/config.md)               |
-| Federation    | `src/federation`    | [Federation component](docs/architecture/components/federation.md)       |
-| Investigation | `src/investigation` | [Investigation component](docs/architecture/components/investigation.md) |
-| MCP           | `src/mcp`           | [MCP component](docs/architecture/components/mcp.md)                     |
-| Wallet        | `src/wallet`        | [Wallet component](docs/architecture/components/wallet.md)               |
+| Module          | Entrypoint          | Component doc                                                                |
+| --------------- | ------------------- | ---------------------------------------------------------------------------- |
+| `config`        | `src/config`        | [components/config.md](docs/architecture/components/config.md)               |
+| `federation`    | `src/federation`    | [components/federation.md](docs/architecture/components/federation.md)       |
+| `investigation` | `src/investigation` | [components/investigation.md](docs/architecture/components/investigation.md) |
+| `mcp`           | `src/mcp`           | [components/mcp.md](docs/architecture/components/mcp.md)                     |
+| `wallet`        | `src/wallet`        | [components/wallet.md](docs/architecture/components/wallet.md)               |
 
-Package entry points:
+Entry points:
 
-- `bin/cli.js` loads the built CLI for `cia` and `chain-insights`.
-- `bin/mcp-proxy.cjs` loads the built stdio MCP proxy.
-- `src/index.ts` defines the library exports.
+- `bin/cli.js` → `src/cli.ts` (CLI bins: `cia`, `chain-insights`).
+- `bin/mcp-proxy.cjs` → `src/mcp/proxy.ts` (bin:
+  `chain-insights-mcp-proxy`).
+- `src/index.ts` — library exports.
 
-See the [full architecture index](docs/architecture/ARCHITECTURE.md) for C4
-diagrams, data contracts, and operating rules.
+Full architecture docs: [docs/architecture/](docs/architecture/ARCHITECTURE.md),
+including C4 diagrams, [data contracts](docs/architecture/data-contracts.md),
+and [operating rules](docs/architecture/operating-rules.md).
 
 ### Graph Access
 
-Choose the read graph inside each query.
+Graph queries choose the read graph explicitly:
 
-| Graph      | Use it for                                                                     |
-| ---------- | ------------------------------------------------------------------------------ |
-| `topology` | Address risk, labels, linked ownership, activity totals, and fund-flow paths   |
-| `facts`    | Bounded individual transfers with amount, asset, transaction, and block fields |
+| Graph      | Use it for                                                                                                                                      |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `topology` | The unified address / FLOWS_TO / LINKED graph — recent and full historical fund-flow traversal, plus the node `risk_score`/`risk_level` verdict |
+| `facts`    | Bounded individual `TRANSFER` rows with amount, `amount_usd`, asset, transaction, and block facts                                               |
 
-The `network` argument selects the network.
-It does not add an address filter to a topology query.
+One rule is worth reading before writing a query by hand: the `network`
+argument selects the graph, not the addresses inside it. The address-space
+split lives on the `:Address.network` node property. A `USE topology` match
+on `:Address` without an exact address must scope itself with
+`WHERE a.network = "..."`. On `USE facts` each network has its own backing
+database and `Address` carries no `network` property at all. See
+[Graph query compatibility](docs/graph-query-compatibility.md).
 
-When a topology query does not match one exact address, scope the address
-property yourself.
-The `facts` graph uses one backing database per network, so its `Address`
-nodes do not carry a `network` property.
+Agent installs include `chain-insights-address-risk` for one-address
+screens, `chain-insights-cypher` for graph-query dialect rules,
+`chain-insights-schema-evm` for the EVM / Robinhood graph map, and
+`chain-insights-schema-bittensor` for the Bittensor graph map.
 
-Read [Graph query compatibility](docs/graph-query-compatibility.md) before
-writing manual queries.
-
-The package also includes these agent skills:
-
-- `chain-insights-address-risk`
-- `chain-insights-cypher`
-- `chain-insights-schema-evm`
-- `chain-insights-schema-bittensor`
-
-### Billing: Billable Units
+## Billing: Billable Units
 
 Chain Insights Graph bills by **billable units**.
 
-- One returned row, node, or edge is one billable unit.
-- Narrow queries cost less than broad queries.
-- Every graph response reports `billable_units`.
-- Workflow results also report `query_count` and `truncated_queries`.
+- A **billable unit** is one row, node, or edge in your returned payload.
+- Bigger responses cost more. Narrow queries cost less.
+- The server reports `billable_units` on every graph response.
 
-Use `src/lib/recount-units.ts` to recount units in a response.
+**Check your own count.** `src/lib/recount-units.ts` mirrors the server's
+counting logic. Use it client-side to recount units in a response and
+confirm the billed amount matches what you received.
 
-When a response has `truncated: true`:
+**Watch for `truncated: true`.** A response can hit the row limit and get
+cut off. When you see `truncated: true`:
 
-- Add a smaller `LIMIT`.
-- Add a tighter `WHERE` filter.
-- Page with `SKIP` when you need the next batch.
+- Narrow the query with `LIMIT` to ask for fewer rows.
+- Page through results with `SKIP` to fetch the next batch.
+- Add a tighter `WHERE` filter before raising the limit.
+
+**Workflow tools carry a `usage` block.** `aml_address_risk` runs many graph
+queries behind the scenes to answer one question. Every response includes a
+`usage` block with the total cost of all of them:
+
+- **`billable_units`** — total units billed across every internal graph
+  query this workflow ran.
+- **`query_count`** — how many internal graph queries it took.
+- **`truncated_queries`** — how many of those internal queries hit their
+  row limit and got cut off.
+
+Use `usage` to see the real cost of a workflow call, not just of one
+`graph_query`.
 
 ## Prerequisites And Environment Setup
 
-Use the repository root unless a command says otherwise.
+- **Linux** is the reference platform; shell snippets use bash (macOS works
+  the same; on Windows use WSL).
+- **Node.js 22 or newer** (`package.json` engines) and npm.
 
-- Linux with bash is the reference environment.
-- macOS uses the same shell commands.
-- Windows users should use Windows Subsystem for Linux (WSL).
-- Node.js 22 or newer and npm are required.
+`.env.example` documents the two supported overrides:
 
-Check the local tools.
-
-```bash
-node --version
-npm --version
-```
-
-Success means Node prints version `22` or newer and npm prints a version.
-
-`.env.example` documents the two supported environment overrides.
-
-| Variable                            | Purpose                                                            |
-| ----------------------------------- | ------------------------------------------------------------------ |
-| `BASE_RPC_URL`                      | Optional Base RPC override for local wallet operations             |
-| `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` | Optional graph endpoint override; remote hosts must use `https://` |
-
-Never put real credentials in `.env.example`.
+| Variable                            | Purpose                                                                                               |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `BASE_RPC_URL`                      | Base RPC override for wallet balance and the local top-up page                                        |
+| `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` | Chain Insights Graph endpoint override; local HTTP loopback allowed, remote hosts must use `https://` |
 
 ## Run
 
-### Install The Released Package
-
-Run from any directory.
-
-```bash
-npm install -g chain-insights
-cia --version
-cia update --check
-```
-
-Success means `cia --version` prints a semantic version.
-
-Run a first screen.
-
-```bash
-cia workflow aml-address-risk \
-  --address 0xYourAddressHere \
-  --network robinhood
-```
-
-### Run From A Checkout
-
-Run from the repository root.
+### Local (from a checkout)
 
 ```bash
 npm install
@@ -241,31 +218,34 @@ npm install -g .
 cia --version
 ```
 
-Success means the build exits with status `0` and `cia --version` matches
-`package.json`.
+Or install the released package:
 
-### Use The Payment Wallet
+```bash
+npm install -g chain-insights
+cia --version
+cia update --check
+```
 
-Create a local wallet only when paid access is needed.
+Run a first screen from any directory:
+
+```bash
+cia workflow aml-address-risk \
+  --address 0xYourAddressHere --network robinhood
+```
+
+Create a local payment wallet when paid access is needed:
 
 ```bash
 cia wallet create
 ```
 
-The private key is shown once.
-Save it in a password manager or offline backup.
-Then type `BACKED UP` to finish.
+The command shows the private key once in a clearly marked warning panel.
+Save it in a secure password manager or offline backup, then type `BACKED UP`
+to finish. The encrypted local copy is stored at
+`~/.chain-insights/wallet.json`. Continue with `cia wallet ready` when you are
+ready to enable paid access.
 
-The encrypted local copy lives at `~/.chain-insights/wallet.json`.
-Continue with:
-
-```bash
-cia wallet ready
-```
-
-### Run Direct Graph Queries
-
-Direct topology query:
+Example queries. Direct topology:
 
 ```bash
 cia mcp call graph_query \
@@ -273,7 +253,7 @@ cia mcp call graph_query \
   "query=USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level LIMIT 10"
 ```
 
-Related reads in one call:
+Batch across graph views:
 
 ```bash
 cia mcp call graph_query_batch \
@@ -281,84 +261,85 @@ cia mcp call graph_query_batch \
   'queries=[{"id":"count","query":"USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"flows","query":"USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 3"},{"id":"linked","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"},{"id":"node_metrics","query":"USE topology MATCH (a:Address {address:\"FULL_ADDRESS\"}) RETURN a.address AS address, a.tx_out_count AS tx_out_count, a.tx_in_count AS tx_in_count LIMIT 1"}]'
 ```
 
-See [Graph tools](docs/graph-tools.md) for pagination and more focused reads.
+More query examples (manual fund-flow reads, pagination):
+[Graph tools](docs/graph-tools.md).
 
 ## Configure
 
-`cia` resolves `graphMcpEndpoint` in this order:
+`cia` uses `graphMcpEndpoint` for all Chain Insights Graph calls. The npm
+package uses the public production endpoint by default, so a fresh install can
+run `cia networks` immediately.
 
-1. `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` environment variable.
-2. Saved `graphMcpEndpoint` value.
-3. Public default `https://mcp.chain-insights.ai/`.
-
-The legacy `GRAPH_MCP_ENDPOINT` environment variable is also accepted.
-
-Use the hosted default.
-
-```bash
-cia config set graphMcpEndpoint https://mcp.chain-insights.ai/
-export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://mcp.chain-insights.ai/
-```
-
-Use the host root.
-Do not add `/mcp`.
-
-Use loopback only for local development.
+For local development, override the default explicitly:
 
 ```bash
 cia config set graphMcpEndpoint http://127.0.0.1:8012/mcp
 ```
 
-Validation rules:
-
-- `http://` is accepted only for localhost and loopback addresses.
-- Remote hosts must use `https://`.
-- URLs with credentials, query strings, or fragments are rejected.
-
-Hosted access also needs an approved access key or a prepared wallet.
-See [MCP proxy](docs/mcp-proxy.md) for setup and access modes.
-
-Check the current caller allowance.
+The public production Graph is already the default. Use the host root. Do not
+add `/mcp`.
 
 ```bash
-cia mcp call meta_usage_status
+cia config set graphMcpEndpoint https://mcp.chain-insights.ai/
 ```
+
+Optional one-shot override from the environment:
+
+```bash
+export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://mcp.chain-insights.ai/
+```
+
+Configuration precedence:
+
+1. `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` env var (`GRAPH_MCP_ENDPOINT`
+   legacy alias also supported).
+2. `cia config set graphMcpEndpoint ...` saved value.
+3. Public production default `https://mcp.chain-insights.ai/`.
+
+Validation rules:
+
+- `http://` is accepted only for localhost / loopback addresses.
+- Remote hosts must use `https://`.
+- Endpoint URLs with credentials, query strings, or fragments are rejected.
+
+Hosted access also needs an access mode, such as an approved access key or
+a prepared wallet. For paid access, run `cia wallet ready` — it checks
+funding and finishes one-time payment setup. Setup commands live in
+[MCP proxy](docs/mcp-proxy.md).
+
+The hosted graph includes a small public free tier for `graph_query`
+(default: 10 execution seconds per IP per UTC day). Use
+`meta_usage_status` to see the current caller allowance. Prepared wallet
+users receive the free tier first, then paid access continues
+automatically.
 
 ## Test
 
-Run the local gate from the repository root.
+Local gate, in order:
 
 ```bash
 npm run typecheck
 npm run build
 npm test
-npm run release:check
+npm run release:check   # PR-only step in verify.yml
 ```
 
-Success means every command exits with status `0`.
-The release check is required for pull requests that change tracked product
-files.
-
-To reproduce the continuous integration install step:
+CI install step, when reproducing CI:
 
 ```bash
 npm ci --ignore-scripts --audit=false --fund=false
 ```
 
-Continuous integration also checks lint, coverage, package metadata, type
-resolution, and npm tarball contents.
+CI workflows: `.github/workflows/verify.yml` (typecheck, build,
+release:check, tests, npm pack contents), `security.yml`, `scorecard.yml`,
+`docs.yml`.
 
 ## Debug
 
-Read [Debugging](docs/debugging.md) for recovery steps and MCP Inspector use.
+- Diagnostics and debug workflows: [docs/debugging.md](docs/debugging.md).
+- MCP proxy structured logs: `~/.chain-insights/runtime/logs/mcp-proxy.jsonl`.
 
-Structured MCP proxy logs live at:
-
-```text
-~/.chain-insights/runtime/logs/mcp-proxy.jsonl
-```
-
-Run these health checks from any directory after installing `cia`.
+Health checks (each is runnable):
 
 ```bash
 # Configured endpoint
@@ -370,7 +351,7 @@ cia networks
 # Detailed Chain Insights capability matrix
 cia mcp networks
 
-# Caller allowance
+# Caller allowance / metering status
 cia mcp call meta_usage_status
 
 # Fresh remote tool discovery
@@ -378,49 +359,44 @@ cia mcp tools --refresh
 
 # Installed CLI sanity
 cia --version && cia update --check
+
 ```
 
-If a network or tool check fails:
-
-1. Confirm the endpoint.
-2. Confirm the access mode.
-3. Refresh the remote tool list.
-4. Retry the original command.
+If network or tool discovery fails, check the endpoint and access mode
+first. Confirm the endpoint with `cia config get graphMcpEndpoint` and retry
+the command.
 
 ## Pre-staging / Release
 
-Every pull request to `main` must:
+Every pull request to `main` must bump `package.json` and
+`package-lock.json`, add a matching `CHANGELOG.md` entry, and pass the GitHub
+verification checks. Before pre-staging or release, run the full local gate
+and confirm the release metadata is consistent.
 
-- Bump `package.json`.
-- Apply the same version to `package-lock.json`.
-- Add the matching `CHANGELOG.md` entry.
-- Pass the full verification gate.
-
-Before a release, run the local gate and inspect the npm package contents.
-Real publication uses the protected manual workflow and npm provenance.
-
-See [Release discipline](docs/contributing.md#release-discipline) for the full
-process and rollback guidance.
+See [Release Discipline](docs/contributing.md#release-discipline) for the
+complete contributor requirements.
 
 ## Documentation Links
 
-### Start Here
+Product docs:
 
-- [Graph tools](docs/graph-tools.md) — tools, graph layers, and query examples.
-- [MCP proxy](docs/mcp-proxy.md) — agent setup, endpoint rules, and access modes.
-- [Debugging](docs/debugging.md) — diagnostics and recovery.
+| Doc                                                            | Use it for                                                                 |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [Graph tools](docs/graph-tools.md)                             | Graph layers, `graph_query`, `graph_query_batch`, and AML tool contracts   |
+| [Graph query compatibility](docs/graph-query-compatibility.md) | GQL/Cypher support per layer, rewrite recipes, traversal guidance          |
+| [MCP proxy](docs/mcp-proxy.md)                                 | Stdio proxy behavior, endpoint configuration, agent installers, auth modes |
+| [Architecture overview](docs/architecture.md)                  | Product layers, data flow, security model, and config keys                 |
+| [Development](docs/development.md)                             | Build, test, and local install commands                                    |
+| [Contributing](docs/contributing.md)                           | Development workflow, pull requests, release expectations                  |
+| [Stability policy](docs/stability.md)                          | Guaranteed surfaces, deprecation rules, and compatibility expectations     |
+| [Debugging](docs/debugging.md)                                 | Local troubleshooting, diagnostics, debug workflows                        |
 
-### Architecture And Contracts
+Architecture depth:
 
-- [Architecture overview](docs/architecture.md) — product layers and data flow.
-- [Architecture index](docs/architecture/ARCHITECTURE.md) — C4 diagrams and component depth.
-- [Data contracts](docs/architecture/data-contracts.md) — stable tool and graph contracts.
-- [Operating rules](docs/architecture/operating-rules.md) — repository invariants.
-- [Acceptance evidence](docs/acceptance/) — component checks.
-
-### Development And Support
-
-- [Development](docs/development.md) — build, test, and local install.
-- [Contributing](docs/contributing.md) — pull requests and release expectations.
-- [Stability policy](docs/stability.md) — compatibility and deprecation rules.
-- [Security policy](SECURITY.md) — supported versions and private reporting.
+- [docs/architecture/](docs/architecture/ARCHITECTURE.md) — index, C4
+  diagrams, context, containers, components.
+- [Data contracts](docs/architecture/data-contracts.md) — tool surface,
+  search limits, endpoint rules, shared-graph model.
+- [Operating rules](docs/architecture/operating-rules.md) — repo
+  invariants, findings rules, CI gotchas.
+- [docs/acceptance/](docs/acceptance/) — per-component acceptance evidence.
