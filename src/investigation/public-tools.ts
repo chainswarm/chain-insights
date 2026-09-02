@@ -1,9 +1,7 @@
-import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
-import type { InvestigatorConfig } from '../config/schema.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 import { isUnscoredRiskLevel, normalizeRiskLevel, riskSeverityRank } from './risk-level.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
@@ -11,7 +9,6 @@ import {
   createUsageAccumulator,
   usageBlock,
   wrapClientForUsageTracking,
-  type UsageTotals,
 } from '../lib/usage-accumulator.js'
 
 export { buildTruthProposal, resolveTruthIngressTlsPaths } from './truth-proposal.js'
@@ -156,27 +153,6 @@ async function callGraphBatch(
   )) as RemoteToolResult
   if (result.isError) throw new Error(textFromToolResult(result) || 'graph_query_batch failed')
   return parseGraphBatchResult(result)
-}
-
-function parseAddressList(value: string | string[] | undefined): string[] {
-  const raw = Array.isArray(value) ? value.join(',') : (value ?? '')
-  return raw
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-}
-
-function graphArray(
-  graphData: Record<string, unknown>,
-  key: string
-): Array<Record<string, unknown>> {
-  const value = graphData[key]
-  return Array.isArray(value)
-    ? value.filter(
-        (item): item is Record<string, unknown> =>
-          typeof item === 'object' && item !== null && !Array.isArray(item)
-      )
-    : []
 }
 
 function addressProfileQuery(address: string): { id: string; query: string } {
@@ -437,51 +413,6 @@ function compareAddressExistsQuery(address: string): { id: string; query: string
   }
 }
 
-// R2/R3 seed pre-flight (address grain): before a multi-address trace runs,
-// every seed is probed with a cheap indexed :Address existence lookup so a
-// made-up or inactive address is REPORTED as unresolved instead of silently
-// traced into an empty result. This preserves the pre-revert identity-
-// resolution contract's unresolved-seeds surface (structuredContent.unresolved
-// + summary.unresolved_count + the Unresolved summary line) with the address
-// itself as the graph key -- there is no canonical-key rewrite step anymore.
-function seedAddressExistsQuery(id: string, address: string): { id: string; query: string } {
-  return {
-    id,
-    query: [
-      `MATCH (a:Address {address: "${escapeCypherString(address)}"})`,
-      'RETURN a.address AS address',
-      'LIMIT 1',
-    ].join(' '),
-  }
-}
-
-async function probeSeedAddresses(
-  remoteClient: Client,
-  network: string,
-  inputs: string[]
-): Promise<Set<string>> {
-  if (inputs.length === 0) return new Set()
-  const queries = inputs.map((input, index) => ({
-    input,
-    ...seedAddressExistsQuery(`seed_address_exists_${index + 1}`, input),
-  }))
-  const batch = await callGraphBatch(
-    remoteClient,
-    network,
-    queries.map(({ id, query }) => ({ id, query }))
-  )
-  const failures: QueryFailure[] = []
-  const existing = new Set<string>()
-  for (const { input, id } of queries) {
-    const rows = optionalResultsFor(batch, id, failures)
-    // A failed probe (ok:false) treats the seed as unresolved rather than
-    // silently tracing it -- same conservative posture the pre-revert
-    // identity resolution took on lookup failure.
-    if (firstString(rows[0]?.['address'])) existing.add(input)
-  }
-  return existing
-}
-
 // AC11: FLOWS_TO reachability UNIONed over one -[:LINKED]- hop, so an
 // investigator surveying an address's exposure also sees exposure carried by
 // an address that is only ownership-LINKED to it (LINKED is undirected).
@@ -673,21 +604,6 @@ function numberValue(value: unknown): number | undefined {
     return Number.isFinite(parsed) ? parsed : undefined
   }
   return undefined
-}
-
-function isExchangeFlag(value: unknown): boolean {
-  if (value === true) return true
-  if (value === false || value === null || value === undefined) return false
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase()
-    return normalized === 'true' || normalized === '1'
-  }
-  if (typeof value === 'number') return value === 1
-  return false
-}
-
-function hasExactExchangeLabel(labels: string[] | undefined): boolean {
-  return (labels ?? []).some((label) => label.trim().toLowerCase() === 'exchange')
 }
 
 function firstNumber(...values: unknown[]): number | undefined {

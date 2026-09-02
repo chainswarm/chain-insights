@@ -5,6 +5,7 @@ import {
   connectionRouteQueries,
   routeFromPathValue,
   shouldIncludeRouteQueries,
+  isExchangeMarker,
 } from '../src/investigation/public-tools.js'
 
 // Pairwise route evidence between two KNOWN endpoints via bounded ISO GQL
@@ -49,6 +50,20 @@ describe('shouldIncludeRouteQueries', () => {
 })
 
 describe('routeFromPathValue', () => {
+  it('classifies exchange markers without accepting falsy encodings', () => {
+    expect(isExchangeMarker(null)).toBe(false)
+    expect(isExchangeMarker(undefined)).toBe(false)
+    expect(isExchangeMarker(false)).toBe(false)
+    expect(isExchangeMarker(0)).toBe(false)
+    expect(isExchangeMarker('')).toBe(false)
+    expect(isExchangeMarker(' false ')).toBe(false)
+    expect(isExchangeMarker('0')).toBe(false)
+    expect(isExchangeMarker('null')).toBe(false)
+    expect(isExchangeMarker(true)).toBe(true)
+    expect(isExchangeMarker(1)).toBe(true)
+    expect(isExchangeMarker('binance')).toBe(true)
+  })
+
   // Shape-tolerant: hydrated path values arrive as ordered node/edge
   // structures; the parser walks them for address / is_exchange /
   // amount_usd_sum regardless of the exact envelope.
