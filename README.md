@@ -124,7 +124,6 @@ Source modules (hand-maintained):
 | Module          | Entrypoint          | Component doc                                                                |
 | --------------- | ------------------- | ---------------------------------------------------------------------------- |
 | `config`        | `src/config`        | [components/config.md](docs/architecture/components/config.md)               |
-| `federation`    | `src/federation`    | [components/federation.md](docs/architecture/components/federation.md)       |
 | `investigation` | `src/investigation` | [components/investigation.md](docs/architecture/components/investigation.md) |
 | `mcp`           | `src/mcp`           | [components/mcp.md](docs/architecture/components/mcp.md)                     |
 | `wallet`        | `src/wallet`        | [components/wallet.md](docs/architecture/components/wallet.md)               |

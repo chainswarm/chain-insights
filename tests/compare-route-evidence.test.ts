@@ -7,23 +7,23 @@ import {
   shouldIncludeRouteQueries,
 } from '../src/investigation/public-tools.js'
 
-// Pairwise route evidence between two KNOWN endpoints via native directed
-// *BFS (MemGQL retired). Rules: directed only (no undirected shortest),
-// bounded depth, exchange intermediates are DISCLOSED, never silently filtered.
+// Pairwise route evidence between two KNOWN endpoints via bounded ISO GQL
+// shortest paths. Exchange intermediates are DISCLOSED, never silently
+// filtered.
 
 describe('connectionRouteQueries', () => {
-  it('emits exactly the two directed native *BFS route queries (snapshot)', () => {
+  it('emits exactly the two bounded GQL shortest route queries (snapshot)', () => {
     const queries = connectionRouteQueries('idA', 'idB')
     expect(queries).toEqual([
       {
         id: 'connection_route_outbound',
         query:
-          'MATCH p = (src:Address {address: "idA"})-[:FLOWS_TO *BFS 1..4]->(dst:Address {address: "idB"}) RETURN p LIMIT 1',
+          'MATCH p = SHORTEST 1 (src:Address {address: "idA"})-[:FLOWS_TO]-{1,4}(dst:Address {address: "idB"}) RETURN p LIMIT 1',
       },
       {
         id: 'connection_route_inbound',
         query:
-          'MATCH p = (src:Address {address: "idB"})-[:FLOWS_TO *BFS 1..4]->(dst:Address {address: "idA"}) RETURN p LIMIT 1',
+          'MATCH p = SHORTEST 1 (src:Address {address: "idB"})-[:FLOWS_TO]-{1,4}(dst:Address {address: "idA"}) RETURN p LIMIT 1',
       },
     ])
   })
@@ -155,7 +155,7 @@ describe('addressRisk route suppression for an unresolved compare address', () =
     })
 
     // Pre-revert contract restored: an unresolved compare address suppresses
-    // the *BFS route probes entirely -- they are never issued, not merely
+    // the shortest-path route probes entirely -- they are never issued, not merely
     // ignored -- and the 1-hop connection probe stays a noop.
     expect(captured.some((q) => q.id.startsWith('connection_route_'))).toBe(false)
     const connectionProbe = captured.find((q) => q.id === 'connection_probe')

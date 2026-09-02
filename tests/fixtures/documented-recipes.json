@@ -1,6 +1,6 @@
 {
   "generated_by": "harvest-query-corpus-v2 workflow + runtime-verified normalization (2026-07-06)",
-  "note": "Documented + gap-filled Chain Insights graph query recipes. Native traversal forms (BFS/WSHORTEST/KSHORTEST/var-length) on USE topology are bounded per the R2 resource policy and verified against real Memgraph. Merged into the corpus by generate-query-corpus.mjs; facts recipes drive the translator conformance + T0b baselines.",
+  "note": "Documented + gap-filled Chain Insights graph query recipes. ISO GQL quantified paths and shortest selectors on USE topology are bounded per the resource policy. Merged into the corpus by generate-query-corpus.mjs; facts recipes drive the translator conformance + T0b baselines.",
   "recipes": [
     {
       "id": "recipe_facts_transfer_01",
@@ -171,9 +171,9 @@
     },
     {
       "id": "recipe_topology_15",
-      "query": "USE topology MATCH p = (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO *1..5]->(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 3",
+      "query": "USE topology MATCH p = (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO]-{1,5}(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 3",
       "layer": "topology",
-      "description": "GQL quantified-path form: bind and return any single shortest FLOWS_TO path (1-5 hops) between two anonymous nodes",
+      "description": "GQL quantified-path form: bind a bounded FLOWS_TO path (1-5 hops) between two anchored nodes",
       "features": [
         "shortest-path",
         "variable-length",
@@ -182,12 +182,12 @@
     },
     {
       "id": "recipe_topology_16",
-      "query": "USE topology MATCH path = (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO *BFS 1..5]->(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path LIMIT 5",
+      "query": "USE topology MATCH path = SHORTEST 1 (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO]-{1,5}(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path LIMIT 5",
       "layer": "topology",
-      "description": "Direct-Memgraph reference (rejected by hosted path): native BFS path between two identities \u2014 retained as a negative/grammar-coverage shape",
+      "description": "ISO GQL shortest FLOWS_TO path between two anchored addresses",
       "features": [
-        "bfs",
-        "variable-length",
+        "gql-shortest",
+        "quantified-path",
         "path-binding",
         "label-match",
         "inline-property-map"
@@ -195,11 +195,11 @@
     },
     {
       "id": "recipe_topology_17",
-      "query": "USE topology MATCH path = (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO *WSHORTEST 5 (r, n | coalesce(r.amount_usd_sum, 1)) total_weight]->(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path, total_weight LIMIT 5",
+      "query": "USE topology MATCH path = ANY SHORTEST (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO]-{1,5}(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path LIMIT 5",
       "layer": "topology",
-      "description": "Direct-Memgraph reference (rejected by hosted path): weighted shortest path minimizing summed amount_usd_sum weight \u2014 retained as a negative/grammar-coverage shape",
+      "description": "ISO GQL one-of-the-shortest FLOWS_TO paths between two anchored addresses",
       "features": [
-        "wshortest",
+        "any-shortest",
         "shortest-path",
         "variable-length",
         "path-binding",
@@ -209,13 +209,13 @@
     },
     {
       "id": "recipe_topology_18",
-      "query": "USE topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"}), (dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) WITH src, dst MATCH path = (src)-[:FLOWS_TO *KSHORTEST|3]->(dst) RETURN path LIMIT 3",
+      "query": "USE topology MATCH path = ALL SHORTEST (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO]-{1,5}(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path LIMIT 3",
       "layer": "topology",
-      "description": "Direct-Memgraph reference (rejected by hosted path): K shortest (k=3) path alternatives between two identities \u2014 retained as a negative/grammar-coverage shape",
+      "description": "All shortest ISO GQL FLOWS_TO paths between two anchored addresses",
       "features": [
-        "kshortest",
+        "all-shortest",
         "shortest-path",
-        "variable-length",
+        "quantified-path",
         "path-binding",
         "label-match",
         "inline-property-map"

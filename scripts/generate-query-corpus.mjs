@@ -81,7 +81,7 @@ for (const scope of SCOPES) {
   )
 }
 
-// Route evidence: native *BFS traversal on the unified topology graph.
+// Route evidence: bounded ISO GQL shortest paths on the one topology graph.
 add(
   'connectionRouteQueries',
   { address: ADDR, compare: COMPARE },
