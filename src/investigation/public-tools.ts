@@ -664,13 +664,22 @@ function riskDrivers(
 // is needed. Missing/empty property -> empty array, same as "no labels"
 // behaved under the old facts read.
 function deriveLabelRows(profile: Record<string, unknown>): Array<Record<string, unknown>> {
-  const raw = profile['label_risk']
-  const rows = Array.isArray(raw)
-    ? raw.filter(
-        (row): row is Record<string, unknown> =>
-          typeof row === 'object' && row !== null && !Array.isArray(row)
-      )
+  // Dozer/Neo4j properties cannot store lists of maps. Sync therefore
+  // materializes the three map fields as parallel primitive arrays.
+  const labels = Array.isArray(profile['label_risk_labels'])
+    ? (profile['label_risk_labels'] as unknown[]).map((value) => String(value))
     : []
+  const riskLevels = Array.isArray(profile['label_risk_levels'])
+    ? (profile['label_risk_levels'] as unknown[]).map((value) => String(value))
+    : []
+  const timestamps = Array.isArray(profile['label_risk_updated_timestamps'])
+    ? (profile['label_risk_updated_timestamps'] as unknown[]).map((value) => numberValue(value))
+    : []
+  const rows = labels.map((label, index) => ({
+    label,
+    risk_level: riskLevels[index] ?? '',
+    updated_timestamp: timestamps[index] ?? 0,
+  }))
   return [...rows]
     .sort(
       (a, b) =>
