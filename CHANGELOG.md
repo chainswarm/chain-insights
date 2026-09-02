@@ -2,6 +2,24 @@
 # Changelog
 
 All notable changes to Chain Insights are recorded here.
+
+## [0.29.0] - 2026-09-03 — feat: serve Chain Insights through Robinhood Dozer GQL
+
+### Added
+
+- Bounded ISO GQL shortest-path route evidence for the Robinhood topology.
+
+### Changed
+
+- Public Cypher guidance, recipes, and the query corpus now use bounded ISO GQL.
+
+### Removed
+
+- Client-side shard merge and the retired federation component.
+
+### Security
+
+- Updated production dependency locks to clear npm audit findings.
 ## [0.27.5] - 2026-09-01 — fix: emit valid workspace query JSON
 
 ### Fixed
