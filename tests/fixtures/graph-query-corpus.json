@@ -50,7 +50,7 @@
     "compare": "corpus-address-b"
    },
    "scope": "topology",
-   "query": "USE topology MATCH p = (src:Address {address: \"corpus-address-a\"})-[:FLOWS_TO *BFS 1..4]->(dst:Address {address: \"corpus-address-b\"}) RETURN p LIMIT 1"
+   "query": "USE topology MATCH p = SHORTEST 1 (src:Address {address: \"corpus-address-a\"})-[:FLOWS_TO]-{1,4}(dst:Address {address: \"corpus-address-b\"}) RETURN p LIMIT 1"
   },
   {
    "builder": "connectionRouteQueries",
@@ -59,7 +59,7 @@
     "compare": "corpus-address-b"
    },
    "scope": "topology",
-   "query": "USE topology MATCH p = (src:Address {address: \"corpus-address-b\"})-[:FLOWS_TO *BFS 1..4]->(dst:Address {address: \"corpus-address-a\"}) RETURN p LIMIT 1"
+   "query": "USE topology MATCH p = SHORTEST 1 (src:Address {address: \"corpus-address-b\"})-[:FLOWS_TO]-{1,4}(dst:Address {address: \"corpus-address-a\"}) RETURN p LIMIT 1"
   },
   {
    "builder": "connectionRouteQueries",
@@ -68,7 +68,7 @@
     "compare": "corpus-address-b"
    },
    "scope": "topology",
-   "query": "USE topology MATCH p = (src:Address {address: \"corpus-address-b\"})-[:FLOWS_TO *BFS 1..4]->(dst:Address {address: \"corpus\\\"quote\"}) RETURN p LIMIT 1"
+   "query": "USE topology MATCH p = SHORTEST 1 (src:Address {address: \"corpus-address-b\"})-[:FLOWS_TO]-{1,4}(dst:Address {address: \"corpus\\\"quote\"}) RETURN p LIMIT 1"
   },
   {
    "builder": "connectionRouteQueries",
@@ -77,7 +77,7 @@
     "compare": "corpus-address-b"
    },
    "scope": "topology",
-   "query": "USE topology MATCH p = (src:Address {address: \"corpus\\\"quote\"})-[:FLOWS_TO *BFS 1..4]->(dst:Address {address: \"corpus-address-b\"}) RETURN p LIMIT 1"
+   "query": "USE topology MATCH p = SHORTEST 1 (src:Address {address: \"corpus\\\"quote\"})-[:FLOWS_TO]-{1,4}(dst:Address {address: \"corpus-address-b\"}) RETURN p LIMIT 1"
   },
   {
    "builder": "crossSpaceLinkedQuery",
@@ -268,29 +268,29 @@
     ]
    },
    "scope": "topology",
-   "query": "USE topology MATCH p = (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO *1..5]->(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 3"
+   "query": "USE topology MATCH p = (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO]-{1,5}(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 3"
   },
   {
    "builder": "documented-recipe",
    "params": {
     "id": "recipe_topology_16",
     "features": [
-     "bfs",
-     "variable-length",
+     "gql-shortest",
+     "quantified-path",
      "path-binding",
      "label-match",
      "inline-property-map"
     ]
    },
    "scope": "topology",
-   "query": "USE topology MATCH path = (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO *BFS 1..5]->(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path LIMIT 5"
+   "query": "USE topology MATCH path = SHORTEST 1 (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO]-{1,5}(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path LIMIT 5"
   },
   {
    "builder": "documented-recipe",
    "params": {
     "id": "recipe_topology_17",
     "features": [
-     "wshortest",
+     "any-shortest",
      "shortest-path",
      "variable-length",
      "path-binding",
@@ -299,23 +299,23 @@
     ]
    },
    "scope": "topology",
-   "query": "USE topology MATCH path = (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO *WSHORTEST 5 (r, n | coalesce(r.amount_usd_sum, 1)) total_weight]->(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path, total_weight LIMIT 5"
+   "query": "USE topology MATCH path = ANY SHORTEST (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO]-{1,5}(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path LIMIT 5"
   },
   {
    "builder": "documented-recipe",
    "params": {
     "id": "recipe_topology_18",
     "features": [
-     "kshortest",
+     "all-shortest",
      "shortest-path",
-     "variable-length",
+     "quantified-path",
      "path-binding",
      "label-match",
      "inline-property-map"
     ]
    },
    "scope": "topology",
-   "query": "USE topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"}), (dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) WITH src, dst MATCH path = (src)-[:FLOWS_TO *KSHORTEST|3]->(dst) RETURN path LIMIT 3"
+   "query": "USE topology MATCH path = ALL SHORTEST (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO]-{1,5}(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path LIMIT 3"
   },
   {
    "builder": "documented-recipe",

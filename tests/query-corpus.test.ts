@@ -42,10 +42,8 @@ describe('graph query corpus', () => {
       expect(entry.query, `malformed value in ${entry.builder}`).not.toMatch(
         /undefined|NaN|\[object /
       )
-      // Native traversal (BFS/WSHORTEST/KSHORTEST/*a..b) is legal on the
-      // topology graph (executes directly against Memgraph) but must NOT
-      // appear on facts, which goes through the corpus-scoped StarRocks
-      // translator that rejects those shapes.
+      // Quantified paths and shortest selectors are legal on topology, but
+      // must not appear on facts, which goes through the StarRocks translator.
       if (entry.scope === 'facts') {
         expect(entry.query, `native traversal on translator layer: ${entry.builder}`).not.toMatch(
           /SHORTEST|\*\s*BFS|\*\s*DFS|\*\s*\d|\*\s*KSHORTEST|\*\s*WSHORTEST|\{\d+,\d*\}/
@@ -71,16 +69,21 @@ describe('graph query corpus', () => {
     }
   })
 
-  it('documented recipes cover the native topology traversal surface', () => {
+  it('documented recipes cover the GQL topology path surface', () => {
     const recipes = JSON.parse(
       readFileSync(join(repoRoot, 'tests/fixtures/documented-recipes.json'), 'utf8')
     ).recipes as Array<{ query: string; layer: string; features: string[] }>
     const topologyFeatures = new Set(
       recipes.filter((r) => r.layer === 'topology').flatMap((r) => r.features)
     )
-    // Native traversal shapes run directly against Memgraph on the unified
-    // topology graph. The corpus must exercise them.
-    for (const feature of ['bfs', 'wshortest', 'kshortest', 'variable-length', 'shortest-path']) {
+    // GQL path shapes run directly against DozerDB on the topology graph.
+    for (const feature of [
+      'gql-shortest',
+      'any-shortest',
+      'all-shortest',
+      'quantified-path',
+      'shortest-path',
+    ]) {
       expect(topologyFeatures.has(feature), `missing native topology feature: ${feature}`).toBe(
         true
       )

@@ -1312,22 +1312,35 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     // the ML verdict abstains (UNSCORED) -- this fails closed to "no
     // signal" if deriveLabelRows reads the wrong field, breaks its sort, or
     // returns [].
-    const labelRisk = [
-      { label: 'stale-label-oldest', risk_level: 'low', updated_timestamp: 1000 },
-      {
-        label: 'Scam laundering intermediate',
-        risk_level: 'critical',
-        updated_timestamp: 1700000000000,
-      },
-      { label: 'filler-label-2', risk_level: 'low', updated_timestamp: 1600000000009 },
-      { label: 'filler-label-3', risk_level: 'low', updated_timestamp: 1600000000008 },
-      { label: 'filler-label-4', risk_level: 'low', updated_timestamp: 1600000000007 },
-      { label: 'filler-label-5', risk_level: 'low', updated_timestamp: 1600000000006 },
-      { label: 'filler-label-6', risk_level: 'low', updated_timestamp: 1600000000005 },
-      { label: 'filler-label-7', risk_level: 'low', updated_timestamp: 1600000000004 },
-      { label: 'filler-label-8', risk_level: 'low', updated_timestamp: 1600000000003 },
-      { label: 'filler-label-9', risk_level: 'low', updated_timestamp: 1600000000002 },
-      { label: 'filler-label-10', risk_level: 'low', updated_timestamp: 1600000000001 },
+    const labelRiskLabels = [
+      'stale-label-oldest',
+      'Scam laundering intermediate',
+      'filler-label-2',
+      'filler-label-3',
+      'filler-label-4',
+      'filler-label-5',
+      'filler-label-6',
+      'filler-label-7',
+      'filler-label-8',
+      'filler-label-9',
+      'filler-label-10',
+    ]
+    const labelRiskLevels = [
+      'low',
+      'critical',
+      'low',
+      'low',
+      'low',
+      'low',
+      'low',
+      'low',
+      'low',
+      'low',
+      'low',
+    ]
+    const labelRiskUpdatedTimestamps = [
+      1000, 1700000000000, 1600000000009, 1600000000008, 1600000000007, 1600000000006,
+      1600000000005, 1600000000004, 1600000000003, 1600000000002, 1600000000001,
     ]
     clientInstance.callTool.mockResolvedValueOnce({
       content: [
@@ -1349,7 +1362,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                       system_labels: ['Address'],
                       live_risk_score: 0.12,
                       live_risk_level: 'UNSCORED',
-                      label_risk: labelRisk,
+                      label_risk_labels: labelRiskLabels,
+                      label_risk_levels: labelRiskLevels,
+                      label_risk_updated_timestamps: labelRiskUpdatedTimestamps,
                       degree_in: 1,
                       degree_out: 1,
                     },

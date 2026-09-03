@@ -33,7 +33,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(actual).toEqual(reviewedSkills)
   })
 
-  it('teaches schema plus Memgraph Cypher and excludes stale product guidance', () => {
+  it('teaches schema plus ISO GQL and excludes stale product guidance', () => {
     const evm = read('skills/chain-insights-schema-evm/SKILL.md')
     const bittensor = read('skills/chain-insights-schema-bittensor/SKILL.md')
     const cypher = read('skills/chain-insights-cypher/SKILL.md')
@@ -41,7 +41,7 @@ describe('shipped Chain Insights skills contract', () => {
 
     expect(evm).toMatch(/label|relationship|property/i)
     expect(bittensor).toMatch(/Bittensor/i)
-    expect(cypher).toMatch(/Memgraph/i)
+    expect(cypher).toMatch(/ISO GQL/i)
     expect(cypher).toContain('graph_query')
     expect(addressRisk).toContain('aml_address_risk')
     expect(addressRisk).toContain('meta_network_capabilities')
@@ -227,7 +227,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(development).toContain('docs/debugging.md')
   })
 
-  it('ships Memgraph Cypher guidance without a query cookbook', () => {
+  it('ships ISO GQL guidance without a query cookbook', () => {
     const skill = read('skills/chain-insights-cypher/SKILL.md')
     const openai = read('skills/chain-insights-cypher/agents/openai.yaml')
     const graphTools = read('docs/graph-tools.md')
@@ -237,7 +237,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('graph_query_batch')
     expect(skill).toContain('USE topology')
     expect(skill).toContain('USE facts')
-    expect(skill).toContain('native Memgraph Cypher')
+    expect(skill).toContain('ISO GQL')
     expect(skill).not.toContain('AddressFeature')
     expect(skill).not.toContain('AddressLabel')
     expect(skill).not.toContain('HAS_LABEL')
@@ -260,17 +260,14 @@ describe('shipped Chain Insights skills contract', () => {
     expect(mcpProxy).not.toContain('Memgraph examples reference')
   })
 
-  it('teaches the three Memgraph hop lambdas with an explicit hop bound', () => {
+  it('teaches bounded ISO GQL paths and shortest selectors', () => {
     const skill = read('skills/chain-insights-cypher/SKILL.md')
 
-    expect(skill).toContain('(r, n |')
-    expect(skill).toContain('(r, n, p |')
-    expect(skill).toContain('(r, n, p, w |')
-    expect(skill).toContain('*1..5')
-    expect(skill).toContain('*BFS 1..5')
-    expect(skill).toContain('*WSHORTEST 5')
-    expect(skill).toContain('amount_usd_sum')
-    expect(skill).not.toMatch(/-\[\s*\*BFS\s*\]->/)
+    expect(skill).toContain('MATCH SHORTEST 1')
+    expect(skill).toContain('MATCH ANY SHORTEST')
+    expect(skill).toContain('MATCH ALL SHORTEST')
+    expect(skill).toContain('-[:FLOWS_TO]-{1,5}')
+    expect(skill).not.toMatch(/\*\s*(BFS|DFS|WSHORTEST|ALLSHORTEST|KSHORTEST)/i)
     expect(skill).not.toContain('USING HOPS LIMIT')
     expect(skill).not.toContain('DROP GRAPH')
     expect(skill).not.toContain('eu_border')
