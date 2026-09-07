@@ -1,4 +1,4 @@
 interface:
   display_name: 'Chain Insights Cypher'
-  short_description: 'Write bounded Memgraph Cypher for graph_query and graph_query_batch'
-  default_prompt: 'Use Chain Insights graph_query or graph_query_batch with explicit network, USE topology or USE facts, and native Memgraph Cypher on topology. Load a schema skill for labels. Do not invent a query cookbook.'
+  short_description: 'Write bounded ISO GQL for graph_query and graph_query_batch'
+  default_prompt: 'Use Chain Insights graph_query or graph_query_batch with explicit network, USE topology or USE facts, and bounded ISO GQL on topology. Load a schema skill for labels. Do not invent a query cookbook.'

@@ -3,6 +3,84 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.29.3] - 2026-09-07 — docs: rename the README banner asset
+
+### Changed
+
+- Banner asset renamed to chain-insights-github-crime-scene.png.
+
+## [0.29.2] - 2026-09-07 — docs: crime-scene GitHub banner
+
+### Changed
+
+- README banner swapped for the agency crime-scene scene: the cast tracing a
+  glowing fund-flow trail while the scammer flees with the coin.
+
+## [0.29.1] - 2026-09-07 — docs: brand the README with the agency identity
+
+### Changed
+
+- README header now carries the agency banner and tagline, so users landing
+  from chain-insights.ai get the same brand. Setup content is unchanged.
+
+## [0.29.0] - 2026-09-03 — feat: serve Chain Insights through Robinhood Dozer GQL
+
+### Added
+
+- Bounded ISO GQL shortest-path route evidence for the Robinhood topology.
+
+### Changed
+
+- Public Cypher guidance, recipes, and the query corpus now use bounded ISO GQL.
+
+### Removed
+
+- Client-side shard merge and the retired federation component.
+
+### Security
+
+- Updated production dependency locks to clear npm audit findings.
+## [0.27.5] - 2026-09-01 — fix: emit valid workspace query JSON
+
+### Fixed
+
+- Workspace initialization now preserves valid JSON quoting in its generated node-label query example.
+
+## [0.28.0] - 2026-09-01 — feat: OPERATED_BY operator topology surface
+
+### Added
+
+- `OPERATED_BY` owner-to-operator topology edge across the compatibility
+  matrix, the EVM schema skill, the graph tool guide, and the documented
+  recipe corpus: direction, aggregate properties, topology-only scope, the
+  canonical high-fan-in operator query, and the not-a-risk-label caveat.
+- Contract test pinning the documented direction, network scoping, bounds,
+  and the absence of any automatic risk-label claim.
+
+## [0.27.4] - 2026-08-31 — ci: make docs self-contained
+
+### Changed
+
+- Moved Docs validation and architecture rendering helpers into this repository.
+- Removed private cross-repository checkout and protected-branch commit-back from Docs.
+- Docs now verifies that rendered architecture files are committed with their source changes.
+
+## [0.27.3] - 2026-08-31 — ci: use hosted runners for docs and Scorecard
+
+### Fixed
+
+- Moved Docs to `ubuntu-latest` so it does not wait for the saturated x64 runner pool.
+- Moved OpenSSF Scorecard to `ubuntu-latest`, as required to publish public score results.
+
+## [0.27.2] - 2026-08-31 — ci: fix docs gate and scope workflow permissions
+
+### Fixed
+
+- Added the release guidance required by the scheduled README quality gate.
+- Scoped write permissions to only the workflow jobs that commit changes.
+- Added a direct link for private GitHub vulnerability reports.
+
+
 ## [0.27.1] - 2026-08-31 — fix: use production endpoint in agent setup
 
 Fresh `cia --claude`, `cia --codex`, and `cia --hermes` setup now starts with

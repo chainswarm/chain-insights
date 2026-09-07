@@ -1,11 +1,17 @@
 # Chain Insights
 
+<div align="center">
+  <img src=".github/assets/chain-insights-github-crime-scene.png" width="100%" alt="Chain Insights: the agency cast around a crime-scene table tracing a glowing fund-flow trail while the scammer flees with the coin" />
+
 [![npm version](https://img.shields.io/npm/v/chain-insights)](https://www.npmjs.com/package/chain-insights)
 [![CI](https://img.shields.io/github/actions/workflow/status/chainswarm/chain-insights/verify.yml?branch=main)](https://github.com/chainswarm/chain-insights/actions/workflows/verify.yml)
 [![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/chainswarm/chain-insights)](https://securityscorecards.dev/viewer/?uri=github.com/chainswarm/chain-insights)
 [![License](https://img.shields.io/npm/l/chain-insights)](https://github.com/chainswarm/chain-insights/blob/main/LICENSE)
 
-[Website](https://chain-insights.ai) | [npm](https://www.npmjs.com/package/chain-insights)
+  *Follow the funds. Find the obvious.*
+
+  [Website](https://chain-insights.ai) | [npm](https://www.npmjs.com/package/chain-insights) | [Quickstart](#quickstart)
+</div>
 
 Chain Insights is open-source AML and forensics infrastructure for AI agents
 and analysts: a hosted Chain Insights Graph you reach over MCP, screened
@@ -124,7 +130,6 @@ Source modules (hand-maintained):
 | Module          | Entrypoint          | Component doc                                                                |
 | --------------- | ------------------- | ---------------------------------------------------------------------------- |
 | `config`        | `src/config`        | [components/config.md](docs/architecture/components/config.md)               |
-| `federation`    | `src/federation`    | [components/federation.md](docs/architecture/components/federation.md)       |
 | `investigation` | `src/investigation` | [components/investigation.md](docs/architecture/components/investigation.md) |
 | `mcp`           | `src/mcp`           | [components/mcp.md](docs/architecture/components/mcp.md)                     |
 | `wallet`        | `src/wallet`        | [components/wallet.md](docs/architecture/components/wallet.md)               |
@@ -144,10 +149,10 @@ and [operating rules](docs/architecture/operating-rules.md).
 
 Graph queries choose the read graph explicitly:
 
-| Graph      | Use it for                                                                                                                                      |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `topology` | The unified address / FLOWS_TO / LINKED graph — recent and full historical fund-flow traversal, plus the node `risk_score`/`risk_level` verdict |
-| `facts`    | Bounded individual `TRANSFER` rows with amount, `amount_usd`, asset, transaction, and block facts                                               |
+| Graph      | Use it for                                                                                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `topology` | The unified address / FLOWS_TO / OPERATED_BY / LINKED graph — recent and full historical fund-flow traversal, plus the node `risk_score`/`risk_level` verdict |
+| `facts`    | Bounded individual `TRANSFER` rows with amount, `amount_usd`, asset, transaction, and block facts                                                             |
 
 One rule is worth reading before writing a query by hand: the `network`
 argument selects the graph, not the addresses inside it. The address-space
@@ -365,6 +370,16 @@ cia --version && cia update --check
 If network or tool discovery fails, check the endpoint and access mode
 first. Confirm the endpoint with `cia config get graphMcpEndpoint` and retry
 the command.
+
+## Pre-staging / Release
+
+Every pull request to `main` must bump `package.json` and
+`package-lock.json`, add a matching `CHANGELOG.md` entry, and pass the GitHub
+verification checks. Before pre-staging or release, run the full local gate
+and confirm the release metadata is consistent.
+
+See [Release Discipline](docs/contributing.md#release-discipline) for the
+complete contributor requirements.
 
 ## Documentation Links
 

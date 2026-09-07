@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/generate-query-corpus.mjs",
- "entry_count": 44,
+ "entry_count": 45,
  "entries": [
   {
    "builder": "addressFeatureQuery",
@@ -50,7 +50,7 @@
     "compare": "corpus-address-b"
    },
    "scope": "topology",
-   "query": "USE topology MATCH p = (src:Address {address: \"corpus-address-a\"})-[:FLOWS_TO *BFS 1..4]->(dst:Address {address: \"corpus-address-b\"}) RETURN p LIMIT 1"
+   "query": "USE topology MATCH p = SHORTEST 1 (src:Address {address: \"corpus-address-a\"})-[:FLOWS_TO]-{1,4}(dst:Address {address: \"corpus-address-b\"}) RETURN p LIMIT 1"
   },
   {
    "builder": "connectionRouteQueries",
@@ -59,7 +59,7 @@
     "compare": "corpus-address-b"
    },
    "scope": "topology",
-   "query": "USE topology MATCH p = (src:Address {address: \"corpus-address-b\"})-[:FLOWS_TO *BFS 1..4]->(dst:Address {address: \"corpus-address-a\"}) RETURN p LIMIT 1"
+   "query": "USE topology MATCH p = SHORTEST 1 (src:Address {address: \"corpus-address-b\"})-[:FLOWS_TO]-{1,4}(dst:Address {address: \"corpus-address-a\"}) RETURN p LIMIT 1"
   },
   {
    "builder": "connectionRouteQueries",
@@ -68,7 +68,7 @@
     "compare": "corpus-address-b"
    },
    "scope": "topology",
-   "query": "USE topology MATCH p = (src:Address {address: \"corpus-address-b\"})-[:FLOWS_TO *BFS 1..4]->(dst:Address {address: \"corpus\\\"quote\"}) RETURN p LIMIT 1"
+   "query": "USE topology MATCH p = SHORTEST 1 (src:Address {address: \"corpus-address-b\"})-[:FLOWS_TO]-{1,4}(dst:Address {address: \"corpus\\\"quote\"}) RETURN p LIMIT 1"
   },
   {
    "builder": "connectionRouteQueries",
@@ -77,7 +77,7 @@
     "compare": "corpus-address-b"
    },
    "scope": "topology",
-   "query": "USE topology MATCH p = (src:Address {address: \"corpus\\\"quote\"})-[:FLOWS_TO *BFS 1..4]->(dst:Address {address: \"corpus-address-b\"}) RETURN p LIMIT 1"
+   "query": "USE topology MATCH p = SHORTEST 1 (src:Address {address: \"corpus\\\"quote\"})-[:FLOWS_TO]-{1,4}(dst:Address {address: \"corpus-address-b\"}) RETURN p LIMIT 1"
   },
   {
    "builder": "crossSpaceLinkedQuery",
@@ -268,29 +268,29 @@
     ]
    },
    "scope": "topology",
-   "query": "USE topology MATCH p = (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO *1..5]->(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 3"
+   "query": "USE topology MATCH p = (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO]-{1,5}(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 3"
   },
   {
    "builder": "documented-recipe",
    "params": {
     "id": "recipe_topology_16",
     "features": [
-     "bfs",
-     "variable-length",
+     "gql-shortest",
+     "quantified-path",
      "path-binding",
      "label-match",
      "inline-property-map"
     ]
    },
    "scope": "topology",
-   "query": "USE topology MATCH path = (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO *BFS 1..5]->(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path LIMIT 5"
+   "query": "USE topology MATCH path = SHORTEST 1 (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO]-{1,5}(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path LIMIT 5"
   },
   {
    "builder": "documented-recipe",
    "params": {
     "id": "recipe_topology_17",
     "features": [
-     "wshortest",
+     "any-shortest",
      "shortest-path",
      "variable-length",
      "path-binding",
@@ -299,23 +299,23 @@
     ]
    },
    "scope": "topology",
-   "query": "USE topology MATCH path = (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO *WSHORTEST 5 (r, n | coalesce(r.amount_usd_sum, 1)) total_weight]->(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path, total_weight LIMIT 5"
+   "query": "USE topology MATCH path = ANY SHORTEST (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO]-{1,5}(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path LIMIT 5"
   },
   {
    "builder": "documented-recipe",
    "params": {
     "id": "recipe_topology_18",
     "features": [
-     "kshortest",
+     "all-shortest",
      "shortest-path",
-     "variable-length",
+     "quantified-path",
      "path-binding",
      "label-match",
      "inline-property-map"
     ]
    },
    "scope": "topology",
-   "query": "USE topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"}), (dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) WITH src, dst MATCH path = (src)-[:FLOWS_TO *KSHORTEST|3]->(dst) RETURN path LIMIT 3"
+   "query": "USE topology MATCH path = ALL SHORTEST (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO]-{1,5}(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path LIMIT 3"
   },
   {
    "builder": "documented-recipe",
@@ -355,6 +355,20 @@
    },
    "scope": "topology",
    "query": "USE topology MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[l:LINKED]-(b:Address) WHERE a.network <> b.network RETURN a.address AS address, a.network AS network, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 25"
+  },
+  {
+   "builder": "documented-recipe",
+   "params": {
+    "id": "recipe_topology_operated_by_01",
+    "features": [
+     "topology-edge",
+     "operated-by-edge",
+     "address-predicate",
+     "bounded-limit"
+    ]
+   },
+   "scope": "topology",
+   "query": "USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \"0xdd509c9f91f66a18802ef5b3d54c73b62ea1ca08\"}) RETURN owner.address AS owner_address, operation.tx_count AS tx_count, operation.amount_usd_sum AS amount_usd_sum, coalesce(operation.token_standard, \"mixed\") AS token_standard, operation.last_seen_timestamp AS last_seen_timestamp ORDER BY operation.tx_count DESC LIMIT 10"
   },
   {
    "builder": "exchangeInflowQueries",

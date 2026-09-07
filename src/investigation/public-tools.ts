@@ -1,10 +1,7 @@
-import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
-import type { InvestigatorConfig } from '../config/schema.js'
-import { applyShardMergeToBatchEntries } from '../federation/apply-merge.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 import { isUnscoredRiskLevel, normalizeRiskLevel, riskSeverityRank } from './risk-level.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
@@ -12,7 +9,6 @@ import {
   createUsageAccumulator,
   usageBlock,
   wrapClientForUsageTracking,
-  type UsageTotals,
 } from '../lib/usage-accumulator.js'
 
 export { buildTruthProposal, resolveTruthIngressTlsPaths } from './truth-proposal.js'
@@ -30,8 +26,6 @@ interface ParsedGraphBatch {
       ok?: boolean
       results?: Array<Record<string, unknown>>
       error?: string
-      perShard?: Record<string, Array<Record<string, unknown>>>
-      ordering?: 'exact' | 'approximate' | 'unordered'
     }>
   }
 }
@@ -158,30 +152,7 @@ async function callGraphBatch(
     }
   )) as RemoteToolResult
   if (result.isError) throw new Error(textFromToolResult(result) || 'graph_query_batch failed')
-  const parsed = parseGraphBatchResult(result)
-  applyShardMergeToBatchEntries(parsed.facts?.queries, queries)
-  return parsed
-}
-
-function parseAddressList(value: string | string[] | undefined): string[] {
-  const raw = Array.isArray(value) ? value.join(',') : (value ?? '')
-  return raw
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-}
-
-function graphArray(
-  graphData: Record<string, unknown>,
-  key: string
-): Array<Record<string, unknown>> {
-  const value = graphData[key]
-  return Array.isArray(value)
-    ? value.filter(
-        (item): item is Record<string, unknown> =>
-          typeof item === 'object' && item !== null && !Array.isArray(item)
-      )
-    : []
+  return parseGraphBatchResult(result)
 }
 
 function addressProfileQuery(address: string): { id: string; query: string } {
@@ -205,13 +176,7 @@ function addressProfileQuery(address: string): { id: string; query: string } {
   }
 }
 
-// Lifetime address features from federated USE topology node-metric
-// projections (was: USE facts HAS_FEATURE -> facts_address_features_view,
-// the view's last reader — internal epic). The federation typed-AST planner
-// (internal epic) re-derives every projected metric EXACTLY across shards:
-// additive props summed over disjoint shard windows, degrees as distinct
-// counterparty set unions, first/last activity as min/max of per-shard baked
-// endpoints, span from the combined endpoints — oracle-verified.
+// Lifetime address features are materialized on the one USE topology node.
 function addressFeatureQuery(address: string): { id: string; query: string } {
   return {
     id: 'address_feature',
@@ -229,8 +194,7 @@ function flowEdgeMap(variableName: string): string {
 }
 
 function pathNodeMap(variableName: string): string {
-  // risk_score/risk_level are always projected: topology is now unconditionally
-  // Memgraph-backed, so the :Address slim risk verdict is always available.
+  // risk_score/risk_level are always projected on topology nodes.
   const riskFields = `, risk_score: ${variableName}.risk_score, risk_level: ${variableName}.risk_level`
   return `{address: ${variableName}.address, network: ${variableName}.network, labels: ${variableName}.labels, system_labels: ${variableName}.labels, is_exchange: ${variableName}.is_exchange${riskFields}}`
 }
@@ -449,51 +413,6 @@ function compareAddressExistsQuery(address: string): { id: string; query: string
   }
 }
 
-// R2/R3 seed pre-flight (address grain): before a multi-address trace runs,
-// every seed is probed with a cheap indexed :Address existence lookup so a
-// made-up or inactive address is REPORTED as unresolved instead of silently
-// traced into an empty result. This preserves the pre-revert identity-
-// resolution contract's unresolved-seeds surface (structuredContent.unresolved
-// + summary.unresolved_count + the Unresolved summary line) with the address
-// itself as the graph key -- there is no canonical-key rewrite step anymore.
-function seedAddressExistsQuery(id: string, address: string): { id: string; query: string } {
-  return {
-    id,
-    query: [
-      `MATCH (a:Address {address: "${escapeCypherString(address)}"})`,
-      'RETURN a.address AS address',
-      'LIMIT 1',
-    ].join(' '),
-  }
-}
-
-async function probeSeedAddresses(
-  remoteClient: Client,
-  network: string,
-  inputs: string[]
-): Promise<Set<string>> {
-  if (inputs.length === 0) return new Set()
-  const queries = inputs.map((input, index) => ({
-    input,
-    ...seedAddressExistsQuery(`seed_address_exists_${index + 1}`, input),
-  }))
-  const batch = await callGraphBatch(
-    remoteClient,
-    network,
-    queries.map(({ id, query }) => ({ id, query }))
-  )
-  const failures: QueryFailure[] = []
-  const existing = new Set<string>()
-  for (const { input, id } of queries) {
-    const rows = optionalResultsFor(batch, id, failures)
-    // A failed probe (ok:false) treats the seed as unresolved rather than
-    // silently tracing it -- same conservative posture the pre-revert
-    // identity resolution took on lookup failure.
-    if (firstString(rows[0]?.['address'])) existing.add(input)
-  }
-  return existing
-}
-
 // AC11: FLOWS_TO reachability UNIONed over one -[:LINKED]- hop, so an
 // investigator surveying an address's exposure also sees exposure carried by
 // an address that is only ownership-LINKED to it (LINKED is undirected).
@@ -538,16 +457,14 @@ function crossSpaceLinkedQuery(address: string): { id: string; query: string } {
 
 // ── Pairwise route evidence ──
 // Directed shortest route between two KNOWN identity endpoints. The topology
-// graph is native Memgraph Cypher, so the route uses native `*BFS 1..N`
-// (BFS = fewest-hop directed route within the depth bound) between both
-// anchored endpoints. Exchange intermediates on a returned route are DISCLOSED
-// in the evidence, never silently filtered out.
+// graph speaks ISO GQL, so both routes use one shortest path with a maximum
+// of four FLOWS_TO hops. Exchange intermediates on a returned route are
+// DISCLOSED in the evidence, never silently filtered out.
 
 export const CONNECTION_ROUTE_DEPTH_BOUND = 4
 
 export function shouldIncludeRouteQueries(compareAddress: string | undefined): boolean {
-  // Native traversal (*BFS) always fires when a compare address is given:
-  // topology is unconditionally Memgraph-native.
+  // GQL shortest-path traversal always fires when a compare address is given.
   return Boolean(compareAddress)
 }
 
@@ -557,8 +474,8 @@ export function connectionRouteQueries(
 ): Array<{ id: string; query: string }> {
   const routeQuery = (fromAddress: string, toAddress: string): string =>
     [
-      `MATCH p = (src:Address {address: "${escapeCypherString(fromAddress)}"})`,
-      `-[:FLOWS_TO *BFS 1..${CONNECTION_ROUTE_DEPTH_BOUND}]->`,
+      `MATCH p = SHORTEST 1 (src:Address {address: "${escapeCypherString(fromAddress)}"})`,
+      `-[:FLOWS_TO]-{1,${CONNECTION_ROUTE_DEPTH_BOUND}}`,
       `(dst:Address {address: "${escapeCypherString(toAddress)}"}) RETURN p LIMIT 1`,
     ].join('')
   return [
@@ -689,21 +606,6 @@ function numberValue(value: unknown): number | undefined {
   return undefined
 }
 
-function isExchangeFlag(value: unknown): boolean {
-  if (value === true) return true
-  if (value === false || value === null || value === undefined) return false
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase()
-    return normalized === 'true' || normalized === '1'
-  }
-  if (typeof value === 'number') return value === 1
-  return false
-}
-
-function hasExactExchangeLabel(labels: string[] | undefined): boolean {
-  return (labels ?? []).some((label) => label.trim().toLowerCase() === 'exchange')
-}
-
 function firstNumber(...values: unknown[]): number | undefined {
   for (const value of values) {
     const parsed = numberValue(value)
@@ -762,13 +664,22 @@ function riskDrivers(
 // is needed. Missing/empty property -> empty array, same as "no labels"
 // behaved under the old facts read.
 function deriveLabelRows(profile: Record<string, unknown>): Array<Record<string, unknown>> {
-  const raw = profile['label_risk']
-  const rows = Array.isArray(raw)
-    ? raw.filter(
-        (row): row is Record<string, unknown> =>
-          typeof row === 'object' && row !== null && !Array.isArray(row)
-      )
+  // Dozer/Neo4j properties cannot store lists of maps. Sync therefore
+  // materializes the three map fields as parallel primitive arrays.
+  const labels = Array.isArray(profile['label_risk_labels'])
+    ? (profile['label_risk_labels'] as unknown[]).map((value) => String(value))
     : []
+  const riskLevels = Array.isArray(profile['label_risk_levels'])
+    ? (profile['label_risk_levels'] as unknown[]).map((value) => String(value))
+    : []
+  const timestamps = Array.isArray(profile['label_risk_updated_timestamps'])
+    ? (profile['label_risk_updated_timestamps'] as unknown[]).map((value) => numberValue(value))
+    : []
+  const rows = labels.map((label, index) => ({
+    label,
+    risk_level: riskLevels[index] ?? '',
+    updated_timestamp: timestamps[index] ?? 0,
+  }))
   return [...rows]
     .sort(
       (a, b) =>
@@ -1115,7 +1026,7 @@ export async function addressRisk(
   // post-hoc from the address_profile row (below) instead of the pre-revert
   // pre-flight lookup -- deliberate: it saves a round trip on the hot path.
   // The COMPARE address keeps a pre-flight existence probe, because the
-  // connection probe and the *BFS route queries must be SUPPRESSED (not just
+  // connection probe and shortest-path route queries must be SUPPRESSED (not
   // ignored) when the compare address does not exist -- pre-revert behavior
   // never issued route probes for an unresolved compare input.
   let compareUnresolved = false
@@ -1143,9 +1054,9 @@ export async function addressRisk(
               'MATCH (n:Address {address: "__chain_insights_noop__"}) RETURN n.address AS noop LIMIT 0',
           },
         ]),
-    // Route evidence is additive: native *BFS traversal always fires for a
-    // compare address whose existence probe succeeded (the 1-hop probe above
-    // always runs).
+    // Route evidence is additive: ISO GQL shortest-path traversal always
+    // fires for a compare address whose existence probe succeeded (the
+    // 1-hop probe above always runs).
     ...(shouldIncludeRouteQueries(compareAddress)
       ? connectionRouteQueries(address, compareAddress)
       : []),

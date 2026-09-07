@@ -8,6 +8,8 @@ Chain Insights is pre-1.0. Security fixes are applied to the latest `main` branc
 
 Report suspected vulnerabilities privately to the maintainers before opening a public issue. Include:
 
+Use [GitHub private vulnerability reporting](https://github.com/chainswarm/chain-insights/security/advisories/new) to submit a report.
+
 - Affected version, commit, or npm package version.
 - Reproduction steps or a minimal proof of concept.
 - Impact assessment, especially for wallet handling, x402 payments, MCP tool execution, graph report files, or local workspace data.

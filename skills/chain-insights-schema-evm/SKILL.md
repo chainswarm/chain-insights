@@ -21,11 +21,12 @@ Load `chain-insights-cypher` for Memgraph dialect rules.
 
 ## Topology relationships
 
-| Relationship     | Shape                                | Meaning                                        |
-| ---------------- | ------------------------------------ | ---------------------------------------------- |
-| `FLOWS_TO`       | `(:Address)-[:FLOWS_TO]->(:Address)` | Lifetime money flow. Directed.                 |
-| `LINKED`         | `(:Address)-[:LINKED]-(:Address)`    | Same-actor overlay. Undirected. Topology only. |
-| `RISK_PROXIMITY` | address-to-address                   | Nearby risk. Do not treat as money flow.       |
+| Relationship     | Shape                                   | Meaning                                              |
+| ---------------- | --------------------------------------- | ---------------------------------------------------- |
+| `FLOWS_TO`       | `(:Address)-[:FLOWS_TO]->(:Address)`    | Lifetime money flow. Directed.                       |
+| `OPERATED_BY`    | `(:Address)-[:OPERATED_BY]->(:Address)` | Owner to approved operator. Directed. Topology only. |
+| `LINKED`         | `(:Address)-[:LINKED]-(:Address)`       | Same-actor overlay. Undirected. Topology only.       |
+| `RISK_PROXIMITY` | address-to-address                      | Nearby risk. Do not treat as money flow.             |
 
 `LINKED` is topology-only. Do not query it on facts.
 
@@ -58,6 +59,52 @@ Lifetime aggregates. USD only. Do not use native `amount_sum`.
 | `first_seen_timestamp` / `last_seen_timestamp` | First and last flow time.         |
 | `first_tx_id` / `last_tx_id`                   | Endpoint transactions.            |
 | `price_coverage_ratio`                         | How much of the flow has a price. |
+
+## OPERATED_BY properties
+
+One edge aggregates one directed owner/operator pair. The source is the
+owner (`from_address`). The destination is the approved operator that
+executed the transfer. Direct transfers with an empty operator create no
+edge. ERC-20, ERC-721, and ERC-1155 share this relationship type.
+
+Topology only. Do not query `OPERATED_BY` on facts.
+
+| Property                                          | Notes                                                                                 |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `tx_count`                                        | Operator-mediated transfers in the aggregate.                                         |
+| `amount_usd_sum`                                  | Lifetime USD through the operator.                                                    |
+| `first_seen_timestamp` / `last_seen_timestamp`    | First and last mediated transfer.                                                     |
+| `bucket_start_timestamp` / `bucket_end_timestamp` | Graph-shard window bounds, milliseconds.                                              |
+| `token_standard`                                  | `ERC20`/`ERC721`/`ERC1155` when unambiguous. Optional — mixed-standard pairs omit it. |
+| `owner_address` / `operator_address` / `pair_id`  | Endpoint identity on the edge.                                                        |
+
+`OPERATED_BY` is a topology fact. It is not proof of malicious intent and
+carries no risk label. Routers, aggregators, and sweepers look like drainers
+on owner count alone. Confirm with `FLOWS_TO` and label context.
+
+Point-anchored probe (sub-second on the hosted endpoint). It needs no
+network predicate for the same reason any exact-address lookup does not: the
+address is already a unique key, so the match cannot leave the selected
+address space:
+
+```cypher
+USE topology
+MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: "0x…"})
+RETURN owner.address AS owner_address,
+       operation.tx_count AS tx_count,
+       operation.amount_usd_sum AS amount_usd_sum,
+       coalesce(operation.token_standard, "mixed") AS token_standard,
+       operation.last_seen_timestamp AS last_seen_timestamp
+ORDER BY operation.tx_count DESC
+LIMIT 10
+```
+
+Call that probe `operated_by_sample` in `graph_query_batch`. Zero rows is a
+healthy result. Whole-graph high-fan-in sweeps (every operator grouped by distinct owner
+count) are valid but heavy: at millions of edges they exceed the hosted
+10-second per-query budget and can burn metered seconds. Scope both endpoints
+by `network`, bound by a recent `last_seen_timestamp` window (recompute the
+cutoff), and prefer the point-anchored probe on metered endpoints.
 
 ## LINKED properties
 
