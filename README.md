@@ -8,8 +8,6 @@
   [![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/chainswarm/chain-insights)](https://securityscorecards.dev/viewer/?uri=github.com/chainswarm/chain-insights)
   [![License](https://img.shields.io/npm/l/chain-insights)](https://github.com/chainswarm/chain-insights/blob/main/LICENSE)
 
-  <img src=".github/assets/captain-obvious.png" width="168" alt="Captain Obvious with a CIA badge" /> <img src=".github/assets/captain-harold.png" width="168" alt="Captain Harold with a CIA badge" /> <img src=".github/assets/captain-risitas.png" width="168" alt="Captain El Risitas with a CIA badge" />
-
   *Follow the funds. Find the obvious.*
 
   [Website](https://chain-insights.ai) | [npm](https://www.npmjs.com/package/chain-insights) | [Quickstart](#quickstart)
