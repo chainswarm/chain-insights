@@ -3,6 +3,13 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.29.2] - 2026-09-07 — docs: crime-scene GitHub banner
+
+### Changed
+
+- README banner swapped for the agency crime-scene scene: the cast tracing a
+  glowing fund-flow trail while the scammer flees with the coin.
+
 ## [0.29.1] - 2026-09-07 — docs: brand the README with the agency identity
 
 ### Changed
