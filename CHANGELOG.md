@@ -3,6 +3,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.29.3] - 2026-09-07 — docs: rename the README banner asset
+
+### Changed
+
+- Banner asset renamed to chain-insights-github-crime-scene.png.
+
 ## [0.29.2] - 2026-09-07 — docs: crime-scene GitHub banner
 
 ### Changed
