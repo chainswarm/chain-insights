@@ -1,7 +1,7 @@
 # Chain Insights
 
 <div align="center">
-  <img src=".github/assets/github-banner.png" width="100%" alt="Chain Insights Agency: Captain Obvious, Harold and El Risitas watching the evidence map while the scammer flees" />
+  <img src=".github/assets/github-banner.png" width="100%" alt="Chain Insights: the agency cast around a crime-scene table tracing a glowing fund-flow trail while the scammer flees with the coin" />
 
 [![npm version](https://img.shields.io/npm/v/chain-insights)](https://www.npmjs.com/package/chain-insights)
 [![CI](https://img.shields.io/github/actions/workflow/status/chainswarm/chain-insights/verify.yml?branch=main)](https://github.com/chainswarm/chain-insights/actions/workflows/verify.yml)
