@@ -3,6 +3,26 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.29.3] - 2026-09-07 — docs: rename the README banner asset
+
+### Changed
+
+- Banner asset renamed to chain-insights-github-crime-scene.png.
+
+## [0.29.2] - 2026-09-07 — docs: crime-scene GitHub banner
+
+### Changed
+
+- README banner swapped for the agency crime-scene scene: the cast tracing a
+  glowing fund-flow trail while the scammer flees with the coin.
+
+## [0.29.1] - 2026-09-07 — docs: brand the README with the agency identity
+
+### Changed
+
+- README header now carries the agency banner and tagline, so users landing
+  from chain-insights.ai get the same brand. Setup content is unchanged.
+
 ## [0.29.0] - 2026-09-03 — feat: serve Chain Insights through Robinhood Dozer GQL
 
 ### Added

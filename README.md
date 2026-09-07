@@ -1,11 +1,17 @@
 # Chain Insights
 
+<div align="center">
+  <img src=".github/assets/chain-insights-github-crime-scene.png" width="100%" alt="Chain Insights: the agency cast around a crime-scene table tracing a glowing fund-flow trail while the scammer flees with the coin" />
+
 [![npm version](https://img.shields.io/npm/v/chain-insights)](https://www.npmjs.com/package/chain-insights)
 [![CI](https://img.shields.io/github/actions/workflow/status/chainswarm/chain-insights/verify.yml?branch=main)](https://github.com/chainswarm/chain-insights/actions/workflows/verify.yml)
 [![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/chainswarm/chain-insights)](https://securityscorecards.dev/viewer/?uri=github.com/chainswarm/chain-insights)
 [![License](https://img.shields.io/npm/l/chain-insights)](https://github.com/chainswarm/chain-insights/blob/main/LICENSE)
 
-[Website](https://chain-insights.ai) | [npm](https://www.npmjs.com/package/chain-insights)
+  *Follow the funds. Find the obvious.*
+
+  [Website](https://chain-insights.ai) | [npm](https://www.npmjs.com/package/chain-insights) | [Quickstart](#quickstart)
+</div>
 
 Chain Insights is open-source AML and forensics infrastructure for AI agents
 and analysts: a hosted Chain Insights Graph you reach over MCP, screened
