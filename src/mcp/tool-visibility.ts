@@ -13,6 +13,7 @@ export const HIDDEN_REMOTE_TOOL_NAMES = new Set([
   ['aml_trace_deposit', '_sources'].join(''),
   'network_capabilities',
   'usage_status',
+  'subscription_status',
   'balance',
   'help',
   'money_flows_between_exchanges',
@@ -56,11 +57,13 @@ export function assertPublicMcpToolName(name: string): void {
         ? ' Use meta_network_capabilities instead.'
         : name === 'usage_status'
           ? ' Use meta_usage_status instead.'
-          : name === 'balance'
-            ? ' Use wallet_balance instead.'
-            : name === 'help'
-              ? ' Use meta_help instead.'
-              : ''
+          : name === 'subscription_status'
+            ? ' Use meta_subscription_status instead.'
+            : name === 'balance'
+              ? ' Use wallet_balance instead.'
+              : name === 'help'
+                ? ' Use meta_help instead.'
+                : ''
   throw new Error(`MCP tool '${name}' is not exposed by Chain Insights.${replacement}`)
 }
 

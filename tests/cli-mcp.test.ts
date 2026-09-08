@@ -43,6 +43,12 @@ vi.mock('../src/wallet/index.js', () => ({
   setWalletPrivateKey: mockSetWalletPrivateKey,
 }))
 
+// Mock wallet tools (meta_subscription_status resolves the local wallet address)
+const mockGetWalletAccount = vi.fn()
+vi.mock('../src/wallet/tools.js', () => ({
+  getWalletAccount: mockGetWalletAccount,
+}))
+
 // Mock config
 const mockLoadConfig = vi.fn()
 const mockSaveConfig = vi.fn()
@@ -165,6 +171,38 @@ async function runMcpCallAction(
         await import('../src/mcp/usage-status.js')
       if (!isMissingUsageStatusToolError(err)) throw err
       console.log(usageStatusText(primitiveBackendUsageStatus(resolveGraphMcpEndpoint(config))))
+    }
+    await client.close()
+    return
+  }
+  if (tool === 'meta_subscription_status') {
+    try {
+      const { getWalletAccount } = await import('../src/wallet/tools.js')
+      const account = await getWalletAccount()
+      const result = await client.callTool({
+        name: 'subscription_status',
+        arguments: { wallet: account.address },
+      })
+      printMcpTextContent(
+        result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+        { tool, json: opts.json }
+      )
+    } catch (err) {
+      const {
+        isMissingSubscriptionStatusToolError,
+        unavailableSubscriptionStatus,
+        subscriptionStatusText,
+      } = await import('../src/mcp/subscription-status.js')
+      if (!isMissingSubscriptionStatusToolError(err)) throw err
+      const { resolveGraphMcpEndpoint } = await import('../src/mcp/client.js')
+      console.log(
+        subscriptionStatusText(
+          unavailableSubscriptionStatus(
+            resolveGraphMcpEndpoint(config),
+            `subscription_status failed: ${(err as Error).message}`
+          )
+        )
+      )
     }
     await client.close()
     return
@@ -474,6 +512,62 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     expect(text).toContain('"tool": "meta_usage_status"')
     expect(text).toContain('"mode": "primitive_graph_backend"')
     expect(text).toContain('"usage_status_tool": "unavailable"')
+  })
+
+  it('mcp call sends meta_subscription_status through the upstream subscription_status with the local wallet', async () => {
+    mockLoadConfig.mockResolvedValue({
+      graphMcpEndpoint: 'https://mcp.example.test/',
+    })
+    mockGetWalletAccount.mockResolvedValue({
+      address: '0x0000000000000000000000000000000000000042',
+      privateKey: '0xdeadbeef',
+    })
+    mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
+    mockClientConnect.mockResolvedValue(undefined)
+    mockClientCallTool.mockResolvedValue({
+      content: [{ type: 'text', text: '{"window_end":"2026-10-01T00:00:00Z"}' }],
+    })
+    mockClientClose.mockResolvedValue(undefined)
+
+    await runMcpCallAction('meta_subscription_status', [])
+
+    expect(mockClientCallTool).toHaveBeenCalledWith({
+      name: 'subscription_status',
+      arguments: { wallet: '0x0000000000000000000000000000000000000042' },
+    })
+    expect(consoleLogSpy).toHaveBeenCalledWith('{\n  "window_end": "2026-10-01T00:00:00Z"\n}')
+  })
+
+  it('mcp call returns an unavailable subscription status when upstream subscription_status is absent', async () => {
+    mockLoadConfig.mockResolvedValue({
+      graphMcpEndpoint: 'http://127.0.0.1:18012/mcp',
+    })
+    mockGetWalletAccount.mockResolvedValue({
+      address: '0x0000000000000000000000000000000000000042',
+      privateKey: '0xdeadbeef',
+    })
+    mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
+    mockClientConnect.mockResolvedValue(undefined)
+    mockClientCallTool.mockRejectedValue(
+      new Error('MCP error -32602: unknown tool "subscription_status"')
+    )
+    mockClientClose.mockResolvedValue(undefined)
+
+    await runMcpCallAction('meta_subscription_status', [])
+
+    const text = String(consoleLogSpy.mock.calls.at(-1)?.[0] ?? '')
+    expect(text).toContain('"tool": "meta_subscription_status"')
+    expect(text).toContain('"subscription_status_tool": "unavailable"')
+  })
+
+  it('mcp call rejects the hidden raw subscription_status tool name', async () => {
+    await expect(runMcpCallAction('subscription_status', ['wallet=0xabc'])).rejects.toThrow(
+      'process.exit(1)'
+    )
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "MCP tool 'subscription_status' is not exposed by Chain Insights. Use meta_subscription_status instead."
+    )
+    expect(mockClientCallTool).not.toHaveBeenCalled()
   })
 
   it('mcp call preserves number-like scalar strings', async () => {

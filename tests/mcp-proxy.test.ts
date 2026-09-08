@@ -888,6 +888,188 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('"usage_status_tool": "unavailable"')
   })
 
+  it('registers meta_subscription_status as a local tool and hides the raw remote name', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'subscription_status', description: 'Subscription status' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const toolNames = serverInstance.registerTool.mock.calls.map((entry) => entry[0])
+    expect(toolNames).toContain('meta_subscription_status')
+    expect(toolNames).not.toContain('subscription_status')
+  })
+
+  it('forwards meta_subscription_status to the upstream subscription_status with the local wallet', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'subscription_status', description: 'Subscription status' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool.mockResolvedValueOnce({
+      content: [{ type: 'text', text: '{"tool":"subscription_status"}' }],
+      structuredContent: {
+        schema: 'chain-insights.result.v1',
+        tool: 'subscription_status',
+        facts: {
+          subscription: {
+            wallet: '0x0000000000000000000000000000000000000001',
+            window_end: '2026-10-01T00:00:00Z',
+            allowance_usd: 5,
+            consumed_usd: 1.25,
+            tier: 16,
+          },
+        },
+      },
+      isError: false,
+    })
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'meta_subscription_status')
+    const result = await handler({})
+
+    expect(clientInstance.callTool).toHaveBeenCalledWith({
+      name: 'subscription_status',
+      arguments: { wallet: '0x0000000000000000000000000000000000000001' },
+    })
+    expect(result.isError).toBe(false)
+    expect(result.structuredContent.tool).toBe('meta_subscription_status')
+    expect(result.content[0].text).toContain('"tool": "meta_subscription_status"')
+    expect(result.content[0].text).toContain('"window_end": "2026-10-01T00:00:00Z"')
+  })
+
+  it('returns an unavailable subscription status when the remote subscription_status tool is absent', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'network_capabilities', description: 'Network capabilities' },
+      { name: 'graph_query', description: 'Federated graph query' },
+      { name: 'graph_query_batch', description: 'Federated graph query batch' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'meta_subscription_status')
+    const result = await handler({})
+
+    expect(clientInstance.callTool).not.toHaveBeenCalledWith({
+      name: 'subscription_status',
+      arguments: { wallet: '0x0000000000000000000000000000000000000001' },
+    })
+    expect(result.isError).not.toBe(true)
+    expect(result.structuredContent).toMatchObject({
+      schema: 'chain-insights.result.v1',
+      tool: 'meta_subscription_status',
+      facts: {
+        subscription: {
+          subscription_status_tool: 'unavailable',
+        },
+      },
+    })
+    expect(result.content[0].text).toContain('"subscription_status_tool": "unavailable"')
+  })
+
+  it('never throws when the upstream subscription_status call fails', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'subscription_status', description: 'Subscription status' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool.mockRejectedValueOnce(
+      new Error('MCP error -32602: unknown tool "subscription_status"')
+    )
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'meta_subscription_status')
+    const result = await handler({})
+
+    expect(result.isError).not.toBe(true)
+    expect(result.structuredContent).toMatchObject({
+      schema: 'chain-insights.result.v1',
+      tool: 'meta_subscription_status',
+      facts: {
+        subscription: {
+          subscription_status_tool: 'unavailable',
+        },
+      },
+    })
+    expect(result.structuredContent.facts.subscription.reason).toContain('subscription_status')
+  })
+
+  it('returns an unavailable subscription status when the upstream result is a tool error', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'subscription_status', description: 'Subscription status' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool.mockResolvedValueOnce({
+      content: [{ type: 'text', text: 'counter unavailable' }],
+      isError: true,
+    })
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'meta_subscription_status')
+    const result = await handler({})
+
+    expect(result.isError).not.toBe(true)
+    expect(result.structuredContent).toMatchObject({
+      schema: 'chain-insights.result.v1',
+      tool: 'meta_subscription_status',
+      facts: {
+        subscription: {
+          subscription_status_tool: 'unavailable',
+          reason: expect.stringContaining('counter unavailable'),
+        },
+      },
+    })
+  })
+
   it('mirrors meta_network_capabilities as every GraphRAG network with no layer rows and per-network tools', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
