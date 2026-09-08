@@ -16,12 +16,14 @@ import {
 } from './tool-visibility.js'
 import { PaymentRequiredError } from './client.js'
 import { primitiveBackendUsageStatus } from './usage-status.js'
+import { unavailableSubscriptionStatus } from './subscription-status.js'
 import { mirrorGraphNetworkCapabilities } from './capabilities.js'
 import { actionLogSignalsFromResult, appendActionLog } from './action-log.js'
 
 const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
   'meta_usage_status',
+  'meta_subscription_status',
   'meta_help',
   'wallet_balance',
 ])
@@ -40,6 +42,8 @@ export function resolveMcpProxyMode(env: NodeJS.ProcessEnv = process.env): McpPr
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   meta_network_capabilities: 'Return the current Chain Insights network and tool support matrix.',
   meta_usage_status: "Return the caller's public free graph_query quota for the current UTC day.",
+  meta_subscription_status:
+    "Return the caller's CIA subscription window end, daily allowance, consumption, and tier.",
   meta_help: 'Show a short guide to Chain Insights tools and workflow.',
   wallet_balance:
     'Show the local Chain Insights payment wallet address, payment network, token, and amount.',
@@ -163,6 +167,21 @@ function fallbackGraphPrimitiveTools(): McpTool[] {
     name,
     description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS[name],
   }))
+}
+
+/**
+ * Local payment wallet address for tools that address the caller on the
+ * server (subscription_status). Returns null — never throws — when no wallet
+ * is configured; callers degrade to an unavailable-shape result.
+ */
+async function localSubscriptionWalletAddress(): Promise<string | null> {
+  try {
+    const { getWalletAccount } = await import('../wallet/tools.js')
+    const account = await getWalletAccount()
+    return account.address
+  } catch {
+    return null
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -512,6 +531,20 @@ function registerLocalPrompts(server: McpServer): void {
       promptResult(
         'Use Chain Insights meta_usage_status. Report the quota fields exactly as returned.',
         'Usage status'
+      )
+  )
+
+  server.registerPrompt(
+    'meta-subscription-status',
+    {
+      title: 'Subscription Status',
+      description: "Check the caller's CIA subscription window, daily allowance, and tier.",
+      argsSchema: {},
+    },
+    async () =>
+      promptResult(
+        'Use Chain Insights meta_subscription_status. Report the subscription facts exactly as returned.',
+        'Subscription status'
       )
   )
 
@@ -923,6 +956,88 @@ export async function createProxy(): Promise<void> {
   )
 
   server.registerTool(
+    'meta_subscription_status',
+    {
+      title: 'Subscription Status',
+      description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.meta_subscription_status,
+      inputSchema: EMPTY_INPUT_SCHEMA,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    async () => {
+      // Local proxy shape discipline: the tool is always present and never
+      // throws. When the server tool is absent or errors, the facts explain
+      // the unavailability.
+      try {
+        if (!remoteConnected) {
+          return jsonTextResult(
+            unavailableSubscriptionStatus(
+              graphMcpEndpoint,
+              remoteUnavailableMessage ??
+                `Chain Insights Graph is not connected at ${graphMcpEndpoint}`
+            )
+          )
+        }
+        if (!remoteToolNames.has('subscription_status')) {
+          return jsonTextResult(
+            unavailableSubscriptionStatus(
+              graphMcpEndpoint,
+              'The graph backend exposes primitive graph tools but no subscription_status tool.'
+            )
+          )
+        }
+        const walletAddress = await localSubscriptionWalletAddress()
+        if (!walletAddress) {
+          return jsonTextResult(
+            unavailableSubscriptionStatus(
+              graphMcpEndpoint,
+              'No local payment wallet is configured; run `cia wallet create` or `cia wallet import` first.'
+            )
+          )
+        }
+        const result = (await remoteClient.callTool({
+          name: 'subscription_status',
+          arguments: { wallet: walletAddress },
+        })) as RemoteToolResult
+        if (result.isError === true) {
+          const firstText = Array.isArray(result.content)
+            ? result.content.find(
+                (block): block is Extract<ContentBlock, { type: 'text' }> =>
+                  block.type === 'text' && typeof block.text === 'string'
+              )
+            : undefined
+          const reason = firstText?.text
+            ? `subscription_status failed: ${firstText.text}`
+            : 'subscription_status failed: the server returned an error'
+          return jsonTextResult(unavailableSubscriptionStatus(graphMcpEndpoint, reason))
+        }
+        const structuredContent = isRecord(result.structuredContent)
+          ? { ...result.structuredContent, tool: 'meta_subscription_status' }
+          : undefined
+        return {
+          content: structuredContent
+            ? [{ type: 'text' as const, text: JSON.stringify(structuredContent, null, 2) }]
+            : (result.content ?? []),
+          structuredContent,
+          _meta: result._meta,
+          isError: result.isError,
+        }
+      } catch (err) {
+        return jsonTextResult(
+          unavailableSubscriptionStatus(
+            graphMcpEndpoint,
+            `subscription_status failed: ${(err as Error).message}`
+          )
+        )
+      }
+    }
+  )
+
+  server.registerTool(
     'wallet_balance',
     {
       title: 'Wallet Balance',
@@ -1049,6 +1164,7 @@ export async function createProxy(): Promise<void> {
                 'Investigation tools:',
                 '- meta_network_capabilities: inspect supported networks and available tools.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
+                '- meta_subscription_status: check the caller CIA subscription window end, daily allowance, consumption, and tier.',
                 '- aml_address_risk: screen one blockchain address; optionally compare it with another address.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
                 '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
@@ -1063,6 +1179,7 @@ export async function createProxy(): Promise<void> {
                 'Available graph-backed tools:',
                 '- meta_network_capabilities: inspect supported networks and available tools.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
+                '- meta_subscription_status: check the caller CIA subscription window end, daily allowance, consumption, and tier.',
                 '- aml_address_risk: screen one blockchain address; optionally compare it with another address.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
                 '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',

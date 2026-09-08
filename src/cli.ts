@@ -5,6 +5,7 @@ import path from 'node:path'
 import { PACKAGE_INFO, PACKAGE_VERSION } from './version.js'
 import { CIA_WORKFLOWS, formatCiaWorkflows } from './investigation/workflows.js'
 import { printMcpTextContent } from './mcp/print-result.js'
+import type { SubscriptionPass, SubscriptionStatusFacts } from './mcp/subscription-status.js'
 
 // Resolve bin/install.cjs relative to this file's location in dist/
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -158,6 +159,85 @@ async function printNetworkCapability(name: string, opts: { json?: boolean }): P
   } else {
     console.log(formatNetworkCapability(network))
   }
+}
+
+type SubscriptionStatusLookup =
+  { kind: 'available'; facts: SubscriptionStatusFacts } | { kind: 'unavailable'; reason: string }
+
+/**
+ * Fetches the caller's subscription facts for the deposit pre-sign guard.
+ * The extension math is server-authoritative: the printed values come from
+ * `subscription_status`. Any failure (no wallet, unreachable endpoint,
+ * missing tool, error result) degrades to an unavailable lookup — the guard
+ * must never block the flow on a server that lacks the tool.
+ */
+async function fetchSubscriptionStatusForCli(): Promise<SubscriptionStatusLookup> {
+  try {
+    const { getWalletAccount } = await import('./wallet/tools.js')
+    const account = await getWalletAccount()
+    return await withGraphMcpClient(
+      'chain-insights-cli-subscription-status',
+      async (client): Promise<SubscriptionStatusLookup> => {
+        const result = (await client.callTool({
+          name: 'subscription_status',
+          arguments: { wallet: account.address },
+        })) as {
+          content?: Array<{ type: string; text?: string }>
+          structuredContent?: Record<string, unknown>
+          isError?: boolean
+        }
+        const { parseSubscriptionStatusToolResult } = await import('./mcp/subscription-status.js')
+        const facts = parseSubscriptionStatusToolResult(result)
+        if (!facts) {
+          return {
+            kind: 'unavailable',
+            reason: 'the graph endpoint returned no subscription facts',
+          }
+        }
+        return { kind: 'available', facts }
+      }
+    )
+  } catch (err) {
+    return { kind: 'unavailable', reason: (err as Error).message }
+  }
+}
+
+async function printSubscriptionPassGuidance(pass: SubscriptionPass): Promise<void> {
+  const {
+    formatDepositGuardLine,
+    formatDepositIrreversibilityWarning,
+    formatSubscriptionPassHint,
+    isDepositConfirmed,
+    resolveSubscriptionMonthUsd,
+  } = await import('./mcp/subscription-status.js')
+  const hint = formatSubscriptionPassHint(pass, resolveSubscriptionMonthUsd())
+  const status = await fetchSubscriptionStatusForCli()
+
+  if (status.kind === 'available') {
+    process.stderr.write(`${formatDepositGuardLine(status.facts, pass)}\n`)
+    process.stderr.write(
+      'The no-admin subscription sink cannot refund deposits. Type DEPOSIT to continue:\n'
+    )
+    const { createInterface } = await import('node:readline/promises')
+    const prompt = createInterface({ input: process.stdin, output: process.stderr })
+    let answer: string
+    try {
+      answer = await prompt.question('> ')
+    } finally {
+      prompt.close()
+    }
+    process.stderr.write('\n')
+    if (!isDepositConfirmed(answer)) {
+      throw new Error('Deposit cancelled. No deposit was made.')
+    }
+    console.log(hint)
+    return
+  }
+
+  // Server lacks the tool (or is unreachable): generic irreversibility
+  // warning, then proceed with the guidance.
+  process.stderr.write(`${formatDepositIrreversibilityWarning(status.reason)}\n`)
+  console.log(hint)
 }
 
 function addAmlAddressRiskCommand(parent: Command, networksCommand: string): void {
@@ -702,6 +782,34 @@ program
       })
   )
 
+program
+  .command('buy')
+  .description('Show CIA subscription pass deposit guidance (the sink cannot refund deposits)')
+  .addCommand(
+    createCliCommand('day')
+      .description('Show day-pass deposit guidance (SUBSCRIPTION_MONTH_USD / 30)')
+      .action(async () => {
+        try {
+          await printSubscriptionPassGuidance('day')
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
+    createCliCommand('month')
+      .description('Show month-pass deposit guidance at the list price')
+      .action(async () => {
+        try {
+          await printSubscriptionPassGuidance('month')
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+
 const mcpCommand = program
   .command('mcp')
   .description('Low-level access to the Chain Insights MCP endpoint')
@@ -815,6 +923,37 @@ mcpCommand.addCommand(
               const { resolveGraphMcpEndpoint } = await import('./mcp/client.js')
               console.log(
                 usageStatusText(primitiveBackendUsageStatus(resolveGraphMcpEndpoint(config)))
+              )
+            }
+            return
+          }
+          if (tool === 'meta_subscription_status') {
+            try {
+              const { getWalletAccount } = await import('./wallet/tools.js')
+              const account = await getWalletAccount()
+              const result = await client.callTool({
+                name: 'subscription_status',
+                arguments: { wallet: account.address },
+              })
+              printMcpTextContent(
+                result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+                { tool, json: opts.json }
+              )
+            } catch (err) {
+              const {
+                isMissingSubscriptionStatusToolError,
+                unavailableSubscriptionStatus,
+                subscriptionStatusText,
+              } = await import('./mcp/subscription-status.js')
+              if (!isMissingSubscriptionStatusToolError(err)) throw err
+              const { resolveGraphMcpEndpoint } = await import('./mcp/client.js')
+              console.log(
+                subscriptionStatusText(
+                  unavailableSubscriptionStatus(
+                    resolveGraphMcpEndpoint(config),
+                    `subscription_status failed: ${(err as Error).message}`
+                  )
+                )
               )
             }
             return

@@ -3,6 +3,18 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.30.0] - 2026-09-08 — feat: subscription status, buy guard, pass hints
+
+### Added
+
+- `meta_subscription_status` local proxy tool: window end, daily allowance,
+  consumed amount, and tier for the signed wallet (unavailable-shape when
+  the server lacks the flag-gated tool; never throws).
+- `cia buy day|month` with the no-admin-sink deposit pre-sign guard:
+  "N days active; this deposit extends to M" + typed `DEPOSIT`
+  confirmation, and USD-equivalent pass hints (the indexer TWAP computes
+  the exact $CIA amount).
+
 ## [0.29.3] - 2026-09-07 — docs: rename the README banner asset
 
 ### Changed
