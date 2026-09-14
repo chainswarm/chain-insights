@@ -213,11 +213,12 @@ The address-grain graph schema:
   (in minus out; positive = net receiver) — all computed from external
   flows only — and \`first_activity_timestamp\`/
   \`last_activity_timestamp\`/\`activity_span_days\`, which include all
-  flows (self-loops included). FLOWS_TO edges carry \`tx_count\`,
-  \`amount_usd_sum\`, \`avg_tx_size_usd\` (understates when
-  \`price_coverage_ratio\` < 1), \`first_seen_timestamp\`/
-  \`last_seen_timestamp\`, \`first_tx_id\`/\`last_tx_id\`, and
-  \`price_coverage_ratio\`.
+  flows (self-loops included). FLOWS_TO edges carry exactly \`tx_count\`,
+  \`amount_usd_sum\` (total money flow, token and native value merged),
+  \`first_seen_timestamp\`, \`last_seen_timestamp\`. Averages compute
+  inline: \`r.amount_usd_sum / toFloat(r.tx_count)\`. Transaction anchors
+  resolve through the facts lane:
+  \`USE facts MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) RETURN t.tx_id ORDER BY t.block_timestamp ASC LIMIT 1\`.
   Lifetime aggregates are the only serving window.
 - Money flow is \`(:Address)-[:FLOWS_TO]->(:Address)\`. Public AML tools
   accept the raw blockchain address directly — there is no resolution step.

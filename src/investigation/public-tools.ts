@@ -190,7 +190,7 @@ function addressFeatureQuery(address: string): { id: string; query: string } {
 }
 
 function flowEdgeMap(variableName: string): string {
-  return `{amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_seen_timestamp: ${variableName}.first_seen_timestamp, last_seen_timestamp: ${variableName}.last_seen_timestamp, first_tx_id: ${variableName}.first_tx_id, last_tx_id: ${variableName}.last_tx_id}`
+  return `{amount_usd_sum: ${variableName}.amount_usd_sum, tx_count: ${variableName}.tx_count, first_seen_timestamp: ${variableName}.first_seen_timestamp, last_seen_timestamp: ${variableName}.last_seen_timestamp}`
 }
 
 function pathNodeMap(variableName: string): string {
@@ -744,8 +744,6 @@ function enrichExchangeRows(rows: Array<Record<string, unknown>>): Array<Record<
       tx_count: row['tx_count'] ?? terminal['tx_count'],
       first_seen_timestamp: row['first_seen_timestamp'] ?? terminal['first_seen_timestamp'],
       last_seen_timestamp: row['last_seen_timestamp'] ?? terminal['last_seen_timestamp'],
-      first_tx_id: row['first_tx_id'] ?? terminal['first_tx_id'],
-      last_tx_id: row['last_tx_id'] ?? terminal['last_tx_id'],
     }
   })
 }
@@ -981,8 +979,6 @@ function buildRiskGraph(
         usd_amount: edge['amount_usd_sum'] ?? 0,
         amount_usd_sum: edge['amount_usd_sum'] ?? 0,
         tx_count: edge['tx_count'] ?? 0,
-        first_tx_id: edge['first_tx_id'],
-        last_tx_id: edge['last_tx_id'],
         direction: row['direction'],
       })
     }
@@ -1521,8 +1517,38 @@ function htmlEscape(value: unknown): string {
 // Deterministic query-builder surface for the committed corpus and
 // query-with-a-documented-call-contract tests. Reflects the retained
 // aml_address_risk/graph query builders after the aml_trace_* cut.
+
+// pairAnchorQuery resolves a pair's first/last transaction id through the
+// facts lane (openspec dozerdb-flows-to-slim-schema: the topology edge
+// carries no tx anchors). order 'ASC' returns the first transfer between the
+// pair, 'DESC' the latest. Bounded: LIMIT 1 on an indexed endpoint pattern.
+export function pairAnchorQuery(from: string, to: string, order: 'ASC' | 'DESC' = 'ASC'): string {
+  return [
+    'USE facts',
+    `MATCH (a:Address {address: "${escapeCypherString(from)}"})-[t:TRANSFER]->(b:Address {address: "${escapeCypherString(to)}"})`,
+    'RETURN t.tx_id AS tx_id, t.block_timestamp AS block_timestamp',
+    `ORDER BY t.block_timestamp ${order} LIMIT 1`,
+  ].join(' ')
+}
+
+// inlineAverageFlowQuery is the documented recipe for the retired
+// avg_tx_size_usd edge property: compute the average at read time from the
+// two fields the slim edge carries.
+export function inlineAverageFlowQuery(address: string, limit = 25): { query: string } {
+  return {
+    query: [
+      `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[r:FLOWS_TO]->(b:Address)`,
+      'RETURN b.address AS neighbor, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count,',
+      '       r.amount_usd_sum / toFloat(r.tx_count) AS avg_tx_size_usd',
+      `ORDER BY r.amount_usd_sum DESC LIMIT ${limit}`,
+    ].join(' '),
+  }
+}
+
 export const queryBuilderContract = {
   topologyGraphQuery,
+  pairAnchorQuery,
+  inlineAverageFlowQuery,
   addressProfileQuery,
   compareAddressExistsQuery,
   addressFeatureQuery,

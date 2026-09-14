@@ -481,7 +481,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).not.toContain('Claude Desktop')
     expect(instructions).not.toContain('iframe')
     expect(instructions).toContain('FLOWS_TO')
-    expect(instructions).toContain('first_tx_id')
+    expect(instructions).not.toContain('first_tx_id')
+    expect(instructions).toContain('total money flow')
     expect(instructions).toContain('LINKED is served on the topology graph only')
     expect(instructions).toContain('(:Address)-[:OPERATED_BY]->(:Address)')
     expect(instructions).toContain('not a risk label')
@@ -1371,14 +1372,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                         {
                           amount_usd_sum: 22,
                           tx_count: 1,
-                          first_tx_id: 'risk-1',
-                          last_tx_id: 'risk-1',
                         },
                         {
                           amount_usd_sum: 88,
                           tx_count: 2,
-                          first_tx_id: 'risk-2',
-                          last_tx_id: 'risk-2',
                         },
                       ],
                       path: ['5Addr', '5Deposit', '5Exchange'],
