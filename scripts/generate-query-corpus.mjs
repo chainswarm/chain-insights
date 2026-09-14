@@ -19,6 +19,8 @@ const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const { queryBuilderContract } = await import(join(repoRoot, 'src/investigation/public-tools.ts'))
 
 const SCOPES = ['topology']
+// Recipe entries (openspec dozerdb-flows-to-slim-schema): the facts-lane pair
+// anchor and the inline average replace the dropped edge fields.
 // Escaping-sensitive values are part of the grid on purpose.
 const ADDR = 'corpus-address-a'
 const ADDR_QUOTED = 'corpus"quote'
@@ -138,6 +140,19 @@ for (const recipe of documentedRecipes.recipes) {
     query: recipe.query,
   })
 }
+
+// Facts-lane anchor recipes: first and last transfer of a pair, both orders.
+for (const order of ['ASC', 'DESC']) {
+  addFacts('pairAnchorQuery', { from: ADDR, to: COMPARE, order }, {
+    query: queryBuilderContract.pairAnchorQuery(ADDR, COMPARE, order),
+  })
+}
+add(
+  'inlineAverageFlowQuery',
+  { address: ADDR, limit: 25 },
+  'topology',
+  queryBuilderContract.inlineAverageFlowQuery(ADDR, 25)
+)
 
 entries.sort(
   (a, b) =>
