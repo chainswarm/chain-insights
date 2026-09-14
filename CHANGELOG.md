@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## Unreleased — docs: hosted topology limits and typed errors
+
+### Changed
+
+- `docs/graph-tools.md` and the `chain-insights-cypher` skill document the
+  hosted topology limits (time budget, 4 concurrent topology queries,
+  per-query memory limit) and the typed errors `topology_busy`,
+  `query_timeout`, and `query_memory_limit`, with what to do for each.
+  Live on the hosted endpoint since 2026-09-14 (Chain Insights Graph 1.26.5).
+
 ## [0.30.0] - 2026-09-08 — feat: subscription status, buy guard, pass hints
 
 ### Added
