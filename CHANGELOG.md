@@ -3,6 +3,24 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.31.0] - 2026-09-14 — feat: slim FLOWS_TO field contract
+
+### Changed
+
+- The FLOWS_TO edge serves exactly `tx_count`, `amount_usd_sum` (total money
+  flow, token and native value merged), `first_seen_timestamp`, and
+  `last_seen_timestamp` (openspec `dozerdb-flows-to-slim-schema`). Transaction
+  anchors resolve through `USE facts`; averages compute inline.
+- Agent guidance (`src/mcp/proxy.ts`, `src/workspace/init.ts`) documents the
+  four-field contract and the replacement recipes.
+
+### Added
+
+- `pairAnchorQuery`: first/last transfer between two addresses via the facts
+  lane (`ORDER BY t.block_timestamp LIMIT 1`, both directions).
+- `inlineAverageFlowQuery`: average transfer size computed at read time.
+- Corpus regenerated (48 entries) with both recipes; dropped fields removed.
+
 ## [0.30.0] - 2026-09-08 — feat: subscription status, buy guard, pass hints
 
 ### Added
