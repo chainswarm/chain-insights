@@ -3,7 +3,7 @@
 
 All notable changes to Chain Insights are recorded here.
 
-## Unreleased — docs: hosted topology limits and typed errors
+## [0.30.1] - 2026-09-14 — docs: hosted topology limits and typed errors
 
 ### Changed
 
