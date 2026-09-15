@@ -97,22 +97,33 @@ async function withGraphMcpClient<T>(
   const { loadConfig } = await import('./config/index.js')
   const config = await loadConfig()
   const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import('./mcp/client.js')
+  // A dead or wrong endpoint (e.g. a stale `debug` config pointing at a stopped
+  // local server) otherwise surfaces as a bare "fetch failed"; toGraphMcpEndpointError
+  // names the endpoint and the cause, and passes real backend errors through.
+  const { toGraphMcpEndpointError } = await import('./mcp/transport-error.js')
+  const endpoint = resolveGraphMcpEndpoint(config)
   const paymentFetch = await createConfiguredGraphMcpFetch(config)
   const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
   const { StreamableHTTPClientTransport } =
     await import('@modelcontextprotocol/sdk/client/streamableHttp.js')
   const client = new Client({ name, version: PACKAGE_VERSION })
-  await client.connect(
-    new StreamableHTTPClientTransport(new URL(resolveGraphMcpEndpoint(config)), {
-      fetch: paymentFetch,
-    })
-  )
+  try {
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL(endpoint), {
+        fetch: paymentFetch,
+      })
+    )
+  } catch (err) {
+    throw toGraphMcpEndpointError(err, endpoint)
+  }
   // Every CLI command builds its own client, separate from the MCP proxy's
   // one, so unattended scheduled CLI runs also write to the action log.
   const { installActionLogging } = await import('./mcp/action-log.js')
   installActionLogging(client)
   try {
     return await fn(client, config)
+  } catch (err) {
+    throw toGraphMcpEndpointError(err, endpoint)
   } finally {
     await client.close()
   }

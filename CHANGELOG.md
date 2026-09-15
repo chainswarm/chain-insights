@@ -3,6 +3,18 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.31.1] - 2026-09-15 — fix: actionable error for an unreachable graph endpoint
+
+### Fixed
+
+- `cia mcp call` (and every command that reaches the Chain Insights Graph
+  endpoint) now reports which endpoint was unreachable and why — connection
+  refused, host not found, timeout, or TLS — instead of a bare `fetch failed`.
+  A stale `graphMcpEndpoint` (for example a `debug` config pointing at a stopped
+  local server) is now self-explaining, and points at the config key and the
+  `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` override. Real backend errors (bounds
+  rejections, payment-required, tool errors) are returned unchanged.
+
 ## [0.31.0] - 2026-09-14 — feat: slim FLOWS_TO field contract
 
 ### Changed
