@@ -50,7 +50,7 @@
     "compare": "corpus-address-b"
    },
    "scope": "topology",
-   "query": "USE topology MATCH p = SHORTEST 1 (src:Address {address: \"corpus-address-a\"})-[:FLOWS_TO]-{1,4}(dst:Address {address: \"corpus-address-b\"}) RETURN p LIMIT 1"
+   "query": "USE topology MATCH p = SHORTEST 1 (src:Address {address: \"corpus-address-a\"})-[:FLOWS_TO]-{0,4}(dst:Address {address: \"corpus-address-b\"}) RETURN p LIMIT 1"
   },
   {
    "builder": "connectionRouteQueries",
@@ -59,7 +59,7 @@
     "compare": "corpus-address-b"
    },
    "scope": "topology",
-   "query": "USE topology MATCH p = SHORTEST 1 (src:Address {address: \"corpus-address-b\"})-[:FLOWS_TO]-{1,4}(dst:Address {address: \"corpus-address-a\"}) RETURN p LIMIT 1"
+   "query": "USE topology MATCH p = SHORTEST 1 (src:Address {address: \"corpus-address-b\"})-[:FLOWS_TO]-{0,4}(dst:Address {address: \"corpus-address-a\"}) RETURN p LIMIT 1"
   },
   {
    "builder": "connectionRouteQueries",
@@ -68,7 +68,7 @@
     "compare": "corpus-address-b"
    },
    "scope": "topology",
-   "query": "USE topology MATCH p = SHORTEST 1 (src:Address {address: \"corpus-address-b\"})-[:FLOWS_TO]-{1,4}(dst:Address {address: \"corpus\\\"quote\"}) RETURN p LIMIT 1"
+   "query": "USE topology MATCH p = SHORTEST 1 (src:Address {address: \"corpus-address-b\"})-[:FLOWS_TO]-{0,4}(dst:Address {address: \"corpus\\\"quote\"}) RETURN p LIMIT 1"
   },
   {
    "builder": "connectionRouteQueries",
@@ -77,7 +77,7 @@
     "compare": "corpus-address-b"
    },
    "scope": "topology",
-   "query": "USE topology MATCH p = SHORTEST 1 (src:Address {address: \"corpus\\\"quote\"})-[:FLOWS_TO]-{1,4}(dst:Address {address: \"corpus-address-b\"}) RETURN p LIMIT 1"
+   "query": "USE topology MATCH p = SHORTEST 1 (src:Address {address: \"corpus\\\"quote\"})-[:FLOWS_TO]-{0,4}(dst:Address {address: \"corpus-address-b\"}) RETURN p LIMIT 1"
   },
   {
    "builder": "crossSpaceLinkedQuery",

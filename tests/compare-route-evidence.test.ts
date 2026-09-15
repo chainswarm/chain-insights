@@ -19,12 +19,12 @@ describe('connectionRouteQueries', () => {
       {
         id: 'connection_route_outbound',
         query:
-          'MATCH p = SHORTEST 1 (src:Address {address: "idA"})-[:FLOWS_TO]-{1,4}(dst:Address {address: "idB"}) RETURN p LIMIT 1',
+          'MATCH p = SHORTEST 1 (src:Address {address: "idA"})-[:FLOWS_TO]-{0,4}(dst:Address {address: "idB"}) RETURN p LIMIT 1',
       },
       {
         id: 'connection_route_inbound',
         query:
-          'MATCH p = SHORTEST 1 (src:Address {address: "idB"})-[:FLOWS_TO]-{1,4}(dst:Address {address: "idA"}) RETURN p LIMIT 1',
+          'MATCH p = SHORTEST 1 (src:Address {address: "idB"})-[:FLOWS_TO]-{0,4}(dst:Address {address: "idA"}) RETURN p LIMIT 1',
       },
     ])
   })

@@ -52,9 +52,17 @@ Accepted, with bounds:
 - Shortest paths: `MATCH SHORTEST 1`, `MATCH ANY SHORTEST`, or
   `MATCH ALL SHORTEST`
 
-Use an upper hop bound of `5` or less. This is the shortest-path form:
+Use an upper hop bound of `5` or less. These are the shortest-path forms:
 
+Route between two known addresses:
+`MATCH p = SHORTEST 1 (a:Address {address: $from})-[:FLOWS_TO]-{0,5}(b:Address {address: $to}) RETURN [n IN nodes(p) | n.address] AS route`
+
+Open target:
 `MATCH SHORTEST 1 (a:Address {address: $addr})-[:FLOWS_TO]-{1,5}(b:Address) RETURN b.address LIMIT 50`
+
+Use `{0,5}` when both ends are known and different: it returns the same
+routes as `{1,5}` and runs on the fast early-stop search; keep `{1,5}` for
+an open target, where `{0,5}` would also return the start address itself.
 
 Rejected on topology:
 
