@@ -3,6 +3,20 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.31.2] - 2026-09-15 — fix: route evidence uses the early-stop shortest path search
+
+### Changed
+
+- `aml_address_risk` route evidence between the subject and the compare
+  address (`connection_route_outbound`, `connection_route_inbound`) sends
+  `-[:FLOWS_TO]-{0,4}` instead of `{1,4}`. For two different addresses both
+  bounds return the same routes. The graph engine (Neo4j 5.26.27) plans
+  `{0,4}` onto its early-stop shortest path search; the undirected `{1,4}`
+  form read whole hubs and timed out at 10 s through a 2.15M-relationship
+  hub, where `{0,4}` answered in 23 to 33 ms.
+- `skills/chain-insights-cypher/SKILL.md` shows `{0,5}` for a route between
+  two known addresses and keeps `{1,5}` for an open target.
+
 ## [0.31.1] - 2026-09-15 — fix: actionable error for an unreachable graph endpoint
 
 ### Fixed
