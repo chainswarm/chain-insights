@@ -456,10 +456,13 @@ function crossSpaceLinkedQuery(address: string): { id: string; query: string } {
 }
 
 // ── Pairwise route evidence ──
-// Directed shortest route between two KNOWN identity endpoints. The topology
-// graph speaks ISO GQL, so both routes use one shortest path with a maximum
-// of four FLOWS_TO hops. Exchange intermediates on a returned route are
-// DISCLOSED in the evidence, never silently filtered out.
+// Undirected shortest route between two KNOWN identity endpoints. The
+// topology graph speaks ISO GQL, so both routes use one shortest path with a
+// maximum of four FLOWS_TO hops. Exchange intermediates on a returned route
+// are DISCLOSED in the evidence, never silently filtered out. The lower
+// bound is {0,4}, not {1,4}: for two different addresses both bounds return
+// the same routes, and DozerDB plans {0,...} onto its fast early-stop
+// shortest-path search instead of the slow undirected search.
 
 export const CONNECTION_ROUTE_DEPTH_BOUND = 4
 
@@ -475,7 +478,7 @@ export function connectionRouteQueries(
   const routeQuery = (fromAddress: string, toAddress: string): string =>
     [
       `MATCH p = SHORTEST 1 (src:Address {address: "${escapeCypherString(fromAddress)}"})`,
-      `-[:FLOWS_TO]-{1,${CONNECTION_ROUTE_DEPTH_BOUND}}`,
+      `-[:FLOWS_TO]-{0,${CONNECTION_ROUTE_DEPTH_BOUND}}`,
       `(dst:Address {address: "${escapeCypherString(toAddress)}"}) RETURN p LIMIT 1`,
     ].join('')
   return [
