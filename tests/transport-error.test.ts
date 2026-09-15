@@ -4,7 +4,10 @@
 // and — critically — that a real backend error (a bounds rejection, a 402) is
 // left untouched.
 import { describe, expect, it } from 'vitest'
-import { describeGraphMcpTransportError } from '../src/mcp/transport-error.js'
+import {
+  describeGraphMcpTransportError,
+  toGraphMcpEndpointError,
+} from '../src/mcp/transport-error.js'
 
 const ENDPOINT = 'http://127.0.0.1:8012/mcp'
 
@@ -56,8 +59,28 @@ describe('describeGraphMcpTransportError', () => {
     expect(describeGraphMcpTransportError(new Error('Unknown tool "graph_qeury"'), ENDPOINT)).toBeNull()
   })
 
+  it('detects a transport failure from the message alone (socket hang up)', () => {
+    const err = new Error('socket hang up')
+    expect(describeGraphMcpTransportError(err, ENDPOINT)).toContain('unreachable')
+  })
+
   it('is null for non-error inputs', () => {
     expect(describeGraphMcpTransportError(null, ENDPOINT)).toBeNull()
     expect(describeGraphMcpTransportError('nope', ENDPOINT)).toBeNull()
+  })
+})
+
+describe('toGraphMcpEndpointError', () => {
+  it('wraps a transport failure in an endpoint-named Error, keeping the cause', () => {
+    const original = fetchFailed(withCode('connect ECONNREFUSED 127.0.0.1:8012', 'ECONNREFUSED'))
+    const wrapped = toGraphMcpEndpointError(original, ENDPOINT)
+    expect(wrapped).toBeInstanceOf(Error)
+    expect((wrapped as Error).message).toContain(ENDPOINT)
+    expect((wrapped as Error).cause).toBe(original)
+  })
+
+  it('returns a real backend error unchanged (same reference)', () => {
+    const backend = new Error('traversal depth 9 exceeds the maximum of 5')
+    expect(toGraphMcpEndpointError(backend, ENDPOINT)).toBe(backend)
   })
 })

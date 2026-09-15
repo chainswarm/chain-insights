@@ -67,3 +67,14 @@ export function describeGraphMcpTransportError(err: unknown, endpoint: string): 
     'CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT environment variable.',
   ].join(' ')
 }
+
+/**
+ * Returns an endpoint-named Error when err is a transport failure, preserving
+ * the original as `cause`; returns err unchanged otherwise. Callers throw the
+ * result, so a real backend error surfaces verbatim while a dead endpoint is
+ * self-explaining.
+ */
+export function toGraphMcpEndpointError(err: unknown, endpoint: string): unknown {
+  const message = describeGraphMcpTransportError(err, endpoint)
+  return message === null ? err : new Error(message, { cause: err })
+}

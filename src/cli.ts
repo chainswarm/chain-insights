@@ -97,16 +97,11 @@ async function withGraphMcpClient<T>(
   const { loadConfig } = await import('./config/index.js')
   const config = await loadConfig()
   const { createConfiguredGraphMcpFetch, resolveGraphMcpEndpoint } = await import('./mcp/client.js')
-  const { describeGraphMcpTransportError } = await import('./mcp/transport-error.js')
-  const endpoint = resolveGraphMcpEndpoint(config)
   // A dead or wrong endpoint (e.g. a stale `debug` config pointing at a stopped
-  // local server) otherwise surfaces as a bare "fetch failed"; name the
-  // endpoint and the cause so the user can act. Non-transport errors pass
-  // through untouched.
-  const asEndpointError = (err: unknown): unknown => {
-    const message = describeGraphMcpTransportError(err, endpoint)
-    return message ? new Error(message, { cause: err }) : err
-  }
+  // local server) otherwise surfaces as a bare "fetch failed"; toGraphMcpEndpointError
+  // names the endpoint and the cause, and passes real backend errors through.
+  const { toGraphMcpEndpointError } = await import('./mcp/transport-error.js')
+  const endpoint = resolveGraphMcpEndpoint(config)
   const paymentFetch = await createConfiguredGraphMcpFetch(config)
   const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
   const { StreamableHTTPClientTransport } =
@@ -119,7 +114,7 @@ async function withGraphMcpClient<T>(
       })
     )
   } catch (err) {
-    throw asEndpointError(err)
+    throw toGraphMcpEndpointError(err, endpoint)
   }
   // Every CLI command builds its own client, separate from the MCP proxy's
   // one, so unattended scheduled CLI runs also write to the action log.
@@ -128,7 +123,7 @@ async function withGraphMcpClient<T>(
   try {
     return await fn(client, config)
   } catch (err) {
-    throw asEndpointError(err)
+    throw toGraphMcpEndpointError(err, endpoint)
   } finally {
     await client.close()
   }
