@@ -85,7 +85,8 @@ The admitted GQL read surface runs on a read-only session, within the
 admission + bounds gate below. This includes clause- and pattern-level `WHERE`,
 `WITH` pipelines, `CASE`, `collect()`, temporal functions, `UNWIND`, map
 projections, `UNION`, and the full traversal surface. The topology graph serves
-`Address` nodes (with `risk_score`/`risk_level` always present), `FLOWS_TO`
+`Address` nodes (`risk_score`/`risk_level` are present only when the model
+scored the address), `FLOWS_TO`
 lifetime money-flow edges, `OPERATED_BY` operator-mediated topology edges (the
 next section), the `LINKED` ownership overlay, `RISK_PROXIMITY`, and
 a two-layer Bittensor neuron model: `(:Neuron {hotkey, netuid})` nodes labeled

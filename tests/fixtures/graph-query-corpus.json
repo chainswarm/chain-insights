@@ -16,7 +16,7 @@
     "address": "corpus-address-a"
    },
    "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"}) RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level, a.label_risk AS label_risk LIMIT 1"
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"}) RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level, a.label_risk_labels AS label_risk_labels, a.label_risk_levels AS label_risk_levels, a.label_risk_updated_timestamps AS label_risk_updated_timestamps LIMIT 1"
   },
   {
    "builder": "addressProfileQuery",
@@ -24,7 +24,7 @@
     "address": "corpus\"quote"
    },
    "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"corpus\\\"quote\"}) RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level, a.label_risk AS label_risk LIMIT 1"
+   "query": "USE topology MATCH (a:Address {address: \"corpus\\\"quote\"}) RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level, a.label_risk_labels AS label_risk_labels, a.label_risk_levels AS label_risk_levels, a.label_risk_updated_timestamps AS label_risk_updated_timestamps LIMIT 1"
   },
   {
    "builder": "compareAddressExistsQuery",

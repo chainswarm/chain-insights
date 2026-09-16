@@ -2541,4 +2541,145 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).not.toContain('chain-insights mcp')
     expect(result.content[0].text).not.toContain('Useful CLI commands')
   })
+
+  // Production-shaped robinhood subjects, 2026-09-15: the served graph carries
+  // no ML verdict (StarRocks holds 0 predictions) and no exchange node, so the
+  // verdict must say "unscored", never "low".
+  const robinhoodBatch = (
+    profile: Record<string, unknown>,
+    overrides: Record<string, unknown> = {}
+  ) => ({
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify({
+          schema: 'chain-insights.result.v1',
+          tool: 'graph_query_batch',
+          facts: {
+            queries: [
+              { id: 'address_profile', ok: true, results: [profile] },
+              { id: 'address_feature', ok: true, results: [{ degree_in: 2, degree_out: 1 }] },
+              { id: 'exchange_outflows_1', ok: true, results: [] },
+              { id: 'exchange_outflows_2', ok: true, results: [] },
+              { id: 'exchange_outflows_3', ok: true, results: [] },
+              { id: 'exchange_inflows_1', ok: true, results: [] },
+              { id: 'exchange_inflows_2', ok: true, results: [] },
+              {
+                id: 'exchange_inflows_3',
+                ...((overrides['exchange_inflows_3'] as Record<string, unknown>) ?? {
+                  ok: true,
+                  results: [],
+                }),
+              },
+              { id: 'connection_probe', ok: true, results: [] },
+            ],
+          },
+        }),
+      },
+    ],
+    isError: false,
+  })
+
+  const screenRobinhood = async (
+    address: string,
+    profile: Record<string, unknown>,
+    overrides: Record<string, unknown> = {}
+  ) => {
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    await createProxy()
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool.mockResolvedValueOnce(robinhoodBatch(profile, overrides))
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'aml_address_risk')
+    return handler({ address, network: 'robinhood' })
+  }
+
+  it('aml_address_risk answers unscored for a subject with no risk signal', async () => {
+    const address = '0x5f10deebe95d80d4925a9d02a997215883bd5970'
+    const result = await screenRobinhood(address, {
+      address,
+      network: 'robinhood',
+      display_labels: null,
+      system_labels: null,
+      is_exchange: null,
+      live_risk_score: null,
+      live_risk_level: null,
+      label_risk_labels: null,
+      label_risk_levels: null,
+      label_risk_updated_timestamps: null,
+    })
+
+    expect(result.isError).toBe(false)
+    const risk = result.structuredContent.facts.risk as Record<string, unknown>
+    expect(risk['level']).toBe('unscored')
+    expect(risk['score']).toBeNull()
+    expect(risk['confidence']).toBe('low')
+    expect(risk['signals']).toEqual({
+      ml_verdict: 'absent',
+      labels: 'absent',
+      // `none_found` today; it becomes `unavailable` once the exchange
+      // attribution probe of task 3.2 skips the searches on robinhood.
+      exchange_exposure: 'none_found',
+    })
+    expect(result.content[0].text).toContain('Risk: unscored (no score)')
+    expect(result.content[0].text).not.toContain('continue with normal monitoring')
+  })
+
+  it('aml_address_risk keeps a role label as context, not as a clean verdict', async () => {
+    const address = '0x00070b4683d6b3b498c340062a747e0970227fe5'
+    const result = await screenRobinhood(address, {
+      address,
+      network: 'robinhood',
+      display_labels: ['smart account'],
+      system_labels: ['smart account'],
+      is_exchange: null,
+      live_risk_score: null,
+      live_risk_level: null,
+      label_risk_labels: ['smart_account'],
+      label_risk_levels: ['low'],
+      label_risk_updated_timestamps: [1789265561000],
+    })
+
+    const risk = result.structuredContent.facts.risk as Record<string, unknown>
+    expect(risk['level']).toBe('unscored')
+    expect((risk['signals'] as Record<string, unknown>)['labels']).toBe('context_only')
+    expect(String(risk['drivers'])).toContain('Context labels (not a risk claim): smart_account')
+    expect(result.content[0].text).not.toContain('continue with normal monitoring')
+  })
+
+  it('aml_address_risk reports an incomplete exchange search in its signals', async () => {
+    const address = '0x5f10deebe95d80d4925a9d02a997215883bd5970'
+    const result = await screenRobinhood(
+      address,
+      {
+        address,
+        network: 'robinhood',
+        display_labels: null,
+        system_labels: null,
+        is_exchange: null,
+        live_risk_score: null,
+        live_risk_level: null,
+        label_risk_labels: null,
+        label_risk_levels: null,
+        label_risk_updated_timestamps: null,
+      },
+      {
+        exchange_inflows_3: {
+          ok: false,
+          error: 'query_timeout: the topology query did not finish within its time budget',
+        },
+      }
+    )
+
+    const risk = result.structuredContent.facts.risk as Record<string, unknown>
+    expect(risk['level']).toBe('unscored')
+    expect((risk['signals'] as Record<string, unknown>)['exchange_exposure']).toBe('incomplete')
+    expect(result.structuredContent.facts.exchange_behavior.search_status).toBe('incomplete')
+  })
 })

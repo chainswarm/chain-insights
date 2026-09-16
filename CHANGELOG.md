@@ -3,6 +3,44 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.32.0] - 2026-09-16 — the risk verdict says only what its evidence supports
+
+### Changed
+
+- **BREAKING:** `aml_address_risk` reports `facts.risk.level` `unscored` with
+  `facts.risk.score` `null` when the address has no usable model band, no
+  label at risk level `medium` or above, and no found exchange exposure.
+  That case previously reported `low` with score 0 and advised "continue with
+  normal monitoring", which reads as a clean result. The summary line now
+  reads `Risk: unscored (no score)`.
+- **BREAKING:** `facts.risk.score` may be `null`. It carries a number only
+  when the model scored the address or exchange exposure was found, so a
+  level set by a label alone prints as `critical (no score)`, not
+  `critical (0)`.
+- The model's published band (`LOW`, `MEDIUM`, `HIGH`) sets the level.
+  Chain Insights no longer re-bands the model score with fixed cut-offs,
+  which reported a model `HIGH` at 0.30 as `low` and promoted a model `HIGH`
+  at 0.92 to `critical`.
+- A label at risk level `low` is context: it appears in `facts.risk.drivers`
+  as `Context labels (not a risk claim): …` and never sets the level or
+  raises the confidence.
+
+### Added
+
+- `facts.risk.signals` reports which signals were present: `ml_verdict`
+  (`present` / `abstained` / `absent`), `labels` (`risk` / `context_only` /
+  `absent`), and `exchange_exposure` (`found` / `none_found` / `incomplete` /
+  `unavailable`).
+
+### Fixed
+
+- The address profile read returns the per-label risk arrays the graph
+  stores (`label_risk_labels`, `label_risk_levels`,
+  `label_risk_updated_timestamps`). It asked for the retired `label_risk`
+  property, so no label reached the verdict on any current graph. A test now
+  builds the profile row from the query the tool sends, so the read and the
+  query cannot drift apart again.
+
 ## [0.31.2] - 2026-09-15 — fix: route evidence uses the early-stop shortest path search
 
 ### Changed

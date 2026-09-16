@@ -32,18 +32,18 @@ Load `chain-insights-cypher` for Memgraph dialect rules.
 
 ## Address properties
 
-| Property                                                                      | Notes                                                          |
-| ----------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `address`                                                                     | Raw H160. Public results keep this form.                       |
-| `network`                                                                     | Address space. `robinhood` here.                               |
-| `labels`                                                                      | Label names on the node.                                       |
-| `label_risk`                                                                  | Per-label risk maps: `{label, risk_level, updated_timestamp}`. |
-| `is_exchange`                                                                 | Exchange hot wallet when set.                                  |
-| `risk_score` / `risk_level`                                                   | Node verdict. Always present.                                  |
-| `tx_in_count` / `tx_out_count` / `tx_total_count`                             | Lifetime counts.                                               |
-| `degree_in` / `degree_out` / `degree_total`                                   | Neighbor counts.                                               |
-| `total_in_usd` / `total_out_usd` / `total_volume_usd` / `net_flow_usd`        | Lifetime USD.                                                  |
-| `first_activity_timestamp` / `last_activity_timestamp` / `activity_span_days` | Activity window.                                               |
+| Property                                                                      | Notes                                                                                    |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `address`                                                                     | Raw H160. Public results keep this form.                                                 |
+| `network`                                                                     | Address space. `robinhood` here.                                                         |
+| `labels`                                                                      | Label names on the node.                                                                 |
+| `label_risk_labels` / `label_risk_levels` / `label_risk_updated_timestamps`   | Per-label risk, as three parallel arrays. A level of `low` is context, not a risk claim. |
+| `is_exchange`                                                                 | Exchange hot wallet when set.                                                            |
+| `risk_score` / `risk_level`                                                   | Model verdict. Present only when the model scored the address.                           |
+| `tx_in_count` / `tx_out_count` / `tx_total_count`                             | Lifetime counts.                                                                         |
+| `degree_in` / `degree_out` / `degree_total`                                   | Neighbor counts.                                                                         |
+| `total_in_usd` / `total_out_usd` / `total_volume_usd` / `net_flow_usd`        | Lifetime USD.                                                                            |
+| `first_activity_timestamp` / `last_activity_timestamp` / `activity_span_days` | Activity window.                                                                         |
 
 There is no `AddressLabel` node and no `HAS_LABEL` or `HAS_RISK_SCORE` edge.
 

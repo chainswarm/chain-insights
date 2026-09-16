@@ -166,6 +166,29 @@ Optional input:
 - `version` — omit it to use the latest contract, or set it to `v1` to pin the
   current AML contract.
 
+## The risk verdict
+
+`facts.risk.level` is one of `unscored`, `low`, `medium`, `high`, or
+`critical`, and it says only what the evidence supports:
+
+- the model's own band (`LOW`, `MEDIUM`, `HIGH`), or a label at risk level
+  `medium` or above, sets the level; the more severe of the two wins;
+- found exchange exposure sets `low` or `medium` when nothing above exists;
+- otherwise the level is `unscored`, `facts.risk.score` is `null`, and the
+  summary reads `Risk: unscored (no score)`.
+
+`unscored` is **not** a clean result. It means no model verdict, no risk
+label, and no found exchange exposure — gather more context before clearing.
+A label at risk level `low` (a role such as `smart_account`) is context only:
+it appears under drivers and never sets the level.
+
+`facts.risk.signals` says which signals were present:
+
+- `ml_verdict`: `present`, `abstained` (the model returned `UNSCORED`), or
+  `absent`;
+- `labels`: `risk`, `context_only`, or `absent`;
+- `exchange_exposure`: `found`, `none_found`, `incomplete`, or `unavailable`.
+
 CLI output is human-readable by default. Add `--json` to print indented JSON:
 
 ```bash

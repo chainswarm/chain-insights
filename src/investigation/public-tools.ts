@@ -3,7 +3,12 @@ import path from 'node:path'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
-import { isUnscoredRiskLevel, normalizeRiskLevel, riskSeverityRank } from './risk-level.js'
+import {
+  isUnscoredRiskLevel,
+  normalizeRiskLevel,
+  riskSeverityRank,
+  UNSCORED_RISK_LEVEL,
+} from './risk-level.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
 import {
   createUsageAccumulator,
@@ -160,17 +165,20 @@ function addressProfileQuery(address: string): { id: string; query: string } {
   // risk source (the retired facts_risk_scores_view never had a risk_level
   // column, so UNSCORED abstention was invisible until this move).
   const riskFields = ', a.risk_score AS live_risk_score, a.risk_level AS live_risk_level'
-  // label_risk is the per-label risk overlay graphsync now materializes
-  // directly on the node (P2b′): a list of {label, risk_level,
-  // updated_timestamp} maps, one per current label row. Missing/empty is "no
-  // label-risk signal," never an error -- the retired facts_address_labels_view
-  // read is gone; this replaces it entirely.
-  const labelRiskField = ', a.label_risk AS label_risk'
+  // Per-label risk arrives as three parallel primitive arrays, not as the
+  // retired `label_risk` map list: Dozer/Neo4j properties cannot store a list
+  // of maps, so graphsync writes label_risk_labels / label_risk_levels /
+  // label_risk_updated_timestamps and REMOVEs `label_risk` on every label pass
+  // (data-pipeline UpsertLabels). Asking for `label_risk` returned null on
+  // every production node, so no label ever reached the verdict. Missing or
+  // empty arrays are "no label-risk signal," never an error.
+  const labelRiskFields =
+    ', a.label_risk_labels AS label_risk_labels, a.label_risk_levels AS label_risk_levels, a.label_risk_updated_timestamps AS label_risk_updated_timestamps'
   return {
     id: 'address_profile',
     query: [
       `MATCH (a:Address {address: "${escapeCypherString(address)}"})`,
-      `RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange${riskFields}${labelRiskField}`,
+      `RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange${riskFields}${labelRiskFields}`,
       'LIMIT 1',
     ].join(' '),
   }
@@ -631,11 +639,17 @@ function riskLevelFromScore(score: number): string {
   return 'low'
 }
 
+// A level only exists when a signal produced it, so `low` no longer means "we
+// found nothing" -- that case is `unscored` and carries NO_SIGNAL_RECOMMENDATION.
 function riskRecommendation(level: string): string {
   if (level === 'critical' || level === 'high') return 'Escalate for manual review.'
   if (level === 'medium') return 'Review exchange exposure and counterparties before clearing.'
-  return 'No stored risk signal found; continue with normal monitoring.'
+  return 'Stored signals are low risk; continue with normal monitoring.'
 }
+
+// The one answer an AML triage tool may not give when it knows nothing: "low".
+const NO_SIGNAL_RECOMMENDATION =
+  'No ML verdict, risk label, or exchange exposure found. This is not a clean result; gather more context before clearing.'
 
 function riskDrivers(
   profile: Record<string, unknown>,
@@ -644,10 +658,17 @@ function riskDrivers(
 ): string[] {
   const drivers: string[] = []
 
+  const contextLabels = contextLabelNames(labelRows)
   const riskLabels = labelRows
+    .filter((row) => {
+      const label = firstString(row['label'])
+      return Boolean(label) && !contextLabels.includes(label as string)
+    })
     .map((row) => firstString(row['label']))
     .filter((label): label is string => Boolean(label))
   if (riskLabels.length > 0) drivers.push(`Labels: ${[...new Set(riskLabels)].join('; ')}`)
+  if (contextLabels.length > 0)
+    drivers.push(`Context labels (not a risk claim): ${contextLabels.join('; ')}`)
 
   const outflowCount = exchangeRows.filter((row) => row['direction'] === 'outflow').length
   const inflowCount = exchangeRows.filter((row) => row['direction'] === 'inflow').length
@@ -691,16 +712,32 @@ function deriveLabelRows(profile: Record<string, unknown>): Array<Record<string,
     .slice(0, 10)
 }
 
-const RISK_LEVEL_ORDER = ['critical', 'high', 'medium', 'low'] as const
+// Only these three levels are a risk claim. A label at `low` is a description
+// of the address -- 416,230 of robinhood's 416,797 labels are the smart-account
+// role, whose writer says "a role is a structural fact, not a risk signal" --
+// so it is reported as context and never sets a level or raises confidence.
+const RISK_LABEL_LEVEL_ORDER = ['critical', 'high', 'medium'] as const
 
 function strongestLabelRiskLevel(labelRows: Array<Record<string, unknown>>): string | undefined {
   const levels = labelRows
     .map((row) => firstString(row['risk_level'])?.toLowerCase())
     .filter((level): level is string =>
-      Boolean(level && (RISK_LEVEL_ORDER as readonly string[]).includes(level))
+      Boolean(level && (RISK_LABEL_LEVEL_ORDER as readonly string[]).includes(level))
     )
   if (levels.length === 0) return undefined
-  return RISK_LEVEL_ORDER.find((candidate) => levels.includes(candidate))
+  return RISK_LABEL_LEVEL_ORDER.find((candidate) => levels.includes(candidate))
+}
+
+/** Label names whose risk level is `low` or unrecognized: context, not a claim. */
+function contextLabelNames(labelRows: Array<Record<string, unknown>>): string[] {
+  const names = labelRows
+    .filter((row) => {
+      const level = firstString(row['risk_level'])?.toLowerCase()
+      return !level || !(RISK_LABEL_LEVEL_ORDER as readonly string[]).includes(level)
+    })
+    .map((row) => firstString(row['label']))
+    .filter((label): label is string => Boolean(label))
+  return [...new Set(names)]
 }
 
 function riskScoreSources(
@@ -783,64 +820,96 @@ export function exchangeExposureFallbackScore(
   )
 }
 
+export type ExchangeSearchStatus = 'complete' | 'incomplete' | 'unavailable'
+
 export function riskAssessment(
   profile: Record<string, unknown>,
   labelRows: Array<Record<string, unknown>>,
-  exchangeRows: Array<Record<string, unknown>>
+  exchangeRows: Array<Record<string, unknown>>,
+  exchangeSearchStatus: ExchangeSearchStatus = 'complete'
 ): Record<string, unknown> {
   const mlRiskScore = firstNumber(profile['live_risk_score'])
   // UNSCORED is the model's explicit abstention (calibrated-scoring release):
-  // the score exists for transparency but carries no stance — deriving a
-  // severity band from it would silently launder an abstention into a
-  // confident verdict (typically "low"). Fall back to labels/exchange
-  // exposure and say so.
+  // the score exists for transparency but carries no stance. An unrecognized
+  // band carries no stance either. Both count as "no usable band", and the
+  // level then comes from a risk label or from found exchange exposure --
+  // never from re-banding the score.
   const mlAbstained = isUnscoredRiskLevel(profile['live_risk_level'])
+  const mlBand = normalizeRiskLevel(profile['live_risk_level'])
+  // The model sets its bands by share of scored addresses (HIGH is the top
+  // 0.5%), so its calibrated score does not line up with fixed cuts: a HIGH at
+  // 0.30 read as "low" under the old rule. Use the band the model published.
+  const usableMlBand = mlBand && !mlAbstained ? mlBand : undefined
   const labelRiskLevel = strongestLabelRiskLevel(labelRows)
-  const usableMlScore = mlAbstained ? undefined : mlRiskScore
-  const score = usableMlScore ?? exchangeExposureFallbackScore(exchangeRows)
-  let level =
-    labelRiskLevel ??
-    (mlAbstained && exchangeRows.length === 0 ? 'unscored' : riskLevelFromScore(score))
+  const exchangeScore =
+    exchangeRows.length > 0 ? exchangeExposureFallbackScore(exchangeRows) : undefined
   const drivers = riskDrivers(profile, labelRows, exchangeRows)
   if (mlAbstained)
     drivers.push(
       'ml_abstained: ML verdict is UNSCORED (insufficient labeled graph context); level derived from labels/exchange exposure only'
     )
-  // Labels are curated truth and stay first — but a lower-severity label
-  // must never SUPPRESS a more severe usable ML band. Failing toward
-  // "looks safe" is the one direction an AML triage tool may not fail.
-  const usableMlBand = usableMlScore !== undefined ? riskLevelFromScore(usableMlScore) : undefined
-  if (
-    labelRiskLevel &&
-    usableMlBand &&
-    riskSeverityRank(usableMlBand) > riskSeverityRank(labelRiskLevel)
-  ) {
-    level = usableMlBand
-    drivers.push(
-      `ml_label_divergence: usable ML band ${usableMlBand} exceeds strongest label level ${labelRiskLevel}; reporting the more severe band — review the label`
-    )
+
+  let level: string
+  let score: number | null
+  let confidence: string
+  if (usableMlBand || labelRiskLevel) {
+    // Labels are curated truth and stay first — but a lower-severity label
+    // must never SUPPRESS a more severe usable ML band. Failing toward
+    // "looks safe" is the one direction an AML triage tool may not fail.
+    level = labelRiskLevel ?? (usableMlBand as string)
+    if (
+      labelRiskLevel &&
+      usableMlBand &&
+      riskSeverityRank(usableMlBand) > riskSeverityRank(labelRiskLevel)
+    ) {
+      level = usableMlBand
+      drivers.push(
+        `ml_label_divergence: usable ML band ${usableMlBand} exceeds strongest label level ${labelRiskLevel}; reporting the more severe band — review the label`
+      )
+    }
+    // A score belongs to the verdict only when the model or found exposure
+    // produced one. A label-driven level has none: "critical (no score)".
+    score = usableMlBand ? (mlRiskScore ?? null) : (exchangeScore ?? null)
+    confidence = 'high'
+  } else if (exchangeScore !== undefined) {
+    score = exchangeScore
+    level = riskLevelFromScore(exchangeScore)
+    confidence = 'medium'
+  } else {
+    level = UNSCORED_RISK_LEVEL
+    score = null
+    confidence = 'low'
   }
+
   return {
     level,
     score,
     ...(mlRiskScore !== undefined ? { ml_risk_score: mlRiskScore } : {}),
-    ...(mlAbstained ? { ml_verdict: 'unscored' } : {}),
-    confidence:
-      usableMlScore !== undefined || labelRiskLevel
-        ? 'high'
-        : exchangeRows.length > 0
-          ? 'medium'
-          : 'low',
+    ...(mlAbstained ? { ml_verdict: UNSCORED_RISK_LEVEL } : {}),
+    confidence,
     recommendation:
-      level === 'unscored'
-        ? 'Model abstained and no label/exchange signal found; gather more context before clearing.'
-        : riskRecommendation(level),
+      level === UNSCORED_RISK_LEVEL ? NO_SIGNAL_RECOMMENDATION : riskRecommendation(level),
     drivers,
     sources: riskScoreSources(profile, labelRows),
+    signals: {
+      ml_verdict: usableMlBand ? 'present' : mlAbstained ? 'abstained' : 'absent',
+      labels: labelRiskLevel ? 'risk' : labelRows.length > 0 ? 'context_only' : 'absent',
+      exchange_exposure:
+        exchangeRows.length > 0
+          ? 'found'
+          : exchangeSearchStatus === 'unavailable'
+            ? 'unavailable'
+            : exchangeSearchStatus === 'incomplete'
+              ? 'incomplete'
+              : 'none_found',
+    },
   }
 }
 
 function formatRiskScore(score: unknown): string {
+  // null is the deliberate "no score behind this level" of an unscored or
+  // label-driven verdict, and must not print as 0 or as "unknown".
+  if (score === null) return 'no score'
   const parsed = numberValue(score)
   if (parsed === undefined) return String(score ?? 'unknown')
   return Number.isInteger(parsed) ? parsed.toString() : parsed.toFixed(2)
@@ -1155,7 +1224,14 @@ export async function addressRisk(
   }
   const moneyTrail = buildMoneyTrailBlock(moneyTrailIncidentRows, moneyTrailEndRows)
   const graphData = buildRiskGraph(address, profile, exchangeRows, network)
-  const risk = riskAssessment(profile, labelRows, exchangeRows)
+  // The verdict needs the search status, not just the rows: "no exchange path"
+  // from a complete search, from a failed one, and from a network with no
+  // exchange attribution are three different statements, and none of them is
+  // evidence of low risk.
+  const exchangeSearchStatus: ExchangeSearchStatus = exchangeSearchComplete
+    ? 'complete'
+    : 'incomplete'
+  const risk = riskAssessment(profile, labelRows, exchangeRows, exchangeSearchStatus)
   const liveRiskScore = numberValue(profile['live_risk_score'])
   const liveRiskLevel = firstString(profile['live_risk_level'])
   const liveNodeVerdict =
