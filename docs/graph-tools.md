@@ -59,7 +59,12 @@ primitive-backend status instead.
 - Use single bounded `graph_query` calls for public no-wallet free-tier usage. Use
   `graph_query_batch` for related reads that should share one paid call; public
   free-tier access does not include batches.
-- `per_query_timeout_seconds` is optional and capped at `10` by default.
+- `per_query_timeout_seconds` is optional and capped at `60` by default on
+  the topology tier (`30` on facts). It can only lower a query's budget.
+- One `graph_query_batch` call answers within 100 seconds in total. Queries run
+  one after another; a query that no longer fits reports `query_timeout`, and
+  the results collected before it still return. Allow at least 65 seconds for a
+  single query and 100 seconds for a batch in your client.
 - Returned rows live in `structuredContent.facts`.
 
 Agent installers ship four skills:
@@ -139,7 +144,7 @@ Notes:
 - Zero rows is a healthy result — the address simply has no mediated
   transfers.
 - Whole-graph high-fan-in sweeps (every operator grouped by distinct owner)
-  are valid but heavy; at millions of edges they exceed the hosted 10-second
+  are valid but heavy; at millions of edges they exceed the hosted 60-second
   per-query budget. See `docs/graph-query-compatibility.md` for the
   time-bounded sweep shape.
 - Confirm any lead with `FLOWS_TO` money-flow context and address labels

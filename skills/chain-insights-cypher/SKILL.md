@@ -75,6 +75,13 @@ Rejected on topology:
 Treat exchange hot wallets as terminals. Filter intermediate nodes with
 `is_exchange IS NULL`.
 
+Do not walk an exchange path through a hub. An address with more than 10,000
+counterparties in the direction you walk is a service, not a wallet, and its
+relationships alone can outlast the query budget: one production hub has
+1,353,649 senders. Bound every middle address with
+`coalesce(n.degree_in, 0) <= 10000` (or `degree_out` when walking forwards).
+`aml_address_risk` uses that bound.
+
 ## Facts is not full GQL
 
 Facts rejects native traversal, `FLOWS_TO`, `OPERATED_BY`, `LINKED`, `WITH` pipelines,
@@ -91,8 +98,12 @@ When a facts read needs hops or money flow, move it to topology.
 
 - Read-only. No writes.
 - No raw warehouse table names.
-- No dynamic labels such as `:Exchange`. Use `is_exchange` or proven
-  label properties.
+- No dynamic labels such as `:Exchange` in a traversal. Use `is_exchange` or
+  proven label properties. The one exception is counting them:
+  `MATCH (e:Exchange) RETURN count(e) AS exchanges` answers "does this network
+  have exchange attribution at all" from the count store in one read, which no
+  property filter can do. `aml_address_risk` sends exactly that before its
+  exchange searches.
 - Empty results mean no indexed match. They are not proof of safety.
 - Do not reuse one network's labels on another network unless that
   network advertises them.

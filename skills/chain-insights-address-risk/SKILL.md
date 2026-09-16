@@ -32,6 +32,28 @@ The screen covers risk, behavior, neighborhood context, and exchange
 exposure. Treat exchange hot wallets as terminals, not as intermediate
 hops.
 
+## The exchange search
+
+The search looks for money paths of 1 to 3 hops between the address and an
+exchange, in both directions. Two bounds shape what it reports:
+
+- It does not walk through a middle address with more than 10,000
+  counterparties in the direction of travel. Those are services, not deposit or
+  withdrawal wallets. `facts.exchange_behavior.hub_bound` states the number.
+- When the address itself is above that bound, its 2-hop and 3-hop searches in
+  that direction do not run. They are listed in
+  `facts.exchange_behavior.skipped_query_ids` with
+  `skip_reason: subject_above_hub_bound`.
+
+`facts.exchange_behavior.search_status` says how much of the search happened:
+
+- `complete`: every search ran.
+- `incomplete`: a search failed or was skipped. `failed_query_ids` and
+  `skipped_query_ids` say which. Not a clean result.
+- `unavailable`: the network has no exchange-labelled address, so the searches
+  were not sent (`unavailable_reason: no_exchange_attribution`). Exchange
+  exposure is unknown, not clean.
+
 ## The risk verdict
 
 `facts.risk.level` is one of `unscored`, `low`, `medium`, `high`, or

@@ -102,7 +102,7 @@ LIMIT 10
 Call that probe `operated_by_sample` in `graph_query_batch`. Zero rows is a
 healthy result. Whole-graph high-fan-in sweeps (every operator grouped by distinct owner
 count) are valid but heavy: at millions of edges they exceed the hosted
-10-second per-query budget and can burn metered seconds. Scope both endpoints
+60-second per-query budget and can burn metered seconds. Scope both endpoints
 by `network`, bound by a recent `last_seen_timestamp` window (recompute the
 cutoff), and prefer the point-anchored probe on metered endpoints.
 
