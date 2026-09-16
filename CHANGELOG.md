@@ -3,6 +3,64 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.32.0] - 2026-09-16 — the risk verdict says only what its evidence supports, and the exchange search stays out of hubs
+
+### Changed
+
+- **BREAKING:** `aml_address_risk` reports `facts.risk.level` `unscored` with
+  `facts.risk.score` `null` when the address has no usable model band, no
+  label at risk level `medium` or above, and no found exchange exposure.
+  That case previously reported `low` with score 0 and advised "continue with
+  normal monitoring", which reads as a clean result. The summary line now
+  reads `Risk: unscored (no score)`.
+- **BREAKING:** `facts.risk.score` may be `null`. It carries a number only
+  when the model scored the address or exchange exposure was found, so a
+  level set by a label alone prints as `critical (no score)`, not
+  `critical (0)`.
+- The model's published band (`LOW`, `MEDIUM`, `HIGH`) sets the level.
+  Chain Insights no longer re-bands the model score with fixed cut-offs,
+  which reported a model `HIGH` at 0.30 as `low` and promoted a model `HIGH`
+  at 0.92 to `critical`.
+- A label at risk level `low` is context: it appears in `facts.risk.drivers`
+  as `Context labels (not a risk claim): …` and never sets the level or
+  raises the confidence.
+
+- The `aml_address_risk` exchange searches no longer walk through hub
+  addresses. A middle address with more than 10,000 counterparties in the
+  direction of travel is not followed, and from depth 2 the same bound applies
+  to the screened address. For the production subject of 2026-09-15 the 3-hop
+  inflow search dropped from 19,164,381 walked relationships, which ended in
+  `query_timeout`, to 81,379 relationships in 431 ms.
+- `aml_address_risk` counts a network's exchange-labelled addresses before it
+  searches. With none, it does not send the six searches and reports
+  `facts.exchange_behavior.search_status` `unavailable` with
+  `unavailable_reason` `no_exchange_attribution`. That case previously read
+  "No exchange inflow/outflow paths found in bounded search", a clean answer
+  for a search that could not match anything.
+- `aml_address_risk` no longer sends `per_query_timeout_seconds`. The hosted
+  server applies its own per-query ceiling (60 s on topology) and its
+  100-second batch budget.
+
+### Added
+
+- `facts.exchange_behavior.hub_bound` (10000), plus `skipped_query_ids` with
+  `skip_reason` `subject_above_hub_bound` when the screened address is itself
+  above the bound, and `unavailable_reason` when the network has no exchange
+  attribution.
+- `facts.risk.signals` reports which signals were present: `ml_verdict`
+  (`present` / `abstained` / `absent`), `labels` (`risk` / `context_only` /
+  `absent`), and `exchange_exposure` (`found` / `none_found` / `incomplete` /
+  `unavailable`).
+
+### Fixed
+
+- The address profile read returns the per-label risk arrays the graph
+  stores (`label_risk_labels`, `label_risk_levels`,
+  `label_risk_updated_timestamps`). It asked for the retired `label_risk`
+  property, so no label reached the verdict on any current graph. A test now
+  builds the profile row from the query the tool sends, so the read and the
+  query cannot drift apart again.
+
 ## [0.31.2] - 2026-09-15 — fix: route evidence uses the early-stop shortest path search
 
 ### Changed

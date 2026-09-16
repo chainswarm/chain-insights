@@ -85,7 +85,8 @@ The admitted GQL read surface runs on a read-only session, within the
 admission + bounds gate below. This includes clause- and pattern-level `WHERE`,
 `WITH` pipelines, `CASE`, `collect()`, temporal functions, `UNWIND`, map
 projections, `UNION`, and the full traversal surface. The topology graph serves
-`Address` nodes (with `risk_score`/`risk_level` always present), `FLOWS_TO`
+`Address` nodes (`risk_score`/`risk_level` are present only when the model
+scored the address), `FLOWS_TO`
 lifetime money-flow edges, `OPERATED_BY` operator-mediated topology edges (the
 next section), the `LINKED` ownership overlay, `RISK_PROXIMITY`, and
 a two-layer Bittensor neuron model: `(:Neuron {hotkey, netuid})` nodes labeled
@@ -156,7 +157,7 @@ risk label. Confirm with money-flow and label context before acting.
 
 The whole-graph high-fan-in sweep — every operator grouped by distinct owner
 count — is a valid shape but a heavy one: at millions of edges it exceeds the
-hosted per-query timeout (10 seconds by default), and a sweep that times out
+hosted per-query timeout (60 seconds by default on topology), and a sweep that times out
 can still consume the metered seconds. Scope both endpoints by the network
 property (this match has no exact-address key, so the shared-graph rule
 applies), bound it by a recent `last_seen_timestamp` window — recompute the

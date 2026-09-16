@@ -70,6 +70,12 @@ for (const scope of SCOPES) {
     )
   }
   add(
+    'exchangeAttributionQuery',
+    {},
+    scope,
+    queryBuilderContract.exchangeAttributionQuery()
+  )
+  add(
     'compareAddressExistsQuery',
     { address: ADDR },
     scope,

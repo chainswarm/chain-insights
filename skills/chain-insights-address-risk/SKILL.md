@@ -32,6 +32,51 @@ The screen covers risk, behavior, neighborhood context, and exchange
 exposure. Treat exchange hot wallets as terminals, not as intermediate
 hops.
 
+## The exchange search
+
+The search looks for money paths of 1 to 3 hops between the address and an
+exchange, in both directions. Two bounds shape what it reports:
+
+- It does not walk through a middle address with more than 10,000
+  counterparties in the direction of travel. Those are services, not deposit or
+  withdrawal wallets. `facts.exchange_behavior.hub_bound` states the number.
+- When the address itself is above that bound, its 2-hop and 3-hop searches in
+  that direction do not run. They are listed in
+  `facts.exchange_behavior.skipped_query_ids` with
+  `skip_reason: subject_above_hub_bound`.
+
+`facts.exchange_behavior.search_status` says how much of the search happened:
+
+- `complete`: every search ran.
+- `incomplete`: a search failed or was skipped. `failed_query_ids` and
+  `skipped_query_ids` say which. Not a clean result.
+- `unavailable`: the network has no exchange-labelled address, so the searches
+  were not sent (`unavailable_reason: no_exchange_attribution`). Exchange
+  exposure is unknown, not clean.
+
+## The risk verdict
+
+`facts.risk.level` is one of `unscored`, `low`, `medium`, `high`, or
+`critical`, and it says only what the evidence supports:
+
+- the model's own band (`LOW`, `MEDIUM`, `HIGH`), or a label at risk level
+  `medium` or above, sets the level; the more severe of the two wins;
+- found exchange exposure sets `low` or `medium` when nothing above exists;
+- otherwise the level is `unscored`, `facts.risk.score` is `null`, and the
+  summary reads `Risk: unscored (no score)`.
+
+`unscored` is **not** a clean result. It means no model verdict, no risk
+label, and no found exchange exposure — gather more context before clearing.
+A label at risk level `low` (a role such as `smart_account`) is context only:
+it appears under drivers and never sets the level.
+
+`facts.risk.signals` says which signals were present:
+
+- `ml_verdict`: `present`, `abstained` (the model returned `UNSCORED`), or
+  `absent`;
+- `labels`: `risk`, `context_only`, or `absent`;
+- `exchange_exposure`: `found`, `none_found`, `incomplete`, or `unavailable`.
+
 For the CLI, discover this workflow with `cia workflows` and run
 `cia workflow aml-address-risk` for the readable summary. Add `--json` for
 indented structured output. Omit the version to use the latest contract, or

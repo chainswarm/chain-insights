@@ -29,14 +29,20 @@ describe('exchange exposure fallback score', () => {
 })
 
 describe('risk assessment precedence', () => {
-  it('a lower-severity label never suppresses a more severe usable ML band', () => {
+  it('a context label never suppresses a usable ML band', () => {
     const assessment = riskAssessment(
       { live_risk_score: 0.92, live_risk_level: 'HIGH' },
       [{ label: 'known-service', risk_level: 'low', updated_timestamp: 1700000000000 }],
       []
     )
-    expect(assessment['level']).toBe('critical')
-    expect(String(assessment['drivers'])).toContain('ml_label_divergence')
+    // The model published HIGH, so the verdict is `high`. A score of 0.92 no
+    // longer promotes it to `critical`: the model sets its bands by share of
+    // scored addresses, and it never publishes CRITICAL.
+    expect(assessment['level']).toBe('high')
+    expect(assessment['score']).toBe(0.92)
+    // A label at `low` is context, so there is no label level to diverge from.
+    expect(String(assessment['drivers'])).not.toContain('ml_label_divergence')
+    expect(String(assessment['drivers'])).toContain('Context labels')
   })
 
   it('labels stay first when equal or more severe than the ML band', () => {

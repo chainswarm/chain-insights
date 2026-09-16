@@ -26,6 +26,10 @@ function clientWithExchangeSearch(respond: QueryResponder) {
         if (q.id === 'address_profile') {
           return { id: q.id, ok: true, results: [{ address: '5Known', network: 'bittensor' }] }
         }
+        if (q.id === 'exchange_attribution') {
+          // This network has exchange labels, so the searches run.
+          return { id: q.id, ok: true, results: [{ exchanges: 5 }] }
+        }
         if (q.id.startsWith('exchange_outflows_') || q.id.startsWith('exchange_inflows_')) {
           return respond(q.id) ?? { id: q.id, ok: true, results: [] }
         }
@@ -45,7 +49,7 @@ describe('aml_address_risk exchange-search partial-failure reporting', () => {
     const result = await addressRisk(remote as never, { address: '5Known', network: 'bittensor' })
 
     expect(result.summaryText).toContain(
-      '- No exchange inflow/outflow paths found in bounded search.'
+      '- No exchange inflow/outflow paths found in bounded search'
     )
     expect(result.summaryText).not.toContain('incomplete')
     const facts = (
@@ -102,7 +106,7 @@ describe('aml_address_risk exchange-search partial-failure reporting', () => {
 
     expect(result.summaryText).toContain('outflow')
     expect(result.summaryText).toContain(
-      '(incomplete: 1 other hop-depth query failed -- there may be more exchange exposure than shown here)'
+      '(incomplete: 1 hop-depth query failed -- there may be more exchange exposure than shown here)'
     )
     const facts = (
       result.structuredContent as {
@@ -144,7 +148,7 @@ describe('aml_address_risk exchange-search partial-failure reporting', () => {
     const result = await addressRisk(remote as never, { address: '5Known', network: 'bittensor' })
 
     expect(result.summaryText).toContain(
-      '- No exchange inflow/outflow paths found in bounded search.'
+      '- No exchange inflow/outflow paths found in bounded search'
     )
     const facts = (
       result.structuredContent as { facts: { exchange_behavior: { search_status: string } } }

@@ -3,7 +3,12 @@ import path from 'node:path'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
-import { isUnscoredRiskLevel, normalizeRiskLevel, riskSeverityRank } from './risk-level.js'
+import {
+  isUnscoredRiskLevel,
+  normalizeRiskLevel,
+  riskSeverityRank,
+  UNSCORED_RISK_LEVEL,
+} from './risk-level.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
 import {
   createUsageAccumulator,
@@ -35,8 +40,20 @@ type QueryFailure = {
   error: string
 }
 
-const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 10
+// The screen sends no per_query_timeout_seconds: graphrag-mcp applies its own
+// tier ceilings (60 s topology, 30 s facts) and its 100-second batch budget, so
+// the client works against a server on either side of that release, and a
+// rollback cannot make it send a value the server refuses.
 const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS = 5 * 60 * 1000
+
+// EXCHANGE_SEARCH_HUB_BOUND is the largest number of counterparties a middle
+// address of an exchange path may have, in the direction the search walks.
+// Above it the address is a service -- a router, a bridge, an omnibus wallet --
+// not a deposit or withdrawal wallet, and walking through it costs millions of
+// relationships for a claim that says nothing about the subject: production hub
+// 0xcaf681a66d020601342297493863e78c959e5cb2 has 1,353,649 senders, and the
+// 3-hop inflow search walked 19,164,381 relationships before its budget ended.
+export const EXCHANGE_SEARCH_HUB_BOUND = 10000
 
 export interface AddressRiskOptions {
   address: string
@@ -142,7 +159,6 @@ async function callGraphBatch(
           ...query,
           query: topologyGraphQuery(query.query),
         })),
-        per_query_timeout_seconds: GRAPH_QUERY_BATCH_TIMEOUT_SECONDS,
       },
     },
     undefined,
@@ -160,17 +176,20 @@ function addressProfileQuery(address: string): { id: string; query: string } {
   // risk source (the retired facts_risk_scores_view never had a risk_level
   // column, so UNSCORED abstention was invisible until this move).
   const riskFields = ', a.risk_score AS live_risk_score, a.risk_level AS live_risk_level'
-  // label_risk is the per-label risk overlay graphsync now materializes
-  // directly on the node (P2b′): a list of {label, risk_level,
-  // updated_timestamp} maps, one per current label row. Missing/empty is "no
-  // label-risk signal," never an error -- the retired facts_address_labels_view
-  // read is gone; this replaces it entirely.
-  const labelRiskField = ', a.label_risk AS label_risk'
+  // Per-label risk arrives as three parallel primitive arrays, not as the
+  // retired `label_risk` map list: Dozer/Neo4j properties cannot store a list
+  // of maps, so graphsync writes label_risk_labels / label_risk_levels /
+  // label_risk_updated_timestamps and REMOVEs `label_risk` on every label pass
+  // (data-pipeline UpsertLabels). Asking for `label_risk` returned null on
+  // every production node, so no label ever reached the verdict. Missing or
+  // empty arrays are "no label-risk signal," never an error.
+  const labelRiskFields =
+    ', a.label_risk_labels AS label_risk_labels, a.label_risk_levels AS label_risk_levels, a.label_risk_updated_timestamps AS label_risk_updated_timestamps'
   return {
     id: 'address_profile',
     query: [
       `MATCH (a:Address {address: "${escapeCypherString(address)}"})`,
-      `RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange${riskFields}${labelRiskField}`,
+      `RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange${riskFields}${labelRiskFields}`,
       'LIMIT 1',
     ].join(' '),
   }
@@ -312,6 +331,92 @@ export function moneyTrailSummarySentence(block: MoneyTrailBlock): string {
     : `This address sits on a money trail (${block.class}, min hop ${block.min_hop}).`
 }
 
+// hubBoundPredicates keeps an exchange search out of hub addresses. Every
+// middle address, and the screened address itself from depth 2 on, must stay at
+// or below EXCHANGE_SEARCH_HUB_BOUND counterparties in the walking direction.
+// The exchange at the end of the path is never bounded. graphrag-sync rolls the
+// counts up from FLOWS_TO into degree_in / degree_out; an address whose rollup
+// has not run yet counts as 0 and is walked, because dropping it silently would
+// turn a missing rollup into a clean answer.
+function hubBoundPredicates(
+  intermediateVariables: string[],
+  degreeField: 'degree_in' | 'degree_out',
+  depth: number
+): string[] {
+  if (depth < 2) return []
+  return [...intermediateVariables, 'a'].map(
+    (nodeVariable) =>
+      `coalesce(${nodeVariable}.${degreeField}, 0) <= ${EXCHANGE_SEARCH_HUB_BOUND}`
+  )
+}
+
+// exchangeAttributionQuery counts the network's exchange-labelled addresses.
+// graphrag-sync writes the `Exchange` label and the `is_exchange` property in
+// one statement from one rule, and removes both on every label pass, so this
+// count answers "can an exchange search find anything at all" from the count
+// store in a single database read. The property alone cannot answer it: with no
+// exchange on the network, `is_exchange IS NOT NULL` reads every Address node
+// (15,354,708 on production robinhood) to return nothing.
+function exchangeAttributionQuery(): { id: string; query: string } {
+  return {
+    id: 'exchange_attribution',
+    query: 'MATCH (e:Exchange) RETURN count(e) AS exchanges',
+  }
+}
+
+// exceedsHubBound reads a rolled-up counterparty count off the address profile.
+// A missing count is not a hub: the search runs and may end honestly at its
+// time budget instead of silently dropping the address.
+function exceedsHubBound(degree: unknown): boolean {
+  const counterparties = numberValue(degree)
+  return counterparties !== undefined && counterparties > EXCHANGE_SEARCH_HUB_BOUND
+}
+
+// exchangeBehaviorLines is the human half of the exchange-search contract. An
+// empty result has three different meanings and each gets its own sentence:
+// nothing to search (no exchange labels on this network), searched and found
+// nothing, or searched only in part.
+function exchangeBehaviorLines(input: {
+  status: ExchangeSearchStatus
+  rows: Array<Record<string, unknown>>
+  failures: QueryFailure[]
+  skipped: string[]
+}): string[] {
+  if (input.status === 'unavailable') {
+    return [
+      '- Exchange exposure unknown: this network has no exchange-labelled addresses, so the search has nothing to match. This is NOT a clean finding.',
+    ]
+  }
+  const caveats: string[] = []
+  if (input.failures.length > 0) {
+    caveats.push(
+      `(incomplete: ${input.failures.length} hop-depth quer${input.failures.length === 1 ? 'y' : 'ies'} failed -- there may be more exchange exposure than shown here)`
+    )
+  }
+  if (input.skipped.length > 0) {
+    caveats.push(
+      `(bounded: this address has more than ${EXCHANGE_SEARCH_HUB_BOUND.toLocaleString('en-US')} counterparties, so ${input.skipped.join(', ')} did not run)`
+    )
+  }
+  if (input.rows.length > 0) {
+    return [formatExchangeRows(input.rows).join('\n'), ...caveats]
+  }
+  if (caveats.length === 0) {
+    return [
+      `- No exchange inflow/outflow paths found in bounded search (paths through addresses with more than ${EXCHANGE_SEARCH_HUB_BOUND.toLocaleString('en-US')} counterparties are not followed).`,
+    ]
+  }
+  if (input.failures.length > 0) {
+    return [
+      `- Exchange search incomplete: ${input.failures.length} hop-depth quer${input.failures.length === 1 ? 'y' : 'ies'} failed before returning a result. This is NOT a clean finding -- retry or narrow the search (see Partial query failures below).`,
+      ...(input.skipped.length > 0 ? [caveats[caveats.length - 1]!] : []),
+    ]
+  }
+  return [
+    `- Exchange search incomplete: this address has more than ${EXCHANGE_SEARCH_HUB_BOUND.toLocaleString('en-US')} counterparties, so ${input.skipped.join(', ')} did not run. This is NOT a clean finding.`,
+  ]
+}
+
 function exchangeOutflowQueries(address: string): Array<{ id: string; query: string }> {
   return Array.from({ length: 3 }, (_, index) => exchangeOutflowQueryAtDepth(address, index + 1))
 }
@@ -333,9 +438,10 @@ function exchangeOutflowQueryAtDepth(
       return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
     })
     .join('')
-  const intermediatePredicates = intermediateVariables.map(
-    (nodeVariable) => `${nodeVariable}.is_exchange IS NULL`
-  )
+  const intermediatePredicates = [
+    ...intermediateVariables.map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`),
+    ...hubBoundPredicates(intermediateVariables, 'degree_out', depth),
+  ]
   const depositVariable = nodeVariables[nodeVariables.length - 2]!
   const terminalEdgeVariable = edgeVariables[edgeVariables.length - 1]!
   return {
@@ -368,9 +474,10 @@ function exchangeInflowQueryAtDepth(address: string, depth: number): { id: strin
       return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
     })
     .join('')
-  const intermediatePredicates = intermediateVariables.map(
-    (nodeVariable) => `${nodeVariable}.is_exchange IS NULL`
-  )
+  const intermediatePredicates = [
+    ...intermediateVariables.map((nodeVariable) => `${nodeVariable}.is_exchange IS NULL`),
+    ...hubBoundPredicates(intermediateVariables, 'degree_in', depth),
+  ]
   const withdrawalVariable = nodeVariables[1]!
   const terminalEdgeVariable = edgeVariables[edgeVariables.length - 1]!
   return {
@@ -631,11 +738,17 @@ function riskLevelFromScore(score: number): string {
   return 'low'
 }
 
+// A level only exists when a signal produced it, so `low` no longer means "we
+// found nothing" -- that case is `unscored` and carries NO_SIGNAL_RECOMMENDATION.
 function riskRecommendation(level: string): string {
   if (level === 'critical' || level === 'high') return 'Escalate for manual review.'
   if (level === 'medium') return 'Review exchange exposure and counterparties before clearing.'
-  return 'No stored risk signal found; continue with normal monitoring.'
+  return 'Stored signals are low risk; continue with normal monitoring.'
 }
+
+// The one answer an AML triage tool may not give when it knows nothing: "low".
+const NO_SIGNAL_RECOMMENDATION =
+  'No ML verdict, risk label, or exchange exposure found. This is not a clean result; gather more context before clearing.'
 
 function riskDrivers(
   profile: Record<string, unknown>,
@@ -644,10 +757,17 @@ function riskDrivers(
 ): string[] {
   const drivers: string[] = []
 
+  const contextLabels = contextLabelNames(labelRows)
   const riskLabels = labelRows
+    .filter((row) => {
+      const label = firstString(row['label'])
+      return Boolean(label) && !contextLabels.includes(label as string)
+    })
     .map((row) => firstString(row['label']))
     .filter((label): label is string => Boolean(label))
   if (riskLabels.length > 0) drivers.push(`Labels: ${[...new Set(riskLabels)].join('; ')}`)
+  if (contextLabels.length > 0)
+    drivers.push(`Context labels (not a risk claim): ${contextLabels.join('; ')}`)
 
   const outflowCount = exchangeRows.filter((row) => row['direction'] === 'outflow').length
   const inflowCount = exchangeRows.filter((row) => row['direction'] === 'inflow').length
@@ -691,16 +811,32 @@ function deriveLabelRows(profile: Record<string, unknown>): Array<Record<string,
     .slice(0, 10)
 }
 
-const RISK_LEVEL_ORDER = ['critical', 'high', 'medium', 'low'] as const
+// Only these three levels are a risk claim. A label at `low` is a description
+// of the address -- 416,230 of robinhood's 416,797 labels are the smart-account
+// role, whose writer says "a role is a structural fact, not a risk signal" --
+// so it is reported as context and never sets a level or raises confidence.
+const RISK_LABEL_LEVEL_ORDER = ['critical', 'high', 'medium'] as const
 
 function strongestLabelRiskLevel(labelRows: Array<Record<string, unknown>>): string | undefined {
   const levels = labelRows
     .map((row) => firstString(row['risk_level'])?.toLowerCase())
     .filter((level): level is string =>
-      Boolean(level && (RISK_LEVEL_ORDER as readonly string[]).includes(level))
+      Boolean(level && (RISK_LABEL_LEVEL_ORDER as readonly string[]).includes(level))
     )
   if (levels.length === 0) return undefined
-  return RISK_LEVEL_ORDER.find((candidate) => levels.includes(candidate))
+  return RISK_LABEL_LEVEL_ORDER.find((candidate) => levels.includes(candidate))
+}
+
+/** Label names whose risk level is `low` or unrecognized: context, not a claim. */
+function contextLabelNames(labelRows: Array<Record<string, unknown>>): string[] {
+  const names = labelRows
+    .filter((row) => {
+      const level = firstString(row['risk_level'])?.toLowerCase()
+      return !level || !(RISK_LABEL_LEVEL_ORDER as readonly string[]).includes(level)
+    })
+    .map((row) => firstString(row['label']))
+    .filter((label): label is string => Boolean(label))
+  return [...new Set(names)]
 }
 
 function riskScoreSources(
@@ -783,64 +919,96 @@ export function exchangeExposureFallbackScore(
   )
 }
 
+export type ExchangeSearchStatus = 'complete' | 'incomplete' | 'unavailable'
+
 export function riskAssessment(
   profile: Record<string, unknown>,
   labelRows: Array<Record<string, unknown>>,
-  exchangeRows: Array<Record<string, unknown>>
+  exchangeRows: Array<Record<string, unknown>>,
+  exchangeSearchStatus: ExchangeSearchStatus = 'complete'
 ): Record<string, unknown> {
   const mlRiskScore = firstNumber(profile['live_risk_score'])
   // UNSCORED is the model's explicit abstention (calibrated-scoring release):
-  // the score exists for transparency but carries no stance — deriving a
-  // severity band from it would silently launder an abstention into a
-  // confident verdict (typically "low"). Fall back to labels/exchange
-  // exposure and say so.
+  // the score exists for transparency but carries no stance. An unrecognized
+  // band carries no stance either. Both count as "no usable band", and the
+  // level then comes from a risk label or from found exchange exposure --
+  // never from re-banding the score.
   const mlAbstained = isUnscoredRiskLevel(profile['live_risk_level'])
+  const mlBand = normalizeRiskLevel(profile['live_risk_level'])
+  // The model sets its bands by share of scored addresses (HIGH is the top
+  // 0.5%), so its calibrated score does not line up with fixed cuts: a HIGH at
+  // 0.30 read as "low" under the old rule. Use the band the model published.
+  const usableMlBand = mlBand && !mlAbstained ? mlBand : undefined
   const labelRiskLevel = strongestLabelRiskLevel(labelRows)
-  const usableMlScore = mlAbstained ? undefined : mlRiskScore
-  const score = usableMlScore ?? exchangeExposureFallbackScore(exchangeRows)
-  let level =
-    labelRiskLevel ??
-    (mlAbstained && exchangeRows.length === 0 ? 'unscored' : riskLevelFromScore(score))
+  const exchangeScore =
+    exchangeRows.length > 0 ? exchangeExposureFallbackScore(exchangeRows) : undefined
   const drivers = riskDrivers(profile, labelRows, exchangeRows)
   if (mlAbstained)
     drivers.push(
       'ml_abstained: ML verdict is UNSCORED (insufficient labeled graph context); level derived from labels/exchange exposure only'
     )
-  // Labels are curated truth and stay first — but a lower-severity label
-  // must never SUPPRESS a more severe usable ML band. Failing toward
-  // "looks safe" is the one direction an AML triage tool may not fail.
-  const usableMlBand = usableMlScore !== undefined ? riskLevelFromScore(usableMlScore) : undefined
-  if (
-    labelRiskLevel &&
-    usableMlBand &&
-    riskSeverityRank(usableMlBand) > riskSeverityRank(labelRiskLevel)
-  ) {
-    level = usableMlBand
-    drivers.push(
-      `ml_label_divergence: usable ML band ${usableMlBand} exceeds strongest label level ${labelRiskLevel}; reporting the more severe band — review the label`
-    )
+
+  let level: string
+  let score: number | null
+  let confidence: string
+  if (usableMlBand || labelRiskLevel) {
+    // Labels are curated truth and stay first — but a lower-severity label
+    // must never SUPPRESS a more severe usable ML band. Failing toward
+    // "looks safe" is the one direction an AML triage tool may not fail.
+    level = labelRiskLevel ?? (usableMlBand as string)
+    if (
+      labelRiskLevel &&
+      usableMlBand &&
+      riskSeverityRank(usableMlBand) > riskSeverityRank(labelRiskLevel)
+    ) {
+      level = usableMlBand
+      drivers.push(
+        `ml_label_divergence: usable ML band ${usableMlBand} exceeds strongest label level ${labelRiskLevel}; reporting the more severe band — review the label`
+      )
+    }
+    // A score belongs to the verdict only when the model or found exposure
+    // produced one. A label-driven level has none: "critical (no score)".
+    score = usableMlBand ? (mlRiskScore ?? null) : (exchangeScore ?? null)
+    confidence = 'high'
+  } else if (exchangeScore !== undefined) {
+    score = exchangeScore
+    level = riskLevelFromScore(exchangeScore)
+    confidence = 'medium'
+  } else {
+    level = UNSCORED_RISK_LEVEL
+    score = null
+    confidence = 'low'
   }
+
   return {
     level,
     score,
     ...(mlRiskScore !== undefined ? { ml_risk_score: mlRiskScore } : {}),
-    ...(mlAbstained ? { ml_verdict: 'unscored' } : {}),
-    confidence:
-      usableMlScore !== undefined || labelRiskLevel
-        ? 'high'
-        : exchangeRows.length > 0
-          ? 'medium'
-          : 'low',
+    ...(mlAbstained ? { ml_verdict: UNSCORED_RISK_LEVEL } : {}),
+    confidence,
     recommendation:
-      level === 'unscored'
-        ? 'Model abstained and no label/exchange signal found; gather more context before clearing.'
-        : riskRecommendation(level),
+      level === UNSCORED_RISK_LEVEL ? NO_SIGNAL_RECOMMENDATION : riskRecommendation(level),
     drivers,
     sources: riskScoreSources(profile, labelRows),
+    signals: {
+      ml_verdict: usableMlBand ? 'present' : mlAbstained ? 'abstained' : 'absent',
+      labels: labelRiskLevel ? 'risk' : labelRows.length > 0 ? 'context_only' : 'absent',
+      exchange_exposure:
+        exchangeRows.length > 0
+          ? 'found'
+          : exchangeSearchStatus === 'unavailable'
+            ? 'unavailable'
+            : exchangeSearchStatus === 'incomplete'
+              ? 'incomplete'
+              : 'none_found',
+    },
   }
 }
 
 function formatRiskScore(score: unknown): string {
+  // null is the deliberate "no score behind this level" of an unscored or
+  // label-driven verdict, and must not print as 0 or as "unknown".
+  if (score === null) return 'no score'
   const parsed = numberValue(score)
   if (parsed === undefined) return String(score ?? 'unknown')
   return Number.isInteger(parsed) ? parsed.toString() : parsed.toFixed(2)
@@ -1028,22 +1196,37 @@ export async function addressRisk(
   // connection probe and shortest-path route queries must be SUPPRESSED (not
   // ignored) when the compare address does not exist -- pre-revert behavior
   // never issued route probes for an unresolved compare input.
+  const partialQueryFailures: QueryFailure[] = []
+  // One pre-flight round trip carries the compare-address existence probe (when
+  // there is a compare address) and the exchange-attribution count. The count
+  // decides whether the six exchange searches can find anything at all: a
+  // network without exchange labels answers "unknown", never "nothing found".
+  const preflightBatch = await callGraphBatch(trackedClient, network, [
+    ...(compareInput ? [compareAddressExistsQuery(compareInput)] : []),
+    exchangeAttributionQuery(),
+  ])
   let compareUnresolved = false
   if (compareInput) {
-    const compareBatch = await callGraphBatch(trackedClient, network, [
-      compareAddressExistsQuery(compareInput),
-    ])
-    const compareRows = optionalResultsFor(compareBatch, 'compare_address_exists', [])
+    const compareRows = optionalResultsFor(preflightBatch, 'compare_address_exists', [])
     compareUnresolved = !firstString(compareRows[0]?.['address'])
   }
   const compareAddress = compareInput && !compareUnresolved ? compareInput : ''
+  const exchangeAttributionCount = numberValue(
+    optionalResultsFor(preflightBatch, 'exchange_attribution', partialQueryFailures)[0]?.[
+      'exchanges'
+    ]
+  )
+  // Unknown (the probe failed) still runs the search: only a definite zero
+  // skips it, so a broken probe can never mute an AML search.
+  const exchangeAttributionMissing =
+    exchangeAttributionCount !== undefined && exchangeAttributionCount <= 0
 
   const queries = [
     addressProfileQuery(address),
     addressFeatureQuery(address),
     { id: 'money_trail_incident', query: moneyTrailIncidentQuery(address) },
-    ...exchangeOutflowQueries(address),
-    ...exchangeInflowQueries(address),
+    ...(exchangeAttributionMissing ? [] : exchangeOutflowQueries(address)),
+    ...(exchangeAttributionMissing ? [] : exchangeInflowQueries(address)),
     ...(compareAddress
       ? [connectionProbeQuery(address, compareAddress)]
       : [
@@ -1061,7 +1244,6 @@ export async function addressRisk(
       : []),
   ]
   const batch = await callGraphBatch(trackedClient, network, queries)
-  const partialQueryFailures: QueryFailure[] = []
   // Deliberate post-hoc existence inference (address grain): an empty
   // address_profile result means the subject :Address does not exist ->
   // report unresolved; this replaces the pre-revert identity pre-flight.
@@ -1122,6 +1304,20 @@ export async function addressRisk(
       failure.id.startsWith('exchange_outflows_') || failure.id.startsWith('exchange_inflows_')
   )
   const exchangeSearchComplete = exchangeSearchFailures.length === 0
+  // A subject above the hub bound would make its own 2-hop and 3-hop searches
+  // walk its whole neighbourhood, so those queries carry the bound on the
+  // subject too and return nothing. The client says which searches that was, so
+  // an empty result never reads as "searched and found nothing".
+  const hubBoundSkippedQueryIds = exchangeAttributionMissing
+    ? []
+    : [
+        ...(exceedsHubBound(profile['degree_in'])
+          ? ['exchange_inflows_2', 'exchange_inflows_3']
+          : []),
+        ...(exceedsHubBound(profile['degree_out'])
+          ? ['exchange_outflows_2', 'exchange_outflows_3']
+          : []),
+      ]
   // money-trail enrichment (optional): a preliminary block resolves the
   // primary_seed off the incident-only rows, then a second batch call fans
   // out TRAIL_ENDS_AT for that seed so the block can pick the highest-value
@@ -1155,7 +1351,16 @@ export async function addressRisk(
   }
   const moneyTrail = buildMoneyTrailBlock(moneyTrailIncidentRows, moneyTrailEndRows)
   const graphData = buildRiskGraph(address, profile, exchangeRows, network)
-  const risk = riskAssessment(profile, labelRows, exchangeRows)
+  // The verdict needs the search status, not just the rows: "no exchange path"
+  // from a complete search, from a failed one, and from a network with no
+  // exchange attribution are three different statements, and none of them is
+  // evidence of low risk.
+  const exchangeSearchStatus: ExchangeSearchStatus = exchangeAttributionMissing
+    ? 'unavailable'
+    : exchangeSearchComplete && hubBoundSkippedQueryIds.length === 0
+      ? 'complete'
+      : 'incomplete'
+  const risk = riskAssessment(profile, labelRows, exchangeRows, exchangeSearchStatus)
   const liveRiskScore = numberValue(profile['live_risk_score'])
   const liveRiskLevel = firstString(profile['live_risk_level'])
   const liveNodeVerdict =
@@ -1179,20 +1384,12 @@ export async function addressRisk(
     `Graph degree: in ${profile['degree_in'] ?? 'unknown'}, out ${profile['degree_out'] ?? 'unknown'}.`,
     '',
     'Exchange behavior',
-    ...(exchangeRows.length > 0
-      ? [
-          formatExchangeRows(exchangeRows).join('\n'),
-          ...(exchangeSearchComplete
-            ? []
-            : [
-                `(incomplete: ${exchangeSearchFailures.length} other hop-depth quer${exchangeSearchFailures.length === 1 ? 'y' : 'ies'} failed -- there may be more exchange exposure than shown here)`,
-              ]),
-        ]
-      : [
-          exchangeSearchComplete
-            ? '- No exchange inflow/outflow paths found in bounded search.'
-            : `- Exchange search incomplete: ${exchangeSearchFailures.length} hop-depth quer${exchangeSearchFailures.length === 1 ? 'y' : 'ies'} failed before returning a result. This is NOT a clean finding -- retry or narrow the search (see Partial query failures below).`,
-        ]),
+    ...exchangeBehaviorLines({
+      status: exchangeSearchStatus,
+      rows: exchangeRows,
+      failures: exchangeSearchFailures,
+      skipped: hubBoundSkippedQueryIds,
+    }),
   ]
   if (Array.isArray(risk['drivers']) && risk['drivers'].length > 0) {
     lines.push('', 'Risk drivers', risk['drivers'].map((driver) => `- ${driver}`).join('\n'))
@@ -1238,10 +1435,20 @@ export async function addressRisk(
       exchange_behavior: {
         outflows,
         inflows,
-        search_status: exchangeSearchComplete ? 'complete' : 'incomplete',
-        ...(exchangeSearchComplete
-          ? {}
-          : { failed_query_ids: exchangeSearchFailures.map((failure) => failure.id) }),
+        search_status: exchangeSearchStatus,
+        hub_bound: EXCHANGE_SEARCH_HUB_BOUND,
+        ...(exchangeSearchFailures.length > 0
+          ? { failed_query_ids: exchangeSearchFailures.map((failure) => failure.id) }
+          : {}),
+        ...(hubBoundSkippedQueryIds.length > 0
+          ? {
+              skipped_query_ids: hubBoundSkippedQueryIds,
+              skip_reason: 'subject_above_hub_bound',
+            }
+          : {}),
+        ...(exchangeSearchStatus === 'unavailable'
+          ? { unavailable_reason: 'no_exchange_attribution' }
+          : {}),
       },
       connection: compareAddress
         ? {
@@ -1555,6 +1762,7 @@ export const queryBuilderContract = {
   addressProfileQuery,
   compareAddressExistsQuery,
   addressFeatureQuery,
+  exchangeAttributionQuery,
   exchangeOutflowQueries,
   exchangeInflowQueries,
   connectionProbeQuery,

@@ -272,6 +272,22 @@ function removeAddedSignalListeners(
 }
 
 describe('MCP proxy (MCP-02, MCP-03)', () => {
+  // aml_address_risk opens with a pre-flight batch: the compare-address
+  // existence probe when a compare address is given, and always the
+  // exchange-attribution count that decides whether the six exchange searches
+  // can match anything. Every mocked client answers that call first.
+  const exchangeAttributionPreflight = (exchanges = 0) => ({
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify({
+          facts: { queries: [{ id: 'exchange_attribution', ok: true, results: [{ exchanges }] }] },
+        }),
+      },
+    ],
+    isError: false,
+  })
+
   beforeEach(async () => {
     originalSigintListeners = process.listeners('SIGINT')
     originalSigtermListeners = process.listeners('SIGTERM')
@@ -1324,6 +1340,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       callTool: ReturnType<typeof vi.fn>
     }
+    clientInstance.callTool.mockResolvedValueOnce(exchangeAttributionPreflight(3))
     clientInstance.callTool.mockResolvedValueOnce({
       content: [
         {
@@ -1401,8 +1418,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(clientInstance.callTool).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'graph_query_batch',
-        arguments: expect.objectContaining({
-          per_query_timeout_seconds: 10,
+        // No per_query_timeout_seconds: graphrag-mcp applies its own tier
+        // ceilings and its batch budget, so the client works against a server
+        // on either side of that release (design D8).
+        arguments: expect.not.objectContaining({
+          per_query_timeout_seconds: expect.anything(),
         }),
       }),
       undefined,
@@ -1450,9 +1470,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         maxTotalTimeout: 300_000,
       })
     )
-    // Address-grain: no identity-resolution pre-flight -- the first (and
-    // only) batch is the risk batch, keyed directly by the raw address.
-    const riskQueries = clientInstance.callTool.mock.calls[0][0].arguments.queries as Array<{
+    // Address-grain: no identity-resolution pre-flight. Call 0 is the
+    // exchange-attribution probe; call 1 is the risk batch, keyed directly by
+    // the raw address.
+    const riskQueries = clientInstance.callTool.mock.calls[1][0].arguments.queries as Array<{
       id: string
       query: string
     }>
@@ -1521,6 +1542,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       1000, 1700000000000, 1600000000009, 1600000000008, 1600000000007, 1600000000006,
       1600000000005, 1600000000004, 1600000000003, 1600000000002, 1600000000001,
     ]
+    clientInstance.callTool.mockResolvedValueOnce(exchangeAttributionPreflight(3))
     clientInstance.callTool.mockResolvedValueOnce({
       content: [
         {
@@ -1610,6 +1632,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       callTool: ReturnType<typeof vi.fn>
     }
+    clientInstance.callTool.mockResolvedValueOnce(exchangeAttributionPreflight(3))
     clientInstance.callTool.mockResolvedValueOnce({
       content: [
         {
@@ -1707,7 +1730,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
   it('aml_address_risk graphData preserves subject profile metadata before report normalization', async () => {
     const { addressRisk } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
-      callTool: vi.fn().mockResolvedValueOnce({
+      callTool: vi
+        .fn()
+        .mockResolvedValueOnce(exchangeAttributionPreflight(3))
+        .mockResolvedValueOnce({
         content: [
           {
             type: 'text',
@@ -1768,7 +1794,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
   it('aml_address_risk reports partial enrichment query failures without failing screening', async () => {
     const { addressRisk } = await import('../src/investigation/public-tools.js')
     const remoteClient = {
-      callTool: vi.fn().mockResolvedValueOnce({
+      callTool: vi
+        .fn()
+        .mockResolvedValueOnce(exchangeAttributionPreflight(3))
+        .mockResolvedValueOnce({
         content: [
           {
             type: 'text',
@@ -2540,5 +2569,151 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).not.toContain('prox')
     expect(result.content[0].text).not.toContain('chain-insights mcp')
     expect(result.content[0].text).not.toContain('Useful CLI commands')
+  })
+
+  // Production-shaped robinhood subjects, 2026-09-15: the served graph carries
+  // no ML verdict (StarRocks holds 0 predictions) and no exchange node, so the
+  // verdict must say "unscored", never "low".
+  const robinhoodBatch = (
+    profile: Record<string, unknown>,
+    overrides: Record<string, unknown> = {}
+  ) => ({
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify({
+          schema: 'chain-insights.result.v1',
+          tool: 'graph_query_batch',
+          facts: {
+            queries: [
+              { id: 'address_profile', ok: true, results: [profile] },
+              { id: 'address_feature', ok: true, results: [{ degree_in: 2, degree_out: 1 }] },
+              { id: 'exchange_outflows_1', ok: true, results: [] },
+              { id: 'exchange_outflows_2', ok: true, results: [] },
+              { id: 'exchange_outflows_3', ok: true, results: [] },
+              { id: 'exchange_inflows_1', ok: true, results: [] },
+              { id: 'exchange_inflows_2', ok: true, results: [] },
+              {
+                id: 'exchange_inflows_3',
+                ...((overrides['exchange_inflows_3'] as Record<string, unknown>) ?? {
+                  ok: true,
+                  results: [],
+                }),
+              },
+              { id: 'connection_probe', ok: true, results: [] },
+            ],
+          },
+        }),
+      },
+    ],
+    isError: false,
+  })
+
+  const screenRobinhood = async (
+    address: string,
+    profile: Record<string, unknown>,
+    overrides: Record<string, unknown> = {},
+    // Production robinhood has no exchange-labelled address, so the default
+    // screen skips the six searches; a test that needs them sets a count.
+    exchanges = 0
+  ) => {
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    await createProxy()
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool.mockResolvedValueOnce(exchangeAttributionPreflight(exchanges))
+    clientInstance.callTool.mockResolvedValueOnce(robinhoodBatch(profile, overrides))
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'aml_address_risk')
+    return handler({ address, network: 'robinhood' })
+  }
+
+  it('aml_address_risk answers unscored for a subject with no risk signal', async () => {
+    const address = '0x5f10deebe95d80d4925a9d02a997215883bd5970'
+    const result = await screenRobinhood(address, {
+      address,
+      network: 'robinhood',
+      display_labels: null,
+      system_labels: null,
+      is_exchange: null,
+      live_risk_score: null,
+      live_risk_level: null,
+      label_risk_labels: null,
+      label_risk_levels: null,
+      label_risk_updated_timestamps: null,
+    })
+
+    expect(result.isError).toBe(false)
+    const risk = result.structuredContent.facts.risk as Record<string, unknown>
+    expect(risk['level']).toBe('unscored')
+    expect(risk['score']).toBeNull()
+    expect(risk['confidence']).toBe('low')
+    expect(risk['signals']).toEqual({
+      ml_verdict: 'absent',
+      labels: 'absent',
+      // The attribution probe finds 0 exchange nodes on robinhood, so the six
+      // searches are not sent and exposure is unknown, not "none found".
+      exchange_exposure: 'unavailable',
+    })
+    expect(result.content[0].text).toContain('Risk: unscored (no score)')
+    expect(result.content[0].text).not.toContain('continue with normal monitoring')
+  })
+
+  it('aml_address_risk keeps a role label as context, not as a clean verdict', async () => {
+    const address = '0x00070b4683d6b3b498c340062a747e0970227fe5'
+    const result = await screenRobinhood(address, {
+      address,
+      network: 'robinhood',
+      display_labels: ['smart account'],
+      system_labels: ['smart account'],
+      is_exchange: null,
+      live_risk_score: null,
+      live_risk_level: null,
+      label_risk_labels: ['smart_account'],
+      label_risk_levels: ['low'],
+      label_risk_updated_timestamps: [1789265561000],
+    })
+
+    const risk = result.structuredContent.facts.risk as Record<string, unknown>
+    expect(risk['level']).toBe('unscored')
+    expect((risk['signals'] as Record<string, unknown>)['labels']).toBe('context_only')
+    expect(String(risk['drivers'])).toContain('Context labels (not a risk claim): smart_account')
+    expect(result.content[0].text).not.toContain('continue with normal monitoring')
+  })
+
+  it('aml_address_risk reports an incomplete exchange search in its signals', async () => {
+    const address = '0x5f10deebe95d80d4925a9d02a997215883bd5970'
+    const result = await screenRobinhood(
+      address,
+      {
+        address,
+        network: 'robinhood',
+        display_labels: null,
+        system_labels: null,
+        is_exchange: null,
+        live_risk_score: null,
+        live_risk_level: null,
+        label_risk_labels: null,
+        label_risk_levels: null,
+        label_risk_updated_timestamps: null,
+      },
+      {
+        exchange_inflows_3: {
+          ok: false,
+          error: 'query_timeout: the topology query did not finish within its time budget',
+        },
+      },
+      3
+    )
+
+    const risk = result.structuredContent.facts.risk as Record<string, unknown>
+    expect(risk['level']).toBe('unscored')
+    expect((risk['signals'] as Record<string, unknown>)['exchange_exposure']).toBe('incomplete')
+    expect(result.structuredContent.facts.exchange_behavior.search_status).toBe('incomplete')
   })
 })
