@@ -151,7 +151,7 @@ Graph queries choose the read graph explicitly:
 
 | Graph      | Use it for                                                                                                                                                    |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `topology` | The unified address / FLOWS_TO / OPERATED_BY / LINKED graph — recent and full historical fund-flow traversal, plus the node `risk_score`/`risk_level` verdict |
+| `topology` | The unified address / FLOWS_TO / OPERATED_BY / LINKED graph — recent and full historical fund-flow traversal, the node `risk_score`/`risk_level` verdict, and the swap stamp on `FLOWS_TO` (see [Graph tools](docs/graph-tools.md#swap-attribution-on-flows_to)) |
 | `facts`    | Bounded individual `TRANSFER` rows with amount, `amount_usd`, asset, transaction, and block facts                                                             |
 
 One rule is worth reading before writing a query by hand: the `network`
