@@ -35,6 +35,66 @@ backends, `meta_usage_status` can reflect remote quota telemetry. On
 backends without a quota tool, Chain Insights returns a local unmetered
 primitive-backend status instead.
 
+## Swap attribution on FLOWS_TO
+
+A `FLOWS_TO` edge that took part in a swap carries seven extra properties. They
+create no node and no relationship, and move no value: the warehouse stays the
+source of truth and this is a disposable reading of it, so an investigator can
+follow a route across a pool without leaving the graph. Topology only.
+
+**Every property name contains a dot and must be backquoted.** The dot is part
+of the name, not a path: `` r.`swap.kind` ``, never `r.swap.kind`.
+
+| Property | Meaning |
+| --- | --- |
+| `` swap.kind `` | `swap`, `swap_like` or `swap_unsplit` |
+| `` swap.family `` | `uniswap-v2`, `uniswap-v3`, `uniswap-v4`, or `unknown` |
+| `` swap.deployment `` | `official` or `clone:<factory address>` |
+| `` swap.pool `` | pool address |
+| `` swap.reason `` | why the claim is weaker than `swap` |
+| `` swap.route_id `` | ties every leg of one route together |
+| `` swap.interpreter_version `` | the interpretation that wrote the stamp |
+
+An edge with no `` swap.kind `` was never part of a swap-shaped transaction.
+
+Read the three kinds correctly:
+
+- `swap` — the complete route is proven: payer, recipient, assets, exact raw
+  amounts and conservation.
+- `swap_like` — the shape is a swap, but the pool bytecode matches no reviewed
+  family. The money moved; the protocol is unidentified.
+- `swap_unsplit` — the legs are real but could not be paired into one route.
+  `` swap.reason `` names why, for example `batch_partition_ambiguous` or
+  `capture_missing`. **This is not "no swap happened."** Reporting it that way
+  is a false negative.
+
+A `clone:` deployment is decoded with its family's own rules and is a full
+result, not a lesser one.
+
+```bash
+cia mcp call graph_query \
+  'network=robinhood' \
+  'query=USE topology MATCH (a:Address {address: "0x..."})-[r:FLOWS_TO]-(b:Address) WHERE r.`swap.kind` IS NOT NULL RETURN b.address AS counterparty, r.`swap.kind` AS kind, r.`swap.family` AS family, r.`swap.pool` AS pool, r.`swap.reason` AS reason LIMIT 50'
+```
+
+Detailed swap facts live in separate topology nodes keyed by transaction, and
+ordinary tracing does not need them:
+
+```
+(:DexTransaction)-[:HAS_DEX_ROUTE]->(:DexRoute)
+                 -[:HAS_DEX_POOL_FACT]->(:DexPoolFact)
+                 -[:HAS_DEX_CONTRIBUTION]->(:DexPairContribution)
+```
+
+`DexTransaction` carries `network`, `block_hash`, `block_height`,
+`transaction_hash` and `transaction_index`. `DexRoute` carries `route_id`,
+`rule_id`, `pool_ids` and the parallel `input_*`, `output_*`, `fee_*` and
+`refund_*` address, asset and raw-amount arrays. `DexPoolFact` carries
+`protocol`, `pool_address` and `pool_key`.
+
+Route amounts are exact raw token quantities, not USD. They are not
+interchangeable with `amount_usd_sum` on `FLOWS_TO`.
+
 ## Query Rules
 
 - `network` is required. Do not guess it in agent workflows.

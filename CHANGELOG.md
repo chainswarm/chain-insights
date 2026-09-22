@@ -3,6 +3,34 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.32.0] - 2026-09-22 — feat: the served graph describes swap attribution
+
+### Added
+
+- The served schema, the `chain-insights-cypher` skill and
+  [Graph tools](docs/graph-tools.md) now describe the swap stamp on
+  `FLOWS_TO`: `swap.kind`, `swap.family`, `swap.deployment`, `swap.pool`,
+  `swap.reason`, `swap.route_id` and `swap.interpreter_version`. Every name
+  contains a dot and must be backquoted in Cypher, which is stated at each
+  place the properties appear.
+- The three stamp kinds are defined where an agent will read them. `swap` is a
+  proven complete route; `swap_like` is a swap shape on a pool whose bytecode
+  matches no reviewed family; `swap_unsplit` is real legs that could not be
+  paired, with `swap.reason` naming why. `swap_unsplit` is explicitly **not**
+  "no swap happened", because reading it that way produces a false negative.
+- The detailed `DexTransaction` / `DexRoute` / `DexPoolFact` /
+  `DexPairContribution` nodes and their `HAS_DEX_*` relationships are
+  documented for the cases the stamp cannot answer, with the warning that
+  route amounts are raw token quantities and not interchangeable with
+  `amount_usd_sum`.
+
+### Fixed
+
+- The served schema claimed `FLOWS_TO` had no fields beyond `tx_count`,
+  `amount_usd_sum`, `first_seen_timestamp` and `last_seen_timestamp`. It has
+  carried the optional swap stamp since the verified DEX attribution work
+  landed upstream, so an agent was told the capability did not exist.
+
 ## [0.31.2] - 2026-09-15 — fix: route evidence uses the early-stop shortest path search
 
 ### Changed
