@@ -27,6 +27,11 @@ Insights Graph does not append one.
 
 `per_query_timeout_seconds` is optional and capped.
 
+Topology queries share 4 slots and stop at their time or memory limit. The
+errors `topology_busy` (retry later), `query_timeout` (anchor on an address,
+use fewer hops or a tighter `LIMIT`), and `query_memory_limit` (return fewer
+rows or properties) mean the query was stopped, not that data is missing.
+
 ## Layer choice
 
 | Graph          | Backend             | Dialect           |

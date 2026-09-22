@@ -175,6 +175,31 @@ Batch result facts include:
 }
 ```
 
+## Topology limits and errors
+
+Hosted `USE topology` queries share one graph database, so every query is
+bounded:
+
+- **Time:** the graph database stops a query when its time budget ends
+  (10 seconds by default, or your lower `per_query_timeout_seconds`).
+- **Concurrency:** at most 4 topology queries run at once on the hosted
+  endpoint. A query waits for a free slot inside its own time budget.
+- **Memory:** a query that grows past the per-query memory limit is stopped.
+
+A stopped query fails with one of these codes. The code starts the error text
+and is also returned as `refusal_code` in the response metadata.
+
+| Code                 | Meaning                                                          | What to do                                                                                   |
+| -------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `topology_busy`      | No slot freed before the time budget ended. The query never ran. | Retry later. The wait is not billed; the usual 1-second minimum still applies.               |
+| `query_timeout`      | The query ran out of time.                                       | Anchor it on an exact address, lower the hop bound, or add a tighter `LIMIT` or time window. |
+| `query_memory_limit` | The query needed more memory than one query may use.             | Return fewer rows or properties, or split the read.                                          |
+
+These errors mean the query was stopped, not that data is missing. Path
+searches that cross hub addresses, such as the zero address or large routers,
+are the most common cause of `query_timeout`: one hop through a hub can touch
+millions of edges.
+
 ## Operator topology recipe
 
 `OPERATED_BY` is the owner-to-operator topology edge: the approved operator

@@ -3,6 +3,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.33.0] - 2026-09-22 — docs: hosted topology limits and typed errors
+
+### Changed
+
+- `docs/graph-tools.md` and the `chain-insights-cypher` skill document the
+  hosted topology limits (time budget, 4 concurrent topology queries,
+  per-query memory limit) and the typed errors `topology_busy`,
+  `query_timeout`, and `query_memory_limit`, with what to do for each. A
+  stopped query means the question was too big, never that the data is
+  missing — the difference between "ask a smaller question" and a false
+  all-clear. Live on the hosted endpoint since 2026-09-14 (Chain Insights
+  Graph 1.26.5); written then as 0.30.1 and unpublished until now.
+
 ## [0.32.0] - 2026-09-22 — feat: the served graph describes swap attribution
 
 ### Added
