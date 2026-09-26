@@ -3,6 +3,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.33.1] - 2026-09-26 — refreshed GitHub artwork
+
+### Changed
+
+- Updated the GitHub crime-scene illustration to the current Chain Insights cast.
+
 ## [0.33.0] - 2026-09-22 — docs: hosted topology limits and typed errors
 
 ### Changed
