@@ -106,6 +106,10 @@ interchangeable with `amount_usd_sum` on `FLOWS_TO`.
   `amount_usd`, asset, transaction, and block facts. Address labels, risk,
   lifetime metrics, and `FLOWS_TO`/`LINKED` relationships belong to
   `USE topology`.
+- Every `TRANSFER` read carries an indexed predicate: an address on either
+  endpoint, a `tx_id` (the `0x` transaction hash on EVM networks), or a bare
+  `block_date` bound, which `block_timestamp` bounds in epoch milliseconds
+  may narrow to a time window.
 - Use `meta_usage_status` through Chain Insights before public hosted reads
   when you need the caller's remaining free-tier allowance.
 - Hosted endpoints can expose a public free tier for graph_query. The default
@@ -145,6 +149,18 @@ Example single query:
 cia mcp call graph_query \
   network=robinhood \
   "query=USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level LIMIT 10"
+```
+
+Example facts queries, one transaction and one time window:
+
+```bash
+cia mcp call graph_query \
+  network=robinhood \
+  'query=USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.tx_id = "0x350065e1a55d7272de562706fdea5f48ae83cf10e468e56b2209f8cfbaaf1901" RETURN from.address AS from_address, to.address AS to_address, t.amount AS amount, t.asset_symbol AS asset_symbol LIMIT 10'
+
+cia mcp call graph_query \
+  network=robinhood \
+  'query=USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.block_date = "2026-07-11" AND t.block_timestamp >= 1783738500000 AND t.block_timestamp < 1783738560000 RETURN t.tx_id AS tx_id, t.block_timestamp AS block_timestamp, from.address AS from_address, to.address AS to_address, t.amount AS amount LIMIT 10'
 ```
 
 Example batch query:

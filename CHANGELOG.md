@@ -3,6 +3,43 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.34.0] - 2026-09-27 — facts recipes for the transaction hash and the time window, live recipe run
+
+### Added
+
+- Three documented recipes anchored on the Robinhood day 2026-07-11 in
+  `tests/fixtures/documented-recipes.json`: a `TRANSFER` lookup by `tx_id`,
+  which on EVM networks is the `0x` transaction hash; a time window written
+  as a bare `block_date` bound plus `block_timestamp` bounds in epoch
+  milliseconds; and an address read with the caller's own day bound. The
+  query corpus is regenerated with them (51 entries). Each carries
+  `expect_rows: true`, so a live run must return rows for it.
+- `tests/graph-recipes-live.integration.test.ts` runs every documented recipe
+  and every query corpus entry against a live Chain Insights Graph endpoint
+  when `CHAIN_INSIGHTS_LIVE_GRAPH_MCP_ENDPOINT` is set (token in
+  `CHAIN_INSIGHTS_LIVE_GRAPH_MCP_TOKEN`, network in
+  `CHAIN_INSIGHTS_LIVE_GRAPH_NETWORK`, default `robinhood`). Admitted recipes
+  and every corpus entry must run, recipes marked `admits: false` must be
+  refused with the remedy, and the anchored recipes must return rows under
+  exactly their `RETURN` aliases. The product's pair anchor is asked for the
+  first and the latest transfer of the tx recipe's pair. The suite is skipped
+  when the variable is unset.
+
+### Changed
+
+- The `chain-insights-cypher` and `chain-insights-schema-evm` skills, the
+  compatibility matrix, graph tools, the served schema hints and the
+  investigation instructions name the third indexed predicate on `TRANSFER`,
+  a bare `block_date` bound; say that `tx_id` is the transaction hash on EVM
+  networks; and show the time window. No query's output column names change.
+- The compatibility matrix rows for `tx_id`, the time window, the bare
+  `block_date` bound and address equality name only the operators the
+  backend accepts: `IN` and `BETWEEN` are refused, so a lookup
+  of several transactions is one equality per query in one
+  `graph_query_batch`, and a range is written with `>=` and `<`.
+  `block_timestamp` takes `>=`, `>`, `<` and `<=` but not `=`, so one instant
+  is written `>= x AND <= x`; `block_height` also takes `=`.
+
 ## [0.33.1] - 2026-09-26 — refreshed GitHub artwork
 
 ### Changed

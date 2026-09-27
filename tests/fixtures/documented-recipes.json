@@ -60,6 +60,45 @@
       ]
     },
     {
+      "id": "recipe_facts_transfer_06",
+      "expect_rows": true,
+      "query": "USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.tx_id = \"0x350065e1a55d7272de562706fdea5f48ae83cf10e468e56b2209f8cfbaaf1901\" RETURN from.address AS from_address, to.address AS to_address, t.event_index AS event_index, t.edge_index AS edge_index, t.amount AS amount, t.asset_symbol AS asset_symbol LIMIT 10",
+      "layer": "facts",
+      "description": "Bounded row-select of TRANSFER edges by tx_id equality on an EVM network, where tx_id is the 0x transaction hash: the lookup is served from the indexed hash columns of the transfers table. Anchored on the Robinhood fixture day 2026-07-11 (block 6600000, six edges), so a live run must return rows.",
+      "features": [
+        "fixed-hop",
+        "transfer-edge",
+        "tx-id-predicate",
+        "evm-tx-hash"
+      ]
+    },
+    {
+      "id": "recipe_facts_transfer_07",
+      "expect_rows": true,
+      "query": "USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.block_date = \"2026-07-11\" AND t.block_timestamp >= 1783738500000 AND t.block_timestamp < 1783738560000 RETURN t.tx_id AS tx_id, t.block_height AS block_height, t.block_timestamp AS block_timestamp, from.address AS from_address, to.address AS to_address, t.amount AS amount, t.asset_symbol AS asset_symbol LIMIT 10",
+      "layer": "facts",
+      "description": "Bounded row-select of TRANSFER edges in a time window: the bare block_date bound names the day and the block_timestamp bounds (epoch milliseconds, 02:55:00 to 02:56:00 UTC) narrow it; the backend compiles the window to a block key range. The same block_timestamp bounds without the block_date bound are refused. Anchored on the Robinhood fixture day 2026-07-11, so a live run must return rows.",
+      "features": [
+        "fixed-hop",
+        "transfer-edge",
+        "block-date-predicate",
+        "time-window"
+      ]
+    },
+    {
+      "id": "recipe_facts_transfer_08",
+      "expect_rows": true,
+      "query": "USE facts MATCH (from:Address {address: \"0x2459dedb3012d1e929edd17df26620120bdf11bf\"})-[t:TRANSFER]->(to:Address) WHERE t.block_date = \"2026-07-11\" RETURN to.address AS to_address, t.tx_id AS tx_id, t.block_height AS block_height, t.amount AS amount, t.asset_symbol AS asset_symbol LIMIT 10",
+      "layer": "facts",
+      "description": "Bounded row-select of TRANSFER edges by from_address on an EVM network with the caller's own day bound, so no recency window is applied: the address compiles to one id lookup and the returned rows are rendered as addresses. Anchored on the Robinhood fixture day 2026-07-11, so a live run must return rows.",
+      "features": [
+        "fixed-hop",
+        "transfer-edge",
+        "address-predicate",
+        "block-date-predicate"
+      ]
+    },
+    {
       "id": "recipe_topology_01",
       "query": "USE topology MATCH (a:Address) RETURN a.address AS address, a.labels AS labels, a.risk_score AS risk_score, a.risk_level AS risk_level, a.is_exchange AS is_exchange LIMIT 10",
       "layer": "topology",
