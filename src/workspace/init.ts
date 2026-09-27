@@ -235,8 +235,10 @@ The address-grain graph schema:
   \`asset_contract\`, \`tx_id\`, \`block_height\`, \`block_timestamp\`,
   \`event_index\`, \`edge_index\`, \`price_usd\`, and \`price_missing\`.
   Every TRANSFER query (row-select or a \`count()\`/\`sum()\` aggregate)
-  requires an indexed predicate — address equality on either endpoint or
-  \`WHERE t.tx_id = "..."\` — a bare \`LIMIT\` alone is rejected. Lifetime
+  requires an indexed predicate — address equality on either endpoint,
+  \`WHERE t.tx_id = "..."\` (the \`0x\` transaction hash on EVM networks), or
+  a bare \`WHERE t.block_date = "..."\` bound that \`block_timestamp\` bounds
+  in epoch milliseconds may narrow — a bare \`LIMIT\` alone is rejected. Lifetime
   address metrics (degrees, totals, activity window) are node properties on
   \`USE topology\`.
 

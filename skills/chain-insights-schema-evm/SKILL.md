@@ -142,6 +142,11 @@ Call that probe `linked_sample` in `graph_query_batch`.
 `event_index`, `edge_index`, `amount`, `amount_usd`, `asset_symbol`,
 `asset_contract`, `price_usd`, `price_missing`.
 
+`tx_id` is the `0x` transaction hash. Filter `TRANSFER` by it, by an address
+on either endpoint, or by a bare `block_date` bound. A `block_timestamp`
+window in epoch milliseconds narrows a `block_date` bound and is refused on
+its own.
+
 A single-node `MATCH (a:Address)` on facts is refused. Lifetime metrics
 live on topology, not facts.
 

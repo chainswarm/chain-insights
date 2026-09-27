@@ -86,7 +86,18 @@ Facts rejects native traversal, `FLOWS_TO`, `OPERATED_BY`, `LINKED`, `WITH` pipe
 `CASE`, grouped aggregates, `collect()`, and metadata functions
 (`keys()`, `labels()`, `type()`). Predicate-less global aggregates are
 refused. `TRANSFER` always needs an indexed predicate: address equality
-on either endpoint, or `tx_id`. A bare `LIMIT` is not enough.
+on either endpoint, a `tx_id` equality, or a bare `block_date` bound. A bare
+`LIMIT` is not enough.
+
+On EVM networks `tx_id` is the `0x` transaction hash:
+`MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.tx_id = "0x…" RETURN from.address AS from_address, to.address AS to_address, t.amount AS amount LIMIT 10`
+
+A time window is a bare `block_date` bound plus `block_timestamp` bounds in
+epoch milliseconds:
+`MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.block_date = "2026-07-11" AND t.block_timestamp >= 1783738500000 AND t.block_timestamp < 1783738560000 RETURN t.tx_id AS tx_id, t.block_timestamp AS block_timestamp LIMIT 10`
+
+`block_timestamp` or `block_height` bounds without the `block_date` bound are
+refused: they do not name the day.
 
 Weighted money paths are not supported. Hop-count shortest paths only.
 
