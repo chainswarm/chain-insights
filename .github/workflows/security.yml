@@ -59,7 +59,11 @@ jobs:
           pattern='(0x[0-9a-fA-F]{64}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|\b(ghp|github_pat|xox[baprs]|AKIA|ASIA|sk|pk|rk)[_-][A-Za-z0-9_-]{16,}\b)'
           # Keep the scan broad enough to cover tests, but exempt the small set of
           # fixtures that intentionally contain fake secret-shaped values.
-          if git grep -n -I -E "$pattern" -- \
+          # Exact public values (on-chain transaction hashes used as examples)
+          # live in .github/secret-scan-allowlist.txt; a line is dropped only
+          # when every match on it is one of those exact values.
+          allow=$(grep -vE '^\s*(#|$)' .github/secret-scan-allowlist.txt || true)
+          hits=$(git grep -n -I -E "$pattern" -- \
             . \
             ':(exclude)package-lock.json' \
             ':(exclude)tests/cli-mcp.test.ts' \
@@ -67,7 +71,18 @@ jobs:
             ':(exclude)tests/mcp-proxy.test.ts' \
             ':(exclude)tests/wallet.test.ts' \
             ':(exclude)tests/wallet-tools.test.ts' \
-            ':(exclude)tests/wallet-proof.test.ts'; then
+            ':(exclude)tests/wallet-proof.test.ts' || true)
+          left=""
+          while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            rest=$(printf '%s\n' "$line" | cut -d: -f3-)
+            if [ -n "$allow" ]; then
+              while IFS= read -r value; do rest=${rest//"$value"/}; done <<< "$allow"
+            fi
+            if printf '%s\n' "$rest" | grep -qE "$pattern"; then left="$left$line"$'\n'; fi
+          done <<< "$hits"
+          if [ -n "$left" ]; then
+            printf '%s' "$left"
             echo "::error::High-confidence secret-looking value found in tracked files."
             exit 1
           fi
