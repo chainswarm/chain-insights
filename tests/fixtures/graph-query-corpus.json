@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/generate-query-corpus.mjs",
- "entry_count": 51,
+ "entry_count": 53,
  "entries": [
   {
    "builder": "addressFeatureQuery",
@@ -200,11 +200,14 @@
      "fixed-hop",
      "label-match",
      "inline-property-map",
-     "order-by"
+     "order-by",
+     "where-clause",
+     "pool-label",
+     "pool-trace-rule"
     ]
    },
    "scope": "topology",
-   "query": "USE topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[flow:FLOWS_TO]->(dst:Address) RETURN dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 50"
+   "query": "USE topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[flow:FLOWS_TO]->(dst:Address) WHERE NOT src:Pool RETURN dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 50"
   },
   {
    "builder": "documented-recipe",
@@ -266,11 +269,14 @@
     "features": [
      "fixed-hop",
      "label-match",
-     "inline-property-map"
+     "inline-property-map",
+     "where-clause",
+     "pool-label",
+     "pool-trace-rule"
     ]
    },
    "scope": "topology",
-   "query": "USE topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[r1:FLOWS_TO]->(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN src.address AS from_address, dst.address AS to_address, 1 AS hops, r1.amount_usd_sum AS amount_usd_sum, r1.tx_count AS tx_count LIMIT 25"
+   "query": "USE topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[r1:FLOWS_TO]->(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) WHERE NOT src:Pool RETURN src.address AS from_address, dst.address AS to_address, 1 AS hops, r1.amount_usd_sum AS amount_usd_sum, r1.tx_count AS tx_count LIMIT 25"
   },
   {
    "builder": "documented-recipe",
@@ -281,11 +287,14 @@
      "label-match",
      "inline-property-map",
      "where-clause",
-     "is-null"
+     "is-null",
+     "pool-label",
+     "pool-trace-rule",
+     "swapped-edge"
     ]
    },
    "scope": "topology",
-   "query": "USE topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[r1:FLOWS_TO]->(mid:Address)-[r2:FLOWS_TO]->(dst:Address) WHERE mid.is_exchange IS NULL RETURN src.address AS from_address, mid.address AS mid_address, dst.address AS to_address, 2 AS hops, r1.amount_usd_sum AS first_amount_usd, r2.amount_usd_sum AS second_amount_usd LIMIT 25"
+   "query": "USE topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[r1:FLOWS_TO|SWAPPED]->(mid:Address)-[r2:FLOWS_TO|SWAPPED]->(dst:Address) WHERE NOT src:Pool AND NOT mid:Pool AND mid.is_exchange IS NULL RETURN src.address AS from_address, mid.address AS mid_address, dst.address AS to_address, 2 AS hops, type(r1) AS first_edge, type(r2) AS second_edge, coalesce(r1.amount_usd_sum, r1.bought_usd) AS first_amount_usd, coalesce(r2.amount_usd_sum, r2.bought_usd) AS second_amount_usd LIMIT 25"
   },
   {
    "builder": "documented-recipe",
@@ -304,13 +313,20 @@
    "params": {
     "id": "recipe_topology_15",
     "features": [
+     "gql-shortest",
      "shortest-path",
      "variable-length",
-     "path-binding"
+     "quantified-path",
+     "open-target",
+     "label-match",
+     "inline-property-map",
+     "pool-label",
+     "pool-trace-rule",
+     "swapped-edge"
     ]
    },
    "scope": "topology",
-   "query": "USE topology MATCH p = (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO]-{1,5}(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 3"
+   "query": "USE topology MATCH SHORTEST 1 (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address) RETURN b.address LIMIT 50"
   },
   {
    "builder": "documented-recipe",
@@ -321,11 +337,14 @@
      "quantified-path",
      "path-binding",
      "label-match",
-     "inline-property-map"
+     "inline-property-map",
+     "pool-label",
+     "pool-trace-rule",
+     "swapped-edge"
     ]
    },
    "scope": "topology",
-   "query": "USE topology MATCH path = SHORTEST 1 (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO]-{1,5}(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path LIMIT 5"
+   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 5"
   },
   {
    "builder": "documented-recipe",
@@ -337,11 +356,15 @@
      "variable-length",
      "path-binding",
      "label-match",
-     "inline-property-map"
+     "inline-property-map",
+     "quantified-path",
+     "pool-label",
+     "pool-trace-rule",
+     "swapped-edge"
     ]
    },
    "scope": "topology",
-   "query": "USE topology MATCH path = ANY SHORTEST (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO]-{1,5}(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path LIMIT 5"
+   "query": "USE topology MATCH p = ANY SHORTEST (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 5"
   },
   {
    "builder": "documented-recipe",
@@ -353,11 +376,14 @@
      "quantified-path",
      "path-binding",
      "label-match",
-     "inline-property-map"
+     "inline-property-map",
+     "pool-label",
+     "pool-trace-rule",
+     "swapped-edge"
     ]
    },
    "scope": "topology",
-   "query": "USE topology MATCH path = ALL SHORTEST (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[:FLOWS_TO]-{1,5}(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN path LIMIT 3"
+   "query": "USE topology MATCH p = ALL SHORTEST (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 3"
   },
   {
    "builder": "documented-recipe",
@@ -379,11 +405,14 @@
     "features": [
      "fixed-hop",
      "label-match",
-     "where-clause"
+     "where-clause",
+     "pool-label",
+     "pool-trace-rule",
+     "swapped-edge"
     ]
    },
    "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[l:LINKED]-(owned:Address)-[r:FLOWS_TO]-(b:Address) WHERE owned.address <> b.address AND a.address <> b.address RETURN a.address AS subject_address, owned.address AS linked_via_address, b.address AS counterparty_address, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 25"
+   "query": "USE topology MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[l:LINKED]-(owned:Address)-[r:FLOWS_TO|SWAPPED]-(b:Address) WHERE NOT a:Pool AND NOT owned:Pool AND owned.address <> b.address AND a.address <> b.address RETURN a.address AS subject_address, owned.address AS linked_via_address, b.address AS counterparty_address, type(r) AS edge, coalesce(r.amount_usd_sum, r.bought_usd) AS amount_usd_sum, coalesce(r.tx_count, r.swap_count) AS tx_count LIMIT 25"
   },
   {
    "builder": "documented-recipe",
@@ -411,6 +440,43 @@
    },
    "scope": "topology",
    "query": "USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \"0xdd509c9f91f66a18802ef5b3d54c73b62ea1ca08\"}) RETURN owner.address AS owner_address, operation.tx_count AS tx_count, operation.amount_usd_sum AS amount_usd_sum, coalesce(operation.token_standard, \"mixed\") AS token_standard, operation.last_seen_timestamp AS last_seen_timestamp ORDER BY operation.tx_count DESC LIMIT 10"
+  },
+  {
+   "builder": "documented-recipe",
+   "params": {
+    "id": "recipe_topology_pool_no_fan_out_01",
+    "features": [
+     "fixed-hop",
+     "label-match",
+     "inline-property-map",
+     "where-clause",
+     "union",
+     "pool-label",
+     "pool-trace-rule",
+     "swapped-edge",
+     "liquidity-edge"
+    ]
+   },
+   "scope": "topology",
+   "query": "USE topology MATCH (src:Address {address: \"0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\"})-[r1:FLOWS_TO|SWAPPED]->(mid:Address)-[r2:FLOWS_TO|SWAPPED]->(dst:Address) WHERE NOT src:Pool AND NOT mid:Pool AND mid.is_exchange IS NULL AND dst.address <> src.address RETURN mid.address AS via_address, type(r2) AS exit_edge, dst.address AS to_address, coalesce(r2.amount_usd_sum, r2.bought_usd) AS exit_usd LIMIT 25 UNION MATCH (src:Address {address: \"0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\"})-[r1:FLOWS_TO|ADDED_LIQUIDITY]->(mid:Pool)-[r2:REMOVED_LIQUIDITY]->(dst:Address) WHERE NOT src:Pool AND dst.address <> src.address RETURN mid.address AS via_address, type(r2) AS exit_edge, dst.address AS to_address, r2.usd AS exit_usd LIMIT 25"
+  },
+  {
+   "builder": "documented-recipe",
+   "params": {
+    "id": "recipe_topology_pool_rug_pull_01",
+    "features": [
+     "fixed-hop",
+     "label-match",
+     "inline-property-map",
+     "where-clause",
+     "order-by",
+     "pool-label",
+     "pool-trace-rule",
+     "liquidity-edge"
+    ]
+   },
+   "scope": "topology",
+   "query": "USE topology MATCH (victim:Address {address: \"0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\"})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, paid.amount_usd_sum AS paid_in_usd, removal.usd AS removed_usd, removal.receiver_added_usd AS receiver_added_usd, removal.usd - removal.receiver_added_usd AS receiver_profit_usd, removal.receiver_provided AS receiver_provided ORDER BY removed_usd DESC LIMIT 25"
   },
   {
    "builder": "exchangeInflowQueries",
