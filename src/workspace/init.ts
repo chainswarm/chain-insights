@@ -265,6 +265,8 @@ Rules:
   intermediate candidates. In Cypher, require every non-terminal traversal node
   to satisfy \`is_exchange IS NULL\`; only the final exchange endpoint should
   satisfy \`is_exchange IS NOT NULL\`.
+- When a trace reaches a \`:Pool\`, follow the pool trace rule in the
+  \`chain-insights-schema-evm\` skill.
 - Keep analysis products separate from summary notes: graph JSON belongs under
   \`reports/graphs/\`, tabular extracts under \`reports/tables/\`, and analyst
   narrative under \`reports/\`.

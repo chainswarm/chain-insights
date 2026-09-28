@@ -35,65 +35,89 @@ backends, `meta_usage_status` can reflect remote quota telemetry. On
 backends without a quota tool, Chain Insights returns a local unmetered
 primitive-backend status instead.
 
-## Swap attribution on FLOWS_TO
+## Swaps, liquidity pools and bridges
 
-A `FLOWS_TO` edge that took part in a swap carries seven extra properties. They
-create no node and no relationship, and move no value: the warehouse stays the
-source of truth and this is a disposable reading of it, so an investigator can
-follow a route across a pool without leaving the graph. Topology only.
+The topology graph holds lifetime totals per pair. The facts layer holds the
+single events behind them. Both read the warehouse, which stays the source
+of truth.
 
-**Every property name contains a dot and must be backquoted.** The dot is part
-of the name, not a path: `` r.`swap.kind` ``, never `r.swap.kind`.
+| Topology edge       | Shape                                                                | One edge per                                      |
+| ------------------- | -------------------------------------------------------------------- | ------------------------------------------------- |
+| `SWAPPED`           | `(:Address)-[:SWAPPED]->(:Address)`                                  | payer, recipient, sold asset and bought asset     |
+| `ADDED_LIQUIDITY`   | `(:Address)-[:ADDED_LIQUIDITY]->(:Pool)`                             | named provider and pool                           |
+| `REMOVED_LIQUIDITY` | `(:Pool)-[:REMOVED_LIQUIDITY]->(:Address)`                           | pool and named receiver                           |
+| `BRIDGED`           | `(:Address)-[:BRIDGED]->(:Chain)`, `(:Chain)-[:BRIDGED]->(:Address)` | address and remote bridge endpoint, per direction |
 
-| Property | Meaning |
-| --- | --- |
-| `` swap.kind `` | `swap`, `swap_like` or `swap_unsplit` |
-| `` swap.family `` | `uniswap-v2`, `uniswap-v3`, `uniswap-v4`, or `unknown` |
-| `` swap.deployment `` | `official` or `clone:<factory address>` |
-| `` swap.pool `` | pool address |
-| `` swap.reason `` | why the claim is weaker than `swap` |
-| `` swap.route_id `` | ties every leg of one route together |
-| `` swap.interpreter_version `` | the interpretation that wrote the stamp |
+| Facts relationship | Shape                                                      | One row per       |
+| ------------------ | ---------------------------------------------------------- | ----------------- |
+| `SWAP`             | `(payer:Address)-[:SWAP]->(recipient:Address)`             | swap route        |
+| `LIQUIDITY_ADD`    | `(provider:Address)-[:LIQUIDITY_ADD]->(pool:Address)`      | liquidity add     |
+| `LIQUIDITY_REMOVE` | `(pool:Address)-[:LIQUIDITY_REMOVE]->(receiver:Address)`   | liquidity removal |
+| `BRIDGE_CROSSING`  | `(sender:Address)-[:BRIDGE_CROSSING]->(recipient:Address)` | bridge event      |
 
-An edge with no `` swap.kind `` was never part of a swap-shaped transaction.
+- `:Pool` is a second label on an `Address`: the pool of a swap route or a
+  liquidity event. It carries the pool's liquidity totals.
+- `SWAPPED` joins two different addresses. A self swap is a `SWAP` row only.
+  `strength` is `swap` (the whole route is proven) or `swap_like` (the shape
+  is a swap, the protocol is unidentified).
+- `REMOVED_LIQUIDITY` carries `receiver_added_usd` and `receiver_provided`.
+  A receiver's profit from a pool is `usd` minus `receiver_added_usd`.
+- `SWAP` and `LIQUIDITY_*` rows need an address on either endpoint or a
+  `tx_id` equality. `BRIDGE_CROSSING` rows need a bare `block_date` bound or
+  a `tx_id` equality.
+- `block_timestamp` on `SWAP` and `LIQUIDITY_*` rows is epoch milliseconds,
+  in filters and in results, as on `TRANSFER`.
+- USD comes from the daily price services, never from a swap. With no price,
+  USD is empty and the matching `…price_missing` property is true.
+- A missing `SWAPPED` edge or `SWAP` row is not proof that no swap happened.
 
-Read the three kinds correctly:
+`FLOWS_TO` into and out of pools stays as it is. A trace that reaches a
+`:Pool` follows the pool trace rule:
 
-- `swap` — the complete route is proven: payer, recipient, assets, exact raw
-  amounts and conservation.
-- `swap_like` — the shape is a swap, but the pool bytecode matches no reviewed
-  family. The money moved; the protocol is unidentified.
-- `swap_unsplit` — the legs are real but could not be paired into one route.
-  `` swap.reason `` names why, for example `batch_partition_ambiguous` or
-  `capture_missing`. **This is not "no swap happened."** Reporting it that way
-  is a false negative.
+- The rule is stated once, in the
+  [`chain-insights-schema-evm` skill](../skills/chain-insights-schema-evm/SKILL.md#pool-trace-rule).
+- The MCP server instructions serve the same four steps, word for word,
+  because an MCP client loads no skill. A test keeps the two equal.
+- It stops a trace from fanning out to every trader who used the pool, and
+  it still reaches the address that took the liquidity out.
+- Every documented `FLOWS_TO` walk carries the pool guard on its start and
+  on every address in its middle: a walk may end at a `:Pool`, but never
+  starts at one or passes through one.
+- Every documented trace walks `SWAPPED` beside `FLOWS_TO`, so it crosses a
+  swap from payer to recipient without passing through the pool.
 
-A `clone:` deployment is decoded with its family's own rules and is a full
-result, not a lesser one.
+Route between two addresses under the rule. It walks `FLOWS_TO` and
+`SWAPPED`. The guards sit inside the path pattern, on the start and on every
+address in the middle, so the search finds the shortest route that avoids
+pools. `ANY SHORTEST` and `ALL SHORTEST` take the same pattern in place of
+`SHORTEST 1`:
 
 ```bash
 cia mcp call graph_query \
-  'network=robinhood' \
-  'query=USE topology MATCH (a:Address {address: "0x..."})-[r:FLOWS_TO]-(b:Address) WHERE r.`swap.kind` IS NOT NULL RETURN b.address AS counterparty, r.`swap.kind` AS kind, r.`swap.family` AS family, r.`swap.pool` AS pool, r.`swap.reason` AS reason LIMIT 50'
+  network=robinhood \
+  'query=USE topology MATCH p = SHORTEST 1 (a:Address {address: "0x..."} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "0x..."}) RETURN [n IN nodes(p) | n.address] AS route'
 ```
 
-Detailed swap facts live in separate topology nodes keyed by transaction, and
-ordinary tracing does not need them:
+Every property is listed in the `chain-insights-schema-evm` skill.
 
+Rug-pull check from a victim, under the rule:
+
+```bash
+cia mcp call graph_query \
+  network=robinhood \
+  'query=USE topology MATCH (victim:Address {address: "0x..."})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, paid.amount_usd_sum AS paid_in_usd, removal.usd AS removed_usd, removal.receiver_added_usd AS receiver_added_usd, removal.usd - removal.receiver_added_usd AS receiver_profit_usd, removal.receiver_provided AS receiver_provided ORDER BY removed_usd DESC LIMIT 25'
 ```
-(:DexTransaction)-[:HAS_DEX_ROUTE]->(:DexRoute)
-                 -[:HAS_DEX_POOL_FACT]->(:DexPoolFact)
-                 -[:HAS_DEX_CONTRIBUTION]->(:DexPairContribution)
+
+One transaction's swap routes, with their strength and pools:
+
+```bash
+cia mcp call graph_query \
+  network=robinhood \
+  'query=USE facts MATCH (payer:Address)-[s:SWAP]->(recipient:Address) WHERE s.tx_id = "0x..." RETURN payer.address AS payer, recipient.address AS recipient, s.strength AS strength, s.reason AS reason, s.route_id AS route_id, s.pools AS pools, s.sold_asset_symbol AS sold, s.sold_usd AS sold_usd, s.bought_asset_symbol AS bought, s.bought_usd AS bought_usd LIMIT 10'
 ```
 
-`DexTransaction` carries `network`, `block_hash`, `block_height`,
-`transaction_hash` and `transaction_index`. `DexRoute` carries `route_id`,
-`rule_id`, `pool_ids` and the parallel `input_*`, `output_*`, `fee_*` and
-`refund_*` address, asset and raw-amount arrays. `DexPoolFact` carries
-`protocol`, `pool_address` and `pool_key`.
-
-Route amounts are exact raw token quantities, not USD. They are not
-interchangeable with `amount_usd_sum` on `FLOWS_TO`.
+A relationship is served only where its data exists. Check
+`meta_network_capabilities` before querying one.
 
 ## Query Rules
 
@@ -101,11 +125,14 @@ interchangeable with `amount_usd_sum` on `FLOWS_TO`.
 - GQL/Cypher must be read-only.
 - Use `USE topology` for topology (the address / FLOWS_TO / OPERATED_BY / LINKED graph,
   covering unified recent and full historical activity in one graph, plus the
-  node `risk_score`/`risk_level` verdict).
+  node `risk_score`/`risk_level` verdict, the `SWAPPED`,
+  `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY` and `BRIDGED` totals, and the
+  `:Pool` label).
 - Use `USE facts` for bounded individual `TRANSFER` rows and their amount,
-  `amount_usd`, asset, transaction, and block facts. Address labels, risk,
-  lifetime metrics, and `FLOWS_TO`/`LINKED` relationships belong to
-  `USE topology`.
+  `amount_usd`, asset, transaction, and block facts, and for single `SWAP`,
+  `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` rows. Address
+  labels, risk, lifetime metrics, and `FLOWS_TO`/`LINKED` relationships
+  belong to `USE topology`.
 - Every `TRANSFER` read carries an indexed predicate: an address on either
   endpoint, a `tx_id` (the `0x` transaction hash on EVM networks), or a bare
   `block_date` bound, which `block_timestamp` bounds in epoch milliseconds
@@ -214,7 +241,8 @@ and is also returned as `refusal_code` in the response metadata.
 These errors mean the query was stopped, not that data is missing. Path
 searches that cross hub addresses, such as the zero address or large routers,
 are the most common cause of `query_timeout`: one hop through a hub can touch
-millions of edges.
+millions of edges. A route or an open target keeps its one guarded shape: change
+only its addresses, never its `{0,4}` bound.
 
 ## Operator topology recipe
 
@@ -284,8 +312,16 @@ only: manual traversal must not expand from, through, or classify exchange
 nodes as deposit, suspect, or intermediate candidates; every non-terminal
 traversal node must be non-exchange.
 
-The traversal-safety rule above is the only trace norm; role labels such as
-victim, suspect, or deposit are hypotheses for review, not automatic writes.
+Liquidity pools are the other trace boundary. At a `:Pool`, manual traversal
+follows the
+[pool trace rule](../skills/chain-insights-schema-evm/SKILL.md#pool-trace-rule),
+so a trace does not fan out to every trader who used the pool. The start and
+every address in the middle of a manual `FLOWS_TO` walk must satisfy
+`NOT src:Pool` and `NOT mid:Pool`, and the walk follows `SWAPPED` beside
+`FLOWS_TO` to cross a swap.
+
+These two rules are the only trace norms; role labels such as victim,
+suspect, or deposit are hypotheses for review, not automatic writes.
 
 ## Runtime Schema Capture
 

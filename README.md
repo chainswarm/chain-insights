@@ -149,10 +149,10 @@ and [operating rules](docs/architecture/operating-rules.md).
 
 Graph queries choose the read graph explicitly:
 
-| Graph      | Use it for                                                                                                                                                    |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `topology` | The unified address / FLOWS_TO / OPERATED_BY / LINKED graph — recent and full historical fund-flow traversal, the node `risk_score`/`risk_level` verdict, and the swap stamp on `FLOWS_TO` (see [Graph tools](docs/graph-tools.md#swap-attribution-on-flows_to)) |
-| `facts`    | Bounded individual `TRANSFER` rows with amount, `amount_usd`, asset, transaction, and block facts                                                             |
+| Graph      | Use it for                                                                                                                                                                                                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `topology` | The unified address / FLOWS_TO / OPERATED_BY / LINKED graph — recent and full historical fund-flow traversal, the node `risk_score`/`risk_level` verdict, and swap, liquidity-pool and bridge totals (see [Graph tools](docs/graph-tools.md#swaps-liquidity-pools-and-bridges)) |
+| `facts`    | Bounded individual `TRANSFER` rows with amount, `amount_usd`, asset, transaction, and block facts, plus single `SWAP`, `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` rows                                                                                           |
 
 One rule is worth reading before writing a query by hand: the `network`
 argument selects the graph, not the addresses inside it. The address-space

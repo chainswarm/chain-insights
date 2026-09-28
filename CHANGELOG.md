@@ -3,6 +3,98 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.35.0] - 2026-09-28 — swaps, liquidity pools and bridges, and the pool trace rule
+
+### Added
+
+- The graph map describes the new topology edges: `SWAPPED` (swap payer to a
+  different recipient, one edge per payer, recipient, sold asset and bought
+  asset, with `strength`), `ADDED_LIQUIDITY` (provider to pool) and
+  `REMOVED_LIQUIDITY` (pool to receiver, with `receiver_added_usd` and
+  `receiver_provided`), the `:Pool` label with its liquidity totals, and
+  `BRIDGED` between an address and a `:Chain` bridge endpoint. It describes
+  the facts relationships `SWAP`, `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and
+  `BRIDGE_CROSSING`, their properties and their indexed predicates.
+- The pool trace rule, stated once in the `chain-insights-schema-evm` skill:
+  enter a `:Pool` on any edge, leave it only on `REMOVED_LIQUIDITY`, never
+  leave it on `FLOWS_TO`, and follow `SWAPPED` between two different
+  addresses. The MCP server's graph hints carry the same four steps, and the
+  dialect skill, the graph tools guide and the workspace runtime notes point
+  to it. A trace no longer fans out to every trader who used a pool, and it
+  still reaches the address that took the liquidity out.
+- Two documented recipes in `tests/fixtures/documented-recipes.json`: a
+  rug-pull check that follows a victim into a pool and out on a liquidity
+  removal, with the receiver's profit, and a two-hop trace that never fans out
+  through a pool. The query corpus is regenerated with them (53 entries).
+- The pool guard on every served `FLOWS_TO` walk: a walk may end at a
+  `:Pool`, but never starts at one or passes through one. Fixed-hop walks add
+  `WHERE NOT src:Pool AND NOT mid:Pool`. Quantified and shortest-path walks
+  carry `WHERE NOT a:Pool` on the start and `WHERE NOT via:Pool` inside the
+  path pattern, so the search finds the shortest route that avoids pools
+  instead of dropping the route that crosses one. The route between two
+  addresses (`SHORTEST 1`, `ANY SHORTEST`, `ALL SHORTEST`) and the open target
+  from one address each have one guarded shape, served word for word by the
+  dialect skill, the documented recipes, the MCP server's graph hints, the
+  graph tools guide and the graph query compatibility guide. The one-hop,
+  two-hop and rug-pull recipes carry the guard too. The one-`LINKED`-hop
+  recipe guards its start and the linked address:
+  `WHERE NOT a:Pool AND NOT owned:Pool`.
+- Every served trace walks `SWAPPED` beside `FLOWS_TO` (`FLOWS_TO|SWAPPED`),
+  so it crosses a swap from payer to recipient instead of stopping at the
+  pool. The two-hop and one-`LINKED`-hop recipes return the edge type, and on
+  a `SWAPPED` hop they report `bought_usd` and `swap_count`.
+- A contract test keeps the rule in one place: the served hints must match
+  the skill's four steps word for word, and no other surface may restate
+  them. It reads every served query (skills, docs, README, documented
+  recipes and the MCP server's graph hints) one `UNION` branch at a time, as
+  one walk across all its `MATCH` and `OPTIONAL MATCH` clauses,
+  comma-separated patterns, `WITH` projections, pattern predicates, pattern
+  comprehensions and subqueries. It reads unlabelled middle addresses,
+  reverse arrows, backquoted names, quantified relationships, quantified path
+  patterns, shortest-path selectors and the legacy `shortestPath()` and
+  `allShortestPaths()` functions. It counts the guard only as a whole `AND`
+  term, never inside an `OR`, and only with `Pool` in that exact case:
+  labels are case-sensitive, so `NOT mid:pool` guards nothing.
+- Where the contract test says a walk starts. A start is an address the
+  query pins: an inline `address` map, or an `address` comparison with a
+  value in the node's own `WHERE` or in the clause, such as `=`, `IN` or
+  `STARTS WITH`, with or without a function such as `toLower()` around it.
+  Every end but the last of a shortest-path walk is a start too, even when
+  the test reads no pin on it. Any other walk with no pin is a listing, not a
+  trace, and only its middle is checked.
+- The contract test fails a `FLOWS_TO` walk that leaves its start or an
+  address in its middle without the pool guard, on any edge but
+  `REMOVED_LIQUIDITY`; a `FLOWS_TO` walk that leaves a `:Pool` on any edge but
+  `REMOVED_LIQUIDITY`; a trace that does not also follow `SWAPPED` through an
+  address in the middle; and any served route or open target, however its
+  start is pinned, that is not one of the guarded shapes.
+
+### Removed
+
+- The seven `swap.*` properties on `FLOWS_TO` and the `DexTransaction`,
+  `DexRoute`, `DexPoolFact` and `DexPairContribution` nodes are gone from the
+  skills, the graph tools guide and the MCP server's graph hints. The graph no
+  longer carries them: a swap's strength is on `SWAPPED`, and its reason,
+  families, pools and route id are on its `SWAP` facts row. The recipes that
+  filtered `FLOWS_TO` by swap stamp now read `SWAPPED`, `:Pool` and `SWAP`.
+
+### Changed
+
+- The `graph_query` tool description, its `query` argument and the two graph
+  prompts name the new topology edges and facts relationships, from one
+  shared text.
+- The facts property lists name `block_timestamp` on `SWAP` and
+  `LIQUIDITY_*` rows as epoch milliseconds, as on `TRANSFER`, and name the
+  matching `…price_missing` property per relationship.
+- The route between two addresses and the open target carry the pool guard
+  inside a quantified path pattern, in one fixed shape each. Use the shapes as
+  written, changing only the addresses and the `RETURN`: the graph server
+  recognises them. The `{0,4}` bound is part of the shape.
+- The documented quantified-path recipe between two anchored addresses is
+  now the open-target recipe: a route is served only with a shortest-path
+  selector. The documented route recipes name their path `p` and their ends
+  `a` and `b`, as the served shape does.
+
 ## [0.34.0] - 2026-09-27 — facts recipes for the transaction hash and the time window, live recipe run
 
 ### Added

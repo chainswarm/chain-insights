@@ -499,6 +499,23 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).not.toContain('(:Neuron)-[:MINES|:VALIDATES]->(:Subnet')
     expect(instructions).not.toContain('(:Address)-[:HOTKEY_OF|:COLDKEY_OF]->(:Neuron)')
     expect(instructions).not.toContain('bittensor')
+    expect(instructions).toContain('Pool trace rule, for every trace')
+    expect(instructions).toContain(
+      'MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to})'
+    )
+    expect(instructions).toContain(
+      'MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address)'
+    )
+    expect(instructions).toContain('A walk may end at a Pool, but never starts at one')
+    expect(instructions).toContain('WHERE NOT victim:Pool AND receiver.address <> victim.address')
+    expect(instructions).toContain(
+      '-[r:FLOWS_TO|SWAPPED]-(b:Address) WHERE NOT a:Pool AND NOT owned:Pool'
+    )
+    expect(instructions).toContain('(:Pool)-[:REMOVED_LIQUIDITY]->(:Address)')
+    expect(instructions).toContain('(:Address)-[:SWAPPED]->(:Address)')
+    expect(instructions).toContain('BRIDGE_CROSSING')
+    expect(instructions).not.toContain('swap.kind')
+    expect(instructions).not.toContain('DexTransaction')
     expect(instructions).not.toContain('SS58')
     expect(instructions).toContain('raw chain-native H160 address')
   })
