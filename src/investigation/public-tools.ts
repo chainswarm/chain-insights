@@ -312,6 +312,14 @@ export function moneyTrailSummarySentence(block: MoneyTrailBlock): string {
     : `This address sits on a money trail (${block.class}, min hop ${block.min_hop}).`
 }
 
+// Pool guard (schema skill, "Pool trace rule"): a FLOWS_TO walk never starts
+// at a :Pool and never passes through one, and each guard is its own AND term
+// (inside an OR it would guard nothing). Fixed-hop form of
+// skills/chain-insights-cypher: `WHERE NOT src:Pool AND NOT mid:Pool`.
+function poolGuardTerms(nodeVariables: string[]): string {
+  return nodeVariables.map((nodeVariable) => `NOT ${nodeVariable}:Pool`).join(' AND ')
+}
+
 function exchangeOutflowQueries(address: string): Array<{ id: string; query: string }> {
   return Array.from({ length: 3 }, (_, index) => exchangeOutflowQueryAtDepth(address, index + 1))
 }
@@ -336,13 +344,17 @@ function exchangeOutflowQueryAtDepth(
   const intermediatePredicates = intermediateVariables.map(
     (nodeVariable) => `${nodeVariable}.is_exchange IS NULL`
   )
+  // Pool trace rule: the walk starts at the screened address and passes
+  // through the intermediates, so none of them may be a :Pool. The exchange
+  // end is the target, which may be one.
+  const poolGuards = poolGuardTerms(['a', ...intermediateVariables])
   const depositVariable = nodeVariables[nodeVariables.length - 2]!
   const terminalEdgeVariable = edgeVariables[edgeVariables.length - 1]!
   return {
     id: `exchange_outflows_${depth}`,
     query: [
       `MATCH (a:Address {address: "${escapeCypherString(address)}"})${relationshipChain}`,
-      `WHERE a.address <> exchange.address AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
+      `WHERE a.address <> exchange.address AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''} AND ${poolGuards}`,
       `RETURN "outflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${depositVariable}.address AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
@@ -371,13 +383,17 @@ function exchangeInflowQueryAtDepth(address: string, depth: number): { id: strin
   const intermediatePredicates = intermediateVariables.map(
     (nodeVariable) => `${nodeVariable}.is_exchange IS NULL`
   )
+  // Pool trace rule: the trace starts at the screened address `a` and walks
+  // back through the intermediates, so none of them may be a :Pool. The
+  // exchange end is the target, which may be one.
+  const poolGuards = poolGuardTerms(['a', ...intermediateVariables])
   const withdrawalVariable = nodeVariables[1]!
   const terminalEdgeVariable = edgeVariables[edgeVariables.length - 1]!
   return {
     id: `exchange_inflows_${depth}`,
     query: [
       `MATCH (exchange:Address)${relationshipChain}`,
-      `WHERE a.address = "${escapeCypherString(address)}" AND a.address <> exchange.address AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''}`,
+      `WHERE a.address = "${escapeCypherString(address)}" AND a.address <> exchange.address AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''} AND ${poolGuards}`,
       `RETURN "inflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${withdrawalVariable}.address AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
@@ -413,6 +429,10 @@ function compareAddressExistsQuery(address: string): { id: string; query: string
   }
 }
 
+// Pool trace rule: the via_linked read is a two-hop walk through `owned`, so
+// `a` and `owned` carry the guard and the target `b` may be a pool. The direct
+// read is a counterparty listing of one address, not a trace, and stays
+// unguarded (ruling: a pool's own counterparty list is a listing).
 // AC11: FLOWS_TO reachability UNIONed over one -[:LINKED]- hop, so an
 // investigator surveying an address's exposure also sees exposure carried by
 // an address that is only ownership-LINKED to it (LINKED is undirected).
@@ -431,7 +451,7 @@ function linkedExposureQueries(address: string): Array<{ id: string; query: stri
       id: 'linked_exposure_via_linked',
       query: [
         `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[l:LINKED]-(owned:Address)-[r:FLOWS_TO]-(b:Address)`,
-        'WHERE owned.address <> b.address AND a.address <> b.address',
+        'WHERE NOT a:Pool AND NOT owned:Pool AND owned.address <> b.address AND a.address <> b.address',
         `RETURN a.address AS subject_address, b.address AS counterparty_address, b.network AS counterparty_network, "via_linked" AS exposure_basis, owned.address AS linked_via_address, l.basis AS link_basis, l.confidence AS link_confidence, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count`,
         'LIMIT 200',
       ].join(' '),
@@ -457,14 +477,27 @@ function crossSpaceLinkedQuery(address: string): { id: string; query: string } {
 
 // ── Pairwise route evidence ──
 // Undirected shortest route between two KNOWN identity endpoints. The
-// topology graph speaks ISO GQL, so both routes use one shortest path with a
-// maximum of four FLOWS_TO hops. Exchange intermediates on a returned route
-// are DISCLOSED in the evidence, never silently filtered out. The lower
-// bound is {0,4}, not {1,4}: for two different addresses both bounds return
-// the same routes, and DozerDB plans {0,...} onto its fast early-stop
-// shortest-path search instead of the slow undirected search.
+// topology graph speaks ISO GQL, so both routes use one shortest path.
+// Exchange intermediates on a returned route are DISCLOSED in the evidence,
+// never silently filtered out.
+//
+// Pool trace rule (schema skill, "Pool trace rule"): a route never starts at
+// a :Pool and never passes through one, and it may end at one. It follows
+// FLOWS_TO and SWAPPED, so it crosses a swap from payer to recipient. The
+// guard sits inside the path pattern, so the search finds the shortest route
+// that avoids pools instead of dropping a shortest route that crosses one.
+//
+// The text is the guarded route contract (ruled 2026-09-28), served word for
+// word by skills/chain-insights-cypher, and graphrag-mcp rewrites exactly this
+// shape onto DozerDB's fast shortest-path search (data-pipeline
+// route_rewrite.go). Change the addresses and the RETURN only. The quantifier
+// bound covers the guarded middle; the last hop is the unguarded target end,
+// so a route is 1 to CONNECTION_ROUTE_DEPTH_BOUND + 1 hops. The `{0,...}`
+// lower bound keeps DozerDB off the slow undirected search.
 
 export const CONNECTION_ROUTE_DEPTH_BOUND = 4
+// A route is the guarded middle plus the last hop to the target end.
+export const CONNECTION_ROUTE_MAX_HOPS = CONNECTION_ROUTE_DEPTH_BOUND + 1
 
 export function shouldIncludeRouteQueries(compareAddress: string | undefined): boolean {
   // GQL shortest-path traversal always fires when a compare address is given.
@@ -477,9 +510,9 @@ export function connectionRouteQueries(
 ): Array<{ id: string; query: string }> {
   const routeQuery = (fromAddress: string, toAddress: string): string =>
     [
-      `MATCH p = SHORTEST 1 (src:Address {address: "${escapeCypherString(fromAddress)}"})`,
-      `-[:FLOWS_TO]-{0,${CONNECTION_ROUTE_DEPTH_BOUND}}`,
-      `(dst:Address {address: "${escapeCypherString(toAddress)}"}) RETURN p LIMIT 1`,
+      `MATCH p = SHORTEST 1 (a:Address {address: "${escapeCypherString(fromAddress)}"} WHERE NOT a:Pool)`,
+      ` (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,${CONNECTION_ROUTE_DEPTH_BOUND}}`,
+      ` ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "${escapeCypherString(toAddress)}"}) RETURN p LIMIT 1`,
     ].join('')
   return [
     { id: 'connection_route_outbound', query: routeQuery(address, compareAddress) },
@@ -583,7 +616,7 @@ export function buildRouteEvidence(
   return {
     search_strategy: 'any_shortest',
     route_rank_basis: 'hop_count',
-    depth_bound: CONNECTION_ROUTE_DEPTH_BOUND,
+    depth_bound: CONNECTION_ROUTE_MAX_HOPS,
     route_found: outbound !== null || inbound !== null,
     outbound,
     inbound,

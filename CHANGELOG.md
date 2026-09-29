@@ -3,6 +3,47 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.35.1] - 2026-09-29 — fix: aml_address_risk walks no longer cross a DEX pool
+
+### Fixed
+
+- `aml_address_risk` no longer reads through a `:Pool`. Once the graph carries
+  pools, a trace that left a pool on `FLOWS_TO` made every trader who used the
+  pool look one hop from the screened address. The pool trace rule now holds
+  in the query code, not only in the skills and the served text: a walk never
+  starts at a `:Pool` and never passes through one, and it may end at one.
+- The route between the screened address and the compare address
+  (`connection_route_outbound`, `connection_route_inbound`) is the guarded
+  route shape the dialect skill serves word for word: `WHERE NOT a:Pool` on
+  the start, `WHERE NOT via:Pool` inside the path pattern, `{0,4}` on the
+  guarded middle and one last hop to the target, which may be a pool. It
+  follows `FLOWS_TO` and `SWAPPED`, so it crosses a swap from payer to
+  recipient. A route is now 1 to 5 hops, one more than before, because the
+  last hop sits outside the guarded quantifier. The route evidence reports
+  `depth_bound: 5`. This is the shape graphrag-mcp runs on the fast
+  shortest-path search.
+- The exchange exposure walks (`exchange_outflows_1` to `_3` and
+  `exchange_inflows_1` to `_3`) add `NOT a:Pool` and `NOT n1:Pool`,
+  `NOT n2:Pool` on every intermediate address, each as its own `AND` term. The
+  exchange end is the target and carries no guard.
+- The actor-exposure read over one `LINKED` hop (`linked_exposure_via_linked`)
+  is a two-hop walk through the owned address. It now carries
+  `WHERE NOT a:Pool AND NOT owned:Pool`, the same text the served AC11 recipe
+  uses. The target end stays open.
+- Ruling: the direct one-hop listings (`connection_probe`,
+  `linked_exposure_direct`, the inline average flow) stay unguarded. A direct
+  counterparty listing of one address is a listing, not a trace. Screening a
+  pool address itself still returns its counterparties.
+- Known gap, follow-up task: the exchange exposure walks follow `FLOWS_TO`
+  only. Routes cross `SWAPPED`, exposure walks do not, so a swap between payer
+  and recipient is invisible to exposure. `SWAPPED` on the exchange walks is
+  not part of this fix.
+- Route USD totals exclude `SWAPPED` hops, because a `SWAPPED` edge carries no
+  `amount_usd_sum`. The `amount_usd_sum_total` of a route that crosses a swap
+  therefore under-counts.
+- The query corpus is regenerated (53 entries; 17 change text). The copy in
+  data-pipeline follows in the same release wave.
+
 ## [0.35.0] - 2026-09-28 — swaps, liquidity pools and bridges, and the pool trace rule
 
 ### Added
