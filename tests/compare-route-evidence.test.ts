@@ -13,25 +13,37 @@ import {
 // filtered.
 
 describe('connectionRouteQueries', () => {
-  it('emits exactly the two bounded GQL shortest route queries (snapshot)', () => {
+  it('emits exactly the two pool-guarded GQL shortest route queries (snapshot)', () => {
     const queries = connectionRouteQueries('idA', 'idB')
     expect(queries).toEqual([
       {
         id: 'connection_route_outbound',
         query:
-          'MATCH p = SHORTEST 1 (src:Address {address: "idA"})-[:FLOWS_TO]-{0,4}(dst:Address {address: "idB"}) RETURN p LIMIT 1',
+          'MATCH p = SHORTEST 1 (a:Address {address: "idA"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "idB"}) RETURN p LIMIT 1',
       },
       {
         id: 'connection_route_inbound',
         query:
-          'MATCH p = SHORTEST 1 (src:Address {address: "idB"})-[:FLOWS_TO]-{0,4}(dst:Address {address: "idA"}) RETURN p LIMIT 1',
+          'MATCH p = SHORTEST 1 (a:Address {address: "idB"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "idA"}) RETURN p LIMIT 1',
       },
     ])
   })
 
-  it('never contains quantifier-inner WHERE (hazard #4343/#4345)', () => {
+  it('guards the start and the middle inside the path pattern, never after it', () => {
     for (const { query } of connectionRouteQueries('a', 'b')) {
-      expect(query).not.toMatch(/WHERE/)
+      // The guard lives inside the parentheses, so the search skips a pool
+      // instead of dropping the shortest route that crosses one.
+      expect(query).toContain('(a:Address {address: "')
+      expect(query).toContain('WHERE NOT a:Pool)')
+      expect(query).toContain('(via:Address) WHERE NOT via:Pool){0,4}')
+      // The target end is the last hop and carries no guard: a route may end at a pool.
+      expect(query).toMatch(/\(b:Address \{address: "[^"]*"\}\) RETURN p LIMIT 1$/)
+      expect(query).not.toMatch(/b:Pool/)
+      // Exactly two WHERE, both inside the pattern: a WHERE after it would run
+      // after the route is chosen.
+      expect(query.match(/WHERE/g)).toHaveLength(2)
+      expect(query.indexOf('RETURN')).toBeGreaterThan(query.lastIndexOf('WHERE'))
+      expect(query.slice(query.lastIndexOf('WHERE'))).toMatch(/^WHERE NOT via:Pool\)\{0,4\}/)
     }
   })
 
@@ -202,7 +214,7 @@ describe('buildRouteEvidence', () => {
     expect(evidence).toEqual({
       search_strategy: 'any_shortest',
       route_rank_basis: 'hop_count',
-      depth_bound: 4,
+      depth_bound: 5,
       route_found: true,
       outbound: {
         hops: 1,
