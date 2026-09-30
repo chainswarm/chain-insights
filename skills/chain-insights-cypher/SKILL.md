@@ -8,8 +8,7 @@ description: Use when writing or reviewing Chain Insights graph_query or graph_q
 ISO GQL for `graph_query` and `graph_query_batch`.
 
 This skill is dialect only. It is not a query cookbook. Load
-`chain-insights-schema-evm` or `chain-insights-schema-bittensor` for the
-label, relationship, and property map.
+`chain-insights-schema-evm` for the label, relationship, and property map.
 
 ## Tools
 
@@ -111,6 +110,13 @@ Rejected on topology:
 Treat exchange hot wallets as terminals. Filter intermediate nodes with
 `is_exchange IS NULL`.
 
+The four role flags are `is_exchange`, `is_scam`, `is_victim` and
+`is_sanctioned`. Each is absent unless true, so a node without the role has
+no such property and reads null. Test a flag with `IS NOT NULL` or `IS NULL`.
+Never test `= false`. `:Exchange` is a node label now, and so are `:Scam`,
+`:Victim` and `:Sanctioned`. Only `is_exchange` ends a walk. Load
+`chain-insights-schema-evm` for the role labels and flags.
+
 Treat pools by the pool trace rule in `chain-insights-schema-evm`. `:Pool`
 is a real label, so a pattern or a `WHERE` may name it: `(p:Pool)`,
 `WHERE NOT mid:Pool`, or `WHERE NOT via:Pool` inside a quantified path.
@@ -156,6 +162,10 @@ Each is a plain relationship name. None needs backquotes.
 
 The topology edges hold lifetime totals per pair. The facts rows hold single
 events. Load `chain-insights-schema-evm` for every property.
+
+Swap attribution is read from `SWAPPED`, the aggregate (`strength`, `pools`,
+`families`), or from the facts `SWAP` row, one route. `FLOWS_TO` carries value
+only.
 
 A trace that reaches a `:Pool` follows the pool trace rule in
 `chain-insights-schema-evm`. The probes below follow it.
@@ -204,8 +214,9 @@ daily price services and is empty when no service prices the asset.
 
 - Read-only. No writes.
 - No raw warehouse table names.
-- No dynamic labels such as `:Exchange`. Use `is_exchange` or proven
-  label properties.
+- Role labels are real node labels, `:Exchange` among them. A pattern or a
+  `WHERE` may name one. Prefer the role flags: each is absent unless true, so
+  test `IS NOT NULL` or `IS NULL`, never `= false`.
 - Empty results mean no indexed match. They are not proof of safety.
 - Do not reuse one network's labels on another network unless that
   network advertises them.

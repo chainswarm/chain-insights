@@ -117,7 +117,6 @@ describe('extractGraphFromJson (VIZ-01)', () => {
             dst: '5dst',
             amount_usd_sum: 42,
             tx_count: 1,
-            first_tx_id: '294-1',
           },
         ],
       },
@@ -128,8 +127,32 @@ describe('extractGraphFromJson (VIZ-01)', () => {
       source: '5src',
       target: '5dst',
       value: 42,
-      txHash: '294-1',
     })
+    // A flow edge carries value only. Its transaction comes from the facts graph.
+    expect(result.edges[0]!.txHash).toBeUndefined()
+  })
+
+  it('does not read first_tx_id: the graph edge no longer carries one', () => {
+    const { extractGraphFromJson } = extractors
+    const input = [
+      {
+        schema: 'chain-insights.compact_evidence.v1',
+        outgoing_flows: [
+          {
+            src: '0xsrc',
+            dst: '0xdst',
+            amount_usd_sum: 42,
+            tx_count: 1,
+            // A payload saved before the graph dropped the property.
+            first_tx_id: '0xstale',
+          },
+        ],
+      },
+    ]
+    const result = extractGraphFromJson(input)
+    expect(result.edges).toHaveLength(1)
+    expect(result.edges[0]!.txHash).toBeUndefined()
+    expect(JSON.stringify(result.edges[0])).not.toContain('0xstale')
   })
 
   it('throws "Invalid transaction data" for non-array non-GraphData input', () => {

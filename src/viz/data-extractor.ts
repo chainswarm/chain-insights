@@ -72,7 +72,6 @@ type CompactEvidence = {
     dst?: string
     amount_usd_sum?: number
     tx_count?: number
-    first_tx_id?: string
   }>
 }
 
@@ -116,8 +115,9 @@ function compactEvidenceToSimpleTxs(item: unknown): SimpleTx[] {
     .map((flow) => ({
       from: flow.src!,
       to: flow.dst!,
+      // A flow edge carries value only. A flow's transaction comes from the
+      // facts graph (USE facts, TRANSFER), never from the topology edge.
       value: flow.amount_usd_sum!,
-      txHash: flow.first_tx_id,
     }))
 }
 

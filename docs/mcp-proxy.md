@@ -183,9 +183,8 @@ free-to-paid handoff, but bounded sample reads still returned topology data
 inside the same daily allowance.
 
 For a one-address screen, install `chain-insights-address-risk`. For custom
-graph reads, install `chain-insights-cypher` plus `chain-insights-schema-evm`
-or `chain-insights-schema-bittensor`. Cypher is Memgraph dialect only.
-Schema skills hold the GraphRAG map.
+graph reads, install `chain-insights-cypher` plus `chain-insights-schema-evm`.
+Cypher is Memgraph dialect only. The schema skill holds the GraphRAG map.
 
 Paid x402 mode:
 
@@ -228,7 +227,7 @@ directory and registers the stdio MCP proxy in the Hermes config.
 
 For a one-address screen, agents should use `chain-insights-address-risk`.
 For manual graph-language work, use `chain-insights-cypher` plus
-`chain-insights-schema-evm` or `chain-insights-schema-bittensor`.
+`chain-insights-schema-evm`.
 
 ## Supported Agent Setup
 

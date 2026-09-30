@@ -93,7 +93,6 @@ function routeWalk(query: string): string | null {
 const reviewedSkills = [
   'chain-insights-address-risk',
   'chain-insights-cypher',
-  'chain-insights-schema-bittensor',
   'chain-insights-schema-evm',
 ]
 
@@ -109,12 +108,10 @@ describe('shipped Chain Insights skills contract', () => {
 
   it('teaches schema plus ISO GQL and excludes stale product guidance', () => {
     const evm = read('skills/chain-insights-schema-evm/SKILL.md')
-    const bittensor = read('skills/chain-insights-schema-bittensor/SKILL.md')
     const cypher = read('skills/chain-insights-cypher/SKILL.md')
     const addressRisk = read('skills/chain-insights-address-risk/SKILL.md')
 
     expect(evm).toMatch(/label|relationship|property/i)
-    expect(bittensor).toMatch(/Bittensor/i)
     expect(cypher).toMatch(/ISO GQL/i)
     expect(cypher).toContain('graph_query')
     expect(addressRisk).toContain('aml_address_risk')
@@ -125,9 +122,8 @@ describe('shipped Chain Insights skills contract', () => {
     expect(addressRisk).toContain('cia workflow aml-address-risk')
     expect(cypher).toContain('cia mcp call graph_query')
 
-    const content = [evm, bittensor, cypher, addressRisk].join('\n')
+    const content = [evm, cypher, addressRisk].join('\n')
     expect(content).not.toMatch(/workspace|debug MCP/i)
-    expect(bittensor).not.toMatch(/public hosted MCP|mcp\.chain-insights\.ai/i)
   })
 
   it('documents the OPERATED_BY owner-to-operator topology edge as topology-only and never as an automatic risk label', () => {
@@ -149,7 +145,10 @@ describe('shipped Chain Insights skills contract', () => {
     // The documented direction is owner to operator.
     expect(evmSkill).toContain('(:Address)-[:OPERATED_BY]->(:Address)')
     expect(combined).toMatch(/source is the (transfer )?owner/i)
-    expect(combined).toMatch(/destination is the approved operator/i)
+    expect(combined).toMatch(
+      /destination is\s+the\s+transaction\s+sender\s+that\s+moved\s+the\s+owner's\s+tokens/i
+    )
+    expect(combined).not.toMatch(/approved operator/i)
 
     // The relation is topology only — never served through USE facts, on any
     // variable spelling, and named in the facts-rejection enumerations.
@@ -199,8 +198,7 @@ describe('shipped Chain Insights skills contract', () => {
     const graphTools = read('docs/graph-tools.md')
     const cypherSkill = read('skills/chain-insights-cypher/SKILL.md')
     const evmSkill = read('skills/chain-insights-schema-evm/SKILL.md')
-    const bittensorSkill = read('skills/chain-insights-schema-bittensor/SKILL.md')
-    const combined = [readme, graphTools, cypherSkill, evmSkill, bittensorSkill].join('\n')
+    const combined = [readme, graphTools, cypherSkill, evmSkill].join('\n')
 
     expect(combined).toContain('linked_sample')
     expect(combined).toContain('USE topology MATCH (a:Address)-[l:LINKED]-(b:Address)')
@@ -323,13 +321,11 @@ describe('shipped Chain Insights skills contract', () => {
     expect(graphTools).toContain('chain-insights-cypher')
     expect(graphTools).toContain('chain-insights-address-risk')
     expect(graphTools).toContain('chain-insights-schema-evm')
-    expect(graphTools).toContain('chain-insights-schema-bittensor')
     expect(graphTools).not.toContain('chain-insights-bittensor-cypher')
     expect(graphTools).not.toContain('references/memgraph-examples.md')
     expect(mcpProxy).toContain('chain-insights-cypher')
     expect(mcpProxy).toContain('chain-insights-address-risk')
     expect(mcpProxy).toContain('chain-insights-schema-evm')
-    expect(mcpProxy).toContain('chain-insights-schema-bittensor')
     expect(mcpProxy).not.toContain('chain-insights-bittensor-cypher')
     expect(mcpProxy).not.toContain('Memgraph examples reference')
   })
@@ -896,36 +892,18 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).not.toContain('eu_border')
   })
 
-  it('ships Bittensor schema guidance without claiming a public hosted MCP network', () => {
-    const skill = read('skills/chain-insights-schema-bittensor/SKILL.md')
+  it('names the EVM schema skill in the README and both guides', () => {
     const readme = read('README.md')
     const graphTools = read('docs/graph-tools.md')
     const mcpProxy = read('docs/mcp-proxy.md')
 
-    expect(skill).toContain('Bittensor')
-    expect(skill).toContain('network=bittensor')
-    expect(skill).toContain('Substrate/SS58')
-    expect(skill).toContain('EVM-pallet `0x...`')
-    expect(skill).toContain('MINES')
-    expect(skill).toContain('HOTKEY_OF')
-    expect(skill).toContain('LINKED')
-    expect(skill).not.toContain('Identity')
-    expect(skill).not.toContain('HAS_ADDRESS')
-    expect(skill).not.toContain('HAS_RISK_SCORE')
-    expect(skill).not.toContain('legacy `bittensor_evm`')
-    expect(skill).not.toContain('address_type')
-    expect(skill).not.toContain('TopologySnapshot')
-    expect(skill).not.toContain('REGISTERED_NEURON')
-    expect(skill).not.toContain('SERVED_FROM')
-    expect(skill).not.toMatch(/public hosted MCP|mcp\.chain-insights\.ai/i)
     expect(readme).toContain('chain-insights-address-risk')
     expect(readme).toContain('chain-insights-schema-evm')
-    expect(readme).toContain('chain-insights-schema-bittensor')
     expect(readme).not.toContain('chain-insights-bittensor-cypher')
     expect(readme).toContain('linked')
     expect(readme).toContain('USE topology MATCH (a:Address)-[l:LINKED]-(b:Address)')
     expect(readme).not.toContain('USE facts MATCH (a:Address)-[l:LINKED]-(b:Address)')
-    expect(graphTools).toContain('chain-insights-schema-bittensor')
-    expect(mcpProxy).toContain('chain-insights-schema-bittensor')
+    expect(graphTools).toContain('chain-insights-schema-evm')
+    expect(mcpProxy).toContain('chain-insights-schema-evm')
   })
 })

@@ -201,10 +201,17 @@ The address-grain graph schema:
   linked addresses
   as a single collapsed node. \`LINKED\` is served on the topology graph
   only.
-- Other Address properties: \`labels\` (array) and \`is_exchange\`
-  (sparse true/null traversal hint). Labels and per-label risk live on the
-  address node: \`label_risk\` is a list of \`{label, risk_level,
-  updated_timestamp}\` maps, one per current label row.
+- Other Address properties: \`labels\` (array of role words, never
+  detector names) and the role flags \`is_exchange\`, \`is_scam\`,
+  \`is_victim\` and \`is_sanctioned\`. Each flag is present only when
+  true and absent otherwise, never \`false\`: \`:Exchange\` and
+  \`is_exchange\` follow the \`exchange\` label, \`:Scam\` and
+  \`is_scam\` the \`risk\` label, \`:Victim\` and \`is_victim\` the
+  \`protection\` label, \`:Sanctioned\` and \`is_sanctioned\` the
+  \`sanctioned\` label. Per-label risk lives on the address node as three
+  parallel lists, \`label_risk_labels\`, \`label_risk_levels\` and
+  \`label_risk_updated_timestamps\`: entry i of each list is one current
+  label row.
 - Address nodes carry a risk verdict for quick triage
   (\`risk_score\` float, \`risk_level\` string) plus base activity rollups:
   \`degree_in\`/\`degree_out\`/\`degree_total\` (distinct counterparty
@@ -213,18 +220,20 @@ The address-grain graph schema:
   (in minus out; positive = net receiver) — all computed from external
   flows only — and \`first_activity_timestamp\`/
   \`last_activity_timestamp\`/\`activity_span_days\`, which include all
-  flows (self-loops included). FLOWS_TO edges carry exactly \`tx_count\`,
-  \`amount_usd_sum\` (total money flow, token and native value merged),
-  \`first_seen_timestamp\`, \`last_seen_timestamp\`. Averages compute
-  inline: \`r.amount_usd_sum / toFloat(r.tx_count)\`. Transaction anchors
+  flows (self-loops included). FLOWS_TO edges serve four fields:
+  \`tx_count\`, \`amount_usd_sum\` (total money flow, token and native value
+  merged), \`first_seen_timestamp\`, \`last_seen_timestamp\`. \`pair_key\` and
+  \`synced_through_height\` are internal sync bookkeeping, not to be queried.
+  Averages compute inline: \`r.amount_usd_sum / toFloat(r.tx_count)\`. Transaction anchors
   resolve through the facts lane:
   \`USE facts MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) RETURN t.tx_id ORDER BY t.block_timestamp ASC LIMIT 1\`.
   Lifetime aggregates are the only serving window.
 - Money flow is \`(:Address)-[:FLOWS_TO]->(:Address)\`. Public AML tools
   accept the raw blockchain address directly — there is no resolution step.
-- The risk verdict lives on topology nodes (\`risk_score\`/\`risk_level\`),
-  and labels and per-label risk live on the address node (\`labels\` array
-  + \`label_risk\` entries). \`USE facts\` serves bounded individual
+- The risk verdict lives on topology nodes (\`risk_score\`/\`risk_level\`).
+  An absent \`risk_score\` means \`UNSCORED\`: no verdict, never low risk.
+  Labels and per-label risk live on the address node (\`labels\` array plus
+  the three \`label_risk_*\` lists). \`USE facts\` serves bounded individual
   transfer rows only. Facts address keys match topology \`address\` values
   exactly. Do not read \`ml_*\`,
   \`confluence_score\`, or \`pattern_flags\` off topology nodes — those
@@ -264,7 +273,8 @@ Rules:
   expand from, through, or classify exchange nodes as deposit, suspect, or
   intermediate candidates. In Cypher, require every non-terminal traversal node
   to satisfy \`is_exchange IS NULL\`; only the final exchange endpoint should
-  satisfy \`is_exchange IS NOT NULL\`.
+  satisfy \`is_exchange IS NOT NULL\`. \`is_exchange\` is absent unless true, so
+  a labelled node with no \`is_exchange\` is walked through.
 - When a trace reaches a \`:Pool\`, follow the pool trace rule in the
   \`chain-insights-schema-evm\` skill.
 - Keep analysis products separate from summary notes: graph JSON belongs under

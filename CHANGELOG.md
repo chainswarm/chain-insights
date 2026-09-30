@@ -3,6 +3,83 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.36.0] - 2026-09-30 — feat: the readers follow the rebuilt graph
+
+### Changed
+
+- `aml_address_risk` reads per-label risk from the three lists the graph
+  stores on an address: `label_risk_labels`, `label_risk_levels` and
+  `label_risk_updated_timestamps`. The profile query asked for one
+  `label_risk` property, which the graph does not hold, so a labelled address
+  read as unlabelled. The strongest label now drives the level again, and the
+  ten newest labels still fill the risk sources. The query corpus is
+  regenerated (53 entries; 2 change text). The graph server's copy follows in
+  the same release wave.
+- The graph viewer no longer reads `first_tx_id` from a flow. A flow edge
+  carries value only, and a flow's transaction comes from `USE facts`
+  (`TRANSFER` rows). A compact-evidence flow that still carries a
+  `first_tx_id` is drawn without a transaction hash.
+- The served graph hints and the workspace runtime notes describe the graph as
+  it is built now:
+  - the three `label_risk_*` lists, entry by entry;
+  - an absent `risk_score` means `UNSCORED`: no verdict, never low risk;
+  - labels are role words (`Exchange`, `Scam`, `Victim`, `Sanctioned`), never
+    detector names, and each role is a node label and a flag: `:Exchange` and
+    `is_exchange` follow the `exchange` label, `:Scam` and `is_scam` the `risk`
+    label, `:Victim` and `is_victim` the `protection` label, `:Sanctioned` and
+    `is_sanctioned` the `sanctioned` label;
+  - each flag is present only when true and absent otherwise, never `false`,
+    so a labelled node with no `is_exchange` is walked through and only
+    `is_exchange` ends a walk;
+  - swap attribution is read from `SWAPPED`, the aggregate, or from the facts
+    `SWAP` row, one route. `FLOWS_TO` carries value only;
+  - the `FLOWS_TO` hint lists the four served fields (`tx_count`,
+    `amount_usd_sum`, `first_seen_timestamp`, `last_seen_timestamp`) and names
+    `pair_key` and `synced_through_height` as internal sync bookkeeping, not to
+    be queried. It no longer says no other edge field exists.
+- The `chain-insights-schema-evm` skill and the graph query compatibility
+  guide match the rebuilt graph:
+  - one section per link type: `APPROVED` (`granted_tokens`, `infinite_tokens`,
+    `has_infinite_grant`, `first_height`, `last_height`), `DEPLOYED_CONTRACT`
+    (`kind`), `SPONSORED`, `BUNDLED`, `SIGNED_FOR` and `SIGNED_AUTHORIZATION`,
+    the EIP-7702 link (a plain wallet signs a `SET_CODE` authorization and
+    acts as a smart account from then on; a permit lands on `APPROVED`,
+    never there);
+  - the ten ML pattern link types by name, `FLASH_LOAN_ENVELOPE` included,
+    each with `kind`, `source_event` `ml_pattern` and the run id in `run_id`;
+  - `:Pool` is set by both DEX layers, so a pool with liquidity and no swap
+    carries it;
+  - `BRIDGED.totals_raw` is keyed by event kind and asset, and `LINKED`
+    carries `last_height`;
+  - the role words, their node labels and the four role flags are named, and
+    the `:Exchange` label is no longer forbidden in the dialect skill.
+- `OPERATED_BY` is described as it is built: the edge runs from the owner to
+  the transaction sender that moved the owner's tokens (ERC-20/721), or the
+  event operator (ERC-1155); not the approved spender. It meets an `APPROVED`
+  spender only when that spender sent the transaction itself. The served
+  hints, the schema skill and both guides say so; they called the
+  destination the approved operator before.
+
+### Removed
+
+- The `chain-insights-schema-bittensor` skill, its folder and every link to
+  it (README, installer, guides, the other skills and their contract tests).
+  The graph serves an EVM chain only. The installer no longer copies it, and
+  it lists `chain-insights-schema-bittensor` among its retired skills, so an
+  install from an earlier release deletes the old copy.
+- The `first_tx_id` and `last_tx_id` `FLOWS_TO` properties, and the
+  `OPERATED_BY` bucket timestamps, leave the schema skill and the guides. The
+  `FLOWS_TO` table also drops `avg_tx_size_usd` and `price_coverage_ratio`,
+  which the graph does not carry: compute an average inline.
+- The Bittensor labels and neuron model leave the graph query compatibility
+  guide.
+
+### Added
+
+- Tests that pin the label-risk read against a graph that stores the three
+  lists, the role flags as markers, the swap attribution wording, and the
+  schema names in the skill and the guide.
+
 ## [0.35.1] - 2026-09-29 — fix: aml_address_risk walks no longer cross a DEX pool
 
 ### Fixed

@@ -69,6 +69,9 @@ of truth.
   in filters and in results, as on `TRANSFER`.
 - USD comes from the daily price services, never from a swap. With no price,
   USD is empty and the matching `…price_missing` property is true.
+- Swap attribution is read from `SWAPPED`, the aggregate (`strength`, pools,
+  families), or from the facts `SWAP` row, one route. `FLOWS_TO` carries value
+  only.
 - A missing `SWAPPED` edge or `SWAP` row is not proof that no swap happened.
 
 `FLOWS_TO` into and out of pools stays as it is. A trace that reaches a
@@ -119,6 +122,26 @@ cia mcp call graph_query \
 A relationship is served only where its data exists. Check
 `meta_network_capabilities` before querying one.
 
+## Role labels and flags
+
+The graph labels an address with role words: `Exchange`, `Scam`, `Victim` and
+`Sanctioned`. `:Exchange` is a node label now, and so are `:Scam`, `:Victim`
+and `:Sanctioned`. Each role also has a flag on the node.
+
+| Role         | Node label    | Flag            |
+| ------------ | ------------- | --------------- |
+| `Exchange`   | `:Exchange`   | `is_exchange`   |
+| `Scam`       | `:Scam`       | `is_scam`       |
+| `Victim`     | `:Victim`     | `is_victim`     |
+| `Sanctioned` | `:Sanctioned` | `is_sanctioned` |
+
+- Each flag is absent unless true. An address carries the flag only while it
+  has a live label of that role. A flag is never `false`.
+- Test a flag with `IS NOT NULL` or `IS NULL`. Do not test `= false`.
+- Only `is_exchange` ends a walk: exchange hot wallets are terminals, and a
+  node with no `is_exchange` is walked through.
+- Every property is listed in the `chain-insights-schema-evm` skill.
+
 ## Query Rules
 
 - `network` is required. Do not guess it in agent workflows.
@@ -153,16 +176,13 @@ A relationship is served only where its data exists. Check
 - `per_query_timeout_seconds` is optional and capped at `10` by default.
 - Returned rows live in `structuredContent.facts`.
 
-Agent installers ship four skills:
+Agent installers ship three skills:
 
 - `chain-insights-address-risk`: one-address screen via `aml_address_risk`.
 - `chain-insights-cypher`: Memgraph dialect and layer rules for
   `graph_query` and `graph_query_batch`. No query cookbook.
 - `chain-insights-schema-evm`: EVM / Robinhood GraphRAG labels,
   relationships, and properties.
-- `chain-insights-schema-bittensor`: Bittensor GraphRAG labels,
-  relationships, and properties. This is a schema map, not a claim that
-  Bittensor is on the public hosted endpoint.
 
 Check public-free usage:
 
@@ -246,9 +266,10 @@ only its addresses, never its `{0,4}` bound.
 
 ## Operator topology recipe
 
-`OPERATED_BY` is the owner-to-operator topology edge: the approved operator
-that executed a transfer on the owner's behalf. Use it to see who delegated
-to an operator, and how much moved — the shape behind drainer
+`OPERATED_BY` is the owner-to-operator topology edge. The operator is the
+transaction sender that moved the owner's tokens (ERC-20/721), or the event
+operator (ERC-1155); not the approved spender. Use it to see which owners an
+operator moved tokens for, and how much moved — the shape behind drainer
 investigations. It is topology-only and carries no risk label; a high owner
 count alone is not an accusation.
 
