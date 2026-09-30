@@ -85,20 +85,17 @@ The admitted GQL read surface runs on a read-only session, within the
 admission + bounds gate below. This includes clause- and pattern-level `WHERE`,
 `WITH` pipelines, `CASE`, `collect()`, temporal functions, `UNWIND`, map
 projections, `UNION`, and the full traversal surface. The topology graph serves
-`Address` nodes (with `risk_score`/`risk_level` always present), `FLOWS_TO`
-lifetime money-flow edges, `OPERATED_BY` operator-mediated topology edges (the
-next section), the `LINKED` ownership overlay, `RISK_PROXIMITY`, the
-swap, liquidity and bridge totals (`SWAPPED`, `ADDED_LIQUIDITY` and
-`REMOVED_LIQUIDITY` around `:Pool` nodes, `BRIDGED` to `:Chain` nodes; a trace
-through a pool follows the pool trace rule in the `chain-insights-schema-evm`
-skill), and a two-layer Bittensor neuron model: `(:Neuron {hotkey, netuid})` nodes labeled
-`:Miner` or `:Validator`, connected via `(:Neuron)-[:MINES|:VALIDATES]->(:Subnet
-{netuid, name, github_repo, url, discord, contact, owner_coldkey,
-owner_hotkey})`; `(:Address)-[:HOTKEY_OF|:COLDKEY_OF]->(:Neuron)` bridges
-addresses to neurons; `(:Address)-[:OWNS]->(:Subnet)` marks subnet ownership;
-and on-chain identity properties (`chain_name`, `chain_url`, `chain_github`,
-`chain_discord`) live on `:Address` directly. Validator/miner roles are
-chain-evidence-derived, not registry labels.
+`Address` nodes (with the role labels and flags, and a `risk_score` and
+`risk_level` verdict, where `UNSCORED` means the model gave no verdict),
+`FLOWS_TO` lifetime money-flow edges, `OPERATED_BY` operator-mediated topology
+edges (the next section), the `LINKED` ownership overlay, the links from
+approvals, contract creations and smart accounts (`APPROVED`,
+`DEPLOYED_CONTRACT`, `SPONSORED`, `BUNDLED`, `SIGNED_FOR` and
+`SIGNED_AUTHORIZATION`), the ten ML pattern link types, and the swap, liquidity
+and bridge totals (`SWAPPED`, `ADDED_LIQUIDITY` and `REMOVED_LIQUIDITY` around
+`:Pool` nodes, `BRIDGED` to `:Chain` nodes). Both DEX layers set `:Pool`, so a
+pool with liquidity and no swap carries it. A trace through a pool follows the
+pool trace rule in the `chain-insights-schema-evm` skill.
 
 ### `OPERATED_BY` — operator-mediated topology (topology only)
 
@@ -110,8 +107,11 @@ chain-evidence-derived, not registry labels.
 ```
 
 The source is the transfer owner (`from_address`). The destination is the
-approved operator that executed the transfer (`operator_address`). One edge
-aggregates one owner/operator pair.
+transaction sender that moved the owner's tokens (ERC-20/721), or the event
+operator (ERC-1155); not the approved spender (`operator_address`). It is the
+one link that points at the actor instead of away from it. It meets an
+`APPROVED` spender only when that spender sent the transaction itself. One
+edge aggregates one owner/operator pair.
 
 Rules that follow from the grain:
 
@@ -124,14 +124,13 @@ Rules that follow from the grain:
 
 Edge aggregate properties (as the live backend provides them):
 
-| Property                                          | Meaning                                                                                                                                              |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tx_count`                                        | Operator-mediated transfers in the aggregate.                                                                                                        |
-| `amount_usd_sum`                                  | Sum of priced transfer value in USD.                                                                                                                 |
-| `first_seen_timestamp` / `last_seen_timestamp`    | First and last transfer time (Unix milliseconds).                                                                                                    |
-| `bucket_start_timestamp` / `bucket_end_timestamp` | Graph-shard window bounds, Unix milliseconds.                                                                                                        |
-| `token_standard`                                  | `ERC20`, `ERC721`, or `ERC1155` when the pair's transfers share one unambiguous standard. Absent when mixed. Optional — do not assume it is present. |
-| `owner_address` / `operator_address` / `pair_id`  | Endpoint identity copied onto the edge.                                                                                                              |
+| Property                                         | Meaning                                                                                                                                              |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tx_count`                                       | Operator-mediated transfers in the aggregate.                                                                                                        |
+| `amount_usd_sum`                                 | Sum of priced transfer value in USD.                                                                                                                 |
+| `first_seen_timestamp` / `last_seen_timestamp`   | First and last transfer time (Unix milliseconds).                                                                                                    |
+| `token_standard`                                 | `ERC20`, `ERC721`, or `ERC1155` when the pair's transfers share one unambiguous standard. Absent when mixed. Optional — do not assume it is present. |
+| `owner_address` / `operator_address` / `pair_id` | Endpoint identity copied onto the edge.                                                                                                              |
 
 The canonical probe is point-anchored and sub-second on the hosted endpoint:
 given one operator address, its top owners. Scope comes from the tool's
@@ -150,12 +149,12 @@ ORDER BY operation.tx_count DESC
 LIMIT 10
 ```
 
-The reverse direction — who an owner delegated to — swaps the anchor onto the
-owner node. A high owner count or transfer count on the probe result is an
-investigation lead, not a drainer
-accusation. Legitimate spend-permission contracts (routers, aggregators,
-sweepers) produce the same shape. `OPERATED_BY` carries no scam, victim, or
-risk label. Confirm with money-flow and label context before acting.
+The reverse direction — who moved an owner's tokens — swaps the anchor onto
+the owner node. A high owner count or transfer count on the probe result is an
+investigation lead, not a drainer accusation. Legitimate callers (relayers,
+keeper bots, sweepers) produce the same shape. `OPERATED_BY` carries no scam,
+victim, or risk label. Confirm with money-flow and label context before
+acting.
 
 The whole-graph high-fan-in sweep — every operator grouped by distinct owner
 count — is a valid shape but a heavy one: at millions of edges it exceeds the
@@ -180,6 +179,68 @@ RETURN operator.address AS operator_address, owner_count, transfer_count
 ORDER BY owner_count DESC
 LIMIT 25
 ```
+
+### `APPROVED` — token approvals (topology only)
+
+`(:Address)-[:APPROVED]->(:Address)` joins a token owner to a spender. One link
+per pair, from `Approval` and `ApprovalForAll` events. An ERC-2612 permit lands
+here, and only here. Permit2 allowances are not in the source.
+
+| Property                       | Meaning                                                         |
+| ------------------------------ | --------------------------------------------------------------- |
+| `granted_tokens`               | Tokens approved for the spender. Gains a grant, loses a revoke. |
+| `infinite_tokens`              | Tokens whose allowance is unlimited now.                        |
+| `has_infinite_grant`           | Ever granted unlimited. Stays true after a revoke.              |
+| `first_height` / `last_height` | First and last block height of the events.                      |
+| `source_event`                 | `approval`.                                                     |
+
+An approval is a fact, not proof of malicious intent.
+
+### `DEPLOYED_CONTRACT` — contract creations (topology only)
+
+`(:Address)-[:DEPLOYED_CONTRACT]->(:Address)` joins a deployer to the contract
+it created, one link per creation. `kind` says how it was created.
+`source_event` is `contract_creation`.
+
+### `SPONSORED`, `BUNDLED`, `SIGNED_FOR` — smart accounts (topology only)
+
+- `SPONSORED`: a paymaster to the smart account whose user operations it paid
+  for. `operations`, `failed_operations`, `entrypoints`, `first_height`,
+  `last_height`, `source_event` `user_operation`.
+- `BUNDLED`: a bundler to the smart account whose user operations it
+  submitted. The same properties as `SPONSORED`.
+- `SIGNED_FOR`: a signing key to the smart account it signs for.
+  `first_height`, `last_height`, `source_event` `account_signer`.
+
+### `SIGNED_AUTHORIZATION` — the EIP-7702 link (topology only)
+
+A plain wallet, the authority, signs a `SET_CODE` authorization and acts as a
+smart account from then on. `(:Address)-[:SIGNED_AUTHORIZATION]->(:EvmAuthorizationRequest)`
+joins the wallet to the request, one node per `request_id`. The link carries
+`source_event` `authorization`, `first_height` and `last_height`. A permit
+lands on `APPROVED`, never here.
+
+### ML pattern links (topology only)
+
+Each ML pattern is its own relationship type, between the addresses the
+pattern joins: `CYCLE_PARTICIPANT`, `LAYERING_HOP`, `SMURFING_CLUSTER`,
+`SYBIL_CLUSTER`, `MOTIF_PARTICIPANT`, `RISK_PROXIMITY`, `BURST_ACTIVITY`,
+`DORMANT_REACTIVATION`, `THRESHOLD_EVASION` and `FLASH_LOAN_ENVELOPE`. Every
+one carries `kind`, `source_event` `ml_pattern` and the run id in `run_id`. A
+newer run replaces them. None is money flow.
+
+### Swap attribution
+
+Swap attribution is read from `SWAPPED`, the aggregate (`strength`, pools,
+families), or from the facts `SWAP` row, one route. `FLOWS_TO` carries value
+only.
+
+### `LINKED` and `BRIDGED` properties
+
+`LINKED` carries `basis`, `confidence`, `source_event` `account_owner`,
+`declared_owner` and `last_height`, the block height of the newest owner
+action. `BRIDGED.totals_raw` is keyed by event kind and asset, so one sum has
+one unit.
 
 ### Traversal (the expanded surface)
 
@@ -227,18 +288,18 @@ rejected with a typed contract error before execution.
 
 ### Supported
 
-| Construct                                          | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MATCH` on a mapped node / single relationship     | `(from:Address)-[t:TRANSFER]->(to:Address)` (bounded individual transfer rows from `facts_transfers_view`). Lifetime address metrics are node properties on `USE topology` (the facts `AddressFeature` surface is retired). `SWAP`, `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` are single-event rows on the same pattern, each with its own indexed predicate (see the `chain-insights-schema-evm` skill). Never serves `FLOWS_TO`, `OPERATED_BY`, `LINKED`, `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY` or `BRIDGED` — those are topology-only. Neuron identity, hotkey/coldkey pairing, and IP/axon-port observation live on the topology `:Neuron` node, not on `facts`. Labels and per-label risk live on the topology address node, not on `facts`. |
-| Chained fixed-hop patterns                         | up to 5 hops                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Bare `block_date` bound                            | `t.block_date >= ?` / `<`, `<=`, `>`, `=` — the caller's own day range, passed through. `BETWEEN` and `IN` are refused (`unsupported WHERE operator`): write a range as `>=` and `<`. The bound must be bare (no function around the column) and conjunctive (not inside an `OR` arm). An explicit full-range bound (`>= '1970-01-01'`) stays lifetime.                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `tx_id` equality                                   | `t.tx_id = "…"` — a point lookup on the `TRANSFER` edge's row-level key; on EVM networks the `0x` transaction hash, served from the indexed hash columns. Lifetime semantics. `IN` and `BETWEEN` are refused (`unsupported WHERE operator "IN"`): send one equality per transaction, several in one `graph_query_batch`.                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| Time window inside a bare `block_date` bound       | `t.block_date = "2026-07-11" AND t.block_timestamp >= 1783738500000 AND t.block_timestamp < 1783738560000` — the day bound with `=`, `>=`, `>`, `<` or `<=`; `block_timestamp` (epoch milliseconds) with `>=`, `>`, `<` or `<=`, not `=` (one instant is `>= x AND <= x`); `block_height` (a block number) with `=`, `>=`, `>`, `<` or `<=`. `BETWEEN` and `IN` are refused. The window compiles to the day's block key range. On their own these two columns bound nothing (see the cost-shape gate).                                                                                                                                                                                                                                                                        |
-| Address equality                                   | `{address:"…"}` map or `a.address = "…"` — **a recency window is auto-applied** (bare `block_date >= now − 90 days`; the window is `FACTS_RECENCY_WINDOW_DAYS`, default 90). Address-only queries return the last 90 days. `IN` is refused: send one equality per address, several in one `graph_query_batch`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| Inline property maps                               | `MATCH (a:Address {address:"…"})`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| Property projections with aliases                  | `RETURN a.address AS address, t.amount_usd AS amount_usd`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Aggregates **with** a partition-bounding predicate | `count`, `sum`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `ORDER BY`, `LIMIT` (≤ 1000), `OFFSET`-free paging | `LIMIT` required unless a partition-bounding predicate is present — except `TRANSFER`, where a partition-bounding predicate is always required (see below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Construct                                          | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MATCH` on a mapped node / single relationship     | `(from:Address)-[t:TRANSFER]->(to:Address)` (bounded individual transfer rows from `facts_transfers_view`). Lifetime address metrics are node properties on `USE topology` (the facts `AddressFeature` surface is retired). `SWAP`, `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` are single-event rows on the same pattern, each with its own indexed predicate (see the `chain-insights-schema-evm` skill). Never serves `FLOWS_TO`, `OPERATED_BY`, `LINKED`, `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY` or `BRIDGED` — those are topology-only. Labels and per-label risk live on the topology address node, not on `facts`. |
+| Chained fixed-hop patterns                         | up to 5 hops                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Bare `block_date` bound                            | `t.block_date >= ?` / `<`, `<=`, `>`, `=` — the caller's own day range, passed through. `BETWEEN` and `IN` are refused (`unsupported WHERE operator`): write a range as `>=` and `<`. The bound must be bare (no function around the column) and conjunctive (not inside an `OR` arm). An explicit full-range bound (`>= '1970-01-01'`) stays lifetime.                                                                                                                                                                                                                                                                                            |
+| `tx_id` equality                                   | `t.tx_id = "…"` — a point lookup on the `TRANSFER` edge's row-level key; on EVM networks the `0x` transaction hash, served from the indexed hash columns. Lifetime semantics. `IN` and `BETWEEN` are refused (`unsupported WHERE operator "IN"`): send one equality per transaction, several in one `graph_query_batch`.                                                                                                                                                                                                                                                                                                                           |
+| Time window inside a bare `block_date` bound       | `t.block_date = "2026-07-11" AND t.block_timestamp >= 1783738500000 AND t.block_timestamp < 1783738560000` — the day bound with `=`, `>=`, `>`, `<` or `<=`; `block_timestamp` (epoch milliseconds) with `>=`, `>`, `<` or `<=`, not `=` (one instant is `>= x AND <= x`); `block_height` (a block number) with `=`, `>=`, `>`, `<` or `<=`. `BETWEEN` and `IN` are refused. The window compiles to the day's block key range. On their own these two columns bound nothing (see the cost-shape gate).                                                                                                                                             |
+| Address equality                                   | `{address:"…"}` map or `a.address = "…"` — **a recency window is auto-applied** (bare `block_date >= now − 90 days`; the window is `FACTS_RECENCY_WINDOW_DAYS`, default 90). Address-only queries return the last 90 days. `IN` is refused: send one equality per address, several in one `graph_query_batch`.                                                                                                                                                                                                                                                                                                                                     |
+| Inline property maps                               | `MATCH (a:Address {address:"…"})`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Property projections with aliases                  | `RETURN a.address AS address, t.amount_usd AS amount_usd`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Aggregates **with** a partition-bounding predicate | `count`, `sum`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `ORDER BY`, `LIMIT` (≤ 1000), `OFFSET`-free paging | `LIMIT` required unless a partition-bounding predicate is present — except `TRANSFER`, where a partition-bounding predicate is always required (see below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ### Cost-shape gate
 
@@ -282,21 +343,27 @@ StarRocks. Use the topology graph, or restructure:
 There is no longer a local pinned conformance suite; verify supported and
 rejected shapes against a live Chain Insights Graph endpoint.
 
-## Taxonomy labels (topology graph)
+## Role labels and flags (topology graph)
 
-Secondary node labels (exchange / scam classification labels maintained on
-addresses) are queryable on `topology`:
+The graph labels an address with role words: `Exchange`, `Scam`, `Victim` and
+`Sanctioned`. Each role is also a node label, so it is queryable on
+`topology`. `:Exchange` is a node label now.
 
 | Form                                                | Result                           |
 | --------------------------------------------------- | -------------------------------- |
-| `MATCH (n:Exchange)` — bare secondary label         | ✅                               |
+| `MATCH (n:Exchange)` — bare role label              | ✅                               |
 | `MATCH (n:Address:Exchange)` — colon-stacked labels | ✅ (native Cypher)               |
 | `RETURN labels(n)`                                  | project known properties instead |
 
-Caveats: taxonomy labels are sticky (never removed once assigned — presence means
-"was ever classified", not "currently active"); facts carries only its mapped
-labels, so taxonomy-label patterns are topology-only. The property-flag form
-(`is_exchange`) remains the canonical cross-graph filter.
+The four role flags are `is_exchange`, `is_scam`, `is_victim` and
+`is_sanctioned`. Each is absent unless true: an address carries the flag only
+while it has a live label of that role. A flag is never `false`, so test it
+with `IS NOT NULL` or `IS NULL`, not `= false`. A withdrawn label removes its
+node label and its flag. Only `is_exchange` ends a walk.
+
+Caveats: facts carries only its mapped labels, so role-label patterns are
+topology-only. The property-flag form (`is_exchange`) remains the canonical
+filter.
 
 ## Practical guidance
 
@@ -320,4 +387,3 @@ labels, so taxonomy-label patterns are topology-only. The property-flag form
 - `docs/graph-tools.md` — tool tiers, timeouts, and capability transparency
 - Skill `chain-insights-cypher` — ISO GQL dialect and layer rules
 - Skill `chain-insights-schema-evm` — EVM / Robinhood GraphRAG map
-- Skill `chain-insights-schema-bittensor` — Bittensor GraphRAG map

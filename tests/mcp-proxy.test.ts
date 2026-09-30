@@ -485,6 +485,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).toContain('total money flow')
     expect(instructions).toContain('LINKED is served on the topology graph only')
     expect(instructions).toContain('(:Address)-[:OPERATED_BY]->(:Address)')
+    // OPERATED_BY points at the transaction sender, never at the approved spender.
+    expect(instructions).toContain(
+      "the transaction sender that moved the owner's tokens (ERC-20/721), or the event operator (ERC-1155); not the approved spender"
+    )
+    expect(instructions).not.toMatch(/approved operator/i)
     expect(instructions).toContain('not a risk label')
     expect(instructions).toContain('Call meta_network_capabilities first')
     expect(instructions).toContain('CIA does not pick a default network')
@@ -518,6 +523,111 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).not.toContain('DexTransaction')
     expect(instructions).not.toContain('SS58')
     expect(instructions).toContain('raw chain-native H160 address')
+  })
+
+  it('serves the graph names: three label_risk lists, role words, four role flags, UNSCORED', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const instructions = String(vi.mocked(McpServer).mock.calls[0]?.[1]?.instructions)
+    // The three per-label risk lists, as parallel lists, never one label_risk property.
+    for (const list of [
+      'label_risk_labels',
+      'label_risk_levels',
+      'label_risk_updated_timestamps',
+    ]) {
+      expect(instructions).toContain(list)
+    }
+    expect(instructions).not.toMatch(/label_risk\b(?!_)/)
+    // An absent risk_score is UNSCORED, which is no signal and never low risk.
+    expect(instructions).toContain('An absent risk_score means UNSCORED')
+    // Role words and the four role flags, each flag present only when true.
+    for (const word of ['Exchange', 'Scam', 'Victim', 'Sanctioned']) {
+      expect(instructions).toMatch(new RegExp(`\\b${word}\\b`))
+    }
+    for (const pair of [
+      ':Exchange and is_exchange follow the exchange label',
+      ':Scam and is_scam the risk label',
+      ':Victim and is_victim the protection label',
+      ':Sanctioned and is_sanctioned the sanctioned label',
+    ]) {
+      expect(instructions).toContain(pair)
+    }
+    expect(instructions).toContain('present only when true and absent otherwise, never false')
+    expect(instructions).not.toMatch(/is_(exchange|scam|victim|sanctioned)\s*=\s*false/)
+    // Labels are role words, never detector names.
+    expect(instructions).toContain('role words, never detector names')
+    expect(instructions).not.toMatch(/FAKE_TOKEN|FAKE TOKEN|PHANTOM_TRANSFER/)
+    // Names the graph retired.
+    for (const retired of [
+      'swap_envelope',
+      'assets_paired',
+      'first_tx_id',
+      'last_tx_id',
+      'bucket_start_timestamp',
+      'bucket_end_timestamp',
+      'owner_last_height',
+      'updated_through_height',
+      'creation_type',
+      'pattern_type',
+    ]) {
+      expect(instructions).not.toContain(retired)
+    }
+    // A walk passes a labelled node with no is_exchange.
+    expect(instructions).toContain('is_exchange is absent unless true')
+  })
+
+  it('reads swap attribution from SWAPPED or the facts SWAP row, never from FLOWS_TO', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const instructions = String(vi.mocked(McpServer).mock.calls[0]?.[1]?.instructions)
+    expect(instructions).toContain(
+      'Swap attribution is read from SWAPPED, the aggregate (strength, pools, families), or from the USE facts SWAP row, one route. FLOWS_TO carries value only.'
+    )
+    // FLOWS_TO carries value only: no swap property is named on it.
+    for (const stamp of [
+      'swap.kind',
+      'swap.family',
+      'swap.deployment',
+      'swap.pool',
+      'swap.route_id',
+      'swap_envelope',
+      'assets_paired',
+    ]) {
+      expect(instructions).not.toContain(stamp)
+    }
+    expect(instructions).toContain(
+      'FLOWS_TO properties are tx_count, amount_usd_sum, first_seen_timestamp, last_seen_timestamp.'
+    )
+  })
+
+  it('lists the four served FLOWS_TO fields and names the sync bookkeeping as internal', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const instructions = String(vi.mocked(McpServer).mock.calls[0]?.[1]?.instructions)
+    // The four served fields, then the two internal ones, named and not to be queried.
+    expect(instructions).toContain(
+      'FLOWS_TO properties are tx_count, amount_usd_sum, first_seen_timestamp, last_seen_timestamp. pair_key and synced_through_height are internal sync bookkeeping, not to be queried.'
+    )
+    // Readers are never told the two internal fields do not exist.
+    expect(instructions).not.toContain('No other edge fields exist')
   })
 
   it('forwards tool call arguments to remoteClient.callTool', async () => {
@@ -1361,13 +1471,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                       system_labels: ['Address', 'Validator'],
                       live_risk_score: 0.91,
                       live_risk_level: 'critical',
-                      label_risk: [
-                        {
-                          label: 'Scam laundering intermediate',
-                          risk_level: 'high',
-                          updated_timestamp: 1700000000000,
-                        },
-                      ],
+                      label_risk_labels: ['Scam laundering intermediate'],
+                      label_risk_levels: ['high'],
+                      label_risk_updated_timestamps: [1700000000000],
                       degree_in: 3,
                       degree_out: 4,
                     },

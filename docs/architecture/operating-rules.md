@@ -66,8 +66,8 @@ knowledge skill during the 2026-07-28 docs-layer rework.
   access → run AML tools.
 - Localhost endpoints are fine in debugging docs. Private paths are not.
 - The shipped product skills under `skills/` are
-  `chain-insights-address-risk`, `chain-insights-cypher`,
-  `chain-insights-schema-evm`, and `chain-insights-schema-bittensor`.
+  `chain-insights-address-risk`, `chain-insights-cypher`, and
+  `chain-insights-schema-evm`.
   They are a separate product surface
   packaged into the npm tarball and enforced by
   `tests/skills-contract.test.ts`. A capability no skill mentions is

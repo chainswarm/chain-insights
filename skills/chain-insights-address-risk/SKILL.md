@@ -42,6 +42,6 @@ graph_query` or `cia mcp call graph_query_batch` for custom low-level reads.
 The MCP proxy exposes `aml_address_risk` directly to AI agents as a
 Chain Insights workflow tool.
 
-After the screen, load the schema skill for that network:
-`chain-insights-schema-evm` or `chain-insights-schema-bittensor`.
+After the screen, load the schema skill for the network:
+`chain-insights-schema-evm`.
 Use `chain-insights-cypher` only for extra graph reads.

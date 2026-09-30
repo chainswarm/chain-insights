@@ -160,17 +160,18 @@ function addressProfileQuery(address: string): { id: string; query: string } {
   // risk source (the retired facts_risk_scores_view never had a risk_level
   // column, so UNSCORED abstention was invisible until this move).
   const riskFields = ', a.risk_score AS live_risk_score, a.risk_level AS live_risk_level'
-  // label_risk is the per-label risk overlay graphsync now materializes
-  // directly on the node (P2b′): a list of {label, risk_level,
-  // updated_timestamp} maps, one per current label row. Missing/empty is "no
-  // label-risk signal," never an error -- the retired facts_address_labels_view
-  // read is gone; this replaces it entirely.
-  const labelRiskField = ', a.label_risk AS label_risk'
+  // Per-label risk is the overlay graphsync materializes on the node, one
+  // entry per current label row. DozerDB properties cannot hold a list of
+  // maps, so it is three parallel lists: label_risk_labels, label_risk_levels
+  // and label_risk_updated_timestamps. deriveLabelRows zips them back.
+  // Missing/empty is "no label-risk signal," never an error.
+  const labelRiskFields =
+    ', a.label_risk_labels AS label_risk_labels, a.label_risk_levels AS label_risk_levels, a.label_risk_updated_timestamps AS label_risk_updated_timestamps'
   return {
     id: 'address_profile',
     query: [
       `MATCH (a:Address {address: "${escapeCypherString(address)}"})`,
-      `RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange${riskFields}${labelRiskField}`,
+      `RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange${riskFields}${labelRiskFields}`,
       'LIMIT 1',
     ].join(' '),
   }
@@ -692,13 +693,12 @@ function riskDrivers(
   return [...new Set(drivers)]
 }
 
-// Derives the deterministic labelRows subset from the profile row's
-// a.label_risk property (topology, P2b′), reproducing the retired
+// Derives the deterministic labelRows subset from the profile row's three
+// label_risk_* lists (topology), reproducing the retired
 // addressLabelRiskQuery's `ORDER BY label.updated_timestamp DESC LIMIT 10`
-// subset byte-for-byte: same sort, same cap. Each entry already carries
-// {label, risk_level, updated_timestamp} -- no separate name/level pairing
-// is needed. Missing/empty property -> empty array, same as "no labels"
-// behaved under the old facts read.
+// subset byte-for-byte: same sort, same cap. The lists are parallel: entry i
+// of each one describes the same label row. Missing/empty lists -> empty
+// array, same as "no labels" behaved under the old facts read.
 function deriveLabelRows(profile: Record<string, unknown>): Array<Record<string, unknown>> {
   // Dozer/Neo4j properties cannot store lists of maps. Sync therefore
   // materializes the three map fields as parallel primitive arrays.
