@@ -3,6 +3,25 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.37.0] - 2026-10-02 — feat: coverage says how far each kind of data reaches
+
+### Added
+
+- `meta_network_capabilities` passes three things through from the graph
+  server, which the mirror dropped before:
+  `coverage.complete_through_block` (the lowest raw-data lane: below it every
+  raw relationship is indexed), `lane_progress` (each writer lane's height,
+  `null` for a lane that has not started) and `graph_progress` (the height of
+  each topology link layer and their lowest). All three are optional and
+  absent on an older graph server.
+- One graph query hint: an empty answer above a floor may mean "not indexed
+  yet", and an absent `chain_tip_block` means the indexers are catching up.
+  Read `freshness.max_data_age_seconds` for the lag.
+
+### Security
+
+- `hono` is raised past 4.13.7 (GHSA-hxh3-vqpv-xpqv, moderate).
+
 ## [0.36.0] - 2026-09-30 — feat: the readers follow the rebuilt graph
 
 ### Changed
