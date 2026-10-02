@@ -10,6 +10,8 @@ export interface NetworkTopologyLayer {
     to_timestamp?: string
     chain_tip_block?: number
     blocks_behind_tip?: number
+    /** Lowest height among the raw-data lanes that have started. Above it an empty answer may mean "not indexed yet". */
+    complete_through_block?: number
   }
 }
 
@@ -33,6 +35,8 @@ export interface NetworkCapability {
     to_timestamp?: string
     chain_tip_block?: number
     blocks_behind_tip?: number
+    /** Lowest height among the raw-data lanes that have started. Above it an empty answer may mean "not indexed yet". */
+    complete_through_block?: number
   }
   freshness?: {
     last_processed_at?: string
@@ -40,6 +44,20 @@ export interface NetworkCapability {
     max_data_age_seconds?: number
     last_processing_duration_seconds?: number
   }
+  lane_progress?: NetworkLaneProgress[]
+  graph_progress?: NetworkGraphProgress
+}
+
+/** One writer lane's committed height. null: the lane has not started. */
+export interface NetworkLaneProgress {
+  lane: string
+  height: number | null
+}
+
+/** How far each block layer of the topology graph reaches, and their lowest. */
+export interface NetworkGraphProgress {
+  complete_through_block: number
+  layers: { layer: string; position: number }[]
 }
 
 export interface NetworkCapabilitiesDocument {
@@ -62,6 +80,29 @@ function advertisedTools(raw: unknown): Record<string, string> {
   return tools
 }
 
+function advertisedLaneProgress(raw: unknown): NetworkLaneProgress[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  const lanes: NetworkLaneProgress[] = []
+  for (const entry of raw) {
+    if (!isRecord(entry) || typeof entry.lane !== 'string' || entry.lane.trim() === '') continue
+    if (typeof entry.height === 'number') lanes.push({ lane: entry.lane, height: entry.height })
+    else if (entry.height === null) lanes.push({ lane: entry.lane, height: null })
+  }
+  return lanes
+}
+
+function advertisedGraphProgress(raw: unknown): NetworkGraphProgress | undefined {
+  if (!isRecord(raw) || typeof raw.complete_through_block !== 'number') return undefined
+  if (!Array.isArray(raw.layers)) return undefined
+  const layers: NetworkGraphProgress['layers'] = []
+  for (const entry of raw.layers) {
+    if (!isRecord(entry) || typeof entry.layer !== 'string' || typeof entry.position !== 'number')
+      continue
+    layers.push({ layer: entry.layer, position: entry.position })
+  }
+  return { complete_through_block: raw.complete_through_block, layers }
+}
+
 function advertisedNetwork(raw: unknown): NetworkCapability | null {
   if (!isRecord(raw) || typeof raw.network !== 'string' || raw.network.trim() === '') {
     return null
@@ -82,6 +123,10 @@ function advertisedNetwork(raw: unknown): NetworkCapability | null {
   if (isRecord(raw.coverage)) capability.coverage = raw.coverage as NetworkCapability['coverage']
   if (isRecord(raw.freshness))
     capability.freshness = raw.freshness as NetworkCapability['freshness']
+  const laneProgress = advertisedLaneProgress(raw.lane_progress)
+  if (laneProgress) capability.lane_progress = laneProgress
+  const graphProgress = advertisedGraphProgress(raw.graph_progress)
+  if (graphProgress) capability.graph_progress = graphProgress
   return capability
 }
 
