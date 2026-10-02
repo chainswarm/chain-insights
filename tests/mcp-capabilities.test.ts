@@ -459,4 +459,67 @@ describe('MCP network capabilities', () => {
     expect(output).not.toContain('retention')
     expect(output).not.toContain('window_days')
   })
+  it('passes the coverage floor, every lane and the graph progress through', async () => {
+    const { mirrorGraphNetworkCapabilities } = await import('../src/mcp/capabilities.js')
+    const result = mirrorGraphNetworkCapabilities({
+      networks: [
+        {
+          network: 'robinhood',
+          status: 'live',
+          tools: {},
+          coverage: { to_block: 33750000, complete_through_block: 11746537 },
+          lane_progress: [
+            { lane: 'core_dex_follow', height: 11746537 },
+            { lane: 'core_smart_account_follow', height: null },
+            { lane: '', height: 5 },
+            'junk',
+          ],
+          graph_progress: {
+            complete_through_block: 11341125,
+            layers: [
+              { layer: 'flows', position: 32111999 },
+              { layer: 'dex_swaps', position: 11341125 },
+              { layer: 'broken' },
+            ],
+          },
+        },
+      ],
+    })
+
+    const network = result.networks[0]
+    expect(network?.coverage?.complete_through_block).toBe(11746537)
+    expect(network?.coverage?.chain_tip_block).toBeUndefined()
+    expect(network?.lane_progress).toEqual([
+      { lane: 'core_dex_follow', height: 11746537 },
+      { lane: 'core_smart_account_follow', height: null },
+    ])
+    expect(network?.graph_progress).toEqual({
+      complete_through_block: 11341125,
+      layers: [
+        { layer: 'flows', position: 32111999 },
+        { layer: 'dex_swaps', position: 11341125 },
+      ],
+    })
+  })
+
+  it('leaves the graph progress out when GraphRAG sends none or a malformed one', async () => {
+    const { mirrorGraphNetworkCapabilities } = await import('../src/mcp/capabilities.js')
+    const result = mirrorGraphNetworkCapabilities({
+      networks: [
+        { network: 'robinhood', status: 'live', tools: {} },
+        {
+          network: 'base',
+          status: 'live',
+          tools: {},
+          graph_progress: { layers: 'x' },
+          lane_progress: 7,
+        },
+      ],
+    })
+
+    expect(result.networks[0]?.graph_progress).toBeUndefined()
+    expect(result.networks[0]?.lane_progress).toBeUndefined()
+    expect(result.networks[1]?.graph_progress).toBeUndefined()
+    expect(result.networks[1]?.lane_progress).toBeUndefined()
+  })
 })
