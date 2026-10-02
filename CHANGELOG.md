@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.37.1] - 2026-10-03 — fix: aml_address_risk no longer caps its graph queries at 10 s
+
+### Fixed
+
+- `aml_address_risk` sent `per_query_timeout_seconds: 10` with every graph
+  batch. A caller's value can only lower the server's ceiling, so the tool
+  kept the old 10 s limit after the graph MCP moved to 60 s per topology
+  query (100 s per batch). The tool now sends no per-query value and gets the
+  server's ceiling. The 5-minute request timeout is unchanged.
+
 ## [0.37.0] - 2026-10-02 — feat: coverage says how far each kind of data reaches
 
 ### Added
