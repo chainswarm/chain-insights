@@ -3,6 +3,47 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.37.3] - 2026-10-03 — fix: the guide says how to read swaps until the graph server is fixed
+
+This release changes text and tests only. It does not fix the read. The graph
+server fix is tracked as graph server issue 1121.
+
+### Changed
+
+- The schema guide, the dialect skill, `docs/graph-tools.md`,
+  `docs/graph-query-compatibility.md`, the served graph hints and the
+  workspace runtime notes now say: do not return, filter or order by `pools` in
+  a `USE facts` `SWAP` read. Every such read fails at the warehouse query
+  memory limit with `facts query could not be completed`: by address, by day
+  and by `tx_id`. The server builds `pools` with a read of every swap day that
+  ignores the day and the transaction bound. Until the fix ships:
+  - Read `SWAP` rows by `tx_id` or by a bare `block_date` bound, and leave
+    `pools` out. The server accepts a bare `block_date` bound on a `SWAP` read,
+    beside the address and `tx_id` rules the same pages state. A read by
+    address can fail for a busy address, even without `pools`.
+  - Only `pools` comes from the failing part of the warehouse view.
+    `pool_keys` and `families` come from the main read.
+  - For the pools of a swap, read `SWAPPED.pools` on `USE topology`, anchored
+    on the payer or the recipient. A `SWAPPED` link covers every route of one
+    payer, recipient and asset pair, so it gives the pools of the link, not of
+    one route.
+  - Every one of these texts is marked temporary and names the issue, so each
+    is removed when the fix ships. The `SWAP` property table in the schema
+    guide says not to return, filter or order by `pools` for now.
+- The two documented recipes that returned `pools` from a `USE facts` `SWAP`
+  read (one transaction's swap routes, in the dialect skill and in
+  `docs/graph-tools.md`) no longer return it. `docs/graph-tools.md` gains a
+  `USE topology` recipe for the pools of the swaps from one payer.
+
+### Added
+
+- Tests that pin the temporary text in the schema guide, the dialect skill,
+  both docs, the served graph hints and the workspace runtime notes, and that
+  no shipped recipe uses `pools` in a `USE facts` `SWAP` read, whether it
+  returns, filters or orders by it. The recipe test reads the documented
+  recipes, the query corpus, the skills, the docs, the README and the served
+  graph hints.
+
 ## [0.37.2] - 2026-10-03 — fix: cia waits for graph answers, and the guide says what the graph holds
 
 ### Fixed

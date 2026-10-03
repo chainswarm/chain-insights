@@ -76,6 +76,20 @@ of truth.
 - `SWAP` and `LIQUIDITY_*` rows need an address on either endpoint or a
   `tx_id` equality. `BRIDGE_CROSSING` rows need a bare `block_date` bound or
   a `tx_id` equality.
+- **Temporary, until graph server issue 1121 is fixed. Remove this note when
+  it ships.**
+  - Do not return, filter or order by `pools` in a `USE facts` `SWAP` read.
+    Every such read fails at the warehouse query memory limit with
+    `facts query could not be completed`: by address, by day and by `tx_id`.
+  - Only `pools` is built by the failing part of the warehouse view.
+    `pool_keys` and `families` come from the main read.
+  - Read `SWAP` rows by `tx_id` or by a bare `block_date` bound, and leave
+    `pools` out. The server accepts a bare `block_date` bound on a `SWAP` read.
+    A read by address can fail for a busy address, even without `pools`.
+  - For the pools of a swap, read `SWAPPED.pools` on `USE topology`, anchored
+    on the payer or the recipient. `SWAPPED` has one link per payer,
+    recipient, sold asset and bought asset, so its `pools` cover every route
+    on the link, not one route.
 - `block_timestamp` on `SWAP` and `LIQUIDITY_*` rows is epoch milliseconds,
   in filters and in results, as on `TRANSFER`.
 - On a facts row, USD comes from the daily price services, never from a swap.
@@ -127,12 +141,21 @@ cia mcp call graph_query \
   'query=USE topology MATCH (victim:Address {address: "0x..."})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, paid.amount_usd_sum AS paid_in_usd, removal.usd AS removed_usd, removal.receiver_added_usd AS receiver_added_usd, removal.usd - removal.receiver_added_usd AS receiver_profit_usd, removal.receiver_provided AS receiver_provided ORDER BY removed_usd DESC LIMIT 25'
 ```
 
-One transaction's swap routes, with their strength and pools:
+One transaction's swap routes, with their strength and no `pools`:
 
 ```bash
 cia mcp call graph_query \
   network=robinhood \
-  'query=USE facts MATCH (payer:Address)-[s:SWAP]->(recipient:Address) WHERE s.tx_id = "0x..." RETURN payer.address AS payer, recipient.address AS recipient, s.strength AS strength, s.reason AS reason, s.route_id AS route_id, s.pools AS pools, s.sold_asset_symbol AS sold, s.sold_usd AS sold_usd, s.bought_asset_symbol AS bought, s.bought_usd AS bought_usd LIMIT 10'
+  'query=USE facts MATCH (payer:Address)-[s:SWAP]->(recipient:Address) WHERE s.tx_id = "0x..." RETURN payer.address AS payer, recipient.address AS recipient, s.strength AS strength, s.reason AS reason, s.route_id AS route_id, s.sold_asset_symbol AS sold, s.sold_usd AS sold_usd, s.bought_asset_symbol AS bought, s.bought_usd AS bought_usd LIMIT 10'
+```
+
+The pools of the swaps from one payer, from `USE topology`. This is the read
+for pools while the temporary note above stands:
+
+```bash
+cia mcp call graph_query \
+  network=robinhood \
+  'query=USE topology MATCH (payer:Address {address: "0x..."})-[s:SWAPPED]->(recipient:Address) RETURN recipient.address AS recipient, s.sold_asset AS sold_asset, s.bought_asset AS bought_asset, s.pools AS pools, s.swap_count AS swap_count LIMIT 25'
 ```
 
 A relationship is served only where its data exists. Check

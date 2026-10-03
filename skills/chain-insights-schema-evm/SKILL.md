@@ -550,11 +550,26 @@ included. Filter it by an address on either endpoint or by a `tx_id`
 equality. `block_timestamp` is epoch milliseconds, in filters and in
 results, as on `TRANSFER`.
 
+**Temporary, until graph server issue 1121 is fixed. Remove this note when it ships.**
+
+- Do not return, filter or order by `pools` in a `USE facts` `SWAP` read. Every
+  such read fails at the warehouse query memory limit with
+  `facts query could not be completed`: by address, by day and by `tx_id`.
+- Only `pools` is built by the failing part of the warehouse view. `pool_keys`
+  and `families` come from the main read.
+- Read `SWAP` rows by `tx_id` or by a bare `block_date` bound, and leave `pools`
+  out. The server accepts a bare `block_date` bound on a `SWAP` read. A read by
+  address can fail for a busy address, even without `pools`.
+- For the pools of a swap, read `SWAPPED.pools` on `USE topology`, anchored on
+  the payer or the recipient. `SWAPPED` has one link per payer, recipient, sold
+  asset and bought asset, so its `pools` cover every route on the link, not one
+  route.
+
 | Property group | Properties                                                                                                                                                                  |
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Where          | `block_date`, `block_height`, `block_timestamp`, `tx_id`, `row_index`                                                                                                       |
 | Claim          | `strength` (`swap` or `swap_like`), `reason` (why a claim is `swap_like`: `unknown_pool_code` today), `route_id` (ties every leg of one route together), `registry_version` |
-| Parties        | `payer`, `recipient`, `pools` (in route order), `pool_keys`, `families`                                                                                                     |
+| Parties        | `payer`, `recipient`, `pools` (in route order; do not return, filter or order by it, see the temporary note above), `pool_keys`, `families`                                 |
 | Sold side      | `sold_asset`, `sold_asset_symbol`, `sold_decimals`, `sold_amount_raw`, `sold_amount`, `sold_price_usd`, `sold_usd`, `sold_price_missing`                                    |
 | Bought side    | `bought_asset`, `bought_asset_symbol`, `bought_decimals`, `bought_amount_raw`, `bought_amount`, `bought_price_usd`, `bought_usd`, `bought_price_missing`                    |
 
