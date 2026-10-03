@@ -612,6 +612,42 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     )
   })
 
+  it('says tx_count counts internal native transfers that no MCP read lists yet', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const instructions = String(vi.mocked(McpServer).mock.calls[0]?.[1]?.instructions)
+    expect(instructions).toContain('internal native transfers')
+    expect(instructions).toContain('lists the first group only')
+    expect(instructions).toContain('no MCP read lists internal transfers yet')
+    // The recency window is a server setting, so the client text says "today".
+    expect(instructions).toContain('a recent window (90 days today)')
+    // The anchor query stays, for a pair that has token or native transfers.
+    expect(instructions).toContain('RETURN t.tx_id ORDER BY t.block_timestamp ASC LIMIT 1')
+  })
+
+  it('says no swap has strength swap today and a 0 on SWAPPED USD can mean no price', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const instructions = String(vi.mocked(McpServer).mock.calls[0]?.[1]?.instructions)
+    expect(instructions).toContain('Today no route is swap')
+    expect(instructions).toContain('every served route is swap_like')
+    expect(instructions).toContain('swap_unsplit')
+    expect(instructions).toContain('a route side with no price adds 0, so 0 can mean no price')
+    expect(instructions).not.toContain('no reviewed family')
+  })
+
   it('lists the four served FLOWS_TO fields and names the sync bookkeeping as internal', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)

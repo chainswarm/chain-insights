@@ -48,6 +48,18 @@ other names: see [Facts labels and relationships](#facts-labels-and-relationship
 
 One edge holds the lifetime totals of one pair. Single events are facts rows.
 
+## Bookkeeping fields on links
+
+These fields show up in `keys()`. They are not part of the contract. Do not
+filter, sort or group on them.
+
+| Field                   | On                                                                                                                                        | Meaning                                                                                                                                                                                            |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `synced_through_height` | `FLOWS_TO`, `SWAPPED`, `OPERATED_BY`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`, `BRIDGED`, `APPROVED`, `SPONSORED`, `BUNDLED`, `SIGNED_FOR` | End block of the last sync range added into the link. The link holds every event up to this block. `graph_progress` in `meta_network_capabilities` says how far each kind of link has been synced. |
+| `pair_key`              | `FLOWS_TO`, `SWAPPED`                                                                                                                     | Lookup key the sync builds from the ids of the two nodes. It can change when the graph is rebuilt.                                                                                                 |
+
+`LINKED`, `DEPLOYED_CONTRACT` and `SIGNED_AUTHORIZATION` carry neither field.
+
 ## Address properties
 
 | Property                                                                      | Notes                                                                        |
@@ -64,6 +76,12 @@ One edge holds the lifetime totals of one pair. Single events are facts rows.
 | `first_activity_timestamp` / `last_activity_timestamp` / `activity_span_days` | Activity window.                                                             |
 
 There is no `AddressLabel` node and no `HAS_LABEL` or `HAS_RISK_SCORE` edge.
+
+A contract address also carries `is_contract` and the creation fields
+`contract_creation_tx_id`, `contract_creation_type`,
+`contract_creation_confidence`, `contract_creation_block_height` and
+`contract_creation_timestamp`. They come from its newest creation.
+`is_contract` is `true` or absent.
 
 `UNSCORED` means the model gave the address no verdict: it has no
 `risk_score`, and a run that dropped it writes `risk_level` `UNSCORED`. Read
@@ -109,15 +127,23 @@ LIMIT 1
 
 Lifetime aggregates. USD only. Do not use native `amount_sum`.
 
-| Property                                       | Notes                       |
-| ---------------------------------------------- | --------------------------- |
-| `tx_count`                                     | Transfer count on the pair. |
-| `amount_usd_sum`                               | Lifetime USD.               |
-| `first_seen_timestamp` / `last_seen_timestamp` | First and last flow time.   |
+| Property                                       | Notes                                                                                                                                               |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tx_count`                                     | Count on the pair: token and native transfers plus internal native transfers (a contract sending ETH during a call, such as the ETH leg of a wrap). |
+| `amount_usd_sum`                               | Lifetime USD, internal native transfers included.                                                                                                   |
+| `first_seen_timestamp` / `last_seen_timestamp` | First and last flow time.                                                                                                                           |
 
-`FLOWS_TO` carries value only. Compute an average inline:
-`amount_usd_sum / toFloat(tx_count)`. A flow's transactions are `TRANSFER` rows
-on `USE facts`: see [Facts labels and relationships](#facts-labels-and-relationships).
+`FLOWS_TO` carries value only. Its `pair_key` and `synced_through_height` are
+[bookkeeping](#bookkeeping-fields-on-links). Compute an average inline:
+`amount_usd_sum / toFloat(tx_count)`.
+
+`tx_count` counts token and native transfers and also internal native
+transfers. `USE facts` `TRANSFER` lists the first group only. No MCP read
+lists an internal native transfer yet, so a pair can have a `tx_count` above
+0 and no `TRANSFER` row. An address-only `TRANSFER` read covers a recent
+window (90 days today), and a link covers all time: bound the read with
+`block_date` to read further back. See
+[Facts labels and relationships](#facts-labels-and-relationships).
 
 `FLOWS_TO` into and out of pools stays as it is. A pool is a real
 counterparty. Follow the [pool trace rule](#pool-trace-rule) when a trace
@@ -192,24 +218,59 @@ Swap attribution is read from `SWAPPED`, the aggregate (`strength`, `pools`,
 `families`), or from the facts `SWAP` row, one route. `FLOWS_TO` carries value
 only, so it holds no swap stamp.
 
-| Property                                 | Notes                                                          |
-| ---------------------------------------- | -------------------------------------------------------------- |
-| `sold_asset` / `bought_asset`            | Asset contract. `native` is the chain's native asset.          |
-| `swap_count`                             | Routes summed on the edge.                                     |
-| `sold_amount_raw` / `bought_amount_raw`  | Exact raw token quantities, not USD.                           |
-| `sold_usd` / `bought_usd`                | USD at the daily price. Empty when no price service covers it. |
-| `pools`                                  | Pool addresses the routes used.                                |
-| `families`                               | Protocol families, for example `uniswap-v2`, or `unknown`.     |
-| `strength`                               | The weakest route counted: `swap` or `swap_like`.              |
-| `first_seen_height` / `last_seen_height` | First and last block height.                                   |
+| Property                                 | Notes                                                                                                                                                |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sold_asset` / `bought_asset`            | Asset contract. `native` is the chain's native asset.                                                                                                |
+| `swap_count`                             | Routes summed on the edge.                                                                                                                           |
+| `sold_amount_raw` / `bought_amount_raw`  | Exact raw token quantities, not USD.                                                                                                                 |
+| `sold_usd` / `bought_usd`                | USD at the day price, summed over the routes on the edge. A route side with no price adds 0, so 0 can mean no price. Do not read 0 as worth nothing. |
+| `pools`                                  | Pool addresses the routes used.                                                                                                                      |
+| `families`                               | Protocol families. Today every route reads `unknown`.                                                                                                |
+| `strength`                               | The weakest route counted: `swap` or `swap_like`. Today always `swap_like`.                                                                          |
+| `first_seen_height` / `last_seen_height` | First and last block height.                                                                                                                         |
 
 - `swap`: the complete route is proven. Payer, recipient, assets, exact raw
-  amounts and conservation all check out.
-- `swap_like`: the shape is a swap, but the pool matches no reviewed family.
-  The money moved. The protocol is unidentified.
+  amounts and conservation all check out. The proof needs an execution trace
+  (the record of the calls inside a transaction).
+- `swap_like`: the shape is a swap and the money moved. The pool's code is
+  not proven, so no protocol is named.
 
-A route whose legs could not be paired makes no edge and no facts row. A
+Today no route is `swap`. The swap reader reads transaction receipts only,
+with no execution trace. Every served route is `swap_like`, with `reason`
+`unknown_pool_code` and `families` `unknown`. A Uniswap V2 or V3 swap reads
+this way. `unknown` does not mean the protocol is unsupported. A filter on
+`strength = 'swap'` or on a known family matches nothing.
+
+A route whose legs could not be paired has strength `swap_unsplit`. It has no
+payer, recipient or pool: without a trace the reader cannot tell who paid
+whom. It exists in the warehouse only. It makes no edge and no facts row.
+`strength` is `swap` or `swap_like` on `SWAPPED` and on facts `SWAP`. A
 missing `SWAPPED` edge is not proof that no swap happened.
+
+Three kinds of transaction read `swap_unsplit` today:
+
+- A Uniswap v4 swap. Every one does, by design, so v4 swaps are hidden: they
+  make no `SWAPPED` edge and no facts `SWAP` row. They were about 95% of
+  `swap_unsplit` on 2026-07-26.
+- An intent fill, such as a limit order that a settlement contract fills. It
+  has no pool.
+- A Uniswap V2 or V3 swap whose token movements do not form one input and one
+  output.
+
+The `swap_unsplit` share of a day's swap routes rises with Uniswap v4 use: 1%
+on 2026-06-18, 7% on 2026-07-10, 19% on 2026-07-26 and 32% on 2026-08-10.
+
+`sold_usd` and `bought_usd` are always numbers on a link. A route side with no
+price adds 0 to the sum, and the link has no count of unpriced routes. So a
+link with `bought_usd` 0 may be worth nothing, or may have no price. The
+facts `SWAP` row of one route tells which. `sold_price_missing` and
+`bought_price_missing` say which side had no price, and the matching
+`sold_usd` or `bought_usd` is empty there. A real 0 is rare: on 2026-07-26,
+47 of 100 swap routes had no price on the bought side, and fewer than 1 in
+100 was a real 0 USD.
+
+`pair_key` and `synced_through_height` on `SWAPPED` are
+[bookkeeping](#bookkeeping-fields-on-links).
 
 ## ADDED_LIQUIDITY and REMOVED_LIQUIDITY properties
 
@@ -282,13 +343,26 @@ ERC-1155 share this relationship type.
 
 Topology only. Do not query `OPERATED_BY` on facts.
 
-| Property                                         | Notes                                                                                 |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------- |
-| `tx_count`                                       | Operator-mediated transfers in the aggregate.                                         |
-| `amount_usd_sum`                                 | Lifetime USD through the operator.                                                    |
-| `first_seen_timestamp` / `last_seen_timestamp`   | First and last mediated transfer.                                                     |
-| `token_standard`                                 | `ERC20`/`ERC721`/`ERC1155` when unambiguous. Optional — mixed-standard pairs omit it. |
-| `owner_address` / `operator_address` / `pair_id` | Endpoint identity on the edge.                                                        |
+| Property                                         | Notes                                                                                                                      |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `tx_count`                                       | Operator-mediated transfers in the aggregate.                                                                              |
+| `amount_usd_sum`                                 | Lifetime USD through the operator.                                                                                         |
+| `first_seen_timestamp` / `last_seen_timestamp`   | First and last mediated transfer.                                                                                          |
+| `token_standard`                                 | `ERC20`/`ERC721`/`ERC1155` when unambiguous. Optional — mixed-standard pairs omit it.                                      |
+| `owner_address` / `operator_address` / `pair_id` | Endpoint identity on the edge.                                                                                             |
+| `valuation_tracked_count`                        | Transfers on the pair that are checked for a USD value: those kept with their raw amount. It can be lower than `tx_count`. |
+| `valued_count`                                   | Of those, transfers that got a USD value.                                                                                  |
+| `missing_valuation_price_count`                  | Of those, transfers with no price for their day.                                                                           |
+| `unknown_quantity_count`                         | Of those, transfers whose token decimals are unknown, so the amount is unknown.                                            |
+| `unrepresentable_quantity_count`                 | Of those, transfers whose amount does not fit the warehouse number format.                                                 |
+| `usd_range_count`                                | Of those, transfers whose USD value is 10^20 or more. No USD value is stored.                                              |
+| `valuation_complete`                             | `true` when `valued_count` equals `valuation_tracked_count`.                                                               |
+| `valuation_coverage_ratio`                       | `valued_count` divided by `valuation_tracked_count`. 0 when none is tracked.                                               |
+
+`amount_usd_sum` counts a transfer with no USD value as 0. It is a floor unless
+`valuation_complete` is true. The counters do not add up to
+`valuation_tracked_count`: a transfer that fails a basic check is tracked, is
+not valued, and sits in none of the four reason counters.
 
 `OPERATED_BY` is a topology fact. It is not proof of malicious intent and
 carries no risk label. Relayers, keeper bots, and sweepers look like drainers
@@ -313,20 +387,21 @@ LIMIT 10
 
 Call that probe `operated_by_sample` in `graph_query_batch`. Zero rows is a
 healthy result. Whole-graph high-fan-in sweeps (every operator grouped by distinct owner
-count) are valid but heavy: at millions of edges they exceed the hosted
-10-second per-query budget and can burn metered seconds. Scope both endpoints
+count) are valid but heavy: at millions of edges they can exceed the
+60-second per-query limit and burn metered seconds. Scope both endpoints
 by `network`, bound by a recent `last_seen_timestamp` window (recompute the
 cutoff), and prefer the point-anchored probe on metered endpoints.
 
 ## LINKED properties
 
-| Property         | Notes                                    |
-| ---------------- | ---------------------------------------- |
-| `basis`          | `derived` or `associated`.               |
-| `confidence`     | Overlay confidence.                      |
-| `source_event`   | Why the link exists.                     |
-| `declared_owner` | Declared controller when present.        |
-| `last_height`    | Block height of the newest owner action. |
+| Property         | Notes                                                                |
+| ---------------- | -------------------------------------------------------------------- |
+| `basis`          | `derived` or `associated`.                                           |
+| `confidence`     | Overlay confidence.                                                  |
+| `source_event`   | Why the link exists.                                                 |
+| `declared_owner` | Declared controller when present.                                    |
+| `last_height`    | Block height of the newest owner action.                             |
+| `owner_state`    | `added` on every link served. An owner that was removed has no link. |
 
 Use one visible `LINKED` hop, then `FLOWS_TO`. Do not collapse linked
 addresses into one node.
@@ -365,12 +440,14 @@ hold unlimited approvals too. Confirm with `FLOWS_TO` and label context.
 One link per contract creation, from the deployer to the contract. An address
 created twice has two links.
 
-| Property                                             | Notes                                                                 |
-| ---------------------------------------------------- | --------------------------------------------------------------------- |
-| `kind`                                               | How the contract was created.                                         |
-| `tx_id` / `block_height` / `block_timestamp`         | The creation transaction.                                             |
-| `deployer_address` / `factory_address` / `tx_origin` | Who deployed it, through which factory, and who sent the transaction. |
-| `source_event`                                       | `contract_creation`.                                                  |
+| Property                                             | Notes                                                                                                                                      |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `kind`                                               | How the contract was created.                                                                                                              |
+| `tx_id` / `block_height` / `block_timestamp`         | The creation transaction.                                                                                                                  |
+| `deployer_address` / `factory_address` / `tx_origin` | Who deployed it, through which factory, and who sent the transaction.                                                                      |
+| `source_event`                                       | `contract_creation`.                                                                                                                       |
+| `confidence_score`                                   | The indexer's confidence in how the creation was classified (`kind`). It is 1 on every creation today.                                     |
+| `call_type` / `amount`                               | Only when the creation was funded: the funding call (`CREATE` or `CREATE2`) and the native amount sent, as decimal text. Absent otherwise. |
 
 ## SPONSORED properties
 
@@ -397,10 +474,12 @@ user operations it submitted. It has the same properties as `SPONSORED`:
 One link per signing key and smart account, from the key to the account it
 signs for.
 
-| Property                       | Notes                        |
-| ------------------------------ | ---------------------------- |
-| `first_height` / `last_height` | First and last block height. |
-| `source_event`                 | `account_signer`.            |
+| Property                       | Notes                                                               |
+| ------------------------------ | ------------------------------------------------------------------- |
+| `operations`                   | User operations the key signed for the account, summed on the link. |
+| `failed_operations`            | Of those, operations whose user operation failed.                   |
+| `first_height` / `last_height` | First and last block height.                                        |
+| `source_event`                 | `account_signer`.                                                   |
 
 ## SIGNED_AUTHORIZATION properties
 
@@ -439,15 +518,15 @@ link carries an earlier run's id. A pattern is a model finding, not a verdict. R
 
 ## Facts labels and relationships
 
-| Label / relationship | Shape                                                       | Notes                                                      |
-| -------------------- | ----------------------------------------------------------- | ---------------------------------------------------------- |
-| `Address`            | —                                                           | Row endpoint only. No `network` property. No `Pool` label. |
-| `Asset`              | —                                                           | Token or native asset.                                     |
-| `TRANSFER`           | `(from:Address)-[t:TRANSFER]->(to:Address)`                 | One transfer row. Needs an indexed predicate.              |
-| `SWAP`               | `(payer:Address)-[s:SWAP]->(recipient:Address)`             | One swap route. Needs an indexed predicate.                |
-| `LIQUIDITY_ADD`      | `(provider:Address)-[l:LIQUIDITY_ADD]->(pool:Address)`      | One liquidity add. Needs an indexed predicate.             |
-| `LIQUIDITY_REMOVE`   | `(pool:Address)-[l:LIQUIDITY_REMOVE]->(receiver:Address)`   | One liquidity removal. Needs an indexed predicate.         |
-| `BRIDGE_CROSSING`    | `(sender:Address)-[c:BRIDGE_CROSSING]->(recipient:Address)` | One bridge event. Needs an indexed predicate.              |
+| Label / relationship | Shape                                                       | Notes                                                                                            |
+| -------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `Address`            | —                                                           | Row endpoint only. No `network` property. No `Pool` label.                                       |
+| `Asset`              | —                                                           | Token or native asset.                                                                           |
+| `TRANSFER`           | `(from:Address)-[t:TRANSFER]->(to:Address)`                 | One token or native transfer row. Lists no internal native transfer. Needs an indexed predicate. |
+| `SWAP`               | `(payer:Address)-[s:SWAP]->(recipient:Address)`             | One swap route. Needs an indexed predicate.                                                      |
+| `LIQUIDITY_ADD`      | `(provider:Address)-[l:LIQUIDITY_ADD]->(pool:Address)`      | One liquidity add. Needs an indexed predicate.                                                   |
+| `LIQUIDITY_REMOVE`   | `(pool:Address)-[l:LIQUIDITY_REMOVE]->(receiver:Address)`   | One liquidity removal. Needs an indexed predicate.                                               |
+| `BRIDGE_CROSSING`    | `(sender:Address)-[c:BRIDGE_CROSSING]->(recipient:Address)` | One bridge event. Needs an indexed predicate.                                                    |
 
 A relationship is served only where its data exists. Check
 `meta_network_capabilities` before you query one.
@@ -461,18 +540,23 @@ on either endpoint, or by a bare `block_date` bound. A `block_timestamp`
 window in epoch milliseconds narrows a `block_date` bound and is refused on
 its own.
 
+An address filter with no `block_date` bound covers a recent window (90 days
+today). Add a bare `block_date` bound to read older rows. `TRANSFER` lists
+token and native transfers. It lists no internal native transfer: see
+[`FLOWS_TO` properties](#flows_to-properties).
+
 `SWAP` holds one row per route of a `swap` or `swap_like` reading, self swaps
 included. Filter it by an address on either endpoint or by a `tx_id`
 equality. `block_timestamp` is epoch milliseconds, in filters and in
 results, as on `TRANSFER`.
 
-| Property group | Properties                                                                                                                                               |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Where          | `block_date`, `block_height`, `block_timestamp`, `tx_id`, `row_index`                                                                                    |
-| Claim          | `strength`, `reason` (why a claim is `swap_like`), `route_id` (ties every leg of one route together), `registry_version`                                 |
-| Parties        | `payer`, `recipient`, `pools` (in route order), `pool_keys`, `families`                                                                                  |
-| Sold side      | `sold_asset`, `sold_asset_symbol`, `sold_decimals`, `sold_amount_raw`, `sold_amount`, `sold_price_usd`, `sold_usd`, `sold_price_missing`                 |
-| Bought side    | `bought_asset`, `bought_asset_symbol`, `bought_decimals`, `bought_amount_raw`, `bought_amount`, `bought_price_usd`, `bought_usd`, `bought_price_missing` |
+| Property group | Properties                                                                                                                                                                  |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Where          | `block_date`, `block_height`, `block_timestamp`, `tx_id`, `row_index`                                                                                                       |
+| Claim          | `strength` (`swap` or `swap_like`), `reason` (why a claim is `swap_like`: `unknown_pool_code` today), `route_id` (ties every leg of one route together), `registry_version` |
+| Parties        | `payer`, `recipient`, `pools` (in route order), `pool_keys`, `families`                                                                                                     |
+| Sold side      | `sold_asset`, `sold_asset_symbol`, `sold_decimals`, `sold_amount_raw`, `sold_amount`, `sold_price_usd`, `sold_usd`, `sold_price_missing`                                    |
+| Bought side    | `bought_asset`, `bought_asset_symbol`, `bought_decimals`, `bought_amount_raw`, `bought_amount`, `bought_price_usd`, `bought_usd`, `bought_price_missing`                    |
 
 `LIQUIDITY_ADD` and `LIQUIDITY_REMOVE` hold one row per liquidity event.
 Filter them by an address on either endpoint or by a `tx_id` equality.
@@ -490,6 +574,8 @@ Filter them by an address on either endpoint or by a `tx_id` equality.
 
 `usd` sums the priced sides and is empty when neither side has a price.
 `amount0_price_missing` and `amount1_price_missing` say which side had none.
+`family` on a liquidity row is `v2` or `v3`, read from the event shape. It is
+not a swap family: swap `families` read `unknown` today.
 
 `BRIDGE_CROSSING` holds one row per bridge event. Filter it by a bare
 `block_date` bound or a `tx_id` equality. Properties: `block_date`,
@@ -498,8 +584,10 @@ Filter them by an address on either endpoint or by a `tx_id` equality.
 `asset_kind`, `amount_raw`, `source_kind`, `source_index`, `route_id`,
 `protocol`. It has no `block_timestamp`.
 
-USD comes from the daily price services, never from a swap. With no price,
-USD is empty and the matching `…price_missing` is true.
+On a facts row, USD comes from the daily price services, never from a swap.
+With no price, USD is empty and the matching `…price_missing` is true. A
+topology link sums its rows and counts a side with no price as 0: see
+[`SWAPPED` properties](#swapped-properties).
 
 A single-node `MATCH (a:Address)` on facts is refused. Lifetime metrics
 live on topology, not facts.

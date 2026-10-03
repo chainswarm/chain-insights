@@ -193,8 +193,8 @@ The address-grain graph schema:
   satellite: the address IS the graph node.
 - \`(:Address)-[:LINKED]-(:Address)\` is an **undirected** ownership-overlay
   edge (\`basis\` \`derived\`/\`associated\`, plus \`confidence\`,
-  \`source_event\`, \`declared_owner\`) asserting the two addresses are
-  controlled by the same actor. \`LINKED\` is the ownership edge within the
+  \`source_event\`, \`declared_owner\`, \`owner_state\`) asserting the two
+  addresses are controlled by the same actor. \`LINKED\` is the ownership edge within the
   advertised network — a same-network query traces
   (\`LINKED\` or \`FLOWS_TO\`) with no network switch. Walk
   one visible \`LINKED\` hop to surface actor-level exposure; never treat
@@ -224,8 +224,19 @@ The address-grain graph schema:
   \`tx_count\`, \`amount_usd_sum\` (total money flow, token and native value
   merged), \`first_seen_timestamp\`, \`last_seen_timestamp\`. \`pair_key\` and
   \`synced_through_height\` are internal sync bookkeeping, not to be queried.
-  Averages compute inline: \`r.amount_usd_sum / toFloat(r.tx_count)\`. Transaction anchors
-  resolve through the facts lane:
+  \`synced_through_height\` is also on the other summed links (\`SWAPPED\`,
+  \`OPERATED_BY\`, \`ADDED_LIQUIDITY\`, \`REMOVED_LIQUIDITY\`, \`BRIDGED\`,
+  \`APPROVED\`, \`SPONSORED\`, \`BUNDLED\`, \`SIGNED_FOR\`) and \`pair_key\` on
+  \`SWAPPED\`: bookkeeping there too.
+  Averages compute inline: \`r.amount_usd_sum / toFloat(r.tx_count)\`.
+  \`tx_count\` counts token and native transfers plus internal native transfers
+  (a contract sending ETH during a call), and \`amount_usd_sum\` prices them
+  all. \`USE facts\` \`TRANSFER\` lists the first group only, so a pair can have
+  a \`tx_count\` above 0 and no \`TRANSFER\` row, and no MCP read lists internal
+  transfers yet. An address-only \`TRANSFER\` read covers a recent window
+  (90 days today) and a link covers all time: bound the read with
+  \`block_date\` to read further back. For a pair with token or native
+  transfers, a transaction anchor resolves through the facts lane:
   \`USE facts MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) RETURN t.tx_id ORDER BY t.block_timestamp ASC LIMIT 1\`.
   Lifetime aggregates are the only serving window.
 - Money flow is \`(:Address)-[:FLOWS_TO]->(:Address)\`. Public AML tools
@@ -262,6 +273,17 @@ Rules:
   risk) and \`USE facts\` for bounded individual \`TRANSFER\` rows and their
   amount, \`amount_usd\`, asset, transaction, and block facts.
   The \`LINKED\` ownership overlay is served on the topology graph only.
+- Anchor every topology read that filters on a link property: put an address
+  in its pattern. Without one, a read starts from every link of the type it
+  names, and you should not count on the filter to narrow that:
+  \`WHERE x.strength = 'swap'\` on \`SWAPPED\` checks every \`SWAPPED\` link,
+  \`LIMIT\` stops the read only after enough rows match, and a filter that
+  matches few or none can run to the 60 s topology limit and fail with
+  \`query_timeout\`. Pick an address with few links: \`degree_out\` and
+  \`degree_in\` are a rough guide, because they count neighbours, not links,
+  and an address with hundreds of thousands of neighbours can fail the same
+  way. Discovery probes with \`LIMIT\` and no filter stay valid. The queries
+  of one batch share a 100 s budget; \`USE facts\` queries stop at 30 s.
 - Preserve source schema field names in generated data files.
 - Do not rename, reinterpret, or add unit labels to graph fields unless the
   schema or query result explicitly supports that interpretation.

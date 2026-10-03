@@ -5,6 +5,7 @@ import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
 import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
 import { isUnscoredRiskLevel, normalizeRiskLevel, riskSeverityRank } from './risk-level.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
+import { GRAPH_TOOL_REQUEST_TIMEOUT_MS } from '../mcp/request-timeout.js'
 import {
   createUsageAccumulator,
   usageBlock,
@@ -34,8 +35,6 @@ type QueryFailure = {
   id: string
   error: string
 }
-
-const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS = 5 * 60 * 1000
 
 export interface AddressRiskOptions {
   address: string
@@ -145,8 +144,8 @@ async function callGraphBatch(
     },
     undefined,
     {
-      timeout: GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS,
-      maxTotalTimeout: GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS,
+      timeout: GRAPH_TOOL_REQUEST_TIMEOUT_MS,
+      maxTotalTimeout: GRAPH_TOOL_REQUEST_TIMEOUT_MS,
     }
   )) as RemoteToolResult
   if (result.isError) throw new Error(textFromToolResult(result) || 'graph_query_batch failed')
@@ -1556,6 +1555,8 @@ function htmlEscape(value: unknown): string {
 // facts lane (openspec dozerdb-flows-to-slim-schema: the topology edge
 // carries no tx anchors). order 'ASC' returns the first transfer between the
 // pair, 'DESC' the latest. Bounded: LIMIT 1 on an indexed endpoint pattern.
+// A pair with only internal native transfers has no TRANSFER row, so the anchor
+// query returns nothing for it: no MCP read lists internal transfers yet.
 export function pairAnchorQuery(from: string, to: string, order: 'ASC' | 'DESC' = 'ASC'): string {
   return [
     'USE facts',

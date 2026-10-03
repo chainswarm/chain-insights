@@ -116,7 +116,9 @@ function compactEvidenceToSimpleTxs(item: unknown): SimpleTx[] {
       from: flow.src!,
       to: flow.dst!,
       // A flow edge carries value only. A flow's transaction comes from the
-      // facts graph (USE facts, TRANSFER), never from the topology edge.
+      // facts graph (USE facts, TRANSFER), never from the topology edge. A pair
+      // with only internal native transfers has no TRANSFER row, so the anchor
+      // query returns nothing for it.
       value: flow.amount_usd_sum!,
     }))
 }
