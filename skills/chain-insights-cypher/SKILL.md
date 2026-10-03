@@ -178,14 +178,14 @@ When a facts read needs hops or money flow, move it to topology.
 
 Each is a plain relationship name. None needs backquotes.
 
-| Question                               | Layer      | Pattern                                                                                 |
-| -------------------------------------- | ---------- | --------------------------------------------------------------------------------------- |
-| Who paid whom across swaps, in total   | `topology` | `(:Address)-[:SWAPPED]->(:Address)`                                                     |
-| Who added to or took out of a pool     | `topology` | `(:Address)-[:ADDED_LIQUIDITY]->(:Pool)-[:REMOVED_LIQUIDITY]->(:Address)`               |
-| Which bridge endpoint an address used  | `topology` | `(:Address)-[:BRIDGED]-(:Chain)`                                                        |
-| One swap route, its strength and pools | `facts`    | `(:Address)-[:SWAP]->(:Address)`                                                        |
-| One liquidity event                    | `facts`    | `(:Address)-[:LIQUIDITY_ADD]->(:Address)`, `(:Address)-[:LIQUIDITY_REMOVE]->(:Address)` |
-| One bridge event                       | `facts`    | `(:Address)-[:BRIDGE_CROSSING]->(:Address)`                                             |
+| Question                              | Layer      | Pattern                                                                                 |
+| ------------------------------------- | ---------- | --------------------------------------------------------------------------------------- |
+| Who paid whom across swaps, in total  | `topology` | `(:Address)-[:SWAPPED]->(:Address)`                                                     |
+| Who added to or took out of a pool    | `topology` | `(:Address)-[:ADDED_LIQUIDITY]->(:Pool)-[:REMOVED_LIQUIDITY]->(:Address)`               |
+| Which bridge endpoint an address used | `topology` | `(:Address)-[:BRIDGED]-(:Chain)`                                                        |
+| One swap route and its strength       | `facts`    | `(:Address)-[:SWAP]->(:Address)`                                                        |
+| One liquidity event                   | `facts`    | `(:Address)-[:LIQUIDITY_ADD]->(:Address)`, `(:Address)-[:LIQUIDITY_REMOVE]->(:Address)` |
+| One bridge event                      | `facts`    | `(:Address)-[:BRIDGE_CROSSING]->(:Address)`                                             |
 
 The topology edges hold lifetime totals per pair. The facts rows hold single
 events. Load `chain-insights-schema-evm` for every property.
@@ -193,6 +193,21 @@ events. Load `chain-insights-schema-evm` for every property.
 Swap attribution is read from `SWAPPED`, the aggregate (`strength`, `pools`,
 `families`), or from the facts `SWAP` row, one route. `FLOWS_TO` carries value
 only.
+
+**Temporary, until graph server issue 1121 is fixed. Remove this note when it ships.**
+
+- Do not return, filter or order by `pools` in a `USE facts` `SWAP` read. Every
+  such read fails at the warehouse query memory limit with
+  `facts query could not be completed`: by address, by day and by `tx_id`.
+- Only `pools` is built by the failing part of the warehouse view. `pool_keys`
+  and `families` come from the main read.
+- Read `SWAP` rows by `tx_id` or by a bare `block_date` bound, and leave `pools`
+  out. The server accepts a bare `block_date` bound on a `SWAP` read. A read by
+  address can fail for a busy address, even without `pools`.
+- For the pools of a swap, read `SWAPPED.pools` on `USE topology`, anchored on
+  the payer or the recipient. `SWAPPED` has one link per payer, recipient, sold
+  asset and bought asset, so its `pools` cover every route on the link, not one
+  route.
 
 Today every served swap has `strength` `swap_like` and `families` `unknown`.
 Do not filter on `strength = 'swap'`: it matches nothing. A swap that could
@@ -226,7 +241,7 @@ RETURN p.address AS pool, b.address AS receiver, r.usd AS removed_usd,
 LIMIT 50
 ```
 
-One transaction's swap routes, facts:
+One transaction's swap routes, facts, with no `pools`:
 
 ```cypher
 USE facts
@@ -234,7 +249,7 @@ MATCH (payer:Address)-[s:SWAP]->(recipient:Address)
 WHERE s.tx_id = "0x…"
 RETURN payer.address AS payer, recipient.address AS recipient,
        s.strength AS strength, s.reason AS reason, s.route_id AS route_id,
-       s.pools AS pools, s.sold_asset_symbol AS sold, s.sold_usd AS sold_usd,
+       s.sold_asset_symbol AS sold, s.sold_usd AS sold_usd,
        s.bought_asset_symbol AS bought, s.bought_usd AS bought_usd
 LIMIT 10
 ```

@@ -159,6 +159,8 @@ be treated as durable workspace state until copied into an artifact, report,
 entity note, or session note.
 `
 
+// The "Temporary" bullet under Rules is a stopgap for graph server issue 1121:
+// delete it when the fix ships.
 const RUNTIME_SKILL = `---
 name: chain-insights-runtime-schema
 description: Workspace-local Chain Insights runtime schema notes. Refresh this after connecting to a graph MCP endpoint.
@@ -284,6 +286,18 @@ Rules:
   and an address with hundreds of thousands of neighbours can fail the same
   way. Discovery probes with \`LIMIT\` and no filter stay valid. The queries
   of one batch share a 100 s budget; \`USE facts\` queries stop at 30 s.
+- Temporary, until graph server issue 1121 is fixed. Do not return, filter or
+  order by \`pools\` in a \`USE facts\` \`SWAP\` read. Every such read fails at
+  the warehouse query memory limit with \`facts query could not be completed\`:
+  by address, by day and by \`tx_id\`. Only \`pools\` is built by the failing part
+  of the warehouse view. \`pool_keys\` and \`families\` come from the main read.
+  Read \`SWAP\` rows by \`tx_id\` or by a bare \`block_date\` bound, and leave
+  \`pools\` out. The server accepts a bare \`block_date\` bound on a \`SWAP\`
+  read. A read by address can fail for a busy address, even without \`pools\`.
+  For the pools of a swap, read \`SWAPPED.pools\` on \`USE topology\`,
+  anchored on the payer or the recipient. \`SWAPPED\` has one link per payer,
+  recipient, sold asset and bought asset, so its \`pools\` cover every route on
+  the link, not one route.
 - Preserve source schema field names in generated data files.
 - Do not rename, reinterpret, or add unit labels to graph fields unless the
   schema or query result explicitly supports that interpretation.
