@@ -34,7 +34,9 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
-          cache: npm
+          # No Actions cache for npm: the runners are self-hosted and keep ~/.npm, and
+          # restoring the saved archive (5.2 GB on 2026-10-02) took longer than the
+          # job's 20-minute limit.
 
       - name: Install dependencies without lifecycle scripts
         run: npm ci --ignore-scripts --audit=false --fund=false
