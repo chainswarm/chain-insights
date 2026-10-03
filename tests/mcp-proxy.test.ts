@@ -1524,8 +1524,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(clientInstance.callTool).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'graph_query_batch',
-        arguments: expect.objectContaining({
-          per_query_timeout_seconds: 10,
+        arguments: expect.not.objectContaining({
+          per_query_timeout_seconds: expect.anything(),
         }),
       }),
       undefined,

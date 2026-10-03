@@ -35,7 +35,6 @@ type QueryFailure = {
   error: string
 }
 
-const GRAPH_QUERY_BATCH_TIMEOUT_SECONDS = 10
 const GRAPH_QUERY_BATCH_REQUEST_TIMEOUT_MS = 5 * 60 * 1000
 
 export interface AddressRiskOptions {
@@ -142,7 +141,6 @@ async function callGraphBatch(
           ...query,
           query: topologyGraphQuery(query.query),
         })),
-        per_query_timeout_seconds: GRAPH_QUERY_BATCH_TIMEOUT_SECONDS,
       },
     },
     undefined,
