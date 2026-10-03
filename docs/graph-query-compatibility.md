@@ -131,6 +131,19 @@ Edge aggregate properties (as the live backend provides them):
 | `first_seen_timestamp` / `last_seen_timestamp`   | First and last transfer time (Unix milliseconds).                                                                                                    |
 | `token_standard`                                 | `ERC20`, `ERC721`, or `ERC1155` when the pair's transfers share one unambiguous standard. Absent when mixed. Optional — do not assume it is present. |
 | `owner_address` / `operator_address` / `pair_id` | Endpoint identity copied onto the edge.                                                                                                              |
+| `valuation_tracked_count`                        | Transfers on the pair that are checked for a USD value. It can be lower than `tx_count`.                                                             |
+| `valued_count`                                   | Of those, transfers that got a USD value.                                                                                                            |
+| `missing_valuation_price_count`                  | Of those, transfers with no price for their day.                                                                                                     |
+| `unknown_quantity_count`                         | Of those, transfers whose token decimals are unknown, so the amount is unknown.                                                                      |
+| `unrepresentable_quantity_count`                 | Of those, transfers whose amount does not fit the warehouse number format.                                                                           |
+| `usd_range_count`                                | Of those, transfers whose USD value is 10^20 or more. No USD value is stored.                                                                        |
+| `valuation_complete`                             | `true` when `valued_count` equals `valuation_tracked_count`.                                                                                         |
+| `valuation_coverage_ratio`                       | `valued_count` divided by `valuation_tracked_count`. 0 when none is tracked.                                                                         |
+
+`amount_usd_sum` counts a transfer with no USD value as 0, so it is a floor
+unless `valuation_complete` is true. The valuation counters do not add up to
+`valuation_tracked_count`: a transfer that fails a basic check is tracked, is
+not valued, and sits in none of the four reason counters.
 
 The canonical probe is point-anchored and sub-second on the hosted endpoint:
 given one operator address, its top owners. Scope comes from the tool's
@@ -157,9 +170,9 @@ victim, or risk label. Confirm with money-flow and label context before
 acting.
 
 The whole-graph high-fan-in sweep — every operator grouped by distinct owner
-count — is a valid shape but a heavy one: at millions of edges it exceeds the
-hosted per-query timeout (10 seconds by default), and a sweep that times out
-can still consume the metered seconds. Scope both endpoints by the network
+count — is a valid shape but a heavy one: at millions of edges it can exceed
+the per-query limit (60 seconds by default), and a sweep that times out can
+still consume the metered seconds. Scope both endpoints by the network
 property (this match has no exact-address key, so the shared-graph rule
 applies), bound it by a recent `last_seen_timestamp` window — recompute the
 cutoff rather than copying a literal, for example now minus 7 days in Unix
@@ -200,7 +213,10 @@ An approval is a fact, not proof of malicious intent.
 
 `(:Address)-[:DEPLOYED_CONTRACT]->(:Address)` joins a deployer to the contract
 it created, one link per creation. `kind` says how it was created.
-`source_event` is `contract_creation`.
+`confidence_score` is the indexer's confidence in that reading, and it is 1 on
+every creation today. `call_type` and `amount` are set only when the creation
+was funded: the funding call (`CREATE` or `CREATE2`) and the native amount
+sent, as decimal text. `source_event` is `contract_creation`.
 
 ### `SPONSORED`, `BUNDLED`, `SIGNED_FOR` — smart accounts (topology only)
 
@@ -210,7 +226,9 @@ it created, one link per creation. `kind` says how it was created.
 - `BUNDLED`: a bundler to the smart account whose user operations it
   submitted. The same properties as `SPONSORED`.
 - `SIGNED_FOR`: a signing key to the smart account it signs for.
-  `first_height`, `last_height`, `source_event` `account_signer`.
+  `operations` (user operations the key signed for the account),
+  `failed_operations` (of those, the ones that failed), `first_height`,
+  `last_height`, `source_event` `account_signer`.
 
 ### `SIGNED_AUTHORIZATION` — the EIP-7702 link (topology only)
 
@@ -238,9 +256,9 @@ only.
 ### `LINKED` and `BRIDGED` properties
 
 `LINKED` carries `basis`, `confidence`, `source_event` `account_owner`,
-`declared_owner` and `last_height`, the block height of the newest owner
-action. `BRIDGED.totals_raw` is keyed by event kind and asset, so one sum has
-one unit.
+`declared_owner`, `owner_state` (`added` on every link served: a removed owner
+has no link) and `last_height`, the block height of the newest owner action.
+`BRIDGED.totals_raw` is keyed by event kind and asset, so one sum has one unit.
 
 ### Traversal (the expanded surface)
 
@@ -276,9 +294,11 @@ bounded so an admitted query cannot become an unbounded graph walk:
 | Non-GQL path operators/functions  | forbidden | Legacy path functions and starred path algorithms return a dialect error                 |
 | `UNWIND` literal list length      | ≤ 1000    | `UNWIND [ …1001 items… ] AS x` → _UNWIND list of 1001 items exceeds the maximum of 1000_ |
 
-Always add an explicit upper hop bound and a `LIMIT`. Writes/DDL (`CREATE`,
-`MERGE`, `SET`, `DELETE`, `DROP`, `CALL`, …) are always rejected — the surface is
-read-only.
+Always add an explicit upper hop bound and a `LIMIT`. A topology read that
+filters on a link property also needs an address in its pattern: see
+[Topology limits and errors](graph-tools.md#topology-limits-and-errors).
+Writes/DDL (`CREATE`, `MERGE`, `SET`, `DELETE`, `DROP`, `CALL`, …) are always
+rejected — the surface is read-only.
 
 ## `facts` — compiled Cypher subset
 

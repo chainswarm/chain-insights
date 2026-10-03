@@ -59,7 +59,18 @@ of truth.
   liquidity event. It carries the pool's liquidity totals.
 - `SWAPPED` joins two different addresses. A self swap is a `SWAP` row only.
   `strength` is `swap` (the whole route is proven) or `swap_like` (the shape
-  is a swap, the protocol is unidentified).
+  is a swap, the pool's code is not proven).
+- Today no route is `swap`. The swap reader reads transaction receipts only,
+  with no execution trace, and the proof needs the trace. Every served route
+  is `swap_like`, with `reason` `unknown_pool_code` and `families` `unknown`.
+  A Uniswap V2 or V3 swap reads this way. `unknown` does not mean the
+  protocol is unsupported. A filter on `strength = 'swap'` or on a known
+  family matches nothing.
+- A route that could not be paired (`swap_unsplit`) is never served. It has
+  no payer, recipient or pool. It makes no `SWAPPED` edge and no `SWAP` row,
+  and it exists in the warehouse only. Every Uniswap v4 swap reads this way
+  today, by design, so v4 swaps are hidden. The share of `swap_unsplit` rises
+  with v4 use.
 - `REMOVED_LIQUIDITY` carries `receiver_added_usd` and `receiver_provided`.
   A receiver's profit from a pool is `usd` minus `receiver_added_usd`.
 - `SWAP` and `LIQUIDITY_*` rows need an address on either endpoint or a
@@ -67,8 +78,13 @@ of truth.
   a `tx_id` equality.
 - `block_timestamp` on `SWAP` and `LIQUIDITY_*` rows is epoch milliseconds,
   in filters and in results, as on `TRANSFER`.
-- USD comes from the daily price services, never from a swap. With no price,
-  USD is empty and the matching `…price_missing` property is true.
+- On a facts row, USD comes from the daily price services, never from a swap.
+  With no price, USD is empty and the matching `…price_missing` property is
+  true.
+- `SWAPPED` sums its routes, and a route side with no price adds 0 to
+  `sold_usd` or `bought_usd`. So 0 can mean no price. Do not read 0 as worth
+  nothing. The facts `SWAP` row says which side had no price:
+  `sold_price_missing` and `bought_price_missing`.
 - Swap attribution is read from `SWAPPED`, the aggregate (`strength`, pools,
   families), or from the facts `SWAP` row, one route. `FLOWS_TO` carries value
   only.
@@ -160,6 +176,12 @@ and `:Sanctioned`. Each role also has a flag on the node.
   endpoint, a `tx_id` (the `0x` transaction hash on EVM networks), or a bare
   `block_date` bound, which `block_timestamp` bounds in epoch milliseconds
   may narrow to a time window.
+- An address-only `TRANSFER` read covers a recent window (90 days today).
+  Add a bare `block_date` bound to read further back.
+- `TRANSFER` lists token and native transfers. It lists no internal native
+  transfer, a contract sending ETH during a call. `FLOWS_TO` `tx_count`
+  counts those too, so a pair can have a `tx_count` above 0 and no
+  `TRANSFER` row. No MCP read lists internal native transfers yet.
 - Use `meta_usage_status` through Chain Insights before public hosted reads
   when you need the caller's remaining free-tier allowance.
 - Hosted endpoints can expose a public free tier for graph_query. The default
@@ -173,7 +195,8 @@ and `:Sanctioned`. Each role also has a flag on the node.
 - Use single bounded `graph_query` calls for public no-wallet free-tier usage. Use
   `graph_query_batch` for related reads that should share one paid call; public
   free-tier access does not include batches.
-- `per_query_timeout_seconds` is optional and capped at `10` by default.
+- `per_query_timeout_seconds` is optional and capped at `60` by default (`30` for
+  `USE facts`). It can lower a limit. It cannot raise one.
 - Returned rows live in `structuredContent.facts`.
 
 Agent installers ship three skills:
@@ -230,7 +253,8 @@ Batch result facts include:
     "count": 2,
     "completed": 2,
     "failed": 0,
-    "per_query_timeout_seconds": 10,
+    "live_tier_timeout_seconds": 60,
+    "starrocks_tier_timeout_seconds": 30,
     "total_query_elapsed_ms": 1345,
     "billable_seconds": 2,
     "estimated_usdc": "0.02"
@@ -244,10 +268,16 @@ Hosted `USE topology` queries share one graph database, so every query is
 bounded:
 
 - **Time:** the graph database stops a query when its time budget ends
-  (10 seconds by default, or your lower `per_query_timeout_seconds`).
+  (60 seconds by default, or your lower `per_query_timeout_seconds`).
 - **Concurrency:** at most 4 topology queries run at once on the hosted
   endpoint. A query waits for a free slot inside its own time budget.
 - **Memory:** a query that grows past the per-query memory limit is stopped.
+- **Batch:** the queries of one batch run one after another and share a
+  100-second budget. A query that would start with less than 1 second left
+  does not run. A topology query then fails with `query_timeout`. The results
+  of earlier queries still come back. `USE facts` queries stop at 30 seconds.
+  A client that sets its own request timeout needs at least 100 seconds for a
+  batch and 65 seconds for one query. `cia` waits 5 minutes.
 
 A stopped query fails with one of these codes. The code starts the error text
 and is also returned as `refusal_code` in the response metadata.
@@ -263,6 +293,33 @@ searches that cross hub addresses, such as the zero address or large routers,
 are the most common cause of `query_timeout`: one hop through a hub can touch
 millions of edges. A route or an open target keeps its one guarded shape: change
 only its addresses, never its `{0,4}` bound.
+
+A topology read that filters on a link property needs an address anchor. With
+no address in its pattern, the read starts from every link of the type it
+names. Do not count on the filter to narrow that. `WHERE x.strength = 'swap'`
+on `SWAPPED` checks every `SWAPPED` link. `LIMIT` stops the read only after it
+has found enough rows, so a filter that matches few or none can run to the
+60-second limit and fail with `query_timeout`. A discovery probe with no
+filter, such as
+`MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN r.tx_count LIMIT 20`, finds
+its rows at once and stays valid.
+
+Put an address in the pattern, and pick one with few links. Read `degree_out`
+and `degree_in` on the node first. They are a rough guide, not a guarantee:
+they count neighbours, not links, and one pair of addresses can hold many
+`SWAPPED` links. An address with hundreds of thousands of neighbours can fail
+the same way. The queries of one batch share a 100-second budget.
+
+Anchored on one address:
+
+```cypher
+USE topology
+MATCH (a:Address {address: "0x…"})-[x:SWAPPED]->(b:Address)
+WHERE x.swap_count >= 2
+RETURN b.address AS recipient, x.swap_count AS swap_count
+ORDER BY x.swap_count DESC
+LIMIT 25
+```
 
 ## Operator topology recipe
 
@@ -289,8 +346,8 @@ Notes:
 - Zero rows is a healthy result — the address simply has no mediated
   transfers.
 - Whole-graph high-fan-in sweeps (every operator grouped by distinct owner)
-  are valid but heavy; at millions of edges they exceed the hosted 10-second
-  per-query budget. See `docs/graph-query-compatibility.md` for the
+  are valid but heavy; at millions of edges they can exceed the 60-second
+  per-query limit. See `docs/graph-query-compatibility.md` for the
   time-bounded sweep shape.
 - Confirm any lead with `FLOWS_TO` money-flow context and address labels
   before drawing conclusions.

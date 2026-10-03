@@ -969,7 +969,13 @@ mcpCommand.addCommand(
             }
             return
           }
-          const result = await client.callTool({ name: tool, arguments: args })
+          // graph_query and graph_query_batch can run past the SDK's 60 s default
+          // while the server is still answering. Other tools keep that default.
+          const { graphToolRequestOptions } = await import('./mcp/request-timeout.js')
+          const requestOptions = graphToolRequestOptions(tool)
+          const result = requestOptions
+            ? await client.callTool({ name: tool, arguments: args }, undefined, requestOptions)
+            : await client.callTool({ name: tool, arguments: args })
           printMcpTextContent(
             result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
             { tool, json: opts.json }

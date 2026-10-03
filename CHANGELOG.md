@@ -3,6 +3,88 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.37.2] - 2026-10-03 — fix: cia waits for graph answers, and the guide says what the graph holds
+
+### Fixed
+
+- `cia mcp call graph_query` and `cia mcp call graph_query_batch` gave up
+  after 60 s, the MCP SDK default. The graph server may spend 60 s on one
+  topology query and 100 s on a batch, so a slow batch failed on the client
+  while the server was still working. Both calls now wait 5 minutes, the same
+  wait `aml_address_risk` already used. Every other tool keeps the SDK
+  default.
+- The stale "10 seconds" limit text is now 60 seconds. It sat in the schema
+  guide, `docs/graph-tools.md`, `docs/graph-query-compatibility.md` and the
+  sample batch answer. `per_query_timeout_seconds` is said to cap at `60` (`30`
+  for `USE facts`). It can lower a limit and cannot raise one.
+
+### Changed
+
+- A topology read that filters on a link property needs an address anchor.
+  This is in the served graph hints, the `chain-insights-cypher` skill, the
+  workspace runtime notes and `docs/graph-tools.md`, with an anchored
+  `SWAPPED` example. With no address in the pattern, the read starts from
+  every link of that type. `LIMIT` stops it only after enough rows match, so a
+  filter that matches few or none can run to the 60 s limit and fail with
+  `query_timeout`. A discovery probe with `LIMIT` and no filter stays valid.
+  `degree_out` and `degree_in` are called a rough guide for picking an
+  address: they count neighbours, not links. `docs/graph-tools.md` also
+  documents the batch budget: 100 s shared by the queries of one batch, and a
+  client that sets its own timeout needs at least 100 s for a batch.
+- The schema guide names every link field it left out, and a new "Bookkeeping
+  fields on links" section says which are not part of the contract:
+  - `synced_through_height` (on ten link kinds) and `pair_key` (`FLOWS_TO`,
+    `SWAPPED`) are sync bookkeeping. Do not filter, sort or group on them.
+  - `OPERATED_BY` valuation fields: `valuation_tracked_count`,
+    `valued_count`, `missing_valuation_price_count`, `unknown_quantity_count`,
+    `unrepresentable_quantity_count`, `usd_range_count`,
+    `valuation_complete` and `valuation_coverage_ratio`. `amount_usd_sum`
+    counts a transfer with no USD value as 0, so it is a floor unless
+    `valuation_complete` is true.
+  - `LINKED` `owner_state`, `SIGNED_FOR` `operations` and
+    `failed_operations`, and `DEPLOYED_CONTRACT` `confidence_score`,
+    `call_type` and `amount`.
+  - The contract fields on an address: `is_contract` and the
+    `contract_creation_*` fields.
+  - The facts `SWAP` claim names its `strength` values (`swap` or
+    `swap_like`).
+- `FLOWS_TO` `tx_count` is described as it is counted. A link counts token and
+  native transfers plus internal native transfers (a contract sending ETH
+  during a call), and `amount_usd_sum` prices them all. `USE facts` `TRANSFER`
+  lists the first group only, and no MCP read lists internal native transfers
+  yet. So a pair can have a `tx_count` above 0 and no `TRANSFER` row, and the
+  transaction anchor query returns nothing for it. The guide said a flow's
+  transactions are `TRANSFER` rows. It also says an address-only `TRANSFER`
+  read covers a recent window (90 days today) while a link covers all time:
+  bound the read with `block_date` to read further back.
+- The swap guide says what `swap_like` and `swap_unsplit` mean today. No route
+  is `swap`: the swap reader reads transaction receipts only, with no
+  execution trace. Every served route is `swap_like`, with `reason`
+  `unknown_pool_code` and `families` `unknown`. A Uniswap V2 or V3 swap reads
+  this way, and `unknown` does not mean the protocol is unsupported. A filter
+  on `strength = 'swap'` or on a known family matches nothing. A route that
+  could not be paired (`swap_unsplit`) has no payer, recipient or pool. It
+  makes no `SWAPPED` edge and no `SWAP` row, and it exists in the warehouse
+  only. Every Uniswap v4 swap is `swap_unsplit` today, by design, so v4 swaps
+  are hidden. The guide gives the share on four days: 1%, 7%, 19% and 32%.
+  The facts `family` of a liquidity row (`v2` or `v3`) is not a swap family.
+  The words "no reviewed family" are gone.
+- `SWAPPED` `sold_usd` and `bought_usd` sum the routes on the edge, and a
+  route side with no price adds 0. So 0 can mean no price, and it must not
+  be read as worth nothing. The facts `SWAP` row of one route says which side
+  had none (`sold_price_missing`, `bought_price_missing`). On 2026-07-26, 47 of
+  100 swap routes had no price on the bought side. The older text said USD is
+  empty when no service prices the asset. It now says that holds on a facts
+  row only.
+
+### Added
+
+- Tests that pin the guide against the fields the graph serves (a table of
+  the keys each link kind carries, checked against the schema guide, the
+  served hints and the runtime notes), the `tx_count`, swap strength and USD
+  wording, the absence of the old 10-second limit text, and the 5-minute wait
+  of the two graph tools in the real `cia mcp call` command.
+
 ## [0.37.1] - 2026-10-03 — fix: aml_address_risk no longer caps its graph queries at 10 s
 
 ### Fixed

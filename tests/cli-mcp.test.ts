@@ -207,7 +207,11 @@ async function runMcpCallAction(
     await client.close()
     return
   }
-  const result = await client.callTool({ name: tool, arguments: args })
+  const { graphToolRequestOptions } = await import('../src/mcp/request-timeout.js')
+  const requestOptions = graphToolRequestOptions(tool)
+  const result = requestOptions
+    ? await client.callTool({ name: tool, arguments: args }, undefined, requestOptions)
+    : await client.callTool({ name: tool, arguments: args })
   printMcpTextContent(
     result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
     { tool, json: opts.json }
@@ -441,16 +445,56 @@ describe('CLI mcp subcommand (MCP-02)', () => {
       'per_query_timeout_seconds=10',
     ])
 
-    expect(mockClientCallTool).toHaveBeenCalledWith({
-      name: 'graph_query_batch',
-      arguments: {
-        network: 'robinhood',
-        queries: [
-          { id: 'count', query: 'USE topology MATCH (n) RETURN count(n) AS count LIMIT 1' },
-        ],
-        per_query_timeout_seconds: 10,
+    expect(mockClientCallTool).toHaveBeenCalledWith(
+      {
+        name: 'graph_query_batch',
+        arguments: {
+          network: 'robinhood',
+          queries: [
+            { id: 'count', query: 'USE topology MATCH (n) RETURN count(n) AS count LIMIT 1' },
+          ],
+          per_query_timeout_seconds: 10,
+        },
       },
+      undefined,
+      expect.objectContaining({
+        timeout: expect.any(Number),
+        maxTotalTimeout: expect.any(Number),
+      })
+    )
+    // Above the server's 100 s batch budget. The SDK default is 60 s.
+    expect(mockClientCallTool.mock.calls[0]?.[2]?.timeout).toBeGreaterThan(100_000)
+    expect(mockClientCallTool.mock.calls[0]?.[2]?.maxTotalTimeout).toBeGreaterThan(100_000)
+  })
+
+  it('mcp call waits past the 60 s SDK default for graph_query too', async () => {
+    mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
+    mockClientConnect.mockResolvedValue(undefined)
+    mockClientCallTool.mockResolvedValue({
+      content: [{ type: 'text', text: '{"completed":1}' }],
     })
+    mockClientClose.mockResolvedValue(undefined)
+
+    await runMcpCallAction('graph_query', [
+      'network=robinhood',
+      'query=USE topology MATCH (n) RETURN count(n) AS count LIMIT 1',
+    ])
+
+    expect(mockClientCallTool).toHaveBeenCalledWith(
+      {
+        name: 'graph_query',
+        arguments: {
+          network: 'robinhood',
+          query: 'USE topology MATCH (n) RETURN count(n) AS count LIMIT 1',
+        },
+      },
+      undefined,
+      expect.objectContaining({
+        timeout: expect.any(Number),
+        maxTotalTimeout: expect.any(Number),
+      })
+    )
+    expect(mockClientCallTool.mock.calls[0]?.[2]?.timeout).toBeGreaterThan(100_000)
   })
 
   it('mcp call --json pretty-prints structured graph results', async () => {
@@ -669,12 +713,97 @@ describe('CLI mcp subcommand (MCP-02)', () => {
       new URL('http://localhost:8012/mcp'),
       { fetch }
     )
-    expect(mockClientCallTool).toHaveBeenCalledWith({
-      name: 'graph_query',
-      arguments: {
-        query: 'USE topology MATCH (n) RETURN n LIMIT 1',
-        network: 'robinhood',
+    expect(mockClientCallTool).toHaveBeenCalledWith(
+      {
+        name: 'graph_query',
+        arguments: {
+          query: 'USE topology MATCH (n) RETURN n LIMIT 1',
+          network: 'robinhood',
+        },
       },
+      undefined,
+      expect.objectContaining({
+        timeout: expect.any(Number),
+        maxTotalTimeout: expect.any(Number),
+      })
+    )
+  })
+})
+
+// These tests run the real src/cli.ts command, not the mirror above. The mirror
+// cannot notice when cli.ts stops passing the request options.
+describe('cia mcp call — real command passes the request timeout', () => {
+  const savedArgv = process.argv
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockLoadConfig.mockResolvedValue({ graphMcpEndpoint: 'http://127.0.0.1:8012/mcp' })
+    mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
+    mockClientConnect.mockResolvedValue(undefined)
+    mockClientCallTool.mockResolvedValue({
+      content: [{ type: 'text', text: '{"completed":1}' }],
+    })
+    mockClientClose.mockResolvedValue(undefined)
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(process, 'exit').mockImplementation((code?: string | number | null) => {
+      throw new Error(`process.exit(${code})`)
+    })
+  })
+
+  afterEach(() => {
+    process.argv = savedArgv
+    vi.restoreAllMocks()
+    vi.resetModules()
+  })
+
+  async function runCia(...args: string[]): Promise<void> {
+    process.argv = ['node', 'cia', ...args]
+    vi.resetModules()
+    await import('../src/cli.js')
+    await vi.waitFor(() => expect(mockClientClose).toHaveBeenCalledOnce())
+  }
+
+  it('graph_query_batch waits longer than the 100 s server batch budget', async () => {
+    await runCia(
+      'mcp',
+      'call',
+      'graph_query_batch',
+      'network=robinhood',
+      'queries=[{"id":"count","query":"USE topology MATCH (n) RETURN count(n) AS count LIMIT 1"}]'
+    )
+
+    expect(mockClientCallTool).toHaveBeenCalledOnce()
+    const [params, resultSchema, options] = mockClientCallTool.mock.calls[0] ?? []
+    expect(params).toMatchObject({ name: 'graph_query_batch' })
+    expect(resultSchema).toBeUndefined()
+    expect(options?.timeout).toBeGreaterThan(100_000)
+    expect(options?.maxTotalTimeout).toBeGreaterThan(100_000)
+  })
+
+  it('graph_query waits longer than the 100 s server batch budget', async () => {
+    await runCia(
+      'mcp',
+      'call',
+      'graph_query',
+      'network=robinhood',
+      'query=USE topology MATCH (n) RETURN count(n) AS count LIMIT 1'
+    )
+
+    expect(mockClientCallTool).toHaveBeenCalledOnce()
+    const [params, , options] = mockClientCallTool.mock.calls[0] ?? []
+    expect(params).toMatchObject({ name: 'graph_query' })
+    expect(options?.timeout).toBeGreaterThan(100_000)
+    expect(options?.maxTotalTimeout).toBeGreaterThan(100_000)
+  })
+
+  it('any other tool keeps the one-argument call', async () => {
+    await runCia('mcp', 'call', 'wallet-risk', 'address=0x1234', 'chain=ethereum')
+
+    expect(mockClientCallTool).toHaveBeenCalledOnce()
+    expect(mockClientCallTool).toHaveBeenCalledWith({
+      name: 'wallet-risk',
+      arguments: { address: '0x1234', chain: 'ethereum' },
     })
   })
 })

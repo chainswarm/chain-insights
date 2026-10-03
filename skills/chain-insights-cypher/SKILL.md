@@ -31,6 +31,33 @@ errors `topology_busy` (retry later), `query_timeout` (anchor on an address,
 use fewer hops or a tighter `LIMIT`), and `query_memory_limit` (return fewer
 rows or properties) mean the query was stopped, not that data is missing.
 
+A topology read that filters on a link property needs an address anchor. With
+no address in its pattern, the read starts from every link of the type it
+names. Do not count on the filter to narrow that. `WHERE x.strength = 'swap'`
+on `SWAPPED` checks every `SWAPPED` link. `LIMIT` stops the read only after it
+has found enough rows, so a filter that matches few or none can run to the
+60-second limit and fail with `query_timeout`. A discovery probe with no
+filter, such as
+`MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN r.tx_count LIMIT 20`, finds
+its rows at once and stays valid.
+
+Put an address in the pattern, and pick one with few links. Read `degree_out`
+and `degree_in` on the node first. They are a rough guide, not a guarantee:
+they count neighbours, not links, and one pair of addresses can hold many
+`SWAPPED` links. An address with hundreds of thousands of neighbours can fail
+the same way. The queries of one batch share a 100-second budget.
+
+Anchored on one address:
+
+```cypher
+USE topology
+MATCH (a:Address {address: "0x…"})-[x:SWAPPED]->(b:Address)
+WHERE x.swap_count >= 2
+RETURN b.address AS recipient, x.swap_count AS swap_count
+ORDER BY x.swap_count DESC
+LIMIT 25
+```
+
 ## Layer choice
 
 | Graph          | Backend             | Dialect           |
@@ -167,6 +194,11 @@ Swap attribution is read from `SWAPPED`, the aggregate (`strength`, `pools`,
 `families`), or from the facts `SWAP` row, one route. `FLOWS_TO` carries value
 only.
 
+Today every served swap has `strength` `swap_like` and `families` `unknown`.
+Do not filter on `strength = 'swap'`: it matches nothing. A swap that could
+not be paired (`swap_unsplit`) has no edge and no row. Every Uniswap v4 swap
+is one. Load `chain-insights-schema-evm` for what each strength means.
+
 A trace that reaches a `:Pool` follows the pool trace rule in
 `chain-insights-schema-evm`. The probes below follow it.
 
@@ -208,7 +240,10 @@ LIMIT 10
 ```
 
 Raw amounts (`*_raw`) are exact token quantities, not USD. USD comes from the
-daily price services and is empty when no service prices the asset.
+daily price services. On a facts row it is empty when no service prices the
+asset, and the matching `…price_missing` is true. On `SWAPPED` it sums the
+routes, and a side with no price adds 0, so 0 can mean no price. Read the
+facts `SWAP` row to tell.
 
 ## Hard stops
 
