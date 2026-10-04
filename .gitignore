@@ -37,3 +37,6 @@ __pycache__/
 
 # Coverage output
 /coverage/
+
+# Local CI tier artifacts written by ci/*.sh (AP1000 local-ci-gate)
+.ci/

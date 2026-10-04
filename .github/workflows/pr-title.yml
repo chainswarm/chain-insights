@@ -1,8 +1,14 @@
 name: PR Title
 
+# Dispatch only (operator ruling 2026-10-04, D1). A dispatched run checks
+# the title it is given: `gh workflow run pr-title.yml -f title='<title>'`.
 on:
-  pull_request:
-    types: [opened, edited, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      title:
+        description: The pull request title to check
+        required: true
+        type: string
 
 permissions:
   pull-requests: read
@@ -15,7 +21,7 @@ jobs:
     steps:
       - name: Check PR title
         env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_TITLE: ${{ inputs.title }}
         run: |
           set -euo pipefail
           pattern='^(feat|fix|docs|chore|ci|refactor|perf|test|build|revert)(\([^)]+\))?!?: .+'

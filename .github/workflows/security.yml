@@ -1,10 +1,9 @@
 name: Security
 
+# Weekly and on dispatch only (operator ruling 2026-10-04, D1): the push and
+# pull request triggers moved to the local merge gate, which runs ci/lint.sh
+# (the secret scans) on the agent's host. `gh workflow run security.yml`.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   schedule:
     - cron: '21 4 * * 1'
   workflow_dispatch:
@@ -47,78 +46,24 @@ jobs:
         run: npm audit --audit-level=high
 
   secret-patterns:
-    name: Secret Pattern Scan
+    name: Secret Pattern Scan (ci/lint.sh)
     runs-on: [self-hosted, chainswarm-runner, X64]
     timeout-minutes: 10
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The egress scan diffs origin/main...HEAD.
+          fetch-depth: 0
 
-      - name: Scan tracked files for high-confidence secrets
-        run: |
-          set -euo pipefail
-          pattern='(0x[0-9a-fA-F]{64}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|\b(ghp|github_pat|xox[baprs]|AKIA|ASIA|sk|pk|rk)[_-][A-Za-z0-9_-]{16,}\b)'
-          # Keep the scan broad enough to cover tests, but exempt the small set of
-          # fixtures that intentionally contain fake secret-shaped values.
-          # Exact public values (on-chain transaction hashes used as examples)
-          # live in .github/secret-scan-allowlist.txt; a line is dropped only
-          # when every match on it is one of those exact values.
-          allow=$(grep -vE '^\s*(#|$)' .github/secret-scan-allowlist.txt || true)
-          hits=$(git grep -n -I -E "$pattern" -- \
-            . \
-            ':(exclude)package-lock.json' \
-            ':(exclude)tests/cli-mcp.test.ts' \
-            ':(exclude)tests/mcp-client.test.ts' \
-            ':(exclude)tests/mcp-proxy.test.ts' \
-            ':(exclude)tests/wallet.test.ts' \
-            ':(exclude)tests/wallet-tools.test.ts' \
-            ':(exclude)tests/wallet-proof.test.ts' || true)
-          left=""
-          while IFS= read -r line; do
-            [ -n "$line" ] || continue
-            rest=$(printf '%s\n' "$line" | cut -d: -f3-)
-            if [ -n "$allow" ]; then
-              while IFS= read -r value; do rest=${rest//"$value"/}; done <<< "$allow"
-            fi
-            if printf '%s\n' "$rest" | grep -qE "$pattern"; then left="$left$line"$'\n'; fi
-          done <<< "$hits"
-          if [ -n "$left" ]; then
-            printf '%s' "$left"
-            echo "::error::High-confidence secret-looking value found in tracked files."
-            exit 1
-          fi
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
 
-      - name: Detect secret egress patterns in changed files
-        if: github.event_name == 'pull_request'
-        run: |
-          set -euo pipefail
-
-          base_sha='${{ github.event.pull_request.base.sha }}'
-          head_sha='${{ github.event.pull_request.head.sha }}'
-
-          git fetch --no-tags --prune --depth=1 origin "$base_sha" "$head_sha"
-
-          mapfile -d '' changed_files < <(
-            git diff --name-only -z "$base_sha...$head_sha" -- \
-              '*.js' '*.jsx' '*.ts' '*.tsx' '*.mjs' '*.cjs' '*.sh' '*.yml' '*.yaml'
-          )
-
-          if [ "${#changed_files[@]}" -eq 0 ]; then
-            echo "No eligible code file changes in this PR."
-            exit 0
-          fi
-
-          egress_pattern='console\.(log|error|warn|info|debug|trace)\s*\(.*(process\.env|secret|token|key|password|private_key)'
-          egress_pattern+="|(^|[[:space:]])(echo|cat|printf)\s+.*\$\{?(GITHUB_TOKEN|NPM_TOKEN|NODE_AUTH_TOKEN|AWS_SECRET_ACCESS_KEY|API_KEY|PRIVATE_KEY|AUTH_TOKEN|SECRETS?)\}?" 
-
-          for f in "${changed_files[@]}"; do
-            [ -f "$f" ] || continue
-            if rg -n -E "$egress_pattern" "$f"; then
-              echo "::error::Potential secret-evasion output pattern in $f"
-              exit 1
-            fi
-          done
+      - name: lint
+        run: bash ci/lint.sh
 
   codeql:
     name: CodeQL
