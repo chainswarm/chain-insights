@@ -3,6 +3,26 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.37.4] - 2026-10-04 — ci: tier scripts and dispatch-only workflows
+
+No runtime change. The CLI, the MCP proxy and the skills are the same as
+0.37.3.
+
+### Changed
+
+- The checks run from three scripts under `ci/`, named in `ci/manifest.json`:
+  `ci/t1.sh` (typecheck, build, the vitest suite with coverage, 180 s budget),
+  `ci/lint.sh` (oxlint, the secret pattern scan, the secret egress scan,
+  120 s budget) and `ci/build.sh` (build, publint, attw, the release gate,
+  the package contents). The GitHub jobs run the same files, and so does the
+  local merge gate (AP1000 change `local-ci-gate`).
+- `verify.yml`, `security.yml`, `release.yml`, `dependency-review.yml` and
+  `pr-title.yml` run on `workflow_dispatch` only (and `security.yml` weekly).
+  No push or pull request starts a fleet run. A release is tagged with
+  `gh workflow run release.yml --ref main`.
+- The secret egress scan uses `grep -E`; `rg -E` named an encoding, not a
+  pattern, so the step could never match.
+
 ## [0.37.3] - 2026-10-03 — fix: the guide says how to read swaps until the graph server is fixed
 
 This release changes text and tests only. It does not fix the read. The graph

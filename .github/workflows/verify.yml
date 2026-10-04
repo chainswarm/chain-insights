@@ -1,10 +1,20 @@
 name: Verify
 
+# Three tiers, each one file under ci/, the same file the local merge gate
+# runs on the agent's host (AP1000 change local-ci-gate, C1):
+#
+#   T1     ci/t1.sh     typecheck, build, vitest with coverage   180 s
+#   lint   ci/lint.sh   oxlint, secret pattern scan, egress scan 120 s
+#   build  ci/build.sh  build, publint, attw, release gate, pack
+#
+# A tier prints "<TIER> test phase: <n>s (budget <m>s)" and fails over its
+# budget. ci/manifest.json names the tiers.
+#
+# This workflow runs on workflow_dispatch only (operator ruling 2026-10-04,
+# D1): the merge gate is the local receipt; a dispatched run is the second
+# opinion. `gh workflow run verify.yml --ref <branch>`.
+
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -15,8 +25,56 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
-    name: Typecheck, Test, Build, Pack
+  t1:
+    name: T1 (typecheck, build, test)
+    runs-on: [self-hosted, chainswarm-runner, X64]
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          # No Actions cache for npm: the runners are self-hosted and keep ~/.npm, and
+          # restoring the saved archive (5.2 GB on 2026-10-02) took longer than the
+          # job's 20-minute limit.
+
+      - name: T1
+        run: bash ci/t1.sh
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: coverage-lcov
+          path: .ci/t1/lcov.info
+          if-no-files-found: ignore
+
+  lint:
+    name: lint
+    runs-on: [self-hosted, chainswarm-runner, X64]
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The egress scan diffs origin/main...HEAD.
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: lint
+        run: bash ci/lint.sh
+
+  build:
+    name: Build, Pack
     runs-on: [self-hosted, chainswarm-runner, X64]
     timeout-minutes: 20
 
@@ -34,81 +92,6 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
-          # No Actions cache for npm: the runners are self-hosted and keep ~/.npm, and
-          # restoring the saved archive (5.2 GB on 2026-10-02) took longer than the
-          # job's 20-minute limit.
 
-      - name: Install dependencies without lifecycle scripts
-        run: npm ci --ignore-scripts --audit=false --fund=false
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Build
-        run: npm run build
-
-      - name: Lint package metadata
-        run: npm run lint:package
-
-      - name: Check types resolution
-        run: npm run check:types-resolution
-
-      - name: Detect release-bearing changes
-        if: github.event_name == 'pull_request'
-        id: release-scope
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          set -euo pipefail
-          if git diff --quiet "$BASE_SHA...$HEAD_SHA" -- . ':(exclude).github/**'; then
-            echo "required=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "required=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Check release metadata
-        # Dependabot PRs bump dependencies only; they cannot carry a package
-        # version bump + CHANGELOG entry, so the release gate would hard-fail
-        # every dependency PR. Typecheck/build/test/audit still gate them.
-        if: github.event_name == 'pull_request' && steps.release-scope.outputs.required == 'true' && github.event.pull_request.user.login != 'dependabot[bot]'
-        run: npm run release:check
-
-      - name: Test
-        run: npm test
-
-      - name: Test with coverage
-        run: npm run test:coverage
-
-      - name: Coverage summary
-        run: |
-          set -euo pipefail
-          node -e "
-            const s = require('./coverage/coverage-summary.json').total
-            const rows = ['lines','statements','functions','branches']
-              .map(k => '| ' + k + ' | ' + s[k].pct + '% |')
-            require('fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY,
-              '### Coverage\n\n| metric | pct |\n| --- | --- |\n' + rows.join('\n') + '\n')
-          "
-
-      - name: Upload coverage report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: coverage-lcov
-          path: coverage/lcov.info
-          if-no-files-found: ignore
-
-      - name: Verify npm package contents
-        run: |
-          set -euo pipefail
-          # `npm pack` runs the `prepare` lifecycle script (tsdown build);
-          # that child process's stdout is not silenced by --silent and is
-          # interleaved with npm's own printed tarball filename. The tarball
-          # filename is always npm's own final line of output, so take the
-          # last line rather than the whole capture.
-          package_file="$(npm pack --silent | tail -n1)"
-          tar -tf "$package_file"
-          rm "$package_file"
+      - name: build
+        run: bash ci/build.sh

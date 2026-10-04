@@ -1,8 +1,20 @@
 name: Dependency Review
 
+# Dispatch only (operator ruling 2026-10-04, D1). The action compares two
+# refs; a dispatched run names them. `gh workflow run dependency-review.yml
+# --ref <branch> -f head-ref=<branch>`.
 on:
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      base-ref:
+        description: Base ref to compare against
+        required: true
+        default: main
+        type: string
+      head-ref:
+        description: Head ref whose dependency changes are reviewed
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -20,3 +32,5 @@ jobs:
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high
+          base-ref: ${{ inputs.base-ref }}
+          head-ref: ${{ inputs.head-ref }}

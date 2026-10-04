@@ -1,8 +1,9 @@
 name: Release
 
+# Dispatch only (operator ruling 2026-10-04, D1): a release is tagged by
+# `gh workflow run release.yml --ref main`, never by a push. The local merge
+# gate (ci/build.sh) still enforces the version bump and the CHANGELOG entry.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
