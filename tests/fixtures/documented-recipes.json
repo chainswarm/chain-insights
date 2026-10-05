@@ -1,23 +1,26 @@
 {
   "generated_by": "harvest-query-corpus-v2 workflow + runtime-verified normalization (2026-07-06)",
-  "note": "Documented + gap-filled Chain Insights graph query recipes. ISO GQL quantified paths and shortest selectors on USE topology are bounded per the resource policy. Merged into the corpus by generate-query-corpus.mjs; facts recipes drive the translator conformance + T0b baselines.",
+  "note": "Documented + gap-filled Chain Insights graph query recipes. ISO GQL quantified paths and shortest selectors on USE topology are bounded per the resource policy. Merged into the corpus by generate-query-corpus.mjs; facts recipes drive the translator conformance + T0b baselines. A recipe marked admits: false documents a refusal and names the code it must get in expects_code; the corpus leaves it out.",
   "recipes": [
     {
       "id": "recipe_facts_transfer_01",
-      "query": "USE facts MATCH (from:Address {address: \"5CF6Ruq6u7DoF6TYxyaFzEuviWi7tjvJtz19XgPS2b7XDCFM\"})-[t:TRANSFER]->(to:Address) RETURN to.address AS to_address, t.tx_id AS tx_id, t.block_height AS block_height, t.amount_usd AS amount_usd, t.asset_symbol AS asset_symbol LIMIT 10",
+      "admits": false,
+      "expects_code": "facts_pair_required",
+      "query": "USE facts MATCH (from:Address {address: \"5CF6Ruq6u7DoF6TYxyaFzEuviWi7tjvJtz19XgPS2b7XDCFM\"})-[t:TRANSFER]->(to:Address) WHERE t.block_date = \"2026-07-11\" RETURN to.address AS to_address, t.tx_id AS tx_id, t.block_height AS block_height, t.amount_usd AS amount_usd, t.asset_symbol AS asset_symbol LIMIT 10",
       "layer": "facts",
-      "description": "Bounded row-select of individual TRANSFER edges by from_address (indexed predicate: address equality on the source endpoint) \u2014 fills the facts_transfers_view TRANSFER edge shape (internal epic).",
+      "description": "One address and one day, with the other endpoint left open. A facts read names an address pair with one day, or one transaction hash, so one address is no pair: refused with facts_pair_required.",
       "features": [
         "fixed-hop",
         "transfer-edge",
-        "address-predicate"
+        "address-predicate",
+        "block-date-predicate"
       ]
     },
     {
       "id": "recipe_facts_transfer_02",
-      "query": "USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.tx_id = \"8505939-10\" RETURN from.address AS from_address, to.address AS to_address, t.event_index AS event_index, t.edge_index AS edge_index, t.amount_usd AS amount_usd LIMIT 10",
+      "query": "USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.tx_id = \"0x350065e1a55d7272de562706fdea5f48ae83cf10e468e56b2209f8cfbaaf1901\" RETURN from.address AS from_address, to.address AS to_address, t.event_index AS event_index, t.edge_index AS edge_index, t.amount_usd AS amount_usd LIMIT 10",
       "layer": "facts",
-      "description": "Bounded row-select of TRANSFER edges by tx_id equality (indexed predicate: the TRANSFER edge's row-level key, since tx_id is an edge property rather than a node id) \u2014 fills the tx_id-predicate TRANSFER shape (internal epic).",
+      "description": "Bounded row-select of TRANSFER edges by tx_id equality on an EVM network, where tx_id is the 0x transaction hash: the server finds the transaction's day itself, so the read names no day. The same public fixture transaction as recipe_facts_transfer_06, with the USD amount projected.",
       "features": [
         "fixed-hop",
         "transfer-edge",
@@ -26,22 +29,26 @@
     },
     {
       "id": "recipe_facts_transfer_03",
-      "query": "USE facts MATCH (from:Address {address: \"5CF6Ruq6u7DoF6TYxyaFzEuviWi7tjvJtz19XgPS2b7XDCFM\"})-[t:TRANSFER]->(to:Address) RETURN count(t) AS transfer_count, sum(t.amount_usd) AS total_amount_usd LIMIT 1",
+      "admits": false,
+      "expects_code": "facts_pair_required",
+      "query": "USE facts MATCH (from:Address {address: \"5CF6Ruq6u7DoF6TYxyaFzEuviWi7tjvJtz19XgPS2b7XDCFM\"})-[t:TRANSFER]->(to:Address) WHERE t.block_date = \"2026-07-11\" RETURN count(t) AS transfer_count, sum(t.amount_usd) AS total_amount_usd LIMIT 1",
       "layer": "facts",
-      "description": "Bounded count()/sum() aggregate over TRANSFER edges anchored on an address endpoint (indexed predicate required for facts_transfers_view aggregates) \u2014 fills the TRANSFER count+sum aggregate shape (internal epic).",
+      "description": "A count and a sum over TRANSFER edges for one address and one day, with the other endpoint left open. An aggregate takes the same rule as a row read: it names an address pair with one day, or one transaction hash. Refused with facts_pair_required.",
       "features": [
         "fixed-hop",
         "transfer-edge",
         "aggregate",
-        "address-predicate"
+        "address-predicate",
+        "block-date-predicate"
       ]
     },
     {
       "id": "recipe_facts_transfer_04",
       "admits": false,
+      "expects_code": "facts_no_anchor",
       "query": "USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) RETURN t.tx_id AS tx_id LIMIT 10",
       "layer": "facts",
-      "description": "Unbounded TRANSFER row-select with only a LIMIT and no indexed predicate \u2014 facts_transfers_view is a full transfer-history table, so a bare LIMIT does not bound the scan; rejected by the StarRocks cost-shape gate (internal epic).",
+      "description": "Unbounded TRANSFER row-select with only a LIMIT: no address pair and no transaction hash anchor the read, and a bare LIMIT bounds nothing. Refused with facts_no_anchor.",
       "features": [
         "fixed-hop",
         "transfer-edge"
@@ -50,9 +57,10 @@
     {
       "id": "recipe_facts_transfer_05",
       "admits": false,
+      "expects_code": "facts_no_anchor",
       "query": "USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) RETURN count(t) AS transfer_count LIMIT 1",
       "layer": "facts",
-      "description": "Unbounded TRANSFER aggregate with no indexed predicate \u2014 StarRocks-backed aggregate graph queries require an indexed predicate; rejected by the cost-shape gate (internal epic).",
+      "description": "Unbounded TRANSFER aggregate: no address pair and no transaction hash anchor the read. Refused with facts_no_anchor.",
       "features": [
         "fixed-hop",
         "transfer-edge",
@@ -74,10 +82,11 @@
     },
     {
       "id": "recipe_facts_transfer_07",
-      "expect_rows": true,
+      "admits": false,
+      "expects_code": "facts_pair_required",
       "query": "USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.block_date = \"2026-07-11\" AND t.block_timestamp >= 1783738500000 AND t.block_timestamp < 1783738560000 RETURN t.tx_id AS tx_id, t.block_height AS block_height, t.block_timestamp AS block_timestamp, from.address AS from_address, to.address AS to_address, t.amount AS amount, t.asset_symbol AS asset_symbol LIMIT 10",
       "layer": "facts",
-      "description": "Bounded row-select of TRANSFER edges in a time window: the bare block_date bound names the day and the block_timestamp bounds (epoch milliseconds, 02:55:00 to 02:56:00 UTC) narrow it; the backend compiles the window to a block key range. The same block_timestamp bounds without the block_date bound are refused. Anchored on the Robinhood fixture day 2026-07-11, so a live run must return rows.",
+      "description": "A time window with no address pair. The block_date bound names the day and the block_timestamp bounds (epoch milliseconds, 02:55:00 to 02:56:00 UTC) narrow it, but a day alone anchors nothing: a facts read names an address pair with one day, or one transaction hash. Refused with facts_pair_required. Name both addresses of the transfer to read the window.",
       "features": [
         "fixed-hop",
         "transfer-edge",
@@ -87,10 +96,9 @@
     },
     {
       "id": "recipe_facts_transfer_08",
-      "expect_rows": true,
-      "query": "USE facts MATCH (from:Address {address: \"0x2459dedb3012d1e929edd17df26620120bdf11bf\"})-[t:TRANSFER]->(to:Address) WHERE t.block_date = \"2026-07-11\" RETURN to.address AS to_address, t.tx_id AS tx_id, t.block_height AS block_height, t.amount AS amount, t.asset_symbol AS asset_symbol LIMIT 10",
+      "query": "USE facts MATCH (from:Address {address: \"0x2459dedb3012d1e929edd17df26620120bdf11bf\"})-[t:TRANSFER]->(to:Address {address: \"0x220bbea2c59e2a1b0a71ffba694834e6822c0b52\"}) WHERE t.block_date = \"2026-07-11\" RETURN to.address AS to_address, t.tx_id AS tx_id, t.block_height AS block_height, t.amount AS amount, t.asset_symbol AS asset_symbol LIMIT 10",
       "layer": "facts",
-      "description": "Bounded row-select of TRANSFER edges by from_address on an EVM network with the caller's own day bound, so no recency window is applied: the address compiles to one id lookup and the returned rows are rendered as addresses. Anchored on the Robinhood fixture day 2026-07-11, so a live run must return rows.",
+      "description": "Bounded row-select of TRANSFER edges for one address pair on one day on an EVM network: each address compiles to one id lookup, the block_date equality names the day, and the returned rows are rendered as addresses. The pair is a documented example: zero rows is healthy.",
       "features": [
         "fixed-hop",
         "transfer-edge",

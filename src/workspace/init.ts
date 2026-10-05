@@ -235,11 +235,12 @@ The address-grain graph schema:
   (a contract sending ETH during a call), and \`amount_usd_sum\` prices them
   all. \`USE facts\` \`TRANSFER\` lists the first group only, so a pair can have
   a \`tx_count\` above 0 and no \`TRANSFER\` row, and no MCP read lists internal
-  transfers yet. An address-only \`TRANSFER\` read covers a recent window
-  (90 days today) and a link covers all time: bound the read with
-  \`block_date\` to read further back. For a pair with token or native
-  transfers, a transaction anchor resolves through the facts lane:
-  \`USE facts MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) RETURN t.tx_id ORDER BY t.block_timestamp ASC LIMIT 1\`.
+  transfers yet. A link covers all time and a \`USE facts\` read covers one day:
+  read the transfers of a pair one day at a time. For a pair with token or
+  native transfers, a transaction anchor resolves through the facts lane, on
+  the UTC day of the \`first_seen_timestamp\` or \`last_seen_timestamp\` of the
+  link:
+  \`USE facts MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = "YYYY-MM-DD" RETURN t.tx_id, t.block_timestamp LIMIT 1\`.
   Lifetime aggregates are the only serving window.
 - Money flow is \`(:Address)-[:FLOWS_TO]->(:Address)\`. Public AML tools
   accept the raw blockchain address directly — there is no resolution step.
@@ -256,13 +257,17 @@ The address-grain graph schema:
   with edge properties \`amount\`, \`amount_usd\`, \`asset_symbol\`,
   \`asset_contract\`, \`tx_id\`, \`block_height\`, \`block_timestamp\`,
   \`event_index\`, \`edge_index\`, \`price_usd\`, and \`price_missing\`.
-  Every TRANSFER query (row-select or a \`count()\`/\`sum()\` aggregate)
-  requires an indexed predicate — address equality on either endpoint,
-  \`WHERE t.tx_id = "..."\` (the \`0x\` transaction hash on EVM networks), or
-  a bare \`WHERE t.block_date = "..."\` bound that \`block_timestamp\` bounds
-  in epoch milliseconds may narrow — a bare \`LIMIT\` alone is rejected. Lifetime
-  address metrics (degrees, totals, activity window) are node properties on
-  \`USE topology\`.
+  A facts read names an address pair with one day, or one \`tx_id\`, whether
+  it is a \`TRANSFER\` row-select or a \`count()\`/\`sum()\` aggregate: both
+  endpoint addresses as \`{address: "..."}\` on \`from\` and \`to\`, with
+  \`WHERE t.block_date = "YYYY-MM-DD"\`, or \`WHERE t.tx_id = "..."\` on its
+  own (the \`0x\` transaction hash on EVM networks). \`block_timestamp\` bounds
+  in epoch milliseconds may narrow the day to a time window. One address, a
+  day alone, a window of days, a block range or a bare \`LIMIT\` is not
+  enough, and a facts read has one relationship and takes no \`ORDER BY\`.
+  \`SWAP\`, \`LIQUIDITY_ADD\`, \`LIQUIDITY_REMOVE\` and \`BRIDGE_CROSSING\`
+  follow the same rule. Lifetime address metrics (degrees, totals, activity
+  window) are node properties on \`USE topology\`.
 
 Rules:
 
@@ -291,9 +296,8 @@ Rules:
   the warehouse query memory limit with \`facts query could not be completed\`:
   by address, by day and by \`tx_id\`. Only \`pools\` is built by the failing part
   of the warehouse view. \`pool_keys\` and \`families\` come from the main read.
-  Read \`SWAP\` rows by \`tx_id\` or by a bare \`block_date\` bound, and leave
-  \`pools\` out. The server accepts a bare \`block_date\` bound on a \`SWAP\`
-  read. A read by address can fail for a busy address, even without \`pools\`.
+  Read \`SWAP\` rows by \`tx_id\`, or by the payer, the recipient and one day, and
+  leave \`pools\` out.
   For the pools of a swap, read \`SWAPPED.pools\` on \`USE topology\`,
   anchored on the payer or the recipient. \`SWAPPED\` has one link per payer,
   recipient, sold asset and bought asset, so its \`pools\` cover every route on

@@ -21,9 +21,7 @@ const STOPGAP_SENTENCES = [
   'Do not return, filter or order by pools in a USE facts SWAP read.',
   'Every such read fails at the warehouse query memory limit with facts query could not be completed: by address, by day and by tx_id.',
   'Only pools is built by the failing part of the warehouse view. pool_keys and families come from the main read.',
-  'Read SWAP rows by tx_id or by a bare block_date bound, and leave pools out.',
-  'The server accepts a bare block_date bound on a SWAP read.',
-  'A read by address can fail for a busy address, even without pools.',
+  'Read SWAP rows by tx_id, or by the payer, the recipient and one day, and leave pools out.',
   'For the pools of a swap, read SWAPPED.pools on USE topology, anchored on the payer or the recipient.',
 ]
 

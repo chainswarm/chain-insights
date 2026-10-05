@@ -53,21 +53,18 @@ describe('FLOWS_TO tx_count counts internal native transfers', () => {
     expect(flows).toContain('a pair can have a `tx_count` above 0 and no `TRANSFER` row')
   })
 
-  it('the guide gives the recency window as a recent window, not a bare number', () => {
+  it('the guide says a link covers all time and a facts read covers one day', () => {
     const flows = flat(sectionWith(guide, 'FLOWS_TO properties'))
-    expect(flows).toContain('a recent window (90 days today)')
-    expect(flows).toContain('bound the read with `block_date` to read further back')
+    expect(flows).toContain('A link covers all time, and a `USE facts` read covers one day')
+    expect(flows).toContain("read a pair's transfers one day at a time")
     const facts = flat(sectionWith(guide, 'Facts labels and relationships'))
-    expect(facts).toContain('covers a recent window (90 days today)')
-    expect(facts).toContain('Add a bare `block_date` bound to read older rows')
+    expect(facts).toContain('A facts read names an address pair with one day, or one `tx_id`')
     expect(facts).toContain('It lists no internal native transfer')
   })
 
   it('the tools guide says the same', () => {
     const tools = flat(read(TOOLS))
-    expect(tools).toContain(
-      'An address-only `TRANSFER` read covers a recent window (90 days today)'
-    )
+    expect(tools).toContain('A link covers all time and a facts read covers one day')
     expect(tools).toContain('It lists no internal native transfer')
     expect(tools).toContain('`tx_count` counts those too')
     expect(tools).toContain('No MCP read lists internal native transfers yet')
@@ -81,9 +78,9 @@ describe('FLOWS_TO tx_count counts internal native transfers', () => {
     expect(hints).toContain('amount_usd_sum prices them all')
     expect(hints).toContain('USE facts TRANSFER lists the first group only')
     expect(hints).toContain('no MCP read lists internal transfers yet')
-    expect(hints).toContain('a recent window (90 days today)')
+    expect(hints).toContain('A link covers all time and a USE facts read covers one day')
     expect(hints).toContain(
-      'For a pair with token or native transfers, a transaction anchor resolves through USE facts: MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) RETURN t.tx_id'
+      'For a pair with token or native transfers, a transaction anchor resolves through USE facts, on the UTC day of the first_seen_timestamp or last_seen_timestamp of the link: MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = "YYYY-MM-DD" RETURN t.tx_id'
     )
     expect(hints).toContain(
       'Tx ids of token and native transfers come from USE facts TRANSFER; internal native transfers have none to read yet.'
@@ -97,7 +94,7 @@ describe('FLOWS_TO tx_count counts internal native transfers', () => {
     )
     expect(text).toContain('`USE facts` `TRANSFER` lists the first group only')
     expect(text).toContain('no MCP read lists internal transfers yet')
-    expect(text).toContain('a recent window (90 days today)')
+    expect(text).toContain('A link covers all time and a `USE facts` read covers one day')
     expect(text).toContain('For a pair with token or native transfers, a transaction anchor')
   })
 
@@ -106,13 +103,9 @@ describe('FLOWS_TO tx_count counts internal native transfers', () => {
     expect(offenders).toEqual([])
   })
 
-  it('no served text hard-codes the recency window as a bare 90 days', () => {
+  it('no served text gives the 90-day window an address read once got', () => {
     for (const path of [GUIDE, TOOLS, 'src/mcp/proxy.ts', 'src/workspace/init.ts']) {
-      const text = flat(read(path))
-      for (const match of text.matchAll(/90 days/g)) {
-        const before = text.slice(Math.max(0, match.index - 20), match.index)
-        expect(before, `${path} gives 90 days without "today"`).toMatch(/recent window \($/)
-      }
+      expect(flat(read(path)), `${path} gives a 90-day window`).not.toContain('90 days')
     }
   })
 })

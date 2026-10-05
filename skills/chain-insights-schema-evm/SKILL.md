@@ -140,9 +140,8 @@ Lifetime aggregates. USD only. Do not use native `amount_sum`.
 `tx_count` counts token and native transfers and also internal native
 transfers. `USE facts` `TRANSFER` lists the first group only. No MCP read
 lists an internal native transfer yet, so a pair can have a `tx_count` above
-0 and no `TRANSFER` row. An address-only `TRANSFER` read covers a recent
-window (90 days today), and a link covers all time: bound the read with
-`block_date` to read further back. See
+0 and no `TRANSFER` row. A link covers all time, and a `USE facts` read
+covers one day: read a pair's transfers one day at a time. See
 [Facts labels and relationships](#facts-labels-and-relationships).
 
 `FLOWS_TO` into and out of pools stays as it is. A pool is a real
@@ -518,15 +517,14 @@ link carries an earlier run's id. A pattern is a model finding, not a verdict. R
 
 ## Facts labels and relationships
 
-| Label / relationship | Shape                                                       | Notes                                                                                            |
-| -------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `Address`            | —                                                           | Row endpoint only. No `network` property. No `Pool` label.                                       |
-| `Asset`              | —                                                           | Token or native asset.                                                                           |
-| `TRANSFER`           | `(from:Address)-[t:TRANSFER]->(to:Address)`                 | One token or native transfer row. Lists no internal native transfer. Needs an indexed predicate. |
-| `SWAP`               | `(payer:Address)-[s:SWAP]->(recipient:Address)`             | One swap route. Needs an indexed predicate.                                                      |
-| `LIQUIDITY_ADD`      | `(provider:Address)-[l:LIQUIDITY_ADD]->(pool:Address)`      | One liquidity add. Needs an indexed predicate.                                                   |
-| `LIQUIDITY_REMOVE`   | `(pool:Address)-[l:LIQUIDITY_REMOVE]->(receiver:Address)`   | One liquidity removal. Needs an indexed predicate.                                               |
-| `BRIDGE_CROSSING`    | `(sender:Address)-[c:BRIDGE_CROSSING]->(recipient:Address)` | One bridge event. Needs an indexed predicate.                                                    |
+| Label / relationship | Shape                                                       | Notes                                                                                                        |
+| -------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `Address`            | —                                                           | Row endpoint only. No `network` property. No `Pool` label.                                                   |
+| `TRANSFER`           | `(from:Address)-[t:TRANSFER]->(to:Address)`                 | One token or native transfer row. Lists no internal native transfer. Needs a pair and one day, or a `tx_id`. |
+| `SWAP`               | `(payer:Address)-[s:SWAP]->(recipient:Address)`             | One swap route. Needs a pair and one day, or a `tx_id`.                                                      |
+| `LIQUIDITY_ADD`      | `(provider:Address)-[l:LIQUIDITY_ADD]->(pool:Address)`      | One liquidity add. Needs a pair and one day, or a `tx_id`.                                                   |
+| `LIQUIDITY_REMOVE`   | `(pool:Address)-[l:LIQUIDITY_REMOVE]->(receiver:Address)`   | One liquidity removal. Needs a pair and one day, or a `tx_id`.                                               |
+| `BRIDGE_CROSSING`    | `(sender:Address)-[c:BRIDGE_CROSSING]->(recipient:Address)` | One bridge event. Needs a pair and one day, or a `tx_id`.                                                    |
 
 A relationship is served only where its data exists. Check
 `meta_network_capabilities` before you query one.
@@ -535,20 +533,19 @@ A relationship is served only where its data exists. Check
 `event_index`, `edge_index`, `amount`, `amount_usd`, `asset_symbol`,
 `asset_contract`, `price_usd`, `price_missing`.
 
-`tx_id` is the `0x` transaction hash. Filter `TRANSFER` by it, by an address
-on either endpoint, or by a bare `block_date` bound. A `block_timestamp`
-window in epoch milliseconds narrows a `block_date` bound and is refused on
-its own.
+`tx_id` is the `0x` transaction hash. A facts read names an address pair with
+one day, or one `tx_id`. The pair is both endpoint addresses, from then to,
+and the day is a `block_date` equality. A `block_timestamp` window in epoch
+milliseconds narrows the day and is refused on its own. A facts read has one
+relationship and takes no `ORDER BY`.
 
-An address filter with no `block_date` bound covers a recent window (90 days
-today). Add a bare `block_date` bound to read older rows. `TRANSFER` lists
-token and native transfers. It lists no internal native transfer: see
-[`FLOWS_TO` properties](#flows_to-properties).
+`TRANSFER` lists token and native transfers. It lists no internal native
+transfer: see [`FLOWS_TO` properties](#flows_to-properties).
 
 `SWAP` holds one row per route of a `swap` or `swap_like` reading, self swaps
-included. Filter it by an address on either endpoint or by a `tx_id`
-equality. `block_timestamp` is epoch milliseconds, in filters and in
-results, as on `TRANSFER`.
+included. Read it by the payer, the recipient and one day, or by a `tx_id`.
+`block_timestamp` is epoch milliseconds, in filters and in results, as on
+`TRANSFER`.
 
 **Temporary, until graph server issue 1121 is fixed. Remove this note when it ships.**
 
@@ -557,9 +554,8 @@ results, as on `TRANSFER`.
   `facts query could not be completed`: by address, by day and by `tx_id`.
 - Only `pools` is built by the failing part of the warehouse view. `pool_keys`
   and `families` come from the main read.
-- Read `SWAP` rows by `tx_id` or by a bare `block_date` bound, and leave `pools`
-  out. The server accepts a bare `block_date` bound on a `SWAP` read. A read by
-  address can fail for a busy address, even without `pools`.
+- Read `SWAP` rows by `tx_id`, or by the payer, the recipient and one day, and
+  leave `pools` out.
 - For the pools of a swap, read `SWAPPED.pools` on `USE topology`, anchored on
   the payer or the recipient. `SWAPPED` has one link per payer, recipient, sold
   asset and bought asset, so its `pools` cover every route on the link, not one
@@ -574,7 +570,7 @@ results, as on `TRANSFER`.
 | Bought side    | `bought_asset`, `bought_asset_symbol`, `bought_decimals`, `bought_amount_raw`, `bought_amount`, `bought_price_usd`, `bought_usd`, `bought_price_missing`                    |
 
 `LIQUIDITY_ADD` and `LIQUIDITY_REMOVE` hold one row per liquidity event.
-Filter them by an address on either endpoint or by a `tx_id` equality.
+Read them by the two endpoints of the pattern and one day, or by a `tx_id`.
 `block_timestamp` is epoch milliseconds, in filters and in results, as on
 `TRANSFER`.
 
@@ -592,8 +588,8 @@ Filter them by an address on either endpoint or by a `tx_id` equality.
 `family` on a liquidity row is `v2` or `v3`, read from the event shape. It is
 not a swap family: swap `families` read `unknown` today.
 
-`BRIDGE_CROSSING` holds one row per bridge event. Filter it by a bare
-`block_date` bound or a `tx_id` equality. Properties: `block_date`,
+`BRIDGE_CROSSING` holds one row per bridge event. Read it by the sender, the
+recipient and one day, or by a `tx_id`. Properties: `block_date`,
 `block_height`, `tx_id`, `kind`, `direction`, `lifecycle_state`,
 `counterpart_status`, `counterpart_chain_id`, `sender`, `recipient`,
 `asset_kind`, `amount_raw`, `source_kind`, `source_index`, `route_id`,

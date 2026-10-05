@@ -66,7 +66,8 @@ the routing metadata on a result reports it as
 network, the facts `Address` label has **no mapped `network` property at all**:
 
 ```text
-USE facts MATCH (a:Address {address:"0x…"})-[t:TRANSFER]->(b:Address)
+USE facts MATCH (a:Address {address:"0x…"})-[t:TRANSFER]->(b:Address {address:"0x…"})
+          WHERE t.block_date = "2026-07-11"
           RETURN a.network AS from_network
 → unknown graph identifier: property "network" is not mapped on label "Address"
 ```
@@ -351,9 +352,8 @@ ships.**
   `facts query could not be completed`: by address, by day and by `tx_id`.
 - Only `pools` is built by the failing part of the warehouse view. `pool_keys`
   and `families` come from the main read.
-- Read `SWAP` rows by `tx_id` or by a bare `block_date` bound, and leave `pools`
-  out. The server accepts a bare `block_date` bound on a `SWAP` read. A read by
-  address can fail for a busy address, even without `pools`.
+- Read `SWAP` rows by `tx_id`, or by the payer, the recipient and one day, and
+  leave `pools` out.
 - For the pools of a swap, read `SWAPPED.pools` on `USE topology`, anchored on
   the payer or the recipient. `SWAPPED` has one link per payer, recipient, sold
   asset and bought asset, so its `pools` cover every route on the link, not one
