@@ -4,6 +4,7 @@
 // and — critically — that a real backend error (a bounds rejection, a 402) is
 // left untouched.
 import { describe, expect, it } from 'vitest'
+import { McpToolError } from '../src/mcp/print-result.js'
 import {
   describeGraphMcpTransportError,
   toGraphMcpEndpointError,
@@ -55,8 +56,12 @@ describe('describeGraphMcpTransportError', () => {
   })
 
   it('leaves a payment-required / tool error untouched', () => {
-    expect(describeGraphMcpTransportError(new Error('HTTP 402 Payment Required'), ENDPOINT)).toBeNull()
-    expect(describeGraphMcpTransportError(new Error('Unknown tool "graph_qeury"'), ENDPOINT)).toBeNull()
+    expect(
+      describeGraphMcpTransportError(new Error('HTTP 402 Payment Required'), ENDPOINT)
+    ).toBeNull()
+    expect(
+      describeGraphMcpTransportError(new Error('Unknown tool "graph_qeury"'), ENDPOINT)
+    ).toBeNull()
   })
 
   it('detects a transport failure from the message alone (socket hang up)', () => {
@@ -82,5 +87,53 @@ describe('toGraphMcpEndpointError', () => {
   it('returns a real backend error unchanged (same reference)', () => {
     const backend = new Error('traversal depth 9 exceeds the maximum of 5')
     expect(toGraphMcpEndpointError(backend, ENDPOINT)).toBe(backend)
+  })
+})
+
+// A tool reply is the server answering. Its text is the server's own, and the
+// word "network" is a word of the server's vocabulary: `chain_unavailable` names
+// network_capabilities, and `invalid_network` names the network argument. Neither
+// is a failure of the connection. Only a failure of the connection is.
+describe('a tool error is never an endpoint error', () => {
+  const TEXTS = {
+    layerOff:
+      'chain_unavailable: the chain layer is switched off. Check chain_admission.enabled in network_capabilities.',
+    invalidNetwork: 'invalid_network: network "mainnet" is not a known GraphRAG network',
+    factsBusy:
+      'facts_busy: the warehouse turned this read away: its queue was full or the wait in it ended. Retry after a short wait.',
+  }
+
+  it.each([
+    ['the text of a switched-off chain layer', new McpToolError(TEXTS.layerOff), false],
+    ['an invalid_network refusal', new McpToolError(TEXTS.invalidNetwork), false],
+    ['a facts_busy refusal', new McpToolError(TEXTS.factsBusy), false],
+    [
+      'a fetch failure with ECONNREFUSED',
+      fetchFailed(withCode('connect ECONNREFUSED 127.0.0.1:8012', 'ECONNREFUSED')),
+      true,
+    ],
+  ])('%s', (_name, err, isEndpointError) => {
+    const wrapped = toGraphMcpEndpointError(err, ENDPOINT)
+    if (isEndpointError) {
+      expect(wrapped).not.toBe(err)
+      expect((wrapped as Error).message).toContain(
+        'Could not reach the Chain Insights Graph endpoint'
+      )
+      expect((wrapped as Error).message).toContain(ENDPOINT)
+    } else {
+      expect(wrapped).toBe(err)
+      expect(describeGraphMcpTransportError(err, ENDPOINT)).toBeNull()
+    }
+  })
+
+  it('the bare word network no longer marks a plain Error as a transport failure', () => {
+    for (const text of Object.values(TEXTS)) {
+      expect(describeGraphMcpTransportError(new Error(text), ENDPOINT), text).toBeNull()
+    }
+  })
+
+  it('an McpToolError whose text names a transport code is still the server answering', () => {
+    const err = new McpToolError('chain_node_error: dial tcp: connect ECONNREFUSED 10.0.0.1:8545')
+    expect(toGraphMcpEndpointError(err, ENDPOINT)).toBe(err)
   })
 })

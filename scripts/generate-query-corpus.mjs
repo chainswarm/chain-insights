@@ -13,6 +13,12 @@
 // the rule word it must carry. tests/topology-shape-cases.test.ts keeps it
 // equal to a fresh run and keeps the skills inside the admit list.
 //
+// It also generates tests/fixtures/layer-routing.json: every query this package
+// teaches, with the layer it goes to and the anchor that layer asks for. The
+// queries are the documented recipes, the fenced queries of the two skills and
+// the queries of the graph hints the MCP proxy serves. tests/layer-routing.test.ts
+// keeps it equal to a fresh run and holds every entry to the rule of its layer.
+//
 // Deterministic by construction: fixed parameter grid, sorted output.
 // Runs under tsx (imports the TypeScript sources directly — dist/ is a
 // hashed bundle without stable per-module paths). Regenerate with
@@ -150,6 +156,12 @@ for (const recipe of documentedRecipes.recipes) {
   if (recipe.admits === false) {
     continue
   }
+  // A chain lookup is no builder query and no topology or facts read: the
+  // corpus is the admission contract of those two gates. The chain recipes are
+  // listed in tests/fixtures/layer-routing.json.
+  if (recipe.layer === 'chain') {
+    continue
+  }
   entries.push({
     builder: 'documented-recipe',
     params: { id: recipe.id, features: recipe.features },
@@ -220,6 +232,32 @@ function fencedTopologyQueries(markdown) {
     .map((body) => body.replace(/\$\w+/g, SKILL_PLACEHOLDER))
 }
 
+// The graph hints the MCP proxy serves, as the running server joins them. The
+// routing hints are built from src/mcp/layer-routing.ts, so the literal is read
+// with that function in scope.
+const { routingHintLines } = await import(join(repoRoot, 'src/mcp/layer-routing.ts'))
+const { proseQueries } = await import(join(repoRoot, 'tests/support/pool-walk-guard.ts'))
+function servedGraphHints() {
+  const source = readFileSync(join(repoRoot, 'src/mcp/proxy.ts'), 'utf8')
+  const start = source.indexOf('const GRAPH_SCHEMA_HINTS = [')
+  const end = source.indexOf("].join('\\n')", start)
+  if (start < 0 || end < start) throw new Error('GRAPH_SCHEMA_HINTS is not in src/mcp/proxy.ts')
+  const literal = source.slice(source.indexOf('[', start), end + 1)
+  return new Function('routingHintLines', `return ${literal}`)(routingHintLines).join('\n')
+}
+// A relationship that only the facts layer serves. A hint query has no USE
+// prefix, and the relationship tells its layer.
+const FACTS_RELATIONSHIP =
+  /\[[^\]]*:\s*`?(?:TRANSFER|SWAP|LIQUIDITY_ADD|LIQUIDITY_REMOVE|BRIDGE_CROSSING)`?(?![\w])/
+const hintQueries = () =>
+  proseQueries(servedGraphHints())
+    .map((query) => squash(query))
+    .map((query) =>
+      /^USE\s/.test(query)
+        ? query
+        : `USE ${FACTS_RELATIONSHIP.test(query) ? 'facts' : 'topology'} ${query}`
+    )
+
 const admitCase = (id, query, source) => ({
   id,
   expect: 'admit',
@@ -268,6 +306,19 @@ for (const skill of SKILLS) {
     admitCases.push(admitCase(`skill-${name}-${i + 1}`, query, skill))
   })
 }
+
+// Then every topology query of the served hints, with the placeholders read as
+// one fixed literal, the way the skill examples are. A query that is already an
+// admit case is listed once.
+const admittedQueries = new Set(admitCases.map((c) => c.query))
+hintQueries()
+  .filter((query) => query.startsWith('USE topology '))
+  .map((query) => query.replace(/\$\w+/g, SKILL_PLACEHOLDER))
+  .forEach((query, i) => {
+    if (admittedQueries.has(query)) return
+    admittedQueries.add(query)
+    admitCases.push(admitCase(`hint-${i + 1}`, query, 'src/mcp/proxy.ts graph hints'))
+  })
 
 // Refuse: a fixed table, at least one query for each code the shape rules can
 // give. The code and the rule word are the ones of the topology safety spec.
@@ -517,3 +568,76 @@ const casesOutPath =
   )
 writeFileSync(casesOutPath, JSON.stringify(topologyCases, null, 1) + '\n')
 console.log(`wrote ${casesOutPath} (${topologyCases.cases.length} cases)`)
+
+// ---------------------------------------------------------------------------
+// The routing table: tests/fixtures/layer-routing.json.
+//
+// One entry for each query this package teaches: a documented recipe, a fenced
+// query of one of the two skills, a query of the served graph hints. An entry
+// holds its layer (topology, facts or chain), the anchor that layer asks for, the
+// query with a USE prefix and where it came from. A refused recipe also holds
+// the code it must get. tests/layer-routing.test.ts holds each entry to the rule
+// of its layer.
+// ---------------------------------------------------------------------------
+const layerOf = (query) => /^USE\s+(\w+)/.exec(query)?.[1]
+
+// What anchors the read on its layer. topology: an address, or none for a probe.
+// facts: a pair with a day, a transaction hash, or none for a read that has
+// neither. chain: the key of a lookup, or the head, which has none.
+function anchorOf(layer, query) {
+  if (layer === 'topology') {
+    return /\{\s*address\s*:|\.address\s*=|\.address\s+IN\s*\[/.test(query) ? 'address' : 'probe'
+  }
+  if (layer === 'facts') {
+    if (/\.tx_id\s*=/.test(query)) return 'transaction'
+    return /\.block_date\s*=/.test(query) && (query.match(/\{\s*address\s*:/g) ?? []).length >= 2
+      ? 'pair_day'
+      : 'none'
+  }
+  return /:Head\)/.test(query) ? 'head' : 'key'
+}
+
+const routing = []
+// A $name placeholder of a topology query reads as one fixed literal, the way the
+// admit cases read it. A facts read keeps its placeholders: its two ends are two
+// addresses, and a hash and a day are not the address.
+const addRoute = (id, shown, source, extra = {}) => {
+  const layer = layerOf(shown)
+  if (!['topology', 'facts', 'chain'].includes(layer)) {
+    throw new Error(`${id} names no layer: ${shown}`)
+  }
+  const query = layer === 'topology' ? shown.replace(/\$\w+/g, SKILL_PLACEHOLDER) : shown
+  routing.push({ id, layer, anchor: anchorOf(layer, query), ...extra, query, source })
+}
+for (const recipe of documentedRecipes.recipes) {
+  addRoute(
+    recipe.id,
+    recipe.query,
+    'tests/fixtures/documented-recipes.json',
+    recipe.expects_code ? { expects_code: recipe.expects_code } : {}
+  )
+}
+for (const skill of SKILLS) {
+  const name = skill.split('/')[1].replace(/^chain-insights-/, '')
+  const fenced = [
+    ...readFileSync(join(repoRoot, skill), 'utf8').matchAll(/^```[\w-]*\n([\s\S]*?)^```/gm),
+  ]
+    .map((block) => squash(block[1]))
+    .filter((body) => /^USE (?:topology|facts|chain)\b/.test(body))
+  fenced.forEach((query, i) => addRoute(`skill-${name}-${i + 1}`, query, skill))
+}
+hintQueries().forEach((query, i) =>
+  addRoute(`hint-${i + 1}`, query, 'src/mcp/proxy.ts graph hints')
+)
+
+const routingOutPath =
+  process.env['LAYER_ROUTING_OUT'] ??
+  join(
+    process.env['CORPUS_OUT'] ? dirname(outPath) : join(repoRoot, 'tests/fixtures'),
+    'layer-routing.json'
+  )
+writeFileSync(
+  routingOutPath,
+  JSON.stringify({ rules_version: RULES_VERSION, entries: routing }, null, 1) + '\n'
+)
+console.log(`wrote ${routingOutPath} (${routing.length} entries)`)

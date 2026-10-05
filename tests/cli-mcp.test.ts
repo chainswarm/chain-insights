@@ -227,7 +227,8 @@ async function runConfigSetAction(key: string, value: string): Promise<void> {
     try {
       const { setWalletPrivateKey } = await import('../src/wallet/index.js')
       const address = await setWalletPrivateKey(value)
-      console.log('Wallet private key encrypted and stored in ~/.chain-insights/wallet.json')
+      const stored = 'Wallet private key encrypted and stored in ~/.chain-insights/wallet.json'
+      console.log(stored)
       console.log(`Wallet address: ${address}`)
     } catch (err) {
       console.error((err as Error).message)
@@ -239,7 +240,8 @@ async function runConfigSetAction(key: string, value: string): Promise<void> {
   const { CONFIG_KEYS, DEFAULT_CONFIG } = await import('../src/config/schema.js')
   const current = await loadConfig()
   if (!CONFIG_KEYS.includes(key as (typeof CONFIG_KEYS)[number])) {
-    console.error(`Unknown config key: ${key}`)
+    const unknown = `Unknown config key: ${key}`
+    console.error(unknown)
     process.exit(1)
   }
   const existing = (current as Record<string, unknown>)[key]
@@ -248,7 +250,8 @@ async function runConfigSetAction(key: string, value: string): Promise<void> {
     typeof existing === 'number' || typeof defaultValue === 'number' ? Number(value) : value
   await saveConfig({ [key]: coerced } as Parameters<typeof saveConfig>[0])
   const displayed = key.toLowerCase().includes('token') ? '[redacted]' : coerced
-  console.log(`Set ${key} = ${displayed}`)
+  const confirmation = `Set ${key} = ${displayed}`
+  console.log(confirmation)
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -805,6 +808,185 @@ describe('cia mcp call — real command passes the request timeout', () => {
       name: 'wallet-risk',
       arguments: { address: '0x1234', chain: 'ethereum' },
     })
+  })
+})
+
+// A tool reply flagged isError is the graph server answering. These tests run
+// the real src/cli.ts command against saved server replies, one for each class
+// of the refusal envelope, and keep them from reading as a dead endpoint. The
+// first reply text holds the word "network" and "network_capabilities", which a
+// transport pattern once took for a failed connection.
+describe('cia mcp call - a tool error is the server answering', () => {
+  const savedArgv = process.argv
+  let errorSpy: ReturnType<typeof vi.spyOn>
+  let exitSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockLoadConfig.mockResolvedValue({ graphMcpEndpoint: 'http://127.0.0.1:8012/mcp' })
+    mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
+    mockClientConnect.mockResolvedValue(undefined)
+    mockClientClose.mockResolvedValue(undefined)
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    // process.exit ends the command here and does not throw, so the test sees
+    // exactly one exit and no second failure from the error handler of the CLI.
+    exitSpy = vi
+      .spyOn(process, 'exit')
+      .mockImplementation((() => undefined) as unknown as typeof process.exit)
+  })
+
+  afterEach(() => {
+    process.argv = savedArgv
+    vi.restoreAllMocks()
+    vi.resetModules()
+  })
+
+  async function runCiaToTheEnd(...args: string[]): Promise<string> {
+    process.argv = ['node', 'cia', ...args]
+    vi.resetModules()
+    await import('../src/cli.js')
+    await vi.waitFor(() => expect(exitSpy).toHaveBeenCalled())
+    return errorSpy.mock.calls.map((call) => call.join(' ')).join('\n')
+  }
+
+  function reply(text: string, detail: Record<string, string>) {
+    return {
+      isError: true,
+      content: [{ type: 'text', text }],
+      structuredContent: {
+        schema: 'chain-insights.result.v1',
+        tool: 'graph_query',
+        facts: { query: { elapsed_ms: 0, billable_units: 0 } },
+        error_detail: detail,
+      },
+    }
+  }
+
+  // The server's own texts and envelopes, one for each class.
+  const REPLIES = [
+    {
+      name: 'refused: facts_pair_required',
+      code: 'facts_pair_required',
+      class: 'refused',
+      fix: 'Find the counterparties on topology first (USE topology), then name both addresses, from and to, with one day.',
+      text: 'facts_pair_required: this read names one address, and a pair needs two. Find the counterparties on topology first (USE topology), then name both addresses, from and to, with one day.',
+      rule: 'pair',
+    },
+    {
+      name: 'killed: query_timeout',
+      code: 'query_timeout',
+      class: 'killed',
+      fix: 'Narrow the query: anchor it on one address and ask for fewer hops or fewer rows.',
+      text: 'query_timeout: the topology query did not finish within its time budget',
+      rule: 'timeout',
+    },
+    {
+      name: 'capacity: topology_busy',
+      code: 'topology_busy',
+      class: 'capacity',
+      fix: 'Retry after 2 seconds.',
+      text: 'topology_busy: no topology query slot was free in time; retry after 2 seconds.',
+      rule: 'slots',
+    },
+    {
+      name: 'failed: chain_unavailable',
+      code: 'chain_unavailable',
+      class: 'failed',
+      fix: 'Check chain_admission.enabled in network_capabilities.',
+      text: 'chain_unavailable: the chain layer is switched off. Check chain_admission.enabled in network_capabilities.',
+      rule: 'layer_off',
+    },
+  ]
+
+  it.each(REPLIES)('tool error $name prints the server text and its code line', async (saved) => {
+    mockClientCallTool.mockResolvedValue(
+      reply(saved.text, {
+        code: saved.code,
+        rule: saved.rule,
+        class: saved.class,
+        fix: saved.fix,
+        example: 'USE chain MATCH (h:Head) RETURN h.height',
+      })
+    )
+
+    const printed = await runCiaToTheEnd(
+      'mcp',
+      'call',
+      'graph_query',
+      'network=robinhood',
+      'query=USE chain MATCH (h:Head) RETURN h.height'
+    )
+
+    expect(exitSpy).toHaveBeenCalledWith(1)
+    expect(printed).toContain(saved.text)
+    expect(printed).toContain(`code ${saved.code} · class ${saved.class} · ${saved.fix}`)
+    expect(printed).not.toMatch(/unreachable|Could not reach/i)
+  })
+
+  it('tool error chain_unavailable adds that the layer is off, the endpoint is up and the others work', async () => {
+    const saved = REPLIES.find((candidate) => candidate.code === 'chain_unavailable')!
+    mockClientCallTool.mockResolvedValue(
+      reply(saved.text, {
+        code: saved.code,
+        rule: saved.rule,
+        class: saved.class,
+        fix: saved.fix,
+        example: 'USE chain MATCH (h:Head) RETURN h.height',
+      })
+    )
+
+    const printed = await runCiaToTheEnd(
+      'mcp',
+      'call',
+      'graph_query',
+      'network=robinhood',
+      'query=USE chain MATCH (h:Head) RETURN h.height'
+    )
+
+    expect(printed).toContain('the chain layer is off or behind')
+    expect(printed).toContain('The endpoint is up')
+    expect(printed).toContain('USE topology and USE facts still work')
+  })
+
+  it('tool error without an error_detail prints the server text alone', async () => {
+    mockClientCallTool.mockResolvedValue({
+      isError: true,
+      content: [{ type: 'text', text: 'facts query could not be completed' }],
+    })
+
+    const printed = await runCiaToTheEnd(
+      'mcp',
+      'call',
+      'graph_query',
+      'network=robinhood',
+      'query=USE facts MATCH (n) RETURN n LIMIT 1'
+    )
+
+    expect(exitSpy).toHaveBeenCalledWith(1)
+    expect(printed.trim()).toBe('facts query could not be completed')
+  })
+
+  it('tool error does not hide a dead endpoint: a dropped connection still names the endpoint', async () => {
+    const dropped = new TypeError('fetch failed', {
+      cause: Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:8012'), {
+        code: 'ECONNREFUSED',
+      }),
+    })
+    mockClientCallTool.mockRejectedValue(dropped)
+
+    const printed = await runCiaToTheEnd(
+      'mcp',
+      'call',
+      'graph_query',
+      'network=robinhood',
+      'query=USE topology MATCH (n) RETURN n LIMIT 1'
+    )
+
+    expect(exitSpy).toHaveBeenCalledWith(1)
+    expect(printed).toContain('Could not reach the Chain Insights Graph endpoint')
+    expect(printed).toContain('http://127.0.0.1:8012/mcp')
+    expect(printed).toContain('connection refused')
   })
 })
 

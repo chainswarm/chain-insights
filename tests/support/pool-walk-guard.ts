@@ -1113,11 +1113,16 @@ function shellPayloads(body: string): string[] {
 // from MATCH to the end of its sentence.
 export function proseQueries(text: string): string[] {
   const out: string[] = []
-  const flat = text.replace(/"[^"\n]*"/g, '""')
-  for (const m of flat.matchAll(/\b(?:OPTIONAL\s+)?MATCH\b/g)) {
-    const rest = flat.slice(m.index ?? 0)
+  // The end of a statement is found on a copy whose string literals are filled
+  // with a letter of the same length, so a full stop inside a literal never ends
+  // it and every position still points into the original. The statement itself
+  // is cut from the original, with its literals as written.
+  const filled = text.replace(/"[^"\n]*"/g, (literal) => `"${'x'.repeat(literal.length - 2)}"`)
+  for (const m of filled.matchAll(/\b(?:OPTIONAL\s+)?MATCH\b/g)) {
+    const at = m.index ?? 0
+    const rest = filled.slice(at)
     const end = rest.search(/\.(?=\s|$)|\n/)
-    out.push(end < 0 ? rest : rest.slice(0, end))
+    out.push(text.slice(at, end < 0 ? text.length : at + end))
   }
   return out
 }

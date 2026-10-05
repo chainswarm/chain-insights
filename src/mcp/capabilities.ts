@@ -19,6 +19,52 @@ export interface NetworkLayerCapability {
   enabled: boolean
   live?: NetworkTopologyLayer
   archive?: NetworkTopologyLayer
+  /** The relationships a facts layer serves, when the server lists them. */
+  relationships?: string[]
+}
+
+/**
+ * A block the server publishes about one layer's limits. The mirror repeats it
+ * exactly as it came: the members named below are the ones known today, and
+ * any other member the server adds is kept. Read a limit from the block, never
+ * from a number written elsewhere.
+ */
+export type NetworkAdmissionBlock = Record<string, unknown>
+
+/** `USE chain`: the lookups, the ceilings and the slots of the chain layer. */
+export interface ChainAdmission extends NetworkAdmissionBlock {
+  enabled: boolean
+  /** ok, or the reason the layer is off or behind. */
+  status?: string
+  rules_version?: string
+  grammar?: string
+  /** The labels of `USE chain`, such as Transaction, Block and Head. */
+  lookups?: string[]
+  ceiling_seconds?: Record<string, number>
+  slots?: number
+  past_slots?: number
+  slots_per_caller?: number
+  calls_per_second_per_caller?: number
+  batch_max?: number
+  call_gas?: number
+  head_ttl_ms?: number
+  max_head_age_seconds?: number
+}
+
+/** `USE topology`: the shape rules, when the server publishes them. */
+export interface TopologyAdmission extends NetworkAdmissionBlock {
+  rules_version?: string
+  max_hops_per_path?: number
+  max_limit?: number
+  slots?: number
+}
+
+/** `USE facts`: the read contract, when the server publishes it. */
+export interface FactsAdmission extends NetworkAdmissionBlock {
+  rules_version?: string
+  window_days?: number
+  max_rows?: number
+  max_hops?: number
 }
 
 export interface NetworkCapability {
@@ -26,8 +72,13 @@ export interface NetworkCapability {
   display_name?: string
   status: string
   default?: boolean
-  layers: Record<string, NetworkLayerCapability>
+  /** The layers as the server sent them. Absent when the server sent none. */
+  layers?: Record<string, NetworkLayerCapability>
   tools: Record<string, string>
+  /** The three layer blocks below are repeated exactly as sent, and absent when not sent. */
+  chain_admission?: ChainAdmission
+  topology_admission?: TopologyAdmission
+  facts_admission?: FactsAdmission
   coverage?: {
     from_block?: number
     to_block?: number
@@ -115,8 +166,20 @@ function advertisedNetwork(raw: unknown): NetworkCapability | null {
         ? raw.display_name
         : network,
     status: typeof raw.status === 'string' && raw.status.trim() !== '' ? raw.status : 'live',
-    layers: {},
     tools: advertisedTools(raw.tools),
+  }
+  // The layer blocks are the server's own words about its limits. They pass
+  // through exactly as sent: nothing is added, no default is invented and no
+  // member is dropped. A block the server did not send stays absent.
+  if (isRecord(raw.layers)) capability.layers = raw.layers as NetworkCapability['layers']
+  if (isRecord(raw.chain_admission)) {
+    capability.chain_admission = raw.chain_admission as unknown as ChainAdmission
+  }
+  if (isRecord(raw.topology_admission)) {
+    capability.topology_admission = raw.topology_admission as TopologyAdmission
+  }
+  if (isRecord(raw.facts_admission)) {
+    capability.facts_admission = raw.facts_admission as FactsAdmission
   }
   if (raw.default === true) capability.default = true
   if (raw.default === false) capability.default = false

@@ -1,0 +1,206 @@
+{
+  "source": "graph server refusal codes",
+  "server_commit": "380f5445fa38ad49cac9fa1dcdae5ec6a42b868f",
+  "codes": [
+    {
+      "code": "invalid_scope",
+      "layer": "any",
+      "class": "refused"
+    },
+    {
+      "code": "invalid_network",
+      "layer": "any",
+      "class": "refused"
+    },
+    {
+      "code": "missing_network",
+      "layer": "any",
+      "class": "refused"
+    },
+    {
+      "code": "unsupported_topology_dialect",
+      "layer": "topology",
+      "class": "refused"
+    },
+    {
+      "code": "anchor_missing",
+      "layer": "topology",
+      "class": "refused"
+    },
+    {
+      "code": "aggregate_unanchored",
+      "layer": "topology",
+      "class": "refused"
+    },
+    {
+      "code": "cartesian_product",
+      "layer": "topology",
+      "class": "refused"
+    },
+    {
+      "code": "hop_budget",
+      "layer": "topology",
+      "class": "refused"
+    },
+    {
+      "code": "route_search_refused",
+      "layer": "topology",
+      "class": "refused"
+    },
+    {
+      "code": "limit_missing",
+      "layer": "topology",
+      "class": "refused"
+    },
+    {
+      "code": "unsupported_expression_shape",
+      "layer": "topology",
+      "class": "refused"
+    },
+    {
+      "code": "query_too_large",
+      "layer": "topology",
+      "class": "refused"
+    },
+    {
+      "code": "query_timeout",
+      "layer": "topology",
+      "class": "killed"
+    },
+    {
+      "code": "query_memory_limit",
+      "layer": "topology",
+      "class": "killed"
+    },
+    {
+      "code": "topology_busy",
+      "layer": "topology",
+      "class": "capacity"
+    },
+    {
+      "code": "topology_query_failed",
+      "layer": "topology",
+      "class": "failed"
+    },
+    {
+      "code": "money_flow_facts_forbidden",
+      "layer": "facts",
+      "class": "refused"
+    },
+    {
+      "code": "facts_no_anchor",
+      "layer": "facts",
+      "class": "refused"
+    },
+    {
+      "code": "facts_pair_required",
+      "layer": "facts",
+      "class": "refused"
+    },
+    {
+      "code": "facts_day_required",
+      "layer": "facts",
+      "class": "refused"
+    },
+    {
+      "code": "facts_window_too_wide",
+      "layer": "facts",
+      "class": "refused"
+    },
+    {
+      "code": "facts_hops_refused",
+      "layer": "facts",
+      "class": "refused"
+    },
+    {
+      "code": "facts_order_not_served",
+      "layer": "facts",
+      "class": "refused"
+    },
+    {
+      "code": "facts_plan_refused",
+      "layer": "facts",
+      "class": "refused"
+    },
+    {
+      "code": "facts_query_memory_limit",
+      "layer": "facts",
+      "class": "killed"
+    },
+    {
+      "code": "facts_query_timeout",
+      "layer": "facts",
+      "class": "killed"
+    },
+    {
+      "code": "facts_query_cpu_limit",
+      "layer": "facts",
+      "class": "killed"
+    },
+    {
+      "code": "facts_busy",
+      "layer": "facts",
+      "class": "capacity"
+    },
+    {
+      "code": "facts_query_failed",
+      "layer": "facts",
+      "class": "failed"
+    },
+    {
+      "code": "chain_not_a_lookup",
+      "layer": "chain",
+      "class": "refused"
+    },
+    {
+      "code": "chain_key_invalid",
+      "layer": "chain",
+      "class": "refused"
+    },
+    {
+      "code": "chain_not_served",
+      "layer": "chain",
+      "class": "refused"
+    },
+    {
+      "code": "chain_range_refused",
+      "layer": "chain",
+      "class": "refused"
+    },
+    {
+      "code": "chain_block_out_of_range",
+      "layer": "chain",
+      "class": "refused"
+    },
+    {
+      "code": "chain_batch_too_large",
+      "layer": "chain",
+      "class": "refused"
+    },
+    {
+      "code": "chain_query_timeout",
+      "layer": "chain",
+      "class": "killed"
+    },
+    {
+      "code": "chain_response_too_large",
+      "layer": "chain",
+      "class": "killed"
+    },
+    {
+      "code": "chain_busy",
+      "layer": "chain",
+      "class": "capacity"
+    },
+    {
+      "code": "chain_node_error",
+      "layer": "chain",
+      "class": "failed"
+    },
+    {
+      "code": "chain_unavailable",
+      "layer": "chain",
+      "class": "failed"
+    }
+  ]
+}

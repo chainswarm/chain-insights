@@ -8,6 +8,7 @@ import {
   traceHopsWithoutSwapped,
   unguardedPoolWalks,
 } from './support/pool-walk-guard.js'
+import { servedGraphHints } from './support/schema-text.js'
 
 const root = process.cwd()
 
@@ -30,17 +31,6 @@ function markdownFiles(dir: string): string[] {
     if (entry.isDirectory()) return markdownFiles(path)
     return entry.name.endsWith('.md') ? [path] : []
   })
-}
-
-// The graph hints the MCP server serves, as the running server joins them.
-function servedGraphHints(): string {
-  const source = read('src/mcp/proxy.ts')
-  const start = source.indexOf('const GRAPH_SCHEMA_HINTS = [')
-  const end = source.indexOf("].join('\\n')", start)
-  expect(start).toBeGreaterThan(-1)
-  expect(end).toBeGreaterThan(start)
-  const literal = source.slice(source.indexOf('[', start), end + 1)
-  return (new Function(`return ${literal}`)() as string[]).join('\n')
 }
 
 // The guarded route contract (ruled 2026-09-28): the only route and

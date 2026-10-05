@@ -1,0 +1,74 @@
+{
+  "source": "graph server chain lookup catalogue",
+  "server_commit": "380f5445fa38ad49cac9fa1dcdae5ec6a42b868f",
+  "rules_version": "1",
+  "grammar": "chain-v1",
+  "labels": [
+    {
+      "label": "Transaction",
+      "answers": "the transaction and its result",
+      "keys": [
+        "hash"
+      ],
+      "key_rule": "",
+      "properties": [
+        "block_date",
+        "block_hash",
+        "block_height",
+        "block_timestamp",
+        "created_contract",
+        "effective_gas_price",
+        "from_address",
+        "gas_limit",
+        "gas_used",
+        "hash",
+        "input_selector",
+        "input_size",
+        "log_count",
+        "nonce",
+        "status",
+        "to_address",
+        "tx_index",
+        "tx_key",
+        "tx_type",
+        "value"
+      ]
+    },
+    {
+      "label": "Block",
+      "answers": "a block and its time",
+      "keys": [
+        "hash",
+        "height"
+      ],
+      "key_rule": "exactly_one",
+      "properties": [
+        "base_fee_per_gas",
+        "block_date",
+        "block_timestamp",
+        "gas_limit",
+        "gas_used",
+        "hash",
+        "height",
+        "parent_hash",
+        "tx_count"
+      ]
+    },
+    {
+      "label": "Head",
+      "answers": "the chain tip, and how far graph and warehouse are behind",
+      "keys": [],
+      "key_rule": "",
+      "properties": [
+        "age_seconds",
+        "block_timestamp",
+        "graph_blocks_behind",
+        "graph_complete_through_block",
+        "hash",
+        "height",
+        "warehouse_blocks_behind",
+        "warehouse_complete_through_block"
+      ]
+    }
+  ]
+}

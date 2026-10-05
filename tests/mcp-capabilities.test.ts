@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it, vi, afterEach } from 'vitest'
 
 describe('MCP network capabilities', () => {
@@ -54,7 +56,11 @@ describe('MCP network capabilities', () => {
     expect(headers.get('X-Chain-Insights-Test-Key')).toBe('debug-token')
     expect(headers.get('Authorization')).toBe('Bearer debug-token')
     expect(result.networks[0]?.network).toBe('robinhood')
-    expect(result.networks[0]?.layers).toEqual({})
+    expect(result.networks[0]?.layers).toEqual({
+      topology: { enabled: true },
+      facts: { enabled: true },
+      risk: { enabled: false },
+    })
     expect(result.networks[0]?.coverage).toEqual({
       from_block: 84,
       to_block: 7440268,
@@ -121,7 +127,11 @@ describe('MCP network capabilities', () => {
       expect.objectContaining({
         network: 'bittensor',
         display_name: 'Bittensor',
-        layers: {},
+        layers: {
+          topology: { enabled: true },
+          facts: { enabled: true },
+          risk: { enabled: false },
+        },
         tools: {
           graph_query: 'available',
           graph_query_batch: 'available',
@@ -130,7 +140,11 @@ describe('MCP network capabilities', () => {
       expect.objectContaining({
         network: 'robinhood',
         display_name: 'Robinhood',
-        layers: {},
+        layers: {
+          topology: { enabled: true },
+          facts: { enabled: true },
+          risk: { enabled: false },
+        },
         tools: {
           graph_query: 'available',
           graph_query_batch: 'unavailable',
@@ -173,7 +187,7 @@ describe('MCP network capabilities', () => {
 
     expect(result.networks).toHaveLength(1)
     expect(result.networks[0]?.network).toBe('bittensor')
-    expect(result.networks[0]?.layers).toEqual({})
+    expect(result.networks[0]?.layers).toEqual({ topology: { enabled: true } })
     expect(result.networks[0]?.tools).toEqual({
       graph_query: 'available',
     })
@@ -200,7 +214,16 @@ describe('MCP network capabilities', () => {
     expect(result.networks).toEqual([])
   })
 
-  it('drops per-layer topology/facts/risk passthrough (one graph, no layer rows)', async () => {
+  it('passes the layers through exactly as the server sent them, coverage rows included', async () => {
+    const layers = {
+      topology: {
+        enabled: true,
+        live: { enabled: true, coverage: { from_block: 8512012, to_block: 8513977 } },
+        archive: { enabled: true, coverage: { from_block: 8512012, to_block: 8513977 } },
+      },
+      facts: { enabled: true, relationships: ['TRANSFER', 'SWAP'] },
+      risk: { enabled: false },
+    }
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -211,15 +234,7 @@ describe('MCP network capabilities', () => {
               display_name: 'Robinhood',
               status: 'live',
               default: true,
-              layers: {
-                topology: {
-                  enabled: true,
-                  live: { enabled: true, coverage: { from_block: 8512012, to_block: 8513977 } },
-                  archive: { enabled: true, coverage: { from_block: 8512012, to_block: 8513977 } },
-                },
-                facts: { enabled: true },
-                risk: { enabled: false },
-              },
+              layers,
               tools: { graph_query: 'available', graph_query_batch: 'available' },
             },
           ],
@@ -235,9 +250,7 @@ describe('MCP network capabilities', () => {
       graphMcpAuthToken: 'debug-token',
     })
 
-    expect(result.networks[0]?.layers).toEqual({})
-    expect(JSON.stringify(result)).not.toContain('8512012')
-    expect(JSON.stringify(result)).not.toContain('topology')
+    expect(result.networks[0]?.layers).toEqual(layers)
   })
 
   it('includes the metadata URL when network capability fetch fails', async () => {
@@ -521,5 +534,101 @@ describe('MCP network capabilities', () => {
     expect(result.networks[0]?.lane_progress).toBeUndefined()
     expect(result.networks[1]?.graph_progress).toBeUndefined()
     expect(result.networks[1]?.lane_progress).toBeUndefined()
+  })
+
+  // The public reply of 2026-10-05, saved once. The mirror repeats the layer
+  // blocks member for member: it adds no field, invents no default and drops no
+  // member, and a block the server did not send stays absent.
+  describe('the layer blocks of the public reply', () => {
+    type Reply = { networks: Array<Record<string, unknown>> }
+    const reply = JSON.parse(
+      readFileSync(
+        join(process.cwd(), 'tests/fixtures/capabilities-robinhood-20261005.json'),
+        'utf8'
+      )
+    ) as Reply
+    const sent = reply.networks.find((candidate) => candidate['network'] === 'robinhood')!
+
+    it('keeps layers and chain_admission equal to what the server sent', async () => {
+      const { mirrorGraphNetworkCapabilities } = await import('../src/mcp/capabilities.js')
+      const mirrored = mirrorGraphNetworkCapabilities(reply).networks[0]!
+
+      expect(Object.keys(sent['layers'] as object).length).toBeGreaterThan(0)
+      expect(mirrored.layers).toEqual(sent['layers'])
+      expect(mirrored.chain_admission).toEqual(sent['chain_admission'])
+    })
+
+    it('shows both blocks in the document that cia networks prints as JSON', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify(reply), { status: 200 })
+      )
+      const { fetchNetworkCapabilities, findNetworkCapability } =
+        await import('../src/mcp/capabilities.js')
+      const document = await fetchNetworkCapabilities({
+        graphMcpEndpoint: 'https://mcp.example.test/',
+        graphMcpMode: 'debug',
+      })
+      const printed = JSON.parse(
+        JSON.stringify(findNetworkCapability(document, 'robinhood'), null, 2)
+      ) as Record<string, unknown>
+
+      expect(printed['layers']).toEqual(sent['layers'])
+      expect(printed['chain_admission']).toEqual(sent['chain_admission'])
+    })
+
+    it('leaves a block the server did not send absent, never empty', async () => {
+      const { mirrorGraphNetworkCapabilities } = await import('../src/mcp/capabilities.js')
+      const mirrored = mirrorGraphNetworkCapabilities(reply).networks[0]!
+
+      expect(sent).not.toHaveProperty('topology_admission')
+      expect(sent).not.toHaveProperty('facts_admission')
+      expect(mirrored).not.toHaveProperty('topology_admission')
+      expect(mirrored).not.toHaveProperty('facts_admission')
+
+      const bare = mirrorGraphNetworkCapabilities({
+        networks: [{ network: 'robinhood', status: 'live', tools: {} }],
+      }).networks[0]!
+      expect(bare).not.toHaveProperty('layers')
+      expect(bare).not.toHaveProperty('chain_admission')
+    })
+
+    it('passes topology_admission and facts_admission through when the server sends them', async () => {
+      const topologyAdmission = { rules_version: '1', max_hops_per_path: 5, max_limit: 5000 }
+      const factsAdmission = { rules_version: '1', window_days: 1, max_rows: 200, max_hops: 1 }
+      const { mirrorGraphNetworkCapabilities } = await import('../src/mcp/capabilities.js')
+      const mirrored = mirrorGraphNetworkCapabilities({
+        networks: [
+          {
+            ...sent,
+            topology_admission: topologyAdmission,
+            facts_admission: factsAdmission,
+          },
+        ],
+      }).networks[0]!
+
+      expect(mirrored.topology_admission).toEqual(topologyAdmission)
+      expect(mirrored.facts_admission).toEqual(factsAdmission)
+    })
+
+    it('does not take a block that is not an object', async () => {
+      const { mirrorGraphNetworkCapabilities } = await import('../src/mcp/capabilities.js')
+      const mirrored = mirrorGraphNetworkCapabilities({
+        networks: [
+          {
+            network: 'robinhood',
+            status: 'live',
+            tools: {},
+            layers: 'x',
+            chain_admission: [1],
+            topology_admission: null,
+            facts_admission: 7,
+          },
+        ],
+      }).networks[0]!
+
+      for (const key of ['layers', 'chain_admission', 'topology_admission', 'facts_admission']) {
+        expect(mirrored, key).not.toHaveProperty(key)
+      }
+    })
   })
 })

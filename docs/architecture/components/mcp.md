@@ -2,7 +2,7 @@ Worker: mcp
 Entrypoint: src/mcp
 Package: mcp
 Language: typescript
-Tests: tests/mcp-proxy.test.ts, tests/mcp-client.test.ts, tests/mcp-capabilities.test.ts, tests/mcp-graph-client.test.ts, tests/mcp-print-result.test.ts, tests/mcp-schema-cache.test.ts
+Tests: tests/mcp-proxy.test.ts, tests/mcp-client.test.ts, tests/mcp-capabilities.test.ts, tests/mcp-graph-client.test.ts, tests/mcp-print-result.test.ts, tests/mcp-schema-cache.test.ts, tests/transport-error.test.ts, tests/layer-routing.test.ts
 
 # mcp
 
@@ -33,6 +33,14 @@ caches remote schemas, translates payment errors, and logs tool activity.
 - Schema cache entries are scoped to the configured endpoint.
 - The default proxy mode is stateless.
 - The proxy starts when the remote endpoint is unavailable so local help remains available.
+- A tool reply with `isError` is the server answering. `cia mcp call` prints its
+  own text and the line of its `error_detail`, and never reports it as an
+  unreachable endpoint. Only a failed connection is an endpoint error.
+- `meta_network_capabilities` repeats the layer blocks of the server exactly as
+  sent: `layers`, `chain_admission`, `topology_admission`, `facts_admission`.
+- The routing rule of the three read layers and the move for each class of
+  refusal are written once, in `src/mcp/layer-routing.ts`. The served graph
+  hints are built from it.
 
 ## Run
 

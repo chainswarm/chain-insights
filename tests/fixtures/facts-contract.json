@@ -1,0 +1,392 @@
+{
+  "source": "graph server facts read contract",
+  "window_days": 1,
+  "row_cap": 200,
+  "max_hops": 1,
+  "caller_sort": false,
+  "anchors": [
+    "pair",
+    "transaction"
+  ],
+  "codes": [
+    "facts_no_anchor",
+    "facts_pair_required",
+    "facts_day_required",
+    "facts_window_too_wide",
+    "facts_hops_refused",
+    "facts_order_not_served"
+  ],
+  "refusals": [
+    {
+      "id": "transfer-no-condition",
+      "code": "facts_no_anchor",
+      "rule": "anchor",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "swap-no-condition",
+      "code": "facts_no_anchor",
+      "rule": "anchor",
+      "relationship": "SWAP",
+      "query": "USE facts MATCH (a:Address)-[s:SWAP]->(b:Address) RETURN s.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "bridge-no-condition",
+      "code": "facts_no_anchor",
+      "rule": "anchor",
+      "relationship": "BRIDGE_CROSSING",
+      "query": "USE facts MATCH (a:Address)-[x:BRIDGE_CROSSING]->(b:Address) RETURN x.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "liquidity-add-no-condition",
+      "code": "facts_no_anchor",
+      "rule": "anchor",
+      "relationship": "LIQUIDITY_ADD",
+      "query": "USE facts MATCH (a:Address)-[l:LIQUIDITY_ADD]->(b:Address) RETURN l.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "liquidity-remove-no-condition",
+      "code": "facts_no_anchor",
+      "rule": "anchor",
+      "relationship": "LIQUIDITY_REMOVE",
+      "query": "USE facts MATCH (a:Address)-[l:LIQUIDITY_REMOVE]->(b:Address) RETURN l.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-block-range-only",
+      "code": "facts_no_anchor",
+      "rule": "anchor",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.block_height >= 100 AND t.block_height <= 200 RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-hash-or-day",
+      "code": "facts_no_anchor",
+      "rule": "anchor",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.tx_id = \"0xb2fea2de3acc2b2f8870a901553163c797e4e430f788c2caa756f74a305e76f3\" OR t.block_date = \"2026-07-08\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-address-in-or",
+      "code": "facts_no_anchor",
+      "rule": "anchor",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.block_date = \"2026-07-08\" AND (a.address = \"0x1111111111111111111111111111111111110a01\" OR b.address = \"0x2222222222222222222222222222222222220b02\") RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "address-node-scan",
+      "code": "facts_no_anchor",
+      "rule": "anchor",
+      "relationship": "",
+      "query": "USE facts MATCH (a:Address) RETURN a.address AS address LIMIT 5"
+    },
+    {
+      "id": "asset-node-scan",
+      "code": "facts_no_anchor",
+      "rule": "anchor",
+      "relationship": "",
+      "query": "USE facts MATCH (x:Asset) RETURN x.asset_symbol AS symbol LIMIT 5"
+    },
+    {
+      "id": "transfer-asset-endpoint-hash",
+      "code": "facts_no_anchor",
+      "rule": "anchor",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Asset)-[t:TRANSFER]->(b:Address) WHERE t.tx_id = \"0xb2fea2de3acc2b2f8870a901553163c797e4e430f788c2caa756f74a305e76f3\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-asset-endpoint-pair",
+      "code": "facts_no_anchor",
+      "rule": "anchor",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Asset {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date = \"2026-07-08\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-lowercase-label-pair",
+      "code": "facts_no_anchor",
+      "rule": "anchor",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date = \"2026-07-08\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-lowercase-label-hash",
+      "code": "facts_no_anchor",
+      "rule": "anchor",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:address)-[t:TRANSFER]->(b:Address) WHERE t.tx_id = \"0xb2fea2de3acc2b2f8870a901553163c797e4e430f788c2caa756f74a305e76f3\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-one-address-and-day",
+      "code": "facts_pair_required",
+      "rule": "pair",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address) WHERE t.block_date = \"2026-07-08\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-one-address-through-where",
+      "code": "facts_pair_required",
+      "rule": "pair",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE b.address = \"0x2222222222222222222222222222222222220b02\" AND t.block_date = \"2026-07-08\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-day-alone",
+      "code": "facts_pair_required",
+      "rule": "pair",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.block_date = \"2026-07-08\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-day-and-time-window",
+      "code": "facts_pair_required",
+      "rule": "pair",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.block_date = \"2026-07-08\" AND t.block_timestamp >= 1783738500000 RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-pair-no-arrow",
+      "code": "facts_pair_required",
+      "rule": "pair",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]-(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date = \"2026-07-08\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-self-loop",
+      "code": "facts_pair_required",
+      "rule": "pair",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address)-[t:TRANSFER]->(a:Address) WHERE a.address = \"0x1111111111111111111111111111111111110a01\" AND t.block_date = \"2026-07-08\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-self-loop-hash",
+      "code": "facts_pair_required",
+      "rule": "pair",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address)-[t:TRANSFER]->(a:Address) WHERE t.tx_id = \"0xb2fea2de3acc2b2f8870a901553163c797e4e430f788c2caa756f74a305e76f3\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-anonymous-endpoints",
+      "code": "facts_pair_required",
+      "rule": "pair",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date = \"2026-07-08\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-anonymous-endpoint-hash",
+      "code": "facts_pair_required",
+      "rule": "pair",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address) WHERE t.tx_id = \"0xb2fea2de3acc2b2f8870a901553163c797e4e430f788c2caa756f74a305e76f3\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-hash-no-arrow",
+      "code": "facts_pair_required",
+      "rule": "pair",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address)-[t:TRANSFER]-(b:Address) WHERE t.tx_id = \"0xb2fea2de3acc2b2f8870a901553163c797e4e430f788c2caa756f74a305e76f3\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "swap-one-address-and-day",
+      "code": "facts_pair_required",
+      "rule": "pair",
+      "relationship": "SWAP",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[s:SWAP]->(b:Address) WHERE s.block_date = \"2026-07-08\" RETURN s.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "liquidity-add-one-address-and-day",
+      "code": "facts_pair_required",
+      "rule": "pair",
+      "relationship": "LIQUIDITY_ADD",
+      "query": "USE facts MATCH (a:Address)-[l:LIQUIDITY_ADD]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE l.block_date = \"2026-07-08\" RETURN l.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "bridge-day-alone",
+      "code": "facts_pair_required",
+      "rule": "pair",
+      "relationship": "BRIDGE_CROSSING",
+      "query": "USE facts MATCH (a:Address)-[x:BRIDGE_CROSSING]->(b:Address) WHERE x.block_date = \"2026-07-08\" RETURN x.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-pair-no-day",
+      "code": "facts_day_required",
+      "rule": "day",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "swap-pair-no-day",
+      "code": "facts_day_required",
+      "rule": "day",
+      "relationship": "SWAP",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[s:SWAP]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) RETURN s.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-pair-block-range",
+      "code": "facts_day_required",
+      "rule": "day",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_height >= 80000000 AND t.block_height <= 80000100 RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-pair-not-equal-day",
+      "code": "facts_day_required",
+      "rule": "day",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date <> \"2026-07-08\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-pair-1970-lower-bound",
+      "code": "facts_day_required",
+      "rule": "day",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date > \"1970-01-01\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-pair-upper-bound-alone",
+      "code": "facts_day_required",
+      "rule": "day",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date <= \"2026-07-08\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-pair-day-in-or",
+      "code": "facts_day_required",
+      "rule": "day",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date = \"2026-07-08\" OR t.amount_usd > 1 RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-pair-count-no-day",
+      "code": "facts_day_required",
+      "rule": "day",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) RETURN count(t) AS transfers LIMIT 1"
+    },
+    {
+      "id": "transfer-hash-lower-bound-alone",
+      "code": "facts_day_required",
+      "rule": "day",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.tx_id = \"0xb2fea2de3acc2b2f8870a901553163c797e4e430f788c2caa756f74a305e76f3\" AND t.block_date >= \"2026-07-08\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-pair-long-range",
+      "code": "facts_window_too_wide",
+      "rule": "window_days",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date >= \"2025-09-01\" AND t.block_date <= \"2026-10-04\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-pair-between-month",
+      "code": "facts_window_too_wide",
+      "rule": "window_days",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date BETWEEN \"2026-07-01\" AND \"2026-07-31\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-pair-two-days",
+      "code": "facts_window_too_wide",
+      "rule": "window_days",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date >= \"2026-07-11\" AND t.block_date <= \"2026-07-12\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-pair-day-in-list",
+      "code": "facts_window_too_wide",
+      "rule": "window_days",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date IN [\"2026-07-08\", \"2026-07-09\"] RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-hash-day-in-list",
+      "code": "facts_window_too_wide",
+      "rule": "window_days",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.tx_id = \"0xb2fea2de3acc2b2f8870a901553163c797e4e430f788c2caa756f74a305e76f3\" AND t.block_date IN [\"2026-07-08\", \"2026-07-09\"] RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-pair-count-many-days",
+      "code": "facts_window_too_wide",
+      "rule": "window_days",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date >= \"2026-07-06\" AND t.block_date <= \"2026-10-04\" RETURN count(t) AS transfers, sum(t.amount_usd) AS total_usd LIMIT 1"
+    },
+    {
+      "id": "bridge-pair-two-days",
+      "code": "facts_window_too_wide",
+      "rule": "window_days",
+      "relationship": "BRIDGE_CROSSING",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[x:BRIDGE_CROSSING]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE x.block_date >= \"2026-07-11\" AND x.block_date <= \"2026-07-12\" RETURN x.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-hash-wide-range",
+      "code": "facts_window_too_wide",
+      "rule": "window_days",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.tx_id = \"0xb2fea2de3acc2b2f8870a901553163c797e4e430f788c2caa756f74a305e76f3\" AND t.block_date >= \"2025-09-01\" AND t.block_date <= \"2026-10-04\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-hash-beside-pair-wide-range",
+      "code": "facts_window_too_wide",
+      "rule": "window_days",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.tx_id = \"0xb2fea2de3acc2b2f8870a901553163c797e4e430f788c2caa756f74a305e76f3\" AND t.block_date >= \"2025-09-01\" AND t.block_date <= \"2026-10-04\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-chain-of-two",
+      "code": "facts_hops_refused",
+      "rule": "hops",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(m:Address)-[u:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date = \"2026-07-08\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-chain-of-five",
+      "code": "facts_hops_refused",
+      "rule": "hops",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address)-[e1:TRANSFER]->(b:Address)-[e2:TRANSFER]->(c:Address)-[e3:TRANSFER]->(d:Address)-[e4:TRANSFER]->(e:Address)-[e5:TRANSFER]->(f:Address) WHERE e1.block_date = \"2026-07-08\" RETURN e1.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-chain-of-six",
+      "code": "facts_hops_refused",
+      "rule": "hops",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address)-[e1:TRANSFER]->(b:Address)-[e2:TRANSFER]->(c:Address)-[e3:TRANSFER]->(d:Address)-[e4:TRANSFER]->(e:Address)-[e5:TRANSFER]->(f:Address)-[e6:TRANSFER]->(g:Address) WHERE e1.block_date = \"2026-07-08\" RETURN e1.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-variable-length",
+      "code": "facts_hops_refused",
+      "rule": "hops",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER*1..3]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date = \"2026-07-08\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-pair-order-by-value",
+      "code": "facts_order_not_served",
+      "rule": "order",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date = \"2026-07-08\" RETURN t.tx_id AS tx_id ORDER BY t.amount_usd DESC LIMIT 10"
+    },
+    {
+      "id": "transfer-pair-order-by-day",
+      "code": "facts_order_not_served",
+      "rule": "order",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date = \"2026-07-08\" RETURN t.tx_id AS tx_id ORDER BY t.block_date LIMIT 10"
+    },
+    {
+      "id": "transfer-hash-order-by",
+      "code": "facts_order_not_served",
+      "rule": "order",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.tx_id = \"0xb2fea2de3acc2b2f8870a901553163c797e4e430f788c2caa756f74a305e76f3\" RETURN t.tx_id AS tx_id ORDER BY t.event_index LIMIT 10"
+    },
+    {
+      "id": "swap-pair-order-by",
+      "code": "facts_order_not_served",
+      "rule": "order",
+      "relationship": "SWAP",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[s:SWAP]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE s.block_date = \"2026-07-08\" RETURN s.tx_id AS tx_id ORDER BY s.sold_usd DESC LIMIT 10"
+    }
+  ]
+}

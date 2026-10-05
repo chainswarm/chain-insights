@@ -3,6 +3,81 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.41.0] - 2026-10-05 — feat: pick the layer first, act on every refusal, and show a tool error as the server's own text
+
+An agent that uses `cia` now learns which layer a question goes to, and what to
+do with each refusal. A refusal is the server answering, and `cia` no longer
+shows it as a dead endpoint.
+
+### Fixed
+
+- `cia mcp call` printed any tool error whose text held the word `network` as
+  "Could not reach the Chain Insights Graph endpoint (the endpoint is
+  unreachable)". The text of a switched-off chain layer, `chain_unavailable:
+  the chain layer is switched off. Check chain_admission.enabled in
+  network_capabilities.`, is one, and so is `invalid_network`. A tool reply
+  with `isError` is now an `McpToolError`. `cia mcp call` prints the server's
+  own text, then one line, `code <code> · class <class> · <fix>`, and exits
+  with a non-zero status. For `chain_unavailable` the line adds that the chain
+  layer is off or behind, that the endpoint is up, and that `USE topology` and
+  `USE facts` still work. The bare word `network` no longer marks a message as
+  a transport failure. A dropped connection still reads "Could not reach the
+  Chain Insights Graph endpoint".
+- The routing rule offered a lookup the chain layer does not have. It read "I
+  know one address, hash or block", so an agent that knew an address sent it to
+  `USE chain` and got a refusal back. The chain layer serves a transaction by
+  its hash, a block by its number or its hash, and the head. An address now
+  goes to `USE topology` to be found, and then to `USE facts` for the rows.
+  `tests/fixtures/chain-catalogue.json` pins the labels the chain layer serves,
+  with the keys and properties of each, and a test holds every `USE chain`
+  recipe and the routing line to that pin.
+- `docs/graph-tools.md` said that at most 4 topology queries run at once. That
+  number belongs to the server, which publishes it, and the 4 was the chain
+  layer's. The guide now names `topology_admission` in
+  `meta_network_capabilities` and writes no number.
+
+### Added
+
+- The `chain-insights-cypher` skill teaches three read layers, not two. It
+  opens with the routing rule: topology searches, while facts and chain look up
+  one known thing. It has the question table, the keys the layers hand to each
+  other, and a plain "served on no layer" for a list, a range or a
+  whole-chain question.
+- "When a query is refused": the move for each class of `error_detail`
+  (`refused`, `killed`, `capacity`, `failed`), one rewrite or one retry and then
+  the user, and one row for each of the 40 codes the server returns, with its
+  layer and class. A test fails when the server returns a code with no row.
+- `USE chain` recipes for `Transaction`, `Block` and `Head`, in the skill and
+  in `tests/fixtures/documented-recipes.json`, and a "USE chain" section in the
+  `chain-insights-schema-evm` skill and in `docs/graph-tools.md`.
+- The facts limits are stated in words, and a test pins them to the server's
+  contract: an address pair with one day, or one transaction hash; at most 200
+  rows in a reply; one relationship and no hop; no `ORDER BY`. The pinned files
+  are `tests/fixtures/facts-contract.json` and
+  `tests/fixtures/server-refusal-codes.json`. `scripts/pin-facts-contract.mjs`
+  makes the first from the server's list of read shapes.
+- `src/mcp/layer-routing.ts`, the one source of the routing rule and the move
+  by class. The served graph hints are built from it, and the skill and the
+  guide hold the same lines word for word.
+- `tests/fixtures/layer-routing.json`, written by `npm run corpus:generate`:
+  every recipe, every fenced query of the two skills and every query of the
+  served hints, with its layer. A test holds each entry to the rule of its layer.
+
+### Changed
+
+- `meta_network_capabilities` and `cia networks --json` keep `layers`,
+  `chain_admission`, `topology_admission` and `facts_admission` exactly as the
+  server sends them. They were dropped before. A block the server does not send
+  stays absent. The skills name the field and no longer write a limit that the
+  server publishes: the line "Topology queries share 4 slots" is gone, and a
+  test fails when a skill, a guide or a hint states a `chain_admission` number.
+- Three served hints taught reads the topology guard refuses, and now teach
+  reads it admits: the `LINKED` enumeration and the actor-level exposure read
+  end with a `LIMIT`, and the schema discovery probe has no `WHERE`.
+- The reader of the facts limits in `tests/support/facts-contract.ts` answers as
+  the server does, with one code for each read, and a test holds it to every
+  refusal on the server's list.
+
 ## [0.40.0] - 2026-10-05 — feat: Chain Insights views in Claude, served by the local proxy; money flows, the top-up QR view, and the Claude plugin
 
 Claude Desktop and Cowork sessions on your computer draw Chain Insights views
