@@ -19,8 +19,11 @@ Every statement here was verified against the source files it names.
 - `meta_network_capabilities` repeats GraphRAG's advertised networks
   (`mirrorGraphNetworkCapabilities` in `src/mcp/capabilities.ts`). CIA
   preserves the tool status advertised for each network. It does not add
-  tools that the network did not advertise.
-  Layer rows stay empty (`layers: {}`).
+  tools that the network did not advertise. It also repeats the blocks a
+  network publishes about its layers exactly as sent: `layers`,
+  `chain_admission`, `topology_admission` and `facts_admission`. A block the
+  server did not send stays absent, never empty. The limits of a layer are read
+  from these blocks, never written into a skill.
 
 ### Tool Argument Contracts
 

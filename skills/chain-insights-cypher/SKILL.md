@@ -1,13 +1,14 @@
 ---
 name: chain-insights-cypher
-description: Use when writing or reviewing Chain Insights graph_query or graph_query_batch ISO GQL. Dialect and layer rules only. Load a schema skill for labels and properties.
+description: Use when writing or reviewing Chain Insights graph_query or graph_query_batch ISO GQL, when choosing between USE topology, USE facts and USE chain, or when a graph query is refused. Dialect, layer and refusal rules only. Load a schema skill for labels and properties.
 ---
 
 # Chain Insights Cypher
 
 ISO GQL for `graph_query` and `graph_query_batch`.
 
-This skill is dialect only. It is not a query cookbook. Load
+This skill teaches the dialect, which layer a question goes to, and what to do
+when the server refuses a query. It is not a query cookbook. Load
 `chain-insights-schema-evm` for the label, relationship, and property map.
 
 ## Tools
@@ -26,10 +27,134 @@ Insights Graph does not append one.
 
 `per_query_timeout_seconds` is optional and capped.
 
-Topology queries share 4 slots and stop at their time or memory limit. The
-errors `topology_busy` (retry later), `query_timeout` (anchor on an address,
-use fewer hops or a tighter `LIMIT`), and `query_memory_limit` (return fewer
-rows or properties) mean the query was stopped, not that data is missing.
+## Pick the layer first
+
+Route by what you know: topology searches, while facts and chain look up one known thing.
+
+1. I do not know the thing yet: `USE topology`.
+2. I know the pair and the day, or the transaction hash, and want the indexed rows: `USE facts`.
+3. I know one address, hash or block and want the chain's own record of it: `USE chain`.
+
+When two fit, as with a hash: ask `USE chain` first for the record and the result, then `USE facts` for the transfers it caused.
+
+The layers hand each other keys. Topology gives the pair and the first and last seen time. Chain gives the `block_date` of a hash or a height. Facts gives the `tx_id`.
+
+A list, a range or a whole-chain question is served on no layer. Say so, and go back to an anchored `USE topology` search.
+
+| The question                                                | Layer      | First query                                                  |
+| ----------------------------------------------------------- | ---------- | ------------------------------------------------------------ |
+| Who is connected to this address? Where did the money go?   | `topology` | One anchored hop on `FLOWS_TO`, with a `LIMIT`.              |
+| What moved between A and B on one day?                      | `facts`    | `TRANSFER` with both addresses and `block_date`.             |
+| Which days did A and B trade?                               | `topology` | The link's `first_seen_timestamp` and `last_seen_timestamp`. |
+| Did transaction `0x…` succeed? Which block, which day?      | `chain`    | `Transaction {hash}`.                                        |
+| Which day is block N?                                       | `chain`    | `Block {height}`, and return `block_date`.                   |
+| How far behind are the graph and the warehouse?             | `chain`    | `Head`.                                                      |
+| A route between two known addresses                         | `topology` | `SHORTEST 1`, with the pool guard.                           |
+| All swaps through pool X                                    | `topology` | Anchored on the pool address.                                |
+| Every transaction of block N, or every address with label X | none       | A list or a scan. Say so. Do not retry.                      |
+
+| Graph          | Backend                    | Dialect           |
+| -------------- | -------------------------- | ----------------- |
+| `USE topology` | DozerDB over Bolt          | ISO GQL, bounded. |
+| `USE facts`    | Warehouse, compiled        | GQL subset.       |
+| `USE chain`    | The chain node, one lookup | One keyed node.   |
+
+`topology` serves the address graph, money flow (`FLOWS_TO`, `OPERATED_BY`), the `LINKED` overlay,
+node risk, swaps and liquidity (`SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`, the `:Pool`
+label) and bridges (`BRIDGED`). `facts` serves bounded `TRANSFER`, `SWAP`, `LIQUIDITY_ADD`,
+`LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` rows. `chain` serves the lookups that
+`chain_admission.lookups` lists, one node at a time.
+
+The `network` argument selects the graph. On topology, unscoped
+`:Address` matches must also filter `:Address.network` when more than one
+address space is present. Exact-address lookups do not need that extra
+filter. Facts `Address` has no `network` property.
+
+## When a query is refused
+
+A refusal is an answer, not an outage. Act on its class.
+
+A refused, killed, busy or failed query comes back with `error_detail`: `code`, `rule`, `class`, `fix` and `example`. The `class` decides your next move.
+
+- Class `refused`: read `fix`, rewrite the query from `example`, and send it once.
+- Class `killed`: narrow the query (fewer properties, rows or hops) and send it once.
+- Class `capacity`: wait at least 5 seconds, then send the same query once.
+- Class `failed`: tell the user what is down. Do not retry.
+
+A `fix` that names another layer means move to that layer.
+
+One rewrite or one retry for each query. When it is refused or busy again, stop and tell the user. Quote the `fix` text and send nothing more for that question.
+
+Never send the same text again after `refused` or `killed`.
+
+In a batch, send again only the members that came back `capacity`.
+
+One row for each code that the server returns:
+
+| Code                           | Layer    | Class    | Your next move                                                                                                                                                                                     |
+| ------------------------------ | -------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `invalid_scope`                | any      | refused  | Begin the query with `USE topology`, `USE facts` or `USE chain`.                                                                                                                                   |
+| `invalid_network`              | any      | refused  | Pass a network that `meta_network_capabilities` lists.                                                                                                                                             |
+| `missing_network`              | any      | refused  | Pass `network=`, and pick one that `meta_network_capabilities` lists.                                                                                                                              |
+| `unsupported_topology_dialect` | topology | refused  | Send one read statement in ISO GQL. Use a quantified path or `ANY SHORTEST`. `PROFILE`, the legacy shortest-path functions, a `*` range, writes, `CALL` and admin words are not served.            |
+| `anchor_missing`               | topology | refused  | Pin one node to an address. Search on topology from an anchor, then read the pair and the day on facts, or one key on chain. A whole-chain question is served on no layer: say so.                 |
+| `aggregate_unanchored`         | topology | refused  | Anchor every pattern before a sort, an aggregate, `DISTINCT` or `collect()`. A whole-chain ranking is served on no layer: say so.                                                                  |
+| `cartesian_product`            | topology | refused  | Join the patterns with a shared variable, or anchor each of them.                                                                                                                                  |
+| `hop_budget`                   | topology | refused  | Cut the path to `topology_admission.max_hops_per_path` hops, or to the number in the `fix`. Give every quantifier an upper bound.                                                                  |
+| `route_search_refused`         | topology | refused  | Ask for one path: `SHORTEST 1` or `ANY SHORTEST`. Keep the repeated part short, as the `fix` says.                                                                                                 |
+| `limit_missing`                | topology | refused  | End the read with a literal `LIMIT` within `topology_admission.max_limit`, or within the number in the `fix`.                                                                                      |
+| `unsupported_expression_shape` | topology | refused  | Rewrite from `example`. Use `range()` or `reduce()` only inside `UNWIND`, and keep `OPTIONAL MATCH` and `UNION` few, as the `fix` says.                                                            |
+| `query_too_large`              | topology | refused  | Shorten the query text and nest brackets less deep, as the `fix` says.                                                                                                                             |
+| `query_timeout`                | topology | killed   | Narrow the query: fewer hops, a smaller `LIMIT`, fewer properties, or an address with a lower `degree_out` and `degree_in`.                                                                        |
+| `query_memory_limit`           | topology | killed   | Return fewer rows or fewer properties. Anchor on an address with fewer links.                                                                                                                      |
+| `topology_busy`                | topology | capacity | Wait at least 5 seconds (longer if the `fix` says so), then send the same query once.                                                                                                              |
+| `topology_query_failed`        | topology | failed   | Tell the user the topology layer failed. Do not retry.                                                                                                                                             |
+| `money_flow_facts_forbidden`   | facts    | refused  | Money flow is topology only. Move the read to `USE topology`.                                                                                                                                      |
+| `facts_no_anchor`              | facts    | refused  | Name both addresses with one day, or one `tx_id`. Find the addresses on topology first. A whole-chain question is served on no layer: say so.                                                      |
+| `facts_pair_required`          | facts    | refused  | Find the counterparties on `USE topology` first. Then name both addresses, from then to, with one day.                                                                                             |
+| `facts_day_required`           | facts    | refused  | Name one day: `t.block_date = "YYYY-MM-DD"`.                                                                                                                                                       |
+| `facts_window_too_wide`        | facts    | refused  | Name one day. For more days, send one read for each day.                                                                                                                                           |
+| `facts_hops_refused`           | facts    | refused  | Read one relationship. Move the walk to `USE topology`.                                                                                                                                            |
+| `facts_order_not_served`       | facts    | refused  | Drop `ORDER BY`. Sort the page yourself.                                                                                                                                                           |
+| `facts_plan_refused`           | facts    | refused  | Rewrite from `example`. Name the two addresses and one day, or follow the `fix`. Do not widen the day.                                                                                             |
+| `facts_query_memory_limit`     | facts    | killed   | Name fewer columns and a smaller `LIMIT`.                                                                                                                                                          |
+| `facts_query_timeout`          | facts    | killed   | Name fewer columns and a smaller `LIMIT`.                                                                                                                                                          |
+| `facts_query_cpu_limit`        | facts    | killed   | Name fewer columns and a smaller `LIMIT`.                                                                                                                                                          |
+| `facts_busy`                   | facts    | capacity | Wait at least 5 seconds, then send the same query once.                                                                                                                                            |
+| `facts_query_failed`           | facts    | failed   | Tell the user the facts layer failed. Do not retry.                                                                                                                                                |
+| `chain_not_a_lookup`           | chain    | refused  | Look up one node by its key, as in `example`. A search or a path goes to `USE topology`.                                                                                                           |
+| `chain_key_invalid`            | chain    | refused  | Write the key as `example` does: a full `0x` hash, or a block number.                                                                                                                              |
+| `chain_not_served`             | chain    | refused  | Ask for a lookup that `chain_admission.lookups` lists, with the properties that the `fix` lists.                                                                                                   |
+| `chain_range_refused`          | chain    | refused  | Look up one key. A range goes to `USE topology`, or to one day on `USE facts`.                                                                                                                     |
+| `chain_block_out_of_range`     | chain    | refused  | Read the head with `Head`, then ask for a block at or below it.                                                                                                                                    |
+| `chain_batch_too_large`        | chain    | refused  | Send at most `chain_admission.batch_max` chain lookups in one batch.                                                                                                                               |
+| `chain_query_timeout`          | chain    | killed   | Name fewer properties. In a batch, put the chain lookups first, or send them alone.                                                                                                                |
+| `chain_response_too_large`     | chain    | killed   | Name fewer properties.                                                                                                                                                                             |
+| `chain_busy`                   | chain    | capacity | Wait at least 5 seconds, then send the same query once.                                                                                                                                            |
+| `chain_node_error`             | chain    | failed   | Tell the user the chain node returned an error. Do not retry.                                                                                                                                      |
+| `chain_unavailable`            | chain    | failed   | Read `chain_admission.status`. Tell the user the chain layer is off or behind. `USE topology` and `USE facts` still work. Retry once after 10 seconds, and only when the status is not `disabled`. |
+
+## Read the limits, never write them down
+
+The server publishes the limits of a layer in `meta_network_capabilities`.
+`cia network robinhood --json` prints the same reply. Read a limit there. Do
+not write one down and do not trust a number you remember: a number goes stale
+the day the server changes it.
+
+- `USE chain`: the `chain_admission` block. It holds `enabled`, `status`,
+  `lookups`, `slots`, `slots_per_caller`, `calls_per_second_per_caller`,
+  `batch_max` and `ceiling_seconds`.
+- `USE topology`: read `topology_admission`. When it is absent, the server
+  publishes no limit yet, and the `fix` of a refusal names the limit.
+- `USE facts`: the limits are in the facts section below. When the server sends
+  `facts_admission`, read its members.
+
+## Topology reads stop at a limit
+
+A topology query stops at its time or memory limit, or waits for a free slot.
+The errors `topology_busy`, `query_timeout` and `query_memory_limit` mean the
+query was stopped, not that data is missing. See
+[When a query is refused](#when-a-query-is-refused) for the move.
 
 A topology read that filters on a link property needs an address anchor. With
 no address in its pattern, the read starts from every link of the type it
@@ -74,23 +199,6 @@ hops and a query at most 8. A route search asks for one path. A refusal comes
 back at once, before the query runs. It carries `error_detail` with a `code`,
 a `rule`, a `class`, a `fix` and an `example` that the server itself admits.
 Read the `fix`, and do not send the same query again.
-
-## Layer choice
-
-| Graph          | Backend             | Dialect           |
-| -------------- | ------------------- | ----------------- |
-| `USE topology` | DozerDB over Bolt   | ISO GQL, bounded. |
-| `USE facts`    | Warehouse, compiled | GQL subset.       |
-
-`topology` serves the address graph, money flow (`FLOWS_TO`, `OPERATED_BY`), the `LINKED` overlay,
-node risk, swaps and liquidity (`SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`, the `:Pool`
-label) and bridges (`BRIDGED`). `facts` serves bounded `TRANSFER`, `SWAP`, `LIQUIDITY_ADD`,
-`LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` rows.
-
-The `network` argument selects the graph. On topology, unscoped
-`:Address` matches must also filter `:Address.network` when more than one
-address space is present. Exact-address lookups do not need that extra
-filter. Facts `Address` has no `network` property.
 
 ## ISO GQL on topology
 
@@ -165,7 +273,7 @@ Treat pools by the pool trace rule in `chain-insights-schema-evm`. `:Pool`
 is a real label, so a pattern or a `WHERE` may name it: `(p:Pool)`,
 `WHERE NOT mid:Pool`, or `WHERE NOT via:Pool` inside a quantified path.
 
-## Facts is not full GQL
+## Facts reads: an address pair with one day
 
 Facts rejects native traversal, `FLOWS_TO`, `OPERATED_BY`, `LINKED`, `WITH` pipelines,
 the topology edges `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY` and `BRIDGED`,
@@ -175,8 +283,17 @@ refused. A facts read names an address pair with one day, or one `tx_id`. A
 pair is both endpoint addresses of the relationship, from then to, each as
 `{address: "0x…"}`, and the day is `t.block_date = "YYYY-MM-DD"`. One address,
 a day alone, a window of days, a block range and a bare `LIMIT` are not
-enough. A facts read has one relationship and takes no `ORDER BY`. This holds
-for `TRANSFER`, `SWAP`, `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and
+enough. The limits of a facts read are fixed:
+
+- A reply holds at most 200 rows. The server cuts a longer page at 200 rows,
+  whatever the `LIMIT`.
+- A facts read has one relationship and no hop. A longer chain is a path: move
+  it to topology.
+- A facts read takes no `ORDER BY`. Rows come in the server's own order. Sort
+  the page yourself.
+- A facts read covers one day. For more days, send one read for each day.
+
+This holds for `TRANSFER`, `SWAP`, `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and
 `BRIDGE_CROSSING`.
 
 On EVM networks `tx_id` is the `0x` transaction hash:
@@ -192,6 +309,44 @@ refused: they do not name the day.
 Weighted money paths are not supported. Hop-count shortest paths only.
 
 When a facts read needs hops or money flow, move it to topology.
+
+## Chain lookups: one key, one node
+
+`USE chain` asks the chain node for one known thing by its key. It serves the
+lookups that `chain_admission.lookups` lists: `Transaction` by `hash`, `Block`
+by `height` or `hash`, and `Head`, which takes no key. A lookup is one node
+with literal keys in braces and a `RETURN` of `var.property` items. It takes no
+`WHERE`, no relationship and no range. A lookup that the list does not name is
+refused with `chain_not_served`, and so is a property that the label does not
+serve.
+
+A transaction, with its result and the day it was mined:
+
+```cypher
+USE chain
+MATCH (t:Transaction {hash: "0x…"})
+RETURN t.status, t.block_height, t.block_date
+```
+
+A block by height, with the day it belongs to:
+
+```cypher
+USE chain
+MATCH (b:Block {height: 79841521})
+RETURN b.hash, b.block_date
+```
+
+The head of the chain, and how far the graph and the warehouse are behind it:
+
+```cypher
+USE chain
+MATCH (h:Head)
+RETURN h.height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind
+```
+
+The `block_date` of a `Transaction` or a `Block` is the day to name in a facts
+read. A chain lookup that comes back `chain_unavailable` means the chain layer is
+off or behind. Topology and facts still work.
 
 ## Swaps, liquidity and bridges
 
@@ -290,3 +445,7 @@ facts `SWAP` row to tell.
   network advertises them.
 - At a `:Pool`, follow the pool trace rule in `chain-insights-schema-evm`.
 - A missing `SWAPPED` edge or `SWAP` row is not proof that no swap happened.
+- `USE chain` looks up one known thing by its key. It never searches, lists or
+  ranges.
+- A refusal is an answer, not an outage. Act on its class, once, and then tell
+  the user.

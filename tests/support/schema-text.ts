@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect } from 'vitest'
 
+import { routingHintLines } from '../../src/mcp/layer-routing.js'
 import { initWorkspace } from '../../src/workspace/init.js'
 
 // Readers for the text a user or an agent sees: the shipped skills, the docs,
@@ -40,7 +41,11 @@ export function servedGraphHints(): string {
   expect(start).toBeGreaterThan(-1)
   expect(end).toBeGreaterThan(start)
   const literal = source.slice(source.indexOf('[', start), end + 1)
-  return (new Function(`return ${literal}`)() as string[]).join('\n')
+  // The routing hints are built from src/mcp/layer-routing.ts, the one source of
+  // the routing rule, so the literal is read with that function in scope.
+  return (new Function('routingHintLines', `return ${literal}`)(routingHintLines) as string[]).join(
+    '\n'
+  )
 }
 
 // The runtime skill that workspace init writes into a new workspace.

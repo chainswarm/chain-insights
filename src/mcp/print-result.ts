@@ -1,6 +1,38 @@
 export interface McpTextResult {
   content?: Array<{ type: string; text?: string }>
+  structuredContent?: unknown
   isError?: boolean
+}
+
+/**
+ * The refusal envelope of the graph server, as the reply carries it in
+ * `structuredContent.error_detail`. `class` is one of `refused`, `killed`,
+ * `capacity` or `failed`, and it decides the caller's next move.
+ */
+export interface McpErrorDetail {
+  code?: string
+  rule?: string
+  class?: string
+  fix?: string
+  example?: string
+}
+
+const ERROR_DETAIL_FIELDS = ['code', 'rule', 'class', 'fix', 'example'] as const
+
+/**
+ * A tool reply flagged `isError`: the server answered, and its answer is an
+ * error. It is never a failure of the connection, so no caller may report it
+ * as an unreachable endpoint. `message` is the server's own text and
+ * `errorDetail` is the envelope of the reply, absent when the reply has none.
+ */
+export class McpToolError extends Error {
+  readonly errorDetail?: McpErrorDetail
+
+  constructor(message: string, errorDetail?: McpErrorDetail) {
+    super(message)
+    this.name = 'McpToolError'
+    if (errorDetail) this.errorDetail = errorDetail
+  }
 }
 
 export interface McpPrintOptions {
@@ -8,10 +40,45 @@ export interface McpPrintOptions {
   json?: boolean
 }
 
+// What a switched-off or lagging chain layer means for the caller, in the line
+// under the server's text. The endpoint answered, so the endpoint is up, and
+// the other two layers do not depend on the chain node.
+const CHAIN_UNAVAILABLE_MEANING =
+  'the chain layer is off or behind. The endpoint is up. USE topology and USE facts still work.'
+
+/**
+ * How `cia mcp call` shows an McpToolError: the server's own text, then one
+ * line built from its error_detail, `code <code> · class <class> · <fix>`. A
+ * reply with no error_detail is the server text alone. For `chain_unavailable`
+ * the line also says what the code means for the caller.
+ */
+export function formatMcpToolError(err: McpToolError): string {
+  const detail = err.errorDetail
+  if (!detail) return err.message
+  const parts: string[] = []
+  if (detail.code) parts.push(`code ${detail.code}`)
+  if (detail.class) parts.push(`class ${detail.class}`)
+  if (detail.fix) parts.push(detail.fix)
+  if (detail.code === 'chain_unavailable') parts.push(CHAIN_UNAVAILABLE_MEANING)
+  if (parts.length === 0) return err.message
+  return `${err.message}\n  ${parts.join(' · ')}`
+}
+
 type JsonRecord = Record<string, unknown>
 
 function isRecord(value: unknown): value is JsonRecord {
   return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+/** The text fields of `structuredContent.error_detail`, or undefined when it has none. */
+function errorDetailOf(structuredContent: unknown): McpErrorDetail | undefined {
+  if (!isRecord(structuredContent) || !isRecord(structuredContent.error_detail)) return undefined
+  const detail: McpErrorDetail = {}
+  for (const field of ERROR_DETAIL_FIELDS) {
+    const value = structuredContent.error_detail[field]
+    if (typeof value === 'string') detail[field] = value
+  }
+  return Object.keys(detail).length > 0 ? detail : undefined
 }
 
 function displayValue(value: unknown): string {
@@ -117,10 +184,11 @@ export function formatMcpTextContent(
 
 /**
  * Prints the text blocks of an MCP tool result to stdout. When the result is
- * flagged `isError`, throws with the tool's error text instead — MCP `callTool`
- * returns tool errors as ordinary results (it does not reject), so callers must
- * surface them as failures (non-zero exit) rather than printing to stdout and
- * exiting 0.
+ * flagged `isError`, throws an McpToolError with the tool's error text instead
+ * — MCP `callTool` returns tool errors as ordinary results (it does not
+ * reject), so callers must surface them as failures (non-zero exit) rather than
+ * printing to stdout and exiting 0. The error keeps the `error_detail` of the
+ * reply, so a caller can tell a refused query from a dead endpoint.
  */
 export function printMcpTextContent(result: McpTextResult, options: McpPrintOptions = {}): void {
   const texts = (result.content ?? [])
@@ -128,7 +196,10 @@ export function printMcpTextContent(result: McpTextResult, options: McpPrintOpti
     .map((item) => item.text ?? '')
 
   if (result.isError) {
-    throw new Error(texts.join('\n').trim() || 'MCP tool returned an error')
+    throw new McpToolError(
+      texts.join('\n').trim() || 'MCP tool returned an error',
+      errorDetailOf(result.structuredContent)
+    )
   }
 
   for (const text of texts) console.log(formatMcpTextContent(text, options.tool, options))

@@ -9,6 +9,14 @@
 // message that names the endpoint and the cause. A non-transport error (a 402,
 // a tool error, a validation error, an unknown-tool error) returns null and is
 // left untouched, so real backend messages still reach the caller verbatim.
+//
+// A tool error is the server answering, so it is never a transport failure. It
+// arrives as an McpToolError and is returned as it is. The words of a server's
+// own text are no evidence of a dead endpoint either: a refused chain lookup
+// says "network_capabilities" and a bad network argument says "invalid_network",
+// so the bare word "network" is not a transport marker.
+
+import { McpToolError } from './print-result.js'
 
 interface CauseLike {
   code?: unknown
@@ -40,6 +48,7 @@ const TRANSPORT_CODES: Record<string, string> = {
 
 /** Returns a plain-language cause when err is a transport failure, else null. */
 function transportDetail(err: unknown): string | null {
+  if (err instanceof McpToolError) return null
   const chain = causeChain(err)
   if (chain.length === 0) return null
   let looksTransport = false
@@ -50,7 +59,7 @@ function transportDetail(err: unknown): string | null {
     for (const [knownCode, text] of Object.entries(TRANSPORT_CODES)) {
       if (message.includes(knownCode)) return text
     }
-    if (/fetch failed|socket hang up|other side closed|network|and could not connect/i.test(message)) {
+    if (/fetch failed|socket hang up|other side closed|and could not connect/i.test(message)) {
       looksTransport = true
     }
   }
@@ -72,7 +81,8 @@ export function describeGraphMcpTransportError(err: unknown, endpoint: string): 
  * Returns an endpoint-named Error when err is a transport failure, preserving
  * the original as `cause`; returns err unchanged otherwise. Callers throw the
  * result, so a real backend error surfaces verbatim while a dead endpoint is
- * self-explaining.
+ * self-explaining. An McpToolError is a reply of the server and always comes
+ * back as it is.
  */
 export function toGraphMcpEndpointError(err: unknown, endpoint: string): unknown {
   const message = describeGraphMcpTransportError(err, endpoint)

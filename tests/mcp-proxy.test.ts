@@ -577,6 +577,33 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).toContain('is_exchange is absent unless true')
   })
 
+  it('serves the routing rule and the move by class from the one routing source', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+    const routing = await import('../src/mcp/layer-routing.js')
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const instructions = String(vi.mocked(McpServer).mock.calls[0]?.[1]?.instructions)
+    const text = instructions.replace(/\s+/g, ' ')
+    for (const line of routing.routingLines()) {
+      expect(text, line).toContain(line)
+    }
+    for (const line of routing.moveLines()) {
+      expect(text, line).toContain(line)
+    }
+    // The three layers are named, with the chain layer among them.
+    expect(text).toContain('`USE topology`')
+    expect(text).toContain('`USE facts`')
+    expect(text).toContain('`USE chain`')
+    // The hints name the field and never a chain limit.
+    expect(text).toContain('chain_admission')
+    expect(text).not.toMatch(/\b(?:4|four) slots\b/)
+  })
+
   it('reads swap attribution from SWAPPED or the facts SWAP row, never from FLOWS_TO', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)
@@ -1255,7 +1282,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     })
   })
 
-  it('mirrors meta_network_capabilities as every GraphRAG network with no layer rows and per-network tools', async () => {
+  it('mirrors meta_network_capabilities as every GraphRAG network with its layer blocks and per-network tools', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       { name: 'network_capabilities', description: 'Network capabilities' },
@@ -1302,6 +1329,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
                   facts: { enabled: true },
                   risk: { enabled: false },
                 },
+                chain_admission: { enabled: true, status: 'ok', batch_max: 5 },
                 tools: { graph_query: 'available', graph_query_batch: 'available' },
               },
             ],
@@ -1327,7 +1355,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       expect.objectContaining({
         network: 'bittensor',
         display_name: 'Bittensor',
-        layers: {},
+        layers: {
+          topology: { enabled: true },
+          facts: { enabled: true },
+          risk: { enabled: false },
+        },
         tools: {
           graph_query: 'available',
           graph_query_batch: 'available',
@@ -1336,13 +1368,19 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       expect.objectContaining({
         network: 'robinhood',
         display_name: 'Robinhood',
-        layers: {},
+        layers: {
+          topology: { enabled: true },
+          facts: { enabled: true },
+          risk: { enabled: false },
+        },
+        chain_admission: { enabled: true, status: 'ok', batch_max: 5 },
         tools: {
           graph_query: 'available',
           graph_query_batch: 'available',
         },
       }),
     ])
+    expect(networks[0]).not.toHaveProperty('chain_admission')
     expect(networks).toHaveLength(2)
     expect(result.structuredContent.facts.capabilities.networks[0]?.tools).not.toHaveProperty(
       'aml_address_risk'
@@ -1352,9 +1390,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     )
     expect(result.content[0].text).toContain('bittensor')
     expect(result.content[0].text).toContain('robinhood')
-    expect(result.content[0].text).not.toContain('"topology"')
-    expect(result.content[0].text).not.toContain('"risk"')
-    expect(result.content[0].text).not.toContain('"enabled"')
+    expect(result.content[0].text).toContain('"topology"')
+    expect(result.content[0].text).toContain('"chain_admission"')
+    expect(result.content[0].text).toContain('"batch_max": 5')
   })
 
   it('returns an empty network list when remote capabilities are absent', async () => {

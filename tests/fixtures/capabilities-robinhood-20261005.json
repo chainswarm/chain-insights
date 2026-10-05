@@ -1,0 +1,174 @@
+{
+  "schema": "chain-insights.network-capabilities.v1",
+  "grammar": {
+    "topology": "topology-native-v1",
+    "facts": "facts-v1",
+    "chain": "chain-v1"
+  },
+  "networks": [
+    {
+      "authorization_requests": {
+        "status": "PARTIAL",
+        "source_version": "AUTHORIZATION_REQUESTS_V1",
+        "projection_version": 1,
+        "application_status": "UNVERIFIED",
+        "source_intervals": [
+          {
+            "start_block_date": "2026-04-30",
+            "start_block_height": 1,
+            "end_block_date": "2026-10-05",
+            "end_block_height": 81106116
+          }
+        ],
+        "completed_intervals": [],
+        "observed_at": "2026-10-05T21:33:36Z"
+      },
+      "network": "robinhood",
+      "display_name": "Robinhood Chain",
+      "status": "live",
+      "default": true,
+      "layers": {
+        "chain": {
+          "enabled": true
+        },
+        "facts": {
+          "enabled": true,
+          "relationships": [
+            "TRANSFER",
+            "BRIDGE_CROSSING",
+            "SWAP",
+            "LIQUIDITY_ADD",
+            "LIQUIDITY_REMOVE"
+          ]
+        },
+        "risk": {
+          "enabled": false
+        },
+        "topology": {
+          "enabled": true
+        }
+      },
+      "tools": {
+        "graph_query": "available",
+        "graph_query_batch": "available"
+      },
+      "coverage": {
+        "from_block": 4,
+        "to_block": 81104924,
+        "from_timestamp": "2026-04-30T18:08:59Z",
+        "to_timestamp": "2026-10-05T21:30:42Z",
+        "chain_tip_block": 81105083,
+        "blocks_behind_tip": 159,
+        "complete_through_block": 81104924
+      },
+      "freshness": {
+        "last_processed_at": "2026-10-05T21:30:42Z",
+        "max_data_age_seconds": 59,
+        "chain_head_block": 81106628,
+        "chain_head_age_seconds": 0,
+        "warehouse_blocks_behind_head": 1704,
+        "graph_blocks_behind_head": 760651
+      },
+      "lane_progress": [
+        {
+          "lane": "core_transfers_source_head",
+          "height": 81104924
+        },
+        {
+          "lane": "core_transfers_internal_follow",
+          "height": 81105083
+        },
+        {
+          "lane": "core_dex_follow",
+          "height": 81104924
+        },
+        {
+          "lane": "core_bridge_follow",
+          "height": 81104924
+        },
+        {
+          "lane": "core_smart_account_follow",
+          "height": 81104924
+        }
+      ],
+      "graph_identity": {
+        "engine": "ranges",
+        "database": "robinhood",
+        "network": "robinhood"
+      },
+      "graph_progress": {
+        "complete_through_block": 80345977,
+        "layers": [
+          {
+            "layer": "flows",
+            "position": 80345977
+          },
+          {
+            "layer": "operated_by",
+            "position": 80345977
+          },
+          {
+            "layer": "dex_swaps",
+            "position": 80345977
+          },
+          {
+            "layer": "dex_liquidity",
+            "position": 80345977
+          },
+          {
+            "layer": "bridged",
+            "position": 81106116
+          },
+          {
+            "layer": "approvals",
+            "position": 81106116
+          },
+          {
+            "layer": "sponsored",
+            "position": 81106116
+          },
+          {
+            "layer": "bundled",
+            "position": 81106116
+          },
+          {
+            "layer": "signers",
+            "position": 81106116
+          },
+          {
+            "layer": "owners",
+            "position": 81106116
+          },
+          {
+            "layer": "contracts",
+            "position": 81106116
+          }
+        ]
+      },
+      "chain_admission": {
+        "enabled": true,
+        "status": "ok",
+        "rules_version": "1",
+        "grammar": "chain-v1",
+        "lookups": [
+          "Transaction",
+          "Block",
+          "Head"
+        ],
+        "ceiling_seconds": {
+          "point": 3,
+          "state_now": 5,
+          "state_past": 10
+        },
+        "slots": 4,
+        "past_slots": 1,
+        "slots_per_caller": 2,
+        "calls_per_second_per_caller": 3,
+        "batch_max": 5,
+        "call_gas": 200000,
+        "head_ttl_ms": 1000,
+        "max_head_age_seconds": 60
+      }
+    }
+  ]
+}

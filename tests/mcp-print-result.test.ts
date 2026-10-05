@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { formatMcpTextContent, printMcpTextContent } from '../src/mcp/print-result.js'
+import { McpToolError, formatMcpTextContent, printMcpTextContent } from '../src/mcp/print-result.js'
 
 describe('printMcpTextContent', () => {
   afterEach(() => vi.restoreAllMocks())
@@ -112,5 +112,90 @@ describe('printMcpTextContent', () => {
 
   it('throws a generic message when the error result has no text', () => {
     expect(() => printMcpTextContent({ isError: true, content: [] })).toThrow(/error/i)
+  })
+
+  // The graph server answers a refused or killed query as a tool error: the
+  // text a plain client reads, and beside it structuredContent.error_detail with
+  // the code, the rule, the class, the fix and a working example. The text below
+  // is the server's own text for a switched-off chain layer.
+  const CHAIN_OFF_TEXT =
+    'chain_unavailable: the chain layer is switched off. Check chain_admission.enabled in network_capabilities.'
+  const CHAIN_OFF_DETAIL = {
+    code: 'chain_unavailable',
+    rule: 'layer_off',
+    class: 'failed',
+    fix: 'Check chain_admission.enabled in network_capabilities.',
+    example: 'USE chain MATCH (h:Head) RETURN h.height',
+  }
+
+  it('throws an McpToolError that keeps the server text and the error_detail of the reply', () => {
+    const attempt = (): void =>
+      printMcpTextContent({
+        isError: true,
+        content: [{ type: 'text', text: CHAIN_OFF_TEXT }],
+        structuredContent: {
+          schema: 'chain-insights.result.v1',
+          tool: 'graph_query',
+          error_detail: CHAIN_OFF_DETAIL,
+        },
+      })
+    let thrown: unknown
+    try {
+      attempt()
+    } catch (err) {
+      thrown = err
+    }
+    expect(thrown).toBeInstanceOf(McpToolError)
+    expect(thrown).toBeInstanceOf(Error)
+    expect((thrown as McpToolError).message).toBe(CHAIN_OFF_TEXT)
+    expect((thrown as McpToolError).errorDetail).toEqual(CHAIN_OFF_DETAIL)
+  })
+
+  it('throws an McpToolError with no errorDetail when the reply carries none', () => {
+    let thrown: unknown
+    try {
+      printMcpTextContent({
+        isError: true,
+        content: [{ type: 'text', text: 'query failed: bad syntax' }],
+      })
+    } catch (err) {
+      thrown = err
+    }
+    expect(thrown).toBeInstanceOf(McpToolError)
+    expect((thrown as McpToolError).message).toBe('query failed: bad syntax')
+    expect((thrown as McpToolError).errorDetail).toBeUndefined()
+  })
+
+  it('McpToolError ignores an error_detail that is not an object of text fields', () => {
+    for (const structuredContent of [
+      { error_detail: 'chain_unavailable' },
+      { error_detail: ['x'] },
+      { error_detail: { code: 7, class: null } },
+      { error_detail: {} },
+    ]) {
+      let thrown: unknown
+      try {
+        printMcpTextContent({
+          isError: true,
+          content: [{ type: 'text', text: 'boom' }],
+          structuredContent,
+        })
+      } catch (err) {
+        thrown = err
+      }
+      expect(
+        (thrown as McpToolError).errorDetail,
+        JSON.stringify(structuredContent)
+      ).toBeUndefined()
+    }
+  })
+
+  it('a successful result with structuredContent is printed and is no McpToolError', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    printMcpTextContent({
+      content: [{ type: 'text', text: 'ok' }],
+      structuredContent: { error_detail: CHAIN_OFF_DETAIL },
+    })
+    expect(log).toHaveBeenCalledWith('ok')
   })
 })

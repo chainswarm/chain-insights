@@ -1,3 +1,5 @@
+import { McpToolError, formatMcpToolError } from './print-result.js'
+
 export const HIDDEN_REMOTE_TOOL_NAMES = new Set([
   'topup',
   'address_risk',
@@ -82,6 +84,11 @@ export function assertPublicMcpToolName(name: string): void {
 }
 
 export function formatMcpCallError(tool: string, err: unknown): string {
+  // A tool error with an envelope is the server's own answer: its text, then the
+  // line of its error_detail. It is never matched against the unknown-tool
+  // pattern below. A tool error with no envelope keeps the old reading, because
+  // a server can answer an unknown tool as an error reply.
+  if (err instanceof McpToolError && err.errorDetail) return formatMcpToolError(err)
   const message = err instanceof Error ? err.message : String(err)
   if (/\bunknown tool\b|\btool\b.*\bnot found\b/i.test(message)) {
     return `Unknown MCP tool "${tool}". Run \`cia mcp tools --refresh\` to list available tools.`

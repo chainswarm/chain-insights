@@ -35,6 +35,93 @@ backends, `meta_usage_status` can reflect remote quota telemetry. On
 backends without a quota tool, Chain Insights returns a local unmetered
 primitive-backend status instead.
 
+## Pick the layer first
+
+A graph query goes to one of three layers. Name the layer at the start of the
+query: `USE topology`, `USE facts` or `USE chain`.
+
+Route by what you know: topology searches, while facts and chain look up one known thing.
+
+1. I do not know the thing yet: `USE topology`.
+2. I know the pair and the day, or the transaction hash, and want the indexed rows: `USE facts`.
+3. I know one address, hash or block and want the chain's own record of it: `USE chain`.
+
+When two fit, as with a hash: ask `USE chain` first for the record and the result, then `USE facts` for the transfers it caused.
+
+The layers hand each other keys. Topology gives the pair and the first and last seen time. Chain gives the `block_date` of a hash or a height. Facts gives the `tx_id`.
+
+A list, a range or a whole-chain question is served on no layer. Say so, and go back to an anchored `USE topology` search.
+
+| The question                                                | Layer      | First query                                                  |
+| ----------------------------------------------------------- | ---------- | ------------------------------------------------------------ |
+| Who is connected to this address? Where did the money go?   | `topology` | One anchored hop on `FLOWS_TO`, with a `LIMIT`.              |
+| What moved between A and B on one day?                      | `facts`    | `TRANSFER` with both addresses and `block_date`.             |
+| Which days did A and B trade?                               | `topology` | The link's `first_seen_timestamp` and `last_seen_timestamp`. |
+| Did transaction `0x…` succeed? Which block, which day?      | `chain`    | `Transaction {hash}`.                                        |
+| Which day is block N?                                       | `chain`    | `Block {height}`, and return `block_date`.                   |
+| How far behind are the graph and the warehouse?             | `chain`    | `Head`.                                                      |
+| Every transaction of block N, or every address with label X | none       | A list or a scan. Say so. Do not retry.                      |
+
+The server publishes the limits of a layer in `meta_network_capabilities`
+(`cia network robinhood --json` prints the same reply): the `chain_admission`
+block today, and `topology_admission` and `facts_admission` when the server
+sends them. Read a limit there. Do not write one down.
+
+## When a query is refused
+
+A refusal is an answer, not an outage: the endpoint is up.
+
+A refused, killed, busy or failed query comes back with `error_detail`: `code`, `rule`, `class`, `fix` and `example`. The `class` decides your next move.
+
+- Class `refused`: read `fix`, rewrite the query from `example`, and send it once.
+- Class `killed`: narrow the query (fewer properties, rows or hops) and send it once.
+- Class `capacity`: wait at least 5 seconds, then send the same query once.
+- Class `failed`: tell the user what is down. Do not retry.
+
+A `fix` that names another layer means move to that layer.
+
+One rewrite or one retry for each query. When it is refused or busy again, stop and tell the user. Quote the `fix` text and send nothing more for that question.
+
+Never send the same text again after `refused` or `killed`.
+
+In a batch, send again only the members that came back `capacity`.
+
+`cia mcp call` prints the server's own text for a refusal, then one line:
+`code <code> · class <class> · <fix>`. It exits with a non-zero status. It never
+reports a refusal as an unreachable endpoint: only a dropped connection reads
+"Could not reach the Chain Insights Graph endpoint". The
+[`chain-insights-cypher` skill](../skills/chain-insights-cypher/SKILL.md#when-a-query-is-refused)
+lists every code with its layer, its class and the next move.
+
+## Chain lookups
+
+`USE chain` asks the chain node for one known thing by its key. It serves the
+lookups that `chain_admission.lookups` lists: `Transaction` by `hash`, `Block`
+by `height` or `hash`, and `Head`, which takes no key. A lookup is one node with
+literal keys in braces and a `RETURN` of `var.property` items. It takes no
+`WHERE`, no relationship and no range. The properties of each lookup are named
+in the refusal of an unknown property, and in the
+[`chain-insights-schema-evm` skill](../skills/chain-insights-schema-evm/SKILL.md#use-chain).
+
+A transaction, with its result and the day it was mined:
+
+```bash
+cia mcp call graph_query \
+  network=robinhood \
+  'query=USE chain MATCH (t:Transaction {hash: "0x..."}) RETURN t.status, t.block_height, t.block_date'
+```
+
+The head of the chain, and how far the graph and the warehouse are behind it:
+
+```bash
+cia mcp call graph_query \
+  network=robinhood \
+  'query=USE chain MATCH (h:Head) RETURN h.height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind'
+```
+
+A chain lookup that comes back `chain_unavailable` means the chain layer is off
+or behind: read `chain_admission.status`. Topology and facts still work.
+
 ## Swaps, liquidity pools and bridges
 
 The topology graph holds lifetime totals per pair. The facts layer holds the
@@ -194,12 +281,15 @@ and `:Sanctioned`. Each role also has a flag on the node.
   `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` rows. Address
   labels, risk, lifetime metrics, and `FLOWS_TO`/`LINKED` relationships
   belong to `USE topology`.
+- Use `USE chain` for the chain node's own record of one known transaction,
+  block or the head. It looks up one key and never searches.
 - A facts read names an address pair with one day, or one `tx_id` (the `0x`
   transaction hash on EVM networks). The pair is both endpoint addresses, from
   then to, and the day is a `block_date` equality. `block_timestamp` bounds in
   epoch milliseconds may narrow the day to a time window. One address, a day
   alone, a window of days, a block range and a bare `LIMIT` are not enough. A
-  facts read has one relationship and takes no `ORDER BY`.
+  reply holds at most 200 rows. A facts read has one relationship and no hop,
+  and takes no `ORDER BY`: sort the page yourself.
 - A link covers all time and a facts read covers one day: read the transfers
   of a pair one day at a time.
 - `TRANSFER` lists token and native transfers. It lists no internal native
@@ -226,8 +316,8 @@ and `:Sanctioned`. Each role also has a flag on the node.
 Agent installers ship three skills:
 
 - `chain-insights-address-risk`: one-address screen via `aml_address_risk`.
-- `chain-insights-cypher`: Memgraph dialect and layer rules for
-  `graph_query` and `graph_query_batch`. No query cookbook.
+- `chain-insights-cypher`: ISO GQL dialect, layer routing and the move for
+  every refusal, for `graph_query` and `graph_query_batch`. No query cookbook.
 - `chain-insights-schema-evm`: EVM / Robinhood GraphRAG labels,
   relationships, and properties.
 

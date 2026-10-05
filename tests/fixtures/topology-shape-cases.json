@@ -402,6 +402,78 @@
    "source": "skills/chain-insights-schema-evm/SKILL.md"
   },
   {
+   "id": "hint-1",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[l:LINKED]-(b:Address) RETURN b.address, b.network, l.basis, l.confidence LIMIT 25",
+   "source": "src/mcp/proxy.ts graph hints"
+  },
+  {
+   "id": "hint-2",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[:LINKED]-(owned:Address)-[r:FLOWS_TO|SWAPPED]-(b:Address) WHERE NOT a:Pool AND NOT owned:Pool AND owned.address <> b.address AND a.address <> b.address RETURN owned.address, b.address, type(r), coalesce(r.amount_usd_sum, r.bought_usd) LIMIT 50",
+   "source": "src/mcp/proxy.ts graph hints"
+  },
+  {
+   "id": "hint-3",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \"corpus-address-a\"}) RETURN owner.address AS owner, operation.tx_count AS tx_count ORDER BY operation.tx_count DESC LIMIT 10",
+   "source": "src/mcp/proxy.ts graph hints"
+  },
+  {
+   "id": "hint-4",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (victim:Address {address: \"corpus-address-a\"})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, removal.usd AS removed_usd, removal.receiver_added_usd AS receiver_added_usd, removal.receiver_provided AS receiver_provided LIMIT 25",
+   "source": "src/mcp/proxy.ts graph hints"
+  },
+  {
+   "id": "hint-5",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"corpus-address-a\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: \"corpus-address-a\"}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5",
+   "source": "src/mcp/proxy.ts graph hints"
+  },
+  {
+   "id": "hint-6",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH SHORTEST 1 (a:Address {address: \"corpus-address-a\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address) RETURN b.address LIMIT 50",
+   "source": "src/mcp/proxy.ts graph hints"
+  },
+  {
+   "id": "hint-7",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (n:Address) RETURN n.address AS address, n.network AS network, n.labels AS labels, n.risk_score AS risk_score, n.risk_level AS risk_level LIMIT 20",
+   "source": "src/mcp/proxy.ts graph hints"
+  },
+  {
+   "id": "hint-8",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 20",
+   "source": "src/mcp/proxy.ts graph hints"
+  },
+  {
+   "id": "hint-9",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[x:SWAPPED]->(b:Address) WHERE x.swap_count >= 2 RETURN b.address, x.swap_count LIMIT 25",
+   "source": "src/mcp/proxy.ts graph hints"
+  },
+  {
    "id": "removed-recipe-topology-06",
    "expect": "refuse",
    "rule": "aggregate",

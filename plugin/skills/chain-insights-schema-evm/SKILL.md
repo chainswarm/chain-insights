@@ -603,6 +603,24 @@ topology link sums its rows and counts a side with no price as 0: see
 A single-node `MATCH (a:Address)` on facts is refused. Lifetime metrics
 live on topology, not facts.
 
+## USE chain
+
+`USE chain` asks the chain node for one known thing by its key. It is not a
+graph: there is no relationship to walk and nothing to search. Each lookup is
+one node with its key in braces. Load `chain-insights-cypher` for the rule that
+sends a question here, and for the shape of a lookup.
+
+| Label         | Key                             | What it answers                                                         |
+| ------------- | ------------------------------- | ----------------------------------------------------------------------- |
+| `Transaction` | `hash`                          | The transaction and its result: `status`, `block_height`, `block_date`. |
+| `Block`       | `height` or `hash`, exactly one | A block and its time: `hash`, `block_timestamp`, `block_date`.          |
+| `Head`        | none                            | The chain tip, and how far the graph and the warehouse are behind it.   |
+
+The labels that the server serves are listed in `chain_admission.lookups` of
+`meta_network_capabilities`. The refusal of an unknown property
+(`chain_not_served`) lists the properties of that label. A `block_date` is a
+UTC day, the same day that a facts `block_date` names.
+
 ## Exchange terminals
 
 Treat `is_exchange IS NOT NULL` nodes as terminals. Do not walk through
