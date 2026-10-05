@@ -22,12 +22,16 @@ const args = process.argv.slice(2)
 const hasClaude = args.includes('--claude')
 const hasCodex = args.includes('--codex')
 const hasHermes = args.includes('--hermes')
+const hasClaudeDesktop = args.includes('--claude-desktop')
 const hasLocal = args.includes('--local')
 
-if (!hasClaude && !hasCodex && !hasHermes && !hasLocal) {
+if (!hasClaude && !hasCodex && !hasHermes && !hasClaudeDesktop && !hasLocal) {
   console.log(`\n${bold}chain-insights installer${reset}`)
-  console.log(`\nUsage: node bin/install.cjs --claude | --codex | --hermes`)
+  console.log(`\nUsage: node bin/install.cjs --claude | --claude-desktop | --codex | --hermes`)
   console.log(`  ${cyan}--claude${reset}  Install Claude Code skills globally to ~/.claude/skills/`)
+  console.log(
+    `  ${cyan}--claude-desktop${reset} Register MCP in Claude Desktop (draws the money-flow views)`
+  )
   console.log(
     `  ${cyan}--codex${reset}   Install Codex skills globally to ~/.codex/skills/ and register MCP`
   )
@@ -271,6 +275,59 @@ if (hasHermes) {
   const hermesConfig = path.join(homeDir, '.hermes', 'config.yaml')
   installHermesMcp(hermesConfig, proxyBinPath)
   console.log(`  ${cyan}Hermes MCP:${reset} registered in ${hermesConfig}`)
+}
+
+// Claude Desktop reads one JSON file per user. It is not a terminal program, so
+// it does not see the PATH of a shell; the proxy is started with this Node's
+// absolute path. Skills reach Claude Desktop through the plugin, not this file.
+function claudeDesktopConfigPath() {
+  if (process.platform === 'darwin') {
+    return path.join(homeDir, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json')
+  }
+  if (process.platform === 'win32') {
+    const appData = process.env['APPDATA'] || path.join(homeDir, 'AppData', 'Roaming')
+    return path.join(appData, 'Claude', 'claude_desktop_config.json')
+  }
+  const configHome = process.env['XDG_CONFIG_HOME'] || path.join(homeDir, '.config')
+  return path.join(configHome, 'Claude', 'claude_desktop_config.json')
+}
+
+function installClaudeDesktopMcp(configFile, proxyPath) {
+  fs.mkdirSync(path.dirname(configFile), { recursive: true })
+  let config = {}
+  if (fs.existsSync(configFile)) {
+    const text = fs.readFileSync(configFile, 'utf8')
+    if (text.trim() !== '') {
+      try {
+        config = JSON.parse(text)
+      } catch {
+        throw new Error(`${configFile} is not valid JSON; fix it, then run the setup again`)
+      }
+      if (config === null || typeof config !== 'object' || Array.isArray(config)) {
+        throw new Error(`${configFile} does not hold a JSON object; fix it, then run the setup again`)
+      }
+    }
+    fs.copyFileSync(configFile, `${configFile}.bak`)
+  }
+  const servers =
+    config.mcpServers && typeof config.mcpServers === 'object' && !Array.isArray(config.mcpServers)
+      ? config.mcpServers
+      : {}
+  servers['chain-insights'] = { command: process.execPath, args: [proxyPath] }
+  config.mcpServers = servers
+  fs.writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`, 'utf8')
+}
+
+if (hasClaudeDesktop) {
+  const desktopConfig = claudeDesktopConfigPath()
+  try {
+    installClaudeDesktopMcp(desktopConfig, proxyBinPath)
+    console.log(`  ${cyan}Claude Desktop MCP:${reset} registered in ${desktopConfig}`)
+    console.log(`  ${dim}Restart Claude Desktop to load it.${reset}`)
+  } catch (err) {
+    console.error(`  Claude Desktop MCP: ${err.message}`)
+    process.exit(1)
+  }
 }
 
 // ─── 5. Print installation summary ────────────────────────────────────────

@@ -23,6 +23,7 @@ program
   .version(PACKAGE_INFO.version)
   .showHelpAfterError()
   .option('--claude', 'Install Claude Code skills globally to ~/.claude/skills/')
+  .option('--claude-desktop', 'Register the MCP proxy in Claude Desktop')
   .option('--codex', 'Install Codex skills globally to ~/.codex/skills/ and register MCP')
   .option(
     '--hermes',
@@ -32,7 +33,7 @@ program
 // Handle installer flags when invoked with no subcommand (bare `chain-insights --claude`)
 const rawArgs = process.argv.slice(2)
 const installerFlags = rawArgs.filter(
-  (a) => a === '--claude' || a === '--codex' || a === '--hermes'
+  (a) => a === '--claude' || a === '--claude-desktop' || a === '--codex' || a === '--hermes'
 )
 
 // Commander treats the root package `--version` option as global, so it would
@@ -78,7 +79,7 @@ if (rawArgs[0] === 'mcp' && retiredMcpAliases.has(rawArgs[1] ?? '')) {
   process.exit(1)
 }
 
-function runInstaller(flag: '--claude' | '--codex' | '--hermes'): void {
+function runInstaller(flag: '--claude' | '--claude-desktop' | '--codex' | '--hermes'): void {
   try {
     execFileSync(process.execPath, [installerPath, flag], { stdio: 'inherit' })
   } catch (err) {
@@ -538,6 +539,13 @@ program
       .description('Install Claude Code skills and register the MCP proxy')
       .action(() => {
         runInstaller('--claude')
+      })
+  )
+  .addCommand(
+    createCliCommand('claude-desktop')
+      .description('Register the MCP proxy in Claude Desktop, which draws the money-flow views')
+      .action(() => {
+        runInstaller('--claude-desktop')
       })
   )
   .addCommand(

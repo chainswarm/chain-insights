@@ -12,6 +12,12 @@ gone.
 
 ### Added
 
+- `cia setup claude-desktop`: registers the local MCP proxy in Claude
+  Desktop's `claude_desktop_config.json` (macOS, Windows, and
+  `$XDG_CONFIG_HOME/Claude` on Linux), keeping every other server and setting
+  and writing a `.bak` copy first. It starts the proxy with the installing
+  Node's absolute path, because Claude Desktop does not inherit a shell PATH.
+  A file that is not valid JSON is refused and left untouched.
 - `ui://chain-insights/view`, served by the local proxy from one HTML file in
   the package (`src/mcp/apps/claude-view.html`, rebuilt with
   `scripts/refresh-claude-view.mjs <commit>`). It draws the money-flow graph,

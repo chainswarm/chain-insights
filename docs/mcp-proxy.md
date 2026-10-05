@@ -264,13 +264,16 @@ flags:
 
 ```bash
 cia setup claude-code
+cia setup claude-desktop
 cia setup codex
 cia setup hermes
 ```
 
 `cia setup claude` is an alias for `cia setup
-claude-code`. Claude Desktop configuration is not exposed by the CLI setup
-surface.
+claude-code`. `cia setup claude-desktop` writes the proxy into Claude
+Desktop's `claude_desktop_config.json`, keeps every other entry, saves a
+`.bak` copy, and refuses a file that is not valid JSON. Restart Claude
+Desktop afterwards.
 
 Current MCP prompts exposed by the local proxy:
 

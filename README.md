@@ -39,7 +39,7 @@ cia mcp tools                      # list remote graph tools
 Sixty seconds gets you the CLI, a network overview, a CIA workflow, and the
 available remote graph tools for Robinhood.
 To call the same tools from an agent, register the MCP proxy:
-`cia setup claude-code` (or `codex` / `hermes`).
+`cia setup claude-code` (or `claude-desktop` / `codex` / `hermes`).
 
 CLI results are human-readable by default. Add `--json` when another tool or
 script needs indented JSON:
@@ -70,6 +70,10 @@ Chain Insights Graph for the data.
 
 The plugin needs Node.js 22 or newer. Add this repository as a plugin
 marketplace, then install the `chain-insights` plugin from it.
+
+Without the plugin, `npm install -g chain-insights` then
+`cia setup claude-desktop` registers the installed proxy in Claude Desktop
+directly. Restart Claude Desktop afterwards.
 
 The plugin skills are copies of `skills/`. After editing a skill, run
 `node scripts/sync-plugin-skills.mjs`; a test fails while the copies differ.

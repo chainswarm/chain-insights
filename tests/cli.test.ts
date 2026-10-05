@@ -112,13 +112,12 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('setup')
   })
 
-  it('setup --help lists supported installer subcommands and hides Claude Desktop', () => {
+  it('setup --help lists every supported installer subcommand, Claude Desktop included', () => {
     const out = execSync('node bin/cli.js setup --help', { encoding: 'utf8' })
     expect(out).toContain('claude-code')
+    expect(out).toContain('claude-desktop')
     expect(out).toContain('codex')
     expect(out).toContain('hermes')
-    expect(out).not.toContain('claude-desktop')
-    expect(out).not.toContain('Claude Desktop')
   })
 
   it('AML workflow exposes JSON output and version selection', () => {
