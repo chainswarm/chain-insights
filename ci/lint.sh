@@ -82,9 +82,11 @@ egress_pattern+="|(^|[[:space:]])(echo|cat|printf)\s+.*\\\$\{?(GITHUB_TOKEN|NPM_
 if [ "${#changed_files[@]}" -eq 0 ]; then
   echo "no code file changed against $base"
 fi
+# Only the lines this branch adds are scanned: a file's untouched lines were
+# scanned when they were added, and re-flagging them blocks any later edit.
 for f in "${changed_files[@]+"${changed_files[@]}"}"; do
   [ -f "$f" ] || continue
-  hits_in_file="$(grep -nE "$egress_pattern" "$f" || true)"
+  hits_in_file="$(git diff -U0 "$base...HEAD" -- "$f" | grep -E '^\+' | grep -vE '^\+\+\+ ' | sed 's/^+//' | grep -nE "$egress_pattern" || true)"
   if [ -n "$hits_in_file" ]; then
     printf '%s\n' "$hits_in_file" | tee -a "$out/egress-scan.log"
     echo "Potential secret-evasion output pattern in $f" >&2
