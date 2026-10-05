@@ -25,6 +25,7 @@ const SCOPES = ['topology']
 const ADDR = 'corpus-address-a'
 const ADDR_QUOTED = 'corpus"quote'
 const COMPARE = 'corpus-address-b'
+const ANCHOR_DAY = '2026-07-11'
 const DEPOSITS = ['corpus-dep-1', 'corpus-dep-2', 'corpus-dep-3']
 // TraceActivityWindow shape ({ fromTimestamp, toTimestamp }) — a wrong key
 // here produces `>= undefined` predicates; tests/query-corpus.test.ts pins
@@ -127,9 +128,10 @@ for (const recipe of documentedRecipes.recipes) {
   // This corpus is the production ADMISSION contract: the the upstream pipeline
   // the internal corpus test asserts ValidateReadOnlyGraphQuery admits every entry, so a
   // query production deliberately refuses must not appear here. Recipes tagged
-  // `admits: false` (StarRocks-backed global aggregates without an indexed
-  // predicate — refused by the cost-shape gate) document a surface boundary,
-  // just outside this admission corpus.
+  // `admits: false` (a facts read with no address pair and no transaction hash,
+  // or with one address, refused by the facts read contract) document a surface
+  // boundary, just outside this admission corpus. Each names the code it must
+  // get in `expects_code`.
   if (recipe.admits === false) {
     continue
   }
@@ -141,12 +143,12 @@ for (const recipe of documentedRecipes.recipes) {
   })
 }
 
-// Facts-lane anchor recipes: first and last transfer of a pair, both orders.
-for (const order of ['ASC', 'DESC']) {
-  addFacts('pairAnchorQuery', { from: ADDR, to: COMPARE, order }, {
-    query: queryBuilderContract.pairAnchorQuery(ADDR, COMPARE, order),
-  })
-}
+// Facts-lane anchor recipe: a transfer of a pair on one day. A facts read
+// names an address pair with one day, or one transaction hash, and takes no
+// ORDER BY, so the pair anchor takes the day and reads it.
+addFacts('pairAnchorQuery', { from: ADDR, to: COMPARE, day: ANCHOR_DAY }, {
+  query: queryBuilderContract.pairAnchorQuery(ADDR, COMPARE, ANCHOR_DAY),
+})
 add(
   'inlineAverageFlowQuery',
   { address: ADDR, limit: 25 },

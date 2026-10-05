@@ -3,6 +3,46 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.37.5] - 2026-10-05 — fix: the facts recipes and examples name an address pair with one day, or a transaction hash
+
+This release changes recipes, text and tests only. The CLI and the MCP proxy
+behave as in 0.37.4. The graph server will refuse a `USE facts` read that
+names one address, a day alone, a window of days or an `ORDER BY`, and this
+release stops showing those reads as reads that work.
+
+### Changed
+
+- A `USE facts` read names an address pair with one day, or one `tx_id`. The
+  pair is both endpoint addresses, from then to, and the day is a `block_date`
+  equality. A facts read has one relationship and takes no `ORDER BY`. The
+  dialect skill, the schema guide, `docs/graph-tools.md`, the served graph
+  hints and the workspace runtime notes say so for `TRANSFER`, `SWAP`,
+  `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING`. They no longer
+  advertise one address, a day alone, a block range, the 90-day window an
+  address read once got, or an `ORDER BY` as reads that work.
+- The transaction anchor of a pair reads one transfer on one day: take the
+  day from the `first_seen_timestamp` or `last_seen_timestamp` of the link.
+  `pairAnchorQuery` takes that day in place of `ASC` or `DESC`.
+- The time-window example in the dialect skill and in `docs/graph-tools.md`
+  names a pair.
+- `Asset` is no longer listed as a facts label in the schema guide. A facts
+  read of `Asset` is not served.
+- `tests/fixtures/documented-recipes.json`: `recipe_facts_transfer_02` reads a
+  real EVM transaction hash, and `recipe_facts_transfer_08` names both
+  addresses of its pair. The facts recipes that read one address, a day alone
+  or nothing carry `admits: false` and a new field `expects_code` with the
+  code the graph answers: `facts_pair_required` or `facts_no_anchor`. The
+  generated corpus holds 49 entries, from 53.
+- The live recipe test checks each refused recipe against its `expects_code`.
+
+### Added
+
+- `tests/facts-read-contract.test.ts` reads every facts read that a recipe, the
+  corpus, a skill, a doc, the served hints or the workspace notes show, and
+  fails on one that names no pair with one day and no transaction hash. It
+  also fails when a refused recipe names a code that is not the one limit it
+  breaks.
+
 ## [0.37.4] - 2026-10-04 — ci: tier scripts and dispatch-only workflows
 
 No runtime change. The CLI, the MCP proxy and the skills are the same as

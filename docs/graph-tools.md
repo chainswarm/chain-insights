@@ -73,9 +73,9 @@ of truth.
   with v4 use.
 - `REMOVED_LIQUIDITY` carries `receiver_added_usd` and `receiver_provided`.
   A receiver's profit from a pool is `usd` minus `receiver_added_usd`.
-- `SWAP` and `LIQUIDITY_*` rows need an address on either endpoint or a
-  `tx_id` equality. `BRIDGE_CROSSING` rows need a bare `block_date` bound or
-  a `tx_id` equality.
+- `SWAP`, `LIQUIDITY_*` and `BRIDGE_CROSSING` rows follow the rule of
+  `TRANSFER` rows: a facts read names an address pair with one day, or one
+  `tx_id`.
 - **Temporary, until graph server issue 1121 is fixed. Remove this note when
   it ships.**
   - Do not return, filter or order by `pools` in a `USE facts` `SWAP` read.
@@ -83,9 +83,8 @@ of truth.
     `facts query could not be completed`: by address, by day and by `tx_id`.
   - Only `pools` is built by the failing part of the warehouse view.
     `pool_keys` and `families` come from the main read.
-  - Read `SWAP` rows by `tx_id` or by a bare `block_date` bound, and leave
-    `pools` out. The server accepts a bare `block_date` bound on a `SWAP` read.
-    A read by address can fail for a busy address, even without `pools`.
+  - Read `SWAP` rows by `tx_id`, or by the payer, the recipient and one day,
+    and leave `pools` out.
   - For the pools of a swap, read `SWAPPED.pools` on `USE topology`, anchored
     on the payer or the recipient. `SWAPPED` has one link per payer,
     recipient, sold asset and bought asset, so its `pools` cover every route
@@ -195,12 +194,14 @@ and `:Sanctioned`. Each role also has a flag on the node.
   `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` rows. Address
   labels, risk, lifetime metrics, and `FLOWS_TO`/`LINKED` relationships
   belong to `USE topology`.
-- Every `TRANSFER` read carries an indexed predicate: an address on either
-  endpoint, a `tx_id` (the `0x` transaction hash on EVM networks), or a bare
-  `block_date` bound, which `block_timestamp` bounds in epoch milliseconds
-  may narrow to a time window.
-- An address-only `TRANSFER` read covers a recent window (90 days today).
-  Add a bare `block_date` bound to read further back.
+- A facts read names an address pair with one day, or one `tx_id` (the `0x`
+  transaction hash on EVM networks). The pair is both endpoint addresses, from
+  then to, and the day is a `block_date` equality. `block_timestamp` bounds in
+  epoch milliseconds may narrow the day to a time window. One address, a day
+  alone, a window of days, a block range and a bare `LIMIT` are not enough. A
+  facts read has one relationship and takes no `ORDER BY`.
+- A link covers all time and a facts read covers one day: read the transfers
+  of a pair one day at a time.
 - `TRANSFER` lists token and native transfers. It lists no internal native
   transfer, a contract sending ETH during a call. `FLOWS_TO` `tx_count`
   counts those too, so a pair can have a `tx_count` above 0 and no
@@ -244,7 +245,7 @@ cia mcp call graph_query \
   "query=USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level LIMIT 10"
 ```
 
-Example facts queries, one transaction and one time window:
+Example facts queries, one transaction and one time window of a pair:
 
 ```bash
 cia mcp call graph_query \
@@ -253,7 +254,7 @@ cia mcp call graph_query \
 
 cia mcp call graph_query \
   network=robinhood \
-  'query=USE facts MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.block_date = "2026-07-11" AND t.block_timestamp >= 1783738500000 AND t.block_timestamp < 1783738560000 RETURN t.tx_id AS tx_id, t.block_timestamp AS block_timestamp, from.address AS from_address, to.address AS to_address, t.amount AS amount LIMIT 10'
+  'query=USE facts MATCH (from:Address {address: "0x..."})-[t:TRANSFER]->(to:Address {address: "0x..."}) WHERE t.block_date = "2026-07-11" AND t.block_timestamp >= 1783738500000 AND t.block_timestamp < 1783738560000 RETURN t.tx_id AS tx_id, t.block_timestamp AS block_timestamp, from.address AS from_address, to.address AS to_address, t.amount AS amount LIMIT 10'
 ```
 
 Example batch query:

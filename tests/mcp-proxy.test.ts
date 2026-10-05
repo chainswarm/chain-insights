@@ -625,10 +625,13 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).toContain('internal native transfers')
     expect(instructions).toContain('lists the first group only')
     expect(instructions).toContain('no MCP read lists internal transfers yet')
-    // The recency window is a server setting, so the client text says "today".
-    expect(instructions).toContain('a recent window (90 days today)')
-    // The anchor query stays, for a pair that has token or native transfers.
-    expect(instructions).toContain('RETURN t.tx_id ORDER BY t.block_timestamp ASC LIMIT 1')
+    // A link covers all time and a facts read covers one day.
+    expect(instructions).toContain('A link covers all time and a USE facts read covers one day')
+    // The anchor query stays, on one day and with no ORDER BY, for a pair that
+    // has token or native transfers.
+    expect(instructions).toContain(
+      'WHERE t.block_date = "YYYY-MM-DD" RETURN t.tx_id, t.block_timestamp LIMIT 1'
+    )
   })
 
   it('says no swap has strength swap today and a 0 on SWAPPED USD can mean no price', async () => {

@@ -154,18 +154,20 @@ Facts rejects native traversal, `FLOWS_TO`, `OPERATED_BY`, `LINKED`, `WITH` pipe
 the topology edges `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY` and `BRIDGED`,
 the `:Pool` label, `CASE`, grouped aggregates, `collect()`, and metadata functions
 (`keys()`, `labels()`, `type()`). Predicate-less global aggregates are
-refused. `TRANSFER` always needs an indexed predicate: address equality
-on either endpoint, a `tx_id` equality, or a bare `block_date` bound. A bare
-`LIMIT` is not enough. `SWAP`, `LIQUIDITY_ADD` and `LIQUIDITY_REMOVE` need
-address equality on either endpoint or a `tx_id` equality. `BRIDGE_CROSSING`
-needs a bare `block_date` bound or a `tx_id` equality.
+refused. A facts read names an address pair with one day, or one `tx_id`. A
+pair is both endpoint addresses of the relationship, from then to, each as
+`{address: "0x…"}`, and the day is `t.block_date = "YYYY-MM-DD"`. One address,
+a day alone, a window of days, a block range and a bare `LIMIT` are not
+enough. A facts read has one relationship and takes no `ORDER BY`. This holds
+for `TRANSFER`, `SWAP`, `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and
+`BRIDGE_CROSSING`.
 
 On EVM networks `tx_id` is the `0x` transaction hash:
 `MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.tx_id = "0x…" RETURN from.address AS from_address, to.address AS to_address, t.amount AS amount LIMIT 10`
 
-A time window is a bare `block_date` bound plus `block_timestamp` bounds in
-epoch milliseconds:
-`MATCH (from:Address)-[t:TRANSFER]->(to:Address) WHERE t.block_date = "2026-07-11" AND t.block_timestamp >= 1783738500000 AND t.block_timestamp < 1783738560000 RETURN t.tx_id AS tx_id, t.block_timestamp AS block_timestamp LIMIT 10`
+A time window is one day plus `block_timestamp` bounds in epoch milliseconds,
+on a pair:
+`MATCH (from:Address {address: "0x…"})-[t:TRANSFER]->(to:Address {address: "0x…"}) WHERE t.block_date = "2026-07-11" AND t.block_timestamp >= 1783738500000 AND t.block_timestamp < 1783738560000 RETURN t.tx_id AS tx_id, t.block_timestamp AS block_timestamp LIMIT 10`
 
 `block_timestamp` or `block_height` bounds without the `block_date` bound are
 refused: they do not name the day.
@@ -201,9 +203,8 @@ only.
   `facts query could not be completed`: by address, by day and by `tx_id`.
 - Only `pools` is built by the failing part of the warehouse view. `pool_keys`
   and `families` come from the main read.
-- Read `SWAP` rows by `tx_id` or by a bare `block_date` bound, and leave `pools`
-  out. The server accepts a bare `block_date` bound on a `SWAP` read. A read by
-  address can fail for a busy address, even without `pools`.
+- Read `SWAP` rows by `tx_id`, or by the payer, the recipient and one day, and
+  leave `pools` out.
 - For the pools of a swap, read `SWAPPED.pools` on `USE topology`, anchored on
   the payer or the recipient. `SWAPPED` has one link per payer, recipient, sold
   asset and bought asset, so its `pools` cover every route on the link, not one

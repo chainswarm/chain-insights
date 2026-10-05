@@ -23,8 +23,9 @@ import { PACKAGE_VERSION } from '../src/version.js'
 // network in CHAIN_INSIGHTS_LIVE_GRAPH_NETWORK (default robinhood). Without
 // the endpoint the suite is skipped, so `npm test` never needs a backend.
 //
-// Recipes carry two flags the runner reads:
-//   admits: false  — the backend must refuse the query with the remedy text;
+// Recipes carry flags the runner reads:
+//   admits: false  — the backend must refuse the query, with the facts code
+//                    the recipe names in expects_code;
 //   expect_rows    — the recipe is anchored on fixture data the backend
 //                    serves, so it must return at least one row.
 
@@ -39,6 +40,7 @@ type Recipe = {
   query: string
   layer: 'facts' | 'topology'
   admits?: boolean
+  expects_code?: string
   expect_rows?: boolean
   features: string[]
 }
@@ -48,6 +50,7 @@ type BatchEntry = {
   ok?: boolean
   count?: number
   error?: string
+  error_detail?: { code?: string; class?: string }
   results?: Array<Record<string, unknown>>
 }
 
@@ -66,14 +69,12 @@ const corpus = (
 ).entries
 const corpusId = (index: number): string => `corpus_${String(index).padStart(2, '0')}`
 
-// The backend's default recency window for an address read with no day bound
-// (FACTS_RECENCY_WINDOW_DAYS). The product pair anchor carries no day bound.
-const RECENCY_WINDOW_DAYS = 90
-const DAY_MS = 86_400_000
+// The day of the fixture transaction the tx_id recipe documents (robinhood,
+// block 6600000). The product pair anchor reads one pair on one day.
+const FIXTURE_DAY = '2026-07-11'
 
 // The server caps one batch at 20 queries.
 const BATCH_SIZE = 20
-const PARTITION_REMEDY = /partition-bounding predicate/
 
 function chunk<T>(items: T[], size: number): T[][] {
   const out: T[][] = []
@@ -180,20 +181,21 @@ describe.skipIf(!endpoint)('documented recipes against a live Chain Insights Gra
     }
   })
 
-  it('refuses every recipe documented as refused, naming the remedy', () => {
+  it('refuses every recipe documented as refused, with the code it names', () => {
     const refused = recipes.filter((entry) => entry.admits === false)
     expect(refused.length).toBeGreaterThan(0)
     for (const recipe of refused) {
       const entry = answers.get(recipe.id)!
       expect(entry.ok, `${recipe.id} must be refused`).toBe(false)
-      expect(entry.error ?? '', `${recipe.id} remedy`).toMatch(PARTITION_REMEDY)
+      expect(recipe.expects_code, `${recipe.id} names its code`).toBeDefined()
+      expect(entry.error_detail?.code, `${recipe.id} code`).toBe(recipe.expects_code)
     }
   })
 
   it('returns rows for every fixture-anchored recipe, under its RETURN aliases only', () => {
     const anchored = recipes.filter((entry) => entry.expect_rows)
     expect(anchored.map((entry) => entry.id)).toEqual(
-      expect.arrayContaining(['recipe_facts_transfer_06', 'recipe_facts_transfer_07'])
+      expect.arrayContaining(['recipe_facts_transfer_06'])
     )
     for (const recipe of anchored) {
       const entry = answers.get(recipe.id)!
@@ -239,32 +241,24 @@ describe.skipIf(!endpoint)('documented recipes against a live Chain Insights Gra
     })
   })
 
-  it('anchors a pair through the product pair anchor, first and latest transfer', async () => {
+  it('anchors a pair through the product pair anchor, one transfer on one day', async () => {
     // The pair of the tx_id recipe's first row, asked the way the product asks
-    // for a pair's transaction anchor: no day bound, so the recency window
-    // applies. Rows are required only while the served coverage ends inside it.
+    // for a pair's transaction anchor: both addresses and the one day of the
+    // fixture transaction, with no ORDER BY.
     const [first] = answers.get('recipe_facts_transfer_06')?.results ?? []
     expect(first, 'the tx_id recipe returned a row to anchor on').toBeDefined()
     const from = String(first!['from_address'])
     const to = String(first!['to_address'])
     const anchors = await runBatch([
-      { id: 'anchor_asc', query: pairAnchorQuery(from, to, 'ASC') },
-      { id: 'anchor_desc', query: pairAnchorQuery(from, to, 'DESC') },
+      { id: 'anchor', query: pairAnchorQuery(from, to, FIXTURE_DAY) },
     ])
-    const coverageEnd = Date.parse(advertised?.coverage?.to_timestamp ?? '')
-    const insideWindow = Date.now() - coverageEnd < RECENCY_WINDOW_DAYS * DAY_MS
-    const stamps: number[] = []
-    for (const id of ['anchor_asc', 'anchor_desc']) {
-      const entry = anchors.get(id)
-      expect(entry?.ok, `${id} failed: ${entry?.error ?? ''}`).toBe(true)
-      const rows = entry!.results ?? []
-      if (insideWindow) expect(rows.length, `${id} returned no anchor`).toBe(1)
-      for (const row of rows) {
-        expect(Object.keys(row).sort()).toEqual(['block_timestamp', 'tx_id'])
-        if (network === 'robinhood') expect(row['tx_id']).toMatch(/^0x[0-9a-f]{64}$/)
-        stamps.push(Number(row['block_timestamp']))
-      }
+    const entry = anchors.get('anchor')
+    expect(entry?.ok, `anchor failed: ${entry?.error ?? ''}`).toBe(true)
+    const rows = entry!.results ?? []
+    expect(rows.length, 'anchor returned no transfer').toBe(1)
+    for (const row of rows) {
+      expect(Object.keys(row).sort()).toEqual(['block_timestamp', 'tx_id'])
+      if (network === 'robinhood') expect(row['tx_id']).toMatch(/^0x[0-9a-f]{64}$/)
     }
-    if (stamps.length === 2) expect(stamps[0]).toBeLessThanOrEqual(stamps[1]!)
   })
 })

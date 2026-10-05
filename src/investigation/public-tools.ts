@@ -1551,18 +1551,21 @@ function htmlEscape(value: unknown): string {
 // query-with-a-documented-call-contract tests. Reflects the retained
 // aml_address_risk/graph query builders after the aml_trace_* cut.
 
-// pairAnchorQuery resolves a pair's first/last transaction id through the
-// facts lane (openspec dozerdb-flows-to-slim-schema: the topology edge
-// carries no tx anchors). order 'ASC' returns the first transfer between the
-// pair, 'DESC' the latest. Bounded: LIMIT 1 on an indexed endpoint pattern.
-// A pair with only internal native transfers has no TRANSFER row, so the anchor
-// query returns nothing for it: no MCP read lists internal transfers yet.
-export function pairAnchorQuery(from: string, to: string, order: 'ASC' | 'DESC' = 'ASC'): string {
+// pairAnchorQuery resolves a transaction id of a pair through the facts lane
+// (openspec dozerdb-flows-to-slim-schema: the topology edge carries no tx
+// anchors). A facts read names an address pair with one day, or one
+// transaction hash, and takes no ORDER BY, so the read names the UTC day (take
+// it from the link's first_seen_timestamp or last_seen_timestamp) and returns
+// one transfer of the pair on that day. Bounded: LIMIT 1 on the pair and the
+// day. A pair with only internal native transfers has no TRANSFER row, so the
+// anchor query returns nothing for it: no MCP read lists internal transfers yet.
+export function pairAnchorQuery(from: string, to: string, day: string): string {
   return [
     'USE facts',
     `MATCH (a:Address {address: "${escapeCypherString(from)}"})-[t:TRANSFER]->(b:Address {address: "${escapeCypherString(to)}"})`,
+    `WHERE t.block_date = "${escapeCypherString(day)}"`,
     'RETURN t.tx_id AS tx_id, t.block_timestamp AS block_timestamp',
-    `ORDER BY t.block_timestamp ${order} LIMIT 1`,
+    'LIMIT 1',
   ].join(' ')
 }
 
