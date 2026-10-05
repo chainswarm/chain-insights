@@ -33,6 +33,11 @@ const GRAPH_ARRAY_KEYS = ['nodes', 'edges', 'flows', 'edge_anchors'] as const
 // The view resources the proxy forwards from the hosted server. Claude reads
 // them with resources/read when a tool's _meta.ui.resourceUri names one.
 const UI_RESOURCE_SCHEME = 'ui://'
+// The hosted Claude view. The local meta_usage_status and
+// meta_subscription_status name it, so Claude Desktop through the proxy draws
+// the balance view the hosted usage_status and subscription_status draw.
+export const HOSTED_VIEW_URI = 'ui://chain-insights/view'
+const HOSTED_VIEW_TOOL_META = { ui: { resourceUri: HOSTED_VIEW_URI } }
 
 export type McpProxyMode = 'workspace' | 'stateless'
 
@@ -1008,6 +1013,7 @@ export async function createProxy(): Promise<void> {
       title: 'Usage Status',
       description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.meta_usage_status,
       inputSchema: EMPTY_INPUT_SCHEMA,
+      _meta: HOSTED_VIEW_TOOL_META,
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -1063,6 +1069,7 @@ export async function createProxy(): Promise<void> {
       title: 'Subscription Status',
       description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.meta_subscription_status,
       inputSchema: EMPTY_INPUT_SCHEMA,
+      _meta: HOSTED_VIEW_TOOL_META,
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,

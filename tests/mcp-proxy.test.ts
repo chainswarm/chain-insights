@@ -969,6 +969,28 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     })
   })
 
+  it('names the hosted balance view on meta_usage_status and meta_subscription_status', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'usage_status', description: 'Usage status' },
+      { name: 'subscription_status', description: 'Subscription status' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    for (const name of ['meta_usage_status', 'meta_subscription_status']) {
+      expect(findToolConfig(serverInstance, name)._meta).toEqual({
+        ui: { resourceUri: 'ui://chain-insights/view' },
+      })
+    }
+  })
+
   it('registers meta_usage_status with canonical visible text', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
