@@ -3,6 +3,46 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.39.0] - 2026-10-05 — feat: Chain Insights views in Claude through the local proxy, the top-up QR view, and the Claude plugin
+
+Claude Desktop with the local `cia` proxy draws the same views as the hosted
+Chain Insights connector. The local proxy adds a top-up view with the wallet's
+QR code. The old local graph viewer is gone.
+
+### Added
+
+- The MCP proxy passes the hosted server's views through. A tool's
+  `_meta.ui` and `_meta["ui/resourceUri"]` reach Claude unchanged, the hosted
+  `ui://` resources are listed and read through the proxy, and the answers of
+  `graph_query`, `graph_query_batch`, `money_flows` and `graph_expand` keep
+  their `structuredContent` exactly as the server returned it. An app-only
+  tool (`_meta.ui.visibility` without `model`, such as `graph_expand`) is
+  registered for the view to call and stays out of `cia mcp tools`.
+- `wallet_topup`, a local MCP tool with the view `ui://chain-insights/topup`:
+  the local wallet address, its QR code, Base Mainnet and USDC, in Claude's
+  light or dark theme. It reads the address only; it signs and sends nothing.
+  With no wallet it names `cia wallet create`. The hosted connector does not
+  offer it.
+- `plugin/`, the Chain Insights Claude plugin: the `chain-insights-cypher` and
+  `chain-insights-schema-evm` skills and the hosted connector
+  `https://mcp.chain-insights.ai/`. `.claude-plugin/marketplace.json` lists it.
+  `scripts/sync-plugin-skills.mjs` keeps the plugin skills equal to `skills/`,
+  and a test fails when they drift.
+
+### Fixed
+
+- The QR code generator encodes a 42-character address. It picked version 2,
+  which holds at most 32 bytes, so the address QR code did not scan. It now
+  picks the smallest of versions 1 to 4.
+
+### Removed
+
+- The local graph viewer: `src/viz/`, the local Hono server (`src/server/`),
+  `src/mcp/artifact-server.ts`, `src/mcp/graph-reports.ts`, their tests, and
+  the `hono` and `@hono/node-server` dependencies. `aml_address_risk` in
+  workspace mode no longer writes a `.graph.html` file; it still writes the
+  graph JSON, the tables and the report.
+
 ## [0.38.0] - 2026-10-05 — feat: anchored topology recipes and the list of queries the graph must refuse
 
 This release changes recipes, text and tests only. The CLI and the MCP proxy

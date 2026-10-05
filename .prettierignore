@@ -6,6 +6,3 @@ CHANGELOG.md
 # diff them verbatim. Formatting changes would break the pins.
 tests/fixtures/
 
-# Bundled UI template: hand-authored HTML with inlined brand CSS and SVG.
-# Prettier reflow multiplies its size ~13x and churns the shipped asset.
-src/viz/templates/graph.html

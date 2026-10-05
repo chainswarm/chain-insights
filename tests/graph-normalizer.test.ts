@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 describe('normalizeGraphPayload', () => {
   it('emits canonical node_type, labels, roles, and flags', async () => {
-    const { normalizeGraphPayload } = await import('../src/viz/graph-normalizer.js')
+    const { normalizeGraphPayload } = await import('../src/investigation/graph-normalizer.js')
 
     const result = normalizeGraphPayload({
       schema: 'chain-insights.graph.v1',
@@ -115,7 +115,7 @@ describe('normalizeGraphPayload', () => {
   })
 
   it('does not collapse money_trail/trail_ends_at edges into flows_to (own visual layer)', async () => {
-    const { normalizeGraphPayload } = await import('../src/viz/graph-normalizer.js')
+    const { normalizeGraphPayload } = await import('../src/investigation/graph-normalizer.js')
 
     const result = normalizeGraphPayload({
       schema: 'chain-insights.graph.v1',
@@ -156,7 +156,7 @@ describe('normalizeGraphPayload', () => {
   })
 
   it('preserves optional address_subtypes only when non-empty', async () => {
-    const { normalizeGraphPayload } = await import('../src/viz/graph-normalizer.js')
+    const { normalizeGraphPayload } = await import('../src/investigation/graph-normalizer.js')
 
     const result = normalizeGraphPayload({
       schema: 'chain-insights.graph.v1',
@@ -182,7 +182,7 @@ describe('normalizeGraphPayload', () => {
   })
 
   it('strips exact system labels while preserving lowercase and domain display labels', async () => {
-    const { normalizeGraphPayload } = await import('../src/viz/graph-normalizer.js')
+    const { normalizeGraphPayload } = await import('../src/investigation/graph-normalizer.js')
 
     const result = normalizeGraphPayload({
       schema: 'chain-insights.graph.v1',

@@ -1,0 +1,17 @@
+{
+  "name": "chain-insights",
+  "owner": {
+    "name": "Chainswarm Technology",
+    "url": "https://chain-insights.ai"
+  },
+  "metadata": {
+    "description": "The Chain Insights plugin for Claude: the hosted AML investigation connector and its skills."
+  },
+  "plugins": [
+    {
+      "name": "chain-insights",
+      "source": "./plugin",
+      "description": "AML investigation on the robinhood chain through the hosted Chain Insights connector, with the graph query skills."
+    }
+  ]
+}

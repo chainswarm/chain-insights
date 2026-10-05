@@ -1,207 +1,160 @@
 /**
- * Minimal QR code generator — produces SVG string server-side.
- * Supports alphanumeric mode (sufficient for Ethereum addresses).
- * No external dependencies.
+ * Minimal QR code generator. No external dependencies.
+ *
+ * Byte mode, error correction level L, versions 1 to 4 (single block), mask 0.
+ * Version 3 holds a 42-character EVM address; version 4 holds up to 78 bytes.
+ *
+ * `qrModules` is self-contained on purpose: the top-up view inlines its source
+ * (`qrModules.toString()`) and draws the same QR code inside the Claude view,
+ * so the function must not reference anything outside its own body.
  */
 
-// Error correction level M (15% recovery)
-const EC_LEVEL = 0 // L=0, M=1 — using L for simplicity with short data
+/**
+ * The QR code modules for `text`: a square matrix, 1 for a dark module and 0
+ * for a light one, without the quiet zone. Throws when `text` is longer than
+ * 78 UTF-8 bytes.
+ */
+export function qrModules(text: string): number[][] {
+  // Level L, single-block versions: [version, total codewords, EC codewords].
+  const versions = [
+    [1, 26, 7],
+    [2, 44, 10],
+    [3, 70, 15],
+    [4, 100, 20],
+  ]
+  // Format information for level L and mask 0, BCH-coded and masked.
+  const formatBits = 0x77c4
+  const bytes = Array.from(new TextEncoder().encode(text))
 
-// QR code version 2 (25x25) is sufficient for 42-char ETH addresses
-const VERSION = 2
-const SIZE = 25 // modules per side for version 2
-
-// Generator polynomial for version 2-L: 10 EC codewords
-const EC_CODEWORDS = 10
-const DATA_CODEWORDS = 34
-
-// Format info for version 2, mask 0, EC level L
-const FORMAT_BITS = 0b111011111000100
-
-// Byte mode indicator
-const MODE_BYTE = 0b0100
-
-function createMatrix(): number[][] {
-  const m: number[][] = []
-  for (let i = 0; i < SIZE; i++) {
-    m[i] = new Array(SIZE).fill(-1)
-  }
-  return m
-}
-
-function addFinderPattern(matrix: number[][], row: number, col: number): void {
-  for (let r = -1; r <= 7; r++) {
-    for (let c = -1; c <= 7; c++) {
-      const mr = row + r
-      const mc = col + c
-      if (mr < 0 || mr >= SIZE || mc < 0 || mc >= SIZE) continue
-      if (r >= 0 && r <= 6 && c >= 0 && c <= 6) {
-        if (r === 0 || r === 6 || c === 0 || c === 6 || (r >= 2 && r <= 4 && c >= 2 && c <= 4)) {
-          matrix[mr][mc] = 1
-        } else {
-          matrix[mr][mc] = 0
-        }
-      } else {
-        matrix[mr][mc] = 0
-      }
+  let version = 0
+  let totalCodewords = 0
+  let ecCodewords = 0
+  for (const entry of versions) {
+    const dataCodewords = entry[1] - entry[2]
+    if (4 + 8 + bytes.length * 8 <= dataCodewords * 8) {
+      version = entry[0]
+      totalCodewords = entry[1]
+      ecCodewords = entry[2]
+      break
     }
   }
-}
+  if (version === 0) throw new Error('QR text is too long: at most 78 bytes')
 
-function addAlignmentPattern(matrix: number[][], row: number, col: number): void {
-  for (let r = -2; r <= 2; r++) {
-    for (let c = -2; c <= 2; c++) {
-      if (Math.abs(r) === 2 || Math.abs(c) === 2 || (r === 0 && c === 0)) {
-        matrix[row + r][col + c] = 1
-      } else {
-        matrix[row + r][col + c] = 0
-      }
-    }
-  }
-}
+  const dataCodewords = totalCodewords - ecCodewords
+  const size = version * 4 + 17
 
-function addTimingPatterns(matrix: number[][]): void {
-  for (let i = 8; i < SIZE - 8; i++) {
-    if (matrix[6][i] === -1) matrix[6][i] = i % 2 === 0 ? 1 : 0
-    if (matrix[i][6] === -1) matrix[i][6] = i % 2 === 0 ? 1 : 0
-  }
-}
-
-function addFormatInfo(matrix: number[][]): void {
-  const bits = FORMAT_BITS
-  for (let i = 0; i <= 5; i++) matrix[8][i] = (bits >> (14 - i)) & 1
-  matrix[8][7] = (bits >> 8) & 1
-  matrix[8][8] = (bits >> 7) & 1
-  matrix[7][8] = (bits >> 6) & 1
-  for (let i = 0; i <= 5; i++) matrix[5 - i][8] = (bits >> i) & 1
-
-  for (let i = 0; i <= 7; i++) matrix[SIZE - 1 - i][8] = (bits >> (14 - i)) & 1
-  for (let i = 0; i <= 7; i++) matrix[8][SIZE - 8 + i] = (bits >> (7 - i)) & 1
-
-  // Dark module
-  matrix[SIZE - 8][8] = 1
-}
-
-function encodeData(text: string): number[] {
-  const bytes = new TextEncoder().encode(text)
+  // Data bits: mode, count, bytes, terminator, byte padding, pad codewords.
   const bits: number[] = []
-
-  // Mode indicator (4 bits): byte mode
-  for (let i = 3; i >= 0; i--) bits.push((MODE_BYTE >> i) & 1)
-
-  // Character count (8 bits for version 1-9 byte mode)
-  for (let i = 7; i >= 0; i--) bits.push((bytes.length >> i) & 1)
-
-  // Data
-  for (const b of bytes) {
-    for (let i = 7; i >= 0; i--) bits.push((b >> i) & 1)
+  const pushBits = (value: number, length: number) => {
+    for (let i = length - 1; i >= 0; i--) bits.push((value >>> i) & 1)
   }
-
-  // Terminator
-  while (bits.length < DATA_CODEWORDS * 8 && bits.length < DATA_CODEWORDS * 8) {
-    bits.push(0)
-    if (bits.length >= DATA_CODEWORDS * 8) break
-  }
-
-  // Pad to byte boundary
+  pushBits(0b0100, 4)
+  pushBits(bytes.length, 8)
+  for (const value of bytes) pushBits(value, 8)
+  const capacity = dataCodewords * 8
+  pushBits(0, Math.min(4, capacity - bits.length))
   while (bits.length % 8 !== 0) bits.push(0)
-
-  // Pad codewords
-  const padBytes = [0xec, 0x11]
-  let padIdx = 0
-  while (bits.length < DATA_CODEWORDS * 8) {
-    const pb = padBytes[padIdx % 2]
-    for (let i = 7; i >= 0; i--) bits.push((pb >> i) & 1)
-    padIdx++
-  }
-
-  // Convert to bytes
-  const codewords: number[] = []
+  for (let pad = 0xec; bits.length < capacity; pad ^= 0xec ^ 0x11) pushBits(pad, 8)
+  const data: number[] = []
   for (let i = 0; i < bits.length; i += 8) {
-    let val = 0
-    for (let j = 0; j < 8; j++) val = (val << 1) | (bits[i + j] || 0)
-    codewords.push(val)
+    let value = 0
+    for (let j = 0; j < 8; j++) value = (value << 1) | bits[i + j]
+    data.push(value)
   }
 
-  return codewords
-}
-
-// GF(256) arithmetic for Reed-Solomon
-const GF_EXP = new Array(512).fill(0)
-const GF_LOG = new Array(256).fill(0)
-
-;(function initGF() {
-  let x = 1
-  for (let i = 0; i < 255; i++) {
-    GF_EXP[i] = x
-    GF_LOG[x] = i
+  // Reed-Solomon error correction over GF(256), polynomial 0x11d.
+  const exp: number[] = []
+  const log: number[] = []
+  for (let i = 0, x = 1; i < 255; i++) {
+    exp[i] = x
+    log[x] = i
     x <<= 1
     if (x & 0x100) x ^= 0x11d
   }
-  for (let i = 255; i < 512; i++) GF_EXP[i] = GF_EXP[i - 255]
-})()
-
-function gfMul(a: number, b: number): number {
-  if (a === 0 || b === 0) return 0
-  return GF_EXP[GF_LOG[a] + GF_LOG[b]]
-}
-
-function rsEncode(data: number[], ecCount: number): number[] {
-  // Generate generator polynomial
-  let gen = [1]
-  for (let i = 0; i < ecCount; i++) {
-    const next = new Array(gen.length + 1).fill(0)
-    for (let j = 0; j < gen.length; j++) {
-      next[j] ^= gen[j]
-      next[j + 1] ^= gfMul(gen[j], GF_EXP[i])
+  const multiply = (a: number, b: number) => (a === 0 || b === 0 ? 0 : exp[(log[a] + log[b]) % 255])
+  let generator = [1]
+  for (let i = 0; i < ecCodewords; i++) {
+    const next = new Array(generator.length + 1).fill(0)
+    for (let j = 0; j < generator.length; j++) {
+      next[j] ^= generator[j]
+      next[j + 1] ^= multiply(generator[j], exp[i])
     }
-    gen = next
+    generator = next
   }
-
-  const msg = [...data, ...new Array(ecCount).fill(0)]
+  const remainder = [...data, ...new Array(ecCodewords).fill(0)]
   for (let i = 0; i < data.length; i++) {
-    const coef = msg[i]
-    if (coef !== 0) {
-      for (let j = 0; j < gen.length; j++) {
-        msg[i + j] ^= gfMul(gen[j], coef)
+    const factor = remainder[i]
+    if (factor === 0) continue
+    for (let j = 0; j < generator.length; j++) remainder[i + j] ^= multiply(generator[j], factor)
+  }
+  const codewords = [...data, ...remainder.slice(data.length)]
+
+  // Function patterns. `reserved` marks every module data may not use.
+  const modules: number[][] = []
+  const reserved: boolean[][] = []
+  for (let row = 0; row < size; row++) {
+    modules.push(new Array(size).fill(0))
+    reserved.push(new Array(size).fill(false))
+  }
+  const setFunction = (row: number, col: number, dark: boolean) => {
+    modules[row][col] = dark ? 1 : 0
+    reserved[row][col] = true
+  }
+  for (let i = 0; i < size; i++) {
+    setFunction(6, i, i % 2 === 0)
+    setFunction(i, 6, i % 2 === 0)
+  }
+  const finder = (centerRow: number, centerCol: number) => {
+    for (let dr = -4; dr <= 4; dr++) {
+      for (let dc = -4; dc <= 4; dc++) {
+        const row = centerRow + dr
+        const col = centerCol + dc
+        if (row < 0 || row >= size || col < 0 || col >= size) continue
+        const distance = Math.max(Math.abs(dr), Math.abs(dc))
+        setFunction(row, col, distance !== 2 && distance !== 4)
       }
     }
   }
-
-  return msg.slice(data.length)
-}
-
-function placeData(matrix: number[][], dataBits: number[]): void {
-  let bitIdx = 0
-  let upward = true
-
-  for (let right = SIZE - 1; right >= 1; right -= 2) {
-    if (right === 6) right = 5 // skip timing column
-
-    const rows = upward
-      ? Array.from({ length: SIZE }, (_, i) => SIZE - 1 - i)
-      : Array.from({ length: SIZE }, (_, i) => i)
-
-    for (const row of rows) {
-      for (let c = 0; c < 2; c++) {
-        const col = right - c
-        if (matrix[row][col] !== -1) continue
-        matrix[row][col] = bitIdx < dataBits.length ? dataBits[bitIdx++] : 0
-      }
-    }
-    upward = !upward
-  }
-}
-
-function applyMask0(matrix: number[][], reserved: number[][]): void {
-  for (let r = 0; r < SIZE; r++) {
-    for (let c = 0; c < SIZE; c++) {
-      if (reserved[r][c] !== -1) continue
-      if ((r + c) % 2 === 0) {
-        matrix[r][c] ^= 1
+  finder(3, 3)
+  finder(3, size - 4)
+  finder(size - 4, 3)
+  if (version >= 2) {
+    const center = size - 7
+    for (let dr = -2; dr <= 2; dr++) {
+      for (let dc = -2; dc <= 2; dc++) {
+        setFunction(center + dr, center + dc, Math.max(Math.abs(dr), Math.abs(dc)) !== 1)
       }
     }
   }
+  const formatBit = (i: number) => ((formatBits >>> i) & 1) === 1
+  for (let i = 0; i <= 5; i++) setFunction(i, 8, formatBit(i))
+  setFunction(7, 8, formatBit(6))
+  setFunction(8, 8, formatBit(7))
+  setFunction(8, 7, formatBit(8))
+  for (let i = 9; i < 15; i++) setFunction(8, 14 - i, formatBit(i))
+  for (let i = 0; i < 8; i++) setFunction(8, size - 1 - i, formatBit(i))
+  for (let i = 8; i < 15; i++) setFunction(size - 15 + i, 8, formatBit(i))
+  setFunction(size - 8, 8, true)
+
+  // Data in the zigzag order, then mask 0 on every data module.
+  let bitIndex = 0
+  for (let right = size - 1; right >= 1; right -= 2) {
+    if (right === 6) right = 5
+    const upward = ((right + 1) & 2) === 0
+    for (let step = 0; step < size; step++) {
+      const row = upward ? size - 1 - step : step
+      for (let j = 0; j < 2; j++) {
+        const col = right - j
+        if (reserved[row][col]) continue
+        if (bitIndex < codewords.length * 8) {
+          modules[row][col] = (codewords[bitIndex >>> 3] >>> (7 - (bitIndex & 7))) & 1
+          bitIndex++
+        }
+        if ((row + col) % 2 === 0) modules[row][col] ^= 1
+      }
+    }
+  }
+  return modules
 }
 
 export interface QrOptions {
@@ -222,64 +175,25 @@ export function generateQrSvg(text: string, opts: QrOptions | number = 4): strin
   const bgColor = options.bgColor ?? '#fff'
   const finderColor = options.finderColor ?? fgColor
 
-  const matrix = createMatrix()
-
-  // Finder patterns
-  addFinderPattern(matrix, 0, 0)
-  addFinderPattern(matrix, 0, SIZE - 7)
-  addFinderPattern(matrix, SIZE - 7, 0)
-
-  // Alignment pattern (version 2: at position 18)
-  addAlignmentPattern(matrix, 18, 18)
-
-  // Timing
-  addTimingPatterns(matrix)
-
-  // Format info placeholder
-  addFormatInfo(matrix)
-
-  // Save reserved areas
-  const reserved = matrix.map((row) => [...row])
-
-  // Encode data + EC
-  const dataCodewords = encodeData(text)
-  const ecCodewords = rsEncode(dataCodewords, EC_CODEWORDS)
-  const allCodewords = [...dataCodewords, ...ecCodewords]
-
-  // Convert to bits
-  const dataBits: number[] = []
-  for (const cw of allCodewords) {
-    for (let i = 7; i >= 0; i--) dataBits.push((cw >> i) & 1)
-  }
-
-  // Place data
-  placeData(matrix, dataBits)
-
-  // Apply mask 0
-  applyMask0(matrix, reserved)
-
-  // Re-apply format info (mask may have flipped it)
-  addFormatInfo(matrix)
+  const matrix = qrModules(text)
+  const size = matrix.length
 
   // Logo exclusion zone (center of QR)
   const logoW = options.logoWidth ?? 7
   const logoH = options.logoHeight ?? 5
-  const logoStartC = Math.floor((SIZE - logoW) / 2)
-  const logoStartR = Math.floor((SIZE - logoH) / 2)
+  const logoStartC = Math.floor((size - logoW) / 2)
+  const logoStartR = Math.floor((size - logoH) / 2)
   const hasLogo = !!options.logoBase64
 
-  // Generate SVG
-  const svgSize = SIZE * cellSize
+  const svgSize = size * cellSize
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}">`
   svg += `<rect width="${svgSize}" height="${svgSize}" fill="${bgColor}" rx="4"/>`
 
-  // Finder pattern regions for coloring
   const isFinderModule = (r: number, c: number): boolean =>
-    (r < 7 && c < 7) || (r < 7 && c >= SIZE - 7) || (r >= SIZE - 7 && c < 7)
+    (r < 7 && c < 7) || (r < 7 && c >= size - 7) || (r >= size - 7 && c < 7)
 
-  for (let r = 0; r < SIZE; r++) {
-    for (let c = 0; c < SIZE; c++) {
-      // Skip logo area
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
       if (
         hasLogo &&
         r >= logoStartR &&
@@ -296,13 +210,11 @@ export function generateQrSvg(text: string, opts: QrOptions | number = 4): strin
     }
   }
 
-  // Embed logo in center
   if (hasLogo && options.logoBase64) {
     const lx = logoStartC * cellSize
     const ly = logoStartR * cellSize
     const lw = logoW * cellSize
     const lh = logoH * cellSize
-    // White background behind logo
     svg += `<rect x="${lx - 1}" y="${ly - 1}" width="${lw + 2}" height="${lh + 2}" fill="${bgColor}" rx="3"/>`
     svg += `<image x="${lx + 2}" y="${ly + 2}" width="${lw - 4}" height="${lh - 4}" href="${options.logoBase64}" xlink:href="${options.logoBase64}" preserveAspectRatio="xMidYMid meet"/>`
   }

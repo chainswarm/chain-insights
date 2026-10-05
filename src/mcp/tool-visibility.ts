@@ -44,8 +44,22 @@ export function isHiddenRemoteToolName(name: string): boolean {
   return HIDDEN_REMOTE_TOOL_NAMES.has(name)
 }
 
-export function visibleRemoteTools<T extends { name: string }>(tools: T[]): T[] {
-  return tools.filter((tool) => !isHiddenRemoteToolName(tool.name))
+/**
+ * True for an MCP Apps tool only a view may call: `_meta.ui.visibility` is set
+ * and does not include "model" (for example graph_expand, visibility ["app"]).
+ * Such a tool never appears in a tool list built for the model or the CLI.
+ */
+export function isAppOnlyTool(tool: { _meta?: Record<string, unknown> }): boolean {
+  const ui = tool._meta?.ui
+  if (!ui || typeof ui !== 'object' || Array.isArray(ui)) return false
+  const visibility = (ui as Record<string, unknown>).visibility
+  return Array.isArray(visibility) && !visibility.includes('model')
+}
+
+export function visibleRemoteTools<T extends { name: string; _meta?: Record<string, unknown> }>(
+  tools: T[]
+): T[] {
+  return tools.filter((tool) => !isHiddenRemoteToolName(tool.name) && !isAppOnlyTool(tool))
 }
 
 export function assertPublicMcpToolName(name: string): void {

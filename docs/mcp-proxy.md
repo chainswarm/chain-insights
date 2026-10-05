@@ -83,6 +83,27 @@ The proxy:
 | `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                  |
 | `meta_help`                 | Show Chain Insights tool and workflow guidance                            |
 | `wallet_balance`            | Show the local payment wallet address, payment network, token, and amount |
+| `wallet_topup`              | Show the local payment wallet address and its QR code, with a Claude view |
+
+## Views in Claude
+
+Claude apps that draw MCP Apps views (Claude Desktop, claude.ai, Cowork) show
+them next to a tool answer. Through the local proxy:
+
+- A remote tool keeps its `_meta.ui` and `_meta["ui/resourceUri"]`, so Claude
+  knows which view to draw.
+- The endpoint's `ui://` resources are listed and read through the proxy,
+  unchanged.
+- The answers of `graph_query`, `graph_query_batch` and the view tools keep
+  their `structuredContent` exactly as the endpoint returned it.
+- A tool only a view may call (`_meta.ui.visibility` without `model`) is
+  registered for the view and kept out of the model's tool list and out of
+  `cia mcp tools`.
+- `wallet_topup` draws `ui://chain-insights/topup`: the wallet address, its QR
+  code, Base Mainnet and USDC, in Claude's light or dark theme. The view signs
+  nothing and sends nothing. Only the local proxy offers it.
+
+Claude Code draws no views. Every tool answers in full as text.
 
 Remote graph tools are discovered from the configured Chain Insights Graph endpoint.
 The minimum graph primitive surface is `graph_query` and `graph_query_batch`;

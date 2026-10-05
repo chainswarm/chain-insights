@@ -20,7 +20,6 @@ const sessionStartMock = vi.hoisted(() =>
 )
 const sessionEndMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const sessionArchiveOldMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
-const ensureArtifactServerMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 
 // Mock all external dependencies before importing proxy
 vi.mock('../src/config/index.js', () => ({
@@ -105,10 +104,6 @@ vi.mock('../src/mcp/client.js', async (importOriginal) => {
 vi.mock('../src/mcp/schema-cache.js', () => ({
   loadSchema: vi.fn().mockResolvedValue(null), // default: cache miss
   saveSchema: vi.fn().mockResolvedValue(undefined),
-}))
-
-vi.mock('../src/mcp/artifact-server.js', () => ({
-  ensureArtifactServer: ensureArtifactServerMock,
 }))
 
 vi.mock('@modelcontextprotocol/sdk/server/mcp.js', () => {
@@ -974,6 +969,28 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     })
   })
 
+  it('names the hosted balance view on meta_usage_status and meta_subscription_status', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'usage_status', description: 'Usage status' },
+      { name: 'subscription_status', description: 'Subscription status' },
+    ])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    for (const name of ['meta_usage_status', 'meta_subscription_status']) {
+      expect(findToolConfig(serverInstance, name)._meta).toEqual({
+        ui: { resourceUri: 'ui://chain-insights/view' },
+      })
+    }
+  })
+
   it('registers meta_usage_status with canonical visible text', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
@@ -1834,7 +1851,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       table_json: expect.stringContaining(`${testDataDir}/reports/tables/`),
       flows_csv: expect.stringContaining(`${testDataDir}/reports/tables/`),
       table_html: expect.stringContaining(`${testDataDir}/reports/`),
-      graph_html: expect.stringContaining(`${testDataDir}/reports/`),
       report_md: expect.stringContaining(`${testDataDir}/reports/`),
     })
 
@@ -1988,32 +2004,183 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
   // survives that filter and reaches the remote call, not just the local
   // fallback tool exercised by the test above.
 
-  it('does not expose visualization resources, app tools, or attachment arguments', async () => {
+  it('passes the hosted views through: tool _meta.ui, ui:// resources, and view answers unchanged', async () => {
+    const viewMeta = {
+      ui: { resourceUri: 'ui://chain-insights/view' },
+      'ui/resourceUri': 'ui://chain-insights/view',
+    }
+    const expandMeta = { ui: { resourceUri: 'ui://chain-insights/view', visibility: ['app'] } }
+    const resourceMeta = {
+      ui: { prefersBorder: false, csp: { resourceDomains: ['https://assets.claude.ai'] } },
+    }
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       {
         name: 'aml_address_risk',
         title: 'Address Risk',
         description: 'Risk report',
-        outputSchema: {
-          type: 'object',
-          properties: { app_data: { type: 'object' } },
-        },
-        _meta: { ui: { resourceUri: 'ui://chain-insights/graph' } },
+        outputSchema: { type: 'object', properties: { app_data: { type: 'object' } } },
       },
+      {
+        name: 'money_flows',
+        title: 'Money flows',
+        description: 'Recent money flows of one address',
+        inputSchema: {
+          type: 'object',
+          properties: { address: { type: 'string' }, network: { type: 'string' } },
+          required: ['address', 'network'],
+        },
+        annotations: { readOnlyHint: true },
+        _meta: viewMeta,
+      },
+      {
+        name: 'graph_expand',
+        title: 'Expand a money-flow node',
+        description: 'Next page of one address',
+        annotations: { readOnlyHint: true },
+        _meta: expandMeta,
+      },
+      { name: 'graph_query', description: 'Federated graph query', _meta: viewMeta },
     ])
+
+    const flowView = {
+      schema: 'chain-insights.flows.v1',
+      network: 'robinhood',
+      center: '0x04911a118f11c75667e4d0dfb8e640af5a353550',
+      nodes: [{ address: '0x04911a118f11c75667e4d0dfb8e640af5a353550', role: 'scam' }],
+      edges: [
+        {
+          from: '0x7e3702e9dfaa847f9829a258f1e26fa431160662',
+          to: '0x04911a118f11c75667e4d0dfb8e640af5a353550',
+          usd: 12.5,
+        },
+      ],
+      cursor: { in_offset: 12, out_offset: 12 },
+      truncated: false,
+    }
+    const queryResult = {
+      schema: 'chain-insights.result.v1',
+      tool: 'graph_query',
+      facts: { rows: [{ nodes: ['0x1', '0x2'], edges: 3 }] },
+    }
+    const viewResource = {
+      uri: 'ui://chain-insights/view',
+      mimeType: 'text/html;profile=mcp-app',
+      text: '<!doctype html><title>view</title>',
+      _meta: resourceMeta,
+    }
+    const readResource = vi.fn().mockResolvedValue({ contents: [viewResource] })
+    const listResources = vi.fn().mockResolvedValue({
+      resources: [
+        {
+          uri: 'ui://chain-insights/view',
+          name: 'Chain Insights view',
+          mimeType: 'text/html;profile=mcp-app',
+          _meta: resourceMeta,
+        },
+        { uri: 'https://example.com/readme', name: 'not a view' },
+      ],
+    })
+    const callTool = vi.fn().mockImplementation(async (request: { name: string }) =>
+      request.name === 'graph_query'
+        ? {
+            content: [{ type: 'text', text: 'rows' }],
+            structuredContent: queryResult,
+            _meta: viewMeta,
+            isError: false,
+          }
+        : {
+            content: [{ type: 'text', text: 'summary' }],
+            structuredContent: flowView,
+            _meta: viewMeta,
+            isError: false,
+          }
+    )
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    vi.mocked(Client).mockImplementationOnce(function () {
+      return {
+        connect: vi.fn().mockResolvedValue(undefined),
+        listTools: vi.fn(),
+        listPrompts: vi.fn().mockResolvedValue({ prompts: [] }),
+        callTool,
+        listResources,
+        readResource,
+      }
+    } as never)
 
     const { createProxy } = await import('../src/mcp/proxy.js')
     const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
-
     await createProxy()
 
     const serverInstance = vi.mocked(McpServer).mock.results.at(-1)?.value as {
       registerTool: ReturnType<typeof vi.fn>
+      registerResource: ReturnType<typeof vi.fn>
     }
-    const config = findToolConfig(serverInstance, 'aml_address_risk')
-    expect(config).not.toHaveProperty('_meta')
-    expect(config.inputSchema).not.toHaveProperty('include_attachments')
+
+    // Tool definitions keep their MCP Apps metadata.
+    const flows = findToolConfig(serverInstance, 'money_flows')
+    expect(flows._meta).toEqual(viewMeta)
+    expect(flows.annotations).toEqual({ readOnlyHint: true })
+    expect(z.toJSONSchema(flows.inputSchema as z.ZodTypeAny)).toMatchObject({
+      required: ['address', 'network'],
+    })
+    expect(findToolConfig(serverInstance, 'graph_query')._meta).toEqual(viewMeta)
+    // graph_expand is registered so the view can call it, with visibility
+    // ["app"], which keeps the host from offering it to the model.
+    expect(findToolConfig(serverInstance, 'graph_expand')._meta).toEqual(expandMeta)
+    const aml = findToolConfig(serverInstance, 'aml_address_risk')
+    expect(aml).not.toHaveProperty('_meta')
+    expect(aml.inputSchema).not.toHaveProperty('include_attachments')
+
+    // The hosted ui:// resource is listed and read through the proxy, unchanged.
+    const resourceCalls = serverInstance.registerResource.mock.calls
+    const viewCall = resourceCalls.find((entry) => entry[1] === 'ui://chain-insights/view')
+    expect(viewCall).toBeDefined()
+    expect(viewCall?.[2]).toMatchObject({
+      mimeType: 'text/html;profile=mcp-app',
+      _meta: resourceMeta,
+    })
+    expect(resourceCalls.some((entry) => entry[1] === 'https://example.com/readme')).toBe(false)
+    const read = await (viewCall?.[3] as Function)(new URL('ui://chain-insights/view'), {})
+    expect(readResource).toHaveBeenCalledWith({ uri: 'ui://chain-insights/view' })
+    expect(read).toEqual({ contents: [viewResource] })
+
+    // View answers keep their structuredContent and _meta.ui.
+    const flowsResult = await findToolHandler(
+      serverInstance,
+      'money_flows'
+    )({
+      address: flowView.center,
+      network: 'robinhood',
+    })
+    expect(flowsResult.structuredContent).toEqual(flowView)
+    expect(flowsResult._meta).toEqual(viewMeta)
+    const queryAnswer = await findToolHandler(
+      serverInstance,
+      'graph_query'
+    )({
+      query: 'USE topology MATCH (a:Address) RETURN a LIMIT 1',
+      network: 'robinhood',
+    })
+    expect(queryAnswer.structuredContent).toEqual(queryResult)
+
+    // The local top-up view is registered next to the hosted views.
+    expect(findToolConfig(serverInstance, 'wallet_topup')._meta).toMatchObject({
+      ui: { resourceUri: 'ui://chain-insights/topup' },
+    })
+    expect(resourceCalls.some((entry) => entry[1] === 'ui://chain-insights/topup')).toBe(true)
+
+    // graph_expand stays out of every tool list the proxy builds for the model.
+    const help = await findToolHandler(serverInstance, 'meta_help')({})
+    expect(help.content[0].text).not.toContain('graph_expand')
+    const { visibleRemoteTools } = await import('../src/mcp/tool-visibility.js')
+    const listed = visibleRemoteTools(
+      [
+        { name: 'money_flows', _meta: viewMeta },
+        { name: 'graph_expand', _meta: expandMeta },
+      ].map((tool) => tool as { name: string; _meta?: Record<string, unknown> })
+    ).map((tool) => tool.name)
+    expect(listed).toEqual(['money_flows'])
   })
 
   it('exposes public investigation prompts for Chain Insights tools and cases', async () => {
@@ -2367,7 +2534,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const handler = findToolHandler(serverInstance, 'aml_address_risk')
     const result = await handler({ address: '5Addr', network: 'bittensor' })
 
-    expect(ensureArtifactServerMock).not.toHaveBeenCalled()
     expect(result.content).toEqual([{ type: 'text', text: '## Risk Report' }])
     expect(result.structuredContent.facts.risk.level).toBe('critical')
     expect(result.structuredContent).not.toHaveProperty('app_data')

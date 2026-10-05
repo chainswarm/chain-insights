@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js'
-import { normalizeGraphPayload } from '../viz/graph-normalizer.js'
+import { normalizeGraphPayload } from './graph-normalizer.js'
 import { isUnscoredRiskLevel, normalizeRiskLevel, riskSeverityRank } from './risk-level.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
 import { GRAPH_TOOL_REQUEST_TIMEOUT_MS } from '../mcp/request-timeout.js'
@@ -1436,8 +1436,6 @@ async function writeAddressRiskArtifacts(
   const csvPath = path.join(paths.reportTablesRoot, `${slug}.flows.csv`)
   const tableHtmlPath = path.join(paths.reportsRoot, `${slug}.table.html`)
   const reportPath = path.join(paths.reportsRoot, `${slug}.aml-address-report.md`)
-  const graphHtmlPath = path.join(paths.reportsRoot, `${slug}.graph.html`)
-  const { generateInlineGraphHtml } = await import('../viz/html-generator.js')
   const header = [
     'direction',
     'exchange_address',
@@ -1492,7 +1490,6 @@ async function writeAddressRiskArtifacts(
     buildAddressRiskTableHtml('aml_address_risk', network, exchangeRows, address),
     { mode: 0o600 }
   )
-  await writeFile(graphHtmlPath, generateInlineGraphHtml(graphData), { mode: 0o600 })
   await writeFile(
     reportPath,
     [
@@ -1501,7 +1498,6 @@ async function writeAddressRiskArtifacts(
       `- Table JSON: ${tableJsonPath}`,
       `- CSV: ${csvPath}`,
       `- Report HTML: ${tableHtmlPath}`,
-      `- Graph HTML: ${graphHtmlPath}`,
       '',
       summaryText,
     ].join('\n'),
@@ -1510,7 +1506,6 @@ async function writeAddressRiskArtifacts(
 
   return {
     graph_json: graphPath,
-    graph_html: graphHtmlPath,
     table_json: tableJsonPath,
     flows_csv: csvPath,
     table_html: tableHtmlPath,

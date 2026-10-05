@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "chain-insights": {
+      "type": "http",
+      "url": "https://mcp.chain-insights.ai/"
+    }
+  }
+}

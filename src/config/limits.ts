@@ -51,12 +51,12 @@ export interface LimitSpec {
 // in the value; the exponential hop caps (corridor/attribution and the
 // aml_trace_* tools) were removed with the retired detection realm.
 export const LIMIT_SPECS = {
-  // ── viz/graph-model.ts ──
+  // Unused. Kept so old config files that still set it load without error.
   viz_max_nodes: {
     builtin: 100,
     min: 1,
     ceiling: 2_000,
-    description: 'Nodes rendered in a generated graph view before truncation.',
+    description: 'Unused; kept so old config files that set it still load.',
   },
 } as const satisfies Record<string, LimitSpec>
 

@@ -55,6 +55,18 @@ cia workflow aml-address-risk --json \
 The AML address-risk contract uses the latest version when `version` is
 omitted. Pin the current contract with `--version v1` on the workflow command.
 
+### Claude plugin
+
+The `plugin/` folder is the Chain Insights plugin for Claude. It connects the
+hosted server `https://mcp.chain-insights.ai/` and brings the
+`chain-insights-cypher` and `chain-insights-schema-evm` skills. It needs no
+local program, so it installs in every Claude app, Claude Code included. Add
+this repository as a plugin marketplace, then install the
+`chain-insights` plugin from it.
+
+The plugin skills are copies of `skills/`. After editing a skill, run
+`node scripts/sync-plugin-skills.mjs`; a test fails while the copies differ.
+
 ## Purpose And Ownership
 
 One public npm package (`chain-insights`) providing the `cia` CLI and a
@@ -95,6 +107,7 @@ Never touches:
 | `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                           |
 | `meta_help`                 | Show Chain Insights tool and workflow guidance                                     |
 | `wallet_balance`            | Show the local payment wallet amount                                               |
+| `wallet_topup`              | Show the local payment wallet address and its QR code for a USDC top-up on Base    |
 
 ## Dependencies
 
